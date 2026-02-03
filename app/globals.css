@@ -1,0 +1,193 @@
+@import "tailwindcss";
+
+@layer base {
+  :root {
+    /* KHAT Dark Theme - Primary */
+    --background: 212 29% 6%;
+    --foreground: 40 41% 92%;
+    --card: 212 30% 10%;
+    --card-foreground: 40 41% 92%;
+    --popover: 212 30% 10%;
+    --popover-foreground: 40 41% 92%;
+
+    /* Gold accent as primary */
+    --primary: 43 54% 54%;
+    --primary-foreground: 212 29% 6%;
+
+    /* Elevated surface as secondary */
+    --secondary: 213 35% 15%;
+    --secondary-foreground: 40 41% 92%;
+
+    /* Muted colors */
+    --muted: 213 35% 15%;
+    --muted-foreground: 36 5% 54%;
+
+    /* Purple accent */
+    --accent: 266 32% 44%;
+    --accent-foreground: 40 41% 92%;
+
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 40 41% 92%;
+
+    --border: 213 31% 19%;
+    --input: 213 31% 19%;
+    --ring: 43 54% 54%;
+    --radius: 0.5rem;
+
+    /* Custom KHAT colors */
+    --gold: 43 54% 54%;
+    --purple: 266 32% 44%;
+    --surface: 212 30% 10%;
+    --elevated: 213 35% 15%;
+    --text-secondary: 37 12% 69%;
+    --text-muted: 36 5% 54%;
+  }
+}
+
+@theme inline {
+  --color-background: hsl(var(--background));
+  --color-foreground: hsl(var(--foreground));
+  --color-card: hsl(var(--card));
+  --color-card-foreground: hsl(var(--card-foreground));
+  --color-popover: hsl(var(--popover));
+  --color-popover-foreground: hsl(var(--popover-foreground));
+  --color-primary: hsl(var(--primary));
+  --color-primary-foreground: hsl(var(--primary-foreground));
+  --color-secondary: hsl(var(--secondary));
+  --color-secondary-foreground: hsl(var(--secondary-foreground));
+  --color-muted: hsl(var(--muted));
+  --color-muted-foreground: hsl(var(--muted-foreground));
+  --color-accent: hsl(var(--accent));
+  --color-accent-foreground: hsl(var(--accent-foreground));
+  --color-destructive: hsl(var(--destructive));
+  --color-destructive-foreground: hsl(var(--destructive-foreground));
+  --color-border: hsl(var(--border));
+  --color-input: hsl(var(--input));
+  --color-ring: hsl(var(--ring));
+  --color-gold: hsl(var(--gold));
+  --color-purple: hsl(var(--purple));
+  --color-surface: hsl(var(--surface));
+  --color-elevated: hsl(var(--elevated));
+  --color-text-secondary: hsl(var(--text-secondary));
+  --color-text-muted: hsl(var(--text-muted));
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --font-sans: var(--font-ibm-plex-arabic), ui-sans-serif, system-ui, sans-serif;
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+  }
+
+  /* Focus-visible styles for accessibility */
+  :focus-visible {
+    @apply outline-none ring-2 ring-ring ring-offset-2 ring-offset-background;
+  }
+
+  /* Remove default focus outline for mouse users */
+  :focus:not(:focus-visible) {
+    outline: none;
+  }
+
+  /* Skip link for keyboard navigation */
+  .skip-link {
+    @apply absolute -top-10 start-4 z-50 bg-primary text-primary-foreground px-4 py-2 rounded-md transition-all;
+  }
+
+  .skip-link:focus {
+    @apply top-4;
+  }
+
+  /* Custom scrollbar for dark theme */
+  ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: hsl(var(--background));
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: hsl(var(--border));
+    border-radius: 4px;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background: hsl(var(--muted-foreground));
+  }
+}
+
+/* Animation utilities */
+@layer utilities {
+  .animate-in {
+    animation: animate-in 0.2s ease-out;
+  }
+
+  .animate-out {
+    animation: animate-out 0.2s ease-in;
+  }
+
+  .fade-in {
+    animation: fade-in 0.2s ease-out;
+  }
+
+  .fade-out {
+    animation: fade-out 0.2s ease-in;
+  }
+
+  .slide-in-from-top {
+    --tw-enter-translate-y: -100%;
+  }
+
+  .slide-in-from-bottom {
+    --tw-enter-translate-y: 100%;
+  }
+
+  .slide-in-from-start {
+    --tw-enter-translate-x: 100%; /* RTL: start is right */
+  }
+
+  .slide-in-from-end {
+    --tw-enter-translate-x: -100%; /* RTL: end is left */
+  }
+
+  @keyframes animate-in {
+    from {
+      opacity: 0;
+      transform: translateX(var(--tw-enter-translate-x, 0)) translateY(var(--tw-enter-translate-y, 0)) scale(var(--tw-enter-scale, 1));
+    }
+    to {
+      opacity: 1;
+      transform: translateX(0) translateY(0) scale(1);
+    }
+  }
+
+  @keyframes animate-out {
+    from {
+      opacity: 1;
+      transform: translateX(0) translateY(0) scale(1);
+    }
+    to {
+      opacity: 0;
+      transform: translateX(var(--tw-exit-translate-x, 0)) translateY(var(--tw-exit-translate-y, 0)) scale(var(--tw-exit-scale, 1));
+    }
+  }
+
+  @keyframes fade-in {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+
+  @keyframes fade-out {
+    from { opacity: 1; }
+    to { opacity: 0; }
+  }
+}
