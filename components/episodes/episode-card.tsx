@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState } from "react"
 import Link from "next/link"
 import Image from "next/image"
 import { Card, CardContent } from "@/components/ui/card"
@@ -19,14 +19,13 @@ interface EpisodeCardProps {
 }
 
 export function EpisodeCard({ episode }: EpisodeCardProps) {
-  const [isSaved, setIsSaved] = useState(false)
+  const [isSaved, setIsSaved] = useState(() => {
+    if (typeof window === "undefined") return false
+    return isItemSaved(episode.id, "episode")
+  })
   const topics = episode.topics?.map((t) =>
     'topic' in t ? t.topic : t
   ) || []
-
-  useEffect(() => {
-    setIsSaved(isItemSaved(episode.id, "episode"))
-  }, [episode.id])
 
   const handleSave = (e: React.MouseEvent) => {
     e.preventDefault()

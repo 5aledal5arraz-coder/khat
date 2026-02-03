@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Bookmark } from "lucide-react"
 import { formatTimeSeconds, getYouTubeWatchUrl } from "@/lib/utils"
@@ -22,11 +22,10 @@ function TimestampItem({
   youtubeUrl: string
   episodeTitle?: string
 }) {
-  const [isSaved, setIsSaved] = useState(false)
-
-  useEffect(() => {
-    setIsSaved(isItemSaved(timestamp.id, "timestamp"))
-  }, [timestamp.id])
+  const [isSaved, setIsSaved] = useState(() => {
+    if (typeof window === "undefined") return false
+    return isItemSaved(timestamp.id, "timestamp")
+  })
 
   const handleSave = (e: React.MouseEvent) => {
     e.preventDefault()

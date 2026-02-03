@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Bookmark } from "lucide-react"
 import { isItemSaved, toggleSaveItem, SavedItem } from "@/lib/saved"
@@ -21,11 +21,10 @@ export function SaveButton({
   showLabel = false,
   className,
 }: SaveButtonProps) {
-  const [isSaved, setIsSaved] = useState(false)
-
-  useEffect(() => {
-    setIsSaved(isItemSaved(item.id, item.type))
-  }, [item.id, item.type])
+  const [isSaved, setIsSaved] = useState(() => {
+    if (typeof window === "undefined") return false
+    return isItemSaved(item.id, item.type)
+  })
 
   const handleClick = (e: React.MouseEvent) => {
     e.preventDefault()

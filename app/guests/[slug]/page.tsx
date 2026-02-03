@@ -1,18 +1,21 @@
 import { Metadata } from "next"
-import Image from "next/image"
 import { notFound } from "next/navigation"
 import { getGuestBySlug } from "@/lib/supabase/queries"
 import { EpisodeCard } from "@/components/episodes/episode-card"
 import { QuoteCard } from "@/components/quotes/quote-card"
-import { Button } from "@/components/ui/button"
-import { Twitter, Linkedin, Globe, Instagram } from "lucide-react"
+import { GuestAvatar } from "@/components/guests/guest-avatar"
+import { Linkedin, Globe, Instagram } from "lucide-react"
+import { XIcon } from "@/components/icons/x-icon"
 
 interface GuestPageProps {
   params: Promise<{ slug: string }>
 }
 
-const socialIcons: Record<string, typeof Twitter> = {
-  twitter: Twitter,
+type IconComponent = React.ComponentType<{ className?: string }>
+
+const socialIcons: Record<string, IconComponent> = {
+  twitter: XIcon,
+  x: XIcon,
   linkedin: Linkedin,
   instagram: Instagram,
   website: Globe,
@@ -20,7 +23,8 @@ const socialIcons: Record<string, typeof Twitter> = {
 
 export async function generateMetadata({ params }: GuestPageProps): Promise<Metadata> {
   const { slug } = await params
-  const guest = await getGuestBySlug(slug)
+  const decodedSlug = decodeURIComponent(slug)
+  const guest = await getGuestBySlug(decodedSlug)
 
   if (!guest) {
     return { title: "الضيف غير موجود" }
@@ -40,7 +44,8 @@ export async function generateMetadata({ params }: GuestPageProps): Promise<Meta
 
 export default async function GuestPage({ params }: GuestPageProps) {
   const { slug } = await params
-  const guest = await getGuestBySlug(slug)
+  const decodedSlug = decodeURIComponent(slug)
+  const guest = await getGuestBySlug(decodedSlug)
 
   if (!guest) {
     notFound()
@@ -53,20 +58,14 @@ export default async function GuestPage({ params }: GuestPageProps) {
       <div className="mx-auto max-w-4xl">
         {/* Guest Header */}
         <div className="flex flex-col items-center gap-6 text-center sm:flex-row sm:text-start">
-          <div className="relative h-32 w-32 shrink-0 overflow-hidden rounded-full bg-muted">
-            {guest.photo_url ? (
-              <Image
-                src={guest.photo_url}
-                alt={guest.name}
-                fill
-                className="object-cover"
-              />
-            ) : (
-              <div className="flex h-full w-full items-center justify-center text-4xl font-semibold text-muted-foreground">
-                {guest.name.charAt(0)}
-              </div>
-            )}
-          </div>
+          <GuestAvatar
+            name={guest.name}
+            slug={guest.slug}
+            photoUrl={guest.photo_url}
+            size="2xl"
+            showBorder
+            showGlow
+          />
           <div className="flex-1">
             <h1 className="text-3xl font-bold">{guest.name}</h1>
             {guest.bio && (

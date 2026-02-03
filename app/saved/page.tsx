@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useState } from "react"
 import Link from "next/link"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -31,12 +31,11 @@ function EmptyState({ type }: { type: string }) {
 }
 
 export default function SavedPage() {
-  const [savedItems, setSavedItems] = useState<SavedItem[]>([])
+  const [savedItems, setSavedItems] = useState<SavedItem[]>(() => {
+    if (typeof window === "undefined") return []
+    return getSavedItems()
+  })
   const [activeTab, setActiveTab] = useState("episodes")
-
-  useEffect(() => {
-    setSavedItems(getSavedItems())
-  }, [])
 
   const handleRemove = (id: string, type: SavedItem["type"]) => {
     removeSavedItem(id, type)
@@ -114,7 +113,7 @@ export default function SavedPage() {
                   <CardContent className="p-4">
                     <div className="flex items-start justify-between">
                       <div className="flex-1">
-                        <blockquote className="text-lg">"{item.title}"</blockquote>
+                        <blockquote className="text-lg">&ldquo;{item.title}&rdquo;</blockquote>
                         {item.subtitle && (
                           <p className="mt-2 text-sm text-muted-foreground">
                             — {item.subtitle}

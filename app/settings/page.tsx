@@ -1,7 +1,7 @@
 import { Metadata } from "next"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { Settings, Bell, Moon, Globe, Trash2 } from "lucide-react"
+import { Bell, Moon, Globe, Trash2 } from "lucide-react"
 
 export const metadata: Metadata = {
   title: "الإعدادات",

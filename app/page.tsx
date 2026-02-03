@@ -117,7 +117,7 @@ function QuoteFeedCard({ quote }: { quote: { id?: string; text: string; guest?: 
       <CardContent className="p-6">
         <Quote className="h-8 w-8 text-accent/50" />
         <blockquote className="mt-4 text-lg leading-relaxed">
-          "{quote.text}"
+          &ldquo;{quote.text}&rdquo;
         </blockquote>
         {quote.guest && (
           <p className="mt-4 text-sm text-muted-foreground">— {quote.guest.name}</p>

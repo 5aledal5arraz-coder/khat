@@ -1,5 +1,7 @@
 import Link from "next/link"
-import { Youtube, Twitter, Instagram } from "lucide-react"
+import Image from "next/image"
+import { Youtube, Instagram } from "lucide-react"
+import { XIcon } from "@/components/icons/x-icon"
 
 const navigation = {
   main: [
@@ -12,24 +14,24 @@ const navigation = {
   social: [
     {
       name: "YouTube",
-      href: "https://youtube.com/@khat",
+      href: "https://youtube.com/@KhatPodcast",
       icon: Youtube,
     },
     {
-      name: "Twitter",
-      href: "https://twitter.com/khat",
-      icon: Twitter,
+      name: "X",
+      href: "https://x.com/KhatPodcast",
+      icon: XIcon,
     },
     {
       name: "Instagram",
-      href: "https://instagram.com/khat",
+      href: "https://instagram.com/KhatPodcast",
       icon: Instagram,
     },
   ],
   platforms: [
-    { name: "YouTube", href: "https://youtube.com/@khat" },
-    { name: "Spotify", href: "https://open.spotify.com/show/khat" },
-    { name: "Apple Podcasts", href: "https://podcasts.apple.com/podcast/khat" },
+    { name: "YouTube", href: "https://youtube.com/@KhatPodcast" },
+    { name: "Spotify", href: "https://open.spotify.com/show/KhatPodcast" },
+    { name: "Apple Podcasts", href: "https://podcasts.apple.com/podcast/KhatPodcast" },
   ],
 }
 
@@ -40,8 +42,14 @@ export function Footer() {
         <div className="grid gap-8 md:grid-cols-4">
           {/* Brand */}
           <div className="md:col-span-1">
-            <Link href="/" className="text-2xl font-bold">
-              خط
+            <Link href="/" className="inline-block">
+              <Image
+                src="/logo.png"
+                alt="خط"
+                width={72}
+                height={72}
+                className="h-18 w-auto"
+              />
             </Link>
             <p className="mt-4 text-sm text-muted-foreground">
               بودكاست يستكشف القصص الإنسانية والتجارب الحياتية من خلال حوارات عميقة مع ضيوف ملهمين.

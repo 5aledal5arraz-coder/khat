@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState } from "react"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Copy, Check, Share2, Bookmark } from "lucide-react"
@@ -13,13 +13,11 @@ interface QuoteCardProps {
 
 export function QuoteCard({ quote }: QuoteCardProps) {
   const [copied, setCopied] = useState(false)
-  const [isSaved, setIsSaved] = useState(false)
-
   const quoteId = quote.id || btoa(encodeURIComponent(quote.text.slice(0, 50))).slice(0, 20)
-
-  useEffect(() => {
-    setIsSaved(isItemSaved(quoteId, "quote"))
-  }, [quoteId])
+  const [isSaved, setIsSaved] = useState(() => {
+    if (typeof window === "undefined") return false
+    return isItemSaved(quoteId, "quote")
+  })
 
   const handleSave = () => {
     const newState = toggleSaveItem({
@@ -57,7 +55,7 @@ export function QuoteCard({ quote }: QuoteCardProps) {
     <Card className="bg-muted/50">
       <CardContent className="p-4">
         <blockquote className="text-lg leading-relaxed">
-          "{quote.text}"
+          &ldquo;{quote.text}&rdquo;
         </blockquote>
         {quote.guest && (
           <p className="mt-2 text-sm text-muted-foreground">

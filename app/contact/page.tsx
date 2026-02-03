@@ -21,7 +21,7 @@ const contactMethods = [
     title: "وسائل التواصل",
     description: "تابعنا وتواصل معنا",
     value: "@khat",
-    href: "https://twitter.com/khat",
+    href: "https://x.com/khat",
   },
 ]
 

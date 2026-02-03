@@ -2,7 +2,8 @@ import { Metadata } from "next"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
-import { Youtube, Twitter, Instagram, Mail } from "lucide-react"
+import { Youtube, Instagram, Mail } from "lucide-react"
+import { XIcon } from "@/components/icons/x-icon"
 
 export const metadata: Metadata = {
   title: "عن خط",
@@ -18,7 +19,7 @@ const stats = [
 
 const socialLinks = [
   { name: "YouTube", href: "https://youtube.com/@khat", icon: Youtube },
-  { name: "Twitter", href: "https://twitter.com/khat", icon: Twitter },
+  { name: "X", href: "https://x.com/khat", icon: XIcon },
   { name: "Instagram", href: "https://instagram.com/khat", icon: Instagram },
   { name: "البريد", href: "mailto:hello@khat.fm", icon: Mail },
 ]
