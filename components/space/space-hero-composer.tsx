@@ -3,20 +3,23 @@
 import { useState } from "react"
 import Link from "next/link"
 import Image from "next/image"
+import { useRouter } from "next/navigation"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { PenSquare, Send } from "lucide-react"
+import { PenSquare, Send, LogIn } from "lucide-react"
 import { toast } from "@/lib/use-toast"
-import { mockAuthors } from "@/lib/space-data"
+import { useAuth } from "@/components/providers/auth-provider"
+import { createThought } from "@/lib/space-api"
 
 const MAX_CHARACTERS = 280
-const currentUser = mockAuthors[0]
 
 interface SpaceHeroComposerProps {
   onPost?: (content: string) => void
 }
 
 export function SpaceHeroComposer({ onPost }: SpaceHeroComposerProps) {
+  const { user, profile, isLoading } = useAuth()
+  const router = useRouter()
   const [content, setContent] = useState("")
   const [isPosting, setIsPosting] = useState(false)
   const [isFocused, setIsFocused] = useState(false)
@@ -25,11 +28,31 @@ export function SpaceHeroComposer({ onPost }: SpaceHeroComposerProps) {
   const isOverLimit = charactersLeft < 0
   const isEmpty = content.trim().length === 0
 
+  const displayName = profile?.display_name || user?.email?.split("@")[0] || "مستخدم"
+  const avatarUrl = profile?.avatar_url
+
   const handlePost = async () => {
+    if (!user) {
+      router.push("/auth/login?redirect=/space")
+      return
+    }
+
     if (isEmpty || isOverLimit) return
 
     setIsPosting(true)
-    await new Promise((resolve) => setTimeout(resolve, 500))
+
+    const { error } = await createThought({ content: content.trim() })
+
+    if (error) {
+      toast({
+        title: "خطأ",
+        description: error,
+        variant: "destructive",
+        duration: 3000,
+      })
+      setIsPosting(false)
+      return
+    }
 
     onPost?.(content)
     setContent("")
@@ -40,8 +63,10 @@ export function SpaceHeroComposer({ onPost }: SpaceHeroComposerProps) {
       title: "تم نشر خاطرتك",
       description: "شكراً لمشاركتك مع المجتمع",
       variant: "success",
-      duration: 3000,
+      duration: 2000,
     })
+
+    router.refresh()
   }
 
   const getCharacterCountColor = () => {
@@ -50,22 +75,45 @@ export function SpaceHeroComposer({ onPost }: SpaceHeroComposerProps) {
     return "text-muted-foreground"
   }
 
+  // Not logged in state
+  if (!isLoading && !user) {
+    return (
+      <Card className="border-primary/20 bg-gradient-to-br from-primary/5 via-transparent to-transparent">
+        <CardContent className="p-5">
+          <div className="flex items-center justify-between gap-4">
+            <p className="text-muted-foreground text-sm">
+              سجّل دخولك لمشاركة أفكارك مع المجتمع
+            </p>
+            <div className="flex items-center gap-2">
+              <Link href="/auth/login?redirect=/space">
+                <Button size="sm" className="gap-2">
+                  <LogIn className="h-4 w-4" />
+                  تسجيل الدخول
+                </Button>
+              </Link>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+    )
+  }
+
   return (
     <Card className="border-primary/20 bg-gradient-to-br from-primary/5 via-transparent to-transparent">
       <CardContent className="p-5">
         <div className="flex gap-4">
           {/* Avatar */}
           <div className="relative h-12 w-12 shrink-0 overflow-hidden rounded-full bg-muted ring-2 ring-primary/20">
-            {currentUser.avatar ? (
+            {avatarUrl ? (
               <Image
-                src={currentUser.avatar}
-                alt={currentUser.name}
+                src={avatarUrl}
+                alt={displayName}
                 fill
                 className="object-cover"
               />
             ) : (
               <div className="flex h-full w-full items-center justify-center text-lg font-bold text-muted-foreground">
-                {currentUser.name.charAt(0)}
+                {displayName.charAt(0)}
               </div>
             )}
           </div>

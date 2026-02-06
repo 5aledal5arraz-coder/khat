@@ -5,7 +5,11 @@ export interface Author {
   bio?: string
   articlesCount: number
   followersCount: number
+  isBot?: boolean
 }
+
+export type ContentStatus = 'draft' | 'published'
+export type ModerationStatus = 'pending' | 'approved' | 'auto_flagged' | 'rejected' | 'hidden'
 
 export interface Article {
   id: string
@@ -24,6 +28,9 @@ export interface Article {
   episodeId?: string
   episodeTitle?: string
   episodeSlug?: string
+  status?: ContentStatus
+  moderation_status?: ModerationStatus
+  deleted_at?: string | null
 }
 
 export interface Comment {
@@ -70,6 +77,8 @@ export interface Thought {
   likes: number
   replies: ThoughtReply[]
   tags?: string[]
+  moderation_status?: ModerationStatus
+  deleted_at?: string | null
 }
 
 export interface FeedItem {

@@ -2,6 +2,7 @@ export interface Topic {
   id: string
   name: string
   slug: string
+  description?: string | null
   created_at: string
 }
 
@@ -19,15 +20,26 @@ export interface Episode {
   id: string
   title: string
   slug: string
-  summary: string | null
-  key_takeaways: string[] | null
+  description?: string | null
+  summary?: string | null
+  key_takeaways?: string[] | null
   youtube_url: string
   duration_minutes: number
   release_date: string
-  season: number | null
-  mood: string | null
-  guest_id: string | null
+  episode_number?: number | null
+  season?: number | null
+  mood?: string | null
+  thumbnail_url?: string | null
+  status?: string
+  featured?: boolean
+  view_count?: number | null
+  guest_id?: string | null
+  guest?: Guest | null
+  guest_testimonial?: string | null
+  guest_video_url?: string | null
+  topics?: Topic[]
   created_at: string
+  updated_at?: string
 }
 
 export interface EpisodeTopic {
@@ -293,6 +305,333 @@ export type Database = {
           bio?: string | null
           created_at?: string
         }
+        Relationships: []
+      }
+      profiles: {
+        Row: {
+          id: string
+          display_name: string | null
+          avatar_url: string | null
+          bio: string | null
+          is_admin: boolean
+          is_banned: boolean
+          ban_reason: string | null
+          articles_count: number
+          followers_count: number
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id: string
+          display_name?: string | null
+          avatar_url?: string | null
+          bio?: string | null
+          is_admin?: boolean
+          is_banned?: boolean
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          display_name?: string | null
+          avatar_url?: string | null
+          bio?: string | null
+          is_admin?: boolean
+          is_banned?: boolean
+          ban_reason?: string | null
+          articles_count?: number
+          followers_count?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      hibr_articles: {
+        Row: {
+          id: string
+          user_id: string
+          title: string
+          excerpt: string | null
+          content: string
+          cover_image: string | null
+          tags: string[]
+          episode_id: string | null
+          episode_title: string | null
+          episode_slug: string | null
+          read_time_minutes: number
+          likes_count: number
+          comments_count: number
+          status: string
+          moderation_status: string
+          featured: boolean
+          deleted_at: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          title: string
+          content: string
+          excerpt?: string | null
+          cover_image?: string | null
+          tags?: string[]
+          episode_id?: string | null
+          episode_title?: string | null
+          episode_slug?: string | null
+          read_time_minutes?: number
+          status?: string
+          moderation_status?: string
+          featured?: boolean
+        }
+        Update: {
+          title?: string
+          content?: string
+          excerpt?: string | null
+          tags?: string[]
+          read_time_minutes?: number
+          status?: string
+          moderation_status?: string
+          featured?: boolean
+          deleted_at?: string | null
+        }
+        Relationships: []
+      }
+      hibr_thoughts: {
+        Row: {
+          id: string
+          user_id: string
+          content: string
+          tags: string[]
+          likes_count: number
+          replies_count: number
+          moderation_status: string
+          deleted_at: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          content: string
+          tags?: string[]
+          moderation_status?: string
+        }
+        Update: {
+          content?: string
+          tags?: string[]
+          moderation_status?: string
+          deleted_at?: string | null
+        }
+        Relationships: []
+      }
+      hibr_comments: {
+        Row: {
+          id: string
+          article_id: string
+          user_id: string
+          content: string
+          likes_count: number
+          moderation_status: string
+          deleted_at: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          article_id: string
+          user_id: string
+          content: string
+          moderation_status?: string
+        }
+        Update: {
+          content?: string
+          moderation_status?: string
+          deleted_at?: string | null
+        }
+        Relationships: []
+      }
+      hibr_replies: {
+        Row: {
+          id: string
+          thought_id: string
+          user_id: string
+          content: string
+          likes_count: number
+          moderation_status: string
+          deleted_at: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          thought_id: string
+          user_id: string
+          content: string
+          moderation_status?: string
+        }
+        Update: {
+          content?: string
+          moderation_status?: string
+          deleted_at?: string | null
+        }
+        Relationships: []
+      }
+      hibr_drafts: {
+        Row: {
+          id: string
+          user_id: string
+          title: string
+          content: string
+          tags: string[]
+          episode_id: string | null
+          episode_slug: string | null
+          episode_title: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          title?: string
+          content?: string
+          tags?: string[]
+          episode_id?: string | null
+          episode_slug?: string | null
+          episode_title?: string | null
+        }
+        Update: {
+          title?: string
+          content?: string
+          tags?: string[]
+          episode_id?: string | null
+          episode_slug?: string | null
+          episode_title?: string | null
+        }
+        Relationships: []
+      }
+      hibr_likes: {
+        Row: {
+          id: string
+          user_id: string
+          target_type: string
+          target_id: string
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          target_type: string
+          target_id: string
+        }
+        Update: Record<string, never>
+        Relationships: []
+      }
+      hibr_follows: {
+        Row: {
+          id: string
+          follower_id: string
+          following_id: string
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          follower_id: string
+          following_id: string
+        }
+        Update: Record<string, never>
+        Relationships: []
+      }
+      hibr_bookmarks: {
+        Row: {
+          id: string
+          user_id: string
+          article_id: string
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          article_id: string
+        }
+        Update: Record<string, never>
+        Relationships: []
+      }
+      hibr_reactions: {
+        Row: {
+          id: string
+          user_id: string
+          article_id: string
+          reaction_type: string
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          article_id: string
+          reaction_type: string
+        }
+        Update: Record<string, never>
+        Relationships: []
+      }
+      hibr_reports: {
+        Row: {
+          id: string
+          reporter_id: string
+          target_type: string
+          target_id: string
+          reason: string
+          details: string | null
+          status: string
+          reviewed_by: string | null
+          reviewed_at: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          reporter_id: string
+          target_type: string
+          target_id: string
+          reason: string
+          details?: string | null
+        }
+        Update: {
+          status?: string
+          reviewed_by?: string | null
+          reviewed_at?: string | null
+        }
+        Relationships: []
+      }
+      hibr_moderation_log: {
+        Row: {
+          id: string
+          moderator_id: string
+          action: string
+          target_type: string
+          target_id: string
+          reason: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          moderator_id: string
+          action: string
+          target_type: string
+          target_id: string
+          reason?: string | null
+        }
+        Update: Record<string, never>
+        Relationships: []
+      }
+      rate_limits: {
+        Row: {
+          id: string
+          user_id: string
+          action: string
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          action: string
+        }
+        Update: Record<string, never>
         Relationships: []
       }
     }

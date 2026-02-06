@@ -1,0 +1,87 @@
+import { NextRequest } from 'next/server'
+import { createClient } from '@/lib/supabase/server'
+import {
+  getAuthUser,
+  getUserProfile,
+  getUserApprovedCount,
+  validateMutation,
+  unauthorizedResponse,
+  bannedResponse,
+  rateLimitResponse,
+  validationErrorResponse,
+  notFoundResponse,
+  successResponse,
+  errorResponse,
+} from '@/lib/api-utils'
+import { validateCommentContent } from '@/lib/validation'
+import { sanitizeComment } from '@/lib/sanitize'
+import { checkRateLimit } from '@/lib/rate-limit'
+import { moderateContent } from '@/lib/moderation'
+
+export async function POST(request: NextRequest) {
+  const mutationError = validateMutation(request)
+  if (mutationError) return mutationError
+
+  const user = await getAuthUser()
+  if (!user) return unauthorizedResponse()
+
+  const profile = await getUserProfile(user.id)
+  if (profile?.is_banned) return bannedResponse()
+
+  const supabase = await createClient()
+  const rateLimit = await checkRateLimit(supabase, user.id, 'create_comment')
+  if (!rateLimit.allowed) return rateLimitResponse()
+
+  let body: { article_id: string; content: string }
+  try {
+    body = await request.json()
+  } catch {
+    return errorResponse('بيانات غير صالحة', 400)
+  }
+
+  if (!body.article_id) return validationErrorResponse('معرف المقال مطلوب')
+
+  // Check article exists
+  const { data: article } = await supabase
+    .from('hibr_articles')
+    .select('id')
+    .eq('id', body.article_id)
+    .is('deleted_at', null)
+    .single()
+
+  if (!article) return notFoundResponse()
+
+  const validation = validateCommentContent(body.content)
+  if (!validation.valid) return validationErrorResponse(validation.error!)
+
+  const cleanContent = sanitizeComment(body.content)
+  const approvedCount = await getUserApprovedCount(user.id)
+  const modResult = moderateContent(cleanContent, approvedCount)
+
+  const { data, error } = await supabase
+    .from('hibr_comments')
+    .insert({
+      article_id: body.article_id,
+      user_id: user.id,
+      content: cleanContent,
+      moderation_status: modResult.status === 'auto_flagged' ? 'auto_flagged' : 'approved',
+    })
+    .select('*, profiles!hibr_comments_user_id_fkey(id, display_name, avatar_url)')
+    .single()
+
+  if (error) return errorResponse('حدث خطأ في إضافة التعليق', 500)
+
+  // Update comments count
+  const { count } = await supabase
+    .from('hibr_comments')
+    .select('*', { count: 'exact', head: true })
+    .eq('article_id', body.article_id)
+    .is('deleted_at', null)
+
+  await supabase
+    .from('hibr_articles')
+    .update({ comments_count: count ?? 0 })
+    .eq('id', body.article_id)
+
+  return successResponse({ comment: data }, 201)
+}

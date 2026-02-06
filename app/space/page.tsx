@@ -9,15 +9,17 @@ import {
   trendingTags,
   allTags,
   writingPrompts,
+} from "@/lib/space-data"
+import {
   getTopContributors,
   getWeeklyHighlights,
   getUnifiedFeed,
   type FeedSortOption,
-} from "@/lib/space-data"
+} from "@/lib/space-queries"
 
 export const metadata: Metadata = {
-  title: "مساحة خط",
-  description: "شارك أفكارك وتجاربك مع مجتمع خط",
+  title: "حبر",
+  description: "شارك أفكارك وخواطرك مع مجتمع خط",
 }
 
 interface SpacePageProps {
@@ -33,9 +35,11 @@ export default async function SpacePage({ searchParams }: SpacePageProps) {
   const tag = params.tag
 
   // Get data
-  const feedItems = getUnifiedFeed({ sort, tag, limit: 30 })
-  const topContributors = getTopContributors()
-  const weeklyHighlights = getWeeklyHighlights()
+  const [feedItems, topContributors, weeklyHighlights] = await Promise.all([
+    getUnifiedFeed({ sort, tag, limit: 30 }),
+    getTopContributors(),
+    getWeeklyHighlights(),
+  ])
 
   return (
     <div className="container mx-auto px-4 py-6">
@@ -65,7 +69,7 @@ export default async function SpacePage({ searchParams }: SpacePageProps) {
           )}
 
           {/* Unified Feed */}
-          <UnifiedFeed items={feedItems} pageSize={6} />
+          <UnifiedFeed items={feedItems} pageSize={6} activeTag={tag} />
         </main>
 
         {/* Sidebar - Desktop Only */}
