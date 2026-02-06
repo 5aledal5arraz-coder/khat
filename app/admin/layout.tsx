@@ -14,6 +14,7 @@ import {
   PanelLeftClose,
   PanelLeft,
   Shield,
+  BarChart3,
 } from "lucide-react"
 import { useState } from "react"
 import { cn } from "@/lib/utils"
@@ -26,6 +27,7 @@ const navItems = [
   { href: "/admin/submissions", icon: Inbox, label: "الطلبات" },
   { href: "/admin/moderation", icon: Shield, label: "الإشراف" },
   { href: "/admin/ads", icon: Megaphone, label: "الإعلانات" },
+  { href: "/admin/analytics", icon: BarChart3, label: "الإحصائيات" },
   { href: "/admin/settings", icon: Settings, label: "الإعدادات" },
 ]
 
