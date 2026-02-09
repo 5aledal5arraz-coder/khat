@@ -13,6 +13,7 @@ export interface Guest {
   bio: string | null
   photo_url: string | null
   external_links: Record<string, string> | null
+  testimonial: string | null
   created_at: string
 }
 
@@ -78,22 +79,71 @@ export interface NewsletterSubscriber {
   created_at: string
 }
 
+export type SponsorshipStatus =
+  | "new"
+  | "reviewing"
+  | "proposal_sent"
+  | "negotiation"
+  | "confirmed"
+  | "declined"
+
 export interface SponsorshipLead {
   id: string
-  name: string
+  // Company Info
+  company_name: string
+  industry: string
+  contact_name: string
+  job_title: string
   email: string
-  company: string | null
-  message: string | null
+  phone: string
+  // Campaign Details
+  collaboration_types: string[]
+  collaboration_other: string | null
+  // Objectives
+  main_goal: string
+  target_audience: string
+  preferred_timeline: string | null
+  // Budget
+  budget_range: string
+  // Additional
+  additional_info: string | null
+  // Meta
+  status: SponsorshipStatus
   created_at: string
 }
 
+export type GuestApplicationStatus =
+  | "new"
+  | "under_review"
+  | "accepted"
+  | "rejected"
+  | "consider_later"
+
 export interface GuestApplication {
   id: string
+  // Step 1 — Basic Info
   name: string
   email: string
-  topic: string | null
-  links: string | null
-  bio: string | null
+  phone: string
+  country: string
+  can_travel_to_kuwait: string | null
+  // Step 2 — Your Story
+  story_idea: string
+  beyond_job_title: string
+  life_changing_moment: string
+  hope_people_understand: string
+  unasked_question: string
+  why_khat: string
+  // Step 3 — Recording & Appearance
+  previous_podcast: boolean
+  previous_podcast_info: string | null
+  prefer_dialogue_or_story: string
+  topics_to_avoid: string | null
+  filming_concern: string
+  agrees_to_publish: boolean
+  social_links: string | null
+  // Meta
+  status: GuestApplicationStatus
   created_at: string
 }
 
@@ -108,6 +158,130 @@ export interface EpisodeWithRelations extends Episode {
 export interface GuestWithRelations extends Guest {
   episodes: Episode[]
   quotes: Quote[]
+}
+
+export type StudioSessionStatus = 'draft' | 'fetched' | 'error'
+export type StudioSessionSource = 'youtube' | 'audio'
+
+export interface StudioSession {
+  id: string
+  youtube_url: string | null
+  video_id: string | null
+  source: StudioSessionSource
+  status: StudioSessionStatus
+  video_title: string | null
+  channel_title: string | null
+  published_at: string | null
+  duration_seconds: number | null
+  thumbnail_url: string | null
+  raw_youtube_response: Record<string, unknown> | null
+  audio_filename: string | null
+  audio_file_size: number | null
+  created_at: string
+  updated_at: string
+}
+
+export type StudioTranscriptSource = 'youtube_captions' | 'upload' | 'whisper'
+export type StudioTranscriptStatus = 'ready' | 'error'
+
+export interface StudioTranscript {
+  id: string
+  session_id: string
+  source: StudioTranscriptSource
+  language: string
+  transcript_raw: string
+  transcript_clean: string
+  word_count: number
+  char_count: number
+  status: StudioTranscriptStatus
+  error_message: string | null
+  created_at: string
+  updated_at: string
+}
+
+export type StudioAiOutputStatus = 'generating' | 'ready' | 'error'
+
+export interface StudioAiOutput {
+  id: string
+  session_id: string
+  model: string
+  prompt_version: string
+  status: StudioAiOutputStatus
+  title_best: string
+  title_alternatives: string[]
+  thumbnail_text_options: string[]
+  youtube_description: string
+  seo_keywords: string[]
+  hashtags: string[]
+  raw_openai_response: Record<string, unknown> | null
+  error_message: string | null
+  created_at: string
+  updated_at: string
+}
+
+export type StudioChaptersStatus = 'generating' | 'ready' | 'error'
+
+export interface StudioChapterItem {
+  start_time: string // HH:MM:SS
+  title: string
+}
+
+export interface StudioChapters {
+  id: string
+  session_id: string
+  status: StudioChaptersStatus
+  chapters: StudioChapterItem[]
+  raw_openai_response: Record<string, unknown> | null
+  error_message: string | null
+  created_at: string
+  updated_at: string
+}
+
+export type StudioClipsStatus = 'generating' | 'ready' | 'error'
+
+export interface StudioClipItem {
+  start_time: string // HH:MM:SS
+  end_time: string   // HH:MM:SS
+  platform: string   // YouTube Shorts / IG Reels / TikTok / X
+  hook_text: string
+  caption: string
+  why_it_works: string
+  used?: boolean
+}
+
+export interface StudioClips {
+  id: string
+  session_id: string
+  status: StudioClipsStatus
+  clips: StudioClipItem[]
+  raw_openai_response: Record<string, unknown> | null
+  error_message: string | null
+  created_at: string
+  updated_at: string
+}
+
+export type StudioWebsitePackageStatus = 'generating' | 'ready' | 'error'
+
+export interface WebsiteQuoteItem { text: string; theme: string | null; speaker: string | null }
+export interface WebsiteResourceItem { title: string; url: string; type: string | null }
+export interface WebsiteTimestampItem { time_seconds: number; title: string; description: string | null }
+
+export interface StudioWebsitePackage {
+  id: string
+  session_id: string
+  status: StudioWebsitePackageStatus
+  hero_summary: string | null
+  full_summary: string | null
+  takeaways: string[]
+  quotes: WebsiteQuoteItem[]
+  topics: string[]
+  resources: WebsiteResourceItem[]
+  timestamps: WebsiteTimestampItem[]
+  linked_episode_id: string | null
+  raw_openai_response: Record<string, unknown> | null
+  error_message: string | null
+  created_at: string
+  updated_at: string
 }
 
 export type Database = {
@@ -138,6 +312,7 @@ export type Database = {
           bio?: string | null
           photo_url?: string | null
           external_links?: Record<string, string> | null
+          testimonial?: string | null
           created_at?: string
         }
         Update: {
@@ -147,6 +322,7 @@ export type Database = {
           bio?: string | null
           photo_url?: string | null
           external_links?: Record<string, string> | null
+          testimonial?: string | null
           created_at?: string
         }
         Relationships: []
@@ -269,19 +445,37 @@ export type Database = {
         Row: SponsorshipLead
         Insert: {
           id?: string
-          name: string
+          company_name: string
+          industry: string
+          contact_name: string
+          job_title: string
           email: string
-          company?: string | null
-          message?: string | null
+          phone: string
+          collaboration_types: string[]
+          collaboration_other?: string | null
+          main_goal: string
+          target_audience: string
+          preferred_timeline?: string | null
+          budget_range: string
+          additional_info?: string | null
+          status?: SponsorshipStatus
           created_at?: string
         }
         Update: {
-          id?: string
-          name?: string
+          company_name?: string
+          industry?: string
+          contact_name?: string
+          job_title?: string
           email?: string
-          company?: string | null
-          message?: string | null
-          created_at?: string
+          phone?: string
+          collaboration_types?: string[]
+          collaboration_other?: string | null
+          main_goal?: string
+          target_audience?: string
+          preferred_timeline?: string | null
+          budget_range?: string
+          additional_info?: string | null
+          status?: SponsorshipStatus
         }
         Relationships: []
       }
@@ -291,19 +485,45 @@ export type Database = {
           id?: string
           name: string
           email: string
-          topic?: string | null
-          links?: string | null
-          bio?: string | null
+          phone: string
+          country: string
+          can_travel_to_kuwait?: string | null
+          story_idea: string
+          beyond_job_title: string
+          life_changing_moment: string
+          hope_people_understand: string
+          unasked_question: string
+          why_khat: string
+          previous_podcast: boolean
+          previous_podcast_info?: string | null
+          prefer_dialogue_or_story: string
+          topics_to_avoid?: string | null
+          filming_concern: string
+          agrees_to_publish: boolean
+          social_links?: string | null
+          status?: GuestApplicationStatus
           created_at?: string
         }
         Update: {
-          id?: string
           name?: string
           email?: string
-          topic?: string | null
-          links?: string | null
-          bio?: string | null
-          created_at?: string
+          phone?: string
+          country?: string
+          can_travel_to_kuwait?: string | null
+          story_idea?: string
+          beyond_job_title?: string
+          life_changing_moment?: string
+          hope_people_understand?: string
+          unasked_question?: string
+          why_khat?: string
+          previous_podcast?: boolean
+          previous_podcast_info?: string | null
+          prefer_dialogue_or_story?: string
+          topics_to_avoid?: string | null
+          filming_concern?: string
+          agrees_to_publish?: boolean
+          social_links?: string | null
+          status?: GuestApplicationStatus
         }
         Relationships: []
       }
@@ -362,6 +582,7 @@ export type Database = {
           comments_count: number
           status: string
           moderation_status: string
+          moderation_reason: string | null
           featured: boolean
           deleted_at: string | null
           created_at: string
@@ -381,6 +602,7 @@ export type Database = {
           read_time_minutes?: number
           status?: string
           moderation_status?: string
+          moderation_reason?: string | null
           featured?: boolean
         }
         Update: {
@@ -391,6 +613,7 @@ export type Database = {
           read_time_minutes?: number
           status?: string
           moderation_status?: string
+          moderation_reason?: string | null
           featured?: boolean
           deleted_at?: string | null
         }
@@ -405,6 +628,7 @@ export type Database = {
           likes_count: number
           replies_count: number
           moderation_status: string
+          moderation_reason: string | null
           deleted_at: string | null
           created_at: string
         }
@@ -414,11 +638,13 @@ export type Database = {
           content: string
           tags?: string[]
           moderation_status?: string
+          moderation_reason?: string | null
         }
         Update: {
           content?: string
           tags?: string[]
           moderation_status?: string
+          moderation_reason?: string | null
           deleted_at?: string | null
         }
         Relationships: []
@@ -431,6 +657,7 @@ export type Database = {
           content: string
           likes_count: number
           moderation_status: string
+          moderation_reason: string | null
           deleted_at: string | null
           created_at: string
         }
@@ -440,10 +667,12 @@ export type Database = {
           user_id: string
           content: string
           moderation_status?: string
+          moderation_reason?: string | null
         }
         Update: {
           content?: string
           moderation_status?: string
+          moderation_reason?: string | null
           deleted_at?: string | null
         }
         Relationships: []
@@ -456,6 +685,7 @@ export type Database = {
           content: string
           likes_count: number
           moderation_status: string
+          moderation_reason: string | null
           deleted_at: string | null
           created_at: string
         }
@@ -465,10 +695,12 @@ export type Database = {
           user_id: string
           content: string
           moderation_status?: string
+          moderation_reason?: string | null
         }
         Update: {
           content?: string
           moderation_status?: string
+          moderation_reason?: string | null
           deleted_at?: string | null
         }
         Relationships: []
@@ -633,6 +865,211 @@ export type Database = {
         }
         Update: Record<string, never>
         Relationships: []
+      }
+      studio_sessions: {
+        Row: StudioSession
+        Insert: {
+          id?: string
+          youtube_url?: string | null
+          video_id?: string | null
+          source?: string
+          status?: string
+          video_title?: string | null
+          channel_title?: string | null
+          published_at?: string | null
+          duration_seconds?: number | null
+          thumbnail_url?: string | null
+          raw_youtube_response?: Record<string, unknown> | null
+          audio_filename?: string | null
+          audio_file_size?: number | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          status?: string
+          video_title?: string | null
+          channel_title?: string | null
+          published_at?: string | null
+          duration_seconds?: number | null
+          thumbnail_url?: string | null
+          raw_youtube_response?: Record<string, unknown> | null
+          audio_filename?: string | null
+          audio_file_size?: number | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      studio_transcripts: {
+        Row: StudioTranscript
+        Insert: {
+          id?: string
+          session_id: string
+          source?: string
+          language?: string
+          transcript_raw: string
+          transcript_clean: string
+          word_count?: number
+          char_count?: number
+          status?: string
+          error_message?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          transcript_raw?: string
+          transcript_clean?: string
+          word_count?: number
+          char_count?: number
+          status?: string
+          error_message?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "studio_transcripts_session_id_fkey"
+            columns: ["session_id"]
+            referencedRelation: "studio_sessions"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
+      studio_ai_outputs: {
+        Row: StudioAiOutput
+        Insert: {
+          id?: string
+          session_id: string
+          model?: string
+          prompt_version?: string
+          status?: string
+          title_best?: string
+          title_alternatives?: string[]
+          thumbnail_text_options?: string[]
+          youtube_description?: string
+          seo_keywords?: string[]
+          hashtags?: string[]
+          raw_openai_response?: Record<string, unknown> | null
+          error_message?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          status?: string
+          title_best?: string
+          title_alternatives?: string[]
+          thumbnail_text_options?: string[]
+          youtube_description?: string
+          seo_keywords?: string[]
+          hashtags?: string[]
+          raw_openai_response?: Record<string, unknown> | null
+          error_message?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "studio_ai_outputs_session_id_fkey"
+            columns: ["session_id"]
+            referencedRelation: "studio_sessions"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
+      studio_chapters: {
+        Row: StudioChapters
+        Insert: {
+          id?: string
+          session_id: string
+          status?: string
+          chapters?: StudioChapterItem[]
+          raw_openai_response?: Record<string, unknown> | null
+          error_message?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          status?: string
+          chapters?: StudioChapterItem[]
+          raw_openai_response?: Record<string, unknown> | null
+          error_message?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "studio_chapters_session_id_fkey"
+            columns: ["session_id"]
+            referencedRelation: "studio_sessions"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
+      studio_clips: {
+        Row: StudioClips
+        Insert: {
+          id?: string
+          session_id: string
+          status?: string
+          clips?: StudioClipItem[]
+          raw_openai_response?: Record<string, unknown> | null
+          error_message?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          status?: string
+          clips?: StudioClipItem[]
+          raw_openai_response?: Record<string, unknown> | null
+          error_message?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "studio_clips_session_id_fkey"
+            columns: ["session_id"]
+            referencedRelation: "studio_sessions"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
+      studio_website_packages: {
+        Row: StudioWebsitePackage
+        Insert: {
+          id?: string
+          session_id: string
+          status?: string
+          hero_summary?: string | null
+          full_summary?: string | null
+          takeaways?: string[]
+          quotes?: WebsiteQuoteItem[]
+          topics?: string[]
+          resources?: WebsiteResourceItem[]
+          timestamps?: WebsiteTimestampItem[]
+          linked_episode_id?: string | null
+          raw_openai_response?: Record<string, unknown> | null
+          error_message?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          status?: string
+          hero_summary?: string | null
+          full_summary?: string | null
+          takeaways?: string[]
+          quotes?: WebsiteQuoteItem[]
+          topics?: string[]
+          resources?: WebsiteResourceItem[]
+          timestamps?: WebsiteTimestampItem[]
+          linked_episode_id?: string | null
+          raw_openai_response?: Record<string, unknown> | null
+          error_message?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "studio_website_packages_session_id_fkey"
+            columns: ["session_id"]
+            referencedRelation: "studio_sessions"
+            referencedColumns: ["id"]
+          }
+        ]
       }
     }
     Views: Record<string, never>
