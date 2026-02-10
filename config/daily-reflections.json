@@ -1,0 +1,22 @@
+{
+  "reflections": [
+    {
+      "id": "dr-1",
+      "date": "2026-02-10",
+      "short_quote": "كل محادثة صادقة هي بداية تغيير.",
+      "reflection": "في عالم مليء بالضجيج، نحتاج أحياناً أن نتوقف ونسأل أنفسنا: متى آخر مرة أجرينا محادثة حقيقية — محادثة غيّرت طريقة تفكيرنا؟",
+      "thinking_question": "ما هي المحادثة التي غيّرت نظرتك لشيء ما؟",
+      "attribution": "بودكاست خط",
+      "episode_id": "1",
+      "episode_slug": "healthy-relationships",
+      "episode_title": "كيف نبني علاقات صحية ومستدامة؟",
+      "quote_id": "hq-1",
+      "quote_text": "أحياناً أعمق المحادثات تبدأ بصمت.",
+      "path_slug": "understanding-people",
+      "path_title": "فهم الناس",
+      "status": "published",
+      "created_at": "2024-12-01T00:00:00Z",
+      "updated_at": "2024-12-01T00:00:00Z"
+    }
+  ]
+}

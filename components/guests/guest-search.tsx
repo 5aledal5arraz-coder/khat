@@ -1,5 +1,6 @@
 "use client"
 
+import { useRef, useCallback } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { Input } from "@/components/ui/input"
 import { Search } from "lucide-react"
@@ -7,8 +8,9 @@ import { Search } from "lucide-react"
 export function GuestSearch() {
   const router = useRouter()
   const searchParams = useSearchParams()
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
-  const handleSearch = (value: string) => {
+  const handleSearch = useCallback((value: string) => {
     const params = new URLSearchParams(searchParams.toString())
     if (value) {
       params.set("search", value)
@@ -16,7 +18,7 @@ export function GuestSearch() {
       params.delete("search")
     }
     router.push(`/guests?${params.toString()}`)
-  }
+  }, [router, searchParams])
 
   return (
     <div className="relative max-w-md">
@@ -26,10 +28,11 @@ export function GuestSearch() {
         className="ps-10"
         defaultValue={searchParams.get("search") || ""}
         onChange={(e) => {
-          const timer = setTimeout(() => {
-            handleSearch(e.target.value)
+          if (timerRef.current) clearTimeout(timerRef.current)
+          const value = e.target.value
+          timerRef.current = setTimeout(() => {
+            handleSearch(value)
           }, 300)
-          return () => clearTimeout(timer)
         }}
       />
     </div>

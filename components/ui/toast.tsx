@@ -13,6 +13,7 @@ const toastVariants = cva(
         default: "border-border bg-card text-foreground",
         success: "border-green-500/50 bg-green-950/50 text-green-50",
         error: "border-destructive/50 bg-destructive/10 text-destructive",
+        destructive: "border-destructive/50 bg-destructive/10 text-destructive",
         warning: "border-yellow-500/50 bg-yellow-950/50 text-yellow-50",
       },
     },
@@ -26,6 +27,7 @@ const iconMap = {
   default: Info,
   success: CheckCircle,
   error: AlertCircle,
+  destructive: AlertCircle,
   warning: AlertTriangle,
 }
 

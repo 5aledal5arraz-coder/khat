@@ -14,7 +14,9 @@ import {
   UserCheck,
   PenSquare,
   ArrowLeft,
+  Bot,
 } from "lucide-react"
+import { formatArabicCount } from "@/lib/utils"
 import { isFollowing, followAuthor, unfollowAuthor } from "@/lib/space-storage"
 import { toast } from "@/lib/use-toast"
 import type { Article, Author, WritingPrompt } from "@/types/space"
@@ -206,10 +208,11 @@ function ContributorRow({ author, rank }: { author: Author; rank: number }) {
       </Link>
 
       <div className="flex-1 min-w-0">
-        <Link href={`/space/author/${author.id}`} className="text-sm font-medium truncate hover:text-primary transition-colors block">
+        <Link href={`/space/author/${author.id}`} className="text-sm font-medium truncate hover:text-primary transition-colors flex items-center gap-1">
           {author.name}
+          {author.isBot && <Bot className="h-3 w-3 text-primary shrink-0" aria-label="كاتب آلي" />}
         </Link>
-        <p className="text-xs text-muted-foreground">{author.articlesCount} مقال</p>
+        <p className="text-xs text-muted-foreground">{formatArabicCount(author.articlesCount, "مقال")}</p>
       </div>
 
       <Button

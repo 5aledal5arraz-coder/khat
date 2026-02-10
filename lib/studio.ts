@@ -11,6 +11,7 @@ import type {
   StudioClips, StudioClipsStatus, StudioClipItem,
   StudioWebsitePackage, StudioWebsitePackageStatus,
   WebsiteQuoteItem, WebsiteResourceItem, WebsiteTimestampItem,
+  StudioAnalyzer, StudioAnalyzerStatus, StudioAnalyzerData,
 } from "@/types/database"
 
 const AUDIO_DIR = path.join(process.cwd(), "data", "studio-audio")
@@ -26,6 +27,7 @@ let mockAiOutputs: StudioAiOutput[] = []
 let mockChapters: StudioChapters[] = []
 let mockClips: StudioClips[] = []
 let mockWebsitePackages: StudioWebsitePackage[] = []
+let mockAnalyzers: StudioAnalyzer[] = []
 
 export async function getStudioSessions(): Promise<StudioSession[]> {
   if (USE_MOCK_DATA) {
@@ -152,6 +154,7 @@ export async function deleteStudioSession(id: string): Promise<boolean> {
     mockChapters = mockChapters.filter((c) => c.session_id !== id)
     mockClips = mockClips.filter((c) => c.session_id !== id)
     mockWebsitePackages = mockWebsitePackages.filter((w) => w.session_id !== id)
+    mockAnalyzers = mockAnalyzers.filter((a) => a.session_id !== id)
     return mockSessions.length < before
   }
 
@@ -623,6 +626,59 @@ export async function updateWebsitePackage(
     .single()
   if (error) return { success: false, error: error.message }
   return { success: true, data: data as StudioWebsitePackage }
+}
+
+// ---------------------------------------------------------------------------
+// Studio Analyzers
+// ---------------------------------------------------------------------------
+
+export async function getAnalyzerForSession(sessionId: string): Promise<StudioAnalyzer | null> {
+  if (USE_MOCK_DATA) {
+    return mockAnalyzers.find((a) => a.session_id === sessionId) || null
+  }
+
+  const supabase = await createClient()
+  const { data, error } = await supabase
+    .from("studio_analyzers")
+    .select("*")
+    .eq("session_id", sessionId)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle()
+
+  if (error) {
+    console.error("Error fetching analyzer:", error)
+    return null
+  }
+
+  return data as StudioAnalyzer | null
+}
+
+export async function createAnalyzer(
+  sessionId: string,
+  entry: {
+    status: StudioAnalyzerStatus
+    data: StudioAnalyzerData | null
+    prompt_version: string
+    raw_openai_response: Record<string, unknown> | null
+    error_message: string | null
+  }
+): Promise<{ success: boolean; data?: StudioAnalyzer; error?: string }> {
+  const row = { session_id: sessionId, ...entry }
+
+  if (USE_MOCK_DATA) {
+    const now = new Date().toISOString()
+    mockAnalyzers = mockAnalyzers.filter((a) => a.session_id !== sessionId)
+    const newRow: StudioAnalyzer = { ...row, id: crypto.randomUUID(), created_at: now, updated_at: now }
+    mockAnalyzers.push(newRow)
+    return { success: true, data: newRow }
+  }
+
+  const supabase = await createClient()
+  await supabase.from("studio_analyzers").delete().eq("session_id", sessionId)
+  const { data, error } = await supabase.from("studio_analyzers").insert(row).select().single()
+  if (error) return { success: false, error: error.message }
+  return { success: true, data: data as StudioAnalyzer }
 }
 
 // ---------------------------------------------------------------------------

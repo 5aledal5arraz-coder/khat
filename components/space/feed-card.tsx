@@ -3,7 +3,6 @@
 import { useState, useEffect, useRef } from "react"
 import Link from "next/link"
 import Image from "next/image"
-import { domToPng } from "modern-screenshot"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -29,17 +28,11 @@ import {
 import { toggleLike, createReply as apiCreateReply, createReport } from "@/lib/space-api"
 import { useAuth } from "@/components/providers/auth-provider"
 import { toast } from "@/lib/use-toast"
+import { formatArabicCount } from "@/lib/utils"
 import type { FeedItem, Article, Thought } from "@/types/space"
 
 interface FeedCardProps {
   item: FeedItem
-}
-
-// Helper to escape HTML entities for safe innerHTML insertion
-function escapeHtml(text: string): string {
-  const div = document.createElement("div")
-  div.textContent = text
-  return div.innerHTML
 }
 
 // Format date consistently for SSR (no relative time to avoid hydration mismatch)
@@ -64,11 +57,20 @@ function RelativeTime({ date }: { date: string }) {
     const diffHours = Math.floor(diffMs / 3600000)
     const diffDays = Math.floor(diffMs / 86400000)
 
+    const arTime = (n: number, singular: string): string => {
+      const forms = { "دقيقة": ["دقيقة", "دقيقتين", "دقائق"], "ساعة": ["ساعة", "ساعتين", "ساعات"], "يوم": ["يوم", "يومين", "أيام"] } as const
+      const [sing, dual, plural] = forms[singular as keyof typeof forms]
+      if (n === 1) return sing
+      if (n === 2) return dual
+      if (n <= 10) return `${n} ${plural}`
+      return `${n} ${sing}`
+    }
+
     let result: string
     if (diffMins < 1) result = "الآن"
-    else if (diffMins < 60) result = `منذ ${diffMins} دقيقة`
-    else if (diffHours < 24) result = `منذ ${diffHours} ساعة`
-    else if (diffDays < 7) result = `منذ ${diffDays} يوم`
+    else if (diffMins < 60) result = `منذ ${arTime(diffMins, "دقيقة")}`
+    else if (diffHours < 24) result = `منذ ${arTime(diffHours, "ساعة")}`
+    else if (diffDays < 7) result = `منذ ${arTime(diffDays, "يوم")}`
     else result = formatDate(date)
 
     // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -472,6 +474,7 @@ function ThoughtFeedCard({ item }: { item: FeedItem }) {
       await new Promise(resolve => setTimeout(resolve, 50))
 
       // Capture the screenshot using modern-screenshot (better font support)
+      const { domToPng } = await import("modern-screenshot")
       const dataUrl = await domToPng(wrapper, {
         scale: 2,
         quality: 1,
@@ -610,7 +613,7 @@ function ThoughtFeedCard({ item }: { item: FeedItem }) {
               className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-primary transition-colors"
             >
               <MessageCircle className="h-4 w-4" />
-              <span>{replies.length > 0 ? replies.length : "رد"}</span>
+              <span>{replies.length > 0 ? formatArabicCount(replies.length, "رد") : "رد"}</span>
               {replies.length > 0 && (
                 showReplies ? (
                   <ChevronUp className="h-3 w-3" />

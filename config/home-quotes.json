@@ -1,0 +1,40 @@
+{
+  "quotes": [
+    {
+      "id": "hq-1",
+      "text": "أحياناً أعمق المحادثات تبدأ بصمت.",
+      "attribution": "بودكاست خط",
+      "episode_id": "1",
+      "episode_slug": "healthy-relationships",
+      "episode_title": "كيف نبني علاقات صحية ومستدامة؟",
+      "theme": "التأمل",
+      "status": "published",
+      "created_at": "2024-12-01T00:00:00Z",
+      "updated_at": "2024-12-01T00:00:00Z"
+    },
+    {
+      "id": "hq-2",
+      "text": "الفشل ليس عكس النجاح، بل هو جزء من الطريق إليه.",
+      "attribution": "أحمد العلي",
+      "episode_id": "2",
+      "episode_slug": "entrepreneurship-journey",
+      "episode_title": "رحلة ريادة الأعمال: من الفكرة إلى النجاح",
+      "theme": "الطموح",
+      "status": "published",
+      "created_at": "2024-12-02T00:00:00Z",
+      "updated_at": "2024-12-02T00:00:00Z"
+    },
+    {
+      "id": "hq-3",
+      "text": "معرفة الذات تبدأ بالصمت والتأمل.",
+      "attribution": "نورة القحطاني",
+      "episode_id": "3",
+      "episode_slug": "self-discovery",
+      "episode_title": "اكتشاف الذات: رحلة نحو الوعي",
+      "theme": "وعي الذات",
+      "status": "published",
+      "created_at": "2024-12-03T00:00:00Z",
+      "updated_at": "2024-12-03T00:00:00Z"
+    }
+  ]
+}

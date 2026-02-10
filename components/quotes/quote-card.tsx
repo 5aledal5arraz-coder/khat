@@ -1,18 +1,24 @@
 "use client"
 
-import { useState } from "react"
+import { useState, lazy, Suspense } from "react"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { Copy, Check, Share2, Bookmark } from "lucide-react"
+import { Copy, Check, Share2, Bookmark, ImageDown } from "lucide-react"
 import { isItemSaved, toggleSaveItem } from "@/lib/saved"
 import type { Quote, Guest } from "@/types/database"
 
+const QuoteImageModal = lazy(() =>
+  import("./quote-image-modal").then((m) => ({ default: m.QuoteImageModal }))
+)
+
 interface QuoteCardProps {
   quote: Quote & { guest?: Guest | null }
+  episodeTitle?: string
 }
 
-export function QuoteCard({ quote }: QuoteCardProps) {
+export function QuoteCard({ quote, episodeTitle }: QuoteCardProps) {
   const [copied, setCopied] = useState(false)
+  const [showImageModal, setShowImageModal] = useState(false)
   const quoteId = quote.id || btoa(encodeURIComponent(quote.text.slice(0, 50))).slice(0, 20)
   const [isSaved, setIsSaved] = useState(() => {
     if (typeof window === "undefined") return false
@@ -104,7 +110,25 @@ export function QuoteCard({ quote }: QuoteCardProps) {
             <Share2 className="h-4 w-4" />
             <span>مشاركة</span>
           </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setShowImageModal(true)}
+            className="gap-1"
+          >
+            <ImageDown className="h-4 w-4" />
+            <span>صورة</span>
+          </Button>
         </div>
+        {showImageModal && (
+          <Suspense fallback={null}>
+            <QuoteImageModal
+              quote={quote}
+              episodeTitle={episodeTitle}
+              onClose={() => setShowImageModal(false)}
+            />
+          </Suspense>
+        )}
       </CardContent>
     </Card>
   )

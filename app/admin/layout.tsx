@@ -15,6 +15,9 @@ import {
   PanelLeft,
   Shield,
   BarChart3,
+  FileText,
+  Mic,
+  Home,
 } from "lucide-react"
 import { useState } from "react"
 import { cn } from "@/lib/utils"
@@ -23,11 +26,14 @@ import { Button } from "@/components/ui/button"
 const navItems = [
   { href: "/admin", icon: LayoutDashboard, label: "الرئيسية" },
   { href: "/admin/episodes", icon: PlayCircle, label: "الحلقات" },
+  { href: "/admin/studio", icon: Mic, label: "الاستوديو" },
+  { href: "/admin/home-content", icon: Home, label: "الصفحة الرئيسية" },
   { href: "/admin/guests", icon: Users, label: "الضيوف" },
   { href: "/admin/submissions", icon: Inbox, label: "الطلبات" },
   { href: "/admin/moderation", icon: Shield, label: "الإشراف" },
   { href: "/admin/ads", icon: Megaphone, label: "الإعلانات" },
   { href: "/admin/analytics", icon: BarChart3, label: "الإحصائيات" },
+  { href: "/admin/media-kit", icon: FileText, label: "ملف الشراكة" },
   { href: "/admin/settings", icon: Settings, label: "الإعدادات" },
 ]
 

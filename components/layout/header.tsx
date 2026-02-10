@@ -1,17 +1,18 @@
 "use client"
 
 import Link from "next/link"
+import Image from "next/image"
 import { useState } from "react"
 import { useRouter } from "next/navigation"
 import { Search, X } from "lucide-react"
-import { Button } from "@/components/ui/button"
+import { Button, buttonVariants } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 
 const navigation = [
   { name: "الحلقات", href: "/episodes" },
   { name: "الضيوف", href: "/guests" },
   { name: "المجموعات", href: "/series" },
-  { name: "المساحة", href: "/space" },
+  { name: "حبر", href: "/space" },
   { name: "الموارد", href: "/resources" },
 ]
 
@@ -30,11 +31,21 @@ export function Header() {
   }
 
   return (
-    <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80">
-      <nav className="container mx-auto flex h-14 items-center justify-between px-4">
+    <header
+      className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80"
+      style={{ paddingTop: "env(safe-area-inset-top, 0px)" }}
+    >
+      <nav className="container mx-auto flex h-14 items-center justify-between px-4 sm:h-16">
         {/* Logo */}
-        <Link href="/" className="flex items-center gap-2">
-          <span className="text-2xl font-bold text-primary">خط</span>
+        <Link href="/" className="flex shrink-0 items-center">
+          <Image
+            src="/logo.png"
+            alt="خط"
+            width={48}
+            height={48}
+            className="h-10 w-auto sm:h-14"
+            priority
+          />
         </Link>
 
         {/* Desktop Navigation */}
@@ -84,10 +95,11 @@ export function Header() {
                 <Search className="h-5 w-5" />
                 <span className="sr-only">بحث</span>
               </Button>
-              <Link href="/sponsor" className="hidden md:block">
-                <Button variant="default" size="sm">
-                  كن راعياً
-                </Button>
+              <Link
+                href="/sponsor"
+                className={buttonVariants({ variant: "default", size: "sm" })}
+              >
+                كن راعياً
               </Link>
             </>
           )}

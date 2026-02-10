@@ -84,21 +84,55 @@ CREATE TABLE IF NOT EXISTS newsletter_subscribers (
 -- Sponsorship leads table
 CREATE TABLE IF NOT EXISTS sponsorship_leads (
   id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
-  name TEXT NOT NULL,
+  -- Company Info
+  company_name TEXT NOT NULL,
+  industry TEXT NOT NULL,
+  contact_name TEXT NOT NULL,
+  job_title TEXT NOT NULL,
   email TEXT NOT NULL,
-  company TEXT,
-  message TEXT,
+  phone TEXT NOT NULL,
+  -- Campaign Details
+  collaboration_types JSONB NOT NULL DEFAULT '[]',
+  collaboration_other TEXT,
+  -- Objectives
+  main_goal TEXT NOT NULL,
+  target_audience TEXT NOT NULL,
+  preferred_timeline TEXT,
+  -- Budget
+  budget_range TEXT NOT NULL,
+  -- Additional
+  additional_info TEXT,
+  -- Meta
+  status TEXT NOT NULL DEFAULT 'new',
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
 -- Guest applications table
 CREATE TABLE IF NOT EXISTS guest_applications (
   id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
+  -- Step 1: Basic Info
   name TEXT NOT NULL,
   email TEXT NOT NULL,
-  topic TEXT,
-  links TEXT,
-  bio TEXT,
+  phone TEXT NOT NULL,
+  country TEXT NOT NULL,
+  can_travel_to_kuwait TEXT,
+  -- Step 2: Your Story
+  story_idea TEXT NOT NULL,
+  beyond_job_title TEXT NOT NULL,
+  life_changing_moment TEXT NOT NULL,
+  hope_people_understand TEXT NOT NULL,
+  unasked_question TEXT NOT NULL,
+  why_khat TEXT NOT NULL,
+  -- Step 3: Recording & Appearance
+  previous_podcast BOOLEAN NOT NULL DEFAULT false,
+  previous_podcast_info TEXT,
+  prefer_dialogue_or_story TEXT NOT NULL,
+  topics_to_avoid TEXT,
+  filming_concern TEXT NOT NULL DEFAULT 'no',
+  agrees_to_publish BOOLEAN NOT NULL DEFAULT true,
+  social_links TEXT,
+  -- Meta
+  status TEXT NOT NULL DEFAULT 'new',
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
@@ -138,6 +172,158 @@ CREATE POLICY "Resources are viewable by everyone" ON resources FOR SELECT USING
 CREATE POLICY "Anyone can subscribe to newsletter" ON newsletter_subscribers FOR INSERT WITH CHECK (true);
 CREATE POLICY "Anyone can submit sponsorship inquiry" ON sponsorship_leads FOR INSERT WITH CHECK (true);
 CREATE POLICY "Anyone can submit guest application" ON guest_applications FOR INSERT WITH CHECK (true);
+
+-- Add moderation_reason column to Hibr content tables (for AI moderation)
+ALTER TABLE IF EXISTS hibr_articles ADD COLUMN IF NOT EXISTS moderation_reason TEXT;
+ALTER TABLE IF EXISTS hibr_thoughts ADD COLUMN IF NOT EXISTS moderation_reason TEXT;
+ALTER TABLE IF EXISTS hibr_comments ADD COLUMN IF NOT EXISTS moderation_reason TEXT;
+ALTER TABLE IF EXISTS hibr_replies ADD COLUMN IF NOT EXISTS moderation_reason TEXT;
+
+-- Studio sessions table (YouTube episode analysis tool)
+CREATE TABLE IF NOT EXISTS studio_sessions (
+  id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
+  youtube_url TEXT NOT NULL,
+  video_id TEXT NOT NULL,
+  status TEXT NOT NULL DEFAULT 'draft',
+  video_title TEXT,
+  channel_title TEXT,
+  published_at TIMESTAMPTZ,
+  duration_seconds INTEGER,
+  thumbnail_url TEXT,
+  raw_youtube_response JSONB,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_studio_sessions_video_id ON studio_sessions(video_id);
+CREATE INDEX IF NOT EXISTS idx_studio_sessions_status ON studio_sessions(status);
+CREATE INDEX IF NOT EXISTS idx_studio_sessions_created_at ON studio_sessions(created_at DESC);
+
+ALTER TABLE studio_sessions ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Studio sessions are viewable by everyone" ON studio_sessions FOR SELECT USING (true);
+CREATE POLICY "Studio sessions can be inserted by everyone" ON studio_sessions FOR INSERT WITH CHECK (true);
+CREATE POLICY "Studio sessions can be updated by everyone" ON studio_sessions FOR UPDATE USING (true);
+CREATE POLICY "Studio sessions can be deleted by everyone" ON studio_sessions FOR DELETE USING (true);
+
+-- Studio transcripts table (stores fetched/uploaded transcripts for each session)
+CREATE TABLE IF NOT EXISTS studio_transcripts (
+  id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
+  session_id UUID REFERENCES studio_sessions(id) ON DELETE CASCADE NOT NULL,
+  source TEXT NOT NULL DEFAULT 'youtube_captions',
+  language TEXT NOT NULL DEFAULT 'ar',
+  transcript_raw TEXT NOT NULL DEFAULT '',
+  transcript_clean TEXT NOT NULL DEFAULT '',
+  word_count INTEGER NOT NULL DEFAULT 0,
+  char_count INTEGER NOT NULL DEFAULT 0,
+  status TEXT NOT NULL DEFAULT 'ready',
+  error_message TEXT,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_studio_transcripts_session_id ON studio_transcripts(session_id);
+CREATE INDEX IF NOT EXISTS idx_studio_transcripts_status ON studio_transcripts(status);
+
+ALTER TABLE studio_transcripts ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Studio transcripts are viewable by everyone" ON studio_transcripts FOR SELECT USING (true);
+CREATE POLICY "Studio transcripts can be inserted by everyone" ON studio_transcripts FOR INSERT WITH CHECK (true);
+CREATE POLICY "Studio transcripts can be updated by everyone" ON studio_transcripts FOR UPDATE USING (true);
+CREATE POLICY "Studio transcripts can be deleted by everyone" ON studio_transcripts FOR DELETE USING (true);
+
+-- Studio AI outputs table (stores generated AI content for each session)
+CREATE TABLE IF NOT EXISTS studio_ai_outputs (
+  id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
+  session_id UUID REFERENCES studio_sessions(id) ON DELETE CASCADE NOT NULL,
+  model TEXT NOT NULL DEFAULT 'gpt-4o-mini',
+  prompt_version TEXT NOT NULL DEFAULT 'v1',
+  status TEXT NOT NULL DEFAULT 'generating',
+  title_best TEXT NOT NULL DEFAULT '',
+  title_alternatives JSONB NOT NULL DEFAULT '[]',
+  thumbnail_text_options JSONB NOT NULL DEFAULT '[]',
+  youtube_description TEXT NOT NULL DEFAULT '',
+  seo_keywords JSONB NOT NULL DEFAULT '[]',
+  hashtags JSONB NOT NULL DEFAULT '[]',
+  raw_openai_response JSONB,
+  error_message TEXT,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_studio_ai_outputs_session_id ON studio_ai_outputs(session_id);
+CREATE INDEX IF NOT EXISTS idx_studio_ai_outputs_status ON studio_ai_outputs(status);
+
+ALTER TABLE studio_ai_outputs ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Studio AI outputs are viewable by everyone" ON studio_ai_outputs FOR SELECT USING (true);
+CREATE POLICY "Studio AI outputs can be inserted by everyone" ON studio_ai_outputs FOR INSERT WITH CHECK (true);
+CREATE POLICY "Studio AI outputs can be updated by everyone" ON studio_ai_outputs FOR UPDATE USING (true);
+CREATE POLICY "Studio AI outputs can be deleted by everyone" ON studio_ai_outputs FOR DELETE USING (true);
+
+-- Studio chapters table (AI-generated YouTube chapters per session)
+CREATE TABLE IF NOT EXISTS studio_chapters (
+  id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
+  session_id UUID REFERENCES studio_sessions(id) ON DELETE CASCADE NOT NULL,
+  status TEXT NOT NULL DEFAULT 'generating',
+  chapters JSONB NOT NULL DEFAULT '[]',
+  raw_openai_response JSONB,
+  error_message TEXT,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_studio_chapters_session_id ON studio_chapters(session_id);
+
+ALTER TABLE studio_chapters ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Studio chapters are viewable by everyone" ON studio_chapters FOR SELECT USING (true);
+CREATE POLICY "Studio chapters can be inserted by everyone" ON studio_chapters FOR INSERT WITH CHECK (true);
+CREATE POLICY "Studio chapters can be updated by everyone" ON studio_chapters FOR UPDATE USING (true);
+CREATE POLICY "Studio chapters can be deleted by everyone" ON studio_chapters FOR DELETE USING (true);
+
+-- Studio clips table (AI-generated viral clip suggestions per session)
+CREATE TABLE IF NOT EXISTS studio_clips (
+  id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
+  session_id UUID REFERENCES studio_sessions(id) ON DELETE CASCADE NOT NULL,
+  status TEXT NOT NULL DEFAULT 'generating',
+  clips JSONB NOT NULL DEFAULT '[]',
+  raw_openai_response JSONB,
+  error_message TEXT,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_studio_clips_session_id ON studio_clips(session_id);
+
+ALTER TABLE studio_clips ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Studio clips are viewable by everyone" ON studio_clips FOR SELECT USING (true);
+CREATE POLICY "Studio clips can be inserted by everyone" ON studio_clips FOR INSERT WITH CHECK (true);
+CREATE POLICY "Studio clips can be updated by everyone" ON studio_clips FOR UPDATE USING (true);
+CREATE POLICY "Studio clips can be deleted by everyone" ON studio_clips FOR DELETE USING (true);
+
+-- Studio Website Packages table
+CREATE TABLE IF NOT EXISTS studio_website_packages (
+  id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
+  session_id UUID REFERENCES studio_sessions(id) ON DELETE CASCADE NOT NULL,
+  status TEXT NOT NULL DEFAULT 'generating',
+  hero_summary TEXT,
+  full_summary TEXT,
+  takeaways TEXT[] NOT NULL DEFAULT '{}',
+  quotes JSONB NOT NULL DEFAULT '[]',
+  topics TEXT[] NOT NULL DEFAULT '{}',
+  resources JSONB NOT NULL DEFAULT '[]',
+  timestamps JSONB NOT NULL DEFAULT '[]',
+  linked_episode_id TEXT,
+  raw_openai_response JSONB,
+  error_message TEXT,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_studio_website_packages_session_id ON studio_website_packages(session_id);
+
+ALTER TABLE studio_website_packages ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Studio website packages are viewable by everyone" ON studio_website_packages FOR SELECT USING (true);
+CREATE POLICY "Studio website packages can be inserted by everyone" ON studio_website_packages FOR INSERT WITH CHECK (true);
+CREATE POLICY "Studio website packages can be updated by everyone" ON studio_website_packages FOR UPDATE USING (true);
+CREATE POLICY "Studio website packages can be deleted by everyone" ON studio_website_packages FOR DELETE USING (true);
 
 -- Sample data for testing (optional - comment out in production)
 /*

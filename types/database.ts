@@ -284,6 +284,102 @@ export interface StudioWebsitePackage {
   updated_at: string
 }
 
+// ---------------------------------------------------------------------------
+// Studio Analyzer (post-publish YouTube performance analysis)
+// ---------------------------------------------------------------------------
+
+export type StudioAnalyzerStatus = 'idle' | 'generating' | 'ready' | 'error'
+
+export interface StudioAnalyzerDiagnosis {
+  classification: string
+  reasoning: string
+  key_metrics_summary: string
+}
+
+export interface StudioAnalyzerImprovements {
+  alt_titles: string[]
+  optimized_description: string
+  chapters: string
+  pinned_comment: string
+  thumbnail_concepts: string[]
+}
+
+export interface StudioAnalyzerRevivalStep {
+  order: number
+  action: string
+  detail: string
+}
+
+export interface StudioAnalyzerData {
+  diagnosis: StudioAnalyzerDiagnosis
+  improvements: StudioAnalyzerImprovements
+  revival: { steps: StudioAnalyzerRevivalStep[] }
+  clips: StudioClipItem[]
+}
+
+export interface StudioAnalyzer {
+  id: string
+  session_id: string
+  status: StudioAnalyzerStatus
+  data: StudioAnalyzerData | null
+  prompt_version: string
+  raw_openai_response: Record<string, unknown> | null
+  error_message: string | null
+  created_at: string
+  updated_at: string
+}
+
+// ---------------------------------------------------------------------------
+// Home Page Content Models
+// ---------------------------------------------------------------------------
+
+export interface HomeQuote {
+  id: string
+  text: string
+  attribution: string
+  episode_id?: string
+  episode_slug?: string
+  episode_title?: string
+  theme?: string
+  scheduled_date?: string // YYYY-MM-DD
+  status: 'draft' | 'published'
+  created_at: string
+  updated_at: string
+}
+
+export type PathSlug = 'understanding-people' | 'motivation-work' | 'faith-meaning' | 'self-awareness'
+
+export interface EmotionalPath {
+  id: string
+  slug: PathSlug
+  title: string
+  subtitle: string
+  icon: string
+  color: string
+  episode_ids: string[]
+  quote_ids: string[]
+  order: number
+}
+
+export interface DailyReflection {
+  id: string
+  date: string // YYYY-MM-DD
+  short_quote: string
+  reflection: string
+  thinking_question: string
+  attribution?: string
+  episode_id?: string
+  episode_slug?: string
+  episode_title?: string
+  quote_id?: string
+  quote_text?: string
+  path_slug?: PathSlug
+  path_title?: string
+  status: 'draft' | 'scheduled' | 'published'
+  created_at: string
+  updated_at: string
+}
+
 export type Database = {
   public: {
     Tables: {
@@ -1065,6 +1161,36 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "studio_website_packages_session_id_fkey"
+            columns: ["session_id"]
+            referencedRelation: "studio_sessions"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
+      studio_analyzers: {
+        Row: StudioAnalyzer
+        Insert: {
+          id?: string
+          session_id: string
+          status?: string
+          data?: StudioAnalyzerData | null
+          prompt_version?: string
+          raw_openai_response?: Record<string, unknown> | null
+          error_message?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          status?: string
+          data?: StudioAnalyzerData | null
+          prompt_version?: string
+          raw_openai_response?: Record<string, unknown> | null
+          error_message?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "studio_analyzers_session_id_fkey"
             columns: ["session_id"]
             referencedRelation: "studio_sessions"
             referencedColumns: ["id"]

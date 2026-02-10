@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button"
 import { GuestAvatar } from "@/components/guests/guest-avatar"
 import { Play, Instagram, Linkedin, Globe, Youtube } from "lucide-react"
 import { XIcon } from "@/components/icons/x-icon"
+import { getYouTubeId } from "@/lib/utils"
 import Link from "next/link"
 
 interface GuestIntroSectionProps {
@@ -29,11 +30,6 @@ const socialIcons: Record<string, IconComponent> = {
   linkedin: Linkedin,
   youtube: Youtube,
   website: Globe,
-}
-
-function getYouTubeId(url: string): string {
-  const match = url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/|youtube\.com\/shorts\/)([^&\s]+)/)
-  return match ? match[1] : ""
 }
 
 export function GuestIntroSection({ guest, testimonial, testimonialVideoUrl }: GuestIntroSectionProps) {
@@ -125,10 +121,10 @@ export function GuestIntroSection({ guest, testimonial, testimonialVideoUrl }: G
             <h3 className="mb-3 text-sm font-medium text-muted-foreground">
               كلمة من الضيف
             </h3>
-            <div className="relative aspect-video max-w-md overflow-hidden rounded-xl bg-muted">
+            <div className="relative aspect-video max-w-md overflow-hidden rounded-xl bg-muted" style={{ contain: "layout paint", transform: "translateZ(0)" }}>
               {showVideo ? (
                 <iframe
-                  src={`https://www.youtube.com/embed/${videoId}?autoplay=1`}
+                  src={`https://www.youtube.com/embed/${videoId}?autoplay=1&playsinline=1`}
                   title={`كلمة ${guest.name}`}
                   frameBorder="0"
                   allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"

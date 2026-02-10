@@ -1,0 +1,21 @@
+{
+  "sponsoredCard": {
+    "enabled": false,
+    "data": {
+      "name": "الراعي الرسمي",
+      "logo": "",
+      "title": "عنوان الإعلان الترويجي",
+      "description": "وصف قصير عن المنتج أو الخدمة المُعلن عنها.",
+      "url": "#",
+      "image": ""
+    }
+  },
+  "bannerAd": {
+    "enabled": false,
+    "data": {
+      "image": "",
+      "url": "#",
+      "alt": "إعلان"
+    }
+  }
+}

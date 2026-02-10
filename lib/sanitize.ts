@@ -5,14 +5,22 @@ const ARTICLE_ALLOWED_TAGS = ['p', 'br', 'strong', 'em', 'ul', 'ol', 'li', 'h2',
 const ARTICLE_ALLOWED_ATTRS = ['href', 'target', 'rel']
 
 /**
- * Sanitize article content: allow safe formatting HTML
+ * Sanitize article content: allow safe formatting HTML.
+ * Forces rel="noopener noreferrer" on all links for security.
  */
 export function sanitizeArticleContent(html: string): string {
+  DOMPurify.addHook('afterSanitizeAttributes', (node) => {
+    if (node.tagName === 'A') {
+      node.setAttribute('rel', 'noopener noreferrer')
+      node.setAttribute('target', '_blank')
+    }
+  })
   const clean = DOMPurify.sanitize(html, {
     ALLOWED_TAGS: ARTICLE_ALLOWED_TAGS,
     ALLOWED_ATTR: ARTICLE_ALLOWED_ATTRS,
     ADD_ATTR: ['target'],
   })
+  DOMPurify.removeHook('afterSanitizeAttributes')
   return normalizeUnicode(clean)
 }
 

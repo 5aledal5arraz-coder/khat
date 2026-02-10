@@ -8,8 +8,8 @@ import { cn } from "@/lib/utils"
 const navItems = [
   { href: "/", icon: Home, label: "الرئيسية" },
   { href: "/episodes", icon: Headphones, label: "الحلقات" },
-  { href: "/space", icon: PenSquare, label: "المساحة" },
-  { href: "/start-here", icon: Compass, label: "ابدأ" },
+  { href: "/space", icon: PenSquare, label: "حبر" },
+  { href: "/about", icon: Compass, label: "عنّا" },
   { href: "/more", icon: MoreHorizontal, label: "المزيد" },
 ]
 
@@ -17,7 +17,13 @@ export function MobileNav() {
   const pathname = usePathname()
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-50 border-t bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/80 md:hidden">
+    <nav
+      className="fixed bottom-0 left-0 right-0 z-50 border-t bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/80 md:hidden"
+      style={{
+        paddingBottom: "env(safe-area-inset-bottom, 0px)",
+        transform: "translateZ(0)", // force GPU layer — prevents iOS losing position
+      }}
+    >
       <div className="flex items-center justify-around">
         {navItems.map((item) => {
           const isActive = pathname === item.href ||
@@ -28,7 +34,7 @@ export function MobileNav() {
               key={item.href}
               href={item.href}
               className={cn(
-                "flex flex-1 flex-col items-center gap-1 py-3 text-xs transition-colors",
+                "flex flex-1 flex-col items-center gap-1 py-2.5 text-xs transition-colors",
                 isActive
                   ? "text-primary"
                   : "text-muted-foreground hover:text-foreground"

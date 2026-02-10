@@ -2,7 +2,53 @@
 
 @layer base {
   :root {
-    /* KHAT Dark Theme - Primary */
+    color-scheme: light;
+
+    /* KHAT Light Theme */
+    --background: 40 33% 97%;
+    --foreground: 212 29% 12%;
+    --card: 0 0% 100%;
+    --card-foreground: 212 29% 12%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 212 29% 12%;
+
+    /* Gold accent as primary */
+    --primary: 43 54% 54%;
+    --primary-foreground: 0 0% 100%;
+
+    /* Elevated surface as secondary */
+    --secondary: 40 20% 93%;
+    --secondary-foreground: 212 29% 12%;
+
+    /* Muted colors */
+    --muted: 40 20% 93%;
+    --muted-foreground: 212 15% 45%;
+
+    /* Purple accent */
+    --accent: 266 32% 44%;
+    --accent-foreground: 0 0% 100%;
+
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 40 15% 87%;
+    --input: 40 15% 87%;
+    --ring: 43 54% 54%;
+    --radius: 0.5rem;
+
+    /* Custom KHAT colors */
+    --gold: 43 54% 54%;
+    --purple: 266 32% 44%;
+    --surface: 0 0% 100%;
+    --elevated: 40 20% 93%;
+    --text-secondary: 212 15% 45%;
+    --text-muted: 212 15% 45%;
+  }
+
+  .dark {
+    color-scheme: dark;
+
+    /* KHAT Dark Theme */
     --background: 212 29% 6%;
     --foreground: 40 41% 92%;
     --card: 212 30% 10%;
@@ -10,19 +56,15 @@
     --popover: 212 30% 10%;
     --popover-foreground: 40 41% 92%;
 
-    /* Gold accent as primary */
     --primary: 43 54% 54%;
     --primary-foreground: 212 29% 6%;
 
-    /* Elevated surface as secondary */
     --secondary: 213 35% 15%;
     --secondary-foreground: 40 41% 92%;
 
-    /* Muted colors */
     --muted: 213 35% 15%;
     --muted-foreground: 36 5% 54%;
 
-    /* Purple accent */
     --accent: 266 32% 44%;
     --accent-foreground: 40 41% 92%;
 
@@ -32,9 +74,7 @@
     --border: 213 31% 19%;
     --input: 213 31% 19%;
     --ring: 43 54% 54%;
-    --radius: 0.5rem;
 
-    /* Custom KHAT colors */
     --gold: 43 54% 54%;
     --purple: 266 32% 44%;
     --surface: 212 30% 10%;
@@ -82,8 +122,30 @@
     @apply border-border;
   }
 
+  html {
+    overflow-x: hidden;
+    -webkit-text-size-adjust: 100%;
+    /* Fallback for browsers without dvh support */
+    min-height: 100vh;
+    min-height: 100dvh;
+  }
+
   body {
     @apply bg-background text-foreground;
+    overflow-x: hidden;
+    overscroll-behavior-x: none;
+  }
+
+  /* Bottom padding on main is driven by JS-measured --mobile-nav-h so it
+     always clears the actual fixed bottom-nav (including safe-area).
+     Fallback of 5rem is the old pb-20. On md+ the nav is hidden so 0. */
+  .main-content {
+    padding-bottom: var(--mobile-nav-h, 5rem);
+  }
+  @media (min-width: 768px) {
+    .main-content {
+      padding-bottom: 0;
+    }
   }
 
   /* Focus-visible styles for accessibility */
@@ -127,6 +189,15 @@
 
 /* Animation utilities */
 @layer utilities {
+  /* Hide scrollbar but keep scroll functionality */
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
   .animate-in {
     animation: animate-in 0.2s ease-out;
   }

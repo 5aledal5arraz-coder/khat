@@ -22,7 +22,7 @@ const Select = React.forwardRef<HTMLSelectElement, SelectProps>(
         >
           {children}
         </select>
-        <ChevronDown className="absolute start-2 top-1/2 h-4 w-4 -translate-y-1/2 opacity-50 pointer-events-none" />
+        <ChevronDown className="absolute end-2 top-1/2 h-4 w-4 -translate-y-1/2 opacity-50 pointer-events-none" />
       </div>
     )
   }

@@ -2,12 +2,14 @@ import Link from "next/link"
 import Image from "next/image"
 import { Youtube, Instagram } from "lucide-react"
 import { XIcon } from "@/components/icons/x-icon"
+import { TikTokIcon } from "@/components/icons/tiktok-icon"
+import { WhatsAppIcon } from "@/components/icons/whatsapp-icon"
 
 const navigation = {
   main: [
     { name: "الحلقات", href: "/episodes" },
     { name: "الضيوف", href: "/guests" },
-    { name: "ابدأ من هنا", href: "/start-here" },
+    { name: "عن خط", href: "/about" },
     { name: "كن راعياً", href: "/sponsor" },
     { name: "تواصل", href: "/contact" },
   ],
@@ -19,13 +21,23 @@ const navigation = {
     },
     {
       name: "X",
-      href: "https://x.com/KhatPodcast",
+      href: "https://x.com/khat_podcast",
       icon: XIcon,
     },
     {
       name: "Instagram",
       href: "https://instagram.com/KhatPodcast",
       icon: Instagram,
+    },
+    {
+      name: "TikTok",
+      href: "https://tiktok.com/@khatpodcast",
+      icon: TikTokIcon,
+    },
+    {
+      name: "WhatsApp",
+      href: "https://whatsapp.com/channel/0029VaE4SfPIN9ip2O3BBL3G",
+      icon: WhatsAppIcon,
     },
   ],
   platforms: [
@@ -64,7 +76,7 @@ export function Footer() {
                 <li key={item.name}>
                   <Link
                     href={item.href}
-                    className="text-sm text-muted-foreground hover:text-foreground"
+                    className="text-sm text-muted-foreground transition-colors hover:text-foreground"
                   >
                     {item.name}
                   </Link>
@@ -83,7 +95,7 @@ export function Footer() {
                     href={item.href}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="text-sm text-muted-foreground hover:text-foreground"
+                    className="text-sm text-muted-foreground transition-colors hover:text-foreground"
                   >
                     {item.name}
                   </a>
@@ -102,7 +114,7 @@ export function Footer() {
                   href={item.href}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="text-muted-foreground hover:text-foreground"
+                  className="text-muted-foreground transition-colors hover:text-foreground"
                 >
                   <span className="sr-only">{item.name}</span>
                   <item.icon className="h-5 w-5" />

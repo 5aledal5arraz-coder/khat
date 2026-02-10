@@ -6,6 +6,7 @@ import type {
   StudioChapters, StudioChapterItem,
   StudioClips, StudioClipItem,
   StudioWebsitePackage, WebsiteQuoteItem, WebsiteResourceItem, WebsiteTimestampItem,
+  StudioAnalyzer,
   Episode,
 } from "@/types/database"
 import type { TabStatus } from "./shared"
@@ -86,6 +87,12 @@ interface StudioSessionContextValue {
   setResources: (v: WebsiteResourceItem[]) => void
   setTimestamps: (v: WebsiteTimestampItem[]) => void
 
+  // Analyzer
+  analyzer: StudioAnalyzer | null
+  analyzerStatus: "idle" | "generating" | "ready" | "error"
+  analyzerError: string
+  generateAnalyzer: () => Promise<void>
+
   // Episodes (for push)
   episodes: Episode[]
   loadEpisodes: () => Promise<void>
@@ -158,6 +165,11 @@ export function StudioSessionProvider({
   const [resources, setResources] = useState<WebsiteResourceItem[]>([])
   const [timestamps, setTimestamps] = useState<WebsiteTimestampItem[]>([])
 
+  // --- Analyzer state ---
+  const [analyzer, setAnalyzer] = useState<StudioAnalyzer | null>(null)
+  const [analyzerStatus, setAnalyzerStatus] = useState<"idle" | "generating" | "ready" | "error">("idle")
+  const [analyzerError, setAnalyzerError] = useState("")
+
   // --- Episodes ---
   const [episodes, setEpisodes] = useState<Episode[]>([])
 
@@ -177,12 +189,13 @@ export function StudioSessionProvider({
   // --- Eager load all data on mount ---
   useEffect(() => {
     const loadAll = async () => {
-      const [transcriptRes, aiRes, chaptersRes, clipsRes, pkgRes] = await Promise.all([
+      const [transcriptRes, aiRes, chaptersRes, clipsRes, pkgRes, analyzerRes] = await Promise.all([
         fetch(`/api/admin/studio/${sid}/transcript`).then(r => r.ok ? r.json() : null).catch(() => null),
         fetch(`/api/admin/studio/${sid}/generate`).then(r => r.ok ? r.json() : null).catch(() => null),
         fetch(`/api/admin/studio/${sid}/chapters`).then(r => r.ok ? r.json() : null).catch(() => null),
         fetch(`/api/admin/studio/${sid}/clips`).then(r => r.ok ? r.json() : null).catch(() => null),
         fetch(`/api/admin/studio/${sid}/website-package`).then(r => r.ok ? r.json() : null).catch(() => null),
+        fetch(`/api/admin/studio/${sid}/analyzer`).then(r => r.ok ? r.json() : null).catch(() => null),
       ])
 
       // Transcript
@@ -232,6 +245,14 @@ export function StudioSessionProvider({
         setTimestamps(p.timestamps || [])
         setWebsitePkgStatus(p.status === "error" ? "error" : p.status === "generating" ? "generating" : "ready")
         if (p.error_message) setWebsitePkgError(p.error_message)
+      }
+
+      // Analyzer
+      if (analyzerRes?.analyzer) {
+        const a = analyzerRes.analyzer as StudioAnalyzer
+        setAnalyzer(a)
+        setAnalyzerStatus(a.status === "error" ? "error" : a.status === "generating" ? "generating" : "ready")
+        if (a.error_message) setAnalyzerError(a.error_message)
       }
     }
 
@@ -444,6 +465,22 @@ export function StudioSessionProvider({
     debouncedSaveWebPkg(updates)
   }, [debouncedSaveWebPkg])
 
+  // --- Analyzer actions ---
+  const generateAnalyzer = useCallback(async () => {
+    setAnalyzerStatus("generating")
+    setAnalyzerError("")
+    try {
+      const res = await fetch(`/api/admin/studio/${sid}/analyzer`, { method: "POST" })
+      const json = await res.json()
+      if (!res.ok) { setAnalyzerStatus("error"); setAnalyzerError(json.error || "فشل"); return }
+      setAnalyzer(json.analyzer)
+      setAnalyzerStatus("ready")
+    } catch {
+      setAnalyzerStatus("error")
+      setAnalyzerError("حدث خطأ في الاتصال")
+    }
+  }, [sid])
+
   // --- Episodes ---
   const loadEpisodes = useCallback(async () => {
     try {
@@ -604,6 +641,7 @@ export function StudioSessionProvider({
       return "idle"
     })(),
     export: websitePkgStatus === "ready" ? "ready" : "idle",
+    analyzer: analyzerStatus,
   }
 
   const value: StudioSessionContextValue = {
@@ -616,6 +654,7 @@ export function StudioSessionProvider({
     heroSummary, fullSummary, takeaways, topics, quotes, resources, timestamps,
     generateWebsitePackage, updateWebsitePkgField, debouncedSaveWebPkg,
     setHeroSummary, setFullSummary, setTakeaways, setTopics, setQuotes, setResources, setTimestamps,
+    analyzer, analyzerStatus, analyzerError, generateAnalyzer,
     episodes, loadEpisodes,
     generateAll, generateAllRunning, generateAllCurrentStep, generateAllCompleted, generateAllError,
     tabStatuses,

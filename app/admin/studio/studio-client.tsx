@@ -18,6 +18,7 @@ import { TabTimestamps } from "./components/tab-timestamps"
 import { TabClips } from "./components/tab-clips"
 import { TabSeoTopics } from "./components/tab-seo-topics"
 import { TabExport } from "./components/tab-export"
+import { TabAnalyzer } from "./components/tab-analyzer"
 
 type InputSource = "youtube" | "audio"
 
@@ -37,6 +38,7 @@ const TABS = [
   { value: "clips", label: "المقاطع القصيرة", statusKey: "clips" },
   { value: "seo", label: "SEO والمواضيع", statusKey: "seo" },
   { value: "export", label: "التصدير", statusKey: "export" },
+  { value: "analyzer", label: "تحليل الأداء", statusKey: "analyzer" },
 ] as const
 
 // ---------------------------------------------------------------------------
@@ -66,6 +68,7 @@ function StudioTabs() {
       <TabsContent value="clips"><TabClips /></TabsContent>
       <TabsContent value="seo"><TabSeoTopics /></TabsContent>
       <TabsContent value="export"><TabExport /></TabsContent>
+      <TabsContent value="analyzer"><TabAnalyzer /></TabsContent>
     </Tabs>
   )
 }

@@ -189,7 +189,7 @@ const DialogContent = React.forwardRef<HTMLDivElement, DialogContentProps>(
           role="dialog"
           aria-modal="true"
           className={cn(
-            "fixed start-[50%] top-[50%] z-50 grid w-full max-w-lg translate-x-1/2 -translate-y-1/2 gap-4 border bg-card p-6 shadow-lg sm:rounded-lg animate-in",
+            "fixed left-[50%] top-[50%] z-50 grid w-full max-w-lg -translate-x-1/2 -translate-y-1/2 gap-4 border bg-card p-6 shadow-lg sm:rounded-lg animate-in",
             "--tw-enter-scale: 0.95",
             className
           )}

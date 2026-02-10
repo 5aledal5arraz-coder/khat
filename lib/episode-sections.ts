@@ -13,14 +13,16 @@ const defaultConfig: EpisodeSectionsConfig = {
   ],
   assignments: {},
   hiddenEpisodes: [],
+  deletedEpisodes: [],
 }
 
 export async function getSectionsConfig(): Promise<EpisodeSectionsConfig> {
   try {
     const data = await readFile(SECTIONS_PATH, "utf-8")
     const config = JSON.parse(data) as EpisodeSectionsConfig
-    // Ensure hiddenEpisodes exists for older configs
+    // Ensure fields exist for older configs
     if (!config.hiddenEpisodes) config.hiddenEpisodes = []
+    if (!config.deletedEpisodes) config.deletedEpisodes = []
     return config
   } catch {
     return defaultConfig
@@ -29,7 +31,7 @@ export async function getSectionsConfig(): Promise<EpisodeSectionsConfig> {
 
 export async function getHiddenEpisodeIds(): Promise<Set<string>> {
   const config = await getSectionsConfig()
-  const hidden = new Set(config.hiddenEpisodes)
+  const hidden = new Set([...config.hiddenEpisodes, ...config.deletedEpisodes])
   // Also collect episodes assigned to hidden sections
   const hiddenSectionIds = new Set(
     config.sections.filter((s) => s.hidden).map((s) => s.id)

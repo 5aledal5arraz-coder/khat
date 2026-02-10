@@ -80,7 +80,15 @@ export async function POST(
 
   const cleanContent = sanitizeComment(body.content)
   const approvedCount = await getUserApprovedCount(user.id)
-  const modResult = moderateContent(cleanContent, approvedCount)
+  const modResult = await moderateContent(cleanContent, approvedCount)
+
+  // If AI flagged as harmful → block and ask user to edit
+  if (modResult.aiVerdict === 'harmful') {
+    return errorResponse(
+      'لا يمكن نشر هذا الرد لأنه يخالف إرشادات المجتمع. يرجى تعديل النص والمحاولة مرة أخرى.',
+      422
+    )
+  }
 
   const { data, error } = await supabase
     .from('hibr_replies')
@@ -88,18 +96,20 @@ export async function POST(
       thought_id: thoughtId,
       user_id: user.id,
       content: cleanContent,
-      moderation_status: modResult.status === 'auto_flagged' ? 'auto_flagged' : 'approved',
+      moderation_status: modResult.status,
+      moderation_reason: modResult.reasons.length > 0 ? modResult.reasons.join('، ') : null,
     })
     .select('*, profiles!hibr_replies_user_id_fkey(id, display_name, avatar_url)')
     .single()
 
   if (error) return errorResponse('حدث خطأ في إضافة الرد', 500)
 
-  // Update replies count
+  // Update replies count (only count approved + pending)
   const { count: repliesCount } = await supabase
     .from('hibr_replies')
     .select('*', { count: 'exact', head: true })
     .eq('thought_id', thoughtId)
+    .in('moderation_status', ['approved', 'pending'])
     .is('deleted_at', null)
 
   await supabase
@@ -107,5 +117,5 @@ export async function POST(
     .update({ replies_count: repliesCount ?? 0 })
     .eq('id', thoughtId)
 
-  return successResponse({ reply: data }, 201)
+  return successResponse({ reply: data, moderation: modResult }, 201)
 }

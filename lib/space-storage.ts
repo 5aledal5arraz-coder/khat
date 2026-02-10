@@ -39,10 +39,6 @@ export function deleteDraft(draftId: string): void {
   localStorage.setItem(DRAFTS_KEY, JSON.stringify(drafts))
 }
 
-export function hasDrafts(): boolean {
-  return getDrafts().length > 0
-}
-
 // Follows
 export function getFollowedAuthors(): string[] {
   if (typeof window === "undefined") return []
@@ -173,10 +169,6 @@ export function toggleReaction(articleId: string, reaction: ReactionType): React
   return reactions[articleId]
 }
 
-export function hasReaction(articleId: string, reaction: ReactionType): boolean {
-  return getArticleReactions(articleId).includes(reaction)
-}
-
 // Reading Progress
 const READING_PROGRESS_KEY = "khat-space-reading-progress"
 
@@ -207,13 +199,6 @@ export function setArticleProgress(articleId: string, progress: number): void {
     allProgress[articleId] = Math.min(100, Math.round(progress))
     localStorage.setItem(READING_PROGRESS_KEY, JSON.stringify(allProgress))
   }
-}
-
-export function markArticleAsRead(articleId: string): void {
-  if (typeof window === "undefined") return
-  const allProgress = getReadingProgress()
-  allProgress[articleId] = 100
-  localStorage.setItem(READING_PROGRESS_KEY, JSON.stringify(allProgress))
 }
 
 // Thought Likes

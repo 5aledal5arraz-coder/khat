@@ -21,51 +21,64 @@ import {
   fetchEpisodeBySlug,
   fetchLatestEpisode,
   fetchMostViewedRecent,
-  fetchEpisodes as fetchYouTubeEpisodes,
 } from '@/lib/youtube/queries'
 import { getEpisodeOverrides, applyOverrides } from '@/lib/episode-overrides'
-import { getHiddenEpisodeIds } from '@/lib/episode-sections'
+import { getHiddenEpisodeIds, getSectionsConfig } from '@/lib/episode-sections'
+import { getGuestAssignments, applyGuestAssignments } from '@/lib/episode-guests'
+import { getAllGuests } from '@/lib/admin/queries'
+import { searchEpisodes, searchGuests } from '@/lib/search'
+import { getPublishedQuotes } from '@/lib/episode-quotes'
+import { getEpisodeEnrichment } from '@/lib/episode-enrichments'
 
 const USE_MOCK_DATA = process.env.NEXT_PUBLIC_SUPABASE_URL?.includes('placeholder') || !process.env.NEXT_PUBLIC_SUPABASE_URL
 const USE_YOUTUBE = !!process.env.YOUTUBE_API_KEY
 
-// Filter episodes by category based on title keywords
-function filterByCategory(episodes: Episode[], category: string): Episode[] {
-  switch (category) {
-    case 'season-1':
-      // Season 1 episodes - filter by title containing season indicator or by episode number
-      return episodes.filter(e =>
-        e.title.includes('الموسم الأول') ||
-        e.title.includes('موسم 1') ||
-        e.season === 1 ||
-        (e.episode_number && e.episode_number <= 30)
-      )
-    case 'season-2':
-      // Season 2 episodes
-      return episodes.filter(e =>
-        e.title.includes('الموسم الثاني') ||
-        e.title.includes('موسم 2') ||
-        e.season === 2 ||
-        (e.episode_number && e.episode_number > 30)
-      )
-    case 'clips':
-      // Clips - short content, usually has "مقاطع" or "مقطع" in title
-      return episodes.filter(e =>
-        e.title.includes('مقاطع') ||
-        e.title.includes('مقطع') ||
-        e.title.includes('clips') ||
-        e.duration_minutes < 15
-      )
-    case 'unreleased':
-      // Unreleased content - might have specific keywords
-      return episodes.filter(e =>
-        e.title.includes('غير منشور') ||
-        e.title.includes('حصري') ||
-        e.title.includes('خاص')
-      )
-    default:
-      return episodes
-  }
+// Filter episodes by admin section assignments (with keyword fallback for unassigned)
+function filterByCategory(
+  episodes: Episode[],
+  category: string,
+  assignments: Record<string, string> = {}
+): Episode[] {
+  return episodes.filter((e) => {
+    // If the episode is explicitly assigned to this section in admin, include it
+    if (assignments[e.id] === category) return true
+    // If the episode is assigned to a different section, exclude it
+    if (assignments[e.id]) return false
+    // For unassigned episodes, fall back to keyword/heuristic matching
+    switch (category) {
+      case 'season-1':
+        return (
+          e.title.includes('الموسم الأول') ||
+          e.title.includes('موسم 1') ||
+          e.season === 1 ||
+          (e.episode_number != null && e.episode_number <= 30)
+        )
+      case 'season-2':
+        return (
+          e.title.includes('الموسم الثاني') ||
+          e.title.includes('موسم 2') ||
+          e.season === 2 ||
+          (e.episode_number != null && e.episode_number > 30)
+        )
+      case 'clips':
+        return (
+          e.title.includes('مقاطع') ||
+          e.title.includes('مقطع') ||
+          e.title.includes('clips') ||
+          e.duration_minutes < 15
+        )
+      case 'unpublished':
+      case 'unreleased':
+        return (
+          e.title.includes('غير منشور') ||
+          e.title.includes('حصري') ||
+          e.title.includes('خاص')
+        )
+      default:
+        // For custom sections, only admin assignments count
+        return false
+    }
+  })
 }
 
 export async function getEpisodes(options?: {
@@ -78,11 +91,15 @@ export async function getEpisodes(options?: {
   offset?: number
   includeHidden?: boolean
 }): Promise<Episode[]> {
-  // Get episode overrides and hidden IDs
-  const [overrides, hiddenIds] = await Promise.all([
+  // Get episode overrides, hidden IDs, section assignments, and guest assignments
+  const [overrides, hiddenIds, sectionsConfig, guestAssignments, guestList] = await Promise.all([
     getEpisodeOverrides(),
     options?.includeHidden ? Promise.resolve(new Set<string>()) : getHiddenEpisodeIds(),
+    getSectionsConfig(),
+    getGuestAssignments(),
+    getAllGuests(),
   ])
+  const { assignments } = sectionsConfig
 
   const filterHidden = (eps: Episode[]) =>
     hiddenIds.size > 0 ? eps.filter((e) => !hiddenIds.has(e.id)) : eps
@@ -90,21 +107,33 @@ export async function getEpisodes(options?: {
   // Try YouTube first if available
   if (USE_YOUTUBE) {
     try {
-      let episodes = await fetchYouTubeEpisodes({
-        limit: options?.limit,
-        offset: options?.offset,
-        search: options?.search,
-      })
+      // Fetch ALL episodes first, then filter — pagination must happen last
+      let episodes = await fetchAllEpisodes()
 
-      // Apply title overrides
+      // Apply title/description overrides
       episodes = applyOverrides(episodes, overrides)
+
+      // Apply admin guest assignments
+      episodes = applyGuestAssignments(episodes, guestAssignments, guestList)
 
       // Filter by category
       if (options?.category) {
-        episodes = filterByCategory(episodes, options.category)
+        episodes = filterByCategory(episodes, options.category, assignments)
       }
 
-      return filterHidden(episodes)
+      episodes = filterHidden(episodes)
+
+      // Apply Arabic-aware search
+      if (options?.search) {
+        episodes = searchEpisodes(episodes, options.search)
+      }
+
+      // Paginate last
+      if (options?.limit) {
+        episodes = episodes.slice(options?.offset || 0, (options?.offset || 0) + options.limit)
+      }
+
+      return episodes
     } catch (error) {
       console.error('YouTube fetch failed, falling back:', error)
     }
@@ -114,17 +143,9 @@ export async function getEpisodes(options?: {
     const { mockEpisodes } = await import('@/lib/mock-data')
     let episodes = [...mockEpisodes]
 
-    if (options?.search) {
-      const search = options.search.toLowerCase()
-      episodes = episodes.filter(e =>
-        e.title.toLowerCase().includes(search) ||
-        e.summary?.toLowerCase().includes(search)
-      )
-    }
-
     // Filter by category
     if (options?.category) {
-      episodes = filterByCategory(episodes, options.category)
+      episodes = filterByCategory(episodes, options.category, assignments)
     }
 
     if (options?.season) {
@@ -135,11 +156,18 @@ export async function getEpisodes(options?: {
       episodes = episodes.filter(e => e.guest?.slug === options.guestSlug)
     }
 
+    episodes = filterHidden(episodes)
+
+    // Apply Arabic-aware search
+    if (options?.search) {
+      episodes = searchEpisodes(episodes, options.search)
+    }
+
     if (options?.limit) {
       episodes = episodes.slice(options?.offset || 0, (options?.offset || 0) + options.limit)
     }
 
-    return filterHidden(episodes)
+    return episodes
   }
 
   const supabase = await createClient()
@@ -152,10 +180,6 @@ export async function getEpisodes(options?: {
       topics:episode_topics(topic:topics(*))
     `)
     .order('release_date', { ascending: false })
-
-  if (options?.search) {
-    query = query.or(`title.ilike.%${options.search}%,summary.ilike.%${options.search}%`)
-  }
 
   if (options?.season) {
     query = query.eq('season', options.season)
@@ -181,26 +205,87 @@ export async function getEpisodes(options?: {
     return filterHidden(mockEpisodes)
   }
 
-  return filterHidden(data || [])
+  let results = filterHidden(data || [])
+
+  // Apply Arabic-aware search
+  if (options?.search) {
+    results = searchEpisodes(results, options.search)
+  }
+
+  return results
 }
 
 export async function getEpisodeBySlug(slug: string): Promise<EpisodeWithRelations | null> {
+  // Check if episode is hidden or deleted
+  const hiddenIds = await getHiddenEpisodeIds()
+
   // Try YouTube first if available
   if (USE_YOUTUBE) {
     try {
-      const episode = await fetchEpisodeBySlug(slug)
+      let episode = await fetchEpisodeBySlug(slug)
       if (episode) {
+        // Block access to deleted/hidden episodes
+        if (hiddenIds.has(episode.id)) return null
+
+        // Apply title and description overrides
+        const overrides = await getEpisodeOverrides()
+        const [overridden] = applyOverrides([episode], overrides)
+        episode = overridden
+
+        // Apply admin guest assignments
+        const [guestAssignments, guestList] = await Promise.all([
+          getGuestAssignments(),
+          getAllGuests(),
+        ])
+        const [withGuest] = applyGuestAssignments([episode], guestAssignments, guestList)
+        episode = withGuest
+
+        // Apply enrichments from Studio push
+        const epId = episode.id
+        const enrichment = await getEpisodeEnrichment(epId)
+
+        const enrichedTimestamps: Timestamp[] = enrichment?.timestamps
+          ? enrichment.timestamps.map((t, i) => ({
+              id: `enr-ts-${i}`,
+              episode_id: epId,
+              time_seconds: t.time_seconds,
+              title: t.title,
+              description: t.description || null,
+            }))
+          : []
+
+        const enrichedResources: Resource[] = enrichment?.resources
+          ? enrichment.resources.map((r, i) => ({
+              id: `enr-res-${i}`,
+              episode_id: epId,
+              title: r.title,
+              url: r.url,
+              type: r.type || null,
+            }))
+          : []
+
+        const enrichedTopics: Topic[] = enrichment?.topics
+          ? enrichment.topics.map((name) => ({
+              id: `enr-topic-${name}`,
+              name,
+              slug: name.replace(/\s+/g, '-'),
+              created_at: new Date().toISOString(),
+            }))
+          : []
+
         return {
           ...episode,
-          summary: episode.description || null,
-          key_takeaways: null,
+          summary: enrichment?.full_summary || episode.description || null,
+          key_takeaways: enrichment?.takeaways || null,
           mood: null,
           guest_id: episode.guest?.id || null,
           guest: episode.guest || null,
-          topics: episode.topics || [],
-          timestamps: [],
-          quotes: [],
-          resources: [],
+          topics: enrichedTopics.length > 0
+            ? [...(episode.topics || []), ...enrichedTopics]
+            : episode.topics || [],
+          timestamps: enrichedTimestamps,
+          quotes: await getPublishedQuotes(episode.id, episode.guest?.id || null),
+          resources: enrichedResources,
         }
       }
     } catch (error) {
@@ -211,18 +296,20 @@ export async function getEpisodeBySlug(slug: string): Promise<EpisodeWithRelatio
   if (USE_MOCK_DATA) {
     const { mockEpisodes } = await import('@/lib/mock-data')
     const episode = mockEpisodes.find(e => e.slug === slug)
-    if (!episode) return null
+    if (!episode || hiddenIds.has(episode.id)) return null
 
+    const configQuotes = await getPublishedQuotes(episode.id, episode.guest?.id || null)
+    const mockEnrichment = await getEpisodeEnrichment(episode.id)
     return {
       ...episode,
-      summary: episode.summary || null,
-      key_takeaways: episode.key_takeaways || null,
+      summary: mockEnrichment?.full_summary || episode.summary || null,
+      key_takeaways: mockEnrichment?.takeaways || episode.key_takeaways || null,
       mood: episode.mood || null,
       guest_id: episode.guest_id || null,
       guest: episode.guest || null,
       topics: episode.topics || [],
       timestamps: mockTimestamps.filter(t => t.episode_id === episode.id),
-      quotes: mockQuotes.filter(q => q.episode_id === episode.id),
+      quotes: [...mockQuotes.filter(q => q.episode_id === episode.id), ...configQuotes],
       resources: mockResources.filter(r => r.episode_id === episode.id),
     }
   }
@@ -247,7 +334,7 @@ export async function getEpisodeBySlug(slug: string): Promise<EpisodeWithRelatio
     // Fallback to mock
     const { mockEpisodes } = await import('@/lib/mock-data')
     const mockEp = mockEpisodes.find(e => e.slug === slug)
-    if (mockEp) {
+    if (mockEp && !hiddenIds.has(mockEp.id)) {
       return {
         ...mockEp,
         summary: mockEp.summary || null,
@@ -263,6 +350,9 @@ export async function getEpisodeBySlug(slug: string): Promise<EpisodeWithRelatio
     }
     return null
   }
+
+  // Block access to deleted/hidden episodes
+  if (hiddenIds.has((data as { id: string }).id)) return null
 
   // Transform the nested topics
   const rawData = data as Record<string, unknown>
@@ -286,14 +376,28 @@ export async function getEpisodeBySlug(slug: string): Promise<EpisodeWithRelatio
     resources: (rawData.resources as Resource[]) || [],
   }
 
+  // Append config-file quotes
+  const configQuotes = await getPublishedQuotes(episode.id, episode.guest_id || null)
+  if (configQuotes.length > 0) {
+    episode.quotes = [...episode.quotes, ...configQuotes]
+  }
+
   return episode
 }
 
 export async function getLatestEpisode(): Promise<Episode | null> {
+  const hiddenIds = await getHiddenEpisodeIds()
+  const overrides = await getEpisodeOverrides()
+
   // Try YouTube first if available
   if (USE_YOUTUBE) {
     try {
-      return await fetchLatestEpisode()
+      const episodes = await fetchAllEpisodes()
+      const visible = applyOverrides(
+        episodes.filter((ep) => !hiddenIds.has(ep.id)),
+        overrides
+      )
+      return visible[0] || null
     } catch (error) {
       console.error('YouTube fetch failed, falling back:', error)
     }
@@ -301,7 +405,7 @@ export async function getLatestEpisode(): Promise<Episode | null> {
 
   if (USE_MOCK_DATA) {
     const { mockEpisodes } = await import('@/lib/mock-data')
-    return mockEpisodes[0] || null
+    return mockEpisodes.find((ep) => !hiddenIds.has(ep.id)) || null
   }
 
   const supabase = await createClient()
@@ -313,23 +417,33 @@ export async function getLatestEpisode(): Promise<Episode | null> {
       guest:guests(id, name, slug, photo_url)
     `)
     .order('release_date', { ascending: false })
-    .limit(1)
-    .single()
+    .limit(20)
 
-  if (error) {
+  if (error || !data) {
     console.error('Error fetching latest episode:', error)
     const { mockEpisodes } = await import('@/lib/mock-data')
-    return mockEpisodes[0] || null
+    return mockEpisodes.find((ep) => !hiddenIds.has(ep.id)) || null
   }
 
-  return data
+  return data.find((ep) => !hiddenIds.has(ep.id)) || null
 }
 
 export async function getMostViewedRecent(days: number = 30): Promise<Episode | null> {
+  const hiddenIds = await getHiddenEpisodeIds()
+
   // Try YouTube first if available
   if (USE_YOUTUBE) {
     try {
-      return await fetchMostViewedRecent(days)
+      const episode = await fetchMostViewedRecent(days)
+      if (episode && !hiddenIds.has(episode.id)) return episode
+      // If the top one is hidden, fall back to fetching all and filtering
+      const allEpisodes = await fetchAllEpisodes()
+      const cutoffDate = new Date()
+      cutoffDate.setDate(cutoffDate.getDate() - days)
+      const visible = allEpisodes
+        .filter((ep) => !hiddenIds.has(ep.id) && new Date(ep.release_date) >= cutoffDate)
+        .sort((a, b) => (b.view_count || 0) - (a.view_count || 0))
+      return visible[0] || null
     } catch (error) {
       console.error('YouTube fetch failed, falling back:', error)
     }
@@ -341,11 +455,13 @@ export async function getMostViewedRecent(days: number = 30): Promise<Episode | 
     cutoffDate.setDate(cutoffDate.getDate() - days)
 
     const recentEpisodes = mockEpisodes.filter(
-      (ep) => new Date(ep.release_date) >= cutoffDate
+      (ep) => !hiddenIds.has(ep.id) && new Date(ep.release_date) >= cutoffDate
     )
 
     if (recentEpisodes.length === 0) {
-      return mockEpisodes.sort((a, b) => (b.view_count || 0) - (a.view_count || 0))[0] || null
+      return mockEpisodes
+        .filter((ep) => !hiddenIds.has(ep.id))
+        .sort((a, b) => (b.view_count || 0) - (a.view_count || 0))[0] || null
     }
 
     return recentEpisodes.sort((a, b) => (b.view_count || 0) - (a.view_count || 0))[0] || null
@@ -363,16 +479,15 @@ export async function getMostViewedRecent(days: number = 30): Promise<Episode | 
     `)
     .gte('release_date', cutoffDate.toISOString().split('T')[0])
     .order('view_count', { ascending: false, nullsFirst: false })
-    .limit(1)
-    .single()
+    .limit(20)
 
-  if (error) {
+  if (error || !data) {
     console.error('Error fetching most viewed recent episode:', error)
     const { mockEpisodes } = await import('@/lib/mock-data')
-    return mockEpisodes[0] || null
+    return mockEpisodes.find((ep) => !hiddenIds.has(ep.id)) || null
   }
 
-  return data
+  return data.find((ep) => !hiddenIds.has(ep.id)) || null
 }
 
 export async function getGuests(options?: {
@@ -394,8 +509,7 @@ export async function getGuests(options?: {
       let guests = Array.from(guestMap.values())
 
       if (options?.search) {
-        const search = options.search.toLowerCase()
-        guests = guests.filter(g => g.name.toLowerCase().includes(search))
+        guests = searchGuests(guests, options.search)
       }
 
       return guests
@@ -408,8 +522,7 @@ export async function getGuests(options?: {
     let guests = [...mockGuests]
 
     if (options?.search) {
-      const search = options.search.toLowerCase()
-      guests = guests.filter(g => g.name.toLowerCase().includes(search))
+      guests = searchGuests(guests, options.search)
     }
 
     return guests
@@ -423,7 +536,9 @@ export async function getGuests(options?: {
     .order('name')
 
   if (options?.search) {
-    query = query.ilike('name', `%${options.search}%`)
+    // Escape SQL LIKE wildcards in user input
+    const escapedSearch = options.search.replace(/[%_]/g, '\\$&')
+    query = query.ilike('name', `%${escapedSearch}%`)
   }
 
   const { data, error } = await query
@@ -556,6 +671,22 @@ export async function getTopics(): Promise<Topic[]> {
   return data || []
 }
 
+export async function getAdjacentEpisodes(
+  currentSlug: string
+): Promise<{ prev: Episode | null; next: Episode | null }> {
+  // Get all visible episodes sorted by date (newest first)
+  const episodes = await getEpisodes({})
+
+  const currentIndex = episodes.findIndex((e) => e.slug === currentSlug)
+  if (currentIndex === -1) return { prev: null, next: null }
+
+  // "next" = newer episode (index - 1), "prev" = older episode (index + 1)
+  const next = currentIndex > 0 ? episodes[currentIndex - 1] : null
+  const prev = currentIndex < episodes.length - 1 ? episodes[currentIndex + 1] : null
+
+  return { prev, next }
+}
+
 export async function getRelatedEpisodes(
   episodeId: string,
   topicIds: string[],
@@ -672,19 +803,34 @@ export async function getEpisodeCounts(): Promise<Record<string, number>> {
     episodes = mockEpisodes
   }
 
-  // Filter out hidden episodes
-  const hiddenIds = await getHiddenEpisodeIds()
+  // Filter out hidden episodes and get section assignments
+  const [hiddenIds, sectionsConfig] = await Promise.all([
+    getHiddenEpisodeIds(),
+    getSectionsConfig(),
+  ])
   if (hiddenIds.size > 0) {
     episodes = episodes.filter((e) => !hiddenIds.has(e.id))
   }
 
-  return {
-    all: episodes.length,
-    'season-1': filterByCategory(episodes, 'season-1').length,
-    'season-2': filterByCategory(episodes, 'season-2').length,
-    clips: filterByCategory(episodes, 'clips').length,
-    unreleased: filterByCategory(episodes, 'unreleased').length,
+  const { sections, assignments } = sectionsConfig
+  const counts: Record<string, number> = { all: episodes.length }
+
+  // Count per visible section using the same filter logic
+  for (const section of sections) {
+    if (!section.hidden) {
+      counts[section.id] = filterByCategory(episodes, section.id, assignments).length
+    }
   }
+
+  return counts
+}
+
+export async function getPublicSections(): Promise<{ id: string; label: string }[]> {
+  const config = await getSectionsConfig()
+  return config.sections
+    .filter((s) => !s.hidden)
+    .sort((a, b) => a.order - b.order)
+    .map((s) => ({ id: s.id, label: s.label }))
 }
 
 export async function subscribeNewsletter(email: string): Promise<{ success: boolean; error?: string }> {

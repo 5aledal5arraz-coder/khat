@@ -4,8 +4,20 @@ import { getGuestBySlug } from "@/lib/supabase/queries"
 import { EpisodeCard } from "@/components/episodes/episode-card"
 import { QuoteCard } from "@/components/quotes/quote-card"
 import { GuestAvatar } from "@/components/guests/guest-avatar"
-import { Linkedin, Globe, Instagram } from "lucide-react"
+import { AtharCard } from "@/components/guests/athar-card"
+import { Linkedin, Globe, Instagram, Youtube, Mail } from "lucide-react"
 import { XIcon } from "@/components/icons/x-icon"
+import { TikTokIcon } from "@/components/icons/tiktok-icon"
+import { SnapchatIcon } from "@/components/icons/snapchat-icon"
+import { FacebookIcon } from "@/components/icons/facebook-icon"
+import { ThreadsIcon } from "@/components/icons/threads-icon"
+import { TelegramIcon } from "@/components/icons/telegram-icon"
+import { WhatsAppIcon } from "@/components/icons/whatsapp-icon"
+import { SpotifyIcon } from "@/components/icons/spotify-icon"
+import { SoundCloudIcon } from "@/components/icons/soundcloud-icon"
+import { TwitchIcon } from "@/components/icons/twitch-icon"
+import { DiscordIcon } from "@/components/icons/discord-icon"
+import { PinterestIcon } from "@/components/icons/pinterest-icon"
 
 interface GuestPageProps {
   params: Promise<{ slug: string }>
@@ -16,8 +28,21 @@ type IconComponent = React.ComponentType<{ className?: string }>
 const socialIcons: Record<string, IconComponent> = {
   twitter: XIcon,
   x: XIcon,
-  linkedin: Linkedin,
   instagram: Instagram,
+  youtube: Youtube,
+  tiktok: TikTokIcon,
+  snapchat: SnapchatIcon,
+  facebook: FacebookIcon,
+  threads: ThreadsIcon,
+  whatsapp: WhatsAppIcon,
+  telegram: TelegramIcon,
+  linkedin: Linkedin,
+  spotify: SpotifyIcon,
+  soundcloud: SoundCloudIcon,
+  twitch: TwitchIcon,
+  discord: DiscordIcon,
+  pinterest: PinterestIcon,
+  email: Mail,
   website: Globe,
 }
 
@@ -73,29 +98,40 @@ export default async function GuestPage({ params }: GuestPageProps) {
                 {guest.bio}
               </p>
             )}
-
-            {/* External Links */}
-            {Object.keys(externalLinks).length > 0 && (
-              <div className="mt-4 flex flex-wrap justify-center gap-2 sm:justify-start">
-                {Object.entries(externalLinks).map(([platform, url]) => {
-                  const Icon = socialIcons[platform.toLowerCase()] || Globe
-                  return (
-                    <a
-                      key={platform}
-                      href={url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md border border-input bg-background px-3 py-1 text-sm font-medium shadow-sm transition-colors hover:bg-accent hover:text-accent-foreground"
-                    >
-                      <Icon className="h-4 w-4" />
-                      <span className="capitalize">{platform}</span>
-                    </a>
-                  )
-                })}
-              </div>
-            )}
           </div>
         </div>
+
+        {/* أثر الضيف — Athar */}
+        {guest.testimonial && (
+          <div className="mt-10">
+            <AtharCard
+              text={guest.testimonial}
+              guestName={guest.name}
+              episodeDate={guest.episodes[0]?.release_date}
+            />
+          </div>
+        )}
+
+        {/* External Links */}
+        {Object.keys(externalLinks).length > 0 && (
+          <div className="mt-8 flex flex-wrap justify-center gap-2 sm:justify-start">
+            {Object.entries(externalLinks).map(([platform, url]) => {
+              const Icon = socialIcons[platform.toLowerCase()] || Globe
+              return (
+                <a
+                  key={platform}
+                  href={url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md border border-input bg-background px-3 py-1 text-sm font-medium shadow-sm transition-colors hover:bg-accent hover:text-accent-foreground"
+                >
+                  <Icon className="h-4 w-4" />
+                  <span className="capitalize">{platform}</span>
+                </a>
+              )
+            })}
+          </div>
+        )}
 
         {/* Episodes */}
         {guest.episodes.length > 0 && (

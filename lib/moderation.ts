@@ -1,27 +1,16 @@
 import { arabicProfanity, englishProfanity, spamPatterns } from './profanity-lists'
+import { moderateWithAI } from './openai'
+import type { AIModerationVerdict } from './openai'
+import { getModerationConfig } from './moderation-config'
+import { normalizeArabic } from './search'
 
 export type ModerationStatus = 'pending' | 'approved' | 'auto_flagged' | 'rejected' | 'hidden'
 
 export interface ModerationResult {
   status: ModerationStatus
   reasons: string[]
-}
-
-/**
- * Normalize Arabic text for comparison:
- * - Strip diacritics (tashkeel)
- * - Normalize alef variants
- * - Normalize taa marbuta / haa
- */
-function normalizeArabic(text: string): string {
-  return text
-    // Remove Arabic diacritics
-    .replace(/[\u0610-\u061A\u064B-\u065F\u0670\u06D6-\u06DC\u06DF-\u06E4\u06E7-\u06E8\u06EA-\u06ED]/g, '')
-    // Normalize alef variants to bare alef
-    .replace(/[\u0622\u0623\u0625\u0671]/g, '\u0627')
-    // Normalize taa marbuta to haa
-    .replace(/\u0629/g, '\u0647')
-    .toLowerCase()
+  /** AI verdict: clean, suspicious, or harmful. null if AI was not called. */
+  aiVerdict?: AIModerationVerdict | null
 }
 
 /**
@@ -78,49 +67,134 @@ function checkSpam(text: string): string[] {
 }
 
 /**
- * Run content through moderation pipeline
- * @param content - The text content to check
- * @param userApprovedCount - Number of previously approved posts by this user
+ * Run local-only moderation checks (profanity + spam).
+ * Synchronous — no AI call.
  */
-export function moderateContent(content: string, userApprovedCount: number): ModerationResult {
+function localModerate(content: string, userApprovedCount: number): ModerationResult {
   const allReasons: string[] = []
 
-  // Check profanity
   const profanityReasons = containsProfanity(content)
   allReasons.push(...profanityReasons)
 
-  // Check spam
   const spamReasons = checkSpam(content)
   allReasons.push(...spamReasons)
 
-  // If profanity or spam detected -> auto_flagged
   if (allReasons.length > 0) {
-    return { status: 'auto_flagged', reasons: allReasons }
+    return { status: 'auto_flagged', reasons: allReasons, aiVerdict: null }
   }
 
-  // New user (fewer than 3 approved posts) -> pending review
   if (userApprovedCount < 3) {
-    return { status: 'pending', reasons: ['مستخدم جديد - ينتظر المراجعة'] }
+    return { status: 'pending', reasons: ['مستخدم جديد - ينتظر المراجعة'], aiVerdict: null }
   }
 
-  // Trusted user -> auto-approve
-  return { status: 'approved', reasons: [] }
+  return { status: 'approved', reasons: [], aiVerdict: null }
+}
+
+/**
+ * Run content through the full moderation pipeline:
+ * 1. Local checks (profanity, spam) — instant
+ * 2. AI moderation (OpenAI) — async
+ * 3. Trust-based decision for new users
+ *
+ * Results:
+ * - Local flagged → auto_flagged (harmful local content)
+ * - AI harmful → auto_flagged (blocked — user sees error)
+ * - AI suspicious → pending (sent to review queue)
+ * - AI clean + new user → pending (trust-based)
+ * - AI clean + trusted user → approved (auto-publish)
+ */
+export async function moderateContent(content: string, userApprovedCount: number): Promise<ModerationResult> {
+  // Step 1: Local checks
+  const localResult = localModerate(content, userApprovedCount)
+  if (localResult.status === 'auto_flagged') {
+    return localResult
+  }
+
+  // Step 2: AI moderation (skip if disabled in settings)
+  const config = await getModerationConfig()
+  if (!config.aiEnabled) {
+    return localResult
+  }
+
+  const aiResult = await moderateWithAI(content)
+
+  if (aiResult.verdict === 'harmful') {
+    return {
+      status: 'auto_flagged',
+      reasons: aiResult.reason ? [aiResult.reason] : ['محتوى مخالف'],
+      aiVerdict: 'harmful',
+    }
+  }
+
+  if (aiResult.verdict === 'suspicious') {
+    return {
+      status: 'pending',
+      reasons: aiResult.reason ? [aiResult.reason] : ['محتوى مشتبه به - قيد المراجعة'],
+      aiVerdict: 'suspicious',
+    }
+  }
+
+  // Step 3: AI says clean — apply trust-based rules
+  if (userApprovedCount < 3) {
+    return {
+      status: 'pending',
+      reasons: ['مستخدم جديد - ينتظر المراجعة'],
+      aiVerdict: 'clean',
+    }
+  }
+
+  return { status: 'approved', reasons: [], aiVerdict: 'clean' }
 }
 
 /**
  * Moderate article content (checks both title and body)
  */
-export function moderateArticle(title: string, content: string, userApprovedCount: number): ModerationResult {
-  const titleResult = moderateContent(title, userApprovedCount)
-  if (titleResult.status === 'auto_flagged') return titleResult
+export async function moderateArticle(title: string, content: string, userApprovedCount: number): Promise<ModerationResult> {
+  // Check title locally first
+  const titleLocal = localModerate(title, userApprovedCount)
+  if (titleLocal.status === 'auto_flagged') return titleLocal
 
-  const contentResult = moderateContent(content, userApprovedCount)
-  if (contentResult.status === 'auto_flagged') return contentResult
+  // Check body locally
+  const contentLocal = localModerate(content, userApprovedCount)
+  if (contentLocal.status === 'auto_flagged') return contentLocal
 
-  // If either is pending, result is pending
-  if (titleResult.status === 'pending' || contentResult.status === 'pending') {
-    return { status: 'pending', reasons: titleResult.reasons.concat(contentResult.reasons) }
+  // AI moderation on combined text (title + excerpt of content) — skip if disabled
+  const config = await getModerationConfig()
+  if (!config.aiEnabled) {
+    // No AI — return best local result
+    if (titleLocal.status === 'pending' || contentLocal.status === 'pending') {
+      return { status: 'pending', reasons: titleLocal.reasons.concat(contentLocal.reasons), aiVerdict: null }
+    }
+    return { status: 'approved', reasons: [], aiVerdict: null }
   }
 
-  return { status: 'approved', reasons: [] }
+  const plainContent = content.replace(/<[^>]*>/g, '').trim()
+  const combinedText = `${title}\n\n${plainContent.slice(0, 2000)}`
+  const aiResult = await moderateWithAI(combinedText)
+
+  if (aiResult.verdict === 'harmful') {
+    return {
+      status: 'auto_flagged',
+      reasons: aiResult.reason ? [aiResult.reason] : ['محتوى مخالف'],
+      aiVerdict: 'harmful',
+    }
+  }
+
+  if (aiResult.verdict === 'suspicious') {
+    return {
+      status: 'pending',
+      reasons: aiResult.reason ? [aiResult.reason] : ['محتوى مشتبه به - قيد المراجعة'],
+      aiVerdict: 'suspicious',
+    }
+  }
+
+  if (userApprovedCount < 3) {
+    return {
+      status: 'pending',
+      reasons: ['مستخدم جديد - ينتظر المراجعة'],
+      aiVerdict: 'clean',
+    }
+  }
+
+  return { status: 'approved', reasons: [], aiVerdict: 'clean' }
 }

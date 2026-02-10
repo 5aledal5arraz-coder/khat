@@ -1,11 +1,14 @@
-import type { Metadata } from "next"
+import type { Metadata, Viewport } from "next"
 import { IBM_Plex_Sans_Arabic } from "next/font/google"
 import "./globals.css"
 import { Header } from "@/components/layout/header"
 import { Footer } from "@/components/layout/footer"
 import { MobileNav } from "@/components/layout/mobile-nav"
+import { ViewportFix } from "@/components/layout/viewport-fix"
 import { Toaster } from "@/components/ui/toaster"
 import { AuthProvider } from "@/components/providers/auth-provider"
+import { getThemeConfig } from "@/lib/theme"
+import { ThemeSync } from "@/components/theme/theme-sync"
 
 const ibmPlexArabic = IBM_Plex_Sans_Arabic({
   variable: "--font-ibm-plex-arabic",
@@ -28,18 +31,41 @@ export const metadata: Metadata = {
   },
 }
 
-export default function RootLayout({
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover",
+}
+
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode
 }>) {
+  const { mode } = await getThemeConfig()
+
   return (
-    <html lang="ar" dir="rtl">
+    <html
+      lang="ar"
+      dir="rtl"
+      data-theme-mode={mode}
+      className={mode === "dark" ? "dark" : ""}
+      suppressHydrationWarning
+    >
+      <head>
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `(function(){var m=document.documentElement.getAttribute("data-theme-mode");if(m==="dark")document.documentElement.classList.add("dark");else if(m==="system"&&window.matchMedia("(prefers-color-scheme: dark)").matches)document.documentElement.classList.add("dark");else document.documentElement.classList.remove("dark")})()`,
+          }}
+        />
+      </head>
       <body className={`${ibmPlexArabic.variable} font-sans antialiased`}>
         <AuthProvider>
-          <div className="flex min-h-screen flex-col">
+          <ThemeSync />
+          <ViewportFix />
+          <div className="flex min-h-dvh flex-col">
             <Header />
-            <main className="flex-1 pb-20 md:pb-0">{children}</main>
+            <main className="main-content flex-1">{children}</main>
             <Footer />
             <MobileNav />
             <Toaster />

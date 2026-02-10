@@ -21,8 +21,8 @@ export async function GET(request: NextRequest) {
   const supabase = await createClient()
   const { searchParams } = new URL(request.url)
 
-  const page = parseInt(searchParams.get('page') || '1')
-  const limit = Math.min(parseInt(searchParams.get('limit') || '20'), 50)
+  const page = Math.max(1, parseInt(searchParams.get('page') || '1') || 1)
+  const limit = Math.min(Math.max(1, parseInt(searchParams.get('limit') || '20') || 20), 50)
   const tag = searchParams.get('tag')
   const authorId = searchParams.get('author')
   const offset = (page - 1) * limit
@@ -98,9 +98,17 @@ export async function POST(request: NextRequest) {
   const cleanContent = sanitizeArticleContent(body.content)
   const cleanExcerpt = body.excerpt ? sanitizeTitle(body.excerpt) : generateExcerpt(cleanContent)
 
-  // Moderate
+  // Moderate (async — includes AI check)
   const approvedCount = await getUserApprovedCount(user.id)
-  const modResult = moderateArticle(cleanTitle, cleanContent, approvedCount)
+  const modResult = await moderateArticle(cleanTitle, cleanContent, approvedCount)
+
+  // If AI flagged as harmful → block and ask user to edit
+  if (modResult.aiVerdict === 'harmful') {
+    return errorResponse(
+      'لا يمكن نشر هذا المحتوى لأنه يخالف إرشادات المجتمع. يرجى تعديل النص والمحاولة مرة أخرى.',
+      422
+    )
+  }
 
   // Calculate read time
   const wordCount = cleanContent.replace(/<[^>]*>/g, '').trim().split(/\s+/).filter(Boolean).length
@@ -121,6 +129,7 @@ export async function POST(request: NextRequest) {
       read_time_minutes: readTimeMinutes,
       status: 'published',
       moderation_status: modResult.status,
+      moderation_reason: modResult.reasons.length > 0 ? modResult.reasons.join('، ') : null,
     })
     .select()
     .single()

@@ -23,7 +23,7 @@ export function ResourcesList({ resources }: ResourcesListProps) {
           return (
             <li key={resource.id}>
               <a
-                href={resource.url}
+                href={/^https?:\/\//.test(resource.url) ? resource.url : '#'}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="flex items-center gap-3 rounded-lg border p-3 transition-colors hover:bg-muted"

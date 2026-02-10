@@ -117,9 +117,9 @@ export function deleteDraftApi(id: string) {
 
 // Moderation (admin)
 export function getModerationQueue(tab: string, page = 1) {
-  return apiCall(`/api/space/admin/moderation?tab=${tab}&page=${page}`)
+  return apiCall(`/api/space/admin/moderation?tab=${encodeURIComponent(tab)}&page=${page}`)
 }
 
-export function moderateContent(id: string, data: { action: string; target_type: string; reason?: string }) {
+export function moderateContent(id: string, data: { action: string; target_type: string; reason?: string; content?: string }) {
   return apiCall(`/api/space/admin/moderation/${id}`, { method: 'PATCH', body: JSON.stringify(data) })
 }

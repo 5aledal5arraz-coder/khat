@@ -5,7 +5,19 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Check, X, Eye, EyeOff, Loader2, AlertTriangle, Shield } from "lucide-react"
+import {
+  Check,
+  X,
+  EyeOff,
+  Loader2,
+  AlertTriangle,
+  Shield,
+  Pencil,
+  Trash2,
+  MessageSquare,
+  FileText,
+  Reply,
+} from "lucide-react"
 import { getModerationQueue, moderateContent } from "@/lib/space-api"
 import { toast } from "@/lib/use-toast"
 
@@ -15,6 +27,7 @@ interface ModerationItem {
   title?: string
   content?: string
   moderation_status?: string
+  moderation_reason?: string | null
   created_at: string
   profiles?: { id: string; display_name: string | null; avatar_url: string | null }
   // Report fields
@@ -25,16 +38,45 @@ interface ModerationItem {
   status?: string
 }
 
+const TYPE_LABELS: Record<string, string> = {
+  article: "مقال",
+  thought: "خاطرة",
+  comment: "تعليق",
+  reply: "رد",
+  report: "بلاغ",
+}
+
+const TYPE_ICONS: Record<string, React.ElementType> = {
+  article: FileText,
+  thought: MessageSquare,
+  comment: MessageSquare,
+  reply: Reply,
+}
+
+const REASON_LABELS: Record<string, string> = {
+  spam: "سبام",
+  harassment: "تحرش",
+  inappropriate: "محتوى غير لائق",
+  misinformation: "معلومات مضللة",
+  other: "أخرى",
+}
+
 export default function ModerationPage() {
   const [tab, setTab] = useState("pending")
   const [items, setItems] = useState<ModerationItem[]>([])
   const [total, setTotal] = useState(0)
   const [isLoading, setIsLoading] = useState(true)
   const [actionLoading, setActionLoading] = useState<string | null>(null)
+  const [editingId, setEditingId] = useState<string | null>(null)
+  const [editContent, setEditContent] = useState("")
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null)
 
   const fetchQueue = useCallback(async () => {
     setIsLoading(true)
-    const { data, error } = await getModerationQueue(tab) as { data?: { items: ModerationItem[]; total: number }; error?: string }
+    const { data, error } = await getModerationQueue(tab) as {
+      data?: { items: ModerationItem[]; total: number }
+      error?: string
+    }
     if (error) {
       toast({ title: "خطأ", description: error, variant: "destructive" })
     } else if (data) {
@@ -48,30 +90,50 @@ export default function ModerationPage() {
     fetchQueue()
   }, [fetchQueue])
 
-  const handleAction = async (itemId: string, action: string, targetType: string) => {
+  const handleAction = async (
+    itemId: string,
+    action: string,
+    targetType: string,
+    extra?: { content?: string }
+  ) => {
     setActionLoading(itemId)
-    const { error } = await moderateContent(itemId, { action, target_type: targetType })
+    const { error } = await moderateContent(itemId, {
+      action,
+      target_type: targetType,
+      ...extra,
+    })
     if (error) {
       toast({ title: "خطأ", description: error, variant: "destructive" })
     } else {
-      toast({ title: "تم تنفيذ الإجراء", variant: "success", duration: 2000 })
+      const actionLabels: Record<string, string> = {
+        approve: "تمت الموافقة",
+        reject: "تم الرفض",
+        hide: "تم الإخفاء",
+        edit: "تم التعديل والنشر",
+        delete: "تم الحذف",
+      }
+      toast({
+        title: actionLabels[action] || "تم تنفيذ الإجراء",
+        variant: "success",
+        duration: 2000,
+      })
       setItems((prev) => prev.filter((item) => item.id !== itemId))
       setTotal((prev) => prev - 1)
+      setEditingId(null)
+      setConfirmDeleteId(null)
     }
     setActionLoading(null)
+  }
+
+  const handleSaveEdit = async (item: ModerationItem) => {
+    if (!editContent.trim()) return
+    const itemType = getItemType(item)
+    await handleAction(item.id, "edit", itemType, { content: editContent.trim() })
   }
 
   const getItemType = (item: ModerationItem) => {
     if (tab === "reports") return "report"
     return item._type || "article"
-  }
-
-  const reasonLabels: Record<string, string> = {
-    spam: "سبام",
-    harassment: "تحرش",
-    inappropriate: "محتوى غير لائق",
-    misinformation: "معلومات مضللة",
-    other: "أخرى",
   }
 
   return (
@@ -105,7 +167,9 @@ export default function ModerationPage() {
           <CardContent className="flex flex-col items-center justify-center py-12">
             <Check className="h-12 w-12 text-green-500 mb-4" />
             <p className="text-lg font-medium">لا توجد عناصر في الانتظار</p>
-            <p className="text-muted-foreground text-sm mt-1">كل المحتوى تمت مراجعته</p>
+            <p className="text-muted-foreground text-sm mt-1">
+              كل المحتوى تمت مراجعته
+            </p>
           </CardContent>
         </Card>
       ) : (
@@ -114,14 +178,27 @@ export default function ModerationPage() {
             const itemType = getItemType(item)
             const isReport = tab === "reports"
             const isProcessing = actionLoading === item.id
+            const isEditing = editingId === item.id
+            const isConfirmingDelete = confirmDeleteId === item.id
+            const TypeIcon = TYPE_ICONS[itemType] || MessageSquare
 
             return (
               <Card key={item.id} className="overflow-hidden">
                 <CardHeader className="pb-2">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
-                      <Badge variant={isReport ? "destructive" : item.moderation_status === "auto_flagged" ? "destructive" : "secondary"}>
-                        {isReport ? "بلاغ" : itemType === "article" ? "مقال" : "خاطرة"}
+                      <Badge
+                        variant={
+                          isReport
+                            ? "destructive"
+                            : item.moderation_status === "auto_flagged"
+                            ? "destructive"
+                            : "secondary"
+                        }
+                        className="gap-1"
+                      >
+                        <TypeIcon className="h-3 w-3" />
+                        {TYPE_LABELS[itemType] || itemType}
                       </Badge>
                       {item.moderation_status === "auto_flagged" && (
                         <Badge variant="outline" className="gap-1">
@@ -129,9 +206,23 @@ export default function ModerationPage() {
                           مُبلَّغ تلقائياً
                         </Badge>
                       )}
+                      {/* AI moderation reason badge */}
+                      {item.moderation_reason && (
+                        <Badge
+                          variant="outline"
+                          className="gap-1 border-yellow-500/30 text-yellow-600 bg-yellow-500/5"
+                        >
+                          <Shield className="h-3 w-3" />
+                          {item.moderation_reason}
+                        </Badge>
+                      )}
                     </div>
                     <span className="text-xs text-muted-foreground">
-                      {new Date(item.created_at).toLocaleDateString("ar-SA")}
+                      {new Date(item.created_at).toLocaleDateString("en-GB", {
+                        day: "2-digit",
+                        month: "2-digit",
+                        year: "numeric",
+                      })}
                     </span>
                   </div>
                   {!isReport && (
@@ -148,12 +239,54 @@ export default function ModerationPage() {
                     </p>
                   )}
 
-                  {/* Content preview */}
+                  {/* Content preview / Edit mode */}
                   {!isReport && item.content && (
-                    <div className="rounded-lg bg-muted/50 p-3 text-sm max-h-32 overflow-y-auto whitespace-pre-wrap">
-                      {item.content.substring(0, 500)}
-                      {(item.content.length || 0) > 500 && "..."}
-                    </div>
+                    <>
+                      {isEditing ? (
+                        <div className="space-y-2">
+                          <textarea
+                            value={editContent}
+                            onChange={(e) => setEditContent(e.target.value)}
+                            onKeyDown={(e) => {
+                              if (e.key === "Escape") {
+                                setEditingId(null)
+                              }
+                            }}
+                            dir="auto"
+                            className="w-full resize-none rounded-lg border border-primary/30 bg-primary/5 px-4 py-3 text-sm leading-relaxed text-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary/30"
+                            rows={4}
+                            autoFocus
+                          />
+                          <div className="flex items-center gap-2">
+                            <Button
+                              size="sm"
+                              onClick={() => handleSaveEdit(item)}
+                              disabled={isProcessing || !editContent.trim()}
+                              className="gap-1"
+                            >
+                              {isProcessing ? (
+                                <Loader2 className="h-4 w-4 animate-spin" />
+                              ) : (
+                                <Check className="h-4 w-4" />
+                              )}
+                              حفظ ونشر
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => setEditingId(null)}
+                            >
+                              إلغاء
+                            </Button>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="rounded-lg bg-muted/50 p-3 text-sm max-h-32 overflow-y-auto whitespace-pre-wrap">
+                          {item.content.substring(0, 500)}
+                          {(item.content.length || 0) > 500 && "..."}
+                        </div>
+                      )}
+                    </>
                   )}
 
                   {/* Report details */}
@@ -161,51 +294,123 @@ export default function ModerationPage() {
                     <div className="space-y-2">
                       <div className="flex items-center gap-2 text-sm">
                         <span className="text-muted-foreground">السبب:</span>
-                        <Badge variant="outline">{reasonLabels[item.reason || ""] || item.reason}</Badge>
+                        <Badge variant="outline">
+                          {REASON_LABELS[item.reason || ""] || item.reason}
+                        </Badge>
                       </div>
                       {item.details && (
-                        <p className="text-sm text-muted-foreground">{item.details}</p>
+                        <p className="text-sm text-muted-foreground">
+                          {item.details}
+                        </p>
                       )}
                       <p className="text-xs text-muted-foreground">
-                        نوع المحتوى: {item.target_type} | المعرف: {item.target_id?.substring(0, 8)}...
+                        نوع المحتوى: {TYPE_LABELS[item.target_type || ""] || item.target_type} | المعرف:{" "}
+                        {item.target_id?.substring(0, 8)}...
                       </p>
                     </div>
                   )}
 
                   {/* Actions */}
-                  <div className="flex items-center gap-2 pt-2 border-t">
-                    <Button
-                      size="sm"
-                      onClick={() => handleAction(item.id, "approve", itemType)}
-                      disabled={isProcessing}
-                      className="gap-1"
-                    >
-                      {isProcessing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
-                      {isReport ? "تم حلها" : "قبول"}
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="destructive"
-                      onClick={() => handleAction(item.id, "reject", itemType)}
-                      disabled={isProcessing}
-                      className="gap-1"
-                    >
-                      <X className="h-4 w-4" />
-                      {isReport ? "رفض" : "رفض"}
-                    </Button>
-                    {!isReport && (
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => handleAction(item.id, "hide", itemType)}
-                        disabled={isProcessing}
-                        className="gap-1"
-                      >
-                        <EyeOff className="h-4 w-4" />
-                        إخفاء
-                      </Button>
-                    )}
-                  </div>
+                  {!isEditing && (
+                    <div className="flex items-center gap-2 pt-2 border-t">
+                      {isConfirmingDelete ? (
+                        <>
+                          <Button
+                            size="sm"
+                            variant="destructive"
+                            onClick={() =>
+                              handleAction(item.id, "delete", itemType)
+                            }
+                            disabled={isProcessing}
+                            className="gap-1"
+                          >
+                            {isProcessing ? (
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                            ) : (
+                              <Trash2 className="h-4 w-4" />
+                            )}
+                            تأكيد الحذف
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => setConfirmDeleteId(null)}
+                          >
+                            إلغاء
+                          </Button>
+                        </>
+                      ) : (
+                        <>
+                          <Button
+                            size="sm"
+                            onClick={() =>
+                              handleAction(item.id, "approve", itemType)
+                            }
+                            disabled={isProcessing}
+                            className="gap-1"
+                          >
+                            {isProcessing ? (
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                            ) : (
+                              <Check className="h-4 w-4" />
+                            )}
+                            {isReport ? "تم حلها" : "قبول"}
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="destructive"
+                            onClick={() =>
+                              handleAction(item.id, "reject", itemType)
+                            }
+                            disabled={isProcessing}
+                            className="gap-1"
+                          >
+                            <X className="h-4 w-4" />
+                            رفض
+                          </Button>
+                          {!isReport && (
+                            <>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => {
+                                  setEditingId(item.id)
+                                  setEditContent(item.content || "")
+                                }}
+                                disabled={isProcessing}
+                                className="gap-1"
+                              >
+                                <Pencil className="h-4 w-4" />
+                                تعديل
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() =>
+                                  handleAction(item.id, "hide", itemType)
+                                }
+                                disabled={isProcessing}
+                                className="gap-1"
+                              >
+                                <EyeOff className="h-4 w-4" />
+                                إخفاء
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                onClick={() => setConfirmDeleteId(item.id)}
+                                disabled={isProcessing}
+                                className="gap-1 text-destructive hover:text-destructive"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                                حذف
+                              </Button>
+                            </>
+                          )}
+                        </>
+                      )}
+                    </div>
+                  )}
                 </CardContent>
               </Card>
             )

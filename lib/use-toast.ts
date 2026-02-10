@@ -5,7 +5,7 @@ import * as React from "react"
 const TOAST_LIMIT = 5
 const TOAST_REMOVE_DELAY = 5000
 
-type ToastVariant = "default" | "success" | "error" | "warning"
+type ToastVariant = "default" | "success" | "error" | "warning" | "destructive"
 
 export interface Toast {
   id: string
@@ -123,11 +123,23 @@ function toast(options: ToastOptions) {
 
 function useToast() {
   const [state, setState] = React.useState<ToastState>(memoryState)
+  const mountedRef = React.useRef(false)
 
   React.useEffect(() => {
-    listeners.push(setState)
+    mountedRef.current = true
+    // Sync state on mount in case toasts were added before subscription
+    setState(memoryState)
+
+    const listener = (newState: ToastState) => {
+      if (mountedRef.current) {
+        setState(newState)
+      }
+    }
+    listeners.push(listener)
+
     return () => {
-      const index = listeners.indexOf(setState)
+      mountedRef.current = false
+      const index = listeners.indexOf(listener)
       if (index > -1) {
         listeners.splice(index, 1)
       }

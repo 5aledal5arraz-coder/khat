@@ -1,43 +1,151 @@
 import { NextRequest, NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
+import { stripHtml } from "@/lib/sanitize"
 
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
-    const { name, email, topic, links, bio } = body
+    const {
+      name,
+      email,
+      phone,
+      country,
+      can_travel_to_kuwait,
+      story_idea,
+      beyond_job_title,
+      life_changing_moment,
+      hope_people_understand,
+      unasked_question,
+      why_khat,
+      previous_podcast,
+      previous_podcast_info,
+      prefer_dialogue_or_story,
+      topics_to_avoid,
+      filming_concern,
+      agrees_to_publish,
+      social_links,
+    } = body
 
+    // Step 1 validation
     if (!name || typeof name !== "string" || name.trim().length === 0) {
-      return NextResponse.json(
-        { error: "الاسم مطلوب" },
-        { status: 400 }
-      )
-    }
-
-    if (!email || typeof email !== "string") {
-      return NextResponse.json(
-        { error: "البريد الإلكتروني مطلوب" },
-        { status: 400 }
-      )
+      return NextResponse.json({ error: "الاسم مطلوب" }, { status: 400 })
     }
 
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
-    if (!emailRegex.test(email)) {
+    if (!email || typeof email !== "string" || !emailRegex.test(email)) {
       return NextResponse.json(
         { error: "البريد الإلكتروني غير صالح" },
         { status: 400 }
       )
     }
 
-    if (!topic || typeof topic !== "string" || topic.trim().length === 0) {
+    if (!phone || typeof phone !== "string" || phone.trim().length === 0) {
       return NextResponse.json(
-        { error: "الموضوع المقترح مطلوب" },
+        { error: "رقم الهاتف مطلوب" },
         { status: 400 }
       )
     }
 
-    if (!bio || typeof bio !== "string" || bio.trim().length === 0) {
+    if (
+      !country ||
+      typeof country !== "string" ||
+      country.trim().length === 0
+    ) {
+      return NextResponse.json({ error: "الدولة مطلوبة" }, { status: 400 })
+    }
+
+    // Step 2 validation
+    if (
+      !story_idea ||
+      typeof story_idea !== "string" ||
+      story_idea.trim().length === 0
+    ) {
+      return NextResponse.json(
+        { error: "القصة أو الفكرة مطلوبة" },
+        { status: 400 }
+      )
+    }
+
+    if (
+      !beyond_job_title ||
+      typeof beyond_job_title !== "string" ||
+      beyond_job_title.trim().length === 0
+    ) {
       return NextResponse.json(
         { error: "النبذة الشخصية مطلوبة" },
+        { status: 400 }
+      )
+    }
+
+    if (
+      !life_changing_moment ||
+      typeof life_changing_moment !== "string" ||
+      life_changing_moment.trim().length === 0
+    ) {
+      return NextResponse.json(
+        { error: "اللحظة المؤثرة مطلوبة" },
+        { status: 400 }
+      )
+    }
+
+    if (
+      !hope_people_understand ||
+      typeof hope_people_understand !== "string" ||
+      hope_people_understand.trim().length === 0
+    ) {
+      return NextResponse.json(
+        { error: "هذا الحقل مطلوب" },
+        { status: 400 }
+      )
+    }
+
+    if (
+      !unasked_question ||
+      typeof unasked_question !== "string" ||
+      unasked_question.trim().length === 0
+    ) {
+      return NextResponse.json(
+        { error: "هذا الحقل مطلوب" },
+        { status: 400 }
+      )
+    }
+
+    if (
+      !why_khat ||
+      typeof why_khat !== "string" ||
+      why_khat.trim().length === 0
+    ) {
+      return NextResponse.json(
+        { error: "سبب اختيار بودكاست خط مطلوب" },
+        { status: 400 }
+      )
+    }
+
+    // Step 3 validation
+    if (
+      !prefer_dialogue_or_story ||
+      typeof prefer_dialogue_or_story !== "string" ||
+      prefer_dialogue_or_story.trim().length === 0
+    ) {
+      return NextResponse.json(
+        { error: "هذا الحقل مطلوب" },
+        { status: 400 }
+      )
+    }
+
+    if (
+      !filming_concern ||
+      !["no", "a_little", "yes"].includes(filming_concern)
+    ) {
+      return NextResponse.json(
+        { error: "يرجى اختيار إجابة" },
+        { status: 400 }
+      )
+    }
+
+    if (typeof agrees_to_publish !== "boolean") {
+      return NextResponse.json(
+        { error: "يرجى الموافقة على النشر" },
         { status: 400 }
       )
     }
@@ -45,11 +153,25 @@ export async function POST(request: NextRequest) {
     const supabase = await createClient()
 
     const { error } = await supabase.from("guest_applications").insert({
-      name: name.trim(),
+      name: stripHtml(name),
       email: email.toLowerCase().trim(),
-      topic: topic.trim(),
-      links: links?.trim() || null,
-      bio: bio.trim(),
+      phone: stripHtml(phone),
+      country: stripHtml(country),
+      can_travel_to_kuwait: can_travel_to_kuwait ? stripHtml(can_travel_to_kuwait) : null,
+      story_idea: stripHtml(story_idea),
+      beyond_job_title: stripHtml(beyond_job_title),
+      life_changing_moment: stripHtml(life_changing_moment),
+      hope_people_understand: stripHtml(hope_people_understand),
+      unasked_question: stripHtml(unasked_question),
+      why_khat: stripHtml(why_khat),
+      previous_podcast: typeof previous_podcast === "boolean" ? previous_podcast : false,
+      previous_podcast_info: previous_podcast_info ? stripHtml(previous_podcast_info) : null,
+      prefer_dialogue_or_story: stripHtml(prefer_dialogue_or_story),
+      topics_to_avoid: topics_to_avoid ? stripHtml(topics_to_avoid) : null,
+      filming_concern: stripHtml(filming_concern),
+      agrees_to_publish: agrees_to_publish,
+      social_links: social_links?.trim() || null,
+      status: "new",
     })
 
     if (error) {

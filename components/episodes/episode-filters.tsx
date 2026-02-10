@@ -1,24 +1,29 @@
 "use client"
 
 import { useRouter, useSearchParams } from "next/navigation"
-import { Input } from "@/components/ui/input"
-import { Select } from "@/components/ui/select"
-import { Search } from "lucide-react"
-import type { Topic, Guest } from "@/types/database"
+import { ArrowUpDown } from "lucide-react"
+import { cn } from "@/lib/utils"
 
 interface EpisodeFiltersProps {
-  topics: Topic[]
-  guests: Guest[]
-  seasons: number[]
+  counts?: Record<string, number>
+  sections?: { id: string; label: string }[]
 }
 
-export function EpisodeFilters({ topics, guests, seasons }: EpisodeFiltersProps) {
+export function EpisodeFilters({ counts, sections }: EpisodeFiltersProps) {
   const router = useRouter()
   const searchParams = useSearchParams()
+  const currentCategory = searchParams.get("category") || "all"
+  const currentSort = searchParams.get("sort") || "newest"
 
-  const updateFilter = (key: string, value: string) => {
+  // Build categories from admin sections, with "الكل" always first
+  const categories = [
+    { id: "all", label: "الكل" },
+    ...(sections || []),
+  ]
+
+  const updateParams = (key: string, value: string, defaultValue: string) => {
     const params = new URLSearchParams(searchParams.toString())
-    if (value) {
+    if (value && value !== defaultValue) {
       params.set(key, value)
     } else {
       params.delete(key)
@@ -26,60 +31,49 @@ export function EpisodeFilters({ topics, guests, seasons }: EpisodeFiltersProps)
     router.push(`/episodes?${params.toString()}`)
   }
 
+  const updateCategory = (category: string) => {
+    updateParams("category", category, "all")
+  }
+
+  const toggleSort = () => {
+    updateParams("sort", currentSort === "newest" ? "oldest" : "newest", "newest")
+  }
+
   return (
-    <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
-      <div className="relative flex-1">
-        <Search className="absolute start-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-        <Input
-          placeholder="ابحث في الحلقات..."
-          className="ps-10"
-          defaultValue={searchParams.get("search") || ""}
-          onChange={(e) => {
-            const timer = setTimeout(() => {
-              updateFilter("search", e.target.value)
-            }, 300)
-            return () => clearTimeout(timer)
-          }}
-        />
+    <div className="flex flex-wrap items-center justify-between gap-4" role="toolbar" aria-label="تصفية الحلقات">
+      <div className="flex flex-wrap gap-2" role="group" aria-label="التصنيفات">
+        {categories.map((category) => {
+          const count = counts?.[category.id]
+          const isSelected = currentCategory === category.id
+          return (
+            <button
+              key={category.id}
+              onClick={() => updateCategory(category.id)}
+              aria-pressed={isSelected}
+              className={cn(
+                "rounded-full px-4 py-2 text-sm font-medium transition-colors",
+                isSelected
+                  ? "bg-primary text-primary-foreground"
+                  : "bg-secondary text-secondary-foreground hover:bg-secondary/80"
+              )}
+            >
+              {category.label}
+              {count !== undefined && count > 0 && (
+                <span className="ms-1.5 text-xs opacity-70">({count})</span>
+              )}
+            </button>
+          )
+        })}
       </div>
 
-      <Select
-        value={searchParams.get("topic") || ""}
-        onChange={(e) => updateFilter("topic", e.target.value)}
+      <button
+        onClick={toggleSort}
+        aria-label={currentSort === "newest" ? "ترتيب من الأقدم" : "ترتيب من الأحدث"}
+        className="flex items-center gap-2 rounded-full bg-secondary px-4 py-2 text-sm font-medium text-secondary-foreground transition-colors hover:bg-secondary/80"
       >
-        <option value="">جميع المواضيع</option>
-        {topics.map((topic) => (
-          <option key={topic.id} value={topic.slug}>
-            {topic.name}
-          </option>
-        ))}
-      </Select>
-
-      <Select
-        value={searchParams.get("guest") || ""}
-        onChange={(e) => updateFilter("guest", e.target.value)}
-      >
-        <option value="">جميع الضيوف</option>
-        {guests.map((guest) => (
-          <option key={guest.id} value={guest.slug}>
-            {guest.name}
-          </option>
-        ))}
-      </Select>
-
-      {seasons.length > 0 && (
-        <Select
-          value={searchParams.get("season") || ""}
-          onChange={(e) => updateFilter("season", e.target.value)}
-        >
-          <option value="">جميع المواسم</option>
-          {seasons.map((season) => (
-            <option key={season} value={season.toString()}>
-              الموسم {season}
-            </option>
-          ))}
-        </Select>
-      )}
+        <ArrowUpDown className="h-4 w-4" />
+        <span>{currentSort === "newest" ? "الأحدث" : "الأقدم"}</span>
+      </button>
     </div>
   )
 }

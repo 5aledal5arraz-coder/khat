@@ -27,27 +27,64 @@ export function truncateText(text: string, maxLength: number, suffix = "..."): s
   return text.slice(0, cutoff).trim() + suffix
 }
 
+/**
+ * Arabic plural forms: [singular, dual, plural (3-10)]
+ * Rules: 0 → plural, 1 → singular + واحد/واحدة, 2 → dual,
+ *        3-10 → number + plural, 11+ → number + singular
+ */
+const ARABIC_PLURALS: Record<string, [string, string, string]> = {
+  "حلقة": ["حلقة", "حلقتان", "حلقات"],
+  "مقال": ["مقال", "مقالان", "مقالات"],
+  "متابع": ["متابع", "متابعان", "متابعين"],
+  "دقيقة": ["دقيقة", "دقيقتين", "دقائق"],
+  "ساعة": ["ساعة", "ساعتين", "ساعات"],
+  "يوم": ["يوم", "يومين", "أيام"],
+  "تعليق": ["تعليق", "تعليقان", "تعليقات"],
+  "رد": ["رد", "ردّان", "ردود"],
+  "اقتباس": ["اقتباس", "اقتباسان", "اقتباسات"],
+}
+
+export function formatArabicCount(count: number, singular: string): string {
+  const forms = ARABIC_PLURALS[singular]
+  if (!forms) return `${count} ${singular}`
+
+  const [sing, dual, plural] = forms
+  const isFeminine = sing.endsWith("ة")
+
+  if (count === 0) return `لا ${plural}`
+  if (count === 1) return `${sing} واحد${isFeminine ? "ة" : ""}`
+  if (count === 2) return dual
+  if (count <= 10) return `${count} ${plural}`
+  return `${count} ${sing}`
+}
+
 export function formatDuration(minutes: number): string {
   const hours = Math.floor(minutes / 60)
   const mins = minutes % 60
   if (hours > 0) {
     return `${hours}:${mins.toString().padStart(2, '0')}`
   }
-  return `${mins} دقيقة`
+  return formatArabicCount(mins, "دقيقة")
 }
 
+const AR_MONTHS = [
+  'يناير', 'فبراير', 'مارس', 'أبريل', 'مايو', 'يونيو',
+  'يوليو', 'أغسطس', 'سبتمبر', 'أكتوبر', 'نوفمبر', 'ديسمبر',
+]
+
 export function formatDate(date: string | Date): string {
-  return new Intl.DateTimeFormat('ar-SA', {
-    year: 'numeric',
-    month: 'long',
-    day: 'numeric',
-  }).format(new Date(date))
+  const d = new Date(date)
+  const day = d.getDate()
+  const month = AR_MONTHS[d.getMonth()]
+  const year = d.getFullYear()
+  return `${day} ${month} ${year}`
 }
 
 export function formatTimeSeconds(seconds: number): string {
-  const hours = Math.floor(seconds / 3600)
-  const mins = Math.floor((seconds % 3600) / 60)
-  const secs = seconds % 60
+  const safeSeconds = Math.max(0, Math.floor(seconds))
+  const hours = Math.floor(safeSeconds / 3600)
+  const mins = Math.floor((safeSeconds % 3600) / 60)
+  const secs = safeSeconds % 60
 
   if (hours > 0) {
     return `${hours}:${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`
@@ -55,25 +92,26 @@ export function formatTimeSeconds(seconds: number): string {
   return `${mins}:${secs.toString().padStart(2, '0')}`
 }
 
+export function getYouTubeId(url: string): string {
+  // Handle watch URLs: v= can be the first or any query param
+  const watchMatch = url.match(/youtube\.com\/watch[^#]*[?&]v=([a-zA-Z0-9_-]{11})/)
+  if (watchMatch) return watchMatch[1]
+  // Handle youtu.be, embed, shorts — capture exactly 11-char ID
+  const shortMatch = url.match(/(?:youtu\.be\/|youtube\.com\/embed\/|youtube\.com\/shorts\/)([a-zA-Z0-9_-]{11})/)
+  return shortMatch ? shortMatch[1] : ''
+}
+
 export function getYouTubeEmbedUrl(url: string, startTime?: number): string {
-  const videoIdMatch = url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/)([^&\s]+)/)
-  if (!videoIdMatch) return url
-
-  const videoId = videoIdMatch[1]
-  let embedUrl = `https://www.youtube-nocookie.com/embed/${videoId}`
-
-  if (startTime) {
-    embedUrl += `?start=${startTime}`
-  }
-
-  return embedUrl
+  const videoId = getYouTubeId(url)
+  if (!videoId) return url
+  const params = new URLSearchParams({ playsinline: "1", rel: "0" })
+  if (startTime) params.set("start", String(startTime))
+  return `https://www.youtube-nocookie.com/embed/${videoId}?${params.toString()}`
 }
 
 export function getYouTubeWatchUrl(url: string, startTime?: number): string {
-  const videoIdMatch = url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/)([^&\s]+)/)
-  if (!videoIdMatch) return url
-
-  const videoId = videoIdMatch[1]
+  const videoId = getYouTubeId(url)
+  if (!videoId) return url
   let watchUrl = `https://www.youtube.com/watch?v=${videoId}`
 
   if (startTime) {

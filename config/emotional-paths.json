@@ -1,0 +1,48 @@
+{
+  "paths": [
+    {
+      "id": "path-1",
+      "slug": "understanding-people",
+      "title": "فهم الناس",
+      "subtitle": "حلقات عن العلاقات والتواصل والتعاطف",
+      "icon": "Users",
+      "color": "#6366f1",
+      "episode_ids": ["1", "5"],
+      "quote_ids": ["hq-1"],
+      "order": 1
+    },
+    {
+      "id": "path-2",
+      "slug": "motivation-work",
+      "title": "الدافع والعمل",
+      "subtitle": "حلقات عن الطموح والإنجاز والمهنة",
+      "icon": "Rocket",
+      "color": "#f59e0b",
+      "episode_ids": ["2", "4"],
+      "quote_ids": ["hq-2"],
+      "order": 2
+    },
+    {
+      "id": "path-3",
+      "slug": "faith-meaning",
+      "title": "الإيمان والمعنى",
+      "subtitle": "حلقات عن الروحانيات والهدف والقيم",
+      "icon": "Heart",
+      "color": "#10b981",
+      "episode_ids": ["3"],
+      "quote_ids": ["hq-3"],
+      "order": 3
+    },
+    {
+      "id": "path-4",
+      "slug": "self-awareness",
+      "title": "وعي الذات",
+      "subtitle": "حلقات عن النمو الشخصي والتأمل الذاتي",
+      "icon": "Eye",
+      "color": "#8b5cf6",
+      "episode_ids": ["3", "5"],
+      "quote_ids": ["hq-3"],
+      "order": 4
+    }
+  ]
+}

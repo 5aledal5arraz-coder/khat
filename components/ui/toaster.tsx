@@ -8,7 +8,7 @@ export function Toaster() {
 
   return (
     <div
-      className="fixed top-4 end-4 z-[100] flex max-h-screen w-full flex-col gap-2 p-4 sm:max-w-[420px]"
+      className="pointer-events-none fixed top-4 end-4 z-[100] flex max-h-screen w-full flex-col gap-2 p-4 sm:max-w-[420px]"
       role="region"
       aria-label="الإشعارات"
     >

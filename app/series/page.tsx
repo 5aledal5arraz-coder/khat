@@ -3,6 +3,7 @@ import Link from "next/link"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Headphones } from "lucide-react"
+import { formatArabicCount } from "@/lib/utils"
 
 export const metadata: Metadata = {
   title: "المجموعات",
@@ -79,7 +80,7 @@ export default function SeriesPage() {
                   <span className="text-4xl">{collection.emoji}</span>
                   <Badge variant="secondary" className={collection.color}>
                     <Headphones className="me-1 h-3 w-3" />
-                    {collection.episodeCount} حلقة
+                    {formatArabicCount(collection.episodeCount, "حلقة")}
                   </Badge>
                 </div>
                 <CardTitle className="mt-4">{collection.title}</CardTitle>

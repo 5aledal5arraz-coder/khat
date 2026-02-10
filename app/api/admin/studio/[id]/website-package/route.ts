@@ -1,0 +1,175 @@
+import { NextRequest, NextResponse } from "next/server"
+import {
+  getStudioSession, getTranscriptForSession,
+  getWebsitePackageForSession, createWebsitePackage, updateWebsitePackage,
+} from "@/lib/studio"
+import { generateWebsitePackage, STUDIO_PROMPT_VERSION } from "@/lib/openai"
+
+export const maxDuration = 120
+
+const recentCalls = new Map<string, number>()
+const RATE_LIMIT_MS = 30_000
+
+/**
+ * GET /api/admin/studio/[id]/website-package — get existing package
+ */
+export async function GET(
+  _request: Request,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const { id } = await params
+  const pkg = await getWebsitePackageForSession(id)
+  return NextResponse.json({ package: pkg || null })
+}
+
+/**
+ * POST /api/admin/studio/[id]/website-package — generate website package from transcript
+ */
+export async function POST(
+  _request: Request,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const { id } = await params
+
+  const lastCall = recentCalls.get(id)
+  if (lastCall && Date.now() - lastCall < RATE_LIMIT_MS) {
+    const waitSec = Math.ceil((RATE_LIMIT_MS - (Date.now() - lastCall)) / 1000)
+    return NextResponse.json(
+      { error: `يرجى الانتظار ${waitSec} ثانية قبل إعادة التوليد` },
+      { status: 429 }
+    )
+  }
+
+  const session = await getStudioSession(id)
+  if (!session) {
+    return NextResponse.json({ error: "الجلسة غير موجودة" }, { status: 404 })
+  }
+
+  const transcript = await getTranscriptForSession(id)
+  if (!transcript || transcript.status !== "ready" || !transcript.transcript_clean) {
+    return NextResponse.json(
+      { error: "لا يوجد نص جاهز — اجلب النص التلقائي أولاً" },
+      { status: 400 }
+    )
+  }
+
+  recentCalls.set(id, Date.now())
+
+  // Create placeholder
+  await createWebsitePackage(id, {
+    status: "generating",
+    hero_summary: null,
+    full_summary: null,
+    takeaways: [],
+    quotes: [],
+    topics: [],
+    resources: [],
+    timestamps: [],
+    linked_episode_id: session.video_id || null,
+    raw_openai_response: null,
+    error_message: null,
+  })
+
+  try {
+    const result = await generateWebsitePackage(
+      transcript.transcript_clean,
+      session.video_title || "",
+      session.duration_seconds
+    )
+
+    if (!result.success || !result.data) {
+      await createWebsitePackage(id, {
+        status: "error",
+        hero_summary: null,
+        full_summary: null,
+        takeaways: [],
+        quotes: [],
+        topics: [],
+        resources: [],
+        timestamps: [],
+        linked_episode_id: session.video_id || null,
+        raw_openai_response: null,
+        error_message: result.error || "فشل التوليد",
+      })
+      return NextResponse.json({ error: result.error || "فشل التوليد" }, { status: 500 })
+    }
+
+    const saved = await createWebsitePackage(id, {
+      status: "ready",
+      hero_summary: result.data.hero_summary,
+      full_summary: result.data.full_summary,
+      takeaways: result.data.takeaways,
+      quotes: result.data.quotes,
+      topics: result.data.topics,
+      resources: result.data.resources,
+      timestamps: result.data.timestamps,
+      linked_episode_id: session.video_id || null,
+      raw_openai_response: result.raw || null,
+      error_message: null,
+    })
+
+    if (!saved.success) {
+      return NextResponse.json({ error: saved.error || "فشل في حفظ النتائج" }, { status: 500 })
+    }
+
+    return NextResponse.json({ package: saved.data })
+  } catch (error) {
+    console.error("Website package generate error:", error)
+    await createWebsitePackage(id, {
+      status: "error",
+      hero_summary: null,
+      full_summary: null,
+      takeaways: [],
+      quotes: [],
+      topics: [],
+      resources: [],
+      timestamps: [],
+      linked_episode_id: session.video_id || null,
+      raw_openai_response: null,
+      error_message: error instanceof Error ? error.message : "خطأ غير متوقع",
+    })
+    return NextResponse.json({ error: "حدث خطأ أثناء التوليد" }, { status: 500 })
+  }
+}
+
+/**
+ * PATCH /api/admin/studio/[id]/website-package — save admin edits
+ */
+export async function PATCH(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const { id: sessionId } = await params
+
+  const existing = await getWebsitePackageForSession(sessionId)
+  if (!existing) {
+    return NextResponse.json({ error: "لا توجد حزمة لهذه الجلسة" }, { status: 404 })
+  }
+
+  try {
+    const body = await request.json()
+
+    // Whitelist editable fields
+    const allowed = ["hero_summary", "full_summary", "takeaways", "quotes", "topics", "resources", "timestamps", "linked_episode_id"] as const
+    const updates: Record<string, unknown> = {}
+    for (const key of allowed) {
+      if (key in body) {
+        updates[key] = body[key]
+      }
+    }
+
+    if (Object.keys(updates).length === 0) {
+      return NextResponse.json({ error: "لا توجد حقول للتحديث" }, { status: 400 })
+    }
+
+    const result = await updateWebsitePackage(existing.id, updates as Parameters<typeof updateWebsitePackage>[1])
+    if (!result.success) {
+      return NextResponse.json({ error: result.error || "فشل الحفظ" }, { status: 500 })
+    }
+
+    return NextResponse.json({ package: result.data })
+  } catch (error) {
+    console.error("Website package update error:", error)
+    return NextResponse.json({ error: "حدث خطأ أثناء الحفظ" }, { status: 500 })
+  }
+}

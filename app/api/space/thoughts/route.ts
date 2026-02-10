@@ -21,8 +21,8 @@ export async function GET(request: NextRequest) {
   const supabase = await createClient()
   const { searchParams } = new URL(request.url)
 
-  const page = parseInt(searchParams.get('page') || '1')
-  const limit = Math.min(parseInt(searchParams.get('limit') || '20'), 50)
+  const page = Math.max(1, parseInt(searchParams.get('page') || '1') || 1)
+  const limit = Math.min(Math.max(1, parseInt(searchParams.get('limit') || '20') || 20), 50)
   const tag = searchParams.get('tag')
   const offset = (page - 1) * limit
 
@@ -78,7 +78,15 @@ export async function POST(request: NextRequest) {
 
   const cleanContent = sanitizeThought(body.content)
   const approvedCount = await getUserApprovedCount(user.id)
-  const modResult = moderateContent(cleanContent, approvedCount)
+  const modResult = await moderateContent(cleanContent, approvedCount)
+
+  // If AI flagged as harmful → block and ask user to edit
+  if (modResult.aiVerdict === 'harmful') {
+    return errorResponse(
+      'لا يمكن نشر هذا المحتوى لأنه يخالف إرشادات المجتمع. يرجى تعديل النص والمحاولة مرة أخرى.',
+      422
+    )
+  }
 
   const { data, error } = await supabase
     .from('hibr_thoughts')
@@ -87,6 +95,7 @@ export async function POST(request: NextRequest) {
       content: cleanContent,
       tags: body.tags?.slice(0, 5) || [],
       moderation_status: modResult.status,
+      moderation_reason: modResult.reasons.length > 0 ? modResult.reasons.join('، ') : null,
     })
     .select('*, profiles!hibr_thoughts_user_id_fkey(id, display_name, avatar_url, bio)')
     .single()

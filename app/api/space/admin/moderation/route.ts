@@ -20,7 +20,7 @@ export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url)
 
   const tab = searchParams.get('tab') || 'pending' // pending | flagged | reports
-  const page = parseInt(searchParams.get('page') || '1')
+  const page = Math.max(1, parseInt(searchParams.get('page') || '1') || 1)
   const limit = 20
   const offset = (page - 1) * limit
 
@@ -36,10 +36,10 @@ export async function GET(request: NextRequest) {
     return successResponse({ items: data || [], total: count || 0, tab })
   }
 
-  // Fetch pending/flagged articles and thoughts
+  // Fetch pending/flagged articles, thoughts, comments, and replies
   const status = tab === 'flagged' ? 'auto_flagged' : 'pending'
 
-  const [articles, thoughts] = await Promise.all([
+  const [articles, thoughts, comments, replies] = await Promise.all([
     supabase
       .from('hibr_articles')
       .select('*, profiles!hibr_articles_user_id_fkey(id, display_name, avatar_url)', { count: 'exact' })
@@ -54,16 +54,32 @@ export async function GET(request: NextRequest) {
       .is('deleted_at', null)
       .order('created_at', { ascending: false })
       .range(offset, offset + limit - 1),
+    supabase
+      .from('hibr_comments')
+      .select('*, profiles!hibr_comments_user_id_fkey(id, display_name, avatar_url)', { count: 'exact' })
+      .eq('moderation_status', status)
+      .is('deleted_at', null)
+      .order('created_at', { ascending: false })
+      .range(offset, offset + limit - 1),
+    supabase
+      .from('hibr_replies')
+      .select('*, profiles!hibr_replies_user_id_fkey(id, display_name, avatar_url)', { count: 'exact' })
+      .eq('moderation_status', status)
+      .is('deleted_at', null)
+      .order('created_at', { ascending: false })
+      .range(offset, offset + limit - 1),
   ])
 
   const items = [
     ...(articles.data || []).map((a) => ({ ...a, _type: 'article' })),
     ...(thoughts.data || []).map((t) => ({ ...t, _type: 'thought' })),
+    ...(comments.data || []).map((c) => ({ ...c, _type: 'comment' })),
+    ...(replies.data || []).map((r) => ({ ...r, _type: 'reply' })),
   ].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
 
   return successResponse({
     items,
-    total: (articles.count ?? 0) + (thoughts.count ?? 0),
+    total: (articles.count ?? 0) + (thoughts.count ?? 0) + (comments.count ?? 0) + (replies.count ?? 0),
     tab,
   })
 }

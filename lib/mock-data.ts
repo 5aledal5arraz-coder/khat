@@ -1,4 +1,4 @@
-import type { Episode, Guest, Topic, Timestamp, Quote, Resource } from '@/types/database'
+import type { Episode, Guest, Topic, Timestamp, Quote, Resource, HomeQuote, DailyReflection } from '@/types/database'
 
 export const mockTopics: Topic[] = [
   { id: '1', name: 'العلاقات', slug: 'relationships', created_at: '2024-01-01' },
@@ -16,6 +16,7 @@ export const mockGuests: Guest[] = [
     bio: 'طبيبة نفسية ومتخصصة في العلاقات الأسرية، لها أكثر من 15 عاماً من الخبرة في مساعدة الأفراد والعائلات.',
     photo_url: null,
     external_links: { twitter: 'https://twitter.com/sarah', linkedin: 'https://linkedin.com/in/sarah' },
+    testimonial: 'تجربتي مع بودكاست خط كانت من أجمل التجارب — حوار عميق وأسئلة تخليك تفكر بطريقة مختلفة. شكراً لكم على المساحة الراقية.',
     created_at: '2024-01-01',
   },
   {
@@ -25,6 +26,7 @@ export const mockGuests: Guest[] = [
     bio: 'رائد أعمال ومؤسس عدة شركات ناشئة ناجحة، شغوف بمشاركة تجاربه في ريادة الأعمال.',
     photo_url: null,
     external_links: { twitter: 'https://twitter.com/ahmed', website: 'https://ahmed.com' },
+    testimonial: null,
     created_at: '2024-01-01',
   },
   {
@@ -34,6 +36,7 @@ export const mockGuests: Guest[] = [
     bio: 'كاتبة ومدربة في مجال تطوير الذات، ألفت عدة كتب حول النمو الشخصي والوعي الذاتي.',
     photo_url: null,
     external_links: { instagram: 'https://instagram.com/noura' },
+    testimonial: 'خط مو بس بودكاست، هو مجتمع يحتضن الأفكار ويعطيها قيمة. فخورة إني كنت جزء من هالرحلة.',
     created_at: '2024-01-01',
   },
   {
@@ -43,11 +46,12 @@ export const mockGuests: Guest[] = [
     bio: 'مهندس برمجيات ومدير تقني، يشارك خبراته في بناء الفرق التقنية والقيادة.',
     photo_url: null,
     external_links: { linkedin: 'https://linkedin.com/in/khaled' },
+    testimonial: null,
     created_at: '2024-01-01',
   },
 ]
 
-export const mockEpisodes: (Episode & { guest?: Guest | null, topics?: { topic: Topic }[] })[] = [
+export const mockEpisodes: (Episode & { guest?: Guest | null })[] = [
   {
     id: '1',
     title: 'كيف نبني علاقات صحية ومستدامة؟',
@@ -66,7 +70,7 @@ export const mockEpisodes: (Episode & { guest?: Guest | null, topics?: { topic: 
     guest_id: '1',
     created_at: '2024-12-15',
     guest: mockGuests[0],
-    topics: [{ topic: mockTopics[0] }, { topic: mockTopics[3] }],
+    topics: [mockTopics[0], mockTopics[3]],
   },
   {
     id: '2',
@@ -86,7 +90,7 @@ export const mockEpisodes: (Episode & { guest?: Guest | null, topics?: { topic: 
     guest_id: '2',
     created_at: '2024-12-01',
     guest: mockGuests[1],
-    topics: [{ topic: mockTopics[4] }, { topic: mockTopics[1] }],
+    topics: [mockTopics[4], mockTopics[1]],
   },
   {
     id: '3',
@@ -106,7 +110,7 @@ export const mockEpisodes: (Episode & { guest?: Guest | null, topics?: { topic: 
     guest_id: '3',
     created_at: '2024-11-15',
     guest: mockGuests[2],
-    topics: [{ topic: mockTopics[1] }, { topic: mockTopics[2] }],
+    topics: [mockTopics[1], mockTopics[2]],
   },
   {
     id: '4',
@@ -126,7 +130,7 @@ export const mockEpisodes: (Episode & { guest?: Guest | null, topics?: { topic: 
     guest_id: '4',
     created_at: '2024-11-01',
     guest: mockGuests[3],
-    topics: [{ topic: mockTopics[4] }],
+    topics: [mockTopics[4]],
   },
   {
     id: '5',
@@ -146,7 +150,7 @@ export const mockEpisodes: (Episode & { guest?: Guest | null, topics?: { topic: 
     guest_id: '1',
     created_at: '2024-10-15',
     guest: mockGuests[0],
-    topics: [{ topic: mockTopics[3] }, { topic: mockTopics[1] }],
+    topics: [mockTopics[3], mockTopics[1]],
   },
 ]
 
@@ -197,6 +201,64 @@ export const mockQuotes: (Quote & { guest?: Guest })[] = [
     guest: mockGuests[0],
   },
 ]
+
+export const mockHomeQuotes: HomeQuote[] = [
+  {
+    id: 'hq-1',
+    text: 'أحياناً أعمق المحادثات تبدأ بصمت.',
+    attribution: 'بودكاست خط',
+    episode_id: '1',
+    episode_slug: 'healthy-relationships',
+    episode_title: 'كيف نبني علاقات صحية ومستدامة؟',
+    theme: 'التأمل',
+    status: 'published',
+    created_at: '2024-12-01T00:00:00Z',
+    updated_at: '2024-12-01T00:00:00Z',
+  },
+  {
+    id: 'hq-2',
+    text: 'الفشل ليس عكس النجاح، بل هو جزء من الطريق إليه.',
+    attribution: 'أحمد العلي',
+    episode_id: '2',
+    episode_slug: 'entrepreneurship-journey',
+    episode_title: 'رحلة ريادة الأعمال: من الفكرة إلى النجاح',
+    theme: 'الطموح',
+    status: 'published',
+    created_at: '2024-12-02T00:00:00Z',
+    updated_at: '2024-12-02T00:00:00Z',
+  },
+  {
+    id: 'hq-3',
+    text: 'معرفة الذات تبدأ بالصمت والتأمل.',
+    attribution: 'نورة القحطاني',
+    episode_id: '3',
+    episode_slug: 'self-discovery',
+    episode_title: 'اكتشاف الذات: رحلة نحو الوعي',
+    theme: 'وعي الذات',
+    status: 'published',
+    created_at: '2024-12-03T00:00:00Z',
+    updated_at: '2024-12-03T00:00:00Z',
+  },
+]
+
+export const mockDailyReflection: DailyReflection = {
+  id: 'dr-1',
+  date: new Date().toISOString().split('T')[0],
+  short_quote: 'كل محادثة صادقة هي بداية تغيير.',
+  reflection: 'في عالم مليء بالضجيج، نحتاج أحياناً أن نتوقف ونسأل أنفسنا: متى آخر مرة أجرينا محادثة حقيقية — محادثة غيّرت طريقة تفكيرنا؟',
+  thinking_question: 'ما هي المحادثة التي غيّرت نظرتك لشيء ما؟',
+  attribution: 'بودكاست خط',
+  episode_id: '1',
+  episode_slug: 'healthy-relationships',
+  episode_title: 'كيف نبني علاقات صحية ومستدامة؟',
+  quote_id: 'hq-1',
+  quote_text: 'أحياناً أعمق المحادثات تبدأ بصمت.',
+  path_slug: 'understanding-people',
+  path_title: 'فهم الناس',
+  status: 'published',
+  created_at: '2024-12-01T00:00:00Z',
+  updated_at: '2024-12-01T00:00:00Z',
+}
 
 export const mockResources: Resource[] = [
   { id: '1', episode_id: '1', title: 'كتاب: لغات الحب الخمس', url: 'https://example.com/book1', type: 'book' },

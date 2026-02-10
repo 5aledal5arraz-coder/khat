@@ -12,7 +12,7 @@ import {
   errorResponse,
 } from '@/lib/api-utils'
 
-const VALID_ACTIONS = ['approve', 'reject', 'hide', 'unhide'] as const
+const VALID_ACTIONS = ['approve', 'reject', 'hide', 'unhide', 'edit', 'delete'] as const
 
 export async function PATCH(
   request: NextRequest,
@@ -28,7 +28,7 @@ export async function PATCH(
   const profile = await getUserProfile(user.id)
   if (!profile?.is_admin) return forbiddenResponse()
 
-  let body: { action: string; target_type: string; reason?: string }
+  let body: { action: string; target_type: string; reason?: string; content?: string }
   try {
     body = await request.json()
   } catch {
@@ -53,8 +53,6 @@ export async function PATCH(
     unhide: 'approved',
   }
 
-  const newStatus = statusMap[body.action]
-
   // Handle reports separately
   if (body.target_type === 'report') {
     const { error } = await supabase
@@ -68,7 +66,6 @@ export async function PATCH(
 
     if (error) return errorResponse('حدث خطأ', 500)
   } else {
-    // Update content moderation status
     const tableMap: Record<string, string> = {
       article: 'hibr_articles',
       thought: 'hibr_thoughts',
@@ -79,12 +76,41 @@ export async function PATCH(
     const table = tableMap[body.target_type]
     if (!table) return notFoundResponse()
 
-    const { error } = await supabase
-      .from(table)
-      .update({ moderation_status: newStatus })
-      .eq('id', id)
+    if (body.action === 'delete') {
+      // Soft delete
+      const { error } = await supabase
+        .from(table)
+        .update({ deleted_at: new Date().toISOString() })
+        .eq('id', id)
 
-    if (error) return errorResponse('حدث خطأ في تحديث حالة المحتوى', 500)
+      if (error) return errorResponse('حدث خطأ في حذف المحتوى', 500)
+    } else if (body.action === 'edit') {
+      // Edit content
+      if (!body.content || body.content.trim().length === 0) {
+        return validationErrorResponse('المحتوى مطلوب')
+      }
+
+      const updateData: Record<string, string> = {
+        content: body.content.trim(),
+        moderation_status: 'approved',
+      }
+
+      const { error } = await supabase
+        .from(table)
+        .update(updateData)
+        .eq('id', id)
+
+      if (error) return errorResponse('حدث خطأ في تعديل المحتوى', 500)
+    } else {
+      // Update moderation status
+      const newStatus = statusMap[body.action]
+      const { error } = await supabase
+        .from(table)
+        .update({ moderation_status: newStatus })
+        .eq('id', id)
+
+      if (error) return errorResponse('حدث خطأ في تحديث حالة المحتوى', 500)
+    }
   }
 
   // Log the moderation action (non-critical)

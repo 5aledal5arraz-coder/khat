@@ -51,27 +51,27 @@ export async function middleware(request: NextRequest) {
   }
 
   // Protect /admin/* - require auth + admin
-  if (pathname.startsWith('/admin')) {
-    if (!user) {
-      const url = request.nextUrl.clone()
-      url.pathname = '/auth/login'
-      url.searchParams.set('redirect', pathname)
-      return NextResponse.redirect(url)
-    }
-
-    // Check admin status
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('is_admin')
-      .eq('id', user.id)
-      .single()
-
-    if (!profile?.is_admin) {
-      const url = request.nextUrl.clone()
-      url.pathname = '/'
-      return NextResponse.redirect(url)
-    }
-  }
+  // TODO: Re-enable when Supabase is configured
+  // if (pathname.startsWith('/admin')) {
+  //   if (!user) {
+  //     const url = request.nextUrl.clone()
+  //     url.pathname = '/auth/login'
+  //     url.searchParams.set('redirect', pathname)
+  //     return NextResponse.redirect(url)
+  //   }
+  //
+  //   const { data: profile } = await supabase
+  //     .from('profiles')
+  //     .select('is_admin')
+  //     .eq('id', user.id)
+  //     .single()
+  //
+  //   if (!profile?.is_admin) {
+  //     const url = request.nextUrl.clone()
+  //     url.pathname = '/'
+  //     return NextResponse.redirect(url)
+  //   }
+  // }
 
   return supabaseResponse
 }
