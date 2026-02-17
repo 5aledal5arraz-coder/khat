@@ -8,15 +8,17 @@ import { Search, X } from "lucide-react"
 import { Button, buttonVariants } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 
-const navigation = [
+const baseNavigation = [
   { name: "الحلقات", href: "/episodes" },
   { name: "الضيوف", href: "/guests" },
   { name: "المجموعات", href: "/series" },
-  { name: "حبر", href: "/space" },
+  { name: "حبر", href: "/space", requiresHibr: true },
   { name: "الموارد", href: "/resources" },
+  { name: "عن خط", href: "/about" },
 ]
 
-export function Header() {
+export function Header({ hibrEnabled = true }: { hibrEnabled?: boolean }) {
+  const navigation = baseNavigation.filter((item) => !item.requiresHibr || hibrEnabled)
   const [searchOpen, setSearchOpen] = useState(false)
   const [searchQuery, setSearchQuery] = useState("")
   const router = useRouter()
@@ -77,6 +79,7 @@ export function Header() {
                 type="button"
                 variant="ghost"
                 size="icon"
+                aria-label="إغلاق البحث"
                 onClick={() => {
                   setSearchOpen(false)
                   setSearchQuery("")

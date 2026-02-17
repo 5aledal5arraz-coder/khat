@@ -1,9 +1,20 @@
 import { NextRequest, NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
 import { stripHtml } from "@/lib/sanitize"
+import { validateEmail } from "@/lib/validation"
+import { checkIpRateLimit } from "@/lib/rate-limit"
 
 export async function POST(request: NextRequest) {
   try {
+    // Rate limit: 3 submissions per hour per IP
+    const rl = checkIpRateLimit(request, "sponsor_submit", 3, 60 * 60 * 1000)
+    if (!rl.allowed) {
+      return NextResponse.json(
+        { error: "لقد أرسلت عدة طلبات. يرجى المحاولة لاحقًا." },
+        { status: 429 }
+      )
+    }
+
     const body = await request.json()
     const {
       company_name,
@@ -34,12 +45,9 @@ export async function POST(request: NextRequest) {
     if (!job_title || typeof job_title !== "string" || job_title.trim().length === 0) {
       return NextResponse.json({ error: "المسمى الوظيفي مطلوب" }, { status: 400 })
     }
-    if (!email || typeof email !== "string") {
-      return NextResponse.json({ error: "البريد الإلكتروني مطلوب" }, { status: 400 })
-    }
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
-    if (!emailRegex.test(email)) {
-      return NextResponse.json({ error: "البريد الإلكتروني غير صالح" }, { status: 400 })
+    const emailCheck = validateEmail(email)
+    if (!emailCheck.valid) {
+      return NextResponse.json({ error: emailCheck.error }, { status: 400 })
     }
     if (!phone || typeof phone !== "string" || phone.trim().length === 0) {
       return NextResponse.json({ error: "رقم الهاتف مطلوب" }, { status: 400 })
@@ -53,8 +61,11 @@ export async function POST(request: NextRequest) {
     if (!budget_range || typeof budget_range !== "string") {
       return NextResponse.json({ error: "نطاق الميزانية مطلوب" }, { status: 400 })
     }
-    if (!Array.isArray(collaboration_types)) {
-      return NextResponse.json({ error: "أنواع التعاون غير صالحة" }, { status: 400 })
+    if (!Array.isArray(collaboration_types) || collaboration_types.length === 0) {
+      return NextResponse.json({ error: "يرجى اختيار نوع تعاون واحد على الأقل" }, { status: 400 })
+    }
+    if (phone.trim().length < 8) {
+      return NextResponse.json({ error: "رقم الهاتف قصير جدًا" }, { status: 400 })
     }
 
     // Sanitize collaboration_types array entries

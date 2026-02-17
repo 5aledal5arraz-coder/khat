@@ -5,18 +5,20 @@ export interface ValidationResult {
   error?: string
 }
 
-export function validateArticleTitle(title: string): ValidationResult {
-  const trimmed = title.trim()
-  if (trimmed.length < 3) return { valid: false, error: 'عنوان المقال يجب أن يكون ٣ أحرف على الأقل' }
-  if (trimmed.length > 200) return { valid: false, error: 'عنوان المقال يجب ألا يتجاوز ٢٠٠ حرف' }
+/** Reusable string-length validator. min=0 means optional (empty allowed). */
+function validateLength(text: string, min: number, max: number, tooShortMsg: string, tooLongMsg: string): ValidationResult {
+  const trimmed = text.trim()
+  if (trimmed.length < min) return { valid: false, error: tooShortMsg }
+  if (trimmed.length > max) return { valid: false, error: tooLongMsg }
   return { valid: true }
 }
 
+export function validateArticleTitle(title: string): ValidationResult {
+  return validateLength(title, 3, 200, 'عنوان المقال يجب أن يكون ٣ أحرف على الأقل', 'عنوان المقال يجب ألا يتجاوز ٢٠٠ حرف')
+}
+
 export function validateArticleContent(content: string): ValidationResult {
-  const trimmed = content.trim()
-  if (trimmed.length < 50) return { valid: false, error: 'محتوى المقال يجب أن يكون ٥٠ حرفاً على الأقل' }
-  if (trimmed.length > 50000) return { valid: false, error: 'محتوى المقال يجب ألا يتجاوز ٥٠,٠٠٠ حرف' }
-  return { valid: true }
+  return validateLength(content, 50, 50000, 'محتوى المقال يجب أن يكون ٥٠ حرفاً على الأقل', 'محتوى المقال يجب ألا يتجاوز ٥٠,٠٠٠ حرف')
 }
 
 export function validateArticleExcerpt(excerpt: string): ValidationResult {
@@ -33,23 +35,25 @@ export function validateTags(tags: string[]): ValidationResult {
 }
 
 export function validateThoughtContent(content: string): ValidationResult {
-  const trimmed = content.trim()
-  if (trimmed.length < 1) return { valid: false, error: 'المحتوى مطلوب' }
-  if (trimmed.length > 280) return { valid: false, error: 'الخاطرة يجب ألا تتجاوز ٢٨٠ حرف' }
-  return { valid: true }
+  return validateLength(content, 1, 280, 'المحتوى مطلوب', 'الخاطرة يجب ألا تتجاوز ٢٨٠ حرف')
 }
 
 export function validateCommentContent(content: string): ValidationResult {
-  const trimmed = content.trim()
-  if (trimmed.length < 1) return { valid: false, error: 'التعليق مطلوب' }
-  if (trimmed.length > 500) return { valid: false, error: 'التعليق يجب ألا يتجاوز ٥٠٠ حرف' }
-  return { valid: true }
+  return validateLength(content, 1, 500, 'التعليق مطلوب', 'التعليق يجب ألا يتجاوز ٥٠٠ حرف')
 }
 
 export function validateReplyContent(content: string): ValidationResult {
-  const trimmed = content.trim()
-  if (trimmed.length < 1) return { valid: false, error: 'الرد مطلوب' }
-  if (trimmed.length > 280) return { valid: false, error: 'الرد يجب ألا يتجاوز ٢٨٠ حرف' }
+  return validateLength(content, 1, 280, 'الرد مطلوب', 'الرد يجب ألا يتجاوز ٢٨٠ حرف')
+}
+
+export function validateQuestionContent(text: string): ValidationResult {
+  return validateLength(text, 10, 280, 'السؤال يجب أن يكون ١٠ أحرف على الأقل', 'السؤال يجب ألا يتجاوز ٢٨٠ حرف')
+}
+
+export function validateDisplayName(name: string): ValidationResult {
+  const trimmed = name.trim()
+  if (trimmed.length > 0 && trimmed.length < 2) return { valid: false, error: 'الاسم يجب أن يكون حرفين على الأقل' }
+  if (trimmed.length > 50) return { valid: false, error: 'الاسم يجب ألا يتجاوز ٥٠ حرف' }
   return { valid: true }
 }
 
@@ -78,3 +82,21 @@ export function validateArticle(data: { title: string; content: string; excerpt?
 
   return { valid: true }
 }
+
+/**
+ * Stricter email validation: requires >=2 char local, domain with dot, >=2 char TLD.
+ * Not RFC-complete but rejects obvious junk like a@b.c, user@.com, etc.
+ */
+export const EMAIL_REGEX = /^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z]{2,})+$/
+
+export function validateEmail(email: string): ValidationResult {
+  if (!email || typeof email !== 'string') return { valid: false, error: 'البريد الإلكتروني مطلوب' }
+  if (!EMAIL_REGEX.test(email.trim())) return { valid: false, error: 'البريد الإلكتروني غير صالح' }
+  return { valid: true }
+}
+
+export const ADMIN_LIMITS = {
+  TITLE_LENGTH: 300,
+  DESCRIPTION_LENGTH: 5000,
+  LABEL_LENGTH: 100,
+} as const

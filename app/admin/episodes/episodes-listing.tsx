@@ -17,6 +17,7 @@ export function EpisodesListing({
 }: EpisodesPageData) {
   const [search, setSearch] = useState("")
   const [activeFilter, setActiveFilter] = useState<string | null>(null)
+  const [viewMode, setViewMode] = useState<"grid" | "list">("grid")
 
   const { sections, assignments, hiddenEpisodes, deletedEpisodes } = sectionsConfig
   const hiddenSet = new Set(hiddenEpisodes)
@@ -58,7 +59,7 @@ export function EpisodesListing({
   ).length
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-6">
       <EpisodesHeader
         totalEpisodes={episodes.length}
         totalSections={sections.length}
@@ -76,6 +77,8 @@ export function EpisodesListing({
         totalCount={episodes.length}
         uncategorizedCount={uncategorizedCount}
         deletedCount={deletedCount}
+        viewMode={viewMode}
+        onViewModeChange={setViewMode}
       />
 
       <EpisodesGrid
@@ -88,6 +91,7 @@ export function EpisodesListing({
         youtubePackConfig={youtubePackConfig}
         search={search}
         activeFilter={activeFilter}
+        viewMode={viewMode}
       />
     </div>
   )

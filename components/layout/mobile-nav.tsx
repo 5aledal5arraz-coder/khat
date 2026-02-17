@@ -5,19 +5,21 @@ import { usePathname } from "next/navigation"
 import { Home, Headphones, PenSquare, Compass, MoreHorizontal } from "lucide-react"
 import { cn } from "@/lib/utils"
 
-const navItems = [
+const baseNavItems = [
   { href: "/", icon: Home, label: "الرئيسية" },
   { href: "/episodes", icon: Headphones, label: "الحلقات" },
-  { href: "/space", icon: PenSquare, label: "حبر" },
+  { href: "/space", icon: PenSquare, label: "حبر", requiresHibr: true },
   { href: "/about", icon: Compass, label: "عنّا" },
   { href: "/more", icon: MoreHorizontal, label: "المزيد" },
 ]
 
-export function MobileNav() {
+export function MobileNav({ hibrEnabled = true }: { hibrEnabled?: boolean }) {
+  const navItems = baseNavItems.filter((item) => !item.requiresHibr || hibrEnabled)
   const pathname = usePathname()
 
   return (
     <nav
+      aria-label="القائمة الرئيسية"
       className="fixed bottom-0 left-0 right-0 z-50 border-t bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/80 md:hidden"
       style={{
         paddingBottom: "env(safe-area-inset-bottom, 0px)",

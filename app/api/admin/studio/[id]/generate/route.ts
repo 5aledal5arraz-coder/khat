@@ -1,23 +1,47 @@
 import { NextResponse } from "next/server"
 import { getStudioSession, getTranscriptForSession, createAiOutput, getAiOutputForSession } from "@/lib/studio"
 import { generateStudioPackage, STUDIO_PROMPT_VERSION } from "@/lib/openai"
+import { requireAdminAPI } from "@/lib/api-utils"
 
 export const maxDuration = 120
 
 // Simple in-memory rate limiter: 1 generate call per session per 30 seconds
 const recentCalls = new Map<string, number>()
 const RATE_LIMIT_MS = 30_000
+const RATE_LIMIT_MAX_ENTRIES = 500
+
+// Periodic cleanup of stale entries to prevent memory leak
+function cleanupRateLimit() {
+  if (recentCalls.size <= RATE_LIMIT_MAX_ENTRIES) return
+  const now = Date.now()
+  for (const [key, ts] of recentCalls) {
+    if (now - ts > RATE_LIMIT_MS) recentCalls.delete(key)
+  }
+}
 
 /**
  * POST /api/admin/studio/[id]/generate — generate AI package from transcript
  */
 export async function POST(
-  _request: Request,
+  request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const authError = await requireAdminAPI()
+  if (authError) return authError
   const { id } = await params
 
-  // Rate limit check
+  // AI guard: return cached result if already generated (unless force=true)
+  let forceRegenerate = false
+  try { const b = await request.clone().json(); forceRegenerate = b?.force === true } catch { /* no body is fine */ }
+  if (!forceRegenerate) {
+    const existing = await getAiOutputForSession(id)
+    if (existing && existing.status === "ready") {
+      return NextResponse.json({ output: existing, cached: true })
+    }
+  }
+
+  // Rate limit check (with cleanup to prevent memory leak)
+  cleanupRateLimit()
   const lastCall = recentCalls.get(id)
   if (lastCall && Date.now() - lastCall < RATE_LIMIT_MS) {
     const waitSec = Math.ceil((RATE_LIMIT_MS - (Date.now() - lastCall)) / 1000)
@@ -149,6 +173,8 @@ export async function GET(
   _request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const authError = await requireAdminAPI()
+  if (authError) return authError
   const { id } = await params
   const output = await getAiOutputForSession(id)
 

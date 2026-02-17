@@ -1,5 +1,11 @@
+import { Metadata } from "next"
 import Link from "next/link"
 import { getAllPaths } from "@/lib/emotional-paths"
+
+export const metadata: Metadata = {
+  title: "مسارات الاستماع",
+  description: "اختر المسار اللي يناسب مزاجك واستكشف حلقات مختارة بعناية من بودكاست خط",
+}
 import { Card, CardContent } from "@/components/ui/card"
 import { Users, Rocket, Heart, Eye, ArrowLeft } from "lucide-react"
 

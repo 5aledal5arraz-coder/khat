@@ -6,6 +6,7 @@ import {
   updateReflection,
   deleteReflection,
 } from "@/lib/daily-reflections"
+import { requireAdmin } from "@/lib/api-utils"
 
 function revalidateAll() {
   revalidatePath("/")
@@ -13,6 +14,7 @@ function revalidateAll() {
 }
 
 export async function createReflectionAction(formData: FormData) {
+  await requireAdmin()
   const date = formData.get("date") as string
   const short_quote = formData.get("short_quote") as string
   const reflection = formData.get("reflection") as string
@@ -51,6 +53,7 @@ export async function createReflectionAction(formData: FormData) {
 }
 
 export async function updateReflectionAction(id: string, formData: FormData) {
+  await requireAdmin()
   const date = formData.get("date") as string
   const short_quote = formData.get("short_quote") as string
   const reflection = formData.get("reflection") as string
@@ -86,6 +89,7 @@ export async function updateReflectionAction(id: string, formData: FormData) {
 }
 
 export async function deleteReflectionAction(id: string) {
+  await requireAdmin()
   const deleted = await deleteReflection(id)
   if (!deleted) return { success: false, error: "التأمل غير موجود" }
 
@@ -94,6 +98,7 @@ export async function deleteReflectionAction(id: string) {
 }
 
 export async function publishReflectionAction(id: string) {
+  await requireAdmin()
   const updated = await updateReflection(id, { status: "published" })
   if (!updated) return { success: false, error: "التأمل غير موجود" }
 
@@ -102,6 +107,7 @@ export async function publishReflectionAction(id: string) {
 }
 
 export async function unpublishReflectionAction(id: string) {
+  await requireAdmin()
   const updated = await updateReflection(id, { status: "draft" })
   if (!updated) return { success: false, error: "التأمل غير موجود" }
 

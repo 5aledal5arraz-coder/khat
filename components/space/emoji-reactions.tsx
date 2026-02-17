@@ -92,6 +92,8 @@ export function EmojiReactions({ articleId, compact = false }: EmojiReactionsPro
                   userReactions.includes(reaction.type) && "bg-primary/10 ring-2 ring-primary"
                 )}
                 title={reaction.label}
+                aria-label={reaction.label}
+                aria-pressed={userReactions.includes(reaction.type)}
               >
                 {reaction.emoji}
               </button>
@@ -115,6 +117,8 @@ export function EmojiReactions({ articleId, compact = false }: EmojiReactionsPro
               userReactions.includes(reaction.type) && "bg-primary/10 ring-2 ring-primary"
             )}
             title={reaction.label}
+            aria-label={reaction.label}
+            aria-pressed={userReactions.includes(reaction.type)}
           >
             {reaction.emoji}
           </button>

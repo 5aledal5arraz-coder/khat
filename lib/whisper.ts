@@ -2,7 +2,7 @@ import { execFile } from "child_process"
 import { promisify } from "util"
 import fs from "fs/promises"
 import path from "path"
-import OpenAI from "openai"
+import OpenAI, { toFile } from "openai"
 
 const execFileAsync = promisify(execFile)
 
@@ -52,19 +52,16 @@ async function transcribeChunk(
   filePath: string,
   language: string
 ): Promise<string> {
-  const fileHandle = await fs.open(filePath, "r")
-  const stream = fileHandle.createReadStream()
+  const buffer = await fs.readFile(filePath)
+  const filename = path.basename(filePath)
+  const file = await toFile(buffer, filename)
 
-  try {
-    const response = await openai.audio.transcriptions.create({
-      model: "whisper-1",
-      file: stream as unknown as File,
-      language,
-    })
-    return response.text
-  } finally {
-    await fileHandle.close()
-  }
+  const response = await openai.audio.transcriptions.create({
+    model: "whisper-1",
+    file,
+    language,
+  })
+  return response.text
 }
 
 /**

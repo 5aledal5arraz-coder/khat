@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { getAiOutputForSession, updateAiOutput } from "@/lib/studio"
+import { requireAdminAPI } from "@/lib/api-utils"
 
 /**
  * PATCH /api/admin/studio/[id]/ai-output — save admin edits to AI outputs
@@ -9,6 +10,8 @@ export async function PATCH(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const authError = await requireAdminAPI()
+  if (authError) return authError
   const { id: sessionId } = await params
 
   const output = await getAiOutputForSession(sessionId)

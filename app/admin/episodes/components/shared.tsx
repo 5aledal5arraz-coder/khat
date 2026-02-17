@@ -2,17 +2,14 @@
 
 import { useState, useRef, useEffect } from "react"
 import { MoreVertical } from "lucide-react"
-import type {
-  EpisodeOverride,
-  EpisodeSectionsConfig,
-  EpisodeQuotesConfig,
-  YouTubePackConfig,
-} from "@/types/ads"
+import type { EpisodeOverride, EpisodeSectionsConfig, EpisodeQuotesConfig } from "@/types/episodes"
+import type { YouTubePackConfig } from "@/types/youtube-pack"
 
 /* ─── Types ─── */
 
 export interface Episode {
   id: string
+  slug: string
   title: string
   description: string
   youtube_url: string
@@ -54,36 +51,6 @@ export function formatDate(dateStr: string): string {
     month: "2-digit",
     year: "numeric",
   })
-}
-
-/* ─── Glow Card ─── */
-
-export function GlowCard({
-  children,
-  color = "primary",
-  className = "",
-}: {
-  children: React.ReactNode
-  color?: "primary" | "purple" | "destructive" | "muted"
-  className?: string
-}) {
-  const glowMap = {
-    primary: "from-primary/20 via-transparent to-primary/5",
-    purple: "from-accent/20 via-transparent to-accent/5",
-    destructive: "from-destructive/20 via-transparent to-destructive/5",
-    muted: "from-muted-foreground/10 via-transparent to-muted-foreground/5",
-  }
-
-  return (
-    <div
-      className={`group/card relative overflow-hidden rounded-2xl border border-border/50 bg-card/80 backdrop-blur-sm transition-all hover:border-border ${className}`}
-    >
-      <div
-        className={`pointer-events-none absolute inset-0 bg-gradient-to-br ${glowMap[color]} opacity-0 transition-opacity group-hover/card:opacity-100`}
-      />
-      <div className="relative">{children}</div>
-    </div>
-  )
 }
 
 /* ─── Action Menu (three-dot dropdown) ─── */

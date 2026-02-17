@@ -4,6 +4,7 @@ import path from "path"
 import { validateAudioFile } from "@/lib/audio-validation"
 import { probeAudioDuration } from "@/lib/whisper"
 import { createStudioSession } from "@/lib/studio"
+import { requireAdminAPI } from "@/lib/api-utils"
 
 export const maxDuration = 300
 
@@ -14,6 +15,8 @@ const AUDIO_DIR = path.join(process.cwd(), "data", "studio-audio")
  * Body: FormData with `file` (audio) and optional `title` (string)
  */
 export async function POST(request: NextRequest) {
+  const authError = await requireAdminAPI()
+  if (authError) return authError
   try {
     const formData = await request.formData()
     const file = formData.get("file") as File | null
@@ -65,6 +68,10 @@ export async function POST(request: NextRequest) {
       raw_youtube_response: null,
       audio_filename: file.name,
       audio_file_size: file.size,
+      audio_start_seconds: null,
+      audio_end_seconds: null,
+      audio_best_intro: null,
+      audio_edit_suggestions: null,
     })
 
     if (!result.success) {

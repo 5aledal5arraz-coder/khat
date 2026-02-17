@@ -5,8 +5,11 @@ import {
   hashPassword,
   generateSlug,
 } from "@/lib/media-kit-share"
+import { requireAdminAPI } from "@/lib/api-utils"
 
 export async function GET() {
+  const authError = await requireAdminAPI()
+  if (authError) return authError
   const config = await getShareConfig()
   if (!config) {
     return NextResponse.json({ enabled: false, slug: null, hasPassword: false })
@@ -19,6 +22,8 @@ export async function GET() {
 }
 
 export async function POST(request: NextRequest) {
+  const authError = await requireAdminAPI()
+  if (authError) return authError
   const body = (await request.json()) as { enabled: boolean; password?: string }
   const existing = await getShareConfig()
 

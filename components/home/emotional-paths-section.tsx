@@ -1,7 +1,11 @@
+"use client"
+
 import Link from "next/link"
 import type { EmotionalPath } from "@/types/database"
 import { Card, CardContent } from "@/components/ui/card"
 import { Users, Rocket, Heart, Eye } from "lucide-react"
+import { trackEvent } from "@/lib/personalization/tracker"
+import { formatArabicCount } from "@/lib/utils"
 
 const iconMap: Record<string, React.ComponentType<{ className?: string }>> = {
   Users,
@@ -27,10 +31,22 @@ export function EmotionalPathsSection({ paths }: Props) {
       <div className="grid grid-cols-2 gap-4">
         {paths.map((path) => {
           const Icon = iconMap[path.icon] || Heart
+          const hasEpisodes = path.episode_ids.length > 0
 
           return (
-            <Link key={path.id} href={`/paths/${path.slug}`}>
-              <Card className="group h-full transition-all hover:shadow-lg hover:border-primary/50">
+            <Link
+              key={path.id}
+              href={hasEpisodes ? `/paths/${path.slug}` : "#"}
+              onClick={(e) => {
+                if (!hasEpisodes) {
+                  e.preventDefault()
+                  return
+                }
+                trackEvent("path_click", path.slug, { mood: path.title })
+              }}
+              aria-disabled={!hasEpisodes}
+            >
+              <Card className={`group h-full transition-all ${hasEpisodes ? "hover:shadow-lg hover:border-primary/50 cursor-pointer" : "opacity-60 cursor-default"}`}>
                 <CardContent className="flex flex-col items-center gap-3 p-6 text-center">
                   <div
                     className="flex h-14 w-14 items-center justify-center rounded-full transition-transform group-hover:scale-110"
@@ -48,11 +64,11 @@ export function EmotionalPathsSection({ paths }: Props) {
                       {path.subtitle}
                     </p>
                   </div>
-                  {path.episode_ids.length > 0 && (
-                    <span className="text-xs text-muted-foreground">
-                      {path.episode_ids.length} حلقة
-                    </span>
-                  )}
+                  <span className="text-xs text-muted-foreground">
+                    {hasEpisodes
+                      ? formatArabicCount(path.episode_ids.length, "حلقة")
+                      : "قريباً"}
+                  </span>
                 </CardContent>
               </Card>
             </Link>

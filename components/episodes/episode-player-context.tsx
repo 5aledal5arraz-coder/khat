@@ -1,15 +1,15 @@
 "use client"
 
-import { createContext, useContext, useState, useCallback, type ReactNode } from "react"
+import { createContext, useContext, useCallback, useRef, type ReactNode } from "react"
 
 interface PlayerContextValue {
-  seekTime: number | null
   seekTo: (seconds: number) => void
+  registerPlayer: (player: YT.Player) => void
 }
 
 const PlayerContext = createContext<PlayerContextValue>({
-  seekTime: null,
   seekTo: () => {},
+  registerPlayer: () => {},
 })
 
 export function usePlayer() {
@@ -17,14 +17,27 @@ export function usePlayer() {
 }
 
 export function EpisodePlayerProvider({ children }: { children: ReactNode }) {
-  const [seekTime, setSeekTime] = useState<number | null>(null)
+  const playerRef = useRef<YT.Player | null>(null)
+
+  const registerPlayer = useCallback((player: YT.Player) => {
+    playerRef.current = player
+  }, [])
 
   const seekTo = useCallback((seconds: number) => {
-    setSeekTime(seconds)
+    const player = playerRef.current
+    if (player) {
+      player.seekTo(seconds, true)
+      player.playVideo()
+      // Scroll the player into view
+      const el = document.getElementById("episode-player")
+      if (el) {
+        el.scrollIntoView({ behavior: "smooth", block: "center" })
+      }
+    }
   }, [])
 
   return (
-    <PlayerContext.Provider value={{ seekTime, seekTo }}>
+    <PlayerContext.Provider value={{ seekTo, registerPlayer }}>
       {children}
     </PlayerContext.Provider>
   )

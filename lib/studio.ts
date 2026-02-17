@@ -6,6 +6,7 @@ import { deleteEpisodeOverride } from "@/lib/episode-overrides"
 import { deleteEpisodeQuotesEntry } from "@/lib/episode-quotes"
 import type {
   StudioSession, StudioTranscript, StudioTranscriptSource,
+  StudioTranscriptProcessingStatus, StudioTranscriptSummary, StudioTranscriptQuote,
   StudioAiOutput, StudioAiOutputStatus,
   StudioChapters, StudioChaptersStatus, StudioChapterItem,
   StudioClips, StudioClipsStatus, StudioClipItem,
@@ -15,23 +16,51 @@ import type {
 } from "@/types/database"
 
 const AUDIO_DIR = path.join(process.cwd(), "data", "studio-audio")
+const MOCK_DIR = path.join(process.cwd(), "data", "studio-mock")
 
 const USE_MOCK_DATA =
   process.env.NEXT_PUBLIC_SUPABASE_URL?.includes("placeholder") ||
   !process.env.NEXT_PUBLIC_SUPABASE_URL
 
-// In-memory stores for mock mode
-let mockSessions: StudioSession[] = []
-let mockTranscripts: StudioTranscript[] = []
-let mockAiOutputs: StudioAiOutput[] = []
-let mockChapters: StudioChapters[] = []
-let mockClips: StudioClips[] = []
-let mockWebsitePackages: StudioWebsitePackage[] = []
-let mockAnalyzers: StudioAnalyzer[] = []
+// File-based mock stores (persists across Turbopack route bundles)
+interface MockStore {
+  sessions: StudioSession[]
+  transcripts: StudioTranscript[]
+  aiOutputs: StudioAiOutput[]
+  chapters: StudioChapters[]
+  clips: StudioClips[]
+  websitePackages: StudioWebsitePackage[]
+  analyzers: StudioAnalyzer[]
+}
+
+const MOCK_DEFAULTS: MockStore = {
+  sessions: [],
+  transcripts: [],
+  aiOutputs: [],
+  chapters: [],
+  clips: [],
+  websitePackages: [],
+  analyzers: [],
+}
+
+async function readMock(): Promise<MockStore> {
+  try {
+    const data = await fs.readFile(path.join(MOCK_DIR, "store.json"), "utf-8")
+    return JSON.parse(data) as MockStore
+  } catch {
+    return { ...MOCK_DEFAULTS }
+  }
+}
+
+async function writeMock(store: MockStore): Promise<void> {
+  await fs.mkdir(MOCK_DIR, { recursive: true })
+  await fs.writeFile(path.join(MOCK_DIR, "store.json"), JSON.stringify(store, null, 2), "utf-8")
+}
 
 export async function getStudioSessions(): Promise<StudioSession[]> {
   if (USE_MOCK_DATA) {
-    return [...mockSessions].sort(
+    const store = await readMock()
+    return [...store.sessions].sort(
       (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
     )
   }
@@ -52,7 +81,8 @@ export async function getStudioSessions(): Promise<StudioSession[]> {
 
 export async function getStudioSession(id: string): Promise<StudioSession | null> {
   if (USE_MOCK_DATA) {
-    return mockSessions.find((s) => s.id === id) || null
+    const store = await readMock()
+    return store.sessions.find((s) => s.id === id) || null
   }
 
   const supabase = await createClient()
@@ -77,7 +107,9 @@ export async function createStudioSession(
       created_at: now,
       updated_at: now,
     }
-    mockSessions.push(newSession)
+    const store = await readMock()
+    store.sessions.push(newSession)
+    await writeMock(store)
     return { success: true, data: newSession }
   }
 
@@ -100,14 +132,16 @@ export async function updateStudioSession(
   updates: Partial<StudioSession>
 ): Promise<{ success: boolean; data?: StudioSession; error?: string }> {
   if (USE_MOCK_DATA) {
-    const idx = mockSessions.findIndex((s) => s.id === id)
+    const store = await readMock()
+    const idx = store.sessions.findIndex((s) => s.id === id)
     if (idx === -1) return { success: false, error: "Session not found" }
-    mockSessions[idx] = {
-      ...mockSessions[idx],
+    store.sessions[idx] = {
+      ...store.sessions[idx],
       ...updates,
       updated_at: new Date().toISOString(),
     }
-    return { success: true, data: mockSessions[idx] }
+    await writeMock(store)
+    return { success: true, data: store.sessions[idx] }
   }
 
   const supabase = await createClient()
@@ -147,15 +181,17 @@ export async function deleteStudioSession(id: string): Promise<boolean> {
   }
 
   if (USE_MOCK_DATA) {
-    const before = mockSessions.length
-    mockSessions = mockSessions.filter((s) => s.id !== id)
-    mockTranscripts = mockTranscripts.filter((t) => t.session_id !== id)
-    mockAiOutputs = mockAiOutputs.filter((o) => o.session_id !== id)
-    mockChapters = mockChapters.filter((c) => c.session_id !== id)
-    mockClips = mockClips.filter((c) => c.session_id !== id)
-    mockWebsitePackages = mockWebsitePackages.filter((w) => w.session_id !== id)
-    mockAnalyzers = mockAnalyzers.filter((a) => a.session_id !== id)
-    return mockSessions.length < before
+    const store = await readMock()
+    const before = store.sessions.length
+    store.sessions = store.sessions.filter((s) => s.id !== id)
+    store.transcripts = store.transcripts.filter((t) => t.session_id !== id)
+    store.aiOutputs = store.aiOutputs.filter((o) => o.session_id !== id)
+    store.chapters = store.chapters.filter((c) => c.session_id !== id)
+    store.clips = store.clips.filter((c) => c.session_id !== id)
+    store.websitePackages = store.websitePackages.filter((w) => w.session_id !== id)
+    store.analyzers = store.analyzers.filter((a) => a.session_id !== id)
+    await writeMock(store)
+    return store.sessions.length < before
   }
 
   const supabase = await createClient()
@@ -173,7 +209,8 @@ export async function deleteStudioSession(id: string): Promise<boolean> {
 
 export async function getTranscriptForSession(sessionId: string): Promise<StudioTranscript | null> {
   if (USE_MOCK_DATA) {
-    return mockTranscripts.find((t) => t.session_id === sessionId) || null
+    const store = await readMock()
+    return store.transcripts.find((t) => t.session_id === sessionId) || null
   }
 
   const supabase = await createClient()
@@ -213,19 +250,25 @@ export async function createTranscript(
     char_count: charCount,
     status: "ready",
     error_message: null,
+    transcript_article: null,
+    summary: null,
+    quotes_extracted: null,
+    processing_status: "idle",
   }
 
   if (USE_MOCK_DATA) {
     const now = new Date().toISOString()
+    const store = await readMock()
     // Replace any existing transcript for this session
-    mockTranscripts = mockTranscripts.filter((t) => t.session_id !== sessionId)
+    store.transcripts = store.transcripts.filter((t) => t.session_id !== sessionId)
     const newTranscript: StudioTranscript = {
       ...entry,
       id: crypto.randomUUID(),
       created_at: now,
       updated_at: now,
     }
-    mockTranscripts.push(newTranscript)
+    store.transcripts.push(newTranscript)
+    await writeMock(store)
     return { success: true, data: newTranscript }
   }
 
@@ -264,17 +307,23 @@ export async function createTranscriptError(
     char_count: 0,
     status: "error" as const,
     error_message: errorMessage,
+    transcript_article: null as string | null,
+    summary: null as StudioTranscriptSummary | null,
+    quotes_extracted: null as StudioTranscriptQuote[] | null,
+    processing_status: "idle" as StudioTranscriptProcessingStatus,
   }
 
   if (USE_MOCK_DATA) {
     const now = new Date().toISOString()
-    mockTranscripts = mockTranscripts.filter((t) => t.session_id !== sessionId)
-    mockTranscripts.push({
+    const store = await readMock()
+    store.transcripts = store.transcripts.filter((t) => t.session_id !== sessionId)
+    store.transcripts.push({
       ...entry,
       id: crypto.randomUUID(),
       created_at: now,
       updated_at: now,
     })
+    await writeMock(store)
     return
   }
 
@@ -288,12 +337,54 @@ export async function createTranscriptError(
 }
 
 // ---------------------------------------------------------------------------
+// Studio Transcript Processing (AI article, summary, quotes)
+// ---------------------------------------------------------------------------
+
+export async function updateTranscriptProcessing(
+  transcriptId: string,
+  updates: {
+    transcript_article?: string | null
+    summary?: StudioTranscriptSummary | null
+    quotes_extracted?: StudioTranscriptQuote[] | null
+    processing_status?: StudioTranscriptProcessingStatus
+  }
+): Promise<{ success: boolean; data?: StudioTranscript; error?: string }> {
+  if (USE_MOCK_DATA) {
+    const store = await readMock()
+    const idx = store.transcripts.findIndex((t) => t.id === transcriptId)
+    if (idx === -1) return { success: false, error: "Transcript not found" }
+    store.transcripts[idx] = {
+      ...store.transcripts[idx],
+      ...updates,
+      updated_at: new Date().toISOString(),
+    }
+    await writeMock(store)
+    return { success: true, data: store.transcripts[idx] }
+  }
+
+  const supabase = await createClient()
+  const { data, error } = await supabase
+    .from("studio_transcripts")
+    .update({ ...updates, updated_at: new Date().toISOString() })
+    .eq("id", transcriptId)
+    .select()
+    .single()
+
+  if (error) {
+    return { success: false, error: error.message }
+  }
+
+  return { success: true, data: data as StudioTranscript }
+}
+
+// ---------------------------------------------------------------------------
 // Studio AI Outputs
 // ---------------------------------------------------------------------------
 
 export async function getAiOutputForSession(sessionId: string): Promise<StudioAiOutput | null> {
   if (USE_MOCK_DATA) {
-    return mockAiOutputs.find((o) => o.session_id === sessionId) || null
+    const store = await readMock()
+    return store.aiOutputs.find((o) => o.session_id === sessionId) || null
   }
 
   const supabase = await createClient()
@@ -336,15 +427,17 @@ export async function createAiOutput(
 
   if (USE_MOCK_DATA) {
     const now = new Date().toISOString()
+    const store = await readMock()
     // Replace any existing output for this session
-    mockAiOutputs = mockAiOutputs.filter((o) => o.session_id !== sessionId)
+    store.aiOutputs = store.aiOutputs.filter((o) => o.session_id !== sessionId)
     const newOutput: StudioAiOutput = {
       ...entry,
       id: crypto.randomUUID(),
       created_at: now,
       updated_at: now,
     }
-    mockAiOutputs.push(newOutput)
+    store.aiOutputs.push(newOutput)
+    await writeMock(store)
     return { success: true, data: newOutput }
   }
 
@@ -374,14 +467,16 @@ export async function updateAiOutput(
   updates: Partial<Pick<StudioAiOutput, "title_best" | "title_alternatives" | "thumbnail_text_options" | "youtube_description" | "seo_keywords" | "hashtags">>
 ): Promise<{ success: boolean; data?: StudioAiOutput; error?: string }> {
   if (USE_MOCK_DATA) {
-    const idx = mockAiOutputs.findIndex((o) => o.id === id)
+    const store = await readMock()
+    const idx = store.aiOutputs.findIndex((o) => o.id === id)
     if (idx === -1) return { success: false, error: "Output not found" }
-    mockAiOutputs[idx] = {
-      ...mockAiOutputs[idx],
+    store.aiOutputs[idx] = {
+      ...store.aiOutputs[idx],
       ...updates,
       updated_at: new Date().toISOString(),
     }
-    return { success: true, data: mockAiOutputs[idx] }
+    await writeMock(store)
+    return { success: true, data: store.aiOutputs[idx] }
   }
 
   const supabase = await createClient()
@@ -405,7 +500,8 @@ export async function updateAiOutput(
 
 export async function getChaptersForSession(sessionId: string): Promise<StudioChapters | null> {
   if (USE_MOCK_DATA) {
-    return mockChapters.find((c) => c.session_id === sessionId) || null
+    const store = await readMock()
+    return store.chapters.find((c) => c.session_id === sessionId) || null
   }
 
   const supabase = await createClient()
@@ -438,9 +534,11 @@ export async function createChapters(
 
   if (USE_MOCK_DATA) {
     const now = new Date().toISOString()
-    mockChapters = mockChapters.filter((c) => c.session_id !== sessionId)
+    const store = await readMock()
+    store.chapters = store.chapters.filter((c) => c.session_id !== sessionId)
     const newRow: StudioChapters = { ...row, id: crypto.randomUUID(), created_at: now, updated_at: now }
-    mockChapters.push(newRow)
+    store.chapters.push(newRow)
+    await writeMock(store)
     return { success: true, data: newRow }
   }
 
@@ -456,10 +554,12 @@ export async function updateChapters(
   updates: { chapters?: StudioChapterItem[] }
 ): Promise<{ success: boolean; data?: StudioChapters; error?: string }> {
   if (USE_MOCK_DATA) {
-    const idx = mockChapters.findIndex((c) => c.id === id)
+    const store = await readMock()
+    const idx = store.chapters.findIndex((c) => c.id === id)
     if (idx === -1) return { success: false, error: "Not found" }
-    mockChapters[idx] = { ...mockChapters[idx], ...updates, updated_at: new Date().toISOString() }
-    return { success: true, data: mockChapters[idx] }
+    store.chapters[idx] = { ...store.chapters[idx], ...updates, updated_at: new Date().toISOString() }
+    await writeMock(store)
+    return { success: true, data: store.chapters[idx] }
   }
 
   const supabase = await createClient()
@@ -479,7 +579,8 @@ export async function updateChapters(
 
 export async function getClipsForSession(sessionId: string): Promise<StudioClips | null> {
   if (USE_MOCK_DATA) {
-    return mockClips.find((c) => c.session_id === sessionId) || null
+    const store = await readMock()
+    return store.clips.find((c) => c.session_id === sessionId) || null
   }
 
   const supabase = await createClient()
@@ -512,9 +613,11 @@ export async function createClips(
 
   if (USE_MOCK_DATA) {
     const now = new Date().toISOString()
-    mockClips = mockClips.filter((c) => c.session_id !== sessionId)
+    const store = await readMock()
+    store.clips = store.clips.filter((c) => c.session_id !== sessionId)
     const newRow: StudioClips = { ...row, id: crypto.randomUUID(), created_at: now, updated_at: now }
-    mockClips.push(newRow)
+    store.clips.push(newRow)
+    await writeMock(store)
     return { success: true, data: newRow }
   }
 
@@ -530,10 +633,12 @@ export async function updateClips(
   updates: { clips?: StudioClipItem[] }
 ): Promise<{ success: boolean; data?: StudioClips; error?: string }> {
   if (USE_MOCK_DATA) {
-    const idx = mockClips.findIndex((c) => c.id === id)
+    const store = await readMock()
+    const idx = store.clips.findIndex((c) => c.id === id)
     if (idx === -1) return { success: false, error: "Not found" }
-    mockClips[idx] = { ...mockClips[idx], ...updates, updated_at: new Date().toISOString() }
-    return { success: true, data: mockClips[idx] }
+    store.clips[idx] = { ...store.clips[idx], ...updates, updated_at: new Date().toISOString() }
+    await writeMock(store)
+    return { success: true, data: store.clips[idx] }
   }
 
   const supabase = await createClient()
@@ -553,7 +658,8 @@ export async function updateClips(
 
 export async function getWebsitePackageForSession(sessionId: string): Promise<StudioWebsitePackage | null> {
   if (USE_MOCK_DATA) {
-    return mockWebsitePackages.find((w) => w.session_id === sessionId) || null
+    const store = await readMock()
+    return store.websitePackages.find((w) => w.session_id === sessionId) || null
   }
 
   const supabase = await createClient()
@@ -584,18 +690,23 @@ export async function createWebsitePackage(
     topics: string[]
     resources: WebsiteResourceItem[]
     timestamps: WebsiteTimestampItem[]
+    custom_title?: string | null
+    selected_quote_indices?: number[] | null
+    selected_takeaway_indices?: number[] | null
     linked_episode_id: string | null
     raw_openai_response: Record<string, unknown> | null
     error_message: string | null
   }
 ): Promise<{ success: boolean; data?: StudioWebsitePackage; error?: string }> {
-  const row = { session_id: sessionId, ...entry }
+  const row = { session_id: sessionId, ...entry, custom_title: entry.custom_title ?? null, selected_quote_indices: entry.selected_quote_indices ?? null, selected_takeaway_indices: entry.selected_takeaway_indices ?? null }
 
   if (USE_MOCK_DATA) {
     const now = new Date().toISOString()
-    mockWebsitePackages = mockWebsitePackages.filter((w) => w.session_id !== sessionId)
+    const store = await readMock()
+    store.websitePackages = store.websitePackages.filter((w) => w.session_id !== sessionId)
     const newRow: StudioWebsitePackage = { ...row, id: crypto.randomUUID(), created_at: now, updated_at: now }
-    mockWebsitePackages.push(newRow)
+    store.websitePackages.push(newRow)
+    await writeMock(store)
     return { success: true, data: newRow }
   }
 
@@ -608,13 +719,15 @@ export async function createWebsitePackage(
 
 export async function updateWebsitePackage(
   id: string,
-  updates: Partial<Pick<StudioWebsitePackage, "hero_summary" | "full_summary" | "takeaways" | "quotes" | "topics" | "resources" | "timestamps" | "linked_episode_id">>
+  updates: Partial<Pick<StudioWebsitePackage, "hero_summary" | "full_summary" | "takeaways" | "quotes" | "topics" | "resources" | "timestamps" | "custom_title" | "selected_quote_indices" | "selected_takeaway_indices" | "linked_episode_id">>
 ): Promise<{ success: boolean; data?: StudioWebsitePackage; error?: string }> {
   if (USE_MOCK_DATA) {
-    const idx = mockWebsitePackages.findIndex((w) => w.id === id)
+    const store = await readMock()
+    const idx = store.websitePackages.findIndex((w) => w.id === id)
     if (idx === -1) return { success: false, error: "Not found" }
-    mockWebsitePackages[idx] = { ...mockWebsitePackages[idx], ...updates, updated_at: new Date().toISOString() }
-    return { success: true, data: mockWebsitePackages[idx] }
+    store.websitePackages[idx] = { ...store.websitePackages[idx], ...updates, updated_at: new Date().toISOString() }
+    await writeMock(store)
+    return { success: true, data: store.websitePackages[idx] }
   }
 
   const supabase = await createClient()
@@ -634,7 +747,8 @@ export async function updateWebsitePackage(
 
 export async function getAnalyzerForSession(sessionId: string): Promise<StudioAnalyzer | null> {
   if (USE_MOCK_DATA) {
-    return mockAnalyzers.find((a) => a.session_id === sessionId) || null
+    const store = await readMock()
+    return store.analyzers.find((a) => a.session_id === sessionId) || null
   }
 
   const supabase = await createClient()
@@ -668,9 +782,11 @@ export async function createAnalyzer(
 
   if (USE_MOCK_DATA) {
     const now = new Date().toISOString()
-    mockAnalyzers = mockAnalyzers.filter((a) => a.session_id !== sessionId)
+    const store = await readMock()
+    store.analyzers = store.analyzers.filter((a) => a.session_id !== sessionId)
     const newRow: StudioAnalyzer = { ...row, id: crypto.randomUUID(), created_at: now, updated_at: now }
-    mockAnalyzers.push(newRow)
+    store.analyzers.push(newRow)
+    await writeMock(store)
     return { success: true, data: newRow }
   }
 

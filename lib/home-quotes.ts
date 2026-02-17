@@ -1,24 +1,33 @@
-import { readFile, writeFile, mkdir } from "fs/promises"
-import path from "path"
+import { createConfigStore } from "@/lib/config-store"
+import { createClient } from "@/lib/supabase/server"
 import type { HomeQuote } from "@/types/database"
-import type { HomeQuotesConfig } from "@/types/ads"
-import { defaultHomeQuotesConfig } from "@/types/ads"
+import type { HomeQuotesConfig } from "@/types/home-content"
 
-const CONFIG_PATH = path.join(process.cwd(), "config", "home-quotes.json")
+const USE_SUPABASE = !!(
+  process.env.NEXT_PUBLIC_SUPABASE_URL &&
+  !process.env.NEXT_PUBLIC_SUPABASE_URL.includes("placeholder")
+)
+
+const defaultHomeQuotesConfig: HomeQuotesConfig = { quotes: [] }
+
+const store = createConfigStore<HomeQuotesConfig>("home-quotes.json", defaultHomeQuotesConfig)
 
 export async function getHomeQuotesConfig(): Promise<HomeQuotesConfig> {
-  try {
-    const data = await readFile(CONFIG_PATH, "utf-8")
-    return JSON.parse(data) as HomeQuotesConfig
-  } catch {
-    return defaultHomeQuotesConfig
-  }
-}
+  if (USE_SUPABASE) {
+    try {
+      const supabase = await createClient()
+      const { data, error } = await supabase
+        .from("home_quotes")
+        .select("*")
+        .order("created_at", { ascending: false })
 
-async function saveConfig(config: HomeQuotesConfig): Promise<void> {
-  const configDir = path.dirname(CONFIG_PATH)
-  await mkdir(configDir, { recursive: true })
-  await writeFile(CONFIG_PATH, JSON.stringify(config, null, 2), "utf-8")
+      if (!error && data) return { quotes: data as HomeQuote[] }
+      if (error) console.error("getHomeQuotesConfig DB error:", error.message)
+    } catch (e) {
+      console.error("getHomeQuotesConfig DB exception:", e)
+    }
+  }
+  return store.read()
 }
 
 export async function getAllHomeQuotes(): Promise<HomeQuote[]> {
@@ -27,7 +36,22 @@ export async function getAllHomeQuotes(): Promise<HomeQuote[]> {
 }
 
 export async function getPublishedHomeQuotes(): Promise<HomeQuote[]> {
-  const config = await getHomeQuotesConfig()
+  if (USE_SUPABASE) {
+    try {
+      const supabase = await createClient()
+      const { data, error } = await supabase
+        .from("home_quotes")
+        .select("*")
+        .eq("status", "published")
+        .order("created_at", { ascending: false })
+
+      if (!error && data) return data as HomeQuote[]
+      if (error) console.error("getPublishedHomeQuotes DB error:", error.message)
+    } catch (e) {
+      console.error("getPublishedHomeQuotes DB exception:", e)
+    }
+  }
+  const config = await store.read()
   return config.quotes.filter((q) => q.status === "published")
 }
 
@@ -52,23 +76,56 @@ export async function getTodaysQuote(): Promise<HomeQuote | null> {
 }
 
 export async function getHomeQuoteById(id: string): Promise<HomeQuote | null> {
-  const config = await getHomeQuotesConfig()
+  if (USE_SUPABASE) {
+    try {
+      const supabase = await createClient()
+      const { data, error } = await supabase
+        .from("home_quotes")
+        .select("*")
+        .eq("id", id)
+        .maybeSingle()
+
+      if (!error && data) return data as HomeQuote
+      if (!error && !data) return null
+      if (error) console.error("getHomeQuoteById DB error:", error.message)
+    } catch (e) {
+      console.error("getHomeQuoteById DB exception:", e)
+    }
+  }
+  const config = await store.read()
   return config.quotes.find((q) => q.id === id) ?? null
 }
 
 export async function addHomeQuote(
   quote: Omit<HomeQuote, "id" | "created_at" | "updated_at">
 ): Promise<HomeQuote> {
-  const config = await getHomeQuotesConfig()
   const now = new Date().toISOString()
   const newQuote: HomeQuote = {
     ...quote,
-    id: `hq-${Date.now()}`,
+    id: `hq-${crypto.randomUUID()}`,
     created_at: now,
     updated_at: now,
   }
+
+  if (USE_SUPABASE) {
+    try {
+      const supabase = await createClient()
+      const { data, error } = await supabase
+        .from("home_quotes")
+        .insert(newQuote)
+        .select()
+        .single()
+
+      if (!error && data) return data as HomeQuote
+      if (error) console.error("addHomeQuote DB error:", error.message)
+    } catch (e) {
+      console.error("addHomeQuote DB exception:", e)
+    }
+  }
+
+  const config = await store.read()
   config.quotes.push(newQuote)
-  await saveConfig(config)
+  await store.write(config)
   return newQuote
 }
 
@@ -76,7 +133,24 @@ export async function updateHomeQuote(
   id: string,
   updates: Partial<Omit<HomeQuote, "id" | "created_at">>
 ): Promise<HomeQuote | null> {
-  const config = await getHomeQuotesConfig()
+  if (USE_SUPABASE) {
+    try {
+      const supabase = await createClient()
+      const { data, error } = await supabase
+        .from("home_quotes")
+        .update({ ...updates, updated_at: new Date().toISOString() })
+        .eq("id", id)
+        .select()
+        .single()
+
+      if (!error && data) return data as HomeQuote
+      if (error) console.error("updateHomeQuote DB error:", error.message)
+    } catch (e) {
+      console.error("updateHomeQuote DB exception:", e)
+    }
+  }
+
+  const config = await store.read()
   const index = config.quotes.findIndex((q) => q.id === id)
   if (index === -1) return null
 
@@ -85,20 +159,50 @@ export async function updateHomeQuote(
     ...updates,
     updated_at: new Date().toISOString(),
   }
-  await saveConfig(config)
+  await store.write(config)
   return config.quotes[index]
 }
 
 export async function getQuotesByEpisodeId(episodeId: string): Promise<HomeQuote[]> {
+  if (USE_SUPABASE) {
+    try {
+      const supabase = await createClient()
+      const { data, error } = await supabase
+        .from("home_quotes")
+        .select("*")
+        .eq("episode_id", episodeId)
+        .eq("status", "published")
+
+      if (!error && data) return data as HomeQuote[]
+      if (error) console.error("getQuotesByEpisodeId DB error:", error.message)
+    } catch (e) {
+      console.error("getQuotesByEpisodeId DB exception:", e)
+    }
+  }
   const published = await getPublishedHomeQuotes()
   return published.filter((q) => q.episode_id === episodeId)
 }
 
 export async function deleteHomeQuote(id: string): Promise<boolean> {
-  const config = await getHomeQuotesConfig()
+  if (USE_SUPABASE) {
+    try {
+      const supabase = await createClient()
+      const { error } = await supabase
+        .from("home_quotes")
+        .delete()
+        .eq("id", id)
+
+      if (!error) return true
+      console.error("deleteHomeQuote DB error:", error.message)
+    } catch (e) {
+      console.error("deleteHomeQuote DB exception:", e)
+    }
+  }
+
+  const config = await store.read()
   const before = config.quotes.length
   config.quotes = config.quotes.filter((q) => q.id !== id)
   if (config.quotes.length === before) return false
-  await saveConfig(config)
+  await store.write(config)
   return true
 }

@@ -1,22 +1,16 @@
 import { NextRequest, NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
+import { validateEmail } from "@/lib/validation"
 
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
     const { email } = body
 
-    if (!email || typeof email !== "string") {
+    const emailCheck = validateEmail(email)
+    if (!emailCheck.valid) {
       return NextResponse.json(
-        { error: "البريد الإلكتروني مطلوب" },
-        { status: 400 }
-      )
-    }
-
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
-    if (!emailRegex.test(email)) {
-      return NextResponse.json(
-        { error: "البريد الإلكتروني غير صالح" },
+        { error: emailCheck.error },
         { status: 400 }
       )
     }

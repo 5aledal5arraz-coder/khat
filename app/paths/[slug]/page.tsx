@@ -1,15 +1,16 @@
+import type { Metadata } from "next"
 import Link from "next/link"
 import Image from "next/image"
 import { notFound } from "next/navigation"
 import type { PathSlug, HomeQuote } from "@/types/database"
-import { getPathBySlug } from "@/lib/emotional-paths"
+import { getPathBySlug, getAllPaths } from "@/lib/emotional-paths"
 import { getPublishedHomeQuotes } from "@/lib/home-quotes"
 import { getEpisodes } from "@/lib/supabase/queries"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Users, Rocket, Heart, Eye, Play, Clock, ArrowRight, ArrowLeft } from "lucide-react"
-import { formatDuration, formatDate, getYouTubeId } from "@/lib/utils"
+import { formatDuration, formatDate, getYouTubeId, formatArabicCount } from "@/lib/utils"
 
 const iconMap: Record<string, React.ComponentType<{ className?: string }>> = {
   Users,
@@ -18,20 +19,25 @@ const iconMap: Record<string, React.ComponentType<{ className?: string }>> = {
   Eye,
 }
 
-const validSlugs: PathSlug[] = [
-  "understanding-people",
-  "motivation-work",
-  "faith-meaning",
-  "self-awareness",
-]
-
 interface Props {
   params: Promise<{ slug: string }>
+}
+
+export async function generateMetadata({ params }: Props): Promise<Metadata> {
+  const { slug } = await params
+  const path = await getPathBySlug(slug as PathSlug)
+  if (!path) return { title: "المسار غير موجود" }
+  return {
+    title: `${path.title} — مسارات الاستماع`,
+    description: path.subtitle,
+  }
 }
 
 export default async function PathPage({ params }: Props) {
   const { slug } = await params
 
+  const allPaths = await getAllPaths()
+  const validSlugs = allPaths.map((p) => p.slug)
   if (!validSlugs.includes(slug as PathSlug)) {
     notFound()
   }
@@ -87,7 +93,7 @@ export default async function PathPage({ params }: Props) {
           </div>
           {pathEpisodes.length > 0 && (
             <p className="text-sm text-muted-foreground">
-              {pathEpisodes.length} حلقة{allPathQuotes.length > 0 ? ` · ${allPathQuotes.length} اقتباس` : ""}
+              {formatArabicCount(pathEpisodes.length, "حلقة")}{allPathQuotes.length > 0 ? ` · ${formatArabicCount(allPathQuotes.length, "اقتباس")}` : ""}
             </p>
           )}
         </div>

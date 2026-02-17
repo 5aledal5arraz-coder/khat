@@ -6,6 +6,7 @@ import { getGuestAssignments } from "@/lib/episode-guests"
 import { getAllGuests } from "@/lib/admin/queries"
 import { getQuotesConfig } from "@/lib/episode-quotes"
 import { getYoutubePackConfig } from "@/lib/youtube-pack"
+import { getEpisodeEnrichment } from "@/lib/episode-enrichments"
 import { EpisodeDetail } from "./episode-detail"
 
 interface PageProps {
@@ -23,6 +24,7 @@ export default async function EpisodeDetailPage({ params }: PageProps) {
     guests,
     quotesConfig,
     youtubePackConfig,
+    enrichment,
   ] = await Promise.all([
     getEpisodes({ limit: 200, includeHidden: true }),
     getEpisodeOverrides(),
@@ -31,6 +33,7 @@ export default async function EpisodeDetailPage({ params }: PageProps) {
     getAllGuests(),
     getQuotesConfig(),
     getYoutubePackConfig(),
+    getEpisodeEnrichment(id),
   ])
 
   const rawEpisode = episodes.find((ep) => ep.id === id)
@@ -38,6 +41,7 @@ export default async function EpisodeDetailPage({ params }: PageProps) {
 
   const episode = {
     id: rawEpisode.id,
+    slug: rawEpisode.slug,
     title: rawEpisode.title,
     description: rawEpisode.description || "",
     youtube_url: rawEpisode.youtube_url,
@@ -74,6 +78,7 @@ export default async function EpisodeDetailPage({ params }: PageProps) {
       currentGuestId={currentGuestId}
       quotesEntry={quotesConfig[id] || null}
       youtubePackEntry={youtubePackConfig[id] || null}
+      enrichment={enrichment}
     />
   )
 }

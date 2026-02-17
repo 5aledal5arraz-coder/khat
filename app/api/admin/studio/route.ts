@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { getYouTubeId } from "@/lib/utils"
 import { createStudioSession, getStudioSessions } from "@/lib/studio"
+import { requireAdminAPI } from "@/lib/api-utils"
 
 const YOUTUBE_API_KEY = process.env.YOUTUBE_API_KEY
 
@@ -8,6 +9,8 @@ const YOUTUBE_API_KEY = process.env.YOUTUBE_API_KEY
  * GET /api/admin/studio — list all studio sessions
  */
 export async function GET() {
+  const authError = await requireAdminAPI()
+  if (authError) return authError
   const sessions = await getStudioSessions()
   return NextResponse.json(sessions)
 }
@@ -17,6 +20,8 @@ export async function GET() {
  * Body: { youtubeUrl: string }
  */
 export async function POST(request: NextRequest) {
+  const authError = await requireAdminAPI()
+  if (authError) return authError
   try {
     const body = await request.json()
     const { youtubeUrl } = body as { youtubeUrl?: string }
@@ -99,6 +104,10 @@ export async function POST(request: NextRequest) {
       raw_youtube_response: item,
       audio_filename: null,
       audio_file_size: null,
+      audio_start_seconds: null,
+      audio_end_seconds: null,
+      audio_best_intro: null,
+      audio_edit_suggestions: null,
     })
 
     if (!result.success) {

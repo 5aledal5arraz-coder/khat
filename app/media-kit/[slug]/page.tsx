@@ -3,7 +3,7 @@
 import { useState } from "react"
 import { useParams } from "next/navigation"
 import { Loader2, Lock } from "lucide-react"
-import type { MediaKitConfig, AnalyticsConfig } from "@/types/ads"
+import type { MediaKitConfig, AnalyticsConfig } from "@/types/media-kit"
 import { MediaKitView } from "@/components/media-kit/media-kit-view"
 
 export default function MediaKitSharePage() {

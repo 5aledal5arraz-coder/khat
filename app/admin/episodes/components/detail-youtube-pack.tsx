@@ -1,6 +1,7 @@
 "use client"
 
 import { useState } from "react"
+import { useRouter } from "next/navigation"
 import {
   Loader2,
   AlertTriangle,
@@ -12,7 +13,7 @@ import {
   Youtube,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import type { YouTubePackEntry, YouTubePackSection } from "@/types/ads"
+import type { YouTubePackEntry, YouTubePackSection } from "@/types/youtube-pack"
 import {
   generateYoutubePack,
   regenerateYoutubePackSection,
@@ -35,6 +36,7 @@ export function DetailYoutubePack({
   guestName,
   entry,
 }: DetailYoutubePackProps) {
+  const router = useRouter()
   const [loading, setLoading] = useState(false)
   const [statusText, setStatusText] = useState("")
   const [error, setError] = useState<string | null>(null)
@@ -82,7 +84,7 @@ export function DetailYoutubePack({
 
       if (result.success) {
         setStatusText("")
-        window.location.reload()
+        router.refresh()
       } else {
         setError(result.error || "حدث خطأ")
         setStatusText("")
@@ -113,7 +115,7 @@ export function DetailYoutubePack({
       )
 
       if (result.success) {
-        window.location.reload()
+        router.refresh()
       } else {
         setError(result.error || "حدث خطأ")
         setRegeneratingSection(null)
@@ -140,7 +142,7 @@ export function DetailYoutubePack({
       )
 
       if (result.success) {
-        window.location.reload()
+        router.refresh()
       } else {
         setError(result.error || "حدث خطأ")
         setStatusText("")

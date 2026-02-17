@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react"
 import type { HomeQuote, DailyReflection, EmotionalPath, Episode } from "@/types/database"
+import type { TeaserConfig, TeaserQuestion, TeaserQuestionStats } from "@/types/teaser"
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -25,13 +26,17 @@ import {
   assignEpisodeToPathAction,
   removeEpisodeFromPathAction,
 } from "./paths-actions"
-import { Plus, Trash2, Eye, EyeOff, Calendar, Quote, Lightbulb, Compass } from "lucide-react"
+import { TeaserTab } from "./teaser-tab"
+import { Plus, Trash2, Eye, EyeOff, Calendar, Quote, Lightbulb, Compass, Video } from "lucide-react"
 
 interface Props {
   quotes: HomeQuote[]
   reflections: DailyReflection[]
   paths: EmotionalPath[]
   episodes: Episode[]
+  teasers: TeaserConfig[]
+  teaserQuestions: TeaserQuestion[]
+  teaserStats: TeaserQuestionStats | null
 }
 
 const pathOptions: { slug: string; title: string }[] = [
@@ -550,7 +555,7 @@ function PathsTab({ paths, episodes }: { paths: EmotionalPath[]; episodes: Episo
 
 // ─── Main Component ────────────────────────────────────────────
 
-export function HomeContentTabs({ quotes, reflections, paths, episodes }: Props) {
+export function HomeContentTabs({ quotes, reflections, paths, episodes, teasers, teaserQuestions, teaserStats }: Props) {
   return (
     <Tabs defaultValue="quotes">
       <TabsList>
@@ -566,6 +571,10 @@ export function HomeContentTabs({ quotes, reflections, paths, episodes }: Props)
           <Compass className="h-4 w-4" />
           المسارات
         </TabsTrigger>
+        <TabsTrigger value="teaser" className="gap-2">
+          <Video className="h-4 w-4" />
+          اسأل الضيف
+        </TabsTrigger>
       </TabsList>
 
       <TabsContent value="quotes">
@@ -578,6 +587,10 @@ export function HomeContentTabs({ quotes, reflections, paths, episodes }: Props)
 
       <TabsContent value="paths">
         <PathsTab paths={paths} episodes={episodes} />
+      </TabsContent>
+
+      <TabsContent value="teaser">
+        <TeaserTab teasers={teasers} questions={teaserQuestions} stats={teaserStats} />
       </TabsContent>
     </Tabs>
   )

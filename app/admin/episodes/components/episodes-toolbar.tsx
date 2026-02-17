@@ -1,18 +1,21 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect, useTransition } from "react"
 import {
   Search,
   X,
   EyeOff,
   Trash2,
   Plus,
+  RefreshCw,
+  LayoutGrid,
+  List,
 } from "lucide-react"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
-import { deleteSection, toggleSectionVisibility } from "../actions"
+import { deleteSection, invalidateEpisodeCacheAction, getEpisodeCacheStatusAction } from "../actions"
 import { SectionDialog } from "./section-dialog"
-import type { EpisodeSection } from "@/types/ads"
+import type { EpisodeSection } from "@/types/episodes"
 
 interface EpisodesToolbarProps {
   search: string
@@ -24,6 +27,8 @@ interface EpisodesToolbarProps {
   totalCount: number
   uncategorizedCount: number
   deletedCount: number
+  viewMode: "grid" | "list"
+  onViewModeChange: (mode: "grid" | "list") => void
 }
 
 export function EpisodesToolbar({
@@ -36,10 +41,26 @@ export function EpisodesToolbar({
   totalCount,
   uncategorizedCount,
   deletedCount,
+  viewMode,
+  onViewModeChange,
 }: EpisodesToolbarProps) {
   const [showCreateDialog, setShowCreateDialog] = useState(false)
   const [confirmDeleteSection, setConfirmDeleteSection] = useState<string | null>(null)
   const [deletingSection, setDeletingSection] = useState<string | null>(null)
+  const [cacheInfo, setCacheInfo] = useState<{ fetchedAt: string | null; isStale: boolean } | null>(null)
+  const [isRefreshing, startRefresh] = useTransition()
+
+  useEffect(() => {
+    getEpisodeCacheStatusAction().then((status) => setCacheInfo(status)).catch(() => {})
+  }, [])
+
+  const handleRefreshCache = () => {
+    startRefresh(async () => {
+      await invalidateEpisodeCacheAction()
+      const status = await getEpisodeCacheStatusAction()
+      setCacheInfo(status)
+    })
+  }
 
   const handleDeleteSection = async (sectionId: string) => {
     if (confirmDeleteSection !== sectionId) {
@@ -53,34 +74,67 @@ export function EpisodesToolbar({
     setDeletingSection(null)
   }
 
-  const handleToggleSectionVisibility = async (sectionId: string) => {
-    await toggleSectionVisibility(sectionId)
-  }
-
   return (
-    <div className="space-y-4">
-      {/* Search Bar */}
-      <div className="flex items-center gap-3">
+    <div className="space-y-3">
+      {/* Row 1: Search + View toggle + Refresh + New section */}
+      <div className="flex items-center gap-2">
         <div className="relative flex-1">
-          <Search className="pointer-events-none absolute start-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <Search className="pointer-events-none absolute start-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
             placeholder="ابحث عن حلقة..."
             value={search}
             onChange={(e) => onSearchChange(e.target.value)}
-            className="h-12 rounded-2xl border-border/50 bg-card/80 ps-11 text-sm backdrop-blur-sm transition-all focus:border-primary/50 focus:bg-card"
+            className="h-10 rounded-xl border-border/50 bg-card/80 ps-10 text-sm backdrop-blur-sm transition-all focus:border-primary/50 focus:bg-card"
           />
           {search && (
             <button
               onClick={() => onSearchChange("")}
-              className="absolute end-4 top-1/2 -translate-y-1/2 text-muted-foreground transition-colors hover:text-foreground"
+              className="absolute end-3 top-1/2 -translate-y-1/2 text-muted-foreground transition-colors hover:text-foreground"
             >
               <X className="h-4 w-4" />
             </button>
           )}
         </div>
+
+        {/* View toggle */}
+        <div className="flex overflow-hidden rounded-xl border border-border/50">
+          <button
+            onClick={() => onViewModeChange("grid")}
+            className={`flex h-10 w-10 items-center justify-center transition-colors ${
+              viewMode === "grid"
+                ? "bg-primary/10 text-primary"
+                : "text-muted-foreground hover:bg-white/[0.03] hover:text-foreground"
+            }`}
+            aria-label="عرض شبكي"
+          >
+            <LayoutGrid className="h-4 w-4" />
+          </button>
+          <button
+            onClick={() => onViewModeChange("list")}
+            className={`flex h-10 w-10 items-center justify-center border-s border-border/50 transition-colors ${
+              viewMode === "list"
+                ? "bg-primary/10 text-primary"
+                : "text-muted-foreground hover:bg-white/[0.03] hover:text-foreground"
+            }`}
+            aria-label="عرض قائمة"
+          >
+            <List className="h-4 w-4" />
+          </button>
+        </div>
+
+        <Button
+          variant="outline"
+          onClick={handleRefreshCache}
+          disabled={isRefreshing}
+          className="h-10 gap-2 rounded-xl px-3"
+          title={cacheInfo?.fetchedAt ? `آخر تحديث: ${new Date(cacheInfo.fetchedAt).toLocaleString("ar-SA")}` : "لم يتم التحديث بعد"}
+        >
+          <RefreshCw className={`h-4 w-4 ${isRefreshing ? "animate-spin" : ""}`} />
+          <span className="hidden sm:inline">تحديث</span>
+        </Button>
         <Button
           onClick={() => setShowCreateDialog(true)}
-          className="h-12 gap-2 rounded-2xl bg-primary/90 px-5 shadow-lg shadow-primary/20 transition-all hover:bg-primary hover:shadow-primary/30"
+          className="h-10 gap-2 rounded-xl bg-primary/90 px-4 shadow-lg shadow-primary/20 transition-all hover:bg-primary hover:shadow-primary/30"
         >
           <Plus className="h-4 w-4" />
           <span className="hidden sm:inline">تصنيف جديد</span>
@@ -88,11 +142,11 @@ export function EpisodesToolbar({
       </div>
 
       {/* Section Tabs */}
-      <div className="scrollbar-hide -mx-1 flex gap-2 overflow-x-auto px-1 pb-1">
+      <div className="scrollbar-hide -mx-1 flex gap-1.5 overflow-x-auto px-1 pb-1">
         {/* All tab */}
         <button
           onClick={() => onFilterChange(null)}
-          className={`shrink-0 rounded-2xl px-4 py-2.5 text-sm font-medium transition-all ${
+          className={`shrink-0 rounded-xl px-3 py-2 text-sm font-medium transition-all ${
             activeFilter === null
               ? "bg-primary text-primary-foreground shadow-lg shadow-primary/20"
               : "bg-white/[0.03] text-muted-foreground ring-1 ring-border/50 hover:bg-white/[0.06] hover:text-foreground"
@@ -112,7 +166,7 @@ export function EpisodesToolbar({
               <div key={section.id} className="group/tab relative flex shrink-0">
                 <button
                   onClick={() => onFilterChange(section.id)}
-                  className={`flex items-center gap-2 rounded-2xl px-4 py-2.5 text-sm font-medium transition-all ${
+                  className={`flex items-center gap-2 rounded-xl px-3 py-2 text-sm font-medium transition-all ${
                     isActive
                       ? "text-white shadow-lg"
                       : "bg-white/[0.03] text-muted-foreground ring-1 ring-border/50 hover:bg-white/[0.06] hover:text-foreground"
@@ -164,7 +218,7 @@ export function EpisodesToolbar({
         {/* Uncategorized tab */}
         <button
           onClick={() => onFilterChange("__uncategorized")}
-          className={`shrink-0 rounded-2xl px-4 py-2.5 text-sm font-medium transition-all ${
+          className={`shrink-0 rounded-xl px-3 py-2 text-sm font-medium transition-all ${
             activeFilter === "__uncategorized"
               ? "bg-muted text-foreground shadow-lg"
               : "bg-white/[0.03] text-muted-foreground ring-1 ring-border/50 hover:bg-white/[0.06] hover:text-foreground"
@@ -178,7 +232,7 @@ export function EpisodesToolbar({
         {deletedCount > 0 && (
           <button
             onClick={() => onFilterChange("__deleted")}
-            className={`flex shrink-0 items-center gap-2 rounded-2xl px-4 py-2.5 text-sm font-medium transition-all ${
+            className={`flex shrink-0 items-center gap-2 rounded-xl px-3 py-2 text-sm font-medium transition-all ${
               activeFilter === "__deleted"
                 ? "bg-destructive/15 text-destructive shadow-lg shadow-destructive/10 ring-1 ring-destructive/30"
                 : "text-destructive/60 ring-1 ring-destructive/20 hover:bg-destructive/5 hover:text-destructive"

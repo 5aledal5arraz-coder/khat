@@ -1,7 +1,8 @@
 import { Metadata } from "next"
-import { GuestApplicationForm } from "@/components/forms/guest-application-form"
+import Link from "next/link"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
-import { Mail, MessageCircle, Mic } from "lucide-react"
+import { Button } from "@/components/ui/button"
+import { Mail, MessageCircle, Mic, ArrowLeft } from "lucide-react"
 
 export const metadata: Metadata = {
   title: "تواصل معنا",
@@ -20,8 +21,8 @@ const contactMethods = [
     icon: MessageCircle,
     title: "وسائل التواصل",
     description: "تابعنا وتواصل معنا",
-    value: "@khat",
-    href: "https://x.com/khat",
+    value: "@khatpodcast",
+    href: "https://x.com/khatpodcast",
   },
 ]
 
@@ -38,7 +39,7 @@ export default function ContactPage() {
         </div>
 
         <div className="grid gap-8 lg:grid-cols-2">
-          {/* Guest Application */}
+          {/* Guest Application CTA */}
           <Card className="lg:col-span-2">
             <CardHeader>
               <div className="flex items-center gap-3">
@@ -56,14 +57,19 @@ export default function ContactPage() {
             <CardContent>
               <div className="mb-6 rounded-lg bg-muted/50 p-4">
                 <h3 className="mb-2 font-semibold">نبحث عن ضيوف:</h3>
-                <ul className="space-y-1 text-sm text-muted-foreground">
-                  <li>• لديهم قصص وتجارب حقيقية ملهمة</li>
-                  <li>• يمتلكون خبرة في مجال معين يمكنهم مشاركتها</li>
-                  <li>• مستعدون للحديث بصراحة وعمق</li>
-                  <li>• يضيفون قيمة لجمهورنا</li>
+                <ul className="list-disc space-y-1 ps-5 text-sm text-muted-foreground">
+                  <li>لديهم قصص وتجارب حقيقية ملهمة</li>
+                  <li>يمتلكون خبرة في مجال معين يمكنهم مشاركتها</li>
+                  <li>مستعدون للحديث بصراحة وعمق</li>
+                  <li>يضيفون قيمة لجمهورنا</li>
                 </ul>
               </div>
-              <GuestApplicationForm />
+              <Link href="/guest">
+                <Button className="w-full gap-2 sm:w-auto">
+                  قدّم طلب ضيافة
+                  <ArrowLeft className="h-4 w-4" />
+                </Button>
+              </Link>
             </CardContent>
           </Card>
 

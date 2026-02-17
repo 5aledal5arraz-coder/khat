@@ -1,7 +1,10 @@
 import { NextRequest, NextResponse } from "next/server"
-import { deleteEpisodeEnrichment } from "@/lib/episode-enrichments"
-import { deleteEpisodeOverride } from "@/lib/episode-overrides"
-import { deleteEpisodeQuotesEntry } from "@/lib/episode-quotes"
+import { revalidatePath } from "next/cache"
+import { deleteEpisodeEnrichment, getEpisodeEnrichment } from "@/lib/episode-enrichments"
+import { deleteEpisodeOverride, getEpisodeOverrides } from "@/lib/episode-overrides"
+import { deleteEpisodeQuotesEntry, getQuotesConfig } from "@/lib/episode-quotes"
+import { requireAdminAPI } from "@/lib/api-utils"
+import { saveVersion } from "@/lib/episode-versions"
 
 /**
  * DELETE /api/admin/episodes/[episodeId]/enrichments
@@ -11,6 +14,8 @@ export async function DELETE(
   _request: NextRequest,
   { params }: { params: Promise<{ episodeId: string }> }
 ) {
+  const authError = await requireAdminAPI()
+  if (authError) return authError
   const { episodeId } = await params
 
   if (!episodeId) {
@@ -18,6 +23,18 @@ export async function DELETE(
   }
 
   try {
+    // Save full snapshot before deletion
+    const [enrichment, overrides, quotesConfig] = await Promise.all([
+      getEpisodeEnrichment(episodeId),
+      getEpisodeOverrides(),
+      getQuotesConfig(),
+    ])
+    await saveVersion(episodeId, "full_snapshot", {
+      enrichment,
+      override: overrides.find((o) => o.id === episodeId) || null,
+      quotesEntry: quotesConfig[episodeId] || null,
+    }, "قبل حذف بيانات الاستوديو")
+
     const removed: string[] = []
 
     await deleteEpisodeEnrichment(episodeId)
@@ -28,6 +45,11 @@ export async function DELETE(
 
     await deleteEpisodeQuotesEntry(episodeId)
     removed.push("quotes")
+
+    revalidatePath("/")
+    revalidatePath("/episodes")
+    revalidatePath("/admin/episodes")
+    revalidatePath(`/admin/episodes/${episodeId}`)
 
     return NextResponse.json({ success: true, removed })
   } catch (error) {

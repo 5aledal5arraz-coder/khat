@@ -8,6 +8,7 @@ import {
   assignQuoteToPath,
   removeQuoteFromPath,
 } from "@/lib/emotional-paths"
+import { requireAdmin } from "@/lib/api-utils"
 
 function revalidateAll() {
   revalidatePath("/")
@@ -16,6 +17,7 @@ function revalidateAll() {
 }
 
 export async function updatePathAction(id: string, formData: FormData) {
+  await requireAdmin()
   const title = formData.get("title") as string
   const subtitle = formData.get("subtitle") as string
   const icon = formData.get("icon") as string
@@ -29,6 +31,7 @@ export async function updatePathAction(id: string, formData: FormData) {
 }
 
 export async function assignEpisodeToPathAction(pathId: string, episodeId: string) {
+  await requireAdmin()
   const result = await assignEpisodeToPath(pathId, episodeId)
   if (!result) return { success: false, error: "المسار غير موجود" }
 
@@ -37,6 +40,7 @@ export async function assignEpisodeToPathAction(pathId: string, episodeId: strin
 }
 
 export async function removeEpisodeFromPathAction(pathId: string, episodeId: string) {
+  await requireAdmin()
   const result = await removeEpisodeFromPath(pathId, episodeId)
   if (!result) return { success: false, error: "المسار غير موجود" }
 
@@ -45,6 +49,7 @@ export async function removeEpisodeFromPathAction(pathId: string, episodeId: str
 }
 
 export async function assignQuoteToPathAction(pathId: string, quoteId: string) {
+  await requireAdmin()
   const result = await assignQuoteToPath(pathId, quoteId)
   if (!result) return { success: false, error: "المسار غير موجود" }
 
@@ -53,6 +58,7 @@ export async function assignQuoteToPathAction(pathId: string, quoteId: string) {
 }
 
 export async function removeQuoteFromPathAction(pathId: string, quoteId: string) {
+  await requireAdmin()
   const result = await removeQuoteFromPath(pathId, quoteId)
   if (!result) return { success: false, error: "المسار غير موجود" }
 

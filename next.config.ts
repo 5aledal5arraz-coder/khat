@@ -3,6 +3,7 @@ import type { NextConfig } from "next";
 const nextConfig: NextConfig = {
   experimental: {
     serverActions: {
+      // Required for Studio audio uploads (large podcast files)
       bodySizeLimit: "200mb",
     },
   },

@@ -1,9 +1,20 @@
 import { NextRequest, NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
 import { stripHtml } from "@/lib/sanitize"
+import { validateEmail } from "@/lib/validation"
+import { validateMutation, rateLimitResponse } from "@/lib/api-utils"
+import { checkIpRateLimit } from "@/lib/rate-limit"
 
 export async function POST(request: NextRequest) {
   try {
+    // CSRF protection
+    const csrfError = validateMutation(request)
+    if (csrfError) return csrfError
+
+    // Rate limit: 5 submissions per hour per IP
+    const rateLimit = checkIpRateLimit(request, "guest_application", 5, 60 * 60 * 1000)
+    if (!rateLimit.allowed) return rateLimitResponse()
+
     const body = await request.json()
     const {
       name,
@@ -31,10 +42,10 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "الاسم مطلوب" }, { status: 400 })
     }
 
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
-    if (!email || typeof email !== "string" || !emailRegex.test(email)) {
+    const emailCheck = validateEmail(email)
+    if (!emailCheck.valid) {
       return NextResponse.json(
-        { error: "البريد الإلكتروني غير صالح" },
+        { error: emailCheck.error },
         { status: 400 }
       )
     }
@@ -170,7 +181,7 @@ export async function POST(request: NextRequest) {
       topics_to_avoid: topics_to_avoid ? stripHtml(topics_to_avoid) : null,
       filming_concern: stripHtml(filming_concern),
       agrees_to_publish: agrees_to_publish,
-      social_links: social_links?.trim() || null,
+      social_links: social_links ? stripHtml(social_links) : null,
       status: "new",
     })
 

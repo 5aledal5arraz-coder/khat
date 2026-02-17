@@ -9,15 +9,14 @@ import {
   FileText,
   Loader2,
   Check,
-  Sparkles,
   Link2,
   Copy,
   Eye,
   EyeOff,
 } from "lucide-react"
 import { Switch } from "@/components/ui/switch"
-import type { MediaKitConfig, AnalyticsConfig } from "@/types/ads"
-import { defaultMediaKitConfig } from "@/types/ads"
+import type { MediaKitConfig, AnalyticsConfig } from "@/types/media-kit"
+import { defaultMediaKitConfig } from "@/types/media-kit"
 
 function generatePartnershipPDF(
   config: MediaKitConfig,
@@ -1044,22 +1043,13 @@ export default function MediaKitPage() {
   }
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-6">
       {/* Page Header */}
-      <div className="relative overflow-hidden rounded-3xl border border-border/30 bg-gradient-to-bl from-primary/10 via-card/80 to-accent/5 p-8 backdrop-blur-sm">
-        <div className="pointer-events-none absolute -end-20 -top-20 h-60 w-60 rounded-full bg-primary/5 blur-3xl" />
-        <div className="relative">
-          <div className="mb-2 flex items-center gap-2">
-            <Sparkles className="h-5 w-5 text-primary" />
-            <span className="text-xs font-semibold uppercase tracking-widest text-primary">
-              لوحة التحكم
-            </span>
-          </div>
-          <h1 className="text-3xl font-bold tracking-tight">ملف الشراكة</h1>
-          <p className="mt-2 text-sm text-muted-foreground">
-            إعداد محتوى ملف الشراكة وإنشاء عروض مخصصة للشركات
-          </p>
-        </div>
+      <div>
+        <h1 className="text-2xl font-bold">ملف الشراكة</h1>
+        <p className="mt-1 text-sm text-muted-foreground">
+          إعداد محتوى ملف الشراكة وإنشاء عروض مخصصة للشركات
+        </p>
       </div>
 
       {/* PDF Generator Card */}

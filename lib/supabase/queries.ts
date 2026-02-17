@@ -15,13 +15,13 @@ import {
   mockTimestamps,
   mockQuotes,
   mockResources
-} from '@/lib/mock-data'
+} from '@/lib/mocks/episodes'
 import {
-  fetchAllEpisodes,
   fetchEpisodeBySlug,
   fetchLatestEpisode,
   fetchMostViewedRecent,
 } from '@/lib/youtube/queries'
+import { getCachedEpisodes } from '@/lib/cache/episode-cache'
 import { getEpisodeOverrides, applyOverrides } from '@/lib/episode-overrides'
 import { getHiddenEpisodeIds, getSectionsConfig } from '@/lib/episode-sections'
 import { getGuestAssignments, applyGuestAssignments } from '@/lib/episode-guests'
@@ -29,9 +29,40 @@ import { getAllGuests } from '@/lib/admin/queries'
 import { searchEpisodes, searchGuests } from '@/lib/search'
 import { getPublishedQuotes } from '@/lib/episode-quotes'
 import { getEpisodeEnrichment } from '@/lib/episode-enrichments'
+import { mergeEpisodeLists, mergeEpisode } from '@/lib/episodes/merge'
 
 const USE_MOCK_DATA = process.env.NEXT_PUBLIC_SUPABASE_URL?.includes('placeholder') || !process.env.NEXT_PUBLIC_SUPABASE_URL
 const USE_YOUTUBE = !!process.env.YOUTUBE_API_KEY
+const USE_DB = !USE_MOCK_DATA
+
+async function fetchDbEpisodes(): Promise<Partial<Episode>[]> {
+  if (!USE_DB) return []
+  try {
+    const supabase = await createClient()
+    const { data } = await supabase
+      .from('episodes')
+      .select('*, guest:guests(id, name, slug, photo_url)')
+      .order('release_date', { ascending: false })
+    return (data || []) as Partial<Episode>[]
+  } catch {
+    return []
+  }
+}
+
+async function fetchDbEpisodeById(id: string): Promise<Partial<Episode> | null> {
+  if (!USE_DB) return null
+  try {
+    const supabase = await createClient()
+    const { data } = await supabase
+      .from('episodes')
+      .select('*, guest:guests(id, name, slug, photo_url)')
+      .eq('id', id)
+      .maybeSingle()
+    return (data as Partial<Episode>) || null
+  } catch {
+    return null
+  }
+}
 
 // Filter episodes by admin section assignments (with keyword fallback for unassigned)
 function filterByCategory(
@@ -108,7 +139,13 @@ export async function getEpisodes(options?: {
   if (USE_YOUTUBE) {
     try {
       // Fetch ALL episodes first, then filter — pagination must happen last
-      let episodes = await fetchAllEpisodes()
+      const [ytEpisodes, dbEpisodes] = await Promise.all([
+        getCachedEpisodes(),
+        fetchDbEpisodes(),
+      ])
+
+      // Merge: DB fields win per-field, YouTube provides live stats
+      let episodes = mergeEpisodeLists(ytEpisodes, dbEpisodes)
 
       // Apply title/description overrides
       episodes = applyOverrides(episodes, overrides)
@@ -140,7 +177,7 @@ export async function getEpisodes(options?: {
   }
 
   if (USE_MOCK_DATA) {
-    const { mockEpisodes } = await import('@/lib/mock-data')
+    const { mockEpisodes } = await import('@/lib/mocks/episodes')
     let episodes = [...mockEpisodes]
 
     // Filter by category
@@ -201,7 +238,7 @@ export async function getEpisodes(options?: {
 
   if (error) {
     console.error('Error fetching episodes:', error)
-    const { mockEpisodes } = await import('@/lib/mock-data')
+    const { mockEpisodes } = await import('@/lib/mocks/episodes')
     return filterHidden(mockEpisodes)
   }
 
@@ -226,6 +263,10 @@ export async function getEpisodeBySlug(slug: string): Promise<EpisodeWithRelatio
       if (episode) {
         // Block access to deleted/hidden episodes
         if (hiddenIds.has(episode.id)) return null
+
+        // Merge with DB data (DB wins per-field, YouTube keeps live stats)
+        const dbEp = await fetchDbEpisodeById(episode.id)
+        episode = mergeEpisode(episode, dbEp)
 
         // Apply title and description overrides
         const overrides = await getEpisodeOverrides()
@@ -294,7 +335,7 @@ export async function getEpisodeBySlug(slug: string): Promise<EpisodeWithRelatio
   }
 
   if (USE_MOCK_DATA) {
-    const { mockEpisodes } = await import('@/lib/mock-data')
+    const { mockEpisodes } = await import('@/lib/mocks/episodes')
     const episode = mockEpisodes.find(e => e.slug === slug)
     if (!episode || hiddenIds.has(episode.id)) return null
 
@@ -332,7 +373,7 @@ export async function getEpisodeBySlug(slug: string): Promise<EpisodeWithRelatio
   if (error || !data) {
     console.error('Error fetching episode:', error)
     // Fallback to mock
-    const { mockEpisodes } = await import('@/lib/mock-data')
+    const { mockEpisodes } = await import('@/lib/mocks/episodes')
     const mockEp = mockEpisodes.find(e => e.slug === slug)
     if (mockEp && !hiddenIds.has(mockEp.id)) {
       return {
@@ -392,7 +433,7 @@ export async function getLatestEpisode(): Promise<Episode | null> {
   // Try YouTube first if available
   if (USE_YOUTUBE) {
     try {
-      const episodes = await fetchAllEpisodes()
+      const episodes = await getCachedEpisodes()
       const visible = applyOverrides(
         episodes.filter((ep) => !hiddenIds.has(ep.id)),
         overrides
@@ -404,7 +445,7 @@ export async function getLatestEpisode(): Promise<Episode | null> {
   }
 
   if (USE_MOCK_DATA) {
-    const { mockEpisodes } = await import('@/lib/mock-data')
+    const { mockEpisodes } = await import('@/lib/mocks/episodes')
     return mockEpisodes.find((ep) => !hiddenIds.has(ep.id)) || null
   }
 
@@ -421,7 +462,7 @@ export async function getLatestEpisode(): Promise<Episode | null> {
 
   if (error || !data) {
     console.error('Error fetching latest episode:', error)
-    const { mockEpisodes } = await import('@/lib/mock-data')
+    const { mockEpisodes } = await import('@/lib/mocks/episodes')
     return mockEpisodes.find((ep) => !hiddenIds.has(ep.id)) || null
   }
 
@@ -437,7 +478,7 @@ export async function getMostViewedRecent(days: number = 30): Promise<Episode | 
       const episode = await fetchMostViewedRecent(days)
       if (episode && !hiddenIds.has(episode.id)) return episode
       // If the top one is hidden, fall back to fetching all and filtering
-      const allEpisodes = await fetchAllEpisodes()
+      const allEpisodes = await getCachedEpisodes()
       const cutoffDate = new Date()
       cutoffDate.setDate(cutoffDate.getDate() - days)
       const visible = allEpisodes
@@ -450,7 +491,7 @@ export async function getMostViewedRecent(days: number = 30): Promise<Episode | 
   }
 
   if (USE_MOCK_DATA) {
-    const { mockEpisodes } = await import('@/lib/mock-data')
+    const { mockEpisodes } = await import('@/lib/mocks/episodes')
     const cutoffDate = new Date()
     cutoffDate.setDate(cutoffDate.getDate() - days)
 
@@ -483,7 +524,7 @@ export async function getMostViewedRecent(days: number = 30): Promise<Episode | 
 
   if (error || !data) {
     console.error('Error fetching most viewed recent episode:', error)
-    const { mockEpisodes } = await import('@/lib/mock-data')
+    const { mockEpisodes } = await import('@/lib/mocks/episodes')
     return mockEpisodes.find((ep) => !hiddenIds.has(ep.id)) || null
   }
 
@@ -497,7 +538,7 @@ export async function getGuests(options?: {
   // Extract guests from YouTube episodes if available
   if (USE_YOUTUBE) {
     try {
-      const episodes = await fetchAllEpisodes()
+      const episodes = await getCachedEpisodes()
       const guestMap = new Map<string, Guest>()
 
       for (const ep of episodes) {
@@ -555,7 +596,7 @@ export async function getGuestBySlug(slug: string): Promise<GuestWithRelations |
   // Try YouTube first if available
   if (USE_YOUTUBE) {
     try {
-      const episodes = await fetchAllEpisodes()
+      const episodes = await getCachedEpisodes()
       let guest: Guest | null = null
       const guestEpisodes: Episode[] = []
 
@@ -582,7 +623,7 @@ export async function getGuestBySlug(slug: string): Promise<GuestWithRelations |
     const guest = mockGuests.find(g => g.slug === slug)
     if (!guest) return null
 
-    const { mockEpisodes } = await import('@/lib/mock-data')
+    const { mockEpisodes } = await import('@/lib/mocks/episodes')
     return {
       ...guest,
       episodes: mockEpisodes.filter(e => e.guest_id === guest.id),
@@ -603,7 +644,7 @@ export async function getGuestBySlug(slug: string): Promise<GuestWithRelations |
     // Fallback to mock
     const mockGuest = mockGuests.find(g => g.slug === slug)
     if (mockGuest) {
-      const { mockEpisodes } = await import('@/lib/mock-data')
+      const { mockEpisodes } = await import('@/lib/mocks/episodes')
       return {
         ...mockGuest,
         episodes: mockEpisodes.filter(e => e.guest_id === mockGuest.id),
@@ -635,7 +676,7 @@ export async function getTopics(): Promise<Topic[]> {
   // Extract topics from YouTube episodes if available
   if (USE_YOUTUBE) {
     try {
-      const episodes = await fetchAllEpisodes()
+      const episodes = await getCachedEpisodes()
       const topicMap = new Map<string, Topic>()
 
       for (const ep of episodes) {
@@ -696,7 +737,7 @@ export async function getRelatedEpisodes(
 
   if (USE_YOUTUBE) {
     try {
-      const episodes = await fetchAllEpisodes()
+      const episodes = await getCachedEpisodes()
       return episodes
         .filter(e => e.id !== episodeId)
         .slice(0, limit)
@@ -706,7 +747,7 @@ export async function getRelatedEpisodes(
   }
 
   if (USE_MOCK_DATA) {
-    const { mockEpisodes } = await import('@/lib/mock-data')
+    const { mockEpisodes } = await import('@/lib/mocks/episodes')
     return mockEpisodes
       .filter(e => e.id !== episodeId)
       .slice(0, limit)
@@ -727,7 +768,7 @@ export async function getRelatedEpisodes(
 
   if (error) {
     console.error('Error fetching related episodes:', error)
-    const { mockEpisodes } = await import('@/lib/mock-data')
+    const { mockEpisodes } = await import('@/lib/mocks/episodes')
     return mockEpisodes.filter(e => e.id !== episodeId).slice(0, limit)
   }
 
@@ -737,7 +778,7 @@ export async function getRelatedEpisodes(
 export async function getEpisodesByTopicPath(topicSlugs: string[]): Promise<Episode[]> {
   if (USE_YOUTUBE) {
     try {
-      const episodes = await fetchAllEpisodes()
+      const episodes = await getCachedEpisodes()
       return episodes
         .filter(e => e.topics?.some(t => topicSlugs.includes(t.slug)))
         .slice(0, 5)
@@ -747,7 +788,7 @@ export async function getEpisodesByTopicPath(topicSlugs: string[]): Promise<Epis
   }
 
   if (USE_MOCK_DATA) {
-    const { mockEpisodes } = await import('@/lib/mock-data')
+    const { mockEpisodes } = await import('@/lib/mocks/episodes')
     return mockEpisodes.filter(e =>
       e.topics?.some(t => topicSlugs.includes(t.slug))
     ).slice(0, 5)
@@ -761,7 +802,7 @@ export async function getEpisodesByTopicPath(topicSlugs: string[]): Promise<Epis
     .in('slug', topicSlugs)
 
   if (!topics || topics.length === 0) {
-    const { mockEpisodes } = await import('@/lib/mock-data')
+    const { mockEpisodes } = await import('@/lib/mocks/episodes')
     return mockEpisodes.slice(0, 5)
   }
 
@@ -780,7 +821,7 @@ export async function getEpisodesByTopicPath(topicSlugs: string[]): Promise<Epis
 
   if (error) {
     console.error('Error fetching episodes by topic path:', error)
-    const { mockEpisodes } = await import('@/lib/mock-data')
+    const { mockEpisodes } = await import('@/lib/mocks/episodes')
     return mockEpisodes.slice(0, 5)
   }
 
@@ -792,14 +833,14 @@ export async function getEpisodeCounts(): Promise<Record<string, number>> {
 
   if (USE_YOUTUBE) {
     try {
-      episodes = await fetchAllEpisodes()
+      episodes = await getCachedEpisodes()
     } catch (error) {
       console.error('YouTube fetch failed:', error)
     }
   }
 
   if (episodes.length === 0 && USE_MOCK_DATA) {
-    const { mockEpisodes } = await import('@/lib/mock-data')
+    const { mockEpisodes } = await import('@/lib/mocks/episodes')
     episodes = mockEpisodes
   }
 

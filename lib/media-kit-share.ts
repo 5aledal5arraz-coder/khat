@@ -1,25 +1,17 @@
-import { readFile, writeFile, mkdir } from "fs/promises"
-import path from "path"
+import { createConfigStore } from "@/lib/config-store"
 import { createHash, randomBytes, timingSafeEqual } from "crypto"
 import bcrypt from "bcryptjs"
-import type { MediaKitShareConfig } from "@/types/ads"
+import type { MediaKitShareConfig } from "@/types/media-kit"
 
-const SHARE_CONFIG_PATH = path.join(process.cwd(), "config", "media-kit-share.json")
+const store = createConfigStore<MediaKitShareConfig | null>("media-kit-share.json", null)
 const BCRYPT_ROUNDS = 12
 
 export async function getShareConfig(): Promise<MediaKitShareConfig | null> {
-  try {
-    const data = await readFile(SHARE_CONFIG_PATH, "utf-8")
-    return JSON.parse(data) as MediaKitShareConfig
-  } catch {
-    return null
-  }
+  return store.read()
 }
 
 export async function saveShareConfig(config: MediaKitShareConfig): Promise<void> {
-  const configDir = path.dirname(SHARE_CONFIG_PATH)
-  await mkdir(configDir, { recursive: true })
-  await writeFile(SHARE_CONFIG_PATH, JSON.stringify(config, null, 2), "utf-8")
+  await store.write(config)
 }
 
 export async function hashPassword(password: string): Promise<string> {

@@ -4,6 +4,7 @@ import {
   updateGuestApplicationStatus,
 } from "@/lib/admin/queries"
 import type { GuestApplicationStatus } from "@/types/database"
+import { requireAdminAPI } from "@/lib/api-utils"
 
 const VALID_STATUSES: GuestApplicationStatus[] = [
   "new",
@@ -17,6 +18,8 @@ export async function PATCH(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const authError = await requireAdminAPI()
+  if (authError) return authError
   try {
     const { id } = await params
     const body = await request.json()
@@ -46,6 +49,8 @@ export async function DELETE(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const authError = await requireAdminAPI()
+  if (authError) return authError
   try {
     const { id } = await params
 

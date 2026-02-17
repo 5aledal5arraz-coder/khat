@@ -1,6 +1,3 @@
-"use client"
-
-import { useState } from "react"
 import Link from "next/link"
 import Image from "next/image"
 import { Card, CardContent } from "@/components/ui/card"
@@ -16,17 +13,12 @@ interface EpisodeCardProps {
 }
 
 export function EpisodeCard({ episode }: EpisodeCardProps) {
-  const [isHovered, setIsHovered] = useState(false)
   const videoId = getYouTubeId(episode.youtube_url)
   const summary = episode.summary || episode.description
 
   return (
     <Link href={`/episodes/${episode.slug}`}>
-      <Card
-        className="group h-full overflow-hidden transition-all hover:shadow-lg hover:border-primary/50"
-        onMouseEnter={() => setIsHovered(true)}
-        onMouseLeave={() => setIsHovered(false)}
-      >
+      <Card className="group h-full overflow-hidden transition-all hover:shadow-lg hover:border-primary/50">
         <div className="relative aspect-video overflow-hidden bg-muted">
           {episode.youtube_url && (
             <Image
@@ -40,9 +32,7 @@ export function EpisodeCard({ episode }: EpisodeCardProps) {
 
           {/* Hover Preview Overlay */}
           <div
-            className={`absolute inset-0 flex flex-col justify-end bg-gradient-to-t from-black via-black/70 to-transparent p-4 transition-opacity duration-300 ${
-              isHovered ? "opacity-100" : "opacity-0"
-            }`}
+            className="absolute inset-0 flex flex-col justify-end bg-gradient-to-t from-black via-black/70 to-transparent p-4 opacity-0 transition-opacity duration-300 group-hover:opacity-100"
           >
             {/* Play Button */}
             <div className="absolute inset-0 flex items-center justify-center">

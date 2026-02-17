@@ -79,6 +79,29 @@ export interface NewsletterSubscriber {
   created_at: string
 }
 
+export type EpisodeVersionChangeType =
+  | "title_override"
+  | "description_override"
+  | "enrichment"
+  | "quotes"
+  | "section_assignment"
+  | "visibility"
+  | "guest_assignment"
+  | "youtube_pack"
+  | "conversation"
+  | "full_snapshot"
+
+export interface EpisodeVersion {
+  id: string
+  episode_id: string
+  version_number: number
+  change_type: EpisodeVersionChangeType
+  change_summary: string | null
+  snapshot: Record<string, unknown>
+  created_by: string
+  created_at: string
+}
+
 export type SponsorshipStatus =
   | "new"
   | "reviewing"
@@ -177,12 +200,35 @@ export interface StudioSession {
   raw_youtube_response: Record<string, unknown> | null
   audio_filename: string | null
   audio_file_size: number | null
+  audio_start_seconds: number | null
+  audio_end_seconds: number | null
+  audio_best_intro: string | null
+  audio_edit_suggestions: AudioEditSuggestion[] | null
   created_at: string
   updated_at: string
 }
 
+export interface AudioEditSuggestion {
+  start_seconds: number
+  end_seconds: number
+  category: 'long_pause' | 'repetitive' | 'off_topic' | 'filler' | 'other'
+  reason: string
+}
+
 export type StudioTranscriptSource = 'youtube_captions' | 'upload' | 'whisper'
 export type StudioTranscriptStatus = 'ready' | 'error'
+export type StudioTranscriptProcessingStatus = 'idle' | 'processing' | 'ready' | 'error'
+
+export interface StudioTranscriptSummary {
+  overview: string
+  key_ideas: string[]
+  lessons: string[]
+}
+
+export interface StudioTranscriptQuote {
+  text: string
+  theme: string
+}
 
 export interface StudioTranscript {
   id: string
@@ -195,6 +241,11 @@ export interface StudioTranscript {
   char_count: number
   status: StudioTranscriptStatus
   error_message: string | null
+  // AI-processed outputs
+  transcript_article: string | null
+  summary: StudioTranscriptSummary | null
+  quotes_extracted: StudioTranscriptQuote[] | null
+  processing_status: StudioTranscriptProcessingStatus
   created_at: string
   updated_at: string
 }
@@ -277,6 +328,9 @@ export interface StudioWebsitePackage {
   topics: string[]
   resources: WebsiteResourceItem[]
   timestamps: WebsiteTimestampItem[]
+  custom_title: string | null
+  selected_quote_indices: number[] | null
+  selected_takeaway_indices: number[] | null
   linked_episode_id: string | null
   raw_openai_response: Record<string, unknown> | null
   error_message: string | null
@@ -1008,6 +1062,10 @@ export type Database = {
           char_count?: number
           status?: string
           error_message?: string | null
+          transcript_article?: string | null
+          summary?: StudioTranscriptSummary | null
+          quotes_extracted?: StudioTranscriptQuote[] | null
+          processing_status?: string
           created_at?: string
           updated_at?: string
         }
@@ -1018,6 +1076,10 @@ export type Database = {
           char_count?: number
           status?: string
           error_message?: string | null
+          transcript_article?: string | null
+          summary?: StudioTranscriptSummary | null
+          quotes_extracted?: StudioTranscriptQuote[] | null
+          processing_status?: string
           updated_at?: string
         }
         Relationships: [

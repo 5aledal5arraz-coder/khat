@@ -139,9 +139,9 @@ export async function checkRateLimit(
     .gte('created_at', windowStart.toISOString())
 
   if (error) {
-    // Fail open - allow the request but log the error
+    // Fail closed - deny the request when DB is unavailable to prevent abuse
     console.error('Rate limit check failed:', error)
-    return { allowed: true, remaining: 0, resetAt: new Date(Date.now() + config.windowMs) }
+    return { allowed: false, remaining: 0, resetAt: new Date(Date.now() + config.windowMs) }
   }
 
   const currentCount = count ?? 0

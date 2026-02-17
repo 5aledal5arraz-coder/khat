@@ -44,6 +44,8 @@ export function SaveButton({
         className
       )}
       title={isSaved ? "إزالة من المحفوظات" : "حفظ"}
+      aria-label={isSaved ? "إزالة من المحفوظات" : "حفظ"}
+      aria-pressed={isSaved}
     >
       <Bookmark className={cn("h-4 w-4", isSaved && "fill-current")} />
       {showLabel && (isSaved ? "محفوظ" : "حفظ")}

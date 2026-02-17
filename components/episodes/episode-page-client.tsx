@@ -1,8 +1,9 @@
 "use client"
 
+import { useEffect, useRef } from "react"
 import Link from "next/link"
 import { ChevronRight, ChevronLeft } from "lucide-react"
-import { EpisodePlayerProvider } from "./episode-player-context"
+import { EpisodePlayerProvider, usePlayer } from "./episode-player-context"
 import { EpisodeHero } from "./episode-hero"
 import { EpisodeSummary } from "./episode-summary"
 import { EpisodeIdeas } from "./episode-ideas"
@@ -10,27 +11,41 @@ import { EpisodeRecommendations } from "./episode-recommendations"
 import { GuestIntroSection } from "./guest-intro-section"
 import { ResourcesList } from "./resources-list"
 import { QuoteCard } from "@/components/quotes/quote-card"
-import { getYouTubeWatchUrl } from "@/lib/utils"
+import { WhyThisConversation } from "./why-this-conversation"
+import { CentralQuestion } from "./central-question"
+import { BeforeYouWatch } from "./before-you-watch"
+import { ConversationMap } from "./conversation-map"
+import { ExclusiveClip } from "./exclusive-clip"
+import { UnsaidReflections } from "./unsaid-reflections"
 import type { EpisodeWithRelations, Episode, Guest, HomeQuote, EmotionalPath, DailyReflection } from "@/types/database"
+import type { EpisodeEnrichment } from "@/types/episodes"
+import type { Article } from "@/types/space"
 import { EpisodeConnections } from "./episode-connections"
+import { trackEvent } from "@/lib/personalization/tracker"
 
-function TimestampLink({ seconds, title, youtubeUrl }: { seconds: number; title: string; youtubeUrl: string }) {
-  const mins = Math.floor(seconds / 60)
-  const secs = seconds % 60
-  const watchUrl = getYouTubeWatchUrl(youtubeUrl, seconds)
+function formatTimestamp(totalSeconds: number): string {
+  const hours = Math.floor(totalSeconds / 3600)
+  const mins = Math.floor((totalSeconds % 3600) / 60)
+  const secs = totalSeconds % 60
+  if (hours > 0) {
+    return `${hours}:${mins.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}`
+  }
+  return `${mins}:${secs.toString().padStart(2, "0")}`
+}
+
+function TimestampLink({ seconds, title }: { seconds: number; title: string }) {
+  const { seekTo } = usePlayer()
 
   return (
-    <a
-      href={watchUrl}
-      target="_blank"
-      rel="noopener noreferrer"
+    <button
+      onClick={() => seekTo(seconds)}
       className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-start transition-colors hover:bg-muted"
     >
       <span className="shrink-0 font-mono text-sm tabular-nums text-primary">
-        {mins}:{secs.toString().padStart(2, "0")}
+        {formatTimestamp(seconds)}
       </span>
       <span className="text-sm">{title}</span>
-    </a>
+    </button>
   )
 }
 
@@ -42,6 +57,9 @@ interface EpisodePageClientProps {
   homeQuotes?: HomeQuote[]
   paths?: EmotionalPath[]
   reflections?: DailyReflection[]
+  enrichment?: EpisodeEnrichment | null
+  hibrArticles?: Article[]
+  initialStartTime?: number
 }
 
 export function EpisodePageClient({
@@ -52,7 +70,21 @@ export function EpisodePageClient({
   homeQuotes = [],
   paths = [],
   reflections = [],
+  enrichment,
+  hibrArticles = [],
+  initialStartTime,
 }: EpisodePageClientProps) {
+  // Track episode view
+  const trackedRef = useRef(false)
+  useEffect(() => {
+    if (trackedRef.current) return
+    trackedRef.current = true
+    trackEvent("episode_view", episode.id, {
+      topics: episode.topics?.map((t) => t.name) ?? [],
+      guest_id: episode.guest_id ?? undefined,
+    })
+  }, [episode.id, episode.topics, episode.guest_id])
+
   const summary = episode.summary || episode.description || null
   const takeaways = episode.key_takeaways ?? []
   const hasDbTimestamps = episode.timestamps.length > 0
@@ -65,7 +97,7 @@ export function EpisodePageClient({
     <EpisodePlayerProvider>
       <div className="container mx-auto overflow-x-hidden px-4 py-8">
         <div className="mx-auto max-w-4xl space-y-8">
-          {/* Guest Intro */}
+          {/* 1. Guest Intro */}
           <GuestIntroSection
             guest={episode.guest || {
               name: "ضيف الحلقة",
@@ -78,16 +110,29 @@ export function EpisodePageClient({
             testimonialVideoUrl={episode.guest_video_url}
           />
 
-          {/* 1. Hero Section */}
+          {/* 2. Hero Section */}
           <EpisodeHero
             episode={episode}
             teaser={teaser}
+            initialStartTime={initialStartTime}
           />
 
-          {/* 2. Quick Summary */}
+          {/* 3. Why This Conversation */}
+          <WhyThisConversation text={enrichment?.why_this_conversation} />
+
+          {/* 4. Central Question */}
+          <CentralQuestion question={enrichment?.central_question} />
+
+          {/* 5. Before You Watch */}
+          <BeforeYouWatch data={enrichment?.before_you_watch} />
+
+          {/* 6. Quick Summary */}
           {summary && <EpisodeSummary summary={summary} />}
 
-          {/* 3. Timestamps */}
+          {/* 7. Conversation Map */}
+          <ConversationMap data={enrichment?.conversation_map} />
+
+          {/* 8. Timestamps */}
           {hasDbTimestamps && (
             <div className="space-y-4">
               <h2 className="text-lg font-semibold">فهرس الحلقة</h2>
@@ -97,14 +142,13 @@ export function EpisodePageClient({
                     key={ts.id}
                     seconds={ts.time_seconds}
                     title={ts.title}
-                    youtubeUrl={episode.youtube_url}
                   />
                 ))}
               </div>
             </div>
           )}
 
-          {/* 4. Quotes */}
+          {/* 9. Quotes */}
           {hasDbQuotes && (
             <div className="space-y-3">
               <h2 className="text-lg font-semibold">اقتباسات من الحلقة</h2>
@@ -120,24 +164,31 @@ export function EpisodePageClient({
             </div>
           )}
 
-          {/* 5. Takeaways */}
+          {/* 10. Takeaways */}
           <EpisodeIdeas takeaways={takeaways} />
 
-          {/* Resources */}
+          {/* 11. Resources */}
           {episode.resources.length > 0 && (
             <div className="rounded-lg border p-4">
               <ResourcesList resources={episode.resources} />
             </div>
           )}
 
-          {/* Connected Content: quotes, paths, reflections */}
+          {/* 12. Exclusive Clip */}
+          <ExclusiveClip data={enrichment?.exclusive_clip} />
+
+          {/* 13. Unsaid Reflections */}
+          <UnsaidReflections items={enrichment?.unsaid_reflections} />
+
+          {/* 14. Connected Content: quotes, paths, reflections, hibr articles */}
           <EpisodeConnections
             homeQuotes={homeQuotes}
             paths={paths}
             reflections={reflections}
+            hibrArticles={hibrArticles}
           />
 
-          {/* Next / Previous Navigation */}
+          {/* 15. Next / Previous Navigation */}
           {(prev || next) && (
             <div className="flex items-stretch gap-4 pt-8 border-t">
               {prev ? (
@@ -175,7 +226,7 @@ export function EpisodePageClient({
             </div>
           )}
 
-          {/* 6. Related Episodes */}
+          {/* 16. Related Episodes */}
           <EpisodeRecommendations episodes={relatedEpisodes} />
         </div>
       </div>

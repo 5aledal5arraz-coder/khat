@@ -1,0 +1,51 @@
+{
+  "metadata": {
+    "name": "خط",
+    "description": "بودكاست خط - مساحة حوارية تقدّم محادثات عميقة وهادئة",
+    "tagline": "كل إنسان يحمل قصة تستحق أن تُروى",
+    "contactEmail": "hello@khatpodcast.com"
+  },
+  "socialLinks": [
+    {
+      "platform": "YouTube",
+      "url": "https://youtube.com/@khatpodcast",
+      "visible": true
+    },
+    {
+      "platform": "X",
+      "url": "https://x.com/khatpodcast",
+      "visible": true
+    },
+    {
+      "platform": "Instagram",
+      "url": "https://instagram.com/khatpodcast",
+      "visible": true
+    },
+    {
+      "platform": "TikTok",
+      "url": "",
+      "visible": false
+    }
+  ],
+  "seo": {
+    "titleTemplate": "%s | بودكاست خط",
+    "defaultDescription": "بودكاست خط - مساحة حوارية تقدّم محادثات عميقة وهادئة مع ضيوف يشاركون قصصهم وتجاربهم الحقيقية",
+    "defaultOgImage": "/og-image.png",
+    "keywords": [
+      "بودكاست",
+      "خط",
+      "حوار",
+      "قصص",
+      "podcast",
+      "khat"
+    ]
+  },
+  "featureFlags": {
+    "storeEnabled": false,
+    "hibrEnabled": false,
+    "guestApplicationsEnabled": true,
+    "maintenanceMode": false,
+    "personalizationEnabled": true,
+    "studioEnabled": true
+  }
+}

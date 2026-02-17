@@ -1,6 +1,6 @@
 "use client"
 
-import type { MediaKitConfig, AnalyticsConfig } from "@/types/ads"
+import type { MediaKitConfig, AnalyticsConfig } from "@/types/media-kit"
 
 function formatNumber(n: number) {
   if (n >= 1000000) return `${(n / 1000000).toFixed(1)}M`

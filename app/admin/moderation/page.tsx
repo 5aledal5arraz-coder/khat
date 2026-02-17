@@ -1,10 +1,7 @@
 "use client"
 
 import { useState, useEffect, useCallback } from "react"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import {
   Check,
   X,
@@ -53,6 +50,14 @@ const TYPE_ICONS: Record<string, React.ElementType> = {
   reply: Reply,
 }
 
+const TYPE_COLORS: Record<string, { bg: string; text: string }> = {
+  article: { bg: "bg-blue-500/10", text: "text-blue-500" },
+  thought: { bg: "bg-purple-500/10", text: "text-purple-500" },
+  comment: { bg: "bg-cyan-500/10", text: "text-cyan-500" },
+  reply: { bg: "bg-teal-500/10", text: "text-teal-500" },
+  report: { bg: "bg-red-500/10", text: "text-red-500" },
+}
+
 const REASON_LABELS: Record<string, string> = {
   spam: "سبام",
   harassment: "تحرش",
@@ -60,6 +65,12 @@ const REASON_LABELS: Record<string, string> = {
   misinformation: "معلومات مضللة",
   other: "أخرى",
 }
+
+const TABS = [
+  { value: "pending", label: "قيد المراجعة" },
+  { value: "flagged", label: "مُبلَّغ تلقائياً" },
+  { value: "reports", label: "بلاغات المستخدمين" },
+]
 
 export default function ModerationPage() {
   const [tab, setTab] = useState("pending")
@@ -138,42 +149,46 @@ export default function ModerationPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold flex items-center gap-2">
-            <Shield className="h-6 w-6 text-primary" />
-            الإشراف على المحتوى
-          </h1>
-          <p className="text-muted-foreground text-sm mt-1">
-            {total} عنصر في الانتظار
-          </p>
-        </div>
+      {/* Compact Header */}
+      <div className="flex items-center gap-3">
+        <h1 className="text-xl font-bold">الإشراف على المحتوى</h1>
+        <span className="rounded-full bg-muted/80 px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
+          {total} عنصر
+        </span>
       </div>
 
-      <Tabs value={tab} onValueChange={setTab}>
-        <TabsList>
-          <TabsTrigger value="pending">قيد المراجعة</TabsTrigger>
-          <TabsTrigger value="flagged">مُبلَّغ تلقائياً</TabsTrigger>
-          <TabsTrigger value="reports">بلاغات المستخدمين</TabsTrigger>
-        </TabsList>
-      </Tabs>
+      {/* Custom Tabs */}
+      <div className="flex items-center gap-2 rounded-xl border border-border/30 bg-card/50 p-1.5">
+        {TABS.map((t) => (
+          <button
+            key={t.value}
+            onClick={() => setTab(t.value)}
+            className={
+              tab === t.value
+                ? "rounded-lg bg-white/[0.06] px-3 py-1.5 text-sm font-medium ring-1 ring-border/50"
+                : "rounded-lg px-3 py-1.5 text-sm text-muted-foreground hover:bg-white/[0.03]"
+            }
+          >
+            {t.label}
+          </button>
+        ))}
+      </div>
 
+      {/* Content */}
       {isLoading ? (
         <div className="flex justify-center py-12">
           <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
         </div>
       ) : items.length === 0 ? (
-        <Card>
-          <CardContent className="flex flex-col items-center justify-center py-12">
-            <Check className="h-12 w-12 text-green-500 mb-4" />
-            <p className="text-lg font-medium">لا توجد عناصر في الانتظار</p>
-            <p className="text-muted-foreground text-sm mt-1">
-              كل المحتوى تمت مراجعته
-            </p>
-          </CardContent>
-        </Card>
+        <div className="flex flex-col items-center justify-center py-20 text-center">
+          <div className="mb-5 flex h-16 w-16 items-center justify-center rounded-3xl bg-white/[0.03] ring-1 ring-border/50">
+            <Check className="h-6 w-6 text-muted-foreground" />
+          </div>
+          <p className="text-base font-semibold text-muted-foreground">لا توجد عناصر في الانتظار</p>
+          <p className="mt-2 max-w-xs text-sm text-muted-foreground/60">كل المحتوى تمت مراجعته</p>
+        </div>
       ) : (
-        <div className="space-y-4">
+        <div className="divide-y divide-border/20 rounded-xl border border-border/30 bg-card/50">
           {items.map((item) => {
             const itemType = getItemType(item)
             const isReport = tab === "reports"
@@ -181,127 +196,122 @@ export default function ModerationPage() {
             const isEditing = editingId === item.id
             const isConfirmingDelete = confirmDeleteId === item.id
             const TypeIcon = TYPE_ICONS[itemType] || MessageSquare
+            const colors = TYPE_COLORS[itemType] || TYPE_COLORS.article
 
             return (
-              <Card key={item.id} className="overflow-hidden">
-                <CardHeader className="pb-2">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <Badge
-                        variant={
-                          isReport
-                            ? "destructive"
-                            : item.moderation_status === "auto_flagged"
-                            ? "destructive"
-                            : "secondary"
-                        }
-                        className="gap-1"
-                      >
-                        <TypeIcon className="h-3 w-3" />
-                        {TYPE_LABELS[itemType] || itemType}
-                      </Badge>
-                      {item.moderation_status === "auto_flagged" && (
-                        <Badge variant="outline" className="gap-1">
-                          <AlertTriangle className="h-3 w-3" />
-                          مُبلَّغ تلقائياً
-                        </Badge>
-                      )}
-                      {/* AI moderation reason badge */}
-                      {item.moderation_reason && (
-                        <Badge
-                          variant="outline"
-                          className="gap-1 border-yellow-500/30 text-yellow-600 bg-yellow-500/5"
-                        >
-                          <Shield className="h-3 w-3" />
-                          {item.moderation_reason}
-                        </Badge>
-                      )}
-                    </div>
-                    <span className="text-xs text-muted-foreground">
-                      {new Date(item.created_at).toLocaleDateString("en-GB", {
-                        day: "2-digit",
-                        month: "2-digit",
-                        year: "numeric",
-                      })}
-                    </span>
+              <div key={item.id} className="px-4 py-3 transition-colors hover:bg-muted/50">
+                {/* Row Header */}
+                <div className="flex items-center gap-3">
+                  <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-xl ${colors.bg}`}>
+                    <TypeIcon className={`h-4 w-4 ${colors.text}`} />
                   </div>
-                  {!isReport && (
-                    <CardTitle className="text-base mt-2">
-                      {item.title || item.content?.substring(0, 80)}
-                    </CardTitle>
-                  )}
-                </CardHeader>
-                <CardContent className="space-y-3">
-                  {/* Author info */}
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    <span className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${colors.bg} ${colors.text}`}>
+                      {TYPE_LABELS[itemType] || itemType}
+                    </span>
+                    {isReport && (
+                      <span className="rounded-full bg-red-500/10 px-2 py-0.5 text-[10px] font-medium text-red-500">
+                        بلاغ
+                      </span>
+                    )}
+                    {item.moderation_status === "auto_flagged" && (
+                      <span className="flex items-center gap-1 rounded-full bg-amber-500/10 px-2 py-0.5 text-[10px] font-medium text-amber-500">
+                        <AlertTriangle className="h-2.5 w-2.5" />
+                        مُبلَّغ تلقائياً
+                      </span>
+                    )}
+                    {item.moderation_reason && (
+                      <span className="flex items-center gap-1 rounded-full bg-yellow-500/5 px-2 py-0.5 text-[10px] font-medium text-yellow-600">
+                        <Shield className="h-2.5 w-2.5" />
+                        {item.moderation_reason}
+                      </span>
+                    )}
+                  </div>
+                  <div className="flex-1" />
                   {item.profiles && (
-                    <p className="text-sm text-muted-foreground">
-                      بواسطة: {item.profiles.display_name || "مجهول"}
-                    </p>
+                    <span className="hidden text-xs text-muted-foreground sm:inline">
+                      {item.profiles.display_name || "مجهول"}
+                    </span>
                   )}
+                  <span className="text-xs text-muted-foreground">
+                    {new Date(item.created_at).toLocaleDateString("en-GB", {
+                      day: "2-digit",
+                      month: "2-digit",
+                      year: "numeric",
+                    })}
+                  </span>
+                </div>
 
-                  {/* Content preview / Edit mode */}
-                  {!isReport && item.content && (
+                {/* Content (indented) */}
+                <div className="ms-11 mt-2">
+                  {!isReport && (
                     <>
-                      {isEditing ? (
-                        <div className="space-y-2">
-                          <textarea
-                            value={editContent}
-                            onChange={(e) => setEditContent(e.target.value)}
-                            onKeyDown={(e) => {
-                              if (e.key === "Escape") {
-                                setEditingId(null)
-                              }
-                            }}
-                            dir="auto"
-                            className="w-full resize-none rounded-lg border border-primary/30 bg-primary/5 px-4 py-3 text-sm leading-relaxed text-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary/30"
-                            rows={4}
-                            autoFocus
-                          />
-                          <div className="flex items-center gap-2">
-                            <Button
-                              size="sm"
-                              onClick={() => handleSaveEdit(item)}
-                              disabled={isProcessing || !editContent.trim()}
-                              className="gap-1"
-                            >
-                              {isProcessing ? (
-                                <Loader2 className="h-4 w-4 animate-spin" />
-                              ) : (
-                                <Check className="h-4 w-4" />
-                              )}
-                              حفظ ونشر
-                            </Button>
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              onClick={() => setEditingId(null)}
-                            >
-                              إلغاء
-                            </Button>
-                          </div>
-                        </div>
-                      ) : (
-                        <div className="rounded-lg bg-muted/50 p-3 text-sm max-h-32 overflow-y-auto whitespace-pre-wrap">
-                          {item.content.substring(0, 500)}
-                          {(item.content.length || 0) > 500 && "..."}
-                        </div>
+                      {item.title && (
+                        <p className="text-sm font-medium">{item.title}</p>
+                      )}
+                      {!item.title && item.content && (
+                        <p className="text-sm font-medium">{item.content.substring(0, 80)}</p>
+                      )}
+
+                      {item.content && (
+                        <>
+                          {isEditing ? (
+                            <div className="mt-2 space-y-2">
+                              <textarea
+                                value={editContent}
+                                onChange={(e) => setEditContent(e.target.value)}
+                                onKeyDown={(e) => {
+                                  if (e.key === "Escape") setEditingId(null)
+                                }}
+                                dir="auto"
+                                className="w-full resize-none rounded-xl border border-primary/30 bg-primary/5 px-4 py-3 text-sm leading-relaxed text-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary/30"
+                                rows={4}
+                                autoFocus
+                              />
+                              <div className="flex items-center gap-2">
+                                <Button
+                                  size="sm"
+                                  onClick={() => handleSaveEdit(item)}
+                                  disabled={isProcessing || !editContent.trim()}
+                                  className="h-8 gap-1 rounded-xl text-xs"
+                                >
+                                  {isProcessing ? (
+                                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                  ) : (
+                                    <Check className="h-3.5 w-3.5" />
+                                  )}
+                                  حفظ ونشر
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  onClick={() => setEditingId(null)}
+                                  className="h-8 rounded-xl text-xs"
+                                >
+                                  إلغاء
+                                </Button>
+                              </div>
+                            </div>
+                          ) : (
+                            item.title && (
+                              <div className="mt-1.5 max-h-32 overflow-y-auto whitespace-pre-wrap rounded-xl bg-white/[0.02] p-3 text-sm ring-1 ring-border/15">
+                                {item.content.substring(0, 500)}
+                                {(item.content.length || 0) > 500 && "..."}
+                              </div>
+                            )
+                          )}
+                        </>
                       )}
                     </>
                   )}
 
-                  {/* Report details */}
                   {isReport && (
-                    <div className="space-y-2">
-                      <div className="flex items-center gap-2 text-sm">
-                        <span className="text-muted-foreground">السبب:</span>
-                        <Badge variant="outline">
-                          {REASON_LABELS[item.reason || ""] || item.reason}
-                        </Badge>
-                      </div>
+                    <div className="space-y-1.5">
+                      <span className="rounded-full bg-red-500/10 px-2 py-0.5 text-[10px] font-medium text-red-500">
+                        {REASON_LABELS[item.reason || ""] || item.reason}
+                      </span>
                       {item.details && (
-                        <p className="text-sm text-muted-foreground">
-                          {item.details}
-                        </p>
+                        <p className="text-sm text-muted-foreground">{item.details}</p>
                       )}
                       <p className="text-xs text-muted-foreground">
                         نوع المحتوى: {TYPE_LABELS[item.target_type || ""] || item.target_type} | المعرف:{" "}
@@ -312,22 +322,20 @@ export default function ModerationPage() {
 
                   {/* Actions */}
                   {!isEditing && (
-                    <div className="flex items-center gap-2 pt-2 border-t">
+                    <div className="mt-2 flex items-center gap-2">
                       {isConfirmingDelete ? (
                         <>
                           <Button
                             size="sm"
                             variant="destructive"
-                            onClick={() =>
-                              handleAction(item.id, "delete", itemType)
-                            }
+                            onClick={() => handleAction(item.id, "delete", itemType)}
                             disabled={isProcessing}
-                            className="gap-1"
+                            className="h-8 gap-1 rounded-xl text-xs"
                           >
                             {isProcessing ? (
-                              <Loader2 className="h-4 w-4 animate-spin" />
+                              <Loader2 className="h-3.5 w-3.5 animate-spin" />
                             ) : (
-                              <Trash2 className="h-4 w-4" />
+                              <Trash2 className="h-3.5 w-3.5" />
                             )}
                             تأكيد الحذف
                           </Button>
@@ -335,6 +343,7 @@ export default function ModerationPage() {
                             size="sm"
                             variant="ghost"
                             onClick={() => setConfirmDeleteId(null)}
+                            className="h-8 rounded-xl text-xs"
                           >
                             إلغاء
                           </Button>
@@ -343,67 +352,61 @@ export default function ModerationPage() {
                         <>
                           <Button
                             size="sm"
-                            onClick={() =>
-                              handleAction(item.id, "approve", itemType)
-                            }
+                            onClick={() => handleAction(item.id, "approve", itemType)}
                             disabled={isProcessing}
-                            className="gap-1"
+                            className="h-8 gap-1 rounded-xl text-xs"
                           >
                             {isProcessing ? (
-                              <Loader2 className="h-4 w-4 animate-spin" />
+                              <Loader2 className="h-3.5 w-3.5 animate-spin" />
                             ) : (
-                              <Check className="h-4 w-4" />
+                              <Check className="h-3.5 w-3.5" />
                             )}
                             {isReport ? "تم حلها" : "قبول"}
                           </Button>
                           <Button
                             size="sm"
                             variant="destructive"
-                            onClick={() =>
-                              handleAction(item.id, "reject", itemType)
-                            }
+                            onClick={() => handleAction(item.id, "reject", itemType)}
                             disabled={isProcessing}
-                            className="gap-1"
+                            className="h-8 gap-1 rounded-xl text-xs"
                           >
-                            <X className="h-4 w-4" />
+                            <X className="h-3.5 w-3.5" />
                             رفض
                           </Button>
                           {!isReport && (
                             <>
                               <Button
                                 size="sm"
-                                variant="outline"
+                                variant="ghost"
                                 onClick={() => {
                                   setEditingId(item.id)
                                   setEditContent(item.content || "")
                                 }}
                                 disabled={isProcessing}
-                                className="gap-1"
+                                className="h-8 w-8 rounded-xl p-0"
+                                title="تعديل"
                               >
-                                <Pencil className="h-4 w-4" />
-                                تعديل
+                                <Pencil className="h-3.5 w-3.5" />
                               </Button>
                               <Button
                                 size="sm"
-                                variant="outline"
-                                onClick={() =>
-                                  handleAction(item.id, "hide", itemType)
-                                }
+                                variant="ghost"
+                                onClick={() => handleAction(item.id, "hide", itemType)}
                                 disabled={isProcessing}
-                                className="gap-1"
+                                className="h-8 w-8 rounded-xl p-0"
+                                title="إخفاء"
                               >
-                                <EyeOff className="h-4 w-4" />
-                                إخفاء
+                                <EyeOff className="h-3.5 w-3.5" />
                               </Button>
                               <Button
                                 size="sm"
                                 variant="ghost"
                                 onClick={() => setConfirmDeleteId(item.id)}
                                 disabled={isProcessing}
-                                className="gap-1 text-destructive hover:text-destructive"
+                                className="h-8 w-8 rounded-xl p-0 text-destructive hover:text-destructive"
+                                title="حذف"
                               >
-                                <Trash2 className="h-4 w-4" />
-                                حذف
+                                <Trash2 className="h-3.5 w-3.5" />
                               </Button>
                             </>
                           )}
@@ -411,8 +414,8 @@ export default function ModerationPage() {
                       )}
                     </div>
                   )}
-                </CardContent>
-              </Card>
+                </div>
+              </div>
             )
           })}
         </div>

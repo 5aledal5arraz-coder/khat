@@ -61,18 +61,36 @@ interface DiffFieldRow {
 function DiffPreviewModal({
   pkg,
   episode,
+  customTitle,
+  selectedQuoteIndices,
+  selectedTakeawayIndices,
   pushing,
   onClose,
   onPush,
 }: {
   pkg: StudioWebsitePackage
   episode: Episode | null
+  customTitle: string
+  selectedQuoteIndices: Set<number>
+  selectedTakeawayIndices: Set<number>
   pushing: boolean
   onClose: () => void
   onPush: (fields: Record<string, boolean>) => void
 }) {
+  const selectedTakeaways = pkg.takeaways.filter((_, i) => selectedTakeawayIndices.has(i))
+  const selectedQuotes = pkg.quotes.filter((_, i) => selectedQuoteIndices.has(i))
+
   const buildRows = (): DiffFieldRow[] => {
     const rows: DiffFieldRow[] = []
+
+    // Title override — show only if custom title differs from episode title
+    if (customTitle && episode && customTitle !== episode.title) {
+      rows.push({
+        key: "title", label: "عنوان الحلقة",
+        currentValue: episode.title,
+        newValue: customTitle, checked: true,
+      })
+    }
 
     if (pkg.hero_summary) {
       rows.push({ key: "hero_summary", label: "ملخص قصير", currentValue: "", newValue: pkg.hero_summary, checked: true })
@@ -84,17 +102,17 @@ function DiffPreviewModal({
         newValue: pkg.full_summary, checked: true,
       })
     }
-    if (pkg.takeaways.length > 0) {
+    if (selectedTakeaways.length > 0) {
       rows.push({
-        key: "takeaways", label: "أبرز الأفكار",
+        key: "takeaways", label: `أبرز الأفكار (${selectedTakeaways.length}/${pkg.takeaways.length})`,
         currentValue: episode?.key_takeaways?.join("\n") || "",
-        newValue: pkg.takeaways.join("\n"), checked: true,
+        newValue: selectedTakeaways.join("\n"), checked: true,
       })
     }
-    if (pkg.quotes.length > 0) {
+    if (selectedQuotes.length > 0) {
       rows.push({
-        key: "quotes", label: `اقتباسات (${pkg.quotes.length})`,
-        currentValue: "", newValue: pkg.quotes.map((q) => q.text).join("\n"), checked: true,
+        key: "quotes", label: `اقتباسات (${selectedQuotes.length}/${pkg.quotes.length})`,
+        currentValue: "", newValue: selectedQuotes.map((q) => q.text).join("\n"), checked: true,
       })
     }
     if (pkg.topics.length > 0) {
@@ -217,6 +235,7 @@ function DiffPreviewModal({
 export function TabExport() {
   const {
     session, websitePkg, websitePkgStatus,
+    selectedTitle, selectedQuoteIndices, selectedTakeawayIndices,
     episodes, loadEpisodes,
   } = useStudioSession()
 
@@ -248,11 +267,21 @@ export function TabExport() {
     setPushing(true)
     setPushResult(null)
 
+    // Sync selections, title, and linked episode before pushing
+    const patchBody: Record<string, unknown> = {}
     if (websitePkg && selectedEpisodeId !== websitePkg.linked_episode_id) {
+      patchBody.linked_episode_id = selectedEpisodeId
+    }
+    if (selectedTitle && selectedTitle !== websitePkg?.custom_title) {
+      patchBody.custom_title = selectedTitle
+    }
+    patchBody.selected_quote_indices = [...selectedQuoteIndices]
+    patchBody.selected_takeaway_indices = [...selectedTakeawayIndices]
+    if (Object.keys(patchBody).length > 0) {
       await fetch(`/api/admin/studio/${session.id}/website-package`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ linked_episode_id: selectedEpisodeId }),
+        body: JSON.stringify(patchBody),
       })
     }
 
@@ -397,6 +426,9 @@ export function TabExport() {
               <DiffPreviewModal
                 pkg={websitePkg}
                 episode={selectedEpisode || null}
+                customTitle={selectedTitle}
+                selectedQuoteIndices={selectedQuoteIndices}
+                selectedTakeawayIndices={selectedTakeawayIndices}
                 pushing={pushing}
                 onClose={() => setShowDiff(false)}
                 onPush={handlePush}

@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Palette } from "lucide-react"
 import { updateThemeMode } from "./actions"
-import type { ThemeMode } from "@/types/ads"
+import type { ThemeMode } from "@/types/theme"
 import { cn } from "@/lib/utils"
 
 const options: { value: ThemeMode; label: string }[] = [

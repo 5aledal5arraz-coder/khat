@@ -3,10 +3,13 @@ import { writeFile, mkdir } from "fs/promises"
 import path from "path"
 import crypto from "crypto"
 import { validateImageUpload } from "@/lib/upload-validation"
+import { requireAdminAPI } from "@/lib/api-utils"
 
 const ADS_DIR = path.join(process.cwd(), "public", "ads")
 
 export async function POST(request: NextRequest) {
+  const authError = await requireAdminAPI()
+  if (authError) return authError
   try {
     const formData = await request.formData()
     const file = formData.get("file") as File | null

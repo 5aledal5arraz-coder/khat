@@ -28,9 +28,10 @@ import {
   deleteEpisode,
   restoreEpisode,
 } from "../actions"
-import { GlowCard, formatDuration, formatDate } from "./shared"
+import { GlowCard } from "@/app/admin/components/glow-card"
+import { formatDuration, formatDate } from "./shared"
 import type { Episode, AdminGuest } from "./shared"
-import type { EpisodeOverride, EpisodeSection } from "@/types/ads"
+import type { EpisodeOverride, EpisodeSection } from "@/types/episodes"
 
 interface DetailOverviewProps {
   episode: Episode
@@ -506,7 +507,7 @@ export function DetailOverview({
               روابط
             </h3>
             <a
-              href={`/episodes/${episode.id}`}
+              href={`/episodes/${episode.slug}`}
               target="_blank"
               rel="noopener noreferrer"
               className="flex items-center gap-2 rounded-xl px-3 py-2 text-sm text-muted-foreground transition-all hover:bg-white/5 hover:text-foreground"

@@ -1,18 +1,19 @@
 import { createClient } from '@/lib/supabase/server'
 import type { FeedItem } from '@/types/space'
+import { getAuthorById as getMockAuthor, getTopContributors as getMockContributors } from '@/lib/space-authors'
 import {
-  getUnifiedFeed as getMockFeed,
-  getTopContributors as getMockContributors,
   getWeeklyHighlights as getMockHighlights,
   getArticleById as getMockArticle,
   getRelatedArticles as getMockRelated,
   getArticlesByAuthor as getMockByAuthor,
-  getAuthorById as getMockAuthor,
+  mockArticles,
+} from '@/lib/space-articles'
+import { mockThoughts } from '@/lib/space-thoughts'
+import {
+  getUnifiedFeed as getMockFeed,
   type FeedSortOption,
   writingPrompts,
-  mockArticles,
-  mockThoughts,
-} from '@/lib/space-data'
+} from '@/lib/space-feed'
 import type { Article, Author, Thought } from '@/types/space'
 
 const USE_DB = process.env.NEXT_PUBLIC_HIBR_USE_DB === 'true'
@@ -82,13 +83,13 @@ export async function getUnifiedFeed(options: {
     .from('hibr_articles')
     .select('*, profiles!hibr_articles_user_id_fkey(id, display_name, avatar_url, bio, articles_count, followers_count)')
     .eq('status', 'published')
-    .in('moderation_status', ['approved', 'pending'])
+    .eq('moderation_status', 'approved')
     .is('deleted_at', null)
 
   let thoughtsQuery = supabase
     .from('hibr_thoughts')
     .select('*, profiles!hibr_thoughts_user_id_fkey(id, display_name, avatar_url, bio, articles_count, followers_count)')
-    .in('moderation_status', ['approved', 'pending'])
+    .eq('moderation_status', 'approved')
     .is('deleted_at', null)
 
   if (tag) {
@@ -204,7 +205,7 @@ export async function getRelatedArticles(currentId: string, tags: string[], limi
     .select('*, profiles!hibr_articles_user_id_fkey(id, display_name, avatar_url, bio, articles_count, followers_count)')
     .neq('id', currentId)
     .eq('status', 'published')
-    .in('moderation_status', ['approved', 'pending'])
+    .eq('moderation_status', 'approved')
     .is('deleted_at', null)
     .overlaps('tags', tags)
     .limit(limit)
@@ -222,7 +223,7 @@ export async function getArticlesByAuthor(authorId: string): Promise<Article[]> 
     .select('*, profiles!hibr_articles_user_id_fkey(id, display_name, avatar_url, bio, articles_count, followers_count)')
     .eq('user_id', authorId)
     .eq('status', 'published')
-    .in('moderation_status', ['approved', 'pending'])
+    .eq('moderation_status', 'approved')
     .is('deleted_at', null)
     .order('created_at', { ascending: false })
 
@@ -249,6 +250,28 @@ export async function getAuthorById(id: string): Promise<Author | undefined> {
     articlesCount: data.articles_count || 0,
     followersCount: data.followers_count || 0,
   }
+}
+
+export async function getArticlesByEpisodeId(episodeId: string): Promise<Article[]> {
+  if (!USE_DB) {
+    return mockArticles.filter((a) => a.episodeId === episodeId).slice(0, 5)
+  }
+
+  const supabase = await createClient()
+  const { data } = await supabase
+    .from('hibr_articles')
+    .select('*, profiles!hibr_articles_user_id_fkey(id, display_name, avatar_url, bio, articles_count, followers_count)')
+    .eq('episode_id', episodeId)
+    .eq('status', 'published')
+    .eq('moderation_status', 'approved')
+    .is('deleted_at', null)
+    .order('created_at', { ascending: false })
+    .limit(5)
+
+  if (!data || data.length === 0) {
+    return mockArticles.filter((a) => a.episodeId === episodeId).slice(0, 5)
+  }
+  return data.map(dbToArticle)
 }
 
 // Re-export unchanged data

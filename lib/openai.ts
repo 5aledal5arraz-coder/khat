@@ -1,6 +1,7 @@
 import OpenAI from "openai"
-import type { ConfigQuote, YouTubePackSection } from "@/types/ads"
-import type { StudioChapterItem, StudioClipItem, StudioAnalyzerData, WebsiteQuoteItem, WebsiteResourceItem, WebsiteTimestampItem } from "@/types/database"
+import type { ConfigQuote } from "@/types/episodes"
+import type { YouTubePackSection } from "@/types/youtube-pack"
+import type { StudioChapterItem, StudioClipItem, StudioAnalyzerData, WebsiteQuoteItem, WebsiteResourceItem, WebsiteTimestampItem, StudioTranscriptSummary, StudioTranscriptQuote, AudioEditSuggestion } from "@/types/database"
 
 // ---------------------------------------------------------------------------
 // Prompt versioning
@@ -179,7 +180,7 @@ ${truncated}`,
   try {
     const parsed = JSON.parse(content) as { quotes: { text: string; theme: string | null; speaker: string | null }[] }
     return (parsed.quotes || []).map((q, i) => ({
-      id: `quote-${Date.now()}-${i}`,
+      id: `quote-${crypto.randomUUID()}`,
       text: q.text,
       theme: q.theme || null,
       speaker: q.speaker || null,
@@ -329,7 +330,7 @@ ${truncated}`,
     if (!parsed.content) return null
 
     return {
-      id: `section-${sectionType}-${Date.now()}`,
+      id: `section-${sectionType}-${crypto.randomUUID()}`,
       type: sectionType,
       label: SECTION_LABELS[sectionType],
       content: parsed.content,
@@ -1085,4 +1086,645 @@ ${preparedText}`,
     const msg = error instanceof Error ? error.message : "حدث خطأ أثناء تحليل الأداء"
     return { success: false, error: msg }
   }
+}
+
+// ---------------------------------------------------------------------------
+// Studio: Process Transcript into readable article, summary & quotes
+// ---------------------------------------------------------------------------
+
+export interface TranscriptProcessingResult {
+  clean_article: string
+  summary: StudioTranscriptSummary
+  quotes: StudioTranscriptQuote[]
+}
+
+/**
+ * Process a raw/clean transcript into a readable article, structured summary,
+ * and extracted impactful quotes — all in a single GPT call.
+ */
+export async function processTranscript(
+  rawText: string,
+  videoTitle: string
+): Promise<{ success: boolean; data?: TranscriptProcessingResult; error?: string }> {
+  let openai: OpenAI
+  try {
+    openai = getClient()
+  } catch {
+    return { success: false, error: "OPENAI_API_KEY غير مُعدّ" }
+  }
+
+  try {
+    const preparedText = await prepareTranscript(openai, rawText)
+
+    const response = await openai.chat.completions.create({
+      model: "gpt-4o-mini",
+      temperature: 0.4,
+      response_format: { type: "json_object" },
+      messages: [
+        {
+          role: "system",
+          content: `أنت محرر محتوى عربي محترف متخصص في تحويل نصوص البودكاست الخام إلى محتوى مقروء وجاهز للنشر.
+
+ستتلقى نص حلقة بودكاست خام (من ترجمة تلقائية أو تفريغ صوتي). النص قد يحتوي على أخطاء إملائية وعلامات ترقيم مفقودة وجمل مبتورة.
+
+## مهمتك — أنتج 3 مخرجات:
+
+### 1. مقال مقروء (clean_article)
+- أعد كتابة النص كمقال مقروء ومتسلسل باللغة العربية الفصحى السهلة
+- قسّم النص إلى فقرات منطقية (كل فقرة 3-5 جمل)
+- أضف علامات الترقيم الصحيحة
+- صحّح الأخطاء الإملائية والنحوية
+- حافظ على المعنى الأصلي والأفكار كما وردت — لا تحذف محتوى ولا تضف معلومات جديدة
+- افصل بين الفقرات بسطر فارغ
+- لا تستخدم Markdown أو عناوين فرعية — فقط نص عادي مقسّم إلى فقرات
+- يجب أن يكون المقال شاملاً ويغطي كل محاور الحلقة
+
+### 2. ملخص مُهيكل (summary)
+- **overview**: فقرة واحدة (3-5 جمل) تلخص جوهر الحلقة
+- **key_ideas**: 5-8 أفكار رئيسية — كل فكرة جملة واحدة واضحة ومباشرة
+- **lessons**: 3-5 دروس عملية يمكن للمستمع تطبيقها — كل درس جملة واحدة
+
+### 3. اقتباسات مؤثرة (quotes)
+- 8-15 اقتباس قوي ومؤثر من الحلقة
+- كل اقتباس: text (النص الحرفي أو شبه الحرفي) و theme (تصنيف بكلمة أو كلمتين)
+- ركّز على: الحكم، التجارب الشخصية، الآراء الجريئة، النصائح العملية
+
+## مخطط JSON المطلوب:
+{
+  "clean_article": "الفقرة الأولى...\\n\\nالفقرة الثانية...\\n\\nالفقرة الثالثة...",
+  "summary": {
+    "overview": "ملخص عام...",
+    "key_ideas": ["فكرة 1", "فكرة 2", ...],
+    "lessons": ["درس 1", "درس 2", ...]
+  },
+  "quotes": [
+    { "text": "نص الاقتباس", "theme": "التصنيف" }
+  ]
+}`,
+        },
+        {
+          role: "user",
+          content: `عنوان الحلقة: ${videoTitle}
+
+نص الحلقة الخام:
+${preparedText}`,
+        },
+      ],
+    })
+
+    const content = response.choices[0]?.message?.content
+    if (!content) {
+      return { success: false, error: "لم يتم الحصول على استجابة من OpenAI" }
+    }
+
+    const parsed = JSON.parse(content) as TranscriptProcessingResult
+
+    if (!parsed.clean_article || !parsed.summary) {
+      return { success: false, error: "استجابة OpenAI غير مكتملة" }
+    }
+
+    return {
+      success: true,
+      data: {
+        clean_article: parsed.clean_article,
+        summary: {
+          overview: parsed.summary.overview || "",
+          key_ideas: Array.isArray(parsed.summary.key_ideas) ? parsed.summary.key_ideas : [],
+          lessons: Array.isArray(parsed.summary.lessons) ? parsed.summary.lessons : [],
+        },
+        quotes: Array.isArray(parsed.quotes)
+          ? parsed.quotes.filter((q) => q.text && q.theme)
+          : [],
+      },
+    }
+  } catch (error) {
+    const msg = error instanceof Error ? error.message : "حدث خطأ أثناء معالجة النص"
+    return { success: false, error: msg }
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Studio: Suggest Best 30-Second Intro for Audio Episodes
+// ---------------------------------------------------------------------------
+
+export interface BestIntroResult {
+  start_seconds: number
+  end_seconds: number
+  reason: string
+  transcript_excerpt: string
+}
+
+/**
+ * Analyze a transcript and suggest the best ~30-second segment to use as
+ * the episode opening. Looks for the most compelling, hook-worthy portion.
+ */
+export async function suggestBestIntro(
+  transcript: string,
+  videoTitle: string,
+  durationSeconds: number | null
+): Promise<{ success: boolean; data?: BestIntroResult; error?: string }> {
+  let openai: OpenAI
+  try {
+    openai = getClient()
+  } catch {
+    return { success: false, error: "OPENAI_API_KEY غير مُعدّ" }
+  }
+
+  try {
+    const preparedText = await prepareTranscript(openai, transcript)
+    const durationMin = durationSeconds ? Math.round(durationSeconds / 60) : null
+
+    const response = await openai.chat.completions.create({
+      model: "gpt-4o-mini",
+      temperature: 0.3,
+      response_format: { type: "json_object" },
+      messages: [
+        {
+          role: "system",
+          content: `أنت خبير في إنتاج البودكاست العربي ومتخصص في اختيار المقاطع الافتتاحية الجذابة.
+
+## مهمتك:
+حلل نص حلقة بودكاست واقترح أفضل مقطع مدته ~30 ثانية يمكن استخدامه كافتتاحية (تيزر) للحلقة.
+
+## معايير الاختيار:
+- يثير فضول المستمع فوراً ويجعله يريد سماع الحلقة كاملة
+- يحتوي على فكرة مفاجئة، رأي جريء، سؤال محفز، أو قصة مشوقة
+- مفهوم بدون سياق — يعمل كمقطع مستقل
+- عاطفي أو فكري — يحرك شعوراً أو يطرح تساؤلاً
+- ليس من أول 60 ثانية (المقدمة عادة عامة وغير جذابة)
+
+## قواعد:
+- الإجابة JSON فقط
+- start_seconds و end_seconds بالثواني (الفرق ~30 ثانية)
+${durationSeconds ? `- لا يتجاوز end_seconds المدة الكاملة (${durationSeconds} ثانية)` : "- قدّر الأوقات تقريبياً من موقع النص"}
+- reason: جملتان تشرحان لماذا هذا المقطع هو الأفضل
+- transcript_excerpt: النص الحرفي للمقطع المقترح (3-5 جمل)
+
+## مخطط JSON:
+{
+  "start_seconds": 180,
+  "end_seconds": 210,
+  "reason": "سبب الاختيار...",
+  "transcript_excerpt": "النص المقتبس..."
+}`,
+        },
+        {
+          role: "user",
+          content: `عنوان الحلقة: ${videoTitle}
+${durationMin ? `المدة: ~${durationMin} دقيقة` : ""}
+
+نص الحلقة:
+${preparedText}`,
+        },
+      ],
+    })
+
+    const content = response.choices[0]?.message?.content
+    if (!content) {
+      return { success: false, error: "لم يتم الحصول على استجابة من OpenAI" }
+    }
+
+    const parsed = JSON.parse(content) as BestIntroResult
+
+    if (typeof parsed.start_seconds !== "number" || typeof parsed.end_seconds !== "number") {
+      return { success: false, error: "استجابة OpenAI غير مكتملة" }
+    }
+
+    return {
+      success: true,
+      data: {
+        start_seconds: Math.max(0, Math.round(parsed.start_seconds)),
+        end_seconds: Math.round(parsed.end_seconds),
+        reason: parsed.reason || "",
+        transcript_excerpt: parsed.transcript_excerpt || "",
+      },
+    }
+  } catch (error) {
+    const msg = error instanceof Error ? error.message : "حدث خطأ أثناء تحليل الافتتاحية"
+    return { success: false, error: msg }
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Studio: Generate Audio Edit/Cut Suggestions
+// ---------------------------------------------------------------------------
+
+export interface EditSuggestionsResult {
+  suggestions: AudioEditSuggestion[]
+  total_cut_seconds: number
+}
+
+/**
+ * Analyze a podcast transcript and suggest segments that should be
+ * edited out: long pauses, repetitive talk, off-topic rambling, filler.
+ */
+export async function generateEditSuggestions(
+  transcript: string,
+  videoTitle: string,
+  durationSeconds: number | null
+): Promise<{ success: boolean; data?: EditSuggestionsResult; error?: string }> {
+  let openai: OpenAI
+  try {
+    openai = getClient()
+  } catch {
+    return { success: false, error: "OPENAI_API_KEY غير مُعدّ" }
+  }
+
+  try {
+    const preparedText = await prepareTranscript(openai, transcript)
+    const durationMin = durationSeconds ? Math.round(durationSeconds / 60) : null
+
+    const response = await openai.chat.completions.create({
+      model: "gpt-4o-mini",
+      temperature: 0.3,
+      response_format: { type: "json_object" },
+      messages: [
+        {
+          role: "system",
+          content: `أنت مهندس صوت محترف ومحرر بودكاست عربي متخصص في تحسين جودة الحلقات بعد التسجيل.
+
+## مهمتك:
+حلل نص حلقة بودكاست واقترح المقاطع التي يجب حذفها أو قصها أثناء المونتاج لتحسين جودة الحلقة.
+
+## أنواع المقاطع المطلوب اكتشافها:
+
+### 1. صمت طويل / توقف (long_pause)
+- فترات صمت طويلة أو تردد واضح في الكلام
+- علامات: "آآآ"، "إممم"، تكرار بدايات جمل بشكل متقطع
+
+### 2. كلام مكرر (repetitive)
+- إعادة نفس الفكرة أو الجملة بصياغات مختلفة دون إضافة قيمة جديدة
+- تكرار نفس القصة أو المثال
+
+### 3. خارج الموضوع (off_topic)
+- استطرادات لا علاقة لها بمحور الحلقة
+- أحاديث جانبية أو تعليقات تقنية (مشاكل الصوت، طلب ماء، إلخ)
+
+### 4. حشو وكلام زائد (filler)
+- مقدمات طويلة بلا محتوى فعلي
+- تكرار عبارات مثل "يعني"، "بشكل عام"، "كما قلت سابقاً" بشكل مفرط
+- تلخيصات زائدة عن الحاجة
+
+## قواعد صارمة:
+- الإجابة JSON فقط بالمخطط المحدد
+- start_seconds و end_seconds بالثواني
+- start_seconds < end_seconds دائماً
+${durationSeconds ? `- لا يتجاوز end_seconds المدة الكاملة (${durationSeconds} ثانية)` : "- قدّر الأوقات تقريبياً بناءً على موقع النص في الحلقة"}
+- reason: جملة واحدة واضحة تشرح سبب الحذف
+- category: أحد القيم التالية فقط: "long_pause" | "repetitive" | "off_topic" | "filler" | "other"
+- رتّب الاقتراحات تصاعدياً حسب start_seconds
+- اقترح فقط المقاطع التي حذفها سيحسّن الحلقة فعلاً — لا تبالغ
+
+## مخطط JSON المطلوب:
+{
+  "suggestions": [
+    {
+      "start_seconds": 120,
+      "end_seconds": 145,
+      "category": "long_pause",
+      "reason": "توقف طويل مع تردد وإعادة بداية الجملة عدة مرات"
+    }
+  ],
+  "total_cut_seconds": 180
+}`,
+        },
+        {
+          role: "user",
+          content: `عنوان الحلقة: ${videoTitle}
+${durationMin ? `المدة الكاملة: ~${durationMin} دقيقة` : ""}
+
+نص الحلقة:
+${preparedText}`,
+        },
+      ],
+    })
+
+    const content = response.choices[0]?.message?.content
+    if (!content) {
+      return { success: false, error: "لم يتم الحصول على استجابة من OpenAI" }
+    }
+
+    const parsed = JSON.parse(content) as EditSuggestionsResult
+
+    if (!Array.isArray(parsed.suggestions)) {
+      return { success: false, error: "استجابة OpenAI غير مكتملة" }
+    }
+
+    // Validate and clean suggestions
+    const validCategories = new Set(["long_pause", "repetitive", "off_topic", "filler", "other"])
+    let suggestions = parsed.suggestions
+      .filter((s) =>
+        typeof s.start_seconds === "number" &&
+        typeof s.end_seconds === "number" &&
+        s.start_seconds < s.end_seconds &&
+        s.reason &&
+        validCategories.has(s.category)
+      )
+      .sort((a, b) => a.start_seconds - b.start_seconds)
+
+    // Validate timestamps don't exceed duration
+    if (durationSeconds) {
+      suggestions = suggestions.filter((s) => s.end_seconds <= durationSeconds)
+    }
+
+    const totalCut = suggestions.reduce((sum, s) => sum + (s.end_seconds - s.start_seconds), 0)
+
+    return {
+      success: true,
+      data: {
+        suggestions,
+        total_cut_seconds: totalCut,
+      },
+    }
+  } catch (error) {
+    const msg = error instanceof Error ? error.message : "حدث خطأ أثناء تحليل المقاطع"
+    return { success: false, error: msg }
+  }
+}
+
+
+// ---------------------------------------------------------------------------
+// Auto-detect guests & generate bios (batch)
+// ---------------------------------------------------------------------------
+
+export interface GuestDetectionInput {
+  episode_id: string
+  title: string
+  description: string | null
+  transcript_snippet: string | null
+}
+
+export interface GuestDetectionResult {
+  episode_id: string
+  guest_name: string | null
+  guest_bio: string | null
+  confidence: "high" | "medium" | "low"
+  needs_review: boolean
+}
+
+/**
+ * Batch detect guest names and generate bios from episode data.
+ * Processes episodes in chunks to stay within token limits.
+ * Optionally calls `onChunkProgress` after each chunk completes.
+ */
+export async function detectGuestsForEpisodes(
+  episodes: GuestDetectionInput[],
+  onChunkProgress?: (chunkIndex: number, totalChunks: number) => void
+): Promise<{ success: boolean; data?: GuestDetectionResult[]; error?: string }> {
+  const openai = getClient()
+
+  // Process in chunks of 15 episodes per API call
+  const CHUNK_SIZE = 15
+  const allResults: GuestDetectionResult[] = []
+  const totalChunks = Math.ceil(episodes.length / CHUNK_SIZE)
+
+  for (let i = 0; i < episodes.length; i += CHUNK_SIZE) {
+    const chunkIndex = Math.floor(i / CHUNK_SIZE)
+    const chunk = episodes.slice(i, i + CHUNK_SIZE)
+
+    const episodesData = chunk.map((ep) => ({
+      episode_id: ep.episode_id,
+      title: ep.title,
+      description: (ep.description || "").slice(0, 500),
+      transcript_snippet: (ep.transcript_snippet || "").slice(0, 800) || undefined,
+    }))
+
+    try {
+      const completion = await openai.chat.completions.create({
+        model: "gpt-4o-mini",
+        temperature: 0.2,
+        response_format: { type: "json_object" },
+        messages: [
+          {
+            role: "system",
+            content: `أنت محلل بودكاست عربي. مهمتك استخراج اسم الضيف من بيانات الحلقة وكتابة نبذة مختصرة عنه.
+
+المصادر المتاحة لكل حلقة:
+- العنوان (title): أهم مصدر — غالباً يذكر اسم الضيف
+- الوصف (description): قد يحتوي معلومات إضافية عن الضيف
+- مقتطف النص (transcript_snippet): أول 800 حرف من نص الحلقة — قد يكشف اسم الضيف أو تعريفه
+
+القواعد:
+- استخرج اسم الضيف الحقيقي الكامل (ليس لقب أو كنية فقط)
+- اكتب نبذة مختصرة (2-4 أسطر) بالعربية تصف من هو الضيف ومجاله
+- استخدم المقتطف النصي لتحسين النبذة إذا توفر
+- إذا كانت الحلقة لا تحتوي على ضيف (مونولوج/المقدم فقط) ضع guest_name: null
+- إذا لم تكن متأكداً من الاسم أو هوية الضيف (ثقة أقل من 80%) ضع needs_review: true
+- الثقة: "high" = متأكد جداً (الاسم واضح في العنوان)، "medium" = محتمل جداً، "low" = غير متأكد
+
+أنماط شائعة في عناوين البودكاست العربي:
+- "مع [اسم الضيف]"
+- "[اسم الضيف] |"
+- "[اسم الضيف] -"
+
+أرجع النتائج بصيغة JSON:
+{
+  "results": [
+    {
+      "episode_id": "...",
+      "guest_name": "الاسم الكامل" أو null,
+      "guest_bio": "نبذة مختصرة" أو null,
+      "confidence": "high" | "medium" | "low",
+      "needs_review": true | false
+    }
+  ]
+}`,
+          },
+          {
+            role: "user",
+            content: JSON.stringify(episodesData),
+          },
+        ],
+      })
+
+      const raw = completion.choices[0]?.message?.content
+      if (!raw) continue
+
+      const parsed = JSON.parse(raw) as { results: GuestDetectionResult[] }
+      if (Array.isArray(parsed.results)) {
+        allResults.push(...parsed.results)
+      }
+    } catch (error) {
+      console.error(`Guest detection chunk error (offset ${i}):`, error)
+      // Mark failed chunk episodes as needs_review
+      for (const ep of chunk) {
+        allResults.push({
+          episode_id: ep.episode_id,
+          guest_name: null,
+          guest_bio: null,
+          confidence: "low",
+          needs_review: true,
+        })
+      }
+    }
+
+    onChunkProgress?.(chunkIndex, totalChunks)
+  }
+
+  return { success: true, data: allResults }
+}
+
+// ---------------------------------------------------------------------------
+// Home Page AI Analysis — Batch analyze episodes for topic/theme extraction
+// ---------------------------------------------------------------------------
+
+import type { EmotionalPathSlug } from "@/lib/episode-knowledge"
+
+export interface HomeAnalysisInput {
+  episode_id: string
+  title: string
+  slug: string
+  season: number | null
+  guest_name: string | null
+  description: string | null
+  enrichment_summary: string | null
+  enrichment_takeaways: string[] | null
+  enrichment_topics: string[] | null
+  transcript_snippet: string | null
+}
+
+export interface HomeAnalysisResult {
+  episode_id: string
+  main_topic: string
+  secondary_topics: string[]
+  emotional_path: EmotionalPathSlug
+  keywords: string[]
+  mood: string
+  best_quote: {
+    text: string
+    attribution: string
+    theme: string
+  }
+  reflection: {
+    short_quote: string
+    reflection_text: string
+    thinking_question: string
+  }
+}
+
+/**
+ * Batch analyze episodes for home page content generation.
+ * Extracts topics, themes, emotional paths, quotes, and reflections.
+ * Processes in chunks of 5 episodes per API call.
+ */
+export async function analyzeEpisodesForHome(
+  episodes: HomeAnalysisInput[],
+  onChunkProgress?: (chunkIndex: number, totalChunks: number) => void
+): Promise<{ success: boolean; data?: HomeAnalysisResult[]; error?: string }> {
+  const openai = getClient()
+
+  const CHUNK_SIZE = 5
+  const allResults: HomeAnalysisResult[] = []
+  const totalChunks = Math.ceil(episodes.length / CHUNK_SIZE)
+
+  for (let i = 0; i < episodes.length; i += CHUNK_SIZE) {
+    const chunkIndex = Math.floor(i / CHUNK_SIZE)
+    const chunk = episodes.slice(i, i + CHUNK_SIZE)
+
+    const episodesData = chunk.map((ep) => ({
+      episode_id: ep.episode_id,
+      title: ep.title,
+      guest_name: ep.guest_name,
+      description: (ep.description || "").slice(0, 600),
+      summary: ep.enrichment_summary || undefined,
+      takeaways: ep.enrichment_takeaways || undefined,
+      existing_topics: ep.enrichment_topics || undefined,
+      transcript_snippet: (ep.transcript_snippet || "").slice(0, 600) || undefined,
+    }))
+
+    try {
+      const completion = await openai.chat.completions.create({
+        model: "gpt-4o-mini",
+        temperature: 0.3,
+        response_format: { type: "json_object" },
+        messages: [
+          {
+            role: "system",
+            content: `أنت محلل محتوى بودكاست عربي متخصص في استخراج المواضيع والعلاقات بين الحلقات.
+
+ستحلل مجموعة حلقات من بودكاست عربي وتستخرج لكل حلقة:
+
+## المطلوب لكل حلقة:
+
+### 1. الموضوع الرئيسي (main_topic)
+- كلمة أو عبارة قصيرة (2-4 كلمات) تصف الموضوع الأساسي
+- مثال: "ريادة الأعمال"، "الصحة النفسية"، "الهجرة والهوية"
+
+### 2. مواضيع ثانوية (secondary_topics)
+- حتى 3 مواضيع فرعية تُكمل الموضوع الرئيسي
+- مختلفة عن الموضوع الرئيسي
+
+### 3. المسار العاطفي (emotional_path)
+اختر واحداً من:
+- "understanding-people": حلقات عن العلاقات والتواصل والتعاطف وفهم الآخرين
+- "motivation-work": حلقات عن الطموح والإنجاز والعمل والنجاح المهني
+- "faith-meaning": حلقات عن الروحانيات والهدف والقيم والإيمان والمعنى
+- "self-awareness": حلقات عن النمو الشخصي والتأمل الذاتي والوعي
+
+### 4. كلمات مفتاحية (keywords)
+- 5-8 كلمات/عبارات مفتاحية للبحث والربط
+
+### 5. المزاج (mood)
+- كلمة واحدة تصف الطابع العاطفي: تحفيزي، تأملي، ملهم، عاطفي، فكري، حواري، تعليمي
+
+### 6. اقتباس مميز (best_quote)
+- اكتب اقتباساً قوياً يمثل جوهر الحلقة (يمكن أن يكون مستوحى من المحتوى وليس حرفياً)
+- text: نص الاقتباس (جملة أو جملتين، أقل من 150 حرف)
+- attribution: اسم الضيف إذا وُجد، وإلا "بودكاست خط"
+- theme: تصنيف الاقتباس بكلمة أو كلمتين
+
+### 7. تأمل يومي (reflection)
+- short_quote: جملة ملهمة قصيرة مستوحاة من الحلقة (أقل من 80 حرف)
+- reflection_text: فقرة تأملية (2-3 جمل) تدعو للتفكير حول موضوع الحلقة
+- thinking_question: سؤال واحد يحفز المستمع على التفكير
+
+## قواعد:
+- جميع المخرجات بالعربية
+- الإجابة JSON فقط
+- استخدم المعلومات المقدمة فقط — لا تختلق حقائق
+- الاقتباسات والتأملات يجب أن تكون مؤثرة وجذابة
+
+## مخطط JSON:
+{
+  "results": [
+    {
+      "episode_id": "...",
+      "main_topic": "...",
+      "secondary_topics": ["...", "...", "..."],
+      "emotional_path": "understanding-people",
+      "keywords": ["...", "..."],
+      "mood": "...",
+      "best_quote": { "text": "...", "attribution": "...", "theme": "..." },
+      "reflection": { "short_quote": "...", "reflection_text": "...", "thinking_question": "..." }
+    }
+  ]
+}`,
+          },
+          {
+            role: "user",
+            content: JSON.stringify(episodesData, null, 2),
+          },
+        ],
+      })
+
+      const raw = completion.choices[0]?.message?.content
+      if (!raw) continue
+
+      const parsed = JSON.parse(raw) as { results: HomeAnalysisResult[] }
+      if (Array.isArray(parsed.results)) {
+        allResults.push(...parsed.results)
+      }
+    } catch (error) {
+      console.error(`Home analysis chunk error (offset ${i}):`, error)
+      // Skip failed chunks — don't add empty results
+    }
+
+    onChunkProgress?.(chunkIndex, totalChunks)
+  }
+
+  if (allResults.length === 0) {
+    return { success: false, error: "لم يتم الحصول على أي نتائج من التحليل" }
+  }
+
+  return { success: true, data: allResults }
 }

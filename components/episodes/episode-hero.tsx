@@ -3,7 +3,6 @@
 import Link from "next/link"
 import { YouTubeEmbed } from "./youtube-embed"
 import { ShareButtons } from "./share-buttons"
-import { usePlayer } from "./episode-player-context"
 import { Badge } from "@/components/ui/badge"
 import { Calendar, Clock, User } from "lucide-react"
 import { formatDate, formatDuration } from "@/lib/utils"
@@ -24,17 +23,16 @@ interface EpisodeHeroProps {
     topics?: { id: string; name: string; slug: string }[]
   }
   teaser?: string
+  initialStartTime?: number
 }
 
-export function EpisodeHero({ episode, teaser }: EpisodeHeroProps) {
-  const { seekTime } = usePlayer()
-
+export function EpisodeHero({ episode, teaser, initialStartTime }: EpisodeHeroProps) {
   return (
     <div className="space-y-4">
       <YouTubeEmbed
         url={episode.youtube_url}
         title={episode.title}
-        startTime={seekTime ?? undefined}
+        startTime={initialStartTime}
         episodeId={episode.id}
         episodeSlug={episode.slug}
         durationMinutes={episode.duration_minutes}

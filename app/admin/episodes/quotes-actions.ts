@@ -5,6 +5,8 @@ import { getQuotesConfig, saveQuotesConfig } from "@/lib/episode-quotes"
 import { fetchTranscript } from "@/lib/youtube/transcript"
 import { generateQuotesFromTranscript } from "@/lib/openai"
 import { getYouTubeId } from "@/lib/utils"
+import { requireAdmin } from "@/lib/api-utils"
+import { saveVersion } from "@/lib/episode-versions"
 
 function revalidateAll(episodeId?: string) {
   revalidatePath("/")
@@ -19,6 +21,7 @@ export async function generateEpisodeQuotes(
   title: string,
   guestName: string
 ) {
+  await requireAdmin()
   const videoId = getYouTubeId(youtubeUrl)
   if (!videoId) {
     return { success: false, error: "رابط يوتيوب غير صالح" }
@@ -52,6 +55,10 @@ export async function generateEpisodeQuotes(
   }
 
   const config = await getQuotesConfig()
+  // Save version snapshot before overwriting quotes
+  if (config[episodeId]) {
+    await saveVersion(episodeId, "quotes", { quotesEntry: config[episodeId] }, "قبل إعادة توليد الاقتباسات")
+  }
   config[episodeId] = {
     episodeId,
     episodeTitle: title,
@@ -73,6 +80,7 @@ export async function regenerateEpisodeQuotes(
   title: string,
   guestName: string
 ) {
+  await requireAdmin()
   // Re-fetch transcript and regenerate
   return generateEpisodeQuotes(episodeId, youtubeUrl, title, guestName)
 }
@@ -82,6 +90,7 @@ export async function updateQuoteText(
   quoteId: string,
   newText: string
 ) {
+  await requireAdmin()
   const config = await getQuotesConfig()
   const entry = config[episodeId]
   if (!entry) return { success: false, error: "لا توجد اقتباسات لهذه الحلقة" }
@@ -97,6 +106,7 @@ export async function updateQuoteText(
 }
 
 export async function deleteQuote(episodeId: string, quoteId: string) {
+  await requireAdmin()
   const config = await getQuotesConfig()
   const entry = config[episodeId]
   if (!entry) return { success: false, error: "لا توجد اقتباسات لهذه الحلقة" }
@@ -109,9 +119,11 @@ export async function deleteQuote(episodeId: string, quoteId: string) {
 }
 
 export async function publishEpisodeQuotes(episodeId: string) {
+  await requireAdmin()
   const config = await getQuotesConfig()
   const entry = config[episodeId]
   if (!entry) return { success: false, error: "لا توجد اقتباسات لهذه الحلقة" }
+  await saveVersion(episodeId, "quotes", { quotesEntry: entry }, "نشر الاقتباسات")
 
   entry.status = "published"
   entry.publishedAt = new Date().toISOString()
@@ -122,6 +134,7 @@ export async function publishEpisodeQuotes(episodeId: string) {
 }
 
 export async function unpublishEpisodeQuotes(episodeId: string) {
+  await requireAdmin()
   const config = await getQuotesConfig()
   const entry = config[episodeId]
   if (!entry) return { success: false, error: "لا توجد اقتباسات لهذه الحلقة" }
@@ -135,6 +148,7 @@ export async function unpublishEpisodeQuotes(episodeId: string) {
 }
 
 export async function bulkDeleteQuotes(episodeId: string, quoteIds: string[]) {
+  await requireAdmin()
   const config = await getQuotesConfig()
   const entry = config[episodeId]
   if (!entry) return { success: false, error: "لا توجد اقتباسات لهذه الحلقة" }
@@ -151,6 +165,7 @@ export async function bulkToggleQuotesVisibility(
   quoteIds: string[],
   hidden: boolean
 ) {
+  await requireAdmin()
   const config = await getQuotesConfig()
   const entry = config[episodeId]
   if (!entry) return { success: false, error: "لا توجد اقتباسات لهذه الحلقة" }
@@ -167,6 +182,7 @@ export async function bulkToggleQuotesVisibility(
 }
 
 export async function deleteAllEpisodeQuotes(episodeId: string) {
+  await requireAdmin()
   const config = await getQuotesConfig()
   delete config[episodeId]
   await saveQuotesConfig(config)

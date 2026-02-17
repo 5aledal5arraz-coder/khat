@@ -28,6 +28,14 @@ export async function POST(request: NextRequest) {
 
   const supabase = await createClient()
 
+  // Verify target user exists
+  const { data: targetUser } = await supabase
+    .from('profiles')
+    .select('id')
+    .eq('id', body.following_id)
+    .single()
+  if (!targetUser) return validationErrorResponse('المستخدم غير موجود')
+
   // Check if already following
   const { data: existing } = await supabase
     .from('hibr_follows')

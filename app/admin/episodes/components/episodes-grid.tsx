@@ -12,7 +12,6 @@ import {
   Search,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { formatArabicCount } from "@/lib/utils"
 import { normalizeArabic } from "@/lib/search"
 import {
   bulkAssignSection,
@@ -20,14 +19,10 @@ import {
   toggleSectionVisibility,
 } from "../actions"
 import { EpisodeCard } from "./episode-card"
+import { EpisodeRow } from "./episode-row"
 import type { Episode, AdminGuest } from "./shared"
-import type {
-  EpisodeOverride,
-  EpisodeSection,
-  EpisodeSectionsConfig,
-  EpisodeQuotesConfig,
-  YouTubePackConfig,
-} from "@/types/ads"
+import type { EpisodeOverride, EpisodeSection, EpisodeSectionsConfig, EpisodeQuotesConfig } from "@/types/episodes"
+import type { YouTubePackConfig } from "@/types/youtube-pack"
 
 interface EpisodesGridProps {
   episodes: Episode[]
@@ -39,6 +34,22 @@ interface EpisodesGridProps {
   youtubePackConfig: YouTubePackConfig
   search: string
   activeFilter: string | null
+  viewMode: "grid" | "list"
+}
+
+function ListHeader() {
+  return (
+    <div className="flex items-center gap-3 border-b border-border/30 px-3 py-2 text-[11px] font-medium uppercase tracking-wider text-muted-foreground/60">
+      <span className="w-4 shrink-0" />
+      <span className="w-16 shrink-0">صورة</span>
+      <span className="min-w-0 flex-1">العنوان</span>
+      <span className="hidden w-28 shrink-0 md:block">الضيف</span>
+      <span className="hidden w-24 shrink-0 md:block">التاريخ</span>
+      <span className="hidden w-16 shrink-0 md:block">المدة</span>
+      <span className="hidden w-24 shrink-0 md:block">التصنيف</span>
+      <span className="w-8 shrink-0" />
+    </div>
+  )
 }
 
 export function EpisodesGrid({
@@ -51,6 +62,7 @@ export function EpisodesGrid({
   youtubePackConfig,
   search,
   activeFilter,
+  viewMode,
 }: EpisodesGridProps) {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
   const [bulkActing, setBulkActing] = useState(false)
@@ -197,97 +209,104 @@ export function EpisodesGrid({
     setTogglingSection(null)
   }
 
+  const episodeProps = (episode: Episode) => ({
+    episode,
+    override: overrideMap.get(episode.id) || null,
+    sections,
+    currentSectionId: assignments[episode.id] || null,
+    isHidden: isEpisodeHidden(episode.id),
+    isDeleted: deletedSet.has(episode.id),
+    isSelected: selectedIds.has(episode.id),
+    onToggleSelect: () => toggleSelect(episode.id),
+    guests,
+    currentGuestId:
+      guestAssignments[episode.id] || episode.guestId || null,
+    quotesEntry: quotesConfig[episode.id] || null,
+    youtubePackEntry: youtubePackConfig[episode.id] || null,
+  })
+
   const renderEpisodeCard = (episode: Episode) => (
-    <EpisodeCard
-      key={episode.id}
-      episode={episode}
-      override={overrideMap.get(episode.id) || null}
-      sections={sections}
-      currentSectionId={assignments[episode.id] || null}
-      isHidden={isEpisodeHidden(episode.id)}
-      isDeleted={deletedSet.has(episode.id)}
-      isSelected={selectedIds.has(episode.id)}
-      onToggleSelect={() => toggleSelect(episode.id)}
-      guests={guests}
-      currentGuestId={
-        guestAssignments[episode.id] || episode.guestId || null
-      }
-      quotesEntry={quotesConfig[episode.id] || null}
-      youtubePackEntry={youtubePackConfig[episode.id] || null}
-    />
+    <EpisodeCard key={episode.id} {...episodeProps(episode)} />
   )
+
+  const renderEpisodeRow = (episode: Episode) => (
+    <EpisodeRow key={episode.id} {...episodeProps(episode)} />
+  )
+
+  const renderGrid = (episodes: Episode[]) =>
+    viewMode === "grid" ? (
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+        {episodes.map(renderEpisodeCard)}
+      </div>
+    ) : (
+      <div className="overflow-hidden rounded-xl border border-border/30 bg-card/50">
+        <ListHeader />
+        <div className="divide-y divide-border/20">
+          {episodes.map(renderEpisodeRow)}
+        </div>
+      </div>
+    )
 
   return (
     <div className="space-y-4">
-      {/* Header Bar */}
-      <div className="flex items-center gap-4 rounded-2xl border border-border/30 bg-card/50 px-5 py-3 backdrop-blur-sm">
-        <button
-          onClick={handleSelectAll}
-          aria-label={allSelected ? "إلغاء تحديد الكل" : "تحديد الكل"}
-          className="shrink-0 text-muted-foreground transition-all hover:text-foreground"
-        >
-          {allSelected ? (
-            <CheckSquare className="h-[18px] w-[18px] text-primary" />
-          ) : someSelected ? (
-            <MinusSquare className="h-[18px] w-[18px] text-primary" />
-          ) : (
-            <Square className="h-[18px] w-[18px]" />
-          )}
-        </button>
-        <span className="text-xs font-medium text-muted-foreground">
-          {selectedIds.size > 0
-            ? `${selectedIds.size} محدد`
-            : formatArabicCount(
-                activeFilter !== null
-                  ? sectionFilteredEpisodes.length
-                  : filteredEpisodes.length,
-                "حلقة"
-              )}
-        </span>
-
-        {/* Inline bulk actions */}
-        {selectedIds.size > 0 && (
-          <>
-            <div className="h-4 w-px bg-border/50" />
-            <select
-              onChange={(e) => {
-                if (e.target.value === "__none") handleBulkMove("")
-                else if (e.target.value) handleBulkMove(e.target.value)
-              }}
-              disabled={bulkActing}
-              className="h-8 rounded-xl border border-border/50 bg-white/[0.02] px-3 text-xs"
-              value=""
-            >
-              <option value="" disabled>
-                نقل إلى...
+      {/* Bulk Actions Bar — only when items are selected */}
+      {selectedIds.size > 0 && (
+        <div className="flex items-center gap-4 rounded-xl border border-primary/20 bg-primary/5 px-4 py-2.5 backdrop-blur-sm">
+          <button
+            onClick={handleSelectAll}
+            aria-label={allSelected ? "إلغاء تحديد الكل" : "تحديد الكل"}
+            className="shrink-0 text-muted-foreground transition-all hover:text-foreground"
+          >
+            {allSelected ? (
+              <CheckSquare className="h-[18px] w-[18px] text-primary" />
+            ) : someSelected ? (
+              <MinusSquare className="h-[18px] w-[18px] text-primary" />
+            ) : (
+              <Square className="h-[18px] w-[18px]" />
+            )}
+          </button>
+          <span className="text-xs font-medium text-muted-foreground">
+            {selectedIds.size} محدد
+          </span>
+          <div className="h-4 w-px bg-border/50" />
+          <select
+            onChange={(e) => {
+              if (e.target.value === "__none") handleBulkMove("")
+              else if (e.target.value) handleBulkMove(e.target.value)
+            }}
+            disabled={bulkActing}
+            className="h-8 rounded-xl border border-border/50 bg-white/[0.02] px-3 text-xs"
+            value=""
+          >
+            <option value="" disabled>
+              نقل إلى...
+            </option>
+            <option value="__none">غير مصنّف</option>
+            {sections.map((s) => (
+              <option key={s.id} value={s.id}>
+                {s.label}
               </option>
-              <option value="__none">غير مصنّف</option>
-              {sections.map((s) => (
-                <option key={s.id} value={s.id}>
-                  {s.label}
-                </option>
-              ))}
-            </select>
-            <Button
-              size="sm"
-              variant="destructive"
-              onClick={handleBulkDelete}
-              disabled={bulkActing}
-              className="h-8 gap-1.5 rounded-xl text-xs"
-            >
-              <Trash2 className="h-3 w-3" />
-              حذف
-            </Button>
-            <button
-              onClick={clearSelection}
-              disabled={bulkActing}
-              className="text-xs text-muted-foreground transition-colors hover:text-foreground"
-            >
-              إلغاء
-            </button>
-          </>
-        )}
-      </div>
+            ))}
+          </select>
+          <Button
+            size="sm"
+            variant="destructive"
+            onClick={handleBulkDelete}
+            disabled={bulkActing}
+            className="h-8 gap-1.5 rounded-xl text-xs"
+          >
+            <Trash2 className="h-3 w-3" />
+            حذف
+          </Button>
+          <button
+            onClick={clearSelection}
+            disabled={bulkActing}
+            className="text-xs text-muted-foreground transition-colors hover:text-foreground"
+          >
+            إلغاء
+          </button>
+        </div>
+      )}
 
       {/* Grid Content */}
       {groupedEpisodes ? (
@@ -301,7 +320,7 @@ export function EpisodesGrid({
                   {/* Group Header */}
                   <button
                     onClick={() => toggleCollapse(group.id)}
-                    className={`mb-3 flex w-full items-center gap-3 rounded-2xl px-4 py-3 text-sm transition-colors ${
+                    className={`mb-3 flex w-full items-center gap-3 rounded-xl px-4 py-2.5 text-sm transition-colors ${
                       group.isDeletedGroup
                         ? "bg-destructive/[0.03] hover:bg-destructive/[0.06]"
                         : "bg-white/[0.02] hover:bg-white/[0.04]"
@@ -370,12 +389,8 @@ export function EpisodesGrid({
                     )}
                   </button>
 
-                  {/* Group Grid */}
-                  {!isCollapsed && (
-                    <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
-                      {group.episodes.map(renderEpisodeCard)}
-                    </div>
-                  )}
+                  {/* Group Content */}
+                  {!isCollapsed && renderGrid(group.episodes)}
                 </div>
               )
             })}
@@ -385,9 +400,7 @@ export function EpisodesGrid({
         )
       ) : // Filtered view
       sectionFilteredEpisodes.length > 0 ? (
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
-          {sectionFilteredEpisodes.map(renderEpisodeCard)}
-        </div>
+        renderGrid(sectionFilteredEpisodes)
       ) : (
         <EmptyState search={search} />
       )}
@@ -397,8 +410,8 @@ export function EpisodesGrid({
 
 function EmptyState({ search }: { search: string }) {
   return (
-    <div className="flex flex-col items-center justify-center rounded-3xl border border-border/30 bg-card/50 py-20 text-center backdrop-blur-sm">
-      <div className="mb-5 flex h-16 w-16 items-center justify-center rounded-3xl bg-white/[0.03] ring-1 ring-border/50">
+    <div className="flex flex-col items-center justify-center rounded-xl border border-border/30 bg-card/50 py-20 text-center backdrop-blur-sm">
+      <div className="mb-5 flex h-16 w-16 items-center justify-center rounded-2xl bg-white/[0.03] ring-1 ring-border/50">
         <Search className="h-6 w-6 text-muted-foreground" />
       </div>
       <p className="text-base font-semibold text-muted-foreground">

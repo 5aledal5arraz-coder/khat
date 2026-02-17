@@ -1,9 +1,8 @@
-"use client"
-
+import { Metadata } from "next"
 import { SponsorForm } from "@/components/forms/sponsor-form"
 import { Card, CardContent } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
+import { SponsorHeroCTA } from "./sponsor-hero-cta"
 import {
   Mic,
   Play,
@@ -12,8 +11,16 @@ import {
   Layers,
   Sparkles,
   Shield,
-  ChevronDown,
 } from "lucide-react"
+
+export const metadata: Metadata = {
+  title: "كن شريكًا في المحادثة",
+  description: "شراكة ثقافية مع بودكاست خط — ليست إعلانًا عابرًا، إنها حضور في محادثات تُشكّل وعي جيل.",
+  openGraph: {
+    title: "كن شريكًا في المحادثة — بودكاست خط",
+    description: "شراكة ثقافية مع بودكاست خط — ليست إعلانًا عابرًا، إنها حضور في محادثات تُشكّل وعي جيل.",
+  },
+}
 
 const partnershipTypes = [
   {
@@ -71,18 +78,7 @@ export default function SponsorPage() {
               </span>
             </p>
 
-            <Button
-              size="lg"
-              className="gap-2 text-lg px-8 py-6 bg-primary hover:bg-primary/90 shadow-lg shadow-primary/25"
-              onClick={() => {
-                document
-                  .getElementById("partnership-form")
-                  ?.scrollIntoView({ behavior: "smooth" })
-              }}
-            >
-              قدّم طلب شراكة
-              <ChevronDown className="w-5 h-5" />
-            </Button>
+            <SponsorHeroCTA />
           </div>
         </div>
       </section>

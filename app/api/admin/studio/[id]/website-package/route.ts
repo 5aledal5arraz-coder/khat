@@ -4,6 +4,7 @@ import {
   getWebsitePackageForSession, createWebsitePackage, updateWebsitePackage,
 } from "@/lib/studio"
 import { generateWebsitePackage, STUDIO_PROMPT_VERSION } from "@/lib/openai"
+import { requireAdminAPI } from "@/lib/api-utils"
 
 export const maxDuration = 120
 
@@ -17,6 +18,8 @@ export async function GET(
   _request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const authError = await requireAdminAPI()
+  if (authError) return authError
   const { id } = await params
   const pkg = await getWebsitePackageForSession(id)
   return NextResponse.json({ package: pkg || null })
@@ -26,10 +29,22 @@ export async function GET(
  * POST /api/admin/studio/[id]/website-package — generate website package from transcript
  */
 export async function POST(
-  _request: Request,
+  request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const authError = await requireAdminAPI()
+  if (authError) return authError
   const { id } = await params
+
+  // AI guard: return cached result if already generated (unless force=true)
+  let forceRegenerate = false
+  try { const b = await request.clone().json(); forceRegenerate = b?.force === true } catch { /* no body is fine */ }
+  if (!forceRegenerate) {
+    const existing = await getWebsitePackageForSession(id)
+    if (existing && existing.status === "ready") {
+      return NextResponse.json({ package: existing, cached: true })
+    }
+  }
 
   const lastCall = recentCalls.get(id)
   if (lastCall && Date.now() - lastCall < RATE_LIMIT_MS) {
@@ -139,6 +154,8 @@ export async function PATCH(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const authError = await requireAdminAPI()
+  if (authError) return authError
   const { id: sessionId } = await params
 
   const existing = await getWebsitePackageForSession(sessionId)
@@ -150,7 +167,7 @@ export async function PATCH(
     const body = await request.json()
 
     // Whitelist editable fields
-    const allowed = ["hero_summary", "full_summary", "takeaways", "quotes", "topics", "resources", "timestamps", "linked_episode_id"] as const
+    const allowed = ["hero_summary", "full_summary", "takeaways", "quotes", "topics", "resources", "timestamps", "custom_title", "selected_quote_indices", "selected_takeaway_indices", "linked_episode_id"] as const
     const updates: Record<string, unknown> = {}
     for (const key of allowed) {
       if (key in body) {

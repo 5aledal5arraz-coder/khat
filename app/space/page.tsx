@@ -5,11 +5,7 @@ import { TrendingTags } from "@/components/space/trending-tags"
 import { SortDropdown } from "@/components/space/sort-dropdown"
 import { ContextualSidebar } from "@/components/space/contextual-sidebar"
 import { DraftIndicator } from "@/components/space/draft-indicator"
-import {
-  trendingTags,
-  allTags,
-  writingPrompts,
-} from "@/lib/space-data"
+import { trendingTags, allTags, writingPrompts } from "@/lib/space-feed"
 import {
   getTopContributors,
   getWeeklyHighlights,

@@ -1,22 +1,21 @@
 "use client"
 
 import { useState, useRef } from "react"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Label } from "@/components/ui/label"
 import { Switch } from "@/components/ui/switch"
-import { Save, Loader2, Upload, X } from "lucide-react"
-import type { AdSettings } from "@/types/ads"
-import { updateAdSettings } from "./actions"
+import { Save, Loader2, Upload, X, CalendarDays } from "lucide-react"
+import type { EnhancedAdSettings, AdSlot } from "@/types/ads"
+import { updateEnhancedAdSettings } from "./actions"
 
 interface AdsFormProps {
-  initialSettings: AdSettings
+  initialSettings: EnhancedAdSettings
 }
 
 export function AdsForm({ initialSettings }: AdsFormProps) {
-  const [settings, setSettings] = useState<AdSettings>(initialSettings)
+  const [settings, setSettings] = useState<EnhancedAdSettings>(initialSettings)
   const [saving, setSaving] = useState(false)
   const [message, setMessage] = useState<string | null>(null)
 
@@ -24,7 +23,7 @@ export function AdsForm({ initialSettings }: AdsFormProps) {
     setSaving(true)
     setMessage(null)
     try {
-      await updateAdSettings(settings)
+      await updateEnhancedAdSettings(settings)
       setMessage("تم الحفظ بنجاح")
       setTimeout(() => setMessage(null), 3000)
     } catch {
@@ -33,251 +32,255 @@ export function AdsForm({ initialSettings }: AdsFormProps) {
     setSaving(false)
   }
 
+  function updateSlot(id: string, updates: Partial<AdSlot>) {
+    setSettings((prev) => ({
+      ...prev,
+      slots: prev.slots.map((s) => (s.id === id ? { ...s, ...updates } : s)),
+    }))
+  }
+
+  function isSlotActive(slot: AdSlot): boolean {
+    if (!slot.enabled) return false
+    const now = new Date()
+    if (slot.schedule.startDate && new Date(slot.schedule.startDate) > now) return false
+    if (slot.schedule.endDate && new Date(slot.schedule.endDate) < now) return false
+    return true
+  }
+
+  const activeCount = settings.slots.filter(isSlotActive).length
+
   return (
-    <div className="space-y-8">
-      {/* Sponsored Card Settings */}
-      <Card>
-        <CardHeader>
-          <div className="flex items-center justify-between">
-            <div>
-              <CardTitle>المحتوى المدعوم</CardTitle>
-              <CardDescription>
-                بطاقة الراعي الرسمي في صفحة الحلقات
-              </CardDescription>
-            </div>
-            <div className="flex items-center gap-2">
-              <Label htmlFor="sponsored-enabled" className="text-sm text-muted-foreground">
-                {settings.sponsoredCard.enabled ? "مفعّل" : "معطّل"}
-              </Label>
-              <Switch
-                id="sponsored-enabled"
-                checked={settings.sponsoredCard.enabled}
-                onCheckedChange={(checked) =>
-                  setSettings({
-                    ...settings,
-                    sponsoredCard: { ...settings.sponsoredCard, enabled: checked },
-                  })
-                }
-              />
-            </div>
-          </div>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div className="space-y-2">
-              <Label htmlFor="sponsor-name">اسم الراعي</Label>
-              <Input
-                id="sponsor-name"
-                value={settings.sponsoredCard.data.name}
-                onChange={(e) =>
-                  setSettings({
-                    ...settings,
-                    sponsoredCard: {
-                      ...settings.sponsoredCard,
-                      data: { ...settings.sponsoredCard.data, name: e.target.value },
-                    },
-                  })
-                }
-                placeholder="مثال: شركة XYZ"
-              />
-            </div>
-            <ImageUploadField
-              id="sponsor-logo"
-              label="الشعار"
-              value={settings.sponsoredCard.data.logo}
-              onChange={(url) =>
-                setSettings({
-                  ...settings,
-                  sponsoredCard: {
-                    ...settings.sponsoredCard,
-                    data: { ...settings.sponsoredCard.data, logo: url },
-                  },
-                })
-              }
-              placeholder="https://example.com/logo.png"
-            />
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="sponsor-title">عنوان الإعلان</Label>
-            <Input
-              id="sponsor-title"
-              value={settings.sponsoredCard.data.title}
-              onChange={(e) =>
-                setSettings({
-                  ...settings,
-                  sponsoredCard: {
-                    ...settings.sponsoredCard,
-                    data: { ...settings.sponsoredCard.data, title: e.target.value },
-                  },
-                })
-              }
-              placeholder="عنوان جذاب للإعلان"
-            />
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="sponsor-description">وصف الإعلان</Label>
-            <Textarea
-              id="sponsor-description"
-              value={settings.sponsoredCard.data.description}
-              onChange={(e) =>
-                setSettings({
-                  ...settings,
-                  sponsoredCard: {
-                    ...settings.sponsoredCard,
-                    data: { ...settings.sponsoredCard.data, description: e.target.value },
-                  },
-                })
-              }
-              placeholder="وصف مختصر عن المنتج أو الخدمة"
-              rows={3}
-            />
-          </div>
-
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div className="space-y-2">
-              <Label htmlFor="sponsor-url">رابط الإعلان</Label>
-              <Input
-                id="sponsor-url"
-                value={settings.sponsoredCard.data.url}
-                onChange={(e) =>
-                  setSettings({
-                    ...settings,
-                    sponsoredCard: {
-                      ...settings.sponsoredCard,
-                      data: { ...settings.sponsoredCard.data, url: e.target.value },
-                    },
-                  })
-                }
-                placeholder="https://sponsor-website.com"
-                dir="ltr"
-              />
-            </div>
-            <ImageUploadField
-              id="sponsor-image"
-              label="صورة الإعلان"
-              value={settings.sponsoredCard.data.image}
-              onChange={(url) =>
-                setSettings({
-                  ...settings,
-                  sponsoredCard: {
-                    ...settings.sponsoredCard,
-                    data: { ...settings.sponsoredCard.data, image: url },
-                  },
-                })
-              }
-              placeholder="https://example.com/banner.jpg"
-            />
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Banner Ad Settings */}
-      <Card>
-        <CardHeader>
-          <div className="flex items-center justify-between">
-            <div>
-              <CardTitle>البانر الإعلاني</CardTitle>
-              <CardDescription>
-                الإعلان الأفقي في صفحة الحلقات
-              </CardDescription>
-            </div>
-            <div className="flex items-center gap-2">
-              <Label htmlFor="banner-enabled" className="text-sm text-muted-foreground">
-                {settings.bannerAd.enabled ? "مفعّل" : "معطّل"}
-              </Label>
-              <Switch
-                id="banner-enabled"
-                checked={settings.bannerAd.enabled}
-                onCheckedChange={(checked) =>
-                  setSettings({
-                    ...settings,
-                    bannerAd: { ...settings.bannerAd, enabled: checked },
-                  })
-                }
-              />
-            </div>
-          </div>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <ImageUploadField
-            id="banner-image"
-            label="صورة البانر"
-            value={settings.bannerAd.data.image}
-            onChange={(url) =>
-              setSettings({
-                ...settings,
-                bannerAd: {
-                  ...settings.bannerAd,
-                  data: { ...settings.bannerAd.data, image: url },
-                },
-              })
-            }
-            placeholder="https://example.com/banner.jpg"
-          />
-
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div className="space-y-2">
-              <Label htmlFor="banner-url">رابط البانر</Label>
-              <Input
-                id="banner-url"
-                value={settings.bannerAd.data.url}
-                onChange={(e) =>
-                  setSettings({
-                    ...settings,
-                    bannerAd: {
-                      ...settings.bannerAd,
-                      data: { ...settings.bannerAd.data, url: e.target.value },
-                    },
-                  })
-                }
-                placeholder="https://sponsor-website.com"
-                dir="ltr"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="banner-alt">النص البديل</Label>
-              <Input
-                id="banner-alt"
-                value={settings.bannerAd.data.alt}
-                onChange={(e) =>
-                  setSettings({
-                    ...settings,
-                    bannerAd: {
-                      ...settings.bannerAd,
-                      data: { ...settings.bannerAd.data, alt: e.target.value },
-                    },
-                  })
-                }
-                placeholder="وصف الصورة للوصولية"
-              />
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Save Button */}
-      <div className="flex items-center gap-4">
-        <Button onClick={handleSave} disabled={saving}>
-          {saving ? (
-            <Loader2 className="me-2 h-4 w-4 animate-spin" />
-          ) : (
-            <Save className="me-2 h-4 w-4" />
-          )}
-          حفظ التغييرات
-        </Button>
+    <div className="space-y-6">
+      {/* Compact Header */}
+      <div className="flex flex-wrap items-center gap-3">
+        <h1 className="text-xl font-bold">إدارة الإعلانات</h1>
+        <span className="rounded-full bg-muted/80 px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
+          {settings.slots.length} مواقع
+        </span>
+        <span className="rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] font-medium text-emerald-500">
+          {activeCount} نشط
+        </span>
+        <div className="flex-1" />
         {message && (
           <span className={`text-sm ${message.includes("خطأ") ? "text-destructive" : "text-green-500"}`}>
             {message}
           </span>
         )}
+        <Button onClick={handleSave} disabled={saving} className="h-10 gap-2 rounded-xl">
+          {saving ? (
+            <Loader2 className="h-4 w-4 animate-spin" />
+          ) : (
+            <Save className="h-4 w-4" />
+          )}
+          حفظ التغييرات
+        </Button>
       </div>
+
+      {/* Slot Sections */}
+      {settings.slots.map((slot) => (
+        <div key={slot.id} className="rounded-xl border border-border/30 bg-card/50">
+          {/* Section Header */}
+          <div className="flex items-center gap-3 border-b border-border/20 px-4 py-3">
+            <h2 className="text-sm font-semibold">{slot.label}</h2>
+            <span className="rounded-full bg-muted/80 px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
+              {slot.type === "sponsored_card" ? "محتوى مدعوم" : "بانر"}
+            </span>
+            <span
+              className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${
+                isSlotActive(slot)
+                  ? "bg-emerald-500/10 text-emerald-500"
+                  : "bg-muted text-muted-foreground"
+              }`}
+            >
+              {isSlotActive(slot) ? "نشط" : "غير نشط"}
+            </span>
+            <div className="flex-1" />
+            <Label htmlFor={`${slot.id}-enabled`} className="text-sm text-muted-foreground">
+              {slot.enabled ? "مفعّل" : "معطّل"}
+            </Label>
+            <Switch
+              id={`${slot.id}-enabled`}
+              checked={slot.enabled}
+              onCheckedChange={(checked) => updateSlot(slot.id, { enabled: checked })}
+            />
+          </div>
+
+          {/* Section Body */}
+          <div className="space-y-4 p-4">
+            {/* Schedule */}
+            <div className="flex items-center gap-2 mb-2">
+              <CalendarDays className="h-4 w-4 text-muted-foreground" />
+              <span className="text-sm font-medium">الجدولة</span>
+            </div>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="space-y-2">
+                <Label className="text-xs">تاريخ البداية</Label>
+                <Input
+                  type="datetime-local"
+                  value={slot.schedule.startDate || ""}
+                  onChange={(e) =>
+                    updateSlot(slot.id, {
+                      schedule: { ...slot.schedule, startDate: e.target.value || null },
+                    })
+                  }
+                  dir="ltr"
+                  className="rounded-xl"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label className="text-xs">تاريخ النهاية</Label>
+                <Input
+                  type="datetime-local"
+                  value={slot.schedule.endDate || ""}
+                  onChange={(e) =>
+                    updateSlot(slot.id, {
+                      schedule: { ...slot.schedule, endDate: e.target.value || null },
+                    })
+                  }
+                  dir="ltr"
+                  className="rounded-xl"
+                />
+              </div>
+            </div>
+
+            {/* Type-specific fields */}
+            {slot.type === "sponsored_card" && slot.sponsoredData && (
+              <div className="space-y-4 border-t border-border/20 pt-4">
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div className="space-y-2">
+                    <Label>اسم الراعي</Label>
+                    <Input
+                      value={slot.sponsoredData.name}
+                      onChange={(e) =>
+                        updateSlot(slot.id, {
+                          sponsoredData: { ...slot.sponsoredData!, name: e.target.value },
+                        })
+                      }
+                      placeholder="مثال: شركة XYZ"
+                      className="rounded-xl"
+                    />
+                  </div>
+                  <ImageUploadField
+                    id={`${slot.id}-logo`}
+                    label="الشعار"
+                    value={slot.sponsoredData.logo}
+                    onChange={(url) =>
+                      updateSlot(slot.id, {
+                        sponsoredData: { ...slot.sponsoredData!, logo: url },
+                      })
+                    }
+                    placeholder="https://example.com/logo.png"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>عنوان الإعلان</Label>
+                  <Input
+                    value={slot.sponsoredData.title}
+                    onChange={(e) =>
+                      updateSlot(slot.id, {
+                        sponsoredData: { ...slot.sponsoredData!, title: e.target.value },
+                      })
+                    }
+                    placeholder="عنوان جذاب للإعلان"
+                    className="rounded-xl"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>وصف الإعلان</Label>
+                  <Textarea
+                    value={slot.sponsoredData.description}
+                    onChange={(e) =>
+                      updateSlot(slot.id, {
+                        sponsoredData: { ...slot.sponsoredData!, description: e.target.value },
+                      })
+                    }
+                    placeholder="وصف مختصر عن المنتج أو الخدمة"
+                    rows={3}
+                    className="rounded-xl"
+                  />
+                </div>
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div className="space-y-2">
+                    <Label>رابط الإعلان</Label>
+                    <Input
+                      value={slot.sponsoredData.url}
+                      onChange={(e) =>
+                        updateSlot(slot.id, {
+                          sponsoredData: { ...slot.sponsoredData!, url: e.target.value },
+                        })
+                      }
+                      placeholder="https://sponsor-website.com"
+                      dir="ltr"
+                      className="rounded-xl"
+                    />
+                  </div>
+                  <ImageUploadField
+                    id={`${slot.id}-image`}
+                    label="صورة الإعلان"
+                    value={slot.sponsoredData.image}
+                    onChange={(url) =>
+                      updateSlot(slot.id, {
+                        sponsoredData: { ...slot.sponsoredData!, image: url },
+                      })
+                    }
+                    placeholder="https://example.com/banner.jpg"
+                  />
+                </div>
+              </div>
+            )}
+
+            {slot.type === "banner" && slot.bannerData && (
+              <div className="space-y-4 border-t border-border/20 pt-4">
+                <ImageUploadField
+                  id={`${slot.id}-banner-image`}
+                  label="صورة البانر"
+                  value={slot.bannerData.image}
+                  onChange={(url) =>
+                    updateSlot(slot.id, {
+                      bannerData: { ...slot.bannerData!, image: url },
+                    })
+                  }
+                  placeholder="https://example.com/banner.jpg"
+                />
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div className="space-y-2">
+                    <Label>رابط البانر</Label>
+                    <Input
+                      value={slot.bannerData.url}
+                      onChange={(e) =>
+                        updateSlot(slot.id, {
+                          bannerData: { ...slot.bannerData!, url: e.target.value },
+                        })
+                      }
+                      placeholder="https://sponsor-website.com"
+                      dir="ltr"
+                      className="rounded-xl"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>النص البديل</Label>
+                    <Input
+                      value={slot.bannerData.alt}
+                      onChange={(e) =>
+                        updateSlot(slot.id, {
+                          bannerData: { ...slot.bannerData!, alt: e.target.value },
+                        })
+                      }
+                      placeholder="وصف الصورة للوصولية"
+                      className="rounded-xl"
+                    />
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      ))}
     </div>
   )
 }
 
-/* ─── Image Upload Field ─── */
+/* --- Image Upload Field --- */
 
 function ImageUploadField({
   id,
@@ -335,7 +338,7 @@ function ImageUploadField({
           onChange={(e) => { setError(null); onChange(e.target.value) }}
           placeholder={placeholder}
           dir="ltr"
-          className="flex-1"
+          className="flex-1 rounded-xl"
         />
         <Button
           type="button"
@@ -344,6 +347,7 @@ function ImageUploadField({
           disabled={uploading}
           onClick={() => fileInputRef.current?.click()}
           title="رفع صورة"
+          className="rounded-xl"
         >
           {uploading ? (
             <Loader2 className="h-4 w-4 animate-spin" />
@@ -366,7 +370,7 @@ function ImageUploadField({
           <img
             src={value}
             alt="معاينة"
-            className="h-20 rounded-lg border border-border object-contain"
+            className="h-20 rounded-xl border border-border/30 object-contain"
             onError={(e) => { (e.target as HTMLImageElement).style.display = "none" }}
           />
           <button

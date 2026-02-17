@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server"
 import { getStudioSession, getTranscriptForSession, createTranscript, createTranscriptError } from "@/lib/studio"
-import { fetchTranscript } from "@/lib/youtube/transcript"
+import { requireAdminAPI } from "@/lib/api-utils"
 
 export const maxDuration = 60
 
@@ -11,6 +11,8 @@ export async function GET(
   _request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const authError = await requireAdminAPI()
+  if (authError) return authError
   const { id } = await params
   const transcript = await getTranscriptForSession(id)
 
@@ -22,12 +24,20 @@ export async function GET(
 }
 
 /**
- * POST /api/admin/studio/[id]/transcript — fetch transcript from YouTube captions
+ * POST /api/admin/studio/[id]/transcript — save transcript extracted by the client
+ *
+ * The browser extracts captions directly from YouTube (client-side) and sends
+ * the raw text here for storage. YouTube blocks server/datacenter IPs, so
+ * transcript extraction MUST happen in the browser.
+ *
+ * Body: { raw_text: string, language?: string }
  */
 export async function POST(
-  _request: Request,
+  request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const authError = await requireAdminAPI()
+  if (authError) return authError
   const { id } = await params
   const session = await getStudioSession(id)
 
@@ -43,17 +53,19 @@ export async function POST(
   }
 
   try {
-    const result = await fetchTranscript(session.video_id!)
+    const body = await request.json()
+    const rawText = body?.raw_text
 
-    if (!result.success || !result.text) {
-      const errorMsg = result.error || "لا تتوفر ترجمة تلقائية لهذا الفيديو"
-      await createTranscriptError(id, errorMsg)
-      return NextResponse.json({ error: errorMsg }, { status: 404 })
+    if (!rawText || typeof rawText !== "string" || rawText.trim().length < 10) {
+      return NextResponse.json(
+        { error: "النص المرسل فارغ أو قصير جداً" },
+        { status: 400 }
+      )
     }
 
-    // result.text is already cleaned by fetchTranscript's internal cleanTranscript
-    // Store the cleaned text as raw, and run our own cleaning as transcript_clean
-    const createResult = await createTranscript(id, "youtube_captions", result.text, "ar")
+    const language = body?.language || "ar"
+
+    const createResult = await createTranscript(id, "youtube_captions", rawText.trim(), language)
 
     if (!createResult.success) {
       return NextResponse.json(
@@ -64,8 +76,8 @@ export async function POST(
 
     return NextResponse.json({ transcript: createResult.data })
   } catch (error) {
-    console.error("Transcript fetch error:", error)
-    const msg = error instanceof Error ? error.message : "حدث خطأ أثناء جلب النص"
+    console.error("Transcript save error:", error)
+    const msg = error instanceof Error ? error.message : "حدث خطأ أثناء حفظ النص"
     await createTranscriptError(id, msg)
     return NextResponse.json({ error: msg }, { status: 500 })
   }

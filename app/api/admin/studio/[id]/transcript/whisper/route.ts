@@ -3,6 +3,7 @@ import path from "path"
 import fs from "fs/promises"
 import { getStudioSession, createTranscript, createTranscriptError } from "@/lib/studio"
 import { transcribeAudioFile } from "@/lib/whisper"
+import { requireAdminAPI } from "@/lib/api-utils"
 
 export const maxDuration = 600
 
@@ -15,6 +16,8 @@ export async function POST(
   _request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const authError = await requireAdminAPI()
+  if (authError) return authError
   const { id } = await params
   const session = await getStudioSession(id)
 

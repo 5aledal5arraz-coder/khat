@@ -5,6 +5,7 @@ import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Copy, Check, Share2, Bookmark, ImageDown } from "lucide-react"
 import { isItemSaved, toggleSaveItem } from "@/lib/saved"
+import { trackEvent } from "@/lib/personalization/tracker"
 import type { Quote, Guest } from "@/types/database"
 
 const QuoteImageModal = lazy(() =>
@@ -26,6 +27,7 @@ export function QuoteCard({ quote, episodeTitle }: QuoteCardProps) {
   })
 
   const handleSave = () => {
+    trackEvent("quote_open", quoteId, { theme: quote.theme ?? undefined })
     const newState = toggleSaveItem({
       id: quoteId,
       type: "quote",

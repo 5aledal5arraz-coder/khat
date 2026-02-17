@@ -16,7 +16,6 @@ import {
   Search,
   X,
   MoreVertical,
-  Sparkles,
   Inbox,
   Building2,
   Calendar,
@@ -38,7 +37,7 @@ import type {
   SponsorshipStatus,
   NewsletterSubscriber,
 } from "@/types/database"
-import type { MediaKitConfig, AnalyticsConfig } from "@/types/ads"
+import type { MediaKitConfig, AnalyticsConfig } from "@/types/media-kit"
 
 /* ─── Status Helpers ─── */
 
@@ -147,35 +146,7 @@ const BUDGET_LABELS: Record<string, string> = {
   "3000_plus": "أكثر من 3,000 د.ك",
 }
 
-/* ─── Glow Card ─── */
-
-function GlowCard({
-  children,
-  color = "primary",
-  className = "",
-}: {
-  children: React.ReactNode
-  color?: "primary" | "purple" | "muted" | "green"
-  className?: string
-}) {
-  const glowMap = {
-    primary: "from-primary/20 via-transparent to-primary/5",
-    purple: "from-accent/20 via-transparent to-accent/5",
-    muted: "from-muted-foreground/10 via-transparent to-muted-foreground/5",
-    green: "from-emerald-500/20 via-transparent to-emerald-500/5",
-  }
-
-  return (
-    <div
-      className={`group/card relative overflow-hidden rounded-2xl border border-border/50 bg-card/80 backdrop-blur-sm transition-all hover:border-border ${className}`}
-    >
-      <div
-        className={`pointer-events-none absolute inset-0 bg-gradient-to-br ${glowMap[color]} opacity-0 transition-opacity group-hover/card:opacity-100`}
-      />
-      <div className="relative">{children}</div>
-    </div>
-  )
-}
+import { GlowCard } from "../components/glow-card"
 
 /* ─── Action Menu ─── */
 
@@ -939,25 +910,13 @@ export function SubmissionsTabs({
     newsletterSubscribers.length
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-6">
       {/* ─── Page Header ─── */}
-      <div className="relative overflow-hidden rounded-3xl border border-border/30 bg-gradient-to-bl from-accent/10 via-card/80 to-primary/5 p-8 backdrop-blur-sm">
-        <div className="pointer-events-none absolute -end-20 -top-20 h-60 w-60 rounded-full bg-accent/5 blur-3xl" />
-        <div className="pointer-events-none absolute -bottom-10 -start-10 h-40 w-40 rounded-full bg-primary/5 blur-3xl" />
-        <div className="relative">
-          <div className="mb-2 flex items-center gap-2">
-            <Sparkles className="h-5 w-5 text-accent" />
-            <span className="text-xs font-semibold uppercase tracking-widest text-accent">
-              لوحة التحكم
-            </span>
-          </div>
-          <h1 className="text-3xl font-bold tracking-tight">
-            الطلبات والاشتراكات
-          </h1>
-          <p className="mt-2 text-sm text-muted-foreground">
-            مراجعة طلبات الضيوف والرعاية ومشتركي النشرة البريدية
-          </p>
-        </div>
+      <div>
+        <h1 className="text-xl font-bold">الطلبات والاشتراكات</h1>
+        <p className="mt-1 text-sm text-muted-foreground">
+          مراجعة طلبات الضيوف والرعاية ومشتركي النشرة البريدية
+        </p>
       </div>
 
       {/* ─── Stats Grid ─── */}

@@ -4,11 +4,21 @@ import {
   getChaptersForSession, createChapters, updateChapters,
 } from "@/lib/studio"
 import { generateStudioChapters, STUDIO_PROMPT_VERSION } from "@/lib/openai"
+import { requireAdminAPI } from "@/lib/api-utils"
 
 export const maxDuration = 120
 
 const recentCalls = new Map<string, number>()
 const RATE_LIMIT_MS = 30_000
+const RATE_LIMIT_MAX_ENTRIES = 500
+
+function cleanupRateLimit() {
+  if (recentCalls.size <= RATE_LIMIT_MAX_ENTRIES) return
+  const now = Date.now()
+  for (const [key, ts] of recentCalls) {
+    if (now - ts > RATE_LIMIT_MS) recentCalls.delete(key)
+  }
+}
 
 /**
  * GET /api/admin/studio/[id]/chapters — get existing chapters
@@ -17,6 +27,8 @@ export async function GET(
   _request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const authError = await requireAdminAPI()
+  if (authError) return authError
   const { id } = await params
   const chapters = await getChaptersForSession(id)
   return NextResponse.json({ chapters: chapters || null })
@@ -26,11 +38,24 @@ export async function GET(
  * POST /api/admin/studio/[id]/chapters — generate chapters from transcript
  */
 export async function POST(
-  _request: Request,
+  request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const authError = await requireAdminAPI()
+  if (authError) return authError
   const { id } = await params
 
+  // AI guard: return cached result if already generated (unless force=true)
+  let forceRegenerate = false
+  try { const b = await request.clone().json(); forceRegenerate = b?.force === true } catch { /* no body is fine */ }
+  if (!forceRegenerate) {
+    const existing = await getChaptersForSession(id)
+    if (existing && existing.status === "ready") {
+      return NextResponse.json({ chapters: existing, cached: true })
+    }
+  }
+
+  cleanupRateLimit()
   const lastCall = recentCalls.get(id)
   if (lastCall && Date.now() - lastCall < RATE_LIMIT_MS) {
     const waitSec = Math.ceil((RATE_LIMIT_MS - (Date.now() - lastCall)) / 1000)
@@ -111,6 +136,8 @@ export async function PATCH(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const authError = await requireAdminAPI()
+  if (authError) return authError
   const { id: sessionId } = await params
 
   const existing = await getChaptersForSession(sessionId)

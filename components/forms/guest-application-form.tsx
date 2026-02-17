@@ -44,14 +44,16 @@ function FieldLabel({
   children,
   hint,
   required,
+  htmlFor,
 }: {
   children: React.ReactNode
   hint?: string
   required?: boolean
+  htmlFor?: string
 }) {
   return (
     <div className="space-y-1">
-      <label className="block text-sm font-medium">
+      <label htmlFor={htmlFor} className="block text-sm font-medium">
         {children}
         {required && <span className="text-destructive"> *</span>}
       </label>
@@ -232,7 +234,10 @@ export function GuestApplicationForm() {
     try {
       const response = await fetch("/api/guest-application", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          "X-Requested-With": "khat",
+        },
         body: JSON.stringify(data),
       })
 
@@ -280,10 +285,11 @@ export function GuestApplicationForm() {
       {step === 1 && (
         <div className="space-y-6 rounded-2xl border border-border/30 bg-card/50 p-6 backdrop-blur-sm sm:p-8">
           <div className="space-y-3">
-            <FieldLabel required>
+            <FieldLabel required htmlFor="guest-name">
               اسمك الذي تحب أن نعرّفك به
             </FieldLabel>
             <Input
+              id="guest-name"
               value={name}
               onChange={(e) => setName(e.target.value)}
               disabled={loading}
@@ -292,8 +298,9 @@ export function GuestApplicationForm() {
           </div>
 
           <div className="space-y-3">
-            <FieldLabel required>البريد الإلكتروني</FieldLabel>
+            <FieldLabel required htmlFor="guest-email">البريد الإلكتروني</FieldLabel>
             <Input
+              id="guest-email"
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
@@ -304,10 +311,11 @@ export function GuestApplicationForm() {
           </div>
 
           <div className="space-y-3">
-            <FieldLabel required hint="واتساب إن أمكن">
+            <FieldLabel required hint="واتساب إن أمكن" htmlFor="guest-phone">
               رقم الهاتف
             </FieldLabel>
             <Input
+              id="guest-phone"
               type="tel"
               value={phone}
               onChange={(e) => setPhone(e.target.value)}
@@ -319,14 +327,16 @@ export function GuestApplicationForm() {
           </div>
 
           <div className="space-y-3">
-            <FieldLabel required>دولة الإقامة</FieldLabel>
+            <FieldLabel required htmlFor="guest-country">دولة الإقامة</FieldLabel>
             <select
+              id="guest-country"
               value={country}
               onChange={(e) => {
                 setCountry(e.target.value)
                 setCanTravel(null)
               }}
               disabled={loading}
+              aria-label="دولة الإقامة"
               className="h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
             >
               <option value="">اختر الدولة</option>
@@ -393,10 +403,12 @@ export function GuestApplicationForm() {
             <FieldLabel
               required
               hint="لا تحتاج عنواناً مثالياً — اشرحها بكلماتك."
+              htmlFor="guest-story"
             >
               ما القصة أو الفكرة التي تود مشاركتها معنا؟
             </FieldLabel>
             <Textarea
+              id="guest-story"
               value={storyIdea}
               onChange={(e) => setStoryIdea(e.target.value)}
               rows={5}
@@ -410,10 +422,12 @@ export function GuestApplicationForm() {
             <FieldLabel
               required
               hint="خبرات، صراعات، أو لحظات شكّلتك كإنسان."
+              htmlFor="guest-beyond"
             >
               من أنت بعيدًا عن المسمى الوظيفي؟
             </FieldLabel>
             <Textarea
+              id="guest-beyond"
               value={beyondJobTitle}
               onChange={(e) => setBeyondJobTitle(e.target.value)}
               rows={5}
@@ -424,10 +438,11 @@ export function GuestApplicationForm() {
           </div>
 
           <div className="space-y-3">
-            <FieldLabel required>
+            <FieldLabel required htmlFor="guest-moment">
               احكِ لنا عن لحظة في حياتك غيّرتك.
             </FieldLabel>
             <Textarea
+              id="guest-moment"
               value={lifeChangingMoment}
               onChange={(e) => setLifeChangingMoment(e.target.value)}
               rows={6}
@@ -441,10 +456,11 @@ export function GuestApplicationForm() {
           </div>
 
           <div className="space-y-3">
-            <FieldLabel required>
+            <FieldLabel required htmlFor="guest-hope">
               ما الذي تتمنى أن يفهمه الناس عنك بعد الحلقة؟
             </FieldLabel>
             <Textarea
+              id="guest-hope"
               value={hopePeopleUnderstand}
               onChange={(e) => setHopePeopleUnderstand(e.target.value)}
               rows={4}
@@ -455,10 +471,11 @@ export function GuestApplicationForm() {
           </div>
 
           <div className="space-y-3">
-            <FieldLabel required>
+            <FieldLabel required htmlFor="guest-question">
               ما السؤال الذي تتمنى أن أسألك إياه ولم يسألك أحد من قبل؟
             </FieldLabel>
             <Textarea
+              id="guest-question"
               value={unaskedQuestion}
               onChange={(e) => setUnaskedQuestion(e.target.value)}
               rows={3}
@@ -469,10 +486,11 @@ export function GuestApplicationForm() {
           </div>
 
           <div className="space-y-3">
-            <FieldLabel required>
+            <FieldLabel required htmlFor="guest-why">
               لماذا اخترت بودكاست خط تحديدًا؟
             </FieldLabel>
             <Textarea
+              id="guest-why"
               value={whyKhat}
               onChange={(e) => setWhyKhat(e.target.value)}
               rows={4}
@@ -533,8 +551,9 @@ export function GuestApplicationForm() {
 
           {previousPodcast && (
             <div className="space-y-3 rounded-xl border border-primary/10 bg-primary/[0.03] p-5">
-              <FieldLabel>اسم البودكاست أو رابط الحلقة</FieldLabel>
+              <FieldLabel htmlFor="guest-prev-info">اسم البودكاست أو رابط الحلقة</FieldLabel>
               <Input
+                id="guest-prev-info"
                 value={previousPodcastInfo}
                 onChange={(e) => setPreviousPodcastInfo(e.target.value)}
                 disabled={loading}
@@ -544,10 +563,11 @@ export function GuestApplicationForm() {
           )}
 
           <div className="space-y-3">
-            <FieldLabel required>
+            <FieldLabel required htmlFor="guest-dialogue">
               هل تفضل أسلوب الحوار والنقاش أم سرد قصتك؟ لماذا؟
             </FieldLabel>
             <Textarea
+              id="guest-dialogue"
               value={preferDialogueOrStory}
               onChange={(e) => setPreferDialogueOrStory(e.target.value)}
               rows={4}
@@ -558,8 +578,9 @@ export function GuestApplicationForm() {
           </div>
 
           <div className="space-y-3">
-            <FieldLabel>هل هناك مواضيع تفضل عدم التطرق لها أو تسجيلها؟</FieldLabel>
+            <FieldLabel htmlFor="guest-avoid">هل هناك مواضيع تفضل عدم التطرق لها أو تسجيلها؟</FieldLabel>
             <Textarea
+              id="guest-avoid"
               value={topicsToAvoid}
               onChange={(e) => setTopicsToAvoid(e.target.value)}
               rows={3}
@@ -631,10 +652,11 @@ export function GuestApplicationForm() {
           </div>
 
           <div className="space-y-3">
-            <FieldLabel hint="حسابات التواصل الاجتماعي، موقعك الشخصي، أو أي عمل تود أن نطّلع عليه">
+            <FieldLabel hint="حسابات التواصل الاجتماعي، موقعك الشخصي، أو أي عمل تود أن نطّلع عليه" htmlFor="guest-social">
               روابط اجتماعية أو شخصية (اختياري)
             </FieldLabel>
             <Input
+              id="guest-social"
               value={socialLinks}
               onChange={(e) => setSocialLinks(e.target.value)}
               placeholder="https://..."
@@ -645,7 +667,18 @@ export function GuestApplicationForm() {
           </div>
 
           {errorMessage && formStatus === "error" && (
-            <p className="text-sm text-destructive">{errorMessage}</p>
+            <div className="flex items-center justify-between rounded-lg border border-destructive/20 bg-destructive/5 px-4 py-3">
+              <p className="text-sm text-destructive">{errorMessage}</p>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={() => { setFormStatus("idle"); setErrorMessage("") }}
+                className="text-destructive hover:text-destructive"
+              >
+                حاول مرة أخرى
+              </Button>
+            </div>
           )}
 
           <div className="flex gap-3">

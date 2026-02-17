@@ -348,7 +348,7 @@ function ThoughtFeedCard({ item }: { item: FeedItem }) {
     const displayName = user?.user_metadata?.full_name || user?.email?.split("@")[0] || "أنت"
 
     const newReply = {
-      id: `reply-${Date.now()}`,
+      id: `reply-${crypto.randomUUID()}`,
       authorName: displayName,
       content: replyContent.trim(),
       date: new Date().toISOString(),
@@ -427,11 +427,12 @@ function ThoughtFeedCard({ item }: { item: FeedItem }) {
 
       // Create wrapper with branding
       const wrapper = document.createElement("div")
+      const isDark = document.documentElement.classList.contains("dark")
       wrapper.style.cssText = `
         position: fixed;
         left: 0;
         top: 0;
-        background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+        background: ${isDark ? "linear-gradient(135deg, #1a1a2e 0%, #16213e 100%)" : "linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%)"};
         padding: 24px;
         border-radius: 16px;
         width: 420px;
@@ -442,10 +443,11 @@ function ThoughtFeedCard({ item }: { item: FeedItem }) {
 
       // Style the cloned card
       cardClone.style.cssText = `
-        background: hsl(212 30% 10%);
+        background: ${isDark ? "hsl(212 30% 10%)" : "hsl(0 0% 100%)"};
         border-radius: 12px;
-        border: 1px solid hsl(213 31% 19%);
+        border: 1px solid ${isDark ? "hsl(213 31% 19%)" : "hsl(0 0% 87%)"};
         padding: 16px;
+        color: ${isDark ? "hsl(0 0% 95%)" : "hsl(0 0% 10%)"};
       `
 
       // Add Khat branding footer
@@ -456,14 +458,14 @@ function ThoughtFeedCard({ item }: { item: FeedItem }) {
         justify-content: space-between;
         margin-top: 16px;
         padding-top: 12px;
-        color: rgba(255,255,255,0.9);
+        color: ${isDark ? "rgba(255,255,255,0.9)" : "rgba(0,0,0,0.8)"};
         font-family: inherit;
       `
       branding.innerHTML = `
         <div style="display: flex; align-items: center;">
           <img src="/logo.png" alt="KHAT" style="width: 48px; height: 48px; border-radius: 8px; object-fit: cover;" />
         </div>
-        <span style="font-size: 14px; color: hsl(36 5% 54%);">khatpodcast.com</span>
+        <span style="font-size: 14px; color: ${isDark ? "hsl(36 5% 54%)" : "hsl(0 0% 40%)"};">khatpodcast.com</span>
       `
 
       wrapper.appendChild(cardClone)
@@ -705,7 +707,7 @@ function ThoughtFeedCard({ item }: { item: FeedItem }) {
                     onChange={(e) => setReplyContent(e.target.value)}
                     placeholder="اكتب رداً..."
                     className="flex-1 rounded-full border bg-background px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
-                    maxLength={MAX_REPLY_LENGTH + 20}
+                    maxLength={MAX_REPLY_LENGTH}
                     onKeyDown={(e) => {
                       if (e.key === "Enter" && !e.shiftKey) {
                         e.preventDefault()

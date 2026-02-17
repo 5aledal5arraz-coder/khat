@@ -7,6 +7,7 @@ import { GuestAvatar } from "@/components/guests/guest-avatar"
 import { Play, Instagram, Linkedin, Globe, Youtube } from "lucide-react"
 import { XIcon } from "@/components/icons/x-icon"
 import { getYouTubeId } from "@/lib/utils"
+import { trackEvent } from "@/lib/personalization/tracker"
 import Link from "next/link"
 
 interface GuestIntroSectionProps {
@@ -34,8 +35,16 @@ const socialIcons: Record<string, IconComponent> = {
 
 export function GuestIntroSection({ guest, testimonial, testimonialVideoUrl }: GuestIntroSectionProps) {
   const [showVideo, setShowVideo] = useState(false)
+  const [guestTracked, setGuestTracked] = useState(false)
   const externalLinks = guest.external_links || {}
   const videoId = testimonialVideoUrl ? getYouTubeId(testimonialVideoUrl) : null
+
+  const handleGuestClick = () => {
+    if (!guestTracked) {
+      setGuestTracked(true)
+      trackEvent("guest_open", guest.slug, { name: guest.name })
+    }
+  }
 
   return (
     <Card className="overflow-hidden border-primary/20 bg-gradient-to-br from-card via-card to-primary/5">
@@ -43,7 +52,7 @@ export function GuestIntroSection({ guest, testimonial, testimonialVideoUrl }: G
         <div className="flex flex-col gap-6 sm:flex-row">
           {/* Guest Photo & Basic Info */}
           <div className="flex flex-col items-center gap-4 sm:items-start">
-            <Link href={`/guests/${guest.slug}`}>
+            <Link href={`/guests/${guest.slug}`} onClick={handleGuestClick}>
               <GuestAvatar
                 name={guest.name}
                 slug={guest.slug}
@@ -110,7 +119,7 @@ export function GuestIntroSection({ guest, testimonial, testimonialVideoUrl }: G
               href={`/guests/${guest.slug}`}
               className="mt-4 inline-block text-sm text-primary hover:underline"
             >
-              عرض الملف الكامل ←
+              عرض الملف الكامل →
             </Link>
           </div>
         </div>

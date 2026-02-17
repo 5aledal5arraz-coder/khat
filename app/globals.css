@@ -187,6 +187,18 @@
   }
 }
 
+/* Arabic transcript viewer — proper RTL rendering */
+.transcript-viewer {
+  direction: rtl;
+  text-align: right;
+  unicode-bidi: plaintext;
+  white-space: pre-wrap;
+  line-height: 1.9;
+  word-break: normal;
+  overflow-wrap: break-word;
+  font-family: var(--font-ibm-plex-arabic), "IBM Plex Sans Arabic", "Noto Naskh Arabic", "Cairo", sans-serif;
+}
+
 /* Animation utilities */
 @layer utilities {
   /* Hide scrollbar but keep scroll functionality */

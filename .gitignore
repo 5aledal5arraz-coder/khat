@@ -36,6 +36,11 @@ yarn-error.log*
 # uploaded data (audio files, etc.)
 /data
 
+# runtime cache / data
+config/episode-cache.json
+config/episode-versions.json
+config/*.tmp
+
 # vercel
 .vercel
 

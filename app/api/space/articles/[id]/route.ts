@@ -13,6 +13,8 @@ import {
 } from '@/lib/api-utils'
 import { validateArticleTitle, validateArticleContent, validateTags } from '@/lib/validation'
 import { sanitizeTitle, sanitizeArticleContent, generateExcerpt } from '@/lib/sanitize'
+import { moderateArticle } from '@/lib/moderation'
+import { getUserApprovedCount } from '@/lib/api-utils'
 
 export async function GET(
   _request: NextRequest,
@@ -36,7 +38,7 @@ export async function GET(
     .select('*, profiles!hibr_comments_user_id_fkey(id, display_name, avatar_url)')
     .eq('article_id', id)
     .is('deleted_at', null)
-    .in('moderation_status', ['approved', 'pending'])
+    .eq('moderation_status', 'approved')
     .order('created_at', { ascending: true })
 
   return successResponse({ article: data, comments: comments || [] })
@@ -100,6 +102,25 @@ export async function PATCH(
     const v = validateTags(body.tags)
     if (!v.valid) return validationErrorResponse(v.error!)
     updates.tags = body.tags.slice(0, 5)
+  }
+
+  // Re-run moderation on content changes
+  if (updates.title || updates.content) {
+    const title = (updates.title as string) || ''
+    const content = (updates.content as string) || ''
+    if (title || content) {
+      const approvedCount = await getUserApprovedCount(user.id)
+      const modResult = await moderateArticle(title || 'untitled', content || '', approvedCount)
+      if (modResult.aiVerdict === 'harmful') {
+        return errorResponse(
+          'لا يمكن نشر هذا المحتوى لأنه يخالف إرشادات المجتمع. يرجى تعديل النص والمحاولة مرة أخرى.',
+          422
+        )
+      }
+      if (modResult.status !== 'approved') {
+        updates.moderation_status = modResult.status
+      }
+    }
   }
 
   const { data, error } = await supabase

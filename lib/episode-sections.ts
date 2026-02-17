@@ -1,8 +1,11 @@
-import { readFile, writeFile, mkdir } from "fs/promises"
-import path from "path"
-import type { EpisodeSectionsConfig } from "@/types/ads"
+import { createConfigStore } from "@/lib/config-store"
+import { createClient } from "@/lib/supabase/server"
+import type { EpisodeSectionsConfig } from "@/types/episodes"
 
-const SECTIONS_PATH = path.join(process.cwd(), "config", "episode-sections.json")
+const USE_SUPABASE = !!(
+  process.env.NEXT_PUBLIC_SUPABASE_URL &&
+  !process.env.NEXT_PUBLIC_SUPABASE_URL.includes("placeholder")
+)
 
 const defaultConfig: EpisodeSectionsConfig = {
   sections: [
@@ -16,17 +19,55 @@ const defaultConfig: EpisodeSectionsConfig = {
   deletedEpisodes: [],
 }
 
+const store = createConfigStore<EpisodeSectionsConfig>("episode-sections.json", defaultConfig)
+
 export async function getSectionsConfig(): Promise<EpisodeSectionsConfig> {
-  try {
-    const data = await readFile(SECTIONS_PATH, "utf-8")
-    const config = JSON.parse(data) as EpisodeSectionsConfig
-    // Ensure fields exist for older configs
-    if (!config.hiddenEpisodes) config.hiddenEpisodes = []
-    if (!config.deletedEpisodes) config.deletedEpisodes = []
-    return config
-  } catch {
-    return defaultConfig
+  if (USE_SUPABASE) {
+    try {
+      const supabase = await createClient()
+      const [sectionsRes, assignmentsRes, visibilityRes] = await Promise.all([
+        supabase.from("episode_sections").select("id, label, \"order\", color, hidden").order("order"),
+        supabase.from("episode_section_assignments").select("episode_id, section_id"),
+        supabase.from("episode_visibility").select("episode_id, visibility"),
+      ])
+
+      if (!sectionsRes.error && sectionsRes.data) {
+        const sections = sectionsRes.data.map((s) => ({
+          id: s.id,
+          label: s.label,
+          order: s.order,
+          color: s.color ?? undefined,
+          hidden: s.hidden,
+        }))
+
+        const assignments: Record<string, string> = {}
+        if (!assignmentsRes.error && assignmentsRes.data) {
+          for (const row of assignmentsRes.data) {
+            assignments[row.episode_id] = row.section_id
+          }
+        }
+
+        const hiddenEpisodes: string[] = []
+        const deletedEpisodes: string[] = []
+        if (!visibilityRes.error && visibilityRes.data) {
+          for (const row of visibilityRes.data) {
+            if (row.visibility === "hidden") hiddenEpisodes.push(row.episode_id)
+            else if (row.visibility === "deleted") deletedEpisodes.push(row.episode_id)
+          }
+        }
+
+        return { sections, assignments, hiddenEpisodes, deletedEpisodes }
+      }
+      if (sectionsRes.error) console.error("getSectionsConfig DB error:", sectionsRes.error.message)
+    } catch (e) {
+      console.error("getSectionsConfig DB exception:", e)
+    }
   }
+
+  const config = await store.read()
+  if (!config.hiddenEpisodes) config.hiddenEpisodes = []
+  if (!config.deletedEpisodes) config.deletedEpisodes = []
+  return config
 }
 
 export async function getHiddenEpisodeIds(): Promise<Set<string>> {
@@ -45,7 +86,58 @@ export async function getHiddenEpisodeIds(): Promise<Set<string>> {
 }
 
 export async function saveSectionsConfig(config: EpisodeSectionsConfig): Promise<void> {
-  const configDir = path.dirname(SECTIONS_PATH)
-  await mkdir(configDir, { recursive: true })
-  await writeFile(SECTIONS_PATH, JSON.stringify(config, null, 2), "utf-8")
+  if (USE_SUPABASE) {
+    try {
+      const supabase = await createClient()
+
+      // 1. Upsert sections (delete removed ones)
+      const sectionRows = config.sections.map((s) => ({
+        id: s.id,
+        label: s.label,
+        order: s.order,
+        color: s.color || null,
+        hidden: s.hidden || false,
+      }))
+
+      // Get existing section IDs to find deleted ones
+      const { data: existingSections } = await supabase.from("episode_sections").select("id")
+      const newIds = new Set(config.sections.map((s) => s.id))
+      const toDelete = (existingSections || []).filter((s) => !newIds.has(s.id)).map((s) => s.id)
+
+      if (toDelete.length > 0) {
+        await supabase.from("episode_sections").delete().in("id", toDelete)
+      }
+      if (sectionRows.length > 0) {
+        const { error: secErr } = await supabase.from("episode_sections").upsert(sectionRows)
+        if (secErr) console.error("saveSectionsConfig sections error:", secErr.message)
+      }
+
+      // 2. Replace assignments
+      await supabase.from("episode_section_assignments").delete().neq("episode_id", "")
+      const assignRows = Object.entries(config.assignments).map(([episodeId, sectionId]) => ({
+        episode_id: episodeId,
+        section_id: sectionId,
+      }))
+      if (assignRows.length > 0) {
+        const { error: assErr } = await supabase.from("episode_section_assignments").upsert(assignRows)
+        if (assErr) console.error("saveSectionsConfig assignments error:", assErr.message)
+      }
+
+      // 3. Replace visibility
+      await supabase.from("episode_visibility").delete().neq("episode_id", "")
+      const visRows = [
+        ...(config.hiddenEpisodes || []).map((id) => ({ episode_id: id, visibility: "hidden" as const })),
+        ...(config.deletedEpisodes || []).map((id) => ({ episode_id: id, visibility: "deleted" as const })),
+      ]
+      if (visRows.length > 0) {
+        const { error: visErr } = await supabase.from("episode_visibility").upsert(visRows)
+        if (visErr) console.error("saveSectionsConfig visibility error:", visErr.message)
+      }
+
+      return
+    } catch (e) {
+      console.error("saveSectionsConfig DB exception:", e)
+    }
+  }
+  await store.write(config)
 }

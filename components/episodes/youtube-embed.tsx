@@ -2,8 +2,10 @@
 
 import { useState, useEffect, useRef, useCallback } from "react"
 import Image from "next/image"
-import { getYouTubeId, getYouTubeEmbedUrl, getYouTubeWatchUrl } from "@/lib/utils"
+import { getYouTubeId, getYouTubeWatchUrl } from "@/lib/utils"
 import { updateWatchProgress } from "@/lib/watch-history"
+import { trackEvent } from "@/lib/personalization/tracker"
+import { usePlayer } from "./episode-player-context"
 import { ExternalLink, Play } from "lucide-react"
 
 interface YouTubeEmbedProps {
@@ -13,6 +15,34 @@ interface YouTubeEmbedProps {
   episodeId?: string
   episodeSlug?: string
   durationMinutes?: number
+}
+
+// Load the YT IFrame API script once globally
+let ytApiLoaded = false
+let ytApiLoading = false
+const ytApiCallbacks: (() => void)[] = []
+
+function loadYTApi(): Promise<void> {
+  if (ytApiLoaded && window.YT?.Player) return Promise.resolve()
+
+  return new Promise((resolve) => {
+    ytApiCallbacks.push(resolve)
+
+    if (ytApiLoading) return
+    ytApiLoading = true
+
+    const prev = window.onYouTubeIframeAPIReady
+    window.onYouTubeIframeAPIReady = () => {
+      prev?.()
+      ytApiLoaded = true
+      ytApiCallbacks.forEach((cb) => cb())
+      ytApiCallbacks.length = 0
+    }
+
+    const script = document.createElement("script")
+    script.src = "https://www.youtube.com/iframe_api"
+    document.head.appendChild(script)
+  })
 }
 
 function ThumbnailOverlay({
@@ -45,7 +75,7 @@ function ThumbnailOverlay({
         target="_blank"
         rel="noopener noreferrer"
         onClick={(e) => e.stopPropagation()}
-        className="absolute bottom-3 left-3 rounded-lg bg-black/70 px-3 py-1.5 text-xs text-white/80 hover:text-white transition-colors"
+        className="absolute bottom-3 start-3 rounded-lg bg-black/70 px-3 py-1.5 text-xs text-white/80 hover:text-white transition-colors"
       >
         شاهد على يوتيوب
       </a>
@@ -63,22 +93,37 @@ export function YouTubeEmbed({
 }: YouTubeEmbedProps) {
   const videoId = getYouTubeId(url)
   const watchUrl = getYouTubeWatchUrl(url, startTime)
-  const iframeRef = useRef<HTMLIFrameElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
+  const playerDivRef = useRef<HTMLDivElement>(null)
   const progressIntervalRef = useRef<NodeJS.Timeout | null>(null)
-  // Start with thumbnail; load iframe on click (avoids broken embed for restricted videos)
-  const [playerState, setPlayerState] = useState<"thumbnail" | "iframe">("thumbnail")
-
-  const embedUrl = getYouTubeEmbedUrl(url, startTime)
+  const milestonesRef = useRef({ w25: false, w50: false, w90: false })
+  const playerInstanceRef = useRef<YT.Player | null>(null)
+  const { registerPlayer } = usePlayer()
+  const [playerState, setPlayerState] = useState<"thumbnail" | "player">("thumbnail")
 
   const trackProgress = useCallback(() => {
     if (!episodeId || !episodeSlug || !durationMinutes) return
 
     const trackingStartTime = Date.now()
+    const meta = { duration_minutes: durationMinutes }
 
     progressIntervalRef.current = setInterval(() => {
       const elapsedMinutes = (Date.now() - trackingStartTime) / 1000 / 60
       const progress = Math.min(100, (elapsedMinutes / durationMinutes) * 100)
+
+      // Watch milestone events — each fires once per session
+      if (progress >= 25 && !milestonesRef.current.w25) {
+        milestonesRef.current.w25 = true
+        trackEvent("watch_25", episodeId, meta)
+      }
+      if (progress >= 50 && !milestonesRef.current.w50) {
+        milestonesRef.current.w50 = true
+        trackEvent("watch_50", episodeId, meta)
+      }
+      if (progress >= 90 && !milestonesRef.current.w90) {
+        milestonesRef.current.w90 = true
+        trackEvent("watch_90", episodeId, meta)
+      }
 
       if (progress >= 5) {
         updateWatchProgress(
@@ -103,13 +148,43 @@ export function YouTubeEmbed({
     }
   }, [])
 
-  const handleIframeLoad = useCallback(() => {
-    trackProgress()
-    requestAnimationFrame(() => {
-      containerRef.current?.getBoundingClientRect()
-      window.dispatchEvent(new Event("resize"))
+  const createPlayer = useCallback(async () => {
+    if (!videoId || !playerDivRef.current) return
+
+    await loadYTApi()
+
+    const player = new YT.Player(playerDivRef.current, {
+      videoId,
+      playerVars: {
+        autoplay: 1,
+        rel: 0,
+        modestbranding: 1,
+        playsinline: 1,
+        enablejsapi: 1,
+        start: startTime || undefined,
+      },
+      events: {
+        onReady: (event) => {
+          playerInstanceRef.current = event.target
+          registerPlayer(event.target)
+          trackProgress()
+        },
+      },
     })
-  }, [trackProgress])
+
+    playerInstanceRef.current = player
+  }, [videoId, startTime, registerPlayer, trackProgress])
+
+  const handlePlay = useCallback(() => {
+    setPlayerState("player")
+  }, [])
+
+  // Create the YT player once the div is rendered
+  useEffect(() => {
+    if (playerState === "player") {
+      createPlayer()
+    }
+  }, [playerState, createPlayer])
 
   if (!url || !videoId) {
     return (
@@ -136,17 +211,11 @@ export function YouTubeEmbed({
             videoId={videoId}
             watchUrl={watchUrl}
             title={title}
-            onPlay={() => setPlayerState("iframe")}
+            onPlay={handlePlay}
           />
         ) : (
-          <iframe
-            ref={iframeRef}
-            src={`${embedUrl}&autoplay=1`}
-            title={title}
-            frameBorder="0"
-            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-            allowFullScreen
-            onLoad={handleIframeLoad}
+          <div
+            ref={playerDivRef}
             className="absolute inset-0 h-full w-full"
           />
         )}

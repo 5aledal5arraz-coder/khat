@@ -2,28 +2,43 @@ import { getAllHomeQuotes } from "@/lib/home-quotes"
 import { getAllReflections } from "@/lib/daily-reflections"
 import { getAllPaths } from "@/lib/emotional-paths"
 import { getEpisodes } from "@/lib/supabase/queries"
+import { getTeaserSettings, getAllQuestions, getTeaserQuestionStats } from "@/lib/teaser"
 import { HomeContentTabs } from "./home-content-tabs"
+import { AdminPageHeader } from "../components/admin-page-header"
 
 export default async function HomeContentPage() {
-  const [quotes, reflections, paths, episodes] = await Promise.all([
+  const [quotes, reflections, paths, episodes, teaserSettings] = await Promise.all([
     getAllHomeQuotes(),
     getAllReflections(),
     getAllPaths(),
     getEpisodes({ limit: 100 }),
+    getTeaserSettings(),
   ])
+
+  // Load questions for the active or first teaser
+  const activeTeaser = teaserSettings.teasers.find((t) => t.isActive) || teaserSettings.teasers[0]
+  const [teaserQuestions, teaserStats] = activeTeaser
+    ? await Promise.all([
+        getAllQuestions(activeTeaser.id),
+        getTeaserQuestionStats(activeTeaser.id),
+      ])
+    : [[], null]
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold">الصفحة الرئيسية</h1>
-        <p className="text-muted-foreground">إدارة محتوى الصفحة الرئيسية — الاقتباسات والتأملات والمسارات</p>
-      </div>
+      <AdminPageHeader
+        title="الصفحة الرئيسية"
+        description="إدارة محتوى الصفحة الرئيسية — الاقتباسات والتأملات والمسارات واسأل الضيف"
+      />
 
       <HomeContentTabs
         quotes={quotes}
         reflections={reflections}
         paths={paths}
         episodes={episodes}
+        teasers={teaserSettings.teasers}
+        teaserQuestions={teaserQuestions}
+        teaserStats={teaserStats}
       />
     </div>
   )

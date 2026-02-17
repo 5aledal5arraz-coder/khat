@@ -4,6 +4,7 @@ import { Youtube, Instagram } from "lucide-react"
 import { XIcon } from "@/components/icons/x-icon"
 import { TikTokIcon } from "@/components/icons/tiktok-icon"
 import { WhatsAppIcon } from "@/components/icons/whatsapp-icon"
+import { ResetPersonalizationButton } from "@/components/personalization/reset-button"
 
 const navigation = {
   main: [
@@ -21,7 +22,7 @@ const navigation = {
     },
     {
       name: "X",
-      href: "https://x.com/khat_podcast",
+      href: "https://x.com/khatpodcast",
       icon: XIcon,
     },
     {
@@ -60,7 +61,7 @@ export function Footer() {
                 alt="خط"
                 width={72}
                 height={72}
-                className="h-18 w-auto"
+                className="h-20 w-auto"
               />
             </Link>
             <p className="mt-4 text-sm text-muted-foreground">
@@ -124,10 +125,11 @@ export function Footer() {
           </div>
         </div>
 
-        <div className="mt-8 border-t pt-8 text-center">
+        <div className="mt-8 border-t pt-8 flex flex-col items-center gap-2">
           <p className="text-sm text-muted-foreground">
             &copy; {new Date().getFullYear()} خط. جميع الحقوق محفوظة.
           </p>
+          <ResetPersonalizationButton />
         </div>
       </div>
     </footer>

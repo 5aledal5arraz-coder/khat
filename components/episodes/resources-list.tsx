@@ -22,16 +22,23 @@ export function ResourcesList({ resources }: ResourcesListProps) {
           const Icon = typeIcons[resource.type || 'link'] || LinkIcon
           return (
             <li key={resource.id}>
-              <a
-                href={/^https?:\/\//.test(resource.url) ? resource.url : '#'}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center gap-3 rounded-lg border p-3 transition-colors hover:bg-muted"
-              >
-                <Icon className="h-5 w-5 text-muted-foreground" />
-                <span className="flex-1 font-medium">{resource.title}</span>
-                <ExternalLink className="h-4 w-4 text-muted-foreground" />
-              </a>
+              {/^https?:\/\//.test(resource.url) ? (
+                <a
+                  href={resource.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-3 rounded-lg border p-3 transition-colors hover:bg-muted"
+                >
+                  <Icon className="h-5 w-5 text-muted-foreground" />
+                  <span className="flex-1 font-medium">{resource.title}</span>
+                  <ExternalLink className="h-4 w-4 text-muted-foreground" />
+                </a>
+              ) : (
+                <div className="flex items-center gap-3 rounded-lg border p-3 opacity-50">
+                  <Icon className="h-5 w-5 text-muted-foreground" />
+                  <span className="flex-1 font-medium">{resource.title}</span>
+                </div>
+              )}
             </li>
           )
         })}

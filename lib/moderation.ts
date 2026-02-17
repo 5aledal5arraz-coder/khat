@@ -3,6 +3,7 @@ import { moderateWithAI } from './openai'
 import type { AIModerationVerdict } from './openai'
 import { getModerationConfig } from './moderation-config'
 import { normalizeArabic } from './search'
+import { stripHtml } from './sanitize'
 
 export type ModerationStatus = 'pending' | 'approved' | 'auto_flagged' | 'rejected' | 'hidden'
 
@@ -13,6 +14,9 @@ export interface ModerationResult {
   aiVerdict?: AIModerationVerdict | null
 }
 
+// Pre-normalize profanity lists at module load to avoid repeated normalization
+const normalizedArabicProfanity = arabicProfanity.map(normalizeArabic)
+
 /**
  * Check if text contains profanity
  */
@@ -21,8 +25,7 @@ function containsProfanity(text: string): string[] {
   const normalizedText = normalizeArabic(text)
   const lowerText = text.toLowerCase()
 
-  for (const word of arabicProfanity) {
-    const normalizedWord = normalizeArabic(word)
+  for (const normalizedWord of normalizedArabicProfanity) {
     if (normalizedText.includes(normalizedWord)) {
       reasons.push('يحتوي على ألفاظ غير لائقة')
       break
@@ -168,7 +171,7 @@ export async function moderateArticle(title: string, content: string, userApprov
     return { status: 'approved', reasons: [], aiVerdict: null }
   }
 
-  const plainContent = content.replace(/<[^>]*>/g, '').trim()
+  const plainContent = stripHtml(content)
   const combinedText = `${title}\n\n${plainContent.slice(0, 2000)}`
   const aiResult = await moderateWithAI(combinedText)
 

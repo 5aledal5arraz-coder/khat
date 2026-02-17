@@ -45,6 +45,17 @@ export async function POST(request: NextRequest) {
   const rateLimit = await checkRateLimit(supabase, user.id, 'toggle_like')
   if (!rateLimit.allowed) return rateLimitResponse()
 
+  // Verify target exists
+  const tableName = TYPE_TABLE_MAP[body.target_type]
+  if (tableName) {
+    const { data: target } = await supabase
+      .from(tableName)
+      .select('id')
+      .eq('id', body.target_id)
+      .single()
+    if (!target) return validationErrorResponse('المحتوى غير موجود')
+  }
+
   // Check if already liked
   const { data: existing } = await supabase
     .from('hibr_likes')
@@ -77,7 +88,6 @@ export async function POST(request: NextRequest) {
   }
 
   // Update likes count on target
-  const tableName = TYPE_TABLE_MAP[body.target_type]
   if (tableName) {
     const { count } = await supabase
       .from('hibr_likes')

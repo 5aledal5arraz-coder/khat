@@ -1,0 +1,69 @@
+export interface PlatformStats {
+  followers: number
+  posts: number
+  engagement: string
+  url: string
+}
+
+export interface AnalyticsConfig {
+  youtube: PlatformStats
+  x: PlatformStats
+  tiktok: PlatformStats
+  instagram: PlatformStats
+}
+
+export interface MediaKitConfig {
+  podcastDescription_ar: string
+  podcastDescription_en: string
+  hostDescription_ar: string
+  hostDescription_en: string
+  vision_ar: string
+  vision_en: string
+  values_ar: string
+  values_en: string
+  audienceDescription_ar: string
+  audienceDescription_en: string
+  partnershipPhilosophy_ar: string
+  partnershipPhilosophy_en: string
+  contactEmail: string
+  contactPhone: string
+  socialLinks: { youtube?: string; instagram?: string; tiktok?: string; x?: string }
+}
+
+export const defaultMediaKitConfig: MediaKitConfig = {
+  podcastDescription_ar:
+    "بودكاست خط هو مساحة حوارية تقدّم محادثات عميقة وهادئة مع ضيوف يشاركون قصصهم وتجاربهم الحقيقية. نؤمن بأن الحوار الصادق يصنع أثرًا، وأن كل شخص يحمل قصة تستحق أن تُروى.",
+  podcastDescription_en:
+    "Khat Podcast is a conversational space that presents deep, thoughtful dialogues with guests who share their real stories and experiences. We believe that honest conversation creates impact, and that every person carries a story worth telling.",
+  hostDescription_ar:
+    "يُقدَّم البودكاست بأسلوب حواري هادئ يركّز على الاستماع والعمق، بعيدًا عن المقابلات التقليدية.",
+  hostDescription_en:
+    "The podcast is presented in a calm, conversational style that focuses on listening and depth, away from traditional interviews.",
+  vision_ar:
+    "نسعى لبناء منصة إعلامية عربية تُعيد للحوار قيمته، وتُقدّم محتوى يلهم ويثري.",
+  vision_en:
+    "We aim to build an Arabic media platform that restores the value of dialogue and delivers content that inspires and enriches.",
+  values_ar:
+    "الأصالة · العمق · الاحترام · الأثر",
+  values_en:
+    "Authenticity · Depth · Respect · Impact",
+  audienceDescription_ar:
+    "جمهور خط من الشباب والمهنيين المهتمين بالتطوير الذاتي والقصص الإنسانية والحوارات الهادفة. جمهور واعٍ ومتفاعل يبحث عن محتوى ذي معنى.",
+  audienceDescription_en:
+    "Khat's audience consists of young professionals interested in personal development, human stories, and meaningful conversations. An engaged, conscious audience seeking content with substance.",
+  partnershipPhilosophy_ar:
+    "الشراكة مع خط ليست إعلانًا — بل دعم لحوار هادف. نحرص على أن تكون كل شراكة متسقة مع قيمنا وتضيف قيمة حقيقية لجمهورنا.",
+  partnershipPhilosophy_en:
+    "Partnership with Khat is not advertising — it's supporting meaningful dialogue. We ensure every partnership aligns with our values and adds genuine value to our audience.",
+  contactEmail: "hello@khatpodcast.com",
+  contactPhone: "",
+  socialLinks: {},
+}
+
+export interface MediaKitShareConfig {
+  enabled: boolean
+  slug: string
+  passwordHash: string
+  createdAt: string
+  updatedAt: string
+}

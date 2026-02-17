@@ -93,6 +93,7 @@ export default function SavedPage() {
                       variant="ghost"
                       size="icon"
                       onClick={() => handleRemove(item.id, "episode")}
+                      aria-label="حذف"
                     >
                       <Trash2 className="h-4 w-4 text-muted-foreground hover:text-destructive" />
                     </Button>
@@ -124,6 +125,7 @@ export default function SavedPage() {
                         variant="ghost"
                         size="icon"
                         onClick={() => handleRemove(item.id, "quote")}
+                        aria-label="حذف"
                       >
                         <Trash2 className="h-4 w-4 text-muted-foreground hover:text-destructive" />
                       </Button>
@@ -155,6 +157,7 @@ export default function SavedPage() {
                       variant="ghost"
                       size="icon"
                       onClick={() => handleRemove(item.id, "timestamp")}
+                      aria-label="حذف"
                     >
                       <Trash2 className="h-4 w-4 text-muted-foreground hover:text-destructive" />
                     </Button>

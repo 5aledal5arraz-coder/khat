@@ -50,6 +50,15 @@ export function isItemSaved(id: string, type: SavedItem["type"]): boolean {
   return items.some((i) => i.id === id && i.type === type)
 }
 
+export function clearAllSavedItems(): void {
+  if (typeof window === "undefined") return
+  try {
+    localStorage.removeItem(STORAGE_KEY)
+  } catch {
+    console.error("Failed to clear saved items")
+  }
+}
+
 export function toggleSaveItem(item: Omit<SavedItem, "savedAt">): boolean {
   if (isItemSaved(item.id, item.type)) {
     removeSavedItem(item.id, item.type)

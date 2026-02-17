@@ -1,6 +1,7 @@
 "use client"
 
 import { useState } from "react"
+import { useRouter } from "next/navigation"
 import {
   Pencil,
   Check,
@@ -17,7 +18,7 @@ import {
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { formatArabicCount } from "@/lib/utils"
-import type { EpisodeQuotesEntry } from "@/types/ads"
+import type { EpisodeQuotesEntry } from "@/types/episodes"
 import {
   generateEpisodeQuotes,
   regenerateEpisodeQuotes,
@@ -45,6 +46,7 @@ export function DetailQuotes({
   guestName,
   entry,
 }: DetailQuotesProps) {
+  const router = useRouter()
   const [loading, setLoading] = useState(false)
   const [statusText, setStatusText] = useState("")
   const [error, setError] = useState<string | null>(null)
@@ -92,7 +94,7 @@ export function DetailQuotes({
 
       if (result.success) {
         setStatusText("")
-        window.location.reload()
+        router.refresh()
       } else {
         setError(result.error || "حدث خطأ")
         setStatusText("")
@@ -121,7 +123,7 @@ export function DetailQuotes({
       )
 
       if (result.success) {
-        window.location.reload()
+        router.refresh()
       } else {
         setError(result.error || "حدث خطأ")
         setStatusText("")

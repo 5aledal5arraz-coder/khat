@@ -4,6 +4,7 @@ import {
   getClipsForSession, createClips, updateClips,
 } from "@/lib/studio"
 import { generateStudioClips, STUDIO_PROMPT_VERSION } from "@/lib/openai"
+import { requireAdminAPI } from "@/lib/api-utils"
 
 export const maxDuration = 120
 
@@ -17,6 +18,8 @@ export async function GET(
   _request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const authError = await requireAdminAPI()
+  if (authError) return authError
   const { id } = await params
   const clips = await getClipsForSession(id)
   return NextResponse.json({ clips: clips || null })
@@ -26,10 +29,22 @@ export async function GET(
  * POST /api/admin/studio/[id]/clips — generate clip suggestions from transcript
  */
 export async function POST(
-  _request: Request,
+  request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const authError = await requireAdminAPI()
+  if (authError) return authError
   const { id } = await params
+
+  // AI guard: return cached result if already generated (unless force=true)
+  let forceRegenerate = false
+  try { const b = await request.clone().json(); forceRegenerate = b?.force === true } catch { /* no body is fine */ }
+  if (!forceRegenerate) {
+    const existing = await getClipsForSession(id)
+    if (existing && existing.status === "ready") {
+      return NextResponse.json({ clips: existing, cached: true })
+    }
+  }
 
   const lastCall = recentCalls.get(id)
   if (lastCall && Date.now() - lastCall < RATE_LIMIT_MS) {
@@ -110,6 +125,8 @@ export async function PATCH(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const authError = await requireAdminAPI()
+  if (authError) return authError
   const { id: sessionId } = await params
 
   const existing = await getClipsForSession(sessionId)

@@ -8,8 +8,6 @@ interface Props {
 }
 
 export function HeroPauseMoment({ quote }: Props) {
-  if (!quote) return null
-
   return (
     <section className="relative flex min-h-[60vh] flex-col items-center justify-center px-4 py-16 text-center">
       {/* Background subtle gradient */}
@@ -21,35 +19,65 @@ export function HeroPauseMoment({ quote }: Props) {
           توقّف لحظة
         </p>
 
-        {/* The quote */}
-        <blockquote className="text-2xl font-bold leading-relaxed md:text-3xl lg:text-4xl">
-          &ldquo;{quote.text}&rdquo;
-        </blockquote>
+        {quote ? (
+          <>
+            {/* The quote */}
+            <blockquote className="text-2xl font-bold leading-relaxed md:text-3xl lg:text-4xl">
+              &ldquo;{quote.text}&rdquo;
+            </blockquote>
 
-        {/* Attribution */}
-        <p className="text-base text-muted-foreground">
-          — {quote.attribution}
-        </p>
+            {/* Attribution */}
+            <p className="text-base text-muted-foreground">
+              — {quote.attribution}
+            </p>
 
-        {/* CTAs — never a dead end */}
-        <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
-          {quote.episode_slug && (
-            <Link href={`/quotes/${quote.id}`}>
-              <Button variant="outline" size="lg" className="gap-2">
-                أكمل الفكرة
-                <ArrowLeft className="h-4 w-4" />
-              </Button>
-            </Link>
-          )}
-          {quote.episode_slug && (
-            <Link href={`/episodes/${quote.episode_slug}`}>
-              <Button variant="ghost" size="sm" className="gap-2 text-muted-foreground">
-                <Play className="h-4 w-4" />
-                {quote.episode_title || "استمع للحلقة"}
-              </Button>
-            </Link>
-          )}
-        </div>
+            {/* CTAs — never a dead end */}
+            <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
+              {quote.episode_slug && (
+                <Link href={`/episodes/${quote.episode_slug}`}>
+                  <Button variant="outline" size="lg" className="gap-2">
+                    أكمل الفكرة
+                    <ArrowLeft className="h-4 w-4" />
+                  </Button>
+                </Link>
+              )}
+              {quote.episode_slug && quote.episode_title && (
+                <Link href={`/episodes/${quote.episode_slug}`}>
+                  <Button variant="ghost" size="sm" className="gap-2 text-muted-foreground">
+                    <Play className="h-4 w-4" />
+                    {quote.episode_title}
+                  </Button>
+                </Link>
+              )}
+              {!quote.episode_slug && (
+                <Link href="/episodes">
+                  <Button variant="outline" size="lg" className="gap-2">
+                    استكشف الحلقات
+                    <ArrowLeft className="h-4 w-4" />
+                  </Button>
+                </Link>
+              )}
+            </div>
+          </>
+        ) : (
+          <>
+            {/* Fallback when no quotes are configured */}
+            <h1 className="text-2xl font-bold leading-relaxed md:text-3xl lg:text-4xl">
+              بودكاست يستكشف القصص الإنسانية
+            </h1>
+            <p className="text-base text-muted-foreground">
+              حوارات عميقة مع ضيوف ملهمين عن الحياة، الإيمان، والمعنى
+            </p>
+            <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
+              <Link href="/episodes">
+                <Button variant="outline" size="lg" className="gap-2">
+                  استكشف الحلقات
+                  <ArrowLeft className="h-4 w-4" />
+                </Button>
+              </Link>
+            </div>
+          </>
+        )}
       </div>
     </section>
   )

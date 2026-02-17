@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server"
 import { getStudioSession, createTranscript, parseUploadedTranscript } from "@/lib/studio"
+import { requireAdminAPI } from "@/lib/api-utils"
 
 const ALLOWED_EXTENSIONS = [".txt", ".srt", ".vtt"]
 const MAX_FILE_SIZE = 10 * 1024 * 1024 // 10 MB
@@ -12,6 +13,8 @@ export async function POST(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const authError = await requireAdminAPI()
+  if (authError) return authError
   const { id } = await params
   const session = await getStudioSession(id)
 

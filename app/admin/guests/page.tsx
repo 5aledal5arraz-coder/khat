@@ -10,20 +10,11 @@ export default async function GuestsAdminPage() {
     getEpisodes({ limit: 200 }),
   ])
 
-  // Count episodes per guest
   const guestEpisodeCounts = new Map<string, number>()
   for (const episode of episodes) {
-    if (episode.guest_id) {
-      guestEpisodeCounts.set(
-        episode.guest_id,
-        (guestEpisodeCounts.get(episode.guest_id) || 0) + 1
-      )
-    }
-    if (episode.guest?.id) {
-      guestEpisodeCounts.set(
-        episode.guest.id,
-        (guestEpisodeCounts.get(episode.guest.id) || 0) + 1
-      )
+    const gid = episode.guest_id || episode.guest?.id
+    if (gid) {
+      guestEpisodeCounts.set(gid, (guestEpisodeCounts.get(gid) || 0) + 1)
     }
   }
 

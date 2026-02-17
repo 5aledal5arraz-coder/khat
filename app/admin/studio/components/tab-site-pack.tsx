@@ -1,9 +1,11 @@
 "use client"
 
+import { useState } from "react"
 import {
   Globe, Loader2, AlertCircle, RefreshCw,
   BookOpen, FileText, CheckCircle2, Tag,
   MessageSquareQuote, Quote, Link2,
+  Type, Check, Pencil,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
@@ -13,11 +15,18 @@ import { WebPkgEditableField } from "./editable-fields"
 
 export function TabSitePack() {
   const {
+    session, aiOutput,
     websitePkgStatus, websitePkgError, generateWebsitePackage,
+    selectedTitle, setSelectedTitle,
     heroSummary, fullSummary, takeaways, topics, quotes, resources,
+    selectedQuoteIndices, selectedTakeawayIndices,
     setHeroSummary, setFullSummary, setTakeaways, setTopics,
+    setSelectedQuoteIndices, setSelectedTakeawayIndices,
     debouncedSaveWebPkg,
   } = useStudioSession()
+
+  const [customTitleInput, setCustomTitleInput] = useState("")
+  const [showCustomInput, setShowCustomInput] = useState(false)
 
   const statusInfo = AI_STATUS_LABELS[websitePkgStatus]
 
@@ -73,6 +82,135 @@ export function TabSitePack() {
 
         {websitePkgStatus === "ready" && (
           <div className="space-y-6">
+            {/* Title Selector */}
+            <div className="space-y-3">
+              <div className="flex items-center gap-2">
+                <Type className="h-4 w-4 text-violet-500" />
+                <span className="text-sm font-medium">عنوان الحلقة</span>
+              </div>
+
+              {/* Collect all title options */}
+              {(() => {
+                const options: { label: string; value: string }[] = []
+                const originalTitle = session.video_title || ""
+                if (originalTitle) {
+                  options.push({ label: "العنوان الأصلي", value: originalTitle })
+                }
+                if (aiOutput?.title_best && aiOutput.title_best !== originalTitle) {
+                  options.push({ label: "اقتراح AI الأفضل", value: aiOutput.title_best })
+                }
+                if (aiOutput?.title_alternatives) {
+                  aiOutput.title_alternatives.forEach((alt, i) => {
+                    if (alt && alt !== originalTitle && alt !== aiOutput.title_best) {
+                      options.push({ label: `بديل ${i + 1}`, value: alt })
+                    }
+                  })
+                }
+                // If selectedTitle is custom (not in any option), add it
+                const isCustom = selectedTitle && !options.some(o => o.value === selectedTitle)
+
+                return (
+                  <div className="space-y-2">
+                    {options.map((opt, idx) => (
+                      <button
+                        key={idx}
+                        onClick={() => {
+                          setSelectedTitle(opt.value)
+                          debouncedSaveWebPkg({ custom_title: opt.value })
+                          setShowCustomInput(false)
+                        }}
+                        className={cn(
+                          "w-full flex items-start gap-3 rounded-lg border p-3 text-right transition-colors",
+                          selectedTitle === opt.value
+                            ? "border-violet-400 bg-violet-50 dark:border-violet-700 dark:bg-violet-950/30"
+                            : "border-border hover:bg-muted/50"
+                        )}
+                      >
+                        <div className={cn(
+                          "mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 transition-colors",
+                          selectedTitle === opt.value
+                            ? "border-violet-500 bg-violet-500"
+                            : "border-muted-foreground/30"
+                        )}>
+                          {selectedTitle === opt.value && <Check className="h-3 w-3 text-white" />}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <span className="text-[10px] text-muted-foreground">{opt.label}</span>
+                          <p className="text-sm" dir="rtl">{opt.value}</p>
+                        </div>
+                      </button>
+                    ))}
+
+                    {/* Custom title option */}
+                    <button
+                      onClick={() => setShowCustomInput(true)}
+                      className={cn(
+                        "w-full flex items-start gap-3 rounded-lg border p-3 text-right transition-colors",
+                        isCustom && !showCustomInput
+                          ? "border-violet-400 bg-violet-50 dark:border-violet-700 dark:bg-violet-950/30"
+                          : "border-dashed border-border hover:bg-muted/50"
+                      )}
+                    >
+                      <div className={cn(
+                        "mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 transition-colors",
+                        isCustom
+                          ? "border-violet-500 bg-violet-500"
+                          : "border-muted-foreground/30"
+                      )}>
+                        {isCustom ? <Check className="h-3 w-3 text-white" /> : <Pencil className="h-3 w-3 text-muted-foreground/50" />}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <span className="text-[10px] text-muted-foreground">عنوان مخصص</span>
+                        {isCustom && !showCustomInput && (
+                          <p className="text-sm" dir="rtl">{selectedTitle}</p>
+                        )}
+                      </div>
+                    </button>
+
+                    {showCustomInput && (
+                      <div className="flex gap-2">
+                        <input
+                          type="text"
+                          value={customTitleInput}
+                          onChange={(e) => setCustomTitleInput(e.target.value)}
+                          placeholder="اكتب عنوان مخصص..."
+                          dir="rtl"
+                          className="flex-1 rounded-lg border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-violet-500/20"
+                          autoFocus
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter" && customTitleInput.trim()) {
+                              setSelectedTitle(customTitleInput.trim())
+                              debouncedSaveWebPkg({ custom_title: customTitleInput.trim() })
+                              setShowCustomInput(false)
+                            }
+                          }}
+                        />
+                        <Button
+                          size="sm"
+                          disabled={!customTitleInput.trim()}
+                          onClick={() => {
+                            setSelectedTitle(customTitleInput.trim())
+                            debouncedSaveWebPkg({ custom_title: customTitleInput.trim() })
+                            setShowCustomInput(false)
+                          }}
+                        >
+                          تأكيد
+                        </Button>
+                      </div>
+                    )}
+
+                    {selectedTitle && selectedTitle !== originalTitle && (
+                      <p className="text-xs text-violet-600 dark:text-violet-400">
+                        سيتم استخدام هذا العنوان عند النشر إلى صفحة الحلقة
+                      </p>
+                    )}
+                  </div>
+                )
+              })()}
+            </div>
+
+            <div className="border-t" />
+
             {/* Hero Summary */}
             <WebPkgEditableField
               label="ملخص قصير (Hero)"
@@ -100,29 +238,73 @@ export function TabSitePack() {
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <CheckCircle2 className="h-4 w-4 text-emerald-500" />
-                  <span className="text-sm font-medium">أبرز الأفكار ({takeaways.length})</span>
+                  <span className="text-sm font-medium">
+                    أبرز الأفكار ({selectedTakeawayIndices.size}/{takeaways.length})
+                  </span>
                 </div>
-                <CopyButton onClick={() => handleCopy(takeaways.join("\n"))} />
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => {
+                      const allSelected = selectedTakeawayIndices.size === takeaways.length
+                      const next = allSelected ? new Set<number>() : new Set(takeaways.map((_, i) => i))
+                      setSelectedTakeawayIndices(next)
+                      debouncedSaveWebPkg({ selected_takeaway_indices: [...next] })
+                    }}
+                    className="text-[10px] text-primary hover:underline"
+                  >
+                    {selectedTakeawayIndices.size === takeaways.length ? "إلغاء تحديد الكل" : "تحديد الكل"}
+                  </button>
+                  <CopyButton onClick={() => handleCopy(
+                    takeaways.filter((_, i) => selectedTakeawayIndices.has(i)).join("\n")
+                  )} />
+                </div>
               </div>
               <div className="space-y-1.5">
-                {takeaways.map((item, idx) => (
-                  <div key={idx} className="flex items-start gap-2">
-                    <span className="shrink-0 w-5 text-xs text-muted-foreground text-center mt-2">{idx + 1}</span>
-                    <input
-                      type="text"
-                      value={item}
-                      onChange={(e) => {
-                        const updated = [...takeaways]
-                        updated[idx] = e.target.value
-                        setTakeaways(updated)
-                        debouncedSaveWebPkg({ takeaways: updated })
-                      }}
-                      dir="rtl"
-                      className="flex-1 rounded-lg border bg-muted/30 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary/20 focus:bg-background transition-colors"
-                    />
-                  </div>
-                ))}
+                {takeaways.map((item, idx) => {
+                  const isSelected = selectedTakeawayIndices.has(idx)
+                  return (
+                    <div key={idx} className={cn(
+                      "flex items-start gap-2 rounded-lg transition-colors",
+                      !isSelected && "opacity-40"
+                    )}>
+                      <button
+                        onClick={() => {
+                          const next = new Set(selectedTakeawayIndices)
+                          if (next.has(idx)) next.delete(idx)
+                          else next.add(idx)
+                          setSelectedTakeawayIndices(next)
+                          debouncedSaveWebPkg({ selected_takeaway_indices: [...next] })
+                        }}
+                        className={cn(
+                          "mt-2 flex h-5 w-5 shrink-0 items-center justify-center rounded border-2 transition-colors",
+                          isSelected
+                            ? "border-emerald-500 bg-emerald-500"
+                            : "border-muted-foreground/30 hover:border-muted-foreground/50"
+                        )}
+                      >
+                        {isSelected && <Check className="h-3 w-3 text-white" />}
+                      </button>
+                      <input
+                        type="text"
+                        value={item}
+                        onChange={(e) => {
+                          const updated = [...takeaways]
+                          updated[idx] = e.target.value
+                          setTakeaways(updated)
+                          debouncedSaveWebPkg({ takeaways: updated })
+                        }}
+                        dir="rtl"
+                        className="flex-1 rounded-lg border bg-muted/30 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary/20 focus:bg-background transition-colors"
+                      />
+                    </div>
+                  )
+                })}
               </div>
+              {selectedTakeawayIndices.size < takeaways.length && (
+                <p className="text-[10px] text-muted-foreground">
+                  {takeaways.length - selectedTakeawayIndices.size} فكرة لن تظهر على الموقع
+                </p>
+              )}
             </div>
 
             {/* Topics */}
@@ -148,33 +330,80 @@ export function TabSitePack() {
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <MessageSquareQuote className="h-4 w-4 text-amber-500" />
-                  <span className="text-sm font-medium">اقتباسات ({quotes.length})</span>
+                  <span className="text-sm font-medium">
+                    اقتباسات ({selectedQuoteIndices.size}/{quotes.length})
+                  </span>
                 </div>
-                <CopyButton onClick={() => handleCopy(quotes.map(q => q.text).join("\n\n"))} />
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => {
+                      const allSelected = selectedQuoteIndices.size === quotes.length
+                      const next = allSelected ? new Set<number>() : new Set(quotes.map((_, i) => i))
+                      setSelectedQuoteIndices(next)
+                      debouncedSaveWebPkg({ selected_quote_indices: [...next] })
+                    }}
+                    className="text-[10px] text-primary hover:underline"
+                  >
+                    {selectedQuoteIndices.size === quotes.length ? "إلغاء تحديد الكل" : "تحديد الكل"}
+                  </button>
+                  <CopyButton onClick={() => handleCopy(
+                    quotes.filter((_, i) => selectedQuoteIndices.has(i)).map(q => q.text).join("\n\n")
+                  )} />
+                </div>
               </div>
-              <div className="max-h-64 overflow-y-auto space-y-2 rounded-lg border p-3">
-                {quotes.map((q, idx) => (
-                  <div key={idx} className="flex items-start gap-2 rounded-lg bg-muted/30 p-3">
-                    <Quote className="h-4 w-4 shrink-0 text-amber-500 mt-0.5" />
-                    <div className="flex-1 min-w-0 space-y-1">
-                      <p className="text-sm" dir="rtl">{q.text}</p>
-                      <div className="flex items-center gap-2">
-                        {q.theme && (
-                          <span className="rounded-full bg-muted px-2 py-0.5 text-[10px]">{q.theme}</span>
-                        )}
-                        {q.speaker && (
-                          <span className={cn(
-                            "rounded-full px-2 py-0.5 text-[10px] font-medium",
-                            q.speaker === "guest" ? "bg-purple-100 text-purple-700 dark:bg-purple-950 dark:text-purple-400" : "bg-blue-100 text-blue-700 dark:bg-blue-950 dark:text-blue-400"
-                          )}>
-                            {q.speaker === "guest" ? "الضيف" : "المقدم"}
-                          </span>
-                        )}
+              <div className="max-h-80 overflow-y-auto space-y-2 rounded-lg border p-3">
+                {quotes.map((q, idx) => {
+                  const isSelected = selectedQuoteIndices.has(idx)
+                  return (
+                    <div
+                      key={idx}
+                      className={cn(
+                        "flex items-start gap-2 rounded-lg p-3 transition-colors cursor-pointer",
+                        isSelected
+                          ? "bg-amber-50/50 dark:bg-amber-950/10 ring-1 ring-amber-200/50 dark:ring-amber-900/30"
+                          : "bg-muted/20 opacity-40"
+                      )}
+                      onClick={() => {
+                        const next = new Set(selectedQuoteIndices)
+                        if (next.has(idx)) next.delete(idx)
+                        else next.add(idx)
+                        setSelectedQuoteIndices(next)
+                        debouncedSaveWebPkg({ selected_quote_indices: [...next] })
+                      }}
+                    >
+                      <div className={cn(
+                        "mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded border-2 transition-colors",
+                        isSelected
+                          ? "border-amber-500 bg-amber-500"
+                          : "border-muted-foreground/30"
+                      )}>
+                        {isSelected && <Check className="h-3 w-3 text-white" />}
+                      </div>
+                      <div className="flex-1 min-w-0 space-y-1">
+                        <p className="text-sm" dir="rtl">{q.text}</p>
+                        <div className="flex items-center gap-2">
+                          {q.theme && (
+                            <span className="rounded-full bg-muted px-2 py-0.5 text-[10px]">{q.theme}</span>
+                          )}
+                          {q.speaker && (
+                            <span className={cn(
+                              "rounded-full px-2 py-0.5 text-[10px] font-medium",
+                              q.speaker === "guest" ? "bg-purple-100 text-purple-700 dark:bg-purple-950 dark:text-purple-400" : "bg-blue-100 text-blue-700 dark:bg-blue-950 dark:text-blue-400"
+                            )}>
+                              {q.speaker === "guest" ? "الضيف" : "المقدم"}
+                            </span>
+                          )}
+                        </div>
                       </div>
                     </div>
-                  </div>
-                ))}
+                  )
+                })}
               </div>
+              {selectedQuoteIndices.size < quotes.length && (
+                <p className="text-[10px] text-muted-foreground">
+                  {quotes.length - selectedQuoteIndices.size} اقتباس لن يظهر على الموقع
+                </p>
+              )}
             </div>
 
             {/* Resources */}

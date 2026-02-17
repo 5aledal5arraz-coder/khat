@@ -59,6 +59,13 @@ export const AI_STATUS_LABELS: Record<string, { label: string; className: string
   error: { label: "خطأ", className: "bg-red-100 text-red-700 dark:bg-red-950 dark:text-red-400" },
 }
 
+export const PROCESSING_STATUS_LABELS: Record<string, { label: string; className: string }> = {
+  idle: { label: "لم يُعالَج بعد", className: "bg-muted text-muted-foreground" },
+  processing: { label: "جارٍ المعالجة...", className: "bg-yellow-100 text-yellow-700 dark:bg-yellow-950 dark:text-yellow-400" },
+  ready: { label: "تمت المعالجة", className: "bg-green-100 text-green-700 dark:bg-green-950 dark:text-green-400" },
+  error: { label: "خطأ", className: "bg-red-100 text-red-700 dark:bg-red-950 dark:text-red-400" },
+}
+
 export const PLATFORM_COLORS: Record<string, string> = {
   "YouTube Shorts": "bg-red-100 text-red-700 dark:bg-red-950 dark:text-red-400",
   "IG Reels": "bg-pink-100 text-pink-700 dark:bg-pink-950 dark:text-pink-400",

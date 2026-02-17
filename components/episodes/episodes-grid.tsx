@@ -100,7 +100,7 @@ export function EpisodesGrid({
       )}
 
       {!hasMore && episodes.length > EPISODES_PER_PAGE && (
-        <p className="text-center text-sm text-muted-foreground">
+        <p role="status" aria-live="polite" className="text-center text-sm text-muted-foreground">
           تم عرض جميع الحلقات ({totalCount})
         </p>
       )}

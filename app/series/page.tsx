@@ -73,7 +73,7 @@ export default function SeriesPage() {
 
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
         {collections.map((collection) => (
-          <Link key={collection.slug} href={`/episodes?topic=${collection.slug}`}>
+          <Link key={collection.slug} href={`/episodes?category=${collection.slug}`}>
             <Card className="h-full transition-all hover:border-primary/50 hover:shadow-lg">
               <CardHeader>
                 <div className="flex items-center justify-between">

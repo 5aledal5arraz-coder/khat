@@ -1,21 +1,13 @@
-import { readFile, writeFile, mkdir } from "fs/promises"
-import path from "path"
-import type { MediaKitConfig } from "@/types/ads"
-import { defaultMediaKitConfig } from "@/types/ads"
+import { createConfigStore } from "@/lib/config-store"
+import type { MediaKitConfig } from "@/types/media-kit"
+import { defaultMediaKitConfig } from "@/types/media-kit"
 
-const MEDIA_KIT_PATH = path.join(process.cwd(), "config", "media-kit.json")
+const store = createConfigStore<MediaKitConfig>("media-kit.json", defaultMediaKitConfig)
 
 export async function getMediaKitConfig(): Promise<MediaKitConfig> {
-  try {
-    const data = await readFile(MEDIA_KIT_PATH, "utf-8")
-    return JSON.parse(data) as MediaKitConfig
-  } catch {
-    return defaultMediaKitConfig
-  }
+  return store.read()
 }
 
 export async function saveMediaKitConfig(config: MediaKitConfig): Promise<void> {
-  const configDir = path.dirname(MEDIA_KIT_PATH)
-  await mkdir(configDir, { recursive: true })
-  await writeFile(MEDIA_KIT_PATH, JSON.stringify(config, null, 2), "utf-8")
+  await store.write(config)
 }

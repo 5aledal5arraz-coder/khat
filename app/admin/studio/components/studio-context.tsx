@@ -7,9 +7,12 @@ import type {
   StudioClips, StudioClipItem,
   StudioWebsitePackage, WebsiteQuoteItem, WebsiteResourceItem, WebsiteTimestampItem,
   StudioAnalyzer,
+  StudioTranscriptProcessingStatus, StudioTranscriptSummary, StudioTranscriptQuote,
   Episode,
+  AudioEditSuggestion,
 } from "@/types/database"
 import type { TabStatus } from "./shared"
+import { fetchTranscriptClient } from "@/lib/youtube/transcript-client"
 
 // ---------------------------------------------------------------------------
 // Generate-All step definitions
@@ -41,6 +44,14 @@ interface StudioSessionContextValue {
   uploadTranscript: (file: File) => Promise<void>
   transcriptUploading: boolean
 
+  // Transcript Processing (AI article, summary, quotes)
+  processingStatus: StudioTranscriptProcessingStatus
+  processingError: string
+  transcriptArticle: string | null
+  transcriptSummary: StudioTranscriptSummary | null
+  transcriptQuotes: StudioTranscriptQuote[] | null
+  processTranscript: () => Promise<void>
+
   // AI Outputs
   aiOutput: StudioAiOutput | null
   aiStatus: "idle" | "generating" | "ready" | "error"
@@ -70,6 +81,7 @@ interface StudioSessionContextValue {
   websitePkg: StudioWebsitePackage | null
   websitePkgStatus: "idle" | "generating" | "ready" | "error"
   websitePkgError: string
+  selectedTitle: string
   heroSummary: string
   fullSummary: string
   takeaways: string[]
@@ -77,8 +89,11 @@ interface StudioSessionContextValue {
   quotes: WebsiteQuoteItem[]
   resources: WebsiteResourceItem[]
   timestamps: WebsiteTimestampItem[]
+  selectedQuoteIndices: Set<number>
+  selectedTakeawayIndices: Set<number>
   generateWebsitePackage: () => Promise<void>
   updateWebsitePkgField: (updates: Record<string, unknown>) => void
+  setSelectedTitle: (v: string) => void
   setHeroSummary: (v: string) => void
   setFullSummary: (v: string) => void
   setTakeaways: (v: string[]) => void
@@ -86,12 +101,32 @@ interface StudioSessionContextValue {
   setQuotes: (v: WebsiteQuoteItem[]) => void
   setResources: (v: WebsiteResourceItem[]) => void
   setTimestamps: (v: WebsiteTimestampItem[]) => void
+  setSelectedQuoteIndices: (v: Set<number>) => void
+  setSelectedTakeawayIndices: (v: Set<number>) => void
 
   // Analyzer
   analyzer: StudioAnalyzer | null
   analyzerStatus: "idle" | "generating" | "ready" | "error"
   analyzerError: string
   generateAnalyzer: () => Promise<void>
+
+  // Audio tools (audio sessions only)
+  audioStartSeconds: number | null
+  audioEndSeconds: number | null
+  audioBestIntro: string | null
+  audioIntroStatus: "idle" | "generating" | "ready" | "error"
+  audioIntroError: string
+  setAudioStartSeconds: (v: number | null) => void
+  setAudioEndSeconds: (v: number | null) => void
+  saveAudioTimestamps: (start: number | null, end: number | null) => Promise<void>
+  generateBestIntro: () => Promise<void>
+
+  // Audio edit suggestions (audio sessions only)
+  editSuggestions: AudioEditSuggestion[] | null
+  editSuggestionsStatus: "idle" | "generating" | "ready" | "error"
+  editSuggestionsError: string
+  editSuggestionsCutSeconds: number
+  generateEditSuggestions: () => Promise<void>
 
   // Episodes (for push)
   episodes: Episode[]
@@ -119,6 +154,12 @@ export function useStudioSession() {
   return ctx
 }
 
+function formatTime(seconds: number): string {
+  const m = Math.floor(seconds / 60)
+  const s = Math.floor(seconds % 60)
+  return `${m.toString().padStart(2, "0")}:${s.toString().padStart(2, "0")}`
+}
+
 // ---------------------------------------------------------------------------
 // Provider
 // ---------------------------------------------------------------------------
@@ -135,6 +176,13 @@ export function StudioSessionProvider({
   const [transcriptStatus, setTranscriptStatus] = useState<"not_fetched" | "fetching" | "ready" | "error">("not_fetched")
   const [transcriptError, setTranscriptError] = useState("")
   const [transcriptUploading, setTranscriptUploading] = useState(false)
+
+  // --- Transcript Processing state ---
+  const [processingStatus, setProcessingStatus] = useState<StudioTranscriptProcessingStatus>("idle")
+  const [processingError, setProcessingError] = useState("")
+  const [transcriptArticle, setTranscriptArticle] = useState<string | null>(null)
+  const [transcriptSummary, setTranscriptSummary] = useState<StudioTranscriptSummary | null>(null)
+  const [transcriptQuotes, setTranscriptQuotes] = useState<StudioTranscriptQuote[] | null>(null)
 
   // --- AI Output state ---
   const [aiOutput, setAiOutput] = useState<StudioAiOutput | null>(null)
@@ -157,6 +205,7 @@ export function StudioSessionProvider({
   const [websitePkg, setWebsitePkg] = useState<StudioWebsitePackage | null>(null)
   const [websitePkgStatus, setWebsitePkgStatus] = useState<"idle" | "generating" | "ready" | "error">("idle")
   const [websitePkgError, setWebsitePkgError] = useState("")
+  const [selectedTitle, setSelectedTitle] = useState(session.video_title || "")
   const [heroSummary, setHeroSummary] = useState("")
   const [fullSummary, setFullSummary] = useState("")
   const [takeaways, setTakeaways] = useState<string[]>([])
@@ -164,11 +213,36 @@ export function StudioSessionProvider({
   const [quotes, setQuotes] = useState<WebsiteQuoteItem[]>([])
   const [resources, setResources] = useState<WebsiteResourceItem[]>([])
   const [timestamps, setTimestamps] = useState<WebsiteTimestampItem[]>([])
+  const [selectedQuoteIndices, setSelectedQuoteIndices] = useState<Set<number>>(new Set())
+  const [selectedTakeawayIndices, setSelectedTakeawayIndices] = useState<Set<number>>(new Set())
 
   // --- Analyzer state ---
   const [analyzer, setAnalyzer] = useState<StudioAnalyzer | null>(null)
   const [analyzerStatus, setAnalyzerStatus] = useState<"idle" | "generating" | "ready" | "error">("idle")
   const [analyzerError, setAnalyzerError] = useState("")
+
+  // --- Audio tools state ---
+  const [audioStartSeconds, setAudioStartSeconds] = useState<number | null>(session.audio_start_seconds ?? null)
+  const [audioEndSeconds, setAudioEndSeconds] = useState<number | null>(session.audio_end_seconds ?? null)
+  const [audioBestIntro, setAudioBestIntro] = useState<string | null>(session.audio_best_intro ?? null)
+  const [audioIntroStatus, setAudioIntroStatus] = useState<"idle" | "generating" | "ready" | "error">(
+    session.audio_best_intro ? "ready" : "idle"
+  )
+  const [audioIntroError, setAudioIntroError] = useState("")
+
+  // --- Audio edit suggestions state ---
+  const [editSuggestions, setEditSuggestions] = useState<AudioEditSuggestion[] | null>(
+    session.audio_edit_suggestions ?? null
+  )
+  const [editSuggestionsStatus, setEditSuggestionsStatus] = useState<"idle" | "generating" | "ready" | "error">(
+    session.audio_edit_suggestions ? "ready" : "idle"
+  )
+  const [editSuggestionsError, setEditSuggestionsError] = useState("")
+  const [editSuggestionsCutSeconds, setEditSuggestionsCutSeconds] = useState(
+    session.audio_edit_suggestions
+      ? session.audio_edit_suggestions.reduce((sum, s) => sum + (s.end_seconds - s.start_seconds), 0)
+      : 0
+  )
 
   // --- Episodes ---
   const [episodes, setEpisodes] = useState<Episode[]>([])
@@ -204,6 +278,11 @@ export function StudioSessionProvider({
         setTranscript(t)
         setTranscriptStatus(t.status === "error" ? "error" : "ready")
         if (t.error_message) setTranscriptError(t.error_message)
+        // Load processing state
+        if (t.processing_status) setProcessingStatus(t.processing_status)
+        if (t.transcript_article) setTranscriptArticle(t.transcript_article)
+        if (t.summary) setTranscriptSummary(t.summary)
+        if (t.quotes_extracted) setTranscriptQuotes(t.quotes_extracted)
       }
 
       // AI Output
@@ -236,6 +315,7 @@ export function StudioSessionProvider({
       if (pkgRes?.package) {
         const p = pkgRes.package as StudioWebsitePackage
         setWebsitePkg(p)
+        if (p.custom_title) setSelectedTitle(p.custom_title)
         setHeroSummary(p.hero_summary || "")
         setFullSummary(p.full_summary || "")
         setTakeaways(p.takeaways || [])
@@ -243,6 +323,17 @@ export function StudioSessionProvider({
         setQuotes(p.quotes || [])
         setResources(p.resources || [])
         setTimestamps(p.timestamps || [])
+        // Initialize selections: if saved, use saved; otherwise select all
+        if (p.selected_quote_indices) {
+          setSelectedQuoteIndices(new Set(p.selected_quote_indices))
+        } else if (p.quotes?.length) {
+          setSelectedQuoteIndices(new Set(p.quotes.map((_, i) => i)))
+        }
+        if (p.selected_takeaway_indices) {
+          setSelectedTakeawayIndices(new Set(p.selected_takeaway_indices))
+        } else if (p.takeaways?.length) {
+          setSelectedTakeawayIndices(new Set(p.takeaways.map((_, i) => i)))
+        }
         setWebsitePkgStatus(p.status === "error" ? "error" : p.status === "generating" ? "generating" : "ready")
         if (p.error_message) setWebsitePkgError(p.error_message)
       }
@@ -260,24 +351,67 @@ export function StudioSessionProvider({
   }, [sid])
 
   // --- Transcript actions ---
+
+  /**
+   * Helper: extract transcript from YouTube with fallback cascade.
+   * 1. Try caption extraction (fast & free)
+   * 2. If no captions → download audio via yt-dlp and transcribe with Whisper
+   * Returns the saved transcript or throws with an error message.
+   */
+  const extractAndSaveTranscript = useCallback(async (): Promise<StudioTranscript> => {
+    if (!session.video_id) {
+      throw new Error("لا يوجد معرّف فيديو لهذه الجلسة")
+    }
+
+    // Step 1: Try client-side caption extraction (fast path)
+    const extraction = await fetchTranscriptClient(session.video_id)
+
+    if (extraction.success && extraction.text) {
+      // Captions found — save via existing endpoint
+      const res = await fetch(`/api/admin/studio/${sid}/transcript`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          raw_text: extraction.text,
+          language: extraction.language || "ar",
+        }),
+      })
+
+      const data = await res.json()
+      if (!res.ok) {
+        throw new Error(data.error || "فشل في حفظ النص")
+      }
+
+      return data.transcript as StudioTranscript
+    }
+
+    // Step 2: No captions — fallback to YouTube audio → Whisper transcription
+    const res = await fetch(`/api/admin/studio/${sid}/transcript/youtube-audio`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ video_id: session.video_id }),
+    })
+
+    const data = await res.json()
+    if (!res.ok) {
+      throw new Error(data.error || "فشل في تحويل صوت يوتيوب إلى نص")
+    }
+
+    return data.transcript as StudioTranscript
+  }, [sid, session.video_id])
+
   const fetchTranscript = useCallback(async () => {
     setTranscriptStatus("fetching")
     setTranscriptError("")
     try {
-      const res = await fetch(`/api/admin/studio/${sid}/transcript`, { method: "POST" })
-      const data = await res.json()
-      if (!res.ok) {
-        setTranscriptStatus("error")
-        setTranscriptError(data.error || "فشل في جلب النص")
-        return
-      }
-      setTranscript(data.transcript)
+      const saved = await extractAndSaveTranscript()
+      setTranscript(saved)
       setTranscriptStatus("ready")
-    } catch {
+    } catch (err) {
       setTranscriptStatus("error")
-      setTranscriptError("حدث خطأ في الاتصال")
+      setTranscriptError(err instanceof Error ? err.message : "حدث خطأ في الاتصال")
     }
-  }, [sid])
+  }, [extractAndSaveTranscript])
 
   const transcribeAudio = useCallback(async () => {
     setTranscriptStatus("fetching")
@@ -318,6 +452,30 @@ export function StudioSessionProvider({
       setTranscriptStatus("error")
     } finally {
       setTranscriptUploading(false)
+    }
+  }, [sid])
+
+  // --- Transcript Processing action ---
+  const processTranscriptAction = useCallback(async () => {
+    setProcessingStatus("processing")
+    setProcessingError("")
+    try {
+      const res = await fetch(`/api/admin/studio/${sid}/transcript/process`, { method: "POST" })
+      const data = await res.json()
+      if (!res.ok) {
+        setProcessingStatus("error")
+        setProcessingError(data.error || "فشل في معالجة النص")
+        return
+      }
+      const t = data.transcript as StudioTranscript
+      setTranscript(t)
+      setTranscriptArticle(t.transcript_article)
+      setTranscriptSummary(t.summary)
+      setTranscriptQuotes(t.quotes_extracted)
+      setProcessingStatus("ready")
+    } catch {
+      setProcessingStatus("error")
+      setProcessingError("حدث خطأ في الاتصال")
     }
   }, [sid])
 
@@ -439,6 +597,9 @@ export function StudioSessionProvider({
       setQuotes(p.quotes || [])
       setResources(p.resources || [])
       setTimestamps(p.timestamps || [])
+      // Select all by default on fresh generation
+      setSelectedQuoteIndices(new Set((p.quotes || []).map((_, i) => i)))
+      setSelectedTakeawayIndices(new Set((p.takeaways || []).map((_, i) => i)))
       setWebsitePkgStatus("ready")
     } catch {
       setWebsitePkgStatus("error")
@@ -492,6 +653,61 @@ export function StudioSessionProvider({
     } catch { /* ignore */ }
   }, [])
 
+  // --- Audio tools actions ---
+  const saveAudioTimestamps = useCallback(async (start: number | null, end: number | null) => {
+    try {
+      await fetch(`/api/admin/studio/${sid}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ audio_start_seconds: start, audio_end_seconds: end }),
+      })
+    } catch { /* ignore */ }
+  }, [sid])
+
+  const generateBestIntro = useCallback(async () => {
+    setAudioIntroStatus("generating")
+    setAudioIntroError("")
+    try {
+      const res = await fetch(`/api/admin/studio/${sid}/audio-intro`, { method: "POST" })
+      const data = await res.json()
+      if (!res.ok) {
+        setAudioIntroStatus("error")
+        setAudioIntroError(data.error || "فشل في تحليل الافتتاحية")
+        return
+      }
+      const intro = data.intro as { start_seconds: number; end_seconds: number; reason: string; transcript_excerpt: string }
+      const introText = `${formatTime(intro.start_seconds)} → ${formatTime(intro.end_seconds)}\n${intro.reason}\n\n${intro.transcript_excerpt}`
+      setAudioBestIntro(introText)
+      setAudioStartSeconds(intro.start_seconds)
+      setAudioEndSeconds(intro.end_seconds)
+      setAudioIntroStatus("ready")
+    } catch {
+      setAudioIntroStatus("error")
+      setAudioIntroError("حدث خطأ في الاتصال")
+    }
+  }, [sid])
+
+  // --- Audio edit suggestions action ---
+  const generateEditSuggestionsAction = useCallback(async () => {
+    setEditSuggestionsStatus("generating")
+    setEditSuggestionsError("")
+    try {
+      const res = await fetch(`/api/admin/studio/${sid}/edit-suggestions`, { method: "POST" })
+      const data = await res.json()
+      if (!res.ok) {
+        setEditSuggestionsStatus("error")
+        setEditSuggestionsError(data.error || "فشل في تحليل المقاطع")
+        return
+      }
+      setEditSuggestions(data.suggestions)
+      setEditSuggestionsCutSeconds(data.total_cut_seconds || 0)
+      setEditSuggestionsStatus("ready")
+    } catch {
+      setEditSuggestionsStatus("error")
+      setEditSuggestionsError("حدث خطأ في الاتصال")
+    }
+  }, [sid])
+
   // --- Generate All ---
   const generateAll = useCallback(async () => {
     setGenerateAllRunning(true)
@@ -506,26 +722,29 @@ export function StudioSessionProvider({
         setTranscriptStatus("fetching")
         setTranscriptError("")
 
-        // Use Whisper endpoint for audio sessions, YouTube captions for YouTube sessions
-        const transcriptEndpoint = session.source === "audio"
-          ? `/api/admin/studio/${sid}/transcript/whisper`
-          : `/api/admin/studio/${sid}/transcript`
-
-        const res = await fetch(transcriptEndpoint, { method: "POST" })
-        const data = await res.json()
-        if (!res.ok) {
+        try {
+          if (session.source === "audio") {
+            // Audio sessions: use Whisper endpoint (server-side)
+            const res = await fetch(`/api/admin/studio/${sid}/transcript/whisper`, { method: "POST" })
+            const data = await res.json()
+            if (!res.ok) {
+              throw new Error(data.error || "فشل في تحويل الصوت إلى نص")
+            }
+            setTranscript(data.transcript)
+          } else {
+            // YouTube sessions: extract client-side, then save
+            const saved = await extractAndSaveTranscript()
+            setTranscript(saved)
+          }
+          setTranscriptStatus("ready")
+        } catch (err) {
           setTranscriptStatus("error")
-          setTranscriptError(data.error || "فشل في جلب النص")
-          setGenerateAllError(
-            session.source === "audio"
-              ? "فشل في تحويل الصوت إلى نص"
-              : "فشل في جلب النص التلقائي"
-          )
+          const msg = err instanceof Error ? err.message : "فشل في جلب النص"
+          setTranscriptError(msg)
+          setGenerateAllError(msg)
           setGenerateAllRunning(false)
           return
         }
-        setTranscript(data.transcript)
-        setTranscriptStatus("ready")
       }
       setGenerateAllCompleted(prev => [...prev, "transcript"])
 
@@ -611,6 +830,8 @@ export function StudioSessionProvider({
         setQuotes(p.quotes || [])
         setResources(p.resources || [])
         setTimestamps(p.timestamps || [])
+        setSelectedQuoteIndices(new Set((p.quotes || []).map((_, i) => i)))
+        setSelectedTakeawayIndices(new Set((p.takeaways || []).map((_, i) => i)))
         setWebsitePkgStatus("ready")
       }
       setGenerateAllCompleted(prev => [...prev, "website_package"])
@@ -620,7 +841,7 @@ export function StudioSessionProvider({
     } finally {
       setGenerateAllRunning(false)
     }
-  }, [sid, session.source, transcriptStatus])
+  }, [sid, session.source, transcriptStatus, extractAndSaveTranscript])
 
   // --- Derive tab statuses ---
   const tabStatuses: Record<string, TabStatus> = {
@@ -647,14 +868,24 @@ export function StudioSessionProvider({
   const value: StudioSessionContextValue = {
     session,
     transcript, transcriptStatus, transcriptError, fetchTranscript, transcribeAudio, uploadTranscript, transcriptUploading,
+    processingStatus, processingError, transcriptArticle, transcriptSummary, transcriptQuotes,
+    processTranscript: processTranscriptAction,
     aiOutput, aiStatus, aiError, generateAiOutput, updateAiField,
     chapters, chaptersItems, chaptersStatus, chaptersError, generateChapters, updateChaptersItems, saveChapters,
     clips, clipsItems, clipsStatus, clipsError, generateClips, updateClipsItems, saveClips,
     websitePkg, websitePkgStatus, websitePkgError,
-    heroSummary, fullSummary, takeaways, topics, quotes, resources, timestamps,
+    selectedTitle, heroSummary, fullSummary, takeaways, topics, quotes, resources, timestamps,
+    selectedQuoteIndices, selectedTakeawayIndices,
     generateWebsitePackage, updateWebsitePkgField, debouncedSaveWebPkg,
-    setHeroSummary, setFullSummary, setTakeaways, setTopics, setQuotes, setResources, setTimestamps,
+    setSelectedTitle, setHeroSummary, setFullSummary, setTakeaways, setTopics, setQuotes, setResources, setTimestamps,
+    setSelectedQuoteIndices, setSelectedTakeawayIndices,
     analyzer, analyzerStatus, analyzerError, generateAnalyzer,
+    audioStartSeconds, audioEndSeconds, audioBestIntro,
+    audioIntroStatus, audioIntroError,
+    setAudioStartSeconds, setAudioEndSeconds,
+    saveAudioTimestamps, generateBestIntro,
+    editSuggestions, editSuggestionsStatus, editSuggestionsError, editSuggestionsCutSeconds,
+    generateEditSuggestions: generateEditSuggestionsAction,
     episodes, loadEpisodes,
     generateAll, generateAllRunning, generateAllCurrentStep, generateAllCompleted, generateAllError,
     tabStatuses,

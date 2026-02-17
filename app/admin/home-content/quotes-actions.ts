@@ -7,6 +7,7 @@ import {
   updateHomeQuote,
   deleteHomeQuote,
 } from "@/lib/home-quotes"
+import { requireAdmin } from "@/lib/api-utils"
 
 function revalidateAll() {
   revalidatePath("/")
@@ -14,6 +15,7 @@ function revalidateAll() {
 }
 
 export async function createQuoteAction(formData: FormData) {
+  await requireAdmin()
   const text = formData.get("text") as string
   const attribution = formData.get("attribution") as string
   const theme = (formData.get("theme") as string) || undefined
@@ -42,6 +44,7 @@ export async function createQuoteAction(formData: FormData) {
 }
 
 export async function updateQuoteAction(id: string, formData: FormData) {
+  await requireAdmin()
   const text = formData.get("text") as string
   const attribution = formData.get("attribution") as string
   const theme = (formData.get("theme") as string) || undefined
@@ -67,6 +70,7 @@ export async function updateQuoteAction(id: string, formData: FormData) {
 }
 
 export async function deleteQuoteAction(id: string) {
+  await requireAdmin()
   const deleted = await deleteHomeQuote(id)
   if (!deleted) return { success: false, error: "الاقتباس غير موجود" }
 
@@ -75,6 +79,7 @@ export async function deleteQuoteAction(id: string) {
 }
 
 export async function publishQuoteAction(id: string) {
+  await requireAdmin()
   const updated = await updateHomeQuote(id, { status: "published" })
   if (!updated) return { success: false, error: "الاقتباس غير موجود" }
 
@@ -83,6 +88,7 @@ export async function publishQuoteAction(id: string) {
 }
 
 export async function unpublishQuoteAction(id: string) {
+  await requireAdmin()
   const updated = await updateHomeQuote(id, { status: "draft" })
   if (!updated) return { success: false, error: "الاقتباس غير موجود" }
 
@@ -91,6 +97,7 @@ export async function unpublishQuoteAction(id: string) {
 }
 
 export async function scheduleQuoteAction(id: string, date: string) {
+  await requireAdmin()
   const updated = await updateHomeQuote(id, { scheduled_date: date })
   if (!updated) return { success: false, error: "الاقتباس غير موجود" }
 

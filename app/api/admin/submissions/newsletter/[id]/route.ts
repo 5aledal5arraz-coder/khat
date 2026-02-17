@@ -1,10 +1,13 @@
 import { NextRequest, NextResponse } from "next/server"
 import { deleteNewsletterSubscriber } from "@/lib/admin/queries"
+import { requireAdminAPI } from "@/lib/api-utils"
 
 export async function DELETE(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const authError = await requireAdminAPI()
+  if (authError) return authError
   try {
     const { id } = await params
 

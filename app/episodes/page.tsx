@@ -44,13 +44,17 @@ async function FeaturedEpisode() {
         <div className="flex flex-col gap-6 p-6 md:flex-row md:items-center">
           {/* Thumbnail */}
           <div className="relative aspect-video w-full overflow-hidden rounded-xl md:w-2/5">
-            <Image
-              src={`https://img.youtube.com/vi/${videoId}/maxresdefault.jpg`}
-              alt={episode.title}
-              fill
-              sizes="(max-width: 768px) 100vw, 40vw"
-              className="object-cover transition-transform group-hover:scale-105"
-            />
+            {videoId ? (
+              <Image
+                src={`https://img.youtube.com/vi/${videoId}/maxresdefault.jpg`}
+                alt={episode.title}
+                fill
+                sizes="(max-width: 768px) 100vw, 40vw"
+                className="object-cover transition-transform group-hover:scale-105"
+              />
+            ) : (
+              <div className="absolute inset-0 bg-gradient-to-br from-primary/30 to-primary/5" />
+            )}
             <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-t from-black/60 via-black/20 to-transparent">
               {/* Elegant Play Button */}
               <div className="relative">

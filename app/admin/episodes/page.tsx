@@ -20,6 +20,7 @@ export default async function EpisodesAdminPage() {
 
   const episodesData = episodes.map((ep) => ({
     id: ep.id,
+    slug: ep.slug,
     title: ep.title,
     description: ep.description || "",
     youtube_url: ep.youtube_url,

@@ -49,7 +49,7 @@ async function fetchYouTube<T>(endpoint: string, params: Record<string, string>)
   }
 
   const response = await fetch(url.toString(), {
-    next: { revalidate: 3600 }, // Cache for 1 hour
+    next: { revalidate: 43200 }, // Cache for 12 hours
   })
 
   if (!response.ok) {

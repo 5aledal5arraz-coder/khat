@@ -8,24 +8,30 @@ import {
 } from "@/lib/episode-overrides"
 import { getSectionsConfig, saveSectionsConfig } from "@/lib/episode-sections"
 import { assignGuestToEpisode as assignGuest } from "@/lib/episode-guests"
-import type { EpisodeOverride, EpisodeSection } from "@/types/ads"
-
-const MAX_TITLE_LENGTH = 300
-const MAX_DESCRIPTION_LENGTH = 5000
-const MAX_LABEL_LENGTH = 100
+import { requireAdmin } from "@/lib/api-utils"
+import { ADMIN_LIMITS } from "@/lib/validation"
+import { invalidateEpisodeCache, getCacheStatus } from "@/lib/cache/episode-cache"
+import { saveVersion } from "@/lib/episode-versions"
+import type { EpisodeOverride, EpisodeSection } from "@/types/episodes"
 
 export async function updateEpisodeTitle(
   episodeId: string,
   originalTitle: string,
   customTitle: string
 ) {
+  await requireAdmin()
   if (!episodeId || typeof customTitle !== "string") {
     return { success: false, error: "بيانات غير صالحة" }
   }
 
-  const trimmed = customTitle.trim().slice(0, MAX_TITLE_LENGTH)
+  const trimmed = customTitle.trim().slice(0, ADMIN_LIMITS.TITLE_LENGTH)
   const overrides = await getEpisodeOverrides()
   const existing = overrides.find((o) => o.id === episodeId)
+
+  // Save version snapshot before change
+  await saveVersion(episodeId, "title_override", {
+    override: existing || { id: episodeId, originalTitle, customTitle: "", customDescription: "" },
+  }, `تعديل العنوان`)
 
   if (trimmed === "" || trimmed === originalTitle) {
     // Title reset — if there's a description override, keep the entry
@@ -45,6 +51,7 @@ export async function updateEpisodeTitle(
     })
   }
 
+  await invalidateEpisodeCache()
   revalidatePath("/")
   revalidatePath("/episodes")
   revalidatePath("/admin/episodes")
@@ -57,13 +64,19 @@ export async function updateEpisodeDescription(
   episodeId: string,
   customDescription: string
 ) {
+  await requireAdmin()
   if (!episodeId || typeof customDescription !== "string") {
     return { success: false, error: "بيانات غير صالحة" }
   }
 
-  const trimmed = customDescription.trim().slice(0, MAX_DESCRIPTION_LENGTH)
+  const trimmed = customDescription.trim().slice(0, ADMIN_LIMITS.DESCRIPTION_LENGTH)
   const overrides = await getEpisodeOverrides()
   const existing = overrides.find((o) => o.id === episodeId)
+
+  // Save version snapshot before change
+  await saveVersion(episodeId, "description_override", {
+    override: existing || { id: episodeId, originalTitle: "", customTitle: "", customDescription: "" },
+  }, `تعديل الوصف`)
 
   if (existing) {
     if (trimmed === "") {
@@ -82,6 +95,7 @@ export async function updateEpisodeDescription(
     })
   }
 
+  await invalidateEpisodeCache()
   revalidatePath("/")
   revalidatePath("/episodes")
   revalidatePath("/admin/episodes")
@@ -91,8 +105,10 @@ export async function updateEpisodeDescription(
 }
 
 export async function removeEpisodeOverride(episodeId: string) {
+  await requireAdmin()
   await deleteEpisodeOverride(episodeId)
 
+  await invalidateEpisodeCache()
   revalidatePath("/")
   revalidatePath("/episodes")
   revalidatePath("/admin/episodes")
@@ -102,20 +118,22 @@ export async function removeEpisodeOverride(episodeId: string) {
 }
 
 export async function getOverrides() {
+  await requireAdmin()
   return getEpisodeOverrides()
 }
 
 export async function createSection(label: string, color?: string) {
+  await requireAdmin()
   if (!label || typeof label !== "string" || !label.trim()) {
     return { success: false, error: "اسم التصنيف مطلوب" }
   }
 
-  const trimmedLabel = label.trim().slice(0, MAX_LABEL_LENGTH)
+  const trimmedLabel = label.trim().slice(0, ADMIN_LIMITS.LABEL_LENGTH)
   // Validate color format if provided
   const validColor = color && /^#[0-9a-fA-F]{6}$/.test(color) ? color : undefined
 
   const config = await getSectionsConfig()
-  const id = `section-${Date.now()}`
+  const id = `section-${crypto.randomUUID()}`
   const order = config.sections.length
   const newSection: EpisodeSection = { id, label: trimmedLabel, order, color: validColor }
   config.sections.push(newSection)
@@ -126,6 +144,7 @@ export async function createSection(label: string, color?: string) {
 }
 
 export async function deleteSection(sectionId: string) {
+  await requireAdmin()
   const config = await getSectionsConfig()
   config.sections = config.sections.filter((s) => s.id !== sectionId)
   // Unassign episodes from deleted section
@@ -144,7 +163,11 @@ export async function assignEpisodeSection(
   episodeId: string,
   sectionId: string | null
 ) {
+  await requireAdmin()
   const config = await getSectionsConfig()
+  await saveVersion(episodeId, "section_assignment", {
+    previousSection: config.assignments[episodeId] || null,
+  }, `تغيير التصنيف`)
   if (sectionId) {
     config.assignments[episodeId] = sectionId
   } else {
@@ -158,7 +181,10 @@ export async function assignEpisodeSection(
 }
 
 export async function toggleEpisodeVisibility(episodeId: string) {
+  await requireAdmin()
   const config = await getSectionsConfig()
+  const wasHidden = config.hiddenEpisodes.includes(episodeId)
+  await saveVersion(episodeId, "visibility", { hidden: wasHidden }, wasHidden ? "إظهار الحلقة" : "إخفاء الحلقة")
   const idx = config.hiddenEpisodes.indexOf(episodeId)
   if (idx >= 0) {
     config.hiddenEpisodes.splice(idx, 1)
@@ -167,6 +193,7 @@ export async function toggleEpisodeVisibility(episodeId: string) {
   }
   await saveSectionsConfig(config)
 
+  await invalidateEpisodeCache()
   revalidatePath("/")
   revalidatePath("/episodes")
   revalidatePath("/admin/episodes")
@@ -175,6 +202,7 @@ export async function toggleEpisodeVisibility(episodeId: string) {
 }
 
 export async function toggleSectionVisibility(sectionId: string) {
+  await requireAdmin()
   const config = await getSectionsConfig()
   const section = config.sections.find((s) => s.id === sectionId)
   if (section) {
@@ -182,6 +210,7 @@ export async function toggleSectionVisibility(sectionId: string) {
   }
   await saveSectionsConfig(config)
 
+  await invalidateEpisodeCache()
   revalidatePath("/")
   revalidatePath("/episodes")
   revalidatePath("/admin/episodes")
@@ -189,6 +218,7 @@ export async function toggleSectionVisibility(sectionId: string) {
 }
 
 export async function deleteEpisode(episodeId: string) {
+  await requireAdmin()
   const config = await getSectionsConfig()
   if (!config.deletedEpisodes.includes(episodeId)) {
     config.deletedEpisodes.push(episodeId)
@@ -199,6 +229,7 @@ export async function deleteEpisode(episodeId: string) {
   config.hiddenEpisodes = config.hiddenEpisodes.filter((id) => id !== episodeId)
   await saveSectionsConfig(config)
 
+  await invalidateEpisodeCache()
   revalidatePath("/")
   revalidatePath("/episodes")
   revalidatePath("/admin/episodes")
@@ -207,11 +238,13 @@ export async function deleteEpisode(episodeId: string) {
 }
 
 export async function restoreEpisode(episodeId: string) {
+  await requireAdmin()
   const config = await getSectionsConfig()
   config.deletedEpisodes = config.deletedEpisodes.filter((id) => id !== episodeId)
   // Episode returns as uncategorized — no section assignment needed
   await saveSectionsConfig(config)
 
+  await invalidateEpisodeCache()
   revalidatePath("/")
   revalidatePath("/episodes")
   revalidatePath("/admin/episodes")
@@ -223,6 +256,7 @@ export async function bulkAssignSection(
   episodeIds: string[],
   sectionId: string | null
 ) {
+  await requireAdmin()
   const config = await getSectionsConfig()
   for (const epId of episodeIds) {
     if (sectionId) {
@@ -233,6 +267,7 @@ export async function bulkAssignSection(
   }
   await saveSectionsConfig(config)
 
+  await invalidateEpisodeCache()
   revalidatePath("/")
   revalidatePath("/episodes")
   revalidatePath("/admin/episodes")
@@ -240,6 +275,7 @@ export async function bulkAssignSection(
 }
 
 export async function bulkDeleteEpisodes(episodeIds: string[]) {
+  await requireAdmin()
   const config = await getSectionsConfig()
   for (const epId of episodeIds) {
     if (!config.deletedEpisodes.includes(epId)) {
@@ -250,6 +286,7 @@ export async function bulkDeleteEpisodes(episodeIds: string[]) {
   }
   await saveSectionsConfig(config)
 
+  await invalidateEpisodeCache()
   revalidatePath("/")
   revalidatePath("/episodes")
   revalidatePath("/admin/episodes")
@@ -260,15 +297,32 @@ export async function assignEpisodeGuest(
   episodeId: string,
   guestId: string | null
 ) {
+  await requireAdmin()
   if (!episodeId) {
     return { success: false, error: "بيانات غير صالحة" }
   }
 
+  await saveVersion(episodeId, "guest_assignment", { previousGuestId: guestId }, `تعيين ضيف`)
   await assignGuest(episodeId, guestId)
 
+  await invalidateEpisodeCache()
   revalidatePath("/")
   revalidatePath("/episodes")
   revalidatePath("/admin/episodes")
   revalidatePath(`/admin/episodes/${episodeId}`)
   return { success: true }
+}
+
+export async function invalidateEpisodeCacheAction() {
+  await requireAdmin()
+  await invalidateEpisodeCache()
+  revalidatePath("/")
+  revalidatePath("/episodes")
+  revalidatePath("/admin/episodes")
+  return { success: true }
+}
+
+export async function getEpisodeCacheStatusAction() {
+  await requireAdmin()
+  return getCacheStatus()
 }

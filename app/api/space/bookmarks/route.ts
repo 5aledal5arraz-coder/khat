@@ -27,6 +27,14 @@ export async function POST(request: NextRequest) {
 
   const supabase = await createClient()
 
+  // Verify article exists
+  const { data: target } = await supabase
+    .from('hibr_articles')
+    .select('id')
+    .eq('id', body.article_id)
+    .single()
+  if (!target) return validationErrorResponse('المقال غير موجود')
+
   // Check if already bookmarked
   const { data: existing } = await supabase
     .from('hibr_bookmarks')

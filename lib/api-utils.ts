@@ -71,6 +71,31 @@ export async function getUserApprovedCount(userId: string): Promise<number> {
   return (articlesCount ?? 0) + (thoughtsCount ?? 0)
 }
 
+/**
+ * Require admin access for server actions. Throws if not authenticated or not admin.
+ * TEMPORARY: Bypassed when ADMIN_AUTH_BYPASS=true in env
+ */
+export async function requireAdmin(): Promise<void> {
+  if (process.env.ADMIN_AUTH_BYPASS === 'true') return
+  const user = await getAuthUser()
+  if (!user) throw new Error('يجب تسجيل الدخول أولاً')
+  const profile = await getUserProfile(user.id)
+  if (!profile?.is_admin) throw new Error('ليس لديك صلاحية لهذا الإجراء')
+}
+
+/**
+ * Require admin for API routes. Returns error response or null if authorized.
+ * TEMPORARY: Bypassed when ADMIN_AUTH_BYPASS=true in env
+ */
+export async function requireAdminAPI(): Promise<NextResponse | null> {
+  if (process.env.ADMIN_AUTH_BYPASS === 'true') return null
+  const user = await getAuthUser()
+  if (!user) return unauthorizedResponse()
+  const profile = await getUserProfile(user.id)
+  if (!profile?.is_admin) return forbiddenResponse()
+  return null
+}
+
 // -- Error response helpers (Arabic messages) --
 
 export function errorResponse(message: string, status: number = 400) {

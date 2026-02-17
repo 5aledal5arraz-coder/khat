@@ -1,24 +1,33 @@
-import { readFile, writeFile, mkdir } from "fs/promises"
-import path from "path"
+import { createConfigStore } from "@/lib/config-store"
+import { createClient } from "@/lib/supabase/server"
 import type { DailyReflection } from "@/types/database"
-import type { DailyReflectionsConfig } from "@/types/ads"
-import { defaultDailyReflectionsConfig } from "@/types/ads"
+import type { DailyReflectionsConfig } from "@/types/home-content"
 
-const CONFIG_PATH = path.join(process.cwd(), "config", "daily-reflections.json")
+const USE_SUPABASE = !!(
+  process.env.NEXT_PUBLIC_SUPABASE_URL &&
+  !process.env.NEXT_PUBLIC_SUPABASE_URL.includes("placeholder")
+)
+
+const defaultDailyReflectionsConfig: DailyReflectionsConfig = { reflections: [] }
+
+const store = createConfigStore<DailyReflectionsConfig>("daily-reflections.json", defaultDailyReflectionsConfig)
 
 export async function getReflectionsConfig(): Promise<DailyReflectionsConfig> {
-  try {
-    const data = await readFile(CONFIG_PATH, "utf-8")
-    return JSON.parse(data) as DailyReflectionsConfig
-  } catch {
-    return defaultDailyReflectionsConfig
-  }
-}
+  if (USE_SUPABASE) {
+    try {
+      const supabase = await createClient()
+      const { data, error } = await supabase
+        .from("daily_reflections")
+        .select("*")
+        .order("date", { ascending: false })
 
-async function saveConfig(config: DailyReflectionsConfig): Promise<void> {
-  const configDir = path.dirname(CONFIG_PATH)
-  await mkdir(configDir, { recursive: true })
-  await writeFile(CONFIG_PATH, JSON.stringify(config, null, 2), "utf-8")
+      if (!error && data) return { reflections: data as DailyReflection[] }
+      if (error) console.error("getReflectionsConfig DB error:", error.message)
+    } catch (e) {
+      console.error("getReflectionsConfig DB exception:", e)
+    }
+  }
+  return store.read()
 }
 
 export async function getAllReflections(): Promise<DailyReflection[]> {
@@ -27,13 +36,42 @@ export async function getAllReflections(): Promise<DailyReflection[]> {
 }
 
 export async function getTodaysReflection(): Promise<DailyReflection | null> {
-  const config = await getReflectionsConfig()
+  const today = new Date().toISOString().split("T")[0]
+
+  if (USE_SUPABASE) {
+    try {
+      const supabase = await createClient()
+
+      // Check for today's reflection
+      const { data: todayData, error: todayErr } = await supabase
+        .from("daily_reflections")
+        .select("*")
+        .eq("date", today)
+        .eq("status", "published")
+        .maybeSingle()
+
+      if (!todayErr && todayData) return todayData as DailyReflection
+
+      // Fallback: most recent published
+      const { data: recentData, error: recentErr } = await supabase
+        .from("daily_reflections")
+        .select("*")
+        .eq("status", "published")
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle()
+
+      if (!recentErr && recentData) return recentData as DailyReflection
+      return null
+    } catch (e) {
+      console.error("getTodaysReflection DB exception:", e)
+    }
+  }
+
+  const config = await store.read()
   const published = config.reflections.filter((r) => r.status === "published")
   if (published.length === 0) return null
 
-  const today = new Date().toISOString().split("T")[0]
-
-  // Check for reflection matching today's date
   const todayReflection = published.find((r) => r.date === today)
   if (todayReflection) return todayReflection
 
@@ -45,23 +83,56 @@ export async function getTodaysReflection(): Promise<DailyReflection | null> {
 }
 
 export async function getReflectionById(id: string): Promise<DailyReflection | null> {
-  const config = await getReflectionsConfig()
+  if (USE_SUPABASE) {
+    try {
+      const supabase = await createClient()
+      const { data, error } = await supabase
+        .from("daily_reflections")
+        .select("*")
+        .eq("id", id)
+        .maybeSingle()
+
+      if (!error && data) return data as DailyReflection
+      if (!error && !data) return null
+      if (error) console.error("getReflectionById DB error:", error.message)
+    } catch (e) {
+      console.error("getReflectionById DB exception:", e)
+    }
+  }
+  const config = await store.read()
   return config.reflections.find((r) => r.id === id) ?? null
 }
 
 export async function addReflection(
   reflection: Omit<DailyReflection, "id" | "created_at" | "updated_at">
 ): Promise<DailyReflection> {
-  const config = await getReflectionsConfig()
   const now = new Date().toISOString()
   const newReflection: DailyReflection = {
     ...reflection,
-    id: `dr-${Date.now()}`,
+    id: `dr-${crypto.randomUUID()}`,
     created_at: now,
     updated_at: now,
   }
+
+  if (USE_SUPABASE) {
+    try {
+      const supabase = await createClient()
+      const { data, error } = await supabase
+        .from("daily_reflections")
+        .insert(newReflection)
+        .select()
+        .single()
+
+      if (!error && data) return data as DailyReflection
+      if (error) console.error("addReflection DB error:", error.message)
+    } catch (e) {
+      console.error("addReflection DB exception:", e)
+    }
+  }
+
+  const config = await store.read()
   config.reflections.push(newReflection)
-  await saveConfig(config)
+  await store.write(config)
   return newReflection
 }
 
@@ -69,7 +140,24 @@ export async function updateReflection(
   id: string,
   updates: Partial<Omit<DailyReflection, "id" | "created_at">>
 ): Promise<DailyReflection | null> {
-  const config = await getReflectionsConfig()
+  if (USE_SUPABASE) {
+    try {
+      const supabase = await createClient()
+      const { data, error } = await supabase
+        .from("daily_reflections")
+        .update({ ...updates, updated_at: new Date().toISOString() })
+        .eq("id", id)
+        .select()
+        .single()
+
+      if (!error && data) return data as DailyReflection
+      if (error) console.error("updateReflection DB error:", error.message)
+    } catch (e) {
+      console.error("updateReflection DB exception:", e)
+    }
+  }
+
+  const config = await store.read()
   const index = config.reflections.findIndex((r) => r.id === id)
   if (index === -1) return null
 
@@ -78,22 +166,52 @@ export async function updateReflection(
     ...updates,
     updated_at: new Date().toISOString(),
   }
-  await saveConfig(config)
+  await store.write(config)
   return config.reflections[index]
 }
 
 export async function getReflectionsByEpisodeId(episodeId: string): Promise<DailyReflection[]> {
-  const config = await getReflectionsConfig()
+  if (USE_SUPABASE) {
+    try {
+      const supabase = await createClient()
+      const { data, error } = await supabase
+        .from("daily_reflections")
+        .select("*")
+        .eq("episode_id", episodeId)
+        .eq("status", "published")
+
+      if (!error && data) return data as DailyReflection[]
+      if (error) console.error("getReflectionsByEpisodeId DB error:", error.message)
+    } catch (e) {
+      console.error("getReflectionsByEpisodeId DB exception:", e)
+    }
+  }
+  const config = await store.read()
   return config.reflections.filter(
     (r) => r.status === "published" && r.episode_id === episodeId
   )
 }
 
 export async function deleteReflection(id: string): Promise<boolean> {
-  const config = await getReflectionsConfig()
+  if (USE_SUPABASE) {
+    try {
+      const supabase = await createClient()
+      const { error } = await supabase
+        .from("daily_reflections")
+        .delete()
+        .eq("id", id)
+
+      if (!error) return true
+      console.error("deleteReflection DB error:", error.message)
+    } catch (e) {
+      console.error("deleteReflection DB exception:", e)
+    }
+  }
+
+  const config = await store.read()
   const before = config.reflections.length
   config.reflections = config.reflections.filter((r) => r.id !== id)
   if (config.reflections.length === before) return false
-  await saveConfig(config)
+  await store.write(config)
   return true
 }

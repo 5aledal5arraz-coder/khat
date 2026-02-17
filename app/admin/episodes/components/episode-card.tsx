@@ -31,12 +31,8 @@ import {
 } from "../actions"
 import { ActionMenu, MenuItem, formatDuration, formatDate } from "./shared"
 import type { Episode, AdminGuest } from "./shared"
-import type {
-  EpisodeOverride,
-  EpisodeSection,
-  EpisodeQuotesEntry,
-  YouTubePackEntry,
-} from "@/types/ads"
+import type { EpisodeOverride, EpisodeSection, EpisodeQuotesEntry } from "@/types/episodes"
+import type { YouTubePackEntry } from "@/types/youtube-pack"
 
 interface EpisodeCardProps {
   episode: Episode
@@ -139,7 +135,7 @@ export function EpisodeCard({
   return (
     <div
       onClick={handleCardClick}
-      className={`group relative overflow-hidden rounded-2xl border bg-card/80 backdrop-blur-sm transition-all ${
+      className={`group relative overflow-hidden rounded-xl border bg-card/80 backdrop-blur-sm transition-all ${
         isDeleted
           ? "cursor-default border-destructive/20 opacity-40"
           : isHidden
@@ -150,7 +146,7 @@ export function EpisodeCard({
       }`}
     >
       {/* Thumbnail */}
-      <div className="relative aspect-video w-full overflow-hidden rounded-t-2xl bg-muted/50">
+      <div className="relative aspect-video w-full overflow-hidden rounded-t-xl bg-muted/50">
         {videoId && (
           <Image
             src={`https://img.youtube.com/vi/${videoId}/mqdefault.jpg`}
@@ -257,7 +253,7 @@ export function EpisodeCard({
       </div>
 
       {/* Body */}
-      <div className="p-4">
+      <div className="p-3">
         {editing ? (
           <div
             className="flex items-center gap-2"
@@ -316,7 +312,7 @@ export function EpisodeCard({
 
         {/* Badges row */}
         {!editing && (
-          <div className="mt-2.5 flex flex-wrap items-center gap-1.5">
+          <div className="mt-2 flex flex-wrap items-center gap-1">
             {hasOverride && (
               <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-semibold text-primary ring-1 ring-primary/20">
                 معدّل
@@ -349,7 +345,7 @@ export function EpisodeCard({
         {/* Footer: Section & Guest selectors */}
         {!isDeleted && !editing && (
           <div
-            className="mt-3 flex items-center gap-2 border-t border-border/20 pt-3"
+            className="mt-2 flex items-center gap-2 border-t border-border/20 pt-2"
             onClick={(e) => e.stopPropagation()}
           >
             <select

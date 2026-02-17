@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Label } from "@/components/ui/label"
 import { Loader2, Check } from "lucide-react"
+import Link from "next/link"
 
 const COLLABORATION_OPTIONS = [
   { value: "episode_partnership", label: "شراكة حلقة" },
@@ -49,9 +50,25 @@ export function SponsorForm() {
     )
   }
 
+  const isFormValid = collaborationTypes.length > 0 && mainGoal && budgetRange
+
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
+
+    if (!isFormValid) {
+      setStatus("error")
+      if (collaborationTypes.length === 0) {
+        setMessage("يرجى اختيار نوع تعاون واحد على الأقل")
+      } else if (!mainGoal) {
+        setMessage("يرجى اختيار الهدف الرئيسي من الشراكة")
+      } else if (!budgetRange) {
+        setMessage("يرجى اختيار نطاق الميزانية")
+      }
+      return
+    }
+
     setStatus("loading")
+    setMessage("")
 
     const formData = new FormData(e.currentTarget)
     const data = {
@@ -99,6 +116,14 @@ export function SponsorForm() {
         <p className="mt-3 text-muted-foreground leading-relaxed">
           سنراجع طلبك ونعود إليك بخطة تعاون مقترحة تناسب أهدافك.
         </p>
+        <div className="mt-6 flex justify-center gap-3">
+          <Button variant="outline" onClick={() => setStatus("idle")}>
+            إرسال طلب آخر
+          </Button>
+          <Link href="/">
+            <Button variant="ghost">العودة للرئيسية</Button>
+          </Link>
+        </div>
       </div>
     )
   }
@@ -172,6 +197,7 @@ export function SponsorForm() {
                 name="phone"
                 type="tel"
                 required
+                minLength={8}
                 disabled={status === "loading"}
               />
             </div>
@@ -189,8 +215,8 @@ export function SponsorForm() {
         </div>
         <div className="space-y-4">
           <div className="space-y-2">
-            <Label>أنواع التعاون المطلوبة (اختر واحدة أو أكثر)</Label>
-            <div className="grid gap-2 sm:grid-cols-2">
+            <Label>أنواع التعاون المطلوبة * <span className="text-muted-foreground font-normal">(اختر واحدة أو أكثر)</span></Label>
+            <div className="grid gap-2 sm:grid-cols-2" role="group" aria-label="أنواع التعاون المطلوبة">
               {COLLABORATION_OPTIONS.map((option) => (
                 <label
                   key={option.value}
@@ -237,7 +263,7 @@ export function SponsorForm() {
         <div className="space-y-4">
           <div className="space-y-2">
             <Label>الهدف الرئيسي من الشراكة *</Label>
-            <div className="grid gap-2 sm:grid-cols-2">
+            <div className="grid gap-2 sm:grid-cols-2" role="radiogroup" aria-required="true" aria-label="الهدف الرئيسي من الشراكة">
               {GOAL_OPTIONS.map((option) => (
                 <label
                   key={option.value}
@@ -275,7 +301,7 @@ export function SponsorForm() {
             <Input
               id="preferred_timeline"
               name="preferred_timeline"
-              placeholder="مثال: الربع الثاني 2025"
+              placeholder="مثال: الربع الثاني 2026"
               disabled={status === "loading"}
             />
           </div>
@@ -292,7 +318,7 @@ export function SponsorForm() {
         </div>
         <div className="space-y-2">
           <Label>نطاق الميزانية التقريبي *</Label>
-          <div className="grid gap-2 sm:grid-cols-2">
+          <div className="grid gap-2 sm:grid-cols-2" role="radiogroup" aria-required="true" aria-label="نطاق الميزانية التقريبي">
             {BUDGET_OPTIONS.map((option) => (
               <label
                 key={option.value}

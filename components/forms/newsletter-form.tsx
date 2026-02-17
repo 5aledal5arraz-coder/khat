@@ -46,7 +46,13 @@ export function NewsletterForm() {
             type="email"
             placeholder="بريدك الإلكتروني"
             value={email}
-            onChange={(e) => setEmail(e.target.value)}
+            onChange={(e) => {
+              setEmail(e.target.value)
+              if (status === "error") {
+                setStatus("idle")
+                setMessage("")
+              }
+            }}
             className="ps-10"
             required
             disabled={status === "loading" || status === "success"}

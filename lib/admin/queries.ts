@@ -7,7 +7,7 @@ import type {
   SponsorshipStatus,
   NewsletterSubscriber,
 } from "@/types/database"
-import { mockGuests } from "@/lib/mock-data"
+import { mockGuests } from "@/lib/mocks/episodes"
 
 const USE_MOCK_DATA =
   process.env.NEXT_PUBLIC_SUPABASE_URL?.includes("placeholder") ||
@@ -280,7 +280,7 @@ export async function createGuest(
   if (USE_MOCK_DATA) {
     const newGuest: Guest = {
       ...guest,
-      id: `guest-${Date.now()}`,
+      id: `guest-${crypto.randomUUID()}`,
       created_at: new Date().toISOString(),
     }
     return { success: true, data: newGuest }

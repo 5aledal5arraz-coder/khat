@@ -1,35 +1,95 @@
-import { readFile, writeFile, mkdir } from "fs/promises"
-import path from "path"
+import { createConfigStore } from "@/lib/config-store"
+import { createClient } from "@/lib/supabase/server"
 import type { Guest } from "@/types/database"
 
-const ASSIGNMENTS_PATH = path.join(process.cwd(), "config", "episode-guest-assignments.json")
+const USE_SUPABASE = !!(
+  process.env.NEXT_PUBLIC_SUPABASE_URL &&
+  !process.env.NEXT_PUBLIC_SUPABASE_URL.includes("placeholder")
+)
 
 // episodeId -> guestId
 export type GuestAssignments = Record<string, string>
 
+const store = createConfigStore<GuestAssignments>("episode-guest-assignments.json", {})
+
 export async function getGuestAssignments(): Promise<GuestAssignments> {
-  try {
-    const data = await readFile(ASSIGNMENTS_PATH, "utf-8")
-    return JSON.parse(data) as GuestAssignments
-  } catch {
-    return {}
+  if (USE_SUPABASE) {
+    try {
+      const supabase = await createClient()
+      const { data, error } = await supabase
+        .from("episode_guest_assignments")
+        .select("episode_id, guest_id")
+
+      if (!error && data) {
+        const assignments: GuestAssignments = {}
+        for (const row of data) {
+          assignments[row.episode_id] = row.guest_id
+        }
+        return assignments
+      }
+      if (error) console.error("getGuestAssignments DB error:", error.message)
+    } catch (e) {
+      console.error("getGuestAssignments DB exception:", e)
+    }
   }
+  return store.read()
 }
 
 export async function saveGuestAssignments(assignments: GuestAssignments): Promise<void> {
-  const configDir = path.dirname(ASSIGNMENTS_PATH)
-  await mkdir(configDir, { recursive: true })
-  await writeFile(ASSIGNMENTS_PATH, JSON.stringify(assignments, null, 2), "utf-8")
+  if (USE_SUPABASE) {
+    try {
+      const supabase = await createClient()
+      // Replace all
+      await supabase.from("episode_guest_assignments").delete().neq("episode_id", "")
+      const rows = Object.entries(assignments).map(([episodeId, guestId]) => ({
+        episode_id: episodeId,
+        guest_id: guestId,
+      }))
+      if (rows.length > 0) {
+        const { error } = await supabase.from("episode_guest_assignments").upsert(rows)
+        if (error) console.error("saveGuestAssignments DB error:", error.message)
+        else return
+      } else {
+        return
+      }
+    } catch (e) {
+      console.error("saveGuestAssignments DB exception:", e)
+    }
+  }
+  await store.write(assignments)
 }
 
 export async function assignGuestToEpisode(episodeId: string, guestId: string | null): Promise<void> {
-  const assignments = await getGuestAssignments()
+  if (USE_SUPABASE) {
+    try {
+      const supabase = await createClient()
+      if (guestId) {
+        const { error } = await supabase.from("episode_guest_assignments").upsert({
+          episode_id: episodeId,
+          guest_id: guestId,
+        })
+        if (!error) return
+        console.error("assignGuestToEpisode DB error:", error.message)
+      } else {
+        const { error } = await supabase
+          .from("episode_guest_assignments")
+          .delete()
+          .eq("episode_id", episodeId)
+        if (!error) return
+        console.error("assignGuestToEpisode DB error:", error.message)
+      }
+    } catch (e) {
+      console.error("assignGuestToEpisode DB exception:", e)
+    }
+  }
+
+  const assignments = await store.read()
   if (guestId) {
     assignments[episodeId] = guestId
   } else {
     delete assignments[episodeId]
   }
-  await saveGuestAssignments(assignments)
+  await store.write(assignments)
 }
 
 /**

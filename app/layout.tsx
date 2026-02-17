@@ -8,6 +8,7 @@ import { ViewportFix } from "@/components/layout/viewport-fix"
 import { Toaster } from "@/components/ui/toaster"
 import { AuthProvider } from "@/components/providers/auth-provider"
 import { getThemeConfig } from "@/lib/theme"
+import { isEnabled } from "@/config/site"
 import { ThemeSync } from "@/components/theme/theme-sync"
 
 const ibmPlexArabic = IBM_Plex_Sans_Arabic({
@@ -17,6 +18,7 @@ const ibmPlexArabic = IBM_Plex_Sans_Arabic({
 })
 
 export const metadata: Metadata = {
+  metadataBase: new URL("https://khatpodcast.com"),
   title: {
     default: "خط | بودكاست",
     template: "%s | خط",
@@ -28,6 +30,8 @@ export const metadata: Metadata = {
     type: "website",
     locale: "ar_SA",
     siteName: "خط",
+    url: "https://khatpodcast.com",
+    images: [{ url: "/logo-wide.jpg", width: 1200, height: 630, alt: "بودكاست خط" }],
   },
 }
 
@@ -42,7 +46,10 @@ export default async function RootLayout({
 }: Readonly<{
   children: React.ReactNode
 }>) {
-  const { mode } = await getThemeConfig()
+  const [{ mode }, hibrEnabled] = await Promise.all([
+    getThemeConfig(),
+    isEnabled("hibrEnabled"),
+  ])
 
   return (
     <html
@@ -64,10 +71,10 @@ export default async function RootLayout({
           <ThemeSync />
           <ViewportFix />
           <div className="flex min-h-dvh flex-col">
-            <Header />
+            <Header hibrEnabled={hibrEnabled} />
             <main className="main-content flex-1">{children}</main>
             <Footer />
-            <MobileNav />
+            <MobileNav hibrEnabled={hibrEnabled} />
             <Toaster />
           </div>
         </AuthProvider>
