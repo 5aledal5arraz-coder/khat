@@ -1,27 +1,18 @@
 import { createConfigStore } from "@/lib/config-store"
-import { createClient } from "@/lib/supabase/server"
+import { pool, USE_DB } from "@/lib/db"
 import type { TopicConfig, TopicsConfig } from "@/types/topics"
-
-const USE_SUPABASE = !!(
-  process.env.NEXT_PUBLIC_SUPABASE_URL &&
-  !process.env.NEXT_PUBLIC_SUPABASE_URL.includes("placeholder")
-)
 
 const store = createConfigStore<TopicsConfig>("topics.json", { topics: [] })
 
 export async function getAllTopics(): Promise<TopicConfig[]> {
-  if (USE_SUPABASE) {
+  if (USE_DB) {
     try {
-      const supabase = await createClient()
-      const { data, error } = await supabase
-        .from("topics_config")
-        .select("id, name, slug, description, color, icon, created_at, updated_at")
-        .order("name")
-
-      if (!error && data) {
-        return data as TopicConfig[]
-      }
-      if (error) console.error("getAllTopics DB error:", error.message)
+      const { rows } = await pool!.query(
+        `SELECT id, name, slug, description, color, icon, created_at, updated_at
+         FROM topics_config
+         ORDER BY name`
+      )
+      return rows as TopicConfig[]
     } catch (e) {
       console.error("getAllTopics DB exception:", e)
     }
@@ -31,17 +22,15 @@ export async function getAllTopics(): Promise<TopicConfig[]> {
 }
 
 export async function getTopicById(id: string): Promise<TopicConfig | undefined> {
-  if (USE_SUPABASE) {
+  if (USE_DB) {
     try {
-      const supabase = await createClient()
-      const { data, error } = await supabase
-        .from("topics_config")
-        .select("id, name, slug, description, color, icon, created_at, updated_at")
-        .eq("id", id)
-        .maybeSingle()
-
-      if (!error && data) return data as TopicConfig
-      if (error) console.error("getTopicById DB error:", error.message)
+      const { rows } = await pool!.query(
+        `SELECT id, name, slug, description, color, icon, created_at, updated_at
+         FROM topics_config WHERE id = $1 LIMIT 1`,
+        [id]
+      )
+      if (rows[0]) return rows[0] as TopicConfig
+      return undefined
     } catch (e) {
       console.error("getTopicById DB exception:", e)
     }
@@ -51,17 +40,15 @@ export async function getTopicById(id: string): Promise<TopicConfig | undefined>
 }
 
 export async function getTopicBySlug(slug: string): Promise<TopicConfig | undefined> {
-  if (USE_SUPABASE) {
+  if (USE_DB) {
     try {
-      const supabase = await createClient()
-      const { data, error } = await supabase
-        .from("topics_config")
-        .select("id, name, slug, description, color, icon, created_at, updated_at")
-        .eq("slug", slug)
-        .maybeSingle()
-
-      if (!error && data) return data as TopicConfig
-      if (error) console.error("getTopicBySlug DB error:", error.message)
+      const { rows } = await pool!.query(
+        `SELECT id, name, slug, description, color, icon, created_at, updated_at
+         FROM topics_config WHERE slug = $1 LIMIT 1`,
+        [slug]
+      )
+      if (rows[0]) return rows[0] as TopicConfig
+      return undefined
     } catch (e) {
       console.error("getTopicBySlug DB exception:", e)
     }
@@ -79,17 +66,15 @@ export async function addTopic(topic: Omit<TopicConfig, "id" | "created_at" | "u
     updated_at: now,
   }
 
-  if (USE_SUPABASE) {
+  if (USE_DB) {
     try {
-      const supabase = await createClient()
-      const { data, error } = await supabase
-        .from("topics_config")
-        .insert(newTopic)
-        .select()
-        .single()
-
-      if (!error && data) return data as TopicConfig
-      if (error) console.error("addTopic DB error:", error.message)
+      const { rows } = await pool!.query(
+        `INSERT INTO topics_config (id, name, slug, description, color, icon, created_at, updated_at)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+         RETURNING *`,
+        [newTopic.id, newTopic.name, newTopic.slug, newTopic.description || null, newTopic.color, newTopic.icon || null, newTopic.created_at, newTopic.updated_at]
+      )
+      if (rows[0]) return rows[0] as TopicConfig
     } catch (e) {
       console.error("addTopic DB exception:", e)
     }
@@ -102,18 +87,28 @@ export async function addTopic(topic: Omit<TopicConfig, "id" | "created_at" | "u
 }
 
 export async function updateTopic(id: string, updates: Partial<Omit<TopicConfig, "id" | "created_at">>): Promise<TopicConfig | null> {
-  if (USE_SUPABASE) {
+  if (USE_DB) {
     try {
-      const supabase = await createClient()
-      const { data, error } = await supabase
-        .from("topics_config")
-        .update({ ...updates, updated_at: new Date().toISOString() })
-        .eq("id", id)
-        .select()
-        .single()
+      const fields: string[] = []
+      const values: unknown[] = []
+      let paramIndex = 1
 
-      if (!error && data) return data as TopicConfig
-      if (error) console.error("updateTopic DB error:", error.message)
+      for (const [key, value] of Object.entries(updates)) {
+        fields.push(`${key} = $${paramIndex}`)
+        values.push(value)
+        paramIndex++
+      }
+      fields.push(`updated_at = $${paramIndex}`)
+      values.push(new Date().toISOString())
+      paramIndex++
+      values.push(id)
+
+      const { rows } = await pool!.query(
+        `UPDATE topics_config SET ${fields.join(", ")} WHERE id = $${paramIndex} RETURNING *`,
+        values
+      )
+      if (rows[0]) return rows[0] as TopicConfig
+      return null
     } catch (e) {
       console.error("updateTopic DB exception:", e)
     }
@@ -132,16 +127,13 @@ export async function updateTopic(id: string, updates: Partial<Omit<TopicConfig,
 }
 
 export async function deleteTopic(id: string): Promise<boolean> {
-  if (USE_SUPABASE) {
+  if (USE_DB) {
     try {
-      const supabase = await createClient()
-      const { error } = await supabase
-        .from("topics_config")
-        .delete()
-        .eq("id", id)
-
-      if (!error) return true
-      console.error("deleteTopic DB error:", error.message)
+      const { rowCount } = await pool!.query(
+        `DELETE FROM topics_config WHERE id = $1`,
+        [id]
+      )
+      return (rowCount ?? 0) > 0
     } catch (e) {
       console.error("deleteTopic DB exception:", e)
     }

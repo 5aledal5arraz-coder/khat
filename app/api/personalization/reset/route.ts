@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
-import { createClient } from "@/lib/supabase/server"
+import { pool } from "@/lib/db"
 import { validateOrigin, validateCustomHeader, errorResponse } from "@/lib/api-utils"
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
@@ -18,8 +18,7 @@ export async function POST(request: NextRequest) {
   }
 
   // Delete all events for this visitor
-  const supabase = await createClient()
-  await supabase.from("visitor_events").delete().eq("visitor_id", visitorId)
+  await pool!.query("DELETE FROM visitor_events WHERE visitor_id = $1", [visitorId])
 
   // Clear cookie
   const response = NextResponse.json({ ok: true })

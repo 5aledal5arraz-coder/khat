@@ -1,0 +1,163 @@
+/**
+ * Seed local database from live DigitalOcean database.
+ * Usage: npx tsx scripts/seed-from-live.ts
+ */
+import pg from "pg"
+const { Client } = pg
+
+const LIVE_URL =
+  "postgresql://doadmin:***REMOVED***@khat-main-db-do-user-32538860-0.g.db.ondigitalocean.com:25060/defaultdb?sslmode=require"
+const LOCAL_URL = "postgresql://aishaalkharraz@localhost:5432/khat"
+
+// Tables in dependency order (parents before children)
+const TABLES = [
+  // Independent tables first
+  "site_settings",
+  "static_content",
+  "platform_analytics",
+  "topics_config",
+  "ad_slots",
+  "profiles",
+
+  // Core content
+  "topics",
+  "guests",
+  "episodes",
+  "episode_topics",
+  "timestamps",
+  "quotes",
+  "resources",
+
+  // Episode config tables
+  "episode_overrides",
+  "episode_enrichments",
+  "episode_guest_assignments",
+  "episode_quotes_config",
+  "episode_sections",
+  "episode_section_assignments",
+  "episode_visibility",
+  "episode_versions",
+  "episode_knowledge",
+  "episode_knowledge_meta",
+
+  // Home content
+  "home_quotes",
+  "daily_reflections",
+  "emotional_paths",
+
+  // Studio
+  "studio_sessions",
+  "studio_transcripts",
+  "studio_ai_outputs",
+  "studio_chapters",
+  "studio_clips",
+  "studio_website_packages",
+  "studio_analyzers",
+  "studio_push_log",
+
+  // Teasers
+  "teasers",
+  "teaser_questions",
+
+  // Submissions
+  "newsletter_subscribers",
+  "sponsorship_leads",
+  "guest_applications",
+
+  // Personalization
+  "visitor_events",
+  "visitor_profiles",
+]
+
+async function main() {
+  const live = new Client({
+    connectionString: LIVE_URL,
+    ssl: { rejectUnauthorized: false },
+  })
+  const local = new Client({ connectionString: LOCAL_URL })
+
+  await live.connect()
+  await local.connect()
+  console.log("Connected to both databases\n")
+
+  // Disable FK checks during import
+  await local.query("SET session_replication_role = 'replica';")
+
+  let totalRows = 0
+
+  for (const table of TABLES) {
+    try {
+      // Check if table exists on live
+      const existsCheck = await live.query(
+        `SELECT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = $1)`,
+        [table]
+      )
+      if (!existsCheck.rows[0].exists) {
+        console.log(`  ⏭  ${table} — not on live server, skipping`)
+        continue
+      }
+
+      // Get row count from live
+      const countResult = await live.query(`SELECT COUNT(*) FROM "${table}"`)
+      const count = parseInt(countResult.rows[0].count, 10)
+
+      if (count === 0) {
+        console.log(`  ⏭  ${table} — empty on live, skipping`)
+        continue
+      }
+
+      // Clear local table
+      await local.query(`DELETE FROM "${table}"`)
+
+      // Fetch all rows from live
+      const { rows, fields } = await live.query(`SELECT * FROM "${table}"`)
+      const columns = fields.map((f) => `"${f.name}"`)
+
+      // Batch insert (chunks of 100)
+      const chunkSize = 100
+      for (let i = 0; i < rows.length; i += chunkSize) {
+        const chunk = rows.slice(i, i + chunkSize)
+        const valuePlaceholders: string[] = []
+        const values: unknown[] = []
+        let paramIdx = 1
+
+        for (const row of chunk) {
+          const rowPlaceholders: string[] = []
+          for (const field of fields) {
+            let val = row[field.name]
+            // Serialize objects/arrays to JSON string for JSONB columns
+            if (val !== null && typeof val === "object" && !Array.isArray(val) && !(val instanceof Date)) {
+              val = JSON.stringify(val)
+            }
+            rowPlaceholders.push(`$${paramIdx++}`)
+            values.push(val)
+          }
+          valuePlaceholders.push(`(${rowPlaceholders.join(", ")})`)
+        }
+
+        await local.query(
+          `INSERT INTO "${table}" (${columns.join(", ")}) VALUES ${valuePlaceholders.join(", ")} ON CONFLICT DO NOTHING`,
+          values
+        )
+      }
+
+      totalRows += count
+      console.log(`  ✅ ${table} — ${count} rows`)
+    } catch (err: any) {
+      console.log(`  ❌ ${table} — ${err.message}`)
+    }
+  }
+
+  // Re-enable FK checks
+  await local.query("SET session_replication_role = 'origin';")
+
+  console.log(`\nDone! Seeded ${totalRows} total rows across ${TABLES.length} tables.`)
+
+  await live.end()
+  await local.end()
+}
+
+main().catch((err) => {
+  console.error("Fatal error:", err)
+  process.exit(1)
+})

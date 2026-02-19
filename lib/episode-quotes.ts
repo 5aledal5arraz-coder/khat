@@ -1,12 +1,7 @@
 import { createConfigStore } from "@/lib/config-store"
-import { createClient } from "@/lib/supabase/server"
+import { pool, USE_DB } from "@/lib/db"
 import type { EpisodeQuotesConfig, EpisodeQuotesEntry } from "@/types/episodes"
 import type { Quote } from "@/types/database"
-
-const USE_SUPABASE = !!(
-  process.env.NEXT_PUBLIC_SUPABASE_URL &&
-  !process.env.NEXT_PUBLIC_SUPABASE_URL.includes("placeholder")
-)
 
 const store = createConfigStore<EpisodeQuotesConfig>("episode-quotes.json", {})
 
@@ -24,22 +19,18 @@ function rowToEntry(row: Record<string, unknown>): EpisodeQuotesEntry {
 }
 
 export async function getQuotesConfig(): Promise<EpisodeQuotesConfig> {
-  if (USE_SUPABASE) {
+  if (USE_DB) {
     try {
-      const supabase = await createClient()
-      const { data, error } = await supabase
-        .from("episode_quotes_config")
-        .select("episode_id, episode_title, quotes, transcript, status, generated_at, published_at")
-
-      if (!error && data) {
-        const config: EpisodeQuotesConfig = {}
-        for (const row of data) {
-          const entry = rowToEntry(row)
-          config[entry.episodeId] = entry
-        }
-        return config
+      const { rows } = await pool!.query(
+        `SELECT episode_id, episode_title, quotes, transcript, status, generated_at, published_at
+         FROM episode_quotes_config`
+      )
+      const config: EpisodeQuotesConfig = {}
+      for (const row of rows) {
+        const entry = rowToEntry(row)
+        config[entry.episodeId] = entry
       }
-      if (error) console.error("getQuotesConfig DB error:", error.message)
+      return config
     } catch (e) {
       console.error("getQuotesConfig DB exception:", e)
     }
@@ -48,25 +39,24 @@ export async function getQuotesConfig(): Promise<EpisodeQuotesConfig> {
 }
 
 export async function saveQuotesConfig(config: EpisodeQuotesConfig): Promise<void> {
-  if (USE_SUPABASE) {
+  if (USE_DB) {
     try {
-      const supabase = await createClient()
-      const rows = Object.values(config).map((e) => ({
-        episode_id: e.episodeId,
-        episode_title: e.episodeTitle,
-        quotes: e.quotes,
-        transcript: e.transcript,
-        status: e.status,
-        generated_at: e.generatedAt,
-        published_at: e.publishedAt,
-      }))
-      if (rows.length > 0) {
-        const { error } = await supabase.from("episode_quotes_config").upsert(rows)
-        if (!error) return
-        console.error("saveQuotesConfig DB error:", error.message)
-      } else {
-        return
+      const entries = Object.values(config)
+      for (const e of entries) {
+        await pool!.query(
+          `INSERT INTO episode_quotes_config (episode_id, episode_title, quotes, transcript, status, generated_at, published_at)
+           VALUES ($1, $2, $3, $4, $5, $6, $7)
+           ON CONFLICT (episode_id) DO UPDATE SET
+             episode_title = EXCLUDED.episode_title,
+             quotes = EXCLUDED.quotes,
+             transcript = EXCLUDED.transcript,
+             status = EXCLUDED.status,
+             generated_at = EXCLUDED.generated_at,
+             published_at = EXCLUDED.published_at`,
+          [e.episodeId, e.episodeTitle, JSON.stringify(e.quotes), e.transcript, e.status, e.generatedAt, e.publishedAt]
+        )
       }
+      return
     } catch (e) {
       console.error("saveQuotesConfig DB exception:", e)
     }
@@ -75,18 +65,15 @@ export async function saveQuotesConfig(config: EpisodeQuotesConfig): Promise<voi
 }
 
 export async function getEpisodeQuotesEntry(episodeId: string): Promise<EpisodeQuotesEntry | null> {
-  if (USE_SUPABASE) {
+  if (USE_DB) {
     try {
-      const supabase = await createClient()
-      const { data, error } = await supabase
-        .from("episode_quotes_config")
-        .select("episode_id, episode_title, quotes, transcript, status, generated_at, published_at")
-        .eq("episode_id", episodeId)
-        .maybeSingle()
-
-      if (!error && data) return rowToEntry(data)
-      if (!error && !data) return null
-      if (error) console.error("getEpisodeQuotesEntry DB error:", error.message)
+      const { rows } = await pool!.query(
+        `SELECT episode_id, episode_title, quotes, transcript, status, generated_at, published_at
+         FROM episode_quotes_config WHERE episode_id = $1 LIMIT 1`,
+        [episodeId]
+      )
+      if (rows[0]) return rowToEntry(rows[0])
+      return null
     } catch (e) {
       console.error("getEpisodeQuotesEntry DB exception:", e)
     }
@@ -96,20 +83,21 @@ export async function getEpisodeQuotesEntry(episodeId: string): Promise<EpisodeQ
 }
 
 export async function setEpisodeQuotesEntry(entry: EpisodeQuotesEntry): Promise<void> {
-  if (USE_SUPABASE) {
+  if (USE_DB) {
     try {
-      const supabase = await createClient()
-      const { error } = await supabase.from("episode_quotes_config").upsert({
-        episode_id: entry.episodeId,
-        episode_title: entry.episodeTitle,
-        quotes: entry.quotes,
-        transcript: entry.transcript,
-        status: entry.status,
-        generated_at: entry.generatedAt,
-        published_at: entry.publishedAt,
-      })
-      if (!error) return
-      console.error("setEpisodeQuotesEntry DB error:", error.message)
+      await pool!.query(
+        `INSERT INTO episode_quotes_config (episode_id, episode_title, quotes, transcript, status, generated_at, published_at)
+         VALUES ($1, $2, $3, $4, $5, $6, $7)
+         ON CONFLICT (episode_id) DO UPDATE SET
+           episode_title = EXCLUDED.episode_title,
+           quotes = EXCLUDED.quotes,
+           transcript = EXCLUDED.transcript,
+           status = EXCLUDED.status,
+           generated_at = EXCLUDED.generated_at,
+           published_at = EXCLUDED.published_at`,
+        [entry.episodeId, entry.episodeTitle, JSON.stringify(entry.quotes), entry.transcript, entry.status, entry.generatedAt, entry.publishedAt]
+      )
+      return
     } catch (e) {
       console.error("setEpisodeQuotesEntry DB exception:", e)
     }
@@ -120,15 +108,13 @@ export async function setEpisodeQuotesEntry(entry: EpisodeQuotesEntry): Promise<
 }
 
 export async function deleteEpisodeQuotesEntry(episodeId: string): Promise<void> {
-  if (USE_SUPABASE) {
+  if (USE_DB) {
     try {
-      const supabase = await createClient()
-      const { error } = await supabase
-        .from("episode_quotes_config")
-        .delete()
-        .eq("episode_id", episodeId)
-      if (!error) return
-      console.error("deleteEpisodeQuotesEntry DB error:", error.message)
+      await pool!.query(
+        `DELETE FROM episode_quotes_config WHERE episode_id = $1`,
+        [episodeId]
+      )
+      return
     } catch (e) {
       console.error("deleteEpisodeQuotesEntry DB exception:", e)
     }
@@ -139,18 +125,15 @@ export async function deleteEpisodeQuotesEntry(episodeId: string): Promise<void>
 }
 
 export async function getPublishedQuotes(episodeId: string, guestId: string | null): Promise<Quote[]> {
-  if (USE_SUPABASE) {
+  if (USE_DB) {
     try {
-      const supabase = await createClient()
-      const { data, error } = await supabase
-        .from("episode_quotes_config")
-        .select("quotes, generated_at")
-        .eq("episode_id", episodeId)
-        .eq("status", "published")
-        .maybeSingle()
-
-      if (!error && data) {
-        const quotes = data.quotes as EpisodeQuotesEntry["quotes"]
+      const { rows } = await pool!.query(
+        `SELECT quotes, generated_at FROM episode_quotes_config
+         WHERE episode_id = $1 AND status = $2 LIMIT 1`,
+        [episodeId, "published"]
+      )
+      if (rows[0]) {
+        const quotes = rows[0].quotes as EpisodeQuotesEntry["quotes"]
         return quotes
           .filter((q) => !q.hidden)
           .map((q) => ({
@@ -159,11 +142,10 @@ export async function getPublishedQuotes(episodeId: string, guestId: string | nu
             guest_id: guestId,
             text: q.text,
             theme: q.theme,
-            created_at: data.generated_at,
+            created_at: rows[0].generated_at,
           }))
       }
-      if (!error && !data) return []
-      if (error) console.error("getPublishedQuotes DB error:", error.message)
+      return []
     } catch (e) {
       console.error("getPublishedQuotes DB exception:", e)
     }

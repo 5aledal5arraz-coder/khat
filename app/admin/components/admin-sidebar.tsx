@@ -16,6 +16,7 @@ import {
   Home,
   Tag,
   FileEdit,
+  Mail,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 
@@ -54,6 +55,7 @@ const navGroups: NavGroup[] = [
       { href: "/admin/submissions", icon: Inbox, label: "الطلبات" },
       { href: "/admin/moderation", icon: Shield, label: "الإشراف" },
       { href: "/admin/ads", icon: Megaphone, label: "الإعلانات" },
+      { href: "/admin/newsletter", icon: Mail, label: "النشرة البريدية" },
     ],
   },
   {

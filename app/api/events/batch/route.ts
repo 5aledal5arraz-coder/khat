@@ -1,5 +1,5 @@
 import { NextRequest } from "next/server"
-import { createClient } from "@/lib/supabase/server"
+import { pool } from "@/lib/db"
 import { checkIpRateLimit } from "@/lib/rate-limit"
 import {
   successResponse,
@@ -76,10 +76,21 @@ export async function POST(request: NextRequest) {
     return successResponse({ ok: true, inserted: 0 })
   }
 
-  const supabase = await createClient()
-  const { error } = await supabase.from("visitor_events").insert(rows)
-
-  if (error) {
+  try {
+    // Batch insert using a single query with multiple value sets
+    const valuePlaceholders: string[] = []
+    const values: unknown[] = []
+    let paramIdx = 1
+    for (const row of rows) {
+      valuePlaceholders.push(`($${paramIdx}, $${paramIdx + 1}, $${paramIdx + 2}, $${paramIdx + 3})`)
+      values.push(row.visitor_id, row.event_type, row.target_id, JSON.stringify(row.metadata))
+      paramIdx += 4
+    }
+    await pool!.query(
+      `INSERT INTO visitor_events (visitor_id, event_type, target_id, metadata) VALUES ${valuePlaceholders.join(", ")}`,
+      values
+    )
+  } catch (error) {
     console.error("Failed to batch insert visitor events:", error)
     return errorResponse("حدث خطأ أثناء تسجيل الأحداث", 500)
   }

@@ -1,4 +1,4 @@
-import { createClient } from "@/lib/supabase/server"
+import { pool, USE_DB } from "@/lib/db"
 import type {
   Guest,
   GuestApplication,
@@ -9,11 +9,7 @@ import type {
 } from "@/types/database"
 import { mockGuests } from "@/lib/mocks/episodes"
 
-const USE_MOCK_DATA =
-  process.env.NEXT_PUBLIC_SUPABASE_URL?.includes("placeholder") ||
-  !process.env.NEXT_PUBLIC_SUPABASE_URL
-
-// Mock data for submissions (when no Supabase)
+// Mock data for submissions (when no DB)
 const mockGuestApplications: GuestApplication[] = [
   {
     id: "1",
@@ -139,7 +135,7 @@ export async function getSubmissionCounts(): Promise<{
   sponsorshipLeads: number
   newsletterSubscribers: number
 }> {
-  if (USE_MOCK_DATA) {
+  if (!USE_DB) {
     return {
       guestApplications: mockGuestApplications.length,
       sponsorshipLeads: mockSponsorshipLeads.length,
@@ -147,137 +143,115 @@ export async function getSubmissionCounts(): Promise<{
     }
   }
 
-  const supabase = await createClient()
-
   const [guestApps, sponsors, newsletter] = await Promise.all([
-    supabase.from("guest_applications").select("id", { count: "exact" }),
-    supabase.from("sponsorship_leads").select("id", { count: "exact" }),
-    supabase.from("newsletter_subscribers").select("id", { count: "exact" }),
+    pool!.query("SELECT COUNT(*) FROM guest_applications"),
+    pool!.query("SELECT COUNT(*) FROM sponsorship_leads"),
+    pool!.query("SELECT COUNT(*) FROM newsletter_subscribers"),
   ])
 
   return {
-    guestApplications: guestApps.count || 0,
-    sponsorshipLeads: sponsors.count || 0,
-    newsletterSubscribers: newsletter.count || 0,
+    guestApplications: parseInt(guestApps.rows[0].count, 10) || 0,
+    sponsorshipLeads: parseInt(sponsors.rows[0].count, 10) || 0,
+    newsletterSubscribers: parseInt(newsletter.rows[0].count, 10) || 0,
   }
 }
 
 export async function getGuestApplications(): Promise<GuestApplication[]> {
-  if (USE_MOCK_DATA) {
+  if (!USE_DB) {
     return mockGuestApplications.sort(
       (a, b) =>
         new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
     )
   }
 
-  const supabase = await createClient()
-
-  const { data, error } = await supabase
-    .from("guest_applications")
-    .select("*")
-    .order("created_at", { ascending: false })
-
-  if (error) {
+  try {
+    const { rows } = await pool!.query(
+      "SELECT * FROM guest_applications ORDER BY created_at DESC"
+    )
+    return rows
+  } catch (error) {
     console.error("Error fetching guest applications:", error)
     return mockGuestApplications
   }
-
-  return data || []
 }
 
 export async function getSponsorshipLeads(): Promise<SponsorshipLead[]> {
-  if (USE_MOCK_DATA) {
+  if (!USE_DB) {
     return mockSponsorshipLeads.sort(
       (a, b) =>
         new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
     )
   }
 
-  const supabase = await createClient()
-
-  const { data, error } = await supabase
-    .from("sponsorship_leads")
-    .select("*")
-    .order("created_at", { ascending: false })
-
-  if (error) {
+  try {
+    const { rows } = await pool!.query(
+      "SELECT * FROM sponsorship_leads ORDER BY created_at DESC"
+    )
+    return rows
+  } catch (error) {
     console.error("Error fetching sponsorship leads:", error)
     return mockSponsorshipLeads
   }
-
-  return data || []
 }
 
 export async function getNewsletterSubscribers(): Promise<
   NewsletterSubscriber[]
 > {
-  if (USE_MOCK_DATA) {
+  if (!USE_DB) {
     return mockNewsletterSubscribers.sort(
       (a, b) =>
         new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
     )
   }
 
-  const supabase = await createClient()
-
-  const { data, error } = await supabase
-    .from("newsletter_subscribers")
-    .select("*")
-    .order("created_at", { ascending: false })
-
-  if (error) {
+  try {
+    const { rows } = await pool!.query(
+      "SELECT * FROM newsletter_subscribers ORDER BY created_at DESC"
+    )
+    return rows
+  } catch (error) {
     console.error("Error fetching newsletter subscribers:", error)
     return mockNewsletterSubscribers
   }
-
-  return data || []
 }
 
 export async function getAllGuests(): Promise<Guest[]> {
-  if (USE_MOCK_DATA) {
+  if (!USE_DB) {
     return mockGuests
   }
 
-  const supabase = await createClient()
-
-  const { data, error } = await supabase
-    .from("guests")
-    .select("*")
-    .order("name")
-
-  if (error) {
+  try {
+    const { rows } = await pool!.query(
+      "SELECT * FROM guests ORDER BY name"
+    )
+    return rows
+  } catch (error) {
     console.error("Error fetching guests:", error)
     return mockGuests
   }
-
-  return data || []
 }
 
 export async function getGuestById(id: string): Promise<Guest | null> {
-  if (USE_MOCK_DATA) {
+  if (!USE_DB) {
     return mockGuests.find((g) => g.id === id) || null
   }
 
-  const supabase = await createClient()
-
-  const { data, error } = await supabase
-    .from("guests")
-    .select("*")
-    .eq("id", id)
-    .single()
-
-  if (error) {
+  try {
+    const { rows } = await pool!.query(
+      "SELECT * FROM guests WHERE id = $1 LIMIT 1",
+      [id]
+    )
+    return rows[0] || null
+  } catch (error) {
     console.error("Error fetching guest:", error)
     return null
   }
-
-  return data
 }
 
 export async function createGuest(
   guest: Omit<Guest, "id" | "created_at">
 ): Promise<{ success: boolean; error?: string; data?: Guest }> {
-  if (USE_MOCK_DATA) {
+  if (!USE_DB) {
     const newGuest: Guest = {
       ...guest,
       id: `guest-${crypto.randomUUID()}`,
@@ -286,161 +260,153 @@ export async function createGuest(
     return { success: true, data: newGuest }
   }
 
-  const supabase = await createClient()
-
-  const { data, error } = await supabase
-    .from("guests")
-    .insert(guest)
-    .select()
-    .single()
-
-  if (error) {
+  try {
+    const { rows } = await pool!.query(
+      `INSERT INTO guests (name, slug, bio, photo_url, external_links, testimonial)
+       VALUES ($1, $2, $3, $4, $5, $6)
+       RETURNING *`,
+      [
+        guest.name,
+        guest.slug,
+        guest.bio,
+        guest.photo_url,
+        guest.external_links ? JSON.stringify(guest.external_links) : null,
+        guest.testimonial,
+      ]
+    )
+    return { success: true, data: rows[0] }
+  } catch (error: any) {
     return { success: false, error: error.message }
   }
-
-  return { success: true, data }
 }
 
 export async function updateGuest(
   id: string,
   updates: Partial<Guest>
 ): Promise<{ success: boolean; error?: string }> {
-  if (USE_MOCK_DATA) {
+  if (!USE_DB) {
     return { success: true }
   }
 
-  const supabase = await createClient()
+  try {
+    const fields: string[] = []
+    const values: any[] = []
+    let paramIndex = 1
 
-  const { error } = await supabase.from("guests").update(updates).eq("id", id)
+    for (const [key, value] of Object.entries(updates)) {
+      if (key === "id" || key === "created_at") continue
+      fields.push(`${key} = $${paramIndex}`)
+      values.push(key === "external_links" && value ? JSON.stringify(value) : value)
+      paramIndex++
+    }
 
-  if (error) {
+    if (fields.length === 0) return { success: true }
+
+    values.push(id)
+    await pool!.query(
+      `UPDATE guests SET ${fields.join(", ")} WHERE id = $${paramIndex}`,
+      values
+    )
+    return { success: true }
+  } catch (error: any) {
     return { success: false, error: error.message }
   }
-
-  return { success: true }
 }
 
 export async function deleteGuest(
   id: string
 ): Promise<{ success: boolean; error?: string }> {
-  if (USE_MOCK_DATA) {
+  if (!USE_DB) {
     return { success: true }
   }
 
-  const supabase = await createClient()
-
-  const { error } = await supabase.from("guests").delete().eq("id", id)
-
-  if (error) {
+  try {
+    await pool!.query("DELETE FROM guests WHERE id = $1", [id])
+    return { success: true }
+  } catch (error: any) {
     return { success: false, error: error.message }
   }
-
-  return { success: true }
 }
 
 export async function deleteGuestApplication(
   id: string
 ): Promise<{ success: boolean; error?: string }> {
-  if (USE_MOCK_DATA) {
+  if (!USE_DB) {
     return { success: true }
   }
 
-  const supabase = await createClient()
-
-  const { error } = await supabase
-    .from("guest_applications")
-    .delete()
-    .eq("id", id)
-
-  if (error) {
+  try {
+    await pool!.query("DELETE FROM guest_applications WHERE id = $1", [id])
+    return { success: true }
+  } catch (error: any) {
     return { success: false, error: error.message }
   }
-
-  return { success: true }
 }
 
 export async function updateGuestApplicationStatus(
   id: string,
   status: GuestApplicationStatus
 ): Promise<{ success: boolean; error?: string }> {
-  if (USE_MOCK_DATA) {
+  if (!USE_DB) {
     return { success: true }
   }
 
-  const supabase = await createClient()
-
-  const { error } = await supabase
-    .from("guest_applications")
-    .update({ status })
-    .eq("id", id)
-
-  if (error) {
+  try {
+    await pool!.query(
+      "UPDATE guest_applications SET status = $1 WHERE id = $2",
+      [status, id]
+    )
+    return { success: true }
+  } catch (error: any) {
     return { success: false, error: error.message }
   }
-
-  return { success: true }
 }
 
 export async function deleteSponsorshipLead(
   id: string
 ): Promise<{ success: boolean; error?: string }> {
-  if (USE_MOCK_DATA) {
+  if (!USE_DB) {
     return { success: true }
   }
 
-  const supabase = await createClient()
-
-  const { error } = await supabase
-    .from("sponsorship_leads")
-    .delete()
-    .eq("id", id)
-
-  if (error) {
+  try {
+    await pool!.query("DELETE FROM sponsorship_leads WHERE id = $1", [id])
+    return { success: true }
+  } catch (error: any) {
     return { success: false, error: error.message }
   }
-
-  return { success: true }
 }
 
 export async function updateSponsorshipStatus(
   id: string,
   status: SponsorshipStatus
 ): Promise<{ success: boolean; error?: string }> {
-  if (USE_MOCK_DATA) {
+  if (!USE_DB) {
     return { success: true }
   }
 
-  const supabase = await createClient()
-
-  const { error } = await supabase
-    .from("sponsorship_leads")
-    .update({ status })
-    .eq("id", id)
-
-  if (error) {
+  try {
+    await pool!.query(
+      "UPDATE sponsorship_leads SET status = $1 WHERE id = $2",
+      [status, id]
+    )
+    return { success: true }
+  } catch (error: any) {
     return { success: false, error: error.message }
   }
-
-  return { success: true }
 }
 
 export async function deleteNewsletterSubscriber(
   id: string
 ): Promise<{ success: boolean; error?: string }> {
-  if (USE_MOCK_DATA) {
+  if (!USE_DB) {
     return { success: true }
   }
 
-  const supabase = await createClient()
-
-  const { error } = await supabase
-    .from("newsletter_subscribers")
-    .delete()
-    .eq("id", id)
-
-  if (error) {
+  try {
+    await pool!.query("DELETE FROM newsletter_subscribers WHERE id = $1", [id])
+    return { success: true }
+  } catch (error: any) {
     return { success: false, error: error.message }
   }
-
-  return { success: true }
 }

@@ -1,11 +1,6 @@
 import { createConfigStore } from "@/lib/config-store"
-import { createClient } from "@/lib/supabase/server"
+import { pool, USE_DB } from "@/lib/db"
 import type { SiteSettingsConfig, FeatureFlags } from "@/types/site-settings"
-
-const USE_SUPABASE = !!(
-  process.env.NEXT_PUBLIC_SUPABASE_URL &&
-  !process.env.NEXT_PUBLIC_SUPABASE_URL.includes("placeholder")
-)
 
 const defaultSiteSettings: SiteSettingsConfig = {
   metadata: {
@@ -35,24 +30,20 @@ const defaultSiteSettings: SiteSettingsConfig = {
 const store = createConfigStore<SiteSettingsConfig>("site-settings.json", defaultSiteSettings)
 
 export async function getSiteSettings(): Promise<SiteSettingsConfig> {
-  if (USE_SUPABASE) {
+  if (USE_DB) {
     try {
-      const supabase = await createClient()
-      const { data, error } = await supabase
-        .from("site_settings")
-        .select("metadata, social_links, seo, feature_flags")
-        .eq("key", "main")
-        .maybeSingle()
-
-      if (!error && data) {
+      const { rows } = await pool!.query(
+        `SELECT metadata, social_links, seo, feature_flags FROM site_settings WHERE key = $1 LIMIT 1`,
+        ["main"]
+      )
+      if (rows[0]) {
         return {
-          metadata: data.metadata as SiteSettingsConfig["metadata"],
-          socialLinks: data.social_links as SiteSettingsConfig["socialLinks"],
-          seo: data.seo as SiteSettingsConfig["seo"],
-          featureFlags: data.feature_flags as SiteSettingsConfig["featureFlags"],
+          metadata: rows[0].metadata as SiteSettingsConfig["metadata"],
+          socialLinks: rows[0].social_links as SiteSettingsConfig["socialLinks"],
+          seo: rows[0].seo as SiteSettingsConfig["seo"],
+          featureFlags: rows[0].feature_flags as SiteSettingsConfig["featureFlags"],
         }
       }
-      if (error) console.error("getSiteSettings DB error:", error.message)
     } catch (e) {
       console.error("getSiteSettings DB exception:", e)
     }
@@ -61,18 +52,19 @@ export async function getSiteSettings(): Promise<SiteSettingsConfig> {
 }
 
 export async function saveSiteSettings(settings: SiteSettingsConfig): Promise<void> {
-  if (USE_SUPABASE) {
+  if (USE_DB) {
     try {
-      const supabase = await createClient()
-      const { error } = await supabase.from("site_settings").upsert({
-        key: "main",
-        metadata: settings.metadata,
-        social_links: settings.socialLinks,
-        seo: settings.seo,
-        feature_flags: settings.featureFlags,
-      })
-      if (!error) return
-      console.error("saveSiteSettings DB error:", error.message)
+      await pool!.query(
+        `INSERT INTO site_settings (key, metadata, social_links, seo, feature_flags)
+         VALUES ($1, $2, $3, $4, $5)
+         ON CONFLICT (key) DO UPDATE SET
+           metadata = EXCLUDED.metadata,
+           social_links = EXCLUDED.social_links,
+           seo = EXCLUDED.seo,
+           feature_flags = EXCLUDED.feature_flags`,
+        ["main", JSON.stringify(settings.metadata), JSON.stringify(settings.socialLinks), JSON.stringify(settings.seo), JSON.stringify(settings.featureFlags)]
+      )
+      return
     } catch (e) {
       console.error("saveSiteSettings DB exception:", e)
     }

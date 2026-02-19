@@ -1,11 +1,6 @@
 import { createConfigStore } from "@/lib/config-store"
-import { createClient } from "@/lib/supabase/server"
+import { pool, USE_DB } from "@/lib/db"
 import type { EpisodeSectionsConfig } from "@/types/episodes"
-
-const USE_SUPABASE = !!(
-  process.env.NEXT_PUBLIC_SUPABASE_URL &&
-  !process.env.NEXT_PUBLIC_SUPABASE_URL.includes("placeholder")
-)
 
 const defaultConfig: EpisodeSectionsConfig = {
   sections: [
@@ -22,17 +17,16 @@ const defaultConfig: EpisodeSectionsConfig = {
 const store = createConfigStore<EpisodeSectionsConfig>("episode-sections.json", defaultConfig)
 
 export async function getSectionsConfig(): Promise<EpisodeSectionsConfig> {
-  if (USE_SUPABASE) {
+  if (USE_DB) {
     try {
-      const supabase = await createClient()
       const [sectionsRes, assignmentsRes, visibilityRes] = await Promise.all([
-        supabase.from("episode_sections").select("id, label, \"order\", color, hidden").order("order"),
-        supabase.from("episode_section_assignments").select("episode_id, section_id"),
-        supabase.from("episode_visibility").select("episode_id, visibility"),
+        pool!.query(`SELECT id, label, "order", color, hidden FROM episode_sections ORDER BY "order"`),
+        pool!.query(`SELECT episode_id, section_id FROM episode_section_assignments`),
+        pool!.query(`SELECT episode_id, visibility FROM episode_visibility`),
       ])
 
-      if (!sectionsRes.error && sectionsRes.data) {
-        const sections = sectionsRes.data.map((s) => ({
+      if (sectionsRes.rows.length > 0) {
+        const sections = sectionsRes.rows.map((s) => ({
           id: s.id,
           label: s.label,
           order: s.order,
@@ -41,24 +35,19 @@ export async function getSectionsConfig(): Promise<EpisodeSectionsConfig> {
         }))
 
         const assignments: Record<string, string> = {}
-        if (!assignmentsRes.error && assignmentsRes.data) {
-          for (const row of assignmentsRes.data) {
-            assignments[row.episode_id] = row.section_id
-          }
+        for (const row of assignmentsRes.rows) {
+          assignments[row.episode_id] = row.section_id
         }
 
         const hiddenEpisodes: string[] = []
         const deletedEpisodes: string[] = []
-        if (!visibilityRes.error && visibilityRes.data) {
-          for (const row of visibilityRes.data) {
-            if (row.visibility === "hidden") hiddenEpisodes.push(row.episode_id)
-            else if (row.visibility === "deleted") deletedEpisodes.push(row.episode_id)
-          }
+        for (const row of visibilityRes.rows) {
+          if (row.visibility === "hidden") hiddenEpisodes.push(row.episode_id)
+          else if (row.visibility === "deleted") deletedEpisodes.push(row.episode_id)
         }
 
         return { sections, assignments, hiddenEpisodes, deletedEpisodes }
       }
-      if (sectionsRes.error) console.error("getSectionsConfig DB error:", sectionsRes.error.message)
     } catch (e) {
       console.error("getSectionsConfig DB exception:", e)
     }
@@ -86,55 +75,81 @@ export async function getHiddenEpisodeIds(): Promise<Set<string>> {
 }
 
 export async function saveSectionsConfig(config: EpisodeSectionsConfig): Promise<void> {
-  if (USE_SUPABASE) {
+  if (USE_DB) {
     try {
-      const supabase = await createClient()
+      // Use a single client for transaction
+      const client = await pool!.connect()
+      try {
+        await client.query("BEGIN")
 
-      // 1. Upsert sections (delete removed ones)
-      const sectionRows = config.sections.map((s) => ({
-        id: s.id,
-        label: s.label,
-        order: s.order,
-        color: s.color || null,
-        hidden: s.hidden || false,
-      }))
+        // 1. Upsert sections (delete removed ones)
+        const { rows: existingSections } = await client.query(`SELECT id FROM episode_sections`)
+        const newIds = new Set(config.sections.map((s) => s.id))
+        const toDelete = existingSections.filter((s) => !newIds.has(s.id)).map((s) => s.id)
 
-      // Get existing section IDs to find deleted ones
-      const { data: existingSections } = await supabase.from("episode_sections").select("id")
-      const newIds = new Set(config.sections.map((s) => s.id))
-      const toDelete = (existingSections || []).filter((s) => !newIds.has(s.id)).map((s) => s.id)
+        if (toDelete.length > 0) {
+          await client.query(`DELETE FROM episode_sections WHERE id = ANY($1)`, [toDelete])
+        }
+        for (const s of config.sections) {
+          await client.query(
+            `INSERT INTO episode_sections (id, label, "order", color, hidden)
+             VALUES ($1, $2, $3, $4, $5)
+             ON CONFLICT (id) DO UPDATE SET
+               label = EXCLUDED.label,
+               "order" = EXCLUDED."order",
+               color = EXCLUDED.color,
+               hidden = EXCLUDED.hidden`,
+            [s.id, s.label, s.order, s.color || null, s.hidden || false]
+          )
+        }
 
-      if (toDelete.length > 0) {
-        await supabase.from("episode_sections").delete().in("id", toDelete)
+        // 2. Replace assignments
+        await client.query(`DELETE FROM episode_section_assignments`)
+        const assignEntries = Object.entries(config.assignments)
+        if (assignEntries.length > 0) {
+          const values: unknown[] = []
+          const placeholders: string[] = []
+          let i = 1
+          for (const [episodeId, sectionId] of assignEntries) {
+            placeholders.push(`($${i}, $${i + 1})`)
+            values.push(episodeId, sectionId)
+            i += 2
+          }
+          await client.query(
+            `INSERT INTO episode_section_assignments (episode_id, section_id) VALUES ${placeholders.join(", ")}`,
+            values
+          )
+        }
+
+        // 3. Replace visibility
+        await client.query(`DELETE FROM episode_visibility`)
+        const visRows = [
+          ...(config.hiddenEpisodes || []).map((id) => ({ episode_id: id, visibility: "hidden" })),
+          ...(config.deletedEpisodes || []).map((id) => ({ episode_id: id, visibility: "deleted" })),
+        ]
+        if (visRows.length > 0) {
+          const values: unknown[] = []
+          const placeholders: string[] = []
+          let i = 1
+          for (const v of visRows) {
+            placeholders.push(`($${i}, $${i + 1})`)
+            values.push(v.episode_id, v.visibility)
+            i += 2
+          }
+          await client.query(
+            `INSERT INTO episode_visibility (episode_id, visibility) VALUES ${placeholders.join(", ")}`,
+            values
+          )
+        }
+
+        await client.query("COMMIT")
+        return
+      } catch (txErr) {
+        await client.query("ROLLBACK")
+        throw txErr
+      } finally {
+        client.release()
       }
-      if (sectionRows.length > 0) {
-        const { error: secErr } = await supabase.from("episode_sections").upsert(sectionRows)
-        if (secErr) console.error("saveSectionsConfig sections error:", secErr.message)
-      }
-
-      // 2. Replace assignments
-      await supabase.from("episode_section_assignments").delete().neq("episode_id", "")
-      const assignRows = Object.entries(config.assignments).map(([episodeId, sectionId]) => ({
-        episode_id: episodeId,
-        section_id: sectionId,
-      }))
-      if (assignRows.length > 0) {
-        const { error: assErr } = await supabase.from("episode_section_assignments").upsert(assignRows)
-        if (assErr) console.error("saveSectionsConfig assignments error:", assErr.message)
-      }
-
-      // 3. Replace visibility
-      await supabase.from("episode_visibility").delete().neq("episode_id", "")
-      const visRows = [
-        ...(config.hiddenEpisodes || []).map((id) => ({ episode_id: id, visibility: "hidden" as const })),
-        ...(config.deletedEpisodes || []).map((id) => ({ episode_id: id, visibility: "deleted" as const })),
-      ]
-      if (visRows.length > 0) {
-        const { error: visErr } = await supabase.from("episode_visibility").upsert(visRows)
-        if (visErr) console.error("saveSectionsConfig visibility error:", visErr.message)
-      }
-
-      return
     } catch (e) {
       console.error("saveSectionsConfig DB exception:", e)
     }

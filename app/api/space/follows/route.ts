@@ -8,6 +8,7 @@ import {
   successResponse,
   errorResponse,
 } from '@/lib/api-utils'
+import { fireFollowNotification } from '@/lib/email/notifications'
 
 export async function POST(request: NextRequest) {
   const mutationError = validateMutation(request)
@@ -66,6 +67,9 @@ export async function POST(request: NextRequest) {
     .insert({ follower_id: user.id, following_id: body.following_id })
 
   if (error) return errorResponse('حدث خطأ في المتابعة', 500)
+
+  // Fire email notification to followed user (non-blocking, only on new follow)
+  fireFollowNotification(body.following_id, user.id)
 
   // Update followers count
   const { count } = await supabase

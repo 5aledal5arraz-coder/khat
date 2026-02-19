@@ -1,11 +1,6 @@
 import { createConfigStore } from "@/lib/config-store"
-import { createClient } from "@/lib/supabase/server"
+import { pool, USE_DB } from "@/lib/db"
 import type { AnalyticsConfig, PlatformStats } from "@/types/media-kit"
-
-const USE_SUPABASE = !!(
-  process.env.NEXT_PUBLIC_SUPABASE_URL &&
-  !process.env.NEXT_PUBLIC_SUPABASE_URL.includes("placeholder")
-)
 
 const defaultConfig: AnalyticsConfig = {
   youtube: { followers: 0, posts: 0, engagement: "0%", url: "" },
@@ -19,17 +14,18 @@ const PLATFORMS = ["youtube", "x", "tiktok", "instagram"] as const
 const store = createConfigStore<AnalyticsConfig>("analytics.json", defaultConfig)
 
 export async function getAnalyticsConfig(): Promise<AnalyticsConfig> {
-  if (USE_SUPABASE) {
+  if (USE_DB) {
     try {
-      const supabase = await createClient()
-      const { data, error } = await supabase
-        .from("platform_analytics")
-        .select("platform, followers, posts, engagement, url")
-        .in("platform", [...PLATFORMS])
+      const { rows } = await pool!.query(
+        `SELECT platform, followers, posts, engagement, url
+         FROM platform_analytics
+         WHERE platform = ANY($1)`,
+        [PLATFORMS]
+      )
 
-      if (!error && data && data.length > 0) {
+      if (rows.length > 0) {
         const config = { ...defaultConfig }
-        for (const row of data) {
+        for (const row of rows) {
           const key = row.platform as keyof AnalyticsConfig
           if (key in config) {
             config[key] = {
@@ -42,7 +38,6 @@ export async function getAnalyticsConfig(): Promise<AnalyticsConfig> {
         }
         return config
       }
-      if (error) console.error("getAnalyticsConfig DB error:", error.message)
     } catch (e) {
       console.error("getAnalyticsConfig DB exception:", e)
     }
@@ -51,19 +46,22 @@ export async function getAnalyticsConfig(): Promise<AnalyticsConfig> {
 }
 
 export async function saveAnalyticsConfig(config: AnalyticsConfig): Promise<void> {
-  if (USE_SUPABASE) {
+  if (USE_DB) {
     try {
-      const supabase = await createClient()
-      const rows = PLATFORMS.map((platform) => ({
-        platform,
-        followers: config[platform].followers,
-        posts: config[platform].posts,
-        engagement: config[platform].engagement,
-        url: config[platform].url,
-      }))
-      const { error } = await supabase.from("platform_analytics").upsert(rows)
-      if (!error) return
-      console.error("saveAnalyticsConfig DB error:", error.message)
+      for (const platform of PLATFORMS) {
+        const stats = config[platform]
+        await pool!.query(
+          `INSERT INTO platform_analytics (platform, followers, posts, engagement, url)
+           VALUES ($1, $2, $3, $4, $5)
+           ON CONFLICT (platform) DO UPDATE SET
+             followers = EXCLUDED.followers,
+             posts = EXCLUDED.posts,
+             engagement = EXCLUDED.engagement,
+             url = EXCLUDED.url`,
+          [platform, stats.followers, stats.posts, stats.engagement, stats.url]
+        )
+      }
+      return
     } catch (e) {
       console.error("saveAnalyticsConfig DB exception:", e)
     }

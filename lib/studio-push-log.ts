@@ -1,10 +1,5 @@
 import { createConfigStore } from "@/lib/config-store"
-import { createClient } from "@/lib/supabase/server"
-
-const USE_SUPABASE = !!(
-  process.env.NEXT_PUBLIC_SUPABASE_URL &&
-  !process.env.NEXT_PUBLIC_SUPABASE_URL.includes("placeholder")
-)
+import { pool, USE_DB } from "@/lib/db"
 
 const MAX_ENTRIES = 100
 
@@ -19,18 +14,14 @@ export interface PushLogEntry {
 const store = createConfigStore<PushLogEntry[]>("studio-push-log.json", [])
 
 export async function appendPushLog(entry: PushLogEntry): Promise<void> {
-  if (USE_SUPABASE) {
+  if (USE_DB) {
     try {
-      const supabase = await createClient()
-      const { error } = await supabase.from("studio_push_log").insert({
-        session_id: entry.sessionId,
-        episode_id: entry.episodeId,
-        episode_title: entry.episodeTitle,
-        pushed_fields: entry.pushedFields,
-        pushed_at: entry.pushedAt,
-      })
-      if (!error) return
-      console.error("appendPushLog DB error:", error.message)
+      await pool!.query(
+        `INSERT INTO studio_push_log (session_id, episode_id, episode_title, pushed_fields, pushed_at)
+         VALUES ($1, $2, $3, $4, $5)`,
+        [entry.sessionId, entry.episodeId, entry.episodeTitle, entry.pushedFields, entry.pushedAt]
+      )
+      return
     } catch (e) {
       console.error("appendPushLog DB exception:", e)
     }

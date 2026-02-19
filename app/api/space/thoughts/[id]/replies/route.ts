@@ -17,6 +17,7 @@ import { validateReplyContent } from '@/lib/validation'
 import { sanitizeComment } from '@/lib/sanitize'
 import { checkRateLimit } from '@/lib/rate-limit'
 import { moderateContent } from '@/lib/moderation'
+import { fireReplyNotification } from '@/lib/email/notifications'
 
 export async function GET(
   request: NextRequest,
@@ -116,6 +117,9 @@ export async function POST(
     .from('hibr_thoughts')
     .update({ replies_count: repliesCount ?? 0 })
     .eq('id', thoughtId)
+
+  // Fire email notification to thought owner (non-blocking)
+  fireReplyNotification(thoughtId, user.id, cleanContent)
 
   return successResponse({ reply: data, moderation: modResult }, 201)
 }

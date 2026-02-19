@@ -1,12 +1,7 @@
 import { createConfigStore } from "@/lib/config-store"
-import { createClient } from "@/lib/supabase/server"
+import { pool, USE_DB } from "@/lib/db"
 import type { EmotionalPath, PathSlug } from "@/types/database"
 import type { EmotionalPathsConfig } from "@/types/home-content"
-
-const USE_SUPABASE = !!(
-  process.env.NEXT_PUBLIC_SUPABASE_URL &&
-  !process.env.NEXT_PUBLIC_SUPABASE_URL.includes("placeholder")
-)
 
 const defaultEmotionalPathsConfig: EmotionalPathsConfig = {
   paths: [
@@ -75,16 +70,12 @@ function rowToPath(row: Record<string, unknown>): EmotionalPath {
 }
 
 export async function getPathsConfig(): Promise<EmotionalPathsConfig> {
-  if (USE_SUPABASE) {
+  if (USE_DB) {
     try {
-      const supabase = await createClient()
-      const { data, error } = await supabase
-        .from("emotional_paths")
-        .select("*")
-        .order("order")
-
-      if (!error && data) return { paths: data.map(rowToPath) }
-      if (error) console.error("getPathsConfig DB error:", error.message)
+      const { rows } = await pool!.query(
+        `SELECT * FROM emotional_paths ORDER BY "order"`
+      )
+      if (rows.length > 0) return { paths: rows.map(rowToPath) }
     } catch (e) {
       console.error("getPathsConfig DB exception:", e)
     }
@@ -98,18 +89,14 @@ export async function getAllPaths(): Promise<EmotionalPath[]> {
 }
 
 export async function getPathBySlug(slug: PathSlug): Promise<EmotionalPath | null> {
-  if (USE_SUPABASE) {
+  if (USE_DB) {
     try {
-      const supabase = await createClient()
-      const { data, error } = await supabase
-        .from("emotional_paths")
-        .select("*")
-        .eq("slug", slug)
-        .maybeSingle()
-
-      if (!error && data) return rowToPath(data)
-      if (!error && !data) return null
-      if (error) console.error("getPathBySlug DB error:", error.message)
+      const { rows } = await pool!.query(
+        `SELECT * FROM emotional_paths WHERE slug = $1 LIMIT 1`,
+        [slug]
+      )
+      if (rows[0]) return rowToPath(rows[0])
+      return null
     } catch (e) {
       console.error("getPathBySlug DB exception:", e)
     }
@@ -122,18 +109,30 @@ export async function updatePath(
   id: string,
   updates: Partial<Omit<EmotionalPath, "id" | "slug">>
 ): Promise<EmotionalPath | null> {
-  if (USE_SUPABASE) {
+  if (USE_DB) {
     try {
-      const supabase = await createClient()
-      const { data, error } = await supabase
-        .from("emotional_paths")
-        .update(updates)
-        .eq("id", id)
-        .select()
-        .single()
+      const fields: string[] = []
+      const values: unknown[] = []
+      let paramIndex = 1
 
-      if (!error && data) return rowToPath(data)
-      if (error) console.error("updatePath DB error:", error.message)
+      for (const [key, value] of Object.entries(updates)) {
+        if (key === "episode_ids" || key === "quote_ids") {
+          fields.push(`${key} = $${paramIndex}`)
+          values.push(JSON.stringify(value))
+        } else {
+          fields.push(`${key === "order" ? `"order"` : key} = $${paramIndex}`)
+          values.push(value)
+        }
+        paramIndex++
+      }
+      values.push(id)
+
+      const { rows } = await pool!.query(
+        `UPDATE emotional_paths SET ${fields.join(", ")} WHERE id = $${paramIndex} RETURNING *`,
+        values
+      )
+      if (rows[0]) return rowToPath(rows[0])
+      return null
     } catch (e) {
       console.error("updatePath DB exception:", e)
     }
@@ -149,17 +148,13 @@ export async function updatePath(
 }
 
 export async function getPathsForEpisode(episodeId: string): Promise<EmotionalPath[]> {
-  if (USE_SUPABASE) {
+  if (USE_DB) {
     try {
-      const supabase = await createClient()
-      const { data, error } = await supabase
-        .from("emotional_paths")
-        .select("*")
-        .contains("episode_ids", [episodeId])
-        .order("order")
-
-      if (!error && data) return data.map(rowToPath)
-      if (error) console.error("getPathsForEpisode DB error:", error.message)
+      const { rows } = await pool!.query(
+        `SELECT * FROM emotional_paths WHERE $1 = ANY(episode_ids) ORDER BY "order"`,
+        [episodeId]
+      )
+      return rows.map(rowToPath)
     } catch (e) {
       console.error("getPathsForEpisode DB exception:", e)
     }
@@ -171,27 +166,22 @@ export async function getPathsForEpisode(episodeId: string): Promise<EmotionalPa
 }
 
 export async function assignEpisodeToPath(pathId: string, episodeId: string): Promise<boolean> {
-  if (USE_SUPABASE) {
+  if (USE_DB) {
     try {
-      const supabase = await createClient()
       // Fetch current, add to array, update
-      const { data, error: fetchErr } = await supabase
-        .from("emotional_paths")
-        .select("episode_ids")
-        .eq("id", pathId)
-        .single()
-
-      if (fetchErr || !data) return false
-      const ids = (data.episode_ids as string[]) || []
+      const { rows } = await pool!.query(
+        `SELECT episode_ids FROM emotional_paths WHERE id = $1`,
+        [pathId]
+      )
+      if (!rows[0]) return false
+      const ids = (rows[0].episode_ids as string[]) || []
       if (ids.includes(episodeId)) return true
 
-      const { error } = await supabase
-        .from("emotional_paths")
-        .update({ episode_ids: [...ids, episodeId] })
-        .eq("id", pathId)
-
-      if (!error) return true
-      console.error("assignEpisodeToPath DB error:", error.message)
+      await pool!.query(
+        `UPDATE emotional_paths SET episode_ids = $1 WHERE id = $2`,
+        [JSON.stringify([...ids, episodeId]), pathId]
+      )
+      return true
     } catch (e) {
       console.error("assignEpisodeToPath DB exception:", e)
     }
@@ -208,25 +198,20 @@ export async function assignEpisodeToPath(pathId: string, episodeId: string): Pr
 }
 
 export async function removeEpisodeFromPath(pathId: string, episodeId: string): Promise<boolean> {
-  if (USE_SUPABASE) {
+  if (USE_DB) {
     try {
-      const supabase = await createClient()
-      const { data, error: fetchErr } = await supabase
-        .from("emotional_paths")
-        .select("episode_ids")
-        .eq("id", pathId)
-        .single()
+      const { rows } = await pool!.query(
+        `SELECT episode_ids FROM emotional_paths WHERE id = $1`,
+        [pathId]
+      )
+      if (!rows[0]) return false
+      const ids = ((rows[0].episode_ids as string[]) || []).filter((id) => id !== episodeId)
 
-      if (fetchErr || !data) return false
-      const ids = ((data.episode_ids as string[]) || []).filter((id) => id !== episodeId)
-
-      const { error } = await supabase
-        .from("emotional_paths")
-        .update({ episode_ids: ids })
-        .eq("id", pathId)
-
-      if (!error) return true
-      console.error("removeEpisodeFromPath DB error:", error.message)
+      await pool!.query(
+        `UPDATE emotional_paths SET episode_ids = $1 WHERE id = $2`,
+        [JSON.stringify(ids), pathId]
+      )
+      return true
     } catch (e) {
       console.error("removeEpisodeFromPath DB exception:", e)
     }
@@ -242,26 +227,21 @@ export async function removeEpisodeFromPath(pathId: string, episodeId: string): 
 }
 
 export async function assignQuoteToPath(pathId: string, quoteId: string): Promise<boolean> {
-  if (USE_SUPABASE) {
+  if (USE_DB) {
     try {
-      const supabase = await createClient()
-      const { data, error: fetchErr } = await supabase
-        .from("emotional_paths")
-        .select("quote_ids")
-        .eq("id", pathId)
-        .single()
-
-      if (fetchErr || !data) return false
-      const ids = (data.quote_ids as string[]) || []
+      const { rows } = await pool!.query(
+        `SELECT quote_ids FROM emotional_paths WHERE id = $1`,
+        [pathId]
+      )
+      if (!rows[0]) return false
+      const ids = (rows[0].quote_ids as string[]) || []
       if (ids.includes(quoteId)) return true
 
-      const { error } = await supabase
-        .from("emotional_paths")
-        .update({ quote_ids: [...ids, quoteId] })
-        .eq("id", pathId)
-
-      if (!error) return true
-      console.error("assignQuoteToPath DB error:", error.message)
+      await pool!.query(
+        `UPDATE emotional_paths SET quote_ids = $1 WHERE id = $2`,
+        [JSON.stringify([...ids, quoteId]), pathId]
+      )
+      return true
     } catch (e) {
       console.error("assignQuoteToPath DB exception:", e)
     }
@@ -278,25 +258,20 @@ export async function assignQuoteToPath(pathId: string, quoteId: string): Promis
 }
 
 export async function removeQuoteFromPath(pathId: string, quoteId: string): Promise<boolean> {
-  if (USE_SUPABASE) {
+  if (USE_DB) {
     try {
-      const supabase = await createClient()
-      const { data, error: fetchErr } = await supabase
-        .from("emotional_paths")
-        .select("quote_ids")
-        .eq("id", pathId)
-        .single()
+      const { rows } = await pool!.query(
+        `SELECT quote_ids FROM emotional_paths WHERE id = $1`,
+        [pathId]
+      )
+      if (!rows[0]) return false
+      const ids = ((rows[0].quote_ids as string[]) || []).filter((id) => id !== quoteId)
 
-      if (fetchErr || !data) return false
-      const ids = ((data.quote_ids as string[]) || []).filter((id) => id !== quoteId)
-
-      const { error } = await supabase
-        .from("emotional_paths")
-        .update({ quote_ids: ids })
-        .eq("id", pathId)
-
-      if (!error) return true
-      console.error("removeQuoteFromPath DB error:", error.message)
+      await pool!.query(
+        `UPDATE emotional_paths SET quote_ids = $1 WHERE id = $2`,
+        [JSON.stringify(ids), pathId]
+      )
+      return true
     } catch (e) {
       console.error("removeQuoteFromPath DB exception:", e)
     }

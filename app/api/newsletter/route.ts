@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
-import { createClient } from "@/lib/supabase/server"
+import { pool } from "@/lib/db"
 import { validateEmail } from "@/lib/validation"
 
 export async function POST(request: NextRequest) {
@@ -15,20 +15,19 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const supabase = await createClient()
-
-    const { error } = await supabase
-      .from("newsletter_subscribers")
-      .insert({ email: email.toLowerCase().trim() })
-
-    if (error) {
-      if (error.code === "23505") {
+    try {
+      await pool!.query(
+        `INSERT INTO newsletter_subscribers (email) VALUES ($1)`,
+        [email.toLowerCase().trim()]
+      )
+    } catch (dbError: any) {
+      if (dbError?.code === "23505") {
         return NextResponse.json(
           { error: "البريد الإلكتروني مسجل بالفعل" },
           { status: 400 }
         )
       }
-      console.error("Newsletter subscription error:", error)
+      console.error("Newsletter subscription error:", dbError)
       return NextResponse.json(
         { error: "حدث خطأ. يرجى المحاولة مرة أخرى." },
         { status: 500 }

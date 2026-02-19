@@ -1,11 +1,6 @@
 import { createConfigStore } from "@/lib/config-store"
-import { createClient } from "@/lib/supabase/server"
+import { pool, USE_DB } from "@/lib/db"
 import type { StaticContentConfig, AboutPageContent } from "@/types/static-content"
-
-const USE_SUPABASE = !!(
-  process.env.NEXT_PUBLIC_SUPABASE_URL &&
-  !process.env.NEXT_PUBLIC_SUPABASE_URL.includes("placeholder")
-)
 
 const defaultAboutContent: AboutPageContent = {
   hostName: "بودكاست خط",
@@ -27,19 +22,15 @@ const defaultAboutContent: AboutPageContent = {
 const store = createConfigStore<StaticContentConfig>("static-content.json", { about: defaultAboutContent })
 
 export async function getStaticContentConfig(): Promise<StaticContentConfig> {
-  if (USE_SUPABASE) {
+  if (USE_DB) {
     try {
-      const supabase = await createClient()
-      const { data, error } = await supabase
-        .from("static_content")
-        .select("content")
-        .eq("key", "about")
-        .maybeSingle()
-
-      if (!error && data) {
-        return { about: data.content as AboutPageContent }
+      const { rows } = await pool!.query(
+        `SELECT content FROM static_content WHERE key = $1 LIMIT 1`,
+        ["about"]
+      )
+      if (rows[0]) {
+        return { about: rows[0].content as AboutPageContent }
       }
-      if (error) console.error("getStaticContentConfig DB error:", error.message)
     } catch (e) {
       console.error("getStaticContentConfig DB exception:", e)
     }
@@ -53,15 +44,15 @@ export async function getAboutContent(): Promise<AboutPageContent> {
 }
 
 export async function saveAboutContent(about: AboutPageContent): Promise<void> {
-  if (USE_SUPABASE) {
+  if (USE_DB) {
     try {
-      const supabase = await createClient()
-      const { error } = await supabase.from("static_content").upsert({
-        key: "about",
-        content: about,
-      })
-      if (!error) return
-      console.error("saveAboutContent DB error:", error.message)
+      await pool!.query(
+        `INSERT INTO static_content (key, content)
+         VALUES ($1, $2)
+         ON CONFLICT (key) DO UPDATE SET content = EXCLUDED.content`,
+        ["about", JSON.stringify(about)]
+      )
+      return
     } catch (e) {
       console.error("saveAboutContent DB exception:", e)
     }

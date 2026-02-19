@@ -1,28 +1,19 @@
 import { createConfigStore } from "@/lib/config-store"
-import { createClient } from "@/lib/supabase/server"
+import { pool, USE_DB } from "@/lib/db"
 import type { HomeQuote } from "@/types/database"
 import type { HomeQuotesConfig } from "@/types/home-content"
-
-const USE_SUPABASE = !!(
-  process.env.NEXT_PUBLIC_SUPABASE_URL &&
-  !process.env.NEXT_PUBLIC_SUPABASE_URL.includes("placeholder")
-)
 
 const defaultHomeQuotesConfig: HomeQuotesConfig = { quotes: [] }
 
 const store = createConfigStore<HomeQuotesConfig>("home-quotes.json", defaultHomeQuotesConfig)
 
 export async function getHomeQuotesConfig(): Promise<HomeQuotesConfig> {
-  if (USE_SUPABASE) {
+  if (USE_DB) {
     try {
-      const supabase = await createClient()
-      const { data, error } = await supabase
-        .from("home_quotes")
-        .select("*")
-        .order("created_at", { ascending: false })
-
-      if (!error && data) return { quotes: data as HomeQuote[] }
-      if (error) console.error("getHomeQuotesConfig DB error:", error.message)
+      const { rows } = await pool!.query(
+        `SELECT * FROM home_quotes ORDER BY created_at DESC`
+      )
+      return { quotes: rows as HomeQuote[] }
     } catch (e) {
       console.error("getHomeQuotesConfig DB exception:", e)
     }
@@ -36,17 +27,13 @@ export async function getAllHomeQuotes(): Promise<HomeQuote[]> {
 }
 
 export async function getPublishedHomeQuotes(): Promise<HomeQuote[]> {
-  if (USE_SUPABASE) {
+  if (USE_DB) {
     try {
-      const supabase = await createClient()
-      const { data, error } = await supabase
-        .from("home_quotes")
-        .select("*")
-        .eq("status", "published")
-        .order("created_at", { ascending: false })
-
-      if (!error && data) return data as HomeQuote[]
-      if (error) console.error("getPublishedHomeQuotes DB error:", error.message)
+      const { rows } = await pool!.query(
+        `SELECT * FROM home_quotes WHERE status = $1 ORDER BY created_at DESC`,
+        ["published"]
+      )
+      return rows as HomeQuote[]
     } catch (e) {
       console.error("getPublishedHomeQuotes DB exception:", e)
     }
@@ -76,18 +63,14 @@ export async function getTodaysQuote(): Promise<HomeQuote | null> {
 }
 
 export async function getHomeQuoteById(id: string): Promise<HomeQuote | null> {
-  if (USE_SUPABASE) {
+  if (USE_DB) {
     try {
-      const supabase = await createClient()
-      const { data, error } = await supabase
-        .from("home_quotes")
-        .select("*")
-        .eq("id", id)
-        .maybeSingle()
-
-      if (!error && data) return data as HomeQuote
-      if (!error && !data) return null
-      if (error) console.error("getHomeQuoteById DB error:", error.message)
+      const { rows } = await pool!.query(
+        `SELECT * FROM home_quotes WHERE id = $1 LIMIT 1`,
+        [id]
+      )
+      if (rows[0]) return rows[0] as HomeQuote
+      return null
     } catch (e) {
       console.error("getHomeQuoteById DB exception:", e)
     }
@@ -107,17 +90,20 @@ export async function addHomeQuote(
     updated_at: now,
   }
 
-  if (USE_SUPABASE) {
+  if (USE_DB) {
     try {
-      const supabase = await createClient()
-      const { data, error } = await supabase
-        .from("home_quotes")
-        .insert(newQuote)
-        .select()
-        .single()
-
-      if (!error && data) return data as HomeQuote
-      if (error) console.error("addHomeQuote DB error:", error.message)
+      const { rows } = await pool!.query(
+        `INSERT INTO home_quotes (id, text, attribution, episode_id, episode_slug, episode_title, theme, scheduled_date, status, created_at, updated_at)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+         RETURNING *`,
+        [
+          newQuote.id, newQuote.text, newQuote.attribution,
+          newQuote.episode_id || null, newQuote.episode_slug || null, newQuote.episode_title || null,
+          newQuote.theme || null, newQuote.scheduled_date || null, newQuote.status,
+          newQuote.created_at, newQuote.updated_at,
+        ]
+      )
+      if (rows[0]) return rows[0] as HomeQuote
     } catch (e) {
       console.error("addHomeQuote DB exception:", e)
     }
@@ -133,18 +119,28 @@ export async function updateHomeQuote(
   id: string,
   updates: Partial<Omit<HomeQuote, "id" | "created_at">>
 ): Promise<HomeQuote | null> {
-  if (USE_SUPABASE) {
+  if (USE_DB) {
     try {
-      const supabase = await createClient()
-      const { data, error } = await supabase
-        .from("home_quotes")
-        .update({ ...updates, updated_at: new Date().toISOString() })
-        .eq("id", id)
-        .select()
-        .single()
+      const fields: string[] = []
+      const values: unknown[] = []
+      let paramIndex = 1
 
-      if (!error && data) return data as HomeQuote
-      if (error) console.error("updateHomeQuote DB error:", error.message)
+      for (const [key, value] of Object.entries(updates)) {
+        fields.push(`${key} = $${paramIndex}`)
+        values.push(value)
+        paramIndex++
+      }
+      fields.push(`updated_at = $${paramIndex}`)
+      values.push(new Date().toISOString())
+      paramIndex++
+      values.push(id)
+
+      const { rows } = await pool!.query(
+        `UPDATE home_quotes SET ${fields.join(", ")} WHERE id = $${paramIndex} RETURNING *`,
+        values
+      )
+      if (rows[0]) return rows[0] as HomeQuote
+      return null
     } catch (e) {
       console.error("updateHomeQuote DB exception:", e)
     }
@@ -164,17 +160,13 @@ export async function updateHomeQuote(
 }
 
 export async function getQuotesByEpisodeId(episodeId: string): Promise<HomeQuote[]> {
-  if (USE_SUPABASE) {
+  if (USE_DB) {
     try {
-      const supabase = await createClient()
-      const { data, error } = await supabase
-        .from("home_quotes")
-        .select("*")
-        .eq("episode_id", episodeId)
-        .eq("status", "published")
-
-      if (!error && data) return data as HomeQuote[]
-      if (error) console.error("getQuotesByEpisodeId DB error:", error.message)
+      const { rows } = await pool!.query(
+        `SELECT * FROM home_quotes WHERE episode_id = $1 AND status = $2`,
+        [episodeId, "published"]
+      )
+      return rows as HomeQuote[]
     } catch (e) {
       console.error("getQuotesByEpisodeId DB exception:", e)
     }
@@ -184,16 +176,13 @@ export async function getQuotesByEpisodeId(episodeId: string): Promise<HomeQuote
 }
 
 export async function deleteHomeQuote(id: string): Promise<boolean> {
-  if (USE_SUPABASE) {
+  if (USE_DB) {
     try {
-      const supabase = await createClient()
-      const { error } = await supabase
-        .from("home_quotes")
-        .delete()
-        .eq("id", id)
-
-      if (!error) return true
-      console.error("deleteHomeQuote DB error:", error.message)
+      const { rowCount } = await pool!.query(
+        `DELETE FROM home_quotes WHERE id = $1`,
+        [id]
+      )
+      return (rowCount ?? 0) > 0
     } catch (e) {
       console.error("deleteHomeQuote DB exception:", e)
     }

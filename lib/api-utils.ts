@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
+import { cookies } from 'next/headers'
+import { getAdminAuth } from '@/lib/firebase/admin'
+import { pool } from '@/lib/db'
 
 /**
  * Validate request origin (same-origin check)
@@ -28,47 +30,47 @@ export function validateCustomHeader(request: NextRequest): boolean {
 }
 
 /**
- * Get authenticated user from request, returns null if not authenticated
+ * Get authenticated user from Firebase session cookie, returns null if not authenticated
  */
 export async function getAuthUser() {
-  const supabase = await createClient()
-  const { data: { user }, error } = await supabase.auth.getUser()
-  if (error || !user) return null
-  return user
+  try {
+    const cookieStore = await cookies()
+    const session = cookieStore.get('__session')?.value
+    if (!session) return null
+
+    const decoded = await getAdminAuth().verifySessionCookie(session)
+    return { id: decoded.uid, email: decoded.email || '' }
+  } catch {
+    return null
+  }
 }
 
 /**
  * Get user profile with admin/ban status
  */
 export async function getUserProfile(userId: string) {
-  const supabase = await createClient()
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('*')
-    .eq('id', userId)
-    .single()
-  return profile
+  if (!pool) return null
+
+  const { rows } = await pool.query(
+    'SELECT * FROM profiles WHERE id = $1',
+    [userId]
+  )
+  return rows[0] || null
 }
 
 /**
  * Get user's approved content count (for moderation decisions)
  */
 export async function getUserApprovedCount(userId: string): Promise<number> {
-  const supabase = await createClient()
+  if (!pool) return 0
 
-  const { count: articlesCount } = await supabase
-    .from('hibr_articles')
-    .select('*', { count: 'exact', head: true })
-    .eq('user_id', userId)
-    .eq('moderation_status', 'approved')
-
-  const { count: thoughtsCount } = await supabase
-    .from('hibr_thoughts')
-    .select('*', { count: 'exact', head: true })
-    .eq('user_id', userId)
-    .eq('moderation_status', 'approved')
-
-  return (articlesCount ?? 0) + (thoughtsCount ?? 0)
+  const { rows } = await pool.query(
+    `SELECT
+       (SELECT count(*) FROM hibr_articles WHERE user_id = $1 AND moderation_status = 'approved') +
+       (SELECT count(*) FROM hibr_thoughts WHERE user_id = $1 AND moderation_status = 'approved') AS total`,
+    [userId]
+  )
+  return parseInt(rows[0]?.total || '0', 10)
 }
 
 /**

@@ -1,8 +1,8 @@
 "use client"
 
-import { createContext, useContext, useEffect, useMemo, useState } from "react"
-import { User } from "@supabase/supabase-js"
-import { createClient } from "@/lib/supabase/client"
+import { createContext, useContext, useEffect, useState } from "react"
+import { onAuthStateChanged, signOut as firebaseSignOut, type User } from "firebase/auth"
+import { auth as getAuth } from "@/lib/firebase/config"
 
 interface Profile {
   id: string
@@ -34,56 +34,31 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [profile, setProfile] = useState<Profile | null>(null)
   const [isLoading, setIsLoading] = useState(true)
 
-  const supabase = useMemo(() => createClient(), [])
-
   useEffect(() => {
-    // Get initial session
-    const getSession = async () => {
-      try {
-        const { data: { user: currentUser } } = await supabase.auth.getUser()
-        setUser(currentUser)
+    const unsubscribe = onAuthStateChanged(getAuth(), async (firebaseUser) => {
+      setUser(firebaseUser)
 
-        if (currentUser) {
-          const { data } = await supabase
-            .from("profiles")
-            .select("*")
-            .eq("id", currentUser.id)
-            .single()
-          setProfile(data)
-        }
-      } finally {
-        setIsLoading(false)
-      }
-    }
-
-    getSession()
-
-    // Listen for auth changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
-        const currentUser = session?.user ?? null
-        setUser(currentUser)
-
-        if (currentUser) {
-          const { data } = await supabase
-            .from("profiles")
-            .select("*")
-            .eq("id", currentUser.id)
-            .single()
-          setProfile(data)
-        } else {
+      if (firebaseUser) {
+        try {
+          const res = await fetch("/api/auth/profile")
+          const data = await res.json()
+          setProfile(data.profile)
+        } catch {
           setProfile(null)
         }
-
-        setIsLoading(false)
+      } else {
+        setProfile(null)
       }
-    )
 
-    return () => subscription.unsubscribe()
-  }, [supabase])
+      setIsLoading(false)
+    })
+
+    return () => unsubscribe()
+  }, [])
 
   const signOut = async () => {
-    await supabase.auth.signOut()
+    await firebaseSignOut(getAuth())
+    await fetch("/api/auth/session", { method: "DELETE" })
     setUser(null)
     setProfile(null)
   }

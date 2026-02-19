@@ -1,11 +1,6 @@
 import { stat } from "fs/promises"
 import { createConfigStore } from "@/lib/config-store"
-import { createClient } from "@/lib/supabase/server"
-
-const USE_SUPABASE = !!(
-  process.env.NEXT_PUBLIC_SUPABASE_URL &&
-  !process.env.NEXT_PUBLIC_SUPABASE_URL.includes("placeholder")
-)
+import { pool, USE_DB } from "@/lib/db"
 
 // ---------------------------------------------------------------------------
 // Types
@@ -76,7 +71,7 @@ let memoryCacheMtimeMs: number = 0
 
 function isCacheValid(): boolean {
   if (!memoryCache) return false
-  if (USE_SUPABASE) {
+  if (USE_DB) {
     return Date.now() - memoryCacheTime < CACHE_TTL_MS
   }
   return true // for JSON, validity is checked via mtime
@@ -96,26 +91,23 @@ async function getFileMtime(): Promise<number> {
 // ---------------------------------------------------------------------------
 
 export async function getKnowledgeMap(): Promise<EpisodeKnowledgeMap | null> {
-  if (USE_SUPABASE) {
+  if (USE_DB) {
     // TTL-based cache
     if (isCacheValid()) return memoryCache
 
     try {
-      const supabase = await createClient()
       const [episodesRes, metaRes] = await Promise.all([
-        supabase.from("episode_knowledge").select("episode_id, analysis"),
-        supabase.from("episode_knowledge_meta").select("*").eq("key", "meta").maybeSingle(),
+        pool!.query(`SELECT episode_id, analysis FROM episode_knowledge`),
+        pool!.query(`SELECT * FROM episode_knowledge_meta WHERE key = $1 LIMIT 1`, ["meta"]),
       ])
 
-      if (episodesRes.error) {
-        console.error("getKnowledgeMap episodes DB error:", episodesRes.error.message)
-      } else if (episodesRes.data && metaRes.data) {
+      if (metaRes.rows[0]) {
         const episodes: Record<string, EpisodeAnalysis> = {}
-        for (const row of episodesRes.data) {
+        for (const row of episodesRes.rows) {
           episodes[row.episode_id] = row.analysis as EpisodeAnalysis
         }
 
-        const meta = metaRes.data
+        const meta = metaRes.rows[0]
         const map: EpisodeKnowledgeMap = {
           episodes,
           topic_taxonomy: (meta.topic_taxonomy as TopicEntry[]) || [],
@@ -145,33 +137,43 @@ export async function getKnowledgeMap(): Promise<EpisodeKnowledgeMap | null> {
 }
 
 export async function saveKnowledgeMap(map: EpisodeKnowledgeMap): Promise<void> {
-  if (USE_SUPABASE) {
+  if (USE_DB) {
     try {
-      const supabase = await createClient()
-
       // Upsert per-episode rows
-      const episodeRows = Object.entries(map.episodes).map(([episodeId, analysis]) => ({
-        episode_id: episodeId,
-        analysis,
-      }))
+      const episodeRows = Object.entries(map.episodes)
 
       // Batch in chunks of 50
       for (let i = 0; i < episodeRows.length; i += 50) {
         const chunk = episodeRows.slice(i, i + 50)
-        const { error } = await supabase.from("episode_knowledge").upsert(chunk)
-        if (error) console.error(`saveKnowledgeMap episodes batch ${i / 50 + 1} error:`, error.message)
+        for (const [episodeId, analysis] of chunk) {
+          await pool!.query(
+            `INSERT INTO episode_knowledge (episode_id, analysis)
+             VALUES ($1, $2)
+             ON CONFLICT (episode_id) DO UPDATE SET analysis = EXCLUDED.analysis`,
+            [episodeId, JSON.stringify(analysis)]
+          )
+        }
       }
 
       // Upsert meta row
-      const { error: metaErr } = await supabase.from("episode_knowledge_meta").upsert({
-        key: "meta",
-        topic_taxonomy: map.topic_taxonomy,
-        relationships: map.relationships,
-        analyzed_at: map.analyzed_at,
-        season_1_count: map.season_1_count,
-        season_2_count: map.season_2_count,
-      })
-      if (metaErr) console.error("saveKnowledgeMap meta error:", metaErr.message)
+      await pool!.query(
+        `INSERT INTO episode_knowledge_meta (key, topic_taxonomy, relationships, analyzed_at, season_1_count, season_2_count)
+         VALUES ($1, $2, $3, $4, $5, $6)
+         ON CONFLICT (key) DO UPDATE SET
+           topic_taxonomy = EXCLUDED.topic_taxonomy,
+           relationships = EXCLUDED.relationships,
+           analyzed_at = EXCLUDED.analyzed_at,
+           season_1_count = EXCLUDED.season_1_count,
+           season_2_count = EXCLUDED.season_2_count`,
+        [
+          "meta",
+          JSON.stringify(map.topic_taxonomy),
+          JSON.stringify(map.relationships),
+          map.analyzed_at,
+          map.season_1_count,
+          map.season_2_count,
+        ]
+      )
 
       // Update memory cache
       memoryCache = map

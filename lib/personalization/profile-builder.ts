@@ -1,4 +1,4 @@
-import { createClient } from "@/lib/supabase/server"
+import { pool } from "@/lib/db"
 import { getKnowledgeMap } from "@/lib/episode-knowledge"
 import type { EpisodeAnalysis } from "@/lib/episode-knowledge"
 import type {
@@ -278,20 +278,18 @@ export async function getVisitorProfile(visitorId: string): Promise<VisitorProfi
   }
 
   // 2. Check DB cache
-  const supabase = await createClient()
-  const { data: dbProfile } = await supabase
-    .from("visitor_profiles")
-    .select("*")
-    .eq("visitor_id", visitorId)
-    .single()
+  const { rows: profileRows } = await pool!.query(
+    `SELECT * FROM visitor_profiles WHERE visitor_id = $1 LIMIT 1`,
+    [visitorId]
+  )
+  const dbProfile = profileRows[0] || null
 
   // 3. Get current event count
-  const { count: eventCount } = await supabase
-    .from("visitor_events")
-    .select("*", { count: "exact", head: true })
-    .eq("visitor_id", visitorId)
-
-  const currentEventCount = eventCount ?? 0
+  const { rows: countRows } = await pool!.query(
+    `SELECT COUNT(*) FROM visitor_events WHERE visitor_id = $1`,
+    [visitorId]
+  )
+  const currentEventCount = parseInt(countRows[0]?.count, 10) || 0
 
   // If DB profile exists and no new events, return it
   if (dbProfile && dbProfile.event_count_at_build >= currentEventCount) {
@@ -330,21 +328,17 @@ async function rebuildProfile(
   visitorId: string,
   eventCount: number
 ): Promise<VisitorProfile> {
-  const supabase = await createClient()
-
   // Fetch events + knowledge map in parallel
-  const [{ data: events }, knowledgeMap] = await Promise.all([
-    supabase
-      .from("visitor_events")
-      .select("*")
-      .eq("visitor_id", visitorId)
-      .order("created_at", { ascending: false })
-      .limit(200),
+  const [{ rows: eventRows }, knowledgeMap] = await Promise.all([
+    pool!.query(
+      `SELECT * FROM visitor_events WHERE visitor_id = $1 ORDER BY created_at DESC LIMIT 200`,
+      [visitorId]
+    ),
     getKnowledgeMap(),
   ])
 
   const vector = computeVectorFromEvents(
-    (events ?? []) as VisitorEvent[],
+    (eventRows ?? []) as VisitorEvent[],
     knowledgeMap?.episodes ?? null
   )
 
@@ -357,17 +351,17 @@ async function rebuildProfile(
   }
 
   // Upsert to DB (fire and forget — don't block response)
-  supabase
-    .from("visitor_profiles")
-    .upsert({
-      visitor_id: visitorId,
-      interest_vector: vector,
-      last_updated: now,
-      event_count_at_build: eventCount,
-    })
-    .then(({ error }) => {
-      if (error) console.error("Failed to save visitor profile:", error)
-    })
+  pool!.query(
+    `INSERT INTO visitor_profiles (visitor_id, interest_vector, last_updated, event_count_at_build)
+     VALUES ($1, $2, $3, $4)
+     ON CONFLICT (visitor_id) DO UPDATE SET
+       interest_vector = EXCLUDED.interest_vector,
+       last_updated = EXCLUDED.last_updated,
+       event_count_at_build = EXCLUDED.event_count_at_build`,
+    [visitorId, JSON.stringify(vector), now, eventCount]
+  ).catch((error) => {
+    console.error("Failed to save visitor profile:", error)
+  })
 
   // Cache in memory
   profileCache.set(visitorId, { profile, cachedAt: Date.now() })

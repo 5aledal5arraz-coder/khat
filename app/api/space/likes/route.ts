@@ -10,6 +10,7 @@ import {
   errorResponse,
 } from '@/lib/api-utils'
 import { checkRateLimit } from '@/lib/rate-limit'
+import { fireLikeNotification } from '@/lib/email/notifications'
 
 const VALID_TYPES = ['article', 'thought', 'comment', 'reply'] as const
 const TYPE_TABLE_MAP: Record<string, string> = {
@@ -85,6 +86,9 @@ export async function POST(request: NextRequest) {
       })
     if (error) return errorResponse('حدث خطأ', 500)
     liked = true
+
+    // Fire email notification to content owner (non-blocking, only on new like)
+    fireLikeNotification(body.target_type, body.target_id, user.id)
   }
 
   // Update likes count on target

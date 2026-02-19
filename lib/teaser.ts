@@ -2,12 +2,8 @@ import { unlink } from "fs/promises"
 import path from "path"
 import { createClient } from "@/lib/supabase/server"
 import { createConfigStore } from "@/lib/config-store"
+import { pool, USE_DB } from "@/lib/db"
 import type { TeaserConfig, TeaserSettings, TeaserQuestion, TeaserQuestionStats } from "@/types/teaser"
-
-const USE_SUPABASE = !!(
-  process.env.NEXT_PUBLIC_SUPABASE_URL &&
-  !process.env.NEXT_PUBLIC_SUPABASE_URL.includes("placeholder")
-)
 
 const TEASERS_DIR = path.join(process.cwd(), "public", "teasers")
 
@@ -33,16 +29,12 @@ function rowToTeaser(row: Record<string, unknown>): TeaserConfig {
 // ─── Config Read/Write ──────────────────────────────────────────
 
 export async function getTeaserSettings(): Promise<TeaserSettings> {
-  if (USE_SUPABASE) {
+  if (USE_DB) {
     try {
-      const supabase = await createClient()
-      const { data, error } = await supabase
-        .from("teasers")
-        .select("*")
-        .order("created_at", { ascending: false })
-
-      if (!error && data) return { teasers: data.map(rowToTeaser) }
-      if (error) console.error("getTeaserSettings DB error:", error.message)
+      const { rows } = await pool!.query(
+        `SELECT * FROM teasers ORDER BY created_at DESC`
+      )
+      return { teasers: rows.map(rowToTeaser) }
     } catch (e) {
       console.error("getTeaserSettings DB exception:", e)
     }
@@ -98,27 +90,15 @@ export async function createTeaser(data: {
     updatedAt: now,
   }
 
-  if (USE_SUPABASE) {
+  if (USE_DB) {
     try {
-      const supabase = await createClient()
-      const { data: inserted, error } = await supabase
-        .from("teasers")
-        .insert({
-          id: teaser.id,
-          guest_name: teaser.guestName,
-          title: teaser.title,
-          prompt: teaser.prompt,
-          video_filename: teaser.videoFilename,
-          poster_image: teaser.posterImage,
-          is_active: teaser.isActive,
-          publish_at: teaser.publishAt,
-          expire_at: teaser.expireAt,
-        })
-        .select()
-        .single()
-
-      if (!error && inserted) return rowToTeaser(inserted)
-      if (error) console.error("createTeaser DB error:", error.message)
+      const { rows } = await pool!.query(
+        `INSERT INTO teasers (id, guest_name, title, prompt, video_filename, poster_image, is_active, publish_at, expire_at)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+         RETURNING *`,
+        [teaser.id, teaser.guestName, teaser.title, teaser.prompt, teaser.videoFilename, teaser.posterImage, teaser.isActive, teaser.publishAt, teaser.expireAt]
+      )
+      if (rows[0]) return rowToTeaser(rows[0])
     } catch (e) {
       console.error("createTeaser DB exception:", e)
     }
@@ -134,9 +114,8 @@ export async function updateTeaser(
   id: string,
   updates: Partial<Omit<TeaserConfig, "id" | "createdAt">>
 ): Promise<TeaserConfig | null> {
-  if (USE_SUPABASE) {
+  if (USE_DB) {
     try {
-      const supabase = await createClient()
       const dbUpdates: Record<string, unknown> = {}
       if (updates.guestName !== undefined) dbUpdates.guest_name = updates.guestName
       if (updates.title !== undefined) dbUpdates.title = updates.title
@@ -147,15 +126,25 @@ export async function updateTeaser(
       if (updates.publishAt !== undefined) dbUpdates.publish_at = updates.publishAt
       if (updates.expireAt !== undefined) dbUpdates.expire_at = updates.expireAt
 
-      const { data, error } = await supabase
-        .from("teasers")
-        .update(dbUpdates)
-        .eq("id", id)
-        .select()
-        .single()
+      const fields: string[] = []
+      const values: unknown[] = []
+      let paramIndex = 1
 
-      if (!error && data) return rowToTeaser(data)
-      if (error) console.error("updateTeaser DB error:", error.message)
+      for (const [key, value] of Object.entries(dbUpdates)) {
+        fields.push(`${key} = $${paramIndex}`)
+        values.push(value)
+        paramIndex++
+      }
+
+      if (fields.length === 0) return null
+      values.push(id)
+
+      const { rows } = await pool!.query(
+        `UPDATE teasers SET ${fields.join(", ")} WHERE id = $${paramIndex} RETURNING *`,
+        values
+      )
+      if (rows[0]) return rowToTeaser(rows[0])
+      return null
     } catch (e) {
       console.error("updateTeaser DB exception:", e)
     }
@@ -178,31 +167,27 @@ export async function deleteTeaser(id: string): Promise<boolean> {
   // Get teaser first to know the video filename
   let videoFilename: string | null = null
 
-  if (USE_SUPABASE) {
+  if (USE_DB) {
     try {
-      const supabase = await createClient()
-      const { data: teaser } = await supabase
-        .from("teasers")
-        .select("video_filename")
-        .eq("id", id)
-        .maybeSingle()
+      const { rows: teaserRows } = await pool!.query(
+        `SELECT video_filename FROM teasers WHERE id = $1 LIMIT 1`,
+        [id]
+      )
+      if (teaserRows[0]) videoFilename = teaserRows[0].video_filename as string
 
-      if (teaser) videoFilename = teaser.video_filename as string
+      const { rowCount } = await pool!.query(
+        `DELETE FROM teasers WHERE id = $1`,
+        [id]
+      )
 
-      const { error } = await supabase
-        .from("teasers")
-        .delete()
-        .eq("id", id)
-
-      if (error) {
-        console.error("deleteTeaser DB error:", error.message)
-      } else {
+      if ((rowCount ?? 0) > 0) {
         // Delete video file
         if (videoFilename) {
           try { await unlink(path.join(TEASERS_DIR, videoFilename)) } catch { /* ok */ }
         }
         return true
       }
+      return false
     } catch (e) {
       console.error("deleteTeaser DB exception:", e)
     }
@@ -223,19 +208,16 @@ export async function deleteTeaser(id: string): Promise<boolean> {
 }
 
 export async function activateTeaser(id: string): Promise<boolean> {
-  if (USE_SUPABASE) {
+  if (USE_DB) {
     try {
-      const supabase = await createClient()
       // Deactivate all
-      await supabase.from("teasers").update({ is_active: false }).neq("id", "")
+      await pool!.query(`UPDATE teasers SET is_active = false`)
       // Activate target
-      const { error } = await supabase
-        .from("teasers")
-        .update({ is_active: true })
-        .eq("id", id)
-
-      if (!error) return true
-      console.error("activateTeaser DB error:", error.message)
+      const { rowCount } = await pool!.query(
+        `UPDATE teasers SET is_active = true WHERE id = $1`,
+        [id]
+      )
+      return (rowCount ?? 0) > 0
     } catch (e) {
       console.error("activateTeaser DB exception:", e)
     }
@@ -257,16 +239,13 @@ export async function activateTeaser(id: string): Promise<boolean> {
 }
 
 export async function deactivateTeaser(id: string): Promise<boolean> {
-  if (USE_SUPABASE) {
+  if (USE_DB) {
     try {
-      const supabase = await createClient()
-      const { error } = await supabase
-        .from("teasers")
-        .update({ is_active: false })
-        .eq("id", id)
-
-      if (!error) return true
-      console.error("deactivateTeaser DB error:", error.message)
+      const { rowCount } = await pool!.query(
+        `UPDATE teasers SET is_active = false WHERE id = $1`,
+        [id]
+      )
+      return (rowCount ?? 0) > 0
     } catch (e) {
       console.error("deactivateTeaser DB exception:", e)
     }
@@ -282,7 +261,7 @@ export async function deactivateTeaser(id: string): Promise<boolean> {
   return true
 }
 
-// ─── Question Queries (Supabase) ────────────────────────────────
+// ─── Question Queries (Supabase — Hibr auth) ────────────────────
 
 export async function getApprovedQuestions(teaserId: string): Promise<TeaserQuestion[]> {
   const supabase = await createClient()

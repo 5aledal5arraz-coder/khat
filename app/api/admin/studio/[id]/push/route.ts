@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { revalidatePath } from "next/cache"
 import { getWebsitePackageForSession } from "@/lib/studio"
 import { requireAdminAPI } from "@/lib/api-utils"
-import { createClient } from "@/lib/supabase/server"
+import { pool, USE_DB } from "@/lib/db"
 import { getEpisodeOverride, setEpisodeOverride } from "@/lib/episode-overrides"
 import { setEpisodeQuotesEntry } from "@/lib/episode-quotes"
 import { setEpisodeEnrichment } from "@/lib/episode-enrichments"
@@ -10,11 +10,6 @@ import { appendPushLog } from "@/lib/studio-push-log"
 import { invalidateEpisodeCache } from "@/lib/cache/episode-cache"
 import { fetchAllEpisodes } from "@/lib/youtube/queries"
 import type { EpisodeEnrichment } from "@/types/episodes"
-
-const USE_SUPABASE = !!(
-  process.env.NEXT_PUBLIC_SUPABASE_URL &&
-  !process.env.NEXT_PUBLIC_SUPABASE_URL.includes("placeholder")
-)
 
 interface PushFields {
   title?: boolean
@@ -80,8 +75,8 @@ export async function POST(
       episodeTitle = episodeId
     }
 
-    // Build RPC params for atomic push (Supabase path)
-    if (USE_SUPABASE) {
+    // Build RPC params for atomic push (DB path)
+    if (USE_DB) {
       let rpcOverride: Record<string, unknown> | null = null
       let rpcQuotes: Record<string, unknown> | null = null
       let rpcEnrichment: Record<string, unknown> | null = null
@@ -183,27 +178,24 @@ export async function POST(
       }
 
       // Atomic push via RPC
-      const supabase = await createClient()
-      const { error: rpcError } = await supabase.rpc("push_episode_data", {
-        p_episode_id: episodeId,
-        p_override: rpcOverride,
-        p_quotes: rpcQuotes,
-        p_enrichment: rpcEnrichment,
-        p_push_log: {
-          session_id: sessionId,
-          episode_title: episodeTitle,
-          pushed_fields: pushedFields,
-          pushed_at: new Date().toISOString(),
-        },
-      })
+      const { rows } = await pool!.query(
+        `SELECT push_episode_data($1, $2, $3, $4, $5)`,
+        [
+          episodeId,
+          rpcOverride ? JSON.stringify(rpcOverride) : null,
+          rpcQuotes ? JSON.stringify(rpcQuotes) : null,
+          rpcEnrichment ? JSON.stringify(rpcEnrichment) : null,
+          JSON.stringify({
+            session_id: sessionId,
+            episode_title: episodeTitle,
+            pushed_fields: pushedFields,
+            pushed_at: new Date().toISOString(),
+          }),
+        ]
+      )
 
-      if (rpcError) {
-        console.error("Push RPC error:", rpcError)
-        return NextResponse.json(
-          { error: "حدث خطأ أثناء النشر" },
-          { status: 500 }
-        )
-      }
+      // Check if the function returned an error (unlikely with void functions, but safe)
+      void rows
     } else {
       // Fallback: individual lib calls (JSON config-store)
 

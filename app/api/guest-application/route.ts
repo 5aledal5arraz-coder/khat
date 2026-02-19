@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
-import { createClient } from "@/lib/supabase/server"
+import { pool } from "@/lib/db"
 import { stripHtml } from "@/lib/sanitize"
 import { validateEmail } from "@/lib/validation"
 import { validateMutation, rateLimitResponse } from "@/lib/api-utils"
@@ -161,37 +161,37 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const supabase = await createClient()
-
-    const { error } = await supabase.from("guest_applications").insert({
-      name: stripHtml(name),
-      email: email.toLowerCase().trim(),
-      phone: stripHtml(phone),
-      country: stripHtml(country),
-      can_travel_to_kuwait: can_travel_to_kuwait ? stripHtml(can_travel_to_kuwait) : null,
-      story_idea: stripHtml(story_idea),
-      beyond_job_title: stripHtml(beyond_job_title),
-      life_changing_moment: stripHtml(life_changing_moment),
-      hope_people_understand: stripHtml(hope_people_understand),
-      unasked_question: stripHtml(unasked_question),
-      why_khat: stripHtml(why_khat),
-      previous_podcast: typeof previous_podcast === "boolean" ? previous_podcast : false,
-      previous_podcast_info: previous_podcast_info ? stripHtml(previous_podcast_info) : null,
-      prefer_dialogue_or_story: stripHtml(prefer_dialogue_or_story),
-      topics_to_avoid: topics_to_avoid ? stripHtml(topics_to_avoid) : null,
-      filming_concern: stripHtml(filming_concern),
-      agrees_to_publish: agrees_to_publish,
-      social_links: social_links ? stripHtml(social_links) : null,
-      status: "new",
-    })
-
-    if (error) {
-      console.error("Guest application error:", error)
-      return NextResponse.json(
-        { error: "حدث خطأ. يرجى المحاولة مرة أخرى." },
-        { status: 500 }
-      )
-    }
+    await pool!.query(
+      `INSERT INTO guest_applications (
+        name, email, phone, country, can_travel_to_kuwait,
+        story_idea, beyond_job_title, life_changing_moment,
+        hope_people_understand, unasked_question, why_khat,
+        previous_podcast, previous_podcast_info,
+        prefer_dialogue_or_story, topics_to_avoid,
+        filming_concern, agrees_to_publish, social_links, status
+      ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19)`,
+      [
+        stripHtml(name),
+        email.toLowerCase().trim(),
+        stripHtml(phone),
+        stripHtml(country),
+        can_travel_to_kuwait ? stripHtml(can_travel_to_kuwait) : null,
+        stripHtml(story_idea),
+        stripHtml(beyond_job_title),
+        stripHtml(life_changing_moment),
+        stripHtml(hope_people_understand),
+        stripHtml(unasked_question),
+        stripHtml(why_khat),
+        typeof previous_podcast === "boolean" ? previous_podcast : false,
+        previous_podcast_info ? stripHtml(previous_podcast_info) : null,
+        stripHtml(prefer_dialogue_or_story),
+        topics_to_avoid ? stripHtml(topics_to_avoid) : null,
+        stripHtml(filming_concern),
+        agrees_to_publish,
+        social_links ? stripHtml(social_links) : null,
+        "new",
+      ]
+    )
 
     return NextResponse.json({ success: true })
   } catch {

@@ -1,25 +1,24 @@
 /**
- * One-time seed script: migrates JSON config files → Supabase tables.
+ * One-time seed script: migrates JSON config files → PostgreSQL tables.
  *
  * Usage:
- *   SUPABASE_URL=... SUPABASE_SERVICE_ROLE_KEY=... npx tsx scripts/seed-configs.ts
+ *   DATABASE_URL=... npx tsx scripts/seed-configs.ts
  *
  * Safe to re-run (uses upserts).
  */
 
-import { createClient } from "@supabase/supabase-js"
+import pg from "pg"
 import { readFile } from "fs/promises"
 import path from "path"
 
-const SUPABASE_URL = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL
-const SUPABASE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY
+const DATABASE_URL = process.env.DATABASE_URL
 
-if (!SUPABASE_URL || !SUPABASE_KEY) {
-  console.error("Missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY")
+if (!DATABASE_URL) {
+  console.error("Missing DATABASE_URL")
   process.exit(1)
 }
 
-const supabase = createClient(SUPABASE_URL, SUPABASE_KEY)
+const client = new pg.Client({ connectionString: DATABASE_URL })
 const CONFIG_DIR = path.join(process.cwd(), "config")
 
 async function readJSON<T>(filename: string): Promise<T | null> {
@@ -42,15 +41,17 @@ async function seedSiteSettings() {
   }>("site-settings.json")
   if (!data) return
 
-  const { error } = await supabase.from("site_settings").upsert({
-    key: "main",
-    metadata: data.metadata,
-    social_links: data.socialLinks,
-    seo: data.seo,
-    feature_flags: data.featureFlags,
-  })
-  if (error) console.error("  ✗", error.message)
-  else console.log("  ✓ upserted")
+  await client.query(
+    `INSERT INTO site_settings (key, metadata, social_links, seo, feature_flags)
+     VALUES ($1, $2, $3, $4, $5)
+     ON CONFLICT (key) DO UPDATE SET
+       metadata = EXCLUDED.metadata,
+       social_links = EXCLUDED.social_links,
+       seo = EXCLUDED.seo,
+       feature_flags = EXCLUDED.feature_flags`,
+    ["main", JSON.stringify(data.metadata), JSON.stringify(data.socialLinks), JSON.stringify(data.seo), JSON.stringify(data.featureFlags)]
+  )
+  console.log("  ✓ upserted")
 }
 
 async function seedStaticContent() {
@@ -58,12 +59,13 @@ async function seedStaticContent() {
   const data = await readJSON<{ about: object }>("static-content.json")
   if (!data) return
 
-  const { error } = await supabase.from("static_content").upsert({
-    key: "about",
-    content: data.about,
-  })
-  if (error) console.error("  ✗", error.message)
-  else console.log("  ✓ upserted")
+  await client.query(
+    `INSERT INTO static_content (key, content)
+     VALUES ($1, $2)
+     ON CONFLICT (key) DO UPDATE SET content = EXCLUDED.content`,
+    ["about", JSON.stringify(data.about)]
+  )
+  console.log("  ✓ upserted")
 }
 
 async function seedAnalytics() {
@@ -71,17 +73,21 @@ async function seedAnalytics() {
   const data = await readJSON<Record<string, { followers: number; posts: number; engagement: string; url: string }>>("analytics.json")
   if (!data) return
 
-  const rows = Object.entries(data).map(([platform, stats]) => ({
-    platform,
-    followers: stats.followers,
-    posts: stats.posts,
-    engagement: stats.engagement,
-    url: stats.url,
-  }))
-
-  const { error } = await supabase.from("platform_analytics").upsert(rows)
-  if (error) console.error("  ✗", error.message)
-  else console.log(`  ✓ upserted ${rows.length} platforms`)
+  let count = 0
+  for (const [platform, stats] of Object.entries(data)) {
+    await client.query(
+      `INSERT INTO platform_analytics (platform, followers, posts, engagement, url)
+       VALUES ($1, $2, $3, $4, $5)
+       ON CONFLICT (platform) DO UPDATE SET
+         followers = EXCLUDED.followers,
+         posts = EXCLUDED.posts,
+         engagement = EXCLUDED.engagement,
+         url = EXCLUDED.url`,
+      [platform, stats.followers, stats.posts, stats.engagement, stats.url]
+    )
+    count++
+  }
+  console.log(`  ✓ upserted ${count} platforms`)
 }
 
 async function seedTopics() {
@@ -89,20 +95,21 @@ async function seedTopics() {
   const data = await readJSON<{ topics: Array<{ id: string; name: string; slug: string; description?: string; color: string; icon?: string; created_at: string; updated_at: string }> }>("topics.json")
   if (!data || !data.topics.length) return
 
-  const rows = data.topics.map((t) => ({
-    id: t.id,
-    name: t.name,
-    slug: t.slug,
-    description: t.description || null,
-    color: t.color,
-    icon: t.icon || null,
-    created_at: t.created_at,
-    updated_at: t.updated_at,
-  }))
-
-  const { error } = await supabase.from("topics_config").upsert(rows)
-  if (error) console.error("  ✗", error.message)
-  else console.log(`  ✓ upserted ${rows.length} topics`)
+  for (const t of data.topics) {
+    await client.query(
+      `INSERT INTO topics_config (id, name, slug, description, color, icon, created_at, updated_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+       ON CONFLICT (id) DO UPDATE SET
+         name = EXCLUDED.name,
+         slug = EXCLUDED.slug,
+         description = EXCLUDED.description,
+         color = EXCLUDED.color,
+         icon = EXCLUDED.icon,
+         updated_at = EXCLUDED.updated_at`,
+      [t.id, t.name, t.slug, t.description || null, t.color, t.icon || null, t.created_at, t.updated_at]
+    )
+  }
+  console.log(`  ✓ upserted ${data.topics.length} topics`)
 }
 
 async function seedStudioPushLog() {
@@ -110,21 +117,22 @@ async function seedStudioPushLog() {
   const data = await readJSON<Array<{ sessionId: string; episodeId: string; episodeTitle: string; pushedFields: string[]; pushedAt: string }>>("studio-push-log.json")
   if (!data || !data.length) return
 
-  const rows = data.map((entry) => ({
-    session_id: entry.sessionId,
-    episode_id: entry.episodeId,
-    episode_title: entry.episodeTitle,
-    pushed_fields: entry.pushedFields,
-    pushed_at: entry.pushedAt,
-  }))
-
-  const { error } = await supabase.from("studio_push_log").insert(rows)
-  if (error) {
-    if (error.code === "23505") console.log("  ⚠ rows already exist (duplicate key)")
-    else console.error("  ✗", error.message)
-  } else {
-    console.log(`  ✓ inserted ${rows.length} entries`)
+  let count = 0
+  for (const entry of data) {
+    try {
+      await client.query(
+        `INSERT INTO studio_push_log (session_id, episode_id, episode_title, pushed_fields, pushed_at)
+         VALUES ($1, $2, $3, $4, $5)`,
+        [entry.sessionId, entry.episodeId, entry.episodeTitle, entry.pushedFields, entry.pushedAt]
+      )
+      count++
+    } catch (e: unknown) {
+      const pgErr = e as { code?: string }
+      if (pgErr.code === "23505") continue // duplicate key
+      throw e
+    }
   }
+  console.log(`  ✓ inserted ${count} entries`)
 }
 
 async function seedEpisodeOverrides() {
@@ -132,16 +140,18 @@ async function seedEpisodeOverrides() {
   const data = await readJSON<Array<{ id: string; originalTitle: string; customTitle: string; customDescription?: string }>>("episode-overrides.json")
   if (!data || !data.length) return
 
-  const rows = data.map((o) => ({
-    episode_id: o.id,
-    original_title: o.originalTitle,
-    custom_title: o.customTitle,
-    custom_description: o.customDescription || null,
-  }))
-
-  const { error } = await supabase.from("episode_overrides").upsert(rows)
-  if (error) console.error("  ✗", error.message)
-  else console.log(`  ✓ upserted ${rows.length} overrides`)
+  for (const o of data) {
+    await client.query(
+      `INSERT INTO episode_overrides (episode_id, original_title, custom_title, custom_description)
+       VALUES ($1, $2, $3, $4)
+       ON CONFLICT (episode_id) DO UPDATE SET
+         original_title = EXCLUDED.original_title,
+         custom_title = EXCLUDED.custom_title,
+         custom_description = EXCLUDED.custom_description`,
+      [o.id, o.originalTitle, o.customTitle, o.customDescription || null]
+    )
+  }
+  console.log(`  ✓ upserted ${data.length} overrides`)
 }
 
 async function seedEpisodeSections() {
@@ -155,26 +165,32 @@ async function seedEpisodeSections() {
   if (!data) return
 
   // Sections
-  const sectionRows = data.sections.map((s) => ({
-    id: s.id,
-    label: s.label,
-    order: s.order,
-    color: s.color || null,
-    hidden: s.hidden || false,
-  }))
-  const { error: secErr } = await supabase.from("episode_sections").upsert(sectionRows)
-  if (secErr) console.error("  ✗ sections:", secErr.message)
-  else console.log(`  ✓ upserted ${sectionRows.length} sections`)
+  for (const s of data.sections) {
+    await client.query(
+      `INSERT INTO episode_sections (id, label, "order", color, hidden)
+       VALUES ($1, $2, $3, $4, $5)
+       ON CONFLICT (id) DO UPDATE SET
+         label = EXCLUDED.label,
+         "order" = EXCLUDED."order",
+         color = EXCLUDED.color,
+         hidden = EXCLUDED.hidden`,
+      [s.id, s.label, s.order, s.color || null, s.hidden || false]
+    )
+  }
+  console.log(`  ✓ upserted ${data.sections.length} sections`)
 
   // Assignments
-  const assignRows = Object.entries(data.assignments).map(([episodeId, sectionId]) => ({
-    episode_id: episodeId,
-    section_id: sectionId,
-  }))
-  if (assignRows.length > 0) {
-    const { error: assErr } = await supabase.from("episode_section_assignments").upsert(assignRows)
-    if (assErr) console.error("  ✗ assignments:", assErr.message)
-    else console.log(`  ✓ upserted ${assignRows.length} assignments`)
+  const assignEntries = Object.entries(data.assignments)
+  if (assignEntries.length > 0) {
+    for (const [episodeId, sectionId] of assignEntries) {
+      await client.query(
+        `INSERT INTO episode_section_assignments (episode_id, section_id)
+         VALUES ($1, $2)
+         ON CONFLICT (episode_id) DO UPDATE SET section_id = EXCLUDED.section_id`,
+        [episodeId, sectionId]
+      )
+    }
+    console.log(`  ✓ upserted ${assignEntries.length} assignments`)
   }
 
   // Visibility
@@ -183,9 +199,15 @@ async function seedEpisodeSections() {
     ...(data.deletedEpisodes || []).map((id) => ({ episode_id: id, visibility: "deleted" })),
   ]
   if (visRows.length > 0) {
-    const { error: visErr } = await supabase.from("episode_visibility").upsert(visRows)
-    if (visErr) console.error("  ✗ visibility:", visErr.message)
-    else console.log(`  ✓ upserted ${visRows.length} visibility entries`)
+    for (const v of visRows) {
+      await client.query(
+        `INSERT INTO episode_visibility (episode_id, visibility)
+         VALUES ($1, $2)
+         ON CONFLICT (episode_id) DO UPDATE SET visibility = EXCLUDED.visibility`,
+        [v.episode_id, v.visibility]
+      )
+    }
+    console.log(`  ✓ upserted ${visRows.length} visibility entries`)
   }
 }
 
@@ -194,14 +216,16 @@ async function seedEpisodeGuestAssignments() {
   const data = await readJSON<Record<string, string>>("episode-guest-assignments.json")
   if (!data || Object.keys(data).length === 0) return
 
-  const rows = Object.entries(data).map(([episodeId, guestId]) => ({
-    episode_id: episodeId,
-    guest_id: guestId,
-  }))
-
-  const { error } = await supabase.from("episode_guest_assignments").upsert(rows)
-  if (error) console.error("  ✗", error.message)
-  else console.log(`  ✓ upserted ${rows.length} guest assignments`)
+  const entries = Object.entries(data)
+  for (const [episodeId, guestId] of entries) {
+    await client.query(
+      `INSERT INTO episode_guest_assignments (episode_id, guest_id)
+       VALUES ($1, $2)
+       ON CONFLICT (episode_id) DO UPDATE SET guest_id = EXCLUDED.guest_id`,
+      [episodeId, guestId]
+    )
+  }
+  console.log(`  ✓ upserted ${entries.length} guest assignments`)
 }
 
 async function seedEpisodeEnrichments() {
@@ -224,29 +248,42 @@ async function seedEpisodeEnrichments() {
   }>>("episode-enrichments.json")
   if (!data) return
 
-  const rows = Object.values(data).map((e) => ({
-    episode_id: e.episodeId,
-    hero_summary: e.hero_summary || null,
-    full_summary: e.full_summary || null,
-    takeaways: e.takeaways || [],
-    topics: e.topics || [],
-    resources: e.resources || [],
-    timestamps: e.timestamps || [],
-    why_this_conversation: e.why_this_conversation || null,
-    before_you_watch: e.before_you_watch || null,
-    conversation_map: e.conversation_map || null,
-    central_question: e.central_question || null,
-    exclusive_clip: e.exclusive_clip || null,
-    unsaid_reflections: e.unsaid_reflections || [],
-  }))
-
-  // Batch in chunks of 50
-  for (let i = 0; i < rows.length; i += 50) {
-    const chunk = rows.slice(i, i + 50)
-    const { error } = await supabase.from("episode_enrichments").upsert(chunk)
-    if (error) console.error(`  ✗ batch ${i / 50 + 1}:`, error.message)
+  const entries = Object.values(data)
+  for (const e of entries) {
+    await client.query(
+      `INSERT INTO episode_enrichments (episode_id, hero_summary, full_summary, takeaways, topics, resources, timestamps, why_this_conversation, before_you_watch, conversation_map, central_question, exclusive_clip, unsaid_reflections)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+       ON CONFLICT (episode_id) DO UPDATE SET
+         hero_summary = EXCLUDED.hero_summary,
+         full_summary = EXCLUDED.full_summary,
+         takeaways = EXCLUDED.takeaways,
+         topics = EXCLUDED.topics,
+         resources = EXCLUDED.resources,
+         timestamps = EXCLUDED.timestamps,
+         why_this_conversation = EXCLUDED.why_this_conversation,
+         before_you_watch = EXCLUDED.before_you_watch,
+         conversation_map = EXCLUDED.conversation_map,
+         central_question = EXCLUDED.central_question,
+         exclusive_clip = EXCLUDED.exclusive_clip,
+         unsaid_reflections = EXCLUDED.unsaid_reflections`,
+      [
+        e.episodeId,
+        e.hero_summary || null,
+        e.full_summary || null,
+        JSON.stringify(e.takeaways || []),
+        JSON.stringify(e.topics || []),
+        JSON.stringify(e.resources || []),
+        JSON.stringify(e.timestamps || []),
+        e.why_this_conversation || null,
+        JSON.stringify(e.before_you_watch || null),
+        JSON.stringify(e.conversation_map || null),
+        e.central_question || null,
+        JSON.stringify(e.exclusive_clip || null),
+        JSON.stringify(e.unsaid_reflections || []),
+      ]
+    )
   }
-  console.log(`  ✓ upserted ${rows.length} enrichments`)
+  console.log(`  ✓ upserted ${entries.length} enrichments`)
 }
 
 async function seedEpisodeQuotes() {
@@ -262,22 +299,22 @@ async function seedEpisodeQuotes() {
   }>>("episode-quotes.json")
   if (!data) return
 
-  const rows = Object.values(data).map((e) => ({
-    episode_id: e.episodeId,
-    episode_title: e.episodeTitle,
-    quotes: e.quotes,
-    transcript: e.transcript || null,
-    status: e.status,
-    generated_at: e.generatedAt,
-    published_at: e.publishedAt || null,
-  }))
-
-  for (let i = 0; i < rows.length; i += 50) {
-    const chunk = rows.slice(i, i + 50)
-    const { error } = await supabase.from("episode_quotes_config").upsert(chunk)
-    if (error) console.error(`  ✗ batch ${i / 50 + 1}:`, error.message)
+  const entries = Object.values(data)
+  for (const e of entries) {
+    await client.query(
+      `INSERT INTO episode_quotes_config (episode_id, episode_title, quotes, transcript, status, generated_at, published_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7)
+       ON CONFLICT (episode_id) DO UPDATE SET
+         episode_title = EXCLUDED.episode_title,
+         quotes = EXCLUDED.quotes,
+         transcript = EXCLUDED.transcript,
+         status = EXCLUDED.status,
+         generated_at = EXCLUDED.generated_at,
+         published_at = EXCLUDED.published_at`,
+      [e.episodeId, e.episodeTitle, JSON.stringify(e.quotes), e.transcript || null, e.status, e.generatedAt, e.publishedAt || null]
+    )
   }
-  console.log(`  ✓ upserted ${rows.length} episode quotes entries`)
+  console.log(`  ✓ upserted ${entries.length} episode quotes entries`)
 }
 
 async function seedAds() {
@@ -289,20 +326,22 @@ async function seedAds() {
   }> }>("ads.json")
   if (!data || !data.slots.length) return
 
-  const rows = data.slots.map((s) => ({
-    id: s.id,
-    position: s.position,
-    label: s.label,
-    enabled: s.enabled,
-    schedule: s.schedule || {},
-    type: s.type,
-    sponsored_data: s.sponsoredData || {},
-    banner_data: s.bannerData || {},
-  }))
-
-  const { error } = await supabase.from("ad_slots").upsert(rows)
-  if (error) console.error("  ✗", error.message)
-  else console.log(`  ✓ upserted ${rows.length} ad slots`)
+  for (const s of data.slots) {
+    await client.query(
+      `INSERT INTO ad_slots (id, position, label, enabled, schedule, type, sponsored_data, banner_data)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+       ON CONFLICT (id) DO UPDATE SET
+         position = EXCLUDED.position,
+         label = EXCLUDED.label,
+         enabled = EXCLUDED.enabled,
+         schedule = EXCLUDED.schedule,
+         type = EXCLUDED.type,
+         sponsored_data = EXCLUDED.sponsored_data,
+         banner_data = EXCLUDED.banner_data`,
+      [s.id, s.position, s.label, s.enabled, JSON.stringify(s.schedule || {}), s.type, JSON.stringify(s.sponsoredData || {}), JSON.stringify(s.bannerData || {})]
+    )
+  }
+  console.log(`  ✓ upserted ${data.slots.length} ad slots`)
 }
 
 async function seedTeasers() {
@@ -318,23 +357,24 @@ async function seedTeasers() {
     return
   }
 
-  const rows = data.teasers.map((t) => ({
-    id: t.id,
-    guest_name: t.guestName,
-    title: t.title,
-    prompt: t.prompt,
-    video_filename: t.videoFilename,
-    poster_image: t.posterImage,
-    is_active: t.isActive,
-    publish_at: t.publishAt,
-    expire_at: t.expireAt,
-    created_at: t.createdAt,
-    updated_at: t.updatedAt,
-  }))
-
-  const { error } = await supabase.from("teasers").upsert(rows)
-  if (error) console.error("  ✗", error.message)
-  else console.log(`  ✓ upserted ${rows.length} teasers`)
+  for (const t of data.teasers) {
+    await client.query(
+      `INSERT INTO teasers (id, guest_name, title, prompt, video_filename, poster_image, is_active, publish_at, expire_at, created_at, updated_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+       ON CONFLICT (id) DO UPDATE SET
+         guest_name = EXCLUDED.guest_name,
+         title = EXCLUDED.title,
+         prompt = EXCLUDED.prompt,
+         video_filename = EXCLUDED.video_filename,
+         poster_image = EXCLUDED.poster_image,
+         is_active = EXCLUDED.is_active,
+         publish_at = EXCLUDED.publish_at,
+         expire_at = EXCLUDED.expire_at,
+         updated_at = EXCLUDED.updated_at`,
+      [t.id, t.guestName, t.title, t.prompt, t.videoFilename, t.posterImage, t.isActive, t.publishAt, t.expireAt, t.createdAt, t.updatedAt]
+    )
+  }
+  console.log(`  ✓ upserted ${data.teasers.length} teasers`)
 }
 
 async function seedHomeQuotes() {
@@ -347,22 +387,23 @@ async function seedHomeQuotes() {
   }> }>("home-quotes.json")
   if (!data || !data.quotes.length) return
 
-  const rows = data.quotes.map((q) => ({
-    id: q.id,
-    text: q.text,
-    attribution: q.attribution,
-    episode_slug: q.episode_slug || null,
-    episode_title: q.episode_title || null,
-    theme: q.theme || null,
-    scheduled_date: q.scheduled_date || null,
-    status: q.status,
-    created_at: q.created_at,
-    updated_at: q.updated_at,
-  }))
-
-  const { error } = await supabase.from("home_quotes").upsert(rows)
-  if (error) console.error("  ✗", error.message)
-  else console.log(`  ✓ upserted ${rows.length} home quotes`)
+  for (const q of data.quotes) {
+    await client.query(
+      `INSERT INTO home_quotes (id, text, attribution, episode_slug, episode_title, theme, scheduled_date, status, created_at, updated_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+       ON CONFLICT (id) DO UPDATE SET
+         text = EXCLUDED.text,
+         attribution = EXCLUDED.attribution,
+         episode_slug = EXCLUDED.episode_slug,
+         episode_title = EXCLUDED.episode_title,
+         theme = EXCLUDED.theme,
+         scheduled_date = EXCLUDED.scheduled_date,
+         status = EXCLUDED.status,
+         updated_at = EXCLUDED.updated_at`,
+      [q.id, q.text, q.attribution, q.episode_slug || null, q.episode_title || null, q.theme || null, q.scheduled_date || null, q.status, q.created_at, q.updated_at]
+    )
+  }
+  console.log(`  ✓ upserted ${data.quotes.length} home quotes`)
 }
 
 async function seedEmotionalPaths() {
@@ -376,18 +417,13 @@ async function seedEmotionalPaths() {
 
   // Update existing rows (seeded by migration 009)
   for (const p of data.paths) {
-    const { error } = await supabase.from("emotional_paths")
-      .update({
-        title: p.title,
-        subtitle: p.subtitle,
-        icon: p.icon,
-        color: p.color,
-        episode_ids: p.episode_ids,
-        quote_ids: p.quote_ids,
-        order: p.order,
-      })
-      .eq("slug", p.slug)
-    if (error) console.error(`  ✗ ${p.slug}:`, error.message)
+    await client.query(
+      `UPDATE emotional_paths SET
+         title = $1, subtitle = $2, icon = $3, color = $4,
+         episode_ids = $5, quote_ids = $6, "order" = $7
+       WHERE slug = $8`,
+      [p.title, p.subtitle, p.icon, p.color, JSON.stringify(p.episode_ids), JSON.stringify(p.quote_ids), p.order, p.slug]
+    )
   }
   console.log(`  ✓ updated ${data.paths.length} paths`)
 }
@@ -404,26 +440,24 @@ async function seedDailyReflections() {
   }> }>("daily-reflections.json")
   if (!data || !data.reflections.length) return
 
-  const rows = data.reflections.map((r) => ({
-    id: r.id,
-    date: r.date,
-    short_quote: r.short_quote,
-    reflection: r.reflection,
-    thinking_question: r.thinking_question,
-    attribution: r.attribution || null,
-    episode_slug: r.episode_slug || null,
-    episode_title: r.episode_title || null,
-    status: r.status,
-    created_at: r.created_at,
-    updated_at: r.updated_at,
-  }))
-
-  for (let i = 0; i < rows.length; i += 50) {
-    const chunk = rows.slice(i, i + 50)
-    const { error } = await supabase.from("daily_reflections").upsert(chunk)
-    if (error) console.error(`  ✗ batch ${i / 50 + 1}:`, error.message)
+  for (const r of data.reflections) {
+    await client.query(
+      `INSERT INTO daily_reflections (id, date, short_quote, reflection, thinking_question, attribution, episode_slug, episode_title, status, created_at, updated_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+       ON CONFLICT (id) DO UPDATE SET
+         date = EXCLUDED.date,
+         short_quote = EXCLUDED.short_quote,
+         reflection = EXCLUDED.reflection,
+         thinking_question = EXCLUDED.thinking_question,
+         attribution = EXCLUDED.attribution,
+         episode_slug = EXCLUDED.episode_slug,
+         episode_title = EXCLUDED.episode_title,
+         status = EXCLUDED.status,
+         updated_at = EXCLUDED.updated_at`,
+      [r.id, r.date, r.short_quote, r.reflection, r.thinking_question, r.attribution || null, r.episode_slug || null, r.episode_title || null, r.status, r.created_at, r.updated_at]
+    )
   }
-  console.log(`  ✓ upserted ${rows.length} reflections`)
+  console.log(`  ✓ upserted ${data.reflections.length} reflections`)
 }
 
 async function seedKnowledgeMap() {
@@ -439,54 +473,61 @@ async function seedKnowledgeMap() {
   if (!data) return
 
   // Per-episode rows
-  const episodeRows = Object.entries(data.episodes).map(([episodeId, analysis]) => ({
-    episode_id: episodeId,
-    analysis,
-  }))
-
-  for (let i = 0; i < episodeRows.length; i += 50) {
-    const chunk = episodeRows.slice(i, i + 50)
-    const { error } = await supabase.from("episode_knowledge").upsert(chunk)
-    if (error) console.error(`  ✗ episode_knowledge batch ${i / 50 + 1}:`, error.message)
+  const episodeEntries = Object.entries(data.episodes)
+  for (const [episodeId, analysis] of episodeEntries) {
+    await client.query(
+      `INSERT INTO episode_knowledge (episode_id, analysis)
+       VALUES ($1, $2)
+       ON CONFLICT (episode_id) DO UPDATE SET analysis = EXCLUDED.analysis`,
+      [episodeId, JSON.stringify(analysis)]
+    )
   }
-  console.log(`  ✓ upserted ${episodeRows.length} episode knowledge rows`)
+  console.log(`  ✓ upserted ${episodeEntries.length} episode knowledge rows`)
 
   // Meta row
-  const { error: metaErr } = await supabase.from("episode_knowledge_meta").upsert({
-    key: "meta",
-    topic_taxonomy: data.topic_taxonomy,
-    relationships: data.relationships,
-    analyzed_at: data.analyzed_at,
-    season_1_count: data.season_1_count,
-    season_2_count: data.season_2_count,
-  })
-  if (metaErr) console.error("  ✗ meta:", metaErr.message)
-  else console.log("  ✓ upserted knowledge meta")
+  await client.query(
+    `INSERT INTO episode_knowledge_meta (key, topic_taxonomy, relationships, analyzed_at, season_1_count, season_2_count)
+     VALUES ($1, $2, $3, $4, $5, $6)
+     ON CONFLICT (key) DO UPDATE SET
+       topic_taxonomy = EXCLUDED.topic_taxonomy,
+       relationships = EXCLUDED.relationships,
+       analyzed_at = EXCLUDED.analyzed_at,
+       season_1_count = EXCLUDED.season_1_count,
+       season_2_count = EXCLUDED.season_2_count`,
+    ["meta", JSON.stringify(data.topic_taxonomy), JSON.stringify(data.relationships), data.analyzed_at, data.season_1_count, data.season_2_count]
+  )
+  console.log("  ✓ upserted knowledge meta")
 }
 
 // ─── Main ────────────────────────────────────────────────────
 
 async function main() {
-  console.log("Seeding config data to Supabase...\n")
+  console.log("Seeding config data to PostgreSQL...\n")
 
-  await seedSiteSettings()
-  await seedStaticContent()
-  await seedAnalytics()
-  await seedTopics()
-  await seedStudioPushLog()
-  await seedEpisodeOverrides()
-  await seedEpisodeSections()
-  await seedEpisodeGuestAssignments()
-  await seedEpisodeEnrichments()
-  await seedEpisodeQuotes()
-  await seedAds()
-  await seedTeasers()
-  await seedHomeQuotes()
-  await seedEmotionalPaths()
-  await seedDailyReflections()
-  await seedKnowledgeMap()
+  await client.connect()
 
-  console.log("\n✅ Seed complete!")
+  try {
+    await seedSiteSettings()
+    await seedStaticContent()
+    await seedAnalytics()
+    await seedTopics()
+    await seedStudioPushLog()
+    await seedEpisodeOverrides()
+    await seedEpisodeSections()
+    await seedEpisodeGuestAssignments()
+    await seedEpisodeEnrichments()
+    await seedEpisodeQuotes()
+    await seedAds()
+    await seedTeasers()
+    await seedHomeQuotes()
+    await seedEmotionalPaths()
+    await seedDailyReflections()
+    await seedKnowledgeMap()
+
+    console.log("\n✅ Seed complete!")
+  } finally {
+    await client.end()
+  }
 }
 
 main().catch((err) => {

@@ -44,7 +44,7 @@
     "storeEnabled": false,
     "hibrEnabled": false,
     "guestApplicationsEnabled": true,
-    "maintenanceMode": false,
+    "maintenanceMode": true,
     "personalizationEnabled": true,
     "studioEnabled": true
   }

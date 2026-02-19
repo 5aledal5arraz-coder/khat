@@ -1,4 +1,4 @@
-import { createClient } from "@/lib/supabase/server"
+import { pool, USE_DB } from "@/lib/db"
 import fs from "fs/promises"
 import path from "path"
 import { deleteEpisodeEnrichment } from "@/lib/episode-enrichments"
@@ -18,9 +18,7 @@ import type {
 const AUDIO_DIR = path.join(process.cwd(), "data", "studio-audio")
 const MOCK_DIR = path.join(process.cwd(), "data", "studio-mock")
 
-const USE_MOCK_DATA =
-  process.env.NEXT_PUBLIC_SUPABASE_URL?.includes("placeholder") ||
-  !process.env.NEXT_PUBLIC_SUPABASE_URL
+const USE_MOCK_DATA = !USE_DB
 
 // File-based mock stores (persists across Turbopack route bundles)
 interface MockStore {
@@ -65,18 +63,15 @@ export async function getStudioSessions(): Promise<StudioSession[]> {
     )
   }
 
-  const supabase = await createClient()
-  const { data, error } = await supabase
-    .from("studio_sessions")
-    .select("*")
-    .order("created_at", { ascending: false })
-
-  if (error) {
-    console.error("Error fetching studio sessions:", error)
+  try {
+    const { rows } = await pool!.query(
+      `SELECT * FROM studio_sessions ORDER BY created_at DESC`
+    )
+    return rows as StudioSession[]
+  } catch (err) {
+    console.error("Error fetching studio sessions:", err)
     return []
   }
-
-  return data as StudioSession[]
 }
 
 export async function getStudioSession(id: string): Promise<StudioSession | null> {
@@ -85,15 +80,15 @@ export async function getStudioSession(id: string): Promise<StudioSession | null
     return store.sessions.find((s) => s.id === id) || null
   }
 
-  const supabase = await createClient()
-  const { data, error } = await supabase
-    .from("studio_sessions")
-    .select("*")
-    .eq("id", id)
-    .single()
-
-  if (error) return null
-  return data as StudioSession
+  try {
+    const { rows } = await pool!.query(
+      `SELECT * FROM studio_sessions WHERE id = $1`,
+      [id]
+    )
+    return (rows[0] as StudioSession) || null
+  } catch {
+    return null
+  }
 }
 
 export async function createStudioSession(
@@ -113,18 +108,19 @@ export async function createStudioSession(
     return { success: true, data: newSession }
   }
 
-  const supabase = await createClient()
-  const { data, error } = await supabase
-    .from("studio_sessions")
-    .insert(session)
-    .select()
-    .single()
-
-  if (error) {
-    return { success: false, error: error.message }
+  try {
+    const { episode_id, episode_title, youtube_url, source_type, notes } = session as Record<string, unknown>
+    const { rows } = await pool!.query(
+      `INSERT INTO studio_sessions (episode_id, episode_title, youtube_url, source_type, notes)
+       VALUES ($1, $2, $3, $4, $5)
+       RETURNING *`,
+      [episode_id, episode_title, youtube_url, source_type, notes]
+    )
+    return { success: true, data: rows[0] as StudioSession }
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : String(err)
+    return { success: false, error: message }
   }
-
-  return { success: true, data: data as StudioSession }
 }
 
 export async function updateStudioSession(
@@ -144,19 +140,30 @@ export async function updateStudioSession(
     return { success: true, data: store.sessions[idx] }
   }
 
-  const supabase = await createClient()
-  const { data, error } = await supabase
-    .from("studio_sessions")
-    .update({ ...updates, updated_at: new Date().toISOString() })
-    .eq("id", id)
-    .select()
-    .single()
+  try {
+    const fields: string[] = []
+    const values: unknown[] = []
+    let i = 1
+    for (const [key, value] of Object.entries(updates)) {
+      fields.push(`${key} = $${i}`)
+      values.push(value)
+      i++
+    }
+    fields.push(`updated_at = $${i}`)
+    values.push(new Date().toISOString())
+    i++
+    values.push(id)
 
-  if (error) {
-    return { success: false, error: error.message }
+    const { rows } = await pool!.query(
+      `UPDATE studio_sessions SET ${fields.join(", ")} WHERE id = $${i} RETURNING *`,
+      values
+    )
+    if (!rows[0]) return { success: false, error: "Session not found" }
+    return { success: true, data: rows[0] as StudioSession }
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : String(err)
+    return { success: false, error: message }
   }
-
-  return { success: true, data: data as StudioSession }
 }
 
 export async function deleteStudioSession(id: string): Promise<boolean> {
@@ -194,13 +201,15 @@ export async function deleteStudioSession(id: string): Promise<boolean> {
     return store.sessions.length < before
   }
 
-  const supabase = await createClient()
-  const { error } = await supabase
-    .from("studio_sessions")
-    .delete()
-    .eq("id", id)
-
-  return !error
+  try {
+    const { rowCount } = await pool!.query(
+      `DELETE FROM studio_sessions WHERE id = $1`,
+      [id]
+    )
+    return (rowCount ?? 0) > 0
+  } catch {
+    return false
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -213,21 +222,16 @@ export async function getTranscriptForSession(sessionId: string): Promise<Studio
     return store.transcripts.find((t) => t.session_id === sessionId) || null
   }
 
-  const supabase = await createClient()
-  const { data, error } = await supabase
-    .from("studio_transcripts")
-    .select("*")
-    .eq("session_id", sessionId)
-    .order("created_at", { ascending: false })
-    .limit(1)
-    .maybeSingle()
-
-  if (error) {
-    console.error("Error fetching transcript:", error)
+  try {
+    const { rows } = await pool!.query(
+      `SELECT * FROM studio_transcripts WHERE session_id = $1 ORDER BY created_at DESC LIMIT 1`,
+      [sessionId]
+    )
+    return (rows[0] as StudioTranscript) || null
+  } catch (err) {
+    console.error("Error fetching transcript:", err)
     return null
   }
-
-  return data as StudioTranscript | null
 }
 
 export async function createTranscript(
@@ -272,25 +276,33 @@ export async function createTranscript(
     return { success: true, data: newTranscript }
   }
 
-  const supabase = await createClient()
+  try {
+    // Delete any existing transcript for this session first
+    await pool!.query(
+      `DELETE FROM studio_transcripts WHERE session_id = $1`,
+      [sessionId]
+    )
 
-  // Delete any existing transcript for this session first
-  await supabase
-    .from("studio_transcripts")
-    .delete()
-    .eq("session_id", sessionId)
-
-  const { data, error } = await supabase
-    .from("studio_transcripts")
-    .insert(entry)
-    .select()
-    .single()
-
-  if (error) {
-    return { success: false, error: error.message }
+    const { rows } = await pool!.query(
+      `INSERT INTO studio_transcripts
+        (session_id, source, language, transcript_raw, transcript_clean, word_count, char_count, status, error_message, transcript_article, summary, quotes_extracted, processing_status)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+       RETURNING *`,
+      [
+        entry.session_id, entry.source, entry.language,
+        entry.transcript_raw, entry.transcript_clean,
+        entry.word_count, entry.char_count, entry.status,
+        entry.error_message, entry.transcript_article,
+        entry.summary ? JSON.stringify(entry.summary) : null,
+        entry.quotes_extracted ? JSON.stringify(entry.quotes_extracted) : null,
+        entry.processing_status,
+      ]
+    )
+    return { success: true, data: rows[0] as StudioTranscript }
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : String(err)
+    return { success: false, error: message }
   }
-
-  return { success: true, data: data as StudioTranscript }
 }
 
 export async function createTranscriptError(
@@ -327,13 +339,25 @@ export async function createTranscriptError(
     return
   }
 
-  const supabase = await createClient()
-  await supabase
-    .from("studio_transcripts")
-    .delete()
-    .eq("session_id", sessionId)
+  await pool!.query(
+    `DELETE FROM studio_transcripts WHERE session_id = $1`,
+    [sessionId]
+  )
 
-  await supabase.from("studio_transcripts").insert(entry)
+  await pool!.query(
+    `INSERT INTO studio_transcripts
+      (session_id, source, language, transcript_raw, transcript_clean, word_count, char_count, status, error_message, transcript_article, summary, quotes_extracted, processing_status)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)`,
+    [
+      entry.session_id, entry.source, entry.language,
+      entry.transcript_raw, entry.transcript_clean,
+      entry.word_count, entry.char_count, entry.status,
+      entry.error_message, entry.transcript_article,
+      entry.summary ? JSON.stringify(entry.summary) : null,
+      entry.quotes_extracted ? JSON.stringify(entry.quotes_extracted) : null,
+      entry.processing_status,
+    ]
+  )
 }
 
 // ---------------------------------------------------------------------------
@@ -362,19 +386,35 @@ export async function updateTranscriptProcessing(
     return { success: true, data: store.transcripts[idx] }
   }
 
-  const supabase = await createClient()
-  const { data, error } = await supabase
-    .from("studio_transcripts")
-    .update({ ...updates, updated_at: new Date().toISOString() })
-    .eq("id", transcriptId)
-    .select()
-    .single()
+  try {
+    const fields: string[] = []
+    const values: unknown[] = []
+    let i = 1
+    for (const [key, value] of Object.entries(updates)) {
+      fields.push(`${key} = $${i}`)
+      // JSON-serialize objects/arrays for jsonb columns
+      if (key === "summary" || key === "quotes_extracted") {
+        values.push(value != null ? JSON.stringify(value) : null)
+      } else {
+        values.push(value)
+      }
+      i++
+    }
+    fields.push(`updated_at = $${i}`)
+    values.push(new Date().toISOString())
+    i++
+    values.push(transcriptId)
 
-  if (error) {
-    return { success: false, error: error.message }
+    const { rows } = await pool!.query(
+      `UPDATE studio_transcripts SET ${fields.join(", ")} WHERE id = $${i} RETURNING *`,
+      values
+    )
+    if (!rows[0]) return { success: false, error: "Transcript not found" }
+    return { success: true, data: rows[0] as StudioTranscript }
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : String(err)
+    return { success: false, error: message }
   }
-
-  return { success: true, data: data as StudioTranscript }
 }
 
 // ---------------------------------------------------------------------------
@@ -387,21 +427,16 @@ export async function getAiOutputForSession(sessionId: string): Promise<StudioAi
     return store.aiOutputs.find((o) => o.session_id === sessionId) || null
   }
 
-  const supabase = await createClient()
-  const { data, error } = await supabase
-    .from("studio_ai_outputs")
-    .select("*")
-    .eq("session_id", sessionId)
-    .order("created_at", { ascending: false })
-    .limit(1)
-    .maybeSingle()
-
-  if (error) {
-    console.error("Error fetching AI output:", error)
+  try {
+    const { rows } = await pool!.query(
+      `SELECT * FROM studio_ai_outputs WHERE session_id = $1 ORDER BY created_at DESC LIMIT 1`,
+      [sessionId]
+    )
+    return (rows[0] as StudioAiOutput) || null
+  } catch (err) {
+    console.error("Error fetching AI output:", err)
     return null
   }
-
-  return data as StudioAiOutput | null
 }
 
 export async function createAiOutput(
@@ -441,25 +476,35 @@ export async function createAiOutput(
     return { success: true, data: newOutput }
   }
 
-  const supabase = await createClient()
+  try {
+    // Delete any existing output for this session first
+    await pool!.query(
+      `DELETE FROM studio_ai_outputs WHERE session_id = $1`,
+      [sessionId]
+    )
 
-  // Delete any existing output for this session first
-  await supabase
-    .from("studio_ai_outputs")
-    .delete()
-    .eq("session_id", sessionId)
-
-  const { data, error } = await supabase
-    .from("studio_ai_outputs")
-    .insert(entry)
-    .select()
-    .single()
-
-  if (error) {
-    return { success: false, error: error.message }
+    const { rows } = await pool!.query(
+      `INSERT INTO studio_ai_outputs
+        (session_id, model, prompt_version, status, title_best, title_alternatives, thumbnail_text_options, youtube_description, seo_keywords, hashtags, raw_openai_response, error_message)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+       RETURNING *`,
+      [
+        entry.session_id, entry.model, entry.prompt_version, entry.status,
+        entry.title_best,
+        JSON.stringify(entry.title_alternatives),
+        JSON.stringify(entry.thumbnail_text_options),
+        entry.youtube_description,
+        JSON.stringify(entry.seo_keywords),
+        JSON.stringify(entry.hashtags),
+        entry.raw_openai_response ? JSON.stringify(entry.raw_openai_response) : null,
+        entry.error_message,
+      ]
+    )
+    return { success: true, data: rows[0] as StudioAiOutput }
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : String(err)
+    return { success: false, error: message }
   }
-
-  return { success: true, data: data as StudioAiOutput }
 }
 
 export async function updateAiOutput(
@@ -479,19 +524,31 @@ export async function updateAiOutput(
     return { success: true, data: store.aiOutputs[idx] }
   }
 
-  const supabase = await createClient()
-  const { data, error } = await supabase
-    .from("studio_ai_outputs")
-    .update({ ...updates, updated_at: new Date().toISOString() })
-    .eq("id", id)
-    .select()
-    .single()
+  try {
+    const jsonColumns = new Set(["title_alternatives", "thumbnail_text_options", "seo_keywords", "hashtags"])
+    const fields: string[] = []
+    const values: unknown[] = []
+    let i = 1
+    for (const [key, value] of Object.entries(updates)) {
+      fields.push(`${key} = $${i}`)
+      values.push(jsonColumns.has(key) && value != null ? JSON.stringify(value) : value)
+      i++
+    }
+    fields.push(`updated_at = $${i}`)
+    values.push(new Date().toISOString())
+    i++
+    values.push(id)
 
-  if (error) {
-    return { success: false, error: error.message }
+    const { rows } = await pool!.query(
+      `UPDATE studio_ai_outputs SET ${fields.join(", ")} WHERE id = $${i} RETURNING *`,
+      values
+    )
+    if (!rows[0]) return { success: false, error: "Output not found" }
+    return { success: true, data: rows[0] as StudioAiOutput }
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : String(err)
+    return { success: false, error: message }
   }
-
-  return { success: true, data: data as StudioAiOutput }
 }
 
 // ---------------------------------------------------------------------------
@@ -504,21 +561,16 @@ export async function getChaptersForSession(sessionId: string): Promise<StudioCh
     return store.chapters.find((c) => c.session_id === sessionId) || null
   }
 
-  const supabase = await createClient()
-  const { data, error } = await supabase
-    .from("studio_chapters")
-    .select("*")
-    .eq("session_id", sessionId)
-    .order("created_at", { ascending: false })
-    .limit(1)
-    .maybeSingle()
-
-  if (error) {
-    console.error("Error fetching chapters:", error)
+  try {
+    const { rows } = await pool!.query(
+      `SELECT * FROM studio_chapters WHERE session_id = $1 ORDER BY created_at DESC LIMIT 1`,
+      [sessionId]
+    )
+    return (rows[0] as StudioChapters) || null
+  } catch (err) {
+    console.error("Error fetching chapters:", err)
     return null
   }
-
-  return data as StudioChapters | null
 }
 
 export async function createChapters(
@@ -542,11 +594,27 @@ export async function createChapters(
     return { success: true, data: newRow }
   }
 
-  const supabase = await createClient()
-  await supabase.from("studio_chapters").delete().eq("session_id", sessionId)
-  const { data, error } = await supabase.from("studio_chapters").insert(row).select().single()
-  if (error) return { success: false, error: error.message }
-  return { success: true, data: data as StudioChapters }
+  try {
+    await pool!.query(
+      `DELETE FROM studio_chapters WHERE session_id = $1`,
+      [sessionId]
+    )
+    const { rows } = await pool!.query(
+      `INSERT INTO studio_chapters (session_id, status, chapters, raw_openai_response, error_message)
+       VALUES ($1, $2, $3, $4, $5)
+       RETURNING *`,
+      [
+        row.session_id, row.status,
+        JSON.stringify(row.chapters),
+        row.raw_openai_response ? JSON.stringify(row.raw_openai_response) : null,
+        row.error_message,
+      ]
+    )
+    return { success: true, data: rows[0] as StudioChapters }
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : String(err)
+    return { success: false, error: message }
+  }
 }
 
 export async function updateChapters(
@@ -562,15 +630,30 @@ export async function updateChapters(
     return { success: true, data: store.chapters[idx] }
   }
 
-  const supabase = await createClient()
-  const { data, error } = await supabase
-    .from("studio_chapters")
-    .update({ ...updates, updated_at: new Date().toISOString() })
-    .eq("id", id)
-    .select()
-    .single()
-  if (error) return { success: false, error: error.message }
-  return { success: true, data: data as StudioChapters }
+  try {
+    const fields: string[] = []
+    const values: unknown[] = []
+    let i = 1
+    for (const [key, value] of Object.entries(updates)) {
+      fields.push(`${key} = $${i}`)
+      values.push(key === "chapters" && value != null ? JSON.stringify(value) : value)
+      i++
+    }
+    fields.push(`updated_at = $${i}`)
+    values.push(new Date().toISOString())
+    i++
+    values.push(id)
+
+    const { rows } = await pool!.query(
+      `UPDATE studio_chapters SET ${fields.join(", ")} WHERE id = $${i} RETURNING *`,
+      values
+    )
+    if (!rows[0]) return { success: false, error: "Not found" }
+    return { success: true, data: rows[0] as StudioChapters }
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : String(err)
+    return { success: false, error: message }
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -583,21 +666,16 @@ export async function getClipsForSession(sessionId: string): Promise<StudioClips
     return store.clips.find((c) => c.session_id === sessionId) || null
   }
 
-  const supabase = await createClient()
-  const { data, error } = await supabase
-    .from("studio_clips")
-    .select("*")
-    .eq("session_id", sessionId)
-    .order("created_at", { ascending: false })
-    .limit(1)
-    .maybeSingle()
-
-  if (error) {
-    console.error("Error fetching clips:", error)
+  try {
+    const { rows } = await pool!.query(
+      `SELECT * FROM studio_clips WHERE session_id = $1 ORDER BY created_at DESC LIMIT 1`,
+      [sessionId]
+    )
+    return (rows[0] as StudioClips) || null
+  } catch (err) {
+    console.error("Error fetching clips:", err)
     return null
   }
-
-  return data as StudioClips | null
 }
 
 export async function createClips(
@@ -621,11 +699,27 @@ export async function createClips(
     return { success: true, data: newRow }
   }
 
-  const supabase = await createClient()
-  await supabase.from("studio_clips").delete().eq("session_id", sessionId)
-  const { data, error } = await supabase.from("studio_clips").insert(row).select().single()
-  if (error) return { success: false, error: error.message }
-  return { success: true, data: data as StudioClips }
+  try {
+    await pool!.query(
+      `DELETE FROM studio_clips WHERE session_id = $1`,
+      [sessionId]
+    )
+    const { rows } = await pool!.query(
+      `INSERT INTO studio_clips (session_id, status, clips, raw_openai_response, error_message)
+       VALUES ($1, $2, $3, $4, $5)
+       RETURNING *`,
+      [
+        row.session_id, row.status,
+        JSON.stringify(row.clips),
+        row.raw_openai_response ? JSON.stringify(row.raw_openai_response) : null,
+        row.error_message,
+      ]
+    )
+    return { success: true, data: rows[0] as StudioClips }
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : String(err)
+    return { success: false, error: message }
+  }
 }
 
 export async function updateClips(
@@ -641,15 +735,30 @@ export async function updateClips(
     return { success: true, data: store.clips[idx] }
   }
 
-  const supabase = await createClient()
-  const { data, error } = await supabase
-    .from("studio_clips")
-    .update({ ...updates, updated_at: new Date().toISOString() })
-    .eq("id", id)
-    .select()
-    .single()
-  if (error) return { success: false, error: error.message }
-  return { success: true, data: data as StudioClips }
+  try {
+    const fields: string[] = []
+    const values: unknown[] = []
+    let i = 1
+    for (const [key, value] of Object.entries(updates)) {
+      fields.push(`${key} = $${i}`)
+      values.push(key === "clips" && value != null ? JSON.stringify(value) : value)
+      i++
+    }
+    fields.push(`updated_at = $${i}`)
+    values.push(new Date().toISOString())
+    i++
+    values.push(id)
+
+    const { rows } = await pool!.query(
+      `UPDATE studio_clips SET ${fields.join(", ")} WHERE id = $${i} RETURNING *`,
+      values
+    )
+    if (!rows[0]) return { success: false, error: "Not found" }
+    return { success: true, data: rows[0] as StudioClips }
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : String(err)
+    return { success: false, error: message }
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -662,21 +771,16 @@ export async function getWebsitePackageForSession(sessionId: string): Promise<St
     return store.websitePackages.find((w) => w.session_id === sessionId) || null
   }
 
-  const supabase = await createClient()
-  const { data, error } = await supabase
-    .from("studio_website_packages")
-    .select("*")
-    .eq("session_id", sessionId)
-    .order("created_at", { ascending: false })
-    .limit(1)
-    .maybeSingle()
-
-  if (error) {
-    console.error("Error fetching website package:", error)
+  try {
+    const { rows } = await pool!.query(
+      `SELECT * FROM studio_website_packages WHERE session_id = $1 ORDER BY created_at DESC LIMIT 1`,
+      [sessionId]
+    )
+    return (rows[0] as StudioWebsitePackage) || null
+  } catch (err) {
+    console.error("Error fetching website package:", err)
     return null
   }
-
-  return data as StudioWebsitePackage | null
 }
 
 export async function createWebsitePackage(
@@ -710,11 +814,36 @@ export async function createWebsitePackage(
     return { success: true, data: newRow }
   }
 
-  const supabase = await createClient()
-  await supabase.from("studio_website_packages").delete().eq("session_id", sessionId)
-  const { data, error } = await supabase.from("studio_website_packages").insert(row).select().single()
-  if (error) return { success: false, error: error.message }
-  return { success: true, data: data as StudioWebsitePackage }
+  try {
+    await pool!.query(
+      `DELETE FROM studio_website_packages WHERE session_id = $1`,
+      [sessionId]
+    )
+    const { rows } = await pool!.query(
+      `INSERT INTO studio_website_packages
+        (session_id, status, hero_summary, full_summary, takeaways, quotes, topics, resources, timestamps, custom_title, selected_quote_indices, selected_takeaway_indices, linked_episode_id, raw_openai_response, error_message)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
+       RETURNING *`,
+      [
+        row.session_id, row.status, row.hero_summary, row.full_summary,
+        JSON.stringify(row.takeaways),
+        JSON.stringify(row.quotes),
+        JSON.stringify(row.topics),
+        JSON.stringify(row.resources),
+        JSON.stringify(row.timestamps),
+        row.custom_title,
+        row.selected_quote_indices ? JSON.stringify(row.selected_quote_indices) : null,
+        row.selected_takeaway_indices ? JSON.stringify(row.selected_takeaway_indices) : null,
+        row.linked_episode_id,
+        row.raw_openai_response ? JSON.stringify(row.raw_openai_response) : null,
+        row.error_message,
+      ]
+    )
+    return { success: true, data: rows[0] as StudioWebsitePackage }
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : String(err)
+    return { success: false, error: message }
+  }
 }
 
 export async function updateWebsitePackage(
@@ -730,15 +859,31 @@ export async function updateWebsitePackage(
     return { success: true, data: store.websitePackages[idx] }
   }
 
-  const supabase = await createClient()
-  const { data, error } = await supabase
-    .from("studio_website_packages")
-    .update({ ...updates, updated_at: new Date().toISOString() })
-    .eq("id", id)
-    .select()
-    .single()
-  if (error) return { success: false, error: error.message }
-  return { success: true, data: data as StudioWebsitePackage }
+  try {
+    const jsonColumns = new Set(["takeaways", "quotes", "topics", "resources", "timestamps", "selected_quote_indices", "selected_takeaway_indices"])
+    const fields: string[] = []
+    const values: unknown[] = []
+    let i = 1
+    for (const [key, value] of Object.entries(updates)) {
+      fields.push(`${key} = $${i}`)
+      values.push(jsonColumns.has(key) && value != null ? JSON.stringify(value) : value)
+      i++
+    }
+    fields.push(`updated_at = $${i}`)
+    values.push(new Date().toISOString())
+    i++
+    values.push(id)
+
+    const { rows } = await pool!.query(
+      `UPDATE studio_website_packages SET ${fields.join(", ")} WHERE id = $${i} RETURNING *`,
+      values
+    )
+    if (!rows[0]) return { success: false, error: "Not found" }
+    return { success: true, data: rows[0] as StudioWebsitePackage }
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : String(err)
+    return { success: false, error: message }
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -751,21 +896,16 @@ export async function getAnalyzerForSession(sessionId: string): Promise<StudioAn
     return store.analyzers.find((a) => a.session_id === sessionId) || null
   }
 
-  const supabase = await createClient()
-  const { data, error } = await supabase
-    .from("studio_analyzers")
-    .select("*")
-    .eq("session_id", sessionId)
-    .order("created_at", { ascending: false })
-    .limit(1)
-    .maybeSingle()
-
-  if (error) {
-    console.error("Error fetching analyzer:", error)
+  try {
+    const { rows } = await pool!.query(
+      `SELECT * FROM studio_analyzers WHERE session_id = $1 ORDER BY created_at DESC LIMIT 1`,
+      [sessionId]
+    )
+    return (rows[0] as StudioAnalyzer) || null
+  } catch (err) {
+    console.error("Error fetching analyzer:", err)
     return null
   }
-
-  return data as StudioAnalyzer | null
 }
 
 export async function createAnalyzer(
@@ -790,11 +930,28 @@ export async function createAnalyzer(
     return { success: true, data: newRow }
   }
 
-  const supabase = await createClient()
-  await supabase.from("studio_analyzers").delete().eq("session_id", sessionId)
-  const { data, error } = await supabase.from("studio_analyzers").insert(row).select().single()
-  if (error) return { success: false, error: error.message }
-  return { success: true, data: data as StudioAnalyzer }
+  try {
+    await pool!.query(
+      `DELETE FROM studio_analyzers WHERE session_id = $1`,
+      [sessionId]
+    )
+    const { rows } = await pool!.query(
+      `INSERT INTO studio_analyzers (session_id, status, data, prompt_version, raw_openai_response, error_message)
+       VALUES ($1, $2, $3, $4, $5, $6)
+       RETURNING *`,
+      [
+        row.session_id, row.status,
+        row.data ? JSON.stringify(row.data) : null,
+        row.prompt_version,
+        row.raw_openai_response ? JSON.stringify(row.raw_openai_response) : null,
+        row.error_message,
+      ]
+    )
+    return { success: true, data: rows[0] as StudioAnalyzer }
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : String(err)
+    return { success: false, error: message }
+  }
 }
 
 // ---------------------------------------------------------------------------

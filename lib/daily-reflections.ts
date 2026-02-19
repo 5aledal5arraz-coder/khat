@@ -1,28 +1,19 @@
 import { createConfigStore } from "@/lib/config-store"
-import { createClient } from "@/lib/supabase/server"
+import { pool, USE_DB } from "@/lib/db"
 import type { DailyReflection } from "@/types/database"
 import type { DailyReflectionsConfig } from "@/types/home-content"
-
-const USE_SUPABASE = !!(
-  process.env.NEXT_PUBLIC_SUPABASE_URL &&
-  !process.env.NEXT_PUBLIC_SUPABASE_URL.includes("placeholder")
-)
 
 const defaultDailyReflectionsConfig: DailyReflectionsConfig = { reflections: [] }
 
 const store = createConfigStore<DailyReflectionsConfig>("daily-reflections.json", defaultDailyReflectionsConfig)
 
 export async function getReflectionsConfig(): Promise<DailyReflectionsConfig> {
-  if (USE_SUPABASE) {
+  if (USE_DB) {
     try {
-      const supabase = await createClient()
-      const { data, error } = await supabase
-        .from("daily_reflections")
-        .select("*")
-        .order("date", { ascending: false })
-
-      if (!error && data) return { reflections: data as DailyReflection[] }
-      if (error) console.error("getReflectionsConfig DB error:", error.message)
+      const { rows } = await pool!.query(
+        `SELECT * FROM daily_reflections ORDER BY date DESC`
+      )
+      return { reflections: rows as DailyReflection[] }
     } catch (e) {
       console.error("getReflectionsConfig DB exception:", e)
     }
@@ -38,30 +29,21 @@ export async function getAllReflections(): Promise<DailyReflection[]> {
 export async function getTodaysReflection(): Promise<DailyReflection | null> {
   const today = new Date().toISOString().split("T")[0]
 
-  if (USE_SUPABASE) {
+  if (USE_DB) {
     try {
-      const supabase = await createClient()
-
       // Check for today's reflection
-      const { data: todayData, error: todayErr } = await supabase
-        .from("daily_reflections")
-        .select("*")
-        .eq("date", today)
-        .eq("status", "published")
-        .maybeSingle()
-
-      if (!todayErr && todayData) return todayData as DailyReflection
+      const { rows: todayRows } = await pool!.query(
+        `SELECT * FROM daily_reflections WHERE date = $1 AND status = $2 LIMIT 1`,
+        [today, "published"]
+      )
+      if (todayRows[0]) return todayRows[0] as DailyReflection
 
       // Fallback: most recent published
-      const { data: recentData, error: recentErr } = await supabase
-        .from("daily_reflections")
-        .select("*")
-        .eq("status", "published")
-        .order("created_at", { ascending: false })
-        .limit(1)
-        .maybeSingle()
-
-      if (!recentErr && recentData) return recentData as DailyReflection
+      const { rows: recentRows } = await pool!.query(
+        `SELECT * FROM daily_reflections WHERE status = $1 ORDER BY created_at DESC LIMIT 1`,
+        ["published"]
+      )
+      if (recentRows[0]) return recentRows[0] as DailyReflection
       return null
     } catch (e) {
       console.error("getTodaysReflection DB exception:", e)
@@ -83,18 +65,14 @@ export async function getTodaysReflection(): Promise<DailyReflection | null> {
 }
 
 export async function getReflectionById(id: string): Promise<DailyReflection | null> {
-  if (USE_SUPABASE) {
+  if (USE_DB) {
     try {
-      const supabase = await createClient()
-      const { data, error } = await supabase
-        .from("daily_reflections")
-        .select("*")
-        .eq("id", id)
-        .maybeSingle()
-
-      if (!error && data) return data as DailyReflection
-      if (!error && !data) return null
-      if (error) console.error("getReflectionById DB error:", error.message)
+      const { rows } = await pool!.query(
+        `SELECT * FROM daily_reflections WHERE id = $1 LIMIT 1`,
+        [id]
+      )
+      if (rows[0]) return rows[0] as DailyReflection
+      return null
     } catch (e) {
       console.error("getReflectionById DB exception:", e)
     }
@@ -114,17 +92,24 @@ export async function addReflection(
     updated_at: now,
   }
 
-  if (USE_SUPABASE) {
+  if (USE_DB) {
     try {
-      const supabase = await createClient()
-      const { data, error } = await supabase
-        .from("daily_reflections")
-        .insert(newReflection)
-        .select()
-        .single()
-
-      if (!error && data) return data as DailyReflection
-      if (error) console.error("addReflection DB error:", error.message)
+      const { rows } = await pool!.query(
+        `INSERT INTO daily_reflections (id, date, short_quote, reflection, thinking_question, attribution, episode_id, episode_slug, episode_title, quote_id, quote_text, path_slug, path_title, status, created_at, updated_at)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
+         RETURNING *`,
+        [
+          newReflection.id, newReflection.date, newReflection.short_quote,
+          newReflection.reflection, newReflection.thinking_question,
+          newReflection.attribution || null,
+          newReflection.episode_id || null, newReflection.episode_slug || null, newReflection.episode_title || null,
+          newReflection.quote_id || null, newReflection.quote_text || null,
+          newReflection.path_slug || null, newReflection.path_title || null,
+          newReflection.status,
+          newReflection.created_at, newReflection.updated_at,
+        ]
+      )
+      if (rows[0]) return rows[0] as DailyReflection
     } catch (e) {
       console.error("addReflection DB exception:", e)
     }
@@ -140,18 +125,28 @@ export async function updateReflection(
   id: string,
   updates: Partial<Omit<DailyReflection, "id" | "created_at">>
 ): Promise<DailyReflection | null> {
-  if (USE_SUPABASE) {
+  if (USE_DB) {
     try {
-      const supabase = await createClient()
-      const { data, error } = await supabase
-        .from("daily_reflections")
-        .update({ ...updates, updated_at: new Date().toISOString() })
-        .eq("id", id)
-        .select()
-        .single()
+      const fields: string[] = []
+      const values: unknown[] = []
+      let paramIndex = 1
 
-      if (!error && data) return data as DailyReflection
-      if (error) console.error("updateReflection DB error:", error.message)
+      for (const [key, value] of Object.entries(updates)) {
+        fields.push(`${key} = $${paramIndex}`)
+        values.push(value)
+        paramIndex++
+      }
+      fields.push(`updated_at = $${paramIndex}`)
+      values.push(new Date().toISOString())
+      paramIndex++
+      values.push(id)
+
+      const { rows } = await pool!.query(
+        `UPDATE daily_reflections SET ${fields.join(", ")} WHERE id = $${paramIndex} RETURNING *`,
+        values
+      )
+      if (rows[0]) return rows[0] as DailyReflection
+      return null
     } catch (e) {
       console.error("updateReflection DB exception:", e)
     }
@@ -171,17 +166,13 @@ export async function updateReflection(
 }
 
 export async function getReflectionsByEpisodeId(episodeId: string): Promise<DailyReflection[]> {
-  if (USE_SUPABASE) {
+  if (USE_DB) {
     try {
-      const supabase = await createClient()
-      const { data, error } = await supabase
-        .from("daily_reflections")
-        .select("*")
-        .eq("episode_id", episodeId)
-        .eq("status", "published")
-
-      if (!error && data) return data as DailyReflection[]
-      if (error) console.error("getReflectionsByEpisodeId DB error:", error.message)
+      const { rows } = await pool!.query(
+        `SELECT * FROM daily_reflections WHERE episode_id = $1 AND status = $2`,
+        [episodeId, "published"]
+      )
+      return rows as DailyReflection[]
     } catch (e) {
       console.error("getReflectionsByEpisodeId DB exception:", e)
     }
@@ -193,16 +184,13 @@ export async function getReflectionsByEpisodeId(episodeId: string): Promise<Dail
 }
 
 export async function deleteReflection(id: string): Promise<boolean> {
-  if (USE_SUPABASE) {
+  if (USE_DB) {
     try {
-      const supabase = await createClient()
-      const { error } = await supabase
-        .from("daily_reflections")
-        .delete()
-        .eq("id", id)
-
-      if (!error) return true
-      console.error("deleteReflection DB error:", error.message)
+      const { rowCount } = await pool!.query(
+        `DELETE FROM daily_reflections WHERE id = $1`,
+        [id]
+      )
+      return (rowCount ?? 0) > 0
     } catch (e) {
       console.error("deleteReflection DB exception:", e)
     }

@@ -7,6 +7,7 @@ import { getActiveTeaser } from "@/lib/teaser"
 import { isEnabled } from "@/config/site"
 import { personalizeHome } from "@/lib/personalization/ranking"
 import { getPersonalizedContent } from "@/lib/personalization/recommend"
+import { ComingSoon } from "@/components/coming-soon"
 import { HeroPauseMoment } from "@/components/home/hero-pause-moment"
 import { EmotionalPathsSection } from "@/components/home/emotional-paths-section"
 import { TodayInKhat } from "@/components/home/today-in-khat"
@@ -18,6 +19,8 @@ import { RecommendedForYou } from "@/components/home/recommended-for-you"
 import type { PersonalizedHome } from "@/types/personalization"
 
 export default async function HomePage() {
+  const maintenanceMode = await isEnabled("maintenanceMode")
+  if (maintenanceMode) return <ComingSoon />
   // Step 1: Fetch everything that can run in parallel (no sequential waterfall)
   const [
     todaysQuote,

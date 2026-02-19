@@ -1,11 +1,6 @@
 import { createConfigStore } from "@/lib/config-store"
-import { createClient } from "@/lib/supabase/server"
+import { pool, USE_DB } from "@/lib/db"
 import type { Guest } from "@/types/database"
-
-const USE_SUPABASE = !!(
-  process.env.NEXT_PUBLIC_SUPABASE_URL &&
-  !process.env.NEXT_PUBLIC_SUPABASE_URL.includes("placeholder")
-)
 
 // episodeId -> guestId
 export type GuestAssignments = Record<string, string>
@@ -13,21 +8,16 @@ export type GuestAssignments = Record<string, string>
 const store = createConfigStore<GuestAssignments>("episode-guest-assignments.json", {})
 
 export async function getGuestAssignments(): Promise<GuestAssignments> {
-  if (USE_SUPABASE) {
+  if (USE_DB) {
     try {
-      const supabase = await createClient()
-      const { data, error } = await supabase
-        .from("episode_guest_assignments")
-        .select("episode_id, guest_id")
-
-      if (!error && data) {
-        const assignments: GuestAssignments = {}
-        for (const row of data) {
-          assignments[row.episode_id] = row.guest_id
-        }
-        return assignments
+      const { rows } = await pool!.query(
+        `SELECT episode_id, guest_id FROM episode_guest_assignments`
+      )
+      const assignments: GuestAssignments = {}
+      for (const row of rows) {
+        assignments[row.episode_id] = row.guest_id
       }
-      if (error) console.error("getGuestAssignments DB error:", error.message)
+      return assignments
     } catch (e) {
       console.error("getGuestAssignments DB exception:", e)
     }
@@ -36,22 +26,26 @@ export async function getGuestAssignments(): Promise<GuestAssignments> {
 }
 
 export async function saveGuestAssignments(assignments: GuestAssignments): Promise<void> {
-  if (USE_SUPABASE) {
+  if (USE_DB) {
     try {
-      const supabase = await createClient()
       // Replace all
-      await supabase.from("episode_guest_assignments").delete().neq("episode_id", "")
-      const rows = Object.entries(assignments).map(([episodeId, guestId]) => ({
-        episode_id: episodeId,
-        guest_id: guestId,
-      }))
-      if (rows.length > 0) {
-        const { error } = await supabase.from("episode_guest_assignments").upsert(rows)
-        if (error) console.error("saveGuestAssignments DB error:", error.message)
-        else return
-      } else {
-        return
+      await pool!.query(`DELETE FROM episode_guest_assignments`)
+      const entries = Object.entries(assignments)
+      if (entries.length > 0) {
+        const values: unknown[] = []
+        const placeholders: string[] = []
+        let i = 1
+        for (const [episodeId, guestId] of entries) {
+          placeholders.push(`($${i}, $${i + 1})`)
+          values.push(episodeId, guestId)
+          i += 2
+        }
+        await pool!.query(
+          `INSERT INTO episode_guest_assignments (episode_id, guest_id) VALUES ${placeholders.join(", ")}`,
+          values
+        )
       }
+      return
     } catch (e) {
       console.error("saveGuestAssignments DB exception:", e)
     }
@@ -60,24 +54,22 @@ export async function saveGuestAssignments(assignments: GuestAssignments): Promi
 }
 
 export async function assignGuestToEpisode(episodeId: string, guestId: string | null): Promise<void> {
-  if (USE_SUPABASE) {
+  if (USE_DB) {
     try {
-      const supabase = await createClient()
       if (guestId) {
-        const { error } = await supabase.from("episode_guest_assignments").upsert({
-          episode_id: episodeId,
-          guest_id: guestId,
-        })
-        if (!error) return
-        console.error("assignGuestToEpisode DB error:", error.message)
+        await pool!.query(
+          `INSERT INTO episode_guest_assignments (episode_id, guest_id)
+           VALUES ($1, $2)
+           ON CONFLICT (episode_id) DO UPDATE SET guest_id = EXCLUDED.guest_id`,
+          [episodeId, guestId]
+        )
       } else {
-        const { error } = await supabase
-          .from("episode_guest_assignments")
-          .delete()
-          .eq("episode_id", episodeId)
-        if (!error) return
-        console.error("assignGuestToEpisode DB error:", error.message)
+        await pool!.query(
+          `DELETE FROM episode_guest_assignments WHERE episode_id = $1`,
+          [episodeId]
+        )
       }
+      return
     } catch (e) {
       console.error("assignGuestToEpisode DB exception:", e)
     }

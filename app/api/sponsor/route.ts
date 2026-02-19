@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
-import { createClient } from "@/lib/supabase/server"
+import { pool } from "@/lib/db"
 import { stripHtml } from "@/lib/sanitize"
 import { validateEmail } from "@/lib/validation"
 import { checkIpRateLimit } from "@/lib/rate-limit"
@@ -74,32 +74,30 @@ export async function POST(request: NextRequest) {
       .map((t: string) => stripHtml(t))
       .slice(0, 10)
 
-    const supabase = await createClient()
-
-    const { error } = await supabase.from("sponsorship_leads").insert({
-      company_name: stripHtml(company_name),
-      industry: stripHtml(industry),
-      contact_name: stripHtml(contact_name),
-      job_title: stripHtml(job_title),
-      email: email.toLowerCase().trim(),
-      phone: stripHtml(phone),
-      collaboration_types: sanitizedCollabTypes,
-      collaboration_other: collaboration_other ? stripHtml(collaboration_other) : null,
-      main_goal: stripHtml(main_goal),
-      target_audience: stripHtml(target_audience),
-      preferred_timeline: preferred_timeline ? stripHtml(preferred_timeline) : null,
-      budget_range: stripHtml(budget_range),
-      additional_info: additional_info ? stripHtml(additional_info) : null,
-      status: "new",
-    })
-
-    if (error) {
-      console.error("Sponsorship lead error:", error)
-      return NextResponse.json(
-        { error: "حدث خطأ. يرجى المحاولة مرة أخرى." },
-        { status: 500 }
-      )
-    }
+    await pool!.query(
+      `INSERT INTO sponsorship_leads (
+        company_name, industry, contact_name, job_title, email, phone,
+        collaboration_types, collaboration_other, main_goal,
+        target_audience, preferred_timeline, budget_range,
+        additional_info, status
+      ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)`,
+      [
+        stripHtml(company_name),
+        stripHtml(industry),
+        stripHtml(contact_name),
+        stripHtml(job_title),
+        email.toLowerCase().trim(),
+        stripHtml(phone),
+        sanitizedCollabTypes,
+        collaboration_other ? stripHtml(collaboration_other) : null,
+        stripHtml(main_goal),
+        stripHtml(target_audience),
+        preferred_timeline ? stripHtml(preferred_timeline) : null,
+        stripHtml(budget_range),
+        additional_info ? stripHtml(additional_info) : null,
+        "new",
+      ]
+    )
 
     return NextResponse.json({ success: true })
   } catch {

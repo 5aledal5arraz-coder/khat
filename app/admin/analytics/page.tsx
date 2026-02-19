@@ -217,7 +217,7 @@ export default function AnalyticsPage() {
             Supabase غير مُهيّأ
           </p>
           <p className="mt-2 max-w-xs text-sm text-muted-foreground/60">
-            أضف متغيرات البيئة NEXT_PUBLIC_SUPABASE_URL و NEXT_PUBLIC_SUPABASE_ANON_KEY لتفعيل التحليلات
+            أضف متغيرات البيئة NEXT_PUBLIC_SUPABASE_URL و SUPABASE_SERVICE_ROLE_KEY لتفعيل التحليلات
           </p>
         </div>
       ) : websiteData.totalEvents === 0 && !websiteData.error ? (

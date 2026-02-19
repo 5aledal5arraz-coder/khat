@@ -1,4 +1,4 @@
-import { createClient } from './server'
+import { pool, USE_DB as DB_AVAILABLE } from "@/lib/db"
 import type {
   Episode,
   Guest,
@@ -31,19 +31,20 @@ import { getPublishedQuotes } from '@/lib/episode-quotes'
 import { getEpisodeEnrichment } from '@/lib/episode-enrichments'
 import { mergeEpisodeLists, mergeEpisode } from '@/lib/episodes/merge'
 
-const USE_MOCK_DATA = process.env.NEXT_PUBLIC_SUPABASE_URL?.includes('placeholder') || !process.env.NEXT_PUBLIC_SUPABASE_URL
+const USE_MOCK_DATA = !DB_AVAILABLE
 const USE_YOUTUBE = !!process.env.YOUTUBE_API_KEY
-const USE_DB = !USE_MOCK_DATA
+const USE_DB = DB_AVAILABLE
 
 async function fetchDbEpisodes(): Promise<Partial<Episode>[]> {
   if (!USE_DB) return []
   try {
-    const supabase = await createClient()
-    const { data } = await supabase
-      .from('episodes')
-      .select('*, guest:guests(id, name, slug, photo_url)')
-      .order('release_date', { ascending: false })
-    return (data || []) as Partial<Episode>[]
+    const { rows } = await pool!.query(
+      `SELECT e.*, row_to_json(g.*) as guest
+       FROM episodes e
+       LEFT JOIN guests g ON e.guest_id = g.id
+       ORDER BY e.release_date DESC`
+    )
+    return (rows || []) as Partial<Episode>[]
   } catch {
     return []
   }
@@ -52,13 +53,14 @@ async function fetchDbEpisodes(): Promise<Partial<Episode>[]> {
 async function fetchDbEpisodeById(id: string): Promise<Partial<Episode> | null> {
   if (!USE_DB) return null
   try {
-    const supabase = await createClient()
-    const { data } = await supabase
-      .from('episodes')
-      .select('*, guest:guests(id, name, slug, photo_url)')
-      .eq('id', id)
-      .maybeSingle()
-    return (data as Partial<Episode>) || null
+    const { rows } = await pool!.query(
+      `SELECT e.*, row_to_json(g.*) as guest
+       FROM episodes e
+       LEFT JOIN guests g ON e.guest_id = g.id
+       WHERE e.id = $1`,
+      [id]
+    )
+    return (rows[0] as Partial<Episode>) || null
   } catch {
     return null
   }
@@ -207,49 +209,82 @@ export async function getEpisodes(options?: {
     return episodes
   }
 
-  const supabase = await createClient()
+  // DB fallback
+  try {
+    const conditions: string[] = []
+    const params: unknown[] = []
+    let paramIndex = 1
 
-  let query = supabase
-    .from('episodes')
-    .select(`
-      *,
-      guest:guests(id, name, slug, photo_url),
-      topics:episode_topics(topic:topics(*))
-    `)
-    .order('release_date', { ascending: false })
+    if (options?.season) {
+      conditions.push(`e.season = $${paramIndex++}`)
+      params.push(options.season)
+    }
 
-  if (options?.season) {
-    query = query.eq('season', options.season)
-  }
+    if (options?.guestSlug) {
+      conditions.push(`g.slug = $${paramIndex++}`)
+      params.push(options.guestSlug)
+    }
 
-  if (options?.guestSlug) {
-    query = query.eq('guest.slug', options.guestSlug)
-  }
+    const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : ''
 
-  if (options?.limit) {
-    query = query.limit(options.limit)
-  }
+    const limitClause = options?.limit ? `LIMIT $${paramIndex++}` : ''
+    if (options?.limit) params.push(options.limit)
 
-  if (options?.offset) {
-    query = query.range(options.offset, options.offset + (options.limit || 10) - 1)
-  }
+    const offsetClause = options?.offset ? `OFFSET $${paramIndex++}` : ''
+    if (options?.offset) params.push(options.offset)
 
-  const { data, error } = await query
+    const { rows: episodes } = await pool!.query(
+      `SELECT e.*, row_to_json(g.*) as guest
+       FROM episodes e
+       LEFT JOIN guests g ON e.guest_id = g.id
+       ${whereClause}
+       ORDER BY e.release_date DESC
+       ${limitClause} ${offsetClause}`,
+      params
+    )
 
-  if (error) {
+    // Fetch topics for each episode
+    if (episodes.length > 0) {
+      const episodeIds = episodes.map((e: Record<string, unknown>) => e.id)
+      const { rows: topicRows } = await pool!.query(
+        `SELECT et.episode_id, t.*
+         FROM episode_topics et
+         JOIN topics t ON t.id = et.topic_id
+         WHERE et.episode_id = ANY($1)`,
+        [episodeIds]
+      )
+
+      const topicsByEpisode: Record<string, Topic[]> = {}
+      for (const row of topicRows) {
+        const epId = row.episode_id
+        if (!topicsByEpisode[epId]) topicsByEpisode[epId] = []
+        topicsByEpisode[epId].push({
+          id: row.id,
+          name: row.name,
+          slug: row.slug,
+          description: row.description,
+          created_at: row.created_at,
+        })
+      }
+
+      for (const ep of episodes) {
+        ep.topics = topicsByEpisode[ep.id as string] || []
+      }
+    }
+
+    let results = filterHidden(episodes as Episode[])
+
+    // Apply Arabic-aware search
+    if (options?.search) {
+      results = searchEpisodes(results, options.search)
+    }
+
+    return results
+  } catch (error) {
     console.error('Error fetching episodes:', error)
     const { mockEpisodes } = await import('@/lib/mocks/episodes')
     return filterHidden(mockEpisodes)
   }
-
-  let results = filterHidden(data || [])
-
-  // Apply Arabic-aware search
-  if (options?.search) {
-    results = searchEpisodes(results, options.search)
-  }
-
-  return results
 }
 
 export async function getEpisodeBySlug(slug: string): Promise<EpisodeWithRelations | null> {
@@ -355,22 +390,90 @@ export async function getEpisodeBySlug(slug: string): Promise<EpisodeWithRelatio
     }
   }
 
-  const supabase = await createClient()
+  // DB fallback
+  try {
+    const { rows: [episodeRow] } = await pool!.query(
+      'SELECT * FROM episodes WHERE slug = $1',
+      [slug]
+    )
 
-  const { data, error } = await supabase
-    .from('episodes')
-    .select(`
-      *,
-      guest:guests(*),
-      topics:episode_topics(topic:topics(*)),
-      timestamps(*),
-      quotes(*),
-      resources(*)
-    `)
-    .eq('slug', slug)
-    .single()
+    if (!episodeRow) {
+      // Fallback to mock
+      const { mockEpisodes } = await import('@/lib/mocks/episodes')
+      const mockEp = mockEpisodes.find(e => e.slug === slug)
+      if (mockEp && !hiddenIds.has(mockEp.id)) {
+        return {
+          ...mockEp,
+          summary: mockEp.summary || null,
+          key_takeaways: mockEp.key_takeaways || null,
+          mood: mockEp.mood || null,
+          guest_id: mockEp.guest_id || null,
+          guest: mockEp.guest || null,
+          topics: mockEp.topics || [],
+          timestamps: mockTimestamps.filter(t => t.episode_id === mockEp.id),
+          quotes: mockQuotes.filter(q => q.episode_id === mockEp.id),
+          resources: mockResources.filter(r => r.episode_id === mockEp.id),
+        }
+      }
+      return null
+    }
 
-  if (error || !data) {
+    // Block access to deleted/hidden episodes
+    if (hiddenIds.has(episodeRow.id)) return null
+
+    // Fetch related data with separate queries
+    const [guestResult, topicsResult, timestampsResult, quotesResult, resourcesResult] = await Promise.all([
+      episodeRow.guest_id
+        ? pool!.query('SELECT * FROM guests WHERE id = $1', [episodeRow.guest_id])
+        : Promise.resolve({ rows: [] }),
+      pool!.query(
+        `SELECT t.* FROM topics t
+         JOIN episode_topics et ON t.id = et.topic_id
+         WHERE et.episode_id = $1`,
+        [episodeRow.id]
+      ),
+      pool!.query(
+        'SELECT * FROM timestamps WHERE episode_id = $1 ORDER BY time_seconds ASC',
+        [episodeRow.id]
+      ),
+      pool!.query(
+        'SELECT * FROM quotes WHERE episode_id = $1',
+        [episodeRow.id]
+      ),
+      pool!.query(
+        'SELECT * FROM resources WHERE episode_id = $1',
+        [episodeRow.id]
+      ),
+    ])
+
+    const episode: EpisodeWithRelations = {
+      id: episodeRow.id,
+      title: episodeRow.title,
+      slug: episodeRow.slug,
+      summary: episodeRow.summary || null,
+      key_takeaways: episodeRow.key_takeaways || null,
+      youtube_url: episodeRow.youtube_url,
+      duration_minutes: episodeRow.duration_minutes,
+      release_date: episodeRow.release_date,
+      season: episodeRow.season || null,
+      mood: episodeRow.mood || null,
+      guest_id: episodeRow.guest_id || null,
+      created_at: episodeRow.created_at,
+      guest: (guestResult.rows[0] as Guest) || null,
+      topics: (topicsResult.rows as Topic[]) || [],
+      timestamps: (timestampsResult.rows as Timestamp[]) || [],
+      quotes: (quotesResult.rows as Quote[]) || [],
+      resources: (resourcesResult.rows as Resource[]) || [],
+    }
+
+    // Append config-file quotes
+    const configQuotes = await getPublishedQuotes(episode.id, episode.guest_id || null)
+    if (configQuotes.length > 0) {
+      episode.quotes = [...episode.quotes, ...configQuotes]
+    }
+
+    return episode
+  } catch (error) {
     console.error('Error fetching episode:', error)
     // Fallback to mock
     const { mockEpisodes } = await import('@/lib/mocks/episodes')
@@ -391,39 +494,6 @@ export async function getEpisodeBySlug(slug: string): Promise<EpisodeWithRelatio
     }
     return null
   }
-
-  // Block access to deleted/hidden episodes
-  if (hiddenIds.has((data as { id: string }).id)) return null
-
-  // Transform the nested topics
-  const rawData = data as Record<string, unknown>
-  const episode: EpisodeWithRelations = {
-    id: rawData.id as string,
-    title: rawData.title as string,
-    slug: rawData.slug as string,
-    summary: rawData.summary as string | null,
-    key_takeaways: rawData.key_takeaways as string[] | null,
-    youtube_url: rawData.youtube_url as string,
-    duration_minutes: rawData.duration_minutes as number,
-    release_date: rawData.release_date as string,
-    season: rawData.season as number | null,
-    mood: rawData.mood as string | null,
-    guest_id: rawData.guest_id as string | null,
-    created_at: rawData.created_at as string,
-    guest: rawData.guest as Guest | null,
-    topics: ((rawData.topics as { topic: Topic }[] | null) || []).map(t => t.topic),
-    timestamps: (rawData.timestamps as Timestamp[]) || [],
-    quotes: (rawData.quotes as Quote[]) || [],
-    resources: (rawData.resources as Resource[]) || [],
-  }
-
-  // Append config-file quotes
-  const configQuotes = await getPublishedQuotes(episode.id, episode.guest_id || null)
-  if (configQuotes.length > 0) {
-    episode.quotes = [...episode.quotes, ...configQuotes]
-  }
-
-  return episode
 }
 
 export async function getLatestEpisode(): Promise<Episode | null> {
@@ -449,24 +519,27 @@ export async function getLatestEpisode(): Promise<Episode | null> {
     return mockEpisodes.find((ep) => !hiddenIds.has(ep.id)) || null
   }
 
-  const supabase = await createClient()
+  // DB fallback
+  try {
+    const { rows } = await pool!.query(
+      `SELECT e.*, row_to_json(g.*) as guest
+       FROM episodes e
+       LEFT JOIN guests g ON e.guest_id = g.id
+       ORDER BY e.release_date DESC
+       LIMIT 20`
+    )
 
-  const { data, error } = await supabase
-    .from('episodes')
-    .select(`
-      *,
-      guest:guests(id, name, slug, photo_url)
-    `)
-    .order('release_date', { ascending: false })
-    .limit(20)
+    if (!rows || rows.length === 0) {
+      const { mockEpisodes } = await import('@/lib/mocks/episodes')
+      return mockEpisodes.find((ep) => !hiddenIds.has(ep.id)) || null
+    }
 
-  if (error || !data) {
+    return (rows as Episode[]).find((ep) => !hiddenIds.has(ep.id)) || null
+  } catch (error) {
     console.error('Error fetching latest episode:', error)
     const { mockEpisodes } = await import('@/lib/mocks/episodes')
     return mockEpisodes.find((ep) => !hiddenIds.has(ep.id)) || null
   }
-
-  return data.find((ep) => !hiddenIds.has(ep.id)) || null
 }
 
 export async function getMostViewedRecent(days: number = 30): Promise<Episode | null> {
@@ -508,27 +581,32 @@ export async function getMostViewedRecent(days: number = 30): Promise<Episode | 
     return recentEpisodes.sort((a, b) => (b.view_count || 0) - (a.view_count || 0))[0] || null
   }
 
-  const supabase = await createClient()
-  const cutoffDate = new Date()
-  cutoffDate.setDate(cutoffDate.getDate() - days)
+  // DB fallback
+  try {
+    const cutoffDate = new Date()
+    cutoffDate.setDate(cutoffDate.getDate() - days)
 
-  const { data, error } = await supabase
-    .from('episodes')
-    .select(`
-      *,
-      guest:guests(id, name, slug, photo_url)
-    `)
-    .gte('release_date', cutoffDate.toISOString().split('T')[0])
-    .order('view_count', { ascending: false, nullsFirst: false })
-    .limit(20)
+    const { rows } = await pool!.query(
+      `SELECT e.*, row_to_json(g.*) as guest
+       FROM episodes e
+       LEFT JOIN guests g ON e.guest_id = g.id
+       WHERE e.release_date >= $1
+       ORDER BY e.view_count DESC NULLS LAST
+       LIMIT 20`,
+      [cutoffDate.toISOString().split('T')[0]]
+    )
 
-  if (error || !data) {
+    if (!rows || rows.length === 0) {
+      const { mockEpisodes } = await import('@/lib/mocks/episodes')
+      return mockEpisodes.find((ep) => !hiddenIds.has(ep.id)) || null
+    }
+
+    return (rows as Episode[]).find((ep) => !hiddenIds.has(ep.id)) || null
+  } catch (error) {
     console.error('Error fetching most viewed recent episode:', error)
     const { mockEpisodes } = await import('@/lib/mocks/episodes')
     return mockEpisodes.find((ep) => !hiddenIds.has(ep.id)) || null
   }
-
-  return data.find((ep) => !hiddenIds.has(ep.id)) || null
 }
 
 export async function getGuests(options?: {
@@ -569,27 +647,27 @@ export async function getGuests(options?: {
     return guests
   }
 
-  const supabase = await createClient()
+  // DB fallback
+  try {
+    let query = 'SELECT * FROM guests'
+    const params: unknown[] = []
 
-  let query = supabase
-    .from('guests')
-    .select('*')
-    .order('name')
+    if (options?.search) {
+      // Escape SQL LIKE wildcards in user input
+      const escapedSearch = options.search.replace(/[%_]/g, '\\$&')
+      query += ' WHERE name ILIKE $1'
+      params.push(`%${escapedSearch}%`)
+    }
 
-  if (options?.search) {
-    // Escape SQL LIKE wildcards in user input
-    const escapedSearch = options.search.replace(/[%_]/g, '\\$&')
-    query = query.ilike('name', `%${escapedSearch}%`)
-  }
+    query += ' ORDER BY name'
 
-  const { data, error } = await query
+    const { rows } = await pool!.query(query, params)
 
-  if (error) {
+    return (rows as Guest[]) || []
+  } catch (error) {
     console.error('Error fetching guests:', error)
     return mockGuests
   }
-
-  return data || []
 }
 
 export async function getGuestBySlug(slug: string): Promise<GuestWithRelations | null> {
@@ -631,16 +709,45 @@ export async function getGuestBySlug(slug: string): Promise<GuestWithRelations |
     }
   }
 
-  const supabase = await createClient()
+  // DB fallback
+  try {
+    const { rows: [guest] } = await pool!.query(
+      'SELECT * FROM guests WHERE slug = $1',
+      [slug]
+    )
 
-  const { data: guest, error: guestError } = await supabase
-    .from('guests')
-    .select('*')
-    .eq('slug', slug)
-    .single()
+    if (!guest) {
+      // Fallback to mock
+      const mockGuest = mockGuests.find(g => g.slug === slug)
+      if (mockGuest) {
+        const { mockEpisodes } = await import('@/lib/mocks/episodes')
+        return {
+          ...mockGuest,
+          episodes: mockEpisodes.filter(e => e.guest_id === mockGuest.id),
+          quotes: mockQuotes.filter(q => q.guest_id === mockGuest.id),
+        }
+      }
+      return null
+    }
 
-  if (guestError || !guest) {
-    console.error('Error fetching guest:', guestError)
+    const [episodesResult, quotesResult] = await Promise.all([
+      pool!.query(
+        'SELECT * FROM episodes WHERE guest_id = $1 ORDER BY release_date DESC',
+        [guest.id]
+      ),
+      pool!.query(
+        'SELECT * FROM quotes WHERE guest_id = $1',
+        [guest.id]
+      ),
+    ])
+
+    return {
+      ...guest,
+      episodes: episodesResult.rows || [],
+      quotes: quotesResult.rows || [],
+    } as GuestWithRelations
+  } catch (error) {
+    console.error('Error fetching guest:', error)
     // Fallback to mock
     const mockGuest = mockGuests.find(g => g.slug === slug)
     if (mockGuest) {
@@ -652,23 +759,6 @@ export async function getGuestBySlug(slug: string): Promise<GuestWithRelations |
       }
     }
     return null
-  }
-
-  const { data: episodes } = await supabase
-    .from('episodes')
-    .select('*')
-    .eq('guest_id', guest.id)
-    .order('release_date', { ascending: false })
-
-  const { data: quotes } = await supabase
-    .from('quotes')
-    .select('*')
-    .eq('guest_id', guest.id)
-
-  return {
-    ...guest,
-    episodes: episodes || [],
-    quotes: quotes || [],
   }
 }
 
@@ -697,19 +787,15 @@ export async function getTopics(): Promise<Topic[]> {
     return mockTopics
   }
 
-  const supabase = await createClient()
+  // DB fallback
+  try {
+    const { rows } = await pool!.query('SELECT * FROM topics ORDER BY name')
 
-  const { data, error } = await supabase
-    .from('topics')
-    .select('*')
-    .order('name')
-
-  if (error) {
+    return (rows as Topic[]) || []
+  } catch (error) {
     console.error('Error fetching topics:', error)
     return mockTopics
   }
-
-  return data || []
 }
 
 export async function getAdjacentEpisodes(
@@ -753,26 +839,24 @@ export async function getRelatedEpisodes(
       .slice(0, limit)
   }
 
-  const supabase = await createClient()
+  // DB fallback
+  try {
+    const { rows } = await pool!.query(
+      `SELECT DISTINCT e.*, row_to_json(g.*) as guest
+       FROM episodes e
+       LEFT JOIN guests g ON e.guest_id = g.id
+       JOIN episode_topics et ON e.id = et.episode_id
+       WHERE et.topic_id = ANY($1) AND e.id != $2
+       LIMIT $3`,
+      [topicIds, episodeId, limit]
+    )
 
-  const { data, error } = await supabase
-    .from('episodes')
-    .select(`
-      *,
-      guest:guests(id, name, slug, photo_url),
-      topics:episode_topics!inner(topic_id)
-    `)
-    .in('topics.topic_id', topicIds)
-    .neq('id', episodeId)
-    .limit(limit)
-
-  if (error) {
+    return (rows as Episode[]) || []
+  } catch (error) {
     console.error('Error fetching related episodes:', error)
     const { mockEpisodes } = await import('@/lib/mocks/episodes')
     return mockEpisodes.filter(e => e.id !== episodeId).slice(0, limit)
   }
-
-  return data || []
 }
 
 export async function getEpisodesByTopicPath(topicSlugs: string[]): Promise<Episode[]> {
@@ -794,38 +878,37 @@ export async function getEpisodesByTopicPath(topicSlugs: string[]): Promise<Epis
     ).slice(0, 5)
   }
 
-  const supabase = await createClient()
+  // DB fallback
+  try {
+    const { rows: topics } = await pool!.query(
+      'SELECT id FROM topics WHERE slug = ANY($1)',
+      [topicSlugs]
+    )
 
-  const { data: topics } = await supabase
-    .from('topics')
-    .select('id')
-    .in('slug', topicSlugs)
+    if (!topics || topics.length === 0) {
+      const { mockEpisodes } = await import('@/lib/mocks/episodes')
+      return mockEpisodes.slice(0, 5)
+    }
 
-  if (!topics || topics.length === 0) {
-    const { mockEpisodes } = await import('@/lib/mocks/episodes')
-    return mockEpisodes.slice(0, 5)
-  }
+    const topicIds = topics.map((t: { id: string }) => t.id)
 
-  const topicIds = topics.map(t => t.id)
+    const { rows } = await pool!.query(
+      `SELECT DISTINCT e.*, row_to_json(g.*) as guest
+       FROM episodes e
+       LEFT JOIN guests g ON e.guest_id = g.id
+       JOIN episode_topics et ON e.id = et.episode_id
+       WHERE et.topic_id = ANY($1)
+       ORDER BY e.release_date DESC
+       LIMIT 5`,
+      [topicIds]
+    )
 
-  const { data, error } = await supabase
-    .from('episodes')
-    .select(`
-      *,
-      guest:guests(id, name, slug, photo_url),
-      topics:episode_topics!inner(topic_id)
-    `)
-    .in('topics.topic_id', topicIds)
-    .order('release_date', { ascending: false })
-    .limit(5)
-
-  if (error) {
+    return (rows as Episode[]) || []
+  } catch (error) {
     console.error('Error fetching episodes by topic path:', error)
     const { mockEpisodes } = await import('@/lib/mocks/episodes')
     return mockEpisodes.slice(0, 5)
   }
-
-  return data || []
 }
 
 export async function getEpisodeCounts(): Promise<Record<string, number>> {
@@ -879,20 +962,19 @@ export async function subscribeNewsletter(email: string): Promise<{ success: boo
     return { success: true }
   }
 
-  const supabase = await createClient()
-
-  const { error } = await supabase
-    .from('newsletter_subscribers')
-    .insert({ email })
-
-  if (error) {
-    if (error.code === '23505') {
+  try {
+    await pool!.query(
+      'INSERT INTO newsletter_subscribers (email) VALUES ($1)',
+      [email]
+    )
+    return { success: true }
+  } catch (error: unknown) {
+    const pgError = error as { code?: string }
+    if (pgError.code === '23505') {
       return { success: false, error: 'البريد الإلكتروني مسجل بالفعل' }
     }
     return { success: false, error: 'حدث خطأ. يرجى المحاولة مرة أخرى.' }
   }
-
-  return { success: true }
 }
 
 export async function submitSponsorshipLead(data: {
@@ -905,17 +987,19 @@ export async function submitSponsorshipLead(data: {
     return { success: true }
   }
 
-  const supabase = await createClient()
+  try {
+    const columns = Object.keys(data)
+    const values = Object.values(data)
+    const placeholders = columns.map((_, i) => `$${i + 1}`)
 
-  const { error } = await supabase
-    .from('sponsorship_leads')
-    .insert(data)
-
-  if (error) {
+    await pool!.query(
+      `INSERT INTO sponsorship_leads (${columns.join(', ')}) VALUES (${placeholders.join(', ')})`,
+      values
+    )
+    return { success: true }
+  } catch {
     return { success: false, error: 'حدث خطأ. يرجى المحاولة مرة أخرى.' }
   }
-
-  return { success: true }
 }
 
 export async function submitGuestApplication(data: {
@@ -929,15 +1013,17 @@ export async function submitGuestApplication(data: {
     return { success: true }
   }
 
-  const supabase = await createClient()
+  try {
+    const columns = Object.keys(data)
+    const values = Object.values(data)
+    const placeholders = columns.map((_, i) => `$${i + 1}`)
 
-  const { error } = await supabase
-    .from('guest_applications')
-    .insert(data)
-
-  if (error) {
+    await pool!.query(
+      `INSERT INTO guest_applications (${columns.join(', ')}) VALUES (${placeholders.join(', ')})`,
+      values
+    )
+    return { success: true }
+  } catch {
     return { success: false, error: 'حدث خطأ. يرجى المحاولة مرة أخرى.' }
   }
-
-  return { success: true }
 }

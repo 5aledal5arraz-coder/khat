@@ -1,5 +1,5 @@
 import { NextRequest } from "next/server"
-import { createClient } from "@/lib/supabase/server"
+import { pool } from "@/lib/db"
 import { checkIpRateLimit } from "@/lib/rate-limit"
 import {
   successResponse,
@@ -87,15 +87,13 @@ export async function POST(request: NextRequest) {
   }
 
   // Insert event
-  const supabase = await createClient()
-  const { error } = await supabase.from("visitor_events").insert({
-    visitor_id: visitorId,
-    event_type,
-    target_id,
-    metadata: metadata ?? {},
-  })
-
-  if (error) {
+  try {
+    await pool!.query(
+      `INSERT INTO visitor_events (visitor_id, event_type, target_id, metadata)
+       VALUES ($1, $2, $3, $4)`,
+      [visitorId, event_type, target_id, JSON.stringify(metadata ?? {})]
+    )
+  } catch (error) {
     console.error("Failed to insert visitor event:", error)
     return errorResponse("حدث خطأ أثناء تسجيل الحدث", 500)
   }

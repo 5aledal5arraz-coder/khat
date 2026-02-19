@@ -1,4 +1,4 @@
-import { createClient } from "@/lib/supabase/server"
+import { pool } from "@/lib/db"
 import { getKnowledgeMap } from "@/lib/episode-knowledge"
 import type { EpisodeKnowledgeMap, EpisodeAnalysis } from "@/lib/episode-knowledge"
 import type { Episode, HomeQuote, EmotionalPath } from "@/types/database"
@@ -352,19 +352,15 @@ function reorderPaths(paths: EmotionalPath[], signals: Signals): EmotionalPath[]
 // ---------------------------------------------------------------------------
 
 async function getVisitorEvents(visitorId: string): Promise<VisitorEvent[]> {
-  const supabase = await createClient()
-  const { data, error } = await supabase
-    .from("visitor_events")
-    .select("*")
-    .eq("visitor_id", visitorId)
-    .order("created_at", { ascending: false })
-    .limit(200)
-
-  if (error) {
+  try {
+    const { rows } = await pool!.query(
+      `SELECT * FROM visitor_events WHERE visitor_id = $1 ORDER BY created_at DESC LIMIT 200`,
+      [visitorId]
+    )
+    return (rows ?? []) as VisitorEvent[]
+  } catch {
     return []
   }
-
-  return (data ?? []) as VisitorEvent[]
 }
 
 // ---------------------------------------------------------------------------

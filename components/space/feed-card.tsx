@@ -345,7 +345,7 @@ function ThoughtFeedCard({ item }: { item: FeedItem }) {
       }
     }
 
-    const displayName = user?.user_metadata?.full_name || user?.email?.split("@")[0] || "أنت"
+    const displayName = user?.displayName || user?.email?.split("@")[0] || "أنت"
 
     const newReply = {
       id: `reply-${crypto.randomUUID()}`,

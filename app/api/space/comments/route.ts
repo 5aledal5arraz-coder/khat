@@ -17,6 +17,7 @@ import { validateCommentContent } from '@/lib/validation'
 import { sanitizeComment } from '@/lib/sanitize'
 import { checkRateLimit } from '@/lib/rate-limit'
 import { moderateContent } from '@/lib/moderation'
+import { fireCommentNotification } from '@/lib/email/notifications'
 
 export async function POST(request: NextRequest) {
   const mutationError = validateMutation(request)
@@ -92,6 +93,9 @@ export async function POST(request: NextRequest) {
     .from('hibr_articles')
     .update({ comments_count: count ?? 0 })
     .eq('id', body.article_id)
+
+  // Fire email notification to article owner (non-blocking)
+  fireCommentNotification(body.article_id, user.id, cleanContent)
 
   return successResponse({ comment: data, moderation: modResult }, 201)
 }
