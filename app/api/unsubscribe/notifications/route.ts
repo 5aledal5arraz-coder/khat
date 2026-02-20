@@ -1,31 +1,49 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { pool } from '@/lib/db'
+import { db } from '@/lib/db'
+import { profiles } from '@/lib/db/schema'
+import { eq } from 'drizzle-orm'
 
 const VALID_TYPES = ['comments', 'replies', 'likes', 'follows', 'all'] as const
+
+type NotifyType = typeof VALID_TYPES[number]
+
+const NOTIFY_COLUMN_MAP: Record<Exclude<NotifyType, 'all'>, keyof typeof profiles.$inferSelect> = {
+  comments: 'notify_comments',
+  replies: 'notify_replies',
+  likes: 'notify_likes',
+  follows: 'notify_follows',
+}
 
 export async function GET(request: NextRequest) {
   const token = request.nextUrl.searchParams.get('token')
   const type = request.nextUrl.searchParams.get('type')
 
-  if (!token || !type || !pool || !VALID_TYPES.includes(type as typeof VALID_TYPES[number])) {
+  if (!token || !type || !db || !VALID_TYPES.includes(type as NotifyType)) {
     return NextResponse.redirect(new URL('/unsubscribe?status=error', request.url))
   }
 
   try {
-    let query: string
+    let result: unknown[]
 
     if (type === 'all') {
-      query = `UPDATE profiles
-        SET notify_comments = false, notify_replies = false, notify_likes = false, notify_follows = false
-        WHERE notification_unsubscribe_token = $1`
+      result = await db.update(profiles)
+        .set({
+          notify_comments: false,
+          notify_replies: false,
+          notify_likes: false,
+          notify_follows: false,
+        })
+        .where(eq(profiles.notification_unsubscribe_token, token))
+        .returning()
     } else {
-      const column = `notify_${type}`
-      query = `UPDATE profiles SET ${column} = false WHERE notification_unsubscribe_token = $1`
+      const column = NOTIFY_COLUMN_MAP[type as Exclude<NotifyType, 'all'>]
+      result = await db.update(profiles)
+        .set({ [column]: false })
+        .where(eq(profiles.notification_unsubscribe_token, token))
+        .returning()
     }
 
-    const { rowCount } = await pool.query(query, [token])
-
-    if (rowCount === 0) {
+    if (result.length === 0) {
       return NextResponse.redirect(new URL('/unsubscribe?status=error', request.url))
     }
 

@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
 import { getAdminAuth } from '@/lib/firebase/admin'
-import { pool } from '@/lib/db'
+import { db } from '@/lib/db'
+import { profiles } from '@/lib/db/schema'
+import { eq, sql, and } from 'drizzle-orm'
 
 /**
  * Validate request origin (same-origin check)
@@ -46,15 +48,29 @@ export async function getAuthUser() {
 }
 
 /**
+ * Get authenticated admin user from __admin_session cookie.
+ * Used by all admin-facing routes (requireAdmin, requireAdminAPI, requireRole, etc.)
+ */
+export async function getAdminAuthUser() {
+  try {
+    const cookieStore = await cookies()
+    const session = cookieStore.get('__admin_session')?.value
+    if (!session) return null
+
+    const decoded = await getAdminAuth().verifySessionCookie(session)
+    return { id: decoded.uid, email: decoded.email || '' }
+  } catch {
+    return null
+  }
+}
+
+/**
  * Get user profile with admin/ban status
  */
 export async function getUserProfile(userId: string) {
-  if (!pool) return null
+  if (!db) return null
 
-  const { rows } = await pool.query(
-    'SELECT * FROM profiles WHERE id = $1',
-    [userId]
-  )
+  const rows = await db.select().from(profiles).where(eq(profiles.id, userId))
   return rows[0] || null
 }
 
@@ -62,24 +78,21 @@ export async function getUserProfile(userId: string) {
  * Get user's approved content count (for moderation decisions)
  */
 export async function getUserApprovedCount(userId: string): Promise<number> {
-  if (!pool) return 0
+  if (!db) return 0
 
-  const { rows } = await pool.query(
-    `SELECT
-       (SELECT count(*) FROM hibr_articles WHERE user_id = $1 AND moderation_status = 'approved') +
-       (SELECT count(*) FROM hibr_thoughts WHERE user_id = $1 AND moderation_status = 'approved') AS total`,
-    [userId]
-  )
-  return parseInt(rows[0]?.total || '0', 10)
+  const result = await db.execute(sql`
+    SELECT
+      (SELECT count(*) FROM hibr_articles WHERE user_id = ${userId} AND moderation_status = 'approved') +
+      (SELECT count(*) FROM hibr_thoughts WHERE user_id = ${userId} AND moderation_status = 'approved') AS total
+  `)
+  return parseInt(String(result.rows[0]?.total || '0'), 10)
 }
 
 /**
  * Require admin access for server actions. Throws if not authenticated or not admin.
- * TEMPORARY: Bypassed when ADMIN_AUTH_BYPASS=true in env
  */
 export async function requireAdmin(): Promise<void> {
-  if (process.env.ADMIN_AUTH_BYPASS === 'true') return
-  const user = await getAuthUser()
+  const user = await getAdminAuthUser()
   if (!user) throw new Error('يجب تسجيل الدخول أولاً')
   const profile = await getUserProfile(user.id)
   if (!profile?.is_admin) throw new Error('ليس لديك صلاحية لهذا الإجراء')
@@ -87,15 +100,55 @@ export async function requireAdmin(): Promise<void> {
 
 /**
  * Require admin for API routes. Returns error response or null if authorized.
- * TEMPORARY: Bypassed when ADMIN_AUTH_BYPASS=true in env
  */
 export async function requireAdminAPI(): Promise<NextResponse | null> {
-  if (process.env.ADMIN_AUTH_BYPASS === 'true') return null
-  const user = await getAuthUser()
+  const user = await getAdminAuthUser()
   if (!user) return unauthorizedResponse()
   const profile = await getUserProfile(user.id)
   if (!profile?.is_admin) return forbiddenResponse()
   return null
+}
+
+// -- Role hierarchy --
+
+type Role = 'admin' | 'editor' | 'moderator' | 'user'
+
+const ROLE_LEVELS: Record<Role, number> = {
+  admin: 3,
+  editor: 2,
+  moderator: 1,
+  user: 0,
+}
+
+export function hasRole(userRole: string | null | undefined, requiredRole: Role): boolean {
+  const level = ROLE_LEVELS[(userRole as Role)] ?? 0
+  return level >= ROLE_LEVELS[requiredRole]
+}
+
+/**
+ * Get authenticated user with profile (including role)
+ */
+export async function getAuthUserWithRole() {
+  const user = await getAdminAuthUser()
+  if (!user) return null
+  const profile = await getUserProfile(user.id)
+  if (!profile) return null
+  return { ...user, profile }
+}
+
+/**
+ * Require minimum role for API routes. Returns error response or null if authorized.
+ */
+export async function requireRole(minRole: Role): Promise<{ error: NextResponse } | { error: null; user: { id: string; email: string }; profile: any }> {
+  const user = await getAdminAuthUser()
+  if (!user) return { error: unauthorizedResponse() }
+  const profile = await getUserProfile(user.id)
+  if (!profile) return { error: forbiddenResponse() }
+  // Check both new role system and legacy is_admin
+  if (!hasRole(profile.role, minRole) && !(minRole === 'admin' && profile.is_admin)) {
+    return { error: forbiddenResponse() }
+  }
+  return { error: null, user, profile }
 }
 
 // -- Error response helpers (Arabic messages) --

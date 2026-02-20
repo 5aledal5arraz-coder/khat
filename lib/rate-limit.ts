@@ -1,5 +1,7 @@
-import { SupabaseClient } from '@supabase/supabase-js'
 import { NextRequest } from 'next/server'
+import { db } from '@/lib/db'
+import { rateLimits } from '@/lib/db/schema'
+import { eq, and, gte, count } from 'drizzle-orm'
 
 interface RateLimitConfig {
   action: string
@@ -116,10 +118,9 @@ export interface RateLimitResult {
 }
 
 /**
- * Check and record rate limit using Supabase rate_limits table
+ * Check and record rate limit using rate_limits table via pool
  */
 export async function checkRateLimit(
-  supabase: SupabaseClient,
   userId: string,
   limitKey: keyof typeof RATE_LIMITS
 ): Promise<RateLimitResult> {
@@ -130,35 +131,33 @@ export async function checkRateLimit(
 
   const windowStart = new Date(Date.now() - config.windowMs)
 
-  // Count requests in window
-  const { count, error } = await supabase
-    .from('rate_limits')
-    .select('*', { count: 'exact', head: true })
-    .eq('user_id', userId)
-    .eq('action', config.action)
-    .gte('created_at', windowStart.toISOString())
+  try {
+    // Count requests in window
+    const result = await db!.select({ cnt: count() })
+      .from(rateLimits)
+      .where(and(
+        eq(rateLimits.user_id, userId),
+        eq(rateLimits.action, config.action),
+        gte(rateLimits.created_at, windowStart)
+      ))
 
-  if (error) {
+    const currentCount = result[0]?.cnt ?? 0
+    const remaining = Math.max(0, config.maxRequests - currentCount)
+    const allowed = currentCount < config.maxRequests
+
+    if (allowed) {
+      // Record this request
+      await db!.insert(rateLimits).values({ user_id: userId, action: config.action })
+    }
+
+    return {
+      allowed,
+      remaining: allowed ? remaining - 1 : 0,
+      resetAt: new Date(Date.now() + config.windowMs),
+    }
+  } catch (err) {
     // Fail closed - deny the request when DB is unavailable to prevent abuse
-    console.error('Rate limit check failed:', error)
+    console.error('Rate limit check failed:', err)
     return { allowed: false, remaining: 0, resetAt: new Date(Date.now() + config.windowMs) }
-  }
-
-  const currentCount = count ?? 0
-  const remaining = Math.max(0, config.maxRequests - currentCount)
-  const allowed = currentCount < config.maxRequests
-
-  if (allowed) {
-    // Record this request
-    await supabase.from('rate_limits').insert({
-      user_id: userId,
-      action: config.action,
-    })
-  }
-
-  return {
-    allowed,
-    remaining: allowed ? remaining - 1 : 0,
-    resetAt: new Date(Date.now() + config.windowMs),
   }
 }

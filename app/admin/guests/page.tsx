@@ -1,5 +1,5 @@
 import { getAllGuests } from "@/lib/admin/queries"
-import { getEpisodes } from "@/lib/supabase/queries"
+import { getEpisodes } from "@/lib/queries/episodes"
 import { GuestsList } from "./guests-list"
 
 export const dynamic = "force-dynamic"

@@ -1,7 +1,7 @@
 import { requireAdminAPI } from "@/lib/api-utils"
 import { detectGuestsForEpisodes, type GuestDetectionInput } from "@/lib/openai"
 import { getAllGuests, createGuest, updateGuest } from "@/lib/admin/queries"
-import { getEpisodes } from "@/lib/supabase/queries"
+import { getEpisodes } from "@/lib/queries/episodes"
 import { assignGuestToEpisode, getGuestAssignments } from "@/lib/episode-guests"
 import { getStudioSessions, getTranscriptForSession } from "@/lib/studio"
 import type { Guest } from "@/types/database"

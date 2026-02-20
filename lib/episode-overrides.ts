@@ -1,5 +1,7 @@
 import { createConfigStore } from "@/lib/config-store"
-import { pool, USE_DB } from "@/lib/db"
+import { db, USE_DB } from "@/lib/db"
+import { episodeOverrides } from "@/lib/db/schema"
+import { eq } from "drizzle-orm"
 import type { EpisodeOverride } from "@/types/episodes"
 
 const store = createConfigStore<EpisodeOverride[]>("episode-overrides.json", [])
@@ -22,9 +24,7 @@ function rowToOverride(row: {
 export async function getEpisodeOverrides(): Promise<EpisodeOverride[]> {
   if (USE_DB) {
     try {
-      const { rows } = await pool!.query(
-        `SELECT episode_id, original_title, custom_title, custom_description FROM episode_overrides`
-      )
+      const rows = await db!.select().from(episodeOverrides)
       return rows.map(rowToOverride)
     } catch (e) {
       console.error("getEpisodeOverrides DB exception:", e)
@@ -37,20 +37,15 @@ export async function saveEpisodeOverrides(overrides: EpisodeOverride[]): Promis
   if (USE_DB) {
     try {
       // Delete all, then insert — simple full replace
-      await pool!.query(`DELETE FROM episode_overrides`)
+      await db!.delete(episodeOverrides)
       if (overrides.length > 0) {
-        const values: unknown[] = []
-        const placeholders: string[] = []
-        let i = 1
-        for (const o of overrides) {
-          placeholders.push(`($${i}, $${i + 1}, $${i + 2}, $${i + 3})`)
-          values.push(o.id, o.originalTitle, o.customTitle, o.customDescription || null)
-          i += 4
-        }
-        await pool!.query(
-          `INSERT INTO episode_overrides (episode_id, original_title, custom_title, custom_description)
-           VALUES ${placeholders.join(", ")}`,
-          values
+        await db!.insert(episodeOverrides).values(
+          overrides.map((o) => ({
+            episode_id: o.id,
+            original_title: o.originalTitle,
+            custom_title: o.customTitle,
+            custom_description: o.customDescription || null,
+          }))
         )
       }
       return
@@ -64,11 +59,9 @@ export async function saveEpisodeOverrides(overrides: EpisodeOverride[]): Promis
 export async function getEpisodeOverride(episodeId: string): Promise<EpisodeOverride | null> {
   if (USE_DB) {
     try {
-      const { rows } = await pool!.query(
-        `SELECT episode_id, original_title, custom_title, custom_description
-         FROM episode_overrides WHERE episode_id = $1 LIMIT 1`,
-        [episodeId]
-      )
+      const rows = await db!.select().from(episodeOverrides)
+        .where(eq(episodeOverrides.episode_id, episodeId))
+        .limit(1)
       if (rows[0]) return rowToOverride(rows[0])
       return null
     } catch (e) {
@@ -82,15 +75,19 @@ export async function getEpisodeOverride(episodeId: string): Promise<EpisodeOver
 export async function setEpisodeOverride(override: EpisodeOverride): Promise<void> {
   if (USE_DB) {
     try {
-      await pool!.query(
-        `INSERT INTO episode_overrides (episode_id, original_title, custom_title, custom_description)
-         VALUES ($1, $2, $3, $4)
-         ON CONFLICT (episode_id) DO UPDATE SET
-           original_title = EXCLUDED.original_title,
-           custom_title = EXCLUDED.custom_title,
-           custom_description = EXCLUDED.custom_description`,
-        [override.id, override.originalTitle, override.customTitle, override.customDescription || null]
-      )
+      await db!.insert(episodeOverrides).values({
+        episode_id: override.id,
+        original_title: override.originalTitle,
+        custom_title: override.customTitle,
+        custom_description: override.customDescription || null,
+      }).onConflictDoUpdate({
+        target: episodeOverrides.episode_id,
+        set: {
+          original_title: override.originalTitle,
+          custom_title: override.customTitle,
+          custom_description: override.customDescription || null,
+        },
+      })
       return
     } catch (e) {
       console.error("setEpisodeOverride DB exception:", e)
@@ -112,10 +109,7 @@ export async function setEpisodeOverride(override: EpisodeOverride): Promise<voi
 export async function deleteEpisodeOverride(episodeId: string): Promise<void> {
   if (USE_DB) {
     try {
-      await pool!.query(
-        `DELETE FROM episode_overrides WHERE episode_id = $1`,
-        [episodeId]
-      )
+      await db!.delete(episodeOverrides).where(eq(episodeOverrides.episode_id, episodeId))
       return
     } catch (e) {
       console.error("deleteEpisodeOverride DB exception:", e)

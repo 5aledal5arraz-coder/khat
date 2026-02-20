@@ -1,10 +1,12 @@
 import { getResend, FROM_EMAIL } from './resend'
 import {
   welcomeEmailHtml,
+  newsletterWelcomeHtml,
   commentNotificationHtml,
   replyNotificationHtml,
   likeNotificationHtml,
   followNotificationHtml,
+  directEmailHtml,
 } from './templates'
 
 export async function sendWelcomeEmail(email: string, displayName: string) {
@@ -13,6 +15,15 @@ export async function sendWelcomeEmail(email: string, displayName: string) {
     to: email,
     subject: 'أهلاً بك في خط بودكاست!',
     html: welcomeEmailHtml(displayName),
+  })
+}
+
+export async function sendNewsletterWelcome(email: string, unsubscribeUrl: string) {
+  return getResend().emails.send({
+    from: FROM_EMAIL,
+    to: email,
+    subject: 'أهلاً بك في نشرة خط بودكاست!',
+    html: newsletterWelcomeHtml(unsubscribeUrl),
   })
 }
 
@@ -77,5 +88,20 @@ export async function sendFollowNotification(
     to: email,
     subject: `👤 ${followerName} بدأ بمتابعتك`,
     html: followNotificationHtml(userName, followerName, followerUrl, unsubUrl),
+  })
+}
+
+export async function sendDirectEmail(
+  email: string,
+  recipientName: string,
+  subject: string,
+  body: string,
+  senderName: string
+) {
+  return getResend().emails.send({
+    from: FROM_EMAIL,
+    to: email,
+    subject,
+    html: directEmailHtml(recipientName, subject, body, senderName),
   })
 }

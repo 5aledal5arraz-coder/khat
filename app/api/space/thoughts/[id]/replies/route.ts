@@ -1,5 +1,5 @@
 import { NextRequest } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
+import { db, PROFILE_COLS, nestProfile } from '@/lib/db'
 import {
   getAuthUser,
   getUserProfile,
@@ -18,25 +18,26 @@ import { sanitizeComment } from '@/lib/sanitize'
 import { checkRateLimit } from '@/lib/rate-limit'
 import { moderateContent } from '@/lib/moderation'
 import { fireReplyNotification } from '@/lib/email/notifications'
+import { sql } from 'drizzle-orm'
 
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params
-  const supabase = await createClient()
 
-  const { data, error } = await supabase
-    .from('hibr_replies')
-    .select('*, profiles!hibr_replies_user_id_fkey(id, display_name, avatar_url)')
-    .eq('thought_id', id)
-    .is('deleted_at', null)
-    .in('moderation_status', ['approved', 'pending'])
-    .order('created_at', { ascending: true })
+  try {
+    const result = await db!.execute(sql`SELECT r.*, ${sql.raw(PROFILE_COLS)}
+       FROM hibr_replies r LEFT JOIN profiles p ON r.user_id = p.id
+       WHERE r.thought_id = ${id} AND r.deleted_at IS NULL AND r.moderation_status IN ('approved', 'pending')
+       ORDER BY r.created_at ASC`)
 
-  if (error) return errorResponse('حدث خطأ في جلب الردود', 500)
+    const rows = result.rows as Record<string, unknown>[]
 
-  return successResponse({ replies: data || [] })
+    return successResponse({ replies: rows.map(nestProfile) })
+  } catch {
+    return errorResponse('حدث خطأ في جلب الردود', 500)
+  }
 }
 
 export async function POST(
@@ -54,19 +55,12 @@ export async function POST(
   const profile = await getUserProfile(user.id)
   if (profile?.is_banned) return bannedResponse()
 
-  const supabase = await createClient()
-
   // Check thought exists
-  const { data: thought } = await supabase
-    .from('hibr_thoughts')
-    .select('id')
-    .eq('id', thoughtId)
-    .is('deleted_at', null)
-    .single()
+  const thoughtResult = await db!.execute(sql`SELECT id FROM hibr_thoughts WHERE id = ${thoughtId} AND deleted_at IS NULL LIMIT 1`)
+  const thoughts = thoughtResult.rows as Record<string, unknown>[]
+  if (thoughts.length === 0) return notFoundResponse()
 
-  if (!thought) return notFoundResponse()
-
-  const rateLimit = await checkRateLimit(supabase, user.id, 'create_comment')
+  const rateLimit = await checkRateLimit(user.id, 'create_comment')
   if (!rateLimit.allowed) return rateLimitResponse()
 
   let body: { content: string }
@@ -91,35 +85,27 @@ export async function POST(
     )
   }
 
-  const { data, error } = await supabase
-    .from('hibr_replies')
-    .insert({
-      thought_id: thoughtId,
-      user_id: user.id,
-      content: cleanContent,
-      moderation_status: modResult.status,
-      moderation_reason: modResult.reasons.length > 0 ? modResult.reasons.join('، ') : null,
-    })
-    .select('*, profiles!hibr_replies_user_id_fkey(id, display_name, avatar_url)')
-    .single()
+  try {
+    const result = await db!.execute(sql`WITH ins AS (
+         INSERT INTO hibr_replies (thought_id, user_id, content, moderation_status, moderation_reason)
+         VALUES (${thoughtId}, ${user.id}, ${cleanContent}, ${modResult.status}, ${modResult.reasons.length > 0 ? modResult.reasons.join('، ') : null})
+         RETURNING *
+       )
+       SELECT ins.*, ${sql.raw(PROFILE_COLS)}
+       FROM ins LEFT JOIN profiles p ON ins.user_id = p.id`)
 
-  if (error) return errorResponse('حدث خطأ في إضافة الرد', 500)
+    const rows = result.rows as Record<string, unknown>[]
 
-  // Update replies count (only count approved + pending)
-  const { count: repliesCount } = await supabase
-    .from('hibr_replies')
-    .select('*', { count: 'exact', head: true })
-    .eq('thought_id', thoughtId)
-    .in('moderation_status', ['approved', 'pending'])
-    .is('deleted_at', null)
+    // Update replies count (only count approved + pending)
+    const countResult = await db!.execute(sql`SELECT COUNT(*)::int AS cnt FROM hibr_replies WHERE thought_id = ${thoughtId} AND moderation_status IN ('approved', 'pending') AND deleted_at IS NULL`)
+    const countRows = countResult.rows as Record<string, unknown>[]
+    await db!.execute(sql`UPDATE hibr_thoughts SET replies_count = ${(countRows[0]?.cnt as number) ?? 0} WHERE id = ${thoughtId}`)
 
-  await supabase
-    .from('hibr_thoughts')
-    .update({ replies_count: repliesCount ?? 0 })
-    .eq('id', thoughtId)
+    // Fire email notification to thought owner (non-blocking)
+    fireReplyNotification(thoughtId, user.id, cleanContent)
 
-  // Fire email notification to thought owner (non-blocking)
-  fireReplyNotification(thoughtId, user.id, cleanContent)
-
-  return successResponse({ reply: data, moderation: modResult }, 201)
+    return successResponse({ reply: nestProfile(rows[0]), moderation: modResult }, 201)
+  } catch {
+    return errorResponse('حدث خطأ في إضافة الرد', 500)
+  }
 }

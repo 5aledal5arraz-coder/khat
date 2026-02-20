@@ -15,7 +15,7 @@ import {
   ArrowUpLeft,
 } from "lucide-react"
 import { RefreshButton } from "./refresh-button"
-import { getEpisodes, getGuests } from "@/lib/supabase/queries"
+import { getEpisodes, getGuests } from "@/lib/queries/episodes"
 import { getSubmissionCounts } from "@/lib/admin/queries"
 import { GlowCard } from "./components/glow-card"
 import { formatDuration, getYouTubeId } from "@/lib/utils"

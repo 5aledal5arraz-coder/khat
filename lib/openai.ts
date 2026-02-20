@@ -1565,6 +1565,128 @@ export async function detectGuestsForEpisodes(
 }
 
 // ---------------------------------------------------------------------------
+// Newsletter: AI-generated monthly newsletter content
+// ---------------------------------------------------------------------------
+
+export async function generateNewsletterContent(params: {
+  monthName: string
+  year: number
+  featured: { title: string; slug: string; thumbnail_url: string | null; guest: { name: string; photo_url: string | null } | null }
+  quotes: { text: string; theme: string | null }[]
+  otherEpisodes: { title: string; slug: string; thumbnail_url: string | null; guest: { name: string } | null }[]
+  appUrl: string
+}): Promise<{ success: boolean; data?: { subject: string; body: string }; error?: string }> {
+  let openai: OpenAI
+  try {
+    openai = getClient()
+  } catch {
+    return { success: false, error: "OPENAI_API_KEY غير مُعدّ" }
+  }
+
+  const { monthName, year, featured, quotes, otherEpisodes, appUrl } = params
+
+  const episodeDataBlock = JSON.stringify({
+    featured: {
+      title: featured.title,
+      slug: featured.slug,
+      thumbnail_url: featured.thumbnail_url,
+      guest: featured.guest,
+      link: `${appUrl}/episodes/${featured.slug}`,
+    },
+    quotes: quotes.slice(0, 3),
+    otherEpisodes: otherEpisodes.map((ep) => ({
+      title: ep.title,
+      slug: ep.slug,
+      thumbnail_url: ep.thumbnail_url,
+      guest: ep.guest,
+      link: `${appUrl}/episodes/${ep.slug}`,
+    })),
+  }, null, 2)
+
+  try {
+    const response = await openai.chat.completions.create({
+      model: "gpt-4o-mini",
+      temperature: 0.5,
+      response_format: { type: "json_object" },
+      messages: [
+        {
+          role: "system",
+          content: `أنت مصمم نشرات بريدية محترف لبودكاست عربي اسمه "خط".
+
+## مهمتك:
+اكتب نشرة بريدية شهرية بتنسيق HTML جاهز للإرسال عبر البريد الإلكتروني.
+
+## قواعد HTML الصارمة (للتوافق مع عملاء البريد):
+- استخدم جداول HTML للتخطيط (<table>) وليس CSS grid أو flexbox
+- جميع الأنماط inline فقط (style="...")
+- لا تستخدم <style> tags أو CSS خارجي
+- الاتجاه RTL: dir="rtl" على الجدول الرئيسي
+- أقصى عرض: 600px للجدول الرئيسي مع margin: 0 auto
+- الخطوط: font-family: 'Segoe UI', Tahoma, Arial, sans-serif
+
+## ألوان الثيم الداكن:
+- خلفية الصفحة: #0a0a0a
+- خلفية المحتوى: #141414
+- خلفية البطاقات: #1a1a1a
+- نص رئيسي: #e5e5e5
+- نص ثانوي: #a3a3a3
+- حدود: #525252
+- نص باهت: #737373
+
+## البنية المطلوبة:
+1. **هيدر**: شعار خط + عنوان النشرة (نشرة خط — {الشهر} {السنة})
+2. **الحلقة المميزة**: صورة مصغرة (إذا متوفرة كـ <img>)، عنوان الحلقة، اسم الضيف (إذا متوفر)، زر "استمع الآن" يوجه للرابط
+3. **اقتباسات مميزة**: 1-3 اقتباسات في صناديق مميزة بخلفية مختلفة قليلاً
+4. **حلقات أخرى**: قائمة بباقي حلقات الشهر (إذا وُجدت) مع روابط
+5. **فوتر**: رسالة ودية + رابط إلغاء الاشتراك (استخدم {{unsubscribe_url}} كـ placeholder)
+
+## تعليمات:
+- اجعل النشرة مختصرة وجذابة — لا تكتب فقرات طويلة
+- أضف personality عربية دافئة
+- أزرار CTA: خلفية بيضاء (#e5e5e5) مع نص داكن (#0a0a0a)، padding مناسب، border-radius
+- الصور تظهر فقط إذا كان الرابط موجوداً (ليس null)
+- لا تضف صور من عندك — استخدم فقط الروابط المقدمة
+
+## مخطط JSON المطلوب:
+{
+  "subject": "نشرة خط — {الشهر} {السنة}",
+  "body": "<table>...HTML الكامل...</table>"
+}`,
+        },
+        {
+          role: "user",
+          content: `الشهر: ${monthName} ${year}
+
+بيانات الحلقات:
+${episodeDataBlock}`,
+        },
+      ],
+    })
+
+    const content = response.choices[0]?.message?.content
+    if (!content) {
+      return { success: false, error: "لم يتم الحصول على استجابة من OpenAI" }
+    }
+
+    const parsed = JSON.parse(content) as { subject: string; body: string }
+    if (!parsed.subject || !parsed.body) {
+      return { success: false, error: "استجابة OpenAI غير مكتملة" }
+    }
+
+    return {
+      success: true,
+      data: {
+        subject: parsed.subject || `نشرة خط — ${monthName} ${year}`,
+        body: parsed.body,
+      },
+    }
+  } catch (error) {
+    const msg = error instanceof Error ? error.message : "حدث خطأ أثناء إنشاء النشرة"
+    return { success: false, error: msg }
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Home Page AI Analysis — Batch analyze episodes for topic/theme extraction
 // ---------------------------------------------------------------------------
 

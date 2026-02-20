@@ -38,7 +38,7 @@ function fmtEpDuration(minutes: number): string {
 }
 
 // ---------------------------------------------------------------------------
-// Client-side filterByCategory — mirrors lib/supabase/queries.ts
+// Client-side filterByCategory — mirrors lib/queries/episodes.ts
 // ---------------------------------------------------------------------------
 
 function filterByCategory(

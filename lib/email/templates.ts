@@ -147,6 +147,138 @@ export function followNotificationHtml(
   return emailLayout(content, unsubscribeUrl)
 }
 
+export function newsletterWelcomeHtml(unsubscribeUrl: string): string {
+  const content = `
+    <h2 style="margin:0 0 16px;color:#e5e5e5;font-size:22px;">أهلاً بك في نشرة خط!</h2>
+    <p style="margin:0 0 16px;">شكراً لاشتراكك — يسعدنا إنك هنا.</p>
+    <p style="margin:0 0 16px;">من الآن، راح توصلك رسائل مختارة بعناية تشمل:</p>
+    <ul style="margin:0 0 16px;padding-right:20px;padding-left:0;">
+      <li style="margin-bottom:8px;">أحدث حلقات خط بودكاست</li>
+      <li style="margin-bottom:8px;">اقتباسات وتأملات ملهمة</li>
+      <li style="margin-bottom:8px;">محتوى حصري ما ينشر في مكان ثاني</li>
+    </ul>
+    <p style="margin:0 0 24px;">نوعدك — بدون إزعاج، بس محتوى يستاهل وقتك.</p>
+    ${ctaButton('استكشف الحلقات', `${APP_URL}/episodes`)}
+  `
+  return emailLayout(content, unsubscribeUrl)
+}
+
+export function monthlyNewsletterHtml(params: {
+  monthName: string
+  year: number
+  featured: {
+    title: string
+    slug: string
+    thumbnail_url: string | null
+    guest: { name: string; photo_url: string | null } | null
+  }
+  quotes: { text: string; theme: string | null }[]
+  otherEpisodes: {
+    title: string
+    slug: string
+    thumbnail_url: string | null
+    guest: { name: string } | null
+  }[]
+}): string {
+  const { monthName, year, featured, quotes, otherEpisodes } = params
+  const episodeUrl = `${APP_URL}/episodes/${featured.slug}`
+
+  // Featured thumbnail
+  const thumbnailHtml = featured.thumbnail_url
+    ? `<a href="${episodeUrl}" style="text-decoration:none;">
+        <img src="${featured.thumbnail_url}" alt="${featured.title}" width="536" style="width:100%;max-width:536px;border-radius:8px;display:block;" />
+      </a>`
+    : ''
+
+  // Guest row with photo
+  const guestHtml = featured.guest
+    ? `<table role="presentation" cellpadding="0" cellspacing="0" style="margin:12px 0 16px;">
+        <tr>
+          <td style="vertical-align:middle;padding-left:10px;">
+            ${featured.guest.photo_url
+              ? `<img src="${featured.guest.photo_url}" alt="${featured.guest.name}" width="40" height="40" style="width:40px;height:40px;border-radius:50%;object-fit:cover;display:block;" />`
+              : `<div style="width:40px;height:40px;border-radius:50%;background-color:#333;display:flex;align-items:center;justify-content:center;color:#999;font-size:16px;">${featured.guest.name.charAt(0)}</div>`
+            }
+          </td>
+          <td style="vertical-align:middle;color:#a3a3a3;font-size:14px;">
+            ${featured.guest.name}
+          </td>
+        </tr>
+      </table>`
+    : ''
+
+  // Quote callout boxes
+  const quotesHtml = quotes.length > 0
+    ? quotes.map((q) => `
+      <div style="padding:16px;background-color:#1a1a1a;border-radius:8px;border-right:3px solid #525252;margin:0 0 12px;">
+        <p style="margin:0;color:#d4d4d4;font-size:14px;line-height:1.7;">${q.text}</p>
+        ${q.theme ? `<p style="margin:8px 0 0;color:#737373;font-size:12px;">${q.theme}</p>` : ''}
+      </div>`).join('')
+    : ''
+
+  // Other episodes rows
+  const otherHtml = otherEpisodes.length > 0
+    ? `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin-top:32px;">
+        <tr>
+          <td style="padding-bottom:16px;">
+            <h3 style="margin:0;color:#e5e5e5;font-size:16px;font-weight:600;">حلقات أخرى هذا الشهر</h3>
+          </td>
+        </tr>
+        ${otherEpisodes.map((ep) => {
+          const epUrl = `${APP_URL}/episodes/${ep.slug}`
+          return `<tr>
+            <td style="padding-bottom:16px;">
+              <table role="presentation" cellpadding="0" cellspacing="0" width="100%">
+                <tr>
+                  ${ep.thumbnail_url
+                    ? `<td width="80" style="vertical-align:top;padding-left:12px;">
+                        <a href="${epUrl}" style="text-decoration:none;">
+                          <img src="${ep.thumbnail_url}" alt="${ep.title}" width="80" style="width:80px;border-radius:6px;display:block;" />
+                        </a>
+                      </td>`
+                    : ''}
+                  <td style="vertical-align:top;">
+                    <a href="${epUrl}" style="text-decoration:none;color:#e5e5e5;font-size:14px;font-weight:600;">${ep.title}</a>
+                    ${ep.guest ? `<p style="margin:4px 0 0;color:#a3a3a3;font-size:13px;">${ep.guest.name}</p>` : ''}
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>`
+        }).join('')}
+      </table>`
+    : ''
+
+  return `
+    <h2 style="margin:0 0 4px;color:#e5e5e5;font-size:22px;font-weight:700;">نشرة خط — ${monthName} ${year}</h2>
+    <p style="margin:0 0 24px;color:#a3a3a3;font-size:14px;">أبرز ما قدمناه هذا الشهر</p>
+    ${thumbnailHtml}
+    <h3 style="margin:16px 0 4px;color:#e5e5e5;font-size:18px;font-weight:600;">
+      <a href="${episodeUrl}" style="text-decoration:none;color:#e5e5e5;">${featured.title}</a>
+    </h3>
+    ${guestHtml}
+    ${quotesHtml}
+    ${ctaButton('شاهد الحلقة', episodeUrl)}
+    ${otherHtml}
+    ${ctaButton('تصفح جميع الحلقات', `${APP_URL}/episodes`)}
+  `
+}
+
 export function newsletterHtml(body: string, unsubscribeUrl: string): string {
   return emailLayout(body, unsubscribeUrl)
+}
+
+export function directEmailHtml(
+  recipientName: string,
+  subject: string,
+  body: string,
+  senderName: string
+): string {
+  const content = `
+    <h2 style="margin:0 0 16px;color:#e5e5e5;font-size:18px;">${subject}</h2>
+    <p style="margin:0 0 16px;">مرحباً ${recipientName}،</p>
+    <div style="margin:0 0 24px;white-space:pre-wrap;">${body}</div>
+    <p style="margin:0;color:#737373;font-size:13px;">— ${senderName}، فريق خط بودكاست</p>
+  `
+  return emailLayout(content)
 }

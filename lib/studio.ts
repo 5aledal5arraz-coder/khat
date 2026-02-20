@@ -1,4 +1,6 @@
-import { pool, USE_DB } from "@/lib/db"
+import { db, USE_DB } from "@/lib/db"
+import { eq, desc, sql } from 'drizzle-orm'
+import { studioSessions, studioTranscripts, studioAiOutputs, studioChapters, studioClips, studioWebsitePackages, studioAnalyzers } from '@/lib/db/schema'
 import fs from "fs/promises"
 import path from "path"
 import { deleteEpisodeEnrichment } from "@/lib/episode-enrichments"
@@ -64,10 +66,8 @@ export async function getStudioSessions(): Promise<StudioSession[]> {
   }
 
   try {
-    const { rows } = await pool!.query(
-      `SELECT * FROM studio_sessions ORDER BY created_at DESC`
-    )
-    return rows as StudioSession[]
+    const rows = await db!.select().from(studioSessions).orderBy(desc(studioSessions.created_at))
+    return rows as unknown as StudioSession[]
   } catch (err) {
     console.error("Error fetching studio sessions:", err)
     return []
@@ -81,11 +81,8 @@ export async function getStudioSession(id: string): Promise<StudioSession | null
   }
 
   try {
-    const { rows } = await pool!.query(
-      `SELECT * FROM studio_sessions WHERE id = $1`,
-      [id]
-    )
-    return (rows[0] as StudioSession) || null
+    const rows = await db!.select().from(studioSessions).where(eq(studioSessions.id, id))
+    return (rows[0] as unknown as StudioSession) || null
   } catch {
     return null
   }
@@ -110,13 +107,14 @@ export async function createStudioSession(
 
   try {
     const { episode_id, episode_title, youtube_url, source_type, notes } = session as Record<string, unknown>
-    const { rows } = await pool!.query(
-      `INSERT INTO studio_sessions (episode_id, episode_title, youtube_url, source_type, notes)
-       VALUES ($1, $2, $3, $4, $5)
-       RETURNING *`,
-      [episode_id, episode_title, youtube_url, source_type, notes]
-    )
-    return { success: true, data: rows[0] as StudioSession }
+    const rows = await db!.insert(studioSessions).values({
+      episode_id: episode_id as string,
+      episode_title: episode_title as string,
+      youtube_url: youtube_url as string,
+      source_type: source_type as string,
+      notes: notes as string,
+    }).returning()
+    return { success: true, data: rows[0] as unknown as StudioSession }
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : String(err)
     return { success: false, error: message }
@@ -141,25 +139,15 @@ export async function updateStudioSession(
   }
 
   try {
-    const fields: string[] = []
-    const values: unknown[] = []
-    let i = 1
+    const setObj: Record<string, unknown> = {}
     for (const [key, value] of Object.entries(updates)) {
-      fields.push(`${key} = $${i}`)
-      values.push(value)
-      i++
+      setObj[key] = value
     }
-    fields.push(`updated_at = $${i}`)
-    values.push(new Date().toISOString())
-    i++
-    values.push(id)
+    setObj.updated_at = new Date()
 
-    const { rows } = await pool!.query(
-      `UPDATE studio_sessions SET ${fields.join(", ")} WHERE id = $${i} RETURNING *`,
-      values
-    )
+    const rows = await db!.update(studioSessions).set(setObj).where(eq(studioSessions.id, id)).returning()
     if (!rows[0]) return { success: false, error: "Session not found" }
-    return { success: true, data: rows[0] as StudioSession }
+    return { success: true, data: rows[0] as unknown as StudioSession }
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : String(err)
     return { success: false, error: message }
@@ -202,11 +190,8 @@ export async function deleteStudioSession(id: string): Promise<boolean> {
   }
 
   try {
-    const { rowCount } = await pool!.query(
-      `DELETE FROM studio_sessions WHERE id = $1`,
-      [id]
-    )
-    return (rowCount ?? 0) > 0
+    const result = await db!.delete(studioSessions).where(eq(studioSessions.id, id))
+    return (result.rowCount ?? 0) > 0
   } catch {
     return false
   }
@@ -223,11 +208,11 @@ export async function getTranscriptForSession(sessionId: string): Promise<Studio
   }
 
   try {
-    const { rows } = await pool!.query(
-      `SELECT * FROM studio_transcripts WHERE session_id = $1 ORDER BY created_at DESC LIMIT 1`,
-      [sessionId]
-    )
-    return (rows[0] as StudioTranscript) || null
+    const rows = await db!.select().from(studioTranscripts)
+      .where(eq(studioTranscripts.session_id, sessionId))
+      .orderBy(desc(studioTranscripts.created_at))
+      .limit(1)
+    return (rows[0] as unknown as StudioTranscript) || null
   } catch (err) {
     console.error("Error fetching transcript:", err)
     return null
@@ -278,27 +263,24 @@ export async function createTranscript(
 
   try {
     // Delete any existing transcript for this session first
-    await pool!.query(
-      `DELETE FROM studio_transcripts WHERE session_id = $1`,
-      [sessionId]
-    )
+    await db!.delete(studioTranscripts).where(eq(studioTranscripts.session_id, sessionId))
 
-    const { rows } = await pool!.query(
-      `INSERT INTO studio_transcripts
-        (session_id, source, language, transcript_raw, transcript_clean, word_count, char_count, status, error_message, transcript_article, summary, quotes_extracted, processing_status)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
-       RETURNING *`,
-      [
-        entry.session_id, entry.source, entry.language,
-        entry.transcript_raw, entry.transcript_clean,
-        entry.word_count, entry.char_count, entry.status,
-        entry.error_message, entry.transcript_article,
-        entry.summary ? JSON.stringify(entry.summary) : null,
-        entry.quotes_extracted ? JSON.stringify(entry.quotes_extracted) : null,
-        entry.processing_status,
-      ]
-    )
-    return { success: true, data: rows[0] as StudioTranscript }
+    const rows = await db!.insert(studioTranscripts).values({
+      session_id: entry.session_id,
+      source: entry.source,
+      language: entry.language,
+      transcript_raw: entry.transcript_raw,
+      transcript_clean: entry.transcript_clean,
+      word_count: entry.word_count,
+      char_count: entry.char_count,
+      status: entry.status,
+      error_message: entry.error_message,
+      transcript_article: entry.transcript_article,
+      summary: entry.summary,
+      quotes_extracted: entry.quotes_extracted,
+      processing_status: entry.processing_status,
+    }).returning()
+    return { success: true, data: rows[0] as unknown as StudioTranscript }
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : String(err)
     return { success: false, error: message }
@@ -339,25 +321,23 @@ export async function createTranscriptError(
     return
   }
 
-  await pool!.query(
-    `DELETE FROM studio_transcripts WHERE session_id = $1`,
-    [sessionId]
-  )
+  await db!.delete(studioTranscripts).where(eq(studioTranscripts.session_id, sessionId))
 
-  await pool!.query(
-    `INSERT INTO studio_transcripts
-      (session_id, source, language, transcript_raw, transcript_clean, word_count, char_count, status, error_message, transcript_article, summary, quotes_extracted, processing_status)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)`,
-    [
-      entry.session_id, entry.source, entry.language,
-      entry.transcript_raw, entry.transcript_clean,
-      entry.word_count, entry.char_count, entry.status,
-      entry.error_message, entry.transcript_article,
-      entry.summary ? JSON.stringify(entry.summary) : null,
-      entry.quotes_extracted ? JSON.stringify(entry.quotes_extracted) : null,
-      entry.processing_status,
-    ]
-  )
+  await db!.insert(studioTranscripts).values({
+    session_id: entry.session_id,
+    source: entry.source,
+    language: entry.language,
+    transcript_raw: entry.transcript_raw,
+    transcript_clean: entry.transcript_clean,
+    word_count: entry.word_count,
+    char_count: entry.char_count,
+    status: entry.status,
+    error_message: entry.error_message,
+    transcript_article: entry.transcript_article,
+    summary: entry.summary,
+    quotes_extracted: entry.quotes_extracted,
+    processing_status: entry.processing_status,
+  })
 }
 
 // ---------------------------------------------------------------------------
@@ -387,30 +367,15 @@ export async function updateTranscriptProcessing(
   }
 
   try {
-    const fields: string[] = []
-    const values: unknown[] = []
-    let i = 1
+    const setObj: Record<string, unknown> = {}
     for (const [key, value] of Object.entries(updates)) {
-      fields.push(`${key} = $${i}`)
-      // JSON-serialize objects/arrays for jsonb columns
-      if (key === "summary" || key === "quotes_extracted") {
-        values.push(value != null ? JSON.stringify(value) : null)
-      } else {
-        values.push(value)
-      }
-      i++
+      setObj[key] = value
     }
-    fields.push(`updated_at = $${i}`)
-    values.push(new Date().toISOString())
-    i++
-    values.push(transcriptId)
+    setObj.updated_at = new Date()
 
-    const { rows } = await pool!.query(
-      `UPDATE studio_transcripts SET ${fields.join(", ")} WHERE id = $${i} RETURNING *`,
-      values
-    )
+    const rows = await db!.update(studioTranscripts).set(setObj).where(eq(studioTranscripts.id, transcriptId)).returning()
     if (!rows[0]) return { success: false, error: "Transcript not found" }
-    return { success: true, data: rows[0] as StudioTranscript }
+    return { success: true, data: rows[0] as unknown as StudioTranscript }
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : String(err)
     return { success: false, error: message }
@@ -428,11 +393,11 @@ export async function getAiOutputForSession(sessionId: string): Promise<StudioAi
   }
 
   try {
-    const { rows } = await pool!.query(
-      `SELECT * FROM studio_ai_outputs WHERE session_id = $1 ORDER BY created_at DESC LIMIT 1`,
-      [sessionId]
-    )
-    return (rows[0] as StudioAiOutput) || null
+    const rows = await db!.select().from(studioAiOutputs)
+      .where(eq(studioAiOutputs.session_id, sessionId))
+      .orderBy(desc(studioAiOutputs.created_at))
+      .limit(1)
+    return (rows[0] as unknown as StudioAiOutput) || null
   } catch (err) {
     console.error("Error fetching AI output:", err)
     return null
@@ -478,29 +443,23 @@ export async function createAiOutput(
 
   try {
     // Delete any existing output for this session first
-    await pool!.query(
-      `DELETE FROM studio_ai_outputs WHERE session_id = $1`,
-      [sessionId]
-    )
+    await db!.delete(studioAiOutputs).where(eq(studioAiOutputs.session_id, sessionId))
 
-    const { rows } = await pool!.query(
-      `INSERT INTO studio_ai_outputs
-        (session_id, model, prompt_version, status, title_best, title_alternatives, thumbnail_text_options, youtube_description, seo_keywords, hashtags, raw_openai_response, error_message)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
-       RETURNING *`,
-      [
-        entry.session_id, entry.model, entry.prompt_version, entry.status,
-        entry.title_best,
-        JSON.stringify(entry.title_alternatives),
-        JSON.stringify(entry.thumbnail_text_options),
-        entry.youtube_description,
-        JSON.stringify(entry.seo_keywords),
-        JSON.stringify(entry.hashtags),
-        entry.raw_openai_response ? JSON.stringify(entry.raw_openai_response) : null,
-        entry.error_message,
-      ]
-    )
-    return { success: true, data: rows[0] as StudioAiOutput }
+    const rows = await db!.insert(studioAiOutputs).values({
+      session_id: entry.session_id,
+      model: entry.model,
+      prompt_version: entry.prompt_version,
+      status: entry.status,
+      title_best: entry.title_best,
+      title_alternatives: entry.title_alternatives,
+      thumbnail_text_options: entry.thumbnail_text_options,
+      youtube_description: entry.youtube_description,
+      seo_keywords: entry.seo_keywords,
+      hashtags: entry.hashtags,
+      raw_openai_response: entry.raw_openai_response,
+      error_message: entry.error_message,
+    }).returning()
+    return { success: true, data: rows[0] as unknown as StudioAiOutput }
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : String(err)
     return { success: false, error: message }
@@ -525,26 +484,15 @@ export async function updateAiOutput(
   }
 
   try {
-    const jsonColumns = new Set(["title_alternatives", "thumbnail_text_options", "seo_keywords", "hashtags"])
-    const fields: string[] = []
-    const values: unknown[] = []
-    let i = 1
+    const setObj: Record<string, unknown> = {}
     for (const [key, value] of Object.entries(updates)) {
-      fields.push(`${key} = $${i}`)
-      values.push(jsonColumns.has(key) && value != null ? JSON.stringify(value) : value)
-      i++
+      setObj[key] = value
     }
-    fields.push(`updated_at = $${i}`)
-    values.push(new Date().toISOString())
-    i++
-    values.push(id)
+    setObj.updated_at = new Date()
 
-    const { rows } = await pool!.query(
-      `UPDATE studio_ai_outputs SET ${fields.join(", ")} WHERE id = $${i} RETURNING *`,
-      values
-    )
+    const rows = await db!.update(studioAiOutputs).set(setObj).where(eq(studioAiOutputs.id, id)).returning()
     if (!rows[0]) return { success: false, error: "Output not found" }
-    return { success: true, data: rows[0] as StudioAiOutput }
+    return { success: true, data: rows[0] as unknown as StudioAiOutput }
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : String(err)
     return { success: false, error: message }
@@ -562,11 +510,11 @@ export async function getChaptersForSession(sessionId: string): Promise<StudioCh
   }
 
   try {
-    const { rows } = await pool!.query(
-      `SELECT * FROM studio_chapters WHERE session_id = $1 ORDER BY created_at DESC LIMIT 1`,
-      [sessionId]
-    )
-    return (rows[0] as StudioChapters) || null
+    const rows = await db!.select().from(studioChapters)
+      .where(eq(studioChapters.session_id, sessionId))
+      .orderBy(desc(studioChapters.created_at))
+      .limit(1)
+    return (rows[0] as unknown as StudioChapters) || null
   } catch (err) {
     console.error("Error fetching chapters:", err)
     return null
@@ -595,22 +543,15 @@ export async function createChapters(
   }
 
   try {
-    await pool!.query(
-      `DELETE FROM studio_chapters WHERE session_id = $1`,
-      [sessionId]
-    )
-    const { rows } = await pool!.query(
-      `INSERT INTO studio_chapters (session_id, status, chapters, raw_openai_response, error_message)
-       VALUES ($1, $2, $3, $4, $5)
-       RETURNING *`,
-      [
-        row.session_id, row.status,
-        JSON.stringify(row.chapters),
-        row.raw_openai_response ? JSON.stringify(row.raw_openai_response) : null,
-        row.error_message,
-      ]
-    )
-    return { success: true, data: rows[0] as StudioChapters }
+    await db!.delete(studioChapters).where(eq(studioChapters.session_id, sessionId))
+    const rows = await db!.insert(studioChapters).values({
+      session_id: row.session_id,
+      status: row.status,
+      chapters: row.chapters,
+      raw_openai_response: row.raw_openai_response,
+      error_message: row.error_message,
+    }).returning()
+    return { success: true, data: rows[0] as unknown as StudioChapters }
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : String(err)
     return { success: false, error: message }
@@ -631,25 +572,15 @@ export async function updateChapters(
   }
 
   try {
-    const fields: string[] = []
-    const values: unknown[] = []
-    let i = 1
+    const setObj: Record<string, unknown> = {}
     for (const [key, value] of Object.entries(updates)) {
-      fields.push(`${key} = $${i}`)
-      values.push(key === "chapters" && value != null ? JSON.stringify(value) : value)
-      i++
+      setObj[key] = value
     }
-    fields.push(`updated_at = $${i}`)
-    values.push(new Date().toISOString())
-    i++
-    values.push(id)
+    setObj.updated_at = new Date()
 
-    const { rows } = await pool!.query(
-      `UPDATE studio_chapters SET ${fields.join(", ")} WHERE id = $${i} RETURNING *`,
-      values
-    )
+    const rows = await db!.update(studioChapters).set(setObj).where(eq(studioChapters.id, id)).returning()
     if (!rows[0]) return { success: false, error: "Not found" }
-    return { success: true, data: rows[0] as StudioChapters }
+    return { success: true, data: rows[0] as unknown as StudioChapters }
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : String(err)
     return { success: false, error: message }
@@ -667,11 +598,11 @@ export async function getClipsForSession(sessionId: string): Promise<StudioClips
   }
 
   try {
-    const { rows } = await pool!.query(
-      `SELECT * FROM studio_clips WHERE session_id = $1 ORDER BY created_at DESC LIMIT 1`,
-      [sessionId]
-    )
-    return (rows[0] as StudioClips) || null
+    const rows = await db!.select().from(studioClips)
+      .where(eq(studioClips.session_id, sessionId))
+      .orderBy(desc(studioClips.created_at))
+      .limit(1)
+    return (rows[0] as unknown as StudioClips) || null
   } catch (err) {
     console.error("Error fetching clips:", err)
     return null
@@ -700,22 +631,15 @@ export async function createClips(
   }
 
   try {
-    await pool!.query(
-      `DELETE FROM studio_clips WHERE session_id = $1`,
-      [sessionId]
-    )
-    const { rows } = await pool!.query(
-      `INSERT INTO studio_clips (session_id, status, clips, raw_openai_response, error_message)
-       VALUES ($1, $2, $3, $4, $5)
-       RETURNING *`,
-      [
-        row.session_id, row.status,
-        JSON.stringify(row.clips),
-        row.raw_openai_response ? JSON.stringify(row.raw_openai_response) : null,
-        row.error_message,
-      ]
-    )
-    return { success: true, data: rows[0] as StudioClips }
+    await db!.delete(studioClips).where(eq(studioClips.session_id, sessionId))
+    const rows = await db!.insert(studioClips).values({
+      session_id: row.session_id,
+      status: row.status,
+      clips: row.clips,
+      raw_openai_response: row.raw_openai_response,
+      error_message: row.error_message,
+    }).returning()
+    return { success: true, data: rows[0] as unknown as StudioClips }
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : String(err)
     return { success: false, error: message }
@@ -736,25 +660,15 @@ export async function updateClips(
   }
 
   try {
-    const fields: string[] = []
-    const values: unknown[] = []
-    let i = 1
+    const setObj: Record<string, unknown> = {}
     for (const [key, value] of Object.entries(updates)) {
-      fields.push(`${key} = $${i}`)
-      values.push(key === "clips" && value != null ? JSON.stringify(value) : value)
-      i++
+      setObj[key] = value
     }
-    fields.push(`updated_at = $${i}`)
-    values.push(new Date().toISOString())
-    i++
-    values.push(id)
+    setObj.updated_at = new Date()
 
-    const { rows } = await pool!.query(
-      `UPDATE studio_clips SET ${fields.join(", ")} WHERE id = $${i} RETURNING *`,
-      values
-    )
+    const rows = await db!.update(studioClips).set(setObj).where(eq(studioClips.id, id)).returning()
     if (!rows[0]) return { success: false, error: "Not found" }
-    return { success: true, data: rows[0] as StudioClips }
+    return { success: true, data: rows[0] as unknown as StudioClips }
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : String(err)
     return { success: false, error: message }
@@ -772,11 +686,11 @@ export async function getWebsitePackageForSession(sessionId: string): Promise<St
   }
 
   try {
-    const { rows } = await pool!.query(
-      `SELECT * FROM studio_website_packages WHERE session_id = $1 ORDER BY created_at DESC LIMIT 1`,
-      [sessionId]
-    )
-    return (rows[0] as StudioWebsitePackage) || null
+    const rows = await db!.select().from(studioWebsitePackages)
+      .where(eq(studioWebsitePackages.session_id, sessionId))
+      .orderBy(desc(studioWebsitePackages.created_at))
+      .limit(1)
+    return (rows[0] as unknown as StudioWebsitePackage) || null
   } catch (err) {
     console.error("Error fetching website package:", err)
     return null
@@ -815,31 +729,25 @@ export async function createWebsitePackage(
   }
 
   try {
-    await pool!.query(
-      `DELETE FROM studio_website_packages WHERE session_id = $1`,
-      [sessionId]
-    )
-    const { rows } = await pool!.query(
-      `INSERT INTO studio_website_packages
-        (session_id, status, hero_summary, full_summary, takeaways, quotes, topics, resources, timestamps, custom_title, selected_quote_indices, selected_takeaway_indices, linked_episode_id, raw_openai_response, error_message)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
-       RETURNING *`,
-      [
-        row.session_id, row.status, row.hero_summary, row.full_summary,
-        JSON.stringify(row.takeaways),
-        JSON.stringify(row.quotes),
-        JSON.stringify(row.topics),
-        JSON.stringify(row.resources),
-        JSON.stringify(row.timestamps),
-        row.custom_title,
-        row.selected_quote_indices ? JSON.stringify(row.selected_quote_indices) : null,
-        row.selected_takeaway_indices ? JSON.stringify(row.selected_takeaway_indices) : null,
-        row.linked_episode_id,
-        row.raw_openai_response ? JSON.stringify(row.raw_openai_response) : null,
-        row.error_message,
-      ]
-    )
-    return { success: true, data: rows[0] as StudioWebsitePackage }
+    await db!.delete(studioWebsitePackages).where(eq(studioWebsitePackages.session_id, sessionId))
+    const rows = await db!.insert(studioWebsitePackages).values({
+      session_id: row.session_id,
+      status: row.status,
+      hero_summary: row.hero_summary,
+      full_summary: row.full_summary,
+      takeaways: row.takeaways,
+      quotes: row.quotes,
+      topics: row.topics,
+      resources: row.resources,
+      timestamps: row.timestamps,
+      custom_title: row.custom_title,
+      selected_quote_indices: row.selected_quote_indices,
+      selected_takeaway_indices: row.selected_takeaway_indices,
+      linked_episode_id: row.linked_episode_id,
+      raw_openai_response: row.raw_openai_response,
+      error_message: row.error_message,
+    }).returning()
+    return { success: true, data: rows[0] as unknown as StudioWebsitePackage }
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : String(err)
     return { success: false, error: message }
@@ -860,26 +768,15 @@ export async function updateWebsitePackage(
   }
 
   try {
-    const jsonColumns = new Set(["takeaways", "quotes", "topics", "resources", "timestamps", "selected_quote_indices", "selected_takeaway_indices"])
-    const fields: string[] = []
-    const values: unknown[] = []
-    let i = 1
+    const setObj: Record<string, unknown> = {}
     for (const [key, value] of Object.entries(updates)) {
-      fields.push(`${key} = $${i}`)
-      values.push(jsonColumns.has(key) && value != null ? JSON.stringify(value) : value)
-      i++
+      setObj[key] = value
     }
-    fields.push(`updated_at = $${i}`)
-    values.push(new Date().toISOString())
-    i++
-    values.push(id)
+    setObj.updated_at = new Date()
 
-    const { rows } = await pool!.query(
-      `UPDATE studio_website_packages SET ${fields.join(", ")} WHERE id = $${i} RETURNING *`,
-      values
-    )
+    const rows = await db!.update(studioWebsitePackages).set(setObj).where(eq(studioWebsitePackages.id, id)).returning()
     if (!rows[0]) return { success: false, error: "Not found" }
-    return { success: true, data: rows[0] as StudioWebsitePackage }
+    return { success: true, data: rows[0] as unknown as StudioWebsitePackage }
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : String(err)
     return { success: false, error: message }
@@ -897,11 +794,11 @@ export async function getAnalyzerForSession(sessionId: string): Promise<StudioAn
   }
 
   try {
-    const { rows } = await pool!.query(
-      `SELECT * FROM studio_analyzers WHERE session_id = $1 ORDER BY created_at DESC LIMIT 1`,
-      [sessionId]
-    )
-    return (rows[0] as StudioAnalyzer) || null
+    const rows = await db!.select().from(studioAnalyzers)
+      .where(eq(studioAnalyzers.session_id, sessionId))
+      .orderBy(desc(studioAnalyzers.created_at))
+      .limit(1)
+    return (rows[0] as unknown as StudioAnalyzer) || null
   } catch (err) {
     console.error("Error fetching analyzer:", err)
     return null
@@ -931,23 +828,16 @@ export async function createAnalyzer(
   }
 
   try {
-    await pool!.query(
-      `DELETE FROM studio_analyzers WHERE session_id = $1`,
-      [sessionId]
-    )
-    const { rows } = await pool!.query(
-      `INSERT INTO studio_analyzers (session_id, status, data, prompt_version, raw_openai_response, error_message)
-       VALUES ($1, $2, $3, $4, $5, $6)
-       RETURNING *`,
-      [
-        row.session_id, row.status,
-        row.data ? JSON.stringify(row.data) : null,
-        row.prompt_version,
-        row.raw_openai_response ? JSON.stringify(row.raw_openai_response) : null,
-        row.error_message,
-      ]
-    )
-    return { success: true, data: rows[0] as StudioAnalyzer }
+    await db!.delete(studioAnalyzers).where(eq(studioAnalyzers.session_id, sessionId))
+    const rows = await db!.insert(studioAnalyzers).values({
+      session_id: row.session_id,
+      status: row.status,
+      data: row.data as unknown as Record<string, unknown> | undefined,
+      prompt_version: row.prompt_version,
+      raw_openai_response: row.raw_openai_response,
+      error_message: row.error_message,
+    }).returning()
+    return { success: true, data: rows[0] as unknown as StudioAnalyzer }
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : String(err)
     return { success: false, error: message }

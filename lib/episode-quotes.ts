@@ -1,5 +1,7 @@
 import { createConfigStore } from "@/lib/config-store"
-import { pool, USE_DB } from "@/lib/db"
+import { db, USE_DB } from "@/lib/db"
+import { episodeQuotesConfig } from "@/lib/db/schema"
+import { eq, and } from "drizzle-orm"
 import type { EpisodeQuotesConfig, EpisodeQuotesEntry } from "@/types/episodes"
 import type { Quote } from "@/types/database"
 
@@ -21,13 +23,10 @@ function rowToEntry(row: Record<string, unknown>): EpisodeQuotesEntry {
 export async function getQuotesConfig(): Promise<EpisodeQuotesConfig> {
   if (USE_DB) {
     try {
-      const { rows } = await pool!.query(
-        `SELECT episode_id, episode_title, quotes, transcript, status, generated_at, published_at
-         FROM episode_quotes_config`
-      )
+      const rows = await db!.select().from(episodeQuotesConfig)
       const config: EpisodeQuotesConfig = {}
       for (const row of rows) {
-        const entry = rowToEntry(row)
+        const entry = rowToEntry(row as unknown as Record<string, unknown>)
         config[entry.episodeId] = entry
       }
       return config
@@ -43,18 +42,25 @@ export async function saveQuotesConfig(config: EpisodeQuotesConfig): Promise<voi
     try {
       const entries = Object.values(config)
       for (const e of entries) {
-        await pool!.query(
-          `INSERT INTO episode_quotes_config (episode_id, episode_title, quotes, transcript, status, generated_at, published_at)
-           VALUES ($1, $2, $3, $4, $5, $6, $7)
-           ON CONFLICT (episode_id) DO UPDATE SET
-             episode_title = EXCLUDED.episode_title,
-             quotes = EXCLUDED.quotes,
-             transcript = EXCLUDED.transcript,
-             status = EXCLUDED.status,
-             generated_at = EXCLUDED.generated_at,
-             published_at = EXCLUDED.published_at`,
-          [e.episodeId, e.episodeTitle, JSON.stringify(e.quotes), e.transcript, e.status, e.generatedAt, e.publishedAt]
-        )
+        await db!.insert(episodeQuotesConfig).values({
+          episode_id: e.episodeId,
+          episode_title: e.episodeTitle,
+          quotes: e.quotes as unknown[],
+          transcript: e.transcript,
+          status: e.status,
+          generated_at: e.generatedAt,
+          published_at: e.publishedAt,
+        }).onConflictDoUpdate({
+          target: episodeQuotesConfig.episode_id,
+          set: {
+            episode_title: e.episodeTitle,
+            quotes: e.quotes as unknown[],
+            transcript: e.transcript,
+            status: e.status,
+            generated_at: e.generatedAt,
+            published_at: e.publishedAt,
+          },
+        })
       }
       return
     } catch (e) {
@@ -67,12 +73,10 @@ export async function saveQuotesConfig(config: EpisodeQuotesConfig): Promise<voi
 export async function getEpisodeQuotesEntry(episodeId: string): Promise<EpisodeQuotesEntry | null> {
   if (USE_DB) {
     try {
-      const { rows } = await pool!.query(
-        `SELECT episode_id, episode_title, quotes, transcript, status, generated_at, published_at
-         FROM episode_quotes_config WHERE episode_id = $1 LIMIT 1`,
-        [episodeId]
-      )
-      if (rows[0]) return rowToEntry(rows[0])
+      const rows = await db!.select().from(episodeQuotesConfig)
+        .where(eq(episodeQuotesConfig.episode_id, episodeId))
+        .limit(1)
+      if (rows[0]) return rowToEntry(rows[0] as unknown as Record<string, unknown>)
       return null
     } catch (e) {
       console.error("getEpisodeQuotesEntry DB exception:", e)
@@ -85,18 +89,25 @@ export async function getEpisodeQuotesEntry(episodeId: string): Promise<EpisodeQ
 export async function setEpisodeQuotesEntry(entry: EpisodeQuotesEntry): Promise<void> {
   if (USE_DB) {
     try {
-      await pool!.query(
-        `INSERT INTO episode_quotes_config (episode_id, episode_title, quotes, transcript, status, generated_at, published_at)
-         VALUES ($1, $2, $3, $4, $5, $6, $7)
-         ON CONFLICT (episode_id) DO UPDATE SET
-           episode_title = EXCLUDED.episode_title,
-           quotes = EXCLUDED.quotes,
-           transcript = EXCLUDED.transcript,
-           status = EXCLUDED.status,
-           generated_at = EXCLUDED.generated_at,
-           published_at = EXCLUDED.published_at`,
-        [entry.episodeId, entry.episodeTitle, JSON.stringify(entry.quotes), entry.transcript, entry.status, entry.generatedAt, entry.publishedAt]
-      )
+      await db!.insert(episodeQuotesConfig).values({
+        episode_id: entry.episodeId,
+        episode_title: entry.episodeTitle,
+        quotes: entry.quotes as unknown[],
+        transcript: entry.transcript,
+        status: entry.status,
+        generated_at: entry.generatedAt,
+        published_at: entry.publishedAt,
+      }).onConflictDoUpdate({
+        target: episodeQuotesConfig.episode_id,
+        set: {
+          episode_title: entry.episodeTitle,
+          quotes: entry.quotes as unknown[],
+          transcript: entry.transcript,
+          status: entry.status,
+          generated_at: entry.generatedAt,
+          published_at: entry.publishedAt,
+        },
+      })
       return
     } catch (e) {
       console.error("setEpisodeQuotesEntry DB exception:", e)
@@ -110,10 +121,7 @@ export async function setEpisodeQuotesEntry(entry: EpisodeQuotesEntry): Promise<
 export async function deleteEpisodeQuotesEntry(episodeId: string): Promise<void> {
   if (USE_DB) {
     try {
-      await pool!.query(
-        `DELETE FROM episode_quotes_config WHERE episode_id = $1`,
-        [episodeId]
-      )
+      await db!.delete(episodeQuotesConfig).where(eq(episodeQuotesConfig.episode_id, episodeId))
       return
     } catch (e) {
       console.error("deleteEpisodeQuotesEntry DB exception:", e)
@@ -127,22 +135,21 @@ export async function deleteEpisodeQuotesEntry(episodeId: string): Promise<void>
 export async function getPublishedQuotes(episodeId: string, guestId: string | null): Promise<Quote[]> {
   if (USE_DB) {
     try {
-      const { rows } = await pool!.query(
-        `SELECT quotes, generated_at FROM episode_quotes_config
-         WHERE episode_id = $1 AND status = $2 LIMIT 1`,
-        [episodeId, "published"]
-      )
+      const rows = await db!.select().from(episodeQuotesConfig)
+        .where(and(eq(episodeQuotesConfig.episode_id, episodeId), eq(episodeQuotesConfig.status, "published")))
+        .limit(1)
       if (rows[0]) {
-        const quotes = rows[0].quotes as EpisodeQuotesEntry["quotes"]
+        const entry = rows[0]
+        const quotes = entry.quotes as EpisodeQuotesEntry["quotes"]
         return quotes
-          .filter((q) => !q.hidden)
-          .map((q) => ({
+          .filter((q: any) => !q.hidden)
+          .map((q: any) => ({
             id: q.id,
             episode_id: episodeId,
             guest_id: guestId,
             text: q.text,
             theme: q.theme,
-            created_at: rows[0].generated_at,
+            created_at: entry.generated_at as string,
           }))
       }
       return []

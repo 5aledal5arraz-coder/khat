@@ -1,5 +1,5 @@
 import { NextRequest } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
+import { db, PROFILE_COLS, nestProfile } from '@/lib/db'
 import {
   getAuthUser,
   getUserProfile,
@@ -18,6 +18,7 @@ import { sanitizeComment } from '@/lib/sanitize'
 import { checkRateLimit } from '@/lib/rate-limit'
 import { moderateContent } from '@/lib/moderation'
 import { fireCommentNotification } from '@/lib/email/notifications'
+import { sql } from 'drizzle-orm'
 
 export async function POST(request: NextRequest) {
   const mutationError = validateMutation(request)
@@ -29,8 +30,7 @@ export async function POST(request: NextRequest) {
   const profile = await getUserProfile(user.id)
   if (profile?.is_banned) return bannedResponse()
 
-  const supabase = await createClient()
-  const rateLimit = await checkRateLimit(supabase, user.id, 'create_comment')
+  const rateLimit = await checkRateLimit(user.id, 'create_comment')
   if (!rateLimit.allowed) return rateLimitResponse()
 
   let body: { article_id: string; content: string }
@@ -43,14 +43,9 @@ export async function POST(request: NextRequest) {
   if (!body.article_id) return validationErrorResponse('معرف المقال مطلوب')
 
   // Check article exists
-  const { data: article } = await supabase
-    .from('hibr_articles')
-    .select('id')
-    .eq('id', body.article_id)
-    .is('deleted_at', null)
-    .single()
-
-  if (!article) return notFoundResponse()
+  const articleResult = await db!.execute(sql`SELECT id FROM hibr_articles WHERE id = ${body.article_id} AND deleted_at IS NULL LIMIT 1`)
+  const articles = articleResult.rows as Record<string, unknown>[]
+  if (articles.length === 0) return notFoundResponse()
 
   const validation = validateCommentContent(body.content)
   if (!validation.valid) return validationErrorResponse(validation.error!)
@@ -67,35 +62,27 @@ export async function POST(request: NextRequest) {
     )
   }
 
-  const { data, error } = await supabase
-    .from('hibr_comments')
-    .insert({
-      article_id: body.article_id,
-      user_id: user.id,
-      content: cleanContent,
-      moderation_status: modResult.status,
-      moderation_reason: modResult.reasons.length > 0 ? modResult.reasons.join('، ') : null,
-    })
-    .select('*, profiles!hibr_comments_user_id_fkey(id, display_name, avatar_url)')
-    .single()
+  try {
+    const result = await db!.execute(sql`WITH ins AS (
+         INSERT INTO hibr_comments (article_id, user_id, content, moderation_status, moderation_reason)
+         VALUES (${body.article_id}, ${user.id}, ${cleanContent}, ${modResult.status}, ${modResult.reasons.length > 0 ? modResult.reasons.join('، ') : null})
+         RETURNING *
+       )
+       SELECT ins.*, ${sql.raw(PROFILE_COLS)}
+       FROM ins LEFT JOIN profiles p ON ins.user_id = p.id`)
 
-  if (error) return errorResponse('حدث خطأ في إضافة التعليق', 500)
+    const rows = result.rows as Record<string, unknown>[]
 
-  // Update comments count (only count approved + pending)
-  const { count } = await supabase
-    .from('hibr_comments')
-    .select('*', { count: 'exact', head: true })
-    .eq('article_id', body.article_id)
-    .in('moderation_status', ['approved', 'pending'])
-    .is('deleted_at', null)
+    // Update comments count (only count approved + pending)
+    const countResult = await db!.execute(sql`SELECT COUNT(*)::int AS cnt FROM hibr_comments WHERE article_id = ${body.article_id} AND moderation_status IN ('approved', 'pending') AND deleted_at IS NULL`)
+    const countRows = countResult.rows as Record<string, unknown>[]
+    await db!.execute(sql`UPDATE hibr_articles SET comments_count = ${(countRows[0]?.cnt as number) ?? 0} WHERE id = ${body.article_id}`)
 
-  await supabase
-    .from('hibr_articles')
-    .update({ comments_count: count ?? 0 })
-    .eq('id', body.article_id)
+    // Fire email notification to article owner (non-blocking)
+    fireCommentNotification(body.article_id, user.id, cleanContent)
 
-  // Fire email notification to article owner (non-blocking)
-  fireCommentNotification(body.article_id, user.id, cleanContent)
-
-  return successResponse({ comment: data, moderation: modResult }, 201)
+    return successResponse({ comment: nestProfile(rows[0]), moderation: modResult }, 201)
+  } catch {
+    return errorResponse('حدث خطأ في إضافة التعليق', 500)
+  }
 }

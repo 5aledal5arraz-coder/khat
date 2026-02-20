@@ -1,5 +1,5 @@
 import { NextRequest } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
+import { db, PROFILE_COLS, nestProfile } from '@/lib/db'
 import {
   getAuthUser,
   getUserProfile,
@@ -10,33 +10,30 @@ import {
   successResponse,
   errorResponse,
 } from '@/lib/api-utils'
+import { sql } from 'drizzle-orm'
 
 export async function GET(
   _request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params
-  const supabase = await createClient()
 
-  const { data, error } = await supabase
-    .from('hibr_thoughts')
-    .select('*, profiles!hibr_thoughts_user_id_fkey(id, display_name, avatar_url, bio)')
-    .eq('id', id)
-    .is('deleted_at', null)
-    .single()
+  const result = await db!.execute(sql`SELECT t.*, ${sql.raw(PROFILE_COLS)}
+     FROM hibr_thoughts t LEFT JOIN profiles p ON t.user_id = p.id
+     WHERE t.id = ${id} AND t.deleted_at IS NULL LIMIT 1`)
 
-  if (error || !data) return notFoundResponse()
+  const rows = result.rows as Record<string, unknown>[]
+  if (rows.length === 0) return notFoundResponse()
 
   // Also fetch replies
-  const { data: replies } = await supabase
-    .from('hibr_replies')
-    .select('*, profiles!hibr_replies_user_id_fkey(id, display_name, avatar_url)')
-    .eq('thought_id', id)
-    .is('deleted_at', null)
-    .in('moderation_status', ['approved', 'pending'])
-    .order('created_at', { ascending: true })
+  const repliesResult = await db!.execute(sql`SELECT r.*, ${sql.raw(PROFILE_COLS)}
+     FROM hibr_replies r LEFT JOIN profiles p ON r.user_id = p.id
+     WHERE r.thought_id = ${id} AND r.deleted_at IS NULL AND r.moderation_status IN ('approved', 'pending')
+     ORDER BY r.created_at ASC`)
 
-  return successResponse({ thought: data, replies: replies || [] })
+  const replies = repliesResult.rows as Record<string, unknown>[]
+
+  return successResponse({ thought: nestProfile(rows[0]), replies: replies.map(nestProfile) })
 }
 
 export async function DELETE(
@@ -50,26 +47,16 @@ export async function DELETE(
   const user = await getAuthUser()
   if (!user) return unauthorizedResponse()
 
-  const supabase = await createClient()
-
-  const { data: existing } = await supabase
-    .from('hibr_thoughts')
-    .select('user_id')
-    .eq('id', id)
-    .is('deleted_at', null)
-    .single()
-
-  if (!existing) return notFoundResponse()
+  const existingResult = await db!.execute(sql`SELECT user_id FROM hibr_thoughts WHERE id = ${id} AND deleted_at IS NULL LIMIT 1`)
+  const existingRows = existingResult.rows as Record<string, unknown>[]
+  if (existingRows.length === 0) return notFoundResponse()
 
   const profile = await getUserProfile(user.id)
-  if (existing.user_id !== user.id && !profile?.is_admin) return forbiddenResponse()
+  if (existingRows[0].user_id !== user.id && !profile?.is_admin) return forbiddenResponse()
 
-  const { error } = await supabase
-    .from('hibr_thoughts')
-    .update({ deleted_at: new Date().toISOString() })
-    .eq('id', id)
+  const deleteResult = await db!.execute(sql`UPDATE hibr_thoughts SET deleted_at = NOW() WHERE id = ${id}`)
 
-  if (error) return errorResponse('حدث خطأ في حذف الخاطرة', 500)
+  if (!deleteResult.rowCount) return errorResponse('حدث خطأ في حذف الخاطرة', 500)
 
   return successResponse({ deleted: true })
 }

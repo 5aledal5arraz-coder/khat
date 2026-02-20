@@ -4,7 +4,9 @@ import { useState } from "react"
 import { useSearchParams, useRouter } from "next/navigation"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { Youtube, Database, Settings, Palette, Search, Shield, ToggleLeft } from "lucide-react"
+import { Youtube, Database, Settings, Palette, Search, Shield, ToggleLeft, KeyRound, Loader2, Check, X } from "lucide-react"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
 import { cn } from "@/lib/utils"
 import { ThemeSettingForm } from "./theme-setting-form"
 import { ModerationSettingForm } from "./moderation-setting-form"
@@ -15,7 +17,7 @@ import { FeatureFlagsForm } from "./feature-flags-form"
 import type { ThemeMode } from "@/types/theme"
 import type { SiteSettingsConfig } from "@/types/site-settings"
 
-type TabId = "general" | "appearance" | "seo" | "moderation" | "features"
+type TabId = "general" | "appearance" | "seo" | "moderation" | "features" | "account"
 
 const tabs: { id: TabId; label: string; icon: React.ElementType }[] = [
   { id: "general", label: "عام", icon: Settings },
@@ -23,11 +25,20 @@ const tabs: { id: TabId; label: string; icon: React.ElementType }[] = [
   { id: "seo", label: "SEO", icon: Search },
   { id: "moderation", label: "الإشراف", icon: Shield },
   { id: "features", label: "الميزات", icon: ToggleLeft },
+  { id: "account", label: "الحساب", icon: KeyRound },
+]
+
+const PASSWORD_REQUIREMENTS = [
+  { label: "٨ أحرف على الأقل", test: (p: string) => p.length >= 8 },
+  { label: "حرف كبير واحد على الأقل (A-Z)", test: (p: string) => /[A-Z]/.test(p) },
+  { label: "حرف صغير واحد على الأقل (a-z)", test: (p: string) => /[a-z]/.test(p) },
+  { label: "رقم واحد على الأقل (0-9)", test: (p: string) => /[0-9]/.test(p) },
+  { label: "رمز خاص واحد على الأقل", test: (p: string) => /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?`~]/.test(p) },
 ]
 
 interface SettingsTabsProps {
   hasYouTubeKey: boolean
-  hasSupabase: boolean
+  hasDatabase: boolean
   themeMode: ThemeMode
   moderationEnabled: boolean
   siteSettings: SiteSettingsConfig
@@ -35,7 +46,7 @@ interface SettingsTabsProps {
 
 export function SettingsTabs({
   hasYouTubeKey,
-  hasSupabase,
+  hasDatabase,
   themeMode,
   moderationEnabled,
   siteSettings,
@@ -44,6 +55,42 @@ export function SettingsTabs({
   const router = useRouter()
   const defaultTab = (searchParams.get("tab") as TabId) || "general"
   const [activeTab, setActiveTab] = useState<TabId>(defaultTab)
+
+  // Account tab state
+  const [newPassword, setNewPassword] = useState("")
+  const [confirmPassword, setConfirmPassword] = useState("")
+  const [pwLoading, setPwLoading] = useState(false)
+  const [pwMessage, setPwMessage] = useState<{ type: "success" | "error"; text: string } | null>(null)
+
+  const allPwPassed = PASSWORD_REQUIREMENTS.every((r) => r.test(newPassword))
+  const pwMatch = newPassword === confirmPassword && confirmPassword.length > 0
+  const canSubmitPw = allPwPassed && pwMatch && !pwLoading
+
+  const handlePasswordChange = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!canSubmitPw) return
+    setPwLoading(true)
+    setPwMessage(null)
+    try {
+      const res = await fetch("/api/admin/auth/change-password", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ password: newPassword }),
+      })
+      const data = await res.json()
+      if (!res.ok) {
+        setPwMessage({ type: "error", text: data.error || "فشل تغيير كلمة المرور" })
+        return
+      }
+      setPwMessage({ type: "success", text: "تم تغيير كلمة المرور بنجاح" })
+      setNewPassword("")
+      setConfirmPassword("")
+    } catch {
+      setPwMessage({ type: "error", text: "حدث خطأ غير متوقع" })
+    } finally {
+      setPwLoading(false)
+    }
+  }
 
   const handleTabChange = (tab: TabId) => {
     setActiveTab(tab)
@@ -127,16 +174,16 @@ export function SettingsTabs({
                   <div className="flex items-center justify-between">
                     <CardTitle className="text-base flex items-center gap-2">
                       <Database className="h-5 w-5" />
-                      Supabase
+                      قاعدة البيانات
                     </CardTitle>
-                    <Badge variant={hasSupabase ? "default" : "secondary"}>
-                      {hasSupabase ? "متصل" : "غير متصل"}
+                    <Badge variant={hasDatabase ? "default" : "secondary"}>
+                      {hasDatabase ? "متصل" : "غير متصل"}
                     </Badge>
                   </div>
                 </CardHeader>
                 <CardContent>
                   <p className="text-sm text-muted-foreground">
-                    {hasSupabase
+                    {hasDatabase
                       ? "قاعدة البيانات متصلة وتعمل"
                       : "يتم استخدام بيانات تجريبية"}
                   </p>
@@ -166,6 +213,81 @@ export function SettingsTabs({
 
         {activeTab === "features" && (
           <FeatureFlagsForm initial={siteSettings.featureFlags} />
+        )}
+
+        {activeTab === "account" && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-lg">تغيير كلمة المرور</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <form onSubmit={handlePasswordChange} className="space-y-4 max-w-md">
+                <div>
+                  <label className="mb-1 block text-sm font-medium">كلمة المرور الجديدة</label>
+                  <Input
+                    type="password"
+                    value={newPassword}
+                    onChange={(e) => setNewPassword(e.target.value)}
+                    disabled={pwLoading}
+                    dir="ltr"
+                  />
+                </div>
+
+                <div>
+                  <label className="mb-1 block text-sm font-medium">تأكيد كلمة المرور</label>
+                  <Input
+                    type="password"
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    disabled={pwLoading}
+                    dir="ltr"
+                  />
+                  {confirmPassword.length > 0 && !pwMatch && (
+                    <p className="mt-1 text-xs text-red-400">كلمتا المرور غير متطابقتين</p>
+                  )}
+                </div>
+
+                {/* Requirements checklist */}
+                <div className="rounded-lg border border-border bg-muted/30 p-3 space-y-1.5">
+                  <p className="text-xs font-medium text-muted-foreground mb-2">متطلبات كلمة المرور:</p>
+                  {PASSWORD_REQUIREMENTS.map((req) => {
+                    const passed = req.test(newPassword)
+                    return (
+                      <div key={req.label} className="flex items-center gap-2 text-xs">
+                        {newPassword.length > 0 ? (
+                          passed ? (
+                            <Check className="h-3.5 w-3.5 text-green-400" />
+                          ) : (
+                            <X className="h-3.5 w-3.5 text-red-400" />
+                          )
+                        ) : (
+                          <div className="h-3.5 w-3.5 rounded-full border border-muted-foreground/40" />
+                        )}
+                        <span className={newPassword.length > 0 ? (passed ? "text-green-400" : "text-red-400") : "text-muted-foreground"}>
+                          {req.label}
+                        </span>
+                      </div>
+                    )
+                  })}
+                </div>
+
+                {pwMessage && (
+                  <div className={`rounded-md p-3 text-center text-sm ${
+                    pwMessage.type === "success"
+                      ? "bg-green-500/10 text-green-500"
+                      : "bg-destructive/10 text-destructive"
+                  }`}>
+                    {pwMessage.text}
+                  </div>
+                )}
+
+                <Button type="submit" disabled={!canSubmitPw}>
+                  {pwLoading && <Loader2 className="h-4 w-4 animate-spin me-2" />}
+                  تغيير كلمة المرور
+                </Button>
+              </form>
+            </CardContent>
+          </Card>
         )}
       </div>
     </div>

@@ -1,4 +1,6 @@
-import { createClient } from '@/lib/supabase/server'
+import { db, USE_DB } from '@/lib/db'
+import { eq, and, desc, isNull, sql, arrayContains, arrayOverlaps, gte } from 'drizzle-orm'
+import { hibrArticles, hibrThoughts, profiles } from '@/lib/db/schema'
 import type { FeedItem } from '@/types/space'
 import { getAuthorById as getMockAuthor, getTopContributors as getMockContributors } from '@/lib/space-authors'
 import {
@@ -16,11 +18,56 @@ import {
 } from '@/lib/space-feed'
 import type { Article, Author, Thought } from '@/types/space'
 
-const USE_DB = process.env.NEXT_PUBLIC_HIBR_USE_DB === 'true'
+// Shared column selections for leftJoin queries
+const articleColumns = {
+  id: hibrArticles.id,
+  user_id: hibrArticles.user_id,
+  title: hibrArticles.title,
+  excerpt: hibrArticles.excerpt,
+  content: hibrArticles.content,
+  cover_image: hibrArticles.cover_image,
+  tags: hibrArticles.tags,
+  episode_id: hibrArticles.episode_id,
+  episode_title: hibrArticles.episode_title,
+  episode_slug: hibrArticles.episode_slug,
+  read_time_minutes: hibrArticles.read_time_minutes,
+  likes_count: hibrArticles.likes_count,
+  comments_count: hibrArticles.comments_count,
+  status: hibrArticles.status,
+  moderation_status: hibrArticles.moderation_status,
+  featured: hibrArticles.featured,
+  deleted_at: hibrArticles.deleted_at,
+  created_at: hibrArticles.created_at,
+  // Profile fields via leftJoin
+  p_id: profiles.id,
+  p_display_name: profiles.display_name,
+  p_avatar_url: profiles.avatar_url,
+  p_bio: profiles.bio,
+  p_articles_count: profiles.articles_count,
+  p_followers_count: profiles.followers_count,
+}
 
-// Helper to convert DB row to Article type
-function dbToArticle(row: Record<string, unknown>): Article {
-  const profile = row.profiles as Record<string, unknown> | null
+const thoughtColumns = {
+  id: hibrThoughts.id,
+  user_id: hibrThoughts.user_id,
+  content: hibrThoughts.content,
+  tags: hibrThoughts.tags,
+  likes_count: hibrThoughts.likes_count,
+  replies_count: hibrThoughts.replies_count,
+  moderation_status: hibrThoughts.moderation_status,
+  deleted_at: hibrThoughts.deleted_at,
+  created_at: hibrThoughts.created_at,
+  // Profile fields via leftJoin
+  p_id: profiles.id,
+  p_display_name: profiles.display_name,
+  p_avatar_url: profiles.avatar_url,
+  p_bio: profiles.bio,
+  p_articles_count: profiles.articles_count,
+  p_followers_count: profiles.followers_count,
+}
+
+// Helper to convert Drizzle joined row to Article type
+function dbToArticle(row: typeof articleColumns extends Record<string, infer _> ? Record<string, unknown> : never): Article {
   return {
     id: row.id as string,
     title: row.title as string,
@@ -28,12 +75,12 @@ function dbToArticle(row: Record<string, unknown>): Article {
     content: row.content as string,
     coverImage: row.cover_image as string | undefined,
     author: {
-      id: profile?.id as string || row.user_id as string,
-      name: (profile?.display_name as string) || 'مجهول',
-      avatar: profile?.avatar_url as string | undefined,
-      bio: profile?.bio as string | undefined,
-      articlesCount: (profile?.articles_count as number) || 0,
-      followersCount: (profile?.followers_count as number) || 0,
+      id: (row.p_id as string) || (row.user_id as string),
+      name: (row.p_display_name as string) || 'مجهول',
+      avatar: row.p_avatar_url as string | undefined,
+      bio: row.p_bio as string | undefined,
+      articlesCount: (row.p_articles_count as number) || 0,
+      followersCount: (row.p_followers_count as number) || 0,
     },
     date: row.created_at as string,
     readTime: `${row.read_time_minutes || 1} دقائق`,
@@ -48,19 +95,18 @@ function dbToArticle(row: Record<string, unknown>): Article {
   }
 }
 
-// Helper to convert DB row to Thought type
+// Helper to convert Drizzle joined row to Thought type
 function dbToThought(row: Record<string, unknown>): Thought {
-  const profile = row.profiles as Record<string, unknown> | null
   return {
     id: row.id as string,
     content: row.content as string,
     author: {
-      id: profile?.id as string || row.user_id as string,
-      name: (profile?.display_name as string) || 'مجهول',
-      avatar: profile?.avatar_url as string | undefined,
-      bio: profile?.bio as string | undefined,
-      articlesCount: (profile?.articles_count as number) || 0,
-      followersCount: (profile?.followers_count as number) || 0,
+      id: (row.p_id as string) || (row.user_id as string),
+      name: (row.p_display_name as string) || 'مجهول',
+      avatar: row.p_avatar_url as string | undefined,
+      bio: row.p_bio as string | undefined,
+      articlesCount: (row.p_articles_count as number) || 0,
+      followersCount: (row.p_followers_count as number) || 0,
     },
     date: row.created_at as string,
     likes: (row.likes_count as number) || 0,
@@ -77,45 +123,52 @@ export async function getUnifiedFeed(options: {
   if (!USE_DB) return getMockFeed(options)
 
   const { sort = 'newest', tag, limit = 30 } = options
-  const supabase = await createClient()
 
-  let articlesQuery = supabase
-    .from('hibr_articles')
-    .select('*, profiles!hibr_articles_user_id_fkey(id, display_name, avatar_url, bio, articles_count, followers_count)')
-    .eq('status', 'published')
-    .eq('moderation_status', 'approved')
-    .is('deleted_at', null)
+  const articleConditions = [
+    eq(hibrArticles.status, 'published'),
+    eq(hibrArticles.moderation_status, 'approved'),
+    isNull(hibrArticles.deleted_at),
+  ]
 
-  let thoughtsQuery = supabase
-    .from('hibr_thoughts')
-    .select('*, profiles!hibr_thoughts_user_id_fkey(id, display_name, avatar_url, bio, articles_count, followers_count)')
-    .eq('moderation_status', 'approved')
-    .is('deleted_at', null)
+  const thoughtConditions = [
+    eq(hibrThoughts.moderation_status, 'approved'),
+    isNull(hibrThoughts.deleted_at),
+  ]
 
   if (tag) {
-    articlesQuery = articlesQuery.contains('tags', [tag])
-    thoughtsQuery = thoughtsQuery.contains('tags', [tag])
+    articleConditions.push(arrayContains(hibrArticles.tags, [tag]))
+    thoughtConditions.push(arrayContains(hibrThoughts.tags, [tag]))
   }
 
-  const [articlesResult, thoughtsResult] = await Promise.all([
-    articlesQuery.order('created_at', { ascending: false }).limit(limit),
-    thoughtsQuery.order('created_at', { ascending: false }).limit(limit),
+  const [articleRows, thoughtRows] = await Promise.all([
+    db!.select(articleColumns)
+      .from(hibrArticles)
+      .leftJoin(profiles, eq(hibrArticles.user_id, profiles.id))
+      .where(and(...articleConditions))
+      .orderBy(desc(hibrArticles.created_at))
+      .limit(limit),
+    db!.select(thoughtColumns)
+      .from(hibrThoughts)
+      .leftJoin(profiles, eq(hibrThoughts.user_id, profiles.id))
+      .where(and(...thoughtConditions))
+      .orderBy(desc(hibrThoughts.created_at))
+      .limit(limit),
   ])
 
-  const articleItems: FeedItem[] = (articlesResult.data || []).map((row) => ({
+  const articleItems: FeedItem[] = articleRows.map((row) => ({
     type: 'article' as const,
     id: `article-${row.id}`,
-    data: dbToArticle(row),
-    featured: row.featured || false,
-    timestamp: row.created_at,
+    data: dbToArticle(row as Record<string, unknown>),
+    featured: (row.featured as boolean) || false,
+    timestamp: row.created_at ? row.created_at.toISOString() : new Date().toISOString(),
   }))
 
-  const thoughtItems: FeedItem[] = (thoughtsResult.data || []).map((row) => ({
+  const thoughtItems: FeedItem[] = thoughtRows.map((row) => ({
     type: 'thought' as const,
     id: `thought-${row.id}`,
-    data: dbToThought(row),
+    data: dbToThought(row as Record<string, unknown>),
     featured: false,
-    timestamp: row.created_at,
+    timestamp: row.created_at ? row.created_at.toISOString() : new Date().toISOString(),
   }))
 
   let items = [...articleItems, ...thoughtItems]
@@ -141,17 +194,15 @@ export async function getUnifiedFeed(options: {
 export async function getTopContributors(): Promise<Author[]> {
   if (!USE_DB) return getMockContributors()
 
-  const supabase = await createClient()
-  const { data } = await supabase
-    .from('profiles')
-    .select('*')
-    .gt('articles_count', 0)
-    .order('articles_count', { ascending: false })
+  const rows = await db!.select()
+    .from(profiles)
+    .where(sql`${profiles.articles_count} > 0`)
+    .orderBy(desc(profiles.articles_count))
     .limit(5)
 
-  if (!data || data.length === 0) return getMockContributors()
+  if (rows.length === 0) return getMockContributors()
 
-  return data.map((p) => ({
+  return rows.map((p) => ({
     id: p.id,
     name: p.display_name || 'مجهول',
     avatar: p.avatar_url || undefined,
@@ -164,84 +215,87 @@ export async function getTopContributors(): Promise<Author[]> {
 export async function getWeeklyHighlights(): Promise<Article[]> {
   if (!USE_DB) return getMockHighlights()
 
-  const supabase = await createClient()
-  const oneWeekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString()
+  const oneWeekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)
 
-  const { data } = await supabase
-    .from('hibr_articles')
-    .select('*, profiles!hibr_articles_user_id_fkey(id, display_name, avatar_url, bio, articles_count, followers_count)')
-    .eq('status', 'published')
-    .eq('moderation_status', 'approved')
-    .is('deleted_at', null)
-    .gte('created_at', oneWeekAgo)
-    .order('likes_count', { ascending: false })
+  const rows = await db!.select(articleColumns)
+    .from(hibrArticles)
+    .leftJoin(profiles, eq(hibrArticles.user_id, profiles.id))
+    .where(and(
+      eq(hibrArticles.status, 'published'),
+      eq(hibrArticles.moderation_status, 'approved'),
+      isNull(hibrArticles.deleted_at),
+      gte(hibrArticles.created_at, oneWeekAgo),
+    ))
+    .orderBy(desc(hibrArticles.likes_count))
     .limit(3)
 
-  if (!data || data.length === 0) return getMockHighlights()
-  return data.map(dbToArticle)
+  if (rows.length === 0) return getMockHighlights()
+  return rows.map((row) => dbToArticle(row as Record<string, unknown>))
 }
 
 export async function getArticleById(id: string): Promise<Article | undefined> {
   if (!USE_DB) return getMockArticle(id)
 
-  const supabase = await createClient()
-  const { data } = await supabase
-    .from('hibr_articles')
-    .select('*, profiles!hibr_articles_user_id_fkey(id, display_name, avatar_url, bio, articles_count, followers_count)')
-    .eq('id', id)
-    .is('deleted_at', null)
-    .single()
+  const rows = await db!.select(articleColumns)
+    .from(hibrArticles)
+    .leftJoin(profiles, eq(hibrArticles.user_id, profiles.id))
+    .where(and(
+      eq(hibrArticles.id, id),
+      isNull(hibrArticles.deleted_at),
+    ))
+    .limit(1)
 
-  if (!data) return getMockArticle(id)
-  return dbToArticle(data)
+  if (rows.length === 0) return getMockArticle(id)
+  return dbToArticle(rows[0] as Record<string, unknown>)
 }
 
 export async function getRelatedArticles(currentId: string, tags: string[], limit = 3): Promise<Article[]> {
   if (!USE_DB) return getMockRelated(currentId, tags, limit)
 
-  const supabase = await createClient()
-  const { data } = await supabase
-    .from('hibr_articles')
-    .select('*, profiles!hibr_articles_user_id_fkey(id, display_name, avatar_url, bio, articles_count, followers_count)')
-    .neq('id', currentId)
-    .eq('status', 'published')
-    .eq('moderation_status', 'approved')
-    .is('deleted_at', null)
-    .overlaps('tags', tags)
+  const rows = await db!.select(articleColumns)
+    .from(hibrArticles)
+    .leftJoin(profiles, eq(hibrArticles.user_id, profiles.id))
+    .where(and(
+      sql`${hibrArticles.id} != ${currentId}`,
+      eq(hibrArticles.status, 'published'),
+      eq(hibrArticles.moderation_status, 'approved'),
+      isNull(hibrArticles.deleted_at),
+      arrayOverlaps(hibrArticles.tags, tags),
+    ))
     .limit(limit)
 
-  if (!data || data.length === 0) return getMockRelated(currentId, tags, limit)
-  return data.map(dbToArticle)
+  if (rows.length === 0) return getMockRelated(currentId, tags, limit)
+  return rows.map((row) => dbToArticle(row as Record<string, unknown>))
 }
 
 export async function getArticlesByAuthor(authorId: string): Promise<Article[]> {
   if (!USE_DB) return getMockByAuthor(authorId)
 
-  const supabase = await createClient()
-  const { data } = await supabase
-    .from('hibr_articles')
-    .select('*, profiles!hibr_articles_user_id_fkey(id, display_name, avatar_url, bio, articles_count, followers_count)')
-    .eq('user_id', authorId)
-    .eq('status', 'published')
-    .eq('moderation_status', 'approved')
-    .is('deleted_at', null)
-    .order('created_at', { ascending: false })
+  const rows = await db!.select(articleColumns)
+    .from(hibrArticles)
+    .leftJoin(profiles, eq(hibrArticles.user_id, profiles.id))
+    .where(and(
+      eq(hibrArticles.user_id, authorId),
+      eq(hibrArticles.status, 'published'),
+      eq(hibrArticles.moderation_status, 'approved'),
+      isNull(hibrArticles.deleted_at),
+    ))
+    .orderBy(desc(hibrArticles.created_at))
 
-  if (!data || data.length === 0) return getMockByAuthor(authorId)
-  return data.map(dbToArticle)
+  if (rows.length === 0) return getMockByAuthor(authorId)
+  return rows.map((row) => dbToArticle(row as Record<string, unknown>))
 }
 
 export async function getAuthorById(id: string): Promise<Author | undefined> {
   if (!USE_DB) return getMockAuthor(id)
 
-  const supabase = await createClient()
-  const { data } = await supabase
-    .from('profiles')
-    .select('*')
-    .eq('id', id)
-    .single()
+  const rows = await db!.select()
+    .from(profiles)
+    .where(eq(profiles.id, id))
+    .limit(1)
 
-  if (!data) return getMockAuthor(id)
+  if (rows.length === 0) return getMockAuthor(id)
+  const data = rows[0]
   return {
     id: data.id,
     name: data.display_name || 'مجهول',
@@ -257,21 +311,22 @@ export async function getArticlesByEpisodeId(episodeId: string): Promise<Article
     return mockArticles.filter((a) => a.episodeId === episodeId).slice(0, 5)
   }
 
-  const supabase = await createClient()
-  const { data } = await supabase
-    .from('hibr_articles')
-    .select('*, profiles!hibr_articles_user_id_fkey(id, display_name, avatar_url, bio, articles_count, followers_count)')
-    .eq('episode_id', episodeId)
-    .eq('status', 'published')
-    .eq('moderation_status', 'approved')
-    .is('deleted_at', null)
-    .order('created_at', { ascending: false })
+  const rows = await db!.select(articleColumns)
+    .from(hibrArticles)
+    .leftJoin(profiles, eq(hibrArticles.user_id, profiles.id))
+    .where(and(
+      eq(hibrArticles.episode_id, episodeId),
+      eq(hibrArticles.status, 'published'),
+      eq(hibrArticles.moderation_status, 'approved'),
+      isNull(hibrArticles.deleted_at),
+    ))
+    .orderBy(desc(hibrArticles.created_at))
     .limit(5)
 
-  if (!data || data.length === 0) {
+  if (rows.length === 0) {
     return mockArticles.filter((a) => a.episodeId === episodeId).slice(0, 5)
   }
-  return data.map(dbToArticle)
+  return rows.map((row) => dbToArticle(row as Record<string, unknown>))
 }
 
 // Re-export unchanged data

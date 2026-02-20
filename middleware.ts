@@ -15,11 +15,13 @@ export async function middleware(request: NextRequest) {
     })
   }
 
-  const session = request.cookies.get('__session')?.value
+  // --- Hibr community auth (uses __session cookie) ---
+
+  const hibrSession = request.cookies.get('__session')?.value
 
   // Protect /space/write - require auth
   if (pathname.startsWith('/space/write')) {
-    if (!session) {
+    if (!hibrSession) {
       const url = request.nextUrl.clone()
       url.pathname = '/auth/login'
       url.searchParams.set('redirect', pathname)
@@ -29,26 +31,50 @@ export async function middleware(request: NextRequest) {
 
   // Protect mutation API routes - require auth
   if (pathname.startsWith('/api/space/') && request.method !== 'GET') {
-    if (!session) {
+    if (!hibrSession) {
       return NextResponse.json({ error: 'يجب تسجيل الدخول أولاً' }, { status: 401 })
     }
   }
 
-  // Protect /admin/* - require auth (admin role checked in route handlers)
-  const bypassAdminAuth = process.env.NODE_ENV === 'development' && process.env.ADMIN_AUTH_BYPASS === 'true'
+  // --- Force password change (uses __force_pw cookie) ---
 
-  if (pathname.startsWith('/admin') && !bypassAdminAuth) {
-    if (!session) {
+  const forcePw = request.cookies.get('__force_pw')?.value
+  if (forcePw && hibrSession) {
+    const allowedPaths = ['/auth/change-password', '/api/auth/change-password', '/api/auth/session']
+    const isAllowed = allowedPaths.some(p => pathname === p || pathname.startsWith(p + '/'))
+    if (!isAllowed) {
       const url = request.nextUrl.clone()
-      url.pathname = '/auth/login'
-      url.searchParams.set('redirect', pathname)
+      url.pathname = '/auth/change-password'
       return NextResponse.redirect(url)
     }
   }
 
-  // Protect /api/admin/* - require auth (admin role checked in route handlers)
-  if (pathname.startsWith('/api/admin/') && !bypassAdminAuth) {
-    if (!session) {
+  // --- Admin dashboard auth (uses __admin_session cookie) ---
+
+  const adminSession = request.cookies.get('__admin_session')?.value
+
+  // /admin/login — allow without session; redirect to /admin if already has session
+  if (pathname === '/admin/login') {
+    if (adminSession) {
+      const url = request.nextUrl.clone()
+      url.pathname = '/admin'
+      return NextResponse.redirect(url)
+    }
+    return response
+  }
+
+  // Protect /admin/* (except login) - require admin session
+  if (pathname.startsWith('/admin')) {
+    if (!adminSession) {
+      const url = request.nextUrl.clone()
+      url.pathname = '/admin/login'
+      return NextResponse.redirect(url)
+    }
+  }
+
+  // Protect /api/admin/* (except /api/admin/auth/*) - require admin session
+  if (pathname.startsWith('/api/admin/') && !pathname.startsWith('/api/admin/auth/')) {
+    if (!adminSession) {
       return NextResponse.json({ error: 'يجب تسجيل الدخول أولاً' }, { status: 401 })
     }
   }
@@ -59,6 +85,7 @@ export async function middleware(request: NextRequest) {
 export const config = {
   matcher: [
     '/',
+    '/auth/change-password',
     '/space/write/:path*',
     '/api/space/:path*',
     '/api/events',

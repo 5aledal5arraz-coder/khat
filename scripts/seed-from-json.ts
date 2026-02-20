@@ -1,17 +1,23 @@
 /**
- * Seed local PostgreSQL from JSON config files.
- * Usage: npx tsx scripts/seed-from-json.ts
+ * Seed PostgreSQL from JSON config files.
+ * Usage: DATABASE_URL="<url>" npx tsx scripts/seed-from-json.ts
  */
 import pg from "pg"
 import fs from "fs"
 import path from "path"
 
 const { Client } = pg
-const LOCAL_URL = "postgresql://aishaalkharraz@localhost:5432/khat"
-const LIVE_URL =
-  "postgresql://doadmin:***REMOVED***@khat-main-db-do-user-32538860-0.g.db.ondigitalocean.com:25060/defaultdb?sslmode=require"
 
-const target = process.argv[2] === "--live" ? "live" : "local"
+const rawUrl = process.env.DATABASE_URL
+if (!rawUrl) {
+  console.error("Missing DATABASE_URL env var")
+  console.error('Usage: DATABASE_URL="postgres://..." npx tsx scripts/seed-from-json.ts')
+  process.exit(1)
+}
+
+// Strip sslmode from URL — handle SSL via client config (same as lib/db.ts)
+const dbUrl = rawUrl.replace(/[?&]sslmode=[^&]*/g, "").replace(/\?$/, "")
+const isLocalhost = rawUrl.includes("localhost")
 const CONFIG = path.join(process.cwd(), "config")
 
 function readJson<T>(filename: string): T {
@@ -19,13 +25,12 @@ function readJson<T>(filename: string): T {
 }
 
 async function main() {
-  const connectionString = target === "live" ? LIVE_URL : LOCAL_URL
   const client = new Client({
-    connectionString,
-    ...(target === "live" ? { ssl: { rejectUnauthorized: false } } : {}),
+    connectionString: dbUrl,
+    ...(isLocalhost ? {} : { ssl: { rejectUnauthorized: false } }),
   })
   await client.connect()
-  console.log(`Connected to ${target} database\n`)
+  console.log(`Connected to database\n`)
 
   // Clean dependent tables first (reverse dependency order)
   const cleanOrder = [
@@ -36,7 +41,7 @@ async function main() {
     "episode_visibility", "episode_section_assignments", "episode_sections",
     "episode_quotes_config", "episode_guest_assignments", "episode_enrichments", "episode_overrides",
     "topics_config", "episode_topics", "episodes", "topics", "guests",
-    "ad_slots", "platform_analytics", "static_content", "site_settings",
+    "platform_analytics", "static_content", "site_settings",
   ]
   for (const table of cleanOrder) {
     try { await client.query(`DELETE FROM "${table}"`) } catch { /* may not exist */ }
@@ -227,13 +232,17 @@ async function main() {
   // ================================================================
   const guestAssignments = readJson<Record<string, string>>("episode-guest-assignments.json")
   const gaEntries = Object.entries(guestAssignments)
+  let gaCount = 0
   for (const [epId, gId] of gaEntries) {
-    await client.query(
-      `INSERT INTO episode_guest_assignments (episode_id, guest_id) VALUES ($1, $2) ON CONFLICT DO NOTHING`,
-      [epId, gId]
-    )
+    try {
+      await client.query(
+        `INSERT INTO episode_guest_assignments (episode_id, guest_id) VALUES ($1, $2) ON CONFLICT DO NOTHING`,
+        [epId, gId]
+      )
+      gaCount++
+    } catch { /* skip FK violations */ }
   }
-  console.log(`  ✅ episode_guest_assignments — ${gaEntries.length} rows`)
+  console.log(`  ✅ episode_guest_assignments — ${gaCount}/${gaEntries.length} rows`)
 
   // ================================================================
   // 6. Episode Quotes
@@ -241,11 +250,20 @@ async function main() {
   const epQuotes = readJson<Record<string, any>>("episode-quotes.json")
   const eqEntries = Object.entries(epQuotes)
   for (const [epId, data] of eqEntries) {
-    await client.query(
-      `INSERT INTO episode_quotes_config (episode_id, quotes)
-       VALUES ($1, $2) ON CONFLICT (episode_id) DO NOTHING`,
-      [epId, JSON.stringify(data.quotes || [])]
-    )
+    try {
+      await client.query(
+        `INSERT INTO episode_quotes_config (episode_id, episode_title, quotes, status, generated_at, published_at)
+         VALUES ($1, $2, $3, $4, $5, $6) ON CONFLICT (episode_id) DO NOTHING`,
+        [
+          epId,
+          data.episodeTitle || "Unknown",
+          JSON.stringify(data.quotes || []),
+          data.status || "draft",
+          data.generatedAt || null,
+          data.publishedAt || null,
+        ]
+      )
+    } catch { /* skip constraint violations */ }
   }
   console.log(`  ✅ episode_quotes_config — ${eqEntries.length} rows`)
 
@@ -361,8 +379,8 @@ async function main() {
         p.subtitle,
         p.icon || "Heart",
         p.color || "#6366f1",
-        p.episode_ids || [],
-        p.quote_ids || [],
+        JSON.stringify(p.episode_ids || []),
+        JSON.stringify(p.quote_ids || []),
         p.order || 0,
       ]
     )
@@ -434,48 +452,30 @@ async function main() {
   console.log(`  ✅ platform_analytics — ${Object.keys(analytics).length} rows`)
 
   // ================================================================
-  // 15. Ad Slots
-  // ================================================================
-  const adsData = readJson<{ slots: any[] }>("ads.json")
-  for (const slot of adsData.slots) {
-    await client.query(
-      `INSERT INTO ad_slots (id, position, label, enabled, schedule, type, sponsored_data, banner_data)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8) ON CONFLICT DO NOTHING`,
-      [
-        slot.id,
-        slot.position,
-        slot.label || "",
-        slot.enabled || false,
-        JSON.stringify(slot.schedule || {}),
-        slot.type || "banner",
-        slot.sponsoredData ? JSON.stringify(slot.sponsoredData) : null,
-        slot.bannerData ? JSON.stringify(slot.bannerData) : null,
-      ]
-    )
-  }
-  console.log(`  ✅ ad_slots — ${adsData.slots.length} rows`)
-
-  // ================================================================
-  // 16. Studio Push Log
+  // 15. Studio Push Log
   // ================================================================
   const pushLog = readJson<any[]>("studio-push-log.json")
+  let plCount = 0
   for (const entry of pushLog) {
-    await client.query(
-      `INSERT INTO studio_push_log (session_id, episode_id, episode_title, pushed_fields, pushed_at)
-       VALUES ($1, $2, $3, $4, $5) ON CONFLICT DO NOTHING`,
-      [
-        entry.sessionId,
-        entry.episodeId,
-        entry.episodeTitle,
-        JSON.stringify(entry.pushedFields || []),
-        entry.pushedAt,
-      ]
-    )
+    try {
+      await client.query(
+        `INSERT INTO studio_push_log (session_id, episode_id, episode_title, pushed_fields, pushed_at)
+         VALUES ($1, $2, $3, $4, $5) ON CONFLICT DO NOTHING`,
+        [
+          entry.sessionId,
+          entry.episodeId,
+          entry.episodeTitle,
+          entry.pushedFields || [],
+          entry.pushedAt,
+        ]
+      )
+      plCount++
+    } catch { /* skip FK violations — sessions may not exist */ }
   }
-  console.log(`  ✅ studio_push_log — ${pushLog.length} rows`)
+  console.log(`  ✅ studio_push_log — ${plCount}/${pushLog.length} rows`)
 
 
-  console.log(`\nDone! ${target} database seeded from JSON config files.`)
+  console.log(`\nDone! Database seeded from JSON config files.`)
   await client.end()
 }
 

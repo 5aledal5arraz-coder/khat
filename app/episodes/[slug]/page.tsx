@@ -1,6 +1,6 @@
 import { Metadata } from "next"
 import { notFound } from "next/navigation"
-import { getEpisodeBySlug, getRelatedEpisodes, getAdjacentEpisodes } from "@/lib/supabase/queries"
+import { getEpisodeBySlug, getRelatedEpisodes, getAdjacentEpisodes } from "@/lib/queries/episodes"
 import { getQuotesByEpisodeId } from "@/lib/home-quotes"
 import { getPathsForEpisode } from "@/lib/emotional-paths"
 import { getReflectionsByEpisodeId } from "@/lib/daily-reflections"

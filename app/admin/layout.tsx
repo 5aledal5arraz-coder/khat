@@ -3,13 +3,14 @@
 import Link from "next/link"
 import Image from "next/image"
 import { useState, useEffect, useCallback } from "react"
-import { usePathname } from "next/navigation"
+import { usePathname, useRouter } from "next/navigation"
 import {
   ArrowRight,
   PanelLeftClose,
   PanelLeft,
   Menu,
   X,
+  LogOut,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
@@ -22,8 +23,18 @@ export default function AdminLayout({
   children: React.ReactNode
 }) {
   const pathname = usePathname()
+  const router = useRouter()
   const [sidebarOpen, setSidebarOpen] = useState(true)
   const [mobileDrawerOpen, setMobileDrawerOpen] = useState(false)
+
+  // Skip dashboard chrome for login page
+  if (pathname === '/admin/login') return <>{children}</>
+
+  const handleLogout = async () => {
+    await fetch('/api/admin/auth/session', { method: 'DELETE' })
+    router.push('/admin/login')
+    router.refresh()
+  }
 
   // Close mobile drawer on route change
   useEffect(() => {
@@ -93,12 +104,23 @@ export default function AdminLayout({
             </div>
           </div>
 
-          <Link href="/">
-            <Button variant="ghost" size="sm" className="gap-2 text-muted-foreground">
-              <span className="hidden sm:inline">العودة للموقع</span>
-              <ArrowRight className="h-4 w-4" />
+          <div className="flex items-center gap-1">
+            <Button
+              variant="ghost"
+              size="sm"
+              className="gap-2 text-muted-foreground"
+              onClick={handleLogout}
+            >
+              <LogOut className="h-4 w-4" />
+              <span className="hidden sm:inline">تسجيل الخروج</span>
             </Button>
-          </Link>
+            <Link href="/">
+              <Button variant="ghost" size="sm" className="gap-2 text-muted-foreground">
+                <span className="hidden sm:inline">العودة للموقع</span>
+                <ArrowRight className="h-4 w-4" />
+              </Button>
+            </Link>
+          </div>
         </div>
       </header>
 

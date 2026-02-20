@@ -1,7 +1,7 @@
 import Link from "next/link"
 import Image from "next/image"
 import { Gem, Play, Clock } from "lucide-react"
-import { getEpisodes } from "@/lib/supabase/queries"
+import { getEpisodes } from "@/lib/queries/episodes"
 import { getHiddenGems } from "@/lib/boost"
 import { formatDuration, getYouTubeId } from "@/lib/utils"
 

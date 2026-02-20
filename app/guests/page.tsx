@@ -1,6 +1,6 @@
 import { Suspense } from "react"
 import { Metadata } from "next"
-import { getGuests } from "@/lib/supabase/queries"
+import { getGuests } from "@/lib/queries/episodes"
 import { GuestCard } from "@/components/guests/guest-card"
 import { GuestSearch } from "@/components/guests/guest-search"
 import { Skeleton } from "@/components/ui/skeleton"

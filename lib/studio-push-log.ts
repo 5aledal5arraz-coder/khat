@@ -1,5 +1,6 @@
 import { createConfigStore } from "@/lib/config-store"
-import { pool, USE_DB } from "@/lib/db"
+import { db, USE_DB } from "@/lib/db"
+import { studioPushLog } from "@/lib/db/schema"
 
 const MAX_ENTRIES = 100
 
@@ -16,11 +17,13 @@ const store = createConfigStore<PushLogEntry[]>("studio-push-log.json", [])
 export async function appendPushLog(entry: PushLogEntry): Promise<void> {
   if (USE_DB) {
     try {
-      await pool!.query(
-        `INSERT INTO studio_push_log (session_id, episode_id, episode_title, pushed_fields, pushed_at)
-         VALUES ($1, $2, $3, $4, $5)`,
-        [entry.sessionId, entry.episodeId, entry.episodeTitle, entry.pushedFields, entry.pushedAt]
-      )
+      await db!.insert(studioPushLog).values({
+        session_id: entry.sessionId,
+        episode_id: entry.episodeId,
+        episode_title: entry.episodeTitle,
+        pushed_fields: entry.pushedFields,
+        pushed_at: new Date(entry.pushedAt),
+      })
       return
     } catch (e) {
       console.error("appendPushLog DB exception:", e)

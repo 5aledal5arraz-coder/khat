@@ -1,5 +1,5 @@
 import { NextRequest } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
+import { db } from '@/lib/db'
 import {
   getAuthUser,
   getUserProfile,
@@ -10,6 +10,7 @@ import {
   successResponse,
   errorResponse,
 } from '@/lib/api-utils'
+import { sql } from 'drizzle-orm'
 
 export async function DELETE(
   request: NextRequest,
@@ -22,38 +23,21 @@ export async function DELETE(
   const user = await getAuthUser()
   if (!user) return unauthorizedResponse()
 
-  const supabase = await createClient()
-
-  const { data: existing } = await supabase
-    .from('hibr_comments')
-    .select('user_id, article_id')
-    .eq('id', id)
-    .is('deleted_at', null)
-    .single()
-
-  if (!existing) return notFoundResponse()
+  const existingResult = await db!.execute(sql`SELECT user_id, article_id FROM hibr_comments WHERE id = ${id} AND deleted_at IS NULL LIMIT 1`)
+  const existingRows = existingResult.rows as Record<string, unknown>[]
+  if (existingRows.length === 0) return notFoundResponse()
 
   const profile = await getUserProfile(user.id)
-  if (existing.user_id !== user.id && !profile?.is_admin) return forbiddenResponse()
+  if (existingRows[0].user_id !== user.id && !profile?.is_admin) return forbiddenResponse()
 
-  const { error } = await supabase
-    .from('hibr_comments')
-    .update({ deleted_at: new Date().toISOString() })
-    .eq('id', id)
+  const deleteResult = await db!.execute(sql`UPDATE hibr_comments SET deleted_at = NOW() WHERE id = ${id}`)
 
-  if (error) return errorResponse('حدث خطأ في حذف التعليق', 500)
+  if (!deleteResult.rowCount) return errorResponse('حدث خطأ في حذف التعليق', 500)
 
   // Update comments count
-  const { count } = await supabase
-    .from('hibr_comments')
-    .select('*', { count: 'exact', head: true })
-    .eq('article_id', existing.article_id)
-    .is('deleted_at', null)
-
-  await supabase
-    .from('hibr_articles')
-    .update({ comments_count: count ?? 0 })
-    .eq('id', existing.article_id)
+  const countResult = await db!.execute(sql`SELECT COUNT(*)::int AS cnt FROM hibr_comments WHERE article_id = ${existingRows[0].article_id} AND deleted_at IS NULL`)
+  const countRows = countResult.rows as Record<string, unknown>[]
+  await db!.execute(sql`UPDATE hibr_articles SET comments_count = ${(countRows[0]?.cnt as number) ?? 0} WHERE id = ${existingRows[0].article_id}`)
 
   return successResponse({ deleted: true })
 }

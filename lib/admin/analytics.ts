@@ -1,5 +1,7 @@
 import { createConfigStore } from "@/lib/config-store"
-import { pool, USE_DB } from "@/lib/db"
+import { db, USE_DB } from "@/lib/db"
+import { platformAnalytics } from "@/lib/db/schema"
+import { sql, eq } from "drizzle-orm"
 import type { AnalyticsConfig, PlatformStats } from "@/types/media-kit"
 
 const defaultConfig: AnalyticsConfig = {
@@ -16,12 +18,8 @@ const store = createConfigStore<AnalyticsConfig>("analytics.json", defaultConfig
 export async function getAnalyticsConfig(): Promise<AnalyticsConfig> {
   if (USE_DB) {
     try {
-      const { rows } = await pool!.query(
-        `SELECT platform, followers, posts, engagement, url
-         FROM platform_analytics
-         WHERE platform = ANY($1)`,
-        [PLATFORMS]
-      )
+      const rows = await db!.select().from(platformAnalytics)
+        .where(sql`${platformAnalytics.platform} = ANY(${PLATFORMS})`)
 
       if (rows.length > 0) {
         const config = { ...defaultConfig }
@@ -29,10 +27,10 @@ export async function getAnalyticsConfig(): Promise<AnalyticsConfig> {
           const key = row.platform as keyof AnalyticsConfig
           if (key in config) {
             config[key] = {
-              followers: row.followers,
-              posts: row.posts,
-              engagement: row.engagement,
-              url: row.url,
+              followers: row.followers ?? 0,
+              posts: row.posts ?? 0,
+              engagement: row.engagement ?? "0%",
+              url: row.url ?? "",
             }
           }
         }
@@ -50,16 +48,21 @@ export async function saveAnalyticsConfig(config: AnalyticsConfig): Promise<void
     try {
       for (const platform of PLATFORMS) {
         const stats = config[platform]
-        await pool!.query(
-          `INSERT INTO platform_analytics (platform, followers, posts, engagement, url)
-           VALUES ($1, $2, $3, $4, $5)
-           ON CONFLICT (platform) DO UPDATE SET
-             followers = EXCLUDED.followers,
-             posts = EXCLUDED.posts,
-             engagement = EXCLUDED.engagement,
-             url = EXCLUDED.url`,
-          [platform, stats.followers, stats.posts, stats.engagement, stats.url]
-        )
+        await db!.insert(platformAnalytics).values({
+          platform,
+          followers: stats.followers,
+          posts: stats.posts,
+          engagement: stats.engagement,
+          url: stats.url,
+        }).onConflictDoUpdate({
+          target: platformAnalytics.platform,
+          set: {
+            followers: stats.followers,
+            posts: stats.posts,
+            engagement: stats.engagement,
+            url: stats.url,
+          },
+        })
       }
       return
     } catch (e) {

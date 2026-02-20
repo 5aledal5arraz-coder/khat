@@ -1,4 +1,6 @@
-import { pool } from "@/lib/db"
+import { db } from "@/lib/db"
+import { visitorProfiles, visitorEvents } from "@/lib/db/schema"
+import { eq, sql, desc } from "drizzle-orm"
 import { getKnowledgeMap } from "@/lib/episode-knowledge"
 import type { EpisodeAnalysis } from "@/lib/episode-knowledge"
 import type {
@@ -269,6 +271,7 @@ function cleanupProfileCache() {
 // ---------------------------------------------------------------------------
 
 export async function getVisitorProfile(visitorId: string): Promise<VisitorProfile | null> {
+  if (!db) return null
   cleanupProfileCache()
 
   // 1. Check memory cache
@@ -278,26 +281,23 @@ export async function getVisitorProfile(visitorId: string): Promise<VisitorProfi
   }
 
   // 2. Check DB cache
-  const { rows: profileRows } = await pool!.query(
-    `SELECT * FROM visitor_profiles WHERE visitor_id = $1 LIMIT 1`,
-    [visitorId]
-  )
+  const profileRows = await db.select().from(visitorProfiles)
+    .where(eq(visitorProfiles.visitor_id, visitorId))
+    .limit(1)
   const dbProfile = profileRows[0] || null
 
   // 3. Get current event count
-  const { rows: countRows } = await pool!.query(
-    `SELECT COUNT(*) FROM visitor_events WHERE visitor_id = $1`,
-    [visitorId]
-  )
-  const currentEventCount = parseInt(countRows[0]?.count, 10) || 0
+  const countResult = await db.select({ cnt: sql<number>`count(*)` }).from(visitorEvents)
+    .where(eq(visitorEvents.visitor_id, visitorId))
+  const currentEventCount = Number(countResult[0]?.cnt) || 0
 
   // If DB profile exists and no new events, return it
-  if (dbProfile && dbProfile.event_count_at_build >= currentEventCount) {
+  if (dbProfile && (dbProfile.event_count_at_build ?? 0) >= currentEventCount) {
     const profile: VisitorProfile = {
       visitor_id: dbProfile.visitor_id,
       interest_vector: dbProfile.interest_vector as InterestVector,
-      last_updated: dbProfile.last_updated,
-      event_count_at_build: dbProfile.event_count_at_build,
+      last_updated: dbProfile.last_updated ?? new Date().toISOString(),
+      event_count_at_build: dbProfile.event_count_at_build ?? 0,
     }
     profileCache.set(visitorId, { profile, cachedAt: Date.now() })
     return profile
@@ -305,13 +305,13 @@ export async function getVisitorProfile(visitorId: string): Promise<VisitorProfi
 
   // If DB profile exists and within TTL, still return it (avoid recompute)
   if (dbProfile) {
-    const age = Date.now() - new Date(dbProfile.last_updated).getTime()
+    const age = Date.now() - new Date(dbProfile.last_updated ?? 0).getTime()
     if (age < PROFILE_TTL_MS) {
       const profile: VisitorProfile = {
         visitor_id: dbProfile.visitor_id,
         interest_vector: dbProfile.interest_vector as InterestVector,
-        last_updated: dbProfile.last_updated,
-        event_count_at_build: dbProfile.event_count_at_build,
+        last_updated: dbProfile.last_updated ?? new Date().toISOString(),
+        event_count_at_build: dbProfile.event_count_at_build ?? 0,
       }
       profileCache.set(visitorId, { profile, cachedAt: Date.now() })
       return profile
@@ -329,16 +329,16 @@ async function rebuildProfile(
   eventCount: number
 ): Promise<VisitorProfile> {
   // Fetch events + knowledge map in parallel
-  const [{ rows: eventRows }, knowledgeMap] = await Promise.all([
-    pool!.query(
-      `SELECT * FROM visitor_events WHERE visitor_id = $1 ORDER BY created_at DESC LIMIT 200`,
-      [visitorId]
-    ),
+  const [eventRows, knowledgeMap] = await Promise.all([
+    db!.select().from(visitorEvents)
+      .where(eq(visitorEvents.visitor_id, visitorId))
+      .orderBy(desc(visitorEvents.created_at))
+      .limit(200),
     getKnowledgeMap(),
   ])
 
   const vector = computeVectorFromEvents(
-    (eventRows ?? []) as VisitorEvent[],
+    (eventRows ?? []) as unknown as VisitorEvent[],
     knowledgeMap?.episodes ?? null
   )
 
@@ -351,15 +351,19 @@ async function rebuildProfile(
   }
 
   // Upsert to DB (fire and forget — don't block response)
-  pool!.query(
-    `INSERT INTO visitor_profiles (visitor_id, interest_vector, last_updated, event_count_at_build)
-     VALUES ($1, $2, $3, $4)
-     ON CONFLICT (visitor_id) DO UPDATE SET
-       interest_vector = EXCLUDED.interest_vector,
-       last_updated = EXCLUDED.last_updated,
-       event_count_at_build = EXCLUDED.event_count_at_build`,
-    [visitorId, JSON.stringify(vector), now, eventCount]
-  ).catch((error) => {
+  db!.insert(visitorProfiles).values({
+    visitor_id: visitorId,
+    interest_vector: vector as Record<string, number>,
+    last_updated: now,
+    event_count_at_build: eventCount,
+  }).onConflictDoUpdate({
+    target: visitorProfiles.visitor_id,
+    set: {
+      interest_vector: vector as Record<string, number>,
+      last_updated: now,
+      event_count_at_build: eventCount,
+    },
+  }).catch((error) => {
     console.error("Failed to save visitor profile:", error)
   })
 

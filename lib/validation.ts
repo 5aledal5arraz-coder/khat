@@ -95,6 +95,25 @@ export function validateEmail(email: string): ValidationResult {
   return { valid: true }
 }
 
+export function validatePasswordStrength(password: string): ValidationResult {
+  if (!password || password.length < 8) {
+    return { valid: false, error: 'كلمة المرور يجب أن تكون ٨ أحرف على الأقل' }
+  }
+  if (!/[A-Z]/.test(password)) {
+    return { valid: false, error: 'كلمة المرور يجب أن تحتوي على حرف كبير واحد على الأقل (A-Z)' }
+  }
+  if (!/[a-z]/.test(password)) {
+    return { valid: false, error: 'كلمة المرور يجب أن تحتوي على حرف صغير واحد على الأقل (a-z)' }
+  }
+  if (!/[0-9]/.test(password)) {
+    return { valid: false, error: 'كلمة المرور يجب أن تحتوي على رقم واحد على الأقل (0-9)' }
+  }
+  if (!/[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?`~]/.test(password)) {
+    return { valid: false, error: 'كلمة المرور يجب أن تحتوي على رمز خاص واحد على الأقل' }
+  }
+  return { valid: true }
+}
+
 export const ADMIN_LIMITS = {
   TITLE_LENGTH: 300,
   DESCRIPTION_LENGTH: 5000,

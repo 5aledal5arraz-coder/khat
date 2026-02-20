@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { requireAdminAPI, getAuthUser } from '@/lib/api-utils'
-import { pool } from '@/lib/db'
+import { requireAdminAPI, getAdminAuthUser } from '@/lib/api-utils'
+import { db } from '@/lib/db'
+import { newsletterSubscribers, newsletterSends } from '@/lib/db/schema'
+import { eq } from 'drizzle-orm'
 import { getResend, FROM_EMAIL } from '@/lib/email/resend'
 import { newsletterHtml } from '@/lib/email/templates'
 
@@ -8,7 +10,7 @@ export async function POST(request: NextRequest) {
   const authError = await requireAdminAPI()
   if (authError) return authError
 
-  if (!pool) {
+  if (!db) {
     return NextResponse.json({ error: 'Database not configured' }, { status: 500 })
   }
 
@@ -24,9 +26,12 @@ export async function POST(request: NextRequest) {
   }
 
   // Fetch active subscribers
-  const { rows: subscribers } = await pool.query(
-    `SELECT email, unsubscribe_token FROM newsletter_subscribers WHERE status = 'active'`
-  )
+  const subscribers = await db.select({
+    email: newsletterSubscribers.email,
+    unsubscribe_token: newsletterSubscribers.unsubscribe_token,
+  })
+    .from(newsletterSubscribers)
+    .where(eq(newsletterSubscribers.status, 'active'))
 
   if (subscribers.length === 0) {
     return NextResponse.json({ error: 'لا يوجد مشتركين نشطين' }, { status: 400 })
@@ -58,11 +63,13 @@ export async function POST(request: NextRequest) {
   }
 
   // Log the send
-  const user = await getAuthUser()
-  await pool.query(
-    `INSERT INTO newsletter_sends (subject, body, recipient_count, sent_by) VALUES ($1, $2, $3, $4)`,
-    [body.subject.trim(), body.body.trim(), sentCount, user?.id || null]
-  )
+  const user = await getAdminAuthUser()
+  await db.insert(newsletterSends).values({
+    subject: body.subject.trim(),
+    body: body.body.trim(),
+    recipient_count: sentCount,
+    sent_by: user?.id || null,
+  })
 
   return NextResponse.json({ success: true, sent: sentCount, total: subscribers.length })
 }

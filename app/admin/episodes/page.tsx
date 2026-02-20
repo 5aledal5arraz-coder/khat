@@ -1,4 +1,4 @@
-import { getEpisodes } from "@/lib/supabase/queries"
+import { getEpisodes } from "@/lib/queries/episodes"
 import { getEpisodeOverrides } from "@/lib/episode-overrides"
 import { getSectionsConfig } from "@/lib/episode-sections"
 import { getGuestAssignments } from "@/lib/episode-guests"

@@ -1,5 +1,7 @@
 import { createConfigStore } from "@/lib/config-store"
-import { pool, USE_DB } from "@/lib/db"
+import { db, USE_DB } from "@/lib/db"
+import { episodeGuestAssignments } from "@/lib/db/schema"
+import { eq } from "drizzle-orm"
 import type { Guest } from "@/types/database"
 
 // episodeId -> guestId
@@ -10,9 +12,7 @@ const store = createConfigStore<GuestAssignments>("episode-guest-assignments.jso
 export async function getGuestAssignments(): Promise<GuestAssignments> {
   if (USE_DB) {
     try {
-      const { rows } = await pool!.query(
-        `SELECT episode_id, guest_id FROM episode_guest_assignments`
-      )
+      const rows = await db!.select().from(episodeGuestAssignments)
       const assignments: GuestAssignments = {}
       for (const row of rows) {
         assignments[row.episode_id] = row.guest_id
@@ -29,20 +29,14 @@ export async function saveGuestAssignments(assignments: GuestAssignments): Promi
   if (USE_DB) {
     try {
       // Replace all
-      await pool!.query(`DELETE FROM episode_guest_assignments`)
+      await db!.delete(episodeGuestAssignments)
       const entries = Object.entries(assignments)
       if (entries.length > 0) {
-        const values: unknown[] = []
-        const placeholders: string[] = []
-        let i = 1
-        for (const [episodeId, guestId] of entries) {
-          placeholders.push(`($${i}, $${i + 1})`)
-          values.push(episodeId, guestId)
-          i += 2
-        }
-        await pool!.query(
-          `INSERT INTO episode_guest_assignments (episode_id, guest_id) VALUES ${placeholders.join(", ")}`,
-          values
+        await db!.insert(episodeGuestAssignments).values(
+          entries.map(([episodeId, guestId]) => ({
+            episode_id: episodeId,
+            guest_id: guestId,
+          }))
         )
       }
       return
@@ -57,17 +51,16 @@ export async function assignGuestToEpisode(episodeId: string, guestId: string | 
   if (USE_DB) {
     try {
       if (guestId) {
-        await pool!.query(
-          `INSERT INTO episode_guest_assignments (episode_id, guest_id)
-           VALUES ($1, $2)
-           ON CONFLICT (episode_id) DO UPDATE SET guest_id = EXCLUDED.guest_id`,
-          [episodeId, guestId]
-        )
+        await db!.insert(episodeGuestAssignments).values({
+          episode_id: episodeId,
+          guest_id: guestId,
+        }).onConflictDoUpdate({
+          target: episodeGuestAssignments.episode_id,
+          set: { guest_id: guestId },
+        })
       } else {
-        await pool!.query(
-          `DELETE FROM episode_guest_assignments WHERE episode_id = $1`,
-          [episodeId]
-        )
+        await db!.delete(episodeGuestAssignments)
+          .where(eq(episodeGuestAssignments.episode_id, episodeId))
       }
       return
     } catch (e) {

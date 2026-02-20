@@ -1,5 +1,5 @@
 import { NextRequest } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
+import { db, PROFILE_COLS, nestProfile } from '@/lib/db'
 import {
   getAuthUser,
   getUserProfile,
@@ -16,9 +16,10 @@ import { validateArticle } from '@/lib/validation'
 import { sanitizeTitle, sanitizeArticleContent, generateExcerpt } from '@/lib/sanitize'
 import { checkRateLimit } from '@/lib/rate-limit'
 import { moderateArticle } from '@/lib/moderation'
+import { sql } from 'drizzle-orm'
+import { hibrArticles, profiles } from '@/lib/db/schema'
 
 export async function GET(request: NextRequest) {
-  const supabase = await createClient()
   const { searchParams } = new URL(request.url)
 
   const page = Math.max(1, parseInt(searchParams.get('page') || '1') || 1)
@@ -27,35 +28,26 @@ export async function GET(request: NextRequest) {
   const authorId = searchParams.get('author')
   const offset = (page - 1) * limit
 
-  let query = supabase
-    .from('hibr_articles')
-    .select('*, profiles!hibr_articles_user_id_fkey(id, display_name, avatar_url, bio, is_admin, articles_count, followers_count)', { count: 'exact' })
-    .eq('status', 'published')
-    .in('moderation_status', ['approved', 'pending'])
-    .is('deleted_at', null)
-    .order('created_at', { ascending: false })
-    .range(offset, offset + limit - 1)
+  try {
+    const result = await db!.execute(sql`SELECT a.*, ${sql.raw(PROFILE_COLS)}, COUNT(*) OVER() AS _total
+       FROM hibr_articles a LEFT JOIN profiles p ON a.user_id = p.id
+       WHERE a.status = 'published' AND a.moderation_status IN ('approved', 'pending') AND a.deleted_at IS NULL
+       ${tag ? sql`AND a.tags @> ARRAY[${tag}]::text[]` : sql``}
+       ${authorId ? sql`AND a.user_id = ${authorId}` : sql``}
+       ORDER BY a.created_at DESC
+       LIMIT ${limit} OFFSET ${offset}`)
 
-  if (tag) {
-    query = query.contains('tags', [tag])
-  }
+    const rows = result.rows as Record<string, unknown>[]
+    const total = rows.length > 0 ? Number(rows[0]._total) : 0
+    const articles = rows.map((row) => {
+      const { _total, ...rest } = row
+      return nestProfile(rest)
+    })
 
-  if (authorId) {
-    query = query.eq('user_id', authorId)
-  }
-
-  const { data, count, error } = await query
-
-  if (error) {
+    return successResponse({ articles, total, page, limit })
+  } catch {
     return errorResponse('حدث خطأ في جلب المقالات', 500)
   }
-
-  return successResponse({
-    articles: data || [],
-    total: count || 0,
-    page,
-    limit,
-  })
 }
 
 export async function POST(request: NextRequest) {
@@ -72,8 +64,7 @@ export async function POST(request: NextRequest) {
   if (profile?.is_banned) return bannedResponse()
 
   // Rate limit
-  const supabase = await createClient()
-  const rateLimit = await checkRateLimit(supabase, user.id, 'create_article')
+  const rateLimit = await checkRateLimit(user.id, 'create_article')
   if (!rateLimit.allowed) return rateLimitResponse()
 
   // Parse body
@@ -115,9 +106,8 @@ export async function POST(request: NextRequest) {
   const readTimeMinutes = Math.max(1, Math.ceil(wordCount / 200))
 
   // Insert
-  const { data, error } = await supabase
-    .from('hibr_articles')
-    .insert({
+  try {
+    const rows = await db!.insert(hibrArticles).values({
       user_id: user.id,
       title: cleanTitle,
       content: cleanContent,
@@ -130,30 +120,19 @@ export async function POST(request: NextRequest) {
       status: 'published',
       moderation_status: modResult.status,
       moderation_reason: modResult.reasons.length > 0 ? modResult.reasons.join('، ') : null,
-    })
-    .select()
-    .single()
+    }).returning()
 
-  if (error) {
+    // Update user's articles count (non-critical)
+    try {
+      const countResult = await db!.execute(sql`SELECT COUNT(*)::int AS cnt FROM ${hibrArticles} WHERE user_id = ${user.id} AND status = 'published' AND deleted_at IS NULL`)
+      const countRows = countResult.rows as Record<string, unknown>[]
+      await db!.execute(sql`UPDATE ${profiles} SET articles_count = ${(countRows[0]?.cnt as number) ?? 0} WHERE id = ${user.id}`)
+    } catch {
+      // Non-critical
+    }
+
+    return successResponse({ article: rows[0], moderation: modResult }, 201)
+  } catch {
     return errorResponse('حدث خطأ في نشر المقال', 500)
   }
-
-  // Update user's articles count (non-critical)
-  try {
-    const { count: articleCount } = await supabase
-      .from('hibr_articles')
-      .select('*', { count: 'exact', head: true })
-      .eq('user_id', user.id)
-      .eq('status', 'published')
-      .is('deleted_at', null)
-
-    await supabase
-      .from('profiles')
-      .update({ articles_count: articleCount ?? 0 })
-      .eq('id', user.id)
-  } catch {
-    // Non-critical
-  }
-
-  return successResponse({ article: data, moderation: modResult }, 201)
 }

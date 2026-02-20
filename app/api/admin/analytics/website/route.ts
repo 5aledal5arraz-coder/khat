@@ -1,13 +1,28 @@
 import { NextRequest, NextResponse } from "next/server"
 import { requireAdminAPI } from "@/lib/api-utils"
-import { getEpisodes } from "@/lib/supabase/queries"
+import { getEpisodes } from "@/lib/queries/episodes"
 import { getAllPaths } from "@/lib/emotional-paths"
+import { db, USE_DB } from "@/lib/db"
+import { visitorEvents } from "@/lib/db/schema"
+import { desc, sql, gte } from "drizzle-orm"
 
 const PERIOD_MAP: Record<string, number | null> = {
   "7d": 7,
   "30d": 30,
   "90d": 90,
   all: null,
+}
+
+const EMPTY_RESPONSE = {
+  uniqueVisitors: 0,
+  episodeViews: 0,
+  engagementRate: 0,
+  searchCount: 0,
+  totalEvents: 0,
+  topEpisodes: [],
+  contentBreakdown: [],
+  topSearches: [],
+  topPaths: [],
 }
 
 export async function GET(request: NextRequest) {
@@ -25,71 +40,29 @@ export async function GET(request: NextRequest) {
     startDate = d.toISOString()
   }
 
-  // Check if Supabase is configured
-  if (
-    !process.env.NEXT_PUBLIC_SUPABASE_URL ||
-    process.env.NEXT_PUBLIC_SUPABASE_URL.includes("placeholder")
-  ) {
-    return NextResponse.json({
-      configured: false,
-      uniqueVisitors: 0,
-      episodeViews: 0,
-      engagementRate: 0,
-      searchCount: 0,
-      totalEvents: 0,
-      topEpisodes: [],
-      contentBreakdown: [],
-      topSearches: [],
-      topPaths: [],
-    })
+  // Check if DB is configured
+  if (!USE_DB) {
+    return NextResponse.json({ configured: false, ...EMPTY_RESPONSE })
   }
 
   try {
-    const { createClient } = await import("@/lib/supabase/server")
-    const supabase = await createClient()
-
-    let query = supabase
-      .from("visitor_events")
-      .select("visitor_id, event_type, target_id, metadata, created_at")
-      .order("created_at", { ascending: false })
+    const query = db!.select({
+      visitor_id: visitorEvents.visitor_id,
+      event_type: visitorEvents.event_type,
+      target_id: visitorEvents.target_id,
+      metadata: visitorEvents.metadata,
+      created_at: visitorEvents.created_at,
+    })
+      .from(visitorEvents)
+      .orderBy(desc(visitorEvents.created_at))
       .limit(50000)
 
-    if (startDate) {
-      query = query.gte("created_at", startDate)
-    }
-
-    const { data: events, error } = await query
-
-    if (error) {
-      console.error("Website analytics query failed:", error)
-      return NextResponse.json({
-        configured: true,
-        error: error.message,
-        uniqueVisitors: 0,
-        episodeViews: 0,
-        engagementRate: 0,
-        searchCount: 0,
-        totalEvents: 0,
-        topEpisodes: [],
-        contentBreakdown: [],
-        topSearches: [],
-        topPaths: [],
-      })
-    }
+    const events = startDate
+      ? await query.where(gte(visitorEvents.created_at, new Date(startDate)))
+      : await query
 
     if (!events || events.length === 0) {
-      return NextResponse.json({
-        configured: true,
-        uniqueVisitors: 0,
-        episodeViews: 0,
-        engagementRate: 0,
-        searchCount: 0,
-        totalEvents: 0,
-        topEpisodes: [],
-        contentBreakdown: [],
-        topSearches: [],
-        topPaths: [],
-      })
+      return NextResponse.json({ configured: true, ...EMPTY_RESPONSE })
     }
 
     // Fetch episodes & paths for enrichment
@@ -243,15 +216,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({
       configured: true,
       error: err instanceof Error ? err.message : "Unknown error",
-      uniqueVisitors: 0,
-      episodeViews: 0,
-      engagementRate: 0,
-      searchCount: 0,
-      totalEvents: 0,
-      topEpisodes: [],
-      contentBreakdown: [],
-      topSearches: [],
-      topPaths: [],
+      ...EMPTY_RESPONSE,
     })
   }
 }

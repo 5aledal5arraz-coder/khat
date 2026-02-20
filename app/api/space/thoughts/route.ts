@@ -1,5 +1,5 @@
 import { NextRequest } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
+import { db, PROFILE_COLS, nestProfile } from '@/lib/db'
 import {
   getAuthUser,
   getUserProfile,
@@ -16,9 +16,9 @@ import { validateThoughtContent } from '@/lib/validation'
 import { sanitizeThought } from '@/lib/sanitize'
 import { checkRateLimit } from '@/lib/rate-limit'
 import { moderateContent } from '@/lib/moderation'
+import { sql } from 'drizzle-orm'
 
 export async function GET(request: NextRequest) {
-  const supabase = await createClient()
   const { searchParams } = new URL(request.url)
 
   const page = Math.max(1, parseInt(searchParams.get('page') || '1') || 1)
@@ -26,30 +26,25 @@ export async function GET(request: NextRequest) {
   const tag = searchParams.get('tag')
   const offset = (page - 1) * limit
 
-  let query = supabase
-    .from('hibr_thoughts')
-    .select('*, profiles!hibr_thoughts_user_id_fkey(id, display_name, avatar_url, bio, articles_count, followers_count)', { count: 'exact' })
-    .in('moderation_status', ['approved', 'pending'])
-    .is('deleted_at', null)
-    .order('created_at', { ascending: false })
-    .range(offset, offset + limit - 1)
+  try {
+    const result = await db!.execute(sql`SELECT t.*, ${sql.raw(PROFILE_COLS)}, COUNT(*) OVER() AS _total
+       FROM hibr_thoughts t LEFT JOIN profiles p ON t.user_id = p.id
+       WHERE t.moderation_status IN ('approved', 'pending') AND t.deleted_at IS NULL
+       ${tag ? sql`AND t.tags @> ARRAY[${tag}]::text[]` : sql``}
+       ORDER BY t.created_at DESC
+       LIMIT ${limit} OFFSET ${offset}`)
 
-  if (tag) {
-    query = query.contains('tags', [tag])
-  }
+    const rows = result.rows as Record<string, unknown>[]
+    const total = rows.length > 0 ? Number(rows[0]._total) : 0
+    const thoughts = rows.map((row) => {
+      const { _total, ...rest } = row
+      return nestProfile(rest)
+    })
 
-  const { data, count, error } = await query
-
-  if (error) {
+    return successResponse({ thoughts, total, page, limit })
+  } catch {
     return errorResponse('حدث خطأ في جلب الخواطر', 500)
   }
-
-  return successResponse({
-    thoughts: data || [],
-    total: count || 0,
-    page,
-    limit,
-  })
 }
 
 export async function POST(request: NextRequest) {
@@ -62,8 +57,7 @@ export async function POST(request: NextRequest) {
   const profile = await getUserProfile(user.id)
   if (profile?.is_banned) return bannedResponse()
 
-  const supabase = await createClient()
-  const rateLimit = await checkRateLimit(supabase, user.id, 'create_thought')
+  const rateLimit = await checkRateLimit(user.id, 'create_thought')
   if (!rateLimit.allowed) return rateLimitResponse()
 
   let body: { content: string; tags?: string[] }
@@ -88,21 +82,19 @@ export async function POST(request: NextRequest) {
     )
   }
 
-  const { data, error } = await supabase
-    .from('hibr_thoughts')
-    .insert({
-      user_id: user.id,
-      content: cleanContent,
-      tags: body.tags?.slice(0, 5) || [],
-      moderation_status: modResult.status,
-      moderation_reason: modResult.reasons.length > 0 ? modResult.reasons.join('، ') : null,
-    })
-    .select('*, profiles!hibr_thoughts_user_id_fkey(id, display_name, avatar_url, bio)')
-    .single()
+  try {
+    const result = await db!.execute(sql`WITH ins AS (
+         INSERT INTO hibr_thoughts (user_id, content, tags, moderation_status, moderation_reason)
+         VALUES (${user.id}, ${cleanContent}, ${body.tags?.slice(0, 5) || []}, ${modResult.status}, ${modResult.reasons.length > 0 ? modResult.reasons.join('، ') : null})
+         RETURNING *
+       )
+       SELECT ins.*, ${sql.raw(PROFILE_COLS)}
+       FROM ins LEFT JOIN profiles p ON ins.user_id = p.id`)
 
-  if (error) {
+    const rows = result.rows as Record<string, unknown>[]
+
+    return successResponse({ thought: nestProfile(rows[0]), moderation: modResult }, 201)
+  } catch {
     return errorResponse('حدث خطأ في نشر الخاطرة', 500)
   }
-
-  return successResponse({ thought: data, moderation: modResult }, 201)
 }

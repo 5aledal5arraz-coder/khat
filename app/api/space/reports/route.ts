@@ -1,5 +1,5 @@
 import { NextRequest } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
+import { db } from '@/lib/db'
 import {
   getAuthUser,
   validateMutation,
@@ -11,6 +11,7 @@ import {
 } from '@/lib/api-utils'
 import { validateReportReason } from '@/lib/validation'
 import { checkRateLimit } from '@/lib/rate-limit'
+import { sql } from 'drizzle-orm'
 
 const VALID_TYPES = ['article', 'thought', 'comment', 'reply'] as const
 
@@ -36,35 +37,20 @@ export async function POST(request: NextRequest) {
   const validation = validateReportReason(body.reason)
   if (!validation.valid) return validationErrorResponse(validation.error!)
 
-  const supabase = await createClient()
-  const rateLimit = await checkRateLimit(supabase, user.id, 'create_report')
+  const rateLimit = await checkRateLimit(user.id, 'create_report')
   if (!rateLimit.allowed) return rateLimitResponse()
 
   // Check for duplicate report
-  const { data: existing } = await supabase
-    .from('hibr_reports')
-    .select('id')
-    .eq('reporter_id', user.id)
-    .eq('target_type', body.target_type)
-    .eq('target_id', body.target_id)
-    .eq('status', 'pending')
-    .single()
+  const existingResult = await db!.execute(sql`SELECT id FROM hibr_reports WHERE reporter_id = ${user.id} AND target_type = ${body.target_type} AND target_id = ${body.target_id} AND status = 'pending' LIMIT 1`)
+  const existing = existingResult.rows as Record<string, unknown>[]
 
-  if (existing) {
+  if (existing.length > 0) {
     return validationErrorResponse('لقد أبلغت عن هذا المحتوى مسبقاً')
   }
 
-  const { error } = await supabase
-    .from('hibr_reports')
-    .insert({
-      reporter_id: user.id,
-      target_type: body.target_type,
-      target_id: body.target_id,
-      reason: body.reason,
-      details: body.details?.substring(0, 500) || null,
-    })
+  const insertResult = await db!.execute(sql`INSERT INTO hibr_reports (reporter_id, target_type, target_id, reason, details) VALUES (${user.id}, ${body.target_type}, ${body.target_id}, ${body.reason}, ${body.details?.substring(0, 500) || null})`)
 
-  if (error) return errorResponse('حدث خطأ في إرسال البلاغ', 500)
+  if (!insertResult.rowCount) return errorResponse('حدث خطأ في إرسال البلاغ', 500)
 
   return successResponse({ reported: true }, 201)
 }

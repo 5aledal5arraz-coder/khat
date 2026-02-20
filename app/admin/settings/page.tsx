@@ -6,8 +6,7 @@ import { SettingsTabs } from "./settings-tabs"
 
 export default async function SettingsAdminPage() {
   const hasYouTubeKey = !!process.env.YOUTUBE_API_KEY
-  const hasSupabase = !!process.env.NEXT_PUBLIC_SUPABASE_URL &&
-    !process.env.NEXT_PUBLIC_SUPABASE_URL.includes("placeholder")
+  const hasDatabase = !!process.env.DATABASE_URL
   const [themeConfig, moderationConfig, siteSettings] = await Promise.all([
     getThemeConfig(),
     getModerationConfig(),
@@ -23,7 +22,7 @@ export default async function SettingsAdminPage() {
 
       <SettingsTabs
         hasYouTubeKey={hasYouTubeKey}
-        hasSupabase={hasSupabase}
+        hasDatabase={hasDatabase}
         themeMode={themeConfig.mode}
         moderationEnabled={moderationConfig.aiEnabled}
         siteSettings={siteSettings}

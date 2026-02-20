@@ -1,5 +1,6 @@
 import { NextRequest } from "next/server"
-import { pool } from "@/lib/db"
+import { db } from "@/lib/db"
+import { visitorEvents } from "@/lib/db/schema"
 import { checkIpRateLimit } from "@/lib/rate-limit"
 import {
   successResponse,
@@ -88,11 +89,12 @@ export async function POST(request: NextRequest) {
 
   // Insert event
   try {
-    await pool!.query(
-      `INSERT INTO visitor_events (visitor_id, event_type, target_id, metadata)
-       VALUES ($1, $2, $3, $4)`,
-      [visitorId, event_type, target_id, JSON.stringify(metadata ?? {})]
-    )
+    await db!.insert(visitorEvents).values({
+      visitor_id: visitorId,
+      event_type,
+      target_id,
+      metadata: (metadata ?? {}) as Record<string, unknown>,
+    })
   } catch (error) {
     console.error("Failed to insert visitor event:", error)
     return errorResponse("حدث خطأ أثناء تسجيل الحدث", 500)

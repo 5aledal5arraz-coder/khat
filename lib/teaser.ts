@@ -1,8 +1,9 @@
 import { unlink } from "fs/promises"
 import path from "path"
-import { createClient } from "@/lib/supabase/server"
 import { createConfigStore } from "@/lib/config-store"
-import { pool, USE_DB } from "@/lib/db"
+import { db, USE_DB } from "@/lib/db"
+import { teasers, teaserQuestions } from "@/lib/db/schema"
+import { eq, desc, sql } from "drizzle-orm"
 import type { TeaserConfig, TeaserSettings, TeaserQuestion, TeaserQuestionStats } from "@/types/teaser"
 
 const TEASERS_DIR = path.join(process.cwd(), "public", "teasers")
@@ -31,10 +32,8 @@ function rowToTeaser(row: Record<string, unknown>): TeaserConfig {
 export async function getTeaserSettings(): Promise<TeaserSettings> {
   if (USE_DB) {
     try {
-      const { rows } = await pool!.query(
-        `SELECT * FROM teasers ORDER BY created_at DESC`
-      )
-      return { teasers: rows.map(rowToTeaser) }
+      const rows = await db!.select().from(teasers).orderBy(desc(teasers.created_at))
+      return { teasers: rows.map((r) => rowToTeaser(r as unknown as Record<string, unknown>)) }
     } catch (e) {
       console.error("getTeaserSettings DB exception:", e)
     }
@@ -92,13 +91,18 @@ export async function createTeaser(data: {
 
   if (USE_DB) {
     try {
-      const { rows } = await pool!.query(
-        `INSERT INTO teasers (id, guest_name, title, prompt, video_filename, poster_image, is_active, publish_at, expire_at)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-         RETURNING *`,
-        [teaser.id, teaser.guestName, teaser.title, teaser.prompt, teaser.videoFilename, teaser.posterImage, teaser.isActive, teaser.publishAt, teaser.expireAt]
-      )
-      if (rows[0]) return rowToTeaser(rows[0])
+      const rows = await db!.insert(teasers).values({
+        id: teaser.id,
+        guest_name: teaser.guestName,
+        title: teaser.title,
+        prompt: teaser.prompt,
+        video_filename: teaser.videoFilename,
+        poster_image: teaser.posterImage,
+        is_active: teaser.isActive,
+        publish_at: teaser.publishAt,
+        expire_at: teaser.expireAt,
+      }).returning()
+      if (rows[0]) return rowToTeaser(rows[0] as unknown as Record<string, unknown>)
     } catch (e) {
       console.error("createTeaser DB exception:", e)
     }
@@ -126,24 +130,13 @@ export async function updateTeaser(
       if (updates.publishAt !== undefined) dbUpdates.publish_at = updates.publishAt
       if (updates.expireAt !== undefined) dbUpdates.expire_at = updates.expireAt
 
-      const fields: string[] = []
-      const values: unknown[] = []
-      let paramIndex = 1
+      if (Object.keys(dbUpdates).length === 0) return null
 
-      for (const [key, value] of Object.entries(dbUpdates)) {
-        fields.push(`${key} = $${paramIndex}`)
-        values.push(value)
-        paramIndex++
-      }
-
-      if (fields.length === 0) return null
-      values.push(id)
-
-      const { rows } = await pool!.query(
-        `UPDATE teasers SET ${fields.join(", ")} WHERE id = $${paramIndex} RETURNING *`,
-        values
-      )
-      if (rows[0]) return rowToTeaser(rows[0])
+      const rows = await db!.update(teasers)
+        .set(dbUpdates)
+        .where(eq(teasers.id, id))
+        .returning()
+      if (rows[0]) return rowToTeaser(rows[0] as unknown as Record<string, unknown>)
       return null
     } catch (e) {
       console.error("updateTeaser DB exception:", e)
@@ -169,18 +162,12 @@ export async function deleteTeaser(id: string): Promise<boolean> {
 
   if (USE_DB) {
     try {
-      const { rows: teaserRows } = await pool!.query(
-        `SELECT video_filename FROM teasers WHERE id = $1 LIMIT 1`,
-        [id]
-      )
+      const teaserRows = await db!.select({ video_filename: teasers.video_filename }).from(teasers).where(eq(teasers.id, id)).limit(1)
       if (teaserRows[0]) videoFilename = teaserRows[0].video_filename as string
 
-      const { rowCount } = await pool!.query(
-        `DELETE FROM teasers WHERE id = $1`,
-        [id]
-      )
+      const result = await db!.delete(teasers).where(eq(teasers.id, id))
 
-      if ((rowCount ?? 0) > 0) {
+      if ((result.rowCount ?? 0) > 0) {
         // Delete video file
         if (videoFilename) {
           try { await unlink(path.join(TEASERS_DIR, videoFilename)) } catch { /* ok */ }
@@ -211,13 +198,10 @@ export async function activateTeaser(id: string): Promise<boolean> {
   if (USE_DB) {
     try {
       // Deactivate all
-      await pool!.query(`UPDATE teasers SET is_active = false`)
+      await db!.update(teasers).set({ is_active: false })
       // Activate target
-      const { rowCount } = await pool!.query(
-        `UPDATE teasers SET is_active = true WHERE id = $1`,
-        [id]
-      )
-      return (rowCount ?? 0) > 0
+      const result = await db!.update(teasers).set({ is_active: true }).where(eq(teasers.id, id))
+      return (result.rowCount ?? 0) > 0
     } catch (e) {
       console.error("activateTeaser DB exception:", e)
     }
@@ -241,11 +225,8 @@ export async function activateTeaser(id: string): Promise<boolean> {
 export async function deactivateTeaser(id: string): Promise<boolean> {
   if (USE_DB) {
     try {
-      const { rowCount } = await pool!.query(
-        `UPDATE teasers SET is_active = false WHERE id = $1`,
-        [id]
-      )
-      return (rowCount ?? 0) > 0
+      const result = await db!.update(teasers).set({ is_active: false }).where(eq(teasers.id, id))
+      return (result.rowCount ?? 0) > 0
     } catch (e) {
       console.error("deactivateTeaser DB exception:", e)
     }
@@ -261,100 +242,87 @@ export async function deactivateTeaser(id: string): Promise<boolean> {
   return true
 }
 
-// ─── Question Queries (Supabase — Hibr auth) ────────────────────
+// ─── Question Queries (pool) ─────────────────────────────────────
 
 export async function getApprovedQuestions(teaserId: string): Promise<TeaserQuestion[]> {
-  const supabase = await createClient()
-  const { data, error } = await supabase
-    .from("teaser_questions")
-    .select("id, teaser_id, display_name, question_text, status, ip_hash, created_at")
-    .eq("teaser_id", teaserId)
-    .eq("status", "approved")
-    .order("created_at", { ascending: false })
-
-  if (error) {
-    console.error("Error fetching approved questions:", error)
+  if (!db) return []
+  try {
+    const rows = await db.select().from(teaserQuestions)
+      .where(sql`${teaserQuestions.teaser_id} = ${teaserId} AND ${teaserQuestions.status} = 'approved'`)
+      .orderBy(desc(teaserQuestions.created_at))
+    return rows as unknown as TeaserQuestion[]
+  } catch (e) {
+    console.error("Error fetching approved questions:", e)
     return []
   }
-  return data ?? []
 }
 
 export async function getPendingQuestions(teaserId: string): Promise<TeaserQuestion[]> {
-  const supabase = await createClient()
-  const { data, error } = await supabase
-    .from("teaser_questions")
-    .select("id, teaser_id, display_name, question_text, status, ip_hash, created_at")
-    .eq("teaser_id", teaserId)
-    .eq("status", "pending")
-    .order("created_at", { ascending: false })
-
-  if (error) {
-    console.error("Error fetching pending questions:", error)
+  if (!db) return []
+  try {
+    const rows = await db.select().from(teaserQuestions)
+      .where(sql`${teaserQuestions.teaser_id} = ${teaserId} AND ${teaserQuestions.status} = 'pending'`)
+      .orderBy(desc(teaserQuestions.created_at))
+    return rows as unknown as TeaserQuestion[]
+  } catch (e) {
+    console.error("Error fetching pending questions:", e)
     return []
   }
-  return data ?? []
 }
 
 export async function getAllQuestions(teaserId: string): Promise<TeaserQuestion[]> {
-  const supabase = await createClient()
-  const { data, error } = await supabase
-    .from("teaser_questions")
-    .select("id, teaser_id, display_name, question_text, status, ip_hash, created_at")
-    .eq("teaser_id", teaserId)
-    .order("created_at", { ascending: false })
-
-  if (error) {
-    console.error("Error fetching questions:", error)
+  if (!db) return []
+  try {
+    const rows = await db.select().from(teaserQuestions)
+      .where(eq(teaserQuestions.teaser_id, teaserId))
+      .orderBy(desc(teaserQuestions.created_at))
+    return rows as unknown as TeaserQuestion[]
+  } catch (e) {
+    console.error("Error fetching questions:", e)
     return []
   }
-  return data ?? []
 }
 
 export async function updateQuestionStatus(
   questionId: string,
   status: "approved" | "rejected"
 ): Promise<boolean> {
-  const supabase = await createClient()
-  const { error } = await supabase
-    .from("teaser_questions")
-    .update({ status })
-    .eq("id", questionId)
-
-  if (error) {
-    console.error("Error updating question status:", error)
+  if (!db) return false
+  try {
+    await db.update(teaserQuestions).set({ status }).where(eq(teaserQuestions.id, questionId))
+    return true
+  } catch (e) {
+    console.error("Error updating question status:", e)
     return false
   }
-  return true
 }
 
 export async function deleteQuestion(questionId: string): Promise<boolean> {
-  const supabase = await createClient()
-  const { error } = await supabase
-    .from("teaser_questions")
-    .delete()
-    .eq("id", questionId)
-
-  if (error) {
-    console.error("Error deleting question:", error)
+  if (!db) return false
+  try {
+    await db.delete(teaserQuestions).where(eq(teaserQuestions.id, questionId))
+    return true
+  } catch (e) {
+    console.error("Error deleting question:", e)
     return false
   }
-  return true
 }
 
 export async function getTeaserQuestionStats(teaserId: string): Promise<TeaserQuestionStats> {
-  const supabase = await createClient()
-
-  const [total, pending, approved, rejected] = await Promise.all([
-    supabase.from("teaser_questions").select("*", { count: "exact", head: true }).eq("teaser_id", teaserId),
-    supabase.from("teaser_questions").select("*", { count: "exact", head: true }).eq("teaser_id", teaserId).eq("status", "pending"),
-    supabase.from("teaser_questions").select("*", { count: "exact", head: true }).eq("teaser_id", teaserId).eq("status", "approved"),
-    supabase.from("teaser_questions").select("*", { count: "exact", head: true }).eq("teaser_id", teaserId).eq("status", "rejected"),
-  ])
-
-  return {
-    total: total.count ?? 0,
-    pending: pending.count ?? 0,
-    approved: approved.count ?? 0,
-    rejected: rejected.count ?? 0,
+  if (!db) return { total: 0, pending: 0, approved: 0, rejected: 0 }
+  try {
+    const result = await db.execute(sql`
+      SELECT
+        COUNT(*)::int AS total,
+        COUNT(*) FILTER (WHERE status = 'pending')::int AS pending,
+        COUNT(*) FILTER (WHERE status = 'approved')::int AS approved,
+        COUNT(*) FILTER (WHERE status = 'rejected')::int AS rejected
+      FROM teaser_questions WHERE teaser_id = ${teaserId}
+    `)
+    const row = result.rows[0] as unknown as TeaserQuestionStats | undefined
+    return row ?? { total: 0, pending: 0, approved: 0, rejected: 0 }
+  } catch (e) {
+    console.error("Error fetching question stats:", e)
+    return { total: 0, pending: 0, approved: 0, rejected: 0 }
   }
 }

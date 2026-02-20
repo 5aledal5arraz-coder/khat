@@ -1,22 +1,27 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { pool } from '@/lib/db'
+import { db } from '@/lib/db'
+import { newsletterSubscribers } from '@/lib/db/schema'
+import { eq, and, sql } from 'drizzle-orm'
 
 export async function GET(request: NextRequest) {
   const token = request.nextUrl.searchParams.get('token')
 
-  if (!token || !pool) {
+  if (!token || !db) {
     return NextResponse.redirect(new URL('/unsubscribe?status=error', request.url))
   }
 
   try {
-    const { rowCount } = await pool.query(
-      `UPDATE newsletter_subscribers
-       SET status = 'unsubscribed', unsubscribed_at = now()
-       WHERE unsubscribe_token = $1 AND status = 'active'`,
-      [token]
-    )
+    const result = await db.update(newsletterSubscribers)
+      .set({ status: 'unsubscribed', unsubscribed_at: sql`now()` })
+      .where(
+        and(
+          eq(newsletterSubscribers.unsubscribe_token, token),
+          eq(newsletterSubscribers.status, 'active')
+        )
+      )
+      .returning()
 
-    if (rowCount === 0) {
+    if (result.length === 0) {
       return NextResponse.redirect(new URL('/unsubscribe?status=already', request.url))
     }
 

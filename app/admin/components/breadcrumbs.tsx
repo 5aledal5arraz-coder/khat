@@ -19,6 +19,8 @@ const LABEL_MAP: Record<string, string> = {
   analytics: "الإحصائيات",
   "media-kit": "ملف الشراكة",
   settings: "الإعدادات",
+  members: "فريق خط",
+  newsletter: "النشرة البريدية",
 }
 
 export function Breadcrumbs() {

@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from "next/server"
 import { revalidatePath } from "next/cache"
 import { getWebsitePackageForSession } from "@/lib/studio"
 import { requireAdminAPI } from "@/lib/api-utils"
-import { pool, USE_DB } from "@/lib/db"
+import { db, USE_DB } from "@/lib/db"
+import { sql } from "drizzle-orm"
 import { getEpisodeOverride, setEpisodeOverride } from "@/lib/episode-overrides"
 import { setEpisodeQuotesEntry } from "@/lib/episode-quotes"
 import { setEpisodeEnrichment } from "@/lib/episode-enrichments"
@@ -178,24 +179,25 @@ export async function POST(
       }
 
       // Atomic push via RPC
-      const { rows } = await pool!.query(
-        `SELECT push_episode_data($1, $2, $3, $4, $5)`,
-        [
-          episodeId,
-          rpcOverride ? JSON.stringify(rpcOverride) : null,
-          rpcQuotes ? JSON.stringify(rpcQuotes) : null,
-          rpcEnrichment ? JSON.stringify(rpcEnrichment) : null,
-          JSON.stringify({
-            session_id: sessionId,
-            episode_title: episodeTitle,
-            pushed_fields: pushedFields,
-            pushed_at: new Date().toISOString(),
-          }),
-        ]
-      )
+      const rpcOverrideJson = rpcOverride ? JSON.stringify(rpcOverride) : null
+      const rpcQuotesJson = rpcQuotes ? JSON.stringify(rpcQuotes) : null
+      const rpcEnrichmentJson = rpcEnrichment ? JSON.stringify(rpcEnrichment) : null
+      const logJson = JSON.stringify({
+        session_id: sessionId,
+        episode_title: episodeTitle,
+        pushed_fields: pushedFields,
+        pushed_at: new Date().toISOString(),
+      })
 
-      // Check if the function returned an error (unlikely with void functions, but safe)
-      void rows
+      await db!.execute(sql`
+        SELECT push_episode_data(
+          ${episodeId},
+          ${rpcOverrideJson}::jsonb,
+          ${rpcQuotesJson}::jsonb,
+          ${rpcEnrichmentJson}::jsonb,
+          ${logJson}::jsonb
+        )
+      `)
     } else {
       // Fallback: individual lib calls (JSON config-store)
 

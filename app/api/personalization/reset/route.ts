@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
-import { pool } from "@/lib/db"
+import { db } from "@/lib/db"
+import { visitorEvents } from "@/lib/db/schema"
+import { eq } from "drizzle-orm"
 import { validateOrigin, validateCustomHeader, errorResponse } from "@/lib/api-utils"
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
@@ -18,7 +20,7 @@ export async function POST(request: NextRequest) {
   }
 
   // Delete all events for this visitor
-  await pool!.query("DELETE FROM visitor_events WHERE visitor_id = $1", [visitorId])
+  await db!.delete(visitorEvents).where(eq(visitorEvents.visitor_id, visitorId))
 
   // Clear cookie
   const response = NextResponse.json({ ok: true })

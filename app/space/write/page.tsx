@@ -1,5 +1,5 @@
 import { Suspense } from "react"
-import { getEpisodes } from "@/lib/supabase/queries"
+import { getEpisodes } from "@/lib/queries/episodes"
 import { mockEpisodes } from "@/lib/mocks/episodes"
 import { WriteEditor, type EpisodeOption } from "./write-editor"
 

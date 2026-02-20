@@ -1,5 +1,5 @@
 import { getStudioSessions } from "@/lib/studio"
-import { getEpisodes } from "@/lib/supabase/queries"
+import { getEpisodes } from "@/lib/queries/episodes"
 import { getSectionsConfig } from "@/lib/episode-sections"
 import { StudioClient } from "./studio-client"
 

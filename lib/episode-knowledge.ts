@@ -1,6 +1,8 @@
 import { stat } from "fs/promises"
 import { createConfigStore } from "@/lib/config-store"
-import { pool, USE_DB } from "@/lib/db"
+import { db, USE_DB } from "@/lib/db"
+import { episodeKnowledge, episodeKnowledgeMeta } from "@/lib/db/schema"
+import { eq, sql } from "drizzle-orm"
 
 // ---------------------------------------------------------------------------
 // Types
@@ -96,18 +98,18 @@ export async function getKnowledgeMap(): Promise<EpisodeKnowledgeMap | null> {
     if (isCacheValid()) return memoryCache
 
     try {
-      const [episodesRes, metaRes] = await Promise.all([
-        pool!.query(`SELECT episode_id, analysis FROM episode_knowledge`),
-        pool!.query(`SELECT * FROM episode_knowledge_meta WHERE key = $1 LIMIT 1`, ["meta"]),
+      const [episodesRows, metaRows] = await Promise.all([
+        db!.select().from(episodeKnowledge),
+        db!.select().from(episodeKnowledgeMeta).where(eq(episodeKnowledgeMeta.key, "meta")).limit(1),
       ])
 
-      if (metaRes.rows[0]) {
+      if (metaRows[0]) {
         const episodes: Record<string, EpisodeAnalysis> = {}
-        for (const row of episodesRes.rows) {
-          episodes[row.episode_id] = row.analysis as EpisodeAnalysis
+        for (const row of episodesRows) {
+          episodes[row.episode_id] = row.analysis as unknown as EpisodeAnalysis
         }
 
-        const meta = metaRes.rows[0]
+        const meta = metaRows[0]
         const map: EpisodeKnowledgeMap = {
           episodes,
           topic_taxonomy: (meta.topic_taxonomy as TopicEntry[]) || [],
@@ -146,34 +148,34 @@ export async function saveKnowledgeMap(map: EpisodeKnowledgeMap): Promise<void> 
       for (let i = 0; i < episodeRows.length; i += 50) {
         const chunk = episodeRows.slice(i, i + 50)
         for (const [episodeId, analysis] of chunk) {
-          await pool!.query(
-            `INSERT INTO episode_knowledge (episode_id, analysis)
-             VALUES ($1, $2)
-             ON CONFLICT (episode_id) DO UPDATE SET analysis = EXCLUDED.analysis`,
-            [episodeId, JSON.stringify(analysis)]
-          )
+          await db!.insert(episodeKnowledge).values({
+            episode_id: episodeId,
+            analysis: analysis as unknown as Record<string, unknown>,
+          }).onConflictDoUpdate({
+            target: episodeKnowledge.episode_id,
+            set: { analysis: analysis as unknown as Record<string, unknown> },
+          })
         }
       }
 
       // Upsert meta row
-      await pool!.query(
-        `INSERT INTO episode_knowledge_meta (key, topic_taxonomy, relationships, analyzed_at, season_1_count, season_2_count)
-         VALUES ($1, $2, $3, $4, $5, $6)
-         ON CONFLICT (key) DO UPDATE SET
-           topic_taxonomy = EXCLUDED.topic_taxonomy,
-           relationships = EXCLUDED.relationships,
-           analyzed_at = EXCLUDED.analyzed_at,
-           season_1_count = EXCLUDED.season_1_count,
-           season_2_count = EXCLUDED.season_2_count`,
-        [
-          "meta",
-          JSON.stringify(map.topic_taxonomy),
-          JSON.stringify(map.relationships),
-          map.analyzed_at,
-          map.season_1_count,
-          map.season_2_count,
-        ]
-      )
+      await db!.insert(episodeKnowledgeMeta).values({
+        key: "meta",
+        topic_taxonomy: map.topic_taxonomy as unknown[],
+        relationships: map.relationships,
+        analyzed_at: map.analyzed_at,
+        season_1_count: map.season_1_count,
+        season_2_count: map.season_2_count,
+      }).onConflictDoUpdate({
+        target: episodeKnowledgeMeta.key,
+        set: {
+          topic_taxonomy: map.topic_taxonomy as unknown[],
+          relationships: map.relationships,
+          analyzed_at: map.analyzed_at,
+          season_1_count: map.season_1_count,
+          season_2_count: map.season_2_count,
+        },
+      })
 
       // Update memory cache
       memoryCache = map

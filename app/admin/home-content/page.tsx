@@ -1,7 +1,7 @@
 import { getAllHomeQuotes } from "@/lib/home-quotes"
 import { getAllReflections } from "@/lib/daily-reflections"
 import { getAllPaths } from "@/lib/emotional-paths"
-import { getEpisodes } from "@/lib/supabase/queries"
+import { getEpisodes } from "@/lib/queries/episodes"
 import { getTeaserSettings, getAllQuestions, getTeaserQuestionStats } from "@/lib/teaser"
 import { HomeContentTabs } from "./home-content-tabs"
 import { AdminPageHeader } from "../components/admin-page-header"

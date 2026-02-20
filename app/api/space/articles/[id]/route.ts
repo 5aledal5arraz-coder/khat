@@ -1,5 +1,5 @@
 import { NextRequest } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
+import { db, PROFILE_COLS, nestProfile } from '@/lib/db'
 import {
   getAuthUser,
   getUserProfile,
@@ -15,33 +15,30 @@ import { validateArticleTitle, validateArticleContent, validateTags } from '@/li
 import { sanitizeTitle, sanitizeArticleContent, generateExcerpt } from '@/lib/sanitize'
 import { moderateArticle } from '@/lib/moderation'
 import { getUserApprovedCount } from '@/lib/api-utils'
+import { sql } from 'drizzle-orm'
 
 export async function GET(
   _request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params
-  const supabase = await createClient()
 
-  const { data, error } = await supabase
-    .from('hibr_articles')
-    .select('*, profiles!hibr_articles_user_id_fkey(id, display_name, avatar_url, bio, is_admin, articles_count, followers_count)')
-    .eq('id', id)
-    .is('deleted_at', null)
-    .single()
+  const result = await db!.execute(sql`SELECT a.*, ${sql.raw(PROFILE_COLS)}
+     FROM hibr_articles a LEFT JOIN profiles p ON a.user_id = p.id
+     WHERE a.id = ${id} AND a.deleted_at IS NULL LIMIT 1`)
 
-  if (error || !data) return notFoundResponse()
+  const rows = result.rows as Record<string, unknown>[]
+  if (rows.length === 0) return notFoundResponse()
 
   // Also fetch comments
-  const { data: comments } = await supabase
-    .from('hibr_comments')
-    .select('*, profiles!hibr_comments_user_id_fkey(id, display_name, avatar_url)')
-    .eq('article_id', id)
-    .is('deleted_at', null)
-    .eq('moderation_status', 'approved')
-    .order('created_at', { ascending: true })
+  const commentsResult = await db!.execute(sql`SELECT c.*, ${sql.raw(PROFILE_COLS)}
+     FROM hibr_comments c LEFT JOIN profiles p ON c.user_id = p.id
+     WHERE c.article_id = ${id} AND c.deleted_at IS NULL AND c.moderation_status = 'approved'
+     ORDER BY c.created_at ASC`)
 
-  return successResponse({ article: data, comments: comments || [] })
+  const comments = commentsResult.rows as Record<string, unknown>[]
+
+  return successResponse({ article: nestProfile(rows[0]), comments: comments.map(nestProfile) })
 }
 
 export async function PATCH(
@@ -55,21 +52,14 @@ export async function PATCH(
   const user = await getAuthUser()
   if (!user) return unauthorizedResponse()
 
-  const supabase = await createClient()
-
   // Fetch existing article
-  const { data: existing } = await supabase
-    .from('hibr_articles')
-    .select('user_id')
-    .eq('id', id)
-    .is('deleted_at', null)
-    .single()
-
-  if (!existing) return notFoundResponse()
+  const existingResult = await db!.execute(sql`SELECT user_id FROM hibr_articles WHERE id = ${id} AND deleted_at IS NULL LIMIT 1`)
+  const existingRows = existingResult.rows as Record<string, unknown>[]
+  if (existingRows.length === 0) return notFoundResponse()
 
   // Only owner or admin can edit
   const profile = await getUserProfile(user.id)
-  if (existing.user_id !== user.id && !profile?.is_admin) return forbiddenResponse()
+  if (existingRows[0].user_id !== user.id && !profile?.is_admin) return forbiddenResponse()
 
   let body: { title?: string; content?: string; excerpt?: string; tags?: string[] }
   try {
@@ -78,36 +68,42 @@ export async function PATCH(
     return errorResponse('بيانات غير صالحة', 400)
   }
 
-  // Validate provided fields
-  const updates: Record<string, unknown> = {}
+  // Build dynamic SET object
+  const setFields: Record<string, unknown> = {}
 
   if (body.title !== undefined) {
     const v = validateArticleTitle(body.title)
     if (!v.valid) return validationErrorResponse(v.error!)
-    updates.title = sanitizeTitle(body.title)
+    setFields.title = sanitizeTitle(body.title)
   }
 
   if (body.content !== undefined) {
     const v = validateArticleContent(body.content)
     if (!v.valid) return validationErrorResponse(v.error!)
-    updates.content = sanitizeArticleContent(body.content)
-    updates.excerpt = body.excerpt
+    const cleanContent = sanitizeArticleContent(body.content)
+    setFields.content = cleanContent
+
+    const cleanExcerpt = body.excerpt
       ? sanitizeTitle(body.excerpt)
-      : generateExcerpt(updates.content as string)
-    const wordCount = (updates.content as string).replace(/<[^>]*>/g, '').trim().split(/\s+/).filter(Boolean).length
-    updates.read_time_minutes = Math.max(1, Math.ceil(wordCount / 200))
+      : generateExcerpt(cleanContent)
+    setFields.excerpt = cleanExcerpt
+
+    const wordCount = cleanContent.replace(/<[^>]*>/g, '').trim().split(/\s+/).filter(Boolean).length
+    setFields.read_time_minutes = Math.max(1, Math.ceil(wordCount / 200))
   }
 
   if (body.tags !== undefined) {
     const v = validateTags(body.tags)
     if (!v.valid) return validationErrorResponse(v.error!)
-    updates.tags = body.tags.slice(0, 5)
+    setFields.tags = body.tags.slice(0, 5)
   }
 
   // Re-run moderation on content changes
-  if (updates.title || updates.content) {
-    const title = (updates.title as string) || ''
-    const content = (updates.content as string) || ''
+  const hasTitle = body.title !== undefined
+  const hasContent = body.content !== undefined
+  if (hasTitle || hasContent) {
+    const title = body.title ? sanitizeTitle(body.title) : ''
+    const content = body.content ? sanitizeArticleContent(body.content) : ''
     if (title || content) {
       const approvedCount = await getUserApprovedCount(user.id)
       const modResult = await moderateArticle(title || 'untitled', content || '', approvedCount)
@@ -118,21 +114,28 @@ export async function PATCH(
         )
       }
       if (modResult.status !== 'approved') {
-        updates.moderation_status = modResult.status
+        setFields.moderation_status = modResult.status
       }
     }
   }
 
-  const { data, error } = await supabase
-    .from('hibr_articles')
-    .update(updates)
-    .eq('id', id)
-    .select()
-    .single()
+  if (Object.keys(setFields).length === 0) return successResponse({ article: null })
 
-  if (error) return errorResponse('حدث خطأ في تحديث المقال', 500)
+  // Build SET clause dynamically using sql tagged template
+  const setClauses = Object.entries(setFields).map(
+    ([key, value]) => sql`${sql.raw(key)} = ${value}`
+  )
+  let setClause = setClauses[0]
+  for (let i = 1; i < setClauses.length; i++) {
+    setClause = sql`${setClause}, ${setClauses[i]}`
+  }
 
-  return successResponse({ article: data })
+  const result = await db!.execute(sql`UPDATE hibr_articles SET ${setClause} WHERE id = ${id} RETURNING *`)
+  const rows = result.rows as Record<string, unknown>[]
+
+  if (rows.length === 0) return errorResponse('حدث خطأ في تحديث المقال', 500)
+
+  return successResponse({ article: rows[0] })
 }
 
 export async function DELETE(
@@ -146,27 +149,17 @@ export async function DELETE(
   const user = await getAuthUser()
   if (!user) return unauthorizedResponse()
 
-  const supabase = await createClient()
-
-  const { data: existing } = await supabase
-    .from('hibr_articles')
-    .select('user_id')
-    .eq('id', id)
-    .is('deleted_at', null)
-    .single()
-
-  if (!existing) return notFoundResponse()
+  const existingResult = await db!.execute(sql`SELECT user_id FROM hibr_articles WHERE id = ${id} AND deleted_at IS NULL LIMIT 1`)
+  const existingRows = existingResult.rows as Record<string, unknown>[]
+  if (existingRows.length === 0) return notFoundResponse()
 
   const profile = await getUserProfile(user.id)
-  if (existing.user_id !== user.id && !profile?.is_admin) return forbiddenResponse()
+  if (existingRows[0].user_id !== user.id && !profile?.is_admin) return forbiddenResponse()
 
   // Soft delete
-  const { error } = await supabase
-    .from('hibr_articles')
-    .update({ deleted_at: new Date().toISOString() })
-    .eq('id', id)
+  const deleteResult = await db!.execute(sql`UPDATE hibr_articles SET deleted_at = NOW() WHERE id = ${id}`)
 
-  if (error) return errorResponse('حدث خطأ في حذف المقال', 500)
+  if (!deleteResult.rowCount) return errorResponse('حدث خطأ في حذف المقال', 500)
 
   return successResponse({ deleted: true })
 }

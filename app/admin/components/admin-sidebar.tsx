@@ -17,6 +17,7 @@ import {
   Tag,
   FileEdit,
   Mail,
+  UserCog,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 
@@ -61,6 +62,7 @@ const navGroups: NavGroup[] = [
   {
     title: "النظام",
     items: [
+      { href: "/admin/members", icon: UserCog, label: "فريق خط" },
       { href: "/admin/analytics", icon: BarChart3, label: "الإحصائيات" },
       { href: "/admin/media-kit", icon: FileText, label: "ملف الشراكة" },
       { href: "/admin/settings", icon: Settings, label: "الإعدادات" },

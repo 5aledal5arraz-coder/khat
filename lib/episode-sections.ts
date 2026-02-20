@@ -1,5 +1,7 @@
 import { createConfigStore } from "@/lib/config-store"
-import { pool, USE_DB } from "@/lib/db"
+import { db, pool, USE_DB } from "@/lib/db"
+import { episodeSections, episodeSectionAssignments, episodeVisibility } from "@/lib/db/schema"
+import { eq, asc, sql } from "drizzle-orm"
 import type { EpisodeSectionsConfig } from "@/types/episodes"
 
 const defaultConfig: EpisodeSectionsConfig = {
@@ -19,29 +21,29 @@ const store = createConfigStore<EpisodeSectionsConfig>("episode-sections.json", 
 export async function getSectionsConfig(): Promise<EpisodeSectionsConfig> {
   if (USE_DB) {
     try {
-      const [sectionsRes, assignmentsRes, visibilityRes] = await Promise.all([
-        pool!.query(`SELECT id, label, "order", color, hidden FROM episode_sections ORDER BY "order"`),
-        pool!.query(`SELECT episode_id, section_id FROM episode_section_assignments`),
-        pool!.query(`SELECT episode_id, visibility FROM episode_visibility`),
+      const [sectionRows, assignmentRows, visibilityRows] = await Promise.all([
+        db!.select().from(episodeSections).orderBy(asc(episodeSections.order)),
+        db!.select().from(episodeSectionAssignments),
+        db!.select().from(episodeVisibility),
       ])
 
-      if (sectionsRes.rows.length > 0) {
-        const sections = sectionsRes.rows.map((s) => ({
+      if (sectionRows.length > 0) {
+        const sections = sectionRows.map((s) => ({
           id: s.id,
           label: s.label,
           order: s.order,
           color: s.color ?? undefined,
-          hidden: s.hidden,
+          hidden: s.hidden ?? undefined,
         }))
 
         const assignments: Record<string, string> = {}
-        for (const row of assignmentsRes.rows) {
+        for (const row of assignmentRows) {
           assignments[row.episode_id] = row.section_id
         }
 
         const hiddenEpisodes: string[] = []
         const deletedEpisodes: string[] = []
-        for (const row of visibilityRes.rows) {
+        for (const row of visibilityRows) {
           if (row.visibility === "hidden") hiddenEpisodes.push(row.episode_id)
           else if (row.visibility === "deleted") deletedEpisodes.push(row.episode_id)
         }
@@ -77,15 +79,15 @@ export async function getHiddenEpisodeIds(): Promise<Set<string>> {
 export async function saveSectionsConfig(config: EpisodeSectionsConfig): Promise<void> {
   if (USE_DB) {
     try {
-      // Use a single client for transaction
+      // Use raw pool for transaction (Drizzle transaction requires different syntax)
       const client = await pool!.connect()
       try {
         await client.query("BEGIN")
 
         // 1. Upsert sections (delete removed ones)
-        const { rows: existingSections } = await client.query(`SELECT id FROM episode_sections`)
+        const existingRows = await db!.select({ id: episodeSections.id }).from(episodeSections)
         const newIds = new Set(config.sections.map((s) => s.id))
-        const toDelete = existingSections.filter((s) => !newIds.has(s.id)).map((s) => s.id)
+        const toDelete = existingRows.filter((s) => !newIds.has(s.id)).map((s) => s.id)
 
         if (toDelete.length > 0) {
           await client.query(`DELETE FROM episode_sections WHERE id = ANY($1)`, [toDelete])

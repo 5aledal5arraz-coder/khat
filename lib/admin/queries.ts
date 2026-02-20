@@ -1,4 +1,7 @@
-import { pool, USE_DB } from "@/lib/db"
+import { db, USE_DB } from "@/lib/db"
+import { eq, desc, sql, count, and, ilike, or, isNull } from 'drizzle-orm'
+import { guests, guestApplications, profiles, sponsorshipLeads, newsletterSubscribers, hibrArticles, hibrThoughts, hibrLikes, hibrFollows, hibrBookmarks } from '@/lib/db/schema'
+import { getAdminAuth } from "@/lib/firebase/admin"
 import type {
   Guest,
   GuestApplication,
@@ -144,15 +147,15 @@ export async function getSubmissionCounts(): Promise<{
   }
 
   const [guestApps, sponsors, newsletter] = await Promise.all([
-    pool!.query("SELECT COUNT(*) FROM guest_applications"),
-    pool!.query("SELECT COUNT(*) FROM sponsorship_leads"),
-    pool!.query("SELECT COUNT(*) FROM newsletter_subscribers"),
+    db!.select({ count: count() }).from(guestApplications),
+    db!.select({ count: count() }).from(sponsorshipLeads),
+    db!.select({ count: count() }).from(newsletterSubscribers),
   ])
 
   return {
-    guestApplications: parseInt(guestApps.rows[0].count, 10) || 0,
-    sponsorshipLeads: parseInt(sponsors.rows[0].count, 10) || 0,
-    newsletterSubscribers: parseInt(newsletter.rows[0].count, 10) || 0,
+    guestApplications: guestApps[0].count,
+    sponsorshipLeads: sponsors[0].count,
+    newsletterSubscribers: newsletter[0].count,
   }
 }
 
@@ -165,10 +168,11 @@ export async function getGuestApplications(): Promise<GuestApplication[]> {
   }
 
   try {
-    const { rows } = await pool!.query(
-      "SELECT * FROM guest_applications ORDER BY created_at DESC"
-    )
-    return rows
+    const rows = await db!
+      .select()
+      .from(guestApplications)
+      .orderBy(desc(guestApplications.created_at))
+    return rows as unknown as GuestApplication[]
   } catch (error) {
     console.error("Error fetching guest applications:", error)
     return mockGuestApplications
@@ -184,10 +188,11 @@ export async function getSponsorshipLeads(): Promise<SponsorshipLead[]> {
   }
 
   try {
-    const { rows } = await pool!.query(
-      "SELECT * FROM sponsorship_leads ORDER BY created_at DESC"
-    )
-    return rows
+    const rows = await db!
+      .select()
+      .from(sponsorshipLeads)
+      .orderBy(desc(sponsorshipLeads.created_at))
+    return rows as unknown as SponsorshipLead[]
   } catch (error) {
     console.error("Error fetching sponsorship leads:", error)
     return mockSponsorshipLeads
@@ -205,10 +210,11 @@ export async function getNewsletterSubscribers(): Promise<
   }
 
   try {
-    const { rows } = await pool!.query(
-      "SELECT * FROM newsletter_subscribers ORDER BY created_at DESC"
-    )
-    return rows
+    const rows = await db!
+      .select()
+      .from(newsletterSubscribers)
+      .orderBy(desc(newsletterSubscribers.created_at))
+    return rows as unknown as NewsletterSubscriber[]
   } catch (error) {
     console.error("Error fetching newsletter subscribers:", error)
     return mockNewsletterSubscribers
@@ -221,10 +227,11 @@ export async function getAllGuests(): Promise<Guest[]> {
   }
 
   try {
-    const { rows } = await pool!.query(
-      "SELECT * FROM guests ORDER BY name"
-    )
-    return rows
+    const rows = await db!
+      .select()
+      .from(guests)
+      .orderBy(guests.name)
+    return rows as unknown as Guest[]
   } catch (error) {
     console.error("Error fetching guests:", error)
     return mockGuests
@@ -237,11 +244,12 @@ export async function getGuestById(id: string): Promise<Guest | null> {
   }
 
   try {
-    const { rows } = await pool!.query(
-      "SELECT * FROM guests WHERE id = $1 LIMIT 1",
-      [id]
-    )
-    return rows[0] || null
+    const rows = await db!
+      .select()
+      .from(guests)
+      .where(eq(guests.id, id))
+      .limit(1)
+    return (rows[0] as unknown as Guest) || null
   } catch (error) {
     console.error("Error fetching guest:", error)
     return null
@@ -261,20 +269,18 @@ export async function createGuest(
   }
 
   try {
-    const { rows } = await pool!.query(
-      `INSERT INTO guests (name, slug, bio, photo_url, external_links, testimonial)
-       VALUES ($1, $2, $3, $4, $5, $6)
-       RETURNING *`,
-      [
-        guest.name,
-        guest.slug,
-        guest.bio,
-        guest.photo_url,
-        guest.external_links ? JSON.stringify(guest.external_links) : null,
-        guest.testimonial,
-      ]
-    )
-    return { success: true, data: rows[0] }
+    const rows = await db!
+      .insert(guests)
+      .values({
+        name: guest.name,
+        slug: guest.slug,
+        bio: guest.bio,
+        photo_url: guest.photo_url,
+        external_links: guest.external_links || null,
+        testimonial: guest.testimonial,
+      })
+      .returning()
+    return { success: true, data: rows[0] as unknown as Guest }
   } catch (error: any) {
     return { success: false, error: error.message }
   }
@@ -289,24 +295,19 @@ export async function updateGuest(
   }
 
   try {
-    const fields: string[] = []
-    const values: any[] = []
-    let paramIndex = 1
-
+    // Build a clean updates object, excluding id and created_at
+    const setData: Record<string, any> = {}
     for (const [key, value] of Object.entries(updates)) {
       if (key === "id" || key === "created_at") continue
-      fields.push(`${key} = $${paramIndex}`)
-      values.push(key === "external_links" && value ? JSON.stringify(value) : value)
-      paramIndex++
+      setData[key] = value
     }
 
-    if (fields.length === 0) return { success: true }
+    if (Object.keys(setData).length === 0) return { success: true }
 
-    values.push(id)
-    await pool!.query(
-      `UPDATE guests SET ${fields.join(", ")} WHERE id = $${paramIndex}`,
-      values
-    )
+    await db!
+      .update(guests)
+      .set(setData)
+      .where(eq(guests.id, id))
     return { success: true }
   } catch (error: any) {
     return { success: false, error: error.message }
@@ -321,7 +322,7 @@ export async function deleteGuest(
   }
 
   try {
-    await pool!.query("DELETE FROM guests WHERE id = $1", [id])
+    await db!.delete(guests).where(eq(guests.id, id))
     return { success: true }
   } catch (error: any) {
     return { success: false, error: error.message }
@@ -336,7 +337,7 @@ export async function deleteGuestApplication(
   }
 
   try {
-    await pool!.query("DELETE FROM guest_applications WHERE id = $1", [id])
+    await db!.delete(guestApplications).where(eq(guestApplications.id, id))
     return { success: true }
   } catch (error: any) {
     return { success: false, error: error.message }
@@ -352,10 +353,10 @@ export async function updateGuestApplicationStatus(
   }
 
   try {
-    await pool!.query(
-      "UPDATE guest_applications SET status = $1 WHERE id = $2",
-      [status, id]
-    )
+    await db!
+      .update(guestApplications)
+      .set({ status })
+      .where(eq(guestApplications.id, id))
     return { success: true }
   } catch (error: any) {
     return { success: false, error: error.message }
@@ -370,7 +371,7 @@ export async function deleteSponsorshipLead(
   }
 
   try {
-    await pool!.query("DELETE FROM sponsorship_leads WHERE id = $1", [id])
+    await db!.delete(sponsorshipLeads).where(eq(sponsorshipLeads.id, id))
     return { success: true }
   } catch (error: any) {
     return { success: false, error: error.message }
@@ -386,10 +387,10 @@ export async function updateSponsorshipStatus(
   }
 
   try {
-    await pool!.query(
-      "UPDATE sponsorship_leads SET status = $1 WHERE id = $2",
-      [status, id]
-    )
+    await db!
+      .update(sponsorshipLeads)
+      .set({ status })
+      .where(eq(sponsorshipLeads.id, id))
     return { success: true }
   } catch (error: any) {
     return { success: false, error: error.message }
@@ -404,9 +405,238 @@ export async function deleteNewsletterSubscriber(
   }
 
   try {
-    await pool!.query("DELETE FROM newsletter_subscribers WHERE id = $1", [id])
+    await db!.delete(newsletterSubscribers).where(eq(newsletterSubscribers.id, id))
     return { success: true }
   } catch (error: any) {
     return { success: false, error: error.message }
   }
+}
+
+// ===== Members Management =====
+
+interface GetMembersParams {
+  search?: string
+  role?: string
+  is_banned?: boolean | null
+  limit?: number
+  offset?: number
+}
+
+export async function getMembers({
+  search,
+  role,
+  is_banned,
+  limit = 50,
+  offset = 0,
+}: GetMembersParams = {}): Promise<{
+  members: any[]
+  total: number
+}> {
+  if (!USE_DB) return { members: [], total: 0 }
+
+  const conditions: ReturnType<typeof eq>[] = [isNull(profiles.deleted_at)]
+
+  if (search) {
+    conditions.push(
+      or(
+        ilike(profiles.display_name, `%${search}%`),
+        ilike(profiles.username, `%${search}%`),
+        ilike(profiles.email, `%${search}%`),
+      )!
+    )
+  }
+
+  if (role) {
+    conditions.push(eq(profiles.role, role))
+  }
+
+  if (is_banned === true) {
+    conditions.push(eq(profiles.is_banned, true))
+  } else if (is_banned === false) {
+    conditions.push(
+      or(
+        eq(profiles.is_banned, false),
+        isNull(profiles.is_banned),
+      )!
+    )
+  }
+
+  const whereClause = and(...conditions)
+
+  const countResult = await db!
+    .select({ count: count() })
+    .from(profiles)
+    .where(whereClause)
+  const total = countResult[0].count
+
+  const members = await db!
+    .select({
+      id: profiles.id,
+      display_name: profiles.display_name,
+      username: profiles.username,
+      avatar_url: profiles.avatar_url,
+      bio: profiles.bio,
+      email: profiles.email,
+      is_admin: profiles.is_admin,
+      is_banned: profiles.is_banned,
+      ban_reason: profiles.ban_reason,
+      articles_count: sql<number>`COALESCE(${profiles.articles_count}, 0)`,
+      followers_count: sql<number>`COALESCE(${profiles.followers_count}, 0)`,
+      role: profiles.role,
+      notify_comments: profiles.notify_comments,
+      notify_replies: profiles.notify_replies,
+      notify_likes: profiles.notify_likes,
+      notify_follows: profiles.notify_follows,
+      notification_unsubscribe_token: profiles.notification_unsubscribe_token,
+      must_change_password: profiles.must_change_password,
+      deleted_at: profiles.deleted_at,
+      created_at: profiles.created_at,
+      updated_at: profiles.updated_at,
+    })
+    .from(profiles)
+    .where(whereClause)
+    .orderBy(desc(profiles.created_at))
+    .limit(limit)
+    .offset(offset)
+
+  return { members, total }
+}
+
+export async function updateUserRole(
+  userId: string,
+  role: string
+): Promise<{ success: boolean; error?: string }> {
+  if (!USE_DB) return { success: false, error: "No database" }
+
+  const validRoles = ["admin", "editor", "moderator", "user"]
+  if (!validRoles.includes(role)) {
+    return { success: false, error: "Invalid role" }
+  }
+
+  try {
+    await db!
+      .update(profiles)
+      .set({ role, is_admin: role === "admin" })
+      .where(eq(profiles.id, userId))
+    return { success: true }
+  } catch (error: any) {
+    return { success: false, error: error.message }
+  }
+}
+
+export async function updateUserBanStatus(
+  userId: string,
+  is_banned: boolean,
+  ban_reason?: string
+): Promise<{ success: boolean; error?: string }> {
+  if (!USE_DB) return { success: false, error: "No database" }
+
+  try {
+    await db!
+      .update(profiles)
+      .set({
+        is_banned,
+        ban_reason: is_banned ? ban_reason || null : null,
+      })
+      .where(eq(profiles.id, userId))
+    return { success: true }
+  } catch (error: any) {
+    return { success: false, error: error.message }
+  }
+}
+
+export async function deleteUserAndContent(
+  userId: string
+): Promise<{ success: boolean; error?: string }> {
+  if (!USE_DB) return { success: false, error: "No database" }
+
+  try {
+    // Soft-delete profile
+    await db!
+      .update(profiles)
+      .set({ deleted_at: sql`now()` })
+      .where(eq(profiles.id, userId))
+    // Soft-delete articles (set moderation_status to removed)
+    await db!
+      .update(hibrArticles)
+      .set({ moderation_status: "removed" })
+      .where(eq(hibrArticles.user_id, userId))
+    // Soft-delete thoughts
+    await db!
+      .update(hibrThoughts)
+      .set({ moderation_status: "removed" })
+      .where(eq(hibrThoughts.user_id, userId))
+    // Hard-delete interactions
+    await db!.delete(hibrLikes).where(eq(hibrLikes.user_id, userId))
+    await db!.delete(hibrFollows).where(eq(hibrFollows.follower_id, userId))
+    await db!.delete(hibrBookmarks).where(eq(hibrBookmarks.user_id, userId))
+
+    return { success: true }
+  } catch (error: any) {
+    return { success: false, error: error.message }
+  }
+}
+
+export async function createMember(data: {
+  display_name: string
+  email: string
+  password: string
+  username?: string
+  role?: string
+}): Promise<{ success: boolean; error?: string; member?: any }> {
+  if (!USE_DB) return { success: false, error: "No database" }
+
+  const role = data.role || "user"
+  const isAdmin = role === "admin"
+
+  // Create Firebase Auth user first
+  let firebaseUid: string
+  try {
+    const userRecord = await getAdminAuth().createUser({
+      email: data.email,
+      password: data.password,
+      displayName: data.display_name,
+    })
+    firebaseUid = userRecord.uid
+  } catch (error: any) {
+    if (error.code === "auth/email-already-exists") {
+      return { success: false, error: "البريد الإلكتروني مستخدم بالفعل في نظام المصادقة" }
+    }
+    return { success: false, error: `فشل إنشاء حساب المصادقة: ${error.message}` }
+  }
+
+  try {
+    const rows = await db!
+      .insert(profiles)
+      .values({
+        id: firebaseUid,
+        display_name: data.display_name,
+        email: data.email,
+        username: data.username || null,
+        role,
+        is_admin: isAdmin,
+        must_change_password: true,
+        created_at: sql`NOW()`,
+        updated_at: sql`NOW()`,
+      })
+      .returning()
+    return { success: true, member: rows[0] }
+  } catch (error: any) {
+    // Rollback: delete the Firebase user if DB insert fails
+    try { await getAdminAuth().deleteUser(firebaseUid) } catch {}
+    if (error.code === "23505") {
+      return { success: false, error: "البريد الإلكتروني أو اسم المستخدم مستخدم بالفعل" }
+    }
+    return { success: false, error: error.message }
+  }
+}
+
+export async function getMemberById(userId: string) {
+  if (!USE_DB) return null
+
+  const rows = await db!
+    .select()
+    .from(profiles)
+    .where(and(eq(profiles.id, userId), isNull(profiles.deleted_at)))
+  return rows[0] || null
 }

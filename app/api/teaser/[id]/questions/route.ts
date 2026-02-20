@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server"
 import crypto from "crypto"
-import { createClient } from "@/lib/supabase/server"
+import { db } from "@/lib/db"
+import { sql } from "drizzle-orm"
 import {
   validateMutation,
   errorResponse,
@@ -86,20 +87,10 @@ export async function POST(
     const userAgent = request.headers.get("user-agent") || null
 
     // Insert into database
-    const supabase = await createClient()
-    const { error } = await supabase.from("teaser_questions").insert({
-      teaser_id: teaserId,
-      display_name: cleanName,
-      question_text: cleanQuestion,
-      status: "pending",
-      ip_hash: ipHash,
-      user_agent: userAgent,
-    })
-
-    if (error) {
-      console.error("Error inserting question:", error)
-      return errorResponse("حدث خطأ أثناء إرسال السؤال", 500)
-    }
+    await db!.execute(sql`
+      INSERT INTO teaser_questions (teaser_id, display_name, question_text, status, ip_hash, user_agent)
+      VALUES (${teaserId}, ${cleanName}, ${cleanQuestion}, 'pending', ${ipHash}, ${userAgent})
+    `)
 
     return successResponse({ message: "سؤالك قيد المراجعة" }, 201)
   } catch (error) {

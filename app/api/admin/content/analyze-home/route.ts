@@ -1,6 +1,6 @@
 import { revalidatePath } from "next/cache"
 import { requireAdminAPI } from "@/lib/api-utils"
-import { getEpisodes } from "@/lib/supabase/queries"
+import { getEpisodes } from "@/lib/queries/episodes"
 import { getEpisodeEnrichment } from "@/lib/episode-enrichments"
 import { getStudioSessions, getTranscriptForSession } from "@/lib/studio"
 import { analyzeEpisodesForHome, type HomeAnalysisInput } from "@/lib/openai"

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
-import { getEpisodes } from "@/lib/supabase/queries"
+import { getEpisodes } from "@/lib/queries/episodes"
 import { getHiddenGems, interleaveBoosts } from "@/lib/boost"
 
 export async function GET(request: NextRequest) {

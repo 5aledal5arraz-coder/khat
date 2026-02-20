@@ -1,4 +1,6 @@
-import { pool } from "@/lib/db"
+import { db } from "@/lib/db"
+import { visitorEvents } from "@/lib/db/schema"
+import { eq, desc } from "drizzle-orm"
 import { getKnowledgeMap } from "@/lib/episode-knowledge"
 import type { EpisodeKnowledgeMap, EpisodeAnalysis } from "@/lib/episode-knowledge"
 import type { Episode, HomeQuote, EmotionalPath } from "@/types/database"
@@ -352,12 +354,13 @@ function reorderPaths(paths: EmotionalPath[], signals: Signals): EmotionalPath[]
 // ---------------------------------------------------------------------------
 
 async function getVisitorEvents(visitorId: string): Promise<VisitorEvent[]> {
+  if (!db) return []
   try {
-    const { rows } = await pool!.query(
-      `SELECT * FROM visitor_events WHERE visitor_id = $1 ORDER BY created_at DESC LIMIT 200`,
-      [visitorId]
-    )
-    return (rows ?? []) as VisitorEvent[]
+    const rows = await db.select().from(visitorEvents)
+      .where(eq(visitorEvents.visitor_id, visitorId))
+      .orderBy(desc(visitorEvents.created_at))
+      .limit(200)
+    return (rows ?? []) as unknown as VisitorEvent[]
   } catch {
     return []
   }

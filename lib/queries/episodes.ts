@@ -1,4 +1,17 @@
-import { pool, USE_DB as DB_AVAILABLE } from "@/lib/db"
+import { db, USE_DB as DB_AVAILABLE } from "@/lib/db"
+import { eq, desc, sql, and, asc, ilike, ne, gte, inArray } from 'drizzle-orm'
+import {
+  episodes,
+  guests,
+  topics,
+  episodeTopics,
+  timestamps as timestampsTable,
+  quotes as quotesTable,
+  resources as resourcesTable,
+  newsletterSubscribers,
+  sponsorshipLeads,
+  guestApplications,
+} from '@/lib/db/schema'
 import type {
   Episode,
   Guest,
@@ -35,16 +48,43 @@ const USE_MOCK_DATA = !DB_AVAILABLE
 const USE_YOUTUBE = !!process.env.YOUTUBE_API_KEY
 const USE_DB = DB_AVAILABLE
 
+// Helper: construct an Episode from a Drizzle leftJoin row (episodes + guests)
+function nestEpisodeWithGuest(row: {
+  episodes: typeof episodes.$inferSelect
+  guests: typeof guests.$inferSelect | null
+}): Partial<Episode> {
+  const ep = row.episodes
+  const g = row.guests
+  return {
+    ...ep,
+    release_date: String(ep.release_date),
+    created_at: ep.created_at ? ep.created_at.toISOString() : new Date().toISOString(),
+    updated_at: ep.updated_at ? ep.updated_at.toISOString() : undefined,
+    guest: g
+      ? {
+          id: g.id,
+          name: g.name,
+          slug: g.slug,
+          bio: g.bio,
+          photo_url: g.photo_url,
+          external_links: g.external_links,
+          testimonial: g.testimonial,
+          created_at: g.created_at ? g.created_at.toISOString() : new Date().toISOString(),
+        }
+      : null,
+  } as Partial<Episode>
+}
+
 async function fetchDbEpisodes(): Promise<Partial<Episode>[]> {
   if (!USE_DB) return []
   try {
-    const { rows } = await pool!.query(
-      `SELECT e.*, row_to_json(g.*) as guest
-       FROM episodes e
-       LEFT JOIN guests g ON e.guest_id = g.id
-       ORDER BY e.release_date DESC`
-    )
-    return (rows || []) as Partial<Episode>[]
+    const rows = await db!
+      .select()
+      .from(episodes)
+      .leftJoin(guests, eq(episodes.guest_id, guests.id))
+      .orderBy(desc(episodes.release_date))
+
+    return (rows || []).map(nestEpisodeWithGuest)
   } catch {
     return []
   }
@@ -53,14 +93,14 @@ async function fetchDbEpisodes(): Promise<Partial<Episode>[]> {
 async function fetchDbEpisodeById(id: string): Promise<Partial<Episode> | null> {
   if (!USE_DB) return null
   try {
-    const { rows } = await pool!.query(
-      `SELECT e.*, row_to_json(g.*) as guest
-       FROM episodes e
-       LEFT JOIN guests g ON e.guest_id = g.id
-       WHERE e.id = $1`,
-      [id]
-    )
-    return (rows[0] as Partial<Episode>) || null
+    const rows = await db!
+      .select()
+      .from(episodes)
+      .leftJoin(guests, eq(episodes.guest_id, guests.id))
+      .where(eq(episodes.id, id))
+
+    if (!rows || rows.length === 0) return null
+    return nestEpisodeWithGuest(rows[0])
   } catch {
     return null
   }
@@ -211,48 +251,57 @@ export async function getEpisodes(options?: {
 
   // DB fallback
   try {
-    const conditions: string[] = []
-    const params: unknown[] = []
-    let paramIndex = 1
+    // Build conditions for the where clause
+    const conditions = []
 
     if (options?.season) {
-      conditions.push(`e.season = $${paramIndex++}`)
-      params.push(options.season)
+      conditions.push(eq(episodes.season, options.season))
     }
 
     if (options?.guestSlug) {
-      conditions.push(`g.slug = $${paramIndex++}`)
-      params.push(options.guestSlug)
+      conditions.push(eq(guests.slug, options.guestSlug))
     }
 
-    const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : ''
+    const whereClause = conditions.length > 0 ? and(...conditions) : undefined
 
-    const limitClause = options?.limit ? `LIMIT $${paramIndex++}` : ''
-    if (options?.limit) params.push(options.limit)
+    let query = db!
+      .select()
+      .from(episodes)
+      .leftJoin(guests, eq(episodes.guest_id, guests.id))
+      .orderBy(desc(episodes.release_date))
+      .$dynamic()
 
-    const offsetClause = options?.offset ? `OFFSET $${paramIndex++}` : ''
-    if (options?.offset) params.push(options.offset)
+    if (whereClause) {
+      query = query.where(whereClause)
+    }
 
-    const { rows: episodes } = await pool!.query(
-      `SELECT e.*, row_to_json(g.*) as guest
-       FROM episodes e
-       LEFT JOIN guests g ON e.guest_id = g.id
-       ${whereClause}
-       ORDER BY e.release_date DESC
-       ${limitClause} ${offsetClause}`,
-      params
-    )
+    if (options?.limit) {
+      query = query.limit(options.limit)
+    }
+
+    if (options?.offset) {
+      query = query.offset(options.offset)
+    }
+
+    const rows = await query
+
+    const episodeList = rows.map(nestEpisodeWithGuest) as Episode[]
 
     // Fetch topics for each episode
-    if (episodes.length > 0) {
-      const episodeIds = episodes.map((e: Record<string, unknown>) => e.id)
-      const { rows: topicRows } = await pool!.query(
-        `SELECT et.episode_id, t.*
-         FROM episode_topics et
-         JOIN topics t ON t.id = et.topic_id
-         WHERE et.episode_id = ANY($1)`,
-        [episodeIds]
-      )
+    if (episodeList.length > 0) {
+      const episodeIds = episodeList.map((e) => e.id)
+      const topicRows = await db!
+        .select({
+          episode_id: episodeTopics.episode_id,
+          id: topics.id,
+          name: topics.name,
+          slug: topics.slug,
+          description: topics.description,
+          created_at: topics.created_at,
+        })
+        .from(episodeTopics)
+        .innerJoin(topics, eq(topics.id, episodeTopics.topic_id))
+        .where(inArray(episodeTopics.episode_id, episodeIds))
 
       const topicsByEpisode: Record<string, Topic[]> = {}
       for (const row of topicRows) {
@@ -263,16 +312,16 @@ export async function getEpisodes(options?: {
           name: row.name,
           slug: row.slug,
           description: row.description,
-          created_at: row.created_at,
+          created_at: row.created_at ? row.created_at.toISOString() : new Date().toISOString(),
         })
       }
 
-      for (const ep of episodes) {
-        ep.topics = topicsByEpisode[ep.id as string] || []
+      for (const ep of episodeList) {
+        ep.topics = topicsByEpisode[ep.id] || []
       }
     }
 
-    let results = filterHidden(episodes as Episode[])
+    let results = filterHidden(episodeList)
 
     // Apply Arabic-aware search
     if (options?.search) {
@@ -392,10 +441,12 @@ export async function getEpisodeBySlug(slug: string): Promise<EpisodeWithRelatio
 
   // DB fallback
   try {
-    const { rows: [episodeRow] } = await pool!.query(
-      'SELECT * FROM episodes WHERE slug = $1',
-      [slug]
-    )
+    const episodeRows = await db!
+      .select()
+      .from(episodes)
+      .where(eq(episodes.slug, slug))
+
+    const episodeRow = episodeRows[0]
 
     if (!episodeRow) {
       // Fallback to mock
@@ -422,48 +473,101 @@ export async function getEpisodeBySlug(slug: string): Promise<EpisodeWithRelatio
     if (hiddenIds.has(episodeRow.id)) return null
 
     // Fetch related data with separate queries
-    const [guestResult, topicsResult, timestampsResult, quotesResult, resourcesResult] = await Promise.all([
+    const [guestRows, topicRows, timestampRows, quoteRows, resourceRows] = await Promise.all([
       episodeRow.guest_id
-        ? pool!.query('SELECT * FROM guests WHERE id = $1', [episodeRow.guest_id])
-        : Promise.resolve({ rows: [] }),
-      pool!.query(
-        `SELECT t.* FROM topics t
-         JOIN episode_topics et ON t.id = et.topic_id
-         WHERE et.episode_id = $1`,
-        [episodeRow.id]
-      ),
-      pool!.query(
-        'SELECT * FROM timestamps WHERE episode_id = $1 ORDER BY time_seconds ASC',
-        [episodeRow.id]
-      ),
-      pool!.query(
-        'SELECT * FROM quotes WHERE episode_id = $1',
-        [episodeRow.id]
-      ),
-      pool!.query(
-        'SELECT * FROM resources WHERE episode_id = $1',
-        [episodeRow.id]
-      ),
+        ? db!.select().from(guests).where(eq(guests.id, episodeRow.guest_id))
+        : Promise.resolve([]),
+      db!
+        .select({
+          id: topics.id,
+          name: topics.name,
+          slug: topics.slug,
+          description: topics.description,
+          created_at: topics.created_at,
+        })
+        .from(topics)
+        .innerJoin(episodeTopics, eq(topics.id, episodeTopics.topic_id))
+        .where(eq(episodeTopics.episode_id, episodeRow.id)),
+      db!
+        .select()
+        .from(timestampsTable)
+        .where(eq(timestampsTable.episode_id, episodeRow.id))
+        .orderBy(asc(timestampsTable.time_seconds)),
+      db!
+        .select()
+        .from(quotesTable)
+        .where(eq(quotesTable.episode_id, episodeRow.id)),
+      db!
+        .select()
+        .from(resourcesTable)
+        .where(eq(resourcesTable.episode_id, episodeRow.id)),
     ])
+
+    const guestRow = guestRows[0] || null
 
     const episode: EpisodeWithRelations = {
       id: episodeRow.id,
       title: episodeRow.title,
       slug: episodeRow.slug,
+      description: episodeRow.description || null,
       summary: episodeRow.summary || null,
       key_takeaways: episodeRow.key_takeaways || null,
       youtube_url: episodeRow.youtube_url,
       duration_minutes: episodeRow.duration_minutes,
-      release_date: episodeRow.release_date,
+      release_date: String(episodeRow.release_date),
+      episode_number: episodeRow.episode_number || null,
       season: episodeRow.season || null,
       mood: episodeRow.mood || null,
+      thumbnail_url: episodeRow.thumbnail_url || null,
+      status: episodeRow.status || undefined,
+      featured: episodeRow.featured || undefined,
+      view_count: episodeRow.view_count || null,
       guest_id: episodeRow.guest_id || null,
-      created_at: episodeRow.created_at,
-      guest: (guestResult.rows[0] as Guest) || null,
-      topics: (topicsResult.rows as Topic[]) || [],
-      timestamps: (timestampsResult.rows as Timestamp[]) || [],
-      quotes: (quotesResult.rows as Quote[]) || [],
-      resources: (resourcesResult.rows as Resource[]) || [],
+      guest_testimonial: episodeRow.guest_testimonial || null,
+      guest_video_url: episodeRow.guest_video_url || null,
+      created_at: episodeRow.created_at ? episodeRow.created_at.toISOString() : new Date().toISOString(),
+      updated_at: episodeRow.updated_at ? episodeRow.updated_at.toISOString() : undefined,
+      guest: guestRow
+        ? {
+            id: guestRow.id,
+            name: guestRow.name,
+            slug: guestRow.slug,
+            bio: guestRow.bio,
+            photo_url: guestRow.photo_url,
+            external_links: guestRow.external_links,
+            testimonial: guestRow.testimonial,
+            created_at: guestRow.created_at ? guestRow.created_at.toISOString() : new Date().toISOString(),
+          }
+        : null,
+      topics: topicRows.map((t) => ({
+        id: t.id,
+        name: t.name,
+        slug: t.slug,
+        description: t.description,
+        created_at: t.created_at ? t.created_at.toISOString() : new Date().toISOString(),
+      })),
+      timestamps: timestampRows.map((t) => ({
+        id: t.id,
+        episode_id: t.episode_id,
+        time_seconds: t.time_seconds,
+        title: t.title,
+        description: t.description || null,
+      })),
+      quotes: quoteRows.map((q) => ({
+        id: q.id,
+        episode_id: q.episode_id,
+        guest_id: q.guest_id || null,
+        text: q.text,
+        theme: q.theme || null,
+        created_at: q.created_at ? q.created_at.toISOString() : new Date().toISOString(),
+      })),
+      resources: resourceRows.map((r) => ({
+        id: r.id,
+        episode_id: r.episode_id,
+        title: r.title,
+        url: r.url,
+        type: r.type || null,
+      })),
     }
 
     // Append config-file quotes
@@ -521,20 +625,20 @@ export async function getLatestEpisode(): Promise<Episode | null> {
 
   // DB fallback
   try {
-    const { rows } = await pool!.query(
-      `SELECT e.*, row_to_json(g.*) as guest
-       FROM episodes e
-       LEFT JOIN guests g ON e.guest_id = g.id
-       ORDER BY e.release_date DESC
-       LIMIT 20`
-    )
+    const rows = await db!
+      .select()
+      .from(episodes)
+      .leftJoin(guests, eq(episodes.guest_id, guests.id))
+      .orderBy(desc(episodes.release_date))
+      .limit(20)
 
     if (!rows || rows.length === 0) {
       const { mockEpisodes } = await import('@/lib/mocks/episodes')
       return mockEpisodes.find((ep) => !hiddenIds.has(ep.id)) || null
     }
 
-    return (rows as Episode[]).find((ep) => !hiddenIds.has(ep.id)) || null
+    const episodeList = rows.map(nestEpisodeWithGuest) as Episode[]
+    return episodeList.find((ep) => !hiddenIds.has(ep.id)) || null
   } catch (error) {
     console.error('Error fetching latest episode:', error)
     const { mockEpisodes } = await import('@/lib/mocks/episodes')
@@ -586,22 +690,21 @@ export async function getMostViewedRecent(days: number = 30): Promise<Episode | 
     const cutoffDate = new Date()
     cutoffDate.setDate(cutoffDate.getDate() - days)
 
-    const { rows } = await pool!.query(
-      `SELECT e.*, row_to_json(g.*) as guest
-       FROM episodes e
-       LEFT JOIN guests g ON e.guest_id = g.id
-       WHERE e.release_date >= $1
-       ORDER BY e.view_count DESC NULLS LAST
-       LIMIT 20`,
-      [cutoffDate.toISOString().split('T')[0]]
-    )
+    const rows = await db!
+      .select()
+      .from(episodes)
+      .leftJoin(guests, eq(episodes.guest_id, guests.id))
+      .where(gte(episodes.release_date, cutoffDate.toISOString().split('T')[0]))
+      .orderBy(sql`${episodes.view_count} DESC NULLS LAST`)
+      .limit(20)
 
     if (!rows || rows.length === 0) {
       const { mockEpisodes } = await import('@/lib/mocks/episodes')
       return mockEpisodes.find((ep) => !hiddenIds.has(ep.id)) || null
     }
 
-    return (rows as Episode[]).find((ep) => !hiddenIds.has(ep.id)) || null
+    const episodeList = rows.map(nestEpisodeWithGuest) as Episode[]
+    return episodeList.find((ep) => !hiddenIds.has(ep.id)) || null
   } catch (error) {
     console.error('Error fetching most viewed recent episode:', error)
     const { mockEpisodes } = await import('@/lib/mocks/episodes')
@@ -638,32 +741,41 @@ export async function getGuests(options?: {
   }
 
   if (USE_MOCK_DATA) {
-    let guests = [...mockGuests]
+    let guestList = [...mockGuests]
 
     if (options?.search) {
-      guests = searchGuests(guests, options.search)
+      guestList = searchGuests(guestList, options.search)
     }
 
-    return guests
+    return guestList
   }
 
   // DB fallback
   try {
-    let query = 'SELECT * FROM guests'
-    const params: unknown[] = []
+    let query = db!
+      .select()
+      .from(guests)
+      .orderBy(asc(guests.name))
+      .$dynamic()
 
     if (options?.search) {
       // Escape SQL LIKE wildcards in user input
       const escapedSearch = options.search.replace(/[%_]/g, '\\$&')
-      query += ' WHERE name ILIKE $1'
-      params.push(`%${escapedSearch}%`)
+      query = query.where(ilike(guests.name, `%${escapedSearch}%`))
     }
 
-    query += ' ORDER BY name'
+    const rows = await query
 
-    const { rows } = await pool!.query(query, params)
-
-    return (rows as Guest[]) || []
+    return (rows || []).map((g) => ({
+      id: g.id,
+      name: g.name,
+      slug: g.slug,
+      bio: g.bio,
+      photo_url: g.photo_url,
+      external_links: g.external_links,
+      testimonial: g.testimonial,
+      created_at: g.created_at ? g.created_at.toISOString() : new Date().toISOString(),
+    })) as Guest[]
   } catch (error) {
     console.error('Error fetching guests:', error)
     return mockGuests
@@ -711,12 +823,14 @@ export async function getGuestBySlug(slug: string): Promise<GuestWithRelations |
 
   // DB fallback
   try {
-    const { rows: [guest] } = await pool!.query(
-      'SELECT * FROM guests WHERE slug = $1',
-      [slug]
-    )
+    const guestRows = await db!
+      .select()
+      .from(guests)
+      .where(eq(guests.slug, slug))
 
-    if (!guest) {
+    const guestRow = guestRows[0]
+
+    if (!guestRow) {
       // Fallback to mock
       const mockGuest = mockGuests.find(g => g.slug === slug)
       if (mockGuest) {
@@ -730,21 +844,58 @@ export async function getGuestBySlug(slug: string): Promise<GuestWithRelations |
       return null
     }
 
-    const [episodesResult, quotesResult] = await Promise.all([
-      pool!.query(
-        'SELECT * FROM episodes WHERE guest_id = $1 ORDER BY release_date DESC',
-        [guest.id]
-      ),
-      pool!.query(
-        'SELECT * FROM quotes WHERE guest_id = $1',
-        [guest.id]
-      ),
+    const [episodeRows, quoteRows] = await Promise.all([
+      db!
+        .select()
+        .from(episodes)
+        .where(eq(episodes.guest_id, guestRow.id))
+        .orderBy(desc(episodes.release_date)),
+      db!
+        .select()
+        .from(quotesTable)
+        .where(eq(quotesTable.guest_id, guestRow.id)),
     ])
 
     return {
-      ...guest,
-      episodes: episodesResult.rows || [],
-      quotes: quotesResult.rows || [],
+      id: guestRow.id,
+      name: guestRow.name,
+      slug: guestRow.slug,
+      bio: guestRow.bio,
+      photo_url: guestRow.photo_url,
+      external_links: guestRow.external_links,
+      testimonial: guestRow.testimonial,
+      created_at: guestRow.created_at ? guestRow.created_at.toISOString() : new Date().toISOString(),
+      episodes: episodeRows.map((e) => ({
+        id: e.id,
+        title: e.title,
+        slug: e.slug,
+        description: e.description || null,
+        summary: e.summary || null,
+        key_takeaways: e.key_takeaways || null,
+        youtube_url: e.youtube_url,
+        duration_minutes: e.duration_minutes,
+        release_date: String(e.release_date),
+        episode_number: e.episode_number || null,
+        season: e.season || null,
+        mood: e.mood || null,
+        thumbnail_url: e.thumbnail_url || null,
+        status: e.status || undefined,
+        featured: e.featured || undefined,
+        view_count: e.view_count || null,
+        guest_id: e.guest_id || null,
+        guest_testimonial: e.guest_testimonial || null,
+        guest_video_url: e.guest_video_url || null,
+        created_at: e.created_at ? e.created_at.toISOString() : new Date().toISOString(),
+        updated_at: e.updated_at ? e.updated_at.toISOString() : undefined,
+      })) as Episode[],
+      quotes: quoteRows.map((q) => ({
+        id: q.id,
+        episode_id: q.episode_id,
+        guest_id: q.guest_id || null,
+        text: q.text,
+        theme: q.theme || null,
+        created_at: q.created_at ? q.created_at.toISOString() : new Date().toISOString(),
+      })) as Quote[],
     } as GuestWithRelations
   } catch (error) {
     console.error('Error fetching guest:', error)
@@ -789,9 +940,18 @@ export async function getTopics(): Promise<Topic[]> {
 
   // DB fallback
   try {
-    const { rows } = await pool!.query('SELECT * FROM topics ORDER BY name')
+    const rows = await db!
+      .select()
+      .from(topics)
+      .orderBy(asc(topics.name))
 
-    return (rows as Topic[]) || []
+    return (rows || []).map((t) => ({
+      id: t.id,
+      name: t.name,
+      slug: t.slug,
+      description: t.description,
+      created_at: t.created_at ? t.created_at.toISOString() : new Date().toISOString(),
+    })) as Topic[]
   } catch (error) {
     console.error('Error fetching topics:', error)
     return mockTopics
@@ -841,17 +1001,20 @@ export async function getRelatedEpisodes(
 
   // DB fallback
   try {
-    const { rows } = await pool!.query(
-      `SELECT DISTINCT e.*, row_to_json(g.*) as guest
-       FROM episodes e
-       LEFT JOIN guests g ON e.guest_id = g.id
-       JOIN episode_topics et ON e.id = et.episode_id
-       WHERE et.topic_id = ANY($1) AND e.id != $2
-       LIMIT $3`,
-      [topicIds, episodeId, limit]
-    )
+    const rows = await db!
+      .selectDistinctOn([episodes.id])
+      .from(episodes)
+      .leftJoin(guests, eq(episodes.guest_id, guests.id))
+      .innerJoin(episodeTopics, eq(episodes.id, episodeTopics.episode_id))
+      .where(
+        and(
+          inArray(episodeTopics.topic_id, topicIds),
+          ne(episodes.id, episodeId)
+        )
+      )
+      .limit(limit)
 
-    return (rows as Episode[]) || []
+    return (rows || []).map(nestEpisodeWithGuest) as Episode[]
   } catch (error) {
     console.error('Error fetching related episodes:', error)
     const { mockEpisodes } = await import('@/lib/mocks/episodes')
@@ -880,30 +1043,28 @@ export async function getEpisodesByTopicPath(topicSlugs: string[]): Promise<Epis
 
   // DB fallback
   try {
-    const { rows: topics } = await pool!.query(
-      'SELECT id FROM topics WHERE slug = ANY($1)',
-      [topicSlugs]
-    )
+    const topicRows = await db!
+      .select({ id: topics.id })
+      .from(topics)
+      .where(inArray(topics.slug, topicSlugs))
 
-    if (!topics || topics.length === 0) {
+    if (!topicRows || topicRows.length === 0) {
       const { mockEpisodes } = await import('@/lib/mocks/episodes')
       return mockEpisodes.slice(0, 5)
     }
 
-    const topicIds = topics.map((t: { id: string }) => t.id)
+    const topicIds = topicRows.map((t) => t.id)
 
-    const { rows } = await pool!.query(
-      `SELECT DISTINCT e.*, row_to_json(g.*) as guest
-       FROM episodes e
-       LEFT JOIN guests g ON e.guest_id = g.id
-       JOIN episode_topics et ON e.id = et.episode_id
-       WHERE et.topic_id = ANY($1)
-       ORDER BY e.release_date DESC
-       LIMIT 5`,
-      [topicIds]
-    )
+    const rows = await db!
+      .selectDistinctOn([episodes.id])
+      .from(episodes)
+      .leftJoin(guests, eq(episodes.guest_id, guests.id))
+      .innerJoin(episodeTopics, eq(episodes.id, episodeTopics.episode_id))
+      .where(inArray(episodeTopics.topic_id, topicIds))
+      .orderBy(desc(episodes.release_date))
+      .limit(5)
 
-    return (rows as Episode[]) || []
+    return (rows || []).map(nestEpisodeWithGuest) as Episode[]
   } catch (error) {
     console.error('Error fetching episodes by topic path:', error)
     const { mockEpisodes } = await import('@/lib/mocks/episodes')
@@ -963,10 +1124,10 @@ export async function subscribeNewsletter(email: string): Promise<{ success: boo
   }
 
   try {
-    await pool!.query(
-      'INSERT INTO newsletter_subscribers (email) VALUES ($1)',
-      [email]
-    )
+    await db!
+      .insert(newsletterSubscribers)
+      .values({ email })
+
     return { success: true }
   } catch (error: unknown) {
     const pgError = error as { code?: string }
@@ -988,14 +1149,10 @@ export async function submitSponsorshipLead(data: {
   }
 
   try {
-    const columns = Object.keys(data)
-    const values = Object.values(data)
-    const placeholders = columns.map((_, i) => `$${i + 1}`)
+    await db!
+      .insert(sponsorshipLeads)
+      .values(data as unknown as typeof sponsorshipLeads.$inferInsert)
 
-    await pool!.query(
-      `INSERT INTO sponsorship_leads (${columns.join(', ')}) VALUES (${placeholders.join(', ')})`,
-      values
-    )
     return { success: true }
   } catch {
     return { success: false, error: 'حدث خطأ. يرجى المحاولة مرة أخرى.' }
@@ -1014,14 +1171,10 @@ export async function submitGuestApplication(data: {
   }
 
   try {
-    const columns = Object.keys(data)
-    const values = Object.values(data)
-    const placeholders = columns.map((_, i) => `$${i + 1}`)
+    await db!
+      .insert(guestApplications)
+      .values(data as unknown as typeof guestApplications.$inferInsert)
 
-    await pool!.query(
-      `INSERT INTO guest_applications (${columns.join(', ')}) VALUES (${placeholders.join(', ')})`,
-      values
-    )
     return { success: true }
   } catch {
     return { success: false, error: 'حدث خطأ. يرجى المحاولة مرة أخرى.' }

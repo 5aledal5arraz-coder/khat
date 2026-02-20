@@ -1,5 +1,7 @@
 import { createConfigStore } from "@/lib/config-store"
-import { pool, USE_DB } from "@/lib/db"
+import { db, USE_DB } from "@/lib/db"
+import { staticContent } from "@/lib/db/schema"
+import { eq } from "drizzle-orm"
 import type { StaticContentConfig, AboutPageContent } from "@/types/static-content"
 
 const defaultAboutContent: AboutPageContent = {
@@ -24,10 +26,7 @@ const store = createConfigStore<StaticContentConfig>("static-content.json", { ab
 export async function getStaticContentConfig(): Promise<StaticContentConfig> {
   if (USE_DB) {
     try {
-      const { rows } = await pool!.query(
-        `SELECT content FROM static_content WHERE key = $1 LIMIT 1`,
-        ["about"]
-      )
+      const rows = await db!.select().from(staticContent).where(eq(staticContent.key, "about")).limit(1)
       if (rows[0]) {
         return { about: rows[0].content as AboutPageContent }
       }
@@ -46,12 +45,13 @@ export async function getAboutContent(): Promise<AboutPageContent> {
 export async function saveAboutContent(about: AboutPageContent): Promise<void> {
   if (USE_DB) {
     try {
-      await pool!.query(
-        `INSERT INTO static_content (key, content)
-         VALUES ($1, $2)
-         ON CONFLICT (key) DO UPDATE SET content = EXCLUDED.content`,
-        ["about", JSON.stringify(about)]
-      )
+      await db!.insert(staticContent).values({
+        key: "about",
+        content: about,
+      }).onConflictDoUpdate({
+        target: staticContent.key,
+        set: { content: about },
+      })
       return
     } catch (e) {
       console.error("saveAboutContent DB exception:", e)

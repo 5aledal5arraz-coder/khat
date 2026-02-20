@@ -1,5 +1,5 @@
 import { cookies } from "next/headers"
-import { getEpisodes, getGuests } from "@/lib/supabase/queries"
+import { getEpisodes, getGuests } from "@/lib/queries/episodes"
 import { getTodaysQuote, getPublishedHomeQuotes } from "@/lib/home-quotes"
 import { getTodaysReflection } from "@/lib/daily-reflections"
 import { getAllPaths } from "@/lib/emotional-paths"

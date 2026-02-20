@@ -1,5 +1,7 @@
 import { createConfigStore } from "@/lib/config-store"
-import { pool, USE_DB } from "@/lib/db"
+import { db, USE_DB } from "@/lib/db"
+import { dailyReflections } from "@/lib/db/schema"
+import { eq, and, desc } from "drizzle-orm"
 import type { DailyReflection } from "@/types/database"
 import type { DailyReflectionsConfig } from "@/types/home-content"
 
@@ -10,10 +12,8 @@ const store = createConfigStore<DailyReflectionsConfig>("daily-reflections.json"
 export async function getReflectionsConfig(): Promise<DailyReflectionsConfig> {
   if (USE_DB) {
     try {
-      const { rows } = await pool!.query(
-        `SELECT * FROM daily_reflections ORDER BY date DESC`
-      )
-      return { reflections: rows as DailyReflection[] }
+      const rows = await db!.select().from(dailyReflections).orderBy(desc(dailyReflections.date))
+      return { reflections: rows as unknown as DailyReflection[] }
     } catch (e) {
       console.error("getReflectionsConfig DB exception:", e)
     }
@@ -32,18 +32,17 @@ export async function getTodaysReflection(): Promise<DailyReflection | null> {
   if (USE_DB) {
     try {
       // Check for today's reflection
-      const { rows: todayRows } = await pool!.query(
-        `SELECT * FROM daily_reflections WHERE date = $1 AND status = $2 LIMIT 1`,
-        [today, "published"]
-      )
-      if (todayRows[0]) return todayRows[0] as DailyReflection
+      const todayRows = await db!.select().from(dailyReflections)
+        .where(and(eq(dailyReflections.date, today), eq(dailyReflections.status, "published")))
+        .limit(1)
+      if (todayRows[0]) return todayRows[0] as unknown as DailyReflection
 
       // Fallback: most recent published
-      const { rows: recentRows } = await pool!.query(
-        `SELECT * FROM daily_reflections WHERE status = $1 ORDER BY created_at DESC LIMIT 1`,
-        ["published"]
-      )
-      if (recentRows[0]) return recentRows[0] as DailyReflection
+      const recentRows = await db!.select().from(dailyReflections)
+        .where(eq(dailyReflections.status, "published"))
+        .orderBy(desc(dailyReflections.created_at))
+        .limit(1)
+      if (recentRows[0]) return recentRows[0] as unknown as DailyReflection
       return null
     } catch (e) {
       console.error("getTodaysReflection DB exception:", e)
@@ -67,11 +66,8 @@ export async function getTodaysReflection(): Promise<DailyReflection | null> {
 export async function getReflectionById(id: string): Promise<DailyReflection | null> {
   if (USE_DB) {
     try {
-      const { rows } = await pool!.query(
-        `SELECT * FROM daily_reflections WHERE id = $1 LIMIT 1`,
-        [id]
-      )
-      if (rows[0]) return rows[0] as DailyReflection
+      const rows = await db!.select().from(dailyReflections).where(eq(dailyReflections.id, id)).limit(1)
+      if (rows[0]) return rows[0] as unknown as DailyReflection
       return null
     } catch (e) {
       console.error("getReflectionById DB exception:", e)
@@ -94,22 +90,19 @@ export async function addReflection(
 
   if (USE_DB) {
     try {
-      const { rows } = await pool!.query(
-        `INSERT INTO daily_reflections (id, date, short_quote, reflection, thinking_question, attribution, episode_id, episode_slug, episode_title, quote_id, quote_text, path_slug, path_title, status, created_at, updated_at)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
-         RETURNING *`,
-        [
-          newReflection.id, newReflection.date, newReflection.short_quote,
-          newReflection.reflection, newReflection.thinking_question,
-          newReflection.attribution || null,
-          newReflection.episode_id || null, newReflection.episode_slug || null, newReflection.episode_title || null,
-          newReflection.quote_id || null, newReflection.quote_text || null,
-          newReflection.path_slug || null, newReflection.path_title || null,
-          newReflection.status,
-          newReflection.created_at, newReflection.updated_at,
-        ]
-      )
-      if (rows[0]) return rows[0] as DailyReflection
+      const rows = await db!.insert(dailyReflections).values({
+        id: newReflection.id,
+        date: newReflection.date,
+        short_quote: newReflection.short_quote,
+        reflection: newReflection.reflection,
+        thinking_question: newReflection.thinking_question,
+        attribution: newReflection.attribution || null,
+        episode_id: newReflection.episode_id || null,
+        episode_slug: newReflection.episode_slug || null,
+        episode_title: newReflection.episode_title || null,
+        status: newReflection.status,
+      }).returning()
+      if (rows[0]) return rows[0] as unknown as DailyReflection
     } catch (e) {
       console.error("addReflection DB exception:", e)
     }
@@ -127,25 +120,11 @@ export async function updateReflection(
 ): Promise<DailyReflection | null> {
   if (USE_DB) {
     try {
-      const fields: string[] = []
-      const values: unknown[] = []
-      let paramIndex = 1
-
-      for (const [key, value] of Object.entries(updates)) {
-        fields.push(`${key} = $${paramIndex}`)
-        values.push(value)
-        paramIndex++
-      }
-      fields.push(`updated_at = $${paramIndex}`)
-      values.push(new Date().toISOString())
-      paramIndex++
-      values.push(id)
-
-      const { rows } = await pool!.query(
-        `UPDATE daily_reflections SET ${fields.join(", ")} WHERE id = $${paramIndex} RETURNING *`,
-        values
-      )
-      if (rows[0]) return rows[0] as DailyReflection
+      const rows = await db!.update(dailyReflections)
+        .set({ ...updates, updated_at: new Date() })
+        .where(eq(dailyReflections.id, id))
+        .returning()
+      if (rows[0]) return rows[0] as unknown as DailyReflection
       return null
     } catch (e) {
       console.error("updateReflection DB exception:", e)
@@ -168,11 +147,9 @@ export async function updateReflection(
 export async function getReflectionsByEpisodeId(episodeId: string): Promise<DailyReflection[]> {
   if (USE_DB) {
     try {
-      const { rows } = await pool!.query(
-        `SELECT * FROM daily_reflections WHERE episode_id = $1 AND status = $2`,
-        [episodeId, "published"]
-      )
-      return rows as DailyReflection[]
+      const rows = await db!.select().from(dailyReflections)
+        .where(and(eq(dailyReflections.episode_id, episodeId), eq(dailyReflections.status, "published")))
+      return rows as unknown as DailyReflection[]
     } catch (e) {
       console.error("getReflectionsByEpisodeId DB exception:", e)
     }
@@ -186,11 +163,8 @@ export async function getReflectionsByEpisodeId(episodeId: string): Promise<Dail
 export async function deleteReflection(id: string): Promise<boolean> {
   if (USE_DB) {
     try {
-      const { rowCount } = await pool!.query(
-        `DELETE FROM daily_reflections WHERE id = $1`,
-        [id]
-      )
-      return (rowCount ?? 0) > 0
+      const result = await db!.delete(dailyReflections).where(eq(dailyReflections.id, id))
+      return (result.rowCount ?? 0) > 0
     } catch (e) {
       console.error("deleteReflection DB exception:", e)
     }

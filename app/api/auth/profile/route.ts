@@ -1,7 +1,9 @@
 import { NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
 import { getAdminAuth } from '@/lib/firebase/admin'
-import { pool } from '@/lib/db'
+import { db } from '@/lib/db'
+import { profiles } from '@/lib/db/schema'
+import { eq } from 'drizzle-orm'
 
 export async function GET() {
   try {
@@ -13,14 +15,11 @@ export async function GET() {
 
     const decoded = await getAdminAuth().verifySessionCookie(session)
 
-    if (!pool) {
+    if (!db) {
       return NextResponse.json({ profile: null })
     }
 
-    const { rows } = await pool.query(
-      'SELECT * FROM profiles WHERE id = $1',
-      [decoded.uid]
-    )
+    const rows = await db.select().from(profiles).where(eq(profiles.id, decoded.uid))
 
     return NextResponse.json({ profile: rows[0] || null })
   } catch {

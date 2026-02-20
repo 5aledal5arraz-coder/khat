@@ -1,5 +1,5 @@
 import { NextRequest } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
+import { db } from '@/lib/db'
 import {
   getAuthUser,
   validateMutation,
@@ -8,6 +8,9 @@ import {
   successResponse,
   errorResponse,
 } from '@/lib/api-utils'
+import { sql } from 'drizzle-orm'
+import { eq } from 'drizzle-orm'
+import { hibrBookmarks } from '@/lib/db/schema'
 
 export async function POST(request: NextRequest) {
   const mutationError = validateMutation(request)
@@ -25,34 +28,23 @@ export async function POST(request: NextRequest) {
 
   if (!body.article_id) return validationErrorResponse('معرف المقال مطلوب')
 
-  const supabase = await createClient()
-
   // Verify article exists
-  const { data: target } = await supabase
-    .from('hibr_articles')
-    .select('id')
-    .eq('id', body.article_id)
-    .single()
-  if (!target) return validationErrorResponse('المقال غير موجود')
+  const targetResult = await db!.execute(sql`SELECT id FROM hibr_articles WHERE id = ${body.article_id} LIMIT 1`)
+  const targets = targetResult.rows as Record<string, unknown>[]
+  if (targets.length === 0) return validationErrorResponse('المقال غير موجود')
 
   // Check if already bookmarked
-  const { data: existing } = await supabase
-    .from('hibr_bookmarks')
-    .select('id')
-    .eq('user_id', user.id)
-    .eq('article_id', body.article_id)
-    .single()
+  const existingResult = await db!.execute(sql`SELECT id FROM hibr_bookmarks WHERE user_id = ${user.id} AND article_id = ${body.article_id} LIMIT 1`)
+  const existing = existingResult.rows as Record<string, unknown>[]
 
-  if (existing) {
-    await supabase.from('hibr_bookmarks').delete().eq('id', existing.id)
+  if (existing.length > 0) {
+    await db!.delete(hibrBookmarks).where(eq(hibrBookmarks.id, existing[0].id as string))
     return successResponse({ bookmarked: false })
   }
 
-  const { error } = await supabase
-    .from('hibr_bookmarks')
-    .insert({ user_id: user.id, article_id: body.article_id })
+  const insertResult = await db!.execute(sql`INSERT INTO hibr_bookmarks (user_id, article_id) VALUES (${user.id}, ${body.article_id})`)
 
-  if (error) return errorResponse('حدث خطأ في حفظ المقال', 500)
+  if (!insertResult.rowCount) return errorResponse('حدث خطأ في حفظ المقال', 500)
 
   return successResponse({ bookmarked: true })
 }

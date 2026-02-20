@@ -1,5 +1,5 @@
 import { NextRequest } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
+import { db } from '@/lib/db'
 import {
   getAuthUser,
   validateMutation,
@@ -8,23 +8,20 @@ import {
   errorResponse,
 } from '@/lib/api-utils'
 import { sanitizeTitle, sanitizeArticleContent } from '@/lib/sanitize'
+import { sql } from 'drizzle-orm'
+import { hibrDrafts } from '@/lib/db/schema'
 
 export async function GET() {
   const user = await getAuthUser()
   if (!user) return unauthorizedResponse()
 
-  const supabase = await createClient()
-
-  const { data, error } = await supabase
-    .from('hibr_drafts')
-    .select('*')
-    .eq('user_id', user.id)
-    .order('updated_at', { ascending: false })
-    .limit(10)
-
-  if (error) return errorResponse('حدث خطأ في جلب المسودات', 500)
-
-  return successResponse({ drafts: data || [] })
+  try {
+    const result = await db!.execute(sql`SELECT * FROM hibr_drafts WHERE user_id = ${user.id} ORDER BY updated_at DESC LIMIT 10`)
+    const rows = result.rows as Record<string, unknown>[]
+    return successResponse({ drafts: rows })
+  } catch {
+    return errorResponse('حدث خطأ في جلب المسودات', 500)
+  }
 }
 
 export async function POST(request: NextRequest) {
@@ -49,48 +46,43 @@ export async function POST(request: NextRequest) {
     return errorResponse('بيانات غير صالحة', 400)
   }
 
-  const supabase = await createClient()
-
-  const draftData = {
-    user_id: user.id,
-    title: body.title ? sanitizeTitle(body.title) : '',
-    content: body.content ? sanitizeArticleContent(body.content) : '',
-    tags: body.tags?.slice(0, 5) || [],
-    episode_id: body.episode_id || null,
-    episode_slug: body.episode_slug || null,
-    episode_title: body.episode_title || null,
-  }
+  const title = body.title ? sanitizeTitle(body.title) : ''
+  const content = body.content ? sanitizeArticleContent(body.content) : ''
+  const tags = body.tags?.slice(0, 5) || []
+  const episodeId = body.episode_id || null
+  const episodeSlug = body.episode_slug || null
+  const episodeTitle = body.episode_title || null
 
   // Upsert: if id provided and exists, update; otherwise create
   if (body.id) {
-    const { data: existing } = await supabase
-      .from('hibr_drafts')
-      .select('id')
-      .eq('id', body.id)
-      .eq('user_id', user.id)
-      .single()
+    const existingResult = await db!.execute(sql`SELECT id FROM hibr_drafts WHERE id = ${body.id} AND user_id = ${user.id} LIMIT 1`)
+    const existing = existingResult.rows as Record<string, unknown>[]
 
-    if (existing) {
-      const { data, error } = await supabase
-        .from('hibr_drafts')
-        .update(draftData)
-        .eq('id', body.id)
-        .select()
-        .single()
-
-      if (error) return errorResponse('حدث خطأ في حفظ المسودة', 500)
-      return successResponse({ draft: data })
+    if (existing.length > 0) {
+      try {
+        const result = await db!.execute(sql`UPDATE hibr_drafts SET user_id = ${user.id}, title = ${title}, content = ${content}, tags = ${tags}, episode_id = ${episodeId}, episode_slug = ${episodeSlug}, episode_title = ${episodeTitle}, updated_at = NOW()
+           WHERE id = ${body.id} RETURNING *`)
+        const rows = result.rows as Record<string, unknown>[]
+        return successResponse({ draft: rows[0] })
+      } catch {
+        return errorResponse('حدث خطأ في حفظ المسودة', 500)
+      }
     }
   }
 
   // Create new
-  const { data, error } = await supabase
-    .from('hibr_drafts')
-    .insert(draftData)
-    .select()
-    .single()
-
-  if (error) return errorResponse('حدث خطأ في إنشاء المسودة', 500)
-
-  return successResponse({ draft: data }, 201)
+  try {
+    const rows = await db!.insert(hibrDrafts).values({
+      user_id: user.id,
+      title,
+      content,
+      tags,
+      episode_id: episodeId,
+      episode_slug: episodeSlug,
+      episode_title: episodeTitle,
+    }).returning()
+    return successResponse({ draft: rows[0] }, 201)
+  } catch {
+    return errorResponse('حدث خطأ في إنشاء المسودة', 500)
+  }
 }

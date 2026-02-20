@@ -1,13 +1,18 @@
 /**
  * Seed local database from live DigitalOcean database.
- * Usage: npx tsx scripts/seed-from-live.ts
+ * Usage: LIVE_DATABASE_URL="<live>" LOCAL_DATABASE_URL="<local>" npx tsx scripts/seed-from-live.ts
  */
 import pg from "pg"
 const { Client } = pg
 
-const LIVE_URL =
-  "postgresql://doadmin:***REMOVED***@khat-main-db-do-user-32538860-0.g.db.ondigitalocean.com:25060/defaultdb?sslmode=require"
-const LOCAL_URL = "postgresql://aishaalkharraz@localhost:5432/khat"
+if (!process.env.LIVE_DATABASE_URL || !process.env.LOCAL_DATABASE_URL) {
+  console.error("Missing LIVE_DATABASE_URL or LOCAL_DATABASE_URL env vars")
+  console.error('Usage: LIVE_DATABASE_URL="postgres://..." LOCAL_DATABASE_URL="postgres://..." npx tsx scripts/seed-from-live.ts')
+  process.exit(1)
+}
+
+const LIVE_URL: string = process.env.LIVE_DATABASE_URL
+const LOCAL_URL: string = process.env.LOCAL_DATABASE_URL
 
 // Tables in dependency order (parents before children)
 const TABLES = [
@@ -70,11 +75,16 @@ const TABLES = [
 ]
 
 async function main() {
+  const isLiveLocal = LIVE_URL.includes("localhost")
+  const isLocalLocal = LOCAL_URL.includes("localhost")
   const live = new Client({
     connectionString: LIVE_URL,
-    ssl: { rejectUnauthorized: false },
+    ...(isLiveLocal ? {} : { ssl: { rejectUnauthorized: false } }),
   })
-  const local = new Client({ connectionString: LOCAL_URL })
+  const local = new Client({
+    connectionString: LOCAL_URL,
+    ...(isLocalLocal ? {} : { ssl: { rejectUnauthorized: false } }),
+  })
 
   await live.connect()
   await local.connect()

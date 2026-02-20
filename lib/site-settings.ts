@@ -1,5 +1,7 @@
 import { createConfigStore } from "@/lib/config-store"
-import { pool, USE_DB } from "@/lib/db"
+import { db, USE_DB } from "@/lib/db"
+import { siteSettings } from "@/lib/db/schema"
+import { eq } from "drizzle-orm"
 import type { SiteSettingsConfig, FeatureFlags } from "@/types/site-settings"
 
 const defaultSiteSettings: SiteSettingsConfig = {
@@ -32,16 +34,13 @@ const store = createConfigStore<SiteSettingsConfig>("site-settings.json", defaul
 export async function getSiteSettings(): Promise<SiteSettingsConfig> {
   if (USE_DB) {
     try {
-      const { rows } = await pool!.query(
-        `SELECT metadata, social_links, seo, feature_flags FROM site_settings WHERE key = $1 LIMIT 1`,
-        ["main"]
-      )
+      const rows = await db!.select().from(siteSettings).where(eq(siteSettings.key, "main")).limit(1)
       if (rows[0]) {
         return {
-          metadata: rows[0].metadata as SiteSettingsConfig["metadata"],
-          socialLinks: rows[0].social_links as SiteSettingsConfig["socialLinks"],
-          seo: rows[0].seo as SiteSettingsConfig["seo"],
-          featureFlags: rows[0].feature_flags as SiteSettingsConfig["featureFlags"],
+          metadata: rows[0].metadata as unknown as SiteSettingsConfig["metadata"],
+          socialLinks: rows[0].social_links as unknown as SiteSettingsConfig["socialLinks"],
+          seo: rows[0].seo as unknown as SiteSettingsConfig["seo"],
+          featureFlags: rows[0].feature_flags as unknown as SiteSettingsConfig["featureFlags"],
         }
       }
     } catch (e) {
@@ -54,16 +53,22 @@ export async function getSiteSettings(): Promise<SiteSettingsConfig> {
 export async function saveSiteSettings(settings: SiteSettingsConfig): Promise<void> {
   if (USE_DB) {
     try {
-      await pool!.query(
-        `INSERT INTO site_settings (key, metadata, social_links, seo, feature_flags)
-         VALUES ($1, $2, $3, $4, $5)
-         ON CONFLICT (key) DO UPDATE SET
-           metadata = EXCLUDED.metadata,
-           social_links = EXCLUDED.social_links,
-           seo = EXCLUDED.seo,
-           feature_flags = EXCLUDED.feature_flags`,
-        ["main", JSON.stringify(settings.metadata), JSON.stringify(settings.socialLinks), JSON.stringify(settings.seo), JSON.stringify(settings.featureFlags)]
-      )
+      const values = {
+        key: "main" as const,
+        metadata: settings.metadata as unknown as Record<string, unknown>,
+        social_links: settings.socialLinks as unknown as unknown[],
+        seo: settings.seo as unknown as Record<string, unknown>,
+        feature_flags: settings.featureFlags as unknown as Record<string, boolean>,
+      }
+      await db!.insert(siteSettings).values(values).onConflictDoUpdate({
+        target: siteSettings.key,
+        set: {
+          metadata: values.metadata,
+          social_links: values.social_links,
+          seo: values.seo,
+          feature_flags: values.feature_flags,
+        },
+      })
       return
     } catch (e) {
       console.error("saveSiteSettings DB exception:", e)

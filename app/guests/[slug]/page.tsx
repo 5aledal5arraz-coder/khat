@@ -1,6 +1,6 @@
 import { Metadata } from "next"
 import { notFound } from "next/navigation"
-import { getGuestBySlug } from "@/lib/supabase/queries"
+import { getGuestBySlug } from "@/lib/queries/episodes"
 import { EpisodeCard } from "@/components/episodes/episode-card"
 import { QuoteCard } from "@/components/quotes/quote-card"
 import { GuestAvatar } from "@/components/guests/guest-avatar"

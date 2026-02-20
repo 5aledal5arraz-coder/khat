@@ -1,8 +1,6 @@
 /**
- * Runs migration SQL files against Supabase via the pooler connection.
- * Usage: npx tsx scripts/run-migration.ts [migration-files...]
- *
- * If no files specified, runs all migrations in order.
+ * Runs SQL files against PostgreSQL.
+ * Usage: DATABASE_URL="<url>" npx tsx scripts/run-migration.ts [sql-files...]
  */
 
 import { readFile } from "fs/promises"
@@ -13,18 +11,25 @@ const DB_URL = process.env.DATABASE_URL
 
 if (!DB_URL) {
   console.error("Missing DATABASE_URL env var")
-  console.error("Example: DATABASE_URL='postgres://postgres.ref:password@pooler.supabase.com:6543/postgres' npx tsx scripts/run-migration.ts")
+  console.error('Usage: DATABASE_URL="postgres://..." npx tsx scripts/run-migration.ts <sql-file>')
   process.exit(1)
 }
+
+// Strip sslmode from URL — handle SSL via client config (same as lib/db.ts)
+const cleanUrl = DB_URL.replace(/[?&]sslmode=[^&]*/g, "").replace(/\?$/, "")
+const isLocalhost = DB_URL.includes("localhost")
 
 async function main() {
   const files = process.argv.slice(2)
   if (files.length === 0) {
-    console.error("Usage: npx tsx scripts/run-migration.ts <migration-file> [...]")
+    console.error("Usage: npx tsx scripts/run-migration.ts <sql-file> [...]")
     process.exit(1)
   }
 
-  const client = new pg.Client({ connectionString: DB_URL })
+  const client = new pg.Client({
+    connectionString: cleanUrl,
+    ...(isLocalhost ? {} : { ssl: { rejectUnauthorized: false } }),
+  })
 
   try {
     console.log("Connecting to database...")
