@@ -36,7 +36,7 @@ async function FeaturedEpisode() {
   if (!episode) return null
 
   const videoId = getYouTubeId(episode.youtube_url)
-  const viewCount = episode.view_count ? new Intl.NumberFormat('ar-SA').format(episode.view_count) : null
+  const viewCount = episode.view_count ? new Intl.NumberFormat('en').format(episode.view_count) : null
 
   return (
     <Link href={`/episodes/${episode.slug}`} className="group block">

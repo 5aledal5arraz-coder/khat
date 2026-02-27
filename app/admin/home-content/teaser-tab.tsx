@@ -100,7 +100,7 @@ export function TeaserTab({ teasers, questions: initialQuestions, stats }: Props
   }
 
   function formatDate(dateStr: string) {
-    return new Date(dateStr).toLocaleDateString("ar-SA", {
+    return new Date(dateStr).toLocaleDateString("en-GB", {
       year: "numeric",
       month: "short",
       day: "numeric",

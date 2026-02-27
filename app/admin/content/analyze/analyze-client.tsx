@@ -148,7 +148,7 @@ export function AnalyzeClient({
 
   const formatDate = (iso: string) => {
     try {
-      return new Intl.DateTimeFormat("ar-SA", {
+      return new Intl.DateTimeFormat("en-GB", {
         year: "numeric",
         month: "long",
         day: "numeric",

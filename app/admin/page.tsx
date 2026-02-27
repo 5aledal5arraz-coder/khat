@@ -120,7 +120,7 @@ export default async function AdminDashboard() {
     },
   ]
 
-  const todayDate = new Date().toLocaleDateString("ar-u-ca-gregory", {
+  const todayDate = new Date().toLocaleDateString("en-GB", {
     weekday: "long",
     day: "numeric",
     month: "long",

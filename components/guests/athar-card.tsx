@@ -44,7 +44,7 @@ export function AtharCard({
     if (!episodeDate) return
     try {
       setFormattedDate(
-        new Intl.DateTimeFormat("ar-u-ca-gregory", {
+        new Intl.DateTimeFormat("en-GB", {
           year: "numeric",
           month: "long",
         }).format(new Date(episodeDate))

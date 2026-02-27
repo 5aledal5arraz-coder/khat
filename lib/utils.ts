@@ -67,15 +67,15 @@ export function formatDuration(minutes: number): string {
   return formatArabicCount(mins, "دقيقة")
 }
 
-const AR_MONTHS = [
-  'يناير', 'فبراير', 'مارس', 'أبريل', 'مايو', 'يونيو',
-  'يوليو', 'أغسطس', 'سبتمبر', 'أكتوبر', 'نوفمبر', 'ديسمبر',
+const EN_MONTHS = [
+  'January', 'February', 'March', 'April', 'May', 'June',
+  'July', 'August', 'September', 'October', 'November', 'December',
 ]
 
 export function formatDate(date: string | Date): string {
   const d = new Date(date)
   const day = d.getDate()
-  const month = AR_MONTHS[d.getMonth()]
+  const month = EN_MONTHS[d.getMonth()]
   const year = d.getFullYear()
   return `${day} ${month} ${year}`
 }

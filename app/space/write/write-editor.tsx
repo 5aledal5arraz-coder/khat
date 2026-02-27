@@ -286,7 +286,7 @@ export function WriteEditor({ episodes }: WriteEditorProps) {
             <h1 className="text-2xl font-bold">كتابة مقال</h1>
             {lastSaved && (
               <p className="text-xs text-muted-foreground">
-                آخر حفظ: {lastSaved.toLocaleTimeString("ar-SA")}
+                آخر حفظ: {lastSaved.toLocaleTimeString("en-GB")}
               </p>
             )}
           </div>
@@ -325,7 +325,7 @@ export function WriteEditor({ episodes }: WriteEditorProps) {
                             {draft.title || "بدون عنوان"}
                           </p>
                           <p className="text-xs text-muted-foreground">
-                            {new Date(draft.lastSaved).toLocaleDateString("ar-SA")}
+                            {new Date(draft.lastSaved).toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" })}
                           </p>
                         </Link>
                         <Button

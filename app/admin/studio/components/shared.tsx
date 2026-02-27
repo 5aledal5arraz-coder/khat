@@ -19,7 +19,7 @@ export function formatDuration(seconds: number): string {
 }
 
 export function formatDate(dateString: string): string {
-  return new Date(dateString).toLocaleDateString("ar-EG", {
+  return new Date(dateString).toLocaleDateString("en-GB", {
     year: "numeric",
     month: "long",
     day: "numeric",

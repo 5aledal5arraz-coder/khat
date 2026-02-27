@@ -865,7 +865,7 @@ export function SubmissionsTabs({
     ${app.social_links ? field("روابط", app.social_links) : ""}
   </div>
 
-  <div class="footer">بودكاست خط · khatpodcast.com · تم التصدير ${new Date().toLocaleDateString("ar-u-ca-gregory")}</div>
+  <div class="footer">بودكاست خط · khatpodcast.com · تم التصدير ${new Date().toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" })}</div>
 </body>
 </html>`
 

@@ -182,7 +182,7 @@ export function DetailYoutubePack({
         </div>
         {localEntry && (
           <span className="text-[10px] text-muted-foreground/50">
-            {new Date(localEntry.generatedAt).toLocaleDateString("ar-SA")}
+            {new Date(localEntry.generatedAt).toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" })}
           </span>
         )}
       </div>

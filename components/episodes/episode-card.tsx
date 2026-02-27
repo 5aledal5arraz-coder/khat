@@ -84,7 +84,7 @@ export function EpisodeCard({ episode }: EpisodeCardProps) {
               <>
                 <span>•</span>
                 <Eye className="h-3 w-3" />
-                <span>{new Intl.NumberFormat('ar-SA', { notation: 'compact' }).format(episode.view_count)}</span>
+                <span>{new Intl.NumberFormat('en', { notation: 'compact' }).format(episode.view_count)}</span>
               </>
             )}
             {episode.season && (

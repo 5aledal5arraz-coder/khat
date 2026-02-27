@@ -40,7 +40,7 @@ export function DraftIndicator() {
           <div className="flex-1">
             <p className="font-medium">لديك {drafts.length} مسودة محفوظة</p>
             <p className="text-sm text-muted-foreground">
-              آخر تعديل: {new Date(drafts[0].lastSaved).toLocaleDateString("ar-SA")}
+              آخر تعديل: {new Date(drafts[0].lastSaved).toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" })}
             </p>
           </div>
           <div className="flex items-center gap-2">

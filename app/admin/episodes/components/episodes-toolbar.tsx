@@ -127,7 +127,7 @@ export function EpisodesToolbar({
           onClick={handleRefreshCache}
           disabled={isRefreshing}
           className="h-10 gap-2 rounded-xl px-3"
-          title={cacheInfo?.fetchedAt ? `آخر تحديث: ${new Date(cacheInfo.fetchedAt).toLocaleString("ar-SA")}` : "لم يتم التحديث بعد"}
+          title={cacheInfo?.fetchedAt ? `آخر تحديث: ${new Date(cacheInfo.fetchedAt).toLocaleString("en-GB", { day: "numeric", month: "long", year: "numeric", hour: "2-digit", minute: "2-digit" })}` : "لم يتم التحديث بعد"}
         >
           <RefreshCw className={`h-4 w-4 ${isRefreshing ? "animate-spin" : ""}`} />
           <span className="hidden sm:inline">تحديث</span>

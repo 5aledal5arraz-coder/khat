@@ -226,8 +226,8 @@ function TranscriptContent() {
       {transcriptStatus === "ready" && transcript && (
         <div className="space-y-4">
           <div className="flex flex-wrap gap-4 text-sm text-muted-foreground">
-            <span>{transcript.word_count.toLocaleString("ar-SA")} كلمة</span>
-            <span>{transcript.char_count.toLocaleString("ar-SA")} حرف</span>
+            <span>{transcript.word_count.toLocaleString("en")} كلمة</span>
+            <span>{transcript.char_count.toLocaleString("en")} حرف</span>
             <span>المصدر: {transcript.source === "youtube_captions" ? "يوتيوب" : transcript.source === "whisper" ? "Whisper AI" : "ملف مرفوع"}</span>
             <span>اللغة: {transcript.language}</span>
           </div>

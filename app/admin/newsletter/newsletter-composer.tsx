@@ -410,7 +410,7 @@ export function NewsletterComposer({ subscriberCount, recentSends, subscribers }
                   <tr key={i} className="border-b border-border/50">
                     <td className="px-4 py-2.5 font-mono text-xs" dir="ltr">{sub.email}</td>
                     <td className="px-4 py-2.5 text-muted-foreground">
-                      {new Date(sub.created_at).toLocaleDateString('ar-SA', {
+                      {new Date(sub.created_at).toLocaleDateString('en-GB', {
                         year: 'numeric',
                         month: 'short',
                         day: 'numeric',
@@ -446,7 +446,7 @@ export function NewsletterComposer({ subscriberCount, recentSends, subscribers }
                     <td className="px-4 py-2.5">{send.subject}</td>
                     <td className="px-4 py-2.5">{send.recipient_count}</td>
                     <td className="px-4 py-2.5 text-muted-foreground">
-                      {new Date(send.sent_at).toLocaleDateString('ar-SA', {
+                      {new Date(send.sent_at).toLocaleDateString('en-GB', {
                         year: 'numeric',
                         month: 'short',
                         day: 'numeric',
