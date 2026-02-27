@@ -4,6 +4,7 @@ import { sql } from "drizzle-orm"
 import { validateEmail } from "@/lib/validation"
 import { sendNewsletterWelcome } from "@/lib/email/send"
 import { APP_URL } from "@/lib/email/resend"
+import crypto from "crypto"
 
 export async function POST(request: NextRequest) {
   try {
@@ -19,17 +20,20 @@ export async function POST(request: NextRequest) {
     }
 
     const normalizedEmail = email.toLowerCase().trim()
+    const id = crypto.randomUUID()
+    const unsubToken = crypto.randomBytes(16).toString("hex")
 
     let unsubscribeToken: string | null = null
     try {
       const rows = await db!.execute(sql`
-        INSERT INTO newsletter_subscribers (email, unsubscribe_token)
-        VALUES (${normalizedEmail}, encode(gen_random_bytes(16), 'hex'))
+        INSERT INTO newsletter_subscribers (id, email, unsubscribe_token)
+        VALUES (${id}, ${normalizedEmail}, ${unsubToken})
         RETURNING unsubscribe_token
       `)
       unsubscribeToken = (rows as unknown as { unsubscribe_token: string }[])[0]?.unsubscribe_token
     } catch (dbError: any) {
-      if (dbError?.code === "23505") {
+      const pgCode = dbError?.code || dbError?.cause?.code
+      if (pgCode === "23505") {
         return NextResponse.json(
           { error: "البريد الإلكتروني مسجل بالفعل" },
           { status: 400 }

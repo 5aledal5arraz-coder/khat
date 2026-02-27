@@ -5,7 +5,7 @@ export const newsletterSubscribers = pgTable("newsletter_subscribers", {
   id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
   email: text("email").unique().notNull(),
   status: text("status").default("active"),
-  unsubscribe_token: text("unsubscribe_token"),
+  unsubscribe_token: text("unsubscribe_token").unique(),
   unsubscribed_at: timestamp("unsubscribed_at", { withTimezone: true }),
   created_at: timestamp("created_at", { withTimezone: true }).defaultNow(),
 })
