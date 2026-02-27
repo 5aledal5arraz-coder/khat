@@ -189,7 +189,7 @@ export function ResourcesAdmin({ initialResources, counts, lastGenerated }: Reso
     <div className="space-y-6">
       {/* Header */}
       <div className="flex flex-wrap items-center gap-3">
-        <h1 className="text-xl font-bold">الموارد</h1>
+        <h1 className="text-xl font-bold">خطوط</h1>
         <span className="rounded-full bg-yellow-500/10 px-2.5 py-0.5 text-xs font-medium text-yellow-600 dark:text-yellow-400">
           {liveCounts.pending} معلّقة
         </span>

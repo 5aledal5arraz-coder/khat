@@ -2,14 +2,14 @@
 
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { Home, Headphones, PenSquare, Compass, MoreHorizontal } from "lucide-react"
+import { Home, Headphones, PenSquare, BookOpen, MoreHorizontal } from "lucide-react"
 import { cn } from "@/lib/utils"
 
 const baseNavItems = [
   { href: "/", icon: Home, label: "الرئيسية" },
   { href: "/episodes", icon: Headphones, label: "الحلقات" },
   { href: "/space", icon: PenSquare, label: "حبر", requiresHibr: true },
-  { href: "/about", icon: Compass, label: "عنّا" },
+  { href: "/resources", icon: BookOpen, label: "خطوط" },
   { href: "/more", icon: MoreHorizontal, label: "المزيد" },
 ]
 

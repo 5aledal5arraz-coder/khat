@@ -13,7 +13,7 @@ const baseNavigation = [
   { name: "الضيوف", href: "/guests" },
   { name: "المجموعات", href: "/series" },
   { name: "حبر", href: "/space", requiresHibr: true },
-  { name: "الموارد", href: "/resources" },
+  { name: "خطوط", href: "/resources" },
   { name: "عن خط", href: "/about" },
 ]
 

@@ -20,7 +20,7 @@ export const metadata: Metadata = {
 const menuItems = [
   { href: "/guests", icon: Users, label: "الضيوف", description: "تعرف على ضيوف البودكاست" },
   { href: "/series", icon: Layers, label: "المجموعات", description: "حلقات مجمعة حسب الموضوع" },
-  { href: "/resources", icon: BookOpen, label: "الموارد", description: "كتب وروابط مذكورة" },
+  { href: "/resources", icon: BookOpen, label: "خطوط", description: "كتب ومقالات وروابط مختارة" },
   { href: "/paths", icon: Compass, label: "مسارات الاستماع", description: "حلقات مختارة حسب مزاجك" },
   { href: "/store", icon: ShoppingBag, label: "المتجر", description: "قريباً" },
   { href: "/sponsor", icon: Handshake, label: "كن راعياً", description: "فرص الرعاية" },

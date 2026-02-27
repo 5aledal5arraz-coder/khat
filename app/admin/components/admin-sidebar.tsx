@@ -50,7 +50,7 @@ const navGroups: NavGroup[] = [
       { href: "/admin/guests", icon: Users, label: "الضيوف" },
       { href: "/admin/topics", icon: Tag, label: "المواضيع" },
       { href: "/admin/content", icon: FileEdit, label: "المحتوى" },
-      { href: "/admin/resources", icon: BookOpen, label: "الموارد" },
+      { href: "/admin/resources", icon: BookOpen, label: "خطوط" },
     ],
   },
   {
