@@ -1,16 +1,21 @@
 import { getStudioSessions } from "@/lib/studio"
 import { getEpisodes } from "@/lib/queries/episodes"
 import { getSectionsConfig } from "@/lib/episode-sections"
+import { db } from "@/lib/db"
+import { episodeEnrichments } from "@/lib/db/schema/episodes"
 import { StudioClient } from "./studio-client"
 
 export const dynamic = "force-dynamic"
 
 export default async function StudioPage() {
-  const [sessions, episodes, sectionsConfig] = await Promise.all([
+  const [sessions, episodes, sectionsConfig, enrichedRows] = await Promise.all([
     getStudioSessions(),
     getEpisodes({ includeHidden: true }),
     getSectionsConfig(),
+    db!.select({ episodeId: episodeEnrichments.episode_id }).from(episodeEnrichments),
   ])
+
+  const enrichedEpisodeIds = enrichedRows.map((r) => r.episodeId)
 
   const sessionCount = sessions.length
   const episodeCount = episodes.length
@@ -30,6 +35,7 @@ export default async function StudioPage() {
         initialSessions={sessions}
         episodes={episodes}
         sectionsConfig={sectionsConfig}
+        enrichedEpisodeIds={enrichedEpisodeIds}
       />
     </div>
   )

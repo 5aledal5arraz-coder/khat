@@ -23,6 +23,7 @@ interface StudioClientProps {
   initialSessions: StudioSession[]
   episodes: Episode[]
   sectionsConfig: EpisodeSectionsConfig
+  enrichedEpisodeIds: string[]
 }
 
 // ---------------------------------------------------------------------------
@@ -93,12 +94,14 @@ function EpisodeListRow({
   existing,
   isLoading,
   disabled,
+  isEnriched,
   onSelect,
 }: {
   episode: Episode
   existing: StudioSession | undefined
   isLoading: boolean
   disabled: boolean
+  isEnriched: boolean
   onSelect: (ep: Episode) => void
 }) {
   return (
@@ -141,6 +144,13 @@ function EpisodeListRow({
         <span className="hidden w-16 shrink-0 text-xs text-muted-foreground md:block">
           <Clock className="mr-1 inline h-3 w-3" />
           {fmtEpDuration(episode.duration_minutes)}
+        </span>
+      )}
+
+      {/* AI enrichment badge */}
+      {isEnriched && (
+        <span className="shrink-0 rounded-full bg-cyan-500/10 px-2 py-0.5 text-[10px] font-semibold text-cyan-400 ring-1 ring-cyan-500/20">
+          AI
         </span>
       )}
 
@@ -242,7 +252,8 @@ function AudioSessionRow({
 // Main Studio Client
 // ---------------------------------------------------------------------------
 
-export function StudioClient({ initialSessions, episodes, sectionsConfig }: StudioClientProps) {
+export function StudioClient({ initialSessions, episodes, sectionsConfig, enrichedEpisodeIds }: StudioClientProps) {
+  const enrichedSet = useMemo(() => new Set(enrichedEpisodeIds), [enrichedEpisodeIds])
   const [episodeSearch, setEpisodeSearch] = useState("")
   const [fetching, setFetching] = useState(false)
   const [fetchingEpisodeId, setFetchingEpisodeId] = useState<string | null>(null)
@@ -708,6 +719,7 @@ export function StudioClient({ initialSessions, episodes, sectionsConfig }: Stud
                       existing={getExistingSession(episode)}
                       isLoading={fetchingEpisodeId === episode.id}
                       disabled={fetching}
+                      isEnriched={enrichedSet.has(episode.id)}
                       onSelect={handleEpisodeSelect}
                     />
                   ))}
