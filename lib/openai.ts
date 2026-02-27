@@ -1850,3 +1850,106 @@ export async function analyzeEpisodesForHome(
 
   return { success: true, data: allResults }
 }
+
+// ---------------------------------------------------------------------------
+// AI-Curated Resources
+// ---------------------------------------------------------------------------
+
+export interface CuratedResourceSuggestion {
+  title: string
+  author: string
+  description: string
+  url: string
+  type: "book" | "article" | "link"
+  topic: string
+  reasoning: string
+}
+
+export async function generateCuratedResources(
+  topics: { name: string; description?: string | null }[],
+  existingTitles: string[]
+): Promise<{ success: boolean; data?: CuratedResourceSuggestion[]; error?: string }> {
+  let openai: OpenAI
+  try {
+    openai = getClient()
+  } catch {
+    return { success: false, error: "OPENAI_API_KEY غير مُعدّ" }
+  }
+
+  const topicsBlock = topics
+    .map((t) => `- ${t.name}${t.description ? `: ${t.description}` : ""}`)
+    .join("\n")
+
+  const existingBlock =
+    existingTitles.length > 0
+      ? `\n\nالموارد الموجودة بالفعل (لا تكررها):\n${existingTitles.join("\n")}`
+      : ""
+
+  try {
+    const response = await openai.chat.completions.create({
+      model: "gpt-4o-mini",
+      temperature: 0.5,
+      response_format: { type: "json_object" },
+      messages: [
+        {
+          role: "system",
+          content: `أنت أمين محتوى متخصص في اختيار موارد تعليمية وثقافية لبودكاست عربي يُدعى "خط".
+البودكاست يقدّم محادثات عميقة حول مواضيع إنسانية وحياتية متنوعة.
+
+## مهمتك:
+اقترح 10-15 مورداً (كتب، مقالات، روابط) ذات صلة بمواضيع البودكاست المقدمة.
+
+## قواعد صارمة:
+- جميع المخرجات باللغة العربية (العناوين والأوصاف)
+- إذا كان الكتاب/المقال بالإنجليزية، اكتب العنوان بالعربية مع ذكر العنوان الأصلي
+- نوّع بين الأنواع: على الأقل 3 كتب، 3 مقالات، و3 روابط
+- لكل مورد اكتب وصفاً مختصراً (جملة أو جملتين) يشرح علاقته بالموضوع
+- أعط رابط URL حقيقي قدر الإمكان (لمواقع Goodreads، Wikipedia، المقالات الأصلية)
+- لا تكرر موارد موجودة بالفعل
+- اختر موارد عالية الجودة ومفيدة للمستمعين العرب
+- الإجابة JSON فقط
+
+## أنواع الموارد:
+- "book": كتب (عربية أو مترجمة)
+- "article": مقالات ودراسات
+- "link": مواقع وأدوات ومحتوى رقمي مفيد
+
+## مخطط JSON المطلوب:
+{
+  "resources": [
+    {
+      "title": "عنوان المورد بالعربية",
+      "author": "اسم المؤلف",
+      "description": "وصف مختصر يشرح لماذا هذا المورد مفيد",
+      "url": "رابط حقيقي",
+      "type": "book",
+      "topic": "اسم الموضوع المرتبط من القائمة",
+      "reasoning": "لماذا اخترت هذا المورد تحديداً"
+    }
+  ]
+}`,
+        },
+        {
+          role: "user",
+          content: `مواضيع البودكاست:\n${topicsBlock}${existingBlock}`,
+        },
+      ],
+    })
+
+    const content = response.choices[0]?.message?.content
+    if (!content) {
+      return { success: false, error: "لم يتم الحصول على استجابة من الذكاء الاصطناعي" }
+    }
+
+    const parsed = JSON.parse(content) as { resources: CuratedResourceSuggestion[] }
+    if (!Array.isArray(parsed.resources)) {
+      return { success: false, error: "استجابة غير صالحة من الذكاء الاصطناعي" }
+    }
+
+    return { success: true, data: parsed.resources }
+  } catch (error) {
+    const msg = error instanceof Error ? error.message : "حدث خطأ أثناء إنشاء الموارد"
+    console.error("generateCuratedResources error:", error)
+    return { success: false, error: msg }
+  }
+}

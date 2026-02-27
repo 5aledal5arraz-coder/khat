@@ -7,5 +7,6 @@ export * from "./content"
 export * from "./system"
 export * from "./partnerships"
 export * from "./newsletter"
+export * from "./curated-resources"
 
 export * from "./relations"

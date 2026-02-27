@@ -18,6 +18,8 @@ import {
   FileEdit,
   Mail,
   UserCog,
+  Handshake,
+  BookOpen,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 
@@ -48,6 +50,7 @@ const navGroups: NavGroup[] = [
       { href: "/admin/guests", icon: Users, label: "الضيوف" },
       { href: "/admin/topics", icon: Tag, label: "المواضيع" },
       { href: "/admin/content", icon: FileEdit, label: "المحتوى" },
+      { href: "/admin/resources", icon: BookOpen, label: "الموارد" },
     ],
   },
   {
@@ -56,6 +59,7 @@ const navGroups: NavGroup[] = [
       { href: "/admin/submissions", icon: Inbox, label: "الطلبات" },
       { href: "/admin/moderation", icon: Shield, label: "الإشراف" },
       { href: "/admin/ads", icon: Megaphone, label: "الإعلانات" },
+      { href: "/admin/partnerships", icon: Handshake, label: "الشركاء" },
       { href: "/admin/newsletter", icon: Mail, label: "النشرة البريدية" },
     ],
   },
