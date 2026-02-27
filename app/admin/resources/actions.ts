@@ -47,3 +47,13 @@ export async function resetResourceAction(id: string) {
   revalidateAll()
   return updated
 }
+
+export async function deleteResourceAction(id: string) {
+  await requireAdmin()
+  const updated = await updateCuratedResource(id, {
+    status: "deleted",
+    approved_at: null,
+  })
+  revalidateAll()
+  return updated
+}

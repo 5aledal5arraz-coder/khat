@@ -1,6 +1,6 @@
 import { db, USE_DB } from "@/lib/db"
 import { curatedResources } from "@/lib/db/schema"
-import { eq, desc, sql } from "drizzle-orm"
+import { eq, desc, sql, ne, and } from "drizzle-orm"
 
 export type CuratedResource = typeof curatedResources.$inferSelect
 export type NewCuratedResource = typeof curatedResources.$inferInsert
@@ -22,10 +22,14 @@ export async function getCuratedResources(status?: string): Promise<CuratedResou
   if (USE_DB) {
     try {
       const query = db!.select().from(curatedResources)
+      if (status === "deleted") {
+        return await query.where(eq(curatedResources.status, "deleted")).orderBy(desc(curatedResources.updated_at))
+      }
       if (status) {
         return await query.where(eq(curatedResources.status, status)).orderBy(desc(curatedResources.created_at))
       }
-      return await query.orderBy(desc(curatedResources.created_at))
+      // Default "all" excludes deleted
+      return await query.where(ne(curatedResources.status, "deleted")).orderBy(desc(curatedResources.created_at))
     } catch (e) {
       console.error("getCuratedResources DB exception:", e)
     }
@@ -84,6 +88,7 @@ export async function getCuratedResourceCounts(): Promise<{ pending: number; app
 
       const counts = { ...zero }
       for (const row of rows) {
+        if (row.status === "deleted") continue
         if (row.status === "pending") counts.pending = row.count
         else if (row.status === "approved") counts.approved = row.count
         else if (row.status === "rejected") counts.rejected = row.count

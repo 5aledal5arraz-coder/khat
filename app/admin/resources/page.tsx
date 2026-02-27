@@ -4,15 +4,16 @@ import { ResourcesAdmin } from "./resources-client"
 export const dynamic = "force-dynamic"
 
 export default async function AdminResourcesPage() {
-  const [resources, counts, lastGenerated] = await Promise.all([
+  const [resources, deletedResources, counts, lastGenerated] = await Promise.all([
     getCuratedResources(),
+    getCuratedResources("deleted"),
     getCuratedResourceCounts(),
     getLastGenerationTime(),
   ])
 
   return (
     <ResourcesAdmin
-      initialResources={resources}
+      initialResources={[...resources, ...deletedResources]}
       counts={counts}
       lastGenerated={lastGenerated?.toISOString() ?? null}
     />

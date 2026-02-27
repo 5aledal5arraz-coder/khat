@@ -13,6 +13,7 @@ import {
   Pencil,
   ChevronDown,
   AlertCircle,
+  Trash2,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import type { CuratedResource } from "@/lib/queries/curated-resources"
@@ -21,6 +22,7 @@ import {
   rejectResourceAction,
   editResourceAction,
   resetResourceAction,
+  deleteResourceAction,
 } from "./actions"
 
 interface ResourcesAdminProps {
@@ -29,7 +31,7 @@ interface ResourcesAdminProps {
   lastGenerated: string | null
 }
 
-type FilterStatus = "all" | "pending" | "approved" | "rejected"
+type FilterStatus = "all" | "pending" | "approved" | "rejected" | "deleted"
 
 const typeConfig: Record<string, { label: string; icon: typeof BookOpen; color: string }> = {
   book: { label: "كتاب", icon: BookOpen, color: "bg-amber-500/10 text-amber-600 dark:text-amber-400" },
@@ -41,6 +43,7 @@ const statusConfig: Record<string, { label: string; color: string }> = {
   pending: { label: "معلّقة", color: "bg-yellow-500/10 text-yellow-600 dark:text-yellow-400" },
   approved: { label: "مُوافق", color: "bg-green-500/10 text-green-600 dark:text-green-400" },
   rejected: { label: "مرفوض", color: "bg-red-500/10 text-red-600 dark:text-red-400" },
+  deleted: { label: "محذوفة", color: "bg-gray-500/10 text-gray-500 dark:text-gray-400" },
 }
 
 export function ResourcesAdmin({ initialResources, counts, lastGenerated }: ResourcesAdminProps) {
@@ -60,13 +63,14 @@ export function ResourcesAdmin({ initialResources, counts, lastGenerated }: Reso
   }
 
   const filtered = useMemo(() => {
-    if (filter === "all") return resources
+    if (filter === "all") return resources.filter((r) => r.status !== "deleted")
     return resources.filter((r) => r.status === filter)
   }, [resources, filter])
 
   const liveCounts = useMemo(() => {
-    const c = { pending: 0, approved: 0, rejected: 0, total: 0 }
+    const c = { pending: 0, approved: 0, rejected: 0, deleted: 0, total: 0 }
     for (const r of resources) {
+      if (r.status === "deleted") { c.deleted++; continue }
       if (r.status === "pending") c.pending++
       else if (r.status === "approved") c.approved++
       else if (r.status === "rejected") c.rejected++
@@ -130,6 +134,20 @@ export function ResourcesAdmin({ initialResources, counts, lastGenerated }: Reso
       if (updated) {
         setResources((prev) => prev.map((r) => (r.id === id ? updated : r)))
         showMessage("تم الإرجاع للمعلّقة")
+      }
+    } catch {
+      showMessage("حدث خطأ")
+    }
+    setActioningId(null)
+  }
+
+  const handleDelete = async (id: string) => {
+    setActioningId(id)
+    try {
+      const updated = await deleteResourceAction(id)
+      if (updated) {
+        setResources((prev) => prev.map((r) => (r.id === id ? updated : r)))
+        showMessage("تم الحذف")
       }
     } catch {
       showMessage("حدث خطأ")
@@ -220,9 +238,9 @@ export function ResourcesAdmin({ initialResources, counts, lastGenerated }: Reso
 
       {/* Filter tabs */}
       <div className="flex gap-2">
-        {(["all", "pending", "approved", "rejected"] as FilterStatus[]).map((s) => {
+        {(["all", "pending", "approved", "rejected", "deleted"] as FilterStatus[]).map((s) => {
           const label = s === "all" ? "الكل" : statusConfig[s].label
-          const count = s === "all" ? liveCounts.total : liveCounts[s]
+          const count = s === "all" ? liveCounts.total : liveCounts[s as keyof typeof liveCounts]
           return (
             <button
               key={s}
@@ -410,25 +428,63 @@ export function ResourcesAdmin({ initialResources, counts, lastGenerated }: Reso
                         <Pencil className="h-3 w-3" />
                         تعديل
                       </button>
+                      <button
+                        onClick={() => handleDelete(resource.id)}
+                        disabled={isActioning}
+                        className="flex items-center gap-1 rounded-lg px-3 py-1.5 text-xs text-muted-foreground hover:bg-red-500/10 hover:text-red-600 dark:hover:text-red-400 disabled:opacity-50"
+                      >
+                        <Trash2 className="h-3 w-3" />
+                        حذف
+                      </button>
                     </>
                   )}
                   {resource.status === "rejected" && (
+                    <>
+                      <button
+                        onClick={() => handleReset(resource.id)}
+                        disabled={isActioning}
+                        className="flex items-center gap-1 rounded-lg bg-muted px-3 py-1.5 text-xs font-medium text-muted-foreground hover:text-foreground disabled:opacity-50"
+                      >
+                        {isActioning ? <Loader2 className="h-3 w-3 animate-spin" /> : <RotateCcw className="h-3 w-3" />}
+                        إعادة للمراجعة
+                      </button>
+                      <button
+                        onClick={() => handleDelete(resource.id)}
+                        disabled={isActioning}
+                        className="flex items-center gap-1 rounded-lg px-3 py-1.5 text-xs text-muted-foreground hover:bg-red-500/10 hover:text-red-600 dark:hover:text-red-400 disabled:opacity-50"
+                      >
+                        <Trash2 className="h-3 w-3" />
+                        حذف
+                      </button>
+                    </>
+                  )}
+                  {resource.status === "approved" && (
+                    <>
+                      <button
+                        onClick={() => startEdit(resource)}
+                        className="flex items-center gap-1 rounded-lg px-3 py-1.5 text-xs text-muted-foreground hover:bg-muted hover:text-foreground"
+                      >
+                        <Pencil className="h-3 w-3" />
+                        تعديل
+                      </button>
+                      <button
+                        onClick={() => handleDelete(resource.id)}
+                        disabled={isActioning}
+                        className="flex items-center gap-1 rounded-lg px-3 py-1.5 text-xs text-muted-foreground hover:bg-red-500/10 hover:text-red-600 dark:hover:text-red-400 disabled:opacity-50"
+                      >
+                        <Trash2 className="h-3 w-3" />
+                        حذف
+                      </button>
+                    </>
+                  )}
+                  {resource.status === "deleted" && (
                     <button
                       onClick={() => handleReset(resource.id)}
                       disabled={isActioning}
                       className="flex items-center gap-1 rounded-lg bg-muted px-3 py-1.5 text-xs font-medium text-muted-foreground hover:text-foreground disabled:opacity-50"
                     >
                       {isActioning ? <Loader2 className="h-3 w-3 animate-spin" /> : <RotateCcw className="h-3 w-3" />}
-                      إعادة للمراجعة
-                    </button>
-                  )}
-                  {resource.status === "approved" && (
-                    <button
-                      onClick={() => startEdit(resource)}
-                      className="flex items-center gap-1 rounded-lg px-3 py-1.5 text-xs text-muted-foreground hover:bg-muted hover:text-foreground"
-                    >
-                      <Pencil className="h-3 w-3" />
-                      تعديل
+                      استعادة
                     </button>
                   )}
                 </div>
