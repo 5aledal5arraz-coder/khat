@@ -5,5 +5,7 @@ export * from "./community"
 export * from "./studio"
 export * from "./content"
 export * from "./system"
+export * from "./partnerships"
+export * from "./newsletter"
 
 export * from "./relations"

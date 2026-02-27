@@ -1,10 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAdminAPI, getAdminAuthUser } from '@/lib/api-utils'
 import { db } from '@/lib/db'
-import { newsletterSubscribers, newsletterSends } from '@/lib/db/schema'
-import { eq } from 'drizzle-orm'
-import { getResend, FROM_EMAIL } from '@/lib/email/resend'
-import { newsletterHtml } from '@/lib/email/templates'
+import { sendCampaign } from '@/lib/newsletter/sender'
 
 export async function POST(request: NextRequest) {
   const authError = await requireAdminAPI()
@@ -25,51 +22,22 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'الموضوع والمحتوى مطلوبان' }, { status: 400 })
   }
 
-  // Fetch active subscribers
-  const subscribers = await db.select({
-    email: newsletterSubscribers.email,
-    unsubscribe_token: newsletterSubscribers.unsubscribe_token,
-  })
-    .from(newsletterSubscribers)
-    .where(eq(newsletterSubscribers.status, 'active'))
+  try {
+    const user = await getAdminAuthUser()
+    const result = await sendCampaign({
+      subject: body.subject,
+      body: body.body,
+      sentBy: user?.id || null,
+    })
 
-  if (subscribers.length === 0) {
-    return NextResponse.json({ error: 'لا يوجد مشتركين نشطين' }, { status: 400 })
+    return NextResponse.json({
+      success: true,
+      campaignId: result.campaignId,
+      sent: result.sent,
+      total: result.total,
+    })
+  } catch (err) {
+    console.error('[newsletter-send]', err)
+    return NextResponse.json({ error: 'فشل الإرسال' }, { status: 500 })
   }
-
-  const resend = getResend()
-  let sentCount = 0
-  const BATCH_SIZE = 50
-
-  // Send in batches of 50
-  for (let i = 0; i < subscribers.length; i += BATCH_SIZE) {
-    const batch = subscribers.slice(i, i + BATCH_SIZE)
-    const emails = batch.map((sub) => ({
-      from: FROM_EMAIL,
-      to: sub.email,
-      subject: body.subject.trim(),
-      html: newsletterHtml(
-        body.body.trim(),
-        `${process.env.NEXT_PUBLIC_APP_URL || 'https://khatpodcast.com'}/api/unsubscribe/newsletter?token=${sub.unsubscribe_token}`
-      ),
-    }))
-
-    try {
-      await resend.batch.send(emails)
-      sentCount += batch.length
-    } catch (err) {
-      console.error(`[newsletter] Batch ${i / BATCH_SIZE} failed:`, err)
-    }
-  }
-
-  // Log the send
-  const user = await getAdminAuthUser()
-  await db.insert(newsletterSends).values({
-    subject: body.subject.trim(),
-    body: body.body.trim(),
-    recipient_count: sentCount,
-    sent_by: user?.id || null,
-  })
-
-  return NextResponse.json({ success: true, sent: sentCount, total: subscribers.length })
 }

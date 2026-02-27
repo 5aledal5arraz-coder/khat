@@ -238,3 +238,64 @@ BEGIN
   END IF;
 END;
 $$ LANGUAGE plpgsql;
+
+-- ============================================================
+-- 5. Trusted Partners
+-- ============================================================
+
+-- updated_at trigger
+DROP TRIGGER IF EXISTS trg_trusted_partners_updated_at ON trusted_partners;
+CREATE TRIGGER trg_trusted_partners_updated_at
+  BEFORE UPDATE ON trusted_partners
+  FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+-- Indexes
+CREATE INDEX IF NOT EXISTS idx_trusted_partners_display_order ON trusted_partners (display_order);
+CREATE INDEX IF NOT EXISTS idx_trusted_partners_is_active ON trusted_partners (is_active);
+
+-- Description length constraint
+DO $$ BEGIN
+  ALTER TABLE trusted_partners ADD CONSTRAINT chk_trusted_partners_description_length
+    CHECK (char_length(description) <= 200);
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
+
+-- ============================================================
+-- 6. Newsletter Campaigns & Tracking
+-- ============================================================
+
+-- updated_at trigger
+DROP TRIGGER IF EXISTS trg_newsletter_campaigns_updated_at ON newsletter_campaigns;
+CREATE TRIGGER trg_newsletter_campaigns_updated_at
+  BEFORE UPDATE ON newsletter_campaigns
+  FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+-- Campaign status constraint
+DO $$ BEGIN
+  ALTER TABLE newsletter_campaigns ADD CONSTRAINT chk_newsletter_campaigns_status
+    CHECK (status IN ('draft', 'scheduled', 'sending', 'sent', 'failed'));
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
+
+-- Campaign type constraint
+DO $$ BEGIN
+  ALTER TABLE newsletter_campaigns ADD CONSTRAINT chk_newsletter_campaigns_type
+    CHECK (type IN ('one_off', 'monthly'));
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
+
+-- Delivery status constraint
+DO $$ BEGIN
+  ALTER TABLE newsletter_deliveries ADD CONSTRAINT chk_newsletter_deliveries_status
+    CHECK (status IN ('queued', 'sent', 'failed', 'delivered', 'opened', 'clicked', 'bounced', 'complained'));
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
+
+-- Indexes for newsletter queries
+CREATE INDEX IF NOT EXISTS idx_newsletter_deliveries_campaign_id ON newsletter_deliveries (campaign_id);
+CREATE INDEX IF NOT EXISTS idx_newsletter_deliveries_subscriber_id ON newsletter_deliveries (subscriber_id);
+CREATE INDEX IF NOT EXISTS idx_newsletter_links_campaign_id ON newsletter_links (campaign_id);
+CREATE INDEX IF NOT EXISTS idx_newsletter_clicks_link_id ON newsletter_clicks (link_id);
+CREATE INDEX IF NOT EXISTS idx_newsletter_clicks_delivery_id ON newsletter_clicks (delivery_id);
+CREATE INDEX IF NOT EXISTS idx_newsletter_campaigns_status ON newsletter_campaigns (status);
+CREATE INDEX IF NOT EXISTS idx_newsletter_campaigns_sent_at ON newsletter_campaigns (sent_at);

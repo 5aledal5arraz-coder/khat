@@ -1,44 +1,46 @@
 "use client"
 
-import { useState, useMemo } from 'react'
+import { useState } from 'react'
+import Link from 'next/link'
 import {
   Mail,
   PenLine,
   Sparkles,
   X,
   Loader2,
-  Users,
-  Copy,
-  Search,
   Send,
   Eye,
   Clock,
+  ExternalLink,
 } from 'lucide-react'
 
-interface RecentSend {
+interface RecentCampaign {
   id: string
   subject: string
-  recipient_count: number
+  status: string
+  total_recipients: number
+  total_sent: number
+  total_opened: number
+  total_clicked: number
   sent_at: string
-}
-
-interface Subscriber {
-  email: string
-  created_at: string
 }
 
 interface NewsletterComposerProps {
   subscriberCount: number
-  recentSends: RecentSend[]
-  subscribers: Subscriber[]
+  recentCampaigns: RecentCampaign[]
 }
 
-const ARABIC_MONTHS = [
-  'يناير', 'فبراير', 'مارس', 'أبريل', 'مايو', 'يونيو',
-  'يوليو', 'أغسطس', 'سبتمبر', 'أكتوبر', 'نوفمبر', 'ديسمبر',
+const EN_MONTHS = [
+  'January', 'February', 'March', 'April', 'May', 'June',
+  'July', 'August', 'September', 'October', 'November', 'December',
 ]
 
-export function NewsletterComposer({ subscriberCount, recentSends, subscribers }: NewsletterComposerProps) {
+function pct(n: number, total: number): string {
+  if (total === 0) return '0%'
+  return `${Math.round((n / total) * 100)}%`
+}
+
+export function NewsletterComposer({ subscriberCount, recentCampaigns }: NewsletterComposerProps) {
   // Compose state
   const [subject, setSubject] = useState('')
   const [body, setBody] = useState('')
@@ -56,15 +58,6 @@ export function NewsletterComposer({ subscriberCount, recentSends, subscribers }
   const [genMonth, setGenMonth] = useState(now.getMonth() + 1)
   const [genYear, setGenYear] = useState(now.getFullYear())
   const [generating, setGenerating] = useState(false)
-
-  // Subscriber search
-  const [subscriberSearch, setSubscriberSearch] = useState('')
-
-  const filteredSubscribers = useMemo(() => {
-    if (!subscriberSearch.trim()) return subscribers
-    const q = subscriberSearch.toLowerCase()
-    return subscribers.filter((s) => s.email.toLowerCase().includes(q))
-  }, [subscribers, subscriberSearch])
 
   async function handleGenerate() {
     if ((subject.trim() || body.trim()) && !window.confirm('الحقول تحتوي على محتوى. هل تريد استبداله؟')) {
@@ -157,13 +150,6 @@ export function NewsletterComposer({ subscriberCount, recentSends, subscribers }
     }
   }
 
-  function handleCopyAllEmails() {
-    const emails = subscribers.map((s) => s.email).join(', ')
-    navigator.clipboard.writeText(emails)
-    setMessage({ type: 'success', text: `تم نسخ ${subscribers.length} بريد` })
-    setTimeout(() => setMessage(null), 2000)
-  }
-
   return (
     <div className="space-y-6">
       {/* Section 1: Stats + Quick Actions */}
@@ -228,7 +214,7 @@ export function NewsletterComposer({ subscriberCount, recentSends, subscribers }
                 onChange={(e) => setGenMonth(Number(e.target.value))}
                 className="w-full rounded-lg border border-border bg-background px-4 py-2.5 text-sm focus:border-primary focus:outline-none"
               >
-                {ARABIC_MONTHS.map((name, i) => (
+                {EN_MONTHS.map((name, i) => (
                   <option key={i + 1} value={i + 1}>{name}</option>
                 ))}
               </select>
@@ -360,99 +346,72 @@ export function NewsletterComposer({ subscriberCount, recentSends, subscribers }
         </div>
       )}
 
-      {/* Section 4: Active Subscribers */}
-      <div className="rounded-lg border border-border bg-card p-6">
-        <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center gap-2">
-            <Users className="h-5 w-5 text-primary" />
-            <h2 className="text-lg font-semibold">المشتركون النشطون</h2>
-            <span className="rounded-full bg-primary/10 px-2.5 py-0.5 text-xs font-medium text-primary">
-              {subscribers.length}
-            </span>
-          </div>
-          <button
-            onClick={handleCopyAllEmails}
-            className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-xs hover:bg-muted"
-          >
-            <Copy className="h-3.5 w-3.5" />
-            نسخ الكل
-          </button>
-        </div>
-
-        {/* Search */}
-        <div className="relative mb-4">
-          <Search className="absolute start-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <input
-            type="text"
-            placeholder="بحث بالبريد الإلكتروني..."
-            value={subscriberSearch}
-            onChange={(e) => setSubscriberSearch(e.target.value)}
-            className="w-full rounded-lg border border-border bg-background ps-10 pe-4 py-2.5 text-sm placeholder:text-muted-foreground focus:border-primary focus:outline-none"
-            dir="ltr"
-          />
-        </div>
-
-        {filteredSubscribers.length === 0 ? (
-          <p className="py-6 text-center text-sm text-muted-foreground">
-            {subscriberSearch ? 'لا توجد نتائج' : 'لا يوجد مشتركون'}
-          </p>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-border bg-muted/50">
-                  <th className="px-4 py-2.5 text-start font-medium text-muted-foreground">البريد الإلكتروني</th>
-                  <th className="px-4 py-2.5 text-start font-medium text-muted-foreground">تاريخ الاشتراك</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filteredSubscribers.map((sub, i) => (
-                  <tr key={i} className="border-b border-border/50">
-                    <td className="px-4 py-2.5 font-mono text-xs" dir="ltr">{sub.email}</td>
-                    <td className="px-4 py-2.5 text-muted-foreground">
-                      {new Date(sub.created_at).toLocaleDateString('en-GB', {
-                        year: 'numeric',
-                        month: 'short',
-                        day: 'numeric',
-                      })}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </div>
-
-      {/* Section 5: Recent Sends */}
-      {recentSends.length > 0 && (
+      {/* Section 4: Recent Campaigns */}
+      {recentCampaigns.length > 0 && (
         <div className="rounded-lg border border-border bg-card p-6">
           <div className="flex items-center gap-2 mb-4">
             <Clock className="h-5 w-5 text-primary" />
-            <h2 className="text-lg font-semibold">الرسائل السابقة</h2>
+            <h2 className="text-lg font-semibold">الحملات السابقة</h2>
           </div>
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-border bg-muted/50">
                   <th className="px-4 py-2.5 text-start font-medium text-muted-foreground">الموضوع</th>
-                  <th className="px-4 py-2.5 text-start font-medium text-muted-foreground">المستلمون</th>
+                  <th className="px-4 py-2.5 text-start font-medium text-muted-foreground">الحالة</th>
+                  <th className="px-4 py-2.5 text-start font-medium text-muted-foreground">المُرسل</th>
+                  <th className="px-4 py-2.5 text-start font-medium text-muted-foreground">الفتح</th>
+                  <th className="px-4 py-2.5 text-start font-medium text-muted-foreground">النقر</th>
                   <th className="px-4 py-2.5 text-start font-medium text-muted-foreground">التاريخ</th>
+                  <th className="px-4 py-2.5 text-start font-medium text-muted-foreground"></th>
                 </tr>
               </thead>
               <tbody>
-                {recentSends.map((send) => (
-                  <tr key={send.id} className="border-b border-border/50">
-                    <td className="px-4 py-2.5">{send.subject}</td>
-                    <td className="px-4 py-2.5">{send.recipient_count}</td>
-                    <td className="px-4 py-2.5 text-muted-foreground">
-                      {new Date(send.sent_at).toLocaleDateString('en-GB', {
+                {recentCampaigns.map((campaign) => (
+                  <tr key={campaign.id} className="border-b border-border/50">
+                    <td className="px-4 py-2.5 max-w-[200px] truncate">{campaign.subject}</td>
+                    <td className="px-4 py-2.5">
+                      <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${
+                        campaign.status === 'sent'
+                          ? 'bg-green-500/10 text-green-400'
+                          : campaign.status === 'sending'
+                          ? 'bg-yellow-500/10 text-yellow-400'
+                          : campaign.status === 'failed'
+                          ? 'bg-red-500/10 text-red-400'
+                          : 'bg-muted text-muted-foreground'
+                      }`}>
+                        {campaign.status === 'sent' ? 'مُرسل' :
+                         campaign.status === 'sending' ? 'جاري الإرسال' :
+                         campaign.status === 'failed' ? 'فشل' :
+                         campaign.status === 'draft' ? 'مسودة' : campaign.status}
+                      </span>
+                    </td>
+                    <td className="px-4 py-2.5 tabular-nums">
+                      {campaign.total_sent}/{campaign.total_recipients}
+                    </td>
+                    <td className="px-4 py-2.5 tabular-nums">
+                      {campaign.total_opened} <span className="text-muted-foreground">({pct(campaign.total_opened, campaign.total_sent)})</span>
+                    </td>
+                    <td className="px-4 py-2.5 tabular-nums">
+                      {campaign.total_clicked} <span className="text-muted-foreground">({pct(campaign.total_clicked, campaign.total_sent)})</span>
+                    </td>
+                    <td className="px-4 py-2.5 text-muted-foreground whitespace-nowrap">
+                      {new Date(campaign.sent_at).toLocaleDateString('en-GB', {
                         year: 'numeric',
                         month: 'short',
                         day: 'numeric',
                         hour: '2-digit',
                         minute: '2-digit',
                       })}
+                    </td>
+                    <td className="px-4 py-2.5">
+                      <Link
+                        href={`/admin/newsletter/campaigns/${campaign.id}`}
+                        className="inline-flex items-center gap-1 text-xs text-primary hover:underline"
+                      >
+                        <ExternalLink className="h-3 w-3" />
+                        تفاصيل
+                      </Link>
                     </td>
                   </tr>
                 ))}

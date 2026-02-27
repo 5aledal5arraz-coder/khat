@@ -10,6 +10,8 @@ import {
   studioSessions, studioTranscripts, studioAiOutputs,
   studioChapters, studioClips, studioWebsitePackages, studioAnalyzers,
 } from "./studio"
+import { newsletterSubscribers } from "./system"
+import { newsletterCampaigns, newsletterDeliveries, newsletterLinks, newsletterClicks } from "./newsletter"
 
 // --- Episode relations ---
 
@@ -143,4 +145,27 @@ export const studioWebsitePackagesRelations = relations(studioWebsitePackages, (
 
 export const studioAnalyzersRelations = relations(studioAnalyzers, ({ one }) => ({
   session: one(studioSessions, { fields: [studioAnalyzers.session_id], references: [studioSessions.id] }),
+}))
+
+// --- Newsletter relations ---
+
+export const newsletterCampaignsRelations = relations(newsletterCampaigns, ({ many }) => ({
+  deliveries: many(newsletterDeliveries),
+  links: many(newsletterLinks),
+}))
+
+export const newsletterDeliveriesRelations = relations(newsletterDeliveries, ({ one, many }) => ({
+  campaign: one(newsletterCampaigns, { fields: [newsletterDeliveries.campaign_id], references: [newsletterCampaigns.id] }),
+  subscriber: one(newsletterSubscribers, { fields: [newsletterDeliveries.subscriber_id], references: [newsletterSubscribers.id] }),
+  clicks: many(newsletterClicks),
+}))
+
+export const newsletterLinksRelations = relations(newsletterLinks, ({ one, many }) => ({
+  campaign: one(newsletterCampaigns, { fields: [newsletterLinks.campaign_id], references: [newsletterCampaigns.id] }),
+  clicks: many(newsletterClicks),
+}))
+
+export const newsletterClicksRelations = relations(newsletterClicks, ({ one }) => ({
+  link: one(newsletterLinks, { fields: [newsletterClicks.link_id], references: [newsletterLinks.id] }),
+  delivery: one(newsletterDeliveries, { fields: [newsletterClicks.delivery_id], references: [newsletterDeliveries.id] }),
 }))

@@ -85,14 +85,7 @@ export const watchHistory = pgTable("watch_history", {
   updated_at: timestamp("updated_at", { withTimezone: true }).defaultNow(),
 })
 
-export const newsletterSends = pgTable("newsletter_sends", {
-  id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
-  subject: text("subject").notNull(),
-  body: text("body").notNull(),
-  recipient_count: integer("recipient_count").default(0),
-  sent_by: text("sent_by").references(() => profiles.id),
-  sent_at: timestamp("sent_at", { withTimezone: true }).defaultNow(),
-})
+// newsletterSends removed — replaced by newsletterCampaigns in ./newsletter.ts
 
 export const emailNotificationsLog = pgTable("email_notifications_log", {
   id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
