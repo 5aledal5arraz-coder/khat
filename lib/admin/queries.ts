@@ -179,6 +179,23 @@ export async function getGuestApplications(): Promise<GuestApplication[]> {
   }
 }
 
+export async function getGuestApplicationById(id: string): Promise<GuestApplication | null> {
+  if (!USE_DB) {
+    return mockGuestApplications.find((a) => a.id === id) ?? null
+  }
+  try {
+    const [row] = await db!
+      .select()
+      .from(guestApplications)
+      .where(eq(guestApplications.id, id))
+      .limit(1)
+    return (row as unknown as GuestApplication) ?? null
+  } catch (error) {
+    console.error("Error fetching guest application:", error)
+    return null
+  }
+}
+
 export async function getSponsorshipLeads(): Promise<SponsorshipLead[]> {
   if (!USE_DB) {
     return mockSponsorshipLeads.sort(
@@ -196,6 +213,23 @@ export async function getSponsorshipLeads(): Promise<SponsorshipLead[]> {
   } catch (error) {
     console.error("Error fetching sponsorship leads:", error)
     return mockSponsorshipLeads
+  }
+}
+
+export async function getSponsorshipLeadById(id: string): Promise<SponsorshipLead | null> {
+  if (!USE_DB) {
+    return mockSponsorshipLeads.find((l) => l.id === id) ?? null
+  }
+  try {
+    const [row] = await db!
+      .select()
+      .from(sponsorshipLeads)
+      .where(eq(sponsorshipLeads.id, id))
+      .limit(1)
+    return (row as unknown as SponsorshipLead) ?? null
+  } catch (error) {
+    console.error("Error fetching sponsorship lead:", error)
+    return null
   }
 }
 

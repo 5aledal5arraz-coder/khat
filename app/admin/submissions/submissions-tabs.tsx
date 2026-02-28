@@ -475,6 +475,64 @@ function generateRejectionMessage(
 فريق خط`
 }
 
+function generateSponsorResponseMessage(
+  name: string,
+  tone: "formal" | "warm"
+): string {
+  if (tone === "formal") {
+    return `مرحبًا ${name}،
+
+شكرًا لاهتمامكم بالشراكة مع بودكاست خط.
+
+راجعنا طلبكم بعناية، ويسعدنا إبلاغكم أننا مهتمون بالتعاون معكم.
+
+سنعمل على إعداد مقترح شراكة يناسب أهدافكم وسنشاركه معكم قريبًا.
+
+في حال وجود أي استفسارات، لا تترددوا بالتواصل معنا.
+
+فريق بودكاست خط`
+  }
+
+  return `أهلًا ${name} 👋
+
+شكرًا على اهتمامكم بخط — وصلنا طلبكم وراجعناه.
+
+الصراحة، نشوف إن في فرصة حلوة نتعاون مع بعض 🤝
+
+بنجهّز لكم مقترح شراكة يناسب أهدافكم ونرسله قريب.
+
+لو عندكم أي سؤال، كلّمونا مباشرة.
+
+فريق خط`
+}
+
+function generateSponsorDeclineMessage(
+  name: string,
+  tone: "formal" | "warm"
+): string {
+  if (tone === "formal") {
+    return `مرحبًا ${name}،
+
+شكرًا جزيلاً لاهتمامكم بالشراكة مع بودكاست خط ولتخصيصكم الوقت لإرسال طلبكم.
+
+بعد مراجعة دقيقة، لن نتمكن حاليًا من المضي في هذه الشراكة. يتعلق الأمر باتجاهنا الحالي وخطط المحتوى القادمة.
+
+نقدّر اهتمامكم ونتمنى أن تتاح لنا فرصة للتعاون في المستقبل.
+
+فريق بودكاست خط`
+  }
+
+  return `أهلًا ${name}،
+
+شكرًا إنكم تواصلتم مع خط — نقدّر اهتمامكم بشكل حقيقي.
+
+حاليًا، ما بنقدر نمضي بالشراكة — الموضوع مرتبط بخططنا الحالية وليس بجودة عرضكم.
+
+نتمنى إن دروبنا تتقاطع في المستقبل، وما نقفل الباب أبد.
+
+فريق خط`
+}
+
 /* ─── Tab Button ─── */
 
 function TabButton({
@@ -583,7 +641,7 @@ export function SubmissionsTabs({
   const [deletingIds, setDeletingIds] = useState<Set<string>>(new Set())
   const printRef = useRef<HTMLDivElement>(null)
 
-  // Response message state
+  // Guest response message state
   const [messageType, setMessageType] = useState<"acceptance" | "rejection">(
     "acceptance"
   )
@@ -593,7 +651,17 @@ export function SubmissionsTabs({
     "whatsapp" | "email" | null
   >(null)
 
-  // Regenerate message when application, type, or tone changes
+  // Sponsor response message state
+  const [sponsorMessageType, setSponsorMessageType] = useState<"response" | "decline">("response")
+  const [sponsorMessageTone, setSponsorMessageTone] = useState<"formal" | "warm">("formal")
+  const [sponsorMessageText, setSponsorMessageText] = useState("")
+
+  // Email sending state (shared)
+  const [sendingEmail, setSendingEmail] = useState(false)
+  const [emailSent, setEmailSent] = useState<"guest" | "sponsor" | null>(null)
+  const [emailError, setEmailError] = useState<string | null>(null)
+
+  // Regenerate guest message when application, type, or tone changes
   useEffect(() => {
     if (selectedApplication) {
       const name = selectedApplication.name
@@ -603,8 +671,24 @@ export function SubmissionsTabs({
         setMessageText(generateRejectionMessage(name, messageTone))
       }
       setMessageCopied(null)
+      setEmailSent(null)
+      setEmailError(null)
     }
   }, [selectedApplication, messageType, messageTone])
+
+  // Regenerate sponsor message when lead, type, or tone changes
+  useEffect(() => {
+    if (selectedLead) {
+      const name = selectedLead.contact_name
+      if (sponsorMessageType === "response") {
+        setSponsorMessageText(generateSponsorResponseMessage(name, sponsorMessageTone))
+      } else {
+        setSponsorMessageText(generateSponsorDeclineMessage(name, sponsorMessageTone))
+      }
+      setEmailSent(null)
+      setEmailError(null)
+    }
+  }, [selectedLead, sponsorMessageType, sponsorMessageTone])
 
   const copyForWhatsApp = async () => {
     await navigator.clipboard.writeText(messageText)
@@ -642,6 +726,60 @@ export function SubmissionsTabs({
     await navigator.clipboard.writeText(email)
     setCopiedEmail(email)
     setTimeout(() => setCopiedEmail(null), 2000)
+  }
+
+  const sendGuestEmail = async () => {
+    if (!selectedApplication || sendingEmail) return
+    setSendingEmail(true)
+    setEmailSent(null)
+    setEmailError(null)
+    try {
+      const subject = messageType === "acceptance"
+        ? "بودكاست خط — دعوة ضيف"
+        : "بودكاست خط — تحديث بخصوص طلبك"
+      const response = await fetch(`/api/admin/submissions/guests/${selectedApplication.id}/email`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ subject, body: messageText }),
+      })
+      if (response.ok) {
+        setEmailSent("guest")
+      } else {
+        const data = await response.json().catch(() => ({}))
+        setEmailError(data.error || "فشل إرسال البريد")
+      }
+    } catch {
+      setEmailError("فشل الاتصال بالخادم")
+    } finally {
+      setSendingEmail(false)
+    }
+  }
+
+  const sendSponsorEmail = async () => {
+    if (!selectedLead || sendingEmail) return
+    setSendingEmail(true)
+    setEmailSent(null)
+    setEmailError(null)
+    try {
+      const subject = sponsorMessageType === "response"
+        ? "بودكاست خط — طلب الشراكة"
+        : "بودكاست خط — تحديث بخصوص طلبكم"
+      const response = await fetch(`/api/admin/submissions/sponsors/${selectedLead.id}/email`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ subject, body: sponsorMessageText }),
+      })
+      if (response.ok) {
+        setEmailSent("sponsor")
+      } else {
+        const data = await response.json().catch(() => ({}))
+        setEmailError(data.error || "فشل إرسال البريد")
+      }
+    } catch {
+      setEmailError("فشل الاتصال بالخادم")
+    } finally {
+      setSendingEmail(false)
+    }
   }
 
   const handleStatusChange = async (
@@ -1483,9 +1621,9 @@ export function SubmissionsTabs({
                   className="w-full resize-none rounded-2xl border border-border/30 bg-white/[0.02] p-4 text-sm leading-relaxed text-foreground/90 focus:border-primary/40 focus:outline-none focus:ring-1 focus:ring-primary/20"
                   rows={10}
                 />
-                <p className="mt-1.5 text-[10px] text-muted-foreground/40">يمكنك تعديل الرسالة قبل النسخ</p>
+                <p className="mt-1.5 text-[10px] text-muted-foreground/40">يمكنك تعديل الرسالة قبل الإرسال</p>
 
-                {/* Copy Buttons */}
+                {/* Send / Copy Buttons */}
                 <div className="mt-3 flex gap-2">
                   <button
                     onClick={copyForWhatsApp}
@@ -1502,35 +1640,31 @@ export function SubmissionsTabs({
                     )}
                   </button>
                   <button
-                    onClick={copyForEmail}
+                    onClick={sendGuestEmail}
+                    disabled={sendingEmail || emailSent === "guest"}
                     className={`flex flex-1 items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-xs font-medium transition-all ${
-                      messageCopied === "email"
+                      emailSent === "guest"
                         ? "bg-emerald-500/10 text-emerald-400 ring-1 ring-emerald-500/20"
-                        : "bg-white/[0.03] text-muted-foreground ring-1 ring-border/30 hover:bg-white/[0.06] hover:text-foreground"
+                        : "bg-primary/10 text-primary ring-1 ring-primary/20 hover:bg-primary/20 disabled:opacity-50"
                     }`}
                   >
-                    {messageCopied === "email" ? (
-                      <><Check className="h-3.5 w-3.5" />تم النسخ</>
+                    {sendingEmail ? (
+                      <><Send className="h-3.5 w-3.5 animate-pulse" />جارٍ الإرسال...</>
+                    ) : emailSent === "guest" ? (
+                      <><Check className="h-3.5 w-3.5" />تم الإرسال</>
                     ) : (
-                      <><Mail className="h-3.5 w-3.5" />نسخ للبريد</>
+                      <><Send className="h-3.5 w-3.5" />أرسل البريد</>
                     )}
                   </button>
                 </div>
+                {emailError && emailSent !== "guest" && (
+                  <p className="mt-2 text-xs text-red-400">{emailError}</p>
+                )}
               </div>
             </div>
 
             {/* Footer */}
             <div className="sticky bottom-0 flex gap-3 rounded-b-3xl border-t border-border/30 bg-card/95 px-8 py-4 backdrop-blur-xl">
-              <Button
-                variant="ghost"
-                className="flex-1 gap-2 rounded-xl"
-                onClick={() => {
-                  window.location.href = `mailto:${selectedApplication.email}?subject=بودكاست خط - طلب الظهور كضيف`
-                }}
-              >
-                <Mail className="h-4 w-4" />
-                إرسال بريد
-              </Button>
               <Button
                 variant="ghost"
                 className="gap-2 rounded-xl"
@@ -1686,20 +1820,103 @@ export function SubmissionsTabs({
                   </div>
                 </div>
               )}
+
+              {/* Section 6: Response Message */}
+              <div>
+                <div className="mb-4 flex items-center gap-2.5">
+                  <div className="flex h-7 w-7 items-center justify-center rounded-full bg-blue-500/10 text-xs font-bold text-blue-500">
+                    <Send className="h-3.5 w-3.5" />
+                  </div>
+                  <h4 className="text-sm font-semibold">رسالة الرد</h4>
+                </div>
+
+                {/* Type Toggle */}
+                <div className="mb-3 flex gap-2">
+                  <button
+                    onClick={() => setSponsorMessageType("response")}
+                    className={`flex flex-1 items-center justify-center gap-2 rounded-xl px-3 py-2.5 text-xs font-medium transition-all ${
+                      sponsorMessageType === "response"
+                        ? "bg-emerald-500/10 text-emerald-400 ring-1 ring-emerald-500/20"
+                        : "text-muted-foreground hover:bg-white/[0.03] hover:text-foreground"
+                    }`}
+                  >
+                    <CircleCheck className="h-3.5 w-3.5" />
+                    ترحيب
+                  </button>
+                  <button
+                    onClick={() => setSponsorMessageType("decline")}
+                    className={`flex flex-1 items-center justify-center gap-2 rounded-xl px-3 py-2.5 text-xs font-medium transition-all ${
+                      sponsorMessageType === "decline"
+                        ? "bg-red-500/10 text-red-400 ring-1 ring-red-500/20"
+                        : "text-muted-foreground hover:bg-white/[0.03] hover:text-foreground"
+                    }`}
+                  >
+                    <CircleX className="h-3.5 w-3.5" />
+                    اعتذار
+                  </button>
+                </div>
+
+                {/* Tone Toggle */}
+                <div className="mb-3 flex items-center justify-between">
+                  <p className="text-[11px] text-muted-foreground/60">نبرة الرسالة</p>
+                  <div className="flex gap-1 rounded-xl bg-white/[0.03] p-1 ring-1 ring-border/30">
+                    <button
+                      onClick={() => setSponsorMessageTone("formal")}
+                      className={`rounded-lg px-3 py-1.5 text-[11px] font-medium transition-all ${
+                        sponsorMessageTone === "formal" ? "bg-white/[0.08] text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
+                      }`}
+                    >
+                      رسمي
+                    </button>
+                    <button
+                      onClick={() => setSponsorMessageTone("warm")}
+                      className={`rounded-lg px-3 py-1.5 text-[11px] font-medium transition-all ${
+                        sponsorMessageTone === "warm" ? "bg-white/[0.08] text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
+                      }`}
+                    >
+                      ودّي
+                    </button>
+                  </div>
+                </div>
+
+                {/* Editable Message */}
+                <textarea
+                  value={sponsorMessageText}
+                  onChange={(e) => setSponsorMessageText(e.target.value)}
+                  dir="rtl"
+                  className="w-full resize-none rounded-2xl border border-border/30 bg-white/[0.02] p-4 text-sm leading-relaxed text-foreground/90 focus:border-primary/40 focus:outline-none focus:ring-1 focus:ring-primary/20"
+                  rows={10}
+                />
+                <p className="mt-1.5 text-[10px] text-muted-foreground/40">يمكنك تعديل الرسالة قبل الإرسال</p>
+
+                {/* Send Button */}
+                <div className="mt-3">
+                  <button
+                    onClick={sendSponsorEmail}
+                    disabled={sendingEmail || emailSent === "sponsor"}
+                    className={`flex w-full items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-xs font-medium transition-all ${
+                      emailSent === "sponsor"
+                        ? "bg-emerald-500/10 text-emerald-400 ring-1 ring-emerald-500/20"
+                        : "bg-primary/10 text-primary ring-1 ring-primary/20 hover:bg-primary/20 disabled:opacity-50"
+                    }`}
+                  >
+                    {sendingEmail ? (
+                      <><Send className="h-3.5 w-3.5 animate-pulse" />جارٍ الإرسال...</>
+                    ) : emailSent === "sponsor" ? (
+                      <><Check className="h-3.5 w-3.5" />تم الإرسال</>
+                    ) : (
+                      <><Send className="h-3.5 w-3.5" />أرسل البريد</>
+                    )}
+                  </button>
+                  {emailError && emailSent !== "sponsor" && (
+                    <p className="mt-2 text-xs text-red-400">{emailError}</p>
+                  )}
+                </div>
+              </div>
             </div>
 
             {/* Footer */}
             <div className="sticky bottom-0 flex gap-3 rounded-b-3xl border-t border-border/30 bg-card/95 px-8 py-4 backdrop-blur-xl">
-              <Button
-                variant="ghost"
-                className="flex-1 gap-2 rounded-xl"
-                onClick={() => {
-                  window.location.href = `mailto:${selectedLead.email}?subject=بودكاست خط - طلب الشراكة`
-                }}
-              >
-                <Mail className="h-4 w-4" />
-                إرسال بريد
-              </Button>
               <Button
                 variant="outline"
                 className="gap-2 rounded-xl"
