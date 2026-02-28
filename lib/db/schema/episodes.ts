@@ -1,5 +1,6 @@
 import { pgTable, text, integer, boolean, date, timestamp, jsonb, primaryKey } from "drizzle-orm/pg-core"
 import { guests } from "./guests"
+import { topics } from "./topics"
 
 export const episodes = pgTable("episodes", {
   id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
@@ -27,7 +28,7 @@ export const episodes = pgTable("episodes", {
 
 export const episodeTopics = pgTable("episode_topics", {
   episode_id: text("episode_id").notNull().references(() => episodes.id, { onDelete: "cascade" }),
-  topic_id: text("topic_id").notNull(),
+  topic_id: text("topic_id").notNull().references(() => topics.id, { onDelete: "cascade" }),
 }, (t) => [
   primaryKey({ columns: [t.episode_id, t.topic_id] }),
 ])

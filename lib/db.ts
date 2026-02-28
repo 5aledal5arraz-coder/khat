@@ -23,7 +23,8 @@ const db = pool ? drizzle(pool, { schema }) : null
 export { db, pool }
 export const USE_DB = !!pool
 
-// Legacy helpers — kept during migration, will be removed once all files use Drizzle relations
+// Legacy helpers — actively used by 8 /api/space/* routes (raw SQL joins).
+// TODO: Migrate those routes to Drizzle relational queries, then remove PROFILE_COLS and nestProfile.
 export const PROFILE_COLS = `p.id AS p_id, p.display_name AS p_display_name, p.avatar_url AS p_avatar_url, p.bio AS p_bio, p.is_admin AS p_is_admin, p.articles_count AS p_articles_count, p.followers_count AS p_followers_count`
 
 export function nestProfile(row: Record<string, unknown>): Record<string, unknown> {
