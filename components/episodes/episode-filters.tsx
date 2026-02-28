@@ -40,7 +40,7 @@ export function EpisodeFilters({ counts, sections }: EpisodeFiltersProps) {
   }
 
   return (
-    <div className="flex flex-wrap items-center justify-between gap-4" role="toolbar" aria-label="تصفية الحلقات">
+    <div className="flex flex-wrap items-center justify-between gap-4" role="toolbar" aria-label="فلتر الحلقات">
       <div className="flex flex-wrap gap-2" role="group" aria-label="التصنيفات">
         {categories.map((category) => {
           const count = counts?.[category.id]

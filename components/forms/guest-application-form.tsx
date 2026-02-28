@@ -248,12 +248,12 @@ export function GuestApplicationForm() {
       } else {
         setFormStatus("error")
         setErrorMessage(
-          result.error || "حدث خطأ. يرجى المحاولة مرة أخرى."
+          result.error || "صار خطأ، حاول مرة ثانية"
         )
       }
     } catch {
       setFormStatus("error")
-      setErrorMessage("حدث خطأ. يرجى المحاولة مرة أخرى.")
+      setErrorMessage("صار خطأ، حاول مرة ثانية")
     }
   }
 
@@ -265,10 +265,10 @@ export function GuestApplicationForm() {
         </div>
         <h3 className="mt-6 text-xl font-bold">وصلنا قصتك</h3>
         <p className="mx-auto mt-3 max-w-sm text-sm leading-relaxed text-muted-foreground">
-          شكراً لمشاركتنا. سنراجع كل كلمة بعناية ونتواصل معك قريباً.
+          شكراً إنك شاركتنا. بنراجع كل كلمة بعناية ونتواصل معك قريب.
         </p>
         <p className="mt-6 text-xs text-muted-foreground/40">
-          المحادثة بدأت من هنا.
+          الحوار يبدأ من هني.
         </p>
       </div>
     )
@@ -311,7 +311,7 @@ export function GuestApplicationForm() {
           </div>
 
           <div className="space-y-3">
-            <FieldLabel required hint="واتساب إن أمكن" htmlFor="guest-phone">
+            <FieldLabel required hint="واتساب لو سمحت" htmlFor="guest-phone">
               رقم الهاتف
             </FieldLabel>
             <Input
@@ -402,7 +402,7 @@ export function GuestApplicationForm() {
           <div className="space-y-3">
             <FieldLabel
               required
-              hint="لا تحتاج عنواناً مثالياً — اشرحها بكلماتك."
+              hint="ما تحتاج عنوان مثالي — اشرحها بكلماتك"
               htmlFor="guest-story"
             >
               ما القصة أو الفكرة التي تود مشاركتها معنا؟
@@ -421,7 +421,7 @@ export function GuestApplicationForm() {
           <div className="space-y-3">
             <FieldLabel
               required
-              hint="خبرات، صراعات، أو لحظات شكّلتك كإنسان."
+              hint="خبرات، تحديات، أو لحظات شكّلتك كإنسان"
               htmlFor="guest-beyond"
             >
               من أنت بعيدًا عن المسمى الوظيفي؟
@@ -676,7 +676,7 @@ export function GuestApplicationForm() {
                 onClick={() => { setFormStatus("idle"); setErrorMessage("") }}
                 className="text-destructive hover:text-destructive"
               >
-                حاول مرة أخرى
+                حاول مرة ثانية
               </Button>
             </div>
           )}
@@ -700,10 +700,10 @@ export function GuestApplicationForm() {
               {loading ? (
                 <>
                   <Loader2 className="h-4 w-4 animate-spin" />
-                  جاري الإرسال...
+                  جارٍ الإرسال...
                 </>
               ) : (
-                "أرسل قصتي إلى خط"
+                "أرسل قصتي لخط"
               )}
             </Button>
           </div>

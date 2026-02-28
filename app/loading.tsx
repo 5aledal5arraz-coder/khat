@@ -1,7 +1,8 @@
 export default function HomeLoading() {
   return (
-    <div className="container mx-auto px-4">
-      <div className="mx-auto max-w-2xl">
+    <div>
+      <div className="container mx-auto px-4">
+        <div className="mx-auto max-w-2xl">
         {/* Hero skeleton */}
         <div className="flex min-h-[60vh] flex-col items-center justify-center py-16">
           <div className="mx-auto max-w-2xl space-y-6 text-center">
@@ -42,6 +43,7 @@ export default function HomeLoading() {
               </div>
             </div>
           ))}
+        </div>
         </div>
       </div>
     </div>

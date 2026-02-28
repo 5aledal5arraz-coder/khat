@@ -10,7 +10,7 @@ export function SettingsClient() {
   const [cleared, setCleared] = useState(false)
 
   const handleClearData = () => {
-    if (!confirm("هل أنت متأكد من حذف جميع المحفوظات؟ لا يمكن التراجع عن هذا الإجراء.")) return
+    if (!confirm("متأكد إنك تبي تحذف كل المحفوظات؟ ما تقدر ترجعها.")) return
     clearAllSavedItems()
     setCleared(true)
   }

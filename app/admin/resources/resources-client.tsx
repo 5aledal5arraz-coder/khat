@@ -267,8 +267,8 @@ export function ResourcesAdmin({ initialResources, counts, lastGenerated }: Reso
           {resources.length === 0 ? (
             <>
               <Sparkles className="mx-auto mb-3 h-8 w-8 text-muted-foreground/40" />
-              <p className="mb-1">لا توجد موارد بعد</p>
-              <p className="text-sm">اضغط "طلب تحديث" لبدء اقتراحات الذكاء الاصطناعي</p>
+              <p className="mb-1">ما في موارد بعد</p>
+              <p className="text-sm">اضغط "طلب تحديث" عشان يبدأ الذكاء الاصطناعي يقترح</p>
             </>
           ) : (
             <p>لا توجد موارد بحالة "{statusConfig[filter]?.label || filter}"</p>

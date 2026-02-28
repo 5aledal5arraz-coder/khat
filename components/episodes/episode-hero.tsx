@@ -76,7 +76,7 @@ export function EpisodeHero({ episode, teaser, initialStartTime }: EpisodeHeroPr
       )}
 
       <div className="flex items-center gap-3 rounded-lg bg-muted/50 p-3">
-        <span className="text-sm text-muted-foreground">شارك الحلقة:</span>
+        <span className="text-sm text-muted-foreground">شارك الحلقة</span>
         <ShareButtons
           url={`/episodes/${episode.slug}`}
           title={episode.title}

@@ -71,7 +71,7 @@ export function EpisodesGrid({
       {hasMore && (
         <div className="flex flex-col items-center gap-2 pt-4">
           {loadError && (
-            <p className="text-sm text-destructive">حدث خطأ أثناء التحميل. حاول مرة أخرى.</p>
+            <p className="text-sm text-destructive">صار خطأ بالتحميل، حاول مرة ثانية</p>
           )}
           <Button
             variant="outline"
@@ -83,10 +83,10 @@ export function EpisodesGrid({
             {isPending ? (
               <>
                 <Loader2 className="me-2 h-4 w-4 animate-spin" />
-                جاري التحميل...
+                جارٍ التحميل...
               </>
             ) : loadError ? (
-              "إعادة المحاولة"
+              "حاول مرة ثانية"
             ) : (
               <>
                 تحميل المزيد
@@ -101,7 +101,7 @@ export function EpisodesGrid({
 
       {!hasMore && episodes.length > EPISODES_PER_PAGE && (
         <p role="status" aria-live="polite" className="text-center text-sm text-muted-foreground">
-          تم عرض جميع الحلقات ({totalCount})
+          هذي كل الحلقات ({totalCount})
         </p>
       )}
     </div>

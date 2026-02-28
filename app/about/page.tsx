@@ -47,7 +47,7 @@ function safeColor(color: string): string {
 
 export const metadata: Metadata = {
   title: "عن خط",
-  description: "تعرّف على بودكاست خط — قصتنا، قيمنا، وفريق العمل خلف كل حلقة",
+  description: "تعرّف على خط — قصتنا، قيمنا، والفريق ورا كل حلقة",
 }
 
 export default async function AboutPage() {
@@ -191,7 +191,7 @@ export default async function AboutPage() {
                 </Badge>
                 <h2 className="text-3xl font-bold mb-4">فريق بودكاست خط</h2>
                 <p className="text-muted-foreground max-w-xl mx-auto">
-                  خلف كل حلقة فريق متميز يعمل بشغف لتقديم أفضل محتوى
+                  ورا كل حلقة فريق يشتغل بشغف عشان يقدّم لك أفضل محتوى
                 </p>
               </div>
 
@@ -254,7 +254,7 @@ export default async function AboutPage() {
               <Link href="/episodes">
                 <Button size="lg" className="gap-2 w-full sm:w-auto">
                   <Play className="w-4 h-4" />
-                  استمع للحلقات
+                  تصفّح الحلقات
                 </Button>
               </Link>
               <Link href="/space">

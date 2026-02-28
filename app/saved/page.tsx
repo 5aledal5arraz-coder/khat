@@ -10,9 +10,9 @@ import { getSavedItems, removeSavedItem, SavedItem } from "@/lib/saved"
 
 function EmptyState({ type }: { type: string }) {
   const messages: Record<string, { icon: typeof Bookmark; text: string }> = {
-    episodes: { icon: Headphones, text: "لم تحفظ أي حلقات بعد" },
-    quotes: { icon: Quote, text: "لم تحفظ أي اقتباسات بعد" },
-    timestamps: { icon: Clock, text: "لم تحفظ أي لحظات بعد" },
+    episodes: { icon: Headphones, text: "ما حفظت أي حلقات بعد" },
+    quotes: { icon: Quote, text: "ما حفظت أي اقتباسات بعد" },
+    timestamps: { icon: Clock, text: "ما حفظت أي لحظات بعد" },
   }
 
   const { icon: Icon, text } = messages[type] || messages.episodes

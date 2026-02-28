@@ -40,6 +40,16 @@ export function ComingSoon() {
               border-color: #c9a227 !important;
               transform: translateY(-2px);
             }
+            @media (max-width: 480px) {
+              .cs-content { padding: 40px 20px !important; }
+              .cs-badge-text { font-size: 0.7rem !important; letter-spacing: 5px !important; padding: 8px 20px !important; }
+              .cs-tagline { font-size: 1.25rem !important; line-height: 2 !important; }
+              .cs-message { font-size: 0.9rem !important; margin-bottom: 30px !important; }
+              .cs-bar { height: 20px !important; }
+              .cs-social-grid { gap: 14px !important; }
+              .cs-social-link { width: 40px !important; height: 40px !important; }
+              .cs-footer { margin-top: 40px !important; font-size: 0.65rem !important; }
+            }
           `,
         }}
       />
@@ -62,6 +72,7 @@ export function ComingSoon() {
       >
         {/* Cinematic bar — top */}
         <div
+          className="cs-bar"
           style={{
             position: "fixed",
             top: 0,
@@ -93,6 +104,7 @@ export function ComingSoon() {
 
         {/* Main content */}
         <div
+          className="cs-content"
           style={{
             textAlign: "center",
             padding: "60px 30px",
@@ -112,6 +124,7 @@ export function ComingSoon() {
             }}
           >
             <span
+              className="cs-badge-text"
               style={{
                 fontFamily: "'Cormorant Garamond', serif",
                 fontSize: "0.85rem",
@@ -133,6 +146,8 @@ export function ComingSoon() {
               marginBottom: 30,
               opacity: 0,
               animation: "cs-logoFadeIn 1.5s ease-out 0.6s forwards",
+              display: "flex",
+              justifyContent: "center",
             }}
           >
             <Image
@@ -142,8 +157,8 @@ export function ComingSoon() {
               height={200}
               priority
               style={{
-                width: 520,
-                maxWidth: "95vw",
+                width: "min(520px, 85vw)",
+                maxWidth: "100%",
                 height: "auto",
               }}
             />
@@ -164,6 +179,7 @@ export function ComingSoon() {
 
           {/* Arabic tagline */}
           <div
+            className="cs-tagline"
             style={{
               fontSize: "1.6rem",
               fontWeight: 400,
@@ -181,6 +197,7 @@ export function ComingSoon() {
 
           {/* Message */}
           <p
+            className="cs-message"
             style={{
               fontFamily: "'Tajawal', sans-serif",
               fontSize: "1rem",
@@ -234,6 +251,7 @@ export function ComingSoon() {
 
           {/* Social links */}
           <div
+            className="cs-social-grid"
             style={{
               display: "flex",
               justifyContent: "center",
@@ -248,7 +266,7 @@ export function ComingSoon() {
               target="_blank"
               rel="noopener noreferrer"
               aria-label="YouTube"
-              className="cs-social"
+              className="cs-social cs-social-link"
               style={socialLinkStyle}
             >
               <svg
@@ -267,7 +285,7 @@ export function ComingSoon() {
               target="_blank"
               rel="noopener noreferrer"
               aria-label="Instagram"
-              className="cs-social"
+              className="cs-social cs-social-link"
               style={socialLinkStyle}
             >
               <svg
@@ -292,7 +310,7 @@ export function ComingSoon() {
               target="_blank"
               rel="noopener noreferrer"
               aria-label="TikTok"
-              className="cs-social"
+              className="cs-social cs-social-link"
               style={socialLinkStyle}
             >
               <svg
@@ -311,7 +329,7 @@ export function ComingSoon() {
               target="_blank"
               rel="noopener noreferrer"
               aria-label="X"
-              className="cs-social"
+              className="cs-social cs-social-link"
               style={socialLinkStyle}
             >
               <svg
@@ -327,6 +345,7 @@ export function ComingSoon() {
 
           {/* Footer text */}
           <p
+            className="cs-footer"
             style={{
               fontFamily: "'Cormorant Garamond', serif",
               fontSize: "0.75rem",
@@ -344,6 +363,7 @@ export function ComingSoon() {
 
         {/* Cinematic bar — bottom */}
         <div
+          className="cs-bar"
           style={{
             position: "fixed",
             bottom: 0,

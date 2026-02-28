@@ -4,7 +4,7 @@ import { getApprovedResources } from "@/lib/queries/curated-resources"
 
 export const metadata: Metadata = {
   title: "خطوط",
-  description: "اختيارات أسبوعية من كتب ومقالات وروابط تُكمل رحلة الاستماع",
+  description: "اختيارات أسبوعية من كتب ومقالات وروابط تكمّل رحلة الاستماع",
 }
 
 export default async function ResourcesPage() {

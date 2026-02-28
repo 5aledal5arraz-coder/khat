@@ -119,7 +119,7 @@ export function GuestIntroSection({ guest, testimonial, testimonialVideoUrl }: G
               href={`/guests/${guest.slug}`}
               className="mt-4 inline-block text-sm text-primary hover:underline"
             >
-              عرض الملف الكامل →
+              شوف الملف الكامل →
             </Link>
           </div>
         </div>
@@ -156,7 +156,7 @@ export function GuestIntroSection({ guest, testimonial, testimonialVideoUrl }: G
                     <Play className="h-6 w-6 ms-1" fill="currentColor" />
                   </div>
                   <span className="relative text-sm font-medium text-white">
-                    شاهد كلمة الضيف
+                    شوف كلمة الضيف
                   </span>
                 </button>
               )}

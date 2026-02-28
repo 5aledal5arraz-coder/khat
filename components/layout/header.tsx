@@ -14,7 +14,7 @@ const baseNavigation = [
   { name: "المجموعات", href: "/series" },
   { name: "حبر", href: "/space", requiresHibr: true },
   { name: "خطوط", href: "/resources" },
-  { name: "عن خط", href: "/about" },
+  { name: "من نحن", href: "/about" },
 ]
 
 export function Header({ hibrEnabled = true }: { hibrEnabled?: boolean }) {

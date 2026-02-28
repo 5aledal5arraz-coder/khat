@@ -28,7 +28,7 @@ export function EpisodeIdeas({ keyIdeas, takeaways }: EpisodeIdeasProps) {
         )}
         {hasTakeaways && (
           <div className="rounded-lg border p-4">
-            <h3 className="mb-3 font-medium">دروس وفوائد</h3>
+            <h3 className="mb-3 font-medium">دروس وفوايد</h3>
             <ol className="space-y-2">
               {takeaways.map((takeaway, i) => (
                 <li key={i} className="flex gap-2 text-sm">

@@ -5,6 +5,7 @@ import { stripHtml } from "@/lib/sanitize"
 import { validateEmail } from "@/lib/validation"
 import { validateMutation, rateLimitResponse } from "@/lib/api-utils"
 import { checkIpRateLimit } from "@/lib/rate-limit"
+import { getResend, FROM_EMAIL } from "@/lib/email/resend"
 
 export async function POST(request: NextRequest) {
   try {
@@ -162,9 +163,12 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    const sanitizedName = stripHtml(name)
+    const sanitizedEmail = email.toLowerCase().trim()
+
     await db!.insert(guestApplications).values({
-      name: stripHtml(name),
-      email: email.toLowerCase().trim(),
+      name: sanitizedName,
+      email: sanitizedEmail,
       phone: stripHtml(phone),
       country: stripHtml(country),
       can_travel_to_kuwait: can_travel_to_kuwait ? stripHtml(can_travel_to_kuwait) : null,
@@ -183,6 +187,27 @@ export async function POST(request: NextRequest) {
       social_links: social_links ? stripHtml(social_links) : null,
       status: "new",
     })
+
+    // Send notification email (fire-and-forget)
+    getResend().emails.send({
+      from: FROM_EMAIL,
+      to: "khatpodcast@hotmail.com",
+      subject: "طلب ضيف جديد — بودكاست خط",
+      html: `
+        <div dir="rtl" style="font-family:sans-serif;max-width:500px">
+          <h2 style="color:#c9a227">طلب ضيف جديد</h2>
+          <p><strong>الاسم:</strong> ${sanitizedName}</p>
+          <p><strong>البريد:</strong> ${sanitizedEmail}</p>
+          <p><strong>الهاتف:</strong> ${stripHtml(phone)}</p>
+          <p><strong>الدولة:</strong> ${stripHtml(country)}</p>
+          <p style="margin-top:20px">
+            <a href="https://khatpodcast.com/admin/submissions?tab=guests" style="background:#c9a227;color:#0a0a0a;padding:10px 20px;text-decoration:none;border-radius:6px">
+              مراجعة الطلب
+            </a>
+          </p>
+        </div>
+      `,
+    }).catch(e => console.error("Guest notification email failed:", e))
 
     return NextResponse.json({ success: true })
   } catch {

@@ -167,7 +167,7 @@ export function TeaserTab({ teasers, questions: initialQuestions, stats }: Props
                       onClick={() => fileInputRef.current?.click()}
                     >
                       <Upload className="h-4 w-4" />
-                      {uploading ? "جاري الرفع..." : "رفع فيديو"}
+                      {uploading ? "جارٍ الرفع..." : "رفع فيديو"}
                     </Button>
                     <input
                       ref={fileInputRef}
@@ -318,7 +318,7 @@ export function TeaserTab({ teasers, questions: initialQuestions, stats }: Props
           ))}
           {teasers.length === 0 && (
             <p className="py-8 text-center text-sm text-muted-foreground">
-              لا توجد تيزرات بعد. أضف أول تيزر!
+              ما في تيزرات بعد. أضف أول واحد!
             </p>
           )}
         </div>

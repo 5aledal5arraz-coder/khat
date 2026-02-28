@@ -10,10 +10,10 @@ export function BelongingSection() {
         </div>
 
         <h2 className="text-xl font-bold">
-          احصل على فكرة مُلهمة كل أسبوع
+          توصلك فكرة ملهمة كل أسبوع
         </h2>
         <p className="mt-2 text-sm text-muted-foreground">
-          نرسل لك اقتباسات مختارة وتأملات وأحدث الحلقات — بدون إزعاج.
+          نرسل لك اقتباسات مختارة وتأملات وآخر الحلقات — بدون إزعاج.
         </p>
 
         <div className="mt-6">

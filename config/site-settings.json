@@ -1,7 +1,7 @@
 {
   "metadata": {
     "name": "خط",
-    "description": "بودكاست خط - مساحة حوارية تقدّم محادثات عميقة وهادئة",
+    "description": "بودكاست خط — مساحة حوارية تقدّم حوارات عميقة وهادية",
     "tagline": "كل إنسان يحمل قصة تستحق أن تُروى",
     "contactEmail": "hello@khatpodcast.com"
   },
@@ -29,7 +29,7 @@
   ],
   "seo": {
     "titleTemplate": "%s | بودكاست خط",
-    "defaultDescription": "بودكاست خط - مساحة حوارية تقدّم محادثات عميقة وهادئة مع ضيوف يشاركون قصصهم وتجاربهم الحقيقية",
+    "defaultDescription": "بودكاست خط — مساحة حوارية تقدّم حوارات عميقة وهادية مع ضيوف يشاركون قصصهم وتجاربهم الحقيقية",
     "defaultOgImage": "/og-image.png",
     "keywords": [
       "بودكاست",
@@ -44,7 +44,7 @@
     "storeEnabled": false,
     "hibrEnabled": false,
     "guestApplicationsEnabled": true,
-    "maintenanceMode": true,
+    "maintenanceMode": false,
     "personalizationEnabled": true,
     "studioEnabled": true
   }

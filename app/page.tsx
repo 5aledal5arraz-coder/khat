@@ -8,11 +8,13 @@ import { isEnabled } from "@/config/site"
 import { personalizeHome } from "@/lib/personalization/ranking"
 import { getPersonalizedContent } from "@/lib/personalization/recommend"
 import { ComingSoon } from "@/components/coming-soon"
+import { QuestionGate } from "@/components/home/question-gate"
 import { HeroPauseMoment } from "@/components/home/hero-pause-moment"
 import { EmotionalPathsSection } from "@/components/home/emotional-paths-section"
 import { TodayInKhat } from "@/components/home/today-in-khat"
 import { DeepContentSection } from "@/components/home/deep-content-section"
 import { BelongingSection } from "@/components/home/belonging-section"
+import { TrustedPartnersSection } from "@/components/home/trusted-partners-section"
 import { AskTheGuest } from "@/components/home/ask-the-guest"
 import { BecauseYouWatched } from "@/components/home/because-you-watched"
 import { RecommendedForYou } from "@/components/home/recommended-for-you"
@@ -78,53 +80,59 @@ export default async function HomePage() {
   }
 
   return (
-    <div className="container mx-auto px-4">
-      <div className="mx-auto max-w-2xl">
-        {/* Section 1: Daily quote — psychological entry point */}
-        <HeroPauseMoment quote={displayQuote} />
+    <div>
+      <QuestionGate />
+      <div id="home-content" className="container mx-auto px-4">
+        <div className="mx-auto max-w-2xl">
+          {/* Section 1: Daily quote — psychological entry point */}
+          <HeroPauseMoment quote={displayQuote} />
 
-        {/* Ask the Guest — shown only when a teaser is active */}
-        {activeTeaser && (
-          <AskTheGuest
-            teaser={activeTeaser.teaser}
-            questions={activeTeaser.questions}
+          {/* Ask the Guest — shown only when a teaser is active */}
+          {activeTeaser && (
+            <AskTheGuest
+              teaser={activeTeaser.teaser}
+              questions={activeTeaser.questions}
+            />
+          )}
+
+          {/* Section 2: Emotional paths — "What do you want to listen to today?" */}
+          <EmotionalPathsSection paths={displayPaths} />
+
+          {/* Section 3: Today in KHAT — daily reflection */}
+          <TodayInKhat reflection={todaysReflection} />
+
+          {/* Because You Watched — personalized recommendations */}
+          {becauseYouWatched && (
+            <BecauseYouWatched
+              sourceTitle={becauseYouWatched.sourceTitle}
+              episodes={becauseYouWatched.episodes}
+            />
+          )}
+
+          {/* مقترح لك — profile-based recommendations */}
+          {recommended?.reason && (
+            <RecommendedForYou
+              episodes={recommended.episodes}
+              quote={recommended.quote}
+              reflection={recommended.reflection}
+              reason={recommended.reason}
+            />
+          )}
+
+          {/* Section 4: Deep content — episodes + guests */}
+          <DeepContentSection
+            episodes={displayEpisodes}
+            guests={guests}
+            recommendationReason={recommendationReason}
+            excludeEpisodeIds={shownEpisodeIds}
           />
-        )}
 
-        {/* Section 2: Emotional paths — "What do you want to listen to today?" */}
-        <EmotionalPathsSection paths={displayPaths} />
+          {/* Trusted Partners — social proof */}
+          <TrustedPartnersSection />
 
-        {/* Section 3: Today in KHAT — daily reflection */}
-        <TodayInKhat reflection={todaysReflection} />
-
-        {/* Because You Watched — personalized recommendations */}
-        {becauseYouWatched && (
-          <BecauseYouWatched
-            sourceTitle={becauseYouWatched.sourceTitle}
-            episodes={becauseYouWatched.episodes}
-          />
-        )}
-
-        {/* مقترح لك — profile-based recommendations */}
-        {recommended?.reason && (
-          <RecommendedForYou
-            episodes={recommended.episodes}
-            quote={recommended.quote}
-            reflection={recommended.reflection}
-            reason={recommended.reason}
-          />
-        )}
-
-        {/* Section 4: Deep content — episodes + guests */}
-        <DeepContentSection
-          episodes={displayEpisodes}
-          guests={guests}
-          recommendationReason={recommendationReason}
-          excludeEpisodeIds={shownEpisodeIds}
-        />
-
-        {/* Section 5: Belonging — calm newsletter signup */}
-        <BelongingSection />
+          {/* Section 5: Belonging — calm newsletter signup */}
+          <BelongingSection />
+        </div>
       </div>
     </div>
   )

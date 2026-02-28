@@ -21,7 +21,7 @@ export function RecommendedForYou({ episodes, quote, reflection, reason }: Props
     <section className="py-8 space-y-5">
       <div className="flex items-center gap-2">
         <Sparkles className="h-5 w-5 text-primary" />
-        <h2 className="text-lg font-bold">مقترح لك</h2>
+        <h2 className="text-lg font-bold">نرشّحها لك</h2>
       </div>
 
       {reason && (

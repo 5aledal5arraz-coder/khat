@@ -59,7 +59,7 @@ export function ThemeSettingForm({ initialMode }: { initialMode: ThemeMode }) {
             disabled={isPending || selected === initialMode}
             onClick={handleSave}
           >
-            {isPending ? "جاري الحفظ..." : "حفظ"}
+            {isPending ? "جارٍ الحفظ..." : "حفظ"}
           </Button>
           {saved && (
             <span className="text-sm text-green-500">تم الحفظ</span>

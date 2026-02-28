@@ -60,7 +60,7 @@ export function AskTheGuest({ teaser, questions }: Props) {
       const data = await res.json()
 
       if (!res.ok) {
-        setError(data.error || "حدث خطأ أثناء إرسال السؤال")
+        setError(data.error || "صار خطأ، حاول مرة ثانية")
         return
       }
 
@@ -68,7 +68,7 @@ export function AskTheGuest({ teaser, questions }: Props) {
       setQuestionText("")
       setDisplayName("")
     } catch {
-      setError("حدث خطأ في الاتصال. حاول مرة أخرى")
+      setError("في مشكلة بالاتصال، حاول مرة ثانية")
     } finally {
       setSubmitting(false)
     }
@@ -117,14 +117,14 @@ export function AskTheGuest({ teaser, questions }: Props) {
           <div className="flex flex-col items-center gap-3 rounded-2xl border border-green-500/20 bg-green-500/5 p-6 text-center">
             <CheckCircle className="h-8 w-8 text-green-600" />
             <p className="font-medium text-green-600 dark:text-green-400">
-              شكراً! سؤالك قيد المراجعة
+              شكراً! سؤالك وصلنا وقيد المراجعة
             </p>
             <Button
               variant="ghost"
               size="sm"
               onClick={() => setSubmitted(false)}
             >
-              إرسال سؤال آخر
+              أرسل سؤال ثاني
             </Button>
           </div>
         ) : (
@@ -161,7 +161,7 @@ export function AskTheGuest({ teaser, questions }: Props) {
               disabled={submitting || questionText.trim().length < 10}
             >
               <Send className="h-4 w-4" />
-              {submitting ? "جاري الإرسال..." : "أرسل سؤالك"}
+              {submitting ? "جارٍ الإرسال..." : "أرسل سؤالك"}
             </Button>
           </form>
         )}

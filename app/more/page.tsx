@@ -18,14 +18,14 @@ export const metadata: Metadata = {
 }
 
 const menuItems = [
-  { href: "/guests", icon: Users, label: "الضيوف", description: "تعرف على ضيوف البودكاست" },
-  { href: "/series", icon: Layers, label: "المجموعات", description: "حلقات مجمعة حسب الموضوع" },
+  { href: "/guests", icon: Users, label: "الضيوف", description: "تعرّف على ضيوف خط" },
+  { href: "/series", icon: Layers, label: "المجموعات", description: "حلقات مرتبة حسب الموضوع" },
   { href: "/resources", icon: BookOpen, label: "خطوط", description: "كتب ومقالات وروابط مختارة" },
-  { href: "/paths", icon: Compass, label: "مسارات الاستماع", description: "حلقات مختارة حسب مزاجك" },
+  { href: "/paths", icon: Compass, label: "مسارات الاستماع", description: "حلقات على حسب مزاجك" },
   { href: "/store", icon: ShoppingBag, label: "المتجر", description: "قريباً" },
   { href: "/sponsor", icon: Handshake, label: "كن راعياً", description: "فرص الرعاية" },
-  { href: "/guest", icon: Mic, label: "كن ضيفاً", description: "قدم طلب ضيافة" },
-  { href: "/contact", icon: Mail, label: "تواصل معنا", description: "أرسل لنا رسالة" },
+  { href: "/guest", icon: Mic, label: "كن ضيفاً", description: "قدّم طلب ضيافة" },
+  { href: "/contact", icon: Mail, label: "تواصل معنا", description: "كلّمنا" },
 ]
 
 const userItems = [

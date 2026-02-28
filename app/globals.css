@@ -187,6 +187,17 @@
   }
 }
 
+/* Entry gate — hide header while question screen is visible */
+html.entry-gate-active header {
+  opacity: 0 !important;
+  pointer-events: none;
+  transition: opacity 0.5s ease;
+}
+
+header {
+  transition: opacity 0.5s ease;
+}
+
 /* Arabic transcript viewer — proper RTL rendering */
 .transcript-viewer {
   direction: rtl;

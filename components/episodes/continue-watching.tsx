@@ -22,7 +22,7 @@ export function ContinueWatching() {
 
   return (
     <div className="mb-8">
-      <h2 className="mb-4 text-lg font-semibold">شوهدت مؤخراً</h2>
+      <h2 className="mb-4 text-lg font-semibold">شفتها مؤخراً</h2>
       <div className="flex gap-4 overflow-x-auto pb-2 scrollbar-hide">
         {episodes.map((episode) => (
           <Link

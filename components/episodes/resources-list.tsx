@@ -16,7 +16,7 @@ export function ResourcesList({ resources }: ResourcesListProps) {
 
   return (
     <div className="space-y-2">
-      <h3 className="text-lg font-semibold">موارد ذُكرت في الحلقة</h3>
+      <h3 className="text-lg font-semibold">مصادر ذُكرت في الحلقة</h3>
       <ul className="space-y-2">
         {resources.map((resource) => {
           const Icon = typeIcons[resource.type || 'link'] || LinkIcon

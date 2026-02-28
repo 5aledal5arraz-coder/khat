@@ -10,7 +10,7 @@ const navigation = {
   main: [
     { name: "الحلقات", href: "/episodes" },
     { name: "الضيوف", href: "/guests" },
-    { name: "عن خط", href: "/about" },
+    { name: "من نحن", href: "/about" },
     { name: "كن راعياً", href: "/sponsor" },
     { name: "تواصل", href: "/contact" },
   ],

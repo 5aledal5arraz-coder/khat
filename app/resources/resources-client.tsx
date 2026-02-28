@@ -102,9 +102,9 @@ export function ResourcesClient({ resources }: ResourcesClientProps) {
           <div className="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-full bg-primary/10">
             <Newspaper className="h-8 w-8 text-primary" />
           </div>
-          <h1 className="text-2xl font-bold md:text-3xl">المجلة قيد التحضير</h1>
+          <h1 className="text-2xl font-bold md:text-3xl">خطوط قيد التحضير</h1>
           <p className="mt-3 max-w-md text-muted-foreground">
-            نعمل على اختيار أفضل الكتب والمقالات والروابط لتكمل رحلة الاستماع. عُد قريباً!
+            نشتغل على اختيار أفضل الكتب والمقالات والروابط. ارجع قريب!
           </p>
           <Link href="/episodes" className="mt-6">
             <Button variant="outline" className="gap-2">
@@ -128,7 +128,7 @@ export function ResourcesClient({ resources }: ResourcesClientProps) {
           </span>
           <h1 className="text-3xl font-bold md:text-4xl">خطوط</h1>
           <p className="text-base text-muted-foreground md:text-lg">
-            اختيارات أسبوعية من كتب ومقالات وروابط تُكمل رحلة الاستماع
+            اختيارات أسبوعية من كتب ومقالات وروابط تكمّل رحلة الاستماع
           </p>
           <div className="mx-auto h-px w-16 bg-primary/30" />
         </div>
@@ -185,7 +185,7 @@ export function ResourcesClient({ resources }: ResourcesClientProps) {
               >
                 <Button variant="outline" className="gap-2">
                   <ExternalLink className="h-4 w-4" />
-                  اقرأ المصدر
+                  اقرا المصدر
                 </Button>
               </a>
             </CardContent>
@@ -266,7 +266,7 @@ export function ResourcesClient({ resources }: ResourcesClientProps) {
           {/* Archive grid */}
           {filteredArchive.length === 0 ? (
             <div className="rounded-xl border border-dashed p-8 text-center text-muted-foreground">
-              لا توجد نتائج مطابقة
+              ما في نتائج
             </div>
           ) : (
             <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
@@ -286,7 +286,7 @@ export function ResourcesClient({ resources }: ResourcesClientProps) {
           </div>
           <h2 className="text-xl font-bold">لا تفوّت العدد القادم</h2>
           <p className="mt-2 text-sm text-muted-foreground">
-            نرسل لك اختيارات المجلة مع أحدث الحلقات والتأملات — كل أسبوع.
+            نرسل لك اختيارات خطوط مع آخر الحلقات والتأملات — كل أسبوع.
           </p>
           <div className="mt-6">
             <NewsletterForm />
@@ -346,7 +346,7 @@ function ResourceCard({ resource, showDescription }: { resource: Resource; showD
           <div className="mt-auto pt-3">
             <span className="flex items-center gap-1 text-xs text-primary opacity-0 transition-opacity group-hover:opacity-100">
               <ExternalLink className="h-3 w-3" />
-              زيارة المصدر
+              زُر المصدر
             </span>
           </div>
         </CardContent>

@@ -25,14 +25,14 @@ export function EpisodeConnections({ homeQuotes, paths, reflections, hibrArticle
 
   return (
     <div className="space-y-6">
-      <h2 className="text-lg font-semibold">استكشف أكثر</h2>
+      <h2 className="text-lg font-semibold">اكتشف أكثر</h2>
 
       {/* Paths that include this episode */}
       {paths.length > 0 && (
         <div className="space-y-3">
           <div className="flex items-center gap-2">
             <Compass className="h-4 w-4 text-muted-foreground" />
-            <h3 className="text-sm font-medium text-muted-foreground">مسارات تتضمن هذه الحلقة</h3>
+            <h3 className="text-sm font-medium text-muted-foreground">مسارات فيها هالحلقة</h3>
           </div>
           <div className="flex flex-wrap gap-2">
             {paths.map((path) => {
@@ -60,7 +60,7 @@ export function EpisodeConnections({ homeQuotes, paths, reflections, hibrArticle
         <div className="space-y-3">
           <div className="flex items-center gap-2">
             <Quote className="h-4 w-4 text-muted-foreground" />
-            <h3 className="text-sm font-medium text-muted-foreground">اقتباسات مميزة</h3>
+            <h3 className="text-sm font-medium text-muted-foreground">اقتباسات مميّزة</h3>
           </div>
           <div className="grid gap-3 sm:grid-cols-2">
             {homeQuotes.map((q) => (

@@ -21,7 +21,7 @@ export function ConversationMap({ data }: ConversationMapProps) {
 
   return (
     <div className="space-y-4">
-      <h2 className="text-lg font-semibold">خريطة المحادثة</h2>
+      <h2 className="text-lg font-semibold">خريطة الحوار</h2>
       <div className="relative flex flex-col gap-4 sm:flex-row sm:gap-0">
         {nodes.map((n, i) => (
           <div key={n.key} className="relative flex-1">

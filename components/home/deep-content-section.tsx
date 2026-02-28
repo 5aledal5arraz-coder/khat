@@ -29,7 +29,7 @@ export function DeepContentSection({ episodes, guests, recommendationReason, exc
     <section className="py-12 space-y-8">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-xl font-bold">حلقات تستحق الاستماع</h2>
+          <h2 className="text-xl font-bold">حلقات تستاهل تسمعها</h2>
           {recommendationReason && (
             <p className="text-sm text-muted-foreground mt-1">{recommendationReason}</p>
           )}
@@ -92,7 +92,7 @@ export function DeepContentSection({ episodes, guests, recommendationReason, exc
       {featuredGuests.length > 0 && (
         <div>
           <div className="mb-4 flex items-center justify-between">
-            <h3 className="text-sm font-medium text-muted-foreground">ضيوف مميزون</h3>
+            <h3 className="text-sm font-medium text-muted-foreground">ضيوف مميّزين</h3>
             <Link href="/guests" className="text-xs text-primary hover:underline">عرض الكل</Link>
           </div>
           <div className="flex gap-4 overflow-x-auto py-2 scrollbar-hide">
@@ -123,7 +123,7 @@ export function DeepContentSection({ episodes, guests, recommendationReason, exc
       <div className="text-center">
         <Link href="/episodes">
           <Button variant="outline" size="lg" className="gap-2">
-            استعرض جميع الحلقات
+            شوف كل الحلقات
             <ArrowLeft className="h-4 w-4" />
           </Button>
         </Link>

@@ -18,7 +18,7 @@ export function BecauseYouWatched({ sourceTitle, episodes }: Props) {
   return (
     <section className="py-8 space-y-4">
       <h2 className="text-lg font-bold">
-        لأنك شاهدت: {sourceTitle}
+        لأنك شفت: {sourceTitle}
       </h2>
 
       <div className="space-y-3">

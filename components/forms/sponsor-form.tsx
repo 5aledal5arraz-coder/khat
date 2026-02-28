@@ -100,11 +100,11 @@ export function SponsorForm() {
         setStatus("success")
       } else {
         setStatus("error")
-        setMessage(result.error || "حدث خطأ. يرجى المحاولة مرة أخرى.")
+        setMessage(result.error || "صار خطأ، حاول مرة ثانية")
       }
     } catch {
       setStatus("error")
-      setMessage("حدث خطأ. يرجى المحاولة مرة أخرى.")
+      setMessage("صار خطأ، حاول مرة ثانية")
     }
   }
 
@@ -112,13 +112,13 @@ export function SponsorForm() {
     return (
       <div className="rounded-lg border bg-green-50 dark:bg-green-950/20 p-8 text-center">
         <Check className="mx-auto h-12 w-12 text-green-600" />
-        <h3 className="mt-4 text-xl font-semibold">شكرًا لاهتمامك بالشراكة مع خط</h3>
+        <h3 className="mt-4 text-xl font-semibold">شكراً لاهتمامك بالشراكة مع خط</h3>
         <p className="mt-3 text-muted-foreground leading-relaxed">
-          سنراجع طلبك ونعود إليك بخطة تعاون مقترحة تناسب أهدافك.
+          بنراجع طلبك ونرد عليك بخطة تعاون تناسب أهدافك.
         </p>
         <div className="mt-6 flex justify-center gap-3">
           <Button variant="outline" onClick={() => setStatus("idle")}>
-            إرسال طلب آخر
+            أرسل طلب ثاني
           </Button>
           <Link href="/">
             <Button variant="ghost">العودة للرئيسية</Button>
@@ -371,7 +371,7 @@ export function SponsorForm() {
         {status === "loading" ? (
           <>
             <Loader2 className="me-2 h-4 w-4 animate-spin" />
-            جاري الإرسال...
+            جارٍ الإرسال...
           </>
         ) : (
           "أرسل طلب الشراكة"

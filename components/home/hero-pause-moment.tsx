@@ -36,7 +36,7 @@ export function HeroPauseMoment({ quote }: Props) {
               {quote.episode_slug && (
                 <Link href={`/episodes/${quote.episode_slug}`}>
                   <Button variant="outline" size="lg" className="gap-2">
-                    أكمل الفكرة
+                    كمّل الفكرة
                     <ArrowLeft className="h-4 w-4" />
                   </Button>
                 </Link>
@@ -52,7 +52,7 @@ export function HeroPauseMoment({ quote }: Props) {
               {!quote.episode_slug && (
                 <Link href="/episodes">
                   <Button variant="outline" size="lg" className="gap-2">
-                    استكشف الحلقات
+                    تصفّح الحلقات
                     <ArrowLeft className="h-4 w-4" />
                   </Button>
                 </Link>

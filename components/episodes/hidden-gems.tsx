@@ -15,7 +15,7 @@ export async function HiddenGems() {
     <div className="mb-8">
       <div className="mb-4 flex items-center gap-2">
         <Gem className="h-5 w-5 text-primary" />
-        <h2 className="text-lg font-semibold">حلقات تستحق المشاهدة</h2>
+        <h2 className="text-lg font-semibold">حلقات تستاهل تشوفها</h2>
       </div>
       <div className="flex gap-4 overflow-x-auto pb-2 scrollbar-hide">
         {gems.map((episode) => {

@@ -99,7 +99,7 @@ export function YouTubeEmbed({
   const milestonesRef = useRef({ w25: false, w50: false, w90: false })
   const playerInstanceRef = useRef<YT.Player | null>(null)
   const { registerPlayer } = usePlayer()
-  const [playerState, setPlayerState] = useState<"thumbnail" | "player">("thumbnail")
+  const [playerState, setPlayerState] = useState<"thumbnail" | "player" | "blocked">("thumbnail")
 
   const trackProgress = useCallback(() => {
     if (!episodeId || !episodeSlug || !durationMinutes) return
@@ -169,6 +169,12 @@ export function YouTubeEmbed({
           registerPlayer(event.target)
           trackProgress()
         },
+        onError: (event) => {
+          // 2 = invalid param, 100 = not found, 101/150/153 = embedding disabled
+          if ([2, 100, 101, 150, 153].includes(event.data)) {
+            setPlayerState("blocked")
+          }
+        },
       },
     })
 
@@ -213,6 +219,30 @@ export function YouTubeEmbed({
             title={title}
             onPlay={handlePlay}
           />
+        ) : playerState === "blocked" ? (
+          <a
+            href={watchUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="group relative flex h-full w-full items-center justify-center"
+          >
+            <Image
+              src={`https://img.youtube.com/vi/${videoId}/maxresdefault.jpg`}
+              alt={title}
+              fill
+              sizes="(max-width: 768px) 100vw, 800px"
+              className="object-cover brightness-50"
+            />
+            <div className="relative flex flex-col items-center gap-3 text-center px-6">
+              <ExternalLink className="h-8 w-8 text-white/80" />
+              <p className="text-sm font-medium text-white">
+                التضمين غير متاح لهذا الفيديو
+              </p>
+              <span className="rounded-full border border-white/30 px-5 py-2 text-sm text-white transition-colors group-hover:bg-white/10">
+                شاهد على يوتيوب
+              </span>
+            </div>
+          </a>
         ) : (
           <div
             ref={playerDivRef}

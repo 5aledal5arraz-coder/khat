@@ -11,7 +11,10 @@ import {
   Layers,
   Sparkles,
   Shield,
+  Handshake,
 } from "lucide-react"
+import { getActivePartners } from "@/lib/queries/partnerships"
+import Image from "next/image"
 
 export const metadata: Metadata = {
   title: "كن شريكًا في المحادثة",
@@ -54,7 +57,8 @@ const partnershipTypes = [
   },
 ]
 
-export default function SponsorPage() {
+export default async function SponsorPage() {
+  const partners = await getActivePartners()
   return (
     <div className="min-h-screen">
       {/* Hero Section */}
@@ -180,6 +184,70 @@ export default function SponsorPage() {
           </div>
         </div>
       </section>
+
+      {/* Trusted Partners */}
+      {partners.length > 0 && (
+        <section className="py-16 bg-secondary/30">
+          <div className="container mx-auto px-4">
+            <div className="text-center mb-10">
+              <Badge variant="outline" className="mb-4">
+                <Handshake className="w-3 h-3 me-1.5" />
+                جهات وثقت بالحوار
+              </Badge>
+              <h2 className="text-3xl font-bold mb-4">
+                شركاؤنا في الرحلة
+              </h2>
+              <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
+                جهات ومؤسسات اختارت أن تكون جزءًا من المحادثة
+              </p>
+            </div>
+
+            <div className="grid sm:grid-cols-2 md:grid-cols-3 gap-6 max-w-4xl mx-auto">
+              {partners.map((partner) => (
+                <div
+                  key={partner.id}
+                  className="group rounded-2xl border border-border/50 bg-card/50 p-6 text-center transition-all hover:shadow-lg hover:-translate-y-0.5"
+                >
+                  {partner.logo_url ? (
+                    <div className="mb-4 flex justify-center">
+                      <Image
+                        src={partner.logo_url}
+                        alt={partner.name}
+                        width={80}
+                        height={80}
+                        className="h-16 w-auto object-contain"
+                      />
+                    </div>
+                  ) : (
+                    <div className="mb-4 flex justify-center">
+                      <div className="h-16 w-16 rounded-xl bg-primary/10 flex items-center justify-center">
+                        <Handshake className="h-8 w-8 text-primary" />
+                      </div>
+                    </div>
+                  )}
+                  <h3 className="font-semibold mb-1">{partner.name}</h3>
+                  {partner.description && (
+                    <p className="text-sm text-muted-foreground leading-relaxed mb-3">
+                      {partner.description}
+                    </p>
+                  )}
+                  {partner.website_url && (
+                    <a
+                      href={partner.website_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1 text-xs text-primary hover:underline"
+                    >
+                      زيارة الموقع
+                      <span className="text-[10px]">&#8599;</span>
+                    </a>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+      )}
 
       {/* Form Section */}
       <section

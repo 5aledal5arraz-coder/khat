@@ -4,6 +4,7 @@ import { sponsorshipLeads } from "@/lib/db/schema"
 import { stripHtml } from "@/lib/sanitize"
 import { validateEmail } from "@/lib/validation"
 import { checkIpRateLimit } from "@/lib/rate-limit"
+import { getResend, FROM_EMAIL } from "@/lib/email/resend"
 
 export async function POST(request: NextRequest) {
   try {
@@ -75,12 +76,16 @@ export async function POST(request: NextRequest) {
       .map((t: string) => stripHtml(t))
       .slice(0, 10)
 
+    const sanitizedCompany = stripHtml(company_name)
+    const sanitizedContact = stripHtml(contact_name)
+    const sanitizedEmail = email.toLowerCase().trim()
+
     await db!.insert(sponsorshipLeads).values({
-      company_name: stripHtml(company_name),
+      company_name: sanitizedCompany,
       industry: stripHtml(industry),
-      contact_name: stripHtml(contact_name),
+      contact_name: sanitizedContact,
       job_title: stripHtml(job_title),
-      email: email.toLowerCase().trim(),
+      email: sanitizedEmail,
       phone: stripHtml(phone),
       collaboration_types: sanitizedCollabTypes,
       collaboration_other: collaboration_other ? stripHtml(collaboration_other) : null,
@@ -91,6 +96,27 @@ export async function POST(request: NextRequest) {
       additional_info: additional_info ? stripHtml(additional_info) : null,
       status: "new",
     })
+
+    // Send notification email (fire-and-forget)
+    getResend().emails.send({
+      from: FROM_EMAIL,
+      to: "khatpodcast@hotmail.com",
+      subject: "طلب رعاية جديد — بودكاست خط",
+      html: `
+        <div dir="rtl" style="font-family:sans-serif;max-width:500px">
+          <h2 style="color:#c9a227">طلب رعاية جديد</h2>
+          <p><strong>الشركة:</strong> ${sanitizedCompany}</p>
+          <p><strong>المسؤول:</strong> ${sanitizedContact}</p>
+          <p><strong>البريد:</strong> ${sanitizedEmail}</p>
+          <p><strong>الميزانية:</strong> ${stripHtml(budget_range)}</p>
+          <p style="margin-top:20px">
+            <a href="https://khatpodcast.com/admin/submissions?tab=sponsors" style="background:#c9a227;color:#0a0a0a;padding:10px 20px;text-decoration:none;border-radius:6px">
+              مراجعة الطلب
+            </a>
+          </p>
+        </div>
+      `,
+    }).catch(e => console.error("Sponsor notification email failed:", e))
 
     return NextResponse.json({ success: true })
   } catch {

@@ -40,7 +40,7 @@ export function TodayInKhat({ reflection }: Props) {
 
           {/* Thinking question */}
           <div className="rounded-lg border border-primary/20 bg-primary/5 p-4">
-            <p className="text-sm font-medium text-primary">سؤال للتفكير</p>
+            <p className="text-sm font-medium text-primary">سؤال يخليك تفكّر</p>
             <p className="mt-1 text-sm leading-relaxed">
               {reflection.thinking_question}
             </p>
@@ -61,7 +61,7 @@ export function TodayInKhat({ reflection }: Props) {
                 <Link href={`/quotes/${reflection.quote_id}`}>
                   <Button variant="ghost" size="sm" className="gap-2">
                     <Quote className="h-4 w-4" />
-                    اقرأ الاقتباس
+                    اقرا الاقتباس
                   </Button>
                 </Link>
               )}

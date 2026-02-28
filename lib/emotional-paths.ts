@@ -132,7 +132,7 @@ export async function getPathsForEpisode(episodeId: string): Promise<EmotionalPa
   if (USE_DB) {
     try {
       const rows = await db!.select().from(emotionalPaths)
-        .where(sql`${episodeId} = ANY(${emotionalPaths.episode_ids})`)
+        .where(sql`${emotionalPaths.episode_ids} @> ${JSON.stringify([episodeId])}::jsonb`)
         .orderBy(asc(emotionalPaths.order))
       return rows.map((r) => rowToPath(r as unknown as Record<string, unknown>))
     } catch (e) {

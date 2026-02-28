@@ -25,15 +25,15 @@ export function NewsletterForm() {
 
       if (response.ok) {
         setStatus("success")
-        setMessage("شكراً لك! تم تسجيلك بنجاح.")
+        setMessage("شكراً! تم تسجيلك بنجاح")
         setEmail("")
       } else {
         setStatus("error")
-        setMessage(data.error || "حدث خطأ. يرجى المحاولة مرة أخرى.")
+        setMessage(data.error || "صار خطأ، حاول مرة ثانية")
       }
     } catch {
       setStatus("error")
-      setMessage("حدث خطأ. يرجى المحاولة مرة أخرى.")
+      setMessage("صار خطأ، حاول مرة ثانية")
     }
   }
 

@@ -26,15 +26,7 @@ export default function AdminLayout({
   const router = useRouter()
   const [sidebarOpen, setSidebarOpen] = useState(true)
   const [mobileDrawerOpen, setMobileDrawerOpen] = useState(false)
-
-  // Skip dashboard chrome for login page
-  if (pathname === '/admin/login') return <>{children}</>
-
-  const handleLogout = async () => {
-    await fetch('/api/admin/auth/session', { method: 'DELETE' })
-    router.push('/admin/login')
-    router.refresh()
-  }
+  const isLoginPage = pathname === '/admin/login'
 
   // Close mobile drawer on route change
   useEffect(() => {
@@ -56,6 +48,15 @@ export default function AdminLayout({
   const closeMobileDrawer = useCallback(() => {
     setMobileDrawerOpen(false)
   }, [])
+
+  const handleLogout = useCallback(async () => {
+    await fetch('/api/admin/auth/session', { method: 'DELETE' })
+    router.push('/admin/login')
+    router.refresh()
+  }, [router])
+
+  // Skip dashboard chrome for login page
+  if (isLoginPage) return <>{children}</>
 
   return (
     <div className="min-h-screen bg-muted/30">
