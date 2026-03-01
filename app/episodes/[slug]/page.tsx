@@ -8,6 +8,7 @@ import { getEpisodeEnrichment } from "@/lib/episode-enrichments"
 import { getArticlesByEpisodeId } from "@/lib/space-queries"
 import { getYouTubeId } from "@/lib/utils"
 import { EpisodePageClient } from "@/components/episodes/episode-page-client"
+import { ReadingProgress } from "@/components/ui/reading-progress"
 
 interface EpisodePageProps {
   params: Promise<{ slug: string }>
@@ -89,6 +90,7 @@ export default async function EpisodePage({ params, searchParams }: EpisodePageP
 
   return (
     <>
+      <ReadingProgress />
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}

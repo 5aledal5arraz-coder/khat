@@ -17,7 +17,7 @@ export function NewsletterForm() {
     try {
       const response = await fetch("/api/newsletter", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", "x-requested-with": "khat" },
         body: JSON.stringify({ email }),
       })
 

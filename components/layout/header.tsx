@@ -17,7 +17,7 @@ const baseNavigation = [
   { name: "من نحن", href: "/about" },
 ]
 
-export function Header({ hibrEnabled = true }: { hibrEnabled?: boolean }) {
+export function Header({ hibrEnabled = true, hasNewEpisode = false }: { hibrEnabled?: boolean; hasNewEpisode?: boolean }) {
   const navigation = baseNavigation.filter((item) => !item.requiresHibr || hibrEnabled)
   const [searchOpen, setSearchOpen] = useState(false)
   const [searchQuery, setSearchQuery] = useState("")
@@ -56,9 +56,12 @@ export function Header({ hibrEnabled = true }: { hibrEnabled?: boolean }) {
             <Link
               key={item.name}
               href={item.href}
-              className="text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
+              className="relative text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
             >
               {item.name}
+              {hasNewEpisode && item.href === "/episodes" && (
+                <span className="absolute -top-1 -end-2 h-2 w-2 rounded-full bg-primary animate-pulse" />
+              )}
             </Link>
           ))}
         </div>

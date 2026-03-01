@@ -1,8 +1,7 @@
 import { Metadata } from "next"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { ShoppingBag, Bell } from "lucide-react"
+import { ShoppingBag } from "lucide-react"
+import { StoreNotifyForm } from "./store-notify-form"
 
 export const metadata: Metadata = {
   title: "المتجر",
@@ -25,19 +24,7 @@ export default function StorePage() {
             سجل بريدك الإلكتروني ليصلك إشعار فور الإطلاق.
           </p>
 
-          <div className="mx-auto max-w-sm">
-            <form className="flex gap-2">
-              <Input
-                type="email"
-                placeholder="بريدك الإلكتروني"
-                className="flex-1"
-              />
-              <Button type="submit" className="gap-2">
-                <Bell className="h-4 w-4" />
-                أعلمني
-              </Button>
-            </form>
-          </div>
+          <StoreNotifyForm />
 
           <div className="rounded-lg bg-secondary/50 p-4">
             <p className="text-sm font-medium">ماذا نحضّر؟</p>

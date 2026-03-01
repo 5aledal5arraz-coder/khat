@@ -4,10 +4,15 @@ import { sponsorshipLeads } from "@/lib/db/schema"
 import { stripHtml } from "@/lib/sanitize"
 import { validateEmail } from "@/lib/validation"
 import { checkIpRateLimit } from "@/lib/rate-limit"
+import { validateMutation } from "@/lib/api-utils"
 import { sendSponsorApplicationAdmin, sendSponsorApplicationConfirm } from "@/lib/email/send"
 
 export async function POST(request: NextRequest) {
   try {
+    // CSRF protection
+    const csrfError = validateMutation(request)
+    if (csrfError) return csrfError
+
     // Rate limit: 3 submissions per hour per IP
     const rl = checkIpRateLimit(request, "sponsor_submit", 3, 60 * 60 * 1000)
     if (!rl.allowed) {

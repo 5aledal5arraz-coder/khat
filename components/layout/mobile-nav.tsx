@@ -2,7 +2,7 @@
 
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { Home, Headphones, PenSquare, BookOpen, MoreHorizontal } from "lucide-react"
+import { Home, Headphones, PenSquare, BookOpen, Handshake } from "lucide-react"
 import { cn } from "@/lib/utils"
 
 const baseNavItems = [
@@ -10,10 +10,10 @@ const baseNavItems = [
   { href: "/episodes", icon: Headphones, label: "الحلقات" },
   { href: "/space", icon: PenSquare, label: "حبر", requiresHibr: true },
   { href: "/resources", icon: BookOpen, label: "خطوط" },
-  { href: "/more", icon: MoreHorizontal, label: "المزيد" },
+  { href: "/sponsor", icon: Handshake, label: "شراكة", highlight: true },
 ]
 
-export function MobileNav({ hibrEnabled = true }: { hibrEnabled?: boolean }) {
+export function MobileNav({ hibrEnabled = true, hasNewEpisode = false }: { hibrEnabled?: boolean; hasNewEpisode?: boolean }) {
   const navItems = baseNavItems.filter((item) => !item.requiresHibr || hibrEnabled)
   const pathname = usePathname()
 
@@ -37,12 +37,19 @@ export function MobileNav({ hibrEnabled = true }: { hibrEnabled?: boolean }) {
               href={item.href}
               className={cn(
                 "flex flex-1 flex-col items-center gap-1 py-2.5 text-xs transition-colors",
-                isActive
-                  ? "text-primary"
-                  : "text-muted-foreground hover:text-foreground"
+                item.highlight
+                  ? "text-primary font-medium"
+                  : isActive
+                    ? "text-primary"
+                    : "text-muted-foreground hover:text-foreground"
               )}
             >
-              <item.icon className={cn("h-5 w-5", isActive && "text-primary")} />
+              <span className="relative">
+                <item.icon className={cn("h-5 w-5", (isActive || item.highlight) && "text-primary")} />
+                {hasNewEpisode && item.href === "/episodes" && (
+                  <span className="absolute -top-0.5 -end-1 h-1.5 w-1.5 rounded-full bg-primary animate-pulse" />
+                )}
+              </span>
               <span>{item.label}</span>
             </Link>
           )

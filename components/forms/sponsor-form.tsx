@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Label } from "@/components/ui/label"
-import { Loader2, Check } from "lucide-react"
+import { Loader2, Check, ChevronRight, ChevronLeft } from "lucide-react"
 import Link from "next/link"
 
 const COLLABORATION_OPTIONS = [
@@ -35,12 +35,32 @@ const BUDGET_OPTIONS = [
   { value: "3000_plus", label: "أكثر من 3,000 د.ك" },
 ]
 
+const STEPS = [
+  { number: "١", label: "معلومات الشركة" },
+  { number: "٢", label: "تفاصيل التعاون" },
+  { number: "٣", label: "الأهداف" },
+  { number: "٤", label: "الميزانية والتفاصيل" },
+]
+
 export function SponsorForm() {
+  const [step, setStep] = useState(0)
   const [status, setStatus] = useState<"idle" | "loading" | "success" | "error">("idle")
   const [message, setMessage] = useState("")
   const [collaborationTypes, setCollaborationTypes] = useState<string[]>([])
   const [mainGoal, setMainGoal] = useState("")
   const [budgetRange, setBudgetRange] = useState("")
+
+  // Form fields state (needed since we hide/show sections)
+  const [companyName, setCompanyName] = useState("")
+  const [industry, setIndustry] = useState("")
+  const [contactName, setContactName] = useState("")
+  const [jobTitle, setJobTitle] = useState("")
+  const [email, setEmail] = useState("")
+  const [phone, setPhone] = useState("")
+  const [collaborationOther, setCollaborationOther] = useState("")
+  const [targetAudience, setTargetAudience] = useState("")
+  const [preferredTimeline, setPreferredTimeline] = useState("")
+  const [additionalInfo, setAdditionalInfo] = useState("")
 
   const handleCollaborationToggle = (value: string) => {
     setCollaborationTypes((prev) =>
@@ -50,47 +70,80 @@ export function SponsorForm() {
     )
   }
 
-  const isFormValid = collaborationTypes.length > 0 && mainGoal && budgetRange
+  function validateStep(s: number): string | null {
+    switch (s) {
+      case 0:
+        if (!companyName.trim()) return "اسم الشركة مطلوب"
+        if (!industry.trim()) return "المجال مطلوب"
+        if (!contactName.trim()) return "اسم المسؤول مطلوب"
+        if (!jobTitle.trim()) return "المسمى الوظيفي مطلوب"
+        if (!email.trim() || !email.includes("@")) return "البريد الإلكتروني غير صالح"
+        if (!phone.trim() || phone.trim().length < 8) return "رقم الهاتف مطلوب (8 أرقام على الأقل)"
+        return null
+      case 1:
+        if (collaborationTypes.length === 0) return "يرجى اختيار نوع تعاون واحد على الأقل"
+        return null
+      case 2:
+        if (!mainGoal) return "يرجى اختيار الهدف الرئيسي"
+        if (!targetAudience.trim()) return "الجمهور المستهدف مطلوب"
+        return null
+      case 3:
+        if (!budgetRange) return "يرجى اختيار نطاق الميزانية"
+        return null
+      default:
+        return null
+    }
+  }
 
-  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault()
-
-    if (!isFormValid) {
+  function handleNext() {
+    const error = validateStep(step)
+    if (error) {
       setStatus("error")
-      if (collaborationTypes.length === 0) {
-        setMessage("يرجى اختيار نوع تعاون واحد على الأقل")
-      } else if (!mainGoal) {
-        setMessage("يرجى اختيار الهدف الرئيسي من الشراكة")
-      } else if (!budgetRange) {
-        setMessage("يرجى اختيار نطاق الميزانية")
-      }
+      setMessage(error)
+      return
+    }
+    setStatus("idle")
+    setMessage("")
+    setStep((s) => Math.min(s + 1, STEPS.length - 1))
+  }
+
+  function handleBack() {
+    setStatus("idle")
+    setMessage("")
+    setStep((s) => Math.max(s - 1, 0))
+  }
+
+  const handleSubmit = async () => {
+    const error = validateStep(step)
+    if (error) {
+      setStatus("error")
+      setMessage(error)
       return
     }
 
     setStatus("loading")
     setMessage("")
 
-    const formData = new FormData(e.currentTarget)
     const data = {
-      company_name: formData.get("company_name") as string,
-      industry: formData.get("industry") as string,
-      contact_name: formData.get("contact_name") as string,
-      job_title: formData.get("job_title") as string,
-      email: formData.get("email") as string,
-      phone: formData.get("phone") as string,
+      company_name: companyName,
+      industry,
+      contact_name: contactName,
+      job_title: jobTitle,
+      email,
+      phone,
       collaboration_types: collaborationTypes,
-      collaboration_other: (formData.get("collaboration_other") as string) || null,
+      collaboration_other: collaborationOther || null,
       main_goal: mainGoal,
-      target_audience: formData.get("target_audience") as string,
-      preferred_timeline: (formData.get("preferred_timeline") as string) || null,
+      target_audience: targetAudience,
+      preferred_timeline: preferredTimeline || null,
       budget_range: budgetRange,
-      additional_info: (formData.get("additional_info") as string) || null,
+      additional_info: additionalInfo || null,
     }
 
     try {
       const response = await fetch("/api/sponsor", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", "x-requested-with": "khat" },
         body: JSON.stringify(data),
       })
 
@@ -117,7 +170,7 @@ export function SponsorForm() {
           بنراجع طلبك ونرد عليك بخطة تعاون تناسب أهدافك.
         </p>
         <div className="mt-6 flex justify-center gap-3">
-          <Button variant="outline" onClick={() => setStatus("idle")}>
+          <Button variant="outline" onClick={() => { setStatus("idle"); setStep(0) }}>
             أرسل طلب ثاني
           </Button>
           <Link href="/">
@@ -128,92 +181,79 @@ export function SponsorForm() {
     )
   }
 
+  const isLastStep = step === STEPS.length - 1
+  const disabled = status === "loading"
+
   return (
-    <form onSubmit={handleSubmit} className="space-y-8">
-      {/* Section 1: Company Information */}
-      <div>
-        <div className="flex items-center gap-2.5 mb-4">
-          <div className="flex h-7 w-7 items-center justify-center rounded-full bg-primary/10 text-xs font-bold text-primary">
-            ١
+    <div className="space-y-6">
+      {/* Progress Bar */}
+      <div className="flex items-center gap-1">
+        {STEPS.map((s, i) => (
+          <div key={i} className="flex-1 flex flex-col items-center gap-1.5">
+            <div
+              className={`h-1.5 w-full rounded-full transition-colors ${
+                i <= step ? "bg-primary" : "bg-muted"
+              }`}
+            />
+            <span className={`text-[10px] hidden sm:block transition-colors ${
+              i <= step ? "text-primary font-medium" : "text-muted-foreground"
+            }`}>
+              {s.label}
+            </span>
           </div>
-          <h3 className="font-semibold">معلومات الشركة</h3>
+        ))}
+      </div>
+
+      {/* Step Header */}
+      <div className="flex items-center gap-2.5">
+        <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary text-primary-foreground text-sm font-bold">
+          {STEPS[step].number}
         </div>
-        <div className="space-y-4">
+        <h3 className="text-lg font-semibold">{STEPS[step].label}</h3>
+        <span className="text-sm text-muted-foreground ms-auto">
+          {step + 1} / {STEPS.length}
+        </span>
+      </div>
+
+      {/* Step 1: Company Information */}
+      {step === 0 && (
+        <div className="space-y-4 animate-in fade-in slide-in-from-start-4 duration-300">
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-2">
               <Label htmlFor="company_name">اسم الشركة *</Label>
-              <Input
-                id="company_name"
-                name="company_name"
-                required
-                disabled={status === "loading"}
-              />
+              <Input id="company_name" value={companyName} onChange={(e) => setCompanyName(e.target.value)} required disabled={disabled} />
             </div>
             <div className="space-y-2">
               <Label htmlFor="industry">المجال / الصناعة *</Label>
-              <Input
-                id="industry"
-                name="industry"
-                required
-                disabled={status === "loading"}
-              />
+              <Input id="industry" value={industry} onChange={(e) => setIndustry(e.target.value)} required disabled={disabled} />
             </div>
           </div>
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-2">
               <Label htmlFor="contact_name">اسم المسؤول *</Label>
-              <Input
-                id="contact_name"
-                name="contact_name"
-                required
-                disabled={status === "loading"}
-              />
+              <Input id="contact_name" value={contactName} onChange={(e) => setContactName(e.target.value)} required disabled={disabled} />
             </div>
             <div className="space-y-2">
               <Label htmlFor="job_title">المسمى الوظيفي *</Label>
-              <Input
-                id="job_title"
-                name="job_title"
-                required
-                disabled={status === "loading"}
-              />
+              <Input id="job_title" value={jobTitle} onChange={(e) => setJobTitle(e.target.value)} required disabled={disabled} />
             </div>
           </div>
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-2">
               <Label htmlFor="email">البريد الإلكتروني *</Label>
-              <Input
-                id="email"
-                name="email"
-                type="email"
-                required
-                disabled={status === "loading"}
-              />
+              <Input id="email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} required disabled={disabled} />
             </div>
             <div className="space-y-2">
               <Label htmlFor="phone">رقم الهاتف *</Label>
-              <Input
-                id="phone"
-                name="phone"
-                type="tel"
-                required
-                minLength={8}
-                disabled={status === "loading"}
-              />
+              <Input id="phone" type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} required minLength={8} disabled={disabled} />
             </div>
           </div>
         </div>
-      </div>
+      )}
 
-      {/* Section 2: Campaign Details */}
-      <div>
-        <div className="flex items-center gap-2.5 mb-4">
-          <div className="flex h-7 w-7 items-center justify-center rounded-full bg-primary/10 text-xs font-bold text-primary">
-            ٢
-          </div>
-          <h3 className="font-semibold">تفاصيل التعاون</h3>
-        </div>
-        <div className="space-y-4">
+      {/* Step 2: Collaboration Details */}
+      {step === 1 && (
+        <div className="space-y-4 animate-in fade-in slide-in-from-start-4 duration-300">
           <div className="space-y-2">
             <Label>أنواع التعاون المطلوبة * <span className="text-muted-foreground font-normal">(اختر واحدة أو أكثر)</span></Label>
             <div className="grid gap-2 sm:grid-cols-2" role="group" aria-label="أنواع التعاون المطلوبة">
@@ -224,14 +264,14 @@ export function SponsorForm() {
                     collaborationTypes.includes(option.value)
                       ? "border-primary bg-primary/5 ring-1 ring-primary/20"
                       : "border-border hover:border-primary/30"
-                  } ${status === "loading" ? "opacity-50 pointer-events-none" : ""}`}
+                  } ${disabled ? "opacity-50 pointer-events-none" : ""}`}
                 >
                   <input
                     type="checkbox"
                     checked={collaborationTypes.includes(option.value)}
                     onChange={() => handleCollaborationToggle(option.value)}
                     className="accent-primary"
-                    disabled={status === "loading"}
+                    disabled={disabled}
                   />
                   <span className="text-sm">{option.label}</span>
                 </label>
@@ -243,24 +283,19 @@ export function SponsorForm() {
               <Label htmlFor="collaboration_other">وصف التعاون الآخر</Label>
               <Input
                 id="collaboration_other"
-                name="collaboration_other"
+                value={collaborationOther}
+                onChange={(e) => setCollaborationOther(e.target.value)}
                 placeholder="اشرح نوع التعاون الذي تفكر فيه..."
-                disabled={status === "loading"}
+                disabled={disabled}
               />
             </div>
           )}
         </div>
-      </div>
+      )}
 
-      {/* Section 3: Objectives */}
-      <div>
-        <div className="flex items-center gap-2.5 mb-4">
-          <div className="flex h-7 w-7 items-center justify-center rounded-full bg-primary/10 text-xs font-bold text-primary">
-            ٣
-          </div>
-          <h3 className="font-semibold">الأهداف</h3>
-        </div>
-        <div className="space-y-4">
+      {/* Step 3: Objectives */}
+      {step === 2 && (
+        <div className="space-y-4 animate-in fade-in slide-in-from-start-4 duration-300">
           <div className="space-y-2">
             <Label>الهدف الرئيسي من الشراكة *</Label>
             <div className="grid gap-2 sm:grid-cols-2" role="radiogroup" aria-required="true" aria-label="الهدف الرئيسي من الشراكة">
@@ -271,7 +306,7 @@ export function SponsorForm() {
                     mainGoal === option.value
                       ? "border-primary bg-primary/5 ring-1 ring-primary/20"
                       : "border-border hover:border-primary/30"
-                  } ${status === "loading" ? "opacity-50 pointer-events-none" : ""}`}
+                  } ${disabled ? "opacity-50 pointer-events-none" : ""}`}
                 >
                   <input
                     type="radio"
@@ -279,7 +314,7 @@ export function SponsorForm() {
                     checked={mainGoal === option.value}
                     onChange={() => setMainGoal(option.value)}
                     className="accent-primary"
-                    disabled={status === "loading"}
+                    disabled={disabled}
                   />
                   <span className="text-sm">{option.label}</span>
                 </label>
@@ -290,93 +325,100 @@ export function SponsorForm() {
             <Label htmlFor="target_audience">الجمهور المستهدف *</Label>
             <Input
               id="target_audience"
-              name="target_audience"
+              value={targetAudience}
+              onChange={(e) => setTargetAudience(e.target.value)}
               placeholder="مثال: شباب الخليج المهتمين بالتقنية (18-35)"
               required
-              disabled={status === "loading"}
+              disabled={disabled}
             />
           </div>
           <div className="space-y-2">
             <Label htmlFor="preferred_timeline">الجدول الزمني المفضل</Label>
             <Input
               id="preferred_timeline"
-              name="preferred_timeline"
+              value={preferredTimeline}
+              onChange={(e) => setPreferredTimeline(e.target.value)}
               placeholder="مثال: الربع الثاني 2026"
-              disabled={status === "loading"}
+              disabled={disabled}
             />
           </div>
         </div>
-      </div>
+      )}
 
-      {/* Section 4: Budget */}
-      <div>
-        <div className="flex items-center gap-2.5 mb-4">
-          <div className="flex h-7 w-7 items-center justify-center rounded-full bg-primary/10 text-xs font-bold text-primary">
-            ٤
+      {/* Step 4: Budget + Additional Info */}
+      {step === 3 && (
+        <div className="space-y-6 animate-in fade-in slide-in-from-start-4 duration-300">
+          <div className="space-y-2">
+            <Label>نطاق الميزانية التقريبي *</Label>
+            <div className="grid gap-2 sm:grid-cols-2" role="radiogroup" aria-required="true" aria-label="نطاق الميزانية التقريبي">
+              {BUDGET_OPTIONS.map((option) => (
+                <label
+                  key={option.value}
+                  className={`flex items-center gap-3 rounded-xl border px-4 py-3 cursor-pointer transition-all ${
+                    budgetRange === option.value
+                      ? "border-primary bg-primary/5 ring-1 ring-primary/20"
+                      : "border-border hover:border-primary/30"
+                  } ${disabled ? "opacity-50 pointer-events-none" : ""}`}
+                >
+                  <input
+                    type="radio"
+                    name="budget_range_radio"
+                    checked={budgetRange === option.value}
+                    onChange={() => setBudgetRange(option.value)}
+                    className="accent-primary"
+                    disabled={disabled}
+                  />
+                  <span className="text-sm">{option.label}</span>
+                </label>
+              ))}
+            </div>
           </div>
-          <h3 className="font-semibold">الميزانية</h3>
-        </div>
-        <div className="space-y-2">
-          <Label>نطاق الميزانية التقريبي *</Label>
-          <div className="grid gap-2 sm:grid-cols-2" role="radiogroup" aria-required="true" aria-label="نطاق الميزانية التقريبي">
-            {BUDGET_OPTIONS.map((option) => (
-              <label
-                key={option.value}
-                className={`flex items-center gap-3 rounded-xl border px-4 py-3 cursor-pointer transition-all ${
-                  budgetRange === option.value
-                    ? "border-primary bg-primary/5 ring-1 ring-primary/20"
-                    : "border-border hover:border-primary/30"
-                } ${status === "loading" ? "opacity-50 pointer-events-none" : ""}`}
-              >
-                <input
-                  type="radio"
-                  name="budget_range_radio"
-                  checked={budgetRange === option.value}
-                  onChange={() => setBudgetRange(option.value)}
-                  className="accent-primary"
-                  disabled={status === "loading"}
-                />
-                <span className="text-sm">{option.label}</span>
-              </label>
-            ))}
+          <div className="space-y-2">
+            <Label htmlFor="additional_info">أي تفاصيل أخرى تود مشاركتها</Label>
+            <Textarea
+              id="additional_info"
+              value={additionalInfo}
+              onChange={(e) => setAdditionalInfo(e.target.value)}
+              rows={4}
+              placeholder="أخبرنا المزيد عن رؤيتك للشراكة أو أي متطلبات خاصة..."
+              disabled={disabled}
+            />
           </div>
         </div>
-      </div>
+      )}
 
-      {/* Section 5: Additional Info */}
-      <div>
-        <div className="flex items-center gap-2.5 mb-4">
-          <div className="flex h-7 w-7 items-center justify-center rounded-full bg-primary/10 text-xs font-bold text-primary">
-            ٥
-          </div>
-          <h3 className="font-semibold">معلومات إضافية</h3>
-        </div>
-        <div className="space-y-2">
-          <Label htmlFor="additional_info">أي تفاصيل أخرى تود مشاركتها</Label>
-          <Textarea
-            id="additional_info"
-            name="additional_info"
-            rows={4}
-            placeholder="أخبرنا المزيد عن رؤيتك للشراكة أو أي متطلبات خاصة..."
-            disabled={status === "loading"}
-          />
-        </div>
-      </div>
-
+      {/* Error Message */}
       {message && status === "error" && (
         <p className="text-sm text-destructive">{message}</p>
       )}
 
-      <Button type="submit" className="w-full" size="lg" disabled={status === "loading"}>
-        {status === "loading" ? (
-          <>
-            <Loader2 className="me-2 h-4 w-4 animate-spin" />
-            جارٍ الإرسال...
-          </>
-        ) : (
-          "أرسل طلب الشراكة"
+      {/* Navigation */}
+      <div className="flex items-center gap-3">
+        {step > 0 && (
+          <Button type="button" variant="outline" onClick={handleBack} disabled={disabled} className="gap-1.5">
+            <ChevronRight className="h-4 w-4" />
+            السابق
+          </Button>
         )}
-      </Button>
-    </form>
+        <div className="flex-1" />
+        {isLastStep ? (
+          <Button type="button" onClick={handleSubmit} size="lg" disabled={disabled} className="min-w-[160px]">
+            {status === "loading" ? (
+              <>
+                <Loader2 className="me-2 h-4 w-4 animate-spin" />
+                جارٍ الإرسال...
+              </>
+            ) : (
+              "أرسل طلب الشراكة"
+            )}
+          </Button>
+        ) : (
+          <Button type="button" onClick={handleNext} size="lg" disabled={disabled} className="gap-1.5 min-w-[120px]">
+            التالي
+            <ChevronLeft className="h-4 w-4" />
+          </Button>
+        )}
+      </div>
+    </div>
   )
 }

@@ -6,10 +6,12 @@ import { Footer } from "@/components/layout/footer"
 import { MobileNav } from "@/components/layout/mobile-nav"
 import { ViewportFix } from "@/components/layout/viewport-fix"
 import { Toaster } from "@/components/ui/toaster"
+import { ScrollToTop } from "@/components/ui/scroll-to-top"
 import { AuthProvider } from "@/components/providers/auth-provider"
 import { getThemeConfig } from "@/lib/theme"
 import { isEnabled } from "@/config/site"
 import { ThemeSync } from "@/components/theme/theme-sync"
+import { fetchAllEpisodes } from "@/lib/youtube/queries"
 
 const ibmPlexArabic = IBM_Plex_Sans_Arabic({
   variable: "--font-ibm-plex-arabic",
@@ -46,10 +48,18 @@ export default async function RootLayout({
 }: Readonly<{
   children: React.ReactNode
 }>) {
-  const [{ mode }, hibrEnabled] = await Promise.all([
+  const [{ mode }, hibrEnabled, episodes] = await Promise.all([
     getThemeConfig(),
     isEnabled("hibrEnabled"),
+    fetchAllEpisodes().catch(() => []),
   ])
+
+  // Check if there's an episode published in the last 48 hours
+  const cutoff = new Date()
+  cutoff.setHours(cutoff.getHours() - 48)
+  const hasNewEpisode = episodes.some((ep) =>
+    ep.release_date ? new Date(ep.release_date) >= cutoff : false
+  )
 
   return (
     <html
@@ -62,7 +72,7 @@ export default async function RootLayout({
       <head>
         <script
           dangerouslySetInnerHTML={{
-            __html: `(function(){var m=document.documentElement.getAttribute("data-theme-mode");if(m==="dark")document.documentElement.classList.add("dark");else if(m==="system"&&window.matchMedia("(prefers-color-scheme: dark)").matches)document.documentElement.classList.add("dark");else document.documentElement.classList.remove("dark")})()`,
+            __html: `(function(){var s=localStorage.getItem("khat_theme");var m=s||document.documentElement.getAttribute("data-theme-mode");if(s)document.documentElement.setAttribute("data-theme-mode",s);if(m==="dark")document.documentElement.classList.add("dark");else if(m==="light")document.documentElement.classList.remove("dark");else if(m==="system"&&window.matchMedia("(prefers-color-scheme: dark)").matches)document.documentElement.classList.add("dark");else document.documentElement.classList.remove("dark")})()`,
           }}
         />
       </head>
@@ -71,10 +81,11 @@ export default async function RootLayout({
           <ThemeSync />
           <ViewportFix />
           <div className="flex min-h-dvh flex-col">
-            <Header hibrEnabled={hibrEnabled} />
+            <Header hibrEnabled={hibrEnabled} hasNewEpisode={hasNewEpisode} />
             <main className="main-content flex-1">{children}</main>
             <Footer />
-            <MobileNav hibrEnabled={hibrEnabled} />
+            <MobileNav hibrEnabled={hibrEnabled} hasNewEpisode={hasNewEpisode} />
+            <ScrollToTop />
             <Toaster />
           </div>
         </AuthProvider>

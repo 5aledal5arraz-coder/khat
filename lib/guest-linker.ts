@@ -22,15 +22,15 @@ export function slugifyArabicName(name: string): string {
  * Find an existing guest by exact name match (case-insensitive).
  */
 export async function findGuestByName(name: string) {
-  const trimmed = name.trim()
+  const trimmed = name.trim().toLowerCase()
   if (!USE_DB) {
     const all = await getAllGuests()
-    return all.find((g) => g.name.trim() === trimmed) ?? null
+    return all.find((g) => g.name.trim().toLowerCase() === trimmed) ?? null
   }
 
   try {
     const all = await getAllGuests()
-    return all.find((g) => g.name.trim() === trimmed) ?? null
+    return all.find((g) => g.name.trim().toLowerCase() === trimmed) ?? null
   } catch (e) {
     console.error("findGuestByName error:", e)
     return null

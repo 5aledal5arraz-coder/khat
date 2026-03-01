@@ -19,7 +19,21 @@ export async function GET() {
       return NextResponse.json({ profile: null })
     }
 
-    const rows = await db.select().from(profiles).where(eq(profiles.id, decoded.uid))
+    const rows = await db.select({
+      id: profiles.id,
+      display_name: profiles.display_name,
+      username: profiles.username,
+      avatar_url: profiles.avatar_url,
+      bio: profiles.bio,
+      email: profiles.email,
+      articles_count: profiles.articles_count,
+      followers_count: profiles.followers_count,
+      notify_comments: profiles.notify_comments,
+      notify_replies: profiles.notify_replies,
+      notify_likes: profiles.notify_likes,
+      notify_follows: profiles.notify_follows,
+      created_at: profiles.created_at,
+    }).from(profiles).where(eq(profiles.id, decoded.uid))
 
     return NextResponse.json({ profile: rows[0] || null })
   } catch {

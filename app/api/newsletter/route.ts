@@ -2,12 +2,27 @@ import { NextRequest, NextResponse } from "next/server"
 import { db } from "@/lib/db"
 import { sql } from "drizzle-orm"
 import { validateEmail } from "@/lib/validation"
+import { validateMutation } from "@/lib/api-utils"
+import { checkIpRateLimit } from "@/lib/rate-limit"
 import { sendNewsletterWelcome } from "@/lib/email/send"
 import { APP_URL } from "@/lib/email/resend"
 import crypto from "crypto"
 
 export async function POST(request: NextRequest) {
   try {
+    // CSRF protection
+    const csrfError = validateMutation(request)
+    if (csrfError) return csrfError
+
+    // Rate limit: 5 subscriptions per hour per IP
+    const rl = checkIpRateLimit(request, "newsletter_subscribe", 5, 60 * 60 * 1000)
+    if (!rl.allowed) {
+      return NextResponse.json(
+        { error: "لقد أرسلت عدة طلبات. يرجى المحاولة لاحقًا." },
+        { status: 429 }
+      )
+    }
+
     const body = await request.json()
     const { email } = body
 

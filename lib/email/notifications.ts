@@ -1,6 +1,6 @@
 import { db } from '@/lib/db'
-import { emailNotificationsLog, profiles, hibrArticles, hibrThoughts } from '@/lib/db/schema'
-import { eq, sql } from 'drizzle-orm'
+import { emailNotificationsLog, profiles, hibrArticles, hibrThoughts, hibrComments, hibrReplies } from '@/lib/db/schema'
+import { eq } from 'drizzle-orm'
 import { APP_URL } from './resend'
 import {
   sendWelcomeEmail,
@@ -138,21 +138,18 @@ export function fireReplyNotification(thoughtId: string, replierId: string, repl
 export function fireLikeNotification(targetType: string, targetId: string, likerId: string) {
   if (!db || !process.env.RESEND_API_KEY) return
   fireAndForget(async () => {
-    // For like notifications, we need dynamic table lookup.
-    // Use raw sql since the table name is dynamic.
-    const tableMap: Record<string, string> = {
-      article: 'hibr_articles',
-      thought: 'hibr_thoughts',
-      comment: 'hibr_comments',
-      reply: 'hibr_replies',
-    }
-    const table = tableMap[targetType]
+    // Look up owner using typed Drizzle tables (no raw SQL)
+    const tableMap = {
+      article: hibrArticles,
+      thought: hibrThoughts,
+      comment: hibrComments,
+      reply: hibrReplies,
+    } as const
+    const table = tableMap[targetType as keyof typeof tableMap]
     if (!table) return
 
-    const result = await db!.execute(sql.raw(
-      `SELECT user_id FROM ${table} WHERE id = '${targetId.replace(/'/g, "''")}'`
-    ))
-    const targets = result.rows as { user_id: string }[]
+    const targets = await db!.select({ user_id: table.user_id }).from(table)
+      .where(eq(table.id, targetId)).limit(1)
     if (!targets[0]) return
     const ownerId = targets[0].user_id
 

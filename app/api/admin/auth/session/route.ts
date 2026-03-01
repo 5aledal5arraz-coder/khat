@@ -3,11 +3,21 @@ import { getAdminAuth } from '@/lib/firebase/admin'
 import { db } from '@/lib/db'
 import { profiles } from '@/lib/db/schema'
 import { eq } from 'drizzle-orm'
+import { checkIpRateLimit } from '@/lib/rate-limit'
 
 const SESSION_EXPIRY = 60 * 60 * 24 * 14 * 1000 // 14 days in ms
 
 export async function POST(request: NextRequest) {
   try {
+    // Rate limit: 5 admin login attempts per 15 minutes per IP
+    const rl = checkIpRateLimit(request, 'admin_auth_session', 5, 15 * 60 * 1000)
+    if (!rl.allowed) {
+      return NextResponse.json(
+        { error: 'عدد محاولات كثيرة. يرجى المحاولة لاحقاً.' },
+        { status: 429 }
+      )
+    }
+
     const { idToken } = await request.json()
     if (!idToken || typeof idToken !== 'string') {
       return NextResponse.json({ error: 'Missing idToken' }, { status: 400 })

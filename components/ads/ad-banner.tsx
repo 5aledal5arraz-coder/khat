@@ -51,21 +51,8 @@ export async function AdBanner({ slot, position, className, size = "medium" }: A
       )
     }
 
-    return (
-      <div
-        className={cn(
-          "relative w-full overflow-hidden rounded-xl border border-dashed border-muted-foreground/20 bg-muted/30",
-          heights[size],
-          className
-        )}
-        data-ad-slot={position}
-      >
-        <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 text-muted-foreground/50">
-          <span className="text-xs">مساحة إعلانية</span>
-          <span className="text-[10px]">{activeSlot.label}</span>
-        </div>
-      </div>
-    )
+    // No image creative — hide ad slot from public
+    return null
   }
 
   // Legacy behavior: use old AdSettings
@@ -75,42 +62,26 @@ export async function AdBanner({ slot, position, className, size = "medium" }: A
   const banner = settings.bannerAd.data
   const hasImage = banner.image && banner.image.length > 0
 
-  if (hasImage) {
-    return (
-      <a
-        href={banner.url || "#"}
-        target="_blank"
-        rel="sponsored noopener noreferrer"
-        className={cn(
-          "relative block w-full overflow-hidden rounded-xl",
-          heights[size],
-          className
-        )}
-        data-ad-slot={slot}
-      >
-        <Image
-          src={banner.image}
-          alt={banner.alt || "إعلان"}
-          fill
-          className="object-cover transition-transform hover:scale-[1.02]"
-        />
-      </a>
-    )
-  }
+  if (!hasImage) return null
 
   return (
-    <div
+    <a
+      href={banner.url || "#"}
+      target="_blank"
+      rel="sponsored noopener noreferrer"
       className={cn(
-        "relative w-full overflow-hidden rounded-xl border border-dashed border-muted-foreground/20 bg-muted/30",
+        "relative block w-full overflow-hidden rounded-xl",
         heights[size],
         className
       )}
       data-ad-slot={slot}
     >
-      <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 text-muted-foreground/50">
-        <span className="text-xs">مساحة إعلانية</span>
-        <span className="text-[10px]">{slot}</span>
-      </div>
-    </div>
+      <Image
+        src={banner.image}
+        alt={banner.alt || "إعلان"}
+        fill
+        className="object-cover transition-transform hover:scale-[1.02]"
+      />
+    </a>
   )
 }

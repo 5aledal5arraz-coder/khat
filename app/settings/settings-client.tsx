@@ -1,13 +1,42 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { Bell, Moon, Globe, Trash2 } from "lucide-react"
+import { Bell, Moon, Sun, Monitor, Globe, Trash2 } from "lucide-react"
 import { clearAllSavedItems } from "@/lib/saved"
+
+type ThemeMode = "system" | "dark" | "light"
+
+function getStoredTheme(): ThemeMode {
+  if (typeof window === "undefined") return "system"
+  return (localStorage.getItem("khat_theme") as ThemeMode) || "system"
+}
+
+function applyTheme(mode: ThemeMode) {
+  const html = document.documentElement
+  html.setAttribute("data-theme-mode", mode)
+  localStorage.setItem("khat_theme", mode)
+
+  if (mode === "dark") {
+    html.classList.add("dark")
+  } else if (mode === "light") {
+    html.classList.remove("dark")
+  } else {
+    // system
+    const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches
+    html.classList.toggle("dark", prefersDark)
+  }
+}
 
 export function SettingsClient() {
   const [cleared, setCleared] = useState(false)
+  const [theme, setTheme] = useState<ThemeMode>("system")
+
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setTheme(getStoredTheme())
+  }, [])
 
   const handleClearData = () => {
     if (!confirm("متأكد إنك تبي تحذف كل المحفوظات؟ ما تقدر ترجعها.")) return
@@ -79,16 +108,26 @@ export function SettingsClient() {
               </div>
             </CardHeader>
             <CardContent>
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="font-medium">الوضع الداكن</p>
-                  <p className="text-sm text-muted-foreground">
-                    مفعّل تلقائياً
-                  </p>
-                </div>
-                <Button variant="secondary" size="sm" disabled>
-                  مفعّل
-                </Button>
+              <div className="flex gap-2">
+                {([
+                  { mode: "system" as ThemeMode, label: "تلقائي", Icon: Monitor },
+                  { mode: "dark" as ThemeMode, label: "داكن", Icon: Moon },
+                  { mode: "light" as ThemeMode, label: "فاتح", Icon: Sun },
+                ]).map(({ mode, label, Icon }) => (
+                  <Button
+                    key={mode}
+                    variant={theme === mode ? "default" : "outline"}
+                    size="sm"
+                    className="gap-1.5 flex-1"
+                    onClick={() => {
+                      setTheme(mode)
+                      applyTheme(mode)
+                    }}
+                  >
+                    <Icon className="h-4 w-4" />
+                    {label}
+                  </Button>
+                ))}
               </div>
             </CardContent>
           </Card>

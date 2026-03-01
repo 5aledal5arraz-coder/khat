@@ -12,8 +12,13 @@ import {
   Sparkles,
   Shield,
   Handshake,
+  TrendingUp,
+  Headphones,
+  Globe,
+  BarChart3,
 } from "lucide-react"
 import { getActivePartners } from "@/lib/queries/partnerships"
+import { fetchAllEpisodes, fetchTotalViews } from "@/lib/youtube/queries"
 import Image from "next/image"
 
 export const metadata: Metadata = {
@@ -58,7 +63,43 @@ const partnershipTypes = [
 ]
 
 export default async function SponsorPage() {
-  const partners = await getActivePartners()
+  const [partners, episodes, totalViews] = await Promise.all([
+    getActivePartners(),
+    fetchAllEpisodes().catch(() => []),
+    fetchTotalViews().catch(() => 0),
+  ])
+
+  const totalEpisodes = episodes.length
+
+  function formatNumber(n: number): string {
+    if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1).replace(/\.0$/, "")}M+`
+    if (n >= 1_000) return `${Math.floor(n / 1_000)}K+`
+    return `${n}+`
+  }
+
+  const metrics = [
+    {
+      icon: Headphones,
+      value: totalEpisodes > 0 ? `${totalEpisodes}+` : "٥٠+",
+      label: "حلقة منشورة",
+    },
+    {
+      icon: TrendingUp,
+      value: totalViews > 0 ? formatNumber(totalViews) : "١٠٠K+",
+      label: "مشاهدة واستماع",
+    },
+    {
+      icon: Globe,
+      value: "١٥+",
+      label: "دولة يصلها المحتوى",
+    },
+    {
+      icon: BarChart3,
+      value: "١٨-٣٥",
+      label: "الفئة العمرية الأساسية",
+    },
+  ]
+
   return (
     <div className="min-h-screen">
       {/* Hero Section */}
@@ -83,6 +124,27 @@ export default async function SponsorPage() {
             </p>
 
             <SponsorHeroCTA />
+          </div>
+        </div>
+      </section>
+
+      {/* Audience Metrics */}
+      <section className="py-12 border-y border-border/50 bg-card/50">
+        <div className="container mx-auto px-4">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-8 max-w-4xl mx-auto">
+            {metrics.map((metric) => (
+              <div key={metric.label} className="text-center">
+                <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-primary/10">
+                  <metric.icon className="h-6 w-6 text-primary" />
+                </div>
+                <div className="text-3xl md:text-4xl font-bold text-foreground mb-1">
+                  {metric.value}
+                </div>
+                <div className="text-sm text-muted-foreground">
+                  {metric.label}
+                </div>
+              </div>
+            ))}
           </div>
         </div>
       </section>
@@ -163,6 +225,50 @@ export default async function SponsorPage() {
                 </CardContent>
               </Card>
             ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Why Partner With Khat */}
+      <section className="py-16 bg-secondary/20">
+        <div className="container mx-auto px-4">
+          <div className="text-center mb-10">
+            <Badge variant="outline" className="mb-4">
+              <Star className="w-3 h-3 me-1.5" />
+              لماذا خط؟
+            </Badge>
+            <h2 className="text-3xl font-bold mb-4">
+              ليس مجرد إعلان — إنه حضور
+            </h2>
+          </div>
+          <div className="grid md:grid-cols-3 gap-6 max-w-4xl mx-auto">
+            <div className="rounded-2xl border border-border/50 bg-card p-6 text-center">
+              <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-primary/10">
+                <Users className="h-6 w-6 text-primary" />
+              </div>
+              <h3 className="font-semibold mb-2">جمهور مؤثر</h3>
+              <p className="text-sm text-muted-foreground leading-relaxed">
+                مستمعون من صنّاع القرار والمهنيين الشباب في الخليج والعالم العربي.
+              </p>
+            </div>
+            <div className="rounded-2xl border border-border/50 bg-card p-6 text-center">
+              <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-primary/10">
+                <TrendingUp className="h-6 w-6 text-primary" />
+              </div>
+              <h3 className="font-semibold mb-2">نمو مستمر</h3>
+              <p className="text-sm text-muted-foreground leading-relaxed">
+                معدل نمو متصاعد في المشاهدات والمتابعين عبر جميع المنصات.
+              </p>
+            </div>
+            <div className="rounded-2xl border border-border/50 bg-card p-6 text-center">
+              <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-primary/10">
+                <Headphones className="h-6 w-6 text-primary" />
+              </div>
+              <h3 className="font-semibold mb-2">تفاعل عميق</h3>
+              <p className="text-sm text-muted-foreground leading-relaxed">
+                متوسط استماع يتجاوز ٧٠٪ من الحلقة — جمهور مهتم ومتفاعل بعمق.
+              </p>
+            </div>
           </div>
         </div>
       </section>

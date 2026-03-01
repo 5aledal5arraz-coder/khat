@@ -21,6 +21,7 @@ import type { EpisodeWithRelations, Episode, Guest, HomeQuote, EmotionalPath, Da
 import type { EpisodeEnrichment } from "@/types/episodes"
 import type { Article } from "@/types/space"
 import { EpisodeConnections } from "./episode-connections"
+import { EpisodeSectionNav } from "./episode-section-nav"
 import { trackEvent } from "@/lib/personalization/tracker"
 
 function formatTimestamp(totalSeconds: number): string {
@@ -93,8 +94,21 @@ export function EpisodePageClient({
   // Teaser: first ~150 chars of summary
   const teaser = summary ? summary.slice(0, 150) + (summary.length > 150 ? "..." : "") : undefined
 
+  // Build visible sections for the sticky nav
+  const navSections: { id: string; label: string }[] = [
+    { id: "sec-hero", label: "الحلقة" },
+  ]
+  if (enrichment?.why_this_conversation) navSections.push({ id: "sec-why", label: "لماذا" })
+  if (summary) navSections.push({ id: "sec-summary", label: "الملخص" })
+  if (hasDbTimestamps) navSections.push({ id: "sec-timestamps", label: "الفهرس" })
+  if (hasDbQuotes) navSections.push({ id: "sec-quotes", label: "اقتباسات" })
+  if (takeaways.length > 0) navSections.push({ id: "sec-takeaways", label: "أفكار" })
+  if (episode.resources.length > 0) navSections.push({ id: "sec-resources", label: "مصادر" })
+  if (relatedEpisodes.length > 0) navSections.push({ id: "sec-related", label: "حلقات مشابهة" })
+
   return (
     <EpisodePlayerProvider>
+      <EpisodeSectionNav sections={navSections} />
       <div className="container mx-auto overflow-x-hidden px-4 py-8">
         <div className="mx-auto max-w-4xl space-y-8">
           {/* 1. Guest Intro */}
@@ -111,14 +125,19 @@ export function EpisodePageClient({
           />
 
           {/* 2. Hero Section */}
+          <div id="sec-hero">
           <EpisodeHero
             episode={episode}
             teaser={teaser}
             initialStartTime={initialStartTime}
           />
 
+          </div>
+
           {/* 3. Why This Conversation */}
+          <div id="sec-why">
           <WhyThisConversation text={enrichment?.why_this_conversation} />
+          </div>
 
           {/* 4. Central Question */}
           <CentralQuestion question={enrichment?.central_question} />
@@ -127,14 +146,14 @@ export function EpisodePageClient({
           <BeforeYouWatch data={enrichment?.before_you_watch} />
 
           {/* 6. Quick Summary */}
-          {summary && <EpisodeSummary summary={summary} />}
+          {summary && <div id="sec-summary"><EpisodeSummary summary={summary} /></div>}
 
           {/* 7. Conversation Map */}
           <ConversationMap data={enrichment?.conversation_map} />
 
           {/* 8. Timestamps */}
           {hasDbTimestamps && (
-            <div className="space-y-4">
+            <div id="sec-timestamps" className="space-y-4">
               <h2 className="text-lg font-semibold">فهرس الحلقة</h2>
               <div className="space-y-1">
                 {episode.timestamps.map((ts) => (
@@ -150,7 +169,7 @@ export function EpisodePageClient({
 
           {/* 9. Quotes */}
           {hasDbQuotes && (
-            <div className="space-y-3">
+            <div id="sec-quotes" className="space-y-3">
               <h2 className="text-lg font-semibold">اقتباسات من الحلقة</h2>
               <div className="grid gap-4 sm:grid-cols-2">
                 {episode.quotes.map((quote) => (
@@ -165,11 +184,13 @@ export function EpisodePageClient({
           )}
 
           {/* 10. Takeaways */}
+          <div id="sec-takeaways">
           <EpisodeIdeas takeaways={takeaways} />
+          </div>
 
           {/* 11. Resources */}
           {episode.resources.length > 0 && (
-            <div className="rounded-lg border p-4">
+            <div id="sec-resources" className="rounded-lg border p-4">
               <ResourcesList resources={episode.resources} />
             </div>
           )}
@@ -227,7 +248,9 @@ export function EpisodePageClient({
           )}
 
           {/* 16. Related Episodes */}
+          <div id="sec-related">
           <EpisodeRecommendations episodes={relatedEpisodes} />
+          </div>
         </div>
       </div>
     </EpisodePlayerProvider>
