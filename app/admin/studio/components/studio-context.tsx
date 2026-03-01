@@ -104,6 +104,17 @@ interface StudioSessionContextValue {
   setSelectedQuoteIndices: (v: Set<number>) => void
   setSelectedTakeawayIndices: (v: Set<number>) => void
 
+  // Guest Package (derived from website package)
+  guestName: string
+  guestBio: string
+  guestPhotoUrl: string
+  guestExternalLinks: Record<string, string>
+  guestPackageStatus: TabStatus
+  setGuestName: (v: string) => void
+  setGuestBio: (v: string) => void
+  setGuestPhotoUrl: (v: string) => void
+  setGuestExternalLinks: (v: Record<string, string>) => void
+
   // Analyzer
   analyzer: StudioAnalyzer | null
   analyzerStatus: "idle" | "generating" | "ready" | "error"
@@ -215,6 +226,12 @@ export function StudioSessionProvider({
   const [timestamps, setTimestamps] = useState<WebsiteTimestampItem[]>([])
   const [selectedQuoteIndices, setSelectedQuoteIndices] = useState<Set<number>>(new Set())
   const [selectedTakeawayIndices, setSelectedTakeawayIndices] = useState<Set<number>>(new Set())
+
+  // --- Guest Package state (derived from website package) ---
+  const [guestName, setGuestName] = useState("")
+  const [guestBio, setGuestBio] = useState("")
+  const [guestPhotoUrl, setGuestPhotoUrl] = useState("")
+  const [guestExternalLinks, setGuestExternalLinks] = useState<Record<string, string>>({})
 
   // --- Analyzer state ---
   const [analyzer, setAnalyzer] = useState<StudioAnalyzer | null>(null)
@@ -336,6 +353,16 @@ export function StudioSessionProvider({
         }
         setWebsitePkgStatus(p.status === "error" ? "error" : p.status === "generating" ? "generating" : "ready")
         if (p.error_message) setWebsitePkgError(p.error_message)
+        // Guest package
+        if (p.guest_package) {
+          setGuestName(p.guest_package.guest_name || "")
+          setGuestBio(p.guest_package.guest_bio || "")
+          setGuestPhotoUrl(p.guest_package.guest_photo_url || "")
+          setGuestExternalLinks(p.guest_package.guest_external_links || {})
+        } else if (p.raw_openai_response) {
+          setGuestName((p.raw_openai_response.guest_name as string) || "")
+          setGuestBio((p.raw_openai_response.guest_bio as string) || "")
+        }
       }
 
       // Analyzer
@@ -600,6 +627,16 @@ export function StudioSessionProvider({
       // Select all by default on fresh generation
       setSelectedQuoteIndices(new Set((p.quotes || []).map((_, i) => i)))
       setSelectedTakeawayIndices(new Set((p.takeaways || []).map((_, i) => i)))
+      // Guest package
+      if (p.guest_package) {
+        setGuestName(p.guest_package.guest_name || "")
+        setGuestBio(p.guest_package.guest_bio || "")
+        setGuestPhotoUrl(p.guest_package.guest_photo_url || "")
+        setGuestExternalLinks(p.guest_package.guest_external_links || {})
+      } else if (p.raw_openai_response) {
+        setGuestName((p.raw_openai_response.guest_name as string) || "")
+        setGuestBio((p.raw_openai_response.guest_bio as string) || "")
+      }
       setWebsitePkgStatus("ready")
     } catch {
       setWebsitePkgStatus("error")
@@ -861,9 +898,16 @@ export function StudioSessionProvider({
       if (aiStatus === "generating" || websitePkgStatus === "generating") return "generating"
       return "idle"
     })(),
+    guest: (() => {
+      if (websitePkgStatus === "ready" && guestName.trim()) return "ready" as const
+      if (websitePkgStatus === "generating") return "generating" as const
+      return "idle" as const
+    })(),
     export: websitePkgStatus === "ready" ? "ready" : "idle",
     analyzer: analyzerStatus,
   }
+
+  const guestPackageStatus = tabStatuses.guest
 
   const value: StudioSessionContextValue = {
     session,
@@ -879,6 +923,8 @@ export function StudioSessionProvider({
     generateWebsitePackage, updateWebsitePkgField, debouncedSaveWebPkg,
     setSelectedTitle, setHeroSummary, setFullSummary, setTakeaways, setTopics, setQuotes, setResources, setTimestamps,
     setSelectedQuoteIndices, setSelectedTakeawayIndices,
+    guestName, guestBio, guestPhotoUrl, guestExternalLinks, guestPackageStatus,
+    setGuestName, setGuestBio, setGuestPhotoUrl, setGuestExternalLinks,
     analyzer, analyzerStatus, analyzerError, generateAnalyzer,
     audioStartSeconds, audioEndSeconds, audioBestIntro,
     audioIntroStatus, audioIntroError,

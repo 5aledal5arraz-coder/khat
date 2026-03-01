@@ -316,6 +316,7 @@ export type StudioWebsitePackageStatus = 'generating' | 'ready' | 'error'
 export interface WebsiteQuoteItem { text: string; theme: string | null; speaker: string | null }
 export interface WebsiteResourceItem { title: string; url: string; type: string | null }
 export interface WebsiteTimestampItem { time_seconds: number; title: string; description: string | null }
+export interface GuestPackageData { guest_name: string; guest_bio: string; guest_photo_url: string | null; guest_external_links: Record<string, string> }
 
 export interface StudioWebsitePackage {
   id: string
@@ -332,6 +333,7 @@ export interface StudioWebsitePackage {
   selected_quote_indices: number[] | null
   selected_takeaway_indices: number[] | null
   linked_episode_id: string | null
+  guest_package: GuestPackageData | null
   raw_openai_response: Record<string, unknown> | null
   error_message: string | null
   created_at: string
@@ -1201,6 +1203,7 @@ export type Database = {
           resources?: WebsiteResourceItem[]
           timestamps?: WebsiteTimestampItem[]
           linked_episode_id?: string | null
+          guest_package?: GuestPackageData | null
           raw_openai_response?: Record<string, unknown> | null
           error_message?: string | null
           created_at?: string
@@ -1216,6 +1219,7 @@ export type Database = {
           resources?: WebsiteResourceItem[]
           timestamps?: WebsiteTimestampItem[]
           linked_episode_id?: string | null
+          guest_package?: GuestPackageData | null
           raw_openai_response?: Record<string, unknown> | null
           error_message?: string | null
           updated_at?: string

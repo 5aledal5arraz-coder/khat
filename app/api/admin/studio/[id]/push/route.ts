@@ -316,11 +316,17 @@ export async function POST(
 
     // Auto-link guest if extracted by AI
     let guestLink: { linked: boolean; guestId?: string; guestName?: string; guestSlug?: string; created?: boolean } | null = null
+    const guestPkg = pkg.guest_package as { guest_name: string; guest_bio: string; guest_photo_url: string | null; guest_external_links: Record<string, string> } | null
+    // Fallback to raw_openai_response for older packages without guest_package
     const rawResponse = pkg.raw_openai_response as Record<string, unknown> | null
-    const guestName = rawResponse?.guest_name as string | undefined
-    const guestBio = rawResponse?.guest_bio as string | undefined
+    const guestName = guestPkg?.guest_name || (rawResponse?.guest_name as string | undefined)
+    const guestBio = guestPkg?.guest_bio || (rawResponse?.guest_bio as string | undefined)
+    const guestPhotoUrl = guestPkg?.guest_photo_url || null
+    const guestExternalLinks = guestPkg?.guest_external_links && Object.keys(guestPkg.guest_external_links).length > 0
+      ? guestPkg.guest_external_links
+      : null
     if (guestName && guestName.trim()) {
-      guestLink = await autoLinkGuestForEpisode(episodeId, guestName, guestBio || null)
+      guestLink = await autoLinkGuestForEpisode(episodeId, guestName, guestBio || null, guestPhotoUrl, guestExternalLinks)
     }
 
     // Invalidate episode cache + revalidate public pages

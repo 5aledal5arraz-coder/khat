@@ -1,6 +1,6 @@
 import { USE_DB } from "@/lib/db"
 import { assignGuestToEpisode } from "@/lib/episode-guests"
-import { createGuest, getAllGuests } from "@/lib/admin/queries"
+import { createGuest, getAllGuests, updateGuest } from "@/lib/admin/queries"
 
 /**
  * Create a URL-safe slug from an Arabic name.
@@ -43,7 +43,9 @@ export async function findGuestByName(name: string) {
  */
 export async function findOrCreateGuest(
   name: string,
-  bio?: string | null
+  bio?: string | null,
+  photoUrl?: string | null,
+  externalLinks?: Record<string, string> | null
 ): Promise<{ guest: { id: string; name: string; slug: string }; created: boolean } | null> {
   const trimmed = name.trim()
   if (!trimmed) return null
@@ -51,6 +53,16 @@ export async function findOrCreateGuest(
   // Try to find existing guest
   const existing = await findGuestByName(trimmed)
   if (existing) {
+    // Merge new data into existing guest (fill empty fields, merge links)
+    const mergeUpdates: Record<string, unknown> = {}
+    if (!existing.bio && bio) mergeUpdates.bio = bio
+    if (!existing.photo_url && photoUrl) mergeUpdates.photo_url = photoUrl
+    if (externalLinks && Object.keys(externalLinks).length > 0) {
+      mergeUpdates.external_links = { ...(existing.external_links || {}), ...externalLinks }
+    }
+    if (Object.keys(mergeUpdates).length > 0) {
+      await updateGuest(existing.id, mergeUpdates)
+    }
     return { guest: { id: existing.id, name: existing.name, slug: existing.slug }, created: false }
   }
 
@@ -75,8 +87,8 @@ export async function findOrCreateGuest(
     name: trimmed,
     slug,
     bio: bio || null,
-    photo_url: null,
-    external_links: {},
+    photo_url: photoUrl || null,
+    external_links: externalLinks && Object.keys(externalLinks).length > 0 ? externalLinks : {},
     testimonial: null,
   })
 
@@ -96,7 +108,9 @@ export async function findOrCreateGuest(
 export async function autoLinkGuestForEpisode(
   episodeId: string,
   guestName: string,
-  guestBio?: string | null
+  guestBio?: string | null,
+  photoUrl?: string | null,
+  externalLinks?: Record<string, string> | null
 ): Promise<{
   linked: boolean
   guestId?: string
@@ -106,7 +120,7 @@ export async function autoLinkGuestForEpisode(
   error?: string
 }> {
   try {
-    const result = await findOrCreateGuest(guestName, guestBio)
+    const result = await findOrCreateGuest(guestName, guestBio, photoUrl, externalLinks)
     if (!result) {
       return { linked: false, error: "فشل في إنشاء أو إيجاد الضيف" }
     }

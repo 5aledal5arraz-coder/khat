@@ -119,6 +119,12 @@ export async function POST(
       resources: result.data.resources,
       timestamps: result.data.timestamps,
       linked_episode_id: session.video_id || null,
+      guest_package: result.data.guest_name ? {
+        guest_name: result.data.guest_name,
+        guest_bio: result.data.guest_bio || "",
+        guest_photo_url: null,
+        guest_external_links: {},
+      } : null,
       raw_openai_response: {
         ...(result.raw || {}),
         guest_name: result.data.guest_name,
@@ -171,7 +177,7 @@ export async function PATCH(
     const body = await request.json()
 
     // Whitelist editable fields
-    const allowed = ["hero_summary", "full_summary", "takeaways", "quotes", "topics", "resources", "timestamps", "custom_title", "selected_quote_indices", "selected_takeaway_indices", "linked_episode_id"] as const
+    const allowed = ["hero_summary", "full_summary", "takeaways", "quotes", "topics", "resources", "timestamps", "custom_title", "selected_quote_indices", "selected_takeaway_indices", "linked_episode_id", "guest_package"] as const
     const updates: Record<string, unknown> = {}
     for (const key of allowed) {
       if (key in body) {

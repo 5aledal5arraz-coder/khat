@@ -736,11 +736,12 @@ export async function createWebsitePackage(
     selected_quote_indices?: number[] | null
     selected_takeaway_indices?: number[] | null
     linked_episode_id: string | null
+    guest_package?: { guest_name: string; guest_bio: string; guest_photo_url: string | null; guest_external_links: Record<string, string> } | null
     raw_openai_response: Record<string, unknown> | null
     error_message: string | null
   }
 ): Promise<{ success: boolean; data?: StudioWebsitePackage; error?: string }> {
-  const row = { session_id: sessionId, ...entry, custom_title: entry.custom_title ?? null, selected_quote_indices: entry.selected_quote_indices ?? null, selected_takeaway_indices: entry.selected_takeaway_indices ?? null }
+  const row = { session_id: sessionId, ...entry, custom_title: entry.custom_title ?? null, selected_quote_indices: entry.selected_quote_indices ?? null, selected_takeaway_indices: entry.selected_takeaway_indices ?? null, guest_package: entry.guest_package ?? null }
 
   if (USE_MOCK_DATA) {
     const now = new Date().toISOString()
@@ -780,7 +781,7 @@ export async function createWebsitePackage(
 
 export async function updateWebsitePackage(
   id: string,
-  updates: Partial<Pick<StudioWebsitePackage, "hero_summary" | "full_summary" | "takeaways" | "quotes" | "topics" | "resources" | "timestamps" | "custom_title" | "selected_quote_indices" | "selected_takeaway_indices" | "linked_episode_id">>
+  updates: Partial<Pick<StudioWebsitePackage, "hero_summary" | "full_summary" | "takeaways" | "quotes" | "topics" | "resources" | "timestamps" | "custom_title" | "selected_quote_indices" | "selected_takeaway_indices" | "linked_episode_id" | "guest_package">>
 ): Promise<{ success: boolean; data?: StudioWebsitePackage; error?: string }> {
   if (USE_MOCK_DATA) {
     const store = await readMock()

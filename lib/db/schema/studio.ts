@@ -102,6 +102,7 @@ export const studioWebsitePackages = pgTable("studio_website_packages", {
   selected_quote_indices: jsonb("selected_quote_indices").$type<number[]>(),
   selected_takeaway_indices: jsonb("selected_takeaway_indices").$type<number[]>(),
   linked_episode_id: text("linked_episode_id"),
+  guest_package: jsonb("guest_package").$type<{ guest_name: string; guest_bio: string; guest_photo_url: string | null; guest_external_links: Record<string, string> }>(),
   raw_openai_response: jsonb("raw_openai_response").$type<Record<string, unknown>>(),
   error_message: text("error_message"),
   created_at: timestamp("created_at", { withTimezone: true }).defaultNow(),
