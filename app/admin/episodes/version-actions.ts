@@ -45,6 +45,8 @@ export async function restoreEpisodeVersionAction(versionId: string) {
         }
         break
       }
+      default:
+        return { success: false, error: `نوع التغيير "${version.change_type}" غير مدعوم للاستعادة` }
     }
 
     // Record the restore itself as a new version

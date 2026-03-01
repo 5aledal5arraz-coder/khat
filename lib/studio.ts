@@ -190,8 +190,17 @@ export async function deleteStudioSession(id: string): Promise<boolean> {
   }
 
   try {
-    const result = await db!.delete(studioSessions).where(eq(studioSessions.id, id))
-    return (result.rowCount ?? 0) > 0
+    // Delete all child records before deleting the session
+    await db!.transaction(async (tx) => {
+      await tx.delete(studioTranscripts).where(eq(studioTranscripts.session_id, id))
+      await tx.delete(studioAiOutputs).where(eq(studioAiOutputs.session_id, id))
+      await tx.delete(studioChapters).where(eq(studioChapters.session_id, id))
+      await tx.delete(studioClips).where(eq(studioClips.session_id, id))
+      await tx.delete(studioWebsitePackages).where(eq(studioWebsitePackages.session_id, id))
+      await tx.delete(studioAnalyzers).where(eq(studioAnalyzers.session_id, id))
+      await tx.delete(studioSessions).where(eq(studioSessions.id, id))
+    })
+    return true
   } catch {
     return false
   }

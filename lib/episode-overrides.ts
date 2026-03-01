@@ -36,18 +36,19 @@ export async function getEpisodeOverrides(): Promise<EpisodeOverride[]> {
 export async function saveEpisodeOverrides(overrides: EpisodeOverride[]): Promise<void> {
   if (USE_DB) {
     try {
-      // Delete all, then insert — simple full replace
-      await db!.delete(episodeOverrides)
-      if (overrides.length > 0) {
-        await db!.insert(episodeOverrides).values(
-          overrides.map((o) => ({
-            episode_id: o.id,
-            original_title: o.originalTitle,
-            custom_title: o.customTitle,
-            custom_description: o.customDescription || null,
-          }))
-        )
-      }
+      await db!.transaction(async (tx) => {
+        await tx.delete(episodeOverrides)
+        if (overrides.length > 0) {
+          await tx.insert(episodeOverrides).values(
+            overrides.map((o) => ({
+              episode_id: o.id,
+              original_title: o.originalTitle,
+              custom_title: o.customTitle,
+              custom_description: o.customDescription || null,
+            }))
+          )
+        }
+      })
       return
     } catch (e) {
       console.error("saveEpisodeOverrides DB exception:", e)

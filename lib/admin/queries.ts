@@ -471,11 +471,12 @@ export async function getMembers({
   const conditions: ReturnType<typeof eq>[] = [isNull(profiles.deleted_at)]
 
   if (search) {
+    const escapedSearch = search.replace(/[%_\\]/g, '\\$&')
     conditions.push(
       or(
-        ilike(profiles.display_name, `%${search}%`),
-        ilike(profiles.username, `%${search}%`),
-        ilike(profiles.email, `%${search}%`),
+        ilike(profiles.display_name, `%${escapedSearch}%`),
+        ilike(profiles.username, `%${escapedSearch}%`),
+        ilike(profiles.email, `%${escapedSearch}%`),
       )!
     )
   }

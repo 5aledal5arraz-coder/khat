@@ -91,6 +91,7 @@ export const config = {
     '/api/events',
     '/api/events/batch',
     '/api/personalization/:path*',
+    '/admin',
     '/admin/:path*',
     '/api/admin/:path*',
   ],

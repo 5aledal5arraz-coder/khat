@@ -12,7 +12,9 @@ export default async function StudioPage() {
     getStudioSessions(),
     getEpisodes({ includeHidden: true }),
     getSectionsConfig(),
-    db!.select({ episodeId: episodeEnrichments.episode_id }).from(episodeEnrichments),
+    db
+      ? db.select({ episodeId: episodeEnrichments.episode_id }).from(episodeEnrichments)
+      : Promise.resolve([]),
   ])
 
   const enrichedEpisodeIds = enrichedRows.map((r) => r.episodeId)

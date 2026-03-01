@@ -111,6 +111,7 @@ export function TopicsManager({ initialTopics }: TopicsManagerProps) {
   }
 
   function handleDelete(id: string) {
+    if (!confirm("متأكد إنك تبي تحذف هذا الموضوع؟ ما تقدر ترجعه.")) return
     setMessage(null)
     startTransition(async () => {
       try {

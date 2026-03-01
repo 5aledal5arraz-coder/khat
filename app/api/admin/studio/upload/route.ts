@@ -47,8 +47,14 @@ export async function POST(request: NextRequest) {
     const sessionDir = path.join(AUDIO_DIR, sessionId)
     await fs.mkdir(sessionDir, { recursive: true })
 
-    // Save file
-    const filePath = path.join(sessionDir, file.name)
+    // Sanitize filename to prevent path traversal
+    const ext = path.extname(file.name).toLowerCase()
+    const safeName = `audio-${sessionId}${ext}`
+    const filePath = path.join(sessionDir, safeName)
+    // Final safety check: ensure resolved path is inside sessionDir
+    if (!path.resolve(filePath).startsWith(path.resolve(sessionDir))) {
+      return NextResponse.json({ error: "اسم ملف غير صالح" }, { status: 400 })
+    }
     await fs.writeFile(filePath, buffer)
 
     // Probe duration with ffprobe
