@@ -38,7 +38,7 @@ export function EpisodeSectionNav({ sections }: EpisodeSectionNavProps) {
     return () => window.removeEventListener("scroll", updateActive)
   }, [updateActive])
 
-  if (!visible || sections.length < 3) return null
+  if (sections.length < 3) return null
 
   function scrollToSection(id: string) {
     const el = document.getElementById(id)
@@ -50,7 +50,14 @@ export function EpisodeSectionNav({ sections }: EpisodeSectionNavProps) {
   }
 
   return (
-    <div className="fixed top-[56px] start-0 end-0 z-30 border-b bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/80 animate-in fade-in slide-in-from-top-2 duration-200">
+    <div
+      className={cn(
+        "fixed top-14 sm:top-16 start-0 end-0 z-30 border-b bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/80 transition-all duration-300 ease-out",
+        visible
+          ? "translate-y-0 opacity-100"
+          : "-translate-y-full opacity-0 pointer-events-none"
+      )}
+    >
       <div className="container mx-auto px-4">
         <div className="flex gap-1 overflow-x-auto py-2 scrollbar-hide">
           {sections.map((sec) => (
