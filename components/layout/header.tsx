@@ -105,7 +105,7 @@ export function Header({ hibrEnabled = true, hasNewEpisode = false }: { hibrEnab
                 href="/sponsor"
                 className={buttonVariants({ variant: "default", size: "sm" })}
               >
-                كن راعياً
+                كن شريكاً
               </Link>
             </>
           )}

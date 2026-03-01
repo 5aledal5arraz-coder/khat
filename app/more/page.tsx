@@ -23,7 +23,7 @@ const menuItems = [
   { href: "/resources", icon: BookOpen, label: "خطوط", description: "كتب ومقالات وروابط مختارة" },
   { href: "/paths", icon: Compass, label: "مسارات الاستماع", description: "حلقات على حسب مزاجك" },
   { href: "/store", icon: ShoppingBag, label: "المتجر", description: "قريباً" },
-  { href: "/sponsor", icon: Handshake, label: "كن راعياً", description: "فرص الرعاية" },
+  { href: "/sponsor", icon: Handshake, label: "كن شريكاً", description: "فرص الشراكة" },
   { href: "/guest", icon: Mic, label: "كن ضيفاً", description: "قدّم طلب ضيافة" },
   { href: "/contact", icon: Mail, label: "تواصل معنا", description: "كلّمنا" },
 ]
