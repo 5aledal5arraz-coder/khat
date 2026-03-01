@@ -234,11 +234,7 @@ export default function ModerationPage() {
                     </span>
                   )}
                   <span className="text-xs text-muted-foreground">
-                    {new Date(item.created_at).toLocaleDateString("en-GB", {
-                      day: "2-digit",
-                      month: "2-digit",
-                      year: "numeric",
-                    })}
+                    {(() => { const d = new Date(item.created_at); return `${String(d.getDate()).padStart(2, "0")}/${String(d.getMonth() + 1).padStart(2, "0")}/${d.getFullYear()}` })()}
                   </span>
                 </div>
 

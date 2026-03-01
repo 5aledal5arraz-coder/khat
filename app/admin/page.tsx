@@ -125,12 +125,8 @@ export default async function AdminDashboard() {
     },
   ]
 
-  const todayDate = new Date().toLocaleDateString("en-GB", {
-    weekday: "long",
-    day: "numeric",
-    month: "long",
-    year: "numeric",
-  })
+  const now = new Date()
+  const todayDate = `${String(now.getDate()).padStart(2, "0")}/${String(now.getMonth() + 1).padStart(2, "0")}/${now.getFullYear()}`
 
   // KPI subtitle context
   const lastEpisodeRelative = episodes[0]

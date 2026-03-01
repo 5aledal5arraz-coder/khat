@@ -46,11 +46,10 @@ export function formatDuration(minutes: number): string {
 }
 
 export function formatDate(dateStr: string): string {
-  return new Date(dateStr).toLocaleDateString("en-GB", {
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-  })
+  const d = new Date(dateStr)
+  const day = String(d.getDate()).padStart(2, "0")
+  const month = String(d.getMonth() + 1).padStart(2, "0")
+  return `${day}/${month}/${d.getFullYear()}`
 }
 
 /* ─── Action Menu (three-dot dropdown) ─── */

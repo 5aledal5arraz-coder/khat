@@ -148,13 +148,8 @@ export function AnalyzeClient({
 
   const formatDate = (iso: string) => {
     try {
-      return new Intl.DateTimeFormat("en-GB", {
-        year: "numeric",
-        month: "long",
-        day: "numeric",
-        hour: "2-digit",
-        minute: "2-digit",
-      }).format(new Date(iso))
+      const d = new Date(iso)
+      return `${String(d.getDate()).padStart(2, "0")}/${String(d.getMonth() + 1).padStart(2, "0")}/${d.getFullYear()} ${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`
     } catch {
       return iso
     }

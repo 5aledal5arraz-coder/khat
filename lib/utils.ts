@@ -67,17 +67,12 @@ export function formatDuration(minutes: number): string {
   return formatArabicCount(mins, "دقيقة")
 }
 
-const EN_MONTHS = [
-  'January', 'February', 'March', 'April', 'May', 'June',
-  'July', 'August', 'September', 'October', 'November', 'December',
-]
-
 export function formatDate(date: string | Date): string {
   const d = new Date(date)
-  const day = d.getDate()
-  const month = EN_MONTHS[d.getMonth()]
+  const day = String(d.getDate()).padStart(2, "0")
+  const month = String(d.getMonth() + 1).padStart(2, "0")
   const year = d.getFullYear()
-  return `${day} ${month} ${year}`
+  return `${day}/${month}/${year}`
 }
 
 export function formatTimeSeconds(seconds: number): string {

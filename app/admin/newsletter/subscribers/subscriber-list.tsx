@@ -133,15 +133,11 @@ export function SubscriberList({ subscribers, counts, currentStatus, currentSear
                       </span>
                     </td>
                     <td className="px-4 py-2.5 text-muted-foreground whitespace-nowrap">
-                      {new Date(sub.created_at).toLocaleDateString("en-GB", {
-                        year: "numeric", month: "short", day: "numeric",
-                      })}
+                      {(() => { const d = new Date(sub.created_at); return `${String(d.getDate()).padStart(2, "0")}/${String(d.getMonth() + 1).padStart(2, "0")}/${d.getFullYear()}` })()}
                     </td>
                     <td className="px-4 py-2.5 text-muted-foreground whitespace-nowrap">
                       {sub.unsubscribed_at
-                        ? new Date(sub.unsubscribed_at).toLocaleDateString("en-GB", {
-                            year: "numeric", month: "short", day: "numeric",
-                          })
+                        ? (() => { const d = new Date(sub.unsubscribed_at); return `${String(d.getDate()).padStart(2, "0")}/${String(d.getMonth() + 1).padStart(2, "0")}/${d.getFullYear()}` })()
                         : "—"
                       }
                     </td>

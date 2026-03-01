@@ -111,9 +111,7 @@ export default async function NewsletterMetricsPage() {
                       {c.total_clicked} <span className="text-muted-foreground">({pct(c.total_clicked, c.total_sent)})</span>
                     </td>
                     <td className="px-4 py-2.5 text-muted-foreground whitespace-nowrap">
-                      {c.sent_at ? new Date(c.sent_at).toLocaleDateString("en-GB", {
-                        year: "numeric", month: "short", day: "numeric",
-                      }) : "—"}
+                      {c.sent_at ? (() => { const d = new Date(c.sent_at); return `${String(d.getDate()).padStart(2, "0")}/${String(d.getMonth() + 1).padStart(2, "0")}/${d.getFullYear()}` })() : "—"}
                     </td>
                   </tr>
                 ))}

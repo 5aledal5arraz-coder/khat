@@ -19,11 +19,10 @@ export function formatDuration(seconds: number): string {
 }
 
 export function formatDate(dateString: string): string {
-  return new Date(dateString).toLocaleDateString("en-GB", {
-    year: "numeric",
-    month: "long",
-    day: "numeric",
-  })
+  const d = new Date(dateString)
+  const day = String(d.getDate()).padStart(2, "0")
+  const month = String(d.getMonth() + 1).padStart(2, "0")
+  return `${day}/${month}/${d.getFullYear()}`
 }
 
 export function formatTimestamp(seconds: number): string {

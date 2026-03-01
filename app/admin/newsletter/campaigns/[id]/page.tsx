@@ -39,10 +39,7 @@ export default async function CampaignDetailPage({
           <h1 className="text-2xl font-bold">{campaign.subject}</h1>
           <p className="text-muted-foreground mt-1">
             {campaign.sent_at
-              ? new Date(campaign.sent_at).toLocaleDateString("en-GB", {
-                  year: "numeric", month: "long", day: "numeric",
-                  hour: "2-digit", minute: "2-digit",
-                })
+              ? (() => { const d = new Date(campaign.sent_at); return `${String(d.getDate()).padStart(2, "0")}/${String(d.getMonth() + 1).padStart(2, "0")}/${d.getFullYear()} ${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}` })()
               : "لم يُرسل بعد"
             }
           </p>
@@ -114,17 +111,14 @@ export default async function CampaignDetailPage({
                     </td>
                     <td className="px-4 py-2.5 text-muted-foreground whitespace-nowrap">
                       {d.sent_at
-                        ? new Date(d.sent_at).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" })
+                        ? (() => { const dt = new Date(d.sent_at); return `${String(dt.getHours()).padStart(2, "0")}:${String(dt.getMinutes()).padStart(2, "0")}` })()
                         : "—"}
                     </td>
                     <td className="px-4 py-2.5 tabular-nums">{d.open_count}</td>
                     <td className="px-4 py-2.5 tabular-nums">{d.click_count}</td>
                     <td className="px-4 py-2.5 text-muted-foreground whitespace-nowrap">
                       {d.last_event_at
-                        ? new Date(d.last_event_at).toLocaleDateString("en-GB", {
-                            month: "short", day: "numeric",
-                            hour: "2-digit", minute: "2-digit",
-                          })
+                        ? (() => { const dt = new Date(d.last_event_at); return `${String(dt.getDate()).padStart(2, "0")}/${String(dt.getMonth() + 1).padStart(2, "0")}/${dt.getFullYear()} ${String(dt.getHours()).padStart(2, "0")}:${String(dt.getMinutes()).padStart(2, "0")}` })()
                         : "—"}
                     </td>
                   </tr>

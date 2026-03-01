@@ -98,7 +98,7 @@ export function DetailVersions({ episodeId }: DetailVersionsProps) {
                   </p>
                 )}
                 <p className="mt-1 text-xs text-muted-foreground/70">
-                  {new Date(version.created_at).toLocaleString("en-GB", { day: "numeric", month: "long", year: "numeric", hour: "2-digit", minute: "2-digit" })}
+                  {(() => { const d = new Date(version.created_at); return `${String(d.getDate()).padStart(2, "0")}/${String(d.getMonth() + 1).padStart(2, "0")}/${d.getFullYear()} ${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}` })()}
                 </p>
               </div>
               <Button

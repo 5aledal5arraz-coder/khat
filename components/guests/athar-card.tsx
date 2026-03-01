@@ -43,12 +43,8 @@ export function AtharCard({
   useEffect(() => {
     if (!episodeDate) return
     try {
-      setFormattedDate(
-        new Intl.DateTimeFormat("en-GB", {
-          year: "numeric",
-          month: "long",
-        }).format(new Date(episodeDate))
-      )
+      const d = new Date(episodeDate)
+      setFormattedDate(`${String(d.getDate()).padStart(2, "0")}/${String(d.getMonth() + 1).padStart(2, "0")}/${d.getFullYear()}`)
     } catch {
       setFormattedDate(null)
     }

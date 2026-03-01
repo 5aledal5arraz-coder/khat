@@ -396,13 +396,7 @@ export function NewsletterComposer({ subscriberCount, recentCampaigns }: Newslet
                       {campaign.total_clicked} <span className="text-muted-foreground">({pct(campaign.total_clicked, campaign.total_sent)})</span>
                     </td>
                     <td className="px-4 py-2.5 text-muted-foreground whitespace-nowrap">
-                      {new Date(campaign.sent_at).toLocaleDateString('en-GB', {
-                        year: 'numeric',
-                        month: 'short',
-                        day: 'numeric',
-                        hour: '2-digit',
-                        minute: '2-digit',
-                      })}
+                      {(() => { const d = new Date(campaign.sent_at); return `${String(d.getDate()).padStart(2, "0")}/${String(d.getMonth() + 1).padStart(2, "0")}/${d.getFullYear()} ${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}` })()}
                     </td>
                     <td className="px-4 py-2.5">
                       <Link

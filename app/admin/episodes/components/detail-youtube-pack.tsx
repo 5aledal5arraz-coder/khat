@@ -182,7 +182,7 @@ export function DetailYoutubePack({
         </div>
         {localEntry && (
           <span className="text-[10px] text-muted-foreground/50">
-            {new Date(localEntry.generatedAt).toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" })}
+            {(() => { const d = new Date(localEntry.generatedAt); return `${String(d.getDate()).padStart(2, "0")}/${String(d.getMonth() + 1).padStart(2, "0")}/${d.getFullYear()}` })()}
           </span>
         )}
       </div>

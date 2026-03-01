@@ -925,7 +925,7 @@ export default function MediaKitPage() {
   const [companyName, setCompanyName] = useState(searchParams.get("company") || "")
   const [contactPerson, setContactPerson] = useState(searchParams.get("contact") || "")
   const [pdfDate, setPdfDate] = useState(
-    new Date().toLocaleDateString("en-GB", { day: "2-digit", month: "2-digit", year: "numeric" })
+    (() => { const d = new Date(); return `${String(d.getDate()).padStart(2, "0")}/${String(d.getMonth() + 1).padStart(2, "0")}/${d.getFullYear()}` })()
   )
   const [generating, setGenerating] = useState(false)
 

@@ -384,11 +384,10 @@ function SponsorStatusDropdown({
 /* ─── Helpers ─── */
 
 function formatDate(dateString: string) {
-  return new Date(dateString).toLocaleDateString("en-GB", {
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-  })
+  const d = new Date(dateString)
+  const day = String(d.getDate()).padStart(2, "0")
+  const month = String(d.getMonth() + 1).padStart(2, "0")
+  return `${day}/${month}/${d.getFullYear()}`
 }
 
 function timeAgo(dateString: string) {
@@ -1006,7 +1005,7 @@ export function SubmissionsTabs({
     ${app.social_links ? field("روابط", app.social_links) : ""}
   </div>
 
-  <div class="footer">بودكاست خط · khatpodcast.com · تم التصدير ${new Date().toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" })}</div>
+  <div class="footer">بودكاست خط · khatpodcast.com · تم التصدير ${(() => { const d = new Date(); return `${String(d.getDate()).padStart(2, "0")}/${String(d.getMonth() + 1).padStart(2, "0")}/${d.getFullYear()}` })()}</div>
 </body>
 </html>`
 
@@ -1931,11 +1930,8 @@ export function SubmissionsTabs({
                     ])
                     const mediaKit = (await mkRes.json()) as MediaKitConfig
                     const analytics = (await anRes.json()) as AnalyticsConfig
-                    const date = new Date().toLocaleDateString("en-GB", {
-                      day: "2-digit",
-                      month: "2-digit",
-                      year: "numeric",
-                    })
+                    const _d = new Date()
+                    const date = `${String(_d.getDate()).padStart(2, "0")}/${String(_d.getMonth() + 1).padStart(2, "0")}/${_d.getFullYear()}`
                     // Open media-kit page with pre-filled company
                     const params = new URLSearchParams({
                       company: selectedLead.company_name,

@@ -325,7 +325,7 @@ export function WriteEditor({ episodes }: WriteEditorProps) {
                             {draft.title || "بدون عنوان"}
                           </p>
                           <p className="text-xs text-muted-foreground">
-                            {new Date(draft.lastSaved).toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" })}
+                            {(() => { const d = new Date(draft.lastSaved); return `${String(d.getDate()).padStart(2, "0")}/${String(d.getMonth() + 1).padStart(2, "0")}/${d.getFullYear()}` })()}
                           </p>
                         </Link>
                         <Button

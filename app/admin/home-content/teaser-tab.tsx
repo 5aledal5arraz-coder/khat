@@ -100,11 +100,10 @@ export function TeaserTab({ teasers, questions: initialQuestions, stats }: Props
   }
 
   function formatDate(dateStr: string) {
-    return new Date(dateStr).toLocaleDateString("en-GB", {
-      year: "numeric",
-      month: "short",
-      day: "numeric",
-    })
+    const d = new Date(dateStr)
+    const day = String(d.getDate()).padStart(2, "0")
+    const month = String(d.getMonth() + 1).padStart(2, "0")
+    return `${day}/${month}/${d.getFullYear()}`
   }
 
   function relativeTime(dateStr: string) {
