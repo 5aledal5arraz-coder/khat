@@ -23,8 +23,13 @@
     },
     {
       "platform": "TikTok",
-      "url": "",
-      "visible": false
+      "url": "https://www.tiktok.com/@khatpodcast",
+      "visible": true
+    },
+    {
+      "platform": "WhatsApp",
+      "url": "https://whatsapp.com/channel/0029VaE4SfPIN9ip2O3BBL3G",
+      "visible": true
     }
   ],
   "seo": {
