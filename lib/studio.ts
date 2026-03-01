@@ -106,13 +106,28 @@ export async function createStudioSession(
   }
 
   try {
-    const { episode_id, episode_title, youtube_url, source_type, notes } = session as Record<string, unknown>
+    const s = session as Record<string, unknown>
     const rows = await db!.insert(studioSessions).values({
-      episode_id: episode_id as string,
-      episode_title: episode_title as string,
-      youtube_url: youtube_url as string,
-      source_type: source_type as string,
-      notes: notes as string,
+      youtube_url: s.youtube_url as string | null,
+      video_id: s.video_id as string | null,
+      source: s.source as string | null,
+      status: s.status as string | null,
+      video_title: s.video_title as string | null,
+      channel_title: s.channel_title as string | null,
+      published_at: s.published_at ? new Date(s.published_at as string) : null,
+      duration_seconds: s.duration_seconds as number | null,
+      thumbnail_url: s.thumbnail_url as string | null,
+      raw_youtube_response: s.raw_youtube_response as Record<string, unknown> | null,
+      audio_filename: s.audio_filename as string | null,
+      audio_file_size: s.audio_file_size as number | null,
+      audio_start_seconds: s.audio_start_seconds as number | null,
+      audio_end_seconds: s.audio_end_seconds as number | null,
+      audio_best_intro: s.audio_best_intro as string | null,
+      audio_edit_suggestions: s.audio_edit_suggestions as unknown[] | null,
+      episode_id: s.episode_id as string | null,
+      episode_title: s.episode_title as string | null,
+      source_type: s.source_type as string | null,
+      notes: s.notes as string | null,
     }).returning()
     return { success: true, data: rows[0] as unknown as StudioSession }
   } catch (err: unknown) {
