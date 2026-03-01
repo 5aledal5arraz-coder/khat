@@ -194,10 +194,21 @@ BEGIN
 
   -- Upsert episode quotes config
   IF p_quotes IS NOT NULL THEN
-    INSERT INTO episode_quotes_config (episode_id, quotes)
-    VALUES (p_episode_id, p_quotes)
+    INSERT INTO episode_quotes_config (episode_id, episode_title, quotes, status, generated_at, published_at)
+    VALUES (
+      p_episode_id,
+      p_quotes->>'episode_title',
+      p_quotes->'quotes',
+      COALESCE(p_quotes->>'status', 'draft'),
+      p_quotes->>'generated_at',
+      p_quotes->>'published_at'
+    )
     ON CONFLICT (episode_id) DO UPDATE SET
-      quotes = EXCLUDED.quotes;
+      episode_title = COALESCE(EXCLUDED.episode_title, episode_quotes_config.episode_title),
+      quotes = EXCLUDED.quotes,
+      status = COALESCE(EXCLUDED.status, episode_quotes_config.status),
+      generated_at = COALESCE(EXCLUDED.generated_at, episode_quotes_config.generated_at),
+      published_at = COALESCE(EXCLUDED.published_at, episode_quotes_config.published_at);
   END IF;
 
   -- Upsert episode enrichment (merge fields)
@@ -229,10 +240,10 @@ BEGIN
   IF p_log IS NOT NULL THEN
     INSERT INTO studio_push_log (session_id, episode_id, episode_title, pushed_fields, pushed_at)
     VALUES (
-      p_log->>'session_id',
+      (p_log->>'session_id')::uuid,
       p_episode_id,
       p_log->>'episode_title',
-      p_log->'pushed_fields',
+      ARRAY(SELECT jsonb_array_elements_text(p_log->'pushed_fields')),
       (p_log->>'pushed_at')::timestamptz
     );
   END IF;
