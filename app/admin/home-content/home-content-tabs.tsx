@@ -213,6 +213,7 @@ function QuotesTab({ quotes, episodes }: { quotes: HomeQuote[]; episodes: Episod
                       size="icon"
                       className="h-8 w-8 text-destructive"
                       onClick={() => {
+                        if (!confirm("متأكد إنك تبي تحذف هذا الاقتباس؟")) return
                         startTransition(async () => {
                           await deleteQuoteAction(quote.id)
                         })
@@ -433,6 +434,7 @@ function ReflectionsTab({ reflections, episodes, quotes }: { reflections: DailyR
                       size="icon"
                       className="h-8 w-8 text-destructive"
                       onClick={() => {
+                        if (!confirm("متأكد إنك تبي تحذف هذا التأمل؟")) return
                         startTransition(async () => {
                           await deleteReflectionAction(ref.id)
                         })

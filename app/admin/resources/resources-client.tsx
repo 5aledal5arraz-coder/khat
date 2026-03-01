@@ -142,6 +142,7 @@ export function ResourcesAdmin({ initialResources, counts, lastGenerated }: Reso
   }
 
   const handleDelete = async (id: string) => {
+    if (!confirm("متأكد إنك تبي تحذف هذا المورد؟")) return
     setActioningId(id)
     try {
       const updated = await deleteResourceAction(id)

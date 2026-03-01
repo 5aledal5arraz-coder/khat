@@ -61,7 +61,7 @@ export default function AdminLayout({
   return (
     <div className="min-h-screen bg-muted/30">
       {/* Admin Header */}
-      <header className="sticky top-0 z-40 border-b bg-background/95 shadow-sm backdrop-blur-sm">
+      <header className="sticky top-0 z-40 border-b bg-background/95 shadow-sm backdrop-blur supports-[backdrop-filter]:bg-background/80">
         <div className="flex h-14 items-center justify-between px-4">
           <div className="flex items-center gap-3">
             {/* Desktop: sidebar toggle */}
@@ -96,7 +96,12 @@ export default function AdminLayout({
                 height={28}
                 className="rounded"
               />
-              <h1 className="text-base font-semibold">لوحة التحكم</h1>
+              <div className="flex items-center gap-2">
+                <h1 className="text-base font-semibold">لوحة التحكم</h1>
+                <span className="hidden rounded-md bg-primary/10 px-1.5 py-0.5 text-[9px] font-bold text-primary sm:inline-block">
+                  ADMIN
+                </span>
+              </div>
             </div>
 
             {/* Breadcrumbs - desktop only */}

@@ -20,6 +20,7 @@ import {
   UserCog,
   Handshake,
   BookOpen,
+  Sparkles,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 
@@ -27,6 +28,7 @@ interface NavItem {
   href: string
   icon: React.ElementType
   label: string
+  badge?: "ai" | "new"
 }
 
 interface NavGroup {
@@ -40,7 +42,7 @@ const navGroups: NavGroup[] = [
     items: [
       { href: "/admin", icon: LayoutDashboard, label: "الرئيسية" },
       { href: "/admin/episodes", icon: PlayCircle, label: "الحلقات" },
-      { href: "/admin/studio", icon: Mic, label: "الاستوديو" },
+      { href: "/admin/studio", icon: Mic, label: "الاستوديو", badge: "ai" },
     ],
   },
   {
@@ -50,7 +52,7 @@ const navGroups: NavGroup[] = [
       { href: "/admin/guests", icon: Users, label: "الضيوف" },
       { href: "/admin/topics", icon: Tag, label: "المواضيع" },
       { href: "/admin/content", icon: FileEdit, label: "المحتوى" },
-      { href: "/admin/resources", icon: BookOpen, label: "خطوط" },
+      { href: "/admin/resources", icon: BookOpen, label: "خطوط", badge: "ai" },
     ],
   },
   {
@@ -79,7 +81,7 @@ interface AdminSidebarProps {
   onNavClick?: () => void
 }
 
-export function AdminSidebar({ collapsed, onNavClick }: AdminSidebarProps) {
+function AdminSidebar({ collapsed, onNavClick }: AdminSidebarProps) {
   const pathname = usePathname()
 
   return (
@@ -117,10 +119,20 @@ export function AdminSidebar({ collapsed, onNavClick }: AdminSidebarProps) {
                 )}
                 title={collapsed ? item.label : undefined}
               >
-                <item.icon className="h-5 w-5 shrink-0" />
+                <span className="relative">
+                  <item.icon className="h-5 w-5 shrink-0" />
+                  {item.badge === "ai" && (
+                    <Sparkles className="absolute -top-1 -end-1.5 h-2.5 w-2.5 text-amber-500" />
+                  )}
+                </span>
                 {!collapsed && (
-                  <span className="transition-opacity duration-200">
+                  <span className="flex-1 transition-opacity duration-200">
                     {item.label}
+                  </span>
+                )}
+                {!collapsed && item.badge === "ai" && (
+                  <span className="rounded-md bg-amber-500/10 px-1.5 py-0.5 text-[9px] font-bold text-amber-500">
+                    AI
                   </span>
                 )}
                 {/* Tooltip for collapsed state */}
@@ -134,8 +146,21 @@ export function AdminSidebar({ collapsed, onNavClick }: AdminSidebarProps) {
           })}
         </div>
       ))}
+
+      {/* AI Assistant Hint */}
+      {!collapsed && (
+        <div className="mt-4 rounded-xl border border-primary/20 bg-primary/5 p-3">
+          <div className="flex items-center gap-2">
+            <Sparkles className="h-4 w-4 text-primary" />
+            <span className="text-xs font-medium text-primary">مدعوم بالذكاء الاصطناعي</span>
+          </div>
+          <p className="mt-1 text-[10px] leading-relaxed text-muted-foreground">
+            الاستوديو وخطوط يعملان بتقنيات الذكاء الاصطناعي
+          </p>
+        </div>
+      )}
     </nav>
   )
 }
 
-export { navGroups }
+export { AdminSidebar, navGroups }

@@ -808,6 +808,7 @@ export function SubmissionsTabs({
   }
 
   const handleDeleteGuestApp = async (id: string) => {
+    if (!confirm("متأكد إنك تبي تحذف هذا الطلب؟ ما تقدر ترجعه.")) return
     setDeletingIds((prev) => new Set(prev).add(id))
     try {
       const response = await fetch(`/api/admin/submissions/guests/${id}`, {
@@ -854,6 +855,7 @@ export function SubmissionsTabs({
   }
 
   const handleDeleteSponsorLead = async (id: string) => {
+    if (!confirm("متأكد إنك تبي تحذف هذا الطلب؟ ما تقدر ترجعه.")) return
     setDeletingIds((prev) => new Set(prev).add(id))
     try {
       const response = await fetch(`/api/admin/submissions/sponsors/${id}`, {
@@ -875,6 +877,7 @@ export function SubmissionsTabs({
   }
 
   const handleDeleteSubscriber = async (id: string) => {
+    if (!confirm("متأكد إنك تبي تحذف هذا المشترك؟")) return
     setDeletingIds((prev) => new Set(prev).add(id))
     try {
       const response = await fetch(`/api/admin/submissions/newsletter/${id}`, {

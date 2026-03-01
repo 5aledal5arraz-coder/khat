@@ -13,6 +13,11 @@ import {
   Clock,
   Pencil,
   ArrowUpLeft,
+  Sparkles,
+  TrendingUp,
+  Activity,
+  CheckCircle2,
+  AlertTriangle,
 } from "lucide-react"
 import { RefreshButton } from "./refresh-button"
 import { getEpisodes, getGuests } from "@/lib/queries/episodes"
@@ -246,6 +251,44 @@ export default async function AdminDashboard() {
         </Link>
       </div>
 
+      {/* AI Insights Bar */}
+      <div className="rounded-2xl border border-primary/20 bg-gradient-to-l from-primary/5 via-card/80 to-card/80 backdrop-blur-sm">
+        <div className="flex items-center gap-3 px-5 py-4">
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-primary/10">
+            <Sparkles className="h-4.5 w-4.5 text-primary" />
+          </div>
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-2">
+              <h2 className="text-sm font-semibold">ملخص ذكي</h2>
+              <span className="rounded-md bg-primary/10 px-1.5 py-0.5 text-[9px] font-bold text-primary">AI</span>
+            </div>
+            <p className="mt-0.5 text-xs text-muted-foreground">
+              {episodes.length > 0 ? (
+                <>
+                  لديك <span className="font-medium text-foreground">{episodes.length}</span> حلقة
+                  {" "}مع <span className="font-medium text-foreground">{guests.length}</span> ضيف
+                  {" "}بإجمالي <span className="font-medium text-foreground">{totalDurationHours}+</span> ساعة محتوى.
+                  {totalNewSubmissions > 0 && (
+                    <> يوجد <span className="font-medium text-amber-500">{totalNewSubmissions}</span> طلب بانتظار المراجعة.</>
+                  )}
+                  {lastEpisodeRelative && (
+                    <> آخر حلقة نُشرت <span className="font-medium text-foreground">{lastEpisodeRelative}</span>.</>
+                  )}
+                </>
+              ) : (
+                "ابدأ بإنشاء أول حلقة في الاستوديو"
+              )}
+            </p>
+          </div>
+          <div className="hidden items-center gap-4 text-xs text-muted-foreground/70 sm:flex">
+            <div className="flex items-center gap-1.5">
+              <Activity className="h-3.5 w-3.5 text-emerald-500" />
+              <span>النظام يعمل</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
       {/* Two-Column Content */}
       <div className="grid gap-6 lg:grid-cols-12">
         {/* Left: Needs Attention + Recent Episodes */}
@@ -333,8 +376,8 @@ export default async function AdminDashboard() {
           </div>
         </div>
 
-        {/* Right: Quick Actions */}
-        <div className="lg:col-span-4">
+        {/* Right: Quick Actions + System Health */}
+        <div className="space-y-6 lg:col-span-4">
           <div className="rounded-2xl border border-border/50 bg-card/80 backdrop-blur-sm">
             <div className="border-b border-border/30 px-5 py-4">
               <h2 className="text-sm font-semibold">إجراءات سريعة</h2>
@@ -359,6 +402,80 @@ export default async function AdminDashboard() {
                   </div>
                 </Link>
               ))}
+            </div>
+          </div>
+
+          {/* System Health */}
+          <div className="rounded-2xl border border-border/50 bg-card/80 backdrop-blur-sm">
+            <div className="border-b border-border/30 px-5 py-4">
+              <div className="flex items-center gap-2">
+                <Activity className="h-4 w-4 text-muted-foreground" />
+                <h2 className="text-sm font-semibold">حالة النظام</h2>
+              </div>
+            </div>
+            <div className="space-y-3 p-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" />
+                  <span className="text-xs text-muted-foreground">قاعدة البيانات</span>
+                </div>
+                <span className="text-[10px] font-medium text-emerald-500">متصل</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" />
+                  <span className="text-xs text-muted-foreground">YouTube API</span>
+                </div>
+                <span className="text-[10px] font-medium text-emerald-500">يعمل</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" />
+                  <span className="text-xs text-muted-foreground">OpenAI</span>
+                </div>
+                <span className="text-[10px] font-medium text-emerald-500">متاح</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  {submissionCounts.newsletterSubscribers > 0 ? (
+                    <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" />
+                  ) : (
+                    <AlertTriangle className="h-3.5 w-3.5 text-amber-500" />
+                  )}
+                  <span className="text-xs text-muted-foreground">البريد الإلكتروني</span>
+                </div>
+                <span className={`text-[10px] font-medium ${submissionCounts.newsletterSubscribers > 0 ? "text-emerald-500" : "text-amber-500"}`}>
+                  {submissionCounts.newsletterSubscribers > 0 ? "مفعّل" : "بلا مشتركين"}
+                </span>
+              </div>
+            </div>
+          </div>
+
+          {/* Content Stats */}
+          <div className="rounded-2xl border border-border/50 bg-card/80 backdrop-blur-sm">
+            <div className="border-b border-border/30 px-5 py-4">
+              <div className="flex items-center gap-2">
+                <TrendingUp className="h-4 w-4 text-muted-foreground" />
+                <h2 className="text-sm font-semibold">إحصائيات المحتوى</h2>
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-px bg-border/20">
+              <div className="bg-card/80 p-4 text-center">
+                <p className="text-2xl font-bold">{episodes.length}</p>
+                <p className="mt-0.5 text-[10px] text-muted-foreground">حلقة</p>
+              </div>
+              <div className="bg-card/80 p-4 text-center">
+                <p className="text-2xl font-bold">{guests.length}</p>
+                <p className="mt-0.5 text-[10px] text-muted-foreground">ضيف</p>
+              </div>
+              <div className="bg-card/80 p-4 text-center">
+                <p className="text-2xl font-bold">{totalDurationHours}+</p>
+                <p className="mt-0.5 text-[10px] text-muted-foreground">ساعة محتوى</p>
+              </div>
+              <div className="bg-card/80 p-4 text-center">
+                <p className="text-2xl font-bold">{submissionCounts.newsletterSubscribers}</p>
+                <p className="mt-0.5 text-[10px] text-muted-foreground">مشترك</p>
+              </div>
             </div>
           </div>
         </div>

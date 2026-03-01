@@ -127,6 +127,11 @@ export function MembersManager() {
   // --- Actions ---
 
   async function handleRoleChange(member: Member, newRole: RoleValue) {
+    const roleName = ROLE_LABELS[newRole] || newRole
+    if (!confirm(`تغيير صلاحية "${member.display_name || member.email}" إلى "${roleName}"؟`)) {
+      fetchMembers() // Reset the select to its original value
+      return
+    }
     await apiFetch(`/api/admin/members/${member.id}`, {
       method: "PATCH",
       body: JSON.stringify({ role: newRole }),
