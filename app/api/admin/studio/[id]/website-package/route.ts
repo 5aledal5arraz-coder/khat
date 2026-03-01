@@ -119,7 +119,11 @@ export async function POST(
       resources: result.data.resources,
       timestamps: result.data.timestamps,
       linked_episode_id: session.video_id || null,
-      raw_openai_response: result.raw || null,
+      raw_openai_response: {
+        ...(result.raw || {}),
+        guest_name: result.data.guest_name,
+        guest_bio: result.data.guest_bio,
+      },
       error_message: null,
     })
 

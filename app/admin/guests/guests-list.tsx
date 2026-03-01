@@ -23,6 +23,7 @@ import {
   Mail,
   Linkedin,
   Quote,
+  LinkIcon,
 } from "lucide-react"
 import { XIcon } from "@/components/icons/x-icon"
 import { TikTokIcon } from "@/components/icons/tiktok-icon"
@@ -424,7 +425,42 @@ export function GuestsList({ guests: initialGuests }: GuestsListProps) {
   const [isSaving, setIsSaving] = useState(false)
   const [saveError, setSaveError] = useState<string | null>(null)
   const [formData, setFormData] = useState({ name: "", bio: "", photo_url: "", testimonial: "", external_links: {} as Record<string, string> })
+  const [bulkLinkOpen, setBulkLinkOpen] = useState(false)
+  const [bulkLinkLoading, setBulkLinkLoading] = useState(false)
+  const [bulkLinkPreview, setBulkLinkPreview] = useState<{ total: number; alreadyLinked: number; toLink: number; items: { episodeId: string; episodeTitle: string; guestName: string; alreadyLinked: boolean }[] } | null>(null)
+  const [bulkLinkResult, setBulkLinkResult] = useState<{ linked: number; guestsCreated: number; failed: number } | null>(null)
 
+  const handleBulkLinkPreview = async () => {
+    setBulkLinkOpen(true)
+    setBulkLinkLoading(true)
+    setBulkLinkResult(null)
+    try {
+      const res = await fetch("/api/admin/guests/bulk-link")
+      const data = await res.json()
+      setBulkLinkPreview(data)
+    } catch {
+      setBulkLinkPreview(null)
+    } finally {
+      setBulkLinkLoading(false)
+    }
+  }
+
+  const handleBulkLinkExecute = async () => {
+    setBulkLinkLoading(true)
+    try {
+      const res = await fetch("/api/admin/guests/bulk-link", { method: "POST" })
+      const data = await res.json()
+      if (data.success) {
+        setBulkLinkResult(data.summary)
+        // Refresh page to show new guests
+        setTimeout(() => window.location.reload(), 2000)
+      }
+    } catch {
+      // ignore
+    } finally {
+      setBulkLinkLoading(false)
+    }
+  }
 
   const normalizedSearch = normalizeArabic(search)
   const filteredGuests = !normalizedSearch ? guests : guests.filter((g) => normalizeArabic(g.name).includes(normalizedSearch) || (g.bio && normalizeArabic(g.bio).includes(normalizedSearch)))
@@ -505,6 +541,7 @@ export function GuestsList({ guests: initialGuests }: GuestsListProps) {
         <span className="rounded-full bg-muted px-2.5 py-0.5 text-xs font-medium text-muted-foreground">{totalEpisodes} حلقة</span>
         <span className="rounded-full bg-muted px-2.5 py-0.5 text-xs font-medium text-muted-foreground">{withPhoto} صورة</span>
         <div className="flex-1" />
+        <Button variant="outline" onClick={handleBulkLinkPreview} className="h-10 gap-2 rounded-xl"><LinkIcon className="h-4 w-4" />ربط تلقائي</Button>
         <Button onClick={openAddDialog} className="h-10 gap-2 rounded-xl"><Plus className="h-4 w-4" />إضافة ضيف</Button>
       </div>
 
@@ -529,6 +566,65 @@ export function GuestsList({ guests: initialGuests }: GuestsListProps) {
       )}
 
       {(isAddingNew || editingGuest) && <GuestFormDialog isNew={isAddingNew} formData={formData} setFormData={setFormData} onSave={handleSave} onClose={closeDialog} saving={isSaving} error={saveError} />}
+
+      {/* Bulk Link Dialog */}
+      {bulkLinkOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="relative flex max-h-[70vh] w-full max-w-lg flex-col rounded-2xl border bg-card shadow-xl">
+            <div className="flex items-center justify-between border-b px-6 py-4">
+              <h3 className="font-semibold">ربط الضيوف تلقائياً</h3>
+              <button onClick={() => { setBulkLinkOpen(false); setBulkLinkPreview(null); setBulkLinkResult(null) }} className="flex h-8 w-8 items-center justify-center rounded-full hover:bg-muted transition-colors">
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+            <div className="flex-1 overflow-y-auto px-6 py-4 space-y-4">
+              {bulkLinkLoading && !bulkLinkResult && (
+                <div className="flex items-center justify-center py-8">
+                  <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                </div>
+              )}
+              {bulkLinkResult && (
+                <div className="rounded-lg border border-green-200 bg-green-50 p-4 dark:border-green-900 dark:bg-green-950/50">
+                  <p className="text-sm font-medium text-green-700 dark:text-green-400">تم الربط بنجاح</p>
+                  <p className="text-xs text-green-600/70 dark:text-green-400/60 mt-1">
+                    تم ربط {bulkLinkResult.linked} حلقة · إنشاء {bulkLinkResult.guestsCreated} ضيف جديد
+                    {bulkLinkResult.failed > 0 && ` · فشل ${bulkLinkResult.failed}`}
+                  </p>
+                </div>
+              )}
+              {bulkLinkPreview && !bulkLinkResult && (
+                <>
+                  <p className="text-sm text-muted-foreground">
+                    {bulkLinkPreview.toLink > 0
+                      ? `وُجد ${bulkLinkPreview.toLink} حلقة يمكن ربطها بضيوف (${bulkLinkPreview.alreadyLinked} مربوطة مسبقاً)`
+                      : "جميع الحلقات مربوطة بضيوف بالفعل"}
+                  </p>
+                  {bulkLinkPreview.items.filter((i) => !i.alreadyLinked).length > 0 && (
+                    <div className="space-y-2 max-h-60 overflow-y-auto">
+                      {bulkLinkPreview.items.filter((i) => !i.alreadyLinked).map((item) => (
+                        <div key={item.episodeId} className="flex items-center gap-3 rounded-lg border p-3 text-sm">
+                          <div className="min-w-0 flex-1">
+                            <p className="truncate font-medium">{item.episodeTitle}</p>
+                            <p className="text-xs text-muted-foreground">الضيف: {item.guestName}</p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
+            {bulkLinkPreview && !bulkLinkResult && bulkLinkPreview.toLink > 0 && (
+              <div className="flex items-center justify-end gap-3 border-t px-6 py-4">
+                <Button variant="outline" onClick={() => { setBulkLinkOpen(false); setBulkLinkPreview(null) }}>إلغاء</Button>
+                <Button onClick={handleBulkLinkExecute} disabled={bulkLinkLoading} className="gap-2">
+                  {bulkLinkLoading ? <><Loader2 className="h-4 w-4 animate-spin" />جارٍ الربط...</> : <><LinkIcon className="h-4 w-4" />ربط {bulkLinkPreview.toLink} حلقة</>}
+                </Button>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
     </div>
   )

@@ -4,7 +4,7 @@ import { sponsorshipLeads } from "@/lib/db/schema"
 import { stripHtml } from "@/lib/sanitize"
 import { validateEmail } from "@/lib/validation"
 import { checkIpRateLimit } from "@/lib/rate-limit"
-import { getResend, FROM_EMAIL } from "@/lib/email/resend"
+import { sendSponsorApplicationAdmin, sendSponsorApplicationConfirm } from "@/lib/email/send"
 
 export async function POST(request: NextRequest) {
   try {
@@ -97,26 +97,12 @@ export async function POST(request: NextRequest) {
       status: "new",
     })
 
-    // Send notification email (fire-and-forget)
-    getResend().emails.send({
-      from: FROM_EMAIL,
-      to: "khatpodcast@hotmail.com",
-      subject: "طلب رعاية جديد — بودكاست خط",
-      html: `
-        <div dir="rtl" style="font-family:sans-serif;max-width:500px">
-          <h2 style="color:#c9a227">طلب رعاية جديد</h2>
-          <p><strong>الشركة:</strong> ${sanitizedCompany}</p>
-          <p><strong>المسؤول:</strong> ${sanitizedContact}</p>
-          <p><strong>البريد:</strong> ${sanitizedEmail}</p>
-          <p><strong>الميزانية:</strong> ${stripHtml(budget_range)}</p>
-          <p style="margin-top:20px">
-            <a href="https://khatpodcast.com/admin/submissions?tab=sponsors" style="background:#c9a227;color:#0a0a0a;padding:10px 20px;text-decoration:none;border-radius:6px">
-              مراجعة الطلب
-            </a>
-          </p>
-        </div>
-      `,
-    }).catch(e => console.error("Sponsor notification email failed:", e))
+    // Send branded notification emails (fire-and-forget)
+    const emailParams = { company: sanitizedCompany, contact: sanitizedContact, email: sanitizedEmail, budget: stripHtml(budget_range) }
+    Promise.all([
+      sendSponsorApplicationAdmin("khatpodcast@hotmail.com", emailParams),
+      sendSponsorApplicationConfirm(sanitizedEmail, sanitizedContact),
+    ]).catch(e => console.error("Sponsor notification email failed:", e))
 
     return NextResponse.json({ success: true })
   } catch {

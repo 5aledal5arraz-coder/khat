@@ -242,7 +242,7 @@ export function TabExport() {
   const [selectedEpisodeId, setSelectedEpisodeId] = useState<string>("")
   const [showDiff, setShowDiff] = useState(false)
   const [pushing, setPushing] = useState(false)
-  const [pushResult, setPushResult] = useState<{ success: boolean; fields: string[] } | null>(null)
+  const [pushResult, setPushResult] = useState<{ success: boolean; fields: string[]; guestLink?: { linked: boolean; guestName?: string; created?: boolean } | null } | null>(null)
   const [loaded, setLoaded] = useState(false)
   const [showRestoreConfirm, setShowRestoreConfirm] = useState(false)
   const [restoring, setRestoring] = useState(false)
@@ -293,7 +293,7 @@ export function TabExport() {
       })
       const json = await res.json()
       if (res.ok) {
-        setPushResult({ success: true, fields: json.pushedFields || [] })
+        setPushResult({ success: true, fields: json.pushedFields || [], guestLink: json.guestLink || null })
       } else {
         setPushResult({ success: false, fields: [] })
       }
@@ -410,6 +410,12 @@ export function TabExport() {
                       <p className="text-xs text-green-600/70 dark:text-green-400/60">
                         الحقول: {pushResult.fields.join("، ")}
                       </p>
+                      {pushResult.guestLink?.linked && (
+                        <p className="text-xs text-green-600/70 dark:text-green-400/60 mt-1">
+                          تم ربط الضيف: {pushResult.guestLink.guestName}
+                          {pushResult.guestLink.created ? " (تم إنشاء ملف جديد)" : " (ملف موجود)"}
+                        </p>
+                      )}
                     </div>
                   </>
                 ) : (

@@ -10,6 +10,7 @@ import { setEpisodeEnrichment } from "@/lib/episode-enrichments"
 import { appendPushLog } from "@/lib/studio-push-log"
 import { invalidateEpisodeCache } from "@/lib/cache/episode-cache"
 import { fetchAllEpisodes } from "@/lib/youtube/queries"
+import { autoLinkGuestForEpisode } from "@/lib/guest-linker"
 import type { EpisodeEnrichment } from "@/types/episodes"
 
 interface PushFields {
@@ -313,6 +314,15 @@ export async function POST(
       })
     }
 
+    // Auto-link guest if extracted by AI
+    let guestLink: { linked: boolean; guestId?: string; guestName?: string; guestSlug?: string; created?: boolean } | null = null
+    const rawResponse = pkg.raw_openai_response as Record<string, unknown> | null
+    const guestName = rawResponse?.guest_name as string | undefined
+    const guestBio = rawResponse?.guest_bio as string | undefined
+    if (guestName && guestName.trim()) {
+      guestLink = await autoLinkGuestForEpisode(episodeId, guestName, guestBio || null)
+    }
+
     // Invalidate episode cache + revalidate public pages
     await invalidateEpisodeCache()
     revalidatePath("/")
@@ -324,6 +334,7 @@ export async function POST(
       success: true,
       episodeId,
       pushedFields,
+      guestLink: guestLink || null,
     })
   } catch (error) {
     console.error("Push to episode error:", error)

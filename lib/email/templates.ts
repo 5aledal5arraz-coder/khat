@@ -282,3 +282,70 @@ export function directEmailHtml(
   `
   return emailLayout(content)
 }
+
+// --- Submission Notification Templates ---
+
+function detailRow(label: string, value: string): string {
+  return `<tr>
+    <td style="padding:6px 0;color:#737373;font-size:14px;white-space:nowrap;vertical-align:top;padding-left:12px;">${label}</td>
+    <td style="padding:6px 0;color:#e5e5e5;font-size:14px;">${value}</td>
+  </tr>`
+}
+
+export function guestApplicationAdminHtml(params: {
+  name: string
+  email: string
+  phone: string
+  country: string
+}): string {
+  const content = `
+    <h2 style="margin:0 0 16px;color:#e5e5e5;font-size:20px;">طلب ضيف جديد</h2>
+    <table role="presentation" cellpadding="0" cellspacing="0" style="width:100%;margin:0 0 20px;">
+      ${detailRow('الاسم', params.name)}
+      ${detailRow('البريد', params.email)}
+      ${detailRow('الهاتف', params.phone)}
+      ${detailRow('الدولة', params.country)}
+    </table>
+    ${ctaButton('مراجعة الطلب', `${APP_URL}/admin/submissions?tab=guests`)}
+  `
+  return emailLayout(content)
+}
+
+export function guestApplicationConfirmHtml(name: string): string {
+  const content = `
+    <h2 style="margin:0 0 16px;color:#e5e5e5;font-size:20px;">وصلنا قصتك، ${name}</h2>
+    <p style="margin:0 0 16px;">شكراً إنك شاركتنا — نقدّر كل كلمة كتبتها.</p>
+    <p style="margin:0 0 16px;">فريقنا بيراجع طلبك بعناية ويتواصل معك قريب إن شاء الله.</p>
+    <p style="margin:0;color:#737373;font-size:13px;">— فريق خط بودكاست</p>
+  `
+  return emailLayout(content)
+}
+
+export function sponsorApplicationAdminHtml(params: {
+  company: string
+  contact: string
+  email: string
+  budget: string
+}): string {
+  const content = `
+    <h2 style="margin:0 0 16px;color:#e5e5e5;font-size:20px;">طلب شراكة جديد</h2>
+    <table role="presentation" cellpadding="0" cellspacing="0" style="width:100%;margin:0 0 20px;">
+      ${detailRow('الشركة', params.company)}
+      ${detailRow('المسؤول', params.contact)}
+      ${detailRow('البريد', params.email)}
+      ${detailRow('الميزانية', params.budget)}
+    </table>
+    ${ctaButton('مراجعة الطلب', `${APP_URL}/admin/submissions?tab=sponsors`)}
+  `
+  return emailLayout(content)
+}
+
+export function sponsorApplicationConfirmHtml(contactName: string): string {
+  const content = `
+    <h2 style="margin:0 0 16px;color:#e5e5e5;font-size:20px;">شكراً لاهتمامك بالشراكة، ${contactName}</h2>
+    <p style="margin:0 0 16px;">وصلنا طلبك وفريقنا بيراجعه.</p>
+    <p style="margin:0 0 16px;">بنرد عليك بخطة تعاون تناسب أهدافك في أقرب وقت.</p>
+    <p style="margin:0;color:#737373;font-size:13px;">— فريق خط بودكاست</p>
+  `
+  return emailLayout(content)
+}

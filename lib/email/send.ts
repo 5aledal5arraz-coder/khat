@@ -7,6 +7,10 @@ import {
   likeNotificationHtml,
   followNotificationHtml,
   directEmailHtml,
+  guestApplicationAdminHtml,
+  guestApplicationConfirmHtml,
+  sponsorApplicationAdminHtml,
+  sponsorApplicationConfirmHtml,
 } from './templates'
 
 export async function sendWelcomeEmail(email: string, displayName: string) {
@@ -103,5 +107,53 @@ export async function sendDirectEmail(
     to: email,
     subject,
     html: directEmailHtml(recipientName, subject, body, senderName),
+  })
+}
+
+export async function sendGuestApplicationAdmin(
+  adminEmail: string,
+  params: { name: string; email: string; phone: string; country: string }
+) {
+  return getResend().emails.send({
+    from: FROM_EMAIL,
+    to: adminEmail,
+    subject: `طلب ضيف جديد — ${params.name}`,
+    html: guestApplicationAdminHtml(params),
+  })
+}
+
+export async function sendGuestApplicationConfirm(
+  applicantEmail: string,
+  name: string
+) {
+  return getResend().emails.send({
+    from: FROM_EMAIL,
+    to: applicantEmail,
+    subject: 'وصلنا قصتك — بودكاست خط',
+    html: guestApplicationConfirmHtml(name),
+  })
+}
+
+export async function sendSponsorApplicationAdmin(
+  adminEmail: string,
+  params: { company: string; contact: string; email: string; budget: string }
+) {
+  return getResend().emails.send({
+    from: FROM_EMAIL,
+    to: adminEmail,
+    subject: `طلب شراكة جديد — ${params.company}`,
+    html: sponsorApplicationAdminHtml(params),
+  })
+}
+
+export async function sendSponsorApplicationConfirm(
+  applicantEmail: string,
+  contactName: string
+) {
+  return getResend().emails.send({
+    from: FROM_EMAIL,
+    to: applicantEmail,
+    subject: 'شكراً لاهتمامك بالشراكة — بودكاست خط',
+    html: sponsorApplicationConfirmHtml(contactName),
   })
 }
