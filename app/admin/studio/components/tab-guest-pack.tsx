@@ -3,7 +3,7 @@
 import { useState, useCallback } from "react"
 import {
   UserCircle, Loader2, AlertCircle, Plus, Trash2, Link2,
-  Instagram, Youtube, Globe, Mail, Linkedin, ChevronDown,
+  Instagram, Youtube, Globe, Mail, Linkedin, ChevronDown, Sparkles,
 } from "lucide-react"
 import { XIcon } from "@/components/icons/x-icon"
 import { TikTokIcon } from "@/components/icons/tiktok-icon"
@@ -60,9 +60,10 @@ function getSocialPlaceholder(key: string) {
 
 export function TabGuestPack() {
   const {
-    websitePkgStatus,
+    transcriptStatus,
     guestName, guestBio, guestPhotoUrl, guestExternalLinks,
     guestPackageStatus,
+    guestAiGenerating, generateGuestAI,
     setGuestName, setGuestBio, setGuestPhotoUrl, setGuestExternalLinks,
     debouncedSaveWebPkg,
   } = useStudioSession()
@@ -127,6 +128,8 @@ export function TabGuestPack() {
     (p) => !(p.key in guestExternalLinks)
   )
 
+  const canGenerateAI = transcriptStatus === "ready" && !guestAiGenerating
+
   return (
     <div className="space-y-6">
       <div className="rounded-xl border bg-card p-6 space-y-5">
@@ -136,28 +139,38 @@ export function TabGuestPack() {
             <UserCircle className="h-5 w-5 text-purple-500" />
             <h3 className="font-semibold text-sm">بيانات الضيف</h3>
           </div>
-          <span className={cn("rounded-full px-2.5 py-0.5 text-[10px] font-medium", statusInfo.className)}>
-            {statusInfo.label}
-          </span>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={generateGuestAI}
+              disabled={!canGenerateAI}
+              className="gap-1.5 text-xs h-7"
+              title={!canGenerateAI ? "يجب جلب النص التلقائي أولاً" : "توليد اسم ونبذة الضيف بالذكاء الاصطناعي"}
+            >
+              {guestAiGenerating ? (
+                <Loader2 className="h-3 w-3 animate-spin" />
+              ) : (
+                <Sparkles className="h-3 w-3" />
+              )}
+              AI
+            </Button>
+            <span className={cn("rounded-full px-2.5 py-0.5 text-[10px] font-medium", statusInfo.className)}>
+              {statusInfo.label}
+            </span>
+          </div>
         </div>
 
-        {/* Idle state */}
-        {guestPackageStatus === "idle" && websitePkgStatus !== "generating" && (
-          <p className="text-sm text-muted-foreground py-4 text-center">
-            سيتم تحديد الضيف تلقائياً عند توليد حزمة الموقع
-          </p>
-        )}
-
         {/* Generating state */}
-        {(guestPackageStatus === "generating" || websitePkgStatus === "generating") && guestPackageStatus !== "ready" && (
-          <div className="flex flex-col items-center gap-3 py-8">
+        {guestAiGenerating && (
+          <div className="flex flex-col items-center gap-3 py-6">
             <Loader2 className="h-6 w-6 animate-spin text-purple-500" />
             <span className="text-sm text-muted-foreground">جارٍ استخراج بيانات الضيف...</span>
           </div>
         )}
 
-        {/* Ready state */}
-        {guestPackageStatus === "ready" && (
+        {/* Editable fields (always visible when not generating) */}
+        {!guestAiGenerating && (
           <div className="space-y-5">
             {/* Guest Name */}
             <div className="space-y-1.5">

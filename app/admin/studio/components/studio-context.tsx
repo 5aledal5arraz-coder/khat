@@ -110,6 +110,8 @@ interface StudioSessionContextValue {
   guestPhotoUrl: string
   guestExternalLinks: Record<string, string>
   guestPackageStatus: TabStatus
+  guestAiGenerating: boolean
+  generateGuestAI: () => Promise<void>
   setGuestName: (v: string) => void
   setGuestBio: (v: string) => void
   setGuestPhotoUrl: (v: string) => void
@@ -232,6 +234,7 @@ export function StudioSessionProvider({
   const [guestBio, setGuestBio] = useState("")
   const [guestPhotoUrl, setGuestPhotoUrl] = useState("")
   const [guestExternalLinks, setGuestExternalLinks] = useState<Record<string, string>>({})
+  const [guestAiGenerating, setGuestAiGenerating] = useState(false)
 
   // --- Analyzer state ---
   const [analyzer, setAnalyzer] = useState<StudioAnalyzer | null>(null)
@@ -663,6 +666,29 @@ export function StudioSessionProvider({
     debouncedSaveWebPkg(updates)
   }, [debouncedSaveWebPkg])
 
+  // --- Guest AI action ---
+  const generateGuestAI = useCallback(async () => {
+    setGuestAiGenerating(true)
+    try {
+      const res = await fetch(`/api/admin/studio/${sid}/guest-ai`, { method: "POST" })
+      const data = await res.json()
+      if (!res.ok) {
+        console.error("Guest AI error:", data.error)
+        return
+      }
+      if (data.guest_package) {
+        setGuestName(data.guest_package.guest_name || "")
+        setGuestBio(data.guest_package.guest_bio || "")
+        setGuestPhotoUrl(data.guest_package.guest_photo_url || "")
+        setGuestExternalLinks(data.guest_package.guest_external_links || {})
+      }
+    } catch {
+      console.error("Guest AI connection error")
+    } finally {
+      setGuestAiGenerating(false)
+    }
+  }, [sid])
+
   // --- Analyzer actions ---
   const generateAnalyzer = useCallback(async () => {
     setAnalyzerStatus("generating")
@@ -899,7 +925,8 @@ export function StudioSessionProvider({
       return "idle"
     })(),
     guest: (() => {
-      if (websitePkgStatus === "ready" && guestName.trim()) return "ready" as const
+      if (guestAiGenerating) return "generating" as const
+      if (guestName.trim()) return "ready" as const
       if (websitePkgStatus === "generating") return "generating" as const
       return "idle" as const
     })(),
@@ -924,6 +951,7 @@ export function StudioSessionProvider({
     setSelectedTitle, setHeroSummary, setFullSummary, setTakeaways, setTopics, setQuotes, setResources, setTimestamps,
     setSelectedQuoteIndices, setSelectedTakeawayIndices,
     guestName, guestBio, guestPhotoUrl, guestExternalLinks, guestPackageStatus,
+    guestAiGenerating, generateGuestAI,
     setGuestName, setGuestBio, setGuestPhotoUrl, setGuestExternalLinks,
     analyzer, analyzerStatus, analyzerError, generateAnalyzer,
     audioStartSeconds, audioEndSeconds, audioBestIntro,

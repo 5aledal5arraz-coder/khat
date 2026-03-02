@@ -934,6 +934,71 @@ ${preparedText}`,
 }
 
 // ---------------------------------------------------------------------------
+// Studio: Guest-only AI extraction (name + bio)
+// ---------------------------------------------------------------------------
+
+export interface GuestAIResult {
+  guest_name: string | null
+  guest_bio: string | null
+}
+
+export async function generateGuestFromTranscript(
+  transcript: string,
+  videoTitle: string,
+): Promise<{ success: true; data: GuestAIResult } | { success: false; error: string }> {
+  try {
+    const openai = getClient()
+
+    const response = await openai.chat.completions.create({
+      model: "gpt-4o-mini",
+      temperature: 0.3,
+      max_tokens: 500,
+      messages: [
+        {
+          role: "system",
+          content: `أنت مساعد ذكي لبودكاست عربي. مهمتك استخراج اسم الضيف ونبذة قصيرة عنه فقط.
+
+## التعليمات:
+- استخرج الاسم الكامل لضيف الحلقة من النص أو العنوان
+- لا تذكر اسم المقدّم/المحاور — فقط الضيف
+- إذا كان هناك أكثر من ضيف، اختر الضيف الرئيسي
+- guest_bio: نبذة قصيرة عن الضيف (جملة أو جملتان) مستخلصة من النص
+- إذا لم يكن هناك ضيف واضح، أعد null لكلا الحقلين
+- لا تكتب كلمة "null" كنص — استخدم JSON null
+
+## مخطط JSON المطلوب:
+{
+  "guest_name": "الاسم الكامل للضيف" أو null,
+  "guest_bio": "نبذة قصيرة عن الضيف" أو null
+}`,
+        },
+        {
+          role: "user",
+          content: `عنوان الحلقة: ${videoTitle}\n\nالنص:\n${transcript.slice(0, 8000)}`,
+        },
+      ],
+      response_format: { type: "json_object" },
+    })
+
+    const raw = response.choices[0]?.message?.content
+    if (!raw) return { success: false, error: "لم يتم إنتاج رد من OpenAI" }
+
+    const parsed = JSON.parse(raw)
+
+    return {
+      success: true,
+      data: {
+        guest_name: typeof parsed.guest_name === "string" && parsed.guest_name.toLowerCase() !== "null" && parsed.guest_name.trim() ? parsed.guest_name : null,
+        guest_bio: typeof parsed.guest_bio === "string" && parsed.guest_bio.toLowerCase() !== "null" && parsed.guest_bio.trim() ? parsed.guest_bio : null,
+      },
+    }
+  } catch (error) {
+    const msg = error instanceof Error ? error.message : "حدث خطأ أثناء استخراج بيانات الضيف"
+    return { success: false, error: msg }
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Studio: Post-Publish YouTube Performance Analyzer
 // ---------------------------------------------------------------------------
 

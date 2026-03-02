@@ -1,7 +1,13 @@
+import type { Metadata } from "next"
 import { Suspense } from "react"
 import { getEpisodes } from "@/lib/queries/episodes"
 import { mockEpisodes } from "@/lib/mocks/episodes"
 import { WriteEditor, type EpisodeOption } from "./write-editor"
+
+export const metadata: Metadata = {
+  title: "اكتب في حبر",
+  description: "شارك أفكارك ومقالاتك في مجتمع حبر.",
+}
 
 async function getEpisodeOptions(): Promise<EpisodeOption[]> {
   try {

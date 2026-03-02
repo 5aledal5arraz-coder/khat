@@ -18,7 +18,12 @@ if (!DATABASE_URL) {
   process.exit(1)
 }
 
-const client = new pg.Client({ connectionString: DATABASE_URL })
+const isLocalhost = DATABASE_URL.includes("localhost")
+const cleanUrl = DATABASE_URL.replace(/[?&]sslmode=[^&]*/g, "").replace(/\?$/, "")
+const client = new pg.Client({
+  connectionString: cleanUrl,
+  ...(isLocalhost ? {} : { ssl: { rejectUnauthorized: false } }),
+})
 const CONFIG_DIR = path.join(process.cwd(), "config")
 
 async function readJSON<T>(filename: string): Promise<T | null> {

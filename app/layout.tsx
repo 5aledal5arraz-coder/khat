@@ -33,7 +33,13 @@ export const metadata: Metadata = {
     locale: "ar_SA",
     siteName: "خط",
     url: "https://khatpodcast.com",
-    images: [{ url: "/logo-wide.jpg", width: 1200, height: 630, alt: "بودكاست خط" }],
+    images: [{ url: "/logo-wide.jpg", width: 2560, height: 424, alt: "بودكاست خط" }],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "خط | بودكاست",
+    description: "بودكاست يستكشف القصص الإنسانية والتجارب الحياتية من خلال حوارات عميقة مع ضيوف ملهمين.",
+    images: ["/logo-wide.jpg"],
   },
 }
 

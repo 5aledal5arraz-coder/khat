@@ -1124,9 +1124,12 @@ export async function subscribeNewsletter(email: string): Promise<{ success: boo
   }
 
   try {
+    const { randomBytes } = await import('crypto')
+    const unsubscribe_token = randomBytes(16).toString('hex')
+
     await db!
       .insert(newsletterSubscribers)
-      .values({ email })
+      .values({ email, unsubscribe_token })
 
     return { success: true }
   } catch (error: unknown) {
@@ -1138,45 +1141,5 @@ export async function subscribeNewsletter(email: string): Promise<{ success: boo
   }
 }
 
-export async function submitSponsorshipLead(data: {
-  name: string
-  email: string
-  company?: string
-  message?: string
-}): Promise<{ success: boolean; error?: string }> {
-  if (USE_MOCK_DATA) {
-    return { success: true }
-  }
-
-  try {
-    await db!
-      .insert(sponsorshipLeads)
-      .values(data as unknown as typeof sponsorshipLeads.$inferInsert)
-
-    return { success: true }
-  } catch {
-    return { success: false, error: 'حدث خطأ. يرجى المحاولة مرة أخرى.' }
-  }
-}
-
-export async function submitGuestApplication(data: {
-  name: string
-  email: string
-  topic?: string
-  links?: string
-  bio?: string
-}): Promise<{ success: boolean; error?: string }> {
-  if (USE_MOCK_DATA) {
-    return { success: true }
-  }
-
-  try {
-    await db!
-      .insert(guestApplications)
-      .values(data as unknown as typeof guestApplications.$inferInsert)
-
-    return { success: true }
-  } catch {
-    return { success: false, error: 'حدث خطأ. يرجى المحاولة مرة أخرى.' }
-  }
-}
+// submitSponsorshipLead and submitGuestApplication are handled by
+// their dedicated API routes: /api/sponsor and /api/guest-application

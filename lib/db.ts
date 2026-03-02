@@ -18,6 +18,12 @@ const pool = cleanUrl
     })
   : null
 
+if (pool) {
+  pool.on('error', (err) => {
+    console.error('Unexpected database pool error:', err.message)
+  })
+}
+
 const db = pool ? drizzle(pool, { schema }) : null
 
 export { db, pool }

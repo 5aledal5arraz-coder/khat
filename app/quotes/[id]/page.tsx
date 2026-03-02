@@ -1,3 +1,4 @@
+import type { Metadata } from "next"
 import Link from "next/link"
 import Image from "next/image"
 import { notFound } from "next/navigation"
@@ -11,6 +12,22 @@ import { formatDuration, formatDate, getYouTubeId } from "@/lib/utils"
 
 interface Props {
   params: Promise<{ id: string }>
+}
+
+export async function generateMetadata({ params }: Props): Promise<Metadata> {
+  const { id } = await params
+  const quote = await getHomeQuoteById(id)
+  if (!quote) return { title: "اقتباس" }
+
+  const text = quote.text.length > 100 ? quote.text.slice(0, 100) + "…" : quote.text
+  return {
+    title: `${text} — ${quote.attribution || "خط"}`,
+    description: quote.text,
+    openGraph: {
+      title: `اقتباس — ${quote.attribution || "خط"}`,
+      description: quote.text,
+    },
+  }
 }
 
 export default async function QuotePage({ params }: Props) {

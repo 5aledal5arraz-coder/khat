@@ -49,22 +49,12 @@ export async function middleware(request: NextRequest) {
     }
   }
 
-  // --- Admin dashboard auth (uses __admin_session cookie) ---
+  // --- Admin dashboard auth ---
 
   const adminSession = request.cookies.get('__admin_session')?.value
 
-  // /admin/login — allow without session; redirect to /admin if already has session
-  if (pathname === '/admin/login') {
-    if (adminSession) {
-      const url = request.nextUrl.clone()
-      url.pathname = '/admin'
-      return NextResponse.redirect(url)
-    }
-    return response
-  }
-
-  // Protect /admin/* (except login) - require admin session
-  if (pathname.startsWith('/admin')) {
+  // Protect admin pages — redirect to login if no session
+  if (pathname.startsWith('/admin') && pathname !== '/admin/login') {
     if (!adminSession) {
       const url = request.nextUrl.clone()
       url.pathname = '/admin/login'
@@ -72,11 +62,44 @@ export async function middleware(request: NextRequest) {
     }
   }
 
-  // Protect /api/admin/* (except /api/admin/auth/*) - require admin session
+  // Protect admin API routes — return 401 if no session
   if (pathname.startsWith('/api/admin/') && !pathname.startsWith('/api/admin/auth/')) {
     if (!adminSession) {
       return NextResponse.json({ error: 'يجب تسجيل الدخول أولاً' }, { status: 401 })
     }
+
+    // CSRF protection for admin API mutations
+    if (request.method !== 'GET') {
+      const origin = request.headers.get('origin')
+      const host = request.headers.get('host')
+      if (origin) {
+        try {
+          const originHost = new URL(origin).host
+          if (originHost !== host) {
+            return NextResponse.json({ error: 'طلب غير صالح' }, { status: 403 })
+          }
+        } catch {
+          return NextResponse.json({ error: 'طلب غير صالح' }, { status: 403 })
+        }
+      }
+    }
+  }
+
+  // Redirect /admin/login to /admin if already logged in
+  if (pathname === '/admin/login' && adminSession) {
+    const url = request.nextUrl.clone()
+    url.pathname = '/admin'
+    return NextResponse.redirect(url)
+  }
+
+  // --- Security headers ---
+
+  response.headers.set('X-Frame-Options', 'DENY')
+  response.headers.set('X-Content-Type-Options', 'nosniff')
+  response.headers.set('Referrer-Policy', 'strict-origin-when-cross-origin')
+  response.headers.set('Permissions-Policy', 'camera=(), microphone=(), geolocation=()')
+  if (process.env.NODE_ENV === 'production') {
+    response.headers.set('Strict-Transport-Security', 'max-age=31536000; includeSubDomains')
   }
 
   return response

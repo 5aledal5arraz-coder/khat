@@ -89,23 +89,22 @@ export async function getUserApprovedCount(userId: string): Promise<number> {
 }
 
 /**
- * Require admin access for server actions. Throws if not authenticated or not admin.
+ * Require admin access for server actions. Throws redirect if not authenticated.
  */
 export async function requireAdmin(): Promise<void> {
   const user = await getAdminAuthUser()
-  if (!user) throw new Error('يجب تسجيل الدخول أولاً')
-  const profile = await getUserProfile(user.id)
-  if (!profile?.is_admin) throw new Error('ليس لديك صلاحية لهذا الإجراء')
+  if (!user) {
+    const { redirect } = await import('next/navigation')
+    redirect('/admin/login')
+  }
 }
 
 /**
- * Require admin for API routes. Returns error response or null if authorized.
+ * Require admin for API routes. Returns 401 response if not authenticated, null if OK.
  */
 export async function requireAdminAPI(): Promise<NextResponse | null> {
   const user = await getAdminAuthUser()
   if (!user) return unauthorizedResponse()
-  const profile = await getUserProfile(user.id)
-  if (!profile?.is_admin) return forbiddenResponse()
   return null
 }
 
