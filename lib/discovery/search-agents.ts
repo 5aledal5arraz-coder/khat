@@ -30,6 +30,9 @@ export type DiscoverySource =
   | "editorial"
   | "public_voice"
   | "network"
+  // ─── LLM-knowledge source — proposes real named people directly,
+  //     no external search API needed (see sources/ai-knowledge-source).
+  | "ai_knowledge"
 
 export interface SearchResult {
   source: DiscoverySource
@@ -836,6 +839,16 @@ export async function runSearchAgent(
       return notConfiguredStub("tiktok", "TikTok API requires partner access; not configured")
     case "podcast":
       return searchPodcast(input.archetype, max, input.filters)
+    case "ai_knowledge": {
+      const { runAiKnowledgeSource } = await import(
+        "./sources/ai-knowledge-source"
+      )
+      return runAiKnowledgeSource({
+        archetype: input.archetype,
+        maxResults: max,
+        filters: input.filters,
+      })
+    }
     case "editorial": {
       const { runEditorialSource } = await import("./sources/editorial-source")
       return runEditorialSource({

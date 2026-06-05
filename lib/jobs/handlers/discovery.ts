@@ -45,8 +45,16 @@ import {
 // PublicVoiceSource. NetworkSource is OPT-IN per run because it
 // requires prior promoted candidates in the same season; running it
 // on an empty season just no-ops, so adding it costs nothing.
-const DEFAULT_SOURCES_LEGACY: DiscoverySource[] = ["youtube", "google_web"]
+const DEFAULT_SOURCES_LEGACY: DiscoverySource[] = [
+  "ai_knowledge",
+  "youtube",
+  "google_web",
+]
 const DEFAULT_SOURCES_BETA: DiscoverySource[] = [
+  // ai_knowledge first: proposes real named individuals from model
+  // knowledge, independent of external search-API availability (so runs
+  // still yield real people when google_web/public_voice keys are down).
+  "ai_knowledge",
   "youtube",
   "google_web",
   "editorial",
