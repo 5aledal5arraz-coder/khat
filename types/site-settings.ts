@@ -1,7 +1,7 @@
 export interface SiteMetadata {
   name: string
-  description: string
   tagline: string
+  description: string
   contactEmail: string
 }
 
@@ -19,12 +19,8 @@ export interface SEODefaults {
 }
 
 export interface FeatureFlags {
-  storeEnabled: boolean
-  hibrEnabled: boolean
   guestApplicationsEnabled: boolean
   maintenanceMode: boolean
-  personalizationEnabled: boolean
-  adsEnabled: boolean
   studioEnabled: boolean
 }
 

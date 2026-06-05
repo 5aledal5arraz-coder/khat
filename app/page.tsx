@@ -1,139 +1,87 @@
-import { cookies } from "next/headers"
-import { getEpisodes, getGuests } from "@/lib/queries/episodes"
-import { getTodaysQuote, getPublishedHomeQuotes } from "@/lib/home-quotes"
-import { getTodaysReflection } from "@/lib/daily-reflections"
-import { getAllPaths } from "@/lib/emotional-paths"
-import { getActiveTeaser } from "@/lib/teaser"
-import { isEnabled } from "@/config/site"
-import { personalizeHome } from "@/lib/personalization/ranking"
-import { getPersonalizedContent } from "@/lib/personalization/recommend"
-import { ComingSoon } from "@/components/coming-soon"
-import { QuestionGate } from "@/components/home/question-gate"
-import { HeroPauseMoment } from "@/components/home/hero-pause-moment"
-import { EmotionalPathsSection } from "@/components/home/emotional-paths-section"
-import { TodayInKhat } from "@/components/home/today-in-khat"
-import { DeepContentSection } from "@/components/home/deep-content-section"
-import { BelongingSection } from "@/components/home/belonging-section"
-import { TrustedPartnersSection } from "@/components/home/trusted-partners-section"
-import { AskTheGuest } from "@/components/home/ask-the-guest"
-import { BecauseYouWatched } from "@/components/home/because-you-watched"
-import { RecommendedForYou } from "@/components/home/recommended-for-you"
-import type { PersonalizedHome } from "@/types/personalization"
+import type { Metadata } from "next"
+import { MuseumHero } from "@/components/museum/hero"
+import { MuseumGallery } from "@/components/museum/gallery"
+import { MuseumPhilosophyFeed } from "@/components/museum/philosophy-feed"
+import { MuseumThinkers } from "@/components/museum/thinkers"
+import { MuseumHost } from "@/components/museum/host"
+import { MuseumPrestigiousInvolvement } from "@/components/museum/prestigious-involvement"
+import {
+  getCachedHomepageFeatured,
+  getCachedHomepageThinkers,
+  getCachedHomepagePartners,
+} from "@/lib/cache"
+
+export const metadata: Metadata = {
+  title: "خط | بودكاست",
+  description: "بودكاست يستكشف القصص الإنسانية والتجارب الحياتية من خلال حوارات عميقة مع ضيوف ملهمين.",
+  alternates: { canonical: "https://khatpodcast.com" },
+  openGraph: {
+    title: "خط | بودكاست",
+    description: "بودكاست يستكشف القصص الإنسانية والتجارب الحياتية من خلال حوارات عميقة مع ضيوف ملهمين.",
+    url: "https://khatpodcast.com",
+    type: "website",
+    locale: "ar_SA",
+    siteName: "خط",
+    images: [{ url: "/logo-wide.jpg", width: 2560, height: 424, alt: "بودكاست خط" }],
+  },
+}
+
+const jsonLd = {
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "Organization",
+      "@id": "https://khatpodcast.com/#organization",
+      name: "خط",
+      alternateName: "Khat Podcast",
+      url: "https://khatpodcast.com",
+      logo: "https://khatpodcast.com/logo.png",
+      sameAs: [
+        "https://www.youtube.com/@khatpodcast",
+        "https://www.instagram.com/khatpodcast",
+        "https://twitter.com/khatpodcast",
+      ],
+    },
+    {
+      "@type": "WebSite",
+      "@id": "https://khatpodcast.com/#website",
+      url: "https://khatpodcast.com",
+      name: "خط | بودكاست",
+      description: "بودكاست يستكشف القصص الإنسانية والتجارب الحياتية من خلال حوارات عميقة مع ضيوف ملهمين.",
+      inLanguage: "ar",
+      publisher: { "@id": "https://khatpodcast.com/#organization" },
+    },
+    {
+      "@type": "PodcastSeries",
+      "@id": "https://khatpodcast.com/#podcast",
+      name: "خط",
+      url: "https://khatpodcast.com",
+      inLanguage: "ar",
+      description: "بودكاست يستكشف القصص الإنسانية والتجارب الحياتية من خلال حوارات عميقة مع ضيوف ملهمين.",
+      publisher: { "@id": "https://khatpodcast.com/#organization" },
+    },
+  ],
+}
 
 export default async function HomePage() {
-  const maintenanceMode = await isEnabled("maintenanceMode")
-  if (maintenanceMode) return <ComingSoon />
-  // Step 1: Fetch everything that can run in parallel (no sequential waterfall)
-  const [
-    todaysQuote,
-    todaysReflection,
-    paths,
-    episodes,
-    guests,
-    activeTeaser,
-    personalizationOn,
-    allQuotes,
-    cookieStore,
-  ] = await Promise.all([
-    getTodaysQuote(),
-    getTodaysReflection(),
-    getAllPaths(),
-    getEpisodes({ limit: 20 }),
-    getGuests(),
-    getActiveTeaser(),
-    isEnabled("personalizationEnabled"),
-    getPublishedHomeQuotes(),
-    cookies(),
+  const [featuredEpisodes, featuredThinkers, homepagePartners] = await Promise.all([
+    getCachedHomepageFeatured(),
+    getCachedHomepageThinkers(),
+    getCachedHomepagePartners(),
   ])
 
-  const visitorId = cookieStore.get("khat_vid")?.value ?? null
-
-  // Step 2: Run both personalization systems in parallel (they share no dependency)
-  let personalized: PersonalizedHome | null = null
-  let recommended: Awaited<ReturnType<typeof getPersonalizedContent>> | null = null
-
-  if (personalizationOn) {
-    ;[personalized, recommended] = await Promise.all([
-      personalizeHome(visitorId, {
-        episodes,
-        allQuotes,
-        paths,
-        defaultQuote: todaysQuote,
-      }),
-      getPersonalizedContent(visitorId, episodes),
-    ])
-  }
-
-  const displayEpisodes = personalized?.episodes ?? episodes
-  const displayQuote = personalized?.quote ?? todaysQuote
-  const displayPaths = personalized?.paths ?? paths
-  const becauseYouWatched = personalized?.becauseYouWatched ?? null
-  const recommendationReason = personalized?.reason ?? null
-
-  // Collect episode IDs already shown in recommendation sections to avoid duplicates
-  const shownEpisodeIds = new Set<string>()
-  if (becauseYouWatched) {
-    for (const ep of becauseYouWatched.episodes) shownEpisodeIds.add(ep.id)
-  }
-  if (recommended?.reason) {
-    for (const ep of recommended.episodes) shownEpisodeIds.add(ep.id)
-  }
-
   return (
-    <div>
-      <QuestionGate />
-      <div id="home-content" className="container mx-auto px-4">
-        <div className="mx-auto max-w-2xl">
-          {/* Section 1: Daily quote — psychological entry point */}
-          <HeroPauseMoment quote={displayQuote} />
-
-          {/* Ask the Guest — shown only when a teaser is active */}
-          {activeTeaser && (
-            <AskTheGuest
-              teaser={activeTeaser.teaser}
-              questions={activeTeaser.questions}
-            />
-          )}
-
-          {/* Section 2: Emotional paths — "What do you want to listen to today?" */}
-          <EmotionalPathsSection paths={displayPaths} />
-
-          {/* Section 3: Today in KHAT — daily reflection */}
-          <TodayInKhat reflection={todaysReflection} />
-
-          {/* Because You Watched — personalized recommendations */}
-          {becauseYouWatched && (
-            <BecauseYouWatched
-              sourceTitle={becauseYouWatched.sourceTitle}
-              episodes={becauseYouWatched.episodes}
-            />
-          )}
-
-          {/* مقترح لك — profile-based recommendations */}
-          {recommended?.reason && (
-            <RecommendedForYou
-              episodes={recommended.episodes}
-              quote={recommended.quote}
-              reflection={recommended.reflection}
-              reason={recommended.reason}
-            />
-          )}
-
-          {/* Section 4: Deep content — episodes + guests */}
-          <DeepContentSection
-            episodes={displayEpisodes}
-            guests={guests}
-            recommendationReason={recommendationReason}
-            excludeEpisodeIds={shownEpisodeIds}
-          />
-
-          {/* Trusted Partners — social proof */}
-          <TrustedPartnersSection />
-
-          {/* Section 5: Belonging — calm newsletter signup */}
-          <BelongingSection />
-        </div>
-      </div>
+    <div className="museum-cinematic-scroll">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+      />
+      <MuseumHero />
+      <MuseumGallery episodes={featuredEpisodes} />
+      <MuseumPhilosophyFeed />
+      <MuseumThinkers thinkers={featuredThinkers} />
+      <MuseumHost />
+      <MuseumPrestigiousInvolvement partners={homepagePartners} />
     </div>
   )
 }

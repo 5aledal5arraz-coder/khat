@@ -2,13 +2,24 @@
 
 import { useState } from "react"
 import { Card, CardContent } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
 import { GuestAvatar } from "@/components/guests/guest-avatar"
-import { Play, Instagram, Linkedin, Globe, Youtube } from "lucide-react"
+import { Play, Instagram, Linkedin, Globe, Youtube, Mail } from "lucide-react"
 import { XIcon } from "@/components/icons/x-icon"
+import { TikTokIcon } from "@/components/icons/tiktok-icon"
+import { SnapchatIcon } from "@/components/icons/snapchat-icon"
+import { FacebookIcon } from "@/components/icons/facebook-icon"
+import { ThreadsIcon } from "@/components/icons/threads-icon"
+import { WhatsAppIcon } from "@/components/icons/whatsapp-icon"
+import { TelegramIcon } from "@/components/icons/telegram-icon"
+import { SpotifyIcon } from "@/components/icons/spotify-icon"
+import { SoundCloudIcon } from "@/components/icons/soundcloud-icon"
+import { TwitchIcon } from "@/components/icons/twitch-icon"
+import { DiscordIcon } from "@/components/icons/discord-icon"
+import { PinterestIcon } from "@/components/icons/pinterest-icon"
 import { getYouTubeId } from "@/lib/utils"
 import { trackEvent } from "@/lib/personalization/tracker"
 import Link from "next/link"
+import Image from "next/image"
 
 interface GuestIntroSectionProps {
   guest: {
@@ -28,8 +39,20 @@ const socialIcons: Record<string, IconComponent> = {
   twitter: XIcon,
   x: XIcon,
   instagram: Instagram,
-  linkedin: Linkedin,
   youtube: Youtube,
+  tiktok: TikTokIcon,
+  snapchat: SnapchatIcon,
+  facebook: FacebookIcon,
+  threads: ThreadsIcon,
+  whatsapp: WhatsAppIcon,
+  telegram: TelegramIcon,
+  linkedin: Linkedin,
+  spotify: SpotifyIcon,
+  soundcloud: SoundCloudIcon,
+  twitch: TwitchIcon,
+  discord: DiscordIcon,
+  pinterest: PinterestIcon,
+  email: Mail,
   website: Globe,
 }
 
@@ -146,10 +169,12 @@ export function GuestIntroSection({ guest, testimonial, testimonialVideoUrl }: G
                   className="group absolute inset-0 flex flex-col items-center justify-center gap-2"
                 >
                   {/* Thumbnail */}
-                  <img
+                  <Image
                     src={`https://img.youtube.com/vi/${videoId}/maxresdefault.jpg`}
                     alt={`كلمة ${guest.name}`}
-                    className="absolute inset-0 h-full w-full object-cover"
+                    fill
+                    className="object-cover"
+                    sizes="(max-width: 768px) 100vw, 50vw"
                   />
                   <div className="absolute inset-0 bg-black/40 group-hover:bg-black/50 transition-colors" />
                   <div className="relative flex h-14 w-14 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg group-hover:scale-110 transition-transform">

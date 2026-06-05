@@ -1,6 +1,5 @@
 import Link from "next/link"
 import { Card, CardContent } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
 import { GuestAvatar } from "@/components/guests/guest-avatar"
 import { formatArabicCount } from "@/lib/utils"
 import type { Guest } from "@/types/database"
@@ -8,7 +7,6 @@ import type { Guest } from "@/types/database"
 interface GuestCardProps {
   guest: Guest & {
     episode_count?: number
-    topics?: string[]
   }
 }
 
@@ -44,15 +42,6 @@ export function GuestCard({ guest }: GuestCardProps) {
                 <p className="mt-2 text-xs text-muted-foreground">
                   {formatArabicCount(guest.episode_count, "حلقة")}
                 </p>
-              )}
-              {guest.topics && guest.topics.length > 0 && (
-                <div className="mt-2 flex flex-wrap gap-1">
-                  {guest.topics.slice(0, 3).map((topic, index) => (
-                    <Badge key={index} variant="secondary" className="text-xs">
-                      {topic}
-                    </Badge>
-                  ))}
-                </div>
               )}
             </div>
           </div>

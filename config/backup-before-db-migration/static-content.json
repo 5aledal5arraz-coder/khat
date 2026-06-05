@@ -1,0 +1,64 @@
+{
+  "about": {
+    "hostName": "خــالد وليد الخــرّاز",
+    "hostTitle": "مؤسس ومقدم بودكاست خط",
+    "hostDescription": "بودكاست يستكشف القصص الإنسانية والتجارب الحياتية من خلال حوارات عميقة مع ضيوف ملهمين.",
+    "hostPhoto": "",
+    "hostImageUrl": "/content/1b28bdbeb053f3b7.jpg",
+    "welcomeVideoId": "",
+    "welcomeVideoUrl": "/content/14f3dfed7cff41eb.mp4",
+    "welcomeVideoPosterUrl": "",
+    "missionQuote": "نؤمن بأن كل إنسان يحمل قصة تستحق أن تُروى",
+    "ctaTitle": "انضم لرحلتنا",
+    "ctaDescription": "كن جزء من مجتمع خط واسمع قصص ملهمة تغيّر نظرتك للحياة",
+    "socialLinks": [
+      {
+        "name": "YouTube",
+        "url": "https://youtube.com/@khatpodcast",
+        "icon": "Youtube"
+      },
+      {
+        "name": "X",
+        "url": "https://x.com/khatpodcast",
+        "icon": "X"
+      },
+      {
+        "name": "Instagram",
+        "url": "https://instagram.com/khatpodcast",
+        "icon": "Instagram"
+      },
+      {
+        "name": "البريد",
+        "url": "mailto:hello@khatpodcast.com",
+        "icon": "Mail"
+      }
+    ],
+    "values": [
+      {
+        "id": "val-1",
+        "icon": "Heart",
+        "title": "الأصالة",
+        "description": "حوارات حقيقية بدون تصنّع",
+        "color": "from-red-500/20 to-red-500/5",
+        "order": 1
+      },
+      {
+        "id": "val-2",
+        "icon": "Sparkles",
+        "title": "الإلهام",
+        "description": "محتوى يلهمك ويحفّزك تتغيّر",
+        "color": "from-yellow-500/20 to-yellow-500/5",
+        "order": 2
+      },
+      {
+        "id": "val-3",
+        "icon": "Users",
+        "title": "المجتمع",
+        "description": "مجتمع متفاعل ومترابط",
+        "color": "from-blue-500/20 to-blue-500/5",
+        "order": 3
+      }
+    ],
+    "teamMembers": []
+  }
+}

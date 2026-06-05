@@ -25,7 +25,7 @@ import {
   Award,
 } from "lucide-react"
 import { XIcon } from "@/components/icons/x-icon"
-import { getAboutContent } from "@/lib/static-content"
+import { getAboutContent } from "@/lib/content/static-content"
 import { AboutVideo } from "./about-video"
 
 // Map icon string names to Lucide components
@@ -255,12 +255,6 @@ export default async function AboutPage() {
                 <Button size="lg" className="gap-2 w-full sm:w-auto">
                   <Play className="w-4 h-4" />
                   تصفّح الحلقات
-                </Button>
-              </Link>
-              <Link href="/space">
-                <Button size="lg" variant="outline" className="gap-2 w-full sm:w-auto">
-                  <Users className="w-4 h-4" />
-                  انضم لحبر
                 </Button>
               </Link>
             </div>

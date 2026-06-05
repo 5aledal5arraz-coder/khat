@@ -1,0 +1,54 @@
+{
+  "feature": "original-thinking",
+  "timestamp": "2026-05-22T21:41:46.129Z",
+  "prompt_version": "original-thinking-v1.0",
+  "golden_hash": "a1a1f9fec17975bc",
+  "positive_count": 3,
+  "candidate_count": 4,
+  "quality_score": 0.25,
+  "judge": {
+    "rankings": [
+      {
+        "candidate_id": "pos-001",
+        "rank": 1,
+        "reason": "This item deeply explores the complex relationship between survival and loss, presenting a poignant emotional hook."
+      },
+      {
+        "candidate_id": "pos-003",
+        "rank": 2,
+        "reason": "The theme of self-betrayal and identity transformation is compelling, inviting introspection on personal journeys."
+      },
+      {
+        "candidate_id": "pos-002",
+        "rank": 3,
+        "reason": "This item addresses moral compromise in a thought-provoking way, challenging perceptions of historical narratives."
+      },
+      {
+        "candidate_id": "gen-2-السلطة-والألفة-عندما-تخفي-الصداق",
+        "rank": 4,
+        "reason": "The exploration of power dynamics in relationships is relevant, though it lacks the emotional depth of the top-ranked items."
+      },
+      {
+        "candidate_id": "gen-1-الخوف-من-أن-ي-كتشف-أمرك-عندما-تص",
+        "rank": 5,
+        "reason": "While it touches on vulnerability, the conflict feels somewhat familiar and less impactful."
+      },
+      {
+        "candidate_id": "gen-0-صدى-الطفولة-الصوت-الذي-ي-ملي-قرا",
+        "rank": 6,
+        "reason": "The concept of childhood echoes is interesting but lacks the depth and emotional resonance of higher-ranked items."
+      },
+      {
+        "candidate_id": "gen-3-العار-الخفي-الصمت-الذي-يصوغ-حيات",
+        "rank": 7,
+        "reason": "Despite addressing hidden shame, it feels more like a surface-level exploration without significant emotional engagement."
+      }
+    ],
+    "notes": "The top-ranked items exhibit a strong alignment with the editorial bar, showcasing depth and emotional honesty, while the lower-ranked items tend to rely on more familiar themes."
+  },
+  "meta": {
+    "judge_model": "gpt-4o-mini",
+    "judge_provider": "openai",
+    "runner_version": "phase0-runner-v1.0"
+  }
+}

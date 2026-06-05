@@ -1,0 +1,146 @@
+{
+  "$schema_version": "v1",
+  "feature": "hybrid-topics",
+  "language": "ar",
+  "description": "Hybrid topic outputs evaluated for editorial depth, specificity of conflict, and Khat-voice fit. Positives are anchored in real top-performing episodes (view_count cited as evidence). Negatives are synthetic rule-violations of lib/original-thinking/novelty.ts. Operator must add 3-5 personally-curated positives before this set is trusted (see CURATION_NEEDED.md).",
+  "positive": [
+    {
+      "id": "pos-001",
+      "source": "real-episode-001",
+      "evidence": "Khat episode #001 (الأسير السابق ناصر سالمين) at 296,502 views — the highest-performing episode. Story-driven, named-guest, specific stakes (Iraqi POW arrests). The hybrid-topic shape mirrors what produced this episode.",
+      "example": {
+        "title": "قصة الأسير الذي خرج بعد عشرين سنة: ما الذي يبقى من إنسان عاد إلى وطن لم يعرفه؟",
+        "why_it_matters": "بعد عقود من الأسر، الإنسان لا يعود إلى البيت الذي تركه — يعود إلى صورة ذكرها لنفسه. القصة تكشف كيف يتحول الانتظار إلى هوية، وكيف تصبح الحرية أكثر ثقلاً من الأسر.",
+        "why_now": "جيل لم يعش الغزو يسأل: كيف عاش جده ذاك الزمن؟ والشهادة تنفد مع كل عام.",
+        "emotional_hook": "اللحظة التي تكتشف أن البيت الذي حلمت به كل ليلة في السجن… لم يعد قائماً.",
+        "conflict_angle": "بين الحرية بوصفها هدفاً والحرية بوصفها صدمة — حين تتحول النجاة إلى مأساة جديدة.",
+        "market_inspiration": "إشارات سوق حول ذاكرة الحرب الكويتية والشهادات التاريخية المتآكلة.",
+        "original_lens": "unspoken_grief",
+        "suggested_episode_type": "personal_story",
+        "suggested_topic_domain": "hidden_history",
+        "estimated_strength_score": 0.92
+      }
+    },
+    {
+      "id": "pos-002",
+      "source": "real-episode-014",
+      "evidence": "Khat episode #014 (التاريخ الإسلامي في الحضارة الحبشية) at 253,066 views. Hidden-history framing — 'قراءات في الأدب الأثيوبي' — opens a corner of Islamic history Arabic media doesn't cover.",
+      "example": {
+        "title": "الباب الذي لم يفتحه أحد: ما الذي يبقى من الحضارة الإسلامية في الأدب الحبشي؟",
+        "why_it_matters": "التاريخ الإسلامي الذي تعرفه المكتبة العربية يتوقف عند حدود معينة. خلف تلك الحدود، أدب حبشي يحفظ شظايا حضارة لا يعرفها أحد.",
+        "why_now": "موجة من الاهتمام بالتراث الإفريقي تفتح أبواباً جديدة على ما تجاهلته الكتابة العربية الكلاسيكية.",
+        "emotional_hook": "ماذا لو كانت الحضارة التي تظن أنك تعرفها أكبر بكثير مما قرأت؟",
+        "conflict_angle": "بين السرد التاريخي الرسمي الذي ورثناه والذاكرة الموازية التي حفظتها الأمم الأخرى عنا.",
+        "market_inspiration": "إشارات سوق حول التراث الإفريقي وتاريخ المسلمين خارج المركز.",
+        "original_lens": "moral_compromise",
+        "suggested_episode_type": "historical",
+        "suggested_topic_domain": "hidden_history",
+        "estimated_strength_score": 0.88
+      }
+    },
+    {
+      "id": "pos-003",
+      "source": "real-episode-010",
+      "evidence": "Khat episode #010 (رحلة تاجر العود علي آل دريع) at 227,420 views. Personal-story arc, named guest, geographic specificity (الهند إلى أمراء الخليج).",
+      "example": {
+        "title": "من العطار في زقاق هندي إلى موائد أمراء الخليج: كيف صنعت الرحلة الرجل؟",
+        "why_it_matters": "خلف كل تاجر ناجح، سفر لم يحكِه أحد. هذه القصة عن الكيفية لا عن النتيجة — كيف يتشكل الإنسان عبر حدوده الجغرافية.",
+        "why_now": "موجة فضول حول 'الجيل المؤسس' في الخليج تجعل قصص الانتقالات هذه أكثر طلباً.",
+        "emotional_hook": "بين زقاق في الهند ومجلس أمير، رحلة لم تكن في الجغرافيا — كانت في فهم الإنسان لنفسه.",
+        "conflict_angle": "بين الصورة الجاهزة عن النجاح والحقيقة الفوضوية للرحلة التي صنعته.",
+        "market_inspiration": "إشارات حول التاريخ التجاري الخليجي وقصص الجيل المؤسس.",
+        "original_lens": "betrayal_of_self",
+        "suggested_episode_type": "personal_story",
+        "suggested_topic_domain": "hidden_history",
+        "estimated_strength_score": 0.86
+      }
+    },
+    {
+      "id": "pos-004",
+      "source": "real-episode-016",
+      "evidence": "Khat episode #016 (نور الدين زنكي) at 179,093 views. Pattern: rehabilitating an under-recognized historical figure with explicit framing 'الرجل الذي…'",
+      "example": {
+        "title": "الرجل الذي بنى الأرض قبل أن يأتي صلاح الدين: ما الذي تخسره الأمم حين تنسى الممهدين؟",
+        "why_it_matters": "التاريخ يتذكر الذي حصد، لا الذي زرع. نور الدين زنكي بنى الدولة التي ورثها صلاح الدين، ثم اختفى من ذاكرتنا. كيف تتشكل الذاكرة الجماعية؟",
+        "why_now": "في زمن تتسارع فيه دورة 'النجم اللحظي'، السؤال عن الممهدين أصبح سؤالاً عن قيمنا نفسها.",
+        "emotional_hook": "ماذا لو كان البطل الذي تعرفه نتيجة، لا سبباً؟",
+        "conflict_angle": "بين قراءة التاريخ كسيرة بطل وقراءته كنتاج جيل من العمل الصامت.",
+        "market_inspiration": "إشارات حول الذاكرة التاريخية الإسلامية والشخصيات المنسية.",
+        "original_lens": "unspoken_grief",
+        "suggested_episode_type": "historical",
+        "suggested_topic_domain": "hidden_history",
+        "estimated_strength_score": 0.87
+      }
+    }
+  ],
+  "negative": [
+    {
+      "id": "neg-001",
+      "source": "synthetic-rule-driven",
+      "evidence": "Violates novelty.GENERIC_TITLE_PATTERNS: matches /^\\d+\\s+(?:نصيحة|سر|طريقة|درس)/ and triggers weak_emotional_hook (contains 'تعرف على').",
+      "example": {
+        "title": "5 أسرار للنجاح في عالم الأعمال",
+        "why_it_matters": "النجاح يحتاج معرفة. هذه الحلقة تشرح المبادئ.",
+        "why_now": "كل واحد يبحث عن طريقه.",
+        "emotional_hook": "تعرف على أهم الأسرار التي يستخدمها رجال الأعمال الناجحون.",
+        "conflict_angle": "بين الكسل والاجتهاد.",
+        "market_inspiration": "ترند ريادة الأعمال.",
+        "original_lens": "money_career",
+        "suggested_episode_type": "inspirational",
+        "suggested_topic_domain": "money_career",
+        "estimated_strength_score": 0.6
+      }
+    },
+    {
+      "id": "neg-002",
+      "source": "synthetic-rule-driven",
+      "evidence": "Violates VAGUE_CONFLICT_PHRASES ('حياة عصرية', 'أفضل نسخة') and WEAK_HOOK_PHRASES ('في هذه الحلقة').",
+      "example": {
+        "title": "كيف تكون أفضل نسخة من نفسك في الحياة العصرية",
+        "why_it_matters": "الجميع يريد التطور.",
+        "why_now": "موجة التطوير الذاتي قوية.",
+        "emotional_hook": "في هذه الحلقة نتحدث عن كيف تصبح أفضل نسخة من نفسك.",
+        "conflict_angle": "بين أن تبقى كما أنت وأن تتطور إلى أفضل نسخة في الحياة العصرية.",
+        "market_inspiration": "اهتمام عام بالتطوير الذاتي.",
+        "original_lens": "betrayal_of_self",
+        "suggested_episode_type": "inspirational",
+        "suggested_topic_domain": "psychology",
+        "estimated_strength_score": 0.55
+      }
+    },
+    {
+      "id": "neg-003",
+      "source": "synthetic-rule-driven",
+      "evidence": "Violates GENERIC_TITLE_PATTERNS (matches /\\bunlock(?:ing)? your\\b/ in transliteration via direct hustle-culture phrasing). Conflict is a paraphrase of the title.",
+      "example": {
+        "title": "افتح إمكانياتك الكاملة الآن",
+        "why_it_matters": "الإمكانيات تنتظر من يفتحها.",
+        "why_now": "وقت التغيير الآن.",
+        "emotional_hook": "افتح إمكانياتك واكتشف نفسك الجديدة.",
+        "conflict_angle": "بين القدرة المخفية والقدرة المعلنة.",
+        "market_inspiration": "ترند self-improvement.",
+        "original_lens": "betrayal_of_self",
+        "suggested_episode_type": "inspirational",
+        "suggested_topic_domain": "psychology",
+        "estimated_strength_score": 0.5
+      }
+    },
+    {
+      "id": "neg-004",
+      "source": "synthetic-rule-driven",
+      "evidence": "Kuwait-bias when not requested (KUWAIT_MARKERS hit) and the conflict_angle is generic.",
+      "example": {
+        "title": "كيف تنجح في الكويت اليوم",
+        "why_it_matters": "الكويت بيئة فريدة.",
+        "why_now": "السوق الكويتي يتغير.",
+        "emotional_hook": "نتحدث في هذه الحلقة عن طرق النجاح في الكويت.",
+        "conflict_angle": "بين الواقع الكويتي والطموح.",
+        "market_inspiration": "اهتمام بريادة الأعمال في الكويت.",
+        "original_lens": "money_career",
+        "suggested_episode_type": "social",
+        "suggested_topic_domain": "kuwait_gulf",
+        "estimated_strength_score": 0.5
+      }
+    }
+  ]
+}

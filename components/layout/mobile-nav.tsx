@@ -2,19 +2,17 @@
 
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { Home, Headphones, PenSquare, BookOpen, Handshake } from "lucide-react"
+import { Home, Headphones, Users, Handshake } from "lucide-react"
 import { cn } from "@/lib/utils"
 
-const baseNavItems = [
+const navItems = [
   { href: "/", icon: Home, label: "الرئيسية" },
   { href: "/episodes", icon: Headphones, label: "الحلقات" },
-  { href: "/space", icon: PenSquare, label: "حبر", requiresHibr: true },
-  { href: "/resources", icon: BookOpen, label: "خطوط" },
+  { href: "/guests", icon: Users, label: "الضيوف" },
   { href: "/sponsor", icon: Handshake, label: "شراكة", highlight: true },
 ]
 
-export function MobileNav({ hibrEnabled = true, hasNewEpisode = false }: { hibrEnabled?: boolean; hasNewEpisode?: boolean }) {
-  const navItems = baseNavItems.filter((item) => !item.requiresHibr || hibrEnabled)
+export function MobileNav({ hasNewEpisode = false }: { hasNewEpisode?: boolean }) {
   const pathname = usePathname()
 
   return (

@@ -1,0 +1,198 @@
+{
+  "version": 1,
+  "_doc": "Phase X Step 2 — Editorial lens registry. Each lens is a depth-of-inquiry frame that the Original Thinking generator uses to produce non-derivative topics. The registry is hand-curated; do NOT generate lenses programmatically. Add new lenses sparingly — every lens shapes the editorial voice of the show.",
+  "lenses": [
+    {
+      "key": "betrayal_of_self",
+      "name_ar": "خيانة الذات",
+      "name_en": "Betrayal of Self",
+      "description": "The slow erosion that happens when someone trades a piece of who they are for safety, money, status, or belonging — and the moment they recognize the trade.",
+      "question_kinds": [
+        "When did you first know you were performing instead of being?",
+        "What part of you did you mute to be accepted?",
+        "What would the version of you at 17 say to you now?"
+      ],
+      "avoid": [
+        "Generic 'be authentic' self-help",
+        "Tropes about chasing dreams",
+        "Career-pivot stories without the inner cost"
+      ]
+    },
+    {
+      "key": "unspoken_grief",
+      "name_ar": "الحزن غير المعلن",
+      "name_en": "Unspoken Grief",
+      "description": "Loss that doesn't fit a recognized name — the death of a future, of a friendship, of an identity, of a homeland in memory. Grief no one allows you to claim.",
+      "question_kinds": [
+        "What loss did you have to carry alone because no one knew it was a loss?",
+        "What did you grieve quietly while the world expected you to be fine?",
+        "Whom did you lose without their dying?"
+      ],
+      "avoid": [
+        "Conventional bereavement narratives",
+        "Religious clichés about acceptance",
+        "Trauma-tourism phrasing"
+      ]
+    },
+    {
+      "key": "moral_compromise",
+      "name_ar": "التنازل الأخلاقي",
+      "name_en": "Moral Compromise",
+      "description": "The small, defensible compromise that compounds — the lines you didn't notice you crossed because each step was 'reasonable.' The biography of a slow ethical drift.",
+      "question_kinds": [
+        "What's the smallest decision you regret most?",
+        "When did you realize you were no longer the person who would have said no?",
+        "What did you tell yourself to make it okay?"
+      ],
+      "avoid": [
+        "Cartoon-villain framing",
+        "Crime-confessional tone",
+        "Black-and-white morality"
+      ]
+    },
+    {
+      "key": "existential_dread",
+      "name_ar": "الوجع الوجودي",
+      "name_en": "Existential Dread",
+      "description": "The quiet 4 a.m. awareness that nothing means what we pretend it means — and the question of how a person keeps moving anyway. Not nihilism; the courage to live without certainty.",
+      "question_kinds": [
+        "What do you do with the knowledge that none of this is permanent?",
+        "When do you feel most awake to the meaninglessness — and how do you get up?",
+        "What truth would break you if you let it in fully?"
+      ],
+      "avoid": [
+        "Philosophy-textbook language",
+        "Nihilism as aesthetic",
+        "Spiritual bypassing"
+      ]
+    },
+    {
+      "key": "power_and_intimacy",
+      "name_ar": "السلطة والقرب",
+      "name_en": "Power and Intimacy",
+      "description": "The way unequal power — money, fame, gender, age, employer/employee — distorts what we call love, friendship, mentorship. The honest conversation no one wants to have about closeness.",
+      "question_kinds": [
+        "When did you mistake admiration for love?",
+        "What does a person owe someone who needed them?",
+        "Who in your life had power over you that you didn't see at the time?"
+      ],
+      "avoid": [
+        "Cancel-culture framing",
+        "Pop-feminism slogans",
+        "Reductive abuser/victim binaries"
+      ]
+    },
+    {
+      "key": "childhood_echo",
+      "name_ar": "صدى الطفولة",
+      "name_en": "Childhood Echo",
+      "description": "The patterns set before language — the silences, the looks, the small humiliations — that we keep replaying as adults without ever naming them. The ghost dictating today's choices.",
+      "question_kinds": [
+        "What did you learn about love before you were old enough to question it?",
+        "Whose voice do you still hear in your worst self-talk?",
+        "What scene from childhood still runs in the back of your mind?"
+      ],
+      "avoid": [
+        "Pop-psychology 'inner child' jargon",
+        "Blame narratives toward parents",
+        "Generic 'trauma is a teacher' framings"
+      ]
+    },
+    {
+      "key": "loneliness_after_success",
+      "name_ar": "الوحدة بعد النجاح",
+      "name_en": "Loneliness After Success",
+      "description": "The specific isolation of arriving — when the people who were with you on the way up don't fit the room you're in, and the people in the room don't know who you used to be.",
+      "question_kinds": [
+        "Who can you no longer call?",
+        "What did you have to leave behind to be where you are?",
+        "When do you feel most alone now that you've 'made it'?"
+      ],
+      "avoid": [
+        "Hustle-culture redemption arcs",
+        "Wealth-as-suffering tropes",
+        "Self-pitying rich-person narratives"
+      ]
+    },
+    {
+      "key": "hidden_shame",
+      "name_ar": "العار المخفي",
+      "name_en": "Hidden Shame",
+      "description": "The thing you have never told anyone — not because it's evil, but because telling it would change how you're seen. The secret that defines a life from underneath.",
+      "question_kinds": [
+        "What story have you told a thousand times leaving out the one part that matters?",
+        "What would you not survive being known for?",
+        "What part of yourself do you protect by never naming?"
+      ],
+      "avoid": [
+        "Confessional voyeurism",
+        "Religion-as-shame-relief",
+        "Sensational scandal framing"
+      ]
+    },
+    {
+      "key": "love_without_safety",
+      "name_ar": "حب بلا أمان",
+      "name_en": "Love Without Safety",
+      "description": "Loving someone whose mind, body, or future cannot guarantee they will stay — illness, distance, instability — and the discipline of staying anyway. Love without the insurance policy.",
+      "question_kinds": [
+        "What did you commit to knowing it might not last?",
+        "How do you love someone you might lose tomorrow?",
+        "When did love stop feeling safe and start feeling true?"
+      ],
+      "avoid": [
+        "Romance-novel framing",
+        "Codependence dressed as devotion",
+        "Inspirational-quote spirituality"
+      ]
+    },
+    {
+      "key": "fear_of_being_seen",
+      "name_ar": "الخوف من أن تُرى",
+      "name_en": "Fear of Being Seen",
+      "description": "The paradox of wanting to be known and dreading it equally — the masks people build out of competence, charm, or silence to be loved at a distance.",
+      "question_kinds": [
+        "What part of you flinches when someone gets too close?",
+        "What would change if your most trusted friend saw the unedited you?",
+        "What do you protect by being impressive?"
+      ],
+      "avoid": [
+        "'Vulnerability is brave' platitudes",
+        "Therapy-speak",
+        "Influencer-style oversharing"
+      ]
+    },
+    {
+      "key": "identity_fragments",
+      "name_ar": "شظايا الهوية",
+      "name_en": "Identity Fragments",
+      "description": "The lived experience of being multiple selves at once — across languages, generations, classes, geographies — and the cost of having no single room where every fragment is welcome.",
+      "question_kinds": [
+        "Where do you feel most yourself, and where do you feel most a stranger?",
+        "Which version of you has paid the highest price?",
+        "What were you taught to hide to belong?"
+      ],
+      "avoid": [
+        "Diaspora-as-identity-crisis cliché",
+        "Two-cultures-bridge framing",
+        "Code-switching as performance trick"
+      ]
+    },
+    {
+      "key": "inherited_silence",
+      "name_ar": "الصمت الموروث",
+      "name_en": "Inherited Silence",
+      "description": "The things families do not say — the war, the disappearance, the addiction, the love that wasn't allowed — and the way that silence is passed down through generations as a shape, not a story.",
+      "question_kinds": [
+        "What did your family agree, without speaking, never to discuss?",
+        "What did your parents protect you from by not telling you?",
+        "What story in your family was always told around something missing?"
+      ],
+      "avoid": [
+        "Generational-trauma buzzwords",
+        "Ancestral-healing aesthetics",
+        "Family as plot device"
+      ]
+    }
+  ]
+}

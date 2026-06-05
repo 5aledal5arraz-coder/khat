@@ -4,6 +4,7 @@ import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Link2, Check, MessageCircle } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { XIcon } from "@/components/icons/x-icon"
 
 interface ShareButtonsProps {
   url: string
@@ -73,9 +74,7 @@ export function ShareButtons({ url, title, className, size = "sm" }: ShareButton
         className={cn(buttonSize, "text-muted-foreground hover:text-foreground hover:bg-foreground/10")}
         title="مشاركة عبر X"
       >
-        <svg className={iconSize} viewBox="0 0 24 24" fill="currentColor">
-          <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
-        </svg>
+        <XIcon className={iconSize} />
       </Button>
 
       {/* Copy Link */}

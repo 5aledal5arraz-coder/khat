@@ -1,0 +1,39 @@
+{
+  "feature": "discovery-verify",
+  "timestamp": "2026-05-22T21:42:45.419Z",
+  "prompt_version": "discovery-verify-v1.0",
+  "golden_hash": "d9cade4175e55857",
+  "positive_count": 2,
+  "candidate_count": 2,
+  "quality_score": 0.333,
+  "judge": {
+    "rankings": [
+      {
+        "candidate_id": "pos-001",
+        "rank": 1,
+        "reason": "This item presents a deeply personal and transformative story of failure and resilience, showcasing emotional honesty."
+      },
+      {
+        "candidate_id": "gen-0-د-خالد-الراشد",
+        "rank": 2,
+        "reason": "While insightful and culturally rich, it lacks broader societal impact and emotional depth compared to the top-ranked item."
+      },
+      {
+        "candidate_id": "pos-002",
+        "rank": 3,
+        "reason": "This item is overly promotional and lacks the depth and personal struggle necessary for a compelling narrative."
+      },
+      {
+        "candidate_id": "gen-1-حساب-influencer-demo",
+        "rank": 4,
+        "reason": "The content is purely entertainment-focused with no real depth or transformative experience, making it the weakest entry."
+      }
+    ],
+    "notes": "The top-ranked items demonstrate a strong connection to personal experience and transformation, while the lower-ranked items lack emotional depth and authenticity."
+  },
+  "meta": {
+    "judge_model": "gpt-4o-mini",
+    "judge_provider": "openai",
+    "runner_version": "phase0-runner-v1.0"
+  }
+}

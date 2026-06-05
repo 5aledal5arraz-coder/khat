@@ -1,0 +1,46 @@
+{
+  "script": "report-router-adoption-v1.0",
+  "timestamp": "2026-05-26T11:05:45.729Z",
+  "site_totals": {
+    "routed": 41,
+    "direct": 0,
+    "total": 41,
+    "adoption_pct": 100
+  },
+  "file_totals": {
+    "total": 26,
+    "fully_migrated": 26,
+    "partially_migrated": 0,
+    "unmigrated": 0
+  },
+  "unmigrated": [],
+  "partially_migrated": [],
+  "fully_migrated": [
+    "lib/ai/analysis.ts",
+    "lib/ai/content.ts",
+    "lib/ai/deep-analysis.ts",
+    "lib/ai/episode-intelligence.ts",
+    "lib/ai/guest-application.ts",
+    "lib/ai/guest-intelligence.ts",
+    "lib/ai/guest.ts",
+    "lib/ai/interview-cards.ts",
+    "lib/ai/preparation/generate.ts",
+    "lib/ai/sponsorship.ts",
+    "lib/ai/studio.ts",
+    "lib/ai/transcript.ts",
+    "lib/ai/website.ts",
+    "lib/ai/youtube-pack.ts",
+    "lib/discovery/seed-archetypes.ts",
+    "lib/discovery/verify-candidate.ts",
+    "lib/evals/judge.ts",
+    "lib/guest-candidates/ai-analysis.ts",
+    "lib/guest-candidates/outreach.ts",
+    "lib/hybrid-topics/generate.ts",
+    "lib/market-intelligence/extraction.ts",
+    "lib/original-thinking/generator.ts",
+    "lib/preparation/v2/critique.ts",
+    "lib/preparation/v2/question-banks.ts",
+    "lib/preparation/v2/research.ts",
+    "lib/preparation/v2/structure.ts"
+  ]
+}

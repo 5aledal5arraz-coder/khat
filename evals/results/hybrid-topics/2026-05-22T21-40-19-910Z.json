@@ -1,0 +1,69 @@
+{
+  "feature": "hybrid-topics",
+  "timestamp": "2026-05-22T21:40:19.910Z",
+  "prompt_version": "hybrid-topics-v1.0",
+  "golden_hash": "a1c0d6e97c2ffbc9",
+  "positive_count": 4,
+  "candidate_count": 6,
+  "quality_score": 0.278,
+  "judge": {
+    "rankings": [
+      {
+        "candidate_id": "pos-001",
+        "rank": 1,
+        "reason": "The emotional depth and exploration of identity after long-term imprisonment create a powerful narrative."
+      },
+      {
+        "candidate_id": "pos-004",
+        "rank": 2,
+        "reason": "The focus on historical figures and the importance of remembering foundational contributions adds significant depth."
+      },
+      {
+        "candidate_id": "pos-002",
+        "rank": 3,
+        "reason": "The exploration of overlooked aspects of Islamic history through Ethiopian literature presents a unique and compelling angle."
+      },
+      {
+        "candidate_id": "pos-003",
+        "rank": 4,
+        "reason": "The personal journey of a trader highlights the complexities of identity and success in a nuanced way."
+      },
+      {
+        "candidate_id": "gen-0-علاقات-الحب-في-عصر-الخوف-كيف-نحب",
+        "rank": 5,
+        "reason": "The tension between love and fear in contemporary relationships offers a relevant and relatable conflict."
+      },
+      {
+        "candidate_id": "gen-2-صمت-الأطفال-الأصوات-التي-لا-ت-سم",
+        "rank": 6,
+        "reason": "The theme of children's silence in a noisy world is poignant, though it lacks the same depth as the top ranks."
+      },
+      {
+        "candidate_id": "gen-3-الإيمان-والمال-هل-يمكن-أن-يتعايش",
+        "rank": 7,
+        "reason": "The exploration of spirituality and wealth is relevant but feels somewhat generic in its approach."
+      },
+      {
+        "candidate_id": "gen-1-البحث-عن-الذات-في-عالم-مزدوج-اله",
+        "rank": 8,
+        "reason": "The topic of identity in a multicultural world is important, but the emotional hook lacks specificity."
+      },
+      {
+        "candidate_id": "gen-5-الخيانة-الذاتية-عندما-تبيع-نفسك-",
+        "rank": 9,
+        "reason": "The emotional hook is weak, making the exploration of self-betrayal less impactful."
+      },
+      {
+        "candidate_id": "gen-4-النجاح-الخفي-عندما-لا-تعرف-من-أن",
+        "rank": 10,
+        "reason": "The theme of hidden success is clichéd and lacks a strong emotional connection."
+      }
+    ],
+    "notes": "The pool contains a mix of personal stories and broader societal themes, with the strongest items focusing on deep emotional and historical narratives."
+  },
+  "meta": {
+    "judge_model": "gpt-4o-mini",
+    "judge_provider": "openai",
+    "runner_version": "phase0-runner-v1.0"
+  }
+}

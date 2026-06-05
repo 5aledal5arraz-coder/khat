@@ -161,16 +161,37 @@ export function SponsorForm() {
     }
   }
 
+  const resetForm = () => {
+    setStatus("idle")
+    setStep(0)
+    setMessage("")
+    setCompanyName("")
+    setIndustry("")
+    setContactName("")
+    setJobTitle("")
+    setEmail("")
+    setPhone("")
+    setCollaborationTypes([])
+    setCollaborationOther("")
+    setMainGoal("")
+    setTargetAudience("")
+    setPreferredTimeline("")
+    setBudgetRange("")
+    setAdditionalInfo("")
+  }
+
   if (status === "success") {
     return (
-      <div className="rounded-lg border bg-green-50 dark:bg-green-950/20 p-8 text-center">
-        <Check className="mx-auto h-12 w-12 text-green-600" />
-        <h3 className="mt-4 text-xl font-semibold">شكراً لاهتمامك بالشراكة مع خط</h3>
+      <div className="rounded-2xl border border-primary/15 bg-primary/[0.03] p-8 text-center">
+        <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-primary/10">
+          <Check className="h-7 w-7 text-primary" />
+        </div>
+        <h3 className="mt-5 text-xl font-semibold">شكراً لاهتمامك بالشراكة مع خط</h3>
         <p className="mt-3 text-muted-foreground leading-relaxed">
           بنراجع طلبك ونرد عليك بخطة تعاون تناسب أهدافك.
         </p>
         <div className="mt-6 flex justify-center gap-3">
-          <Button variant="outline" onClick={() => { setStatus("idle"); setStep(0) }}>
+          <Button variant="outline" onClick={resetForm}>
             أرسل طلب ثاني
           </Button>
           <Link href="/">

@@ -12,6 +12,9 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Wave 4: scripts/_archive holds historical one-off scripts that
+    // are not part of the active test/build loop. Don't lint them.
+    "scripts/_archive/**",
   ]),
 ]);
 

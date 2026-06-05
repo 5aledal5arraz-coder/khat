@@ -3,9 +3,7 @@
 import { useState, lazy, Suspense } from "react"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { Copy, Check, Share2, Bookmark, ImageDown } from "lucide-react"
-import { isItemSaved, toggleSaveItem } from "@/lib/saved"
-import { trackEvent } from "@/lib/personalization/tracker"
+import { Copy, Check, Share2, ImageDown } from "lucide-react"
 import type { Quote, Guest } from "@/types/database"
 
 const QuoteImageModal = lazy(() =>
@@ -20,22 +18,6 @@ interface QuoteCardProps {
 export function QuoteCard({ quote, episodeTitle }: QuoteCardProps) {
   const [copied, setCopied] = useState(false)
   const [showImageModal, setShowImageModal] = useState(false)
-  const quoteId = quote.id || btoa(encodeURIComponent(quote.text.slice(0, 50))).slice(0, 20)
-  const [isSaved, setIsSaved] = useState(() => {
-    if (typeof window === "undefined") return false
-    return isItemSaved(quoteId, "quote")
-  })
-
-  const handleSave = () => {
-    trackEvent("quote_open", quoteId, { theme: quote.theme ?? undefined })
-    const newState = toggleSaveItem({
-      id: quoteId,
-      type: "quote",
-      title: quote.text,
-      subtitle: quote.guest?.name,
-    })
-    setIsSaved(newState)
-  }
 
   const handleCopy = async () => {
     const text = `"${quote.text}"${quote.guest ? ` - ${quote.guest.name}` : ""}`
@@ -76,15 +58,6 @@ export function QuoteCard({ quote, episodeTitle }: QuoteCardProps) {
           </p>
         )}
         <div className="mt-3 flex gap-2">
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={handleSave}
-            className={`gap-1 ${isSaved ? "text-primary" : ""}`}
-          >
-            <Bookmark className={`h-4 w-4 ${isSaved ? "fill-current" : ""}`} />
-            <span>{isSaved ? "محفوظ" : "حفظ"}</span>
-          </Button>
           <Button
             variant="ghost"
             size="sm"

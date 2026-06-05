@@ -1,0 +1,188 @@
+#!/usr/bin/env bash
+#
+# A14 — pre-commit secret-detection hook for the Khat repo.
+#
+# Scans STAGED additions (lines starting with `+` in the cached diff)
+# and the list of newly-tracked file paths for high-confidence secret
+# patterns. Blocks the commit on any match.
+#
+# Design: lightweight pure bash + grep. No external dependencies. Runs
+# in <100ms on a typical diff. False-positive rate is kept low by
+# tuning each pattern's minimum length against real-secret lengths vs
+# common placeholder strings (`your_X`, `sk-...`, `AIza...`).
+#
+# Install (one-time per clone — must be run by every dev):
+#   git config core.hooksPath .githooks
+#
+# Bypass for genuine false-positive (use sparingly):
+#   git commit --no-verify
+#
+# Uninstall:
+#   git config --unset core.hooksPath
+#
+# Limitations (documented in docs/deploy-runbook.md §H):
+#   • Catches commits to LOCAL git. Cannot catch a push made from a
+#     machine where the hook isn't installed.
+#   • Does not catch secrets in binary files.
+#   • Does not catch secrets in files that are renamed/moved with
+#     no content change.
+#   • Does not catch secrets that don't match the patterns below
+#     (custom internal-format tokens, etc.).
+#   • A `--no-verify` commit bypasses the check entirely.
+
+set -uo pipefail
+
+# ─── Output helpers ─────────────────────────────────────────────────────
+
+RED=$'\033[0;31m'
+YELLOW=$'\033[0;33m'
+DIM=$'\033[2m'
+BOLD=$'\033[1m'
+RESET=$'\033[0m'
+
+# Detect non-tty for plain output (CI tools, hooks-as-other-tools).
+if [ ! -t 2 ]; then
+  RED=""; YELLOW=""; DIM=""; BOLD=""; RESET=""
+fi
+
+err() {
+  printf '%s\n' "${RED}${BOLD}❌ secret-detect:${RESET} $*" >&2
+}
+
+warn() {
+  printf '%s\n' "${YELLOW}⚠  secret-detect:${RESET} $*" >&2
+}
+
+note() {
+  printf '%s\n' "${DIM}   $*${RESET}" >&2
+}
+
+# ─── Pattern library ─────────────────────────────────────────────────────
+#
+# Each pattern is calibrated against real secret lengths:
+#   • Real OpenAI keys: 51 chars after "sk-"            → require {40,}
+#   • Real Resend keys: ~36 chars after "re_"           → require {30,}
+#   • Real Google API: 39 chars total after "AIza"      → require {35,}
+#   • Real DO managed-DB password: 18+ chars after "AVNS_" → require {15,}
+#   • Real DO API token: ~64 hex after "dop_v1_"        → require {60,}
+#
+# Length thresholds catch real values while NOT triggering on
+# placeholders like `your_openai_key`, `sk-...`, or `AIza...`.
+
+# A single ERE alternation. Use ripgrep / grep -E. Whitespace below is
+# purely for readability — joined into one pattern at use site.
+read -r -d '' SECRET_PATTERN <<'EOF'
+sk-(proj-)?[A-Za-z0-9_-]{40,}|\
+sk_(live|test)_[A-Za-z0-9]{30,}|\
+re_[A-Za-z0-9]{30,}|\
+AIza[A-Za-z0-9_-]{35,}|\
+AVNS_[A-Za-z0-9]{15,}|\
+dop_v1_[a-f0-9]{60,}|\
+gh[pousr]_[A-Za-z0-9]{30,}|\
+AKIA[A-Z0-9]{16}|\
+xox[abp]-[A-Za-z0-9-]{20,}|\
+postgres(ql)?://[^:[:space:]]+:[^@[:space:]]+@|\
+-----BEGIN [A-Z ]*PRIVATE KEY-----
+EOF
+# Strip backslash-newlines so the pattern is a single string.
+SECRET_PATTERN=$(printf '%s' "$SECRET_PATTERN" | tr -d '\\\n')
+
+# ─── Filename rules ─────────────────────────────────────────────────────
+#
+# Even if `.gitignore` catches `.env*`, someone might `git add -f` one.
+# Block any newly-tracked file matching these patterns.
+
+FILENAME_BLOCKLIST_REGEX='(^|/)(\.env($|\.[^/]*)|.*\.pem$|.*_rsa$|.*_dsa$|.*\.key$|service-account.*\.json$)'
+
+# ─── Get staged data ─────────────────────────────────────────────────────
+
+# Get list of staged files (any change type) — used to scope the
+# content scan to files git is actually about to commit.
+STAGED_FILES=$(git diff --cached --name-only --diff-filter=ACMR 2>/dev/null || true)
+
+# Newly-tracked files (additions) — used for filename-based block.
+NEW_FILES=$(git diff --cached --name-only --diff-filter=A 2>/dev/null || true)
+
+# If nothing's staged, allow.
+if [ -z "$STAGED_FILES" ]; then
+  exit 0
+fi
+
+# ─── Check 1: filename blocklist ─────────────────────────────────────────
+
+FILENAME_HITS=$(printf '%s\n' "$NEW_FILES" | grep -E "$FILENAME_BLOCKLIST_REGEX" || true)
+
+if [ -n "$FILENAME_HITS" ]; then
+  err "newly-tracked file looks secret-bearing:"
+  while IFS= read -r f; do
+    [ -z "$f" ] && continue
+    note "  • $f"
+  done <<<"$FILENAME_HITS"
+  err "commit blocked."
+  note ""
+  note "remediation:"
+  note "  • If this file should NEVER be committed: \`git restore --staged <file>\`"
+  note "    and verify it's in .gitignore (\`grep -E '^\\.env' .gitignore\`)."
+  note "  • If genuinely intended (e.g. .env.local.example with no real values):"
+  note "    bypass once with \`git commit --no-verify\` — and double-check the diff."
+  exit 1
+fi
+
+# ─── Check 2: content patterns in staged additions ──────────────────────
+#
+# Use --unified=0 so the diff has only changed lines, no context.
+# Pattern: `^+` for added lines (excluding `++` file headers via `[^+]`).
+
+CONTENT_HITS=""
+while IFS= read -r file; do
+  [ -z "$file" ] && continue
+  # Skip binary files (grep would barf and they shouldn't contain
+  # detectable secrets in our threat model).
+  if git diff --cached --numstat -- "$file" 2>/dev/null | head -1 | grep -q '^-' ; then
+    continue
+  fi
+
+  # Pull staged additions for this single file. The `^+[^+]` rule
+  # excludes the `+++ b/path` file-header lines.
+  HITS_IN_FILE=$(
+    git diff --cached --unified=0 -- "$file" 2>/dev/null \
+      | grep -E '^\+[^+]' \
+      | grep -nE "$SECRET_PATTERN" \
+      || true
+  )
+  if [ -n "$HITS_IN_FILE" ]; then
+    # Redact the matched value in the printed output. Show only the
+    # prefix so the operator can identify which secret leaked without
+    # the chat / terminal echoing the full credential.
+    REDACTED=$(printf '%s' "$HITS_IN_FILE" | sed -E '
+      s/(sk-(proj-)?[A-Za-z0-9_-]{8})[A-Za-z0-9_-]{20,}/\1<<REDACTED>>/g;
+      s/(sk_(live|test)_[A-Za-z0-9]{6})[A-Za-z0-9]{20,}/\1<<REDACTED>>/g;
+      s/(re_[A-Za-z0-9]{6})[A-Za-z0-9]{20,}/\1<<REDACTED>>/g;
+      s/(AIza[A-Za-z0-9_-]{6})[A-Za-z0-9_-]{25,}/\1<<REDACTED>>/g;
+      s/(AVNS_[A-Za-z0-9]{4})[A-Za-z0-9]{10,}/\1<<REDACTED>>/g;
+      s/(dop_v1_[a-f0-9]{6})[a-f0-9]{50,}/\1<<REDACTED>>/g;
+      s/(gh[pousr]_[A-Za-z0-9]{6})[A-Za-z0-9]{20,}/\1<<REDACTED>>/g;
+      s/(postgres(ql)?:\/\/[^:[:space:]]+):[^@[:space:]]+@/\1:<<REDACTED>>@/g;
+    ')
+    CONTENT_HITS="${CONTENT_HITS}${file}:\n${REDACTED}\n\n"
+  fi
+done <<<"$STAGED_FILES"
+
+if [ -n "$CONTENT_HITS" ]; then
+  err "high-confidence secret detected in staged additions:"
+  printf '%b' "$CONTENT_HITS" >&2
+  err "commit blocked."
+  note ""
+  note "remediation:"
+  note "  1. \`git restore --staged <file>\` to unstage the file."
+  note "  2. Move the secret to /root/khat/.env (prod) or .env.local (dev) — neither is tracked."
+  note "  3. Re-stage the file (now without the secret) and commit again."
+  note ""
+  note "  False positive? Either:"
+  note "    • Bypass once: \`git commit --no-verify\`  (audit-logged in your shell history)"
+  note "    • Lower the line's entropy (placeholders like 'your_X' are NOT matched)"
+  exit 1
+fi
+
+# All clear.
+exit 0

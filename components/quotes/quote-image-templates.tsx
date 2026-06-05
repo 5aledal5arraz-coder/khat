@@ -39,6 +39,7 @@ function BrandingBar() {
         marginTop: "auto",
       }}
     >
+      {/* eslint-disable-next-line @next/next/no-img-element -- Native <img> required for modern-screenshot canvas capture */}
       <img
         src="/logo-small.jpg"
         alt="KHAT"

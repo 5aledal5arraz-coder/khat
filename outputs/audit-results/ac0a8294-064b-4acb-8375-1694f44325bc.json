@@ -1,0 +1,973 @@
+{
+  "run_id": "ac0a8294-064b-4acb-8375-1694f44325bc",
+  "final_status": "completed",
+  "error_message": null,
+  "metrics": {
+    "total": 24,
+    "non_rejected": 0,
+    "alpha_tagged": 24,
+    "dropped_by_alpha": 24,
+    "identity_confidence_populated": 24,
+    "attribute_confidences_populated": 24,
+    "evidence_bundle_populated": 24,
+    "mean_identity_confidence": 0.075,
+    "mean_recommendation_score": 0.244
+  },
+  "jobs_by_type": {
+    "discovery.verify_candidate": {
+      "succeeded": 24
+    },
+    "discovery.search_archetype": {
+      "succeeded": 20
+    },
+    "discovery.rank_candidates": {
+      "succeeded": 1
+    }
+  },
+  "candidates": [
+    {
+      "id": "9e3e953f-c760-4d3a-b423-c9bcbda82a3f",
+      "proposed_name": "الشعور بالفراغ",
+      "status": "rejected",
+      "pipeline_version": "alpha",
+      "identity_confidence": 0.09,
+      "attribute_confidences": {
+        "gender": {
+          "value": null,
+          "evidence": [],
+          "confidence": 0,
+          "signal_breakdown": {
+            "bio_statement": 0,
+            "pronoun_arabic": 0,
+            "name_morphology": 0,
+            "role_morphology": 0
+          }
+        },
+        "nationality": {
+          "value": null,
+          "evidence": [
+            "hint: \"Kuwait\""
+          ],
+          "confidence": 0.015,
+          "signal_breakdown": {
+            "domain_TLD": 0,
+            "affiliation": 0,
+            "search_hint": 0.3,
+            "bio_statement": 0,
+            "name_morphology": 0,
+            "location_mentions": 0
+          }
+        }
+      },
+      "evidence_bundle_citations": 1,
+      "editorial_fit_score": 0.119,
+      "hidden_gem_score": 0.65,
+      "recommendation_score": 0.261,
+      "dropped_reason": "person_class_below_threshold (composite=0.09, threshold=0.35)"
+    },
+    {
+      "id": "3df59c72-87b1-49ee-961e-bdc291123a46",
+      "proposed_name": "خطوات بسيطة",
+      "status": "rejected",
+      "pipeline_version": "alpha",
+      "identity_confidence": 0.09,
+      "attribute_confidences": {
+        "gender": {
+          "value": null,
+          "evidence": [],
+          "confidence": 0,
+          "signal_breakdown": {
+            "bio_statement": 0,
+            "pronoun_arabic": 0,
+            "name_morphology": 0,
+            "role_morphology": 0
+          }
+        },
+        "nationality": {
+          "value": null,
+          "evidence": [
+            "location: \"الكويت\"",
+            "hint: \"Kuwait\""
+          ],
+          "confidence": 0.075,
+          "signal_breakdown": {
+            "domain_TLD": 0,
+            "affiliation": 0,
+            "search_hint": 0.3,
+            "bio_statement": 0,
+            "name_morphology": 0,
+            "location_mentions": 0.4
+          }
+        }
+      },
+      "evidence_bundle_citations": 1,
+      "editorial_fit_score": 0.119,
+      "hidden_gem_score": 0.65,
+      "recommendation_score": 0.261,
+      "dropped_reason": "person_class_below_threshold (composite=0.09, threshold=0.35)"
+    },
+    {
+      "id": "1d4a675c-0b9c-4b9f-a852-46cdb862117c",
+      "proposed_name": "لتحقيق النجاح",
+      "status": "rejected",
+      "pipeline_version": "alpha",
+      "identity_confidence": 0.09,
+      "attribute_confidences": {
+        "gender": {
+          "value": null,
+          "evidence": [],
+          "confidence": 0,
+          "signal_breakdown": {
+            "bio_statement": 0,
+            "pronoun_arabic": 0,
+            "name_morphology": 0,
+            "role_morphology": 0
+          }
+        },
+        "nationality": {
+          "value": null,
+          "evidence": [
+            "location: \"الكويت\"",
+            "hint: \"Kuwait\""
+          ],
+          "confidence": 0.075,
+          "signal_breakdown": {
+            "domain_TLD": 0,
+            "affiliation": 0,
+            "search_hint": 0.3,
+            "bio_statement": 0,
+            "name_morphology": 0,
+            "location_mentions": 0.4
+          }
+        }
+      },
+      "evidence_bundle_citations": 1,
+      "editorial_fit_score": 0.119,
+      "hidden_gem_score": 0.65,
+      "recommendation_score": 0.261,
+      "dropped_reason": "person_class_below_threshold (composite=0.09, threshold=0.35)"
+    },
+    {
+      "id": "ae305724-1179-47ac-961e-6c19ad12f361",
+      "proposed_name": "تركي الشمري",
+      "status": "rejected",
+      "pipeline_version": "alpha",
+      "identity_confidence": 0.09,
+      "attribute_confidences": {
+        "gender": {
+          "value": null,
+          "evidence": [],
+          "confidence": 0,
+          "signal_breakdown": {
+            "bio_statement": 0,
+            "pronoun_arabic": 0,
+            "name_morphology": 0,
+            "role_morphology": 0
+          }
+        },
+        "nationality": {
+          "value": null,
+          "evidence": [
+            "name_morphology: family root \"الشمري\"",
+            "location: \"الكويت\"",
+            "hint: \"Kuwait\""
+          ],
+          "confidence": 0.395,
+          "signal_breakdown": {
+            "domain_TLD": 0,
+            "affiliation": 0,
+            "search_hint": 0.3,
+            "bio_statement": 0,
+            "name_morphology": 0.9,
+            "location_mentions": 0.4
+          }
+        }
+      },
+      "evidence_bundle_citations": 1,
+      "editorial_fit_score": 0.119,
+      "hidden_gem_score": 0.65,
+      "recommendation_score": 0.261,
+      "dropped_reason": "person_class_below_threshold (composite=0.09, threshold=0.35)"
+    },
+    {
+      "id": "810480d1-19d1-4709-b444-b8c1c6459ba2",
+      "proposed_name": "التخطيط المالي",
+      "status": "rejected",
+      "pipeline_version": "alpha",
+      "identity_confidence": 0.09,
+      "attribute_confidences": {
+        "gender": {
+          "value": null,
+          "evidence": [],
+          "confidence": 0,
+          "signal_breakdown": {
+            "bio_statement": 0,
+            "pronoun_arabic": 0,
+            "name_morphology": 0,
+            "role_morphology": 0
+          }
+        },
+        "nationality": {
+          "value": null,
+          "evidence": [
+            "hint: \"Kuwait\""
+          ],
+          "confidence": 0.015,
+          "signal_breakdown": {
+            "domain_TLD": 0,
+            "affiliation": 0,
+            "search_hint": 0.3,
+            "bio_statement": 0,
+            "name_morphology": 0,
+            "location_mentions": 0
+          }
+        }
+      },
+      "evidence_bundle_citations": 1,
+      "editorial_fit_score": 0.08,
+      "hidden_gem_score": 0.65,
+      "recommendation_score": 0.244,
+      "dropped_reason": "person_class_below_threshold (composite=0.09, threshold=0.35)"
+    },
+    {
+      "id": "3ffa5320-0ea8-4fa6-a6e1-50b7b9f99217",
+      "proposed_name": "التخطيط والاستثمار",
+      "status": "rejected",
+      "pipeline_version": "alpha",
+      "identity_confidence": 0.09,
+      "attribute_confidences": {
+        "gender": {
+          "value": null,
+          "evidence": [],
+          "confidence": 0,
+          "signal_breakdown": {
+            "bio_statement": 0,
+            "pronoun_arabic": 0,
+            "name_morphology": 0,
+            "role_morphology": 0
+          }
+        },
+        "nationality": {
+          "value": null,
+          "evidence": [
+            "location: \"الكويت\"",
+            "hint: \"Kuwait\""
+          ],
+          "confidence": 0.075,
+          "signal_breakdown": {
+            "domain_TLD": 0,
+            "affiliation": 0,
+            "search_hint": 0.3,
+            "bio_statement": 0,
+            "name_morphology": 0,
+            "location_mentions": 0.4
+          }
+        }
+      },
+      "evidence_bundle_citations": 1,
+      "editorial_fit_score": 0.08,
+      "hidden_gem_score": 0.65,
+      "recommendation_score": 0.244,
+      "dropped_reason": "person_class_below_threshold (composite=0.09, threshold=0.35)"
+    },
+    {
+      "id": "664cf204-2f99-450d-9381-deefa9257c68",
+      "proposed_name": "Amazing Anime Man",
+      "status": "rejected",
+      "pipeline_version": "alpha",
+      "identity_confidence": 0.09,
+      "attribute_confidences": {
+        "gender": {
+          "value": null,
+          "evidence": [],
+          "confidence": 0,
+          "signal_breakdown": {
+            "bio_statement": 0,
+            "pronoun_arabic": 0,
+            "name_morphology": 0,
+            "role_morphology": 0
+          }
+        },
+        "nationality": {
+          "value": null,
+          "evidence": [],
+          "confidence": 0,
+          "signal_breakdown": {
+            "domain_TLD": 0,
+            "affiliation": 0,
+            "search_hint": 0,
+            "bio_statement": 0,
+            "name_morphology": 0,
+            "location_mentions": 0
+          }
+        }
+      },
+      "evidence_bundle_citations": 2,
+      "editorial_fit_score": 0.08,
+      "hidden_gem_score": 0.65,
+      "recommendation_score": 0.244,
+      "dropped_reason": "person_class_below_threshold (composite=0.09, threshold=0.35)"
+    },
+    {
+      "id": "589e3069-2b68-4d69-9324-bb0f6a8876cd",
+      "proposed_name": "Qixiang-Animation",
+      "status": "rejected",
+      "pipeline_version": "alpha",
+      "identity_confidence": 0.09,
+      "attribute_confidences": {
+        "gender": {
+          "value": null,
+          "evidence": [],
+          "confidence": 0,
+          "signal_breakdown": {
+            "bio_statement": 0,
+            "pronoun_arabic": 0,
+            "name_morphology": 0,
+            "role_morphology": 0
+          }
+        },
+        "nationality": {
+          "value": null,
+          "evidence": [],
+          "confidence": 0,
+          "signal_breakdown": {
+            "domain_TLD": 0,
+            "affiliation": 0,
+            "search_hint": 0,
+            "bio_statement": 0,
+            "name_morphology": 0,
+            "location_mentions": 0
+          }
+        }
+      },
+      "evidence_bundle_citations": 2,
+      "editorial_fit_score": 0.08,
+      "hidden_gem_score": 0.65,
+      "recommendation_score": 0.244,
+      "dropped_reason": "person_class_below_threshold (composite=0.09, threshold=0.35)"
+    },
+    {
+      "id": "a19a0fdd-228b-4481-a85f-d1936449d2fc",
+      "proposed_name": "الشركات المهنية",
+      "status": "rejected",
+      "pipeline_version": "alpha",
+      "identity_confidence": 0.09,
+      "attribute_confidences": {
+        "gender": {
+          "value": null,
+          "evidence": [],
+          "confidence": 0,
+          "signal_breakdown": {
+            "bio_statement": 0,
+            "pronoun_arabic": 0,
+            "name_morphology": 0,
+            "role_morphology": 0
+          }
+        },
+        "nationality": {
+          "value": null,
+          "evidence": [
+            "location: \"الكويت\"",
+            "hint: \"Kuwait\""
+          ],
+          "confidence": 0.075,
+          "signal_breakdown": {
+            "domain_TLD": 0,
+            "affiliation": 0,
+            "search_hint": 0.3,
+            "bio_statement": 0,
+            "name_morphology": 0,
+            "location_mentions": 0.4
+          }
+        }
+      },
+      "evidence_bundle_citations": 1,
+      "editorial_fit_score": 0.08,
+      "hidden_gem_score": 0.65,
+      "recommendation_score": 0.244,
+      "dropped_reason": "person_class_below_threshold (composite=0.09, threshold=0.35)"
+    },
+    {
+      "id": "80e81872-1674-402f-91df-63417488b46d",
+      "proposed_name": "卡通狂欢嘉会 Cartoon Gala",
+      "status": "rejected",
+      "pipeline_version": "alpha",
+      "identity_confidence": 0.09,
+      "attribute_confidences": {
+        "gender": {
+          "value": null,
+          "evidence": [],
+          "confidence": 0,
+          "signal_breakdown": {
+            "bio_statement": 0,
+            "pronoun_arabic": 0,
+            "name_morphology": 0,
+            "role_morphology": 0
+          }
+        },
+        "nationality": {
+          "value": null,
+          "evidence": [],
+          "confidence": 0,
+          "signal_breakdown": {
+            "domain_TLD": 0,
+            "affiliation": 0,
+            "search_hint": 0,
+            "bio_statement": 0,
+            "name_morphology": 0,
+            "location_mentions": 0
+          }
+        }
+      },
+      "evidence_bundle_citations": 2,
+      "editorial_fit_score": 0.08,
+      "hidden_gem_score": 0.65,
+      "recommendation_score": 0.244,
+      "dropped_reason": "person_class_below_threshold (composite=0.09, threshold=0.35)"
+    },
+    {
+      "id": "486d19ff-0156-428e-85f0-991a082420d7",
+      "proposed_name": "Qixiang-Animation",
+      "status": "rejected",
+      "pipeline_version": "alpha",
+      "identity_confidence": 0.09,
+      "attribute_confidences": {
+        "gender": {
+          "value": null,
+          "evidence": [],
+          "confidence": 0,
+          "signal_breakdown": {
+            "bio_statement": 0,
+            "pronoun_arabic": 0,
+            "name_morphology": 0,
+            "role_morphology": 0
+          }
+        },
+        "nationality": {
+          "value": null,
+          "evidence": [],
+          "confidence": 0,
+          "signal_breakdown": {
+            "domain_TLD": 0,
+            "affiliation": 0,
+            "search_hint": 0,
+            "bio_statement": 0,
+            "name_morphology": 0,
+            "location_mentions": 0
+          }
+        }
+      },
+      "evidence_bundle_citations": 2,
+      "editorial_fit_score": 0.08,
+      "hidden_gem_score": 0.65,
+      "recommendation_score": 0.244,
+      "dropped_reason": "person_class_below_threshold (composite=0.09, threshold=0.35)"
+    },
+    {
+      "id": "fbdfeafe-fe3a-4227-9d8d-cd5cb0f3f368",
+      "proposed_name": "التحديات المهنية",
+      "status": "rejected",
+      "pipeline_version": "alpha",
+      "identity_confidence": 0.09,
+      "attribute_confidences": {
+        "gender": {
+          "value": null,
+          "evidence": [],
+          "confidence": 0,
+          "signal_breakdown": {
+            "bio_statement": 0,
+            "pronoun_arabic": 0,
+            "name_morphology": 0,
+            "role_morphology": 0
+          }
+        },
+        "nationality": {
+          "value": null,
+          "evidence": [
+            "hint: \"Kuwait\""
+          ],
+          "confidence": 0.015,
+          "signal_breakdown": {
+            "domain_TLD": 0,
+            "affiliation": 0,
+            "search_hint": 0.3,
+            "bio_statement": 0,
+            "name_morphology": 0,
+            "location_mentions": 0
+          }
+        }
+      },
+      "evidence_bundle_citations": 1,
+      "editorial_fit_score": 0.08,
+      "hidden_gem_score": 0.65,
+      "recommendation_score": 0.244,
+      "dropped_reason": "person_class_below_threshold (composite=0.09, threshold=0.35)"
+    },
+    {
+      "id": "f545997f-27e5-43eb-943e-c6fdb5b01173",
+      "proposed_name": "Amazing Anime Man",
+      "status": "rejected",
+      "pipeline_version": "alpha",
+      "identity_confidence": 0.09,
+      "attribute_confidences": {
+        "gender": {
+          "value": null,
+          "evidence": [],
+          "confidence": 0,
+          "signal_breakdown": {
+            "bio_statement": 0,
+            "pronoun_arabic": 0,
+            "name_morphology": 0,
+            "role_morphology": 0
+          }
+        },
+        "nationality": {
+          "value": null,
+          "evidence": [],
+          "confidence": 0,
+          "signal_breakdown": {
+            "domain_TLD": 0,
+            "affiliation": 0,
+            "search_hint": 0,
+            "bio_statement": 0,
+            "name_morphology": 0,
+            "location_mentions": 0
+          }
+        }
+      },
+      "evidence_bundle_citations": 2,
+      "editorial_fit_score": 0.08,
+      "hidden_gem_score": 0.65,
+      "recommendation_score": 0.244,
+      "dropped_reason": "person_class_below_threshold (composite=0.09, threshold=0.35)"
+    },
+    {
+      "id": "ab45f468-5021-473c-898d-e22c38a2083d",
+      "proposed_name": "Cartoon Gala",
+      "status": "rejected",
+      "pipeline_version": "alpha",
+      "identity_confidence": 0.09,
+      "attribute_confidences": {
+        "gender": {
+          "value": null,
+          "evidence": [],
+          "confidence": 0,
+          "signal_breakdown": {
+            "bio_statement": 0,
+            "pronoun_arabic": 0,
+            "name_morphology": 0,
+            "role_morphology": 0
+          }
+        },
+        "nationality": {
+          "value": null,
+          "evidence": [
+            "hint: \"Kuwait\""
+          ],
+          "confidence": 0.015,
+          "signal_breakdown": {
+            "domain_TLD": 0,
+            "affiliation": 0,
+            "search_hint": 0.3,
+            "bio_statement": 0,
+            "name_morphology": 0,
+            "location_mentions": 0
+          }
+        }
+      },
+      "evidence_bundle_citations": 1,
+      "editorial_fit_score": 0.08,
+      "hidden_gem_score": 0.65,
+      "recommendation_score": 0.244,
+      "dropped_reason": "person_class_below_threshold (composite=0.09, threshold=0.35)"
+    },
+    {
+      "id": "3574b28b-7b01-467f-8bbd-164ed3ef337e",
+      "proposed_name": "Multi Sub",
+      "status": "rejected",
+      "pipeline_version": "alpha",
+      "identity_confidence": 0.09,
+      "attribute_confidences": {
+        "gender": {
+          "value": null,
+          "evidence": [],
+          "confidence": 0,
+          "signal_breakdown": {
+            "bio_statement": 0,
+            "pronoun_arabic": 0,
+            "name_morphology": 0,
+            "role_morphology": 0
+          }
+        },
+        "nationality": {
+          "value": null,
+          "evidence": [
+            "hint: \"Kuwait\""
+          ],
+          "confidence": 0.015,
+          "signal_breakdown": {
+            "domain_TLD": 0,
+            "affiliation": 0,
+            "search_hint": 0.3,
+            "bio_statement": 0,
+            "name_morphology": 0,
+            "location_mentions": 0
+          }
+        }
+      },
+      "evidence_bundle_citations": 1,
+      "editorial_fit_score": 0.08,
+      "hidden_gem_score": 0.65,
+      "recommendation_score": 0.244,
+      "dropped_reason": "person_class_below_threshold (composite=0.09, threshold=0.35)"
+    },
+    {
+      "id": "3a122778-e0b9-4e86-8e26-31aaab2e2fe5",
+      "proposed_name": "卡通狂欢嘉会 Cartoon Gala",
+      "status": "rejected",
+      "pipeline_version": "alpha",
+      "identity_confidence": 0.09,
+      "attribute_confidences": {
+        "gender": {
+          "value": null,
+          "evidence": [],
+          "confidence": 0,
+          "signal_breakdown": {
+            "bio_statement": 0,
+            "pronoun_arabic": 0,
+            "name_morphology": 0,
+            "role_morphology": 0
+          }
+        },
+        "nationality": {
+          "value": null,
+          "evidence": [],
+          "confidence": 0,
+          "signal_breakdown": {
+            "domain_TLD": 0,
+            "affiliation": 0,
+            "search_hint": 0,
+            "bio_statement": 0,
+            "name_morphology": 0,
+            "location_mentions": 0
+          }
+        }
+      },
+      "evidence_bundle_citations": 2,
+      "editorial_fit_score": 0.08,
+      "hidden_gem_score": 0.65,
+      "recommendation_score": 0.244,
+      "dropped_reason": "person_class_below_threshold (composite=0.09, threshold=0.35)"
+    },
+    {
+      "id": "b997243e-8182-47d5-861f-f2c49b7dcbb0",
+      "proposed_name": "Qixiang-Animation",
+      "status": "rejected",
+      "pipeline_version": "alpha",
+      "identity_confidence": 0.09,
+      "attribute_confidences": {
+        "gender": {
+          "value": null,
+          "evidence": [],
+          "confidence": 0,
+          "signal_breakdown": {
+            "bio_statement": 0,
+            "pronoun_arabic": 0,
+            "name_morphology": 0,
+            "role_morphology": 0
+          }
+        },
+        "nationality": {
+          "value": null,
+          "evidence": [],
+          "confidence": 0,
+          "signal_breakdown": {
+            "domain_TLD": 0,
+            "affiliation": 0,
+            "search_hint": 0,
+            "bio_statement": 0,
+            "name_morphology": 0,
+            "location_mentions": 0
+          }
+        }
+      },
+      "evidence_bundle_citations": 2,
+      "editorial_fit_score": 0.08,
+      "hidden_gem_score": 0.65,
+      "recommendation_score": 0.244,
+      "dropped_reason": "person_class_below_threshold (composite=0.09, threshold=0.35)"
+    },
+    {
+      "id": "56b355a4-574c-40d8-9d04-5ac3d9c9268f",
+      "proposed_name": "سنناقش كيفية",
+      "status": "rejected",
+      "pipeline_version": "alpha",
+      "identity_confidence": 0.09,
+      "attribute_confidences": {
+        "gender": {
+          "value": null,
+          "evidence": [],
+          "confidence": 0,
+          "signal_breakdown": {
+            "bio_statement": 0,
+            "pronoun_arabic": 0,
+            "name_morphology": 0,
+            "role_morphology": 0
+          }
+        },
+        "nationality": {
+          "value": null,
+          "evidence": [
+            "location: \"الكويت\"",
+            "hint: \"Kuwait\""
+          ],
+          "confidence": 0.075,
+          "signal_breakdown": {
+            "domain_TLD": 0,
+            "affiliation": 0,
+            "search_hint": 0.3,
+            "bio_statement": 0,
+            "name_morphology": 0,
+            "location_mentions": 0.4
+          }
+        }
+      },
+      "evidence_bundle_citations": 1,
+      "editorial_fit_score": 0.08,
+      "hidden_gem_score": 0.65,
+      "recommendation_score": 0.244,
+      "dropped_reason": "person_class_below_threshold (composite=0.09, threshold=0.35)"
+    },
+    {
+      "id": "718a732d-2a72-4e03-ba4a-e7fc19807e0f",
+      "proposed_name": "مزايا وتحديات",
+      "status": "rejected",
+      "pipeline_version": "alpha",
+      "identity_confidence": 0.09,
+      "attribute_confidences": {
+        "gender": {
+          "value": null,
+          "evidence": [],
+          "confidence": 0,
+          "signal_breakdown": {
+            "bio_statement": 0,
+            "pronoun_arabic": 0,
+            "name_morphology": 0,
+            "role_morphology": 0
+          }
+        },
+        "nationality": {
+          "value": null,
+          "evidence": [
+            "location: \"الكويت\"",
+            "hint: \"Kuwait\""
+          ],
+          "confidence": 0.075,
+          "signal_breakdown": {
+            "domain_TLD": 0,
+            "affiliation": 0,
+            "search_hint": 0.3,
+            "bio_statement": 0,
+            "name_morphology": 0,
+            "location_mentions": 0.4
+          }
+        }
+      },
+      "evidence_bundle_citations": 1,
+      "editorial_fit_score": 0.08,
+      "hidden_gem_score": 0.65,
+      "recommendation_score": 0.244,
+      "dropped_reason": "person_class_below_threshold (composite=0.09, threshold=0.35)"
+    },
+    {
+      "id": "28c659a1-978e-48a4-bf36-1cbaca7934bd",
+      "proposed_name": "Qixiang-Animation",
+      "status": "rejected",
+      "pipeline_version": "alpha",
+      "identity_confidence": 0.09,
+      "attribute_confidences": {
+        "gender": {
+          "value": null,
+          "evidence": [],
+          "confidence": 0,
+          "signal_breakdown": {
+            "bio_statement": 0,
+            "pronoun_arabic": 0,
+            "name_morphology": 0,
+            "role_morphology": 0
+          }
+        },
+        "nationality": {
+          "value": null,
+          "evidence": [],
+          "confidence": 0,
+          "signal_breakdown": {
+            "domain_TLD": 0,
+            "affiliation": 0,
+            "search_hint": 0,
+            "bio_statement": 0,
+            "name_morphology": 0,
+            "location_mentions": 0
+          }
+        }
+      },
+      "evidence_bundle_citations": 2,
+      "editorial_fit_score": 0.08,
+      "hidden_gem_score": 0.65,
+      "recommendation_score": 0.244,
+      "dropped_reason": "person_class_below_threshold (composite=0.09, threshold=0.35)"
+    },
+    {
+      "id": "5ac3cf07-f2cd-4441-88d3-64b4b1e6c991",
+      "proposed_name": null,
+      "status": "rejected",
+      "pipeline_version": "alpha",
+      "identity_confidence": 0,
+      "attribute_confidences": {
+        "gender": {
+          "value": null,
+          "evidence": [],
+          "confidence": 0,
+          "signal_breakdown": {
+            "bio_statement": 0,
+            "pronoun_arabic": 0,
+            "name_morphology": 0,
+            "role_morphology": 0
+          }
+        },
+        "nationality": {
+          "value": null,
+          "evidence": [],
+          "confidence": 0,
+          "signal_breakdown": {
+            "domain_TLD": 0,
+            "affiliation": 0,
+            "search_hint": 0,
+            "bio_statement": 0,
+            "name_morphology": 0,
+            "location_mentions": 0
+          }
+        }
+      },
+      "evidence_bundle_citations": 2,
+      "editorial_fit_score": 0.08,
+      "hidden_gem_score": 0.65,
+      "recommendation_score": 0.226,
+      "dropped_reason": "person_class_below_threshold (composite=0, threshold=0.35)"
+    },
+    {
+      "id": "cef12c69-4e03-42d7-8087-75a7f9673570",
+      "proposed_name": null,
+      "status": "rejected",
+      "pipeline_version": "alpha",
+      "identity_confidence": 0,
+      "attribute_confidences": {
+        "gender": {
+          "value": null,
+          "evidence": [],
+          "confidence": 0,
+          "signal_breakdown": {
+            "bio_statement": 0,
+            "pronoun_arabic": 0,
+            "name_morphology": 0,
+            "role_morphology": 0
+          }
+        },
+        "nationality": {
+          "value": null,
+          "evidence": [],
+          "confidence": 0,
+          "signal_breakdown": {
+            "domain_TLD": 0,
+            "affiliation": 0,
+            "search_hint": 0,
+            "bio_statement": 0,
+            "name_morphology": 0,
+            "location_mentions": 0
+          }
+        }
+      },
+      "evidence_bundle_citations": 2,
+      "editorial_fit_score": 0.08,
+      "hidden_gem_score": 0.65,
+      "recommendation_score": 0.226,
+      "dropped_reason": "person_class_below_threshold (composite=0, threshold=0.35)"
+    },
+    {
+      "id": "357dec2d-0bdb-42e5-96a6-003c8c5bbb3f",
+      "proposed_name": null,
+      "status": "rejected",
+      "pipeline_version": "alpha",
+      "identity_confidence": 0,
+      "attribute_confidences": {
+        "gender": {
+          "value": null,
+          "evidence": [],
+          "confidence": 0,
+          "signal_breakdown": {
+            "bio_statement": 0,
+            "pronoun_arabic": 0,
+            "name_morphology": 0,
+            "role_morphology": 0
+          }
+        },
+        "nationality": {
+          "value": null,
+          "evidence": [],
+          "confidence": 0,
+          "signal_breakdown": {
+            "domain_TLD": 0,
+            "affiliation": 0,
+            "search_hint": 0,
+            "bio_statement": 0,
+            "name_morphology": 0,
+            "location_mentions": 0
+          }
+        }
+      },
+      "evidence_bundle_citations": 2,
+      "editorial_fit_score": 0.08,
+      "hidden_gem_score": 0.65,
+      "recommendation_score": 0.226,
+      "dropped_reason": "person_class_below_threshold (composite=0, threshold=0.35)"
+    },
+    {
+      "id": "aa3386f9-5920-44c2-84b6-520fe1413e0e",
+      "proposed_name": null,
+      "status": "rejected",
+      "pipeline_version": "alpha",
+      "identity_confidence": 0,
+      "attribute_confidences": {
+        "gender": {
+          "value": null,
+          "evidence": [],
+          "confidence": 0,
+          "signal_breakdown": {
+            "bio_statement": 0,
+            "pronoun_arabic": 0,
+            "name_morphology": 0,
+            "role_morphology": 0
+          }
+        },
+        "nationality": {
+          "value": null,
+          "evidence": [],
+          "confidence": 0,
+          "signal_breakdown": {
+            "domain_TLD": 0,
+            "affiliation": 0,
+            "search_hint": 0,
+            "bio_statement": 0,
+            "name_morphology": 0,
+            "location_mentions": 0
+          }
+        }
+      },
+      "evidence_bundle_citations": 2,
+      "editorial_fit_score": 0.08,
+      "hidden_gem_score": 0.65,
+      "recommendation_score": 0.226,
+      "dropped_reason": "person_class_below_threshold (composite=0, threshold=0.35)"
+    }
+  ]
+}

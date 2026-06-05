@@ -3,7 +3,6 @@
 import Link from "next/link"
 import { YouTubeEmbed } from "./youtube-embed"
 import { ShareButtons } from "./share-buttons"
-import { Badge } from "@/components/ui/badge"
 import { Calendar, Clock, User } from "lucide-react"
 import { formatDate, formatDuration } from "@/lib/utils"
 
@@ -16,11 +15,14 @@ interface EpisodeHeroProps {
     duration_minutes: number
     release_date: string
     season?: number | null
+    category?: {
+      name: string
+      slug: string
+    } | null
     guest?: {
       name: string
       slug: string
     } | null
-    topics?: { id: string; name: string; slug: string }[]
   }
   teaser?: string
   initialStartTime?: number
@@ -59,17 +61,15 @@ export function EpisodeHero({ episode, teaser, initialStartTime }: EpisodeHeroPr
           <span>{formatDuration(episode.duration_minutes)}</span>
         </div>
         {episode.season && <span>الموسم {episode.season}</span>}
+        {episode.category && (
+          <Link
+            href={`/episodes?category=${episode.category.slug}`}
+            className="rounded-sm border border-primary/20 px-2 py-0.5 text-xs text-primary/70 transition-colors hover:bg-primary/10 hover:text-primary"
+          >
+            {episode.category.name}
+          </Link>
+        )}
       </div>
-
-      {episode.topics && episode.topics.length > 0 && (
-        <div className="flex flex-wrap gap-2">
-          {episode.topics.map((topic) => (
-            <Link key={topic.id} href={`/episodes?category=${topic.slug}`}>
-              <Badge variant="secondary">{topic.name}</Badge>
-            </Link>
-          ))}
-        </div>
-      )}
 
       {teaser && (
         <p className="text-muted-foreground leading-relaxed">{teaser}</p>

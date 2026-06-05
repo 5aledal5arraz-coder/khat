@@ -11,10 +11,13 @@ export function ContinueWatching() {
   const [episodes, setEpisodes] = useState<WatchProgress[]>([])
   const [mounted, setMounted] = useState(false)
 
+  // Hydration-safe: read localStorage (client-only API) and set mounted flag to prevent SSR mismatch
+  /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     setMounted(true)
     setEpisodes(getRecentlyViewed())
   }, [])
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   if (!mounted || episodes.length === 0) {
     return null

@@ -32,7 +32,6 @@ const borderSizeClasses = {
 
 export function GuestAvatar({
   name,
-  slug,
   photoUrl,
   size = "md",
   className,

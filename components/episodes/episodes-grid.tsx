@@ -2,7 +2,6 @@
 
 import { useState, useTransition } from "react"
 import { EpisodeCard } from "./episode-card"
-import { Button } from "@/components/ui/button"
 import { Loader2 } from "lucide-react"
 import type { Episode, Guest } from "@/types/database"
 
@@ -36,7 +35,6 @@ export function EpisodesGrid({
       const nextPage = page + 1
       const offset = nextPage * EPISODES_PER_PAGE
 
-      // Fetch more episodes
       const params = new URLSearchParams()
       params.set("offset", offset.toString())
       params.set("limit", EPISODES_PER_PAGE.toString())
@@ -61,46 +59,44 @@ export function EpisodesGrid({
   }
 
   return (
-    <div className="space-y-8">
-      <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+    <div className="space-y-12">
+      <div className="grid gap-10 sm:grid-cols-2 lg:grid-cols-3 sm:gap-12">
         {episodes.map((episode) => (
           <EpisodeCard key={episode.id} episode={episode} />
         ))}
       </div>
 
       {hasMore && (
-        <div className="flex flex-col items-center gap-2 pt-4">
+        <div className="flex flex-col items-center gap-3 pt-4">
           {loadError && (
-            <p className="text-sm text-destructive">صار خطأ بالتحميل، حاول مرة ثانية</p>
+            <p className="text-xs text-destructive">صار خطأ بالتحميل، حاول مرة ثانية</p>
           )}
-          <Button
-            variant="outline"
-            size="lg"
+          <button
             onClick={loadMore}
             disabled={isPending}
-            className="min-w-[200px]"
+            className="border border-primary/20 px-10 py-4 text-[10px] font-bold tracking-[0.3em] text-primary transition-all duration-500 hover:bg-primary hover:text-background disabled:opacity-50"
           >
             {isPending ? (
-              <>
-                <Loader2 className="me-2 h-4 w-4 animate-spin" />
+              <span className="flex items-center gap-2">
+                <Loader2 className="h-3 w-3 animate-spin" />
                 جارٍ التحميل...
-              </>
+              </span>
             ) : loadError ? (
               "حاول مرة ثانية"
             ) : (
               <>
                 تحميل المزيد
-                <span className="ms-2 text-muted-foreground">
+                <span className="ms-2 text-primary/40">
                   ({episodes.length} / {totalCount})
                 </span>
               </>
             )}
-          </Button>
+          </button>
         </div>
       )}
 
       {!hasMore && episodes.length > EPISODES_PER_PAGE && (
-        <p role="status" aria-live="polite" className="text-center text-sm text-muted-foreground">
+        <p role="status" aria-live="polite" className="text-center text-[10px] tracking-[0.2em] text-muted-foreground/40">
           هذي كل الحلقات ({totalCount})
         </p>
       )}

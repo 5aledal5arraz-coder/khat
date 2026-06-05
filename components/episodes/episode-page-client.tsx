@@ -17,22 +17,15 @@ import { BeforeYouWatch } from "./before-you-watch"
 import { ConversationMap } from "./conversation-map"
 import { ExclusiveClip } from "./exclusive-clip"
 import { UnsaidReflections } from "./unsaid-reflections"
-import type { EpisodeWithRelations, Episode, Guest, HomeQuote, EmotionalPath, DailyReflection } from "@/types/database"
+import type { EpisodeWithRelations, Episode, Guest, HomeQuote, DailyReflection, PodcastPlatformLink } from "@/types/database"
 import type { EpisodeEnrichment } from "@/types/episodes"
-import type { Article } from "@/types/space"
+import type { EpisodeSponsorData } from "@/lib/queries/episode-sponsors"
 import { EpisodeConnections } from "./episode-connections"
-import { EpisodeSectionNav } from "./episode-section-nav"
+import { AudioPlayer } from "./audio-player"
+import { EpisodePlatformLinks } from "./episode-platform-links"
+import { EpisodeSponsor } from "./episode-sponsor"
 import { trackEvent } from "@/lib/personalization/tracker"
-
-function formatTimestamp(totalSeconds: number): string {
-  const hours = Math.floor(totalSeconds / 3600)
-  const mins = Math.floor((totalSeconds % 3600) / 60)
-  const secs = totalSeconds % 60
-  if (hours > 0) {
-    return `${hours}:${mins.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}`
-  }
-  return `${mins}:${secs.toString().padStart(2, "0")}`
-}
+import { formatTimeSeconds } from "@/lib/utils"
 
 function TimestampLink({ seconds, title }: { seconds: number; title: string }) {
   const { seekTo } = usePlayer()
@@ -43,7 +36,7 @@ function TimestampLink({ seconds, title }: { seconds: number; title: string }) {
       className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-start transition-colors hover:bg-muted"
     >
       <span className="shrink-0 font-mono text-sm tabular-nums text-primary">
-        {formatTimestamp(seconds)}
+        {formatTimeSeconds(seconds)}
       </span>
       <span className="text-sm">{title}</span>
     </button>
@@ -56,10 +49,10 @@ interface EpisodePageClientProps {
   prev: Episode | null
   next: Episode | null
   homeQuotes?: HomeQuote[]
-  paths?: EmotionalPath[]
   reflections?: DailyReflection[]
   enrichment?: EpisodeEnrichment | null
-  hibrArticles?: Article[]
+  platformLinks?: PodcastPlatformLink[]
+  sponsor?: EpisodeSponsorData | null
   initialStartTime?: number
 }
 
@@ -69,10 +62,10 @@ export function EpisodePageClient({
   prev,
   next,
   homeQuotes = [],
-  paths = [],
   reflections = [],
   enrichment,
-  hibrArticles = [],
+  platformLinks = [],
+  sponsor,
   initialStartTime,
 }: EpisodePageClientProps) {
   // Track episode view
@@ -81,10 +74,9 @@ export function EpisodePageClient({
     if (trackedRef.current) return
     trackedRef.current = true
     trackEvent("episode_view", episode.id, {
-      topics: episode.topics?.map((t) => t.name) ?? [],
       guest_id: episode.guest_id ?? undefined,
     })
-  }, [episode.id, episode.topics, episode.guest_id])
+  }, [episode.id, episode.guest_id])
 
   const summary = episode.summary || episode.description || null
   const takeaways = episode.key_takeaways ?? []
@@ -94,35 +86,18 @@ export function EpisodePageClient({
   // Teaser: first ~150 chars of summary
   const teaser = summary ? summary.slice(0, 150) + (summary.length > 150 ? "..." : "") : undefined
 
-  // Build visible sections for the sticky nav
-  const navSections: { id: string; label: string }[] = [
-    { id: "sec-hero", label: "الحلقة" },
-  ]
-  if (enrichment?.why_this_conversation) navSections.push({ id: "sec-why", label: "لماذا" })
-  if (summary) navSections.push({ id: "sec-summary", label: "الملخص" })
-  if (hasDbTimestamps) navSections.push({ id: "sec-timestamps", label: "الفهرس" })
-  if (hasDbQuotes) navSections.push({ id: "sec-quotes", label: "اقتباسات" })
-  if (takeaways.length > 0) navSections.push({ id: "sec-takeaways", label: "أفكار" })
-  if (episode.resources.length > 0) navSections.push({ id: "sec-resources", label: "مصادر" })
-  if (relatedEpisodes.length > 0) navSections.push({ id: "sec-related", label: "حلقات مشابهة" })
-
   return (
     <EpisodePlayerProvider>
-      <EpisodeSectionNav sections={navSections} />
       <div className="container mx-auto overflow-x-hidden px-4 py-8">
         <div className="mx-auto max-w-4xl space-y-8">
           {/* 1. Guest Intro */}
-          <GuestIntroSection
-            guest={episode.guest || {
-              name: "ضيف الحلقة",
-              slug: "guest",
-              bio: null,
-              photo_url: null,
-              external_links: null,
-            }}
-            testimonial={episode.guest_testimonial}
-            testimonialVideoUrl={episode.guest_video_url}
-          />
+          {episode.guest && (
+            <GuestIntroSection
+              guest={episode.guest}
+              testimonial={episode.guest_testimonial}
+              testimonialVideoUrl={episode.guest_video_url}
+            />
+          )}
 
           {/* 2. Hero Section */}
           <div id="sec-hero">
@@ -133,6 +108,21 @@ export function EpisodePageClient({
           />
 
           </div>
+
+          {/* 2b. Audio Player + Platform Links */}
+          {episode.audio_url && (
+            <div className="space-y-3">
+              <AudioPlayer
+                audioUrl={episode.audio_url}
+                audioType={episode.audio_type}
+                title={episode.title}
+                duration={episode.audio_duration}
+              />
+              {platformLinks.length > 0 && (
+                <EpisodePlatformLinks platforms={platformLinks} />
+              )}
+            </div>
+          )}
 
           {/* 3. Why This Conversation */}
           <div id="sec-why">
@@ -195,18 +185,19 @@ export function EpisodePageClient({
             </div>
           )}
 
+          {/* 11b. Sponsor */}
+          {sponsor && <EpisodeSponsor sponsor={sponsor} />}
+
           {/* 12. Exclusive Clip */}
           <ExclusiveClip data={enrichment?.exclusive_clip} />
 
           {/* 13. Unsaid Reflections */}
           <UnsaidReflections items={enrichment?.unsaid_reflections} />
 
-          {/* 14. Connected Content: quotes, paths, reflections, hibr articles */}
+          {/* 14. Connected Content: quotes, reflections */}
           <EpisodeConnections
             homeQuotes={homeQuotes}
-            paths={paths}
             reflections={reflections}
-            hibrArticles={hibrArticles}
           />
 
           {/* 15. Next / Previous Navigation */}

@@ -5,27 +5,11 @@ export interface EpisodeOverride {
   customDescription?: string
 }
 
-export interface EpisodeSection {
-  id: string
-  label: string
-  order: number
-  color?: string
-  hidden?: boolean
-}
-
-export interface EpisodeSectionsConfig {
-  sections: EpisodeSection[]
-  assignments: Record<string, string> // episodeId -> sectionId
-  hiddenEpisodes: string[] // individually hidden episode IDs
-  deletedEpisodes: string[] // episodes removed from the website
-}
-
 export interface EpisodeEnrichment {
   episodeId: string
   hero_summary?: string
   full_summary?: string
   takeaways?: string[]
-  topics?: string[]
   resources?: { title: string; url: string; type: string | null }[]
   timestamps?: { time_seconds: number; title: string; description: string | null }[]
   why_this_conversation?: string

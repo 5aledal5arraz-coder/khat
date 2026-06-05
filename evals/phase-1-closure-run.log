@@ -1,0 +1,135 @@
+{
+  "script": "smoke-phase-1-all-v1.0",
+  "timestamp": "2026-05-26T13:05:42.511Z",
+  "overall": "PASS",
+  "passed": 18,
+  "failed": 0,
+  "results": [
+    {
+      "phase": "all",
+      "name": "TypeScript: tsc --noEmit",
+      "exitCode": 0,
+      "durationMs": 14394,
+      "ok": true
+    },
+    {
+      "phase": "P1.2",
+      "name": "Smoke: spine-joins",
+      "exitCode": 0,
+      "durationMs": 2463,
+      "ok": true
+    },
+    {
+      "phase": "P1.4",
+      "name": "Smoke: fk-orphans",
+      "exitCode": 0,
+      "durationMs": 2861,
+      "ok": true
+    },
+    {
+      "phase": "P1.3",
+      "name": "Scan:  jsonb-drift",
+      "exitCode": 0,
+      "durationMs": 2776,
+      "ok": true
+    },
+    {
+      "phase": "P1.6",
+      "name": "Smoke: rate-limit-burst",
+      "exitCode": 0,
+      "durationMs": 2709,
+      "ok": true
+    },
+    {
+      "phase": "P2.3",
+      "name": "Smoke: system-events",
+      "exitCode": 0,
+      "durationMs": 5545,
+      "ok": true
+    },
+    {
+      "phase": "P2.5",
+      "name": "Smoke: ops-dashboard",
+      "exitCode": 0,
+      "durationMs": 2507,
+      "ok": true
+    },
+    {
+      "phase": "P2.4",
+      "name": "Smoke: guest-identity-schema",
+      "exitCode": 0,
+      "durationMs": 2287,
+      "ok": true
+    },
+    {
+      "phase": "P2.4",
+      "name": "Smoke: guest-identity-backfill",
+      "exitCode": 0,
+      "durationMs": 11379,
+      "ok": true
+    },
+    {
+      "phase": "P2.4",
+      "name": "Smoke: p2-4-e-integrity",
+      "exitCode": 0,
+      "durationMs": 4529,
+      "ok": true
+    },
+    {
+      "phase": "P1.5",
+      "name": "Job:   retention-ai-runs (dry-run)",
+      "exitCode": 0,
+      "durationMs": 2619,
+      "ok": true
+    },
+    {
+      "phase": "P1.1",
+      "name": "Test:  sliding-session",
+      "exitCode": 0,
+      "durationMs": 1927,
+      "ok": true
+    },
+    {
+      "phase": "P1.3",
+      "name": "Test:  jsonb wrapper",
+      "exitCode": 0,
+      "durationMs": 1868,
+      "ok": true
+    },
+    {
+      "phase": "P1.3",
+      "name": "Test:  jsonb schemas",
+      "exitCode": 0,
+      "durationMs": 1804,
+      "ok": true
+    },
+    {
+      "phase": "P1.5",
+      "name": "Test:  retention policy",
+      "exitCode": 0,
+      "durationMs": 1723,
+      "ok": true
+    },
+    {
+      "phase": "P1.6",
+      "name": "Test:  rate-limit policy",
+      "exitCode": 0,
+      "durationMs": 1757,
+      "ok": true
+    },
+    {
+      "phase": "P0.5",
+      "name": "Test:  prompt snapshots",
+      "exitCode": 0,
+      "durationMs": 1926,
+      "ok": true
+    },
+    {
+      "phase": "P0.8",
+      "name": "Eval CLI: list",
+      "exitCode": 0,
+      "durationMs": 3063,
+      "ok": true
+    }
+  ]
+}

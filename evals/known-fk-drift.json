@@ -1,0 +1,144 @@
+{
+  "$schema_version": "v1",
+  "_description": "Acknowledged soft-FK drift recorded after Phase 1.4 runtime discovery. Each entry says: this check has known drift in this bucket; smoke exits 0 if observed drift is within the entry. Smoke exits 1 the moment new drift appears (NEW orphan value that doesn't match allow_values, OR observed count exceeds max_orphans).",
+  "_semantics": {
+    "allow_values": "Array of JS-style regex source strings. Any orphan pointer value matching ANY pattern is acknowledged. Use for drift whose pattern is stable (test-actor labels, system-generated IDs).",
+    "max_orphans": "Integer cap. Any orphan up to this count is acknowledged. Use for drift whose values are unpredictable but whose count is known and bounded (legacy content references, deleted-parent orphans).",
+    "Both can coexist": "If an entry has both, pattern-matching applies first; up to max_orphans of the remaining (unmatched) orphans are then acknowledged.",
+    "Exit 0 rule": "Across all checks, every observed orphan must be acknowledged.",
+    "Tightening": "When Phase 4/5 work reduces actual orphans, lower max_orphans or remove entries. Smoke will gently nag if observed is much lower than acknowledged."
+  },
+  "buckets": {
+    "test_actor": "Test/eval/smoke session labels stamped into actor_id or created_by columns. Soft FKs are intentionally permissive on these columns. Harmless by design.",
+    "legacy_content": "Dev-DB content tables (home_quotes, daily_reflections, homepage_featured) seeded against an older episode snapshot than the current episodes table. Cleanup belongs to operator reseed or Phase 5 legacy retirement.",
+    "phase4_guest": "Stale guest-candidate pointers in khat_map_episode_candidates after guest candidates were deleted. Will be rationalised by Phase 4 guest unification."
+  },
+  "allowed": [
+    {
+      "check_id": "admin-1",
+      "bucket": "test_actor",
+      "allow_values": ["^smoke-conv-\\d+$", "^eval-runner$", "^diag-roundtrip$", "^walkthrough-final$"],
+      "note": "episode_intelligence_records.created_by — stamped by smoke/eval/diag runners."
+    },
+    {
+      "check_id": "admin-2",
+      "bucket": "test_actor",
+      "allow_values": ["^smoke-conv-\\d+$", "^eval-runner$", "^diag-roundtrip$", "^walkthrough-final$"],
+      "note": "eir_phase_transitions.actor_id — same actor labels stamped by transition writes."
+    },
+    {
+      "check_id": "admin-3",
+      "bucket": "test_actor",
+      "allow_values": ["^smoke-conv-\\d+$", "^eval-runner$", "^diag-roundtrip$", "^walkthrough-final$"],
+      "note": "episode_preparations.created_by — same labels seen in preparation writes."
+    },
+    {
+      "check_id": "admin-4",
+      "bucket": "test_actor",
+      "allow_values": ["^smoke-conv-\\d+$", "^eval-runner$", "^diag-roundtrip$", "^walkthrough-final$"],
+      "note": "collaboration_rooms.created_by — same labels seen in collab room writes."
+    },
+    {
+      "check_id": "admin-6",
+      "bucket": "test_actor",
+      "allow_values": ["^smoke-conv-\\d+$", "^eval-runner$", "^diag-roundtrip$", "^walkthrough-final$"],
+      "note": "khat_map_user_feedback.admin_id — same actor labels."
+    },
+    {
+      "check_id": "admin-7",
+      "bucket": "test_actor",
+      "allow_values": ["^smoke-conv-\\d+$", "^eval-runner$", "^diag-roundtrip$", "^walkthrough-final$"],
+      "note": "khat_map_user_taste_profile.user_id — same."
+    },
+    {
+      "check_id": "admin-8",
+      "bucket": "test_actor",
+      "allow_values": ["^smoke-conv-\\d+$", "^eval-runner$", "^diag-roundtrip$", "^walkthrough-final$"],
+      "note": "khat_map_season_decisions.admin_id — same."
+    },
+    {
+      "check_id": "admin-9",
+      "bucket": "test_actor",
+      "allow_values": ["^smoke-conv-\\d+$", "^eval-runner$", "^diag-roundtrip$", "^walkthrough-final$"],
+      "note": "discovery_runs.created_by — eval-runner used during P0 discovery baseline."
+    },
+    {
+      "check_id": "admin-10",
+      "bucket": "test_actor",
+      "allow_values": ["^smoke-conv-\\d+$", "^eval-runner$", "^diag-roundtrip$", "^walkthrough-final$"],
+      "note": "hybrid_topic_generations.created_by — eval-runner used during P0 hybrid baseline."
+    },
+    {
+      "check_id": "admin-11",
+      "bucket": "test_actor",
+      "allow_values": ["^smoke-conv-\\d+$", "^eval-runner$", "^diag-roundtrip$", "^walkthrough-final$"],
+      "note": "market_signal_review_events.actor_id — same."
+    },
+    {
+      "check_id": "admin-12",
+      "bucket": "test_actor",
+      "allow_values": ["^smoke-conv-\\d+$", "^eval-runner$", "^diag-roundtrip$", "^walkthrough-final$"],
+      "note": "market_trusted_sources.created_by — same."
+    },
+    {
+      "check_id": "admin-13",
+      "bucket": "test_actor",
+      "allow_values": ["^smoke-conv-\\d+$", "^eval-runner$", "^diag-roundtrip$", "^walkthrough-final$"],
+      "note": "market_topic_signals.reviewed_by — same."
+    },
+    {
+      "check_id": "admin-14",
+      "bucket": "test_actor",
+      "allow_values": ["^smoke-conv-\\d+$", "^eval-runner$", "^diag-roundtrip$", "^walkthrough-final$"],
+      "note": "newsletter_campaigns.sent_by — same."
+    },
+    {
+      "check_id": "admin-15",
+      "bucket": "test_actor",
+      "allow_values": ["^smoke-conv-\\d+$", "^eval-runner$", "^diag-roundtrip$", "^walkthrough-final$"],
+      "note": "guest_candidate_status_history.changed_by — same."
+    },
+    {
+      "check_id": "admin-16",
+      "bucket": "test_actor",
+      "allow_values": ["^smoke-conv-\\d+$", "^eval-runner$", "^diag-roundtrip$", "^walkthrough-final$"],
+      "note": "guest_prep_forms.created_by — same."
+    },
+    {
+      "check_id": "admin-17",
+      "bucket": "test_actor",
+      "allow_values": ["^smoke-conv-\\d+$", "^eval-runner$", "^diag-roundtrip$", "^walkthrough-final$"],
+      "note": "episode_versions.created_by — same."
+    },
+    {
+      "check_id": "admin-18",
+      "bucket": "test_actor",
+      "allow_values": ["^smoke-conv-\\d+$", "^eval-runner$", "^diag-roundtrip$", "^walkthrough-final$"],
+      "note": "deleted_episodes.deleted_by — same."
+    },
+    {
+      "check_id": "ep-3",
+      "bucket": "legacy_content",
+      "max_orphans": 41,
+      "note": "home_quotes.episode_id — 41 stale episode references from older content seed. Cleanup in Phase 5 (legacy retirement) or operator reseed."
+    },
+    {
+      "check_id": "ep-4",
+      "bucket": "legacy_content",
+      "max_orphans": 41,
+      "note": "daily_reflections.episode_id — same root cause as ep-3."
+    },
+    {
+      "check_id": "ep-5",
+      "bucket": "legacy_content",
+      "max_orphans": 3,
+      "note": "homepage_featured.episode_id — same root cause; 3 featured slots reference stale episodes."
+    },
+    {
+      "check_id": "cross-3",
+      "bucket": "phase4_guest",
+      "max_orphans": 2,
+      "note": "khat_map_episode_candidates.suggested_guest_candidate_id — two candidates whose suggested guest candidate was deleted. Will be rationalised by Phase 4 guest unification."
+    }
+  ]
+}

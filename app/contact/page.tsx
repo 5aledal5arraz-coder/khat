@@ -2,31 +2,25 @@ import { Metadata } from "next"
 import Link from "next/link"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { Mail, MessageCircle, Mic, ArrowLeft } from "lucide-react"
+import { Mail, Mic, ArrowLeft, ExternalLink } from "lucide-react"
+import { listPlatformsForSurface } from "@/lib/queries/official-platforms"
+import { PlatformIcon } from "@/components/platforms/platform-icon"
 
 export const metadata: Metadata = {
   title: "تواصل معنا",
   description: "تواصل مع فريق بودكاست خط أو قدم طلباً لتكون ضيفاً",
 }
 
-const contactMethods = [
-  {
-    icon: Mail,
-    title: "البريد الإلكتروني",
-    description: "للاستفسارات العامة",
-    value: "hello@khat.fm",
-    href: "mailto:hello@khat.fm",
-  },
-  {
-    icon: MessageCircle,
-    title: "وسائل التواصل",
-    description: "تابعنا وتواصل معنا",
-    value: "@khatpodcast",
-    href: "https://x.com/khatpodcast",
-  },
-]
+const emailMethod = {
+  icon: Mail,
+  title: "البريد الإلكتروني",
+  description: "للاستفسارات العامة",
+  value: "hello@khat.fm",
+  href: "mailto:hello@khat.fm",
+}
 
-export default function ContactPage() {
+export default async function ContactPage() {
+  const contactPlatforms = await listPlatformsForSurface("contact_page").catch(() => [])
   return (
     <div className="container mx-auto px-4 py-8">
       <div className="mx-auto max-w-4xl">
@@ -73,32 +67,56 @@ export default function ContactPage() {
             </CardContent>
           </Card>
 
-          {/* Contact Methods */}
-          {contactMethods.map((method) => (
-            <Card key={method.title}>
-              <CardHeader>
-                <div className="flex items-center gap-3">
-                  <div className="rounded-lg bg-primary/10 p-2">
-                    <method.icon className="h-5 w-5 text-primary" />
-                  </div>
-                  <div>
-                    <CardTitle className="text-lg">{method.title}</CardTitle>
-                    <CardDescription>{method.description}</CardDescription>
-                  </div>
+          {/* Email */}
+          <Card>
+            <CardHeader>
+              <div className="flex items-center gap-3">
+                <div className="rounded-lg bg-primary/10 p-2">
+                  <emailMethod.icon className="h-5 w-5 text-primary" />
                 </div>
+                <div>
+                  <CardTitle className="text-lg">{emailMethod.title}</CardTitle>
+                  <CardDescription>{emailMethod.description}</CardDescription>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <a
+                href={emailMethod.href}
+                className="text-lg font-medium text-primary hover:underline"
+              >
+                {emailMethod.value}
+              </a>
+            </CardContent>
+          </Card>
+
+          {/* Social / Community (from DB) */}
+          {contactPlatforms.length > 0 && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-lg">وسائل التواصل</CardTitle>
+                <CardDescription>تابعنا وتواصل معنا</CardDescription>
               </CardHeader>
               <CardContent>
-                <a
-                  href={method.href}
-                  className="text-lg font-medium text-primary hover:underline"
-                  target={method.href.startsWith("http") ? "_blank" : undefined}
-                  rel={method.href.startsWith("http") ? "noopener noreferrer" : undefined}
-                >
-                  {method.value}
-                </a>
+                <ul className="space-y-2">
+                  {contactPlatforms.map((p) => (
+                    <li key={p.id}>
+                      <a
+                        href={p.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="group inline-flex items-center gap-2 text-sm text-primary hover:underline"
+                      >
+                        <PlatformIcon iconName={p.icon_name} className="h-4 w-4" />
+                        <span>{p.handle || p.platform_name}</span>
+                        <ExternalLink className="h-3 w-3 opacity-50 group-hover:opacity-100" />
+                      </a>
+                    </li>
+                  ))}
+                </ul>
               </CardContent>
             </Card>
-          ))}
+          )}
         </div>
 
         {/* FAQ */}

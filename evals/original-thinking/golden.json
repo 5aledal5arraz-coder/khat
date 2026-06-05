@@ -1,0 +1,82 @@
+{
+  "$schema_version": "v1",
+  "feature": "original-thinking",
+  "language": "ar",
+  "description": "Lens-driven original topics. Positives transcribe successful Khat episodes into the Original Thinking shape (title, lens, philosophical_frame, conflict, emotional_hook). Negatives are synthetic violations of lib/original-thinking/novelty.ts. Operator must add 3-5 personally-curated positives.",
+  "positive": [
+    {
+      "id": "pos-001",
+      "source": "real-episode-001",
+      "evidence": "Khat episode #001 (الأسير السابق) at 296,502 views. The lens 'unspoken_grief' fits perfectly: loss the world wouldn't let him name.",
+      "example": {
+        "title": "حين تصبح النجاة عبئاً أثقل من الأسر",
+        "lens": "unspoken_grief",
+        "philosophical_frame": "النجاة ليست النهاية — هي بداية فقد لا اسم له. من يحرر السجين من فكرة كان يحملها عن البيت طوال عقدين؟",
+        "conflict": "بين الحرية بوصفها هدفاً والحرية بوصفها مواجهة مع الفقد الذي أرجأه الأسر طوال السنين.",
+        "emotional_hook": "اللحظة التي تفتح فيها باب البيت بعد عشرين سنة لتكتشف أن الذي حلمت به لم يعد قائماً."
+      }
+    },
+    {
+      "id": "pos-002",
+      "source": "real-episode-016",
+      "evidence": "Khat episode #016 (نور الدين زنكي) at 179,093 views. 'moral_compromise' lens fits the question: who gets remembered as builder vs. inheritor?",
+      "example": {
+        "title": "الممهّد الذي تنسى الأمم أن تذكره",
+        "lens": "moral_compromise",
+        "philosophical_frame": "الذاكرة الجماعية تكافئ الذي حصد لا الذي زرع. هذا ليس نسياناً بريئاً — هذا اختيار قيمي.",
+        "conflict": "بين قراءة التاريخ كسلسلة من الأبطال وقراءته كنتاج جيل من العمل الصامت — وكيف تتورط الأمم في النسيان.",
+        "emotional_hook": "ماذا لو كان البطل الذي تعرفه نتيجة، لا سبباً؟ ومن كان السبب الحقيقي؟"
+      }
+    },
+    {
+      "id": "pos-003",
+      "source": "real-episode-010",
+      "evidence": "Khat episode #010 (تاجر العود علي آل دريع) at 227,420 views. 'betrayal_of_self' lens fits: a man becomes someone else through migration.",
+      "example": {
+        "title": "الرحلة التي صنعت الرجل: ماذا نخسر حين نصبح ما نحن عليه؟",
+        "lens": "betrayal_of_self",
+        "philosophical_frame": "كل رحلة طويلة فيها رجل واحد دخلها وآخر خرج منها. السؤال عن الذي تخلّى عنه — لا الذي وصل إليه.",
+        "conflict": "بين الهوية التي وُلد بها الإنسان والهوية التي اضطر إلى صنعها ليبقى — وما الذي يبقى منه حين تصطدم الاثنتان.",
+        "emotional_hook": "حين تنظر إلى الرجل الذي أصبحته، هل تجد فيه الولد الذي كنت؟"
+      }
+    }
+  ],
+  "negative": [
+    {
+      "id": "neg-001",
+      "source": "synthetic-rule-driven",
+      "evidence": "Title matches GENERIC_TITLE_PATTERNS (/^كيف \\d+/), hook violates WEAK_HOOK_PHRASES ('في هذه الحلقة').",
+      "example": {
+        "title": "كيف 5 طرق تغير حياتك",
+        "lens": "betrayal_of_self",
+        "philosophical_frame": "كل واحد يقدر يغير حياته.",
+        "conflict": "بين الكسل والنشاط.",
+        "emotional_hook": "في هذه الحلقة نناقش طرق تغيير الحياة."
+      }
+    },
+    {
+      "id": "neg-002",
+      "source": "synthetic-rule-driven",
+      "evidence": "Vague conflict ('حياة عصرية', 'أفضل نسخة من نفسك').",
+      "example": {
+        "title": "نحو حياة أفضل في عالمنا اليوم",
+        "lens": "existential_dread",
+        "philosophical_frame": "الحياة معقدة والمجتمع الحديث يتطلب وعياً مختلفاً.",
+        "conflict": "بين الحياة العصرية والتطور الذاتي نحو أفضل نسخة من نفسك.",
+        "emotional_hook": "نتحدث عن كيف نكون أفضل في حياة عصرية."
+      }
+    },
+    {
+      "id": "neg-003",
+      "source": "synthetic-rule-driven",
+      "evidence": "Lens key not in registry (drift from lenses.json).",
+      "example": {
+        "title": "اللحظة التي قررت فيها التخلي عن العمل",
+        "lens": "self_reinvention",
+        "philosophical_frame": "أحياناً نحتاج إلى البدء من جديد.",
+        "conflict": "بين الاستمرار في الوظيفة وبين البحث عن المعنى.",
+        "emotional_hook": "في الصباح الذي أدركت فيه أن السنوات الخمس عشرة كانت كذبة."
+      }
+    }
+  ]
+}

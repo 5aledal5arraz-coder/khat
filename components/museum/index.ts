@@ -1,0 +1,6 @@
+export { MuseumHero } from "./hero"
+export { MuseumGallery } from "./gallery"
+export { MuseumPhilosophyFeed } from "./philosophy-feed"
+export { MuseumThinkers } from "./thinkers"
+export { MuseumHost } from "./host"
+export { MuseumPrestigiousInvolvement } from "./prestigious-involvement"

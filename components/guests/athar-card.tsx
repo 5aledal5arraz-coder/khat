@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useRef, useState } from "react"
+import { formatDate } from "@/lib/shared/formatters"
 
 interface AtharCardProps {
   text: string
@@ -38,17 +39,7 @@ export function AtharCard({
     return () => observer.disconnect()
   }, [compact])
 
-  const [formattedDate, setFormattedDate] = useState<string | null>(null)
-
-  useEffect(() => {
-    if (!episodeDate) return
-    try {
-      const d = new Date(episodeDate)
-      setFormattedDate(`${String(d.getDate()).padStart(2, "0")}/${String(d.getMonth() + 1).padStart(2, "0")}/${d.getFullYear()}`)
-    } catch {
-      setFormattedDate(null)
-    }
-  }, [episodeDate])
+  const formattedDate = episodeDate ? formatDate(episodeDate) : null
 
   if (compact) {
     return (

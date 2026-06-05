@@ -1,0 +1,37 @@
+{
+  "version": 1,
+  "_comment": "Phase X Step 1 — default market query presets. Generic Arabic + English topics. NO Kuwait bias here on purpose; Kuwait-specific queries should be added per-call by the editor when needed.",
+  "presets": [
+    { "label": "relationships-ar", "query": "علاقات", "language": "ar" },
+    { "label": "success-ar",       "query": "نجاح", "language": "ar" },
+    { "label": "money-ar",         "query": "مال", "language": "ar" },
+    { "label": "loneliness-ar",    "query": "وحدة", "language": "ar" },
+    { "label": "childhood-ar",     "query": "طفولة", "language": "ar" },
+    { "label": "identity-ar",      "query": "هوية", "language": "ar" },
+    { "label": "religion-ar",      "query": "دين", "language": "ar" },
+    { "label": "philosophy-ar",    "query": "فلسفة", "language": "ar" },
+    { "label": "psychology-ar",    "query": "علم النفس", "language": "ar" },
+    { "label": "social-media-ar",  "query": "وسائل التواصل", "language": "ar" },
+    { "label": "ai-ar",            "query": "ذكاء اصطناعي", "language": "ar" },
+    { "label": "betrayal-ar",      "query": "خيانة", "language": "ar" },
+    { "label": "family-ar",        "query": "عائلة", "language": "ar" },
+    { "label": "masculinity-ar",   "query": "رجولة", "language": "ar" },
+    { "label": "failure-ar",       "query": "فشل", "language": "ar" },
+
+    { "label": "relationships-en", "query": "relationships", "language": "en" },
+    { "label": "success-en",       "query": "success", "language": "en" },
+    { "label": "money-en",         "query": "money", "language": "en" },
+    { "label": "loneliness-en",    "query": "loneliness", "language": "en" },
+    { "label": "childhood-en",     "query": "childhood", "language": "en" },
+    { "label": "identity-en",      "query": "identity", "language": "en" },
+    { "label": "religion-en",      "query": "religion", "language": "en" },
+    { "label": "philosophy-en",    "query": "philosophy", "language": "en" },
+    { "label": "psychology-en",    "query": "psychology", "language": "en" },
+    { "label": "social-media-en",  "query": "social media", "language": "en" },
+    { "label": "ai-en",            "query": "artificial intelligence", "language": "en" },
+    { "label": "betrayal-en",      "query": "betrayal", "language": "en" },
+    { "label": "family-en",        "query": "family", "language": "en" },
+    { "label": "masculinity-en",   "query": "masculinity", "language": "en" },
+    { "label": "failure-en",       "query": "failure", "language": "en" }
+  ]
+}

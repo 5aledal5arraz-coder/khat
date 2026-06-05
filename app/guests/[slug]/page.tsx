@@ -19,6 +19,9 @@ import { TwitchIcon } from "@/components/icons/twitch-icon"
 import { DiscordIcon } from "@/components/icons/discord-icon"
 import { PinterestIcon } from "@/components/icons/pinterest-icon"
 
+// Admin panel (DB) is the single source of truth — render on every request.
+export const dynamic = "force-dynamic"
+
 interface GuestPageProps {
   params: Promise<{ slug: string }>
 }
@@ -52,12 +55,16 @@ export async function generateMetadata({ params }: GuestPageProps): Promise<Meta
   const guest = await getGuestBySlug(decodedSlug)
 
   if (!guest) {
-    return { title: "الضيف غير موجود" }
+    // Trigger a real 404 response (not a soft-404 body with HTTP 200).
+    // Without this, the body's notFound() does not propagate a 404 status
+    // because metadata already committed a successful response.
+    notFound()
   }
 
   return {
     title: guest.name,
     description: guest.bio || `تعرف على ${guest.name} وحلقاته في بودكاست خط`,
+    alternates: { canonical: `https://khatpodcast.com/guests/${guest.slug}` },
     openGraph: {
       title: guest.name,
       description: guest.bio || undefined,
@@ -78,8 +85,24 @@ export default async function GuestPage({ params }: GuestPageProps) {
 
   const externalLinks = guest.external_links || {}
 
+  const jsonLd = {
+    "@context": "https://schema.org",
+    "@type": "Person",
+    name: guest.name,
+    description: guest.bio || undefined,
+    image: guest.photo_url || undefined,
+    url: `https://khatpodcast.com/guests/${guest.slug}`,
+    sameAs: Object.values(externalLinks).filter(
+      (url) => typeof url === "string" && url.startsWith("http")
+    ),
+  }
+
   return (
     <div className="container mx-auto px-4 py-8">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+      />
       <div className="mx-auto max-w-4xl">
         {/* Guest Header */}
         <div className="flex flex-col items-center gap-6 text-center sm:flex-row sm:text-start">

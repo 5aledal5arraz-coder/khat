@@ -1,0 +1,70 @@
+{
+  "$schema_version": "v1",
+  "feature": "discovery-archetypes",
+  "language": "ar",
+  "description": "Discovery archetypes — patterns the search agents use to find hidden Arab thinkers. Positives are archetype shapes that match Khat's editorial brief from constitution.ts and seed-archetypes.ts. Negatives are generic 'thought leader' framings.",
+  "positive": [
+    {
+      "id": "pos-001",
+      "source": "operator-curated",
+      "evidence": "Derived from Khat's editorial brief in lib/discovery/seed-archetypes.ts and the past-episode pattern of named-guest stories. Archetype targets the 'quiet expert with deep transformation arc' pattern that produced ep #015 (the historian of the invasion) and ep #018 (the entrepreneur).",
+      "example": {
+        "id": "quiet_expert_witness",
+        "name": "الشاهد الهادئ على تحوّل لم يُحكَ",
+        "description": "شخص عاش لحظة تاريخية أو تحول مجتمعياً عميقاً بصمت — لم يتحدث عنه إعلامياً، لكنه يحفظه بدقة. يتحدث عن الأشياء الصغيرة التي تكشف الكبيرة.",
+        "target_signals": ["شاهد عيان", "ذاكرة شفهية", "تحول مجتمعي", "quiet expertise", "oral history"],
+        "expected_traits": ["تواضع في الحديث", "ذاكرة دقيقة", "صدق بدون مبالغة"]
+      }
+    },
+    {
+      "id": "pos-002",
+      "source": "operator-curated",
+      "evidence": "Pattern matches the 'transformation through migration/trade' theme of ep #010 (tea trader from India) and ep #002 (entrepreneur). Archetype focuses on what changed inside the person, not just outside.",
+      "example": {
+        "id": "transformation_through_displacement",
+        "name": "من تشكّل عبر الترحال",
+        "description": "إنسان غيرته الجغرافيا أكثر مما غيره الزمن — انتقل بين عوالم وبقي يحاول فهم ما الذي أخذه كل عالم منه. يتحدث عن الهوية كحركة لا كاستقرار.",
+        "target_signals": ["هجرة", "تجارة عبر القارات", "اغتراب", "migration story", "diasporic identity"],
+        "expected_traits": ["وعي بالاختلاف", "صبر في الحكاية", "حضور صادق"]
+      }
+    },
+    {
+      "id": "pos-003",
+      "source": "operator-curated",
+      "evidence": "From the Khat brief: 'صدق نادر في الكلام عن الفقد، المال، الهوية، النجاح، العائلة، الفشل، الإيمان.' This archetype targets the failure-story variant — rare in Arabic podcasting.",
+      "example": {
+        "id": "honest_failure_arc",
+        "name": "من حكى فشله قبل نجاحه",
+        "description": "رائد أعمال أو شخصية عامة عاش فشلاً مؤثراً ولم يخفِه. يتحدث عن الفشل بوصفه جزءاً من السيرة، لا بوصفه عقبة عُبرت.",
+        "target_signals": ["فشل ريادي", "إعلان إفلاس", "خسارة عامة", "honest failure", "candid setback"],
+        "expected_traits": ["شجاعة في الكشف", "غياب الدفاعية", "تحليل ذاتي لا جلد"]
+      }
+    }
+  ],
+  "negative": [
+    {
+      "id": "neg-001",
+      "source": "synthetic-rule-driven",
+      "evidence": "Violates the constitution's 'لا نبحث عن مشاهير' rule. Generic 'thought leader' framing with no story arc.",
+      "example": {
+        "id": "thought_leader",
+        "name": "قائد فكري ذو نفوذ واسع",
+        "description": "شخصية مؤثرة تتحدث عن قضايا عصرية بأسلوب متطور وتمتلك جمهوراً كبيراً.",
+        "target_signals": ["مؤثر", "جمهور كبير", "خطاب عام"],
+        "expected_traits": ["كاريزما", "خبرة"]
+      }
+    },
+    {
+      "id": "neg-002",
+      "source": "synthetic-rule-driven",
+      "evidence": "Vague description that could apply to any guest. No specific signal to search for. No editorial conflict named.",
+      "example": {
+        "id": "interesting_person",
+        "name": "شخصية مثيرة للاهتمام",
+        "description": "شخص لديه تجربة مثيرة وقصة مميزة في مجال معين.",
+        "target_signals": ["تجربة فريدة", "قصة جيدة"],
+        "expected_traits": ["إيجابي", "متفاعل"]
+      }
+    }
+  ]
+}

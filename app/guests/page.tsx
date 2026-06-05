@@ -5,6 +5,9 @@ import { GuestCard } from "@/components/guests/guest-card"
 import { GuestSearch } from "@/components/guests/guest-search"
 import { Skeleton } from "@/components/ui/skeleton"
 
+// Admin panel (DB) is the single source of truth — render on every request.
+export const dynamic = "force-dynamic"
+
 export const metadata: Metadata = {
   title: "الضيوف",
   description: "تعرف على ضيوف بودكاست خط",
@@ -17,15 +20,27 @@ interface GuestsPageProps {
 }
 
 async function GuestsContent({ searchParams }: { searchParams: Awaited<GuestsPageProps['searchParams']> }) {
-  const guests = await getGuests({
-    search: searchParams.search,
-  })
+  let guests
+  try {
+    guests = await getGuests({
+      search: searchParams.search,
+    })
+  } catch (error) {
+    console.error("[GuestsPage] Failed to fetch guests:", error)
+    return (
+      <div className="py-12 text-center">
+        <p className="text-lg text-muted-foreground">
+          تعذّر تحميل الضيوف حالياً. يرجى المحاولة لاحقاً.
+        </p>
+      </div>
+    )
+  }
 
   if (guests.length === 0) {
     return (
       <div className="py-12 text-center">
         <p className="text-lg text-muted-foreground">
-          لا يوجد ضيوف مطابقين للبحث
+          {searchParams.search ? "لا يوجد ضيوف مطابقين للبحث" : "لا يوجد ضيوف بعد"}
         </p>
       </div>
     )

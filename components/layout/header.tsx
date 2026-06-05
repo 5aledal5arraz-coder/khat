@@ -8,17 +8,13 @@ import { Search, X } from "lucide-react"
 import { Button, buttonVariants } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 
-const baseNavigation = [
+const navigation = [
   { name: "الحلقات", href: "/episodes" },
   { name: "الضيوف", href: "/guests" },
-  { name: "المجموعات", href: "/series" },
-  { name: "حبر", href: "/space", requiresHibr: true },
-  { name: "خطوط", href: "/resources" },
   { name: "من نحن", href: "/about" },
 ]
 
-export function Header({ hibrEnabled = true, hasNewEpisode = false }: { hibrEnabled?: boolean; hasNewEpisode?: boolean }) {
-  const navigation = baseNavigation.filter((item) => !item.requiresHibr || hibrEnabled)
+export function Header({ hasNewEpisode = false }: { hasNewEpisode?: boolean }) {
   const [searchOpen, setSearchOpen] = useState(false)
   const [searchQuery, setSearchQuery] = useState("")
   const router = useRouter()

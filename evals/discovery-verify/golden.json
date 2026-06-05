@@ -1,0 +1,90 @@
+{
+  "$schema_version": "v1",
+  "feature": "discovery-verify",
+  "language": "ar",
+  "description": "Verification verdicts on candidate guests. The judge ranks verdicts on faithfulness to evidence + honest editorial_fit_score + named red flags. Positives demonstrate careful reading; negatives demonstrate either inflated fit scores or invention beyond the evidence.",
+  "positive": [
+    {
+      "id": "pos-001",
+      "source": "operator-curated",
+      "evidence": "Operator-grade verdict: cites specific evidence, names a concrete arc, gives a calibrated fit score, and flags a real risk.",
+      "example": {
+        "evidence_summary": {
+          "why_they_matter": "في الأدلة، الشخص يتحدث عن تجربة الإفلاس الأول بصراحة نادرة. ذكر تفاصيل لم تظهر في أي مقابلة سابقة، وأظهر تحليلاً ذاتياً لا جلداً.",
+          "topics": ["الفشل الريادي", "ضغط العائلة على القرارات المالية", "إعادة البناء بعد الإفلاس"],
+          "risks": ["قد لا يكون مرتاحاً للحديث عن المسؤولين الذين سببوا الخسارة"],
+          "notable_quotes": ["'الفشل لم يكسرني، الكذب على نفسي بأن كل شيء بخير كسرني.'"],
+          "red_flags": []
+        },
+        "story_signals": {
+          "arcs": ["transformation_through_failure"],
+          "topics": ["entrepreneurship", "honest_self_inquiry"],
+          "events": ["إعلان إفلاس 2019", "إعادة تأسيس بعد سنة"]
+        },
+        "editorial_fit_score": 0.78
+      }
+    },
+    {
+      "id": "pos-002",
+      "source": "operator-curated",
+      "evidence": "Honest negative verdict — the evidence didn't support the archetype, and the verdict says so explicitly with a low fit score.",
+      "example": {
+        "evidence_summary": {
+          "why_they_matter": "الأدلة المتوفرة تشير إلى وجود اجتماعي قوي لكنها لا تكشف عن صراع داخلي أو تحول. الحديث عام وتسويقي بطبيعته.",
+          "topics": ["self_branding", "social_visibility"],
+          "risks": ["الأدلة لا تظهر عمق الموضوع الذي يقدّمه"],
+          "notable_quotes": [],
+          "red_flags": ["كل المحتوى الظاهر تسويقي / ترويجي", "لا توجد إشارة على فترة هدوء أو تحول"]
+        },
+        "story_signals": {
+          "arcs": [],
+          "topics": ["social_media", "personal_brand"],
+          "events": []
+        },
+        "editorial_fit_score": 0.25
+      }
+    }
+  ],
+  "negative": [
+    {
+      "id": "neg-001",
+      "source": "synthetic-rule-driven",
+      "evidence": "Inflated fit score (0.9) without grounded evidence. Generic 'why_they_matter' that could apply to anyone.",
+      "example": {
+        "evidence_summary": {
+          "why_they_matter": "شخصية مؤثرة تستحق أن نسمع منها. لديها أفكار مهمة ومتابعين كثر.",
+          "topics": ["نجاح", "إلهام"],
+          "risks": [],
+          "notable_quotes": [],
+          "red_flags": []
+        },
+        "story_signals": {
+          "arcs": ["success_story"],
+          "topics": ["success"],
+          "events": []
+        },
+        "editorial_fit_score": 0.9
+      }
+    },
+    {
+      "id": "neg-002",
+      "source": "synthetic-rule-driven",
+      "evidence": "Invents content beyond the evidence — claims specific events and quotes that the URLs would not have shown.",
+      "example": {
+        "evidence_summary": {
+          "why_they_matter": "تحدث في طفولته عن لحظة فقدان والده وكيف أثرت في كل قراراته اللاحقة.",
+          "topics": ["الفقد المبكر", "العائلة"],
+          "risks": [],
+          "notable_quotes": ["'فقدت أبي في سن السابعة وأصبحت أبا لإخوتي.'"],
+          "red_flags": []
+        },
+        "story_signals": {
+          "arcs": ["loss_at_young_age"],
+          "topics": ["grief", "family"],
+          "events": ["وفاة الوالد سن 7"]
+        },
+        "editorial_fit_score": 0.82
+      }
+    }
+  ]
+}

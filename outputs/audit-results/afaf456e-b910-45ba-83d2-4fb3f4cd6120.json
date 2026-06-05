@@ -1,0 +1,182 @@
+{
+  "run_id": "afaf456e-b910-45ba-83d2-4fb3f4cd6120",
+  "final_status": "completed",
+  "error_message": null,
+  "metrics": {
+    "total": 12,
+    "non_rejected": 0,
+    "alpha_tagged": 0,
+    "dropped_by_alpha": 0,
+    "identity_confidence_populated": 0,
+    "attribute_confidences_populated": 0,
+    "evidence_bundle_populated": 0,
+    "mean_identity_confidence": 0,
+    "mean_recommendation_score": 0
+  },
+  "jobs_by_type": {
+    "discovery.search_archetype": {
+      "succeeded": 8
+    },
+    "discovery.rank_candidates": {
+      "succeeded": 1
+    }
+  },
+  "candidates": [
+    {
+      "id": "b5981dc6-1685-48b5-83cf-271c3112fd33",
+      "proposed_name": "Qixiang-Animation",
+      "status": "rejected",
+      "pipeline_version": null,
+      "identity_confidence": null,
+      "attribute_confidences": null,
+      "evidence_bundle_citations": 0,
+      "editorial_fit_score": 0,
+      "hidden_gem_score": null,
+      "recommendation_score": null,
+      "dropped_reason": null
+    },
+    {
+      "id": "99df2a16-4e3e-4d04-892e-8b021362ffb2",
+      "proposed_name": "卡通狂欢嘉会 Cartoon Gala",
+      "status": "rejected",
+      "pipeline_version": null,
+      "identity_confidence": null,
+      "attribute_confidences": null,
+      "evidence_bundle_citations": 0,
+      "editorial_fit_score": 0,
+      "hidden_gem_score": null,
+      "recommendation_score": null,
+      "dropped_reason": null
+    },
+    {
+      "id": "6f2ebbc7-ef73-4edc-82ed-60f9e3532a0f",
+      "proposed_name": "卡通狂欢嘉会 Cartoon Gala",
+      "status": "rejected",
+      "pipeline_version": null,
+      "identity_confidence": null,
+      "attribute_confidences": null,
+      "evidence_bundle_citations": 0,
+      "editorial_fit_score": 0,
+      "hidden_gem_score": null,
+      "recommendation_score": null,
+      "dropped_reason": null
+    },
+    {
+      "id": "bd5d0aa0-a5b7-4fe8-8f73-3d0c199cf6a4",
+      "proposed_name": "Qixiang-Animation",
+      "status": "rejected",
+      "pipeline_version": null,
+      "identity_confidence": null,
+      "attribute_confidences": null,
+      "evidence_bundle_citations": 0,
+      "editorial_fit_score": 0,
+      "hidden_gem_score": null,
+      "recommendation_score": null,
+      "dropped_reason": null
+    },
+    {
+      "id": "52d390f0-7aba-444b-b8fb-3ea9b19b9071",
+      "proposed_name": "卡通狂欢嘉会 Cartoon Gala",
+      "status": "rejected",
+      "pipeline_version": null,
+      "identity_confidence": null,
+      "attribute_confidences": null,
+      "evidence_bundle_citations": 0,
+      "editorial_fit_score": 0,
+      "hidden_gem_score": null,
+      "recommendation_score": null,
+      "dropped_reason": null
+    },
+    {
+      "id": "7d96e5af-4dc2-496a-8c75-c432c26c395c",
+      "proposed_name": null,
+      "status": "rejected",
+      "pipeline_version": null,
+      "identity_confidence": null,
+      "attribute_confidences": null,
+      "evidence_bundle_citations": 0,
+      "editorial_fit_score": 0,
+      "hidden_gem_score": null,
+      "recommendation_score": null,
+      "dropped_reason": null
+    },
+    {
+      "id": "60018d95-9617-4b53-b976-ca539e363943",
+      "proposed_name": null,
+      "status": "rejected",
+      "pipeline_version": null,
+      "identity_confidence": null,
+      "attribute_confidences": null,
+      "evidence_bundle_citations": 0,
+      "editorial_fit_score": 0,
+      "hidden_gem_score": null,
+      "recommendation_score": null,
+      "dropped_reason": null
+    },
+    {
+      "id": "4122e44c-e47a-4309-9144-bb17844467eb",
+      "proposed_name": "Amazing Anime Man",
+      "status": "rejected",
+      "pipeline_version": null,
+      "identity_confidence": null,
+      "attribute_confidences": null,
+      "evidence_bundle_citations": 0,
+      "editorial_fit_score": 0,
+      "hidden_gem_score": null,
+      "recommendation_score": null,
+      "dropped_reason": null
+    },
+    {
+      "id": "b6bad0e6-9a12-4aa6-b92a-f69e06cde60b",
+      "proposed_name": "卡通狂欢嘉会 Cartoon Gala",
+      "status": "rejected",
+      "pipeline_version": null,
+      "identity_confidence": null,
+      "attribute_confidences": null,
+      "evidence_bundle_citations": 0,
+      "editorial_fit_score": 0,
+      "hidden_gem_score": null,
+      "recommendation_score": null,
+      "dropped_reason": null
+    },
+    {
+      "id": "b4923e53-a736-4820-9c89-7e48d928ed3f",
+      "proposed_name": "Amazing Anime Man",
+      "status": "rejected",
+      "pipeline_version": null,
+      "identity_confidence": null,
+      "attribute_confidences": null,
+      "evidence_bundle_citations": 0,
+      "editorial_fit_score": 0,
+      "hidden_gem_score": null,
+      "recommendation_score": null,
+      "dropped_reason": null
+    },
+    {
+      "id": "df144768-f4ef-4795-9530-9ce1bc328551",
+      "proposed_name": null,
+      "status": "rejected",
+      "pipeline_version": null,
+      "identity_confidence": null,
+      "attribute_confidences": null,
+      "evidence_bundle_citations": 0,
+      "editorial_fit_score": 0,
+      "hidden_gem_score": null,
+      "recommendation_score": null,
+      "dropped_reason": null
+    },
+    {
+      "id": "c2da16f7-4a1f-4f19-8272-098779ff1f6d",
+      "proposed_name": "Amazing Anime Man",
+      "status": "rejected",
+      "pipeline_version": null,
+      "identity_confidence": null,
+      "attribute_confidences": null,
+      "evidence_bundle_citations": 0,
+      "editorial_fit_score": 0,
+      "hidden_gem_score": null,
+      "recommendation_score": null,
+      "dropped_reason": null
+    }
+  ]
+}

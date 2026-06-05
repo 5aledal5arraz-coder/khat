@@ -105,7 +105,7 @@ const DialogOverlay = React.forwardRef<HTMLDivElement, DialogOverlayProps>(
       <div
         ref={ref}
         className={cn(
-          "fixed inset-0 z-50 bg-black/80 fade-in",
+          "fixed inset-0 z-50 bg-black/70 backdrop-blur-sm fade-in",
           className
         )}
         onClick={() => setOpen(false)}
@@ -189,7 +189,7 @@ const DialogContent = React.forwardRef<HTMLDivElement, DialogContentProps>(
           role="dialog"
           aria-modal="true"
           className={cn(
-            "fixed left-[50%] top-[50%] z-50 grid w-full max-w-lg -translate-x-1/2 -translate-y-1/2 gap-4 border bg-card p-6 shadow-lg sm:rounded-lg animate-in",
+            "fixed left-[50%] top-[50%] z-50 grid w-[calc(100%-2rem)] max-w-lg max-h-[calc(100dvh-2rem)] -translate-x-1/2 -translate-y-1/2 gap-4 border border-border/50 bg-card p-6 shadow-2xl rounded-2xl animate-in overflow-y-auto",
             "--tw-enter-scale: 0.95",
             className
           )}

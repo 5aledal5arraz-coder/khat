@@ -1,0 +1,485 @@
+{
+  "run_id": "75144042-5c6c-4291-92bf-a96c60053172",
+  "final_status": "completed",
+  "error_message": null,
+  "metrics": {
+    "total": 12,
+    "non_rejected": 0,
+    "alpha_tagged": 12,
+    "dropped_by_alpha": 12,
+    "identity_confidence_populated": 12,
+    "attribute_confidences_populated": 12,
+    "evidence_bundle_populated": 12,
+    "mean_identity_confidence": 0.075,
+    "mean_recommendation_score": 0.241
+  },
+  "jobs_by_type": {
+    "discovery.search_archetype": {
+      "succeeded": 8
+    },
+    "discovery.verify_candidate": {
+      "succeeded": 12
+    },
+    "discovery.rank_candidates": {
+      "succeeded": 1
+    }
+  },
+  "candidates": [
+    {
+      "id": "725c59ac-dd81-41fc-83be-e438403b4857",
+      "proposed_name": "Amazing Anime Man",
+      "status": "rejected",
+      "pipeline_version": "alpha",
+      "identity_confidence": 0.09,
+      "attribute_confidences": {
+        "gender": {
+          "value": null,
+          "evidence": [],
+          "confidence": 0,
+          "signal_breakdown": {
+            "bio_statement": 0,
+            "pronoun_arabic": 0,
+            "name_morphology": 0,
+            "role_morphology": 0
+          }
+        },
+        "nationality": {
+          "value": null,
+          "evidence": [],
+          "confidence": 0,
+          "signal_breakdown": {
+            "domain_TLD": 0,
+            "affiliation": 0,
+            "search_hint": 0,
+            "bio_statement": 0,
+            "name_morphology": 0,
+            "location_mentions": 0
+          }
+        }
+      },
+      "evidence_bundle_citations": 2,
+      "editorial_fit_score": 0.08,
+      "hidden_gem_score": 0.65,
+      "recommendation_score": 0.244,
+      "dropped_reason": "person_class_below_threshold (composite=0.09, threshold=0.35)"
+    },
+    {
+      "id": "450a5e07-b971-4a64-a35c-15d8ce414221",
+      "proposed_name": "卡通狂欢嘉会 Cartoon Gala",
+      "status": "rejected",
+      "pipeline_version": "alpha",
+      "identity_confidence": 0.09,
+      "attribute_confidences": {
+        "gender": {
+          "value": null,
+          "evidence": [],
+          "confidence": 0,
+          "signal_breakdown": {
+            "bio_statement": 0,
+            "pronoun_arabic": 0,
+            "name_morphology": 0,
+            "role_morphology": 0
+          }
+        },
+        "nationality": {
+          "value": null,
+          "evidence": [],
+          "confidence": 0,
+          "signal_breakdown": {
+            "domain_TLD": 0,
+            "affiliation": 0,
+            "search_hint": 0,
+            "bio_statement": 0,
+            "name_morphology": 0,
+            "location_mentions": 0
+          }
+        }
+      },
+      "evidence_bundle_citations": 2,
+      "editorial_fit_score": 0.08,
+      "hidden_gem_score": 0.65,
+      "recommendation_score": 0.244,
+      "dropped_reason": "person_class_below_threshold (composite=0.09, threshold=0.35)"
+    },
+    {
+      "id": "fc1ab79a-9f8b-4a8b-b582-9e9cbf945b7c",
+      "proposed_name": "Qixiang-Animation",
+      "status": "rejected",
+      "pipeline_version": "alpha",
+      "identity_confidence": 0.09,
+      "attribute_confidences": {
+        "gender": {
+          "value": null,
+          "evidence": [],
+          "confidence": 0,
+          "signal_breakdown": {
+            "bio_statement": 0,
+            "pronoun_arabic": 0,
+            "name_morphology": 0,
+            "role_morphology": 0
+          }
+        },
+        "nationality": {
+          "value": null,
+          "evidence": [],
+          "confidence": 0,
+          "signal_breakdown": {
+            "domain_TLD": 0,
+            "affiliation": 0,
+            "search_hint": 0,
+            "bio_statement": 0,
+            "name_morphology": 0,
+            "location_mentions": 0
+          }
+        }
+      },
+      "evidence_bundle_citations": 2,
+      "editorial_fit_score": 0.08,
+      "hidden_gem_score": 0.65,
+      "recommendation_score": 0.244,
+      "dropped_reason": "person_class_below_threshold (composite=0.09, threshold=0.35)"
+    },
+    {
+      "id": "221f9b5e-fa3a-4cff-a8be-96365fd9070f",
+      "proposed_name": "Amazing Anime Man",
+      "status": "rejected",
+      "pipeline_version": "alpha",
+      "identity_confidence": 0.09,
+      "attribute_confidences": {
+        "gender": {
+          "value": null,
+          "evidence": [],
+          "confidence": 0,
+          "signal_breakdown": {
+            "bio_statement": 0,
+            "pronoun_arabic": 0,
+            "name_morphology": 0,
+            "role_morphology": 0
+          }
+        },
+        "nationality": {
+          "value": null,
+          "evidence": [],
+          "confidence": 0,
+          "signal_breakdown": {
+            "domain_TLD": 0,
+            "affiliation": 0,
+            "search_hint": 0,
+            "bio_statement": 0,
+            "name_morphology": 0,
+            "location_mentions": 0
+          }
+        }
+      },
+      "evidence_bundle_citations": 2,
+      "editorial_fit_score": 0.08,
+      "hidden_gem_score": 0.65,
+      "recommendation_score": 0.244,
+      "dropped_reason": "person_class_below_threshold (composite=0.09, threshold=0.35)"
+    },
+    {
+      "id": "bf9803a0-4c08-4366-8930-2dc4cac1d15c",
+      "proposed_name": "Qixiang-Animation",
+      "status": "rejected",
+      "pipeline_version": "alpha",
+      "identity_confidence": 0.09,
+      "attribute_confidences": {
+        "gender": {
+          "value": null,
+          "evidence": [],
+          "confidence": 0,
+          "signal_breakdown": {
+            "bio_statement": 0,
+            "pronoun_arabic": 0,
+            "name_morphology": 0,
+            "role_morphology": 0
+          }
+        },
+        "nationality": {
+          "value": null,
+          "evidence": [],
+          "confidence": 0,
+          "signal_breakdown": {
+            "domain_TLD": 0,
+            "affiliation": 0,
+            "search_hint": 0,
+            "bio_statement": 0,
+            "name_morphology": 0,
+            "location_mentions": 0
+          }
+        }
+      },
+      "evidence_bundle_citations": 2,
+      "editorial_fit_score": 0.08,
+      "hidden_gem_score": 0.65,
+      "recommendation_score": 0.244,
+      "dropped_reason": "person_class_below_threshold (composite=0.09, threshold=0.35)"
+    },
+    {
+      "id": "ebc12b43-bd75-407b-93e5-0046d8de3ee8",
+      "proposed_name": "Qixiang-Animation",
+      "status": "rejected",
+      "pipeline_version": "alpha",
+      "identity_confidence": 0.09,
+      "attribute_confidences": {
+        "gender": {
+          "value": null,
+          "evidence": [],
+          "confidence": 0,
+          "signal_breakdown": {
+            "bio_statement": 0,
+            "pronoun_arabic": 0,
+            "name_morphology": 0,
+            "role_morphology": 0
+          }
+        },
+        "nationality": {
+          "value": null,
+          "evidence": [],
+          "confidence": 0,
+          "signal_breakdown": {
+            "domain_TLD": 0,
+            "affiliation": 0,
+            "search_hint": 0,
+            "bio_statement": 0,
+            "name_morphology": 0,
+            "location_mentions": 0
+          }
+        }
+      },
+      "evidence_bundle_citations": 2,
+      "editorial_fit_score": 0.08,
+      "hidden_gem_score": 0.65,
+      "recommendation_score": 0.244,
+      "dropped_reason": "person_class_below_threshold (composite=0.09, threshold=0.35)"
+    },
+    {
+      "id": "af5b52c4-7323-421b-a27c-2d034e6ffdad",
+      "proposed_name": "卡通狂欢嘉会 Cartoon Gala",
+      "status": "rejected",
+      "pipeline_version": "alpha",
+      "identity_confidence": 0.09,
+      "attribute_confidences": {
+        "gender": {
+          "value": null,
+          "evidence": [],
+          "confidence": 0,
+          "signal_breakdown": {
+            "bio_statement": 0,
+            "pronoun_arabic": 0,
+            "name_morphology": 0,
+            "role_morphology": 0
+          }
+        },
+        "nationality": {
+          "value": null,
+          "evidence": [],
+          "confidence": 0,
+          "signal_breakdown": {
+            "domain_TLD": 0,
+            "affiliation": 0,
+            "search_hint": 0,
+            "bio_statement": 0,
+            "name_morphology": 0,
+            "location_mentions": 0
+          }
+        }
+      },
+      "evidence_bundle_citations": 2,
+      "editorial_fit_score": 0.08,
+      "hidden_gem_score": 0.65,
+      "recommendation_score": 0.244,
+      "dropped_reason": "person_class_below_threshold (composite=0.09, threshold=0.35)"
+    },
+    {
+      "id": "8bf3a917-a1b0-4b09-8f34-2e1cb1e939ee",
+      "proposed_name": "Amazing Anime Man",
+      "status": "rejected",
+      "pipeline_version": "alpha",
+      "identity_confidence": 0.09,
+      "attribute_confidences": {
+        "gender": {
+          "value": null,
+          "evidence": [],
+          "confidence": 0,
+          "signal_breakdown": {
+            "bio_statement": 0,
+            "pronoun_arabic": 0,
+            "name_morphology": 0,
+            "role_morphology": 0
+          }
+        },
+        "nationality": {
+          "value": null,
+          "evidence": [],
+          "confidence": 0,
+          "signal_breakdown": {
+            "domain_TLD": 0,
+            "affiliation": 0,
+            "search_hint": 0,
+            "bio_statement": 0,
+            "name_morphology": 0,
+            "location_mentions": 0
+          }
+        }
+      },
+      "evidence_bundle_citations": 2,
+      "editorial_fit_score": 0.08,
+      "hidden_gem_score": 0.65,
+      "recommendation_score": 0.244,
+      "dropped_reason": "person_class_below_threshold (composite=0.09, threshold=0.35)"
+    },
+    {
+      "id": "b38a5689-3416-448c-b2d8-505648fdee62",
+      "proposed_name": "卡通狂欢嘉会 Cartoon Gala",
+      "status": "rejected",
+      "pipeline_version": "alpha",
+      "identity_confidence": 0.09,
+      "attribute_confidences": {
+        "gender": {
+          "value": null,
+          "evidence": [],
+          "confidence": 0,
+          "signal_breakdown": {
+            "bio_statement": 0,
+            "pronoun_arabic": 0,
+            "name_morphology": 0,
+            "role_morphology": 0
+          }
+        },
+        "nationality": {
+          "value": null,
+          "evidence": [],
+          "confidence": 0,
+          "signal_breakdown": {
+            "domain_TLD": 0,
+            "affiliation": 0,
+            "search_hint": 0,
+            "bio_statement": 0,
+            "name_morphology": 0,
+            "location_mentions": 0
+          }
+        }
+      },
+      "evidence_bundle_citations": 2,
+      "editorial_fit_score": 0.08,
+      "hidden_gem_score": 0.65,
+      "recommendation_score": 0.244,
+      "dropped_reason": "person_class_below_threshold (composite=0.09, threshold=0.35)"
+    },
+    {
+      "id": "dbfa401c-3bc0-460d-9ea1-8b8ad851bfe2",
+      "proposed_name": "Qixiang-Animation",
+      "status": "rejected",
+      "pipeline_version": "alpha",
+      "identity_confidence": 0.09,
+      "attribute_confidences": {
+        "gender": {
+          "value": null,
+          "evidence": [],
+          "confidence": 0,
+          "signal_breakdown": {
+            "bio_statement": 0,
+            "pronoun_arabic": 0,
+            "name_morphology": 0,
+            "role_morphology": 0
+          }
+        },
+        "nationality": {
+          "value": null,
+          "evidence": [],
+          "confidence": 0,
+          "signal_breakdown": {
+            "domain_TLD": 0,
+            "affiliation": 0,
+            "search_hint": 0,
+            "bio_statement": 0,
+            "name_morphology": 0,
+            "location_mentions": 0
+          }
+        }
+      },
+      "evidence_bundle_citations": 2,
+      "editorial_fit_score": 0.08,
+      "hidden_gem_score": 0.65,
+      "recommendation_score": 0.244,
+      "dropped_reason": "person_class_below_threshold (composite=0.09, threshold=0.35)"
+    },
+    {
+      "id": "16a69d44-b013-4d40-8cd1-b634b2a16d64",
+      "proposed_name": null,
+      "status": "rejected",
+      "pipeline_version": "alpha",
+      "identity_confidence": 0,
+      "attribute_confidences": {
+        "gender": {
+          "value": null,
+          "evidence": [],
+          "confidence": 0,
+          "signal_breakdown": {
+            "bio_statement": 0,
+            "pronoun_arabic": 0,
+            "name_morphology": 0,
+            "role_morphology": 0
+          }
+        },
+        "nationality": {
+          "value": null,
+          "evidence": [],
+          "confidence": 0,
+          "signal_breakdown": {
+            "domain_TLD": 0,
+            "affiliation": 0,
+            "search_hint": 0,
+            "bio_statement": 0,
+            "name_morphology": 0,
+            "location_mentions": 0
+          }
+        }
+      },
+      "evidence_bundle_citations": 2,
+      "editorial_fit_score": 0.08,
+      "hidden_gem_score": 0.65,
+      "recommendation_score": 0.226,
+      "dropped_reason": "person_class_below_threshold (composite=0, threshold=0.35)"
+    },
+    {
+      "id": "e4c48f80-e8c2-4dab-82b1-f7c0210ebd7e",
+      "proposed_name": null,
+      "status": "rejected",
+      "pipeline_version": "alpha",
+      "identity_confidence": 0,
+      "attribute_confidences": {
+        "gender": {
+          "value": null,
+          "evidence": [],
+          "confidence": 0,
+          "signal_breakdown": {
+            "bio_statement": 0,
+            "pronoun_arabic": 0,
+            "name_morphology": 0,
+            "role_morphology": 0
+          }
+        },
+        "nationality": {
+          "value": null,
+          "evidence": [],
+          "confidence": 0,
+          "signal_breakdown": {
+            "domain_TLD": 0,
+            "affiliation": 0,
+            "search_hint": 0,
+            "bio_statement": 0,
+            "name_morphology": 0,
+            "location_mentions": 0
+          }
+        }
+      },
+      "evidence_bundle_citations": 2,
+      "editorial_fit_score": 0.08,
+      "hidden_gem_score": 0.65,
+      "recommendation_score": 0.226,
+      "dropped_reason": "person_class_below_threshold (composite=0, threshold=0.35)"
+    }
+  ]
+}

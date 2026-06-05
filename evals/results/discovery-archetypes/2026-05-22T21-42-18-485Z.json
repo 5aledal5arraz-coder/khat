@@ -1,0 +1,64 @@
+{
+  "feature": "discovery-archetypes",
+  "timestamp": "2026-05-22T21:42:18.485Z",
+  "prompt_version": "discovery-archetypes-v1.0",
+  "golden_hash": "3c08b6e4c12f67d9",
+  "positive_count": 3,
+  "candidate_count": 6,
+  "quality_score": 0.313,
+  "judge": {
+    "rankings": [
+      {
+        "candidate_id": "pos-002",
+        "rank": 1,
+        "reason": "This archetype captures the profound transformation through displacement, emphasizing identity as a dynamic journey."
+      },
+      {
+        "candidate_id": "pos-003",
+        "rank": 2,
+        "reason": "This archetype's focus on honest failure before success resonates deeply with the theme of vulnerability and growth."
+      },
+      {
+        "candidate_id": "pos-001",
+        "rank": 3,
+        "reason": "The quiet expert's perspective on unspoken historical moments offers a unique and emotionally honest viewpoint."
+      },
+      {
+        "candidate_id": "gen-1-identity_redefiner",
+        "rank": 4,
+        "reason": "This archetype reflects a deep internal struggle and the journey of self-discovery, aligning well with Khat's values."
+      },
+      {
+        "candidate_id": "gen-4-family_rebuilder",
+        "rank": 5,
+        "reason": "While it addresses important themes of rebuilding after loss, it feels somewhat more conventional in its framing."
+      },
+      {
+        "candidate_id": "gen-5-cultural_bridge",
+        "rank": 6,
+        "reason": "This archetype presents a valuable perspective on cultural understanding, but lacks the depth of emotional conflict."
+      },
+      {
+        "candidate_id": "gen-3-financial_awakener",
+        "rank": 7,
+        "reason": "The financial awakening narrative is relevant but feels more like a common self-help trope than a transformative journey."
+      },
+      {
+        "candidate_id": "gen-2-faith_journeyer",
+        "rank": 8,
+        "reason": "This archetype touches on personal transformation but lacks the emotional honesty and depth found in higher-ranked items."
+      },
+      {
+        "candidate_id": "gen-0-career_shift_pioneer",
+        "rank": 9,
+        "reason": "This archetype is generic and resembles typical 'thought leader' narratives without unique insights."
+      }
+    ],
+    "notes": "The top-ranked items emphasize deep personal transformation and emotional honesty, while lower-ranked items tend to be more conventional or generic."
+  },
+  "meta": {
+    "judge_model": "gpt-4o-mini",
+    "judge_provider": "openai",
+    "runner_version": "phase0-runner-v1.0"
+  }
+}

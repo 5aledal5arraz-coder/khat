@@ -2,7 +2,7 @@ import type { Metadata } from "next"
 import Link from "next/link"
 import Image from "next/image"
 import { notFound } from "next/navigation"
-import { getHomeQuoteById, getPublishedHomeQuotes } from "@/lib/home-quotes"
+import { getHomeQuoteById, getPublishedHomeQuotes } from "@/lib/content/home-quotes"
 import { getEpisodeBySlug } from "@/lib/queries/episodes"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
@@ -17,7 +17,10 @@ interface Props {
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { id } = await params
   const quote = await getHomeQuoteById(id)
-  if (!quote) return { title: "اقتباس" }
+  if (!quote || quote.status !== "published") {
+    // Trigger a real 404 response (not a soft-404 body with HTTP 200).
+    notFound()
+  }
 
   const text = quote.text.length > 100 ? quote.text.slice(0, 100) + "…" : quote.text
   return {

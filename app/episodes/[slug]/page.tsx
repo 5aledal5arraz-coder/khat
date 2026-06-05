@@ -1,14 +1,19 @@
 import { Metadata } from "next"
 import { notFound } from "next/navigation"
-import { getEpisodeBySlug, getRelatedEpisodes, getAdjacentEpisodes } from "@/lib/queries/episodes"
-import { getQuotesByEpisodeId } from "@/lib/home-quotes"
-import { getPathsForEpisode } from "@/lib/emotional-paths"
-import { getReflectionsByEpisodeId } from "@/lib/daily-reflections"
-import { getEpisodeEnrichment } from "@/lib/episode-enrichments"
-import { getArticlesByEpisodeId } from "@/lib/space-queries"
+import { getRelatedEpisodes, getAdjacentEpisodes } from "@/lib/queries/episodes"
+import { getCachedEpisodeBySlug } from "@/lib/cache"
+import { getQuotesByEpisodeId } from "@/lib/content/home-quotes"
+import { getReflectionsByEpisodeId } from "@/lib/content/daily-reflections"
+import { getEpisodeEnrichment } from "@/lib/episodes/enrichments"
+import { listPlatformsForSurface, listActivePlatforms } from "@/lib/queries/official-platforms"
+import { getEpisodeSponsor } from "@/lib/queries/episode-sponsors"
 import { getYouTubeId } from "@/lib/utils"
 import { EpisodePageClient } from "@/components/episodes/episode-page-client"
 import { ReadingProgress } from "@/components/ui/reading-progress"
+
+// Note: searchParams (t= timestamp) forces dynamic rendering in Next.js 15+
+// ISR would require moving timestamp param to client-side parsing
+export const dynamic = "force-dynamic"
 
 interface EpisodePageProps {
   params: Promise<{ slug: string }>
@@ -18,10 +23,11 @@ interface EpisodePageProps {
 export async function generateMetadata({ params }: EpisodePageProps): Promise<Metadata> {
   const { slug } = await params
   const decodedSlug = decodeURIComponent(slug)
-  const episode = await getEpisodeBySlug(decodedSlug)
+  const episode = await getCachedEpisodeBySlug(decodedSlug)
 
   if (!episode) {
-    return { title: "الحلقة غير موجودة" }
+    // Trigger a real 404 response (not a soft-404 body with HTTP 200).
+    notFound()
   }
 
   const videoId = getYouTubeId(episode.youtube_url)
@@ -30,6 +36,7 @@ export async function generateMetadata({ params }: EpisodePageProps): Promise<Me
   return {
     title: episode.title,
     description: episode.summary || `حلقة من بودكاست خط مع ${episode.guest?.name || "ضيف مميز"}`,
+    alternates: { canonical: `https://khatpodcast.com/episodes/${episode.slug}` },
     openGraph: {
       title: episode.title,
       description: episode.summary || undefined,
@@ -44,21 +51,27 @@ export default async function EpisodePage({ params, searchParams }: EpisodePageP
   const { t } = await searchParams
   const startTime = t ? parseInt(t, 10) : undefined
   const decodedSlug = decodeURIComponent(slug)
-  const episode = await getEpisodeBySlug(decodedSlug)
+  const episode = await getCachedEpisodeBySlug(decodedSlug)
 
   if (!episode) {
     notFound()
   }
 
-  const [relatedEpisodes, { prev, next }, homeQuotes, paths, reflections, enrichment, hibrArticles] = await Promise.all([
-    getRelatedEpisodes(episode.id, episode.topics.map(t => t.id)),
+  const [relatedEpisodes, { prev, next }, homeQuotes, reflections, enrichment, platformLinks, allActivePlatforms, sponsor] = await Promise.all([
+    getRelatedEpisodes(episode.id),
     getAdjacentEpisodes(episode.slug),
     getQuotesByEpisodeId(episode.id),
-    getPathsForEpisode(episode.id),
     getReflectionsByEpisodeId(episode.id),
     getEpisodeEnrichment(episode.id),
-    getArticlesByEpisodeId(episode.id),
+    listPlatformsForSurface("episode_page"),
+    listActivePlatforms(),
+    getEpisodeSponsor(episode.id),
   ])
+
+  // `sameAs` advertises our canonical social/video/audio accounts to search engines.
+  const sameAs = allActivePlatforms
+    .filter((p) => p.category !== "other" && p.platform_key !== "rss")
+    .map((p) => p.url)
 
   const videoId = getYouTubeId(episode.youtube_url)
   const episodeUrl = `https://khatpodcast.com/episodes/${episode.slug}`
@@ -75,8 +88,17 @@ export default async function EpisodePage({ params, searchParams }: EpisodePageP
         duration: episode.duration_minutes ? `PT${episode.duration_minutes}M` : undefined,
         embedUrl: videoId ? `https://www.youtube.com/embed/${videoId}` : undefined,
         url: episodeUrl,
+        ...(sameAs.length > 0 ? { publisher: { "@type": "Organization", name: "KHAT Podcast", sameAs } } : {}),
         ...(episode.guest?.name && { actor: { "@type": "Person", name: episode.guest.name } }),
       },
+      ...(episode.audio_url ? [{
+        "@type": "AudioObject",
+        name: episode.title,
+        contentUrl: episode.audio_url,
+        encodingFormat: episode.audio_type || "audio/mpeg",
+        ...(episode.audio_duration ? { duration: `PT${Math.floor(episode.audio_duration / 60)}M${episode.audio_duration % 60}S` } : {}),
+        uploadDate: episode.rss_published_at || episode.release_date,
+      }] : []),
       {
         "@type": "BreadcrumbList",
         itemListElement: [
@@ -101,10 +123,10 @@ export default async function EpisodePage({ params, searchParams }: EpisodePageP
         prev={prev}
         next={next}
         homeQuotes={homeQuotes}
-        paths={paths}
         reflections={reflections}
         enrichment={enrichment}
-        hibrArticles={hibrArticles}
+        platformLinks={platformLinks}
+        sponsor={sponsor}
         initialStartTime={startTime}
       />
     </>

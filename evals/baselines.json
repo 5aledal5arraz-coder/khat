@@ -1,0 +1,50 @@
+{
+  "_note": "Baselines are recorded by running `npm run eval -- baseline <feature>` once per feature. This file is the placeholder shipped with Phase 0. After the operator runs the baseline command, each feature gets a BaselineEntry here. The eval engine refuses to compare future runs against a missing baseline.",
+  "_baseline_commands": [
+    "npm run eval -- baseline hybrid-topics",
+    "npm run eval -- baseline original-thinking",
+    "npm run eval -- baseline discovery-archetypes",
+    "npm run eval -- baseline discovery-verify",
+    "npm run eval -- baseline studio-package"
+  ],
+  "hybrid-topics": {
+    "feature": "hybrid-topics",
+    "prompt_version": "hybrid-topics-v1.0",
+    "golden_hash": "a1c0d6e97c2ffbc9",
+    "quality_score": 0.278,
+    "timestamp": "2026-05-22T21:40:19.910Z",
+    "source_report": "/Users/aishaalkharraz/Desktop/khat/evals/results/hybrid-topics/2026-05-22T21-40-19-910Z.json"
+  },
+  "original-thinking": {
+    "feature": "original-thinking",
+    "prompt_version": "original-thinking-v1.0",
+    "golden_hash": "a1a1f9fec17975bc",
+    "quality_score": 0.25,
+    "timestamp": "2026-05-22T21:41:46.129Z",
+    "source_report": "/Users/aishaalkharraz/Desktop/khat/evals/results/original-thinking/2026-05-22T21-41-46-129Z.json"
+  },
+  "discovery-archetypes": {
+    "feature": "discovery-archetypes",
+    "prompt_version": "discovery-archetypes-v1.0",
+    "golden_hash": "3c08b6e4c12f67d9",
+    "quality_score": 0.313,
+    "timestamp": "2026-05-22T21:42:18.485Z",
+    "source_report": "/Users/aishaalkharraz/Desktop/khat/evals/results/discovery-archetypes/2026-05-22T21-42-18-485Z.json"
+  },
+  "discovery-verify": {
+    "feature": "discovery-verify",
+    "prompt_version": "discovery-verify-v1.0",
+    "golden_hash": "d9cade4175e55857",
+    "quality_score": 0.333,
+    "timestamp": "2026-05-22T21:42:45.419Z",
+    "source_report": "/Users/aishaalkharraz/Desktop/khat/evals/results/discovery-verify/2026-05-22T21-42-45-419Z.json"
+  },
+  "studio-package": {
+    "feature": "studio-package",
+    "prompt_version": "studio-package-v1.0",
+    "golden_hash": "005b7ac7e754909d",
+    "quality_score": 0,
+    "timestamp": "2026-05-22T21:43:06.310Z",
+    "source_report": "/Users/aishaalkharraz/Desktop/khat/evals/results/studio-package/2026-05-22T21-43-06-310Z.json"
+  }
+}

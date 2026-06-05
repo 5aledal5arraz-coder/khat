@@ -1,12 +1,13 @@
 import Link from "next/link"
 import Image from "next/image"
 import { Gem, Play, Clock } from "lucide-react"
-import { getEpisodes } from "@/lib/queries/episodes"
-import { getHiddenGems } from "@/lib/boost"
+import { getCachedPublicEpisodes } from "@/lib/cache"
+import { getHiddenGems } from "@/lib/episodes/boost"
 import { formatDuration, getYouTubeId } from "@/lib/utils"
+import { BLUR_DATA_URL_16_9 } from "@/lib/image-utils"
 
 export async function HiddenGems() {
-  const allEpisodes = await getEpisodes({})
+  const allEpisodes = await getCachedPublicEpisodes()
   const gems = getHiddenGems(allEpisodes, 5)
 
   if (gems.length === 0) return null
@@ -32,6 +33,8 @@ export async function HiddenGems() {
                   alt={episode.title}
                   fill
                   sizes="192px"
+                  placeholder="blur"
+                  blurDataURL={BLUR_DATA_URL_16_9}
                   className="object-cover transition-transform group-hover:scale-105"
                 />
                 {/* Hover overlay */}
