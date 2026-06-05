@@ -10,12 +10,8 @@ import type { FeatureFlags } from "@/types/site-settings"
 import { updateFeatureFlags } from "./actions"
 
 const FLAG_LABELS: { key: keyof FeatureFlags; label: string; description: string }[] = [
-  { key: "storeEnabled", label: "المتجر", description: "تفعيل صفحة المتجر" },
-  { key: "hibrEnabled", label: "حبر", description: "تفعيل منصة حبر للكتابة" },
   { key: "guestApplicationsEnabled", label: "طلبات الضيوف", description: "السماح بتقديم طلبات ضيوف جدد" },
   { key: "maintenanceMode", label: "وضع الصيانة", description: "عرض صفحة صيانة للزوار" },
-  { key: "personalizationEnabled", label: "التخصيص الذكي", description: "تخصيص الصفحة الرئيسية حسب سلوك الزائر" },
-  { key: "adsEnabled", label: "الإعلانات", description: "تفعيل عرض الإعلانات والمحتوى المدعوم" },
   { key: "studioEnabled", label: "الاستوديو", description: "تفعيل أدوات الاستوديو لمعالجة الحلقات" },
 ]
 
@@ -35,17 +31,17 @@ export function FeatureFlagsForm({ initial }: { initial: FeatureFlags }) {
   return (
     <Card>
       <CardHeader className="pb-3">
-        <CardTitle className="text-base flex items-center gap-2">
+        <CardTitle className="text-[13px] font-semibold flex items-center gap-2">
           <ToggleRight className="h-5 w-5" />
           أعلام الميزات
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
         {FLAG_LABELS.map((flag) => (
-          <div key={flag.key} className="flex items-center justify-between py-2 border-b last:border-0">
+          <div key={flag.key} className="flex items-center justify-between py-3 border-b border-border/30 last:border-0">
             <div>
-              <Label className="font-medium">{flag.label}</Label>
-              <p className="text-xs text-muted-foreground">{flag.description}</p>
+              <Label className="text-[13px] font-medium">{flag.label}</Label>
+              <p className="text-[11px] text-muted-foreground/60">{flag.description}</p>
             </div>
             <Switch
               checked={flags[flag.key]}

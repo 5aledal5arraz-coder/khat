@@ -13,6 +13,7 @@ import {
   Clock,
   ExternalLink,
 } from 'lucide-react'
+import { pct, formatDateTime, AR_MONTHS } from "@/lib/newsletter/format"
 
 interface RecentCampaign {
   id: string
@@ -28,16 +29,6 @@ interface RecentCampaign {
 interface NewsletterComposerProps {
   subscriberCount: number
   recentCampaigns: RecentCampaign[]
-}
-
-const EN_MONTHS = [
-  'January', 'February', 'March', 'April', 'May', 'June',
-  'July', 'August', 'September', 'October', 'November', 'December',
-]
-
-function pct(n: number, total: number): string {
-  if (total === 0) return '0%'
-  return `${Math.round((n / total) * 100)}%`
 }
 
 export function NewsletterComposer({ subscriberCount, recentCampaigns }: NewsletterComposerProps) {
@@ -214,7 +205,7 @@ export function NewsletterComposer({ subscriberCount, recentCampaigns }: Newslet
                 onChange={(e) => setGenMonth(Number(e.target.value))}
                 className="w-full rounded-lg border border-border bg-background px-4 py-2.5 text-sm focus:border-primary focus:outline-none"
               >
-                {EN_MONTHS.map((name, i) => (
+                {AR_MONTHS.map((name, i) => (
                   <option key={i + 1} value={i + 1}>{name}</option>
                 ))}
               </select>
@@ -396,7 +387,7 @@ export function NewsletterComposer({ subscriberCount, recentCampaigns }: Newslet
                       {campaign.total_clicked} <span className="text-muted-foreground">({pct(campaign.total_clicked, campaign.total_sent)})</span>
                     </td>
                     <td className="px-4 py-2.5 text-muted-foreground whitespace-nowrap">
-                      {(() => { const d = new Date(campaign.sent_at); return `${String(d.getDate()).padStart(2, "0")}/${String(d.getMonth() + 1).padStart(2, "0")}/${d.getFullYear()} ${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}` })()}
+                      {formatDateTime(campaign.sent_at)}
                     </td>
                     <td className="px-4 py-2.5">
                       <Link

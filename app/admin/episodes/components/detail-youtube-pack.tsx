@@ -13,6 +13,7 @@ import {
   Youtube,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { formatDate } from "@/lib/shared/formatters"
 import type { YouTubePackEntry, YouTubePackSection } from "@/types/youtube-pack"
 import {
   generateYoutubePack,
@@ -65,7 +66,7 @@ export function DetailYoutubePack({
       setCopiedSection(section.id)
       setTimeout(() => setCopiedSection(null), 2000)
     } catch {
-      // Fallback
+      setError("تعذّر النسخ إلى الحافظة. يُرجى نسخ المحتوى يدوياً.")
     }
   }
 
@@ -182,7 +183,7 @@ export function DetailYoutubePack({
         </div>
         {localEntry && (
           <span className="text-[10px] text-muted-foreground/50">
-            {(() => { const d = new Date(localEntry.generatedAt); return `${String(d.getDate()).padStart(2, "0")}/${String(d.getMonth() + 1).padStart(2, "0")}/${d.getFullYear()}` })()}
+            {formatDate(localEntry.generatedAt)}
           </span>
         )}
       </div>

@@ -3,6 +3,7 @@
 import { useState } from "react"
 import { useRouter } from "next/navigation"
 import { Search, Download, Users } from "lucide-react"
+import { formatDate } from "@/lib/newsletter/format"
 
 interface Subscriber {
   id: string
@@ -133,13 +134,10 @@ export function SubscriberList({ subscribers, counts, currentStatus, currentSear
                       </span>
                     </td>
                     <td className="px-4 py-2.5 text-muted-foreground whitespace-nowrap">
-                      {(() => { const d = new Date(sub.created_at); return `${String(d.getDate()).padStart(2, "0")}/${String(d.getMonth() + 1).padStart(2, "0")}/${d.getFullYear()}` })()}
+                      {formatDate(sub.created_at)}
                     </td>
                     <td className="px-4 py-2.5 text-muted-foreground whitespace-nowrap">
-                      {sub.unsubscribed_at
-                        ? (() => { const d = new Date(sub.unsubscribed_at); return `${String(d.getDate()).padStart(2, "0")}/${String(d.getMonth() + 1).padStart(2, "0")}/${d.getFullYear()}` })()
-                        : "—"
-                      }
+                      {sub.unsubscribed_at ? formatDate(sub.unsubscribed_at) : "—"}
                     </td>
                   </tr>
                 ))}

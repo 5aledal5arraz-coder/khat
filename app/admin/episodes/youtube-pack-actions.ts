@@ -6,7 +6,7 @@ import { fetchTranscript } from "@/lib/youtube/transcript"
 import {
   generateYoutubePackFromTranscript,
   generateYoutubePackSectionFromTranscript,
-} from "@/lib/openai"
+} from "@/lib/ai"
 import { getYouTubeId } from "@/lib/utils"
 import type { YouTubePackSection } from "@/types/youtube-pack"
 import { requireAdmin } from "@/lib/api-utils"

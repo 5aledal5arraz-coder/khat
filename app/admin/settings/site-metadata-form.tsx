@@ -26,7 +26,7 @@ export function SiteMetadataForm({ initial }: { initial: SiteMetadata }) {
   return (
     <Card>
       <CardHeader className="pb-3">
-        <CardTitle className="text-base flex items-center gap-2">
+        <CardTitle className="text-[13px] font-semibold flex items-center gap-2">
           <Globe className="h-5 w-5" />
           معلومات الموقع
         </CardTitle>

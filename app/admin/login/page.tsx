@@ -3,12 +3,9 @@
 import { useState } from "react"
 import { useRouter } from "next/navigation"
 import Image from "next/image"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Loader2, Mail } from "lucide-react"
-import { signInWithEmailAndPassword, sendPasswordResetEmail } from "firebase/auth"
-import { auth as getAuth } from "@/lib/firebase/config"
+import { Loader2 } from "lucide-react"
 
 export default function AdminLoginPage() {
   const router = useRouter()
@@ -17,29 +14,6 @@ export default function AdminLoginPage() {
   const [password, setPassword] = useState("")
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState("")
-  const [showReset, setShowReset] = useState(false)
-  const [resetSending, setResetSending] = useState(false)
-  const [resetMessage, setResetMessage] = useState<{ type: "success" | "error"; text: string } | null>(null)
-
-  const handleReset = async () => {
-    const resetEmail = email.trim()
-    if (!resetEmail) return
-    setResetSending(true)
-    setResetMessage(null)
-    try {
-      await sendPasswordResetEmail(getAuth(), resetEmail)
-      setResetMessage({ type: "success", text: "تم إرسال رابط إعادة التعيين إلى بريدك الإلكتروني" })
-    } catch (err: any) {
-      const code = err?.code
-      if (code === "auth/user-not-found") {
-        setResetMessage({ type: "error", text: "لا يوجد حساب بهذا البريد" })
-      } else {
-        setResetMessage({ type: "error", text: "حدث خطأ" })
-      }
-    } finally {
-      setResetSending(false)
-    }
-  }
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -49,132 +23,112 @@ export default function AdminLoginPage() {
     setError("")
 
     try {
-      const userCredential = await signInWithEmailAndPassword(getAuth(), email.trim(), password)
-      const idToken = await userCredential.user.getIdToken()
-
       const res = await fetch("/api/admin/auth/session", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ idToken }),
+        headers: {
+          "Content-Type": "application/json",
+          "x-requested-with": "khat",
+        },
+        body: JSON.stringify({ email: email.trim(), password }),
       })
 
+      if (res.status === 429) {
+        setError("عدد محاولات كثيرة. يرجى المحاولة لاحقاً.")
+        return
+      }
+
       if (res.status === 403) {
-        setError("ليس لديك صلاحية للوصول إلى لوحة التحكم")
+        setError("الحساب معطل. تواصل مع المالك.")
         return
       }
 
       if (!res.ok) {
-        setError("فشل تسجيل الدخول")
+        setError("البريد الإلكتروني أو كلمة المرور غير صحيحة")
         return
       }
 
       router.push("/admin")
       router.refresh()
     } catch {
-      setError("البريد الإلكتروني أو كلمة المرور غير صحيحة")
+      setError("حدث خطأ في الاتصال")
     } finally {
       setIsLoading(false)
     }
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-muted/30 px-4">
-      <Card className="w-full max-w-md">
-        <CardHeader className="text-center">
-          <div className="mx-auto mb-4">
-            <Image
-              src="/logo.png"
-              alt="KHAT"
-              width={48}
-              height={48}
-              className="rounded"
-            />
-          </div>
-          <CardTitle className="text-2xl">لوحة تحكم خط</CardTitle>
-          <p className="text-sm text-muted-foreground">
-            أدخل بياناتك للوصول إلى لوحة التحكم
-          </p>
-        </CardHeader>
+    <div className="flex min-h-screen items-center justify-center bg-background px-4">
+      {/* Background subtle gradient */}
+      <div className="pointer-events-none fixed inset-0">
+        <div className="absolute inset-0 bg-gradient-to-br from-primary/3 via-transparent to-accent/3" />
+      </div>
 
-        <CardContent className="space-y-4">
+      <div className="relative w-full max-w-sm">
+        {/* Card */}
+        <div className="admin-card admin-glow p-8">
+          {/* Top edge accent */}
+          <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-l from-transparent via-primary/30 to-transparent rounded-t-2xl" />
+
+          <div className="flex flex-col items-center mb-8">
+            <div className="mb-4">
+              <Image
+                src="/logo.png"
+                alt="KHAT"
+                width={44}
+                height={44}
+                className="rounded-lg"
+              />
+            </div>
+            <h1 className="text-lg font-semibold tracking-tight">لوحة تحكم خط</h1>
+            <p className="mt-1 text-[13px] text-muted-foreground/60">
+              أدخل بياناتك للوصول إلى لوحة التحكم
+            </p>
+          </div>
+
           {error && (
-            <div className="rounded-md bg-destructive/10 p-3 text-center text-sm text-destructive">
+            <div className="mb-5 rounded-lg border border-destructive/20 bg-destructive/5 p-3 text-center text-[13px] text-destructive">
               {error}
             </div>
           )}
 
-          <form onSubmit={handleLogin} className="space-y-3">
-            <Input
-              type="email"
-              placeholder="البريد الإلكتروني"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              required
-              disabled={isLoading}
-              dir="ltr"
-            />
-            <Input
-              type="password"
-              placeholder="كلمة المرور"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-              disabled={isLoading}
-              minLength={6}
-              dir="ltr"
-            />
-            <Button type="submit" className="w-full" disabled={isLoading}>
+          <form onSubmit={handleLogin} className="space-y-3.5">
+            <div>
+              <Input
+                type="email"
+                placeholder="البريد الإلكتروني"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required
+                disabled={isLoading}
+                dir="ltr"
+                className="h-11 bg-muted/30 border-border/50 focus:border-primary/50 focus:bg-background transition-colors"
+              />
+            </div>
+            <div>
+              <Input
+                type="password"
+                placeholder="كلمة المرور"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+                disabled={isLoading}
+                minLength={10}
+                dir="ltr"
+                className="h-11 bg-muted/30 border-border/50 focus:border-primary/50 focus:bg-background transition-colors"
+              />
+            </div>
+            <Button type="submit" className="w-full h-11 mt-1 font-medium" disabled={isLoading}>
               {isLoading && <Loader2 className="h-4 w-4 animate-spin me-2" />}
               تسجيل الدخول
             </Button>
           </form>
+        </div>
 
-          <div className="mt-3 text-center">
-            <button
-              type="button"
-              onClick={() => { setShowReset(!showReset); setResetMessage(null) }}
-              className="text-sm text-muted-foreground hover:text-primary transition-colors"
-            >
-              نسيت كلمة المرور؟
-            </button>
-
-            {showReset && (
-              <div className="mt-3 space-y-2">
-                <div className="flex gap-2" dir="ltr">
-                  <Input
-                    type="email"
-                    placeholder="البريد الإلكتروني"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    disabled={resetSending}
-                    dir="ltr"
-                  />
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={handleReset}
-                    disabled={resetSending || !email.trim()}
-                    className="shrink-0"
-                  >
-                    {resetSending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Mail className="h-4 w-4" />}
-                  </Button>
-                </div>
-                <p className="text-xs text-muted-foreground">إرسال رابط إعادة التعيين</p>
-
-                {resetMessage && (
-                  <div className={`rounded-md p-2 text-center text-xs ${
-                    resetMessage.type === "success"
-                      ? "bg-green-500/10 text-green-500"
-                      : "bg-destructive/10 text-destructive"
-                  }`}>
-                    {resetMessage.text}
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-        </CardContent>
-      </Card>
+        {/* Subtle brand footer */}
+        <p className="mt-6 text-center text-[10px] text-muted-foreground/30">
+          خط بودكاست — لوحة التحكم
+        </p>
+      </div>
     </div>
   )
 }

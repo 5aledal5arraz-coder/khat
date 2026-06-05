@@ -4,12 +4,9 @@ import { useState, useRef, useEffect } from "react"
 import {
   Pencil,
   Check,
-  X,
   RotateCcw,
   Eye,
   EyeOff,
-  Trash2,
-  Undo2,
   ExternalLink,
   Calendar,
   Clock,
@@ -22,37 +19,40 @@ import {
   updateEpisodeTitle,
   updateEpisodeDescription,
   removeEpisodeOverride,
-  assignEpisodeSection,
   assignEpisodeGuest,
   toggleEpisodeVisibility,
-  deleteEpisode,
-  restoreEpisode,
+  assignEpisodeSponsorAction,
 } from "../actions"
 import { GlowCard } from "@/app/admin/components/glow-card"
 import { formatDuration, formatDate } from "./shared"
-import type { Episode, AdminGuest } from "./shared"
-import type { EpisodeOverride, EpisodeSection } from "@/types/episodes"
+import type { AdminEpisodeView, AdminGuestView } from "./shared"
+import type { EpisodeOverride } from "@/types/episodes"
+
+interface SponsorPartner {
+  id: string
+  name: string
+}
 
 interface DetailOverviewProps {
-  episode: Episode
+  episode: AdminEpisodeView
   override: EpisodeOverride | null
-  sections: EpisodeSection[]
-  currentSectionId: string | null
   isHidden: boolean
-  isDeleted: boolean
-  guests: AdminGuest[]
+  guests: AdminGuestView[]
   currentGuestId: string | null
+  partners: SponsorPartner[]
+  currentSponsorId: string | null
+  currentBrandLine: string | null
 }
 
 export function DetailOverview({
   episode,
   override,
-  sections,
-  currentSectionId,
   isHidden,
-  isDeleted,
   guests,
   currentGuestId,
+  partners,
+  currentSponsorId,
+  currentBrandLine,
 }: DetailOverviewProps) {
   const [editingTitle, setEditingTitle] = useState(false)
   const [editingDesc, setEditingDesc] = useState(false)
@@ -62,9 +62,11 @@ export function DetailOverview({
   )
   const [saving, setSaving] = useState(false)
   const [savingDesc, setSavingDesc] = useState(false)
-  const [assigningSection, setAssigningSection] = useState(false)
   const [assigningGuest, setAssigningGuest] = useState(false)
-  const [confirmDelete, setConfirmDelete] = useState(false)
+  const [assigningSponsor, setAssigningSponsor] = useState(false)
+  const [sponsorId, setSponsorId] = useState(currentSponsorId || "")
+  const [brandLine, setBrandLine] = useState(currentBrandLine || "")
+  const [editingBrandLine, setEditingBrandLine] = useState(false)
   const titleInputRef = useRef<HTMLInputElement>(null)
   const descTextareaRef = useRef<HTMLTextAreaElement>(null)
 
@@ -73,7 +75,6 @@ export function DetailOverview({
   const hasDescOverride = !!override?.customDescription
   const displayTitle = override?.customTitle || episode.title
   const displayDescription = override?.customDescription || episode.description
-  const currentSection = sections.find((s) => s.id === currentSectionId)
   const videoId = getYouTubeId(episode.youtube_url)
 
   useEffect(() => {
@@ -121,29 +122,36 @@ export function DetailOverview({
     setSaving(false)
   }
 
-  const handleSectionChange = async (sectionId: string) => {
-    setAssigningSection(true)
-    await assignEpisodeSection(episode.id, sectionId || null)
-    setAssigningSection(false)
-  }
-
   const handleGuestChange = async (guestId: string) => {
     setAssigningGuest(true)
     await assignEpisodeGuest(episode.id, guestId || null)
     setAssigningGuest(false)
   }
 
+  const handleSponsorChange = async (newPartnerId: string) => {
+    setAssigningSponsor(true)
+    setSponsorId(newPartnerId)
+    await assignEpisodeSponsorAction(
+      episode.id,
+      newPartnerId || null,
+      brandLine || undefined
+    )
+    setAssigningSponsor(false)
+  }
+
+  const handleSaveBrandLine = async () => {
+    setAssigningSponsor(true)
+    await assignEpisodeSponsorAction(
+      episode.id,
+      sponsorId || null,
+      brandLine || undefined
+    )
+    setAssigningSponsor(false)
+    setEditingBrandLine(false)
+  }
+
   const handleToggleVisibility = async () => {
     await toggleEpisodeVisibility(episode.id)
-  }
-
-  const handleDelete = async () => {
-    await deleteEpisode(episode.id)
-    setConfirmDelete(false)
-  }
-
-  const handleRestore = async () => {
-    await restoreEpisode(episode.id)
   }
 
   return (
@@ -350,36 +358,6 @@ export function DetailOverview({
           </div>
         </GlowCard>
 
-        {/* Section Card */}
-        <GlowCard color="purple">
-          <div className="p-5">
-            <h3 className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-              التصنيف
-            </h3>
-            <select
-              value={currentSectionId || ""}
-              onChange={(e) => handleSectionChange(e.target.value)}
-              disabled={assigningSection || isDeleted}
-              className="h-10 w-full cursor-pointer rounded-xl border border-border/50 bg-white/[0.02] px-3 text-sm transition-all hover:border-border hover:text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
-              style={
-                currentSection?.color
-                  ? {
-                      borderColor: currentSection.color + "40",
-                      color: currentSection.color,
-                    }
-                  : undefined
-              }
-            >
-              <option value="">غير مصنّف</option>
-              {sections.map((s) => (
-                <option key={s.id} value={s.id}>
-                  {s.label}
-                </option>
-              ))}
-            </select>
-          </div>
-        </GlowCard>
-
         {/* Guest Card */}
         <GlowCard>
           <div className="p-5">
@@ -389,7 +367,7 @@ export function DetailOverview({
             <select
               value={currentGuestId || ""}
               onChange={(e) => handleGuestChange(e.target.value)}
-              disabled={assigningGuest || isDeleted}
+              disabled={assigningGuest}
               className={`h-10 w-full cursor-pointer rounded-xl border border-border/50 bg-white/[0.02] px-3 text-sm transition-all hover:border-border hover:text-foreground focus:outline-none focus:ring-1 focus:ring-ring ${
                 currentGuestId
                   ? "text-accent border-accent/30"
@@ -406,19 +384,87 @@ export function DetailOverview({
           </div>
         </GlowCard>
 
+        {/* Sponsor Card */}
+        <GlowCard color="purple">
+          <div className="p-5">
+            <h3 className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+              شريك الحوار
+            </h3>
+            <select
+              value={sponsorId}
+              onChange={(e) => handleSponsorChange(e.target.value)}
+              disabled={assigningSponsor}
+              className={`h-10 w-full cursor-pointer rounded-xl border border-border/50 bg-white/[0.02] px-3 text-sm transition-all hover:border-border hover:text-foreground focus:outline-none focus:ring-1 focus:ring-ring ${
+                sponsorId
+                  ? "text-primary border-primary/30"
+                  : "text-muted-foreground"
+              }`}
+            >
+              <option value="">بدون شريك</option>
+              {partners.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.name}
+                </option>
+              ))}
+            </select>
+            {sponsorId && (
+              <div className="mt-3">
+                {editingBrandLine ? (
+                  <div className="space-y-2">
+                    <Input
+                      value={brandLine}
+                      onChange={(e) => setBrandLine(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") handleSaveBrandLine()
+                        if (e.key === "Escape") setEditingBrandLine(false)
+                      }}
+                      placeholder="عبارة مخصصة للشريك..."
+                      className="h-9 rounded-xl border-primary/30 bg-primary/5 text-sm"
+                      dir="auto"
+                    />
+                    <div className="flex items-center gap-2">
+                      <Button
+                        size="sm"
+                        onClick={handleSaveBrandLine}
+                        disabled={assigningSponsor}
+                        className="h-7 gap-1 rounded-lg text-[11px]"
+                      >
+                        <Check className="h-3 w-3" />
+                        حفظ
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => setEditingBrandLine(false)}
+                        className="h-7 rounded-lg text-[11px]"
+                      >
+                        إلغاء
+                      </Button>
+                    </div>
+                  </div>
+                ) : (
+                  <button
+                    onClick={() => setEditingBrandLine(true)}
+                    className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-start text-xs text-muted-foreground transition-all hover:bg-white/5 hover:text-foreground"
+                  >
+                    <Pencil className="h-3 w-3 shrink-0" />
+                    {brandLine || "إضافة عبارة مخصصة..."}
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
+        </GlowCard>
+
         {/* Visibility Card */}
-        <GlowCard color={isDeleted ? "destructive" : isHidden ? "muted" : "primary"}>
+        <GlowCard color={isHidden ? "muted" : "primary"}>
           <div className="p-5">
             <h3 className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
               الحالة
             </h3>
             <div className="space-y-3">
               <div className="flex items-center gap-2">
-                {isDeleted ? (
-                  <span className="rounded-full bg-destructive/10 px-3 py-1 text-xs font-semibold text-destructive ring-1 ring-destructive/20">
-                    محذوف
-                  </span>
-                ) : isHidden ? (
+                {isHidden ? (
                   <span className="rounded-full bg-muted px-3 py-1 text-xs font-semibold text-muted-foreground ring-1 ring-border">
                     مخفي
                   </span>
@@ -434,68 +480,24 @@ export function DetailOverview({
                 )}
               </div>
 
-              {isDeleted ? (
-                <Button
-                  onClick={handleRestore}
-                  variant="outline"
-                  className="w-full gap-2 rounded-xl"
-                  size="sm"
-                >
-                  <Undo2 className="h-3.5 w-3.5" />
-                  استعادة الحلقة
-                </Button>
-              ) : (
-                <div className="flex flex-col gap-2">
-                  <Button
-                    onClick={handleToggleVisibility}
-                    variant="outline"
-                    className="w-full gap-2 rounded-xl"
-                    size="sm"
-                  >
-                    {isHidden ? (
-                      <>
-                        <Eye className="h-3.5 w-3.5" />
-                        إظهار الحلقة
-                      </>
-                    ) : (
-                      <>
-                        <EyeOff className="h-3.5 w-3.5" />
-                        إخفاء الحلقة
-                      </>
-                    )}
-                  </Button>
-                  {confirmDelete ? (
-                    <div className="flex items-center gap-2">
-                      <Button
-                        size="sm"
-                        variant="destructive"
-                        onClick={handleDelete}
-                        className="flex-1 rounded-xl text-xs"
-                      >
-                        تأكيد الحذف
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={() => setConfirmDelete(false)}
-                        className="flex-1 rounded-xl text-xs"
-                      >
-                        إلغاء
-                      </Button>
-                    </div>
-                  ) : (
-                    <Button
-                      onClick={() => setConfirmDelete(true)}
-                      variant="ghost"
-                      className="w-full gap-2 rounded-xl text-destructive hover:text-destructive"
-                      size="sm"
-                    >
-                      <Trash2 className="h-3.5 w-3.5" />
-                      حذف الحلقة
-                    </Button>
-                  )}
-                </div>
-              )}
+              <Button
+                onClick={handleToggleVisibility}
+                variant="outline"
+                className="w-full gap-2 rounded-xl"
+                size="sm"
+              >
+                {isHidden ? (
+                  <>
+                    <Eye className="h-3.5 w-3.5" />
+                    إظهار الحلقة
+                  </>
+                ) : (
+                  <>
+                    <EyeOff className="h-3.5 w-3.5" />
+                    إخفاء الحلقة
+                  </>
+                )}
+              </Button>
             </div>
           </div>
         </GlowCard>

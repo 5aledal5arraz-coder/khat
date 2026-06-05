@@ -1,11 +1,19 @@
 import { cn } from "@/lib/utils"
 
 const glowMap = {
-  primary: "from-primary/20 via-transparent to-primary/5",
-  purple: "from-accent/20 via-transparent to-accent/5",
-  destructive: "from-destructive/20 via-transparent to-destructive/5",
-  muted: "from-muted-foreground/10 via-transparent to-muted-foreground/5",
-  green: "from-emerald-500/20 via-transparent to-emerald-500/5",
+  primary: "from-primary/15 via-primary/5 to-transparent",
+  purple: "from-accent/15 via-accent/5 to-transparent",
+  destructive: "from-destructive/15 via-destructive/5 to-transparent",
+  muted: "from-muted-foreground/8 via-muted-foreground/3 to-transparent",
+  green: "from-emerald-500/15 via-emerald-500/5 to-transparent",
+}
+
+const borderGlowMap = {
+  primary: "group-hover/card:border-primary/30",
+  purple: "group-hover/card:border-accent/30",
+  destructive: "group-hover/card:border-destructive/30",
+  muted: "group-hover/card:border-border",
+  green: "group-hover/card:border-emerald-500/30",
 }
 
 interface GlowCardProps {
@@ -18,16 +26,20 @@ export function GlowCard({ children, color = "primary", className }: GlowCardPro
   return (
     <div
       className={cn(
-        "group/card relative overflow-hidden rounded-2xl border border-border/50 bg-card/80 backdrop-blur-sm transition-all hover:border-border",
+        "group/card admin-card relative overflow-hidden transition-all duration-300",
+        borderGlowMap[color],
         className
       )}
     >
+      {/* Gradient glow overlay */}
       <div
         className={cn(
-          "pointer-events-none absolute inset-0 bg-gradient-to-br opacity-0 transition-opacity group-hover/card:opacity-100",
+          "pointer-events-none absolute inset-0 bg-gradient-to-br opacity-0 transition-opacity duration-300 group-hover/card:opacity-100",
           glowMap[color]
         )}
       />
+      {/* Top edge highlight */}
+      <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-l from-transparent via-white/5 to-transparent" />
       <div className="relative">{children}</div>
     </div>
   )

@@ -3,27 +3,28 @@
 import { useState } from "react"
 import {
   Globe, Loader2, AlertCircle, RefreshCw,
-  BookOpen, FileText, CheckCircle2, Tag,
-  MessageSquareQuote, Quote, Link2,
+  BookOpen, FileText, CheckCircle2,
+  MessageSquareQuote, Link2,
   Type, Check, Pencil,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
-import { useStudioSession } from "./studio-context"
+import { useSession, useContent, useWebsitePkg } from "../contexts"
 import { AI_STATUS_LABELS, CopyButton } from "./shared"
 import { WebPkgEditableField } from "./editable-fields"
 
 export function TabSitePack() {
+  const { session } = useSession()
+  const { aiOutput } = useContent()
   const {
-    session, aiOutput,
     websitePkgStatus, websitePkgError, generateWebsitePackage,
     selectedTitle, setSelectedTitle,
-    heroSummary, fullSummary, takeaways, topics, quotes, resources,
+    heroSummary, fullSummary, takeaways, quotes, resources,
     selectedQuoteIndices, selectedTakeawayIndices,
-    setHeroSummary, setFullSummary, setTakeaways, setTopics,
+    setHeroSummary, setFullSummary, setTakeaways,
     setSelectedQuoteIndices, setSelectedTakeawayIndices,
     debouncedSaveWebPkg,
-  } = useStudioSession()
+  } = useWebsitePkg()
 
   const [customTitleInput, setCustomTitleInput] = useState("")
   const [showCustomInput, setShowCustomInput] = useState(false)
@@ -36,13 +37,13 @@ export function TabSitePack() {
 
   return (
     <div className="space-y-6">
-      <div className="rounded-xl border bg-card p-6 space-y-5">
+      <div className="rounded-xl border border-border/30 bg-card/50 p-6 space-y-5">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <Globe className="h-5 w-5 text-emerald-500" />
-            <h2 className="font-semibold">حزمة الموقع</h2>
+            <h2 className="text-[13px] font-semibold">حزمة الموقع</h2>
           </div>
-          <span className={cn("rounded-full px-2.5 py-0.5 text-xs font-medium", statusInfo.className)}>
+          <span className={cn("rounded-md px-2.5 py-0.5 text-[11px] font-medium", statusInfo.className)}>
             {statusInfo.label}
           </span>
         </div>
@@ -50,7 +51,7 @@ export function TabSitePack() {
         {websitePkgStatus === "idle" && (
           <div className="space-y-4">
             <p className="text-sm text-muted-foreground">
-              ولّد محتوى شامل لصفحة الحلقة على الموقع: ملخص، أفكار رئيسية، اقتباسات، مواضيع، مصادر
+              ولّد محتوى شامل لصفحة الحلقة على الموقع: ملخص، أفكار رئيسية، اقتباسات، مصادر
             </p>
             <Button onClick={generateWebsitePackage} className="gap-2">
               <Globe className="h-4 w-4" />
@@ -69,7 +70,7 @@ export function TabSitePack() {
 
         {websitePkgStatus === "error" && (
           <div className="space-y-4">
-            <div className="flex items-start gap-2 rounded-lg border border-red-200 bg-red-50 p-3 dark:border-red-900 dark:bg-red-950/50">
+            <div className="flex items-start gap-2 rounded-lg border border-red-500/20 bg-red-500/5 p-3">
               <AlertCircle className="h-4 w-4 shrink-0 text-red-500 mt-0.5" />
               <p className="text-sm text-red-600 dark:text-red-400">{websitePkgError}</p>
             </div>
@@ -209,7 +210,7 @@ export function TabSitePack() {
               })()}
             </div>
 
-            <div className="border-t" />
+            <div className="border-t border-border/30" />
 
             {/* Hero Summary */}
             <WebPkgEditableField
@@ -305,24 +306,6 @@ export function TabSitePack() {
                   {takeaways.length - selectedTakeawayIndices.size} فكرة لن تظهر على الموقع
                 </p>
               )}
-            </div>
-
-            {/* Topics */}
-            <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <Tag className="h-4 w-4 text-blue-500" />
-                  <span className="text-sm font-medium">المواضيع ({topics.length})</span>
-                </div>
-                <CopyButton onClick={() => handleCopy(topics.join("، "))} />
-              </div>
-              <div className="flex flex-wrap gap-1.5">
-                {topics.map((topic, idx) => (
-                  <span key={idx} className="inline-flex rounded-full bg-blue-100 dark:bg-blue-950 px-2.5 py-0.5 text-xs font-medium text-blue-700 dark:text-blue-400">
-                    {topic}
-                  </span>
-                ))}
-              </div>
             </div>
 
             {/* Quotes */}
@@ -433,7 +416,7 @@ export function TabSitePack() {
             )}
 
             {/* Re-generate */}
-            <div className="border-t pt-4">
+            <div className="border-t border-border/30 pt-4">
               <Button variant="outline" onClick={generateWebsitePackage} className="gap-2">
                 <RefreshCw className="h-4 w-4" />
                 إعادة التوليد

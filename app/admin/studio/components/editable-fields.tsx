@@ -32,6 +32,12 @@ export function EditableField({
     setDraft(value)
   }, [value])
 
+  useEffect(() => {
+    return () => {
+      if (saveTimerRef.current) clearTimeout(saveTimerRef.current)
+    }
+  }, [])
+
   const handleSave = useCallback(async (newValue: string) => {
     setSaving(true)
     try {
@@ -57,7 +63,7 @@ export function EditableField({
     <div className="space-y-2">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <span className="text-sm font-medium">{label}</span>
+          <span className="text-[13px] font-semibold">{label}</span>
           {saving && <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />}
           {!saving && editing && <span className="text-[10px] text-green-600 dark:text-green-400">محفوظ تلقائياً</span>}
         </div>
@@ -106,7 +112,7 @@ export function EditableField({
         )
       ) : (
         <div
-          className="rounded-lg border bg-muted/30 px-4 py-3 text-sm leading-relaxed whitespace-pre-wrap cursor-pointer hover:bg-muted/50 transition-colors"
+          className="rounded-lg border border-border/30 bg-muted/20 px-4 py-3 text-[13px] leading-relaxed whitespace-pre-wrap cursor-pointer hover:bg-muted/40 transition-colors"
           dir="rtl"
           onClick={() => setEditing(true)}
         >
@@ -139,6 +145,12 @@ export function EditableListField({
   useEffect(() => {
     setDrafts(values)
   }, [values])
+
+  useEffect(() => {
+    return () => {
+      if (saveTimerRef.current) clearTimeout(saveTimerRef.current)
+    }
+  }, [])
 
   const handleSave = useCallback(async (newValues: string[]) => {
     setSaving(true)
@@ -173,7 +185,7 @@ export function EditableListField({
     <div className="space-y-2">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <span className="text-sm font-medium">{label}</span>
+          <span className="text-[13px] font-semibold">{label}</span>
           {saving && <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />}
         </div>
         <div className="flex items-center gap-1">
@@ -216,7 +228,7 @@ export function EditableListField({
               />
             ) : (
               <div
-                className="flex-1 rounded-lg border bg-muted/30 px-3 py-2 text-sm cursor-pointer hover:bg-muted/50 transition-colors"
+                className="flex-1 rounded-lg border border-border/30 bg-muted/20 px-3 py-2 text-[13px] cursor-pointer hover:bg-muted/40 transition-colors"
                 dir="rtl"
                 onClick={() => setEditing(true)}
               >
@@ -266,6 +278,12 @@ export function EditableTagsField({
     setDraft(values.join("، "))
   }, [values])
 
+  useEffect(() => {
+    return () => {
+      if (saveTimerRef.current) clearTimeout(saveTimerRef.current)
+    }
+  }, [])
+
   const handleSave = useCallback(async (text: string) => {
     const newValues = text
       .split(/[,،\n]+/)
@@ -298,7 +316,7 @@ export function EditableTagsField({
     <div className="space-y-2">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <span className="text-sm font-medium">{label}</span>
+          <span className="text-[13px] font-semibold">{label}</span>
           <span className="text-xs text-muted-foreground">({values.length})</span>
           {saving && <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />}
         </div>
@@ -344,7 +362,7 @@ export function EditableTagsField({
           {values.map((tag, idx) => (
             <span
               key={idx}
-              className="inline-flex rounded-full bg-muted px-2.5 py-0.5 text-xs font-medium hover:bg-muted/80 transition-colors"
+              className="inline-flex rounded-md bg-muted/60 px-2.5 py-0.5 text-[11px] font-medium hover:bg-muted/80 transition-colors"
             >
               {prefix}{tag}
             </span>
@@ -386,7 +404,7 @@ export function WebPkgEditableField({
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           {icon}
-          <span className="text-sm font-medium">{label}</span>
+          <span className="text-[13px] font-semibold">{label}</span>
         </div>
         <div className="flex items-center gap-1">
           <CopyButton onClick={onCopy} />
@@ -421,7 +439,7 @@ export function WebPkgEditableField({
         )
       ) : (
         <div
-          className="rounded-lg border bg-muted/30 px-4 py-3 text-sm leading-relaxed whitespace-pre-wrap cursor-pointer hover:bg-muted/50 transition-colors"
+          className="rounded-lg border border-border/30 bg-muted/20 px-4 py-3 text-[13px] leading-relaxed whitespace-pre-wrap cursor-pointer hover:bg-muted/40 transition-colors"
           dir="rtl"
           onClick={() => setEditing(true)}
         >

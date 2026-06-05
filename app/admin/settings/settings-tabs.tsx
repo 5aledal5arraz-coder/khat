@@ -4,26 +4,27 @@ import { useState } from "react"
 import { useSearchParams, useRouter } from "next/navigation"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { Youtube, Database, Settings, Palette, Search, Shield, ToggleLeft, KeyRound, Loader2, Check, X } from "lucide-react"
+import { Youtube, Database, Settings, Palette, Search, ToggleLeft, KeyRound, Loader2, Check, X, Link2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { cn } from "@/lib/utils"
 import { ThemeSettingForm } from "./theme-setting-form"
-import { ModerationSettingForm } from "./moderation-setting-form"
 import { SiteMetadataForm } from "./site-metadata-form"
 import { SocialLinksForm } from "./social-links-form"
 import { SEOForm } from "./seo-form"
 import { FeatureFlagsForm } from "./feature-flags-form"
+import { OfficialPlatformsClient } from "../audio-platforms/audio-platforms-client"
 import type { ThemeMode } from "@/types/theme"
 import type { SiteSettingsConfig } from "@/types/site-settings"
+import type { OfficialPlatformLink } from "@/lib/queries/official-platforms"
 
-type TabId = "general" | "appearance" | "seo" | "moderation" | "features" | "account"
+type TabId = "general" | "appearance" | "platforms" | "seo" | "features" | "account"
 
 const tabs: { id: TabId; label: string; icon: React.ElementType }[] = [
   { id: "general", label: "عام", icon: Settings },
   { id: "appearance", label: "المظهر", icon: Palette },
+  { id: "platforms", label: "روابط المنصات", icon: Link2 },
   { id: "seo", label: "SEO", icon: Search },
-  { id: "moderation", label: "الإشراف", icon: Shield },
   { id: "features", label: "الميزات", icon: ToggleLeft },
   { id: "account", label: "الحساب", icon: KeyRound },
 ]
@@ -40,16 +41,16 @@ interface SettingsTabsProps {
   hasYouTubeKey: boolean
   hasDatabase: boolean
   themeMode: ThemeMode
-  moderationEnabled: boolean
   siteSettings: SiteSettingsConfig
+  platforms: OfficialPlatformLink[]
 }
 
 export function SettingsTabs({
   hasYouTubeKey,
   hasDatabase,
   themeMode,
-  moderationEnabled,
   siteSettings,
+  platforms,
 }: SettingsTabsProps) {
   const searchParams = useSearchParams()
   const router = useRouter()
@@ -110,10 +111,10 @@ export function SettingsTabs({
               key={tab.id}
               onClick={() => handleTabChange(tab.id)}
               className={cn(
-                "flex shrink-0 items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition-all",
+                "flex shrink-0 items-center gap-2 rounded-lg px-3 py-2 text-[13px] font-medium transition-all duration-200",
                 activeTab === tab.id
                   ? "bg-primary/10 text-primary"
-                  : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                  : "text-muted-foreground hover:bg-muted/40 hover:text-foreground"
               )}
             >
               <tab.icon className="h-4 w-4" />
@@ -129,10 +130,10 @@ export function SettingsTabs({
               key={tab.id}
               onClick={() => handleTabChange(tab.id)}
               className={cn(
-                "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all text-start",
+                "flex items-center gap-3 rounded-lg px-3 py-2.5 text-[13px] font-medium transition-all duration-200 text-start",
                 activeTab === tab.id
                   ? "bg-primary/10 text-primary border-e-2 border-primary"
-                  : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                  : "text-muted-foreground hover:bg-muted/40 hover:text-foreground"
               )}
             >
               <tab.icon className="h-4 w-4 shrink-0" />
@@ -161,7 +162,7 @@ export function SettingsTabs({
                   </div>
                 </CardHeader>
                 <CardContent>
-                  <p className="text-sm text-muted-foreground">
+                  <p className="text-[13px] text-muted-foreground/60">
                     {hasYouTubeKey
                       ? "يتم جلب الحلقات من قناة YouTube"
                       : "أضف YOUTUBE_API_KEY لجلب الحلقات تلقائياً"}
@@ -182,7 +183,7 @@ export function SettingsTabs({
                   </div>
                 </CardHeader>
                 <CardContent>
-                  <p className="text-sm text-muted-foreground">
+                  <p className="text-[13px] text-muted-foreground/60">
                     {hasDatabase
                       ? "قاعدة البيانات متصلة وتعمل"
                       : "يتم استخدام بيانات تجريبية"}
@@ -203,12 +204,12 @@ export function SettingsTabs({
           <ThemeSettingForm initialMode={themeMode} />
         )}
 
-        {activeTab === "seo" && (
-          <SEOForm initial={siteSettings.seo} />
+        {activeTab === "platforms" && (
+          <OfficialPlatformsClient initialPlatforms={platforms} />
         )}
 
-        {activeTab === "moderation" && (
-          <ModerationSettingForm initialEnabled={moderationEnabled} />
+        {activeTab === "seo" && (
+          <SEOForm initial={siteSettings.seo} />
         )}
 
         {activeTab === "features" && (
@@ -218,12 +219,12 @@ export function SettingsTabs({
         {activeTab === "account" && (
           <Card>
             <CardHeader>
-              <CardTitle className="text-lg">تغيير كلمة المرور</CardTitle>
+              <CardTitle className="text-[15px]">تغيير كلمة المرور</CardTitle>
             </CardHeader>
             <CardContent>
               <form onSubmit={handlePasswordChange} className="space-y-4 max-w-md">
                 <div>
-                  <label className="mb-1 block text-sm font-medium">كلمة المرور الجديدة</label>
+                  <label className="mb-1.5 block text-[13px] font-medium">كلمة المرور الجديدة</label>
                   <Input
                     type="password"
                     value={newPassword}
@@ -234,7 +235,7 @@ export function SettingsTabs({
                 </div>
 
                 <div>
-                  <label className="mb-1 block text-sm font-medium">تأكيد كلمة المرور</label>
+                  <label className="mb-1.5 block text-[13px] font-medium">تأكيد كلمة المرور</label>
                   <Input
                     type="password"
                     value={confirmPassword}
@@ -248,8 +249,8 @@ export function SettingsTabs({
                 </div>
 
                 {/* Requirements checklist */}
-                <div className="rounded-lg border border-border bg-muted/30 p-3 space-y-1.5">
-                  <p className="text-xs font-medium text-muted-foreground mb-2">متطلبات كلمة المرور:</p>
+                <div className="rounded-lg border border-border/30 bg-muted/20 p-3 space-y-1.5">
+                  <p className="text-[11px] font-medium text-muted-foreground/60 mb-2">متطلبات كلمة المرور:</p>
                   {PASSWORD_REQUIREMENTS.map((req) => {
                     const passed = req.test(newPassword)
                     return (

@@ -13,12 +13,12 @@ export function RefreshButton() {
     <Button
       variant="outline"
       size="sm"
-      className="gap-2"
+      className="h-8 gap-2 border-border/50 px-3 text-[11px] text-muted-foreground hover:text-foreground"
       disabled={isPending}
       onClick={() => startTransition(() => router.refresh())}
     >
-      <RefreshCw className={`h-4 w-4 ${isPending ? "animate-spin" : ""}`} />
-      تحديث البيانات
+      <RefreshCw className={`h-3.5 w-3.5 ${isPending ? "animate-spin" : ""}`} />
+      تحديث
     </Button>
   )
 }

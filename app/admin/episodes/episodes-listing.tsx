@@ -1,96 +1,73 @@
 "use client"
 
-import { useState, useCallback } from "react"
+import { useState } from "react"
 import { EpisodesHeader } from "./components/episodes-header"
 import { EpisodesToolbar } from "./components/episodes-toolbar"
 import { EpisodesGrid } from "./components/episodes-grid"
+import { CategoryManager } from "./components/category-manager"
 import type { EpisodesPageData } from "./components/shared"
 
 export function EpisodesListing({
   episodes,
   overrides,
-  sectionsConfig,
-  guestAssignments,
   guests,
+  categories,
   quotesConfig,
   youtubePackConfig,
+  hiddenEpisodeIds,
+  deletedEpisodeIds,
 }: EpisodesPageData) {
   const [search, setSearch] = useState("")
-  const [activeFilter, setActiveFilter] = useState<string | null>(null)
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid")
+  const [activeCategory, setActiveCategory] = useState<string | null>(null)
 
-  const { sections, assignments, hiddenEpisodes, deletedEpisodes } = sectionsConfig
-  const hiddenSet = new Set(hiddenEpisodes)
-  const deletedSet = new Set(deletedEpisodes)
-
-  const isEpisodeHidden = useCallback(
-    (epId: string) => {
-      if (hiddenSet.has(epId)) return true
-      const secId = assignments[epId]
-      if (secId) {
-        const section = sections.find((s) => s.id === secId)
-        if (section?.hidden) return true
-      }
-      return false
-    },
-    [hiddenSet, assignments, sections]
-  )
-
-  // Compute stats
-  const activeEpisodes = episodes.filter((ep) => !deletedSet.has(ep.id))
-  const hiddenCount = episodes.filter(
-    (ep) => isEpisodeHidden(ep.id) && !deletedSet.has(ep.id)
-  ).length
+  const hiddenSet = new Set(hiddenEpisodeIds)
+  const hiddenCount = episodes.filter((ep) => hiddenSet.has(ep.id)).length
   const totalHours = Math.round(
     episodes.reduce((sum, ep) => sum + ep.duration_minutes, 0) / 60
   )
-  const deletedCount = episodes.filter((ep) => deletedSet.has(ep.id)).length
 
-  // Section counts
-  const sectionCounts = new Map<string, number>()
-  for (const section of sections) {
-    sectionCounts.set(
-      section.id,
-      activeEpisodes.filter((ep) => assignments[ep.id] === section.id).length
-    )
-  }
-  const uncategorizedCount = activeEpisodes.filter(
-    (ep) => !assignments[ep.id]
-  ).length
+  // Filter by selected category
+  const filteredByCategory = activeCategory === "__uncategorized"
+    ? episodes.filter((ep) => !ep.category_id)
+    : activeCategory
+    ? episodes.filter((ep) => ep.category_id === activeCategory)
+    : episodes
 
   return (
     <div className="space-y-6">
       <EpisodesHeader
         totalEpisodes={episodes.length}
-        totalSections={sections.length}
         hiddenCount={hiddenCount}
         totalHours={totalHours}
+      />
+
+      {/* Category filter tabs + manager */}
+      <CategoryManager
+        categories={categories}
+        activeCategory={activeCategory}
+        onCategoryChange={setActiveCategory}
+        totalEpisodes={episodes.length}
+        uncategorizedCount={episodes.filter((ep) => !ep.category_id).length}
       />
 
       <EpisodesToolbar
         search={search}
         onSearchChange={setSearch}
-        activeFilter={activeFilter}
-        onFilterChange={setActiveFilter}
-        sections={sections}
-        sectionCounts={sectionCounts}
-        totalCount={episodes.length}
-        uncategorizedCount={uncategorizedCount}
-        deletedCount={deletedCount}
         viewMode={viewMode}
         onViewModeChange={setViewMode}
       />
 
       <EpisodesGrid
-        episodes={episodes}
+        episodes={filteredByCategory}
         overrides={overrides}
-        sectionsConfig={sectionsConfig}
-        guestAssignments={guestAssignments}
         guests={guests}
+        categories={categories}
         quotesConfig={quotesConfig}
         youtubePackConfig={youtubePackConfig}
+        hiddenEpisodeIds={hiddenEpisodeIds}
+        deletedEpisodeIds={deletedEpisodeIds}
         search={search}
-        activeFilter={activeFilter}
         viewMode={viewMode}
       />
     </div>

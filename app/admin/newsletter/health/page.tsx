@@ -29,8 +29,8 @@ export default async function NewsletterHealthPage() {
     <div className="space-y-8">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold">صحة النظام</h1>
-          <p className="text-muted-foreground mt-1">حالة البنية التحتية للنشرة البريدية</p>
+          <h1 className="text-xl font-bold tracking-tight">صحة النظام</h1>
+          <p className="mt-1 text-[13px] text-muted-foreground/60">حالة البنية التحتية للنشرة البريدية</p>
         </div>
         <Link
           href="/admin/newsletter"

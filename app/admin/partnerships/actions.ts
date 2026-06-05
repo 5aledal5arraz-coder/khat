@@ -6,14 +6,15 @@ import {
   createPartner,
   updatePartner,
   deletePartner,
-  getAllPartners,
 } from "@/lib/queries/partnerships"
 import type { NewTrustedPartner } from "@/lib/queries/partnerships"
 import { db } from "@/lib/db"
 import { trustedPartners } from "@/lib/db/schema"
 import { eq } from "drizzle-orm"
+import { invalidate } from "@/lib/cache"
 
 function revalidateAll() {
+  invalidate("homepage")
   revalidatePath("/")
   revalidatePath("/sponsor")
   revalidatePath("/admin/partnerships")

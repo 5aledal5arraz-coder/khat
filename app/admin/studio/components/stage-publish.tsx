@@ -3,45 +3,52 @@
 import {
   ArrowUpFromLine, BarChart3, Rocket,
 } from "lucide-react"
-import { useStudioSession } from "./studio-context"
+import { useWebsitePkg, useAnalyzer } from "../contexts"
 import { AccordionSection } from "./accordion-section"
 import { TabExport } from "./tab-export"
 import { TabAnalyzer } from "./tab-analyzer"
 
 export function StagePublish() {
-  const { websitePkgStatus, analyzerStatus } = useStudioSession()
+  const { websitePkgStatus } = useWebsitePkg()
+  const { analyzerStatus } = useAnalyzer()
 
   const exportStatus = websitePkgStatus === "ready" ? "ready" as const : "idle" as const
   const statuses = [exportStatus, analyzerStatus]
   const readyCount = statuses.filter(s => s === "ready").length
 
   return (
-    <div className="rounded-xl border-s-4 border-s-green-500 border border-border bg-card/50 p-3 space-y-2">
-      <div className="flex items-center gap-2.5 px-1">
-        <Rocket className="h-5 w-5 text-green-500" />
-        <h2 className="font-semibold">النشر والتحليل</h2>
-        <span className="text-xs text-muted-foreground">{readyCount}/2 جاهز</span>
+    <div className="space-y-3">
+      <div className="flex items-center gap-3 px-1">
+        <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-100 dark:bg-emerald-950/40">
+          <Rocket className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+        </div>
+        <div>
+          <h2 className="text-[13px] font-semibold">النشر والتحليل</h2>
+          <span className="text-[11px] text-muted-foreground">{readyCount}/2 مكتمل</span>
+        </div>
       </div>
 
-      <AccordionSection
-        icon={ArrowUpFromLine}
-        iconColor="text-green-500"
-        title="التصدير"
-        status={exportStatus}
-        defaultOpen={exportStatus === "ready"}
-      >
-        <TabExport />
-      </AccordionSection>
+      <div className="space-y-2">
+        <AccordionSection
+          icon={ArrowUpFromLine}
+          iconColor="text-green-500"
+          title="التصدير"
+          status={exportStatus}
+          defaultOpen={exportStatus === "ready"}
+        >
+          <TabExport />
+        </AccordionSection>
 
-      <AccordionSection
-        icon={BarChart3}
-        iconColor="text-indigo-500"
-        title="تحليل الأداء"
-        status={analyzerStatus}
-        defaultOpen={analyzerStatus === "ready"}
-      >
-        <TabAnalyzer />
-      </AccordionSection>
+        <AccordionSection
+          icon={BarChart3}
+          iconColor="text-indigo-500"
+          title="تحليل الأداء"
+          status={analyzerStatus}
+          defaultOpen={analyzerStatus === "ready"}
+        >
+          <TabAnalyzer />
+        </AccordionSection>
+      </div>
     </div>
   )
 }

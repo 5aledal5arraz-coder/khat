@@ -1,6 +1,6 @@
 import { getSubscribersWithStatus } from "@/lib/newsletter/queries"
 import Link from "next/link"
-import { ArrowRight, Users, Download } from "lucide-react"
+import { ArrowRight } from "lucide-react"
 import { SubscriberList } from "./subscriber-list"
 
 export const dynamic = "force-dynamic"
@@ -20,8 +20,8 @@ export default async function NewsletterSubscribersPage({
     <div className="space-y-8">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold">المشتركون</h1>
-          <p className="text-muted-foreground mt-1">إدارة مشتركي النشرة البريدية</p>
+          <h1 className="text-xl font-bold tracking-tight">المشتركون</h1>
+          <p className="mt-1 text-[13px] text-muted-foreground/60">إدارة مشتركي النشرة البريدية</p>
         </div>
         <Link
           href="/admin/newsletter"

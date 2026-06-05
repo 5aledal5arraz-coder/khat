@@ -7,24 +7,29 @@ import { DetailQuotes } from "../components/detail-quotes"
 import { DetailYoutubePack } from "../components/detail-youtube-pack"
 import { DetailConversation } from "../components/detail-conversation"
 import { DetailVersions } from "../components/detail-versions"
-import type { Episode, AdminGuest } from "../components/shared"
-import type { EpisodeOverride, EpisodeSection, EpisodeQuotesEntry, EpisodeEnrichment } from "@/types/episodes"
+import type { AdminEpisodeView, AdminGuestView } from "../components/shared"
+import type { EpisodeOverride, EpisodeQuotesEntry, EpisodeEnrichment } from "@/types/episodes"
 import type { YouTubePackEntry } from "@/types/youtube-pack"
 
 type Tab = "overview" | "quotes" | "youtube-pack" | "conversation" | "versions"
 
+interface SponsorPartner {
+  id: string
+  name: string
+}
+
 interface EpisodeDetailProps {
-  episode: Episode
+  episode: AdminEpisodeView
   override: EpisodeOverride | null
-  sections: EpisodeSection[]
-  currentSectionId: string | null
   isHidden: boolean
-  isDeleted: boolean
-  guests: AdminGuest[]
+  guests: AdminGuestView[]
   currentGuestId: string | null
   quotesEntry: EpisodeQuotesEntry | null
   youtubePackEntry: YouTubePackEntry | null
   enrichment: EpisodeEnrichment | null
+  partners: SponsorPartner[]
+  currentSponsorId: string | null
+  currentBrandLine: string | null
 }
 
 const tabs: { id: Tab; label: string; icon: React.ElementType }[] = [
@@ -38,15 +43,15 @@ const tabs: { id: Tab; label: string; icon: React.ElementType }[] = [
 export function EpisodeDetail({
   episode,
   override,
-  sections,
-  currentSectionId,
   isHidden,
-  isDeleted,
   guests,
   currentGuestId,
   quotesEntry,
   youtubePackEntry,
   enrichment,
+  partners,
+  currentSponsorId,
+  currentBrandLine,
 }: EpisodeDetailProps) {
   const [activeTab, setActiveTab] = useState<Tab>("overview")
 
@@ -58,7 +63,7 @@ export function EpisodeDetail({
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1
-            className="line-clamp-1 text-2xl font-bold"
+            className="line-clamp-1 text-xl font-bold tracking-tight"
             dir="auto"
             title={displayTitle}
           >
@@ -66,18 +71,13 @@ export function EpisodeDetail({
           </h1>
         </div>
         <div className="flex items-center gap-2">
-          {isDeleted && (
-            <span className="rounded-full bg-destructive/10 px-3 py-1 text-xs font-semibold text-destructive ring-1 ring-destructive/20">
-              محذوف
-            </span>
-          )}
-          {isHidden && !isDeleted && (
-            <span className="rounded-full bg-muted px-3 py-1 text-xs font-semibold text-muted-foreground ring-1 ring-border">
+          {isHidden && (
+            <span className="rounded-md bg-muted/60 px-2 py-0.5 text-[11px] font-medium text-muted-foreground/70">
               مخفي
             </span>
           )}
           {override?.customTitle && (
-            <span className="rounded-full bg-primary/10 px-3 py-1 text-xs font-semibold text-primary ring-1 ring-primary/20">
+            <span className="rounded-md bg-primary/10 px-2 py-0.5 text-[11px] font-medium text-primary">
               معدّل
             </span>
           )}
@@ -93,19 +93,19 @@ export function EpisodeDetail({
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
-              className={`flex shrink-0 items-center gap-2 rounded-2xl px-5 py-3 text-sm font-medium transition-all ${
+              className={`flex shrink-0 items-center gap-2 rounded-lg px-4 py-2 text-[13px] font-medium transition-all duration-200 ${
                 isActive
-                  ? "bg-primary text-primary-foreground shadow-lg shadow-primary/20"
-                  : "text-muted-foreground hover:bg-white/[0.04] hover:text-foreground"
+                  ? "bg-primary/10 text-primary"
+                  : "text-muted-foreground hover:bg-muted/40 hover:text-foreground"
               }`}
             >
               <Icon className="h-4 w-4" />
               {tab.label}
               {tab.id === "quotes" && quotesEntry && (
                 <span
-                  className={`rounded-full px-1.5 py-0.5 text-[10px] font-semibold ${
+                  className={`rounded-md px-1.5 py-0.5 text-[10px] font-medium ${
                     isActive
-                      ? "bg-white/20"
+                      ? "bg-primary/20 text-primary"
                       : quotesEntry.status === "published"
                       ? "bg-green-500/10 text-green-400"
                       : "bg-yellow-500/10 text-yellow-400"
@@ -116,8 +116,8 @@ export function EpisodeDetail({
               )}
               {tab.id === "youtube-pack" && youtubePackEntry && (
                 <span
-                  className={`rounded-full px-1.5 py-0.5 text-[10px] font-semibold ${
-                    isActive ? "bg-white/20" : "bg-red-500/10 text-red-400"
+                  className={`rounded-md px-1.5 py-0.5 text-[10px] font-medium ${
+                    isActive ? "bg-primary/20 text-primary" : "bg-red-500/10 text-red-400"
                   }`}
                 >
                   {youtubePackEntry.sections.length}
@@ -133,12 +133,12 @@ export function EpisodeDetail({
         <DetailOverview
           episode={episode}
           override={override}
-          sections={sections}
-          currentSectionId={currentSectionId}
           isHidden={isHidden}
-          isDeleted={isDeleted}
           guests={guests}
           currentGuestId={currentGuestId}
+          partners={partners}
+          currentSponsorId={currentSponsorId}
+          currentBrandLine={currentBrandLine}
         />
       )}
       {activeTab === "conversation" && (
@@ -152,7 +152,7 @@ export function EpisodeDetail({
           episodeId={episode.id}
           episodeTitle={displayTitle}
           youtubeUrl={episode.youtube_url}
-          guestName={episode.guestName || "الضيف"}
+          guestName={episode.guest_name || "الضيف"}
           entry={quotesEntry}
         />
       )}
@@ -161,7 +161,7 @@ export function EpisodeDetail({
           episodeId={episode.id}
           episodeTitle={displayTitle}
           youtubeUrl={episode.youtube_url}
-          guestName={episode.guestName || "الضيف"}
+          guestName={episode.guest_name || "الضيف"}
           entry={youtubePackEntry}
         />
       )}

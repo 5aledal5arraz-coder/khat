@@ -17,6 +17,7 @@ import {
 import { Switch } from "@/components/ui/switch"
 import type { MediaKitConfig, AnalyticsConfig } from "@/types/media-kit"
 import { defaultMediaKitConfig } from "@/types/media-kit"
+import { formatDate } from "@/lib/shared/formatters"
 
 function generatePartnershipPDF(
   config: MediaKitConfig,
@@ -924,9 +925,7 @@ export default function MediaKitPage() {
   // PDF generator state — pre-fill from URL params (from submissions page)
   const [companyName, setCompanyName] = useState(searchParams.get("company") || "")
   const [contactPerson, setContactPerson] = useState(searchParams.get("contact") || "")
-  const [pdfDate, setPdfDate] = useState(
-    (() => { const d = new Date(); return `${String(d.getDate()).padStart(2, "0")}/${String(d.getMonth() + 1).padStart(2, "0")}/${d.getFullYear()}` })()
-  )
+  const [pdfDate, setPdfDate] = useState(formatDate(new Date()))
   const [generating, setGenerating] = useState(false)
 
   // Share link state
@@ -1046,19 +1045,19 @@ export default function MediaKitPage() {
     <div className="space-y-6">
       {/* Page Header */}
       <div>
-        <h1 className="text-2xl font-bold">ملف الشراكة</h1>
-        <p className="mt-1 text-sm text-muted-foreground">
+        <h1 className="text-xl font-bold tracking-tight">ملف الشراكة</h1>
+        <p className="mt-1 text-[13px] text-muted-foreground/60">
           إعداد محتوى ملف الشراكة وإنشاء عروض مخصصة للشركات
         </p>
       </div>
 
       {/* PDF Generator Card */}
-      <div className="rounded-2xl border border-primary/20 bg-gradient-to-bl from-primary/5 via-card to-card p-6">
+      <div className="rounded-xl border border-border/30 bg-card/50 p-5">
         <div className="mb-4 flex items-center gap-2.5">
-          <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-primary/10">
+          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10">
             <FileText className="h-4 w-4 text-primary" />
           </div>
-          <h2 className="text-lg font-semibold">إنشاء عرض شراكة</h2>
+          <h2 className="text-[15px] font-semibold">إنشاء عرض شراكة</h2>
         </div>
 
         <div className="grid gap-4 sm:grid-cols-3">
@@ -1111,7 +1110,7 @@ export default function MediaKitPage() {
       </div>
 
       {/* Share Link Card */}
-      <div className="rounded-2xl border border-border/30 bg-card/50 p-6 backdrop-blur-sm">
+      <div className="rounded-xl border border-border/30 bg-card/50 p-5 backdrop-blur-sm">
         <div className="mb-4 flex items-center justify-between">
           <div className="flex items-center gap-2.5">
             <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-primary/10">
@@ -1190,7 +1189,7 @@ export default function MediaKitPage() {
       </div>
 
       {/* Save Button */}
-      <div className="flex items-center justify-between rounded-2xl border border-border/30 bg-card/50 px-6 py-4 backdrop-blur-sm">
+      <div className="flex items-center justify-between rounded-xl border border-border/30 bg-card/50 px-5 py-3.5 backdrop-blur-sm">
         <p className="text-sm text-muted-foreground">
           عدّل المحتوى أدناه ثم اضغط حفظ. التغييرات ستنعكس على العروض الجديدة.
         </p>
@@ -1375,7 +1374,7 @@ function EditorSection({
   children: React.ReactNode
 }) {
   return (
-    <div className="rounded-2xl border border-border/30 bg-card/50 backdrop-blur-sm">
+    <div className="rounded-xl border border-border/30 bg-card/50 backdrop-blur-sm">
       <div className="flex items-center gap-3 border-b border-border/20 px-6 py-4">
         <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10 text-sm font-bold text-primary">
           {number}

@@ -40,7 +40,7 @@ export function SEOForm({ initial }: { initial: SEODefaults }) {
   return (
     <Card>
       <CardHeader className="pb-3">
-        <CardTitle className="text-base flex items-center gap-2">
+        <CardTitle className="text-[13px] font-semibold flex items-center gap-2">
           <Search className="h-5 w-5" />
           SEO الافتراضي
         </CardTitle>
@@ -54,7 +54,7 @@ export function SEOForm({ initial }: { initial: SEODefaults }) {
             placeholder="%s | بودكاست خط"
             dir="ltr"
           />
-          <p className="text-xs text-muted-foreground">
+          <p className="text-[11px] text-muted-foreground/60">
             استخدم %s كمكان لعنوان الصفحة
           </p>
         </div>

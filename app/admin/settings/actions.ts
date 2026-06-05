@@ -2,7 +2,6 @@
 
 import { revalidatePath } from "next/cache"
 import { saveThemeConfig } from "@/lib/theme"
-import { saveModerationConfig } from "@/lib/moderation-config"
 import { getSiteSettings, saveSiteSettings } from "@/lib/site-settings"
 import { requireAdmin } from "@/lib/api-utils"
 import type { ThemeMode } from "@/types/theme"
@@ -20,18 +19,13 @@ export async function updateThemeMode(mode: ThemeMode) {
   revalidatePath("/", "layout")
 }
 
-export async function updateAIModeration(enabled: boolean) {
-  await requireAdmin()
-  await saveModerationConfig({ aiEnabled: enabled })
-  revalidatePath("/admin/settings")
-}
-
 export async function updateSiteMetadata(metadata: SiteMetadata) {
   await requireAdmin()
   const settings = await getSiteSettings()
   settings.metadata = metadata
   await saveSiteSettings(settings)
   revalidatePath("/admin/settings")
+  revalidatePath("/", "layout")
 }
 
 export async function updateSocialLinks(socialLinks: SocialLinkConfig[]) {
@@ -40,6 +34,7 @@ export async function updateSocialLinks(socialLinks: SocialLinkConfig[]) {
   settings.socialLinks = socialLinks
   await saveSiteSettings(settings)
   revalidatePath("/admin/settings")
+  revalidatePath("/", "layout")
 }
 
 export async function updateSEODefaults(seo: SEODefaults) {
@@ -48,6 +43,7 @@ export async function updateSEODefaults(seo: SEODefaults) {
   settings.seo = seo
   await saveSiteSettings(settings)
   revalidatePath("/admin/settings")
+  revalidatePath("/", "layout")
 }
 
 export async function updateFeatureFlags(featureFlags: FeatureFlags) {

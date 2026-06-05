@@ -1,14 +1,10 @@
 import { getCampaignById, getCampaignDeliveries } from "@/lib/newsletter/queries"
+import { pct, formatDateTime, formatTime } from "@/lib/newsletter/format"
 import { notFound } from "next/navigation"
 import Link from "next/link"
-import { ArrowRight, Mail, Send, Eye, MousePointerClick, AlertTriangle, XCircle } from "lucide-react"
+import { ArrowRight, Mail, Send, Eye, MousePointerClick, XCircle } from "lucide-react"
 
 export const dynamic = "force-dynamic"
-
-function pct(n: number, total: number): string {
-  if (total === 0) return "0%"
-  return `${Math.round((n / total) * 100)}%`
-}
 
 export default async function CampaignDetailPage({
   params,
@@ -28,7 +24,6 @@ export default async function CampaignDetailPage({
     { label: "المُرسل", value: `${campaign.total_sent ?? 0} (${pct(campaign.total_sent ?? 0, campaign.total_recipients ?? 0)})`, icon: Send },
     { label: "المفتوح", value: `${campaign.total_opened ?? 0} (${pct(campaign.total_opened ?? 0, campaign.total_sent ?? 0)})`, icon: Eye },
     { label: "النقرات", value: `${campaign.total_clicked ?? 0} (${pct(campaign.total_clicked ?? 0, campaign.total_sent ?? 0)})`, icon: MousePointerClick },
-    { label: "المرتد", value: campaign.total_bounced ?? 0, icon: AlertTriangle },
     { label: "الفاشل", value: campaign.total_failed ?? 0, icon: XCircle },
   ]
 
@@ -36,10 +31,10 @@ export default async function CampaignDetailPage({
     <div className="space-y-8">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold">{campaign.subject}</h1>
-          <p className="text-muted-foreground mt-1">
+          <h1 className="text-xl font-bold tracking-tight">{campaign.subject}</h1>
+          <p className="mt-1 text-[13px] text-muted-foreground/60">
             {campaign.sent_at
-              ? (() => { const d = new Date(campaign.sent_at); return `${String(d.getDate()).padStart(2, "0")}/${String(d.getMonth() + 1).padStart(2, "0")}/${d.getFullYear()} ${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}` })()
+              ? formatDateTime(campaign.sent_at)
               : "لم يُرسل بعد"
             }
           </p>
@@ -54,7 +49,7 @@ export default async function CampaignDetailPage({
       </div>
 
       {/* Stats Grid */}
-      <div className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-6">
+      <div className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-5">
         {stats.map((stat) => (
           <div key={stat.label} className="rounded-lg border border-border bg-card p-4">
             <div className="flex items-center gap-2 text-muted-foreground mb-2">
@@ -110,16 +105,12 @@ export default async function CampaignDetailPage({
                       </span>
                     </td>
                     <td className="px-4 py-2.5 text-muted-foreground whitespace-nowrap">
-                      {d.sent_at
-                        ? (() => { const dt = new Date(d.sent_at); return `${String(dt.getHours()).padStart(2, "0")}:${String(dt.getMinutes()).padStart(2, "0")}` })()
-                        : "—"}
+                      {d.sent_at ? formatTime(d.sent_at) : "—"}
                     </td>
                     <td className="px-4 py-2.5 tabular-nums">{d.open_count}</td>
                     <td className="px-4 py-2.5 tabular-nums">{d.click_count}</td>
                     <td className="px-4 py-2.5 text-muted-foreground whitespace-nowrap">
-                      {d.last_event_at
-                        ? (() => { const dt = new Date(d.last_event_at); return `${String(dt.getDate()).padStart(2, "0")}/${String(dt.getMonth() + 1).padStart(2, "0")}/${dt.getFullYear()} ${String(dt.getHours()).padStart(2, "0")}:${String(dt.getMinutes()).padStart(2, "0")}` })()
-                        : "—"}
+                      {d.last_event_at ? formatDateTime(d.last_event_at) : "—"}
                     </td>
                   </tr>
                 ))}

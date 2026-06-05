@@ -1,12 +1,12 @@
 "use server"
 
 import { revalidatePath } from "next/cache"
-import { getQuotesConfig, saveQuotesConfig } from "@/lib/episode-quotes"
+import { getQuotesConfig, saveQuotesConfig } from "@/lib/episodes/quotes"
 import { fetchTranscript } from "@/lib/youtube/transcript"
-import { generateQuotesFromTranscript } from "@/lib/openai"
+import { generateQuotesFromTranscript } from "@/lib/ai"
 import { getYouTubeId } from "@/lib/utils"
 import { requireAdmin } from "@/lib/api-utils"
-import { saveVersion } from "@/lib/episode-versions"
+import { saveVersion } from "@/lib/episodes/versions"
 
 function revalidateAll(episodeId?: string) {
   revalidatePath("/")

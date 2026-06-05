@@ -144,10 +144,10 @@ export function PartnershipsForm({ initialPartners }: PartnershipsFormProps) {
       {/* Header */}
       <div className="flex flex-wrap items-center gap-3">
         <h1 className="text-xl font-bold">جهات وثقت بالحوار</h1>
-        <span className="rounded-full bg-muted/80 px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
+        <span className="rounded-md bg-muted/60 px-2 py-0.5 text-[11px] font-medium text-muted-foreground/70">
           {partners.length} شريك
         </span>
-        <span className="rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] font-medium text-emerald-500">
+        <span className="rounded-md bg-emerald-500/10 px-2 py-0.5 text-[11px] font-medium text-emerald-500">
           {activeCount} نشط
         </span>
         <div className="flex-1" />
@@ -156,7 +156,7 @@ export function PartnershipsForm({ initialPartners }: PartnershipsFormProps) {
             {message}
           </span>
         )}
-        <Button onClick={handleNew} className="h-10 gap-2 rounded-xl" disabled={showForm}>
+        <Button onClick={handleNew} className="h-9 gap-2 rounded-lg text-[11px]" disabled={showForm}>
           <Plus className="h-4 w-4" />
           إضافة شريك
         </Button>
@@ -164,8 +164,8 @@ export function PartnershipsForm({ initialPartners }: PartnershipsFormProps) {
 
       {/* Add/Edit Form */}
       {showForm && (
-        <div className="rounded-xl border border-primary/20 bg-card/50 p-6 space-y-4">
-          <h2 className="text-sm font-semibold">
+        <div className="rounded-xl border border-border/30 bg-card/50 p-5 space-y-4">
+          <h2 className="text-[13px] font-semibold">
             {editingId ? "تعديل الشريك" : "إضافة شريك جديد"}
           </h2>
 
@@ -176,7 +176,7 @@ export function PartnershipsForm({ initialPartners }: PartnershipsFormProps) {
                 value={form.name}
                 onChange={(e) => setForm({ ...form, name: e.target.value })}
                 placeholder="اسم الجهة أو المؤسسة"
-                className="rounded-xl"
+                className="rounded-lg"
               />
             </div>
             <div className="space-y-2">
@@ -186,7 +186,7 @@ export function PartnershipsForm({ initialPartners }: PartnershipsFormProps) {
                 onChange={(e) => setForm({ ...form, website_url: e.target.value })}
                 placeholder="https://example.com"
                 dir="ltr"
-                className="rounded-xl"
+                className="rounded-lg"
               />
             </div>
           </div>
@@ -257,9 +257,9 @@ export function PartnershipsForm({ initialPartners }: PartnershipsFormProps) {
 
       {/* Partner List */}
       {partners.length === 0 && !showForm && (
-        <div className="rounded-xl border border-dashed border-border/50 p-12 text-center text-muted-foreground">
-          <p className="mb-2">لا توجد جهات شريكة بعد</p>
-          <p className="text-sm">أضف أول شريك لعرضه في الموقع</p>
+        <div className="admin-card flex flex-col items-center justify-center py-16 text-center">
+          <p className="text-[13px] font-semibold text-muted-foreground/70">لا توجد جهات شريكة بعد</p>
+          <p className="mt-1.5 text-[12px] text-muted-foreground/40">أضف أول شريك لعرضه في الموقع</p>
         </div>
       )}
 
@@ -288,7 +288,7 @@ export function PartnershipsForm({ initialPartners }: PartnershipsFormProps) {
             {/* Info */}
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2">
-                <span className="font-medium text-sm truncate">{partner.name}</span>
+                <span className="font-medium text-[13px] truncate">{partner.name}</span>
                 {partner.website_url && (
                   <a
                     href={partner.website_url}
@@ -301,7 +301,7 @@ export function PartnershipsForm({ initialPartners }: PartnershipsFormProps) {
                 )}
               </div>
               {partner.description && (
-                <p className="text-xs text-muted-foreground truncate">{partner.description}</p>
+                <p className="text-[11px] text-muted-foreground/60 truncate">{partner.description}</p>
               )}
             </div>
 

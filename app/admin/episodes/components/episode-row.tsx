@@ -9,41 +9,39 @@ import {
   Pencil,
   Eye,
   EyeOff,
-  Trash2,
-  Undo2,
   ExternalLink,
   CheckSquare,
   Square,
   RotateCcw,
+  Trash2,
+  Wand2,
 } from "lucide-react"
-import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { getYouTubeId, formatArabicCount } from "@/lib/utils"
 import {
   updateEpisodeTitle,
   removeEpisodeOverride,
-  assignEpisodeSection,
-  assignEpisodeGuest,
   toggleEpisodeVisibility,
-  deleteEpisode,
-  restoreEpisode,
 } from "../actions"
 import { ActionMenu, MenuItem, formatDuration, formatDate } from "./shared"
-import type { Episode, AdminGuest } from "./shared"
-import type { EpisodeOverride, EpisodeSection, EpisodeQuotesEntry } from "@/types/episodes"
+import type { AdminEpisodeView, AdminGuestView, CategoryWithCount } from "./shared"
+import type { EpisodeOverride, EpisodeQuotesEntry } from "@/types/episodes"
 import type { YouTubePackEntry } from "@/types/youtube-pack"
 
 interface EpisodeRowProps {
-  episode: Episode
+  episode: AdminEpisodeView
   override: EpisodeOverride | null
-  sections: EpisodeSection[]
-  currentSectionId: string | null
   isHidden: boolean
-  isDeleted: boolean
   isSelected: boolean
   onToggleSelect: () => void
-  guests: AdminGuest[]
+  onDelete: () => void
+  onAssignGuest: (guestId: string | null) => void
+  onAssignCategory: (categoryId: string | null) => void
+  isAssigning?: boolean
+  guests: AdminGuestView[]
+  categories: CategoryWithCount[]
   currentGuestId: string | null
+  currentCategoryId: string | null
   quotesEntry: EpisodeQuotesEntry | null
   youtubePackEntry: YouTubePackEntry | null
 }
@@ -51,29 +49,29 @@ interface EpisodeRowProps {
 export function EpisodeRow({
   episode,
   override,
-  sections,
-  currentSectionId,
   isHidden,
-  isDeleted,
   isSelected,
   onToggleSelect,
+  onDelete,
+  onAssignGuest,
   guests,
+  categories,
   currentGuestId,
+  currentCategoryId,
   quotesEntry,
 }: EpisodeRowProps) {
   const router = useRouter()
   const [editing, setEditing] = useState(false)
   const [title, setTitle] = useState(override?.customTitle || episode.title)
   const [saving, setSaving] = useState(false)
-  const [confirmDelete, setConfirmDelete] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
 
   const originalTitle = override?.originalTitle || episode.title
   const hasOverride = !!override?.customTitle
   const hasDescOverride = !!override?.customDescription
-  const currentSection = sections.find((s) => s.id === currentSectionId)
   const videoId = getYouTubeId(episode.youtube_url)
   const currentGuest = guests.find((g) => g.id === currentGuestId)
+  const currentCategory = categories.find((c) => c.id === currentCategoryId)
 
   useEffect(() => {
     if (editing && inputRef.current) inputRef.current.focus()
@@ -98,29 +96,16 @@ export function EpisodeRow({
     setSaving(false)
   }
 
-  const handleSectionChange = async (sectionId: string) => {
-    await assignEpisodeSection(episode.id, sectionId || null)
-  }
-
-  const handleGuestChange = async (guestId: string) => {
-    await assignEpisodeGuest(episode.id, guestId || null)
+  const handleGuestChange = (guestId: string) => {
+    onAssignGuest(guestId || null)
   }
 
   const handleToggleVisibility = async () => {
     await toggleEpisodeVisibility(episode.id)
   }
 
-  const handleDelete = async () => {
-    await deleteEpisode(episode.id)
-    setConfirmDelete(false)
-  }
-
-  const handleRestore = async () => {
-    await restoreEpisode(episode.id)
-  }
-
   const handleRowClick = () => {
-    if (!editing && !isDeleted) {
+    if (!editing) {
       router.push(`/admin/episodes/${episode.id}`)
     }
   }
@@ -128,14 +113,12 @@ export function EpisodeRow({
   return (
     <div
       onClick={handleRowClick}
-      className={`group flex items-center gap-3 px-3 py-2 transition-all ${
-        isDeleted
-          ? "cursor-default opacity-40"
-          : isHidden
+      className={`group flex items-center gap-3 px-3 py-2.5 transition-all duration-200 ${
+        isHidden
           ? "cursor-pointer opacity-50 hover:opacity-70"
           : isSelected
           ? "cursor-pointer bg-primary/5"
-          : "cursor-pointer hover:bg-white/[0.03]"
+          : "cursor-pointer hover:bg-muted/30"
       }`}
     >
       {/* Checkbox */}
@@ -154,7 +137,7 @@ export function EpisodeRow({
       </button>
 
       {/* Thumbnail */}
-      <div className="relative h-9 w-16 shrink-0 overflow-hidden rounded-md bg-muted/50">
+      <div className="relative h-9 w-16 shrink-0 overflow-hidden rounded-md bg-muted/30">
         {videoId && (
           <Image
             src={`https://img.youtube.com/vi/${videoId}/mqdefault.jpg`}
@@ -201,40 +184,36 @@ export function EpisodeRow({
         ) : (
           <div className="flex items-center gap-2">
             <span
-              className={`truncate text-sm font-medium ${
-                isDeleted
-                  ? "line-through text-muted-foreground"
-                  : "group-hover:text-foreground"
-              }`}
+              className="truncate text-[13px] font-medium group-hover:text-foreground"
               dir="auto"
             >
               {override?.customTitle || episode.title}
             </span>
             {/* Inline badges */}
             {hasOverride && (
-              <span className="shrink-0 rounded-full bg-primary/10 px-1.5 py-0.5 text-[10px] font-semibold text-primary ring-1 ring-primary/20">
+              <span className="shrink-0 rounded-md bg-primary/10 px-1.5 py-0.5 text-[10px] font-medium text-primary">
                 معدّل
               </span>
             )}
             {quotesEntry && (
               <span
-                className={`shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-semibold ring-1 ${
+                className={`shrink-0 rounded-md px-1.5 py-0.5 text-[10px] font-medium ${
                   quotesEntry.status === "published"
-                    ? "bg-green-500/10 text-green-400 ring-green-500/20"
-                    : "bg-yellow-500/10 text-yellow-400 ring-yellow-500/20"
+                    ? "bg-green-500/10 text-green-400"
+                    : "bg-yellow-500/10 text-yellow-400"
                 }`}
               >
                 {formatArabicCount(quotesEntry.quotes.length, "اقتباس")}
               </span>
             )}
-            {isHidden && !isDeleted && (
-              <span className="shrink-0 rounded-full bg-muted px-1.5 py-0.5 text-[10px] font-semibold text-muted-foreground ring-1 ring-border">
-                مخفي
+            {currentCategory && (
+              <span className="shrink-0 rounded-md bg-primary/10 px-1.5 py-0.5 text-[10px] font-medium text-primary/70">
+                {currentCategory.name}
               </span>
             )}
-            {isDeleted && (
-              <span className="shrink-0 rounded-full bg-destructive/10 px-1.5 py-0.5 text-[10px] font-semibold text-destructive ring-1 ring-destructive/20">
-                محذوف
+            {isHidden && (
+              <span className="shrink-0 rounded-md bg-muted/60 px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
+                مخفي
               </span>
             )}
           </div>
@@ -242,29 +221,18 @@ export function EpisodeRow({
       </div>
 
       {/* Guest */}
-      <span className="hidden w-28 shrink-0 truncate text-xs text-muted-foreground md:block">
-        {currentGuest?.name || episode.guestName || "—"}
+      <span className="hidden w-28 shrink-0 truncate text-[11px] text-muted-foreground/70 md:block">
+        {currentGuest?.name || episode.guest_name || "\u2014"}
       </span>
 
       {/* Date */}
-      <span className="hidden w-24 shrink-0 text-xs text-muted-foreground md:block">
+      <span className="hidden w-24 shrink-0 text-[11px] text-muted-foreground/70 md:block">
         {formatDate(episode.release_date)}
       </span>
 
       {/* Duration */}
-      <span className="hidden w-16 shrink-0 text-xs text-muted-foreground md:block">
+      <span className="hidden w-16 shrink-0 text-[11px] text-muted-foreground/70 md:block">
         {formatDuration(episode.duration_minutes)}
-      </span>
-
-      {/* Section */}
-      <span className="hidden w-24 shrink-0 md:flex items-center gap-1.5 text-xs text-muted-foreground">
-        {currentSection?.color && (
-          <span
-            className="h-2 w-2 shrink-0 rounded-full"
-            style={{ backgroundColor: currentSection.color }}
-          />
-        )}
-        <span className="truncate">{currentSection?.label || "—"}</span>
       </span>
 
       {/* Actions */}
@@ -272,135 +240,92 @@ export function EpisodeRow({
         className="shrink-0 opacity-0 transition-opacity group-hover:opacity-100"
         onClick={(e) => e.stopPropagation()}
       >
-        {isDeleted ? (
-          <Button
-            size="sm"
-            variant="ghost"
-            onClick={handleRestore}
-            className="h-7 gap-1 rounded-lg px-2 text-xs"
-          >
-            <Undo2 className="h-3 w-3" />
-          </Button>
-        ) : confirmDelete ? (
-          <div className="flex items-center gap-1">
-            <Button
-              size="sm"
-              variant="destructive"
-              onClick={handleDelete}
-              className="h-6 rounded-md px-2 text-[10px]"
-            >
-              تأكيد
-            </Button>
-            <Button
-              size="sm"
-              variant="ghost"
-              onClick={() => setConfirmDelete(false)}
-              className="h-6 rounded-md px-2 text-[10px]"
-            >
-              إلغاء
-            </Button>
-          </div>
-        ) : (
-          <ActionMenu>
-            {(close) => (
-              <>
+        <ActionMenu>
+          {(close) => (
+            <>
+              <MenuItem
+                icon={ExternalLink}
+                label="فتح الحلقة"
+                onClick={() => {
+                  router.push(`/admin/episodes/${episode.id}`)
+                  close()
+                }}
+              />
+              {videoId && (
                 <MenuItem
-                  icon={ExternalLink}
-                  label="فتح الحلقة"
+                  icon={Wand2}
+                  label="فتح في الاستوديو"
                   onClick={() => {
-                    router.push(`/admin/episodes/${episode.id}`)
+                    router.push(`/admin/studio?video=${videoId}`)
                     close()
                   }}
                 />
+              )}
+              <MenuItem
+                icon={Pencil}
+                label="تعديل العنوان"
+                onClick={() => {
+                  setEditing(true)
+                  close()
+                }}
+              />
+              {(hasOverride || hasDescOverride) && (
                 <MenuItem
-                  icon={Pencil}
-                  label="تعديل العنوان"
+                  icon={RotateCcw}
+                  label="استعادة الأصلي"
                   onClick={() => {
-                    setEditing(true)
+                    handleReset()
+                    close()
+                  }}
+                  disabled={saving}
+                />
+              )}
+              {/* Guest submenu */}
+              <div className="my-1 border-t border-border/30" />
+              <div className="px-4 py-1.5 text-[10px] font-medium uppercase tracking-wider text-muted-foreground/50">
+                الضيف
+              </div>
+              <MenuItem
+                icon={Square}
+                label="بدون ضيف"
+                onClick={() => {
+                  handleGuestChange("")
+                  close()
+                }}
+              />
+              {guests.map((g) => (
+                <MenuItem
+                  key={g.id}
+                  icon={g.id === currentGuestId ? CheckSquare : Square}
+                  label={g.name}
+                  onClick={() => {
+                    handleGuestChange(g.id)
                     close()
                   }}
                 />
-                {(hasOverride || hasDescOverride) && (
-                  <MenuItem
-                    icon={RotateCcw}
-                    label="استعادة الأصلي"
-                    onClick={() => {
-                      handleReset()
-                      close()
-                    }}
-                    disabled={saving}
-                  />
-                )}
-                {/* Section submenu */}
-                <div className="my-1 border-t border-border/50" />
-                <div className="px-4 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-                  التصنيف
-                </div>
-                <MenuItem
-                  icon={Square}
-                  label="غير مصنّف"
-                  onClick={() => {
-                    handleSectionChange("")
-                    close()
-                  }}
-                />
-                {sections.map((s) => (
-                  <MenuItem
-                    key={s.id}
-                    icon={s.id === currentSectionId ? CheckSquare : Square}
-                    label={s.label}
-                    onClick={() => {
-                      handleSectionChange(s.id)
-                      close()
-                    }}
-                  />
-                ))}
-                {/* Guest submenu */}
-                <div className="my-1 border-t border-border/50" />
-                <div className="px-4 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-                  الضيف
-                </div>
-                <MenuItem
-                  icon={Square}
-                  label="بدون ضيف"
-                  onClick={() => {
-                    handleGuestChange("")
-                    close()
-                  }}
-                />
-                {guests.map((g) => (
-                  <MenuItem
-                    key={g.id}
-                    icon={g.id === currentGuestId ? CheckSquare : Square}
-                    label={g.name}
-                    onClick={() => {
-                      handleGuestChange(g.id)
-                      close()
-                    }}
-                  />
-                ))}
-                <div className="my-1 border-t border-border/50" />
-                <MenuItem
-                  icon={isHidden ? Eye : EyeOff}
-                  label={isHidden ? "إظهار الحلقة" : "إخفاء الحلقة"}
-                  onClick={() => {
-                    handleToggleVisibility()
-                    close()
-                  }}
-                />
-                <MenuItem
-                  icon={Trash2}
-                  label="حذف الحلقة"
-                  variant="danger"
-                  onClick={() => {
-                    setConfirmDelete(true)
-                    close()
-                  }}
-                />
-              </>
-            )}
-          </ActionMenu>
-        )}
+              ))}
+              <div className="my-1 border-t border-border/30" />
+              <MenuItem
+                icon={isHidden ? Eye : EyeOff}
+                label={isHidden ? "إظهار الحلقة" : "إخفاء الحلقة"}
+                onClick={() => {
+                  handleToggleVisibility()
+                  close()
+                }}
+              />
+              <div className="my-1 border-t border-border/30" />
+              <MenuItem
+                icon={Trash2}
+                label="حذف الحلقة"
+                variant="danger"
+                onClick={() => {
+                  onDelete()
+                  close()
+                }}
+              />
+            </>
+          )}
+        </ActionMenu>
       </div>
     </div>
   )

@@ -1,9 +1,9 @@
 "use server"
 
 import { revalidatePath } from "next/cache"
-import { getEpisodeEnrichment, setEpisodeEnrichment } from "@/lib/episode-enrichments"
+import { getEpisodeEnrichment, setEpisodeEnrichment } from "@/lib/episodes/enrichments"
 import { requireAdmin } from "@/lib/api-utils"
-import { saveVersion } from "@/lib/episode-versions"
+import { saveVersion } from "@/lib/episodes/versions"
 import type { EpisodeEnrichment } from "@/types/episodes"
 
 type ConversationFields = Pick<
@@ -34,7 +34,8 @@ export async function saveConversationData(episodeId: string, data: Conversation
 
   revalidatePath("/")
   revalidatePath("/episodes")
-  revalidatePath(`/episodes/${episodeId}`)
+  // episodeId is a UUID, not a slug — invalidate all episode detail pages
+  revalidatePath("/episodes/[slug]", "page")
   revalidatePath("/admin/episodes")
   return { success: true }
 }
@@ -57,7 +58,8 @@ export async function clearConversationField(
 
   revalidatePath("/")
   revalidatePath("/episodes")
-  revalidatePath(`/episodes/${episodeId}`)
+  // episodeId is a UUID, not a slug — invalidate all episode detail pages
+  revalidatePath("/episodes/[slug]", "page")
   revalidatePath("/admin/episodes")
   return { success: true }
 }

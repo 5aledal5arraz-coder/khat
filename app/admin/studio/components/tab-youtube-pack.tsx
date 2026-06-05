@@ -4,14 +4,14 @@ import { useCallback } from "react"
 import { Sparkles, Loader2, AlertCircle, RefreshCw } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
-import { useStudioSession } from "./studio-context"
+import { useContent } from "../contexts"
 import { AI_STATUS_LABELS } from "./shared"
 import { EditableField, EditableListField, EditableTagsField } from "./editable-fields"
 
 export function TabYoutubePack() {
   const {
     aiOutput, aiStatus, aiError, generateAiOutput, updateAiField,
-  } = useStudioSession()
+  } = useContent()
 
   const statusInfo = AI_STATUS_LABELS[aiStatus]
 
@@ -23,14 +23,14 @@ export function TabYoutubePack() {
 
   return (
     <div className="space-y-6">
-      <div className="rounded-xl border bg-card p-6 space-y-5">
+      <div className="rounded-xl border border-border/30 bg-card/50 p-6 space-y-5">
         {/* Header */}
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <Sparkles className="h-5 w-5 text-amber-500" />
-            <h2 className="font-semibold">حزمة يوتيوب</h2>
+            <h2 className="text-[13px] font-semibold">حزمة يوتيوب</h2>
           </div>
-          <span className={cn("rounded-full px-2.5 py-0.5 text-xs font-medium", statusInfo.className)}>
+          <span className={cn("rounded-md px-2.5 py-0.5 text-[11px] font-medium", statusInfo.className)}>
             {statusInfo.label}
           </span>
         </div>
@@ -60,7 +60,7 @@ export function TabYoutubePack() {
         {/* Error state */}
         {aiStatus === "error" && (
           <div className="space-y-4">
-            <div className="flex items-start gap-2 rounded-lg border border-red-200 bg-red-50 p-3 dark:border-red-900 dark:bg-red-950/50">
+            <div className="flex items-start gap-2 rounded-lg border border-red-500/20 bg-red-500/5 p-3">
               <AlertCircle className="h-4 w-4 shrink-0 text-red-500 mt-0.5" />
               <p className="text-sm text-red-600 dark:text-red-400">{aiError}</p>
             </div>
@@ -118,7 +118,7 @@ export function TabYoutubePack() {
               onSave={makeSaver("hashtags")}
             />
 
-            <div className="border-t pt-4">
+            <div className="border-t border-border/30 pt-4">
               <Button variant="outline" onClick={generateAiOutput} className="gap-2">
                 <RefreshCw className="h-4 w-4" />
                 إعادة التوليد

@@ -1,13 +1,9 @@
 import { getNewsletterMetrics, getTopCampaigns } from "@/lib/newsletter/queries"
+import { pct, formatDate } from "@/lib/newsletter/format"
 import Link from "next/link"
-import { ArrowRight, Mail, Users, Send, MousePointerClick, Eye, AlertTriangle } from "lucide-react"
+import { ArrowRight, Mail, Users, Send } from "lucide-react"
 
 export const dynamic = "force-dynamic"
-
-function pct(n: number, total: number): string {
-  if (total === 0) return "0%"
-  return `${Math.round((n / total) * 100)}%`
-}
 
 export default async function NewsletterMetricsPage() {
   const [metrics, topCampaigns] = await Promise.all([
@@ -27,8 +23,8 @@ export default async function NewsletterMetricsPage() {
     <div className="space-y-8">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold">إحصائيات النشرة البريدية</h1>
-          <p className="text-muted-foreground mt-1">نظرة عامة على أداء حملاتك</p>
+          <h1 className="text-xl font-bold tracking-tight">إحصائيات النشرة البريدية</h1>
+          <p className="mt-1 text-[13px] text-muted-foreground/60">نظرة عامة على أداء حملاتك</p>
         </div>
         <Link
           href="/admin/newsletter"
@@ -40,7 +36,7 @@ export default async function NewsletterMetricsPage() {
       </div>
 
       {/* Summary Cards */}
-      <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
+      <div className="grid grid-cols-3 gap-4">
         <div className="rounded-lg border border-border bg-card p-4">
           <div className="flex items-center gap-2 text-muted-foreground mb-2">
             <Users className="h-4 w-4" />
@@ -63,21 +59,12 @@ export default async function NewsletterMetricsPage() {
           </div>
           <p className="text-2xl font-bold">{metrics.totalEmailsSent}</p>
         </div>
-        <div className="rounded-lg border border-border bg-card p-4">
-          <div className="flex items-center gap-2 text-muted-foreground mb-2">
-            <AlertTriangle className="h-4 w-4" />
-            <span className="text-xs">الشكاوى</span>
-          </div>
-          <p className="text-2xl font-bold">{metrics.totalComplaints}</p>
-        </div>
       </div>
 
       {/* Rate Cards */}
-      <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
-        <RateCard label="معدل التوصيل" value={metrics.deliveryRate} color="green" />
+      <div className="grid grid-cols-2 gap-4">
         <RateCard label="معدل الفتح" value={metrics.openRate} color="blue" />
         <RateCard label="معدل النقر" value={metrics.clickRate} color="purple" />
-        <RateCard label="معدل الارتداد" value={metrics.bounceRate} color="red" />
       </div>
 
       {/* Top Campaigns */}
@@ -111,7 +98,7 @@ export default async function NewsletterMetricsPage() {
                       {c.total_clicked} <span className="text-muted-foreground">({pct(c.total_clicked, c.total_sent)})</span>
                     </td>
                     <td className="px-4 py-2.5 text-muted-foreground whitespace-nowrap">
-                      {c.sent_at ? (() => { const d = new Date(c.sent_at); return `${String(d.getDate()).padStart(2, "0")}/${String(d.getMonth() + 1).padStart(2, "0")}/${d.getFullYear()}` })() : "—"}
+                      {c.sent_at ? formatDate(c.sent_at) : "—"}
                     </td>
                   </tr>
                 ))}

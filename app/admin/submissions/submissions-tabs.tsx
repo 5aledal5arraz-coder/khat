@@ -29,15 +29,39 @@ import {
   CircleX,
   Eye,
   ChevronDown,
+  Lightbulb,
+  BookOpen,
+  Link,
+  Brain,
+  Sparkles,
+  AlertTriangle,
+  Shield,
+  Loader2,
+  RefreshCw,
+  ClipboardCopy,
+  Lock,
+  Unlock,
+  LinkIcon,
+  ClipboardCheck,
 } from "lucide-react"
 import type {
   GuestApplication,
   GuestApplicationStatus,
   SponsorshipLead,
   SponsorshipStatus,
+  SponsorshipAnalysis,
+  SponsorshipProposal,
+  GuestApplicationAnalysis,
+  GuestApplicationConcept,
+  GuestApplicationResponse,
   NewsletterSubscriber,
+  ThinkerSuggestion,
+  ThinkerSuggestionStatus,
+  GuestPrepForm,
+  GuestPrepFormStatus,
+  GuestPrepResponse,
 } from "@/types/database"
-import type { MediaKitConfig, AnalyticsConfig } from "@/types/media-kit"
+import { formatDate } from "@/lib/shared/formatters"
 
 /* ─── Status Helpers ─── */
 
@@ -119,6 +143,36 @@ const SPONSOR_STATUS_CONFIG: Record<
   },
 }
 
+const THINKER_STATUS_CONFIG: Record<
+  ThinkerSuggestionStatus,
+  { label: string; color: string; bg: string; ring: string }
+> = {
+  new: {
+    label: "جديد",
+    color: "text-blue-400",
+    bg: "bg-blue-500/10",
+    ring: "ring-blue-500/20",
+  },
+  reviewing: {
+    label: "قيد المراجعة",
+    color: "text-amber-400",
+    bg: "bg-amber-500/10",
+    ring: "ring-amber-500/20",
+  },
+  approved: {
+    label: "مقبول",
+    color: "text-emerald-400",
+    bg: "bg-emerald-500/10",
+    ring: "ring-emerald-500/20",
+  },
+  rejected: {
+    label: "مرفوض",
+    color: "text-red-400",
+    bg: "bg-red-500/10",
+    ring: "ring-red-500/20",
+  },
+}
+
 const COLLABORATION_LABELS: Record<string, string> = {
   episode_partnership: "شراكة حلقة",
   multiple_episodes: "عدة حلقات",
@@ -147,6 +201,7 @@ const BUDGET_LABELS: Record<string, string> = {
 }
 
 import { GlowCard } from "../components/glow-card"
+import { LinkCanonicalDialog } from "../guest-candidates/components/link-canonical-dialog"
 
 /* ─── Action Menu ─── */
 
@@ -176,14 +231,14 @@ function ActionMenu({
         aria-haspopup="menu"
         aria-expanded={open}
         aria-label="خيارات"
-        className="flex h-8 w-8 items-center justify-center rounded-xl text-muted-foreground transition-all hover:bg-white/5 hover:text-foreground"
+        className="flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground transition-all duration-200 hover:bg-muted/40 hover:text-foreground"
       >
         <MoreVertical className="h-4 w-4" />
       </button>
       {open && (
         <div
           role="menu"
-          className="absolute end-0 top-full z-50 mt-1 w-48 overflow-hidden rounded-2xl border border-border/50 bg-card/95 shadow-2xl shadow-black/20 backdrop-blur-xl"
+          className="absolute end-0 top-full z-50 mt-1 w-48 overflow-hidden rounded-xl border border-border/30 bg-card/95 py-1 shadow-xl shadow-black/20 backdrop-blur-xl"
         >
           {children(() => setOpen(false))}
         </div>
@@ -207,10 +262,10 @@ function MenuItem({
     <button
       role="menuitem"
       onClick={onClick}
-      className={`flex w-full items-center gap-3 px-4 py-2.5 text-sm transition-all ${
+      className={`flex w-full items-center gap-3 px-4 py-2 text-[13px] transition-all duration-200 ${
         variant === "danger"
           ? "text-destructive hover:bg-destructive/10"
-          : "text-foreground hover:bg-white/5"
+          : "text-foreground hover:bg-muted/40"
       }`}
     >
       <Icon className="h-4 w-4 shrink-0 opacity-60" />
@@ -238,7 +293,7 @@ function DetailDialog({
       onClick={onClose}
     >
       <div
-        className="relative w-full max-w-3xl max-h-[90vh] overflow-y-auto rounded-3xl border border-border/50 bg-card/95 shadow-2xl shadow-black/30 backdrop-blur-xl"
+        className="relative w-full max-w-3xl max-h-[90vh] overflow-y-auto rounded-2xl border border-border/30 bg-card/95 shadow-2xl shadow-black/30 backdrop-blur-xl"
         onClick={(e) => e.stopPropagation()}
       >
         {children}
@@ -275,13 +330,13 @@ function StatusDropdown({
     <div ref={ref} className="relative">
       <button
         onClick={() => setOpen(!open)}
-        className={`flex items-center gap-2 rounded-xl px-3 py-1.5 text-xs font-medium ring-1 transition-all ${config.bg} ${config.color} ${config.ring}`}
+        className={`flex items-center gap-2 rounded-lg px-3 py-1.5 text-[11px] font-medium transition-all duration-200 ${config.bg} ${config.color}`}
       >
         {config.label}
         <ChevronDown className="h-3 w-3" />
       </button>
       {open && (
-        <div className="absolute end-0 top-full z-50 mt-1 w-44 overflow-hidden rounded-2xl border border-border/50 bg-card/95 shadow-2xl shadow-black/20 backdrop-blur-xl">
+        <div className="absolute end-0 top-full z-50 mt-1 w-44 overflow-hidden rounded-xl border border-border/30 bg-card/95 py-1 shadow-xl shadow-black/20 backdrop-blur-xl">
           {(Object.keys(STATUS_CONFIG) as GuestApplicationStatus[]).map(
             (status) => {
               const s = STATUS_CONFIG[status]
@@ -292,7 +347,7 @@ function StatusDropdown({
                     onChange(status)
                     setOpen(false)
                   }}
-                  className={`flex w-full items-center gap-2.5 px-4 py-2.5 text-sm transition-all hover:bg-white/5 ${
+                  className={`flex w-full items-center gap-2.5 px-4 py-2 text-[13px] transition-all duration-200 hover:bg-muted/40 ${
                     current === status ? "bg-white/[0.03]" : ""
                   }`}
                 >
@@ -342,13 +397,13 @@ function SponsorStatusDropdown({
     <div ref={ref} className="relative">
       <button
         onClick={() => setOpen(!open)}
-        className={`flex items-center gap-2 rounded-xl px-3 py-1.5 text-xs font-medium ring-1 transition-all ${config.bg} ${config.color} ${config.ring}`}
+        className={`flex items-center gap-2 rounded-lg px-3 py-1.5 text-[11px] font-medium transition-all duration-200 ${config.bg} ${config.color}`}
       >
         {config.label}
         <ChevronDown className="h-3 w-3" />
       </button>
       {open && (
-        <div className="absolute end-0 top-full z-50 mt-1 w-48 overflow-hidden rounded-2xl border border-border/50 bg-card/95 shadow-2xl shadow-black/20 backdrop-blur-xl">
+        <div className="absolute end-0 top-full z-50 mt-1 w-48 overflow-hidden rounded-xl border border-border/30 bg-card/95 py-1 shadow-xl shadow-black/20 backdrop-blur-xl">
           {(Object.keys(SPONSOR_STATUS_CONFIG) as SponsorshipStatus[]).map(
             (status) => {
               const s = SPONSOR_STATUS_CONFIG[status]
@@ -359,7 +414,7 @@ function SponsorStatusDropdown({
                     onChange(status)
                     setOpen(false)
                   }}
-                  className={`flex w-full items-center gap-2.5 px-4 py-2.5 text-sm transition-all hover:bg-white/5 ${
+                  className={`flex w-full items-center gap-2.5 px-4 py-2 text-[13px] transition-all duration-200 hover:bg-muted/40 ${
                     current === status ? "bg-white/[0.03]" : ""
                   }`}
                 >
@@ -382,13 +437,6 @@ function SponsorStatusDropdown({
 }
 
 /* ─── Helpers ─── */
-
-function formatDate(dateString: string) {
-  const d = new Date(dateString)
-  const day = String(d.getDate()).padStart(2, "0")
-  const month = String(d.getMonth() + 1).padStart(2, "0")
-  return `${day}/${month}/${d.getFullYear()}`
-}
 
 function timeAgo(dateString: string) {
   const now = new Date()
@@ -555,20 +603,21 @@ function TabButton({
     primary: "text-primary bg-primary/10",
     purple: "text-accent bg-accent/10",
     green: "text-emerald-500 bg-emerald-500/10",
+    amber: "text-amber-500 bg-amber-500/10",
   }
 
   return (
     <button
       onClick={onClick}
-      className={`flex items-center gap-2.5 rounded-2xl px-4 py-2.5 text-sm font-medium transition-all ${
+      className={`flex items-center gap-2.5 rounded-lg px-4 py-2 text-[13px] font-medium transition-all duration-200 ${
         active
-          ? "bg-white/[0.06] text-foreground ring-1 ring-border/50"
-          : "text-muted-foreground hover:bg-white/[0.03] hover:text-foreground"
+          ? "bg-muted/50 text-foreground"
+          : "text-muted-foreground hover:bg-muted/30 hover:text-foreground"
       }`}
     >
       <div
-        className={`flex h-8 w-8 items-center justify-center rounded-xl ${
-          active ? colorMap[color] : "bg-white/[0.03]"
+        className={`flex h-7 w-7 items-center justify-center rounded-lg ${
+          active ? colorMap[color] : "bg-muted/30"
         }`}
       >
         <Icon className="h-4 w-4" />
@@ -577,10 +626,10 @@ function TabButton({
       <span className="sm:hidden">{shortLabel}</span>
       {count > 0 && (
         <span
-          className={`rounded-full px-2 py-0.5 text-[10px] font-bold tabular-nums ${
+          className={`rounded-md px-1.5 py-0.5 text-[10px] font-medium tabular-nums ${
             active
               ? "bg-primary/10 text-primary"
-              : "bg-white/[0.04] text-muted-foreground"
+              : "bg-muted/40 text-muted-foreground/70"
           }`}
         >
           {count}
@@ -602,7 +651,7 @@ function NarrativeBlock({
   return (
     <div className="space-y-2">
       <p className="text-xs font-medium text-muted-foreground">{label}</p>
-      <p className="whitespace-pre-wrap rounded-xl bg-white/[0.02] px-4 py-3 text-sm leading-[1.8] ring-1 ring-border/15">
+      <p className="whitespace-pre-wrap rounded-lg bg-muted/20 px-4 py-3 text-[13px] leading-[1.8] border border-border/20">
         {value}
       </p>
     </div>
@@ -615,12 +664,14 @@ interface SubmissionsTabsProps {
   guestApplications: GuestApplication[]
   sponsorshipLeads: SponsorshipLead[]
   newsletterSubscribers: NewsletterSubscriber[]
+  thinkerSuggestions: ThinkerSuggestion[]
 }
 
 export function SubmissionsTabs({
   guestApplications: initialGuestApps,
   sponsorshipLeads: initialSponsors,
   newsletterSubscribers: initialSubscribers,
+  thinkerSuggestions: initialThinkers,
 }: SubmissionsTabsProps) {
   const searchParams = useSearchParams()
   const defaultTab = searchParams.get("tab") || "guests"
@@ -632,6 +683,7 @@ export function SubmissionsTabs({
   const [sponsorshipLeads, setSponsorshipLeads] = useState(initialSponsors)
   const [newsletterSubscribers, setNewsletterSubscribers] =
     useState(initialSubscribers)
+  const [thinkerSuggestions, setThinkerSuggestions] = useState(initialThinkers)
 
   const [selectedApplication, setSelectedApplication] =
     useState<GuestApplication | null>(null)
@@ -641,7 +693,7 @@ export function SubmissionsTabs({
   const printRef = useRef<HTMLDivElement>(null)
 
   // Guest response message state
-  const [messageType, setMessageType] = useState<"acceptance" | "rejection">(
+  const [messageType, setMessageType] = useState<"acceptance" | "rejection" | "consider_later">(
     "acceptance"
   )
   const [messageTone, setMessageTone] = useState<"formal" | "warm">("formal")
@@ -651,9 +703,39 @@ export function SubmissionsTabs({
   >(null)
 
   // Sponsor response message state
-  const [sponsorMessageType, setSponsorMessageType] = useState<"response" | "decline">("response")
+  const [sponsorMessageType, setSponsorMessageType] = useState<"response" | "decline" | "proposal">("response")
   const [sponsorMessageTone, setSponsorMessageTone] = useState<"formal" | "warm">("formal")
   const [sponsorMessageText, setSponsorMessageText] = useState("")
+
+  // AI Analysis & Proposal state (Sponsors)
+  const [aiAnalysis, setAiAnalysis] = useState<SponsorshipAnalysis | null>(null)
+  const [aiProposal, setAiProposal] = useState<SponsorshipProposal | null>(null)
+  const [analyzingLead, setAnalyzingLead] = useState(false)
+  const [generatingProposal, setGeneratingProposal] = useState(false)
+  const [proposalTone, setProposalTone] = useState<"formal" | "warm">("formal")
+  const [aiScores, setAiScores] = useState<Record<string, { score: number; quality: string }>>({})
+
+  // AI state (Guest Applications)
+  const [guestAiAnalysis, setGuestAiAnalysis] = useState<GuestApplicationAnalysis | null>(null)
+  const [guestAiConcept, setGuestAiConcept] = useState<GuestApplicationConcept | null>(null)
+  const [guestAiResponses, setGuestAiResponses] = useState<GuestApplicationResponse | null>(null)
+  const [analyzingGuest, setAnalyzingGuest] = useState(false)
+  const [generatingConcept, setGeneratingConcept] = useState(false)
+  const [generatingResponses, setGeneratingResponses] = useState(false)
+  const [guestAiScores, setGuestAiScores] = useState<Record<string, number>>({})
+
+  // Canonical-link dialog state (P2.4.d) — opens the shared dialog
+  // that targets /api/admin/submissions/guests/:id/link-canonical.
+  // Only shown inside the `status === 'accepted'` block (see §D below).
+  const [linkCanonicalOpen, setLinkCanonicalOpen] = useState(false)
+
+  // Guest Prep Form state
+  const [prepForm, setPrepForm] = useState<GuestPrepForm | null>(null)
+  const [prepFormLoading, setPrepFormLoading] = useState(false)
+  const [prepFormCreating, setPrepFormCreating] = useState(false)
+  const [prepFormAction, setPrepFormAction] = useState<string | null>(null)
+  const [prepToken, setPrepToken] = useState<string | null>(null)
+  const [prepLinkCopied, setPrepLinkCopied] = useState(false)
 
   // Email sending state (shared)
   const [sendingEmail, setSendingEmail] = useState(false)
@@ -664,16 +746,23 @@ export function SubmissionsTabs({
   useEffect(() => {
     if (selectedApplication) {
       const name = selectedApplication.name
-      if (messageType === "acceptance") {
+      // If AI responses are loaded and user picks acceptance/rejection, use AI draft
+      if (messageType === "acceptance" && guestAiResponses?.status === "ready") {
+        setMessageText(messageTone === "formal" ? (guestAiResponses.acceptance_formal || generateAcceptanceMessage(name, "formal")) : (guestAiResponses.acceptance_warm || generateAcceptanceMessage(name, "warm")))
+      } else if (messageType === "rejection" && guestAiResponses?.status === "ready") {
+        setMessageText(messageTone === "formal" ? (guestAiResponses.rejection_formal || generateRejectionMessage(name, "formal")) : (guestAiResponses.rejection_warm || generateRejectionMessage(name, "warm")))
+      } else if (messageType === "consider_later" && guestAiResponses?.status === "ready") {
+        setMessageText(messageTone === "formal" ? (guestAiResponses.consider_later_formal || "") : (guestAiResponses.consider_later_warm || ""))
+      } else if (messageType === "acceptance") {
         setMessageText(generateAcceptanceMessage(name, messageTone))
-      } else {
+      } else if (messageType === "rejection") {
         setMessageText(generateRejectionMessage(name, messageTone))
       }
       setMessageCopied(null)
       setEmailSent(null)
       setEmailError(null)
     }
-  }, [selectedApplication, messageType, messageTone])
+  }, [selectedApplication, messageType, messageTone, guestAiResponses])
 
   // Regenerate sponsor message when lead, type, or tone changes
   useEffect(() => {
@@ -681,13 +770,190 @@ export function SubmissionsTabs({
       const name = selectedLead.contact_name
       if (sponsorMessageType === "response") {
         setSponsorMessageText(generateSponsorResponseMessage(name, sponsorMessageTone))
-      } else {
+      } else if (sponsorMessageType === "decline") {
         setSponsorMessageText(generateSponsorDeclineMessage(name, sponsorMessageTone))
+      } else if (sponsorMessageType === "proposal" && aiProposal?.full_draft) {
+        setSponsorMessageText(aiProposal.edited_draft || aiProposal.full_draft)
       }
       setEmailSent(null)
       setEmailError(null)
     }
-  }, [selectedLead, sponsorMessageType, sponsorMessageTone])
+  }, [selectedLead, sponsorMessageType, sponsorMessageTone, aiProposal])
+
+  // Fetch AI analysis + proposal when a lead is selected
+  useEffect(() => {
+    if (!selectedLead) {
+      setAiAnalysis(null)
+      setAiProposal(null)
+      return
+    }
+    fetch(`/api/admin/submissions/sponsors/${selectedLead.id}/analyze`)
+      .then((r) => r.ok ? r.json() : null)
+      .then((d) => { if (d?.exists) setAiAnalysis(d.analysis) })
+      .catch(() => {})
+    fetch(`/api/admin/submissions/sponsors/${selectedLead.id}/proposal`)
+      .then((r) => r.ok ? r.json() : null)
+      .then((d) => { if (d?.exists) setAiProposal(d.proposal) })
+      .catch(() => {})
+  }, [selectedLead])
+
+  // Fetch guest AI data when application is selected
+  useEffect(() => {
+    if (!selectedApplication) {
+      setGuestAiAnalysis(null)
+      setGuestAiConcept(null)
+      setGuestAiResponses(null)
+      return
+    }
+    fetch(`/api/admin/submissions/guests/${selectedApplication.id}/analyze`)
+      .then((r) => r.ok ? r.json() : null)
+      .then((d) => { if (d?.exists) setGuestAiAnalysis(d.analysis) })
+      .catch(() => {})
+    fetch(`/api/admin/submissions/guests/${selectedApplication.id}/concept`)
+      .then((r) => r.ok ? r.json() : null)
+      .then((d) => { if (d?.exists) setGuestAiConcept(d.concept) })
+      .catch(() => {})
+    fetch(`/api/admin/submissions/guests/${selectedApplication.id}/responses`)
+      .then((r) => r.ok ? r.json() : null)
+      .then((d) => { if (d?.exists) setGuestAiResponses(d.responses) })
+      .catch(() => {})
+  }, [selectedApplication])
+
+  // Fetch prep form when application is selected
+  useEffect(() => {
+    if (!selectedApplication) {
+      setPrepForm(null)
+      setPrepToken(null)
+      return
+    }
+    setPrepFormLoading(true)
+    fetch(`/api/admin/submissions/guests/${selectedApplication.id}/prep-form`)
+      .then((r) => r.ok ? r.json() : null)
+      .then((d) => { if (d?.form) setPrepForm(d.form) })
+      .catch(() => {})
+      .finally(() => setPrepFormLoading(false))
+  }, [selectedApplication])
+
+  // Prep form handlers
+  async function handleCreatePrepForm() {
+    if (!selectedApplication || prepFormCreating) return
+    setPrepFormCreating(true)
+    try {
+      const res = await fetch(`/api/admin/submissions/guests/${selectedApplication.id}/prep-form`, { method: "POST" })
+      const data = await res.json()
+      if (data.form) {
+        setPrepForm(data.form)
+        if (data.token) setPrepToken(data.token)
+      }
+    } catch {}
+    setPrepFormCreating(false)
+  }
+
+  async function handlePrepFormAction(action: string) {
+    if (!selectedApplication || prepFormAction) return
+    setPrepFormAction(action)
+    try {
+      const res = await fetch(`/api/admin/submissions/guests/${selectedApplication.id}/prep-form`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action }),
+      })
+      const data = await res.json()
+      if (data.form) {
+        setPrepForm(data.form)
+        if (data.token) setPrepToken(data.token)
+      }
+    } catch {}
+    setPrepFormAction(null)
+  }
+
+  function copyPrepLink() {
+    const t = prepToken
+    if (!t) return
+    const url = `${window.location.origin}/prepare/${t}`
+    navigator.clipboard.writeText(url)
+    setPrepLinkCopied(true)
+    setTimeout(() => setPrepLinkCopied(false), 2500)
+  }
+
+  // Run AI analysis
+  async function handleAnalyzeLead() {
+    if (!selectedLead || analyzingLead) return
+    setAnalyzingLead(true)
+    try {
+      const res = await fetch(`/api/admin/submissions/sponsors/${selectedLead.id}/analyze`, { method: "POST" })
+      const data = await res.json()
+      if (data.analysis) {
+        setAiAnalysis(data.analysis)
+        setAiScores((prev) => ({ ...prev, [selectedLead.id]: { score: data.analysis.fit_score, quality: data.analysis.quality } }))
+        if (data.statusUpdated) {
+          setSponsorshipLeads((prev) => prev.map((l) => l.id === selectedLead.id ? { ...l, status: "reviewing" as SponsorshipStatus } : l))
+          setSelectedLead((prev) => prev ? { ...prev, status: "reviewing" as SponsorshipStatus } : prev)
+        }
+      }
+    } catch {}
+    setAnalyzingLead(false)
+  }
+
+  // Generate AI proposal
+  async function handleGenerateProposal() {
+    if (!selectedLead || generatingProposal) return
+    setGeneratingProposal(true)
+    try {
+      const res = await fetch(`/api/admin/submissions/sponsors/${selectedLead.id}/proposal`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ tone: proposalTone }),
+      })
+      const data = await res.json()
+      if (data.proposal) setAiProposal(data.proposal)
+    } catch {}
+    setGeneratingProposal(false)
+  }
+
+  // --- Guest AI Handlers ---
+
+  async function handleAnalyzeGuest() {
+    if (!selectedApplication || analyzingGuest) return
+    setAnalyzingGuest(true)
+    try {
+      const res = await fetch(`/api/admin/submissions/guests/${selectedApplication.id}/analyze`, { method: "POST" })
+      const data = await res.json()
+      if (data.analysis) {
+        setGuestAiAnalysis(data.analysis)
+        if (data.analysis.fit_score != null) {
+          setGuestAiScores((prev) => ({ ...prev, [selectedApplication.id]: data.analysis.fit_score }))
+        }
+        if (data.statusUpdated) {
+          setGuestApplications((prev) => prev.map((a) => a.id === selectedApplication.id ? { ...a, status: "under_review" as GuestApplicationStatus } : a))
+          setSelectedApplication((prev) => prev ? { ...prev, status: "under_review" as GuestApplicationStatus } : prev)
+        }
+      }
+    } catch {}
+    setAnalyzingGuest(false)
+  }
+
+  async function handleGenerateConcept() {
+    if (!selectedApplication || generatingConcept) return
+    setGeneratingConcept(true)
+    try {
+      const res = await fetch(`/api/admin/submissions/guests/${selectedApplication.id}/concept`, { method: "POST" })
+      const data = await res.json()
+      if (data.concept) setGuestAiConcept(data.concept)
+    } catch {}
+    setGeneratingConcept(false)
+  }
+
+  async function handleGenerateResponses() {
+    if (!selectedApplication || generatingResponses) return
+    setGeneratingResponses(true)
+    try {
+      const res = await fetch(`/api/admin/submissions/guests/${selectedApplication.id}/responses`, { method: "POST" })
+      const data = await res.json()
+      if (data.responses) setGuestAiResponses(data.responses)
+    } catch {}
+    setGeneratingResponses(false)
+  }
 
   const copyForWhatsApp = async () => {
     await navigator.clipboard.writeText(messageText)
@@ -700,24 +966,6 @@ export function SubmissionsTabs({
         `https://wa.me/${phone}?text=${encodeURIComponent(messageText)}`,
         "_blank"
       )
-    }
-  }
-
-  const copyForEmail = async () => {
-    await navigator.clipboard.writeText(messageText)
-    setMessageCopied("email")
-    setTimeout(() => setMessageCopied(null), 2500)
-
-    if (selectedApplication) {
-      const subject = encodeURIComponent(
-        messageType === "acceptance"
-          ? "بودكاست خط — دعوة ضيف"
-          : "بودكاست خط — تحديث بخصوص طلبك"
-      )
-      const body = encodeURIComponent(messageText)
-      const a = document.createElement("a")
-      a.href = `mailto:${selectedApplication.email}?subject=${subject}&body=${body}`
-      a.click()
     }
   }
 
@@ -760,9 +1008,11 @@ export function SubmissionsTabs({
     setEmailSent(null)
     setEmailError(null)
     try {
-      const subject = sponsorMessageType === "response"
-        ? "بودكاست خط — طلب الشراكة"
-        : "بودكاست خط — تحديث بخصوص طلبكم"
+      const subject = sponsorMessageType === "proposal" && aiProposal?.subject
+        ? aiProposal.subject
+        : sponsorMessageType === "response"
+          ? "بودكاست خط — طلب الشراكة"
+          : "بودكاست خط — تحديث بخصوص طلبكم"
       const response = await fetch(`/api/admin/submissions/sponsors/${selectedLead.id}/email`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -770,6 +1020,10 @@ export function SubmissionsTabs({
       })
       if (response.ok) {
         setEmailSent("sponsor")
+        // Auto-update status to "proposal_sent" when sending a proposal email
+        if (sponsorMessageType === "proposal" && selectedLead.status !== "proposal_sent" && selectedLead.status !== "confirmed") {
+          handleSponsorStatusChange(selectedLead.id, "proposal_sent")
+        }
       } else {
         const data = await response.json().catch(() => ({}))
         setEmailError(data.error || "فشل إرسال البريد")
@@ -896,6 +1150,47 @@ export function SubmissionsTabs({
     }
   }
 
+  const handleThinkerStatusChange = async (
+    id: string,
+    status: ThinkerSuggestionStatus
+  ) => {
+    try {
+      const response = await fetch(`/api/admin/submissions/thinkers/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status }),
+      })
+      if (response.ok) {
+        setThinkerSuggestions((prev) =>
+          prev.map((t) => (t.id === id ? { ...t, status } : t))
+        )
+      }
+    } catch (error) {
+      console.error("Error updating thinker status:", error)
+    }
+  }
+
+  const handleDeleteThinker = async (id: string) => {
+    if (!confirm("متأكد إنك تبي تحذف هذا الاقتراح؟")) return
+    setDeletingIds((prev) => new Set(prev).add(id))
+    try {
+      const response = await fetch(`/api/admin/submissions/thinkers/${id}`, {
+        method: "DELETE",
+      })
+      if (response.ok) {
+        setThinkerSuggestions((prev) => prev.filter((t) => t.id !== id))
+      }
+    } catch (error) {
+      console.error("Error deleting thinker suggestion:", error)
+    } finally {
+      setDeletingIds((prev) => {
+        const next = new Set(prev)
+        next.delete(id)
+        return next
+      })
+    }
+  }
+
   const exportSubscribers = () => {
     const csv = [
       "Email,Date",
@@ -1005,7 +1300,7 @@ export function SubmissionsTabs({
     ${app.social_links ? field("روابط", app.social_links) : ""}
   </div>
 
-  <div class="footer">بودكاست خط · khatpodcast.com · تم التصدير ${(() => { const d = new Date(); return `${String(d.getDate()).padStart(2, "0")}/${String(d.getMonth() + 1).padStart(2, "0")}/${d.getFullYear()}` })()}</div>
+  <div class="footer">بودكاست خط · khatpodcast.com · تم التصدير ${formatDate(new Date())}</div>
 </body>
 </html>`
 
@@ -1044,23 +1339,33 @@ export function SubmissionsTabs({
       )
     : newsletterSubscribers
 
+  const filteredThinkers = normalizedSearch
+    ? thinkerSuggestions.filter(
+        (t) =>
+          t.thinker_name.toLowerCase().includes(normalizedSearch) ||
+          t.research_field.toLowerCase().includes(normalizedSearch) ||
+          t.reason.toLowerCase().includes(normalizedSearch)
+      )
+    : thinkerSuggestions
+
   const totalSubmissions =
     guestApplications.length +
     sponsorshipLeads.length +
-    newsletterSubscribers.length
+    newsletterSubscribers.length +
+    thinkerSuggestions.length
 
   return (
     <div className="space-y-6">
       {/* ─── Page Header ─── */}
       <div>
         <h1 className="text-xl font-bold">الطلبات والاشتراكات</h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          مراجعة طلبات الضيوف والرعاية ومشتركي النشرة البريدية
+        <p className="mt-1 text-[13px] text-muted-foreground/60">
+          مراجعة طلبات الضيوف والرعاية واقتراحات المفكرين ومشتركي النشرة البريدية
         </p>
       </div>
 
       {/* ─── Stats Grid ─── */}
-      <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+      <div className="grid grid-cols-2 gap-4 sm:grid-cols-5">
         <GlowCard color="primary">
           <div className="p-5">
             <div className="flex items-center justify-between">
@@ -1122,13 +1427,30 @@ export function SubmissionsTabs({
             </p>
           </div>
         </GlowCard>
+
+        <GlowCard color="muted">
+          <div className="p-5">
+            <div className="flex items-center justify-between">
+              <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-amber-500/10">
+                <Lightbulb className="h-5 w-5 text-amber-500" />
+              </div>
+              <span className="text-3xl font-bold">
+                {thinkerSuggestions.length}
+              </span>
+            </div>
+            <p className="mt-3 text-xs font-medium text-muted-foreground">
+              اقتراحات المفكرين
+            </p>
+          </div>
+        </GlowCard>
       </div>
 
       {/* ─── Tabs ─── */}
-      <div className="flex items-center gap-2 overflow-x-auto rounded-2xl border border-border/30 bg-card/50 p-2 backdrop-blur-sm">
+      <div className="flex items-center gap-1 overflow-x-auto rounded-xl border border-border/30 bg-card/50 p-1.5 backdrop-blur-sm">
         <TabButton active={activeTab === "guests"} icon={UserPlus} label="طلبات الضيوف" shortLabel="الضيوف" count={guestApplications.length} onClick={() => setActiveTab("guests")} color="purple" />
         <TabButton active={activeTab === "sponsors"} icon={Handshake} label="طلبات الرعاية" shortLabel="الرعاية" count={sponsorshipLeads.length} onClick={() => setActiveTab("sponsors")} color="primary" />
         <TabButton active={activeTab === "newsletter"} icon={Mail} label="المشتركين" shortLabel="النشرة" count={newsletterSubscribers.length} onClick={() => setActiveTab("newsletter")} color="green" />
+        <TabButton active={activeTab === "thinkers"} icon={Lightbulb} label="اقتراحات المفكرين" shortLabel="المفكرين" count={thinkerSuggestions.length} onClick={() => setActiveTab("thinkers")} color="amber" />
       </div>
 
       {/* ─── Search Bar ─── */}
@@ -1140,11 +1462,13 @@ export function SubmissionsTabs({
               ? "ابحث بالاسم أو البريد أو القصة..."
               : activeTab === "sponsors"
                 ? "ابحث بالاسم أو البريد أو الشركة..."
-                : "ابحث بالبريد الإلكتروني..."
+                : activeTab === "thinkers"
+                  ? "ابحث بالاسم أو المجال أو السبب..."
+                  : "ابحث بالبريد الإلكتروني..."
           }
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          className="h-12 rounded-2xl border-border/50 bg-card/80 ps-11 text-sm backdrop-blur-sm transition-all focus:border-primary/50 focus:bg-card"
+          className="h-9 rounded-lg border-border/40 bg-card/60 ps-11 text-[13px] backdrop-blur-sm transition-all focus:border-primary/50 focus:bg-card"
         />
         {search && (
           <button
@@ -1172,7 +1496,7 @@ export function SubmissionsTabs({
                 return (
                   <div
                     key={app.id}
-                    className="group relative overflow-hidden rounded-2xl border border-border/30 bg-card/50 backdrop-blur-sm transition-all hover:border-border/60 hover:bg-card/80"
+                    className="group relative overflow-hidden rounded-xl border border-border/30 bg-card/50 backdrop-blur-sm transition-all duration-200 hover:border-border/50 hover:bg-card/80"
                   >
                     <div className="absolute inset-x-0 top-0 h-0.5 bg-gradient-to-l from-accent/40 via-primary/30 to-transparent opacity-0 transition-opacity group-hover:opacity-100" />
 
@@ -1228,6 +1552,18 @@ export function SubmissionsTabs({
                           <div className="flex items-center gap-1.5 rounded-lg bg-accent/[0.06] px-2.5 py-1 ring-1 ring-accent/15">
                             <Mic className="h-3 w-3 text-accent/60" />
                             <span className="text-[10px] text-accent/80">ضيف سابق</span>
+                          </div>
+                        )}
+                        {guestAiScores[app.id] != null && (
+                          <div className={`flex items-center gap-1 rounded-lg px-2.5 py-1 ring-1 ${
+                            guestAiScores[app.id] >= 75
+                              ? "bg-emerald-500/[0.08] text-emerald-400 ring-emerald-500/20"
+                              : guestAiScores[app.id] >= 45
+                                ? "bg-amber-500/[0.08] text-amber-400 ring-amber-500/20"
+                                : "bg-red-500/[0.08] text-red-400 ring-red-500/20"
+                          }`}>
+                            <Brain className="h-3 w-3" />
+                            <span className="text-[10px] font-bold">{guestAiScores[app.id]}</span>
                           </div>
                         )}
                       </div>
@@ -1302,6 +1638,18 @@ export function SubmissionsTabs({
                         <div className="flex items-center gap-1.5 rounded-lg bg-emerald-500/[0.06] px-2.5 py-1 ring-1 ring-emerald-500/15">
                           <span className="text-[10px] text-emerald-500/80">{BUDGET_LABELS[lead.budget_range] || lead.budget_range}</span>
                         </div>
+                        {aiScores[lead.id] && (
+                          <div className={`flex items-center gap-1 rounded-lg px-2.5 py-1 ring-1 ${
+                            aiScores[lead.id].score >= 70
+                              ? "bg-emerald-500/[0.08] text-emerald-400 ring-emerald-500/20"
+                              : aiScores[lead.id].score >= 40
+                                ? "bg-amber-500/[0.08] text-amber-400 ring-amber-500/20"
+                                : "bg-red-500/[0.08] text-red-400 ring-red-500/20"
+                          }`}>
+                            <Brain className="h-3 w-3" />
+                            <span className="text-[10px] font-bold">{aiScores[lead.id].score}</span>
+                          </div>
+                        )}
                       </div>
 
                       {/* Collaboration types */}
@@ -1372,6 +1720,93 @@ export function SubmissionsTabs({
                   </button>
                 </div>
               ))}
+            </div>
+          )}
+        </>
+      )}
+
+      {/* ─── Thinker Suggestions Tab ─── */}
+      {activeTab === "thinkers" && (
+        <>
+          {filteredThinkers.length === 0 ? (
+            <EmptyState icon={Lightbulb} title={search ? "لم يتم العثور على اقتراحات" : "لا توجد اقتراحات مفكرين بعد"} description={search ? `لم يتم العثور على اقتراحات تطابق "${search}"` : "ستظهر هنا اقتراحات المفكرين عند إرسالها من الموقع"} />
+          ) : (
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              {filteredThinkers.map((suggestion) => {
+                const statusConfig = THINKER_STATUS_CONFIG[suggestion.status]
+                return (
+                  <div key={suggestion.id} className="group relative overflow-hidden rounded-2xl border border-border/30 bg-card/50 backdrop-blur-sm transition-all hover:border-border/60 hover:bg-card/80">
+                    <div className="absolute inset-x-0 top-0 h-0.5 bg-gradient-to-l from-primary/40 via-amber-500/30 to-transparent opacity-0 transition-opacity group-hover:opacity-100" />
+                    <div className="p-5">
+                      <div className="flex items-start justify-between">
+                        <div className="flex items-start gap-3">
+                          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-amber-500/10 ring-1 ring-amber-500/20">
+                            <Lightbulb className="h-5 w-5 text-amber-500" />
+                          </div>
+                          <div className="min-w-0">
+                            <h3 className="truncate text-sm font-semibold">{suggestion.thinker_name}</h3>
+                            <div className="mt-0.5 flex items-center gap-1.5 text-xs text-muted-foreground">
+                              <BookOpen className="h-3 w-3" />
+                              <span className="truncate">{suggestion.research_field}</span>
+                            </div>
+                          </div>
+                        </div>
+                        <ActionMenu>
+                          {(close) => (
+                            <>
+                              {(Object.keys(THINKER_STATUS_CONFIG) as ThinkerSuggestionStatus[]).map((s) => (
+                                <MenuItem
+                                  key={s}
+                                  icon={s === "approved" ? CircleCheck : s === "rejected" ? CircleX : Eye}
+                                  label={THINKER_STATUS_CONFIG[s].label}
+                                  onClick={() => { handleThinkerStatusChange(suggestion.id, s); close() }}
+                                />
+                              ))}
+                              <div className="my-1 border-t border-border/50" />
+                              <MenuItem icon={Trash2} label="حذف" variant="danger" onClick={() => { handleDeleteThinker(suggestion.id); close() }} />
+                            </>
+                          )}
+                        </ActionMenu>
+                      </div>
+
+                      {/* Status badge */}
+                      <div className="mt-3 flex flex-wrap gap-2">
+                        <span className={`flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-[10px] font-medium ring-1 ${statusConfig.bg} ${statusConfig.color} ${statusConfig.ring}`}>
+                          {statusConfig.label}
+                        </span>
+                      </div>
+
+                      {/* Reason preview */}
+                      <p className="mt-3 line-clamp-3 text-xs leading-relaxed text-muted-foreground">
+                        {suggestion.reason}
+                      </p>
+
+                      {/* Social links / phone indicators */}
+                      {(suggestion.social_links || suggestion.phone) && (
+                        <div className="mt-2 flex flex-wrap gap-1.5">
+                          {suggestion.social_links && (
+                            <span className="flex items-center gap-1 rounded-md bg-white/[0.03] px-2 py-0.5 text-[9px] text-muted-foreground ring-1 ring-border/20">
+                              <Link className="h-2.5 w-2.5" />
+                              روابط
+                            </span>
+                          )}
+                          {suggestion.phone && (
+                            <span className="flex items-center gap-1 rounded-md bg-white/[0.03] px-2 py-0.5 text-[9px] text-muted-foreground ring-1 ring-border/20">
+                              <Phone className="h-2.5 w-2.5" />
+                              {suggestion.phone}
+                            </span>
+                          )}
+                        </div>
+                      )}
+
+                      <div className="mt-4 flex items-center gap-1.5 text-[10px] text-muted-foreground/50">
+                        <Calendar className="h-3 w-3" />
+                        {timeAgo(suggestion.created_at)}
+                      </div>
+                    </div>
+                  </div>
+                )
+              })}
             </div>
           )}
         </>
@@ -1557,6 +1992,461 @@ export function SubmissionsTabs({
                 </div>
               </div>
 
+              {/* ── Section A: AI Analysis ── */}
+              <div>
+                <div className="mb-4 flex items-center justify-between">
+                  <div className="flex items-center gap-2.5">
+                    <div className="flex h-7 w-7 items-center justify-center rounded-full bg-violet-500/10 text-xs font-bold text-violet-500">
+                      <Brain className="h-3.5 w-3.5" />
+                    </div>
+                    <h4 className="text-sm font-semibold">تحليل الذكاء الاصطناعي</h4>
+                  </div>
+                  <button
+                    onClick={handleAnalyzeGuest}
+                    disabled={analyzingGuest}
+                    className="flex items-center gap-1.5 rounded-lg bg-violet-500/10 px-3 py-1.5 text-[11px] font-medium text-violet-400 ring-1 ring-violet-500/20 transition-all hover:bg-violet-500/20 disabled:opacity-50"
+                  >
+                    {analyzingGuest ? (
+                      <><Loader2 className="h-3 w-3 animate-spin" />{guestAiAnalysis ? "إعادة التحليل..." : "جارٍ التحليل..."}</>
+                    ) : (
+                      <>{guestAiAnalysis ? <RefreshCw className="h-3 w-3" /> : <Sparkles className="h-3 w-3" />}{guestAiAnalysis ? "إعادة التحليل" : "تحليل AI"}</>
+                    )}
+                  </button>
+                </div>
+
+                {guestAiAnalysis && guestAiAnalysis.status === "ready" && (
+                  <div className="space-y-4 rounded-2xl bg-violet-500/[0.03] p-5 ring-1 ring-violet-500/15">
+                    {/* Score + Recommendation + Risk */}
+                    <div className="flex items-center gap-4">
+                      <div className="text-center">
+                        <div className={`text-3xl font-black tabular-nums ${
+                          (guestAiAnalysis.fit_score ?? 0) >= 75 ? "text-emerald-400" : (guestAiAnalysis.fit_score ?? 0) >= 45 ? "text-amber-400" : "text-red-400"
+                        }`}>
+                          {guestAiAnalysis.fit_score}
+                        </div>
+                        <p className="text-[10px] text-muted-foreground">درجة التوافق</p>
+                      </div>
+                      <div className="h-10 w-px bg-border/30" />
+                      <div className="flex flex-wrap gap-2">
+                        <span className={`rounded-lg px-2.5 py-1 text-[10px] font-medium ring-1 ${
+                          guestAiAnalysis.recommendation === "strong_accept" ? "bg-emerald-500/10 text-emerald-400 ring-emerald-500/20"
+                            : guestAiAnalysis.recommendation === "accept" ? "bg-green-500/10 text-green-400 ring-green-500/20"
+                              : guestAiAnalysis.recommendation === "consider_later" ? "bg-amber-500/10 text-amber-400 ring-amber-500/20"
+                                : "bg-red-500/10 text-red-400 ring-red-500/20"
+                        }`}>
+                          {guestAiAnalysis.recommendation === "strong_accept" ? "قبول قوي" : guestAiAnalysis.recommendation === "accept" ? "قبول" : guestAiAnalysis.recommendation === "consider_later" ? "للاحتفاظ" : "رفض"}
+                        </span>
+                        <span className={`flex items-center gap-1 rounded-lg px-2.5 py-1 text-[10px] font-medium ring-1 ${
+                          guestAiAnalysis.risk_level === "low" ? "bg-emerald-500/10 text-emerald-400 ring-emerald-500/20"
+                            : guestAiAnalysis.risk_level === "medium" ? "bg-amber-500/10 text-amber-400 ring-amber-500/20"
+                              : "bg-red-500/10 text-red-400 ring-red-500/20"
+                        }`}>
+                          <Shield className="h-3 w-3" />
+                          {guestAiAnalysis.risk_level === "low" ? "مخاطر منخفضة" : guestAiAnalysis.risk_level === "medium" ? "مخاطر متوسطة" : "مخاطر عالية"}
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Sub-scores */}
+                    <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                      {[
+                        { label: "عمق عاطفي", value: guestAiAnalysis.emotional_depth_score },
+                        { label: "وضوح القصة", value: guestAiAnalysis.story_clarity_score },
+                        { label: "أصالة", value: guestAiAnalysis.originality_score },
+                        { label: "جاهزية", value: guestAiAnalysis.readiness_score },
+                      ].map((s) => (
+                        <div key={s.label} className="rounded-xl bg-white/[0.03] p-2.5 text-center ring-1 ring-border/15">
+                          <div className={`text-lg font-bold tabular-nums ${(s.value ?? 0) >= 70 ? "text-emerald-400" : (s.value ?? 0) >= 40 ? "text-amber-400" : "text-red-400"}`}>
+                            {s.value ?? "—"}
+                          </div>
+                          <p className="text-[9px] text-muted-foreground">{s.label}</p>
+                        </div>
+                      ))}
+                    </div>
+
+                    {/* Fit Summary */}
+                    {guestAiAnalysis.fit_summary && (
+                      <div>
+                        <p className="mb-1 text-[11px] font-medium text-muted-foreground">ملخص التقييم</p>
+                        <p className="text-sm leading-relaxed">{guestAiAnalysis.fit_summary}</p>
+                      </div>
+                    )}
+
+                    {/* Strongest Angle */}
+                    {guestAiAnalysis.strongest_angle && (
+                      <div>
+                        <p className="mb-1 text-[11px] font-medium text-muted-foreground">أقوى زاوية تحريرية</p>
+                        <p className="text-sm leading-relaxed text-primary/80">{guestAiAnalysis.strongest_angle}</p>
+                      </div>
+                    )}
+
+                    {/* Why Now + Audience Value */}
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      {guestAiAnalysis.why_now && (
+                        <div>
+                          <p className="mb-1 text-[11px] font-medium text-muted-foreground">لماذا الآن؟</p>
+                          <p className="text-[13px] leading-relaxed">{guestAiAnalysis.why_now}</p>
+                        </div>
+                      )}
+                      {guestAiAnalysis.audience_value && (
+                        <div>
+                          <p className="mb-1 text-[11px] font-medium text-muted-foreground">القيمة للجمهور</p>
+                          <p className="text-[13px] leading-relaxed">{guestAiAnalysis.audience_value}</p>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Strengths + Concerns */}
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      {guestAiAnalysis.strengths.length > 0 && (
+                        <div>
+                          <p className="mb-1.5 text-[11px] font-medium text-emerald-400">نقاط القوة</p>
+                          <div className="flex flex-wrap gap-1.5">
+                            {guestAiAnalysis.strengths.map((s, i) => (
+                              <span key={i} className="rounded-md bg-emerald-500/[0.08] px-2 py-1 text-[10px] text-emerald-400 ring-1 ring-emerald-500/15">{s}</span>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                      {guestAiAnalysis.concerns.length > 0 && (
+                        <div>
+                          <p className="mb-1.5 flex items-center gap-1 text-[11px] font-medium text-red-400">
+                            <AlertTriangle className="h-3 w-3" />مخاوف
+                          </p>
+                          <div className="flex flex-wrap gap-1.5">
+                            {guestAiAnalysis.concerns.map((c, i) => (
+                              <span key={i} className="rounded-md bg-red-500/[0.08] px-2 py-1 text-[10px] text-red-400 ring-1 ring-red-500/15">{c}</span>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Suggested Direction */}
+                    {guestAiAnalysis.suggested_direction && (
+                      <div>
+                        <p className="mb-1 text-[11px] font-medium text-muted-foreground">الاتجاه التحريري المقترح</p>
+                        <p className="text-sm leading-relaxed text-muted-foreground">{guestAiAnalysis.suggested_direction}</p>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {guestAiAnalysis && guestAiAnalysis.status === "error" && (
+                  <div className="rounded-2xl bg-red-500/[0.05] p-4 ring-1 ring-red-500/15">
+                    <p className="text-xs text-red-400">{guestAiAnalysis.error_message || "حدث خطأ أثناء التحليل"}</p>
+                  </div>
+                )}
+              </div>
+
+              {/* ── Section B: Episode Concept ── */}
+              <div>
+                <div className="mb-4 flex items-center justify-between">
+                  <div className="flex items-center gap-2.5">
+                    <div className="flex h-7 w-7 items-center justify-center rounded-full bg-cyan-500/10 text-xs font-bold text-cyan-500">
+                      <BookOpen className="h-3.5 w-3.5" />
+                    </div>
+                    <h4 className="text-sm font-semibold">تصور الحلقة</h4>
+                  </div>
+                  <button
+                    onClick={handleGenerateConcept}
+                    disabled={generatingConcept}
+                    className="flex items-center gap-1.5 rounded-lg bg-cyan-500/10 px-3 py-1.5 text-[11px] font-medium text-cyan-400 ring-1 ring-cyan-500/20 transition-all hover:bg-cyan-500/20 disabled:opacity-50"
+                  >
+                    {generatingConcept ? (
+                      <><Loader2 className="h-3 w-3 animate-spin" />جارٍ الإنشاء...</>
+                    ) : (
+                      <><Sparkles className="h-3 w-3" />{guestAiConcept ? "إعادة الإنشاء" : "إنشاء تصور"}</>
+                    )}
+                  </button>
+                </div>
+
+                {guestAiConcept && guestAiConcept.status === "ready" && (
+                  <div className="space-y-4 rounded-2xl bg-cyan-500/[0.03] p-5 ring-1 ring-cyan-500/15">
+                    {/* Title */}
+                    <div>
+                      <p className="mb-1 text-[11px] font-medium text-muted-foreground">عنوان الحلقة المقترح</p>
+                      <p className="text-lg font-bold text-foreground">{guestAiConcept.proposed_episode_title}</p>
+                      {guestAiConcept.title_alternatives.length > 0 && (
+                        <div className="mt-2 flex flex-wrap gap-1.5">
+                          {guestAiConcept.title_alternatives.map((t, i) => (
+                            <span key={i} className="rounded-lg bg-white/[0.03] px-2.5 py-1 text-[11px] text-muted-foreground ring-1 ring-border/20">{t}</span>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Hook + Logline */}
+                    {guestAiConcept.episode_hook && (
+                      <div>
+                        <p className="mb-1 text-[11px] font-medium text-muted-foreground">الافتتاحية</p>
+                        <p className="text-sm italic leading-relaxed text-primary/80">&ldquo;{guestAiConcept.episode_hook}&rdquo;</p>
+                      </div>
+                    )}
+                    {guestAiConcept.episode_logline && (
+                      <div>
+                        <p className="mb-1 text-[11px] font-medium text-muted-foreground">ملخص الحلقة</p>
+                        <p className="text-sm leading-relaxed">{guestAiConcept.episode_logline}</p>
+                      </div>
+                    )}
+                    {guestAiConcept.why_this_episode_matters && (
+                      <div>
+                        <p className="mb-1 text-[11px] font-medium text-muted-foreground">لماذا تهم هذه الحلقة</p>
+                        <p className="text-sm leading-relaxed">{guestAiConcept.why_this_episode_matters}</p>
+                      </div>
+                    )}
+
+                    {/* Conversation Style */}
+                    {guestAiConcept.conversation_style && (
+                      <div className="flex items-center gap-2">
+                        <p className="text-[11px] font-medium text-muted-foreground">أسلوب المحادثة:</p>
+                        <span className="rounded-lg bg-white/[0.05] px-2.5 py-1 text-[11px] font-medium text-foreground ring-1 ring-border/20">
+                          {guestAiConcept.conversation_style === "story" ? "سرد قصصي" : guestAiConcept.conversation_style === "dialogue" ? "حوار فكري" : "مزيج"}
+                        </span>
+                      </div>
+                    )}
+
+                    {/* Opening Question */}
+                    {guestAiConcept.suggested_opening_question && (
+                      <div>
+                        <p className="mb-1 text-[11px] font-medium text-muted-foreground">السؤال الافتتاحي</p>
+                        <p className="rounded-xl bg-primary/[0.05] px-4 py-3 text-sm leading-relaxed text-foreground ring-1 ring-primary/10">{guestAiConcept.suggested_opening_question}</p>
+                      </div>
+                    )}
+
+                    {/* Core Questions */}
+                    {guestAiConcept.suggested_core_questions.length > 0 && (
+                      <div>
+                        <p className="mb-2 text-[11px] font-medium text-muted-foreground">الأسئلة الأساسية ({guestAiConcept.suggested_core_questions.length})</p>
+                        <ol className="space-y-1.5">
+                          {guestAiConcept.suggested_core_questions.map((q, i) => (
+                            <li key={i} className="flex gap-2 rounded-lg bg-white/[0.02] px-3 py-2 text-[13px] leading-relaxed ring-1 ring-border/10">
+                              <span className="shrink-0 text-[11px] font-bold text-muted-foreground/50">{i + 1}.</span>
+                              {q}
+                            </li>
+                          ))}
+                        </ol>
+                      </div>
+                    )}
+
+                    {/* Sensitive Areas + Topics to Avoid */}
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      {guestAiConcept.suggested_sensitive_areas.length > 0 && (
+                        <div>
+                          <p className="mb-1.5 text-[11px] font-medium text-amber-400">مناطق حساسة</p>
+                          <div className="flex flex-wrap gap-1.5">
+                            {guestAiConcept.suggested_sensitive_areas.map((s, i) => (
+                              <span key={i} className="rounded-md bg-amber-500/[0.08] px-2 py-1 text-[10px] text-amber-400 ring-1 ring-amber-500/15">{s}</span>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                      {guestAiConcept.suggested_topics_to_avoid.length > 0 && (
+                        <div>
+                          <p className="mb-1.5 flex items-center gap-1 text-[11px] font-medium text-red-400">
+                            <AlertTriangle className="h-3 w-3" />مواضيع يُفضل تجنبها
+                          </p>
+                          <div className="flex flex-wrap gap-1.5">
+                            {guestAiConcept.suggested_topics_to_avoid.map((t, i) => (
+                              <span key={i} className="rounded-md bg-red-500/[0.08] px-2 py-1 text-[10px] text-red-400 ring-1 ring-red-500/15">{t}</span>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Host Preparation Notes */}
+                    {guestAiConcept.host_preparation_notes && (
+                      <div>
+                        <p className="mb-1 text-[11px] font-medium text-muted-foreground">ملاحظات تحضيرية لخالد</p>
+                        <p className="whitespace-pre-wrap rounded-xl bg-white/[0.03] px-4 py-3 text-[13px] leading-relaxed text-muted-foreground ring-1 ring-border/15">{guestAiConcept.host_preparation_notes}</p>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {guestAiConcept && guestAiConcept.status === "error" && (
+                  <div className="rounded-2xl bg-red-500/[0.05] p-4 ring-1 ring-red-500/15">
+                    <p className="text-xs text-red-400">{guestAiConcept.error_message || "حدث خطأ أثناء إنشاء التصور"}</p>
+                  </div>
+                )}
+              </div>
+
+              {/* ── Section C: AI Response Drafts ── */}
+              <div>
+                <div className="mb-4 flex items-center justify-between">
+                  <div className="flex items-center gap-2.5">
+                    <div className="flex h-7 w-7 items-center justify-center rounded-full bg-emerald-500/10 text-xs font-bold text-emerald-500">
+                      <FileText className="h-3.5 w-3.5" />
+                    </div>
+                    <h4 className="text-sm font-semibold">مسودات الردود</h4>
+                  </div>
+                  <button
+                    onClick={handleGenerateResponses}
+                    disabled={generatingResponses}
+                    className="flex items-center gap-1.5 rounded-lg bg-emerald-500/10 px-3 py-1.5 text-[11px] font-medium text-emerald-400 ring-1 ring-emerald-500/20 transition-all hover:bg-emerald-500/20 disabled:opacity-50"
+                  >
+                    {generatingResponses ? (
+                      <><Loader2 className="h-3 w-3 animate-spin" />جارٍ الإنشاء...</>
+                    ) : (
+                      <><Sparkles className="h-3 w-3" />{guestAiResponses ? "إعادة الإنشاء" : "إنشاء ردود AI"}</>
+                    )}
+                  </button>
+                </div>
+
+                {guestAiResponses && guestAiResponses.status === "ready" && (
+                  <p className="text-[11px] text-muted-foreground/60 mb-2">تم إنشاء 6 مسودات ردود (قبول / اعتذار / للاحتفاظ × رسمي / ودّي). اختر نوع الرد أدناه لاستخدامها.</p>
+                )}
+
+                {guestAiResponses && guestAiResponses.status === "error" && (
+                  <div className="rounded-2xl bg-red-500/[0.05] p-4 ring-1 ring-red-500/15">
+                    <p className="text-xs text-red-400">{guestAiResponses.error_message || "حدث خطأ أثناء إنشاء الردود"}</p>
+                  </div>
+                )}
+              </div>
+
+              {/* ── Section D.1: Canonical Identity Link (P2.4.d) ──
+                  Lives inside the accepted-only block per operator
+                  decision §3 — link-canonical is meaningful only after
+                  the operator has accepted the applicant. The dialog
+                  itself is the shared LinkCanonicalDialog used by the
+                  guest-candidates detail page. */}
+              {selectedApplication.status === "accepted" && (
+                <div className="border-t border-border/30 pt-6">
+                  <div className="mb-4 flex items-center justify-between">
+                    <div className="flex items-center gap-2.5">
+                      <div className="flex h-7 w-7 items-center justify-center rounded-full bg-indigo-500/10 text-xs font-bold text-indigo-500">
+                        <LinkIcon className="h-3.5 w-3.5" />
+                      </div>
+                      <h4 className="text-sm font-semibold">الهوية القانونية</h4>
+                    </div>
+                    <button
+                      onClick={() => setLinkCanonicalOpen(true)}
+                      className="flex items-center gap-1.5 rounded-lg bg-indigo-500/10 px-3 py-1.5 text-[11px] font-medium text-indigo-400 ring-1 ring-indigo-500/20 transition-all hover:bg-indigo-500/20"
+                    >
+                      <LinkIcon className="h-3 w-3" />
+                      ربط بضيف قانوني
+                    </button>
+                  </div>
+                  <p className="text-[11px] text-muted-foreground/70">
+                    يربط هذا الطلب بصفّ ضيف قانوني في قاعدة الضيوف لتوحيد كل
+                    البيانات تحت هوية واحدة. المعاينة فقط — لا يحدث الكتابة
+                    إلا بعد التأكيد.
+                  </p>
+                </div>
+              )}
+
+              {/* ── Section D: Prep Form ── */}
+              {selectedApplication.status === "accepted" && (
+                <div className="border-t border-border/30 pt-6">
+                  <div className="mb-4 flex items-center justify-between">
+                    <div className="flex items-center gap-2.5">
+                      <div className="flex h-7 w-7 items-center justify-center rounded-full bg-teal-500/10 text-xs font-bold text-teal-500">
+                        <ClipboardCheck className="h-3.5 w-3.5" />
+                      </div>
+                      <h4 className="text-sm font-semibold">استبيان التحضير</h4>
+                    </div>
+                    {!prepForm && !prepFormLoading && (
+                      <button
+                        onClick={handleCreatePrepForm}
+                        disabled={prepFormCreating}
+                        className="flex items-center gap-1.5 rounded-lg bg-teal-500/10 px-3 py-1.5 text-[11px] font-medium text-teal-400 ring-1 ring-teal-500/20 transition-all hover:bg-teal-500/20 disabled:opacity-50"
+                      >
+                        {prepFormCreating ? (
+                          <><Loader2 className="h-3 w-3 animate-spin" />جارٍ الإنشاء...</>
+                        ) : (
+                          <><LinkIcon className="h-3 w-3" />إنشاء رابط الاستبيان</>
+                        )}
+                      </button>
+                    )}
+                  </div>
+
+                  {prepFormLoading && (
+                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                      <Loader2 className="h-3 w-3 animate-spin" />
+                      جارٍ التحميل...
+                    </div>
+                  )}
+
+                  {prepForm && (
+                    <div className="space-y-4">
+                      {/* Status + Actions */}
+                      <div className="flex flex-wrap items-center gap-2">
+                        <PrepFormStatusBadge status={prepForm.status as GuestPrepFormStatus} />
+                        {prepForm.submitted_at && (
+                          <span className="text-[11px] text-muted-foreground">
+                            تم الإرسال {formatDate(prepForm.submitted_at)}
+                          </span>
+                        )}
+                      </div>
+
+                      {/* Link + Copy */}
+                      {prepToken && prepForm.status !== "revoked" && (
+                        <div className="flex items-center gap-2">
+                          <code className="flex-1 truncate rounded-lg bg-muted/20 px-3 py-1.5 text-[11px] text-muted-foreground" dir="ltr">
+                            {window.location.origin}/prepare/{prepToken}
+                          </code>
+                          <button
+                            onClick={copyPrepLink}
+                            className="flex shrink-0 items-center gap-1.5 rounded-lg bg-muted/20 px-3 py-1.5 text-[11px] text-muted-foreground transition-colors hover:text-foreground"
+                          >
+                            {prepLinkCopied ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
+                            {prepLinkCopied ? "تم النسخ" : "نسخ"}
+                          </button>
+                        </div>
+                      )}
+
+                      {/* Admin actions */}
+                      <div className="flex flex-wrap gap-2">
+                        {(prepForm.status === "pending" || prepForm.status === "submitted") && (
+                          <button
+                            onClick={() => handlePrepFormAction("lock")}
+                            disabled={!!prepFormAction}
+                            className="flex items-center gap-1 rounded-lg bg-amber-500/10 px-2.5 py-1 text-[11px] text-amber-400 ring-1 ring-amber-500/20 transition-all hover:bg-amber-500/20 disabled:opacity-50"
+                          >
+                            <Lock className="h-3 w-3" />قفل
+                          </button>
+                        )}
+                        {prepForm.status === "locked" && (
+                          <button
+                            onClick={() => handlePrepFormAction("unlock")}
+                            disabled={!!prepFormAction}
+                            className="flex items-center gap-1 rounded-lg bg-blue-500/10 px-2.5 py-1 text-[11px] text-blue-400 ring-1 ring-blue-500/20 transition-all hover:bg-blue-500/20 disabled:opacity-50"
+                          >
+                            <Unlock className="h-3 w-3" />فتح
+                          </button>
+                        )}
+                        {prepForm.status !== "revoked" && (
+                          <>
+                            <button
+                              onClick={() => handlePrepFormAction("regenerate")}
+                              disabled={!!prepFormAction}
+                              className="flex items-center gap-1 rounded-lg bg-muted/20 px-2.5 py-1 text-[11px] text-muted-foreground ring-1 ring-border/20 transition-all hover:text-foreground disabled:opacity-50"
+                            >
+                              <RefreshCw className="h-3 w-3" />رابط جديد
+                            </button>
+                            <button
+                              onClick={() => {
+                                if (confirm("متأكد من إلغاء رابط الاستبيان؟")) handlePrepFormAction("revoke")
+                              }}
+                              disabled={!!prepFormAction}
+                              className="flex items-center gap-1 rounded-lg bg-red-500/10 px-2.5 py-1 text-[11px] text-red-400 ring-1 ring-red-500/20 transition-all hover:bg-red-500/20 disabled:opacity-50"
+                            >
+                              <X className="h-3 w-3" />إلغاء
+                            </button>
+                          </>
+                        )}
+                      </div>
+
+                      {/* Display submitted response */}
+                      {prepForm.response && (prepForm.status === "submitted" || prepForm.status === "locked") && (
+                        <PrepResponseDisplay response={prepForm.response as unknown as GuestPrepResponse} />
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
+
               {/* ── Response Message Section ── */}
               <div className="border-t border-border/30 pt-6">
                 <div className="mb-4 flex items-center gap-2.5">
@@ -1579,6 +2469,19 @@ export function SubmissionsTabs({
                     <CircleCheck className="h-3.5 w-3.5" />
                     قبول
                   </button>
+                  {guestAiResponses?.status === "ready" && (
+                    <button
+                      onClick={() => setMessageType("consider_later")}
+                      className={`flex flex-1 items-center justify-center gap-2 rounded-xl px-3 py-2.5 text-xs font-medium transition-all ${
+                        messageType === "consider_later"
+                          ? "bg-purple-500/10 text-purple-400 ring-1 ring-purple-500/20"
+                          : "text-muted-foreground hover:bg-white/[0.03] hover:text-foreground"
+                      }`}
+                    >
+                      <Sparkles className="h-3.5 w-3.5" />
+                      للاحتفاظ
+                    </button>
+                  )}
                   <button
                     onClick={() => setMessageType("rejection")}
                     className={`flex flex-1 items-center justify-center gap-2 rounded-xl px-3 py-2.5 text-xs font-medium transition-all ${
@@ -1823,7 +2726,239 @@ export function SubmissionsTabs({
                 </div>
               )}
 
-              {/* Section 6: Response Message */}
+              {/* Section 6: AI Analysis */}
+              <div>
+                <div className="mb-4 flex items-center justify-between">
+                  <div className="flex items-center gap-2.5">
+                    <div className="flex h-7 w-7 items-center justify-center rounded-full bg-violet-500/10 text-xs font-bold text-violet-500">
+                      <Brain className="h-3.5 w-3.5" />
+                    </div>
+                    <h4 className="text-sm font-semibold">تحليل الذكاء الاصطناعي</h4>
+                  </div>
+                  <button
+                    onClick={handleAnalyzeLead}
+                    disabled={analyzingLead}
+                    className="flex items-center gap-1.5 rounded-lg bg-violet-500/10 px-3 py-1.5 text-[11px] font-medium text-violet-400 ring-1 ring-violet-500/20 transition-all hover:bg-violet-500/20 disabled:opacity-50"
+                  >
+                    {analyzingLead ? (
+                      <><Loader2 className="h-3 w-3 animate-spin" />{aiAnalysis ? "إعادة التحليل..." : "جارٍ التحليل..."}</>
+                    ) : (
+                      <>{aiAnalysis ? <RefreshCw className="h-3 w-3" /> : <Sparkles className="h-3 w-3" />}{aiAnalysis ? "إعادة التحليل" : "تحليل"}</>
+                    )}
+                  </button>
+                </div>
+
+                {aiAnalysis && aiAnalysis.status === "ready" && (
+                  <div className="space-y-4 rounded-2xl bg-violet-500/[0.03] p-5 ring-1 ring-violet-500/15">
+                    {/* Score + Quality + Risk */}
+                    <div className="flex items-center gap-4">
+                      <div className="text-center">
+                        <div className={`text-3xl font-black tabular-nums ${
+                          (aiAnalysis.fit_score ?? 0) >= 70 ? "text-emerald-400" : (aiAnalysis.fit_score ?? 0) >= 40 ? "text-amber-400" : "text-red-400"
+                        }`}>
+                          {aiAnalysis.fit_score}
+                        </div>
+                        <p className="text-[10px] text-muted-foreground">درجة التوافق</p>
+                      </div>
+                      <div className="h-10 w-px bg-border/30" />
+                      <div className="flex flex-wrap gap-2">
+                        <span className={`rounded-lg px-2.5 py-1 text-[10px] font-medium ring-1 ${
+                          aiAnalysis.quality === "high" ? "bg-emerald-500/10 text-emerald-400 ring-emerald-500/20"
+                            : aiAnalysis.quality === "medium" ? "bg-amber-500/10 text-amber-400 ring-amber-500/20"
+                              : "bg-red-500/10 text-red-400 ring-red-500/20"
+                        }`}>
+                          {aiAnalysis.quality === "high" ? "جودة عالية" : aiAnalysis.quality === "medium" ? "جودة متوسطة" : "جودة منخفضة"}
+                        </span>
+                        <span className={`flex items-center gap-1 rounded-lg px-2.5 py-1 text-[10px] font-medium ring-1 ${
+                          aiAnalysis.risk_level === "low" ? "bg-emerald-500/10 text-emerald-400 ring-emerald-500/20"
+                            : aiAnalysis.risk_level === "medium" ? "bg-amber-500/10 text-amber-400 ring-amber-500/20"
+                              : "bg-red-500/10 text-red-400 ring-red-500/20"
+                        }`}>
+                          <Shield className="h-3 w-3" />
+                          {aiAnalysis.risk_level === "low" ? "مخاطر منخفضة" : aiAnalysis.risk_level === "medium" ? "مخاطر متوسطة" : "مخاطر عالية"}
+                        </span>
+                        <span className={`rounded-lg px-2.5 py-1 text-[10px] font-medium ring-1 ${
+                          aiAnalysis.budget_fit === "good" ? "bg-emerald-500/10 text-emerald-400 ring-emerald-500/20"
+                            : aiAnalysis.budget_fit === "weak" ? "bg-red-500/10 text-red-400 ring-red-500/20"
+                              : "bg-zinc-500/10 text-zinc-400 ring-zinc-500/20"
+                        }`}>
+                          الميزانية: {aiAnalysis.budget_fit === "good" ? "مناسبة" : aiAnalysis.budget_fit === "weak" ? "ضعيفة" : "غير واضحة"}
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Intent Summary */}
+                    {aiAnalysis.intent_summary && (
+                      <div>
+                        <p className="mb-1 text-[11px] font-medium text-muted-foreground">ملخص النية</p>
+                        <p className="text-sm leading-relaxed">{aiAnalysis.intent_summary}</p>
+                      </div>
+                    )}
+
+                    {/* Recommended Package */}
+                    {aiAnalysis.recommended_package && (
+                      <div>
+                        <p className="mb-1 text-[11px] font-medium text-muted-foreground">الباقة المقترحة</p>
+                        <p className="text-sm leading-relaxed text-primary/80">{aiAnalysis.recommended_package}</p>
+                      </div>
+                    )}
+
+                    {/* Reasoning */}
+                    {aiAnalysis.reasoning && (
+                      <div>
+                        <p className="mb-1 text-[11px] font-medium text-muted-foreground">التبرير</p>
+                        <p className="text-sm leading-relaxed text-muted-foreground">{aiAnalysis.reasoning}</p>
+                      </div>
+                    )}
+
+                    {/* Opportunity + Risk flags */}
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      {aiAnalysis.opportunity_highlights.length > 0 && (
+                        <div>
+                          <p className="mb-1.5 text-[11px] font-medium text-emerald-400">نقاط القوة</p>
+                          <div className="flex flex-wrap gap-1.5">
+                            {aiAnalysis.opportunity_highlights.map((h, i) => (
+                              <span key={i} className="rounded-md bg-emerald-500/[0.08] px-2 py-1 text-[10px] text-emerald-400 ring-1 ring-emerald-500/15">{h}</span>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                      {aiAnalysis.risk_flags.length > 0 && (
+                        <div>
+                          <p className="mb-1.5 flex items-center gap-1 text-[11px] font-medium text-red-400">
+                            <AlertTriangle className="h-3 w-3" />ملاحظات
+                          </p>
+                          <div className="flex flex-wrap gap-1.5">
+                            {aiAnalysis.risk_flags.map((f, i) => (
+                              <span key={i} className="rounded-md bg-red-500/[0.08] px-2 py-1 text-[10px] text-red-400 ring-1 ring-red-500/15">{f}</span>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {aiAnalysis && aiAnalysis.status === "error" && (
+                  <div className="rounded-2xl bg-red-500/[0.05] p-4 ring-1 ring-red-500/15">
+                    <p className="text-xs text-red-400">{aiAnalysis.error_message || "حدث خطأ أثناء التحليل"}</p>
+                  </div>
+                )}
+              </div>
+
+              {/* Section 7: AI Proposal */}
+              <div>
+                <div className="mb-4 flex items-center justify-between">
+                  <div className="flex items-center gap-2.5">
+                    <div className="flex h-7 w-7 items-center justify-center rounded-full bg-cyan-500/10 text-xs font-bold text-cyan-500">
+                      <Sparkles className="h-3.5 w-3.5" />
+                    </div>
+                    <h4 className="text-sm font-semibold">عرض الشراكة</h4>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {/* Tone toggle */}
+                    <div className="flex gap-1 rounded-xl bg-white/[0.03] p-0.5 ring-1 ring-border/30">
+                      <button
+                        onClick={() => setProposalTone("formal")}
+                        className={`rounded-lg px-2.5 py-1 text-[10px] font-medium transition-all ${
+                          proposalTone === "formal" ? "bg-white/[0.08] text-foreground shadow-sm" : "text-muted-foreground"
+                        }`}
+                      >رسمي</button>
+                      <button
+                        onClick={() => setProposalTone("warm")}
+                        className={`rounded-lg px-2.5 py-1 text-[10px] font-medium transition-all ${
+                          proposalTone === "warm" ? "bg-white/[0.08] text-foreground shadow-sm" : "text-muted-foreground"
+                        }`}
+                      >ودّي</button>
+                    </div>
+                    <button
+                      onClick={handleGenerateProposal}
+                      disabled={generatingProposal}
+                      className="flex items-center gap-1.5 rounded-lg bg-cyan-500/10 px-3 py-1.5 text-[11px] font-medium text-cyan-400 ring-1 ring-cyan-500/20 transition-all hover:bg-cyan-500/20 disabled:opacity-50"
+                    >
+                      {generatingProposal ? (
+                        <><Loader2 className="h-3 w-3 animate-spin" />جارٍ الإنشاء...</>
+                      ) : (
+                        <><Sparkles className="h-3 w-3" />{aiProposal ? "إعادة الإنشاء" : "إنشاء عرض"}</>
+                      )}
+                    </button>
+                  </div>
+                </div>
+
+                {aiProposal && aiProposal.status === "ready" && (
+                  <div className="space-y-4 rounded-2xl bg-cyan-500/[0.03] p-5 ring-1 ring-cyan-500/15">
+                    {/* Subject */}
+                    {aiProposal.subject && (
+                      <div>
+                        <p className="mb-1 text-[11px] font-medium text-muted-foreground">عنوان البريد</p>
+                        <p className="text-sm font-semibold">{aiProposal.subject}</p>
+                      </div>
+                    )}
+
+                    {/* Proposed Packages */}
+                    {aiProposal.proposed_packages.length > 0 && (
+                      <div>
+                        <p className="mb-2 text-[11px] font-medium text-muted-foreground">الباقات المقترحة</p>
+                        <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                          {aiProposal.proposed_packages.map((pkg, i) => (
+                            <div key={i} className="rounded-xl bg-white/[0.03] p-3 ring-1 ring-border/20">
+                              <p className="text-xs font-bold text-cyan-400">{pkg.name}</p>
+                              <p className="mt-1 text-[11px] text-muted-foreground">{pkg.description}</p>
+                              <p className="mt-1.5 text-xs font-semibold text-amber-400">{pkg.price_range}</p>
+                              {pkg.deliverables.length > 0 && (
+                                <ul className="mt-2 space-y-0.5">
+                                  {pkg.deliverables.map((d, j) => (
+                                    <li key={j} className="text-[10px] text-muted-foreground/80">• {d}</li>
+                                  ))}
+                                </ul>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Full Draft */}
+                    <div>
+                      <div className="mb-1.5 flex items-center justify-between">
+                        <p className="text-[11px] font-medium text-muted-foreground">النص الكامل</p>
+                        <div className="flex gap-1.5">
+                          <button
+                            onClick={() => {
+                              navigator.clipboard.writeText(aiProposal.edited_draft || aiProposal.full_draft || "")
+                            }}
+                            className="flex items-center gap-1 rounded-lg px-2 py-1 text-[10px] text-muted-foreground transition-all hover:bg-white/[0.05] hover:text-foreground"
+                          >
+                            <ClipboardCopy className="h-3 w-3" />نسخ
+                          </button>
+                          <button
+                            onClick={() => {
+                              setSponsorMessageType("proposal")
+                              setSponsorMessageText(aiProposal.edited_draft || aiProposal.full_draft || "")
+                            }}
+                            className="flex items-center gap-1 rounded-lg bg-primary/10 px-2 py-1 text-[10px] font-medium text-primary ring-1 ring-primary/20 transition-all hover:bg-primary/20"
+                          >
+                            <Send className="h-3 w-3" />استخدام للإرسال
+                          </button>
+                        </div>
+                      </div>
+                      <div className="max-h-64 overflow-y-auto rounded-xl bg-white/[0.02] p-4 ring-1 ring-border/20">
+                        <p className="whitespace-pre-wrap text-sm leading-relaxed text-foreground/80">
+                          {aiProposal.edited_draft || aiProposal.full_draft}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {aiProposal && aiProposal.status === "error" && (
+                  <div className="rounded-2xl bg-red-500/[0.05] p-4 ring-1 ring-red-500/15">
+                    <p className="text-xs text-red-400">{aiProposal.error_message || "حدث خطأ أثناء إنشاء العرض"}</p>
+                  </div>
+                )}
+              </div>
+
+              {/* Section 8: Response Message */}
               <div>
                 <div className="mb-4 flex items-center gap-2.5">
                   <div className="flex h-7 w-7 items-center justify-center rounded-full bg-blue-500/10 text-xs font-bold text-blue-500">
@@ -1845,6 +2980,22 @@ export function SubmissionsTabs({
                     <CircleCheck className="h-3.5 w-3.5" />
                     ترحيب
                   </button>
+                  {aiProposal?.full_draft && (
+                    <button
+                      onClick={() => {
+                        setSponsorMessageType("proposal")
+                        setSponsorMessageText(aiProposal.edited_draft || aiProposal.full_draft || "")
+                      }}
+                      className={`flex flex-1 items-center justify-center gap-2 rounded-xl px-3 py-2.5 text-xs font-medium transition-all ${
+                        sponsorMessageType === "proposal"
+                          ? "bg-cyan-500/10 text-cyan-400 ring-1 ring-cyan-500/20"
+                          : "text-muted-foreground hover:bg-white/[0.03] hover:text-foreground"
+                      }`}
+                    >
+                      <Sparkles className="h-3.5 w-3.5" />
+                      عرض AI
+                    </button>
+                  )}
                   <button
                     onClick={() => setSponsorMessageType("decline")}
                     className={`flex flex-1 items-center justify-center gap-2 rounded-xl px-3 py-2.5 text-xs font-medium transition-all ${
@@ -1928,10 +3079,8 @@ export function SubmissionsTabs({
                       fetch("/api/admin/media-kit"),
                       fetch("/api/admin/analytics"),
                     ])
-                    const mediaKit = (await mkRes.json()) as MediaKitConfig
-                    const analytics = (await anRes.json()) as AnalyticsConfig
-                    const _d = new Date()
-                    const date = `${String(_d.getDate()).padStart(2, "0")}/${String(_d.getMonth() + 1).padStart(2, "0")}/${_d.getFullYear()}`
+                    void (await mkRes.json())
+                    void (await anRes.json())
                     // Open media-kit page with pre-filled company
                     const params = new URLSearchParams({
                       company: selectedLead.company_name,
@@ -1958,6 +3107,21 @@ export function SubmissionsTabs({
           </>
         )}
       </DetailDialog>
+
+      {/* P2.4.d — shared canonical-link dialog. Mounted at the root of
+          SubmissionsTabs so it can sit above the detail dialog without
+          modal-stacking issues. `selectedApplication` may be null when
+          the dialog is closed; we render conditionally to avoid mounting
+          the preview fetch on a stale or missing id. */}
+      {selectedApplication && (
+        <LinkCanonicalDialog
+          kind="application"
+          sourceId={selectedApplication.id}
+          sourceName={selectedApplication.name}
+          open={linkCanonicalOpen}
+          onOpenChange={setLinkCanonicalOpen}
+        />
+      )}
     </div>
   )
 }
@@ -1974,12 +3138,12 @@ function EmptyState({
   description: string
 }) {
   return (
-    <div className="flex flex-col items-center justify-center py-20 text-center">
-      <div className="mb-5 flex h-16 w-16 items-center justify-center rounded-3xl bg-white/[0.03] ring-1 ring-border/50">
-        <Icon className="h-6 w-6 text-muted-foreground" />
+    <div className="admin-card flex flex-col items-center justify-center py-20 text-center">
+      <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-muted/30">
+        <Icon className="h-5 w-5 text-muted-foreground/50" />
       </div>
-      <p className="text-base font-semibold text-muted-foreground">{title}</p>
-      <p className="mt-2 max-w-xs text-sm text-muted-foreground/60">
+      <p className="text-[13px] font-semibold text-muted-foreground/70">{title}</p>
+      <p className="mt-1.5 max-w-xs text-[12px] text-muted-foreground/40">
         {description}
       </p>
     </div>
@@ -2017,6 +3181,87 @@ function DetailField({
       ) : (
         <p className="whitespace-pre-wrap text-sm leading-relaxed">{value}</p>
       )}
+    </div>
+  )
+}
+
+const PREP_STATUS_CONFIG: Record<GuestPrepFormStatus, { label: string; color: string; bg: string }> = {
+  pending: { label: "بانتظار الرد", color: "text-blue-400", bg: "bg-blue-500/10" },
+  submitted: { label: "تم الإرسال", color: "text-emerald-400", bg: "bg-emerald-500/10" },
+  locked: { label: "مقفل", color: "text-amber-400", bg: "bg-amber-500/10" },
+  revoked: { label: "ملغي", color: "text-red-400", bg: "bg-red-500/10" },
+}
+
+function PrepFormStatusBadge({ status }: { status: GuestPrepFormStatus }) {
+  const cfg = PREP_STATUS_CONFIG[status]
+  return (
+    <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[11px] font-medium ${cfg.color} ${cfg.bg}`}>
+      <span className={`h-1.5 w-1.5 rounded-full ${status === "pending" ? "animate-pulse bg-blue-400" : status === "submitted" ? "bg-emerald-400" : status === "locked" ? "bg-amber-400" : "bg-red-400"}`} />
+      {cfg.label}
+    </span>
+  )
+}
+
+const DAY_LABELS: Record<string, string> = {
+  sunday: "الأحد", monday: "الاثنين", tuesday: "الثلاثاء",
+  wednesday: "الأربعاء", thursday: "الخميس", saturday: "السبت",
+}
+const TIME_LABELS: Record<string, string> = {
+  morning: "صباحاً (٩–١٢)", afternoon: "ظهراً (١٢–٤)", evening: "مساءً (٤–٨)",
+}
+
+function PrepResponseDisplay({ response }: { response: GuestPrepResponse }) {
+  return (
+    <div className="rounded-2xl bg-white/[0.02] p-5 ring-1 ring-border/20 space-y-4">
+      <h5 className="text-xs font-semibold text-muted-foreground">الإجابات المقدمة</h5>
+      <div className="grid gap-x-6 gap-y-3 sm:grid-cols-2">
+        <PrepField label="الاسم المفضل" value={response.preferred_name} />
+        {response.pronunciation_notes && <PrepField label="ملاحظات النطق" value={response.pronunciation_notes} />}
+        <PrepField label="الهاتف / واتساب" value={response.phone_whatsapp} />
+        <PrepField label="المشروب المفضل" value={response.preferred_drink} />
+        <PrepField label="أيام التصوير" value={response.preferred_filming_days.map((d) => DAY_LABELS[d] || d).join("، ")} />
+        <PrepField label="وقت التصوير" value={TIME_LABELS[response.preferred_filming_time] || response.preferred_filming_time} />
+      </div>
+      {response.scheduling_restrictions && <PrepField label="قيود المواعيد" value={response.scheduling_restrictions} />}
+      {response.technical_needs && <PrepField label="احتياجات تقنية" value={response.technical_needs} />}
+      <PrepField label="مواضيع يتحمس لها" value={response.topics_excited_about} />
+      {response.sensitivities_to_avoid && <PrepField label="مواضيع يفضّل تجنبها" value={response.sensitivities_to_avoid} />}
+      {response.team_notes && <PrepField label="ملاحظات للفريق" value={response.team_notes} />}
+      {/* Social accounts */}
+      {response.social_accounts && Object.entries(response.social_accounts).some(([, v]) => v) && (
+        <div>
+          <p className="mb-1 text-[11px] font-medium text-muted-foreground">حسابات التواصل</p>
+          <div className="flex flex-wrap gap-2">
+            {Object.entries(response.social_accounts).map(([platform, handle]) =>
+              handle ? (
+                <span key={platform} className="rounded-md bg-muted/20 px-2 py-0.5 text-[11px] text-muted-foreground" dir="ltr">
+                  {platform}: {handle}
+                </span>
+              ) : null
+            )}
+          </div>
+        </div>
+      )}
+      <div className="flex gap-4 text-[11px]">
+        <span className={response.arrival_confirmation ? "text-emerald-400" : "text-red-400"}>
+          {response.arrival_confirmation ? "✓" : "✗"} الحضور المبكر
+        </span>
+        <span className={response.clothing_acknowledgment ? "text-emerald-400" : "text-muted-foreground"}>
+          {response.clothing_acknowledgment ? "✓" : "–"} إرشادات الملابس
+        </span>
+        <span className={response.location_confirmation ? "text-emerald-400" : "text-red-400"}>
+          {response.location_confirmation ? "✓" : "✗"} تأكيد الموقع
+        </span>
+      </div>
+    </div>
+  )
+}
+
+function PrepField({ label, value }: { label: string; value: string }) {
+  return (
+    <div>
+      <p className="text-[11px] font-medium text-muted-foreground">{label}</p>
+      <p className="mt-0.5 text-[13px] leading-relaxed">{value}</p>
     </div>
   )
 }

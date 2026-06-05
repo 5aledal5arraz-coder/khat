@@ -1,15 +1,13 @@
-import { Loader2 } from "lucide-react"
-
 export default function AdminLoading() {
   return (
-    <div className="space-y-6">
+    <div className="space-y-7">
       {/* Header skeleton */}
       <div className="flex items-center justify-between">
         <div className="space-y-2">
-          <div className="h-7 w-48 animate-pulse rounded-lg bg-muted/50" />
-          <div className="h-4 w-32 animate-pulse rounded-md bg-muted/30" />
+          <div className="h-6 w-44 admin-shimmer" />
+          <div className="h-3.5 w-28 admin-shimmer" />
         </div>
-        <div className="h-9 w-28 animate-pulse rounded-xl bg-muted/40" />
+        <div className="h-8 w-28 admin-shimmer rounded-lg" />
       </div>
 
       {/* KPI cards skeleton */}
@@ -17,33 +15,44 @@ export default function AdminLoading() {
         {[...Array(4)].map((_, i) => (
           <div
             key={i}
-            className="rounded-2xl border border-border/30 bg-card/50 p-5"
+            className="admin-card p-5"
           >
-            <div className="flex items-center gap-2">
-              <div className="h-8 w-8 animate-pulse rounded-xl bg-muted/40" />
-              <div className="h-3 w-16 animate-pulse rounded bg-muted/30" />
+            <div className="flex items-center gap-2.5">
+              <div className="h-9 w-9 admin-shimmer rounded-xl" />
+              <div className="h-3 w-14 admin-shimmer" />
             </div>
-            <div className="mt-4 h-8 w-20 animate-pulse rounded-lg bg-muted/40" />
-            <div className="mt-2 h-3 w-28 animate-pulse rounded bg-muted/20" />
+            <div className="mt-4 h-8 w-16 admin-shimmer" />
+            <div className="mt-2 h-3 w-24 admin-shimmer" />
           </div>
         ))}
+      </div>
+
+      {/* Insights bar skeleton */}
+      <div className="admin-card p-5">
+        <div className="flex items-center gap-3.5">
+          <div className="h-9 w-9 admin-shimmer rounded-xl" />
+          <div className="flex-1 space-y-2">
+            <div className="h-4 w-24 admin-shimmer" />
+            <div className="h-3 w-3/4 admin-shimmer" />
+          </div>
+        </div>
       </div>
 
       {/* Content skeleton */}
       <div className="grid gap-6 lg:grid-cols-12">
         <div className="space-y-6 lg:col-span-8">
-          <div className="rounded-2xl border border-border/30 bg-card/50 p-5">
-            <div className="mb-4 flex items-center gap-2">
-              <div className="h-4 w-4 animate-pulse rounded bg-muted/40" />
-              <div className="h-4 w-32 animate-pulse rounded bg-muted/40" />
+          <div className="admin-card overflow-hidden">
+            <div className="flex items-center gap-2.5 border-b border-border/30 px-5 py-3.5">
+              <div className="h-4 w-4 admin-shimmer rounded" />
+              <div className="h-4 w-28 admin-shimmer" />
             </div>
-            <div className="space-y-3">
+            <div className="p-3 space-y-1">
               {[...Array(3)].map((_, i) => (
-                <div key={i} className="flex items-center gap-4 rounded-xl p-3">
-                  <div className="h-8 w-8 animate-pulse rounded-lg bg-muted/30" />
-                  <div className="flex-1 space-y-2">
-                    <div className="h-4 w-3/4 animate-pulse rounded bg-muted/30" />
-                    <div className="h-3 w-1/2 animate-pulse rounded bg-muted/20" />
+                <div key={i} className="flex items-center gap-3 rounded-lg p-3">
+                  <div className="h-8 w-8 admin-shimmer rounded-lg" />
+                  <div className="flex-1 space-y-1.5">
+                    <div className="h-3.5 w-3/4 admin-shimmer" />
+                    <div className="h-3 w-1/2 admin-shimmer" />
                   </div>
                 </div>
               ))}
@@ -51,26 +60,23 @@ export default function AdminLoading() {
           </div>
         </div>
         <div className="lg:col-span-4">
-          <div className="rounded-2xl border border-border/30 bg-card/50 p-5">
-            <div className="mb-4 h-4 w-28 animate-pulse rounded bg-muted/40" />
-            <div className="space-y-3">
+          <div className="admin-card overflow-hidden">
+            <div className="border-b border-border/30 px-5 py-3.5">
+              <div className="h-4 w-24 admin-shimmer" />
+            </div>
+            <div className="p-2.5 space-y-0.5">
               {[...Array(4)].map((_, i) => (
-                <div key={i} className="flex items-center gap-3 rounded-xl p-3">
-                  <div className="h-10 w-10 animate-pulse rounded-xl bg-muted/30" />
-                  <div className="space-y-2">
-                    <div className="h-3.5 w-24 animate-pulse rounded bg-muted/30" />
-                    <div className="h-3 w-32 animate-pulse rounded bg-muted/20" />
+                <div key={i} className="flex items-center gap-3 rounded-lg p-2.5">
+                  <div className="h-9 w-9 admin-shimmer rounded-xl" />
+                  <div className="space-y-1.5">
+                    <div className="h-3.5 w-20 admin-shimmer" />
+                    <div className="h-3 w-28 admin-shimmer" />
                   </div>
                 </div>
               ))}
             </div>
           </div>
         </div>
-      </div>
-
-      {/* Centered loader */}
-      <div className="flex items-center justify-center py-4">
-        <Loader2 className="h-5 w-5 animate-spin text-primary/40" />
       </div>
     </div>
   )

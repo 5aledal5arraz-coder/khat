@@ -2,7 +2,7 @@
 
 import { useState, useCallback } from "react"
 import {
-  UserCircle, Loader2, AlertCircle, Plus, Trash2, Link2,
+  UserCircle, Loader2, Plus, Trash2, Link2,
   Instagram, Youtube, Globe, Mail, Linkedin, ChevronDown, Sparkles,
 } from "lucide-react"
 import { XIcon } from "@/components/icons/x-icon"
@@ -19,7 +19,7 @@ import { DiscordIcon } from "@/components/icons/discord-icon"
 import { SoundCloudIcon } from "@/components/icons/soundcloud-icon"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
-import { useStudioSession } from "./studio-context"
+import { useTranscript, useGuest, useWebsitePkg } from "../contexts"
 import { AI_STATUS_LABELS } from "./shared"
 
 // ---------------------------------------------------------------------------
@@ -59,14 +59,14 @@ function getSocialPlaceholder(key: string) {
 // ---------------------------------------------------------------------------
 
 export function TabGuestPack() {
+  const { transcriptStatus } = useTranscript()
   const {
-    transcriptStatus,
     guestName, guestBio, guestPhotoUrl, guestExternalLinks,
     guestPackageStatus,
     guestAiGenerating, generateGuestAI,
     setGuestName, setGuestBio, setGuestPhotoUrl, setGuestExternalLinks,
-    debouncedSaveWebPkg,
-  } = useStudioSession()
+  } = useGuest()
+  const { debouncedSaveWebPkg } = useWebsitePkg()
 
   const [showPlatformPicker, setShowPlatformPicker] = useState(false)
 
@@ -132,12 +132,12 @@ export function TabGuestPack() {
 
   return (
     <div className="space-y-6">
-      <div className="rounded-xl border bg-card p-6 space-y-5">
+      <div className="rounded-xl border border-border/30 bg-card/50 p-6 space-y-5">
         {/* Header */}
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <UserCircle className="h-5 w-5 text-purple-500" />
-            <h3 className="font-semibold text-sm">بيانات الضيف</h3>
+            <h3 className="text-[13px] font-semibold">بيانات الضيف</h3>
           </div>
           <div className="flex items-center gap-2">
             <Button
@@ -155,7 +155,7 @@ export function TabGuestPack() {
               )}
               AI
             </Button>
-            <span className={cn("rounded-full px-2.5 py-0.5 text-[10px] font-medium", statusInfo.className)}>
+            <span className={cn("rounded-md px-2.5 py-0.5 text-[10px] font-medium", statusInfo.className)}>
               {statusInfo.label}
             </span>
           </div>
@@ -211,6 +211,7 @@ export function TabGuestPack() {
               />
               {guestPhotoUrl && (
                 <div className="mt-2 flex justify-center">
+                  {/* eslint-disable-next-line @next/next/no-img-element -- Admin-only guest photo preview with onError handler for broken URLs */}
                   <img
                     src={guestPhotoUrl}
                     alt={guestName}

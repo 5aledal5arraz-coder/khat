@@ -30,7 +30,7 @@ export function ThemeSettingForm({ initialMode }: { initialMode: ThemeMode }) {
   return (
     <Card>
       <CardHeader className="pb-3">
-        <CardTitle className="text-base flex items-center gap-2">
+        <CardTitle className="text-[13px] font-semibold flex items-center gap-2">
           <Palette className="h-5 w-5" />
           مظهر الموقع
         </CardTitle>
@@ -43,7 +43,7 @@ export function ThemeSettingForm({ initialMode }: { initialMode: ThemeMode }) {
               type="button"
               onClick={() => { setSelected(opt.value); setSaved(false) }}
               className={cn(
-                "flex-1 rounded-md border px-3 py-2 text-sm font-medium transition-colors",
+                "flex-1 rounded-lg border px-3 py-2 text-[13px] font-medium transition-all duration-200",
                 selected === opt.value
                   ? "border-primary bg-primary/10 text-primary"
                   : "border-border bg-background text-muted-foreground hover:border-primary/50"

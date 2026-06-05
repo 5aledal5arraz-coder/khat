@@ -1,564 +1,697 @@
 "use client"
 
-import { useState, useEffect, useCallback } from "react"
-import { Input } from "@/components/ui/input"
-import { Button } from "@/components/ui/button"
+import { useState, useEffect } from "react"
 import {
-  Users,
-  Play,
-  TrendingUp,
-  Search,
-  Save,
   Loader2,
-  BarChart3,
-  Youtube,
-  Twitter,
-  Instagram,
-  Music2,
-  ExternalLink,
-  Compass,
+  Play,
+  Users,
   Eye,
+  Search,
+  TrendingUp,
+  Youtube,
+  Mail,
+  MailOpen,
+  MousePointerClick,
+  UserPlus,
+  Handshake,
+  Lightbulb,
+  AlertTriangle,
+  CheckCircle2,
+  Info,
+  Clock,
+  Mic2,
+  Quote,
+  BookOpen,
+  Shield,
+  EyeOff,
+  ThumbsUp,
+  MessageCircle,
+  BarChart3,
+  Activity,
+  FileText,
+  Clapperboard,
+  RefreshCw,
+  Save,
+  UserCircle,
 } from "lucide-react"
 import { GlowCard } from "../components/glow-card"
-import type { AnalyticsConfig, PlatformStats } from "@/types/media-kit"
+import { formatDate } from "@/lib/shared/formatters"
 
-// --- Types ---
+// ── Types ──────────────────────────────────────────────────────────────────
 
-interface WebsiteData {
-  configured: boolean
-  error?: string
-  uniqueVisitors: number
-  episodeViews: number
-  engagementRate: number
-  searchCount: number
-  totalEvents: number
-  topEpisodes: {
-    id: string
+interface DashboardData {
+  platform: {
+    totalEpisodes: number
+    publishedEpisodes: number
+    draftEpisodes: number
+    hiddenEpisodes: number
+    totalGuests: number
+    totalQuotes: number
+    totalTimestamps: number
+    totalSponsors: number
+  }
+  submissions: {
+    guestApplications: number
+    newGuestApplications: number
+    sponsorshipLeads: number
+    newSponsorshipLeads: number
+    thinkerSuggestions: number
+    newsletterSubscribers: number
+    activeSubscribers: number
+  }
+  newsletter: {
+    totalCampaigns: number
+    sentCampaigns: number
+    totalEmailsSent: number
+    openRate: number
+    clickRate: number
+    recentCampaigns: {
+      id: string
+      subject: string
+      total_sent: number
+      total_opened: number
+      total_clicked: number
+      sent_at: string
+    }[]
+  }
+  youtube: {
+    available: boolean
+    channel: {
+      title: string
+      subscriberCount: number
+      videoCount: number
+      viewCount: number
+      thumbnailUrl: string
+    } | null
+    recentVideos: {
+      id: string
+      title: string
+      publishedAt: string
+      thumbnailUrl: string
+      viewCount: number
+      likeCount: number
+      commentCount: number
+      durationSeconds: number
+    }[]
+    topVideos: {
+      id: string
+      title: string
+      thumbnailUrl: string
+      viewCount: number
+      likeCount: number
+      commentCount: number
+    }[]
+    totalViews: number
+    totalLikes: number
+    totalComments: number
+    avgViewsPerVideo: number
+    avgEngagementRate: number
+  }
+  visitors: {
+    uniqueVisitors: number
+    totalEvents: number
+    episodeViews: number
+    engagementRate: number
+    searchCount: number
+    topEpisodes: {
+      id: string
+      title: string
+      slug: string
+      thumbnail: string | null
+      views: number
+    }[]
+    topSearches: { query: string; count: number }[]
+  }
+  studio: {
+    totalSessions: number
+    completedSessions: number
+  }
+  insights: {
+    type: "success" | "warning" | "info"
     title: string
-    slug: string
-    thumbnail: string | null
-    views: number
-    deepWatches: number
+    description: string
   }[]
-  contentBreakdown: { label: string; count: number }[]
-  topSearches: { query: string; count: number }[]
-  topPaths: { slug: string; title: string; count: number }[]
+  recentActivity: {
+    type: string
+    label: string
+    targetName: string
+    created_at: string | null
+  }[]
 }
 
-// --- Constants ---
+// ── Helpers ──────────────────────────────────────────────────────────────────
 
-const PERIODS = [
-  { value: "7d", label: "7 أيام" },
-  { value: "30d", label: "30 يوم" },
-  { value: "90d", label: "90 يوم" },
-  { value: "all", label: "الكل" },
-]
-
-const defaultSocial: AnalyticsConfig = {
-  youtube: { followers: 0, posts: 0, engagement: "0%", url: "" },
-  x: { followers: 0, posts: 0, engagement: "0%", url: "" },
-  tiktok: { followers: 0, posts: 0, engagement: "0%", url: "" },
-  instagram: { followers: 0, posts: 0, engagement: "0%", url: "" },
-}
-
-const socialPlatforms = [
-  {
-    key: "youtube" as const,
-    label: "YouTube",
-    icon: Youtube,
-    color: "#FF0000",
-    followersLabel: "مشتركين",
-    postsLabel: "فيديو",
-  },
-  {
-    key: "x" as const,
-    label: "X (Twitter)",
-    icon: Twitter,
-    color: "#1DA1F2",
-    followersLabel: "متابعين",
-    postsLabel: "تغريدة",
-  },
-  {
-    key: "tiktok" as const,
-    label: "TikTok",
-    icon: Music2,
-    color: "#00f2ea",
-    followersLabel: "متابعين",
-    postsLabel: "فيديو",
-  },
-  {
-    key: "instagram" as const,
-    label: "Instagram",
-    icon: Instagram,
-    color: "#E4405F",
-    followersLabel: "متابعين",
-    postsLabel: "منشور",
-  },
-]
-
-const CONTENT_ICONS: Record<string, { icon: React.ElementType; bg: string; text: string }> = {
-  "صفحات الحلقات": { icon: Play, bg: "bg-blue-500/10", text: "text-blue-500" },
-  "تشغيل الحلقات": { icon: Eye, bg: "bg-indigo-500/10", text: "text-indigo-500" },
-  المسارات: { icon: Compass, bg: "bg-purple-500/10", text: "text-purple-500" },
-  الضيوف: { icon: Users, bg: "bg-emerald-500/10", text: "text-emerald-500" },
-  الاقتباسات: { icon: BarChart3, bg: "bg-amber-500/10", text: "text-amber-500" },
-  البحث: { icon: Search, bg: "bg-cyan-500/10", text: "text-cyan-500" },
-  المحفوظات: { icon: Save, bg: "bg-pink-500/10", text: "text-pink-500" },
-  "مشاهدة 25%": { icon: TrendingUp, bg: "bg-lime-500/10", text: "text-lime-500" },
-  "مشاهدة 50%": { icon: TrendingUp, bg: "bg-orange-500/10", text: "text-orange-500" },
-  "مشاهدة 90%": { icon: TrendingUp, bg: "bg-red-500/10", text: "text-red-500" },
-}
-
-// --- Helpers ---
-
-function formatNumber(n: number): string {
+function fmt(n: number): string {
   if (n >= 1_000_000) return (n / 1_000_000).toFixed(1) + "M"
   if (n >= 1_000) return (n / 1_000).toFixed(1) + "K"
-  return n.toLocaleString()
+  return n.toLocaleString("ar-EG")
 }
 
-// --- Component ---
+function timeAgo(dateStr: string | null): string {
+  if (!dateStr) return ""
+  const diff = Date.now() - new Date(dateStr).getTime()
+  const minutes = Math.floor(diff / 60000)
+  if (minutes < 1) return "الآن"
+  if (minutes < 60) return `منذ ${minutes} د`
+  const hours = Math.floor(minutes / 60)
+  if (hours < 24) return `منذ ${hours} س`
+  const days = Math.floor(hours / 24)
+  if (days < 7) return `منذ ${days} ي`
+  return formatDate(dateStr)
+}
 
-export default function AnalyticsPage() {
-  const [period, setPeriod] = useState("30d")
-  const [websiteData, setWebsiteData] = useState<WebsiteData | null>(null)
-  const [isLoading, setIsLoading] = useState(true)
+function formatDuration(seconds: number): string {
+  const m = Math.floor(seconds / 60)
+  const s = seconds % 60
+  return `${m}:${s.toString().padStart(2, "0")}`
+}
 
-  // Social media state
-  const [social, setSocial] = useState<AnalyticsConfig>(defaultSocial)
-  const [socialLoaded, setSocialLoaded] = useState(false)
-  const [saving, setSaving] = useState(false)
+const ACTIVITY_ICONS: Record<string, { icon: React.ElementType; color: string }> = {
+  episode_view: { icon: Eye, color: "text-blue-500" },
+  episode_watch: { icon: Play, color: "text-indigo-500" },
+  watch_25: { icon: TrendingUp, color: "text-lime-500" },
+  watch_50: { icon: TrendingUp, color: "text-orange-500" },
+  watch_90: { icon: TrendingUp, color: "text-red-500" },
+  guest_open: { icon: UserCircle, color: "text-emerald-500" },
+  quote_open: { icon: Quote, color: "text-amber-500" },
+  search_used: { icon: Search, color: "text-cyan-500" },
+  search: { icon: Search, color: "text-cyan-500" },
+  episode_saved: { icon: Save, color: "text-pink-500" },
+  save_item: { icon: Save, color: "text-pink-500" },
+}
 
-  // Fetch website analytics
-  const fetchWebsite = useCallback(async () => {
-    setIsLoading(true)
+// ── Sub-components ──────────────────────────────────────────────────────────
+
+function StatCard({
+  icon: Icon,
+  iconBg,
+  iconColor,
+  label,
+  value,
+  sub,
+  color = "primary" as const,
+}: {
+  icon: React.ElementType
+  iconBg: string
+  iconColor: string
+  label: string
+  value: string | number
+  sub?: string
+  color?: "primary" | "purple" | "green" | "muted"
+}) {
+  return (
+    <GlowCard color={color}>
+      <div className="flex items-center gap-3 p-4">
+        <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${iconBg}`}>
+          <Icon className={`h-5 w-5 ${iconColor}`} />
+        </div>
+        <div className="min-w-0">
+          <p className="text-[11px] text-muted-foreground">{label}</p>
+          <p className="text-xl font-bold tabular-nums">{value}</p>
+          {sub && <p className="text-[10px] text-muted-foreground/60">{sub}</p>}
+        </div>
+      </div>
+    </GlowCard>
+  )
+}
+
+function SectionHeader({ icon: Icon, title, badge }: { icon: React.ElementType; title: string; badge?: string }) {
+  return (
+    <div className="flex items-center gap-2.5">
+      <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-muted/40">
+        <Icon className="h-4 w-4 text-muted-foreground" />
+      </div>
+      <h2 className="text-sm font-semibold">{title}</h2>
+      {badge && (
+        <span className="rounded-md bg-muted/60 px-2 py-0.5 text-[10px] font-medium text-muted-foreground/70">
+          {badge}
+        </span>
+      )}
+    </div>
+  )
+}
+
+function MiniBar({ value, max }: { value: number; max: number }) {
+  const pct = max > 0 ? Math.max(4, Math.round((value / max) * 100)) : 0
+  return (
+    <div className="h-1.5 w-16 overflow-hidden rounded-full bg-muted/30">
+      <div className="h-full rounded-full bg-primary/40 transition-all" style={{ width: `${pct}%` }} />
+    </div>
+  )
+}
+
+// ── Main Component ──────────────────────────────────────────────────────────
+
+export default function AnalyticsDashboard() {
+  const [data, setData] = useState<DashboardData | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+
+  const fetchData = async () => {
+    setLoading(true)
+    setError(null)
     try {
-      const res = await fetch(`/api/admin/analytics/website?period=${period}`)
-      const data = await res.json()
-      setWebsiteData(data)
-    } catch {
-      setWebsiteData(null)
+      const res = await fetch("/api/admin/analytics/dashboard")
+      if (!res.ok) {
+        const body = await res.json()
+        throw new Error(body.error || "Failed to load dashboard")
+      }
+      setData(await res.json())
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Unknown error")
     }
-    setIsLoading(false)
-  }, [period])
+    setLoading(false)
+  }
 
-  // Fetch social stats (once)
   useEffect(() => {
-    fetch("/api/admin/analytics")
-      .then((r) => r.json())
-      .then((data) => {
-        setSocial(data)
-        setSocialLoaded(true)
-      })
-      .catch(() => setSocialLoaded(true))
+    fetchData()
   }, [])
 
-  useEffect(() => {
-    fetchWebsite()
-  }, [fetchWebsite])
-
-  const handleSaveSocial = async () => {
-    setSaving(true)
-    await fetch("/api/admin/analytics", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(social),
-    })
-    setSaving(false)
+  // ── Loading state ─────────────────────────────────────────────────────────
+  if (loading) {
+    return (
+      <div className="flex flex-col items-center justify-center py-32">
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+        <p className="mt-3 text-sm text-muted-foreground">جاري تحميل لوحة التحكم...</p>
+      </div>
+    )
   }
 
-  const updatePlatform = (key: keyof AnalyticsConfig, stats: PlatformStats) => {
-    setSocial((prev) => ({ ...prev, [key]: stats }))
+  // ── Error state ───────────────────────────────────────────────────────────
+  if (error || !data) {
+    return (
+      <div className="flex flex-col items-center justify-center py-32 text-center">
+        <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-destructive/10">
+          <AlertTriangle className="h-6 w-6 text-destructive" />
+        </div>
+        <p className="text-sm font-medium text-destructive">{error || "فشل تحميل البيانات"}</p>
+        <button
+          onClick={fetchData}
+          className="mt-3 text-xs text-muted-foreground underline hover:text-foreground"
+        >
+          إعادة المحاولة
+        </button>
+      </div>
+    )
   }
 
-  // --- Render ---
+  const { platform, submissions, newsletter, youtube, visitors, studio, insights, recentActivity } = data
 
+  // ── Render ────────────────────────────────────────────────────────────────
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center gap-3">
-        <h1 className="text-xl font-bold">تحليلات الموقع</h1>
-        {websiteData && websiteData.totalEvents > 0 && (
-          <span className="rounded-full bg-muted/80 px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
-            {formatNumber(websiteData.totalEvents)} حدث
-          </span>
-        )}
+    <div className="space-y-8">
+      {/* ─── Page Header ─────────────────────────────────────────────────── */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-xl font-bold">لوحة التحكم</h1>
+          <p className="mt-0.5 text-xs text-muted-foreground">نظرة شاملة على أداء المنصة والقناة</p>
+        </div>
+        <button
+          onClick={fetchData}
+          className="flex items-center gap-1.5 rounded-lg border border-border/30 bg-card/50 px-3 py-1.5 text-xs text-muted-foreground transition-colors hover:bg-muted/40 hover:text-foreground"
+        >
+          <RefreshCw className="h-3.5 w-3.5" />
+          تحديث
+        </button>
       </div>
 
-      {/* Period tabs */}
-      <div className="flex items-center gap-2 rounded-xl border border-border/30 bg-card/50 p-1.5">
-        {PERIODS.map((p) => (
-          <button
-            key={p.value}
-            onClick={() => setPeriod(p.value)}
-            className={
-              period === p.value
-                ? "rounded-lg bg-white/[0.06] px-3 py-1.5 text-sm font-medium ring-1 ring-border/50"
-                : "rounded-lg px-3 py-1.5 text-sm text-muted-foreground hover:bg-white/[0.03]"
+      {/* ─── Smart Insights ──────────────────────────────────────────────── */}
+      {insights.length > 0 && (
+        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
+          {insights.map((insight, i) => {
+            const iconMap = {
+              success: { icon: CheckCircle2, bg: "bg-emerald-500/10", color: "text-emerald-500", border: "border-emerald-500/20" },
+              warning: { icon: AlertTriangle, bg: "bg-amber-500/10", color: "text-amber-500", border: "border-amber-500/20" },
+              info: { icon: Info, bg: "bg-blue-500/10", color: "text-blue-500", border: "border-blue-500/20" },
             }
-          >
-            {p.label}
-          </button>
-        ))}
-      </div>
-
-      {/* Loading */}
-      {isLoading ? (
-        <div className="flex justify-center py-12">
-          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+            const meta = iconMap[insight.type]
+            const Icon = meta.icon
+            return (
+              <div key={i} className={`flex items-start gap-3 rounded-xl border ${meta.border} bg-card/50 p-3`}>
+                <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${meta.bg}`}>
+                  <Icon className={`h-4 w-4 ${meta.color}`} />
+                </div>
+                <div className="min-w-0">
+                  <p className="text-[13px] font-semibold">{insight.title}</p>
+                  <p className="mt-0.5 text-[11px] text-muted-foreground leading-relaxed">{insight.description}</p>
+                </div>
+              </div>
+            )
+          })}
         </div>
-      ) : !websiteData || (!websiteData.configured && !websiteData.error) ? (
-        /* Supabase not configured */
-        <div className="flex flex-col items-center justify-center py-20 text-center">
-          <div className="mb-5 flex h-16 w-16 items-center justify-center rounded-3xl bg-white/[0.03] ring-1 ring-border/50">
-            <BarChart3 className="h-6 w-6 text-muted-foreground" />
-          </div>
-          <p className="text-base font-semibold text-muted-foreground">
-            Supabase غير مُهيّأ
-          </p>
-          <p className="mt-2 max-w-xs text-sm text-muted-foreground/60">
-            أضف متغيرات البيئة NEXT_PUBLIC_SUPABASE_URL و SUPABASE_SERVICE_ROLE_KEY لتفعيل التحليلات
-          </p>
-        </div>
-      ) : websiteData.totalEvents === 0 && !websiteData.error ? (
-        /* No data yet */
-        <div className="flex flex-col items-center justify-center py-20 text-center">
-          <div className="mb-5 flex h-16 w-16 items-center justify-center rounded-3xl bg-white/[0.03] ring-1 ring-border/50">
-            <BarChart3 className="h-6 w-6 text-muted-foreground" />
-          </div>
-          <p className="text-base font-semibold text-muted-foreground">
-            لا توجد بيانات زوار بعد
-          </p>
-          <p className="mt-2 max-w-xs text-sm text-muted-foreground/60">
-            بيانات الزوار تُجمع تلقائياً عبر نظام التخصيص عند تصفّح الموقع
-          </p>
-        </div>
-      ) : (
-        <>
-          {/* Error banner */}
-          {websiteData.error && (
-            <div className="rounded-xl border border-amber-500/30 bg-amber-500/5 px-4 py-3 text-sm text-amber-500">
-              {websiteData.error}
-            </div>
-          )}
+      )}
 
-          {/* Summary cards */}
-          <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-            <GlowCard>
-              <div className="flex items-center gap-3 p-4">
-                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10">
-                  <Users className="h-5 w-5 text-primary" />
-                </div>
-                <div>
-                  <p className="text-xs text-muted-foreground">زوار الموقع</p>
-                  <p className="text-xl font-bold">
-                    {formatNumber(websiteData.uniqueVisitors)}
-                  </p>
-                </div>
-              </div>
-            </GlowCard>
-            <GlowCard>
-              <div className="flex items-center gap-3 p-4">
-                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-blue-500/10">
-                  <Play className="h-5 w-5 text-blue-500" />
-                </div>
-                <div>
-                  <p className="text-xs text-muted-foreground">مشاهدات الحلقات</p>
-                  <p className="text-xl font-bold">
-                    {formatNumber(websiteData.episodeViews)}
-                  </p>
-                </div>
-              </div>
-            </GlowCard>
-            <GlowCard>
-              <div className="flex items-center gap-3 p-4">
-                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-emerald-500/10">
-                  <TrendingUp className="h-5 w-5 text-emerald-500" />
-                </div>
-                <div>
-                  <p className="text-xs text-muted-foreground">نسبة التفاعل</p>
-                  <p className="text-xl font-bold">{websiteData.engagementRate}%</p>
-                </div>
-              </div>
-            </GlowCard>
-            <GlowCard>
-              <div className="flex items-center gap-3 p-4">
-                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-cyan-500/10">
-                  <Search className="h-5 w-5 text-cyan-500" />
-                </div>
-                <div>
-                  <p className="text-xs text-muted-foreground">عمليات البحث</p>
-                  <p className="text-xl font-bold">
-                    {formatNumber(websiteData.searchCount)}
-                  </p>
-                </div>
-              </div>
-            </GlowCard>
-          </div>
+      {/* ─── Platform Overview ───────────────────────────────────────────── */}
+      <section className="space-y-4">
+        <SectionHeader icon={BarChart3} title="نظرة عامة على المنصة" />
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+          <StatCard icon={Mic2} iconBg="bg-primary/10" iconColor="text-primary" label="إجمالي الحلقات" value={fmt(platform.totalEpisodes)} sub={`${platform.publishedEpisodes} منشورة`} />
+          <StatCard icon={Users} iconBg="bg-emerald-500/10" iconColor="text-emerald-500" label="الضيوف" value={fmt(platform.totalGuests)} color="green" />
+          <StatCard icon={Quote} iconBg="bg-amber-500/10" iconColor="text-amber-500" label="الاقتباسات" value={fmt(platform.totalQuotes)} color="muted" />
+          <StatCard icon={BookOpen} iconBg="bg-indigo-500/10" iconColor="text-indigo-500" label="الفصول الزمنية" value={fmt(platform.totalTimestamps)} color="muted" />
+          <StatCard icon={Shield} iconBg="bg-purple-500/10" iconColor="text-purple-500" label="الرعاة" value={fmt(platform.totalSponsors)} color="purple" />
+          <StatCard icon={EyeOff} iconBg="bg-muted-foreground/10" iconColor="text-muted-foreground" label="حلقات مخفية" value={fmt(platform.hiddenEpisodes)} color="muted" />
+          <StatCard icon={FileText} iconBg="bg-orange-500/10" iconColor="text-orange-500" label="مسودات" value={fmt(platform.draftEpisodes)} color="muted" />
+          <StatCard icon={Clapperboard} iconBg="bg-cyan-500/10" iconColor="text-cyan-500" label="جلسات الاستوديو" value={fmt(studio.totalSessions)} sub={`${studio.completedSessions} مكتملة`} color="muted" />
+        </div>
+      </section>
 
+      {/* ─── Website Visitors (30 day) ───────────────────────────────────── */}
+      <section className="space-y-4">
+        <SectionHeader icon={Activity} title="زوار الموقع" badge="آخر 30 يوم" />
+        <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+          <StatCard icon={Users} iconBg="bg-primary/10" iconColor="text-primary" label="زوار فريدون" value={fmt(visitors.uniqueVisitors)} />
+          <StatCard icon={Eye} iconBg="bg-blue-500/10" iconColor="text-blue-500" label="مشاهدات الحلقات" value={fmt(visitors.episodeViews)} />
+          <StatCard icon={TrendingUp} iconBg="bg-emerald-500/10" iconColor="text-emerald-500" label="نسبة التفاعل العميق" value={`${visitors.engagementRate}%`} color="green" />
+          <StatCard icon={Search} iconBg="bg-cyan-500/10" iconColor="text-cyan-500" label="عمليات البحث" value={fmt(visitors.searchCount)} color="muted" />
+        </div>
+
+        {/* Top episodes & searches side by side */}
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
           {/* Top episodes */}
-          {websiteData.topEpisodes.length > 0 && (
+          {visitors.topEpisodes.length > 0 && (
             <div className="rounded-xl border border-border/30 bg-card/50">
-              <div className="flex items-center gap-3 border-b border-border/20 px-4 py-3">
-                <h2 className="text-sm font-semibold">أكثر الحلقات مشاهدة</h2>
-                <span className="rounded-full bg-muted/80 px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
-                  {websiteData.topEpisodes.length} حلقة
-                </span>
+              <div className="border-b border-border/30 px-4 py-3">
+                <h3 className="text-[13px] font-semibold">أكثر الحلقات مشاهدة</h3>
               </div>
-              <div className="divide-y divide-border/20">
-                {websiteData.topEpisodes.map((ep, i) => (
+              <div className="divide-y divide-border/15">
+                {visitors.topEpisodes.map((ep, i) => (
                   <div key={ep.id} className="flex items-center gap-3 px-4 py-2.5">
-                    <span className="w-5 text-center text-xs text-muted-foreground">
-                      {i + 1}
-                    </span>
+                    <span className="w-5 text-center text-[11px] font-medium text-muted-foreground/50">{i + 1}</span>
                     {ep.thumbnail ? (
-                      <img
-                        src={ep.thumbnail}
-                        alt=""
-                        className="h-10 w-10 rounded-lg object-cover"
-                      />
+                      <img src={ep.thumbnail} alt="" className="h-9 w-9 rounded-lg object-cover" />
                     ) : (
-                      <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-muted/50">
-                        <Play className="h-4 w-4 text-muted-foreground" />
+                      <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-muted/40">
+                        <Play className="h-3.5 w-3.5 text-muted-foreground" />
                       </div>
                     )}
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm font-medium">{ep.title}</p>
-                      {ep.deepWatches > 0 && (
-                        <p className="text-xs text-muted-foreground">
-                          {ep.deepWatches} مشاهدة عميقة
-                        </p>
-                      )}
-                    </div>
-                    <span className="shrink-0 text-sm text-muted-foreground">
-                      {formatNumber(ep.views)} مشاهدة
-                    </span>
+                    <span className="min-w-0 flex-1 truncate text-[13px]">{ep.title}</span>
+                    <span className="shrink-0 text-xs tabular-nums text-muted-foreground">{fmt(ep.views)}</span>
                   </div>
                 ))}
-              </div>
-            </div>
-          )}
-
-          {/* Content breakdown */}
-          {websiteData.contentBreakdown.length > 0 && (
-            <div className="rounded-xl border border-border/30 bg-card/50">
-              <div className="border-b border-border/20 px-4 py-3">
-                <h2 className="text-sm font-semibold">أكثر الصفحات زيارة</h2>
-              </div>
-              <div className="divide-y divide-border/20">
-                {websiteData.contentBreakdown.map((item) => {
-                  const meta = CONTENT_ICONS[item.label] || {
-                    icon: BarChart3,
-                    bg: "bg-muted/50",
-                    text: "text-muted-foreground",
-                  }
-                  const Icon = meta.icon
-                  const maxCount = websiteData.contentBreakdown[0]?.count || 1
-                  const widthPercent = Math.max(
-                    4,
-                    Math.round((item.count / maxCount) * 100)
-                  )
-
-                  return (
-                    <div
-                      key={item.label}
-                      className="flex items-center gap-3 px-4 py-2.5"
-                    >
-                      <div
-                        className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-xl ${meta.bg}`}
-                      >
-                        <Icon className={`h-4 w-4 ${meta.text}`} />
-                      </div>
-                      <span className="min-w-0 flex-1 text-sm">{item.label}</span>
-                      <span className="shrink-0 text-sm tabular-nums text-muted-foreground">
-                        {formatNumber(item.count)}
-                      </span>
-                      <div className="hidden w-24 sm:block">
-                        <div
-                          className="h-1.5 rounded-full bg-primary/20"
-                          style={{ width: `${widthPercent}%` }}
-                        />
-                      </div>
-                    </div>
-                  )
-                })}
               </div>
             </div>
           )}
 
           {/* Top searches */}
-          {websiteData.topSearches.length > 0 && (
+          {visitors.topSearches.length > 0 && (
             <div className="rounded-xl border border-border/30 bg-card/50">
-              <div className="border-b border-border/20 px-4 py-3">
-                <h2 className="text-sm font-semibold">عمليات البحث الشائعة</h2>
+              <div className="border-b border-border/30 px-4 py-3">
+                <h3 className="text-[13px] font-semibold">عمليات البحث الشائعة</h3>
               </div>
               <div className="flex flex-wrap gap-2 p-4">
-                {websiteData.topSearches.map((s) => (
+                {visitors.topSearches.map((s) => (
                   <span
                     key={s.query}
-                    className="inline-flex items-center gap-1.5 rounded-full border border-border/30 bg-muted/30 px-3 py-1 text-sm"
+                    className="inline-flex items-center gap-1.5 rounded-lg border border-border/20 bg-muted/20 px-3 py-1.5 text-[13px]"
                   >
                     <Search className="h-3 w-3 text-muted-foreground" />
                     {s.query}
-                    <span className="text-xs text-muted-foreground">
-                      {s.count}
-                    </span>
+                    <span className="text-[11px] text-muted-foreground">{s.count}</span>
                   </span>
                 ))}
               </div>
-            </div>
-          )}
-
-          {/* Top emotional paths */}
-          {websiteData.topPaths.length > 0 && (
-            <div className="rounded-xl border border-border/30 bg-card/50">
-              <div className="border-b border-border/20 px-4 py-3">
-                <h2 className="text-sm font-semibold">المسارات الأكثر استكشافاً</h2>
-              </div>
-              <div className="divide-y divide-border/20">
-                {websiteData.topPaths.map((p, i) => (
-                  <div
-                    key={p.slug}
-                    className="flex items-center gap-3 px-4 py-2.5"
-                  >
-                    <span className="w-5 text-center text-xs text-muted-foreground">
-                      {i + 1}
-                    </span>
-                    <span className="min-w-0 flex-1 text-sm font-medium">
-                      {p.title}
-                    </span>
-                    <span className="shrink-0 text-sm text-muted-foreground">
-                      {formatNumber(p.count)} نقرة
-                    </span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-        </>
-      )}
-
-      {/* Social media stats */}
-      {socialLoaded && (
-        <div className="rounded-xl border border-border/30 bg-card/50">
-          <div className="flex items-center justify-between border-b border-border/20 px-4 py-3">
-            <h2 className="text-sm font-semibold">
-              إحصائيات التواصل الاجتماعي
-            </h2>
-            <Button
-              size="sm"
-              onClick={handleSaveSocial}
-              disabled={saving}
-              className="h-8 gap-1.5 rounded-xl text-xs"
-            >
-              {saving ? (
-                <Loader2 className="h-3.5 w-3.5 animate-spin" />
-              ) : (
-                <Save className="h-3.5 w-3.5" />
+              {visitors.topSearches.length === 0 && (
+                <p className="px-4 py-6 text-center text-xs text-muted-foreground/50">لا توجد بيانات بحث بعد</p>
               )}
-              {saving ? "جارٍ الحفظ..." : "حفظ"}
-            </Button>
-          </div>
-          <div className="grid grid-cols-1 gap-4 p-4 lg:grid-cols-2 xl:grid-cols-4">
-            {socialPlatforms.map((platform) => {
-              const Icon = platform.icon
-              const stats = social[platform.key]
-              return (
-                <div key={platform.key} className="space-y-3">
-                  <div className="flex items-center gap-2">
-                    <div
-                      className="flex h-8 w-8 items-center justify-center rounded-xl"
-                      style={{ backgroundColor: platform.color + "20" }}
-                    >
-                      <Icon
-                        className="h-4 w-4"
-                        style={{ color: platform.color }}
-                      />
-                    </div>
-                    <span className="text-sm font-medium">{platform.label}</span>
-                    {stats.url && (
-                      <a
-                        href={stats.url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="ms-auto text-muted-foreground hover:text-foreground"
-                      >
-                        <ExternalLink className="h-3.5 w-3.5" />
-                      </a>
-                    )}
+            </div>
+          )}
+        </div>
+      </section>
+
+      {/* ─── YouTube Performance ─────────────────────────────────────────── */}
+      <section className="space-y-4">
+        <SectionHeader icon={Youtube} title="أداء قناة يوتيوب" badge={youtube.available ? "متصل" : "غير متصل"} />
+
+        {youtube.available && youtube.channel ? (
+          <>
+            {/* Channel KPIs */}
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+              <GlowCard color="muted">
+                <div className="p-4 text-center">
+                  <p className="text-[11px] text-muted-foreground">المشتركون</p>
+                  <p className="mt-1 text-xl font-bold tabular-nums">{fmt(youtube.channel.subscriberCount)}</p>
+                </div>
+              </GlowCard>
+              <GlowCard color="muted">
+                <div className="p-4 text-center">
+                  <p className="text-[11px] text-muted-foreground">إجمالي المشاهدات</p>
+                  <p className="mt-1 text-xl font-bold tabular-nums">{fmt(youtube.channel.viewCount)}</p>
+                </div>
+              </GlowCard>
+              <GlowCard color="muted">
+                <div className="p-4 text-center">
+                  <p className="text-[11px] text-muted-foreground">عدد الفيديوهات</p>
+                  <p className="mt-1 text-xl font-bold tabular-nums">{fmt(youtube.channel.videoCount)}</p>
+                </div>
+              </GlowCard>
+              <GlowCard color="muted">
+                <div className="p-4 text-center">
+                  <p className="text-[11px] text-muted-foreground">متوسط المشاهدات</p>
+                  <p className="mt-1 text-xl font-bold tabular-nums">{fmt(youtube.avgViewsPerVideo)}</p>
+                </div>
+              </GlowCard>
+              <GlowCard color="muted">
+                <div className="p-4 text-center">
+                  <p className="text-[11px] text-muted-foreground">معدل التفاعل</p>
+                  <p className="mt-1 text-xl font-bold tabular-nums">{youtube.avgEngagementRate}%</p>
+                </div>
+              </GlowCard>
+            </div>
+
+            {/* Aggregate engagement */}
+            <div className="grid grid-cols-3 gap-3">
+              <div className="flex items-center gap-3 rounded-xl border border-border/30 bg-card/50 p-3">
+                <ThumbsUp className="h-4 w-4 text-blue-500" />
+                <div>
+                  <p className="text-[11px] text-muted-foreground">إجمالي الإعجابات</p>
+                  <p className="text-sm font-semibold tabular-nums">{fmt(youtube.totalLikes)}</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-3 rounded-xl border border-border/30 bg-card/50 p-3">
+                <MessageCircle className="h-4 w-4 text-emerald-500" />
+                <div>
+                  <p className="text-[11px] text-muted-foreground">إجمالي التعليقات</p>
+                  <p className="text-sm font-semibold tabular-nums">{fmt(youtube.totalComments)}</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-3 rounded-xl border border-border/30 bg-card/50 p-3">
+                <Eye className="h-4 w-4 text-amber-500" />
+                <div>
+                  <p className="text-[11px] text-muted-foreground">إجمالي المشاهدات</p>
+                  <p className="text-sm font-semibold tabular-nums">{fmt(youtube.totalViews)}</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Top videos & recent videos */}
+            <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+              {/* Top performing */}
+              {youtube.topVideos.length > 0 && (
+                <div className="rounded-xl border border-border/30 bg-card/50">
+                  <div className="border-b border-border/30 px-4 py-3">
+                    <h3 className="text-[13px] font-semibold">الأكثر مشاهدة على القناة</h3>
                   </div>
-                  <div className="grid grid-cols-2 gap-2">
-                    <div>
-                      <label className="mb-1 block text-[10px] text-muted-foreground">
-                        {platform.followersLabel}
-                      </label>
-                      <Input
-                        type="number"
-                        value={stats.followers}
-                        onChange={(e) =>
-                          updatePlatform(platform.key, {
-                            ...stats,
-                            followers: parseInt(e.target.value) || 0,
-                          })
-                        }
-                        className="h-8 rounded-xl text-xs"
-                      />
-                    </div>
-                    <div>
-                      <label className="mb-1 block text-[10px] text-muted-foreground">
-                        {platform.postsLabel}
-                      </label>
-                      <Input
-                        type="number"
-                        value={stats.posts}
-                        onChange={(e) =>
-                          updatePlatform(platform.key, {
-                            ...stats,
-                            posts: parseInt(e.target.value) || 0,
-                          })
-                        }
-                        className="h-8 rounded-xl text-xs"
-                      />
-                    </div>
-                    <div>
-                      <label className="mb-1 block text-[10px] text-muted-foreground">
-                        نسبة التفاعل
-                      </label>
-                      <Input
-                        value={stats.engagement}
-                        onChange={(e) =>
-                          updatePlatform(platform.key, {
-                            ...stats,
-                            engagement: e.target.value,
-                          })
-                        }
-                        placeholder="مثال: 4.5%"
-                        className="h-8 rounded-xl text-xs"
-                      />
-                    </div>
-                    <div>
-                      <label className="mb-1 block text-[10px] text-muted-foreground">
-                        رابط الحساب
-                      </label>
-                      <Input
-                        value={stats.url}
-                        onChange={(e) =>
-                          updatePlatform(platform.key, {
-                            ...stats,
-                            url: e.target.value,
-                          })
-                        }
-                        placeholder="https://..."
-                        className="h-8 rounded-xl text-xs"
-                        dir="ltr"
-                      />
-                    </div>
+                  <div className="divide-y divide-border/15">
+                    {youtube.topVideos.map((v, i) => (
+                      <div key={v.id} className="flex items-center gap-3 px-4 py-2.5">
+                        <span className="w-5 text-center text-[11px] font-medium text-muted-foreground/50">{i + 1}</span>
+                        <img src={v.thumbnailUrl} alt="" className="h-9 w-16 rounded-md object-cover" />
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate text-[13px]">{v.title}</p>
+                          <div className="flex items-center gap-2 text-[10px] text-muted-foreground">
+                            <span>{fmt(v.viewCount)} مشاهدة</span>
+                            <span>·</span>
+                            <span>{fmt(v.likeCount)} إعجاب</span>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
                   </div>
                 </div>
-              )
-            })}
+              )}
+
+              {/* Recent uploads */}
+              {youtube.recentVideos.length > 0 && (
+                <div className="rounded-xl border border-border/30 bg-card/50">
+                  <div className="border-b border-border/30 px-4 py-3">
+                    <h3 className="text-[13px] font-semibold">آخر الفيديوهات</h3>
+                  </div>
+                  <div className="divide-y divide-border/15">
+                    {youtube.recentVideos.map((v) => (
+                      <div key={v.id} className="flex items-center gap-3 px-4 py-2.5">
+                        <img src={v.thumbnailUrl} alt="" className="h-9 w-16 rounded-md object-cover" />
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate text-[13px]">{v.title}</p>
+                          <div className="flex items-center gap-2 text-[10px] text-muted-foreground">
+                            <span>{fmt(v.viewCount)} مشاهدة</span>
+                            <span>·</span>
+                            <span>{formatDuration(v.durationSeconds)}</span>
+                            <span>·</span>
+                            <span>{timeAgo(v.publishedAt)}</span>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          </>
+        ) : (
+          <div className="rounded-xl border border-border/30 bg-card/50 px-6 py-12 text-center">
+            <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-muted/30">
+              <Youtube className="h-5 w-5 text-muted-foreground/50" />
+            </div>
+            <p className="text-[13px] font-medium text-muted-foreground/70">يوتيوب غير متصل</p>
+            <p className="mt-1 text-[11px] text-muted-foreground/40">
+              أضف YOUTUBE_API_KEY و YOUTUBE_CHANNEL_ID لتفعيل تحليلات يوتيوب
+            </p>
+          </div>
+        )}
+      </section>
+
+      {/* ─── Newsletter & Audience ───────────────────────────────────────── */}
+      <section className="space-y-4">
+        <SectionHeader icon={Mail} title="النشرة البريدية والجمهور" />
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+          <GlowCard color="green">
+            <div className="p-4 text-center">
+              <p className="text-[11px] text-muted-foreground">مشتركون نشطون</p>
+              <p className="mt-1 text-xl font-bold tabular-nums">{fmt(submissions.activeSubscribers)}</p>
+            </div>
+          </GlowCard>
+          <GlowCard color="muted">
+            <div className="p-4 text-center">
+              <p className="text-[11px] text-muted-foreground">إجمالي المشتركين</p>
+              <p className="mt-1 text-xl font-bold tabular-nums">{fmt(submissions.newsletterSubscribers)}</p>
+            </div>
+          </GlowCard>
+          <GlowCard color="muted">
+            <div className="p-4 text-center">
+              <p className="text-[11px] text-muted-foreground">نشرات مرسلة</p>
+              <p className="mt-1 text-xl font-bold tabular-nums">{fmt(newsletter.sentCampaigns)}</p>
+            </div>
+          </GlowCard>
+          <GlowCard color="muted">
+            <div className="p-4 text-center">
+              <p className="text-[11px] text-muted-foreground">معدل الفتح</p>
+              <p className="mt-1 text-xl font-bold tabular-nums">{newsletter.openRate}%</p>
+            </div>
+          </GlowCard>
+          <GlowCard color="muted">
+            <div className="p-4 text-center">
+              <p className="text-[11px] text-muted-foreground">معدل النقر</p>
+              <p className="mt-1 text-xl font-bold tabular-nums">{newsletter.clickRate}%</p>
+            </div>
+          </GlowCard>
+        </div>
+
+        {/* Recent campaigns */}
+        {newsletter.recentCampaigns.length > 0 && (
+          <div className="rounded-xl border border-border/30 bg-card/50">
+            <div className="border-b border-border/30 px-4 py-3">
+              <h3 className="text-[13px] font-semibold">آخر النشرات المرسلة</h3>
+            </div>
+            <div className="divide-y divide-border/15">
+              {newsletter.recentCampaigns.map((c) => {
+                const openRate = c.total_sent > 0 ? Math.round((c.total_opened / c.total_sent) * 100) : 0
+                return (
+                  <div key={c.id} className="flex items-center gap-3 px-4 py-2.5">
+                    <MailOpen className="h-4 w-4 shrink-0 text-muted-foreground" />
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-[13px]">{c.subject}</p>
+                      <div className="flex items-center gap-2 text-[10px] text-muted-foreground">
+                        <span>{c.total_sent} مرسل</span>
+                        <span>·</span>
+                        <span>{openRate}% فتح</span>
+                        <span>·</span>
+                        <span>{c.total_clicked} نقرة</span>
+                      </div>
+                    </div>
+                    <span className="shrink-0 text-[11px] text-muted-foreground/60">{timeAgo(c.sent_at)}</span>
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+        )}
+      </section>
+
+      {/* ─── Submissions Overview ────────────────────────────────────────── */}
+      <section className="space-y-4">
+        <SectionHeader icon={UserPlus} title="الطلبات والنماذج" />
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+          <div className="rounded-xl border border-border/30 bg-card/50 p-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <UserPlus className="h-4 w-4 text-emerald-500" />
+                <span className="text-[13px]">طلبات الضيوف</span>
+              </div>
+              {submissions.newGuestApplications > 0 && (
+                <span className="rounded-full bg-amber-500/10 px-2 py-0.5 text-[10px] font-medium text-amber-500">
+                  {submissions.newGuestApplications} جديد
+                </span>
+              )}
+            </div>
+            <p className="mt-2 text-2xl font-bold tabular-nums">{submissions.guestApplications}</p>
+          </div>
+          <div className="rounded-xl border border-border/30 bg-card/50 p-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Handshake className="h-4 w-4 text-blue-500" />
+                <span className="text-[13px]">طلبات الرعاية</span>
+              </div>
+              {submissions.newSponsorshipLeads > 0 && (
+                <span className="rounded-full bg-amber-500/10 px-2 py-0.5 text-[10px] font-medium text-amber-500">
+                  {submissions.newSponsorshipLeads} جديد
+                </span>
+              )}
+            </div>
+            <p className="mt-2 text-2xl font-bold tabular-nums">{submissions.sponsorshipLeads}</p>
+          </div>
+          <div className="rounded-xl border border-border/30 bg-card/50 p-4">
+            <div className="flex items-center gap-2">
+              <Lightbulb className="h-4 w-4 text-amber-500" />
+              <span className="text-[13px]">اقتراحات ضيوف</span>
+            </div>
+            <p className="mt-2 text-2xl font-bold tabular-nums">{submissions.thinkerSuggestions}</p>
+          </div>
+          <div className="rounded-xl border border-border/30 bg-card/50 p-4">
+            <div className="flex items-center gap-2">
+              <MousePointerClick className="h-4 w-4 text-purple-500" />
+              <span className="text-[13px]">إجمالي الإيميلات</span>
+            </div>
+            <p className="mt-2 text-2xl font-bold tabular-nums">{fmt(newsletter.totalEmailsSent)}</p>
           </div>
         </div>
+      </section>
+
+      {/* ─── Recent Activity Feed ────────────────────────────────────────── */}
+      {recentActivity.length > 0 && (
+        <section className="space-y-4">
+          <SectionHeader icon={Clock} title="النشاط الأخير" badge={`${visitors.totalEvents} حدث`} />
+          <div className="rounded-xl border border-border/30 bg-card/50">
+            <div className="divide-y divide-border/15">
+              {recentActivity.map((activity, i) => {
+                const meta = ACTIVITY_ICONS[activity.type] || { icon: Eye, color: "text-muted-foreground" }
+                const Icon = meta.icon
+                return (
+                  <div key={i} className="flex items-center gap-3 px-4 py-2.5">
+                    <Icon className={`h-4 w-4 shrink-0 ${meta.color}`} />
+                    <span className="min-w-0 flex-1 text-[13px]">
+                      <span className="text-muted-foreground">{activity.label}</span>{" "}
+                      <span className="font-medium">{activity.targetName}</span>
+                    </span>
+                    <span className="shrink-0 text-[11px] text-muted-foreground/50">
+                      {timeAgo(activity.created_at)}
+                    </span>
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+        </section>
       )}
     </div>
   )

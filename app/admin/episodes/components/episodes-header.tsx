@@ -2,33 +2,28 @@
 
 interface EpisodesHeaderProps {
   totalEpisodes: number
-  totalSections: number
   hiddenCount: number
   totalHours: number
 }
 
 export function EpisodesHeader({
   totalEpisodes,
-  totalSections,
   hiddenCount,
   totalHours,
 }: EpisodesHeaderProps) {
   return (
-    <div className="flex flex-wrap items-center gap-3">
+    <div className="flex flex-wrap items-center gap-2.5">
       <h1 className="text-xl font-bold tracking-tight">الحلقات</h1>
-      <div className="flex flex-wrap items-center gap-2">
-        <span className="rounded-full border border-border/50 bg-card/80 px-3 py-1.5 text-xs text-muted-foreground">
+      <div className="flex flex-wrap items-center gap-1.5">
+        <span className="rounded-md bg-muted/60 px-2 py-0.5 text-[11px] font-medium text-muted-foreground/70">
           {totalEpisodes} حلقة
         </span>
-        <span className="rounded-full border border-border/50 bg-card/80 px-3 py-1.5 text-xs text-muted-foreground">
-          {totalSections} تصنيف
-        </span>
         {hiddenCount > 0 && (
-          <span className="rounded-full border border-border/50 bg-card/80 px-3 py-1.5 text-xs text-muted-foreground">
+          <span className="rounded-md bg-muted/60 px-2 py-0.5 text-[11px] font-medium text-muted-foreground/70">
             {hiddenCount} مخفي
           </span>
         )}
-        <span className="rounded-full border border-border/50 bg-card/80 px-3 py-1.5 text-xs text-muted-foreground">
+        <span className="rounded-md bg-muted/60 px-2 py-0.5 text-[11px] font-medium text-muted-foreground/70">
           {totalHours} ساعة
         </span>
       </div>

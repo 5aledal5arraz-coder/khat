@@ -7,21 +7,22 @@ import {
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
-import { useStudioSession } from "./studio-context"
+import { useSession, useTranscript, useAudio } from "../contexts"
+import { formatDuration } from "./shared"
 
 // ---------------------------------------------------------------------------
 // Audio Tools Content (rendered inside an AccordionSection)
 // ---------------------------------------------------------------------------
 
 export function AudioToolsContent() {
+  const { session } = useSession()
+  const { transcriptStatus } = useTranscript()
   const {
-    session,
-    transcriptStatus,
     audioStartSeconds, audioEndSeconds, audioBestIntro,
     audioIntroStatus, audioIntroError,
     setAudioStartSeconds, setAudioEndSeconds,
     saveAudioTimestamps, generateBestIntro,
-  } = useStudioSession()
+  } = useAudio()
 
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
@@ -104,7 +105,7 @@ export function AudioToolsContent() {
       </div>
 
       {/* Divider */}
-      <div className="border-t" />
+      <div className="border-t border-border/30" />
 
       {/* AI Best Intro Section */}
       <div className="space-y-4">
@@ -136,7 +137,7 @@ export function AudioToolsContent() {
 
         {audioIntroStatus === "error" && (
           <div className="space-y-3">
-            <div className="flex items-start gap-2 rounded-lg border border-red-200 bg-red-50 p-3 dark:border-red-900 dark:bg-red-950/50">
+            <div className="flex items-start gap-2 rounded-lg border border-red-500/20 bg-red-500/5 p-3">
               <AlertCircle className="h-4 w-4 shrink-0 text-red-500 mt-0.5" />
               <p className="text-sm text-red-600 dark:text-red-400">{audioIntroError}</p>
             </div>
@@ -240,17 +241,3 @@ function TimestampInput({
   )
 }
 
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
-function formatDuration(seconds: number): string {
-  const h = Math.floor(seconds / 3600)
-  const m = Math.floor((seconds % 3600) / 60)
-  const s = Math.floor(seconds % 60)
-
-  if (h > 0) {
-    return `${h}:${m.toString().padStart(2, "0")}:${s.toString().padStart(2, "0")}`
-  }
-  return `${m}:${s.toString().padStart(2, "0")}`
-}

@@ -1,10 +1,10 @@
 "use server"
 
 import { revalidatePath } from "next/cache"
-import { getVersionHistory, getVersion, saveVersion } from "@/lib/episode-versions"
-import { getEpisodeOverrides, setEpisodeOverride } from "@/lib/episode-overrides"
-import { getQuotesConfig, saveQuotesConfig } from "@/lib/episode-quotes"
-import { getEpisodeEnrichment, setEpisodeEnrichment } from "@/lib/episode-enrichments"
+import { getVersionHistory, getVersion, saveVersion } from "@/lib/episodes/versions"
+import { setEpisodeOverride } from "@/lib/episodes/overrides"
+import { getQuotesConfig, saveQuotesConfig } from "@/lib/episodes/quotes"
+import { setEpisodeEnrichment } from "@/lib/episodes/enrichments"
 import { requireAdmin } from "@/lib/api-utils"
 import type { EpisodeVersion } from "@/types/database"
 

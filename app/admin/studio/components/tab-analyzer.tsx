@@ -8,7 +8,7 @@ import {
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
-import { useStudioSession } from "./studio-context"
+import { useSession, useAnalyzer } from "../contexts"
 import { AI_STATUS_LABELS, PLATFORM_COLORS } from "./shared"
 
 function Section({
@@ -27,14 +27,14 @@ function Section({
   const [open, setOpen] = useState(defaultOpen)
 
   return (
-    <div className="rounded-lg border">
+    <div className="rounded-lg border border-border/30">
       <button
         onClick={() => setOpen(!open)}
-        className="flex w-full items-center justify-between p-4 text-start hover:bg-muted/50 transition-colors"
+        className="flex w-full items-center justify-between p-4 text-start hover:bg-muted/40 transition-colors"
       >
         <div className="flex items-center gap-2">
           <Icon className={cn("h-4.5 w-4.5", iconColor)} />
-          <h3 className="font-medium text-sm">{title}</h3>
+          <h3 className="text-[13px] font-semibold">{title}</h3>
         </div>
         {open ? (
           <ChevronDown className="h-4 w-4 text-muted-foreground" />
@@ -76,10 +76,8 @@ const CLASSIFICATION_COLORS: Record<string, string> = {
 }
 
 export function TabAnalyzer() {
-  const {
-    analyzer, analyzerStatus, analyzerError,
-    generateAnalyzer, session,
-  } = useStudioSession()
+  const { session } = useSession()
+  const { analyzer, analyzerStatus, analyzerError, generateAnalyzer } = useAnalyzer()
 
   const [copiedAll, setCopiedAll] = useState(false)
 
@@ -123,13 +121,13 @@ export function TabAnalyzer() {
 
   return (
     <div className="space-y-6">
-      <div className="rounded-xl border bg-card p-6 space-y-5">
+      <div className="rounded-xl border border-border/30 bg-card/50 p-6 space-y-5">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <BarChart3 className="h-5 w-5 text-amber-500" />
-            <h2 className="font-semibold">تحليل الأداء</h2>
+            <h2 className="text-[13px] font-semibold">تحليل الأداء</h2>
           </div>
-          <span className={cn("rounded-full px-2.5 py-0.5 text-xs font-medium", statusInfo.className)}>
+          <span className={cn("rounded-md px-2.5 py-0.5 text-[11px] font-medium", statusInfo.className)}>
             {statusInfo.label}
           </span>
         </div>
@@ -158,7 +156,7 @@ export function TabAnalyzer() {
 
         {analyzerStatus === "error" && (
           <div className="space-y-4">
-            <div className="flex items-start gap-2 rounded-lg border border-red-200 bg-red-50 p-3 dark:border-red-900 dark:bg-red-950/50">
+            <div className="flex items-start gap-2 rounded-lg border border-red-500/20 bg-red-500/5 p-3">
               <AlertCircle className="h-4 w-4 shrink-0 text-red-500 mt-0.5" />
               <p className="text-sm text-red-600 dark:text-red-400">{analyzerError}</p>
             </div>
@@ -330,7 +328,7 @@ export function TabAnalyzer() {
             )}
 
             {/* Regenerate */}
-            <div className="border-t pt-4">
+            <div className="border-t border-border/30 pt-4">
               <Button variant="outline" onClick={generateAnalyzer} className="gap-2">
                 <RefreshCw className="h-4 w-4" />
                 إعادة التحليل

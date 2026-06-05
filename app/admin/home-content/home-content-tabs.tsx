@@ -1,598 +1,700 @@
 "use client"
 
-import { useState, useTransition } from "react"
-import type { HomeQuote, DailyReflection, EmotionalPath, Episode } from "@/types/database"
-import type { TeaserConfig, TeaserQuestion, TeaserQuestionStats } from "@/types/teaser"
+import { useState, useTransition, useRef } from "react"
+import Image from "next/image"
+import type { Episode, Guest } from "@/types/database"
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
-import {
-  createQuoteAction,
-  updateQuoteAction,
-  deleteQuoteAction,
-  publishQuoteAction,
-  unpublishQuoteAction,
-  scheduleQuoteAction,
-} from "./quotes-actions"
-import {
-  createReflectionAction,
-  updateReflectionAction,
-  deleteReflectionAction,
-  publishReflectionAction,
-  unpublishReflectionAction,
-} from "./reflections-actions"
-import {
-  assignEpisodeToPathAction,
-  removeEpisodeFromPathAction,
-} from "./paths-actions"
-import { TeaserTab } from "./teaser-tab"
-import { Plus, Trash2, Eye, EyeOff, Calendar, Quote, Lightbulb, Compass, Video } from "lucide-react"
+import { saveFeaturedEpisodesAction, setFeaturedModeAction } from "./featured-actions"
+import { saveThinkersAction, setThinkersModeAction } from "./thinkers-actions"
+import type { HomepageFeaturedRow } from "@/lib/queries/homepage-featured"
+import type { HomepageThinkerRow } from "@/lib/queries/homepage-thinkers"
+import { Star, Brain, Loader2, Check, Pencil, ToggleLeft, ToggleRight, Upload, X, ImageIcon } from "lucide-react"
+
+// ─── Types ──────────────────────────────────────────────────
+
+interface LatestEpisode {
+  id: string
+  title: string
+  slug: string
+  description: string | null
+  youtube_url: string
+  thumbnail_url: string | null
+  episode_number: number | null
+  guest_id: string | null
+  release_date: string
+}
+
+interface LatestGuest {
+  id: string
+  name: string
+  bio: string | null
+  photo_url: string | null
+}
 
 interface Props {
-  quotes: HomeQuote[]
-  reflections: DailyReflection[]
-  paths: EmotionalPath[]
-  episodes: Episode[]
-  teasers: TeaserConfig[]
-  teaserQuestions: TeaserQuestion[]
-  teaserStats: TeaserQuestionStats | null
+  allEpisodes: Episode[]
+  featuredRows: HomepageFeaturedRow[]
+  latestEpisodes: LatestEpisode[]
+  allGuests: Guest[]
+  thinkerRows: HomepageThinkerRow[]
+  latestGuests: LatestGuest[]
+  featuredMode: "auto" | "manual"
+  thinkersMode: "auto" | "manual"
 }
 
-const pathOptions: { slug: string; title: string }[] = [
-  { slug: "understanding-people", title: "فهم الناس" },
-  { slug: "motivation-work", title: "الدافع والعمل" },
-  { slug: "faith-meaning", title: "الإيمان والمعنى" },
-  { slug: "self-awareness", title: "وعي الذات" },
-]
+// ─── Image Uploader ─────────────────────────────────────────
 
-// ─── Quotes Tab ────────────────────────────────────────────────
+function ImageUploader({
+  currentImage,
+  fallbackImage,
+  onUpload,
+  onRemove,
+  disabled,
+}: {
+  currentImage: string | null
+  fallbackImage: string
+  onUpload: (url: string) => void
+  onRemove: () => void
+  disabled?: boolean
+}) {
+  const [uploading, setUploading] = useState(false)
+  const [error, setError] = useState("")
+  const inputRef = useRef<HTMLInputElement>(null)
 
-function QuotesTab({ quotes, episodes }: { quotes: HomeQuote[]; episodes: Episode[] }) {
-  const [showForm, setShowForm] = useState(false)
-  const [editingId, setEditingId] = useState<string | null>(null)
-  const [pending, startTransition] = useTransition()
+  const isCustom = !!currentImage
+  const displayImage = currentImage || fallbackImage
 
-  function handleCreate(formData: FormData) {
-    startTransition(async () => {
-      await createQuoteAction(formData)
-      setShowForm(false)
-    })
-  }
-
-  function handleUpdate(id: string, formData: FormData) {
-    startTransition(async () => {
-      await updateQuoteAction(id, formData)
-      setEditingId(null)
-    })
+  async function handleFile(file: File) {
+    setError("")
+    setUploading(true)
+    try {
+      const formData = new FormData()
+      formData.append("file", file)
+      const res = await fetch("/api/admin/home/upload-image", {
+        method: "POST",
+        body: formData,
+      })
+      const data = await res.json()
+      if (data.success) {
+        onUpload(data.url)
+      } else {
+        setError(data.error || "فشل الرفع")
+      }
+    } catch {
+      setError("حدث خطأ أثناء الرفع")
+    } finally {
+      setUploading(false)
+    }
   }
 
   return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <h2 className="text-lg font-semibold">الاقتباسات ({quotes.length})</h2>
-        <Button onClick={() => setShowForm(!showForm)} size="sm" className="gap-2">
-          <Plus className="h-4 w-4" />
-          إضافة اقتباس
-        </Button>
+    <div className="space-y-2">
+      <div className="relative overflow-hidden rounded-lg border border-border/30 bg-black/20">
+        <div className="relative aspect-video">
+          {displayImage ? (
+            <Image
+              src={displayImage}
+              alt=""
+              fill
+              className="object-cover"
+              unoptimized={displayImage.startsWith("/home/")}
+            />
+          ) : (
+            <div className="flex h-full items-center justify-center">
+              <ImageIcon className="h-8 w-8 text-muted-foreground/30" />
+            </div>
+          )}
+          {/* Badge */}
+          <div className="absolute start-2 top-2">
+            <span className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${
+              isCustom
+                ? "bg-primary/90 text-primary-foreground"
+                : "bg-black/60 text-white/70"
+            }`}>
+              {isCustom ? "صورة مخصصة" : "صورة افتراضية"}
+            </span>
+          </div>
+        </div>
       </div>
 
-      {showForm && (
-        <Card>
-          <CardContent className="p-4">
-            <form action={handleCreate} className="space-y-3">
-              <textarea
-                name="text"
-                placeholder="نص الاقتباس..."
-                required
-                className="w-full rounded-md border bg-background px-3 py-2 text-sm min-h-[80px]"
-              />
-              <div className="grid grid-cols-2 gap-3">
-                <input
-                  name="attribution"
-                  placeholder="المصدر (الاسم)"
-                  required
-                  className="rounded-md border bg-background px-3 py-2 text-sm"
-                />
-                <input
-                  name="theme"
-                  placeholder="الموضوع (اختياري)"
-                  className="rounded-md border bg-background px-3 py-2 text-sm"
-                />
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <select
-                  name="episode_id"
-                  className="rounded-md border bg-background px-3 py-2 text-sm"
-                  onChange={(e) => {
-                    const ep = episodes.find((ep) => ep.id === e.target.value)
-                    if (ep) {
-                      const slugInput = e.target.form?.querySelector('[name="episode_slug"]') as HTMLInputElement
-                      const titleInput = e.target.form?.querySelector('[name="episode_title"]') as HTMLInputElement
-                      if (slugInput) slugInput.value = ep.slug
-                      if (titleInput) titleInput.value = ep.title
-                    }
-                  }}
-                >
-                  <option value="">ربط بحلقة (اختياري)</option>
-                  {episodes.map((ep) => (
-                    <option key={ep.id} value={ep.id}>{ep.title}</option>
-                  ))}
-                </select>
-                <input
-                  name="scheduled_date"
-                  type="date"
-                  className="rounded-md border bg-background px-3 py-2 text-sm"
-                />
-              </div>
-              <input type="hidden" name="episode_slug" />
-              <input type="hidden" name="episode_title" />
-              <div className="flex gap-2">
-                <Button type="submit" size="sm" disabled={pending}>حفظ</Button>
-                <Button type="button" variant="outline" size="sm" onClick={() => setShowForm(false)}>إلغاء</Button>
-              </div>
-            </form>
-          </CardContent>
-        </Card>
-      )}
-
-      <div className="space-y-2">
-        {quotes.map((quote) => (
-          <Card key={quote.id}>
-            <CardContent className="p-4">
-              {editingId === quote.id ? (
-                <form action={(fd) => handleUpdate(quote.id, fd)} className="space-y-3">
-                  <textarea
-                    name="text"
-                    defaultValue={quote.text}
-                    required
-                    className="w-full rounded-md border bg-background px-3 py-2 text-sm min-h-[80px]"
-                  />
-                  <div className="grid grid-cols-2 gap-3">
-                    <input name="attribution" defaultValue={quote.attribution} required className="rounded-md border bg-background px-3 py-2 text-sm" />
-                    <input name="theme" defaultValue={quote.theme || ""} className="rounded-md border bg-background px-3 py-2 text-sm" />
-                  </div>
-                  <input type="hidden" name="episode_id" value={quote.episode_id || ""} />
-                  <input type="hidden" name="episode_slug" value={quote.episode_slug || ""} />
-                  <input type="hidden" name="episode_title" value={quote.episode_title || ""} />
-                  <input type="hidden" name="scheduled_date" value={quote.scheduled_date || ""} />
-                  <div className="flex gap-2">
-                    <Button type="submit" size="sm" disabled={pending}>حفظ</Button>
-                    <Button type="button" variant="outline" size="sm" onClick={() => setEditingId(null)}>إلغاء</Button>
-                  </div>
-                </form>
-              ) : (
-                <div className="flex items-start justify-between gap-4">
-                  <div className="flex-1 space-y-1">
-                    <p className="text-sm leading-relaxed">&ldquo;{quote.text}&rdquo;</p>
-                    <p className="text-xs text-muted-foreground">— {quote.attribution}</p>
-                    <div className="flex items-center gap-2 pt-1">
-                      <Badge variant={quote.status === "published" ? "default" : "secondary"}>
-                        {quote.status === "published" ? "منشور" : "مسودة"}
-                      </Badge>
-                      {quote.theme && <Badge variant="outline">{quote.theme}</Badge>}
-                      {quote.scheduled_date && (
-                        <Badge variant="outline" className="gap-1">
-                          <Calendar className="h-3 w-3" />
-                          {quote.scheduled_date}
-                        </Badge>
-                      )}
-                      {quote.episode_title && (
-                        <span className="text-xs text-muted-foreground">🔗 {quote.episode_title}</span>
-                      )}
-                    </div>
-                  </div>
-                  <div className="flex shrink-0 gap-1">
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-8 w-8"
-                      onClick={() => {
-                        startTransition(async () => {
-                          if (quote.status === "published") {
-                            await unpublishQuoteAction(quote.id)
-                          } else {
-                            await publishQuoteAction(quote.id)
-                          }
-                        })
-                      }}
-                      disabled={pending}
-                    >
-                      {quote.status === "published" ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-8 w-8"
-                      onClick={() => setEditingId(quote.id)}
-                    >
-                      <Quote className="h-4 w-4" />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-8 w-8 text-destructive"
-                      onClick={() => {
-                        if (!confirm("متأكد إنك تبي تحذف هذا الاقتباس؟")) return
-                        startTransition(async () => {
-                          await deleteQuoteAction(quote.id)
-                        })
-                      }}
-                      disabled={pending}
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  </div>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        ))}
-        {quotes.length === 0 && (
-          <p className="py-8 text-center text-sm text-muted-foreground">لا توجد اقتباسات بعد. أضف أول اقتباس!</p>
+      <div className="flex items-center gap-2">
+        <input
+          ref={inputRef}
+          type="file"
+          accept="image/jpeg,image/png,image/webp,image/avif"
+          className="hidden"
+          onChange={(e) => {
+            const file = e.target.files?.[0]
+            if (file) handleFile(file)
+            e.target.value = ""
+          }}
+        />
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => inputRef.current?.click()}
+          disabled={disabled || uploading}
+          className="h-7 gap-1.5 text-[11px]"
+        >
+          {uploading ? (
+            <Loader2 className="h-3 w-3 animate-spin" />
+          ) : (
+            <Upload className="h-3 w-3" />
+          )}
+          {isCustom ? "استبدال" : "رفع صورة"}
+        </Button>
+        {isCustom && (
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={onRemove}
+            disabled={disabled || uploading}
+            className="h-7 gap-1 text-[11px] text-destructive hover:text-destructive"
+          >
+            <X className="h-3 w-3" />
+            إزالة
+          </Button>
         )}
       </div>
+      {error && <p className="text-[11px] text-destructive">{error}</p>}
     </div>
   )
 }
 
-// ─── Reflections Tab ───────────────────────────────────────────
+// ─── Mode Toggle ────────────────────────────────────────────
 
-function ReflectionsTab({ reflections, episodes, quotes }: { reflections: DailyReflection[]; episodes: Episode[]; quotes: HomeQuote[] }) {
-  const [showForm, setShowForm] = useState(false)
-  const [editingId, setEditingId] = useState<string | null>(null)
+function ModeToggle({
+  mode,
+  onToggle,
+  disabled,
+}: {
+  mode: "auto" | "manual"
+  onToggle: () => void
+  disabled: boolean
+}) {
+  return (
+    <button
+      onClick={onToggle}
+      disabled={disabled}
+      className="flex items-center gap-2 rounded-lg border border-border/50 px-3 py-1.5 text-xs font-medium transition-all hover:bg-muted disabled:opacity-50"
+    >
+      {mode === "auto" ? (
+        <>
+          <ToggleRight className="h-4 w-4 text-green-400" />
+          <span className="text-green-400">تلقائي</span>
+        </>
+      ) : (
+        <>
+          <ToggleLeft className="h-4 w-4 text-primary" />
+          <span className="text-primary">يدوي</span>
+        </>
+      )}
+    </button>
+  )
+}
+
+// ─── Featured Episodes Tab ──────────────────────────────────
+
+interface FeaturedSlot {
+  episode_id: string
+  custom_quote: string
+  custom_description: string
+  custom_image: string
+}
+
+function getYouTubeThumbnail(youtubeUrl: string): string {
+  const videoId = youtubeUrl?.match(/(?:v=|youtu\.be\/)([^&\s]+)/)?.[1] || ""
+  return videoId ? `https://img.youtube.com/vi/${videoId}/maxresdefault.jpg` : ""
+}
+
+function FeaturedTab({
+  allEpisodes,
+  featuredRows,
+  latestEpisodes,
+  guests,
+  initialMode,
+}: {
+  allEpisodes: Episode[]
+  featuredRows: HomepageFeaturedRow[]
+  latestEpisodes: LatestEpisode[]
+  guests: Guest[]
+  initialMode: "auto" | "manual"
+}) {
+  const [mode, setMode] = useState(initialMode)
   const [pending, startTransition] = useTransition()
+  const [saved, setSaved] = useState(false)
+  const [editingIdx, setEditingIdx] = useState<number | null>(null)
 
-  function handleCreate(formData: FormData) {
-    startTransition(async () => {
-      await createReflectionAction(formData)
-      setShowForm(false)
+  function buildInitialSlots(): FeaturedSlot[] {
+    if (mode === "manual" && featuredRows.length > 0) {
+      return featuredRows.map((r) => ({
+        episode_id: r.episode_id,
+        custom_quote: r.custom_quote || "",
+        custom_description: r.custom_description || "",
+        custom_image: r.custom_image || "",
+      }))
+    }
+    return latestEpisodes.slice(0, 3).map((ep) => {
+      const existing = featuredRows.find((r) => r.episode_id === ep.id)
+      return {
+        episode_id: ep.id,
+        custom_quote: existing?.custom_quote || "",
+        custom_description: existing?.custom_description || "",
+        custom_image: existing?.custom_image || "",
+      }
     })
   }
 
-  function handleUpdate(id: string, formData: FormData) {
+  const [slots, setSlots] = useState<FeaturedSlot[]>(buildInitialSlots)
+
+  function getEpisodeInfo(episodeId: string) {
+    return allEpisodes.find((e) => e.id === episodeId)
+  }
+
+  function getGuestName(guestId: string | null | undefined) {
+    if (!guestId) return ""
+    return guests.find((g) => g.id === guestId)?.name || ""
+  }
+
+  function handleToggleMode() {
+    const newMode = mode === "auto" ? "manual" : "auto"
     startTransition(async () => {
-      await updateReflectionAction(id, formData)
-      setEditingId(null)
+      await setFeaturedModeAction(newMode)
+      setMode(newMode)
+      if (newMode === "auto") {
+        setSlots(
+          latestEpisodes.slice(0, 3).map((ep) => {
+            const existing = featuredRows.find((r) => r.episode_id === ep.id)
+            return {
+              episode_id: ep.id,
+              custom_quote: existing?.custom_quote || "",
+              custom_description: existing?.custom_description || "",
+              custom_image: existing?.custom_image || "",
+            }
+          })
+        )
+      }
     })
+  }
+
+  function handleEpisodeChange(idx: number, episodeId: string) {
+    setSlots((prev) => {
+      const next = [...prev]
+      next[idx] = { episode_id: episodeId, custom_quote: "", custom_description: "", custom_image: "" }
+      return next
+    })
+  }
+
+  function handleFieldChange(idx: number, field: keyof FeaturedSlot, value: string) {
+    setSlots((prev) => {
+      const next = [...prev]
+      next[idx] = { ...next[idx], [field]: value }
+      return next
+    })
+  }
+
+  function handleSave() {
+    startTransition(async () => {
+      await saveFeaturedEpisodesAction(
+        slots.map((s, i) => ({
+          position: i + 1,
+          episode_id: s.episode_id,
+          custom_quote: s.custom_quote,
+          custom_description: s.custom_description,
+          custom_image: s.custom_image,
+        }))
+      )
+      setSaved(true)
+      setTimeout(() => setSaved(false), 2000)
+    })
+  }
+
+  while (slots.length < 3) {
+    slots.push({ episode_id: "", custom_quote: "", custom_description: "", custom_image: "" })
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h2 className="text-lg font-semibold">التأملات اليومية ({reflections.length})</h2>
-        <Button onClick={() => setShowForm(!showForm)} size="sm" className="gap-2">
-          <Plus className="h-4 w-4" />
-          إضافة تأمل
+        <div className="flex items-center gap-3">
+          <h2 className="text-lg font-semibold">قاعة الحلقات</h2>
+          <ModeToggle mode={mode} onToggle={handleToggleMode} disabled={pending} />
+        </div>
+        <Button onClick={handleSave} disabled={pending} size="sm" className="gap-2">
+          {saved ? <Check className="h-4 w-4" /> : pending ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+          {saved ? "تم الحفظ" : "حفظ"}
         </Button>
       </div>
 
-      {showForm && (
-        <Card>
-          <CardContent className="p-4">
-            <form action={handleCreate} className="space-y-3">
-              <div className="grid grid-cols-2 gap-3">
-                <input
-                  name="date"
-                  type="date"
-                  required
-                  className="rounded-md border bg-background px-3 py-2 text-sm"
-                />
-                <input
-                  name="attribution"
-                  placeholder="المصدر (اختياري)"
-                  className="rounded-md border bg-background px-3 py-2 text-sm"
-                />
-              </div>
-              <input
-                name="short_quote"
-                placeholder="اقتباس قصير..."
-                required
-                className="w-full rounded-md border bg-background px-3 py-2 text-sm"
-              />
-              <textarea
-                name="reflection"
-                placeholder="التأمل..."
-                required
-                className="w-full rounded-md border bg-background px-3 py-2 text-sm min-h-[80px]"
-              />
-              <input
-                name="thinking_question"
-                placeholder="سؤال للتفكير..."
-                required
-                className="w-full rounded-md border bg-background px-3 py-2 text-sm"
-              />
-              <select
-                name="episode_id"
-                className="w-full rounded-md border bg-background px-3 py-2 text-sm"
-                onChange={(e) => {
-                  const ep = episodes.find((ep) => ep.id === e.target.value)
-                  if (ep) {
-                    const slugInput = e.target.form?.querySelector('[name="episode_slug"]') as HTMLInputElement
-                    const titleInput = e.target.form?.querySelector('[name="episode_title"]') as HTMLInputElement
-                    if (slugInput) slugInput.value = ep.slug
-                    if (titleInput) titleInput.value = ep.title
-                  }
-                }}
-              >
-                <option value="">ربط بحلقة (اختياري)</option>
-                {episodes.map((ep) => (
-                  <option key={ep.id} value={ep.id}>{ep.title}</option>
-                ))}
-              </select>
-              <input type="hidden" name="episode_slug" />
-              <input type="hidden" name="episode_title" />
-              <div className="grid grid-cols-2 gap-3">
-                <select
-                  name="quote_id"
-                  className="rounded-md border bg-background px-3 py-2 text-sm"
-                  onChange={(e) => {
-                    const q = quotes.find((q) => q.id === e.target.value)
-                    const qtInput = e.target.form?.querySelector('[name="quote_text"]') as HTMLInputElement
-                    if (qtInput) qtInput.value = q?.text || ""
-                  }}
-                >
-                  <option value="">ربط باقتباس (اختياري)</option>
-                  {quotes.filter((q) => q.status === "published").map((q) => (
-                    <option key={q.id} value={q.id}>{q.text.slice(0, 50)}...</option>
-                  ))}
-                </select>
-                <select
-                  name="path_slug"
-                  className="rounded-md border bg-background px-3 py-2 text-sm"
-                  onChange={(e) => {
-                    const p = pathOptions.find((p) => p.slug === e.target.value)
-                    const ptInput = e.target.form?.querySelector('[name="path_title"]') as HTMLInputElement
-                    if (ptInput) ptInput.value = p?.title || ""
-                  }}
-                >
-                  <option value="">ربط بمسار (اختياري)</option>
-                  {pathOptions.map((p) => (
-                    <option key={p.slug} value={p.slug}>{p.title}</option>
-                  ))}
-                </select>
-              </div>
-              <input type="hidden" name="quote_text" />
-              <input type="hidden" name="path_title" />
-              <div className="flex gap-2">
-                <Button type="submit" size="sm" disabled={pending}>حفظ</Button>
-                <Button type="button" variant="outline" size="sm" onClick={() => setShowForm(false)}>إلغاء</Button>
-              </div>
-            </form>
-          </CardContent>
-        </Card>
+      {mode === "auto" && (
+        <p className="text-xs text-muted-foreground">
+          يتم عرض آخر 3 حلقات تلقائياً. التبديل إلى الوضع اليدوي يتيح اختيار حلقات محددة.
+        </p>
       )}
 
-      <div className="space-y-2">
-        {reflections.map((ref) => (
-          <Card key={ref.id}>
-            <CardContent className="p-4">
-              {editingId === ref.id ? (
-                <form action={(fd) => handleUpdate(ref.id, fd)} className="space-y-3">
-                  <div className="grid grid-cols-2 gap-3">
-                    <input name="date" type="date" defaultValue={ref.date} required className="rounded-md border bg-background px-3 py-2 text-sm" />
-                    <input name="attribution" defaultValue={ref.attribution || ""} className="rounded-md border bg-background px-3 py-2 text-sm" />
+      <div className="space-y-4">
+        {slots.map((slot, idx) => {
+          const ep = getEpisodeInfo(slot.episode_id)
+          const guestName = ep ? getGuestName(ep.guest_id) : ""
+          const displayQuote = slot.custom_quote || ""
+          const displayDesc = slot.custom_description || ep?.description || ""
+          const fallbackImage = ep ? getYouTubeThumbnail(ep.youtube_url) : ""
+          const isEditing = editingIdx === idx
+
+          return (
+            <Card key={idx}>
+              <CardContent className="space-y-4 p-5">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold tracking-wider text-primary">الموضع {idx + 1}</span>
+                  <Button variant="ghost" size="sm" onClick={() => setEditingIdx(isEditing ? null : idx)} className="h-7 gap-1 text-xs">
+                    <Pencil className="h-3 w-3" />
+                    {isEditing ? "إغلاق" : "تعديل"}
+                  </Button>
+                </div>
+
+                {mode === "manual" ? (
+                  <select
+                    value={slot.episode_id}
+                    onChange={(e) => handleEpisodeChange(idx, e.target.value)}
+                    className="h-10 w-full rounded-lg border border-border/50 bg-background px-3 text-sm"
+                  >
+                    <option value="">اختر حلقة...</option>
+                    {allEpisodes.map((e) => (
+                      <option key={e.id} value={e.id}>{e.title}</option>
+                    ))}
+                  </select>
+                ) : ep ? (
+                  <div className="rounded-lg bg-muted/30 px-3 py-2">
+                    <p className="text-sm font-medium">{ep.title}</p>
+                    {guestName && <p className="text-xs text-muted-foreground">{guestName}</p>}
                   </div>
-                  <input name="short_quote" defaultValue={ref.short_quote} required className="w-full rounded-md border bg-background px-3 py-2 text-sm" />
-                  <textarea name="reflection" defaultValue={ref.reflection} required className="w-full rounded-md border bg-background px-3 py-2 text-sm min-h-[80px]" />
-                  <input name="thinking_question" defaultValue={ref.thinking_question} required className="w-full rounded-md border bg-background px-3 py-2 text-sm" />
-                  <input type="hidden" name="episode_id" value={ref.episode_id || ""} />
-                  <input type="hidden" name="episode_slug" value={ref.episode_slug || ""} />
-                  <input type="hidden" name="episode_title" value={ref.episode_title || ""} />
-                  <input type="hidden" name="quote_id" value={ref.quote_id || ""} />
-                  <input type="hidden" name="quote_text" value={ref.quote_text || ""} />
-                  <input type="hidden" name="path_slug" value={ref.path_slug || ""} />
-                  <input type="hidden" name="path_title" value={ref.path_title || ""} />
-                  <div className="flex gap-2">
-                    <Button type="submit" size="sm" disabled={pending}>حفظ</Button>
-                    <Button type="button" variant="outline" size="sm" onClick={() => setEditingId(null)}>إلغاء</Button>
-                  </div>
-                </form>
-              ) : (
-                <div className="flex items-start justify-between gap-4">
-                  <div className="flex-1 space-y-2">
-                    <div className="flex items-center gap-2">
-                      <Badge variant="outline">{ref.date}</Badge>
-                      <Badge variant={ref.status === "published" ? "default" : "secondary"}>
-                        {ref.status === "published" ? "منشور" : ref.status === "scheduled" ? "مجدول" : "مسودة"}
-                      </Badge>
-                    </div>
-                    <p className="text-sm font-medium">&ldquo;{ref.short_quote}&rdquo;</p>
-                    <p className="text-xs text-muted-foreground line-clamp-2">{ref.reflection}</p>
-                    <p className="text-xs text-primary">❓ {ref.thinking_question}</p>
-                    {(ref.episode_title || ref.quote_text || ref.path_title) && (
-                      <div className="flex flex-wrap items-center gap-1.5 pt-1">
-                        {ref.episode_title && <Badge variant="outline" className="text-xs">🔗 {ref.episode_title}</Badge>}
-                        {ref.quote_text && <Badge variant="outline" className="text-xs">💬 اقتباس</Badge>}
-                        {ref.path_title && <Badge variant="outline" className="text-xs">🧭 {ref.path_title}</Badge>}
-                      </div>
+                ) : (
+                  <p className="text-xs text-muted-foreground italic">لا توجد حلقة</p>
+                )}
+
+                {/* Image upload */}
+                {slot.episode_id && (
+                  <ImageUploader
+                    currentImage={slot.custom_image || null}
+                    fallbackImage={fallbackImage}
+                    onUpload={(url) => handleFieldChange(idx, "custom_image", url)}
+                    onRemove={() => handleFieldChange(idx, "custom_image", "")}
+                    disabled={pending}
+                  />
+                )}
+
+                {/* Content preview */}
+                {slot.episode_id && !isEditing && (
+                  <div className="space-y-2 rounded-lg border border-border/20 bg-muted/10 p-3">
+                    {displayQuote && <p className="text-sm italic text-muted-foreground">&ldquo;{displayQuote}&rdquo;</p>}
+                    {displayDesc && <p className="text-xs text-muted-foreground">{displayDesc}</p>}
+                    {!displayQuote && !displayDesc && (
+                      <p className="text-xs text-muted-foreground/50">لا يوجد محتوى بعد — اضغط &ldquo;تعديل&rdquo; لإضافة محتوى مخصص</p>
                     )}
                   </div>
-                  <div className="flex shrink-0 gap-1">
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-8 w-8"
-                      onClick={() => {
-                        startTransition(async () => {
-                          if (ref.status === "published") {
-                            await unpublishReflectionAction(ref.id)
-                          } else {
-                            await publishReflectionAction(ref.id)
-                          }
-                        })
-                      }}
-                      disabled={pending}
-                    >
-                      {ref.status === "published" ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                    </Button>
-                    <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setEditingId(ref.id)}>
-                      <Lightbulb className="h-4 w-4" />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-8 w-8 text-destructive"
-                      onClick={() => {
-                        if (!confirm("متأكد إنك تبي تحذف هذا التأمل؟")) return
-                        startTransition(async () => {
-                          await deleteReflectionAction(ref.id)
-                        })
-                      }}
-                      disabled={pending}
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  </div>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        ))}
-        {reflections.length === 0 && (
-          <p className="py-8 text-center text-sm text-muted-foreground">لا توجد تأملات بعد. أضف أول تأمل يومي!</p>
-        )}
-      </div>
-    </div>
-  )
-}
-
-// ─── Paths Tab ─────────────────────────────────────────────────
-
-function PathsTab({ paths, episodes }: { paths: EmotionalPath[]; episodes: Episode[] }) {
-  const [pending, startTransition] = useTransition()
-  const [selectedPath, setSelectedPath] = useState<string>(paths[0]?.id || "")
-
-  const currentPath = paths.find((p) => p.id === selectedPath)
-  const assignedEpisodes = episodes.filter((ep) => currentPath?.episode_ids.includes(ep.id))
-  const availableEpisodes = episodes.filter((ep) => !currentPath?.episode_ids.includes(ep.id))
-
-  return (
-    <div className="space-y-4">
-      <h2 className="text-lg font-semibold">المسارات العاطفية</h2>
-
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-        {paths.map((path) => (
-          <button
-            key={path.id}
-            onClick={() => setSelectedPath(path.id)}
-            className={`rounded-lg border p-3 text-start transition-all ${
-              selectedPath === path.id
-                ? "border-primary bg-primary/5 ring-1 ring-primary"
-                : "hover:border-primary/50"
-            }`}
-          >
-            <div
-              className="mb-2 flex h-8 w-8 items-center justify-center rounded-full text-sm font-bold text-white"
-              style={{ backgroundColor: path.color }}
-            >
-              {path.order}
-            </div>
-            <p className="text-sm font-medium">{path.title}</p>
-            <p className="text-xs text-muted-foreground">{path.episode_ids.length} حلقة</p>
-          </button>
-        ))}
-      </div>
-
-      {currentPath && (
-        <Card>
-          <CardContent className="p-4 space-y-4">
-            <div>
-              <h3 className="font-semibold">{currentPath.title}</h3>
-              <p className="text-sm text-muted-foreground">{currentPath.subtitle}</p>
-            </div>
-
-            <div>
-              <h4 className="mb-2 text-sm font-medium">الحلقات المُسندة ({assignedEpisodes.length})</h4>
-              <div className="space-y-1">
-                {assignedEpisodes.map((ep) => (
-                  <div key={ep.id} className="flex items-center justify-between rounded-md border px-3 py-2">
-                    <span className="text-sm">{ep.title}</span>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-7 w-7 text-destructive"
-                      onClick={() => {
-                        startTransition(async () => {
-                          await removeEpisodeFromPathAction(currentPath.id, ep.id)
-                        })
-                      }}
-                      disabled={pending}
-                    >
-                      <Trash2 className="h-3 w-3" />
-                    </Button>
-                  </div>
-                ))}
-                {assignedEpisodes.length === 0 && (
-                  <p className="py-4 text-center text-xs text-muted-foreground">لا توجد حلقات مُسندة لهذا المسار</p>
                 )}
-              </div>
-            </div>
 
-            <div>
-              <h4 className="mb-2 text-sm font-medium">إضافة حلقة</h4>
-              <select
-                className="w-full rounded-md border bg-background px-3 py-2 text-sm"
-                onChange={(e) => {
-                  if (!e.target.value) return
-                  startTransition(async () => {
-                    await assignEpisodeToPathAction(currentPath.id, e.target.value)
-                  })
-                  e.target.value = ""
-                }}
-                disabled={pending}
-              >
-                <option value="">اختر حلقة لإضافتها...</option>
-                {availableEpisodes.map((ep) => (
-                  <option key={ep.id} value={ep.id}>{ep.title}</option>
-                ))}
-              </select>
-            </div>
-          </CardContent>
-        </Card>
-      )}
+                {isEditing && slot.episode_id && (
+                  <div className="space-y-3 rounded-lg border border-primary/20 bg-primary/5 p-4">
+                    <div>
+                      <label className="mb-1 block text-[11px] font-medium text-muted-foreground">اقتباس مخصص</label>
+                      <textarea
+                        value={slot.custom_quote}
+                        onChange={(e) => handleFieldChange(idx, "custom_quote", e.target.value)}
+                        placeholder="اكتب اقتباساً مخصصاً..."
+                        className="w-full rounded-lg border bg-background px-3 py-2 text-sm min-h-[60px] resize-none"
+                        dir="auto"
+                      />
+                    </div>
+                    <div>
+                      <label className="mb-1 block text-[11px] font-medium text-muted-foreground">وصف مخصص</label>
+                      <textarea
+                        value={slot.custom_description}
+                        onChange={(e) => handleFieldChange(idx, "custom_description", e.target.value)}
+                        placeholder="اكتب وصفاً مخصصاً أو اترك فارغاً لاستخدام الوصف الأصلي..."
+                        className="w-full rounded-lg border bg-background px-3 py-2 text-sm min-h-[60px] resize-none"
+                        dir="auto"
+                      />
+                    </div>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          )
+        })}
+      </div>
     </div>
   )
 }
 
-// ─── Main Component ────────────────────────────────────────────
+// ─── Thinkers Tab ───────────────────────────────────────────
 
-export function HomeContentTabs({ quotes, reflections, paths, episodes, teasers, teaserQuestions, teaserStats }: Props) {
+interface ThinkerSlot {
+  guest_id: string
+  custom_title: string
+  custom_description: string
+  custom_image: string
+}
+
+function ThinkersTab({
+  allGuests,
+  thinkerRows,
+  latestGuests,
+  initialMode,
+}: {
+  allGuests: Guest[]
+  thinkerRows: HomepageThinkerRow[]
+  latestGuests: LatestGuest[]
+  initialMode: "auto" | "manual"
+}) {
+  const [mode, setMode] = useState(initialMode)
+  const [pending, startTransition] = useTransition()
+  const [saved, setSaved] = useState(false)
+  const [editingIdx, setEditingIdx] = useState<number | null>(null)
+
+  function buildInitialSlots(): ThinkerSlot[] {
+    if (mode === "manual" && thinkerRows.length > 0) {
+      return thinkerRows.map((r) => ({
+        guest_id: r.guest_id,
+        custom_title: r.custom_title || "",
+        custom_description: r.custom_description || "",
+        custom_image: r.custom_image || "",
+      }))
+    }
+    return latestGuests.slice(0, 3).map((g) => {
+      const existing = thinkerRows.find((r) => r.guest_id === g.id)
+      return {
+        guest_id: g.id,
+        custom_title: existing?.custom_title || "",
+        custom_description: existing?.custom_description || "",
+        custom_image: existing?.custom_image || "",
+      }
+    })
+  }
+
+  const [slots, setSlots] = useState<ThinkerSlot[]>(buildInitialSlots)
+
+  function getGuestInfo(guestId: string) {
+    return allGuests.find((g) => g.id === guestId)
+  }
+
+  function handleToggleMode() {
+    const newMode = mode === "auto" ? "manual" : "auto"
+    startTransition(async () => {
+      await setThinkersModeAction(newMode)
+      setMode(newMode)
+      if (newMode === "auto") {
+        setSlots(
+          latestGuests.slice(0, 3).map((g) => {
+            const existing = thinkerRows.find((r) => r.guest_id === g.id)
+            return {
+              guest_id: g.id,
+              custom_title: existing?.custom_title || "",
+              custom_description: existing?.custom_description || "",
+              custom_image: existing?.custom_image || "",
+            }
+          })
+        )
+      }
+    })
+  }
+
+  function handleGuestChange(idx: number, guestId: string) {
+    setSlots((prev) => {
+      const next = [...prev]
+      next[idx] = { guest_id: guestId, custom_title: "", custom_description: "", custom_image: "" }
+      return next
+    })
+  }
+
+  function handleFieldChange(idx: number, field: keyof ThinkerSlot, value: string) {
+    setSlots((prev) => {
+      const next = [...prev]
+      next[idx] = { ...next[idx], [field]: value }
+      return next
+    })
+  }
+
+  function handleSave() {
+    startTransition(async () => {
+      await saveThinkersAction(
+        slots
+          .filter((s) => s.guest_id)
+          .map((s, i) => ({
+            position: i + 1,
+            guest_id: s.guest_id,
+            custom_title: s.custom_title,
+            custom_description: s.custom_description,
+            custom_image: s.custom_image,
+          }))
+      )
+      setSaved(true)
+      setTimeout(() => setSaved(false), 2000)
+    })
+  }
+
+  while (slots.length < 3) {
+    slots.push({ guest_id: "", custom_title: "", custom_description: "", custom_image: "" })
+  }
+
   return (
-    <Tabs defaultValue="quotes">
-      <TabsList>
-        <TabsTrigger value="quotes" className="gap-2">
-          <Quote className="h-4 w-4" />
-          الاقتباسات
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <h2 className="text-lg font-semibold">معرض العقول</h2>
+          <ModeToggle mode={mode} onToggle={handleToggleMode} disabled={pending} />
+        </div>
+        <Button onClick={handleSave} disabled={pending} size="sm" className="gap-2">
+          {saved ? <Check className="h-4 w-4" /> : pending ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+          {saved ? "تم الحفظ" : "حفظ"}
+        </Button>
+      </div>
+
+      {mode === "auto" && (
+        <p className="text-xs text-muted-foreground">
+          يتم عرض آخر 3 ضيوف ظهروا في الحلقات تلقائياً. التبديل إلى الوضع اليدوي يتيح اختيار ضيوف محددين.
+        </p>
+      )}
+
+      <div className="space-y-4">
+        {slots.map((slot, idx) => {
+          const guest = getGuestInfo(slot.guest_id)
+          const displayTitle = slot.custom_title || ""
+          const displayDesc = slot.custom_description || guest?.bio || ""
+          const fallbackImage = guest?.photo_url || ""
+          const isEditing = editingIdx === idx
+
+          return (
+            <Card key={idx}>
+              <CardContent className="space-y-4 p-5">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold tracking-wider text-primary">الموضع {idx + 1}</span>
+                  <Button variant="ghost" size="sm" onClick={() => setEditingIdx(isEditing ? null : idx)} className="h-7 gap-1 text-xs">
+                    <Pencil className="h-3 w-3" />
+                    {isEditing ? "إغلاق" : "تعديل"}
+                  </Button>
+                </div>
+
+                {mode === "manual" ? (
+                  <select
+                    value={slot.guest_id}
+                    onChange={(e) => handleGuestChange(idx, e.target.value)}
+                    className="h-10 w-full rounded-lg border border-border/50 bg-background px-3 text-sm"
+                  >
+                    <option value="">اختر ضيف...</option>
+                    {allGuests.map((g) => (
+                      <option key={g.id} value={g.id}>{g.name}</option>
+                    ))}
+                  </select>
+                ) : guest ? (
+                  <div className="rounded-lg bg-muted/30 px-3 py-2">
+                    <p className="text-sm font-medium">{guest.name}</p>
+                    {guest.bio && <p className="text-xs text-muted-foreground line-clamp-1">{guest.bio}</p>}
+                  </div>
+                ) : (
+                  <p className="text-xs text-muted-foreground italic">لا يوجد ضيف</p>
+                )}
+
+                {/* Image upload */}
+                {slot.guest_id && (
+                  <ImageUploader
+                    currentImage={slot.custom_image || null}
+                    fallbackImage={fallbackImage}
+                    onUpload={(url) => handleFieldChange(idx, "custom_image", url)}
+                    onRemove={() => handleFieldChange(idx, "custom_image", "")}
+                    disabled={pending}
+                  />
+                )}
+
+                {/* Content preview */}
+                {slot.guest_id && !isEditing && (
+                  <div className="space-y-2 rounded-lg border border-border/20 bg-muted/10 p-3">
+                    {displayTitle && <p className="text-xs font-bold tracking-wider text-primary">{displayTitle}</p>}
+                    {displayDesc && <p className="text-xs text-muted-foreground">{displayDesc}</p>}
+                    {!displayTitle && !displayDesc && (
+                      <p className="text-xs text-muted-foreground/50">لا يوجد محتوى بعد — اضغط &ldquo;تعديل&rdquo; لإضافة محتوى مخصص</p>
+                    )}
+                  </div>
+                )}
+
+                {isEditing && slot.guest_id && (
+                  <div className="space-y-3 rounded-lg border border-primary/20 bg-primary/5 p-4">
+                    <div>
+                      <label className="mb-1 block text-[11px] font-medium text-muted-foreground">لقب مخصص</label>
+                      <input
+                        type="text"
+                        value={slot.custom_title}
+                        onChange={(e) => handleFieldChange(idx, "custom_title", e.target.value)}
+                        placeholder="مثال: باحث في التاريخ الإسلامي"
+                        className="h-9 w-full rounded-lg border bg-background px-3 text-sm"
+                        dir="auto"
+                      />
+                    </div>
+                    <div>
+                      <label className="mb-1 block text-[11px] font-medium text-muted-foreground">وصف مخصص</label>
+                      <textarea
+                        value={slot.custom_description}
+                        onChange={(e) => handleFieldChange(idx, "custom_description", e.target.value)}
+                        placeholder="اكتب وصفاً مخصصاً أو اترك فارغاً..."
+                        className="w-full rounded-lg border bg-background px-3 py-2 text-sm min-h-[60px] resize-none"
+                        dir="auto"
+                      />
+                    </div>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
+// ─── Main Component ─────────────────────────────────────────
+
+export function HomeContentTabs({
+  allEpisodes,
+  featuredRows,
+  latestEpisodes,
+  allGuests,
+  thinkerRows,
+  latestGuests,
+  featuredMode,
+  thinkersMode,
+}: Props) {
+  return (
+    <Tabs defaultValue="gallery">
+      <TabsList className="mb-6 w-full justify-start">
+        <TabsTrigger value="gallery" className="gap-2">
+          <Star className="h-4 w-4" />
+          قاعة الحلقات
         </TabsTrigger>
-        <TabsTrigger value="reflections" className="gap-2">
-          <Lightbulb className="h-4 w-4" />
-          التأملات اليومية
-        </TabsTrigger>
-        <TabsTrigger value="paths" className="gap-2">
-          <Compass className="h-4 w-4" />
-          المسارات
-        </TabsTrigger>
-        <TabsTrigger value="teaser" className="gap-2">
-          <Video className="h-4 w-4" />
-          اسأل الضيف
+        <TabsTrigger value="thinkers" className="gap-2">
+          <Brain className="h-4 w-4" />
+          معرض العقول
         </TabsTrigger>
       </TabsList>
 
-      <TabsContent value="quotes">
-        <QuotesTab quotes={quotes} episodes={episodes} />
+      <TabsContent value="gallery">
+        <FeaturedTab
+          allEpisodes={allEpisodes}
+          featuredRows={featuredRows}
+          latestEpisodes={latestEpisodes}
+          guests={allGuests}
+          initialMode={featuredMode}
+        />
       </TabsContent>
 
-      <TabsContent value="reflections">
-        <ReflectionsTab reflections={reflections} episodes={episodes} quotes={quotes} />
-      </TabsContent>
-
-      <TabsContent value="paths">
-        <PathsTab paths={paths} episodes={episodes} />
-      </TabsContent>
-
-      <TabsContent value="teaser">
-        <TeaserTab teasers={teasers} questions={teaserQuestions} stats={teaserStats} />
+      <TabsContent value="thinkers">
+        <ThinkersTab
+          allGuests={allGuests}
+          thinkerRows={thinkerRows}
+          latestGuests={latestGuests}
+          initialMode={thinkersMode}
+        />
       </TabsContent>
     </Tabs>
   )

@@ -6,7 +6,8 @@ import {
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
-import { useStudioSession } from "./studio-context"
+import { useTranscript, useAudio } from "../contexts"
+import { formatTimestamp } from "./shared"
 import type { AudioEditSuggestion } from "@/types/database"
 
 // ---------------------------------------------------------------------------
@@ -56,11 +57,11 @@ const CATEGORY_CONFIG: Record<AudioEditSuggestion["category"], {
 // ---------------------------------------------------------------------------
 
 export function EditSuggestionsContent() {
+  const { transcriptStatus } = useTranscript()
   const {
-    transcriptStatus,
     editSuggestions, editSuggestionsStatus, editSuggestionsError,
     editSuggestionsCutSeconds, generateEditSuggestions,
-  } = useStudioSession()
+  } = useAudio()
 
   if (transcriptStatus !== "ready") {
     return (
@@ -96,7 +97,7 @@ export function EditSuggestionsContent() {
 
       {editSuggestionsStatus === "error" && (
         <div className="space-y-3">
-          <div className="flex items-start gap-2 rounded-lg border border-red-200 bg-red-50 p-3 dark:border-red-900 dark:bg-red-950/50">
+          <div className="flex items-start gap-2 rounded-lg border border-red-500/20 bg-red-500/5 p-3">
             <AlertCircle className="h-4 w-4 shrink-0 text-red-500 mt-0.5" />
             <p className="text-sm text-red-600 dark:text-red-400">{editSuggestionsError}</p>
           </div>
@@ -171,7 +172,7 @@ function SuggestionCard({ suggestion, index }: { suggestion: AudioEditSuggestion
   const duration = suggestion.end_seconds - suggestion.start_seconds
 
   return (
-    <div className="flex gap-3 rounded-lg border p-3">
+    <div className="flex gap-3 rounded-lg border border-border/30 p-3">
       {/* Index */}
       <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-muted text-xs font-medium text-muted-foreground">
         {index}
@@ -207,12 +208,6 @@ function SuggestionCard({ suggestion, index }: { suggestion: AudioEditSuggestion
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
-
-function formatTimestamp(seconds: number): string {
-  const m = Math.floor(seconds / 60)
-  const s = Math.floor(seconds % 60)
-  return `${m.toString().padStart(2, "0")}:${s.toString().padStart(2, "0")}`
-}
 
 function formatDuration(seconds: number): string {
   const m = Math.floor(seconds / 60)

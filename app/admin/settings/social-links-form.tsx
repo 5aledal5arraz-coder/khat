@@ -39,7 +39,7 @@ export function SocialLinksForm({ initial }: { initial: SocialLinkConfig[] }) {
     <Card>
       <CardHeader className="pb-3">
         <div className="flex items-center justify-between">
-          <CardTitle className="text-base flex items-center gap-2">
+          <CardTitle className="text-[13px] font-semibold flex items-center gap-2">
             <Share2 className="h-5 w-5" />
             الروابط الاجتماعية
           </CardTitle>
@@ -83,7 +83,7 @@ export function SocialLinksForm({ initial }: { initial: SocialLinkConfig[] }) {
           </div>
         ))}
         {links.length === 0 && (
-          <p className="text-sm text-muted-foreground text-center py-2">لا توجد روابط</p>
+          <p className="text-[13px] text-muted-foreground/50 text-center py-4">لا توجد روابط</p>
         )}
         <div className="flex items-center gap-3 pt-2">
           <Button size="sm" disabled={isPending} onClick={handleSave}>

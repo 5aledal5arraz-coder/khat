@@ -1,10 +1,11 @@
 "use client"
 
 import { useState, useEffect, useTransition } from "react"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { History, RotateCcw, Loader2 } from "lucide-react"
+import { formatDateTime } from "@/lib/shared/formatters"
 import { getVersionHistoryAction, restoreEpisodeVersionAction } from "../version-actions"
 import type { EpisodeVersion, EpisodeVersionChangeType } from "@/types/database"
 
@@ -16,6 +17,7 @@ const CHANGE_TYPE_LABELS: Record<EpisodeVersionChangeType, string> = {
   section_assignment: "تصنيف",
   visibility: "إظهار/إخفاء",
   guest_assignment: "تعيين ضيف",
+  category_assignment: "تصنيف فئة",
   youtube_pack: "حزمة يوتيوب",
   conversation: "بيانات المحادثة",
   full_snapshot: "نسخة كاملة",
@@ -98,7 +100,7 @@ export function DetailVersions({ episodeId }: DetailVersionsProps) {
                   </p>
                 )}
                 <p className="mt-1 text-xs text-muted-foreground/70">
-                  {(() => { const d = new Date(version.created_at); return `${String(d.getDate()).padStart(2, "0")}/${String(d.getMonth() + 1).padStart(2, "0")}/${d.getFullYear()} ${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}` })()}
+                  {formatDateTime(version.created_at)}
                 </p>
               </div>
               <Button
