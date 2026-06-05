@@ -95,28 +95,6 @@ async function seedAnalytics() {
   console.log(`  ✓ upserted ${count} platforms`)
 }
 
-async function seedTopics() {
-  console.log("→ topics_config")
-  const data = await readJSON<{ topics: Array<{ id: string; name: string; slug: string; description?: string; color: string; icon?: string; created_at: string; updated_at: string }> }>("topics.json")
-  if (!data || !data.topics.length) return
-
-  for (const t of data.topics) {
-    await client.query(
-      `INSERT INTO topics_config (id, name, slug, description, color, icon, created_at, updated_at)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-       ON CONFLICT (id) DO UPDATE SET
-         name = EXCLUDED.name,
-         slug = EXCLUDED.slug,
-         description = EXCLUDED.description,
-         color = EXCLUDED.color,
-         icon = EXCLUDED.icon,
-         updated_at = EXCLUDED.updated_at`,
-      [t.id, t.name, t.slug, t.description || null, t.color, t.icon || null, t.created_at, t.updated_at]
-    )
-  }
-  console.log(`  ✓ upserted ${data.topics.length} topics`)
-}
-
 async function seedStudioPushLog() {
   console.log("→ studio_push_log")
   const data = await readJSON<Array<{ sessionId: string; episodeId: string; episodeTitle: string; pushedFields: string[]; pushedAt: string }>>("studio-push-log.json")
@@ -159,78 +137,20 @@ async function seedEpisodeOverrides() {
   console.log(`  ✓ upserted ${data.length} overrides`)
 }
 
-async function seedEpisodeSections() {
-  console.log("→ episode_sections + assignments + visibility")
-  const data = await readJSON<{
-    sections: Array<{ id: string; label: string; order: number; color?: string; hidden?: boolean }>
-    assignments: Record<string, string>
-    hiddenEpisodes: string[]
-    deletedEpisodes: string[]
-  }>("episode-sections.json")
-  if (!data) return
 
-  // Sections
-  for (const s of data.sections) {
-    await client.query(
-      `INSERT INTO episode_sections (id, label, "order", color, hidden)
-       VALUES ($1, $2, $3, $4, $5)
-       ON CONFLICT (id) DO UPDATE SET
-         label = EXCLUDED.label,
-         "order" = EXCLUDED."order",
-         color = EXCLUDED.color,
-         hidden = EXCLUDED.hidden`,
-      [s.id, s.label, s.order, s.color || null, s.hidden || false]
-    )
-  }
-  console.log(`  ✓ upserted ${data.sections.length} sections`)
-
-  // Assignments
-  const assignEntries = Object.entries(data.assignments)
-  if (assignEntries.length > 0) {
-    for (const [episodeId, sectionId] of assignEntries) {
-      await client.query(
-        `INSERT INTO episode_section_assignments (episode_id, section_id)
-         VALUES ($1, $2)
-         ON CONFLICT (episode_id) DO UPDATE SET section_id = EXCLUDED.section_id`,
-        [episodeId, sectionId]
-      )
-    }
-    console.log(`  ✓ upserted ${assignEntries.length} assignments`)
-  }
-
-  // Visibility
-  const visRows = [
-    ...(data.hiddenEpisodes || []).map((id) => ({ episode_id: id, visibility: "hidden" })),
-    ...(data.deletedEpisodes || []).map((id) => ({ episode_id: id, visibility: "deleted" })),
-  ]
-  if (visRows.length > 0) {
-    for (const v of visRows) {
-      await client.query(
-        `INSERT INTO episode_visibility (episode_id, visibility)
-         VALUES ($1, $2)
-         ON CONFLICT (episode_id) DO UPDATE SET visibility = EXCLUDED.visibility`,
-        [v.episode_id, v.visibility]
-      )
-    }
-    console.log(`  ✓ upserted ${visRows.length} visibility entries`)
-  }
-}
-
-async function seedEpisodeGuestAssignments() {
-  console.log("→ episode_guest_assignments")
+async function seedEpisodeGuestLinks() {
+  console.log("→ episodes.guest_id (from legacy episode-guest-assignments.json)")
   const data = await readJSON<Record<string, string>>("episode-guest-assignments.json")
   if (!data || Object.keys(data).length === 0) return
 
   const entries = Object.entries(data)
   for (const [episodeId, guestId] of entries) {
     await client.query(
-      `INSERT INTO episode_guest_assignments (episode_id, guest_id)
-       VALUES ($1, $2)
-       ON CONFLICT (episode_id) DO UPDATE SET guest_id = EXCLUDED.guest_id`,
+      `UPDATE episodes SET guest_id = $2 WHERE id = $1 AND guest_id IS NULL`,
       [episodeId, guestId]
     )
   }
-  console.log(`  ✓ upserted ${entries.length} guest assignments`)
+  console.log(`  ✓ applied ${entries.length} guest links to episodes.guest_id`)
 }
 
 async function seedEpisodeEnrichments() {
@@ -240,7 +160,6 @@ async function seedEpisodeEnrichments() {
     hero_summary?: string
     full_summary?: string
     takeaways?: string[]
-    topics?: string[]
     resources?: object[]
     timestamps?: object[]
     why_this_conversation?: string
@@ -256,13 +175,12 @@ async function seedEpisodeEnrichments() {
   const entries = Object.values(data)
   for (const e of entries) {
     await client.query(
-      `INSERT INTO episode_enrichments (episode_id, hero_summary, full_summary, takeaways, topics, resources, timestamps, why_this_conversation, before_you_watch, conversation_map, central_question, exclusive_clip, unsaid_reflections)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+      `INSERT INTO episode_enrichments (episode_id, hero_summary, full_summary, takeaways, resources, timestamps, why_this_conversation, before_you_watch, conversation_map, central_question, exclusive_clip, unsaid_reflections)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
        ON CONFLICT (episode_id) DO UPDATE SET
          hero_summary = EXCLUDED.hero_summary,
          full_summary = EXCLUDED.full_summary,
          takeaways = EXCLUDED.takeaways,
-         topics = EXCLUDED.topics,
          resources = EXCLUDED.resources,
          timestamps = EXCLUDED.timestamps,
          why_this_conversation = EXCLUDED.why_this_conversation,
@@ -276,7 +194,6 @@ async function seedEpisodeEnrichments() {
         e.hero_summary || null,
         e.full_summary || null,
         JSON.stringify(e.takeaways || []),
-        JSON.stringify(e.topics || []),
         JSON.stringify(e.resources || []),
         JSON.stringify(e.timestamps || []),
         e.why_this_conversation || null,
@@ -320,33 +237,6 @@ async function seedEpisodeQuotes() {
     )
   }
   console.log(`  ✓ upserted ${entries.length} episode quotes entries`)
-}
-
-async function seedAds() {
-  console.log("→ ad_slots")
-  const data = await readJSON<{ slots: Array<{
-    id: string; position: string; label: string; enabled: boolean
-    schedule: object; type: string; sponsoredData?: object; bannerData?: object
-    updatedAt: string
-  }> }>("ads.json")
-  if (!data || !data.slots.length) return
-
-  for (const s of data.slots) {
-    await client.query(
-      `INSERT INTO ad_slots (id, position, label, enabled, schedule, type, sponsored_data, banner_data)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-       ON CONFLICT (id) DO UPDATE SET
-         position = EXCLUDED.position,
-         label = EXCLUDED.label,
-         enabled = EXCLUDED.enabled,
-         schedule = EXCLUDED.schedule,
-         type = EXCLUDED.type,
-         sponsored_data = EXCLUDED.sponsored_data,
-         banner_data = EXCLUDED.banner_data`,
-      [s.id, s.position, s.label, s.enabled, JSON.stringify(s.schedule || {}), s.type, JSON.stringify(s.sponsoredData || {}), JSON.stringify(s.bannerData || {})]
-    )
-  }
-  console.log(`  ✓ upserted ${data.slots.length} ad slots`)
 }
 
 async function seedTeasers() {
@@ -411,27 +301,6 @@ async function seedHomeQuotes() {
   console.log(`  ✓ upserted ${data.quotes.length} home quotes`)
 }
 
-async function seedEmotionalPaths() {
-  console.log("→ emotional_paths")
-  const data = await readJSON<{ paths: Array<{
-    id: string; slug: string; title: string; subtitle: string
-    icon: string; color: string; episode_ids: string[]; quote_ids: string[]
-    order: number
-  }> }>("emotional-paths.json")
-  if (!data || !data.paths.length) return
-
-  // Update existing rows (seeded by migration 009)
-  for (const p of data.paths) {
-    await client.query(
-      `UPDATE emotional_paths SET
-         title = $1, subtitle = $2, icon = $3, color = $4,
-         episode_ids = $5, quote_ids = $6, "order" = $7
-       WHERE slug = $8`,
-      [p.title, p.subtitle, p.icon, p.color, JSON.stringify(p.episode_ids), JSON.stringify(p.quote_ids), p.order, p.slug]
-    )
-  }
-  console.log(`  ✓ updated ${data.paths.length} paths`)
-}
 
 async function seedDailyReflections() {
   console.log("→ daily_reflections")
@@ -465,45 +334,6 @@ async function seedDailyReflections() {
   console.log(`  ✓ upserted ${data.reflections.length} reflections`)
 }
 
-async function seedKnowledgeMap() {
-  console.log("→ episode_knowledge + episode_knowledge_meta")
-  const data = await readJSON<{
-    episodes: Record<string, object>
-    topic_taxonomy: object[]
-    relationships: Record<string, string[]>
-    analyzed_at: string
-    season_1_count: number
-    season_2_count: number
-  }>("episode-knowledge-map.json")
-  if (!data) return
-
-  // Per-episode rows
-  const episodeEntries = Object.entries(data.episodes)
-  for (const [episodeId, analysis] of episodeEntries) {
-    await client.query(
-      `INSERT INTO episode_knowledge (episode_id, analysis)
-       VALUES ($1, $2)
-       ON CONFLICT (episode_id) DO UPDATE SET analysis = EXCLUDED.analysis`,
-      [episodeId, JSON.stringify(analysis)]
-    )
-  }
-  console.log(`  ✓ upserted ${episodeEntries.length} episode knowledge rows`)
-
-  // Meta row
-  await client.query(
-    `INSERT INTO episode_knowledge_meta (key, topic_taxonomy, relationships, analyzed_at, season_1_count, season_2_count)
-     VALUES ($1, $2, $3, $4, $5, $6)
-     ON CONFLICT (key) DO UPDATE SET
-       topic_taxonomy = EXCLUDED.topic_taxonomy,
-       relationships = EXCLUDED.relationships,
-       analyzed_at = EXCLUDED.analyzed_at,
-       season_1_count = EXCLUDED.season_1_count,
-       season_2_count = EXCLUDED.season_2_count`,
-    ["meta", JSON.stringify(data.topic_taxonomy), JSON.stringify(data.relationships), data.analyzed_at, data.season_1_count, data.season_2_count]
-  )
-  console.log("  ✓ upserted knowledge meta")
-}
-
 // ─── Main ────────────────────────────────────────────────────
 
 async function main() {
@@ -515,20 +345,14 @@ async function main() {
     await seedSiteSettings()
     await seedStaticContent()
     await seedAnalytics()
-    await seedTopics()
     await seedStudioPushLog()
     await seedEpisodeOverrides()
-    await seedEpisodeSections()
-    await seedEpisodeGuestAssignments()
+    await seedEpisodeGuestLinks()
     await seedEpisodeEnrichments()
     await seedEpisodeQuotes()
-    await seedAds()
     await seedTeasers()
     await seedHomeQuotes()
-    await seedEmotionalPaths()
     await seedDailyReflections()
-    await seedKnowledgeMap()
-
     console.log("\n✅ Seed complete!")
   } finally {
     await client.end()

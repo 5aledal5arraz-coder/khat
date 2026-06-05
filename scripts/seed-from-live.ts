@@ -20,15 +20,9 @@ const TABLES = [
   "site_settings",
   "static_content",
   "platform_analytics",
-  "topics_config",
-  "ad_slots",
-  "profiles",
-
   // Core content
-  "topics",
   "guests",
   "episodes",
-  "episode_topics",
   "timestamps",
   "quotes",
   "resources",
@@ -36,19 +30,13 @@ const TABLES = [
   // Episode config tables
   "episode_overrides",
   "episode_enrichments",
-  "episode_guest_assignments",
   "episode_quotes_config",
-  "episode_sections",
-  "episode_section_assignments",
-  "episode_visibility",
+  "hidden_episodes",
   "episode_versions",
-  "episode_knowledge",
-  "episode_knowledge_meta",
 
   // Home content
   "home_quotes",
   "daily_reflections",
-  "emotional_paths",
 
   // Studio
   "studio_sessions",
@@ -153,8 +141,8 @@ async function main() {
 
       totalRows += count
       console.log(`  ✅ ${table} — ${count} rows`)
-    } catch (err: any) {
-      console.log(`  ❌ ${table} — ${err.message}`)
+    } catch (err: unknown) {
+      console.log(`  ❌ ${table} — ${err instanceof Error ? err.message : String(err)}`)
     }
   }
 

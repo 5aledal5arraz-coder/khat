@@ -6,6 +6,9 @@ import pg from "pg"
 import fs from "fs"
 import path from "path"
 
+// eslint-disable-next-line @typescript-eslint/no-empty-object-type
+interface JsonRecord extends Record<string, string | number | boolean | null | undefined | JsonRecord | JsonRecord[]> {}
+
 const { Client } = pg
 
 const rawUrl = process.env.DATABASE_URL
@@ -36,11 +39,10 @@ async function main() {
   const cleanOrder = [
     "studio_push_log", "studio_analyzers", "studio_website_packages",
     "studio_clips", "studio_chapters", "studio_ai_outputs", "studio_transcripts", "studio_sessions",
-    "episode_knowledge_meta", "episode_knowledge",
-    "daily_reflections", "home_quotes", "emotional_paths",
-    "episode_visibility", "episode_section_assignments", "episode_sections",
-    "episode_quotes_config", "episode_guest_assignments", "episode_enrichments", "episode_overrides",
-    "topics_config", "episode_topics", "episodes", "topics", "guests",
+    "daily_reflections", "home_quotes",
+    "hidden_episodes",
+    "episode_quotes_config", "episode_enrichments", "episode_overrides",
+    "episodes", "guests",
     "platform_analytics", "static_content", "site_settings",
   ]
   for (const table of cleanOrder) {
@@ -50,18 +52,19 @@ async function main() {
   // ================================================================
   // 1. Episodes (from episode-cache.json)
   // ================================================================
-  const episodeCache = readJson<{ episodes: any[] }>("episode-cache.json")
+  const episodeCache = readJson<{ episodes: JsonRecord[] }>("episode-cache.json")
   const episodes = episodeCache.episodes
 
   // Collect unique guests from episodes (deduplicate by slug)
-  const guestMap = new Map<string, any>()
+  const guestMap = new Map<string, JsonRecord>()
   const seenSlugs = new Set<string>()
   for (const ep of episodes) {
-    if (ep.guest && ep.guest.id) {
-      const slug = ep.guest.slug
+    const guest = ep.guest as JsonRecord | undefined
+    if (guest && guest.id) {
+      const slug = guest.slug as string
       if (!seenSlugs.has(slug)) {
         seenSlugs.add(slug)
-        guestMap.set(ep.guest.id, ep.guest)
+        guestMap.set(guest.id as string, guest)
       }
     }
   }
@@ -92,40 +95,11 @@ async function main() {
   }
   console.log(`  ✅ guests — ${guestCount} rows`)
 
-  // Collect unique topics from episodes
-  const topicMap = new Map<string, any>()
-  for (const ep of episodes) {
-    if (ep.topics) {
-      for (const t of ep.topics) {
-        if (t.id) topicMap.set(t.id, t)
-      }
-    }
-  }
-
-  // Insert episode topics into the topics table (deduplicate by slug)
-  let topicCount = 0
-  const seenTopicSlugs = new Set<string>()
-  for (const topic of topicMap.values()) {
-    if (seenTopicSlugs.has(topic.slug)) continue
-    seenTopicSlugs.add(topic.slug)
-    try {
-      await client.query(
-        `INSERT INTO topics (id, name, slug, description, created_at)
-         VALUES ($1, $2, $3, $4, $5) ON CONFLICT DO NOTHING`,
-        [topic.id, topic.name, topic.slug, topic.description || null, topic.created_at || new Date().toISOString()]
-      )
-      topicCount++
-    } catch {
-      // Skip duplicates
-    }
-  }
-  console.log(`  ✅ topics (from episodes) — ${topicCount} rows`)
-
   // Insert episodes
   const seenEpSlugs = new Set<string>()
   for (const ep of episodes) {
     // Ensure unique slug
-    let slug = ep.slug
+    let slug = ep.slug as string
     if (seenEpSlugs.has(slug)) slug = `${slug}-${ep.id}`
     seenEpSlugs.add(slug)
     try { await client.query(
@@ -145,7 +119,7 @@ async function main() {
         ep.status || "published",
         ep.featured || false,
         ep.view_count || 0,
-        ep.guest?.id || null,
+        (ep.guest as JsonRecord | undefined)?.id || null,
         ep.created_at || new Date().toISOString(),
         ep.updated_at || new Date().toISOString(),
       ]
@@ -153,42 +127,10 @@ async function main() {
   }
   console.log(`  ✅ episodes — ${episodes.length} rows`)
 
-  // Insert episode_topics junction (skip FK violations)
-  let etCount = 0
-  for (const ep of episodes) {
-    if (ep.topics) {
-      for (const t of ep.topics) {
-        if (t.id) {
-          try {
-            await client.query(
-              `INSERT INTO episode_topics (episode_id, topic_id) VALUES ($1, $2) ON CONFLICT DO NOTHING`,
-              [ep.id, t.id]
-            )
-            etCount++
-          } catch { /* skip FK violations */ }
-        }
-      }
-    }
-  }
-  console.log(`  ✅ episode_topics — ${etCount} rows`)
-
   // ================================================================
-  // 2. Topics Config (admin-managed topics)
+  // 2. Episode Overrides
   // ================================================================
-  const topicsConfig = readJson<{ topics: any[] }>("topics.json")
-  for (const t of topicsConfig.topics) {
-    await client.query(
-      `INSERT INTO topics_config (id, name, slug, description, color, created_at, updated_at)
-       VALUES ($1,$2,$3,$4,$5,$6,$7) ON CONFLICT (id) DO NOTHING`,
-      [t.id, t.name, t.slug, t.description || null, t.color || "#6366f1", t.created_at, t.updated_at]
-    )
-  }
-  console.log(`  ✅ topics_config — ${topicsConfig.topics.length} rows`)
-
-  // ================================================================
-  // 3. Episode Overrides
-  // ================================================================
-  const overrides = readJson<any[]>("episode-overrides.json")
+  const overrides = readJson<JsonRecord[]>("episode-overrides.json")
   for (const o of overrides) {
     await client.query(
       `INSERT INTO episode_overrides (episode_id, original_title, custom_title)
@@ -201,18 +143,17 @@ async function main() {
   // ================================================================
   // 4. Episode Enrichments
   // ================================================================
-  const enrichments = readJson<Record<string, any>>("episode-enrichments.json")
+  const enrichments = readJson<Record<string, JsonRecord>>("episode-enrichments.json")
   const enrichEntries = Object.values(enrichments)
   for (const e of enrichEntries) {
     await client.query(
-      `INSERT INTO episode_enrichments (episode_id, hero_summary, full_summary, takeaways, topics, resources, timestamps, why_this_conversation, before_you_watch, conversation_map, central_question, exclusive_clip, unsaid_reflections, updated_at)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14) ON CONFLICT (episode_id) DO NOTHING`,
+      `INSERT INTO episode_enrichments (episode_id, hero_summary, full_summary, takeaways, resources, timestamps, why_this_conversation, before_you_watch, conversation_map, central_question, exclusive_clip, unsaid_reflections, updated_at)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13) ON CONFLICT (episode_id) DO NOTHING`,
       [
         e.episodeId,
         e.hero_summary || null,
         e.full_summary || null,
         JSON.stringify(e.takeaways || []),
-        JSON.stringify(e.topics || []),
         JSON.stringify(e.resources || []),
         JSON.stringify(e.timestamps || []),
         e.why_this_conversation || null,
@@ -228,7 +169,7 @@ async function main() {
   console.log(`  ✅ episode_enrichments — ${enrichEntries.length} rows`)
 
   // ================================================================
-  // 5. Episode Guest Assignments
+  // 5. Episode Guest Links (writes to episodes.guest_id directly)
   // ================================================================
   const guestAssignments = readJson<Record<string, string>>("episode-guest-assignments.json")
   const gaEntries = Object.entries(guestAssignments)
@@ -236,18 +177,18 @@ async function main() {
   for (const [epId, gId] of gaEntries) {
     try {
       await client.query(
-        `INSERT INTO episode_guest_assignments (episode_id, guest_id) VALUES ($1, $2) ON CONFLICT DO NOTHING`,
+        `UPDATE episodes SET guest_id = $2 WHERE id = $1 AND guest_id IS NULL`,
         [epId, gId]
       )
       gaCount++
     } catch { /* skip FK violations */ }
   }
-  console.log(`  ✅ episode_guest_assignments — ${gaCount}/${gaEntries.length} rows`)
+  console.log(`  ✅ episodes.guest_id — ${gaCount}/${gaEntries.length} links applied`)
 
   // ================================================================
   // 6. Episode Quotes
   // ================================================================
-  const epQuotes = readJson<Record<string, any>>("episode-quotes.json")
+  const epQuotes = readJson<Record<string, JsonRecord>>("episode-quotes.json")
   const eqEntries = Object.entries(epQuotes)
   for (const [epId, data] of eqEntries) {
     try {
@@ -267,57 +208,11 @@ async function main() {
   }
   console.log(`  ✅ episode_quotes_config — ${eqEntries.length} rows`)
 
-  // ================================================================
-  // 7. Episode Sections & Assignments
-  // ================================================================
-  const sectionsData = readJson<{
-    sections: any[]
-    assignments: Record<string, string>
-    hiddenEpisodes: string[]
-    deletedEpisodes: string[]
-  }>("episode-sections.json")
-
-
-  for (const s of sectionsData.sections) {
-    await client.query(
-      `INSERT INTO episode_sections (id, label, "order", color, hidden)
-       VALUES ($1, $2, $3, $4, $5) ON CONFLICT (id) DO NOTHING`,
-      [s.id, s.label, s.order, s.color || "#3b82f6", s.hidden || false]
-    )
-  }
-  console.log(`  ✅ episode_sections — ${sectionsData.sections.length} rows`)
-
-  const saEntries = Object.entries(sectionsData.assignments)
-  for (const [epId, sectionId] of saEntries) {
-    await client.query(
-      `INSERT INTO episode_section_assignments (episode_id, section_id) VALUES ($1, $2) ON CONFLICT DO NOTHING`,
-      [epId, sectionId]
-    )
-  }
-  console.log(`  ✅ episode_section_assignments — ${saEntries.length} rows`)
-
-  // Episode visibility (hidden + deleted)
-  let visCount = 0
-  for (const epId of sectionsData.hiddenEpisodes || []) {
-    await client.query(
-      `INSERT INTO episode_visibility (episode_id, visibility) VALUES ($1, 'hidden') ON CONFLICT DO NOTHING`,
-      [epId]
-    )
-    visCount++
-  }
-  for (const epId of sectionsData.deletedEpisodes || []) {
-    await client.query(
-      `INSERT INTO episode_visibility (episode_id, visibility) VALUES ($1, 'deleted') ON CONFLICT DO NOTHING`,
-      [epId]
-    )
-    visCount++
-  }
-  console.log(`  ✅ episode_visibility — ${visCount} rows`)
 
   // ================================================================
   // 8. Home Quotes
   // ================================================================
-  const homeQuotes = readJson<{ quotes: any[] }>("home-quotes.json")
+  const homeQuotes = readJson<{ quotes: JsonRecord[] }>("home-quotes.json")
   for (const q of homeQuotes.quotes) {
     await client.query(
       `INSERT INTO home_quotes (id, text, attribution, episode_id, episode_slug, episode_title, theme, status, created_at, updated_at)
@@ -341,7 +236,7 @@ async function main() {
   // ================================================================
   // 9. Daily Reflections
   // ================================================================
-  const reflections = readJson<{ reflections: any[] }>("daily-reflections.json")
+  const reflections = readJson<{ reflections: JsonRecord[] }>("daily-reflections.json")
   for (const r of reflections.reflections) {
     await client.query(
       `INSERT INTO daily_reflections (id, date, short_quote, reflection, thinking_question, attribution, episode_id, episode_slug, episode_title, status, created_at, updated_at)
@@ -364,58 +259,11 @@ async function main() {
   }
   console.log(`  ✅ daily_reflections — ${reflections.reflections.length} rows`)
 
-  // ================================================================
-  // 10. Emotional Paths
-  // ================================================================
-  const pathsData = readJson<{ paths: any[] }>("emotional-paths.json")
-  for (const p of pathsData.paths) {
-    await client.query(
-      `INSERT INTO emotional_paths (id, slug, title, subtitle, icon, color, episode_ids, quote_ids, "order")
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9) ON CONFLICT DO NOTHING`,
-      [
-        p.id,
-        p.slug,
-        p.title,
-        p.subtitle,
-        p.icon || "Heart",
-        p.color || "#6366f1",
-        JSON.stringify(p.episode_ids || []),
-        JSON.stringify(p.quote_ids || []),
-        p.order || 0,
-      ]
-    )
-  }
-  console.log(`  ✅ emotional_paths — ${pathsData.paths.length} rows`)
 
   // ================================================================
-  // 11. Episode Knowledge Map
+  // 11. Site Settings
   // ================================================================
-  const knowledgeMap = readJson<{ episodes: Record<string, any>; relationships: Record<string, string[]> }>(
-    "episode-knowledge-map.json"
-  )
-
-
-  const knowledgeEntries = Object.entries(knowledgeMap.episodes)
-  for (const [epId, analysis] of knowledgeEntries) {
-    await client.query(
-      `INSERT INTO episode_knowledge (episode_id, analysis) VALUES ($1, $2) ON CONFLICT (episode_id) DO NOTHING`,
-      [epId, JSON.stringify(analysis)]
-    )
-  }
-  console.log(`  ✅ episode_knowledge — ${knowledgeEntries.length} rows`)
-
-  // Store relationships + metadata
-  await client.query(
-    `INSERT INTO episode_knowledge_meta (key, relationships) VALUES ('meta', $1)
-     ON CONFLICT (key) DO UPDATE SET relationships = EXCLUDED.relationships`,
-    [JSON.stringify(knowledgeMap.relationships)]
-  )
-  console.log(`  ✅ episode_knowledge_meta — 1 row`)
-
-  // ================================================================
-  // 12. Site Settings
-  // ================================================================
-  const siteSettings = readJson<any>("site-settings.json")
+  const siteSettings = readJson<JsonRecord>("site-settings.json")
   await client.query(
     `INSERT INTO site_settings (key, metadata, social_links, seo, feature_flags)
      VALUES ('main', $1, $2, $3, $4)`,
@@ -431,7 +279,7 @@ async function main() {
   // ================================================================
   // 13. Static Content
   // ================================================================
-  const staticContent = readJson<any>("static-content.json")
+  const staticContent = readJson<JsonRecord>("static-content.json")
   await client.query(
     `INSERT INTO static_content (key, content) VALUES ('about', $1)`,
     [JSON.stringify(staticContent.about || staticContent)]
@@ -441,7 +289,7 @@ async function main() {
   // ================================================================
   // 14. Platform Analytics
   // ================================================================
-  const analytics = readJson<Record<string, any>>("analytics.json")
+  const analytics = readJson<Record<string, JsonRecord>>("analytics.json")
   for (const [platform, data] of Object.entries(analytics)) {
     await client.query(
       `INSERT INTO platform_analytics (platform, followers, posts, engagement, url)
@@ -454,7 +302,7 @@ async function main() {
   // ================================================================
   // 15. Studio Push Log
   // ================================================================
-  const pushLog = readJson<any[]>("studio-push-log.json")
+  const pushLog = readJson<JsonRecord[]>("studio-push-log.json")
   let plCount = 0
   for (const entry of pushLog) {
     try {
