@@ -8,6 +8,7 @@
 import "./handlers/demo"
 import "./handlers/youtube-performance"
 import "./handlers/discovery"
+import "./handlers/discovery-v2"
 import "./handlers/market-intelligence"
 import "./handlers/market-scoring"
 import "./handlers/original-thinking"

@@ -85,6 +85,7 @@ const navGroups: NavGroup[] = [
       { href: "/admin/khat-brain/market/signals", icon: Activity, label: "إشارات السوق", badge: "ai" },
       { href: "/admin/khat-brain/market/sources", icon: Bookmark, label: "المصادر الموثوقة", badge: "ai" },
       { href: "/admin/discovery", icon: Telescope, label: "اكتشاف الضيوف", badge: "ai" },
+      { href: "/admin/discovery-v2", icon: Telescope, label: "اكتشاف v2", badge: "new" },
       { href: "/admin/analytics", icon: BarChart3, label: "الأداء والتعلّم" },
     ],
   },

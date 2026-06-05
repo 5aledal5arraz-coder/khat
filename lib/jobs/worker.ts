@@ -98,6 +98,9 @@ const HANDLER_TIMEOUT_MS: Record<string, number> = {
   "discovery.verify_candidate": 10 * 60_000,
   "discovery.rank_candidates": 5 * 60_000,
   "discovery.cron_check": 60_000,
+  // discovery_v2.run: one job does propose + many Wikidata/enrichment HTTP
+  // calls for up to ~30 names; generous budget for the network fan-out.
+  "discovery_v2.run": 10 * 60_000,
   // original-thinking: AI-bound on full transcripts; allow generous budget.
   "original-thinking": 15 * 60_000,
 }
