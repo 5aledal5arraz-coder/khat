@@ -89,8 +89,15 @@ const HANDLER_TIMEOUT_MS: Record<string, number> = {
   "market.cluster_signals": 10 * 60_000,
   // youtube.performance: YouTube Data API + DB updates per channel.
   "youtube.performance": 5 * 60_000,
-  // discovery.*: AI calls with retrieval; longest typical handler.
-  "discovery.cycle": 15 * 60_000,
+  // discovery.*: AI calls with retrieval; longest typical handlers.
+  // Keys MUST equal the registered handler types (see lib/jobs/handlers/discovery.ts).
+  // The previous "discovery.cycle" key matched no handler, so every discovery
+  // handler silently ran on the 5-min default.
+  "discovery.seed_archetypes": 10 * 60_000,
+  "discovery.search_archetype": 15 * 60_000,
+  "discovery.verify_candidate": 10 * 60_000,
+  "discovery.rank_candidates": 5 * 60_000,
+  "discovery.cron_check": 60_000,
   // original-thinking: AI-bound on full transcripts; allow generous budget.
   "original-thinking": 15 * 60_000,
 }

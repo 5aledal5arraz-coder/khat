@@ -161,3 +161,41 @@ Seeded episode `bc94c170…` end-to-end via the real UI: linked an existing gues
 - Remove `.git/index.lock` locally, then I can commit the working tree in logical groups.
 - Delete the two probe files I couldn't remove (`__qa_unlink_test__`, `__qa_dir_test__/`).
 - Restart the worker (`npm run worker`) for the jobs fixes to take effect; the 9 existing dead jobs are terminal and will age out.
+
+---
+
+## Guest Discovery — full investigation (worker, pipeline, quality)
+
+**Reported symptom:** "I tried Guest Discovery, but no results were generated or displayed."
+
+### Primary root cause: the background worker was not running (worker layer)
+Discovery is queue-driven: the UI enqueues `discovery.seed_archetypes`, and a **separate worker process** (`npm run worker` in dev; the `khat-worker` PM2 process in prod) runs the chain seed → search → verify → rank. The Ops dashboard showed **no worker activity for ~2.5h** and 6 jobs sitting pending. So runs were created but never processed → 0 archetypes → 0 candidates → nothing displayed. This is the user's actual problem, and it is in the **worker layer** — backend, DB, API, and UI were all healthy.
+
+Layer-by-layer verification (proved by draining the queue through the web server, then by running the real worker):
+- Job creation ✅ · Queue processing ❌ (no worker) · AI generation ✅ · DB writes ✅ · API ✅ · UI rendering ✅.
+
+### Fixes applied
+1. **Started the worker.** Added `start-worker.command` — a double-click Finder launcher (sources `.env.local`, pre-warms `tsx`, runs `npm run worker`). Worker `worker-1b1c2cd4` came up and drained the queue (incl. `market.extract`, which previously died — confirming the budget fix).
+2. **`lib/jobs/worker.ts` — discovery timeout budgets.** The map keyed `discovery.cycle`, which matches **no** registered handler, so every discovery handler ran on the 5-min default. Corrected to the real handler names (`discovery.seed_archetypes/search_archetype/verify_candidate/rank_candidates/cron_check`) with proper budgets.
+
+### End-to-end verification (with the worker running)
+Triggered a fresh run ("Arab experts in self-development, leadership, entrepreneurship"). The worker auto-processed seed → 3 archetypes → search → verify → rank in seconds and the run **completed with 15 candidates displayed**. ✅ Results are now generated and displayed.
+
+### Secondary issue: candidate QUALITY (search-source config, not code)
+All 15 candidates were **rejected** (confidence 0.09–0.14 vs the **0.35** `PERSON_CLASS_THRESHOLD`), and they were YouTube/social handles ("Dupamicaffeine", "al.mafia.01", "(no name)"), not real named experts. The run page surfaced the exact reason:
+
+```
+google_web: Google CSE 403: forbidden — This project does not have access to Custom Search JSON API
+youtube: 0 results · public_voice: not configured · editorial: not configured
+```
+
+Why this happens: the **web-search source (the richest identity evidence) is broken** (Google CSE returns 403 — the Custom Search JSON API isn't enabled on that GCP project). Without that evidence, the person-classifier scores everyone ~0.09, all below the 0.35 threshold → all rejected. The discovery env-warning only checks that keys *exist*, not that the API *works*, so it shows green.
+
+**Concrete fixes (operator/config — no code change needed):**
+- **Preferred:** switch web search back to **Brave**, which the code treats as the *default* (Google CSE is the "rollback"). In `.env.local`, remove/replace `WEB_SEARCH_PROVIDER=google_cse` (→ defaults to brave) and set `BRAVE_SEARCH_KEY`.
+- **Or:** enable the **Custom Search JSON API** in Google Cloud Console for the project behind `GOOGLE_CSE_KEY`/`GOOGLE_CSE_CX`, and verify billing/quota.
+- Optionally configure the `public_voice` / `editorial` sources for more evidence.
+- The `PERSON_CLASS_THRESHOLD = 0.35` (`lib/discovery/alpha/person-classifier.ts`) is correctly tuned; lowering it would only let low-confidence junk through — fix the evidence source instead.
+
+### Temporary QA artifact to remove
+`app/api/admin/dev/drain-jobs/route.ts` — a dev-only, admin-only endpoint I added to drain the queue through the web server before the worker was running. **Delete it** (`rm -rf app/api/admin/dev`); the real worker is the proper processor.
