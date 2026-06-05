@@ -47,3 +47,6 @@ config/*.tmp
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# QA scratch — safe to delete
+_QA_TRASH_delete_me/

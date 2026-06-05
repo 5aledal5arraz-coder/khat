@@ -839,7 +839,7 @@ function GuestEmpty({
           إدارة الضيوف
         </Link>
         <Link
-          href={`/admin/discovery?eirId=${eirId}`}
+          href="/admin/discovery-v2"
           className="inline-flex items-center gap-1.5 rounded-xl border border-violet-500/40 bg-violet-500/10 px-3 py-1.5 text-[12px] text-violet-200 hover:bg-violet-500/20"
         >
           تشغيل اكتشاف لهذه الحلقة

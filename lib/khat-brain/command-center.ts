@@ -544,7 +544,7 @@ export async function getCommandCenterData(): Promise<CommandCenterData> {
       id: `disc_failed:${r.id}`,
       level: "error",
       message: `تشغيل اكتشاف فشل: ${r.error_message ?? "بدون تفاصيل"}`,
-      href: "/admin/discovery",
+      href: "/admin/discovery-v2",
     })
   }
 
@@ -588,7 +588,7 @@ export async function getCommandCenterData(): Promise<CommandCenterData> {
       id: `promotion_no_link:${p.id}`,
       level: "warn",
       message: `مرشح مرقّى بدون رابط ضيف رسمي: ${p.proposed_name ?? p.id.slice(0, 8)}`,
-      href: `/admin/discovery`,
+      href: `/admin/discovery-v2`,
     })
   }
 

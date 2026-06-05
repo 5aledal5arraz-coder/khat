@@ -233,12 +233,49 @@ export async function startGuestDiscoveryForEpisodeAction(input: {
       }
     }
 
-    const { startDiscoveryRunAction } = await import("@/app/admin/discovery/actions")
-    const res = await startDiscoveryRunAction({
+    // Guest Discovery v2 — name-first, Wikidata-anchored engine. We
+    // derive a topic string from the episode candidate (working title +
+    // topic domain + hook) and inherit the season's strict guest
+    // filters (gender / nationality) so v2 ranks the right people.
+    const [cand] = await db
+      .select({
+        working_title: khatMapEpisodeCandidates.working_title,
+        topic_domain: khatMapEpisodeCandidates.topic_domain,
+        hook: khatMapEpisodeCandidates.hook,
+        why_matters: khatMapEpisodeCandidates.why_matters,
+      })
+      .from(khatMapEpisodeCandidates)
+      .where(eq(khatMapEpisodeCandidates.id, input.episodeCandidateId))
+      .limit(1)
+
+    const topicParts: string[] = []
+    if (cand?.working_title) topicParts.push(cand.working_title)
+    if (cand?.topic_domain) topicParts.push(cand.topic_domain)
+    if (cand?.hook) topicParts.push(cand.hook)
+    if (cand?.why_matters) topicParts.push(cand.why_matters)
+    const topic = (topicParts.join(" — ") || season.name || "ضيف الحلقة").slice(0, 600)
+
+    const controls = season.editorial_controls as KhatMapEditorialControls | undefined
+    const gf = controls?.guest_filters
+    const gender = gf?.gender === "male" || gf?.gender === "female" ? gf.gender : null
+    const nationality =
+      gf?.nationality === "kuwaiti" || gf?.nationality === "non_kuwaiti"
+        ? gf.nationality
+        : null
+
+    const { startV2DiscoveryAction } = await import("@/app/admin/discovery-v2/actions")
+    const v2 = await startV2DiscoveryAction({
+      topic,
+      gender,
+      nationality,
+      taste: "balanced",
       seasonId: input.seasonId,
       episodeCandidateId: input.episodeCandidateId,
     })
-    if (!res.success) return res
+    if (!v2.success || !v2.runId) {
+      return { success: false, error: v2.error ?? "تعذّر بدء البحث" }
+    }
+    const res = { success: true as const, data: { runId: v2.runId } }
 
     // Move the season into the active "guests" stage on the first run
     // and stamp `guests_started_at` for analytics. Also clear the
