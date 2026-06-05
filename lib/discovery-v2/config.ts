@@ -9,6 +9,8 @@ export interface V2SourceStatus {
   label: string
   configured: boolean
   keyless: boolean
+  /** running against a sandbox/mock endpoint pending a real key */
+  test?: boolean
   note?: string
 }
 
@@ -30,7 +32,10 @@ export function v2Sources(): V2SourceStatus[] {
       label: "Listen Notes (ظهوره ضيفاً في بودكاست)",
       configured: !!process.env.LISTEN_NOTES_API_KEY,
       keyless: false,
-      note: process.env.LISTEN_NOTES_API_KEY ? undefined : "LISTEN_NOTES_API_KEY غير مضبوط (اختياري)",
+      test: !process.env.LISTEN_NOTES_API_KEY,
+      note: process.env.LISTEN_NOTES_API_KEY
+        ? undefined
+        : "وضع تجريبي فعّال (بيانات وهمية) — أضف LISTEN_NOTES_API_KEY للبيانات الحقيقية",
     },
   ]
 }

@@ -104,18 +104,26 @@ export async function youtubePerson(name: string, nameEn: string | null): Promis
 }
 
 // ─── Listen Notes — prior podcast appearances (guestability) ─────────
+// Uses the production API when LISTEN_NOTES_API_KEY is set; otherwise
+// falls back to Listen Notes' free sandbox (listen-api-test) so the
+// integration is exercised end-to-end with MOCK data. Add a real key to
+// get live, per-person results — no code change needed.
 export async function podcastAppearances(name: string, nameEn: string | null): Promise<EnrichmentSignals["podcast"]> {
-  const key = process.env.LISTEN_NOTES_API_KEY
-  if (!key) return { appearances: 0, configured: false }
+  const realKey = process.env.LISTEN_NOTES_API_KEY
+  const testMode = !realKey || realKey.toLowerCase() === "test"
+  const base = testMode ? "https://listen-api-test.listennotes.com" : "https://listen-api.listennotes.com"
+  const apiKey = testMode ? "test" : realKey!
   const q = nameEn || name
   const j = await getJson(
-    `https://listen-api.listennotes.com/api/v2/search?q=${encodeURIComponent(q)}&type=episode&only_in=title,description&page_size=10`,
-    { "X-ListenAPI-Key": key },
+    `${base}/api/v2/search?q=${encodeURIComponent(q)}&type=episode&only_in=title,description&page_size=10`,
+    { "X-ListenAPI-Key": apiKey },
   )
+  if (!j) return { appearances: 0, configured: !testMode, test: testMode }
   const results = j?.results ?? []
   return {
     appearances: Array.isArray(results) ? results.length : 0,
     latest_url: results?.[0]?.link ?? results?.[0]?.audio ?? null,
-    configured: true,
+    configured: !testMode,
+    test: testMode,
   }
 }

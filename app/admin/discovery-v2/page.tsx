@@ -49,6 +49,8 @@ export default async function DiscoveryV2Page() {
               <span className="text-foreground/85">{s.label}</span>
               {s.configured ? (
                 <span className="inline-flex items-center gap-1 text-emerald-300/90"><CheckCircle2 className="h-3 w-3" /> فعّال{s.keyless ? " (بلا مفتاح)" : ""}</span>
+              ) : s.test ? (
+                <span className="inline-flex items-center gap-1 text-sky-300/80" title={s.note}><AlertTriangle className="h-3 w-3" /> تجريبي</span>
               ) : (
                 <span className="inline-flex items-center gap-1 text-amber-300/80" title={s.note}><AlertTriangle className="h-3 w-3" /> غير مضبوط</span>
               )}

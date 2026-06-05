@@ -69,8 +69,9 @@ export interface EnrichmentSignals {
   scholar?: { works: number; cited_by: number; institution?: string | null } | null
   /** YouTube: the person's OWN channel/talks. */
   youtube?: { channel_url?: string | null; channel_title?: string | null; talk_url?: string | null; subscriber_hint?: number | null } | null
-  /** Podcast appearances (guestability). */
-  podcast?: { appearances: number; latest_url?: string | null; configured: boolean } | null
+  /** Podcast appearances (guestability). `test` = Listen Notes sandbox
+   *  (mock data) was used because no real LISTEN_NOTES_API_KEY is set. */
+  podcast?: { appearances: number; latest_url?: string | null; configured: boolean; test?: boolean } | null
   /** Recent press (GDELT). */
   news?: { recent_mentions: number; latest_url?: string | null; latest_title?: string | null } | null
   /** Books (Google Books). */
