@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server"
 import path from "path"
 import fs from "fs/promises"
-import { getStudioSession, createTranscript } from "@/lib/studio"
+import { getStudioSession, createTranscript, revalidateStudio } from "@/lib/studio"
 import { transcribeAudioFile } from "@/lib/whisper"
 import { downloadYouTubeAudio } from "@/lib/youtube/download"
 import { requireAdminAPI } from "@/lib/api-utils"
@@ -29,8 +29,8 @@ export async function POST(
     try {
       const body = await request.json()
       videoId = body.video_id || null
-    } catch {
-      // no body
+    } catch (err) {
+      console.debug("[Studio:youtube-audio] no request body (fine):", err)
     }
   }
 
@@ -69,10 +69,12 @@ export async function POST(
       )
     }
 
+    revalidateStudio(id)
     return NextResponse.json({ transcript: createResult.data })
   } catch (error) {
-    console.error("YouTube audio transcription error:", error)
     const msg = error instanceof Error ? error.message : "فشل في تحويل صوت يوتيوب إلى نص"
+    const stack = error instanceof Error ? error.stack : undefined
+    console.error("[youtube-audio] Pipeline failed:", { videoId, error: msg, stack })
     return NextResponse.json({ error: msg }, { status: 500 })
   } finally {
     // Clean up temp audio file
@@ -82,8 +84,8 @@ export async function POST(
     // Also try to remove the temp directory
     try {
       await fs.rm(tempDir, { recursive: true, force: true })
-    } catch {
-      // ignore
+    } catch (err) {
+      console.debug("[Studio:youtube-audio] temp dir cleanup failed:", err)
     }
   }
 }

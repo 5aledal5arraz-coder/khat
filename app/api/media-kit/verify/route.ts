@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
-import { getShareConfig, saveShareConfig, verifyPassword, hashPassword } from "@/lib/media-kit-share"
-import { getMediaKitConfig } from "@/lib/media-kit"
+import { getShareConfig, saveShareConfig, verifyPassword, hashPassword } from "@/lib/media-kit/share"
+import { getMediaKitConfig } from "@/lib/media-kit/config"
 import { getAnalyticsConfig } from "@/lib/admin/analytics"
 import { checkIpRateLimit } from "@/lib/rate-limit"
 

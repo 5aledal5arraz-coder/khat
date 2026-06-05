@@ -1,7 +1,10 @@
 import { NextResponse } from "next/server"
-import { getStudioSession, getTranscriptForSession, updateStudioSession } from "@/lib/studio"
-import { suggestBestIntro } from "@/lib/openai"
+import { getStudioSession, getTranscriptForSession, updateStudioSession, revalidateStudio } from "@/lib/studio"
+import { suggestBestIntro } from "@/lib/ai"
 import { requireAdminAPI } from "@/lib/api-utils"
+import { formatTimeSeconds } from "@/lib/utils"
+
+export const maxDuration = 120
 
 export async function POST(
   request: Request,
@@ -22,7 +25,7 @@ export async function POST(
 
   // AI guard: return cached result if already generated (unless force=true)
   let forceRegenerate = false
-  try { const b = await request.clone().json(); forceRegenerate = b?.force === true } catch { /* no body is fine */ }
+  try { const b = await request.clone().json(); forceRegenerate = b?.force === true } catch (err) { console.debug("[Studio:audio-intro] no request body (fine):", err) }
   if (!forceRegenerate && session.audio_best_intro && session.audio_start_seconds != null) {
     return NextResponse.json({
       intro: {
@@ -51,7 +54,7 @@ export async function POST(
   }
 
   // Save the suggestion to the session
-  const introText = `${formatTime(result.data.start_seconds)} → ${formatTime(result.data.end_seconds)}\n${result.data.reason}\n\n${result.data.transcript_excerpt}`
+  const introText = `${formatTimeSeconds(result.data.start_seconds)} → ${formatTimeSeconds(result.data.end_seconds)}\n${result.data.reason}\n\n${result.data.transcript_excerpt}`
 
   await updateStudioSession(id, {
     audio_best_intro: introText,
@@ -59,14 +62,9 @@ export async function POST(
     audio_end_seconds: result.data.end_seconds,
   })
 
+  revalidateStudio(id)
   return NextResponse.json({
     intro: result.data,
     saved: true,
   })
-}
-
-function formatTime(seconds: number): string {
-  const m = Math.floor(seconds / 60)
-  const s = Math.floor(seconds % 60)
-  return `${m.toString().padStart(2, "0")}:${s.toString().padStart(2, "0")}`
 }

@@ -1,10 +1,11 @@
 import { NextRequest, NextResponse } from "next/server"
 import { revalidatePath } from "next/cache"
-import { deleteEpisodeEnrichment, getEpisodeEnrichment } from "@/lib/episode-enrichments"
-import { deleteEpisodeOverride, getEpisodeOverrides } from "@/lib/episode-overrides"
-import { deleteEpisodeQuotesEntry, getQuotesConfig } from "@/lib/episode-quotes"
+import { deleteEpisodeEnrichment, getEpisodeEnrichment } from "@/lib/episodes/enrichments"
+import { deleteEpisodeOverride, getEpisodeOverrides } from "@/lib/episodes/overrides"
+import { deleteEpisodeQuotesEntry, getQuotesConfig } from "@/lib/episodes/quotes"
 import { requireAdminAPI } from "@/lib/api-utils"
-import { saveVersion } from "@/lib/episode-versions"
+import { saveVersion } from "@/lib/episodes/versions"
+import { invalidate } from "@/lib/cache"
 
 /**
  * DELETE /api/admin/episodes/[episodeId]/enrichments
@@ -46,6 +47,7 @@ export async function DELETE(
     await deleteEpisodeQuotesEntry(episodeId)
     removed.push("quotes")
 
+    invalidate("episodes")
     revalidatePath("/")
     revalidatePath("/episodes")
     revalidatePath("/admin/episodes")

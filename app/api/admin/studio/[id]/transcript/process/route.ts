@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server"
-import { getStudioSession, getTranscriptForSession, updateTranscriptProcessing } from "@/lib/studio"
-import { processTranscript } from "@/lib/openai"
+import { getStudioSession, getTranscriptForSession, updateTranscriptProcessing, revalidateStudio } from "@/lib/studio"
+import { processTranscript } from "@/lib/ai"
 import { requireAdminAPI } from "@/lib/api-utils"
 
 export const maxDuration = 120
@@ -30,7 +30,7 @@ export async function POST(
 
   // AI guard: return cached result if already processed (unless force=true)
   let forceRegenerate = false
-  try { const b = await request.clone().json(); forceRegenerate = b?.force === true } catch { /* no body is fine */ }
+  try { const b = await request.clone().json(); forceRegenerate = b?.force === true } catch (err) { console.debug("[Studio:transcript-process] no request body (fine):", err) }
   if (!forceRegenerate) {
     const existingTranscript = await getTranscriptForSession(id)
     if (existingTranscript && existingTranscript.processing_status === "ready" && existingTranscript.transcript_article) {
@@ -102,6 +102,7 @@ export async function POST(
       )
     }
 
+    revalidateStudio(id)
     return NextResponse.json({ transcript: saved.data })
   } catch (error) {
     console.error("Transcript processing error:", error)

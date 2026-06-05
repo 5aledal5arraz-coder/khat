@@ -1,10 +1,23 @@
 import { NextRequest, NextResponse } from "next/server"
+import { eq } from "drizzle-orm"
+import { db } from "@/lib/db"
+import { guestApplications } from "@/lib/db/schema/guests"
 import {
   deleteGuestApplication,
   updateGuestApplicationStatus,
 } from "@/lib/admin/queries"
 import type { GuestApplicationStatus } from "@/types/database"
 import { requireAdminAPI } from "@/lib/api-utils"
+import {
+  ensureGuest,
+  updateGuestIdentityProfile,
+  type IdentityHints,
+} from "@/lib/guests/canonical"
+import type {
+  GuestApplicationSummary,
+  GuestSocialAccounts,
+  GuestSourceSummary,
+} from "@/lib/db/schema/guest-identity"
 
 const VALID_STATUSES: GuestApplicationStatus[] = [
   "new",
@@ -13,6 +26,82 @@ const VALID_STATUSES: GuestApplicationStatus[] = [
   "rejected",
   "consider_later",
 ]
+
+/**
+ * Best-effort parse of the free-form social_links text on guest_applications
+ * into a structured GuestSocialAccounts blob. Recognizes platform domains
+ * + Twitter/X @handles. Anything else is dropped (the bio still has the
+ * full text for human reading).
+ */
+function parseSocialLinks(text: string | null): GuestSocialAccounts {
+  const out: GuestSocialAccounts = {}
+  if (!text) return out
+  const tokens = text.split(/[\s,;|]+/).filter(Boolean)
+  for (const t of tokens) {
+    const lower = t.toLowerCase()
+    if (lower.includes("twitter.com") || lower.includes("x.com")) out.twitter = t
+    else if (lower.includes("instagram.com")) out.instagram = t
+    else if (lower.includes("youtube.com") || lower.includes("youtu.be")) out.youtube = t
+    else if (lower.includes("linkedin.com")) out.linkedin = t
+    else if (lower.includes("tiktok.com")) out.tiktok = t
+    else if (lower.includes("facebook.com")) out.facebook = t
+    else if (t.startsWith("@")) out.twitter = out.twitter ?? t
+  }
+  return out
+}
+
+/**
+ * Khat Brain Phase 7 — when an application transitions to `accepted`, we
+ * route it through the canonical guest service so the platform has one
+ * authoritative record per real human, with the full application
+ * captured on the identity profile.
+ */
+async function consolidateAcceptedApplication(applicationId: string): Promise<void> {
+  const rows = await db!
+    .select()
+    .from(guestApplications)
+    .where(eq(guestApplications.id, applicationId))
+    .limit(1)
+  const app = rows[0]
+  if (!app) return
+
+  const social = parseSocialLinks(app.social_links ?? null)
+  const hints: IdentityHints = {
+    name: app.name,
+    country: app.country,
+    bio: app.story_idea,
+    social_accounts: social,
+  }
+  const ensure = await ensureGuest(hints, { acceptance: "auto" })
+  if (ensure.requires_review || !ensure.guest_id) {
+    console.warn(
+      `[guest-application] application ${applicationId} (${app.name}) requires review: ${ensure.reasons.join(" · ")}`,
+    )
+    return
+  }
+
+  const summary: GuestApplicationSummary = {
+    application_id: app.id,
+    story_idea: app.story_idea,
+    beyond_job_title: app.beyond_job_title,
+    life_changing_moment: app.life_changing_moment,
+    why_khat: app.why_khat,
+    topics_to_avoid: app.topics_to_avoid,
+  }
+  const sourceSummary: GuestSourceSummary = {
+    application: {
+      id: app.id,
+      received_at: app.created_at instanceof Date ? app.created_at.toISOString() : null,
+    },
+  }
+
+  await updateGuestIdentityProfile(ensure.guest_id, {
+    application_summary: summary,
+    source_summary: sourceSummary,
+    social_accounts: Object.keys(social).length > 0 ? social : undefined,
+    last_analyzed_at: new Date(),
+  })
+}
 
 export async function PATCH(
   request: NextRequest,
@@ -33,6 +122,17 @@ export async function PATCH(
 
     if (!result.success) {
       return NextResponse.json({ error: result.error }, { status: 400 })
+    }
+
+    // Phase 7 — on acceptance, consolidate into the canonical guest.
+    // Non-blocking: if consolidation fails we still acknowledge the
+    // status change (the admin can re-trigger via backfill).
+    if (status === "accepted") {
+      try {
+        await consolidateAcceptedApplication(id)
+      } catch (err) {
+        console.error("[guest-application] consolidation failed:", err)
+      }
     }
 
     return NextResponse.json({ success: true })

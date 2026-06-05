@@ -4,7 +4,7 @@ import {
   saveShareConfig,
   hashPassword,
   generateSlug,
-} from "@/lib/media-kit-share"
+} from "@/lib/media-kit/share"
 import { requireAdminAPI } from "@/lib/api-utils"
 
 export async function GET() {

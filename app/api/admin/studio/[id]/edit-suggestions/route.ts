@@ -1,7 +1,9 @@
 import { NextResponse } from "next/server"
-import { getStudioSession, getTranscriptForSession, updateStudioSession } from "@/lib/studio"
-import { generateEditSuggestions } from "@/lib/openai"
+import { getStudioSession, getTranscriptForSession, updateStudioSession, revalidateStudio } from "@/lib/studio"
+import { generateEditSuggestions } from "@/lib/ai"
 import { requireAdminAPI } from "@/lib/api-utils"
+
+export const maxDuration = 120
 
 export async function POST(
   request: Request,
@@ -22,7 +24,7 @@ export async function POST(
 
   // AI guard: return cached result if already generated (unless force=true)
   let forceRegenerate = false
-  try { const b = await request.clone().json(); forceRegenerate = b?.force === true } catch { /* no body is fine */ }
+  try { const b = await request.clone().json(); forceRegenerate = b?.force === true } catch (err) { console.debug("[Studio:edit-suggestions] no request body (fine):", err) }
   if (!forceRegenerate && session.audio_edit_suggestions && Array.isArray(session.audio_edit_suggestions) && session.audio_edit_suggestions.length > 0) {
     return NextResponse.json({ suggestions: session.audio_edit_suggestions, cached: true })
   }
@@ -47,6 +49,7 @@ export async function POST(
     audio_edit_suggestions: result.data.suggestions,
   })
 
+  revalidateStudio(id)
   return NextResponse.json({
     suggestions: result.data.suggestions,
     total_cut_seconds: result.data.total_cut_seconds,

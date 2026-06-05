@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
-import { getAiOutputForSession, updateAiOutput } from "@/lib/studio"
+import { getAiOutputForSession, updateAiOutput, revalidateStudio } from "@/lib/studio"
 import { requireAdminAPI } from "@/lib/api-utils"
 
 /**
@@ -52,6 +52,7 @@ export async function PATCH(
       )
     }
 
+    revalidateStudio(sessionId)
     return NextResponse.json({ output: result.data })
   } catch (error) {
     console.error("AI output update error:", error)

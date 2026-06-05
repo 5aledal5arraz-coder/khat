@@ -1,9 +1,11 @@
+import { revalidatePath } from "next/cache"
 import { requireAdminAPI } from "@/lib/api-utils"
-import { detectGuestsForEpisodes, type GuestDetectionInput } from "@/lib/openai"
+import { detectGuestsForEpisodes, type GuestDetectionInput } from "@/lib/ai"
 import { getAllGuests, createGuest, updateGuest } from "@/lib/admin/queries"
 import { getEpisodes } from "@/lib/queries/episodes"
-import { assignGuestToEpisode, getGuestAssignments } from "@/lib/episode-guests"
+import { assignGuestToEpisode } from "@/lib/episodes/guests"
 import { getStudioSessions, getTranscriptForSession } from "@/lib/studio"
+import { invalidate } from "@/lib/cache"
 import type { Guest } from "@/types/database"
 
 export const maxDuration = 120
@@ -75,10 +77,9 @@ export async function POST(request: Request) {
       try {
         emit(controller, "progress", { step: "loading", detail: "جارٍ تحميل البيانات...", percent: 5 })
 
-        const [episodes, existingGuests, assignments, studioSessions] = await Promise.all([
+        const [episodes, existingGuests, studioSessions] = await Promise.all([
           getEpisodes({ limit: 200, category }),
           getAllGuests(),
-          getGuestAssignments(),
           getStudioSessions(),
         ])
 
@@ -96,7 +97,6 @@ export async function POST(request: Request) {
         emit(controller, "progress", { step: "filtering", detail: "جارٍ تصفية الحلقات...", percent: 10 })
 
         const toProcess = episodes.filter((ep) => {
-          if (assignments[ep.id]) { stats.skipped++; return false }
           if (ep.guest_id) {
             const guest = existingGuests.find((g) => g.id === ep.guest_id)
             if (guest?.bio) { stats.skipped++; return false }
@@ -219,6 +219,16 @@ export async function POST(request: Request) {
               emitResult({ episode_id: d.episode_id, episode_title: episode.title, guest_name: d.guest_name, guest_bio: d.guest_bio, action: "needs_review", confidence: d.confidence })
             }
           }
+        }
+
+        // Revalidate caches if any guests were created or linked
+        if (stats.created > 0 || stats.linked > 0 || stats.bio_updated > 0) {
+          invalidate("guests")
+          invalidate("episodes")
+          revalidatePath("/")
+          revalidatePath("/episodes")
+          revalidatePath("/guests")
+          revalidatePath("/admin/guests")
         }
 
         emit(controller, "done", { stats, percent: 100 })

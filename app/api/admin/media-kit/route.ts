@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
-import { getMediaKitConfig, saveMediaKitConfig } from "@/lib/media-kit"
+import { getMediaKitConfig, saveMediaKitConfig } from "@/lib/media-kit/config"
 import type { MediaKitConfig } from "@/types/media-kit"
 import { requireAdminAPI } from "@/lib/api-utils"
 

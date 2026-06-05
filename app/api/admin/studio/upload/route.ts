@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from "next/server"
 import fs from "fs/promises"
 import path from "path"
-import { validateAudioFile } from "@/lib/audio-validation"
+import { validateAudioFile } from "@/lib/validation/audio"
 import { probeAudioDuration } from "@/lib/whisper"
-import { createStudioSession } from "@/lib/studio"
+import { createStudioSession, revalidateStudio } from "@/lib/studio"
 import { requireAdminAPI } from "@/lib/api-utils"
 
 export const maxDuration = 300
@@ -78,6 +78,10 @@ export async function POST(request: NextRequest) {
       audio_end_seconds: null,
       audio_best_intro: null,
       audio_edit_suggestions: null,
+      episode_id: null,
+      episode_title: null,
+      source_type: null,
+      notes: null,
     })
 
     if (!result.success) {
@@ -95,6 +99,7 @@ export async function POST(request: NextRequest) {
       await fs.rename(sessionDir, newDir).catch(() => {})
     }
 
+    revalidateStudio()
     return NextResponse.json(result.data)
   } catch (error) {
     console.error("Audio upload error:", error)

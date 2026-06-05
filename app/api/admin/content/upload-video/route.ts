@@ -3,7 +3,7 @@ import { createWriteStream } from "fs"
 import { mkdir } from "fs/promises"
 import path from "path"
 import crypto from "crypto"
-import { validateVideoMeta, detectVideoType } from "@/lib/video-validation"
+import { validateVideoMeta, detectVideoType } from "@/lib/validation/video"
 import { requireAdminAPI } from "@/lib/api-utils"
 
 const CONTENT_DIR = path.join(process.cwd(), "public", "content")

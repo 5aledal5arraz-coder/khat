@@ -2,14 +2,29 @@ import { NextRequest, NextResponse } from "next/server"
 import {
   getStudioSession, getTranscriptForSession,
   getClipsForSession, createClips, updateClips,
+  revalidateStudio,
 } from "@/lib/studio"
-import { generateStudioClips, STUDIO_PROMPT_VERSION } from "@/lib/openai"
+import { generateStudioClips } from "@/lib/ai"
 import { requireAdminAPI } from "@/lib/api-utils"
+import {
+  analyzeVideo,
+  isVideoIntelligenceConfigured,
+  summarizeForPrompt,
+} from "@/lib/google-video-intelligence"
 
 export const maxDuration = 120
 
 const recentCalls = new Map<string, number>()
 const RATE_LIMIT_MS = 30_000
+const RATE_LIMIT_MAX_ENTRIES = 500
+function cleanupRateLimit() {
+  if (recentCalls.size > RATE_LIMIT_MAX_ENTRIES) {
+    const now = Date.now()
+    for (const [key, time] of recentCalls) {
+      if (now - time > RATE_LIMIT_MS) recentCalls.delete(key)
+    }
+  }
+}
 
 /**
  * GET /api/admin/studio/[id]/clips — get existing clips
@@ -38,7 +53,14 @@ export async function POST(
 
   // AI guard: return cached result if already generated (unless force=true)
   let forceRegenerate = false
-  try { const b = await request.clone().json(); forceRegenerate = b?.force === true } catch { /* no body is fine */ }
+  let useVisualAnalysis = false
+  let gcsUri: string | undefined
+  try {
+    const b = await request.clone().json()
+    forceRegenerate = b?.force === true
+    useVisualAnalysis = b?.useVisualAnalysis === true
+    gcsUri = b?.gcsUri
+  } catch (err) { console.debug("[Studio:clips] no request body (fine):", err) }
   if (!forceRegenerate) {
     const existing = await getClipsForSession(id)
     if (existing && existing.status === "ready") {
@@ -46,6 +68,7 @@ export async function POST(
     }
   }
 
+  cleanupRateLimit()
   const lastCall = recentCalls.get(id)
   if (lastCall && Date.now() - lastCall < RATE_LIMIT_MS) {
     const waitSec = Math.ceil((RATE_LIMIT_MS - (Date.now() - lastCall)) / 1000)
@@ -77,11 +100,27 @@ export async function POST(
     error_message: null,
   })
 
+  // Optionally run video analysis for visual signals
+  let visualSummary: string | null = null
+  if (useVisualAnalysis && isVideoIntelligenceConfigured()) {
+    try {
+      const videoUri = gcsUri || session.youtube_url
+      if (videoUri) {
+        const analysis = await analyzeVideo(videoUri)
+        visualSummary = summarizeForPrompt(analysis)
+      }
+    } catch (err) {
+      // Visual analysis is optional — log but don't fail
+      console.warn("Video analysis failed (continuing without):", err instanceof Error ? err.message : err)
+    }
+  }
+
   try {
     const result = await generateStudioClips(
       transcript.transcript_clean,
       session.video_title || "",
-      session.duration_seconds
+      session.duration_seconds,
+      visualSummary
     )
 
     if (!result.success || !result.data) {
@@ -105,6 +144,7 @@ export async function POST(
       return NextResponse.json({ error: saved.error || "فشل في حفظ النتائج" }, { status: 500 })
     }
 
+    revalidateStudio(id)
     return NextResponse.json({ clips: saved.data })
   } catch (error) {
     console.error("Clips generate error:", error)
@@ -145,6 +185,7 @@ export async function PATCH(
       return NextResponse.json({ error: result.error || "فشل الحفظ" }, { status: 500 })
     }
 
+    revalidateStudio(sessionId)
     return NextResponse.json({ clips: result.data })
   } catch (error) {
     console.error("Clips update error:", error)

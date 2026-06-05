@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { getYouTubeId } from "@/lib/utils"
-import { createStudioSession, getStudioSessions } from "@/lib/studio"
+import { createStudioSession, getStudioSessions, revalidateStudio } from "@/lib/studio"
 import { requireAdminAPI } from "@/lib/api-utils"
 
 const YOUTUBE_API_KEY = process.env.YOUTUBE_API_KEY
@@ -50,11 +50,15 @@ export async function POST(request: NextRequest) {
     }
 
     const apiUrl = new URL("https://www.googleapis.com/youtube/v3/videos")
-    apiUrl.searchParams.set("key", YOUTUBE_API_KEY)
     apiUrl.searchParams.set("id", videoId)
     apiUrl.searchParams.set("part", "snippet,contentDetails,statistics")
 
-    const ytRes = await fetch(apiUrl.toString())
+    const ytRes = await fetch(apiUrl.toString(), {
+      headers: {
+        "X-goog-api-key": YOUTUBE_API_KEY,
+        Referer: "https://khatpodcast.com",
+      },
+    })
     if (!ytRes.ok) {
       const errBody = await ytRes.json().catch(() => null)
       const msg = errBody?.error?.message || `YouTube API returned ${ytRes.status}`
@@ -108,6 +112,10 @@ export async function POST(request: NextRequest) {
       audio_end_seconds: null,
       audio_best_intro: null,
       audio_edit_suggestions: null,
+      episode_id: null,
+      episode_title: null,
+      source_type: null,
+      notes: null,
     })
 
     if (!result.success) {
@@ -117,6 +125,7 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    revalidateStudio()
     return NextResponse.json(result.data)
   } catch (error) {
     console.error("Studio fetch error:", error)

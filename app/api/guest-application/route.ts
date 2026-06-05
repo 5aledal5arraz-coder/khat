@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { db } from "@/lib/db"
 import { guestApplications } from "@/lib/db/schema"
 import { stripHtml } from "@/lib/sanitize"
-import { validateEmail } from "@/lib/validation"
+import { validateEmail } from "@/lib/validation/forms"
 import { validateMutation, rateLimitResponse } from "@/lib/api-utils"
 import { checkIpRateLimit } from "@/lib/rate-limit"
 import { sendGuestApplicationAdmin, sendGuestApplicationConfirm } from "@/lib/email/send"
@@ -166,7 +166,11 @@ export async function POST(request: NextRequest) {
     const sanitizedName = stripHtml(name)
     const sanitizedEmail = email.toLowerCase().trim()
 
-    await db!.insert(guestApplications).values({
+    if (!db) {
+      return NextResponse.json({ error: "خطأ في الخادم" }, { status: 500 })
+    }
+
+    await db.insert(guestApplications).values({
       name: sanitizedName,
       email: sanitizedEmail,
       phone: stripHtml(phone),
@@ -191,7 +195,7 @@ export async function POST(request: NextRequest) {
     // Send branded notification emails (fire-and-forget)
     const emailParams = { name: sanitizedName, email: sanitizedEmail, phone: stripHtml(phone), country: stripHtml(country) }
     Promise.all([
-      sendGuestApplicationAdmin("khatpodcast@hotmail.com", emailParams),
+      sendGuestApplicationAdmin(process.env.ADMIN_NOTIFY_EMAIL || "khatpodcast@hotmail.com", emailParams),
       sendGuestApplicationConfirm(sanitizedEmail, sanitizedName),
     ]).catch(e => console.error("Guest notification email failed:", e))
 

@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { writeFile, mkdir } from "fs/promises"
 import path from "path"
 import crypto from "crypto"
-import { validateImageUpload } from "@/lib/upload-validation"
+import { validateImageUpload } from "@/lib/validation/upload"
 import { requireAdminAPI } from "@/lib/api-utils"
 
 const GUESTS_DIR = path.join(process.cwd(), "public", "guests")
@@ -33,6 +33,10 @@ export async function POST(request: NextRequest) {
 
     await mkdir(GUESTS_DIR, { recursive: true })
     await writeFile(path.join(GUESTS_DIR, filename), buffer)
+
+    // NOTE: Old image cleanup is handled by the guest update API (PUT /api/admin/guests/[id])
+    // after the DB is updated. We do NOT delete old images here to avoid a race condition
+    // where the cache still points to the old file after it's been deleted.
 
     const url = `/guests/${filename}`
 

@@ -2,14 +2,24 @@ import { NextRequest, NextResponse } from "next/server"
 import {
   getStudioSession, getTranscriptForSession,
   getWebsitePackageForSession, createWebsitePackage, updateWebsitePackage,
+  revalidateStudio,
 } from "@/lib/studio"
-import { generateWebsitePackage, STUDIO_PROMPT_VERSION } from "@/lib/openai"
+import { generateWebsitePackage } from "@/lib/ai"
 import { requireAdminAPI } from "@/lib/api-utils"
 
 export const maxDuration = 120
 
 const recentCalls = new Map<string, number>()
 const RATE_LIMIT_MS = 30_000
+const RATE_LIMIT_MAX_ENTRIES = 500
+function cleanupRateLimit() {
+  if (recentCalls.size > RATE_LIMIT_MAX_ENTRIES) {
+    const now = Date.now()
+    for (const [key, time] of recentCalls) {
+      if (now - time > RATE_LIMIT_MS) recentCalls.delete(key)
+    }
+  }
+}
 
 /**
  * GET /api/admin/studio/[id]/website-package — get existing package
@@ -38,7 +48,7 @@ export async function POST(
 
   // AI guard: return cached result if already generated (unless force=true)
   let forceRegenerate = false
-  try { const b = await request.clone().json(); forceRegenerate = b?.force === true } catch { /* no body is fine */ }
+  try { const b = await request.clone().json(); forceRegenerate = b?.force === true } catch (err) { console.debug("[Studio:website-package] no request body (fine):", err) }
   if (!forceRegenerate) {
     const existing = await getWebsitePackageForSession(id)
     if (existing && existing.status === "ready") {
@@ -46,6 +56,7 @@ export async function POST(
     }
   }
 
+  cleanupRateLimit()
   const lastCall = recentCalls.get(id)
   if (lastCall && Date.now() - lastCall < RATE_LIMIT_MS) {
     const waitSec = Math.ceil((RATE_LIMIT_MS - (Date.now() - lastCall)) / 1000)
@@ -77,7 +88,6 @@ export async function POST(
     full_summary: null,
     takeaways: [],
     quotes: [],
-    topics: [],
     resources: [],
     timestamps: [],
     linked_episode_id: session.video_id || null,
@@ -99,8 +109,7 @@ export async function POST(
         full_summary: null,
         takeaways: [],
         quotes: [],
-        topics: [],
-        resources: [],
+            resources: [],
         timestamps: [],
         linked_episode_id: session.video_id || null,
         raw_openai_response: null,
@@ -115,7 +124,6 @@ export async function POST(
       full_summary: result.data.full_summary,
       takeaways: result.data.takeaways,
       quotes: result.data.quotes,
-      topics: result.data.topics,
       resources: result.data.resources,
       timestamps: result.data.timestamps,
       linked_episode_id: session.video_id || null,
@@ -137,6 +145,7 @@ export async function POST(
       return NextResponse.json({ error: saved.error || "فشل في حفظ النتائج" }, { status: 500 })
     }
 
+    revalidateStudio(id)
     return NextResponse.json({ package: saved.data })
   } catch (error) {
     console.error("Website package generate error:", error)
@@ -146,8 +155,7 @@ export async function POST(
       full_summary: null,
       takeaways: [],
       quotes: [],
-      topics: [],
-      resources: [],
+        resources: [],
       timestamps: [],
       linked_episode_id: session.video_id || null,
       raw_openai_response: null,
@@ -177,7 +185,7 @@ export async function PATCH(
     const body = await request.json()
 
     // Whitelist editable fields
-    const allowed = ["hero_summary", "full_summary", "takeaways", "quotes", "topics", "resources", "timestamps", "custom_title", "selected_quote_indices", "selected_takeaway_indices", "linked_episode_id", "guest_package"] as const
+    const allowed = ["hero_summary", "full_summary", "takeaways", "quotes", "resources", "timestamps", "custom_title", "selected_quote_indices", "selected_takeaway_indices", "linked_episode_id", "guest_package"] as const
     const updates: Record<string, unknown> = {}
     for (const key of allowed) {
       if (key in body) {
@@ -194,6 +202,7 @@ export async function PATCH(
       return NextResponse.json({ error: result.error || "فشل الحفظ" }, { status: 500 })
     }
 
+    revalidateStudio(sessionId)
     return NextResponse.json({ package: result.data })
   } catch (error) {
     console.error("Website package update error:", error)

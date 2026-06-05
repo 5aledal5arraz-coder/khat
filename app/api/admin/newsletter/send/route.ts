@@ -1,11 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { requireAdminAPI, getAdminAuthUser } from '@/lib/api-utils'
+import { requireRole } from '@/lib/api-utils'
 import { db } from '@/lib/db'
 import { sendCampaign } from '@/lib/newsletter/sender'
 
+export const maxDuration = 300
+
 export async function POST(request: NextRequest) {
-  const authError = await requireAdminAPI()
-  if (authError) return authError
+  // Newsletter send is destructive (emails all subscribers), require ADMIN+
+  const auth = await requireRole('ADMIN')
+  if (auth.error) return auth.error
+  const user = auth.user
 
   if (!db) {
     return NextResponse.json({ error: 'Database not configured' }, { status: 500 })
@@ -23,11 +27,10 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    const user = await getAdminAuthUser()
     const result = await sendCampaign({
       subject: body.subject,
       body: body.body,
-      sentBy: user?.id || null,
+      sentBy: user.id,
     })
 
     return NextResponse.json({
@@ -38,6 +41,7 @@ export async function POST(request: NextRequest) {
     })
   } catch (err) {
     console.error('[newsletter-send]', err)
-    return NextResponse.json({ error: 'فشل الإرسال' }, { status: 500 })
+    const message = err instanceof Error ? err.message : 'فشل الإرسال'
+    return NextResponse.json({ error: message }, { status: 500 })
   }
 }

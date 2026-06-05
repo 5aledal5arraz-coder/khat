@@ -7,7 +7,7 @@ export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const auth = await requireRole('admin')
+  const auth = await requireRole('ADMIN')
   if (auth.error) return auth.error
 
   const { id } = await params
@@ -27,10 +27,10 @@ export async function POST(
       application.name || 'عزيزي المتقدم',
       subject.trim(),
       body.trim(),
-      auth.profile.display_name || 'إدارة خط'
+      'إدارة خط'
     )
     return successResponse({ success: true })
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Failed to send guest application email:', error)
     return errorResponse('فشل إرسال البريد', 500)
   }

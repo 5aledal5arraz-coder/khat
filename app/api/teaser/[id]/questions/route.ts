@@ -10,7 +10,7 @@ import {
   successResponse,
 } from "@/lib/api-utils"
 import { checkIpRateLimit } from "@/lib/rate-limit"
-import { validateQuestionContent, validateDisplayName } from "@/lib/validation"
+import { validateQuestionContent, validateDisplayName } from "@/lib/validation/forms"
 import { stripHtml } from "@/lib/sanitize"
 import { arabicProfanity, englishProfanity } from "@/lib/profanity-lists"
 import { normalizeArabic } from "@/lib/search"

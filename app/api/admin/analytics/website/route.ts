@@ -1,10 +1,9 @@
 import { NextRequest, NextResponse } from "next/server"
 import { requireAdminAPI } from "@/lib/api-utils"
 import { getEpisodes } from "@/lib/queries/episodes"
-import { getAllPaths } from "@/lib/emotional-paths"
 import { db, USE_DB } from "@/lib/db"
-import { visitorEvents } from "@/lib/db/schema"
-import { desc, sql, gte } from "drizzle-orm"
+import { visitorEvents, guests } from "@/lib/db/schema"
+import { desc, gte } from "drizzle-orm"
 
 const PERIOD_MAP: Record<string, number | null> = {
   "7d": 7,
@@ -23,6 +22,8 @@ const EMPTY_RESPONSE = {
   contentBreakdown: [],
   topSearches: [],
   topPaths: [],
+  topGuests: [],
+  recentActivity: [],
 }
 
 export async function GET(request: NextRequest) {
@@ -65,14 +66,14 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ configured: true, ...EMPTY_RESPONSE })
     }
 
-    // Fetch episodes & paths for enrichment
-    const [episodes, paths] = await Promise.all([
+    // Fetch episodes and guests for enrichment
+    const [episodes, guestRows] = await Promise.all([
       getEpisodes({ includeHidden: true }),
-      getAllPaths(),
+      db!.select({ id: guests.id, name: guests.name, slug: guests.slug, photo_url: guests.photo_url }).from(guests),
     ])
 
     const episodeMap = new Map(episodes.map((e) => [e.id, e]))
-    const pathMap = new Map(paths.map((p) => [p.slug as string, p]))
+    const guestMap = new Map(guestRows.map((g) => [g.id, g]))
 
     // --- Aggregation ---
     const visitorIds = new Set<string>()
@@ -80,7 +81,7 @@ export async function GET(request: NextRequest) {
     const deepWatchCounts = new Map<string, number>()
     const contentCounts = new Map<string, number>()
     const searchCounts = new Map<string, number>()
-    const pathCounts = new Map<string, number>()
+    const guestClickCounts = new Map<string, number>()
     const deepWatchVisitors = new Set<string>()
 
     let searchEventTotal = 0
@@ -114,10 +115,10 @@ export async function GET(request: NextRequest) {
           searchEventTotal++
           break
         }
-        case "path_click": {
-          pathCounts.set(
+        case "guest_open": {
+          guestClickCounts.set(
             ev.target_id,
-            (pathCounts.get(ev.target_id) || 0) + 1
+            (guestClickCounts.get(ev.target_id) || 0) + 1
           )
           break
         }
@@ -159,7 +160,6 @@ export async function GET(request: NextRequest) {
     // Content breakdown
     const EVENT_LABELS: Record<string, string> = {
       episode_view: "صفحات الحلقات",
-      path_click: "المسارات",
       guest_open: "الضيوف",
       quote_open: "الاقتباسات",
       search_used: "البحث",
@@ -190,13 +190,52 @@ export async function GET(request: NextRequest) {
       .slice(0, 5)
       .map(([query, count]) => ({ query, count }))
 
-    // Top paths
-    const topPaths = Array.from(pathCounts.entries())
+    // Top guests by clicks
+    const topGuests = Array.from(guestClickCounts.entries())
       .sort((a, b) => b[1] - a[1])
-      .slice(0, 5)
-      .map(([slug, count]) => {
-        const p = pathMap.get(slug)
-        return { slug, title: p?.title || slug, count }
+      .slice(0, 10)
+      .map(([id, clicks]) => {
+        const g = guestMap.get(id)
+        return {
+          id,
+          name: g?.name || id,
+          slug: g?.slug || "",
+          photo_url: g?.photo_url || null,
+          clicks,
+        }
+      })
+
+    // Recent activity feed (last 20 meaningful events)
+    const ACTIVITY_LABELS: Record<string, string> = {
+      episode_view: "شاهد حلقة",
+      episode_watch: "شغّل حلقة",
+      watch_25: "وصل 25% من",
+      watch_50: "وصل 50% من",
+      watch_90: "وصل 90% من",
+      guest_open: "فتح ملف ضيف",
+      quote_open: "فتح اقتباس",
+      search_used: "بحث عن",
+      search: "بحث عن",
+      episode_saved: "حفظ حلقة",
+      save_item: "حفظ عنصر",
+    }
+
+    const recentActivity = events
+      .slice(0, 20)
+      .map((ev) => {
+        const label = ACTIVITY_LABELS[ev.event_type] || ev.event_type
+        let targetName = ev.target_id
+        if (["episode_view", "episode_watch", "watch_25", "watch_50", "watch_90", "episode_saved"].includes(ev.event_type)) {
+          targetName = episodeMap.get(ev.target_id)?.title || ev.target_id
+        } else if (ev.event_type === "guest_open") {
+          targetName = guestMap.get(ev.target_id)?.name || ev.target_id
+        }
+        return {
+          type: ev.event_type,
+          label,
+          targetName,
+          created_at: ev.created_at?.toISOString() || null,
+        }
       })
 
     return NextResponse.json({
@@ -209,7 +248,8 @@ export async function GET(request: NextRequest) {
       topEpisodes,
       contentBreakdown,
       topSearches,
-      topPaths,
+      topGuests,
+      recentActivity,
     })
   } catch (err) {
     console.error("Website analytics error:", err)

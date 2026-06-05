@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server"
-import { getStudioSession, getTranscriptForSession, createAiOutput, getAiOutputForSession } from "@/lib/studio"
-import { generateStudioPackage, STUDIO_PROMPT_VERSION } from "@/lib/openai"
+import { getStudioSession, getTranscriptForSession, createAiOutput, getAiOutputForSession, revalidateStudio } from "@/lib/studio"
+import { generateStudioPackage, STUDIO_PROMPT_VERSION, EDITORIAL_MODEL } from "@/lib/ai"
 import { requireAdminAPI } from "@/lib/api-utils"
 
 export const maxDuration = 120
@@ -32,7 +32,7 @@ export async function POST(
 
   // AI guard: return cached result if already generated (unless force=true)
   let forceRegenerate = false
-  try { const b = await request.clone().json(); forceRegenerate = b?.force === true } catch { /* no body is fine */ }
+  try { const b = await request.clone().json(); forceRegenerate = b?.force === true } catch (err) { console.debug("[Studio:generate] no request body (fine):", err) }
   if (!forceRegenerate) {
     const existing = await getAiOutputForSession(id)
     if (existing && existing.status === "ready") {
@@ -69,7 +69,7 @@ export async function POST(
 
   // Create a placeholder "generating" record so the UI can show progress
   const placeholder = await createAiOutput(id, {
-    model: "gpt-4o-mini",
+    model: EDITORIAL_MODEL,
     prompt_version: STUDIO_PROMPT_VERSION,
     status: "generating",
     title_best: "",
@@ -99,7 +99,7 @@ export async function POST(
     if (!result.success || !result.data) {
       // Save error state
       await createAiOutput(id, {
-        model: "gpt-4o-mini",
+        model: EDITORIAL_MODEL,
         prompt_version: STUDIO_PROMPT_VERSION,
         status: "error",
         title_best: "",
@@ -120,7 +120,7 @@ export async function POST(
 
     // Save the successful result
     const saved = await createAiOutput(id, {
-      model: "gpt-4o-mini",
+      model: EDITORIAL_MODEL,
       prompt_version: STUDIO_PROMPT_VERSION,
       status: "ready",
       title_best: result.data.title_best,
@@ -140,13 +140,14 @@ export async function POST(
       )
     }
 
+    revalidateStudio(id)
     return NextResponse.json({ output: saved.data })
   } catch (error) {
     console.error("Studio generate error:", error)
 
     // Save error state
     await createAiOutput(id, {
-      model: "gpt-4o-mini",
+      model: EDITORIAL_MODEL,
       prompt_version: STUDIO_PROMPT_VERSION,
       status: "error",
       title_best: "",

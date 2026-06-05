@@ -2,8 +2,9 @@ import { NextRequest, NextResponse } from "next/server"
 import {
   getStudioSession, getTranscriptForSession,
   getChaptersForSession, createChapters, updateChapters,
+  revalidateStudio,
 } from "@/lib/studio"
-import { generateStudioChapters, STUDIO_PROMPT_VERSION } from "@/lib/openai"
+import { generateStudioChapters } from "@/lib/ai"
 import { requireAdminAPI } from "@/lib/api-utils"
 
 export const maxDuration = 120
@@ -47,7 +48,7 @@ export async function POST(
 
   // AI guard: return cached result if already generated (unless force=true)
   let forceRegenerate = false
-  try { const b = await request.clone().json(); forceRegenerate = b?.force === true } catch { /* no body is fine */ }
+  try { const b = await request.clone().json(); forceRegenerate = b?.force === true } catch (err) { console.debug("[Studio:chapters] no request body (fine):", err) }
   if (!forceRegenerate) {
     const existing = await getChaptersForSession(id)
     if (existing && existing.status === "ready") {
@@ -116,6 +117,7 @@ export async function POST(
       return NextResponse.json({ error: saved.error || "فشل في حفظ النتائج" }, { status: 500 })
     }
 
+    revalidateStudio(id)
     return NextResponse.json({ chapters: saved.data })
   } catch (error) {
     console.error("Chapters generate error:", error)
@@ -156,6 +158,7 @@ export async function PATCH(
       return NextResponse.json({ error: result.error || "فشل الحفظ" }, { status: 500 })
     }
 
+    revalidateStudio(sessionId)
     return NextResponse.json({ chapters: result.data })
   } catch (error) {
     console.error("Chapters update error:", error)

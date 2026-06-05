@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { db } from "@/lib/db"
 import { sponsorshipLeads } from "@/lib/db/schema"
 import { stripHtml } from "@/lib/sanitize"
-import { validateEmail } from "@/lib/validation"
+import { validateEmail } from "@/lib/validation/forms"
 import { checkIpRateLimit } from "@/lib/rate-limit"
 import { validateMutation } from "@/lib/api-utils"
 import { sendSponsorApplicationAdmin, sendSponsorApplicationConfirm } from "@/lib/email/send"
@@ -85,7 +85,11 @@ export async function POST(request: NextRequest) {
     const sanitizedContact = stripHtml(contact_name)
     const sanitizedEmail = email.toLowerCase().trim()
 
-    await db!.insert(sponsorshipLeads).values({
+    if (!db) {
+      return NextResponse.json({ error: "خطأ في الخادم" }, { status: 500 })
+    }
+
+    await db.insert(sponsorshipLeads).values({
       company_name: sanitizedCompany,
       industry: stripHtml(industry),
       contact_name: sanitizedContact,
@@ -105,7 +109,7 @@ export async function POST(request: NextRequest) {
     // Send branded notification emails (fire-and-forget)
     const emailParams = { company: sanitizedCompany, contact: sanitizedContact, email: sanitizedEmail, budget: stripHtml(budget_range) }
     Promise.all([
-      sendSponsorApplicationAdmin("khatpodcast@hotmail.com", emailParams),
+      sendSponsorApplicationAdmin(process.env.ADMIN_NOTIFY_EMAIL || "khatpodcast@hotmail.com", emailParams),
       sendSponsorApplicationConfirm(sanitizedEmail, sanitizedContact),
     ]).catch(e => console.error("Sponsor notification email failed:", e))
 

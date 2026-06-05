@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server"
-import { getStudioSession, getTranscriptForSession, createAnalyzer, getAnalyzerForSession } from "@/lib/studio"
-import { generateStudioAnalysis, ANALYZER_PROMPT_VERSION, type YouTubeVideoStats } from "@/lib/openai"
+import { getStudioSession, getTranscriptForSession, createAnalyzer, getAnalyzerForSession, revalidateStudio } from "@/lib/studio"
+import { generateStudioAnalysis, ANALYZER_PROMPT_VERSION, type YouTubeVideoStats } from "@/lib/ai"
 import { requireAdminAPI } from "@/lib/api-utils"
 
 export const maxDuration = 120
@@ -31,7 +31,7 @@ export async function POST(
 
   // AI guard: return cached result if already generated (unless force=true)
   let forceRegenerate = false
-  try { const b = await request.clone().json(); forceRegenerate = b?.force === true } catch { /* no body is fine */ }
+  try { const b = await request.clone().json(); forceRegenerate = b?.force === true } catch (err) { console.debug("[Studio:analyzer] no request body (fine):", err) }
   if (!forceRegenerate) {
     const existing = await getAnalyzerForSession(id)
     if (existing && existing.status === "ready") {
@@ -134,6 +134,7 @@ export async function POST(
       )
     }
 
+    revalidateStudio(id)
     return NextResponse.json({ analyzer: saved.data })
   } catch (error) {
     console.error("Studio analyzer error:", error)

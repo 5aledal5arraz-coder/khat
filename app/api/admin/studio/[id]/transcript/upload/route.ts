@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server"
-import { getStudioSession, createTranscript, parseUploadedTranscript } from "@/lib/studio"
+import { getStudioSession, createTranscript, parseUploadedTranscript, revalidateStudio } from "@/lib/studio"
 import { requireAdminAPI } from "@/lib/api-utils"
 
 const ALLOWED_EXTENSIONS = [".txt", ".srt", ".vtt"]
@@ -68,6 +68,7 @@ export async function POST(
       )
     }
 
+    revalidateStudio(id)
     return NextResponse.json({ transcript: result.data })
   } catch (error) {
     console.error("Transcript upload error:", error)

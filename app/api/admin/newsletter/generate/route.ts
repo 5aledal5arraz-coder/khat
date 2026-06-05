@@ -1,8 +1,10 @@
 import { NextResponse } from 'next/server'
 import { requireAdminAPI } from '@/lib/api-utils'
+
+export const maxDuration = 60
 import { getEpisodes } from '@/lib/queries/episodes'
-import { getPublishedQuotes } from '@/lib/episode-quotes'
-import { generateNewsletterContent } from '@/lib/openai'
+import { getPublishedQuotes } from '@/lib/episodes/quotes'
+import { generateNewsletterContent } from '@/lib/ai'
 
 const ARABIC_MONTHS: Record<number, string> = {
   1: 'يناير',

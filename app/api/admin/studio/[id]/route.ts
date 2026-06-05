@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server"
-import { getStudioSession, deleteStudioSession, updateStudioSession } from "@/lib/studio"
+import { getStudioSession, deleteStudioSession, updateStudioSession, revalidateStudio } from "@/lib/studio"
 import { requireAdminAPI } from "@/lib/api-utils"
 
 export async function GET(
@@ -53,6 +53,7 @@ export async function PATCH(
     return NextResponse.json({ error: result.error }, { status: 404 })
   }
 
+  revalidateStudio(id)
   return NextResponse.json({ session: result.data })
 }
 
@@ -69,5 +70,6 @@ export async function DELETE(
     return NextResponse.json({ error: "الجلسة غير موجودة" }, { status: 404 })
   }
 
+  revalidateStudio(id)
   return NextResponse.json({ success: true })
 }

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { revalidatePath } from "next/cache"
 import { createGuest, getAllGuests } from "@/lib/admin/queries"
 import { requireAdminAPI } from "@/lib/api-utils"
+import { invalidate } from "@/lib/cache"
 
 function generateSlug(name: string): string {
   return name
@@ -52,7 +53,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "لا يمكن إنشاء رابط صالح من هذا الاسم" }, { status: 400 })
     }
 
-    const bio = typeof body.bio === "string" && body.bio.trim() ? body.bio.trim() : null
+    const bio = typeof body.bio === "string" && body.bio.trim() ? body.bio.trim().slice(0, 1000) : null
     const photo_url = typeof body.photo_url === "string" && body.photo_url.trim() ? body.photo_url.trim() : null
     const testimonial = typeof body.testimonial === "string" && body.testimonial.trim() ? body.testimonial.trim().slice(0, 450) : null
     const external_links = validateExternalLinks(body.external_links)
@@ -63,12 +64,19 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: result.error }, { status: 400 })
     }
 
+    invalidate("guests")
+    invalidate("episodes")
     revalidatePath("/")
     revalidatePath("/episodes")
     revalidatePath("/guests")
     revalidatePath("/admin/guests")
 
-    return NextResponse.json(result.data)
+    // Cleanup Phase A — surface dedup decision so the admin UI can
+    // tell the user "this guest already existed."
+    return NextResponse.json({
+      ...(result.data ?? {}),
+      _existing: result.existing === true,
+    })
   } catch (error) {
     console.error("Error creating guest:", error)
     return NextResponse.json(

@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { writeFile, mkdir } from "fs/promises"
 import path from "path"
 import crypto from "crypto"
-import { validateImageUpload } from "@/lib/upload-validation"
+import { validateImageUpload } from "@/lib/validation/upload"
 import { requireAdminAPI } from "@/lib/api-utils"
 
 const CONTENT_DIR = path.join(process.cwd(), "public", "content")

@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server"
-import { getStudioSession, getTranscriptForSession, createTranscript, createTranscriptError } from "@/lib/studio"
+import { getStudioSession, getTranscriptForSession, createTranscript, createTranscriptError, revalidateStudio } from "@/lib/studio"
 import { requireAdminAPI } from "@/lib/api-utils"
 
 export const maxDuration = 60
@@ -74,6 +74,7 @@ export async function POST(
       )
     }
 
+    revalidateStudio(id)
     return NextResponse.json({ transcript: createResult.data })
   } catch (error) {
     console.error("Transcript save error:", error)

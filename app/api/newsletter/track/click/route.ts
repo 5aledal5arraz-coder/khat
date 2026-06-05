@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { verifyTrackingToken } from "@/lib/newsletter/tracking"
 import { db } from "@/lib/db"
-import { newsletterDeliveries, newsletterCampaigns, newsletterLinks, newsletterClicks } from "@/lib/db/schema"
+import { newsletterCampaigns, newsletterLinks, newsletterClicks } from "@/lib/db/schema"
 import { eq, sql } from "drizzle-orm"
 
 export async function GET(request: NextRequest) {
@@ -30,6 +30,11 @@ export async function GET(request: NextRequest) {
     return NextResponse.redirect(new URL("/", request.url))
   }
 
+  // Safety: only redirect to http(s) URLs
+  if (!link.url.startsWith("http://") && !link.url.startsWith("https://")) {
+    return NextResponse.redirect(new URL("/", request.url))
+  }
+
   // Record click asynchronously — don't block the redirect
   recordClick(deliveryId, link.id).catch(() => {})
 
@@ -45,35 +50,25 @@ async function recordClick(deliveryId: string, linkId: string) {
     delivery_id: deliveryId,
   })
 
-  // Get current delivery state
-  const [delivery] = await db.select({
-    id: newsletterDeliveries.id,
-    campaign_id: newsletterDeliveries.campaign_id,
-    click_count: newsletterDeliveries.click_count,
-  })
-    .from(newsletterDeliveries)
-    .where(eq(newsletterDeliveries.id, deliveryId))
-    .limit(1)
+  // Atomic: update delivery counters and check if this was the first click.
+  // PostgreSQL row-level locking ensures concurrent requests are serialized.
+  const result = await db.execute(sql`
+    UPDATE newsletter_deliveries
+    SET
+      click_count = COALESCE(click_count, 0) + 1,
+      first_clicked_at = CASE WHEN COALESCE(click_count, 0) = 0 THEN now() ELSE first_clicked_at END,
+      last_clicked_at = now(),
+      last_event_at = now(),
+      status = 'clicked'
+    WHERE id = ${deliveryId}
+    RETURNING campaign_id, click_count
+  `)
 
-  if (!delivery) return
-
-  const isFirstClick = (delivery.click_count ?? 0) === 0
-
-  // Update delivery
-  await db.update(newsletterDeliveries)
-    .set({
-      click_count: sql`COALESCE(${newsletterDeliveries.click_count}, 0) + 1`,
-      first_clicked_at: isFirstClick ? sql`now()` : undefined,
-      last_clicked_at: sql`now()`,
-      last_event_at: sql`now()`,
-      status: "clicked",
-    })
-    .where(eq(newsletterDeliveries.id, deliveryId))
+  const row = (result as unknown as { campaign_id: string; click_count: number }[])[0]
+  if (!row || row.click_count !== 1) return
 
   // Increment campaign total_clicked only on first click per delivery
-  if (isFirstClick) {
-    await db.update(newsletterCampaigns)
-      .set({ total_clicked: sql`COALESCE(${newsletterCampaigns.total_clicked}, 0) + 1` })
-      .where(eq(newsletterCampaigns.id, delivery.campaign_id))
-  }
+  await db.update(newsletterCampaigns)
+    .set({ total_clicked: sql`COALESCE(${newsletterCampaigns.total_clicked}, 0) + 1` })
+    .where(eq(newsletterCampaigns.id, row.campaign_id))
 }

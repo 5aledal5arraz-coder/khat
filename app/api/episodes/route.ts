@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { getEpisodes } from "@/lib/queries/episodes"
-import { getHiddenGems, interleaveBoosts } from "@/lib/boost"
+import { getHiddenGems, interleaveBoosts } from "@/lib/episodes/boost"
 
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams

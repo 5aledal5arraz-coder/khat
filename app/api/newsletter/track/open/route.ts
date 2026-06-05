@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { verifyTrackingToken } from "@/lib/newsletter/tracking"
 import { db } from "@/lib/db"
-import { newsletterDeliveries, newsletterCampaigns } from "@/lib/db/schema"
+import { newsletterCampaigns } from "@/lib/db/schema"
 import { eq, sql } from "drizzle-orm"
 
 // 1x1 transparent GIF
@@ -33,35 +33,26 @@ export async function GET(request: NextRequest) {
 async function recordOpen(deliveryId: string) {
   if (!db) return
 
-  // Get current delivery state
-  const [delivery] = await db.select({
-    id: newsletterDeliveries.id,
-    campaign_id: newsletterDeliveries.campaign_id,
-    open_count: newsletterDeliveries.open_count,
-  })
-    .from(newsletterDeliveries)
-    .where(eq(newsletterDeliveries.id, deliveryId))
-    .limit(1)
+  // Atomic: update delivery counters and check if this was the first open.
+  // PostgreSQL row-level locking ensures concurrent requests are serialized,
+  // so only one request will see open_count = 1 after the increment.
+  const result = await db.execute(sql`
+    UPDATE newsletter_deliveries
+    SET
+      open_count = COALESCE(open_count, 0) + 1,
+      first_opened_at = CASE WHEN COALESCE(open_count, 0) = 0 THEN now() ELSE first_opened_at END,
+      last_opened_at = now(),
+      last_event_at = now(),
+      status = 'opened'
+    WHERE id = ${deliveryId}
+    RETURNING campaign_id, open_count
+  `)
 
-  if (!delivery) return
+  const row = (result as unknown as { campaign_id: string; open_count: number }[])[0]
+  if (!row || row.open_count !== 1) return
 
-  const isFirstOpen = (delivery.open_count ?? 0) === 0
-
-  // Update delivery
-  await db.update(newsletterDeliveries)
-    .set({
-      open_count: sql`COALESCE(${newsletterDeliveries.open_count}, 0) + 1`,
-      first_opened_at: isFirstOpen ? sql`now()` : undefined,
-      last_opened_at: sql`now()`,
-      last_event_at: sql`now()`,
-      status: "opened",
-    })
-    .where(eq(newsletterDeliveries.id, deliveryId))
-
-  // Increment campaign total_opened only on first open
-  if (isFirstOpen) {
-    await db.update(newsletterCampaigns)
-      .set({ total_opened: sql`COALESCE(${newsletterCampaigns.total_opened}, 0) + 1` })
-      .where(eq(newsletterCampaigns.id, delivery.campaign_id))
-  }
+  // Increment campaign total_opened only on first open per delivery
+  await db.update(newsletterCampaigns)
+    .set({ total_opened: sql`COALESCE(${newsletterCampaigns.total_opened}, 0) + 1` })
+    .where(eq(newsletterCampaigns.id, row.campaign_id))
 }

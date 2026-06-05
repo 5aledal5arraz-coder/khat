@@ -1,10 +1,21 @@
 import { NextResponse } from "next/server"
-import { getStudioSession, getTranscriptForSession, getWebsitePackageForSession, createWebsitePackage, updateWebsitePackage } from "@/lib/studio"
-import { generateGuestFromTranscript } from "@/lib/openai"
+import { getStudioSession, getTranscriptForSession, getWebsitePackageForSession, createWebsitePackage, updateWebsitePackage, revalidateStudio } from "@/lib/studio"
+import { generateGuestFromTranscript } from "@/lib/ai"
 import { requireAdminAPI } from "@/lib/api-utils"
+
+export const maxDuration = 120
 
 const recentCalls = new Map<string, number>()
 const RATE_LIMIT_MS = 10_000
+const RATE_LIMIT_MAX_ENTRIES = 500
+function cleanupRateLimit() {
+  if (recentCalls.size > RATE_LIMIT_MAX_ENTRIES) {
+    const now = Date.now()
+    for (const [key, time] of recentCalls) {
+      if (now - time > RATE_LIMIT_MS) recentCalls.delete(key)
+    }
+  }
+}
 
 /**
  * POST /api/admin/studio/[id]/guest-ai — AI-generate guest name + bio only
@@ -18,6 +29,7 @@ export async function POST(
   const { id } = await params
 
   // Rate limit
+  cleanupRateLimit()
   const lastCall = recentCalls.get(id)
   if (lastCall && Date.now() - lastCall < RATE_LIMIT_MS) {
     const waitSec = Math.ceil((RATE_LIMIT_MS - (Date.now() - lastCall)) / 1000)
@@ -72,7 +84,6 @@ export async function POST(
         full_summary: null,
         takeaways: [],
         quotes: [],
-        topics: [],
         resources: [],
         timestamps: [],
         linked_episode_id: session.video_id || null,
@@ -82,6 +93,7 @@ export async function POST(
       })
     }
 
+    revalidateStudio(id)
     return NextResponse.json({ guest_package: guestPackage })
   } catch (error) {
     console.error("Guest AI generation error:", error)

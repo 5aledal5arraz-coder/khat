@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server"
 import path from "path"
 import fs from "fs/promises"
-import { getStudioSession, createTranscript, createTranscriptError } from "@/lib/studio"
+import { getStudioSession, createTranscript, createTranscriptError, revalidateStudio } from "@/lib/studio"
 import { transcribeAudioFile } from "@/lib/whisper"
 import { requireAdminAPI } from "@/lib/api-utils"
 
@@ -69,6 +69,7 @@ export async function POST(
       )
     }
 
+    revalidateStudio(id)
     return NextResponse.json({ transcript: createResult.data })
   } catch (error) {
     console.error("Whisper transcription error:", error)
