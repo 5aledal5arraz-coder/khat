@@ -1,0 +1,2 @@
+/** Pre-computed blur placeholder for standard 16:9 thumbnails */
+export const BLUR_DATA_URL_16_9 = "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxNiA5Ij48cmVjdCBmaWxsPSIjMWExYTFhIiB3aWR0aD0iMTYiIGhlaWdodD0iOSIvPjwvc3ZnPg=="

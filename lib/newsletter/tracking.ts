@@ -1,7 +1,9 @@
 import crypto from "crypto"
 
 function getSecret(): string {
-  return process.env.RESEND_API_KEY || "khat-newsletter-tracking"
+  const secret = process.env.NEWSLETTER_TRACKING_SECRET || process.env.RESEND_API_KEY
+  if (!secret) throw new Error("NEWSLETTER_TRACKING_SECRET or RESEND_API_KEY is required for tracking")
+  return secret
 }
 
 /** Create an HMAC-signed tracking token encoding a delivery ID */

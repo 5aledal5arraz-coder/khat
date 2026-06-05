@@ -1,5 +1,4 @@
-import { pgTable, text, integer, boolean, timestamp, uuid, jsonb, unique } from "drizzle-orm/pg-core"
-import { profiles } from "./community"
+import { pgTable, text, integer, timestamp, uuid, jsonb, unique } from "drizzle-orm/pg-core"
 
 export const newsletterSubscribers = pgTable("newsletter_subscribers", {
   id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
@@ -31,7 +30,7 @@ export const sponsorshipLeads = pgTable("sponsorship_leads", {
 
 export const rateLimits = pgTable("rate_limits", {
   id: uuid("id").primaryKey().defaultRandom(),
-  user_id: text("user_id").notNull().references(() => profiles.id, { onDelete: "cascade" }),
+  user_id: text("user_id").notNull(),
   action: text("action").notNull(),
   created_at: timestamp("created_at", { withTimezone: true }).defaultNow(),
 })
@@ -85,13 +84,11 @@ export const watchHistory = pgTable("watch_history", {
   updated_at: timestamp("updated_at", { withTimezone: true }).defaultNow(),
 })
 
-// newsletterSends removed — replaced by newsletterCampaigns in ./newsletter.ts
-
 export const emailNotificationsLog = pgTable("email_notifications_log", {
   id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
-  recipient_id: text("recipient_id").notNull().references(() => profiles.id, { onDelete: "cascade" }),
+  recipient_id: text("recipient_id").notNull(),
   notification_type: text("notification_type").notNull(),
-  trigger_user_id: text("trigger_user_id").notNull().references(() => profiles.id, { onDelete: "cascade" }),
+  trigger_user_id: text("trigger_user_id").notNull(),
   target_id: text("target_id").notNull(),
   created_at: timestamp("created_at", { withTimezone: true }).defaultNow(),
 }, (t) => [

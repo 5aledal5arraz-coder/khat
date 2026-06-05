@@ -12,4 +12,5 @@ export function getResend(): Resend {
 }
 
 export const FROM_EMAIL = process.env.RESEND_FROM_EMAIL || 'noreply@khatpodcast.com'
+export const FROM_DISPLAY = `بودكاست خط <${FROM_EMAIL}>`
 export const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://khatpodcast.com'

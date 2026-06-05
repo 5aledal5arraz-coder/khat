@@ -1,0 +1,62 @@
+import { pgTable, text, integer, timestamp, jsonb } from "drizzle-orm/pg-core"
+import { guestApplications } from "./guests"
+
+export const guestApplicationAnalysis = pgTable("guest_application_analysis", {
+  id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+  application_id: text("application_id").notNull().references(() => guestApplications.id, { onDelete: "cascade" }).unique(),
+  status: text("status").default("generating"),
+  fit_score: integer("fit_score"),
+  emotional_depth_score: integer("emotional_depth_score"),
+  story_clarity_score: integer("story_clarity_score"),
+  originality_score: integer("originality_score"),
+  readiness_score: integer("readiness_score"),
+  risk_level: text("risk_level"),
+  recommendation: text("recommendation"),
+  fit_summary: text("fit_summary"),
+  strongest_angle: text("strongest_angle"),
+  why_now: text("why_now"),
+  audience_value: text("audience_value"),
+  concerns: jsonb("concerns").$type<string[]>().default([]),
+  strengths: jsonb("strengths").$type<string[]>().default([]),
+  suggested_direction: text("suggested_direction"),
+  raw_response: jsonb("raw_response").$type<Record<string, unknown>>(),
+  error_message: text("error_message"),
+  created_at: timestamp("created_at", { withTimezone: true }).defaultNow(),
+})
+
+export const guestApplicationConcepts = pgTable("guest_application_concepts", {
+  id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+  application_id: text("application_id").notNull().references(() => guestApplications.id, { onDelete: "cascade" }),
+  analysis_id: text("analysis_id"),
+  status: text("status").default("generating"),
+  proposed_episode_title: text("proposed_episode_title"),
+  title_alternatives: jsonb("title_alternatives").$type<string[]>().default([]),
+  episode_hook: text("episode_hook"),
+  episode_logline: text("episode_logline"),
+  why_this_episode_matters: text("why_this_episode_matters"),
+  conversation_style: text("conversation_style"),
+  suggested_opening_question: text("suggested_opening_question"),
+  suggested_core_questions: jsonb("suggested_core_questions").$type<string[]>().default([]),
+  suggested_sensitive_areas: jsonb("suggested_sensitive_areas").$type<string[]>().default([]),
+  suggested_topics_to_avoid: jsonb("suggested_topics_to_avoid").$type<string[]>().default([]),
+  host_preparation_notes: text("host_preparation_notes"),
+  raw_response: jsonb("raw_response").$type<Record<string, unknown>>(),
+  error_message: text("error_message"),
+  created_at: timestamp("created_at", { withTimezone: true }).defaultNow(),
+})
+
+export const guestApplicationResponses = pgTable("guest_application_responses", {
+  id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+  application_id: text("application_id").notNull().references(() => guestApplications.id, { onDelete: "cascade" }).unique(),
+  analysis_id: text("analysis_id"),
+  status: text("status").default("generating"),
+  acceptance_formal: text("acceptance_formal"),
+  acceptance_warm: text("acceptance_warm"),
+  rejection_formal: text("rejection_formal"),
+  rejection_warm: text("rejection_warm"),
+  consider_later_formal: text("consider_later_formal"),
+  consider_later_warm: text("consider_later_warm"),
+  raw_response: jsonb("raw_response").$type<Record<string, unknown>>(),
+  error_message: text("error_message"),
+  created_at: timestamp("created_at", { withTimezone: true }).defaultNow(),
+})

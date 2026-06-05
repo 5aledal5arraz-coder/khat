@@ -1,97 +1,20 @@
-import { getResend, FROM_EMAIL } from './resend'
+import { getResend, FROM_DISPLAY } from './resend'
 import {
-  welcomeEmailHtml,
   newsletterWelcomeHtml,
-  commentNotificationHtml,
-  replyNotificationHtml,
-  likeNotificationHtml,
-  followNotificationHtml,
   directEmailHtml,
   guestApplicationAdminHtml,
   guestApplicationConfirmHtml,
   sponsorApplicationAdminHtml,
   sponsorApplicationConfirmHtml,
+  prepSubmittedAdminHtml,
 } from './templates'
-
-export async function sendWelcomeEmail(email: string, displayName: string) {
-  return getResend().emails.send({
-    from: FROM_EMAIL,
-    to: email,
-    subject: 'أهلاً بك في خط بودكاست!',
-    html: welcomeEmailHtml(displayName),
-  })
-}
 
 export async function sendNewsletterWelcome(email: string, unsubscribeUrl: string) {
   return getResend().emails.send({
-    from: FROM_EMAIL,
+    from: FROM_DISPLAY,
     to: email,
-    subject: 'أهلاً بك في نشرة خط بودكاست!',
+    subject: 'أهلاً بك في نشرة بودكاست خط!',
     html: newsletterWelcomeHtml(unsubscribeUrl),
-  })
-}
-
-export async function sendCommentNotification(
-  email: string,
-  ownerName: string,
-  commenterName: string,
-  articleTitle: string,
-  preview: string,
-  articleUrl: string,
-  unsubUrl: string
-) {
-  return getResend().emails.send({
-    from: FROM_EMAIL,
-    to: email,
-    subject: `💬 ${commenterName} علّق على مقالك`,
-    html: commentNotificationHtml(ownerName, commenterName, articleTitle, preview, articleUrl, unsubUrl),
-  })
-}
-
-export async function sendReplyNotification(
-  email: string,
-  ownerName: string,
-  replierName: string,
-  preview: string,
-  thoughtUrl: string,
-  unsubUrl: string
-) {
-  return getResend().emails.send({
-    from: FROM_EMAIL,
-    to: email,
-    subject: `↩️ ${replierName} ردّ على خاطرتك`,
-    html: replyNotificationHtml(ownerName, replierName, preview, thoughtUrl, unsubUrl),
-  })
-}
-
-export async function sendLikeNotification(
-  email: string,
-  ownerName: string,
-  likerName: string,
-  targetType: string,
-  targetUrl: string,
-  unsubUrl: string
-) {
-  return getResend().emails.send({
-    from: FROM_EMAIL,
-    to: email,
-    subject: `❤️ ${likerName} أعجب بمحتواك`,
-    html: likeNotificationHtml(ownerName, likerName, targetType, targetUrl, unsubUrl),
-  })
-}
-
-export async function sendFollowNotification(
-  email: string,
-  userName: string,
-  followerName: string,
-  followerUrl: string,
-  unsubUrl: string
-) {
-  return getResend().emails.send({
-    from: FROM_EMAIL,
-    to: email,
-    subject: `👤 ${followerName} بدأ بمتابعتك`,
-    html: followNotificationHtml(userName, followerName, followerUrl, unsubUrl),
   })
 }
 
@@ -103,7 +26,7 @@ export async function sendDirectEmail(
   senderName: string
 ) {
   return getResend().emails.send({
-    from: FROM_EMAIL,
+    from: FROM_DISPLAY,
     to: email,
     subject,
     html: directEmailHtml(recipientName, subject, body, senderName),
@@ -115,7 +38,7 @@ export async function sendGuestApplicationAdmin(
   params: { name: string; email: string; phone: string; country: string }
 ) {
   return getResend().emails.send({
-    from: FROM_EMAIL,
+    from: FROM_DISPLAY,
     to: adminEmail,
     subject: `طلب ضيف جديد — ${params.name}`,
     html: guestApplicationAdminHtml(params),
@@ -127,7 +50,7 @@ export async function sendGuestApplicationConfirm(
   name: string
 ) {
   return getResend().emails.send({
-    from: FROM_EMAIL,
+    from: FROM_DISPLAY,
     to: applicantEmail,
     subject: 'وصلنا قصتك — بودكاست خط',
     html: guestApplicationConfirmHtml(name),
@@ -139,10 +62,27 @@ export async function sendSponsorApplicationAdmin(
   params: { company: string; contact: string; email: string; budget: string }
 ) {
   return getResend().emails.send({
-    from: FROM_EMAIL,
+    from: FROM_DISPLAY,
     to: adminEmail,
     subject: `طلب شراكة جديد — ${params.company}`,
     html: sponsorApplicationAdminHtml(params),
+  })
+}
+
+export async function sendPrepSubmittedAdmin(
+  adminEmail: string,
+  params: {
+    candidateName: string
+    category: string | null
+    completionPercent: number
+    candidateId: string
+  }
+) {
+  return getResend().emails.send({
+    from: FROM_DISPLAY,
+    to: adminEmail,
+    subject: `نموذج تحضير جديد — ${params.candidateName}`,
+    html: prepSubmittedAdminHtml(params),
   })
 }
 
@@ -151,7 +91,7 @@ export async function sendSponsorApplicationConfirm(
   contactName: string
 ) {
   return getResend().emails.send({
-    from: FROM_EMAIL,
+    from: FROM_DISPLAY,
     to: applicantEmail,
     subject: 'شكراً لاهتمامك بالشراكة — بودكاست خط',
     html: sponsorApplicationConfirmHtml(contactName),

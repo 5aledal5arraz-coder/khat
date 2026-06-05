@@ -1,8 +1,15 @@
-import { createConfigStore } from "@/lib/config-store"
-import { db, USE_DB } from "@/lib/db"
-import { studioPushLog } from "@/lib/db/schema"
+/**
+ * Studio push-log — persistence routed through studio_analysis_records
+ * (Khat Brain Phase 5). Append-only history of studio→episode pushes.
+ *
+ * `replace: false` makes every append a fresh row instead of replacing
+ * the prior one — push_log is the only kind that wants history.
+ */
 
-const MAX_ENTRIES = 100
+import {
+  upsertStudioAnalysisRecord,
+  resolveEirIdForSession,
+} from "@/lib/studio/analysis-records"
 
 export interface PushLogEntry {
   sessionId: string
@@ -12,26 +19,20 @@ export interface PushLogEntry {
   pushedAt: string
 }
 
-const store = createConfigStore<PushLogEntry[]>("studio-push-log.json", [])
-
 export async function appendPushLog(entry: PushLogEntry): Promise<void> {
-  if (USE_DB) {
-    try {
-      await db!.insert(studioPushLog).values({
-        session_id: entry.sessionId,
-        episode_id: entry.episodeId,
-        episode_title: entry.episodeTitle,
-        pushed_fields: entry.pushedFields,
-        pushed_at: new Date(entry.pushedAt),
-      })
-      return
-    } catch (e) {
-      console.error("appendPushLog DB exception:", e)
-    }
-  }
-
-  const log = await store.read()
-  log.unshift(entry)
-  // Keep only the most recent entries
-  await store.write(log.slice(0, MAX_ENTRIES))
+  const eirId = await resolveEirIdForSession(entry.sessionId)
+  await upsertStudioAnalysisRecord({
+    studio_session_id: entry.sessionId,
+    eir_id: eirId,
+    kind: "push_log",
+    status: "ready",
+    data: {
+      episode_id: entry.episodeId,
+      episode_title: entry.episodeTitle,
+      pushed_fields: entry.pushedFields,
+      pushed_at: entry.pushedAt,
+    },
+    published_at: new Date(entry.pushedAt),
+    replace: false, // append-only history
+  })
 }

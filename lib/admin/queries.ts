@@ -1,14 +1,19 @@
 import { db, USE_DB } from "@/lib/db"
-import { eq, desc, sql, count, and, ilike, or, isNull } from 'drizzle-orm'
-import { guests, guestApplications, profiles, sponsorshipLeads, newsletterSubscribers, hibrArticles, hibrThoughts, hibrLikes, hibrFollows, hibrBookmarks } from '@/lib/db/schema'
-import { getAdminAuth } from "@/lib/firebase/admin"
+import { eq, desc, count } from 'drizzle-orm'
+import { guests, guestApplications, sponsorshipLeads, newsletterSubscribers, thinkerSuggestions, sponsorshipAnalysis, sponsorshipProposals, guestApplicationAnalysis, guestApplicationConcepts, guestApplicationResponses } from '@/lib/db/schema'
 import type {
   Guest,
   GuestApplication,
   GuestApplicationStatus,
   SponsorshipLead,
   SponsorshipStatus,
+  SponsorshipAnalysis,
+  SponsorshipProposal,
+  GuestApplicationAnalysis,
+  GuestApplicationConcept,
+  GuestApplicationResponse,
   NewsletterSubscriber,
+  ThinkerSuggestion,
 } from "@/types/database"
 import { mockGuests } from "@/lib/mocks/episodes"
 
@@ -290,9 +295,26 @@ export async function getGuestById(id: string): Promise<Guest | null> {
   }
 }
 
+/**
+ * Cleanup Phase A — manual admin guest creation now routes through
+ * `ensureGuest()` so it shares the same dedup + identity-profile path
+ * as discovery promotion / studio auto-link / application acceptance.
+ *
+ * Behaviour change:
+ *   - If a matching guest is found at high/medium confidence, that
+ *     existing guest is returned (no duplicate row) and the response
+ *     reports `existing: true`.
+ *   - If a low-confidence conflict is detected, ensureGuest's
+ *     `acceptance: "create_on_low"` lets the admin's explicit form
+ *     submission win — they typed the name on purpose.
+ *   - A `guest_identity_profiles` row is also ensured.
+ *
+ * The legacy direct-insert path is preserved ONLY when DB is offline
+ * (USE_DB=false), which is dev-only.
+ */
 export async function createGuest(
   guest: Omit<Guest, "id" | "created_at">
-): Promise<{ success: boolean; error?: string; data?: Guest }> {
+): Promise<{ success: boolean; error?: string; data?: Guest; existing?: boolean }> {
   if (!USE_DB) {
     const newGuest: Guest = {
       ...guest,
@@ -303,20 +325,47 @@ export async function createGuest(
   }
 
   try {
-    const rows = await db!
-      .insert(guests)
-      .values({
+    const { ensureGuest, createGuestIdentityProfile } = await import(
+      "@/lib/guests/canonical"
+    )
+    const result = await ensureGuest(
+      {
         name: guest.name,
         slug: guest.slug,
-        bio: guest.bio,
-        photo_url: guest.photo_url,
-        external_links: guest.external_links || null,
-        testimonial: guest.testimonial,
-      })
-      .returning()
-    return { success: true, data: rows[0] as unknown as Guest }
-  } catch (error: any) {
-    return { success: false, error: error.message }
+        bio: guest.bio ?? null,
+        photo_url: guest.photo_url ?? null,
+        external_links: (guest.external_links as Record<string, string>) ?? undefined,
+      },
+      // Admin typed the name on purpose; if dedup is uncertain, prefer
+      // creating rather than blocking the form submission.
+      { acceptance: "create_on_low" },
+    )
+
+    // If the testimonial field was supplied (legacy column on `guests`),
+    // patch it on the row that ensureGuest produced — it isn't part of
+    // the canonical IdentityHints surface.
+    if (guest.testimonial !== undefined && guest.testimonial !== null) {
+      await db!
+        .update(guests)
+        .set({ testimonial: guest.testimonial })
+        .where(eq(guests.id, result.guest_id))
+    }
+
+    // Make sure an identity profile exists. Idempotent.
+    await createGuestIdentityProfile(result.guest_id, {})
+
+    const [row] = await db!
+      .select()
+      .from(guests)
+      .where(eq(guests.id, result.guest_id))
+      .limit(1)
+    return {
+      success: true,
+      data: row as unknown as Guest,
+      existing: !result.created,
+    }
+  } catch (err: unknown) {
+    return { success: false, error: err instanceof Error ? err.message : String(err) }
   }
 }
 
@@ -330,7 +379,7 @@ export async function updateGuest(
 
   try {
     // Build a clean updates object, excluding id and created_at
-    const setData: Record<string, any> = {}
+    const setData: Record<string, unknown> = {}
     for (const [key, value] of Object.entries(updates)) {
       if (key === "id" || key === "created_at") continue
       setData[key] = value
@@ -343,8 +392,8 @@ export async function updateGuest(
       .set(setData)
       .where(eq(guests.id, id))
     return { success: true }
-  } catch (error: any) {
-    return { success: false, error: error.message }
+  } catch (err: unknown) {
+    return { success: false, error: err instanceof Error ? err.message : String(err) }
   }
 }
 
@@ -358,8 +407,8 @@ export async function deleteGuest(
   try {
     await db!.delete(guests).where(eq(guests.id, id))
     return { success: true }
-  } catch (error: any) {
-    return { success: false, error: error.message }
+  } catch (err: unknown) {
+    return { success: false, error: err instanceof Error ? err.message : String(err) }
   }
 }
 
@@ -373,8 +422,8 @@ export async function deleteGuestApplication(
   try {
     await db!.delete(guestApplications).where(eq(guestApplications.id, id))
     return { success: true }
-  } catch (error: any) {
-    return { success: false, error: error.message }
+  } catch (err: unknown) {
+    return { success: false, error: err instanceof Error ? err.message : String(err) }
   }
 }
 
@@ -392,8 +441,8 @@ export async function updateGuestApplicationStatus(
       .set({ status })
       .where(eq(guestApplications.id, id))
     return { success: true }
-  } catch (error: any) {
-    return { success: false, error: error.message }
+  } catch (err: unknown) {
+    return { success: false, error: err instanceof Error ? err.message : String(err) }
   }
 }
 
@@ -407,8 +456,8 @@ export async function deleteSponsorshipLead(
   try {
     await db!.delete(sponsorshipLeads).where(eq(sponsorshipLeads.id, id))
     return { success: true }
-  } catch (error: any) {
-    return { success: false, error: error.message }
+  } catch (err: unknown) {
+    return { success: false, error: err instanceof Error ? err.message : String(err) }
   }
 }
 
@@ -426,8 +475,23 @@ export async function updateSponsorshipStatus(
       .set({ status })
       .where(eq(sponsorshipLeads.id, id))
     return { success: true }
-  } catch (error: any) {
-    return { success: false, error: error.message }
+  } catch (err: unknown) {
+    return { success: false, error: err instanceof Error ? err.message : String(err) }
+  }
+}
+
+export async function getThinkerSuggestions(): Promise<ThinkerSuggestion[]> {
+  if (!USE_DB) return []
+
+  try {
+    const rows = await db!
+      .select()
+      .from(thinkerSuggestions)
+      .orderBy(desc(thinkerSuggestions.created_at))
+    return rows as unknown as ThinkerSuggestion[]
+  } catch (error) {
+    console.error("Error fetching thinker suggestions:", error)
+    return []
   }
 }
 
@@ -441,237 +505,163 @@ export async function deleteNewsletterSubscriber(
   try {
     await db!.delete(newsletterSubscribers).where(eq(newsletterSubscribers.id, id))
     return { success: true }
-  } catch (error: any) {
-    return { success: false, error: error.message }
+  } catch (err: unknown) {
+    return { success: false, error: err instanceof Error ? err.message : String(err) }
   }
 }
 
-// ===== Members Management =====
+// --- Sponsorship AI ---
 
-interface GetMembersParams {
-  search?: string
-  role?: string
-  is_banned?: boolean | null
-  limit?: number
-  offset?: number
-}
-
-export async function getMembers({
-  search,
-  role,
-  is_banned,
-  limit = 50,
-  offset = 0,
-}: GetMembersParams = {}): Promise<{
-  members: any[]
-  total: number
-}> {
-  if (!USE_DB) return { members: [], total: 0 }
-
-  const conditions: ReturnType<typeof eq>[] = [isNull(profiles.deleted_at)]
-
-  if (search) {
-    const escapedSearch = search.replace(/[%_\\]/g, '\\$&')
-    conditions.push(
-      or(
-        ilike(profiles.display_name, `%${escapedSearch}%`),
-        ilike(profiles.username, `%${escapedSearch}%`),
-        ilike(profiles.email, `%${escapedSearch}%`),
-      )!
-    )
-  }
-
-  if (role) {
-    conditions.push(eq(profiles.role, role))
-  }
-
-  if (is_banned === true) {
-    conditions.push(eq(profiles.is_banned, true))
-  } else if (is_banned === false) {
-    conditions.push(
-      or(
-        eq(profiles.is_banned, false),
-        isNull(profiles.is_banned),
-      )!
-    )
-  }
-
-  const whereClause = and(...conditions)
-
-  const countResult = await db!
-    .select({ count: count() })
-    .from(profiles)
-    .where(whereClause)
-  const total = countResult[0].count
-
-  const members = await db!
-    .select({
-      id: profiles.id,
-      display_name: profiles.display_name,
-      username: profiles.username,
-      avatar_url: profiles.avatar_url,
-      bio: profiles.bio,
-      email: profiles.email,
-      is_admin: profiles.is_admin,
-      is_banned: profiles.is_banned,
-      ban_reason: profiles.ban_reason,
-      articles_count: sql<number>`COALESCE(${profiles.articles_count}, 0)`,
-      followers_count: sql<number>`COALESCE(${profiles.followers_count}, 0)`,
-      role: profiles.role,
-      notify_comments: profiles.notify_comments,
-      notify_replies: profiles.notify_replies,
-      notify_likes: profiles.notify_likes,
-      notify_follows: profiles.notify_follows,
-      notification_unsubscribe_token: profiles.notification_unsubscribe_token,
-      must_change_password: profiles.must_change_password,
-      deleted_at: profiles.deleted_at,
-      created_at: profiles.created_at,
-      updated_at: profiles.updated_at,
-    })
-    .from(profiles)
-    .where(whereClause)
-    .orderBy(desc(profiles.created_at))
-    .limit(limit)
-    .offset(offset)
-
-  return { members, total }
-}
-
-export async function updateUserRole(
-  userId: string,
-  role: string
-): Promise<{ success: boolean; error?: string }> {
-  if (!USE_DB) return { success: false, error: "No database" }
-
-  const validRoles = ["admin", "editor", "moderator", "user"]
-  if (!validRoles.includes(role)) {
-    return { success: false, error: "Invalid role" }
-  }
-
-  try {
-    await db!
-      .update(profiles)
-      .set({ role, is_admin: role === "admin" })
-      .where(eq(profiles.id, userId))
-    return { success: true }
-  } catch (error: any) {
-    return { success: false, error: error.message }
-  }
-}
-
-export async function updateUserBanStatus(
-  userId: string,
-  is_banned: boolean,
-  ban_reason?: string
-): Promise<{ success: boolean; error?: string }> {
-  if (!USE_DB) return { success: false, error: "No database" }
-
-  try {
-    await db!
-      .update(profiles)
-      .set({
-        is_banned,
-        ban_reason: is_banned ? ban_reason || null : null,
-      })
-      .where(eq(profiles.id, userId))
-    return { success: true }
-  } catch (error: any) {
-    return { success: false, error: error.message }
-  }
-}
-
-export async function deleteUserAndContent(
-  userId: string
-): Promise<{ success: boolean; error?: string }> {
-  if (!USE_DB) return { success: false, error: "No database" }
-
-  try {
-    // Soft-delete profile
-    await db!
-      .update(profiles)
-      .set({ deleted_at: sql`now()` })
-      .where(eq(profiles.id, userId))
-    // Soft-delete articles (set moderation_status to removed)
-    await db!
-      .update(hibrArticles)
-      .set({ moderation_status: "removed" })
-      .where(eq(hibrArticles.user_id, userId))
-    // Soft-delete thoughts
-    await db!
-      .update(hibrThoughts)
-      .set({ moderation_status: "removed" })
-      .where(eq(hibrThoughts.user_id, userId))
-    // Hard-delete interactions
-    await db!.delete(hibrLikes).where(eq(hibrLikes.user_id, userId))
-    await db!.delete(hibrFollows).where(eq(hibrFollows.follower_id, userId))
-    await db!.delete(hibrBookmarks).where(eq(hibrBookmarks.user_id, userId))
-
-    return { success: true }
-  } catch (error: any) {
-    return { success: false, error: error.message }
-  }
-}
-
-export async function createMember(data: {
-  display_name: string
-  email: string
-  password: string
-  username?: string
-  role?: string
-}): Promise<{ success: boolean; error?: string; member?: any }> {
-  if (!USE_DB) return { success: false, error: "No database" }
-
-  const role = data.role || "user"
-  const isAdmin = role === "admin"
-
-  // Create Firebase Auth user first
-  let firebaseUid: string
-  try {
-    const userRecord = await getAdminAuth().createUser({
-      email: data.email,
-      password: data.password,
-      displayName: data.display_name,
-    })
-    firebaseUid = userRecord.uid
-  } catch (error: any) {
-    if (error.code === "auth/email-already-exists") {
-      return { success: false, error: "البريد الإلكتروني مستخدم بالفعل في نظام المصادقة" }
-    }
-    return { success: false, error: `فشل إنشاء حساب المصادقة: ${error.message}` }
-  }
-
-  try {
-    const rows = await db!
-      .insert(profiles)
-      .values({
-        id: firebaseUid,
-        display_name: data.display_name,
-        email: data.email,
-        username: data.username || null,
-        role,
-        is_admin: isAdmin,
-        must_change_password: true,
-        created_at: sql`NOW()`,
-        updated_at: sql`NOW()`,
-      })
-      .returning()
-    return { success: true, member: rows[0] }
-  } catch (error: any) {
-    // Rollback: delete the Firebase user if DB insert fails
-    try { await getAdminAuth().deleteUser(firebaseUid) } catch {}
-    if (error.code === "23505") {
-      return { success: false, error: "البريد الإلكتروني أو اسم المستخدم مستخدم بالفعل" }
-    }
-    return { success: false, error: error.message }
-  }
-}
-
-export async function getMemberById(userId: string) {
+export async function getSponsorshipAnalysis(leadId: string): Promise<SponsorshipAnalysis | null> {
   if (!USE_DB) return null
-
-  const rows = await db!
-    .select()
-    .from(profiles)
-    .where(and(eq(profiles.id, userId), isNull(profiles.deleted_at)))
-  return rows[0] || null
+  try {
+    const [row] = await db!
+      .select()
+      .from(sponsorshipAnalysis)
+      .where(eq(sponsorshipAnalysis.lead_id, leadId))
+      .limit(1)
+    return (row as unknown as SponsorshipAnalysis) ?? null
+  } catch (error) {
+    console.error("Error fetching sponsorship analysis:", error)
+    return null
+  }
 }
+
+export async function upsertSponsorshipAnalysis(
+  leadId: string,
+  data: Partial<Omit<SponsorshipAnalysis, "id" | "lead_id" | "created_at">>
+): Promise<string> {
+  if (!USE_DB) return ""
+  const existing = await getSponsorshipAnalysis(leadId)
+  if (existing) {
+    await db!.update(sponsorshipAnalysis).set(data).where(eq(sponsorshipAnalysis.lead_id, leadId))
+    return existing.id
+  }
+  const [row] = await db!.insert(sponsorshipAnalysis).values({ lead_id: leadId, ...data }).returning({ id: sponsorshipAnalysis.id })
+  return row.id
+}
+
+export async function getSponsorshipProposal(leadId: string): Promise<SponsorshipProposal | null> {
+  if (!USE_DB) return null
+  try {
+    const [row] = await db!
+      .select()
+      .from(sponsorshipProposals)
+      .where(eq(sponsorshipProposals.lead_id, leadId))
+      .orderBy(desc(sponsorshipProposals.created_at))
+      .limit(1)
+    return (row as unknown as SponsorshipProposal) ?? null
+  } catch (error) {
+    console.error("Error fetching sponsorship proposal:", error)
+    return null
+  }
+}
+
+export async function createSponsorshipProposal(
+  data: { lead_id: string; analysis_id?: string | null; tone?: string; status?: string }
+): Promise<string> {
+  if (!USE_DB) return ""
+  const [row] = await db!.insert(sponsorshipProposals).values(data).returning({ id: sponsorshipProposals.id })
+  return row.id
+}
+
+export async function updateSponsorshipProposal(
+  id: string,
+  data: Partial<Omit<SponsorshipProposal, "id" | "lead_id" | "created_at">>
+): Promise<void> {
+  if (!USE_DB) return
+  await db!.update(sponsorshipProposals).set(data).where(eq(sponsorshipProposals.id, id))
+}
+
+// --- Guest Application AI ---
+
+export async function getGuestAnalysis(applicationId: string): Promise<GuestApplicationAnalysis | null> {
+  if (!USE_DB) return null
+  try {
+    const [row] = await db!
+      .select()
+      .from(guestApplicationAnalysis)
+      .where(eq(guestApplicationAnalysis.application_id, applicationId))
+      .limit(1)
+    return (row as unknown as GuestApplicationAnalysis) ?? null
+  } catch (error) {
+    console.error("Error fetching guest analysis:", error)
+    return null
+  }
+}
+
+export async function upsertGuestAnalysis(
+  applicationId: string,
+  data: Partial<Omit<GuestApplicationAnalysis, "id" | "application_id" | "created_at">>
+): Promise<string> {
+  if (!USE_DB) return ""
+  const existing = await getGuestAnalysis(applicationId)
+  if (existing) {
+    await db!.update(guestApplicationAnalysis).set(data).where(eq(guestApplicationAnalysis.application_id, applicationId))
+    return existing.id
+  }
+  const [row] = await db!.insert(guestApplicationAnalysis).values({ application_id: applicationId, ...data }).returning({ id: guestApplicationAnalysis.id })
+  return row.id
+}
+
+export async function getGuestConcept(applicationId: string): Promise<GuestApplicationConcept | null> {
+  if (!USE_DB) return null
+  try {
+    const [row] = await db!
+      .select()
+      .from(guestApplicationConcepts)
+      .where(eq(guestApplicationConcepts.application_id, applicationId))
+      .orderBy(desc(guestApplicationConcepts.created_at))
+      .limit(1)
+    return (row as unknown as GuestApplicationConcept) ?? null
+  } catch (error) {
+    console.error("Error fetching guest concept:", error)
+    return null
+  }
+}
+
+export async function createGuestConcept(
+  data: { application_id: string; analysis_id?: string | null; status?: string }
+): Promise<string> {
+  if (!USE_DB) return ""
+  const [row] = await db!.insert(guestApplicationConcepts).values(data).returning({ id: guestApplicationConcepts.id })
+  return row.id
+}
+
+export async function updateGuestConcept(
+  id: string,
+  data: Partial<Omit<GuestApplicationConcept, "id" | "application_id" | "created_at">>
+): Promise<void> {
+  if (!USE_DB) return
+  await db!.update(guestApplicationConcepts).set(data).where(eq(guestApplicationConcepts.id, id))
+}
+
+export async function getGuestResponses(applicationId: string): Promise<GuestApplicationResponse | null> {
+  if (!USE_DB) return null
+  try {
+    const [row] = await db!
+      .select()
+      .from(guestApplicationResponses)
+      .where(eq(guestApplicationResponses.application_id, applicationId))
+      .limit(1)
+    return (row as unknown as GuestApplicationResponse) ?? null
+  } catch (error) {
+    console.error("Error fetching guest responses:", error)
+    return null
+  }
+}
+
+export async function upsertGuestResponses(
+  applicationId: string,
+  data: Partial<Omit<GuestApplicationResponse, "id" | "application_id" | "created_at">>
+): Promise<string> {
+  if (!USE_DB) return ""
+  const existing = await getGuestResponses(applicationId)
+  if (existing) {
+    await db!.update(guestApplicationResponses).set(data).where(eq(guestApplicationResponses.application_id, applicationId))
+    return existing.id
+  }
+  const [row] = await db!.insert(guestApplicationResponses).values({ application_id: applicationId, ...data }).returning({ id: guestApplicationResponses.id })
+  return row.id
+}
+

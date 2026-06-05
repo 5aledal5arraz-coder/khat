@@ -1,4 +1,5 @@
 import { pgTable, text, boolean, timestamp, jsonb } from "drizzle-orm/pg-core"
+import { sql } from "drizzle-orm"
 
 export const guests = pgTable("guests", {
   id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
@@ -8,6 +9,14 @@ export const guests = pgTable("guests", {
   photo_url: text("photo_url"),
   external_links: jsonb("external_links").$type<Record<string, string>>().default({}),
   testimonial: text("testimonial"),
+  /**
+   * Phase 8 — generated normalized name for indexed lookup. Computed at
+   * the DB level via the migration in scripts/migrate-khat-brain-performance-loop.ts;
+   * never written from app code.
+   */
+  normalized_name: text("normalized_name").generatedAlwaysAs(
+    sql`regexp_replace(regexp_replace(translate(lower(name), E'\u064B\u064C\u064D\u064E\u064F\u0650\u0651\u0652\u0670', ''), '[^a-z0-9\u0600-\u06ff\\s]+', ' ', 'g'), '\\s+', ' ', 'g')`,
+  ),
   created_at: timestamp("created_at", { withTimezone: true }).defaultNow(),
 })
 

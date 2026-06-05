@@ -4,7 +4,7 @@ import {
   newsletterCampaigns,
   newsletterDeliveries,
 } from "@/lib/db/schema"
-import { eq, count, desc, sql, and, or, ilike } from "drizzle-orm"
+import { eq, count, desc, sql, and, ilike } from "drizzle-orm"
 
 // ── Metrics ──
 
@@ -32,33 +32,23 @@ export async function getNewsletterMetrics() {
   // Aggregate totals from all sent campaigns
   const [agg] = await db.select({
     total_sent: sql<number>`COALESCE(SUM(${newsletterCampaigns.total_sent}), 0)`,
-    total_delivered: sql<number>`COALESCE(SUM(${newsletterCampaigns.total_delivered}), 0)`,
     total_opened: sql<number>`COALESCE(SUM(${newsletterCampaigns.total_opened}), 0)`,
     total_clicked: sql<number>`COALESCE(SUM(${newsletterCampaigns.total_clicked}), 0)`,
-    total_bounced: sql<number>`COALESCE(SUM(${newsletterCampaigns.total_bounced}), 0)`,
-    total_complaints: sql<number>`COALESCE(SUM(${newsletterCampaigns.total_complaints}), 0)`,
   })
     .from(newsletterCampaigns)
     .where(eq(newsletterCampaigns.status, "sent"))
 
   const totalSent = Number(agg.total_sent)
-  const totalDelivered = Number(agg.total_delivered)
   const totalOpened = Number(agg.total_opened)
   const totalClicked = Number(agg.total_clicked)
-  const totalBounced = Number(agg.total_bounced)
-  const totalComplaints = Number(agg.total_complaints)
 
   return {
     activeSubscribers,
     totalSubscribers,
     campaignsSent,
     totalEmailsSent: totalSent,
-    deliveryRate: totalSent > 0 ? Math.round((totalDelivered / totalSent) * 100) : 0,
     openRate: totalSent > 0 ? Math.round((totalOpened / totalSent) * 100) : 0,
     clickRate: totalSent > 0 ? Math.round((totalClicked / totalSent) * 100) : 0,
-    bounceRate: totalSent > 0 ? Math.round((totalBounced / totalSent) * 100) : 0,
-    totalBounced,
-    totalComplaints,
   }
 }
 
@@ -109,7 +99,7 @@ export async function getCampaignById(id: string) {
   }
 }
 
-export async function getCampaignDeliveries(campaignId: string) {
+export async function getCampaignDeliveries(campaignId: string, limit = 200) {
   if (!db) return []
 
   const rows = await db.select({
@@ -126,6 +116,7 @@ export async function getCampaignDeliveries(campaignId: string) {
     .innerJoin(newsletterSubscribers, eq(newsletterDeliveries.subscriber_id, newsletterSubscribers.id))
     .where(eq(newsletterDeliveries.campaign_id, campaignId))
     .orderBy(desc(newsletterDeliveries.sent_at))
+    .limit(limit)
 
   return rows.map(r => ({
     id: r.id,
@@ -191,7 +182,7 @@ export async function getSubscribersWithStatus(opts?: {
       email: s.email,
       status: s.status ?? "active",
       created_at: s.created_at?.toISOString() ?? "",
-      unsubscribed_at: (s as any).unsubscribed_at?.toISOString() ?? null,
+      unsubscribed_at: s.unsubscribed_at?.toISOString() ?? null,
     })),
     counts,
   }
@@ -213,4 +204,45 @@ export async function getHealthStats() {
     totalCampaigns: totalCampaigns[0]?.count ?? 0,
     totalDeliveries: totalDeliveries[0]?.count ?? 0,
   }
+}
+
+// ── Active Subscriber Count ──
+
+export async function getActiveSubscriberCount(): Promise<number> {
+  if (!db) return 0
+  const [result] = await db.select({ count: count() })
+    .from(newsletterSubscribers)
+    .where(eq(newsletterSubscribers.status, "active"))
+  return result?.count ?? 0
+}
+
+// ── Recent Campaigns ──
+
+export async function getRecentCampaigns(limit = 20) {
+  if (!db) return []
+
+  const rows = await db.select({
+    id: newsletterCampaigns.id,
+    subject: newsletterCampaigns.subject,
+    status: newsletterCampaigns.status,
+    total_recipients: newsletterCampaigns.total_recipients,
+    total_sent: newsletterCampaigns.total_sent,
+    total_opened: newsletterCampaigns.total_opened,
+    total_clicked: newsletterCampaigns.total_clicked,
+    sent_at: newsletterCampaigns.sent_at,
+  })
+    .from(newsletterCampaigns)
+    .orderBy(desc(newsletterCampaigns.created_at))
+    .limit(limit)
+
+  return rows.map(r => ({
+    id: r.id,
+    subject: r.subject,
+    status: r.status,
+    total_recipients: r.total_recipients ?? 0,
+    total_sent: r.total_sent ?? 0,
+    total_opened: r.total_opened ?? 0,
+    total_clicked: r.total_clicked ?? 0,
+    sent_at: r.sent_at?.toISOString() ?? new Date().toISOString(),
+  }))
 }

@@ -1,5 +1,4 @@
-import { pgTable, text, integer, boolean, timestamp, jsonb } from "drizzle-orm/pg-core"
-import { sql } from "drizzle-orm"
+import { pgTable, text, integer, boolean, timestamp } from "drizzle-orm/pg-core"
 
 export const homeQuotes = pgTable("home_quotes", {
   id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
@@ -15,17 +14,6 @@ export const homeQuotes = pgTable("home_quotes", {
   updated_at: timestamp("updated_at", { withTimezone: true }).defaultNow(),
 })
 
-export const emotionalPaths = pgTable("emotional_paths", {
-  id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
-  slug: text("slug").unique().notNull(),
-  title: text("title").notNull(),
-  subtitle: text("subtitle").notNull(),
-  icon: text("icon").notNull(),
-  color: text("color").notNull(),
-  episode_ids: jsonb("episode_ids").$type<string[]>().default(sql`'[]'::jsonb`),
-  quote_ids: jsonb("quote_ids").$type<string[]>().default(sql`'[]'::jsonb`),
-  order: integer("order").notNull(),
-})
 
 export const dailyReflections = pgTable("daily_reflections", {
   id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
@@ -54,6 +42,43 @@ export const teasers = pgTable("teasers", {
   expire_at: text("expire_at"),
   created_at: timestamp("created_at", { withTimezone: true }).defaultNow(),
   updated_at: timestamp("updated_at", { withTimezone: true }).defaultNow(),
+})
+
+export const homepageFeatured = pgTable("homepage_featured", {
+  id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+  position: integer("position").notNull(), // 1, 2, or 3
+  episode_id: text("episode_id").notNull(),
+  custom_quote: text("custom_quote"),
+  custom_description: text("custom_description"),
+  custom_image: text("custom_image"),
+  updated_at: timestamp("updated_at", { withTimezone: true }).defaultNow(),
+})
+
+export const homepageThinkers = pgTable("homepage_thinkers", {
+  id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+  position: integer("position").notNull(),
+  guest_id: text("guest_id").notNull(),
+  custom_title: text("custom_title"),
+  custom_description: text("custom_description"),
+  custom_image: text("custom_image"),
+  updated_at: timestamp("updated_at", { withTimezone: true }).defaultNow(),
+})
+
+export const homepageSettings = pgTable("homepage_settings", {
+  key: text("key").primaryKey(),
+  value: text("value").notNull(),
+  updated_at: timestamp("updated_at", { withTimezone: true }).defaultNow(),
+})
+
+export const thinkerSuggestions = pgTable("thinker_suggestions", {
+  id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+  thinker_name: text("thinker_name").notNull(),
+  research_field: text("research_field").notNull(),
+  reason: text("reason").notNull(),
+  social_links: text("social_links"),
+  phone: text("phone"),
+  status: text("status").default("new"),
+  created_at: timestamp("created_at", { withTimezone: true }).defaultNow(),
 })
 
 export const teaserQuestions = pgTable("teaser_questions", {

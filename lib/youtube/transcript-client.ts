@@ -1,19 +1,11 @@
 /**
- * Client-side YouTube transcript extraction via our CORS proxy.
+ * Client-side YouTube transcript extraction.
  *
- * YouTube blocks both:
- *  - Server-side InnerTube requests (datacenter IPs → "session not found")
- *  - Browser cross-origin fetches (no CORS headers on youtube.com)
+ * Strategy cascade:
+ *  1. Direct InnerTube call from browser (via corsproxy.io for CORS)
+ *  2. Server proxy fallback (may fail if server IP is blocked)
  *
- * Solution: a thin proxy at /api/admin/studio/youtube-proxy that forwards
- * requests to YouTube using the WEB InnerTube client. This module calls
- * that proxy and parses the captions in the browser.
- *
- * Flow:
- *  1. GET /youtube-proxy?action=tracks&videoId=X  → caption track list
- *  2. GET /youtube-proxy?action=captions&url=X    → raw caption JSON/XML
- *  3. Parse and clean captions (in browser)
- *  4. Return { success, text, language }
+ * The browser-based approach bypasses server-side bot detection.
  */
 
 export interface ClientTranscriptResult {
@@ -31,46 +23,128 @@ interface CaptionTrack {
 }
 
 const PROXY_BASE = "/api/admin/studio/youtube-proxy"
+const VERCEL_PROXY = "https://khat-yt-proxy.vercel.app/api/transcript"
 
 /**
- * Extract transcript from YouTube via our proxy.
+ * Extract transcript — tries multiple approaches:
+ *  1. Vercel Edge proxy (different IP than our server)
+ *  2. Server proxy (may be blocked by YouTube)
  */
 export async function fetchTranscriptClient(
   videoId: string
 ): Promise<ClientTranscriptResult> {
+  // Approach 1: Vercel proxy
+  const vercel = await fetchViaVercelProxy(videoId)
+  if (vercel.success && vercel.text) return vercel
+
+  // Approach 2: Server proxy
+  const proxied = await fetchViaServerProxy(videoId)
+  if (proxied.success && proxied.text) return proxied
+
+  return {
+    success: false,
+    text: "",
+    language: "",
+    error: vercel.error || proxied.error || "لا تتوفر ترجمة تلقائية لهذا الفيديو",
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Approach 1: Vercel Edge proxy
+// ---------------------------------------------------------------------------
+
+async function fetchViaVercelProxy(
+  videoId: string
+): Promise<ClientTranscriptResult> {
   try {
-    // Step 1: Get caption tracks via proxy → InnerTube WEB client
+    const tracksRes = await fetch(
+      `${VERCEL_PROXY}?v=${encodeURIComponent(videoId)}&action=tracks`
+    )
+
+    if (!tracksRes.ok) {
+      return { success: false, text: "", language: "", error: `Vercel proxy error (${tracksRes.status})` }
+    }
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const tracksData: any = await tracksRes.json()
+    const tracks: CaptionTrack[] = tracksData?.captionTracks || []
+
+    if (tracks.length === 0) {
+      const errors = tracksData?.errors?.join(", ") || ""
+      return { success: false, text: "", language: "", error: errors || "لا تتوفر ترجمة" }
+    }
+
+    const track = pickBestTrack(tracks)
+    const captionUrl = track.baseUrl.includes("?")
+      ? `${track.baseUrl}&fmt=json3`
+      : `${track.baseUrl}?fmt=json3`
+
+    const captionRes = await fetch(
+      `${VERCEL_PROXY}?v=${videoId}&action=captions&url=${encodeURIComponent(captionUrl)}`
+    )
+
+    if (!captionRes.ok) {
+      return { success: false, text: "", language: track.languageCode, error: "فشل جلب النص" }
+    }
+
+    const captionText = await captionRes.text()
+    let segments: string[] = []
+
+    try {
+      const captionData = JSON.parse(captionText)
+      segments = parseJson3Captions(captionData)
+    } catch {
+      segments = parseCaptionXml(captionText)
+    }
+
+    if (segments.length === 0) {
+      return { success: false, text: "", language: track.languageCode, error: "لا توجد نصوص" }
+    }
+
+    const cleaned = cleanSegments(segments)
+    if (cleaned) {
+      return { success: true, text: cleaned, language: track.languageCode }
+    }
+
+    return { success: false, text: "", language: track.languageCode, error: "لا توجد نصوص بعد التنظيف" }
+  } catch {
+    return { success: false, text: "", language: "", error: "فشل الاتصال بـ Vercel proxy" }
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Approach 2: Server proxy fallback
+// ---------------------------------------------------------------------------
+
+async function fetchViaServerProxy(
+  videoId: string
+): Promise<ClientTranscriptResult> {
+  try {
     const tracksRes = await fetch(
       `${PROXY_BASE}?action=tracks&videoId=${encodeURIComponent(videoId)}`
     )
 
     if (!tracksRes.ok) {
-      const err = await tracksRes.json().catch(() => ({}))
-      return {
-        success: false,
-        text: "",
-        language: "",
-        error: (err as { error?: string }).error || `فشل في جلب بيانات الفيديو (${tracksRes.status})`,
-      }
+      return { success: false, text: "", language: "", error: `Proxy error (${tracksRes.status})` }
     }
 
-    const tracksData = await tracksRes.json()
+    const tracksText = await tracksRes.text()
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    let tracksData: any
+    try {
+      tracksData = JSON.parse(tracksText)
+    } catch {
+      return { success: false, text: "", language: "", error: "استجابة غير صالحة من الخادم الوسيط" }
+    }
+
     const captionTracks: CaptionTrack[] = tracksData?.captionTracks || []
-
     if (captionTracks.length === 0) {
-      return {
-        success: false,
-        text: "",
-        language: "",
-        error: "لا تتوفر ترجمة تلقائية لهذا الفيديو",
-      }
+      return { success: false, text: "", language: "", error: "لا تتوفر ترجمة عبر الخادم الوسيط" }
     }
 
-    // Step 2: Pick best track — prefer Arabic manual, then Arabic auto, then first
     const track = pickBestTrack(captionTracks)
     const language = track.languageCode
 
-    // Step 3: Fetch caption content via proxy (JSON3 format preferred)
     const captionUrl = track.baseUrl.includes("?")
       ? `${track.baseUrl}&fmt=json3`
       : `${track.baseUrl}?fmt=json3`
@@ -80,11 +154,9 @@ export async function fetchTranscriptClient(
     )
 
     if (!captionRes.ok) {
-      // Fallback: try XML format
-      return await fetchCaptionXml(track.baseUrl, language)
+      return { success: false, text: "", language, error: "فشل في جلب النص عبر الخادم الوسيط" }
     }
 
-    // Try to parse as JSON3
     const captionText = await captionRes.text()
     let segments: string[] = []
 
@@ -92,65 +164,42 @@ export async function fetchTranscriptClient(
       const captionData = JSON.parse(captionText)
       segments = parseJson3Captions(captionData)
     } catch {
-      // Response wasn't valid JSON — maybe it's XML, try XML parse
       segments = parseCaptionXml(captionText)
     }
 
     if (segments.length === 0) {
-      // Fallback to plain XML
-      return await fetchCaptionXml(track.baseUrl, language)
+      return { success: false, text: "", language, error: "لا توجد نصوص في الترجمة" }
     }
 
     const text = cleanSegments(segments)
     if (!text) {
-      return {
-        success: false,
-        text: "",
-        language,
-        error: "لا توجد نصوص في الترجمة",
-      }
+      return { success: false, text: "", language, error: "لا توجد نصوص في الترجمة" }
     }
 
     return { success: true, text, language }
-  } catch (error) {
-    const message =
-      error instanceof Error ? error.message : "فشل في جلب النص من يوتيوب"
-    return { success: false, text: "", language: "", error: message }
+  } catch {
+    return { success: false, text: "", language: "", error: "فشل الخادم الوسيط" }
   }
 }
 
 // ---------------------------------------------------------------------------
-// Internal helpers
+// Shared helpers
 // ---------------------------------------------------------------------------
 
 function pickBestTrack(tracks: CaptionTrack[]): CaptionTrack {
-  // 1. Arabic manual captions (no kind = "asr")
-  const arManual = tracks.find(
-    (t) => t.languageCode === "ar" && t.kind !== "asr"
-  )
+  const arManual = tracks.find((t) => t.languageCode === "ar" && t.kind !== "asr")
   if (arManual) return arManual
-
-  // 2. Arabic auto-generated
   const arAuto = tracks.find((t) => t.languageCode === "ar")
   if (arAuto) return arAuto
-
-  // 3. Any manual track
   const anyManual = tracks.find((t) => t.kind !== "asr")
   if (anyManual) return anyManual
-
-  // 4. First available
   return tracks[0]
 }
 
-/**
- * Parse YouTube's json3 caption format.
- * Structure: { events: [{ segs: [{ utf8: "text" }], ... }] }
- */
 function parseJson3Captions(
   data: { events?: { segs?: { utf8?: string }[] }[] }
 ): string[] {
   const segments: string[] = []
-
   if (!data.events) return segments
 
   for (const event of data.events) {
@@ -167,54 +216,8 @@ function parseJson3Captions(
   return segments
 }
 
-/**
- * Fallback: fetch and parse XML caption format via proxy.
- */
-async function fetchCaptionXml(
-  baseUrl: string,
-  language: string
-): Promise<ClientTranscriptResult> {
-  try {
-    const res = await fetch(
-      `${PROXY_BASE}?action=captions&url=${encodeURIComponent(baseUrl)}`
-    )
-    if (!res.ok) {
-      return {
-        success: false,
-        text: "",
-        language,
-        error: "فشل في جلب النص التلقائي",
-      }
-    }
-
-    const xml = await res.text()
-    const segments = parseCaptionXml(xml)
-
-    if (segments.length === 0) {
-      return {
-        success: false,
-        text: "",
-        language,
-        error: "لا توجد نصوص في الترجمة",
-      }
-    }
-
-    const text = cleanSegments(segments)
-    return { success: true, text, language }
-  } catch {
-    return {
-      success: false,
-      text: "",
-      language,
-      error: "فشل في جلب النص التلقائي",
-    }
-  }
-}
-
 function parseCaptionXml(xml: string): string[] {
   const segments: string[] = []
-
-  // srv3 format: <p> with <s> children
   const hasSrvFormat = xml.includes("<p ")
 
   if (hasSrvFormat) {
@@ -234,7 +237,6 @@ function parseCaptionXml(xml: string): string[] {
       }
     }
   } else {
-    // Simple format: <text start="0" dur="5.2">text</text>
     const textRegex = /<text[^>]*>([\s\S]*?)<\/text>/g
     let match
     while ((match = textRegex.exec(xml)) !== null) {
@@ -256,9 +258,6 @@ function decodeEntities(text: string): string {
     .replace(/&apos;/g, "'")
 }
 
-/**
- * Normalize Arabic text for deduplication.
- */
 function normalizeForDedup(text: string): string {
   return text
     .replace(/[\u0617-\u061A\u064B-\u0652\u0670]/g, "")
@@ -269,15 +268,12 @@ function normalizeForDedup(text: string): string {
     .toLowerCase()
 }
 
-/**
- * Clean and deduplicate caption segments into a single transcript string.
- */
 function cleanSegments(segments: string[]): string {
   const seen = new Set<string>()
   const cleaned: string[] = []
 
   for (const segment of segments) {
-    let text = segment
+    const text = segment
       .replace(/\[.*?\]/g, "")
       .replace(/\(.*?\)/g, "")
       .trim()

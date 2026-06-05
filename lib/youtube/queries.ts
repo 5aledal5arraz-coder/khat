@@ -126,13 +126,6 @@ function videoToEpisode(video: YouTubeVideo, index: number): Episode {
       testimonial: null,
       created_at: video.publishedAt,
     } : null,
-    topics: video.tags.slice(0, 5).map((tag, i) => ({
-      id: `topic-${video.id}-${i}`,
-      name: tag,
-      slug: generateSlug(tag, `${video.id}-${i}`),
-      description: null,
-      created_at: video.publishedAt,
-    })),
   }
 }
 

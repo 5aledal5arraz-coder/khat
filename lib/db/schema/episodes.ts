@@ -1,6 +1,13 @@
-import { pgTable, text, integer, boolean, date, timestamp, jsonb, primaryKey } from "drizzle-orm/pg-core"
+import { pgTable, text, integer, boolean, date, timestamp, jsonb } from "drizzle-orm/pg-core"
 import { guests } from "./guests"
-import { topics } from "./topics"
+
+export const episodeCategories = pgTable("episode_categories", {
+  id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+  name: text("name").notNull(),
+  slug: text("slug").unique().notNull(),
+  sort_order: integer("sort_order").default(0),
+  created_at: timestamp("created_at", { withTimezone: true }).defaultNow(),
+})
 
 export const episodes = pgTable("episodes", {
   id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
@@ -19,19 +26,25 @@ export const episodes = pgTable("episodes", {
   status: text("status").default("published"),
   featured: boolean("featured").default(false),
   view_count: integer("view_count").default(0),
+  category_id: text("category_id").references(() => episodeCategories.id, { onDelete: "set null" }),
   guest_id: text("guest_id").references(() => guests.id, { onDelete: "set null" }),
   guest_testimonial: text("guest_testimonial"),
   guest_video_url: text("guest_video_url"),
+  audio_url: text("audio_url"),
+  audio_type: text("audio_type"),
+  rss_guid: text("rss_guid").unique(),
+  rss_published_at: timestamp("rss_published_at", { withTimezone: true }),
+  audio_duration: integer("audio_duration"),
+  /**
+   * Khat Brain — link to the master Episode Intelligence Record.
+   * Stamped when a studio session is pushed to the episode (Phase 3).
+   * No Drizzle .references() to avoid circular imports; FK installed
+   * by the migration.
+   */
+  eir_id: text("eir_id"),
   created_at: timestamp("created_at", { withTimezone: true }).defaultNow(),
   updated_at: timestamp("updated_at", { withTimezone: true }).defaultNow(),
 })
-
-export const episodeTopics = pgTable("episode_topics", {
-  episode_id: text("episode_id").notNull().references(() => episodes.id, { onDelete: "cascade" }),
-  topic_id: text("topic_id").notNull().references(() => topics.id, { onDelete: "cascade" }),
-}, (t) => [
-  primaryKey({ columns: [t.episode_id, t.topic_id] }),
-])
 
 export const timestamps = pgTable("timestamps", {
   id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
@@ -81,7 +94,6 @@ export const episodeEnrichments = pgTable("episode_enrichments", {
   hero_summary: text("hero_summary"),
   full_summary: text("full_summary"),
   takeaways: jsonb("takeaways").$type<string[]>(),
-  topics: jsonb("topics").$type<string[]>(),
   resources: jsonb("resources").$type<unknown[]>(),
   timestamps: jsonb("timestamps").$type<unknown[]>(),
   why_this_conversation: text("why_this_conversation"),
@@ -93,28 +105,9 @@ export const episodeEnrichments = pgTable("episode_enrichments", {
   updated_at: timestamp("updated_at", { withTimezone: true }).defaultNow(),
 })
 
-export const episodeSections = pgTable("episode_sections", {
-  id: text("id").primaryKey(),
-  label: text("label").notNull(),
-  order: integer("order").notNull(),
-  color: text("color"),
-  hidden: boolean("hidden").default(false),
-})
 
-export const episodeSectionAssignments = pgTable("episode_section_assignments", {
-  episode_id: text("episode_id").primaryKey(),
-  section_id: text("section_id").notNull().references(() => episodeSections.id, { onDelete: "cascade" }),
-})
-
-export const episodeVisibility = pgTable("episode_visibility", {
-  episode_id: text("episode_id").primaryKey(),
-  visibility: text("visibility").notNull(),
-})
-
-export const episodeGuestAssignments = pgTable("episode_guest_assignments", {
-  episode_id: text("episode_id").primaryKey(),
-  guest_id: text("guest_id").notNull().references(() => guests.id, { onDelete: "cascade" }),
-})
+// episode_guest_assignments removed in Khat Brain Phase 1 — guest-episode
+// linking lives on episodes.guest_id. The migration drops the table.
 
 export const episodeQuotesConfig = pgTable("episode_quotes_config", {
   episode_id: text("episode_id").primaryKey(),
@@ -126,22 +119,30 @@ export const episodeQuotesConfig = pgTable("episode_quotes_config", {
   published_at: text("published_at"),
 })
 
-export const episodeKnowledge = pgTable("episode_knowledge", {
-  episode_id: text("episode_id").primaryKey(),
-  analysis: jsonb("analysis").$type<Record<string, unknown>>().notNull(),
-})
-
-export const episodeKnowledgeMeta = pgTable("episode_knowledge_meta", {
-  key: text("key").primaryKey(),
-  topic_taxonomy: jsonb("topic_taxonomy").$type<unknown[]>(),
-  relationships: jsonb("relationships").$type<Record<string, string[]>>(),
-  analyzed_at: text("analyzed_at"),
-  season_1_count: integer("season_1_count").default(0),
-  season_2_count: integer("season_2_count").default(0),
+export const episodeSponsors = pgTable("episode_sponsors", {
+  episode_id: text("episode_id").primaryKey().references(() => episodes.id, { onDelete: "cascade" }),
+  partner_id: text("partner_id").notNull(),
+  custom_brand_line: text("custom_brand_line"),
+  created_at: timestamp("created_at", { withTimezone: true }).defaultNow(),
 })
 
 export const hiddenEpisodes = pgTable("hidden_episodes", {
   id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
   episode_id: text("episode_id").notNull(),
   created_at: timestamp("created_at", { withTimezone: true }).defaultNow(),
+})
+
+/**
+ * Tombstone table for hard-deleted episodes.
+ *
+ * Because episodes can come from an external source (YouTube) that we do
+ * not control, simply deleting a row from `episodes` is not enough — the
+ * next refresh will pull the episode back in and `mergeEpisodeLists` will
+ * re-inject it. Rows in this table are ALWAYS filtered out of any episode
+ * list (regardless of `includeHidden`) so deletions are permanent.
+ */
+export const deletedEpisodes = pgTable("deleted_episodes", {
+  episode_id: text("episode_id").primaryKey(),
+  deleted_at: timestamp("deleted_at", { withTimezone: true }).defaultNow(),
+  deleted_by: text("deleted_by"),
 })

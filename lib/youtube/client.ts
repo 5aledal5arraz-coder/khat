@@ -42,7 +42,6 @@ async function fetchYouTube<T>(endpoint: string, params: Record<string, string>)
   }
 
   const url = new URL(`${YOUTUBE_API_BASE}/${endpoint}`)
-  url.searchParams.set("key", YOUTUBE_API_KEY)
 
   for (const [key, value] of Object.entries(params)) {
     url.searchParams.set(key, value)
@@ -50,6 +49,10 @@ async function fetchYouTube<T>(endpoint: string, params: Record<string, string>)
 
   const response = await fetch(url.toString(), {
     next: { revalidate: 43200 }, // Cache for 12 hours
+    headers: {
+      "X-goog-api-key": YOUTUBE_API_KEY,
+      Referer: "https://khatpodcast.com",
+    },
   })
 
   if (!response.ok) {

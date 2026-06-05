@@ -1,12 +1,4 @@
-import type { Episode, Guest, Topic, Timestamp, Quote, Resource, HomeQuote, DailyReflection } from '@/types/database'
-
-export const mockTopics: Topic[] = [
-  { id: '1', name: 'العلاقات', slug: 'relationships', created_at: '2024-01-01' },
-  { id: '2', name: 'تطوير الذات', slug: 'self-growth', created_at: '2024-01-01' },
-  { id: '3', name: 'المعنى والهدف', slug: 'meaning', created_at: '2024-01-01' },
-  { id: '4', name: 'الصحة النفسية', slug: 'mental-health', created_at: '2024-01-01' },
-  { id: '5', name: 'العمل والمهنة', slug: 'career', created_at: '2024-01-01' },
-]
+import type { Episode, Guest, Timestamp, Quote, Resource, HomeQuote, DailyReflection } from '@/types/database'
 
 export const mockGuests: Guest[] = [
   {
@@ -70,7 +62,6 @@ export const mockEpisodes: (Episode & { guest?: Guest | null })[] = [
     guest_id: '1',
     created_at: '2024-12-15',
     guest: mockGuests[0],
-    topics: [mockTopics[0], mockTopics[3]],
   },
   {
     id: '2',
@@ -90,7 +81,6 @@ export const mockEpisodes: (Episode & { guest?: Guest | null })[] = [
     guest_id: '2',
     created_at: '2024-12-01',
     guest: mockGuests[1],
-    topics: [mockTopics[4], mockTopics[1]],
   },
   {
     id: '3',
@@ -110,7 +100,6 @@ export const mockEpisodes: (Episode & { guest?: Guest | null })[] = [
     guest_id: '3',
     created_at: '2024-11-15',
     guest: mockGuests[2],
-    topics: [mockTopics[1], mockTopics[2]],
   },
   {
     id: '4',
@@ -130,7 +119,6 @@ export const mockEpisodes: (Episode & { guest?: Guest | null })[] = [
     guest_id: '4',
     created_at: '2024-11-01',
     guest: mockGuests[3],
-    topics: [mockTopics[4]],
   },
   {
     id: '5',
@@ -150,7 +138,6 @@ export const mockEpisodes: (Episode & { guest?: Guest | null })[] = [
     guest_id: '1',
     created_at: '2024-10-15',
     guest: mockGuests[0],
-    topics: [mockTopics[3], mockTopics[1]],
   },
 ]
 
@@ -253,8 +240,6 @@ export const mockDailyReflection: DailyReflection = {
   episode_title: 'كيف نبني علاقات صحية ومستدامة؟',
   quote_id: 'hq-1',
   quote_text: 'أحياناً أعمق المحادثات تبدأ بصمت.',
-  path_slug: 'understanding-people',
-  path_title: 'فهم الناس',
   status: 'published',
   created_at: '2024-12-01T00:00:00Z',
   updated_at: '2024-12-01T00:00:00Z',

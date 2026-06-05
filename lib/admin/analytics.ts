@@ -1,8 +1,8 @@
 import { createConfigStore } from "@/lib/config-store"
 import { db, USE_DB } from "@/lib/db"
 import { platformAnalytics } from "@/lib/db/schema"
-import { sql, eq } from "drizzle-orm"
-import type { AnalyticsConfig, PlatformStats } from "@/types/media-kit"
+import { sql } from "drizzle-orm"
+import type { AnalyticsConfig } from "@/types/media-kit"
 
 const defaultConfig: AnalyticsConfig = {
   youtube: { followers: 0, posts: 0, engagement: "0%", url: "" },

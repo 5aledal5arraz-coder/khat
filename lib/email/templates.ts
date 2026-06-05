@@ -1,13 +1,42 @@
 import { APP_URL } from './resend'
 
+/**
+ * Strip any AI-generated unsubscribe blocks from body content so that only the
+ * wrapper's own unsubscribe link survives. The AI prompt asks for
+ * `{{unsubscribe_url}}` but the `emailLayout` wrapper already adds the real
+ * unsubscribe link — having both causes duplication.
+ */
+function stripBodyUnsubscribe(html: string): string {
+  // Remove anchor tags containing the placeholder
+  let cleaned = html.replace(/<a[^>]*href=["']?\{\{unsubscribe_url\}\}["']?[^>]*>.*?<\/a>/gi, '')
+  // Remove leftover raw placeholder text
+  cleaned = cleaned.replace(/\{\{unsubscribe_url\}\}/g, '')
+  // Remove now-empty paragraphs/table-cells that only contained the link
+  cleaned = cleaned.replace(/<p[^>]*>\s*<\/p>/g, '')
+  cleaned = cleaned.replace(/<td[^>]*>\s*<\/td>/g, '')
+  return cleaned
+}
+
+// Social icon helper — renders a circular icon cell for email footer
+function socialIconCell(url: string, label: string, glyph: string): string {
+  return `<td style="padding:0 4px;">
+  <a href="${url}" title="${label}" style="text-decoration:none;display:inline-block;width:28px;height:28px;border-radius:50%;border:1px solid #333;text-align:center;line-height:28px;font-size:11px;color:#737373;">
+    ${glyph}
+  </a>
+</td>`
+}
+
 // Base layout wrapper — Arabic RTL, dark theme, KHAT branding
 function emailLayout(content: string, unsubscribeUrl?: string): string {
+  // Clean AI-generated unsubscribe placeholders from the body
+  const cleanContent = stripBodyUnsubscribe(content)
+
   return `<!DOCTYPE html>
 <html dir="rtl" lang="ar">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>خط بودكاست</title>
+  <title>بودكاست خط</title>
 </head>
 <body style="margin:0;padding:0;background-color:#0a0a0a;font-family:'Segoe UI',Tahoma,Arial,sans-serif;">
   <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:#0a0a0a;">
@@ -18,23 +47,32 @@ function emailLayout(content: string, unsubscribeUrl?: string): string {
           <tr>
             <td style="padding:24px 32px;border-bottom:1px solid #222;">
               <a href="${APP_URL}" style="text-decoration:none;color:#e5e5e5;font-size:20px;font-weight:700;letter-spacing:1px;">
-                خط بودكاست
+                بودكاست خط
               </a>
             </td>
           </tr>
           <!-- Content -->
           <tr>
             <td style="padding:32px;color:#d4d4d4;font-size:15px;line-height:1.8;">
-              ${content}
+              ${cleanContent}
             </td>
           </tr>
           <!-- Footer -->
           <tr>
-            <td style="padding:24px 32px;border-top:1px solid #222;text-align:center;">
-              <p style="margin:0 0 8px;color:#737373;font-size:12px;">
-                خط بودكاست — khatpodcast.com
+            <td style="padding:24px 32px;border-top:1px solid #222;">
+              <!-- Social Icons -->
+              <table role="presentation" cellpadding="0" cellspacing="0" style="margin:0 auto 12px;">
+                <tr>
+                  ${socialIconCell('https://x.com/khatpodcast', 'X', '&#120143;')}
+                  ${socialIconCell('https://instagram.com/khatpodcast', 'Instagram', '&#9679;')}
+                  ${socialIconCell('https://youtube.com/@khatpodcast', 'YouTube', '&#9654;')}
+                  ${socialIconCell('https://tiktok.com/@khatpodcast', 'TikTok', '&#9836;')}
+                </tr>
+              </table>
+              <p style="margin:0 0 8px;color:#737373;font-size:12px;text-align:center;">
+                بودكاست خط — khatpodcast.com
               </p>
-              ${unsubscribeUrl ? `<p style="margin:0;"><a href="${unsubscribeUrl}" style="color:#737373;font-size:11px;text-decoration:underline;">إلغاء الاشتراك</a></p>` : ''}
+              ${unsubscribeUrl ? `<p style="margin:0;text-align:center;"><a href="${unsubscribeUrl}" style="color:#737373;font-size:11px;text-decoration:underline;">إلغاء الاشتراك</a></p>` : ''}
             </td>
           </tr>
         </table>
@@ -59,101 +97,13 @@ function ctaButton(text: string, url: string): string {
 
 // --- Email Templates ---
 
-export function welcomeEmailHtml(displayName: string): string {
-  const content = `
-    <h2 style="margin:0 0 16px;color:#e5e5e5;font-size:22px;">أهلاً ${displayName} 👋</h2>
-    <p style="margin:0 0 16px;">مرحباً بك في مجتمع خط بودكاست! يسعدنا انضمامك.</p>
-    <p style="margin:0 0 8px;">يمكنك الآن:</p>
-    <ul style="margin:0 0 16px;padding-right:20px;padding-left:0;">
-      <li style="margin-bottom:8px;">مشاركة أفكارك وتأملاتك في حبر</li>
-      <li style="margin-bottom:8px;">التعليق على المقالات والتفاعل مع المجتمع</li>
-      <li style="margin-bottom:8px;">متابعة الكتّاب المفضلين لديك</li>
-    </ul>
-    ${ctaButton('ابدأ الاستكشاف', `${APP_URL}/space`)}
-  `
-  return emailLayout(content)
-}
-
-export function commentNotificationHtml(
-  ownerName: string,
-  commenterName: string,
-  articleTitle: string,
-  commentPreview: string,
-  articleUrl: string,
-  unsubscribeUrl: string
-): string {
-  const content = `
-    <h2 style="margin:0 0 16px;color:#e5e5e5;font-size:18px;">تعليق جديد على مقالك</h2>
-    <p style="margin:0 0 16px;">مرحباً ${ownerName}، علّق <strong style="color:#e5e5e5;">${commenterName}</strong> على مقالك "<strong style="color:#e5e5e5;">${articleTitle}</strong>":</p>
-    <div style="padding:16px;background-color:#1a1a1a;border-radius:8px;border-right:3px solid #525252;margin:0 0 16px;">
-      <p style="margin:0;color:#a3a3a3;font-size:14px;">${commentPreview}</p>
-    </div>
-    ${ctaButton('عرض التعليق', articleUrl)}
-  `
-  return emailLayout(content, unsubscribeUrl)
-}
-
-export function replyNotificationHtml(
-  ownerName: string,
-  replierName: string,
-  thoughtPreview: string,
-  thoughtUrl: string,
-  unsubscribeUrl: string
-): string {
-  const content = `
-    <h2 style="margin:0 0 16px;color:#e5e5e5;font-size:18px;">رد جديد على خاطرتك</h2>
-    <p style="margin:0 0 16px;">مرحباً ${ownerName}، ردّ <strong style="color:#e5e5e5;">${replierName}</strong> على خاطرتك:</p>
-    <div style="padding:16px;background-color:#1a1a1a;border-radius:8px;border-right:3px solid #525252;margin:0 0 16px;">
-      <p style="margin:0;color:#a3a3a3;font-size:14px;">${thoughtPreview}</p>
-    </div>
-    ${ctaButton('عرض الرد', thoughtUrl)}
-  `
-  return emailLayout(content, unsubscribeUrl)
-}
-
-export function likeNotificationHtml(
-  ownerName: string,
-  likerName: string,
-  targetType: string,
-  targetUrl: string,
-  unsubscribeUrl: string
-): string {
-  const typeLabels: Record<string, string> = {
-    article: 'مقالك',
-    thought: 'خاطرتك',
-    comment: 'تعليقك',
-    reply: 'ردك',
-  }
-  const label = typeLabels[targetType] || 'محتواك'
-  const content = `
-    <h2 style="margin:0 0 16px;color:#e5e5e5;font-size:18px;">إعجاب جديد</h2>
-    <p style="margin:0 0 16px;">مرحباً ${ownerName}، أعجب <strong style="color:#e5e5e5;">${likerName}</strong> بـ${label}.</p>
-    ${ctaButton('عرض المحتوى', targetUrl)}
-  `
-  return emailLayout(content, unsubscribeUrl)
-}
-
-export function followNotificationHtml(
-  userName: string,
-  followerName: string,
-  followerUrl: string,
-  unsubscribeUrl: string
-): string {
-  const content = `
-    <h2 style="margin:0 0 16px;color:#e5e5e5;font-size:18px;">متابع جديد</h2>
-    <p style="margin:0 0 16px;">مرحباً ${userName}، بدأ <strong style="color:#e5e5e5;">${followerName}</strong> بمتابعتك!</p>
-    ${ctaButton('عرض الملف الشخصي', followerUrl)}
-  `
-  return emailLayout(content, unsubscribeUrl)
-}
-
 export function newsletterWelcomeHtml(unsubscribeUrl: string): string {
   const content = `
     <h2 style="margin:0 0 16px;color:#e5e5e5;font-size:22px;">أهلاً بك في نشرة خط!</h2>
     <p style="margin:0 0 16px;">شكراً لاشتراكك — يسعدنا إنك هنا.</p>
     <p style="margin:0 0 16px;">من الآن، راح توصلك رسائل مختارة بعناية تشمل:</p>
     <ul style="margin:0 0 16px;padding-right:20px;padding-left:0;">
-      <li style="margin-bottom:8px;">أحدث حلقات خط بودكاست</li>
+      <li style="margin-bottom:8px;">أحدث حلقات بودكاست خط</li>
       <li style="margin-bottom:8px;">اقتباسات وتأملات ملهمة</li>
       <li style="margin-bottom:8px;">محتوى حصري ما ينشر في مكان ثاني</li>
     </ul>
@@ -161,107 +111,6 @@ export function newsletterWelcomeHtml(unsubscribeUrl: string): string {
     ${ctaButton('استكشف الحلقات', `${APP_URL}/episodes`)}
   `
   return emailLayout(content, unsubscribeUrl)
-}
-
-export function monthlyNewsletterHtml(params: {
-  monthName: string
-  year: number
-  featured: {
-    title: string
-    slug: string
-    thumbnail_url: string | null
-    guest: { name: string; photo_url: string | null } | null
-  }
-  quotes: { text: string; theme: string | null }[]
-  otherEpisodes: {
-    title: string
-    slug: string
-    thumbnail_url: string | null
-    guest: { name: string } | null
-  }[]
-}): string {
-  const { monthName, year, featured, quotes, otherEpisodes } = params
-  const episodeUrl = `${APP_URL}/episodes/${featured.slug}`
-
-  // Featured thumbnail
-  const thumbnailHtml = featured.thumbnail_url
-    ? `<a href="${episodeUrl}" style="text-decoration:none;">
-        <img src="${featured.thumbnail_url}" alt="${featured.title}" width="536" style="width:100%;max-width:536px;border-radius:8px;display:block;" />
-      </a>`
-    : ''
-
-  // Guest row with photo
-  const guestHtml = featured.guest
-    ? `<table role="presentation" cellpadding="0" cellspacing="0" style="margin:12px 0 16px;">
-        <tr>
-          <td style="vertical-align:middle;padding-left:10px;">
-            ${featured.guest.photo_url
-              ? `<img src="${featured.guest.photo_url}" alt="${featured.guest.name}" width="40" height="40" style="width:40px;height:40px;border-radius:50%;object-fit:cover;display:block;" />`
-              : `<div style="width:40px;height:40px;border-radius:50%;background-color:#333;display:flex;align-items:center;justify-content:center;color:#999;font-size:16px;">${featured.guest.name.charAt(0)}</div>`
-            }
-          </td>
-          <td style="vertical-align:middle;color:#a3a3a3;font-size:14px;">
-            ${featured.guest.name}
-          </td>
-        </tr>
-      </table>`
-    : ''
-
-  // Quote callout boxes
-  const quotesHtml = quotes.length > 0
-    ? quotes.map((q) => `
-      <div style="padding:16px;background-color:#1a1a1a;border-radius:8px;border-right:3px solid #525252;margin:0 0 12px;">
-        <p style="margin:0;color:#d4d4d4;font-size:14px;line-height:1.7;">${q.text}</p>
-        ${q.theme ? `<p style="margin:8px 0 0;color:#737373;font-size:12px;">${q.theme}</p>` : ''}
-      </div>`).join('')
-    : ''
-
-  // Other episodes rows
-  const otherHtml = otherEpisodes.length > 0
-    ? `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin-top:32px;">
-        <tr>
-          <td style="padding-bottom:16px;">
-            <h3 style="margin:0;color:#e5e5e5;font-size:16px;font-weight:600;">حلقات أخرى هذا الشهر</h3>
-          </td>
-        </tr>
-        ${otherEpisodes.map((ep) => {
-          const epUrl = `${APP_URL}/episodes/${ep.slug}`
-          return `<tr>
-            <td style="padding-bottom:16px;">
-              <table role="presentation" cellpadding="0" cellspacing="0" width="100%">
-                <tr>
-                  ${ep.thumbnail_url
-                    ? `<td width="80" style="vertical-align:top;padding-left:12px;">
-                        <a href="${epUrl}" style="text-decoration:none;">
-                          <img src="${ep.thumbnail_url}" alt="${ep.title}" width="80" style="width:80px;border-radius:6px;display:block;" />
-                        </a>
-                      </td>`
-                    : ''}
-                  <td style="vertical-align:top;">
-                    <a href="${epUrl}" style="text-decoration:none;color:#e5e5e5;font-size:14px;font-weight:600;">${ep.title}</a>
-                    ${ep.guest ? `<p style="margin:4px 0 0;color:#a3a3a3;font-size:13px;">${ep.guest.name}</p>` : ''}
-                  </td>
-                </tr>
-              </table>
-            </td>
-          </tr>`
-        }).join('')}
-      </table>`
-    : ''
-
-  return `
-    <h2 style="margin:0 0 4px;color:#e5e5e5;font-size:22px;font-weight:700;">نشرة خط — ${monthName} ${year}</h2>
-    <p style="margin:0 0 24px;color:#a3a3a3;font-size:14px;">أبرز ما قدمناه هذا الشهر</p>
-    ${thumbnailHtml}
-    <h3 style="margin:16px 0 4px;color:#e5e5e5;font-size:18px;font-weight:600;">
-      <a href="${episodeUrl}" style="text-decoration:none;color:#e5e5e5;">${featured.title}</a>
-    </h3>
-    ${guestHtml}
-    ${quotesHtml}
-    ${ctaButton('شاهد الحلقة', episodeUrl)}
-    ${otherHtml}
-    ${ctaButton('تصفح جميع الحلقات', `${APP_URL}/episodes`)}
-  `
 }
 
 export function newsletterHtml(body: string, unsubscribeUrl: string): string {
@@ -278,7 +127,7 @@ export function directEmailHtml(
     <h2 style="margin:0 0 16px;color:#e5e5e5;font-size:18px;">${subject}</h2>
     <p style="margin:0 0 16px;">مرحباً ${recipientName}،</p>
     <div style="margin:0 0 24px;white-space:pre-wrap;">${body}</div>
-    <p style="margin:0;color:#737373;font-size:13px;">— ${senderName}، فريق خط بودكاست</p>
+    <p style="margin:0;color:#737373;font-size:13px;">— ${senderName}، فريق بودكاست خط</p>
   `
   return emailLayout(content)
 }
@@ -316,7 +165,7 @@ export function guestApplicationConfirmHtml(name: string): string {
     <h2 style="margin:0 0 16px;color:#e5e5e5;font-size:20px;">وصلنا قصتك، ${name}</h2>
     <p style="margin:0 0 16px;">شكراً إنك شاركتنا — نقدّر كل كلمة كتبتها.</p>
     <p style="margin:0 0 16px;">فريقنا بيراجع طلبك بعناية ويتواصل معك قريب إن شاء الله.</p>
-    <p style="margin:0;color:#737373;font-size:13px;">— فريق خط بودكاست</p>
+    <p style="margin:0;color:#737373;font-size:13px;">— فريق بودكاست خط</p>
   `
   return emailLayout(content)
 }
@@ -340,12 +189,33 @@ export function sponsorApplicationAdminHtml(params: {
   return emailLayout(content)
 }
 
+export function prepSubmittedAdminHtml(params: {
+  candidateName: string
+  category: string | null
+  completionPercent: number
+  candidateId: string
+}): string {
+  const categoryLabel = params.category ? params.category : '—'
+  const content = `
+    <h2 style="margin:0 0 16px;color:#e5e5e5;font-size:20px;">نموذج تحضير جديد مكتمل</h2>
+    <p style="margin:0 0 16px;">قام مرشّح بتسليم نموذج التحضير الخاص به.</p>
+    <table role="presentation" cellpadding="0" cellspacing="0" style="width:100%;margin:0 0 20px;">
+      ${detailRow('الاسم', params.candidateName)}
+      ${detailRow('التصنيف', categoryLabel)}
+      ${detailRow('نسبة الإكمال', `${Math.round(params.completionPercent)}%`)}
+    </table>
+    ${ctaButton('فتح ملف المرشّح', `${APP_URL}/admin/guest-candidates/${params.candidateId}`)}
+    <p style="margin:16px 0 0;color:#737373;font-size:12px;">سيتم حفظ الإجابات داخل ملف المرشّح في أرشيف النماذج.</p>
+  `
+  return emailLayout(content)
+}
+
 export function sponsorApplicationConfirmHtml(contactName: string): string {
   const content = `
     <h2 style="margin:0 0 16px;color:#e5e5e5;font-size:20px;">شكراً لاهتمامك بالشراكة، ${contactName}</h2>
     <p style="margin:0 0 16px;">وصلنا طلبك وفريقنا بيراجعه.</p>
     <p style="margin:0 0 16px;">بنرد عليك بخطة تعاون تناسب أهدافك في أقرب وقت.</p>
-    <p style="margin:0;color:#737373;font-size:13px;">— فريق خط بودكاست</p>
+    <p style="margin:0;color:#737373;font-size:13px;">— فريق بودكاست خط</p>
   `
   return emailLayout(content)
 }

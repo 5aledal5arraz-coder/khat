@@ -27,7 +27,7 @@ export function normalizeArabic(text: string): string {
 
 /**
  * Score and rank episodes by relevance to a search query.
- * Searches across title, guest name, topics/tags, and description.
+ * Searches across title, guest name, and description.
  */
 export function searchEpisodes(episodes: Episode[], query: string): Episode[] {
   const normalizedQuery = normalizeArabic(query).trim()
@@ -44,9 +44,6 @@ export function searchEpisodes(episodes: Episode[], query: string): Episode[] {
     const normalizedDescription = normalizeArabic(
       episode.description || episode.summary || ""
     )
-    const normalizedTopics = (episode.topics || []).map((t) =>
-      normalizeArabic(t.name)
-    )
 
     // Full query matches
     if (normalizedTitle.includes(normalizedQuery)) {
@@ -61,7 +58,6 @@ export function searchEpisodes(episodes: Episode[], query: string): Episode[] {
     for (const word of queryWords) {
       if (normalizedTitle.includes(word)) score += 10
       if (normalizedGuest && normalizedGuest.includes(word)) score += 8
-      if (normalizedTopics.some((t) => t.includes(word))) score += 5
       if (normalizedDescription.includes(word)) score += 3
     }
 
