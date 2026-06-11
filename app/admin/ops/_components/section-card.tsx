@@ -31,24 +31,26 @@ export function SectionCard({
   const colSpan = fullWidth ? "lg:col-span-2" : ""
   return (
     <section
-      className={`rounded-lg border border-border bg-card p-4 shadow-sm ${colSpan}`}
+      className={`rounded-xl border border-border/60 bg-card p-5 ${colSpan}`}
     >
-      <header className="mb-3 border-b border-border/60 pb-2">
-        <h2 className="text-base font-semibold text-foreground">{titleAr}</h2>
+      <header className="mb-4">
+        <h2 className="text-sm font-semibold tracking-tight text-foreground">
+          {titleAr}
+        </h2>
         {subtitleAr ? (
-          <p className="mt-0.5 text-xs text-muted-foreground">{subtitleAr}</p>
+          <p className="mt-1 text-xs text-muted-foreground">{subtitleAr}</p>
         ) : null}
       </header>
 
       {errorMode ? (
-        <div className="rounded border border-red-200 bg-red-50 p-3 text-sm text-red-800">
+        <div className="rounded-lg border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-700 dark:text-red-400">
           <div className="font-medium">غير متاح</div>
-          <div className="mt-1 text-xs text-red-700/80 break-words">
+          <div className="mt-1 break-words text-xs opacity-80">
             خطأ: {errorMode.error}
           </div>
         </div>
       ) : (
-        <div className="space-y-3 text-sm">{children}</div>
+        <div className="space-y-4 text-sm">{children}</div>
       )}
     </section>
   )

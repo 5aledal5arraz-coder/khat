@@ -70,7 +70,7 @@ export default function AdminLayoutClient({
     <BreadcrumbLabelProvider>
     <div className="min-h-screen bg-background">
       {/* Admin Header */}
-      <header className="admin-glass sticky top-0 z-40 border-b border-border/40">
+      <header className="sticky top-0 z-40 border-b border-border/60 bg-background/80 backdrop-blur-md">
         <div className="flex h-14 items-center justify-between px-4 lg:px-5">
           <div className="flex items-center gap-3">
             {/* Desktop: sidebar toggle */}
@@ -110,7 +110,7 @@ export default function AdminLayoutClient({
               </div>
               <div className="flex items-center gap-2">
                 <h1 className="text-[13px] font-semibold tracking-tight">لوحة التحكم</h1>
-                <span className="rounded-[5px] bg-primary/10 px-1.5 py-[1px] text-[9px] font-bold tracking-wider text-primary hidden sm:inline-block">
+                <span className="rounded-[5px] border border-border/70 bg-muted/60 px-1.5 py-[1px] text-[9px] font-bold tracking-wider text-muted-foreground hidden sm:inline-block">
                   ADMIN
                 </span>
               </div>

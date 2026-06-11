@@ -24,12 +24,12 @@ const AI_RUN_STATUS_ORDER = [
 function modeClass(mode: string): string {
   switch (mode) {
     case "enforce":
-      return "bg-green-50 text-green-800 border border-green-300"
+      return "border border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400"
     case "report":
-      return "bg-blue-50 text-blue-800 border border-blue-300"
+      return "border border-blue-500/30 bg-blue-500/10 text-blue-700 dark:text-blue-400"
     case "off":
     default:
-      return "bg-gray-100 text-gray-700 border border-gray-300"
+      return "border border-border bg-muted/60 text-muted-foreground"
   }
 }
 
@@ -47,8 +47,8 @@ function barClass(util: number): string {
 function TierCard({ titleAr, tier }: { titleAr: string; tier: TierSnapshot }) {
   const util = utilization(tier)
   return (
-    <div className="rounded border border-border/60 bg-muted/30 p-2">
-      <div className="mb-1 text-xs font-medium text-foreground">{titleAr}</div>
+    <div className="rounded-lg border border-border/60 bg-muted/30 p-3">
+      <div className="mb-1.5 text-xs font-medium text-foreground">{titleAr}</div>
       <KvRow
         labelAr="التزامن"
         value={`${tier.current_concurrency} / ${tier.concurrency_limit}`}
@@ -131,7 +131,7 @@ export function AiRouterSection({
             {d.recentRateLimitRejects.map((e) => (
               <li
                 key={e.id}
-                className="rounded border border-border/60 bg-muted/30 px-2 py-1"
+                className="rounded-lg border border-border/60 bg-muted/30 px-2.5 py-1.5"
               >
                 <div className="flex flex-wrap items-baseline gap-2 text-[10px]">
                   <span className="font-mono text-muted-foreground tabular-nums">
@@ -167,7 +167,7 @@ export function AiRouterSection({
             {d.recentAiRouterRejects.map((e) => (
               <li
                 key={e.id}
-                className="rounded border border-border/60 bg-muted/30 px-2 py-1"
+                className="rounded-lg border border-border/60 bg-muted/30 px-2.5 py-1.5"
               >
                 <div className="flex flex-wrap items-baseline gap-2 text-[10px]">
                   <span className="font-mono text-muted-foreground tabular-nums">

@@ -14,6 +14,7 @@ import { requireAdmin, getAdminAuthUser } from "@/lib/api-utils"
 import { enqueueJob } from "@/lib/jobs"
 import {
   createDiscoveryRun,
+  getDiscoveryRun,
   getCandidate,
   setCandidateStatus,
   bridgeDiscoveryToKhatMap,
@@ -347,7 +348,9 @@ export async function rejectCandidateAction(
   id: string,
   reason: string,
 ): Promise<Result<{ ok: true }>> {
-  const user = await requireAdmin()
+  await requireAdmin()
+  const user = await getAdminAuthUser()
+  if (!user) return { success: false, error: "غير مصرح" }
   try {
     await setCandidateStatus(id, "rejected", { rejection_reason: reason })
     // Phase Beta — fire-and-forget editorial voice signal capture.
@@ -367,7 +370,9 @@ export async function rejectCandidateAction(
 export async function saveCandidateForLaterAction(
   id: string,
 ): Promise<Result<{ ok: true }>> {
-  const user = await requireAdmin()
+  await requireAdmin()
+  const user = await getAdminAuthUser()
+  if (!user) return { success: false, error: "غير مصرح" }
   try {
     await setCandidateStatus(id, "saved_for_later")
     void captureVoiceSignalForAction({
@@ -473,7 +478,9 @@ export async function promoteCandidateAction(
     }
   }>
 > {
-  const user = await requireAdmin()
+  await requireAdmin()
+  const user = await getAdminAuthUser()
+  if (!user) return { success: false, error: "غير مصرح" }
   try {
     const cand = await getCandidate(id)
     if (!cand) return { success: false, error: "candidate not found" }

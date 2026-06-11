@@ -114,7 +114,7 @@ export function SystemEventsSection({
                   return (
                     <li
                       key={e.id}
-                      className="rounded border border-border/60 bg-muted/30 px-2 py-1"
+                      className="rounded-lg border border-border/60 bg-muted/30 px-2.5 py-1.5"
                     >
                       <div className="flex flex-wrap items-baseline gap-2 text-[11px]">
                         <span className="font-mono text-muted-foreground tabular-nums">

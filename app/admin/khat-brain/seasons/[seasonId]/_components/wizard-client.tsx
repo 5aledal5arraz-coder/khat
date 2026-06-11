@@ -382,7 +382,7 @@ export function WizardClient({
     if (!card) return
     setError(null)
     setAltForCard(null)
-    setCardPendingId(card.topic.id)
+    addPending(card.topic.id)
     startAction(async () => {
       const res = await alternativeAction({
         seasonId: season.id,
@@ -391,7 +391,7 @@ export function WizardClient({
         batchIndex: batchIndex - 1,
         mode,
       })
-      setCardPendingId(null)
+      removePending(card.topic.id)
       if (!res.success) {
         setError(res.error)
         return

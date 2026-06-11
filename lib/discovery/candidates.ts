@@ -189,7 +189,7 @@ export interface DiscoveryCandidateRecord {
   dropped_reason: string | null
 }
 
-function mapRow(r: Row): DiscoveryCandidateRecord {
+export function mapRow(r: Row): DiscoveryCandidateRecord {
   return {
     id: r.id,
     discovery_run_id: r.discovery_run_id,

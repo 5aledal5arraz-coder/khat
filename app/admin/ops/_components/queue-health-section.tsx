@@ -127,7 +127,7 @@ export function QueueHealthSection({
             {d.recentDead.map((j) => (
               <li
                 key={j.id}
-                className="rounded border border-border/60 bg-muted/30 px-2 py-1"
+                className="rounded-lg border border-border/60 bg-muted/30 px-2.5 py-1.5"
               >
                 <div className="flex items-baseline justify-between gap-2">
                   <span className="font-mono text-xs text-foreground">

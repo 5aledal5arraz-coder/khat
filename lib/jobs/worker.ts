@@ -12,6 +12,9 @@
  *   WORKER_ID               default randomly generated
  */
 
+// Must be first — loads .env.local before ./queue pulls in @/lib/db and
+// initializes the pg pool. No-op in production. See load-env.ts.
+import "./load-env"
 import { randomUUID } from "node:crypto"
 import {
   claimNextJob,

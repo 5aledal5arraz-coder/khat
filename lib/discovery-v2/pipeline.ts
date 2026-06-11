@@ -58,8 +58,11 @@ export async function runV2Discovery(input: V2RunInput): Promise<V2RunResult> {
     }
   }
 
-  // Resolve + enrich + score, 4 at a time.
-  const scored = await pmap(proposal.names, 4, async (p) => {
+  // Resolve + enrich + score, 6 at a time. Each candidate now makes a
+  // small, mostly-batched set of HTTP calls (see wikidata.resolvePerson),
+  // so a slightly higher concurrency cuts wall-clock without hammering the
+  // free public APIs.
+  const scored = await pmap(proposal.names, 6, async (p) => {
     const wiki = await resolvePerson(p.name, input.filters)
     if (!wiki.resolved) {
       return scoreCandidate(p, wiki, {}, input) // → rejected (unverifiable)

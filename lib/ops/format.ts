@@ -101,16 +101,21 @@ function arabicAge(
  * Returns the Tailwind class string for a severity badge. Stable
  * mapping — info/warn/error always have the same visual identity
  * across the dashboard.
+ *
+ * Uses tinted-translucent backgrounds (`/10`) + theme-aware text so
+ * the badges read correctly in BOTH the light and dark KHAT themes.
+ * The earlier solid-light palette (`bg-red-50`, `bg-gray-100`, …)
+ * washed out to near-invisible on the dark museum background.
  */
 export function severityClass(s: "info" | "warn" | "error" | string): string {
   switch (s) {
     case "warn":
-      return "bg-amber-50 text-amber-800 border border-amber-300"
+      return "border border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-400"
     case "error":
-      return "bg-red-50 text-red-800 border border-red-300"
+      return "border border-red-500/30 bg-red-500/10 text-red-700 dark:text-red-400"
     case "info":
     default:
-      return "bg-gray-100 text-gray-700 border border-gray-300"
+      return "border border-border bg-muted/60 text-muted-foreground"
   }
 }
 

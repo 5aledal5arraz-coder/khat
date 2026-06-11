@@ -117,6 +117,8 @@ export interface DiscoverySourceConfig {
     | "editorial"
     | "public_voice"
     | "network"
+    // ─── LLM-knowledge source (see DiscoverySource in search-agents) ──
+    | "ai_knowledge"
   >
   /** Max candidates per archetype the search agents should produce. */
   candidates_per_archetype?: number

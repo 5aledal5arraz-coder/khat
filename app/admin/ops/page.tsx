@@ -30,7 +30,7 @@ export default async function OpsDashboardPage() {
     <div dir="rtl" lang="ar" className="mx-auto max-w-7xl px-4 py-6 lg:px-6">
       <PageHeader takenAt={snap.taken_at} durationMs={snap.duration_ms} />
 
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+      <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
         <QueueHealthSection result={snap.queue} />
         <SystemEventsSection result={snap.systemEvents} />
         <AiRouterSection result={snap.aiRouter} />

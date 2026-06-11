@@ -78,10 +78,16 @@ export async function youtubePerson(name: string, nameEn: string | null): Promis
   if (!key) return null
   const q = nameEn || name
   const tokens = nameTokens(q)
-  // 1) channel that looks like this person
-  const ch = await getJson(
-    `https://www.googleapis.com/youtube/v3/search?part=snippet&type=channel&maxResults=3&q=${encodeURIComponent(q)}&key=${key}`,
-  )
+  // (1) channel that looks like this person + (2) a talk/interview
+  // featuring them — independent searches, fetched concurrently.
+  const [ch, vid] = await Promise.all([
+    getJson(
+      `https://www.googleapis.com/youtube/v3/search?part=snippet&type=channel&maxResults=3&q=${encodeURIComponent(q)}&key=${key}`,
+    ),
+    getJson(
+      `https://www.googleapis.com/youtube/v3/search?part=snippet&type=video&maxResults=1&q=${encodeURIComponent(`${q} مقابلة`)}&key=${key}`,
+    ),
+  ])
   let channel_url: string | null = null
   let channel_title: string | null = null
   for (const it of ch?.items ?? []) {
@@ -93,10 +99,6 @@ export async function youtubePerson(name: string, nameEn: string | null): Promis
       break
     }
   }
-  // 2) a talk/interview featuring them
-  const vid = await getJson(
-    `https://www.googleapis.com/youtube/v3/search?part=snippet&type=video&maxResults=1&q=${encodeURIComponent(`${q} مقابلة`)}&key=${key}`,
-  )
   const v = vid?.items?.[0]
   const talk_url = v?.id?.videoId ? `https://www.youtube.com/watch?v=${v.id.videoId}` : null
   if (!channel_url && !talk_url) return null

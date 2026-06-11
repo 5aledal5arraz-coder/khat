@@ -119,8 +119,56 @@ function commonsImage(file: string | null): string | null {
 }
 
 /**
+ * Fetch full entities (claims + sitelinks + labels + descriptions) for up
+ * to 6 candidate QIDs in a SINGLE `wbgetentities` request, instead of one
+ * `Special:EntityData/<qid>.json` round-trip per QID. This collapses what
+ * used to be up to 6 serial network calls into one — the biggest single
+ * latency win in the resolver — and is also politer to Wikidata (fewer
+ * requests). Returns the `entities` map keyed by QID.
+ */
+async function fetchEntities(qids: string[]): Promise<Record<string, any>> {
+  const ids = [...new Set(qids)].slice(0, 6)
+  if (ids.length === 0) return {}
+  const url = `https://www.wikidata.org/w/api.php?action=wbgetentities&ids=${ids.join(
+    "|",
+  )}&props=claims|sitelinks|labels|descriptions&languages=ar|en&format=json&origin=*`
+  const j = await getJson(url)
+  return j?.entities ?? {}
+}
+
+/**
+ * Resolve a Wikipedia summary, preferring Arabic and falling back to
+ * English. Extracted so it can run concurrently with `labelsFor` in
+ * `resolvePerson` — the two are independent.
+ */
+async function resolveSummary(
+  arTitle: string | null,
+  enTitle: string | null,
+): Promise<{ summary: string | null; thumb: string | null }> {
+  let summary: string | null = null
+  let thumb: string | null = null
+  if (arTitle) {
+    const s = await wikipediaSummary("ar", arTitle)
+    summary = s?.extract ?? null
+    thumb = s?.thumb ?? null
+  }
+  if (!summary && enTitle) {
+    const s = await wikipediaSummary("en", enTitle)
+    summary = s?.extract ?? null
+    thumb = thumb ?? s?.thumb ?? null
+  }
+  return { summary, thumb }
+}
+
+/**
  * Resolve a proposed name to authoritative facts. Tries Arabic then
  * English search; picks the first candidate that is a human (P31=Q5).
+ *
+ * Latency shape: the independent network calls run concurrently —
+ * (ar + en search) in parallel, then ONE batched entity fetch, then
+ * (occupation/citizenship labels + Wikipedia summary) in parallel. This
+ * is identical in results to the previous fully-serial version, just far
+ * faster on the wall clock.
  */
 export async function resolvePerson(
   name: string,
@@ -129,100 +177,89 @@ export async function resolvePerson(
   const empty: WikiFacts = { resolved: false }
   if (!name || name.trim().length < 2) return empty
 
-  // 1. Candidate QIDs (Arabic first — most guests are Arab figures).
-  const qids = [
-    ...(await searchEntity(name, "ar")),
-    ...(await searchEntity(name, "en")),
-  ]
-  const uniqQids = [...new Set(qids)].slice(0, 6)
+  // 1. Candidate QIDs — Arabic + English searches run in parallel
+  //    (independent). Arabic results kept first (most guests are Arab
+  //    figures), so the human-pick order below is unchanged.
+  const [arQids, enQids] = await Promise.all([
+    searchEntity(name, "ar"),
+    searchEntity(name, "en"),
+  ])
+  const uniqQids = [...new Set([...arQids, ...enQids])].slice(0, 6)
   if (uniqQids.length === 0) return empty
 
-  // 2. Walk candidates, return the first confirmed human.
-  for (const qid of uniqQids) {
-    const data = await getJson(
-      `https://www.wikidata.org/wiki/Special:EntityData/${qid}.json`,
-    )
-    const ent = data?.entities?.[qid]
-    if (!ent) continue
-    const claims = ent.claims ?? {}
-    const isHuman = claimValueIds(claims, "P31").includes("Q5")
-    if (!isHuman) continue
+  // 2. One batched fetch for all candidates, then pick the first confirmed
+  //    human in search-rank order.
+  const entities = await fetchEntities(uniqQids)
+  const qid =
+    uniqQids.find((id) =>
+      claimValueIds(entities[id]?.claims ?? {}, "P31").includes("Q5"),
+    ) ?? null
+  if (!qid) return empty
+  const ent = entities[qid]
 
-    const occQids = claimValueIds(claims, "P106")
-    const citQids = claimValueIds(claims, "P27")
-    const labelMap = await labelsFor([...occQids, ...citQids])
+  const claims = ent.claims ?? {}
+  const occQids = claimValueIds(claims, "P106")
+  const citQids = claimValueIds(claims, "P27")
 
-    const genderQid = claimValueId(claims, "P21")
-    const gender = genderQid ? (GENDER_QID[genderQid] ?? null) : null
-    const birth = claimTimeYear(claims, "P569")
-    const death = claimTimeYear(claims, "P570")
-    const imageFile = claimValueString(claims, "P18")
-    const official = claimValueString(claims, "P856")
-    const xUser = claimValueString(claims, "P2002")
-    const ig = claimValueString(claims, "P2003")
-    const ytChannel = claimValueString(claims, "P2397")
-    const linkedin = claimValueString(claims, "P6634")
+  const genderQid = claimValueId(claims, "P21")
+  const gender = genderQid ? (GENDER_QID[genderQid] ?? null) : null
+  const birth = claimTimeYear(claims, "P569")
+  const death = claimTimeYear(claims, "P570")
+  const imageFile = claimValueString(claims, "P18")
+  const official = claimValueString(claims, "P856")
+  const xUser = claimValueString(claims, "P2002")
+  const ig = claimValueString(claims, "P2003")
+  const ytChannel = claimValueString(claims, "P2397")
+  const linkedin = claimValueString(claims, "P6634")
 
-    const sitelinks = ent.sitelinks ?? {}
-    const sitelinkCount = Object.keys(sitelinks).length
-    const arTitle = sitelinks?.arwiki?.title ?? null
-    const enTitle = sitelinks?.enwiki?.title ?? null
+  const sitelinks = ent.sitelinks ?? {}
+  const sitelinkCount = Object.keys(sitelinks).length
+  const arTitle = sitelinks?.arwiki?.title ?? null
+  const enTitle = sitelinks?.enwiki?.title ?? null
 
-    const labelAr = ent.labels?.ar?.value ?? null
-    const labelEn = ent.labels?.en?.value ?? null
-    const descr =
-      ent.descriptions?.ar?.value ?? ent.descriptions?.en?.value ?? null
+  const labelAr = ent.labels?.ar?.value ?? null
+  const labelEn = ent.labels?.en?.value ?? null
+  const descr =
+    ent.descriptions?.ar?.value ?? ent.descriptions?.en?.value ?? null
 
-    // Wikipedia summary (prefer Arabic).
-    let summary: string | null = null
-    let thumb: string | null = null
-    if (arTitle) {
-      const s = await wikipediaSummary("ar", arTitle)
-      summary = s?.extract ?? null
-      thumb = s?.thumb ?? null
-    }
-    if (!summary && enTitle) {
-      const s = await wikipediaSummary("en", enTitle)
-      summary = s?.extract ?? null
-      thumb = thumb ?? s?.thumb ?? null
-    }
+  // 3. Labels (occupation/citizenship) + Wikipedia summary run
+  //    concurrently — neither depends on the other.
+  const [labelMap, { summary, thumb }] = await Promise.all([
+    labelsFor([...occQids, ...citQids]),
+    resolveSummary(arTitle, enTitle),
+  ])
 
-    const citizenship = citQids.length
-      ? labelMap[citQids[0]] ?? null
-      : null
+  const citizenship = citQids.length ? labelMap[citQids[0]] ?? null : null
 
-    return {
-      resolved: true,
-      qid,
-      label: labelEn ?? labelAr ?? name,
-      label_ar: labelAr,
-      description: descr,
-      is_human: true,
-      occupations: occQids.map((q) => labelMap[q]).filter(Boolean) as string[],
-      gender,
-      nationality_country: citizenship,
-      birth_year: birth,
-      death_year: death,
-      image_url: commonsImage(imageFile) ?? thumb ?? null,
-      wikipedia_url: enTitle
-        ? `https://en.wikipedia.org/wiki/${encodeURIComponent(enTitle)}`
+  return {
+    resolved: true,
+    qid,
+    label: labelEn ?? labelAr ?? name,
+    label_ar: labelAr,
+    description: descr,
+    is_human: true,
+    occupations: occQids.map((q) => labelMap[q]).filter(Boolean) as string[],
+    gender,
+    nationality_country: citizenship,
+    birth_year: birth,
+    death_year: death,
+    image_url: commonsImage(imageFile) ?? thumb ?? null,
+    wikipedia_url: enTitle
+      ? `https://en.wikipedia.org/wiki/${encodeURIComponent(enTitle)}`
+      : null,
+    wikipedia_ar_url: arTitle
+      ? `https://ar.wikipedia.org/wiki/${encodeURIComponent(arTitle)}`
+      : null,
+    official_website: official,
+    sitelink_count: sitelinkCount,
+    social: {
+      x: xUser ? `https://x.com/${xUser}` : null,
+      instagram: ig ? `https://instagram.com/${ig}` : null,
+      youtube_channel: ytChannel
+        ? `https://youtube.com/channel/${ytChannel}`
         : null,
-      wikipedia_ar_url: arTitle
-        ? `https://ar.wikipedia.org/wiki/${encodeURIComponent(arTitle)}`
-        : null,
-      official_website: official,
-      sitelink_count: sitelinkCount,
-      social: {
-        x: xUser ? `https://x.com/${xUser}` : null,
-        instagram: ig ? `https://instagram.com/${ig}` : null,
-        youtube_channel: ytChannel
-          ? `https://youtube.com/channel/${ytChannel}`
-          : null,
-        linkedin: linkedin ? `https://www.linkedin.com/in/${linkedin}` : null,
-      },
-      summary: summary ?? descr,
-    }
+      linkedin: linkedin ? `https://www.linkedin.com/in/${linkedin}` : null,
+    },
+    summary: summary ?? descr,
   }
-
-  return empty
 }
