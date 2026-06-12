@@ -378,11 +378,10 @@ export async function assignDiscoveredGuestToEpisodeAction(input: {
   if (!user) return { success: false, error: "غير مصرح" }
   if (!db) return { success: false, error: "قاعدة البيانات غير متوفرة" }
   try {
-    const { promoteCandidateAction } = await import("@/app/admin/discovery/actions")
-    const promotion = await promoteCandidateAction(input.discoveryCandidateId)
-    if (!promotion.success) {
-      return { success: false, error: promotion.error }
-    }
+    const { promoteDiscoveryCandidate } = await import("@/lib/discovery/promote")
+    const promotion = await promoteDiscoveryCandidate(input.discoveryCandidateId, {
+      actorId: user.id,
+    })
 
     // promoteCandidateAction returns the global `guest_id` via the
     // bridge. Bridge already creates a khat_map_guest_candidates row
@@ -393,7 +392,7 @@ export async function assignDiscoveredGuestToEpisodeAction(input: {
       .where(
         and(
           eq(khatMapGuestCandidates.season_id, input.seasonId),
-          eq(khatMapGuestCandidates.linked_guest_id, promotion.data.guest_id),
+          eq(khatMapGuestCandidates.linked_guest_id, promotion.guest_id),
         ),
       )
       .limit(1)
