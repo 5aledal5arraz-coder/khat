@@ -17,39 +17,23 @@
  * the rest of the pipeline only depends on a narrow interface.
  */
 
-import { GoogleGenerativeAI, type GenerativeModel } from "@google/generative-ai"
+import type { GenerativeModel } from "@google/generative-ai"
 import type { RawRetrievedSource } from "./types"
+import {
+  getGeminiClient,
+  isGeminiConfigured,
+  GEMINI_RETRIEVAL_MODEL,
+  GEMINI_REASONING_MODEL,
+} from "@/lib/ai/gemini"
+import {
+  repairTruncatedJson,
+  sanitizeJsonResponse,
+} from "@/lib/ai/json-repair"
 
-// ─── Model config ────────────────────────────────────────────────────────────
-
-const GEMINI_RETRIEVAL_MODEL =
-  process.env.GEMINI_RETRIEVAL_MODEL || "gemini-2.5-flash"
-const GEMINI_REASONING_MODEL =
-  process.env.GEMINI_REASONING_MODEL || "gemini-2.5-flash"
-
-// ─── Client ──────────────────────────────────────────────────────────────────
-
-let cached: GoogleGenerativeAI | null = null
-
-/**
- * Returns a cached Gemini client. Throws a blocking error if the key is
- * missing — we explicitly do NOT fall back silently.
- */
-export function getGeminiClient(): GoogleGenerativeAI {
-  if (cached) return cached
-  const key = process.env.GEMINI_API_KEY
-  if (!key) {
-    throw new Error(
-      "GEMINI_API_KEY is not configured. The preparation research pipeline requires Gemini for grounded web retrieval.",
-    )
-  }
-  cached = new GoogleGenerativeAI(key)
-  return cached
-}
-
-export function isGeminiConfigured(): boolean {
-  return Boolean(process.env.GEMINI_API_KEY)
-}
+// Client + model defaults now live in lib/ai/gemini.ts (shared with the
+// AI Router adapter and channel analysis). Re-export so existing callers
+// keep importing from here.
+export { getGeminiClient, isGeminiConfigured }
 
 // ─── Retrieval with grounded search ──────────────────────────────────────────
 
@@ -266,199 +250,24 @@ export class GeminiJsonError extends Error {
 }
 
 /**
- * Best-effort JSON repair: strip markdown fences, remove leading/trailing
- * non-JSON chatter, drop trailing commas, and balance unterminated braces
- * caused by output truncation. Returns `null` when no plausible JSON root
- * can be recovered.
- *
- * This is intentionally conservative — we only fix well-known shapes we have
- * actually seen Gemini emit. Anything weirder falls through to the retry
- * correction call.
+ * Best-effort JSON repair. The string-level implementation now lives in
+ * lib/ai/json-repair.ts (shared with the khat-map hardened helper).
+ * Order: truncation-aware repair first (the dominant failure mode here
+ * is MAX_TOKENS cutoff), then aggressive sanitization for dirty-but-
+ * complete payloads. Returns `null` when no plausible JSON root can be
+ * recovered — the caller falls through to the retry correction call.
  */
 export function repairJsonPayload(raw: string): string | null {
-  if (!raw) return null
-  let s = raw.trim()
-
-  // Strip ```json ... ``` or ``` ... ``` fences. Look for the FIRST fenced
-  // block anywhere in the response — not anchored to start/end — so trailing
-  // prose after a fenced block still resolves.
-  const fence = s.match(/```(?:json)?\s*([\s\S]*?)\s*```/i)
-  if (fence) s = fence[1].trim()
-
-  // Drop leading prose — jump to the first structural token.
-  const firstBrace = s.search(/[{[]/)
-  if (firstBrace > 0) s = s.slice(firstBrace)
-
-  // Drop trailing prose after the outermost structure. Walk the string
-  // tracking quote + nesting state; when we return to depth 0 with a `}`
-  // or `]`, remember that position and continue. The last such "depth 0"
-  // closer is the true end of the JSON document — everything after it is
-  // prose and must go.
-  const depthZeroEnd = ((): number => {
-    const stack: Array<"{" | "["> = []
-    let inString = false
-    let escape = false
-    let last = -1
-    for (let i = 0; i < s.length; i++) {
-      const ch = s[i]
-      if (escape) {
-        escape = false
-        continue
-      }
-      if (ch === "\\") {
-        escape = true
-        continue
-      }
-      if (ch === '"') {
-        inString = !inString
-        continue
-      }
-      if (inString) continue
-      if (ch === "{") stack.push("{")
-      else if (ch === "[") stack.push("[")
-      else if (ch === "}") {
-        if (stack[stack.length - 1] === "{") stack.pop()
-        if (stack.length === 0) last = i
-      } else if (ch === "]") {
-        if (stack[stack.length - 1] === "[") stack.pop()
-        if (stack.length === 0) last = i
-      }
-    }
-    return last
-  })()
-  if (depthZeroEnd >= 0) s = s.slice(0, depthZeroEnd + 1)
-
-  const tryParse = (candidate: string): string | null => {
+  const repaired = repairTruncatedJson(raw)
+  if (repaired) return repaired
+  const sanitized = sanitizeJsonResponse(raw)
+  if (sanitized) {
     try {
-      JSON.parse(candidate)
-      return candidate
+      JSON.parse(sanitized)
+      return sanitized
     } catch {
       return null
     }
-  }
-
-  const stripTrailingCommas = (input: string): string =>
-    input.replace(/,(\s*[}\]])/g, "$1")
-
-  // First attempt: the string may already be valid after fence removal.
-  const fast = tryParse(stripTrailingCommas(s))
-  if (fast) return fast
-
-  /**
-   * Walk the string and return (a) whether it ends inside a string literal,
-   * (b) the ordered stack of unclosed structural tokens, (c) the index of
-   * the last character that is NOT inside an unterminated string — used as
-   * the safe truncation point when we ended mid-string.
-   */
-  const analyze = (
-    input: string,
-  ): {
-    inString: boolean
-    stack: Array<"{" | "[">
-    /** index (exclusive) up to which the string is structurally safe */
-    safeEnd: number
-  } => {
-    const stack: Array<"{" | "["> = []
-    let inString = false
-    let escape = false
-    let safeEnd = 0
-    for (let i = 0; i < input.length; i++) {
-      const ch = input[i]
-      if (escape) {
-        escape = false
-        if (!inString) safeEnd = i + 1
-        continue
-      }
-      if (ch === "\\") {
-        escape = true
-        continue
-      }
-      if (ch === '"') {
-        inString = !inString
-        if (!inString) safeEnd = i + 1 // closing quote landed us back outside
-        continue
-      }
-      if (inString) continue
-      if (ch === "{") stack.push("{")
-      else if (ch === "[") stack.push("[")
-      else if (ch === "}") {
-        if (stack[stack.length - 1] === "{") stack.pop()
-      } else if (ch === "]") {
-        if (stack[stack.length - 1] === "[") stack.pop()
-      }
-      safeEnd = i + 1
-    }
-    return { inString, stack, safeEnd }
-  }
-
-  /**
-   * Given a candidate prefix, trim it at the last structural boundary we
-   * can safely close. Steps:
-   *   1. If we ended inside a string, chop back to `safeEnd`.
-   *   2. Strip trailing whitespace/commas.
-   *   3. Strip a dangling `"key":value` (or just `"key":`) fragment —
-   *      those cannot be closed without inventing a value.
-   *   4. Strip a trailing orphan primitive after a comma.
-   *   5. Re-analyze and append closers in the REVERSE of the open stack.
-   *   6. Strip trailing commas one more time and try parsing.
-   */
-  const attemptRepair = (input: string): string | null => {
-    const { inString, safeEnd } = analyze(input)
-    let work = inString ? input.slice(0, safeEnd) : input
-
-    const trimTail = (v: string): string => {
-      let out = v.replace(/[,\s]+$/, "")
-      for (let iter = 0; iter < 4; iter++) {
-        // Key:value fragment like `,"foo": "bar` or `,"foo":`
-        const kv = out.match(
-          /,\s*"[^"\\]*"\s*:\s*(?:"[^"\\]*"|-?\d+(?:\.\d+)?|true|false|null|)\s*$/,
-        )
-        if (kv && kv.index !== undefined) {
-          out = out.slice(0, kv.index).replace(/[,\s]+$/, "")
-          continue
-        }
-        // Orphan value after a comma: `,"foo"` or `,123`.
-        const orph = out.match(
-          /,\s*(?:"[^"\\]*"|-?\d+(?:\.\d+)?|true|false|null)\s*$/,
-        )
-        if (orph && orph.index !== undefined) {
-          out = out.slice(0, orph.index).replace(/[,\s]+$/, "")
-          continue
-        }
-        // Open-colon with no value: `"foo":`
-        const openColon = out.match(/"\s*[^"]*"\s*:\s*$/)
-        if (openColon && openColon.index !== undefined) {
-          out = out.slice(0, openColon.index).replace(/[,\s]+$/, "")
-          continue
-        }
-        break
-      }
-      return out
-    }
-
-    work = trimTail(work)
-    const { stack } = analyze(work) // fresh stack from the trimmed body
-    for (let i = stack.length - 1; i >= 0; i--) {
-      work += stack[i] === "{" ? "}" : "]"
-    }
-    return tryParse(stripTrailingCommas(work))
-  }
-
-  const repaired = attemptRepair(stripTrailingCommas(s))
-  if (repaired) return repaired
-
-  // Last-ditch: iteratively back off one structural token at a time from
-  // the tail until either we find a repairable prefix or give up.
-  let tail = stripTrailingCommas(s)
-  for (let attempt = 0; attempt < 5; attempt++) {
-    // Chop everything after the last comma at depth 0 (the top-level boundary
-    // we can safely re-close). We approximate by trimming back to the last
-    // `},` or `],` and retrying.
-    const cut = Math.max(tail.lastIndexOf("},"), tail.lastIndexOf("],"))
-    if (cut < 0) break
-    tail = tail.slice(0, cut + 1)
-    const r = attemptRepair(tail)
-    if (r) return r
   }
   return null
 }
