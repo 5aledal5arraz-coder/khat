@@ -9,12 +9,13 @@
  *   - a "ابحث عن ضيف لهذه الحلقة" CTA when no candidates exist yet
  *   - a list of GuestCandidateCard rows when candidates have arrived
  *
- * Discovery is jobs-driven — clicking the CTA enqueues the pipeline,
- * then the operator refreshes (router.refresh()) once the worker drains.
- * The panel does not poll; that's a future enhancement.
+ * Discovery is jobs-driven — clicking the CTA enqueues the pipeline.
+ * The panel then POLLS the candidate list every 5s (up to ~4 minutes)
+ * and renders results the moment the worker drains, so the operator
+ * never has to refresh manually.
  */
 
-import { useCallback, useState, useTransition } from "react"
+import { useCallback, useEffect, useRef, useState, useTransition } from "react"
 import { useRouter } from "next/navigation"
 import { Loader2, RefreshCw, Search, UserRoundCheck } from "lucide-react"
 import type {
@@ -75,11 +76,43 @@ function EpisodeBlock({
   )
   const [loadPending, startLoad] = useTransition()
   const [error, setError] = useState<string | null>(null)
+  const [polling, setPolling] = useState(false)
+  // Candidate count when the run started — polling stops when it grows.
+  const baselineCount = useRef(0)
+  const pollAttempts = useRef(0)
   const isStale = Boolean(ep.topic.discovery_stale_at)
+
+  // Poll while a discovery job is in flight. 5s × 48 ≈ 4 minutes, then
+  // give up quietly (the worker may be down — the manual button still
+  // works).
+  useEffect(() => {
+    if (!polling) return
+    const id = setInterval(async () => {
+      pollAttempts.current += 1
+      if (pollAttempts.current > 48) {
+        setPolling(false)
+        return
+      }
+      const res = await listDiscoveryCandidatesForEpisodeAction({
+        episodeCandidateId: ep.topic.id,
+      })
+      if (res.success && res.data.candidates.length > baselineCount.current) {
+        setCandidates(res.data.candidates)
+        setPolling(false)
+      }
+    }, 5000)
+    return () => clearInterval(id)
+  }, [polling, ep.topic.id])
 
   const handleStartDiscovery = useCallback(() => {
     setError(null)
     startSearch(async () => {
+      const existing = await listDiscoveryCandidatesForEpisodeAction({
+        episodeCandidateId: ep.topic.id,
+      })
+      baselineCount.current = existing.success
+        ? existing.data.candidates.length
+        : 0
       const res = await startGuestDiscoveryForEpisodeAction({
         seasonId,
         episodeCandidateId: ep.topic.id,
@@ -88,6 +121,8 @@ function EpisodeBlock({
         setError(res.error)
         return
       }
+      pollAttempts.current = 0
+      setPolling(true)
       router.refresh()
     })
   }, [ep.topic.id, router, seasonId])
@@ -167,13 +202,13 @@ function EpisodeBlock({
         <button
           type="button"
           onClick={handleStartDiscovery}
-          disabled={searchPending}
+          disabled={searchPending || polling}
           className="inline-flex items-center gap-1.5 rounded-lg border border-primary/40 bg-primary/5 px-3 py-1.5 text-[12px] font-semibold text-primary transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
         >
-          {searchPending ? (
+          {searchPending || polling ? (
             <>
               <Loader2 className="h-3.5 w-3.5 animate-spin" />
-              ابتدأنا…
+              {polling ? "نبحث الآن — النتائج ستظهر تلقائياً…" : "ابتدأنا…"}
             </>
           ) : isStale ? (
             <>

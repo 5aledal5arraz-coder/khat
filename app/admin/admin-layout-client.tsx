@@ -70,7 +70,9 @@ export default function AdminLayoutClient({
     <BreadcrumbLabelProvider>
     <div className="min-h-screen bg-background">
       {/* Admin Header */}
-      <header className="sticky top-0 z-40 border-b border-border/60 bg-background/80 backdrop-blur-md">
+      <header className="sticky top-0 z-40 border-b border-border/60 bg-background/85 backdrop-blur-xl">
+        {/* Brand hairline */}
+        <div className="absolute inset-x-0 top-0 h-[2px] bg-gradient-to-l from-primary/70 via-primary/25 to-transparent" />
         <div className="flex h-14 items-center justify-between px-4 lg:px-5">
           <div className="flex items-center gap-3">
             {/* Desktop: sidebar toggle */}
@@ -167,7 +169,7 @@ export default function AdminLayoutClient({
 
         {/* Main content */}
         <main className="min-w-0 flex-1 p-4 lg:p-6">
-          <div className="admin-animate-in">
+          <div className="admin-animate-in mx-auto max-w-[1400px]">
             {children}
           </div>
         </main>

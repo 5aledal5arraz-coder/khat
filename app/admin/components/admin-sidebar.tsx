@@ -45,26 +45,19 @@ interface NavItem {
 interface NavGroup {
   title: string
   items: NavItem[]
-  /** Phase B.3 — group renders collapsed-by-default; click expands. */
+  /** Group renders collapsed-by-default; click expands. */
   collapsible?: boolean
 }
 
 /**
- * Phase B1 — pinned home + three groups. The pinned "الرئيسية" item
- * at the very top points at `/admin/ops` (the new admin home — see
- * `app/admin/page.tsx`). It's a single-item group with NO title divider
- * so it reads as a top-of-sidebar shortcut, distinct from the named
- * groups below.
- *
- * The three named groups below preserve the B.3 mental model:
- *   • Khat Brain        — episode-workflow center (planning + execution)
- *   • الموقع              — back-office (guests, submissions, partners,
- *                          team, settings)
- *   • أدوات متقدمة         — power-user surfaces (collapsed by default)
- *
- * Operations dashboard was removed from group "الموقع" to avoid
- * duplicating the pinned Home item. Group "الموقع" was renamed from
- * the older "الموقع والعمليات" because operations are no longer in it.
+ * Pinned home + three groups:
+ *   • Khat Brain   — the production pipeline: command center, seasons,
+ *                    episodes, market intel, and the guest funnel
+ *                    (discovery → المرشحون sit together because v2
+ *                    promotion feeds candidates directly).
+ *   • الموقع        — back-office (guests, content, newsletter, partners,
+ *                    team, settings)
+ *   • أدوات متقدمة   — power-user surfaces (collapsed by default)
  *
  * Routes are unchanged. Deep links + URL bookmarks continue to resolve.
  */
@@ -72,25 +65,22 @@ const navGroups: NavGroup[] = [
   {
     // Pinned home — single item, rendered without a section header.
     title: "__home__",
-    items: [
-      { href: "/admin/ops", icon: Gauge, label: "الرئيسية", badge: "new" },
-    ],
+    items: [{ href: "/admin/ops", icon: Gauge, label: "الرئيسية" }],
   },
   {
     title: "Khat Brain",
     items: [
-      { href: "/admin/khat-brain", icon: Brain, label: "مركز القيادة", badge: "new" },
+      { href: "/admin/khat-brain", icon: Brain, label: "مركز القيادة" },
       { href: "/admin/khat-brain/seasons", icon: Compass, label: "المواسم", badge: "ai" },
-      { href: "/admin/khat-brain/episodes", icon: PlayCircle, label: "الحلقات", badge: "new" },
-      { href: "/admin/khat-brain/market/signals", icon: Activity, label: "إشارات السوق", badge: "ai" },
-      { href: "/admin/khat-brain/market/sources", icon: Bookmark, label: "المصادر الموثوقة", badge: "ai" },
+      { href: "/admin/khat-brain/episodes", icon: PlayCircle, label: "الحلقات" },
       { href: "/admin/discovery-v2", icon: Telescope, label: "اكتشاف الضيوف", badge: "ai" },
+      { href: "/admin/guest-candidates", icon: UserPlus, label: "المرشحون" },
+      { href: "/admin/khat-brain/market/signals", icon: Activity, label: "إشارات السوق", badge: "ai" },
+      { href: "/admin/khat-brain/market/sources", icon: Bookmark, label: "المصادر الموثوقة" },
       { href: "/admin/analytics", icon: BarChart3, label: "الأداء والتعلّم" },
     ],
   },
   {
-    // Renamed from "الموقع والعمليات" since operations moved to the
-    // pinned Home item above.
     title: "الموقع",
     items: [
       { href: "/admin/guests", icon: Users, label: "الضيوف" },
@@ -110,14 +100,13 @@ const navGroups: NavGroup[] = [
     items: [
       { href: "/admin/preparation", icon: Sparkles, label: "الإعداد", badge: "ai" },
       { href: "/admin/studio", icon: Mic, label: "الاستديو", badge: "ai" },
-      { href: "/admin/guest-candidates", icon: UserPlus, label: "المرشحون" },
       { href: "/admin/khat-brain/original-thinking", icon: Lightbulb, label: "التفكير الأصيل", badge: "ai" },
-      // Phase B — legacy episodes list stays gated. Toggle
+      // Legacy episodes list stays gated. Toggle
       // NEXT_PUBLIC_KHAT_LEGACY_EPISODES_VISIBLE=true to reveal.
       {
         href: "/admin/episodes",
         icon: PlayCircle,
-        label: "الحلقات",
+        label: "الحلقات (القديمة)",
         legacy: true,
       },
     ],
@@ -140,10 +129,9 @@ function AdminSidebar({ collapsed, onNavClick, userRole }: AdminSidebarProps) {
   const showLegacy =
     process.env.NEXT_PUBLIC_KHAT_LEGACY_EPISODES_VISIBLE === "true"
 
-  // Phase B.3 — track which collapsible groups the operator has opened.
+  // Track which collapsible groups the operator has opened.
   // Default: closed. Auto-open when an item inside the group is the
-  // current pathname (so operators don't need to expand to see where
-  // they are).
+  // current pathname.
   const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({})
   const isCollapsibleOpen = (group: NavGroup) => {
     if (!group.collapsible) return true
@@ -155,8 +143,16 @@ function AdminSidebar({ collapsed, onNavClick, userRole }: AdminSidebarProps) {
     )
   }
 
+  // Longest-prefix active matching: only the most specific item lights
+  // up (e.g. /admin/khat-brain/seasons doesn't also activate the
+  // /admin/khat-brain command-center item).
+  const allHrefs = navGroups.flatMap((g) => g.items.map((i) => i.href))
+  const activeHref = allHrefs
+    .filter((h) => pathname === h || pathname.startsWith(h + "/"))
+    .sort((a, b) => b.length - a.length)[0]
+
   return (
-    <nav className="flex flex-col gap-0.5 p-2.5">
+    <nav className="flex h-full flex-col gap-0.5 p-2.5">
       {navGroups.map((group, groupIndex) => {
         const visibleItems = group.items.filter(
           (item) =>
@@ -168,105 +164,114 @@ function AdminSidebar({ collapsed, onNavClick, userRole }: AdminSidebarProps) {
         const open = isCollapsibleOpen(group)
 
         return (
-        <div key={group.title}>
-          {groupIndex > 0 && (
-            <div className="my-2.5">
-              {collapsed ? (
-                <div className="mx-auto h-px w-5 bg-border/30" />
-              ) : group.collapsible ? (
-                <button
-                  type="button"
-                  onClick={() =>
-                    setOpenGroups((prev) => ({
-                      ...prev,
-                      [group.title]: !open,
-                    }))
-                  }
-                  className="group flex w-full items-center gap-1 px-3 py-1 text-[10px] font-medium uppercase tracking-[0.15em] text-muted-foreground/40 hover:text-muted-foreground/70"
-                  data-collapsible-group={group.title}
-                  data-collapsible-open={open}
-                  aria-expanded={open}
-                >
-                  <ChevronDown
-                    className={cn(
-                      "h-3 w-3 transition-transform",
-                      open ? "rotate-0" : "-rotate-90",
-                    )}
-                  />
-                  <span>{group.title}</span>
-                </button>
-              ) : (
-                <div className="px-3 py-1">
-                  <span className="text-[10px] font-medium uppercase tracking-[0.15em] text-muted-foreground/40">
-                    {group.title}
-                  </span>
-                </div>
-              )}
-            </div>
-          )}
-          {(group.collapsible && !open && !collapsed) ? null : visibleItems.map((item) => {
-            const isActive =
-              pathname === item.href ||
-              (item.href !== "/admin" && pathname.startsWith(item.href))
-
-            return (
-              <Link
-                key={item.href}
-                href={item.href}
-                onClick={onNavClick}
-                data-active={isActive}
-                className={cn(
-                  "admin-nav-item group/nav flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-[13px] transition-all",
-                  isActive
-                    ? "bg-muted text-foreground font-medium"
-                    : "text-muted-foreground hover:bg-muted/50 hover:text-foreground"
-                )}
-                title={collapsed ? item.label : undefined}
-              >
-                <span className="relative flex h-8 w-8 shrink-0 items-center justify-center rounded-lg transition-colors">
-                  <item.icon className={cn(
-                    "h-[18px] w-[18px] transition-colors",
-                    isActive ? "text-foreground" : "text-muted-foreground/70 group-hover/nav:text-foreground"
-                  )} />
-                  {item.badge === "ai" && (
-                    <span className="absolute -top-0.5 -end-0.5 flex h-2.5 w-2.5 items-center justify-center">
-                      <Sparkles className="h-2.5 w-2.5 text-amber-500" />
+          <div key={group.title}>
+            {groupIndex > 0 && (
+              <div className="my-2">
+                {collapsed ? (
+                  <div className="mx-auto h-px w-5 bg-border/40" />
+                ) : group.collapsible ? (
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setOpenGroups((prev) => ({
+                        ...prev,
+                        [group.title]: !open,
+                      }))
+                    }
+                    className="group flex w-full items-center gap-1 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-muted-foreground/50 transition-colors hover:text-muted-foreground"
+                    data-collapsible-group={group.title}
+                    data-collapsible-open={open}
+                    aria-expanded={open}
+                  >
+                    <ChevronDown
+                      className={cn(
+                        "h-3 w-3 transition-transform",
+                        open ? "rotate-0" : "-rotate-90",
+                      )}
+                    />
+                    <span>{group.title}</span>
+                  </button>
+                ) : (
+                  <div className="px-3 pb-1 pt-2">
+                    <span className="text-[10px] font-semibold uppercase tracking-[0.16em] text-muted-foreground/50">
+                      {group.title}
                     </span>
-                  )}
-                </span>
-                {!collapsed && (
-                  <span className="flex-1 transition-opacity duration-200">
-                    {item.label}
-                  </span>
-                )}
-                {!collapsed && item.badge === "ai" && (
-                  <span className="rounded-md bg-amber-500/10 px-1.5 py-0.5 text-[9px] font-semibold text-amber-500">
-                    ذكي
-                  </span>
-                )}
-                {/* Tooltip for collapsed state */}
-                {collapsed && (
-                  <div className="pointer-events-none absolute start-full top-1/2 z-50 ms-2 -translate-y-1/2 rounded-lg bg-popover px-3 py-1.5 text-xs font-medium text-popover-foreground shadow-lg border border-border/50 opacity-0 transition-all group-hover/nav:pointer-events-auto group-hover/nav:opacity-100">
-                    {item.label}
                   </div>
                 )}
-              </Link>
-            )
-          })}
-        </div>
+              </div>
+            )}
+            {group.collapsible && !open && !collapsed
+              ? null
+              : visibleItems.map((item) => {
+                  const isActive = item.href === activeHref
+
+                  return (
+                    <Link
+                      key={item.href}
+                      href={item.href}
+                      onClick={onNavClick}
+                      data-active={isActive}
+                      className={cn(
+                        "admin-nav-item group/nav flex items-center gap-2.5 rounded-xl px-2 py-[7px] text-[12.5px] transition-all",
+                        isActive
+                          ? "bg-primary/10 font-semibold text-foreground"
+                          : "text-muted-foreground hover:bg-muted/60 hover:text-foreground",
+                      )}
+                      title={collapsed ? item.label : undefined}
+                    >
+                      <span
+                        className={cn(
+                          "relative flex h-7 w-7 shrink-0 items-center justify-center rounded-lg transition-colors",
+                          isActive && "bg-primary/15",
+                        )}
+                      >
+                        <item.icon
+                          className={cn(
+                            "h-4 w-4 transition-colors",
+                            isActive
+                              ? "text-primary"
+                              : "text-muted-foreground/70 group-hover/nav:text-foreground",
+                          )}
+                        />
+                      </span>
+                      {!collapsed && (
+                        <span className="flex-1 truncate transition-opacity duration-200">
+                          {item.label}
+                        </span>
+                      )}
+                      {!collapsed && item.badge === "ai" && (
+                        <span className="inline-flex items-center gap-0.5 rounded-md bg-primary/10 px-1.5 py-0.5 text-[9px] font-bold text-primary">
+                          <Sparkles className="h-2.5 w-2.5" />
+                          ذكي
+                        </span>
+                      )}
+                      {/* Tooltip for collapsed state */}
+                      {collapsed && (
+                        <div className="pointer-events-none absolute start-full top-1/2 z-50 ms-2 -translate-y-1/2 rounded-lg border border-border/50 bg-popover px-3 py-1.5 text-xs font-medium text-popover-foreground opacity-0 shadow-lg transition-all group-hover/nav:pointer-events-auto group-hover/nav:opacity-100">
+                          {item.label}
+                        </div>
+                      )}
+                    </Link>
+                  )
+                })}
+          </div>
         )
       })}
 
-      {/* AI Assistant Hint */}
+      {/* Footer brand note */}
       {!collapsed && (
-        <div className="mt-6 rounded-xl border border-border/60 bg-muted/30 p-3">
-          <div className="flex items-center gap-2">
-            <Sparkles className="h-3.5 w-3.5 text-muted-foreground" />
-            <span className="text-[11px] font-medium text-foreground/80">مدعوم بالذكاء الاصطناعي</span>
+        <div className="mt-auto pt-6">
+          <div className="rounded-xl border border-primary/15 bg-gradient-to-br from-primary/8 to-accent/5 p-3">
+            <div className="flex items-center gap-2">
+              <Sparkles className="h-3.5 w-3.5 text-primary" />
+              <span className="text-[11px] font-semibold text-foreground/85">
+                خط بودكاست
+              </span>
+            </div>
+            <p className="mt-1 text-[10px] leading-relaxed text-muted-foreground/80">
+              منظومة تشغيل مدعومة بالذكاء الاصطناعي
+            </p>
           </div>
-          <p className="mt-1.5 text-[10px] leading-relaxed text-muted-foreground/70">
-            الاستوديو يعمل بتقنيات الذكاء الاصطناعي
-          </p>
         </div>
       )}
     </nav>
