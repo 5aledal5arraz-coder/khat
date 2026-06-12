@@ -1,10 +1,12 @@
 /**
- * Real (OpenAI-backed) implementation of `EngineAI`.
+ * Real (AI-Router-backed) implementation of `EngineAI`.
  *
- * Thin layer over the existing lib/ai/client.ts primitives:
- *   - STRUCTURE_MODEL (gpt-4o-mini) for batch candidate generation
+ * Every LLM call goes through `runAiTask` so season generation gets the
+ * same telemetry (ai_runs), rate limiting, and cost accounting as the
+ * rest of the platform:
+ *   - taskKind "structural" (gpt-4o-mini) for batch candidate generation
  *     (structural/diversity task, fast + cheap at oversample volume)
- *   - EDITORIAL_MODEL (gpt-4o) for guest analysis + guest-anchored
+ *   - taskKind "editorial" (gpt-4o) for guest analysis + guest-anchored
  *     angle generation (deep editorial judgment — one guest gets the
  *     full model)
  *   - text-embedding-3-small for all similarity work (delegated to
@@ -14,12 +16,7 @@
  * batch engine never imports it directly; it takes an `EngineAI` arg.
  */
 
-import {
-  getClient,
-  STRUCTURE_MODEL,
-  EDITORIAL_MODEL,
-  safeParseJSON,
-} from "@/lib/ai/client"
+import { runAiTask } from "@/lib/ai-router"
 import { embed } from "@/lib/khat-map/learning/embeddings"
 import {
   buildBatchSystemPrompt,
@@ -41,28 +38,35 @@ import type {
 async function generateCandidates(
   input: CandidateGenInput,
 ): Promise<RawCandidate[]> {
-  const client = getClient()
-  const res = await client.chat.completions.create({
-    model: STRUCTURE_MODEL,
-    temperature: 0.8,
-    response_format: { type: "json_object" },
-    messages: [
+  const r = await runAiTask<{ candidates?: unknown } | unknown[]>({
+    taskKind: "structural",
+    seasonId: input.season_id,
+    subjectTable: "khat_map_seasons",
+    subjectId: input.season_id,
+    promptVersion: "khat-map-batch-v2",
+    input: {
+      season_id: input.season_id,
+      target_count: input.target_count,
+      season_target: input.season_target,
+      rejected_count: input.rejected_titles.length,
+    },
+    prompt: [
       { role: "system", content: buildBatchSystemPrompt(input) },
       { role: "user", content: buildBatchUserPrompt(input) },
     ],
+    expectJson: true,
+    providerOptions: { temperature: 0.8 },
   })
-  const parsed = safeParseJSON<{ candidates?: unknown } | unknown[]>(
-    res.choices[0]?.message?.content ?? null,
-    "batch-candidates",
-  )
-  if (!parsed.success) throw new Error(parsed.error)
-  // The response_format=json_object contract forces an object at the top
-  // level. Our prompt asks for an array, so we accept either the bare
-  // array (if the model complies with the spirit) or a `{candidates: []}`
-  // wrapper (if it wraps to satisfy the JSON-object requirement).
-  const list = Array.isArray(parsed.data)
-    ? parsed.data
-    : (parsed.data as { candidates?: unknown }).candidates
+  if (r.status !== "succeeded" || r.parsed == null) {
+    throw new Error(r.errorMessage ?? "batch-candidates: generation failed")
+  }
+  // The json_object contract forces an object at the top level. Our
+  // prompt asks for an array, so we accept either the bare array (if the
+  // model complies with the spirit) or a `{candidates: []}` wrapper (if
+  // it wraps to satisfy the JSON-object requirement).
+  const list = Array.isArray(r.parsed)
+    ? r.parsed
+    : (r.parsed as { candidates?: unknown }).candidates
   if (!Array.isArray(list)) {
     throw new Error("batch-candidates: expected an array at the top level")
   }
@@ -72,45 +76,47 @@ async function generateCandidates(
 }
 
 async function analyzeGuest(input: GuestAnalyzeInput): Promise<GuestProfile> {
-  const client = getClient()
-  const res = await client.chat.completions.create({
-    model: EDITORIAL_MODEL,
-    temperature: 0.4,
-    response_format: { type: "json_object" },
-    messages: [
+  const r = await runAiTask<GuestProfile>({
+    taskKind: "editorial",
+    promptVersion: "khat-map-guest-analyze-v2",
+    input: { full_name: input.full_name, has_bio: Boolean(input.bio) },
+    prompt: [
       { role: "system", content: buildGuestAnalyzeSystemPrompt() },
       { role: "user", content: buildGuestAnalyzeUserPrompt(input) },
     ],
+    expectJson: true,
+    providerOptions: { temperature: 0.4 },
   })
-  const parsed = safeParseJSON<GuestProfile>(
-    res.choices[0]?.message?.content ?? null,
-    "guest-analyze",
-  )
-  if (!parsed.success) throw new Error(parsed.error)
-  return normalizeGuestProfile(parsed.data, input)
+  if (r.status !== "succeeded" || r.parsed == null) {
+    throw new Error(r.errorMessage ?? "guest-analyze: generation failed")
+  }
+  return normalizeGuestProfile(r.parsed, input)
 }
 
 async function generateGuestAnchoredTopics(
   input: GuestAnchoredTopicsInput,
 ): Promise<RawCandidate[]> {
-  const client = getClient()
-  const res = await client.chat.completions.create({
-    model: EDITORIAL_MODEL,
-    temperature: 0.7,
-    response_format: { type: "json_object" },
-    messages: [
+  const r = await runAiTask<{ candidates?: unknown } | unknown[]>({
+    taskKind: "editorial",
+    promptVersion: "khat-map-guest-anchored-v2",
+    input: {
+      guest: input.guest_profile.full_name,
+      angle_count: input.angle_count,
+      rejected_count: input.rejected_titles.length,
+    },
+    prompt: [
       { role: "system", content: buildGuestAnchoredSystemPrompt(input) },
       { role: "user", content: buildGuestAnchoredUserPrompt(input) },
     ],
+    expectJson: true,
+    providerOptions: { temperature: 0.7 },
   })
-  const parsed = safeParseJSON<{ candidates?: unknown } | unknown[]>(
-    res.choices[0]?.message?.content ?? null,
-    "guest-anchored",
-  )
-  if (!parsed.success) throw new Error(parsed.error)
-  const list = Array.isArray(parsed.data)
-    ? parsed.data
-    : (parsed.data as { candidates?: unknown }).candidates
+  if (r.status !== "succeeded" || r.parsed == null) {
+    throw new Error(r.errorMessage ?? "guest-anchored: generation failed")
+  }
+  const list = Array.isArray(r.parsed)
+    ? r.parsed
+    : (r.parsed as { candidates?: unknown }).candidates
   if (!Array.isArray(list)) {
     throw new Error("guest-anchored: expected an array at the top level")
   }

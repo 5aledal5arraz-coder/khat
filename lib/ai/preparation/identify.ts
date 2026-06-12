@@ -23,7 +23,7 @@
  * the error; we never return a silent empty list in that case.
  */
 
-import { getGeminiClient, isGeminiConfigured } from "./research/gemini"
+import { getGeminiClient, isGeminiConfigured } from "@/lib/ai/gemini"
 import type { PreparationCandidate } from "@/types/preparation"
 
 const GEMINI_MODEL = process.env.GEMINI_RETRIEVAL_MODEL || "gemini-2.5-flash"

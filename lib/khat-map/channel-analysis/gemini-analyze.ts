@@ -22,7 +22,7 @@
  *      surface them in the UI.
  */
 
-import { isGeminiConfigured } from "@/lib/ai/preparation/research/gemini"
+import { isGeminiConfigured } from "@/lib/ai/gemini"
 import {
   geminiJsonHardened,
   type HardenedDiagnostics,

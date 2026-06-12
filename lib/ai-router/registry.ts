@@ -68,6 +68,22 @@ export const DEFAULT_MODELS: Record<AiTaskKind, ModelChoice> = {
 }
 
 /**
+ * Pricing for models reachable via `preferredProvider`/`preferredModel`
+ * overrides but not in the task-kind defaults (currently the Gemini
+ * family). Best-effort, same as DEFAULT_MODELS.
+ */
+const EXTRA_PRICING: Array<{
+  provider: AiProvider
+  modelName: string
+  inputCostPer1M: number
+  outputCostPer1M: number
+}> = [
+  { provider: "gemini", modelName: "gemini-2.5-flash", inputCostPer1M: 0.3, outputCostPer1M: 2.5 },
+  { provider: "gemini", modelName: "gemini-2.5-pro", inputCostPer1M: 1.25, outputCostPer1M: 10 },
+  { provider: "gemini", modelName: "gemini-2.0-flash", inputCostPer1M: 0.1, outputCostPer1M: 0.4 },
+]
+
+/**
  * Cost lookup helper. Returns null when we don't have pricing for the
  * requested model — `cost_usd` then stores null in ai_runs (honest
  * "unknown" rather than a fabricated number).
@@ -76,7 +92,7 @@ export function lookupPricing(
   provider: AiProvider,
   modelName: string,
 ): { inputCostPer1M: number; outputCostPer1M: number } | null {
-  for (const choice of Object.values(DEFAULT_MODELS)) {
+  for (const choice of [...Object.values(DEFAULT_MODELS), ...EXTRA_PRICING]) {
     if (choice.provider === provider && choice.modelName === modelName) {
       return {
         inputCostPer1M: choice.inputCostPer1M,
