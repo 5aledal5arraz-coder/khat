@@ -8,7 +8,8 @@
 import { revalidatePath } from "next/cache"
 import { requireAdmin, getAdminAuthUser } from "@/lib/api-utils"
 import { createDiscoveryRun } from "@/lib/discovery/runs"
-import { setCandidateStatus } from "@/lib/discovery/candidates"
+import { getCandidate, setCandidateStatus } from "@/lib/discovery/candidates"
+import { createCandidate as createGuestCandidate } from "@/lib/guest-candidates/queries"
 import { enqueueJob } from "@/lib/jobs"
 import type { DiscoverySourceConfig } from "@/lib/db/schema/discovery"
 
@@ -86,6 +87,59 @@ export async function rejectV2CandidateAction(
   try {
     await setCandidateStatus(id, "rejected", { rejection_reason: "رفض المشغّل" })
     return { success: true }
+  } catch (e) {
+    return { success: false, error: e instanceof Error ? e.message : "خطأ" }
+  }
+}
+
+/**
+ * Promote a discovered person into the guest-candidates funnel
+ * (outreach/CRM). Carries profile, rationale, and social links over, and
+ * stamps the discovery row "promoted" so cross-run memory excludes them.
+ */
+export async function promoteV2CandidateAction(
+  id: string,
+): Promise<{ success: boolean; candidateId?: string; error?: string }> {
+  await requireAdmin()
+  const user = await getAdminAuthUser()
+  if (!user) return { success: false, error: "غير مصرح" }
+  try {
+    const rec = await getCandidate(id)
+    if (!rec) return { success: false, error: "المرشّح غير موجود" }
+    if (rec.status === "promoted") return { success: false, error: "تمت ترقيته مسبقاً" }
+    const name = (rec.display_name ?? rec.proposed_name ?? "").trim()
+    if (!name) return { success: false, error: "لا اسم للمرشّح" }
+
+    const v2 = (rec.platform_signals as { v2?: Record<string, unknown> } | null)?.v2 ?? {}
+    const social = (v2.social ?? {}) as Record<string, string | null>
+    const socialLinks: { platform: string; url: string; is_primary?: boolean }[] = []
+    if (social.x) socialLinks.push({ platform: "x", url: social.x, is_primary: true })
+    if (social.instagram) socialLinks.push({ platform: "instagram", url: social.instagram })
+    if (social.linkedin) socialLinks.push({ platform: "linkedin", url: social.linkedin })
+    if (social.youtube_channel) socialLinks.push({ platform: "youtube", url: social.youtube_channel })
+    for (const ev of rec.evidence_urls.slice(0, 3)) {
+      if (ev?.url) socialLinks.push({ platform: "website", url: ev.url })
+    }
+
+    const occupations = Array.isArray(v2.occupations) ? (v2.occupations as string[]) : []
+    const created = await createGuestCandidate(
+      {
+        full_name: name,
+        category: rec.proposed_role ?? occupations[0] ?? null,
+        country: (v2.nationality as string | null) ?? rec.proposed_country ?? null,
+        bio: (v2.why as string | null) ?? rec.general_rationale ?? rec.topic_fit_rationale ?? null,
+        source_type: "discovery_v2",
+        source_note: rec.topic_fit_rationale ?? rec.general_rationale ?? null,
+        status: "shortlisted",
+        social_links: socialLinks,
+      },
+      user.id,
+    )
+
+    await setCandidateStatus(id, "promoted")
+    revalidatePath("/admin/discovery-v2")
+    revalidatePath("/admin/guest-candidates")
+    return { success: true, candidateId: created.id }
   } catch (e) {
     return { success: false, error: e instanceof Error ? e.message : "خطأ" }
   }

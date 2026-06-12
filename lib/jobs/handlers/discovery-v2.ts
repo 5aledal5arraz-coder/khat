@@ -67,6 +67,7 @@ registerHandler<V2RunPayload>("discovery_v2.run", async (payload) => {
     limit: Number(cfg.limit ?? 12),
     seasonId: run.season_id ?? null,
     episodeCandidateId: (cfg.episodeCandidateId as string) ?? null,
+    runId: run.id,
   }
 
   await setRunStatus(run.id, "searching")

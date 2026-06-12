@@ -14,6 +14,7 @@
 
 import type { V2Candidate, V2RunInput } from "./types"
 import { proposeNames } from "./propose"
+import { loadDiscoveryMemory } from "./memory"
 import { resolvePerson } from "./sources/wikidata"
 import { enrich } from "./enrich"
 import { scoreCandidate } from "./score"
@@ -48,7 +49,12 @@ export async function runV2Discovery(input: V2RunInput): Promise<V2RunResult> {
   const limit = Math.max(3, Math.min(input.limit ?? 12, 24))
   const want = Math.min(limit * 2, 30)
 
-  const proposal = await proposeNames(input, want)
+  // Cross-run memory: exclude existing guests, promoted candidates, and
+  // operator rejections inside the prompt; resolved QIDs are re-checked
+  // below as a hard filter (the LLM can respell a name, the QID can't).
+  const memory = await loadDiscoveryMemory({ seasonId: input.seasonId })
+
+  const proposal = await proposeNames(input, want, memory)
   if (proposal.error || proposal.names.length === 0) {
     return {
       candidates: [],
@@ -63,18 +69,29 @@ export async function runV2Discovery(input: V2RunInput): Promise<V2RunResult> {
   // so a slightly higher concurrency cuts wall-clock without hammering the
   // free public APIs.
   const scored = await pmap(proposal.names, 6, async (p) => {
-    const wiki = await resolvePerson(p.name, input.filters)
+    // The proposal's own role/country/name_en is the disambiguation hint —
+    // it scores homonym QIDs against what the LLM actually meant.
+    const wiki = await resolvePerson(p.name, {
+      role: p.role,
+      country: p.country,
+      name_en: p.name_en,
+    })
     if (!wiki.resolved) {
       return scoreCandidate(p, wiki, {}, input) // → rejected (unverifiable)
+    }
+    if (wiki.qid && memory.excludeQids.has(wiki.qid)) {
+      return null // already a guest / promoted / operator-rejected
     }
     const signals = await enrich(p.name, wiki)
     return scoreCandidate(p, wiki, signals, input)
   })
 
+  const kept = scored.filter((c): c is V2Candidate => c !== null)
+
   // De-dupe by resolved QID (LLM sometimes proposes the same person twice).
   const seen = new Set<string>()
   const deduped: V2Candidate[] = []
-  for (const c of scored) {
+  for (const c of kept) {
     const key = c.wiki.qid ?? c.name
     if (seen.has(key)) continue
     seen.add(key)

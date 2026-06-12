@@ -10,8 +10,13 @@ import {
   Newspaper,
   GraduationCap,
   Star,
+  UserPlus,
 } from "lucide-react"
-import { saveV2CandidateAction, rejectV2CandidateAction } from "./actions"
+import {
+  saveV2CandidateAction,
+  rejectV2CandidateAction,
+  promoteV2CandidateAction,
+} from "./actions"
 
 export interface V2CardData {
   id: string
@@ -67,8 +72,14 @@ const LINK_ICON: Record<string, typeof ExternalLink> = {
 
 export function CandidateCard({ c }: { c: V2CardData }) {
   const [pending, start] = useTransition()
-  const [done, setDone] = useState<null | "saved" | "rejected">(
-    c.status === "saved_for_later" ? "saved" : c.status === "rejected" && c.decision !== "rejected" ? "rejected" : null,
+  const [done, setDone] = useState<null | "saved" | "rejected" | "promoted">(
+    c.status === "saved_for_later"
+      ? "saved"
+      : c.status === "promoted"
+        ? "promoted"
+        : c.status === "rejected" && c.decision !== "rejected"
+          ? "rejected"
+          : null,
   )
   const d = DECISION[c.decision]
   const initials = c.name.trim().slice(0, 2)
@@ -126,7 +137,10 @@ export function CandidateCard({ c }: { c: V2CardData }) {
         </div>
       )}
 
-      <div className="mt-3 flex gap-2">
+      <div className="mt-3 flex flex-wrap gap-2">
+        <button type="button" disabled={pending || done === "promoted"} onClick={() => start(async () => { const r = await promoteV2CandidateAction(c.id); if (r.success) setDone("promoted") })} className="inline-flex items-center gap-1 rounded-lg border border-violet-500/30 bg-violet-500/10 px-2.5 py-1 text-[11.5px] text-violet-200 hover:bg-violet-500/20 disabled:opacity-40">
+          <UserPlus className="h-3 w-3" /> {done === "promoted" ? "في قائمة المرشّحين" : "رشّح للتواصل"}
+        </button>
         <button type="button" disabled={pending || done === "saved"} onClick={() => start(async () => { const r = await saveV2CandidateAction(c.id); if (r.success) setDone("saved") })} className="inline-flex items-center gap-1 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-2.5 py-1 text-[11.5px] text-emerald-200 hover:bg-emerald-500/20 disabled:opacity-40">
           <Check className="h-3 w-3" /> {done === "saved" ? "محفوظ" : "احفظ للحلقة"}
         </button>

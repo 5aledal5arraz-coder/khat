@@ -14,7 +14,14 @@
  *   - <lang>.wikipedia REST summary — extract + thumbnail
  */
 
-import type { V2Filters, WikiFacts } from "../types"
+import type { WikiFacts } from "../types"
+
+/** Light context from the LLM proposal, used to disambiguate homonyms. */
+export interface ResolveHint {
+  role?: string | null
+  country?: string | null
+  name_en?: string | null
+}
 
 const UA =
   "KhatPodcast-GuestDiscovery/1.0 (https://khatpodcast.com; noreply@khatpodcast.com)"
@@ -161,25 +168,82 @@ async function resolveSummary(
 }
 
 /**
+ * Disambiguation — score one candidate entity against the proposal hint.
+ *
+ * Homonyms are the #1 wrong-person failure: common Arabic names resolve
+ * to several humans and the old "first human wins" rule anchored every
+ * downstream fact (gender, nationality, death year) to a stranger.
+ * Instead, every human candidate is scored on how well its Wikidata
+ * description/occupations/citizenship match what the LLM proposed.
+ */
+function scoreEntityAgainstHint(
+  ent: any,
+  hint: ResolveHint | undefined,
+  searchRank: number,
+): number {
+  const claims = ent?.claims ?? {}
+  let score = 0
+
+  // Notability prior + search-rank prior (earlier hits are likelier).
+  const sitelinkCount = Object.keys(ent?.sitelinks ?? {}).length
+  score += Math.min(2, Math.log10(1 + sitelinkCount))
+  score += Math.max(0, 1 - searchRank * 0.2)
+  // Arabic Wikipedia presence matters for an Arabic-language podcast.
+  if (ent?.sitelinks?.arwiki) score += 0.5
+
+  if (!hint) return score
+
+  const descr = [
+    ent?.descriptions?.ar?.value ?? "",
+    ent?.descriptions?.en?.value ?? "",
+  ]
+    .join(" ")
+    .toLowerCase()
+
+  // Role tokens vs description (occupation labels arrive later; the
+  // description usually carries the profession in both languages).
+  if (hint.role) {
+    const toks = hint.role
+      .toLowerCase()
+      .replace(/[.,؛،"'()\-_/]/g, " ")
+      .split(/\s+/)
+      .filter((t) => t.length >= 3)
+    const hits = toks.filter((t) => descr.includes(t)).length
+    if (toks.length > 0) score += (hits / toks.length) * 2
+  }
+
+  // Country vs citizenship QID labels — we can't resolve labels here
+  // without an extra round-trip, so match against description text,
+  // which commonly embeds nationality ("كاتب كويتي", "Egyptian writer").
+  if (hint.country) {
+    const c = hint.country.toLowerCase()
+    if (c && descr.includes(c)) score += 1.5
+  }
+
+  return score
+}
+
+/**
  * Resolve a proposed name to authoritative facts. Tries Arabic then
- * English search; picks the first candidate that is a human (P31=Q5).
+ * English search; scores every confirmed human (P31=Q5) against the
+ * proposal hint and picks the best match. When the top two humans score
+ * within 0.75 of each other the identity is flagged uncertain so scoring
+ * can cap the candidate at shortlist instead of trusting a guess.
  *
  * Latency shape: the independent network calls run concurrently —
  * (ar + en search) in parallel, then ONE batched entity fetch, then
- * (occupation/citizenship labels + Wikipedia summary) in parallel. This
- * is identical in results to the previous fully-serial version, just far
- * faster on the wall clock.
+ * (occupation/citizenship labels + Wikipedia summary) in parallel.
  */
 export async function resolvePerson(
   name: string,
-  filters?: V2Filters,
+  hint?: ResolveHint,
 ): Promise<WikiFacts> {
   const empty: WikiFacts = { resolved: false }
   if (!name || name.trim().length < 2) return empty
 
   // 1. Candidate QIDs — Arabic + English searches run in parallel
   //    (independent). Arabic results kept first (most guests are Arab
-  //    figures), so the human-pick order below is unchanged.
+  //    figures).
   const [arQids, enQids] = await Promise.all([
     searchEntity(name, "ar"),
     searchEntity(name, "en"),
@@ -187,14 +251,26 @@ export async function resolvePerson(
   const uniqQids = [...new Set([...arQids, ...enQids])].slice(0, 6)
   if (uniqQids.length === 0) return empty
 
-  // 2. One batched fetch for all candidates, then pick the first confirmed
-  //    human in search-rank order.
+  // 2. One batched fetch for all candidates, then disambiguate among the
+  //    confirmed humans.
   const entities = await fetchEntities(uniqQids)
-  const qid =
-    uniqQids.find((id) =>
-      claimValueIds(entities[id]?.claims ?? {}, "P31").includes("Q5"),
-    ) ?? null
-  if (!qid) return empty
+  const humans = uniqQids.filter((id) =>
+    claimValueIds(entities[id]?.claims ?? {}, "P31").includes("Q5"),
+  )
+  if (humans.length === 0) return empty
+
+  let qid = humans[0]
+  let identityUncertain = false
+  if (humans.length > 1) {
+    const ranked = humans
+      .map((id) => ({
+        id,
+        s: scoreEntityAgainstHint(entities[id], hint, uniqQids.indexOf(id)),
+      }))
+      .sort((a, b) => b.s - a.s)
+    qid = ranked[0].id
+    identityUncertain = ranked[0].s - ranked[1].s < 0.75
+  }
   const ent = entities[qid]
 
   const claims = ent.claims ?? {}
@@ -252,6 +328,7 @@ export async function resolvePerson(
       : null,
     official_website: official,
     sitelink_count: sitelinkCount,
+    identity_uncertain: identityUncertain,
     social: {
       x: xUser ? `https://x.com/${xUser}` : null,
       instagram: ig ? `https://instagram.com/${ig}` : null,

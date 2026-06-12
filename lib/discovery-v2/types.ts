@@ -24,6 +24,8 @@ export interface V2RunInput {
   limit?: number
   seasonId?: string | null
   episodeCandidateId?: string | null
+  /** discovery_runs.id — links ai_runs telemetry back to this run. */
+  runId?: string | null
 }
 
 /** A raw name proposal from the LLM (pre-verification). */
@@ -55,6 +57,9 @@ export interface WikiFacts {
   official_website?: string | null
   /** count of language editions with an article — a notability proxy */
   sitelink_count?: number
+  /** several humans share this name and the top two scored too close —
+   *  downstream scoring caps the candidate at shortlist. */
+  identity_uncertain?: boolean
   social?: {
     x?: string | null
     instagram?: string | null

@@ -59,24 +59,35 @@ function recencyScore(s: EnrichmentSignals): number {
   return m >= 6 ? 1.0 : m >= 3 ? 0.7 : m >= 1 ? 0.5 : 0.2
 }
 
-function filterMatch(w: WikiFacts, f: V2Filters): { score: number; contradiction: boolean } {
-  let score = 1
-  let contradiction = false
-  if (f.gender && w.gender && w.gender !== "other") {
+function filterMatch(
+  w: WikiFacts,
+  f: V2Filters,
+): { score: number; contradiction: boolean; reason: string | null } {
+  // Strict-on-unknown: when the operator sets a filter, a candidate whose
+  // attribute can't be verified is dropped, not passed through softly.
+  const isKuwaiti = w.nationality_country
+    ? /kuwait|الكويت/i.test(w.nationality_country)
+    : null
+  if (f.gender) {
+    if (!w.gender || w.gender === "other") {
+      return { score: 0, contradiction: true, reason: "تعذّر التحقّق من جنس الضيف — الفلتر صارم" }
+    }
     if (w.gender !== f.gender) {
-      contradiction = true
-      score = 0
-    }
-  } else if (f.gender && !w.gender) {
-    score = Math.min(score, 0.6)
-  }
-  if (f.nationality === "kuwaiti" && w.nationality_country) {
-    if (!/kuwait|الكويت/i.test(w.nationality_country)) {
-      // not a hard contradiction (Wikidata may list multiple), but penalize
-      score = Math.min(score, 0.5)
+      return { score: 0, contradiction: true, reason: "يخالف فلتر الجنس المطلوب" }
     }
   }
-  return { score: clamp(score), contradiction }
+  if (f.nationality) {
+    if (isKuwaiti === null) {
+      return { score: 0, contradiction: true, reason: "تعذّر التحقّق من الجنسية — الفلتر صارم" }
+    }
+    if (f.nationality === "kuwaiti" && !isKuwaiti) {
+      return { score: 0, contradiction: true, reason: "ليس كويتياً والفلتر يطلب كويتيين فقط" }
+    }
+    if (f.nationality === "non_kuwaiti" && isKuwaiti) {
+      return { score: 0, contradiction: true, reason: "كويتي والفلتر يطلب غير الكويتيين" }
+    }
+  }
+  return { score: 1, contradiction: false, reason: null }
 }
 
 export function scoreCandidate(
@@ -128,7 +139,7 @@ export function scoreCandidate(
     reasons.push(`متوفّى (${wiki.death_year}) — غير قابل للاستضافة`)
   } else if (fm.contradiction) {
     decision = "rejected"
-    reasons.push("يخالف فلتر الجنس المطلوب")
+    reasons.push(fm.reason ?? "يخالف الفلاتر المطلوبة")
   } else if (overall >= 0.55) {
     decision = "accepted"
   } else if (overall >= 0.4) {
@@ -136,6 +147,13 @@ export function scoreCandidate(
   } else {
     decision = "rejected"
     reasons.push("إشارات ضعيفة (شهرة/قابلية استضافة/حضور حالي)")
+  }
+
+  // Homonym ambiguity: several humans share this name and disambiguation
+  // wasn't decisive — never auto-accept a possibly-wrong person.
+  if (decision === "accepted" && wiki.identity_uncertain) {
+    decision = "shortlist"
+    reasons.push("هوية غير مؤكّدة — أكثر من شخصية بنفس الاسم، تحتاج تأكيداً يدوياً")
   }
 
   if (decision !== "rejected") {
