@@ -15,6 +15,7 @@ import {
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { AdminSidebar } from "./components/admin-sidebar"
+import { ADMIN_LIGHT_TOKENS } from "./components/light-theme"
 import { Breadcrumbs } from "./components/breadcrumbs"
 import { AiDegradedBanner } from "./components/ai-degraded-banner"
 import { BreadcrumbLabelProvider } from "@/lib/admin/breadcrumb-context"
@@ -167,9 +168,14 @@ export default function AdminLayoutClient({
           </div>
         </aside>
 
-        {/* Main content */}
+        {/* Main content — Apple-clean LIGHT workspace inside the dark shell.
+            The light token palette is scoped here so every admin page recolors
+            cohesively (dark rail + light workspace). */}
         <main className="min-w-0 flex-1 p-4 lg:p-6">
-          <div className="admin-animate-in mx-auto max-w-[1400px]">
+          <div
+            style={ADMIN_LIGHT_TOKENS}
+            className="admin-animate-in mx-auto max-w-[1400px] rounded-[28px] bg-background p-5 text-foreground ring-1 ring-slate-200/70 sm:p-6 lg:p-8"
+          >
             {children}
           </div>
         </main>

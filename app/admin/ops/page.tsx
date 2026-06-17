@@ -14,7 +14,7 @@
  * Auth + RBAC: handled by the admin layout. Read-only — reload to refresh.
  */
 
-import type { CSSProperties, ReactNode } from "react"
+import type { ReactNode } from "react"
 import Link from "next/link"
 import {
   Compass,
@@ -39,29 +39,6 @@ import { EirPipelineSection } from "./_components/eir-pipeline-section"
 import { RecentActivitySection } from "./_components/recent-activity-section"
 
 export const dynamic = "force-dynamic"
-
-/** Apple-clean light palette, scoped to this page via inline CSS variables. */
-const LIGHT_TOKENS = {
-  "--background": "210 20% 98%",
-  "--foreground": "222 47% 11%",
-  "--card": "0 0% 100%",
-  "--card-foreground": "222 47% 11%",
-  "--popover": "0 0% 100%",
-  "--popover-foreground": "222 47% 11%",
-  "--primary": "38 46% 47%",
-  "--primary-foreground": "0 0% 100%",
-  "--secondary": "210 20% 96%",
-  "--secondary-foreground": "222 47% 11%",
-  "--muted": "210 20% 96%",
-  "--muted-foreground": "215 16% 47%",
-  "--accent": "266 40% 50%",
-  "--accent-foreground": "0 0% 100%",
-  "--destructive": "0 72% 51%",
-  "--destructive-foreground": "0 0% 100%",
-  "--border": "214 20% 91%",
-  "--input": "214 20% 91%",
-  "--ring": "38 46% 47%",
-} as CSSProperties
 
 // ─── Apple-clean tone accents (subtle, used sparingly) ───────────────────────
 
@@ -152,12 +129,7 @@ export default async function OpsDashboardPage() {
     : null
 
   return (
-    <div
-      dir="rtl"
-      lang="ar"
-      style={LIGHT_TOKENS}
-      className="rounded-[28px] bg-background p-6 text-foreground ring-1 ring-slate-200/70 sm:p-8 lg:p-10"
-    >
+    <div dir="rtl" lang="ar">
       {/* Hero */}
       <header className="mb-8 flex flex-wrap items-end justify-between gap-4">
         <div>
