@@ -50,10 +50,19 @@ public/               # Static assets
 npm run dev          # Local dev server
 npm run build        # Production build
 npm run lint         # ESLint
-npm run db:push      # Push Drizzle schema to DB
-npm run db:generate  # Generate Drizzle migrations
+npm run db:generate  # Generate a versioned migration from schema changes
+npm run db:migrate   # Apply pending migrations (shared/local DBs)
+npm run db:adopt     # One-time: baseline an EXISTING DB into the migration system
+npm run db:push      # Throwaway LOCAL only — interactive + unsafe on shared DBs
 npm run db:studio    # Open Drizzle Studio
 ```
+
+> **Schema changes go through versioned migrations, not `db:push`.** See
+> [drizzle/migrations/README.md](drizzle/migrations/README.md). Flow: edit
+> `lib/db/schema/` → `db:generate` → review the `.sql` → `db:migrate` → commit
+> `.sql`+`meta/` → on deploy run `db:migrate` then re-apply `post-schema.sql`.
+> `db:push` is interactive (asks "created or renamed?") and can rename/drop
+> tables — reserve it for disposable local DBs only.
 
 ## Database
 - **Schema**: `lib/db/schema/index.ts` (62+ tables across 11 schema files)
