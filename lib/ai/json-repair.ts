@@ -372,3 +372,80 @@ export function isObviouslyTruncated(raw: string): boolean {
   if (last === "}" || last === "]") return false
   return true
 }
+
+// ─── Composed recovery ladder ────────────────────────────────────────
+
+/**
+ * The free (no extra model call) string-level recovery stages, in the
+ * order they're attempted. `strict` means the response was already valid.
+ */
+export type JsonRepairStage =
+  | "strict"
+  | "sanitize"
+  | "extract_block"
+  | "truncation_repair"
+
+export interface JsonRepairOutcome {
+  /** The parsed value. */
+  value: unknown
+  /** Which stage produced it — `strict` means no repair was needed. */
+  stage: JsonRepairStage
+}
+
+/**
+ * Run an LLM JSON response through the full string-level recovery ladder
+ * and return the first stage that parses, or `null` if none do. This is
+ * the same ladder the khat-map hardened helper and the research pipeline
+ * use (strict → sanitize → largest-block → truncation-repair), minus the
+ * model-repair stage — so it's deterministic, free, and safe to call from
+ * the hot path (the AI router runs it on every `expectJson` response).
+ *
+ * Order rationale: try the cheapest interpretation first (strict), then
+ * progressively more aggressive recovery. `extract_block` runs before
+ * `truncation_repair` because a complete block buried in prose is a
+ * higher-fidelity recovery than reconstructing a cut-off tail.
+ */
+export function parseJsonWithRepair(
+  raw: string | null | undefined,
+): JsonRepairOutcome | null {
+  if (!raw) return null
+
+  // Stage 1 — strict parse (the common case: clean JSON).
+  try {
+    return { value: JSON.parse(raw), stage: "strict" }
+  } catch {
+    // fall through
+  }
+
+  // Stage 2 — sanitize (fences, smart quotes, control chars, prose, trailing commas).
+  const sanitized = sanitizeJsonResponse(raw)
+  if (sanitized) {
+    try {
+      return { value: JSON.parse(sanitized), stage: "sanitize" }
+    } catch {
+      // fall through
+    }
+  }
+
+  // Stage 3 — carve the largest balanced block out of a prose wrapper.
+  const block = extractLargestJsonBlock(raw)
+  if (block) {
+    try {
+      return { value: JSON.parse(block), stage: "extract_block" }
+    } catch {
+      // fall through
+    }
+  }
+
+  // Stage 4 — truncation-aware repair (close dangling structures).
+  const repaired = repairTruncatedJson(raw)
+  if (repaired) {
+    try {
+      return { value: JSON.parse(repaired), stage: "truncation_repair" }
+    } catch {
+      // fall through
+    }
+  }
+
+  return null
+}

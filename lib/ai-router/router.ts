@@ -33,8 +33,10 @@ import type {
   PromptMessage,
   ProviderAdapter,
   ResolvedRequest,
+  AdapterResult,
   AiRunStatus,
 } from "./types"
+import { parseJsonWithRepair, type JsonRepairStage } from "@/lib/ai/json-repair"
 import { DEFAULT_MODELS } from "./registry"
 import { openaiAdapter } from "./providers/openai"
 import { geminiAdapter } from "./providers/gemini"
@@ -61,6 +63,20 @@ const ADAPTERS: Record<string, ProviderAdapter> = {
 const DEFAULT_TIMEOUT_MS = 120_000
 /** Cap input snapshot size to keep the table reasonable. */
 const SNAPSHOT_CHAR_LIMIT = 8_000
+
+/** Default transient-failure retries (total attempts = 1 + this). */
+const DEFAULT_MAX_RETRIES = 2
+/** Backoff base; doubles per attempt, capped, plus up to +30% jitter. */
+const BACKOFF_BASE_MS = 500
+const BACKOFF_CAP_MS = 8_000
+
+/**
+ * Error classes that are worth retrying: transient by nature. A retry on
+ * any of these has a real chance of succeeding. `quota_exceeded` and
+ * `auth_failed` are deliberately excluded — retrying won't help and only
+ * wastes the rate-limit budget.
+ */
+const RETRYABLE_ERROR_CLASSES = new Set(["rate_limited", "timeout", "server_error"])
 
 function normalizePrompt(p: PromptInput): PromptMessage[] {
   if (typeof p === "string") {
@@ -99,13 +115,25 @@ function clipSnapshot(value: unknown): Record<string, unknown> {
  *   "quota_exceeded"   — provider 429 / "exceeded your current quota"
  *   "rate_limited"     — provider 429 without quota signal (transient)
  *   "auth_failed"      — 401 / 403 (bad API key)
- *   "timeout"          — caller-side timeout
+ *   "timeout"          — caller-side timeout (transient)
+ *   "server_error"     — provider 5xx / network blip (transient)
  *   "JsonParseError"   — set elsewhere on parse failures
  *   "<Error.name>"     — fallback for unrecognized errors
  */
 function classifyError(err: unknown): { name: string; message: string } {
   const msg = err instanceof Error ? err.message : String(err)
   const lower = msg.toLowerCase()
+  // Provider SDKs (OpenAI) attach a numeric HTTP status — prefer it over
+  // brittle substring matching when present.
+  const status =
+    typeof (err as { status?: unknown })?.status === "number"
+      ? (err as { status: number }).status
+      : undefined
+
+  // Timeout first — our own Promise.race throws "Provider timeout after Xms".
+  if (status === 408 || /\btimeout\b/i.test(msg)) {
+    return { name: "timeout", message: msg }
+  }
   // Order matters — quota check must run before generic 429.
   if (
     lower.includes("exceeded your current quota") ||
@@ -115,10 +143,12 @@ function classifyError(err: unknown): { name: string; message: string } {
   ) {
     return { name: "quota_exceeded", message: msg }
   }
-  if (lower.includes("429") || lower.includes("rate limit") || lower.includes("ratelimit")) {
+  if (status === 429 || lower.includes("429") || lower.includes("rate limit") || lower.includes("ratelimit")) {
     return { name: "rate_limited", message: msg }
   }
   if (
+    status === 401 ||
+    status === 403 ||
     lower.includes("401") ||
     lower.includes("403") ||
     lower.includes("invalid api key") ||
@@ -126,10 +156,66 @@ function classifyError(err: unknown): { name: string; message: string } {
   ) {
     return { name: "auth_failed", message: msg }
   }
+  if (
+    (typeof status === "number" && status >= 500 && status <= 599) ||
+    lower.includes("overloaded") ||
+    lower.includes("service unavailable") ||
+    lower.includes("bad gateway") ||
+    lower.includes("internal server error") ||
+    lower.includes("econnreset") ||
+    lower.includes("etimedout") ||
+    lower.includes("socket hang up") ||
+    lower.includes("fetch failed") ||
+    lower.includes("eai_again")
+  ) {
+    return { name: "server_error", message: msg }
+  }
   if (err instanceof Error) {
     return { name: err.name || "Error", message: err.message }
   }
   return { name: "UnknownError", message: msg }
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms))
+}
+
+/** Exponential backoff with jitter for retry attempt `attempt` (0-based). */
+function computeBackoffMs(attempt: number): number {
+  const capped = Math.min(BACKOFF_BASE_MS * 2 ** attempt, BACKOFF_CAP_MS)
+  const jitter = Math.random() * 0.3 * capped
+  return Math.round(capped + jitter)
+}
+
+/**
+ * Execute the adapter, retrying transient failures with exponential
+ * backoff. Stays inside the caller's ai_runs row / rate-limit permit —
+ * a retry is the same logical call, not a new one. Returns the adapter
+ * result plus how many retries were spent; re-throws the last error when
+ * retries are exhausted or the failure is non-transient.
+ */
+async function executeWithRetry(
+  adapter: ProviderAdapter,
+  resolved: ResolvedRequest,
+  maxRetries: number,
+  onRetry: (attemptNo: number, errorClass: string, delayMs: number) => void,
+): Promise<{ result: AdapterResult; retryCount: number }> {
+  let attempt = 0
+  for (;;) {
+    try {
+      const result = await adapter.execute(resolved)
+      return { result, retryCount: attempt }
+    } catch (err) {
+      const { name } = classifyError(err)
+      if (attempt >= maxRetries || !RETRYABLE_ERROR_CLASSES.has(name)) {
+        throw err
+      }
+      const delayMs = computeBackoffMs(attempt)
+      onRetry(attempt + 1, name, delayMs)
+      await sleep(delayMs)
+      attempt += 1
+    }
+  }
 }
 
 /**
@@ -256,6 +342,8 @@ export async function runAiTask<TParsed = unknown>(
     timeoutMs: req.timeoutMs ?? DEFAULT_TIMEOUT_MS,
   }
 
+  const maxRetries = Math.max(0, req.maxRetries ?? DEFAULT_MAX_RETRIES)
+
   const startedAt = Date.now()
   let status: AiRunStatus = "running"
   let rawText: string | null = null
@@ -265,30 +353,55 @@ export async function runAiTask<TParsed = unknown>(
   let costUsd: number | null = null
   let errorClass: string | null = null
   let errorMessage: string | null = null
+  let retryCount = 0
+  let jsonRepairStage: JsonRepairStage | null = null
 
   try {
     try {
-      const result = await adapter.execute(resolved)
-      rawText = result.rawText
-      tokensIn = result.tokensIn
-      tokensOut = result.tokensOut
-      costUsd = result.costUsd
+      const exec = await executeWithRetry(
+        adapter,
+        resolved,
+        maxRetries,
+        (attemptNo, cls, delayMs) => {
+          console.warn(
+            `[ai-router] ${req.taskKind} (${provider}/${modelName}): ` +
+              `transient ${cls} — retry ${attemptNo}/${maxRetries} in ${delayMs}ms`,
+          )
+        },
+      )
+      retryCount = exec.retryCount
+      rawText = exec.result.rawText
+      tokensIn = exec.result.tokensIn
+      tokensOut = exec.result.tokensOut
+      costUsd = exec.result.costUsd
 
       if (resolved.expectJson && rawText) {
-        try {
-          parsed = JSON.parse(rawText) as TParsed
-        } catch (parseErr) {
-          // We still consider the run "succeeded" at the provider level —
-          // parsing is the caller's contract. Surface the parse error so
-          // generators can decide.
+        // Full string-level recovery ladder — strict → sanitize →
+        // largest-block → truncation-repair. The provider-level call
+        // succeeded; salvaging dirty/truncated JSON is the router's job so
+        // every generator inherits it instead of re-parsing rawText itself.
+        const outcome = parseJsonWithRepair(rawText)
+        if (outcome) {
+          parsed = outcome.value as TParsed
+          if (outcome.stage !== "strict") {
+            jsonRepairStage = outcome.stage
+            console.warn(
+              `[ai-router] ${req.taskKind} (${provider}/${modelName}): ` +
+                `recovered JSON via "${outcome.stage}" — provider returned malformed/truncated output`,
+            )
+          }
+        } else {
+          // Exhausted every free recovery stage. Provider-level status is
+          // still a success; surface the parse failure so generators decide.
           errorClass = "JsonParseError"
-          errorMessage = parseErr instanceof Error ? parseErr.message : String(parseErr)
+          errorMessage =
+            "Response was not valid JSON after strict/sanitize/extract/truncation-repair recovery"
         }
       }
       status = "succeeded"
     } catch (err) {
-      status = errorIsTimeout(err) ? "timed_out" : "failed"
       const c = classifyError(err)
+      status = c.name === "timeout" ? "timed_out" : "failed"
       errorClass = c.name
       errorMessage = c.message
     }
@@ -300,7 +413,14 @@ export async function runAiTask<TParsed = unknown>(
     // (passthrough) schema; null is allowed when the provider returned
     // nothing.
     const outputSnapshotValue =
-      rawText !== null ? clipSnapshot({ text: rawText, parsed }) : null
+      rawText !== null
+        ? clipSnapshot({
+            text: rawText,
+            parsed,
+            ...(jsonRepairStage ? { repair_stage: jsonRepairStage } : {}),
+            ...(retryCount > 0 ? { retry_count: retryCount } : {}),
+          })
+        : null
     if (outputSnapshotValue !== null) {
       validateJsonbWrite(
         { table: AI_RUNS_TABLE, column: AI_RUNS_OUTPUT_SNAPSHOT_COLUMN, rowId: runId },
@@ -337,6 +457,8 @@ export async function runAiTask<TParsed = unknown>(
       costUsd,
       errorClass,
       errorMessage,
+      retryCount,
+      jsonRepairStage,
     }
   } finally {
     // Phase 1.6 — always release the rate-limit permit (subject lock),
@@ -351,10 +473,3 @@ export async function runAiTask<TParsed = unknown>(
  * when they want a graceful UI fallback rather than a 500.
  */
 export { RateLimitError }
-
-function errorIsTimeout(err: unknown): boolean {
-  if (err instanceof Error) {
-    return /timeout/i.test(err.message)
-  }
-  return false
-}

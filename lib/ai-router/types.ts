@@ -11,8 +11,10 @@ import type {
   AiProvider,
   AiRunStatus,
 } from "@/lib/db/schema/ai-runs"
+import type { JsonRepairStage } from "@/lib/ai/json-repair"
 
 export type { AiTaskKind, AiProvider, AiRunStatus }
+export type { JsonRepairStage }
 
 /**
  * Single shape every generator passes through `runAiTask`. Keep it
@@ -73,6 +75,15 @@ export interface AiTaskRequest {
   timeoutMs?: number
 
   /**
+   * Max retries on a *transient* adapter failure (rate-limit, timeout,
+   * 5xx / network). Total attempts = 1 + maxRetries. Retries use
+   * exponential backoff with jitter and stay within the same ai_runs row
+   * and rate-limit permit. Non-transient failures (quota_exceeded,
+   * auth_failed) are never retried. Default: 2.
+   */
+  maxRetries?: number
+
+  /**
    * Phase 1.6 — actor attribution for rate limiting.
    *
    * Free-form id of who/what initiated this call: an admin user id
@@ -121,6 +132,18 @@ export interface AiTaskResult<TParsed = unknown> {
   costUsd: number | null
   errorClass: string | null
   errorMessage: string | null
+  /**
+   * How many retries were spent before the (final) attempt. 0 means the
+   * first attempt succeeded or failed non-transiently.
+   */
+  retryCount: number
+  /**
+   * When `expectJson` and the provider's JSON needed recovery, the stage
+   * that salvaged it (`sanitize` | `extract_block` | `truncation_repair`).
+   * `null` means the response parsed strictly (or wasn't JSON). Surfaces
+   * silent provider degradation that would otherwise be invisible.
+   */
+  jsonRepairStage: JsonRepairStage | null
 }
 
 /**
