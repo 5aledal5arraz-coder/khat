@@ -30,27 +30,11 @@ import {
   type EpisodePhase,
 } from "@/lib/db/schema/eir"
 import { nextActionFor, type NextActionTone } from "@/lib/khat-brain/next-action"
+import { PHASE_LABEL } from "@/lib/khat-brain/phase-labels"
+import { Empty } from "../../components/ui-kit"
 import { formatDateTime } from "@/lib/shared/formatters"
 
 export const dynamic = "force-dynamic"
-
-const PHASE_LABEL: Record<EpisodePhase, string> = {
-  idea: "فكرة",
-  guest_discovery: "اكتشاف ضيف",
-  guest_assigned: "ضيف معيّن",
-  approved: "معتمدة",
-  researching: "قيد البحث",
-  prepared: "إعداد جاهز",
-  ready_to_record: "جاهزة للتسجيل",
-  recording: "قيد التسجيل",
-  recorded: "مسجّلة",
-  producing: "إنتاج",
-  ready_to_publish: "جاهزة للنشر",
-  published: "منشورة",
-  analyzing: "تحليل",
-  learned: "تم التعلّم",
-  archived: "مؤرشفة",
-}
 
 interface SearchParamsShape {
   phase?: string
@@ -281,10 +265,3 @@ function toneClasses(tone: NextActionTone): string {
   }
 }
 
-function Empty({ text }: { text: string }) {
-  return (
-    <div className="rounded-2xl border border-dashed border-border/40 bg-background/20 p-6 text-center text-[12px] text-muted-foreground">
-      {text}
-    </div>
-  )
-}

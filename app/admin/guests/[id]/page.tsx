@@ -9,6 +9,7 @@
 import { notFound } from "next/navigation"
 import Link from "next/link"
 import { eq, desc } from "drizzle-orm"
+import { Empty } from "../../components/ui-kit"
 import {
   ArrowRight,
   ExternalLink,
@@ -307,14 +308,6 @@ function Section({
       </h2>
       {children}
     </section>
-  )
-}
-
-function Empty({ text }: { text: string }) {
-  return (
-    <div className="rounded-xl border border-dashed border-border/40 bg-muted/5 p-4 text-center text-[12px] text-muted-foreground/70">
-      {text}
-    </div>
   )
 }
 

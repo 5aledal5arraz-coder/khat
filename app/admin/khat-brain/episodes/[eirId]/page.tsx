@@ -50,6 +50,7 @@ import {
   getPerformanceForEir,
 } from "@/lib/khat-brain/workspace-tabs"
 import { getPushPreview } from "@/lib/khat-brain/push-preview"
+import { PHASE_LABEL } from "@/lib/khat-brain/phase-labels"
 import { PreparationTab } from "./tab-preparation"
 import { RecordingTab } from "./tab-recording"
 import { StudioTab } from "./tab-studio"
@@ -62,24 +63,6 @@ import { AssignGuestForm } from "./assign-guest-form"
 import { getAllGuests } from "@/lib/admin/queries"
 
 export const dynamic = "force-dynamic"
-
-const PHASE_LABEL: Record<EpisodePhase, string> = {
-  idea: "فكرة",
-  guest_discovery: "اكتشاف ضيف",
-  guest_assigned: "ضيف معيّن",
-  approved: "معتمدة",
-  researching: "قيد البحث",
-  prepared: "إعداد جاهز",
-  ready_to_record: "جاهزة للتسجيل",
-  recording: "قيد التسجيل",
-  recorded: "مسجّلة",
-  producing: "إنتاج",
-  ready_to_publish: "جاهزة للنشر",
-  published: "منشورة",
-  analyzing: "تحليل",
-  learned: "تم التعلّم",
-  archived: "مؤرشفة",
-}
 
 interface SearchParamsShape {
   tab?: string

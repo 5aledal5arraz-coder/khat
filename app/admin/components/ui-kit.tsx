@@ -154,6 +154,34 @@ export function EmptyState({
   )
 }
 
+// ─── Empty (one-line hint) ───────────────────────────────────────────
+
+/**
+ * Lightweight "no data" hint: a dashed box with centered text. For a richer
+ * empty state (icon + title + action) use `EmptyState`. This replaces the
+ * one-off `function Empty({ text })` that was copy-pasted — with divergent
+ * padding/radius/size — across ~7 admin pages. Pass `className` for the rare
+ * case that needs a tighter or wider variant.
+ */
+export function Empty({
+  text,
+  className,
+}: {
+  text: string
+  className?: string
+}) {
+  return (
+    <div
+      className={cn(
+        "rounded-xl border border-dashed border-border/40 bg-background/20 px-4 py-3 text-center text-[12px] text-muted-foreground",
+        className,
+      )}
+    >
+      {text}
+    </div>
+  )
+}
+
 // ─── Skeletons ───────────────────────────────────────────────────────
 
 export function SkeletonBlock({ className }: { className?: string }) {

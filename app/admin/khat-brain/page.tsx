@@ -37,6 +37,8 @@ import { buildWorkedReport } from "@/lib/khat-brain/performance-learning"
 import { buildNextActionQueue, type NextActionTone } from "@/lib/khat-brain/next-action"
 import { getAiHealth } from "@/lib/ai-router/health"
 import { getStaleEirs } from "@/lib/khat-brain/staleness"
+import { PHASE_LABEL } from "@/lib/khat-brain/phase-labels"
+import { Empty } from "../components/ui-kit"
 import {
   jobStatusLabel,
   jobTypeLabel,
@@ -50,24 +52,6 @@ import {
 import { formatDateTime } from "@/lib/shared/formatters"
 
 export const dynamic = "force-dynamic"
-
-const PHASE_LABEL: Record<EpisodePhase, string> = {
-  idea: "فكرة",
-  guest_discovery: "اكتشاف ضيف",
-  guest_assigned: "ضيف معيّن",
-  approved: "معتمدة",
-  researching: "قيد البحث",
-  prepared: "إعداد جاهز",
-  ready_to_record: "جاهزة للتسجيل",
-  recording: "قيد التسجيل",
-  recorded: "مسجّلة",
-  producing: "إنتاج",
-  ready_to_publish: "جاهزة للنشر",
-  published: "منشورة",
-  analyzing: "تحليل",
-  learned: "تم التعلّم",
-  archived: "مؤرشفة",
-}
 
 export default async function CommandCenterPage() {
   const [data, worked, aiHealth, staleEirs] = await Promise.all([
@@ -845,13 +829,6 @@ function RowMain({
   )
 }
 
-function Empty({ text }: { text: string }) {
-  return (
-    <div className="rounded-xl border border-dashed border-border/30 bg-muted/5 px-3 py-2.5 text-center text-[11px] text-muted-foreground/70">
-      {text}
-    </div>
-  )
-}
 
 function NextActionRow({
   title,

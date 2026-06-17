@@ -14,6 +14,7 @@
  */
 
 import { useEffect, useMemo, useRef, useState, useTransition } from "react"
+import { Empty } from "../../../components/ui-kit"
 import {
   Play,
   Pause,
@@ -749,14 +750,6 @@ function Stat({ label, value }: { label: string; value: string }) {
       <div className="text-[12.5px] font-semibold tabular-nums" dir="ltr">
         {value}
       </div>
-    </div>
-  )
-}
-
-function Empty({ text }: { text: string }) {
-  return (
-    <div className="rounded-lg border border-dashed border-border/40 bg-background/20 p-3 text-center text-[11px] text-muted-foreground">
-      {text}
     </div>
   )
 }

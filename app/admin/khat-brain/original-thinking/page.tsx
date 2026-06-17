@@ -14,6 +14,7 @@ import {
   generateOriginalTopicsAction,
   expireOldAction,
 } from "./actions"
+import { Empty } from "../../components/ui-kit"
 
 export const dynamic = "force-dynamic"
 
@@ -250,14 +251,6 @@ function Stat({ label, value }: { label: string; value: number }) {
       <div className="text-xl font-semibold tabular-nums" dir="ltr">
         {value.toLocaleString()}
       </div>
-    </div>
-  )
-}
-
-function Empty({ text }: { text: string }) {
-  return (
-    <div className="rounded-2xl border border-dashed border-border/40 bg-background/20 p-6 text-center text-[12px] text-muted-foreground">
-      {text}
     </div>
   )
 }

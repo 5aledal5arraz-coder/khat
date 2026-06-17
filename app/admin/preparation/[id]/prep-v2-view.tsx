@@ -7,6 +7,7 @@
 
 import { Sparkles, Mic, Compass, Eye, AlertTriangle } from "lucide-react"
 import type { PrepV2Payload, PrepV2Question, SectionKind } from "@/lib/preparation/v2/types"
+import { Empty } from "../../components/ui-kit"
 
 const SECTION_LABEL_AR: Record<SectionKind, string> = {
   opening: "افتتاحية",
@@ -328,14 +329,6 @@ function Stat({
       >
         {value}
       </div>
-    </div>
-  )
-}
-
-function Empty({ text }: { text: string }) {
-  return (
-    <div className="rounded-lg border border-dashed border-border/40 bg-background/20 p-3 text-center text-[11px] text-muted-foreground">
-      {text}
     </div>
   )
 }
