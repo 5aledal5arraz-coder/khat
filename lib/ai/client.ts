@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto"
 import OpenAI from "openai"
 import { runAiTask } from "@/lib/ai-router"
 
@@ -62,6 +63,54 @@ export interface PrepEirContext {
   subjectId?: string | null
 }
 
+// ─── Prepared-transcript memo ────────────────────────────────────────────────
+//
+// The expensive prep paths below (chunk-summarize a >24k-char transcript via
+// the AI router) are each called independently by ~8 generators for the SAME
+// session transcript. Within one generate-stream run — where steps execute
+// sequentially — that repeats the summarization up to ~7×, the single biggest
+// token waste in the Studio pipeline.
+//
+// Memoize by a content hash of the (namespaced) input so the first caller pays
+// the cost and every other generator reuses the result. This is also a quality
+// win: all generators now derive from the SAME condensation instead of a
+// slightly different LLM summary each time. Cache is content-addressed, so an
+// edited/re-transcribed episode (different hash) recomputes automatically.
+//
+// Promises are cached for in-flight dedup across concurrent standalone-endpoint
+// calls; a rejected promise is evicted so a later call can retry.
+
+const PREP_CACHE_MAX = 8
+const prepCache = new Map<string, Promise<string>>()
+
+function prepCacheKey(namespace: string, text: string): string {
+  return `${namespace}:${createHash("sha256").update(text).digest("hex")}`
+}
+
+function memoizePrep(key: string, compute: () => Promise<string>): Promise<string> {
+  const existing = prepCache.get(key)
+  if (existing) {
+    // Refresh recency (move to newest) so the LRU eviction is meaningful.
+    prepCache.delete(key)
+    prepCache.set(key, existing)
+    return existing
+  }
+
+  const promise = compute().catch((err) => {
+    // Never cache a failure — drop it so the next caller recomputes.
+    if (prepCache.get(key) === promise) prepCache.delete(key)
+    throw err
+  })
+
+  prepCache.set(key, promise)
+  while (prepCache.size > PREP_CACHE_MAX) {
+    const oldest = prepCache.keys().next().value
+    if (oldest === undefined) break
+    prepCache.delete(oldest)
+  }
+  return promise
+}
+
 /**
  * Prepare a transcript for downstream editorial generation.
  *
@@ -85,22 +134,23 @@ export async function prepareTranscript(
     return trimmed
   }
 
-  const fullText = trimmed.slice(0, SUMMARIZER_INPUT_CAP)
-  const chunks = splitIntoChunks(fullText, CHUNK_CHARS)
+  return memoizePrep(prepCacheKey("flat", trimmed), async () => {
+    const fullText = trimmed.slice(0, SUMMARIZER_INPUT_CAP)
+    const chunks = splitIntoChunks(fullText, CHUNK_CHARS)
 
-  // Summarize each chunk in parallel — each call writes one ai_runs row.
-  const chunkSummaries = await Promise.all(
-    chunks.map(async (chunk, idx) => {
-      const result = await runAiTask<unknown>({
-        taskKind: "structural",
-        eirId: eirContext?.eirId ?? null,
-        subjectTable: eirContext?.subjectTable ?? "transcript_prep",
-        subjectId: eirContext?.subjectId ?? null,
-        input: { phase: "chunk_summary", chunkIndex: idx, totalChunks: chunks.length, chars: chunk.length },
-        prompt: [
-          {
-            role: "system",
-            content: `أنت مساعد متخصص في تلخيص نصوص بودكاست طويلة.
+    // Summarize each chunk in parallel — each call writes one ai_runs row.
+    const chunkSummaries = await Promise.all(
+      chunks.map(async (chunk, idx) => {
+        const result = await runAiTask<unknown>({
+          taskKind: "structural",
+          eirId: eirContext?.eirId ?? null,
+          subjectTable: eirContext?.subjectTable ?? "transcript_prep",
+          subjectId: eirContext?.subjectId ?? null,
+          input: { phase: "chunk_summary", chunkIndex: idx, totalChunks: chunks.length, chars: chunk.length },
+          prompt: [
+            {
+              role: "system",
+              content: `أنت مساعد متخصص في تلخيص نصوص بودكاست طويلة.
 
 لخّص هذا الجزء (الجزء ${idx + 1} من ${chunks.length}) مع الحفاظ على:
 - جميع المحاور والأفكار الرئيسية
@@ -109,32 +159,32 @@ export async function prepareTranscript(
 - ترتيب المواضيع كما وردت
 
 اكتب الملخص بالعربية. كن مفصلاً — لا تحذف أي محور مهم.`,
-          },
-          { role: "user", content: chunk },
-        ],
-        providerOptions: { temperature: 0.2 },
-      })
-      return result.rawText ?? ""
-    }),
-  )
+            },
+            { role: "user", content: chunk },
+          ],
+          providerOptions: { temperature: 0.2 },
+        })
+        return result.rawText ?? ""
+      }),
+    )
 
-  const merged = chunkSummaries.filter(Boolean).join("\n\n---\n\n")
+    const merged = chunkSummaries.filter(Boolean).join("\n\n---\n\n")
 
-  if (merged.length <= MAX_TRANSCRIPT_CHARS) {
-    return merged
-  }
+    if (merged.length <= MAX_TRANSCRIPT_CHARS) {
+      return merged
+    }
 
-  // Final condensation pass.
-  const finalResult = await runAiTask<unknown>({
-    taskKind: "structural",
-    eirId: eirContext?.eirId ?? null,
-    subjectTable: eirContext?.subjectTable ?? "transcript_prep",
-    subjectId: eirContext?.subjectId ?? null,
-    input: { phase: "final_condensation", chars: merged.length },
-    prompt: [
-      {
-        role: "system",
-        content: `أنت مساعد متخصص في تلخيص نصوص بودكاست طويلة.
+    // Final condensation pass.
+    const finalResult = await runAiTask<unknown>({
+      taskKind: "structural",
+      eirId: eirContext?.eirId ?? null,
+      subjectTable: eirContext?.subjectTable ?? "transcript_prep",
+      subjectId: eirContext?.subjectId ?? null,
+      input: { phase: "final_condensation", chars: merged.length },
+      prompt: [
+        {
+          role: "system",
+          content: `أنت مساعد متخصص في تلخيص نصوص بودكاست طويلة.
 
 لخّص النص التالي (وهو ملخص مجمّع من أجزاء متعددة) مع الحفاظ على:
 - جميع المحاور والأفكار الرئيسية من كل جزء
@@ -143,13 +193,14 @@ export async function prepareTranscript(
 - أسماء الأشخاص والأماكن المذكورة
 
 اكتب الملخص بالعربية في حدود 4000 كلمة. غطِّ كامل الحلقة من أولها لآخرها.`,
-      },
-      { role: "user", content: merged.slice(0, SUMMARIZER_INPUT_CAP) },
-    ],
-    providerOptions: { temperature: 0.2 },
-  })
+        },
+        { role: "user", content: merged.slice(0, SUMMARIZER_INPUT_CAP) },
+      ],
+      providerOptions: { temperature: 0.2 },
+    })
 
-  return finalResult.rawText || merged.slice(0, MAX_TRANSCRIPT_CHARS)
+    return finalResult.rawText || merged.slice(0, MAX_TRANSCRIPT_CHARS)
+  })
 }
 
 /**
@@ -183,34 +234,37 @@ export async function prepareTranscriptWithPositions(
     return trimmed
   }
 
-  const fullText = trimmed.slice(0, SUMMARIZER_INPUT_CAP)
-  const chunks = splitIntoChunks(fullText, CHUNK_CHARS)
-  const totalChunks = chunks.length
-  const totalDuration = durationSeconds || estimateDurationFromChars(fullText.length)
+  // Output depends on durationSeconds (it drives the per-chunk time labels),
+  // so it's part of the cache namespace.
+  return memoizePrep(prepCacheKey(`pos:${durationSeconds ?? "auto"}`, trimmed), async () => {
+    const fullText = trimmed.slice(0, SUMMARIZER_INPUT_CAP)
+    const chunks = splitIntoChunks(fullText, CHUNK_CHARS)
+    const totalChunks = chunks.length
+    const totalDuration = durationSeconds || estimateDurationFromChars(fullText.length)
 
-  const chunkSummaries = await Promise.all(
-    chunks.map(async (chunk, idx) => {
-      const startMin = Math.round((idx / totalChunks) * totalDuration / 60)
-      const endMin = Math.round(((idx + 1) / totalChunks) * totalDuration / 60)
-      const posLabel = `[الجزء ${idx + 1}/${totalChunks} — تقريباً من الدقيقة ${startMin} إلى الدقيقة ${endMin}]`
+    const chunkSummaries = await Promise.all(
+      chunks.map(async (chunk, idx) => {
+        const startMin = Math.round((idx / totalChunks) * totalDuration / 60)
+        const endMin = Math.round(((idx + 1) / totalChunks) * totalDuration / 60)
+        const posLabel = `[الجزء ${idx + 1}/${totalChunks} — تقريباً من الدقيقة ${startMin} إلى الدقيقة ${endMin}]`
 
-      const result = await runAiTask<unknown>({
-        taskKind: "structural",
-        eirId: eirContext?.eirId ?? null,
-        subjectTable: eirContext?.subjectTable ?? "transcript_prep_positional",
-        subjectId: eirContext?.subjectId ?? null,
-        input: {
-          phase: "positional_chunk_summary",
-          chunkIndex: idx,
-          totalChunks,
-          startMin,
-          endMin,
-          chars: chunk.length,
-        },
-        prompt: [
-          {
-            role: "system",
-            content: `أنت مساعد متخصص في تلخيص أجزاء من نصوص بودكاست.
+        const result = await runAiTask<unknown>({
+          taskKind: "structural",
+          eirId: eirContext?.eirId ?? null,
+          subjectTable: eirContext?.subjectTable ?? "transcript_prep_positional",
+          subjectId: eirContext?.subjectId ?? null,
+          input: {
+            phase: "positional_chunk_summary",
+            chunkIndex: idx,
+            totalChunks,
+            startMin,
+            endMin,
+            chars: chunk.length,
+          },
+          prompt: [
+            {
+              role: "system",
+              content: `أنت مساعد متخصص في تلخيص أجزاء من نصوص بودكاست.
 
 لخّص هذا الجزء ${posLabel} مع الحفاظ على:
 - كل المواضيع والأفكار المطروحة (لا تحذف أي محور)
@@ -220,18 +274,19 @@ export async function prepareTranscriptWithPositions(
 - التحولات في الموضوع
 
 اكتب بالعربية. كن مفصلاً قدر الإمكان.`,
-          },
-          { role: "user", content: chunk },
-        ],
-        providerOptions: { temperature: 0.2 },
-      })
+            },
+            { role: "user", content: chunk },
+          ],
+          providerOptions: { temperature: 0.2 },
+        })
 
-      const summary = result.rawText ?? ""
-      return `${posLabel}\n${summary}`
-    }),
-  )
+        const summary = result.rawText ?? ""
+        return `${posLabel}\n${summary}`
+      }),
+    )
 
-  return chunkSummaries.filter(Boolean).join("\n\n")
+    return chunkSummaries.filter(Boolean).join("\n\n")
+  })
 }
 
 /**
