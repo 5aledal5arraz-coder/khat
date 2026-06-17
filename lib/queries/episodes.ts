@@ -635,46 +635,57 @@ export async function getGuestBySlug(
   }
 }
 
+// ─── Pure list selectors ─────────────────────────────────────────────────────
+//
+// These derive adjacency / related / counts from an ALREADY-resolved,
+// already-filtered episode list (the output of getEpisodes({})). Keeping
+// them pure lets the cache layer (lib/cache.ts) compute all three from the
+// single cached list instead of re-running the YouTube+DB merge per call —
+// which is what every episode detail page and the list page used to do.
+
+/** List is newest-first: "next" = newer (index − 1), "prev" = older (index + 1). */
+export function selectAdjacentEpisodes(
+  list: Episode[],
+  currentSlug: string,
+): { prev: Episode | null; next: Episode | null } {
+  const currentIndex = list.findIndex((e) => e.slug === currentSlug)
+  if (currentIndex === -1) return { prev: null, next: null }
+  const next = currentIndex > 0 ? list[currentIndex - 1] : null
+  const prev = currentIndex < list.length - 1 ? list[currentIndex + 1] : null
+  return { prev, next }
+}
+
+export function selectRelatedEpisodes(
+  list: Episode[],
+  episodeId: string,
+  limit: number = 3,
+): Episode[] {
+  return list.filter((e) => e.id !== episodeId).slice(0, limit)
+}
+
+export function tallyEpisodeCounts(list: Episode[]): Record<string, number> {
+  const counts: Record<string, number> = { all: list.length }
+  for (const ep of list) {
+    if (ep.category_id) {
+      counts[ep.category_id] = (counts[ep.category_id] || 0) + 1
+    }
+  }
+  return counts
+}
+
 export async function getAdjacentEpisodes(
   currentSlug: string
 ): Promise<{ prev: Episode | null; next: Episode | null }> {
-  const allEpisodes = await getEpisodes({})
-
-  const currentIndex = allEpisodes.findIndex((e) => e.slug === currentSlug)
-  if (currentIndex === -1) return { prev: null, next: null }
-
-  // "next" = newer episode (index - 1), "prev" = older episode (index + 1)
-  const next = currentIndex > 0 ? allEpisodes[currentIndex - 1] : null
-  const prev =
-    currentIndex < allEpisodes.length - 1
-      ? allEpisodes[currentIndex + 1]
-      : null
-
-  return { prev, next }
+  return selectAdjacentEpisodes(await getEpisodes({}), currentSlug)
 }
 
 export async function getRelatedEpisodes(
   episodeId: string,
   limit: number = 3
 ): Promise<Episode[]> {
-  const allEpisodes = await resolveAllEpisodes()
-  const enriched = await applyListPipeline(allEpisodes)
-
-  return enriched.filter((e) => e.id !== episodeId).slice(0, limit)
+  return selectRelatedEpisodes(await getEpisodes({}), episodeId, limit)
 }
 
 export async function getEpisodeCounts(): Promise<Record<string, number>> {
-  const allEpisodes = await resolveAllEpisodes()
-  const enriched = await applyListPipeline(allEpisodes)
-
-  const counts: Record<string, number> = { all: enriched.length }
-
-  // Count per category_id
-  for (const ep of enriched) {
-    if (ep.category_id) {
-      counts[ep.category_id] = (counts[ep.category_id] || 0) + 1
-    }
-  }
-
-  return counts
+  return tallyEpisodeCounts(await getEpisodes({}))
 }

@@ -2,9 +2,9 @@ import { Suspense } from "react"
 import { Metadata } from "next"
 import Link from "next/link"
 import Image from "next/image"
-import { getEpisodes, getMostViewedRecent, getEpisodeCounts } from "@/lib/queries/episodes"
+import { getEpisodes, getMostViewedRecent } from "@/lib/queries/episodes"
 import { getCategories } from "@/lib/queries/categories"
-import { getCachedPublicEpisodes } from "@/lib/cache"
+import { getCachedPublicEpisodes, getCachedEpisodeCounts } from "@/lib/cache"
 import { EpisodeFilters } from "@/components/episodes/episode-filters"
 import { EpisodesGrid } from "@/components/episodes/episodes-grid"
 import { EpisodeCard } from "@/components/episodes/episode-card"
@@ -216,7 +216,7 @@ function EpisodesGridSkeleton() {
 
 async function FiltersWithCounts() {
   const [counts, categories] = await Promise.all([
-    getEpisodeCounts(),
+    getCachedEpisodeCounts(),
     getCategories(),
   ])
   return <EpisodeFilters counts={counts} categories={categories} />

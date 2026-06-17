@@ -16,7 +16,14 @@
  */
 
 import { unstable_cache, revalidateTag } from "next/cache"
-import { getEpisodes, getEpisodeBySlug, getGuestBySlug } from "@/lib/queries/episodes"
+import {
+  getEpisodes,
+  getEpisodeBySlug,
+  getGuestBySlug,
+  selectAdjacentEpisodes,
+  selectRelatedEpisodes,
+  tallyEpisodeCounts,
+} from "@/lib/queries/episodes"
 import { getHomepageFeaturedEpisodes } from "@/lib/queries/homepage-featured"
 import { getHomepageThinkersForDisplay } from "@/lib/queries/homepage-thinkers"
 import { getHomepagePartners } from "@/lib/queries/partnerships"
@@ -62,6 +69,36 @@ export const getCachedPublicEpisodes = unstable_cache(
   ["public-episodes-list"],
   { revalidate: TTL.episodes, tags: [CACHE_TAGS.episodes] }
 )
+
+/**
+ * Cached "related episodes" — derived from the single cached episode list
+ * instead of re-resolving the YouTube+DB merge. Shares the `episodes` tag,
+ * so any episode mutation invalidates it too.
+ */
+export async function getCachedRelatedEpisodes(
+  episodeId: string,
+  limit = 3,
+): Promise<Episode[]> {
+  return selectRelatedEpisodes(await getCachedPublicEpisodes(), episodeId, limit)
+}
+
+/**
+ * Cached prev/next neighbours for an episode detail page — derived from the
+ * single cached list (was a full resolution per detail-page view).
+ */
+export async function getCachedAdjacentEpisodes(
+  slug: string,
+): Promise<{ prev: Episode | null; next: Episode | null }> {
+  return selectAdjacentEpisodes(await getCachedPublicEpisodes(), slug)
+}
+
+/**
+ * Cached per-category episode counts for the list page filter chips —
+ * derived from the single cached list (was a full resolution per list view).
+ */
+export async function getCachedEpisodeCounts(): Promise<Record<string, number>> {
+  return tallyEpisodeCounts(await getCachedPublicEpisodes())
+}
 
 /**
  * Cached episode detail for public episode pages.

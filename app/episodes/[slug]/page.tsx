@@ -1,7 +1,10 @@
 import { Metadata } from "next"
 import { notFound } from "next/navigation"
-import { getRelatedEpisodes, getAdjacentEpisodes } from "@/lib/queries/episodes"
-import { getCachedEpisodeBySlug } from "@/lib/cache"
+import {
+  getCachedEpisodeBySlug,
+  getCachedRelatedEpisodes,
+  getCachedAdjacentEpisodes,
+} from "@/lib/cache"
 import { getQuotesByEpisodeId } from "@/lib/content/home-quotes"
 import { getReflectionsByEpisodeId } from "@/lib/content/daily-reflections"
 import { getEpisodeEnrichment } from "@/lib/episodes/enrichments"
@@ -58,8 +61,8 @@ export default async function EpisodePage({ params, searchParams }: EpisodePageP
   }
 
   const [relatedEpisodes, { prev, next }, homeQuotes, reflections, enrichment, platformLinks, allActivePlatforms, sponsor] = await Promise.all([
-    getRelatedEpisodes(episode.id),
-    getAdjacentEpisodes(episode.slug),
+    getCachedRelatedEpisodes(episode.id),
+    getCachedAdjacentEpisodes(episode.slug),
     getQuotesByEpisodeId(episode.id),
     getReflectionsByEpisodeId(episode.id),
     getEpisodeEnrichment(episode.id),
