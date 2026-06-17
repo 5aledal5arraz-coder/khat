@@ -53,39 +53,46 @@
   .dark {
     color-scheme: dark;
 
-    /* KHAT Dark Theme */
-    --background: 212 29% 6%;
-    --foreground: 40 41% 92%;
-    --card: 212 30% 10%;
-    --card-foreground: 40 41% 92%;
-    --popover: 212 30% 10%;
-    --popover-foreground: 40 41% 92%;
+    /* KHAT 2.0 — Indigo + Orange brand (from the new logo).
+       Deep indigo foundation, vibrant orange as the energy accent.
+       Cinematic, premium, Apple-grade. */
+    --background: 252 44% 6%;
+    --foreground: 250 24% 96%;
+    --card: 252 36% 10%;
+    --card-foreground: 250 24% 96%;
+    --popover: 252 38% 9%;
+    --popover-foreground: 250 24% 96%;
 
-    --primary: 43 54% 54%;
-    --primary-foreground: 212 29% 6%;
+    /* Orange = primary energy / CTA — pops on deep indigo */
+    --primary: 22 90% 55%;
+    --primary-foreground: 252 44% 7%;
 
-    --secondary: 213 35% 15%;
-    --secondary-foreground: 40 41% 92%;
+    --secondary: 252 30% 16%;
+    --secondary-foreground: 250 24% 96%;
 
-    --muted: 213 35% 15%;
-    --muted-foreground: 36 5% 54%;
+    --muted: 252 28% 15%;
+    --muted-foreground: 250 14% 66%;
 
-    --accent: 266 32% 44%;
-    --accent-foreground: 40 41% 92%;
+    /* Luminous violet-indigo = secondary accent */
+    --accent: 256 64% 70%;
+    --accent-foreground: 252 44% 7%;
 
-    --destructive: 0 84% 60%;
-    --destructive-foreground: 40 41% 92%;
+    --destructive: 0 74% 60%;
+    --destructive-foreground: 250 24% 96%;
 
-    --border: 213 31% 19%;
-    --input: 213 31% 19%;
-    --ring: 43 54% 54%;
+    --border: 252 26% 19%;
+    --input: 252 26% 19%;
+    --ring: 22 90% 55%;
 
-    --gold: 43 54% 54%;
-    --purple: 266 32% 44%;
-    --surface: 212 30% 10%;
-    --elevated: 213 35% 15%;
-    --text-secondary: 37 12% 69%;
-    --text-muted: 36 5% 54%;
+    /* `gold` is the legacy brand-accent token used across museum
+       components; repoint it to the new orange so they inherit the
+       rebrand without per-component edits. */
+    --gold: 22 90% 55%;
+    --purple: 256 64% 70%;
+    --surface: 252 36% 10%;
+    --elevated: 252 30% 16%;
+    --text-secondary: 250 16% 74%;
+    --text-muted: 250 12% 60%;
   }
 }
 
@@ -120,7 +127,7 @@
   --radius-lg: var(--radius);
   --radius-xl: calc(var(--radius) + 4px);
   --font-sans: var(--font-ibm-plex-arabic), ui-sans-serif, system-ui, sans-serif;
-  --color-museum-bg: hsl(33 9% 6%);
+  --color-museum-bg: hsl(252 44% 6%);
 }
 
 @layer base {

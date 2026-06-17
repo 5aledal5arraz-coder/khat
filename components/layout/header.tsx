@@ -1,12 +1,12 @@
 "use client"
 
 import Link from "next/link"
-import Image from "next/image"
 import { useState } from "react"
 import { useRouter } from "next/navigation"
 import { Search, X } from "lucide-react"
 import { Button, buttonVariants } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { KhatLogo } from "@/components/brand/khat-logo"
 
 const navigation = [
   { name: "الحلقات", href: "/episodes" },
@@ -35,15 +35,15 @@ export function Header({ hasNewEpisode = false }: { hasNewEpisode?: boolean }) {
     >
       <nav className="container mx-auto flex h-14 items-center justify-between px-4 sm:h-16">
         {/* Logo */}
-        <Link href="/" className="flex shrink-0 items-center">
-          <Image
-            src="/logo.png"
-            alt="خط"
-            width={48}
-            height={48}
-            className="h-10 w-auto sm:h-14"
-            priority
-          />
+        <Link
+          href="/"
+          aria-label="خط — الرئيسية"
+          className="flex shrink-0 items-center gap-2.5 transition-opacity hover:opacity-90"
+        >
+          <KhatLogo size={40} />
+          <span className="hidden text-[15px] font-bold tracking-tight text-foreground sm:inline">
+            خط
+          </span>
         </Link>
 
         {/* Desktop Navigation */}

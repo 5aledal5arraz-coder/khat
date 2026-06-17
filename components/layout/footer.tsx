@@ -1,7 +1,7 @@
 import Link from "next/link"
-import Image from "next/image"
 import { listPlatformsForSurface } from "@/lib/queries/official-platforms"
 import { PlatformIcon } from "@/components/platforms/platform-icon"
+import { KhatLogoLockup } from "@/components/brand/khat-logo"
 
 const navigation = {
   main: [
@@ -31,14 +31,8 @@ export async function Footer() {
         <div className="grid gap-8 md:grid-cols-5">
           {/* Brand */}
           <div className="md:col-span-2">
-            <Link href="/" className="inline-block">
-              <Image
-                src="/logo.png"
-                alt="خط"
-                width={72}
-                height={72}
-                className="h-20 w-auto"
-              />
+            <Link href="/" className="inline-flex" aria-label="خط — الرئيسية">
+              <KhatLogoLockup size={44} />
             </Link>
             <p className="mt-4 text-sm text-muted-foreground max-w-xs">
               بودكاست يستكشف القصص الإنسانية والتجارب الحياتية من خلال حوارات عميقة مع ضيوف ملهمين.
