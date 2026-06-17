@@ -9,6 +9,7 @@ import { Toaster } from "@/components/ui/toaster"
 import { ScrollToTop } from "@/components/ui/scroll-to-top"
 import { getThemeConfig } from "@/lib/theme"
 import { ThemeSync } from "@/components/theme/theme-sync"
+import { SITE_LIGHT_TOKENS } from "@/components/brand/site-theme"
 import { fetchAllEpisodes } from "@/lib/youtube/queries"
 
 export const metadata: Metadata = {
@@ -102,7 +103,10 @@ export default async function RootLayout({
             <Toaster />
           </>
         ) : (
-          <div className="flex min-h-dvh flex-col">
+          <div
+            style={SITE_LIGHT_TOKENS}
+            className="flex min-h-dvh flex-col bg-background text-foreground"
+          >
             <Header hasNewEpisode={hasNewEpisode} />
             <main className="main-content flex-1">{children}</main>
             <Footer />
