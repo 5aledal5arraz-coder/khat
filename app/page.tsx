@@ -2,8 +2,12 @@ import type { Metadata } from "next"
 import Link from "next/link"
 import { ArrowLeft, Play, Sparkles } from "lucide-react"
 import { getCachedPublicEpisodes } from "@/lib/cache"
-import { getYouTubeId } from "@/lib/utils"
 import type { Episode } from "@/types/database"
+import {
+  EpisodePosterCard,
+  EpisodeThumb,
+  episodeDurationLabel,
+} from "@/components/episodes/episode-poster-card"
 
 export const metadata: Metadata = {
   title: "خط | بودكاست",
@@ -47,19 +51,6 @@ const jsonLd = {
         "بودكاست عربي يستكشف القصص والأفكار من خلال حوارات صادقة مع عقول ملهمة.",
     },
   ],
-}
-
-function thumbOf(ep: Episode): string | null {
-  if (ep.thumbnail_url) return ep.thumbnail_url
-  const id = getYouTubeId(ep.youtube_url)
-  return id ? `https://img.youtube.com/vi/${id}/maxresdefault.jpg` : null
-}
-
-function durationLabel(min?: number | null): string | null {
-  if (!min || min <= 0) return null
-  const h = Math.floor(min / 60)
-  const m = min % 60
-  return h > 0 ? `${h} س ${m} د` : `${m} دقيقة`
 }
 
 export default async function HomePage() {
@@ -130,7 +121,7 @@ export default async function HomePage() {
               className="group mt-5 grid items-center gap-8 rounded-[28px] border border-border bg-card p-4 shadow-[0_2px_8px_rgba(40,30,90,0.04),0_24px_60px_-30px_rgba(40,30,90,0.28)] transition-all hover:shadow-[0_2px_8px_rgba(40,30,90,0.05),0_36px_80px_-30px_rgba(40,30,90,0.35)] sm:p-5 lg:grid-cols-[1.5fr_1fr]"
             >
               <div className="relative aspect-video overflow-hidden rounded-2xl bg-secondary">
-                <Thumb ep={featured} priority className="transition-transform duration-700 group-hover:scale-[1.03]" />
+                <EpisodeThumb ep={featured} priority className="transition-transform duration-700 group-hover:scale-[1.03]" />
                 <span className="absolute bottom-3 start-3 inline-flex items-center gap-2 rounded-full bg-black/55 px-3 py-1.5 text-[12px] font-semibold text-white backdrop-blur">
                   <Play className="h-3.5 w-3.5 fill-current text-accent" />
                   شاهد الآن
@@ -149,8 +140,8 @@ export default async function HomePage() {
                   </p>
                 ) : null}
                 <div className="mt-5 flex items-center gap-3 text-[13px] text-muted-foreground">
-                  {durationLabel(featured.duration_minutes) ? (
-                    <span>{durationLabel(featured.duration_minutes)}</span>
+                  {episodeDurationLabel(featured.duration_minutes) ? (
+                    <span>{episodeDurationLabel(featured.duration_minutes)}</span>
                   ) : null}
                   <span className="inline-flex items-center gap-1 font-semibold text-primary transition-all group-hover:gap-2">
                     استمع للحلقة <ArrowLeft className="h-4 w-4" />
@@ -177,7 +168,7 @@ export default async function HomePage() {
             </div>
             <div className="mt-6 grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
               {grid.map((ep) => (
-                <EpisodeCard key={ep.id} ep={ep} />
+                <EpisodePosterCard key={ep.id} ep={ep} />
               ))}
             </div>
           </div>
@@ -225,63 +216,6 @@ function SectionLabel({ children }: { children: React.ReactNode }) {
     <h2 className="text-[13px] font-bold uppercase tracking-[0.18em] text-muted-foreground">
       {children}
     </h2>
-  )
-}
-
-function Thumb({
-  ep,
-  className,
-  priority,
-}: {
-  ep: Episode
-  className?: string
-  priority?: boolean
-}) {
-  const src = thumbOf(ep)
-  if (!src) {
-    return (
-      <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-primary/15 to-accent/15 text-3xl font-black text-primary/40">
-        خط
-      </div>
-    )
-  }
-  return (
-    // eslint-disable-next-line @next/next/no-img-element
-    <img
-      src={src}
-      alt={ep.title}
-      loading={priority ? "eager" : "lazy"}
-      className={`h-full w-full object-cover ${className ?? ""}`}
-    />
-  )
-}
-
-function EpisodeCard({ ep }: { ep: Episode }) {
-  return (
-    <Link
-      href={`/episodes/${ep.slug}`}
-      className="group flex flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-sm transition-all hover:-translate-y-1 hover:shadow-[0_2px_8px_rgba(40,30,90,0.05),0_24px_50px_-26px_rgba(40,30,90,0.3)]"
-    >
-      <div className="relative aspect-video overflow-hidden bg-secondary">
-        <Thumb ep={ep} className="transition-transform duration-500 group-hover:scale-105" />
-        <span className="absolute inset-0 flex items-center justify-center bg-black/0 transition-colors group-hover:bg-black/20">
-          <span className="flex h-12 w-12 scale-90 items-center justify-center rounded-full bg-white/90 opacity-0 shadow-lg transition-all duration-300 group-hover:scale-100 group-hover:opacity-100">
-            <Play className="h-5 w-5 fill-current text-primary" />
-          </span>
-        </span>
-      </div>
-      <div className="flex flex-1 flex-col p-4">
-        {ep.guest?.name ? (
-          <span className="text-[12px] font-semibold text-accent">{ep.guest.name}</span>
-        ) : null}
-        <h3 className="mt-1 line-clamp-2 text-[15px] font-bold leading-snug tracking-tight text-foreground">
-          {ep.title}
-        </h3>
-        <div className="mt-auto pt-3 text-[12px] text-muted-foreground">
-          {durationLabel(ep.duration_minutes) ?? "حلقة"}
-        </div>
-      </div>
-    </Link>
   )
 }
 
