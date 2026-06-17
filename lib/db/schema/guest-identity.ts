@@ -92,6 +92,14 @@ export const guestDiscoveryLinks = pgTable(
   (t) => [
     index("idx_gdl_guest").on(t.guest_id),
     index("idx_gdl_candidate").on(t.discovery_candidate_id),
+    // NOTE: a UNIQUE index on discovery_candidate_id (one candidate → one
+    // link, mirroring uq_gcl_candidate / uq_gal_application on the sibling
+    // junctions) is enforced by `scripts/post-schema.sql` as the partial
+    // index `uq_gdl_candidate` (WHERE discovery_candidate_id IS NOT NULL).
+    // It lives there rather than here so `drizzle-kit push` can't fail
+    // against a live table that still holds pre-existing duplicate links —
+    // post-schema dedups first, then creates the index. Same pattern as the
+    // promoted_guest_id FK note below.
   ],
 )
 

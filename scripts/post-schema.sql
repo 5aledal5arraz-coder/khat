@@ -753,3 +753,26 @@ CREATE INDEX IF NOT EXISTS idx_khat_map_season_decisions_season_created
   ON khat_map_season_decisions (season_id, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_khat_map_topic_fingerprints_season_source
   ON khat_map_topic_fingerprints (season_id, source);
+
+-- ─────────────────────────────────────────────────────────────────────
+-- guest_discovery_links: one discovery candidate resolves to exactly one
+-- guest. Historically this junction had no unique constraint (its siblings
+-- guest_candidate_links / guest_application_links do), so re-promoting a
+-- candidate created duplicate link rows. Dedup first (keep the newest row
+-- per non-null candidate), then add the partial unique index. Both steps
+-- are idempotent and safe to re-run on local or live.
+DELETE FROM guest_discovery_links gdl
+USING (
+  SELECT id,
+         ROW_NUMBER() OVER (
+           PARTITION BY discovery_candidate_id
+           ORDER BY created_at DESC, id DESC
+         ) AS rn
+  FROM guest_discovery_links
+  WHERE discovery_candidate_id IS NOT NULL
+) dups
+WHERE gdl.id = dups.id AND dups.rn > 1;
+
+CREATE UNIQUE INDEX IF NOT EXISTS uq_gdl_candidate
+  ON guest_discovery_links (discovery_candidate_id)
+  WHERE discovery_candidate_id IS NOT NULL;

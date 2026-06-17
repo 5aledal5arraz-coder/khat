@@ -622,6 +622,32 @@ export async function linkDiscoveryCandidateToGuest(input: {
   link_type?: string
   confidence_score?: number | null
 }): Promise<{ id: string }> {
+  // Idempotent: a discovery candidate resolves to exactly one guest, so
+  // re-promoting the same candidate must NOT create a second link row.
+  // Previously a blind insert with no unique constraint, so promoting twice
+  // duplicated the link. Reuse (and refresh) the existing link if present.
+  // The `discovery_candidate_id` unique index (see post-schema.sql) is the
+  // durable guarantee; this check makes the code correct even before it's
+  // applied to a given environment.
+  const [existing] = await db!
+    .select({ id: guestDiscoveryLinks.id })
+    .from(guestDiscoveryLinks)
+    .where(eq(guestDiscoveryLinks.discovery_candidate_id, input.discovery_candidate_id))
+    .limit(1)
+
+  if (existing) {
+    await db!
+      .update(guestDiscoveryLinks)
+      .set({
+        guest_id: input.guest_id,
+        discovery_run_id: input.discovery_run_id ?? null,
+        link_type: input.link_type ?? "promoted",
+        confidence_score: input.confidence_score ?? null,
+      })
+      .where(eq(guestDiscoveryLinks.id, existing.id))
+    return { id: existing.id }
+  }
+
   const [row] = await db!
     .insert(guestDiscoveryLinks)
     .values({
