@@ -1,5 +1,11 @@
 import { NextRequest } from "next/server"
-import { errorResponse, successResponse, validationErrorResponse } from "@/lib/api-utils"
+import {
+  errorResponse,
+  successResponse,
+  validationErrorResponse,
+  validateOrigin,
+} from "@/lib/api-utils"
+import { checkIpRateLimit } from "@/lib/rate-limit"
 import {
   submitPrepResponse,
   validatePrepLinkByToken,
@@ -11,10 +17,22 @@ interface RouteContext {
 
 /**
  * Public endpoint — no admin auth.
- * Token in URL acts as the bearer credential. Same-origin enforced via standard
- * browser CORS; we additionally accept only POSTs from the public form page.
+ * The URL token is the sole bearer credential, so this surface is hardened with
+ * an Origin check (CSRF) and a per-IP rate limit (token brute-force / spam).
+ * CORS does NOT protect simple POSTs, so the Origin check is required here.
  */
 export async function POST(request: NextRequest, ctx: RouteContext) {
+  // CSRF: only accept submissions originating from our own site.
+  if (!validateOrigin(request)) {
+    return errorResponse("طلب غير صالح", 403)
+  }
+
+  // Abuse / token brute-force protection: 10 submissions per minute per IP.
+  const rl = checkIpRateLimit(request, "candidate_prep_submit", 10, 60_000)
+  if (!rl.allowed) {
+    return errorResponse("محاولات كثيرة. يرجى المحاولة لاحقاً.", 429)
+  }
+
   const { token } = await ctx.params
 
   if (!token || token.length < 16) {
