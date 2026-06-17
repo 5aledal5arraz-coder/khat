@@ -69,7 +69,7 @@ export default function AdminLayoutClient({
 
   return (
     <BreadcrumbLabelProvider>
-    <div className="min-h-screen bg-background">
+    <div style={ADMIN_LIGHT_TOKENS} className="min-h-screen bg-background text-foreground">
       {/* Admin Header */}
       <header className="sticky top-0 z-40 border-b border-border/60 bg-background/85 backdrop-blur-xl">
         {/* Brand hairline */}
@@ -168,14 +168,9 @@ export default function AdminLayoutClient({
           </div>
         </aside>
 
-        {/* Main content — Apple-clean LIGHT workspace inside the dark shell.
-            The light token palette is scoped here so every admin page recolors
-            cohesively (dark rail + light workspace). */}
+        {/* Main content — seamless light workspace (palette is on the root). */}
         <main className="min-w-0 flex-1 p-4 lg:p-6">
-          <div
-            style={ADMIN_LIGHT_TOKENS}
-            className="admin-animate-in mx-auto max-w-[1400px] rounded-[28px] bg-background p-5 text-foreground ring-1 ring-slate-200/70 sm:p-6 lg:p-8"
-          >
+          <div className="admin-animate-in mx-auto max-w-[1400px]">
             {children}
           </div>
         </main>
