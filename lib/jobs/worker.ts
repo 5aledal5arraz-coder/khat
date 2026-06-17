@@ -22,7 +22,7 @@ import {
   failJob,
   reclaimStaleJobs,
 } from "./queue"
-import { getHandler } from "./registry"
+import { getHandler, listRegisteredTypes } from "./registry"
 import {
   ensureMarketScheduler,
   ensureAiRunsSweeperSchedule,
@@ -90,8 +90,8 @@ const HANDLER_TIMEOUT_MS: Record<string, number> = {
   "market.extract": 15 * 60_000,
   "market.score_signals": 15 * 60_000,
   "market.cluster_signals": 10 * 60_000,
-  // youtube.performance: YouTube Data API + DB updates per channel.
-  "youtube.performance": 5 * 60_000,
+  // youtube.refresh_performance: YouTube Data API + DB updates per channel.
+  "youtube.refresh_performance": 5 * 60_000,
   // discovery.*: AI calls with retrieval; longest typical handlers.
   // Keys MUST equal the registered handler types (see lib/jobs/handlers/discovery.ts).
   // The previous "discovery.cycle" key matched no handler, so every discovery
@@ -104,12 +104,29 @@ const HANDLER_TIMEOUT_MS: Record<string, number> = {
   // discovery_v2.run: one job does propose + many Wikidata/enrichment HTTP
   // calls for up to ~30 names; generous budget for the network fan-out.
   "discovery_v2.run": 10 * 60_000,
-  // original-thinking: AI-bound on full transcripts; allow generous budget.
-  "original-thinking": 15 * 60_000,
+  // original.generate_topics: AI-bound on full transcripts; allow generous budget.
+  "original.generate_topics": 15 * 60_000,
 }
 
 function timeoutFor(jobType: string): number {
   return HANDLER_TIMEOUT_MS[jobType] ?? DEFAULT_HANDLER_TIMEOUT_MS
+}
+
+// Guard against the recurring "timeout key doesn't match a registered handler"
+// bug (it has silently dead-lettered market.*, discovery.*, youtube.* and
+// original.* handlers in the past). Handlers self-register at import time via
+// "./registered", so by now the registry is fully populated. A stray key means
+// a handler is silently running on the 5-min default instead of its intended
+// budget — warn loudly so it's caught at boot, not in production.
+function assertTimeoutKeysAreRegistered(): void {
+  const registered = new Set(listRegisteredTypes())
+  const stray = Object.keys(HANDLER_TIMEOUT_MS).filter((t) => !registered.has(t))
+  if (stray.length > 0) {
+    console.warn(
+      `[${WORKER_ID}] HANDLER_TIMEOUT_MS has ${stray.length} key(s) with no registered handler: ${stray.join(", ")}. ` +
+        `These are dead — the handlers they were meant to cap are running on the ${DEFAULT_HANDLER_TIMEOUT_MS / 60_000}-min default.`,
+    )
+  }
 }
 
 let stopping = false
@@ -375,6 +392,8 @@ process.on("SIGINT", () => shutdown("SIGINT"))
 process.on("SIGTERM", () => shutdown("SIGTERM"))
 
 console.log(`[${WORKER_ID}] starting (poll=${POLL_MS}ms lease=${LEASE_MS}ms)`)
+
+assertTimeoutKeysAreRegistered()
 
 // Phase 2.2 — eager startup reclaim. If a predecessor worker crashed
 // mid-job, its `locked_at` is already older than LEASE_MS by the time
