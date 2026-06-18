@@ -2,7 +2,8 @@
 
 import { useState } from "react"
 import { useRouter } from "next/navigation"
-import Image from "next/image"
+import { KhatLogo } from "@/components/brand/khat-logo"
+import { ADMIN_LIGHT_TOKENS } from "../components/light-theme"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Loader2 } from "lucide-react"
@@ -57,7 +58,7 @@ export default function AdminLoginPage() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-background px-4">
+    <div style={ADMIN_LIGHT_TOKENS} className="flex min-h-screen items-center justify-center bg-background px-4 text-foreground">
       {/* Background subtle gradient */}
       <div className="pointer-events-none fixed inset-0">
         <div className="absolute inset-0 bg-gradient-to-br from-primary/3 via-transparent to-accent/3" />
@@ -71,13 +72,7 @@ export default function AdminLoginPage() {
 
           <div className="flex flex-col items-center mb-8">
             <div className="mb-4">
-              <Image
-                src="/logo.png"
-                alt="KHAT"
-                width={44}
-                height={44}
-                className="rounded-lg"
-              />
+              <KhatLogo size={48} />
             </div>
             <h1 className="text-lg font-semibold tracking-tight">لوحة تحكم خط</h1>
             <p className="mt-1 text-[13px] text-muted-foreground/60">

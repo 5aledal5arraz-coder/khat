@@ -1,7 +1,7 @@
 "use client"
 
 import Link from "next/link"
-import Image from "next/image"
+import { KhatLogo } from "@/components/brand/khat-logo"
 import { useState, useEffect, useCallback } from "react"
 import { usePathname } from "next/navigation"
 import {
@@ -102,15 +102,7 @@ export default function AdminLayoutClient({
 
             {/* Logo + Title */}
             <div className="flex items-center gap-2.5">
-              <div className="relative">
-                <Image
-                  src="/logo.png"
-                  alt="KHAT"
-                  width={26}
-                  height={26}
-                  className="rounded-md"
-                />
-              </div>
+              <KhatLogo size={28} />
               <div className="flex items-center gap-2">
                 <h1 className="text-[13px] font-semibold tracking-tight">لوحة التحكم</h1>
                 <span className="rounded-[5px] border border-border/70 bg-muted/60 px-1.5 py-[1px] text-[9px] font-bold tracking-wider text-muted-foreground hidden sm:inline-block">
@@ -189,13 +181,7 @@ export default function AdminLayoutClient({
             {/* Drawer header */}
             <div className="flex h-14 items-center justify-between border-b border-border/40 px-4">
               <div className="flex items-center gap-2.5">
-                <Image
-                  src="/logo.png"
-                  alt="KHAT"
-                  width={26}
-                  height={26}
-                  className="rounded-md"
-                />
+                <KhatLogo size={26} />
                 <span className="text-[13px] font-semibold tracking-tight">لوحة التحكم</span>
               </div>
               <Button

@@ -73,8 +73,8 @@ export default async function RootLayout({
     <html
       lang="ar"
       dir="rtl"
-      data-theme-mode={mode}
-      className={mode === "dark" ? "dark" : ""}
+      data-theme-mode={isAdminRoute ? "light" : mode}
+      className={!isAdminRoute && mode === "dark" ? "dark" : ""}
       suppressHydrationWarning
     >
       <head>
@@ -87,7 +87,11 @@ export default async function RootLayout({
         <link href="https://fonts.googleapis.com/css2?family=Amiri:ital,wght@0,400;0,700;1,400;1,700&family=IBM+Plex+Sans+Arabic:wght@300;400;500;600;700&family=Playfair+Display:ital,wght@0,400..900;1,400..900&display=swap" rel="stylesheet" />
         <script
           dangerouslySetInnerHTML={{
-            __html: `(function(){var s=localStorage.getItem("khat_theme");var m=s||document.documentElement.getAttribute("data-theme-mode");if(s)document.documentElement.setAttribute("data-theme-mode",s);if(m==="dark")document.documentElement.classList.add("dark");else if(m==="light")document.documentElement.classList.remove("dark");else if(m==="system"&&window.matchMedia("(prefers-color-scheme: dark)").matches)document.documentElement.classList.add("dark");else document.documentElement.classList.remove("dark")})()`,
+            // Admin is single-mode (light) — force it, ignoring any saved theme.
+            // Public keeps the saved/system theme preference.
+            __html: isAdminRoute
+              ? `document.documentElement.classList.remove("dark");document.documentElement.setAttribute("data-theme-mode","light")`
+              : `(function(){var s=localStorage.getItem("khat_theme");var m=s||document.documentElement.getAttribute("data-theme-mode");if(s)document.documentElement.setAttribute("data-theme-mode",s);if(m==="dark")document.documentElement.classList.add("dark");else if(m==="light")document.documentElement.classList.remove("dark");else if(m==="system"&&window.matchMedia("(prefers-color-scheme: dark)").matches)document.documentElement.classList.add("dark");else document.documentElement.classList.remove("dark")})()`,
           }}
         />
       </head>

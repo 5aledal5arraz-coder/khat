@@ -12,23 +12,25 @@ import type { CSSProperties } from "react"
  * admin-layout-client.tsx.
  */
 export const ADMIN_LIGHT_TOKENS = {
-  "--background": "210 20% 98%",
-  "--foreground": "222 47% 11%",
+  "--background": "250 33% 99%",
+  "--foreground": "252 40% 11%",
   "--card": "0 0% 100%",
-  "--card-foreground": "222 47% 11%",
+  "--card-foreground": "252 40% 11%",
   "--popover": "0 0% 100%",
-  "--popover-foreground": "222 47% 11%",
-  "--primary": "38 46% 47%",
+  "--popover-foreground": "252 40% 11%",
+  /* Deep indigo = primary brand / active states */
+  "--primary": "252 48% 40%",
   "--primary-foreground": "0 0% 100%",
-  "--secondary": "210 20% 96%",
-  "--secondary-foreground": "222 47% 11%",
-  "--muted": "210 20% 96%",
-  "--muted-foreground": "215 16% 47%",
-  "--accent": "266 40% 50%",
+  "--secondary": "250 28% 96%",
+  "--secondary-foreground": "252 40% 11%",
+  "--muted": "250 28% 96%",
+  "--muted-foreground": "250 12% 46%",
+  /* Orange = energy accent */
+  "--accent": "22 90% 53%",
   "--accent-foreground": "0 0% 100%",
   "--destructive": "0 72% 51%",
   "--destructive-foreground": "0 0% 100%",
-  "--border": "214 20% 91%",
-  "--input": "214 20% 91%",
-  "--ring": "38 46% 47%",
+  "--border": "250 22% 92%",
+  "--input": "250 22% 92%",
+  "--ring": "252 48% 40%",
 } as CSSProperties
