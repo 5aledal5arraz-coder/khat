@@ -3,7 +3,7 @@
 import Link from "next/link"
 import { YouTubeEmbed } from "./youtube-embed"
 import { ShareButtons } from "./share-buttons"
-import { Calendar, Clock, User } from "lucide-react"
+import { Calendar, Clock } from "lucide-react"
 import { formatDate, formatDuration } from "@/lib/utils"
 
 interface EpisodeHeroProps {
@@ -30,58 +30,74 @@ interface EpisodeHeroProps {
 
 export function EpisodeHero({ episode, teaser, initialStartTime }: EpisodeHeroProps) {
   return (
-    <div className="space-y-4">
-      <YouTubeEmbed
-        url={episode.youtube_url}
-        title={episode.title}
-        startTime={initialStartTime}
-        episodeId={episode.id}
-        episodeSlug={episode.slug}
-        durationMinutes={episode.duration_minutes}
-      />
+    <div>
+      {/* Framed video */}
+      <div className="overflow-hidden rounded-2xl border border-border bg-card shadow-[0_2px_8px_rgba(40,30,90,0.05),0_28px_64px_-32px_rgba(40,30,90,0.3)]">
+        <YouTubeEmbed
+          url={episode.youtube_url}
+          title={episode.title}
+          startTime={initialStartTime}
+          episodeId={episode.id}
+          episodeSlug={episode.slug}
+          durationMinutes={episode.duration_minutes}
+        />
+      </div>
 
-      <h1 className="text-3xl font-bold">{episode.title}</h1>
-
-      <div className="flex flex-wrap items-center gap-4 text-sm text-muted-foreground">
+      {/* Title block */}
+      <div className="mt-7">
         {episode.guest && (
           <Link
             href={`/guests/${episode.guest.slug}`}
-            className="flex items-center gap-1 hover:text-foreground"
+            className="text-[13.5px] font-semibold text-accent transition-opacity hover:opacity-80"
           >
-            <User className="h-4 w-4" />
-            <span>{episode.guest.name}</span>
+            {episode.guest.name}
           </Link>
         )}
-        <div className="flex items-center gap-1">
-          <Calendar className="h-4 w-4" />
-          <span>{formatDate(episode.release_date)}</span>
-        </div>
-        <div className="flex items-center gap-1">
-          <Clock className="h-4 w-4" />
-          <span>{formatDuration(episode.duration_minutes)}</span>
-        </div>
-        {episode.season && <span>الموسم {episode.season}</span>}
-        {episode.category && (
-          <Link
-            href={`/episodes?category=${episode.category.slug}`}
-            className="rounded-sm border border-primary/20 px-2 py-0.5 text-xs text-primary/70 transition-colors hover:bg-primary/10 hover:text-primary"
-          >
-            {episode.category.name}
-          </Link>
-        )}
-      </div>
 
-      {teaser && (
-        <p className="text-muted-foreground leading-relaxed">{teaser}</p>
-      )}
+        <h1 className="mt-2 text-pretty text-3xl font-extrabold leading-[1.2] tracking-tight text-foreground sm:text-[2.6rem]">
+          {episode.title}
+        </h1>
 
-      <div className="flex items-center gap-3 rounded-lg bg-muted/50 p-3">
-        <span className="text-sm text-muted-foreground">شارك الحلقة</span>
-        <ShareButtons
-          url={`/episodes/${episode.slug}`}
-          title={episode.title}
-          size="default"
-        />
+        <div className="mt-4 flex flex-wrap items-center gap-x-3.5 gap-y-2 text-[13px] text-muted-foreground">
+          <span className="inline-flex items-center gap-1.5">
+            <Calendar className="h-4 w-4" />
+            {formatDate(episode.release_date)}
+          </span>
+          <span className="text-border">•</span>
+          <span className="inline-flex items-center gap-1.5">
+            <Clock className="h-4 w-4" />
+            {formatDuration(episode.duration_minutes)}
+          </span>
+          {episode.season ? (
+            <>
+              <span className="text-border">•</span>
+              <span>الموسم {episode.season}</span>
+            </>
+          ) : null}
+          {episode.category ? (
+            <Link
+              href={`/episodes?category=${episode.category.slug}`}
+              className="rounded-full border border-border bg-secondary px-2.5 py-0.5 text-[12px] font-medium text-muted-foreground transition-colors hover:border-primary/40 hover:text-primary"
+            >
+              {episode.category.name}
+            </Link>
+          ) : null}
+        </div>
+
+        {teaser ? (
+          <p className="mt-5 text-pretty text-[16px] leading-relaxed text-muted-foreground">
+            {teaser}
+          </p>
+        ) : null}
+
+        <div className="mt-6 flex items-center gap-3 rounded-2xl border border-border bg-card px-4 py-3 shadow-sm">
+          <span className="text-[13px] font-medium text-muted-foreground">شارك الحلقة</span>
+          <ShareButtons
+            url={`/episodes/${episode.slug}`}
+            title={episode.title}
+            size="default"
+          />
+        </div>
       </div>
     </div>
   )
