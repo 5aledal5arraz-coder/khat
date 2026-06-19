@@ -13,12 +13,10 @@
  */
 
 import Link from "next/link"
-import { Compass, Plus, ArrowLeft, Sparkles, Activity } from "lucide-react"
+import { Compass, Plus, ArrowLeft } from "lucide-react"
 import { requireAdmin } from "@/lib/api-utils"
 import { listSeasonSummaries } from "@/lib/khat-brain/seasons-summary"
-import { KHAT_SEASON_STATUS_LABEL, KHAT_MAP_V2_MODE_LABEL } from "@/types/khat-map"
-import { formatDateTime } from "@/lib/shared/formatters"
-import { Empty } from "../../components/ui-kit"
+import { SeasonsList } from "./components/seasons-list"
 
 export const dynamic = "force-dynamic"
 
@@ -68,41 +66,8 @@ export default async function SeasonsListPage() {
         </div>
       </div>
 
-      {/* ── Active seasons ─────────────────────────────────────── */}
-      <section>
-        <h2 className="mb-3 flex items-center gap-2 text-sm font-semibold text-muted-foreground">
-          <Sparkles className="h-4 w-4" /> المواسم النشطة
-        </h2>
-        {active.length === 0 ? (
-          <Empty
-            text="لا توجد مواسم نشطة. ابدأ بضغط «موسم جديد» في الأعلى."
-          />
-        ) : (
-          <ul className="space-y-2">
-            {active.map((s) => (
-              <SeasonRow key={s.id} season={s} />
-            ))}
-          </ul>
-        )}
-      </section>
-
-      {/* ── Archived seasons (collapsed) ───────────────────────── */}
-      {archived.length > 0 && (
-        <details className="group rounded-2xl border border-border/40 bg-card/20 p-4">
-          <summary className="flex cursor-pointer select-none items-center gap-2 text-sm font-semibold text-muted-foreground">
-            <Activity className="h-4 w-4 transition-transform group-open:rotate-90" />
-            مؤرشفة
-            <span className="text-[10.5px] text-muted-foreground/60">
-              ({archived.length})
-            </span>
-          </summary>
-          <ul className="mt-3 space-y-2 opacity-70">
-            {archived.map((s) => (
-              <SeasonRow key={s.id} season={s} muted />
-            ))}
-          </ul>
-        </details>
-      )}
+      {/* ── Seasons list (multi-select + bulk delete) ──────────── */}
+      <SeasonsList active={active} archived={archived} />
 
       {/* ── Back link to home ─────────────────────────────────── */}
       <div className="flex justify-end">
@@ -118,65 +83,6 @@ export default async function SeasonsListPage() {
 }
 
 // ─── Subcomponents ───────────────────────────────────────────────
-
-function SeasonRow({
-  season,
-  muted,
-}: {
-  season: Awaited<ReturnType<typeof listSeasonSummaries>>[number]
-  muted?: boolean
-}) {
-  return (
-    <li
-      className={
-        "rounded-2xl border border-border/40 bg-card/30 p-4 transition-colors hover:border-violet-500/40 " +
-        (muted ? "opacity-80" : "")
-      }
-    >
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div className="min-w-0 flex-1">
-          <div className="mb-1.5 flex flex-wrap items-center gap-2">
-            <span
-              className={`rounded-full px-2 py-0.5 text-[10px] uppercase tracking-wider ${KHAT_SEASON_STATUS_LABEL[season.status].bg} ${KHAT_SEASON_STATUS_LABEL[season.status].text}`}
-            >
-              {KHAT_SEASON_STATUS_LABEL[season.status].label}
-            </span>
-            {season.v2_mode && (
-              <span
-                className="rounded-full border border-border/40 px-2 py-0.5 text-[10px] tracking-wider text-muted-foreground"
-              >
-                {KHAT_MAP_V2_MODE_LABEL[season.v2_mode] ?? season.v2_mode}
-              </span>
-            )}
-            <span className="text-[10.5px] text-muted-foreground/60" dir="ltr">
-              {formatDateTime(season.last_activity_at)}
-            </span>
-          </div>
-          <h3 className="truncate text-[14px] font-semibold leading-tight">
-            {season.name}
-          </h3>
-          <div className="mt-1.5 flex flex-wrap gap-x-4 gap-y-1 text-[11.5px] text-muted-foreground">
-            <span>
-              <span className="text-foreground">{season.accepted_count}</span>
-              {" / "}
-              <span>{season.target_episode_count}</span> معتمدة
-            </span>
-            <span>
-              {season.pending_count} قيد المراجعة
-            </span>
-            <span>{season.generated_count} مرشّح · {season.rejected_count} مرفوض</span>
-          </div>
-        </div>
-        <Link
-          href={`/admin/khat-brain/seasons/${season.id}`}
-          className="inline-flex shrink-0 items-center justify-center gap-1.5 rounded-xl border border-violet-500/40 bg-violet-500/10 px-4 py-2 text-[12px] font-medium text-violet-200 transition-colors hover:bg-violet-500/20"
-        >
-          فتح مساحة العمل ←
-        </Link>
-      </div>
-    </li>
-  )
-}
 
 function Stat({ label, value }: { label: string; value: number }) {
   return (

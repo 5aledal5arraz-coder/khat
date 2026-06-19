@@ -56,6 +56,55 @@ type Result<T> =
   | { success: true; data: T }
   | { success: false; error: string; code?: string }
 
+// ─── 0. Bulk deletion ─────────────────────────────────────────────────────────
+
+/**
+ * Permanently delete one or more seasons and ALL their related data.
+ *
+ * A single hard DELETE on khat_map_seasons is sufficient: the foreign-key
+ * graph is fully cascade-enforced at the database level. Deleting a season
+ * row cascades to its episode candidates, guest candidates, season
+ * decisions, topic fingerprints, user feedback, and editorial voice signals
+ * (and their descendants). Cross-cutting records that merely reference a
+ * season — ai_runs, discovery_runs, episode_intelligence_records,
+ * hybrid_topic_generations, and the topic-bank last-used pointer — have
+ * their season_id set to NULL instead, so episode/telemetry history
+ * survives. No manual child cleanup or explicit delete ordering is needed.
+ */
+export async function deleteSeasonsBulkAction(
+  seasonIds: string[],
+): Promise<Result<{ deletedCount: number }>> {
+  await requireAdmin()
+  const user = await getAdminAuthUser()
+  if (!user) return { success: false, error: "غير مصرح" }
+
+  const ids = (Array.isArray(seasonIds) ? seasonIds : []).filter(
+    (id): id is string => typeof id === "string" && id.length > 0,
+  )
+  if (ids.length === 0) {
+    return { success: false, error: "لم يتم تحديد أي موسم للحذف" }
+  }
+
+  try {
+    const deleted = await db!
+      .delete(khatMapSeasons)
+      .where(inArray(khatMapSeasons.id, ids))
+      .returning({ id: khatMapSeasons.id })
+    console.info(
+      `[deleteSeasonsBulkAction] ${user.email} deleted ${deleted.length}/${ids.length} season(s)`,
+    )
+    revalidatePath("/admin/khat-brain/seasons")
+    revalidatePath("/admin/khat-brain")
+    return { success: true, data: { deletedCount: deleted.length } }
+  } catch (err) {
+    console.error("[deleteSeasonsBulkAction] failed:", err)
+    return {
+      success: false,
+      error: (err as Error).message || "فشل حذف المواسم",
+    }
+  }
+}
+
 // ─── 1. Setup ────────────────────────────────────────────────────────────────
 
 export async function createV2SeasonAction(input: {
