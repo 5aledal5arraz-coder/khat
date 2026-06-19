@@ -14,3 +14,5 @@ import "./handlers/market-scoring"
 import "./handlers/original-thinking"
 // Phase 2.1 (P2.1.b) — stale-running ai_runs sweeper.
 import "./handlers/ai-runs-sweeper"
+// Newsletter campaign delivery (resumable, fault-tolerant).
+import "./handlers/newsletter-send"

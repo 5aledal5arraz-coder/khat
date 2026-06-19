@@ -38,6 +38,11 @@ export const newsletterDeliveries = pgTable("newsletter_deliveries", {
   click_count: integer("click_count").default(0),
   first_clicked_at: timestamp("first_clicked_at", { withTimezone: true }),
   last_clicked_at: timestamp("last_clicked_at", { withTimezone: true }),
+  // Resend webhook lifecycle (RFC: each stamped once → idempotent counters).
+  delivered_at: timestamp("delivered_at", { withTimezone: true }),
+  bounced_at: timestamp("bounced_at", { withTimezone: true }),
+  bounce_type: text("bounce_type"),
+  complained_at: timestamp("complained_at", { withTimezone: true }),
   created_at: timestamp("created_at", { withTimezone: true }).defaultNow(),
 }, (t) => [
   unique().on(t.campaign_id, t.subscriber_id),

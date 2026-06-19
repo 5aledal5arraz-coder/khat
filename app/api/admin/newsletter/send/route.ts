@@ -1,9 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireRole } from '@/lib/api-utils'
 import { db } from '@/lib/db'
-import { sendCampaign } from '@/lib/newsletter/sender'
+import { createCampaignRecord } from '@/lib/newsletter/sender'
+import { enqueueJob } from '@/lib/jobs/queue'
 
-export const maxDuration = 300
+// Only sets up the campaign + delivery rows; the actual send runs in the
+// background worker, so this stays fast and never times out on big lists.
+export const maxDuration = 60
 
 export async function POST(request: NextRequest) {
   // Newsletter send is destructive (emails all subscribers), require ADMIN+
@@ -27,17 +30,23 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    const result = await sendCampaign({
+    // Create the campaign + queued deliveries synchronously (fast)…
+    const created = await createCampaignRecord({
       subject: body.subject,
       body: body.body,
       sentBy: user.id,
     })
 
+    // …then hand the actual delivery to the background job worker.
+    if (created.queued) {
+      await enqueueJob("newsletter.send_campaign", { campaignId: created.campaignId })
+    }
+
     return NextResponse.json({
       success: true,
-      campaignId: result.campaignId,
-      sent: result.sent,
-      total: result.total,
+      campaignId: created.campaignId,
+      total: created.total,
+      queued: created.queued,
     })
   } catch (err) {
     console.error('[newsletter-send]', err)

@@ -6,7 +6,9 @@ import { eq, and, sql } from 'drizzle-orm'
 export async function GET(request: NextRequest) {
   const token = request.nextUrl.searchParams.get('token')
 
-  if (!token || !db) {
+  // Tokens are hex (crypto.randomBytes(16).toString('hex') = 32 chars).
+  // Reject anything malformed before touching the DB.
+  if (!token || !db || !/^[a-f0-9]{16,128}$/i.test(token)) {
     return NextResponse.redirect(new URL('/unsubscribe?status=error', request.url))
   }
 

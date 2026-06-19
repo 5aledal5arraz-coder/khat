@@ -8,6 +8,7 @@ import {
   EpisodeThumb,
   episodeDurationLabel,
 } from "@/components/episodes/episode-poster-card"
+import { NewsletterSignup } from "@/components/forms/newsletter-signup"
 
 export const metadata: Metadata = {
   title: "خط | بودكاست",
@@ -174,6 +175,13 @@ export default async function HomePage() {
           </div>
         </section>
       ) : null}
+
+      {/* ──────────────────── Newsletter ──────────────────── */}
+      <section className="px-6 py-12">
+        <div className="mx-auto max-w-3xl">
+          <NewsletterSignup variant="hero" />
+        </div>
+      </section>
 
       {/* ──────────────────── Statement ──────────────────── */}
       <section className="px-6 py-24 sm:py-32">

@@ -1,11 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { requireAdminAPI } from '@/lib/api-utils'
-import { getResend, FROM_EMAIL } from '@/lib/email/resend'
+import { requireRole } from '@/lib/api-utils'
+import { getResend, FROM_DISPLAY, REPLY_TO } from '@/lib/email/resend'
 import { newsletterHtml } from '@/lib/email/templates'
 
 export async function POST(request: NextRequest) {
-  const authError = await requireAdminAPI()
-  if (authError) return authError
+  const auth = await requireRole('ADMIN')
+  if (auth.error) return auth.error
 
   let body: { subject: string; body: string; email: string }
   try {
@@ -20,7 +20,8 @@ export async function POST(request: NextRequest) {
 
   try {
     await getResend().emails.send({
-      from: FROM_EMAIL,
+      from: FROM_DISPLAY,
+      replyTo: REPLY_TO,
       to: body.email.trim(),
       subject: `[معاينة] ${body.subject.trim()}`,
       html: newsletterHtml(body.body.trim(), '#'),

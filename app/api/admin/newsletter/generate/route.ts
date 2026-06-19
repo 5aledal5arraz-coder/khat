@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { requireAdminAPI } from '@/lib/api-utils'
+import { requireRole } from '@/lib/api-utils'
 
 export const maxDuration = 60
 import { getEpisodes } from '@/lib/queries/episodes'
@@ -22,8 +22,8 @@ const ARABIC_MONTHS: Record<number, string> = {
 }
 
 export async function POST(request: Request) {
-  const authError = await requireAdminAPI()
-  if (authError) return authError
+  const auth = await requireRole('ADMIN')
+  if (auth.error) return auth.error
 
   // Accept optional { year, month } or auto-detect current month
   let targetYear: number

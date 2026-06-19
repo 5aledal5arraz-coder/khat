@@ -128,7 +128,12 @@ export function NewsletterComposer({ subscriberCount, recentCampaigns }: Newslet
       })
       const data = await res.json()
       if (res.ok) {
-        setMessage({ type: 'success', text: `تم الإرسال بنجاح — ${data.sent} من ${data.total} مشترك` })
+        setMessage({
+          type: 'success',
+          text: data.queued
+            ? `بدأ الإرسال إلى ${data.total} مشترك — يتم التنفيذ في الخلفية وتتحدّث الأرقام تلقائياً.`
+            : 'لا يوجد مشتركون نشطون لإرسال الرسالة إليهم.',
+        })
         setSubject('')
         setBody('')
       } else {

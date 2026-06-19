@@ -1,10 +1,10 @@
 import { NextResponse } from "next/server"
-import { requireAdminAPI } from "@/lib/api-utils"
+import { requireRole } from "@/lib/api-utils"
 import { getNewsletterMetrics, getTopCampaigns } from "@/lib/newsletter/queries"
 
 export async function GET() {
-  const authError = await requireAdminAPI()
-  if (authError) return authError
+  const auth = await requireRole("VIEWER")
+  if (auth.error) return auth.error
 
   const [metrics, topCampaigns] = await Promise.all([
     getNewsletterMetrics(),

@@ -136,19 +136,23 @@ export async function getSubscribersWithStatus(opts?: {
   status?: string
   search?: string
 }) {
-  if (!db) return { subscribers: [], counts: { all: 0, active: 0, unsubscribed: 0 } }
+  if (!db) return { subscribers: [], counts: { all: 0, active: 0, unsubscribed: 0, bounced: 0, complained: 0 } }
 
   // Counts
-  const [allCount, activeCount, unsubCount] = await Promise.all([
+  const [allCount, activeCount, unsubCount, bouncedCount, complainedCount] = await Promise.all([
     db.select({ count: count() }).from(newsletterSubscribers),
     db.select({ count: count() }).from(newsletterSubscribers).where(eq(newsletterSubscribers.status, "active")),
     db.select({ count: count() }).from(newsletterSubscribers).where(eq(newsletterSubscribers.status, "unsubscribed")),
+    db.select({ count: count() }).from(newsletterSubscribers).where(eq(newsletterSubscribers.status, "bounced")),
+    db.select({ count: count() }).from(newsletterSubscribers).where(eq(newsletterSubscribers.status, "complained")),
   ])
 
   const counts = {
     all: allCount[0]?.count ?? 0,
     active: activeCount[0]?.count ?? 0,
     unsubscribed: unsubCount[0]?.count ?? 0,
+    bounced: bouncedCount[0]?.count ?? 0,
+    complained: complainedCount[0]?.count ?? 0,
   }
 
   // Build where conditions

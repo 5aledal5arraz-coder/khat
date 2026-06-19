@@ -242,6 +242,27 @@ DO $$ BEGIN
 EXCEPTION WHEN duplicate_object THEN NULL;
 END $$;
 
+-- Delivery lifecycle columns, populated by the Resend webhook
+-- (drizzle/migrations/0001 also adds these; idempotent here so every deploy
+-- has them even if the migration baseline differs).
+ALTER TABLE newsletter_deliveries ADD COLUMN IF NOT EXISTS delivered_at timestamptz;
+ALTER TABLE newsletter_deliveries ADD COLUMN IF NOT EXISTS bounced_at timestamptz;
+ALTER TABLE newsletter_deliveries ADD COLUMN IF NOT EXISTS bounce_type text;
+ALTER TABLE newsletter_deliveries ADD COLUMN IF NOT EXISTS complained_at timestamptz;
+
+-- Subscriber status constraint (the Resend webhook writes bounced/complained).
+DO $$ BEGIN
+  ALTER TABLE newsletter_subscribers ADD CONSTRAINT chk_newsletter_subscribers_status
+    CHECK (status IN ('active', 'unsubscribed', 'bounced', 'complained'));
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
+
+-- At most ONE campaign may be 'sending' at a time. This partial unique index is
+-- the atomic guard against the concurrent-send race (two requests both passing
+-- the in-app check and creating duplicate sends to the whole list).
+CREATE UNIQUE INDEX IF NOT EXISTS uq_newsletter_one_sending
+  ON newsletter_campaigns (status) WHERE status = 'sending';
+
 -- Indexes for newsletter queries
 CREATE INDEX IF NOT EXISTS idx_newsletter_deliveries_campaign_id ON newsletter_deliveries (campaign_id);
 CREATE INDEX IF NOT EXISTS idx_newsletter_deliveries_subscriber_id ON newsletter_deliveries (subscriber_id);
@@ -378,6 +399,8 @@ CREATE INDEX IF NOT EXISTS idx_guests_name ON guests (name);
 
 -- Newsletter subscribers: email lookup
 CREATE INDEX IF NOT EXISTS idx_newsletter_subscribers_email ON newsletter_subscribers (email);
+-- Newsletter subscribers: active-recipient selection on every campaign send
+CREATE INDEX IF NOT EXISTS idx_newsletter_subscribers_status ON newsletter_subscribers (status);
 
 -- Home quotes: episode lookup
 CREATE INDEX IF NOT EXISTS idx_home_quotes_episode_id ON home_quotes (episode_id);

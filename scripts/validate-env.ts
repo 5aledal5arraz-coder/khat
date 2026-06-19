@@ -77,6 +77,13 @@ const SPECS: EnvSpec[] = [
     minLength: 6,
   },
   {
+    name: "RESEND_WEBHOOK_SECRET",
+    severity: "recommended",
+    description: "Svix signing secret for the Resend webhook (bounce/complaint tracking)",
+    expectedPrefix: "whsec_",
+    minLength: 20,
+  },
+  {
     name: "YOUTUBE_API_KEY",
     severity: "recommended",
     description: "YouTube Data API key (read-only)",

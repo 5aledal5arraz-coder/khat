@@ -1,4 +1,4 @@
-import { getResend, FROM_DISPLAY } from './resend'
+import { getResend, FROM_DISPLAY, REPLY_TO } from './resend'
 import {
   newsletterWelcomeHtml,
   directEmailHtml,
@@ -13,8 +13,15 @@ export async function sendNewsletterWelcome(email: string, unsubscribeUrl: strin
   return getResend().emails.send({
     from: FROM_DISPLAY,
     to: email,
+    replyTo: REPLY_TO,
     subject: 'أهلاً بك في نشرة بودكاست خط!',
     html: newsletterWelcomeHtml(unsubscribeUrl),
+    // RFC 8058 one-click unsubscribe — required for marketing mail to stay
+    // out of spam and to satisfy Gmail/Yahoo bulk-sender rules.
+    headers: {
+      'List-Unsubscribe': `<${unsubscribeUrl}>`,
+      'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click',
+    },
   })
 }
 

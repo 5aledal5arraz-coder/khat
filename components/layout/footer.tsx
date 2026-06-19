@@ -2,6 +2,7 @@ import Link from "next/link"
 import { listPlatformsForSurface } from "@/lib/queries/official-platforms"
 import { PlatformIcon } from "@/components/platforms/platform-icon"
 import { KhatLogoLockup } from "@/components/brand/khat-logo"
+import { NewsletterSignup } from "@/components/forms/newsletter-signup"
 
 const navigation = {
   main: [
@@ -28,6 +29,21 @@ export async function Footer() {
   return (
     <footer className="border-t bg-muted/50">
       <div className="container mx-auto px-4 py-12">
+        {/* Newsletter band */}
+        <div className="mb-12 rounded-3xl border border-border bg-card px-6 py-8 shadow-sm sm:px-10">
+          <div className="mx-auto flex max-w-3xl flex-col gap-6 md:flex-row md:items-center md:justify-between">
+            <div className="max-w-sm">
+              <h3 className="text-lg font-bold tracking-tight text-foreground">النشرة البريدية</h3>
+              <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
+                أحدث الحلقات والاقتباسات المختارة، مباشرة إلى بريدك — بدون إزعاج.
+              </p>
+            </div>
+            <div className="w-full md:max-w-sm">
+              <NewsletterSignup variant="footer-bare" />
+            </div>
+          </div>
+        </div>
+
         <div className="grid gap-8 md:grid-cols-5">
           {/* Brand */}
           <div className="md:col-span-2">

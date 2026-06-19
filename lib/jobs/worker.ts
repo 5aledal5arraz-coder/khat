@@ -106,6 +106,9 @@ const HANDLER_TIMEOUT_MS: Record<string, number> = {
   "discovery_v2.run": 10 * 60_000,
   // original.generate_topics: AI-bound on full transcripts; allow generous budget.
   "original.generate_topics": 15 * 60_000,
+  // newsletter.send_campaign: batched Resend sends; resumable across retries,
+  // so a single run only needs to cover one pass over the queued recipients.
+  "newsletter.send_campaign": 10 * 60_000,
 }
 
 function timeoutFor(jobType: string): number {

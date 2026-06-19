@@ -15,15 +15,24 @@ interface Subscriber {
 
 interface SubscriberListProps {
   subscribers: Subscriber[]
-  counts: { all: number; active: number; unsubscribed: number }
+  counts: { all: number; active: number; unsubscribed: number; bounced: number; complained: number }
   currentStatus: string
   currentSearch: string
+}
+
+const STATUS_META: Record<string, { label: string; badge: string }> = {
+  active: { label: "نشط", badge: "bg-green-500/10 text-green-600" },
+  unsubscribed: { label: "ألغى", badge: "bg-muted text-muted-foreground" },
+  bounced: { label: "مرتدّ", badge: "bg-amber-500/10 text-amber-600" },
+  complained: { label: "شكوى", badge: "bg-red-500/10 text-red-600" },
 }
 
 const tabs = [
   { key: "all", label: "الكل" },
   { key: "active", label: "نشط" },
-  { key: "unsubscribed", label: "ألغى الاشتراك" },
+  { key: "unsubscribed", label: "ألغى" },
+  { key: "bounced", label: "مرتدّ" },
+  { key: "complained", label: "شكاوى" },
 ] as const
 
 export function SubscriberList({ subscribers, counts, currentStatus, currentSearch }: SubscriberListProps) {
@@ -125,12 +134,8 @@ export function SubscriberList({ subscribers, counts, currentStatus, currentSear
                   <tr key={sub.id} className="border-b border-border/50">
                     <td className="px-4 py-2.5 font-mono text-xs" dir="ltr">{sub.email}</td>
                     <td className="px-4 py-2.5">
-                      <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${
-                        sub.status === "active"
-                          ? "bg-green-500/10 text-green-400"
-                          : "bg-red-500/10 text-red-400"
-                      }`}>
-                        {sub.status === "active" ? "نشط" : "ملغي"}
+                      <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${(STATUS_META[sub.status] ?? STATUS_META.active).badge}`}>
+                        {(STATUS_META[sub.status] ?? STATUS_META.active).label}
                       </span>
                     </td>
                     <td className="px-4 py-2.5 text-muted-foreground whitespace-nowrap">
