@@ -25,7 +25,7 @@ const ytApiCallbacks: (() => void)[] = []
 function loadYTApi(): Promise<void> {
   if (ytApiLoaded && window.YT?.Player) return Promise.resolve()
 
-  return new Promise((resolve) => {
+  return new Promise<void>((resolve, reject) => {
     ytApiCallbacks.push(resolve)
 
     if (ytApiLoading) return
@@ -41,6 +41,13 @@ function loadYTApi(): Promise<void> {
 
     const script = document.createElement("script")
     script.src = "https://www.youtube.com/iframe_api"
+    script.onerror = () => {
+      // Network blocked the API (offline, firewall, or a privacy extension
+      // that blocks youtube.com). Reset the flag so a later attempt can
+      // re-inject, and surface the failure so the caller can fall back.
+      ytApiLoading = false
+      reject(new Error("Failed to load YouTube IFrame API"))
+    }
     document.head.appendChild(script)
   })
 }
@@ -151,7 +158,19 @@ export function YouTubeEmbed({
   const createPlayer = useCallback(async () => {
     if (!videoId || !playerDivRef.current) return
 
-    await loadYTApi()
+    // Fail fast if the API can't load (blocked / offline / privacy extension)
+    // or hangs. Throwing lets the effect fall back to the watch link instead
+    // of leaving the player a dead black box.
+    await Promise.race([
+      loadYTApi(),
+      new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error("YouTube IFrame API load timed out")), 8000)
+      ),
+    ])
+
+    if (!window.YT?.Player) {
+      throw new Error("YouTube IFrame API unavailable")
+    }
 
     const player = new YT.Player(playerDivRef.current, {
       videoId,
@@ -188,7 +207,10 @@ export function YouTubeEmbed({
   // Create the YT player once the div is rendered
   useEffect(() => {
     if (playerState === "player") {
-      createPlayer()
+      // The fallback setState lives in the rejection callback (deferred), not
+      // synchronously in the effect body — shows the watch link if the API
+      // can't load (blocked / offline / privacy extension).
+      createPlayer().catch(() => setPlayerState("blocked"))
     }
   }, [playerState, createPlayer])
 

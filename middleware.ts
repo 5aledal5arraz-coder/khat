@@ -49,10 +49,12 @@ const CSP_DIRECTIVES: Record<string, string[]> = {
   'default-src': ["'self'"],
 
   // Inline scripts required (Next.js hydration + theme init + JSON-LD).
-  // `unsafe-eval` only in dev for HMR.
+  // `unsafe-eval` only in dev for HMR. `www.youtube.com` serves the IFrame
+  // Player API (iframe_api + www-widgetapi.js) that powers in-page episode
+  // playback, seek-to-timestamp, and watch-progress tracking.
   'script-src': IS_PROD
-    ? ["'self'", "'unsafe-inline'"]
-    : ["'self'", "'unsafe-inline'", "'unsafe-eval'"],
+    ? ["'self'", "'unsafe-inline'", 'https://www.youtube.com']
+    : ["'self'", "'unsafe-inline'", "'unsafe-eval'", 'https://www.youtube.com'],
 
   // Inline styles required (Tailwind/shadcn inline style attrs + Next
   // styled-jsx). External CSS from Google Fonts (manual <link> in
