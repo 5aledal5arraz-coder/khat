@@ -485,7 +485,7 @@ async function main() {
     .set({ eir_id: eirId, updated_at: new Date() } as never)
     .where(eq(episodesTable.id, episode.id))
   await syncEirOnStudioPushed({ eirId })
-  let phaseStep8 = await recordPhase(8, eirId)
+  const phaseStep8 = await recordPhase(8, eirId)
   if (phaseStep8 !== "ready_to_publish") {
     fail(8, "Push to episode", `expected ready_to_publish got ${phaseStep8}`)
   }

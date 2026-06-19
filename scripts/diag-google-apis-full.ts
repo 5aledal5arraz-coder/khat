@@ -94,7 +94,6 @@ async function main() {
   console.log("   endpoint: GET https://www.googleapis.com/youtube/v3/search")
   let ytOk = false
   let ytSampleTitle: string | null = null
-  let ytResponseSnippet = ""
   {
     const url = new URL("https://www.googleapis.com/youtube/v3/search")
     url.searchParams.set("part", "snippet")
@@ -114,12 +113,10 @@ async function main() {
         const item = json.items?.[0]
         ytSampleTitle = item?.snippet?.title ?? null
         console.log(`   sample: "${ytSampleTitle?.slice(0, 80) ?? "—"}"  (channel: ${item?.snippet?.channelTitle ?? "—"})`)
-        ytResponseSnippet = `items[0].snippet.title="${ytSampleTitle?.slice(0, 60)}..."`
       } catch {}
     } else {
       console.log(`   google.error.message : ${e.parsed?.message ?? "—"}`)
       console.log(`   google.error.reasons : ${e.parsed?.reasons.join(", ") || "—"}`)
-      ytResponseSnippet = e.body.slice(0, 200)
     }
   }
 
@@ -128,7 +125,6 @@ async function main() {
   console.log("   endpoint: GET https://api.search.brave.com/res/v1/web/search")
   let braveOk = false
   let braveSampleTitle: string | null = null
-  let braveResponseSnippet = ""
   {
     const braveKey = process.env.BRAVE_SEARCH_KEY
     if (!braveKey) {
@@ -151,11 +147,9 @@ async function main() {
           const item = json.web?.results?.[0]
           braveSampleTitle = item?.title ?? null
           console.log(`   sample: "${braveSampleTitle?.slice(0, 80) ?? "—"}"  (${item?.url ?? "—"})`)
-          braveResponseSnippet = `web.results[0].title="${braveSampleTitle?.slice(0, 60)}..."`
         } catch {}
       } else {
         console.log(`   raw body (first 200): ${e.body.slice(0, 200)}`)
-        braveResponseSnippet = e.body.slice(0, 200)
       }
     }
   }
@@ -165,7 +159,6 @@ async function main() {
   console.log("   endpoint: GET https://www.googleapis.com/customsearch/v1")
   let cseOk = false
   let cseSampleTitle: string | null = null
-  let cseResponseSnippet = ""
   {
     const cseKey = process.env.GOOGLE_CSE_KEY
     const cseCx = process.env.GOOGLE_CSE_CX
@@ -188,14 +181,12 @@ async function main() {
           const item = json.items?.[0]
           cseSampleTitle = item?.title ?? null
           console.log(`   sample: "${cseSampleTitle?.slice(0, 80) ?? "—"}"  (${item?.link ?? "—"})`)
-          cseResponseSnippet = `items[0].title="${cseSampleTitle?.slice(0, 60)}..."`
         } catch {}
       } else {
         console.log(`   google.error.code    : ${e.parsed?.code ?? "—"}`)
         console.log(`   google.error.status  : ${e.parsed?.status ?? "—"}`)
         console.log(`   google.error.message : ${e.parsed?.message ?? "—"}`)
         console.log(`   google.error.reasons : ${e.parsed?.reasons.join(", ") || "—"}`)
-        cseResponseSnippet = e.body.slice(0, 200)
       }
     }
   }
@@ -260,7 +251,6 @@ async function main() {
   console.log("\n5. MARKET INGESTION → runPresetCollection (one preset, dedupe-safe)")
   let signalsBefore = 0
   let signalsAfter = 0
-  let inserted = 0
   let collectionNote = ""
   {
     const { db } = await import("../lib/db")
@@ -283,7 +273,6 @@ async function main() {
       } else {
         console.log(`   preset       : "${preset.label}" (${preset.sources?.join(",") ?? "—"})`)
         const r = await runPresetCollection(preset, { maxPerSource: 5 })
-        inserted = r.inserted
         console.log(`   adapters     : ${r.collected.map((c) => `${c.source}=${c.result.configured ? "configured" : "missing"}${c.result.note ? ` (${c.result.note})` : ""}`).join(" · ")}`)
         console.log(`   inserted     : ${r.inserted}`)
         if (r.collected[0]?.result.note) collectionNote = r.collected[0].result.note

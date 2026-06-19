@@ -26,7 +26,6 @@ import { marketTopicSignals, marketTopicClusters } from "@/lib/db/schema/market-
 import { aiRuns } from "@/lib/db/schema/ai-runs"
 import { jobs } from "@/lib/db/schema/jobs"
 import { collectYoutubeTopic } from "@/lib/market-intelligence/adapters/youtube"
-import { collectPodcastTopic } from "@/lib/market-intelligence/adapters/podcast"
 import { persistSignal } from "@/lib/market-intelligence/ingestion"
 import {
   extractPendingSignals,

@@ -260,7 +260,7 @@ function clampInt(v: unknown, min: number, max: number): number {
  * [TARGET_MIN, TARGET_MAX]. If already inside, do nothing.
  */
 function rebalanceMinutes(sections: PrepV2Section[]) {
-  let sum = sections.reduce((a, s) => a + (s.estimated_minutes || 0), 0)
+  const sum = sections.reduce((a, s) => a + (s.estimated_minutes || 0), 0)
   if (sum === 0) {
     // Cold start fallback.
     const defaults = [6, 10, 14, 18, 16, 11]

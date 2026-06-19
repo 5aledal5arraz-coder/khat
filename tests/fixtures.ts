@@ -2,7 +2,7 @@
  * Shared test fixtures for the KHAT query layer.
  * Provides realistic Arabic episode/guest data for testing.
  */
-import type { Episode, Guest, EpisodeWithRelations, Timestamp, Quote, Resource } from "@/types/database"
+import type { Episode, Guest, EpisodeWithRelations } from "@/types/database"
 import type { EpisodeOverride } from "@/types/episodes"
 
 export function makeEpisode(overrides: Partial<Episode> = {}): Episode {

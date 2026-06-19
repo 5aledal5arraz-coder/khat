@@ -16,14 +16,13 @@
  */
 
 import { useState, useRef, useCallback, useMemo, useEffect } from "react"
-import { useRoomState, useRoomCards, useRoomTimer } from "@/app/admin/preparation/[id]/room/contexts"
+import { useRoomState, useRoomCards } from "@/app/admin/preparation/[id]/room/contexts"
 import { StudioTimer } from "./studio-timer"
 import { StudioCardDisplay } from "./studio-card-display"
 import { StudioCardTimeline } from "./studio-card-timeline"
 import { StudioNotesPanel } from "./studio-notes-panel"
 import { StudioMarkers } from "./studio-markers"
 import { FileText, ChevronDown } from "lucide-react"
-import { cn } from "@/lib/utils"
 
 export function HostStudioView() {
   const { room, updateHostNotes, isHost } = useRoomState()

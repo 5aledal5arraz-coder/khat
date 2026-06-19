@@ -5,7 +5,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest"
 
 // Mock DB before importing auth module
-import { mockDb, mockSelectResult, mockInsertReturning, resetMock } from "./db-mock"
+import { mockDb, mockSelectResult, resetMock } from "./db-mock"
 vi.mock("@/lib/db", () => ({ db: mockDb, pool: {}, USE_DB: true }))
 
 import {
@@ -30,7 +30,9 @@ describe("Admin Auth — Pure Functions", () => {
     expect(hash).not.toBe(plain)
     expect(await verifyPassword(plain, hash)).toBe(true)
     expect(await verifyPassword("wrong", hash)).toBe(false)
-  })
+    // bcryptjs is pure-JS; one hash + two compares at 12 rounds can exceed
+    // vitest's default 5s timeout under CPU contention. Give it headroom.
+  }, 20000)
 
   it("generateSessionToken returns a 64-char hex string", () => {
     const token = generateSessionToken()

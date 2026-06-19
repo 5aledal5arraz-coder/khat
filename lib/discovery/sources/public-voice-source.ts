@@ -30,10 +30,7 @@
  * it becomes a SEED for the verifier to confirm against bio content.
  */
 
-import type {
-  DiscoveryArchetype,
-  DiscoveryEvidenceUrl,
-} from "@/lib/db/schema/discovery"
+import type { DiscoveryArchetype } from "@/lib/db/schema/discovery"
 import type {
   SearchResult,
   SearchCandidate,

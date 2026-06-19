@@ -37,7 +37,6 @@ import {
   getEpisodeCandidateById,
   getGuestCandidateById,
   getSeasonById,
-  updateEpisodeCandidateStatus,
   bumpAcceptedPattern,
   logFeedback,
   getTopicByAngleCode,

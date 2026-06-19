@@ -17,10 +17,6 @@
 
 import { sql, eq } from "drizzle-orm"
 import { db } from "@/lib/db"
-import {
-  episodeIntelligenceRecords,
-  eirPhaseTransitions,
-} from "@/lib/db/schema/eir"
 import { aiRuns } from "@/lib/db/schema/ai-runs"
 import { jobs } from "@/lib/db/schema/jobs"
 import {

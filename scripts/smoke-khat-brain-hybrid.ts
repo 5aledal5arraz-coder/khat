@@ -25,7 +25,6 @@ import {
   khatMapEpisodeCandidates,
 } from "@/lib/db/schema/khat-map"
 import {
-  marketTopicSignals,
   marketTopicClusters,
 } from "@/lib/db/schema/market-intelligence"
 import { originalThinkingTopics } from "@/lib/db/schema/original-thinking"

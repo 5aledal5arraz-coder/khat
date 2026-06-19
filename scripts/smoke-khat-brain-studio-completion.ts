@@ -15,7 +15,6 @@ import { db } from "@/lib/db"
 import { studioSessions } from "@/lib/db/schema/studio"
 import { studioAnalysisRecords } from "@/lib/db/schema/studio-analysis"
 import { aiRuns } from "@/lib/db/schema/ai-runs"
-import { episodeIntelligenceRecords } from "@/lib/db/schema/eir"
 import { episodes } from "@/lib/db/schema/episodes"
 import {
   getChaptersForSession,
@@ -143,7 +142,7 @@ async function caseAllKindsViaServiceModules() {
   const tr = await createTranscript(sid, "youtube_captions", "نص مقصير ولكن كافي للاختبار", "ar")
   assert(tr.success, "createTranscript failed")
   const trBack = await getTranscriptForSession(sid)
-  assert(trBack?.transcript_clean.length! > 0, "transcript readback")
+  assert((trBack?.transcript_clean.length ?? 0) > 0, "transcript readback")
 
   // ai_outputs
   const ai = await createAiOutput(sid, {

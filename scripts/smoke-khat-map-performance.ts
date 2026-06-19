@@ -28,12 +28,11 @@
  *     npx tsx scripts/smoke-khat-map-performance.ts
  */
 
-import { and, eq, sql as drizzleSql } from "drizzle-orm"
+import { eq, sql as drizzleSql } from "drizzle-orm"
 import { db } from "@/lib/db"
 import {
   khatMapSeasons,
   khatMapEpisodeCandidates,
-  khatMapEpisodePerformance,
   khatMapSeasonDecisions,
 } from "@/lib/db/schema/khat-map"
 import { episodes } from "@/lib/db/schema/episodes"

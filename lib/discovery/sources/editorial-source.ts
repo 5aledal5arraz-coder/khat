@@ -28,10 +28,7 @@
  * existing runSearchAgent dispatch with no changes to the job pipeline.
  */
 
-import type {
-  DiscoveryArchetype,
-  DiscoveryEvidenceUrl,
-} from "@/lib/db/schema/discovery"
+import type { DiscoveryArchetype } from "@/lib/db/schema/discovery"
 import type {
   SearchResult,
   SearchCandidate,

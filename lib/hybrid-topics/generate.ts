@@ -23,12 +23,11 @@
 import { runAiTask } from "@/lib/ai-router"
 import { buildHybridTopicsPrompt } from "@/lib/ai/prompts/hybrid-topics"
 import { loadLenses } from "@/lib/original-thinking/lenses"
-import { loadHybridInputs, HYBRID_INPUT_CAPS } from "./inputs"
+import { loadHybridInputs } from "./inputs"
 import {
   judgeHybridCandidate,
   HYBRID_REJECTION_RULES,
   type HybridCandidate,
-  type HybridRejectionReason,
 } from "./reject"
 import { rescoreHybridCandidate } from "./scoring"
 import {

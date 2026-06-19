@@ -17,7 +17,7 @@ import {
   episodeSponsors,
 } from "@/lib/db/schema"
 import { count, eq, desc, gte, sql } from "drizzle-orm"
-import { getChannelDetails, getChannelVideos, getChannelIdFromHandle, type YouTubeChannel, type YouTubeVideo } from "@/lib/youtube/client"
+import { getChannelDetails, getChannelVideos, getChannelIdFromHandle, type YouTubeChannel } from "@/lib/youtube/client"
 
 const YOUTUBE_CHANNEL_ID = process.env.YOUTUBE_CHANNEL_ID || ""
 const YOUTUBE_CHANNEL_HANDLE = process.env.YOUTUBE_CHANNEL_HANDLE || ""

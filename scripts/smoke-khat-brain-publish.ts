@@ -45,7 +45,6 @@ async function main() {
     slugifyTitle,
   } = types
   const {
-    DEFAULT_PUBLISH_LIMITS,
     issuesForField,
     validateWebsitePackageDocument,
   } = validation

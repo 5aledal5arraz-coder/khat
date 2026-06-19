@@ -113,7 +113,7 @@ import {
   buildCandidateOutreachUser,
   CANDIDATE_OUTREACH_PROMPT_VERSION,
 } from "@/lib/ai/prompts/candidate-outreach"
-import type { GuestApplication, GuestApplicationAnalysis, SponsorshipLead, SponsorshipAnalysis } from "@/types/database"
+import type { GuestApplication, GuestApplicationAnalysis, SponsorshipLead } from "@/types/database"
 
 // ─── Original Thinking ──────────────────────────────────────────────
 

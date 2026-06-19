@@ -23,7 +23,6 @@ import {
 import type {
   CollaborationRoomSnapshot,
   RoomEvent,
-  RoomEventType,
 } from "@/types/collaboration"
 
 // ─── Types ──────────────────────────────────────────────────────────

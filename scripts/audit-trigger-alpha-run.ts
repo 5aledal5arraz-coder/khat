@@ -22,11 +22,9 @@
  * Print the new run id at the end so the inspect script can poll it.
  */
 
-import { and, eq } from "drizzle-orm"
+import { eq } from "drizzle-orm"
 import { db, closeDb } from "@/lib/db"
 import { episodeIntelligenceRecords } from "@/lib/db/schema/eir"
-import { khatMapEpisodeCandidates } from "@/lib/db/schema/khat-map"
-import { discoveryRuns } from "@/lib/db/schema/discovery"
 import { createDiscoveryRun } from "@/lib/discovery"
 import { enqueueJob } from "@/lib/jobs/queue"
 

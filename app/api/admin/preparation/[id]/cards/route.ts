@@ -18,7 +18,7 @@ export async function GET(
   try {
     const cards = await getCardsByPreparation(id)
     return NextResponse.json(cards)
-  } catch (err) {
+  } catch {
     return errorResponse("فشل في جلب البطاقات", 500)
   }
 }
@@ -59,7 +59,7 @@ export async function POST(
     })
 
     return NextResponse.json(card, { status: 201 })
-  } catch (err) {
+  } catch {
     return errorResponse("فشل في إنشاء البطاقة", 500)
   }
 }

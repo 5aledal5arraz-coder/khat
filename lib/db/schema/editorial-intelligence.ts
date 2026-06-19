@@ -27,7 +27,6 @@
 import {
   pgTable,
   text,
-  jsonb,
   timestamp,
   real,
   integer,

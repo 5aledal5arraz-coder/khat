@@ -42,14 +42,12 @@ import {
   syncEirOnStudioPushed,
   walkForwardIfBehind,
   getEirIdForRoom,
-  getEirIdForStudioSession,
   getEirIdForEpisode,
 } from "@/lib/khat-brain"
 import { resolveEirForStudioSession } from "@/lib/khat-brain/studio-resolver"
 import {
   getEpisodeIntelligenceRecord,
   transitionEpisodePhase,
-  type EpisodePhase,
   InvalidPhaseTransitionError,
 } from "@/lib/eir"
 import { getEpisodeCandidateById } from "@/lib/khat-map/core/queries"

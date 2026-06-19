@@ -16,7 +16,7 @@
  * one source errors.
  */
 
-import { and, desc, eq, gte, inArray, isNotNull, sql } from "drizzle-orm"
+import { and, desc, gte, isNotNull, sql } from "drizzle-orm"
 import { db } from "@/lib/db"
 import { guests } from "@/lib/db/schema/guests"
 import { guestDiscoveryCandidates } from "@/lib/db/schema/discovery"

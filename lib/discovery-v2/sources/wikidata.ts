@@ -181,7 +181,6 @@ function scoreEntityAgainstHint(
   hint: ResolveHint | undefined,
   searchRank: number,
 ): number {
-  const claims = ent?.claims ?? {}
   let score = 0
 
   // Notability prior + search-rank prior (earlier hits are likelier).

@@ -16,7 +16,7 @@
  * Idempotent. Cleans up its own rows on success.
  */
 
-import { sql, eq, like, and, asc } from "drizzle-orm"
+import { sql, eq, like, asc } from "drizzle-orm"
 import { db } from "@/lib/db"
 import { adminUsers } from "@/lib/db/schema/admin-auth"
 import {
@@ -25,7 +25,6 @@ import {
   roomParticipants,
 } from "@/lib/db/schema/collaboration"
 import { episodePreparations } from "@/lib/db/schema/preparation"
-import { episodeIntelligenceRecords } from "@/lib/db/schema/eir"
 import { khatMapSeasons } from "@/lib/db/schema/khat-map"
 import { loadLiveV2, questionsForSection } from "@/lib/recording-v2/load"
 import {

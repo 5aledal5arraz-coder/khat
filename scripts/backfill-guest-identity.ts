@@ -23,7 +23,6 @@ import {
   guestIdentityProfiles,
   guestDiscoveryLinks,
   type GuestApplicationSummary,
-  type GuestSocialAccounts,
   type GuestSourceSummary,
   type GuestStudioSignals,
 } from "@/lib/db/schema/guest-identity"

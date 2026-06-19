@@ -26,7 +26,7 @@
  *     npx tsx scripts/smoke-khat-map-v2-pr2.ts
  */
 
-import { and, eq } from "drizzle-orm"
+import { eq } from "drizzle-orm"
 import { db } from "@/lib/db"
 import {
   khatMapSeasons,

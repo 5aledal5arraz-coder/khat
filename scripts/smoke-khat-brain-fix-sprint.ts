@@ -29,15 +29,12 @@
 
 import { promises as fs } from "node:fs"
 import path from "node:path"
-import { sql, eq, desc } from "drizzle-orm"
+import { sql, eq } from "drizzle-orm"
 import { db } from "@/lib/db"
 import { adminUsers } from "@/lib/db/schema/admin-auth"
 import {
   khatMapSeasons,
-  khatMapEpisodeCandidates,
-  khatMapGuestCandidates,
 } from "@/lib/db/schema/khat-map"
-import { episodeIntelligenceRecords } from "@/lib/db/schema/eir"
 
 const TAG = "smoke-fix-sprint"
 const REPO_ROOT = path.resolve(__dirname, "..")

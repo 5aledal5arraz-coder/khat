@@ -1,6 +1,6 @@
 "use client"
 
-import { useCallback, useEffect, useRef, useState } from "react"
+import { useCallback, useRef, useState } from "react"
 import {
   X,
   Loader2,
@@ -11,7 +11,6 @@ import {
   Quote,
   Heart,
   Pin,
-  BookOpen,
   ChevronDown,
   ChevronRight,
   Sparkles,

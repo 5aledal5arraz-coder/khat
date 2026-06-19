@@ -29,7 +29,6 @@ import {
   discoveryRuns,
   guestDiscoveryCandidates,
 } from "@/lib/db/schema/discovery"
-import { jobs } from "@/lib/db/schema/jobs"
 
 const TAG = "[audit-inspect-alpha]"
 const POLL_INTERVAL_MS = 5_000

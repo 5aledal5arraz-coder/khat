@@ -53,7 +53,7 @@ export async function POST(
 /** PATCH — update a material's title/content */
 export async function PATCH(
   req: NextRequest,
-  { params }: { params: Promise<{ id: string; cardId: string }> }
+  {}: { params: Promise<{ id: string; cardId: string }> }
 ) {
   const authError = await requireAdminAPI()
   if (authError) return authError
@@ -83,7 +83,7 @@ export async function PATCH(
 /** DELETE — remove a material (pass ?id=xxx) */
 export async function DELETE(
   req: NextRequest,
-  { params }: { params: Promise<{ id: string; cardId: string }> }
+  {}: { params: Promise<{ id: string; cardId: string }> }
 ) {
   const authError = await requireAdminAPI()
   if (authError) return authError

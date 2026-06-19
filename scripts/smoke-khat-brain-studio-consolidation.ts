@@ -19,9 +19,6 @@
 
 import { sql, eq } from "drizzle-orm"
 import { db } from "@/lib/db"
-import {
-  episodeIntelligenceRecords,
-} from "@/lib/db/schema/eir"
 import { aiRuns } from "@/lib/db/schema/ai-runs"
 import {
   studioAnalysisRecords,

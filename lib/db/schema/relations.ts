@@ -1,7 +1,6 @@
 import { relations } from "drizzle-orm"
 import { episodes, timestamps, quotes, resources, episodeVersions, episodeCategories } from "./episodes"
 import { guests } from "./guests"
-import { studioSessions } from "./studio"
 import { newsletterSubscribers } from "./system"
 import { newsletterCampaigns, newsletterDeliveries, newsletterLinks, newsletterClicks } from "./newsletter"
 import { guestPrepForms } from "./guest-prep"

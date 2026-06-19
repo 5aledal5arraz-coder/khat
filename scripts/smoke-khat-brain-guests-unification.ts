@@ -39,7 +39,6 @@ import {
   noveltyPenaltyAgainstCorpus,
 } from "@/lib/discovery/novelty-corpus"
 import {
-  createDiscoveryRun,
   createCandidate,
   updateCandidateScores,
   updateCandidateVerification,

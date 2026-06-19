@@ -70,7 +70,6 @@ import type {
   BatchStats,
   CandidateGenInput,
   EngineAI,
-  RawCandidate,
   ScoredCandidate,
 } from "./types"
 import type {

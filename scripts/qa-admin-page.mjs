@@ -24,7 +24,7 @@
  */
 
 import { readFileSync, readdirSync, statSync, existsSync } from "node:fs"
-import { join, relative, resolve, dirname, basename } from "node:path"
+import { join, relative, resolve, dirname } from "node:path"
 import { fileURLToPath } from "node:url"
 
 /* ──────────────────────────  Setup ─────────────────────────── */
@@ -277,7 +277,7 @@ check("auth/api-requires-admin", ({ file, clean, isApi, report }) => {
 
 /* 2. Server actions must call requireAdmin() */
 
-check("auth/action-requires-admin", ({ file, src, clean, isServer, report }) => {
+check("auth/action-requires-admin", ({ file, clean, isServer, report }) => {
   if (!isServer) return
   // Find every exported async function and check it contains requireAdmin(
   const fnRe = /export\s+async\s+function\s+(\w+)\s*\(/g

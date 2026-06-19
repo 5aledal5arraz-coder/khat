@@ -21,7 +21,7 @@
  * created or destroyed.
  */
 
-import { eq, and, isNotNull, desc, isNull } from "drizzle-orm"
+import { eq, and, isNotNull, desc } from "drizzle-orm"
 import { db, closeDb } from "@/lib/db"
 import { guestDiscoveryCandidates } from "@/lib/db/schema/discovery"
 
@@ -29,7 +29,7 @@ const TAG = "[audit-ui-promote-then-revert]"
 // We keep the original status here so revert puts it back exactly.
 // The original is always "rejected" because that's the only status
 // the Alpha pipeline produces for sub-threshold rows.
-const PRE_STATE: "rejected" = "rejected"
+const PRE_STATE = "rejected" as const
 
 async function main(): Promise<void> {
   const action = process.argv[2]

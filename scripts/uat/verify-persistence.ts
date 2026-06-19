@@ -1,7 +1,7 @@
 // Verify that the POST forms actually persisted rows in DB.
 import { db } from "../../lib/db"
 import { sponsorshipLeads, guestApplications, newsletterSubscribers } from "../../lib/db/schema"
-import { sql, like, desc } from "drizzle-orm"
+import { like, desc } from "drizzle-orm"
 
 async function main() {
   if (!db) throw new Error("no db")

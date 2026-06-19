@@ -37,14 +37,11 @@ import {
 import type {
   CreateInterviewCardInput,
   CreateCardMaterialInput,
-  InterviewCardWithMaterials,
   InterviewCardBucket,
   CardFollowUp,
 } from "@/types/collaboration"
 import type {
-  EpisodePreparation,
   PreparationQuestionSystem,
-  PreparationQuestion,
   PreparationResearch,
 } from "@/types/preparation"
 

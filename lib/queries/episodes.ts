@@ -1,5 +1,5 @@
 import { db, USE_DB as DB_AVAILABLE } from "@/lib/db"
-import { eq, desc, asc, and, ilike, ne, gte, sql } from "drizzle-orm"
+import { eq, desc, asc } from "drizzle-orm"
 import {
   episodes,
   guests,
@@ -209,11 +209,6 @@ async function fetchDbEpisodeDetail(slug: string): Promise<EpisodeWithRelations 
 async function loadMockEpisodes(): Promise<Episode[]> {
   const { mockEpisodes } = await import("@/lib/mocks/episodes")
   return mockEpisodes
-}
-
-async function loadMockGuests(): Promise<Guest[]> {
-  const { mockGuests } = await import("@/lib/mocks/episodes")
-  return mockGuests
 }
 
 // ─── Unified Data Resolution ─────────────────────────────────────────────────

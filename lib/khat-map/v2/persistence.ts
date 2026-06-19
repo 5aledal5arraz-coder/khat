@@ -33,7 +33,6 @@ import type {
 } from "./types"
 import type {
   KhatMapDomainPerformance,
-  KhatMapEpisodeCandidate,
   KhatMapGuestCandidate,
   KhatMapSeasonDecision,
   KhatMapTopicDomain,

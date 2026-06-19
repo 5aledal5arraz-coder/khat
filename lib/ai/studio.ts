@@ -1,5 +1,5 @@
 import type { StudioChapterItem, StudioClipItem } from "@/types/database"
-import { getClient, prepareTranscript, prepareTranscriptWithPositions, formatSecondsToTimestamp, parseTimestampToSeconds, STRUCTURE_MODEL, EDITORIAL_MODEL } from "./client"
+import { getClient, prepareTranscript, prepareTranscriptWithPositions, formatSecondsToTimestamp, parseTimestampToSeconds } from "./client"
 import { runAiTask } from "@/lib/ai-router"
 import { buildStudioPackagePrompt } from "@/lib/ai/prompts/studio-package"
 import type { GlobalEpisodeIntelligence } from "./episode-intelligence"

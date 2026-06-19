@@ -32,7 +32,6 @@ import {
   type SignalEditorialTag,
   type TasteWeightDimension,
 } from "@/lib/db/schema/editorial-intelligence"
-import { clampWeight } from "./scoring"
 import type { TasteWeightLookup } from "./scoring"
 
 // ─── Tunables ────────────────────────────────────────────────────────

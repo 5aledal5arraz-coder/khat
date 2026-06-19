@@ -15,8 +15,6 @@ import {
   SkipForward,
   CheckCircle2,
   Pin,
-  Flame,
-  FileText,
   Sparkles,
 } from "lucide-react"
 

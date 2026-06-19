@@ -8,11 +8,10 @@ import {
   hiddenEpisodes,
   episodeOverrides,
   episodeVersions,
-  deletedEpisodes,
   podcastPlatformLinks,
 } from "../../lib/db/schema"
-import { eq, desc, sql } from "drizzle-orm"
-import { setEpisodeOverride, getEpisodeOverrides, deleteEpisodeOverride } from "../../lib/episodes/overrides"
+import { eq, desc } from "drizzle-orm"
+import { setEpisodeOverride, deleteEpisodeOverride } from "../../lib/episodes/overrides"
 import { saveVersion } from "../../lib/episodes/versions"
 import { markEpisodesAsDeleted, getDeletedEpisodeIds, restoreDeletedEpisodes } from "../../lib/episodes/deleted"
 import { listPlatformsForSurface } from "../../lib/queries/audio-platforms"

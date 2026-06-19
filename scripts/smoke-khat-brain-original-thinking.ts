@@ -37,7 +37,6 @@ import {
 import {
   judgeCandidate,
   REJECTION_RULES,
-  type CandidateTopic,
   type NoveltyContext,
 } from "@/lib/original-thinking/novelty"
 import { generateOriginalTopics } from "@/lib/original-thinking/generator"

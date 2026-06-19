@@ -27,12 +27,11 @@
 
 import { promises as fs } from "node:fs"
 import path from "node:path"
-import { sql, eq, desc } from "drizzle-orm"
+import { sql, eq } from "drizzle-orm"
 import { db } from "@/lib/db"
 import { adminUsers } from "@/lib/db/schema/admin-auth"
 import { episodePreparations } from "@/lib/db/schema/preparation"
 import { studioSessions } from "@/lib/db/schema/studio"
-import { studioAnalysisRecords } from "@/lib/db/schema/studio-analysis"
 import { episodeIntelligenceRecords } from "@/lib/db/schema/eir"
 import {
   PREP_V2_VERSION,

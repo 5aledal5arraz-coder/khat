@@ -33,7 +33,6 @@ import {
 import { episodePreparations } from "@/lib/db/schema/preparation"
 import {
   collaborationRooms,
-  roomParticipants,
 } from "@/lib/db/schema/collaboration"
 import { studioSessions } from "@/lib/db/schema/studio"
 import { studioAnalysisRecords } from "@/lib/db/schema/studio-analysis"

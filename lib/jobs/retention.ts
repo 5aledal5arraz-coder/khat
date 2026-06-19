@@ -33,7 +33,7 @@
  *     • khat_map_season_decisions (wizard journal)
  */
 
-import { sql, type SQL } from "drizzle-orm"
+import { sql } from "drizzle-orm"
 import { db } from "@/lib/db"
 
 // ─── Constants ────────────────────────────────────────────────────────

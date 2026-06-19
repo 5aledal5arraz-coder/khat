@@ -164,7 +164,6 @@ export function ImageCropModal({
     if (!imageSrc || !croppedAreaPixels) return
     setProcessing(true)
     try {
-      console.log("[Crop] Area:", JSON.stringify(croppedAreaPixels), "zoom:", zoom, "rotation:", rotation)
       const croppedFile = await getCroppedImg(
         imageSrc,
         croppedAreaPixels,
@@ -172,7 +171,6 @@ export function ImageCropModal({
         outputSize,
         outputQuality,
       )
-      console.log("[Crop] Output file:", croppedFile.size, "bytes,", croppedFile.type)
       onConfirm(croppedFile)
     } catch (err) {
       console.error("Crop failed:", err)

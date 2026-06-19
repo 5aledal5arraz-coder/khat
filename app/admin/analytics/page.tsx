@@ -231,15 +231,6 @@ function SectionHeader({ icon: Icon, title, badge }: { icon: React.ElementType; 
   )
 }
 
-function MiniBar({ value, max }: { value: number; max: number }) {
-  const pct = max > 0 ? Math.max(4, Math.round((value / max) * 100)) : 0
-  return (
-    <div className="h-1.5 w-16 overflow-hidden rounded-full bg-muted/30">
-      <div className="h-full rounded-full bg-primary/40 transition-all" style={{ width: `${pct}%` }} />
-    </div>
-  )
-}
-
 // ── Main Component ──────────────────────────────────────────────────────────
 
 export default function AnalyticsDashboard() {

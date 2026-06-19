@@ -19,24 +19,21 @@
  *   npm run smoke:khat-brain-eir
  */
 
-import { sql, eq, and, like } from "drizzle-orm"
+import { sql, eq } from "drizzle-orm"
 import { db } from "@/lib/db"
 import {
   khatMapSeasons,
   khatMapEpisodeCandidates,
   khatMapGuestCandidates,
-  khatMapSeasonDecisions,
 } from "@/lib/db/schema/khat-map"
 import {
   episodeIntelligenceRecords,
-  eirPhaseTransitions,
 } from "@/lib/db/schema/eir"
 import { episodePreparations } from "@/lib/db/schema/preparation"
 import { adminUsers } from "@/lib/db/schema/admin-auth"
 import { aiRuns } from "@/lib/db/schema/ai-runs"
 import {
   ensureEirForCandidate,
-  walkEirToPhase,
 } from "@/lib/khat-brain"
 import {
   countByPhase,

@@ -16,17 +16,13 @@
 import { sql, eq } from "drizzle-orm"
 import { db } from "@/lib/db"
 import {
-  discoveryRuns,
-  guestDiscoveryCandidates,
   type DiscoveryArchetype,
 } from "@/lib/db/schema/discovery"
 import { aiRuns } from "@/lib/db/schema/ai-runs"
-import { jobs } from "@/lib/db/schema/jobs"
 import {
   createDiscoveryRun,
   createCandidate,
   getCandidate,
-  getDiscoveryRun,
   listCandidates,
   listDiscoveryRuns,
   rankCandidate,

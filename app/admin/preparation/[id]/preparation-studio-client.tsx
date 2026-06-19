@@ -2254,23 +2254,6 @@ function BulletList({ label, items }: { label: string; items: string[] }) {
   )
 }
 
-function BulletCard({ title, items }: { title: string; items: string[] }) {
-  if (!items || items.length === 0) return null
-  return (
-    <div className="rounded-xl border border-border/40 bg-card/40 p-4">
-      <h4 className="mb-2 text-xs font-bold text-violet-300">{title}</h4>
-      <ul className="space-y-1.5">
-        {items.map((it, i) => (
-          <li key={i} className="flex items-start gap-2 text-[12px] leading-relaxed">
-            <span className="mt-1.5 h-1 w-1 shrink-0 rounded-full bg-violet-400" />
-            <span>{it}</span>
-          </li>
-        ))}
-      </ul>
-    </div>
-  )
-}
-
 function KbColumn({
   label,
   items,

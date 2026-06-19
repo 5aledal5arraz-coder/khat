@@ -9,7 +9,6 @@ vi.mock("@/lib/db", () => ({ db: mockDb, pool: {}, USE_DB: true }))
 // Home Quotes
 import {
   getAllHomeQuotes,
-  getPublishedHomeQuotes,
   getHomeQuoteById,
   addHomeQuote,
   deleteHomeQuote,
@@ -19,7 +18,6 @@ import {
 import {
   getAllReflections,
   getReflectionById,
-  addReflection,
   deleteReflection,
 } from "@/lib/content/daily-reflections"
 

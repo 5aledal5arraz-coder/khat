@@ -52,7 +52,6 @@ describe("Studio Push Log", () => {
 
   it("appendPushLog throws when db is null", async () => {
     // Temporarily mock db as null
-    const originalDb = mockDb
     vi.doMock("@/lib/db", () => ({ db: null, pool: null, USE_DB: false }))
 
     // Re-import to get the null-db version

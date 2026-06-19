@@ -35,14 +35,6 @@ const PASS: string[] = []
 function assert(cond: unknown, msg: string): asserts cond {
   if (!cond) throw new Error(msg)
 }
-async function exists(p: string): Promise<boolean> {
-  try {
-    await fs.stat(p)
-    return true
-  } catch {
-    return false
-  }
-}
 async function readRel(rel: string): Promise<string> {
   return fs.readFile(path.join(REPO_ROOT, rel), "utf8")
 }
@@ -161,7 +153,7 @@ async function main() {
   await caseRun("6/18 Autosave manager: debounce + coalesce + retry", async () => {
     const { createAutosaveManager } = await import("../lib/editorial/autosave-manager")
     let attempts = 0
-    let saved: number[] = []
+    const saved: number[] = []
     const mgr = createAutosaveManager<number>({
       saver: async (n) => {
         attempts++

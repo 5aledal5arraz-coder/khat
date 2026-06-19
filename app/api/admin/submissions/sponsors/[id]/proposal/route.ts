@@ -90,7 +90,7 @@ export async function PATCH(
   const authError = await requireAdminAPI()
   if (authError) return authError
 
-  const { id } = await params
+  await params
   const body = await request.json()
   const { proposal_id, edited_draft } = body
 

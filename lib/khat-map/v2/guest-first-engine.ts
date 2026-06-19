@@ -52,7 +52,6 @@ import type {
   ScoredCandidate,
 } from "./types"
 import type {
-  KhatMapGuestCandidate,
   KhatMapTopicDomain,
   KhatMapTopicFingerprint,
   KhatMapUserTasteProfile,

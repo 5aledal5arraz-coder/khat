@@ -32,8 +32,6 @@ import { sql } from "drizzle-orm"
 import {
   khatMapSeasons,
   khatMapEpisodeCandidates,
-  khatMapSeasonDecisions,
-  khatMapTopicFingerprints,
   khatMapUserTasteProfile,
 } from "@/lib/db/schema/khat-map"
 import { eq } from "drizzle-orm"

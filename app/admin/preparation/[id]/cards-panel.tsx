@@ -641,7 +641,6 @@ function FilterChip({
 // ─── Create Card Dialog ────────────────────────────────────────────
 
 function CreateCardDialog({
-  prepId,
   existingSections,
   onClose,
   onCreate,

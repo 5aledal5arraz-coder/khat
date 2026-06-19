@@ -25,7 +25,6 @@ import { db } from "@/lib/db"
 import {
   khatMapSeasons,
   khatMapTopicBank,
-  khatMapGuestCandidates,
 } from "@/lib/db/schema/khat-map"
 import {
   createSeason,

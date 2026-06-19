@@ -10,7 +10,7 @@
  * Cleans up its own rows on success.
  */
 
-import { sql, eq, like } from "drizzle-orm"
+import { sql, eq } from "drizzle-orm"
 import { db } from "@/lib/db"
 import { adminUsers } from "@/lib/db/schema/admin-auth"
 import {
@@ -19,7 +19,6 @@ import {
   khatMapGuestCandidates,
 } from "@/lib/db/schema/khat-map"
 import { episodePreparations } from "@/lib/db/schema/preparation"
-import { episodeIntelligenceRecords } from "@/lib/db/schema/eir"
 import { guests } from "@/lib/db/schema/guests"
 import { guestIdentityProfiles } from "@/lib/db/schema/guest-identity"
 import { convertEpisodeToPreparation } from "@/lib/khat-map/conversion/to-preparation"

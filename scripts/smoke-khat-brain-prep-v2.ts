@@ -28,9 +28,6 @@ import {
 } from "@/lib/db/schema/khat-map"
 import { episodePreparations } from "@/lib/db/schema/preparation"
 import { aiRuns } from "@/lib/db/schema/ai-runs"
-import {
-  episodeIntelligenceRecords,
-} from "@/lib/db/schema/eir"
 import { runPrepV2Pipeline } from "@/lib/preparation/v2/pipeline"
 import {
   validatePrepV2Payload,

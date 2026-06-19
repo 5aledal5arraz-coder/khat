@@ -29,7 +29,6 @@ import {
   Activity,
   ArrowLeft,
   AlertTriangle,
-  CheckCircle2,
   Telescope,
   Lightbulb,
 } from "lucide-react"
@@ -102,8 +101,8 @@ export default async function SeasonWorkspacePage({
     pendingRes,
     acceptedRes,
     productionRes,
-    marketTotals,
-    topClusters,
+    ,
+    ,
     marketFreshness,
     aiHealth,
     rhythm,
@@ -386,91 +385,6 @@ function HybridPanel({
   )
 }
 
-// ─── MarketFreshness widget ─────────────────────────────────────────
-
-function MarketFreshness({
-  signalsTotal,
-  signals7d,
-  clustersTotal,
-  topClusters,
-}: {
-  signalsTotal: number
-  signals7d: number
-  clustersTotal: number
-  topClusters: Awaited<ReturnType<typeof getTopClusters>>
-}) {
-  const fresh = signals7d > 0 && clustersTotal > 0
-  return (
-    <div
-      className={
-        "h-full rounded-3xl border p-5 " +
-        (fresh
-          ? "border-emerald-500/25 bg-emerald-500/5"
-          : "border-amber-500/30 bg-amber-500/5")
-      }
-    >
-      <div className="mb-2 flex items-center gap-2 text-[11px] font-medium">
-        {fresh ? (
-          <span className="inline-flex items-center gap-1.5 text-emerald-300">
-            <CheckCircle2 className="h-3 w-3" /> طازج
-          </span>
-        ) : (
-          <span className="inline-flex items-center gap-1.5 text-amber-300">
-            <AlertTriangle className="h-3 w-3" /> غير محدّث
-          </span>
-        )}
-        <span className="text-muted-foreground">إشارات السوق</span>
-      </div>
-      <h3 className="mb-2 text-base font-semibold">حالة بيانات السوق</h3>
-      <div className="grid grid-cols-3 gap-2">
-        <Mini label="آخر ٧ أيام" value={signals7d} />
-        <Mini label="عناقيد" value={clustersTotal} />
-        <Mini label="إجمالي" value={signalsTotal} />
-      </div>
-      {topClusters.length > 0 ? (
-        <div className="mt-3">
-          <div className="mb-1 text-[10px] uppercase tracking-wider text-muted-foreground/70">
-            أقوى العناقيد
-          </div>
-          <ul className="space-y-1 text-[11.5px] text-foreground/85">
-            {topClusters.map((c) => (
-              <li key={`${c.label}|${c.language}`} className="flex items-center justify-between">
-                <span>
-                  {c.label}{" "}
-                  <span dir="ltr" className="text-muted-foreground/60">
-                    ({c.language})
-                  </span>
-                </span>
-                <span dir="ltr" className="text-muted-foreground">
-                  n={c.signal_count}
-                </span>
-              </li>
-            ))}
-          </ul>
-        </div>
-      ) : (
-        <p className="mt-3 text-[11.5px] leading-relaxed text-amber-200/85">
-          لا تتوفر عناقيد بعد — خدمة إشارات السوق لم تُفعَّل بعد. يمكن
-          المتابعة بدونها، لكن ستتقلّص الزوايا التحريرية المتاحة في
-          توليد هذا الموسم.
-        </p>
-      )}
-    </div>
-  )
-}
-
-function Mini({ label, value }: { label: string; value: number }) {
-  return (
-    <div className="rounded-xl border border-border/30 bg-background/40 p-2.5">
-      <div className="text-[9.5px] uppercase tracking-wider text-muted-foreground/70">
-        {label}
-      </div>
-      <div className="text-base font-semibold tabular-nums" dir="ltr">
-        {value.toLocaleString()}
-      </div>
-    </div>
-  )
-}
 
 // ─── AcceptedEpisodes panel ──────────────────────────────────────────
 
