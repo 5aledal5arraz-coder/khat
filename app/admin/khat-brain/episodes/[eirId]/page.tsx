@@ -596,7 +596,31 @@ function TopicTab({
   const description = stringOrNull(intent.description)
   const main_axes = stringArray(intent.main_axes)
   const suggested_questions = stringArray(intent.suggested_questions)
-  const production_notes = stringOrNull(intent.production_notes)
+  // Hybrid Topics stash their generation provenance as JSON in
+  // `production_notes`. Parse it out so it renders in the "Hybrid provenance"
+  // card (not as a raw JSON dump in the human-notes section).
+  const intentNotesRaw = stringOrNull(intent.production_notes)
+  const intentHybrid = (() => {
+    if (!intentNotesRaw) return null
+    try {
+      const p = JSON.parse(intentNotesRaw) as Record<string, unknown>
+      if (p?.source !== "hybrid_topics") return null
+      return {
+        source: "hybrid_topics" as const,
+        market_inspiration: (p.market_inspiration as string | null) ?? null,
+        original_lens: (p.original_lens as string | null) ?? null,
+        strength_score:
+          typeof p.strength_score === "number" ? (p.strength_score as number) : null,
+      }
+    } catch {
+      return null
+    }
+  })()
+  // Human notes: only genuine free-text (suppress the provenance JSON).
+  const production_notes = intentHybrid ? null : intentNotesRaw
+  // Provenance card prefers the candidate-derived snapshot; falls back to the
+  // EIR's own copy when the originating candidate is gone.
+  const hybridProvenance = snap.hybrid_provenance ?? intentHybrid
 
   return (
     <div className="space-y-4">
@@ -657,7 +681,7 @@ function TopicTab({
       </div>
 
       {/* Hybrid provenance card */}
-      {snap.hybrid_provenance && (
+      {hybridProvenance && (
         <div className="rounded-2xl border border-violet-500/25 bg-violet-500/5 p-4">
           <div className="mb-1 inline-flex items-center gap-1.5 text-[11px] font-semibold text-violet-700">
             <Compass className="h-3 w-3" /> أصل المولّد الهجين
@@ -665,18 +689,18 @@ function TopicTab({
           <dl className="grid grid-cols-1 gap-x-4 gap-y-2 sm:grid-cols-2 text-[12px]">
             <Field
               label="إلهام السوق"
-              value={snap.hybrid_provenance.market_inspiration ?? "—"}
+              value={hybridProvenance.market_inspiration ?? "—"}
             />
             <Field
               label="عدسة أصلية"
-              value={snap.hybrid_provenance.original_lens ?? "—"}
+              value={hybridProvenance.original_lens ?? "—"}
               dir="ltr"
             />
             <Field
               label="درجة القوة"
               value={
-                snap.hybrid_provenance.strength_score !== null
-                  ? snap.hybrid_provenance.strength_score.toFixed(2)
+                hybridProvenance.strength_score !== null
+                  ? hybridProvenance.strength_score.toFixed(2)
                   : "—"
               }
               dir="ltr"
