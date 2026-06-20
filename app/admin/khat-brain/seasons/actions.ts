@@ -360,6 +360,12 @@ export async function lockSeasonTopicsAction(input: {
 export async function startGuestDiscoveryForEpisodeAction(input: {
   seasonId: string
   episodeCandidateId: string
+  /**
+   * Skip the "lock topics first" wizard-stage gate. Set by EIR-initiated
+   * launches (startGuestDiscoveryForEirAction): an EIR is already a concrete
+   * episode, so discovery is valid regardless of the season's wizard stage.
+   */
+  bypassStageGate?: boolean
 }): Promise<Result<{ runId: string }>> {
   await requireAdmin()
   const user = await getAdminAuthUser()
@@ -369,6 +375,7 @@ export async function startGuestDiscoveryForEpisodeAction(input: {
     const season = await getSeasonById(input.seasonId)
     if (!season) return { success: false, error: "الموسم غير موجود" }
     if (
+      !input.bypassStageGate &&
       season.wizard_stage !== "topics_locked" &&
       season.wizard_stage !== "guests" &&
       season.wizard_stage !== "complete"

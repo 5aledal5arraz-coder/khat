@@ -60,6 +60,7 @@ import { TranscriptTab } from "./tab-transcript"
 import { ChaptersTab } from "./tab-chapters"
 import { ClipsTab } from "./tab-clips"
 import { AssignGuestForm } from "./assign-guest-form"
+import { LaunchEpisodeDiscoveryButton } from "./launch-episode-discovery-button"
 import { getAllGuests } from "@/lib/admin/queries"
 
 export const dynamic = "force-dynamic"
@@ -821,12 +822,7 @@ function GuestEmpty({
         >
           إدارة الضيوف
         </Link>
-        <Link
-          href="/admin/discovery-v2"
-          className="inline-flex items-center gap-1.5 rounded-xl border border-violet-500/40 bg-violet-500/10 px-3 py-1.5 text-[12px] text-violet-700 hover:bg-violet-500/20"
-        >
-          تشغيل اكتشاف لهذه الحلقة
-        </Link>
+        <LaunchEpisodeDiscoveryButton eirId={eirId} />
         <Link
           href="/admin/guest-candidates"
           className="inline-flex items-center gap-1.5 rounded-xl border border-border/50 bg-background/40 px-3 py-1.5 text-[12px] hover:bg-background/60"

@@ -32,6 +32,8 @@ import {
 } from "@/lib/eir"
 import { walkEirToPhase } from "@/lib/khat-brain"
 import { bridgeDiscoveryToKhatMap } from "@/lib/discovery"
+import { getSeasonById } from "@/lib/khat-map/core/queries"
+import type { KhatMapEditorialControls } from "@/types/khat-map"
 
 export interface CreateRoomActionResult {
   ok: boolean
@@ -316,4 +318,100 @@ export async function assignEirGuestAction(
       message: err instanceof Error ? err.message : "تعذّر تعيين الضيف.",
     }
   }
+}
+
+export interface StartEirDiscoveryResult {
+  success: boolean
+  runId?: string
+  error?: string
+}
+
+/**
+ * Launch guest discovery for a SPECIFIC episode (EIR) — without re-asking the
+ * operator for a topic/title or filters.
+ *
+ * The episode already has a `working_title`, and if it belongs to a season it
+ * inherits that season's gender/nationality guest filters. So the old
+ * GuestEmpty CTA (a bare link to the generic /admin/discovery-v2 form, which
+ * re-prompts for "موضوع الحلقة / المجال") was redundant. This resolves
+ * everything server-side from the EIR id:
+ *
+ *   1. If the EIR traces back to a Khat Map episode candidate
+ *      (editorial_intent.source === "khat_map_candidate"), reuse the proven
+ *      season Phase-B action — it derives the topic, inherits the season's
+ *      filters, and links the run to that candidate (so results also surface
+ *      in Phase B). bypassStageGate, since an existing EIR is always a valid
+ *      discovery target regardless of the season's wizard stage.
+ *   2. Otherwise (standalone / orphan EIR), run a title-seeded discovery
+ *      directly via startV2DiscoveryAction, inheriting season filters when a
+ *      season is present. No form, so the title is never re-requested.
+ *
+ * The generic /admin/discovery-v2 form is left untouched as the ad-hoc surface.
+ */
+export async function startGuestDiscoveryForEirAction(
+  eirId: string,
+): Promise<StartEirDiscoveryResult> {
+  await requireAdmin()
+  const eir = await getEpisodeIntelligenceRecord(eirId)
+  if (!eir) return { success: false, error: "الحلقة غير موجودة" }
+
+  const intent = eir.editorial_intent ?? {}
+  const sourceCandidateId =
+    intent.source === "khat_map_candidate" && intent.source_id
+      ? intent.source_id
+      : null
+
+  // Preferred path — reuse the season Phase-B per-episode discovery.
+  if (eir.season_id && sourceCandidateId) {
+    const { startGuestDiscoveryForEpisodeAction } = await import(
+      "@/app/admin/khat-brain/seasons/actions"
+    )
+    const res = await startGuestDiscoveryForEpisodeAction({
+      seasonId: eir.season_id,
+      episodeCandidateId: sourceCandidateId,
+      bypassStageGate: true,
+    })
+    if (res.success) return { success: true, runId: res.data.runId }
+    // Fall through to the title-seeded path on any failure (e.g. the season or
+    // candidate row is missing) so the operator is never dead-ended.
+  }
+
+  // Fallback — build the topic from the episode itself and inherit season
+  // filters when a season is present.
+  const title = eir.final_title || eir.working_title
+  const topicParts: string[] = []
+  if (title) topicParts.push(title)
+  if (eir.topic_domain) topicParts.push(eir.topic_domain)
+  if (intent.hook) topicParts.push(intent.hook)
+  if (intent.why_matters) topicParts.push(intent.why_matters)
+  const topic = (topicParts.join(" — ") || title || "ضيف الحلقة").slice(0, 600)
+
+  let gender: "male" | "female" | null = null
+  let nationality: "kuwaiti" | "non_kuwaiti" | null = null
+  if (eir.season_id) {
+    const season = await getSeasonById(eir.season_id)
+    const gf = (
+      season?.editorial_controls as KhatMapEditorialControls | undefined
+    )?.guest_filters
+    gender = gf?.gender === "male" || gf?.gender === "female" ? gf.gender : null
+    nationality =
+      gf?.nationality === "kuwaiti" || gf?.nationality === "non_kuwaiti"
+        ? gf.nationality
+        : null
+  }
+
+  const { startV2DiscoveryAction } = await import(
+    "@/app/admin/discovery-v2/actions"
+  )
+  const v2 = await startV2DiscoveryAction({
+    topic,
+    gender,
+    nationality,
+    taste: "balanced",
+    seasonId: eir.season_id ?? null,
+  })
+  if (!v2.success || !v2.runId) {
+    return { success: false, error: v2.error ?? "تعذّر بدء البحث" }
+  }
+  return { success: true, runId: v2.runId }
 }
