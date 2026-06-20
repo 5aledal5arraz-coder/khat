@@ -146,7 +146,7 @@ export default async function EpisodeWorkspacePage({
           <span className="rounded-full bg-muted/30 px-2 py-0.5 text-[10.5px] uppercase tracking-wider text-muted-foreground">
             {PHASE_LABEL[snap.eir.phase]}
           </span>
-          <span className="text-[10.5px] text-muted-foreground/60" dir="ltr">
+          <span className="text-[10.5px] text-muted-foreground" dir="ltr">
             {snap.eir.phase}
           </span>
           {snap.eir.season_name && (
@@ -159,7 +159,7 @@ export default async function EpisodeWorkspacePage({
               <span className="text-foreground">ضيف:</span> {snap.guest.name}
             </span>
           )}
-          <span className="text-muted-foreground/60" dir="ltr">
+          <span className="text-muted-foreground" dir="ltr">
             تحديث {formatDateTime(snap.eir.updated_at)}
           </span>
         </div>
@@ -189,7 +189,7 @@ export default async function EpisodeWorkspacePage({
                 return (
                   <span key={g} className="flex items-center gap-1.5">
                     {i > 0 && (
-                      <span className="text-[10px] text-muted-foreground/40">
+                      <span className="text-[10px] text-muted-foreground">
                         ←
                       </span>
                     )}
@@ -350,13 +350,13 @@ function TabLink({
     "inline-flex items-center gap-1.5 rounded-t-xl border-b-2 px-3 py-1.5 text-[12px] transition-colors "
   const stateClass =
     status === "current"
-      ? "border-violet-400 text-violet-200"
+      ? "border-violet-400 text-violet-700"
       : status === "unavailable"
-        ? "border-transparent text-muted-foreground/40 cursor-not-allowed"
+        ? "border-transparent text-muted-foreground cursor-not-allowed"
         : "border-transparent text-muted-foreground hover:text-foreground"
   const futureMark = implemented ? null : (
     <span
-      className="rounded-md bg-amber-500/10 px-1 py-0.5 text-[9px] uppercase tracking-wider text-amber-300"
+      className="rounded-md bg-amber-500/10 px-1 py-0.5 text-[9px] uppercase tracking-wider text-amber-700"
       title="غير متاح بعد"
     >
       قريباً
@@ -414,23 +414,23 @@ function PhaseTimeline({
             return (
               <li key={t.id} className="inline-flex items-center gap-1.5">
                 {t.from_phase ? (
-                  <span className="text-muted-foreground/70">
+                  <span className="text-muted-foreground">
                     {PHASE_LABEL[t.from_phase]}
                   </span>
                 ) : (
-                  <span className="text-muted-foreground/50">—</span>
+                  <span className="text-muted-foreground">—</span>
                 )}
-                <span className="text-muted-foreground/40">→</span>
+                <span className="text-muted-foreground">→</span>
                 <span
                   className={
                     isLast && t.to_phase === currentPhase
-                      ? "font-medium text-violet-200"
+                      ? "font-medium text-violet-700"
                       : "font-medium text-foreground/85"
                   }
                 >
                   {PHASE_LABEL[t.to_phase]}
                 </span>
-                {!isLast && <span className="text-muted-foreground/40">·</span>}
+                {!isLast && <span className="text-muted-foreground">·</span>}
               </li>
             )
           })}
@@ -568,7 +568,7 @@ function Warnings({
   if (items.length === 0) return null
   return (
     <div className="rounded-2xl border border-amber-500/30 bg-amber-500/5 p-3">
-      <div className="mb-1 inline-flex items-center gap-1.5 text-[11px] font-semibold text-amber-300">
+      <div className="mb-1 inline-flex items-center gap-1.5 text-[11px] font-semibold text-amber-700">
         <AlertTriangle className="h-3 w-3" /> روابط ناقصة
       </div>
       <ul className="list-inside list-disc space-y-0.5 text-[11.5px] text-foreground/85">
@@ -658,7 +658,7 @@ function TopicTab({
       {/* Hybrid provenance card */}
       {snap.hybrid_provenance && (
         <div className="rounded-2xl border border-violet-500/25 bg-violet-500/5 p-4">
-          <div className="mb-1 inline-flex items-center gap-1.5 text-[11px] font-semibold text-violet-200">
+          <div className="mb-1 inline-flex items-center gap-1.5 text-[11px] font-semibold text-violet-700">
             <Compass className="h-3 w-3" /> أصل المولّد الهجين
           </div>
           <dl className="grid grid-cols-1 gap-x-4 gap-y-2 sm:grid-cols-2 text-[12px]">
@@ -726,12 +726,12 @@ function GuestTab({
             <h2 className="text-[15px] font-semibold leading-tight">
               {snap.guest.name}
             </h2>
-            <div className="mt-0.5 text-[10.5px] text-muted-foreground/70" dir="ltr">
+            <div className="mt-0.5 text-[10.5px] text-muted-foreground" dir="ltr">
               {snap.guest.slug}
             </div>
             <Link
               href={`/admin/guests/${snap.guest.id}`}
-              className="mt-1 inline-flex items-center gap-1 text-[11.5px] text-violet-200 hover:underline"
+              className="mt-1 inline-flex items-center gap-1 text-[11.5px] text-violet-700 hover:underline"
             >
               فتح ملف الضيف <ExternalLink className="h-3 w-3" />
             </Link>
@@ -802,7 +802,7 @@ function GuestEmpty({
 }) {
   return (
     <div className="rounded-2xl border border-amber-500/30 bg-amber-500/5 p-6 text-center">
-      <Telescope className="mx-auto h-6 w-6 text-amber-300" />
+      <Telescope className="mx-auto h-6 w-6 text-amber-700" />
       <h3 className="mt-2 text-[13px] font-semibold">لم يتم ربط ضيف بعد</h3>
       <p className="mx-auto mt-1 max-w-md text-[12px] leading-relaxed text-foreground/80">
         اختر ضيفاً موجوداً لربطه بهذه الحلقة، أو استخدم أحد المسارات أدناه.
@@ -823,7 +823,7 @@ function GuestEmpty({
         </Link>
         <Link
           href="/admin/discovery-v2"
-          className="inline-flex items-center gap-1.5 rounded-xl border border-violet-500/40 bg-violet-500/10 px-3 py-1.5 text-[12px] text-violet-200 hover:bg-violet-500/20"
+          className="inline-flex items-center gap-1.5 rounded-xl border border-violet-500/40 bg-violet-500/10 px-3 py-1.5 text-[12px] text-violet-700 hover:bg-violet-500/20"
         >
           تشغيل اكتشاف لهذه الحلقة
         </Link>
@@ -861,7 +861,7 @@ function PlaceholderTab({
       {fallbackHref ? (
         <Link
           href={fallbackHref}
-          className="mt-4 inline-flex items-center gap-1.5 rounded-xl border border-violet-500/40 bg-violet-500/10 px-3 py-1.5 text-[12px] text-violet-200 hover:bg-violet-500/20"
+          className="mt-4 inline-flex items-center gap-1.5 rounded-xl border border-violet-500/40 bg-violet-500/10 px-3 py-1.5 text-[12px] text-violet-700 hover:bg-violet-500/20"
         >
           فتح الصفحة الكاملة <ExternalLink className="h-3 w-3" />
         </Link>
@@ -898,7 +898,7 @@ function LinkPill({
       <div className="mt-0.5 truncate text-[12px] font-medium">
         {present ? (
           <span className="inline-flex items-center gap-1">
-            <CheckCircle2 className="h-3 w-3 text-emerald-400" />
+            <CheckCircle2 className="h-3 w-3 text-emerald-700" />
             {value ?? "موجود"}
           </span>
         ) : (
@@ -970,11 +970,11 @@ function Section({
 function toneClasses(tone: NextActionTone): string {
   switch (tone) {
     case "urgent":
-      return "border-rose-500/40 bg-rose-500/10 text-rose-200 hover:bg-rose-500/20"
+      return "border-rose-500/40 bg-rose-500/10 text-rose-700 hover:bg-rose-500/20"
     case "warning":
-      return "border-amber-500/40 bg-amber-500/10 text-amber-200 hover:bg-amber-500/20"
+      return "border-amber-500/40 bg-amber-500/10 text-amber-700 hover:bg-amber-500/20"
     default:
-      return "border-violet-500/40 bg-violet-500/10 text-violet-200 hover:bg-violet-500/20"
+      return "border-violet-500/40 bg-violet-500/10 text-violet-700 hover:bg-violet-500/20"
   }
 }
 
@@ -1023,7 +1023,7 @@ function SuccessBanner({ code, fields }: { code: string; fields: string | null }
       return null
   }
   return (
-    <div className="rounded-2xl border border-emerald-500/30 bg-emerald-500/5 p-3 text-center text-[12px] text-emerald-200">
+    <div className="rounded-2xl border border-emerald-500/30 bg-emerald-500/5 p-3 text-center text-[12px] text-emerald-700">
       <CheckCircle2 className="me-1.5 inline h-3.5 w-3.5" />
       {message}
     </div>

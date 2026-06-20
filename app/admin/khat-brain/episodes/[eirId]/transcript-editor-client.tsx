@@ -583,7 +583,7 @@ export function TranscriptEditor({
               {counts.word_count} كلمة · {counts.char_count} حرف
             </span>
             {dirtyVsOriginal && (
-              <span className="rounded-full border border-amber-500/30 bg-amber-500/10 px-2 py-0.5 text-[10.5px] text-amber-200">
+              <span className="rounded-full border border-amber-500/30 bg-amber-500/10 px-2 py-0.5 text-[10.5px] text-amber-700">
                 مختلف عن الأصلي
               </span>
             )}
@@ -605,7 +605,7 @@ export function TranscriptEditor({
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           placeholder="ابحث في النصّ…"
-          className="flex-1 bg-transparent text-[12.5px] outline-none placeholder:text-muted-foreground/50"
+          className="flex-1 bg-transparent text-[12.5px] outline-none placeholder:text-muted-foreground"
           dir="auto"
         />
         {search.trim() && (
@@ -694,7 +694,7 @@ export function TranscriptEditor({
         </div>
       )}
 
-      <p className="text-[10.5px] leading-relaxed text-muted-foreground/70">
+      <p className="text-[10.5px] leading-relaxed text-muted-foreground">
         المصدر: <span>{translateSourceLabel(sourceLabel)}</span> · عدد المقاطع: {total} ·
         النسخة: {state.version}
       </p>
@@ -792,7 +792,7 @@ function SegmentRow({
           aria-label={`متحدّث المقطع ${segIdx + 1}`}
         />
         {(seg.start_seconds !== null || seg.end_seconds !== null) && (
-          <span className="font-mono text-[10px] text-muted-foreground/70" dir="ltr">
+          <span className="font-mono text-[10px] text-muted-foreground" dir="ltr">
             {fmtTime(seg.start_seconds)} – {fmtTime(seg.end_seconds)}
           </span>
         )}
@@ -805,7 +805,7 @@ function SegmentRow({
             type="button"
             onClick={onCreateChapter}
             title="إنشاء فصل من هذا المقطع"
-            className="rounded p-0.5 text-muted-foreground hover:bg-violet-500/10 hover:text-violet-200"
+            className="rounded p-0.5 text-muted-foreground hover:bg-violet-500/10 hover:text-violet-700"
             aria-label="إنشاء فصل من هذا المقطع"
           >
             <BookmarkPlus className="h-3 w-3" />
@@ -814,7 +814,7 @@ function SegmentRow({
             type="button"
             onClick={onCreateClip}
             title="إنشاء مقطع من هنا"
-            className="rounded p-0.5 text-muted-foreground hover:bg-amber-500/10 hover:text-amber-200"
+            className="rounded p-0.5 text-muted-foreground hover:bg-amber-500/10 hover:text-amber-700"
             aria-label="إنشاء مقطع من هنا"
           >
             <FilmIcon className="h-3 w-3" />
@@ -847,7 +847,7 @@ function SegmentRow({
           }
         }}
         rows={Math.max(2, Math.min(8, Math.ceil(seg.text.length / 90)))}
-        className="block w-full resize-none rounded-md bg-transparent px-1 py-1 text-[12.5px] leading-relaxed text-foreground/90 outline-none placeholder:text-muted-foreground/40 focus:bg-background/30"
+        className="block w-full resize-none rounded-md bg-transparent px-1 py-1 text-[12.5px] leading-relaxed text-foreground/90 outline-none placeholder:text-muted-foreground focus:bg-background/30"
         dir="auto"
         placeholder="نصّ المقطع…"
         spellCheck={false}
@@ -855,7 +855,7 @@ function SegmentRow({
 
       {/* Search match highlight (visual only — we keep textarea for editing) */}
       {searchQuery && seg.text.toLowerCase().includes(searchQuery) && (
-        <div className="mt-1 text-[10.5px] text-violet-300/70" dir="auto">
+        <div className="mt-1 text-[10.5px] text-violet-700/70" dir="auto">
           مطابقة في هذا المقطع
         </div>
       )}
@@ -882,7 +882,7 @@ function MarkBtn({
       className={
         "rounded p-0.5 transition-colors " +
         (active
-          ? "bg-violet-500/20 text-violet-200"
+          ? "bg-violet-500/20 text-violet-700"
           : "text-muted-foreground hover:bg-background/40 hover:text-foreground")
       }
       aria-pressed={active}
@@ -905,7 +905,7 @@ function ConflictBanner({
     <div className="rounded-2xl border border-rose-500/30 bg-rose-500/5 p-3">
       <div className="flex items-start gap-3">
         <div className="min-w-0 flex-1">
-          <h3 className="text-[12.5px] font-semibold text-rose-200">
+          <h3 className="text-[12.5px] font-semibold text-rose-700">
             تعارض في النسخة
           </h3>
           <p className="mt-0.5 text-[11.5px] text-foreground/85">
@@ -916,14 +916,14 @@ function ConflictBanner({
           <button
             type="button"
             onClick={onReload}
-            className="rounded-xl border border-violet-500/40 bg-violet-500/10 px-2.5 py-1 text-[11.5px] text-violet-200 hover:bg-violet-500/20"
+            className="rounded-xl border border-violet-500/40 bg-violet-500/10 px-2.5 py-1 text-[11.5px] text-violet-700 hover:bg-violet-500/20"
           >
             استرجاع نسخة الخادم
           </button>
           <button
             type="button"
             onClick={onOverwrite}
-            className="rounded-xl border border-rose-500/40 bg-rose-500/10 px-2.5 py-1 text-[11.5px] text-rose-200 hover:bg-rose-500/20"
+            className="rounded-xl border border-rose-500/40 bg-rose-500/10 px-2.5 py-1 text-[11.5px] text-rose-700 hover:bg-rose-500/20"
           >
             تجاوز وحفظ تعديلاتي
           </button>
@@ -954,7 +954,7 @@ function EmptyState({
       <button
         type="button"
         onClick={onAddSegment}
-        className="mt-4 inline-flex items-center gap-1.5 rounded-xl border border-violet-500/40 bg-violet-500/10 px-3 py-1.5 text-[12px] text-violet-200 hover:bg-violet-500/20"
+        className="mt-4 inline-flex items-center gap-1.5 rounded-xl border border-violet-500/40 bg-violet-500/10 px-3 py-1.5 text-[12px] text-violet-700 hover:bg-violet-500/20"
       >
         <ListPlus className="h-3.5 w-3.5" />
         إضافة مقطع جديد

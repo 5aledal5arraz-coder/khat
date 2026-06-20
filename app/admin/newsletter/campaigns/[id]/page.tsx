@@ -32,7 +32,7 @@ export default async function CampaignDetailPage({
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-xl font-bold tracking-tight">{campaign.subject}</h1>
-          <p className="mt-1 text-[13px] text-muted-foreground/60">
+          <p className="mt-1 text-[13px] text-muted-foreground">
             {campaign.sent_at
               ? formatDateTime(campaign.sent_at)
               : "لم يُرسل بعد"
@@ -86,13 +86,13 @@ export default async function CampaignDetailPage({
                     <td className="px-4 py-2.5">
                       <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${
                         d.status === "sent" || d.status === "delivered"
-                          ? "bg-green-500/10 text-green-400"
+                          ? "bg-green-500/10 text-green-700"
                           : d.status === "opened"
-                          ? "bg-blue-500/10 text-blue-400"
+                          ? "bg-blue-500/10 text-blue-700"
                           : d.status === "clicked"
-                          ? "bg-purple-500/10 text-purple-400"
+                          ? "bg-purple-500/10 text-purple-700"
                           : d.status === "failed" || d.status === "bounced"
-                          ? "bg-red-500/10 text-red-400"
+                          ? "bg-red-500/10 text-red-700"
                           : "bg-muted text-muted-foreground"
                       }`}>
                         {d.status === "sent" ? "مُرسل" :

@@ -65,7 +65,7 @@ export function EditableField({
         <div className="flex items-center gap-2">
           <span className="text-[13px] font-semibold">{label}</span>
           {saving && <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />}
-          {!saving && editing && <span className="text-[10px] text-green-600 dark:text-green-400">محفوظ تلقائياً</span>}
+          {!saving && editing && <span className="text-[10px] text-green-700 dark:text-green-400">محفوظ تلقائياً</span>}
         </div>
         <div className="flex items-center gap-1">
           <button
@@ -74,7 +74,7 @@ export function EditableField({
             title="نسخ"
           >
             {copied ? (
-              <Check className="h-3.5 w-3.5 text-green-500" />
+              <Check className="h-3.5 w-3.5 text-green-700" />
             ) : (
               <Copy className="h-3.5 w-3.5 text-muted-foreground" />
             )}
@@ -195,7 +195,7 @@ export function EditableListField({
             title="نسخ الكل"
           >
             {copiedIdx === -1 ? (
-              <Check className="h-3.5 w-3.5 text-green-500" />
+              <Check className="h-3.5 w-3.5 text-green-700" />
             ) : (
               <Copy className="h-3.5 w-3.5 text-muted-foreground" />
             )}
@@ -241,7 +241,7 @@ export function EditableListField({
               title="نسخ"
             >
               {copiedIdx === idx ? (
-                <Check className="h-3 w-3 text-green-500" />
+                <Check className="h-3 w-3 text-green-700" />
               ) : (
                 <Copy className="h-3 w-3 text-muted-foreground" />
               )}
@@ -327,7 +327,7 @@ export function EditableTagsField({
             title="نسخ"
           >
             {copied ? (
-              <Check className="h-3.5 w-3.5 text-green-500" />
+              <Check className="h-3.5 w-3.5 text-green-700" />
             ) : (
               <Copy className="h-3.5 w-3.5 text-muted-foreground" />
             )}

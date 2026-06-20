@@ -83,14 +83,14 @@ export function SocialLinksForm({ initial }: { initial: SocialLinkConfig[] }) {
           </div>
         ))}
         {links.length === 0 && (
-          <p className="text-[13px] text-muted-foreground/50 text-center py-4">لا توجد روابط</p>
+          <p className="text-[13px] text-muted-foreground text-center py-4">لا توجد روابط</p>
         )}
         <div className="flex items-center gap-3 pt-2">
           <Button size="sm" disabled={isPending} onClick={handleSave}>
             {isPending && <Loader2 className="me-2 h-4 w-4 animate-spin" />}
             حفظ
           </Button>
-          {saved && <span className="text-sm text-green-500">تم الحفظ</span>}
+          {saved && <span className="text-sm text-green-700">تم الحفظ</span>}
         </div>
       </CardContent>
     </Card>

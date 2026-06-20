@@ -37,10 +37,10 @@ const ROLE_LABELS: Record<AdminRole, string> = {
 }
 
 const ROLE_COLORS: Record<AdminRole, string> = {
-  OWNER: "bg-amber-500/15 text-amber-600 dark:text-amber-400",
-  ADMIN: "bg-blue-500/15 text-blue-600 dark:text-blue-400",
-  EDITOR: "bg-purple-500/15 text-purple-600 dark:text-purple-400",
-  VIEWER: "bg-neutral-500/15 text-neutral-600 dark:text-neutral-400",
+  OWNER: "bg-amber-500/15 text-amber-700 dark:text-amber-400",
+  ADMIN: "bg-blue-500/15 text-blue-700 dark:text-blue-400",
+  EDITOR: "bg-purple-500/15 text-purple-700 dark:text-purple-400",
+  VIEWER: "bg-neutral-500/15 text-neutral-700 dark:text-neutral-400",
 }
 
 const ASSIGNABLE_ROLES: AdminRole[] = ["ADMIN", "EDITOR", "VIEWER"]
@@ -247,9 +247,9 @@ export function TeamManager() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <Shield className="h-5 w-5 text-amber-500" />
+          <Shield className="h-5 w-5 text-amber-700" />
           <h2 className="text-[15px] font-bold">فريق خط</h2>
-          <span className="rounded-md bg-muted/60 px-2 py-0.5 text-[11px] font-medium text-muted-foreground/70">
+          <span className="rounded-md bg-muted/60 px-2 py-0.5 text-[11px] font-medium text-muted-foreground">
             {users.length}
           </span>
         </div>
@@ -265,7 +265,7 @@ export function TeamManager() {
           className={cn(
             "flex items-center gap-2 rounded-lg border p-3 text-sm animate-in slide-in-from-top-2",
             toast.type === "success"
-              ? "border-green-500/30 bg-green-500/10 text-green-600 dark:text-green-400"
+              ? "border-green-500/30 bg-green-500/10 text-green-700 dark:text-green-400"
               : "border-destructive/30 bg-destructive/10 text-destructive",
           )}
         >
@@ -283,7 +283,7 @@ export function TeamManager() {
         <div className="overflow-x-auto">
           <table className="w-full text-[13px]">
             <thead>
-              <tr className="border-b border-border/30 text-muted-foreground/60">
+              <tr className="border-b border-border/30 text-muted-foreground">
                 <th className="px-4 py-3 text-start text-[11px] font-medium uppercase tracking-wider">البريد الإلكتروني</th>
                 <th className="px-4 py-3 text-start text-[11px] font-medium uppercase tracking-wider">الصلاحية</th>
                 <th className="px-4 py-3 text-start text-[11px] font-medium uppercase tracking-wider">الحالة</th>
@@ -331,8 +331,8 @@ export function TeamManager() {
                         className={cn(
                           "inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-[10px] font-medium",
                           user.is_active
-                            ? "bg-green-500/15 text-green-600 dark:text-green-400"
-                            : "bg-red-500/15 text-red-600 dark:text-red-400",
+                            ? "bg-green-500/15 text-green-700 dark:text-green-400"
+                            : "bg-red-500/15 text-red-700 dark:text-red-400",
                         )}
                       >
                         {user.is_active ? "نشط" : "معطل"}
@@ -352,7 +352,7 @@ export function TeamManager() {
                     {/* Actions */}
                     <td className="px-4 py-3">
                       {isOwner ? (
-                        <span className="text-xs text-muted-foreground/50">—</span>
+                        <span className="text-xs text-muted-foreground">—</span>
                       ) : (
                         <div className="flex items-center gap-1">
                           {/* Toggle active */}
@@ -365,7 +365,7 @@ export function TeamManager() {
                             {user.is_active ? (
                               <UserX className="h-3.5 w-3.5 text-muted-foreground" />
                             ) : (
-                              <UserCheck className="h-3.5 w-3.5 text-green-500" />
+                              <UserCheck className="h-3.5 w-3.5 text-green-700" />
                             )}
                           </button>
 
@@ -401,7 +401,7 @@ export function TeamManager() {
                             className="rounded-md p-1.5 hover:bg-red-50 dark:hover:bg-red-950/30 transition-colors"
                             title="حذف المستخدم"
                           >
-                            <Trash2 className="h-3.5 w-3.5 text-muted-foreground hover:text-red-500" />
+                            <Trash2 className="h-3.5 w-3.5 text-muted-foreground hover:text-red-700" />
                           </button>
 
                           {isActionLoading && (
@@ -433,7 +433,7 @@ export function TeamManager() {
 
             <div className="space-y-3">
               <div className="space-y-1">
-                <label className="text-[11px] text-muted-foreground/60">البريد الإلكتروني</label>
+                <label className="text-[11px] text-muted-foreground">البريد الإلكتروني</label>
                 <Input
                   type="email"
                   value={addEmail}
@@ -445,7 +445,7 @@ export function TeamManager() {
               </div>
 
               <div className="space-y-1">
-                <label className="text-[11px] text-muted-foreground/60">كلمة المرور (١٠ أحرف على الأقل، أحرف + أرقام)</label>
+                <label className="text-[11px] text-muted-foreground">كلمة المرور (١٠ أحرف على الأقل، أحرف + أرقام)</label>
                 <Input
                   type="text"
                   value={addPassword}
@@ -457,7 +457,7 @@ export function TeamManager() {
               </div>
 
               <div className="space-y-1">
-                <label className="text-[11px] text-muted-foreground/60">الصلاحية</label>
+                <label className="text-[11px] text-muted-foreground">الصلاحية</label>
                 <select
                   value={addRole}
                   onChange={(e) => setAddRole(e.target.value as AdminRole)}
@@ -494,7 +494,7 @@ export function TeamManager() {
           <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={() => setResetUserId(null)} />
           <div className="relative z-10 w-full max-w-md rounded-xl border bg-card p-6 shadow-2xl mx-4 space-y-4">
             <h3 className="font-semibold text-base flex items-center gap-2">
-              <KeyRound className="h-4 w-4 text-amber-500" />
+              <KeyRound className="h-4 w-4 text-amber-700" />
               إعادة تعيين كلمة المرور
             </h3>
             <p className="text-xs text-muted-foreground">
@@ -509,7 +509,7 @@ export function TeamManager() {
 
             {resetSuccess ? (
               <div className="space-y-3">
-                <div className="rounded-md bg-green-500/10 p-3 text-center text-xs text-green-600 dark:text-green-400">
+                <div className="rounded-md bg-green-500/10 p-3 text-center text-xs text-green-700 dark:text-green-400">
                   تم إعادة تعيين كلمة المرور بنجاح. تم إنهاء جميع الجلسات.
                 </div>
                 <div className="flex items-center gap-2 rounded-lg border bg-muted/50 px-3 py-2">
@@ -522,7 +522,7 @@ export function TeamManager() {
                     <Copy className="h-3.5 w-3.5 text-muted-foreground" />
                   </button>
                 </div>
-                <p className="text-[10px] text-muted-foreground/60 text-center">
+                <p className="text-[10px] text-muted-foreground text-center">
                   احفظ كلمة المرور الآن — لن تظهر مرة أخرى
                 </p>
                 <div className="flex justify-end">
@@ -534,7 +534,7 @@ export function TeamManager() {
             ) : (
               <div className="space-y-3">
                 <div className="space-y-1">
-                  <label className="text-[11px] text-muted-foreground/60">كلمة المرور الجديدة (١٠ أحرف على الأقل)</label>
+                  <label className="text-[11px] text-muted-foreground">كلمة المرور الجديدة (١٠ أحرف على الأقل)</label>
                   <Input
                     type="text"
                     value={resetPassword}
@@ -544,7 +544,7 @@ export function TeamManager() {
                     disabled={resetLoading}
                   />
                 </div>
-                <p className="text-[10px] text-muted-foreground/60">
+                <p className="text-[10px] text-muted-foreground">
                   سيتم إنهاء جميع جلسات المستخدم الحالية.
                 </p>
                 <div className="flex justify-end gap-2">

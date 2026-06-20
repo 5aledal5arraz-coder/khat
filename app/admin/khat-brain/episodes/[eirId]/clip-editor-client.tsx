@@ -496,12 +496,12 @@ export function ClipEditor({
               {state.doc.clips.length} مقطع
             </span>
             {validation.blockerCount > 0 && (
-              <span className="rounded-full border border-rose-500/30 bg-rose-500/10 px-2 py-0.5 text-[10.5px] text-rose-200">
+              <span className="rounded-full border border-rose-500/30 bg-rose-500/10 px-2 py-0.5 text-[10.5px] text-rose-700">
                 {validation.blockerCount} خطأ
               </span>
             )}
             {validation.warningCount > 0 && (
-              <span className="rounded-full border border-amber-500/30 bg-amber-500/10 px-2 py-0.5 text-[10.5px] text-amber-200">
+              <span className="rounded-full border border-amber-500/30 bg-amber-500/10 px-2 py-0.5 text-[10.5px] text-amber-700">
                 {validation.warningCount} تنبيه
               </span>
             )}
@@ -596,7 +596,7 @@ export function ClipEditor({
         </div>
       )}
 
-      <p className="text-[10.5px] text-muted-foreground/70">
+      <p className="text-[10.5px] text-muted-foreground">
         النسخة: {state.version} · المدة:{" "}
         {state.doc.total_duration_seconds
           ? formatTime(state.doc.total_duration_seconds)
@@ -622,7 +622,7 @@ function ConflictBanner({
     <div className="rounded-2xl border border-rose-500/30 bg-rose-500/5 p-3">
       <div className="flex items-start gap-3">
         <div className="min-w-0 flex-1">
-          <h3 className="text-[12.5px] font-semibold text-rose-200">
+          <h3 className="text-[12.5px] font-semibold text-rose-700">
             تعارض في النسخة
           </h3>
           <p className="mt-0.5 text-[11.5px] text-foreground/85">
@@ -633,14 +633,14 @@ function ConflictBanner({
           <button
             type="button"
             onClick={onReload}
-            className="rounded-xl border border-violet-500/40 bg-violet-500/10 px-2.5 py-1 text-[11.5px] text-violet-200 hover:bg-violet-500/20"
+            className="rounded-xl border border-violet-500/40 bg-violet-500/10 px-2.5 py-1 text-[11.5px] text-violet-700 hover:bg-violet-500/20"
           >
             استرجاع نسخة الخادم
           </button>
           <button
             type="button"
             onClick={onOverwrite}
-            className="rounded-xl border border-rose-500/40 bg-rose-500/10 px-2.5 py-1 text-[11.5px] text-rose-200 hover:bg-rose-500/20"
+            className="rounded-xl border border-rose-500/40 bg-rose-500/10 px-2.5 py-1 text-[11.5px] text-rose-700 hover:bg-rose-500/20"
           >
             تجاوز وحفظ
           </button>
@@ -653,7 +653,7 @@ function ConflictBanner({
 function ValidationSummary({ issues }: { issues: ValidationIssue[] }) {
   return (
     <div className="rounded-2xl border border-amber-500/30 bg-amber-500/5 p-3">
-      <div className="mb-1 inline-flex items-center gap-1.5 text-[11px] font-semibold text-amber-300">
+      <div className="mb-1 inline-flex items-center gap-1.5 text-[11px] font-semibold text-amber-700">
         <AlertTriangle className="h-3 w-3" /> ملاحظات على المستند
       </div>
       <ul className="space-y-0.5 text-[11.5px] text-foreground/85">
@@ -694,7 +694,7 @@ function QueueModeTabs({
             className={
               "inline-flex items-center gap-1 rounded-t-lg border-b-2 px-2.5 py-1 text-[11.5px] transition-colors " +
               (active
-                ? "border-violet-400 text-violet-200"
+                ? "border-violet-400 text-violet-700"
                 : "border-transparent text-muted-foreground hover:text-foreground")
             }
           >
@@ -703,7 +703,7 @@ function QueueModeTabs({
               className={
                 "rounded-full px-1.5 py-0 text-[10px] tabular-nums " +
                 (active
-                  ? "bg-violet-500/20 text-violet-200"
+                  ? "bg-violet-500/20 text-violet-700"
                   : "bg-background/40 text-muted-foreground")
               }
               dir="ltr"
@@ -745,7 +745,7 @@ function FilterBar({
           value={search}
           onChange={(e) => onSearch(e.target.value)}
           placeholder="بحث (عنوان، خطّاف، هاشتاغ، ملاحظات…)"
-          className="flex-1 bg-transparent text-[12px] outline-none placeholder:text-muted-foreground/50"
+          className="flex-1 bg-transparent text-[12px] outline-none placeholder:text-muted-foreground"
           dir="auto"
         />
         {search && (
@@ -971,7 +971,7 @@ function ClipCard({
           dir="ltr"
           aria-label="بداية بالثواني"
         />
-        <span className="text-muted-foreground/50">→</span>
+        <span className="text-muted-foreground">→</span>
         <input
           type="number"
           min={Math.floor(clip.start_seconds) + 1}
@@ -985,17 +985,17 @@ function ClipCard({
           dir="ltr"
           aria-label="نهاية بالثواني"
         />
-        <span className="text-muted-foreground/70 tabular-nums" dir="ltr">
+        <span className="text-muted-foreground tabular-nums" dir="ltr">
           {formatTime(clip.start_seconds)} → {formatTime(clip.end_seconds)} (
           {formatTime(clip.end_seconds - clip.start_seconds)})
         </span>
         {clip.source === "ai_generated" && (
-          <span className="rounded-full border border-violet-500/30 bg-violet-500/10 px-1.5 py-0.5 text-[9.5px] text-violet-200">
+          <span className="rounded-full border border-violet-500/30 bg-violet-500/10 px-1.5 py-0.5 text-[9.5px] text-violet-700">
             AI
           </span>
         )}
         {isHigh && (
-          <span className="inline-flex items-center gap-0.5 rounded-full border border-amber-500/40 bg-amber-500/10 px-1.5 py-0.5 text-[9.5px] text-amber-200">
+          <span className="inline-flex items-center gap-0.5 rounded-full border border-amber-500/40 bg-amber-500/10 px-1.5 py-0.5 text-[9.5px] text-amber-700">
             <Flame className="h-2.5 w-2.5" /> {weight}
           </span>
         )}
@@ -1008,7 +1008,7 @@ function ClipCard({
         {clip.transcript_segment_ids[0] && (
           <a
             href={`/admin/khat-brain/episodes/${eirId}?tab=transcript&seg=${clip.transcript_segment_ids[0]}`}
-            className="text-[10.5px] text-violet-300 hover:underline"
+            className="text-[10.5px] text-violet-700 hover:underline"
           >
             انتقال إلى النصّ ↗
           </a>
@@ -1058,7 +1058,7 @@ function ClipCard({
             type="button"
             onClick={onDelete}
             title="حذف"
-            className="rounded p-0.5 text-muted-foreground hover:bg-rose-500/10 hover:text-rose-300"
+            className="rounded p-0.5 text-muted-foreground hover:bg-rose-500/10 hover:text-rose-700"
           >
             <Trash2 className="h-3 w-3" />
           </button>
@@ -1097,7 +1097,7 @@ function ClipCard({
       {(anchoredText || anchoredChapter) && (
         <div className="mb-2 rounded-xl border border-dashed border-border/40 bg-background/20 px-3 py-1.5 text-[10.5px] leading-relaxed text-muted-foreground">
           {anchoredChapter && (
-            <span className="me-2 inline-flex items-center gap-1 text-violet-300">
+            <span className="me-2 inline-flex items-center gap-1 text-violet-700">
               <Star className="h-2.5 w-2.5" /> {anchoredChapter.title}
             </span>
           )}
@@ -1223,7 +1223,7 @@ function ClipCard({
           {blockers.map((i, k) => (
             <li
               key={`b-${k}`}
-              className="inline-flex items-center gap-1.5 text-[10.5px] text-rose-300"
+              className="inline-flex items-center gap-1.5 text-[10.5px] text-rose-700"
             >
               <XCircle className="h-3 w-3" /> {i.message}
             </li>
@@ -1231,7 +1231,7 @@ function ClipCard({
           {warnings.map((i, k) => (
             <li
               key={`w-${k}`}
-              className="inline-flex items-center gap-1.5 text-[10.5px] text-amber-300"
+              className="inline-flex items-center gap-1.5 text-[10.5px] text-amber-700"
             >
               <AlertTriangle className="h-3 w-3" /> {i.message}
             </li>
@@ -1312,7 +1312,7 @@ function PlatformPicker({
             className={
               "rounded-full border px-2 py-0.5 text-[10px] transition-colors " +
               (active
-                ? "border-violet-500/40 bg-violet-500/15 text-violet-200"
+                ? "border-violet-500/40 bg-violet-500/15 text-violet-700"
                 : "border-border/40 bg-background/30 text-muted-foreground hover:bg-background/50")
             }
           >
@@ -1347,14 +1347,14 @@ function HashtagsEditor({
       {value.map((h, i) => (
         <span
           key={i}
-          className="inline-flex items-center gap-1 rounded-full border border-violet-500/30 bg-violet-500/5 px-2 py-0.5 text-[10px] text-violet-200"
+          className="inline-flex items-center gap-1 rounded-full border border-violet-500/30 bg-violet-500/5 px-2 py-0.5 text-[10px] text-violet-700"
           dir="auto"
         >
           #{h}
           <button
             type="button"
             onClick={() => onChange(value.filter((_, k) => k !== i))}
-            className="text-violet-200/70 hover:text-rose-300"
+            className="text-violet-700/70 hover:text-rose-700"
             aria-label={`remove ${h}`}
           >
             <X className="h-2.5 w-2.5" />
@@ -1406,7 +1406,7 @@ function SuggestionsPanel({
   return (
     <div className="rounded-2xl border border-violet-500/30 bg-violet-500/5 p-3">
       <div className="mb-2 flex items-center justify-between gap-2">
-        <h3 className="inline-flex items-center gap-1.5 text-[12.5px] font-semibold text-violet-200">
+        <h3 className="inline-flex items-center gap-1.5 text-[12.5px] font-semibold text-violet-700">
           <Sparkles className="h-3.5 w-3.5" /> غرفة العمليات الذكية ·{" "}
           {suggestions.length}
         </h3>
@@ -1425,7 +1425,7 @@ function SuggestionsPanel({
             className="flex items-start gap-2 rounded-xl border border-border/40 bg-background/30 p-2"
           >
             <div className="min-w-0 flex-1">
-              <div className="text-[11px] font-semibold text-violet-200">
+              <div className="text-[11px] font-semibold text-violet-700">
                 {SUGGESTION_LABEL[s.kind]}
                 {s.clip_id && byId.has(s.clip_id) && (
                   <span className="ms-2 text-muted-foreground">
@@ -1467,7 +1467,7 @@ function SuggestionsPanel({
               <button
                 type="button"
                 onClick={() => onApply(s)}
-                className="inline-flex items-center gap-1 rounded-lg border border-violet-500/40 bg-violet-500/10 px-2 py-0.5 text-[11px] text-violet-200 hover:bg-violet-500/20"
+                className="inline-flex items-center gap-1 rounded-lg border border-violet-500/40 bg-violet-500/10 px-2 py-0.5 text-[11px] text-violet-700 hover:bg-violet-500/20"
               >
                 <Check className="h-3 w-3" /> تطبيق
               </button>
@@ -1507,7 +1507,7 @@ function EmptyState({
         <button
           type="button"
           onClick={onAdd}
-          className="inline-flex items-center gap-1.5 rounded-xl border border-violet-500/40 bg-violet-500/10 px-3 py-1.5 text-[12px] text-violet-200 hover:bg-violet-500/20"
+          className="inline-flex items-center gap-1.5 rounded-xl border border-violet-500/40 bg-violet-500/10 px-3 py-1.5 text-[12px] text-violet-700 hover:bg-violet-500/20"
         >
           <ListPlus className="h-3.5 w-3.5" />
           إضافة مقطع

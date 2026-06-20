@@ -31,30 +31,30 @@ export function formatFileSize(bytes: number): string {
 
 export const TRANSCRIPT_STATUS_LABELS: Record<StudioStageStatus, { label: string; className: string }> = {
   idle: { label: "لم يُجلب بعد", className: "bg-muted/60 text-muted-foreground" },
-  generating: { label: "جارٍ الجلب...", className: "bg-yellow-500/10 text-yellow-600 dark:text-yellow-400" },
-  ready: { label: "جاهز", className: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400" },
-  error: { label: "خطأ", className: "bg-red-500/10 text-red-600 dark:text-red-400" },
+  generating: { label: "جارٍ الجلب...", className: "bg-yellow-500/10 text-yellow-700 dark:text-yellow-400" },
+  ready: { label: "جاهز", className: "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400" },
+  error: { label: "خطأ", className: "bg-red-500/10 text-red-700 dark:text-red-400" },
 }
 
 export const AI_STATUS_LABELS: Record<StudioStageStatus, { label: string; className: string }> = {
   idle: { label: "لم يُولَّد بعد", className: "bg-muted/60 text-muted-foreground" },
-  generating: { label: "جارٍ التوليد...", className: "bg-yellow-500/10 text-yellow-600 dark:text-yellow-400" },
-  ready: { label: "جاهز", className: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400" },
-  error: { label: "خطأ", className: "bg-red-500/10 text-red-600 dark:text-red-400" },
+  generating: { label: "جارٍ التوليد...", className: "bg-yellow-500/10 text-yellow-700 dark:text-yellow-400" },
+  ready: { label: "جاهز", className: "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400" },
+  error: { label: "خطأ", className: "bg-red-500/10 text-red-700 dark:text-red-400" },
 }
 
 export const PROCESSING_STATUS_LABELS: Record<StudioStageStatus, { label: string; className: string }> = {
   idle: { label: "لم يُعالَج بعد", className: "bg-muted/60 text-muted-foreground" },
-  generating: { label: "جارٍ المعالجة...", className: "bg-yellow-500/10 text-yellow-600 dark:text-yellow-400" },
-  ready: { label: "تمت المعالجة", className: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400" },
-  error: { label: "خطأ", className: "bg-red-500/10 text-red-600 dark:text-red-400" },
+  generating: { label: "جارٍ المعالجة...", className: "bg-yellow-500/10 text-yellow-700 dark:text-yellow-400" },
+  ready: { label: "تمت المعالجة", className: "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400" },
+  error: { label: "خطأ", className: "bg-red-500/10 text-red-700 dark:text-red-400" },
 }
 
 export const PLATFORM_COLORS: Record<string, string> = {
-  "YouTube Shorts": "bg-red-500/10 text-red-600 dark:text-red-400",
-  "IG Reels": "bg-pink-500/10 text-pink-600 dark:text-pink-400",
-  "TikTok": "bg-cyan-500/10 text-cyan-600 dark:text-cyan-400",
-  "X": "bg-zinc-500/10 text-zinc-600 dark:text-zinc-400",
+  "YouTube Shorts": "bg-red-500/10 text-red-700 dark:text-red-400",
+  "IG Reels": "bg-pink-500/10 text-pink-700 dark:text-pink-400",
+  "TikTok": "bg-cyan-500/10 text-cyan-700 dark:text-cyan-400",
+  "X": "bg-zinc-500/10 text-zinc-700 dark:text-zinc-400",
 }
 
 export const PREVIEW_WORD_LIMIT = 400
@@ -76,9 +76,9 @@ export function InfoRow({
 }) {
   return (
     <div className="flex items-center gap-2.5">
-      <Icon className="h-4 w-4 shrink-0 text-muted-foreground/70" />
+      <Icon className="h-4 w-4 shrink-0 text-muted-foreground" />
       <div className="min-w-0">
-        <p className="text-[11px] text-muted-foreground/70">{label}</p>
+        <p className="text-[11px] text-muted-foreground">{label}</p>
         <p className={cn("text-[13px] truncate", mono && "font-mono text-[11px]")}>
           {value || "—"}
         </p>
@@ -103,7 +103,7 @@ export function CopyButton({ onClick }: { onClick: () => void }) {
       className="flex h-7 w-7 items-center justify-center rounded-md hover:bg-muted transition-colors"
       title="نسخ"
     >
-      {copied ? <Check className="h-3.5 w-3.5 text-green-500" /> : <Copy className="h-3.5 w-3.5 text-muted-foreground" />}
+      {copied ? <Check className="h-3.5 w-3.5 text-green-700" /> : <Copy className="h-3.5 w-3.5 text-muted-foreground" />}
     </button>
   )
 }

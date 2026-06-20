@@ -182,9 +182,9 @@ function DomainWeightsGrid({
                         "rounded-md px-1.5 py-0.5 text-[10px] transition-colors " +
                         (active
                           ? w.value === 0
-                            ? "bg-rose-500/20 text-rose-400 font-semibold"
+                            ? "bg-rose-500/20 text-rose-700 font-semibold"
                             : w.value === 3
-                              ? "bg-emerald-500/20 text-emerald-400 font-semibold"
+                              ? "bg-emerald-500/20 text-emerald-700 font-semibold"
                               : "bg-foreground/10 text-foreground font-semibold"
                           : "text-muted-foreground hover:text-foreground")
                       }
@@ -424,7 +424,7 @@ function ChipList({
               <button
                 type="button"
                 onClick={() => remove(i)}
-                className="text-muted-foreground hover:text-rose-400"
+                className="text-muted-foreground hover:text-rose-700"
                 aria-label="إزالة"
               >
                 <X className="h-2.5 w-2.5" />

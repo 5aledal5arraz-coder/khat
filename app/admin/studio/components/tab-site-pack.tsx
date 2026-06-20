@@ -40,7 +40,7 @@ export function TabSitePack() {
       <div className="rounded-xl border border-border/30 bg-card/50 p-6 space-y-5">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <Globe className="h-5 w-5 text-emerald-500" />
+            <Globe className="h-5 w-5 text-emerald-700" />
             <h2 className="text-[13px] font-semibold">حزمة الموقع</h2>
           </div>
           <span className={cn("rounded-md px-2.5 py-0.5 text-[11px] font-medium", statusInfo.className)}>
@@ -62,17 +62,17 @@ export function TabSitePack() {
 
         {websitePkgStatus === "generating" && (
           <div className="flex flex-col items-center gap-3 py-10">
-            <Loader2 className="h-6 w-6 animate-spin text-emerald-500" />
+            <Loader2 className="h-6 w-6 animate-spin text-emerald-700" />
             <span className="text-sm text-muted-foreground">جارٍ تحليل النص وتوليد محتوى الموقع...</span>
-            <span className="text-xs text-muted-foreground/60">قد يستغرق هذا حتى دقيقتين</span>
+            <span className="text-xs text-muted-foreground">قد يستغرق هذا حتى دقيقتين</span>
           </div>
         )}
 
         {websitePkgStatus === "error" && (
           <div className="space-y-4">
             <div className="flex items-start gap-2 rounded-lg border border-red-500/20 bg-red-500/5 p-3">
-              <AlertCircle className="h-4 w-4 shrink-0 text-red-500 mt-0.5" />
-              <p className="text-sm text-red-600 dark:text-red-400">{websitePkgError}</p>
+              <AlertCircle className="h-4 w-4 shrink-0 text-red-700 mt-0.5" />
+              <p className="text-sm text-red-700 dark:text-red-400">{websitePkgError}</p>
             </div>
             <Button variant="outline" onClick={generateWebsitePackage} className="gap-2">
               <RefreshCw className="h-4 w-4" />
@@ -86,7 +86,7 @@ export function TabSitePack() {
             {/* Title Selector */}
             <div className="space-y-3">
               <div className="flex items-center gap-2">
-                <Type className="h-4 w-4 text-violet-500" />
+                <Type className="h-4 w-4 text-violet-700" />
                 <span className="text-sm font-medium">عنوان الحلقة</span>
               </div>
 
@@ -158,7 +158,7 @@ export function TabSitePack() {
                           ? "border-violet-500 bg-violet-500"
                           : "border-muted-foreground/30"
                       )}>
-                        {isCustom ? <Check className="h-3 w-3 text-white" /> : <Pencil className="h-3 w-3 text-muted-foreground/50" />}
+                        {isCustom ? <Check className="h-3 w-3 text-white" /> : <Pencil className="h-3 w-3 text-muted-foreground" />}
                       </div>
                       <div className="flex-1 min-w-0">
                         <span className="text-[10px] text-muted-foreground">عنوان مخصص</span>
@@ -201,7 +201,7 @@ export function TabSitePack() {
                     )}
 
                     {selectedTitle && selectedTitle !== originalTitle && (
-                      <p className="text-xs text-violet-600 dark:text-violet-400">
+                      <p className="text-xs text-violet-700 dark:text-violet-400">
                         سيتم استخدام هذا العنوان عند النشر إلى صفحة الحلقة
                       </p>
                     )}
@@ -238,7 +238,7 @@ export function TabSitePack() {
             <div className="space-y-2">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <CheckCircle2 className="h-4 w-4 text-emerald-500" />
+                  <CheckCircle2 className="h-4 w-4 text-emerald-700" />
                   <span className="text-sm font-medium">
                     أبرز الأفكار ({selectedTakeawayIndices.size}/{takeaways.length})
                   </span>
@@ -312,7 +312,7 @@ export function TabSitePack() {
             <div className="space-y-2">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <MessageSquareQuote className="h-4 w-4 text-amber-500" />
+                  <MessageSquareQuote className="h-4 w-4 text-amber-700" />
                   <span className="text-sm font-medium">
                     اقتباسات ({selectedQuoteIndices.size}/{quotes.length})
                   </span>
@@ -394,7 +394,7 @@ export function TabSitePack() {
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
-                    <Link2 className="h-4 w-4 text-indigo-500" />
+                    <Link2 className="h-4 w-4 text-indigo-700" />
                     <span className="text-sm font-medium">المصادر ({resources.length})</span>
                   </div>
                   <CopyButton onClick={() => handleCopy(resources.map(r => `${r.title}${r.url ? `: ${r.url}` : ""}`).join("\n"))} />

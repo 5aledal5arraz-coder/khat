@@ -131,7 +131,7 @@ export function ManualSignalForm({
             setError(null)
             setSuccess(null)
           }}
-          className="inline-flex items-center gap-1.5 rounded-xl border border-violet-500/30 bg-violet-500/10 px-3 py-1.5 text-[11.5px] font-medium text-violet-200 hover:bg-violet-500/20"
+          className="inline-flex items-center gap-1.5 rounded-xl border border-violet-500/30 bg-violet-500/10 px-3 py-1.5 text-[11.5px] font-medium text-violet-700 hover:bg-violet-500/20"
           data-manual-toggle="open"
         >
           <Plus className="h-3 w-3" />
@@ -148,13 +148,13 @@ export function ManualSignalForm({
     >
       <div className="mb-3 flex items-start justify-between gap-2">
         <div>
-          <div className="mb-1 inline-flex items-center gap-1.5 rounded-full border border-violet-500/40 bg-violet-500/10 px-2 py-0.5 text-[10.5px] font-medium text-violet-200">
+          <div className="mb-1 inline-flex items-center gap-1.5 rounded-full border border-violet-500/40 bg-violet-500/10 px-2 py-0.5 text-[10.5px] font-medium text-violet-700">
             <Sparkles className="h-3 w-3" /> {MANUAL_FORM_COPY.panelTitle}
           </div>
           <p className="max-w-2xl text-[11.5px] leading-relaxed text-foreground/85">
             {MANUAL_FORM_COPY.intro}
           </p>
-          <p className="mt-1 text-[10.5px] text-emerald-300/80">
+          <p className="mt-1 text-[10.5px] text-emerald-700/80">
             <CheckCircle2 className="me-1 inline h-2.5 w-2.5" />
             {MANUAL_FORM_COPY.hints.autoApproved}
           </p>
@@ -317,7 +317,7 @@ export function ManualSignalForm({
                   className={
                     "rounded-full border px-2 py-0.5 text-[11px] transition-colors " +
                     (selected
-                      ? "border-violet-500/40 bg-violet-500/15 text-violet-100"
+                      ? "border-violet-500/40 bg-violet-500/15 text-violet-700"
                       : "border-border/40 bg-background/40 text-muted-foreground hover:border-violet-500/30 hover:text-foreground")
                   }
                 >
@@ -342,7 +342,7 @@ export function ManualSignalForm({
 
       {error && (
         <p
-          className="mt-2 rounded-lg border border-rose-500/30 bg-rose-500/5 p-2 text-[11.5px] text-rose-200"
+          className="mt-2 rounded-lg border border-rose-500/30 bg-rose-500/5 p-2 text-[11.5px] text-rose-700"
           data-manual-error
         >
           {error}
@@ -350,7 +350,7 @@ export function ManualSignalForm({
       )}
       {success && (
         <p
-          className="mt-2 rounded-lg border border-emerald-500/30 bg-emerald-500/5 p-2 text-[11.5px] text-emerald-200"
+          className="mt-2 rounded-lg border border-emerald-500/30 bg-emerald-500/5 p-2 text-[11.5px] text-emerald-700"
           data-manual-success
         >
           {success}
@@ -362,7 +362,7 @@ export function ManualSignalForm({
           type="button"
           disabled={pending}
           onClick={submit}
-          className="inline-flex items-center gap-1 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-1.5 text-[12px] font-medium text-emerald-200 hover:bg-emerald-500/20 disabled:opacity-40"
+          className="inline-flex items-center gap-1 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-1.5 text-[12px] font-medium text-emerald-700 hover:bg-emerald-500/20 disabled:opacity-40"
           data-manual-submit
         >
           <Save className="h-3 w-3" />
@@ -403,7 +403,7 @@ function Field({
       </span>
       {children}
       {hint && (
-        <span className="text-[10.5px] text-muted-foreground/70">{hint}</span>
+        <span className="text-[10.5px] text-muted-foreground">{hint}</span>
       )}
     </label>
   )

@@ -69,7 +69,7 @@ export function EpisodesToolbar({
           className={`flex h-9 w-9 items-center justify-center transition-all ${
             viewMode === "grid"
               ? "bg-primary/10 text-primary"
-              : "text-muted-foreground/60 hover:bg-muted/40 hover:text-foreground"
+              : "text-muted-foreground hover:bg-muted/40 hover:text-foreground"
           }`}
           aria-label="عرض شبكي"
         >
@@ -80,7 +80,7 @@ export function EpisodesToolbar({
           className={`flex h-9 w-9 items-center justify-center border-s border-border/40 transition-all ${
             viewMode === "list"
               ? "bg-primary/10 text-primary"
-              : "text-muted-foreground/60 hover:bg-muted/40 hover:text-foreground"
+              : "text-muted-foreground hover:bg-muted/40 hover:text-foreground"
           }`}
           aria-label="عرض قائمة"
         >
@@ -98,7 +98,7 @@ export function EpisodesToolbar({
         variant="ghost"
         onClick={handleRefreshCache}
         disabled={isRefreshing}
-        className="h-9 gap-2 rounded-lg px-3 text-[11px] text-muted-foreground/70 hover:text-foreground"
+        className="h-9 gap-2 rounded-lg px-3 text-[11px] text-muted-foreground hover:text-foreground"
         title={
           cacheInfo?.fetchedAt
             ? `مزامنة كاملة (تحديث الذاكرة المؤقتة). آخر تحديث: ${formatDateTime(cacheInfo.fetchedAt)}`

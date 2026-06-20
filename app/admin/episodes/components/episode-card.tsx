@@ -264,7 +264,7 @@ export function EpisodeCard({
             <button
               onClick={handleSave}
               disabled={saving}
-              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-green-500/10 text-green-400 transition-all hover:bg-green-500/20"
+              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-green-500/10 text-green-700 transition-all hover:bg-green-500/20"
             >
               <Check className="h-4 w-4" />
             </button>
@@ -283,7 +283,7 @@ export function EpisodeCard({
             >
               {override?.customTitle || episode.title}
             </h3>
-            <div className="mt-1.5 flex items-center gap-2 text-[11px] text-muted-foreground/70">
+            <div className="mt-1.5 flex items-center gap-2 text-[11px] text-muted-foreground">
               <span>{formatDate(episode.release_date)}</span>
               {(currentGuest || episode.guest_name) && (
                 <>
@@ -309,8 +309,8 @@ export function EpisodeCard({
               <span
                 className={`rounded-md px-1.5 py-0.5 text-[10px] font-medium ${
                   quotesEntry.status === "published"
-                    ? "bg-green-500/10 text-green-400"
-                    : "bg-yellow-500/10 text-yellow-400"
+                    ? "bg-green-500/10 text-green-700"
+                    : "bg-yellow-500/10 text-yellow-700"
                 }`}
               >
                 {formatArabicCount(quotesEntry.quotes.length, "اقتباس")}
@@ -342,7 +342,7 @@ export function EpisodeCard({
               className={`h-7 min-w-0 w-full cursor-pointer truncate rounded-lg border border-border/30 bg-transparent px-2 text-[11px] transition-all duration-200 hover:border-border/60 hover:text-foreground focus:outline-none focus:ring-1 focus:ring-ring ${
                 currentGuestId
                   ? "text-accent border-accent/20"
-                  : "text-muted-foreground/60"
+                  : "text-muted-foreground"
               }`}
             >
               <option value="">بدون ضيف</option>
@@ -360,7 +360,7 @@ export function EpisodeCard({
                 className={`h-7 min-w-0 w-full cursor-pointer truncate rounded-lg border border-border/30 bg-transparent px-2 text-[11px] transition-all duration-200 hover:border-border/60 hover:text-foreground focus:outline-none focus:ring-1 focus:ring-ring ${
                   currentCategoryId
                     ? "text-primary border-primary/20"
-                    : "text-muted-foreground/60"
+                    : "text-muted-foreground"
                 }`}
               >
                 <option value="">بدون تصنيف</option>

@@ -80,7 +80,7 @@ export default async function EpisodesIndexPage({
             <ArrowLeft className="h-3 w-3" /> رجوع إلى مركز القيادة
           </Link>
           <h1 className="flex items-center gap-2 text-xl font-bold tracking-tight">
-            <PlayCircle className="h-5 w-5 text-violet-300" /> الحلقات
+            <PlayCircle className="h-5 w-5 text-violet-700" /> الحلقات
           </h1>
           <p className="mt-1 text-[12px] text-muted-foreground">
             كل الحلقات النشطة مع الإجراء التالي المقترح لكل واحدة.
@@ -105,7 +105,7 @@ export default async function EpisodesIndexPage({
               name="q"
               defaultValue={params.q ?? ""}
               placeholder="بعنوان الحلقة"
-              className="w-44 bg-transparent text-[12px] outline-none placeholder:text-muted-foreground/50"
+              className="w-44 bg-transparent text-[12px] outline-none placeholder:text-muted-foreground"
             />
           </div>
         </FilterField>
@@ -153,7 +153,7 @@ export default async function EpisodesIndexPage({
         </FilterField>
         <button
           type="submit"
-          className="ms-auto inline-flex items-center gap-1.5 rounded-xl border border-violet-500/40 bg-violet-500/10 px-3 py-1.5 text-[12px] font-medium text-violet-200 hover:bg-violet-500/20"
+          className="ms-auto inline-flex items-center gap-1.5 rounded-xl border border-violet-500/40 bg-violet-500/10 px-3 py-1.5 text-[12px] font-medium text-violet-700 hover:bg-violet-500/20"
         >
           <Filter className="h-3 w-3" /> تطبيق
         </button>
@@ -190,7 +190,7 @@ function EpisodeRow({
             <span className="rounded-full bg-muted/30 px-2 py-0.5 text-[10px] uppercase tracking-wider text-muted-foreground">
               {PHASE_LABEL[row.phase]}
             </span>
-            <span className="text-[10.5px] text-muted-foreground/60" dir="ltr">
+            <span className="text-[10.5px] text-muted-foreground" dir="ltr">
               {row.phase}
             </span>
             {row.season_name && (
@@ -201,7 +201,7 @@ function EpisodeRow({
                 {row.season_name}
               </span>
             )}
-            <span className="text-[10.5px] text-muted-foreground/60" dir="ltr">
+            <span className="text-[10.5px] text-muted-foreground" dir="ltr">
               {formatDateTime(row.updated_at)}
             </span>
           </div>
@@ -214,7 +214,7 @@ function EpisodeRow({
                 <span className="text-foreground">ضيف:</span> {row.guest_name}
               </>
             ) : (
-              <span className="text-amber-300">بلا ضيف</span>
+              <span className="text-amber-700">بلا ضيف</span>
             )}
           </div>
         </div>
@@ -257,11 +257,11 @@ function FilterField({
 function toneClasses(tone: NextActionTone): string {
   switch (tone) {
     case "urgent":
-      return "border-rose-500/40 bg-rose-500/10 text-rose-200 hover:bg-rose-500/20"
+      return "border-rose-500/40 bg-rose-500/10 text-rose-700 hover:bg-rose-500/20"
     case "warning":
-      return "border-amber-500/40 bg-amber-500/10 text-amber-200 hover:bg-amber-500/20"
+      return "border-amber-500/40 bg-amber-500/10 text-amber-700 hover:bg-amber-500/20"
     default:
-      return "border-violet-500/40 bg-violet-500/10 text-violet-200 hover:bg-violet-500/20"
+      return "border-violet-500/40 bg-violet-500/10 text-violet-700 hover:bg-violet-500/20"
   }
 }
 

@@ -162,7 +162,7 @@ export function SettingsTabs({
                   </div>
                 </CardHeader>
                 <CardContent>
-                  <p className="text-[13px] text-muted-foreground/60">
+                  <p className="text-[13px] text-muted-foreground">
                     {hasYouTubeKey
                       ? "يتم جلب الحلقات من قناة YouTube"
                       : "أضف YOUTUBE_API_KEY لجلب الحلقات تلقائياً"}
@@ -183,7 +183,7 @@ export function SettingsTabs({
                   </div>
                 </CardHeader>
                 <CardContent>
-                  <p className="text-[13px] text-muted-foreground/60">
+                  <p className="text-[13px] text-muted-foreground">
                     {hasDatabase
                       ? "قاعدة البيانات متصلة وتعمل"
                       : "يتم استخدام بيانات تجريبية"}
@@ -244,27 +244,27 @@ export function SettingsTabs({
                     dir="ltr"
                   />
                   {confirmPassword.length > 0 && !pwMatch && (
-                    <p className="mt-1 text-xs text-red-400">كلمتا المرور غير متطابقتين</p>
+                    <p className="mt-1 text-xs text-red-700">كلمتا المرور غير متطابقتين</p>
                   )}
                 </div>
 
                 {/* Requirements checklist */}
                 <div className="rounded-lg border border-border/30 bg-muted/20 p-3 space-y-1.5">
-                  <p className="text-[11px] font-medium text-muted-foreground/60 mb-2">متطلبات كلمة المرور:</p>
+                  <p className="text-[11px] font-medium text-muted-foreground mb-2">متطلبات كلمة المرور:</p>
                   {PASSWORD_REQUIREMENTS.map((req) => {
                     const passed = req.test(newPassword)
                     return (
                       <div key={req.label} className="flex items-center gap-2 text-xs">
                         {newPassword.length > 0 ? (
                           passed ? (
-                            <Check className="h-3.5 w-3.5 text-green-400" />
+                            <Check className="h-3.5 w-3.5 text-green-700" />
                           ) : (
-                            <X className="h-3.5 w-3.5 text-red-400" />
+                            <X className="h-3.5 w-3.5 text-red-700" />
                           )
                         ) : (
                           <div className="h-3.5 w-3.5 rounded-full border border-muted-foreground/40" />
                         )}
-                        <span className={newPassword.length > 0 ? (passed ? "text-green-400" : "text-red-400") : "text-muted-foreground"}>
+                        <span className={newPassword.length > 0 ? (passed ? "text-green-700" : "text-red-700") : "text-muted-foreground"}>
                           {req.label}
                         </span>
                       </div>
@@ -275,7 +275,7 @@ export function SettingsTabs({
                 {pwMessage && (
                   <div className={`rounded-md p-3 text-center text-sm ${
                     pwMessage.type === "success"
-                      ? "bg-green-500/10 text-green-500"
+                      ? "bg-green-500/10 text-green-700"
                       : "bg-destructive/10 text-destructive"
                   }`}>
                     {pwMessage.text}

@@ -57,7 +57,7 @@ export function TabDeepAnalysis() {
   if (deepAnalysisStatus === "idle" || (!deepAnalysis && deepAnalysisStatus !== "generating")) {
     return (
       <div className="py-8 text-center space-y-4">
-        <Brain className="h-10 w-10 mx-auto text-indigo-400/60" />
+        <Brain className="h-10 w-10 mx-auto text-indigo-700/60" />
         <div>
           <p className="text-sm font-medium">التحليل العميق للمحتوى</p>
           <p className="text-xs text-muted-foreground mt-1">
@@ -75,7 +75,7 @@ export function TabDeepAnalysis() {
   if (deepAnalysisStatus === "generating") {
     return (
       <div className="py-8 text-center space-y-3">
-        <Loader2 className="h-8 w-8 mx-auto animate-spin text-indigo-500" />
+        <Loader2 className="h-8 w-8 mx-auto animate-spin text-indigo-700" />
         <p className="text-sm text-muted-foreground">جارٍ التحليل العميق...</p>
       </div>
     )
@@ -85,8 +85,8 @@ export function TabDeepAnalysis() {
     return (
       <div className="py-6 space-y-3">
         <div className="flex items-start gap-3 rounded-lg border border-red-500/20 bg-red-500/5 p-4">
-          <AlertCircle className="h-4 w-4 shrink-0 text-red-500 mt-0.5" />
-          <p className="text-sm text-red-600 dark:text-red-400">{deepAnalysisError}</p>
+          <AlertCircle className="h-4 w-4 shrink-0 text-red-700 mt-0.5" />
+          <p className="text-sm text-red-700 dark:text-red-400">{deepAnalysisError}</p>
         </div>
         <Button onClick={generateDeepAnalysis} variant="outline" size="sm" className="gap-2">
           <RefreshCw className="h-3.5 w-3.5" />
@@ -111,21 +111,21 @@ export function TabDeepAnalysis() {
       {/* Thesis */}
       {d.thesis && (
         <div className="rounded-lg border bg-indigo-50/50 p-4 dark:bg-indigo-950/20">
-          <p className="text-xs font-medium text-indigo-600 dark:text-indigo-400 mb-1">الأطروحة الرئيسية</p>
+          <p className="text-xs font-medium text-indigo-700 dark:text-indigo-400 mb-1">الأطروحة الرئيسية</p>
           <p className="text-sm leading-relaxed">{d.thesis}</p>
         </div>
       )}
 
       {/* Conversation Arc */}
       {d.conversation_arc && (
-        <SubSection icon={TrendingUp} iconColor="text-blue-500" title="مسار المحادثة" defaultOpen>
+        <SubSection icon={TrendingUp} iconColor="text-blue-700" title="مسار المحادثة" defaultOpen>
           <p className="text-sm leading-relaxed text-muted-foreground">{d.conversation_arc}</p>
         </SubSection>
       )}
 
       {/* Themes */}
       {d.themes && d.themes.length > 0 && (
-        <SubSection icon={Map} iconColor="text-emerald-500" title={`المحاور (${d.themes.length})`} defaultOpen>
+        <SubSection icon={Map} iconColor="text-emerald-700" title={`المحاور (${d.themes.length})`} defaultOpen>
           <div className="space-y-3">
             {d.themes.map((theme, i) => (
               <div key={i} className="space-y-1">
@@ -134,7 +134,7 @@ export function TabDeepAnalysis() {
                 {theme.evidence?.length > 0 && (
                   <ul className="mt-1 space-y-0.5">
                     {theme.evidence.map((e, j) => (
-                      <li key={j} className="text-xs text-muted-foreground/80 pr-3 before:content-['•'] before:ml-2 before:text-muted-foreground/40">{e}</li>
+                      <li key={j} className="text-xs text-muted-foreground/80 pr-3 before:content-['•'] before:ml-2 before:text-muted-foreground">{e}</li>
                     ))}
                   </ul>
                 )}
@@ -146,7 +146,7 @@ export function TabDeepAnalysis() {
 
       {/* Arguments */}
       {d.arguments && d.arguments.length > 0 && (
-        <SubSection icon={Scale} iconColor="text-amber-500" title={`الحجج (${d.arguments.length})`}>
+        <SubSection icon={Scale} iconColor="text-amber-700" title={`الحجج (${d.arguments.length})`}>
           <div className="space-y-3">
             {d.arguments.map((arg, i) => (
               <div key={i} className="space-y-1 rounded-lg bg-muted/50 p-3">
@@ -179,7 +179,7 @@ export function TabDeepAnalysis() {
 
       {/* Emotional Moments */}
       {d.emotional_moments && d.emotional_moments.length > 0 && (
-        <SubSection icon={Sparkles} iconColor="text-pink-500" title={`لحظات عاطفية (${d.emotional_moments.length})`}>
+        <SubSection icon={Sparkles} iconColor="text-pink-700" title={`لحظات عاطفية (${d.emotional_moments.length})`}>
           <div className="space-y-2">
             {d.emotional_moments.map((m, i) => (
               <div key={i} className="rounded-lg border p-3 space-y-1">
@@ -205,14 +205,14 @@ export function TabDeepAnalysis() {
 
       {/* Lessons */}
       {d.lessons && d.lessons.length > 0 && (
-        <SubSection icon={Lightbulb} iconColor="text-yellow-500" title={`الدروس المستفادة (${d.lessons.length})`}>
+        <SubSection icon={Lightbulb} iconColor="text-yellow-700" title={`الدروس المستفادة (${d.lessons.length})`}>
           <div className="space-y-2">
             {d.lessons.map((l, i) => (
               <div key={i} className="space-y-0.5">
                 <p className="text-sm font-medium">{l.title}</p>
                 <p className="text-xs text-muted-foreground">{l.explanation}</p>
                 {l.applicability && (
-                  <p className="text-xs text-emerald-600 dark:text-emerald-400">التطبيق: {l.applicability}</p>
+                  <p className="text-xs text-emerald-700 dark:text-emerald-400">التطبيق: {l.applicability}</p>
                 )}
               </div>
             ))}
@@ -222,7 +222,7 @@ export function TabDeepAnalysis() {
 
       {/* Contradictions */}
       {d.contradictions && d.contradictions.length > 0 && (
-        <SubSection icon={HelpCircle} iconColor="text-orange-500" title={`التناقضات (${d.contradictions.length})`}>
+        <SubSection icon={HelpCircle} iconColor="text-orange-700" title={`التناقضات (${d.contradictions.length})`}>
           <div className="space-y-2">
             {d.contradictions.map((c, i) => (
               <div key={i} className="rounded-lg bg-orange-50/50 p-3 dark:bg-orange-950/20 space-y-1">
@@ -237,11 +237,11 @@ export function TabDeepAnalysis() {
 
       {/* Open Questions */}
       {d.open_questions && d.open_questions.length > 0 && (
-        <SubSection icon={MessageSquareQuote} iconColor="text-cyan-500" title={`أسئلة مفتوحة (${d.open_questions.length})`}>
+        <SubSection icon={MessageSquareQuote} iconColor="text-cyan-700" title={`أسئلة مفتوحة (${d.open_questions.length})`}>
           <ul className="space-y-1.5">
             {d.open_questions.map((q, i) => (
               <li key={i} className="text-sm text-muted-foreground flex items-start gap-2">
-                <span className="text-cyan-500 shrink-0 mt-0.5">؟</span>
+                <span className="text-cyan-700 shrink-0 mt-0.5">؟</span>
                 {q}
               </li>
             ))}
@@ -251,7 +251,7 @@ export function TabDeepAnalysis() {
 
       {/* Dialogue Map */}
       {d.dialogue_map && (
-        <SubSection icon={BookOpen} iconColor="text-violet-500" title="خريطة الحوار">
+        <SubSection icon={BookOpen} iconColor="text-violet-700" title="خريطة الحوار">
           <div className="space-y-2">
             {d.dialogue_map.speakers?.length > 0 && (
               <div>

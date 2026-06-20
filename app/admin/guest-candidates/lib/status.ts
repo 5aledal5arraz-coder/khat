@@ -20,7 +20,7 @@ export const STATUS_META: Record<GuestCandidateStatus, StatusMeta> = {
   prep_sent:         { label: "أرسل التحضير", badgeClass: "bg-indigo-500/12 text-indigo-700 dark:text-indigo-400", order: 8 },
   prep_in_progress:  { label: "يعبئ التحضير", badgeClass: "bg-fuchsia-500/12 text-fuchsia-700 dark:text-fuchsia-400", order: 9 },
   prep_completed:    { label: "أكمل التحضير", badgeClass: "bg-green-500/12 text-green-700 dark:text-green-400", order: 10 },
-  archived:          { label: "مؤرشف",        badgeClass: "bg-stone-500/12 text-stone-600 dark:text-stone-400", order: 11 },
+  archived:          { label: "مؤرشف",        badgeClass: "bg-stone-500/12 text-stone-700 dark:text-stone-400", order: 11 },
   rejected:          { label: "مرفوض",        badgeClass: "bg-red-500/12 text-red-700 dark:text-red-400", order: 12 },
 }
 
@@ -33,7 +33,7 @@ export const STATUS_OPTIONS: GuestCandidateStatus[] = [
 export const PRIORITY_META: Record<GuestCandidatePriority, { label: string; badgeClass: string }> = {
   high:   { label: "عالية",  badgeClass: "bg-rose-500/12 text-rose-700 dark:text-rose-400" },
   medium: { label: "متوسطة", badgeClass: "bg-amber-500/12 text-amber-700 dark:text-amber-400" },
-  low:    { label: "منخفضة", badgeClass: "bg-slate-500/12 text-slate-600 dark:text-slate-400" },
+  low:    { label: "منخفضة", badgeClass: "bg-slate-500/12 text-slate-700 dark:text-slate-400" },
 }
 
 export const CATEGORY_OPTIONS = [

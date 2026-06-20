@@ -176,7 +176,7 @@ function EpisodeBlock({
           )}
         </div>
         {ep.assignedGuest && (
-          <span className="inline-flex shrink-0 items-center gap-1 rounded-md border border-emerald-500/30 bg-emerald-500/10 px-2 py-1 text-[10px] font-semibold text-emerald-300">
+          <span className="inline-flex shrink-0 items-center gap-1 rounded-md border border-emerald-500/30 bg-emerald-500/10 px-2 py-1 text-[10px] font-semibold text-emerald-700">
             <UserRoundCheck className="h-3 w-3" />
             {ep.assignedGuest.full_name}
           </span>
@@ -185,14 +185,14 @@ function EpisodeBlock({
 
       {/* Stale-discovery banner */}
       {isStale && (
-        <div className="mb-3 rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-[11.5px] text-amber-200/90">
+        <div className="mb-3 rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-[11.5px] text-amber-700/90">
           عُدِّل الموضوع بعد آخر بحث — نتائج الاكتشاف الحالية لم تعد
           مطابقة. اضغط «أعِد البحث» لتحديث الاقتراحات.
         </div>
       )}
 
       {error && (
-        <div className="mb-3 rounded-lg border border-rose-500/30 bg-rose-500/5 p-3 text-[11.5px] text-rose-300">
+        <div className="mb-3 rounded-lg border border-rose-500/30 bg-rose-500/5 p-3 text-[11.5px] text-rose-700">
           {error}
         </div>
       )}
@@ -261,7 +261,7 @@ function EpisodeBlock({
         </div>
       )}
       {candidates && candidates.length === 0 && (
-        <p className="text-[11.5px] text-muted-foreground/70">
+        <p className="text-[11.5px] text-muted-foreground">
           لا توجد اقتراحات حتى الآن — ابدأ بحثًا جديدًا، ثم اعرض المرشحين
           بعد بضع دقائق.
         </p>

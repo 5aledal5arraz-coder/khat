@@ -153,9 +153,9 @@ export function ResponsesArchiveClient({ rows, templates }: Props) {
       {/* List */}
       {filtered.length === 0 ? (
         <div className="flex flex-col items-center justify-center rounded-lg border border-dashed border-border/40 p-10 text-center">
-          <Inbox className="mb-2 h-8 w-8 text-muted-foreground/50" />
+          <Inbox className="mb-2 h-8 w-8 text-muted-foreground" />
           <p className="text-sm font-medium text-muted-foreground">لا توجد إجابات مطابقة</p>
-          <p className="mt-1 text-[11px] text-muted-foreground/60">
+          <p className="mt-1 text-[11px] text-muted-foreground">
             جرّب تغيير الفلاتر أو أرسل رابط تحضير لمرشّح جديد.
           </p>
         </div>
@@ -178,9 +178,9 @@ export function ResponsesArchiveClient({ rows, templates }: Props) {
                 >
                   <div className="flex min-w-0 flex-1 items-center gap-2.5">
                     {isFinal ? (
-                      <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-500" />
+                      <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-700" />
                     ) : (
-                      <Clock className="h-4 w-4 shrink-0 text-amber-500" />
+                      <Clock className="h-4 w-4 shrink-0 text-amber-700" />
                     )}
                     <div className="flex min-w-0 flex-col gap-0.5">
                       <div className="flex items-center gap-2">
@@ -193,7 +193,7 @@ export function ResponsesArchiveClient({ rows, templates }: Props) {
                           </span>
                         )}
                       </div>
-                      <div className="flex items-center gap-2 text-[10px] text-muted-foreground/60">
+                      <div className="flex items-center gap-2 text-[10px] text-muted-foreground">
                         <span>{isFinal ? "نهائية" : "مسودة"}</span>
                         <span>•</span>
                         <span>
@@ -268,8 +268,8 @@ function StatCard({
   tone: "success" | "warning" | "neutral"
 }) {
   const toneMap = {
-    success: "text-emerald-600 dark:text-emerald-400",
-    warning: "text-amber-600 dark:text-amber-400",
+    success: "text-emerald-700 dark:text-emerald-400",
+    warning: "text-amber-700 dark:text-amber-400",
     neutral: "text-foreground/80",
   }
   return (

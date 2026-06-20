@@ -65,9 +65,9 @@ export default async function V2RunPage({
           {runStatusLabel(run.status)} · {formatDateTime(run.created_at)}
           {stats.v2_stats ? ` · ${stats.v2_stats.proposed ?? 0} مقترح → ${stats.v2_stats.resolved ?? 0} محقّق → ${strong.length} قويّ + ${shortlist.length} مختصرة` : ""}
         </div>
-        {stats.v2_error && <p className="mt-2 text-[11.5px] text-rose-300">{String(stats.v2_error)}</p>}
+        {stats.v2_error && <p className="mt-2 text-[11.5px] text-rose-700">{String(stats.v2_error)}</p>}
         {running && (
-          <div className="mt-3 inline-flex items-center gap-2 rounded-lg border border-violet-500/30 bg-violet-500/5 px-3 py-1.5 text-[11.5px] text-violet-200">
+          <div className="mt-3 inline-flex items-center gap-2 rounded-lg border border-violet-500/30 bg-violet-500/5 px-3 py-1.5 text-[11.5px] text-violet-700">
             <Loader2 className="h-3.5 w-3.5 animate-spin" /> جارٍ الاقتراح والتحقّق والإثراء… يتحدّث تلقائياً
           </div>
         )}
@@ -75,14 +75,14 @@ export default async function V2RunPage({
 
       {strong.length > 0 && (
         <section>
-          <h2 className="mb-2 text-sm font-semibold text-emerald-300/90">مرشّحون أقوياء ({strong.length})</h2>
+          <h2 className="mb-2 text-sm font-semibold text-emerald-700/90">مرشّحون أقوياء ({strong.length})</h2>
           <div className="grid grid-cols-1 gap-3">{strong.map((c) => <CandidateCard key={c.id} c={c} />)}</div>
         </section>
       )}
 
       {shortlist.length > 0 && (
         <section>
-          <h2 className="mb-2 text-sm font-semibold text-amber-300/90">قائمة مختصرة ({shortlist.length})</h2>
+          <h2 className="mb-2 text-sm font-semibold text-amber-700/90">قائمة مختصرة ({shortlist.length})</h2>
           <div className="grid grid-cols-1 gap-3">{shortlist.map((c) => <CandidateCard key={c.id} c={c} />)}</div>
         </section>
       )}

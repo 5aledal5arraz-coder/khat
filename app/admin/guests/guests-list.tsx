@@ -248,7 +248,7 @@ function PhotoPicker({ previewUrl, name, onFileReady }: {
           <Image src={previewUrl} alt={name || "صورة الضيف"} fill className="object-cover" unoptimized={previewUrl.startsWith("blob:")} />
         ) : (
           <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-primary/20 via-accent/10 to-primary/5">
-            <span className="text-3xl font-bold text-muted-foreground/60">{initials}</span>
+            <span className="text-3xl font-bold text-muted-foreground">{initials}</span>
           </div>
         )}
         <div className="absolute inset-0 flex flex-col items-center justify-center gap-1 bg-black/60 opacity-0 transition-opacity group-hover:opacity-100">
@@ -258,7 +258,7 @@ function PhotoPicker({ previewUrl, name, onFileReady }: {
       </div>
       <input ref={fileRef} type="file" accept="image/jpeg,image/png,image/webp,image/avif" className="hidden" onChange={(e) => { const file = e.target.files?.[0]; if (file) handleFileSelected(file); e.target.value = "" }} />
       {error && <p className="text-xs text-destructive">{error}</p>}
-      <p className="text-[10px] text-muted-foreground/60">JPG, PNG, WebP — حتى 5 ميجابايت</p>
+      <p className="text-[10px] text-muted-foreground">JPG, PNG, WebP — حتى 5 ميجابايت</p>
 
       {cropFile && (
         <ImageCropModal
@@ -323,7 +323,7 @@ function LinkedEpisodesSection({ episodes, linkedEpisodeIds, onLink, onUnlink }:
             <div key={ep.id} className="flex items-center gap-2 rounded-xl bg-white/[0.03] px-3 py-2 ring-1 ring-border/30">
               <div className="min-w-0 flex-1">
                 <p className="truncate text-[12px] font-medium" dir="auto">{ep.title}</p>
-                <p className="text-[10px] text-muted-foreground/50">{ep.release_date}</p>
+                <p className="text-[10px] text-muted-foreground">{ep.release_date}</p>
               </div>
               <button
                 onClick={() => onUnlink(ep.id)}
@@ -336,7 +336,7 @@ function LinkedEpisodesSection({ episodes, linkedEpisodeIds, onLink, onUnlink }:
           ))}
         </div>
       ) : (
-        <p className="rounded-xl bg-white/[0.02] py-4 text-center text-xs text-muted-foreground/50 ring-1 ring-border/30">
+        <p className="rounded-xl bg-white/[0.02] py-4 text-center text-xs text-muted-foreground ring-1 ring-border/30">
           لا توجد حلقات مرتبطة — اضغط &quot;ربط حلقة&quot;
         </p>
       )}
@@ -351,14 +351,14 @@ function LinkedEpisodesSection({ episodes, linkedEpisodeIds, onLink, onUnlink }:
             dir="auto"
             className="h-9 rounded-xl text-xs"
           />
-          <div className="flex items-center justify-between px-1 text-[10px] text-muted-foreground/60">
+          <div className="flex items-center justify-between px-1 text-[10px] text-muted-foreground">
             <span>
               {epSearch
                 ? `${availableEpisodes.length} من ${totalUnlinked} حلقة`
                 : `${totalUnlinked} حلقة متاحة للربط`}
             </span>
             {availableEpisodes.length > 50 && (
-              <span className="text-muted-foreground/40">مرّر للعرض الكامل</span>
+              <span className="text-muted-foreground">مرّر للعرض الكامل</span>
             )}
           </div>
           <div className="max-h-80 space-y-1 overflow-y-auto overscroll-contain">
@@ -372,17 +372,17 @@ function LinkedEpisodesSection({ episodes, linkedEpisodeIds, onLink, onUnlink }:
                   <Plus className="h-3.5 w-3.5 shrink-0 text-primary" />
                   <span className="min-w-0 flex-1 truncate" dir="auto">{ep.title}</span>
                   {ep.release_date && (
-                    <span className="shrink-0 text-[10px] text-muted-foreground/40 tabular-nums">
+                    <span className="shrink-0 text-[10px] text-muted-foreground tabular-nums">
                       {ep.release_date}
                     </span>
                   )}
                   {ep.guest_id && !linkedSet.has(ep.id) && (
-                    <span className="shrink-0 text-[10px] text-muted-foreground/50">مرتبطة بضيف آخر</span>
+                    <span className="shrink-0 text-[10px] text-muted-foreground">مرتبطة بضيف آخر</span>
                   )}
                 </button>
               ))
             ) : (
-              <p className="py-3 text-center text-xs text-muted-foreground/50">
+              <p className="py-3 text-center text-xs text-muted-foreground">
                 {epSearch ? "لا توجد نتائج" : "جميع الحلقات مرتبطة"}
               </p>
             )}
@@ -475,7 +475,7 @@ function GuestFormDialog({ isNew, formData, setFormData, onSave, onClose, saving
           <div className="space-y-2">
             <div className="flex items-center justify-between">
               <label className="text-sm font-medium text-muted-foreground">نبذة</label>
-              <span className="text-[11px] text-muted-foreground/60">{formData.bio.length}/1000</span>
+              <span className="text-[11px] text-muted-foreground">{formData.bio.length}/1000</span>
             </div>
             <textarea
               value={formData.bio}
@@ -483,7 +483,7 @@ function GuestFormDialog({ isNew, formData, setFormData, onSave, onClose, saving
               placeholder="نبذة مختصرة عن الضيف"
               dir="auto"
               rows={3}
-              className="w-full resize-none rounded-xl border border-border bg-transparent px-4 py-3 text-sm leading-relaxed placeholder:text-muted-foreground/50 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary/30"
+              className="w-full resize-none rounded-xl border border-border bg-transparent px-4 py-3 text-sm leading-relaxed placeholder:text-muted-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary/30"
             />
           </div>
 
@@ -497,15 +497,15 @@ function GuestFormDialog({ isNew, formData, setFormData, onSave, onClose, saving
               onChange={(e) => { if (e.target.value.length <= 450) setFormData(prev => ({ ...prev, testimonial: e.target.value })) }}
               placeholder="رسالة شخصية من الضيف — شكر، تأمل، اقتباس، أو شعور بعد الحلقة..."
               dir="auto" rows={4}
-              className="w-full resize-none rounded-xl border border-border bg-transparent px-4 py-3 text-sm leading-relaxed placeholder:text-muted-foreground/50 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary/30"
+              className="w-full resize-none rounded-xl border border-border bg-transparent px-4 py-3 text-sm leading-relaxed placeholder:text-muted-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary/30"
             />
             <div className="flex items-center justify-between">
-              <p className="text-[10px] text-muted-foreground/50">أثر شخصي يتركه الضيف — ستظهر كبطاقة مميزة في ملفه الشخصي</p>
-              <span className={`text-[10px] tabular-nums ${formData.testimonial.length > 400 ? "text-primary" : "text-muted-foreground/40"}`}>{formData.testimonial.length}/450</span>
+              <p className="text-[10px] text-muted-foreground">أثر شخصي يتركه الضيف — ستظهر كبطاقة مميزة في ملفه الشخصي</p>
+              <span className={`text-[10px] tabular-nums ${formData.testimonial.length > 400 ? "text-primary" : "text-muted-foreground"}`}>{formData.testimonial.length}/450</span>
             </div>
             {formData.testimonial.trim() && (
               <div className="pt-1">
-                <p className="mb-2 text-[10px] text-muted-foreground/40">معاينة:</p>
+                <p className="mb-2 text-[10px] text-muted-foreground">معاينة:</p>
                 <AtharCard text={formData.testimonial} guestName={formData.name || "اسم الضيف"} compact />
               </div>
             )}
@@ -547,7 +547,7 @@ function GuestFormDialog({ isNew, formData, setFormData, onSave, onClose, saving
                 })}
               </div>
             ) : (
-              <p className="rounded-xl bg-white/[0.02] py-4 text-center text-xs text-muted-foreground/50 ring-1 ring-border/30">لا توجد روابط — اضغط &quot;إضافة رابط&quot;</p>
+              <p className="rounded-xl bg-white/[0.02] py-4 text-center text-xs text-muted-foreground ring-1 ring-border/30">لا توجد روابط — اضغط &quot;إضافة رابط&quot;</p>
             )}
           </div>
 
@@ -593,7 +593,7 @@ function GuestListRow({ guest, onEdit, onDelete }: { guest: GuestWithCount; onEd
           <Image src={guest.photo_url} alt={guest.name} fill sizes="36px" className="object-cover" />
         ) : (
           <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-primary/20 via-accent/10 to-primary/5">
-            <span className="text-xs font-bold text-muted-foreground/60">{initials}</span>
+            <span className="text-xs font-bold text-muted-foreground">{initials}</span>
           </div>
         )}
       </div>
@@ -601,7 +601,7 @@ function GuestListRow({ guest, onEdit, onDelete }: { guest: GuestWithCount; onEd
       {/* Name + bio */}
       <div className="min-w-0 flex-1">
         <p className="truncate text-[13px] font-semibold">{guest.name}</p>
-        {guest.bio && <p className="hidden truncate text-[11px] text-muted-foreground/60 md:block">{guest.bio}</p>}
+        {guest.bio && <p className="hidden truncate text-[11px] text-muted-foreground md:block">{guest.bio}</p>}
       </div>
 
       {/* Episode count pill */}
@@ -874,9 +874,9 @@ export function GuestsList({ guests: initialGuests, episodes: initialEpisodes }:
       {/* Header */}
       <div className="flex flex-wrap items-center gap-3">
         <h1 className="text-xl font-bold">إدارة الضيوف</h1>
-        <span className="rounded-md bg-muted/60 px-2 py-0.5 text-[11px] font-medium text-muted-foreground/70">{guests.length} ضيف</span>
-        <span className="rounded-md bg-muted/60 px-2 py-0.5 text-[11px] font-medium text-muted-foreground/70">{totalEpisodes} حلقة</span>
-        <span className="rounded-md bg-muted/60 px-2 py-0.5 text-[11px] font-medium text-muted-foreground/70">{withPhoto} صورة</span>
+        <span className="rounded-md bg-muted/60 px-2 py-0.5 text-[11px] font-medium text-muted-foreground">{guests.length} ضيف</span>
+        <span className="rounded-md bg-muted/60 px-2 py-0.5 text-[11px] font-medium text-muted-foreground">{totalEpisodes} حلقة</span>
+        <span className="rounded-md bg-muted/60 px-2 py-0.5 text-[11px] font-medium text-muted-foreground">{withPhoto} صورة</span>
         <div className="flex-1" />
         <Button variant="outline" onClick={handleBulkLinkPreview} className="h-9 gap-2 rounded-lg text-[11px]"><LinkIcon className="h-4 w-4" />ربط تلقائي</Button>
         <Button onClick={openAddDialog} className="h-9 gap-2 rounded-lg text-[11px]"><Plus className="h-4 w-4" />إضافة ضيف</Button>
@@ -891,7 +891,7 @@ export function GuestsList({ guests: initialGuests, episodes: initialEpisodes }:
 
       {/* Toasts */}
       {listSuccess && (
-        <div className="flex items-center gap-2 rounded-lg border border-green-500/20 bg-green-500/5 px-4 py-2 text-[12px] text-green-400">
+        <div className="flex items-center gap-2 rounded-lg border border-green-500/20 bg-green-500/5 px-4 py-2 text-[12px] text-green-700">
           <Check className="h-4 w-4 shrink-0" />
           <span>{listSuccess}</span>
         </div>
@@ -918,7 +918,7 @@ export function GuestsList({ guests: initialGuests, episodes: initialEpisodes }:
         <div className="flex flex-col items-center justify-center py-20 text-center">
           <div className="mb-5 flex h-16 w-16 items-center justify-center rounded-3xl bg-white/[0.03] ring-1 ring-border/50"><User className="h-6 w-6 text-muted-foreground" /></div>
           <p className="text-base font-semibold text-muted-foreground">{search ? "لم يتم العثور على ضيوف" : "لا يوجد ضيوف بعد"}</p>
-          <p className="mt-2 max-w-xs text-sm text-muted-foreground/60">{search ? `لم يتم العثور على ضيوف يطابقون "${search}"` : "اضغط على \"إضافة ضيف\" لإضافة أول ضيف"}</p>
+          <p className="mt-2 max-w-xs text-sm text-muted-foreground">{search ? `لم يتم العثور على ضيوف يطابقون "${search}"` : "اضغط على \"إضافة ضيف\" لإضافة أول ضيف"}</p>
         </div>
       )}
 
@@ -966,7 +966,7 @@ export function GuestsList({ guests: initialGuests, episodes: initialEpisodes }:
               {bulkLinkResult && (
                 <div className="rounded-lg border border-green-200 bg-green-50 p-4 dark:border-green-900 dark:bg-green-950/50">
                   <p className="text-sm font-medium text-green-700 dark:text-green-400">تم الربط بنجاح</p>
-                  <p className="text-xs text-green-600/70 dark:text-green-400/60 mt-1">
+                  <p className="text-xs text-green-700/70 dark:text-green-400/60 mt-1">
                     تم ربط {bulkLinkResult.linked} حلقة · إنشاء {bulkLinkResult.guestsCreated} ضيف جديد
                     {bulkLinkResult.failed > 0 && ` · فشل ${bulkLinkResult.failed}`}
                   </p>

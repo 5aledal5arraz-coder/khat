@@ -131,7 +131,7 @@ export function HostStudioView() {
             </section>
           ) : (
             <section className="flex items-center justify-center rounded-2xl border border-dashed border-border/20 bg-muted/5 p-12">
-              <div className="text-center text-muted-foreground/40">
+              <div className="text-center text-muted-foreground">
                 <FileText className="mx-auto mb-3 h-12 w-12 opacity-30" />
                 <p className="text-sm">لم يتم تفعيل بطاقة بعد</p>
                 <p className="mt-1 text-xs text-muted-foreground/30">
@@ -160,11 +160,11 @@ export function HostStudioView() {
                   <span className="font-mono text-[10px] text-muted-foreground/30">
                     {nextCard.sort_order + 1}
                   </span>
-                  <span className="font-medium text-muted-foreground/70">
+                  <span className="font-medium text-muted-foreground">
                     {nextCard.short_title}
                   </span>
                 </div>
-                <p className="mt-1 text-muted-foreground/40 text-sm">
+                <p className="mt-1 text-muted-foreground text-sm">
                   {nextCard.spoken_kuwaiti}
                 </p>
               </div>
@@ -182,7 +182,7 @@ export function HostStudioView() {
                   ملاحظاتي
                 </span>
                 {notesDirty && (
-                  <span className="text-[10px] text-amber-400/60">غير محفوظ</span>
+                  <span className="text-[10px] text-amber-700/60">غير محفوظ</span>
                 )}
               </div>
               <textarea

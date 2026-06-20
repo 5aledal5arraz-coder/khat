@@ -24,7 +24,7 @@ export function TabGuestIntelligence() {
   if (guestIntelligenceStatus === "idle" || (!guestIntelligence && guestIntelligenceStatus !== "generating")) {
     return (
       <div className="py-8 text-center space-y-4">
-        <UserSearch className="h-10 w-10 mx-auto text-teal-400/60" />
+        <UserSearch className="h-10 w-10 mx-auto text-teal-700/60" />
         <div>
           <p className="text-sm font-medium">ذكاء الضيف</p>
           <p className="text-xs text-muted-foreground mt-1">
@@ -42,7 +42,7 @@ export function TabGuestIntelligence() {
   if (guestIntelligenceStatus === "generating") {
     return (
       <div className="py-8 text-center space-y-3">
-        <Loader2 className="h-8 w-8 mx-auto animate-spin text-teal-500" />
+        <Loader2 className="h-8 w-8 mx-auto animate-spin text-teal-700" />
         <p className="text-sm text-muted-foreground">جارٍ تحليل الضيف...</p>
       </div>
     )
@@ -52,8 +52,8 @@ export function TabGuestIntelligence() {
     return (
       <div className="py-6 space-y-3">
         <div className="flex items-start gap-3 rounded-lg border border-red-500/20 bg-red-500/5 p-4">
-          <AlertCircle className="h-4 w-4 shrink-0 text-red-500 mt-0.5" />
-          <p className="text-sm text-red-600 dark:text-red-400">{guestIntelligenceError}</p>
+          <AlertCircle className="h-4 w-4 shrink-0 text-red-700 mt-0.5" />
+          <p className="text-sm text-red-700 dark:text-red-400">{guestIntelligenceError}</p>
         </div>
         <Button onClick={generateGuestIntelligence} variant="outline" size="sm" className="gap-2">
           <RefreshCw className="h-3.5 w-3.5" />
@@ -86,13 +86,13 @@ export function TabGuestIntelligence() {
             <div className="flex items-center gap-1.5">
               <Shield className={cn(
                 "h-4 w-4",
-                g.confidence_score >= 0.8 ? "text-emerald-500" :
-                g.confidence_score >= 0.5 ? "text-amber-500" : "text-red-500"
+                g.confidence_score >= 0.8 ? "text-emerald-700" :
+                g.confidence_score >= 0.5 ? "text-amber-700" : "text-red-700"
               )} />
               <span className={cn(
                 "text-xs font-medium",
-                g.confidence_score >= 0.8 ? "text-emerald-600 dark:text-emerald-400" :
-                g.confidence_score >= 0.5 ? "text-amber-600 dark:text-amber-400" : "text-red-600 dark:text-red-400"
+                g.confidence_score >= 0.8 ? "text-emerald-700 dark:text-emerald-400" :
+                g.confidence_score >= 0.5 ? "text-amber-700 dark:text-amber-400" : "text-red-700 dark:text-red-400"
               )}>
                 {Math.round(g.confidence_score * 100)}% ثقة
               </span>
@@ -105,7 +105,7 @@ export function TabGuestIntelligence() {
       {g.speaking_style && (
         <div className="rounded-lg border border-border/30 p-4">
           <div className="flex items-center gap-2 mb-2">
-            <Mic2 className="h-4 w-4 text-violet-500" />
+            <Mic2 className="h-4 w-4 text-violet-700" />
             <p className="text-xs font-medium">أسلوب الحديث</p>
           </div>
           <p className="text-sm text-muted-foreground leading-relaxed">{g.speaking_style}</p>
@@ -116,7 +116,7 @@ export function TabGuestIntelligence() {
       {g.key_positions && g.key_positions.length > 0 && (
         <div className="rounded-lg border border-border/30 p-4">
           <div className="flex items-center gap-2 mb-3">
-            <Target className="h-4 w-4 text-blue-500" />
+            <Target className="h-4 w-4 text-blue-700" />
             <p className="text-xs font-medium">المواقف الرئيسية ({g.key_positions.length})</p>
           </div>
           <div className="space-y-2">
@@ -136,7 +136,7 @@ export function TabGuestIntelligence() {
       {g.notable_quotes && g.notable_quotes.length > 0 && (
         <div className="rounded-lg border border-border/30 p-4">
           <div className="flex items-center gap-2 mb-3">
-            <MessageSquareQuote className="h-4 w-4 text-amber-500" />
+            <MessageSquareQuote className="h-4 w-4 text-amber-700" />
             <p className="text-xs font-medium">اقتباسات بارزة ({g.notable_quotes.length})</p>
           </div>
           <div className="space-y-3">

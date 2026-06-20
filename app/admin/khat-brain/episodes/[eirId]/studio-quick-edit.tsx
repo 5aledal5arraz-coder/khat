@@ -100,7 +100,7 @@ export function StudioQuickEdit({
       className="rounded-2xl border border-violet-500/20 bg-violet-500/5 p-4"
       data-studio-quick-edit
     >
-      <div className="mb-3 inline-flex items-center gap-1.5 text-[11px] font-semibold text-violet-200">
+      <div className="mb-3 inline-flex items-center gap-1.5 text-[11px] font-semibold text-violet-700">
         <Pencil className="h-3 w-3" /> تعديل سريع للحقول الأساسية
       </div>
       <div className="space-y-3">
@@ -181,14 +181,14 @@ function StudioFieldRow({
           </button>
         )}
         {savedAt && !editing && (
-          <span className="inline-flex items-center gap-1 text-[10px] text-emerald-300">
+          <span className="inline-flex items-center gap-1 text-[10px] text-emerald-700">
             <Check className="h-2.5 w-2.5" />
             تم الحفظ
           </span>
         )}
       </div>
       {def.helper && (
-        <div className="mb-1 text-[10.5px] text-muted-foreground/70">
+        <div className="mb-1 text-[10.5px] text-muted-foreground">
           {def.helper}
         </div>
       )}
@@ -203,7 +203,7 @@ function StudioFieldRow({
             data-studio-textarea
           />
           <div className="mt-2 flex items-center justify-between gap-2">
-            <span className="text-[10px] text-muted-foreground/70">
+            <span className="text-[10px] text-muted-foreground">
               {dirty ? "تغييرات غير محفوظة" : "بدون تغيير"}
             </span>
             <div className="flex flex-wrap gap-2">
@@ -211,7 +211,7 @@ function StudioFieldRow({
                 type="button"
                 onClick={onSave}
                 disabled={pending || !dirty}
-                className="inline-flex items-center gap-1 rounded-lg border border-violet-500/40 bg-violet-500/10 px-2.5 py-1 text-[11px] font-medium text-violet-200 hover:bg-violet-500/20 disabled:opacity-50"
+                className="inline-flex items-center gap-1 rounded-lg border border-violet-500/40 bg-violet-500/10 px-2.5 py-1 text-[11px] font-medium text-violet-700 hover:bg-violet-500/20 disabled:opacity-50"
                 data-studio-save
               >
                 {pending ? (
@@ -237,7 +237,7 @@ function StudioFieldRow({
         </>
       ) : (
         <pre className="whitespace-pre-wrap break-words rounded-lg bg-background/40 p-2 text-[11.5px] leading-relaxed text-foreground/85">
-          {initial.trim() ? initial : <span className="text-muted-foreground/60">— فارغ —</span>}
+          {initial.trim() ? initial : <span className="text-muted-foreground">— فارغ —</span>}
         </pre>
       )}
     </div>

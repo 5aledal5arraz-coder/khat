@@ -148,7 +148,7 @@ export function ProductionStatusPanel({
       </div>
 
       {error && (
-        <div className="mb-3 rounded-lg border border-rose-500/30 bg-rose-500/5 p-2.5 text-[11.5px] text-rose-400">
+        <div className="mb-3 rounded-lg border border-rose-500/30 bg-rose-500/5 p-2.5 text-[11.5px] text-rose-700">
           {error}
         </div>
       )}
@@ -228,7 +228,7 @@ function ProductionRow({
                   href={row.published_episode.youtube_url}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1 text-rose-400 hover:text-rose-300"
+                  className="inline-flex items-center gap-1 text-rose-700 hover:text-rose-700"
                 >
                   <Youtube className="h-3 w-3" />
                   YouTube
@@ -266,7 +266,7 @@ function ProductionRow({
           {hasEpisode && (
             <Link
               href={row.published_episode!.href}
-              className="inline-flex items-center gap-1 rounded-lg border border-emerald-500/30 bg-emerald-500/5 px-2 py-1 text-[11px] text-emerald-400 hover:opacity-90"
+              className="inline-flex items-center gap-1 rounded-lg border border-emerald-500/30 bg-emerald-500/5 px-2 py-1 text-[11px] text-emerald-700 hover:opacity-90"
             >
               <ExternalLink className="h-3 w-3" /> الحلقة
             </Link>
@@ -280,8 +280,8 @@ function ProductionRow({
           className={
             "mt-2 flex items-center gap-1.5 rounded-md px-2 py-1.5 text-[11px] " +
             (flash.kind === "ok"
-              ? "border border-emerald-500/30 bg-emerald-500/5 text-emerald-400"
-              : "border border-rose-500/30 bg-rose-500/5 text-rose-400")
+              ? "border border-emerald-500/30 bg-emerald-500/5 text-emerald-700"
+              : "border border-rose-500/30 bg-rose-500/5 text-rose-700")
           }
         >
           {flash.kind === "ok" ? (

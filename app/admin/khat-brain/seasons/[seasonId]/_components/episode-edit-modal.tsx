@@ -123,7 +123,7 @@ export function EpisodeEditModal({
           </Field>
         </div>
         {error && (
-          <div className="mt-3 rounded-lg border border-rose-500/30 bg-rose-500/5 p-2.5 text-[11.5px] text-rose-400">
+          <div className="mt-3 rounded-lg border border-rose-500/30 bg-rose-500/5 p-2.5 text-[11.5px] text-rose-700">
             {error}
           </div>
         )}

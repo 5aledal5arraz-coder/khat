@@ -21,7 +21,7 @@ export default async function NewsletterSubscribersPage({
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-xl font-bold tracking-tight">المشتركون</h1>
-          <p className="mt-1 text-[13px] text-muted-foreground/60">إدارة مشتركي النشرة البريدية</p>
+          <p className="mt-1 text-[13px] text-muted-foreground">إدارة مشتركي النشرة البريدية</p>
         </div>
         <Link
           href="/admin/newsletter"

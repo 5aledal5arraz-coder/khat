@@ -38,7 +38,7 @@ export function StartV2Form() {
 
   return (
     <div className="rounded-2xl border border-violet-500/30 bg-violet-500/5 p-4">
-      <div className="mb-3 inline-flex items-center gap-1.5 rounded-full border border-violet-500/40 bg-violet-500/10 px-2 py-0.5 text-[11px] font-medium text-violet-200">
+      <div className="mb-3 inline-flex items-center gap-1.5 rounded-full border border-violet-500/40 bg-violet-500/10 px-2 py-0.5 text-[11px] font-medium text-violet-700">
         <Sparkles className="h-3 w-3" /> اكتشاف v2 — مرجعيّ وموثوق
       </div>
       <label className="mb-1 block text-[11px] text-muted-foreground">موضوع الحلقة / المجال</label>
@@ -75,14 +75,14 @@ export function StartV2Form() {
           <label className="mb-1 block text-[10.5px] text-muted-foreground">الميل</label>
           <div className="flex gap-1">
             {TASTES.map((t) => (
-              <button key={t.id} type="button" onClick={() => setTaste(t.id)} className={"flex-1 rounded-lg border px-1.5 py-2 text-[10.5px] " + (taste === t.id ? "border-violet-500/50 bg-violet-500/15 text-violet-100" : "border-border/40 bg-background/40 text-muted-foreground")}>
+              <button key={t.id} type="button" onClick={() => setTaste(t.id)} className={"flex-1 rounded-lg border px-1.5 py-2 text-[10.5px] " + (taste === t.id ? "border-violet-500/50 bg-violet-500/15 text-violet-700" : "border-border/40 bg-background/40 text-muted-foreground")}>
                 {t.label}
               </button>
             ))}
           </div>
         </div>
       </div>
-      {error && <p className="mb-2 rounded-lg border border-rose-500/30 bg-rose-500/5 p-2 text-[11.5px] text-rose-200">{error}</p>}
+      {error && <p className="mb-2 rounded-lg border border-rose-500/30 bg-rose-500/5 p-2 text-[11.5px] text-rose-700">{error}</p>}
       <button type="button" disabled={pending || !topic.trim()} onClick={submit} className="inline-flex items-center gap-1.5 rounded-lg border border-amber-500/40 bg-amber-500/90 px-4 py-2 text-[13px] font-semibold text-black hover:bg-amber-500 disabled:opacity-40">
         {pending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
         ابدأ الاكتشاف

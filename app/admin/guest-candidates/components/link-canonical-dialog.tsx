@@ -272,7 +272,7 @@ export function LinkCanonicalDialog({
               {existing && (
                 <div className="rounded-md border bg-muted/40 p-3">
                   <div className="flex items-center gap-2 font-medium">
-                    <CheckCircle2 className="h-4 w-4 text-emerald-600" />
+                    <CheckCircle2 className="h-4 w-4 text-emerald-700" />
                     مرتبط مسبقًا بـ {existing.guest_name ?? "ضيف"}
                   </div>
                   <div className="mt-1 text-muted-foreground">

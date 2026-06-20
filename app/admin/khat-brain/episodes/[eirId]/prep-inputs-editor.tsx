@@ -301,7 +301,7 @@ function FieldRow({
         className="mb-1 inline-flex items-center gap-1.5 text-[10.5px] uppercase tracking-wider text-muted-foreground"
       >
         {label}
-        {required && <span className="text-rose-300">*</span>}
+        {required && <span className="text-rose-700">*</span>}
         {dirty && (
           <span
             className="h-1.5 w-1.5 rounded-full bg-amber-400"
@@ -312,7 +312,7 @@ function FieldRow({
       </label>
       {children}
       {validationError && (
-        <p className="mt-1 text-[10.5px] text-rose-300">{validationError}</p>
+        <p className="mt-1 text-[10.5px] text-rose-700">{validationError}</p>
       )}
     </div>
   )
@@ -354,7 +354,7 @@ function KeyQuestionsList({
           <button
             type="button"
             onClick={() => onChange(value.filter((_, idx) => idx !== i))}
-            className="mt-1 rounded-md p-1 text-muted-foreground hover:bg-rose-500/10 hover:text-rose-300"
+            className="mt-1 rounded-md p-1 text-muted-foreground hover:bg-rose-500/10 hover:text-rose-700"
             title="حذف السؤال"
           >
             <Trash2 className="h-3 w-3" />
@@ -364,7 +364,7 @@ function KeyQuestionsList({
       <button
         type="button"
         onClick={() => onChange([...value, ""])}
-        className="inline-flex items-center gap-1.5 rounded-xl border border-violet-500/40 bg-violet-500/10 px-2.5 py-1 text-[11.5px] text-violet-200 hover:bg-violet-500/20"
+        className="inline-flex items-center gap-1.5 rounded-xl border border-violet-500/40 bg-violet-500/10 px-2.5 py-1 text-[11.5px] text-violet-700 hover:bg-violet-500/20"
       >
         <Plus className="h-3 w-3" />
         إضافة سؤال

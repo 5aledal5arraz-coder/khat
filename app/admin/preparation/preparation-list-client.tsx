@@ -31,11 +31,11 @@ import type {
 } from "@/types/preparation"
 
 const STATUS_LABELS: Record<PreparationStatus, { label: string; bg: string; text: string }> = {
-  draft: { label: "مسودة", bg: "bg-neutral-500/10", text: "text-neutral-400" },
-  researched: { label: "تم البحث", bg: "bg-sky-500/10", text: "text-sky-400" },
-  prepared: { label: "جاهز للمراجعة", bg: "bg-violet-500/10", text: "text-violet-400" },
-  reviewed: { label: "تمت المراجعة", bg: "bg-amber-500/10", text: "text-amber-400" },
-  approved: { label: "معتمدة", bg: "bg-emerald-500/10", text: "text-emerald-400" },
+  draft: { label: "مسودة", bg: "bg-neutral-500/10", text: "text-neutral-700" },
+  researched: { label: "تم البحث", bg: "bg-sky-500/10", text: "text-sky-700" },
+  prepared: { label: "جاهز للمراجعة", bg: "bg-violet-500/10", text: "text-violet-700" },
+  reviewed: { label: "تمت المراجعة", bg: "bg-amber-500/10", text: "text-amber-700" },
+  approved: { label: "معتمدة", bg: "bg-emerald-500/10", text: "text-emerald-700" },
 }
 
 type WizardStep = "inputs" | "candidates" | "confirm"
@@ -259,7 +259,7 @@ export function PreparationListClient({ initialItems }: Props) {
       {/* Header */}
       <div className="flex items-start justify-between gap-4">
         <div>
-          <div className="mb-2 inline-flex items-center gap-2 rounded-full border border-violet-500/20 bg-violet-500/5 px-3 py-1 text-[11px] font-medium text-violet-300">
+          <div className="mb-2 inline-flex items-center gap-2 rounded-full border border-violet-500/20 bg-violet-500/5 px-3 py-1 text-[11px] font-medium text-violet-700">
             <Sparkles className="h-3 w-3" />
             استوديو إعداد الحلقات
           </div>
@@ -300,7 +300,7 @@ export function PreparationListClient({ initialItems }: Props) {
       {/* List */}
       {items.length === 0 ? (
         <div className="rounded-2xl border border-dashed border-border/40 bg-card/30 p-12 text-center">
-          <Mic className="mx-auto h-8 w-8 text-muted-foreground/50" />
+          <Mic className="mx-auto h-8 w-8 text-muted-foreground" />
           <p className="mt-3 font-medium">لا توجد جلسات إعداد بعد</p>
           <p className="mt-1 text-xs text-muted-foreground">
             ابدأ بإنشاء جلسة جديدة لتحضير حلقة قادمة
@@ -337,14 +337,14 @@ export function PreparationListClient({ initialItems }: Props) {
                 </div>
 
                 {item.archived_at && (
-                  <div className="mb-3 inline-flex items-center gap-1.5 rounded-md border border-neutral-500/30 bg-neutral-500/5 px-2 py-1 text-[10px] text-neutral-400">
+                  <div className="mb-3 inline-flex items-center gap-1.5 rounded-md border border-neutral-500/30 bg-neutral-500/5 px-2 py-1 text-[10px] text-neutral-700">
                     <Archive className="h-3 w-3" />
                     مؤرشف
                   </div>
                 )}
 
                 {missingIdentity && (
-                  <div className="mb-3 inline-flex items-center gap-1.5 rounded-md border border-amber-500/30 bg-amber-500/5 px-2 py-1 text-[10px] text-amber-400">
+                  <div className="mb-3 inline-flex items-center gap-1.5 rounded-md border border-amber-500/30 bg-amber-500/5 px-2 py-1 text-[10px] text-amber-700">
                     <AlertTriangle className="h-3 w-3" />
                     هوية الضيف غير مؤكدة
                   </div>
@@ -359,7 +359,7 @@ export function PreparationListClient({ initialItems }: Props) {
                 </div>
 
                 <div className="mt-4 flex items-center justify-between">
-                  <div className="inline-flex items-center gap-1 text-[11px] text-violet-400 opacity-0 transition-opacity group-hover:opacity-100">
+                  <div className="inline-flex items-center gap-1 text-[11px] text-violet-700 opacity-0 transition-opacity group-hover:opacity-100">
                     فتح الجلسة
                     <ArrowLeft className="h-3 w-3" />
                   </div>
@@ -370,7 +370,7 @@ export function PreparationListClient({ initialItems }: Props) {
                         onClick={(e) => handleRestore(item.id, e)}
                         disabled={actionBusy === item.id}
                         title="استرجاع"
-                        className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-emerald-500/10 hover:text-emerald-400"
+                        className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-emerald-500/10 hover:text-emerald-700"
                       >
                         {actionBusy === item.id ? (
                           <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -384,7 +384,7 @@ export function PreparationListClient({ initialItems }: Props) {
                         onClick={(e) => handleArchive(item.id, e)}
                         disabled={actionBusy === item.id}
                         title="أرشفة"
-                        className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-amber-500/10 hover:text-amber-400"
+                        className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-amber-500/10 hover:text-amber-700"
                       >
                         {actionBusy === item.id ? (
                           <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -402,7 +402,7 @@ export function PreparationListClient({ initialItems }: Props) {
                       }}
                       disabled={actionBusy === item.id}
                       title="حذف"
-                      className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-rose-500/10 hover:text-rose-400"
+                      className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-rose-500/10 hover:text-rose-700"
                     >
                       <Trash2 className="h-3.5 w-3.5" />
                     </button>
@@ -420,7 +420,7 @@ export function PreparationListClient({ initialItems }: Props) {
           <div className="w-full max-w-sm rounded-2xl border border-border bg-card p-6 shadow-2xl">
             <div className="mb-4 flex items-center gap-3">
               <div className="flex h-10 w-10 items-center justify-center rounded-full bg-rose-500/10">
-                <Trash2 className="h-5 w-5 text-rose-400" />
+                <Trash2 className="h-5 w-5 text-rose-700" />
               </div>
               <div>
                 <h3 className="text-sm font-bold">حذف الإعداد</h3>
@@ -504,7 +504,7 @@ export function PreparationListClient({ initialItems }: Props) {
                 <>
                   <div>
                     <label className="mb-1.5 block text-xs font-semibold">
-                      عنوان الحلقة <span className="text-rose-500">*</span>
+                      عنوان الحلقة <span className="text-rose-700">*</span>
                     </label>
                     <input
                       type="text"
@@ -518,7 +518,7 @@ export function PreparationListClient({ initialItems }: Props) {
 
                   <div>
                     <label className="mb-1.5 block text-xs font-semibold">
-                      اسم الضيف <span className="text-rose-500">*</span>
+                      اسم الضيف <span className="text-rose-700">*</span>
                     </label>
                     <input
                       type="text"
@@ -531,7 +531,7 @@ export function PreparationListClient({ initialItems }: Props) {
 
                   <div>
                     <label className="mb-1.5 block text-xs font-semibold">
-                      وصف الضيف <span className="text-rose-500">*</span>
+                      وصف الضيف <span className="text-rose-700">*</span>
                     </label>
                     <textarea
                       value={guestDescription}
@@ -560,7 +560,7 @@ export function PreparationListClient({ initialItems }: Props) {
                   </div>
 
                   {error && (
-                    <div className="rounded-lg border border-rose-500/20 bg-rose-500/10 p-2.5 text-xs text-rose-400">
+                    <div className="rounded-lg border border-rose-500/20 bg-rose-500/10 p-2.5 text-xs text-rose-700">
                       {error}
                     </div>
                   )}
@@ -595,13 +595,13 @@ export function PreparationListClient({ initialItems }: Props) {
               {/* ─── Step 2: Candidates ──────────────────────────────── */}
               {step === "candidates" && (
                 <>
-                  <div className="rounded-lg border border-violet-500/20 bg-violet-500/5 p-3 text-xs text-violet-300">
+                  <div className="rounded-lg border border-violet-500/20 bg-violet-500/5 p-3 text-xs text-violet-700">
                     تم العثور على {candidates.length} مرشح{candidates.length === 1 ? "" : "ين"}.
                     اختر الشخص الصحيح من القائمة أدناه. إذا لم يكن أي منهم صحيحاً، ارجع لتعديل الوصف.
                   </div>
 
                   {searchWarning && (
-                    <div className="inline-flex items-start gap-2 rounded-lg border border-amber-500/20 bg-amber-500/5 p-2.5 text-[11px] text-amber-400">
+                    <div className="inline-flex items-start gap-2 rounded-lg border border-amber-500/20 bg-amber-500/5 p-2.5 text-[11px] text-amber-700">
                       <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
                       <span>{searchWarning}</span>
                     </div>
@@ -640,7 +640,7 @@ export function PreparationListClient({ initialItems }: Props) {
                               <div className="flex items-center gap-2">
                                 <h3 className="truncate text-sm font-bold">{c.name}</h3>
                                 {selected && (
-                                  <Check className="h-4 w-4 shrink-0 text-violet-400" />
+                                  <Check className="h-4 w-4 shrink-0 text-violet-700" />
                                 )}
                               </div>
                               <p className="mt-1 line-clamp-2 text-[11px] text-muted-foreground">
@@ -657,7 +657,7 @@ export function PreparationListClient({ initialItems }: Props) {
                                   target="_blank"
                                   rel="noreferrer"
                                   onClick={(e) => e.stopPropagation()}
-                                  className="inline-flex items-center gap-0.5 text-violet-400 hover:underline"
+                                  className="inline-flex items-center gap-0.5 text-violet-700 hover:underline"
                                 >
                                   <ExternalLink className="h-3 w-3" />
                                 </a>
@@ -670,7 +670,7 @@ export function PreparationListClient({ initialItems }: Props) {
                   </div>
 
                   {error && (
-                    <div className="rounded-lg border border-rose-500/20 bg-rose-500/10 p-2.5 text-xs text-rose-400">
+                    <div className="rounded-lg border border-rose-500/20 bg-rose-500/10 p-2.5 text-xs text-rose-700">
                       {error}
                     </div>
                   )}
@@ -711,7 +711,7 @@ export function PreparationListClient({ initialItems }: Props) {
                     return (
                       <>
                         <div className="rounded-2xl border border-violet-500/30 bg-violet-500/5 p-5">
-                          <div className="mb-3 text-center text-sm font-semibold text-violet-300">
+                          <div className="mb-3 text-center text-sm font-semibold text-violet-700">
                             هل هذا هو الشخص الصحيح؟
                           </div>
                           <div className="flex items-start gap-4">
@@ -736,7 +736,7 @@ export function PreparationListClient({ initialItems }: Props) {
                                 href={picked.source_url}
                                 target="_blank"
                                 rel="noreferrer"
-                                className="mt-3 inline-flex items-center gap-1.5 rounded-md border border-border/60 px-2 py-1 text-[11px] text-violet-400 hover:bg-muted/20"
+                                className="mt-3 inline-flex items-center gap-1.5 rounded-md border border-border/60 px-2 py-1 text-[11px] text-violet-700 hover:bg-muted/20"
                                 dir="ltr"
                               >
                                 <ProviderIcon className="h-3 w-3" />
@@ -754,7 +754,7 @@ export function PreparationListClient({ initialItems }: Props) {
                         </div>
 
                         {error && (
-                          <div className="rounded-lg border border-rose-500/20 bg-rose-500/10 p-2.5 text-xs text-rose-400">
+                          <div className="rounded-lg border border-rose-500/20 bg-rose-500/10 p-2.5 text-xs text-rose-700">
                             {error}
                           </div>
                         )}

@@ -67,7 +67,7 @@ export function BulkConvertButton({
     <div className="rounded-2xl border border-violet-500/20 bg-violet-500/5 p-3">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="min-w-0 flex-1">
-          <div className="mb-0.5 text-[12px] font-semibold text-violet-200">
+          <div className="mb-0.5 text-[12px] font-semibold text-violet-700">
             تحويل الحلقات المعتمدة إلى الإعداد
           </div>
           <p className="text-[11px] leading-relaxed text-foreground/80">
@@ -89,7 +89,7 @@ export function BulkConvertButton({
               ? "لا توجد حلقات قابلة للتحويل — جميع الحلقات بدون ضيف مرتبط."
               : undefined
           }
-          className="inline-flex items-center gap-1.5 rounded-xl border border-violet-500/40 bg-violet-500/10 px-3 py-1.5 text-[12px] font-medium text-violet-200 hover:bg-violet-500/20 disabled:cursor-not-allowed disabled:opacity-50"
+          className="inline-flex items-center gap-1.5 rounded-xl border border-violet-500/40 bg-violet-500/10 px-3 py-1.5 text-[12px] font-medium text-violet-700 hover:bg-violet-500/20 disabled:cursor-not-allowed disabled:opacity-50"
         >
           {pending ? (
             <>
@@ -107,7 +107,7 @@ export function BulkConvertButton({
 
       {blocked > 0 && (
         <div className="mt-3 rounded-xl border border-amber-500/30 bg-amber-500/5 p-2.5">
-          <div className="mb-1 inline-flex items-center gap-1.5 text-[11px] font-semibold text-amber-300">
+          <div className="mb-1 inline-flex items-center gap-1.5 text-[11px] font-semibold text-amber-700">
             <AlertTriangle className="h-3 w-3" /> محجوب — بدون ضيف ({blocked})
           </div>
           <ul className="space-y-0.5 text-[11px] text-foreground/85">
@@ -121,7 +121,7 @@ export function BulkConvertButton({
               </li>
             ))}
             {blockedItems.length > 6 && (
-              <li className="text-muted-foreground/70">
+              <li className="text-muted-foreground">
                 + {blockedItems.length - 6} حلقة أخرى…
               </li>
             )}
@@ -145,15 +145,15 @@ export function BulkConvertButton({
                   className="flex items-center gap-2 rounded-lg border border-border/30 bg-background/30 px-2 py-1"
                 >
                   {c.status === "converted" ? (
-                    <CheckCircle2 className="h-3 w-3 shrink-0 text-emerald-400" />
+                    <CheckCircle2 className="h-3 w-3 shrink-0 text-emerald-700" />
                   ) : c.status === "skipped_existing" ? (
                     <CheckCircle2 className="h-3 w-3 shrink-0 text-muted-foreground" />
                   ) : (
-                    <XCircle className="h-3 w-3 shrink-0 text-rose-400" />
+                    <XCircle className="h-3 w-3 shrink-0 text-rose-700" />
                   )}
                   <span className="min-w-0 flex-1 truncate">{c.title}</span>
                   {c.reason && (
-                    <span className="text-[10px] text-rose-300" dir="ltr">
+                    <span className="text-[10px] text-rose-700" dir="ltr">
                       {c.reason}
                     </span>
                   )}

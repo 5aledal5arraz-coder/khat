@@ -588,17 +588,17 @@ export function WizardClient({
         )}
 
         {error && (
-          <div className="mt-4 rounded-xl border border-rose-500/30 bg-rose-500/5 p-3 text-[12px] text-rose-400">
+          <div className="mt-4 rounded-xl border border-rose-500/30 bg-rose-500/5 p-3 text-[12px] text-rose-700">
             {error}
           </div>
         )}
 
         {strictExhausted && (
           <div className="mt-4 rounded-2xl border border-amber-500/30 bg-amber-500/10 p-4">
-            <div className="text-[11px] font-semibold uppercase tracking-[0.15em] text-amber-400">
+            <div className="text-[11px] font-semibold uppercase tracking-[0.15em] text-amber-700">
               بنك الزوايا نفد
             </div>
-            <p className="mt-1 text-[12.5px] leading-relaxed text-amber-200/90">
+            <p className="mt-1 text-[12.5px] leading-relaxed text-amber-700/90">
               {strictExhausted}
             </p>
             <div className="mt-3 flex items-center gap-2">
@@ -616,7 +616,7 @@ export function WizardClient({
               <button
                 type="button"
                 onClick={() => setStrictExhausted(null)}
-                className="rounded-lg px-3 py-1.5 text-[12px] text-amber-300/80 hover:text-amber-200"
+                className="rounded-lg px-3 py-1.5 text-[12px] text-amber-700/80 hover:text-amber-700"
               >
                 إخفاء
               </button>
@@ -659,7 +659,7 @@ export function WizardClient({
 
             {accepted.length === 0 ? (
               <div className="rounded-2xl border border-dashed border-border/50 bg-card/20 p-8 text-center">
-                <Hand className="mx-auto h-6 w-6 text-muted-foreground/60" />
+                <Hand className="mx-auto h-6 w-6 text-muted-foreground" />
                 <h3 className="mt-3 text-base font-semibold">الوضع اليدوي</h3>
                 <p className="mt-1 text-[12px] leading-relaxed text-muted-foreground">
                   أنت تقود الموسم. اضغط «أضف موضوعاً» لبناء حلقاتك واحدةً تلو
@@ -698,7 +698,7 @@ export function WizardClient({
                       type="button"
                       onClick={() => handleManualRemove(p.topic.id)}
                       disabled={topicRemovePending && removingId === p.topic.id}
-                      className="rounded-md p-1.5 text-muted-foreground hover:bg-rose-500/10 hover:text-rose-400 disabled:opacity-50"
+                      className="rounded-md p-1.5 text-muted-foreground hover:bg-rose-500/10 hover:text-rose-700 disabled:opacity-50"
                       title="حذف"
                     >
                       {topicRemovePending && removingId === p.topic.id ? (

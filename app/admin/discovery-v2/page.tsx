@@ -24,7 +24,7 @@ export default async function DiscoveryV2Page() {
     <div className="mx-auto max-w-4xl space-y-5 p-4 pb-16" dir="rtl">
       <div className="flex items-center justify-between">
         <div>
-          <div className="mb-1 inline-flex items-center gap-1.5 rounded-full border border-violet-500/40 bg-violet-500/10 px-2 py-0.5 text-[11px] font-medium text-violet-200">
+          <div className="mb-1 inline-flex items-center gap-1.5 rounded-full border border-violet-500/40 bg-violet-500/10 px-2 py-0.5 text-[11px] font-medium text-violet-700">
             <Compass className="h-3 w-3" /> اكتشاف الضيوف — v2
           </div>
           <h1 className="text-2xl font-bold">اكتشاف مرجعيّ موثوق</h1>
@@ -48,11 +48,11 @@ export default async function DiscoveryV2Page() {
             <div key={s.id} className="flex items-center justify-between gap-2 text-[11.5px]">
               <span className="text-foreground/85">{s.label}</span>
               {s.configured ? (
-                <span className="inline-flex items-center gap-1 text-emerald-300/90"><CheckCircle2 className="h-3 w-3" /> فعّال{s.keyless ? " (بلا مفتاح)" : ""}</span>
+                <span className="inline-flex items-center gap-1 text-emerald-700/90"><CheckCircle2 className="h-3 w-3" /> فعّال{s.keyless ? " (بلا مفتاح)" : ""}</span>
               ) : s.test ? (
-                <span className="inline-flex items-center gap-1 text-sky-300/80" title={s.note}><AlertTriangle className="h-3 w-3" /> تجريبي</span>
+                <span className="inline-flex items-center gap-1 text-sky-700/80" title={s.note}><AlertTriangle className="h-3 w-3" /> تجريبي</span>
               ) : (
-                <span className="inline-flex items-center gap-1 text-amber-300/80" title={s.note}><AlertTriangle className="h-3 w-3" /> غير مضبوط</span>
+                <span className="inline-flex items-center gap-1 text-amber-700/80" title={s.note}><AlertTriangle className="h-3 w-3" /> غير مضبوط</span>
               )}
             </div>
           ))}

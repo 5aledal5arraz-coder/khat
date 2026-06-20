@@ -52,7 +52,7 @@ export function PerformanceTab({
             size="md"
           />
         </div>
-        <p className="mt-3 text-[10.5px] text-muted-foreground/70">
+        <p className="mt-3 text-[10.5px] text-muted-foreground">
           بعد دورة العامل ستظهر اللقطة الأولى تلقائياً هنا.
         </p>
       </div>
@@ -84,7 +84,7 @@ export function PerformanceTab({
         <SignalCard signal={perf.signal} />
       ) : (
         <div className="rounded-2xl border border-amber-500/30 bg-amber-500/5 p-4">
-          <div className="mb-1 inline-flex items-center gap-1.5 text-[11px] font-semibold text-amber-300">
+          <div className="mb-1 inline-flex items-center gap-1.5 text-[11px] font-semibold text-amber-700">
             <AlertTriangle className="h-3 w-3" /> لقطات بدون تحليل
           </div>
           <p className="text-[11.5px] leading-relaxed text-foreground/85">
@@ -128,7 +128,7 @@ export function PerformanceTab({
             <Mini label="عدد اللقطات" value={String(perf.snapshot_count)} />
           </div>
           <div
-            className="mt-2 text-[10.5px] text-muted-foreground/70"
+            className="mt-2 text-[10.5px] text-muted-foreground"
             dir="rtl"
           >
             المصدر: {perf.latest_snapshot.source} · بتاريخ{" "}
@@ -142,7 +142,7 @@ export function PerformanceTab({
         <Activity className="me-1 inline h-3 w-3" />
         التقرير الموسمي الكامل متاح في «الأداء والتعلّم» من القائمة.
         {episodeId && (
-          <span dir="ltr" className="ms-1 text-muted-foreground/60">
+          <span dir="ltr" className="ms-1 text-muted-foreground">
             episode_id={episodeId.slice(0, 8)}
           </span>
         )}
@@ -203,7 +203,7 @@ function SignalCard({
           ))}
         </ul>
       )}
-      <div className="mt-2 text-[10.5px] text-muted-foreground/70" dir="ltr">
+      <div className="mt-2 text-[10.5px] text-muted-foreground" dir="ltr">
         calculated {formatDateTime(signal.calculated_at.toISOString())}
       </div>
     </div>
@@ -213,7 +213,7 @@ function SignalCard({
 function Mini({ label, value }: { label: string; value: string }) {
   return (
     <div className="rounded-xl border border-border/30 bg-background/40 p-2.5">
-      <div className="text-[9.5px] uppercase tracking-wider text-muted-foreground/70">
+      <div className="text-[9.5px] uppercase tracking-wider text-muted-foreground">
         {label}
       </div>
       <div className="text-[14px] font-semibold tabular-nums" dir="ltr">

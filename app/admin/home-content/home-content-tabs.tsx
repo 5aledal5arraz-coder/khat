@@ -182,8 +182,8 @@ function ModeToggle({
     >
       {mode === "auto" ? (
         <>
-          <ToggleRight className="h-4 w-4 text-green-400" />
-          <span className="text-green-400">تلقائي</span>
+          <ToggleRight className="h-4 w-4 text-green-700" />
+          <span className="text-green-700">تلقائي</span>
         </>
       ) : (
         <>
@@ -391,7 +391,7 @@ function FeaturedTab({
                     {displayQuote && <p className="text-sm italic text-muted-foreground">&ldquo;{displayQuote}&rdquo;</p>}
                     {displayDesc && <p className="text-xs text-muted-foreground">{displayDesc}</p>}
                     {!displayQuote && !displayDesc && (
-                      <p className="text-xs text-muted-foreground/50">لا يوجد محتوى بعد — اضغط &ldquo;تعديل&rdquo; لإضافة محتوى مخصص</p>
+                      <p className="text-xs text-muted-foreground">لا يوجد محتوى بعد — اضغط &ldquo;تعديل&rdquo; لإضافة محتوى مخصص</p>
                     )}
                   </div>
                 )}
@@ -614,7 +614,7 @@ function ThinkersTab({
                     {displayTitle && <p className="text-xs font-bold tracking-wider text-primary">{displayTitle}</p>}
                     {displayDesc && <p className="text-xs text-muted-foreground">{displayDesc}</p>}
                     {!displayTitle && !displayDesc && (
-                      <p className="text-xs text-muted-foreground/50">لا يوجد محتوى بعد — اضغط &ldquo;تعديل&rdquo; لإضافة محتوى مخصص</p>
+                      <p className="text-xs text-muted-foreground">لا يوجد محتوى بعد — اضغط &ldquo;تعديل&rdquo; لإضافة محتوى مخصص</p>
                     )}
                   </div>
                 )}

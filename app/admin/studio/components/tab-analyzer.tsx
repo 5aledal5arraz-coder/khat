@@ -62,7 +62,7 @@ function CopyBtn({ text }: { text: string }) {
       className="flex h-7 w-7 items-center justify-center rounded-md hover:bg-muted transition-colors shrink-0"
       title="نسخ"
     >
-      {copied ? <Check className="h-3.5 w-3.5 text-green-500" /> : <Copy className="h-3.5 w-3.5 text-muted-foreground" />}
+      {copied ? <Check className="h-3.5 w-3.5 text-green-700" /> : <Copy className="h-3.5 w-3.5 text-muted-foreground" />}
     </button>
   )
 }
@@ -124,7 +124,7 @@ export function TabAnalyzer() {
       <div className="rounded-xl border border-border/30 bg-card/50 p-6 space-y-5">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <BarChart3 className="h-5 w-5 text-amber-500" />
+            <BarChart3 className="h-5 w-5 text-amber-700" />
             <h2 className="text-[13px] font-semibold">تحليل الأداء</h2>
           </div>
           <span className={cn("rounded-md px-2.5 py-0.5 text-[11px] font-medium", statusInfo.className)}>
@@ -149,7 +149,7 @@ export function TabAnalyzer() {
 
         {analyzerStatus === "generating" && (
           <div className="flex flex-col items-center gap-3 py-10">
-            <Loader2 className="h-6 w-6 animate-spin text-amber-500" />
+            <Loader2 className="h-6 w-6 animate-spin text-amber-700" />
             <span className="text-sm text-muted-foreground">جارٍ تحليل الأداء وتوليد التقرير...</span>
           </div>
         )}
@@ -157,8 +157,8 @@ export function TabAnalyzer() {
         {analyzerStatus === "error" && (
           <div className="space-y-4">
             <div className="flex items-start gap-2 rounded-lg border border-red-500/20 bg-red-500/5 p-3">
-              <AlertCircle className="h-4 w-4 shrink-0 text-red-500 mt-0.5" />
-              <p className="text-sm text-red-600 dark:text-red-400">{analyzerError}</p>
+              <AlertCircle className="h-4 w-4 shrink-0 text-red-700 mt-0.5" />
+              <p className="text-sm text-red-700 dark:text-red-400">{analyzerError}</p>
             </div>
             <Button variant="outline" onClick={generateAnalyzer} className="gap-2">
               <RefreshCw className="h-4 w-4" />
@@ -172,13 +172,13 @@ export function TabAnalyzer() {
             {/* Copy all + regenerate */}
             <div className="flex flex-wrap items-center gap-2">
               <Button variant="outline" size="sm" onClick={handleCopyAll} className="gap-1.5">
-                {copiedAll ? <Check className="h-3.5 w-3.5 text-green-500" /> : <Copy className="h-3.5 w-3.5" />}
+                {copiedAll ? <Check className="h-3.5 w-3.5 text-green-700" /> : <Copy className="h-3.5 w-3.5" />}
                 {copiedAll ? "تم النسخ" : "نسخ التقرير كاملاً"}
               </Button>
             </div>
 
             {/* Section 1: Diagnosis */}
-            <Section icon={Stethoscope} title="تشخيص الأداء" iconColor="text-blue-500">
+            <Section icon={Stethoscope} title="تشخيص الأداء" iconColor="text-blue-700">
               <div className="space-y-3">
                 <div className="flex items-center gap-2">
                   <span className={cn(
@@ -196,7 +196,7 @@ export function TabAnalyzer() {
             </Section>
 
             {/* Section 2: Improvements */}
-            <Section icon={Lightbulb} title="اقتراحات التحسين" iconColor="text-yellow-500">
+            <Section icon={Lightbulb} title="اقتراحات التحسين" iconColor="text-yellow-700">
               <div className="space-y-4">
                 {/* Alt titles */}
                 {data.improvements.alt_titles.length > 0 && (
@@ -278,7 +278,7 @@ export function TabAnalyzer() {
             </Section>
 
             {/* Section 3: Revival */}
-            <Section icon={Rocket} title="خطة الإنعاش" iconColor="text-green-500">
+            <Section icon={Rocket} title="خطة الإنعاش" iconColor="text-green-700">
               <div className="space-y-2">
                 <div className="flex justify-end">
                   <CopyBtn text={data.revival.steps.map(s => `${s.order}. ${s.action}: ${s.detail}`).join("\n")} />
@@ -301,7 +301,7 @@ export function TabAnalyzer() {
 
             {/* Section 4: Clips */}
             {data.clips.length > 0 && (
-              <Section icon={Scissors} title="مقاطع قصيرة مقترحة" iconColor="text-purple-500" defaultOpen={false}>
+              <Section icon={Scissors} title="مقاطع قصيرة مقترحة" iconColor="text-purple-700" defaultOpen={false}>
                 <div className="space-y-3">
                   {data.clips.map((clip, idx) => (
                     <div key={idx} className="rounded-lg border p-3 space-y-2">
@@ -319,7 +319,7 @@ export function TabAnalyzer() {
                       <div className="space-y-1" dir="rtl">
                         <p className="text-sm font-medium">{clip.hook_text}</p>
                         <p className="text-sm text-muted-foreground">{clip.caption}</p>
-                        <p className="text-xs text-muted-foreground/70 italic">{clip.why_it_works}</p>
+                        <p className="text-xs text-muted-foreground italic">{clip.why_it_works}</p>
                       </div>
                     </div>
                   ))}

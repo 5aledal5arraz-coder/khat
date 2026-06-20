@@ -62,7 +62,7 @@ export function RssSyncClient({ initialStatus }: Props) {
           className={cn(
             "flex items-center gap-2 rounded-lg px-4 py-2.5 text-sm",
             toast.type === "success"
-              ? "bg-emerald-500/10 text-emerald-600"
+              ? "bg-emerald-500/10 text-emerald-700"
               : "bg-destructive/10 text-destructive",
           )}
         >
@@ -106,7 +106,7 @@ export function RssSyncClient({ initialStatus }: Props) {
                   <p className="text-[11px] text-muted-foreground">عناصر RSS</p>
                 </div>
                 <div className="rounded-lg border border-border/20 bg-emerald-500/5 p-3 text-center">
-                  <p className="text-2xl font-bold text-emerald-600">{syncStatus.matched}</p>
+                  <p className="text-2xl font-bold text-emerald-700">{syncStatus.matched}</p>
                   <p className="text-[11px] text-muted-foreground">تم ربطها</p>
                 </div>
                 <div className="rounded-lg border border-border/20 bg-muted/20 p-3 text-center">
@@ -121,19 +121,19 @@ export function RssSyncClient({ initialStatus }: Props) {
 
               <div className="flex items-center gap-2 text-xs text-muted-foreground">
                 {syncStatus.status === "success" ? (
-                  <CheckCircle className="h-3.5 w-3.5 text-emerald-500" />
+                  <CheckCircle className="h-3.5 w-3.5 text-emerald-700" />
                 ) : (
-                  <AlertCircle className="h-3.5 w-3.5 text-amber-500" />
+                  <AlertCircle className="h-3.5 w-3.5 text-amber-700" />
                 )}
                 <span>آخر مزامنة: {formatDateDDMMYYYY(syncStatus.syncedAt)}</span>
                 {syncStatus.message && (
-                  <span className="text-muted-foreground/60">— {syncStatus.message}</span>
+                  <span className="text-muted-foreground">— {syncStatus.message}</span>
                 )}
               </div>
 
               {syncStatus.errors && syncStatus.errors.length > 0 && (
                 <details className="rounded-lg border border-amber-500/20 bg-amber-500/5 p-3">
-                  <summary className="cursor-pointer text-xs font-medium text-amber-600">
+                  <summary className="cursor-pointer text-xs font-medium text-amber-700">
                     {syncStatus.errors.length} أخطاء
                   </summary>
                   <ul className="mt-2 space-y-1 text-xs text-muted-foreground" dir="ltr">

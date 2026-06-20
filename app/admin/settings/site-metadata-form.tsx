@@ -69,7 +69,7 @@ export function SiteMetadataForm({ initial }: { initial: SiteMetadata }) {
             {isPending && <Loader2 className="me-2 h-4 w-4 animate-spin" />}
             حفظ
           </Button>
-          {saved && <span className="text-sm text-green-500">تم الحفظ</span>}
+          {saved && <span className="text-sm text-green-700">تم الحفظ</span>}
         </div>
       </CardContent>
     </Card>

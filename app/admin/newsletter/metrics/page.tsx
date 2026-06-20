@@ -24,7 +24,7 @@ export default async function NewsletterMetricsPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-xl font-bold tracking-tight">إحصائيات النشرة البريدية</h1>
-          <p className="mt-1 text-[13px] text-muted-foreground/60">نظرة عامة على أداء حملاتك</p>
+          <p className="mt-1 text-[13px] text-muted-foreground">نظرة عامة على أداء حملاتك</p>
         </div>
         <Link
           href="/admin/newsletter"
@@ -113,10 +113,10 @@ export default async function NewsletterMetricsPage() {
 
 function RateCard({ label, value, color }: { label: string; value: number; color: string }) {
   const colorMap: Record<string, string> = {
-    green: "text-green-400",
-    blue: "text-blue-400",
-    purple: "text-purple-400",
-    red: "text-red-400",
+    green: "text-green-700",
+    blue: "text-blue-700",
+    purple: "text-purple-700",
+    red: "text-red-700",
   }
   return (
     <div className="rounded-lg border border-border bg-card p-4">

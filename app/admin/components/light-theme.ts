@@ -24,7 +24,10 @@ export const ADMIN_LIGHT_TOKENS = {
   "--secondary": "250 28% 96%",
   "--secondary-foreground": "252 40% 11%",
   "--muted": "250 28% 96%",
-  "--muted-foreground": "250 12% 46%",
+  /* Secondary text. Darkened from 46%→38% L so muted copy clears WCAG AA
+     (~6.7:1 on white) — the old value washed out, especially where callers
+     reduced its opacity further. */
+  "--muted-foreground": "250 14% 38%",
   /* Orange = energy accent */
   "--accent": "22 90% 53%",
   "--accent-foreground": "0 0% 100%",

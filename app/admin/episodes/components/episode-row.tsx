@@ -170,7 +170,7 @@ export function EpisodeRow({
             <button
               onClick={handleSave}
               disabled={saving}
-              className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-green-500/10 text-green-400 hover:bg-green-500/20"
+              className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-green-500/10 text-green-700 hover:bg-green-500/20"
             >
               <Check className="h-3 w-3" />
             </button>
@@ -199,8 +199,8 @@ export function EpisodeRow({
               <span
                 className={`shrink-0 rounded-md px-1.5 py-0.5 text-[10px] font-medium ${
                   quotesEntry.status === "published"
-                    ? "bg-green-500/10 text-green-400"
-                    : "bg-yellow-500/10 text-yellow-400"
+                    ? "bg-green-500/10 text-green-700"
+                    : "bg-yellow-500/10 text-yellow-700"
                 }`}
               >
                 {formatArabicCount(quotesEntry.quotes.length, "اقتباس")}
@@ -221,17 +221,17 @@ export function EpisodeRow({
       </div>
 
       {/* Guest */}
-      <span className="hidden w-28 shrink-0 truncate text-[11px] text-muted-foreground/70 md:block">
+      <span className="hidden w-28 shrink-0 truncate text-[11px] text-muted-foreground md:block">
         {currentGuest?.name || episode.guest_name || "\u2014"}
       </span>
 
       {/* Date */}
-      <span className="hidden w-24 shrink-0 text-[11px] text-muted-foreground/70 md:block">
+      <span className="hidden w-24 shrink-0 text-[11px] text-muted-foreground md:block">
         {formatDate(episode.release_date)}
       </span>
 
       {/* Duration */}
-      <span className="hidden w-16 shrink-0 text-[11px] text-muted-foreground/70 md:block">
+      <span className="hidden w-16 shrink-0 text-[11px] text-muted-foreground md:block">
         {formatDuration(episode.duration_minutes)}
       </span>
 
@@ -282,7 +282,7 @@ export function EpisodeRow({
               )}
               {/* Guest submenu */}
               <div className="my-1 border-t border-border/30" />
-              <div className="px-4 py-1.5 text-[10px] font-medium uppercase tracking-wider text-muted-foreground/50">
+              <div className="px-4 py-1.5 text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
                 الضيف
               </div>
               <MenuItem

@@ -209,10 +209,10 @@ function Chip({
 }) {
   const cls =
     tone === "sky"
-      ? "border-sky-500/30 bg-sky-500/10 text-sky-300"
+      ? "border-sky-500/30 bg-sky-500/10 text-sky-700"
       : tone === "pink"
-        ? "border-pink-500/30 bg-pink-500/10 text-pink-300"
-        : "border-amber-500/30 bg-amber-500/10 text-amber-300"
+        ? "border-pink-500/30 bg-pink-500/10 text-pink-700"
+        : "border-amber-500/30 bg-amber-500/10 text-amber-700"
   return (
     <span className={"rounded-md border px-1.5 py-0.5 text-[10px] font-semibold " + cls}>
       {label}

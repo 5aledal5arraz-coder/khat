@@ -237,7 +237,7 @@ export function DetailOverview({
                 {displayTitle}
               </h2>
               {hasOverride && (
-                <p className="mt-1 text-xs text-muted-foreground/50">
+                <p className="mt-1 text-xs text-muted-foreground">
                   الأصلي: {originalTitle}
                 </p>
               )}
@@ -275,7 +275,7 @@ export function DetailOverview({
                 }}
                 placeholder="أضف وصفاً للحلقة..."
                 dir="auto"
-                className="w-full resize-none rounded-xl border border-primary/30 bg-primary/5 px-4 py-3 text-sm leading-relaxed text-foreground placeholder:text-muted-foreground/50 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary/30"
+                className="w-full resize-none rounded-xl border border-primary/30 bg-primary/5 px-4 py-3 text-sm leading-relaxed text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary/30"
                 rows={4}
               />
               <div className="flex items-center gap-2">
@@ -306,7 +306,7 @@ export function DetailOverview({
               {displayDescription}
             </p>
           ) : (
-            <p className="text-sm italic text-muted-foreground/50">
+            <p className="text-sm italic text-muted-foreground">
               لا يوجد وصف لهذه الحلقة
             </p>
           )}
@@ -347,7 +347,7 @@ export function DetailOverview({
                     المعرّف
                   </div>
                   <span
-                    className="max-w-[140px] truncate text-xs font-mono text-muted-foreground/70"
+                    className="max-w-[140px] truncate text-xs font-mono text-muted-foreground"
                     title={episode.id}
                   >
                     {episode.id}
@@ -469,7 +469,7 @@ export function DetailOverview({
                     مخفي
                   </span>
                 ) : (
-                  <span className="rounded-full bg-green-500/10 px-3 py-1 text-xs font-semibold text-green-400 ring-1 ring-green-500/20">
+                  <span className="rounded-full bg-green-500/10 px-3 py-1 text-xs font-semibold text-green-700 ring-1 ring-green-500/20">
                     مرئي
                   </span>
                 )}

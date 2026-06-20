@@ -144,7 +144,7 @@ export function DiffPreviewModal({
                   </div>
                 </div>
                 <div className="space-y-1">
-                  <span className="text-[10px] text-emerald-600 dark:text-emerald-400 uppercase tracking-wide">الجديد</span>
+                  <span className="text-[10px] text-emerald-700 dark:text-emerald-400 uppercase tracking-wide">الجديد</span>
                   <div className="rounded-md bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-900 p-2.5 text-xs leading-relaxed whitespace-pre-wrap min-h-[3rem] max-h-32 overflow-y-auto" dir="rtl">
                     {row.newValue}
                   </div>

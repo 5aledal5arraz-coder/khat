@@ -72,7 +72,7 @@ export function EpisodeDetail({
         </div>
         <div className="flex items-center gap-2">
           {isHidden && (
-            <span className="rounded-md bg-muted/60 px-2 py-0.5 text-[11px] font-medium text-muted-foreground/70">
+            <span className="rounded-md bg-muted/60 px-2 py-0.5 text-[11px] font-medium text-muted-foreground">
               مخفي
             </span>
           )}
@@ -107,8 +107,8 @@ export function EpisodeDetail({
                     isActive
                       ? "bg-primary/20 text-primary"
                       : quotesEntry.status === "published"
-                      ? "bg-green-500/10 text-green-400"
-                      : "bg-yellow-500/10 text-yellow-400"
+                      ? "bg-green-500/10 text-green-700"
+                      : "bg-yellow-500/10 text-yellow-700"
                   }`}
                 >
                   {quotesEntry.quotes.length}
@@ -117,7 +117,7 @@ export function EpisodeDetail({
               {tab.id === "youtube-pack" && youtubePackEntry && (
                 <span
                   className={`rounded-md px-1.5 py-0.5 text-[10px] font-medium ${
-                    isActive ? "bg-primary/20 text-primary" : "bg-red-500/10 text-red-400"
+                    isActive ? "bg-primary/20 text-primary" : "bg-red-500/10 text-red-700"
                   }`}
                 >
                   {youtubePackEntry.sections.length}

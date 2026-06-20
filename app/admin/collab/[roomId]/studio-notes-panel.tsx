@@ -19,8 +19,8 @@ import {
 
 const NOTE_TYPES: { value: CardNoteType; label: string; icon: typeof Send; activeClass: string }[] = [
   { value: "normal", label: "عادي", icon: Send, activeClass: "bg-primary/20 text-primary" },
-  { value: "urgent", label: "عاجل", icon: AlertTriangle, activeClass: "bg-red-500/20 text-red-400" },
-  { value: "tactical", label: "تكتيكي", icon: Flame, activeClass: "bg-amber-500/20 text-amber-400" },
+  { value: "urgent", label: "عاجل", icon: AlertTriangle, activeClass: "bg-red-500/20 text-red-700" },
+  { value: "tactical", label: "تكتيكي", icon: Flame, activeClass: "bg-amber-500/20 text-amber-700" },
 ]
 
 export function StudioNotesPanel() {
@@ -79,7 +79,7 @@ export function StudioNotesPanel() {
                   "rounded-md p-1.5 text-xs transition-colors",
                   noteType === t.value
                     ? t.activeClass
-                    : "text-muted-foreground/40 hover:text-muted-foreground",
+                    : "text-muted-foreground hover:text-muted-foreground",
                 )}
                 title={t.label}
               >
@@ -133,9 +133,9 @@ function NoteRow({
       className={cn(
         "flex items-start gap-2 rounded-lg px-3 py-2 text-sm",
         isUrgent
-          ? "border border-red-500/30 bg-red-500/5 text-red-300"
+          ? "border border-red-500/30 bg-red-500/5 text-red-700"
           : isTactical
-            ? "border border-amber-500/20 bg-amber-500/5 text-amber-300"
+            ? "border border-amber-500/20 bg-amber-500/5 text-amber-700"
             : "bg-muted/10 text-muted-foreground",
       )}
     >
@@ -144,7 +144,7 @@ function NoteRow({
       ) : isTactical ? (
         <Flame className="mt-0.5 h-3.5 w-3.5 shrink-0" />
       ) : (
-        <MessageCircle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-muted-foreground/40" />
+        <MessageCircle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-muted-foreground" />
       )}
 
       <span className="min-w-0 flex-1">{note.content}</span>
@@ -161,7 +161,7 @@ function NoteRow({
       )}
 
       {note.is_seen_by_host && (
-        <CheckCircle2 className="h-3 w-3 shrink-0 text-emerald-400/40" />
+        <CheckCircle2 className="h-3 w-3 shrink-0 text-emerald-700/40" />
       )}
     </div>
   )

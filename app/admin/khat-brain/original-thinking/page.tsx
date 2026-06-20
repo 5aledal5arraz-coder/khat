@@ -33,7 +33,7 @@ export default async function OriginalThinkingPage() {
     <div className="mx-auto max-w-6xl space-y-8 p-6">
       {/* ── Hero ─────────────────────────────────────────────────── */}
       <div className="rounded-3xl border border-violet-500/20 bg-gradient-to-br from-violet-500/5 via-primary/5 to-transparent p-6">
-        <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-violet-500/30 bg-violet-500/5 px-3 py-1 text-[11px] font-medium text-violet-300">
+        <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-violet-500/30 bg-violet-500/5 px-3 py-1 text-[11px] font-medium text-violet-700">
           <Sparkles className="h-3 w-3" />
           ضمير التحرير — Khat Brain
         </div>
@@ -60,7 +60,7 @@ export default async function OriginalThinkingPage() {
           >
             <button
               type="submit"
-              className="rounded-xl border border-violet-500/30 bg-violet-500/10 px-4 py-2 text-[12px] font-medium text-violet-200 hover:bg-violet-500/20"
+              className="rounded-xl border border-violet-500/30 bg-violet-500/10 px-4 py-2 text-[12px] font-medium text-violet-700 hover:bg-violet-500/20"
             >
               إنشاء ١٠ مواضيع جديدة (عربي)
             </button>
@@ -178,19 +178,19 @@ function TopicCard({
       <div className="flex items-start justify-between gap-3">
         <div className="flex-1">
           <div className="mb-1 flex flex-wrap items-center gap-2">
-            <span className="text-[10px] uppercase tracking-wider text-violet-300/70" dir="ltr">
+            <span className="text-[10px] uppercase tracking-wider text-violet-700/70" dir="ltr">
               {lensName}
             </span>
             <span className="text-[10px] text-muted-foreground" dir="ltr">
               · {topic.language}
             </span>
             {topic.is_consumed && (
-              <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] text-emerald-300">
+              <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] text-emerald-700">
                 <Lock className="h-2.5 w-2.5" /> مستهلك
               </span>
             )}
             {topic.is_expired && !topic.is_consumed && (
-              <span className="inline-flex items-center gap-1 rounded-full bg-amber-500/10 px-2 py-0.5 text-[10px] text-amber-300">
+              <span className="inline-flex items-center gap-1 rounded-full bg-amber-500/10 px-2 py-0.5 text-[10px] text-amber-700">
                 <Clock className="h-2.5 w-2.5" /> منتهٍ
               </span>
             )}
@@ -208,13 +208,13 @@ function TopicCard({
             <span className="font-medium text-muted-foreground">الخطاف:</span>{" "}
             {topic.emotional_hook}
           </p>
-          <div className="mt-2 text-[10px] text-muted-foreground/60" dir="ltr">
+          <div className="mt-2 text-[10px] text-muted-foreground" dir="ltr">
             generated {formatDateTime(topic.generated_at)}
             {topic.consumed_at && ` · consumed ${formatDateTime(topic.consumed_at)}`}
             {!topic.is_consumed && ` · expires ${formatDateTime(topic.expires_at)}`}
           </div>
         </div>
-        <Eye className="h-4 w-4 text-muted-foreground/40" />
+        <Eye className="h-4 w-4 text-muted-foreground" />
       </div>
     </li>
   )

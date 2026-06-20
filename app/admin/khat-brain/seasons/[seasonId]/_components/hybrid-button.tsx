@@ -60,7 +60,7 @@ export function HybridGenerateButton({
     <div className="rounded-2xl border border-violet-500/20 bg-gradient-to-br from-violet-500/5 to-primary/5 p-4">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <div className="mb-1 inline-flex items-center gap-1.5 text-[11px] font-medium text-violet-200">
+          <div className="mb-1 inline-flex items-center gap-1.5 text-[11px] font-medium text-violet-700">
             <Sparkles className="h-3 w-3" /> المولّد الهجين
           </div>
           <p className="text-[12px] leading-relaxed text-foreground/85">
@@ -69,7 +69,7 @@ export function HybridGenerateButton({
           </p>
           {aiBlocked && aiBlockReason && (
             <p
-              className="mt-1.5 text-[11px] text-rose-300"
+              className="mt-1.5 text-[11px] text-rose-700"
               data-ai-block-reason
             >
               {aiBlockReason}
@@ -91,7 +91,7 @@ export function HybridGenerateButton({
               setResult(r)
             })
           }
-          className="rounded-xl border border-violet-500/30 bg-violet-500/10 px-4 py-2 text-[12px] font-medium text-violet-200 hover:bg-violet-500/20 disabled:opacity-50"
+          className="rounded-xl border border-violet-500/30 bg-violet-500/10 px-4 py-2 text-[12px] font-medium text-violet-700 hover:bg-violet-500/20 disabled:opacity-50"
         >
           {isPending
             ? "جارٍ التوليد…"
@@ -103,7 +103,7 @@ export function HybridGenerateButton({
 
       {result && !result.ok && (
         <div
-          className="mt-3 rounded-xl border border-rose-500/30 bg-rose-500/5 p-3 text-[12px] text-rose-200"
+          className="mt-3 rounded-xl border border-rose-500/30 bg-rose-500/5 p-3 text-[12px] text-rose-700"
           data-hybrid-failure
         >
           <div className="inline-flex items-center gap-1.5 font-semibold">
@@ -122,7 +122,7 @@ export function HybridGenerateButton({
           {/* Path badge — clusters vs foundational. */}
           {result.fallback_path === "foundational" && (
             <div
-              className="inline-flex items-center gap-1.5 rounded-xl border border-amber-500/30 bg-amber-500/5 px-3 py-1 text-[11px] text-amber-200"
+              className="inline-flex items-center gap-1.5 rounded-xl border border-amber-500/30 bg-amber-500/5 px-3 py-1 text-[11px] text-amber-700"
               data-hybrid-path="foundational"
             >
               <Sparkles className="h-3 w-3" />
@@ -131,7 +131,7 @@ export function HybridGenerateButton({
           )}
           {result.fallback_path === "clusters" && (
             <div
-              className="inline-flex items-center gap-1.5 rounded-xl border border-emerald-500/30 bg-emerald-500/5 px-3 py-1 text-[11px] text-emerald-200"
+              className="inline-flex items-center gap-1.5 rounded-xl border border-emerald-500/30 bg-emerald-500/5 px-3 py-1 text-[11px] text-emerald-700"
               data-hybrid-path="clusters"
             >
               <Sparkles className="h-3 w-3" />
@@ -140,7 +140,7 @@ export function HybridGenerateButton({
           )}
 
           {/* SYSTEM OUTPUT — never "قُبل". These are pending review. */}
-          <div className="rounded-xl border border-emerald-500/25 bg-emerald-500/5 p-3 text-[12px] text-emerald-100/90">
+          <div className="rounded-xl border border-emerald-500/25 bg-emerald-500/5 p-3 text-[12px] text-emerald-700/90">
             تم توليد{" "}
             <span className="font-semibold tabular-nums">
               {result.generated_for_review}
@@ -165,7 +165,7 @@ export function HybridGenerateButton({
           {/* ANALYSIS IN-FLIGHT — banner only, doesn't block candidates. */}
           {result.analysis_pending && (
             <div
-              className="inline-flex items-center gap-1.5 rounded-xl border border-amber-500/30 bg-amber-500/5 px-3 py-1.5 text-[11.5px] text-amber-200"
+              className="inline-flex items-center gap-1.5 rounded-xl border border-amber-500/30 bg-amber-500/5 px-3 py-1.5 text-[11.5px] text-amber-700"
               data-hybrid-analysis-pending
             >
               <Activity className="h-3 w-3 animate-pulse" />
@@ -186,7 +186,7 @@ export function HybridGenerateButton({
           <button
             type="button"
             onClick={() => router.refresh()}
-            className="inline-flex items-center gap-1.5 rounded-xl border border-violet-500/30 bg-violet-500/10 px-3 py-1.5 text-[11.5px] font-medium text-violet-200 hover:bg-violet-500/20"
+            className="inline-flex items-center gap-1.5 rounded-xl border border-violet-500/30 bg-violet-500/10 px-3 py-1.5 text-[11.5px] font-medium text-violet-700 hover:bg-violet-500/20"
             data-hybrid-show-new
           >
             <RefreshCw className="h-3 w-3" />

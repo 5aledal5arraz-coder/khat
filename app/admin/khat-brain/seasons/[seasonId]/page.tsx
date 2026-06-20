@@ -140,13 +140,13 @@ export default async function SeasonWorkspacePage({
     return (
       <div className="mx-auto max-w-2xl px-6 py-16 text-center">
         <div className="rounded-2xl border border-rose-500/30 bg-rose-500/5 p-8">
-          <div className="text-sm font-semibold text-rose-400">
+          <div className="text-sm font-semibold text-rose-700">
             تعذّر تحميل الموسم
           </div>
           <p className="mt-2 text-[12px] text-muted-foreground">
             {progressRes.error}
           </p>
-          <p className="mt-4 text-[11px] text-muted-foreground/60" dir="ltr">
+          <p className="mt-4 text-[11px] text-muted-foreground" dir="ltr">
             ID: {seasonId}
           </p>
         </div>
@@ -206,7 +206,7 @@ export default async function SeasonWorkspacePage({
               className="rounded-2xl border border-amber-500/30 bg-amber-500/5 p-3 text-[12px]"
               data-rhythm-warning
             >
-              <div className="mb-1 inline-flex items-center gap-1.5 text-amber-300 font-semibold">
+              <div className="mb-1 inline-flex items-center gap-1.5 text-amber-700 font-semibold">
                 <AlertTriangle className="h-3 w-3" />
                 إشعار توازن الموسم
               </div>
@@ -223,8 +223,8 @@ export default async function SeasonWorkspacePage({
                       key={d.domain}
                       className={`rounded-full border px-2 py-0.5 text-[11px] ${
                         d.over_cap
-                          ? "border-rose-500/40 bg-rose-500/10 text-rose-200"
-                          : "border-amber-500/40 bg-amber-500/10 text-amber-200"
+                          ? "border-rose-500/40 bg-rose-500/10 text-rose-700"
+                          : "border-amber-500/40 bg-amber-500/10 text-amber-700"
                       }`}
                     >
                       {d.domain} · {d.accepted_count}/{rhythm.per_domain_cap}
@@ -321,13 +321,13 @@ export default async function SeasonWorkspacePage({
           >
             <summary className="flex cursor-pointer select-none items-center justify-between gap-2 rounded-2xl px-4 py-3 text-[13px] font-semibold text-foreground/85 hover:bg-muted/20">
               <span className="inline-flex items-center gap-2">
-                <Sparkles className="h-3.5 w-3.5 text-violet-300" />
+                <Sparkles className="h-3.5 w-3.5 text-violet-700" />
                 مراجعة المرشحين الجدد
               </span>
-              <span className="text-[10.5px] font-normal text-muted-foreground/70 group-open:hidden">
+              <span className="text-[10.5px] font-normal text-muted-foreground group-open:hidden">
                 اضغط للفتح
               </span>
-              <span className="hidden text-[10.5px] font-normal text-muted-foreground/70 group-open:inline">
+              <span className="hidden text-[10.5px] font-normal text-muted-foreground group-open:inline">
                 اضغط للإغلاق
               </span>
             </summary>
@@ -389,7 +389,7 @@ function HybridPanel({
 }) {
   return (
     <div className="rounded-3xl border border-violet-500/25 bg-gradient-to-br from-violet-500/5 to-primary/5 p-5">
-      <div className="mb-2 inline-flex items-center gap-2 rounded-full border border-violet-500/30 bg-violet-500/5 px-3 py-1 text-[11px] font-medium text-violet-200">
+      <div className="mb-2 inline-flex items-center gap-2 rounded-full border border-violet-500/30 bg-violet-500/5 px-3 py-1 text-[11px] font-medium text-violet-700">
         <Sparkles className="h-3 w-3" /> المسار الافتراضي
       </div>
       <h2 className="mb-2 text-base font-semibold">توليد المواضيع الهجينة</h2>
@@ -429,7 +429,7 @@ function AcceptedEpisodes({
         <h2 className="flex items-center gap-2 text-sm font-semibold text-muted-foreground">
           <Lightbulb className="h-4 w-4" /> الحلقات المعتمدة في هذا الموسم
         </h2>
-        <span className="text-[10.5px] text-muted-foreground/60">
+        <span className="text-[10.5px] text-muted-foreground">
           {accepted.length} حلقة
         </span>
       </div>
@@ -477,27 +477,27 @@ function AcceptedEpisodes({
                   </span>
                   <Link
                     href={action.href(phaseInfo.eir_id)}
-                    className="inline-flex shrink-0 items-center gap-1 rounded-lg border border-violet-500/30 bg-violet-500/10 px-2.5 py-1 text-[11px] font-medium text-violet-200 hover:bg-violet-500/20"
+                    className="inline-flex shrink-0 items-center gap-1 rounded-lg border border-violet-500/30 bg-violet-500/10 px-2.5 py-1 text-[11px] font-medium text-violet-700 hover:bg-violet-500/20"
                   >
                     {action.label} ←
                   </Link>
                 </div>
               )}
               {!phaseInfo && (
-                <div className="mt-2 inline-flex items-center gap-1 rounded-md bg-amber-500/10 px-2 py-0.5 text-[10.5px] text-amber-300">
+                <div className="mt-2 inline-flex items-center gap-1 rounded-md bg-amber-500/10 px-2 py-0.5 text-[10.5px] text-amber-700">
                   <Activity className="h-3 w-3" /> لم يتم ربطه بـ EIR بعد
                 </div>
               )}
               {!card.guest && phaseInfo && (
                 <div className="mt-2 flex items-center justify-between gap-2 rounded-md border border-amber-500/30 bg-amber-500/5 px-2 py-1">
-                  <span className="inline-flex items-center gap-1 text-[10.5px] text-amber-300">
+                  <span className="inline-flex items-center gap-1 text-[10.5px] text-amber-700">
                     <Activity className="h-3 w-3" /> لا ضيف مرتبط — التحويل
                     إلى الإعداد محجوب حتى يُربط ضيف
                   </span>
                   <Link
                     href={`/admin/khat-brain/episodes/${phaseInfo.eir_id}?tab=guest`}
                     data-assign-guest-link
-                    className="inline-flex shrink-0 items-center gap-1 rounded-lg border border-amber-500/40 bg-amber-500/10 px-2 py-0.5 text-[10.5px] font-medium text-amber-200 hover:bg-amber-500/20"
+                    className="inline-flex shrink-0 items-center gap-1 rounded-lg border border-amber-500/40 bg-amber-500/10 px-2 py-0.5 text-[10.5px] font-medium text-amber-700 hover:bg-amber-500/20"
                   >
                     اربط ضيفاً ←
                   </Link>

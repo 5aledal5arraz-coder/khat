@@ -165,7 +165,7 @@ export function CandidateFormDialog({ open, onOpenChange, candidate, onSuccess }
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="sm:col-span-2">
               <label className="mb-1.5 block text-xs font-medium text-muted-foreground">
-                الاسم الكامل <span className="text-rose-500">*</span>
+                الاسم الكامل <span className="text-rose-700">*</span>
               </label>
               <Input
                 value={fullName}
@@ -268,7 +268,7 @@ export function CandidateFormDialog({ open, onOpenChange, candidate, onSuccess }
                 </Button>
               </div>
               {socials.length === 0 ? (
-                <p className="text-[11px] text-muted-foreground/70">لم يتم إضافة روابط بعد</p>
+                <p className="text-[11px] text-muted-foreground">لم يتم إضافة روابط بعد</p>
               ) : (
                 <div className="space-y-2">
                   {socials.map((s, i) => (
@@ -291,7 +291,7 @@ export function CandidateFormDialog({ open, onOpenChange, candidate, onSuccess }
                       <button
                         type="button"
                         onClick={() => removeSocial(i)}
-                        className="rounded-md p-1.5 text-muted-foreground hover:bg-muted hover:text-rose-500"
+                        className="rounded-md p-1.5 text-muted-foreground hover:bg-muted hover:text-rose-700"
                       >
                         <X className="h-3.5 w-3.5" />
                       </button>

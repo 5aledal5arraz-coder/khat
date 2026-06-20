@@ -143,7 +143,7 @@ export function SignalsList({
           type="button"
           disabled={pending || ids.length === 0}
           onClick={() => runBulk(() => bulkApproveAction({ signalIds: ids }))}
-          className="inline-flex items-center gap-1 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-2.5 py-1 text-[11.5px] font-medium text-emerald-200 hover:bg-emerald-500/20 disabled:opacity-40"
+          className="inline-flex items-center gap-1 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-2.5 py-1 text-[11.5px] font-medium text-emerald-700 hover:bg-emerald-500/20 disabled:opacity-40"
           data-bulk-approve
         >
           <CheckCircle2 className="h-3 w-3" /> {PAGE_COPY.bulkApprove}
@@ -152,7 +152,7 @@ export function SignalsList({
           type="button"
           disabled={pending || ids.length === 0}
           onClick={() => runBulk(() => bulkRejectAction({ signalIds: ids }))}
-          className="inline-flex items-center gap-1 rounded-lg border border-rose-500/30 bg-rose-500/10 px-2.5 py-1 text-[11.5px] font-medium text-rose-200 hover:bg-rose-500/20 disabled:opacity-40"
+          className="inline-flex items-center gap-1 rounded-lg border border-rose-500/30 bg-rose-500/10 px-2.5 py-1 text-[11.5px] font-medium text-rose-700 hover:bg-rose-500/20 disabled:opacity-40"
           data-bulk-reject
         >
           <XCircle className="h-3 w-3" /> {PAGE_COPY.bulkReject}
@@ -161,7 +161,7 @@ export function SignalsList({
           type="button"
           disabled={pending || ids.length === 0}
           onClick={() => runBulk(() => bulkArchiveAction({ signalIds: ids }))}
-          className="inline-flex items-center gap-1 rounded-lg border border-amber-500/30 bg-amber-500/10 px-2.5 py-1 text-[11.5px] font-medium text-amber-200 hover:bg-amber-500/20 disabled:opacity-40"
+          className="inline-flex items-center gap-1 rounded-lg border border-amber-500/30 bg-amber-500/10 px-2.5 py-1 text-[11.5px] font-medium text-amber-700 hover:bg-amber-500/20 disabled:opacity-40"
           data-bulk-archive
         >
           <Archive className="h-3 w-3" /> {PAGE_COPY.bulkArchive}
@@ -171,7 +171,7 @@ export function SignalsList({
             type="button"
             disabled={pending || ids.length === 0}
             onClick={() => setBulkTagOpen((v) => !v)}
-            className="inline-flex items-center gap-1 rounded-lg border border-violet-500/30 bg-violet-500/10 px-2.5 py-1 text-[11.5px] font-medium text-violet-200 hover:bg-violet-500/20 disabled:opacity-40"
+            className="inline-flex items-center gap-1 rounded-lg border border-violet-500/30 bg-violet-500/10 px-2.5 py-1 text-[11.5px] font-medium text-violet-700 hover:bg-violet-500/20 disabled:opacity-40"
             data-bulk-tag
           >
             <TagIcon className="h-3 w-3" /> {PAGE_COPY.bulkTag}
@@ -250,12 +250,12 @@ function SignalCard({
 
   const statusToneCls =
     statusInfo.tone === "ok"
-      ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-200"
+      ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-700"
       : statusInfo.tone === "danger"
-        ? "border-rose-500/30 bg-rose-500/10 text-rose-200"
+        ? "border-rose-500/30 bg-rose-500/10 text-rose-700"
         : statusInfo.tone === "warn"
-          ? "border-amber-500/30 bg-amber-500/10 text-amber-200"
-          : "border-slate-500/30 bg-slate-500/10 text-slate-200"
+          ? "border-amber-500/30 bg-amber-500/10 text-amber-700"
+          : "border-slate-500/30 bg-slate-500/10 text-slate-700"
 
   return (
     <li
@@ -284,7 +284,7 @@ function SignalCard({
               {statusInfo.label}
             </span>
             {signal.operator_created && (
-              <span className="inline-flex items-center gap-1 rounded-full border border-violet-500/30 bg-violet-500/10 px-2 py-0.5 text-violet-200">
+              <span className="inline-flex items-center gap-1 rounded-full border border-violet-500/30 bg-violet-500/10 px-2 py-0.5 text-violet-700">
                 يدوية
               </span>
             )}
@@ -292,7 +292,7 @@ function SignalCard({
               <Activity className="h-2.5 w-2.5" />
               {sourceLabelFor(signal.source)}
             </span>
-            <span className="text-muted-foreground/70">
+            <span className="text-muted-foreground">
               {PAGE_COPY.perCard.collectedLabel} {relativeArabic(signal.collected_at)}
             </span>
             {signal.signal_score !== null && (
@@ -318,7 +318,7 @@ function SignalCard({
               className="mt-1.5 text-[11px] text-muted-foreground/85"
               data-score-reason
             >
-              <span className="text-muted-foreground/70">سبب التقييم:</span>{" "}
+              <span className="text-muted-foreground">سبب التقييم:</span>{" "}
               {explainScoreArabic(
                 signal.score_components as ScoreComponents | null,
                 signal.signal_score,
@@ -365,7 +365,7 @@ function SignalCard({
                     onClick={() =>
                       run(() => removeTagAction({ signalId: signal.id, tag: t }))
                     }
-                    className="group inline-flex items-center gap-1 rounded-full border border-violet-500/30 bg-violet-500/5 px-2 py-0.5 text-[10.5px] text-violet-200 hover:border-rose-500/40 hover:bg-rose-500/10 hover:text-rose-200"
+                    className="group inline-flex items-center gap-1 rounded-full border border-violet-500/30 bg-violet-500/5 px-2 py-0.5 text-[10.5px] text-violet-700 hover:border-rose-500/40 hover:bg-rose-500/10 hover:text-rose-700"
                     title="إزالة الوسم"
                   >
                     {label}
@@ -382,7 +382,7 @@ function SignalCard({
               className="mt-2 rounded-lg border border-border/30 bg-background/30 p-2 text-[11px] text-foreground/80"
               data-signal-note
             >
-              <div className="mb-0.5 text-[10px] uppercase tracking-wider text-muted-foreground/70">
+              <div className="mb-0.5 text-[10px] uppercase tracking-wider text-muted-foreground">
                 {PAGE_COPY.perCard.notesLabel}
               </div>
               {signal.operator_notes}
@@ -394,7 +394,7 @@ function SignalCard({
                 value={noteDraft}
                 onChange={(e) => setNoteDraft(e.target.value)}
                 rows={2}
-                className="w-full rounded-lg border border-border/40 bg-background/40 p-2 text-[11.5px] text-foreground placeholder:text-muted-foreground/60"
+                className="w-full rounded-lg border border-border/40 bg-background/40 p-2 text-[11.5px] text-foreground placeholder:text-muted-foreground"
                 placeholder={PAGE_COPY.perCard.notesLabel}
                 dir="rtl"
                 data-note-input
@@ -412,7 +412,7 @@ function SignalCard({
                       setNoteOpen(false)
                     })
                   }
-                  className="rounded-md border border-violet-500/30 bg-violet-500/10 px-2 py-0.5 text-[11px] text-violet-200 hover:bg-violet-500/20 disabled:opacity-40"
+                  className="rounded-md border border-violet-500/30 bg-violet-500/10 px-2 py-0.5 text-[11px] text-violet-700 hover:bg-violet-500/20 disabled:opacity-40"
                   data-note-save
                 >
                   {PAGE_COPY.perCard.saveNote}
@@ -487,7 +487,7 @@ function SignalCard({
                 type="button"
                 disabled={busy || pending}
                 onClick={() => setTagMenuOpen((v) => !v)}
-                className="inline-flex items-center gap-1 rounded-md border border-violet-500/30 bg-violet-500/5 px-2 py-0.5 text-[11px] text-violet-200 hover:bg-violet-500/15 disabled:opacity-40"
+                className="inline-flex items-center gap-1 rounded-md border border-violet-500/30 bg-violet-500/5 px-2 py-0.5 text-[11px] text-violet-700 hover:bg-violet-500/15 disabled:opacity-40"
                 data-action="add-tag"
               >
                 <TagIcon className="h-3 w-3" /> {PAGE_COPY.perCard.addTag}
@@ -531,7 +531,7 @@ function SignalCard({
             )}
 
             {signal.reviewed_at && (
-              <span className="ms-auto text-[10.5px] text-muted-foreground/60">
+              <span className="ms-auto text-[10.5px] text-muted-foreground">
                 {PAGE_COPY.perCard.reviewedLabel} {relativeArabic(signal.reviewed_at)}
               </span>
             )}
@@ -558,9 +558,9 @@ function ActionBtn({
   testId: string
 }) {
   const cls = {
-    ok: "border-emerald-500/30 bg-emerald-500/10 text-emerald-200 hover:bg-emerald-500/20",
-    danger: "border-rose-500/30 bg-rose-500/10 text-rose-200 hover:bg-rose-500/20",
-    warn: "border-amber-500/30 bg-amber-500/10 text-amber-200 hover:bg-amber-500/20",
+    ok: "border-emerald-500/30 bg-emerald-500/10 text-emerald-700 hover:bg-emerald-500/20",
+    danger: "border-rose-500/30 bg-rose-500/10 text-rose-700 hover:bg-rose-500/20",
+    warn: "border-amber-500/30 bg-amber-500/10 text-amber-700 hover:bg-amber-500/20",
     muted: "border-border/40 bg-background/40 text-muted-foreground hover:bg-muted/30",
   }[tone]
   return (
@@ -591,7 +591,7 @@ function Field({
 }) {
   return (
     <>
-      <dt className="truncate text-muted-foreground/70">{label}</dt>
+      <dt className="truncate text-muted-foreground">{label}</dt>
       <dd
         className="truncate text-foreground/85"
         dir={ltr ? "ltr" : undefined}
@@ -611,9 +611,9 @@ function ScoreBadge({
 }) {
   const tone = scoreToneArabic(score)
   const cls = {
-    ok: "border-emerald-500/30 bg-emerald-500/10 text-emerald-200",
-    warn: "border-amber-500/30 bg-amber-500/10 text-amber-200",
-    muted: "border-slate-500/30 bg-slate-500/10 text-slate-200",
+    ok: "border-emerald-500/30 bg-emerald-500/10 text-emerald-700",
+    warn: "border-amber-500/30 bg-amber-500/10 text-amber-700",
+    muted: "border-slate-500/30 bg-slate-500/10 text-slate-700",
   }[tone.tone]
   const title = explainScoreArabic(components, score)
   return (

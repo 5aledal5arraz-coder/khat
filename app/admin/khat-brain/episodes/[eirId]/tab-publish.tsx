@@ -119,7 +119,7 @@ export async function PublishTab({
             )}
           </div>
           <div
-            className="mt-2 flex flex-wrap items-center gap-1.5 text-[10.5px] text-muted-foreground/60"
+            className="mt-2 flex flex-wrap items-center gap-1.5 text-[10.5px] text-muted-foreground"
             data-secondary-links
           >
             {episode.youtube_url && (
@@ -171,7 +171,7 @@ export async function PublishTab({
                   <span className="text-muted-foreground/80" dir="ltr">
                     {p.pushed_fields.join(", ")}
                   </span>
-                  <span className="text-muted-foreground/60" dir="ltr">
+                  <span className="text-muted-foreground" dir="ltr">
                     {p.pushed_at ? formatDateTime(p.pushed_at) : "—"}
                   </span>
                 </li>
@@ -186,7 +186,7 @@ export async function PublishTab({
 
         {!isPublished && (
           <div className="rounded-2xl border border-amber-500/30 bg-amber-500/5 p-3">
-            <div className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-amber-300">
+            <div className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-amber-700">
               <AlertTriangle className="h-3 w-3" /> الحلقة غير منشورة
             </div>
             <p className="mt-1 text-[11.5px] leading-relaxed text-foreground/85">
@@ -204,7 +204,7 @@ export async function PublishTab({
   if (studio.session) {
     return (
       <div className="rounded-2xl border border-violet-500/30 bg-violet-500/5 p-6 text-center">
-        <Send className="mx-auto h-6 w-6 text-violet-200" />
+        <Send className="mx-auto h-6 w-6 text-violet-700" />
         <h3 className="mt-2 text-[13px] font-semibold">جلسة استديو موجودة بدون حلقة</h3>
         <p className="mx-auto mt-1 max-w-md text-[12px] leading-relaxed text-foreground/85">
           الحزمة جاهزة في الاستديو، لكن لا يوجد سجلّ حلقة مربوط بهذا EIR.
@@ -212,7 +212,7 @@ export async function PublishTab({
         </p>
         <Link
           href={`/admin/studio/${studio.session.id}`}
-          className="mt-4 inline-flex items-center gap-1.5 rounded-xl border border-violet-500/40 bg-violet-500/10 px-3 py-1.5 text-[12px] text-violet-200 hover:bg-violet-500/20"
+          className="mt-4 inline-flex items-center gap-1.5 rounded-xl border border-violet-500/40 bg-violet-500/10 px-3 py-1.5 text-[12px] text-violet-700 hover:bg-violet-500/20"
         >
           فتح الاستوديو <ExternalLink className="h-3 w-3" />
         </Link>
@@ -230,11 +230,11 @@ export async function PublishTab({
         <p className="mx-auto mt-1 max-w-md text-[12px] leading-relaxed text-muted-foreground">
           ستظهر هنا تفاصيل الحلقة فور دفع الحزمة من الاستديو.
         </p>
-        <p className="mt-3 text-[10.5px] text-muted-foreground/70">
+        <p className="mt-3 text-[10.5px] text-muted-foreground">
           المرحلة الحالية للـ EIR: <span dir="ltr">{currentPhase}</span>
         </p>
         {phaseAtLeast(currentPhase, "ready_to_publish") && (
-          <div className="mt-4 inline-flex items-center gap-1.5 rounded-md bg-amber-500/10 px-2 py-0.5 text-[10.5px] text-amber-300">
+          <div className="mt-4 inline-flex items-center gap-1.5 rounded-md bg-amber-500/10 px-2 py-0.5 text-[10.5px] text-amber-700">
             <AlertTriangle className="h-3 w-3" /> المرحلة بعد «جاهزة للنشر» —
             الحلقة المربوطة مفقودة
           </div>

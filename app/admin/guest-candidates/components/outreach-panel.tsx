@@ -276,11 +276,11 @@ export function OutreachPanel({ candidateId, initialMessages, onChange }: Props)
                       className="rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
                       title="نسخ"
                     >
-                      {copiedId === msg.id ? <Check className="h-3.5 w-3.5 text-emerald-500" /> : <Copy className="h-3.5 w-3.5" />}
+                      {copiedId === msg.id ? <Check className="h-3.5 w-3.5 text-emerald-700" /> : <Copy className="h-3.5 w-3.5" />}
                     </button>
                     <button
                       onClick={() => handleDelete(msg.id)}
-                      className="rounded p-1 text-muted-foreground hover:bg-rose-500/10 hover:text-rose-500"
+                      className="rounded p-1 text-muted-foreground hover:bg-rose-500/10 hover:text-rose-700"
                       title="حذف"
                     >
                       <Trash2 className="h-3.5 w-3.5" />

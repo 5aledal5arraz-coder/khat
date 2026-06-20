@@ -144,15 +144,15 @@ export function PartnershipsForm({ initialPartners }: PartnershipsFormProps) {
       {/* Header */}
       <div className="flex flex-wrap items-center gap-3">
         <h1 className="text-xl font-bold">جهات وثقت بالحوار</h1>
-        <span className="rounded-md bg-muted/60 px-2 py-0.5 text-[11px] font-medium text-muted-foreground/70">
+        <span className="rounded-md bg-muted/60 px-2 py-0.5 text-[11px] font-medium text-muted-foreground">
           {partners.length} شريك
         </span>
-        <span className="rounded-md bg-emerald-500/10 px-2 py-0.5 text-[11px] font-medium text-emerald-500">
+        <span className="rounded-md bg-emerald-500/10 px-2 py-0.5 text-[11px] font-medium text-emerald-700">
           {activeCount} نشط
         </span>
         <div className="flex-1" />
         {message && (
-          <span className={`text-sm ${message.includes("خطأ") ? "text-destructive" : "text-green-500"}`}>
+          <span className={`text-sm ${message.includes("خطأ") ? "text-destructive" : "text-green-700"}`}>
             {message}
           </span>
         )}
@@ -258,8 +258,8 @@ export function PartnershipsForm({ initialPartners }: PartnershipsFormProps) {
       {/* Partner List */}
       {partners.length === 0 && !showForm && (
         <div className="admin-card flex flex-col items-center justify-center py-16 text-center">
-          <p className="text-[13px] font-semibold text-muted-foreground/70">لا توجد جهات شريكة بعد</p>
-          <p className="mt-1.5 text-[12px] text-muted-foreground/40">أضف أول شريك لعرضه في الموقع</p>
+          <p className="text-[13px] font-semibold text-muted-foreground">لا توجد جهات شريكة بعد</p>
+          <p className="mt-1.5 text-[12px] text-muted-foreground">أضف أول شريك لعرضه في الموقع</p>
         </div>
       )}
 
@@ -269,7 +269,7 @@ export function PartnershipsForm({ initialPartners }: PartnershipsFormProps) {
             key={partner.id}
             className="flex items-center gap-3 rounded-xl border border-border/30 bg-card/50 px-4 py-3"
           >
-            <GripVertical className="h-4 w-4 text-muted-foreground/40 flex-shrink-0" />
+            <GripVertical className="h-4 w-4 text-muted-foreground flex-shrink-0" />
 
             {/* Logo */}
             {partner.logo_url ? (
@@ -301,7 +301,7 @@ export function PartnershipsForm({ initialPartners }: PartnershipsFormProps) {
                 )}
               </div>
               {partner.description && (
-                <p className="text-[11px] text-muted-foreground/60 truncate">{partner.description}</p>
+                <p className="text-[11px] text-muted-foreground truncate">{partner.description}</p>
               )}
             </div>
 
@@ -310,14 +310,14 @@ export function PartnershipsForm({ initialPartners }: PartnershipsFormProps) {
               <span
                 className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${
                   partner.is_active
-                    ? "bg-emerald-500/10 text-emerald-500"
+                    ? "bg-emerald-500/10 text-emerald-700"
                     : "bg-muted text-muted-foreground"
                 }`}
               >
                 {partner.is_active ? "نشط" : "غير نشط"}
               </span>
               {partner.show_on_homepage && (
-                <span className="rounded-full bg-blue-500/10 px-2 py-0.5 text-[10px] font-medium text-blue-500">
+                <span className="rounded-full bg-blue-500/10 px-2 py-0.5 text-[10px] font-medium text-blue-700">
                   الرئيسية
                 </span>
               )}

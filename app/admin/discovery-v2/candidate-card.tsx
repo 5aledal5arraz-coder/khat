@@ -42,9 +42,9 @@ export interface V2CardData {
 }
 
 const DECISION = {
-  accepted: { label: "مرشّح قويّ", cls: "border-emerald-500/40 bg-emerald-500/10 text-emerald-200" },
-  shortlist: { label: "قائمة مختصرة", cls: "border-amber-500/40 bg-amber-500/10 text-amber-200" },
-  rejected: { label: "مستبعد", cls: "border-rose-500/30 bg-rose-500/5 text-rose-300/80" },
+  accepted: { label: "مرشّح قويّ", cls: "border-emerald-500/40 bg-emerald-500/10 text-emerald-700" },
+  shortlist: { label: "قائمة مختصرة", cls: "border-amber-500/40 bg-amber-500/10 text-amber-700" },
+  rejected: { label: "مستبعد", cls: "border-rose-500/30 bg-rose-500/5 text-rose-700/80" },
 }
 
 function Bar({ label, v }: { label: string; v: number }) {
@@ -91,7 +91,7 @@ export function CandidateCard({ c }: { c: V2CardData }) {
           // eslint-disable-next-line @next/next/no-img-element
           <img src={c.image} alt={c.name} className="h-14 w-14 shrink-0 rounded-xl object-cover" />
         ) : (
-          <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-xl bg-violet-500/15 text-sm font-bold text-violet-200">{initials}</div>
+          <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-xl bg-violet-500/15 text-sm font-bold text-violet-700">{initials}</div>
         )}
         <div className="min-w-0 flex-1">
           <div className="flex items-center justify-between gap-2">
@@ -138,10 +138,10 @@ export function CandidateCard({ c }: { c: V2CardData }) {
       )}
 
       <div className="mt-3 flex flex-wrap gap-2">
-        <button type="button" disabled={pending || done === "promoted"} onClick={() => start(async () => { const r = await promoteV2CandidateAction(c.id); if (r.success) setDone("promoted") })} className="inline-flex items-center gap-1 rounded-lg border border-violet-500/30 bg-violet-500/10 px-2.5 py-1 text-[11.5px] text-violet-200 hover:bg-violet-500/20 disabled:opacity-40">
+        <button type="button" disabled={pending || done === "promoted"} onClick={() => start(async () => { const r = await promoteV2CandidateAction(c.id); if (r.success) setDone("promoted") })} className="inline-flex items-center gap-1 rounded-lg border border-violet-500/30 bg-violet-500/10 px-2.5 py-1 text-[11.5px] text-violet-700 hover:bg-violet-500/20 disabled:opacity-40">
           <UserPlus className="h-3 w-3" /> {done === "promoted" ? "في قائمة المرشّحين" : "رشّح للتواصل"}
         </button>
-        <button type="button" disabled={pending || done === "saved"} onClick={() => start(async () => { const r = await saveV2CandidateAction(c.id); if (r.success) setDone("saved") })} className="inline-flex items-center gap-1 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-2.5 py-1 text-[11.5px] text-emerald-200 hover:bg-emerald-500/20 disabled:opacity-40">
+        <button type="button" disabled={pending || done === "saved"} onClick={() => start(async () => { const r = await saveV2CandidateAction(c.id); if (r.success) setDone("saved") })} className="inline-flex items-center gap-1 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-2.5 py-1 text-[11.5px] text-emerald-700 hover:bg-emerald-500/20 disabled:opacity-40">
           <Check className="h-3 w-3" /> {done === "saved" ? "محفوظ" : "احفظ للحلقة"}
         </button>
         <button type="button" disabled={pending || done === "rejected"} onClick={() => start(async () => { const r = await rejectV2CandidateAction(c.id); if (r.success) setDone("rejected") })} className="inline-flex items-center gap-1 rounded-lg border border-border/40 bg-background/40 px-2.5 py-1 text-[11.5px] text-muted-foreground hover:bg-muted/30 disabled:opacity-40">

@@ -111,7 +111,7 @@ function RoomInner({
           <WifiOff className="mx-auto h-12 w-12 text-muted-foreground/30" />
           <div>
             <h2 className="text-lg font-semibold">انقطع الاتصال</h2>
-            <p className="mt-1 text-sm text-muted-foreground/60">
+            <p className="mt-1 text-sm text-muted-foreground">
               فشل الاتصال بالغرفة بعد عدة محاولات
             </p>
           </div>
@@ -132,7 +132,7 @@ function RoomInner({
         <div className="flex min-h-[60vh] items-center justify-center">
           <div className="text-center space-y-4">
             <h2 className="text-lg font-semibold">فشل الانضمام</h2>
-            <p className="text-sm text-muted-foreground/60">
+            <p className="text-sm text-muted-foreground">
               لم يتمكن من الانضمام إلى الغرفة
             </p>
             <Button onClick={handleReconnect} variant="outline" className="gap-2">
@@ -148,7 +148,7 @@ function RoomInner({
       <div className="flex min-h-[60vh] items-center justify-center">
         <div className="text-center space-y-3">
           <Loader2 className="mx-auto h-8 w-8 animate-spin text-primary" />
-          <p className="text-sm text-muted-foreground/60">جاري الانضمام إلى الغرفة...</p>
+          <p className="text-sm text-muted-foreground">جاري الانضمام إلى الغرفة...</p>
         </div>
       </div>
     )

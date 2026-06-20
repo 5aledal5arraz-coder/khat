@@ -51,9 +51,9 @@ function GenerationChecklist() {
         {steps.map((step, idx) => (
           <div key={idx} className="flex items-center gap-3">
             {step.ready ? (
-              <CheckCircle2 className="h-4 w-4 text-green-500 shrink-0" />
+              <CheckCircle2 className="h-4 w-4 text-green-700 shrink-0" />
             ) : (
-              <Circle className="h-4 w-4 text-muted-foreground/40 shrink-0" />
+              <Circle className="h-4 w-4 text-muted-foreground shrink-0" />
             )}
             <span className={cn("text-sm", step.ready ? "text-foreground" : "text-muted-foreground")}>
               {step.label}
@@ -175,7 +175,7 @@ export function TabExport() {
       {/* Push to Episode */}
       <div className="rounded-xl border border-border/30 bg-card/50 p-6 space-y-5">
         <div className="flex items-center gap-2">
-          <ArrowUpFromLine className="h-5 w-5 text-orange-500" />
+          <ArrowUpFromLine className="h-5 w-5 text-orange-700" />
           <h2 className="text-[13px] font-semibold">نشر إلى صفحة الحلقة</h2>
         </div>
 
@@ -247,9 +247,9 @@ export function TabExport() {
                 {pushResult.success ? (
                   <>
                     {pushing ? (
-                      <Loader2 className="h-4 w-4 shrink-0 text-green-500 mt-0.5 animate-spin" />
+                      <Loader2 className="h-4 w-4 shrink-0 text-green-700 mt-0.5 animate-spin" />
                     ) : (
-                      <CheckCircle2 className="h-4 w-4 shrink-0 text-green-500 mt-0.5" />
+                      <CheckCircle2 className="h-4 w-4 shrink-0 text-green-700 mt-0.5" />
                     )}
                     <div>
                       <p className="text-sm text-green-700 dark:text-green-400">
@@ -257,10 +257,10 @@ export function TabExport() {
                       </p>
                       {pushResult.fields.length > 0 && (
                         <div className="mt-1">
-                          <p className="text-xs text-green-600/70 dark:text-green-400/60">
+                          <p className="text-xs text-green-700/70 dark:text-green-400/60">
                             تم تحديث البيانات التالية:
                           </p>
-                          <ul className="mt-0.5 text-xs text-green-600/70 dark:text-green-400/60 list-disc list-inside">
+                          <ul className="mt-0.5 text-xs text-green-700/70 dark:text-green-400/60 list-disc list-inside">
                             {pushResult.fields.map((f) => (
                               <li key={f}>{FIELD_LABELS[f] || f}</li>
                             ))}
@@ -268,7 +268,7 @@ export function TabExport() {
                         </div>
                       )}
                       {pushResult.guestLink?.linked && (
-                        <p className="text-xs text-green-600/70 dark:text-green-400/60 mt-1">
+                        <p className="text-xs text-green-700/70 dark:text-green-400/60 mt-1">
                           تم ربط الضيف: {pushResult.guestLink.guestName}
                           {pushResult.guestLink.created ? " (تم إنشاء ملف جديد)" : " (ملف موجود)"}
                         </p>
@@ -277,14 +277,14 @@ export function TabExport() {
                   </>
                 ) : (
                   <>
-                    <AlertCircle className="h-4 w-4 shrink-0 text-red-500 mt-0.5" />
+                    <AlertCircle className="h-4 w-4 shrink-0 text-red-700 mt-0.5" />
                     <div>
-                      <p className="text-sm text-red-600 dark:text-red-400">فشل في النشر — يرجى المحاولة مرة أخرى</p>
+                      <p className="text-sm text-red-700 dark:text-red-400">فشل في النشر — يرجى المحاولة مرة أخرى</p>
                       <Button
                         variant="ghost"
                         size="sm"
                         onClick={() => { setPushResult(null); setShowDiff(true) }}
-                        className="mt-1 h-7 text-xs text-red-600 hover:text-red-700 dark:text-red-400"
+                        className="mt-1 h-7 text-xs text-red-700 hover:text-red-700 dark:text-red-400"
                       >
                         <RotateCcw className="h-3 w-3 me-1" />
                         إعادة المحاولة
@@ -316,7 +316,7 @@ export function TabExport() {
       {selectedEpisodeId && (
         <div className="rounded-xl border border-red-500/20 bg-card/50 p-6 space-y-4">
           <div className="flex items-center gap-2">
-            <RotateCcw className="h-5 w-5 text-red-500" />
+            <RotateCcw className="h-5 w-5 text-red-700" />
             <h2 className="text-[13px] font-semibold">استعادة الحلقة</h2>
           </div>
           <p className="text-sm text-muted-foreground">
@@ -328,7 +328,7 @@ export function TabExport() {
               variant="outline"
               onClick={() => setShowRestoreConfirm(true)}
               disabled={restoring}
-              className="gap-2 border-red-300 text-red-600 hover:bg-red-50 dark:border-red-800 dark:text-red-400 dark:hover:bg-red-950/50"
+              className="gap-2 border-red-300 text-red-700 hover:bg-red-50 dark:border-red-800 dark:text-red-400 dark:hover:bg-red-950/50"
             >
               <RotateCcw className="h-4 w-4" />
               استعادة الحلقة
@@ -373,13 +373,13 @@ export function TabExport() {
             )}>
               {restoreResult.success ? (
                 <>
-                  <CheckCircle2 className="h-4 w-4 shrink-0 text-green-500 mt-0.5" />
+                  <CheckCircle2 className="h-4 w-4 shrink-0 text-green-700 mt-0.5" />
                   <p className="text-sm text-green-700 dark:text-green-400">تمت استعادة الحلقة بنجاح — عادت لحالتها الأصلية</p>
                 </>
               ) : (
                 <>
-                  <AlertCircle className="h-4 w-4 shrink-0 text-red-500 mt-0.5" />
-                  <p className="text-sm text-red-600 dark:text-red-400">فشل في استعادة الحلقة</p>
+                  <AlertCircle className="h-4 w-4 shrink-0 text-red-700 mt-0.5" />
+                  <p className="text-sm text-red-700 dark:text-red-400">فشل في استعادة الحلقة</p>
                 </>
               )}
             </div>

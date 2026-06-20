@@ -130,7 +130,7 @@ export function Breadcrumbs() {
           ) : (
             <Link
               href={crumb.path}
-              className="text-muted-foreground/60 transition-colors hover:text-foreground/80"
+              className="text-muted-foreground transition-colors hover:text-foreground/80"
             >
               {crumb.label}
             </Link>

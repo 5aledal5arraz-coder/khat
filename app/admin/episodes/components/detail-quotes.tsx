@@ -266,8 +266,8 @@ export function DetailQuotes({
             <span
               className={`rounded-full px-3 py-1 text-xs font-semibold ${
                 localEntry.status === "published"
-                  ? "bg-green-500/10 text-green-400 ring-1 ring-green-500/20"
-                  : "bg-yellow-500/10 text-yellow-400 ring-1 ring-yellow-500/20"
+                  ? "bg-green-500/10 text-green-700 ring-1 ring-green-500/20"
+                  : "bg-yellow-500/10 text-yellow-700 ring-1 ring-yellow-500/20"
               }`}
             >
               {localEntry.status === "published" ? "منشور" : "مسودة"}
@@ -334,8 +334,8 @@ export function DetailQuotes({
         </div>
       ) : error ? (
         <div className="flex flex-col items-center justify-center rounded-2xl border border-border/30 bg-card/50 py-16">
-          <AlertTriangle className="h-8 w-8 text-yellow-400" />
-          <p className="mt-4 max-w-sm text-center text-sm text-yellow-400">
+          <AlertTriangle className="h-8 w-8 text-yellow-700" />
+          <p className="mt-4 max-w-sm text-center text-sm text-yellow-700">
             {error}
           </p>
           <Button
@@ -352,7 +352,7 @@ export function DetailQuotes({
           <p className="mt-4 text-base font-medium text-muted-foreground">
             لم يتم إنشاء اقتباسات بعد
           </p>
-          <p className="mt-1 text-sm text-muted-foreground/60">
+          <p className="mt-1 text-sm text-muted-foreground">
             استخرج اقتباسات من نص الحلقة تلقائياً
           </p>
           <Button onClick={handleGenerate} className="mt-6 gap-2 rounded-xl px-6">
@@ -380,7 +380,7 @@ export function DetailQuotes({
               <span className="text-xs text-muted-foreground">
                 {allSelected ? "إلغاء تحديد الكل" : "تحديد الكل"}
               </span>
-              <span className="text-[10px] text-muted-foreground/50">
+              <span className="text-[10px] text-muted-foreground">
                 ({formatArabicCount(quotes.length, "اقتباس")})
               </span>
             </div>

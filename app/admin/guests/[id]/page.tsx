@@ -318,7 +318,7 @@ function StringList({ obj }: { obj: Record<string, string[] | undefined> }) {
     <div className="space-y-2">
       {entries.map(([k, v]) => (
         <div key={k}>
-          <div className="text-[10px] uppercase tracking-wider text-muted-foreground/70">{k}</div>
+          <div className="text-[10px] uppercase tracking-wider text-muted-foreground">{k}</div>
           <div className="mt-1 flex flex-wrap gap-1">
             {v!.map((s, i) => (
               <span

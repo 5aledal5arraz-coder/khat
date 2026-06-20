@@ -54,7 +54,7 @@ export function SEOForm({ initial }: { initial: SEODefaults }) {
             placeholder="%s | بودكاست خط"
             dir="ltr"
           />
-          <p className="text-[11px] text-muted-foreground/60">
+          <p className="text-[11px] text-muted-foreground">
             استخدم %s كمكان لعنوان الصفحة
           </p>
         </div>
@@ -105,7 +105,7 @@ export function SEOForm({ initial }: { initial: SEODefaults }) {
             {isPending && <Loader2 className="me-2 h-4 w-4 animate-spin" />}
             حفظ
           </Button>
-          {saved && <span className="text-sm text-green-500">تم الحفظ</span>}
+          {saved && <span className="text-sm text-green-700">تم الحفظ</span>}
         </div>
       </CardContent>
     </Card>

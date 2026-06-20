@@ -73,7 +73,7 @@ export function TranscriptContent() {
                 <Search className="h-4 w-4" />
                 جلب النص
               </Button>
-              <p className="text-xs text-muted-foreground/70">
+              <p className="text-xs text-muted-foreground">
                 سيتم جلب النص من الترجمة التلقائية أو تحويل الصوت بالذكاء الاصطناعي
               </p>
             </div>
@@ -87,7 +87,7 @@ export function TranscriptContent() {
           <span className="text-sm text-muted-foreground">
             {isAudio ? "جارٍ تحويل الصوت إلى نص..." : "جارٍ جلب النص..."}
           </span>
-          <span className="text-xs text-muted-foreground/70">
+          <span className="text-xs text-muted-foreground">
             {isAudio
               ? "قد تستغرق هذه العملية عدة دقائق للحلقات الطويلة"
               : "سيتم المحاولة من الترجمة التلقائية أولاً، ثم تحويل الصوت إذا لم تتوفر"
@@ -99,10 +99,10 @@ export function TranscriptContent() {
       {transcriptStatus === "error" && (
         <div className="space-y-4">
           <div className="flex items-start gap-2 rounded-lg border border-red-500/20 bg-red-500/5 p-3">
-            <AlertCircle className="h-4 w-4 shrink-0 text-red-500 mt-0.5" />
+            <AlertCircle className="h-4 w-4 shrink-0 text-red-700 mt-0.5" />
             <div className="space-y-1">
-              <p className="text-sm text-red-600 dark:text-red-400">{transcriptError}</p>
-              <p className="text-xs text-red-500/70 dark:text-red-400/60">
+              <p className="text-sm text-red-700 dark:text-red-400">{transcriptError}</p>
+              <p className="text-xs text-red-700/70 dark:text-red-400/60">
                 يمكنك رفع ملف نص يدوياً بدلاً من ذلك
               </p>
             </div>
@@ -143,7 +143,7 @@ export function TranscriptContent() {
           <div className="flex flex-wrap gap-2">
             <Button variant="outline" size="sm" onClick={handleCopy} className="gap-1.5">
               {copied ? (
-                <><Check className="h-3.5 w-3.5 text-green-500" />تم النسخ</>
+                <><Check className="h-3.5 w-3.5 text-green-700" />تم النسخ</>
               ) : (
                 <><Copy className="h-3.5 w-3.5" />نسخ النص الكامل</>
               )}
@@ -225,7 +225,7 @@ export function TranscriptContent() {
               <span className="text-xs text-muted-foreground">
                 {pasteText.length.toLocaleString("en")} حرف
                 {pasteText.trim().length < 50 && pasteText.length > 0 && (
-                  <span className="text-red-500 mr-2">• يجب أن يكون 50 حرف على الأقل</span>
+                  <span className="text-red-700 mr-2">• يجب أن يكون 50 حرف على الأقل</span>
                 )}
               </span>
               <Button

@@ -1046,7 +1046,7 @@ export default function MediaKitPage() {
       {/* Page Header */}
       <div>
         <h1 className="text-xl font-bold tracking-tight">ملف الشراكة</h1>
-        <p className="mt-1 text-[13px] text-muted-foreground/60">
+        <p className="mt-1 text-[13px] text-muted-foreground">
           إعداد محتوى ملف الشراكة وإنشاء عروض مخصصة للشركات
         </p>
       </div>
@@ -1178,7 +1178,7 @@ export default function MediaKitPage() {
                 className="shrink-0 text-muted-foreground transition-colors hover:text-foreground"
               >
                 {shareCopied ? (
-                  <Check className="h-4 w-4 text-green-500" />
+                  <Check className="h-4 w-4 text-green-700" />
                 ) : (
                   <Copy className="h-4 w-4" />
                 )}

@@ -31,12 +31,12 @@ import type {
 // ─── Constants ──────────────────────────────────────────────────────
 
 const BUCKET_META: Record<InterviewCardBucket, { label: string; color: string }> = {
-  opening: { label: "افتتاح", color: "bg-sky-500/10 text-sky-300 border-sky-500/20" },
-  deep: { label: "عميق", color: "bg-indigo-500/10 text-indigo-300 border-indigo-500/20" },
-  escalation: { label: "تصعيد", color: "bg-rose-500/10 text-rose-300 border-rose-500/20" },
-  surprise: { label: "مفاجأة", color: "bg-fuchsia-500/10 text-fuchsia-300 border-fuchsia-500/20" },
-  backup: { label: "احتياطي", color: "bg-neutral-500/10 text-neutral-300 border-neutral-500/20" },
-  recovery: { label: "إنقاذ", color: "bg-amber-500/10 text-amber-300 border-amber-500/20" },
+  opening: { label: "افتتاح", color: "bg-sky-500/10 text-sky-700 border-sky-500/20" },
+  deep: { label: "عميق", color: "bg-indigo-500/10 text-indigo-700 border-indigo-500/20" },
+  escalation: { label: "تصعيد", color: "bg-rose-500/10 text-rose-700 border-rose-500/20" },
+  surprise: { label: "مفاجأة", color: "bg-fuchsia-500/10 text-fuchsia-700 border-fuchsia-500/20" },
+  backup: { label: "احتياطي", color: "bg-neutral-500/10 text-neutral-700 border-neutral-500/20" },
+  recovery: { label: "إنقاذ", color: "bg-amber-500/10 text-amber-700 border-amber-500/20" },
 }
 
 const MATERIAL_TYPE_LABELS: Record<CardMaterialType, string> = {
@@ -54,10 +54,10 @@ const MATERIAL_TYPE_LABELS: Record<CardMaterialType, string> = {
 }
 
 const CREDIBILITY_LABELS: Record<CardMaterialCredibility, { label: string; color: string }> = {
-  verified: { label: "موثّق", color: "text-emerald-300 bg-emerald-500/10 border-emerald-500/20" },
-  strong: { label: "قوي", color: "text-sky-300 bg-sky-500/10 border-sky-500/20" },
-  weak: { label: "ضعيف", color: "text-amber-300 bg-amber-500/10 border-amber-500/20" },
-  unverified: { label: "غير موثّق", color: "text-neutral-300 bg-neutral-500/10 border-neutral-500/20" },
+  verified: { label: "موثّق", color: "text-emerald-700 bg-emerald-500/10 border-emerald-500/20" },
+  strong: { label: "قوي", color: "text-sky-700 bg-sky-500/10 border-sky-500/20" },
+  weak: { label: "ضعيف", color: "text-amber-700 bg-amber-500/10 border-amber-500/20" },
+  unverified: { label: "غير موثّق", color: "text-neutral-700 bg-neutral-500/10 border-neutral-500/20" },
 }
 
 // ─── Props ──────────────────────────────────────────────────────────
@@ -270,7 +270,7 @@ export function CardEditorSheet({
               type="button"
               onClick={enrichThisCard}
               disabled={enriching || saving}
-              className="inline-flex items-center gap-1 rounded-lg border border-border/60 px-2 py-1 text-[10px] hover:bg-violet-500/10 hover:text-violet-300 disabled:opacity-40"
+              className="inline-flex items-center gap-1 rounded-lg border border-border/60 px-2 py-1 text-[10px] hover:bg-violet-500/10 hover:text-violet-700 disabled:opacity-40"
               title="إثراء هذه البطاقة"
             >
               {enriching ? <Loader2 className="h-3 w-3 animate-spin" /> : <Wand2 className="h-3 w-3" />}
@@ -299,7 +299,7 @@ export function CardEditorSheet({
               <button
                 type="button"
                 onClick={() => setConfirmDelete(true)}
-                className="rounded-lg p-1.5 text-muted-foreground hover:bg-rose-500/10 hover:text-rose-300"
+                className="rounded-lg p-1.5 text-muted-foreground hover:bg-rose-500/10 hover:text-rose-700"
               >
                 <Trash2 className="h-3.5 w-3.5" />
               </button>
@@ -316,7 +316,7 @@ export function CardEditorSheet({
 
         {/* Enrich feedback */}
         {enrichError && (
-          <div className="mx-5 mt-3 rounded-lg border border-rose-500/30 bg-rose-500/10 px-3 py-2 text-[11px] text-rose-300">
+          <div className="mx-5 mt-3 rounded-lg border border-rose-500/30 bg-rose-500/10 px-3 py-2 text-[11px] text-rose-700">
             <AlertTriangle className="mb-0.5 inline h-3 w-3" /> {enrichError}
           </div>
         )}
@@ -531,33 +531,33 @@ export function CardEditorSheet({
                 icon={Film}
                 label="إمكانية كليب"
                 value={card.clip_potential}
-                color="text-fuchsia-300"
+                color="text-fuchsia-700"
                 onToggle={(v) => saveField({ clip_potential: v })}
               />
               <FlagToggle
                 icon={Quote}
                 label="إمكانية اقتباس"
                 value={card.quote_potential}
-                color="text-indigo-300"
+                color="text-indigo-700"
                 onToggle={(v) => saveField({ quote_potential: v })}
               />
               <FlagToggle
                 icon={Heart}
                 label="قمة عاطفية"
                 value={card.emotional_peak}
-                color="text-rose-300"
+                color="text-rose-700"
                 onToggle={(v) => saveField({ emotional_peak: v })}
               />
               <FlagToggle
                 icon={Pin}
                 label="مثبّتة"
                 value={card.is_pinned}
-                color="text-amber-300"
+                color="text-amber-700"
                 onToggle={(v) => saveField({ is_pinned: v })}
               />
               {/* Bucket selector */}
               <div className="pt-2">
-                <div className="mb-1.5 text-[10px] font-semibold text-muted-foreground/60">
+                <div className="mb-1.5 text-[10px] font-semibold text-muted-foreground">
                   نوع البطاقة
                 </div>
                 <div className="flex flex-wrap gap-1.5">
@@ -569,7 +569,7 @@ export function CardEditorSheet({
                       className={`rounded-full border px-2.5 py-1 text-[10px] transition-colors ${
                         card.bucket === b
                           ? BUCKET_META[b].color + " font-medium"
-                          : "border-border/40 text-muted-foreground/60 hover:border-border"
+                          : "border-border/40 text-muted-foreground hover:border-border"
                       }`}
                     >
                       {BUCKET_META[b].label}
@@ -581,7 +581,7 @@ export function CardEditorSheet({
           </EditorSection>
 
           {/* Meta info */}
-          <div className="rounded-lg border border-border/20 bg-background/20 p-3 text-[10px] text-muted-foreground/50">
+          <div className="rounded-lg border border-border/20 bg-background/20 p-3 text-[10px] text-muted-foreground">
             <div>ID: {card.id}</div>
             <div>القسم: {card.section_label}</div>
             <div>المصدر: {card.source_question_id || "يدوي"}</div>
@@ -699,7 +699,7 @@ function EditableField({
   if (editing) {
     return (
       <div>
-        <div className="mb-1 text-[10px] font-semibold text-muted-foreground/60">{label}</div>
+        <div className="mb-1 text-[10px] font-semibold text-muted-foreground">{label}</div>
         {multiline ? (
           <textarea
             value={draft}
@@ -721,7 +721,7 @@ function EditableField({
           <button
             type="button"
             onClick={save}
-            className="inline-flex items-center gap-1 rounded px-2 py-0.5 text-[10px] text-violet-300 hover:bg-violet-500/10"
+            className="inline-flex items-center gap-1 rounded px-2 py-0.5 text-[10px] text-violet-700 hover:bg-violet-500/10"
           >
             <Save className="h-2.5 w-2.5" /> حفظ
           </button>
@@ -743,11 +743,11 @@ function EditableField({
       onClick={startEditing}
       className="block w-full rounded-lg p-2 text-start hover:bg-muted/20"
     >
-      <div className="mb-0.5 text-[10px] font-semibold text-muted-foreground/60">{label}</div>
+      <div className="mb-0.5 text-[10px] font-semibold text-muted-foreground">{label}</div>
       {value ? (
         <p className="text-[12px] leading-relaxed">{value}</p>
       ) : (
-        <p className="text-[11px] text-muted-foreground/40">اضغط لإضافة...</p>
+        <p className="text-[11px] text-muted-foreground">اضغط لإضافة...</p>
       )}
     </button>
   )
@@ -831,7 +831,7 @@ function FollowUpsEditor({
                 <button
                   type="button"
                   onClick={saveEdit}
-                  className="rounded px-2 py-0.5 text-[10px] text-violet-300 hover:bg-violet-500/10"
+                  className="rounded px-2 py-0.5 text-[10px] text-violet-700 hover:bg-violet-500/10"
                 >
                   حفظ
                 </button>
@@ -853,7 +853,7 @@ function FollowUpsEditor({
               >
                 <p className="text-[11px] leading-relaxed">{fu.text}</p>
                 {fu.trigger_condition && (
-                  <p className="mt-0.5 text-[9px] text-muted-foreground/60">
+                  <p className="mt-0.5 text-[9px] text-muted-foreground">
                     شرط: {fu.trigger_condition}
                   </p>
                 )}
@@ -861,7 +861,7 @@ function FollowUpsEditor({
               <button
                 type="button"
                 onClick={() => removeFollowUp(fu.id)}
-                className="shrink-0 rounded p-1 text-muted-foreground/40 hover:text-rose-300"
+                className="shrink-0 rounded p-1 text-muted-foreground hover:text-rose-700"
               >
                 <X className="h-3 w-3" />
               </button>
@@ -892,7 +892,7 @@ function FollowUpsEditor({
               type="button"
               onClick={addFollowUp}
               disabled={!newText.trim()}
-              className="rounded px-2 py-0.5 text-[10px] text-violet-300 hover:bg-violet-500/10 disabled:opacity-40"
+              className="rounded px-2 py-0.5 text-[10px] text-violet-700 hover:bg-violet-500/10 disabled:opacity-40"
             >
               إضافة
             </button>
@@ -909,7 +909,7 @@ function FollowUpsEditor({
         <button
           type="button"
           onClick={() => setAdding(true)}
-          className="inline-flex items-center gap-1 rounded-lg border border-dashed border-border/40 px-2.5 py-1.5 text-[10px] text-muted-foreground hover:border-violet-500/40 hover:text-violet-300"
+          className="inline-flex items-center gap-1 rounded-lg border border-dashed border-border/40 px-2.5 py-1.5 text-[10px] text-muted-foreground hover:border-violet-500/40 hover:text-violet-700"
         >
           <Plus className="h-3 w-3" /> إضافة متابعة
         </button>
@@ -968,7 +968,7 @@ function MaterialsEditor({
       {/* Manual materials */}
       {manualMaterials.length > 0 && (
         <div>
-          <div className="mb-1.5 text-[9px] font-semibold uppercase text-violet-300/60">
+          <div className="mb-1.5 text-[9px] font-semibold uppercase text-violet-700/60">
             يدوية
           </div>
           {manualMaterials.map((m) => (
@@ -980,7 +980,7 @@ function MaterialsEditor({
       {/* AI materials */}
       {aiMaterials.length > 0 && (
         <div>
-          <div className="mb-1.5 flex items-center gap-1 text-[9px] font-semibold uppercase text-sky-300/60">
+          <div className="mb-1.5 flex items-center gap-1 text-[9px] font-semibold uppercase text-sky-700/60">
             <Sparkles className="h-2.5 w-2.5" /> مُولّدة بالذكاء الاصطناعي
           </div>
           {aiMaterials.map((m) => (
@@ -990,7 +990,7 @@ function MaterialsEditor({
       )}
 
       {materials.length === 0 && !adding && (
-        <p className="text-[11px] text-muted-foreground/40">لا توجد مواد داعمة</p>
+        <p className="text-[11px] text-muted-foreground">لا توجد مواد داعمة</p>
       )}
 
       {/* Add form */}
@@ -1070,7 +1070,7 @@ function MaterialsEditor({
                   className={`rounded-full border px-2 py-0.5 text-[10px] transition-colors ${
                     newCredibility === c
                       ? CREDIBILITY_LABELS[c].color + " font-medium"
-                      : "border-border/40 text-muted-foreground/60"
+                      : "border-border/40 text-muted-foreground"
                   }`}
                 >
                   {CREDIBILITY_LABELS[c].label}
@@ -1084,7 +1084,7 @@ function MaterialsEditor({
               type="button"
               onClick={handleAdd}
               disabled={!newTitle.trim() || !newContent.trim() || savingNew}
-              className="inline-flex items-center gap-1 rounded px-2.5 py-1 text-[10px] font-medium text-violet-300 hover:bg-violet-500/10 disabled:opacity-40"
+              className="inline-flex items-center gap-1 rounded px-2.5 py-1 text-[10px] font-medium text-violet-700 hover:bg-violet-500/10 disabled:opacity-40"
             >
               {savingNew ? <Loader2 className="h-2.5 w-2.5 animate-spin" /> : <Plus className="h-2.5 w-2.5" />}
               إضافة
@@ -1102,7 +1102,7 @@ function MaterialsEditor({
         <button
           type="button"
           onClick={() => setAdding(true)}
-          className="inline-flex items-center gap-1 rounded-lg border border-dashed border-border/40 px-2.5 py-1.5 text-[10px] text-muted-foreground hover:border-violet-500/40 hover:text-violet-300"
+          className="inline-flex items-center gap-1 rounded-lg border border-dashed border-border/40 px-2.5 py-1.5 text-[10px] text-muted-foreground hover:border-violet-500/40 hover:text-violet-700"
         >
           <Plus className="h-3 w-3" /> إضافة مادة يدوية
         </button>
@@ -1178,7 +1178,7 @@ function MaterialItem({
             type="button"
             onClick={handleSaveEdit}
             disabled={!editTitle.trim() || !editContent.trim() || savingEdit}
-            className="inline-flex items-center gap-1 rounded px-2 py-0.5 text-[10px] text-violet-300 hover:bg-violet-500/10 disabled:opacity-40"
+            className="inline-flex items-center gap-1 rounded px-2 py-0.5 text-[10px] text-violet-700 hover:bg-violet-500/10 disabled:opacity-40"
           >
             {savingEdit ? <Loader2 className="h-2.5 w-2.5 animate-spin" /> : <Save className="h-2.5 w-2.5" />}
             حفظ
@@ -1214,7 +1214,7 @@ function MaterialItem({
             {material.content}
           </p>
           {material.source_name && (
-            <p className="mt-1 text-[9px] text-muted-foreground/50">
+            <p className="mt-1 text-[9px] text-muted-foreground">
               {material.source_name}
               {material.source_url && " — "}
               {material.source_url && (
@@ -1222,7 +1222,7 @@ function MaterialItem({
                   href={material.source_url}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="text-violet-300/60 underline"
+                  className="text-violet-700/60 underline"
                   onClick={(e) => e.stopPropagation()}
                 >
                   رابط
@@ -1240,7 +1240,7 @@ function MaterialItem({
                 type="button"
                 onClick={handleDelete}
                 disabled={deleting}
-                className="rounded px-1.5 py-0.5 text-[9px] text-rose-300 hover:bg-rose-500/10"
+                className="rounded px-1.5 py-0.5 text-[9px] text-rose-700 hover:bg-rose-500/10"
               >
                 {deleting ? <Loader2 className="h-2.5 w-2.5 animate-spin" /> : "حذف"}
               </button>
@@ -1256,7 +1256,7 @@ function MaterialItem({
             <button
               type="button"
               onClick={() => setConfirmDelete(true)}
-              className="rounded p-1 text-muted-foreground/30 hover:text-rose-300"
+              className="rounded p-1 text-muted-foreground/30 hover:text-rose-700"
             >
               <Trash2 className="h-3 w-3" />
             </button>
@@ -1292,8 +1292,8 @@ function FlagToggle({
           : "border-border/20 bg-transparent hover:border-border/40"
       }`}
     >
-      <Icon className={`h-3.5 w-3.5 ${value ? color : "text-muted-foreground/40"}`} />
-      <span className={`text-[11px] ${value ? "font-medium" : "text-muted-foreground/60"}`}>
+      <Icon className={`h-3.5 w-3.5 ${value ? color : "text-muted-foreground"}`} />
+      <span className={`text-[11px] ${value ? "font-medium" : "text-muted-foreground"}`}>
         {label}
       </span>
       <div className="mr-auto" />

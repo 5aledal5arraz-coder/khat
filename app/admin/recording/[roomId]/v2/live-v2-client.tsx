@@ -638,7 +638,7 @@ function DirectorNotesPanel(props: {
         value={props.value}
         onChange={(e) => props.onChange(e.target.value)}
         placeholder="اكتب ملاحظاتك هنا. يحفظ تلقائياً."
-        className="min-h-[120px] w-full resize-y rounded-xl border border-border/40 bg-background/40 p-3 text-[13px] leading-relaxed text-foreground placeholder:text-muted-foreground/50 focus:border-violet-500/40 focus:outline-none"
+        className="min-h-[120px] w-full resize-y rounded-xl border border-border/40 bg-background/40 p-3 text-[13px] leading-relaxed text-foreground placeholder:text-muted-foreground focus:border-violet-500/40 focus:outline-none"
       />
     </div>
   )
@@ -657,10 +657,10 @@ function Button(props: {
     "inline-flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-[12.5px] font-medium transition disabled:opacity-50"
   const variant =
     props.variant === "danger"
-      ? "border border-rose-500/30 bg-rose-500/10 text-rose-200 hover:bg-rose-500/20"
+      ? "border border-rose-500/30 bg-rose-500/10 text-rose-700 hover:bg-rose-500/20"
       : props.variant === "ghost"
         ? "text-muted-foreground hover:text-foreground"
-        : "border border-violet-500/30 bg-violet-500/10 text-violet-200 hover:bg-violet-500/20"
+        : "border border-violet-500/30 bg-violet-500/10 text-violet-700 hover:bg-violet-500/20"
   return (
     <button
       type="button"
@@ -704,7 +704,7 @@ function TagBtn(props: {
       type="button"
       onClick={props.onClick}
       disabled={props.disabled}
-      className="inline-flex items-center justify-center gap-1.5 rounded-xl border border-border/40 bg-background/40 px-3 py-2 text-[12px] font-medium text-foreground/85 transition hover:bg-violet-500/10 hover:text-violet-200 disabled:opacity-40"
+      className="inline-flex items-center justify-center gap-1.5 rounded-xl border border-border/40 bg-background/40 px-3 py-2 text-[12px] font-medium text-foreground/85 transition hover:bg-violet-500/10 hover:text-violet-700 disabled:opacity-40"
     >
       <span className="h-3.5 w-3.5">{props.icon}</span>
       {props.children}
@@ -715,7 +715,7 @@ function TagBtn(props: {
 function PriorityChip({ priority }: { priority: "must_ask" | "if_time" }) {
   if (priority === "must_ask") {
     return (
-      <span className="rounded-full bg-emerald-500/15 px-1.5 py-0.5 text-[10px] font-medium text-emerald-300">
+      <span className="rounded-full bg-emerald-500/15 px-1.5 py-0.5 text-[10px] font-medium text-emerald-700">
         must_ask
       </span>
     )
@@ -730,10 +730,10 @@ function PriorityChip({ priority }: { priority: "must_ask" | "if_time" }) {
 function RiskChip({ risk }: { risk: "low" | "medium" | "high" }) {
   const cls =
     risk === "high"
-      ? "bg-rose-500/10 text-rose-300"
+      ? "bg-rose-500/10 text-rose-700"
       : risk === "medium"
-        ? "bg-amber-500/10 text-amber-300"
-        : "bg-sky-500/10 text-sky-300"
+        ? "bg-amber-500/10 text-amber-700"
+        : "bg-sky-500/10 text-sky-700"
   return (
     <span className={`rounded-full px-1.5 py-0.5 text-[10px] ${cls}`} dir="ltr">
       risk: {risk}

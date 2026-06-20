@@ -23,31 +23,31 @@ const CATEGORY_CONFIG: Record<AudioEditSuggestion["category"], {
   long_pause: {
     label: "صمت طويل",
     icon: Pause,
-    color: "text-slate-500",
+    color: "text-slate-700",
     bgColor: "bg-slate-100 dark:bg-slate-900",
   },
   repetitive: {
     label: "كلام مكرر",
     icon: Repeat,
-    color: "text-amber-500",
+    color: "text-amber-700",
     bgColor: "bg-amber-50 dark:bg-amber-950/30",
   },
   off_topic: {
     label: "خارج الموضوع",
     icon: MessageSquareOff,
-    color: "text-red-500",
+    color: "text-red-700",
     bgColor: "bg-red-50 dark:bg-red-950/30",
   },
   filler: {
     label: "حشو",
     icon: Wind,
-    color: "text-blue-500",
+    color: "text-blue-700",
     bgColor: "bg-blue-50 dark:bg-blue-950/30",
   },
   other: {
     label: "أخرى",
     icon: HelpCircle,
-    color: "text-gray-500",
+    color: "text-gray-700",
     bgColor: "bg-gray-50 dark:bg-gray-900",
   },
 }
@@ -89,17 +89,17 @@ export function EditSuggestionsContent() {
 
       {editSuggestionsStatus === "generating" && (
         <div className="flex flex-col items-center gap-3 py-8">
-          <Loader2 className="h-5 w-5 animate-spin text-rose-500" />
+          <Loader2 className="h-5 w-5 animate-spin text-rose-700" />
           <span className="text-sm text-muted-foreground">جارٍ تحليل النص واكتشاف المقاطع...</span>
-          <span className="text-xs text-muted-foreground/70">قد تستغرق هذه العملية دقيقة أو أكثر</span>
+          <span className="text-xs text-muted-foreground">قد تستغرق هذه العملية دقيقة أو أكثر</span>
         </div>
       )}
 
       {editSuggestionsStatus === "error" && (
         <div className="space-y-3">
           <div className="flex items-start gap-2 rounded-lg border border-red-500/20 bg-red-500/5 p-3">
-            <AlertCircle className="h-4 w-4 shrink-0 text-red-500 mt-0.5" />
-            <p className="text-sm text-red-600 dark:text-red-400">{editSuggestionsError}</p>
+            <AlertCircle className="h-4 w-4 shrink-0 text-red-700 mt-0.5" />
+            <p className="text-sm text-red-700 dark:text-red-400">{editSuggestionsError}</p>
           </div>
           <Button variant="outline" onClick={generateEditSuggestions} className="gap-2">
             <RefreshCw className="h-4 w-4" />
@@ -113,7 +113,7 @@ export function EditSuggestionsContent() {
           {/* Summary bar */}
           <div className="flex items-center justify-between rounded-lg border bg-muted/30 px-4 py-3">
             <div className="flex items-center gap-2 text-sm">
-              <Scissors className="h-4 w-4 text-rose-500" />
+              <Scissors className="h-4 w-4 text-rose-700" />
               <span className="font-medium">{editSuggestions.length} اقتراح للحذف</span>
             </div>
             <div className="flex items-center gap-1.5 text-sm text-muted-foreground">

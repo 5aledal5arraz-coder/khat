@@ -282,7 +282,7 @@ export function SourcesClient({
             setAddDraft(emptyDraft())
             setFormError(null)
           }}
-          className="inline-flex items-center gap-1 rounded-xl border border-violet-500/30 bg-violet-500/10 px-3 py-1 text-[11.5px] font-medium text-violet-200 hover:bg-violet-500/20"
+          className="inline-flex items-center gap-1 rounded-xl border border-violet-500/30 bg-violet-500/10 px-3 py-1 text-[11.5px] font-medium text-violet-700 hover:bg-violet-500/20"
           data-add-source
         >
           <Plus className="h-3 w-3" />
@@ -296,7 +296,7 @@ export function SourcesClient({
           className="rounded-2xl border border-violet-500/30 bg-violet-500/5 p-4"
           data-add-form
         >
-          <h3 className="mb-3 text-[13px] font-semibold text-violet-100">
+          <h3 className="mb-3 text-[13px] font-semibold text-violet-700">
             {PAGE_COPY.newSource}
           </h3>
           <SourceForm
@@ -305,7 +305,7 @@ export function SourcesClient({
             includeActive
           />
           {formError && (
-            <p className="mt-2 text-[11.5px] text-rose-300" data-form-error>
+            <p className="mt-2 text-[11.5px] text-rose-700" data-form-error>
               {formError}
             </p>
           )}
@@ -314,7 +314,7 @@ export function SourcesClient({
               type="button"
               disabled={pending}
               onClick={submitAdd}
-              className="inline-flex items-center gap-1 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-1 text-[11.5px] font-medium text-emerald-200 hover:bg-emerald-500/20 disabled:opacity-40"
+              className="inline-flex items-center gap-1 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-1 text-[11.5px] font-medium text-emerald-700 hover:bg-emerald-500/20 disabled:opacity-40"
               data-add-submit
             >
               <Save className="h-3 w-3" />
@@ -416,18 +416,18 @@ function SourceCard({
     if (source.archived_at) {
       return {
         label: PAGE_COPY.stats.statusArchived,
-        cls: "border-slate-500/30 bg-slate-500/10 text-slate-200",
+        cls: "border-slate-500/30 bg-slate-500/10 text-slate-700",
       }
     }
     if (source.active) {
       return {
         label: PAGE_COPY.stats.statusActive,
-        cls: "border-emerald-500/30 bg-emerald-500/10 text-emerald-200",
+        cls: "border-emerald-500/30 bg-emerald-500/10 text-emerald-700",
       }
     }
     return {
       label: PAGE_COPY.stats.statusInactive,
-      cls: "border-amber-500/30 bg-amber-500/10 text-amber-200",
+      cls: "border-amber-500/30 bg-amber-500/10 text-amber-700",
     }
   }, [source.archived_at, source.active])
 
@@ -538,11 +538,11 @@ function SourceCard({
 
       {/* ── Latest signals preview ─────────────────────────────── */}
       <div className="mt-2">
-        <div className="mb-1 text-[10px] uppercase tracking-wider text-muted-foreground/70">
+        <div className="mb-1 text-[10px] uppercase tracking-wider text-muted-foreground">
           {PAGE_COPY.stats.latestSignals}
         </div>
         {source.latest_signals.length === 0 ? (
-          <p className="text-[11px] text-muted-foreground/70">
+          <p className="text-[11px] text-muted-foreground">
             {PAGE_COPY.stats.noLinkedSignals}
           </p>
         ) : (
@@ -553,7 +553,7 @@ function SourceCard({
                 className="flex items-center justify-between gap-2"
               >
                 <span className="truncate text-foreground/85">{sig.title}</span>
-                <span className="shrink-0 text-[10px] text-muted-foreground/70">
+                <span className="shrink-0 text-[10px] text-muted-foreground">
                   {relativeArabic(sig.collected_at)}
                 </span>
               </li>
@@ -574,7 +574,7 @@ function SourceCard({
             value={notesDraft}
             onChange={(e) => setNotesDraft(e.target.value)}
             rows={2}
-            className="w-full rounded-lg border border-border/40 bg-background/40 p-2 text-[11.5px] text-foreground placeholder:text-muted-foreground/60"
+            className="w-full rounded-lg border border-border/40 bg-background/40 p-2 text-[11.5px] text-foreground placeholder:text-muted-foreground"
             placeholder={PAGE_COPY.form.notesPlaceholder}
             dir="rtl"
             data-notes-input
@@ -589,7 +589,7 @@ function SourceCard({
                   setNotesOpen(false)
                 })
               }
-              className="rounded-md border border-violet-500/30 bg-violet-500/10 px-2 py-0.5 text-[11px] text-violet-200 hover:bg-violet-500/20 disabled:opacity-40"
+              className="rounded-md border border-violet-500/30 bg-violet-500/10 px-2 py-0.5 text-[11px] text-violet-700 hover:bg-violet-500/20 disabled:opacity-40"
             >
               {PAGE_COPY.actions.saveNotes}
             </button>
@@ -676,14 +676,14 @@ function SourceCard({
         <div className="mt-3 rounded-xl border border-violet-500/30 bg-violet-500/5 p-3" data-edit-form>
           <SourceForm draft={editDraft} onChange={updateEditDraft} />
           {formError && (
-            <p className="mt-2 text-[11.5px] text-rose-300">{formError}</p>
+            <p className="mt-2 text-[11.5px] text-rose-700">{formError}</p>
           )}
           <div className="mt-2 flex gap-2">
             <button
               type="button"
               disabled={pending}
               onClick={submitEdit}
-              className="inline-flex items-center gap-1 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-1 text-[11.5px] font-medium text-emerald-200 hover:bg-emerald-500/20 disabled:opacity-40"
+              className="inline-flex items-center gap-1 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-1 text-[11.5px] font-medium text-emerald-700 hover:bg-emerald-500/20 disabled:opacity-40"
               data-edit-submit
             >
               <Save className="h-3 w-3" />
@@ -869,7 +869,7 @@ function FormField({
       </span>
       {children}
       {hint && (
-        <span className="text-[10.5px] text-muted-foreground/70">{hint}</span>
+        <span className="text-[10.5px] text-muted-foreground">{hint}</span>
       )}
     </label>
   )
@@ -886,7 +886,7 @@ function Stat({
 }) {
   return (
     <>
-      <dt className="text-muted-foreground/70">{label}</dt>
+      <dt className="text-muted-foreground">{label}</dt>
       <dd className="text-foreground/85" dir={ltr ? "ltr" : undefined}>
         {value}
       </dd>
@@ -944,9 +944,9 @@ function ActionBtn({
   testId: string
 }) {
   const cls = {
-    ok: "border-emerald-500/30 bg-emerald-500/10 text-emerald-200 hover:bg-emerald-500/20",
-    danger: "border-rose-500/30 bg-rose-500/10 text-rose-200 hover:bg-rose-500/20",
-    warn: "border-amber-500/30 bg-amber-500/10 text-amber-200 hover:bg-amber-500/20",
+    ok: "border-emerald-500/30 bg-emerald-500/10 text-emerald-700 hover:bg-emerald-500/20",
+    danger: "border-rose-500/30 bg-rose-500/10 text-rose-700 hover:bg-rose-500/20",
+    warn: "border-amber-500/30 bg-amber-500/10 text-amber-700 hover:bg-amber-500/20",
     muted: "border-border/40 bg-background/40 text-muted-foreground hover:bg-muted/30",
   }[tone]
   return (

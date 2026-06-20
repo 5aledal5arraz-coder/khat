@@ -98,7 +98,7 @@ export function DetailConversation({ episodeId, enrichment }: DetailConversation
             onChange={(e) => setWhyThisConversation(e.target.value)}
             placeholder="لماذا اخترنا هذا الضيف وهذا الموضوع..."
             dir="auto"
-            className="w-full resize-none rounded-xl border border-border/50 bg-white/[0.02] px-4 py-3 text-sm leading-relaxed placeholder:text-muted-foreground/50 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary/30"
+            className="w-full resize-none rounded-xl border border-border/50 bg-white/[0.02] px-4 py-3 text-sm leading-relaxed placeholder:text-muted-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary/30"
             rows={4}
           />
         </div>
@@ -134,7 +134,7 @@ export function DetailConversation({ episodeId, enrichment }: DetailConversation
                 onChange={(e) => setWhoIsItFor(e.target.value)}
                 placeholder="هذه الحلقة مناسبة لـ..."
                 dir="auto"
-                className="w-full resize-none rounded-xl border border-border/50 bg-white/[0.02] px-4 py-3 text-sm leading-relaxed placeholder:text-muted-foreground/50 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary/30"
+                className="w-full resize-none rounded-xl border border-border/50 bg-white/[0.02] px-4 py-3 text-sm leading-relaxed placeholder:text-muted-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary/30"
                 rows={2}
               />
             </div>
@@ -145,7 +145,7 @@ export function DetailConversation({ episodeId, enrichment }: DetailConversation
                 onChange={(e) => setWhoIsItNotFor(e.target.value)}
                 placeholder="قد لا تناسبك هذه الحلقة إذا..."
                 dir="auto"
-                className="w-full resize-none rounded-xl border border-border/50 bg-white/[0.02] px-4 py-3 text-sm leading-relaxed placeholder:text-muted-foreground/50 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary/30"
+                className="w-full resize-none rounded-xl border border-border/50 bg-white/[0.02] px-4 py-3 text-sm leading-relaxed placeholder:text-muted-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary/30"
                 rows={2}
               />
             </div>
@@ -156,7 +156,7 @@ export function DetailConversation({ episodeId, enrichment }: DetailConversation
                 onChange={(e) => setWhatYouGain(e.target.value)}
                 placeholder="بعد مشاهدة هذه الحلقة ستكتسب..."
                 dir="auto"
-                className="w-full resize-none rounded-xl border border-border/50 bg-white/[0.02] px-4 py-3 text-sm leading-relaxed placeholder:text-muted-foreground/50 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary/30"
+                className="w-full resize-none rounded-xl border border-border/50 bg-white/[0.02] px-4 py-3 text-sm leading-relaxed placeholder:text-muted-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary/30"
                 rows={2}
               />
             </div>
@@ -189,7 +189,7 @@ export function DetailConversation({ episodeId, enrichment }: DetailConversation
                 onChange={(e) => node.setDesc(e.target.value)}
                 placeholder="الوصف"
                 dir="auto"
-                className="w-full resize-none rounded-lg border border-border/50 bg-white/[0.02] px-3 py-2 text-sm leading-relaxed placeholder:text-muted-foreground/50 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary/30"
+                className="w-full resize-none rounded-lg border border-border/50 bg-white/[0.02] px-3 py-2 text-sm leading-relaxed placeholder:text-muted-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary/30"
                 rows={2}
               />
             </div>
@@ -215,7 +215,7 @@ export function DetailConversation({ episodeId, enrichment }: DetailConversation
             onChange={(e) => setClipMessage(e.target.value)}
             placeholder="رسالة أو تعليق من الضيف..."
             dir="auto"
-            className="w-full resize-none rounded-xl border border-border/50 bg-white/[0.02] px-4 py-3 text-sm leading-relaxed placeholder:text-muted-foreground/50 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary/30"
+            className="w-full resize-none rounded-xl border border-border/50 bg-white/[0.02] px-4 py-3 text-sm leading-relaxed placeholder:text-muted-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary/30"
             rows={3}
           />
         </div>
@@ -248,7 +248,7 @@ export function DetailConversation({ episodeId, enrichment }: DetailConversation
                   onChange={(e) => updateUnsaidItem(i, e.target.value)}
                   placeholder="تأمل أو سؤال لم يُطرح..."
                   dir="auto"
-                  className="flex-1 resize-none rounded-lg border border-border/50 bg-white/[0.02] px-3 py-2 text-sm leading-relaxed placeholder:text-muted-foreground/50 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary/30"
+                  className="flex-1 resize-none rounded-lg border border-border/50 bg-white/[0.02] px-3 py-2 text-sm leading-relaxed placeholder:text-muted-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary/30"
                   rows={2}
                 />
                 {unsaidItems.length > 1 && (
@@ -277,7 +277,7 @@ export function DetailConversation({ episodeId, enrichment }: DetailConversation
           {saving ? "جارٍ الحفظ..." : "حفظ بيانات المحادثة"}
         </Button>
         {saved && (
-          <span className="text-sm text-green-500">تم الحفظ بنجاح</span>
+          <span className="text-sm text-green-700">تم الحفظ بنجاح</span>
         )}
       </div>
     </div>

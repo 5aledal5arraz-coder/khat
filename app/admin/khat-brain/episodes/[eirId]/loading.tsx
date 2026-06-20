@@ -14,9 +14,9 @@ export default function EpisodeWorkspaceLoading() {
       {/* Breadcrumb */}
       <div className="flex items-center gap-2 text-[11.5px]">
         <SkeletonLine width="w-24" />
-        <span className="text-muted-foreground/40">/</span>
+        <span className="text-muted-foreground">/</span>
         <SkeletonLine width="w-16" />
-        <span className="text-muted-foreground/40">/</span>
+        <span className="text-muted-foreground">/</span>
         <SkeletonLine width="w-40" />
       </div>
 

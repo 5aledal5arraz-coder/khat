@@ -179,7 +179,7 @@ export function CategoryManager({
                 <button
                   onClick={handleUpdate}
                   disabled={saving}
-                  className="flex h-6 w-6 items-center justify-center rounded-md bg-green-500/10 text-green-400 hover:bg-green-500/20"
+                  className="flex h-6 w-6 items-center justify-center rounded-md bg-green-500/10 text-green-700 hover:bg-green-500/20"
                 >
                   {saving ? <Loader2 className="h-3 w-3 animate-spin" /> : <Check className="h-3 w-3" />}
                 </button>
@@ -247,7 +247,7 @@ export function CategoryManager({
             className={`shrink-0 rounded-lg px-3 py-1.5 text-[12px] font-medium transition-all ${
               activeCategory === "__uncategorized"
                 ? "bg-muted/60 text-foreground"
-                : "text-muted-foreground/50 hover:bg-muted/30 hover:text-muted-foreground"
+                : "text-muted-foreground hover:bg-muted/30 hover:text-muted-foreground"
             }`}
           >
             <FolderOpen className="mb-px me-1 inline h-3 w-3 opacity-50" />
@@ -284,7 +284,7 @@ export function CategoryManager({
             <button
               onClick={handleCreate}
               disabled={saving || !name.trim()}
-              className="flex h-6 w-6 items-center justify-center rounded-md bg-green-500/10 text-green-400 hover:bg-green-500/20 disabled:opacity-50"
+              className="flex h-6 w-6 items-center justify-center rounded-md bg-green-500/10 text-green-700 hover:bg-green-500/20 disabled:opacity-50"
             >
               {saving ? <Loader2 className="h-3 w-3 animate-spin" /> : <Check className="h-3 w-3" />}
             </button>
@@ -304,7 +304,7 @@ export function CategoryManager({
               setSlug("")
               setError(null)
             }}
-            className="flex shrink-0 items-center gap-1 rounded-lg border border-dashed border-border/40 px-2.5 py-1.5 text-[11px] text-muted-foreground/60 transition-all hover:border-border/60 hover:text-muted-foreground"
+            className="flex shrink-0 items-center gap-1 rounded-lg border border-dashed border-border/40 px-2.5 py-1.5 text-[11px] text-muted-foreground transition-all hover:border-border/60 hover:text-muted-foreground"
           >
             <Plus className="h-3 w-3" />
             تصنيف جديد

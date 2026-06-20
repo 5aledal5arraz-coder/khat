@@ -135,7 +135,7 @@ export default async function MarketSignalsReviewPage({
 
       {totalAcrossAllTabs === 0 ? (
         <div className="rounded-2xl border border-dashed border-border/40 bg-card/20 px-6 py-12 text-center">
-          <Inbox className="mx-auto mb-2 h-6 w-6 text-muted-foreground/60" />
+          <Inbox className="mx-auto mb-2 h-6 w-6 text-muted-foreground" />
           <p className="text-[12.5px] text-muted-foreground">
             {PAGE_COPY.noSignalsTotal}
           </p>

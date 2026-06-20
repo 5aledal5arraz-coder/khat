@@ -21,10 +21,10 @@ interface SubscriberListProps {
 }
 
 const STATUS_META: Record<string, { label: string; badge: string }> = {
-  active: { label: "نشط", badge: "bg-green-500/10 text-green-600" },
+  active: { label: "نشط", badge: "bg-green-500/10 text-green-700" },
   unsubscribed: { label: "ألغى", badge: "bg-muted text-muted-foreground" },
-  bounced: { label: "مرتدّ", badge: "bg-amber-500/10 text-amber-600" },
-  complained: { label: "شكوى", badge: "bg-red-500/10 text-red-600" },
+  bounced: { label: "مرتدّ", badge: "bg-amber-500/10 text-amber-700" },
+  complained: { label: "شكوى", badge: "bg-red-500/10 text-red-700" },
 }
 
 const tabs = [

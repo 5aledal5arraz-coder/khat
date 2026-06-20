@@ -136,7 +136,7 @@ export function TabGuestPack() {
         {/* Header */}
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <UserCircle className="h-5 w-5 text-purple-500" />
+            <UserCircle className="h-5 w-5 text-purple-700" />
             <h3 className="text-[13px] font-semibold">بيانات الضيف</h3>
           </div>
           <div className="flex items-center gap-2">
@@ -164,7 +164,7 @@ export function TabGuestPack() {
         {/* Generating state */}
         {guestAiGenerating && (
           <div className="flex flex-col items-center gap-3 py-6">
-            <Loader2 className="h-6 w-6 animate-spin text-purple-500" />
+            <Loader2 className="h-6 w-6 animate-spin text-purple-700" />
             <span className="text-sm text-muted-foreground">جارٍ استخراج بيانات الضيف...</span>
           </div>
         )}
@@ -264,7 +264,7 @@ export function TabGuestPack() {
               </div>
 
               {Object.keys(guestExternalLinks).length === 0 && (
-                <p className="text-xs text-muted-foreground/60 text-center py-3">
+                <p className="text-xs text-muted-foreground text-center py-3">
                   لم تُضف حسابات بعد
                 </p>
               )}
@@ -288,7 +288,7 @@ export function TabGuestPack() {
                       />
                       <button
                         onClick={() => removePlatform(key)}
-                        className="flex h-7 w-7 items-center justify-center rounded-md hover:bg-red-50 dark:hover:bg-red-950/30 text-muted-foreground hover:text-red-500 transition-colors shrink-0"
+                        className="flex h-7 w-7 items-center justify-center rounded-md hover:bg-red-50 dark:hover:bg-red-950/30 text-muted-foreground hover:text-red-700 transition-colors shrink-0"
                         title={`إزالة ${platform?.label || key}`}
                       >
                         <Trash2 className="h-3.5 w-3.5" />

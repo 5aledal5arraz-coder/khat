@@ -62,7 +62,7 @@ export function ThemeSettingForm({ initialMode }: { initialMode: ThemeMode }) {
             {isPending ? "جارٍ الحفظ..." : "حفظ"}
           </Button>
           {saved && (
-            <span className="text-sm text-green-500">تم الحفظ</span>
+            <span className="text-sm text-green-700">تم الحفظ</span>
           )}
         </div>
       </CardContent>

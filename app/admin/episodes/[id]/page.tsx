@@ -108,13 +108,13 @@ export default async function EpisodeDetailPage({
           data-legacy-banner
         >
           <div className="mx-auto flex max-w-7xl items-center justify-between gap-3">
-            <span className="inline-flex items-center gap-1.5 text-violet-200">
+            <span className="inline-flex items-center gap-1.5 text-violet-700">
               <Brain className="h-3 w-3" />
               أنت داخل العرض القديم — مساحة عمل الحلقة الموحّدة في Khat Brain.
             </span>
             <Link
               href={`/admin/khat-brain/episodes/${eirId}?tab=publish`}
-              className="rounded-lg border border-violet-500/30 bg-violet-500/10 px-3 py-1 text-[11px] font-medium text-violet-200 hover:bg-violet-500/20"
+              className="rounded-lg border border-violet-500/30 bg-violet-500/10 px-3 py-1 text-[11px] font-medium text-violet-700 hover:bg-violet-500/20"
             >
               العودة إلى مساحة العمل
             </Link>

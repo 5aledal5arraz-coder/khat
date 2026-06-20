@@ -99,12 +99,12 @@ export function AlternativeSheet({
                       {opt.description}
                     </p>
                     {opt.hint && (
-                      <p className="mt-1 text-[10.5px] text-muted-foreground/70">
+                      <p className="mt-1 text-[10.5px] text-muted-foreground">
                         {opt.hint}
                       </p>
                     )}
                     {opt.requiresGuest && !hasGuest && (
-                      <p className="mt-1 text-[10.5px] text-rose-400/80">
+                      <p className="mt-1 text-[10.5px] text-rose-700/80">
                         يتطلب وجود ضيف مقترح.
                       </p>
                     )}

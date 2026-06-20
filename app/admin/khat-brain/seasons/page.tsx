@@ -46,7 +46,7 @@ export default async function SeasonsListPage() {
           <div className="flex flex-col gap-2 sm:flex-row">
             <Link
               href="/admin/khat-brain/seasons/new"
-              className="inline-flex items-center justify-center gap-2 rounded-xl border border-violet-500/40 bg-violet-500/10 px-4 py-2 text-[12.5px] font-medium text-violet-200 transition-colors hover:bg-violet-500/20"
+              className="inline-flex items-center justify-center gap-2 rounded-xl border border-violet-500/40 bg-violet-500/10 px-4 py-2 text-[12.5px] font-medium text-violet-700 transition-colors hover:bg-violet-500/20"
             >
               <Plus className="h-3.5 w-3.5" /> موسم جديد
             </Link>

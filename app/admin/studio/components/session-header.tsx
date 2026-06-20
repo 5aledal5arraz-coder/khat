@@ -30,17 +30,17 @@ const PILL_STYLES: Record<PillStatus, { bg: string; text: string; dot: string }>
   },
   generating: {
     bg: "bg-amber-500/10",
-    text: "text-amber-600 dark:text-amber-400",
+    text: "text-amber-700 dark:text-amber-400",
     dot: "bg-amber-500 admin-shimmer",
   },
   ready: {
     bg: "bg-emerald-500/10",
-    text: "text-emerald-600 dark:text-emerald-400",
+    text: "text-emerald-700 dark:text-emerald-400",
     dot: "bg-emerald-500",
   },
   error: {
     bg: "bg-red-500/10",
-    text: "text-red-600 dark:text-red-400",
+    text: "text-red-700 dark:text-red-400",
     dot: "bg-red-500",
   },
 }
@@ -77,9 +77,9 @@ export function SessionHeader() {
           <div className="shrink-0 md:w-52 flex items-center justify-center bg-gradient-to-br from-purple-100 to-purple-50 dark:from-purple-950/40 dark:to-purple-900/20">
             <div className="py-8 flex flex-col items-center gap-2">
               <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-purple-200/50 dark:bg-purple-900/50">
-                <Mic className="h-7 w-7 text-purple-500" />
+                <Mic className="h-7 w-7 text-purple-700" />
               </div>
-              <span className="text-xs text-purple-500/80 font-medium">ملف صوتي</span>
+              <span className="text-xs text-purple-700/80 font-medium">ملف صوتي</span>
             </div>
           </div>
         ) : session.thumbnail_url ? (
@@ -102,22 +102,22 @@ export function SessionHeader() {
             <div className="flex items-center gap-2 shrink-0">
               {/* Overall status badge */}
               {allReady ? (
-                <span className="inline-flex items-center gap-1.5 rounded-md bg-emerald-500/10 px-3 py-1 text-[11px] font-semibold text-emerald-600 dark:text-emerald-400">
+                <span className="inline-flex items-center gap-1.5 rounded-md bg-emerald-500/10 px-3 py-1 text-[11px] font-semibold text-emerald-700 dark:text-emerald-400">
                   <CheckCircle2 className="h-3.5 w-3.5" />
                   مكتمل
                 </span>
               ) : hasError ? (
-                <span className="inline-flex items-center gap-1.5 rounded-md bg-red-500/10 px-3 py-1 text-[11px] font-semibold text-red-600 dark:text-red-400">
+                <span className="inline-flex items-center gap-1.5 rounded-md bg-red-500/10 px-3 py-1 text-[11px] font-semibold text-red-700 dark:text-red-400">
                   <AlertTriangle className="h-3.5 w-3.5" />
                   يحتاج مراجعة
                 </span>
               ) : isGenerating ? (
-                <span className="inline-flex items-center gap-1.5 rounded-md bg-amber-500/10 px-3 py-1 text-[11px] font-semibold text-amber-600 dark:text-amber-400">
+                <span className="inline-flex items-center gap-1.5 rounded-md bg-amber-500/10 px-3 py-1 text-[11px] font-semibold text-amber-700 dark:text-amber-400">
                   <CircleDot className="h-3.5 w-3.5 admin-shimmer" />
                   قيد المعالجة
                 </span>
               ) : readyCount > 0 ? (
-                <span className="inline-flex items-center gap-1.5 rounded-md bg-blue-500/10 px-3 py-1 text-[11px] font-semibold text-blue-600 dark:text-blue-400">
+                <span className="inline-flex items-center gap-1.5 rounded-md bg-blue-500/10 px-3 py-1 text-[11px] font-semibold text-blue-700 dark:text-blue-400">
                   {readyCount}/{PROGRESS_PILL_DEFS.length}
                 </span>
               ) : null}
@@ -177,7 +177,7 @@ export function SessionHeader() {
 
           {/* Progress pills */}
           <div className="flex flex-wrap items-center gap-2 pt-3 border-t border-border/30">
-            <span className="text-[11px] text-muted-foreground/70 ml-1 font-medium">التقدم</span>
+            <span className="text-[11px] text-muted-foreground ml-1 font-medium">التقدم</span>
             {PROGRESS_PILL_DEFS.map((pill, i) => {
               const status = pillStatuses[i]
               const styles = PILL_STYLES[status]

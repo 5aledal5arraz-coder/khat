@@ -80,7 +80,7 @@ export function CandidatesListClient({ initialCandidates, stats }: Props) {
       {/* Stats grid */}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-6">
         <StatCard label="الإجمالي" value={stats.total} accent="bg-primary/8 text-primary" />
-        <StatCard label="جديد" value={stats.new} accent="bg-slate-500/10 text-slate-600 dark:text-slate-300" />
+        <StatCard label="جديد" value={stats.new} accent="bg-slate-500/10 text-slate-700 dark:text-slate-300" />
         <StatCard label="ضمن القائمة" value={stats.shortlisted} accent="bg-amber-500/10 text-amber-700 dark:text-amber-400" />
         <StatCard label="تم التواصل" value={stats.contacted} accent="bg-sky-500/10 text-sky-700 dark:text-sky-400" />
         <StatCard label="وافق" value={stats.accepted} accent="bg-emerald-500/10 text-emerald-700 dark:text-emerald-400" />
@@ -90,7 +90,7 @@ export function CandidatesListClient({ initialCandidates, stats }: Props) {
       {/* Filters */}
       <div className="flex flex-col gap-3 rounded-xl border border-border/40 bg-card/40 p-3 sm:flex-row sm:items-center">
         <div className="relative flex-1">
-          <Search className="absolute start-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground/60" />
+          <Search className="absolute start-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
@@ -100,7 +100,7 @@ export function CandidatesListClient({ initialCandidates, stats }: Props) {
         </div>
 
         <div className="flex items-center gap-2">
-          <Filter className="h-4 w-4 text-muted-foreground/50" />
+          <Filter className="h-4 w-4 text-muted-foreground" />
           <select
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value as GuestCandidateStatus | "all")}
@@ -186,7 +186,7 @@ function CandidateRow({ candidate }: { candidate: GuestCandidateView }) {
             </span>
           )}
         </div>
-        <div className="mt-0.5 flex items-center gap-3 text-[11px] text-muted-foreground/70">
+        <div className="mt-0.5 flex items-center gap-3 text-[11px] text-muted-foreground">
           {(candidate.city || candidate.country) && (
             <span className="inline-flex items-center gap-1">
               <MapPin className="h-3 w-3" />
@@ -203,11 +203,11 @@ function CandidateRow({ candidate }: { candidate: GuestCandidateView }) {
           {status.label}
         </span>
         {candidate.has_completed_prep && (
-          <span className="text-[10px] text-emerald-600 dark:text-emerald-400">✓ تحضير مكتمل</span>
+          <span className="text-[10px] text-emerald-700 dark:text-emerald-400">✓ تحضير مكتمل</span>
         )}
       </div>
 
-      <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground/40 transition-transform group-hover:text-primary group-hover:-translate-x-0.5 rtl:rotate-180 rtl:group-hover:translate-x-0.5" />
+      <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground transition-transform group-hover:text-primary group-hover:-translate-x-0.5 rtl:rotate-180 rtl:group-hover:translate-x-0.5" />
     </Link>
   )
 }

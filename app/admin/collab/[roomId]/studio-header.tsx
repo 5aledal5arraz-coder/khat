@@ -29,9 +29,9 @@ import { cn } from "@/lib/utils"
 
 const STATUS_CONFIG = {
   waiting: { label: "في الانتظار", icon: Clock, color: "bg-muted/50 text-muted-foreground border-border/30" },
-  live: { label: "مباشر", icon: Radio, color: "bg-red-500/15 text-red-400 border-red-500/30" },
-  paused: { label: "متوقف", icon: Pause, color: "bg-amber-500/15 text-amber-400 border-amber-500/30" },
-  ended: { label: "انتهى", icon: CheckCircle2, color: "bg-emerald-500/15 text-emerald-400 border-emerald-500/30" },
+  live: { label: "مباشر", icon: Radio, color: "bg-red-500/15 text-red-700 border-red-500/30" },
+  paused: { label: "متوقف", icon: Pause, color: "bg-amber-500/15 text-amber-700 border-amber-500/30" },
+  ended: { label: "انتهى", icon: CheckCircle2, color: "bg-emerald-500/15 text-emerald-700 border-emerald-500/30" },
 } as const
 
 const CONN_ICON = {
@@ -75,9 +75,9 @@ export function StudioHeader() {
           <span
             className={cn(
               "font-mono text-sm tabular-nums tracking-wider",
-              timerStatus === "running" && "text-red-400",
-              timerStatus === "paused" && "text-amber-400",
-              timerStatus === "stopped" && "text-emerald-400/60",
+              timerStatus === "running" && "text-red-700",
+              timerStatus === "paused" && "text-amber-700",
+              timerStatus === "stopped" && "text-emerald-700/60",
             )}
           >
             {formattedTime}
@@ -89,14 +89,14 @@ export function StudioHeader() {
       <div className="flex items-center gap-3.5">
         {/* Phase */}
         {room.phase && (
-          <span className="rounded-md bg-muted/30 px-2 py-0.5 text-[10px] text-muted-foreground/60">
+          <span className="rounded-md bg-muted/30 px-2 py-0.5 text-[10px] text-muted-foreground">
             {room.phase}
           </span>
         )}
 
         {/* Energy */}
         <div className="flex items-center gap-1" title={`الطاقة: ${room.energy_level}/5`}>
-          <Zap className="h-3 w-3 text-amber-400/60" />
+          <Zap className="h-3 w-3 text-amber-700/60" />
           <div className="flex gap-0.5">
             {Array.from({ length: 5 }, (_, i) => (
               <div
@@ -112,14 +112,14 @@ export function StudioHeader() {
 
         {/* Unseen notes */}
         {unseenNotesCount > 0 && (
-          <div className="flex items-center gap-1 text-amber-400">
+          <div className="flex items-center gap-1 text-amber-700">
             <MessageSquare className="h-3 w-3" />
             <span className="text-[10px] font-semibold">{unseenNotesCount}</span>
           </div>
         )}
 
         {/* Online count */}
-        <div className="flex items-center gap-1 text-muted-foreground/50">
+        <div className="flex items-center gap-1 text-muted-foreground">
           <Users className="h-3 w-3" />
           <span className="text-[10px]">{onlineCount}</span>
         </div>
@@ -128,9 +128,9 @@ export function StudioHeader() {
         <ConnIcon
           className={cn(
             "h-3 w-3",
-            connStatus === "connected" && "text-emerald-400/60",
-            connStatus === "disconnected" && "text-red-400",
-            (connStatus === "reconnecting" || connStatus === "connecting") && "text-amber-400",
+            connStatus === "connected" && "text-emerald-700/60",
+            connStatus === "disconnected" && "text-red-700",
+            (connStatus === "reconnecting" || connStatus === "connecting") && "text-amber-700",
             isSpinning && "animate-spin",
           )}
         />

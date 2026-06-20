@@ -65,7 +65,7 @@ export function TabTimestamps() {
       <div className="rounded-xl border border-border/30 bg-card/50 p-6 space-y-5">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <ListOrdered className="h-5 w-5 text-blue-500" />
+            <ListOrdered className="h-5 w-5 text-blue-700" />
             <h2 className="text-[13px] font-semibold">فصول يوتيوب (Chapters)</h2>
           </div>
           <span className={cn("rounded-md px-2.5 py-0.5 text-[11px] font-medium", statusInfo.className)}>
@@ -87,7 +87,7 @@ export function TabTimestamps() {
 
         {chaptersStatus === "generating" && (
           <div className="flex flex-col items-center gap-3 py-10">
-            <Loader2 className="h-6 w-6 animate-spin text-blue-500" />
+            <Loader2 className="h-6 w-6 animate-spin text-blue-700" />
             <span className="text-sm text-muted-foreground">جارٍ تحليل النص وتوليد الفصول...</span>
           </div>
         )}
@@ -95,8 +95,8 @@ export function TabTimestamps() {
         {chaptersStatus === "error" && (
           <div className="space-y-4">
             <div className="flex items-start gap-2 rounded-lg border border-red-500/20 bg-red-500/5 p-3">
-              <AlertCircle className="h-4 w-4 shrink-0 text-red-500 mt-0.5" />
-              <p className="text-sm text-red-600 dark:text-red-400">{chaptersError}</p>
+              <AlertCircle className="h-4 w-4 shrink-0 text-red-700 mt-0.5" />
+              <p className="text-sm text-red-700 dark:text-red-400">{chaptersError}</p>
             </div>
             <Button variant="outline" onClick={generateChapters} className="gap-2">
               <RefreshCw className="h-4 w-4" />
@@ -109,7 +109,7 @@ export function TabTimestamps() {
           <div className="space-y-4">
             <div className="flex flex-wrap items-center gap-2">
               <Button variant="outline" size="sm" onClick={handleCopyYouTube} className="gap-1.5">
-                {copied ? <Check className="h-3.5 w-3.5 text-green-500" /> : <Copy className="h-3.5 w-3.5" />}
+                {copied ? <Check className="h-3.5 w-3.5 text-green-700" /> : <Copy className="h-3.5 w-3.5" />}
                 {copied ? "تم النسخ" : "نسخ بتنسيق يوتيوب"}
               </Button>
               <button
@@ -189,7 +189,7 @@ export function TabTimestamps() {
         <div className="rounded-xl border border-border/30 bg-card/50 p-6 space-y-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <Clock className="h-5 w-5 text-teal-500" />
+              <Clock className="h-5 w-5 text-teal-700" />
               <h2 className="text-[13px] font-semibold">الطوابع الزمنية للموقع ({timestamps.length})</h2>
             </div>
             <CopyButton onClick={() => handleCopy(timestamps.map(t => `${formatTimestamp(t.time_seconds)} ${t.title}`).join("\n"))} />

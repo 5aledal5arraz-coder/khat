@@ -48,7 +48,7 @@ export function AssignGuestForm({
 
   if (guests.length === 0) {
     return (
-      <div className="rounded-xl border border-amber-500/30 bg-amber-500/5 p-3 text-[12px] text-amber-200">
+      <div className="rounded-xl border border-amber-500/30 bg-amber-500/5 p-3 text-[12px] text-amber-700">
         لا يوجد ضيوف مسجّلين بعد. أضف ضيفاً من صفحة الضيوف ثم عد إلى هنا.
       </div>
     )
@@ -77,7 +77,7 @@ export function AssignGuestForm({
       <button
         type="submit"
         disabled={pending || !selected || selected === currentGuestId}
-        className="inline-flex items-center gap-1.5 rounded-xl border border-violet-500/40 bg-violet-500/10 px-3 py-1.5 text-[12px] text-violet-200 hover:bg-violet-500/20 disabled:opacity-50"
+        className="inline-flex items-center gap-1.5 rounded-xl border border-violet-500/40 bg-violet-500/10 px-3 py-1.5 text-[12px] text-violet-700 hover:bg-violet-500/20 disabled:opacity-50"
       >
         {pending ? (
           <>

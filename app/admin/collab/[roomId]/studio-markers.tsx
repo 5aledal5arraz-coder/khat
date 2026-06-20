@@ -26,11 +26,11 @@ import {
 // ─── Marker type config ──────────────────────────────────────────────
 
 const MARKER_CONFIG: Record<SessionMarkerType, { label: string; icon: typeof Flag; color: string }> = {
-  episode_started: { label: "بداية", icon: Flag, color: "text-emerald-400 bg-emerald-500/10 border-emerald-500/20" },
-  break: { label: "استراحة", icon: Coffee, color: "text-sky-400 bg-sky-500/10 border-sky-500/20" },
-  retake: { label: "إعادة", icon: RotateCcw, color: "text-orange-400 bg-orange-500/10 border-orange-500/20" },
-  important: { label: "مهم", icon: Star, color: "text-amber-400 bg-amber-500/10 border-amber-500/20" },
-  technical_issue: { label: "مشكلة تقنية", icon: AlertTriangle, color: "text-red-400 bg-red-500/10 border-red-500/20" },
+  episode_started: { label: "بداية", icon: Flag, color: "text-emerald-700 bg-emerald-500/10 border-emerald-500/20" },
+  break: { label: "استراحة", icon: Coffee, color: "text-sky-700 bg-sky-500/10 border-sky-500/20" },
+  retake: { label: "إعادة", icon: RotateCcw, color: "text-orange-700 bg-orange-500/10 border-orange-500/20" },
+  important: { label: "مهم", icon: Star, color: "text-amber-700 bg-amber-500/10 border-amber-500/20" },
+  technical_issue: { label: "مشكلة تقنية", icon: AlertTriangle, color: "text-red-700 bg-red-500/10 border-red-500/20" },
   custom: { label: "ملاحظة", icon: MessageSquare, color: "text-muted-foreground bg-muted/20 border-border/30" },
 }
 
@@ -81,8 +81,8 @@ export function StudioMarkers({ defaultExpanded }: { defaultExpanded?: boolean }
         className="flex w-full items-center justify-between px-4 py-2.5"
       >
         <div className="flex items-center gap-2">
-          <Flag className="h-3.5 w-3.5 text-muted-foreground/50" />
-          <span className="text-xs font-semibold text-muted-foreground/70">
+          <Flag className="h-3.5 w-3.5 text-muted-foreground" />
+          <span className="text-xs font-semibold text-muted-foreground">
             علامات الجلسة
           </span>
           {markers.length > 0 && (
@@ -92,9 +92,9 @@ export function StudioMarkers({ defaultExpanded }: { defaultExpanded?: boolean }
           )}
         </div>
         {expanded ? (
-          <ChevronUp className="h-3.5 w-3.5 text-muted-foreground/40" />
+          <ChevronUp className="h-3.5 w-3.5 text-muted-foreground" />
         ) : (
-          <ChevronDown className="h-3.5 w-3.5 text-muted-foreground/40" />
+          <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
         )}
       </button>
 
@@ -164,7 +164,7 @@ export function StudioMarkers({ defaultExpanded }: { defaultExpanded?: boolean }
               ))}
             </div>
           ) : (
-            <p className="text-center text-[11px] text-muted-foreground/40 py-2">
+            <p className="text-center text-[11px] text-muted-foreground py-2">
               لا توجد علامات بعد
             </p>
           )}
@@ -189,7 +189,7 @@ function MarkerRow({
   return (
     <div className="group flex items-center gap-2 rounded-lg px-2 py-1.5 hover:bg-muted/10">
       {/* Time offset */}
-      <span className="shrink-0 font-mono text-[11px] tabular-nums text-muted-foreground/50">
+      <span className="shrink-0 font-mono text-[11px] tabular-nums text-muted-foreground">
         {formatRecordingMs(marker.recording_ms)}
       </span>
 
@@ -200,7 +200,7 @@ function MarkerRow({
       <span className="min-w-0 flex-1 truncate text-xs">
         {marker.label}
         {marker.note && marker.marker_type !== "custom" && (
-          <span className="mr-1 text-muted-foreground/50"> — {marker.note}</span>
+          <span className="mr-1 text-muted-foreground"> — {marker.note}</span>
         )}
       </span>
 
@@ -208,7 +208,7 @@ function MarkerRow({
       {canDelete && (
         <button
           onClick={onDelete}
-          className="shrink-0 rounded p-0.5 text-muted-foreground/30 opacity-0 transition-opacity group-hover:opacity-100 hover:text-red-400"
+          className="shrink-0 rounded p-0.5 text-muted-foreground/30 opacity-0 transition-opacity group-hover:opacity-100 hover:text-red-700"
         >
           <X className="h-3 w-3" />
         </button>

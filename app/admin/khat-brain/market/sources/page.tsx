@@ -101,7 +101,7 @@ export default async function TrustedSourcesPage({
 
       {facets.totalAll === 0 && filter === "all" ? (
         <div className="rounded-2xl border border-dashed border-border/40 bg-card/20 px-6 py-12 text-center">
-          <Inbox className="mx-auto mb-2 h-6 w-6 text-muted-foreground/60" />
+          <Inbox className="mx-auto mb-2 h-6 w-6 text-muted-foreground" />
           <p className="text-[12.5px] text-muted-foreground">{PAGE_COPY.empty}</p>
           <SourcesClient
             sources={[]}
@@ -142,9 +142,9 @@ function FacetChip({
   tone: "ok" | "warn" | "muted"
 }) {
   const cls = {
-    ok: "border-emerald-500/30 bg-emerald-500/10 text-emerald-200",
-    warn: "border-amber-500/30 bg-amber-500/10 text-amber-200",
-    muted: "border-slate-500/30 bg-slate-500/10 text-slate-200",
+    ok: "border-emerald-500/30 bg-emerald-500/10 text-emerald-700",
+    warn: "border-amber-500/30 bg-amber-500/10 text-amber-700",
+    muted: "border-slate-500/30 bg-slate-500/10 text-slate-700",
   }[tone]
   return (
     <span

@@ -176,7 +176,7 @@ export function SetupClient() {
             className="w-full cursor-pointer accent-primary"
             dir="ltr"
           />
-          <div className="mt-2 flex justify-between text-[10px] text-muted-foreground/60">
+          <div className="mt-2 flex justify-between text-[10px] text-muted-foreground">
             <span>٦</span>
             <span>٢٠</span>
           </div>
@@ -216,7 +216,7 @@ export function SetupClient() {
               }
             />
           </div>
-          <p className="mt-3 text-[10.5px] leading-relaxed text-muted-foreground/70">
+          <p className="mt-3 text-[10.5px] leading-relaxed text-muted-foreground">
             اختر «كلاهما / الكل» لعدم التقييد، أو حدّد فئة بعينها لتُطبَّق
             بصرامة على كل اقتراح ضيف. الضيوف الذين لا يمكن التحقّق من الفئة
             المطلوبة يُستبعدون.
@@ -262,7 +262,7 @@ export function SetupClient() {
 
       {/* Error */}
       {error && (
-        <div className="rounded-xl border border-rose-500/30 bg-rose-500/10 p-3 text-[12px] text-rose-400">
+        <div className="rounded-xl border border-rose-500/30 bg-rose-500/10 p-3 text-[12px] text-rose-700">
           {error}
         </div>
       )}

@@ -137,7 +137,7 @@ export function SeasonsList({
           <summary className="flex cursor-pointer select-none items-center gap-2 text-sm font-semibold text-muted-foreground">
             <Activity className="h-4 w-4 transition-transform group-open:rotate-90" />
             مؤرشفة
-            <span className="text-[10.5px] text-muted-foreground/60">
+            <span className="text-[10.5px] text-muted-foreground">
               ({archived.length})
             </span>
           </summary>
@@ -235,7 +235,7 @@ export function SeasonsList({
                 ))}
               </ul>
               {selectedSeasons.length > 8 && (
-                <p className="mt-1 px-2 text-[11px] text-muted-foreground/60">
+                <p className="mt-1 px-2 text-[11px] text-muted-foreground">
                   + {selectedSeasons.length - 8} موسم آخر
                 </p>
               )}
@@ -361,7 +361,7 @@ function SeasonRow({
                 {KHAT_MAP_V2_MODE_LABEL[season.v2_mode] ?? season.v2_mode}
               </span>
             )}
-            <span className="text-[10.5px] text-muted-foreground/60" dir="ltr">
+            <span className="text-[10.5px] text-muted-foreground" dir="ltr">
               {formatDateTime(season.last_activity_at)}
             </span>
           </div>
@@ -383,7 +383,7 @@ function SeasonRow({
 
         <Link
           href={`/admin/khat-brain/seasons/${season.id}`}
-          className="inline-flex shrink-0 items-center justify-center gap-1.5 rounded-xl border border-violet-500/40 bg-violet-500/10 px-4 py-2 text-[12px] font-medium text-violet-200 transition-colors hover:bg-violet-500/20"
+          className="inline-flex shrink-0 items-center justify-center gap-1.5 rounded-xl border border-violet-500/40 bg-violet-500/10 px-4 py-2 text-[12px] font-medium text-violet-700 transition-colors hover:bg-violet-500/20"
         >
           فتح مساحة العمل ←
         </Link>

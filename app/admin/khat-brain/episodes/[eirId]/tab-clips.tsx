@@ -76,7 +76,7 @@ export async function ClipsTab({
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <h2 className="inline-flex items-center gap-1.5 text-[14px] font-semibold">
-            <Film className="h-3.5 w-3.5 text-violet-300" />
+            <Film className="h-3.5 w-3.5 text-violet-700" />
             المقاطع
           </h2>
           <p className="mt-0.5 text-[11.5px] text-muted-foreground">
@@ -97,7 +97,7 @@ export async function ClipsTab({
 
       {isEarly && (
         <div className="rounded-2xl border border-amber-500/30 bg-amber-500/5 p-3 text-[12px]">
-          <div className="inline-flex items-center gap-1.5 font-semibold text-amber-200">
+          <div className="inline-flex items-center gap-1.5 font-semibold text-amber-700">
             <Info className="h-3 w-3" /> الحلقة لم تُسجَّل بعد
           </div>
           <p className="mt-1 text-foreground/85">

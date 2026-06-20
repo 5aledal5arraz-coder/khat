@@ -56,9 +56,9 @@ export function ResponseViewer({ responses, prepLinks, templates }: Props) {
             >
               <div className="flex min-w-0 items-center gap-2">
                 {isFinal ? (
-                  <CheckCircle2 className="h-3.5 w-3.5 shrink-0 text-emerald-500" />
+                  <CheckCircle2 className="h-3.5 w-3.5 shrink-0 text-emerald-700" />
                 ) : (
-                  <Clock className="h-3.5 w-3.5 shrink-0 text-amber-500" />
+                  <Clock className="h-3.5 w-3.5 shrink-0 text-amber-700" />
                 )}
                 <span className="text-[11px] font-semibold">
                   {isFinal ? "إجابة نهائية" : "مسودة قيد التعبئة"}
@@ -68,7 +68,7 @@ export function ResponseViewer({ responses, prepLinks, templates }: Props) {
                     {Math.round(resp.completion_percent)}%
                   </span>
                 )}
-                <span className="truncate text-[10px] text-muted-foreground/60">
+                <span className="truncate text-[10px] text-muted-foreground">
                   {(isFinal && resp.submitted_at
                     ? formatDateTime(resp.submitted_at)
                     : formatDateTime(resp.updated_at))}

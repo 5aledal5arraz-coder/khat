@@ -39,7 +39,7 @@ export async function RecordingTab({
   if (!prep) {
     return (
       <div className="rounded-2xl border border-amber-500/30 bg-amber-500/5 p-6 text-center">
-        <Brain className="mx-auto h-6 w-6 text-amber-300" />
+        <Brain className="mx-auto h-6 w-6 text-amber-700" />
         <h3 className="mt-2 text-[13px] font-semibold">الإعداد مطلوب قبل التسجيل</h3>
         <p className="mx-auto mt-1 max-w-md text-[12px] leading-relaxed text-foreground/85">
           أنشئ سجلّ إعداد للحلقة أولاً. غرفة التسجيل تُربط دائماً بسجلّ
@@ -47,7 +47,7 @@ export async function RecordingTab({
         </p>
         <Link
           href={`/admin/khat-brain/episodes/${eirId}?tab=preparation`}
-          className="mt-4 inline-flex items-center gap-1.5 rounded-xl border border-violet-500/40 bg-violet-500/10 px-3 py-1.5 text-[12px] text-violet-200 hover:bg-violet-500/20"
+          className="mt-4 inline-flex items-center gap-1.5 rounded-xl border border-violet-500/40 bg-violet-500/10 px-3 py-1.5 text-[12px] text-violet-700 hover:bg-violet-500/20"
         >
           فتح علامة تبويب «الإعداد» <ExternalLink className="h-3 w-3" />
         </Link>
@@ -60,7 +60,7 @@ export async function RecordingTab({
     return (
       <div className="space-y-4">
         <div className="rounded-2xl border border-violet-500/30 bg-violet-500/5 p-6 text-center">
-          <Radio className="mx-auto h-6 w-6 text-violet-200" />
+          <Radio className="mx-auto h-6 w-6 text-violet-700" />
           <h3 className="mt-2 text-[13px] font-semibold">
             لا توجد غرفة تسجيل لهذه الحلقة
           </h3>
@@ -72,7 +72,7 @@ export async function RecordingTab({
             <CreateRoomButton eirId={eirId} />
             <Link
               href={`/admin/preparation/${prep.id}?legacy=1`}
-              className="inline-flex items-center gap-1 text-[10.5px] text-muted-foreground/60 hover:text-muted-foreground"
+              className="inline-flex items-center gap-1 text-[10.5px] text-muted-foreground hover:text-muted-foreground"
               data-legacy-link
             >
               الصفحة المتقدمة <ExternalLink className="h-2.5 w-2.5" />
@@ -88,7 +88,7 @@ export async function RecordingTab({
   if (!snapshot) {
     return (
       <div className="rounded-2xl border border-rose-500/30 bg-rose-500/5 p-6 text-center">
-        <AlertTriangle className="mx-auto h-6 w-6 text-rose-300" />
+        <AlertTriangle className="mx-auto h-6 w-6 text-rose-700" />
         <h3 className="mt-2 text-[13px] font-semibold">تعذّر تحميل غرفة التسجيل</h3>
         <p className="mx-auto mt-1 max-w-md text-[12px] leading-relaxed text-foreground/85">
           الغرفة موجودة لكن قراءة بياناتها فشلت. افتح الصفحة المباشرة
@@ -96,7 +96,7 @@ export async function RecordingTab({
         </p>
         <Link
           href={`/admin/recording/${room.id}/v2`}
-          className="mt-4 inline-flex items-center gap-1.5 rounded-xl border border-rose-500/30 bg-rose-500/10 px-3 py-1.5 text-[12px] text-rose-200 hover:bg-rose-500/20"
+          className="mt-4 inline-flex items-center gap-1.5 rounded-xl border border-rose-500/30 bg-rose-500/10 px-3 py-1.5 text-[12px] text-rose-700 hover:bg-rose-500/20"
         >
           فتح صفحة Recording V2 <ExternalLink className="h-3 w-3" />
         </Link>

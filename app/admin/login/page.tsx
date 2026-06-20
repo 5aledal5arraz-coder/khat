@@ -75,7 +75,7 @@ export default function AdminLoginPage() {
               <KhatLogo size={48} />
             </div>
             <h1 className="text-lg font-semibold tracking-tight">لوحة تحكم خط</h1>
-            <p className="mt-1 text-[13px] text-muted-foreground/60">
+            <p className="mt-1 text-[13px] text-muted-foreground">
               أدخل بياناتك للوصول إلى لوحة التحكم
             </p>
           </div>

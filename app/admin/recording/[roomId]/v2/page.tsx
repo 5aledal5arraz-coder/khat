@@ -50,7 +50,7 @@ export default async function RecordingV2Page({
             {eirId && (
               <Link
                 href={`/admin/khat-brain/episodes/${eirId}?tab=recording`}
-                className="inline-flex items-center gap-1 rounded-lg border border-violet-500/40 bg-violet-500/10 px-2 py-1 text-[11px] text-violet-200 hover:bg-violet-500/20"
+                className="inline-flex items-center gap-1 rounded-lg border border-violet-500/40 bg-violet-500/10 px-2 py-1 text-[11px] text-violet-700 hover:bg-violet-500/20"
               >
                 <Brain className="h-3 w-3" /> فتح في Khat Brain
               </Link>

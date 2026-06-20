@@ -34,20 +34,20 @@ const STATUS_COPY: Record<
   fresh: {
     label: "حديثة",
     detail: "إشارات السوق محدّثة خلال آخر ٤٨ ساعة.",
-    badgeCls: "border-emerald-500/30 bg-emerald-500/10 text-emerald-200",
+    badgeCls: "border-emerald-500/30 bg-emerald-500/10 text-emerald-700",
     icon: CheckCircle2,
   },
   stale: {
     label: "تحتاج تحديث",
     detail: "مرّ أكثر من أسبوع منذ آخر تحديث — سيُحدَّث تلقائياً قريباً.",
-    badgeCls: "border-amber-500/30 bg-amber-500/10 text-amber-200",
+    badgeCls: "border-amber-500/30 bg-amber-500/10 text-amber-700",
     icon: AlertTriangle,
   },
   empty: {
     label: "غير متوفرة",
     detail:
       "لا توجد إشارات سوق بعد. سيتم تحديث إشارات السوق تلقائياً، أو اضغط «تحديث الآن».",
-    badgeCls: "border-slate-500/30 bg-slate-500/10 text-slate-200",
+    badgeCls: "border-slate-500/30 bg-slate-500/10 text-slate-700",
     icon: Activity,
   },
 }
@@ -144,7 +144,7 @@ export function MarketSignalsCard({ seasonId, freshness }: MarketSignalsCardProp
           onClick={onRefresh}
           disabled={isRefreshing}
           data-refresh-market
-          className="inline-flex items-center gap-1.5 rounded-xl border border-violet-500/40 bg-violet-500/10 px-3 py-1.5 text-[12px] font-medium text-violet-200 transition-colors hover:bg-violet-500/20 disabled:cursor-not-allowed disabled:opacity-60"
+          className="inline-flex items-center gap-1.5 rounded-xl border border-violet-500/40 bg-violet-500/10 px-3 py-1.5 text-[12px] font-medium text-violet-700 transition-colors hover:bg-violet-500/20 disabled:cursor-not-allowed disabled:opacity-60"
         >
           <RefreshCw
             className={
@@ -161,7 +161,7 @@ export function MarketSignalsCard({ seasonId, freshness }: MarketSignalsCardProp
         )}
       </div>
 
-      <p className="mt-2 text-[10.5px] text-muted-foreground/70">
+      <p className="mt-2 text-[10.5px] text-muted-foreground">
         يتم تحديث إشارات السوق تلقائياً يومياً وتُعاد عنقدتها أسبوعياً.
       </p>
     </div>

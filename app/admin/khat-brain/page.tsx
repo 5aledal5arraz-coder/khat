@@ -113,9 +113,9 @@ export default async function CommandCenterPage() {
       {/* ── ما الذي يحتاج انتباهك الآن؟ — UX-1 Next Action queue ── */}
       <section>
         <h2 className="mb-3 flex items-center gap-2 text-base font-semibold">
-          <ListChecks className="h-4 w-4 text-violet-300" />
+          <ListChecks className="h-4 w-4 text-violet-700" />
           ما الذي يحتاج انتباهك الآن؟
-          <span className="rounded-md bg-violet-500/10 px-1.5 py-0.5 text-[10px] text-violet-200">
+          <span className="rounded-md bg-violet-500/10 px-1.5 py-0.5 text-[10px] text-violet-700">
             {queue.length}
           </span>
         </h2>
@@ -150,10 +150,10 @@ export default async function CommandCenterPage() {
                       data-action-key={key}
                       className={
                         g.tone === "urgent"
-                          ? "rounded-full bg-rose-500/10 px-2 py-0.5 text-rose-300"
+                          ? "rounded-full bg-rose-500/10 px-2 py-0.5 text-rose-700"
                           : g.tone === "warning"
-                            ? "rounded-full bg-amber-500/10 px-2 py-0.5 text-amber-300"
-                            : "rounded-full bg-violet-500/10 px-2 py-0.5 text-violet-200"
+                            ? "rounded-full bg-amber-500/10 px-2 py-0.5 text-amber-700"
+                            : "rounded-full bg-violet-500/10 px-2 py-0.5 text-violet-700"
                       }
                     >
                       <span className="tabular-nums font-semibold">{g.count}</span>{" "}
@@ -183,13 +183,13 @@ export default async function CommandCenterPage() {
       {/* ── Stale EIR alerts — fix sprint #2.8 ─────────────────── */}
       {staleEirs.length > 0 && (
         <section>
-          <h2 className="mb-3 flex items-center gap-2 text-sm font-semibold text-amber-300">
+          <h2 className="mb-3 flex items-center gap-2 text-sm font-semibold text-amber-700">
             <AlertTriangle className="h-4 w-4" />
             حلقات متوقفة
             <span className="rounded-md bg-amber-500/20 px-1.5 py-0.5 text-[10px]">
               {staleEirs.length}
             </span>
-            <span className="text-[10px] font-normal text-muted-foreground/70">
+            <span className="text-[10px] font-normal text-muted-foreground">
               {"(>48 ساعة دون تقدم)"}
             </span>
           </h2>
@@ -210,7 +210,7 @@ export default async function CommandCenterPage() {
                       <span className="rounded-full bg-muted/30 px-1.5 py-0.5 text-[10px] uppercase tracking-wider text-muted-foreground">
                         {PHASE_LABEL[e.phase]}
                       </span>
-                      <span className="text-[10.5px] text-amber-300" dir="ltr">
+                      <span className="text-[10.5px] text-amber-700" dir="ltr">
                         {e.age_hours}h idle
                       </span>
                     </div>
@@ -221,7 +221,7 @@ export default async function CommandCenterPage() {
                       {e.recommended_action}
                     </p>
                   </div>
-                  <span className="shrink-0 rounded-xl border border-amber-500/40 bg-amber-500/10 px-3 py-1.5 text-[11.5px] font-medium text-amber-200">
+                  <span className="shrink-0 rounded-xl border border-amber-500/40 bg-amber-500/10 px-3 py-1.5 text-[11.5px] font-medium text-amber-700">
                     حرّك ←
                   </span>
                 </div>
@@ -294,7 +294,7 @@ export default async function CommandCenterPage() {
         <summary className="flex cursor-pointer select-none items-center gap-2 text-sm font-semibold text-muted-foreground">
           <ChevronDown className="h-4 w-4 transition-transform group-open:rotate-180" />
           تفاصيل النشاط الخام
-          <span className="text-[10.5px] text-muted-foreground/60">
+          <span className="text-[10.5px] text-muted-foreground">
             (transitions, jobs, AI runs, snapshots, candidates)
           </span>
         </summary>
@@ -326,13 +326,13 @@ export default async function CommandCenterPage() {
               {data.recent.transitions.map((t) => (
                 <Row key={t.id}>
                   <div className="min-w-0 flex-1 text-[12px]">
-                    <span className="text-muted-foreground/70">
+                    <span className="text-muted-foreground">
                       {t.from_phase ? PHASE_LABEL[t.from_phase] : "—"}
                     </span>
-                    <span className="mx-1 text-muted-foreground/40">→</span>
+                    <span className="mx-1 text-muted-foreground">→</span>
                     <span className="font-medium">{PHASE_LABEL[t.to_phase]}</span>
                     {t.reason && (
-                      <span className="text-muted-foreground/60" dir="ltr">
+                      <span className="text-muted-foreground" dir="ltr">
                         {" · "}
                         {t.reason}
                       </span>
@@ -360,7 +360,7 @@ export default async function CommandCenterPage() {
                     <span>{runStatusLabel(r.status)}</span>
                     <span>· {r.candidate_count} مرشح</span>
                     {r.error_message && (
-                      <span className="text-rose-400" dir="ltr">
+                      <span className="text-rose-700" dir="ltr">
                         {r.error_message}
                       </span>
                     )}
@@ -382,7 +382,7 @@ export default async function CommandCenterPage() {
                   <RowMain title={c.proposed_name ?? "(unnamed)"}>
                     {c.archetype && <span>{c.archetype}</span>}
                     {c.composite_score !== null && (
-                      <span className="text-amber-300" dir="ltr">
+                      <span className="text-amber-700" dir="ltr">
                         {c.composite_score.toFixed(2)}
                       </span>
                     )}
@@ -403,12 +403,12 @@ export default async function CommandCenterPage() {
                 <Row key={p.id}>
                   <RowMain title={p.proposed_name ?? "(unnamed)"}>
                     {p.has_canonical_link ? (
-                      <span className="inline-flex items-center gap-1 text-emerald-400">
+                      <span className="inline-flex items-center gap-1 text-emerald-700">
                         <CheckCircle2 className="h-3 w-3" />
                         مرتبط
                       </span>
                     ) : (
-                      <span className="inline-flex items-center gap-1 text-amber-400">
+                      <span className="inline-flex items-center gap-1 text-amber-700">
                         <AlertTriangle className="h-3 w-3" />
                         بدون رابط
                       </span>
@@ -459,9 +459,9 @@ export default async function CommandCenterPage() {
               {data.recent.ai_runs.map((r) => (
                 <Row key={r.id}>
                   {r.status === "succeeded" ? (
-                    <CheckCircle2 className="h-4 w-4 flex-shrink-0 text-emerald-400" />
+                    <CheckCircle2 className="h-4 w-4 flex-shrink-0 text-emerald-700" />
                   ) : (
-                    <XCircle className="h-4 w-4 flex-shrink-0 text-rose-400" />
+                    <XCircle className="h-4 w-4 flex-shrink-0 text-rose-700" />
                   )}
                   <RowMain title={`${r.task_kind} · ${r.model_name}`}>
                     <span>{jobStatusLabel(r.status)}</span>
@@ -470,7 +470,7 @@ export default async function CommandCenterPage() {
                       <span dir="ltr">${r.cost_usd.toFixed(4)}</span>
                     )}
                     {r.error_class && (
-                      <span className="text-rose-400" dir="ltr">
+                      <span className="text-rose-700" dir="ltr">
                         {r.error_class}
                       </span>
                     )}
@@ -498,7 +498,7 @@ export default async function CommandCenterPage() {
                       </span>
                     )}
                     {j.error_message && (
-                      <span className="text-rose-400" dir="ltr">
+                      <span className="text-rose-700" dir="ltr">
                         {j.error_message.slice(0, 60)}
                       </span>
                     )}
@@ -516,7 +516,7 @@ export default async function CommandCenterPage() {
         <h2 className="mb-3 flex items-center gap-2 text-sm font-semibold text-muted-foreground">
           <Sparkles className="h-4 w-4" />
           ماذا نجح / ماذا لم ينجح
-          <span className="text-[10px] text-muted-foreground/60" dir="ltr">
+          <span className="text-[10px] text-muted-foreground" dir="ltr">
             · n={worked.top_episodes.length + worked.weak_episodes.length}
           </span>
         </h2>
@@ -575,7 +575,7 @@ export default async function CommandCenterPage() {
 
         {worked.recommendations.length > 0 && (
           <div className="mt-4 rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-4">
-            <h3 className="mb-2 text-[12px] font-semibold text-emerald-300">
+            <h3 className="mb-2 text-[12px] font-semibold text-emerald-700">
               توصيات الموسم القادم
             </h3>
             <ul className="list-inside list-disc space-y-0.5 text-[12px] text-foreground/85">
@@ -698,10 +698,10 @@ function SubSection({
 }) {
   return (
     <div>
-      <h3 className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground/70">
+      <h3 className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
         {title}
         {note && (
-          <span className="ms-2 text-[9.5px] font-normal text-muted-foreground/50">
+          <span className="ms-2 text-[9.5px] font-normal text-muted-foreground">
             · {note}
           </span>
         )}
@@ -755,7 +755,7 @@ function Stat({
       <div
         className={
           "mt-1 text-xl font-bold tabular-nums " +
-          (tone === "warn" ? "text-amber-400" : "")
+          (tone === "warn" ? "text-amber-700" : "")
         }
       >
         {value}
@@ -769,10 +769,10 @@ function AlertRow({ alert }: { alert: { level: string; message: string; href?: s
     alert.level === "error" ? AlertOctagon : alert.level === "warn" ? AlertTriangle : Info
   const cls =
     alert.level === "error"
-      ? "border-rose-500/30 bg-rose-500/5 text-rose-300"
+      ? "border-rose-500/30 bg-rose-500/5 text-rose-700"
       : alert.level === "warn"
-        ? "border-amber-500/30 bg-amber-500/5 text-amber-300"
-        : "border-sky-500/30 bg-sky-500/5 text-sky-300"
+        ? "border-amber-500/30 bg-amber-500/5 text-amber-700"
+        : "border-sky-500/30 bg-sky-500/5 text-sky-700"
   const Body = (
     <div className={"flex items-center gap-2 rounded-lg border px-3 py-2 text-[12px] " + cls}>
       <Icon className="h-3.5 w-3.5 flex-shrink-0" />
@@ -857,10 +857,10 @@ function NextActionRow({
         : "border-violet-500/20 bg-card/40"
   const toneCta =
     tone === "urgent"
-      ? "border-rose-500/40 bg-rose-500/10 text-rose-200 hover:bg-rose-500/20"
+      ? "border-rose-500/40 bg-rose-500/10 text-rose-700 hover:bg-rose-500/20"
       : tone === "warning"
-        ? "border-amber-500/40 bg-amber-500/10 text-amber-200 hover:bg-amber-500/20"
-        : "border-violet-500/40 bg-violet-500/10 text-violet-200 hover:bg-violet-500/20"
+        ? "border-amber-500/40 bg-amber-500/10 text-amber-700 hover:bg-amber-500/20"
+        : "border-violet-500/40 bg-violet-500/10 text-violet-700 hover:bg-violet-500/20"
   return (
     <Link
       href={href}
@@ -874,10 +874,10 @@ function NextActionRow({
             <span className="rounded-full bg-muted/30 px-1.5 py-0.5 text-[10px] uppercase tracking-wider text-muted-foreground">
               {phaseLabel}
             </span>
-            <span className="text-[10.5px] text-muted-foreground/60" dir="ltr">
+            <span className="text-[10.5px] text-muted-foreground" dir="ltr">
               {phase}
             </span>
-            <span className="text-[10px] text-muted-foreground/50" dir="ltr">
+            <span className="text-[10px] text-muted-foreground" dir="ltr">
               · {formatDateTime(updatedAt)}
             </span>
           </div>
@@ -900,14 +900,14 @@ function NextActionRow({
 }
 
 function RunStatusIcon({ status }: { status: string }) {
-  if (status === "completed") return <CheckCircle2 className="h-3.5 w-3.5 text-emerald-400" />
-  if (status === "failed") return <XCircle className="h-3.5 w-3.5 text-rose-400" />
-  return <Activity className="h-3.5 w-3.5 animate-pulse text-amber-400" />
+  if (status === "completed") return <CheckCircle2 className="h-3.5 w-3.5 text-emerald-700" />
+  if (status === "failed") return <XCircle className="h-3.5 w-3.5 text-rose-700" />
+  return <Activity className="h-3.5 w-3.5 animate-pulse text-amber-700" />
 }
 
 function JobStatusIcon({ status }: { status: string }) {
-  if (status === "succeeded") return <CheckCircle2 className="h-3.5 w-3.5 text-emerald-400" />
-  if (status === "failed" || status === "dead") return <XCircle className="h-3.5 w-3.5 text-rose-400" />
-  if (status === "running") return <Activity className="h-3.5 w-3.5 animate-pulse text-amber-400" />
+  if (status === "succeeded") return <CheckCircle2 className="h-3.5 w-3.5 text-emerald-700" />
+  if (status === "failed" || status === "dead") return <XCircle className="h-3.5 w-3.5 text-rose-700" />
+  if (status === "running") return <Activity className="h-3.5 w-3.5 animate-pulse text-amber-700" />
   return <Clock className="h-3.5 w-3.5 text-muted-foreground" />
 }

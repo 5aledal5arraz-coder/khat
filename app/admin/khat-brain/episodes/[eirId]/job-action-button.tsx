@@ -62,7 +62,7 @@ export function JobActionButton({
         type="button"
         onClick={onClick}
         disabled={pending}
-        className={`inline-flex items-center gap-1.5 rounded-lg border border-violet-500/40 bg-violet-500/10 font-medium text-violet-200 hover:bg-violet-500/20 disabled:opacity-50 ${sizeClasses}`}
+        className={`inline-flex items-center gap-1.5 rounded-lg border border-violet-500/40 bg-violet-500/10 font-medium text-violet-700 hover:bg-violet-500/20 disabled:opacity-50 ${sizeClasses}`}
         data-job-action-button
       >
         {pending ? (
@@ -78,13 +78,13 @@ export function JobActionButton({
         )}
       </button>
       {result && !result.ok && (
-        <div className="inline-flex items-center gap-1 rounded-md bg-rose-500/10 px-2 py-0.5 text-[10.5px] text-rose-300">
+        <div className="inline-flex items-center gap-1 rounded-md bg-rose-500/10 px-2 py-0.5 text-[10.5px] text-rose-700">
           <XCircle className="h-2.5 w-2.5" />
           {result.message}
         </div>
       )}
       {result && result.ok && (
-        <div className="inline-flex items-center gap-1 rounded-md bg-emerald-500/10 px-2 py-0.5 text-[10.5px] text-emerald-300">
+        <div className="inline-flex items-center gap-1 rounded-md bg-emerald-500/10 px-2 py-0.5 text-[10.5px] text-emerald-700">
           <CheckCircle2 className="h-2.5 w-2.5" />
           {result.message}
         </div>

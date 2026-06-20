@@ -36,7 +36,7 @@ export function PrepV2View({ payload }: { payload: PrepV2Payload }) {
     <div className="mb-6 space-y-6 rounded-3xl border border-violet-500/20 bg-gradient-to-br from-violet-500/5 to-primary/5 p-6">
       {/* ── Hero ────────────────────────────────────────────────────── */}
       <div>
-        <div className="mb-2 inline-flex items-center gap-1.5 text-[11px] font-medium text-violet-200">
+        <div className="mb-2 inline-flex items-center gap-1.5 text-[11px] font-medium text-violet-700">
           <Sparkles className="h-3 w-3" />
           إعداد V2 — ضمير التحرير
         </div>
@@ -59,7 +59,7 @@ export function PrepV2View({ payload }: { payload: PrepV2Payload }) {
               key={i}
               className="rounded-lg border border-border/40 bg-background/40 px-2.5 py-1.5"
             >
-              <span className="me-1 text-muted-foreground/70" dir="ltr">
+              <span className="me-1 text-muted-foreground" dir="ltr">
                 {i + 1}.
               </span>
               {a}
@@ -149,7 +149,7 @@ export function PrepV2View({ payload }: { payload: PrepV2Payload }) {
       {payload.sensitive_zones.length > 0 && (
         <Section
           title="مناطق حسّاسة"
-          icon={<AlertTriangle className="h-3.5 w-3.5 text-amber-300" />}
+          icon={<AlertTriangle className="h-3.5 w-3.5 text-amber-700" />}
         >
           <ul className="list-inside list-disc space-y-0.5 text-[12px] text-foreground/85">
             {payload.sensitive_zones.map((z, i) => (
@@ -209,7 +209,7 @@ function QuestionRow({ q }: { q: PrepV2Question }) {
 function PriorityChip({ priority }: { priority: "must_ask" | "if_time" }) {
   if (priority === "must_ask") {
     return (
-      <span className="rounded-full bg-emerald-500/10 px-1.5 py-0.5 text-[9.5px] font-medium text-emerald-300">
+      <span className="rounded-full bg-emerald-500/10 px-1.5 py-0.5 text-[9.5px] font-medium text-emerald-700">
         must_ask
       </span>
     )
@@ -224,10 +224,10 @@ function PriorityChip({ priority }: { priority: "must_ask" | "if_time" }) {
 function RiskChip({ risk }: { risk: "low" | "medium" | "high" }) {
   const cls =
     risk === "high"
-      ? "bg-rose-500/10 text-rose-300"
+      ? "bg-rose-500/10 text-rose-700"
       : risk === "medium"
-        ? "bg-amber-500/10 text-amber-300"
-        : "bg-sky-500/10 text-sky-300"
+        ? "bg-amber-500/10 text-amber-700"
+        : "bg-sky-500/10 text-sky-700"
   return (
     <span className={`rounded-full px-1.5 py-0.5 text-[9.5px] ${cls}`} dir="ltr">
       risk: {risk}
@@ -248,9 +248,9 @@ function ListBlock({
 }) {
   if (items.length === 0) return null
   const tone = good
-    ? "text-emerald-300"
+    ? "text-emerald-700"
     : warn
-      ? "text-amber-300"
+      ? "text-amber-700"
       : "text-foreground/85"
   return (
     <div className="mb-2">
@@ -277,7 +277,7 @@ function ApproachList({
           key={i}
           className="rounded-xl border border-border/40 bg-background/40 p-3"
         >
-          <div className="text-[10.5px] uppercase tracking-wider text-muted-foreground/70">
+          <div className="text-[10.5px] uppercase tracking-wider text-muted-foreground">
             {o.approach}
           </div>
           <div className="mt-1 text-[12.5px] leading-relaxed text-foreground/90">

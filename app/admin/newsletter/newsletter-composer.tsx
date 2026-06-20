@@ -245,8 +245,8 @@ export function NewsletterComposer({ subscriberCount, recentCampaigns }: Newslet
           {message && showGenerate && (
             <div className={`rounded-lg p-3 text-sm ${
               message.type === 'success'
-                ? 'bg-green-500/10 text-green-400 border border-green-500/20'
-                : 'bg-red-500/10 text-red-400 border border-red-500/20'
+                ? 'bg-green-500/10 text-green-700 border border-green-500/20'
+                : 'bg-red-500/10 text-red-700 border border-red-500/20'
             }`}>
               {message.text}
             </div>
@@ -333,8 +333,8 @@ export function NewsletterComposer({ subscriberCount, recentCampaigns }: Newslet
           {message && showCompose && (
             <div className={`rounded-lg p-3 text-sm ${
               message.type === 'success'
-                ? 'bg-green-500/10 text-green-400 border border-green-500/20'
-                : 'bg-red-500/10 text-red-400 border border-red-500/20'
+                ? 'bg-green-500/10 text-green-700 border border-green-500/20'
+                : 'bg-red-500/10 text-red-700 border border-red-500/20'
             }`}>
               {message.text}
             </div>
@@ -369,11 +369,11 @@ export function NewsletterComposer({ subscriberCount, recentCampaigns }: Newslet
                     <td className="px-4 py-2.5">
                       <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${
                         campaign.status === 'sent'
-                          ? 'bg-green-500/10 text-green-400'
+                          ? 'bg-green-500/10 text-green-700'
                           : campaign.status === 'sending'
-                          ? 'bg-yellow-500/10 text-yellow-400'
+                          ? 'bg-yellow-500/10 text-yellow-700'
                           : campaign.status === 'failed'
-                          ? 'bg-red-500/10 text-red-400'
+                          ? 'bg-red-500/10 text-red-700'
                           : 'bg-muted text-muted-foreground'
                       }`}>
                         {campaign.status === 'sent' ? 'مُرسل' :

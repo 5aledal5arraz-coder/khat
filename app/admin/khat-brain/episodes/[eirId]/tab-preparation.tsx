@@ -44,7 +44,7 @@ export function PreparationTab({
       <div className="space-y-4">
         {!currentGuestId && (
           <div className="rounded-2xl border border-rose-500/30 bg-rose-500/5 p-4">
-            <div className="mb-1 inline-flex items-center gap-1.5 text-[11.5px] font-semibold text-rose-200">
+            <div className="mb-1 inline-flex items-center gap-1.5 text-[11.5px] font-semibold text-rose-700">
               <AlertTriangle className="h-3 w-3" /> الإعداد محجوب — لا يوجد ضيف
             </div>
             <p className="mb-3 text-[12px] leading-relaxed text-foreground/85">
@@ -59,7 +59,7 @@ export function PreparationTab({
           </div>
         )}
         <div className="rounded-2xl border border-amber-500/30 bg-amber-500/5 p-6 text-center">
-          <Brain className="mx-auto h-6 w-6 text-amber-300" />
+          <Brain className="mx-auto h-6 w-6 text-amber-700" />
           <h3 className="mt-2 text-[13px] font-semibold">لا يوجد سجلّ إعداد</h3>
           <p className="mx-auto mt-1 max-w-md text-[12px] leading-relaxed text-foreground/85">
             يتم إنشاء الإعداد تلقائياً عند تحويل المرشّح إلى حلقة. إن لم
@@ -68,7 +68,7 @@ export function PreparationTab({
           {seasonId && (
             <Link
               href={`/admin/khat-brain/seasons/${seasonId}`}
-              className="mt-4 inline-flex items-center gap-1.5 rounded-xl border border-violet-500/40 bg-violet-500/10 px-3 py-1.5 text-[12px] text-violet-200 hover:bg-violet-500/20"
+              className="mt-4 inline-flex items-center gap-1.5 rounded-xl border border-violet-500/40 bg-violet-500/10 px-3 py-1.5 text-[12px] text-violet-700 hover:bg-violet-500/20"
             >
               فتح مساحة الموسم <ExternalLink className="h-3 w-3" />
             </Link>
@@ -87,7 +87,7 @@ export function PreparationTab({
           <span className="text-foreground" dir="ltr">
             {prep.title}
           </span>{" "}
-          <span className="text-muted-foreground/60">
+          <span className="text-muted-foreground">
             ({prepStatusLabel(prep.status)})
           </span>
         </div>
@@ -98,14 +98,14 @@ export function PreparationTab({
                 ? `/admin/khat-brain/episodes/${eirId}?tab=recording`
                 : `/admin/khat-brain/episodes/${eirId}?tab=recording`
             }
-            className="inline-flex items-center gap-1.5 rounded-lg border border-violet-500/40 bg-violet-500/10 px-2.5 py-1 text-[11.5px] font-medium text-violet-200 hover:bg-violet-500/20"
+            className="inline-flex items-center gap-1.5 rounded-lg border border-violet-500/40 bg-violet-500/10 px-2.5 py-1 text-[11.5px] font-medium text-violet-700 hover:bg-violet-500/20"
           >
             <Radio className="h-3 w-3" />
             {room ? "فتح غرفة التسجيل" : "إنشاء غرفة تسجيل"}
           </Link>
           <Link
             href={`/admin/preparation/${prep.id}?legacy=1`}
-            className="inline-flex items-center gap-1 text-[10.5px] text-muted-foreground/60 hover:text-muted-foreground"
+            className="inline-flex items-center gap-1 text-[10.5px] text-muted-foreground hover:text-muted-foreground"
             data-legacy-link
           >
             <ExternalLink className="h-2.5 w-2.5" /> فتح الصفحة المتقدمة
@@ -131,7 +131,7 @@ export function PreparationTab({
       {/* prep_v2 missing → clear warning + workspace-native regen button */}
       {!prep.prep_v2 && (
         <div className="rounded-2xl border border-amber-500/30 bg-amber-500/5 p-4">
-          <div className="mb-1 inline-flex items-center gap-1.5 text-[11px] font-semibold text-amber-300">
+          <div className="mb-1 inline-flex items-center gap-1.5 text-[11px] font-semibold text-amber-700">
             <AlertTriangle className="h-3 w-3" /> الإعداد العميق غير مُولَّد
           </div>
           <p className="mb-3 text-[12px] leading-relaxed text-foreground/85">
@@ -158,12 +158,12 @@ export function PreparationTab({
           >
             <div className="flex flex-col gap-0.5">
               <span className="text-muted-foreground">
-                <Sparkles className="me-1 inline h-3 w-3 text-violet-200" />
+                <Sparkles className="me-1 inline h-3 w-3 text-violet-700" />
                 يمكنك تعديل الحقول أدناه مباشرة، أو إعادة توليد الإعداد
                 بالكامل.
               </span>
               <span
-                className="inline-flex items-center gap-1 text-[10.5px] text-muted-foreground/70"
+                className="inline-flex items-center gap-1 text-[10.5px] text-muted-foreground"
                 dir="ltr"
                 data-prep-last-action
               >

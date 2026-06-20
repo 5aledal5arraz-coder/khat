@@ -228,7 +228,7 @@ export function CandidateDetailClient({ candidate, statusHistory, outreachMessag
             {archiveBusy ? <Loader2 className="ms-1 h-3.5 w-3.5 animate-spin" /> : <Archive className="ms-1 h-3.5 w-3.5" />}
             {isArchived ? "إعادة من الأرشيف" : "أرشفة"}
           </Button>
-          <Button variant="ghost" size="sm" onClick={handleDelete} disabled={deleteBusy} className="text-rose-500 hover:text-rose-600 hover:bg-rose-500/10">
+          <Button variant="ghost" size="sm" onClick={handleDelete} disabled={deleteBusy} className="text-rose-700 hover:text-rose-700 hover:bg-rose-500/10">
             {deleteBusy ? <Loader2 className="ms-1 h-3.5 w-3.5 animate-spin" /> : <Trash2 className="ms-1 h-3.5 w-3.5" />}
             حذف
           </Button>
@@ -253,7 +253,7 @@ export function CandidateDetailClient({ candidate, statusHistory, outreachMessag
                 </span>
               )}
               {isArchived && (
-                <span className="rounded bg-stone-500/15 px-1.5 py-0.5 text-[9px] font-semibold text-stone-600 dark:text-stone-400">
+                <span className="rounded bg-stone-500/15 px-1.5 py-0.5 text-[9px] font-semibold text-stone-700 dark:text-stone-400">
                   مؤرشف
                 </span>
               )}
@@ -261,7 +261,7 @@ export function CandidateDetailClient({ candidate, statusHistory, outreachMessag
             {candidate.display_name && candidate.display_name !== candidate.full_name && (
               <p className="mt-0.5 text-xs text-muted-foreground">{candidate.full_name}</p>
             )}
-            <div className="mt-2 flex flex-wrap items-center gap-3 text-[11px] text-muted-foreground/70">
+            <div className="mt-2 flex flex-wrap items-center gap-3 text-[11px] text-muted-foreground">
               {(candidate.city || candidate.country) && (
                 <span className="inline-flex items-center gap-1">
                   <MapPin className="h-3 w-3" />
@@ -321,7 +321,7 @@ export function CandidateDetailClient({ candidate, statusHistory, outreachMessag
               <div className="space-y-2">
                 {candidate.social_links.map((link) => (
                   <div key={link.id} className="flex items-center gap-3 rounded-lg border border-border/30 bg-background/30 p-2.5">
-                    <span className="text-muted-foreground/70">{platformIcon(link.platform)}</span>
+                    <span className="text-muted-foreground">{platformIcon(link.platform)}</span>
                     <a
                       href={link.url}
                       target="_blank"
@@ -330,12 +330,12 @@ export function CandidateDetailClient({ candidate, statusHistory, outreachMessag
                     >
                       {link.label || link.url}
                     </a>
-                    <a href={link.url} target="_blank" rel="noopener noreferrer" className="text-muted-foreground/50 hover:text-foreground">
+                    <a href={link.url} target="_blank" rel="noopener noreferrer" className="text-muted-foreground hover:text-foreground">
                       <ExternalLink className="h-3.5 w-3.5" />
                     </a>
                     <button
                       onClick={() => handleDeleteLink(link.id)}
-                      className="text-muted-foreground/50 hover:text-rose-500"
+                      className="text-muted-foreground hover:text-rose-700"
                     >
                       <X className="h-3.5 w-3.5" />
                     </button>
@@ -389,7 +389,7 @@ export function CandidateDetailClient({ candidate, statusHistory, outreachMessag
           {/* AI analysis */}
           <Section
             title="التحليل بالذكاء الاصطناعي"
-            icon={<Sparkles className="h-4 w-4 text-violet-500" />}
+            icon={<Sparkles className="h-4 w-4 text-violet-700" />}
             badge={candidate.ai_generated_at ? formatDate(candidate.ai_generated_at) : undefined}
             action={
               <Button size="sm" variant="ghost" onClick={handleAnalyze} disabled={analyzeBusy} className="h-7 text-xs">
@@ -488,7 +488,7 @@ export function CandidateDetailClient({ candidate, statusHistory, outreachMessag
               </div>
             ) : (
               <div className="rounded-lg border border-dashed border-violet-500/20 bg-violet-500/5 p-6 text-center">
-                <Sparkles className="mx-auto mb-2 h-6 w-6 text-violet-500/70" />
+                <Sparkles className="mx-auto mb-2 h-6 w-6 text-violet-700/70" />
                 <p className="mb-3 text-xs text-muted-foreground">
                   لم يتم توليد تحليل بعد. اضغط "تحليل الآن" لتقييم المرشح بناءً على ملفه وروابطه.
                 </p>
@@ -502,7 +502,7 @@ export function CandidateDetailClient({ candidate, statusHistory, outreachMessag
           </Section>
 
           {/* Outreach */}
-          <Section title="رسائل التواصل" icon={<Mail className="h-4 w-4 text-sky-500" />}>
+          <Section title="رسائل التواصل" icon={<Mail className="h-4 w-4 text-sky-700" />}>
             <OutreachPanel
               candidateId={candidate.id}
               initialMessages={outreachMessages}
@@ -511,7 +511,7 @@ export function CandidateDetailClient({ candidate, statusHistory, outreachMessag
           </Section>
 
           {/* Prep links */}
-          <Section title="نموذج التحضير" icon={<ClipboardList className="h-4 w-4 text-violet-500" />}>
+          <Section title="نموذج التحضير" icon={<ClipboardList className="h-4 w-4 text-violet-700" />}>
             <PrepLinkPanel
               candidateId={candidate.id}
               initialLinks={prepLinks}
@@ -523,7 +523,7 @@ export function CandidateDetailClient({ candidate, statusHistory, outreachMessag
           {prepResponses.length > 0 && (
             <Section
               title="إجابات الضيف"
-              icon={<FileText className="h-4 w-4 text-emerald-500" />}
+              icon={<FileText className="h-4 w-4 text-emerald-700" />}
               badge={`${prepResponses.length}`}
             >
               <ResponseViewer responses={prepResponses} prepLinks={prepLinks} templates={templates} />
@@ -564,13 +564,13 @@ export function CandidateDetailClient({ candidate, statusHistory, outreachMessag
                       <div className="flex items-center gap-1.5">
                         {fromMeta && (
                           <>
-                            <span className="text-muted-foreground/60">{fromMeta.label}</span>
-                            <span className="text-muted-foreground/40">←</span>
+                            <span className="text-muted-foreground">{fromMeta.label}</span>
+                            <span className="text-muted-foreground">←</span>
                           </>
                         )}
                         <span className="font-semibold">{toMeta?.label || h.new_status}</span>
                       </div>
-                      <div className="mt-0.5 text-[10px] text-muted-foreground/60">
+                      <div className="mt-0.5 text-[10px] text-muted-foreground">
                         {formatDateTime(h.created_at)}
                       </div>
                       {h.change_note && (
@@ -670,7 +670,7 @@ function QuestionGroup({ label, questions }: { label: string; questions?: string
 function DetailRow({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex items-baseline justify-between gap-2 border-b border-border/20 pb-1.5 last:border-0 last:pb-0">
-      <dt className="shrink-0 text-muted-foreground/70">{label}</dt>
+      <dt className="shrink-0 text-muted-foreground">{label}</dt>
       <dd className="truncate text-end text-foreground/85">{value}</dd>
     </div>
   )

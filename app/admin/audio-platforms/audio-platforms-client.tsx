@@ -329,7 +329,7 @@ export function OfficialPlatformsClient({ initialPlatforms }: Props) {
           <div className="flex items-center gap-2">
             <Link2 className="h-5 w-5 text-primary" />
             <h1 className="text-xl font-bold tracking-tight">روابط المنصات الرسمية</h1>
-            <span className="rounded-md bg-muted/60 px-2 py-0.5 text-[11px] font-medium text-muted-foreground/70">
+            <span className="rounded-md bg-muted/60 px-2 py-0.5 text-[11px] font-medium text-muted-foreground">
               {stats.active}/{stats.total} فعّال
             </span>
           </div>
@@ -350,7 +350,7 @@ export function OfficialPlatformsClient({ initialPlatforms }: Props) {
           className={cn(
             "flex items-center gap-2 rounded-lg px-4 py-2.5 text-sm",
             toast.type === "success"
-              ? "bg-emerald-500/10 text-emerald-600"
+              ? "bg-emerald-500/10 text-emerald-700"
               : "bg-destructive/10 text-destructive",
           )}
         >
@@ -366,7 +366,7 @@ export function OfficialPlatformsClient({ initialPlatforms }: Props) {
       {/* Filters */}
       <div className="flex flex-wrap items-center gap-2 rounded-xl border border-border/30 bg-card/50 p-3">
         <div className="relative flex-1 min-w-[220px]">
-          <Search className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground/60" />
+          <Search className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
@@ -427,7 +427,7 @@ export function OfficialPlatformsClient({ initialPlatforms }: Props) {
                 className="group relative px-5 py-3.5 transition-colors hover:bg-muted/20"
               >
                 <div className="flex items-center gap-3">
-                  <GripVertical className="h-4 w-4 shrink-0 text-muted-foreground/40" />
+                  <GripVertical className="h-4 w-4 shrink-0 text-muted-foreground" />
 
                   <Input
                     type="number"
@@ -453,13 +453,13 @@ export function OfficialPlatformsClient({ initialPlatforms }: Props) {
                         {CATEGORY_LABEL[p.category] ?? p.category}
                       </span>
                       {p.is_primary && (
-                        <span className="inline-flex items-center gap-0.5 rounded bg-amber-500/10 px-1.5 py-0.5 text-[10px] text-amber-600">
+                        <span className="inline-flex items-center gap-0.5 rounded bg-amber-500/10 px-1.5 py-0.5 text-[10px] text-amber-700">
                           <Star className="h-2.5 w-2.5" />
                           أساسي
                         </span>
                       )}
                       {!p.is_active && (
-                        <span className="rounded bg-amber-500/10 px-1.5 py-0.5 text-[10px] text-amber-600">
+                        <span className="rounded bg-amber-500/10 px-1.5 py-0.5 text-[10px] text-amber-700">
                           معطّل
                         </span>
                       )}
@@ -482,7 +482,7 @@ export function OfficialPlatformsClient({ initialPlatforms }: Props) {
                       className={cn(
                         "rounded-md px-2 py-1 text-[11px] font-medium",
                         p.is_active
-                          ? "bg-emerald-500/10 text-emerald-600 hover:bg-emerald-500/20"
+                          ? "bg-emerald-500/10 text-emerald-700 hover:bg-emerald-500/20"
                           : "bg-muted text-muted-foreground hover:bg-muted/80",
                       )}
                       title={p.is_active ? "تعطيل" : "تفعيل"}

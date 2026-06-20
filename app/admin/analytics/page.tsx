@@ -167,17 +167,17 @@ function formatDuration(seconds: number): string {
 }
 
 const ACTIVITY_ICONS: Record<string, { icon: React.ElementType; color: string }> = {
-  episode_view: { icon: Eye, color: "text-blue-500" },
-  episode_watch: { icon: Play, color: "text-indigo-500" },
-  watch_25: { icon: TrendingUp, color: "text-lime-500" },
-  watch_50: { icon: TrendingUp, color: "text-orange-500" },
-  watch_90: { icon: TrendingUp, color: "text-red-500" },
-  guest_open: { icon: UserCircle, color: "text-emerald-500" },
-  quote_open: { icon: Quote, color: "text-amber-500" },
-  search_used: { icon: Search, color: "text-cyan-500" },
-  search: { icon: Search, color: "text-cyan-500" },
-  episode_saved: { icon: Save, color: "text-pink-500" },
-  save_item: { icon: Save, color: "text-pink-500" },
+  episode_view: { icon: Eye, color: "text-blue-700" },
+  episode_watch: { icon: Play, color: "text-indigo-700" },
+  watch_25: { icon: TrendingUp, color: "text-lime-700" },
+  watch_50: { icon: TrendingUp, color: "text-orange-700" },
+  watch_90: { icon: TrendingUp, color: "text-red-700" },
+  guest_open: { icon: UserCircle, color: "text-emerald-700" },
+  quote_open: { icon: Quote, color: "text-amber-700" },
+  search_used: { icon: Search, color: "text-cyan-700" },
+  search: { icon: Search, color: "text-cyan-700" },
+  episode_saved: { icon: Save, color: "text-pink-700" },
+  save_item: { icon: Save, color: "text-pink-700" },
 }
 
 // ── Sub-components ──────────────────────────────────────────────────────────
@@ -208,7 +208,7 @@ function StatCard({
         <div className="min-w-0">
           <p className="text-[11px] text-muted-foreground">{label}</p>
           <p className="text-xl font-bold tabular-nums">{value}</p>
-          {sub && <p className="text-[10px] text-muted-foreground/60">{sub}</p>}
+          {sub && <p className="text-[10px] text-muted-foreground">{sub}</p>}
         </div>
       </div>
     </GlowCard>
@@ -223,7 +223,7 @@ function SectionHeader({ icon: Icon, title, badge }: { icon: React.ElementType; 
       </div>
       <h2 className="text-sm font-semibold">{title}</h2>
       {badge && (
-        <span className="rounded-md bg-muted/60 px-2 py-0.5 text-[10px] font-medium text-muted-foreground/70">
+        <span className="rounded-md bg-muted/60 px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
           {badge}
         </span>
       )}
@@ -311,9 +311,9 @@ export default function AnalyticsDashboard() {
         <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
           {insights.map((insight, i) => {
             const iconMap = {
-              success: { icon: CheckCircle2, bg: "bg-emerald-500/10", color: "text-emerald-500", border: "border-emerald-500/20" },
-              warning: { icon: AlertTriangle, bg: "bg-amber-500/10", color: "text-amber-500", border: "border-amber-500/20" },
-              info: { icon: Info, bg: "bg-blue-500/10", color: "text-blue-500", border: "border-blue-500/20" },
+              success: { icon: CheckCircle2, bg: "bg-emerald-500/10", color: "text-emerald-700", border: "border-emerald-500/20" },
+              warning: { icon: AlertTriangle, bg: "bg-amber-500/10", color: "text-amber-700", border: "border-amber-500/20" },
+              info: { icon: Info, bg: "bg-blue-500/10", color: "text-blue-700", border: "border-blue-500/20" },
             }
             const meta = iconMap[insight.type]
             const Icon = meta.icon
@@ -337,13 +337,13 @@ export default function AnalyticsDashboard() {
         <SectionHeader icon={BarChart3} title="نظرة عامة على المنصة" />
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
           <StatCard icon={Mic2} iconBg="bg-primary/10" iconColor="text-primary" label="إجمالي الحلقات" value={fmt(platform.totalEpisodes)} sub={`${platform.publishedEpisodes} منشورة`} />
-          <StatCard icon={Users} iconBg="bg-emerald-500/10" iconColor="text-emerald-500" label="الضيوف" value={fmt(platform.totalGuests)} color="green" />
-          <StatCard icon={Quote} iconBg="bg-amber-500/10" iconColor="text-amber-500" label="الاقتباسات" value={fmt(platform.totalQuotes)} color="muted" />
-          <StatCard icon={BookOpen} iconBg="bg-indigo-500/10" iconColor="text-indigo-500" label="الفصول الزمنية" value={fmt(platform.totalTimestamps)} color="muted" />
-          <StatCard icon={Shield} iconBg="bg-purple-500/10" iconColor="text-purple-500" label="الرعاة" value={fmt(platform.totalSponsors)} color="purple" />
+          <StatCard icon={Users} iconBg="bg-emerald-500/10" iconColor="text-emerald-700" label="الضيوف" value={fmt(platform.totalGuests)} color="green" />
+          <StatCard icon={Quote} iconBg="bg-amber-500/10" iconColor="text-amber-700" label="الاقتباسات" value={fmt(platform.totalQuotes)} color="muted" />
+          <StatCard icon={BookOpen} iconBg="bg-indigo-500/10" iconColor="text-indigo-700" label="الفصول الزمنية" value={fmt(platform.totalTimestamps)} color="muted" />
+          <StatCard icon={Shield} iconBg="bg-purple-500/10" iconColor="text-purple-700" label="الرعاة" value={fmt(platform.totalSponsors)} color="purple" />
           <StatCard icon={EyeOff} iconBg="bg-muted-foreground/10" iconColor="text-muted-foreground" label="حلقات مخفية" value={fmt(platform.hiddenEpisodes)} color="muted" />
-          <StatCard icon={FileText} iconBg="bg-orange-500/10" iconColor="text-orange-500" label="مسودات" value={fmt(platform.draftEpisodes)} color="muted" />
-          <StatCard icon={Clapperboard} iconBg="bg-cyan-500/10" iconColor="text-cyan-500" label="جلسات الاستوديو" value={fmt(studio.totalSessions)} sub={`${studio.completedSessions} مكتملة`} color="muted" />
+          <StatCard icon={FileText} iconBg="bg-orange-500/10" iconColor="text-orange-700" label="مسودات" value={fmt(platform.draftEpisodes)} color="muted" />
+          <StatCard icon={Clapperboard} iconBg="bg-cyan-500/10" iconColor="text-cyan-700" label="جلسات الاستوديو" value={fmt(studio.totalSessions)} sub={`${studio.completedSessions} مكتملة`} color="muted" />
         </div>
       </section>
 
@@ -352,9 +352,9 @@ export default function AnalyticsDashboard() {
         <SectionHeader icon={Activity} title="زوار الموقع" badge="آخر 30 يوم" />
         <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
           <StatCard icon={Users} iconBg="bg-primary/10" iconColor="text-primary" label="زوار فريدون" value={fmt(visitors.uniqueVisitors)} />
-          <StatCard icon={Eye} iconBg="bg-blue-500/10" iconColor="text-blue-500" label="مشاهدات الحلقات" value={fmt(visitors.episodeViews)} />
-          <StatCard icon={TrendingUp} iconBg="bg-emerald-500/10" iconColor="text-emerald-500" label="نسبة التفاعل العميق" value={`${visitors.engagementRate}%`} color="green" />
-          <StatCard icon={Search} iconBg="bg-cyan-500/10" iconColor="text-cyan-500" label="عمليات البحث" value={fmt(visitors.searchCount)} color="muted" />
+          <StatCard icon={Eye} iconBg="bg-blue-500/10" iconColor="text-blue-700" label="مشاهدات الحلقات" value={fmt(visitors.episodeViews)} />
+          <StatCard icon={TrendingUp} iconBg="bg-emerald-500/10" iconColor="text-emerald-700" label="نسبة التفاعل العميق" value={`${visitors.engagementRate}%`} color="green" />
+          <StatCard icon={Search} iconBg="bg-cyan-500/10" iconColor="text-cyan-700" label="عمليات البحث" value={fmt(visitors.searchCount)} color="muted" />
         </div>
 
         {/* Top episodes & searches side by side */}
@@ -368,7 +368,7 @@ export default function AnalyticsDashboard() {
               <div className="divide-y divide-border/15">
                 {visitors.topEpisodes.map((ep, i) => (
                   <div key={ep.id} className="flex items-center gap-3 px-4 py-2.5">
-                    <span className="w-5 text-center text-[11px] font-medium text-muted-foreground/50">{i + 1}</span>
+                    <span className="w-5 text-center text-[11px] font-medium text-muted-foreground">{i + 1}</span>
                     {ep.thumbnail ? (
                       <img src={ep.thumbnail} alt="" className="h-9 w-9 rounded-lg object-cover" />
                     ) : (
@@ -403,7 +403,7 @@ export default function AnalyticsDashboard() {
                 ))}
               </div>
               {visitors.topSearches.length === 0 && (
-                <p className="px-4 py-6 text-center text-xs text-muted-foreground/50">لا توجد بيانات بحث بعد</p>
+                <p className="px-4 py-6 text-center text-xs text-muted-foreground">لا توجد بيانات بحث بعد</p>
               )}
             </div>
           )}
@@ -453,21 +453,21 @@ export default function AnalyticsDashboard() {
             {/* Aggregate engagement */}
             <div className="grid grid-cols-3 gap-3">
               <div className="flex items-center gap-3 rounded-xl border border-border/30 bg-card/50 p-3">
-                <ThumbsUp className="h-4 w-4 text-blue-500" />
+                <ThumbsUp className="h-4 w-4 text-blue-700" />
                 <div>
                   <p className="text-[11px] text-muted-foreground">إجمالي الإعجابات</p>
                   <p className="text-sm font-semibold tabular-nums">{fmt(youtube.totalLikes)}</p>
                 </div>
               </div>
               <div className="flex items-center gap-3 rounded-xl border border-border/30 bg-card/50 p-3">
-                <MessageCircle className="h-4 w-4 text-emerald-500" />
+                <MessageCircle className="h-4 w-4 text-emerald-700" />
                 <div>
                   <p className="text-[11px] text-muted-foreground">إجمالي التعليقات</p>
                   <p className="text-sm font-semibold tabular-nums">{fmt(youtube.totalComments)}</p>
                 </div>
               </div>
               <div className="flex items-center gap-3 rounded-xl border border-border/30 bg-card/50 p-3">
-                <Eye className="h-4 w-4 text-amber-500" />
+                <Eye className="h-4 w-4 text-amber-700" />
                 <div>
                   <p className="text-[11px] text-muted-foreground">إجمالي المشاهدات</p>
                   <p className="text-sm font-semibold tabular-nums">{fmt(youtube.totalViews)}</p>
@@ -486,7 +486,7 @@ export default function AnalyticsDashboard() {
                   <div className="divide-y divide-border/15">
                     {youtube.topVideos.map((v, i) => (
                       <div key={v.id} className="flex items-center gap-3 px-4 py-2.5">
-                        <span className="w-5 text-center text-[11px] font-medium text-muted-foreground/50">{i + 1}</span>
+                        <span className="w-5 text-center text-[11px] font-medium text-muted-foreground">{i + 1}</span>
                         <img src={v.thumbnailUrl} alt="" className="h-9 w-16 rounded-md object-cover" />
                         <div className="min-w-0 flex-1">
                           <p className="truncate text-[13px]">{v.title}</p>
@@ -532,10 +532,10 @@ export default function AnalyticsDashboard() {
         ) : (
           <div className="rounded-xl border border-border/30 bg-card/50 px-6 py-12 text-center">
             <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-muted/30">
-              <Youtube className="h-5 w-5 text-muted-foreground/50" />
+              <Youtube className="h-5 w-5 text-muted-foreground" />
             </div>
-            <p className="text-[13px] font-medium text-muted-foreground/70">يوتيوب غير متصل</p>
-            <p className="mt-1 text-[11px] text-muted-foreground/40">
+            <p className="text-[13px] font-medium text-muted-foreground">يوتيوب غير متصل</p>
+            <p className="mt-1 text-[11px] text-muted-foreground">
               أضف YOUTUBE_API_KEY و YOUTUBE_CHANNEL_ID لتفعيل تحليلات يوتيوب
             </p>
           </div>
@@ -600,7 +600,7 @@ export default function AnalyticsDashboard() {
                         <span>{c.total_clicked} نقرة</span>
                       </div>
                     </div>
-                    <span className="shrink-0 text-[11px] text-muted-foreground/60">{timeAgo(c.sent_at)}</span>
+                    <span className="shrink-0 text-[11px] text-muted-foreground">{timeAgo(c.sent_at)}</span>
                   </div>
                 )
               })}
@@ -616,11 +616,11 @@ export default function AnalyticsDashboard() {
           <div className="rounded-xl border border-border/30 bg-card/50 p-4">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <UserPlus className="h-4 w-4 text-emerald-500" />
+                <UserPlus className="h-4 w-4 text-emerald-700" />
                 <span className="text-[13px]">طلبات الضيوف</span>
               </div>
               {submissions.newGuestApplications > 0 && (
-                <span className="rounded-full bg-amber-500/10 px-2 py-0.5 text-[10px] font-medium text-amber-500">
+                <span className="rounded-full bg-amber-500/10 px-2 py-0.5 text-[10px] font-medium text-amber-700">
                   {submissions.newGuestApplications} جديد
                 </span>
               )}
@@ -630,11 +630,11 @@ export default function AnalyticsDashboard() {
           <div className="rounded-xl border border-border/30 bg-card/50 p-4">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <Handshake className="h-4 w-4 text-blue-500" />
+                <Handshake className="h-4 w-4 text-blue-700" />
                 <span className="text-[13px]">طلبات الرعاية</span>
               </div>
               {submissions.newSponsorshipLeads > 0 && (
-                <span className="rounded-full bg-amber-500/10 px-2 py-0.5 text-[10px] font-medium text-amber-500">
+                <span className="rounded-full bg-amber-500/10 px-2 py-0.5 text-[10px] font-medium text-amber-700">
                   {submissions.newSponsorshipLeads} جديد
                 </span>
               )}
@@ -643,14 +643,14 @@ export default function AnalyticsDashboard() {
           </div>
           <div className="rounded-xl border border-border/30 bg-card/50 p-4">
             <div className="flex items-center gap-2">
-              <Lightbulb className="h-4 w-4 text-amber-500" />
+              <Lightbulb className="h-4 w-4 text-amber-700" />
               <span className="text-[13px]">اقتراحات ضيوف</span>
             </div>
             <p className="mt-2 text-2xl font-bold tabular-nums">{submissions.thinkerSuggestions}</p>
           </div>
           <div className="rounded-xl border border-border/30 bg-card/50 p-4">
             <div className="flex items-center gap-2">
-              <MousePointerClick className="h-4 w-4 text-purple-500" />
+              <MousePointerClick className="h-4 w-4 text-purple-700" />
               <span className="text-[13px]">إجمالي الإيميلات</span>
             </div>
             <p className="mt-2 text-2xl font-bold tabular-nums">{fmt(newsletter.totalEmailsSent)}</p>
@@ -674,7 +674,7 @@ export default function AnalyticsDashboard() {
                       <span className="text-muted-foreground">{activity.label}</span>{" "}
                       <span className="font-medium">{activity.targetName}</span>
                     </span>
-                    <span className="shrink-0 text-[11px] text-muted-foreground/50">
+                    <span className="shrink-0 text-[11px] text-muted-foreground">
                       {timeAgo(activity.created_at)}
                     </span>
                   </div>

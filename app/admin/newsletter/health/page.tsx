@@ -30,7 +30,7 @@ export default async function NewsletterHealthPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-xl font-bold tracking-tight">صحة النظام</h1>
-          <p className="mt-1 text-[13px] text-muted-foreground/60">حالة البنية التحتية للنشرة البريدية</p>
+          <p className="mt-1 text-[13px] text-muted-foreground">حالة البنية التحتية للنشرة البريدية</p>
         </div>
         <Link
           href="/admin/newsletter"
@@ -52,9 +52,9 @@ export default async function NewsletterHealthPage() {
             <div key={check.label} className="flex items-center justify-between rounded-lg border border-border/50 px-4 py-3">
               <div className="flex items-center gap-3">
                 {check.ok ? (
-                  <CheckCircle2 className="h-5 w-5 text-green-400" />
+                  <CheckCircle2 className="h-5 w-5 text-green-700" />
                 ) : (
-                  <XCircle className="h-5 w-5 text-red-400" />
+                  <XCircle className="h-5 w-5 text-red-700" />
                 )}
                 <span className="font-mono text-sm">{check.label}</span>
               </div>

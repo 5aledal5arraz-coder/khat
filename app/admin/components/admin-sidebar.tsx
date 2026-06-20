@@ -178,7 +178,7 @@ function AdminSidebar({ collapsed, onNavClick, userRole }: AdminSidebarProps) {
                         [group.title]: !open,
                       }))
                     }
-                    className="group flex w-full items-center gap-1 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-muted-foreground/50 transition-colors hover:text-muted-foreground"
+                    className="group flex w-full items-center gap-1 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-muted-foreground transition-colors hover:text-muted-foreground"
                     data-collapsible-group={group.title}
                     data-collapsible-open={open}
                     aria-expanded={open}
@@ -193,7 +193,7 @@ function AdminSidebar({ collapsed, onNavClick, userRole }: AdminSidebarProps) {
                   </button>
                 ) : (
                   <div className="px-3 pb-1 pt-2">
-                    <span className="text-[10px] font-semibold uppercase tracking-[0.16em] text-muted-foreground/50">
+                    <span className="text-[10px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
                       {group.title}
                     </span>
                   </div>
@@ -230,7 +230,7 @@ function AdminSidebar({ collapsed, onNavClick, userRole }: AdminSidebarProps) {
                             "h-4 w-4 transition-colors",
                             isActive
                               ? "text-primary"
-                              : "text-muted-foreground/70 group-hover/nav:text-foreground",
+                              : "text-muted-foreground group-hover/nav:text-foreground",
                           )}
                         />
                       </span>

@@ -172,7 +172,7 @@ export function DetailYoutubePack({
       <div className="flex items-center justify-between rounded-2xl border border-border/30 bg-card/50 px-5 py-4 backdrop-blur-sm">
         <div className="flex items-center gap-3">
           <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-red-500/10">
-            <Youtube className="h-5 w-5 text-red-500" />
+            <Youtube className="h-5 w-5 text-red-700" />
           </div>
           <div>
             <h2 className="text-base font-bold">حزمة يوتيوب</h2>
@@ -182,7 +182,7 @@ export function DetailYoutubePack({
           </div>
         </div>
         {localEntry && (
-          <span className="text-[10px] text-muted-foreground/50">
+          <span className="text-[10px] text-muted-foreground">
             {formatDate(localEntry.generatedAt)}
           </span>
         )}
@@ -191,13 +191,13 @@ export function DetailYoutubePack({
       {/* Content */}
       {loading ? (
         <div className="flex flex-col items-center justify-center rounded-2xl border border-border/30 bg-card/50 py-16">
-          <Loader2 className="h-8 w-8 animate-spin text-red-500" />
+          <Loader2 className="h-8 w-8 animate-spin text-red-700" />
           <p className="mt-4 text-sm text-muted-foreground">{statusText}</p>
         </div>
       ) : error ? (
         <div className="flex flex-col items-center justify-center rounded-2xl border border-border/30 bg-card/50 py-16">
-          <AlertTriangle className="h-8 w-8 text-yellow-400" />
-          <p className="mt-4 max-w-sm text-center text-sm text-yellow-400">
+          <AlertTriangle className="h-8 w-8 text-yellow-700" />
+          <p className="mt-4 max-w-sm text-center text-sm text-yellow-700">
             {error}
           </p>
           <Button
@@ -214,7 +214,7 @@ export function DetailYoutubePack({
           <p className="mt-4 text-base font-medium text-muted-foreground">
             لم يتم إنشاء حزمة يوتيوب بعد
           </p>
-          <p className="mt-1 text-sm text-muted-foreground/60">
+          <p className="mt-1 text-sm text-muted-foreground">
             أنشئ حزمة نشر كاملة ليوتيوب من نص الحلقة
           </p>
           <Button
@@ -254,7 +254,7 @@ export function DetailYoutubePack({
                     }`}
                   />
                   <span className="font-semibold">{section.label}</span>
-                  <span className="truncate text-xs text-muted-foreground/60 max-w-[200px]">
+                  <span className="truncate text-xs text-muted-foreground max-w-[200px]">
                     {section.content.slice(0, 60)}...
                   </span>
                   <div className="ms-auto flex shrink-0 items-center gap-1.5">
@@ -267,7 +267,7 @@ export function DetailYoutubePack({
                       title="نسخ"
                     >
                       {isCopied ? (
-                        <Check className="h-3.5 w-3.5 text-green-400" />
+                        <Check className="h-3.5 w-3.5 text-green-700" />
                       ) : (
                         <Copy className="h-3.5 w-3.5" />
                       )}

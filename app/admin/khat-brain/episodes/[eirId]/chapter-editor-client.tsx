@@ -440,12 +440,12 @@ export function ChapterEditor({
               {state.doc.chapters.length} فصل
             </span>
             {validation.blockerCount > 0 && (
-              <span className="rounded-full border border-rose-500/30 bg-rose-500/10 px-2 py-0.5 text-[10.5px] text-rose-200">
+              <span className="rounded-full border border-rose-500/30 bg-rose-500/10 px-2 py-0.5 text-[10.5px] text-rose-700">
                 {validation.blockerCount} خطأ
               </span>
             )}
             {validation.warningCount > 0 && (
-              <span className="rounded-full border border-amber-500/30 bg-amber-500/10 px-2 py-0.5 text-[10.5px] text-amber-200">
+              <span className="rounded-full border border-amber-500/30 bg-amber-500/10 px-2 py-0.5 text-[10.5px] text-amber-700">
                 {validation.warningCount} تنبيه
               </span>
             )}
@@ -519,7 +519,7 @@ export function ChapterEditor({
         </div>
       )}
 
-      <p className="text-[10.5px] text-muted-foreground/70">
+      <p className="text-[10.5px] text-muted-foreground">
         النسخة: {state.version} · المدة الكلية:{" "}
         {state.doc.total_duration_seconds
           ? formatTime(state.doc.total_duration_seconds)
@@ -608,14 +608,14 @@ function ChapterCard({
           dir="ltr"
           aria-label="بداية الفصل بالثواني"
         />
-        <span className="text-muted-foreground/70 tabular-nums" dir="ltr">
+        <span className="text-muted-foreground tabular-nums" dir="ltr">
           {formatTime(chapter.start_seconds)}
           {chapter.end_seconds !== null && ` → ${formatTime(chapter.end_seconds)}`}
           {chapter.end_seconds !== null &&
             ` (${formatTime(chapter.end_seconds - chapter.start_seconds)})`}
         </span>
         {chapter.source === "ai_generated" && (
-          <span className="rounded-full border border-violet-500/30 bg-violet-500/10 px-1.5 py-0.5 text-[9.5px] text-violet-200">
+          <span className="rounded-full border border-violet-500/30 bg-violet-500/10 px-1.5 py-0.5 text-[9.5px] text-violet-700">
             AI
           </span>
         )}
@@ -628,7 +628,7 @@ function ChapterCard({
         {chapter.transcript_segment_id && (
           <a
             href={`/admin/khat-brain/episodes/${eirId}?tab=transcript&seg=${chapter.transcript_segment_id}`}
-            className="text-[10.5px] text-violet-300 hover:underline"
+            className="text-[10.5px] text-violet-700 hover:underline"
           >
             انتقال إلى النصّ ↗
           </a>
@@ -668,7 +668,7 @@ function ChapterCard({
             type="button"
             onClick={onGenerateClip}
             title="توليد مقطع من هذا الفصل"
-            className="rounded p-0.5 text-muted-foreground hover:bg-amber-500/10 hover:text-amber-200"
+            className="rounded p-0.5 text-muted-foreground hover:bg-amber-500/10 hover:text-amber-700"
             aria-label="توليد مقطع من هذا الفصل"
           >
             <Film className="h-3 w-3" />
@@ -677,7 +677,7 @@ function ChapterCard({
             type="button"
             onClick={onDelete}
             title="حذف"
-            className="rounded p-0.5 text-muted-foreground hover:bg-rose-500/10 hover:text-rose-300"
+            className="rounded p-0.5 text-muted-foreground hover:bg-rose-500/10 hover:text-rose-700"
           >
             <Trash2 className="h-3 w-3" />
           </button>
@@ -717,7 +717,7 @@ function ChapterCard({
           {blockers.map((i, k) => (
             <li
               key={`b-${k}`}
-              className="inline-flex items-center gap-1.5 text-[10.5px] text-rose-300"
+              className="inline-flex items-center gap-1.5 text-[10.5px] text-rose-700"
             >
               <XCircle className="h-3 w-3" /> {i.message}
             </li>
@@ -725,7 +725,7 @@ function ChapterCard({
           {warnings.map((i, k) => (
             <li
               key={`w-${k}`}
-              className="inline-flex items-center gap-1.5 text-[10.5px] text-amber-300"
+              className="inline-flex items-center gap-1.5 text-[10.5px] text-amber-700"
             >
               <AlertTriangle className="h-3 w-3" /> {i.message}
             </li>
@@ -755,7 +755,7 @@ function ConflictBanner({
     <div className="rounded-2xl border border-rose-500/30 bg-rose-500/5 p-3">
       <div className="flex items-start gap-3">
         <div className="min-w-0 flex-1">
-          <h3 className="text-[12.5px] font-semibold text-rose-200">
+          <h3 className="text-[12.5px] font-semibold text-rose-700">
             تعارض في النسخة
           </h3>
           <p className="mt-0.5 text-[11.5px] text-foreground/85">
@@ -766,14 +766,14 @@ function ConflictBanner({
           <button
             type="button"
             onClick={onReload}
-            className="rounded-xl border border-violet-500/40 bg-violet-500/10 px-2.5 py-1 text-[11.5px] text-violet-200 hover:bg-violet-500/20"
+            className="rounded-xl border border-violet-500/40 bg-violet-500/10 px-2.5 py-1 text-[11.5px] text-violet-700 hover:bg-violet-500/20"
           >
             استرجاع نسخة الخادم
           </button>
           <button
             type="button"
             onClick={onOverwrite}
-            className="rounded-xl border border-rose-500/40 bg-rose-500/10 px-2.5 py-1 text-[11.5px] text-rose-200 hover:bg-rose-500/20"
+            className="rounded-xl border border-rose-500/40 bg-rose-500/10 px-2.5 py-1 text-[11.5px] text-rose-700 hover:bg-rose-500/20"
           >
             تجاوز وحفظ
           </button>
@@ -787,7 +787,7 @@ function ValidationSummary({ issues }: { issues: ValidationIssue[] }) {
   if (issues.length === 0) return null
   return (
     <div className="rounded-2xl border border-amber-500/30 bg-amber-500/5 p-3">
-      <div className="mb-1 inline-flex items-center gap-1.5 text-[11px] font-semibold text-amber-300">
+      <div className="mb-1 inline-flex items-center gap-1.5 text-[11px] font-semibold text-amber-700">
         <AlertTriangle className="h-3 w-3" /> ملاحظات على المستند
       </div>
       <ul className="space-y-0.5 text-[11.5px] text-foreground/85">
@@ -878,7 +878,7 @@ function SuggestionsPanel({
   return (
     <div className="rounded-2xl border border-violet-500/30 bg-violet-500/5 p-3">
       <div className="mb-2 flex items-center justify-between gap-2">
-        <h3 className="inline-flex items-center gap-1.5 text-[12.5px] font-semibold text-violet-200">
+        <h3 className="inline-flex items-center gap-1.5 text-[12.5px] font-semibold text-violet-700">
           <Sparkles className="h-3.5 w-3.5" /> اقتراحات الذكاء الاصطناعي ·{" "}
           {suggestions.length}
         </h3>
@@ -897,7 +897,7 @@ function SuggestionsPanel({
             className="flex items-start gap-2 rounded-xl border border-border/40 bg-background/30 p-2"
           >
             <div className="min-w-0 flex-1">
-              <div className="text-[11px] font-semibold text-violet-200">
+              <div className="text-[11px] font-semibold text-violet-700">
                 {SUGGESTION_LABEL[s.kind]}
                 {s.chapter_id && byId.has(s.chapter_id) && (
                   <span className="ms-2 text-muted-foreground">
@@ -931,7 +931,7 @@ function SuggestionsPanel({
                 <button
                   type="button"
                   onClick={() => onApply(s)}
-                  className="inline-flex items-center gap-1 rounded-lg border border-violet-500/40 bg-violet-500/10 px-2 py-0.5 text-[11px] text-violet-200 hover:bg-violet-500/20"
+                  className="inline-flex items-center gap-1 rounded-lg border border-violet-500/40 bg-violet-500/10 px-2 py-0.5 text-[11px] text-violet-700 hover:bg-violet-500/20"
                 >
                   <Check className="h-3 w-3" /> تطبيق
                 </button>
@@ -977,7 +977,7 @@ function EmptyState({
         <button
           type="button"
           onClick={onAdd}
-          className="inline-flex items-center gap-1.5 rounded-xl border border-violet-500/40 bg-violet-500/10 px-3 py-1.5 text-[12px] text-violet-200 hover:bg-violet-500/20"
+          className="inline-flex items-center gap-1.5 rounded-xl border border-violet-500/40 bg-violet-500/10 px-3 py-1.5 text-[12px] text-violet-700 hover:bg-violet-500/20"
         >
           <ListPlus className="h-3.5 w-3.5" />
           إضافة فصل

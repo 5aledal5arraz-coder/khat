@@ -26,7 +26,7 @@ export function AdminPageHeader({ title, description, actions, badge }: AdminPag
           )}
         </div>
         {description && (
-          <p className="mt-1 text-[13px] text-muted-foreground/60">{description}</p>
+          <p className="mt-1 text-[13px] text-muted-foreground">{description}</p>
         )}
       </div>
       {actions && <div className="flex items-center gap-2">{actions}</div>}

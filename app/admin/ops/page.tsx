@@ -45,12 +45,12 @@ export const dynamic = "force-dynamic"
 type StatTone = "neutral" | "gold" | "purple" | "good" | "warn" | "bad"
 
 const STAT_ICON: Record<StatTone, string> = {
-  neutral: "bg-slate-100 text-slate-500",
-  gold: "bg-amber-50 text-amber-600",
-  purple: "bg-violet-50 text-violet-600",
-  good: "bg-emerald-50 text-emerald-600",
-  warn: "bg-amber-50 text-amber-600",
-  bad: "bg-rose-50 text-rose-600",
+  neutral: "bg-slate-100 text-slate-700",
+  gold: "bg-amber-50 text-amber-700",
+  purple: "bg-violet-50 text-violet-700",
+  good: "bg-emerald-50 text-emerald-700",
+  warn: "bg-amber-50 text-amber-700",
+  bad: "bg-rose-50 text-rose-700",
 }
 
 function StatTile({
@@ -69,7 +69,7 @@ function StatTile({
   return (
     <div className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-[0_1px_2px_rgba(15,23,42,0.04),0_8px_24px_-12px_rgba(15,23,42,0.10)]">
       <div className="flex items-center justify-between">
-        <span className="text-[12px] font-medium text-slate-500">{label}</span>
+        <span className="text-[12px] font-medium text-slate-700">{label}</span>
         <span className={`flex h-8 w-8 items-center justify-center rounded-full ${STAT_ICON[tone]}`}>
           <Icon className="h-[15px] w-[15px]" />
         </span>
@@ -77,7 +77,7 @@ function StatTile({
       <div className="mt-3 text-[28px] font-semibold leading-none tracking-tight text-slate-900 tabular-nums">
         {value}
       </div>
-      {hint ? <div className="mt-2 text-[11.5px] text-slate-400">{hint}</div> : null}
+      {hint ? <div className="mt-2 text-[11.5px] text-slate-700">{hint}</div> : null}
     </div>
   )
 }
@@ -98,14 +98,14 @@ function QuickTile({
       href={href}
       className="group flex items-center gap-3 rounded-2xl border border-slate-200/80 bg-white px-4 py-3.5 shadow-[0_1px_2px_rgba(15,23,42,0.04)] transition-all hover:-translate-y-0.5 hover:border-slate-300 hover:shadow-[0_1px_2px_rgba(15,23,42,0.04),0_12px_28px_-14px_rgba(15,23,42,0.18)]"
     >
-      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-slate-100 text-slate-500 transition-colors group-hover:bg-slate-900 group-hover:text-white">
+      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-slate-100 text-slate-700 transition-colors group-hover:bg-slate-900 group-hover:text-white">
         <Icon className="h-[17px] w-[17px]" />
       </span>
       <span className="min-w-0 flex-1">
         <span className="block truncate text-[13px] font-semibold text-slate-900">{label}</span>
-        <span className="block truncate text-[11px] text-slate-400">{description}</span>
+        <span className="block truncate text-[11px] text-slate-700">{description}</span>
       </span>
-      <ArrowUpLeft className="h-4 w-4 shrink-0 text-slate-300 transition-colors group-hover:text-slate-500" />
+      <ArrowUpLeft className="h-4 w-4 shrink-0 text-slate-700 transition-colors group-hover:text-slate-700" />
     </Link>
   )
 }
@@ -136,14 +136,14 @@ export default async function OpsDashboardPage() {
           <h1 className="text-[30px] font-semibold leading-tight tracking-tight text-slate-900">
             مركز التشغيل
           </h1>
-          <p className="mt-1.5 text-[14px] text-slate-500">
+          <p className="mt-1.5 text-[14px] text-slate-700">
             نبض المنظومة كاملة في شاشة واحدة — حدّث المتصفح لتحديث اللقطة
           </p>
         </div>
-        <div className="flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3.5 py-1.5 text-[11.5px] text-slate-500 shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
+        <div className="flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3.5 py-1.5 text-[11.5px] text-slate-700 shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
           <span className="admin-pulse-dot h-1.5 w-1.5 rounded-full bg-emerald-500" />
           <span className="font-mono tabular-nums text-slate-700">{formatUtc(snap.taken_at)}</span>
-          <span className="text-slate-300">•</span>
+          <span className="text-slate-700">•</span>
           <span className="font-mono tabular-nums">{snap.duration_ms}ms</span>
         </div>
       </header>
@@ -188,7 +188,7 @@ export default async function OpsDashboardPage() {
 
       {/* Daily workflow */}
       <div className="mb-9">
-        <div className="mb-3 text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-400">
+        <div className="mb-3 text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-700">
           سير العمل اليومي
         </div>
         <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">

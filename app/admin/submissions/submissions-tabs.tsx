@@ -71,31 +71,31 @@ const STATUS_CONFIG: Record<
 > = {
   new: {
     label: "جديد",
-    color: "text-blue-400",
+    color: "text-blue-700",
     bg: "bg-blue-500/10",
     ring: "ring-blue-500/20",
   },
   under_review: {
     label: "قيد المراجعة",
-    color: "text-amber-400",
+    color: "text-amber-700",
     bg: "bg-amber-500/10",
     ring: "ring-amber-500/20",
   },
   accepted: {
     label: "مقبول",
-    color: "text-emerald-400",
+    color: "text-emerald-700",
     bg: "bg-emerald-500/10",
     ring: "ring-emerald-500/20",
   },
   rejected: {
     label: "معتذر",
-    color: "text-red-400",
+    color: "text-red-700",
     bg: "bg-red-500/10",
     ring: "ring-red-500/20",
   },
   consider_later: {
     label: "للاحتفاظ",
-    color: "text-purple-400",
+    color: "text-purple-700",
     bg: "bg-purple-500/10",
     ring: "ring-purple-500/20",
   },
@@ -107,37 +107,37 @@ const SPONSOR_STATUS_CONFIG: Record<
 > = {
   new: {
     label: "جديد",
-    color: "text-blue-400",
+    color: "text-blue-700",
     bg: "bg-blue-500/10",
     ring: "ring-blue-500/20",
   },
   reviewing: {
     label: "قيد المراجعة",
-    color: "text-amber-400",
+    color: "text-amber-700",
     bg: "bg-amber-500/10",
     ring: "ring-amber-500/20",
   },
   proposal_sent: {
     label: "تم إرسال العرض",
-    color: "text-cyan-400",
+    color: "text-cyan-700",
     bg: "bg-cyan-500/10",
     ring: "ring-cyan-500/20",
   },
   negotiation: {
     label: "تفاوض",
-    color: "text-orange-400",
+    color: "text-orange-700",
     bg: "bg-orange-500/10",
     ring: "ring-orange-500/20",
   },
   confirmed: {
     label: "مؤكد",
-    color: "text-emerald-400",
+    color: "text-emerald-700",
     bg: "bg-emerald-500/10",
     ring: "ring-emerald-500/20",
   },
   declined: {
     label: "معتذر",
-    color: "text-red-400",
+    color: "text-red-700",
     bg: "bg-red-500/10",
     ring: "ring-red-500/20",
   },
@@ -149,25 +149,25 @@ const THINKER_STATUS_CONFIG: Record<
 > = {
   new: {
     label: "جديد",
-    color: "text-blue-400",
+    color: "text-blue-700",
     bg: "bg-blue-500/10",
     ring: "ring-blue-500/20",
   },
   reviewing: {
     label: "قيد المراجعة",
-    color: "text-amber-400",
+    color: "text-amber-700",
     bg: "bg-amber-500/10",
     ring: "ring-amber-500/20",
   },
   approved: {
     label: "مقبول",
-    color: "text-emerald-400",
+    color: "text-emerald-700",
     bg: "bg-emerald-500/10",
     ring: "ring-emerald-500/20",
   },
   rejected: {
     label: "مرفوض",
-    color: "text-red-400",
+    color: "text-red-700",
     bg: "bg-red-500/10",
     ring: "ring-red-500/20",
   },
@@ -602,8 +602,8 @@ function TabButton({
   const colorMap: Record<string, string> = {
     primary: "text-primary bg-primary/10",
     purple: "text-accent bg-accent/10",
-    green: "text-emerald-500 bg-emerald-500/10",
-    amber: "text-amber-500 bg-amber-500/10",
+    green: "text-emerald-700 bg-emerald-500/10",
+    amber: "text-amber-700 bg-amber-500/10",
   }
 
   return (
@@ -629,7 +629,7 @@ function TabButton({
           className={`rounded-md px-1.5 py-0.5 text-[10px] font-medium tabular-nums ${
             active
               ? "bg-primary/10 text-primary"
-              : "bg-muted/40 text-muted-foreground/70"
+              : "bg-muted/40 text-muted-foreground"
           }`}
         >
           {count}
@@ -1359,7 +1359,7 @@ export function SubmissionsTabs({
       {/* ─── Page Header ─── */}
       <div>
         <h1 className="text-xl font-bold">الطلبات والاشتراكات</h1>
-        <p className="mt-1 text-[13px] text-muted-foreground/60">
+        <p className="mt-1 text-[13px] text-muted-foreground">
           مراجعة طلبات الضيوف والرعاية واقتراحات المفكرين ومشتركي النشرة البريدية
         </p>
       </div>
@@ -1416,7 +1416,7 @@ export function SubmissionsTabs({
           <div className="p-5">
             <div className="flex items-center justify-between">
               <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-emerald-500/10">
-                <Mail className="h-5 w-5 text-emerald-500" />
+                <Mail className="h-5 w-5 text-emerald-700" />
               </div>
               <span className="text-3xl font-bold">
                 {newsletterSubscribers.length}
@@ -1432,7 +1432,7 @@ export function SubmissionsTabs({
           <div className="p-5">
             <div className="flex items-center justify-between">
               <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-amber-500/10">
-                <Lightbulb className="h-5 w-5 text-amber-500" />
+                <Lightbulb className="h-5 w-5 text-amber-700" />
               </div>
               <span className="text-3xl font-bold">
                 {thinkerSuggestions.length}
@@ -1516,7 +1516,7 @@ export function SubmissionsTabs({
                               className="mt-0.5 flex items-center gap-1.5 text-xs text-muted-foreground transition-colors hover:text-foreground"
                             >
                               {copiedEmail === app.email ? (
-                                <Check className="h-3 w-3 text-emerald-500" />
+                                <Check className="h-3 w-3 text-emerald-700" />
                               ) : (
                                 <Copy className="h-3 w-3" />
                               )}
@@ -1544,23 +1544,23 @@ export function SubmissionsTabs({
                         </span>
                         {app.country && (
                           <div className="flex items-center gap-1.5 rounded-lg bg-white/[0.03] px-2.5 py-1 ring-1 ring-border/30">
-                            <MapPin className="h-3 w-3 text-muted-foreground/50" />
+                            <MapPin className="h-3 w-3 text-muted-foreground" />
                             <span className="text-[10px] text-muted-foreground">{app.country}</span>
                           </div>
                         )}
                         {app.previous_podcast && (
                           <div className="flex items-center gap-1.5 rounded-lg bg-accent/[0.06] px-2.5 py-1 ring-1 ring-accent/15">
-                            <Mic className="h-3 w-3 text-accent/60" />
-                            <span className="text-[10px] text-accent/80">ضيف سابق</span>
+                            <Mic className="h-3 w-3 text-orange-700" />
+                            <span className="text-[10px] font-medium text-orange-700">ضيف سابق</span>
                           </div>
                         )}
                         {guestAiScores[app.id] != null && (
                           <div className={`flex items-center gap-1 rounded-lg px-2.5 py-1 ring-1 ${
                             guestAiScores[app.id] >= 75
-                              ? "bg-emerald-500/[0.08] text-emerald-400 ring-emerald-500/20"
+                              ? "bg-emerald-500/[0.08] text-emerald-700 ring-emerald-500/20"
                               : guestAiScores[app.id] >= 45
-                                ? "bg-amber-500/[0.08] text-amber-400 ring-amber-500/20"
-                                : "bg-red-500/[0.08] text-red-400 ring-red-500/20"
+                                ? "bg-amber-500/[0.08] text-amber-700 ring-amber-500/20"
+                                : "bg-red-500/[0.08] text-red-700 ring-red-500/20"
                           }`}>
                             <Brain className="h-3 w-3" />
                             <span className="text-[10px] font-bold">{guestAiScores[app.id]}</span>
@@ -1569,12 +1569,12 @@ export function SubmissionsTabs({
                       </div>
 
                       {/* Story preview */}
-                      <p className="mt-3 line-clamp-2 text-xs leading-relaxed text-muted-foreground/70">
+                      <p className="mt-3 line-clamp-2 text-xs leading-relaxed text-muted-foreground">
                         {app.story_idea}
                       </p>
 
                       {/* Footer */}
-                      <div className="mt-4 flex items-center gap-1.5 text-[10px] text-muted-foreground/50">
+                      <div className="mt-4 flex items-center gap-1.5 text-[10px] text-muted-foreground">
                         <Calendar className="h-3 w-3" />
                         {timeAgo(app.created_at)}
                       </div>
@@ -1609,7 +1609,7 @@ export function SubmissionsTabs({
                             <h3 className="truncate text-sm font-semibold">{lead.company_name}</h3>
                             <p className="mt-0.5 text-xs text-muted-foreground truncate">{lead.contact_name}</p>
                             <button onClick={() => copyEmail(lead.email)} className="mt-0.5 flex items-center gap-1.5 text-xs text-muted-foreground transition-colors hover:text-foreground">
-                              {copiedEmail === lead.email ? <Check className="h-3 w-3 text-emerald-500" /> : <Copy className="h-3 w-3" />}
+                              {copiedEmail === lead.email ? <Check className="h-3 w-3 text-emerald-700" /> : <Copy className="h-3 w-3" />}
                               <span className="truncate">{lead.email}</span>
                             </button>
                           </div>
@@ -1632,19 +1632,19 @@ export function SubmissionsTabs({
                           {statusConfig.label}
                         </span>
                         <div className="flex items-center gap-1.5 rounded-lg bg-white/[0.03] px-2.5 py-1 ring-1 ring-border/30">
-                          <Building2 className="h-3 w-3 text-muted-foreground/50" />
+                          <Building2 className="h-3 w-3 text-muted-foreground" />
                           <span className="text-[10px] text-muted-foreground">{lead.industry}</span>
                         </div>
                         <div className="flex items-center gap-1.5 rounded-lg bg-emerald-500/[0.06] px-2.5 py-1 ring-1 ring-emerald-500/15">
-                          <span className="text-[10px] text-emerald-500/80">{BUDGET_LABELS[lead.budget_range] || lead.budget_range}</span>
+                          <span className="text-[10px] text-emerald-700/80">{BUDGET_LABELS[lead.budget_range] || lead.budget_range}</span>
                         </div>
                         {aiScores[lead.id] && (
                           <div className={`flex items-center gap-1 rounded-lg px-2.5 py-1 ring-1 ${
                             aiScores[lead.id].score >= 70
-                              ? "bg-emerald-500/[0.08] text-emerald-400 ring-emerald-500/20"
+                              ? "bg-emerald-500/[0.08] text-emerald-700 ring-emerald-500/20"
                               : aiScores[lead.id].score >= 40
-                                ? "bg-amber-500/[0.08] text-amber-400 ring-amber-500/20"
-                                : "bg-red-500/[0.08] text-red-400 ring-red-500/20"
+                                ? "bg-amber-500/[0.08] text-amber-700 ring-amber-500/20"
+                                : "bg-red-500/[0.08] text-red-700 ring-red-500/20"
                           }`}>
                             <Brain className="h-3 w-3" />
                             <span className="text-[10px] font-bold">{aiScores[lead.id].score}</span>
@@ -1668,7 +1668,7 @@ export function SubmissionsTabs({
                         </div>
                       )}
 
-                      <div className="mt-4 flex items-center gap-1.5 text-[10px] text-muted-foreground/50">
+                      <div className="mt-4 flex items-center gap-1.5 text-[10px] text-muted-foreground">
                         <Calendar className="h-3 w-3" />
                         {timeAgo(lead.created_at)}
                       </div>
@@ -1705,17 +1705,17 @@ export function SubmissionsTabs({
                 <div key={subscriber.id} className={`group flex items-center justify-between px-5 py-3.5 transition-all hover:bg-white/[0.02] ${index !== 0 ? "border-t border-border/20" : ""}`}>
                   <div className="flex items-center gap-3">
                     <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-emerald-500/10 ring-1 ring-emerald-500/20">
-                      <Mail className="h-4 w-4 text-emerald-500" />
+                      <Mail className="h-4 w-4 text-emerald-700" />
                     </div>
                     <div>
                       <button onClick={() => copyEmail(subscriber.email)} className="flex items-center gap-2 text-sm font-medium transition-colors hover:text-primary">
                         {subscriber.email}
-                        {copiedEmail === subscriber.email ? <Check className="h-3 w-3 text-emerald-500" /> : <Copy className="h-3 w-3 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100" />}
+                        {copiedEmail === subscriber.email ? <Check className="h-3 w-3 text-emerald-700" /> : <Copy className="h-3 w-3 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100" />}
                       </button>
-                      <p className="mt-0.5 text-[10px] text-muted-foreground/50">{timeAgo(subscriber.created_at)}</p>
+                      <p className="mt-0.5 text-[10px] text-muted-foreground">{timeAgo(subscriber.created_at)}</p>
                     </div>
                   </div>
-                  <button onClick={() => handleDeleteSubscriber(subscriber.id)} disabled={deletingIds.has(subscriber.id)} className="flex h-8 w-8 items-center justify-center rounded-xl text-muted-foreground/40 opacity-0 transition-all hover:bg-destructive/10 hover:text-destructive group-hover:opacity-100">
+                  <button onClick={() => handleDeleteSubscriber(subscriber.id)} disabled={deletingIds.has(subscriber.id)} className="flex h-8 w-8 items-center justify-center rounded-xl text-muted-foreground opacity-0 transition-all hover:bg-destructive/10 hover:text-destructive group-hover:opacity-100">
                     <Trash2 className="h-3.5 w-3.5" />
                   </button>
                 </div>
@@ -1741,7 +1741,7 @@ export function SubmissionsTabs({
                       <div className="flex items-start justify-between">
                         <div className="flex items-start gap-3">
                           <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-amber-500/10 ring-1 ring-amber-500/20">
-                            <Lightbulb className="h-5 w-5 text-amber-500" />
+                            <Lightbulb className="h-5 w-5 text-amber-700" />
                           </div>
                           <div className="min-w-0">
                             <h3 className="truncate text-sm font-semibold">{suggestion.thinker_name}</h3>
@@ -1799,7 +1799,7 @@ export function SubmissionsTabs({
                         </div>
                       )}
 
-                      <div className="mt-4 flex items-center gap-1.5 text-[10px] text-muted-foreground/50">
+                      <div className="mt-4 flex items-center gap-1.5 text-[10px] text-muted-foreground">
                         <Calendar className="h-3 w-3" />
                         {timeAgo(suggestion.created_at)}
                       </div>
@@ -1926,7 +1926,7 @@ export function SubmissionsTabs({
               {/* ── Section 3: Recording & Publishing ── */}
               <div>
                 <div className="mb-4 flex items-center gap-2.5">
-                  <div className="flex h-7 w-7 items-center justify-center rounded-full bg-emerald-500/10 text-xs font-bold text-emerald-500">
+                  <div className="flex h-7 w-7 items-center justify-center rounded-full bg-emerald-500/10 text-xs font-bold text-emerald-700">
                     ٣
                   </div>
                   <h4 className="text-sm font-semibold">التسجيل والنشر</h4>
@@ -1996,7 +1996,7 @@ export function SubmissionsTabs({
               <div>
                 <div className="mb-4 flex items-center justify-between">
                   <div className="flex items-center gap-2.5">
-                    <div className="flex h-7 w-7 items-center justify-center rounded-full bg-violet-500/10 text-xs font-bold text-violet-500">
+                    <div className="flex h-7 w-7 items-center justify-center rounded-full bg-violet-500/10 text-xs font-bold text-violet-700">
                       <Brain className="h-3.5 w-3.5" />
                     </div>
                     <h4 className="text-sm font-semibold">تحليل الذكاء الاصطناعي</h4>
@@ -2004,7 +2004,7 @@ export function SubmissionsTabs({
                   <button
                     onClick={handleAnalyzeGuest}
                     disabled={analyzingGuest}
-                    className="flex items-center gap-1.5 rounded-lg bg-violet-500/10 px-3 py-1.5 text-[11px] font-medium text-violet-400 ring-1 ring-violet-500/20 transition-all hover:bg-violet-500/20 disabled:opacity-50"
+                    className="flex items-center gap-1.5 rounded-lg bg-violet-500/10 px-3 py-1.5 text-[11px] font-medium text-violet-700 ring-1 ring-violet-500/20 transition-all hover:bg-violet-500/20 disabled:opacity-50"
                   >
                     {analyzingGuest ? (
                       <><Loader2 className="h-3 w-3 animate-spin" />{guestAiAnalysis ? "إعادة التحليل..." : "جارٍ التحليل..."}</>
@@ -2020,7 +2020,7 @@ export function SubmissionsTabs({
                     <div className="flex items-center gap-4">
                       <div className="text-center">
                         <div className={`text-3xl font-black tabular-nums ${
-                          (guestAiAnalysis.fit_score ?? 0) >= 75 ? "text-emerald-400" : (guestAiAnalysis.fit_score ?? 0) >= 45 ? "text-amber-400" : "text-red-400"
+                          (guestAiAnalysis.fit_score ?? 0) >= 75 ? "text-emerald-700" : (guestAiAnalysis.fit_score ?? 0) >= 45 ? "text-amber-700" : "text-red-700"
                         }`}>
                           {guestAiAnalysis.fit_score}
                         </div>
@@ -2029,17 +2029,17 @@ export function SubmissionsTabs({
                       <div className="h-10 w-px bg-border/30" />
                       <div className="flex flex-wrap gap-2">
                         <span className={`rounded-lg px-2.5 py-1 text-[10px] font-medium ring-1 ${
-                          guestAiAnalysis.recommendation === "strong_accept" ? "bg-emerald-500/10 text-emerald-400 ring-emerald-500/20"
-                            : guestAiAnalysis.recommendation === "accept" ? "bg-green-500/10 text-green-400 ring-green-500/20"
-                              : guestAiAnalysis.recommendation === "consider_later" ? "bg-amber-500/10 text-amber-400 ring-amber-500/20"
-                                : "bg-red-500/10 text-red-400 ring-red-500/20"
+                          guestAiAnalysis.recommendation === "strong_accept" ? "bg-emerald-500/10 text-emerald-700 ring-emerald-500/20"
+                            : guestAiAnalysis.recommendation === "accept" ? "bg-green-500/10 text-green-700 ring-green-500/20"
+                              : guestAiAnalysis.recommendation === "consider_later" ? "bg-amber-500/10 text-amber-700 ring-amber-500/20"
+                                : "bg-red-500/10 text-red-700 ring-red-500/20"
                         }`}>
                           {guestAiAnalysis.recommendation === "strong_accept" ? "قبول قوي" : guestAiAnalysis.recommendation === "accept" ? "قبول" : guestAiAnalysis.recommendation === "consider_later" ? "للاحتفاظ" : "رفض"}
                         </span>
                         <span className={`flex items-center gap-1 rounded-lg px-2.5 py-1 text-[10px] font-medium ring-1 ${
-                          guestAiAnalysis.risk_level === "low" ? "bg-emerald-500/10 text-emerald-400 ring-emerald-500/20"
-                            : guestAiAnalysis.risk_level === "medium" ? "bg-amber-500/10 text-amber-400 ring-amber-500/20"
-                              : "bg-red-500/10 text-red-400 ring-red-500/20"
+                          guestAiAnalysis.risk_level === "low" ? "bg-emerald-500/10 text-emerald-700 ring-emerald-500/20"
+                            : guestAiAnalysis.risk_level === "medium" ? "bg-amber-500/10 text-amber-700 ring-amber-500/20"
+                              : "bg-red-500/10 text-red-700 ring-red-500/20"
                         }`}>
                           <Shield className="h-3 w-3" />
                           {guestAiAnalysis.risk_level === "low" ? "مخاطر منخفضة" : guestAiAnalysis.risk_level === "medium" ? "مخاطر متوسطة" : "مخاطر عالية"}
@@ -2056,7 +2056,7 @@ export function SubmissionsTabs({
                         { label: "جاهزية", value: guestAiAnalysis.readiness_score },
                       ].map((s) => (
                         <div key={s.label} className="rounded-xl bg-white/[0.03] p-2.5 text-center ring-1 ring-border/15">
-                          <div className={`text-lg font-bold tabular-nums ${(s.value ?? 0) >= 70 ? "text-emerald-400" : (s.value ?? 0) >= 40 ? "text-amber-400" : "text-red-400"}`}>
+                          <div className={`text-lg font-bold tabular-nums ${(s.value ?? 0) >= 70 ? "text-emerald-700" : (s.value ?? 0) >= 40 ? "text-amber-700" : "text-red-700"}`}>
                             {s.value ?? "—"}
                           </div>
                           <p className="text-[9px] text-muted-foreground">{s.label}</p>
@@ -2100,22 +2100,22 @@ export function SubmissionsTabs({
                     <div className="grid gap-3 sm:grid-cols-2">
                       {guestAiAnalysis.strengths.length > 0 && (
                         <div>
-                          <p className="mb-1.5 text-[11px] font-medium text-emerald-400">نقاط القوة</p>
+                          <p className="mb-1.5 text-[11px] font-medium text-emerald-700">نقاط القوة</p>
                           <div className="flex flex-wrap gap-1.5">
                             {guestAiAnalysis.strengths.map((s, i) => (
-                              <span key={i} className="rounded-md bg-emerald-500/[0.08] px-2 py-1 text-[10px] text-emerald-400 ring-1 ring-emerald-500/15">{s}</span>
+                              <span key={i} className="rounded-md bg-emerald-500/[0.08] px-2 py-1 text-[10px] text-emerald-700 ring-1 ring-emerald-500/15">{s}</span>
                             ))}
                           </div>
                         </div>
                       )}
                       {guestAiAnalysis.concerns.length > 0 && (
                         <div>
-                          <p className="mb-1.5 flex items-center gap-1 text-[11px] font-medium text-red-400">
+                          <p className="mb-1.5 flex items-center gap-1 text-[11px] font-medium text-red-700">
                             <AlertTriangle className="h-3 w-3" />مخاوف
                           </p>
                           <div className="flex flex-wrap gap-1.5">
                             {guestAiAnalysis.concerns.map((c, i) => (
-                              <span key={i} className="rounded-md bg-red-500/[0.08] px-2 py-1 text-[10px] text-red-400 ring-1 ring-red-500/15">{c}</span>
+                              <span key={i} className="rounded-md bg-red-500/[0.08] px-2 py-1 text-[10px] text-red-700 ring-1 ring-red-500/15">{c}</span>
                             ))}
                           </div>
                         </div>
@@ -2134,7 +2134,7 @@ export function SubmissionsTabs({
 
                 {guestAiAnalysis && guestAiAnalysis.status === "error" && (
                   <div className="rounded-2xl bg-red-500/[0.05] p-4 ring-1 ring-red-500/15">
-                    <p className="text-xs text-red-400">{guestAiAnalysis.error_message || "حدث خطأ أثناء التحليل"}</p>
+                    <p className="text-xs text-red-700">{guestAiAnalysis.error_message || "حدث خطأ أثناء التحليل"}</p>
                   </div>
                 )}
               </div>
@@ -2143,7 +2143,7 @@ export function SubmissionsTabs({
               <div>
                 <div className="mb-4 flex items-center justify-between">
                   <div className="flex items-center gap-2.5">
-                    <div className="flex h-7 w-7 items-center justify-center rounded-full bg-cyan-500/10 text-xs font-bold text-cyan-500">
+                    <div className="flex h-7 w-7 items-center justify-center rounded-full bg-cyan-500/10 text-xs font-bold text-cyan-700">
                       <BookOpen className="h-3.5 w-3.5" />
                     </div>
                     <h4 className="text-sm font-semibold">تصور الحلقة</h4>
@@ -2151,7 +2151,7 @@ export function SubmissionsTabs({
                   <button
                     onClick={handleGenerateConcept}
                     disabled={generatingConcept}
-                    className="flex items-center gap-1.5 rounded-lg bg-cyan-500/10 px-3 py-1.5 text-[11px] font-medium text-cyan-400 ring-1 ring-cyan-500/20 transition-all hover:bg-cyan-500/20 disabled:opacity-50"
+                    className="flex items-center gap-1.5 rounded-lg bg-cyan-500/10 px-3 py-1.5 text-[11px] font-medium text-cyan-700 ring-1 ring-cyan-500/20 transition-all hover:bg-cyan-500/20 disabled:opacity-50"
                   >
                     {generatingConcept ? (
                       <><Loader2 className="h-3 w-3 animate-spin" />جارٍ الإنشاء...</>
@@ -2221,7 +2221,7 @@ export function SubmissionsTabs({
                         <ol className="space-y-1.5">
                           {guestAiConcept.suggested_core_questions.map((q, i) => (
                             <li key={i} className="flex gap-2 rounded-lg bg-white/[0.02] px-3 py-2 text-[13px] leading-relaxed ring-1 ring-border/10">
-                              <span className="shrink-0 text-[11px] font-bold text-muted-foreground/50">{i + 1}.</span>
+                              <span className="shrink-0 text-[11px] font-bold text-muted-foreground">{i + 1}.</span>
                               {q}
                             </li>
                           ))}
@@ -2233,22 +2233,22 @@ export function SubmissionsTabs({
                     <div className="grid gap-3 sm:grid-cols-2">
                       {guestAiConcept.suggested_sensitive_areas.length > 0 && (
                         <div>
-                          <p className="mb-1.5 text-[11px] font-medium text-amber-400">مناطق حساسة</p>
+                          <p className="mb-1.5 text-[11px] font-medium text-amber-700">مناطق حساسة</p>
                           <div className="flex flex-wrap gap-1.5">
                             {guestAiConcept.suggested_sensitive_areas.map((s, i) => (
-                              <span key={i} className="rounded-md bg-amber-500/[0.08] px-2 py-1 text-[10px] text-amber-400 ring-1 ring-amber-500/15">{s}</span>
+                              <span key={i} className="rounded-md bg-amber-500/[0.08] px-2 py-1 text-[10px] text-amber-700 ring-1 ring-amber-500/15">{s}</span>
                             ))}
                           </div>
                         </div>
                       )}
                       {guestAiConcept.suggested_topics_to_avoid.length > 0 && (
                         <div>
-                          <p className="mb-1.5 flex items-center gap-1 text-[11px] font-medium text-red-400">
+                          <p className="mb-1.5 flex items-center gap-1 text-[11px] font-medium text-red-700">
                             <AlertTriangle className="h-3 w-3" />مواضيع يُفضل تجنبها
                           </p>
                           <div className="flex flex-wrap gap-1.5">
                             {guestAiConcept.suggested_topics_to_avoid.map((t, i) => (
-                              <span key={i} className="rounded-md bg-red-500/[0.08] px-2 py-1 text-[10px] text-red-400 ring-1 ring-red-500/15">{t}</span>
+                              <span key={i} className="rounded-md bg-red-500/[0.08] px-2 py-1 text-[10px] text-red-700 ring-1 ring-red-500/15">{t}</span>
                             ))}
                           </div>
                         </div>
@@ -2267,7 +2267,7 @@ export function SubmissionsTabs({
 
                 {guestAiConcept && guestAiConcept.status === "error" && (
                   <div className="rounded-2xl bg-red-500/[0.05] p-4 ring-1 ring-red-500/15">
-                    <p className="text-xs text-red-400">{guestAiConcept.error_message || "حدث خطأ أثناء إنشاء التصور"}</p>
+                    <p className="text-xs text-red-700">{guestAiConcept.error_message || "حدث خطأ أثناء إنشاء التصور"}</p>
                   </div>
                 )}
               </div>
@@ -2276,7 +2276,7 @@ export function SubmissionsTabs({
               <div>
                 <div className="mb-4 flex items-center justify-between">
                   <div className="flex items-center gap-2.5">
-                    <div className="flex h-7 w-7 items-center justify-center rounded-full bg-emerald-500/10 text-xs font-bold text-emerald-500">
+                    <div className="flex h-7 w-7 items-center justify-center rounded-full bg-emerald-500/10 text-xs font-bold text-emerald-700">
                       <FileText className="h-3.5 w-3.5" />
                     </div>
                     <h4 className="text-sm font-semibold">مسودات الردود</h4>
@@ -2284,7 +2284,7 @@ export function SubmissionsTabs({
                   <button
                     onClick={handleGenerateResponses}
                     disabled={generatingResponses}
-                    className="flex items-center gap-1.5 rounded-lg bg-emerald-500/10 px-3 py-1.5 text-[11px] font-medium text-emerald-400 ring-1 ring-emerald-500/20 transition-all hover:bg-emerald-500/20 disabled:opacity-50"
+                    className="flex items-center gap-1.5 rounded-lg bg-emerald-500/10 px-3 py-1.5 text-[11px] font-medium text-emerald-700 ring-1 ring-emerald-500/20 transition-all hover:bg-emerald-500/20 disabled:opacity-50"
                   >
                     {generatingResponses ? (
                       <><Loader2 className="h-3 w-3 animate-spin" />جارٍ الإنشاء...</>
@@ -2295,12 +2295,12 @@ export function SubmissionsTabs({
                 </div>
 
                 {guestAiResponses && guestAiResponses.status === "ready" && (
-                  <p className="text-[11px] text-muted-foreground/60 mb-2">تم إنشاء 6 مسودات ردود (قبول / اعتذار / للاحتفاظ × رسمي / ودّي). اختر نوع الرد أدناه لاستخدامها.</p>
+                  <p className="text-[11px] text-muted-foreground mb-2">تم إنشاء 6 مسودات ردود (قبول / اعتذار / للاحتفاظ × رسمي / ودّي). اختر نوع الرد أدناه لاستخدامها.</p>
                 )}
 
                 {guestAiResponses && guestAiResponses.status === "error" && (
                   <div className="rounded-2xl bg-red-500/[0.05] p-4 ring-1 ring-red-500/15">
-                    <p className="text-xs text-red-400">{guestAiResponses.error_message || "حدث خطأ أثناء إنشاء الردود"}</p>
+                    <p className="text-xs text-red-700">{guestAiResponses.error_message || "حدث خطأ أثناء إنشاء الردود"}</p>
                   </div>
                 )}
               </div>
@@ -2315,20 +2315,20 @@ export function SubmissionsTabs({
                 <div className="border-t border-border/30 pt-6">
                   <div className="mb-4 flex items-center justify-between">
                     <div className="flex items-center gap-2.5">
-                      <div className="flex h-7 w-7 items-center justify-center rounded-full bg-indigo-500/10 text-xs font-bold text-indigo-500">
+                      <div className="flex h-7 w-7 items-center justify-center rounded-full bg-indigo-500/10 text-xs font-bold text-indigo-700">
                         <LinkIcon className="h-3.5 w-3.5" />
                       </div>
                       <h4 className="text-sm font-semibold">الهوية القانونية</h4>
                     </div>
                     <button
                       onClick={() => setLinkCanonicalOpen(true)}
-                      className="flex items-center gap-1.5 rounded-lg bg-indigo-500/10 px-3 py-1.5 text-[11px] font-medium text-indigo-400 ring-1 ring-indigo-500/20 transition-all hover:bg-indigo-500/20"
+                      className="flex items-center gap-1.5 rounded-lg bg-indigo-500/10 px-3 py-1.5 text-[11px] font-medium text-indigo-700 ring-1 ring-indigo-500/20 transition-all hover:bg-indigo-500/20"
                     >
                       <LinkIcon className="h-3 w-3" />
                       ربط بضيف قانوني
                     </button>
                   </div>
-                  <p className="text-[11px] text-muted-foreground/70">
+                  <p className="text-[11px] text-muted-foreground">
                     يربط هذا الطلب بصفّ ضيف قانوني في قاعدة الضيوف لتوحيد كل
                     البيانات تحت هوية واحدة. المعاينة فقط — لا يحدث الكتابة
                     إلا بعد التأكيد.
@@ -2341,7 +2341,7 @@ export function SubmissionsTabs({
                 <div className="border-t border-border/30 pt-6">
                   <div className="mb-4 flex items-center justify-between">
                     <div className="flex items-center gap-2.5">
-                      <div className="flex h-7 w-7 items-center justify-center rounded-full bg-teal-500/10 text-xs font-bold text-teal-500">
+                      <div className="flex h-7 w-7 items-center justify-center rounded-full bg-teal-500/10 text-xs font-bold text-teal-700">
                         <ClipboardCheck className="h-3.5 w-3.5" />
                       </div>
                       <h4 className="text-sm font-semibold">استبيان التحضير</h4>
@@ -2350,7 +2350,7 @@ export function SubmissionsTabs({
                       <button
                         onClick={handleCreatePrepForm}
                         disabled={prepFormCreating}
-                        className="flex items-center gap-1.5 rounded-lg bg-teal-500/10 px-3 py-1.5 text-[11px] font-medium text-teal-400 ring-1 ring-teal-500/20 transition-all hover:bg-teal-500/20 disabled:opacity-50"
+                        className="flex items-center gap-1.5 rounded-lg bg-teal-500/10 px-3 py-1.5 text-[11px] font-medium text-teal-700 ring-1 ring-teal-500/20 transition-all hover:bg-teal-500/20 disabled:opacity-50"
                       >
                         {prepFormCreating ? (
                           <><Loader2 className="h-3 w-3 animate-spin" />جارٍ الإنشاء...</>
@@ -2402,7 +2402,7 @@ export function SubmissionsTabs({
                           <button
                             onClick={() => handlePrepFormAction("lock")}
                             disabled={!!prepFormAction}
-                            className="flex items-center gap-1 rounded-lg bg-amber-500/10 px-2.5 py-1 text-[11px] text-amber-400 ring-1 ring-amber-500/20 transition-all hover:bg-amber-500/20 disabled:opacity-50"
+                            className="flex items-center gap-1 rounded-lg bg-amber-500/10 px-2.5 py-1 text-[11px] text-amber-700 ring-1 ring-amber-500/20 transition-all hover:bg-amber-500/20 disabled:opacity-50"
                           >
                             <Lock className="h-3 w-3" />قفل
                           </button>
@@ -2411,7 +2411,7 @@ export function SubmissionsTabs({
                           <button
                             onClick={() => handlePrepFormAction("unlock")}
                             disabled={!!prepFormAction}
-                            className="flex items-center gap-1 rounded-lg bg-blue-500/10 px-2.5 py-1 text-[11px] text-blue-400 ring-1 ring-blue-500/20 transition-all hover:bg-blue-500/20 disabled:opacity-50"
+                            className="flex items-center gap-1 rounded-lg bg-blue-500/10 px-2.5 py-1 text-[11px] text-blue-700 ring-1 ring-blue-500/20 transition-all hover:bg-blue-500/20 disabled:opacity-50"
                           >
                             <Unlock className="h-3 w-3" />فتح
                           </button>
@@ -2430,7 +2430,7 @@ export function SubmissionsTabs({
                                 if (confirm("متأكد من إلغاء رابط الاستبيان؟")) handlePrepFormAction("revoke")
                               }}
                               disabled={!!prepFormAction}
-                              className="flex items-center gap-1 rounded-lg bg-red-500/10 px-2.5 py-1 text-[11px] text-red-400 ring-1 ring-red-500/20 transition-all hover:bg-red-500/20 disabled:opacity-50"
+                              className="flex items-center gap-1 rounded-lg bg-red-500/10 px-2.5 py-1 text-[11px] text-red-700 ring-1 ring-red-500/20 transition-all hover:bg-red-500/20 disabled:opacity-50"
                             >
                               <X className="h-3 w-3" />إلغاء
                             </button>
@@ -2462,7 +2462,7 @@ export function SubmissionsTabs({
                     onClick={() => setMessageType("acceptance")}
                     className={`flex flex-1 items-center justify-center gap-2 rounded-xl px-3 py-2.5 text-xs font-medium transition-all ${
                       messageType === "acceptance"
-                        ? "bg-emerald-500/10 text-emerald-400 ring-1 ring-emerald-500/20"
+                        ? "bg-emerald-500/10 text-emerald-700 ring-1 ring-emerald-500/20"
                         : "text-muted-foreground hover:bg-white/[0.03] hover:text-foreground"
                     }`}
                   >
@@ -2474,7 +2474,7 @@ export function SubmissionsTabs({
                       onClick={() => setMessageType("consider_later")}
                       className={`flex flex-1 items-center justify-center gap-2 rounded-xl px-3 py-2.5 text-xs font-medium transition-all ${
                         messageType === "consider_later"
-                          ? "bg-purple-500/10 text-purple-400 ring-1 ring-purple-500/20"
+                          ? "bg-purple-500/10 text-purple-700 ring-1 ring-purple-500/20"
                           : "text-muted-foreground hover:bg-white/[0.03] hover:text-foreground"
                       }`}
                     >
@@ -2486,7 +2486,7 @@ export function SubmissionsTabs({
                     onClick={() => setMessageType("rejection")}
                     className={`flex flex-1 items-center justify-center gap-2 rounded-xl px-3 py-2.5 text-xs font-medium transition-all ${
                       messageType === "rejection"
-                        ? "bg-red-500/10 text-red-400 ring-1 ring-red-500/20"
+                        ? "bg-red-500/10 text-red-700 ring-1 ring-red-500/20"
                         : "text-muted-foreground hover:bg-white/[0.03] hover:text-foreground"
                     }`}
                   >
@@ -2497,7 +2497,7 @@ export function SubmissionsTabs({
 
                 {/* Tone Toggle */}
                 <div className="mb-3 flex items-center justify-between">
-                  <p className="text-[11px] text-muted-foreground/60">نبرة الرسالة</p>
+                  <p className="text-[11px] text-muted-foreground">نبرة الرسالة</p>
                   <div className="flex gap-1 rounded-xl bg-white/[0.03] p-1 ring-1 ring-border/30">
                     <button
                       onClick={() => setMessageTone("formal")}
@@ -2526,7 +2526,7 @@ export function SubmissionsTabs({
                   className="w-full resize-none rounded-2xl border border-border/30 bg-white/[0.02] p-4 text-sm leading-relaxed text-foreground/90 focus:border-primary/40 focus:outline-none focus:ring-1 focus:ring-primary/20"
                   rows={10}
                 />
-                <p className="mt-1.5 text-[10px] text-muted-foreground/40">يمكنك تعديل الرسالة قبل الإرسال</p>
+                <p className="mt-1.5 text-[10px] text-muted-foreground">يمكنك تعديل الرسالة قبل الإرسال</p>
 
                 {/* Send / Copy Buttons */}
                 <div className="mt-3 flex gap-2">
@@ -2534,7 +2534,7 @@ export function SubmissionsTabs({
                     onClick={copyForWhatsApp}
                     className={`flex flex-1 items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-xs font-medium transition-all ${
                       messageCopied === "whatsapp"
-                        ? "bg-emerald-500/10 text-emerald-400 ring-1 ring-emerald-500/20"
+                        ? "bg-emerald-500/10 text-emerald-700 ring-1 ring-emerald-500/20"
                         : "bg-white/[0.03] text-muted-foreground ring-1 ring-border/30 hover:bg-white/[0.06] hover:text-foreground"
                     }`}
                   >
@@ -2549,7 +2549,7 @@ export function SubmissionsTabs({
                     disabled={sendingEmail || emailSent === "guest"}
                     className={`flex flex-1 items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-xs font-medium transition-all ${
                       emailSent === "guest"
-                        ? "bg-emerald-500/10 text-emerald-400 ring-1 ring-emerald-500/20"
+                        ? "bg-emerald-500/10 text-emerald-700 ring-1 ring-emerald-500/20"
                         : "bg-primary/10 text-primary ring-1 ring-primary/20 hover:bg-primary/20 disabled:opacity-50"
                     }`}
                   >
@@ -2563,7 +2563,7 @@ export function SubmissionsTabs({
                   </button>
                 </div>
                 {emailError && emailSent !== "guest" && (
-                  <p className="mt-2 text-xs text-red-400">{emailError}</p>
+                  <p className="mt-2 text-xs text-red-700">{emailError}</p>
                 )}
               </div>
             </div>
@@ -2681,7 +2681,7 @@ export function SubmissionsTabs({
               {/* Section 3: Objectives */}
               <div>
                 <div className="mb-4 flex items-center gap-2.5">
-                  <div className="flex h-7 w-7 items-center justify-center rounded-full bg-emerald-500/10 text-xs font-bold text-emerald-500">
+                  <div className="flex h-7 w-7 items-center justify-center rounded-full bg-emerald-500/10 text-xs font-bold text-emerald-700">
                     ٣
                   </div>
                   <h4 className="text-sm font-semibold">الأهداف</h4>
@@ -2698,14 +2698,14 @@ export function SubmissionsTabs({
               {/* Section 4: Budget */}
               <div>
                 <div className="mb-4 flex items-center gap-2.5">
-                  <div className="flex h-7 w-7 items-center justify-center rounded-full bg-amber-500/10 text-xs font-bold text-amber-500">
+                  <div className="flex h-7 w-7 items-center justify-center rounded-full bg-amber-500/10 text-xs font-bold text-amber-700">
                     ٤
                   </div>
                   <h4 className="text-sm font-semibold">الميزانية</h4>
                 </div>
                 <div className="rounded-2xl bg-amber-500/[0.04] p-5 ring-1 ring-amber-500/15">
                   <p className="text-xs font-medium text-muted-foreground mb-1">نطاق الميزانية</p>
-                  <p className="text-lg font-bold text-amber-500">
+                  <p className="text-lg font-bold text-amber-700">
                     {BUDGET_LABELS[selectedLead.budget_range] || selectedLead.budget_range}
                   </p>
                 </div>
@@ -2715,7 +2715,7 @@ export function SubmissionsTabs({
               {selectedLead.additional_info && (
                 <div>
                   <div className="mb-4 flex items-center gap-2.5">
-                    <div className="flex h-7 w-7 items-center justify-center rounded-full bg-purple-500/10 text-xs font-bold text-purple-500">
+                    <div className="flex h-7 w-7 items-center justify-center rounded-full bg-purple-500/10 text-xs font-bold text-purple-700">
                       ٥
                     </div>
                     <h4 className="text-sm font-semibold">معلومات إضافية</h4>
@@ -2730,7 +2730,7 @@ export function SubmissionsTabs({
               <div>
                 <div className="mb-4 flex items-center justify-between">
                   <div className="flex items-center gap-2.5">
-                    <div className="flex h-7 w-7 items-center justify-center rounded-full bg-violet-500/10 text-xs font-bold text-violet-500">
+                    <div className="flex h-7 w-7 items-center justify-center rounded-full bg-violet-500/10 text-xs font-bold text-violet-700">
                       <Brain className="h-3.5 w-3.5" />
                     </div>
                     <h4 className="text-sm font-semibold">تحليل الذكاء الاصطناعي</h4>
@@ -2738,7 +2738,7 @@ export function SubmissionsTabs({
                   <button
                     onClick={handleAnalyzeLead}
                     disabled={analyzingLead}
-                    className="flex items-center gap-1.5 rounded-lg bg-violet-500/10 px-3 py-1.5 text-[11px] font-medium text-violet-400 ring-1 ring-violet-500/20 transition-all hover:bg-violet-500/20 disabled:opacity-50"
+                    className="flex items-center gap-1.5 rounded-lg bg-violet-500/10 px-3 py-1.5 text-[11px] font-medium text-violet-700 ring-1 ring-violet-500/20 transition-all hover:bg-violet-500/20 disabled:opacity-50"
                   >
                     {analyzingLead ? (
                       <><Loader2 className="h-3 w-3 animate-spin" />{aiAnalysis ? "إعادة التحليل..." : "جارٍ التحليل..."}</>
@@ -2754,7 +2754,7 @@ export function SubmissionsTabs({
                     <div className="flex items-center gap-4">
                       <div className="text-center">
                         <div className={`text-3xl font-black tabular-nums ${
-                          (aiAnalysis.fit_score ?? 0) >= 70 ? "text-emerald-400" : (aiAnalysis.fit_score ?? 0) >= 40 ? "text-amber-400" : "text-red-400"
+                          (aiAnalysis.fit_score ?? 0) >= 70 ? "text-emerald-700" : (aiAnalysis.fit_score ?? 0) >= 40 ? "text-amber-700" : "text-red-700"
                         }`}>
                           {aiAnalysis.fit_score}
                         </div>
@@ -2763,24 +2763,24 @@ export function SubmissionsTabs({
                       <div className="h-10 w-px bg-border/30" />
                       <div className="flex flex-wrap gap-2">
                         <span className={`rounded-lg px-2.5 py-1 text-[10px] font-medium ring-1 ${
-                          aiAnalysis.quality === "high" ? "bg-emerald-500/10 text-emerald-400 ring-emerald-500/20"
-                            : aiAnalysis.quality === "medium" ? "bg-amber-500/10 text-amber-400 ring-amber-500/20"
-                              : "bg-red-500/10 text-red-400 ring-red-500/20"
+                          aiAnalysis.quality === "high" ? "bg-emerald-500/10 text-emerald-700 ring-emerald-500/20"
+                            : aiAnalysis.quality === "medium" ? "bg-amber-500/10 text-amber-700 ring-amber-500/20"
+                              : "bg-red-500/10 text-red-700 ring-red-500/20"
                         }`}>
                           {aiAnalysis.quality === "high" ? "جودة عالية" : aiAnalysis.quality === "medium" ? "جودة متوسطة" : "جودة منخفضة"}
                         </span>
                         <span className={`flex items-center gap-1 rounded-lg px-2.5 py-1 text-[10px] font-medium ring-1 ${
-                          aiAnalysis.risk_level === "low" ? "bg-emerald-500/10 text-emerald-400 ring-emerald-500/20"
-                            : aiAnalysis.risk_level === "medium" ? "bg-amber-500/10 text-amber-400 ring-amber-500/20"
-                              : "bg-red-500/10 text-red-400 ring-red-500/20"
+                          aiAnalysis.risk_level === "low" ? "bg-emerald-500/10 text-emerald-700 ring-emerald-500/20"
+                            : aiAnalysis.risk_level === "medium" ? "bg-amber-500/10 text-amber-700 ring-amber-500/20"
+                              : "bg-red-500/10 text-red-700 ring-red-500/20"
                         }`}>
                           <Shield className="h-3 w-3" />
                           {aiAnalysis.risk_level === "low" ? "مخاطر منخفضة" : aiAnalysis.risk_level === "medium" ? "مخاطر متوسطة" : "مخاطر عالية"}
                         </span>
                         <span className={`rounded-lg px-2.5 py-1 text-[10px] font-medium ring-1 ${
-                          aiAnalysis.budget_fit === "good" ? "bg-emerald-500/10 text-emerald-400 ring-emerald-500/20"
-                            : aiAnalysis.budget_fit === "weak" ? "bg-red-500/10 text-red-400 ring-red-500/20"
-                              : "bg-zinc-500/10 text-zinc-400 ring-zinc-500/20"
+                          aiAnalysis.budget_fit === "good" ? "bg-emerald-500/10 text-emerald-700 ring-emerald-500/20"
+                            : aiAnalysis.budget_fit === "weak" ? "bg-red-500/10 text-red-700 ring-red-500/20"
+                              : "bg-zinc-500/10 text-zinc-700 ring-zinc-500/20"
                         }`}>
                           الميزانية: {aiAnalysis.budget_fit === "good" ? "مناسبة" : aiAnalysis.budget_fit === "weak" ? "ضعيفة" : "غير واضحة"}
                         </span>
@@ -2815,22 +2815,22 @@ export function SubmissionsTabs({
                     <div className="grid gap-3 sm:grid-cols-2">
                       {aiAnalysis.opportunity_highlights.length > 0 && (
                         <div>
-                          <p className="mb-1.5 text-[11px] font-medium text-emerald-400">نقاط القوة</p>
+                          <p className="mb-1.5 text-[11px] font-medium text-emerald-700">نقاط القوة</p>
                           <div className="flex flex-wrap gap-1.5">
                             {aiAnalysis.opportunity_highlights.map((h, i) => (
-                              <span key={i} className="rounded-md bg-emerald-500/[0.08] px-2 py-1 text-[10px] text-emerald-400 ring-1 ring-emerald-500/15">{h}</span>
+                              <span key={i} className="rounded-md bg-emerald-500/[0.08] px-2 py-1 text-[10px] text-emerald-700 ring-1 ring-emerald-500/15">{h}</span>
                             ))}
                           </div>
                         </div>
                       )}
                       {aiAnalysis.risk_flags.length > 0 && (
                         <div>
-                          <p className="mb-1.5 flex items-center gap-1 text-[11px] font-medium text-red-400">
+                          <p className="mb-1.5 flex items-center gap-1 text-[11px] font-medium text-red-700">
                             <AlertTriangle className="h-3 w-3" />ملاحظات
                           </p>
                           <div className="flex flex-wrap gap-1.5">
                             {aiAnalysis.risk_flags.map((f, i) => (
-                              <span key={i} className="rounded-md bg-red-500/[0.08] px-2 py-1 text-[10px] text-red-400 ring-1 ring-red-500/15">{f}</span>
+                              <span key={i} className="rounded-md bg-red-500/[0.08] px-2 py-1 text-[10px] text-red-700 ring-1 ring-red-500/15">{f}</span>
                             ))}
                           </div>
                         </div>
@@ -2841,7 +2841,7 @@ export function SubmissionsTabs({
 
                 {aiAnalysis && aiAnalysis.status === "error" && (
                   <div className="rounded-2xl bg-red-500/[0.05] p-4 ring-1 ring-red-500/15">
-                    <p className="text-xs text-red-400">{aiAnalysis.error_message || "حدث خطأ أثناء التحليل"}</p>
+                    <p className="text-xs text-red-700">{aiAnalysis.error_message || "حدث خطأ أثناء التحليل"}</p>
                   </div>
                 )}
               </div>
@@ -2850,7 +2850,7 @@ export function SubmissionsTabs({
               <div>
                 <div className="mb-4 flex items-center justify-between">
                   <div className="flex items-center gap-2.5">
-                    <div className="flex h-7 w-7 items-center justify-center rounded-full bg-cyan-500/10 text-xs font-bold text-cyan-500">
+                    <div className="flex h-7 w-7 items-center justify-center rounded-full bg-cyan-500/10 text-xs font-bold text-cyan-700">
                       <Sparkles className="h-3.5 w-3.5" />
                     </div>
                     <h4 className="text-sm font-semibold">عرض الشراكة</h4>
@@ -2874,7 +2874,7 @@ export function SubmissionsTabs({
                     <button
                       onClick={handleGenerateProposal}
                       disabled={generatingProposal}
-                      className="flex items-center gap-1.5 rounded-lg bg-cyan-500/10 px-3 py-1.5 text-[11px] font-medium text-cyan-400 ring-1 ring-cyan-500/20 transition-all hover:bg-cyan-500/20 disabled:opacity-50"
+                      className="flex items-center gap-1.5 rounded-lg bg-cyan-500/10 px-3 py-1.5 text-[11px] font-medium text-cyan-700 ring-1 ring-cyan-500/20 transition-all hover:bg-cyan-500/20 disabled:opacity-50"
                     >
                       {generatingProposal ? (
                         <><Loader2 className="h-3 w-3 animate-spin" />جارٍ الإنشاء...</>
@@ -2902,9 +2902,9 @@ export function SubmissionsTabs({
                         <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
                           {aiProposal.proposed_packages.map((pkg, i) => (
                             <div key={i} className="rounded-xl bg-white/[0.03] p-3 ring-1 ring-border/20">
-                              <p className="text-xs font-bold text-cyan-400">{pkg.name}</p>
+                              <p className="text-xs font-bold text-cyan-700">{pkg.name}</p>
                               <p className="mt-1 text-[11px] text-muted-foreground">{pkg.description}</p>
-                              <p className="mt-1.5 text-xs font-semibold text-amber-400">{pkg.price_range}</p>
+                              <p className="mt-1.5 text-xs font-semibold text-amber-700">{pkg.price_range}</p>
                               {pkg.deliverables.length > 0 && (
                                 <ul className="mt-2 space-y-0.5">
                                   {pkg.deliverables.map((d, j) => (
@@ -2953,7 +2953,7 @@ export function SubmissionsTabs({
 
                 {aiProposal && aiProposal.status === "error" && (
                   <div className="rounded-2xl bg-red-500/[0.05] p-4 ring-1 ring-red-500/15">
-                    <p className="text-xs text-red-400">{aiProposal.error_message || "حدث خطأ أثناء إنشاء العرض"}</p>
+                    <p className="text-xs text-red-700">{aiProposal.error_message || "حدث خطأ أثناء إنشاء العرض"}</p>
                   </div>
                 )}
               </div>
@@ -2961,7 +2961,7 @@ export function SubmissionsTabs({
               {/* Section 8: Response Message */}
               <div>
                 <div className="mb-4 flex items-center gap-2.5">
-                  <div className="flex h-7 w-7 items-center justify-center rounded-full bg-blue-500/10 text-xs font-bold text-blue-500">
+                  <div className="flex h-7 w-7 items-center justify-center rounded-full bg-blue-500/10 text-xs font-bold text-blue-700">
                     <Send className="h-3.5 w-3.5" />
                   </div>
                   <h4 className="text-sm font-semibold">رسالة الرد</h4>
@@ -2973,7 +2973,7 @@ export function SubmissionsTabs({
                     onClick={() => setSponsorMessageType("response")}
                     className={`flex flex-1 items-center justify-center gap-2 rounded-xl px-3 py-2.5 text-xs font-medium transition-all ${
                       sponsorMessageType === "response"
-                        ? "bg-emerald-500/10 text-emerald-400 ring-1 ring-emerald-500/20"
+                        ? "bg-emerald-500/10 text-emerald-700 ring-1 ring-emerald-500/20"
                         : "text-muted-foreground hover:bg-white/[0.03] hover:text-foreground"
                     }`}
                   >
@@ -2988,7 +2988,7 @@ export function SubmissionsTabs({
                       }}
                       className={`flex flex-1 items-center justify-center gap-2 rounded-xl px-3 py-2.5 text-xs font-medium transition-all ${
                         sponsorMessageType === "proposal"
-                          ? "bg-cyan-500/10 text-cyan-400 ring-1 ring-cyan-500/20"
+                          ? "bg-cyan-500/10 text-cyan-700 ring-1 ring-cyan-500/20"
                           : "text-muted-foreground hover:bg-white/[0.03] hover:text-foreground"
                       }`}
                     >
@@ -3000,7 +3000,7 @@ export function SubmissionsTabs({
                     onClick={() => setSponsorMessageType("decline")}
                     className={`flex flex-1 items-center justify-center gap-2 rounded-xl px-3 py-2.5 text-xs font-medium transition-all ${
                       sponsorMessageType === "decline"
-                        ? "bg-red-500/10 text-red-400 ring-1 ring-red-500/20"
+                        ? "bg-red-500/10 text-red-700 ring-1 ring-red-500/20"
                         : "text-muted-foreground hover:bg-white/[0.03] hover:text-foreground"
                     }`}
                   >
@@ -3011,7 +3011,7 @@ export function SubmissionsTabs({
 
                 {/* Tone Toggle */}
                 <div className="mb-3 flex items-center justify-between">
-                  <p className="text-[11px] text-muted-foreground/60">نبرة الرسالة</p>
+                  <p className="text-[11px] text-muted-foreground">نبرة الرسالة</p>
                   <div className="flex gap-1 rounded-xl bg-white/[0.03] p-1 ring-1 ring-border/30">
                     <button
                       onClick={() => setSponsorMessageTone("formal")}
@@ -3040,7 +3040,7 @@ export function SubmissionsTabs({
                   className="w-full resize-none rounded-2xl border border-border/30 bg-white/[0.02] p-4 text-sm leading-relaxed text-foreground/90 focus:border-primary/40 focus:outline-none focus:ring-1 focus:ring-primary/20"
                   rows={10}
                 />
-                <p className="mt-1.5 text-[10px] text-muted-foreground/40">يمكنك تعديل الرسالة قبل الإرسال</p>
+                <p className="mt-1.5 text-[10px] text-muted-foreground">يمكنك تعديل الرسالة قبل الإرسال</p>
 
                 {/* Send Button */}
                 <div className="mt-3">
@@ -3049,7 +3049,7 @@ export function SubmissionsTabs({
                     disabled={sendingEmail || emailSent === "sponsor"}
                     className={`flex w-full items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-xs font-medium transition-all ${
                       emailSent === "sponsor"
-                        ? "bg-emerald-500/10 text-emerald-400 ring-1 ring-emerald-500/20"
+                        ? "bg-emerald-500/10 text-emerald-700 ring-1 ring-emerald-500/20"
                         : "bg-primary/10 text-primary ring-1 ring-primary/20 hover:bg-primary/20 disabled:opacity-50"
                     }`}
                   >
@@ -3062,7 +3062,7 @@ export function SubmissionsTabs({
                     )}
                   </button>
                   {emailError && emailSent !== "sponsor" && (
-                    <p className="mt-2 text-xs text-red-400">{emailError}</p>
+                    <p className="mt-2 text-xs text-red-700">{emailError}</p>
                   )}
                 </div>
               </div>
@@ -3140,10 +3140,10 @@ function EmptyState({
   return (
     <div className="admin-card flex flex-col items-center justify-center py-20 text-center">
       <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-muted/30">
-        <Icon className="h-5 w-5 text-muted-foreground/50" />
+        <Icon className="h-5 w-5 text-muted-foreground" />
       </div>
-      <p className="text-[13px] font-semibold text-muted-foreground/70">{title}</p>
-      <p className="mt-1.5 max-w-xs text-[12px] text-muted-foreground/40">
+      <p className="text-[13px] font-semibold text-muted-foreground">{title}</p>
+      <p className="mt-1.5 max-w-xs text-[12px] text-muted-foreground">
         {description}
       </p>
     </div>
@@ -3173,7 +3173,7 @@ function DetailField({
         >
           {value}
           {copied ? (
-            <Check className="h-3.5 w-3.5 text-emerald-500" />
+            <Check className="h-3.5 w-3.5 text-emerald-700" />
           ) : (
             <Copy className="h-3.5 w-3.5 text-muted-foreground" />
           )}
@@ -3186,10 +3186,10 @@ function DetailField({
 }
 
 const PREP_STATUS_CONFIG: Record<GuestPrepFormStatus, { label: string; color: string; bg: string }> = {
-  pending: { label: "بانتظار الرد", color: "text-blue-400", bg: "bg-blue-500/10" },
-  submitted: { label: "تم الإرسال", color: "text-emerald-400", bg: "bg-emerald-500/10" },
-  locked: { label: "مقفل", color: "text-amber-400", bg: "bg-amber-500/10" },
-  revoked: { label: "ملغي", color: "text-red-400", bg: "bg-red-500/10" },
+  pending: { label: "بانتظار الرد", color: "text-blue-700", bg: "bg-blue-500/10" },
+  submitted: { label: "تم الإرسال", color: "text-emerald-700", bg: "bg-emerald-500/10" },
+  locked: { label: "مقفل", color: "text-amber-700", bg: "bg-amber-500/10" },
+  revoked: { label: "ملغي", color: "text-red-700", bg: "bg-red-500/10" },
 }
 
 function PrepFormStatusBadge({ status }: { status: GuestPrepFormStatus }) {
@@ -3243,13 +3243,13 @@ function PrepResponseDisplay({ response }: { response: GuestPrepResponse }) {
         </div>
       )}
       <div className="flex gap-4 text-[11px]">
-        <span className={response.arrival_confirmation ? "text-emerald-400" : "text-red-400"}>
+        <span className={response.arrival_confirmation ? "text-emerald-700" : "text-red-700"}>
           {response.arrival_confirmation ? "✓" : "✗"} الحضور المبكر
         </span>
-        <span className={response.clothing_acknowledgment ? "text-emerald-400" : "text-muted-foreground"}>
+        <span className={response.clothing_acknowledgment ? "text-emerald-700" : "text-muted-foreground"}>
           {response.clothing_acknowledgment ? "✓" : "–"} إرشادات الملابس
         </span>
-        <span className={response.location_confirmation ? "text-emerald-400" : "text-red-400"}>
+        <span className={response.location_confirmation ? "text-emerald-700" : "text-red-700"}>
           {response.location_confirmation ? "✓" : "✗"} تأكيد الموقع
         </span>
       </div>

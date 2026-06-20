@@ -39,7 +39,7 @@ export function StagePrepare() {
     <div className="space-y-3">
       <div className="flex items-center gap-3 px-1">
         <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-100 dark:bg-blue-950/40">
-          <Layers className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+          <Layers className="h-4 w-4 text-blue-700 dark:text-blue-400" />
         </div>
         <div>
           <h2 className="text-[13px] font-semibold">التحضير</h2>
@@ -50,7 +50,7 @@ export function StagePrepare() {
       <div className="space-y-2">
         <AccordionSection
           icon={FileText}
-          iconColor="text-blue-500"
+          iconColor="text-blue-700"
           title="النص التلقائي"
           status={transcriptTabStatus}
           defaultOpen={transcriptTabStatus !== "ready"}
@@ -60,7 +60,7 @@ export function StagePrepare() {
 
         <AccordionSection
           icon={Wand2}
-          iconColor="text-violet-500"
+          iconColor="text-violet-700"
           title="معالجة النص بالذكاء الاصطناعي"
           status={processingTabStatus}
           defaultOpen={transcriptTabStatus === "ready" && processingTabStatus !== "ready"}
@@ -72,7 +72,7 @@ export function StagePrepare() {
           <>
             <AccordionSection
               icon={AudioWaveform}
-              iconColor="text-orange-500"
+              iconColor="text-orange-700"
               title="أدوات الصوت"
               status={audioToolsTabStatus}
               defaultOpen={transcriptTabStatus === "ready" && audioToolsTabStatus !== "ready"}
@@ -82,7 +82,7 @@ export function StagePrepare() {
 
             <AccordionSection
               icon={Scissors}
-              iconColor="text-rose-500"
+              iconColor="text-rose-700"
               title="اقتراحات القص والتعديل"
               status={editSuggestionsTabStatus}
               defaultOpen={editSuggestionsTabStatus === "ready"}

@@ -41,7 +41,7 @@ export function FeatureFlagsForm({ initial }: { initial: FeatureFlags }) {
           <div key={flag.key} className="flex items-center justify-between py-3 border-b border-border/30 last:border-0">
             <div>
               <Label className="text-[13px] font-medium">{flag.label}</Label>
-              <p className="text-[11px] text-muted-foreground/60">{flag.description}</p>
+              <p className="text-[11px] text-muted-foreground">{flag.description}</p>
             </div>
             <Switch
               checked={flags[flag.key]}
@@ -56,7 +56,7 @@ export function FeatureFlagsForm({ initial }: { initial: FeatureFlags }) {
             {isPending && <Loader2 className="me-2 h-4 w-4 animate-spin" />}
             حفظ
           </Button>
-          {saved && <span className="text-sm text-green-500">تم الحفظ</span>}
+          {saved && <span className="text-sm text-green-700">تم الحفظ</span>}
         </div>
       </CardContent>
     </Card>

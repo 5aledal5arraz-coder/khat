@@ -16,7 +16,7 @@ export default async function NewsletterAdminPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-xl font-bold tracking-tight">النشرة البريدية</h1>
-          <p className="text-[13px] text-muted-foreground/60 mt-1">
+          <p className="text-[13px] text-muted-foreground mt-1">
             إرسال رسائل بريدية لجميع المشتركين
           </p>
         </div>

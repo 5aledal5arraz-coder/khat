@@ -53,7 +53,7 @@ export function AudioToolsContent() {
       {/* Timestamps Section */}
       <div className="space-y-4">
         <div className="flex items-center gap-2">
-          <Clock className="h-4 w-4 text-orange-500" />
+          <Clock className="h-4 w-4 text-orange-700" />
           <span className="text-sm font-medium">نقاط القص</span>
           {durationSec && (
             <span className="text-xs text-muted-foreground">
@@ -90,7 +90,7 @@ export function AudioToolsContent() {
             {saving ? (
               <Loader2 className="h-3.5 w-3.5 animate-spin" />
             ) : saved ? (
-              <Save className="h-3.5 w-3.5 text-green-500" />
+              <Save className="h-3.5 w-3.5 text-green-700" />
             ) : (
               <Save className="h-3.5 w-3.5" />
             )}
@@ -110,7 +110,7 @@ export function AudioToolsContent() {
       {/* AI Best Intro Section */}
       <div className="space-y-4">
         <div className="flex items-center gap-2">
-          <Sparkles className="h-4 w-4 text-amber-500" />
+          <Sparkles className="h-4 w-4 text-amber-700" />
           <span className="text-sm font-medium">اقتراح أفضل افتتاحية (30 ثانية)</span>
         </div>
 
@@ -130,7 +130,7 @@ export function AudioToolsContent() {
 
         {audioIntroStatus === "generating" && (
           <div className="flex flex-col items-center gap-3 py-6">
-            <Loader2 className="h-5 w-5 animate-spin text-amber-500" />
+            <Loader2 className="h-5 w-5 animate-spin text-amber-700" />
             <span className="text-sm text-muted-foreground">جارٍ تحليل النص واختيار أفضل مقطع...</span>
           </div>
         )}
@@ -138,8 +138,8 @@ export function AudioToolsContent() {
         {audioIntroStatus === "error" && (
           <div className="space-y-3">
             <div className="flex items-start gap-2 rounded-lg border border-red-500/20 bg-red-500/5 p-3">
-              <AlertCircle className="h-4 w-4 shrink-0 text-red-500 mt-0.5" />
-              <p className="text-sm text-red-600 dark:text-red-400">{audioIntroError}</p>
+              <AlertCircle className="h-4 w-4 shrink-0 text-red-700 mt-0.5" />
+              <p className="text-sm text-red-700 dark:text-red-400">{audioIntroError}</p>
             </div>
             <Button variant="outline" onClick={generateBestIntro} className="gap-2">
               <RefreshCw className="h-4 w-4" />
@@ -229,11 +229,11 @@ function TimestampInput({
         className={cn(
           "w-full rounded-md border bg-background px-3 py-2 text-sm font-mono text-center",
           "focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-1",
-          "placeholder:text-muted-foreground/50"
+          "placeholder:text-muted-foreground"
         )}
       />
       {max != null && (
-        <span className="text-[10px] text-muted-foreground/60 block text-center">
+        <span className="text-[10px] text-muted-foreground block text-center">
           الحد الأقصى: {formatDuration(max)}
         </span>
       )}

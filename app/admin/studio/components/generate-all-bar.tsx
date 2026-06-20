@@ -50,11 +50,11 @@ export function GenerateAllBar() {
         <div className="flex items-center gap-3">
           {allReady ? (
             <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-500/10">
-              <CheckCircle2 className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
+              <CheckCircle2 className="h-5 w-5 text-emerald-700 dark:text-emerald-400" />
             </div>
           ) : (
             <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-amber-500/10">
-              <Sparkles className="h-5 w-5 text-amber-600 dark:text-amber-400" />
+              <Sparkles className="h-5 w-5 text-amber-700 dark:text-amber-400" />
             </div>
           )}
           <div>
@@ -111,9 +111,9 @@ export function GenerateAllBar() {
                 key={step.key}
                 className={cn(
                   "flex items-center gap-1.5 rounded-md px-3 py-1 text-[11px] font-medium transition-all duration-200",
-                  isCompleted && "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400",
-                  isCurrent && "bg-amber-500/10 text-amber-600 dark:text-amber-400",
-                  !isCompleted && !isCurrent && "bg-muted/40 text-muted-foreground/60"
+                  isCompleted && "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400",
+                  isCurrent && "bg-amber-500/10 text-amber-700 dark:text-amber-400",
+                  !isCompleted && !isCurrent && "bg-muted/40 text-muted-foreground"
                 )}
               >
                 {isCompleted ? (
@@ -132,11 +132,11 @@ export function GenerateAllBar() {
 
       {generateAllError && (
         <div className="flex items-start gap-3 rounded-lg border border-red-500/20 bg-red-500/5 p-3.5">
-          <AlertCircle className="h-4 w-4 shrink-0 text-red-500 mt-0.5" />
+          <AlertCircle className="h-4 w-4 shrink-0 text-red-700 mt-0.5" />
           <div className="flex-1 min-w-0">
-            <p className="text-sm text-red-600 dark:text-red-400">{generateAllError}</p>
+            <p className="text-sm text-red-700 dark:text-red-400">{generateAllError}</p>
             {canResume && (
-              <p className="text-xs text-red-500/70 mt-1.5">
+              <p className="text-xs text-red-700/70 mt-1.5">
                 المراحل المكتملة محفوظة — اضغط &ldquo;استئناف&rdquo; لإكمال المراحل المتبقية
               </p>
             )}

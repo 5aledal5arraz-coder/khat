@@ -36,12 +36,12 @@ export class SectionErrorBoundary extends Component<Props, State> {
     if (this.state.hasError) {
       return (
         <div className="rounded-xl border border-red-500/20 bg-red-500/5 p-6 text-center space-y-3">
-          <AlertTriangle className="h-8 w-8 mx-auto text-red-400/70" />
+          <AlertTriangle className="h-8 w-8 mx-auto text-red-700/70" />
           <div>
-            <p className="text-[13px] font-medium text-red-600 dark:text-red-400">
+            <p className="text-[13px] font-medium text-red-700 dark:text-red-400">
               حدث خطأ في {this.props.sectionName || "هذا القسم"}
             </p>
-            <p className="text-[11px] text-red-500/60 mt-1">
+            <p className="text-[11px] text-red-700/60 mt-1">
               {this.state.error?.message || "خطأ غير متوقع"}
             </p>
           </div>

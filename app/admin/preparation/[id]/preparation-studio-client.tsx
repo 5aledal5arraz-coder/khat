@@ -80,31 +80,31 @@ const STATUS_META: Record<
   draft: {
     label: "مسودة",
     bg: "bg-neutral-500/10",
-    text: "text-neutral-300",
+    text: "text-neutral-700",
     border: "border-neutral-500/20",
   },
   researched: {
     label: "تم البحث",
     bg: "bg-sky-500/10",
-    text: "text-sky-300",
+    text: "text-sky-700",
     border: "border-sky-500/20",
   },
   prepared: {
     label: "جاهز للمراجعة",
     bg: "bg-violet-500/10",
-    text: "text-violet-300",
+    text: "text-violet-700",
     border: "border-violet-500/20",
   },
   reviewed: {
     label: "تمت المراجعة",
     bg: "bg-amber-500/10",
-    text: "text-amber-300",
+    text: "text-amber-700",
     border: "border-amber-500/20",
   },
   approved: {
     label: "معتمدة",
     bg: "bg-emerald-500/10",
-    text: "text-emerald-300",
+    text: "text-emerald-700",
     border: "border-emerald-500/20",
   },
 }
@@ -127,12 +127,12 @@ function isResearchUsableClient(prep: EpisodePreparation): boolean {
 }
 
 const BUCKET_META: Record<PreparationQuestionBucket, { label: string; color: string }> = {
-  opening: { label: "افتتاح", color: "bg-sky-500/10 text-sky-300 border-sky-500/20" },
-  deep: { label: "عميق", color: "bg-indigo-500/10 text-indigo-300 border-indigo-500/20" },
-  escalation: { label: "تصعيد", color: "bg-rose-500/10 text-rose-300 border-rose-500/20" },
-  surprise: { label: "مفاجأة", color: "bg-fuchsia-500/10 text-fuchsia-300 border-fuchsia-500/20" },
-  backup: { label: "احتياطي", color: "bg-neutral-500/10 text-neutral-300 border-neutral-500/20" },
-  recovery: { label: "إنقاذ", color: "bg-amber-500/10 text-amber-300 border-amber-500/20" },
+  opening: { label: "افتتاح", color: "bg-sky-500/10 text-sky-700 border-sky-500/20" },
+  deep: { label: "عميق", color: "bg-indigo-500/10 text-indigo-700 border-indigo-500/20" },
+  escalation: { label: "تصعيد", color: "bg-rose-500/10 text-rose-700 border-rose-500/20" },
+  surprise: { label: "مفاجأة", color: "bg-fuchsia-500/10 text-fuchsia-700 border-fuchsia-500/20" },
+  backup: { label: "احتياطي", color: "bg-neutral-500/10 text-neutral-700 border-neutral-500/20" },
+  recovery: { label: "إنقاذ", color: "bg-amber-500/10 text-amber-700 border-amber-500/20" },
 }
 
 type TabKey = "inputs" | "overview" | "research" | "flow" | "questions" | "cards" | "live"
@@ -477,7 +477,7 @@ export function PreparationStudioClient({ initial }: Props) {
             onClick={() => setShowDeleteDialog(true)}
             disabled={busy !== null}
             title="حذف"
-            className="inline-flex items-center gap-2 rounded-lg border border-rose-500/30 bg-background px-3 py-2 text-[13px] font-medium text-rose-400 transition-colors hover:bg-rose-500/10 disabled:opacity-50"
+            className="inline-flex items-center gap-2 rounded-lg border border-rose-500/30 bg-background px-3 py-2 text-[13px] font-medium text-rose-700 transition-colors hover:bg-rose-500/10 disabled:opacity-50"
           >
             <Trash2 className="h-4 w-4" />
             حذف
@@ -486,7 +486,7 @@ export function PreparationStudioClient({ initial }: Props) {
       </div>
 
       {prep.archived_at && (
-        <div className="flex items-center justify-between gap-3 rounded-xl border border-neutral-500/40 bg-neutral-500/10 p-3 text-xs text-neutral-300">
+        <div className="flex items-center justify-between gap-3 rounded-xl border border-neutral-500/40 bg-neutral-500/10 p-3 text-xs text-neutral-700">
           <div className="flex items-center gap-2">
             <Archive className="h-4 w-4" />
             <span>هذا الإعداد مؤرشف ولن يظهر في القائمة الرئيسية.</span>
@@ -495,7 +495,7 @@ export function PreparationStudioClient({ initial }: Props) {
             type="button"
             onClick={handleArchiveToggle}
             disabled={busy !== null}
-            className="shrink-0 rounded-md border border-neutral-400/40 bg-neutral-500/20 px-2.5 py-1 text-[11px] font-semibold text-neutral-100 hover:bg-neutral-500/30"
+            className="shrink-0 rounded-md border border-neutral-400/40 bg-neutral-500/20 px-2.5 py-1 text-[11px] font-semibold text-neutral-700 hover:bg-neutral-500/30"
           >
             استرجاع
           </button>
@@ -503,7 +503,7 @@ export function PreparationStudioClient({ initial }: Props) {
       )}
 
       {!prep.guest_identity && (
-        <div className="flex items-start justify-between gap-3 rounded-xl border border-amber-500/40 bg-amber-500/10 p-3 text-xs text-amber-200">
+        <div className="flex items-start justify-between gap-3 rounded-xl border border-amber-500/40 bg-amber-500/10 p-3 text-xs text-amber-700">
           <div>
             <strong className="font-semibold">هوية الضيف غير مؤكدة. </strong>
             هذه جلسة قديمة بدون تأكيد هوية. لا يمكن تشغيل البحث حتى يتم اختيار الشخص الصحيح.
@@ -511,7 +511,7 @@ export function PreparationStudioClient({ initial }: Props) {
           <button
             type="button"
             onClick={() => setShowIdentifyDialog(true)}
-            className="shrink-0 rounded-md border border-amber-400/40 bg-amber-500/20 px-2.5 py-1 text-[11px] font-semibold text-amber-100 hover:bg-amber-500/30"
+            className="shrink-0 rounded-md border border-amber-400/40 bg-amber-500/20 px-2.5 py-1 text-[11px] font-semibold text-amber-700 hover:bg-amber-500/30"
           >
             تأكيد الهوية
           </button>
@@ -519,19 +519,19 @@ export function PreparationStudioClient({ initial }: Props) {
       )}
 
       {researchEmptyReason && (
-        <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-3 text-xs text-amber-200">
+        <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-3 text-xs text-amber-700">
           <strong className="font-semibold">البحث غير قابل للاستخدام: </strong>
           {researchEmptyReason}
         </div>
       )}
 
       {notice && (
-        <div className="flex items-start justify-between gap-3 rounded-xl border border-amber-500/30 bg-amber-500/10 p-3 text-xs text-amber-200">
+        <div className="flex items-start justify-between gap-3 rounded-xl border border-amber-500/30 bg-amber-500/10 p-3 text-xs text-amber-700">
           <span>{notice}</span>
           <button
             type="button"
             onClick={() => setNotice(null)}
-            className="shrink-0 rounded px-1 text-amber-300/80 hover:text-amber-100"
+            className="shrink-0 rounded px-1 text-amber-700/80 hover:text-amber-700"
             aria-label="إغلاق"
           >
             ✕
@@ -540,7 +540,7 @@ export function PreparationStudioClient({ initial }: Props) {
       )}
 
       {error && (
-        <div className="rounded-xl border border-rose-500/20 bg-rose-500/10 p-3 text-xs text-rose-300">
+        <div className="rounded-xl border border-rose-500/20 bg-rose-500/10 p-3 text-xs text-rose-700">
           {error}
         </div>
       )}
@@ -557,7 +557,7 @@ export function PreparationStudioClient({ initial }: Props) {
               onClick={() => setActiveTab(tab.key)}
               className={`inline-flex flex-1 min-w-0 items-center justify-center gap-1.5 rounded-lg px-3 py-2 text-[12px] font-medium transition-colors ${
                 active
-                  ? "bg-violet-500/15 text-violet-200"
+                  ? "bg-violet-500/15 text-violet-700"
                   : "text-muted-foreground hover:bg-muted/30 hover:text-foreground"
               }`}
             >
@@ -606,7 +606,7 @@ export function PreparationStudioClient({ initial }: Props) {
           <div className="w-full max-w-sm rounded-2xl border border-border bg-card p-6 shadow-2xl">
             <div className="mb-4 flex items-center gap-3">
               <div className="flex h-10 w-10 items-center justify-center rounded-full bg-rose-500/10">
-                <Trash2 className="h-5 w-5 text-rose-400" />
+                <Trash2 className="h-5 w-5 text-rose-700" />
               </div>
               <div>
                 <h3 className="text-sm font-bold">حذف الإعداد</h3>
@@ -796,7 +796,7 @@ function ReIdentifyDialog({
               />
             </div>
             {err && (
-              <div className="rounded-lg border border-rose-500/20 bg-rose-500/10 p-2.5 text-xs text-rose-400">
+              <div className="rounded-lg border border-rose-500/20 bg-rose-500/10 p-2.5 text-xs text-rose-700">
                 {err}
               </div>
             )}
@@ -846,7 +846,7 @@ function ReIdentifyDialog({
                     target="_blank"
                     rel="noreferrer"
                     onClick={(e) => e.stopPropagation()}
-                    className="mt-1.5 inline-block text-[10px] text-violet-400 hover:underline"
+                    className="mt-1.5 inline-block text-[10px] text-violet-700 hover:underline"
                     dir="ltr"
                   >
                     {c.source_title}
@@ -855,7 +855,7 @@ function ReIdentifyDialog({
               )
             })}
             {err && (
-              <div className="rounded-lg border border-rose-500/20 bg-rose-500/10 p-2.5 text-xs text-rose-400">
+              <div className="rounded-lg border border-rose-500/20 bg-rose-500/10 p-2.5 text-xs text-rose-700">
                 {err}
               </div>
             )}
@@ -1007,7 +1007,7 @@ function InputsPanel({
         <div className="space-y-2">
           {draft.key_questions.map((q, i) => (
             <div key={i} className="flex items-center gap-2">
-              <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-violet-500/15 text-[10px] font-semibold text-violet-300">
+              <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-violet-500/15 text-[10px] font-semibold text-violet-700">
                 {i + 1}
               </span>
               <div className="flex-1 rounded-lg border border-border/40 bg-background px-3 py-2 text-sm">
@@ -1016,7 +1016,7 @@ function InputsPanel({
               <button
                 type="button"
                 onClick={() => removeQuestion(i)}
-                className="text-muted-foreground transition-colors hover:text-rose-400"
+                className="text-muted-foreground transition-colors hover:text-rose-700"
               >
                 <X className="h-4 w-4" />
               </button>
@@ -1114,7 +1114,7 @@ function InputsPanel({
                 onClick={() => toggleFocus(opt.value)}
                 className={`rounded-full border px-3 py-1.5 text-[12px] transition-colors ${
                   active
-                    ? "border-violet-500 bg-violet-500/15 text-violet-200"
+                    ? "border-violet-500 bg-violet-500/15 text-violet-700"
                     : "border-border/60 bg-background text-muted-foreground hover:border-violet-500/40"
                 }`}
               >
@@ -1176,7 +1176,7 @@ function Slider({
         onChange={(e) => onChange(Number(e.target.value))}
         className="w-full accent-violet-500"
       />
-      <div className="mt-1 flex justify-between text-[10px] text-muted-foreground/60">
+      <div className="mt-1 flex justify-between text-[10px] text-muted-foreground">
         {[1, 2, 3, 4, 5].map((n) => (
           <span key={n}>{n}</span>
         ))}
@@ -1291,7 +1291,7 @@ function OverviewPanel({
           <div className="space-y-3">
             {prep.conversation_axes.main_themes.map((m, i) => (
               <div key={i} className="rounded-xl border border-border/40 bg-background/40 p-4">
-                <h4 className="mb-1 text-sm font-semibold text-violet-300">{m.title}</h4>
+                <h4 className="mb-1 text-sm font-semibold text-violet-700">{m.title}</h4>
                 <p className="text-sm text-muted-foreground">{m.description}</p>
                 <div className="mt-3 space-y-1.5">
                   {prep.conversation_axes!.sub_themes
@@ -1356,11 +1356,11 @@ function OverviewPanel({
             {prep.quotes_references.quotes.map((q, i) => (
               <div key={i} className="rounded-xl border border-border/40 bg-background/40 p-4">
                 <p className="text-sm italic leading-relaxed">&ldquo;{q.quote}&rdquo;</p>
-                <p className="mt-2 text-xs text-violet-300">— {q.attribution}</p>
+                <p className="mt-2 text-xs text-violet-700">— {q.attribution}</p>
                 {q.context && (
                   <p className="mt-1 text-[11px] text-muted-foreground">{q.context}</p>
                 )}
-                <p className="mt-2 text-[11px] text-muted-foreground/70">
+                <p className="mt-2 text-[11px] text-muted-foreground">
                   لماذا تهم: {q.why_it_matters}
                 </p>
               </div>
@@ -1389,7 +1389,7 @@ function OverviewPanel({
               >
                 <div className="mb-1 flex items-center justify-between">
                   <h4 className="text-sm font-semibold">{m.label}</h4>
-                  <span className="rounded-full bg-fuchsia-500/10 px-2 py-0.5 text-[10px] text-fuchsia-300">
+                  <span className="rounded-full bg-fuchsia-500/10 px-2 py-0.5 text-[10px] text-fuchsia-700">
                     {m.expected_timing}
                   </span>
                 </div>
@@ -1399,7 +1399,7 @@ function OverviewPanel({
                 <p className="mt-1 text-xs text-muted-foreground">
                   <strong>الذروة:</strong> {m.payoff}
                 </p>
-                <p className="mt-2 text-[11px] text-fuchsia-300/70">
+                <p className="mt-2 text-[11px] text-fuchsia-700/70">
                   لماذا ستنتشر: {m.why_it_spreads}
                 </p>
               </div>
@@ -1436,7 +1436,7 @@ function ResearchPanel({
   if (!r) {
     return (
       <div className="rounded-2xl border border-dashed border-border/40 bg-card/30 p-8 text-center">
-        <Search className="mx-auto h-6 w-6 text-muted-foreground/50" />
+        <Search className="mx-auto h-6 w-6 text-muted-foreground" />
         <p className="mt-3 text-sm font-medium">لم يُنفَّذ البحث بعد</p>
         <p className="mt-1 text-xs text-muted-foreground">
           اضغط &quot;تشغيل البحث&quot; أعلاه لبدء البحث العميق عبر Gemini + YouTube
@@ -1470,10 +1470,10 @@ function ResearchPanel({
     x: "X / Twitter",
   }
   const statusMeta: Record<string, { label: string; cls: string }> = {
-    ok: { label: "ناجح", cls: "bg-emerald-500/10 text-emerald-400 border-emerald-500/20" },
-    skipped: { label: "مُتخطى", cls: "bg-neutral-500/10 text-neutral-400 border-neutral-500/20" },
-    failed: { label: "فشل", cls: "bg-rose-500/10 text-rose-400 border-rose-500/20" },
-    unavailable: { label: "غير متوفر", cls: "bg-amber-500/10 text-amber-400 border-amber-500/20" },
+    ok: { label: "ناجح", cls: "bg-emerald-500/10 text-emerald-700 border-emerald-500/20" },
+    skipped: { label: "مُتخطى", cls: "bg-neutral-500/10 text-neutral-700 border-neutral-500/20" },
+    failed: { label: "فشل", cls: "bg-rose-500/10 text-rose-700 border-rose-500/20" },
+    unavailable: { label: "غير متوفر", cls: "bg-amber-500/10 text-amber-700 border-amber-500/20" },
   }
 
   return (
@@ -1504,13 +1504,13 @@ function ResearchPanel({
 
         {/* Verification counts */}
         <div className="mb-3 flex flex-wrap gap-2 text-[11px]">
-          <span className="rounded-md border border-emerald-500/20 bg-emerald-500/10 px-2 py-1 text-emerald-400">
+          <span className="rounded-md border border-emerald-500/20 bg-emerald-500/10 px-2 py-1 text-emerald-700">
             موثّق: {r.verified_count}
           </span>
-          <span className="rounded-md border border-amber-500/20 bg-amber-500/10 px-2 py-1 text-amber-400">
+          <span className="rounded-md border border-amber-500/20 bg-amber-500/10 px-2 py-1 text-amber-700">
             ضعيف: {r.weak_count}
           </span>
-          <span className="rounded-md border border-rose-500/20 bg-rose-500/10 px-2 py-1 text-rose-400">
+          <span className="rounded-md border border-rose-500/20 bg-rose-500/10 px-2 py-1 text-rose-700">
             محذوف: {r.unverified_count}
           </span>
         </div>
@@ -1532,7 +1532,7 @@ function ResearchPanel({
         </div>
 
         {r.notes && (
-          <div className="rounded-lg border border-amber-500/20 bg-amber-500/10 p-3 text-[12px] text-amber-300">
+          <div className="rounded-lg border border-amber-500/20 bg-amber-500/10 p-3 text-[12px] text-amber-700">
             {r.notes}
           </div>
         )}
@@ -1563,15 +1563,15 @@ function ResearchPanel({
                       <span
                         className={`mt-0.5 shrink-0 rounded-md px-1.5 py-0.5 text-[9px] font-semibold ${
                           c.status === "verified"
-                            ? "bg-emerald-500/10 text-emerald-400"
-                            : "bg-amber-500/10 text-amber-400"
+                            ? "bg-emerald-500/10 text-emerald-700"
+                            : "bg-amber-500/10 text-amber-700"
                         }`}
                       >
                         {c.status === "verified" ? "موثّق" : "ضعيف"}
                       </span>
                       {c.cross_source_verified && (
                         <span
-                          className="mt-0.5 shrink-0 rounded-md bg-violet-500/10 px-1.5 py-0.5 text-[9px] font-semibold text-violet-300"
+                          className="mt-0.5 shrink-0 rounded-md bg-violet-500/10 px-1.5 py-0.5 text-[9px] font-semibold text-violet-700"
                           title={`مصادر متقاطعة: ${c.provider_types.join(" + ")}`}
                         >
                           تحقّق متقاطع
@@ -1589,7 +1589,7 @@ function ResearchPanel({
                             href={s.url}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="me-1.5 inline-block text-violet-400 hover:underline"
+                            className="me-1.5 inline-block text-violet-700 hover:underline"
                           >
                             [#{id} {s.publisher || s.provider}]
                           </a>
@@ -1614,7 +1614,7 @@ function ResearchPanel({
                 <p className="text-sm italic">“{q.text}”</p>
                 <p className="mt-1 text-[11px] text-muted-foreground">
                   — {q.attributed_to}
-                  {q.context && <span className="text-muted-foreground/70"> ({q.context})</span>}
+                  {q.context && <span className="text-muted-foreground"> ({q.context})</span>}
                 </p>
                 <div className="mt-1 text-[10px] text-muted-foreground">
                   {q.source_ids.map((id) => {
@@ -1625,7 +1625,7 @@ function ResearchPanel({
                         href={s.url}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="me-1.5 inline-block text-violet-400 hover:underline"
+                        className="me-1.5 inline-block text-violet-700 hover:underline"
                       >
                         [#{id}]
                       </a>
@@ -1651,10 +1651,10 @@ function ResearchPanel({
               className="block rounded-lg border border-border/40 bg-background/40 p-3 text-xs transition-colors hover:border-violet-500/40"
             >
               <div className="flex items-center gap-2">
-                <span className="shrink-0 rounded-md bg-violet-500/10 px-1.5 py-0.5 text-[9px] font-semibold text-violet-400">
+                <span className="shrink-0 rounded-md bg-violet-500/10 px-1.5 py-0.5 text-[9px] font-semibold text-violet-700">
                   #{s.id}
                 </span>
-                <span className="shrink-0 rounded-md bg-neutral-500/10 px-1.5 py-0.5 text-[9px] text-neutral-400">
+                <span className="shrink-0 rounded-md bg-neutral-500/10 px-1.5 py-0.5 text-[9px] text-neutral-700">
                   {providerLabels[s.provider] || s.provider}
                 </span>
                 <div className="min-w-0 flex-1 truncate font-medium text-foreground">{s.title}</div>
@@ -1692,7 +1692,7 @@ function ResearchPanel({
                     href={p.url}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="mt-1 inline-block text-[11px] text-violet-400 hover:underline"
+                    className="mt-1 inline-block text-[11px] text-violet-700 hover:underline"
                   >
                     فتح المصدر
                   </a>
@@ -1736,9 +1736,9 @@ function FlowPanel({
                   key={b.id}
                   className="flex items-stretch gap-3 rounded-xl border border-border/40 bg-background/40 p-3"
                 >
-                  <div className="flex min-w-[70px] flex-col items-center justify-center rounded-lg bg-violet-500/10 px-3 py-2 text-[11px] font-mono text-violet-300">
+                  <div className="flex min-w-[70px] flex-col items-center justify-center rounded-lg bg-violet-500/10 px-3 py-2 text-[11px] font-mono text-violet-700">
                     {b.from_min}–{b.to_min}
-                    <span className="text-[9px] text-violet-300/60">دقيقة</span>
+                    <span className="text-[9px] text-violet-700/60">دقيقة</span>
                   </div>
                   <div className="min-w-0 flex-1">
                     <div className="text-[13px] font-semibold">{b.label}</div>
@@ -1870,7 +1870,7 @@ function QuestionsPanel({
                               {meta.label}
                             </span>
                             {q.weak_support && (
-                              <span className="inline-flex items-center gap-1 rounded-full border border-amber-500/30 bg-amber-500/10 px-2 py-0.5 text-[10px] text-amber-300">
+                              <span className="inline-flex items-center gap-1 rounded-full border border-amber-500/30 bg-amber-500/10 px-2 py-0.5 text-[10px] text-amber-700">
                                 <AlertTriangle className="h-2.5 w-2.5" />
                                 دعم ضعيف
                               </span>
@@ -1903,7 +1903,7 @@ function QuestionsPanel({
                               }
                               className="mt-2 inline-flex items-center gap-1.5 rounded-md border border-border/40 bg-background/60 px-2 py-1 text-[10px] text-muted-foreground hover:text-foreground"
                             >
-                              <Lightbulb className="h-3 w-3 text-amber-400" />
+                              <Lightbulb className="h-3 w-3 text-amber-700" />
                               {supportOpen ? "إخفاء حزمة الدعم" : "حزمة الدعم"}
                               {supportOpen ? (
                                 <ChevronDown className="h-3 w-3" />
@@ -1916,7 +1916,7 @@ function QuestionsPanel({
                             <div className="mt-2 space-y-2 rounded-md border border-amber-500/20 bg-amber-500/5 p-3">
                               {q.support.context && (
                                 <div>
-                                  <div className="mb-0.5 text-[9px] font-semibold uppercase text-amber-400">
+                                  <div className="mb-0.5 text-[9px] font-semibold uppercase text-amber-700">
                                     السياق
                                   </div>
                                   <p className="text-[11px] leading-relaxed text-foreground/90">
@@ -1989,7 +1989,7 @@ function FilterChip({
       onClick={onClick}
       className={`rounded-full border px-3 py-1 text-[11px] transition-colors ${
         active
-          ? "border-violet-500 bg-violet-500/15 text-violet-200"
+          ? "border-violet-500 bg-violet-500/15 text-violet-700"
           : "border-border/60 bg-background text-muted-foreground hover:border-violet-500/40"
       }`}
     >
@@ -2046,7 +2046,7 @@ function LivePanel({
   if (prep.status !== "approved") {
     return (
       <div className="rounded-2xl border border-dashed border-border/40 bg-card/30 p-8 text-center">
-        <Radio className="mx-auto h-6 w-6 text-muted-foreground/50" />
+        <Radio className="mx-auto h-6 w-6 text-muted-foreground" />
         <p className="mt-3 text-sm font-medium">الوضع المباشر غير مفعّل</p>
         <p className="mt-1 text-xs text-muted-foreground">
           اعتمد الجلسة من تبويب &quot;نظرة عامة&quot; لتوليد رابط التحكم المباشر.
@@ -2086,7 +2086,7 @@ function LivePanel({
   return (
     <div className="space-y-4">
       <div className="rounded-2xl border border-emerald-500/20 bg-gradient-to-br from-emerald-500/10 to-transparent p-5">
-        <div className="mb-2 inline-flex items-center gap-2 rounded-full bg-emerald-500/15 px-3 py-1 text-[11px] font-medium text-emerald-300">
+        <div className="mb-2 inline-flex items-center gap-2 rounded-full bg-emerald-500/15 px-3 py-1 text-[11px] font-medium text-emerald-700">
           <ShieldCheck className="h-3 w-3" />
           الجلسة معتمدة
         </div>
@@ -2110,7 +2110,7 @@ function LivePanel({
             </button>
           </div>
         ) : (
-          <div className="mt-4 rounded-lg border border-amber-500/20 bg-amber-500/10 p-3 text-xs text-amber-300">
+          <div className="mt-4 rounded-lg border border-amber-500/20 bg-amber-500/10 p-3 text-xs text-amber-700">
             الرابط متاح مرة واحدة فقط لحظة الاعتماد. إذا فقدته، اضغط &quot;تدوير
             الرابط&quot; لتوليد رابط جديد — سيتوقّف الرابط القديم فوراً.
           </div>
@@ -2138,8 +2138,8 @@ function LivePanel({
             disabled={busy !== null}
             className={`inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-[11px] font-medium transition-colors disabled:opacity-50 ${
               confirmRotate
-                ? "border-rose-500/40 bg-rose-500/15 text-rose-200 hover:bg-rose-500/25"
-                : "border-amber-500/30 bg-amber-500/10 text-amber-200 hover:bg-amber-500/20"
+                ? "border-rose-500/40 bg-rose-500/15 text-rose-700 hover:bg-rose-500/25"
+                : "border-amber-500/30 bg-amber-500/10 text-amber-700 hover:bg-amber-500/20"
             }`}
           >
             {busy === "rotate" ? (
@@ -2197,10 +2197,10 @@ function Section({
     <div className="rounded-2xl border border-border/40 bg-card/40 p-5">
       <div className="mb-4 flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <Icon className="h-4 w-4 text-violet-300" />
+          <Icon className="h-4 w-4 text-violet-700" />
           <h2 className="text-sm font-bold">{title}</h2>
           {status === "error" && (
-            <span className="rounded-full bg-rose-500/10 px-2 py-0.5 text-[10px] text-rose-300">
+            <span className="rounded-full bg-rose-500/10 px-2 py-0.5 text-[10px] text-rose-700">
               خطأ
             </span>
           )}
@@ -2227,7 +2227,7 @@ function Section({
 function Block({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div className="rounded-lg border border-border/30 bg-background/30 p-3">
-      <div className="mb-1 text-[10px] font-semibold uppercase text-muted-foreground/60">
+      <div className="mb-1 text-[10px] font-semibold uppercase text-muted-foreground">
         {label}
       </div>
       <div className="text-sm leading-relaxed">{children}</div>
@@ -2239,7 +2239,7 @@ function BulletList({ label, items }: { label: string; items: string[] }) {
   if (!items || items.length === 0) return null
   return (
     <div>
-      <div className="mb-1 text-[10px] font-semibold uppercase text-muted-foreground/60">
+      <div className="mb-1 text-[10px] font-semibold uppercase text-muted-foreground">
         {label}
       </div>
       <ul className="space-y-1">
@@ -2263,13 +2263,13 @@ function KbColumn({
 }) {
   return (
     <div className="rounded-xl border border-border/40 bg-background/40 p-3">
-      <h4 className="mb-2 text-xs font-bold text-violet-300">{label}</h4>
+      <h4 className="mb-2 text-xs font-bold text-violet-700">{label}</h4>
       <div className="space-y-2">
         {items.map((it, i) => (
           <div key={i} className="rounded-lg border border-border/30 p-2.5">
             <div className="text-[12px] font-semibold">{it.label}</div>
             <div className="mt-0.5 text-[11px] text-muted-foreground">{it.detail}</div>
-            <div className="mt-1 text-[10px] text-violet-300/70">{it.why_it_matters}</div>
+            <div className="mt-1 text-[10px] text-violet-700/70">{it.why_it_matters}</div>
           </div>
         ))}
       </div>
@@ -2334,7 +2334,7 @@ function ApprovalFooter({
                     ? `${meta.bg} ${meta.text} ${meta.border}`
                     : manual
                       ? "border-border/40 text-muted-foreground hover:bg-muted/30"
-                      : "cursor-not-allowed border-border/30 text-muted-foreground/60"
+                      : "cursor-not-allowed border-border/30 text-muted-foreground"
                 }`}
               >
                 {active && <Check className="h-3 w-3" />}
@@ -2347,7 +2347,7 @@ function ApprovalFooter({
 
       {url && (
         <div className="mt-4 rounded-lg border border-emerald-500/20 bg-emerald-500/10 p-3">
-          <p className="mb-2 text-[11px] font-semibold text-emerald-300">
+          <p className="mb-2 text-[11px] font-semibold text-emerald-700">
             تم توليد رابط الوضع المباشر:
           </p>
           <div className="flex items-center gap-2">
@@ -2357,13 +2357,13 @@ function ApprovalFooter({
             <button
               type="button"
               onClick={copy}
-              className="inline-flex items-center gap-1 rounded bg-emerald-500/20 px-2 py-1 text-[10px] text-emerald-200"
+              className="inline-flex items-center gap-1 rounded bg-emerald-500/20 px-2 py-1 text-[10px] text-emerald-700"
             >
               {copied ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
               {copied ? "نُسخ" : "نسخ"}
             </button>
           </div>
-          <p className="mt-2 text-[10px] text-emerald-300/70">
+          <p className="mt-2 text-[10px] text-emerald-700/70">
             احفظ الرابط الآن — لن يُعرض مرة أخرى.
           </p>
         </div>

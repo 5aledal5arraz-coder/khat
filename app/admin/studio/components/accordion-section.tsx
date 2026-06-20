@@ -45,16 +45,16 @@ export function AccordionSection({
             "flex h-8 w-8 items-center justify-center rounded-lg",
             status === "ready" ? "bg-emerald-500/10" : "bg-muted/40"
           )}>
-            <Icon className={cn("h-4 w-4", status === "ready" ? "text-emerald-600 dark:text-emerald-400" : iconColor)} />
+            <Icon className={cn("h-4 w-4", status === "ready" ? "text-emerald-700 dark:text-emerald-400" : iconColor)} />
           </div>
           <span className="text-[13px] font-semibold">{title}</span>
           <StatusDot status={status} />
           {status !== "idle" && (
             <span className={cn(
               "text-[11px] font-medium",
-              status === "ready" && "text-emerald-600 dark:text-emerald-400",
-              status === "generating" && "text-amber-600 dark:text-amber-400",
-              status === "error" && "text-red-600 dark:text-red-400",
+              status === "ready" && "text-emerald-700 dark:text-emerald-400",
+              status === "generating" && "text-amber-700 dark:text-amber-400",
+              status === "error" && "text-red-700 dark:text-red-400",
             )}>
               {STATUS_LABEL[status]}
             </span>
@@ -62,7 +62,7 @@ export function AccordionSection({
         </div>
         <ChevronDown
           className={cn(
-            "h-4 w-4 text-muted-foreground/50 transition-transform duration-200",
+            "h-4 w-4 text-muted-foreground transition-transform duration-200",
             open && "rotate-180"
           )}
         />

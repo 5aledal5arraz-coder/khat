@@ -20,8 +20,8 @@ const TONE_ICON: Record<KitTone, string> = {
   default: "bg-muted/70 text-muted-foreground",
   gold: "bg-primary/12 text-primary",
   purple: "bg-accent/12 text-accent dark:text-accent-foreground/90",
-  success: "bg-emerald-500/12 text-emerald-600 dark:text-emerald-400",
-  warning: "bg-amber-500/12 text-amber-600 dark:text-amber-400",
+  success: "bg-emerald-500/12 text-emerald-700 dark:text-emerald-400",
+  warning: "bg-amber-500/12 text-amber-700 dark:text-amber-400",
   danger: "bg-destructive/12 text-destructive",
 }
 
@@ -29,8 +29,8 @@ const TONE_VALUE: Record<KitTone, string> = {
   default: "text-foreground",
   gold: "text-foreground",
   purple: "text-foreground",
-  success: "text-emerald-600 dark:text-emerald-400",
-  warning: "text-amber-600 dark:text-amber-400",
+  success: "text-emerald-700 dark:text-emerald-400",
+  warning: "text-amber-700 dark:text-amber-400",
   danger: "text-destructive",
 }
 
@@ -68,7 +68,7 @@ export function StatCard({
         <div className={cn("mt-0.5 text-xl font-bold tabular-nums tracking-tight", TONE_VALUE[tone])}>
           {value}
         </div>
-        {hint ? <div className="mt-0.5 text-[10.5px] text-muted-foreground/70">{hint}</div> : null}
+        {hint ? <div className="mt-0.5 text-[10.5px] text-muted-foreground">{hint}</div> : null}
       </div>
     </div>
   )

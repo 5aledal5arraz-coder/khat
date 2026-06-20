@@ -682,7 +682,7 @@ export function PublishPackageEditor({
       <Section
         id="narrative"
         title="القصّ التحريري"
-        icon={<Compass className="h-3.5 w-3.5 text-violet-300" />}
+        icon={<Compass className="h-3.5 w-3.5 text-violet-700" />}
         open={openSections.narrative}
         onToggle={() => toggle("narrative")}
       >
@@ -812,7 +812,7 @@ export function PublishPackageEditor({
       <Section
         id="seo"
         title="الاكتشاف الذكي (SEO)"
-        icon={<Network className="h-3.5 w-3.5 text-emerald-300" />}
+        icon={<Network className="h-3.5 w-3.5 text-emerald-700" />}
         open={openSections.seo}
         onToggle={() => toggle("seo")}
       >
@@ -893,7 +893,7 @@ export function PublishPackageEditor({
       <Section
         id="youtube"
         title="حزمة YouTube"
-        icon={<Youtube className="h-3.5 w-3.5 text-rose-300" />}
+        icon={<Youtube className="h-3.5 w-3.5 text-rose-700" />}
         open={openSections.youtube}
         onToggle={() => toggle("youtube")}
       >
@@ -968,7 +968,7 @@ export function PublishPackageEditor({
       <Section
         id="newsletter"
         title="حزمة النشرة"
-        icon={<Mail className="h-3.5 w-3.5 text-amber-300" />}
+        icon={<Mail className="h-3.5 w-3.5 text-amber-700" />}
         open={openSections.newsletter}
         onToggle={() => toggle("newsletter")}
       >
@@ -1041,7 +1041,7 @@ export function PublishPackageEditor({
       <Section
         id="social"
         title="حزم التواصل الاجتماعي"
-        icon={<Megaphone className="h-3.5 w-3.5 text-violet-300" />}
+        icon={<Megaphone className="h-3.5 w-3.5 text-violet-700" />}
         open={openSections.social}
         onToggle={() => toggle("social")}
       >
@@ -1106,7 +1106,7 @@ export function PublishPackageEditor({
       <Section
         id="sponsor"
         title="حزمة الرعاة"
-        icon={<Megaphone className="h-3.5 w-3.5 text-rose-300" />}
+        icon={<Megaphone className="h-3.5 w-3.5 text-rose-700" />}
         open={openSections.sponsor}
         onToggle={() => toggle("sponsor")}
       >
@@ -1138,7 +1138,7 @@ export function PublishPackageEditor({
       <Section
         id="release"
         title="استراتيجية الإطلاق"
-        icon={<Send className="h-3.5 w-3.5 text-emerald-300" />}
+        icon={<Send className="h-3.5 w-3.5 text-emerald-700" />}
         open={openSections.release}
         onToggle={() => toggle("release")}
       >
@@ -1253,14 +1253,14 @@ export function PublishPackageEditor({
       <Section
         id="preview"
         title="معاينة الموقع + الـ SEO snippet"
-        icon={<Globe className="h-3.5 w-3.5 text-violet-300" />}
+        icon={<Globe className="h-3.5 w-3.5 text-violet-700" />}
         open={openSections.preview}
         onToggle={() => toggle("preview")}
       >
         <WebsitePreview doc={state.doc} />
       </Section>
 
-      <p className="text-[10.5px] text-muted-foreground/70">
+      <p className="text-[10.5px] text-muted-foreground">
         v{state.version} · نصّ مرتبط: {context.transcript ? "نعم" : "لا"} ·
         فصول: {context.chapters} · مقاطع: {context.clips}
       </p>
@@ -1283,7 +1283,7 @@ function ConflictBanner({
     <div className="rounded-2xl border border-rose-500/30 bg-rose-500/5 p-3">
       <div className="flex items-start gap-3">
         <div className="min-w-0 flex-1">
-          <h3 className="text-[12.5px] font-semibold text-rose-200">
+          <h3 className="text-[12.5px] font-semibold text-rose-700">
             تعارض في النسخة
           </h3>
           <p className="mt-0.5 text-[11.5px] text-foreground/85">
@@ -1294,14 +1294,14 @@ function ConflictBanner({
           <button
             type="button"
             onClick={onReload}
-            className="rounded-xl border border-violet-500/40 bg-violet-500/10 px-2.5 py-1 text-[11.5px] text-violet-200 hover:bg-violet-500/20"
+            className="rounded-xl border border-violet-500/40 bg-violet-500/10 px-2.5 py-1 text-[11.5px] text-violet-700 hover:bg-violet-500/20"
           >
             استرجاع نسخة الخادم
           </button>
           <button
             type="button"
             onClick={onOverwrite}
-            className="rounded-xl border border-rose-500/40 bg-rose-500/10 px-2.5 py-1 text-[11.5px] text-rose-200 hover:bg-rose-500/20"
+            className="rounded-xl border border-rose-500/40 bg-rose-500/10 px-2.5 py-1 text-[11.5px] text-rose-700 hover:bg-rose-500/20"
           >
             تجاوز وحفظ
           </button>
@@ -1323,12 +1323,12 @@ function ReadinessDashboard({
   const { readiness, blockerCount, warningCount, infoCount } = validation
   const ringColor =
     readiness.score >= 85
-      ? "text-emerald-300"
+      ? "text-emerald-700"
       : readiness.score >= 65
-        ? "text-violet-300"
+        ? "text-violet-700"
         : readiness.score >= 40
-          ? "text-amber-300"
-          : "text-rose-300"
+          ? "text-amber-700"
+          : "text-rose-700"
   return (
     <div className="rounded-2xl border border-violet-500/25 bg-gradient-to-br from-violet-500/5 via-rose-500/5 to-transparent p-4">
       <div className="flex flex-wrap items-start gap-4">
@@ -1357,8 +1357,8 @@ function ReadinessDashboard({
               className={
                 "rounded-full px-2 py-0.5 " +
                 (context.transcript
-                  ? "border border-emerald-500/30 bg-emerald-500/10 text-emerald-200"
-                  : "border border-rose-500/30 bg-rose-500/10 text-rose-200")
+                  ? "border border-emerald-500/30 bg-emerald-500/10 text-emerald-700"
+                  : "border border-rose-500/30 bg-rose-500/10 text-rose-700")
               }
             >
               نصّ {context.transcript ? "✓" : "✗"}
@@ -1367,8 +1367,8 @@ function ReadinessDashboard({
               className={
                 "rounded-full px-2 py-0.5 " +
                 (context.chapters > 0
-                  ? "border border-emerald-500/30 bg-emerald-500/10 text-emerald-200"
-                  : "border border-rose-500/30 bg-rose-500/10 text-rose-200")
+                  ? "border border-emerald-500/30 bg-emerald-500/10 text-emerald-700"
+                  : "border border-rose-500/30 bg-rose-500/10 text-rose-700")
               }
             >
               فصول {context.chapters}
@@ -1377,19 +1377,19 @@ function ReadinessDashboard({
               className={
                 "rounded-full px-2 py-0.5 " +
                 (context.clips > 0
-                  ? "border border-emerald-500/30 bg-emerald-500/10 text-emerald-200"
-                  : "border border-rose-500/30 bg-rose-500/10 text-rose-200")
+                  ? "border border-emerald-500/30 bg-emerald-500/10 text-emerald-700"
+                  : "border border-rose-500/30 bg-rose-500/10 text-rose-700")
               }
             >
               مقاطع {context.clips}
             </span>
             {blockerCount > 0 && (
-              <span className="rounded-full border border-rose-500/30 bg-rose-500/10 px-2 py-0.5 text-rose-200">
+              <span className="rounded-full border border-rose-500/30 bg-rose-500/10 px-2 py-0.5 text-rose-700">
                 {blockerCount} عائق
               </span>
             )}
             {warningCount > 0 && (
-              <span className="rounded-full border border-amber-500/30 bg-amber-500/10 px-2 py-0.5 text-amber-200">
+              <span className="rounded-full border border-amber-500/30 bg-amber-500/10 px-2 py-0.5 text-amber-700">
                 {warningCount} تنبيه
               </span>
             )}
@@ -1449,7 +1449,7 @@ function ReadinessDashboard({
             .filter((i) => i.severity === "blocker")
             .slice(0, 8)
             .map((i, k) => (
-              <li key={k} className="inline-flex items-center gap-1.5 text-rose-300">
+              <li key={k} className="inline-flex items-center gap-1.5 text-rose-700">
                 <XCircle className="h-3 w-3" /> {i.message}
               </li>
             ))}
@@ -1473,7 +1473,7 @@ function SuggestionsPanel({
   return (
     <div className="rounded-2xl border border-violet-500/30 bg-violet-500/5 p-3">
       <div className="mb-2 flex items-center justify-between gap-2">
-        <h3 className="inline-flex items-center gap-1.5 text-[12.5px] font-semibold text-violet-200">
+        <h3 className="inline-flex items-center gap-1.5 text-[12.5px] font-semibold text-violet-700">
           <Sparkles className="h-3.5 w-3.5" /> غرفة العمليات التحريرية ·{" "}
           {suggestions.length}
         </h3>
@@ -1492,7 +1492,7 @@ function SuggestionsPanel({
             className="flex items-start gap-2 rounded-xl border border-border/40 bg-background/30 p-2"
           >
             <div className="min-w-0 flex-1">
-              <div className="text-[11px] font-semibold text-violet-200">
+              <div className="text-[11px] font-semibold text-violet-700">
                 {SUGGESTION_LABEL[s.kind]}
                 <span className="ms-2 font-normal text-muted-foreground" dir="ltr">
                   → {s.field}
@@ -1520,7 +1520,7 @@ function SuggestionsPanel({
               <button
                 type="button"
                 onClick={() => onApply(s)}
-                className="inline-flex items-center gap-1 rounded-lg border border-violet-500/40 bg-violet-500/10 px-2 py-0.5 text-[11px] text-violet-200 hover:bg-violet-500/20"
+                className="inline-flex items-center gap-1 rounded-lg border border-violet-500/40 bg-violet-500/10 px-2 py-0.5 text-[11px] text-violet-700 hover:bg-violet-500/20"
               >
                 <Check className="h-3 w-3" /> تطبيق
               </button>
@@ -1597,7 +1597,7 @@ function Field({
     <div>
       <label className="mb-1 inline-flex items-center gap-1.5 text-[10.5px] uppercase tracking-wider text-muted-foreground">
         {label}
-        {required && <span className="text-rose-300">*</span>}
+        {required && <span className="text-rose-700">*</span>}
         {dirty && (
           <span className="h-1.5 w-1.5 rounded-full bg-amber-400" aria-label="dirty" />
         )}
@@ -1608,7 +1608,7 @@ function Field({
           {blockers.map((i, k) => (
             <li
               key={`b-${k}`}
-              className="inline-flex items-center gap-1.5 text-[10.5px] text-rose-300"
+              className="inline-flex items-center gap-1.5 text-[10.5px] text-rose-700"
             >
               <XCircle className="h-3 w-3" /> {i.message}
             </li>
@@ -1616,7 +1616,7 @@ function Field({
           {warnings.map((i, k) => (
             <li
               key={`w-${k}`}
-              className="inline-flex items-center gap-1.5 text-[10.5px] text-amber-300"
+              className="inline-flex items-center gap-1.5 text-[10.5px] text-amber-700"
             >
               <AlertTriangle className="h-3 w-3" /> {i.message}
             </li>
@@ -1675,7 +1675,7 @@ function ListField({
             <button
               type="button"
               onClick={() => onChange(values.filter((_, k) => k !== i))}
-              className="mt-1 rounded-md p-1 text-muted-foreground hover:bg-rose-500/10 hover:text-rose-300"
+              className="mt-1 rounded-md p-1 text-muted-foreground hover:bg-rose-500/10 hover:text-rose-700"
               aria-label="حذف"
             >
               <Trash2 className="h-3 w-3" />
@@ -1701,7 +1701,7 @@ function ListField({
             type="button"
             onClick={add}
             disabled={!draft.trim()}
-            className="rounded-xl border border-violet-500/40 bg-violet-500/10 px-2.5 py-1 text-[11px] text-violet-200 hover:bg-violet-500/20 disabled:opacity-40"
+            className="rounded-xl border border-violet-500/40 bg-violet-500/10 px-2.5 py-1 text-[11px] text-violet-700 hover:bg-violet-500/20 disabled:opacity-40"
             aria-label="إضافة"
           >
             <Plus className="h-3 w-3" />
@@ -1713,7 +1713,7 @@ function ListField({
           {blockers.map((i, k) => (
             <li
               key={`b-${k}`}
-              className="inline-flex items-center gap-1.5 text-[10.5px] text-rose-300"
+              className="inline-flex items-center gap-1.5 text-[10.5px] text-rose-700"
             >
               <XCircle className="h-3 w-3" /> {i.message}
             </li>
@@ -1721,7 +1721,7 @@ function ListField({
           {warnings.map((i, k) => (
             <li
               key={`w-${k}`}
-              className="inline-flex items-center gap-1.5 text-[10.5px] text-amber-300"
+              className="inline-flex items-center gap-1.5 text-[10.5px] text-amber-700"
             >
               <AlertTriangle className="h-3 w-3" /> {i.message}
             </li>
@@ -1799,10 +1799,10 @@ function WebsitePreview({ doc }: { doc: WebsitePackageDocument }) {
         <div className="mb-1 inline-flex items-center gap-1 text-[9px] uppercase tracking-wider text-muted-foreground">
           <Info className="h-2.5 w-2.5" /> معاينة Google snippet
         </div>
-        <div className="text-[11px] text-blue-400" dir="ltr">
+        <div className="text-[11px] text-blue-700" dir="ltr">
           khatpodcast.com/episodes/{w.slug || "—"}
         </div>
-        <h5 className="mt-0.5 truncate text-[14px] text-blue-300" dir="auto">
+        <h5 className="mt-0.5 truncate text-[14px] text-blue-700" dir="auto">
           {seo.meta_title || w.final_title || "—"}
         </h5>
         <p className="mt-0.5 text-[11px] leading-relaxed text-muted-foreground" dir="auto">

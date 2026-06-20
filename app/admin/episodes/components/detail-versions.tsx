@@ -64,9 +64,9 @@ export function DetailVersions({ episodeId }: DetailVersionsProps) {
     return (
       <Card>
         <CardContent className="py-12 text-center">
-          <History className="mx-auto h-8 w-8 text-muted-foreground/50" />
+          <History className="mx-auto h-8 w-8 text-muted-foreground" />
           <p className="mt-3 text-muted-foreground">لا يوجد سجل تعديلات لهذه الحلقة بعد</p>
-          <p className="mt-1 text-xs text-muted-foreground/70">
+          <p className="mt-1 text-xs text-muted-foreground">
             سيظهر هنا سجل بكل التعديلات عند إجراء أي تغيير
           </p>
         </CardContent>
@@ -99,7 +99,7 @@ export function DetailVersions({ episodeId }: DetailVersionsProps) {
                     {version.change_summary}
                   </p>
                 )}
-                <p className="mt-1 text-xs text-muted-foreground/70">
+                <p className="mt-1 text-xs text-muted-foreground">
                   {formatDateTime(version.created_at)}
                 </p>
               </div>

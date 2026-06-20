@@ -35,13 +35,13 @@ interface Props {
 }
 
 const STATUS_META: Record<PrepFormLinkStatus, { label: string; icon: typeof Clock; color: string }> = {
-  draft:       { label: "مسودة",     icon: CircleDashed, color: "text-slate-500" },
-  sent:        { label: "أُرسل",     icon: Send,         color: "text-blue-500" },
-  opened:      { label: "تم الفتح",  icon: ExternalLink, color: "text-sky-500" },
-  in_progress: { label: "قيد التعبئة", icon: Clock,        color: "text-amber-500" },
-  completed:   { label: "مكتمل",     icon: CheckCircle2, color: "text-emerald-500" },
-  expired:     { label: "منتهي",     icon: Clock,        color: "text-zinc-500" },
-  cancelled:   { label: "ملغى",      icon: X,            color: "text-rose-500" },
+  draft:       { label: "مسودة",     icon: CircleDashed, color: "text-slate-700" },
+  sent:        { label: "أُرسل",     icon: Send,         color: "text-blue-700" },
+  opened:      { label: "تم الفتح",  icon: ExternalLink, color: "text-sky-700" },
+  in_progress: { label: "قيد التعبئة", icon: Clock,        color: "text-amber-700" },
+  completed:   { label: "مكتمل",     icon: CheckCircle2, color: "text-emerald-700" },
+  expired:     { label: "منتهي",     icon: Clock,        color: "text-zinc-700" },
+  cancelled:   { label: "ملغى",      icon: X,            color: "text-rose-700" },
 }
 
 export function PrepLinkPanel({ candidateId, initialLinks, onChange }: Props) {
@@ -231,7 +231,7 @@ export function PrepLinkPanel({ candidateId, initialLinks, onChange }: Props) {
       {/* Active links list */}
       {initialLinks.length === 0 ? (
         <div className="rounded-lg border border-dashed border-border/40 p-6 text-center">
-          <Link2 className="mx-auto mb-2 h-5 w-5 text-muted-foreground/40" />
+          <Link2 className="mx-auto mb-2 h-5 w-5 text-muted-foreground" />
           <p className="text-xs text-muted-foreground">
             لم يُرسل أي رابط تحضير لهذا المرشح بعد
           </p>
@@ -251,12 +251,12 @@ export function PrepLinkPanel({ candidateId, initialLinks, onChange }: Props) {
                     <Icon className={`h-3.5 w-3.5 ${meta.color}`} />
                     <span className="text-[11px] font-semibold">{meta.label}</span>
                     {expired && link.status !== "completed" && (
-                      <span className="rounded bg-zinc-500/15 px-1.5 py-0.5 text-[9px] text-zinc-600 dark:text-zinc-400">
+                      <span className="rounded bg-zinc-500/15 px-1.5 py-0.5 text-[9px] text-zinc-700 dark:text-zinc-400">
                         منتهي الصلاحية
                       </span>
                     )}
                   </div>
-                  <div className="text-[10px] text-muted-foreground/60">
+                  <div className="text-[10px] text-muted-foreground">
                     {formatDate(link.created_at)}
                   </div>
                 </div>
@@ -271,7 +271,7 @@ export function PrepLinkPanel({ candidateId, initialLinks, onChange }: Props) {
                     title="نسخ"
                   >
                     {copiedId === link.id ? (
-                      <Check className="h-3.5 w-3.5 text-emerald-500" />
+                      <Check className="h-3.5 w-3.5 text-emerald-700" />
                     ) : (
                       <Copy className="h-3.5 w-3.5" />
                     )}
@@ -309,7 +309,7 @@ export function PrepLinkPanel({ candidateId, initialLinks, onChange }: Props) {
                     </a>
                     <button
                       onClick={() => handleCancel(link)}
-                      className="ms-auto rounded p-1 text-muted-foreground hover:bg-rose-500/10 hover:text-rose-500"
+                      className="ms-auto rounded p-1 text-muted-foreground hover:bg-rose-500/10 hover:text-rose-700"
                       title="إلغاء"
                     >
                       <X className="h-3.5 w-3.5" />
@@ -319,7 +319,7 @@ export function PrepLinkPanel({ candidateId, initialLinks, onChange }: Props) {
 
                 {/* Activity meta */}
                 {(link.first_opened_at || link.submitted_at || link.sent_via) && (
-                  <div className="mt-2 border-t border-border/20 pt-2 text-[9px] text-muted-foreground/70 space-y-0.5">
+                  <div className="mt-2 border-t border-border/20 pt-2 text-[9px] text-muted-foreground space-y-0.5">
                     {link.sent_via && <div>أُرسل عبر: {link.sent_via === "whatsapp" ? "واتساب" : link.sent_via === "email" ? "بريد" : "نسخ يدوي"}</div>}
                     {link.first_opened_at && <div>فُتح أول مرة: {formatDateTime(link.first_opened_at)}</div>}
                     {link.submitted_at && <div>تم الإرسال: {formatDateTime(link.submitted_at)}</div>}

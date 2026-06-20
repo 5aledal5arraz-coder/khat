@@ -32,12 +32,12 @@ import { CardEditorSheet } from "./card-editor-sheet"
 // ─── Bucket metadata ────────────────────────────────────────────────
 
 const BUCKET_META: Record<InterviewCardBucket, { label: string; color: string }> = {
-  opening: { label: "افتتاح", color: "bg-sky-500/10 text-sky-300 border-sky-500/20" },
-  deep: { label: "عميق", color: "bg-indigo-500/10 text-indigo-300 border-indigo-500/20" },
-  escalation: { label: "تصعيد", color: "bg-rose-500/10 text-rose-300 border-rose-500/20" },
-  surprise: { label: "مفاجأة", color: "bg-fuchsia-500/10 text-fuchsia-300 border-fuchsia-500/20" },
-  backup: { label: "احتياطي", color: "bg-neutral-500/10 text-neutral-300 border-neutral-500/20" },
-  recovery: { label: "إنقاذ", color: "bg-amber-500/10 text-amber-300 border-amber-500/20" },
+  opening: { label: "افتتاح", color: "bg-sky-500/10 text-sky-700 border-sky-500/20" },
+  deep: { label: "عميق", color: "bg-indigo-500/10 text-indigo-700 border-indigo-500/20" },
+  escalation: { label: "تصعيد", color: "bg-rose-500/10 text-rose-700 border-rose-500/20" },
+  surprise: { label: "مفاجأة", color: "bg-fuchsia-500/10 text-fuchsia-700 border-fuchsia-500/20" },
+  backup: { label: "احتياطي", color: "bg-neutral-500/10 text-neutral-700 border-neutral-500/20" },
+  recovery: { label: "إنقاذ", color: "bg-amber-500/10 text-amber-700 border-amber-500/20" },
 }
 
 // ─── Types ──────────────────────────────────────────────────────────
@@ -257,20 +257,20 @@ export function CardsPanel({ prep }: CardsPanelProps) {
       <div className="rounded-2xl border border-border/40 bg-card/40 p-4">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-2">
-            <Layers className="h-4 w-4 text-violet-300" />
+            <Layers className="h-4 w-4 text-violet-700" />
             <h2 className="text-sm font-bold">بطاقات المقابلة</h2>
             {totalCards > 0 && (
-              <span className="rounded-full bg-violet-500/10 px-2 py-0.5 text-[10px] text-violet-300">
+              <span className="rounded-full bg-violet-500/10 px-2 py-0.5 text-[10px] text-violet-700">
                 {totalCards} بطاقة
               </span>
             )}
             {enrichedCount > 0 && (
-              <span className="rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] text-emerald-300">
+              <span className="rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] text-emerald-700">
                 {enrichedCount} مُثراة
               </span>
             )}
             {materialsCount > 0 && (
-              <span className="rounded-full bg-sky-500/10 px-2 py-0.5 text-[10px] text-sky-300">
+              <span className="rounded-full bg-sky-500/10 px-2 py-0.5 text-[10px] text-sky-700">
                 {materialsCount} مادة
               </span>
             )}
@@ -307,7 +307,7 @@ export function CardsPanel({ prep }: CardsPanelProps) {
                   disabled={!hasQuestionSystem || actionState.status === "loading"}
                   className={`inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-[11px] disabled:opacity-40 ${
                     confirmRegenerate
-                      ? "border-rose-500/40 bg-rose-500/10 text-rose-300"
+                      ? "border-rose-500/40 bg-rose-500/10 text-rose-700"
                       : "border-border/60 hover:bg-muted/40"
                   }`}
                 >
@@ -367,8 +367,8 @@ export function CardsPanel({ prep }: CardsPanelProps) {
           <div
             className={`mt-3 rounded-lg border px-3 py-2 text-[11px] ${
               actionState.status === "error"
-                ? "border-rose-500/30 bg-rose-500/10 text-rose-300"
-                : "border-emerald-500/30 bg-emerald-500/10 text-emerald-300"
+                ? "border-rose-500/30 bg-rose-500/10 text-rose-700"
+                : "border-emerald-500/30 bg-emerald-500/10 text-emerald-700"
             }`}
           >
             {actionState.status === "error" ? (
@@ -384,7 +384,7 @@ export function CardsPanel({ prep }: CardsPanelProps) {
       {/* Empty state */}
       {totalCards === 0 && !loading && (
         <div className="rounded-2xl border border-dashed border-border/40 bg-card/30 p-8 text-center">
-          <Layers className="mx-auto h-6 w-6 text-muted-foreground/50" />
+          <Layers className="mx-auto h-6 w-6 text-muted-foreground" />
           <p className="mt-3 text-sm font-medium">لا توجد بطاقات بعد</p>
           <p className="mt-1 text-xs text-muted-foreground">
             {hasQuestionSystem
@@ -506,9 +506,9 @@ function getCardCompleteness(card: InterviewCardWithMaterials) {
   const total = checks.length
   const ratio = filled / total
 
-  if (ratio >= 1) return { filled, total, label: "مكتملة", color: "text-emerald-300 bg-emerald-500/10 border-emerald-500/20" }
-  if (ratio >= 0.5) return { filled, total, label: "جزئية", color: "text-amber-300 bg-amber-500/10 border-amber-500/20" }
-  return { filled, total, label: "ناقصة", color: "text-rose-300 bg-rose-500/10 border-rose-500/20" }
+  if (ratio >= 1) return { filled, total, label: "مكتملة", color: "text-emerald-700 bg-emerald-500/10 border-emerald-500/20" }
+  if (ratio >= 0.5) return { filled, total, label: "جزئية", color: "text-amber-700 bg-amber-500/10 border-amber-500/20" }
+  return { filled, total, label: "ناقصة", color: "text-rose-700 bg-rose-500/10 border-rose-500/20" }
 }
 
 // ─── Card Row ──────────────────────────────────────────────────────
@@ -541,7 +541,7 @@ function CardRow({
           type="button"
           onClick={(e) => { e.stopPropagation(); onMoveUp() }}
           disabled={isFirst}
-          className="rounded p-0.5 text-muted-foreground/50 hover:text-foreground disabled:invisible"
+          className="rounded p-0.5 text-muted-foreground hover:text-foreground disabled:invisible"
         >
           <ChevronUp className="h-3 w-3" />
         </button>
@@ -550,7 +550,7 @@ function CardRow({
           type="button"
           onClick={(e) => { e.stopPropagation(); onMoveDown() }}
           disabled={isLast}
-          className="rounded p-0.5 text-muted-foreground/50 hover:text-foreground disabled:invisible"
+          className="rounded p-0.5 text-muted-foreground hover:text-foreground disabled:invisible"
         >
           <ChevronDown className="h-3 w-3" />
         </button>
@@ -568,7 +568,7 @@ function CardRow({
             {meta.label}
           </span>
           <span className="text-[12px] font-semibold">{card.short_title}</span>
-          {card.is_pinned && <Pin className="h-3 w-3 text-amber-400" />}
+          {card.is_pinned && <Pin className="h-3 w-3 text-amber-700" />}
         </div>
 
         {/* Spoken preview */}
@@ -579,17 +579,17 @@ function CardRow({
         {/* Bottom row: flags + counts */}
         <div className="mt-2 flex flex-wrap items-center gap-2">
           {card.clip_potential && (
-            <span className="inline-flex items-center gap-0.5 text-[9px] text-fuchsia-300">
+            <span className="inline-flex items-center gap-0.5 text-[9px] text-fuchsia-700">
               <Film className="h-2.5 w-2.5" /> كليب
             </span>
           )}
           {card.quote_potential && (
-            <span className="inline-flex items-center gap-0.5 text-[9px] text-indigo-300">
+            <span className="inline-flex items-center gap-0.5 text-[9px] text-indigo-700">
               <Quote className="h-2.5 w-2.5" /> اقتباس
             </span>
           )}
           {card.emotional_peak && (
-            <span className="inline-flex items-center gap-0.5 text-[9px] text-rose-300">
+            <span className="inline-flex items-center gap-0.5 text-[9px] text-rose-700">
               <Heart className="h-2.5 w-2.5" /> قمة عاطفية
             </span>
           )}
@@ -599,7 +599,7 @@ function CardRow({
             </span>
           )}
           {materialsCount > 0 && (
-            <span className="inline-flex items-center gap-0.5 text-[9px] text-sky-300">
+            <span className="inline-flex items-center gap-0.5 text-[9px] text-sky-700">
               <BookOpen className="h-2.5 w-2.5" /> {materialsCount} مادة
             </span>
           )}
@@ -629,7 +629,7 @@ function FilterChip({
       onClick={onClick}
       className={`rounded-full border px-3 py-1 text-[11px] transition-colors ${
         active
-          ? "border-violet-500 bg-violet-500/15 text-violet-200"
+          ? "border-violet-500 bg-violet-500/15 text-violet-700"
           : "border-border/60 bg-background text-muted-foreground hover:border-violet-500/40"
       }`}
     >

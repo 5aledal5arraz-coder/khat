@@ -69,7 +69,7 @@ export function DirectorStudioView() {
             </section>
           ) : (
             <section className="flex items-center justify-center rounded-2xl border border-dashed border-border/20 bg-muted/5 p-12">
-              <div className="text-center text-muted-foreground/40">
+              <div className="text-center text-muted-foreground">
                 <FileText className="mx-auto mb-3 h-12 w-12 opacity-30" />
                 <p className="text-sm">لا توجد بطاقة نشطة</p>
                 <p className="mt-1 text-xs text-muted-foreground/30">

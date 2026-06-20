@@ -13,10 +13,10 @@ import { Play, Pause, Square, RotateCcw } from "lucide-react"
 import { cn } from "@/lib/utils"
 
 const STATUS_STYLES: Record<TimerStatus, string> = {
-  idle: "text-muted-foreground/40",
-  running: "text-red-400",
-  paused: "text-amber-400",
-  stopped: "text-emerald-400/60",
+  idle: "text-muted-foreground",
+  running: "text-red-700",
+  paused: "text-amber-700",
+  stopped: "text-emerald-700/60",
 }
 
 export function StudioTimer({ compact }: { compact?: boolean }) {
@@ -99,8 +99,8 @@ function TimerButton({
 }) {
   const styles = {
     primary: "bg-primary/20 text-primary hover:bg-primary/30",
-    warning: "bg-amber-500/20 text-amber-400 hover:bg-amber-500/30",
-    danger: "bg-red-500/20 text-red-400 hover:bg-red-500/30",
+    warning: "bg-amber-500/20 text-amber-700 hover:bg-amber-500/30",
+    danger: "bg-red-500/20 text-red-700 hover:bg-red-500/30",
     muted: "bg-muted/30 text-muted-foreground hover:bg-muted/50",
   }
 

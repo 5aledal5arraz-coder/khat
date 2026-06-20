@@ -20,8 +20,8 @@ export function AiHealthBanner({ snapshot }: { snapshot: AiHealthSnapshot }) {
   const isCritical = snapshot.state === "quota_exceeded"
   const Icon = isCritical ? AlertOctagon : AlertTriangle
   const tone = isCritical
-    ? "border-rose-500/40 bg-rose-500/10 text-rose-200"
-    : "border-amber-500/40 bg-amber-500/10 text-amber-200"
+    ? "border-rose-500/40 bg-rose-500/10 text-rose-700"
+    : "border-amber-500/40 bg-amber-500/10 text-amber-700"
 
   return (
     <div

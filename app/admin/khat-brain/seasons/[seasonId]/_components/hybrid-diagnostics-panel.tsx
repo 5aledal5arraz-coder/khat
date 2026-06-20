@@ -21,7 +21,7 @@ export function HybridDiagnosticsPanel({
     <div
       data-hybrid-diagnostics
       dir="ltr"
-      className="rounded-2xl border border-dashed border-amber-500/40 bg-amber-500/5 p-3 text-[11px] font-mono text-amber-100/90"
+      className="rounded-2xl border border-dashed border-amber-500/40 bg-amber-500/5 p-3 text-[11px] font-mono text-amber-700/90"
     >
       <div className="mb-2 inline-flex items-center gap-2 rounded-full border border-amber-500/40 bg-amber-500/10 px-2 py-0.5 text-[10px] uppercase tracking-wider">
         dev · hybrid readiness
@@ -96,7 +96,7 @@ function Row({ k, v, ok }: { k: string; v: string | number; ok: boolean }) {
       <span className="opacity-80">{k}</span>
       <span className="inline-flex items-center gap-1.5 tabular-nums">
         <span>{v}</span>
-        <span className={ok ? "text-emerald-400" : "text-rose-400"}>
+        <span className={ok ? "text-emerald-700" : "text-rose-700"}>
           {ok ? "✓" : "✗"}
         </span>
       </span>

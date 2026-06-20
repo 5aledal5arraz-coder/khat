@@ -64,7 +64,7 @@ function ListHeader({
   onToggleAll: () => void
 }) {
   return (
-    <div className="flex items-center gap-3 border-b border-border/30 px-3 py-2 text-[11px] font-medium uppercase tracking-wider text-muted-foreground/60">
+    <div className="flex items-center gap-3 border-b border-border/30 px-3 py-2 text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
       <button
         onClick={onToggleAll}
         aria-label={allSelected ? "إلغاء تحديد الكل" : "تحديد الكل"}
@@ -161,13 +161,13 @@ function MoveToCategoryButton({
               className="flex w-full items-center justify-between gap-3 px-4 py-2 text-[13px] text-foreground transition-all hover:bg-muted/40"
             >
               <span className="truncate">{cat.name}</span>
-              <span className="shrink-0 rounded-md bg-muted/40 px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground/70">
+              <span className="shrink-0 rounded-md bg-muted/40 px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
                 {cat.episodeCount}
               </span>
             </button>
           ))}
           {categories.length === 0 && (
-            <p className="px-4 py-3 text-center text-[11px] text-muted-foreground/50">
+            <p className="px-4 py-3 text-center text-[11px] text-muted-foreground">
               لا توجد تصنيفات
             </p>
           )}
@@ -235,7 +235,7 @@ function DeleteConfirmationDialog({
               ))}
             </ul>
             {hiddenCount > 0 && (
-              <p className="mt-1 px-2 text-[11px] text-muted-foreground/60">
+              <p className="mt-1 px-2 text-[11px] text-muted-foreground">
                 + {hiddenCount} حلقة أخرى
               </p>
             )}
@@ -591,7 +591,7 @@ export function EpisodesGrid({
 
       {/* Success / Error toast */}
       {successMessage && (
-        <div className="flex items-center gap-2 rounded-lg border border-green-500/20 bg-green-500/5 px-4 py-2 text-[12px] text-green-400">
+        <div className="flex items-center gap-2 rounded-lg border border-green-500/20 bg-green-500/5 px-4 py-2 text-[12px] text-green-700">
           <Check className="h-4 w-4 shrink-0" />
           <span>{successMessage}</span>
         </div>
@@ -634,12 +634,12 @@ export function EpisodesGrid({
       ) : (
         <div className="admin-card flex flex-col items-center justify-center py-20 text-center">
           <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-muted/30">
-            <Search className="h-5 w-5 text-muted-foreground/50" />
+            <Search className="h-5 w-5 text-muted-foreground" />
           </div>
-          <p className="text-[13px] font-semibold text-muted-foreground/70">
+          <p className="text-[13px] font-semibold text-muted-foreground">
             {search ? "لا توجد نتائج" : "لا توجد حلقات"}
           </p>
-          <p className="mt-1.5 max-w-xs text-[12px] text-muted-foreground/40">
+          <p className="mt-1.5 max-w-xs text-[12px] text-muted-foreground">
             {search
               ? `لم يتم العثور على حلقات تطابق "${search}"`
               : "لم يتم إضافة أي حلقات بعد"}

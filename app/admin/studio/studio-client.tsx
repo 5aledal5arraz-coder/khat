@@ -48,23 +48,23 @@ const AI_STATUS_CONFIG: Record<AiStatus, { label: string; icon: typeof Circle; i
   ready: {
     label: "جاهز للمعالجة",
     icon: Circle,
-    iconClass: "text-muted-foreground/50",
+    iconClass: "text-muted-foreground",
     bg: "bg-muted/60",
     text: "text-muted-foreground",
   },
   processing: {
     label: "قيد المعالجة",
     icon: CircleDot,
-    iconClass: "text-blue-500 admin-shimmer",
+    iconClass: "text-blue-700 admin-shimmer",
     bg: "bg-blue-500/10",
-    text: "text-blue-600 dark:text-blue-400",
+    text: "text-blue-700 dark:text-blue-400",
   },
   completed: {
     label: "مكتمل",
     icon: CheckCircle2,
-    iconClass: "text-emerald-500",
+    iconClass: "text-emerald-700",
     bg: "bg-emerald-500/10",
-    text: "text-emerald-600 dark:text-emerald-400",
+    text: "text-emerald-700 dark:text-emerald-400",
   },
 }
 
@@ -118,7 +118,7 @@ function EpisodeListRow({
         />
       ) : (
         <div className="flex h-9 w-16 shrink-0 items-center justify-center rounded-md bg-muted">
-          <ImageIcon className="h-4 w-4 text-muted-foreground/40" />
+          <ImageIcon className="h-4 w-4 text-muted-foreground" />
         </div>
       )}
 
@@ -134,7 +134,7 @@ function EpisodeListRow({
             </span>
           )}
           {episode.duration_minutes > 0 && (
-            <span className="text-[11px] text-muted-foreground/70">
+            <span className="text-[11px] text-muted-foreground">
               {fmtEpDuration(episode.duration_minutes)}
             </span>
           )}
@@ -146,7 +146,7 @@ function EpisodeListRow({
 
       {/* Studio status pill */}
       {existing ? (
-        <span className="shrink-0 rounded-md bg-emerald-500/10 px-2.5 py-1 text-[11px] font-medium text-emerald-600 dark:text-emerald-400">
+        <span className="shrink-0 rounded-md bg-emerald-500/10 px-2.5 py-1 text-[11px] font-medium text-emerald-700 dark:text-emerald-400">
           في الاستوديو
         </span>
       ) : (
@@ -192,7 +192,7 @@ function AudioSessionRow({
     >
       {/* Purple mic icon */}
       <div className="flex h-9 w-16 shrink-0 items-center justify-center rounded-md bg-purple-100 dark:bg-purple-950/40">
-        <Mic className="h-4 w-4 text-purple-500" />
+        <Mic className="h-4 w-4 text-purple-700" />
       </div>
 
       {/* Title + meta */}
@@ -201,7 +201,7 @@ function AudioSessionRow({
           {session.video_title || session.audio_filename || "بدون عنوان"}
         </span>
         {session.audio_file_size != null && (
-          <span className="text-[11px] text-muted-foreground/70 mt-0.5">
+          <span className="text-[11px] text-muted-foreground mt-0.5">
             {formatFileSize(session.audio_file_size)}
           </span>
         )}
@@ -217,7 +217,7 @@ function AudioSessionRow({
           onDelete(session.id)
         }}
         disabled={deletingId === session.id}
-        className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg opacity-0 transition-all hover:bg-red-100 hover:text-red-600 dark:hover:bg-red-950/50 dark:hover:text-red-400 group-hover:opacity-100"
+        className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg opacity-0 transition-all hover:bg-red-100 hover:text-red-700 dark:hover:bg-red-950/50 dark:hover:text-red-400 group-hover:opacity-100"
       >
         {deletingId === session.id ? (
           <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -253,15 +253,15 @@ function StatsBar({
         <p className="text-[11px] text-muted-foreground mt-0.5">جلسة في الاستوديو</p>
       </div>
       <div className="rounded-xl border border-border/30 bg-card/50 px-4 py-3">
-        <p className="text-2xl font-bold tabular-nums text-emerald-600 dark:text-emerald-400">{completedCount}</p>
+        <p className="text-2xl font-bold tabular-nums text-emerald-700 dark:text-emerald-400">{completedCount}</p>
         <p className="text-[11px] text-muted-foreground mt-0.5">مكتمل</p>
       </div>
       <div className="rounded-xl border border-border/30 bg-card/50 px-4 py-3">
-        <p className="text-2xl font-bold tabular-nums text-blue-600 dark:text-blue-400">{processingCount}</p>
+        <p className="text-2xl font-bold tabular-nums text-blue-700 dark:text-blue-400">{processingCount}</p>
         <p className="text-[11px] text-muted-foreground mt-0.5">قيد المعالجة</p>
       </div>
       <div className="rounded-xl border border-border/30 bg-card/50 px-4 py-3">
-        <p className="text-2xl font-bold tabular-nums text-purple-600 dark:text-purple-400">{audioCount}</p>
+        <p className="text-2xl font-bold tabular-nums text-purple-700 dark:text-purple-400">{audioCount}</p>
         <p className="text-[11px] text-muted-foreground mt-0.5">جلسة صوتية</p>
       </div>
     </div>
@@ -558,13 +558,13 @@ export function StudioClient({ initialSessions, episodes, aiStatuses: initialAiS
       {/* Toolbar */}
       <div className="flex items-center gap-3">
         <div className="relative flex-1">
-          <Search className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground/60" />
+          <Search className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <input
             type="text"
             value={episodeSearch}
             onChange={(e) => setEpisodeSearch(e.target.value)}
             placeholder="ابحث عن حلقة بالعنوان أو اسم الضيف أو رقم الحلقة..."
-            className="h-9 w-full rounded-lg border border-border/30 bg-card/50 py-2 pe-4 ps-10 text-[13px] outline-none transition-all duration-200 focus:ring-2 focus:ring-primary/20 focus:border-primary/30 placeholder:text-muted-foreground/50"
+            className="h-9 w-full rounded-lg border border-border/30 bg-card/50 py-2 pe-4 ps-10 text-[13px] outline-none transition-all duration-200 focus:ring-2 focus:ring-primary/20 focus:border-primary/30 placeholder:text-muted-foreground"
           />
         </div>
         <button
@@ -616,7 +616,7 @@ export function StudioClient({ initialSessions, episodes, aiStatuses: initialAiS
             {audioFile ? (
               <div className="flex items-center justify-center gap-4">
                 <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-purple-100 dark:bg-purple-950/40">
-                  <FileAudio className="h-6 w-6 text-purple-500" />
+                  <FileAudio className="h-6 w-6 text-purple-700" />
                 </div>
                 <div className="text-start min-w-0">
                   <p className="text-sm font-semibold truncate">{audioFile.name}</p>
@@ -630,7 +630,7 @@ export function StudioClient({ initialSessions, episodes, aiStatuses: initialAiS
                     setAudioFile(null)
                     setAudioTitle("")
                   }}
-                  className="shrink-0 rounded-lg p-2 hover:bg-red-100 hover:text-red-600 transition-colors dark:hover:bg-red-950/50"
+                  className="shrink-0 rounded-lg p-2 hover:bg-red-100 hover:text-red-700 transition-colors dark:hover:bg-red-950/50"
                 >
                   <Trash2 className="h-4 w-4" />
                 </button>
@@ -638,7 +638,7 @@ export function StudioClient({ initialSessions, episodes, aiStatuses: initialAiS
             ) : (
               <div className="flex flex-col items-center gap-3">
                 <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-purple-100 dark:bg-purple-950/40">
-                  <Upload className="h-7 w-7 text-purple-400" />
+                  <Upload className="h-7 w-7 text-purple-700" />
                 </div>
                 <div>
                   <p className="text-sm font-medium text-foreground">
@@ -689,9 +689,9 @@ export function StudioClient({ initialSessions, episodes, aiStatuses: initialAiS
       {/* Error message */}
       {fetchError && (
         <div className="flex items-start gap-3 rounded-xl border border-red-200 bg-red-50 p-4 dark:border-red-900/50 dark:bg-red-950/30">
-          <AlertCircle className="h-5 w-5 shrink-0 text-red-500 mt-0.5" />
+          <AlertCircle className="h-5 w-5 shrink-0 text-red-700 mt-0.5" />
           <div>
-            <p className="text-sm font-medium text-red-600 dark:text-red-400">{fetchError}</p>
+            <p className="text-sm font-medium text-red-700 dark:text-red-400">{fetchError}</p>
           </div>
         </div>
       )}
@@ -707,15 +707,15 @@ export function StudioClient({ initialSessions, episodes, aiStatuses: initialAiS
             >
               <ChevronDown
                 className={cn(
-                  "h-4 w-4 shrink-0 text-muted-foreground/60 transition-transform duration-200",
+                  "h-4 w-4 shrink-0 text-muted-foreground transition-transform duration-200",
                   !expandedSections.has("_audio") && "-rotate-90"
                 )}
               />
               <div className="flex h-5 w-5 items-center justify-center rounded-md bg-purple-100 dark:bg-purple-950/40">
-                <Mic className="h-3 w-3 text-purple-500" />
+                <Mic className="h-3 w-3 text-purple-700" />
               </div>
               <h3 className="text-[13px] font-semibold">جلسات صوتية</h3>
-              <span className="rounded-md bg-purple-500/10 px-2 py-0.5 text-[11px] font-semibold text-purple-600 dark:text-purple-400">
+              <span className="rounded-md bg-purple-500/10 px-2 py-0.5 text-[11px] font-semibold text-purple-700 dark:text-purple-400">
                 {audioSessions.length}
               </span>
             </button>
@@ -745,7 +745,7 @@ export function StudioClient({ initialSessions, episodes, aiStatuses: initialAiS
             >
               <ChevronDown
                 className={cn(
-                  "h-4 w-4 shrink-0 text-muted-foreground/60 transition-transform duration-200",
+                  "h-4 w-4 shrink-0 text-muted-foreground transition-transform duration-200",
                   !expandedSections.has("_episodes") && "-rotate-90"
                 )}
               />
@@ -780,7 +780,7 @@ export function StudioClient({ initialSessions, episodes, aiStatuses: initialAiS
           <div className="py-12 text-center">
             <div className="flex justify-center mb-3">
               <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-muted">
-                <Search className="h-5 w-5 text-muted-foreground/50" />
+                <Search className="h-5 w-5 text-muted-foreground" />
               </div>
             </div>
             <p className="text-sm font-medium text-muted-foreground">

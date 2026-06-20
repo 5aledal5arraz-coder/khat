@@ -99,7 +99,7 @@ export function TabClips() {
       <div className="rounded-xl border border-border/30 bg-card/50 p-6 space-y-5">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <Scissors className="h-5 w-5 text-purple-500" />
+            <Scissors className="h-5 w-5 text-purple-700" />
             <h2 className="text-[13px] font-semibold">المقاطع القصيرة (Shorts/Reels/TikTok)</h2>
           </div>
           <span className={cn("rounded-md px-2.5 py-0.5 text-[11px] font-medium", statusInfo.className)}>
@@ -121,7 +121,7 @@ export function TabClips() {
 
         {clipsStatus === "generating" && (
           <div className="flex flex-col items-center gap-3 py-10">
-            <Loader2 className="h-6 w-6 animate-spin text-purple-500" />
+            <Loader2 className="h-6 w-6 animate-spin text-purple-700" />
             <span className="text-sm text-muted-foreground">جارٍ تحليل النص واقتراح المقاطع مع حزمة النشر...</span>
           </div>
         )}
@@ -129,8 +129,8 @@ export function TabClips() {
         {clipsStatus === "error" && (
           <div className="space-y-4">
             <div className="flex items-start gap-2 rounded-lg border border-red-500/20 bg-red-500/5 p-3">
-              <AlertCircle className="h-4 w-4 shrink-0 text-red-500 mt-0.5" />
-              <p className="text-sm text-red-600 dark:text-red-400">{clipsError}</p>
+              <AlertCircle className="h-4 w-4 shrink-0 text-red-700 mt-0.5" />
+              <p className="text-sm text-red-700 dark:text-red-400">{clipsError}</p>
             </div>
             <Button variant="outline" onClick={generateClips} className="gap-2">
               <RefreshCw className="h-4 w-4" />
@@ -143,7 +143,7 @@ export function TabClips() {
           <div className="space-y-4">
             <div className="flex flex-wrap items-center gap-2">
               <Button variant="outline" size="sm" onClick={handleCopyAll} className="gap-1.5">
-                {copiedIdx === -1 ? <Check className="h-3.5 w-3.5 text-green-500" /> : <Copy className="h-3.5 w-3.5" />}
+                {copiedIdx === -1 ? <Check className="h-3.5 w-3.5 text-green-700" /> : <Copy className="h-3.5 w-3.5" />}
                 {copiedIdx === -1 ? "تم النسخ" : "نسخ الكل"}
               </Button>
               <span className="text-xs text-muted-foreground">
@@ -181,8 +181,8 @@ export function TabClips() {
                         className={cn(
                           "flex h-7 items-center gap-1 rounded-md px-2 text-[10px] font-medium transition-colors",
                           copiedPkgIdx === idx
-                            ? "bg-green-500/10 text-green-600 dark:text-green-400"
-                            : "hover:bg-purple-500/10 text-purple-600 dark:text-purple-400 border border-purple-200 dark:border-purple-800"
+                            ? "bg-green-500/10 text-green-700 dark:text-green-400"
+                            : "hover:bg-purple-500/10 text-purple-700 dark:text-purple-400 border border-purple-200 dark:border-purple-800"
                         )}
                         title="نسخ حزمة النشر"
                       >
@@ -194,7 +194,7 @@ export function TabClips() {
                         className="flex h-7 w-7 items-center justify-center rounded-md hover:bg-muted transition-colors"
                         title="نسخ الكل"
                       >
-                        {copiedIdx === idx ? <Check className="h-3 w-3 text-green-500" /> : <Copy className="h-3 w-3 text-muted-foreground" />}
+                        {copiedIdx === idx ? <Check className="h-3 w-3 text-green-700" /> : <Copy className="h-3 w-3 text-muted-foreground" />}
                       </button>
                       <button
                         onClick={() => setEditingIdx(editingIdx === idx ? null : idx)}
@@ -212,7 +212,7 @@ export function TabClips() {
                         title={clip.used ? "إلغاء الاستخدام" : "تم الاستخدام"}
                       >
                         {clip.used ? (
-                          <CheckCircle2 className="h-4 w-4 text-green-500" />
+                          <CheckCircle2 className="h-4 w-4 text-green-700" />
                         ) : (
                           <Circle className="h-4 w-4 text-muted-foreground" />
                         )}
@@ -250,7 +250,7 @@ function ClipDisplay({ clip }: { clip: StudioClipItem }) {
       {/* Viral hook */}
       {clip.viral_hook && (
         <div className="flex items-start gap-2 rounded-md bg-amber-500/5 border border-amber-200/50 dark:border-amber-800/30 px-3 py-2">
-          <Sparkles className="h-3.5 w-3.5 mt-0.5 shrink-0 text-amber-500" />
+          <Sparkles className="h-3.5 w-3.5 mt-0.5 shrink-0 text-amber-700" />
           <p className="text-sm font-semibold text-amber-700 dark:text-amber-400">{clip.viral_hook}</p>
         </div>
       )}
@@ -269,9 +269,9 @@ function ClipDisplay({ clip }: { clip: StudioClipItem }) {
       {/* Hashtags */}
       {clip.hashtags && clip.hashtags.length > 0 && (
         <div className="flex items-center gap-1.5 flex-wrap">
-          <Hash className="h-3 w-3 text-blue-500 shrink-0" />
+          <Hash className="h-3 w-3 text-blue-700 shrink-0" />
           {clip.hashtags.map((tag, i) => (
-            <span key={i} className="rounded-full bg-blue-500/10 px-2 py-0.5 text-[10px] font-medium text-blue-600 dark:text-blue-400">
+            <span key={i} className="rounded-full bg-blue-500/10 px-2 py-0.5 text-[10px] font-medium text-blue-700 dark:text-blue-400">
               #{tag}
             </span>
           ))}
@@ -279,7 +279,7 @@ function ClipDisplay({ clip }: { clip: StudioClipItem }) {
       )}
 
       {/* Why it works */}
-      <p className="text-xs text-muted-foreground/70 italic">{clip.why_it_works}</p>
+      <p className="text-xs text-muted-foreground italic">{clip.why_it_works}</p>
     </div>
   )
 }

@@ -24,7 +24,7 @@ export default async function StudioPage() {
     <div className="space-y-6">
       <div>
         <h1 className="text-xl font-bold tracking-tight">الاستوديو</h1>
-        <p className="mt-1 text-[13px] text-muted-foreground/60">
+        <p className="mt-1 text-[13px] text-muted-foreground">
           إدارة الحلقات وتوليد المحتوى بالذكاء الاصطناعي
         </p>
       </div>
@@ -39,14 +39,14 @@ export default async function StudioPage() {
         data-studio-discoverability-banner
       >
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <span className="inline-flex items-center gap-1.5 text-violet-200">
+          <span className="inline-flex items-center gap-1.5 text-violet-700">
             <Brain className="h-3 w-3" />
             كل جلسة مرتبطة بحلقة لها مساحة عمل موحّدة — التعديل السريع للحقول
             الأساسية متاح هناك.
           </span>
           <Link
             href="/admin/khat-brain/episodes"
-            className="rounded-lg border border-violet-500/30 bg-violet-500/10 px-3 py-1 text-[11px] font-medium text-violet-200 hover:bg-violet-500/20"
+            className="rounded-lg border border-violet-500/30 bg-violet-500/10 px-3 py-1 text-[11px] font-medium text-violet-700 hover:bg-violet-500/20"
           >
             فتح قائمة الحلقات
           </Link>

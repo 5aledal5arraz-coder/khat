@@ -139,8 +139,8 @@ export function AiProcessingContent() {
 
       {regenerateSectionError && (
         <div className="flex items-start gap-2 rounded-lg border border-red-500/20 bg-red-500/5 p-3">
-          <AlertCircle className="h-4 w-4 shrink-0 text-red-500 mt-0.5" />
-          <p className="text-sm text-red-600 dark:text-red-400">{regenerateSectionError}</p>
+          <AlertCircle className="h-4 w-4 shrink-0 text-red-700 mt-0.5" />
+          <p className="text-sm text-red-700 dark:text-red-400">{regenerateSectionError}</p>
         </div>
       )}
 
@@ -158,17 +158,17 @@ export function AiProcessingContent() {
 
       {processingStatus === "generating" && (
         <div className="flex flex-col items-center gap-3 py-8">
-          <Loader2 className="h-5 w-5 animate-spin text-violet-500" />
+          <Loader2 className="h-5 w-5 animate-spin text-violet-700" />
           <span className="text-sm text-muted-foreground">جارٍ معالجة النص بالذكاء الاصطناعي...</span>
-          <span className="text-xs text-muted-foreground/70">قد تستغرق هذه العملية دقيقة أو أكثر</span>
+          <span className="text-xs text-muted-foreground">قد تستغرق هذه العملية دقيقة أو أكثر</span>
         </div>
       )}
 
       {processingStatus === "error" && (
         <div className="space-y-4">
           <div className="flex items-start gap-2 rounded-lg border border-red-500/20 bg-red-500/5 p-3">
-            <AlertCircle className="h-4 w-4 shrink-0 text-red-500 mt-0.5" />
-            <p className="text-sm text-red-600 dark:text-red-400">{processingError || "فشل في المعالجة"}</p>
+            <AlertCircle className="h-4 w-4 shrink-0 text-red-700 mt-0.5" />
+            <p className="text-sm text-red-700 dark:text-red-400">{processingError || "فشل في المعالجة"}</p>
           </div>
           <Button variant="outline" onClick={processTranscript} className="gap-2">
             <RefreshCw className="h-4 w-4" />
@@ -193,7 +193,7 @@ export function AiProcessingContent() {
               className="flex w-full items-center justify-between p-4 text-right hover:bg-muted/40 transition-colors"
             >
               <div className="flex items-center gap-2">
-                <BookOpen className="h-4 w-4 text-violet-500" />
+                <BookOpen className="h-4 w-4 text-violet-700" />
                 <span className="text-[13px] font-semibold">المقال المقروء</span>
               </div>
               {showArticle ? <ChevronUp className="h-4 w-4 text-muted-foreground" /> : <ChevronDown className="h-4 w-4 text-muted-foreground" />}
@@ -221,7 +221,7 @@ export function AiProcessingContent() {
               className="flex w-full items-center justify-between p-4 text-right hover:bg-muted/40 transition-colors"
             >
               <div className="flex items-center gap-2">
-                <ListChecks className="h-4 w-4 text-blue-500" />
+                <ListChecks className="h-4 w-4 text-blue-700" />
                 <span className="text-[13px] font-semibold">الملخص المُهيكل</span>
               </div>
               {showSummary ? <ChevronUp className="h-4 w-4 text-muted-foreground" /> : <ChevronDown className="h-4 w-4 text-muted-foreground" />}
@@ -256,7 +256,7 @@ export function AiProcessingContent() {
                               />
                               <div className="flex gap-1.5">
                                 <Button size="sm" variant="outline" onClick={() => setEditingIdeaIdx(null)} className="h-7 px-2 text-xs">تم</Button>
-                                <Button size="sm" variant="outline" onClick={() => deleteIdea(i)} className="h-7 px-2 text-xs text-red-500 hover:text-red-600">حذف</Button>
+                                <Button size="sm" variant="outline" onClick={() => deleteIdea(i)} className="h-7 px-2 text-xs text-red-700 hover:text-red-700">حذف</Button>
                               </div>
                             </div>
                           ) : (
@@ -285,7 +285,7 @@ export function AiProcessingContent() {
                     <ul className="space-y-2">
                       {transcriptSummary.lessons.map((lesson, i) => (
                         <li key={i} className="group/item flex items-start gap-2 text-sm">
-                          <CheckCircle2 className="mt-0.5 h-3.5 w-3.5 shrink-0 text-green-500" />
+                          <CheckCircle2 className="mt-0.5 h-3.5 w-3.5 shrink-0 text-green-700" />
                           {editingLessonIdx === i ? (
                             <div className="flex-1 space-y-1.5">
                               <textarea
@@ -297,7 +297,7 @@ export function AiProcessingContent() {
                               />
                               <div className="flex gap-1.5">
                                 <Button size="sm" variant="outline" onClick={() => setEditingLessonIdx(null)} className="h-7 px-2 text-xs">تم</Button>
-                                <Button size="sm" variant="outline" onClick={() => deleteLesson(i)} className="h-7 px-2 text-xs text-red-500 hover:text-red-600">حذف</Button>
+                                <Button size="sm" variant="outline" onClick={() => deleteLesson(i)} className="h-7 px-2 text-xs text-red-700 hover:text-red-700">حذف</Button>
                               </div>
                             </div>
                           ) : (
@@ -326,7 +326,7 @@ export function AiProcessingContent() {
               className="flex w-full items-center justify-between p-4 text-right hover:bg-muted/40 transition-colors"
             >
               <div className="flex items-center gap-2">
-                <Quote className="h-4 w-4 text-amber-500" />
+                <Quote className="h-4 w-4 text-amber-700" />
                 <span className="text-[13px] font-semibold">اقتباسات مستخرجة</span>
                 {transcriptQuotes && (
                   <span className="text-xs text-muted-foreground">({transcriptQuotes.length})</span>
@@ -341,7 +341,7 @@ export function AiProcessingContent() {
                 </div>
                 {transcriptQuotes.map((q, i) => (
                   <div key={i} className="flex items-start gap-3 rounded-lg bg-muted/30 p-3">
-                    <Quote className="mt-0.5 h-4 w-4 shrink-0 text-amber-400" />
+                    <Quote className="mt-0.5 h-4 w-4 shrink-0 text-amber-700" />
                     <div className="flex-1 min-w-0">
                       {editingQuoteIdx === i ? (
                         <div className="space-y-2">
@@ -362,7 +362,7 @@ export function AiProcessingContent() {
                           />
                           <div className="flex gap-1.5">
                             <Button size="sm" variant="outline" onClick={() => setEditingQuoteIdx(null)} className="h-7 px-2 text-xs">تم</Button>
-                            <Button size="sm" variant="outline" onClick={() => deleteQuote(i)} className="h-7 px-2 text-xs text-red-500 hover:text-red-600">حذف</Button>
+                            <Button size="sm" variant="outline" onClick={() => deleteQuote(i)} className="h-7 px-2 text-xs text-red-700 hover:text-red-700">حذف</Button>
                           </div>
                         </div>
                       ) : (

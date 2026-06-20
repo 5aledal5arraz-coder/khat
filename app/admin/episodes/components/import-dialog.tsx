@@ -123,7 +123,7 @@ export function ImportFromYoutubeButton(_props: ImportFromYoutubeButtonProps) {
           </DialogHeader>
 
           {/* Safety notice */}
-          <div className="flex items-start gap-2 rounded-xl border border-amber-500/20 bg-amber-500/5 p-3 text-[12px] text-amber-400/90">
+          <div className="flex items-start gap-2 rounded-xl border border-amber-500/20 bg-amber-500/5 p-3 text-[12px] text-amber-700/90">
             <ShieldAlert className="mt-0.5 h-4 w-4 shrink-0" />
             <p className="leading-relaxed">
               الحلقات التي قمت بحذفها سابقاً من الموقع لن يتم استيرادها مرة
@@ -141,7 +141,7 @@ export function ImportFromYoutubeButton(_props: ImportFromYoutubeButtonProps) {
               className={`flex-1 rounded-lg px-3 py-2 text-[12px] font-medium transition-all ${
                 mode === "after"
                   ? "bg-primary/10 text-primary"
-                  : "text-muted-foreground/70 hover:text-foreground"
+                  : "text-muted-foreground hover:text-foreground"
               }`}
             >
               بعد تاريخ
@@ -153,7 +153,7 @@ export function ImportFromYoutubeButton(_props: ImportFromYoutubeButtonProps) {
               className={`flex-1 rounded-lg px-3 py-2 text-[12px] font-medium transition-all ${
                 mode === "range"
                   ? "bg-primary/10 text-primary"
-                  : "text-muted-foreground/70 hover:text-foreground"
+                  : "text-muted-foreground hover:text-foreground"
               }`}
             >
               نطاق تاريخ
@@ -227,7 +227,7 @@ export function ImportFromYoutubeButton(_props: ImportFromYoutubeButtonProps) {
                 />
               </div>
 
-              <p className="text-[11px] text-muted-foreground/60">
+              <p className="text-[11px] text-muted-foreground">
                 تم فحص {result.totalInDateRange} حلقة ضمن النطاق من أصل{" "}
                 {result.totalFromYouTube} حلقة على القناة.
               </p>
@@ -317,7 +317,7 @@ function ResultCard({
   value: number
 }) {
   const tone = {
-    green: "border-green-500/20 bg-green-500/5 text-green-400",
+    green: "border-green-500/20 bg-green-500/5 text-green-700",
     red: "border-destructive/20 bg-destructive/5 text-destructive",
     muted: "border-border/30 bg-muted/20 text-muted-foreground",
   }[color]
@@ -341,9 +341,9 @@ function ResultList({
   tone: "success" | "danger" | "muted"
 }) {
   const headerClass = {
-    success: "text-green-400/90",
+    success: "text-green-700/90",
     danger: "text-destructive/80",
-    muted: "text-muted-foreground/70",
+    muted: "text-muted-foreground",
   }[tone]
   const PREVIEW = 6
   const preview = items.slice(0, PREVIEW)
@@ -364,11 +364,11 @@ function ResultList({
             <span className="truncate text-foreground/90" title={item.title}>
               {item.title}
             </span>
-            <span className="text-muted-foreground/50">{item.subtitle}</span>
+            <span className="text-muted-foreground">{item.subtitle}</span>
           </li>
         ))}
         {hidden > 0 && (
-          <li className="px-2 py-1 text-[10px] text-muted-foreground/50">
+          <li className="px-2 py-1 text-[10px] text-muted-foreground">
             + {hidden} أخرى
           </li>
         )}

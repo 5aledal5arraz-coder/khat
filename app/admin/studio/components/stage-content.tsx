@@ -31,7 +31,7 @@ export function StageContent() {
     <div className="space-y-3">
       <div className="flex items-center gap-3 px-1">
         <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-amber-100 dark:bg-amber-950/40">
-          <Package className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+          <Package className="h-4 w-4 text-amber-700 dark:text-amber-400" />
         </div>
         <div>
           <h2 className="text-[13px] font-semibold">المحتوى</h2>
@@ -42,7 +42,7 @@ export function StageContent() {
       <div className="space-y-2">
         <AccordionSection
           icon={Sparkles}
-          iconColor="text-amber-500"
+          iconColor="text-amber-700"
           title="حزمة يوتيوب"
           status={aiStatus}
           defaultOpen={aiStatus === "ready"}
@@ -54,7 +54,7 @@ export function StageContent() {
 
         <AccordionSection
           icon={Globe}
-          iconColor="text-emerald-500"
+          iconColor="text-emerald-700"
           title="حزمة الموقع"
           status={websitePkgStatus}
           defaultOpen={websitePkgStatus === "ready"}
@@ -66,7 +66,7 @@ export function StageContent() {
 
         <AccordionSection
           icon={UserCircle}
-          iconColor="text-purple-500"
+          iconColor="text-purple-700"
           title="حزمة الضيف"
           status={guestPackageStatus}
           defaultOpen={guestPackageStatus === "ready"}
@@ -78,7 +78,7 @@ export function StageContent() {
 
         <AccordionSection
           icon={ListOrdered}
-          iconColor="text-blue-500"
+          iconColor="text-blue-700"
           title="الطوابع الزمنية"
           status={chaptersStatus}
           defaultOpen={chaptersStatus === "ready"}
@@ -90,7 +90,7 @@ export function StageContent() {
 
         <AccordionSection
           icon={Scissors}
-          iconColor="text-pink-500"
+          iconColor="text-pink-700"
           title="المقاطع القصيرة"
           status={clipsStatus}
           defaultOpen={clipsStatus === "ready"}
@@ -102,7 +102,7 @@ export function StageContent() {
 
         <AccordionSection
           icon={Brain}
-          iconColor="text-indigo-500"
+          iconColor="text-indigo-700"
           title="التحليل العميق"
           status={deepAnalysisStatus}
           defaultOpen={deepAnalysisStatus === "ready"}
@@ -114,7 +114,7 @@ export function StageContent() {
 
         <AccordionSection
           icon={UserSearch}
-          iconColor="text-teal-500"
+          iconColor="text-teal-700"
           title="ذكاء الضيف"
           status={guestIntelligenceStatus}
           defaultOpen={guestIntelligenceStatus === "ready"}

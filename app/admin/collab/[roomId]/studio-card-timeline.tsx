@@ -88,7 +88,7 @@ export function StudioCardTimeline({ layout = "sidebar" }: { layout?: "sidebar" 
     return (
       <div className="border-b border-border/20 bg-background/50">
         <div className="flex items-center gap-1 px-3 py-2 overflow-x-auto">
-          <span className="shrink-0 text-[10px] text-muted-foreground/40 ml-2">
+          <span className="shrink-0 text-[10px] text-muted-foreground ml-2">
             {usedCount}/{total}
           </span>
           {sortedCards.map((card) => {
@@ -119,7 +119,7 @@ export function StudioCardTimeline({ layout = "sidebar" }: { layout?: "sidebar" 
     <div className="flex h-full w-72 shrink-0 flex-col border-l border-border/20 bg-background/30">
       {/* Header */}
       <div className="flex items-center justify-between border-b border-border/20 px-3 py-2.5">
-        <span className="text-[11px] font-semibold text-muted-foreground/50">
+        <span className="text-[11px] font-semibold text-muted-foreground">
           البطاقات
         </span>
         <span className="text-[10px] text-muted-foreground/30 font-mono tabular-nums">
@@ -213,15 +213,15 @@ function SidebarCardRow({
               {card.short_title}
             </span>
           </div>
-          <p className="mt-0.5 truncate text-[11px] text-muted-foreground/50">
+          <p className="mt-0.5 truncate text-[11px] text-muted-foreground">
             {card.spoken_kuwaiti}
           </p>
         </div>
 
         {/* Flags */}
         <div className="flex items-center gap-1 shrink-0">
-          {isPinned && <Pin className="h-2.5 w-2.5 text-amber-400" />}
-          {card.clip_potential && <Sparkles className="h-2.5 w-2.5 text-amber-400/50" />}
+          {isPinned && <Pin className="h-2.5 w-2.5 text-amber-700" />}
+          {card.clip_potential && <Sparkles className="h-2.5 w-2.5 text-amber-700/50" />}
         </div>
       </div>
 
@@ -234,7 +234,7 @@ function SidebarCardRow({
           <ActionBtn onClick={onSkip} title="تخطي" className="text-muted-foreground hover:bg-muted/30">
             <SkipForward className="h-3 w-3" />
           </ActionBtn>
-          <ActionBtn onClick={onTogglePin} title="تثبيت" className="text-muted-foreground hover:bg-amber-500/20 hover:text-amber-400">
+          <ActionBtn onClick={onTogglePin} title="تثبيت" className="text-muted-foreground hover:bg-amber-500/20 hover:text-amber-700">
             <Pin className="h-3 w-3" />
           </ActionBtn>
         </div>
@@ -242,7 +242,7 @@ function SidebarCardRow({
 
       {canControl && isActive && (
         <div className="absolute left-1 top-1/2 -translate-y-1/2 flex gap-0.5">
-          <ActionBtn onClick={onMarkUsed} title="تمّت" className="text-emerald-400 hover:bg-emerald-500/20">
+          <ActionBtn onClick={onMarkUsed} title="تمّت" className="text-emerald-700 hover:bg-emerald-500/20">
             <CheckCircle2 className="h-3 w-3" />
           </ActionBtn>
           <ActionBtn onClick={onSkip} title="تخطي" className="text-muted-foreground hover:bg-muted/30">
@@ -281,7 +281,7 @@ function HorizontalCardPill({
         isActive
           ? "border-primary/30 bg-primary/10 text-foreground"
           : status === "used"
-            ? "border-border/10 bg-muted/5 text-muted-foreground/40"
+            ? "border-border/10 bg-muted/5 text-muted-foreground"
             : status === "skipped"
               ? "border-border/10 bg-muted/5 text-muted-foreground/30 line-through"
               : "border-border/20 bg-card/30 text-muted-foreground hover:border-border/40",
@@ -291,7 +291,7 @@ function HorizontalCardPill({
       <div className="flex items-center gap-1.5">
         <div className={cn("h-1.5 w-1.5 rounded-full", STATUS_DOT[status])} />
         <span className="truncate max-w-[100px]">{card.short_title}</span>
-        {isPinned && <Pin className="h-2.5 w-2.5 text-amber-400" />}
+        {isPinned && <Pin className="h-2.5 w-2.5 text-amber-700" />}
       </div>
     </button>
   )

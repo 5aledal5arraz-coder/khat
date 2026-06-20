@@ -111,19 +111,19 @@ export function PushButton({
           onClick={onFirstClick}
           disabled={isDisabled}
           title={blockedReason}
-          className="inline-flex items-center gap-1.5 rounded-xl border border-violet-500/40 bg-violet-500/10 px-3 py-1.5 text-[12px] font-medium text-violet-200 hover:bg-violet-500/20 disabled:opacity-40"
+          className="inline-flex items-center gap-1.5 rounded-xl border border-violet-500/40 bg-violet-500/10 px-3 py-1.5 text-[12px] font-medium text-violet-700 hover:bg-violet-500/20 disabled:opacity-40"
         >
           <Send className="h-3 w-3" />
           دفع الحزمة إلى الحلقة
         </button>
         {result && !result.ok && (
-          <div className="inline-flex items-center gap-1 rounded-md bg-rose-500/10 px-2 py-0.5 text-[10.5px] text-rose-300">
+          <div className="inline-flex items-center gap-1 rounded-md bg-rose-500/10 px-2 py-0.5 text-[10.5px] text-rose-700">
             <XCircle className="h-2.5 w-2.5" />
             {result.message}
           </div>
         )}
         {result && result.ok && (
-          <div className="inline-flex items-center gap-1 rounded-md bg-emerald-500/10 px-2 py-0.5 text-[10.5px] text-emerald-300">
+          <div className="inline-flex items-center gap-1 rounded-md bg-emerald-500/10 px-2 py-0.5 text-[10.5px] text-emerald-700">
             <CheckCircle2 className="h-2.5 w-2.5" />
             {result.message}
           </div>
@@ -138,7 +138,7 @@ export function PushButton({
       className="w-full rounded-2xl border border-violet-500/30 bg-violet-500/5 p-3 text-[12px]"
       data-push-confirm-panel
     >
-      <div className="mb-2 inline-flex items-center gap-1.5 text-[11px] font-semibold text-violet-200">
+      <div className="mb-2 inline-flex items-center gap-1.5 text-[11px] font-semibold text-violet-700">
         <ShieldCheck className="h-3 w-3" /> تأكيد دفع الحزمة
       </div>
 
@@ -182,7 +182,7 @@ export function PushButton({
           type="button"
           onClick={onConfirm}
           disabled={pending}
-          className="inline-flex items-center gap-1.5 rounded-xl border border-violet-500/40 bg-violet-500/15 px-3 py-1.5 text-[12px] font-medium text-violet-100 hover:bg-violet-500/25 disabled:opacity-50"
+          className="inline-flex items-center gap-1.5 rounded-xl border border-violet-500/40 bg-violet-500/15 px-3 py-1.5 text-[12px] font-medium text-violet-700 hover:bg-violet-500/25 disabled:opacity-50"
           data-push-confirm-button
         >
           {pending ? (
@@ -208,7 +208,7 @@ export function PushButton({
       </div>
 
       {result && !result.ok && (
-        <div className="mt-2 inline-flex items-center gap-1 rounded-md bg-rose-500/10 px-2 py-0.5 text-[10.5px] text-rose-300">
+        <div className="mt-2 inline-flex items-center gap-1 rounded-md bg-rose-500/10 px-2 py-0.5 text-[10.5px] text-rose-700">
           <XCircle className="h-2.5 w-2.5" />
           {result.message}
         </div>
@@ -234,9 +234,9 @@ function FieldGroup({
         : "border-dashed border-border/40 bg-background/30"
   const headingTone =
     tone === "emerald"
-      ? "text-emerald-300"
+      ? "text-emerald-700"
       : tone === "amber"
-        ? "text-amber-300"
+        ? "text-amber-700"
         : "text-muted-foreground"
   return (
     <div className={"rounded-lg border p-2 " + frame}>

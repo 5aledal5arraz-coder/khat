@@ -83,14 +83,14 @@ export function StudioTab({
   if (!studio.session && !phaseAtLeast(currentPhase, "recorded")) {
     return (
       <div className="rounded-2xl border border-amber-500/30 bg-amber-500/5 p-6 text-center">
-        <Mic className="mx-auto h-6 w-6 text-amber-300" />
+        <Mic className="mx-auto h-6 w-6 text-amber-700" />
         <h3 className="mt-2 text-[13px] font-semibold">التسجيل مطلوب قبل الاستوديو</h3>
         <p className="mx-auto mt-1 max-w-md text-[12px] leading-relaxed text-foreground/85">
           ستتاح أدوات الاستوديو فور إنهاء التسجيل. حالياً المرحلة: «{currentPhase}».
         </p>
         <Link
           href={`/admin/khat-brain/episodes/${eirId}?tab=recording`}
-          className="mt-4 inline-flex items-center gap-1.5 rounded-xl border border-violet-500/40 bg-violet-500/10 px-3 py-1.5 text-[12px] text-violet-200 hover:bg-violet-500/20"
+          className="mt-4 inline-flex items-center gap-1.5 rounded-xl border border-violet-500/40 bg-violet-500/10 px-3 py-1.5 text-[12px] text-violet-700 hover:bg-violet-500/20"
         >
           الانتقال إلى التسجيل <ExternalLink className="h-3 w-3" />
         </Link>
@@ -102,7 +102,7 @@ export function StudioTab({
   if (!studio.session) {
     return (
       <div className="rounded-2xl border border-violet-500/30 bg-violet-500/5 p-6 text-center">
-        <Mic className="mx-auto h-6 w-6 text-violet-200" />
+        <Mic className="mx-auto h-6 w-6 text-violet-700" />
         <h3 className="mt-2 text-[13px] font-semibold">لا توجد جلسة استديو بعد</h3>
         <p className="mx-auto mt-1 max-w-md text-[12px] leading-relaxed text-foreground/85">
           أنشئ جلسة من صفحة الاستديو لربط النصّ والفصول والمقاطع بهذه
@@ -110,7 +110,7 @@ export function StudioTab({
         </p>
         <Link
           href="/admin/studio"
-          className="mt-4 inline-flex items-center gap-1.5 rounded-xl border border-violet-500/40 bg-violet-500/10 px-3 py-1.5 text-[12px] text-violet-200 hover:bg-violet-500/20"
+          className="mt-4 inline-flex items-center gap-1.5 rounded-xl border border-violet-500/40 bg-violet-500/10 px-3 py-1.5 text-[12px] text-violet-700 hover:bg-violet-500/20"
         >
           فتح صفحة الاستديو <ExternalLink className="h-3 w-3" />
         </Link>
@@ -132,7 +132,7 @@ export function StudioTab({
               </span>
             )}
           </div>
-          <div className="mt-0.5 text-muted-foreground/70" dir="ltr">
+          <div className="mt-0.5 text-muted-foreground" dir="ltr">
             status: {studio.session.status} · source: {studio.session.source}
             {studio.session.duration_seconds &&
               ` · ${Math.round(studio.session.duration_seconds / 60)}m`}
@@ -140,7 +140,7 @@ export function StudioTab({
         </div>
         <Link
           href={`/admin/studio/${studio.session.id}`}
-          className="inline-flex items-center gap-1 text-[10.5px] text-muted-foreground/60 hover:text-muted-foreground"
+          className="inline-flex items-center gap-1 text-[10.5px] text-muted-foreground hover:text-muted-foreground"
           data-legacy-link
         >
           <ExternalLink className="h-2.5 w-2.5" /> فتح صفحة الاستوديو
@@ -178,11 +178,11 @@ export function StudioTab({
                 <span className="truncate text-foreground/85">
                   {p.episode_title}
                 </span>
-                <span className="text-muted-foreground/70" dir="ltr">
+                <span className="text-muted-foreground" dir="ltr">
                   {p.pushed_fields.slice(0, 3).join(", ")}
                   {p.pushed_fields.length > 3 && "…"}
                 </span>
-                <span className="text-muted-foreground/60" dir="ltr">
+                <span className="text-muted-foreground" dir="ltr">
                   {p.pushed_at ? formatDateTime(p.pushed_at) : "—"}
                 </span>
               </li>
@@ -215,17 +215,17 @@ function OutputCard({
           <Icon className="h-3 w-3" /> {output.status}
         </span>
       </div>
-      <div className="text-[10.5px] text-muted-foreground/70" dir="ltr">
+      <div className="text-[10.5px] text-muted-foreground" dir="ltr">
         {output.generated_at ? formatDateTime(output.generated_at) : "—"}
       </div>
       {output.error && (
-        <div className="mt-1 text-[10.5px] text-rose-300" dir="ltr">
+        <div className="mt-1 text-[10.5px] text-rose-700" dir="ltr">
           {output.error.slice(0, 80)}
         </div>
       )}
       <Link
         href={`/admin/studio/${sessionId}`}
-        className="mt-2 inline-flex items-center gap-1 text-[10.5px] text-violet-200 hover:underline"
+        className="mt-2 inline-flex items-center gap-1 text-[10.5px] text-violet-700 hover:underline"
       >
         فتح في الاستديو <ExternalLink className="h-2.5 w-2.5" />
       </Link>
@@ -237,24 +237,24 @@ function toneFor(status: string) {
   if (status === "ready") {
     return {
       frame: "border-emerald-500/30 bg-emerald-500/5",
-      text: "text-emerald-300",
+      text: "text-emerald-700",
     }
   }
   if (status === "generating" || status === "pending") {
     return {
       frame: "border-amber-500/30 bg-amber-500/5",
-      text: "text-amber-300",
+      text: "text-amber-700",
     }
   }
   if (status === "error") {
     return {
       frame: "border-rose-500/30 bg-rose-500/5",
-      text: "text-rose-300",
+      text: "text-rose-700",
     }
   }
   return {
     frame: "border-border/40 bg-card/20",
-    text: "text-muted-foreground/70",
+    text: "text-muted-foreground",
   }
 }
 function iconFor(status: string) {
@@ -292,7 +292,7 @@ function MarkersStrip({ markers }: { markers: WorkspaceMarker[] }) {
               dir="ltr"
               title={m.section_key ? `section: ${m.section_key}` : undefined}
             >
-              <Icon className="h-3 w-3 text-violet-200" />
+              <Icon className="h-3 w-3 text-violet-700" />
               <span className="text-muted-foreground/80">{m.marker_type}</span>
               <span className="font-mono text-foreground/85">
                 {formatHms(m.recording_ms)}

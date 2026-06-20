@@ -27,7 +27,7 @@ export function TabYoutubePack() {
         {/* Header */}
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <Sparkles className="h-5 w-5 text-amber-500" />
+            <Sparkles className="h-5 w-5 text-amber-700" />
             <h2 className="text-[13px] font-semibold">حزمة يوتيوب</h2>
           </div>
           <span className={cn("rounded-md px-2.5 py-0.5 text-[11px] font-medium", statusInfo.className)}>
@@ -51,9 +51,9 @@ export function TabYoutubePack() {
         {/* Generating state */}
         {aiStatus === "generating" && (
           <div className="flex flex-col items-center gap-3 py-10">
-            <Loader2 className="h-6 w-6 animate-spin text-amber-500" />
+            <Loader2 className="h-6 w-6 animate-spin text-amber-700" />
             <span className="text-sm text-muted-foreground">جارٍ تحليل النص وتوليد المحتوى...</span>
-            <span className="text-xs text-muted-foreground/60">قد يستغرق هذا حتى دقيقتين</span>
+            <span className="text-xs text-muted-foreground">قد يستغرق هذا حتى دقيقتين</span>
           </div>
         )}
 
@@ -61,8 +61,8 @@ export function TabYoutubePack() {
         {aiStatus === "error" && (
           <div className="space-y-4">
             <div className="flex items-start gap-2 rounded-lg border border-red-500/20 bg-red-500/5 p-3">
-              <AlertCircle className="h-4 w-4 shrink-0 text-red-500 mt-0.5" />
-              <p className="text-sm text-red-600 dark:text-red-400">{aiError}</p>
+              <AlertCircle className="h-4 w-4 shrink-0 text-red-700 mt-0.5" />
+              <p className="text-sm text-red-700 dark:text-red-400">{aiError}</p>
             </div>
             <Button variant="outline" onClick={generateAiOutput} className="gap-2">
               <RefreshCw className="h-4 w-4" />

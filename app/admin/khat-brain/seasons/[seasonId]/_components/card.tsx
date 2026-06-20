@@ -78,7 +78,7 @@ export function WizardCard({
           </span>
         )}
         {card.editorial_score !== null && card.editorial_score !== undefined && (
-          <span className="ml-auto inline-flex items-center gap-1 rounded-md border border-amber-500/30 bg-amber-500/5 px-1.5 py-0.5 text-amber-400">
+          <span className="ml-auto inline-flex items-center gap-1 rounded-md border border-amber-500/30 bg-amber-500/5 px-1.5 py-0.5 text-amber-700">
             <Sparkles className="h-3 w-3" />
             {card.editorial_score.toFixed(1)}
           </span>
@@ -100,9 +100,9 @@ export function WizardCard({
       {/* Why now */}
       {whyNow && (
         <div className="mx-5 mt-3 flex items-start gap-2 rounded-xl border border-border/30 bg-muted/10 p-3">
-          <Clock className="mt-0.5 h-3.5 w-3.5 flex-shrink-0 text-muted-foreground/70" />
+          <Clock className="mt-0.5 h-3.5 w-3.5 flex-shrink-0 text-muted-foreground" />
           <div>
-            <div className="text-[9.5px] font-semibold uppercase tracking-[0.15em] text-muted-foreground/60">
+            <div className="text-[9.5px] font-semibold uppercase tracking-[0.15em] text-muted-foreground">
               لماذا الآن
             </div>
             <p className="mt-0.5 text-[12px] leading-relaxed text-foreground/85">
@@ -115,7 +115,7 @@ export function WizardCard({
       {/* Key axes */}
       {topic.main_axes && topic.main_axes.length > 0 && (
         <div className="px-5 pt-3">
-          <div className="mb-1.5 text-[9.5px] font-semibold uppercase tracking-[0.15em] text-muted-foreground/60">
+          <div className="mb-1.5 text-[9.5px] font-semibold uppercase tracking-[0.15em] text-muted-foreground">
             المحاور
           </div>
           <div className="flex flex-wrap gap-1">
@@ -146,8 +146,8 @@ export function WizardCard({
                     className={
                       "rounded-md border px-1.5 py-0.5 text-[9px] font-semibold " +
                       (guest.gender === "male"
-                        ? "border-sky-500/30 bg-sky-500/10 text-sky-300"
-                        : "border-pink-500/30 bg-pink-500/10 text-pink-300")
+                        ? "border-sky-500/30 bg-sky-500/10 text-sky-700"
+                        : "border-pink-500/30 bg-pink-500/10 text-pink-700")
                     }
                   >
                     {guest.gender === "male" ? "ذكر" : "أنثى"}
@@ -174,7 +174,7 @@ export function WizardCard({
           </div>
         </div>
       ) : (
-        <div className="mx-5 mt-3 rounded-xl border border-dashed border-border/40 bg-muted/5 p-3 text-[11px] text-muted-foreground/70">
+        <div className="mx-5 mt-3 rounded-xl border border-dashed border-border/40 bg-muted/5 p-3 text-[11px] text-muted-foreground">
           لا ضيف مقترح لهذه الحلقة — النظام اعتبرها حلقة فردية.
         </div>
       ))}
@@ -196,9 +196,9 @@ export function WizardCard({
         <div className="mx-5 mt-3 space-y-2">
           {card.explainability.why_suggested && (
             <div className="flex items-start gap-2 rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-2.5">
-              <Lightbulb className="mt-0.5 h-3.5 w-3.5 flex-shrink-0 text-emerald-400" />
+              <Lightbulb className="mt-0.5 h-3.5 w-3.5 flex-shrink-0 text-emerald-700" />
               <div className="min-w-0">
-                <div className="text-[9.5px] font-semibold uppercase tracking-[0.15em] text-emerald-300/80">
+                <div className="text-[9.5px] font-semibold uppercase tracking-[0.15em] text-emerald-700/80">
                   لماذا اقتُرحت
                 </div>
                 <p className="mt-0.5 text-[12px] leading-relaxed text-foreground/85">
@@ -209,9 +209,9 @@ export function WizardCard({
           )}
           {card.explainability.risks.length > 0 && (
             <div className="flex items-start gap-2 rounded-xl border border-amber-500/20 bg-amber-500/5 p-2.5">
-              <AlertTriangle className="mt-0.5 h-3.5 w-3.5 flex-shrink-0 text-amber-400" />
+              <AlertTriangle className="mt-0.5 h-3.5 w-3.5 flex-shrink-0 text-amber-700" />
               <div className="min-w-0">
-                <div className="text-[9.5px] font-semibold uppercase tracking-[0.15em] text-amber-300/80">
+                <div className="text-[9.5px] font-semibold uppercase tracking-[0.15em] text-amber-700/80">
                   مخاطر
                 </div>
                 <ul className="mt-0.5 space-y-0.5 text-[12px] leading-relaxed text-foreground/85">
@@ -224,9 +224,9 @@ export function WizardCard({
           )}
           {card.explainability.expected_outcome && (
             <div className="flex items-start gap-2 rounded-xl border border-sky-500/20 bg-sky-500/5 p-2.5">
-              <TrendingUp className="mt-0.5 h-3.5 w-3.5 flex-shrink-0 text-sky-400" />
+              <TrendingUp className="mt-0.5 h-3.5 w-3.5 flex-shrink-0 text-sky-700" />
               <div className="min-w-0">
-                <div className="text-[9.5px] font-semibold uppercase tracking-[0.15em] text-sky-300/80">
+                <div className="text-[9.5px] font-semibold uppercase tracking-[0.15em] text-sky-700/80">
                   توقّع الأداء
                 </div>
                 <p className="mt-0.5 text-[12px] leading-relaxed text-foreground/85">
@@ -244,7 +244,7 @@ export function WizardCard({
           type="button"
           onClick={onReject}
           disabled={pending}
-          className="inline-flex items-center gap-1.5 rounded-xl border border-border/60 bg-background/50 px-3 py-2 text-[12px] text-muted-foreground transition-colors hover:border-rose-500/40 hover:bg-rose-500/5 hover:text-rose-400 disabled:opacity-50"
+          className="inline-flex items-center gap-1.5 rounded-xl border border-border/60 bg-background/50 px-3 py-2 text-[12px] text-muted-foreground transition-colors hover:border-rose-500/40 hover:bg-rose-500/5 hover:text-rose-700 disabled:opacity-50"
         >
           <X className="h-3.5 w-3.5" />
           رفض
@@ -274,7 +274,7 @@ export function WizardCard({
       </div>
 
       {/* Batch index footer (subtle) */}
-      <div className="absolute bottom-1 right-2 text-[9px] text-muted-foreground/40 tabular-nums">
+      <div className="absolute bottom-1 right-2 text-[9px] text-muted-foreground tabular-nums">
         دفعة {batchIndex}
       </div>
     </div>
