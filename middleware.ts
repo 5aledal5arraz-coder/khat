@@ -73,6 +73,11 @@ const CSP_DIRECTIVES: Record<string, string[]> = {
     'https://images.unsplash.com',
     'https://i.pravatar.cc',
     'https://picsum.photos',
+    // Guest Discovery v2 photos: Wikidata/Wikipedia. `Special:FilePath` on
+    // commons 302-redirects to upload.wikimedia.org, and Wikipedia summary
+    // thumbnails are served from upload.wikimedia.org — both hosts needed.
+    'https://commons.wikimedia.org',
+    'https://upload.wikimedia.org',
   ],
 
   // Google Fonts serves font files from gstatic. `data:` for small
