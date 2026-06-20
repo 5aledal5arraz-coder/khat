@@ -806,28 +806,37 @@ function GuestEmpty({
       <Telescope className="mx-auto h-6 w-6 text-amber-700" />
       <h3 className="mt-2 text-[13px] font-semibold">لم يتم ربط ضيف بعد</h3>
       <p className="mx-auto mt-1 max-w-md text-[12px] leading-relaxed text-foreground/80">
-        اختر ضيفاً موجوداً لربطه بهذه الحلقة، أو استخدم أحد المسارات أدناه.
+        ابدأ اكتشافاً ذكياً يقترح ضيوفاً لهذه الحلقة، أو عيّن ضيفاً موجوداً
+        في سجلّك.
       </p>
-      <div className="mt-4 mx-auto max-w-md">
+
+      {/* Primary path — discover guests for this episode */}
+      <div className="mt-4 flex justify-center">
+        <LaunchEpisodeDiscoveryButton eirId={eirId} prominent />
+      </div>
+
+      {/* Secondary path — assign an already-known guest */}
+      <div className="mx-auto mt-5 max-w-md">
+        <div className="mb-2 flex items-center gap-2 text-[11px] text-muted-foreground">
+          <span className="h-px flex-1 bg-border/60" />
+          أو عيّن ضيفاً معروفاً
+          <span className="h-px flex-1 bg-border/60" />
+        </div>
         <AssignGuestForm
           eirId={eirId}
           guests={guestOptions}
           currentGuestId={null}
         />
       </div>
-      <div className="mt-4 flex flex-wrap items-center justify-center gap-2">
-        <Link
-          href="/admin/guests"
-          className="inline-flex items-center gap-1.5 rounded-xl border border-border/50 bg-background/40 px-3 py-1.5 text-[12px] hover:bg-background/60"
-        >
-          إدارة الضيوف
+
+      {/* Tertiary — navigate to the related registries */}
+      <div className="mt-5 flex flex-wrap items-center justify-center gap-x-4 gap-y-1 text-[11px] text-muted-foreground">
+        <Link href="/admin/guests" className="hover:text-foreground">
+          كل الضيوف
         </Link>
-        <LaunchEpisodeDiscoveryButton eirId={eirId} />
-        <Link
-          href="/admin/guest-candidates"
-          className="inline-flex items-center gap-1.5 rounded-xl border border-border/50 bg-background/40 px-3 py-1.5 text-[12px] hover:bg-background/60"
-        >
-          ترشيحات الضيوف
+        <span className="text-border">·</span>
+        <Link href="/admin/guest-candidates" className="hover:text-foreground">
+          قائمة التواصل
         </Link>
       </div>
     </div>

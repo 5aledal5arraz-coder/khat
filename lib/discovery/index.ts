@@ -1,40 +1,20 @@
 /**
- * Khat Brain Phase 5 — Hidden Guest Discovery public surface.
+ * Khat Brain — Guest Discovery shared infrastructure.
+ *
+ * The v1 discovery engine (archetype seeding → search agents → verify →
+ * rank, plus the Alpha pipeline) was retired in favour of the name-first,
+ * Wikidata-anchored v2 engine (`lib/discovery-v2/`). What remains here is the
+ * shared substrate v2 builds on: the discovery_runs / discovery_candidates
+ * CRUD + state machine, promotion to a canonical guest, and the Khat Map
+ * bridge. v2 is the single source of truth; there is no v1 anymore.
  */
-
-export {
-  seedArchetypes,
-  canTransitionRun,
-  type SeedArchetypesInput,
-  type SeedArchetypesResult,
-} from "./seed-archetypes"
-
-export {
-  runSearchAgent,
-  type DiscoverySource,
-  type SearchAgentInput,
-  type SearchResult,
-  type SearchCandidate,
-  type DiscoveryFilterContext,
-} from "./search-agents"
-
-export {
-  verifyCandidate,
-  type VerifyCandidateInput,
-  type VerifyCandidateResult,
-} from "./verify-candidate"
-
-export {
-  rankCandidate,
-  type RankCandidateInput,
-  type RankResult,
-} from "./rank-candidates"
 
 export {
   createDiscoveryRun,
   getDiscoveryRun,
   listDiscoveryRuns,
   transitionDiscoveryRun,
+  canTransitionRun,
   bumpCandidateCount,
   InvalidDiscoveryTransitionError,
   type DiscoveryRunRecord,
@@ -53,24 +33,6 @@ export {
   type CreateCandidateInput,
   type UpdateCandidateAlphaInput,
 } from "./candidates"
-
-// ─── Phase Alpha — Guest Discovery Excellence ────────────────────────
-export {
-  runAlphaPipeline,
-  classifyPerson,
-  verifyAttributes,
-  computeEditorialFit,
-  curateEvidenceBundle,
-  alphaFlagEnabled,
-  ALPHA_PIPELINE_VERSION,
-  PERSON_CLASS_THRESHOLD,
-  ATTRIBUTE_VERIFIED_THRESHOLD,
-  CLASSIFIER_VERSION,
-  ATTRIBUTE_VERIFIER_VERSION,
-  FIT_VERSION,
-  type AlphaPipelineInput,
-  type AlphaPipelineDecision,
-} from "./alpha"
 
 export type {
   DiscoveryArchetype,

@@ -138,11 +138,11 @@ export function CandidateCard({ c }: { c: V2CardData }) {
       )}
 
       <div className="mt-3 flex flex-wrap gap-2">
-        <button type="button" disabled={pending || done === "promoted"} onClick={() => start(async () => { const r = await promoteV2CandidateAction(c.id); if (r.success) setDone("promoted") })} className="inline-flex items-center gap-1 rounded-lg border border-violet-500/30 bg-violet-500/10 px-2.5 py-1 text-[11.5px] text-violet-700 hover:bg-violet-500/20 disabled:opacity-40">
-          <UserPlus className="h-3 w-3" /> {done === "promoted" ? "في قائمة المرشّحين" : "رشّح للتواصل"}
+        <button type="button" title="يضيف الشخص إلى قائمة التواصل (CRM) للمتابعة — لا يربطه بهذه الحلقة" disabled={pending || done === "promoted"} onClick={() => start(async () => { const r = await promoteV2CandidateAction(c.id); if (r.success) setDone("promoted") })} className="inline-flex items-center gap-1 rounded-lg border border-violet-500/30 bg-violet-500/10 px-2.5 py-1 text-[11.5px] text-violet-700 hover:bg-violet-500/20 disabled:opacity-40">
+          <UserPlus className="h-3 w-3" /> {done === "promoted" ? "في قائمة التواصل" : "أضِف لقائمة التواصل"}
         </button>
-        <button type="button" disabled={pending || done === "saved"} onClick={() => start(async () => { const r = await saveV2CandidateAction(c.id); if (r.success) setDone("saved") })} className="inline-flex items-center gap-1 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-2.5 py-1 text-[11.5px] text-emerald-700 hover:bg-emerald-500/20 disabled:opacity-40">
-          <Check className="h-3 w-3" /> {done === "saved" ? "محفوظ" : "احفظ للحلقة"}
+        <button type="button" title="احفظ المرشّح لمراجعته لاحقاً" disabled={pending || done === "saved"} onClick={() => start(async () => { const r = await saveV2CandidateAction(c.id); if (r.success) setDone("saved") })} className="inline-flex items-center gap-1 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-2.5 py-1 text-[11.5px] text-emerald-700 hover:bg-emerald-500/20 disabled:opacity-40">
+          <Check className="h-3 w-3" /> {done === "saved" ? "محفوظ" : "احفظ لاحقاً"}
         </button>
         <button type="button" disabled={pending || done === "rejected"} onClick={() => start(async () => { const r = await rejectV2CandidateAction(c.id); if (r.success) setDone("rejected") })} className="inline-flex items-center gap-1 rounded-lg border border-border/40 bg-background/40 px-2.5 py-1 text-[11.5px] text-muted-foreground hover:bg-muted/30 disabled:opacity-40">
           <X className="h-3 w-3" /> استبعد

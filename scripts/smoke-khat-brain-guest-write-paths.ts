@@ -40,10 +40,6 @@ import {
   type IdentityHints,
 } from "@/lib/guests/canonical"
 import { assignGuestToEpisode } from "@/lib/episodes/guests"
-import {
-  buildNoveltyCorpus,
-  noveltyPenaltyAgainstCorpus,
-} from "@/lib/discovery/novelty-corpus"
 
 const TAG = "smoke-write-paths"
 
@@ -237,107 +233,6 @@ async function caseNoDuplicates() {
   console.log(`  ✓ all three calls converged on guest ${a.guest_id.slice(0, 8)}`)
 }
 
-async function caseCrossSeasonNoveltyDecay() {
-  console.log("\nCase 9 — cross-season novelty: same-season > prior-season:")
-  // Create two seasons + one completed run in each.
-  const seasonA = `${TAG}-season-A`
-  const seasonB = `${TAG}-season-B`
-  for (const id of [seasonA, seasonB]) {
-    await db!.execute(sql`
-      INSERT INTO khat_map_seasons (id, name, season_number, status, target_episode_count, v2_mode, created_by)
-      VALUES (${id}, ${id}, NULL, 'planning', 6, 'guided', 'smoke-admin')
-      ON CONFLICT (id) DO NOTHING
-    `)
-  }
-
-  const [runA] = await db!
-    .insert(discoveryRuns)
-    .values({
-      seed_prompt: `${TAG}-runA`,
-      status: "completed",
-      season_id: seasonA,
-      completed_at: new Date(),
-    })
-    .returning({ id: discoveryRuns.id })
-  const [runB] = await db!
-    .insert(discoveryRuns)
-    .values({
-      seed_prompt: `${TAG}-runB`,
-      status: "completed",
-      season_id: seasonB,
-      completed_at: new Date(),
-    })
-    .returning({ id: discoveryRuns.id })
-
-  // Add a candidate to runA with the arc we'll test against.
-  await db!.insert(guestDiscoveryCandidates).values({
-    discovery_run_id: runA.id,
-    proposed_name: `${TAG}-arc-source-A`,
-    archetype: { id: "smoke", name: "smoke", description: "", target_signals: [], expected_traits: [] },
-    story_signals: { arcs: ["transformation_after_loss"] },
-    evidence_urls: [],
-  })
-  await db!.insert(guestDiscoveryCandidates).values({
-    discovery_run_id: runB.id,
-    proposed_name: `${TAG}-arc-source-B`,
-    archetype: { id: "smoke", name: "smoke", description: "", target_signals: [], expected_traits: [] },
-    story_signals: { arcs: ["transformation_after_loss"] },
-    evidence_urls: [],
-  })
-
-  // Build corpus from the perspective of season A (current run hypothetical).
-  const corpusA = await buildNoveltyCorpus({
-    current_run_id: "fake-current",
-    season_id: seasonA,
-  })
-  const arcWeightA = corpusA.arcs.get("transformation_after_loss") ?? 0
-  // The peak weight should be 1.0 because runA is same-season.
-  assert(arcWeightA === 1.0, `same-season arc weight should be 1.0, got ${arcWeightA}`)
-  console.log(`  ✓ same-season arc weight = 1.0`)
-
-  // From the perspective of a third season (no prior runs there), the
-  // arc is still in the corpus but with decayed weight (both runs are
-  // cross-season here).
-  const corpusFresh = await buildNoveltyCorpus({
-    current_run_id: "fake-current",
-    season_id: `${TAG}-season-C-doesnt-exist`,
-  })
-  const arcWeightFresh = corpusFresh.arcs.get("transformation_after_loss") ?? 0
-  assert(arcWeightFresh > 0, "cross-season arc should still be in corpus")
-  assert(
-    arcWeightFresh < 1.0,
-    `cross-season arc should be decayed, got ${arcWeightFresh}`,
-  )
-  console.log(
-    `  ✓ cross-season arc weight ${arcWeightFresh.toFixed(3)} < same-season 1.0`,
-  )
-
-  // Penalty math: same-season gets full 0.4, cross-season gets less.
-  const penaltySame = noveltyPenaltyAgainstCorpus({
-    arcs: ["transformation_after_loss"],
-    topics: [],
-    proposed_name: null,
-    evidence_urls: [],
-    archetype_id: null,
-    corpus: corpusA,
-  })
-  const penaltyCross = noveltyPenaltyAgainstCorpus({
-    arcs: ["transformation_after_loss"],
-    topics: [],
-    proposed_name: null,
-    evidence_urls: [],
-    archetype_id: null,
-    corpus: corpusFresh,
-  })
-  assert(
-    penaltySame > penaltyCross,
-    `same-season penalty (${penaltySame}) should exceed cross-season (${penaltyCross})`,
-  )
-  console.log(
-    `  ✓ same-season penalty=${penaltySame.toFixed(3)} > cross-season penalty=${penaltyCross.toFixed(3)}`,
-  )
-}
-
 async function caseFindMatchPureRead() {
   console.log("\nCase 10 — findGuestMatch pure-read regression:")
   const r = await findGuestMatch({ name: null })
@@ -363,11 +258,10 @@ async function main() {
   await caseSocialHandleReuse(studioGuestId)
   await caseProfileMultiSource(studioGuestId)
   await caseNoDuplicates()
-  await caseCrossSeasonNoveltyDecay()
   await caseFindMatchPureRead()
 
   await cleanup()
-  console.log("\n✅ smoke-khat-brain-guest-write-paths: all 10 cases passed")
+  console.log("\n✅ smoke-khat-brain-guest-write-paths: all cases passed")
 }
 
 main()

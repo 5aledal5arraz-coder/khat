@@ -23,14 +23,6 @@ import {
   HYBRID_TOPICS_PROMPT_VERSION,
 } from "@/lib/ai/prompts/hybrid-topics"
 import {
-  buildDiscoveryArchetypesPrompt,
-  DISCOVERY_ARCHETYPES_PROMPT_VERSION,
-} from "@/lib/ai/prompts/discovery-archetypes"
-import {
-  buildDiscoveryVerifyPrompt,
-  DISCOVERY_VERIFY_PROMPT_VERSION,
-} from "@/lib/ai/prompts/discovery-verify"
-import {
   buildStudioPackagePrompt,
   STUDIO_PACKAGE_PROMPT_VERSION,
 } from "@/lib/ai/prompts/studio-package"
@@ -245,73 +237,6 @@ describe("buildHybridTopicsPrompt", () => {
       lenses: [],
     })
     expect(built.user).toContain("foundational path — market clusters unavailable")
-  })
-})
-
-// ─── Discovery Archetypes ───────────────────────────────────────────
-
-describe("buildDiscoveryArchetypesPrompt", () => {
-  it("produces a stable snapshot with seed + editorial context", () => {
-    const built = buildDiscoveryArchetypesPrompt({
-      count: 8,
-      seedPrompt: "نريد ضيوفاً عاشوا تحولات صادقة في علاقتهم بالدين.",
-      editorialContext:
-        "خط بودكاست ليس بودكاست اتجاهات سطحي. خط يقدم محتوى عميقاً ذا قيمة دائمة.",
-    })
-    expect(built.version).toBe(DISCOVERY_ARCHETYPES_PROMPT_VERSION)
-    expect(built.system).toMatchSnapshot()
-    expect(built.user).toMatchSnapshot()
-  })
-
-  it("omits null seed prompt and editorial context cleanly", () => {
-    const built = buildDiscoveryArchetypesPrompt({ count: 5 })
-    expect(built.user).toBe("أنتج 5 نماذج بشرية. JSON فقط.")
-  })
-})
-
-// ─── Discovery Verify ───────────────────────────────────────────────
-
-describe("buildDiscoveryVerifyPrompt", () => {
-  it("produces a stable snapshot for a fixed candidate", () => {
-    const built = buildDiscoveryVerifyPrompt({
-      archetype: {
-        id: "quiet_expert",
-        name: "خبير هادئ ذو حضور صادق",
-        description: "شخص يعرف موضوعه بعمق دون أن يصرخ بمؤهلاته.",
-        target_signals: ["هدوء", "خبرة عميقة"],
-        expected_traits: ["تواضع", "صدق"],
-      },
-      proposedName: "د. سالم العنزي",
-      proposedRole: "باحث في الأنثروبولوجيا",
-      proposedCountry: "الكويت",
-      evidenceUrls: [
-        {
-          platform: "youtube",
-          url: "https://www.youtube.com/watch?v=abc",
-          title: "محاضرة عن الأنثروبولوجيا في الخليج",
-          snippet: "تأملات هادئة في علاقة الإنسان بالمكان.",
-          fetched_at: "2026-05-01T00:00:00Z",
-        },
-      ],
-    })
-    expect(built.version).toBe(DISCOVERY_VERIFY_PROMPT_VERSION)
-    expect(built.system).toMatchSnapshot()
-    expect(built.user).toMatchSnapshot()
-  })
-
-  it("handles missing evidence gracefully", () => {
-    const built = buildDiscoveryVerifyPrompt({
-      archetype: {
-        id: "x",
-        name: "y",
-        description: "z",
-        target_signals: [],
-        expected_traits: [],
-      },
-      evidenceUrls: [],
-    })
-    expect(built.user).toContain("(لا توجد أدلة)")
-    expect(built.user).toContain("الاسم: غير معروف")
   })
 })
 

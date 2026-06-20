@@ -81,7 +81,7 @@ runs the registered handler, and writes results (with lease-based stale-job recl
 self-register: `registered.ts` imports every handler in `handlers/` for its side effects;
 `registry.ts` maps `job.type → handler`. `HANDLER_TIMEOUT_MS` keys MUST match registered job
 types (a boot guard warns otherwise). Schedulers (market intel, ai-runs-sweeper) bootstrap
-from the worker on startup — no external cron. Handlers: discovery, discovery-v2, market
+from the worker on startup — no external cron. Handlers: discovery-v2, market
 intelligence/scoring, original-thinking, youtube-performance, ai-runs-sweeper.
 
 ### Khat Brain — the admin production pipeline
@@ -90,9 +90,12 @@ pipeline) drives an **Episode Intelligence Record (EIR)** through phases (`Episo
 `lib/db/schema/eir.ts`: idea → guest_discovery → guest_assigned → approved → researching →
 prepared → ready_to_record → recording → recorded → producing → ready_to_publish → published →
 analyzing → learned → archived). Key domains:
-- **Guest discovery**: `lib/discovery-v2/` (LLM proposes names → Wikidata resolves stable QIDs
-  → cross-run memory excludes known/rejected guests). `lib/discovery/` is v1 but its
-  `promote.ts` (candidate → canonical guest) is still load-bearing.
+- **Guest discovery**: `lib/discovery-v2/` is the ONLY engine (LLM proposes names → Wikidata
+  resolves stable QIDs → cross-run memory excludes known/rejected guests). The legacy v1 engine
+  was removed; `lib/discovery/` is now shared infrastructure v2 builds on (`runs.ts`,
+  `candidates.ts`, `promote.ts` candidate→canonical guest, `bridge.ts`, `voice-fingerprint.ts`).
+  Three UI launchers all converge on v2: the standalone `/admin/discovery-v2` form, season
+  Phase-B, and the EIR episode CTA. `/admin/discovery` redirects to v2.
 - **Season planning**: `lib/khat-map/` (the season wizard) → `lib/eir/` (phase transitions).
 - **Studio**: `lib/studio/` + `app/admin/studio/` — per-episode content generation (transcript →
   intelligence → ai_output → chapters → clips → website package → analysis), streamed over SSE.

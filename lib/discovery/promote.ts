@@ -185,7 +185,7 @@ async function captureVoiceSignal(
 ): Promise<void> {
   try {
     const { captureVoiceSignal: capture, buildSnapshotFromCandidate } =
-      await import("@/lib/discovery/alpha/voice-fingerprint")
+      await import("@/lib/discovery/voice-fingerprint")
     const cand = await getCandidate(candidateId)
     if (!cand) return
     let seasonId: string | null = null

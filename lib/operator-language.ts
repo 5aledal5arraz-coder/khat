@@ -52,12 +52,8 @@ export function jobStatusLabel(s: string): string {
 // ─── Job-type → operator-friendly description ────────────────────
 
 const JOB_TYPE_LABEL: Record<string, string> = {
-  // Discovery pipeline
-  "discovery.seed_archetypes": "توليد أنماط الضيوف",
-  "discovery.search_archetype": "البحث عن مرشحين",
-  "discovery.verify_candidate": "التحقق من مرشّح",
-  "discovery.rank_candidates": "الترتيب التحريري للمرشحين",
-  "discovery.cron_check": "صيانة دورية للاكتشاف",
+  // Guest discovery (v2 engine)
+  "discovery_v2.run": "اكتشاف الضيوف",
   // Market intelligence
   "market.collect": "جمع إشارات السوق",
   "market.extract": "استخراج كيانات السوق",

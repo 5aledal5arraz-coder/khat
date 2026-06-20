@@ -11,15 +11,11 @@ export const GOLDEN_SCHEMA_VERSION = "v1"
 export type EvalFeature =
   | "hybrid-topics"
   | "original-thinking"
-  | "discovery-archetypes"
-  | "discovery-verify"
   | "studio-package"
 
 export const EVAL_FEATURES: readonly EvalFeature[] = [
   "hybrid-topics",
   "original-thinking",
-  "discovery-archetypes",
-  "discovery-verify",
   "studio-package",
 ] as const
 

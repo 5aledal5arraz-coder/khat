@@ -23,8 +23,6 @@
 
 import { generateHybridTopics } from "@/lib/hybrid-topics/generate"
 import { generateOriginalTopics } from "@/lib/original-thinking/generator"
-import { seedArchetypes } from "@/lib/discovery/seed-archetypes"
-import { verifyCandidate } from "@/lib/discovery/verify-candidate"
 import { generateStudioPackage } from "@/lib/ai/studio"
 import { enableSessionBypass } from "@/lib/ai-router/rate-limit"
 import {
@@ -33,12 +31,6 @@ import {
 import {
   ORIGINAL_THINKING_PROMPT_VERSION,
 } from "@/lib/ai/prompts/original-thinking"
-import {
-  DISCOVERY_ARCHETYPES_PROMPT_VERSION,
-} from "@/lib/ai/prompts/discovery-archetypes"
-import {
-  DISCOVERY_VERIFY_PROMPT_VERSION,
-} from "@/lib/ai/prompts/discovery-verify"
 import {
   STUDIO_PACKAGE_PROMPT_VERSION,
 } from "@/lib/ai/prompts/studio-package"
@@ -67,10 +59,6 @@ export async function runGenerator(feature: EvalFeature): Promise<RunnerOutput> 
         return await runHybridTopics()
       case "original-thinking":
         return await runOriginalThinking()
-      case "discovery-archetypes":
-        return await runDiscoveryArchetypes()
-      case "discovery-verify":
-        return await runDiscoveryVerify()
       case "studio-package":
         return await runStudioPackage()
     }
@@ -121,101 +109,6 @@ async function runOriginalThinking(): Promise<RunnerOutput> {
       example: t as unknown as Record<string, unknown>,
     })),
     promptVersion: ORIGINAL_THINKING_PROMPT_VERSION,
-  }
-}
-
-// ─── Discovery Archetypes ───────────────────────────────────────────
-
-async function runDiscoveryArchetypes(): Promise<RunnerOutput> {
-  const result = await seedArchetypes({
-    seedPrompt: "ضيوف عاشوا تحولاً صادقاً في عمل أو هوية أو إيمان",
-    editorialContext:
-      "خط بودكاست ليس بودكاست اتجاهات. نبحث عن صدق نادر، خبرة هادئة، تحول حقيقي.",
-    count: 6,
-  })
-  if (!result.ok) {
-    throw new Error(`archetypes generation failed: ${result.errorMessage}`)
-  }
-  return {
-    candidates: result.archetypes.map((a, i) => ({
-      id: `gen-${i}-${a.id || slug(a.name)}`,
-      example: a as unknown as Record<string, unknown>,
-    })),
-    promptVersion: DISCOVERY_ARCHETYPES_PROMPT_VERSION,
-  }
-}
-
-// ─── Discovery Verify ───────────────────────────────────────────────
-
-async function runDiscoveryVerify(): Promise<RunnerOutput> {
-  // Synthetic candidate scenarios. Each one is a known shape so the
-  // judge can compare verification quality against the golden positives.
-  const scenarios = [
-    {
-      proposed: {
-        proposed_name: "د. خالد الراشد",
-        proposed_role: "باحث في الأنثروبولوجيا",
-        proposed_country: "السعودية",
-      },
-      evidence_urls: [
-        {
-          platform: "youtube" as const,
-          url: "https://yt.example/rashed-1",
-          title: "محاضرة عن البدو في القرن الواحد والعشرين",
-          snippet:
-            "تأمل هادئ في علاقة البدوي بالمكان بعد التحول الحضري. أمثلة محددة من رحلات ميدانية.",
-          fetched_at: new Date().toISOString(),
-        },
-      ],
-    },
-    {
-      proposed: {
-        proposed_name: "حساب @influencer_demo",
-        proposed_role: "مؤثر اجتماعي",
-        proposed_country: "الإمارات",
-      },
-      evidence_urls: [
-        {
-          platform: "youtube" as const,
-          url: "https://yt.example/inf-1",
-          title: "تحدي 24 ساعة في فندق سبع نجوم",
-          snippet: "محتوى ترفيهي ترويجي.",
-          fetched_at: new Date().toISOString(),
-        },
-      ],
-    },
-  ]
-
-  const verdicts = []
-  for (let i = 0; i < scenarios.length; i++) {
-    const sc = scenarios[i]
-    const result = await verifyCandidate({
-      proposed_name: sc.proposed.proposed_name,
-      proposed_role: sc.proposed.proposed_role,
-      proposed_country: sc.proposed.proposed_country,
-      archetype: {
-        id: "quiet_expert_witness",
-        name: "الشاهد الهادئ",
-        description: "خبير هادئ بتحول حقيقي.",
-        target_signals: ["شاهد عيان", "خبرة عميقة", "تحول"],
-        expected_traits: ["تواضع", "صدق"],
-      },
-      evidence_urls: sc.evidence_urls,
-    })
-    if (result.ok) {
-      verdicts.push({
-        id: `gen-${i}-${slug(sc.proposed.proposed_name)}`,
-        example: {
-          evidence_summary: result.evidence_summary,
-          story_signals: result.story_signals,
-          editorial_fit_score: result.editorial_fit_score,
-        } as Record<string, unknown>,
-      })
-    }
-  }
-  return {
-    candidates: verdicts,
-    promptVersion: DISCOVERY_VERIFY_PROMPT_VERSION,
   }
 }
 

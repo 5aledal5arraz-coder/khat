@@ -16,7 +16,14 @@ import { Loader2, Telescope } from "lucide-react"
 import { toast } from "@/lib/use-toast"
 import { startGuestDiscoveryForEirAction } from "./actions"
 
-export function LaunchEpisodeDiscoveryButton({ eirId }: { eirId: string }) {
+export function LaunchEpisodeDiscoveryButton({
+  eirId,
+  prominent = false,
+}: {
+  eirId: string
+  /** Render as the filled primary CTA (used as the hero action in GuestEmpty). */
+  prominent?: boolean
+}) {
   const router = useRouter()
   const [pending, start] = useTransition()
 
@@ -45,7 +52,11 @@ export function LaunchEpisodeDiscoveryButton({ eirId }: { eirId: string }) {
       type="button"
       onClick={onClick}
       disabled={pending}
-      className="inline-flex items-center gap-1.5 rounded-xl border border-violet-500/40 bg-violet-500/10 px-3 py-1.5 text-[12px] text-violet-700 hover:bg-violet-500/20 disabled:cursor-not-allowed disabled:opacity-60"
+      className={
+        prominent
+          ? "inline-flex items-center justify-center gap-2 rounded-xl bg-primary px-5 py-2.5 text-[13px] font-bold text-primary-foreground shadow-sm transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
+          : "inline-flex items-center gap-1.5 rounded-xl border border-violet-500/40 bg-violet-500/10 px-3 py-1.5 text-[12px] text-violet-700 hover:bg-violet-500/20 disabled:cursor-not-allowed disabled:opacity-60"
+      }
     >
       {pending ? (
         <>

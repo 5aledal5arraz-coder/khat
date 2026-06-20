@@ -24,10 +24,6 @@ const FEATURE_INSTRUCTIONS: Record<EvalFeature, string> = {
     "Each item is a hybrid topic with title, hook, conflict_angle, and market_inspiration. Reward depth, specificity of conflict, and unscrollable hooks. Penalise generic templates (how-to, 'unlock your', self-help clichés).",
   "original-thinking":
     "Each item is a lens-driven topic with title, lens, philosophical_frame, conflict, emotional_hook. Reward depth and lens-conflict alignment. Penalise self-help and templated wording.",
-  "discovery-archetypes":
-    "Each item is a discovery archetype with id, name, description, target_signals, expected_traits. Reward archetypes that match Khat's editorial brief (hidden expertise, transformation, honest conflict, low audience signal). Penalise generic 'thought leader' framings.",
-  "discovery-verify":
-    "Each item is a verification verdict on a candidate (evidence_summary + story_signals + editorial_fit_score). Reward verdicts that read the evidence faithfully and surface real story arcs. Penalise verdicts that score high without grounded reasons.",
   "studio-package":
     "Each item is a YouTube package (title_best, alt titles, thumbnail texts, description, keywords, hashtags). Reward titles that promise concrete value and reward specificity. Penalise clickbait, vague summaries, and missing structure.",
 }

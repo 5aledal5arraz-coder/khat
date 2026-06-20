@@ -10,9 +10,27 @@ import {
   type DiscoveryRunStatus,
   type DiscoverySourceConfig,
 } from "@/lib/db/schema/discovery"
-import { canTransitionRun } from "./seed-archetypes"
 
 type RunRow = typeof discoveryRuns.$inferSelect
+
+/** Allowed status transitions for the discovery_runs state machine. */
+const RUN_TRANSITIONS: Record<DiscoveryRunStatus, DiscoveryRunStatus[]> = {
+  pending: ["seeding", "cancelled", "failed"],
+  seeding: ["searching", "failed", "cancelled"],
+  searching: ["verifying", "failed", "cancelled"],
+  verifying: ["ranking", "failed", "cancelled"],
+  ranking: ["completed", "failed", "cancelled"],
+  completed: [],
+  failed: [],
+  cancelled: [],
+}
+
+export function canTransitionRun(
+  from: DiscoveryRunStatus,
+  to: DiscoveryRunStatus,
+): boolean {
+  return RUN_TRANSITIONS[from]?.includes(to) ?? false
+}
 
 export interface DiscoveryRunRecord {
   id: string

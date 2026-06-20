@@ -7,7 +7,7 @@
 
 import "./handlers/demo"
 import "./handlers/youtube-performance"
-import "./handlers/discovery"
+// v1 discovery engine retired — v2 (./handlers/discovery-v2) is the only engine.
 import "./handlers/discovery-v2"
 import "./handlers/market-intelligence"
 import "./handlers/market-scoring"
