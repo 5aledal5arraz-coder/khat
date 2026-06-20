@@ -1,6 +1,6 @@
 "use client"
 
-import { useCallback, useEffect, useRef, useState, useTransition } from "react"
+import { useCallback, useEffect, useState, useTransition } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import {
@@ -50,6 +50,18 @@ import {
 import type { BatchCard } from "@/lib/khat-map/v2/types"
 import type { ProductionStatusRow } from "../../actions"
 
+/** Keep the first card per topic.id — guarantees unique React keys. */
+function dedupeByTopicId(cards: PendingCard[]): PendingCard[] {
+  const seen = new Set<string>()
+  const out: PendingCard[] = []
+  for (const c of cards) {
+    if (seen.has(c.topic.id)) continue
+    seen.add(c.topic.id)
+    out.push(c)
+  }
+  return out
+}
+
 export function WizardClient({
   season,
   progress,
@@ -85,23 +97,18 @@ export function WizardClient({
   // is router.refresh()'d after a topic generation. Without this, the
   // wizard would stay frozen with whatever was in `pending` at mount
   // and the new candidates would only appear on a hard reload.
-  // Strategy: append any server-rendered card whose topic.id we don't
-  // already have locally — preserves any in-flight UI state and avoids
-  // a flash when the operator was mid-review.
-  const seenTopicIdsRef = useRef<Set<string>>(
-    new Set(initialPending.map((p) => p.topic.id)),
-  )
+  // Dedupe against the CURRENT pending state — cards added locally via
+  // generate / guest-inject / undo are already present, so a refresh must
+  // not re-append them (otherwise React renders duplicate keys). Keying off
+  // live state (rather than a separate "seen" ref) keeps the two in sync.
   useEffect(() => {
-    const incoming: PendingCard[] = []
-    for (const p of initialPending) {
-      if (!seenTopicIdsRef.current.has(p.topic.id)) {
-        seenTopicIdsRef.current.add(p.topic.id)
-        incoming.push({ topic: p.topic, guest: p.guest })
-      }
-    }
-    if (incoming.length > 0) {
-      setPending((prev) => [...prev, ...incoming])
-    }
+    setPending((prev) => {
+      const have = new Set(prev.map((c) => c.topic.id))
+      const incoming = initialPending
+        .filter((p) => !have.has(p.topic.id))
+        .map((p) => ({ topic: p.topic, guest: p.guest }))
+      return incoming.length > 0 ? [...prev, ...incoming] : prev
+    })
   }, [initialPending])
   const [accepted, setAccepted] = useState<AcceptedPair[]>(initialAccepted)
   const [acceptedCount, setAcceptedCount] = useState<number>(
@@ -149,7 +156,6 @@ export function WizardClient({
 
   const handleManualAdded = (topic: KhatMapEpisodeCandidate) => {
     setShowAddTopic(false)
-    seenTopicIdsRef.current.add(topic.id)
     setAccepted((a) => [...a, { topic, guest: null }])
     setAcceptedCount((n) => n + 1)
   }
@@ -757,10 +763,11 @@ export function WizardClient({
             </div>
           )}
 
-        {/* Card stack */}
+        {/* Card stack. Dedupe by topic.id at render as a final guarantee of
+            unique React keys, regardless of how `pending` was assembled. */}
         {pending.length > 0 && (
           <div className="mt-6 space-y-3">
-            {pending.map((card) => (
+            {dedupeByTopicId(pending).map((card) => (
               <WizardCard
                 key={card.topic.id}
                 card={card}
