@@ -10,12 +10,16 @@ import {
   Hand,
   ListChecks,
   Lock,
+  Plus,
+  Pencil,
+  Trash2,
 } from "lucide-react"
 import type {
   KhatMapSeason,
   KhatMapEpisodeCandidate,
   KhatMapGuestCandidate,
 } from "@/types/khat-map"
+import { KHAT_EPISODE_TYPE_LABEL } from "@/types/khat-map"
 import {
   acceptCardAction,
   alternativeAction,
@@ -24,12 +28,14 @@ import {
   lockSeasonTopicsAction,
   regenerateSlotAction,
   rejectCardAction,
+  removeManualTopicAction,
   switchV2ModeAction,
   undoV2DecisionAction,
   type AlternativeMode,
   type SeasonProgress,
 } from "../../actions"
 import { WizardCard, type PendingCard } from "./card"
+import { AddTopicModal } from "./add-topic-modal"
 import { AlternativeSheet } from "./alternative-sheet"
 import { UndoToast } from "./undo-toast"
 import { SeasonOverview, type AcceptedPair } from "./season-overview"
@@ -135,6 +141,34 @@ export function WizardClient({
   const [altForCard, setAltForCard] = useState<PendingCard | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [lockPending, startLock] = useTransition()
+
+  // Manual mode — operator-authored topics.
+  const [showAddTopic, setShowAddTopic] = useState(false)
+  const [removingId, setRemovingId] = useState<string | null>(null)
+  const [topicRemovePending, startTopicRemove] = useTransition()
+
+  const handleManualAdded = (topic: KhatMapEpisodeCandidate) => {
+    setShowAddTopic(false)
+    seenTopicIdsRef.current.add(topic.id)
+    setAccepted((a) => [...a, { topic, guest: null }])
+    setAcceptedCount((n) => n + 1)
+  }
+
+  const handleManualRemove = (topicId: string) => {
+    if (topicRemovePending) return
+    setError(null)
+    setRemovingId(topicId)
+    startTopicRemove(async () => {
+      const res = await removeManualTopicAction({ seasonId: season.id, topicCandidateId: topicId })
+      setRemovingId(null)
+      if (!res.success) {
+        setError(res.error)
+        return
+      }
+      setAccepted((a) => a.filter((p) => p.topic.id !== topicId))
+      setAcceptedCount((n) => Math.max(0, n - 1))
+    })
+  }
 
   const handleLockTopics = useCallback(() => {
     if (lockPending) return
@@ -601,15 +635,82 @@ export function WizardClient({
           </div>
         )}
 
-        {/* Manual mode special-case */}
-        {season.v2_mode === "manual" && pending.length === 0 && !complete && (
-          <div className="mt-8 rounded-2xl border border-dashed border-border/50 bg-card/20 p-8 text-center">
-            <Hand className="mx-auto h-6 w-6 text-muted-foreground/60" />
-            <h3 className="mt-3 text-base font-semibold">الوضع اليدوي</h3>
-            <p className="mt-1 text-[12px] text-muted-foreground">
-              أضف حلقاتك بنفسك. التوليد التلقائي معطّل في هذا الوضع.
-              (دعم الإضافة اليدوية يصل في PR4.)
-            </p>
+        {/* Manual mode — operator authors topics by hand (Phase A only;
+            after lock, Phase B per-episode discovery takes over). */}
+        {season.v2_mode === "manual" && isPhaseA && !complete && (
+          <div className="mt-6 space-y-4">
+            <div className="flex items-center justify-between gap-3">
+              <div className="flex items-center gap-2 text-sm font-semibold">
+                <Hand className="h-4 w-4 text-muted-foreground" />
+                مواضيع الموسم
+                <span className="text-[11px] font-normal text-muted-foreground tabular-nums">
+                  ({acceptedCount}/{target})
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowAddTopic(true)}
+                className="inline-flex items-center gap-1.5 rounded-lg bg-foreground px-3 py-2 text-[12px] font-bold text-background transition-opacity hover:opacity-90"
+              >
+                <Plus className="h-3.5 w-3.5" />
+                أضف موضوعاً
+              </button>
+            </div>
+
+            {accepted.length === 0 ? (
+              <div className="rounded-2xl border border-dashed border-border/50 bg-card/20 p-8 text-center">
+                <Hand className="mx-auto h-6 w-6 text-muted-foreground/60" />
+                <h3 className="mt-3 text-base font-semibold">الوضع اليدوي</h3>
+                <p className="mt-1 text-[12px] leading-relaxed text-muted-foreground">
+                  أنت تقود الموسم. اضغط «أضف موضوعاً» لبناء حلقاتك واحدةً تلو
+                  الأخرى، ثم اقفل المواضيع للانتقال إلى اختيار الضيوف.
+                </p>
+              </div>
+            ) : (
+              <ul className="space-y-2">
+                {accepted.map((p, i) => (
+                  <li
+                    key={p.topic.id}
+                    className="flex items-center gap-3 rounded-xl border border-border/50 bg-card/30 p-3"
+                  >
+                    <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-muted/50 text-[11px] font-bold tabular-nums text-muted-foreground">
+                      {i + 1}
+                    </span>
+                    <div className="min-w-0 flex-1">
+                      <div className="truncate text-[13.5px] font-semibold">
+                        {p.topic.working_title}
+                      </div>
+                      {p.topic.episode_type && (
+                        <div className="mt-0.5 text-[11px] text-muted-foreground">
+                          {KHAT_EPISODE_TYPE_LABEL[p.topic.episode_type]}
+                        </div>
+                      )}
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setEditTarget(p.topic)}
+                      className="rounded-md p-1.5 text-muted-foreground hover:bg-muted/40 hover:text-foreground"
+                      title="تعديل"
+                    >
+                      <Pencil className="h-3.5 w-3.5" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleManualRemove(p.topic.id)}
+                      disabled={topicRemovePending && removingId === p.topic.id}
+                      className="rounded-md p-1.5 text-muted-foreground hover:bg-rose-500/10 hover:text-rose-400 disabled:opacity-50"
+                      title="حذف"
+                    >
+                      {topicRemovePending && removingId === p.topic.id ? (
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      ) : (
+                        <Trash2 className="h-3.5 w-3.5" />
+                      )}
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
           </div>
         )}
 
@@ -717,6 +818,26 @@ export function WizardClient({
           pending={undoPending}
           onUndo={handleUndo}
           onDismiss={() => setUndoState(null)}
+        />
+      )}
+
+      {/* Manual mode — add-topic + edit modals */}
+      <AddTopicModal
+        open={showAddTopic}
+        seasonId={season.id}
+        onClose={() => setShowAddTopic(false)}
+        onAdded={handleManualAdded}
+      />
+      {editTarget && (
+        <EpisodeEditModal
+          open
+          seasonId={season.id}
+          topic={editTarget}
+          onClose={() => setEditTarget(null)}
+          onSaved={() => {
+            setEditTarget(null)
+            router.refresh()
+          }}
         />
       )}
 

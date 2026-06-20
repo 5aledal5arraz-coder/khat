@@ -24,6 +24,7 @@ import { EditorialControlsForm } from "./editorial-controls-form"
 const GENDER_OPTIONS: Array<{ key: KhatMapGuestGenderFilter; label: string }> = [
   { key: "male", label: "ذكر" },
   { key: "female", label: "أنثى" },
+  { key: "all", label: "كلاهما" },
 ]
 
 const NATIONALITY_OPTIONS: Array<{
@@ -32,6 +33,7 @@ const NATIONALITY_OPTIONS: Array<{
 }> = [
   { key: "kuwaiti", label: "كويتي" },
   { key: "non_kuwaiti", label: "غير كويتي" },
+  { key: "any", label: "الكل" },
 ]
 
 interface ModeOption {
@@ -83,17 +85,10 @@ export function SetupClient() {
 
   const handleStart = () => {
     setError(null)
-    // Phase A/B redesign — gender + nationality are STRICT, required.
-    // The server action enforces this too, but failing client-side gives
-    // a tighter feedback loop than waiting on a round-trip.
-    if (controls.guest_filters.gender === "all") {
-      setError("اختر جنس الضيوف قبل البدء (ذكر / أنثى).")
-      return
-    }
-    if (controls.guest_filters.nationality === "any") {
-      setError("اختر جنسية الضيوف قبل البدء (كويتي / غير كويتي).")
-      return
-    }
+    // Gender + nationality each accept a single category OR "both"
+    // (all / any = no restriction). All combinations are valid, so there's
+    // nothing to gate here — the engine applies a filter only when a
+    // specific category is chosen.
     start(async () => {
       const res = await createV2SeasonAction({
         mode,
@@ -188,23 +183,20 @@ export function SetupClient() {
         </div>
       </div>
 
-      {/* Required guest filters — gender + nationality. Top-level because
-          these become strict constraints throughout topic generation,
-          Phase A → Phase B handoff, and per-episode discovery. */}
+      {/* Guest filters — gender + nationality. Top-level because they
+          become constraints throughout topic generation, Phase A → Phase B
+          handoff, and per-episode discovery. Choose a single category or
+          "both" (no restriction). */}
       <div>
         <div className="mb-3 text-[11px] font-semibold uppercase tracking-[0.15em] text-muted-foreground">
-          فلاتر الضيوف <span className="text-rose-400/80">— مطلوبة</span>
+          فلاتر الضيوف
         </div>
         <div className="rounded-2xl border border-border/60 bg-card/30 p-4">
           <div className="grid gap-4 sm:grid-cols-2">
-            <RequiredFilterRow
+            <FilterChipsRow
               label="الجنس"
               options={GENDER_OPTIONS}
-              active={
-                controls.guest_filters.gender === "all"
-                  ? null
-                  : controls.guest_filters.gender
-              }
+              active={controls.guest_filters.gender}
               onSelect={(g) =>
                 setControls({
                   ...controls,
@@ -212,14 +204,10 @@ export function SetupClient() {
                 })
               }
             />
-            <RequiredFilterRow
+            <FilterChipsRow
               label="الجنسية"
               options={NATIONALITY_OPTIONS}
-              active={
-                controls.guest_filters.nationality === "any"
-                  ? null
-                  : controls.guest_filters.nationality
-              }
+              active={controls.guest_filters.nationality}
               onSelect={(n) =>
                 setControls({
                   ...controls,
@@ -229,8 +217,9 @@ export function SetupClient() {
             />
           </div>
           <p className="mt-3 text-[10.5px] leading-relaxed text-muted-foreground/70">
-            تُطبَّق بصرامة على كل اقتراح ضيف خلال هذا الموسم. الضيوف الذين
-            لا يمكن التحقّق من جنسهم أو جنسيّتهم يُستبعدون.
+            اختر «كلاهما / الكل» لعدم التقييد، أو حدّد فئة بعينها لتُطبَّق
+            بصرامة على كل اقتراح ضيف. الضيوف الذين لا يمكن التحقّق من الفئة
+            المطلوبة يُستبعدون.
           </p>
         </div>
       </div>
@@ -302,12 +291,12 @@ export function SetupClient() {
 }
 
 /**
- * Two-choice required filter row. `active === null` renders the chips
- * as "unset" so the operator immediately sees the missing required
- * input. Mirrors the EditorialControlsForm chip styling so the visual
- * language is consistent.
+ * Single-select chip row for a guest filter (gender / nationality). Each
+ * row offers the specific categories plus a "both / all" choice that means
+ * no restriction. Mirrors the EditorialControlsForm chip styling so the
+ * visual language is consistent.
  */
-function RequiredFilterRow<T extends string>({
+function FilterChipsRow<T extends string>({
   label,
   options,
   active,
@@ -315,18 +304,13 @@ function RequiredFilterRow<T extends string>({
 }: {
   label: string
   options: Array<{ key: T; label: string }>
-  active: T | null
+  active: T
   onSelect: (key: T) => void
 }) {
   return (
     <div>
       <div className="mb-2 text-[11px] font-semibold text-muted-foreground">
         {label}
-        {active === null && (
-          <span className="ms-2 rounded-full bg-rose-500/15 px-2 py-0.5 text-[9px] font-bold text-rose-300">
-            مطلوب
-          </span>
-        )}
       </div>
       <div className="flex flex-wrap gap-1.5">
         {options.map((o) => {

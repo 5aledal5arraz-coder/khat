@@ -250,37 +250,45 @@ export default async function SeasonWorkspacePage({
                 title: a.topic.working_title,
               }))}
           />
-          <AcceptedEpisodes
-            accepted={accepted}
-            phasesByCandidate={phasesByCandidate}
-          />
+          {/* Manual mode lists its topics in the authoring surface below. */}
+          {season.v2_mode !== "manual" && (
+            <AcceptedEpisodes
+              accepted={accepted}
+              phasesByCandidate={phasesByCandidate}
+            />
+          )}
         </div>
       )}
 
-      {/* ── Hybrid generation panel + market freshness ──────── */}
-      <div className="mx-auto max-w-7xl space-y-4 px-4">
-        <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
-          <div className="space-y-3 lg:col-span-2">
-            <HybridPanel
-              seasonId={seasonId}
-              targetEpisodes={season.v2_episode_target ?? 10}
-              aiBlocked={aiHealth.buttons_disabled}
-              aiBlockReason={
-                aiHealth.buttons_disabled ? aiHealth.banner_message : null
-              }
-            />
-            {showDiagnostics && (
-              <HybridDiagnosticsPanel readiness={hybridReadiness} />
-            )}
-          </div>
-          <div className="lg:col-span-1">
-            <MarketSignalsCard seasonId={seasonId} freshness={marketFreshness} />
+      {/* ── Hybrid generation panel + market freshness ──────────
+          AI-driven — hidden in manual mode, where the operator authors
+          every topic by hand. */}
+      {season.v2_mode !== "manual" && (
+        <div className="mx-auto max-w-7xl space-y-4 px-4">
+          <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+            <div className="space-y-3 lg:col-span-2">
+              <HybridPanel
+                seasonId={seasonId}
+                targetEpisodes={season.v2_episode_target ?? 10}
+                aiBlocked={aiHealth.buttons_disabled}
+                aiBlockReason={
+                  aiHealth.buttons_disabled ? aiHealth.banner_message : null
+                }
+              />
+              {showDiagnostics && (
+                <HybridDiagnosticsPanel readiness={hybridReadiness} />
+              )}
+            </div>
+            <div className="lg:col-span-1">
+              <MarketSignalsCard seasonId={seasonId} freshness={marketFreshness} />
+            </div>
           </div>
         </div>
-      </div>
+      )}
 
-      {/* ── Accepted episodes (fallback position when none yet) ─ */}
-      {accepted.length === 0 && (
+      {/* ── Accepted episodes (fallback position when none yet) ─
+          Manual mode renders its own authoring list inside WizardClient. */}
+      {accepted.length === 0 && season.v2_mode !== "manual" && (
         <div className="mx-auto max-w-7xl px-4">
           <AcceptedEpisodes
             accepted={accepted}
@@ -289,38 +297,54 @@ export default async function SeasonWorkspacePage({
         </div>
       )}
 
-      {/* ── Candidate review stack (existing wizard) ─────────── */}
+      {/* ── Topic surface ───────────────────────────────────────
+          Manual mode: the WizardClient IS the authoring surface (add /
+          edit / remove topics), so render it directly + always open.
+          AI modes: keep the collapsible "review new candidates" stack. */}
       <div className="mx-auto max-w-7xl px-4">
-        <details
-          className="group rounded-3xl border border-border/40 bg-card/20 p-1"
-          open={accepted.length === 0}
-          data-wizard-collapsible
-        >
-          <summary className="flex cursor-pointer select-none items-center justify-between gap-2 rounded-2xl px-4 py-3 text-[13px] font-semibold text-foreground/85 hover:bg-muted/20">
-            <span className="inline-flex items-center gap-2">
-              <Sparkles className="h-3.5 w-3.5 text-violet-300" />
-              مراجعة المرشحين الجدد
-            </span>
-            <span className="text-[10.5px] font-normal text-muted-foreground/70 group-open:hidden">
-              اضغط للفتح
-            </span>
-            <span className="hidden text-[10.5px] font-normal text-muted-foreground/70 group-open:inline">
-              اضغط للإغلاق
-            </span>
-          </summary>
-          <div className="mt-1">
-            <WizardClient
-              season={season}
-              progress={progressRes.success ? progressRes.data : null}
-              initialPending={pendingRes.success ? pendingRes.data : []}
-              initialAccepted={acceptedRes.success ? acceptedRes.data : []}
-              initialProduction={
-                productionRes.success ? productionRes.data.rows : []
-              }
-              legacyBatchEnabled={legacyBatchEnabled}
-            />
-          </div>
-        </details>
+        {season.v2_mode === "manual" ? (
+          <WizardClient
+            season={season}
+            progress={progressRes.success ? progressRes.data : null}
+            initialPending={pendingRes.success ? pendingRes.data : []}
+            initialAccepted={acceptedRes.success ? acceptedRes.data : []}
+            initialProduction={
+              productionRes.success ? productionRes.data.rows : []
+            }
+            legacyBatchEnabled={legacyBatchEnabled}
+          />
+        ) : (
+          <details
+            className="group rounded-3xl border border-border/40 bg-card/20 p-1"
+            open={accepted.length === 0}
+            data-wizard-collapsible
+          >
+            <summary className="flex cursor-pointer select-none items-center justify-between gap-2 rounded-2xl px-4 py-3 text-[13px] font-semibold text-foreground/85 hover:bg-muted/20">
+              <span className="inline-flex items-center gap-2">
+                <Sparkles className="h-3.5 w-3.5 text-violet-300" />
+                مراجعة المرشحين الجدد
+              </span>
+              <span className="text-[10.5px] font-normal text-muted-foreground/70 group-open:hidden">
+                اضغط للفتح
+              </span>
+              <span className="hidden text-[10.5px] font-normal text-muted-foreground/70 group-open:inline">
+                اضغط للإغلاق
+              </span>
+            </summary>
+            <div className="mt-1">
+              <WizardClient
+                season={season}
+                progress={progressRes.success ? progressRes.data : null}
+                initialPending={pendingRes.success ? pendingRes.data : []}
+                initialAccepted={acceptedRes.success ? acceptedRes.data : []}
+                initialProduction={
+                  productionRes.success ? productionRes.data.rows : []
+                }
+                legacyBatchEnabled={legacyBatchEnabled}
+              />
+            </div>
+          </details>
+        )}
       </div>
 
       {/* Phase B — per-episode guest discovery. Activates once topics

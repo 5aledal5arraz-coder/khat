@@ -27,6 +27,7 @@ import {
   createSeason,
   getSeasonById,
   patchSeasonControls,
+  createEpisodeCandidate,
 } from "@/lib/khat-map/core/queries"
 import {
   generateBatch,
@@ -44,12 +45,15 @@ import {
 } from "@/lib/khat-map/v2/completion"
 import type { BatchResult, BatchCard } from "@/lib/khat-map/v2/types"
 import { updateEpisodeCandidateStatus } from "@/lib/khat-map/core/queries"
+import { recordDecision } from "@/lib/khat-map/learning/decisions"
 import type {
   KhatMapV2Mode,
   KhatMapFeedbackReasonCategory,
   KhatMapEpisodeCandidate,
   KhatMapGuestCandidate,
   KhatMapEditorialControls,
+  KhatMapEpisodeType,
+  KhatMapTopicDomain,
 } from "@/types/khat-map"
 
 type Result<T> =
@@ -120,20 +124,10 @@ export async function createV2SeasonAction(input: {
     return { success: false, error: "عدد الحلقات يجب أن يكون بين 6 و 20" }
   }
 
-  // Phase A/B redesign — gender + nationality are STRICT, required filters.
-  // The setup screen exposes them as top-level inputs; reject neutral
-  // defaults here so a stray client never silently creates a season with
-  // unscoped discovery downstream.
-  const filters = input.editorial_controls?.guest_filters
-  if (!filters || filters.gender === "all") {
-    return { success: false, error: "اختر جنس الضيوف قبل البدء (ذكر / أنثى)." }
-  }
-  if (filters.nationality === "any") {
-    return {
-      success: false,
-      error: "اختر جنسية الضيوف قبل البدء (كويتي / غير كويتي).",
-    }
-  }
+  // Gender + nationality each accept a single category OR "both"
+  // (all / any). All combinations are valid: the engine applies a filter
+  // only when a specific category is chosen, and treats all/any as "no
+  // restriction". Defaults (all/any) are intentional, so nothing to reject.
 
   try {
     const next_number = await nextSeasonNumber()
@@ -162,6 +156,109 @@ export async function createV2SeasonAction(input: {
     return { success: true, data: { seasonId: season.id } }
   } catch (e) {
     return { success: false, error: errorOf(e) }
+  }
+}
+
+/**
+ * Manual-mode topic authoring. In "manual" seasons the AI generators are
+ * off — the operator writes each episode topic themselves. This creates the
+ * episode candidate and immediately approves it (manual topics aren't
+ * reviewed against AI suggestions; the operator IS the author), so it counts
+ * toward the season target and flows into the normal lock → Phase B path.
+ */
+export async function addManualTopicAction(input: {
+  seasonId: string
+  working_title: string
+  episode_type: KhatMapEpisodeType
+  topic_domain?: KhatMapTopicDomain
+  hook?: string
+  why_matters?: string
+  why_now?: string
+}): Promise<Result<{ topic: KhatMapEpisodeCandidate }>> {
+  await requireAdmin()
+  const user = await getAdminAuthUser()
+  if (!user) return { success: false, error: "غير مصرح" }
+
+  const title = input.working_title?.trim()
+  if (!title) return { success: false, error: "عنوان الموضوع مطلوب" }
+  if (!input.episode_type) return { success: false, error: "نوع الحلقة مطلوب" }
+
+  const season = await getSeasonById(input.seasonId)
+  if (!season) return { success: false, error: "الموسم غير موجود" }
+  if (season.v2_mode !== "manual") {
+    return { success: false, error: "الإضافة اليدوية متاحة فقط في الوضع اليدوي" }
+  }
+  // Only while still authoring topics (Phase A). After the topics are locked,
+  // adding more would desync the locked set from Phase B guest discovery.
+  if (season.wizard_stage && season.wizard_stage !== "topics" && season.wizard_stage !== "setup") {
+    return { success: false, error: "لا يمكن إضافة مواضيع بعد قفل المرحلة الأولى" }
+  }
+
+  try {
+    const created = await createEpisodeCandidate({
+      season_id: input.seasonId,
+      working_title: title,
+      episode_type: input.episode_type,
+      topic_domain: input.topic_domain,
+      hook: input.hook?.trim() || null,
+      why_matters: input.why_matters?.trim() || null,
+      why_now: input.why_now?.trim() || null,
+    })
+    const approved = await updateEpisodeCandidateStatus(created.id, "approved")
+    // Record an "accept" decision — season progress counts decisions (not raw
+    // candidate status), so without this the topic wouldn't count toward the
+    // target and the "lock topics" CTA would stay disabled.
+    await recordDecision({
+      season_id: input.seasonId,
+      admin_id: user.id,
+      batch_index: 0,
+      kind: "accept",
+      target: "topic",
+      topic_candidate_id: created.id,
+    })
+    revalidatePath(`/admin/khat-brain/seasons/${input.seasonId}`)
+    return { success: true, data: { topic: approved ?? created } }
+  } catch (err) {
+    console.error("[addManualTopicAction]", err)
+    return { success: false, error: err instanceof Error ? err.message : "فشل إضافة الموضوع" }
+  }
+}
+
+/**
+ * Remove a manually-authored topic (manual mode). Rejects the candidate so
+ * it drops out of the approved set + season count, while staying recoverable
+ * in the data. Only while topics are still being authored (Phase A).
+ */
+export async function removeManualTopicAction(input: {
+  seasonId: string
+  topicCandidateId: string
+}): Promise<Result<{ ok: true }>> {
+  await requireAdmin()
+  const user = await getAdminAuthUser()
+  if (!user) return { success: false, error: "غير مصرح" }
+
+  const season = await getSeasonById(input.seasonId)
+  if (!season) return { success: false, error: "الموسم غير موجود" }
+  if (season.wizard_stage && season.wizard_stage !== "topics" && season.wizard_stage !== "setup") {
+    return { success: false, error: "لا يمكن حذف المواضيع بعد قفل المرحلة الأولى" }
+  }
+
+  try {
+    await updateEpisodeCandidateStatus(input.topicCandidateId, "rejected", "حُذف يدوياً")
+    // Undo the matching accept decision so the season count drops back.
+    await db!
+      .update(khatMapSeasonDecisions)
+      .set({ undone_at: new Date() })
+      .where(and(
+        eq(khatMapSeasonDecisions.topic_candidate_id, input.topicCandidateId),
+        eq(khatMapSeasonDecisions.kind, "accept"),
+        isNull(khatMapSeasonDecisions.undone_at),
+      ))
+    revalidatePath(`/admin/khat-brain/seasons/${input.seasonId}`)
+    return { success: true, data: { ok: true } }
+  } catch (err) {
+    console.error("[removeManualTopicAction]", err)
+    return { success: false, error: err instanceof Error ? err.message : "فشل حذف الموضوع" }
   }
 }
 
