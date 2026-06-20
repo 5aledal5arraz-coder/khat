@@ -12,7 +12,7 @@
  * runs still in flight, in which case we fall back to creation order.
  */
 
-import { and, desc, eq, sql } from "drizzle-orm"
+import { and, desc, eq, inArray } from "drizzle-orm"
 import { db } from "@/lib/db"
 import {
   guestDiscoveryCandidates,
@@ -40,7 +40,7 @@ export async function listCandidatesForEpisode(
           guestDiscoveryCandidates.target_episode_candidate_id,
           input.episodeCandidateId,
         ),
-        sql`${guestDiscoveryCandidates.status} = ANY(${statuses})`,
+        inArray(guestDiscoveryCandidates.status, statuses),
       ),
     )
     .orderBy(
