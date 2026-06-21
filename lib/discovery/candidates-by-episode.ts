@@ -3,9 +3,12 @@
  *
  * The Phase B panel lists candidates that targeted a specific episode
  * candidate (via the `target_episode_candidate_id` FK populated by the
- * episode-scoped run). We surface only `proposed` candidates — the
- * verifier auto-rejects filter mismatches, and the operator has already
- * acted on `promoted` / `rejected` / `saved_for_later` ones.
+ * episode-scoped run). We surface the candidates still awaiting the
+ * operator's decision: the v2 engine writes its "accepted" tier as
+ * `under_review` and its "shortlist" tier as `proposed` (see
+ * discovery-v2 handler `decisionToStatus`), so we show BOTH. We exclude
+ * `rejected` (verifier filter mismatches) and the operator-acted
+ * `promoted` / `saved_for_later`.
  *
  * Ranking: highest `composite_score` first; ties broken by
  * `topic_fit_score`, then by recency. Both columns may be null for
@@ -30,7 +33,9 @@ export async function listCandidatesForEpisode(
   input: ListCandidatesForEpisodeInput,
 ): Promise<DiscoveryCandidateRecord[]> {
   if (!db) return []
-  const statuses = input.statuses ?? (["proposed"] as DiscoveryCandidateStatus[])
+  const statuses =
+    input.statuses ??
+    (["under_review", "proposed"] as DiscoveryCandidateStatus[])
   const rows = await db
     .select()
     .from(guestDiscoveryCandidates)

@@ -564,6 +564,23 @@ export async function assignDiscoveredGuestToEpisodeAction(input: {
       })
       .where(eq(khatMapEpisodeCandidates.id, input.episodeCandidateId))
 
+    // Also link the canonical guest to the EIR (the production record) and
+    // advance its phase. Without this, "assign to this episode" wires the
+    // season candidate but leaves EIR.guest_id NULL, so the episode stays
+    // in `guest_discovery` and preparation remains blocked. The candidate
+    // carries its eir_id once it has walked into an EIR.
+    const [epc] = await db
+      .select({ eir_id: khatMapEpisodeCandidates.eir_id })
+      .from(khatMapEpisodeCandidates)
+      .where(eq(khatMapEpisodeCandidates.id, input.episodeCandidateId))
+      .limit(1)
+    if (epc?.eir_id) {
+      const { assignEirGuestAction } = await import(
+        "@/app/admin/khat-brain/episodes/[eirId]/actions"
+      )
+      await assignEirGuestAction(epc.eir_id, promotion.guest_id)
+    }
+
     // Compute season completion: every approved episode must now have
     // a suggested guest. When that holds, advance to "complete".
     const approved = await db
@@ -1696,7 +1713,9 @@ export async function listSeasonProductionStatusAction(
               release_date: ep.release_date ? String(ep.release_date) : null,
               view_count: ep.view_count ?? null,
               status: ep.status ?? null,
-              href: `/admin/episodes/${ep.slug}`,
+              // The episode detail route resolves by UUID id, not slug —
+              // using the slug here 404s.
+              href: `/admin/episodes/${ep.id}`,
             }
           : null,
       }
