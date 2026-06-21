@@ -15,11 +15,12 @@ import { useState } from "react"
 import { useRoomState, useRoomMarkers } from "@/app/admin/preparation/[id]/room/contexts"
 import { cn } from "@/lib/utils"
 import type { LiveV2Snapshot } from "@/lib/recording-v2/load"
-import type { PrepV2Question, SectionKind } from "@/lib/preparation/v2/types"
+import type { PrepV2Question, PrepV2Payload, SectionKind } from "@/lib/preparation/v2/types"
 import type { SessionMarkerType } from "@/types/collaboration"
 import {
   Circle, Film, Quote, Volume2, Scissors, AlertTriangle,
   Star, RotateCcw, Coffee, Flag, Loader2, Trash2,
+  Camera, Clapperboard, Sparkles, Zap, BookOpen, ChevronDown,
 } from "lucide-react"
 import { Empty } from "../../../components/ui-kit"
 import { RoomNotesPanel } from "./room-notes-panel"
@@ -217,6 +218,8 @@ export function ParticipantRoomView({
   const { room } = useRoomState()
   const prep = initial.preparation.prep_v2
   const isDirector = role === "director"
+  const isPhotographer = role === "photographer"
+  const isEditor = role === "editor"
 
   if (!prep || !prep.episode_sections?.length) {
     return (
@@ -252,9 +255,12 @@ export function ParticipantRoomView({
           />
           {STATUS_AR[status] ?? status}
         </span>
-        <span className="text-[11px] text-muted-foreground tabular-nums">
-          القسم {idx + 1} / {sections.length}
-        </span>
+        <div className="flex items-center gap-3">
+          <EnergyDots level={room?.energy_level ?? 3} />
+          <span className="text-[11px] text-muted-foreground tabular-nums">
+            القسم {idx + 1} / {sections.length}
+          </span>
+        </div>
       </div>
 
       {/* Active section */}
@@ -265,7 +271,7 @@ export function ParticipantRoomView({
         <p className="mt-1 text-[13px] leading-relaxed text-foreground/90">
           {section.intent}
         </p>
-        {isDirector && (
+        {(isDirector || isPhotographer) && (
           <div className="mt-2 flex flex-wrap gap-2 text-[10.5px] text-muted-foreground">
             <span className="rounded-full border border-border/50 px-2 py-0.5">
               المشاعر المستهدفة: {section.target_emotion}
@@ -351,8 +357,61 @@ export function ParticipantRoomView({
         </div>
       )}
 
+      {/* Photographer: visual / framing focus */}
+      {isPhotographer && prep.director_guidance && (
+        <div className="rounded-2xl border border-sky-500/25 bg-sky-500/5 p-4">
+          <div className="mb-2 inline-flex items-center gap-1.5 text-[11px] font-semibold text-sky-700">
+            <Camera className="h-3 w-3" /> دليل التصوير
+          </div>
+          <GuidanceList
+            icon={<Quote className="h-3 w-3" />}
+            label="لقطات أولوية"
+            items={prep.director_guidance.shot_priorities}
+          />
+          <GuidanceList
+            icon={<Volume2 className="h-3 w-3" />}
+            label="لحظات الصمت — ثبات الكاميرا"
+            items={prep.director_guidance.silence_moments}
+          />
+          {prep.sensitive_zones?.length > 0 && (
+            <GuidanceList
+              icon={<AlertTriangle className="h-3 w-3 text-amber-600" />}
+              label="مناطق حسّاسة — انتبه للتأطير"
+              items={prep.sensitive_zones}
+            />
+          )}
+        </div>
+      )}
+
+      {/* Editor: post-production / clip focus */}
+      {isEditor && (
+        <div className="rounded-2xl border border-fuchsia-500/25 bg-fuchsia-500/5 p-4">
+          <div className="mb-2 inline-flex items-center gap-1.5 text-[11px] font-semibold text-fuchsia-700">
+            <Clapperboard className="h-3 w-3" /> دليل المونتاج
+          </div>
+          {prep.director_guidance && (
+            <GuidanceList
+              icon={<Scissors className="h-3 w-3" />}
+              label="تحذيرات القطع"
+              items={prep.director_guidance.cut_warnings}
+            />
+          )}
+          <GuidanceList
+            icon={<Sparkles className="h-3 w-3" />}
+            label="مقاطع محتملة (أسئلة مفصلية)"
+            items={prep.question_bank
+              .filter((q) => q.priority === "must_ask")
+              .slice(0, 4)
+              .map((q) => q.text)}
+          />
+        </div>
+      )}
+
       {/* Director: live feed of the moments flagged this session */}
       {isDirector && <TeamMarkerFeed canDelete />}
+
+      {/* Reference material — episode backbone, available to every role */}
+      <MaterialsPanel prep={prep} />
 
       {/* Team notes — any participant posts; the host sees + marks them seen */}
       <RoomNotesPanel sectionKey={section.kind} role={role} />
@@ -382,6 +441,108 @@ function GuidanceList({
             className="list-disc text-[11.5px] leading-relaxed text-foreground/85"
           >
             {it}
+          </li>
+        ))}
+      </ul>
+    </div>
+  )
+}
+
+/** Live room-energy indicator (0–5), set by the host, shown to everyone. */
+function EnergyDots({ level }: { level: number }) {
+  const n = Math.max(0, Math.min(5, level))
+  return (
+    <span
+      className="inline-flex items-center gap-1 text-[10.5px] text-muted-foreground"
+      title="مستوى الطاقة"
+    >
+      <Zap className="h-3 w-3 text-amber-500" />
+      <span className="inline-flex gap-0.5">
+        {Array.from({ length: 5 }).map((_, i) => (
+          <span
+            key={i}
+            className={cn(
+              "h-1.5 w-1.5 rounded-full",
+              i < n ? "bg-amber-500" : "bg-muted-foreground/25",
+            )}
+          />
+        ))}
+      </span>
+    </span>
+  )
+}
+
+/** Collapsible reference panel — the episode backbone (thesis, axes, openings/closings). */
+function MaterialsPanel({ prep }: { prep: PrepV2Payload }) {
+  const [open, setOpen] = useState(false)
+  const hasContent =
+    !!prep.thesis ||
+    prep.axes_of_tension?.length > 0 ||
+    prep.opening_options?.length > 0 ||
+    prep.closing_options?.length > 0
+  if (!hasContent) return null
+
+  return (
+    <div className="rounded-2xl border border-border/40 bg-card/30">
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        className="flex w-full items-center justify-between p-3 text-[11px] font-semibold text-muted-foreground"
+      >
+        <span className="inline-flex items-center gap-1.5">
+          <BookOpen className="h-3 w-3" /> مواد ومراجع الحلقة
+        </span>
+        <ChevronDown className={cn("h-3.5 w-3.5 transition", open && "rotate-180")} />
+      </button>
+      {open && (
+        <div className="space-y-3 px-4 pb-4">
+          {prep.thesis && (
+            <div>
+              <div className="mb-1 text-[10.5px] font-semibold text-muted-foreground">
+                الأطروحة
+              </div>
+              <p className="text-[12.5px] leading-relaxed text-foreground/90">
+                {prep.thesis}
+              </p>
+            </div>
+          )}
+          {prep.axes_of_tension?.length > 0 && (
+            <GuidanceList
+              icon={<Zap className="h-3 w-3" />}
+              label="محاور التوتر"
+              items={prep.axes_of_tension}
+            />
+          )}
+          {prep.opening_options?.length > 0 && (
+            <OptionList label="خيارات الافتتاح" options={prep.opening_options} />
+          )}
+          {prep.closing_options?.length > 0 && (
+            <OptionList label="خيارات الختام" options={prep.closing_options} />
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
+function OptionList({
+  label,
+  options,
+}: {
+  label: string
+  options: { approach: string; text: string }[]
+}) {
+  return (
+    <div>
+      <div className="mb-1 text-[10.5px] font-semibold text-muted-foreground">{label}</div>
+      <ul className="space-y-1">
+        {options.map((o, i) => (
+          <li
+            key={i}
+            className="rounded-lg border border-border/40 bg-card/40 px-2.5 py-1.5 text-[12px] leading-relaxed"
+          >
+            <span className="font-medium text-foreground/70">{o.approach}: </span>
+            {o.text}
           </li>
         ))}
       </ul>

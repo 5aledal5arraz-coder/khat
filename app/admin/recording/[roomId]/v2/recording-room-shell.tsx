@@ -22,7 +22,8 @@ import { LiveV2Client } from "./live-v2-client"
 import { ParticipantRoomView, TeamMarkerFeed } from "./participant-room-view"
 import { RoomNotesPanel } from "./room-notes-panel"
 import type { LiveV2Snapshot } from "@/lib/recording-v2/load"
-import { Loader2, Users, Wifi, WifiOff } from "lucide-react"
+import { Loader2, Users, Wifi, WifiOff, Zap } from "lucide-react"
+import { cn } from "@/lib/utils"
 
 export function RecordingRoomShell({
   initial,
@@ -58,7 +59,8 @@ function RoomShellInner({
   roomId: string
 }) {
   const { status: connStatus } = useRoomConnection()
-  const { joinRoom, leaveRoom, myParticipant, participants } = useRoomState()
+  const { joinRoom, leaveRoom, myParticipant, participants, room, updateEnergy } =
+    useRoomState()
   const autoJoinAttempted = useRef(false)
 
   // Auto-join once the SSE connection is live (mirrors the collab room).
@@ -94,6 +96,9 @@ function RoomShellInner({
         connStatus={connStatus}
         online={participants.filter((p) => p.is_online).length}
         joinedAs={role ?? null}
+        energy={room?.energy_level ?? 3}
+        canSetEnergy={isHostOrOperator}
+        onSetEnergy={updateEnergy}
       />
       {isHostOrOperator ? (
         <>
@@ -121,10 +126,16 @@ function PresenceStrip({
   connStatus,
   online,
   joinedAs,
+  energy,
+  canSetEnergy,
+  onSetEnergy,
 }: {
   connStatus: string
   online: number
   joinedAs: string | null
+  energy: number
+  canSetEnergy: boolean
+  onSetEnergy: (level: number) => void
 }) {
   const connected = connStatus === "connected"
   const connecting = connStatus === "connecting" || connStatus === "reconnecting"
@@ -140,6 +151,11 @@ function PresenceStrip({
             </span>
           )}
         </span>
+        <EnergyControl
+          level={energy}
+          interactive={canSetEnergy}
+          onSet={onSetEnergy}
+        />
         <span
           className={
             "inline-flex items-center gap-1 " +
@@ -161,5 +177,53 @@ function PresenceStrip({
         </span>
       </div>
     </div>
+  )
+}
+
+/**
+ * Room energy (0–5). The host clicks to set it; everyone else sees it
+ * read-only. Changes broadcast over SSE (room_update) so all views sync.
+ */
+function EnergyControl({
+  level,
+  interactive,
+  onSet,
+}: {
+  level: number
+  interactive: boolean
+  onSet: (level: number) => void
+}) {
+  const n = Math.max(0, Math.min(5, level))
+  return (
+    <span
+      className="inline-flex items-center gap-1 text-[10.5px] text-muted-foreground"
+      title="مستوى الطاقة"
+    >
+      <Zap className="h-3 w-3 text-amber-500" />
+      <span className="inline-flex gap-0.5">
+        {Array.from({ length: 5 }).map((_, i) =>
+          interactive ? (
+            <button
+              key={i}
+              type="button"
+              onClick={() => onSet(i + 1)}
+              aria-label={`ضبط الطاقة على ${i + 1}`}
+              className={cn(
+                "h-2 w-2 rounded-full transition",
+                i < n ? "bg-amber-500" : "bg-muted-foreground/25 hover:bg-amber-500/40",
+              )}
+            />
+          ) : (
+            <span
+              key={i}
+              className={cn(
+                "h-2 w-2 rounded-full",
+                i < n ? "bg-amber-500" : "bg-muted-foreground/25",
+              )}
+            />
+          ),
+        )}
+      </span>
+    </span>
   )
 }
