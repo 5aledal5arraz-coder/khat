@@ -19,7 +19,7 @@
 
 import { useMemo, useRef, useState, useTransition } from "react"
 import { Empty } from "../../../components/ui-kit"
-import { ChevronLeft, ChevronRight, Check, Circle } from "lucide-react"
+import { ChevronLeft, ChevronRight, Check, Circle, Download } from "lucide-react"
 import type { LiveV2Marker, LiveV2Snapshot } from "@/lib/recording-v2/load"
 import {
   QUICK_MARKER_GROUPS,
@@ -240,6 +240,11 @@ export function LiveV2Client({ initial }: { initial: LiveV2Snapshot }) {
         currentSectionIndex={sectionIndex}
       />
 
+      {/* ── Session-ended: export all markers as CSV ─────────────── */}
+      {status === "ended" && (
+        <SessionEndedExport roomId={room.id} markerCount={markers.length} />
+      )}
+
       {/* ── Quick markers — directly under the timeline so they're the
           easiest thing to reach during a take (tap → pin lands on the
           timeline right above). The most time-critical action. ───────── */}
@@ -281,6 +286,40 @@ export function LiveV2Client({ initial }: { initial: LiveV2Snapshot }) {
 
       {/* ── Director notes ───────────────────────────────────────── */}
       <DirectorNotesPanel value={notes} onChange={onNotesChange} />
+    </div>
+  )
+}
+
+// ─── SessionEndedExport ───────────────────────────────────────────────
+
+function SessionEndedExport({
+  roomId,
+  markerCount,
+}: {
+  roomId: string
+  markerCount: number
+}) {
+  const hasMarkers = markerCount > 0
+  return (
+    <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-emerald-500/30 bg-emerald-500/5 p-4">
+      <div>
+        <div className="text-[13px] font-semibold text-emerald-700">انتهى التسجيل</div>
+        <div className="text-[11.5px] text-muted-foreground">
+          {hasMarkers
+            ? `${markerCount} علامة جاهزة للتصدير`
+            : "لا توجد علامات لتصديرها"}
+        </div>
+      </div>
+      <a
+        href={`/api/admin/recording/${roomId}/markers/export`}
+        aria-disabled={!hasMarkers}
+        className={
+          "inline-flex items-center gap-1.5 rounded-xl border border-emerald-500/40 bg-emerald-500/10 px-4 py-2 text-[13px] font-semibold text-emerald-700 transition hover:bg-emerald-500/20 " +
+          (hasMarkers ? "" : "pointer-events-none opacity-40")
+        }
+      >
+        <Download className="h-4 w-4" /> تصدير العلامات (CSV)
+      </a>
     </div>
   )
 }
