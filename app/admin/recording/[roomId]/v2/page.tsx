@@ -15,9 +15,9 @@
 import { notFound } from "next/navigation"
 import Link from "next/link"
 import { ArrowLeft, Brain } from "lucide-react"
-import { requireAdmin } from "@/lib/api-utils"
+import { requireAdmin, getAdminAuthUser } from "@/lib/api-utils"
 import { loadLiveV2 } from "@/lib/recording-v2/load"
-import { LiveV2Client } from "./live-v2-client"
+import { RecordingRoomShell } from "./recording-room-shell"
 
 export const dynamic = "force-dynamic"
 
@@ -27,9 +27,11 @@ export default async function RecordingV2Page({
   params: Promise<{ roomId: string }>
 }) {
   await requireAdmin()
+  const user = await getAdminAuthUser()
   const { roomId } = await params
   const snapshot = await loadLiveV2(roomId)
   if (!snapshot) notFound()
+  const userName = user?.email?.split("@")[0] ?? "operator"
 
   // UX-3b — when this room is linked to an EIR, surface a one-click
   // jump to the Episode Workspace's Recording tab so operators have a
@@ -66,7 +68,7 @@ export default async function RecordingV2Page({
         </div>
       </header>
 
-      <LiveV2Client initial={snapshot} />
+      <RecordingRoomShell initial={snapshot} userName={userName} />
     </div>
   )
 }

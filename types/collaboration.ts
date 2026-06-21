@@ -132,6 +132,13 @@ export interface CollaborationRoom {
   energy_level: number
   active_card_id: string | null
   host_notes: string
+  /**
+   * prep_v2 live section pointer — which section the host is currently
+   * driving. Broadcast over the `room_update` SSE event so all participants
+   * follow along. Mirrors the schema columns of the same name.
+   */
+  current_section_key: string | null
+  current_section_index: number | null
   recording_started_at: string | null
   recording_ended_at: string | null
   recording_paused_at: string | null
