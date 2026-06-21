@@ -240,6 +240,11 @@ export function LiveV2Client({ initial }: { initial: LiveV2Snapshot }) {
         currentSectionIndex={sectionIndex}
       />
 
+      {/* ── Quick markers — directly under the timeline so they're the
+          easiest thing to reach during a take (tap → pin lands on the
+          timeline right above). The most time-critical action. ───────── */}
+      <QuickTagsPanel onTag={tag} disabled={status === "waiting"} markers={markers} />
+
       {/* ── Compact episode/status strip ─────────────────────────── */}
       <RoomStatusPanel
         status={status}
@@ -264,18 +269,15 @@ export function LiveV2Client({ initial }: { initial: LiveV2Snapshot }) {
         </div>
       )}
 
-      {/* ── Mid row: section questions + quick tags ──────────────── */}
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-12">
-        <SectionQuestions
-          legacy={!prep.prep_v2}
-          legacyQuestions={prep.legacy_questions}
-          currentSection={currentSection}
-          questions={currentSectionQuestions}
-          completedIds={completedQuestionIds}
-          onToggleDone={toggleQuestionDone}
-        />
-        <QuickTagsPanel onTag={tag} disabled={status === "waiting"} markers={markers} />
-      </div>
+      {/* ── Section questions (full width) ───────────────────────── */}
+      <SectionQuestions
+        legacy={!prep.prep_v2}
+        legacyQuestions={prep.legacy_questions}
+        currentSection={currentSection}
+        questions={currentSectionQuestions}
+        completedIds={completedQuestionIds}
+        onToggleDone={toggleQuestionDone}
+      />
 
       {/* ── Director notes ───────────────────────────────────────── */}
       <DirectorNotesPanel value={notes} onChange={onNotesChange} />
@@ -407,7 +409,7 @@ function SectionQuestions(props: {
 }) {
   if (props.legacy) {
     return (
-      <div className="rounded-2xl border border-border/40 bg-background/40 p-4 lg:col-span-8">
+      <div className="rounded-2xl border border-border/40 bg-background/40 p-4">
         <div className="mb-2 text-[10.5px] uppercase tracking-wider text-muted-foreground">
           أسئلة (نسخة قديمة)
         </div>
@@ -430,7 +432,7 @@ function SectionQuestions(props: {
   }
   const doneCount = props.questions.filter((q) => props.completedIds.has(q.id)).length
   return (
-    <div className="rounded-2xl border border-border/40 bg-background/40 p-4 lg:col-span-8">
+    <div className="rounded-2xl border border-border/40 bg-background/40 p-4">
       <div className="mb-2 flex items-baseline justify-between">
         <div className="text-[10.5px] uppercase tracking-wider text-muted-foreground">
           أسئلة القسم
@@ -536,12 +538,14 @@ function QuickTagsPanel(props: {
   markers: LiveV2Marker[]
 }) {
   return (
-    <div className="rounded-2xl border border-border/40 bg-background/40 p-4 lg:col-span-4">
+    <div className="rounded-2xl border border-border/40 bg-background/40 p-4">
       <div className="mb-3 text-[10.5px] uppercase tracking-wider text-muted-foreground">
         علامات سريعة
       </div>
 
-      <div className="space-y-3">
+      {/* The 3 groups sit side by side on wide screens (a marker toolbar
+          under the timeline); they stack on narrow screens. */}
+      <div className="grid grid-cols-1 gap-x-5 gap-y-3 sm:grid-cols-3">
         {QUICK_MARKER_GROUPS.map((group) => (
           <div key={group.key}>
             <div className="mb-1.5 text-[9.5px] font-semibold uppercase tracking-wider text-muted-foreground/70">
@@ -571,32 +575,31 @@ function QuickTagsPanel(props: {
         ))}
       </div>
 
-      <div className="mt-4 text-[10.5px] uppercase tracking-wider text-muted-foreground">
-        آخر العلامات
-      </div>
-      {props.markers.length === 0 ? (
-        <Empty text="لم تُسجّل علامات بعد." />
-      ) : (
-        <ul className="mt-1 space-y-1.5">
-          {props.markers.slice(0, 8).map((m) => {
-            const st = markerStyle(m.marker_type)
-            const Icon = st.icon
-            return (
-              <li
-                key={m.id}
-                className={"flex items-center justify-between gap-2 rounded-lg border border-border/40 px-2 py-1.5 text-[11px] " + st.soft}
-              >
-                <span className={"inline-flex items-center gap-1.5 font-medium " + st.text}>
-                  <Icon className="h-3 w-3" />
-                  {st.label}
+      {/* Recent markers — compact horizontal chips so the panel stays short. */}
+      {props.markers.length > 0 && (
+        <div className="mt-4 border-t border-border/30 pt-3">
+          <div className="mb-1.5 text-[10.5px] uppercase tracking-wider text-muted-foreground">
+            آخر العلامات
+          </div>
+          <div className="flex flex-wrap gap-1.5">
+            {props.markers.slice(0, 12).map((m) => {
+              const st = markerStyle(m.marker_type)
+              const Icon = st.icon
+              return (
+                <span
+                  key={m.id}
+                  className={"inline-flex items-center gap-1.5 rounded-full border border-border/40 px-2 py-1 text-[10.5px] " + st.soft}
+                >
+                  <Icon className={"h-3 w-3 " + st.text} />
+                  <span className={"font-medium " + st.text}>{st.label}</span>
+                  <span className="font-mono text-foreground/70 tabular-nums" dir="ltr">
+                    {formatPrecise(m.recording_ms)}
+                  </span>
                 </span>
-                <span className="font-mono text-[10.5px] text-foreground/70 tabular-nums" dir="ltr">
-                  {formatPrecise(m.recording_ms)}
-                </span>
-              </li>
-            )
-          })}
-        </ul>
+              )
+            })}
+          </div>
+        </div>
       )}
     </div>
   )
