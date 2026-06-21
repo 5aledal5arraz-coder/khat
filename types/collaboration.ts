@@ -192,7 +192,10 @@ export interface RoomSessionMarker {
 export interface RoomCardNote {
   id: string
   room_id: string
-  card_id: string
+  /** null for prep_v2 rooms (no interview cards) — see section_key instead. */
+  card_id: string | null
+  /** prep_v2 section (SectionKind) this note is attached to, or null if room-global. */
+  section_key: string | null
   author_id: string
   content: string
   note_type: CardNoteType
@@ -348,7 +351,10 @@ export interface CreateSessionMarkerInput {
 }
 
 export interface CreateRoomNoteInput {
-  card_id: string
+  /** Attach to an interview card (V1) … */
+  card_id?: string
+  /** … or a prep_v2 section (V2). Both null ⇒ room-global note. */
+  section_key?: string
   content: string
   note_type?: CardNoteType
   priority?: NotePriority

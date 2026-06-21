@@ -245,9 +245,12 @@ export const roomCardNotes = pgTable("room_card_notes", {
   room_id: text("room_id")
     .notNull()
     .references(() => collaborationRooms.id, { onDelete: "cascade" }),
+  // Nullable: prep_v2 rooms have no interview cards, so notes attach to a
+  // prep_v2 section (section_key) or are room-global (both null) instead.
   card_id: text("card_id")
-    .notNull()
     .references(() => interviewCards.id, { onDelete: "cascade" }),
+  // prep_v2 section this note is attached to (SectionKind), or null.
+  section_key: text("section_key"),
   author_id: text("author_id")
     .notNull()
     .references(() => roomParticipants.id, { onDelete: "cascade" }),

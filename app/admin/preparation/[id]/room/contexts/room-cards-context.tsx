@@ -44,14 +44,23 @@ interface RoomCardsContextValue {
   activeCardId: string | null
   getCardState: (cardId: string) => RoomCardState | undefined
   getCardNotes: (cardId: string) => RoomCardNote[]
+  getSectionNotes: (sectionKey: string) => RoomCardNote[]
   unseenNotesCount: number
 
   // Card state actions (host/director)
   markCard: (cardId: string, status: RoomCardStatus) => Promise<void>
   pinCard: (cardId: string, pinned: boolean) => Promise<void>
 
-  // Note actions (all roles except viewer)
+  // Note actions (any participant)
   addNote: (cardId: string, content: string, noteType?: CardNoteType, priority?: NotePriority) => Promise<void>
+  /** Generalized note post — attach to a card, a prep_v2 section, or neither (room-global). */
+  postNote: (input: {
+    card_id?: string
+    section_key?: string
+    content: string
+    note_type?: CardNoteType
+    priority?: NotePriority
+  }) => Promise<void>
   markNoteSeen: (noteId: string) => Promise<void>
 }
 
@@ -164,6 +173,11 @@ export function RoomCardsProvider({
     [notes],
   )
 
+  const getSectionNotes = useCallback(
+    (sectionKey: string) => notes.filter((n) => n.section_key === sectionKey),
+    [notes],
+  )
+
   const unseenNotesCount = useMemo(
     () => notes.filter((n) => !n.is_seen_by_host && !n.resolved_at).length,
     [notes],
@@ -195,20 +209,38 @@ export function RoomCardsProvider({
     [apiBase],
   )
 
+  const postNote = useCallback(
+    async (input: {
+      card_id?: string
+      section_key?: string
+      content: string
+      note_type?: CardNoteType
+      priority?: NotePriority
+    }) => {
+      await fetch(`${apiBase}/notes`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "x-requested-with": "khat" },
+        body: JSON.stringify({
+          card_id: input.card_id,
+          section_key: input.section_key,
+          content: input.content,
+          note_type: input.note_type ?? "normal",
+          priority: input.priority ?? "medium",
+        }),
+      })
+    },
+    [apiBase],
+  )
+
+  // V1 compatibility — card-scoped note (delegates to postNote).
   const addNote = useCallback(
-    async (
+    (
       cardId: string,
       content: string,
       noteType: CardNoteType = "normal",
       priority: NotePriority = "medium",
-    ) => {
-      await fetch(`${apiBase}/notes`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "x-requested-with": "khat" },
-        body: JSON.stringify({ card_id: cardId, content, note_type: noteType, priority }),
-      })
-    },
-    [apiBase],
+    ) => postNote({ card_id: cardId, content, note_type: noteType, priority }),
+    [postNote],
   )
 
   const markNoteSeen = useCallback(
@@ -231,10 +263,12 @@ export function RoomCardsProvider({
         activeCardId,
         getCardState,
         getCardNotes,
+        getSectionNotes,
         unseenNotesCount,
         markCard,
         pinCard,
         addNote,
+        postNote,
         markNoteSeen,
       }}
     >

@@ -22,6 +22,7 @@ import {
   Star, RotateCcw, Coffee, Flag, Loader2, Trash2,
 } from "lucide-react"
 import { Empty } from "../../../components/ui-kit"
+import { RoomNotesPanel } from "./room-notes-panel"
 
 const SECTION_LABEL_AR: Record<SectionKind, string> = {
   opening: "افتتاحية",
@@ -352,6 +353,9 @@ export function ParticipantRoomView({
 
       {/* Director: live feed of the moments flagged this session */}
       {isDirector && <TeamMarkerFeed canDelete />}
+
+      {/* Team notes — any participant posts; the host sees + marks them seen */}
+      <RoomNotesPanel sectionKey={section.kind} role={role} />
     </div>
   )
 }

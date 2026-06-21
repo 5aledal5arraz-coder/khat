@@ -17,19 +17,19 @@ export async function POST(
   try {
     const body = await req.json()
 
-    if (!body.card_id || typeof body.card_id !== "string") {
-      return validationErrorResponse("card_id مطلوب")
-    }
     if (!body.content || typeof body.content !== "string") {
       return validationErrorResponse("المحتوى مطلوب")
     }
+    // Notes attach to an interview card (V1) or a prep_v2 section (V2);
+    // both absent ⇒ a room-global note. card_id/section_key are optional.
 
     // Verify user is a participant (any role)
     const roomAuth = await requireRoomRole(roomId, auth.user.id, ROOM_ACTION_ROLES.add_note)
     if (roomAuth.error !== null) return errorResponse(roomAuth.error, 403)
 
     const note = await createNote(roomId, roomAuth.participant.id, {
-      card_id: body.card_id,
+      card_id: typeof body.card_id === "string" ? body.card_id : undefined,
+      section_key: typeof body.section_key === "string" ? body.section_key : undefined,
       content: body.content.trim().slice(0, 1000),
       note_type: body.note_type,
       priority: body.priority,

@@ -431,7 +431,8 @@ export async function createNote(
     .insert(roomCardNotes)
     .values({
       room_id: roomId,
-      card_id: input.card_id,
+      card_id: input.card_id ?? null,
+      section_key: input.section_key ?? null,
       author_id: authorId,
       content: input.content,
       note_type: input.note_type ?? "normal",

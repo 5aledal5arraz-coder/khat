@@ -15,6 +15,13 @@
       "when": 1781909004065,
       "tag": "0001_goofy_dust",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1782067289971,
+      "tag": "0002_easy_martin_li",
+      "breakpoints": true
     }
   ]
 }

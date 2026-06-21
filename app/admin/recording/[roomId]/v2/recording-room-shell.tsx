@@ -20,6 +20,7 @@ import {
 } from "@/app/admin/preparation/[id]/room/contexts"
 import { LiveV2Client } from "./live-v2-client"
 import { ParticipantRoomView, TeamMarkerFeed } from "./participant-room-view"
+import { RoomNotesPanel } from "./room-notes-panel"
 import type { LiveV2Snapshot } from "@/lib/recording-v2/load"
 import { Loader2, Users, Wifi, WifiOff } from "lucide-react"
 
@@ -97,8 +98,9 @@ function RoomShellInner({
       {isHostOrOperator ? (
         <>
           <LiveV2Client initial={initial} />
-          {/* Live feed of director-flagged moments, overlaid on the cockpit */}
+          {/* Live overlays on the cockpit: director markers + incoming team notes */}
           <TeamMarkerFeed floating />
+          <RoomNotesPanel floating role="host" />
         </>
       ) : (
         <ParticipantRoomView initial={initial} role={role} />
