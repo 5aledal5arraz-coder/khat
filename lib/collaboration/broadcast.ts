@@ -4,13 +4,24 @@
  * Each room has a Set of connected writable streams.
  * REST mutation routes call broadcast() after writes;
  * the SSE endpoint (/stream) registers writers via subscribe().
+ *
+ * The registry is pinned to `globalThis` so every route-handler module
+ * instance shares ONE bus. Without this, Next.js dev (and any setup that
+ * compiles route handlers into separate module graphs) gives /stream and the
+ * mutation routes their own `rooms` Map — the SSE writer is registered in one
+ * copy while broadcasts land in another, so live events never arrive. Pinning
+ * to the global guarantees a single instance across the process.
  */
 
 import type { RoomEvent } from "@/types/collaboration"
 
 type Writer = WritableStreamDefaultWriter<Uint8Array>
 
-const rooms = new Map<string, Set<Writer>>()
+const globalForBus = globalThis as unknown as {
+  __khatRoomBus?: Map<string, Set<Writer>>
+}
+const rooms: Map<string, Set<Writer>> =
+  globalForBus.__khatRoomBus ?? (globalForBus.__khatRoomBus = new Map())
 const encoder = new TextEncoder()
 
 /** Subscribe a writer to a room. Returns unsubscribe function. */
