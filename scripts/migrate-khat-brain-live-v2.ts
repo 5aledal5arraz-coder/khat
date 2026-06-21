@@ -7,9 +7,11 @@
  *   - room_session_markers (CREATE IF NOT EXISTS — table is in the
  *     drizzle schema but missing in some local DBs; this migration
  *     installs it idempotently so live v2 has somewhere to write)
- *   - room_session_markers.marker_type CHECK extended to include the
- *     V2 vocabulary (deep_moment, emotional, cut, highlight, revisit,
- *     quote) alongside the legacy values.
+ *   - room_session_markers.marker_type CHECK covering the unified
+ *     quick-marker taxonomy (clip, quote, highlight, cut, retake,
+ *     tech_issue, break_start, break_end, chapter) plus legacy values.
+ *     (The canonical CHECK now also lives in scripts/post-schema.sql so
+ *     it is re-applied on every deploy as the taxonomy evolves.)
  *
  *   npm run migrate:khat-brain-live-v2
  */
@@ -74,15 +76,17 @@ async function main() {
     `,
   )
   await exec(
-    "marker_type CHECK (legacy + V2 vocab)",
+    "marker_type CHECK (unified taxonomy + legacy)",
     `
     DO $$ BEGIN
       ALTER TABLE room_session_markers ADD CONSTRAINT chk_room_session_markers_type
         CHECK (marker_type IN (
+          -- canonical quick-marker taxonomy (lib/recording-v2/marker-types.ts)
+          'clip','quote','highlight','cut','retake','tech_issue',
+          'break_start','break_end','chapter',
           -- legacy values still in production data
-          'episode_started','break','retake','important','technical_issue','custom',
-          -- live v2 vocabulary
-          'deep_moment','emotional','cut','highlight','revisit','quote'
+          'deep_moment','emotional','revisit','episode_started','break',
+          'important','technical_issue','custom'
         ));
     EXCEPTION WHEN duplicate_object THEN NULL;
     END $$;

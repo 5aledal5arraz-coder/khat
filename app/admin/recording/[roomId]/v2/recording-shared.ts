@@ -7,15 +7,23 @@
  */
 
 import {
-  Sparkles,
-  Heart,
-  Star,
+  Film,
   Quote,
-  Bookmark,
+  Star,
   Scissors,
+  RotateCcw,
+  AlertTriangle,
+  Coffee,
+  Play,
+  Flag,
   type LucideIcon,
 } from "lucide-react"
 import type { SectionKind } from "@/lib/preparation/v2/types"
+import {
+  QUICK_MARKER_TYPES,
+  QUICK_MARKER_META,
+  type QuickMarkerType,
+} from "@/lib/recording-v2/marker-types"
 
 export const SECTION_LABEL_AR: Record<SectionKind, string> = {
   opening: "افتتاحية",
@@ -37,19 +45,52 @@ export interface MarkerStyle {
   soft: string
 }
 
+// Icon + colour layer over the canonical taxonomy (marker-types.ts). Keeping
+// the strings here means the timeline pins, recent-markers list, quick-tag
+// buttons, and director bar all render a given marker identically.
+const MARKER_ICON: Record<QuickMarkerType, LucideIcon> = {
+  clip: Film,
+  quote: Quote,
+  highlight: Star,
+  cut: Scissors,
+  retake: RotateCcw,
+  tech_issue: AlertTriangle,
+  break_start: Coffee,
+  break_end: Play,
+  chapter: Flag,
+}
+
+const MARKER_COLOR: Record<QuickMarkerType, { dot: string; text: string; soft: string }> = {
+  clip: { dot: "bg-sky-500", text: "text-sky-700", soft: "bg-sky-500/10" },
+  quote: { dot: "bg-violet-500", text: "text-violet-700", soft: "bg-violet-500/10" },
+  highlight: { dot: "bg-amber-500", text: "text-amber-700", soft: "bg-amber-500/10" },
+  cut: { dot: "bg-rose-500", text: "text-rose-700", soft: "bg-rose-500/10" },
+  retake: { dot: "bg-orange-500", text: "text-orange-700", soft: "bg-orange-500/10" },
+  tech_issue: { dot: "bg-red-600", text: "text-red-700", soft: "bg-red-500/10" },
+  break_start: { dot: "bg-slate-500", text: "text-slate-700", soft: "bg-slate-500/10" },
+  break_end: { dot: "bg-emerald-500", text: "text-emerald-700", soft: "bg-emerald-500/10" },
+  chapter: { dot: "bg-indigo-500", text: "text-indigo-700", soft: "bg-indigo-500/10" },
+}
+
 /**
  * One visual identity per marker type, reused by the quick-tag buttons, the
- * recent-markers list, and the timeline pins so a "quote" looks the same
- * everywhere it appears.
+ * recent-markers list, the director bar, and the timeline pins so a "quote"
+ * looks the same everywhere it appears.
  */
-export const MARKER_STYLE: Record<string, MarkerStyle> = {
-  deep_moment: { label: "عميق", icon: Sparkles, dot: "bg-violet-500", text: "text-violet-700", soft: "bg-violet-500/10" },
-  emotional: { label: "عاطفي", icon: Heart, dot: "bg-rose-500", text: "text-rose-700", soft: "bg-rose-500/10" },
-  highlight: { label: "إبراز", icon: Star, dot: "bg-amber-500", text: "text-amber-700", soft: "bg-amber-500/10" },
-  quote: { label: "اقتباس", icon: Quote, dot: "bg-sky-500", text: "text-sky-700", soft: "bg-sky-500/10" },
-  revisit: { label: "راجع لاحقاً", icon: Bookmark, dot: "bg-emerald-500", text: "text-emerald-700", soft: "bg-emerald-500/10" },
-  cut: { label: "قطع", icon: Scissors, dot: "bg-slate-500", text: "text-slate-700", soft: "bg-slate-500/10" },
-}
+// Cast is safe: every QUICK_MARKER_TYPE has an entry in MARKER_ICON +
+// MARKER_COLOR above, and markerStyle() falls back for any unknown/legacy key.
+export const MARKER_STYLE: Record<string, MarkerStyle> = Object.fromEntries(
+  QUICK_MARKER_TYPES.map((t) => [
+    t,
+    {
+      label: QUICK_MARKER_META[t].label,
+      icon: MARKER_ICON[t],
+      dot: MARKER_COLOR[t].dot,
+      text: MARKER_COLOR[t].text,
+      soft: MARKER_COLOR[t].soft,
+    } satisfies MarkerStyle,
+  ]),
+) as Record<string, MarkerStyle>
 
 export function markerStyle(type: string): MarkerStyle {
   return (

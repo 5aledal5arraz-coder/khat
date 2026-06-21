@@ -7,8 +7,9 @@
  *     clips, website_package, deep_analysis, guest_intelligence) with
  *     status, last-generated time, and an "open in legacy Studio" link
  *     for editing
- *   - markers strip (deep_moment / emotional / cut / highlight / quote /
- *     revisit) when room is linked
+ *   - markers strip (unified quick-marker taxonomy — clip / quote /
+ *     highlight / cut / retake / tech_issue / break_start / break_end /
+ *     chapter) rendered via the shared markerStyle() when room is linked
  *   - push-log preview
  *   - "Open full Studio" fallback link
  *   - empty state when no session yet, with explicit recording-required
@@ -21,15 +22,12 @@ import {
   ExternalLink,
   AlertTriangle,
   Sparkles,
-  Heart,
-  Scissors,
   Star,
-  Bookmark,
-  Quote,
   CheckCircle2,
   Clock,
   XCircle,
 } from "lucide-react"
+import { markerStyle } from "@/app/admin/recording/[roomId]/v2/recording-shared"
 import type {
   WorkspaceStudioSummary,
   WorkspaceMarker,
@@ -267,15 +265,6 @@ function iconFor(status: string) {
 
 // ─── Markers strip ────────────────────────────────────────────────────
 
-const MARKER_ICON: Record<string, typeof Sparkles> = {
-  deep_moment: Sparkles,
-  emotional: Heart,
-  cut: Scissors,
-  highlight: Star,
-  revisit: Bookmark,
-  quote: Quote,
-}
-
 function MarkersStrip({ markers }: { markers: WorkspaceMarker[] }) {
   return (
     <div className="rounded-2xl border border-border/40 bg-card/30 p-3">
@@ -284,17 +273,17 @@ function MarkersStrip({ markers }: { markers: WorkspaceMarker[] }) {
       </div>
       <div className="flex flex-wrap gap-2">
         {markers.map((m) => {
-          const Icon = MARKER_ICON[m.marker_type] ?? Star
+          const st = markerStyle(m.marker_type)
+          const Icon = st.icon
           return (
             <span
               key={m.id}
-              className="inline-flex items-center gap-1 rounded-full border border-border/40 bg-background/40 px-2 py-0.5 text-[10.5px]"
-              dir="ltr"
+              className={"inline-flex items-center gap-1 rounded-full border border-border/40 px-2 py-0.5 text-[10.5px] " + st.soft}
               title={m.section_key ? `section: ${m.section_key}` : undefined}
             >
-              <Icon className="h-3 w-3 text-violet-700" />
-              <span className="text-muted-foreground/80">{m.marker_type}</span>
-              <span className="font-mono text-foreground/85">
+              <Icon className={"h-3 w-3 " + st.text} />
+              <span className={"font-medium " + st.text}>{st.label}</span>
+              <span className="font-mono text-foreground/85" dir="ltr">
                 {formatHms(m.recording_ms)}
               </span>
             </span>

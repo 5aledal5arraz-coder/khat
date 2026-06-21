@@ -231,11 +231,12 @@ export const roomSessionMarkers = pgTable("room_session_markers", {
     .references(() => roomParticipants.id, { onDelete: "cascade" }),
 
   marker_type: text("marker_type").notNull(),
-  // Allowed values (CHECK constraint enforced at DB level; see
-  // scripts/migrate-khat-brain-live-v2.ts):
-  //   legacy: episode_started | break | retake | important |
-  //           technical_issue | custom
-  //   v2:     deep_moment | emotional | cut | highlight | revisit | quote
+  // Canonical quick-marker taxonomy (single vocabulary for host/director/editor)
+  // — see lib/recording-v2/marker-types.ts (QUICK_MARKER_TYPES):
+  //   content: clip | quote | highlight
+  //   editing: cut | retake | tech_issue
+  //   flow:    break_start | break_end | chapter
+  // (Older rows may carry legacy values; they render via a fallback style.)
   label: text("label").notNull(),
   note: text("note"),
   recording_ms: integer("recording_ms").notNull(), // ms offset from recording start

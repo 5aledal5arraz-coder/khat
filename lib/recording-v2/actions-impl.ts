@@ -17,16 +17,10 @@ import {
 } from "@/lib/db/schema/collaboration"
 import { syncEirFromRoomStatus } from "@/lib/khat-brain"
 import type { SectionKind } from "@/lib/preparation/v2/types"
+import { QUICK_MARKER_TYPES, type QuickMarkerType } from "./marker-types"
 
-export const ALLOWED_MARKER_TYPES = [
-  "deep_moment",
-  "emotional",
-  "cut",
-  "highlight",
-  "revisit",
-  "quote",
-] as const
-export type LiveV2MarkerType = (typeof ALLOWED_MARKER_TYPES)[number]
+export const ALLOWED_MARKER_TYPES = QUICK_MARKER_TYPES
+export type LiveV2MarkerType = QuickMarkerType
 
 // ─── Helpers ──────────────────────────────────────────────────────────
 

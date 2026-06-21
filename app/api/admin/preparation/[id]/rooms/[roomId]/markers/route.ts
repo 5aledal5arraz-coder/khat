@@ -3,11 +3,7 @@ import { requireRole, errorResponse } from "@/lib/api-utils"
 import { createMarker, deleteMarker, getMarkersByRoom } from "@/lib/collaboration/rooms"
 import { requireRoomRole, ROOM_ACTION_ROLES } from "@/lib/collaboration/permissions"
 import { broadcast } from "@/lib/collaboration/broadcast"
-import type { SessionMarkerType } from "@/types/collaboration"
-
-const VALID_MARKER_TYPES: SessionMarkerType[] = [
-  "episode_started", "break", "retake", "important", "technical_issue", "custom",
-]
+import { isQuickMarkerType } from "@/lib/recording-v2/marker-types"
 
 /** GET — list all markers for a room */
 export async function GET(
@@ -43,7 +39,7 @@ export async function POST(
 
     const body = await req.json()
 
-    if (!body.marker_type || !VALID_MARKER_TYPES.includes(body.marker_type)) {
+    if (!body.marker_type || typeof body.marker_type !== "string" || !isQuickMarkerType(body.marker_type)) {
       return errorResponse("نوع العلامة غير صالح", 422)
     }
     if (!body.label || typeof body.label !== "string") {

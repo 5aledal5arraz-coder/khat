@@ -444,8 +444,8 @@ async function caseMarkersStrip(adminId: string, eirId: string, roomId: string) 
     {
       room_id: roomId,
       author_id: participant.id,
-      marker_type: "deep_moment",
-      label: "deep moment",
+      marker_type: "clip",
+      label: "short clip",
       recording_ms: 60_000,
       section_key: "emotional_peak",
     } as never,
@@ -460,9 +460,9 @@ async function caseMarkersStrip(adminId: string, eirId: string, roomId: string) 
   ])
   const markers = await getMarkersForRoom(roomId, 30)
   assert(markers.length === 2, `expected 2 markers, got ${markers.length}`)
-  assert(markers[0].marker_type === "highlight" || markers[0].marker_type === "deep_moment", "marker type wrong")
+  assert(markers[0].marker_type === "highlight" || markers[0].marker_type === "clip", "marker type wrong")
   assert(typeof markers[0].recording_ms === "number", "recording_ms missing")
-  console.log(`  ✓ 2 markers surfaced (deep_moment + highlight)`)
+  console.log(`  ✓ 2 markers surfaced (clip + highlight)`)
 }
 
 async function casePublishLinkedEpisode(eirId: string) {

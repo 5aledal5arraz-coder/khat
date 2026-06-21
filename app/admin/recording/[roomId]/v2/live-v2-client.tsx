@@ -19,19 +19,13 @@
 
 import { useMemo, useRef, useState, useTransition } from "react"
 import { Empty } from "../../../components/ui-kit"
-import {
-  ChevronLeft,
-  ChevronRight,
-  Check,
-  Circle,
-  Sparkles,
-  Heart,
-  Scissors,
-  Star,
-  Bookmark,
-  Quote,
-} from "lucide-react"
+import { ChevronLeft, ChevronRight, Check, Circle } from "lucide-react"
 import type { LiveV2Marker, LiveV2Snapshot } from "@/lib/recording-v2/load"
+import {
+  QUICK_MARKER_GROUPS,
+  QUICK_MARKER_META,
+  type QuickMarkerType,
+} from "@/lib/recording-v2/marker-types"
 import {
   startTimerAction,
   pauseTimerAction,
@@ -191,10 +185,7 @@ export function LiveV2Client({ initial }: { initial: LiveV2Snapshot }) {
   }
 
   // ── Marker dispatch ──────────────────────────────────────────────
-  async function tag(
-    type: "deep_moment" | "emotional" | "highlight" | "quote" | "revisit" | "cut",
-    label: string,
-  ) {
+  async function tag(type: QuickMarkerType, label: string) {
     const fallbackMs = nowElapsed()
     const r = await createMarkerAction({
       roomId: room.id,
@@ -540,36 +531,47 @@ function SectionQuestions(props: {
 // ─── QuickTagsPanel ───────────────────────────────────────────────────
 
 function QuickTagsPanel(props: {
-  onTag: (type: "deep_moment" | "emotional" | "highlight" | "quote" | "revisit" | "cut", label: string) => void
+  onTag: (type: QuickMarkerType, label: string) => void
   disabled?: boolean
   markers: LiveV2Marker[]
 }) {
   return (
     <div className="rounded-2xl border border-border/40 bg-background/40 p-4 lg:col-span-4">
-      <div className="mb-2 text-[10.5px] uppercase tracking-wider text-muted-foreground">
+      <div className="mb-3 text-[10.5px] uppercase tracking-wider text-muted-foreground">
         علامات سريعة
       </div>
-      <div className="grid grid-cols-2 gap-2">
-        <TagBtn icon={<Sparkles />} disabled={props.disabled} onClick={() => props.onTag("deep_moment", "deep moment")}>
-          عميق
-        </TagBtn>
-        <TagBtn icon={<Heart />} disabled={props.disabled} onClick={() => props.onTag("emotional", "emotional moment")}>
-          عاطفي
-        </TagBtn>
-        <TagBtn icon={<Star />} disabled={props.disabled} onClick={() => props.onTag("highlight", "highlight")}>
-          إبراز
-        </TagBtn>
-        <TagBtn icon={<Quote />} disabled={props.disabled} onClick={() => props.onTag("quote", "quote")}>
-          اقتباس
-        </TagBtn>
-        <TagBtn icon={<Bookmark />} disabled={props.disabled} onClick={() => props.onTag("revisit", "revisit later")}>
-          راجع لاحقاً
-        </TagBtn>
-        <TagBtn icon={<Scissors />} disabled={props.disabled} onClick={() => props.onTag("cut", "cut")}>
-          قطع
-        </TagBtn>
+
+      <div className="space-y-3">
+        {QUICK_MARKER_GROUPS.map((group) => (
+          <div key={group.key}>
+            <div className="mb-1.5 text-[9.5px] font-semibold uppercase tracking-wider text-muted-foreground/70">
+              {group.label}
+            </div>
+            <div className="grid grid-cols-3 gap-1.5">
+              {group.types.map((type) => {
+                const st = markerStyle(type)
+                const meta = QUICK_MARKER_META[type]
+                const Icon = st.icon
+                return (
+                  <button
+                    key={type}
+                    type="button"
+                    disabled={props.disabled}
+                    onClick={() => props.onTag(type, meta.defaultLabel)}
+                    title={meta.hint}
+                    className="flex flex-col items-center justify-center gap-1 rounded-xl border border-border/40 bg-background/50 px-1.5 py-2 text-[10.5px] font-medium text-foreground/85 transition hover:border-border/70 hover:bg-background/80 disabled:cursor-not-allowed disabled:opacity-40"
+                  >
+                    <Icon className={"h-4 w-4 " + st.text} />
+                    <span className="leading-tight text-center">{meta.label}</span>
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+        ))}
       </div>
-      <div className="mt-3 text-[10.5px] uppercase tracking-wider text-muted-foreground">
+
+      <div className="mt-4 text-[10.5px] uppercase tracking-wider text-muted-foreground">
         آخر العلامات
       </div>
       {props.markers.length === 0 ? (
@@ -638,25 +640,6 @@ function IconBtn(props: {
       className="rounded-lg border border-border/50 p-1.5 text-muted-foreground hover:bg-background/60 disabled:opacity-40"
     >
       <span className="block h-3 w-3">{props.icon}</span>
-    </button>
-  )
-}
-
-function TagBtn(props: {
-  icon: React.ReactNode
-  onClick: () => void
-  disabled?: boolean
-  children: React.ReactNode
-}) {
-  return (
-    <button
-      type="button"
-      onClick={props.onClick}
-      disabled={props.disabled}
-      className="inline-flex items-center justify-center gap-1.5 rounded-xl border border-border/40 bg-background/40 px-3 py-2 text-[12px] font-medium text-foreground/85 transition hover:bg-violet-500/10 hover:text-violet-700 disabled:opacity-40"
-    >
-      <span className="h-3.5 w-3.5">{props.icon}</span>
-      {props.children}
     </button>
   )
 }

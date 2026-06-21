@@ -16,14 +16,19 @@ import { useRoomState, useRoomMarkers } from "@/app/admin/preparation/[id]/room/
 import { cn } from "@/lib/utils"
 import type { LiveV2Snapshot } from "@/lib/recording-v2/load"
 import type { PrepV2Question, PrepV2Payload, SectionKind } from "@/lib/preparation/v2/types"
-import type { SessionMarkerType } from "@/types/collaboration"
 import {
   Circle, Film, Quote, Volume2, Scissors, AlertTriangle,
-  Star, RotateCcw, Coffee, Flag, Loader2, Trash2,
+  Flag, Loader2, Trash2,
   Camera, Clapperboard, Sparkles, Zap, BookOpen, ChevronDown, Check,
 } from "lucide-react"
 import { Empty } from "../../../components/ui-kit"
 import { RoomNotesPanel } from "./room-notes-panel"
+import { markerStyle } from "./recording-shared"
+import {
+  DIRECTOR_MARKER_TYPES,
+  QUICK_MARKER_META,
+  type QuickMarkerType,
+} from "@/lib/recording-v2/marker-types"
 
 const SECTION_LABEL_AR: Record<SectionKind, string> = {
   opening: "افتتاحية",
@@ -41,42 +46,24 @@ const STATUS_AR: Record<string, string> = {
   ended: "انتهى",
 }
 
-// Operational session markers — the director's live "flag a moment" set.
-// (Content markers like deep_moment/quote/cut belong to the host cockpit.)
-const MARKER_META: Record<SessionMarkerType, { label: string; icon: React.ReactNode }> = {
-  episode_started: { label: "بدء التسجيل", icon: <Flag className="h-3.5 w-3.5" /> },
-  important: { label: "مهم", icon: <Star className="h-3.5 w-3.5" /> },
-  retake: { label: "إعادة", icon: <RotateCcw className="h-3.5 w-3.5" /> },
-  break: { label: "استراحة", icon: <Coffee className="h-3.5 w-3.5" /> },
-  technical_issue: { label: "مشكلة تقنية", icon: <AlertTriangle className="h-3.5 w-3.5" /> },
-  custom: { label: "علامة", icon: <Flag className="h-3.5 w-3.5" /> },
-}
-
-const OPERATIONAL_TYPES = new Set<string>(Object.keys(MARKER_META))
-
-// The buttons the director taps to flag a live moment.
-const DIRECTOR_MARKER_BUTTONS: { type: SessionMarkerType; tone: string }[] = [
-  { type: "important", tone: "border-emerald-500/40 text-emerald-700 hover:bg-emerald-500/10" },
-  { type: "retake", tone: "border-amber-500/40 text-amber-700 hover:bg-amber-500/10" },
-  { type: "technical_issue", tone: "border-rose-500/40 text-rose-700 hover:bg-rose-500/10" },
-  { type: "break", tone: "border-border/60 text-muted-foreground hover:bg-muted/40" },
-]
-
 function formatClock(ms: number): string {
   const s = Math.max(0, Math.floor(ms / 1000))
   return `${Math.floor(s / 60)}:${(s % 60).toString().padStart(2, "0")}`
 }
 
-/** Director-only toolbar to flag a live moment; broadcasts over SSE to the room. */
+/**
+ * Director-only toolbar to flag a live moment; broadcasts over SSE to the room.
+ * Draws from the shared quick-marker taxonomy (director-relevant subset).
+ */
 function DirectorMarkerBar({ disabled }: { disabled: boolean }) {
   const { addMarker } = useRoomMarkers()
-  const [pending, setPending] = useState<SessionMarkerType | null>(null)
+  const [pending, setPending] = useState<QuickMarkerType | null>(null)
 
-  const flag = async (type: SessionMarkerType) => {
+  const flag = async (type: QuickMarkerType) => {
     if (disabled || pending) return
     setPending(type)
     try {
-      await addMarker(type, MARKER_META[type].label)
+      await addMarker(type, QUICK_MARKER_META[type].defaultLabel)
     } finally {
       setPending(null)
     }
@@ -88,25 +75,30 @@ function DirectorMarkerBar({ disabled }: { disabled: boolean }) {
         <Flag className="h-3 w-3" /> وضع علامة مباشرة
       </div>
       <div className="flex flex-wrap gap-2">
-        {DIRECTOR_MARKER_BUTTONS.map(({ type, tone }) => (
-          <button
-            key={type}
-            type="button"
-            onClick={() => void flag(type)}
-            disabled={disabled || pending !== null}
-            className={cn(
-              "inline-flex items-center gap-1.5 rounded-full border bg-card/60 px-3 py-1.5 text-[12px] font-medium transition disabled:cursor-not-allowed disabled:opacity-40",
-              tone,
-            )}
-          >
-            {pending === type ? (
-              <Loader2 className="h-3.5 w-3.5 animate-spin" />
-            ) : (
-              MARKER_META[type].icon
-            )}
-            {MARKER_META[type].label}
-          </button>
-        ))}
+        {DIRECTOR_MARKER_TYPES.map((type) => {
+          const st = markerStyle(type)
+          const Icon = st.icon
+          return (
+            <button
+              key={type}
+              type="button"
+              onClick={() => void flag(type)}
+              disabled={disabled || pending !== null}
+              title={QUICK_MARKER_META[type].hint}
+              className={cn(
+                "inline-flex items-center gap-1.5 rounded-full border border-border/50 bg-card/60 px-3 py-1.5 text-[12px] font-medium transition hover:bg-card disabled:cursor-not-allowed disabled:opacity-40",
+                st.text,
+              )}
+            >
+              {pending === type ? (
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              ) : (
+                <Icon className="h-3.5 w-3.5" />
+              )}
+              {QUICK_MARKER_META[type].label}
+            </button>
+          )
+        })}
       </div>
       {disabled && (
         <p className="mt-2 text-[10.5px] text-muted-foreground">
@@ -118,9 +110,9 @@ function DirectorMarkerBar({ disabled }: { disabled: boolean }) {
 }
 
 /**
- * Live feed of operational team markers, shared by the director view (inline,
- * deletable) and the host cockpit (floating overlay). Content markers stay in
- * the cockpit — this feed shows only the room-broadcast operational set.
+ * Live feed of session markers, shared by the director view (inline, deletable)
+ * and the host cockpit (floating overlay). Shows every room-broadcast marker on
+ * the shared taxonomy so the whole team sees flagged moments as they happen.
  */
 export function TeamMarkerFeed({
   floating = false,
@@ -132,21 +124,19 @@ export function TeamMarkerFeed({
   const { markers, deleteMarker } = useRoomMarkers()
   const [open, setOpen] = useState(true)
 
-  const ops = markers
-    .filter((m) => OPERATIONAL_TYPES.has(m.marker_type))
-    .slice()
-    .reverse()
+  const ops = markers.slice().reverse()
 
   const renderItem = (m: (typeof ops)[number]) => {
-    const meta = MARKER_META[m.marker_type as SessionMarkerType] ?? MARKER_META.custom
+    const st = markerStyle(m.marker_type)
+    const Icon = st.icon
     return (
       <li
         key={m.id}
         className="flex items-center justify-between gap-2 rounded-lg border border-border/40 bg-card/40 px-2.5 py-1.5 text-[12px]"
       >
-        <span className="inline-flex items-center gap-1.5 text-foreground/90">
-          {meta.icon}
-          <span className="font-medium">{m.label || meta.label}</span>
+        <span className={"inline-flex items-center gap-1.5 " + st.text}>
+          <Icon className="h-3.5 w-3.5" />
+          <span className="font-medium">{st.label}</span>
         </span>
         <span className="inline-flex items-center gap-2">
           <time className="tabular-nums text-[10.5px] text-muted-foreground" dir="ltr">

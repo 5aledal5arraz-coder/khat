@@ -314,7 +314,12 @@ async function caseSchemaMigration() {
     WHERE t.relname = 'room_session_markers' AND c.contype = 'c'
   `)
   const checkText = (checks.rows as Array<{ def: string }>).map((r) => r.def).join(" ")
-  for (const v of ["deep_moment", "emotional", "highlight", "quote", "cut", "revisit"]) {
+  // all 9 canonical types + a couple of legacy values (kept for old rows)
+  for (const v of [
+    "clip", "quote", "highlight", "cut", "retake", "tech_issue",
+    "break_start", "break_end", "chapter",
+    "deep_moment", "custom",
+  ]) {
     assert(checkText.includes(v), `marker_type CHECK missing value: ${v}`)
   }
   console.log(`  ✓ collaboration_rooms columns + marker_type vocab in place`)
@@ -450,8 +455,8 @@ async function caseQuickTags(ctx: RoomCtx, adminId: string, email: string) {
   await new Promise((r) => setTimeout(r, 80))
   const a = await createMarker({
     roomId: ctx.roomId,
-    markerType: "deep_moment",
-    label: "deep moment",
+    markerType: "highlight",
+    label: "highlight",
     authorUserId: adminId,
     authorDisplayName: email.split("@")[0],
   })
@@ -474,7 +479,7 @@ async function caseQuickTags(ctx: RoomCtx, adminId: string, email: string) {
     .orderBy(asc(roomSessionMarkers.created_at))
   assert(rows.length >= 2, `expected ≥2 markers, got ${rows.length}`)
   const first = rows[0]
-  assert(first.marker_type === "deep_moment", `first marker_type: ${first.marker_type}`)
+  assert(first.marker_type === "highlight", `first marker_type: ${first.marker_type}`)
   assert(first.section_key === "emotional_peak", `first section_key: ${first.section_key}`)
   assert(first.recording_ms > 0, `first recording_ms <= 0: ${first.recording_ms}`)
   const second = rows[1]
@@ -488,7 +493,7 @@ async function caseQuickTags(ctx: RoomCtx, adminId: string, email: string) {
 
   await endTimer(ctx.roomId)
   await resetTimer(ctx.roomId)
-  console.log(`  ✓ markers persisted (deep_moment + quote) with section_key + recording_ms`)
+  console.log(`  ✓ markers persisted (highlight + quote) with section_key + recording_ms`)
 }
 
 async function caseEirMappingStillWorks(adminId: string) {

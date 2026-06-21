@@ -596,6 +596,25 @@ DO $$ BEGIN
 EXCEPTION WHEN duplicate_object THEN NULL;
 END $$;
 
+-- CHECK constraints: room_session_markers.marker_type — unified quick-marker
+-- taxonomy (lib/recording-v2/marker-types.ts), also validated in the app layer.
+-- DROP+ADD (not the skip-if-exists pattern above) so re-applying this file
+-- UPDATES the allowed set as the taxonomy evolves. Legacy values are kept so
+-- existing production rows remain valid.
+ALTER TABLE room_session_markers DROP CONSTRAINT IF EXISTS chk_room_session_markers_type;
+DO $$ BEGIN
+  ALTER TABLE room_session_markers ADD CONSTRAINT chk_room_session_markers_type
+    CHECK (marker_type IN (
+      -- canonical taxonomy
+      'clip', 'quote', 'highlight', 'cut', 'retake', 'tech_issue',
+      'break_start', 'break_end', 'chapter',
+      -- legacy values (pre-unification rows)
+      'deep_moment', 'emotional', 'revisit', 'episode_started', 'break',
+      'important', 'technical_issue', 'custom'
+    ));
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
+
 -- CHECK constraints: room_card_notes.priority
 DO $$ BEGIN
   ALTER TABLE room_card_notes ADD CONSTRAINT chk_room_card_notes_priority
