@@ -20,9 +20,12 @@ import {
   setCurrentSection,
   saveDirectorNotes,
   createMarker,
+  toggleQuestionDone,
   ALLOWED_MARKER_TYPES,
   type LiveV2MarkerType,
 } from "@/lib/recording-v2/actions-impl"
+import { getRoomById } from "@/lib/collaboration/rooms"
+import { broadcast } from "@/lib/collaboration/broadcast"
 import type { SectionKind } from "@/lib/preparation/v2/types"
 
 function revalidate(roomId: string) {
@@ -102,5 +105,26 @@ export async function createMarkerAction(input: {
     authorDisplayName: user.email.split("@")[0],
   })
   revalidate(input.roomId)
+  return r
+}
+
+export async function toggleQuestionDoneAction(input: {
+  roomId: string
+  questionId: string
+}) {
+  await requireAdmin()
+  const r = await toggleQuestionDone(input)
+  revalidate(input.roomId)
+  // Broadcast the updated room so participant views reflect coverage live.
+  if (r.ok) {
+    const room = await getRoomById(input.roomId)
+    if (room) {
+      broadcast(input.roomId, {
+        type: "room_update",
+        data: room,
+        timestamp: new Date().toISOString(),
+      })
+    }
+  }
   return r
 }

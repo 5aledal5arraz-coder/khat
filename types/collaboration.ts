@@ -139,6 +139,12 @@ export interface CollaborationRoom {
    */
   current_section_key: string | null
   current_section_index: number | null
+  /**
+   * prep_v2 question ids marked asked/covered during the live recording.
+   * Mirrors the schema column; broadcast via room_update so participants
+   * see the completed treatment too.
+   */
+  completed_question_ids: string[]
   recording_started_at: string | null
   recording_ended_at: string | null
   recording_paused_at: string | null

@@ -8,7 +8,7 @@
  * module exports.
  */
 
-import { eq } from "drizzle-orm"
+import { eq, sql } from "drizzle-orm"
 import { db } from "@/lib/db"
 import {
   collaborationRooms,
@@ -111,19 +111,22 @@ export async function pauseTimer(roomId: string) {
     room.recording_started_at && !room.recording_paused_at
       ? Math.max(0, now.getTime() - room.recording_started_at.getTime())
       : 0
+  const elapsed_ms = room.recording_elapsed_ms + liveElapsedMs
   await db!
     .update(collaborationRooms)
     .set({
       status: "paused",
       recording_paused_at: now,
-      recording_elapsed_ms: room.recording_elapsed_ms + liveElapsedMs,
+      recording_elapsed_ms: elapsed_ms,
       updated_at: now,
     })
     .where(eq(collaborationRooms.id, roomId))
   if (room.eir_id) {
     await syncEirFromRoomStatus({ eirId: room.eir_id, status: "paused" })
   }
-  return { ok: true as const }
+  // Return the authoritative banked elapsed so the client can align its
+  // local baseline exactly (avoids an RTT-sized drift until the next reload).
+  return { ok: true as const, elapsed_ms }
 }
 
 export async function resumeTimer(roomId: string) {
@@ -168,19 +171,20 @@ export async function endTimer(roomId: string) {
     room.recording_started_at && !room.recording_paused_at
       ? Math.max(0, now.getTime() - room.recording_started_at.getTime())
       : 0
+  const elapsed_ms = room.recording_elapsed_ms + liveElapsedMs
   await db!
     .update(collaborationRooms)
     .set({
       status: "ended",
       recording_ended_at: now,
-      recording_elapsed_ms: room.recording_elapsed_ms + liveElapsedMs,
+      recording_elapsed_ms: elapsed_ms,
       updated_at: now,
     })
     .where(eq(collaborationRooms.id, roomId))
   if (room.eir_id) {
     await syncEirFromRoomStatus({ eirId: room.eir_id, status: "ended" })
   }
-  return { ok: true as const }
+  return { ok: true as const, elapsed_ms }
 }
 
 // ─── Flow ──────────────────────────────────────────────────────────────
@@ -199,6 +203,36 @@ export async function setCurrentSection(input: {
     })
     .where(eq(collaborationRooms.id, input.roomId))
   return { ok: true as const }
+}
+
+/**
+ * Toggle a prep_v2 question's "asked/covered" state on the room. Read–modify–
+ * write the jsonb array and return the new set so the caller can broadcast it.
+ */
+export async function toggleQuestionDone(input: {
+  roomId: string
+  questionId: string
+}) {
+  // Atomic toggle in a single UPDATE — no read-modify-write race if two toggles
+  // land concurrently. Adds the id if absent, removes it if present, and returns
+  // the authoritative array so the client can reconcile its optimistic state.
+  const arr = JSON.stringify([input.questionId])
+  const [row] = await db!
+    .update(collaborationRooms)
+    .set({
+      completed_question_ids: sql`(case
+        when ${collaborationRooms.completed_question_ids} @> ${arr}::jsonb
+          then ${collaborationRooms.completed_question_ids} - ${input.questionId}
+        else ${collaborationRooms.completed_question_ids} || ${arr}::jsonb
+      end)`,
+      updated_at: new Date(),
+    })
+    .where(eq(collaborationRooms.id, input.roomId))
+    .returning({ completed: collaborationRooms.completed_question_ids })
+
+  if (!row) return { ok: false as const, error: "room_not_found" }
+  const completed = Array.isArray(row.completed) ? (row.completed as string[]) : []
+  return { ok: true as const, completed, done: completed.includes(input.questionId) }
 }
 
 // ─── Notes ─────────────────────────────────────────────────────────────

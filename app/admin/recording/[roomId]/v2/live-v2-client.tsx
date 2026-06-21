@@ -4,25 +4,26 @@
  * Phase X Step 5 — Live Recording V2 client surface.
  *
  * Owns:
- *   - in-page timer ticking (re-renders every second) so the page is
- *     readable during filming without server polls
  *   - section navigation transitions
  *   - debounced director-notes autosave
- *   - quick-tag dispatch
+ *   - quick-tag dispatch + question-completion toggles
+ *
+ * The high-frequency timer + timeline live in <RecordingClock>, which
+ * self-ticks via requestAnimationFrame so the rest of this cockpit does NOT
+ * re-render every frame. This component only holds the infrequently-changing
+ * timer baseline (elapsedMsAtBaseline + windowStartedAt) and derives the
+ * current elapsed on demand when banking a pause/end or stamping a marker.
  *
  * All persistence flows through the server actions in actions.ts.
  */
 
-import { useEffect, useMemo, useRef, useState, useTransition } from "react"
+import { useMemo, useRef, useState, useTransition } from "react"
 import { Empty } from "../../../components/ui-kit"
 import {
-  Play,
-  Pause,
-  RotateCcw,
-  Square,
   ChevronLeft,
   ChevronRight,
   Check,
+  Circle,
   Sparkles,
   Heart,
   Scissors,
@@ -30,7 +31,7 @@ import {
   Bookmark,
   Quote,
 } from "lucide-react"
-import type { LiveV2Snapshot, LiveV2Marker } from "@/lib/recording-v2/load"
+import type { LiveV2Marker, LiveV2Snapshot } from "@/lib/recording-v2/load"
 import {
   startTimerAction,
   pauseTimerAction,
@@ -40,17 +41,17 @@ import {
   setCurrentSectionAction,
   saveDirectorNotesAction,
   createMarkerAction,
+  toggleQuestionDoneAction,
 } from "./actions"
 import type { SectionKind, PrepV2Question } from "@/lib/preparation/v2/types"
-
-const SECTION_LABEL_AR: Record<SectionKind, string> = {
-  opening: "افتتاحية",
-  build_up: "بناء التوتر",
-  conflict: "المواجهة",
-  deep_dive: "الغوص العميق",
-  emotional_peak: "الذروة العاطفية",
-  resolution: "الخاتمة",
-}
+import { RecordingClock } from "./recording-clock"
+import {
+  SECTION_LABEL_AR,
+  markerStyle,
+  formatPrecise,
+  nowMs,
+  computeElapsedMs,
+} from "./recording-shared"
 
 const TYPE_LABEL_AR: Record<string, string> = {
   emotional: "عاطفي",
@@ -66,7 +67,7 @@ export function LiveV2Client({ initial }: { initial: LiveV2Snapshot }) {
   const prep = initial.preparation
   const sections = prep.prep_v2?.episode_sections ?? null
 
-  // ── Local state mirrors the snapshot; server actions revalidate. ──
+  // ── Timer baseline (changes only on start/pause/resume/reset/end) ──
   const [status, setStatus] = useState<typeof room.status>(room.status)
   const [elapsedMsAtBaseline, setElapsedMsAtBaseline] = useState<number>(
     room.recording_elapsed_ms,
@@ -76,23 +77,11 @@ export function LiveV2Client({ initial }: { initial: LiveV2Snapshot }) {
       ? Date.parse(room.recording_started_at)
       : null,
   )
-  const [tick, setTick] = useState(0)
 
-  useEffect(() => {
-    if (status !== "live") return
-    const id = setInterval(() => setTick((t) => t + 1), 1000)
-    return () => clearInterval(id)
-  }, [status])
-
-  const liveElapsedMs = useMemo(() => {
-    void tick // re-evaluated on each tick
-    if (windowStartedAt && status === "live") {
-      return Math.max(0, Date.now() - windowStartedAt)
-    }
-    return 0
-  }, [windowStartedAt, status, tick])
-
-  const totalElapsedMs = elapsedMsAtBaseline + liveElapsedMs
+  /** Current elapsed ms, derived on demand (no per-frame state here). */
+  function nowElapsed(): number {
+    return computeElapsedMs(elapsedMsAtBaseline, windowStartedAt, status === "live")
+  }
 
   // ── Section index ─────────────────────────────────────────────────
   const [sectionIndex, setSectionIndex] = useState<number>(
@@ -102,10 +91,29 @@ export function LiveV2Client({ initial }: { initial: LiveV2Snapshot }) {
     ? (sections[sectionIndex]?.kind ?? null)
     : null
   const [completedSections, setCompletedSections] = useState<Set<number>>(
-    new Set(
-      Array.from({ length: sectionIndex }, (_, i) => i),
-    ),
+    new Set(Array.from({ length: sectionIndex }, (_, i) => i)),
   )
+
+  // ── Question completion (persisted + SSE-synced via the room row) ──
+  const [completedQuestionIds, setCompletedQuestionIds] = useState<Set<string>>(
+    new Set(room.completed_question_ids ?? []),
+  )
+  async function toggleQuestionDone(questionId: string) {
+    const flip = (s: Set<string>) => {
+      const next = new Set(s)
+      if (next.has(questionId)) next.delete(questionId)
+      else next.add(questionId)
+      return next
+    }
+    setCompletedQuestionIds(flip) // optimistic
+    try {
+      const r = await toggleQuestionDoneAction({ roomId: room.id, questionId })
+      if (r.ok) setCompletedQuestionIds(new Set(r.completed)) // reconcile to server truth
+      else setCompletedQuestionIds(flip) // server rejected → revert
+    } catch {
+      setCompletedQuestionIds(flip) // network/error → revert
+    }
+  }
 
   // ── Notes ─────────────────────────────────────────────────────────
   const [notes, setNotes] = useState(room.director_notes)
@@ -133,18 +141,19 @@ export function LiveV2Client({ initial }: { initial: LiveV2Snapshot }) {
   const onStart = withBusy(async () => {
     await startTimerAction(room.id)
     setElapsedMsAtBaseline(0)
-    setWindowStartedAt(Date.now())
+    setWindowStartedAt(nowMs())
     setStatus("live")
   })
   const onPause = withBusy(async () => {
-    await pauseTimerAction(room.id)
-    setElapsedMsAtBaseline(totalElapsedMs)
+    setElapsedMsAtBaseline(nowElapsed()) // optimistic instant freeze
     setWindowStartedAt(null)
     setStatus("paused")
+    const r = await pauseTimerAction(room.id)
+    if (r.ok && typeof r.elapsed_ms === "number") setElapsedMsAtBaseline(r.elapsed_ms)
   })
   const onResume = withBusy(async () => {
     await resumeTimerAction(room.id)
-    setWindowStartedAt(Date.now())
+    setWindowStartedAt(nowMs())
     setStatus("live")
   })
   const onReset = withBusy(async () => {
@@ -154,10 +163,11 @@ export function LiveV2Client({ initial }: { initial: LiveV2Snapshot }) {
     setStatus("waiting")
   })
   const onEnd = withBusy(async () => {
-    await endTimerAction(room.id)
-    setElapsedMsAtBaseline(totalElapsedMs)
+    setElapsedMsAtBaseline(nowElapsed()) // optimistic instant freeze
     setWindowStartedAt(null)
     setStatus("ended")
+    const r = await endTimerAction(room.id)
+    if (r.ok && typeof r.elapsed_ms === "number") setElapsedMsAtBaseline(r.elapsed_ms)
   })
 
   // ── Flow actions ─────────────────────────────────────────────────
@@ -182,15 +192,10 @@ export function LiveV2Client({ initial }: { initial: LiveV2Snapshot }) {
 
   // ── Marker dispatch ──────────────────────────────────────────────
   async function tag(
-    type:
-      | "deep_moment"
-      | "emotional"
-      | "highlight"
-      | "quote"
-      | "revisit"
-      | "cut",
+    type: "deep_moment" | "emotional" | "highlight" | "quote" | "revisit" | "cut",
     label: string,
   ) {
+    const fallbackMs = nowElapsed()
     const r = await createMarkerAction({
       roomId: room.id,
       markerType: type,
@@ -204,7 +209,7 @@ export function LiveV2Client({ initial }: { initial: LiveV2Snapshot }) {
           marker_type: type,
           label,
           note: null,
-          recording_ms: r.recording_ms ?? totalElapsedMs,
+          recording_ms: r.recording_ms ?? fallbackMs,
           section_key: currentSection,
           created_at: new Date().toISOString(),
           author_name: "you",
@@ -228,26 +233,30 @@ export function LiveV2Client({ initial }: { initial: LiveV2Snapshot }) {
 
   return (
     <div className="mx-auto max-w-7xl space-y-4 p-4">
-      {/* ── Top row: timer + room status + flow ──────────────────── */}
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-12">
-        <TimerPanel
-          status={status}
-          totalElapsedMs={totalElapsedMs}
-          busy={busy}
-          onStart={onStart}
-          onPause={onPause}
-          onResume={onResume}
-          onReset={onReset}
-          onEnd={onEnd}
-        />
-        <RoomStatusPanel
-          status={status}
-          eirPhase={room.eir_phase}
-          markers={markers.length}
-          guestName={prep.guest_name}
-          title={prep.title}
-        />
-      </div>
+      {/* ── Hero: big centered timer + timeline ──────────────────── */}
+      <RecordingClock
+        status={status}
+        elapsedMsAtBaseline={elapsedMsAtBaseline}
+        windowStartedAt={windowStartedAt}
+        busy={busy}
+        onStart={onStart}
+        onPause={onPause}
+        onResume={onResume}
+        onReset={onReset}
+        onEnd={onEnd}
+        sections={sections}
+        markers={markers}
+        currentSectionIndex={sectionIndex}
+      />
+
+      {/* ── Compact episode/status strip ─────────────────────────── */}
+      <RoomStatusPanel
+        status={status}
+        eirPhase={room.eir_phase}
+        markers={markers.length}
+        guestName={prep.guest_name}
+        title={prep.title}
+      />
 
       {/* ── Flow tracker ─────────────────────────────────────────── */}
       {sections ? (
@@ -271,6 +280,8 @@ export function LiveV2Client({ initial }: { initial: LiveV2Snapshot }) {
           legacyQuestions={prep.legacy_questions}
           currentSection={currentSection}
           questions={currentSectionQuestions}
+          completedIds={completedQuestionIds}
+          onToggleDone={toggleQuestionDone}
         />
         <QuickTagsPanel onTag={tag} disabled={status === "waiting"} markers={markers} />
       </div>
@@ -281,89 +292,7 @@ export function LiveV2Client({ initial }: { initial: LiveV2Snapshot }) {
   )
 }
 
-// ─── TimerPanel ────────────────────────────────────────────────────────
-
-function TimerPanel(props: {
-  status: "waiting" | "live" | "paused" | "ended"
-  totalElapsedMs: number
-  busy: boolean
-  onStart: () => void
-  onPause: () => void
-  onResume: () => void
-  onReset: () => void
-  onEnd: () => void
-}) {
-  return (
-    <div className="rounded-2xl border border-border/40 bg-background/40 p-4 lg:col-span-7">
-      <div className="mb-2 text-[10.5px] uppercase tracking-wider text-muted-foreground">
-        مؤقّت
-      </div>
-      <div
-        className="mb-3 font-mono text-[44px] font-bold tabular-nums leading-none text-foreground"
-        dir="ltr"
-      >
-        {formatHms(props.totalElapsedMs)}
-      </div>
-      <div className="flex flex-wrap gap-2">
-        {props.status === "waiting" && (
-          <Button onClick={props.onStart} disabled={props.busy} icon={<Play />}>
-            بدء
-          </Button>
-        )}
-        {props.status === "live" && (
-          <>
-            <Button onClick={props.onPause} disabled={props.busy} icon={<Pause />}>
-              إيقاف مؤقت
-            </Button>
-            <Button
-              onClick={props.onEnd}
-              disabled={props.busy}
-              variant="danger"
-              icon={<Square />}
-            >
-              إنهاء
-            </Button>
-          </>
-        )}
-        {props.status === "paused" && (
-          <>
-            <Button onClick={props.onResume} disabled={props.busy} icon={<Play />}>
-              استئناف
-            </Button>
-            <Button
-              onClick={props.onEnd}
-              disabled={props.busy}
-              variant="danger"
-              icon={<Square />}
-            >
-              إنهاء
-            </Button>
-          </>
-        )}
-        {props.status === "ended" && (
-          <Button onClick={props.onReset} disabled={props.busy} icon={<RotateCcw />}>
-            إعادة ضبط
-          </Button>
-        )}
-        {props.status !== "ended" && (
-          <Button
-            onClick={props.onReset}
-            disabled={props.busy}
-            variant="ghost"
-            icon={<RotateCcw />}
-          >
-            إعادة ضبط
-          </Button>
-        )}
-      </div>
-      <div className="mt-2 text-[10.5px] text-muted-foreground" dir="ltr">
-        status: {props.status}
-      </div>
-    </div>
-  )
-}
-
-// ─── RoomStatusPanel ──────────────────────────────────────────────────
+// ─── RoomStatusPanel (compact strip) ──────────────────────────────────
 
 function RoomStatusPanel(props: {
   status: string
@@ -373,15 +302,14 @@ function RoomStatusPanel(props: {
   title: string
 }) {
   return (
-    <div className="rounded-2xl border border-border/40 bg-background/40 p-4 lg:col-span-5">
-      <div className="mb-1 text-[10.5px] uppercase tracking-wider text-muted-foreground">
-        الحلقة
+    <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-border/40 bg-background/40 px-4 py-3">
+      <div className="min-w-0">
+        <div className="truncate text-[14px] font-semibold leading-tight">{props.title}</div>
+        {props.guestName && (
+          <div className="text-[11.5px] text-muted-foreground">ضيف: {props.guestName}</div>
+        )}
       </div>
-      <div className="mb-1 text-[14px] font-semibold leading-tight">{props.title}</div>
-      {props.guestName && (
-        <div className="text-[11.5px] text-muted-foreground">ضيف: {props.guestName}</div>
-      )}
-      <div className="mt-3 grid grid-cols-3 gap-2">
+      <div className="flex gap-2">
         <Stat label="حالة" value={props.status} />
         <Stat label="EIR" value={props.eirPhase ?? "—"} />
         <Stat label="علامات" value={String(props.markers)} />
@@ -483,6 +411,8 @@ function SectionQuestions(props: {
   legacyQuestions: string[]
   currentSection: SectionKind | null
   questions: PrepV2Question[]
+  completedIds: Set<string>
+  onToggleDone: (id: string) => void
 }) {
   if (props.legacy) {
     return (
@@ -507,59 +437,100 @@ function SectionQuestions(props: {
       </div>
     )
   }
+  const doneCount = props.questions.filter((q) => props.completedIds.has(q.id)).length
   return (
     <div className="rounded-2xl border border-border/40 bg-background/40 p-4 lg:col-span-8">
       <div className="mb-2 flex items-baseline justify-between">
         <div className="text-[10.5px] uppercase tracking-wider text-muted-foreground">
           أسئلة القسم
         </div>
-        <div className="text-[10.5px] text-muted-foreground">
-          {props.currentSection
-            ? SECTION_LABEL_AR[props.currentSection] ?? props.currentSection
-            : "—"}
+        <div className="flex items-center gap-2 text-[10.5px] text-muted-foreground">
+          {props.questions.length > 0 && (
+            <span className="tabular-nums" dir="ltr">
+              {doneCount}/{props.questions.length}
+            </span>
+          )}
+          <span>
+            {props.currentSection
+              ? SECTION_LABEL_AR[props.currentSection] ?? props.currentSection
+              : "—"}
+          </span>
         </div>
       </div>
       {props.questions.length === 0 ? (
         <Empty text="لا توجد أسئلة في هذا القسم." />
       ) : (
         <ul className="space-y-3">
-          {props.questions.map((q) => (
-            <li
-              key={q.id}
-              className={
-                "rounded-xl border p-3 " +
-                (q.priority === "must_ask"
-                  ? "border-emerald-500/30 bg-emerald-500/5"
-                  : "border-border/40 bg-background/30")
-              }
-            >
-              <div className="mb-1.5 flex flex-wrap items-center gap-1.5">
-                <PriorityChip priority={q.priority} />
-                {q.types.map((t) => (
-                  <span
-                    key={t}
-                    className="rounded-full border border-border/40 px-1.5 py-0.5 text-[10px] text-muted-foreground"
+          {props.questions.map((q) => {
+            const done = props.completedIds.has(q.id)
+            return (
+              <li
+                key={q.id}
+                className={
+                  "rounded-xl border p-3 transition " +
+                  (done
+                    ? "border-emerald-500/40 bg-emerald-500/5 opacity-70"
+                    : q.priority === "must_ask"
+                      ? "border-emerald-500/30 bg-emerald-500/5"
+                      : "border-border/40 bg-background/30")
+                }
+              >
+                <div className="flex items-start gap-2.5">
+                  <button
+                    type="button"
+                    onClick={() => props.onToggleDone(q.id)}
+                    aria-pressed={done}
+                    title={done ? "تراجع عن الإكمال" : "تحديد كمطروح"}
+                    className={
+                      "mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full border transition " +
+                      (done
+                        ? "border-emerald-500 bg-emerald-500 text-white"
+                        : "border-border/60 text-transparent hover:border-emerald-500/60")
+                    }
                   >
-                    {TYPE_LABEL_AR[t] ?? t}
-                  </span>
-                ))}
-                <RiskChip risk={q.risk_level} />
-              </div>
-              <div className="text-[16px] font-medium leading-snug text-foreground">
-                {q.text}
-              </div>
-              {q.purpose && (
-                <div className="mt-1 text-[12px] text-muted-foreground/85">
-                  {q.purpose}
+                    {done ? <Check className="h-3 w-3" /> : <Circle className="h-2 w-2" />}
+                  </button>
+                  <div className="min-w-0 flex-1">
+                    <div className="mb-1.5 flex flex-wrap items-center gap-1.5">
+                      <PriorityChip priority={q.priority} />
+                      {q.types.map((t) => (
+                        <span
+                          key={t}
+                          className="rounded-full border border-border/40 px-1.5 py-0.5 text-[10px] text-muted-foreground"
+                        >
+                          {TYPE_LABEL_AR[t] ?? t}
+                        </span>
+                      ))}
+                      <RiskChip risk={q.risk_level} />
+                      {done && (
+                        <span className="rounded-full bg-emerald-500/15 px-1.5 py-0.5 text-[10px] font-medium text-emerald-700">
+                          تم طرحه
+                        </span>
+                      )}
+                    </div>
+                    <div
+                      className={
+                        "text-[16px] font-medium leading-snug " +
+                        (done ? "text-muted-foreground line-through" : "text-foreground")
+                      }
+                    >
+                      {q.text}
+                    </div>
+                    {q.purpose && !done && (
+                      <div className="mt-1 text-[12px] text-muted-foreground/85">
+                        {q.purpose}
+                      </div>
+                    )}
+                    {q.follow_up_prompt && !done && (
+                      <div className="mt-1 text-[12px] text-foreground/75">
+                        ↳ {q.follow_up_prompt}
+                      </div>
+                    )}
+                  </div>
                 </div>
-              )}
-              {q.follow_up_prompt && (
-                <div className="mt-1 text-[12px] text-foreground/75">
-                  ↳ {q.follow_up_prompt}
-                </div>
-              )}
-            </li>
-          ))}
+              </li>
+            )
+          })}
         </ul>
       )}
     </div>
@@ -605,18 +576,24 @@ function QuickTagsPanel(props: {
         <Empty text="لم تُسجّل علامات بعد." />
       ) : (
         <ul className="mt-1 space-y-1.5">
-          {props.markers.slice(0, 6).map((m) => (
-            <li
-              key={m.id}
-              className="flex items-center justify-between rounded-lg border border-border/40 bg-background/30 px-2 py-1 text-[10.5px]"
-              dir="ltr"
-            >
-              <span className="text-muted-foreground">{m.marker_type}</span>
-              <span className="font-mono text-foreground/80">
-                {formatHms(m.recording_ms)}
-              </span>
-            </li>
-          ))}
+          {props.markers.slice(0, 8).map((m) => {
+            const st = markerStyle(m.marker_type)
+            const Icon = st.icon
+            return (
+              <li
+                key={m.id}
+                className={"flex items-center justify-between gap-2 rounded-lg border border-border/40 px-2 py-1.5 text-[11px] " + st.soft}
+              >
+                <span className={"inline-flex items-center gap-1.5 font-medium " + st.text}>
+                  <Icon className="h-3 w-3" />
+                  {st.label}
+                </span>
+                <span className="font-mono text-[10.5px] text-foreground/70 tabular-nums" dir="ltr">
+                  {formatPrecise(m.recording_ms)}
+                </span>
+              </li>
+            )
+          })}
         </ul>
       )}
     </div>
@@ -645,34 +622,6 @@ function DirectorNotesPanel(props: {
 }
 
 // ─── Subcomponents ────────────────────────────────────────────────────
-
-function Button(props: {
-  onClick: () => void
-  disabled?: boolean
-  icon?: React.ReactNode
-  children: React.ReactNode
-  variant?: "default" | "ghost" | "danger"
-}) {
-  const base =
-    "inline-flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-[12.5px] font-medium transition disabled:opacity-50"
-  const variant =
-    props.variant === "danger"
-      ? "border border-rose-500/30 bg-rose-500/10 text-rose-700 hover:bg-rose-500/20"
-      : props.variant === "ghost"
-        ? "text-muted-foreground hover:text-foreground"
-        : "border border-violet-500/30 bg-violet-500/10 text-violet-700 hover:bg-violet-500/20"
-  return (
-    <button
-      type="button"
-      onClick={props.onClick}
-      disabled={props.disabled}
-      className={`${base} ${variant}`}
-    >
-      {props.icon && <span className="h-3.5 w-3.5">{props.icon}</span>}
-      {props.children}
-    </button>
-  )
-}
 
 function IconBtn(props: {
   icon: React.ReactNode
@@ -743,7 +692,7 @@ function RiskChip({ risk }: { risk: "low" | "medium" | "high" }) {
 
 function Stat({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-lg border border-border/40 bg-background/30 p-2">
+    <div className="rounded-lg border border-border/40 bg-background/30 px-2.5 py-1.5 text-center">
       <div className="text-[9.5px] uppercase tracking-wider text-muted-foreground">
         {label}
       </div>
@@ -752,15 +701,4 @@ function Stat({ label, value }: { label: string; value: string }) {
       </div>
     </div>
   )
-}
-
-function formatHms(ms: number): string {
-  const s = Math.floor(ms / 1000)
-  const hh = Math.floor(s / 3600)
-  const mm = Math.floor((s % 3600) / 60)
-  const ss = s % 60
-  return `${pad(hh)}:${pad(mm)}:${pad(ss)}`
-}
-function pad(n: number) {
-  return n.toString().padStart(2, "0")
 }

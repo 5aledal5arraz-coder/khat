@@ -140,6 +140,15 @@ export const collaborationRooms = pgTable("collaboration_rooms", {
   director_notes: text("director_notes"),
   current_section_key: text("current_section_key"),
   current_section_index: integer("current_section_index"),
+  /**
+   * prep_v2 question ids the host has marked as asked/covered during the
+   * live recording. Persisted so the "completed" treatment survives reloads
+   * and (via room_update) syncs to every participant.
+   */
+  completed_question_ids: jsonb("completed_question_ids")
+    .$type<string[]>()
+    .notNull()
+    .default([]),
 
   /**
    * Khat Brain — link to the master EIR. Inherited from the linked

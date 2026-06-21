@@ -44,6 +44,7 @@ export interface LiveV2RoomSnapshot {
   director_notes: string
   current_section_key: SectionKind | null
   current_section_index: number | null
+  completed_question_ids: string[]
   preparation_id: string
   eir_id: string | null
   eir_phase: string | null
@@ -127,6 +128,7 @@ export async function loadLiveV2(roomId: string): Promise<LiveV2Snapshot | null>
       director_notes: room.director_notes ?? "",
       current_section_key: (room.current_section_key as SectionKind | null) ?? null,
       current_section_index: room.current_section_index ?? null,
+      completed_question_ids: (room.completed_question_ids as string[] | null) ?? [],
       preparation_id: room.preparation_id,
       eir_id: room.eir_id ?? null,
       eir_phase,

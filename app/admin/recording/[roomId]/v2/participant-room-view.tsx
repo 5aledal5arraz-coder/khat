@@ -20,7 +20,7 @@ import type { SessionMarkerType } from "@/types/collaboration"
 import {
   Circle, Film, Quote, Volume2, Scissors, AlertTriangle,
   Star, RotateCcw, Coffee, Flag, Loader2, Trash2,
-  Camera, Clapperboard, Sparkles, Zap, BookOpen, ChevronDown,
+  Camera, Clapperboard, Sparkles, Zap, BookOpen, ChevronDown, Check,
 } from "lucide-react"
 import { Empty } from "../../../components/ui-kit"
 import { RoomNotesPanel } from "./room-notes-panel"
@@ -239,6 +239,11 @@ export function ParticipantRoomView({
     (q) => q.section === section.kind,
   )
   const status = room?.status ?? initial.room.status
+  // Plain Set (not useMemo) — this view sits after an early return, and it only
+  // re-renders on infrequent SSE room updates, so rebuilding is negligible.
+  const completedQ = new Set(
+    room?.completed_question_ids ?? initial.room.completed_question_ids ?? [],
+  )
 
   return (
     <div className="mx-auto max-w-3xl space-y-4 p-4 pb-20" dir="rtl">
@@ -293,10 +298,17 @@ export function ParticipantRoomView({
         {questions.length === 0 ? (
           <Empty text="لا أسئلة في هذا القسم." />
         ) : (
-          questions.map((q) => (
+          questions.map((q) => {
+            const done = completedQ.has(q.id)
+            return (
             <div
               key={q.id}
-              className="rounded-xl border border-border/50 bg-card/40 p-3"
+              className={
+                "rounded-xl border p-3 transition " +
+                (done
+                  ? "border-emerald-500/30 bg-emerald-500/5 opacity-70"
+                  : "border-border/50 bg-card/40")
+              }
             >
               <div className="mb-1 flex flex-wrap items-center gap-1.5">
                 {q.priority === "must_ask" && (
@@ -312,8 +324,18 @@ export function ParticipantRoomView({
                     حساسية: {q.risk_level}
                   </span>
                 )}
+                {done && (
+                  <span className="inline-flex items-center gap-1 rounded bg-emerald-500/15 px-1.5 py-0.5 text-[9.5px] font-bold text-emerald-700">
+                    <Check className="h-2.5 w-2.5" /> تم طرحه
+                  </span>
+                )}
               </div>
-              <p className="text-[14px] font-semibold leading-relaxed">
+              <p
+                className={
+                  "text-[14px] font-semibold leading-relaxed " +
+                  (done ? "text-muted-foreground line-through" : "")
+                }
+              >
                 {q.text}
               </p>
               {isDirector && q.follow_up_prompt && (
@@ -322,7 +344,8 @@ export function ParticipantRoomView({
                 </p>
               )}
             </div>
-          ))
+            )
+          })
         )}
       </div>
 
