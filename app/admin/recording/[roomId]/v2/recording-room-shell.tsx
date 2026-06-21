@@ -7,9 +7,10 @@
  * (RoomProvider: Connection → State → Cards → Timer → Markers), auto-joins
  * the operator, and surfaces live presence + connection status. This makes
  * the V2 page a genuine multi-participant room (others can join and are seen
- * live over SSE) without changing the cockpit body. Role-specific participant
- * views on the prep_v2 model land in the next phase; until then the legacy
- * /admin/collab room remains the full multi-role experience.
+ * live over SSE) without changing the cockpit body. Non-host participants get
+ * role-specific live views on the prep_v2 model (ParticipantRoomView). This is
+ * the single live-recording surface — the legacy /admin/collab room redirects
+ * here.
  */
 
 import { useEffect, useRef } from "react"

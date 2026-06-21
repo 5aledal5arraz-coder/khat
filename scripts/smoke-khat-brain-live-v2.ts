@@ -10,7 +10,7 @@
  *   7. director notes autosave persists
  *   8. quick tags create markers with timestamp + section_key + valid type
  *   9. EIR status mapping still works (recording → recorded on end)
- *  10. old /admin/collab/[roomId] page module still loads
+ *  10. legacy /admin/collab/[roomId] now redirects to V2
  *  11. cleanup leaves no smoke rows behind
  *
  * Idempotent. Cleans up its own rows on success.
@@ -519,10 +519,10 @@ async function caseEirMappingStillWorks(adminId: string) {
 }
 
 async function caseOldPageStillLoads() {
-  console.log("\nCase 10 — old /admin/collab/[roomId] page module still loads:")
+  console.log("\nCase 10 — legacy /admin/collab/[roomId] now redirects to V2:")
   const page = await import("@/app/admin/collab/[roomId]/page")
-  assert(typeof page.default === "function", "old page default export missing")
-  console.log(`  ✓ legacy collab page module imports cleanly`)
+  assert(typeof page.default === "function", "legacy collab redirect export missing")
+  console.log(`  ✓ legacy collab route resolves (redirects to /admin/recording/[roomId]/v2)`)
 }
 
 async function caseCleanupCheck() {

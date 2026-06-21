@@ -8,13 +8,13 @@
  * owns the timer ticking + autosave + button transitions. All
  * mutations route through the server actions in actions.ts.
  *
- * Falls back to legacy questions when prep_v2 is null. Does NOT remove
- * the existing /admin/collab/[roomId] route.
+ * Falls back to legacy questions when prep_v2 is null. This is now the
+ * single live-recording surface; /admin/collab/[roomId] redirects here.
  */
 
 import { notFound } from "next/navigation"
 import Link from "next/link"
-import { ArrowLeft, Brain } from "lucide-react"
+import { Brain } from "lucide-react"
 import { requireAdmin, getAdminAuthUser } from "@/lib/api-utils"
 import { loadLiveV2 } from "@/lib/recording-v2/load"
 import { RecordingRoomShell } from "./recording-room-shell"
@@ -43,12 +43,6 @@ export default async function RecordingV2Page({
       <header className="sticky top-0 z-30 border-b border-border/40 bg-background/95 px-4 py-2 backdrop-blur">
         <div className="mx-auto flex max-w-7xl items-center justify-between gap-3">
           <div className="flex items-center gap-3">
-            <Link
-              href={`/admin/collab/${roomId}`}
-              className="inline-flex items-center gap-1 rounded-lg border border-border/50 px-2 py-1 text-[11px] text-muted-foreground hover:bg-background/60"
-            >
-              <ArrowLeft className="h-3 w-3" /> الإصدار القديم
-            </Link>
             {eirId && (
               <Link
                 href={`/admin/khat-brain/episodes/${eirId}?tab=recording`}

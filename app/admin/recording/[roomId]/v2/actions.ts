@@ -27,7 +27,6 @@ import type { SectionKind } from "@/lib/preparation/v2/types"
 
 function revalidate(roomId: string) {
   revalidatePath(`/admin/recording/${roomId}/v2`)
-  revalidatePath(`/admin/collab/${roomId}`)
 }
 
 export async function startTimerAction(roomId: string) {

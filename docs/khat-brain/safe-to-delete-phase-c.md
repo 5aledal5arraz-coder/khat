@@ -51,8 +51,8 @@ These look superficially removable but still serve traffic. Phase C must **NOT**
 - `app/admin/preparation/[id]/page.tsx` — owns `PreparationInputs` editing + transcript review. Workspace covers prep_v2 only.
 - `app/admin/studio/page.tsx` + `studio-client.tsx` — owns transcript / chapter / clip editing. Workspace covers high-frequency text fields only.
 - `app/admin/episodes/[id]/page.tsx` — orphan rows (no `eir_id`) still depend on it. Sponsor / hidden-flag / quotes-config editors live here.
-- `app/admin/recording/[roomId]/v2/page.tsx` — permanent canonical fullscreen recording surface.
-- `app/admin/collab/[roomId]/page.tsx` — workspace parity for cohost-join flow not yet exercised on real participant traffic.
+- `app/admin/recording/[roomId]/v2/page.tsx` — permanent canonical fullscreen recording surface; now also the single multi-participant live room.
+- ~~`app/admin/collab/[roomId]/*` (11 view/client files)~~ — **DELETED.** Full V1→V2 parity reached on the prep_v2 model (presence/role views, director markers + team notes over live SSE, host energy, materials panel). The remaining `page.tsx` now `redirect()`s to `/admin/recording/[roomId]/v2`. Shared `lib/collaboration/*` + the rooms/cards/notes/markers API routes + `room/contexts/*` are **KEPT** (V2 builds on them).
 - ~~`app/admin/khat-map/v2/page.tsx`~~ — superseded by `app/admin/khat-brain/seasons/new/page.tsx` and **deleted in Wave 3**.
 - ~~`app/admin/khat-map/components/`~~ — components moved into `app/admin/khat-brain/seasons/[seasonId]/_components/` in Wave 2; the original folder was **deleted in Wave 3**.
 
@@ -63,6 +63,6 @@ These look superficially removable but still serve traffic. Phase C must **NOT**
 ## Phase C order (suggested)
 
 1. Delete the seven `Source files` rows above. Run the full smoke suite — every smoke case must still pass.
-2. Add 308 redirect for `/admin/collab/[roomId]` → `/admin/recording/[roomId]/v2` once cohost-join flow is verified on real traffic. After verification, mark `app/admin/collab/[roomId]/page.tsx` for deletion in a later phase.
+2. ~~Add redirect for `/admin/collab/[roomId]` → `/admin/recording/[roomId]/v2` once cohost-join flow is verified.~~ **Done** — parity built + verified live; the 11 V1 view files were deleted and `page.tsx` now `redirect()`s. The shared collaboration backend is retained.
 3. Build a workspace-native "موسم جديد" dialog or `/admin/khat-brain/seasons/new` route. After it ships, redirect `/admin/khat-map/v2` to it and mark for deletion.
 4. Continue workspace coverage of preparation inputs (title / guest_name / key_questions) and Studio transcript editing — those unblock removing the remaining "NOT safe to delete" entries. Out of Phase B + C scope.

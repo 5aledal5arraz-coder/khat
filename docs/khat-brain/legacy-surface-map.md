@@ -65,11 +65,11 @@
 - **Phase B status** — Permanent feature, not legacy. UX-5 surfaces this URL via `RecordingShareStrip` for share-with-cohost flows.
 - **Removable now?** — N/A. This is the canonical fullscreen surface.
 
-### `/admin/collab/[roomId]` — **shadowed · REDIRECT (Phase C)**
-- **Current purpose** — Original room surface (pre-V2). Banner inside it points at `/admin/recording/[roomId]/v2`.
-- **Replacement** — Episode Workspace → Recording tab + the V2 fullscreen URL.
-- **Phase B status** — Still loads. Phase B does not redirect: workspace parity for the cohost-join flow needs verification on real participant traffic before flipping the redirect.
-- **Removable now?** — Phase C: replace with 308 to `/admin/recording/${roomId}/v2`. Mark `SAFE_TO_DELETE_PHASE_C` once the V2 cohost path has worn its training wheels.
+### `/admin/collab/[roomId]` — **DELETED · REDIRECTS to V2**
+- **Original purpose** — Original multi-role room surface (pre-V2): host/director/photographer/editor/viewer studio views, team notes, markers, card flow.
+- **Replacement (now official)** — `/admin/recording/[roomId]/v2`, which folded in the full multi-participant experience on the prep_v2 model: presence + role-based views (`ParticipantRoomView`), live section sync, director markers + floating team feed, section-scoped team notes (host mark-seen), room energy, and a materials/reference panel.
+- **Status** — The 11 V1 view/client files were deleted; `app/admin/collab/[roomId]/page.tsx` now permanently `redirect()`s to `/admin/recording/${roomId}/v2`. The shared backend (`lib/collaboration/*`, the rooms/cards/notes/markers API routes, and `app/admin/preparation/[id]/room/contexts/*`) is KEPT — V2 builds on it.
+- **Parity verified** — multi-participant join/presence, director→host markers + notes over live SSE, host-set energy, and the photographer/editor/materials views were each exercised live before deletion. A `globalThis` fix to the SSE broadcast bus (`lib/collaboration/broadcast.ts`) revived live event delivery for the whole room system.
 
 ### `/admin/khat-map/v2` (new-season form) — **DELETED in Wave 3**
 - **Replacement (now official)** — `/admin/khat-brain/seasons/new` mounts the moved `SetupClient` + `EditorialControlsForm`.
@@ -103,13 +103,14 @@
 | **BANNER** | `/admin/studio` — discoverability strip pointing into Khat Brain. |
 | **HIDE / RENAME** | Sidebar "أدوات متقدمة" group: collapsed by default; neutral labels (الإعداد / الاستديو / المرشحون / الحلقات). |
 | **TAG** | All `removable` rows above carry `SAFE_TO_DELETE_PHASE_C`. |
-| **NO CHANGE** | `/admin/recording/[roomId]/v2` (KEEP), `/admin/collab/[roomId]` (workspace parity not yet proven), `/admin/studio/[id]` (does not exist). |
+| **NO CHANGE** | `/admin/recording/[roomId]/v2` (KEEP), `/admin/studio/[id]` (does not exist). |
+| **DELETED · REDIRECT** | `/admin/collab/[roomId]` → `/admin/recording/[roomId]/v2` (full V1→V2 parity reached + verified; 11 view files removed). |
 
 ## Phase C order of operations (suggested)
 
 1. ~~Delete the `removable` set (`khat-map` v1 + topics/guests/fingerprint, khat-map/v2/[seasonId] source, both `.bak` files).~~ **Done in Wave 3** — entire `app/admin/khat-map` tree deleted; redirects remain in `next.config.ts`.
 2. ~~Build a workspace-native season-create dialog and redirect `/admin/khat-map/v2` to it.~~ **Done in Wave 2/3** — official route is `app/admin/khat-brain/seasons/new`.
-3. Redirect `/admin/collab/[roomId]` → `/admin/recording/[roomId]/v2` once cohost flow is exercised on real traffic.
+3. ~~Redirect `/admin/collab/[roomId]` → `/admin/recording/[roomId]/v2` once cohost flow is exercised on real traffic.~~ **Done** — full V1→V2 parity built + verified live (presence/roles, markers, team notes, energy, materials); the 11 V1 view files were deleted and `page.tsx` now `redirect()`s. Shared `lib/collaboration/*` + API routes KEPT.
 4. Continue workspace coverage of preparation inputs (title / guest_name / key_questions) and Studio transcript editing — those unblock removing `/admin/preparation/[id]` and the Studio SPA respectively. Out of Wave 3 scope.
 
 ## What this document is NOT
