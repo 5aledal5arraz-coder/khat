@@ -3,7 +3,6 @@ import { requireRole, errorResponse, notFoundResponse } from "@/lib/api-utils"
 import {
   getRoomSnapshot,
   updateRoom,
-  getRoomById,
   recordEnergyChangeMarker,
 } from "@/lib/collaboration/rooms"
 import { requireRoomRole, ROOM_ACTION_ROLES } from "@/lib/collaboration/permissions"
@@ -60,20 +59,13 @@ export async function PATCH(
       return errorResponse("حالة غير صالحة", 422)
     }
 
-    // Validate energy_level if provided
+    // Validate energy_level if provided (round to an integer 0–5).
     if (body.energy_level !== undefined) {
-      const e = Number(body.energy_level)
+      const e = Math.round(Number(body.energy_level))
       if (isNaN(e) || e < 0 || e > 5) {
         return errorResponse("مستوى الطاقة يجب أن يكون بين 0 و 5", 422)
       }
       body.energy_level = e
-    }
-
-    // Capture the prior energy so we only log an energy_change on a real change.
-    let prevEnergy: number | null = null
-    if (body.energy_level !== undefined) {
-      const cur = await getRoomById(roomId)
-      prevEnergy = cur?.energy_level ?? null
     }
 
     const room = await updateRoom(roomId, body)
@@ -83,8 +75,10 @@ export async function PATCH(
     broadcast(roomId, { type: "room_update", data: room, timestamp: new Date().toISOString() })
 
     // Record the energy change as a timeline marker (ribbon + CSV + analytics)
-    // and broadcast it so live views (energy ribbon) pick it up over SSE.
-    if (body.energy_level !== undefined && room.energy_level !== prevEnergy) {
+    // and broadcast it so live views (energy ribbon) pick it up over SSE. The
+    // recorder no-ops unless the room is live, so paused/ended sets don't log.
+    // Clients skip same-value sets, so no prior-value read is needed here.
+    if (body.energy_level !== undefined) {
       const marker = await recordEnergyChangeMarker(roomId, auth.user.id, room.energy_level)
       if (marker) {
         broadcast(roomId, { type: "marker_added", data: marker, timestamp: new Date().toISOString() })

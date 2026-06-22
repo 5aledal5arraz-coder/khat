@@ -98,7 +98,11 @@ export async function GET(
   const lines = [HEADERS.join(",")]
   for (const m of rows) {
     const isEnergy = m.marker_type === "energy_change"
-    const meta = QUICK_MARKER_META[m.marker_type as keyof typeof QUICK_MARKER_META]
+    // marker_type may be a quick type, a system type (energy_change), or a
+    // legacy value — so the lookup is genuinely possibly-undefined.
+    const meta = QUICK_MARKER_META[m.marker_type as keyof typeof QUICK_MARKER_META] as
+      | (typeof QUICK_MARKER_META)[keyof typeof QUICK_MARKER_META]
+      | undefined
     const cells = [
       formatTimestamp(m.recording_ms),
       m.recording_ms,

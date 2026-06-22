@@ -11,7 +11,7 @@
  * full question metadata; viewers get a calm read-only follow-along.
  */
 
-import { useState } from "react"
+import { useMemo, useState } from "react"
 import { useRoomState, useRoomMarkers } from "@/app/admin/preparation/[id]/room/contexts"
 import { cn } from "@/lib/utils"
 import type { LiveV2Snapshot } from "@/lib/recording-v2/load"
@@ -125,10 +125,11 @@ export function TeamMarkerFeed({
   const [open, setOpen] = useState(true)
 
   // energy_change is a system marker (drives the timeline ribbon) — not shown
-  // in the team feed.
-  const ops = markers
-    .filter((m) => m.marker_type !== "energy_change")
-    .reverse()
+  // in the team feed. Memoized so the open/close toggle doesn't re-filter.
+  const ops = useMemo(
+    () => markers.filter((m) => m.marker_type !== "energy_change").reverse(),
+    [markers],
+  )
 
   const renderItem = (m: (typeof ops)[number]) => {
     const st = markerStyle(m.marker_type)

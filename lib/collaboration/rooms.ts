@@ -479,13 +479,18 @@ export async function recordEnergyChangeMarker(
 ): Promise<RoomSessionMarker | null> {
   try {
     const room = await getRoomById(roomId)
-    if (!room || !room.recording_started_at) return null
+    // Only record during a live take — paused/ended/waiting sets aren't part of
+    // the recording (and would share a frozen recording_ms).
+    if (!room || room.status !== "live") return null
     const [participant] = await db!
       .select({ id: roomParticipants.id })
       .from(roomParticipants)
       .where(and(eq(roomParticipants.room_id, roomId), eq(roomParticipants.user_id, userId)))
       .limit(1)
-    if (!participant) return null
+    if (!participant) {
+      console.warn(`[energy] no participant for user ${userId} in room ${roomId}; marker skipped`)
+      return null
+    }
     const [row] = await db!
       .insert(roomSessionMarkers)
       .values({

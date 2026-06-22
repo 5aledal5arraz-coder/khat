@@ -78,17 +78,21 @@ export function LiveV2Client({ initial }: { initial: LiveV2Snapshot }) {
   // Energy ribbon — built reactively from the room's energy_change markers
   // (recorded server-side on every change, delivered live over SSE).
   const { markers: sessionMarkers } = useRoomMarkers()
-  const energyHistory = useMemo(
-    () =>
-      sessionMarkers
-        .filter((m) => m.marker_type === "energy_change")
-        .map((m) => ({
-          recording_ms: m.recording_ms,
-          level: Math.max(0, Math.min(5, Number(m.note) || 3)),
-        }))
-        .sort((a, b) => a.recording_ms - b.recording_ms),
-    [sessionMarkers],
-  )
+  const energyHistory = useMemo(() => {
+    const pts = sessionMarkers
+      .filter((m) => m.marker_type === "energy_change")
+      .map((m) => ({
+        recording_ms: m.recording_ms,
+        level: Math.max(0, Math.min(5, Number(m.note) || 3)),
+      }))
+      .sort((a, b) => a.recording_ms - b.recording_ms)
+    // Collapse points sharing a recording_ms (e.g. set while paused) — last
+    // reading at a timestamp wins, so no level is silently hidden by a
+    // zero-width ribbon segment.
+    const byMs = new Map<number, number>()
+    for (const p of pts) byMs.set(p.recording_ms, p.level)
+    return [...byMs.entries()].map(([recording_ms, level]) => ({ recording_ms, level }))
+  }, [sessionMarkers])
 
   // ── Timer baseline (changes only on start/pause/resume/reset/end) ──
   const [status, setStatus] = useState<typeof room.status>(room.status)

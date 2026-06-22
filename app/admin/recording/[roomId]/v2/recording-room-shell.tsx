@@ -207,7 +207,7 @@ function EnergyControl({
             <button
               key={i}
               type="button"
-              onClick={() => onSet(i + 1)}
+              onClick={() => i + 1 !== level && onSet(i + 1)}
               aria-label={`ضبط الطاقة على ${i + 1}`}
               className={cn(
                 "h-2 w-2 rounded-full transition",
