@@ -31,6 +31,7 @@ import { runResearchSynthesis, type Pass1Input } from "./research"
 import { runStructureBuild } from "./structure"
 import { runQuestionBankGeneration } from "./question-banks"
 import { runCritiquePass } from "./critique"
+import { runInsightGeneration } from "./insights"
 import {
   validatePrepV2Payload,
   type ValidationResult,
@@ -73,6 +74,7 @@ export async function runPrepV2Pipeline(
     pass2_structure: null,
     pass3_questions: null,
     pass4_critique: null,
+    pass5_insights: null,
   }
 
   if (!input.force && process.env.PREP_V2_ENABLED === "false") {
@@ -263,6 +265,42 @@ export async function runPrepV2Pipeline(
       console.warn(
         `[prep-v2] sanitized ${sanitized.replacements} unverified guest reference(s) ` +
           `in prep ${input.preparationId}`,
+      )
+    }
+  }
+
+  // ── Pass 5 — Insight Cards (best-effort enrichment) ────────────────
+  // Only enrich a VALID prep, and never let it fail the pipeline. Each
+  // candidate is web-grounded + verified before it attaches to a question;
+  // unverifiable drafts are dropped inside runInsightGeneration.
+  if (validation.ok) {
+    try {
+      const p5 = await runInsightGeneration({
+        language,
+        preparation_id: input.preparationId,
+        eir_id: ctx.eir_id,
+        payload,
+        guestName: ctx.linked_guest_name,
+      })
+      payload = {
+        ...payload,
+        question_bank: p5.ok ? p5.questions : payload.question_bank,
+        ai_run_ids: {
+          ...payload.ai_run_ids,
+          pass5_insights: p5.ok ? p5.ai_run_ids : null,
+        },
+      }
+      if (p5.ok) {
+        console.info(
+          `[prep-v2/insights] prep ${input.preparationId}: ` +
+            `${p5.stats.kept}/${p5.stats.drafted} insights kept` +
+            (p5.stats.capped ? " (grounding budget hit)" : ""),
+        )
+      }
+    } catch (err) {
+      console.warn(
+        `[prep-v2/insights] Pass 5 errored for prep ${input.preparationId} (non-fatal):`,
+        err instanceof Error ? err.message : err,
       )
     }
   }

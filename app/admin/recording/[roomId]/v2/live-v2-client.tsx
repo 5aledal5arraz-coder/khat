@@ -19,7 +19,28 @@
 
 import { useMemo, useRef, useState, useTransition } from "react"
 import { Empty } from "../../../components/ui-kit"
-import { ChevronLeft, ChevronRight, Check, Circle, Download, Zap } from "lucide-react"
+import {
+  ChevronLeft,
+  ChevronRight,
+  Check,
+  Circle,
+  Download,
+  Zap,
+  Lightbulb,
+  ChevronDown,
+  ChevronUp,
+  ExternalLink,
+  Info,
+  BarChart3,
+  FlaskConical,
+  Calendar,
+  BookOpen,
+  Smile,
+  ShieldCheck,
+  Clock,
+  AlertTriangle,
+  type LucideIcon,
+} from "lucide-react"
 import { useRoomState, useRoomMarkers } from "@/app/admin/preparation/[id]/room/contexts"
 import type { LiveV2Marker, LiveV2Snapshot } from "@/lib/recording-v2/load"
 import {
@@ -46,7 +67,15 @@ import {
   createMarkerAction,
   toggleQuestionDoneAction,
 } from "./actions"
-import type { SectionKind, PrepV2Question } from "@/lib/preparation/v2/types"
+import type {
+  SectionKind,
+  PrepV2Question,
+  PrepV2Insight,
+  PrepV2InsightSource,
+  InsightType,
+  InsightTiming,
+  InsightConfidence,
+} from "@/lib/preparation/v2/types"
 import { RecordingClock } from "./recording-clock"
 import {
   SECTION_LABEL_AR,
@@ -220,26 +249,77 @@ export function LiveV2Client({ initial }: { initial: LiveV2Snapshot }) {
   // ── Marker dispatch ──────────────────────────────────────────────
   async function tag(type: QuickMarkerType, label: string) {
     const fallbackMs = nowElapsed()
-    const r = await createMarkerAction({
-      roomId: room.id,
-      markerType: type,
-      label,
-      sectionKey: currentSection,
-    })
-    if (r.ok) {
-      setMarkers((prev) => [
-        {
-          id: r.marker_id ?? crypto.randomUUID(),
-          marker_type: type,
-          label,
-          note: null,
-          recording_ms: r.recording_ms ?? fallbackMs,
-          section_key: currentSection,
-          created_at: new Date().toISOString(),
-          author_name: "you",
-        },
-        ...prev,
-      ])
+    try {
+      const r = await createMarkerAction({
+        roomId: room.id,
+        markerType: type,
+        label,
+        sectionKey: currentSection,
+      })
+      if (r.ok) {
+        setMarkers((prev) => [
+          {
+            id: r.marker_id ?? crypto.randomUUID(),
+            marker_type: type,
+            label,
+            note: null,
+            recording_ms: r.recording_ms ?? fallbackMs,
+            section_key: currentSection,
+            created_at: new Date().toISOString(),
+            author_name: "you",
+          },
+          ...prev,
+        ])
+      }
+    } catch {
+      // Best-effort marker — a transient failure shouldn't surface mid-take.
+    }
+  }
+
+  // ── Insight "used" dispatch — host deployed a support card live. Lands as an
+  //    `insight_used` marker (→ timeline + recent chips + CSV) exactly like a
+  //    quick-tag, plus an optimistic per-card used flag the strip reads. ──────
+  const [usedInsightIds, setUsedInsightIds] = useState<Set<string>>(new Set())
+  async function tagInsight(insight: PrepV2Insight) {
+    if (usedInsightIds.has(insight.id)) return
+    setUsedInsightIds((prev) => new Set(prev).add(insight.id)) // optimistic
+    // Revert the optimistic flag (server rejected OR the action threw) so the
+    // host can retry — the button is disabled while it's set.
+    const revert = () =>
+      setUsedInsightIds((prev) => {
+        const next = new Set(prev)
+        next.delete(insight.id)
+        return next
+      })
+    const fallbackMs = nowElapsed()
+    const note = `${INSIGHT_META[insight.type].label} · ${insight.text}`.slice(0, 180)
+    try {
+      const r = await createMarkerAction({
+        roomId: room.id,
+        markerType: "insight_used",
+        label: "إسناد",
+        note,
+        sectionKey: currentSection,
+      })
+      if (r.ok) {
+        setMarkers((prev) => [
+          {
+            id: r.marker_id ?? crypto.randomUUID(),
+            marker_type: "insight_used",
+            label: "إسناد",
+            note,
+            recording_ms: r.recording_ms ?? fallbackMs,
+            section_key: currentSection,
+            created_at: new Date().toISOString(),
+            author_name: "you",
+          },
+          ...prev,
+        ])
+      } else {
+        revert()
+      }
+    } catch {
+      revert()
     }
   }
 
@@ -324,6 +404,9 @@ export function LiveV2Client({ initial }: { initial: LiveV2Snapshot }) {
         completedIds={completedQuestionIds}
         onToggleDone={toggleQuestionDone}
         band={band}
+        usedInsightIds={usedInsightIds}
+        onUseInsight={tagInsight}
+        insightMarkDisabled={status === "waiting"}
       />
 
       {/* ── Director notes ───────────────────────────────────────── */}
@@ -515,6 +598,9 @@ function SectionQuestions(props: {
   completedIds: Set<string>
   onToggleDone: (id: string) => void
   band: EnergyBand
+  usedInsightIds: Set<string>
+  onUseInsight: (insight: PrepV2Insight) => void
+  insightMarkDisabled: boolean
 }) {
   if (props.legacy) {
     return (
@@ -636,6 +722,14 @@ function SectionQuestions(props: {
                         ↳ {q.follow_up_prompt}
                       </div>
                     )}
+                    {!done && q.insights && q.insights.length > 0 && (
+                      <InsightStrip
+                        insights={q.insights}
+                        used={props.usedInsightIds}
+                        onUse={props.onUseInsight}
+                        markDisabled={props.insightMarkDisabled}
+                      />
+                    )}
                   </div>
                 </div>
               </li>
@@ -645,6 +739,202 @@ function SectionQuestions(props: {
       )}
     </div>
   )
+}
+
+// ─── Insight Cards ────────────────────────────────────────────────────
+//
+// Collapse-by-default support cards under a question: a "💡 إسناد N" badge the
+// host pulls open per question. Never auto-expands — split attention during a
+// live take is the whole constraint. A correction is flagged in the collapsed
+// badge ("⚠ تصحيح") so the host knows to watch even before opening.
+
+const INSIGHT_META: Record<InsightType, { label: string; Icon: LucideIcon; chip: string }> = {
+  fact: { label: "معلومة", Icon: Info, chip: "bg-sky-500/10 text-sky-700" },
+  stat: { label: "إحصائية", Icon: BarChart3, chip: "bg-sky-500/10 text-sky-700" },
+  research: { label: "دراسة", Icon: FlaskConical, chip: "bg-violet-500/10 text-violet-700" },
+  date: { label: "تاريخ", Icon: Calendar, chip: "bg-indigo-500/10 text-indigo-700" },
+  reference: { label: "مرجع", Icon: BookOpen, chip: "bg-violet-500/10 text-violet-700" },
+  correction: { label: "تصحيح", Icon: AlertTriangle, chip: "bg-amber-500/15 text-amber-700" },
+  levity: { label: "طرافة", Icon: Smile, chip: "bg-orange-500/10 text-orange-700" },
+}
+
+const TIMING_LABEL_AR: Record<InsightTiming, string> = {
+  before: "قبل",
+  during: "أثناء",
+  after: "بعد",
+}
+
+function InsightStrip(props: {
+  insights: PrepV2Insight[]
+  used: Set<string>
+  onUse: (insight: PrepV2Insight) => void
+  markDisabled: boolean
+}) {
+  const [open, setOpen] = useState(false)
+  const hasCorrection = props.insights.some((i) => i.type === "correction")
+  return (
+    <div className="mt-2">
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        aria-expanded={open}
+        className="inline-flex items-center gap-1.5 rounded-full border border-teal-500/30 bg-teal-500/5 px-2.5 py-1 text-[11px] font-medium text-teal-700 transition hover:bg-teal-500/10"
+      >
+        <Lightbulb className="h-3 w-3" />
+        إسناد {props.insights.length}
+        {hasCorrection && (
+          <span className="inline-flex items-center gap-0.5 text-amber-700">
+            <AlertTriangle className="h-2.5 w-2.5" /> تصحيح
+          </span>
+        )}
+        {open ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
+      </button>
+      {open && (
+        <div className="mt-2 space-y-2">
+          {props.insights.map((ins) => (
+            <InsightCard
+              key={ins.id}
+              insight={ins}
+              used={props.used.has(ins.id)}
+              onUse={() => props.onUse(ins)}
+              markDisabled={props.markDisabled}
+            />
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+function InsightCard(props: {
+  insight: PrepV2Insight
+  used: boolean
+  onUse: () => void
+  markDisabled: boolean
+}) {
+  const ins = props.insight
+  const meta = INSIGHT_META[ins.type]
+  const Icon = meta.Icon
+  const isCorrection = ins.type === "correction" && !!ins.correction
+  return (
+    <div
+      className={
+        "rounded-xl border p-2.5 " +
+        (isCorrection
+          ? "border-amber-500/40 bg-amber-500/5"
+          : "border-border/50 bg-background/50")
+      }
+    >
+      <div className="mb-1.5 flex flex-wrap items-center gap-1.5">
+        <span
+          className={
+            "inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 text-[10px] font-medium " +
+            meta.chip
+          }
+        >
+          <Icon className="h-2.5 w-2.5" /> {meta.label}
+        </span>
+        <span className="inline-flex items-center gap-0.5 rounded-full border border-border/40 px-1.5 py-0.5 text-[10px] text-muted-foreground">
+          <Clock className="h-2.5 w-2.5" /> {TIMING_LABEL_AR[ins.timing]}
+        </span>
+        <span className="ms-auto">
+          <ConfidenceChip confidence={ins.confidence} />
+        </span>
+      </div>
+
+      {isCorrection && ins.correction ? (
+        <div className="text-[13px] leading-relaxed">
+          <div>
+            <span className="text-amber-700">إن قال الضيف:</span>{" "}
+            {ins.correction.inaccuracy}
+          </div>
+          <div className="mt-0.5">
+            <span className="text-emerald-700">الصحيح:</span> {ins.correction.accurate}
+          </div>
+        </div>
+      ) : (
+        <div className="text-[13px] leading-relaxed text-foreground">{ins.text}</div>
+      )}
+
+      <div className="mt-2 flex items-end justify-between gap-2">
+        <div className="flex min-w-0 flex-wrap gap-x-3 gap-y-1">
+          {ins.sources.map((s, i) => (
+            <SourceLink key={i} source={s} />
+          ))}
+        </div>
+        <button
+          type="button"
+          onClick={props.onUse}
+          disabled={props.markDisabled || props.used}
+          title={props.used ? "تم وضع علامة الاستخدام" : "علِّم أنك استخدمت هذه البطاقة"}
+          className={
+            "inline-flex shrink-0 items-center gap-1 rounded-lg border px-2 py-1 text-[11px] font-medium transition disabled:cursor-not-allowed " +
+            (props.used
+              ? "border-emerald-500/50 bg-emerald-500/15 text-emerald-700 disabled:opacity-100"
+              : "border-border/50 text-foreground/85 hover:bg-background/80 disabled:opacity-40")
+          }
+        >
+          <Check className="h-3 w-3" /> {props.used ? "تم" : "استُخدم"}
+        </button>
+      </div>
+    </div>
+  )
+}
+
+function ConfidenceChip({ confidence }: { confidence: InsightConfidence }) {
+  if (confidence === "verified") {
+    return (
+      <span className="inline-flex items-center gap-0.5 rounded-full bg-emerald-500/15 px-1.5 py-0.5 text-[10px] font-medium text-emerald-700">
+        <ShieldCheck className="h-2.5 w-2.5" /> موثوق
+      </span>
+    )
+  }
+  if (confidence === "partial") {
+    return (
+      <span className="rounded-full bg-amber-500/15 px-1.5 py-0.5 text-[10px] font-medium text-amber-700">
+        جزئي
+      </span>
+    )
+  }
+  return (
+    <span className="rounded-full bg-muted/40 px-1.5 py-0.5 text-[10px] text-muted-foreground">
+      غير مؤكد
+    </span>
+  )
+}
+
+function SourceLink({ source }: { source: PrepV2InsightSource }) {
+  const host = sourceHost(source)
+  const year = sourceYear(source.published_at)
+  return (
+    <a
+      href={source.url}
+      target="_blank"
+      rel="noreferrer"
+      title={source.title}
+      className="inline-flex max-w-[200px] items-center gap-1 truncate text-[11px] text-sky-700 hover:underline"
+    >
+      <ExternalLink className="h-2.5 w-2.5 shrink-0" />
+      <span className="truncate">
+        {source.publisher ?? host}
+        {year ? ` · ${year}` : ""}
+      </span>
+    </a>
+  )
+}
+
+function sourceHost(source: PrepV2InsightSource): string {
+  try {
+    return new URL(source.url).hostname.replace(/^www\./, "")
+  } catch {
+    return source.publisher ?? source.title
+  }
+}
+
+function sourceYear(publishedAt?: string): string | null {
+  if (!publishedAt) return null
+  const m = publishedAt.match(/\b(19|20)\d{2}\b/)
+  return m ? m[0] : null
 }
 
 // ─── QuickTagsPanel ───────────────────────────────────────────────────

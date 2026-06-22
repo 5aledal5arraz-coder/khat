@@ -135,6 +135,61 @@ describe("prepV2Schema", () => {
     bad.question_bank[0].section = "made_up_section"
     expect(prepV2Schema.safeParse(bad).success).toBe(false)
   })
+
+  it("accepts a payload whose ai_run_ids carries pass5_insights", () => {
+    const withPass5 = JSON.parse(JSON.stringify(goodPrepV2))
+    withPass5.ai_run_ids.pass5_insights = ["run-a", "run-b"]
+    expect(prepV2Schema.safeParse(withPass5).success).toBe(true)
+  })
+
+  it("accepts a question carrying verified + correction insights", () => {
+    const withInsights = JSON.parse(JSON.stringify(goodPrepV2))
+    withInsights.question_bank[0].insights = [
+      {
+        id: "ins-1",
+        type: "stat",
+        text: "أكثر من ٩٠٪ من بيانات التدريب بالإنجليزية.",
+        timing: "during",
+        sources: [
+          {
+            title: "Stanford HAI report",
+            url: "https://hai.stanford.edu/x",
+            publisher: "Stanford HAI",
+            published_at: "2024-01-01",
+          },
+        ],
+        confidence: "verified",
+        generated_at: "2026-06-21T00:00:00.000Z",
+      },
+      {
+        id: "ins-2",
+        type: "correction",
+        text: "تصحيح محتمل",
+        timing: "during",
+        sources: [{ title: "Nature", url: "https://nature.com/y" }],
+        confidence: "partial",
+        correction: { inaccuracy: "x", accurate: "y" },
+        generated_at: "2026-06-21T00:00:00.000Z",
+      },
+    ]
+    expect(prepV2Schema.safeParse(withInsights).success).toBe(true)
+  })
+
+  it("rejects an insight with an invalid type enum", () => {
+    const bad = JSON.parse(JSON.stringify(goodPrepV2))
+    bad.question_bank[0].insights = [
+      {
+        id: "ins-x",
+        type: "made_up_type",
+        text: "t",
+        timing: "during",
+        sources: [],
+        confidence: "verified",
+        generated_at: "2026-06-21T00:00:00.000Z",
+      },
+    ]
+    expect(prepV2Schema.safeParse(bad).success).toBe(false)
+  })
 })
 
 // ─── ai_runs.input_snapshot / output_snapshot ────────────────────────

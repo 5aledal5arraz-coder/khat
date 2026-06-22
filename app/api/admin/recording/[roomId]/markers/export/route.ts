@@ -98,17 +98,31 @@ export async function GET(
   const lines = [HEADERS.join(",")]
   for (const m of rows) {
     const isEnergy = m.marker_type === "energy_change"
-    // marker_type may be a quick type, a system type (energy_change), or a
-    // legacy value — so the lookup is genuinely possibly-undefined.
+    const isInsight = m.marker_type === "insight_used"
+    // marker_type may be a quick type, a system type (energy_change /
+    // insight_used), or a legacy value — so the lookup is genuinely
+    // possibly-undefined.
     const meta = QUICK_MARKER_META[m.marker_type as keyof typeof QUICK_MARKER_META] as
       | (typeof QUICK_MARKER_META)[keyof typeof QUICK_MARKER_META]
       | undefined
+    const typeLabel = isEnergy
+      ? "تغيّر الطاقة"
+      : isInsight
+        ? "إسناد مُستخدم"
+        : (meta?.label ?? m.marker_type)
+    const groupLabel = isEnergy
+      ? "الطاقة"
+      : isInsight
+        ? "إسناد"
+        : meta
+          ? GROUP_LABEL[meta.group] ?? meta.group
+          : "—"
     const cells = [
       formatTimestamp(m.recording_ms),
       m.recording_ms,
-      isEnergy ? "تغيّر الطاقة" : (meta?.label ?? m.marker_type),
+      typeLabel,
       m.marker_type,
-      isEnergy ? "الطاقة" : meta ? GROUP_LABEL[meta.group] ?? meta.group : "—",
+      groupLabel,
       isEnergy ? `المستوى ${m.note ?? ""}` : (m.note ?? ""),
       m.section_key ?? "",
       m.author_name ?? "",

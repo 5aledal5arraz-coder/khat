@@ -16,6 +16,7 @@ import {
   Coffee,
   Play,
   Flag,
+  Lightbulb,
   type LucideIcon,
 } from "lucide-react"
 import type { SectionKind } from "@/lib/preparation/v2/types"
@@ -79,18 +80,29 @@ const MARKER_COLOR: Record<QuickMarkerType, { dot: string; text: string; soft: s
  */
 // Cast is safe: every QUICK_MARKER_TYPE has an entry in MARKER_ICON +
 // MARKER_COLOR above, and markerStyle() falls back for any unknown/legacy key.
-export const MARKER_STYLE: Record<string, MarkerStyle> = Object.fromEntries(
-  QUICK_MARKER_TYPES.map((t) => [
-    t,
-    {
-      label: QUICK_MARKER_META[t].label,
-      icon: MARKER_ICON[t],
-      dot: MARKER_COLOR[t].dot,
-      text: MARKER_COLOR[t].text,
-      soft: MARKER_COLOR[t].soft,
-    } satisfies MarkerStyle,
-  ]),
-) as Record<string, MarkerStyle>
+// `insight_used` is a system marker (host deployed a support card live) — it is
+// added explicitly so it renders with its own identity on the timeline + chips.
+export const MARKER_STYLE: Record<string, MarkerStyle> = {
+  ...(Object.fromEntries(
+    QUICK_MARKER_TYPES.map((t) => [
+      t,
+      {
+        label: QUICK_MARKER_META[t].label,
+        icon: MARKER_ICON[t],
+        dot: MARKER_COLOR[t].dot,
+        text: MARKER_COLOR[t].text,
+        soft: MARKER_COLOR[t].soft,
+      } satisfies MarkerStyle,
+    ]),
+  ) as Record<string, MarkerStyle>),
+  insight_used: {
+    label: "إسناد",
+    icon: Lightbulb,
+    dot: "bg-teal-500",
+    text: "text-teal-700",
+    soft: "bg-teal-500/10",
+  },
+}
 
 export function markerStyle(type: string): MarkerStyle {
   return (

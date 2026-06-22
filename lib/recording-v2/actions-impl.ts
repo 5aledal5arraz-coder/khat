@@ -19,8 +19,16 @@ import { syncEirFromRoomStatus } from "@/lib/khat-brain"
 import type { SectionKind } from "@/lib/preparation/v2/types"
 import { QUICK_MARKER_TYPES, type QuickMarkerType } from "./marker-types"
 
-export const ALLOWED_MARKER_TYPES = QUICK_MARKER_TYPES
-export type LiveV2MarkerType = QuickMarkerType
+/**
+ * Marker types the cockpit may create via the server action. The quick-tag set
+ * plus `insight_used` — the host marking a question's support card as deployed
+ * live (system markers like `energy_change` are written server-side, not here).
+ */
+export type LiveV2MarkerType = QuickMarkerType | "insight_used"
+export const ALLOWED_MARKER_TYPES: readonly LiveV2MarkerType[] = [
+  ...QUICK_MARKER_TYPES,
+  "insight_used",
+]
 
 // ─── Helpers ──────────────────────────────────────────────────────────
 

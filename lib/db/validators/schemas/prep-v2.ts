@@ -41,6 +41,38 @@ const sectionSchema = z.object({
   transition_goal: z.string(),
 })
 
+const INSIGHT_TYPE = z.enum([
+  "fact",
+  "stat",
+  "research",
+  "date",
+  "reference",
+  "correction",
+  "levity",
+])
+const INSIGHT_TIMING = z.enum(["before", "during", "after"])
+const INSIGHT_CONFIDENCE = z.enum(["verified", "partial", "weak"])
+
+const insightSourceSchema = z.object({
+  title: z.string(),
+  url: z.string(),
+  publisher: z.string().optional(),
+  published_at: z.string().optional(),
+})
+
+const insightSchema = z.object({
+  id: z.string(),
+  type: INSIGHT_TYPE,
+  text: z.string(),
+  timing: INSIGHT_TIMING,
+  sources: z.array(insightSourceSchema),
+  confidence: INSIGHT_CONFIDENCE,
+  correction: z
+    .object({ inaccuracy: z.string(), accurate: z.string() })
+    .optional(),
+  generated_at: z.string(),
+})
+
 const questionSchema = z.object({
   id: z.string(),
   section: SECTION_KIND,
@@ -50,6 +82,8 @@ const questionSchema = z.object({
   purpose: z.string(),
   follow_up_prompt: z.string(),
   risk_level: QUESTION_RISK_LEVEL,
+  // Pass-5 support cards. Optional + additive (older preps omit it).
+  insights: z.array(insightSchema).optional(),
 })
 
 const hostGuidanceSchema = z.object({
@@ -83,6 +117,9 @@ const aiRunIdsSchema = z.object({
   pass2_structure: z.string().nullable(),
   pass3_questions: z.string().nullable(),
   pass4_critique: z.string().nullable(),
+  // Pass 5 makes one drafting call per section → array of run ids. Optional so
+  // payloads written before the insights pass shipped still validate.
+  pass5_insights: z.array(z.string()).nullable().optional(),
 })
 
 export const prepV2Schema = z

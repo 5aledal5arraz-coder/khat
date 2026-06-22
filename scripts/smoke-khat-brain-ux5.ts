@@ -130,6 +130,7 @@ async function fixturePrepWithPayload(): Promise<{
       pass2_structure: null,
       pass3_questions: null,
       pass4_critique: null,
+      pass5_insights: null,
     },
   }
 

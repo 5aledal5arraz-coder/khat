@@ -30,10 +30,13 @@ export type QuickMarkerType = (typeof QUICK_MARKER_TYPES)[number]
 
 /**
  * System markers are recorded automatically (not from the quick-tag UI) and
- * rendered specially. `energy_change` records every energy-dial change for the
- * timeline ribbon + CSV export + post analytics.
+ * rendered specially.
+ *   - `energy_change` records every energy-dial change.
+ *   - `insight_used`  records when the host deploys a question's support card
+ *     (Insight Card) live, with the card's type + claim in `note`.
+ * Both flow into the timeline ribbon + CSV export + post analytics.
  */
-export const SYSTEM_MARKER_TYPES = ["energy_change"] as const
+export const SYSTEM_MARKER_TYPES = ["energy_change", "insight_used"] as const
 export type SystemMarkerType = (typeof SYSTEM_MARKER_TYPES)[number]
 
 /** Any value the marker_type column may hold (quick + system). */
