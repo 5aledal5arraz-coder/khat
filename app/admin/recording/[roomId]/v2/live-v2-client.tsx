@@ -19,8 +19,17 @@
 
 import { useMemo, useRef, useState, useTransition } from "react"
 import { Empty } from "../../../components/ui-kit"
-import { ChevronLeft, ChevronRight, Check, Circle, Download } from "lucide-react"
+import { ChevronLeft, ChevronRight, Check, Circle, Download, Zap } from "lucide-react"
+import { useRoomState } from "@/app/admin/preparation/[id]/room/contexts"
 import type { LiveV2Marker, LiveV2Snapshot } from "@/lib/recording-v2/load"
+import {
+  energyBand,
+  rankQuestionsByEnergy,
+  matchesEnergy,
+  coachHint,
+  SECTION_TARGET_LEVEL,
+  type EnergyBand,
+} from "@/lib/recording-v2/energy"
 import {
   QUICK_MARKER_GROUPS,
   QUICK_MARKER_META,
@@ -60,6 +69,11 @@ export function LiveV2Client({ initial }: { initial: LiveV2Snapshot }) {
   const room = initial.room
   const prep = initial.preparation
   const sections = prep.prep_v2?.episode_sections ?? null
+
+  // ── Live energy (set by the director / host, synced over SSE) ──────
+  const { room: liveRoom } = useRoomState()
+  const energy = liveRoom?.energy_level ?? room.energy_level ?? 3
+  const band = energyBand(energy)
 
   // ── Timer baseline (changes only on start/pause/resume/reset/end) ──
   const [status, setStatus] = useState<typeof room.status>(room.status)
@@ -210,17 +224,18 @@ export function LiveV2Client({ initial }: { initial: LiveV2Snapshot }) {
     }
   }
 
-  // ── Section question list (must_ask first) ───────────────────────
+  // ── Section question list — ranked by energy fit (must_ask still first,
+  //    energy-matching questions float up, done sinks) ───────────────
   const currentSectionQuestions: PrepV2Question[] = useMemo(() => {
     if (!prep.prep_v2 || !currentSection) return []
     const all = prep.prep_v2.question_bank.filter(
       (q) => q.section === currentSection,
     )
-    return [
-      ...all.filter((q) => q.priority === "must_ask"),
-      ...all.filter((q) => q.priority === "if_time"),
-    ]
-  }, [prep.prep_v2, currentSection])
+    return rankQuestionsByEnergy(all, band, (id) => completedQuestionIds.has(id))
+  }, [prep.prep_v2, currentSection, band, completedQuestionIds])
+
+  // Live coaching whisper when energy is in tension with the section's arc.
+  const hint = coachHint(currentSection, energy)
 
   return (
     <div className="mx-auto max-w-7xl space-y-4 p-4">
@@ -239,6 +254,9 @@ export function LiveV2Client({ initial }: { initial: LiveV2Snapshot }) {
         markers={markers}
         currentSectionIndex={sectionIndex}
       />
+
+      {/* ── Live coaching whisper: energy ↔ section tension ──────── */}
+      {hint && <CoachHintBanner hint={hint} energy={energy} section={currentSection} />}
 
       {/* ── Session-ended: export all markers as CSV ─────────────── */}
       {status === "ended" && (
@@ -282,10 +300,38 @@ export function LiveV2Client({ initial }: { initial: LiveV2Snapshot }) {
         questions={currentSectionQuestions}
         completedIds={completedQuestionIds}
         onToggleDone={toggleQuestionDone}
+        band={band}
       />
 
       {/* ── Director notes ───────────────────────────────────────── */}
       <DirectorNotesPanel value={notes} onChange={onNotesChange} />
+    </div>
+  )
+}
+
+// ─── CoachHintBanner ──────────────────────────────────────────────────
+
+function CoachHintBanner({
+  hint,
+  energy,
+  section,
+}: {
+  hint: string
+  energy: number
+  section: SectionKind | null
+}) {
+  const target = section ? SECTION_TARGET_LEVEL[section] : null
+  return (
+    <div className="flex flex-wrap items-center justify-between gap-2 rounded-2xl border border-amber-500/30 bg-amber-500/5 px-4 py-2.5">
+      <span className="inline-flex items-center gap-2 text-[13px] font-medium text-amber-700">
+        <Zap className="h-4 w-4 shrink-0 text-amber-600" />
+        {hint}
+      </span>
+      {target != null && (
+        <span className="text-[10.5px] tabular-nums text-muted-foreground" dir="rtl">
+          الطاقة {energy}/5 · المستهدف {target}/5
+        </span>
+      )}
     </div>
   )
 }
@@ -445,6 +491,7 @@ function SectionQuestions(props: {
   questions: PrepV2Question[]
   completedIds: Set<string>
   onToggleDone: (id: string) => void
+  band: EnergyBand
 }) {
   if (props.legacy) {
     return (
@@ -534,6 +581,14 @@ function SectionQuestions(props: {
                         </span>
                       ))}
                       <RiskChip risk={q.risk_level} />
+                      {!done && matchesEnergy(q, props.band) && (
+                        <span
+                          title="يناسب الطاقة الحالية"
+                          className="inline-flex items-center gap-0.5 rounded-full bg-amber-500/15 px-1.5 py-0.5 text-[10px] font-medium text-amber-700"
+                        >
+                          <Zap className="h-2.5 w-2.5" /> يناسب الطاقة
+                        </span>
+                      )}
                       {done && (
                         <span className="rounded-full bg-emerald-500/15 px-1.5 py-0.5 text-[10px] font-medium text-emerald-700">
                           تم طرحه

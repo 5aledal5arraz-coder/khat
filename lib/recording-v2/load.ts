@@ -42,6 +42,7 @@ export interface LiveV2RoomSnapshot {
   recording_paused_at: string | null
   recording_elapsed_ms: number
   director_notes: string
+  energy_level: number
   current_section_key: SectionKind | null
   current_section_index: number | null
   completed_question_ids: string[]
@@ -126,6 +127,7 @@ export async function loadLiveV2(roomId: string): Promise<LiveV2Snapshot | null>
       recording_paused_at: room.recording_paused_at?.toISOString() ?? null,
       recording_elapsed_ms: room.recording_elapsed_ms,
       director_notes: room.director_notes ?? "",
+      energy_level: room.energy_level ?? 3,
       current_section_key: (room.current_section_key as SectionKind | null) ?? null,
       current_section_index: room.current_section_index ?? null,
       completed_question_ids: (room.completed_question_ids as string[] | null) ?? [],
