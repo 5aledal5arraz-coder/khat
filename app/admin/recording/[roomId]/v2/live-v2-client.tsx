@@ -20,7 +20,7 @@
 import { useMemo, useRef, useState, useTransition } from "react"
 import { Empty } from "../../../components/ui-kit"
 import { ChevronLeft, ChevronRight, Check, Circle, Download, Zap } from "lucide-react"
-import { useRoomState } from "@/app/admin/preparation/[id]/room/contexts"
+import { useRoomState, useRoomMarkers } from "@/app/admin/preparation/[id]/room/contexts"
 import type { LiveV2Marker, LiveV2Snapshot } from "@/lib/recording-v2/load"
 import {
   energyBand,
@@ -74,6 +74,21 @@ export function LiveV2Client({ initial }: { initial: LiveV2Snapshot }) {
   const { room: liveRoom } = useRoomState()
   const energy = liveRoom?.energy_level ?? room.energy_level ?? 3
   const band = energyBand(energy)
+
+  // Energy ribbon — built reactively from the room's energy_change markers
+  // (recorded server-side on every change, delivered live over SSE).
+  const { markers: sessionMarkers } = useRoomMarkers()
+  const energyHistory = useMemo(
+    () =>
+      sessionMarkers
+        .filter((m) => m.marker_type === "energy_change")
+        .map((m) => ({
+          recording_ms: m.recording_ms,
+          level: Math.max(0, Math.min(5, Number(m.note) || 3)),
+        }))
+        .sort((a, b) => a.recording_ms - b.recording_ms),
+    [sessionMarkers],
+  )
 
   // ── Timer baseline (changes only on start/pause/resume/reset/end) ──
   const [status, setStatus] = useState<typeof room.status>(room.status)
@@ -237,6 +252,9 @@ export function LiveV2Client({ initial }: { initial: LiveV2Snapshot }) {
   // Live coaching whisper when energy is in tension with the section's arc.
   const hint = coachHint(currentSection, energy)
 
+  // Energy markers drive the ribbon, not the content pins / count / list.
+  const contentMarkers = markers.filter((m) => m.marker_type !== "energy_change")
+
   return (
     <div className="mx-auto max-w-7xl space-y-4 p-4">
       {/* ── Hero: big centered timer + timeline ──────────────────── */}
@@ -251,7 +269,8 @@ export function LiveV2Client({ initial }: { initial: LiveV2Snapshot }) {
         onReset={onReset}
         onEnd={onEnd}
         sections={sections}
-        markers={markers}
+        markers={contentMarkers}
+        energyHistory={energyHistory}
         currentSectionIndex={sectionIndex}
       />
 
@@ -260,19 +279,19 @@ export function LiveV2Client({ initial }: { initial: LiveV2Snapshot }) {
 
       {/* ── Session-ended: export all markers as CSV ─────────────── */}
       {status === "ended" && (
-        <SessionEndedExport roomId={room.id} markerCount={markers.length} />
+        <SessionEndedExport roomId={room.id} markerCount={contentMarkers.length} />
       )}
 
       {/* ── Quick markers — directly under the timeline so they're the
           easiest thing to reach during a take (tap → pin lands on the
           timeline right above). The most time-critical action. ───────── */}
-      <QuickTagsPanel onTag={tag} disabled={status === "waiting"} markers={markers} />
+      <QuickTagsPanel onTag={tag} disabled={status === "waiting"} markers={contentMarkers} />
 
       {/* ── Compact episode/status strip ─────────────────────────── */}
       <RoomStatusPanel
         status={status}
         eirPhase={room.eir_phase}
-        markers={markers.length}
+        markers={contentMarkers.length}
         guestName={prep.guest_name}
         title={prep.title}
       />

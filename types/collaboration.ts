@@ -5,7 +5,7 @@
  * Card State, and Card Notes. Used by schema, API routes, and UI.
  */
 
-import type { QuickMarkerType } from "@/lib/recording-v2/marker-types"
+import type { StoredMarkerType } from "@/lib/recording-v2/marker-types"
 
 // ─── Enums / Unions ─────────────────────────────────────────────────
 
@@ -38,9 +38,10 @@ export type ParticipantRole = "host" | "director" | "photographer" | "editor" | 
 
 export type RoomCardStatus = "pending" | "active" | "used" | "skipped"
 
-// Session markers share the canonical quick-marker taxonomy (one vocabulary
-// across host cockpit + director bar + editor timeline). See marker-types.ts.
-export type SessionMarkerType = QuickMarkerType
+// Session markers share the canonical quick-marker taxonomy plus system
+// markers like energy_change (one vocabulary across host cockpit + director
+// bar + editor timeline). See marker-types.ts.
+export type SessionMarkerType = StoredMarkerType
 
 export type CardNoteType = "normal" | "urgent" | "tactical"
 

@@ -1,6 +1,11 @@
 import { NextRequest, NextResponse } from "next/server"
 import { requireRole, errorResponse, notFoundResponse } from "@/lib/api-utils"
-import { getRoomSnapshot, updateRoom } from "@/lib/collaboration/rooms"
+import {
+  getRoomSnapshot,
+  updateRoom,
+  getRoomById,
+  recordEnergyChangeMarker,
+} from "@/lib/collaboration/rooms"
 import { requireRoomRole, ROOM_ACTION_ROLES } from "@/lib/collaboration/permissions"
 import { broadcast } from "@/lib/collaboration/broadcast"
 import type { CollaborationRoomStatus } from "@/types/collaboration"
@@ -64,11 +69,27 @@ export async function PATCH(
       body.energy_level = e
     }
 
+    // Capture the prior energy so we only log an energy_change on a real change.
+    let prevEnergy: number | null = null
+    if (body.energy_level !== undefined) {
+      const cur = await getRoomById(roomId)
+      prevEnergy = cur?.energy_level ?? null
+    }
+
     const room = await updateRoom(roomId, body)
     if (!room) return notFoundResponse()
 
     // Broadcast update to all connected clients
     broadcast(roomId, { type: "room_update", data: room, timestamp: new Date().toISOString() })
+
+    // Record the energy change as a timeline marker (ribbon + CSV + analytics)
+    // and broadcast it so live views (energy ribbon) pick it up over SSE.
+    if (body.energy_level !== undefined && room.energy_level !== prevEnergy) {
+      const marker = await recordEnergyChangeMarker(roomId, auth.user.id, room.energy_level)
+      if (marker) {
+        broadcast(roomId, { type: "marker_added", data: marker, timestamp: new Date().toISOString() })
+      }
+    }
 
     return NextResponse.json(room)
   } catch {

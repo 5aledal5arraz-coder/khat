@@ -84,6 +84,8 @@ async function main() {
           -- canonical quick-marker taxonomy (lib/recording-v2/marker-types.ts)
           'clip','quote','highlight','cut','retake','tech_issue',
           'break_start','break_end','chapter',
+          -- system markers (not in the quick-tag UI)
+          'energy_change',
           -- legacy values still in production data
           'deep_moment','emotional','revisit','episode_started','break',
           'important','technical_issue','custom'

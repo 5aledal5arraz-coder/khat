@@ -30,6 +30,7 @@ import {
 
 type Sections = NonNullable<LiveV2Snapshot["preparation"]["prep_v2"]>["episode_sections"]
 type Status = "waiting" | "live" | "paused" | "ended"
+export type EnergyPoint = { recording_ms: number; level: number }
 
 export function RecordingClock(props: {
   status: Status
@@ -43,6 +44,7 @@ export function RecordingClock(props: {
   onEnd: () => void
   sections: Sections | null
   markers: LiveV2Marker[]
+  energyHistory: EnergyPoint[]
   currentSectionIndex: number
 }) {
   const { status, elapsedMsAtBaseline, windowStartedAt } = props
@@ -119,6 +121,7 @@ export function RecordingClock(props: {
         elapsedMs={elapsed}
         sections={props.sections}
         markers={props.markers}
+        energyHistory={props.energyHistory}
         currentSectionIndex={props.currentSectionIndex}
       />
     </div>
@@ -131,9 +134,10 @@ function Timeline(props: {
   elapsedMs: number
   sections: Sections | null
   markers: LiveV2Marker[]
+  energyHistory: EnergyPoint[]
   currentSectionIndex: number
 }) {
-  const { elapsedMs, sections, markers } = props
+  const { elapsedMs, sections, markers, energyHistory } = props
 
   const plannedMs = useMemo(
     () => (sections ? sections.reduce((a, s) => a + s.estimated_minutes * 60_000, 0) : 0),
@@ -167,6 +171,26 @@ function Timeline(props: {
 
   const playheadPct = Math.min(100, (elapsedMs / scaleMax) * 100)
 
+  // Energy ribbon — the dial as a step function over time. A baseline (default
+  // 3) is prepended so the area draws from 0; the last reading holds to "now".
+  const energySegments = useMemo(() => {
+    if (energyHistory.length === 0) return []
+    const pts = [{ recording_ms: 0, level: 3 }, ...energyHistory].sort(
+      (a, b) => a.recording_ms - b.recording_ms,
+    )
+    const out: { startPct: number; widthPct: number; level: number }[] = []
+    for (let i = 0; i < pts.length; i++) {
+      const start = pts[i].recording_ms
+      const end = i + 1 < pts.length ? pts[i + 1].recording_ms : scaleMax
+      const startPct = Math.min(100, (start / scaleMax) * 100)
+      const endPct = Math.min(100, (end / scaleMax) * 100)
+      if (endPct - startPct > 0.01) {
+        out.push({ startPct, widthPct: endPct - startPct, level: pts[i].level })
+      }
+    }
+    return out
+  }, [energyHistory, scaleMax])
+
   return (
     <div className="mt-5">
       <div className="mb-1 flex items-center justify-between text-[10px] tabular-nums text-muted-foreground" dir="ltr">
@@ -197,6 +221,19 @@ function Timeline(props: {
           className="absolute inset-y-0 left-0 bg-primary/10"
           style={{ width: `${playheadPct}%` }}
         />
+
+        {/* Energy ribbon — subtle step area of the dial over time (under pins) */}
+        {energySegments.map((s, i) => (
+          <div
+            key={i}
+            className="absolute bottom-0 border-t border-amber-400/60 bg-amber-400/20"
+            style={{
+              left: `${s.startPct}%`,
+              width: `${s.widthPct}%`,
+              height: `${(s.level / 5) * 60}%`,
+            }}
+          />
+        ))}
 
         {/* Marker pins at exact recording_ms */}
         {markers.map((m) => {
@@ -230,20 +267,34 @@ function Timeline(props: {
       </div>
 
       {/* Legend (marker types present) + planned-duration reference */}
-      <TimelineLegend markers={markers} plannedMs={plannedMs} />
+      <TimelineLegend markers={markers} plannedMs={plannedMs} hasEnergy={energySegments.length > 0} />
     </div>
   )
 }
 
-function TimelineLegend({ markers, plannedMs }: { markers: LiveV2Marker[]; plannedMs: number }) {
+function TimelineLegend({
+  markers,
+  plannedMs,
+  hasEnergy,
+}: {
+  markers: LiveV2Marker[]
+  plannedMs: number
+  hasEnergy: boolean
+}) {
   const present = useMemo(() => {
     const seen = new Set<string>()
     for (const m of markers) seen.add(m.marker_type)
     return [...seen]
   }, [markers])
-  if (present.length === 0 && plannedMs <= 0) return null
+  if (present.length === 0 && plannedMs <= 0 && !hasEnergy) return null
   return (
     <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1">
+      {hasEnergy && (
+        <span className="inline-flex items-center gap-1 text-[10px] text-muted-foreground">
+          <span className="h-2 w-2 rounded-sm border-t border-amber-400/60 bg-amber-400/25" />
+          الطاقة
+        </span>
+      )}
       {present.map((t) => {
         const st = markerStyle(t)
         return (

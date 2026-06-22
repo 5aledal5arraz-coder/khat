@@ -124,7 +124,11 @@ export function TeamMarkerFeed({
   const { markers, deleteMarker } = useRoomMarkers()
   const [open, setOpen] = useState(true)
 
-  const ops = markers.slice().reverse()
+  // energy_change is a system marker (drives the timeline ribbon) — not shown
+  // in the team feed.
+  const ops = markers
+    .filter((m) => m.marker_type !== "energy_change")
+    .reverse()
 
   const renderItem = (m: (typeof ops)[number]) => {
     const st = markerStyle(m.marker_type)

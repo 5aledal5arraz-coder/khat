@@ -97,14 +97,15 @@ export async function GET(
 
   const lines = [HEADERS.join(",")]
   for (const m of rows) {
+    const isEnergy = m.marker_type === "energy_change"
     const meta = QUICK_MARKER_META[m.marker_type as keyof typeof QUICK_MARKER_META]
     const cells = [
       formatTimestamp(m.recording_ms),
       m.recording_ms,
-      meta?.label ?? m.marker_type,
+      isEnergy ? "تغيّر الطاقة" : (meta?.label ?? m.marker_type),
       m.marker_type,
-      meta ? GROUP_LABEL[meta.group] ?? meta.group : "—",
-      m.note ?? "",
+      isEnergy ? "الطاقة" : meta ? GROUP_LABEL[meta.group] ?? meta.group : "—",
+      isEnergy ? `المستوى ${m.note ?? ""}` : (m.note ?? ""),
       m.section_key ?? "",
       m.author_name ?? "",
       m.created_at instanceof Date ? m.created_at.toISOString() : (m.created_at ?? ""),

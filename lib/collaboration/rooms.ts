@@ -466,6 +466,44 @@ function computeRecordingMs(room: CollaborationRoom): number {
   return room.recording_elapsed_ms || 0
 }
 
+/**
+ * Best-effort: record an energy change as a timeline marker
+ * (marker_type 'energy_change', level stored in `note`) so it flows into the
+ * timeline ribbon, the CSV export, and post-production analytics. No-op if
+ * recording hasn't started or the setter isn't a room participant. Never throws.
+ */
+export async function recordEnergyChangeMarker(
+  roomId: string,
+  userId: string,
+  level: number,
+): Promise<RoomSessionMarker | null> {
+  try {
+    const room = await getRoomById(roomId)
+    if (!room || !room.recording_started_at) return null
+    const [participant] = await db!
+      .select({ id: roomParticipants.id })
+      .from(roomParticipants)
+      .where(and(eq(roomParticipants.room_id, roomId), eq(roomParticipants.user_id, userId)))
+      .limit(1)
+    if (!participant) return null
+    const [row] = await db!
+      .insert(roomSessionMarkers)
+      .values({
+        room_id: roomId,
+        author_id: participant.id,
+        marker_type: "energy_change",
+        label: "طاقة",
+        note: String(level),
+        recording_ms: computeRecordingMs(room),
+      } as never)
+      .returning()
+    return row ? rowToMarker(row) : null
+  } catch {
+    // best-effort: never fail the energy update over a marker insert
+    return null
+  }
+}
+
 export async function createMarker(
   roomId: string,
   authorId: string,

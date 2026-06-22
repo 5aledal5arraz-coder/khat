@@ -608,6 +608,8 @@ DO $$ BEGIN
       -- canonical taxonomy
       'clip', 'quote', 'highlight', 'cut', 'retake', 'tech_issue',
       'break_start', 'break_end', 'chapter',
+      -- system markers (not in the quick-tag UI)
+      'energy_change',
       -- legacy values (pre-unification rows)
       'deep_moment', 'emotional', 'revisit', 'episode_started', 'break',
       'important', 'technical_issue', 'custom'

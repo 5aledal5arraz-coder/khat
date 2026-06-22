@@ -28,6 +28,17 @@ export const QUICK_MARKER_TYPES = [
 
 export type QuickMarkerType = (typeof QUICK_MARKER_TYPES)[number]
 
+/**
+ * System markers are recorded automatically (not from the quick-tag UI) and
+ * rendered specially. `energy_change` records every energy-dial change for the
+ * timeline ribbon + CSV export + post analytics.
+ */
+export const SYSTEM_MARKER_TYPES = ["energy_change"] as const
+export type SystemMarkerType = (typeof SYSTEM_MARKER_TYPES)[number]
+
+/** Any value the marker_type column may hold (quick + system). */
+export type StoredMarkerType = QuickMarkerType | SystemMarkerType
+
 export type QuickMarkerGroup = "content" | "editing" | "flow"
 
 export interface QuickMarkerMeta {
