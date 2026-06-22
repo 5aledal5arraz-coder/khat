@@ -39,12 +39,14 @@ export async function PATCH(
   try {
     const body = await req.json()
 
-    // Determine the highest room-role required for the fields being changed
-    const hostOnlyFields = ["status", "phase", "energy_level", "active_card_id", "host_notes"]
-    const isHostAction = hostOnlyFields.some((f) => body[f] !== undefined)
-
-    if (isHostAction) {
+    // Host-only fields gate at host; energy is the director's cue (director+).
+    const hostOnlyFields = ["status", "phase", "active_card_id", "host_notes"]
+    if (hostOnlyFields.some((f) => body[f] !== undefined)) {
       const roomAuth = await requireRoomRole(roomId, auth.user.id, ROOM_ACTION_ROLES.change_phase)
+      if (roomAuth.error) return errorResponse(roomAuth.error, 403)
+    }
+    if (body.energy_level !== undefined) {
+      const roomAuth = await requireRoomRole(roomId, auth.user.id, ROOM_ACTION_ROLES.change_energy)
       if (roomAuth.error) return errorResponse(roomAuth.error, 403)
     }
 

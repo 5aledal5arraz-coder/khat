@@ -19,7 +19,7 @@ import type { PrepV2Question, PrepV2Payload, SectionKind } from "@/lib/preparati
 import {
   Circle, Film, Quote, Volume2, Scissors, AlertTriangle,
   Flag, Loader2, Trash2,
-  Camera, Clapperboard, Sparkles, Zap, BookOpen, ChevronDown, Check,
+  Camera, Clapperboard, Sparkles, Zap, BookOpen, ChevronDown, ChevronUp, Check,
 } from "lucide-react"
 import { Empty } from "../../../components/ui-kit"
 import { RoomNotesPanel } from "./room-notes-panel"
@@ -205,7 +205,7 @@ export function ParticipantRoomView({
   initial: LiveV2Snapshot
   role: string
 }) {
-  const { room } = useRoomState()
+  const { room, updateEnergy } = useRoomState()
   const prep = initial.preparation.prep_v2
   const isDirector = role === "director"
   const isPhotographer = role === "photographer"
@@ -277,6 +277,14 @@ export function ParticipantRoomView({
           </div>
         )}
       </div>
+
+      {/* Director: set the room energy — the live cue to the host */}
+      {isDirector && (
+        <DirectorEnergyControl
+          energy={room?.energy_level ?? initial.room.energy_level ?? 3}
+          onSet={updateEnergy}
+        />
+      )}
 
       {/* Director: flag live moments (broadcasts to the whole room over SSE) */}
       {isDirector && (
@@ -462,6 +470,81 @@ function GuidanceList({
 }
 
 /** Live room-energy indicator (0–5), set by the host, shown to everyone. */
+/** Director's primary input: set the room energy → live cue to the host. */
+function DirectorEnergyControl({
+  energy,
+  onSet,
+}: {
+  energy: number
+  onSet: (level: number) => void
+}) {
+  const [pending, setPending] = useState(false)
+  const set = async (level: number) => {
+    const clamped = Math.max(0, Math.min(5, level))
+    if (clamped === energy || pending) return
+    setPending(true)
+    try {
+      await onSet(clamped)
+    } finally {
+      setPending(false)
+    }
+  }
+  return (
+    <div className="rounded-2xl border border-amber-500/25 bg-amber-500/5 p-3">
+      <div className="mb-2 flex items-center justify-between">
+        <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-amber-700">
+          <Zap className="h-3 w-3" /> طاقة الغرفة
+        </span>
+        <span className="text-[10.5px] tabular-nums text-muted-foreground" dir="ltr">
+          {energy}/5
+        </span>
+      </div>
+      <div className="flex items-center gap-2">
+        <button
+          type="button"
+          onClick={() => void set(energy - 1)}
+          disabled={pending || energy <= 0}
+          aria-label="خفّض الطاقة"
+          className="flex h-7 w-7 items-center justify-center rounded-lg border border-border/60 text-muted-foreground transition hover:bg-muted/40 disabled:opacity-40"
+        >
+          <ChevronDown className="h-4 w-4" />
+        </button>
+        <div className="flex flex-1 items-center justify-center gap-1.5">
+          {[1, 2, 3, 4, 5].map((n) => (
+            <button
+              key={n}
+              type="button"
+              onClick={() => void set(n)}
+              disabled={pending}
+              aria-label={`ضبط الطاقة على ${n}`}
+              className={cn(
+                "h-7 w-7 rounded-full border text-[11px] font-semibold transition disabled:opacity-50",
+                n <= energy
+                  ? "border-amber-500 bg-amber-500 text-white"
+                  : "border-border/60 text-muted-foreground hover:border-amber-400",
+              )}
+            >
+              {n}
+            </button>
+          ))}
+        </div>
+        <button
+          type="button"
+          onClick={() => void set(energy + 1)}
+          disabled={pending || energy >= 5}
+          aria-label="ارفع الطاقة"
+          className="flex h-7 w-7 items-center justify-center rounded-lg border border-border/60 text-muted-foreground transition hover:bg-muted/40 disabled:opacity-40"
+        >
+          <ChevronUp className="h-4 w-4" />
+        </button>
+      </div>
+      <p className="mt-1.5 text-[10px] text-muted-foreground">
+        يراها المضيف فوراً — إشارتك لرفع الحدّة أو خفضها.
+      </p>
+    </div>
+  )
+}
+
 function EnergyDots({ level }: { level: number }) {
   const n = Math.max(0, Math.min(5, level))
   return (

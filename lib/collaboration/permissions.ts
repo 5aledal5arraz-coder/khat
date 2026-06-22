@@ -65,7 +65,8 @@ export async function requireRoomRole(
 export const ROOM_ACTION_ROLES = {
   // Room state changes — host only
   change_phase: "host" as ParticipantRole,
-  change_energy: "host" as ParticipantRole,
+  // Energy is the director's primary cue to the host (host can still override).
+  change_energy: "director" as ParticipantRole,
   change_active_card: "host" as ParticipantRole,
   edit_host_notes: "host" as ParticipantRole,
   pause_room: "host" as ParticipantRole,
