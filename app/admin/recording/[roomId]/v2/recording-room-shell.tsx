@@ -99,6 +99,9 @@ function RoomShellInner({
         energy={room?.energy_level ?? 3}
         canSetEnergy={isHostOrOperator}
         onSetEnergy={updateEnergy}
+        // The host cockpit's own StatusRail owns energy + connection on air, so
+        // the host's top strip stays minimal (presence only) — no duplication.
+        compact={isHostOrOperator}
       />
       {isHostOrOperator ? (
         // The host cockpit owns its own team surface now: the on-air StatusRail
@@ -128,6 +131,7 @@ function PresenceStrip({
   energy,
   canSetEnergy,
   onSetEnergy,
+  compact = false,
 }: {
   connStatus: string
   online: number
@@ -135,6 +139,8 @@ function PresenceStrip({
   energy: number
   canSetEnergy: boolean
   onSetEnergy: (level: number) => void
+  /** Host cockpit: hide energy + connection here (the on-air rail owns them). */
+  compact?: boolean
 }) {
   const connected = connStatus === "connected"
   const connecting = connStatus === "connecting" || connStatus === "reconnecting"
@@ -150,30 +156,26 @@ function PresenceStrip({
             </span>
           )}
         </span>
-        <EnergyControl
-          level={energy}
-          interactive={canSetEnergy}
-          onSet={onSetEnergy}
-        />
-        <span
-          className={
-            "inline-flex items-center gap-1 " +
-            (connected
-              ? "text-emerald-700"
-              : connecting
-                ? "text-amber-700"
-                : "text-rose-700")
-          }
-        >
-          {connecting ? (
-            <Loader2 className="h-3 w-3 animate-spin" />
-          ) : connected ? (
-            <Wifi className="h-3 w-3" />
-          ) : (
-            <WifiOff className="h-3 w-3" />
-          )}
-          {connected ? "مباشر" : connecting ? "يتّصل…" : "غير متّصل"}
-        </span>
+        {!compact && (
+          <EnergyControl level={energy} interactive={canSetEnergy} onSet={onSetEnergy} />
+        )}
+        {!compact && (
+          <span
+            className={
+              "inline-flex items-center gap-1 " +
+              (connected ? "text-emerald-700" : connecting ? "text-amber-700" : "text-rose-700")
+            }
+          >
+            {connecting ? (
+              <Loader2 className="h-3 w-3 animate-spin" />
+            ) : connected ? (
+              <Wifi className="h-3 w-3" />
+            ) : (
+              <WifiOff className="h-3 w-3" />
+            )}
+            {connected ? "مباشر" : connecting ? "يتّصل…" : "غير متّصل"}
+          </span>
+        )}
       </div>
     </div>
   )
