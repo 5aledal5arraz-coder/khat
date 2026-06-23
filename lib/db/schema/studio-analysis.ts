@@ -38,6 +38,12 @@ export const STUDIO_ANALYSIS_KINDS = [
   "push_log",
   "metadata",
   "reserved",
+  // Studio redesign (two-deliverable OS):
+  /** Persisted GlobalEpisodeIntelligence — the shared understanding layer,
+   *  reused by the Growth package + Website knowledge hub. */
+  "episode_intelligence",
+  /** Copy-ready YouTube growth package (Goal 1). */
+  "growth_package",
 ] as const
 export type StudioAnalysisKind = (typeof STUDIO_ANALYSIS_KINDS)[number]
 

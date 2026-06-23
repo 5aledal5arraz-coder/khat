@@ -37,6 +37,29 @@ export interface GlobalEpisodeIntelligence {
   guest_profile: string | null
   /** Single paragraph capturing the soul of the episode */
   episode_essence: string
+
+  // ── Growth & production signals (P0 deepening) ─────────────────────────
+  // These power the downstream Growth-package + Knowledge-hub generators so
+  // they SYNTHESIZE from one shared understanding instead of re-reading the
+  // transcript. All are best-effort: an empty array is a valid value.
+
+  /** Debate-sparking / attention-grabbing / controversial moments — fuel for
+   *  hooks, titles, and the episode's "most-discussed" angle. */
+  controversy_moments: string[]
+  /** Where attention is most likely to dip (long tangents, slow setup, dense
+   *  passages) — feeds audience-retention recommendations. */
+  retention_risk_points: string[]
+  /** Natural conversational breaks safe for an ad/sponsor read (described by
+   *  topic boundary, not raw timestamp) — feeds ad/sponsor timing. */
+  sponsor_safe_windows: string[]
+  /** Self-contained moments that would stand alone as a short clip — feeds
+   *  clip generation + viability scoring. */
+  clip_seed_moments: string[]
+  /** Canonical topic tags for taxonomy / SEO / related-episode linking. */
+  topic_tags: string[]
+  /** Topics this guest is authoritative on / known for across their work —
+   *  feeds the cross-episode guest knowledge page. */
+  guest_signature_topics: string[]
 }
 
 /**
@@ -108,6 +131,31 @@ export async function generateGlobalEpisodeIntelligence(
 - ليست ملخصاً — بل الشعور والفكرة التي تبقى بعد الاستماع
 - اكتبها كأنك تحكي لصديق ذكي لماذا يجب أن يستمع لهذه الحلقة
 
+### 9. اللحظات المثيرة للجدل (controversy_moments)
+- 3-6 لحظات جريئة أو مثيرة للنقاش أو تكسر المتوقع — وقود للعناوين والخطافات وزاوية "الأكثر إثارة للحديث"
+- كل واحدة جملة واحدة واضحة بذاتها — تصلح أن تكون عنوان نقاش
+- [] إذا لم توجد لحظات حادة فعلاً — لا تختلق جدلاً
+
+### 10. نقاط خطر فقدان الانتباه (retention_risk_points)
+- 3-6 مواضع قد يتراجع فيها انتباه المستمع (استطرادات طويلة، مقدمة بطيئة، مقاطع كثيفة)
+- كل واحدة: وصف الموضع + لماذا قد يتسرب الانتباه
+
+### 11. نوافذ آمنة للإعلان/الراعي (sponsor_safe_windows)
+- 2-5 فواصل طبيعية في المحادثة مناسبة لقراءة إعلانية دون قطع لحظة مهمة
+- صِف كل نافذة بحدود الموضوع (مثل: "بعد إنهاء الحديث عن X وقبل الانتقال إلى Y")، لا بالتوقيت الخام
+
+### 12. بذور المقاطع القصيرة (clip_seed_moments)
+- 5-10 لحظات مكتملة بذاتها تصلح كمقطع قصير مستقل (Reel/Short)
+- كل واحدة: الفكرة/الجملة المحورية التي تجعل المقطع يعمل وحده
+
+### 13. وسوم الموضوعات (topic_tags)
+- 4-8 وسوم موضوعية قصيرة (1-3 كلمات لكل وسم) تصلح للتصنيف والسيو والربط بين الحلقات
+- استخدم مصطلحات قابلة لإعادة الاستخدام عبر حلقات أخرى (مثل: "الذكاء الاصطناعي"، "ريادة الأعمال")
+
+### 14. الموضوعات المميزة للضيف (guest_signature_topics)
+- 2-5 موضوعات يُعرف بها الضيف أو يملك فيها سلطة معرفية بناءً على ما ظهر في الحلقة
+- [] إذا لم يكن هناك ضيف
+
 ## قواعد:
 - عربية فصحى معاصرة — حية وطبيعية
 - JSON فقط
@@ -127,7 +175,13 @@ export async function generateGlobalEpisodeIntelligence(
   "themes": ["..."],
   "emotional_peaks": ["..."],
   "guest_profile": "..." أو null,
-  "episode_essence": "..."
+  "episode_essence": "...",
+  "controversy_moments": ["..."],
+  "retention_risk_points": ["..."],
+  "sponsor_safe_windows": ["..."],
+  "clip_seed_moments": ["..."],
+  "topic_tags": ["..."],
+  "guest_signature_topics": ["..."]
 }`
 
     const userPrompt = `عنوان الحلقة: ${videoTitle}
@@ -163,6 +217,9 @@ ${preparedText}`
       return { success: false, error: "استجابة OpenAI غير مكتملة", runId: result.runId }
     }
 
+    const strArray = (v: unknown): string[] =>
+      Array.isArray(v) ? v.filter((x): x is string => typeof x === "string" && x.trim().length > 0) : []
+
     const data: GlobalEpisodeIntelligence = {
       narrative_arc: {
         beginning: parsed.narrative_arc.beginning || "",
@@ -170,13 +227,19 @@ ${preparedText}`
         key_insight: parsed.narrative_arc.key_insight || "",
         conclusion: parsed.narrative_arc.conclusion || "",
       },
-      turning_points: Array.isArray(parsed.turning_points) ? parsed.turning_points : [],
-      strongest_moments: Array.isArray(parsed.strongest_moments) ? parsed.strongest_moments : [],
-      core_ideas: Array.isArray(parsed.core_ideas) ? parsed.core_ideas : [],
-      themes: Array.isArray(parsed.themes) ? parsed.themes : [],
-      emotional_peaks: Array.isArray(parsed.emotional_peaks) ? parsed.emotional_peaks : [],
+      turning_points: strArray(parsed.turning_points),
+      strongest_moments: strArray(parsed.strongest_moments),
+      core_ideas: strArray(parsed.core_ideas),
+      themes: strArray(parsed.themes),
+      emotional_peaks: strArray(parsed.emotional_peaks),
       guest_profile: typeof parsed.guest_profile === "string" && parsed.guest_profile.toLowerCase() !== "null" ? parsed.guest_profile : null,
       episode_essence: parsed.episode_essence || "",
+      controversy_moments: strArray(parsed.controversy_moments),
+      retention_risk_points: strArray(parsed.retention_risk_points),
+      sponsor_safe_windows: strArray(parsed.sponsor_safe_windows),
+      clip_seed_moments: strArray(parsed.clip_seed_moments),
+      topic_tags: strArray(parsed.topic_tags),
+      guest_signature_topics: strArray(parsed.guest_signature_topics),
     }
 
     return {
@@ -234,6 +297,30 @@ export function formatIntelligenceContext(intel: GlobalEpisodeIntelligence): str
 
   if (intel.guest_profile) {
     sections.push(`### الضيف:\n${intel.guest_profile}`)
+  }
+
+  if (intel.guest_signature_topics.length > 0) {
+    sections.push(`### الموضوعات المميزة للضيف:\n${intel.guest_signature_topics.map(t => `- ${t}`).join("\n")}`)
+  }
+
+  if (intel.controversy_moments.length > 0) {
+    sections.push(`### اللحظات المثيرة للجدل:\n${intel.controversy_moments.map(m => `- ${m}`).join("\n")}`)
+  }
+
+  if (intel.clip_seed_moments.length > 0) {
+    sections.push(`### بذور المقاطع القصيرة:\n${intel.clip_seed_moments.map(m => `- ${m}`).join("\n")}`)
+  }
+
+  if (intel.retention_risk_points.length > 0) {
+    sections.push(`### نقاط خطر فقدان الانتباه:\n${intel.retention_risk_points.map(p => `- ${p}`).join("\n")}`)
+  }
+
+  if (intel.sponsor_safe_windows.length > 0) {
+    sections.push(`### نوافذ آمنة للإعلان:\n${intel.sponsor_safe_windows.map(w => `- ${w}`).join("\n")}`)
+  }
+
+  if (intel.topic_tags.length > 0) {
+    sections.push(`### وسوم الموضوعات:\n${intel.topic_tags.map(t => `#${t}`).join(" ")}`)
   }
 
   return sections.join("\n\n")

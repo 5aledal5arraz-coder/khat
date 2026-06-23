@@ -16,6 +16,8 @@ import {
   createDeepAnalysis,
   getGuestIntelligenceForSession,
   createGuestIntelligence,
+  getEpisodeIntelligenceForSession,
+  saveEpisodeIntelligence,
   revalidateStudio,
 } from "@/lib/studio"
 import {
@@ -87,8 +89,20 @@ export async function POST(
         log("session_loaded", { source: session.source, video_id: session.video_id, title: session.video_title })
         send("started", { steps, sessionId: id })
 
-        // Global Episode Intelligence — shared across all editorial generators
+        // Global Episode Intelligence — shared across all editorial generators.
+        // Pre-hydrate from persistence so downstream steps benefit even when the
+        // `episode_intelligence` step itself isn't in this run (e.g. regenerating
+        // only the website package).
         let episodeIntelligence: GlobalEpisodeIntelligence | null = null
+        try {
+          const persisted = await getEpisodeIntelligenceForSession(id)
+          if (persisted?.status === "ready" && persisted.data?.episode_essence) {
+            episodeIntelligence = persisted.data
+            log("episode_intelligence_hydrated", { source: "persisted" })
+          }
+        } catch (err) {
+          log("episode_intelligence_hydrate_failed", { error: err instanceof Error ? err.message : String(err) })
+        }
 
         for (const step of steps) {
           log("step_start", { step, provider: step === "transcript" ? "yt-dlp/whisper" : "openai" })
@@ -162,6 +176,12 @@ export async function POST(
               // EPISODE INTELLIGENCE (Global Episode Understanding)
               // ----------------------------------------------------------
               case "episode_intelligence": {
+                // Reuse the pre-hydrated persisted intelligence unless forced.
+                if (!forceRegenerate && episodeIntelligence?.episode_essence) {
+                  send("step_complete", { step, cached: true })
+                  break
+                }
+
                 const transcript = await getTranscriptForSession(id)
                 if (!transcript || transcript.status !== "ready" || !transcript.transcript_clean) {
                   throw new Error("لا يوجد نص جاهز — اجلب النص التلقائي أولاً")
@@ -176,13 +196,25 @@ export async function POST(
 
                 if (result.success) {
                   episodeIntelligence = result.data
+                  // Persist so every later deliverable reuses one shared analysis.
+                  await saveEpisodeIntelligence(id, {
+                    status: "ready",
+                    data: result.data,
+                    raw_openai_response: result.raw || null,
+                  })
                   log("episode_intelligence_complete", {
                     ideas: result.data.core_ideas.length,
                     moments: result.data.strongest_moments.length,
                     themes: result.data.themes.length,
+                    controversy: result.data.controversy_moments.length,
+                    clip_seeds: result.data.clip_seed_moments.length,
                   })
                 } else {
                   // Non-fatal: editorial generators work without intelligence, just less coherent
+                  await saveEpisodeIntelligence(id, {
+                    status: "error",
+                    error_message: result.error,
+                  })
                   log("episode_intelligence_failed", { error: result.error })
                 }
 
