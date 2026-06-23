@@ -43,6 +43,92 @@ function TimestampLink({ seconds, title }: { seconds: number; title: string }) {
   )
 }
 
+/**
+ * "Behind the conversation" — surfaces the previously-orphaned deep analysis
+ * (thesis, arc, themes, lessons, open questions) as a collapsible knowledge
+ * layer below the takeaways. Unique value even for someone who watched.
+ */
+function BehindTheConversation({ analysis }: { analysis: EpisodeDeepAnalysisView }) {
+  return (
+    <details id="sec-behind" className="group rounded-xl border bg-card/40 p-5">
+      <summary className="cursor-pointer list-none text-lg font-semibold marker:content-none">
+        <span className="inline-flex items-center gap-2">
+          <ChevronLeft className="h-4 w-4 transition-transform group-open:-rotate-90" />
+          خلف المحادثة — قراءة أعمق
+        </span>
+      </summary>
+
+      <div className="mt-4 space-y-5">
+        {analysis.thesis && (
+          <div>
+            <h3 className="mb-1 text-sm font-medium text-primary">الأطروحة الرئيسية</h3>
+            <p className="leading-relaxed text-muted-foreground">{analysis.thesis}</p>
+          </div>
+        )}
+
+        {analysis.conversation_arc && (
+          <div>
+            <h3 className="mb-1 text-sm font-medium text-primary">مسار المحادثة</h3>
+            <p className="leading-relaxed text-muted-foreground">{analysis.conversation_arc}</p>
+          </div>
+        )}
+
+        {analysis.themes.length > 0 && (
+          <div className="space-y-2">
+            <h3 className="text-sm font-medium text-primary">المحاور</h3>
+            {analysis.themes.map((t, i) => (
+              <div key={i}>
+                <p className="text-sm font-medium">{t.name}</p>
+                {t.description && <p className="text-sm text-muted-foreground">{t.description}</p>}
+              </div>
+            ))}
+          </div>
+        )}
+
+        {analysis.lessons.length > 0 && (
+          <div className="space-y-2">
+            <h3 className="text-sm font-medium text-primary">دروس مستفادة</h3>
+            {analysis.lessons.map((l, i) => (
+              <div key={i}>
+                <p className="text-sm font-medium">{l.title}</p>
+                {l.explanation && <p className="text-sm text-muted-foreground">{l.explanation}</p>}
+              </div>
+            ))}
+          </div>
+        )}
+
+        {analysis.open_questions.length > 0 && (
+          <div className="space-y-1.5">
+            <h3 className="text-sm font-medium text-primary">أسئلة مفتوحة</h3>
+            <ul className="space-y-1">
+              {analysis.open_questions.map((q, i) => (
+                <li key={i} className="flex items-start gap-2 text-sm text-muted-foreground">
+                  <span className="mt-0.5 shrink-0 text-primary">؟</span>
+                  {q}
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+      </div>
+    </details>
+  )
+}
+
+export interface EpisodeTopicChip {
+  id: string
+  name: string
+  slug: string
+}
+
+export interface EpisodeDeepAnalysisView {
+  thesis: string | null
+  conversation_arc: string | null
+  themes: { name: string; description: string }[]
+  lessons: { title: string; explanation: string }[]
+  open_questions: string[]
+}
+
 interface EpisodePageClientProps {
   episode: EpisodeWithRelations
   relatedEpisodes: (Episode & { guest?: Guest | null })[]
@@ -53,6 +139,8 @@ interface EpisodePageClientProps {
   enrichment?: EpisodeEnrichment | null
   platformLinks?: PodcastPlatformLink[]
   sponsor?: EpisodeSponsorData | null
+  topics?: EpisodeTopicChip[]
+  deepAnalysis?: EpisodeDeepAnalysisView | null
   initialStartTime?: number
 }
 
@@ -66,6 +154,8 @@ export function EpisodePageClient({
   enrichment,
   platformLinks = [],
   sponsor,
+  topics = [],
+  deepAnalysis = null,
   initialStartTime,
 }: EpisodePageClientProps) {
   // Track episode view
@@ -177,6 +267,27 @@ export function EpisodePageClient({
           <div id="sec-takeaways">
           <EpisodeIdeas takeaways={takeaways} />
           </div>
+
+          {/* 10b. Behind the conversation — surfaced deep analysis */}
+          {deepAnalysis && <BehindTheConversation analysis={deepAnalysis} />}
+
+          {/* 10c. Topics */}
+          {topics.length > 0 && (
+            <div id="sec-topics" className="space-y-3">
+              <h2 className="text-lg font-semibold">موضوعات الحلقة</h2>
+              <div className="flex flex-wrap gap-2">
+                {topics.map((t) => (
+                  <Link
+                    key={t.id}
+                    href={`/topics/${encodeURIComponent(t.slug)}`}
+                    className="inline-flex items-center rounded-full bg-primary/10 px-3 py-1 text-sm font-medium text-primary transition-colors hover:bg-primary/20"
+                  >
+                    {t.name}
+                  </Link>
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* 11. Resources */}
           {episode.resources.length > 0 && (

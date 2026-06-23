@@ -8,6 +8,10 @@ import {
 import { getQuotesByEpisodeId } from "@/lib/content/home-quotes"
 import { getReflectionsByEpisodeId } from "@/lib/content/daily-reflections"
 import { getPublicEpisodeEnrichment } from "@/lib/episodes/enrichments"
+import { getEpisodeEirId } from "@/lib/queries/episodes"
+import { getEpisodeTopics } from "@/lib/episodes/episode-graph"
+import { getPublicEpisodeDeepAnalysisByEir } from "@/lib/studio/deep-analysis"
+import { buildEpisodeJsonLd } from "@/lib/seo/episode-jsonld"
 import { listPlatformsForSurface, listActivePlatforms } from "@/lib/queries/official-platforms"
 import { getEpisodeSponsor } from "@/lib/queries/episode-sponsors"
 import { getYouTubeId } from "@/lib/utils"
@@ -60,7 +64,7 @@ export default async function EpisodePage({ params, searchParams }: EpisodePageP
     notFound()
   }
 
-  const [relatedEpisodes, { prev, next }, homeQuotes, reflections, enrichment, platformLinks, allActivePlatforms, sponsor] = await Promise.all([
+  const [relatedEpisodes, { prev, next }, homeQuotes, reflections, enrichment, platformLinks, allActivePlatforms, sponsor, topics, eirId] = await Promise.all([
     getCachedRelatedEpisodes(episode.id),
     getCachedAdjacentEpisodes(episode.slug),
     getQuotesByEpisodeId(episode.id),
@@ -69,49 +73,42 @@ export default async function EpisodePage({ params, searchParams }: EpisodePageP
     listPlatformsForSurface("episode_page"),
     listActivePlatforms(),
     getEpisodeSponsor(episode.id),
+    getEpisodeTopics(episode.id),
+    getEpisodeEirId(episode.id),
   ])
+
+  // The "behind the conversation" deep analysis is gated alongside the enriched
+  // content: surface it only when the episode's enrichment is published.
+  const deepAnalysis = enrichment ? await getPublicEpisodeDeepAnalysisByEir(eirId) : null
 
   // `sameAs` advertises our canonical social/video/audio accounts to search engines.
   const sameAs = allActivePlatforms
     .filter((p) => p.category !== "other" && p.platform_key !== "rss")
     .map((p) => p.url)
 
-  const videoId = getYouTubeId(episode.youtube_url)
-  const episodeUrl = `https://khatpodcast.com/episodes/${episode.slug}`
+  const guestSameAs = episode.guest?.external_links
+    ? Object.values(episode.guest.external_links).filter((u): u is string => typeof u === "string" && u.startsWith("http"))
+    : []
 
-  const jsonLd = {
-    "@context": "https://schema.org",
-    "@graph": [
-      {
-        "@type": "VideoObject",
-        name: episode.title,
-        description: episode.summary || undefined,
-        thumbnailUrl: videoId ? `https://img.youtube.com/vi/${videoId}/maxresdefault.jpg` : undefined,
-        uploadDate: episode.release_date,
-        duration: episode.duration_minutes ? `PT${episode.duration_minutes}M` : undefined,
-        embedUrl: videoId ? `https://www.youtube.com/embed/${videoId}` : undefined,
-        url: episodeUrl,
-        ...(sameAs.length > 0 ? { publisher: { "@type": "Organization", name: "KHAT Podcast", sameAs } } : {}),
-        ...(episode.guest?.name && { actor: { "@type": "Person", name: episode.guest.name } }),
-      },
-      ...(episode.audio_url ? [{
-        "@type": "AudioObject",
-        name: episode.title,
-        contentUrl: episode.audio_url,
-        encodingFormat: episode.audio_type || "audio/mpeg",
-        ...(episode.audio_duration ? { duration: `PT${Math.floor(episode.audio_duration / 60)}M${episode.audio_duration % 60}S` } : {}),
-        uploadDate: episode.rss_published_at || episode.release_date,
-      }] : []),
-      {
-        "@type": "BreadcrumbList",
-        itemListElement: [
-          { "@type": "ListItem", position: 1, name: "الرئيسية", item: "https://khatpodcast.com" },
-          { "@type": "ListItem", position: 2, name: "الحلقات", item: "https://khatpodcast.com/episodes" },
-          { "@type": "ListItem", position: 3, name: episode.title, item: episodeUrl },
-        ],
-      },
-    ],
-  }
+  const videoId = getYouTubeId(episode.youtube_url)
+
+  const jsonLd = buildEpisodeJsonLd({
+    title: episode.title,
+    slug: episode.slug,
+    description: episode.summary,
+    releaseDate: episode.release_date,
+    durationMinutes: episode.duration_minutes,
+    youtubeVideoId: videoId,
+    audioUrl: episode.audio_url,
+    audioType: episode.audio_type,
+    audioDurationSeconds: episode.audio_duration,
+    audioPublishedAt: episode.rss_published_at,
+    guestName: episode.guest?.name ?? null,
+    guestSameAs,
+    topics: topics.map((t) => t.name),
+    faq: deepAnalysis?.open_questions ?? [],
+    publisherSameAs: sameAs,
+  })
 
   return (
     <>
@@ -130,6 +127,8 @@ export default async function EpisodePage({ params, searchParams }: EpisodePageP
         enrichment={enrichment}
         platformLinks={platformLinks}
         sponsor={sponsor}
+        topics={topics}
+        deepAnalysis={deepAnalysis}
         initialStartTime={startTime}
       />
     </>

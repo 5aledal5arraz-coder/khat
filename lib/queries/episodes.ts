@@ -272,6 +272,21 @@ async function loadMockEpisodes(): Promise<Episode[]> {
   return mockEpisodes
 }
 
+/** Resolve an episode's EIR id (for studio-record lookups). Null when absent. */
+export async function getEpisodeEirId(episodeId: string): Promise<string | null> {
+  if (!DB_AVAILABLE) return null
+  try {
+    const rows = await db!
+      .select({ eir_id: episodes.eir_id })
+      .from(episodes)
+      .where(eq(episodes.id, episodeId))
+      .limit(1)
+    return rows[0]?.eir_id ?? null
+  } catch {
+    return null
+  }
+}
+
 // ─── Unified Data Resolution ─────────────────────────────────────────────────
 
 /**

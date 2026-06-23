@@ -8,6 +8,7 @@ import type { StudioDeepAnalysis, StudioDeepAnalysisStatus } from "@/types/datab
 import {
   upsertStudioAnalysisRecord,
   getStudioAnalysisRecord,
+  listStudioAnalysisRecords,
   resolveEirIdForSession,
   type StudioAnalysisRecord,
 } from "./analysis-records"
@@ -52,6 +53,55 @@ export async function getDeepAnalysisForSession(sessionId: string): Promise<Stud
     return r ? mapToLegacyShape(r) : null
   } catch (err) {
     console.error("Error fetching deep analysis:", err)
+    return null
+  }
+}
+
+/**
+ * Public-facing reader (Studio redesign, P7) — the "behind the conversation"
+ * subset of a deep analysis, resolved by the episode's EIR. Surfaces only
+ * reader-valuable fields (thesis, arc, themes, lessons, open questions); skips
+ * internal scaffolding (dialogue_map, raw response). Returns null when the
+ * episode has no ready deep analysis.
+ */
+export interface PublicEpisodeDeepAnalysis {
+  thesis: string | null
+  conversation_arc: string | null
+  themes: Array<{ name: string; description: string }>
+  lessons: Array<{ title: string; explanation: string }>
+  open_questions: string[]
+}
+
+export async function getPublicEpisodeDeepAnalysisByEir(
+  eirId: string | null | undefined,
+): Promise<PublicEpisodeDeepAnalysis | null> {
+  if (!eirId) return null
+  try {
+    const records = await listStudioAnalysisRecords({
+      eir_id: eirId,
+      kinds: ["deep_analysis"],
+      status: "ready",
+      limit: 1,
+    })
+    const r = records[0]
+    if (!r) return null
+    const d = mapToLegacyShape(r)
+    const themes = (d.themes ?? [])
+      .filter((t) => t && (t.name || t.description))
+      .map((t) => ({ name: t.name || "", description: t.description || "" }))
+    const lessons = (d.lessons ?? [])
+      .filter((l) => l && (l.title || l.explanation))
+      .map((l) => ({ title: l.title || "", explanation: l.explanation || "" }))
+    const open_questions = Array.isArray(d.open_questions)
+      ? d.open_questions.filter((q): q is string => typeof q === "string" && q.trim().length > 0)
+      : []
+    // Nothing reader-valuable → treat as absent.
+    if (!d.thesis && !d.conversation_arc && themes.length === 0 && lessons.length === 0 && open_questions.length === 0) {
+      return null
+    }
+    return { thesis: d.thesis ?? null, conversation_arc: d.conversation_arc ?? null, themes, lessons, open_questions }
+  } catch (err) {
+    console.error("Error fetching public deep analysis:", err)
     return null
   }
 }
