@@ -18,6 +18,8 @@ import {
   createGuestIntelligence,
   getEpisodeIntelligenceForSession,
   saveEpisodeIntelligence,
+  getGrowthPackageForSession,
+  saveGrowthPackage,
   revalidateStudio,
 } from "@/lib/studio"
 import {
@@ -28,6 +30,7 @@ import {
   generateDeepAnalysis,
   generateGuestIntelligence,
   generateGlobalEpisodeIntelligence,
+  generateGrowthPackage,
   STUDIO_PROMPT_VERSION,
   EDITORIAL_MODEL,
 } from "@/lib/ai"
@@ -52,10 +55,10 @@ export async function POST(
   let forceRegenerate = false
   try {
     const body = await request.json()
-    steps = body.steps || ["transcript", "episode_intelligence", "ai_output", "chapters", "clips", "website_package", "deep_analysis", "guest_intelligence"]
+    steps = body.steps || ["transcript", "episode_intelligence", "ai_output", "chapters", "clips", "website_package", "deep_analysis", "guest_intelligence", "growth_package"]
     forceRegenerate = body.force === true
   } catch {
-    steps = ["transcript", "episode_intelligence", "ai_output", "chapters", "clips", "website_package", "deep_analysis", "guest_intelligence"]
+    steps = ["transcript", "episode_intelligence", "ai_output", "chapters", "clips", "website_package", "deep_analysis", "guest_intelligence", "growth_package"]
   }
 
   const encoder = new TextEncoder()
@@ -589,6 +592,77 @@ export async function POST(
                   raw_openai_response: result.raw || null,
                 })
 
+                send("step_complete", { step, cached: false })
+                break
+              }
+
+              // ----------------------------------------------------------
+              // GROWTH PACKAGE (copy-ready YouTube growth deliverable)
+              // ----------------------------------------------------------
+              case "growth_package": {
+                if (!forceRegenerate) {
+                  const existing = await getGrowthPackageForSession(id)
+                  if (existing?.status === "ready") {
+                    send("step_complete", { step, cached: true })
+                    break
+                  }
+                }
+
+                // Growth synthesizes from the shared intelligence. Ensure it
+                // exists (a growth-only run may not have run that step).
+                if (!episodeIntelligence?.episode_essence) {
+                  const transcript = await getTranscriptForSession(id)
+                  if (!transcript || transcript.status !== "ready" || !transcript.transcript_clean) {
+                    throw new Error("لا يوجد نص جاهز — اجلب النص التلقائي أولاً")
+                  }
+                  send("step_progress", { step, message: "تحليل الحلقة (مطلوب لحزمة النمو)..." })
+                  const intel = await generateGlobalEpisodeIntelligence(transcript.transcript_clean, session.video_title || "")
+                  if (intel.success) {
+                    episodeIntelligence = intel.data
+                    await saveEpisodeIntelligence(id, { status: "ready", data: intel.data, raw_openai_response: intel.raw || null })
+                  } else {
+                    throw new Error(intel.error || "تعذّر تحليل الحلقة")
+                  }
+                }
+
+                send("step_progress", { step, message: "توليد حزمة النمو..." })
+                await saveGrowthPackage(id, { status: "generating" })
+
+                // Anchor ad placements to real chapter timestamps when present.
+                const chaptersRec = await getChaptersForSession(id)
+                const chapters = chaptersRec?.status === "ready" && Array.isArray(chaptersRec.chapters)
+                  ? chaptersRec.chapters.map((c) => ({ start_time: c.start_time, title: c.title }))
+                  : undefined
+                const aiOut = await getAiOutputForSession(id)
+
+                const result = await generateGrowthPackage(
+                  {
+                    videoTitle: session.video_title || "",
+                    channelTitle: session.channel_title || null,
+                    durationSeconds: session.duration_seconds,
+                    intelligence: episodeIntelligence,
+                    chapters,
+                    existingTitle: aiOut?.title_best || null,
+                  },
+                  (slice) => send("step_progress", { step, message: `توليد حزمة النمو: ${slice}` }),
+                )
+
+                await saveGrowthPackage(id, {
+                  status: result.success ? "ready" : "error",
+                  data: result.data,
+                  error_message: result.success ? null : result.error || null,
+                })
+
+                if (!result.success) {
+                  throw new Error(result.error || "فشل في توليد حزمة النمو")
+                }
+
+                log("growth_package_complete", {
+                  thumbnails: result.data.thumbnail_concepts.length,
+                  social: result.data.social_posts.length,
+                  shorts: result.data.short_form_ideas.length,
+                  has_strategy: Boolean(result.data.marketing_strategy),
+                })
                 send("step_complete", { step, cached: false })
                 break
               }

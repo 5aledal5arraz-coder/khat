@@ -46,3 +46,7 @@ export { analyzeSponsorshipLead, generateSponsorshipProposal } from "./sponsorsh
 
 // Guest Application AI (analysis + concept + response drafts)
 export { analyzeGuestApplication, generateGuestConcept, generateGuestResponseDrafts } from "./guest-application"
+
+// Growth package (copy-ready YouTube growth deliverable — Goal 1)
+export { generateGrowthPackage, emptyGrowthPackage } from "./growth"
+export type { GrowthPackage, GrowthGenInput, GrowthChapter } from "./growth"
