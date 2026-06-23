@@ -150,6 +150,8 @@ export interface BatchStats {
   soft_avoided: number
   /** Dropped by the editorial-controls filter (banned, disabled, gender/geo). */
   editorial_dropped: number
+  /** Dropped by the already-chosen dedup filter (near-dup of a seed / accept). */
+  dedup_dropped: number
   /** Final count returned to the caller. */
   final: number
   /** Whether cross-season rejection memory was consulted. */
@@ -240,6 +242,13 @@ export interface CandidateGenInput {
   season_target: number
   /** Domains already accepted in this season (for diversity in prompt). */
   accepted_domain_counts: Record<KhatMapTopicDomain, number>
+  /**
+   * Titles already chosen for this season (manual seeds + AI-accepted topics).
+   * Shown to the model as "already chosen — do NOT duplicate" and used by the
+   * post-LLM dedup filter. Drives Guided mode's hybrid (manual + AI) so the AI
+   * never re-proposes a topic the operator already seeded.
+   */
+  accepted_titles: string[]
   /** What admin has rejected — shown as negatives in the prompt. */
   rejected_titles: string[]
   rejected_reason_categories: string[]

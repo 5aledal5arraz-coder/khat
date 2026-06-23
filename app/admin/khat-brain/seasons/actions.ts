@@ -35,6 +35,11 @@ import {
   recordDecisionAndFingerprint,
   undoDecisionAndFingerprint,
 } from "@/lib/khat-map/v2"
+import {
+  normalizeTitleTokens,
+  jaccardSimilarity,
+  TITLE_DEDUP_JACCARD_THRESHOLD,
+} from "@/lib/khat-map/v2/title-similarity"
 import { ensureEirForCandidate } from "@/lib/khat-brain"
 import { getEpisodeCandidateById } from "@/lib/khat-map/core/queries"
 import { AngleBankExhaustedError } from "@/lib/khat-map/v2/strict"
@@ -160,11 +165,15 @@ export async function createV2SeasonAction(input: {
 }
 
 /**
- * Manual-mode topic authoring. In "manual" seasons the AI generators are
- * off — the operator writes each episode topic themselves. This creates the
- * episode candidate and immediately approves it (manual topics aren't
- * reviewed against AI suggestions; the operator IS the author), so it counts
- * toward the season target and flows into the normal lock → Phase B path.
+ * Manual topic authoring. The operator writes an episode topic by hand; it is
+ * created, approved, and recorded as an `accept` decision, so it counts toward
+ * the season target and flows into the normal lock → Phase B path.
+ *
+ * Available in two modes:
+ *   - `manual` — the whole season is hand-authored (AI off).
+ *   - `guided` — the operator hand-seeds ~10% of topics, then the AI fills the
+ *     rest (the seeds are passed to the generator as "already chosen — don't
+ *     duplicate"). This is what makes Guided a real hybrid rather than 100% AI.
  */
 export async function addManualTopicAction(input: {
   seasonId: string
@@ -185,8 +194,11 @@ export async function addManualTopicAction(input: {
 
   const season = await getSeasonById(input.seasonId)
   if (!season) return { success: false, error: "الموسم غير موجود" }
-  if (season.v2_mode !== "manual") {
-    return { success: false, error: "الإضافة اليدوية متاحة فقط في الوضع اليدوي" }
+  if (season.v2_mode !== "manual" && season.v2_mode !== "guided") {
+    return {
+      success: false,
+      error: "الإضافة اليدوية متاحة في الوضعين «اليدوي» و«الموجّه» فقط",
+    }
   }
   // Only while still authoring topics (Phase A). After the topics are locked,
   // adding more would desync the locked set from Phase B guest discovery.
@@ -644,18 +656,32 @@ export async function generateBatchAction(input: {
       mode,
     })
     revalidatePath(`/admin/khat-brain/seasons/${input.seasonId}`)
-    // Validation: if the editorial filter dropped EVERY card, the admin's
-    // controls are too strict. Surface a clear error so they can loosen
-    // gender/geography or remove a banned topic.
-    if (
-      res.cards.length === 0 &&
-      res.stats.editorial_dropped > 0 &&
-      res.stats.oversampled > 0
-    ) {
+    // Validation: the LLM produced candidates but every one was filtered out.
+    // Explain WHICH filter so the operator can act, instead of an unexplained
+    // empty batch. Two distinct causes (Guided hybrid surfaces the second):
+    //   - editorial controls too strict (gender/geo/banned), or
+    //   - everything near-duplicated the already-chosen / seeded topics.
+    if (res.cards.length === 0 && res.stats.oversampled > 0) {
+      const editorialDropped = res.stats.editorial_dropped > 0
+      const dedupDropped = res.stats.dedup_dropped > 0
+      if (editorialDropped && !dedupDropped) {
+        return {
+          success: false,
+          error: `الفلاتر التحريرية صارمة جدًا — أُسقطت كل ${res.stats.editorial_dropped} بطاقة. خفّف الفلاتر (الجنس / الجغرافيا / المواضيع الممنوعة) ثم أعد التوليد.`,
+          code: "EDITORIAL_FILTERS_TOO_STRICT",
+        }
+      }
+      if (dedupDropped) {
+        return {
+          success: false,
+          error: `كل الاقتراحات كانت قريبة جدًا من مواضيعك المختارة (أُسقطت ${res.stats.dedup_dropped}). نوّع البذور اليدوية أو قلّلها، ثم أعد التوليد.`,
+          code: "ALL_CANDIDATES_DEDUPED",
+        }
+      }
       return {
         success: false,
-        error: `الفلاتر التحريرية صارمة جدًا — أُسقطت كل ${res.stats.editorial_dropped} بطاقة. خفّف الفلاتر (الجنس / الجغرافيا / المواضيع الممنوعة) ثم أعد التوليد.`,
-        code: "EDITORIAL_FILTERS_TOO_STRICT",
+        error: "لم يقترح المولّد مواضيع جديدة كافية — أعد التوليد أو عدّل الإعدادات.",
+        code: "EMPTY_BATCH",
       }
     }
     return { success: true, data: res }
@@ -1048,39 +1074,12 @@ export async function listAcceptedCardsAction(
  * page reload. Returns proposed-status rows ordered by creation.
  */
 /**
- * CR-7 — title-similarity helper for near-duplicate detection on the
- * pending candidate list. Computes token-Jaccard between two titles
- * after normalization (lowercase, strip Arabic punctuation, drop
- * single-char tokens). 0.55 is the operator-tuned threshold — high
- * enough to catch the "نجاح في عالم متسارع" vs "الخوف من الفشل في
- * مجتمع النجاح" cluster but low enough to not collapse genuinely
- * distinct titles that happen to share a word.
- *
- * Why query-layer dedup, not insert-time dedup:
- *   • Preserves the audit trail of every AI suggestion.
- *   • Allows future bulk-reranking to surface a hidden duplicate if the
- *     surfaced one is rejected.
- *   • Operators in debug mode can disable via an opts flag.
+ * CR-7 — near-duplicate detection on the pending candidate list uses the
+ * shared token-Jaccard helpers (`@/lib/khat-map/v2/title-similarity`), the
+ * same implementation the batch engine uses to dedup AI candidates against
+ * already-chosen seeds. Query-layer dedup (not insert-time) preserves the
+ * audit trail of every AI suggestion.
  */
-const TITLE_DEDUP_JACCARD_THRESHOLD = 0.55
-
-function normalizeTitleTokens(s: string): Set<string> {
-  const cleaned = s
-    .toLowerCase()
-    .replace(/[.,;:!؟،؛"'«»“”‘’()\[\]{}\-—–_/\\]/g, " ")
-    .replace(/\s+/g, " ")
-    .trim()
-  return new Set(cleaned.split(" ").filter((t) => t.length >= 2))
-}
-
-function jaccardSimilarity(a: Set<string>, b: Set<string>): number {
-  if (a.size === 0 || b.size === 0) return 0
-  let inter = 0
-  for (const t of a) if (b.has(t)) inter++
-  const union = a.size + b.size - inter
-  return union === 0 ? 0 : inter / union
-}
-
 export async function listPendingCardsAction(
   seasonId: string,
 ): Promise<

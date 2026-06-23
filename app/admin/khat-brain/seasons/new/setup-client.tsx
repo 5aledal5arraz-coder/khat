@@ -48,7 +48,7 @@ const MODES: ModeOption[] = [
   {
     key: "guided",
     label: "موجّه",
-    description: "مزيج ذكي: ٧٠٪ زوايا مختارة + ٢٠٪ ذكاء اصطناعي + ١٠٪ يدوي.",
+    description: "هجين: اختر ~١٠٪ من المواضيع يدوياً، والذكاء الاصطناعي يولّد البقية بتنوّع ودون تكرار.",
     icon: Compass,
     recommended: true,
   },

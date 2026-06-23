@@ -304,6 +304,8 @@ export async function generateGuestFirstCards(
       hard_blocked,
       soft_avoided,
       editorial_dropped: editorialDropCount,
+      // Guest-first generation doesn't run the already-chosen dedup filter.
+      dedup_dropped: 0,
       final: cards.length,
       cross_season_negatives_included: useCross,
       llm_ms,
@@ -386,6 +388,7 @@ function emptyStats(
     hard_blocked: 0,
     soft_avoided: 0,
     editorial_dropped,
+    dedup_dropped: 0,
     final: 0,
     cross_season_negatives_included: useCross,
     llm_ms,

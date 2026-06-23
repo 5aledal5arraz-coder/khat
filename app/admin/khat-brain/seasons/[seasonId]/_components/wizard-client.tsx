@@ -641,9 +641,13 @@ export function WizardClient({
           </div>
         )}
 
-        {/* Manual mode — operator authors topics by hand (Phase A only;
-            after lock, Phase B per-episode discovery takes over). */}
-        {season.v2_mode === "manual" && isPhaseA && !complete && (
+        {/* Manual + Guided — operator authors / seeds topics by hand (Phase A
+            only; after lock, Phase B per-episode discovery takes over). In
+            Guided this is the ~10% manual seed list, shown ALONGSIDE the AI
+            batch flow below. */}
+        {(season.v2_mode === "manual" || season.v2_mode === "guided") &&
+          isPhaseA &&
+          !complete && (
           <div className="mt-6 space-y-4">
             <div className="flex items-center justify-between gap-3">
               <div className="flex items-center gap-2 text-sm font-semibold">
@@ -663,14 +667,34 @@ export function WizardClient({
               </button>
             </div>
 
+            {season.v2_mode === "guided" && (
+              <p className="text-[11.5px] leading-relaxed text-muted-foreground">
+                اختر ~١٠٪ من المواضيع يدوياً (≈{Math.max(1, Math.round(target * 0.1))}) —
+                تُحفظ وتُحتسب ضمن هدف الموسم، والذكاء الاصطناعي يولّد البقية من
+                الأعلى بتنوّع ودون تكرار.
+              </p>
+            )}
+
             {accepted.length === 0 ? (
               <div className="rounded-2xl border border-dashed border-border/50 bg-card/20 p-8 text-center">
                 <Hand className="mx-auto h-6 w-6 text-muted-foreground" />
-                <h3 className="mt-3 text-base font-semibold">الوضع اليدوي</h3>
-                <p className="mt-1 text-[12px] leading-relaxed text-muted-foreground">
-                  أنت تقود الموسم. اضغط «أضف موضوعاً» لبناء حلقاتك واحدةً تلو
-                  الأخرى، ثم اقفل المواضيع للانتقال إلى اختيار الضيوف.
-                </p>
+                {season.v2_mode === "guided" ? (
+                  <>
+                    <h3 className="mt-3 text-base font-semibold">بذور يدوية (اختياري)</h3>
+                    <p className="mt-1 text-[12px] leading-relaxed text-muted-foreground">
+                      أضف نحو ١٠٪ من مواضيع موسمك يدوياً كبذور، أو ولّد بالذكاء
+                      الاصطناعي من الأعلى — أو اخلط الاثنين.
+                    </p>
+                  </>
+                ) : (
+                  <>
+                    <h3 className="mt-3 text-base font-semibold">الوضع اليدوي</h3>
+                    <p className="mt-1 text-[12px] leading-relaxed text-muted-foreground">
+                      أنت تقود الموسم. اضغط «أضف موضوعاً» لبناء حلقاتك واحدةً تلو
+                      الأخرى، ثم اقفل المواضيع للانتقال إلى اختيار الضيوف.
+                    </p>
+                  </>
+                )}
               </div>
             ) : (
               <ul className="space-y-2">

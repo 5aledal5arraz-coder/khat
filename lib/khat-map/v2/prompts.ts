@@ -99,6 +99,9 @@ export function buildBatchSystemPrompt(
     .filter(([, n]) => n > 0)
     .map(([d, n]) => `  · ${d}: ${n}`)
     .join("\n") || "  (none accepted yet)"
+  const alreadyChosen = input.accepted_titles.length
+    ? input.accepted_titles.slice(0, 30).map((t) => `  · ${t}`).join("\n")
+    : "  (none yet)"
 
   const controlBlocks = renderEditorialControlBlocks(input.editorial_controls)
   // Phase A/B redesign — Phase A is topics-only. We pin guest fields to
@@ -124,6 +127,10 @@ export function buildBatchSystemPrompt(
     "Already accepted by domain:",
     loadedDomains,
     "",
+    "## Already chosen for this season (DO NOT duplicate or paraphrase these)",
+    "These topics are already locked into the season (operator-seeded and/or accepted). Propose topics that are clearly DIFFERENT — different subject, angle, and framing. Fill the GAPS around these, and keep the season varied.",
+    alreadyChosen,
+    "",
     "## Negative memory (DO NOT repeat or paraphrase these)",
     rejected,
     "",
@@ -135,7 +142,7 @@ export function buildBatchSystemPrompt(
     ...controlBlocks.flatMap((b) => ["", b]),
     "",
     "## Ironclad rules",
-    "1. NEVER propose a topic that is a paraphrase, near-duplicate, or obvious variant of any title in 'Negative memory' OR 'Hard avoid'. If in doubt, pick a different angle.",
+    "1. NEVER propose a topic that is a paraphrase, near-duplicate, or obvious variant of any title in 'Already chosen', 'Negative memory', OR 'Hard avoid'. If in doubt, pick a different angle.",
     "2. Diversify episode_type AND topic_domain across this batch — no more than 2 of either.",
     "3. Honor the constitution's must-include rules across the SEASON (not every batch). Pull from under-represented editorial roles when possible.",
     phaseRule,

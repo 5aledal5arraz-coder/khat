@@ -62,6 +62,7 @@ import {
   applyEditorialFilters,
   domainWeightMultiplier,
 } from "./editorial-filter"
+import { isNearDuplicateTitle } from "./title-similarity"
 import { KHAT_EDITORIAL_CONTROLS_DEFAULTS } from "@/types/khat-map"
 import { getDomainPerformanceMap } from "@/lib/khat-map/performance"
 import { performanceFactor } from "@/lib/khat-map/scoring/weights"
@@ -137,11 +138,13 @@ export async function generateBatch(
   // ─── 1. Load season state ─────────────────────────────────────────────────
   const [
     acceptedDomainCounts,
+    acceptedTitles,
     { rejectedTitles, rejectedReasons },
     tasteProfile,
     domainPerformance,
   ] = await Promise.all([
     loadAcceptedDomainCounts(input.season_id),
+    loadAcceptedTitles(input.season_id),
     loadRejectedSignals(input.season_id),
     input.admin_id
       ? refreshTaste
@@ -217,6 +220,7 @@ export async function generateBatch(
     target_count: targetCount,
     season_target: seasonTarget,
     accepted_domain_counts: acceptedDomainCounts,
+    accepted_titles: acceptedTitles,
     rejected_titles: rejectedTitles,
     rejected_reason_categories: rejectedReasons,
     taste_profile: tasteProfile,
@@ -251,9 +255,24 @@ export async function generateBatch(
   raws = editorialResult.kept
   const editorialDropCount = editorialResult.dropped.length
 
+  // Already-chosen dedup (Guided hybrid): drop any AI candidate whose title
+  // near-duplicates a topic already locked into the season (manual seed or
+  // earlier accept). Belt-and-suspenders alongside the prompt rule, so a
+  // seeded topic is never re-proposed back to the operator.
+  let dedupDropCount = 0
+  if (acceptedTitles.length > 0) {
+    const beforeDedup = raws.length
+    raws = raws.filter(
+      (r) => !isNearDuplicateTitle(r.topic.working_title, acceptedTitles),
+    )
+    dedupDropCount = beforeDedup - raws.length
+  }
+
   if (raws.length === 0) {
     return emptyResult(input.season_id, batch_index, tasteProfile, useCross, {
       oversampled: oversampledCount,
+      editorial_dropped: editorialDropCount,
+      dedup_dropped: dedupDropCount,
       llm_ms,
       embed_ms: 0,
     })
@@ -366,6 +385,7 @@ export async function generateBatch(
     llm_ms,
     embed_ms,
     editorial_dropped: editorialDropCount,
+    dedup_dropped: dedupDropCount,
   }
   return {
     season_id: input.season_id,
@@ -409,6 +429,35 @@ async function loadAcceptedDomainCounts(
     out[d] = (out[d] ?? 0) + 1
   }
   return out
+}
+
+/**
+ * Titles of every topic already accepted into the season (manual seeds +
+ * AI-accepted). Fed to the prompt as "already chosen — don't duplicate" and
+ * to the post-LLM dedup filter. Mirrors loadAcceptedDomainCounts.
+ */
+async function loadAcceptedTitles(season_id: string): Promise<string[]> {
+  const acceptedRows = await db!
+    .select({
+      topic_candidate_id: khatMapSeasonDecisions.topic_candidate_id,
+    })
+    .from(khatMapSeasonDecisions)
+    .where(
+      and(
+        eq(khatMapSeasonDecisions.season_id, season_id),
+        eq(khatMapSeasonDecisions.kind, "accept"),
+      ),
+    )
+  const ids = acceptedRows
+    .map((r) => r.topic_candidate_id)
+    .filter((x): x is string => x !== null)
+  if (ids.length === 0) return []
+  const rows = await db!
+    .select({ working_title: khatMapEpisodeCandidates.working_title })
+    .from(khatMapEpisodeCandidates)
+    .where(inArray(khatMapEpisodeCandidates.id, ids))
+  // working_title is NOT NULL in the schema, so no null-guard needed.
+  return rows.map((r) => r.working_title)
 }
 
 async function loadRejectedSignals(season_id: string): Promise<{
@@ -499,7 +548,10 @@ function emptyResult(
   batch_index: number,
   taste: BatchResult["taste_snapshot"],
   useCross: boolean,
-  partial: Pick<BatchStats, "oversampled" | "llm_ms" | "embed_ms">,
+  partial: Pick<
+    BatchStats,
+    "oversampled" | "editorial_dropped" | "dedup_dropped" | "llm_ms" | "embed_ms"
+  >,
 ): BatchResult {
   return {
     season_id,
@@ -510,7 +562,11 @@ function emptyResult(
       oversampled: partial.oversampled,
       hard_blocked: 0,
       soft_avoided: 0,
-      editorial_dropped: 0,
+      // Carry the real drop counts so the caller can explain WHY the batch is
+      // empty (too-strict editorial filters vs. everything dedup'd against the
+      // already-chosen seeds) instead of failing silently.
+      editorial_dropped: partial.editorial_dropped,
+      dedup_dropped: partial.dedup_dropped,
       final: 0,
       cross_season_negatives_included: useCross,
       llm_ms: partial.llm_ms,
