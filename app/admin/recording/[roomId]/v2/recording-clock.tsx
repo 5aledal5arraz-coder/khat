@@ -130,7 +130,7 @@ export function RecordingClock(props: {
 
 // ─── Timeline ──────────────────────────────────────────────────────────
 
-function Timeline(props: {
+export function Timeline(props: {
   elapsedMs: number
   sections: Sections | null
   markers: LiveV2Marker[]

@@ -117,6 +117,18 @@ export function markerStyle(type: string): MarkerStyle {
 }
 
 /**
+ * Host-facing flag palette for the on-air FlagControl. The host mostly flags
+ * GREAT MOMENTS live, so `highlight` is the one-thumb primary and clip/quote
+ * are the 1-tap secondaries; the remaining 6 (editing/flow flags) live behind
+ * an overflow so the live surface stays a 3-button decision, not a 9-grid.
+ */
+export const HOST_PRIMARY_MARKER: QuickMarkerType = "highlight"
+export const HOST_QUICK_MARKERS: QuickMarkerType[] = ["clip", "quote"]
+export const HOST_OVERFLOW_MARKERS: QuickMarkerType[] = QUICK_MARKER_TYPES.filter(
+  (t) => t !== HOST_PRIMARY_MARKER && !HOST_QUICK_MARKERS.includes(t),
+)
+
+/**
  * Date.now() wrapped at module scope. Component bodies must stay lint-pure
  * (react-hooks/purity forbids calling Date.now directly during render), so all
  * wall-clock reads for the timer go through these leaf helpers.

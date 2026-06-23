@@ -20,8 +20,7 @@ import {
   useRoomState,
 } from "@/app/admin/preparation/[id]/room/contexts"
 import { LiveV2Client } from "./live-v2-client"
-import { ParticipantRoomView, TeamMarkerFeed } from "./participant-room-view"
-import { RoomNotesPanel } from "./room-notes-panel"
+import { ParticipantRoomView } from "./participant-room-view"
 import type { LiveV2Snapshot } from "@/lib/recording-v2/load"
 import { Loader2, Users, Wifi, WifiOff, Zap } from "lucide-react"
 import { cn } from "@/lib/utils"
@@ -102,12 +101,11 @@ function RoomShellInner({
         onSetEnergy={updateEnergy}
       />
       {isHostOrOperator ? (
-        <>
-          <LiveV2Client initial={initial} />
-          {/* Live overlays on the cockpit: director markers + incoming team notes */}
-          <TeamMarkerFeed floating />
-          <RoomNotesPanel floating role="host" />
-        </>
+        // The host cockpit owns its own team surface now: the on-air StatusRail
+        // shows a quiet team indicator (counts + an amber pulse only when an
+        // unseen urgent note exists) that opens a TeamDrawer on demand — so
+        // team notes/markers never pop over the host mid-answer.
+        <LiveV2Client initial={initial} />
       ) : (
         <ParticipantRoomView initial={initial} role={role} />
       )}
@@ -200,7 +198,7 @@ function EnergyControl({
       className="inline-flex items-center gap-1 text-[10.5px] text-muted-foreground"
       title="مستوى الطاقة"
     >
-      <Zap className="h-3 w-3 text-amber-500" />
+      <Zap className="h-3 w-3 text-amber-600" />
       <span className="inline-flex gap-0.5">
         {Array.from({ length: 5 }).map((_, i) =>
           interactive ? (

@@ -37,10 +37,14 @@ export function RoomNotesPanel({
   sectionKey,
   role,
   floating = false,
+  showAll = false,
 }: {
   sectionKey?: string
   role: string
   floating?: boolean
+  /** Inline mode: show the whole room's notes (host drawer), not just the
+   *  active section + global — so the list matches the unseen-notes count. */
+  showAll?: boolean
 }) {
   const { notes, postNote, markNoteSeen, unseenNotesCount } = useRoomCards()
   const { participants } = useRoomState()
@@ -56,17 +60,18 @@ export function RoomNotesPanel({
   // Floating (host): the whole room's notes, newest first.
   // Inline (participant): notes on the active section + room-global notes.
   const visible = useMemo(() => {
-    const list = floating
-      ? notes
-      : notes.filter(
-          (n) =>
-            (sectionKey && n.section_key === sectionKey) ||
-            (!n.card_id && !n.section_key),
-        )
+    const list =
+      floating || showAll
+        ? notes
+        : notes.filter(
+            (n) =>
+              (sectionKey && n.section_key === sectionKey) ||
+              (!n.card_id && !n.section_key),
+          )
     return [...list].sort(
       (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
     )
-  }, [notes, floating, sectionKey])
+  }, [notes, floating, showAll, sectionKey])
 
   const renderNote = (n: RoomCardNote) => {
     const badge = NOTE_BADGE[n.note_type] ?? NOTE_BADGE.normal

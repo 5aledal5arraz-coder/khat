@@ -1,61 +1,31 @@
 "use client"
 
 /**
- * Phase X Step 5 — Live Recording V2 client surface.
+ * Live Recording V2 — the ORCHESTRATOR.
  *
- * Owns:
- *   - section navigation transitions
- *   - debounced director-notes autosave
- *   - quick-tag dispatch + question-completion toggles
+ * Owns all cockpit state + the server-action handlers (timer transport,
+ * section nav, question-done, marker tagging, insight mark-used, debounced
+ * notes autosave) and routes them into a PHASE-AWARE view driven by the local
+ * optimistic `status`:
  *
- * The high-frequency timer + timeline live in <RecordingClock>, which
- * self-ticks via requestAnimationFrame so the rest of this cockpit does NOT
- * re-render every frame. This component only holds the infrequently-changing
- * timer baseline (elapsedMsAtBaseline + windowStartedAt) and derives the
- * current elapsed on demand when banking a pause/end or stamping a marker.
+ *   waiting        → <PreflightView>   (read the prep, then go live)
+ *   live | paused  → <OnAirView>       (the focus deck — the centerpiece)
+ *   ended          → <WrapView>        (recap + export)
+ *
+ * The mode reads the LOCAL `status` the transport mutates (not SSE) so the view
+ * flips instantly with the optimistic timer. The high-frequency clock self-ticks
+ * inside <CompactClock>/<RecordingClock> via rAF, so a phase view never
+ * re-renders per frame. Rooms without a prep_v2 fall back to <LegacyCockpit>.
  *
  * All persistence flows through the server actions in actions.ts.
  */
 
 import { useMemo, useRef, useState, useTransition } from "react"
 import { Empty } from "../../../components/ui-kit"
-import {
-  ChevronLeft,
-  ChevronRight,
-  Check,
-  Circle,
-  Download,
-  Zap,
-  Lightbulb,
-  ChevronDown,
-  ChevronUp,
-  ExternalLink,
-  Info,
-  BarChart3,
-  FlaskConical,
-  Calendar,
-  BookOpen,
-  Smile,
-  ShieldCheck,
-  Clock,
-  AlertTriangle,
-  type LucideIcon,
-} from "lucide-react"
 import { useRoomState, useRoomMarkers } from "@/app/admin/preparation/[id]/room/contexts"
 import type { LiveV2Marker, LiveV2Snapshot } from "@/lib/recording-v2/load"
-import {
-  energyBand,
-  rankQuestionsByEnergy,
-  matchesEnergy,
-  coachHint,
-  SECTION_TARGET_LEVEL,
-  type EnergyBand,
-} from "@/lib/recording-v2/energy"
-import {
-  QUICK_MARKER_GROUPS,
-  QUICK_MARKER_META,
-  type QuickMarkerType,
-} from "@/lib/recording-v2/marker-types"
+import { energyBand, rankQuestionsByEnergy, coachHint } from "@/lib/recording-v2/energy"
+import { QUICK_MARKER_GROUPS, QUICK_MARKER_META, type QuickMarkerType } from "@/lib/recording-v2/marker-types"
 import {
   startTimerAction,
   pauseTimerAction,
@@ -67,33 +37,13 @@ import {
   createMarkerAction,
   toggleQuestionDoneAction,
 } from "./actions"
-import type {
-  SectionKind,
-  PrepV2Question,
-  PrepV2Insight,
-  PrepV2InsightSource,
-  InsightType,
-  InsightTiming,
-  InsightConfidence,
-} from "@/lib/preparation/v2/types"
-import { isLiveInsight } from "@/lib/preparation/v2/types"
+import type { SectionKind, PrepV2Question, PrepV2Insight } from "@/lib/preparation/v2/types"
 import { RecordingClock } from "./recording-clock"
-import {
-  SECTION_LABEL_AR,
-  markerStyle,
-  formatPrecise,
-  nowMs,
-  computeElapsedMs,
-} from "./recording-shared"
-
-const TYPE_LABEL_AR: Record<string, string> = {
-  emotional: "عاطفي",
-  philosophical: "فلسفي",
-  personal: "شخصي",
-  confrontational: "مواجهة",
-  reflective: "تأملي",
-  factual: "سياقي",
-}
+import { markerStyle, formatPrecise, nowMs, computeElapsedMs } from "./recording-shared"
+import { INSIGHT_META } from "./cockpit-bits"
+import { PreflightView } from "./preflight-view"
+import { OnAirView } from "./onair-view"
+import { WrapView } from "./wrap-view"
 
 export function LiveV2Client({ initial }: { initial: LiveV2Snapshot }) {
   const room = initial.room
@@ -101,12 +51,13 @@ export function LiveV2Client({ initial }: { initial: LiveV2Snapshot }) {
   const sections = prep.prep_v2?.episode_sections ?? null
 
   // ── Live energy (set by the director / host, synced over SSE) ──────
-  const { room: liveRoom } = useRoomState()
+  const { room: liveRoom, updateEnergy } = useRoomState()
   const energy = liveRoom?.energy_level ?? room.energy_level ?? 3
   const band = energyBand(energy)
+  const onSetEnergy = (level: number) => void updateEnergy(level)
 
-  // Energy ribbon — built reactively from the room's energy_change markers
-  // (recorded server-side on every change, delivered live over SSE).
+  // Energy ribbon — built from the room's energy_change markers (recorded
+  // server-side on every change, delivered live over SSE).
   const { markers: sessionMarkers } = useRoomMarkers()
   const energyHistory = useMemo(() => {
     const pts = sessionMarkers
@@ -116,9 +67,6 @@ export function LiveV2Client({ initial }: { initial: LiveV2Snapshot }) {
         level: Math.max(0, Math.min(5, Number(m.note) || 3)),
       }))
       .sort((a, b) => a.recording_ms - b.recording_ms)
-    // Collapse points sharing a recording_ms (e.g. set while paused) — last
-    // reading at a timestamp wins, so no level is silently hidden by a
-    // zero-width ribbon segment.
     const byMs = new Map<number, number>()
     for (const p of pts) byMs.set(p.recording_ms, p.level)
     return [...byMs.entries()].map(([recording_ms, level]) => ({ recording_ms, level }))
@@ -126,9 +74,7 @@ export function LiveV2Client({ initial }: { initial: LiveV2Snapshot }) {
 
   // ── Timer baseline (changes only on start/pause/resume/reset/end) ──
   const [status, setStatus] = useState<typeof room.status>(room.status)
-  const [elapsedMsAtBaseline, setElapsedMsAtBaseline] = useState<number>(
-    room.recording_elapsed_ms,
-  )
+  const [elapsedMsAtBaseline, setElapsedMsAtBaseline] = useState<number>(room.recording_elapsed_ms)
   const [windowStartedAt, setWindowStartedAt] = useState<number | null>(
     room.recording_started_at && !room.recording_paused_at
       ? Date.parse(room.recording_started_at)
@@ -141,12 +87,8 @@ export function LiveV2Client({ initial }: { initial: LiveV2Snapshot }) {
   }
 
   // ── Section index ─────────────────────────────────────────────────
-  const [sectionIndex, setSectionIndex] = useState<number>(
-    room.current_section_index ?? 0,
-  )
-  const currentSection: SectionKind | null = sections
-    ? (sections[sectionIndex]?.kind ?? null)
-    : null
+  const [sectionIndex, setSectionIndex] = useState<number>(room.current_section_index ?? 0)
+  const currentSection: SectionKind | null = sections ? (sections[sectionIndex]?.kind ?? null) : null
   const [completedSections, setCompletedSections] = useState<Set<number>>(
     new Set(Array.from({ length: sectionIndex }, (_, i) => i)),
   )
@@ -172,7 +114,7 @@ export function LiveV2Client({ initial }: { initial: LiveV2Snapshot }) {
     }
   }
 
-  // ── Notes ─────────────────────────────────────────────────────────
+  // ── Notes (debounced autosave) ────────────────────────────────────
   const [notes, setNotes] = useState(room.director_notes)
   const [, startNotesTransition] = useTransition()
   const noteSaveTimer = useRef<NodeJS.Timeout | null>(null)
@@ -202,7 +144,7 @@ export function LiveV2Client({ initial }: { initial: LiveV2Snapshot }) {
     setStatus("live")
   })
   const onPause = withBusy(async () => {
-    setElapsedMsAtBaseline(nowElapsed()) // optimistic instant freeze
+    setElapsedMsAtBaseline(nowElapsed())
     setWindowStartedAt(null)
     setStatus("paused")
     const r = await pauseTimerAction(room.id)
@@ -220,7 +162,7 @@ export function LiveV2Client({ initial }: { initial: LiveV2Snapshot }) {
     setStatus("waiting")
   })
   const onEnd = withBusy(async () => {
-    setElapsedMsAtBaseline(nowElapsed()) // optimistic instant freeze
+    setElapsedMsAtBaseline(nowElapsed())
     setWindowStartedAt(null)
     setStatus("ended")
     const r = await endTimerAction(room.id)
@@ -231,32 +173,22 @@ export function LiveV2Client({ initial }: { initial: LiveV2Snapshot }) {
   async function moveTo(idx: number) {
     if (!sections) return
     const clamped = Math.max(0, Math.min(sections.length - 1, idx))
-    setSectionIndex(clamped)
-    await setCurrentSectionAction({
-      roomId: room.id,
-      index: clamped,
-      key: sections[clamped].kind,
-    })
-  }
-  function toggleCompleted(idx: number) {
+    // Mark the section we're leaving as covered as the host advances forward.
     setCompletedSections((prev) => {
+      if (clamped <= sectionIndex) return prev
       const next = new Set(prev)
-      if (next.has(idx)) next.delete(idx)
-      else next.add(idx)
+      for (let i = 0; i < clamped; i++) next.add(i)
       return next
     })
+    setSectionIndex(clamped)
+    await setCurrentSectionAction({ roomId: room.id, index: clamped, key: sections[clamped].kind })
   }
 
   // ── Marker dispatch ──────────────────────────────────────────────
   async function tag(type: QuickMarkerType, label: string) {
     const fallbackMs = nowElapsed()
     try {
-      const r = await createMarkerAction({
-        roomId: room.id,
-        markerType: type,
-        label,
-        sectionKey: currentSection,
-      })
+      const r = await createMarkerAction({ roomId: room.id, markerType: type, label, sectionKey: currentSection })
       if (r.ok) {
         setMarkers((prev) => [
           {
@@ -277,15 +209,11 @@ export function LiveV2Client({ initial }: { initial: LiveV2Snapshot }) {
     }
   }
 
-  // ── Insight "used" dispatch — host deployed a support card live. Lands as an
-  //    `insight_used` marker (→ timeline + recent chips + CSV) exactly like a
-  //    quick-tag, plus an optimistic per-card used flag the strip reads. ──────
+  // ── Insight "used" dispatch → an `insight_used` marker + optimistic flag ──
   const [usedInsightIds, setUsedInsightIds] = useState<Set<string>>(new Set())
   async function tagInsight(insight: PrepV2Insight) {
     if (usedInsightIds.has(insight.id)) return
-    setUsedInsightIds((prev) => new Set(prev).add(insight.id)) // optimistic
-    // Revert the optimistic flag (server rejected OR the action threw) so the
-    // host can retry — the button is disabled while it's set.
+    setUsedInsightIds((prev) => new Set(prev).add(insight.id))
     const revert = () =>
       setUsedInsightIds((prev) => {
         const next = new Set(prev)
@@ -324,26 +252,22 @@ export function LiveV2Client({ initial }: { initial: LiveV2Snapshot }) {
     }
   }
 
-  // ── Section question list — ranked by energy fit (must_ask still first,
-  //    energy-matching questions float up, done sinks) ───────────────
+  // ── Section question list — ranked by energy fit ──────────────────
   const currentSectionQuestions: PrepV2Question[] = useMemo(() => {
     if (!prep.prep_v2 || !currentSection) return []
-    const all = prep.prep_v2.question_bank.filter(
-      (q) => q.section === currentSection,
-    )
+    const all = prep.prep_v2.question_bank.filter((q) => q.section === currentSection)
     return rankQuestionsByEnergy(all, band, (id) => completedQuestionIds.has(id))
   }, [prep.prep_v2, currentSection, band, completedQuestionIds])
 
-  // Live coaching whisper when energy is in tension with the section's arc.
   const hint = coachHint(currentSection, energy)
-
   // Energy markers drive the ribbon, not the content pins / count / list.
   const contentMarkers = markers.filter((m) => m.marker_type !== "energy_change")
 
-  return (
-    <div className="mx-auto max-w-7xl space-y-4 p-4">
-      {/* ── Hero: big centered timer + timeline ──────────────────── */}
-      <RecordingClock
+  // ── Phase routing ─────────────────────────────────────────────────
+  const pv = prep.prep_v2
+  if (!pv) {
+    return (
+      <LegacyCockpit
         status={status}
         elapsedMsAtBaseline={elapsedMsAtBaseline}
         windowStartedAt={windowStartedAt}
@@ -353,595 +277,146 @@ export function LiveV2Client({ initial }: { initial: LiveV2Snapshot }) {
         onResume={onResume}
         onReset={onReset}
         onEnd={onEnd}
-        sections={sections}
-        markers={contentMarkers}
+        contentMarkers={contentMarkers}
         energyHistory={energyHistory}
-        currentSectionIndex={sectionIndex}
-      />
-
-      {/* ── Live coaching whisper: energy ↔ section tension ──────── */}
-      {hint && <CoachHintBanner hint={hint} energy={energy} section={currentSection} />}
-
-      {/* ── Session-ended: export all markers as CSV ─────────────── */}
-      {status === "ended" && (
-        <SessionEndedExport roomId={room.id} markerCount={contentMarkers.length} />
-      )}
-
-      {/* ── Quick markers — directly under the timeline so they're the
-          easiest thing to reach during a take (tap → pin lands on the
-          timeline right above). The most time-critical action. ───────── */}
-      <QuickTagsPanel onTag={tag} disabled={status === "waiting"} markers={contentMarkers} />
-
-      {/* ── Compact episode/status strip ─────────────────────────── */}
-      <RoomStatusPanel
-        status={status}
-        eirPhase={room.eir_phase}
-        markers={contentMarkers.length}
-        guestName={prep.guest_name}
-        title={prep.title}
-      />
-
-      {/* ── Flow tracker ─────────────────────────────────────────── */}
-      {sections ? (
-        <FlowTracker
-          sections={sections}
-          currentIndex={sectionIndex}
-          completed={completedSections}
-          onSelect={moveTo}
-          onToggleCompleted={toggleCompleted}
-        />
-      ) : (
-        <div className="rounded-2xl border border-border/40 bg-background/40 p-4 text-[12px] text-muted-foreground">
-          لا توجد بنية Prep V2 لهذا الإعداد — يتم عرض الأسئلة القديمة مباشرة أدناه.
-        </div>
-      )}
-
-      {/* ── Section questions (full width) ───────────────────────── */}
-      <SectionQuestions
-        legacy={!prep.prep_v2}
+        sectionIndex={sectionIndex}
         legacyQuestions={prep.legacy_questions}
-        currentSection={currentSection}
-        questions={currentSectionQuestions}
-        completedIds={completedQuestionIds}
-        onToggleDone={toggleQuestionDone}
-        band={band}
-        usedInsightIds={usedInsightIds}
-        onUseInsight={tagInsight}
-        insightMarkDisabled={status === "waiting"}
+        onTag={tag}
+        notes={notes}
+        onNotesChange={onNotesChange}
+        roomId={room.id}
       />
+    )
+  }
 
-      {/* ── Director notes ───────────────────────────────────────── */}
-      <DirectorNotesPanel value={notes} onChange={onNotesChange} />
-    </div>
-  )
-}
-
-// ─── CoachHintBanner ──────────────────────────────────────────────────
-
-function CoachHintBanner({
-  hint,
-  energy,
-  section,
-}: {
-  hint: string
-  energy: number
-  section: SectionKind | null
-}) {
-  const target = section ? SECTION_TARGET_LEVEL[section] : null
-  return (
-    <div className="flex flex-wrap items-center justify-between gap-2 rounded-2xl border border-amber-500/30 bg-amber-500/5 px-4 py-2.5">
-      <span className="inline-flex items-center gap-2 text-[13px] font-medium text-amber-700">
-        <Zap className="h-4 w-4 shrink-0 text-amber-600" />
-        {hint}
-      </span>
-      {target != null && (
-        <span className="text-[10.5px] tabular-nums text-muted-foreground" dir="rtl">
-          الطاقة {energy}/5 · المستهدف {target}/5
-        </span>
-      )}
-    </div>
-  )
-}
-
-// ─── SessionEndedExport ───────────────────────────────────────────────
-
-function SessionEndedExport({
-  roomId,
-  markerCount,
-}: {
-  roomId: string
-  markerCount: number
-}) {
-  const hasMarkers = markerCount > 0
-  return (
-    <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-emerald-500/30 bg-emerald-500/5 p-4">
-      <div>
-        <div className="text-[13px] font-semibold text-emerald-700">انتهى التسجيل</div>
-        <div className="text-[11.5px] text-muted-foreground">
-          {hasMarkers
-            ? `${markerCount} علامة جاهزة للتصدير`
-            : "لا توجد علامات لتصديرها"}
-        </div>
-      </div>
-      <a
-        href={`/api/admin/recording/${roomId}/markers/export`}
-        aria-disabled={!hasMarkers}
-        className={
-          "inline-flex items-center gap-1.5 rounded-xl border border-emerald-500/40 bg-emerald-500/10 px-4 py-2 text-[13px] font-semibold text-emerald-700 transition hover:bg-emerald-500/20 " +
-          (hasMarkers ? "" : "pointer-events-none opacity-40")
-        }
-      >
-        <Download className="h-4 w-4" /> تصدير العلامات (CSV)
-      </a>
-    </div>
-  )
-}
-
-// ─── RoomStatusPanel (compact strip) ──────────────────────────────────
-
-function RoomStatusPanel(props: {
-  status: string
-  eirPhase: string | null
-  markers: number
-  guestName: string | null
-  title: string
-}) {
-  return (
-    <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-border/40 bg-background/40 px-4 py-3">
-      <div className="min-w-0">
-        <div className="truncate text-[14px] font-semibold leading-tight">{props.title}</div>
-        {props.guestName && (
-          <div className="text-[11.5px] text-muted-foreground">ضيف: {props.guestName}</div>
-        )}
-      </div>
-      <div className="flex gap-2">
-        <Stat label="حالة" value={props.status} />
-        <Stat label="EIR" value={props.eirPhase ?? "—"} />
-        <Stat label="علامات" value={String(props.markers)} />
-      </div>
-    </div>
-  )
-}
-
-// ─── FlowTracker ──────────────────────────────────────────────────────
-
-function FlowTracker(props: {
-  sections: NonNullable<LiveV2Snapshot["preparation"]["prep_v2"]>["episode_sections"]
-  currentIndex: number
-  completed: Set<number>
-  onSelect: (idx: number) => void
-  onToggleCompleted: (idx: number) => void
-}) {
-  return (
-    <div className="rounded-2xl border border-border/40 bg-background/40 p-4">
-      <div className="mb-2 flex items-center justify-between">
-        <div className="text-[10.5px] uppercase tracking-wider text-muted-foreground">
-          هيكل الحلقة
-        </div>
-        <div className="flex gap-1.5">
-          <IconBtn
-            icon={<ChevronRight />}
-            onClick={() => props.onSelect(props.currentIndex - 1)}
-            disabled={props.currentIndex <= 0}
-            label="السابق"
-          />
-          <IconBtn
-            icon={<ChevronLeft />}
-            onClick={() => props.onSelect(props.currentIndex + 1)}
-            disabled={props.currentIndex >= props.sections.length - 1}
-            label="التالي"
-          />
-        </div>
-      </div>
-      <ol className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6">
-        {props.sections.map((s, i) => {
-          const state =
-            i === props.currentIndex
-              ? "current"
-              : props.completed.has(i)
-                ? "completed"
-                : "upcoming"
-          return (
-            <li
-              key={s.kind}
-              className={
-                "rounded-xl border p-2.5 " +
-                (state === "current"
-                  ? "border-violet-500/40 bg-violet-500/10"
-                  : state === "completed"
-                    ? "border-emerald-500/30 bg-emerald-500/10 opacity-80"
-                    : "border-border/40 bg-background/30")
-              }
-            >
-              <button
-                type="button"
-                onClick={() => props.onSelect(i)}
-                className="block w-full text-start"
-              >
-                <div className="flex items-center justify-between">
-                  <span className="text-[11.5px] font-semibold">
-                    {SECTION_LABEL_AR[s.kind] ?? s.kind}
-                  </span>
-                  <span
-                    className="text-[10px] tabular-nums text-muted-foreground"
-                    dir="ltr"
-                  >
-                    {s.estimated_minutes}m
-                  </span>
-                </div>
-                <div className="mt-1 line-clamp-2 text-[10.5px] leading-snug text-muted-foreground/85">
-                  {s.target_emotion} · {s.intent.slice(0, 80)}
-                </div>
-              </button>
-              <button
-                type="button"
-                onClick={() => props.onToggleCompleted(i)}
-                className="mt-2 inline-flex items-center gap-1 text-[10px] text-muted-foreground hover:text-foreground"
-              >
-                <Check className="h-2.5 w-2.5" />
-                {props.completed.has(i) ? "مكتمل" : "تحديد كمكتمل"}
-              </button>
-            </li>
-          )
-        })}
-      </ol>
-    </div>
-  )
-}
-
-// ─── SectionQuestions ─────────────────────────────────────────────────
-
-function SectionQuestions(props: {
-  legacy: boolean
-  legacyQuestions: string[]
-  currentSection: SectionKind | null
-  questions: PrepV2Question[]
-  completedIds: Set<string>
-  onToggleDone: (id: string) => void
-  band: EnergyBand
-  usedInsightIds: Set<string>
-  onUseInsight: (insight: PrepV2Insight) => void
-  insightMarkDisabled: boolean
-}) {
-  if (props.legacy) {
+  if (status === "waiting") {
     return (
+      <PreflightView
+        title={prep.title}
+        guestName={prep.guest_name}
+        thesis={pv.thesis}
+        axes={pv.axes_of_tension}
+        hostGuidance={pv.host_guidance}
+        openingOptions={pv.opening_options}
+        sensitiveZones={pv.sensitive_zones}
+        sections={pv.episode_sections}
+        energy={energy}
+        canSetEnergy
+        onSetEnergy={onSetEnergy}
+        onStart={onStart}
+        busy={busy}
+      />
+    )
+  }
+
+  if (status === "ended") {
+    return (
+      <WrapView
+        roomId={room.id}
+        durationMs={nowElapsed()}
+        sectionsTotal={pv.episode_sections.length}
+        sectionsDone={completedSections.size}
+        questionsAsked={completedQuestionIds.size}
+        questionsTotal={pv.question_bank.length}
+        markers={contentMarkers}
+        closingOptions={pv.closing_options}
+        onReset={onReset}
+        busy={busy}
+      />
+    )
+  }
+
+  return (
+    <OnAirView
+      status={status === "paused" ? "paused" : "live"}
+      elapsedMsAtBaseline={elapsedMsAtBaseline}
+      windowStartedAt={windowStartedAt}
+      busy={busy}
+      onPause={onPause}
+      onResume={onResume}
+      onEnd={onEnd}
+      sections={pv.episode_sections}
+      sectionIndex={sectionIndex}
+      currentSection={currentSection}
+      moveTo={moveTo}
+      questions={currentSectionQuestions}
+      completedIds={completedQuestionIds}
+      onToggleDone={toggleQuestionDone}
+      band={band}
+      usedInsightIds={usedInsightIds}
+      onUseInsight={tagInsight}
+      energy={energy}
+      canSetEnergy
+      onSetEnergy={onSetEnergy}
+      contentMarkers={contentMarkers}
+      energyHistory={energyHistory}
+      hint={hint}
+      notes={notes}
+      onNotesChange={onNotesChange}
+      onTag={tag}
+    />
+  )
+}
+
+// ─── Legacy cockpit (rooms with no prep_v2 — a flat question list) ─────
+
+function LegacyCockpit(props: {
+  status: "waiting" | "live" | "paused" | "ended"
+  elapsedMsAtBaseline: number
+  windowStartedAt: number | null
+  busy: boolean
+  onStart: () => void
+  onPause: () => void
+  onResume: () => void
+  onReset: () => void
+  onEnd: () => void
+  contentMarkers: LiveV2Marker[]
+  energyHistory: { recording_ms: number; level: number }[]
+  sectionIndex: number
+  legacyQuestions: string[]
+  onTag: (type: QuickMarkerType, label: string) => void
+  notes: string
+  onNotesChange: (s: string) => void
+  roomId: string
+}) {
+  return (
+    <div className="mx-auto max-w-3xl space-y-4 p-4">
+      <RecordingClock
+        status={props.status}
+        elapsedMsAtBaseline={props.elapsedMsAtBaseline}
+        windowStartedAt={props.windowStartedAt}
+        busy={props.busy}
+        onStart={props.onStart}
+        onPause={props.onPause}
+        onResume={props.onResume}
+        onReset={props.onReset}
+        onEnd={props.onEnd}
+        sections={null}
+        markers={props.contentMarkers}
+        energyHistory={props.energyHistory}
+        currentSectionIndex={props.sectionIndex}
+      />
+      <QuickTagsPanel onTag={props.onTag} disabled={props.status === "waiting"} markers={props.contentMarkers} />
       <div className="rounded-2xl border border-border/40 bg-background/40 p-4">
-        <div className="mb-2 text-[10.5px] uppercase tracking-wider text-muted-foreground">
-          أسئلة (نسخة قديمة)
-        </div>
+        <div className="mb-2 text-[10.5px] uppercase tracking-wider text-muted-foreground">أسئلة</div>
         {props.legacyQuestions.length === 0 ? (
-          <Empty text="لا توجد أسئلة قديمة لهذا الإعداد." />
+          <Empty text="لا توجد أسئلة لهذا الإعداد." />
         ) : (
           <ul className="space-y-2">
             {props.legacyQuestions.map((q, i) => (
-              <li
-                key={i}
-                className="rounded-xl border border-border/40 bg-background/30 p-3 text-[14px] leading-relaxed"
-              >
+              <li key={i} className="rounded-xl border border-border/40 bg-background/30 p-3 text-[14px] leading-relaxed">
                 {q}
               </li>
             ))}
           </ul>
         )}
       </div>
-    )
-  }
-  const doneCount = props.questions.filter((q) => props.completedIds.has(q.id)).length
-  return (
-    <div className="rounded-2xl border border-border/40 bg-background/40 p-4">
-      <div className="mb-2 flex items-baseline justify-between">
-        <div className="text-[10.5px] uppercase tracking-wider text-muted-foreground">
-          أسئلة القسم
-        </div>
-        <div className="flex items-center gap-2 text-[10.5px] text-muted-foreground">
-          {props.questions.length > 0 && (
-            <span className="tabular-nums" dir="ltr">
-              {doneCount}/{props.questions.length}
-            </span>
-          )}
-          <span>
-            {props.currentSection
-              ? SECTION_LABEL_AR[props.currentSection] ?? props.currentSection
-              : "—"}
-          </span>
-        </div>
-      </div>
-      {props.questions.length === 0 ? (
-        <Empty text="لا توجد أسئلة في هذا القسم." />
-      ) : (
-        <ul className="space-y-3">
-          {props.questions.map((q) => {
-            const done = props.completedIds.has(q.id)
-            // Live gate: only producer-approved insights surface in the cockpit;
-            // pending/hidden cards never become a live prompt.
-            const liveInsights = (q.insights ?? []).filter(isLiveInsight)
-            return (
-              <li
-                key={q.id}
-                className={
-                  "rounded-xl border p-3 transition " +
-                  (done
-                    ? "border-emerald-500/40 bg-emerald-500/5 opacity-70"
-                    : q.priority === "must_ask"
-                      ? "border-emerald-500/30 bg-emerald-500/5"
-                      : "border-border/40 bg-background/30")
-                }
-              >
-                <div className="flex items-start gap-2.5">
-                  <button
-                    type="button"
-                    onClick={() => props.onToggleDone(q.id)}
-                    aria-pressed={done}
-                    title={done ? "تراجع عن الإكمال" : "تحديد كمطروح"}
-                    className={
-                      "mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full border transition " +
-                      (done
-                        ? "border-emerald-500 bg-emerald-500 text-white"
-                        : "border-border/60 text-transparent hover:border-emerald-500/60")
-                    }
-                  >
-                    {done ? <Check className="h-3 w-3" /> : <Circle className="h-2 w-2" />}
-                  </button>
-                  <div className="min-w-0 flex-1">
-                    <div className="mb-1.5 flex flex-wrap items-center gap-1.5">
-                      <PriorityChip priority={q.priority} />
-                      {q.types.map((t) => (
-                        <span
-                          key={t}
-                          className="rounded-full border border-border/40 px-1.5 py-0.5 text-[10px] text-muted-foreground"
-                        >
-                          {TYPE_LABEL_AR[t] ?? t}
-                        </span>
-                      ))}
-                      <RiskChip risk={q.risk_level} />
-                      {!done && matchesEnergy(q, props.band) && (
-                        <span
-                          title="يناسب الطاقة الحالية"
-                          className="inline-flex items-center gap-0.5 rounded-full bg-amber-500/15 px-1.5 py-0.5 text-[10px] font-medium text-amber-700"
-                        >
-                          <Zap className="h-2.5 w-2.5" /> يناسب الطاقة
-                        </span>
-                      )}
-                      {done && (
-                        <span className="rounded-full bg-emerald-500/15 px-1.5 py-0.5 text-[10px] font-medium text-emerald-700">
-                          تم طرحه
-                        </span>
-                      )}
-                    </div>
-                    <div
-                      className={
-                        "text-[16px] font-medium leading-snug " +
-                        (done ? "text-muted-foreground line-through" : "text-foreground")
-                      }
-                    >
-                      {q.text}
-                    </div>
-                    {q.purpose && !done && (
-                      <div className="mt-1 text-[12px] text-muted-foreground/85">
-                        {q.purpose}
-                      </div>
-                    )}
-                    {q.follow_up_prompt && !done && (
-                      <div className="mt-1 text-[12px] text-foreground/75">
-                        ↳ {q.follow_up_prompt}
-                      </div>
-                    )}
-                    {!done && liveInsights.length > 0 && (
-                      <InsightStrip
-                        insights={liveInsights}
-                        used={props.usedInsightIds}
-                        onUse={props.onUseInsight}
-                        markDisabled={props.insightMarkDisabled}
-                      />
-                    )}
-                  </div>
-                </div>
-              </li>
-            )
-          })}
-        </ul>
-      )}
+      <DirectorNotesPanel value={props.notes} onChange={props.onNotesChange} />
     </div>
   )
 }
 
-// ─── Insight Cards ────────────────────────────────────────────────────
-//
-// Collapse-by-default support cards under a question: a "💡 إسناد N" badge the
-// host pulls open per question. Never auto-expands — split attention during a
-// live take is the whole constraint. A correction is flagged in the collapsed
-// badge ("⚠ تصحيح") so the host knows to watch even before opening.
-
-const INSIGHT_META: Record<InsightType, { label: string; Icon: LucideIcon; chip: string }> = {
-  fact: { label: "معلومة", Icon: Info, chip: "bg-sky-500/10 text-sky-700" },
-  stat: { label: "إحصائية", Icon: BarChart3, chip: "bg-sky-500/10 text-sky-700" },
-  research: { label: "دراسة", Icon: FlaskConical, chip: "bg-violet-500/10 text-violet-700" },
-  date: { label: "تاريخ", Icon: Calendar, chip: "bg-indigo-500/10 text-indigo-700" },
-  reference: { label: "مرجع", Icon: BookOpen, chip: "bg-violet-500/10 text-violet-700" },
-  correction: { label: "تصحيح", Icon: AlertTriangle, chip: "bg-amber-500/15 text-amber-700" },
-  levity: { label: "طرافة", Icon: Smile, chip: "bg-orange-500/10 text-orange-700" },
-}
-
-const TIMING_LABEL_AR: Record<InsightTiming, string> = {
-  before: "قبل",
-  during: "أثناء",
-  after: "بعد",
-}
-
-function InsightStrip(props: {
-  insights: PrepV2Insight[]
-  used: Set<string>
-  onUse: (insight: PrepV2Insight) => void
-  markDisabled: boolean
-}) {
-  const [open, setOpen] = useState(false)
-  const hasCorrection = props.insights.some((i) => i.type === "correction")
-  return (
-    <div className="mt-2">
-      <button
-        type="button"
-        onClick={() => setOpen((o) => !o)}
-        aria-expanded={open}
-        className="inline-flex items-center gap-1.5 rounded-full border border-teal-500/30 bg-teal-500/5 px-2.5 py-1 text-[11px] font-medium text-teal-700 transition hover:bg-teal-500/10"
-      >
-        <Lightbulb className="h-3 w-3" />
-        إسناد {props.insights.length}
-        {hasCorrection && (
-          <span className="inline-flex items-center gap-0.5 text-amber-700">
-            <AlertTriangle className="h-2.5 w-2.5" /> تصحيح
-          </span>
-        )}
-        {open ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
-      </button>
-      {open && (
-        <div className="mt-2 space-y-2">
-          {props.insights.map((ins) => (
-            <InsightCard
-              key={ins.id}
-              insight={ins}
-              used={props.used.has(ins.id)}
-              onUse={() => props.onUse(ins)}
-              markDisabled={props.markDisabled}
-            />
-          ))}
-        </div>
-      )}
-    </div>
-  )
-}
-
-function InsightCard(props: {
-  insight: PrepV2Insight
-  used: boolean
-  onUse: () => void
-  markDisabled: boolean
-}) {
-  const ins = props.insight
-  const meta = INSIGHT_META[ins.type]
-  const Icon = meta.Icon
-  const isCorrection = ins.type === "correction" && !!ins.correction
-  return (
-    <div
-      className={
-        "rounded-xl border p-2.5 " +
-        (isCorrection
-          ? "border-amber-500/40 bg-amber-500/5"
-          : "border-border/50 bg-background/50")
-      }
-    >
-      <div className="mb-1.5 flex flex-wrap items-center gap-1.5">
-        <span
-          className={
-            "inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 text-[10px] font-medium " +
-            meta.chip
-          }
-        >
-          <Icon className="h-2.5 w-2.5" /> {meta.label}
-        </span>
-        <span className="inline-flex items-center gap-0.5 rounded-full border border-border/40 px-1.5 py-0.5 text-[10px] text-muted-foreground">
-          <Clock className="h-2.5 w-2.5" /> {TIMING_LABEL_AR[ins.timing]}
-        </span>
-        <span className="ms-auto">
-          <ConfidenceChip confidence={ins.confidence} />
-        </span>
-      </div>
-
-      {isCorrection && ins.correction ? (
-        <div className="text-[13px] leading-relaxed">
-          <div>
-            <span className="text-amber-700">إن قال الضيف:</span>{" "}
-            {ins.correction.inaccuracy}
-          </div>
-          <div className="mt-0.5">
-            <span className="text-emerald-700">الصحيح:</span> {ins.correction.accurate}
-          </div>
-        </div>
-      ) : (
-        <div className="text-[13px] leading-relaxed text-foreground">{ins.text}</div>
-      )}
-
-      <div className="mt-2 flex items-end justify-between gap-2">
-        <div className="flex min-w-0 flex-wrap gap-x-3 gap-y-1">
-          {ins.sources.map((s, i) => (
-            <SourceLink key={i} source={s} />
-          ))}
-        </div>
-        <button
-          type="button"
-          onClick={props.onUse}
-          disabled={props.markDisabled || props.used}
-          title={props.used ? "تم وضع علامة الاستخدام" : "علِّم أنك استخدمت هذه البطاقة"}
-          className={
-            "inline-flex shrink-0 items-center gap-1 rounded-lg border px-2 py-1 text-[11px] font-medium transition disabled:cursor-not-allowed " +
-            (props.used
-              ? "border-emerald-500/50 bg-emerald-500/15 text-emerald-700 disabled:opacity-100"
-              : "border-border/50 text-foreground/85 hover:bg-background/80 disabled:opacity-40")
-          }
-        >
-          <Check className="h-3 w-3" /> {props.used ? "تم" : "استُخدم"}
-        </button>
-      </div>
-    </div>
-  )
-}
-
-function ConfidenceChip({ confidence }: { confidence: InsightConfidence }) {
-  if (confidence === "verified") {
-    return (
-      <span className="inline-flex items-center gap-0.5 rounded-full bg-emerald-500/15 px-1.5 py-0.5 text-[10px] font-medium text-emerald-700">
-        <ShieldCheck className="h-2.5 w-2.5" /> موثوق
-      </span>
-    )
-  }
-  if (confidence === "partial") {
-    return (
-      <span className="rounded-full bg-amber-500/15 px-1.5 py-0.5 text-[10px] font-medium text-amber-700">
-        جزئي
-      </span>
-    )
-  }
-  return (
-    <span className="rounded-full bg-muted/40 px-1.5 py-0.5 text-[10px] text-muted-foreground">
-      غير مؤكد
-    </span>
-  )
-}
-
-function SourceLink({ source }: { source: PrepV2InsightSource }) {
-  const host = sourceHost(source)
-  const year = sourceYear(source.published_at)
-  return (
-    <a
-      href={source.url}
-      target="_blank"
-      rel="noreferrer"
-      title={source.title}
-      className="inline-flex max-w-[200px] items-center gap-1 truncate text-[11px] text-sky-700 hover:underline"
-    >
-      <ExternalLink className="h-2.5 w-2.5 shrink-0" />
-      <span className="truncate">
-        {source.publisher ?? host}
-        {year ? ` · ${year}` : ""}
-      </span>
-    </a>
-  )
-}
-
-function sourceHost(source: PrepV2InsightSource): string {
-  try {
-    return new URL(source.url).hostname.replace(/^www\./, "")
-  } catch {
-    return source.publisher ?? source.title
-  }
-}
-
-function sourceYear(publishedAt?: string): string | null {
-  if (!publishedAt) return null
-  const m = publishedAt.match(/\b(19|20)\d{2}\b/)
-  return m ? m[0] : null
-}
-
-// ─── QuickTagsPanel ───────────────────────────────────────────────────
+// ─── QuickTagsPanel (legacy marker grid) ──────────────────────────────
 
 function QuickTagsPanel(props: {
   onTag: (type: QuickMarkerType, label: string) => void
@@ -950,12 +425,7 @@ function QuickTagsPanel(props: {
 }) {
   return (
     <div className="rounded-2xl border border-border/40 bg-background/40 p-4">
-      <div className="mb-3 text-[10.5px] uppercase tracking-wider text-muted-foreground">
-        علامات سريعة
-      </div>
-
-      {/* The 3 groups sit side by side on wide screens (a marker toolbar
-          under the timeline); they stack on narrow screens. */}
+      <div className="mb-3 text-[10.5px] uppercase tracking-wider text-muted-foreground">علامات سريعة</div>
       <div className="grid grid-cols-1 gap-x-5 gap-y-3 sm:grid-cols-3">
         {QUICK_MARKER_GROUPS.map((group) => (
           <div key={group.key}>
@@ -977,7 +447,7 @@ function QuickTagsPanel(props: {
                     className="flex flex-col items-center justify-center gap-1 rounded-xl border border-border/40 bg-background/50 px-1.5 py-2 text-[10.5px] font-medium text-foreground/85 transition hover:border-border/70 hover:bg-background/80 disabled:cursor-not-allowed disabled:opacity-40"
                   >
                     <Icon className={"h-4 w-4 " + st.text} />
-                    <span className="leading-tight text-center">{meta.label}</span>
+                    <span className="text-center leading-tight">{meta.label}</span>
                   </button>
                 )
               })}
@@ -985,13 +455,9 @@ function QuickTagsPanel(props: {
           </div>
         ))}
       </div>
-
-      {/* Recent markers — compact horizontal chips so the panel stays short. */}
       {props.markers.length > 0 && (
         <div className="mt-4 border-t border-border/30 pt-3">
-          <div className="mb-1.5 text-[10.5px] uppercase tracking-wider text-muted-foreground">
-            آخر العلامات
-          </div>
+          <div className="mb-1.5 text-[10.5px] uppercase tracking-wider text-muted-foreground">آخر العلامات</div>
           <div className="flex flex-wrap gap-1.5">
             {props.markers.slice(0, 12).map((m) => {
               const st = markerStyle(m.marker_type)
@@ -1018,84 +484,16 @@ function QuickTagsPanel(props: {
 
 // ─── DirectorNotesPanel ───────────────────────────────────────────────
 
-function DirectorNotesPanel(props: {
-  value: string
-  onChange: (s: string) => void
-}) {
+function DirectorNotesPanel(props: { value: string; onChange: (s: string) => void }) {
   return (
     <div className="rounded-2xl border border-border/40 bg-background/40 p-4">
-      <div className="mb-2 text-[10.5px] uppercase tracking-wider text-muted-foreground">
-        ملاحظات المخرج
-      </div>
+      <div className="mb-2 text-[10.5px] uppercase tracking-wider text-muted-foreground">ملاحظات</div>
       <textarea
         value={props.value}
         onChange={(e) => props.onChange(e.target.value)}
         placeholder="اكتب ملاحظاتك هنا. يحفظ تلقائياً."
         className="min-h-[120px] w-full resize-y rounded-xl border border-border/40 bg-background/40 p-3 text-[13px] leading-relaxed text-foreground placeholder:text-muted-foreground focus:border-violet-500/40 focus:outline-none"
       />
-    </div>
-  )
-}
-
-// ─── Subcomponents ────────────────────────────────────────────────────
-
-function IconBtn(props: {
-  icon: React.ReactNode
-  onClick: () => void
-  disabled?: boolean
-  label?: string
-}) {
-  return (
-    <button
-      type="button"
-      onClick={props.onClick}
-      disabled={props.disabled}
-      title={props.label}
-      className="rounded-lg border border-border/50 p-1.5 text-muted-foreground hover:bg-background/60 disabled:opacity-40"
-    >
-      <span className="block h-3 w-3">{props.icon}</span>
-    </button>
-  )
-}
-
-function PriorityChip({ priority }: { priority: "must_ask" | "if_time" }) {
-  if (priority === "must_ask") {
-    return (
-      <span className="rounded-full bg-emerald-500/15 px-1.5 py-0.5 text-[10px] font-medium text-emerald-700">
-        must_ask
-      </span>
-    )
-  }
-  return (
-    <span className="rounded-full bg-muted/30 px-1.5 py-0.5 text-[10px] text-muted-foreground">
-      if_time
-    </span>
-  )
-}
-
-function RiskChip({ risk }: { risk: "low" | "medium" | "high" }) {
-  const cls =
-    risk === "high"
-      ? "bg-rose-500/10 text-rose-700"
-      : risk === "medium"
-        ? "bg-amber-500/10 text-amber-700"
-        : "bg-sky-500/10 text-sky-700"
-  return (
-    <span className={`rounded-full px-1.5 py-0.5 text-[10px] ${cls}`} dir="ltr">
-      risk: {risk}
-    </span>
-  )
-}
-
-function Stat({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="rounded-lg border border-border/40 bg-background/30 px-2.5 py-1.5 text-center">
-      <div className="text-[9.5px] uppercase tracking-wider text-muted-foreground">
-        {label}
-      </div>
-      <div className="text-[12.5px] font-semibold tabular-nums" dir="ltr">
-        {value}
-      </div>
     </div>
   )
 }
