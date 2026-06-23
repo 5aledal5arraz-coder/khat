@@ -29,6 +29,10 @@ export interface EpisodeEnrichment {
     message?: string
   }
   unsaid_reflections?: string[]
+  /** Publish gate (P6). Defaults to 'published'. */
+  publish_status?: string
+  /** ISO date; when set and in the future, the enrichment is not yet public. */
+  scheduled_for?: string | null
   updatedAt: string
 }
 

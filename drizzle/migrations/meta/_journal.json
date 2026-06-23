@@ -43,6 +43,13 @@
       "when": 1782252759206,
       "tag": "0005_absurd_punisher",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1782253916495,
+      "tag": "0006_heavy_darkstar",
+      "breakpoints": true
     }
   ]
 }

@@ -102,6 +102,14 @@ export const episodeEnrichments = pgTable("episode_enrichments", {
   central_question: text("central_question"),
   exclusive_clip: jsonb("exclusive_clip").$type<unknown>(),
   unsaid_reflections: jsonb("unsaid_reflections").$type<string[]>(),
+  /**
+   * Studio redesign (P6) — publish gate for the enriched knowledge-hub
+   * content. INERT-FIRST: defaults to 'published' so existing rows keep
+   * showing. The public episode page renders enrichment only when
+   * publish_status='published' AND (scheduled_for IS NULL OR is due).
+   */
+  publish_status: text("publish_status").default("published"),
+  scheduled_for: timestamp("scheduled_for", { withTimezone: true }),
   updated_at: timestamp("updated_at", { withTimezone: true }).defaultNow(),
 })
 

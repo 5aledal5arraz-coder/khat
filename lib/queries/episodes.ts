@@ -25,7 +25,7 @@ import {
 import { getEpisodeOverrides, applyOverrides } from "@/lib/episodes/overrides"
 import { searchEpisodes, searchGuests } from "@/lib/search"
 import { getPublishedQuotes } from "@/lib/episodes/quotes"
-import { getEpisodeEnrichment } from "@/lib/episodes/enrichments"
+import { getEpisodeEnrichment, getPublicEpisodeEnrichment } from "@/lib/episodes/enrichments"
 import { mergeEpisodeLists, mergeEpisode } from "@/lib/episodes/merge"
 import { getDeletedEpisodeIds } from "@/lib/episodes/deleted"
 
@@ -201,7 +201,7 @@ async function fetchDbEpisodeDetail(slug: string): Promise<EpisodeWithRelations 
       .select()
       .from(resourcesTable)
       .where(eq(resourcesTable.episode_id, episodeRow.id)),
-    getEpisodeEnrichment(episodeRow.id),
+    getPublicEpisodeEnrichment(episodeRow.id),
   ])
 
   const ep = dbEpisodeToEpisode(episodeRow)
@@ -326,7 +326,7 @@ async function resolveEpisodeBySlug(slug: string): Promise<EpisodeWithRelations 
         const dbEp = await fetchDbEpisodeById(episode.id)
         episode = mergeEpisode(episode, dbEp)
 
-        const enrichment = await getEpisodeEnrichment(episode.id)
+        const enrichment = await getPublicEpisodeEnrichment(episode.id)
 
         const enrichedTimestamps: Timestamp[] = enrichment?.timestamps
           ? enrichment.timestamps.map((t, i) => ({

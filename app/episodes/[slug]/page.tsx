@@ -7,7 +7,7 @@ import {
 } from "@/lib/cache"
 import { getQuotesByEpisodeId } from "@/lib/content/home-quotes"
 import { getReflectionsByEpisodeId } from "@/lib/content/daily-reflections"
-import { getEpisodeEnrichment } from "@/lib/episodes/enrichments"
+import { getPublicEpisodeEnrichment } from "@/lib/episodes/enrichments"
 import { listPlatformsForSurface, listActivePlatforms } from "@/lib/queries/official-platforms"
 import { getEpisodeSponsor } from "@/lib/queries/episode-sponsors"
 import { getYouTubeId } from "@/lib/utils"
@@ -65,7 +65,7 @@ export default async function EpisodePage({ params, searchParams }: EpisodePageP
     getCachedAdjacentEpisodes(episode.slug),
     getQuotesByEpisodeId(episode.id),
     getReflectionsByEpisodeId(episode.id),
-    getEpisodeEnrichment(episode.id),
+    getPublicEpisodeEnrichment(episode.id),
     listPlatformsForSurface("episode_page"),
     listActivePlatforms(),
     getEpisodeSponsor(episode.id),

@@ -12,6 +12,7 @@ import { cn } from "@/lib/utils"
 import { useSession, useContent, useWebsitePkg } from "../contexts"
 import { AI_STATUS_LABELS, CopyButton } from "./shared"
 import { WebPkgEditableField } from "./editable-fields"
+import { WebsitePublishControl } from "./website-publish-control"
 
 export function TabSitePack() {
   const { session } = useSession()
@@ -47,6 +48,9 @@ export function TabSitePack() {
             {statusInfo.label}
           </span>
         </div>
+
+        {/* Publish gate (P6) — controls whether enriched content is live on the site */}
+        {websitePkgStatus === "ready" && <WebsitePublishControl sessionId={session.id} />}
 
         {websitePkgStatus === "idle" && (
           <div className="space-y-4">

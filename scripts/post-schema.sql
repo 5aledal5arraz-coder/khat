@@ -875,3 +875,8 @@ CREATE INDEX IF NOT EXISTS idx_episode_topics_topic ON episode_topics (topic_id)
 -- Studio redesign (Goal 2) — public-facing synthesized guest knowledge.
 -- Mirrors drizzle/migrations/0005_absurd_punisher.sql. Idempotent.
 ALTER TABLE guest_identity_profiles ADD COLUMN IF NOT EXISTS public_knowledge jsonb;
+
+-- Studio redesign (P6) — enrichment publish gate. Inert-first: default
+-- 'published'. Mirrors drizzle/migrations/0006_*. Idempotent.
+ALTER TABLE episode_enrichments ADD COLUMN IF NOT EXISTS publish_status text DEFAULT 'published';
+ALTER TABLE episode_enrichments ADD COLUMN IF NOT EXISTS scheduled_for timestamp with time zone;
