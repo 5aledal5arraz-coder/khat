@@ -122,6 +122,57 @@ export interface RelatedEpisodeInput {
   score?: number
 }
 
+/** Minimal episode shape needed to compute the related-episode graph. */
+export interface EpisodeGraphNode {
+  id: string
+  guestId?: string | null
+  categoryId?: string | null
+  topicIds?: string[]
+}
+
+/**
+ * Pure, deterministic related-episode scoring (no I/O) — shared by the backfill
+ * and any on-demand recompute. Signals, strongest first:
+ *   - shared topics  → 'same_topic', score 40 + 12·overlap (capped 100)
+ *   - same guest     → 'same_guest', score 70
+ *   - same category  → 'same_topic' (weak topical proxy), score 30
+ * One edge per candidate (its strongest signal), sorted by score desc, top `limit`.
+ */
+export function computeRelatedEpisodes(
+  target: EpisodeGraphNode,
+  candidates: EpisodeGraphNode[],
+  limit = 8,
+): RelatedEpisodeInput[] {
+  const myTopics = new Set(target.topicIds ?? [])
+  const scored: RelatedEpisodeInput[] = []
+
+  for (const other of candidates) {
+    if (other.id === target.id) continue
+
+    let shared = 0
+    for (const t of other.topicIds ?? []) if (myTopics.has(t)) shared++
+
+    let score = 0
+    let type: EpisodeRelationType = "related"
+    if (shared > 0) {
+      score = Math.min(100, 40 + 12 * shared)
+      type = "same_topic"
+    }
+    if (target.guestId && target.guestId === other.guestId && 70 > score) {
+      score = 70
+      type = "same_guest"
+    }
+    if (target.categoryId && target.categoryId === other.categoryId && 30 > score) {
+      score = 30
+      type = "same_topic"
+    }
+    if (score > 0) scored.push({ relatedEpisodeId: other.id, relationType: type, score })
+  }
+
+  scored.sort((a, b) => (b.score ?? 0) - (a.score ?? 0))
+  return scored.slice(0, limit)
+}
+
 /** Replace the related-episode set for an episode. */
 export async function setEpisodeRelationships(episodeId: string, list: RelatedEpisodeInput[]): Promise<void> {
   if (!db) return

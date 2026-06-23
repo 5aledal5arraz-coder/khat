@@ -27,6 +27,7 @@ import {
 import { getHomepageFeaturedEpisodes } from "@/lib/queries/homepage-featured"
 import { getHomepageThinkersForDisplay } from "@/lib/queries/homepage-thinkers"
 import { getHomepagePartners } from "@/lib/queries/partnerships"
+import { getRelatedEpisodeIds } from "@/lib/episodes/episode-graph"
 import { db } from "@/lib/db"
 import { hiddenEpisodes } from "@/lib/db/schema"
 import type { Episode, EpisodeWithRelations, GuestWithRelations } from "@/types/database"
@@ -71,15 +72,30 @@ export const getCachedPublicEpisodes = unstable_cache(
 )
 
 /**
- * Cached "related episodes" — derived from the single cached episode list
- * instead of re-resolving the YouTube+DB merge. Shares the `episodes` tag,
- * so any episode mutation invalidates it too.
+ * Cached "related episodes" — canonical-first (Studio redesign, P4).
+ *
+ * Reads the semantic `episode_relationships` graph first (highest score first),
+ * mapping ids onto the cached public list so unpublished/hidden related episodes
+ * are dropped and DB score-ordering is preserved. Falls back to the legacy
+ * naive selector ("first N") when the graph has no edges for this episode.
+ * Signature unchanged so callers are untouched.
  */
 export async function getCachedRelatedEpisodes(
   episodeId: string,
   limit = 3,
 ): Promise<Episode[]> {
-  return selectRelatedEpisodes(await getCachedPublicEpisodes(), episodeId, limit)
+  const list = await getCachedPublicEpisodes()
+  try {
+    const ids = await getRelatedEpisodeIds(episodeId, limit)
+    if (ids.length > 0) {
+      const byId = new Map(list.map((e) => [e.id, e]))
+      const canonical = ids.map((id) => byId.get(id)).filter(Boolean) as Episode[]
+      if (canonical.length > 0) return canonical.slice(0, limit)
+    }
+  } catch (err) {
+    console.error("[cache] related-episode graph read failed, using fallback:", err)
+  }
+  return selectRelatedEpisodes(list, episodeId, limit)
 }
 
 /**

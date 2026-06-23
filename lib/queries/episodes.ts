@@ -147,6 +147,35 @@ async function fetchDbEpisodeById(id: string): Promise<Partial<Episode> | null> 
   }
 }
 
+/**
+ * Canonical-first episode quotes (Studio redesign, P4).
+ *
+ * Prefer the canonical `quotes` table; fall back to the legacy
+ * `episode_quotes_config` ONLY when canonical has none. Pass `canonical` when
+ * the caller already loaded the table rows to avoid a second query. The
+ * separate `home_quotes` "connected content" rail is unaffected.
+ */
+async function resolveEpisodeQuotes(
+  episodeId: string,
+  guestId: string | null,
+  canonical?: Quote[],
+): Promise<Quote[]> {
+  let canon = canonical
+  if (!canon && DB_AVAILABLE) {
+    const rows = await db!.select().from(quotesTable).where(eq(quotesTable.episode_id, episodeId))
+    canon = rows.map((q) => ({
+      id: q.id,
+      episode_id: q.episode_id,
+      guest_id: q.guest_id || null,
+      text: q.text,
+      theme: q.theme || null,
+      created_at: q.created_at ? q.created_at.toISOString() : new Date().toISOString(),
+    }))
+  }
+  if (canon && canon.length > 0) return canon
+  return getPublishedQuotes(episodeId, guestId)
+}
+
 /** Fetch episode from DB by slug with full relations (timestamps, quotes, resources). */
 async function fetchDbEpisodeDetail(slug: string): Promise<EpisodeWithRelations | null> {
   if (!DB_AVAILABLE) return null
@@ -155,7 +184,7 @@ async function fetchDbEpisodeDetail(slug: string): Promise<EpisodeWithRelations 
   const episodeRow = episodeRows[0]
   if (!episodeRow) return null
 
-  const [guestRows, timestampRows, quoteRows, resourceRows] = await Promise.all([
+  const [guestRows, timestampRows, quoteRows, resourceRows, enrichment] = await Promise.all([
     episodeRow.guest_id
       ? db!.select().from(guests).where(eq(guests.id, episodeRow.guest_id))
       : Promise.resolve([]),
@@ -172,37 +201,69 @@ async function fetchDbEpisodeDetail(slug: string): Promise<EpisodeWithRelations 
       .select()
       .from(resourcesTable)
       .where(eq(resourcesTable.episode_id, episodeRow.id)),
+    getEpisodeEnrichment(episodeRow.id),
   ])
 
   const ep = dbEpisodeToEpisode(episodeRow)
   const guestRow = guestRows[0] || null
 
+  const canonicalQuotes: Quote[] = quoteRows.map((q) => ({
+    id: q.id,
+    episode_id: q.episode_id,
+    guest_id: q.guest_id || null,
+    text: q.text,
+    theme: q.theme || null,
+    created_at: q.created_at ? q.created_at.toISOString() : new Date().toISOString(),
+  }))
+
+  // Canonical-first across the board: enrichment (summary/takeaways/timestamps/
+  // resources) and the quotes table win; legacy episodes.* columns and the
+  // timestamps/resources tables remain as fallbacks.
+  const timestamps: Timestamp[] = enrichment?.timestamps && enrichment.timestamps.length > 0
+    ? enrichment.timestamps.map((t, i) => ({
+        id: `enr-ts-${i}`,
+        episode_id: episodeRow.id,
+        time_seconds: t.time_seconds,
+        title: t.title,
+        description: t.description || null,
+      }))
+    : timestampRows.map((t) => ({
+        id: t.id,
+        episode_id: t.episode_id,
+        time_seconds: t.time_seconds,
+        title: t.title,
+        description: t.description || null,
+      }))
+
+  const resources: Resource[] = enrichment?.resources && enrichment.resources.length > 0
+    ? enrichment.resources.map((r, i) => ({
+        id: `enr-res-${i}`,
+        episode_id: episodeRow.id,
+        title: r.title,
+        url: r.url,
+        type: r.type || null,
+      }))
+    : resourceRows.map((r) => ({
+        id: r.id,
+        episode_id: r.episode_id,
+        title: r.title,
+        url: r.url,
+        type: r.type || null,
+      }))
+
   return {
     ...ep,
+    summary: enrichment?.full_summary || ep.summary || null,
+    // enrichment.takeaways is array-defaulted to [] by setEpisodeEnrichment, so
+    // guard on length (not truthiness) to avoid masking legacy key_takeaways.
+    key_takeaways: enrichment?.takeaways && enrichment.takeaways.length > 0
+      ? enrichment.takeaways
+      : ep.key_takeaways || null,
     guest_id: episodeRow.guest_id || null,
     guest: guestRow ? dbGuestToGuest(guestRow) : null,
-    timestamps: timestampRows.map((t) => ({
-      id: t.id,
-      episode_id: t.episode_id,
-      time_seconds: t.time_seconds,
-      title: t.title,
-      description: t.description || null,
-    })),
-    quotes: quoteRows.map((q) => ({
-      id: q.id,
-      episode_id: q.episode_id,
-      guest_id: q.guest_id || null,
-      text: q.text,
-      theme: q.theme || null,
-      created_at: q.created_at ? q.created_at.toISOString() : new Date().toISOString(),
-    })),
-    resources: resourceRows.map((r) => ({
-      id: r.id,
-      episode_id: r.episode_id,
-      title: r.title,
-      url: r.url,
-      type: r.type || null,
-    })),
+    timestamps,
+    quotes: await resolveEpisodeQuotes(episodeRow.id, episodeRow.guest_id || null, canonicalQuotes),
+    resources,
   }
 }
 
@@ -287,7 +348,10 @@ async function resolveEpisodeBySlug(slug: string): Promise<EpisodeWithRelations 
             }))
           : []
 
-        const configQuotes = await getPublishedQuotes(
+        // Canonical-first quotes (P4): prefer the `quotes` table, fall back to
+        // legacy episode_quotes_config. The YouTube path previously used config
+        // exclusively and never read the canonical table.
+        const episodeQuotes = await resolveEpisodeQuotes(
           episode.id,
           episode.guest?.id || null
         )
@@ -308,7 +372,7 @@ async function resolveEpisodeBySlug(slug: string): Promise<EpisodeWithRelations 
           guest: episode.guest || null,
           category,
           timestamps: enrichedTimestamps,
-          quotes: configQuotes,
+          quotes: episodeQuotes,
           resources: enrichedResources,
         }
       }
@@ -327,14 +391,8 @@ async function resolveEpisodeBySlug(slug: string): Promise<EpisodeWithRelations 
           const { getCategoryById } = await import("@/lib/queries/categories")
           episode.category = await getCategoryById(episode.category_id)
         }
-        // Append config-file quotes
-        const configQuotes = await getPublishedQuotes(
-          episode.id,
-          episode.guest_id || null
-        )
-        if (configQuotes.length > 0) {
-          episode.quotes = [...episode.quotes, ...configQuotes]
-        }
+        // Quotes are already resolved canonical-first inside fetchDbEpisodeDetail
+        // (canonical `quotes` table, legacy episode_quotes_config fallback).
         return episode
       }
     } catch (error) {
