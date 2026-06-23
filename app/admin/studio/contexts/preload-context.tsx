@@ -5,7 +5,15 @@ import type {
   StudioTranscript, StudioAiOutput, StudioChapters, StudioClips,
   StudioWebsitePackage, StudioAnalyzer, StudioDeepAnalysis, StudioGuestIntelligence,
 } from "@/types/database"
+import type { GrowthPackage } from "@/lib/ai/growth/types"
 import { useSession } from "./session-context"
+
+/** Growth package record shape as returned by /full and the growth route. */
+export interface PreloadedGrowth {
+  status: string
+  data: GrowthPackage | null
+  error_message?: string | null
+}
 
 export interface PreloadedData {
   transcript: StudioTranscript | null
@@ -16,6 +24,7 @@ export interface PreloadedData {
   analyzer: StudioAnalyzer | null
   deepAnalysis: StudioDeepAnalysis | null
   guestIntelligence: StudioGuestIntelligence | null
+  growth: PreloadedGrowth | null
 }
 
 interface PreloadContextValue {

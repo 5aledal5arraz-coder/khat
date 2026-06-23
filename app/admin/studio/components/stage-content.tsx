@@ -2,9 +2,9 @@
 
 import {
   Sparkles, Globe, ListOrdered, Scissors, Package, UserCircle,
-  Brain, UserSearch,
+  Brain, UserSearch, TrendingUp,
 } from "lucide-react"
-import { useContent, useChapters, useClips, useWebsitePkg, useGuest, useDeepAnalysis, useGuestIntelligence } from "../contexts"
+import { useContent, useChapters, useClips, useWebsitePkg, useGuest, useDeepAnalysis, useGuestIntelligence, useGrowth } from "../contexts"
 import { AccordionSection } from "./accordion-section"
 import { SectionErrorBoundary } from "./section-error-boundary"
 import { TabYoutubePack } from "./tab-youtube-pack"
@@ -14,6 +14,7 @@ import { TabClips } from "./tab-clips"
 import { TabGuestPack } from "./tab-guest-pack"
 import { TabDeepAnalysis } from "./tab-deep-analysis"
 import { TabGuestIntelligence } from "./tab-guest-intelligence"
+import { TabGrowth } from "./tab-growth"
 
 export function StageContent() {
   const { aiStatus } = useContent()
@@ -23,8 +24,9 @@ export function StageContent() {
   const { guestPackageStatus } = useGuest()
   const { deepAnalysisStatus } = useDeepAnalysis()
   const { guestIntelligenceStatus } = useGuestIntelligence()
+  const { growthStatus } = useGrowth()
 
-  const statuses = [aiStatus, websitePkgStatus, guestPackageStatus, chaptersStatus, clipsStatus, deepAnalysisStatus, guestIntelligenceStatus]
+  const statuses = [aiStatus, websitePkgStatus, guestPackageStatus, chaptersStatus, clipsStatus, deepAnalysisStatus, guestIntelligenceStatus, growthStatus]
   const readyCount = statuses.filter(s => s === "ready").length
 
   return (
@@ -40,6 +42,18 @@ export function StageContent() {
       </div>
 
       <div className="space-y-2">
+        <AccordionSection
+          icon={TrendingUp}
+          iconColor="text-rose-700"
+          title="حزمة النمو والنشر"
+          status={growthStatus}
+          defaultOpen={growthStatus === "ready"}
+        >
+          <SectionErrorBoundary sectionName="حزمة النمو والنشر">
+            <TabGrowth />
+          </SectionErrorBoundary>
+        </AccordionSection>
+
         <AccordionSection
           icon={Sparkles}
           iconColor="text-amber-700"

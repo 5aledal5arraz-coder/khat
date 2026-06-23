@@ -9,6 +9,7 @@ import {
   getAnalyzerForSession,
   getDeepAnalysisForSession,
   getGuestIntelligenceForSession,
+  getGrowthPackageForSession,
 } from "@/lib/studio"
 
 export async function GET(
@@ -20,7 +21,7 @@ export async function GET(
 
   const { id: sessionId } = await params
 
-  const [transcript, output, chapters, clips, websitePackage, analyzer, deepAnalysis, guestIntelligence] =
+  const [transcript, output, chapters, clips, websitePackage, analyzer, deepAnalysis, guestIntelligence, growth] =
     await Promise.all([
       getTranscriptForSession(sessionId),
       getAiOutputForSession(sessionId),
@@ -30,6 +31,7 @@ export async function GET(
       getAnalyzerForSession(sessionId),
       getDeepAnalysisForSession(sessionId),
       getGuestIntelligenceForSession(sessionId),
+      getGrowthPackageForSession(sessionId),
     ])
 
   return NextResponse.json({
@@ -41,5 +43,6 @@ export async function GET(
     analyzer,
     deepAnalysis,
     guestIntelligence,
+    growth,
   })
 }

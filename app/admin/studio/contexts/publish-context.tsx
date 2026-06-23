@@ -13,12 +13,13 @@ import { useAnalyzer } from "./analyzer-context"
 import { useSession } from "./session-context"
 import { useDeepAnalysis } from "./deep-analysis-context"
 import { useGuestIntelligence } from "./guest-intelligence-context"
+import { useGrowth } from "./growth-context"
 
 // ---------------------------------------------------------------------------
 // Generate-All step definitions
 // ---------------------------------------------------------------------------
 
-export type GenerateAllStep = "transcript" | "episode_intelligence" | "ai_output" | "chapters" | "clips" | "website_package" | "deep_analysis" | "guest_intelligence"
+export type GenerateAllStep = "transcript" | "episode_intelligence" | "ai_output" | "chapters" | "clips" | "website_package" | "deep_analysis" | "guest_intelligence" | "growth_package"
 
 export const GENERATE_ALL_STEPS: { key: GenerateAllStep; label: string }[] = [
   { key: "transcript", label: "النص التلقائي" },
@@ -29,6 +30,7 @@ export const GENERATE_ALL_STEPS: { key: GenerateAllStep; label: string }[] = [
   { key: "website_package", label: "حزمة الموقع" },
   { key: "deep_analysis", label: "التحليل العميق" },
   { key: "guest_intelligence", label: "ملف الضيف" },
+  { key: "growth_package", label: "حزمة النمو" },
 ]
 
 interface PublishContextValue {
@@ -75,6 +77,9 @@ export function PublishProvider({ children }: { children: ReactNode }) {
   const {
     guestIntelligenceStatus, setGuestIntelligenceStatus, reloadGuestIntelligence,
   } = useGuestIntelligence()
+  const {
+    growthStatus, setGrowthStatus, reloadGrowth,
+  } = useGrowth()
   const { guestPackageStatus } = useGuest()
   const { analyzerStatus } = useAnalyzer()
 
@@ -117,8 +122,9 @@ export function PublishProvider({ children }: { children: ReactNode }) {
       reloadWebsitePkg(),
       reloadDeepAnalysis(),
       reloadGuestIntelligence(),
+      reloadGrowth(),
     ])
-  }, [reloadTranscript, reloadContent, reloadChapters, reloadClips, reloadWebsitePkg, reloadDeepAnalysis, reloadGuestIntelligence])
+  }, [reloadTranscript, reloadContent, reloadChapters, reloadClips, reloadWebsitePkg, reloadDeepAnalysis, reloadGuestIntelligence, reloadGrowth])
 
   const generateAll = useCallback(async () => {
     generateAbortRef.current?.abort()
@@ -138,6 +144,7 @@ export function PublishProvider({ children }: { children: ReactNode }) {
     if (websitePkgStatus === "ready") alreadyCompleted.push("website_package")
     if (deepAnalysisStatus === "ready") alreadyCompleted.push("deep_analysis")
     if (guestIntelligenceStatus === "ready") alreadyCompleted.push("guest_intelligence")
+    if (growthStatus === "ready") alreadyCompleted.push("growth_package")
     setGenerateAllCompleted([...alreadyCompleted])
 
     const stepsToRun = GENERATE_ALL_STEPS
@@ -159,6 +166,7 @@ export function PublishProvider({ children }: { children: ReactNode }) {
         case "website_package": setWebsitePkgStatus("generating"); setWebsitePkgError(""); break
         case "deep_analysis": setDeepAnalysisStatus("generating"); break
         case "guest_intelligence": setGuestIntelligenceStatus("generating"); break
+        case "growth_package": setGrowthStatus("generating"); break
       }
     }
 
@@ -214,6 +222,7 @@ export function PublishProvider({ children }: { children: ReactNode }) {
                     case "website_package": setWebsitePkgStatus("generating"); break
                     case "deep_analysis": setDeepAnalysisStatus("generating"); break
                     case "guest_intelligence": setGuestIntelligenceStatus("generating"); break
+                    case "growth_package": setGrowthStatus("generating"); break
                   }
                   break
                 }
@@ -229,6 +238,7 @@ export function PublishProvider({ children }: { children: ReactNode }) {
                     case "website_package": setWebsitePkgStatus("ready"); break
                     case "deep_analysis": setDeepAnalysisStatus("ready"); break
                     case "guest_intelligence": setGuestIntelligenceStatus("ready"); break
+                    case "growth_package": setGrowthStatus("ready"); break
                   }
                   break
                 }
@@ -245,6 +255,7 @@ export function PublishProvider({ children }: { children: ReactNode }) {
                     case "website_package": setWebsitePkgStatus("error"); setWebsitePkgError(data.message); break
                     case "deep_analysis": setDeepAnalysisStatus("error"); break
                     case "guest_intelligence": setGuestIntelligenceStatus("error"); break
+                    case "growth_package": setGrowthStatus("error"); break
                   }
                   break
                 }
@@ -288,11 +299,11 @@ export function PublishProvider({ children }: { children: ReactNode }) {
     }
   }, [
     sessionId, transcriptStatus, aiStatus, chaptersStatus, clipsStatus, websitePkgStatus,
-    deepAnalysisStatus, guestIntelligenceStatus,
+    deepAnalysisStatus, guestIntelligenceStatus, growthStatus,
     setTranscriptStatus, setTranscriptError, setAiStatus, setAiError,
     setChaptersStatus, setChaptersError, setClipsStatus, setClipsError,
     setWebsitePkgStatus, setWebsitePkgError,
-    setDeepAnalysisStatus, setGuestIntelligenceStatus,
+    setDeepAnalysisStatus, setGuestIntelligenceStatus, setGrowthStatus,
     reloadAllData,
   ])
 

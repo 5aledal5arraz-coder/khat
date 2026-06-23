@@ -14,6 +14,7 @@ import { AnalyzerProvider } from "./analyzer-context"
 import { AudioProvider } from "./audio-context"
 import { DeepAnalysisProvider } from "./deep-analysis-context"
 import { GuestIntelligenceProvider } from "./guest-intelligence-context"
+import { GrowthProvider } from "./growth-context"
 import { PublishProvider } from "./publish-context"
 
 // ---------------------------------------------------------------------------
@@ -40,9 +41,11 @@ export function StudioSessionProvider({
                     <AudioProvider>
                       <DeepAnalysisProvider>
                         <GuestIntelligenceProvider>
-                          <PublishProvider>
-                            {children}
-                          </PublishProvider>
+                          <GrowthProvider>
+                            <PublishProvider>
+                              {children}
+                            </PublishProvider>
+                          </GrowthProvider>
                         </GuestIntelligenceProvider>
                       </DeepAnalysisProvider>
                     </AudioProvider>
@@ -73,5 +76,6 @@ export { useAnalyzer } from "./analyzer-context"
 export { useAudio } from "./audio-context"
 export { useDeepAnalysis } from "./deep-analysis-context"
 export { useGuestIntelligence } from "./guest-intelligence-context"
+export { useGrowth } from "./growth-context"
 export { usePublish, GENERATE_ALL_STEPS } from "./publish-context"
 export type { GenerateAllStep } from "./publish-context"
