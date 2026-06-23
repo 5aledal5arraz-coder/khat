@@ -67,6 +67,15 @@ export type InsightTiming = (typeof INSIGHT_TIMINGS)[number]
 export const INSIGHT_CONFIDENCE_LEVELS = ["verified", "partial", "weak"] as const
 export type InsightConfidence = (typeof INSIGHT_CONFIDENCE_LEVELS)[number]
 
+/**
+ * Pre-recording review state — the human gate. Generated insights start
+ * `pending`; a producer approves them for live or hides them in the
+ * "Fact-Check & Enrich" tab. Only `approved` cards surface as live prompts in
+ * the cockpit. Absent on a stored insight ⇒ treat as `pending`.
+ */
+export const INSIGHT_LIVE_STATUSES = ["pending", "approved", "hidden"] as const
+export type InsightLiveStatus = (typeof INSIGHT_LIVE_STATUSES)[number]
+
 /** A real grounding source (a Gemini grounding-chunk URL). */
 export interface PrepV2InsightSource {
   title: string
@@ -95,6 +104,15 @@ export interface PrepV2Insight {
     accurate: string
   }
   generated_at: string
+  // ── Review gate (set in the "Fact-Check & Enrich" tab) ──────────────
+  /** Effective live state. Absent ⇒ `pending`. */
+  live_status?: InsightLiveStatus
+  /** Reviewer identity (admin email) + timestamp of the last review action. */
+  reviewed_by?: string | null
+  reviewed_at?: string | null
+  review_note?: string | null
+  /** Human-authored or human-edited in the review tab (not machine-grounded). */
+  manual?: boolean
 }
 
 // ─── Pass 1 output ────────────────────────────────────────────────────
@@ -207,4 +225,16 @@ export interface PrepV2Payload {
      */
     pass5_insights: string[] | null
   }
+}
+
+// ─── Insight review helpers ───────────────────────────────────────────
+
+/** Effective review state of an insight (absent ⇒ `pending`). */
+export function insightLiveStatus(i: PrepV2Insight): InsightLiveStatus {
+  return i.live_status ?? "pending"
+}
+
+/** Only `approved` insights may surface as live prompts in the cockpit. */
+export function isLiveInsight(i: PrepV2Insight): boolean {
+  return insightLiveStatus(i) === "approved"
 }

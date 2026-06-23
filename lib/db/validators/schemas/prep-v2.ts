@@ -60,6 +60,8 @@ const insightSourceSchema = z.object({
   published_at: z.string().optional(),
 })
 
+const INSIGHT_LIVE_STATUS = z.enum(["pending", "approved", "hidden"])
+
 const insightSchema = z.object({
   id: z.string(),
   type: INSIGHT_TYPE,
@@ -71,6 +73,13 @@ const insightSchema = z.object({
     .object({ inaccuracy: z.string(), accurate: z.string() })
     .optional(),
   generated_at: z.string(),
+  // Review gate — all optional (older insights + freshly generated ones omit
+  // some of these; absent live_status ⇒ pending).
+  live_status: INSIGHT_LIVE_STATUS.optional(),
+  reviewed_by: z.string().nullable().optional(),
+  reviewed_at: z.string().nullable().optional(),
+  review_note: z.string().nullable().optional(),
+  manual: z.boolean().optional(),
 })
 
 const questionSchema = z.object({

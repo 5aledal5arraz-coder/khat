@@ -76,6 +76,7 @@ import type {
   InsightTiming,
   InsightConfidence,
 } from "@/lib/preparation/v2/types"
+import { isLiveInsight } from "@/lib/preparation/v2/types"
 import { RecordingClock } from "./recording-clock"
 import {
   SECTION_LABEL_AR,
@@ -651,6 +652,9 @@ function SectionQuestions(props: {
         <ul className="space-y-3">
           {props.questions.map((q) => {
             const done = props.completedIds.has(q.id)
+            // Live gate: only producer-approved insights surface in the cockpit;
+            // pending/hidden cards never become a live prompt.
+            const liveInsights = (q.insights ?? []).filter(isLiveInsight)
             return (
               <li
                 key={q.id}
@@ -722,9 +726,9 @@ function SectionQuestions(props: {
                         ↳ {q.follow_up_prompt}
                       </div>
                     )}
-                    {!done && q.insights && q.insights.length > 0 && (
+                    {!done && liveInsights.length > 0 && (
                       <InsightStrip
-                        insights={q.insights}
+                        insights={liveInsights}
                         used={props.usedInsightIds}
                         onUse={props.onUseInsight}
                         markDisabled={props.insightMarkDisabled}

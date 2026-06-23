@@ -20,6 +20,7 @@ import { prepStatusLabel } from "@/lib/operator-language"
 import { regeneratePrepV2Action } from "./job-actions"
 import { JobActionButton } from "./job-action-button"
 import { PrepV2InlineEditor } from "./prep-inline-editor"
+import { PrepInsightReview } from "./prep-insight-review"
 import { PrepInputsEditor } from "./prep-inputs-editor"
 import { AssignGuestForm } from "./assign-guest-form"
 
@@ -180,6 +181,7 @@ export function PreparationTab({
             />
           </div>
           <PrepV2InlineEditor prepId={prep.id} payload={prep.prep_v2} />
+          <PrepInsightReview prepId={prep.id} payload={prep.prep_v2} />
           <PrepV2View payload={prep.prep_v2} />
         </>
       )}

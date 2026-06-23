@@ -190,6 +190,44 @@ describe("prepV2Schema", () => {
     ]
     expect(prepV2Schema.safeParse(bad).success).toBe(false)
   })
+
+  it("accepts an insight carrying review-gate fields (approved + manual)", () => {
+    const reviewed = JSON.parse(JSON.stringify(goodPrepV2))
+    reviewed.question_bank[0].insights = [
+      {
+        id: "ins-r",
+        type: "fact",
+        text: "human fact",
+        timing: "before",
+        sources: [],
+        confidence: "verified",
+        generated_at: "2026-06-23T00:00:00.000Z",
+        live_status: "approved",
+        reviewed_by: "editor@khat",
+        reviewed_at: "2026-06-23T00:00:00.000Z",
+        review_note: "checked",
+        manual: true,
+      },
+    ]
+    expect(prepV2Schema.safeParse(reviewed).success).toBe(true)
+  })
+
+  it("rejects an invalid live_status on an insight", () => {
+    const bad = JSON.parse(JSON.stringify(goodPrepV2))
+    bad.question_bank[0].insights = [
+      {
+        id: "ins-r",
+        type: "fact",
+        text: "t",
+        timing: "during",
+        sources: [],
+        confidence: "verified",
+        generated_at: "2026-06-23T00:00:00.000Z",
+        live_status: "live_now",
+      },
+    ]
+    expect(prepV2Schema.safeParse(bad).success).toBe(false)
+  })
 })
 
 // ─── ai_runs.input_snapshot / output_snapshot ────────────────────────

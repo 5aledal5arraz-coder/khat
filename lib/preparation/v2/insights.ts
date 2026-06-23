@@ -210,6 +210,10 @@ export async function runInsightGeneration(
             ? { correction: cand.correction }
             : {}),
           generated_at: new Date().toISOString(),
+          // Generated insights are grounded but NOT yet human-approved — they
+          // stay out of the live cockpit until a producer approves them in the
+          // "Fact-Check & Enrich" tab (the review gate).
+          live_status: "pending",
         }
         return { question_id: cand.question_id, insight }
       } catch (err) {
