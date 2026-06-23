@@ -1,4 +1,5 @@
 export * from "./episodes"
+export * from "./episode-graph"
 export * from "./guests"
 export * from "./studio"
 export * from "./content"

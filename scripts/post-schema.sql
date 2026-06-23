@@ -820,3 +820,54 @@ WHERE gdl.id = dups.id AND dups.rn > 1;
 CREATE UNIQUE INDEX IF NOT EXISTS uq_gdl_candidate
   ON guest_discovery_links (discovery_candidate_id)
   WHERE discovery_candidate_id IS NOT NULL;
+
+-- ─────────────────────────────────────────────────────────────────────
+-- Studio redesign (Goal 2) — episode knowledge-graph tables.
+-- ADDITIVE + idempotent: multi-guest junction, semantic episode links,
+-- and a topic taxonomy. Mirrors drizzle/migrations/0004_sturdy_slipstream.sql
+-- so prod (db:migrate) and local (post-schema re-apply, not baselined) both
+-- converge. Safe to re-run.
+-- ─────────────────────────────────────────────────────────────────────
+
+CREATE TABLE IF NOT EXISTS episode_guests (
+  id text PRIMARY KEY,
+  episode_id text NOT NULL REFERENCES episodes(id) ON DELETE CASCADE,
+  guest_id text NOT NULL REFERENCES guests(id) ON DELETE CASCADE,
+  role text NOT NULL DEFAULT 'guest',
+  appearance_order integer NOT NULL DEFAULT 0,
+  created_at timestamp with time zone DEFAULT now()
+);
+CREATE UNIQUE INDEX IF NOT EXISTS uq_episode_guests_episode_guest ON episode_guests (episode_id, guest_id);
+CREATE INDEX IF NOT EXISTS idx_episode_guests_episode ON episode_guests (episode_id);
+CREATE INDEX IF NOT EXISTS idx_episode_guests_guest ON episode_guests (guest_id);
+
+CREATE TABLE IF NOT EXISTS episode_relationships (
+  id text PRIMARY KEY,
+  episode_id text NOT NULL REFERENCES episodes(id) ON DELETE CASCADE,
+  related_episode_id text NOT NULL REFERENCES episodes(id) ON DELETE CASCADE,
+  relation_type text NOT NULL DEFAULT 'related',
+  score integer NOT NULL DEFAULT 0,
+  created_at timestamp with time zone DEFAULT now()
+);
+CREATE UNIQUE INDEX IF NOT EXISTS uq_episode_rel ON episode_relationships (episode_id, related_episode_id, relation_type);
+CREATE INDEX IF NOT EXISTS idx_episode_rel_episode ON episode_relationships (episode_id);
+CREATE INDEX IF NOT EXISTS idx_episode_rel_related ON episode_relationships (related_episode_id);
+
+CREATE TABLE IF NOT EXISTS topics (
+  id text PRIMARY KEY,
+  name text NOT NULL,
+  slug text NOT NULL UNIQUE,
+  description text,
+  created_at timestamp with time zone DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_topics_slug ON topics (slug);
+
+CREATE TABLE IF NOT EXISTS episode_topics (
+  id text PRIMARY KEY,
+  episode_id text NOT NULL REFERENCES episodes(id) ON DELETE CASCADE,
+  topic_id text NOT NULL REFERENCES topics(id) ON DELETE CASCADE,
+  created_at timestamp with time zone DEFAULT now()
+);
+CREATE UNIQUE INDEX IF NOT EXISTS uq_episode_topics ON episode_topics (episode_id, topic_id);
+CREATE INDEX IF NOT EXISTS idx_episode_topics_episode ON episode_topics (episode_id);
+CREATE INDEX IF NOT EXISTS idx_episode_topics_topic ON episode_topics (topic_id);
