@@ -28,6 +28,8 @@ import {
 } from "@/lib/db/schema/guest-identity"
 import { guestDiscoveryCandidates } from "@/lib/db/schema/discovery"
 import { formatDateTime } from "@/lib/shared/formatters"
+import { GuestKnowledgePanel } from "./knowledge-panel"
+import type { GuestPublicKnowledge } from "@/lib/db/schema/guest-identity"
 
 export const dynamic = "force-dynamic"
 
@@ -144,6 +146,12 @@ export default async function AdminGuestDetailPage({
           </div>
         </div>
       </div>
+
+      {/* Public guest knowledge (Studio redesign, Goal 2) */}
+      <GuestKnowledgePanel
+        guestId={guest.id}
+        initial={(profile?.public_knowledge as GuestPublicKnowledge | null) ?? null}
+      />
 
       {/* Identity profile */}
       {!profile ? (

@@ -1,6 +1,7 @@
 import { Metadata } from "next"
 import { notFound } from "next/navigation"
 import { getGuestBySlug } from "@/lib/queries/episodes"
+import { getGuestPublicKnowledge } from "@/lib/guests/knowledge"
 import { EpisodeCard } from "@/components/episodes/episode-card"
 import { QuoteCard } from "@/components/quotes/quote-card"
 import { GuestAvatar } from "@/components/guests/guest-avatar"
@@ -83,15 +84,25 @@ export default async function GuestPage({ params }: GuestPageProps) {
     notFound()
   }
 
+  // Synthesized cross-episode knowledge (Studio redesign, Goal 2). Best-effort:
+  // the page degrades to the plain bio when no knowledge has been generated.
+  const knowledge = await getGuestPublicKnowledge(guest.id).catch(() => null)
+  const displayBio = knowledge?.bio || guest.bio
+  const signatureTopics = knowledge?.signature_topics?.filter(Boolean) ?? []
+  const themes = knowledge?.themes?.filter(Boolean) ?? []
+  const knowledgeQuotes = knowledge?.notable_quotes?.filter((q) => q?.text) ?? []
+
   const externalLinks = guest.external_links || {}
 
   const jsonLd = {
     "@context": "https://schema.org",
     "@type": "Person",
     name: guest.name,
-    description: guest.bio || undefined,
+    description: displayBio || undefined,
     image: guest.photo_url || undefined,
     url: `https://khatpodcast.com/guests/${guest.slug}`,
+    ...(knowledge?.headline ? { jobTitle: knowledge.headline } : {}),
+    ...(knowledge?.signature_topics?.length ? { knowsAbout: knowledge.signature_topics } : {}),
     sameAs: Object.values(externalLinks).filter(
       (url) => typeof url === "string" && url.startsWith("http")
     ),
@@ -116,13 +127,74 @@ export default async function GuestPage({ params }: GuestPageProps) {
           />
           <div className="flex-1">
             <h1 className="text-3xl font-bold">{guest.name}</h1>
-            {guest.bio && (
+            {knowledge?.headline && (
+              <p className="mt-1.5 text-base font-medium text-primary">{knowledge.headline}</p>
+            )}
+            {displayBio && (
               <p className="mt-3 leading-relaxed text-muted-foreground">
-                {guest.bio}
+                {displayBio}
               </p>
+            )}
+            {signatureTopics.length > 0 && (
+              <div className="mt-4 flex flex-wrap justify-center gap-2 sm:justify-start">
+                {signatureTopics.map((topic) => (
+                  <span
+                    key={topic}
+                    className="inline-flex items-center rounded-full bg-primary/10 px-3 py-1 text-xs font-medium text-primary"
+                  >
+                    {topic}
+                  </span>
+                ))}
+              </div>
             )}
           </div>
         </div>
+
+        {/* Cross-episode knowledge (synthesized) */}
+        {(themes.length > 0 || knowledgeQuotes.length > 0 || knowledge?.arc) && (
+          <div className="mt-10 space-y-6 rounded-2xl border bg-card/50 p-6">
+            <h2 className="text-lg font-semibold">معرفة عن الضيف عبر حلقاته</h2>
+
+            {knowledge?.arc && (
+              <p className="leading-relaxed text-muted-foreground">{knowledge.arc}</p>
+            )}
+
+            {themes.length > 0 && (
+              <div className="space-y-2">
+                <h3 className="text-sm font-medium text-foreground">محاور متكررة</h3>
+                <div className="flex flex-wrap gap-2">
+                  {themes.map((theme) => (
+                    <span
+                      key={theme}
+                      className="inline-flex items-center rounded-md bg-muted px-2.5 py-1 text-xs text-muted-foreground"
+                    >
+                      {theme}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {knowledgeQuotes.length > 0 && (
+              <div className="space-y-3">
+                <h3 className="text-sm font-medium text-foreground">أقوى ما قال</h3>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  {knowledgeQuotes.map((q, i) => (
+                    <blockquote
+                      key={i}
+                      className="rounded-xl border-s-2 border-primary/40 bg-background/60 p-4"
+                    >
+                      <p className="text-sm leading-relaxed">&ldquo;{q.text}&rdquo;</p>
+                      {q.context && (
+                        <footer className="mt-2 text-xs text-muted-foreground">{q.context}</footer>
+                      )}
+                    </blockquote>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
 
         {/* أثر الضيف — Athar */}
         {guest.testimonial && (

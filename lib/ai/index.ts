@@ -50,3 +50,7 @@ export { analyzeGuestApplication, generateGuestConcept, generateGuestResponseDra
 // Growth package (copy-ready YouTube growth deliverable — Goal 1)
 export { generateGrowthPackage, emptyGrowthPackage } from "./growth"
 export type { GrowthPackage, GrowthGenInput, GrowthChapter } from "./growth"
+
+// Guest knowledge synthesis (cross-episode guest page — Goal 2)
+export { generateGuestKnowledge } from "./guest-knowledge"
+export type { GuestKnowledgeInput } from "./guest-knowledge"

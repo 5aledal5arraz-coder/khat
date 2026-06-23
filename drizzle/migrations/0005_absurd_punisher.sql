@@ -1,0 +1,1 @@
+ALTER TABLE "guest_identity_profiles" ADD COLUMN "public_knowledge" jsonb;

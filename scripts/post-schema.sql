@@ -871,3 +871,7 @@ CREATE TABLE IF NOT EXISTS episode_topics (
 CREATE UNIQUE INDEX IF NOT EXISTS uq_episode_topics ON episode_topics (episode_id, topic_id);
 CREATE INDEX IF NOT EXISTS idx_episode_topics_episode ON episode_topics (episode_id);
 CREATE INDEX IF NOT EXISTS idx_episode_topics_topic ON episode_topics (topic_id);
+
+-- Studio redesign (Goal 2) — public-facing synthesized guest knowledge.
+-- Mirrors drizzle/migrations/0005_absurd_punisher.sql. Idempotent.
+ALTER TABLE guest_identity_profiles ADD COLUMN IF NOT EXISTS public_knowledge jsonb;

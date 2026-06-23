@@ -54,6 +54,13 @@ export const guestIdentityProfiles = pgTable(
     /** Per-axis fit scores (depth, controversy, kuwait, …). */
     fit_scores: jsonb("fit_scores").$type<GuestFitScores>(),
 
+    /**
+     * Studio redesign (Goal 2) — synthesized PUBLIC-facing cross-episode
+     * knowledge that powers the public guest page. Distinct from the raw
+     * signal sections above: this is editorial, reader-ready output.
+     */
+    public_knowledge: jsonb("public_knowledge").$type<GuestPublicKnowledge>(),
+
     last_analyzed_at: timestamp("last_analyzed_at", { withTimezone: true }),
 
     created_at: timestamp("created_at", { withTimezone: true })
@@ -279,4 +286,25 @@ export interface GuestFitScores {
   emotional?: number
   kuwait_relevance?: number
   composite?: number
+}
+
+/**
+ * Public-facing synthesized guest knowledge (Studio redesign, Goal 2).
+ * Editorial, reader-ready — rendered on the public guest page.
+ */
+export interface GuestPublicKnowledge {
+  /** One-line "who they are". */
+  headline?: string
+  /** Synthesized cross-episode bio paragraph. */
+  bio?: string
+  /** Topics they are authoritative on / known for. */
+  signature_topics?: string[]
+  /** Recurring themes across their appearances. */
+  themes?: string[]
+  /** Strongest cross-episode quotes. */
+  notable_quotes?: Array<{ text: string; context?: string }>
+  /** Their journey / evolution across appearances (when multiple). */
+  arc?: string
+  /** ISO timestamp of the last synthesis. */
+  generated_at?: string
 }
