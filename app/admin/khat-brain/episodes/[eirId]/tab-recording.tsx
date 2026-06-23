@@ -17,8 +17,9 @@
 
 import Link from "next/link"
 import { Radio, AlertTriangle, ExternalLink, Brain } from "lucide-react"
+import { getAdminAuthUser } from "@/lib/api-utils"
 import { loadLiveV2 } from "@/lib/recording-v2/load"
-import { LiveV2Client } from "@/app/admin/recording/[roomId]/v2/live-v2-client"
+import { RecordingRoomShell } from "@/app/admin/recording/[roomId]/v2/recording-room-shell"
 import type {
   WorkspaceRoomSummary,
   WorkspacePrepSummary,
@@ -104,6 +105,14 @@ export async function RecordingTab({
     )
   }
 
+  // The cockpit needs the room realtime contexts (useRoomState/useRoomMarkers
+  // for energy + the team indicator), so it must mount inside RecordingRoomShell
+  // (RoomProvider + presence + auto-join) — the same shell the standalone page
+  // uses. Rendering <LiveV2Client> bare here throws "must be used within
+  // RoomStateProvider".
+  const user = await getAdminAuthUser()
+  const userName = user?.email?.split("@")[0] ?? "operator"
+
   return (
     <div className="space-y-3">
       <RecordingShareStrip
@@ -112,7 +121,7 @@ export async function RecordingTab({
         createdAt={room.created_at}
         createdByEmail={room.created_by_email}
       />
-      <LiveV2Client initial={snapshot} />
+      <RecordingRoomShell initial={snapshot} userName={userName} />
     </div>
   )
 }
