@@ -41,6 +41,10 @@ import type {
 // P2.3.d, so the dashboard sees would-be-blocks too.
 import { emitSystemEvent } from "@/lib/system-events/emit"
 import { buildRateLimitRejectedEvent } from "@/lib/system-events/builders"
+// DB-backed runtime overrides for mode + per-tier caps (admin Settings hub).
+// Imported lazily-at-call inside acquireRateLimitPermit; the module cycle with
+// runtime-config is safe because all usage is function-scoped, not top-level.
+import { getEffectiveMode, getEffectiveLimits } from "./runtime-config"
 
 // ─── Tier mapping ────────────────────────────────────────────────────
 
@@ -258,7 +262,7 @@ export async function acquireRateLimitPermit(
     }
   }
 
-  const mode = readMode()
+  const mode = await getEffectiveMode()
   const tier = TASK_TIER[req.taskKind]
 
   // ─── 1. Mode = off → no audit, no enforcement ─────────────────────
@@ -298,7 +302,7 @@ export async function acquireRateLimitPermit(
   }
 
   // ─── 3. Evaluate permit under advisory lock ───────────────────────
-  const limits = readLimits()
+  const limits = await getEffectiveLimits()
   const tierLimits = limits[tier]
   let subjectLockKeyHashHeld: string | null = null
 

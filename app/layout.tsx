@@ -7,33 +7,59 @@ import { MobileNav } from "@/components/layout/mobile-nav"
 import { ViewportFix } from "@/components/layout/viewport-fix"
 import { Toaster } from "@/components/ui/toaster"
 import { ScrollToTop } from "@/components/ui/scroll-to-top"
-import { getThemeConfig } from "@/lib/theme"
-import { ThemeSync } from "@/components/theme/theme-sync"
 import { SITE_LIGHT_TOKENS } from "@/components/brand/site-theme"
 import { fetchAllEpisodes } from "@/lib/youtube/queries"
+import { getSiteSettings } from "@/lib/site-settings"
 
-export const metadata: Metadata = {
-  metadataBase: new URL("https://khatpodcast.com"),
-  title: {
-    default: "خط | بودكاست",
-    template: "%s | خط",
-  },
-  description: "بودكاست يستكشف القصص الإنسانية والتجارب الحياتية من خلال حوارات عميقة مع ضيوف ملهمين.",
-  keywords: ["بودكاست", "خط", "حوارات", "قصص", "عربي"],
-  authors: [{ name: "خط" }],
-  openGraph: {
-    type: "website",
-    locale: "ar_SA",
-    siteName: "خط",
-    url: "https://khatpodcast.com",
-    images: [{ url: "/logo-wide.jpg", width: 2560, height: 424, alt: "بودكاست خط" }],
-  },
-  twitter: {
-    card: "summary_large_image",
-    title: "خط | بودكاست",
-    description: "بودكاست يستكشف القصص الإنسانية والتجارب الحياتية من خلال حوارات عميقة مع ضيوف ملهمين.",
-    images: ["/logo-wide.jpg"],
-  },
+const FALLBACK_DESCRIPTION =
+  "بودكاست يستكشف القصص الإنسانية والتجارب الحياتية من خلال حوارات عميقة مع ضيوف ملهمين."
+
+/**
+ * Site-wide metadata is driven by the admin Settings hub (`site_settings`):
+ * name, default description, keywords, title template, and the default OG
+ * image. Per-page `metadata`/`generateMetadata` still override title and
+ * description as usual; this sets the defaults every page inherits.
+ */
+export async function generateMetadata(): Promise<Metadata> {
+  const settings = await getSiteSettings().catch(() => null)
+  const name = settings?.metadata.name?.trim() || "خط"
+  const tagline = settings?.metadata.tagline?.trim()
+  const description =
+    settings?.seo.defaultDescription?.trim() ||
+    settings?.metadata.description?.trim() ||
+    FALLBACK_DESCRIPTION
+  const template = settings?.seo.titleTemplate?.trim() || `%s | ${name}`
+  const keywords =
+    settings?.seo.keywords && settings.seo.keywords.length > 0
+      ? settings.seo.keywords
+      : ["بودكاست", "خط", "حوارات", "قصص", "عربي"]
+  const ogImage = settings?.seo.defaultOgImage?.trim() || "/logo-wide.jpg"
+  const defaultTitle = tagline ? `${name} | ${tagline}` : "خط | بودكاست"
+  const ogImageEntry =
+    ogImage === "/logo-wide.jpg"
+      ? { url: ogImage, width: 2560, height: 424, alt: `بودكاست ${name}` }
+      : { url: ogImage, alt: `بودكاست ${name}` }
+
+  return {
+    metadataBase: new URL("https://khatpodcast.com"),
+    title: { default: defaultTitle, template },
+    description,
+    keywords,
+    authors: [{ name }],
+    openGraph: {
+      type: "website",
+      locale: "ar_SA",
+      siteName: name,
+      url: "https://khatpodcast.com",
+      images: [ogImageEntry],
+    },
+    twitter: {
+      card: "summary_large_image",
+      title: defaultTitle,
+      description,
+      images: [ogImage],
+    },
+  }
 }
 
 export const viewport: Viewport = {
@@ -57,10 +83,11 @@ export default async function RootLayout({
   const pathname = hdrs.get("x-pathname") ?? ""
   const isAdminRoute = pathname.startsWith("/admin")
 
-  const [{ mode }, episodes] = await Promise.all([
-    getThemeConfig(),
-    isAdminRoute ? Promise.resolve([]) : fetchAllEpisodes().catch(() => []),
-  ])
+  // Theme is a single light surface platform-wide: the public site is scoped to
+  // SITE_LIGHT_TOKENS and the admin to its own light tokens. The old
+  // system/dark/light toggle was vestigial (forced light by the inline token
+  // overrides), so it has been removed.
+  const episodes = isAdminRoute ? [] : await fetchAllEpisodes().catch(() => [])
 
   // Check if there's an episode published in the last 48 hours
   const cutoff = new Date()
@@ -73,8 +100,7 @@ export default async function RootLayout({
     <html
       lang="ar"
       dir="rtl"
-      data-theme-mode={isAdminRoute ? "light" : mode}
-      className={!isAdminRoute && mode === "dark" ? "dark" : ""}
+      data-theme-mode="light"
       suppressHydrationWarning
     >
       <head>
@@ -87,16 +113,13 @@ export default async function RootLayout({
         <link href="https://fonts.googleapis.com/css2?family=Amiri:ital,wght@0,400;0,700;1,400;1,700&family=IBM+Plex+Sans+Arabic:wght@300;400;500;600;700&family=Playfair+Display:ital,wght@0,400..900;1,400..900&display=swap" rel="stylesheet" />
         <script
           dangerouslySetInnerHTML={{
-            // Admin is single-mode (light) — force it, ignoring any saved theme.
-            // Public keeps the saved/system theme preference.
-            __html: isAdminRoute
-              ? `document.documentElement.classList.remove("dark");document.documentElement.setAttribute("data-theme-mode","light")`
-              : `(function(){var s=localStorage.getItem("khat_theme");var m=s||document.documentElement.getAttribute("data-theme-mode");if(s)document.documentElement.setAttribute("data-theme-mode",s);if(m==="dark")document.documentElement.classList.add("dark");else if(m==="light")document.documentElement.classList.remove("dark");else if(m==="system"&&window.matchMedia("(prefers-color-scheme: dark)").matches)document.documentElement.classList.add("dark");else document.documentElement.classList.remove("dark")})()`,
+            // Single light surface — strip any stale `.dark` class a returning
+            // visitor may have cached from the removed theme toggle.
+            __html: `document.documentElement.classList.remove("dark")`,
           }}
         />
       </head>
       <body className="font-sans antialiased" suppressHydrationWarning>
-        <ThemeSync />
         <ViewportFix />
         {isAdminRoute ? (
           // Admin pages bring their own chrome via app/admin/layout.tsx.

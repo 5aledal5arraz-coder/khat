@@ -6,12 +6,22 @@ import { validateEmail } from "@/lib/validation/forms"
 import { validateMutation, rateLimitResponse } from "@/lib/api-utils"
 import { checkIpRateLimit } from "@/lib/rate-limit"
 import { sendGuestApplicationAdmin, sendGuestApplicationConfirm } from "@/lib/email/send"
+import { getSiteSettings } from "@/lib/site-settings"
 
 export async function POST(request: NextRequest) {
   try {
     // CSRF protection
     const csrfError = validateMutation(request)
     if (csrfError) return csrfError
+
+    // Feature gate: refuse submissions when an admin has closed applications.
+    const settings = await getSiteSettings().catch(() => null)
+    if (settings && settings.featureFlags.guestApplicationsEnabled === false) {
+      return NextResponse.json(
+        { error: "باب الطلبات مغلق حالياً. تابعنا لتعرف متى نفتحه من جديد." },
+        { status: 403 },
+      )
+    }
 
     // Rate limit: 5 submissions per hour per IP
     const rateLimit = checkIpRateLimit(request, "guest_application", 5, 60 * 60 * 1000)

@@ -1,23 +1,10 @@
 "use server"
 
 import { revalidatePath } from "next/cache"
-import { saveThemeConfig } from "@/lib/theme"
 import { getSiteSettings, saveSiteSettings } from "@/lib/site-settings"
 import { requireAdmin } from "@/lib/api-utils"
-import type { ThemeMode } from "@/types/theme"
-import type { SiteMetadata, SocialLinkConfig, SEODefaults, FeatureFlags } from "@/types/site-settings"
-
-const VALID_MODES: ThemeMode[] = ["system", "dark", "light"]
-
-export async function updateThemeMode(mode: ThemeMode) {
-  await requireAdmin()
-  if (!VALID_MODES.includes(mode)) {
-    throw new Error("Invalid theme mode")
-  }
-
-  await saveThemeConfig({ mode })
-  revalidatePath("/", "layout")
-}
+import { writeAiRuntimeOverride, type AiRuntimeConfig } from "@/lib/ai-router/runtime-config"
+import type { SiteMetadata, SEODefaults, FeatureFlags } from "@/types/site-settings"
 
 export async function updateSiteMetadata(metadata: SiteMetadata) {
   await requireAdmin()
@@ -25,16 +12,9 @@ export async function updateSiteMetadata(metadata: SiteMetadata) {
   settings.metadata = metadata
   await saveSiteSettings(settings)
   revalidatePath("/admin/settings")
+  // Metadata drives site-wide <title>/description and the contact page.
   revalidatePath("/", "layout")
-}
-
-export async function updateSocialLinks(socialLinks: SocialLinkConfig[]) {
-  await requireAdmin()
-  const settings = await getSiteSettings()
-  settings.socialLinks = socialLinks
-  await saveSiteSettings(settings)
-  revalidatePath("/admin/settings")
-  revalidatePath("/", "layout")
+  revalidatePath("/contact")
 }
 
 export async function updateSEODefaults(seo: SEODefaults) {
@@ -52,5 +32,16 @@ export async function updateFeatureFlags(featureFlags: FeatureFlags) {
   settings.featureFlags = featureFlags
   await saveSiteSettings(settings)
   revalidatePath("/admin/settings")
+  // Flags gate real surfaces: maintenance (layout), guest funnel, studio.
   revalidatePath("/", "layout")
+  revalidatePath("/guest")
+  revalidatePath("/admin/studio")
+}
+
+export async function updateAiRuntimeConfig(cfg: AiRuntimeConfig) {
+  await requireAdmin()
+  await writeAiRuntimeOverride(cfg)
+  // The AI router reads this live; the ops dashboard reflects it.
+  revalidatePath("/admin/settings")
+  revalidatePath("/admin/ops")
 }

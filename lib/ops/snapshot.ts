@@ -50,7 +50,8 @@ import {
   countBySourceSeverity,
   topErrors,
 } from "@/lib/system-events/queries"
-import { TASK_TIER, readLimits, readMode } from "@/lib/ai-router/rate-limit"
+import { TASK_TIER } from "@/lib/ai-router/rate-limit"
+import { getEffectiveLimits, getEffectiveMode } from "@/lib/ai-router/runtime-config"
 import { countByPhase } from "@/lib/eir/service"
 import {
   getGuestIdentitySnapshot,
@@ -333,8 +334,9 @@ async function fetchSystemEventsOverview(): Promise<SystemEventsOverview> {
 async function fetchAiRouterSnapshot(): Promise<AiRouterSnapshot> {
   if (!db) throw new Error("DB not configured")
 
-  const limits = readLimits()
-  const mode = readMode()
+  // Effective config = DB runtime override (admin Settings hub) over env defaults,
+  // so the ops dashboard reflects what the rate limiter is actually enforcing.
+  const [limits, mode] = await Promise.all([getEffectiveLimits(), getEffectiveMode()])
 
   // Group task_kinds by tier (light vs expensive).
   const tierKinds: Record<RateLimitTier, string[]> = {

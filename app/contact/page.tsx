@@ -5,22 +5,28 @@ import { Button } from "@/components/ui/button"
 import { Mail, Mic, ArrowLeft, ExternalLink } from "lucide-react"
 import { listPlatformsForSurface } from "@/lib/queries/official-platforms"
 import { PlatformIcon } from "@/components/platforms/platform-icon"
+import { getSiteSettings } from "@/lib/site-settings"
 
 export const metadata: Metadata = {
   title: "تواصل معنا",
   description: "تواصل مع فريق بودكاست خط أو قدم طلباً لتكون ضيفاً",
 }
 
-const emailMethod = {
-  icon: Mail,
-  title: "البريد الإلكتروني",
-  description: "للاستفسارات العامة",
-  value: "hello@khat.fm",
-  href: "mailto:hello@khat.fm",
-}
+const FALLBACK_CONTACT_EMAIL = "hello@khat.fm"
 
 export default async function ContactPage() {
-  const contactPlatforms = await listPlatformsForSurface("contact_page").catch(() => [])
+  const [contactPlatforms, settings] = await Promise.all([
+    listPlatformsForSurface("contact_page").catch(() => []),
+    getSiteSettings().catch(() => null),
+  ])
+  const contactEmail = settings?.metadata.contactEmail?.trim() || FALLBACK_CONTACT_EMAIL
+  const emailMethod = {
+    icon: Mail,
+    title: "البريد الإلكتروني",
+    description: "للاستفسارات العامة",
+    value: contactEmail,
+    href: `mailto:${contactEmail}`,
+  }
   return (
     <div className="container mx-auto px-4 py-8">
       <div className="mx-auto max-w-4xl">
