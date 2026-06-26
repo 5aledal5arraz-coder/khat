@@ -10,6 +10,7 @@ import type { GuestApplicationStatus } from "@/types/database"
 import { requireAdminAPI, getAdminAuthUser } from "@/lib/api-utils"
 import { logActivity, deleteCrmForSubject } from "@/lib/crm"
 import { getGuestApplicationById } from "@/lib/admin/queries"
+import { bridgeApplicationToProduction } from "@/lib/guest-crm/production-bridge"
 import {
   ensureGuest,
   updateGuestIdentityProfile,
@@ -66,7 +67,7 @@ function parseSocialLinks(text: string | null): GuestSocialAccounts {
  * authoritative record per real human, with the full application
  * captured on the identity profile.
  */
-async function consolidateAcceptedApplication(applicationId: string): Promise<void> {
+async function consolidateAcceptedApplication(applicationId: string, actorId?: string | null): Promise<void> {
   const rows = await db!
     .select()
     .from(guestApplications)
@@ -111,6 +112,14 @@ async function consolidateAcceptedApplication(applicationId: string): Promise<vo
     social_accounts: Object.keys(social).length > 0 ? social : undefined,
     last_analyzed_at: new Date(),
   })
+
+  // Production bridge — put the accepted story into the pipeline as an EIR so
+  // Khat Brain actually picks the guest up. Idempotent; best-effort.
+  try {
+    await bridgeApplicationToProduction({ applicationId, guestId: ensure.guest_id, actorId })
+  } catch (err) {
+    console.error("[guest-application] production bridge failed:", err)
+  }
 }
 
 export async function PATCH(
@@ -151,7 +160,8 @@ export async function PATCH(
     // status change (the admin can re-trigger via backfill).
     if (status === "accepted") {
       try {
-        await consolidateAcceptedApplication(id)
+        const user = await getAdminAuthUser()
+        await consolidateAcceptedApplication(id, user ? `admin:${user.email}` : null)
       } catch (err) {
         console.error("[guest-application] consolidation failed:", err)
       }

@@ -29,6 +29,7 @@ import {
   Copy,
   Send,
   Heart,
+  Clapperboard,
 } from "lucide-react"
 import type {
   GuestRecord,
@@ -56,6 +57,24 @@ const REC_COLOR: Record<string, string> = {
   accept: "text-emerald-700",
   consider_later: "text-amber-700",
   reject: "text-rose-700",
+}
+
+const PHASE_LABEL: Record<string, string> = {
+  idea: "فكرة",
+  guest_discovery: "اكتشاف ضيف",
+  guest_assigned: "ضيف معيّن",
+  approved: "معتمدة",
+  researching: "بحث",
+  prepared: "جاهزة للتحضير",
+  ready_to_record: "جاهزة للتسجيل",
+  recording: "تسجيل",
+  recorded: "مُسجّلة",
+  producing: "إنتاج",
+  ready_to_publish: "جاهزة للنشر",
+  published: "منشورة",
+  analyzing: "تحليل",
+  learned: "مُستخلصة",
+  archived: "مؤرشفة",
 }
 
 const TONE_STYLES: Record<GuestNextBestAction["tone"], string> = {
@@ -233,6 +252,28 @@ export function GuestRecordView({
           </div>
         </div>
       </div>
+
+      {/* Production link — the episode this accepted story was bridged into */}
+      {record.eir && (
+        <Link
+          href={`/admin/khat-brain/episodes/${record.eir.id}`}
+          className="flex items-center justify-between gap-3 rounded-2xl border border-indigo-200 bg-indigo-50/50 p-4 transition-colors hover:bg-indigo-50"
+        >
+          <div className="flex items-center gap-3">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-indigo-100 text-indigo-700">
+              <Clapperboard className="h-5 w-5" />
+            </div>
+            <div className="min-w-0">
+              <p className="text-[11px] font-semibold uppercase tracking-wider text-indigo-500">في خط الإنتاج</p>
+              <p className="truncate text-[14px] font-bold text-slate-900">{record.eir.working_title}</p>
+            </div>
+          </div>
+          <div className="flex shrink-0 items-center gap-2">
+            <span className="rounded-md bg-white px-2 py-0.5 text-[11px] font-medium text-indigo-700">{PHASE_LABEL[record.eir.phase] || record.eir.phase}</span>
+            <ExternalLink className="h-4 w-4 text-indigo-400" />
+          </div>
+        </Link>
+      )}
 
       {/* Stat strip */}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
@@ -912,6 +953,7 @@ const ACTIVITY_ICON: Record<string, React.ElementType> = {
   concept_generated: Mic,
   prep_form_created: ClipboardList,
   prep_submitted: ClipboardList,
+  production_bridged: Clapperboard,
 }
 
 function TimelineCard({ activities }: { activities: CrmActivity[] }) {

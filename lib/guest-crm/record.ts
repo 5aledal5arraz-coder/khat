@@ -13,23 +13,25 @@ import {
 } from "@/lib/admin/queries"
 import { getPrepFormByApplicationId } from "@/lib/guest-prep"
 import { getActivities, getNotes, getTasks } from "@/lib/crm"
+import { getEirForApplication } from "./production-bridge"
 import type { GuestRecord, GuestApplicationStatus } from "@/types/database"
 
 export async function getGuestRecord(applicationId: string): Promise<GuestRecord | null> {
   const application = await getGuestApplicationById(applicationId)
   if (!application) return null
 
-  const [analysis, concept, responses, prepForm, activities, notes, tasks] = await Promise.all([
+  const [analysis, concept, responses, prepForm, eir, activities, notes, tasks] = await Promise.all([
     getGuestAnalysis(applicationId),
     getGuestConcept(applicationId),
     getGuestResponses(applicationId),
     getPrepFormByApplicationId(applicationId),
+    getEirForApplication(applicationId),
     getActivities("guest", applicationId),
     getNotes("guest", applicationId),
     getTasks("guest", applicationId),
   ])
 
-  return { application, analysis, concept, responses, prepForm, activities, notes, tasks }
+  return { application, analysis, concept, responses, prepForm, eir, activities, notes, tasks }
 }
 
 export interface GuestNextBestAction {

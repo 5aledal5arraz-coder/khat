@@ -610,6 +610,13 @@ export type GuestApplicationStatus =
   | "rejected"
   | "consider_later"
 
+/** The episode record an accepted application was bridged into (production pipeline). */
+export interface GuestLinkedEir {
+  id: string
+  phase: string
+  working_title: string
+}
+
 /** The full 360° casting record — everything the CRM knows about an applicant. */
 export interface GuestRecord {
   application: GuestApplication
@@ -617,6 +624,7 @@ export interface GuestRecord {
   concept: GuestApplicationConcept | null
   responses: GuestApplicationResponse | null
   prepForm: GuestPrepForm | null
+  eir: GuestLinkedEir | null
   activities: CrmActivity[]
   notes: CrmNote[]
   tasks: CrmTask[]
