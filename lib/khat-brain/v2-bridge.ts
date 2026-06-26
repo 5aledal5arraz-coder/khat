@@ -83,6 +83,19 @@ export async function ensureEirForCandidate(
   const initialPhase: EpisodePhase =
     input.initialPhase ?? (guestId ? "guest_assigned" : "guest_discovery")
 
+  // Carry the market-cluster provenance (cluster label === signal theme) from
+  // the hybrid candidate's production_notes onto the EIR, so the performance →
+  // source feedback loop can credit the right sources after publish.
+  let primaryTheme: string | null = null
+  if (candidate.production_notes) {
+    try {
+      const note = JSON.parse(candidate.production_notes) as { primary_theme?: string | null }
+      if (note.primary_theme && note.primary_theme !== "none") primaryTheme = note.primary_theme
+    } catch {
+      /* production_notes isn't always JSON — ignore */
+    }
+  }
+
   const editorialIntent: EditorialIntent = {
     hook: candidate.hook ?? null,
     why_matters: candidate.why_matters ?? null,
@@ -92,6 +105,7 @@ export async function ensureEirForCandidate(
     main_axes: candidate.main_axes ?? [],
     suggested_questions: candidate.suggested_questions ?? [],
     production_notes: candidate.production_notes ?? null,
+    primary_theme: primaryTheme,
     source: "khat_map_candidate",
     source_id: candidate.id,
   }

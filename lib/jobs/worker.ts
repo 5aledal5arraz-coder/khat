@@ -27,6 +27,7 @@ import {
   ensureMarketScheduler,
   ensureAiRunsSweeperSchedule,
   ensurePartnerTaskReminderSchedule,
+  ensureSourceFeedbackSchedule,
 } from "./scheduler-bootstrap"
 import { HandlerTimeoutError } from "./types"
 import "./registered"
@@ -103,6 +104,8 @@ const HANDLER_TIMEOUT_MS: Record<string, number> = {
   "newsletter.send_campaign": 10 * 60_000,
   // partner.task_reminder: one SELECT + a handful of digest emails; lightweight.
   "partner.task_reminder": 60_000,
+  // market.source_feedback: batch of SELECTs + small trust updates; lightweight.
+  "market.source_feedback": 60_000,
 }
 
 function timeoutFor(jobType: string): number {
@@ -497,6 +500,27 @@ ensurePartnerTaskReminderSchedule()
   })
   .catch((err) =>
     console.error(`[${WORKER_ID}] partner task-reminder bootstrap failed:`, err),
+  )
+
+// Bootstrap the market source-feedback sweep (performance → source trust).
+// Handler self-re-enqueues daily; idempotent.
+ensureSourceFeedbackSchedule()
+  .then((r) => {
+    console.log(
+      `[${WORKER_ID}] source-feedback schedule ${r.status}${r.jobId ? ` (job=${r.jobId.slice(0, 8)})` : ""}`,
+    )
+    if (r.status === "bootstrapped") {
+      void emitSystemEvent(
+        buildScheduleCreatedEvent({
+          schedule_type: "market.source_feedback",
+          cadence: "daily",
+          actor: WORKER_ID,
+        }),
+      )
+    }
+  })
+  .catch((err) =>
+    console.error(`[${WORKER_ID}] source-feedback bootstrap failed:`, err),
   )
 
 loop().catch((err) => {

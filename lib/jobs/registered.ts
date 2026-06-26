@@ -18,3 +18,5 @@ import "./handlers/ai-runs-sweeper"
 import "./handlers/newsletter-send"
 // Partnership CRM — daily overdue/due-soon task reminder digest.
 import "./handlers/partner-task-reminder"
+// Market intelligence — daily performance → source-trust feedback sweep.
+import "./handlers/market-source-feedback"

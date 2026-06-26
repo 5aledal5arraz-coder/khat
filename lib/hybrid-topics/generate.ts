@@ -402,6 +402,9 @@ function coerceCandidate(raw: Record<string, unknown>): HybridCandidate {
     emotional_hook: s("emotional_hook"),
     conflict_angle: s("conflict_angle"),
     market_inspiration: s("market_inspiration"),
+    // Cluster label === signal theme; harmless if the AI omits/garbles it —
+    // the feedback join simply finds no matching signals and skips.
+    primary_theme: s("primary_theme") || "none",
     original_lens: s("original_lens"),
     suggested_episode_type: s("suggested_episode_type"),
     suggested_topic_domain: s("suggested_topic_domain"),

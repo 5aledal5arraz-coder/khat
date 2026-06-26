@@ -98,6 +98,7 @@ export interface AcceptedHybridTopic {
   emotional_hook: string
   conflict_angle: string
   market_inspiration: string
+  primary_theme?: string
   original_lens: string
   suggested_episode_type: string
   suggested_topic_domain: string
@@ -127,6 +128,7 @@ export async function persistAcceptedTopics(input: {
       source: "hybrid_topics",
       generation_id: input.generationId,
       market_inspiration: t.market_inspiration,
+      primary_theme: t.primary_theme ?? null,
       original_lens: t.original_lens,
       consumed_original_topic_id: t.consumed_original_topic_id ?? null,
       strength_score: t.estimated_strength_score,

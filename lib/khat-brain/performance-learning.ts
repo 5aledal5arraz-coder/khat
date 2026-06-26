@@ -44,6 +44,7 @@ import {
   type PerformanceSignalBaseline,
   type PerformanceSignalExplanation,
 } from "@/lib/db/schema/performance-signals"
+import { applySourceFeedbackForEir } from "@/lib/market-intelligence/source-feedback"
 
 // ─── Tunables ────────────────────────────────────────────────────────
 
@@ -316,6 +317,13 @@ export async function analyzeEirPerformance(
   // it. Instead we let the next syncSeasonPerformance pick up the
   // refreshed view_count from the YouTube worker. The Khat Map taste
   // recompute already weights performance via that table.
+
+  // Third learning loop — nudge the trust of the market sources that inspired
+  // this episode's topic, now that we know how it performed. Fire-and-forget
+  // and idempotent; never blocks the performance compute.
+  void applySourceFeedbackForEir(eirId).catch((err) =>
+    console.error("[performance-learning] source feedback failed for", eirId, err),
+  )
 
   return { eir_id: eirId, ok: true, signal: fresh[0] ?? null }
 }

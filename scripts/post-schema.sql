@@ -1106,3 +1106,18 @@ ALTER TABLE guest_application_analysis ADD COLUMN IF NOT EXISTS research_sources
 ALTER TABLE guest_application_analysis ADD COLUMN IF NOT EXISTS public_presence text;
 ALTER TABLE guest_application_analysis ADD COLUMN IF NOT EXISTS credibility_note text;
 ALTER TABLE guest_application_analysis ADD COLUMN IF NOT EXISTS researched_at timestamptz;
+
+-- ─── Performance → market-source feedback loop ──────────────────────────────
+-- Modeled in lib/db/schema/market-source-feedback.ts. Idempotent.
+CREATE TABLE IF NOT EXISTS market_source_feedback_events (
+  id text PRIMARY KEY,
+  eir_id text NOT NULL REFERENCES episode_intelligence_records(id) ON DELETE CASCADE,
+  source_id text NOT NULL,
+  theme text NOT NULL,
+  signal_score real NOT NULL,
+  trust_before real NOT NULL,
+  trust_after real NOT NULL,
+  created_at timestamptz DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_source_feedback_eir ON market_source_feedback_events(eir_id);
+CREATE INDEX IF NOT EXISTS idx_source_feedback_source ON market_source_feedback_events(source_id);

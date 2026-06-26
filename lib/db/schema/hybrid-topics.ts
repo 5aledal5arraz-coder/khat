@@ -105,6 +105,8 @@ export interface HybridOutputTopic {
   emotional_hook: string
   conflict_angle: string
   market_inspiration: string
+  /** The market cluster label (= signal theme) this topic drew from, or "none". */
+  primary_theme?: string
   original_lens: string
   suggested_episode_type: string
   suggested_topic_domain: string

@@ -130,3 +130,35 @@ export async function ensurePartnerTaskReminderSchedule(): Promise<{
   )
   return { status: "bootstrapped", jobId: job.id }
 }
+
+// ─── Market — performance → source-trust feedback sweep ──────────────
+
+/**
+ * Guarantee a pending `market.source_feedback` tick. Handler self-re-enqueues
+ * daily; this only seeds the first tick. Idempotent.
+ */
+export async function ensureSourceFeedbackSchedule(): Promise<{
+  status: "already_scheduled" | "bootstrapped"
+  jobId: string | null
+}> {
+  if (!db) return { status: "already_scheduled", jobId: null }
+  const existing = await db.execute(sql`
+    SELECT id FROM jobs
+    WHERE type = 'market.source_feedback'
+      AND status IN ('pending', 'running')
+    LIMIT 1
+  `)
+  if (existing.rows.length > 0) {
+    return {
+      status: "already_scheduled",
+      jobId: String((existing.rows[0] as { id: string }).id),
+    }
+  }
+  const runAfter = new Date(Date.now() + 10 * 60 * 1000)
+  const job = await enqueueJob(
+    "market.source_feedback",
+    {},
+    { priority: 1, maxAttempts: 1, runAfter },
+  )
+  return { status: "bootstrapped", jobId: job.id }
+}

@@ -26,6 +26,7 @@ export * from "./studio-analysis"
 export * from "./discovery"
 export * from "./market-intelligence"
 export * from "./editorial-intelligence"
+export * from "./market-source-feedback"
 
 // Phase 1.7 — these four schema files have pgTable definitions but
 // were never wired into the schema index, so drizzle-kit push has
