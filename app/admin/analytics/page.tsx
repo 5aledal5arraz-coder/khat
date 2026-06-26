@@ -294,8 +294,8 @@ export default function AnalyticsDashboard() {
       {/* ─── Page Header ─────────────────────────────────────────────────── */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-xl font-bold">لوحة التحكم</h1>
-          <p className="mt-0.5 text-xs text-muted-foreground">نظرة شاملة على أداء المنصة والقناة</p>
+          <h1 className="text-xl font-bold">تحليلات المنصة</h1>
+          <p className="mt-0.5 text-xs text-muted-foreground">نظرة شاملة على أداء الموقع والقناة والجمهور</p>
         </div>
         <button
           onClick={fetchData}

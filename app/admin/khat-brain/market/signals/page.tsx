@@ -29,6 +29,7 @@ import { PAGE_COPY, REVIEW_TAB_LABEL } from "./_components/copy"
 import { SignalsList } from "./_components/signals-client"
 import { ManualSignalForm } from "./_components/manual-signal-form"
 import { RefreshScoringButton } from "./_components/refresh-scoring-button"
+import { MarketSubnav } from "../_components/market-subnav"
 
 export const dynamic = "force-dynamic"
 
@@ -84,6 +85,8 @@ export default async function MarketSignalsReviewPage({
           <RefreshScoringButton />
         </div>
       </div>
+
+      <MarketSubnav />
 
       {/* Manual signal form — collapsible at the top of the queue */}
       <ManualSignalForm

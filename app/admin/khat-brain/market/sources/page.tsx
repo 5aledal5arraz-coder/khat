@@ -22,6 +22,7 @@ import {
 } from "@/lib/market-intelligence/sources-queries"
 import { PAGE_COPY } from "./_components/copy"
 import { SourcesClient } from "./_components/sources-client"
+import { MarketSubnav } from "../_components/market-subnav"
 
 export const dynamic = "force-dynamic"
 
@@ -98,6 +99,8 @@ export default async function TrustedSourcesPage({
           </div>
         </div>
       </div>
+
+      <MarketSubnav />
 
       {facets.totalAll === 0 && filter === "all" ? (
         <div className="rounded-2xl border border-dashed border-border/40 bg-card/20 px-6 py-12 text-center">

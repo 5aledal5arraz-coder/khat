@@ -44,7 +44,9 @@ import { WizardClient } from "./_components/wizard-client"
 import { PhaseBPanel } from "./_components/phase-b-panel"
 import { HybridGenerateButton } from "./_components/hybrid-button"
 import { MarketSignalsCard } from "./_components/market-signals-card"
+import { WhatWorkedCard } from "./_components/what-worked-card"
 import { HybridDiagnosticsPanel } from "./_components/hybrid-diagnostics-panel"
+import { buildWorkedReport } from "@/lib/khat-brain/performance-learning"
 import {
   getMarketTotals,
   getTopClusters,
@@ -107,6 +109,7 @@ export default async function SeasonWorkspacePage({
     aiHealth,
     rhythm,
     hybridReadiness,
+    workedReport,
   ] = await Promise.all([
     getSeasonProgressAction(seasonId),
     listPendingCardsAction(seasonId),
@@ -118,6 +121,7 @@ export default async function SeasonWorkspacePage({
     getAiHealth(),
     getDomainBalanceReport(seasonId),
     getHybridReadiness(),
+    buildWorkedReport(),
   ])
   // Dev-only readiness panel. Hidden by default even in dev — needs
   // an explicit opt-in to avoid leaking internal tables to operators.
@@ -281,6 +285,7 @@ export default async function SeasonWorkspacePage({
             </div>
             <div className="lg:col-span-1">
               <MarketSignalsCard seasonId={seasonId} freshness={marketFreshness} />
+              <WhatWorkedCard worked={workedReport} />
             </div>
           </div>
         </div>
