@@ -7,6 +7,8 @@ import { validateMutation, rateLimitResponse } from "@/lib/api-utils"
 import { checkIpRateLimit } from "@/lib/rate-limit"
 import { sendGuestApplicationAdmin, sendGuestApplicationConfirm } from "@/lib/email/send"
 import { getSiteSettings } from "@/lib/site-settings"
+import { autoTriageGuestApplication } from "@/lib/guest-triage"
+import { logActivity } from "@/lib/crm"
 
 export async function POST(request: NextRequest) {
   try {
@@ -180,7 +182,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "خطأ في الخادم" }, { status: 500 })
     }
 
-    await db.insert(guestApplications).values({
+    const [inserted] = await db.insert(guestApplications).values({
       name: sanitizedName,
       email: sanitizedEmail,
       phone: stripHtml(phone),
@@ -200,7 +202,7 @@ export async function POST(request: NextRequest) {
       agrees_to_publish: agrees_to_publish,
       social_links: social_links ? stripHtml(social_links) : null,
       status: "new",
-    })
+    }).returning({ id: guestApplications.id })
 
     // Send branded notification emails (fire-and-forget)
     const emailParams = { name: sanitizedName, email: sanitizedEmail, phone: stripHtml(phone), country: stripHtml(country) }
@@ -208,6 +210,16 @@ export async function POST(request: NextRequest) {
       sendGuestApplicationAdmin(process.env.ADMIN_NOTIFY_EMAIL || "khatpodcast@hotmail.com", emailParams),
       sendGuestApplicationConfirm(sanitizedEmail, sanitizedName),
     ]).catch(e => console.error("Guest notification email failed:", e))
+
+    // Open the casting timeline + run the AI read in the background so the
+    // operator opens a PRE-EVALUATED story. Fire-and-forget — never blocks.
+    void logActivity("guest", inserted.id, {
+      type: "application_created",
+      summary: `وصل طلب ضيافة جديد من ${sanitizedName}`,
+      actor: "public",
+      metadata: { country: stripHtml(country) },
+    })
+    void autoTriageGuestApplication(inserted.id)
 
     return NextResponse.json({ success: true })
   } catch {

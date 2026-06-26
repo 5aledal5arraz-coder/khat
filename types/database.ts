@@ -484,6 +484,49 @@ export interface PartnerRecord {
   campaigns: PartnerCampaign[]
 }
 
+// --- Shared CRM core (polymorphic relationship spine) ---
+
+export type CrmSubjectKind = "guest" | "partner"
+export type CrmTaskStatus = "open" | "done" | "dismissed"
+export type CrmTaskPriority = "low" | "normal" | "high"
+
+export interface CrmActivity {
+  id: string
+  subject_kind: CrmSubjectKind | string
+  subject_id: string
+  type: string
+  summary: string
+  actor: string | null
+  metadata: Record<string, unknown>
+  created_at: string
+}
+
+export interface CrmNote {
+  id: string
+  subject_kind: CrmSubjectKind | string
+  subject_id: string
+  body: string
+  author: string | null
+  pinned: boolean
+  created_at: string
+  updated_at: string
+}
+
+export interface CrmTask {
+  id: string
+  subject_kind: CrmSubjectKind | string
+  subject_id: string
+  title: string
+  detail: string | null
+  type: string
+  status: CrmTaskStatus
+  priority: CrmTaskPriority
+  due_at: string | null
+  created_by: string | null
+  completed_at: string | null
+  created_at: string
+}
+
 // --- Guest Application AI ---
 
 export type GuestAnalysisStatus = "generating" | "ready" | "error"
@@ -507,6 +550,17 @@ export interface GuestApplicationAnalysis {
   concerns: string[]
   strengths: string[]
   suggested_direction: string | null
+  // ─── Live research (casting brief upgrade) ─────────────────────────────────
+  /** What live web research surfaced about the applicant (or that they have no public footprint). */
+  research_summary: string | null
+  /** Grounded sources the research drew on. */
+  research_sources: ResearchSource[]
+  /** Read on their public presence / footprint. */
+  public_presence: string | null
+  /** Verification + any credibility flags. */
+  credibility_note: string | null
+  /** When the online research last ran. */
+  researched_at: string | null
   raw_response: Record<string, unknown> | null
   error_message: string | null
   created_at: string

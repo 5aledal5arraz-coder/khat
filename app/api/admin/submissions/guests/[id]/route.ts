@@ -7,7 +7,9 @@ import {
   updateGuestApplicationStatus,
 } from "@/lib/admin/queries"
 import type { GuestApplicationStatus } from "@/types/database"
-import { requireAdminAPI } from "@/lib/api-utils"
+import { requireAdminAPI, getAdminAuthUser } from "@/lib/api-utils"
+import { logActivity, deleteCrmForSubject } from "@/lib/crm"
+import { getGuestApplicationById } from "@/lib/admin/queries"
 import {
   ensureGuest,
   updateGuestIdentityProfile,
@@ -26,6 +28,14 @@ const VALID_STATUSES: GuestApplicationStatus[] = [
   "rejected",
   "consider_later",
 ]
+
+const STATUS_LABEL: Record<GuestApplicationStatus, string> = {
+  new: "جديد",
+  under_review: "قيد المراجعة",
+  accepted: "مقبول",
+  rejected: "معتذر",
+  consider_later: "للاحتفاظ",
+}
 
 /**
  * Best-effort parse of the free-form social_links text on guest_applications
@@ -118,10 +128,22 @@ export async function PATCH(
       return NextResponse.json({ error: "حالة غير صالحة" }, { status: 400 })
     }
 
+    const prev = await getGuestApplicationById(id)
     const result = await updateGuestApplicationStatus(id, status)
 
     if (!result.success) {
       return NextResponse.json({ error: result.error }, { status: 400 })
+    }
+
+    if (!prev || prev.status !== status) {
+      const user = await getAdminAuthUser()
+      const fromLabel = prev ? STATUS_LABEL[prev.status] : "—"
+      await logActivity("guest", id, {
+        type: "status_changed",
+        summary: `تغيّرت الحالة: ${fromLabel} ← ${STATUS_LABEL[status as GuestApplicationStatus]}`,
+        actor: user ? `admin:${user.email}` : "admin",
+        metadata: { from: prev?.status ?? null, to: status },
+      })
     }
 
     // Phase 7 — on acceptance, consolidate into the canonical guest.
@@ -159,6 +181,9 @@ export async function DELETE(
     if (!result.success) {
       return NextResponse.json({ error: result.error }, { status: 400 })
     }
+
+    // CRM rows are polymorphic (no FK cascade) — clean them up explicitly.
+    await deleteCrmForSubject("guest", id).catch(() => {})
 
     return NextResponse.json({ success: true })
   } catch (error) {

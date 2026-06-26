@@ -1055,3 +1055,54 @@ CREATE TABLE IF NOT EXISTS partner_campaigns (
   updated_at timestamptz DEFAULT now()
 );
 CREATE INDEX IF NOT EXISTS idx_partner_campaigns_lead ON partner_campaigns(lead_id);
+
+-- ─── Shared polymorphic CRM core (lib/db/schema/crm.ts) ──────────────────────
+-- Activity timeline / notes / tasks keyed by (subject_kind, subject_id).
+-- Serves guest applications today; partner_* can migrate here later. Idempotent.
+CREATE TABLE IF NOT EXISTS crm_activities (
+  id text PRIMARY KEY,
+  subject_kind text NOT NULL,
+  subject_id text NOT NULL,
+  type text NOT NULL,
+  summary text NOT NULL,
+  actor text,
+  metadata jsonb DEFAULT '{}'::jsonb,
+  created_at timestamptz DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_crm_activities_subject ON crm_activities(subject_kind, subject_id, created_at);
+
+CREATE TABLE IF NOT EXISTS crm_notes (
+  id text PRIMARY KEY,
+  subject_kind text NOT NULL,
+  subject_id text NOT NULL,
+  body text NOT NULL,
+  author text,
+  pinned boolean NOT NULL DEFAULT false,
+  created_at timestamptz DEFAULT now(),
+  updated_at timestamptz DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_crm_notes_subject ON crm_notes(subject_kind, subject_id);
+
+CREATE TABLE IF NOT EXISTS crm_tasks (
+  id text PRIMARY KEY,
+  subject_kind text NOT NULL,
+  subject_id text NOT NULL,
+  title text NOT NULL,
+  detail text,
+  type text NOT NULL DEFAULT 'follow_up',
+  status text NOT NULL DEFAULT 'open',
+  priority text NOT NULL DEFAULT 'normal',
+  due_at timestamptz,
+  created_by text,
+  completed_at timestamptz,
+  created_at timestamptz DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_crm_tasks_subject ON crm_tasks(subject_kind, subject_id);
+CREATE INDEX IF NOT EXISTS idx_crm_tasks_due ON crm_tasks(status, due_at);
+
+-- ─── Guest application AI — live research / casting brief columns ────────────
+ALTER TABLE guest_application_analysis ADD COLUMN IF NOT EXISTS research_summary text;
+ALTER TABLE guest_application_analysis ADD COLUMN IF NOT EXISTS research_sources jsonb DEFAULT '[]'::jsonb;
+ALTER TABLE guest_application_analysis ADD COLUMN IF NOT EXISTS public_presence text;
+ALTER TABLE guest_application_analysis ADD COLUMN IF NOT EXISTS credibility_note text;
+ALTER TABLE guest_application_analysis ADD COLUMN IF NOT EXISTS researched_at timestamptz;

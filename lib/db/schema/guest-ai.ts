@@ -19,6 +19,12 @@ export const guestApplicationAnalysis = pgTable("guest_application_analysis", {
   concerns: jsonb("concerns").$type<string[]>().default([]),
   strengths: jsonb("strengths").$type<string[]>().default([]),
   suggested_direction: text("suggested_direction"),
+  // ─── Live research (casting brief upgrade) ──────────────────────────────────
+  research_summary: text("research_summary"),
+  research_sources: jsonb("research_sources").$type<{ title: string; url: string }[]>().default([]),
+  public_presence: text("public_presence"),
+  credibility_note: text("credibility_note"),
+  researched_at: timestamp("researched_at", { withTimezone: true }),
   raw_response: jsonb("raw_response").$type<Record<string, unknown>>(),
   error_message: text("error_message"),
   created_at: timestamp("created_at", { withTimezone: true }).defaultNow(),

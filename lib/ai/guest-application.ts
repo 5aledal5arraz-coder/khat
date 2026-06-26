@@ -9,13 +9,42 @@ import {
   GUEST_APPLICATION_CONCEPT_PROMPT_VERSION,
   buildGuestApplicationResponsesPrompt,
   GUEST_APPLICATION_RESPONSES_PROMPT_VERSION,
+  type GuestResearchSnippet,
 } from "@/lib/ai/prompts/guest-application"
-import type { GuestApplication, GuestApplicationAnalysis } from "@/types/database"
+import { geminiSearchWeb, isGeminiConfigured } from "@/lib/ai/preparation/research/gemini"
+import type { GuestApplication, GuestApplicationAnalysis, ResearchSource } from "@/types/database"
 
 const LEGACY_ACTOR = "system:legacy-callsite"
 
 interface ActorOpts {
   actorId?: string | null
+}
+
+// ---------------------------------------------------------------------------
+// Live online research on the applicant — real Google search via Gemini.
+// Fail-safe: returns empty sets when Gemini isn't configured or errors, so the
+// analysis still runs from the application alone. A private individual with no
+// web footprint is expected and fine (خط hosts real people, not just names).
+// ---------------------------------------------------------------------------
+
+export async function researchGuestApplicant(
+  app: GuestApplication,
+): Promise<{ snippets: GuestResearchSnippet[]; sources: ResearchSource[] }> {
+  if (!isGeminiConfigured()) return { snippets: [], sources: [] }
+  const links = app.social_links ? ` ${app.social_links}` : ""
+  const query =
+    `من هو "${app.name}" من ${app.country}؟${links} ابحث عن أي حضور علني موثّق: ` +
+    `مقابلات، بودكاست، مقالات، حسابات تواصل اجتماعي، عمل مهني أو إبداعي، أو أي ذكر إعلامي. ` +
+    `إن لم تجد حضورًا واضحًا فاذكر ذلك صراحةً.`
+  try {
+    const sources = await geminiSearchWeb(query, 6)
+    return {
+      snippets: sources.map((s) => ({ title: s.title, url: s.url, snippet: s.snippet })),
+      sources: sources.map((s) => ({ title: s.title, url: s.url })),
+    }
+  } catch {
+    return { snippets: [], sources: [] }
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -37,14 +66,25 @@ interface AnalysisData {
   concerns: string[]
   strengths: string[]
   suggested_direction: string
+  // Live-research casting brief
+  research_summary: string
+  public_presence: string
+  credibility_note: string
 }
 
 export async function analyzeGuestApplication(
   app: GuestApplication,
   opts?: ActorOpts,
-): Promise<{ success: true; data: AnalysisData; raw: Record<string, unknown>; runId?: string } | { success: false; error: string; runId?: string }> {
+): Promise<
+  | { success: true; data: AnalysisData; research_sources: ResearchSource[]; raw: Record<string, unknown>; runId?: string }
+  | { success: false; error: string; runId?: string }
+> {
   try {
-    const built = buildGuestApplicationAnalysisPrompt({ application: app })
+    // 1. Live research on the applicant (real web search; fail-safe).
+    const research = await researchGuestApplicant(app)
+
+    // 2. Editorial casting read, informed by the research.
+    const built = buildGuestApplicationAnalysisPrompt({ application: app, research: research.snippets })
 
     const result = await runAiTask<Record<string, unknown>>({
       taskKind: "structural",
@@ -82,6 +122,7 @@ export async function analyzeGuestApplication(
     return {
       success: true,
       runId: result.runId,
+      research_sources: research.sources,
       data: {
         fit_score: clamp(p.fit_score),
         emotional_depth_score: clamp(p.emotional_depth_score),
@@ -97,11 +138,15 @@ export async function analyzeGuestApplication(
         concerns: Array.isArray(p.concerns) ? p.concerns : [],
         strengths: Array.isArray(p.strengths) ? p.strengths : [],
         suggested_direction: (p.suggested_direction as string) || "",
+        research_summary: (p.research_summary as string) || "",
+        public_presence: (p.public_presence as string) || "",
+        credibility_note: (p.credibility_note as string) || "",
       },
       raw: {
         model: result.modelName,
         usage: { prompt_tokens: result.tokensIn, completion_tokens: result.tokensOut },
         run_id: result.runId,
+        research_source_count: research.sources.length,
       },
     }
   } catch (error) {

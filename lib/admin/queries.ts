@@ -613,12 +613,18 @@ export async function upsertGuestAnalysis(
   data: Partial<Omit<GuestApplicationAnalysis, "id" | "application_id" | "created_at">>
 ): Promise<string> {
   if (!USE_DB) return ""
+  // `researched_at` is an ISO string in the domain type, but the timestamp
+  // column needs a Date — coerce at the DB boundary so drizzle can serialize it.
+  const dbData = {
+    ...data,
+    ...(data.researched_at ? { researched_at: new Date(data.researched_at) } : {}),
+  } as Partial<typeof guestApplicationAnalysis.$inferInsert>
   const existing = await getGuestAnalysis(applicationId)
   if (existing) {
-    await db!.update(guestApplicationAnalysis).set(data).where(eq(guestApplicationAnalysis.application_id, applicationId))
+    await db!.update(guestApplicationAnalysis).set(dbData).where(eq(guestApplicationAnalysis.application_id, applicationId))
     return existing.id
   }
-  const [row] = await db!.insert(guestApplicationAnalysis).values({ application_id: applicationId, ...data }).returning({ id: guestApplicationAnalysis.id })
+  const [row] = await db!.insert(guestApplicationAnalysis).values({ application_id: applicationId, ...dbData }).returning({ id: guestApplicationAnalysis.id })
   return row.id
 }
 
