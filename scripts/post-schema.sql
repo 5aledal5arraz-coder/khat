@@ -1121,3 +1121,35 @@ CREATE TABLE IF NOT EXISTS market_source_feedback_events (
 );
 CREATE INDEX IF NOT EXISTS idx_source_feedback_eir ON market_source_feedback_events(eir_id);
 CREATE INDEX IF NOT EXISTS idx_source_feedback_source ON market_source_feedback_events(source_id);
+
+-- ─── Community contribution hub ─────────────────────────────────────────────
+-- Modeled in lib/db/schema/community.ts. Idempotent.
+CREATE TABLE IF NOT EXISTS community_contributions (
+  id text PRIMARY KEY,
+  type text NOT NULL,
+  title text NOT NULL,
+  body text NOT NULL,
+  details jsonb DEFAULT '{}'::jsonb,
+  contributor_name text,
+  contributor_email text,
+  reference text,
+  status text NOT NULL DEFAULT 'new',
+  routed_kind text,
+  routed_id text,
+  routed_at timestamptz,
+  triage_status text DEFAULT 'generating',
+  quality_score integer,
+  category text,
+  ai_summary text,
+  highlights jsonb DEFAULT '[]'::jsonb,
+  concerns jsonb DEFAULT '[]'::jsonb,
+  spam boolean NOT NULL DEFAULT false,
+  recommended_action text,
+  action_rationale text,
+  ai_raw jsonb,
+  error_message text,
+  triaged_at timestamptz,
+  created_at timestamptz DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_community_type_status ON community_contributions(type, status);
+CREATE INDEX IF NOT EXISTS idx_community_created ON community_contributions(created_at);

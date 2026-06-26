@@ -15,6 +15,7 @@ const navigation = {
   partner: [
     { name: "كن شريكاً", href: "/partner" },
     { name: "كن ضيفاً", href: "/guest" },
+    { name: "ساهم معنا", href: "/contribute" },
   ],
 }
 

@@ -11,6 +11,7 @@ import { KhatLogo } from "@/components/brand/khat-logo"
 const navigation = [
   { name: "الحلقات", href: "/episodes" },
   { name: "الضيوف", href: "/guests" },
+  { name: "ساهم معنا", href: "/contribute" },
   { name: "من نحن", href: "/about" },
 ]
 

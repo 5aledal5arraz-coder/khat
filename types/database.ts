@@ -484,9 +484,56 @@ export interface PartnerRecord {
   campaigns: PartnerCampaign[]
 }
 
+// --- Community contribution hub ---
+
+export type CommunityContributionType =
+  | "guest" // recommend a guest/thinker
+  | "topic" // an episode topic idea
+  | "question" // a discussion question
+  | "concept" // a content concept
+  | "improvement" // an idea to improve the podcast
+
+export type CommunityContributionStatus =
+  | "new"
+  | "reviewing"
+  | "accepted"
+  | "routed" // promoted into Khat Brain
+  | "declined"
+
+export type CommunityTriageStatus = "generating" | "ready" | "error"
+export type CommunityRecommendedAction = "advance" | "request_info" | "nurture" | "decline"
+
+export interface CommunityContribution {
+  id: string
+  type: CommunityContributionType | string
+  title: string
+  body: string
+  details: Record<string, unknown>
+  contributor_name: string | null
+  contributor_email: string | null
+  reference: string | null
+  status: CommunityContributionStatus
+  routed_kind: string | null
+  routed_id: string | null
+  routed_at: string | null
+  triage_status: CommunityTriageStatus
+  quality_score: number | null
+  category: string | null
+  ai_summary: string | null
+  highlights: string[]
+  concerns: string[]
+  spam: boolean
+  recommended_action: CommunityRecommendedAction | null
+  action_rationale: string | null
+  ai_raw: Record<string, unknown> | null
+  error_message: string | null
+  triaged_at: string | null
+  created_at: string
+}
+
 // --- Shared CRM core (polymorphic relationship spine) ---
 
-export type CrmSubjectKind = "guest" | "partner"
+export type CrmSubjectKind = "guest" | "partner" | "community"
 export type CrmTaskStatus = "open" | "done" | "dismissed"
 export type CrmTaskPriority = "low" | "normal" | "high"
 

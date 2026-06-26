@@ -326,6 +326,30 @@ export function guestApplicationConfirmHtml(name: string, reference?: string): s
   return legacyEmailLayout(content)
 }
 
+export function communityContributionConfirmHtml(
+  name: string,
+  typeLabel: string,
+  reference?: string,
+): string {
+  const greeting = name ? `، ${escapeHtml(name)}` : ""
+  const refBlock = reference
+    ? `<div style="margin:0 0 20px;padding:14px 16px;border-radius:12px;background:#faf9ff;border:1px solid #ede9fe;text-align:center;">
+         <div style="color:${BRAND.muted};font-size:11px;letter-spacing:.5px;">رقمك المرجعي</div>
+         <div style="color:#6d28d9;font-weight:800;font-size:18px;letter-spacing:1px;direction:ltr;">${escapeHtml(reference)}</div>
+       </div>`
+    : ""
+  const content = `
+    <h2 style="margin:0 0 12px;color:${BRAND.ink};font-size:20px;">وصلتنا مساهمتك${greeting}</h2>
+    <p style="margin:0 0 18px;color:${BRAND.body};font-size:14px;line-height:1.7;">
+      شكرًا أنك شاركتنا «${escapeHtml(typeLabel)}». خط يُصنع معكم — نقرأ كل مساهمة بعناية،
+      وقد نبني عليها حلقة قادمة أو نعود إليك لمزيد من التفاصيل. وإن استخدمناها، يسعدنا أن نذكر فضلك.
+    </p>
+    ${refBlock}
+    <p style="margin:18px 0 0;color:${BRAND.muted};font-size:13px;">شكرًا لكونك جزءًا من خط — فريق بودكاست خط</p>
+  `
+  return legacyEmailLayout(content)
+}
+
 export function guestPrepConfirmHtml(name: string): string {
   const content = `
     <h2 style="margin:0 0 12px;color:${BRAND.ink};font-size:20px;">استلمنا إجاباتك، ${escapeHtml(name)}</h2>
