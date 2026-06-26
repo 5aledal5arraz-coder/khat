@@ -2743,6 +2743,23 @@ export function SubmissionsTabs({
                 </div>
               )}
 
+              {/* Offer page — editable secret-link offer for this company */}
+              <a
+                href={`/admin/offers/${selectedLead.id}`}
+                className="flex items-center justify-between rounded-2xl border border-primary/20 bg-primary/[0.04] p-4 ring-1 ring-primary/10 transition-colors hover:bg-primary/[0.07]"
+              >
+                <div className="flex items-center gap-2.5">
+                  <div className="flex h-7 w-7 items-center justify-center rounded-full bg-primary/10 text-primary">
+                    <FileText className="h-3.5 w-3.5" />
+                  </div>
+                  <div>
+                    <h4 className="text-sm font-semibold">صفحة العرض</h4>
+                    <p className="text-[11px] text-muted-foreground">حرّر العرض وانشره كرابط سرّي للشركة</p>
+                  </div>
+                </div>
+                <Send className="h-4 w-4 text-primary" />
+              </a>
+
               {/* Section 6: AI Analysis */}
               <div>
                 <div className="mb-4 flex items-center justify-between">

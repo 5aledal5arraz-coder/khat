@@ -913,3 +913,25 @@ ALTER TABLE sponsorship_analysis ADD COLUMN IF NOT EXISTS recommended_episodes i
 ALTER TABLE sponsorship_analysis ADD COLUMN IF NOT EXISTS pricing_strategy text;
 ALTER TABLE sponsorship_analysis ADD COLUMN IF NOT EXISTS researched_at timestamptz;
 ALTER TABLE sponsorship_proposals ADD COLUMN IF NOT EXISTS reply_email text;
+
+-- Per-company offer pages — editable proposal published at a secret link
+-- (/offer/<token>) and sent to a specific company. Modeled in
+-- lib/db/schema/sponsorship-ai.ts. Idempotent.
+CREATE TABLE IF NOT EXISTS partnership_offers (
+  id text PRIMARY KEY,
+  lead_id text NOT NULL REFERENCES sponsorship_leads(id) ON DELETE CASCADE,
+  token text NOT NULL UNIQUE,
+  title text,
+  intro text,
+  body text,
+  packages jsonb DEFAULT '[]'::jsonb,
+  validity_note text,
+  contact_email text,
+  password_hash text,
+  published boolean NOT NULL DEFAULT false,
+  view_count integer NOT NULL DEFAULT 0,
+  last_viewed_at timestamptz,
+  created_at timestamptz DEFAULT now(),
+  updated_at timestamptz DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_partnership_offers_lead ON partnership_offers(lead_id);

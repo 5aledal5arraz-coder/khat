@@ -256,6 +256,38 @@ export interface SponsorshipProposal {
   created_at: string
 }
 
+// --- Per-company offer (secret link) ---
+
+export interface PartnershipOffer {
+  id: string
+  lead_id: string
+  /** Secret slug used in the public URL /offer/<token>. */
+  token: string
+  title: string | null
+  intro: string | null
+  body: string | null
+  packages: ProposedPackage[]
+  validity_note: string | null
+  contact_email: string | null
+  password_hash: string | null
+  published: boolean
+  view_count: number
+  last_viewed_at: string | null
+  created_at: string
+  updated_at: string
+}
+
+/** Public-safe offer shape (no password hash) returned to the secret-link page. */
+export interface PublicPartnershipOffer {
+  title: string | null
+  intro: string | null
+  body: string | null
+  packages: ProposedPackage[]
+  validity_note: string | null
+  contact_email: string | null
+  company_name: string
+}
+
 // --- Guest Application AI ---
 
 export type GuestAnalysisStatus = "generating" | "ready" | "error"

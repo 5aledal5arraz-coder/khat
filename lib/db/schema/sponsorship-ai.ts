@@ -1,4 +1,4 @@
-import { pgTable, text, integer, timestamp, jsonb } from "drizzle-orm/pg-core"
+import { pgTable, text, integer, timestamp, jsonb, boolean } from "drizzle-orm/pg-core"
 import { sponsorshipLeads } from "./system"
 
 export const sponsorshipAnalysis = pgTable("sponsorship_analysis", {
@@ -52,4 +52,30 @@ export const sponsorshipProposals = pgTable("sponsorship_proposals", {
   raw_response: jsonb("raw_response").$type<Record<string, unknown>>(),
   error_message: text("error_message"),
   created_at: timestamp("created_at", { withTimezone: true }).defaultNow(),
+})
+
+/**
+ * Per-company offer pages — an editable, password-protectable proposal published
+ * at a secret link (/offer/<token>) and sent to a specific company. Seeded from
+ * the AI proposal, then amended freely before publishing.
+ */
+export const partnershipOffers = pgTable("partnership_offers", {
+  id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+  lead_id: text("lead_id").notNull().references(() => sponsorshipLeads.id, { onDelete: "cascade" }),
+  /** Unguessable secret slug used in the public URL. */
+  token: text("token").notNull().unique(),
+  title: text("title"),
+  intro: text("intro"),
+  /** The main offer body (seeded from the AI proposal draft; freely editable). */
+  body: text("body"),
+  packages: jsonb("packages").$type<{ name: string; description: string; price_range: string; deliverables: string[] }[]>().default([]),
+  validity_note: text("validity_note"),
+  contact_email: text("contact_email"),
+  /** Optional bcrypt password gate on the public page. Null = link-only secrecy. */
+  password_hash: text("password_hash"),
+  published: boolean("published").notNull().default(false),
+  view_count: integer("view_count").notNull().default(0),
+  last_viewed_at: timestamp("last_viewed_at", { withTimezone: true }),
+  created_at: timestamp("created_at", { withTimezone: true }).defaultNow(),
+  updated_at: timestamp("updated_at", { withTimezone: true }).defaultNow(),
 })
