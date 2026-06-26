@@ -111,7 +111,11 @@ export function buildProposalHtml(input: ProposalPdfInput): string {
   /* Cover */
   .cover{display:flex;flex-direction:column;}
   .brandrow{display:flex;align-items:center;gap:12px;}
-  .logo{width:54px;height:54px;border-radius:14px;object-fit:cover;border:1px solid var(--line);}
+  /* Khat brand mark — CSS replica of <KhatLogo> (indigo squircle, white خط,
+     orange diamond). Theme-independent, crisp at print resolution. */
+  .klogo{position:relative;display:inline-flex;width:54px;height:54px;align-items:center;justify-content:center;border-radius:15px;overflow:hidden;background:linear-gradient(160deg,#45367f 0%,#3a2d70 55%,#2f2560 100%);box-shadow:0 2px 10px -3px rgba(58,45,112,.55);}
+  .klogo .wm{color:#fff;font-weight:700;font-size:25px;line-height:1;margin-top:3px;}
+  .klogo .dia{position:absolute;width:8px;height:8px;top:11px;inset-inline-start:18px;background:var(--orange);border-radius:2px;transform:rotate(45deg);box-shadow:0 0 6px rgba(238,106,44,.4);}
   .wordmark{font-size:20px;font-weight:700;color:var(--indigo);}
   .wordmark small{display:block;font-size:11px;font-weight:500;color:var(--muted);letter-spacing:.5px;}
   .cover-mid{margin-top:34mm;}
@@ -152,7 +156,7 @@ export function buildProposalHtml(input: ProposalPdfInput): string {
   <!-- Cover -->
   <div class="page cover">
     <div class="brandrow">
-      <img src="/logo.png" class="logo" alt="خط"/>
+      <div class="klogo"><span class="wm">خط</span><span class="dia"></span></div>
       <div class="wordmark">بودكاست خط<small>khatpodcast.com</small></div>
     </div>
     <div class="cover-mid">
