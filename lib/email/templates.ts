@@ -287,12 +287,55 @@ export function guestApplicationAdminHtml(params: {
   return legacyEmailLayout(content)
 }
 
-export function guestApplicationConfirmHtml(name: string): string {
+export function guestApplicationConfirmHtml(name: string, reference?: string): string {
+  const step = (n: string, title: string, body: string) => `
+    <tr>
+      <td valign="top" style="width:30px;padding:0 0 14px;">
+        <div style="width:24px;height:24px;border-radius:999px;background:#ede9fe;color:#6d28d9;font-weight:700;font-size:12px;text-align:center;line-height:24px;">${n}</div>
+      </td>
+      <td valign="top" style="padding:0 0 14px 10px;">
+        <div style="font-weight:700;color:${BRAND.ink};font-size:14px;">${title}</div>
+        <div style="color:${BRAND.muted};font-size:13px;line-height:1.6;">${body}</div>
+      </td>
+    </tr>`
+  const refBlock = reference
+    ? `<div style="margin:0 0 20px;padding:14px 16px;border-radius:12px;background:#faf9ff;border:1px solid #ede9fe;text-align:center;">
+         <div style="color:${BRAND.muted};font-size:11px;letter-spacing:.5px;">رقمك المرجعي</div>
+         <div style="color:#6d28d9;font-weight:800;font-size:18px;letter-spacing:1px;direction:ltr;">${escapeHtml(reference)}</div>
+       </div>`
+    : ''
+  const trackBlock = reference
+    ? ctaButton('تابِع حالة طلبك', `${APP_URL}/guest/status?ref=${encodeURIComponent(reference)}`)
+    : ''
   const content = `
-    <h2 style="margin:0 0 16px;color:${BRAND.ink};font-size:20px;">وصلنا قصتك، ${escapeHtml(name)}</h2>
-    <p style="margin:0 0 16px;">شكراً إنك شاركتنا — نقدّر كل كلمة كتبتها.</p>
-    <p style="margin:0 0 16px;">فريقنا بيراجع طلبك بعناية ويتواصل معك قريب إن شاء الله.</p>
-    <p style="margin:0;color:${BRAND.muted};font-size:13px;">— فريق بودكاست خط</p>
+    <h2 style="margin:0 0 12px;color:${BRAND.ink};font-size:20px;">وصلتنا قصتك، ${escapeHtml(name)}</h2>
+    <p style="margin:0 0 18px;color:${BRAND.muted};font-size:14px;line-height:1.7;">
+      شكرًا أنك شاركتنا — نقرأ كل كلمة بعناية. هذا ليس نموذجًا عاديًا، وطلبك ليس رقمًا في قائمة.
+      الصمت لا يعني الرفض؛ نحتفظ بالقصص القوية ونعود إليها حين يحين وقتها المناسب.
+    </p>
+    ${refBlock}
+    <div style="font-weight:700;color:${BRAND.ink};font-size:14px;margin:0 0 12px;">ما الذي يحدث الآن؟</div>
+    <table role="presentation" cellpadding="0" cellspacing="0" style="width:100%;margin:0 0 18px;">
+      ${step('١', 'نقرأ قصتك', 'يطّلع فريقنا التحريري على طلبك بعناية ويقيّمه كقصة تستحق حلقة.')}
+      ${step('٢', 'قد نتواصل', 'إن كانت قصتك تناسب خط، نعود إليك عبر البريد لترتيب استبيان قصير وموعد تسجيل.')}
+      ${step('٣', 'نبقى على تواصل', 'يمكنك متابعة حالة طلبك في أي وقت برقمك المرجعي وبريدك.')}
+    </table>
+    ${trackBlock}
+    <p style="margin:18px 0 0;color:${BRAND.muted};font-size:13px;">الحوار يبدأ من هنا — فريق بودكاست خط</p>
+  `
+  return legacyEmailLayout(content)
+}
+
+export function guestPrepConfirmHtml(name: string): string {
+  const content = `
+    <h2 style="margin:0 0 12px;color:${BRAND.ink};font-size:20px;">استلمنا إجاباتك، ${escapeHtml(name)}</h2>
+    <p style="margin:0 0 16px;color:${BRAND.muted};font-size:14px;line-height:1.7;">
+      شكرًا على تعبئة استبيان التحضير. سيتواصل معك فريق خط قريبًا لتأكيد موعد التسجيل ومشاركة تفاصيل الاستوديو.
+    </p>
+    <p style="margin:0 0 16px;color:${BRAND.muted};font-size:13px;line-height:1.7;">
+      تذكير بسيط: نحبّ أن تصل قبل التسجيل بثلاثين دقيقة، وأن تكون الملابس بألوان موحّدة وهادئة. لا حاجة لتحضير إجابات — الحوار طبيعي وعفوي.
+    </p>
+    <p style="margin:18px 0 0;color:${BRAND.muted};font-size:13px;">بانتظارك — فريق بودكاست خط</p>
   `
   return legacyEmailLayout(content)
 }

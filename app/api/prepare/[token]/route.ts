@@ -5,6 +5,8 @@ import {
   validatePrepToken,
   submitPrepResponse,
 } from "@/lib/guest-prep"
+import { sendGuestPrepConfirm } from "@/lib/email/send"
+import { logActivity } from "@/lib/crm"
 import type { GuestPrepResponse } from "@/types/database"
 
 /**
@@ -106,6 +108,22 @@ export async function POST(
       { error: errorMessages[result.error!] || "حدث خطأ" },
       { status: statusMap[result.error!] || 400 }
     )
+  }
+
+  // Confirm to the applicant (not just the admin) + record on the casting
+  // timeline. Best-effort — never fail the submission on these.
+  try {
+    const form = await getPrepFormByToken(token)
+    if (form) {
+      if (form.guest_email) void sendGuestPrepConfirm(form.guest_email, form.guest_name).catch(() => {})
+      void logActivity("guest", form.application_id, {
+        type: "prep_submitted",
+        summary: "أكمل الضيف استبيان التحضير",
+        actor: "public",
+      })
+    }
+  } catch {
+    /* non-blocking */
   }
 
   return NextResponse.json({ success: true })

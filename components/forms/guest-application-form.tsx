@@ -159,6 +159,7 @@ function StepIndicator({
 
 export function GuestApplicationForm() {
   const [step, setStep] = useState(1)
+  const [reference, setReference] = useState("")
   const [formStatus, setFormStatus] = useState<
     "idle" | "loading" | "success" | "error"
   >("idle")
@@ -244,6 +245,7 @@ export function GuestApplicationForm() {
       const result = await response.json()
 
       if (response.ok) {
+        setReference(result.reference || "")
         setFormStatus("success")
       } else {
         setFormStatus("error")
@@ -263,10 +265,19 @@ export function GuestApplicationForm() {
         <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-primary/10">
           <Check className="h-8 w-8 text-primary" />
         </div>
-        <h3 className="mt-6 text-xl font-bold">وصلنا قصتك</h3>
+        <h3 className="mt-6 text-xl font-bold">وصلتنا قصتك</h3>
         <p className="mx-auto mt-3 max-w-sm text-sm leading-relaxed text-muted-foreground">
-          شكراً إنك شاركتنا. بنراجع كل كلمة بعناية ونتواصل معك قريب.
+          شكراً إنك شاركتنا. نقرأ كل كلمة بعناية. الصمت لا يعني الرفض — نحتفظ بالقصص القوية ونعود إليها.
         </p>
+        {reference && (
+          <div className="mx-auto mt-6 max-w-xs rounded-2xl border border-primary/15 bg-card px-5 py-4">
+            <p className="text-[11px] tracking-wide text-muted-foreground">رقمك المرجعي</p>
+            <p className="mt-1 text-lg font-bold tracking-widest text-primary" dir="ltr">{reference}</p>
+            <a href={`/guest/status?ref=${encodeURIComponent(reference)}`} className="mt-2 inline-block text-xs font-medium text-primary hover:underline">
+              تابِع حالة طلبك ←
+            </a>
+          </div>
+        )}
         <p className="mt-6 text-xs text-muted-foreground/40">
           الحوار يبدأ من هني.
         </p>

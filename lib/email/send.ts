@@ -8,6 +8,7 @@ import {
   sponsorApplicationConfirmHtml,
   prepSubmittedAdminHtml,
   partnerTaskReminderHtml,
+  guestPrepConfirmHtml,
   type PartnerReminderItem,
 } from './templates'
 
@@ -56,13 +57,26 @@ export async function sendGuestApplicationAdmin(
 
 export async function sendGuestApplicationConfirm(
   applicantEmail: string,
+  name: string,
+  reference?: string
+) {
+  return getResend().emails.send({
+    from: FROM_DISPLAY,
+    to: applicantEmail,
+    subject: 'وصلتنا قصتك — بودكاست خط',
+    html: guestApplicationConfirmHtml(name, reference),
+  })
+}
+
+export async function sendGuestPrepConfirm(
+  applicantEmail: string,
   name: string
 ) {
   return getResend().emails.send({
     from: FROM_DISPLAY,
     to: applicantEmail,
-    subject: 'وصلنا قصتك — بودكاست خط',
-    html: guestApplicationConfirmHtml(name),
+    subject: 'استلمنا إجاباتك — بودكاست خط',
+    html: guestPrepConfirmHtml(name),
   })
 }
 

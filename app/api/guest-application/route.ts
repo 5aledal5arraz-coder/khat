@@ -9,6 +9,7 @@ import { sendGuestApplicationAdmin, sendGuestApplicationConfirm } from "@/lib/em
 import { getSiteSettings } from "@/lib/site-settings"
 import { autoTriageGuestApplication } from "@/lib/guest-triage"
 import { logActivity } from "@/lib/crm"
+import { guestRef } from "@/lib/guest-ref"
 
 export async function POST(request: NextRequest) {
   try {
@@ -204,11 +205,13 @@ export async function POST(request: NextRequest) {
       status: "new",
     }).returning({ id: guestApplications.id })
 
+    const reference = guestRef(inserted.id)
+
     // Send branded notification emails (fire-and-forget)
     const emailParams = { name: sanitizedName, email: sanitizedEmail, phone: stripHtml(phone), country: stripHtml(country) }
     Promise.all([
       sendGuestApplicationAdmin(process.env.ADMIN_NOTIFY_EMAIL || "khatpodcast@hotmail.com", emailParams),
-      sendGuestApplicationConfirm(sanitizedEmail, sanitizedName),
+      sendGuestApplicationConfirm(sanitizedEmail, sanitizedName, reference),
     ]).catch(e => console.error("Guest notification email failed:", e))
 
     // Open the casting timeline + run the AI read in the background so the
@@ -221,7 +224,7 @@ export async function POST(request: NextRequest) {
     })
     void autoTriageGuestApplication(inserted.id)
 
-    return NextResponse.json({ success: true })
+    return NextResponse.json({ success: true, reference })
   } catch {
     return NextResponse.json(
       { error: "حدث خطأ. يرجى المحاولة مرة أخرى." },
