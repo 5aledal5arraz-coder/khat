@@ -165,13 +165,43 @@ function generatePartnershipPDF(
       opacity: 0.4;
     }
 
+    /* Khat brand mark — CSS replica of <KhatLogo> (indigo squircle, white خط,
+       orange diamond). Brand colors are fixed/theme-independent; a soft gold
+       halo keeps it at home on the dark luxury cover. */
     .cover-logo {
+      position: relative;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
       width: 90px;
       height: 90px;
-      border-radius: 22px;
+      border-radius: 25px;
       margin-bottom: 40px;
-      border: 1px solid var(--border-light);
-      box-shadow: 0 0 60px rgba(201, 168, 76, 0.12);
+      overflow: hidden;
+      background: linear-gradient(160deg, #45367f 0%, #3a2d70 55%, #2f2560 100%);
+      box-shadow: 0 0 60px rgba(201, 168, 76, 0.12), 0 6px 18px -5px rgba(58, 45, 112, 0.6);
+      -webkit-print-color-adjust: exact !important;
+      print-color-adjust: exact !important;
+    }
+    .cover-logo .wm {
+      color: #fff;
+      font-weight: 700;
+      font-size: 41px;
+      line-height: 1;
+      margin-top: 5px;
+    }
+    .cover-logo .dia {
+      position: absolute;
+      width: 14px;
+      height: 14px;
+      top: 18px;
+      inset-inline-start: 31px;
+      background: #ee6a2c;
+      border-radius: 3px;
+      transform: rotate(45deg);
+      box-shadow: 0 0 10px rgba(238, 106, 44, 0.5);
+      -webkit-print-color-adjust: exact !important;
+      print-color-adjust: exact !important;
     }
     .cover-brand {
       font-size: 52px;
@@ -611,7 +641,7 @@ function generatePartnershipPDF(
        PAGE 1: COVER
        ═══════════════════════════════════════ -->
   <div class="cover page">
-    <img src="/logo.png" class="cover-logo" alt="KHAT" onerror="this.style.display='none'" />
+    <div class="cover-logo"><span class="wm">خط</span><span class="dia"></span></div>
     <div class="cover-brand">بودكاست خط</div>
     <div class="cover-brand-en">KHAT PODCAST</div>
     <div class="cover-divider"></div>
