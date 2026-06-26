@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server"
-import { requireAdminAPI } from "@/lib/api-utils"
+import { requireAdminAPI, getAdminAuthUser } from "@/lib/api-utils"
 import { getGuestApplicationById, getGuestAnalysis, getGuestConcept, createGuestConcept, updateGuestConcept } from "@/lib/admin/queries"
 import { generateGuestConcept } from "@/lib/ai/guest-application"
+import { logActivity } from "@/lib/crm"
 
 export const maxDuration = 60
 
@@ -70,6 +71,14 @@ export async function POST(
     host_preparation_notes: result.data.host_preparation_notes,
     raw_response: result.raw,
     error_message: null,
+  })
+
+  const user = await getAdminAuthUser()
+  await logActivity("guest", id, {
+    type: "concept_generated",
+    summary: `أُنشئ تصور الحلقة: ${result.data.proposed_episode_title}`,
+    actor: user ? `admin:${user.email}` : "admin",
+    metadata: { concept_id: conceptId },
   })
 
   const concept = await getGuestConcept(id)

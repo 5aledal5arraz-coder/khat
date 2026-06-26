@@ -2,6 +2,7 @@ import { NextRequest } from 'next/server'
 import { requireRole, errorResponse, successResponse } from '@/lib/api-utils'
 import { getGuestApplicationById } from '@/lib/admin/queries'
 import { sendDirectEmail } from '@/lib/email/send'
+import { logActivity } from '@/lib/crm'
 
 export async function POST(
   request: NextRequest,
@@ -29,6 +30,12 @@ export async function POST(
       body.trim(),
       'إدارة خط'
     )
+    await logActivity('guest', id, {
+      type: 'email_sent',
+      summary: `أُرسل بريد: ${subject.trim()}`,
+      actor: `admin:${auth.user.email}`,
+      metadata: { to: application.email },
+    })
     return successResponse({ success: true })
   } catch (error: unknown) {
     console.error('Failed to send guest application email:', error)

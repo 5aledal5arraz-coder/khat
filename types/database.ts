@@ -610,6 +610,18 @@ export type GuestApplicationStatus =
   | "rejected"
   | "consider_later"
 
+/** The full 360° casting record — everything the CRM knows about an applicant. */
+export interface GuestRecord {
+  application: GuestApplication
+  analysis: GuestApplicationAnalysis | null
+  concept: GuestApplicationConcept | null
+  responses: GuestApplicationResponse | null
+  prepForm: GuestPrepForm | null
+  activities: CrmActivity[]
+  notes: CrmNote[]
+  tasks: CrmTask[]
+}
+
 export interface GuestApplication {
   id: string
   // Step 1 — Basic Info
