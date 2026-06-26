@@ -4,7 +4,6 @@ import {
   Check,
   X,
   RefreshCw,
-  Sparkles,
   MapPin,
   Clock,
   Loader2,
@@ -12,12 +11,15 @@ import {
   Lightbulb,
   AlertTriangle,
   TrendingUp,
+  Target,
+  Globe2,
 } from "lucide-react"
 import type {
   KhatMapEpisodeCandidate,
   KhatMapGuestCandidate,
 } from "@/types/khat-map"
 import type { CardExplainability } from "@/lib/khat-map/v2/types"
+import { categoryById } from "@/lib/khat-map/v2/categories"
 
 export interface PendingCard {
   topic: KhatMapEpisodeCandidate
@@ -64,7 +66,9 @@ export function WizardCard({
       {/* Meta row */}
       <div className="flex flex-wrap items-center gap-1.5 border-b border-border/30 px-5 py-2.5 text-[10px]">
         <span className="rounded-md border border-primary/30 bg-primary/5 px-1.5 py-0.5 font-semibold text-primary">
-          {domainLabel(topic.topic_domain)}
+          {topic.topic_category
+            ? categoryLabel(topic.topic_category)
+            : domainLabel(topic.topic_domain)}
         </span>
         <span className="rounded-md border border-border/40 bg-muted/30 px-1.5 py-0.5 text-muted-foreground">
           {episodeTypeLabel(topic.episode_type)}
@@ -77,10 +81,14 @@ export function WizardCard({
             {topic.topic_angle_code}
           </span>
         )}
-        {card.editorial_score !== null && card.editorial_score !== undefined && (
-          <span className="ml-auto inline-flex items-center gap-1 rounded-md border border-amber-500/30 bg-amber-500/5 px-1.5 py-0.5 text-amber-700">
-            <Sparkles className="h-3 w-3" />
-            {card.editorial_score.toFixed(1)}
+        {/* Regional Audience Fit — admin-internal ranking signal. */}
+        {topic.composite_score !== null && topic.composite_score !== undefined && (
+          <span
+            className="ml-auto inline-flex items-center gap-1 rounded-md border border-indigo-500/30 bg-indigo-500/5 px-1.5 py-0.5 font-semibold text-indigo-700"
+            title="ملاءمة جمهور الخليج (داخلي)"
+          >
+            <Target className="h-3 w-3" />
+            {topic.composite_score.toFixed(1)}
           </span>
         )}
       </div>
@@ -107,6 +115,21 @@ export function WizardCard({
             </div>
             <p className="mt-0.5 text-[12px] leading-relaxed text-foreground/85">
               {whyNow}
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* Regional fit note — admin-internal "why it lands in the GCC". */}
+      {topic.regional_note && (
+        <div className="mx-5 mt-3 flex items-start gap-2 rounded-xl border border-indigo-500/20 bg-indigo-500/5 p-3">
+          <Globe2 className="mt-0.5 h-3.5 w-3.5 flex-shrink-0 text-indigo-700" />
+          <div>
+            <div className="text-[9.5px] font-semibold uppercase tracking-[0.15em] text-indigo-700/80">
+              ملاءمة جمهور الخليج
+            </div>
+            <p className="mt-0.5 text-[12px] leading-relaxed text-foreground/85">
+              {topic.regional_note}
             </p>
           </div>
         </div>
@@ -282,6 +305,10 @@ export function WizardCard({
 }
 
 // ─── Label helpers ───────────────────────────────────────────────────────────
+
+function categoryLabel(id: string): string {
+  return categoryById(id)?.label_ar ?? id
+}
 
 function domainLabel(d: string): string {
   const map: Record<string, string> = {

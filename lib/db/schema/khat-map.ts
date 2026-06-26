@@ -176,6 +176,13 @@ export const khatMapEpisodeCandidates = pgTable("khat_map_episode_candidates", {
     .notNull()
     .default("none"),
   /**
+   * Balanced-generator category (the 15-category taxonomy in
+   * lib/khat-map/v2/categories.ts). This is the real balance axis for the
+   * redesigned topic generator; `topic_domain` above is now a compat shadow.
+   * Nullable: legacy rows and the guest-anchored path leave it null.
+   */
+  topic_category: text("topic_category"),
+  /**
    * Stable angle code referencing an active row in khat_map_topic_bank
    * (e.g. "philosophy.friendship_in_algorithms" or "invasion.prisoners").
    * Strict mode requires this to match a fresh bank entry; freshness is
@@ -199,6 +206,12 @@ export const khatMapEpisodeCandidates = pgTable("khat_map_episode_candidates", {
   effort_level: text("effort_level").$type<KhatMapEffortLevel>(),
   sponsor_appeal: text("sponsor_appeal").$type<KhatMapSponsorAppeal>(),
 
+  /**
+   * Audience-first: one-line note on why the topic resonates in
+   * KSA/Kuwait/Iraq/GCC. ADMIN-INTERNAL — shown on the wizard card, never
+   * surfaced on public/published content. Nullable; legacy rows leave it null.
+   */
+  regional_note: text("regional_note"),
   /**
    * Production-readiness fix sprint — persist the batch engine's
    * `final_score` (editorial × taste × domain_balance × similarity).

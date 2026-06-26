@@ -46,6 +46,9 @@ import {
   computeTasteAlignment,
   withinBatchDomainPenalty,
 } from "./scoring"
+import { computeRegionalAudienceFit } from "./regional-fit"
+import { seasonCategoryCap, overRepresentedCategories } from "./diversity"
+import { selectByPotential } from "./select-by-potential"
 import { openaiEngineAI } from "./openai-engine-ai"
 import { persistBatchCards } from "./persistence"
 import {
@@ -195,13 +198,6 @@ export async function generateBatch(
     extraSystemBlocks.push(buildRoleHintBlock(input.required_roles))
   }
 
-  // ─── 2. Oversample via LLM ────────────────────────────────────────────────
-  // Completion-mode generates exactly `size` cards (one per required
-  // role) — do NOT oversample, the roles are slot-positional.
-  const targetCount =
-    input.required_roles && input.required_roles.length > 0
-      ? Math.max(input.required_roles.length, size)
-      : size * oversample
   // Pull editorial controls from the season — these flow into the prompt
   // AND into the post-LLM filter layer below.
   const controls = season.editorial_controls ?? KHAT_EDITORIAL_CONTROLS_DEFAULTS
@@ -214,6 +210,33 @@ export async function generateBatch(
   // guests if needed.
   const phase: "topics" | "guests" =
     season.wizard_stage === "topics" ? "topics" : "guests"
+
+  // ─── 1c. Audience-first generation (the redesign) ─────────────────────────
+  // Runs for ordinary Phase A topic batches. Skips strict angle-bank mode and
+  // required-role completion — those are slot-positional flows with their own
+  // contracts. The board ranks by Regional Audience Fit; category counts are
+  // only a diversity signal (soft prompt hint + the post-rank season cap).
+  const useAudienceFirst =
+    phase === "topics" &&
+    !strict &&
+    !(input.required_roles && input.required_roles.length > 0)
+
+  const seasonCap = seasonCategoryCap(seasonTarget)
+  let acceptedByCategory: Record<string, number> = {}
+  if (useAudienceFirst) {
+    acceptedByCategory = await loadAcceptedCategoryCounts(input.season_id)
+  }
+
+  // ─── 2. Oversample via LLM ────────────────────────────────────────────────
+  // Audience-first asks for a diverse pool of high-potential ideas to rank +
+  // diversity-filter (capped so one LLM call stays fast). Completion-mode
+  // generates exactly `size` cards (slot-positional). Otherwise size × oversample.
+  const AUDIENCE_POOL_CAP = 10
+  const targetCount = useAudienceFirst
+    ? Math.min(AUDIENCE_POOL_CAP, Math.max(8, size + 4))
+    : input.required_roles && input.required_roles.length > 0
+      ? Math.max(input.required_roles.length, size)
+      : size * oversample
 
   const genInput: CandidateGenInput = {
     season_id: input.season_id,
@@ -228,6 +251,11 @@ export async function generateBatch(
     editorial_controls: controls,
     phase,
     extra_system_blocks: extraSystemBlocks,
+    audience_first: useAudienceFirst,
+    accepted_category_counts: useAudienceFirst ? acceptedByCategory : undefined,
+    over_represented_categories: useAudienceFirst
+      ? overRepresentedCategories(acceptedByCategory, seasonCap)
+      : undefined,
   }
   const llmStart = Date.now()
   let raws = await ai.generateCandidates(genInput)
@@ -310,34 +338,43 @@ export async function generateBatch(
       continue
     }
     if (verdict === "soft_avoid") soft_avoided++
-    const domain_load = computeDomainLoad(
-      raw.topic.topic_domain,
-      acceptedDomainCounts,
-      seasonTarget,
-    )
     const taste_alignment = computeTasteAlignment(raw, tasteProfile)
-    const baseScore = computeFinalScore({
-      editorial_score: raw.editorial_score,
-      taste_alignment,
-      domain_load,
-      similarity_verdict: verdict,
-      similarity_max: max,
-    })
-    // Multiplier ladder, applied bottom-up:
-    //   1. Editorial-controls domain weight (admin's pre-generation knob)
-    //   2. Performance-band multiplier (closed-loop signal from published
-    //      episodes in this domain). Domains without enough data return
-    //      1.0 and don't move the score.
-    const editorialFactor = domainWeightMultiplier(
-      raw.topic.topic_domain,
-      controls,
-    )
-    const perfRow = domainPerformance.get(raw.topic.topic_domain)
-    const perfFactor = performanceFactor(
-      perfRow?.avg_performance ?? null,
-      perfRow?.episodes_count ?? 0,
-    )
-    const final_score = baseScore * editorialFactor * perfFactor
+
+    let final_score: number
+    let domain_load: number
+    if (useAudienceFirst) {
+      // Audience-first path: rank purely by Regional Audience Fit (episode
+      // potential for the GCC). No domain-load penalty and no taste/performance
+      // multiplier — category diversity is applied later as a constraint in
+      // selectByPotential, and taste only breaks near-ties there.
+      domain_load = 0
+      final_score = computeRegionalAudienceFit(raw.topic.audience_fit)
+    } else {
+      domain_load = computeDomainLoad(
+        raw.topic.topic_domain,
+        acceptedDomainCounts,
+        seasonTarget,
+      )
+      const baseScore = computeFinalScore({
+        editorial_score: raw.editorial_score,
+        taste_alignment,
+        domain_load,
+        similarity_verdict: verdict,
+        similarity_max: max,
+      })
+      // Multiplier ladder, applied bottom-up:
+      //   1. Editorial-controls domain weight (admin's pre-generation knob)
+      //   2. Performance-band multiplier (closed-loop signal from published
+      //      episodes in this domain). Domains without enough data return
+      //      1.0 and don't move the score.
+      const editorialFactor = domainWeightMultiplier(raw.topic.topic_domain, controls)
+      const perfRow = domainPerformance.get(raw.topic.topic_domain)
+      const perfFactor = performanceFactor(
+        perfRow?.avg_performance ?? null,
+        perfRow?.episodes_count ?? 0,
+      )
+      final_score = baseScore * editorialFactor * perfFactor
+    }
     scored.push({
       raw,
       embedding: emb,
@@ -350,23 +387,35 @@ export async function generateBatch(
     })
   }
 
-  // ─── 5. Rank with within-batch domain penalty ─────────────────────────────
-  const picks: ScoredCandidate[] = []
-  const remaining = [...scored].sort((a, b) => b.final_score - a.final_score)
-  while (picks.length < size && remaining.length > 0) {
-    let bestIdx = 0
-    let bestScore = -Infinity
-    for (let i = 0; i < remaining.length; i++) {
-      const c = remaining[i]
-      const adjusted =
-        c.final_score - withinBatchDomainPenalty(c, picks)
-      if (adjusted > bestScore) {
-        bestScore = adjusted
-        bestIdx = i
+  // ─── 5. Rank + pick ───────────────────────────────────────────────────────
+  let picks: ScoredCandidate[]
+  if (useAudienceFirst) {
+    // Potential-first: take the highest Regional Audience Fit, with a soft
+    // diversity penalty for near-ties and a hard per-category season cap so no
+    // category dominates. Episode potential leads; balance only constrains.
+    picks = selectByPotential(scored, {
+      size,
+      seasonCap,
+      acceptedByCategory,
+    }).picks
+  } else {
+    // Legacy path: greedy top-N with a soft within-batch domain penalty.
+    picks = []
+    const remaining = [...scored].sort((a, b) => b.final_score - a.final_score)
+    while (picks.length < size && remaining.length > 0) {
+      let bestIdx = 0
+      let bestScore = -Infinity
+      for (let i = 0; i < remaining.length; i++) {
+        const c = remaining[i]
+        const adjusted = c.final_score - withinBatchDomainPenalty(c, picks)
+        if (adjusted > bestScore) {
+          bestScore = adjusted
+          bestIdx = i
+        }
       }
+      picks.push(remaining[bestIdx])
+      remaining.splice(bestIdx, 1)
     }
-    picks.push(remaining[bestIdx])
-    remaining.splice(bestIdx, 1)
   }
 
   // ─── 6. Persist picks + build BatchResult ─────────────────────────────────
@@ -427,6 +476,41 @@ async function loadAcceptedDomainCounts(
   for (const r of domainRows) {
     const d = r.topic_domain as KhatMapTopicDomain
     out[d] = (out[d] ?? 0) + 1
+  }
+  return out
+}
+
+/**
+ * Per-category accepted counts (the redesigned balance axis). Reads the
+ * `topic_category` column on accepted candidates so the coverage planner knows
+ * which of the 15 categories are under-served across the whole season. Legacy
+ * accepted rows (null category) simply don't count toward any category — the
+ * planner treats them as headroom, which is the safe default.
+ */
+async function loadAcceptedCategoryCounts(
+  season_id: string,
+): Promise<Record<string, number>> {
+  const acceptedRows = await db!
+    .select({ topic_candidate_id: khatMapSeasonDecisions.topic_candidate_id })
+    .from(khatMapSeasonDecisions)
+    .where(
+      and(
+        eq(khatMapSeasonDecisions.season_id, season_id),
+        eq(khatMapSeasonDecisions.kind, "accept"),
+      ),
+    )
+  const ids = acceptedRows
+    .map((r) => r.topic_candidate_id)
+    .filter((x): x is string => x !== null)
+  const out: Record<string, number> = {}
+  if (ids.length === 0) return out
+  const rows = await db!
+    .select({ topic_category: khatMapEpisodeCandidates.topic_category })
+    .from(khatMapEpisodeCandidates)
+    .where(inArray(khatMapEpisodeCandidates.id, ids))
+  for (const r of rows) {
+    const c = r.topic_category
+    if (c) out[c] = (out[c] ?? 0) + 1
   }
   return out
 }

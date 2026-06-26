@@ -26,6 +26,12 @@ import {
   buildGuestAnchoredSystemPrompt,
   buildGuestAnchoredUserPrompt,
 } from "./prompts"
+import {
+  buildAudienceFirstSystemPrompt,
+  buildAudienceFirstUserPrompt,
+} from "./prompts-audience"
+import { clampCategory } from "./categories"
+import { clampAudienceFit } from "./regional-fit"
 import type {
   CandidateGenInput,
   EngineAI,
@@ -38,22 +44,32 @@ import type {
 async function generateCandidates(
   input: CandidateGenInput,
 ): Promise<RawCandidate[]> {
+  // Audience-first path: act as the GCC editorial board, ranking by Regional
+  // Audience Fit. Otherwise fall back to the legacy combined prompt (Phase B /
+  // guests) unchanged.
+  const audienceFirst = !!input.audience_first
   const r = await runAiTask<{ candidates?: unknown } | unknown[]>({
     taskKind: "structural",
     seasonId: input.season_id,
     subjectTable: "khat_map_seasons",
     subjectId: input.season_id,
-    promptVersion: "khat-map-batch-v2",
+    promptVersion: audienceFirst ? "khat-map-audience-first-v1" : "khat-map-batch-v2",
     input: {
       season_id: input.season_id,
       target_count: input.target_count,
       season_target: input.season_target,
       rejected_count: input.rejected_titles.length,
+      audience_first: audienceFirst,
     },
-    prompt: [
-      { role: "system", content: buildBatchSystemPrompt(input) },
-      { role: "user", content: buildBatchUserPrompt(input) },
-    ],
+    prompt: audienceFirst
+      ? [
+          { role: "system", content: buildAudienceFirstSystemPrompt(input) },
+          { role: "user", content: buildAudienceFirstUserPrompt(input) },
+        ]
+      : [
+          { role: "system", content: buildBatchSystemPrompt(input) },
+          { role: "user", content: buildBatchUserPrompt(input) },
+        ],
     expectJson: true,
     providerOptions: { temperature: 0.8 },
   })
@@ -64,9 +80,7 @@ async function generateCandidates(
   // prompt asks for an array, so we accept either the bare array (if the
   // model complies with the spirit) or a `{candidates: []}` wrapper (if
   // it wraps to satisfy the JSON-object requirement).
-  const list = Array.isArray(r.parsed)
-    ? r.parsed
-    : (r.parsed as { candidates?: unknown }).candidates
+  const list = coerceCandidateList(r.parsed)
   if (!Array.isArray(list)) {
     throw new Error("batch-candidates: expected an array at the top level")
   }
@@ -114,9 +128,7 @@ async function generateGuestAnchoredTopics(
   if (r.status !== "succeeded" || r.parsed == null) {
     throw new Error(r.errorMessage ?? "guest-anchored: generation failed")
   }
-  const list = Array.isArray(r.parsed)
-    ? r.parsed
-    : (r.parsed as { candidates?: unknown }).candidates
+  const list = coerceCandidateList(r.parsed)
   if (!Array.isArray(list)) {
     throw new Error("guest-anchored: expected an array at the top level")
   }
@@ -138,6 +150,23 @@ export const openaiEngineAI: EngineAI = {
 // fail the whole batch on one bad candidate, we coerce/clean at the boundary
 // and skip rows that can't be salvaged. Matches the policy already used by
 // the v1 structure.ts normalizer.
+
+/**
+ * The json_object contract forces an object at the top level, but our prompts
+ * ask for an array. Accept the bare array, a `{candidates: [...]}` wrapper, or —
+ * since the richer contract makes the model pick its own wrapper key
+ * ("topics"/"episodes"/"ideas"/…) — the first array-valued property found.
+ */
+function coerceCandidateList(parsed: unknown): unknown[] | null {
+  if (Array.isArray(parsed)) return parsed
+  if (!parsed || typeof parsed !== "object") return null
+  const o = parsed as Record<string, unknown>
+  if (Array.isArray(o.candidates)) return o.candidates
+  for (const v of Object.values(o)) {
+    if (Array.isArray(v)) return v
+  }
+  return null
+}
 
 function normalizeRawCandidate(v: unknown): RawCandidate | null {
   if (!v || typeof v !== "object") return null
@@ -196,6 +225,13 @@ function normalizeRawCandidate(v: unknown): RawCandidate | null {
         (asOptionalString(topic.sponsor_appeal) as
           | RawCandidate["topic"]["sponsor_appeal"]
           | null) ?? null,
+      // Audience-first fields. `category` is a diversity label; `audience_fit`
+      // holds the nine Regional Audience Fit factors used for ranking.
+      category: clampCategory(asOptionalString(topic.category)),
+      audience_fit: clampAudienceFit(topic.audience_fit),
+      regional_note: asOptionalString(topic.regional_note),
+      viral_angle: asOptionalString(topic.viral_angle),
+      debate_axis: asOptionalString(topic.debate_axis),
     },
     guest: safeGuest,
     editorial_score: clamp(asNumber(o.editorial_score, 5), 0, 10),

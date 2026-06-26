@@ -452,6 +452,11 @@ export interface KhatMapEpisodeCandidate {
   /** Subject-matter axis (orthogonal to `episode_type`). */
   topic_domain: KhatMapTopicDomain
   /**
+   * Audience-first generator category (15-category taxonomy) — the diversity
+   * label. Null on legacy rows + the guest-anchored path. ADMIN-INTERNAL.
+   */
+  topic_category: string | null
+  /**
    * Stable angle code referencing an active row in khat_map_topic_bank.
    * Strict mode requires this; freshness advances when approved + converted.
    */
@@ -479,6 +484,11 @@ export interface KhatMapEpisodeCandidate {
   composite_score: number | null
   /** Operator-readable rationale (e.g. "editorial 8.4 · taste 0.71 · domain 0.33"). */
   composite_score_rationale: string | null
+  /**
+   * Audience-first: one-line note on why this resonates in KSA/Kuwait/Iraq/GCC.
+   * ADMIN-INTERNAL — surfaced on the wizard card, never on public/published content.
+   */
+  regional_note: string | null
 
   // Conversion
   converted_preparation_id: string | null

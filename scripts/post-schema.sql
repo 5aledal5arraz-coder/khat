@@ -880,3 +880,12 @@ ALTER TABLE guest_identity_profiles ADD COLUMN IF NOT EXISTS public_knowledge js
 -- 'published'. Mirrors drizzle/migrations/0006_*. Idempotent.
 ALTER TABLE episode_enrichments ADD COLUMN IF NOT EXISTS publish_status text DEFAULT 'published';
 ALTER TABLE episode_enrichments ADD COLUMN IF NOT EXISTS scheduled_for timestamp with time zone;
+
+-- Season topic generator redesign — the 15-category balance axis. The precise
+-- category lives here; topic_domain stays as a legacy compat shadow. Nullable;
+-- legacy rows keep it null. Modeled in lib/db/schema/khat-map.ts. Idempotent.
+ALTER TABLE khat_map_episode_candidates ADD COLUMN IF NOT EXISTS topic_category text;
+
+-- Audience-first redesign — admin-internal "why it lands in the GCC" note shown
+-- on the wizard card (never on public content). Modeled in schema. Idempotent.
+ALTER TABLE khat_map_episode_candidates ADD COLUMN IF NOT EXISTS regional_note text;

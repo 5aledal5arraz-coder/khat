@@ -50,6 +50,7 @@ import {
 import { recomputeTasteProfile } from "@/lib/khat-map/learning/taste"
 import { buildCardExplainability } from "@/lib/khat-map/v2/explainability"
 import type { ScoredCandidate } from "@/lib/khat-map/v2/types"
+import { neutralAudienceFit } from "@/lib/khat-map/v2/regional-fit"
 import type {
   KhatMapDomainPerformance,
   KhatMapUserTasteProfile,
@@ -476,6 +477,11 @@ function mkScored(opts: {
         risk_level: null,
         effort_level: null,
         sponsor_appeal: null,
+        category: null,
+        audience_fit: neutralAudienceFit(),
+        regional_note: null,
+        viral_angle: null,
+        debate_axis: null,
       },
       guest: null,
       editorial_score: opts.editorial,

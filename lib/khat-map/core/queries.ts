@@ -146,6 +146,7 @@ function mapEpisodeCandidate(row: EpisodeCandidateRow): KhatMapEpisodeCandidate 
     description: row.description,
     episode_type: row.episode_type,
     topic_domain: row.topic_domain ?? "none",
+    topic_category: row.topic_category ?? null,
     topic_angle_code: row.topic_angle_code ?? null,
     suggested_guest_candidate_id: row.suggested_guest_candidate_id,
     main_axes: row.main_axes ?? [],
@@ -159,6 +160,7 @@ function mapEpisodeCandidate(row: EpisodeCandidateRow): KhatMapEpisodeCandidate 
         ? null
         : Number(row.composite_score),
     composite_score_rationale: row.composite_score_rationale ?? null,
+    regional_note: row.regional_note ?? null,
     converted_preparation_id: row.converted_preparation_id,
     converted_episode_id: row.converted_episode_id,
     converted_at: toIso(row.converted_at),
@@ -388,6 +390,7 @@ export async function createEpisodeCandidate(input: {
   working_title: string
   episode_type: KhatMapEpisodeType
   topic_domain?: KhatMapTopicDomain
+  topic_category?: string | null
   topic_angle_code?: string | null
   slot_index?: number | null
   hook?: string | null
@@ -404,6 +407,7 @@ export async function createEpisodeCandidate(input: {
   effort_level?: KhatMapEpisodeCandidate["effort_level"]
   composite_score?: number | null
   composite_score_rationale?: string | null
+  regional_note?: string | null
 }): Promise<KhatMapEpisodeCandidate> {
   const [row] = await db!
     .insert(khatMapEpisodeCandidates)
@@ -412,6 +416,7 @@ export async function createEpisodeCandidate(input: {
       working_title: input.working_title,
       episode_type: input.episode_type,
       topic_domain: input.topic_domain ?? "none",
+      topic_category: input.topic_category ?? null,
       topic_angle_code: input.topic_angle_code ?? null,
       slot_index: input.slot_index ?? null,
       hook: input.hook ?? null,
@@ -427,6 +432,7 @@ export async function createEpisodeCandidate(input: {
       effort_level: input.effort_level ?? null,
       composite_score: input.composite_score ?? null,
       composite_score_rationale: input.composite_score_rationale ?? null,
+      regional_note: input.regional_note ?? null,
     })
     .returning()
   return mapEpisodeCandidate(row)

@@ -55,6 +55,17 @@ export interface RawTopic {
   risk_level: KhatMapRiskLevel | null
   effort_level: KhatMapEffortLevel | null
   sponsor_appeal: KhatMapSponsorAppeal | null
+  // ─── Audience-first redesign fields ───────────────────────────────────────
+  /** Diversity-constraint label (the 15-category taxonomy). Null on legacy path. */
+  category: import("./categories").SeasonCategoryId | null
+  /** The nine Regional Audience Fit factors — the primary ranking signal. */
+  audience_fit: import("./regional-fit").AudienceFit
+  /** One line: why this resonates specifically in KSA / Kuwait / Iraq / the GCC. */
+  regional_note: string | null
+  /** One line: why this would spread and pull wide interest. */
+  viral_angle: string | null
+  /** The core tension viewers would argue about — fuels conversation. */
+  debate_axis: string | null
 }
 
 export interface RawGuest {
@@ -276,6 +287,20 @@ export interface CandidateGenInput {
    * roles) that don't belong on every call.
    */
   extra_system_blocks?: string[]
+  /**
+   * When true, the AUDIENCE-FIRST generator runs: the prompt acts as a GCC
+   * editorial board and surfaces the strongest episode opportunities (ranked by
+   * Regional Audience Fit), with categories used only as a diversity signal.
+   * Absent/false → the legacy combined prompt runs (back-compat / Phase B).
+   */
+  audience_first?: boolean
+  /**
+   * Diversity context (audience-first only): how many accepted topics sit in
+   * each category so far, and which categories are already at their season cap.
+   * Fed to the prompt as a soft "favor fresh ground" hint — NOT a quota.
+   */
+  accepted_category_counts?: Record<string, number>
+  over_represented_categories?: string[]
 }
 
 export interface GuestAnalyzeInput {

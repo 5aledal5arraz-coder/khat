@@ -165,7 +165,7 @@ export function buildBatchSystemPrompt(
  * The renderer is shared between the batch prompt and the guest-anchored
  * prompt to keep behavior identical.
  */
-function renderEditorialControlBlocks(
+export function renderEditorialControlBlocks(
   controls: import("@/types/khat-map").KhatMapEditorialControls,
 ): string[] {
   const blocks: string[] = []

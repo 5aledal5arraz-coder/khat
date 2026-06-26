@@ -27,6 +27,7 @@ import {
 } from "@/lib/khat-map/learning/fingerprints"
 import { buildTasteReasoning } from "./scoring"
 import { buildCardExplainability } from "./explainability"
+import { legacyDomainForCategory } from "./categories"
 import type {
   BatchCard,
   ScoredCandidate,
@@ -117,11 +118,20 @@ export async function persistBatchCards(
       `domain_load ${ratio(pick.domain_load)} · ` +
       `similarity ${ratio(pick.similarity_max)}`
 
+    // Balanced path: persist the precise 15-category value and derive the
+    // legacy `topic_domain` (compat shadow) from it so existing UI/queries
+    // keep working. Legacy path: category is null, domain stays as the model set it.
+    const category = pick.raw.topic.category
+    const topicDomain = category
+      ? legacyDomainForCategory(category)
+      : pick.raw.topic.topic_domain
+
     const topicRow = await createEpisodeCandidate({
       season_id,
       working_title: pick.raw.topic.working_title,
       episode_type: pick.raw.topic.episode_type,
-      topic_domain: pick.raw.topic.topic_domain,
+      topic_domain: topicDomain,
+      topic_category: category,
       topic_angle_code: pick.raw.topic.topic_angle_code,
       hook: pick.raw.topic.hook,
       why_matters: pick.raw.topic.why_matters,
@@ -138,6 +148,8 @@ export async function persistBatchCards(
       effort_level: pick.raw.topic.effort_level ?? null,
       composite_score: pick.final_score,
       composite_score_rationale: rationale,
+      // Audience-first: persist the regional rationale for the admin card.
+      regional_note: pick.raw.topic.regional_note,
     })
     const explainability = buildCardExplainability({
       scored: pick,
