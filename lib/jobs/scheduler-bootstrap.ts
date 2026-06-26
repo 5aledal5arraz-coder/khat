@@ -93,3 +93,40 @@ export async function ensureAiRunsSweeperSchedule(): Promise<{
   )
   return { status: "bootstrapped", jobId: job.id }
 }
+
+// ─── Partnership CRM — overdue/due-soon task reminder ────────────────
+
+/**
+ * Guarantee a pending `partner.task_reminder` tick exists. The handler
+ * self-re-enqueues daily (like market.scheduler); this only seeds the
+ * first tick at startup. Idempotent — no-op if one is already queued.
+ *
+ * Seeded with a short initial delay so a freshly-started worker doesn't
+ * email the moment it boots; steady-state cadence is
+ * KHAT_PARTNER_REMINDER_INTERVAL_MS (default 24h).
+ */
+export async function ensurePartnerTaskReminderSchedule(): Promise<{
+  status: "already_scheduled" | "bootstrapped"
+  jobId: string | null
+}> {
+  if (!db) return { status: "already_scheduled", jobId: null }
+  const existing = await db.execute(sql`
+    SELECT id FROM jobs
+    WHERE type = 'partner.task_reminder'
+      AND status IN ('pending', 'running')
+    LIMIT 1
+  `)
+  if (existing.rows.length > 0) {
+    return {
+      status: "already_scheduled",
+      jobId: String((existing.rows[0] as { id: string }).id),
+    }
+  }
+  const runAfter = new Date(Date.now() + 5 * 60 * 1000)
+  const job = await enqueueJob(
+    "partner.task_reminder",
+    {},
+    { priority: 2, maxAttempts: 1, runAfter },
+  )
+  return { status: "bootstrapped", jobId: job.id }
+}

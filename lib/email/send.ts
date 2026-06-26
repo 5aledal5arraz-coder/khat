@@ -7,6 +7,8 @@ import {
   sponsorApplicationAdminHtml,
   sponsorApplicationConfirmHtml,
   prepSubmittedAdminHtml,
+  partnerTaskReminderHtml,
+  type PartnerReminderItem,
 } from './templates'
 
 export async function sendNewsletterWelcome(email: string, unsubscribeUrl: string) {
@@ -73,6 +75,20 @@ export async function sendSponsorApplicationAdmin(
     to: adminEmail,
     subject: `طلب شراكة جديد — ${params.company}`,
     html: sponsorApplicationAdminHtml(params),
+  })
+}
+
+export async function sendPartnerTaskReminder(
+  recipientEmail: string,
+  items: PartnerReminderItem[]
+) {
+  const overdue = items.filter((i) => i.overdue).length
+  return getResend().emails.send({
+    from: FROM_DISPLAY,
+    to: recipientEmail,
+    replyTo: REPLY_TO,
+    subject: `تذكير: ${items.length} مهمة شراكة بحاجة لمتابعة${overdue ? ` (${overdue} متأخرة)` : ''}`,
+    html: partnerTaskReminderHtml({ items }),
   })
 }
 

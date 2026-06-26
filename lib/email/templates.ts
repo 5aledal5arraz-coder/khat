@@ -321,6 +321,41 @@ export function sponsorApplicationAdminHtml(params: {
   return legacyEmailLayout(content)
 }
 
+export interface PartnerReminderItem {
+  company: string
+  title: string
+  dueLabel: string
+  overdue: boolean
+  priority: string
+  leadId: string
+}
+
+export function partnerTaskReminderHtml(params: { items: PartnerReminderItem[] }): string {
+  const overdueCount = params.items.filter((i) => i.overdue).length
+  const cards = params.items
+    .map((it) => {
+      const accent = it.overdue ? BRAND.orange : BRAND.indigo
+      const dueColor = it.overdue ? BRAND.orange : BRAND.muted
+      const flag = it.priority === "high" ? ' <span style="color:' + BRAND.orange + ';">● عالية</span>' : ""
+      return `
+      <div style="border:1px solid #ece9f5;border-inline-start:4px solid ${accent};border-radius:10px;padding:12px 14px;margin:0 0 10px;">
+        <div style="color:${BRAND.ink};font-size:15px;font-weight:700;">${escapeHtml(it.title)}${flag}</div>
+        <div style="color:${BRAND.muted};font-size:13px;margin:3px 0 8px;">${escapeHtml(it.company)} · <span style="color:${dueColor};font-weight:600;">${escapeHtml(it.dueLabel)}</span></div>
+        <a href="${APP_URL}/admin/partnerships/${encodeURIComponent(it.leadId)}" style="color:${BRAND.indigo};font-size:13px;font-weight:600;text-decoration:none;">فتح ملف الشراكة ←</a>
+      </div>`
+    })
+    .join("")
+  const content = `
+    <h2 style="margin:0 0 8px;color:${BRAND.ink};font-size:20px;">مهام شراكة بحاجة لمتابعة</h2>
+    <p style="margin:0 0 18px;color:${BRAND.body};font-size:14px;">
+      لديك ${params.items.length} مهمة بانتظارك${overdueCount ? `، منها ${overdueCount} متأخرة` : ""}. تابعها قبل أن تبرد الفرصة.
+    </p>
+    ${cards}
+    ${ctaButton('فتح خط الشراكات', `${APP_URL}/admin/partnerships/pipeline`)}
+  `
+  return legacyEmailLayout(content)
+}
+
 export function prepSubmittedAdminHtml(params: {
   candidateName: string
   category: string | null

@@ -33,6 +33,7 @@ import {
   Coins,
   CheckCheck,
   CircleDot,
+  Download,
 } from "lucide-react"
 import type {
   PartnerRecord,
@@ -43,6 +44,7 @@ import type {
   PartnerActivity,
 } from "@/types/database"
 import type { NextBestAction } from "@/lib/partnership-crm/record"
+import { generateProposalPdf } from "@/lib/pdf/proposal-pdf"
 
 const STAGES: { id: SponsorshipStatus; label: string }[] = [
   { id: "new", label: "جديدة" },
@@ -292,7 +294,7 @@ export function PartnerRecordView({
 
           {tab === "overview" && <OverviewTab record={record} onEvaluate={runEvaluation} busy={busy} />}
           {tab === "director" && <DirectorTab record={record} onEvaluate={runEvaluation} busy={busy} />}
-          {tab === "proposal" && <ProposalTab record={record} run={run} busy={busy} call={call} />}
+          {tab === "proposal" && <ProposalTab record={record} run={run} busy={busy} call={call} reference={reference} />}
           {tab === "contract" && <ContractTab record={record} run={run} busy={busy} call={call} />}
           {tab === "campaign" && <CampaignTab record={record} run={run} busy={busy} call={call} />}
           {tab === "email" && <EmailTab record={record} />}
@@ -543,24 +545,40 @@ function ProposalTab({
   run,
   busy,
   call,
+  reference,
 }: {
   record: PartnerRecord
   run: (k: string, fn: () => Promise<void>) => Promise<void>
   busy: string | null
   call: (p: string, m: string, b?: unknown) => Promise<Response>
+  reference: string
 }) {
   const { lead, proposal, offer } = record
   const generate = (tone: "formal" | "warm") =>
     run(`proposal:${tone}`, async () => {
       await call(`/api/admin/submissions/sponsors/${lead.id}/proposal`, "POST", { tone })
     })
+  const canPdf = Boolean(offer?.body || offer?.packages?.length || proposal?.full_draft)
+  const downloadPdf = () => {
+    const ok = generateProposalPdf({ lead, proposal, offer, reference })
+    if (!ok) alert("الرجاء السماح بالنوافذ المنبثقة لتنزيل الـ PDF.")
+  }
   return (
     <div className="space-y-4">
       <SectionCard
         title="مقترح الشراكة"
         icon={ScrollText}
         action={
-          <div className="flex gap-1.5">
+          <div className="flex flex-wrap gap-1.5">
+            <button
+              onClick={downloadPdf}
+              disabled={!canPdf}
+              title={canPdf ? "تنزيل المقترح كملف PDF بهوية خط" : "ولّد المقترح أولًا"}
+              className="inline-flex items-center gap-1 rounded-lg border border-slate-200 px-2.5 py-1 text-[11.5px] font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+            >
+              <Download className="h-3 w-3" />
+              تنزيل PDF
+            </button>
             <button
               onClick={() => generate("formal")}
               disabled={busy !== null}

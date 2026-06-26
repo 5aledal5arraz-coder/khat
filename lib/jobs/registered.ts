@@ -16,3 +16,5 @@ import "./handlers/original-thinking"
 import "./handlers/ai-runs-sweeper"
 // Newsletter campaign delivery (resumable, fault-tolerant).
 import "./handlers/newsletter-send"
+// Partnership CRM — daily overdue/due-soon task reminder digest.
+import "./handlers/partner-task-reminder"

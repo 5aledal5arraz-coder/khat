@@ -26,6 +26,7 @@ import { getHandler, listRegisteredTypes } from "./registry"
 import {
   ensureMarketScheduler,
   ensureAiRunsSweeperSchedule,
+  ensurePartnerTaskReminderSchedule,
 } from "./scheduler-bootstrap"
 import { HandlerTimeoutError } from "./types"
 import "./registered"
@@ -100,6 +101,8 @@ const HANDLER_TIMEOUT_MS: Record<string, number> = {
   // newsletter.send_campaign: batched Resend sends; resumable across retries,
   // so a single run only needs to cover one pass over the queued recipients.
   "newsletter.send_campaign": 10 * 60_000,
+  // partner.task_reminder: one SELECT + a handful of digest emails; lightweight.
+  "partner.task_reminder": 60_000,
 }
 
 function timeoutFor(jobType: string): number {
@@ -469,6 +472,31 @@ ensureAiRunsSweeperSchedule()
       `[${WORKER_ID}] ai-runs-sweeper bootstrap failed:`,
       err,
     ),
+  )
+
+// Bootstrap the partnership task-reminder schedule so overdue/due-soon
+// follow-ups get emailed daily. Handler self-re-enqueues; idempotent.
+ensurePartnerTaskReminderSchedule()
+  .then((r) => {
+    console.log(
+      `[${WORKER_ID}] partner task-reminder schedule ${r.status}${r.jobId ? ` (job=${r.jobId.slice(0, 8)})` : ""}`,
+    )
+    if (r.status === "bootstrapped") {
+      const intervalMs = Number(
+        process.env.KHAT_PARTNER_REMINDER_INTERVAL_MS ?? 24 * 60 * 60 * 1000,
+      )
+      const cadence = `${Math.round(intervalMs / 3_600_000)}h`
+      void emitSystemEvent(
+        buildScheduleCreatedEvent({
+          schedule_type: "partner.task_reminder",
+          cadence,
+          actor: WORKER_ID,
+        }),
+      )
+    }
+  })
+  .catch((err) =>
+    console.error(`[${WORKER_ID}] partner task-reminder bootstrap failed:`, err),
   )
 
 loop().catch((err) => {
