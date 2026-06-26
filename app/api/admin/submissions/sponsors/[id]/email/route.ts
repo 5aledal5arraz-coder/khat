@@ -2,6 +2,7 @@ import { NextRequest } from 'next/server'
 import { requireRole, errorResponse, successResponse } from '@/lib/api-utils'
 import { getSponsorshipLeadById } from '@/lib/admin/queries'
 import { sendDirectEmail } from '@/lib/email/send'
+import { logEmail } from '@/lib/partnership-crm'
 
 export async function POST(
   request: NextRequest,
@@ -29,9 +30,26 @@ export async function POST(
       body.trim(),
       'إدارة خط'
     )
+    // Log to the partner's email history + timeline.
+    await logEmail(id, {
+      direction: 'outbound',
+      to_email: lead.email,
+      subject: subject.trim(),
+      body: body.trim(),
+      status: 'sent',
+      created_by: `admin:${auth.user.email}`,
+    })
     return successResponse({ success: true })
   } catch (error: unknown) {
     console.error('Failed to send sponsor email:', error)
+    await logEmail(id, {
+      direction: 'outbound',
+      to_email: lead.email,
+      subject: subject.trim(),
+      body: body.trim(),
+      status: 'failed',
+      created_by: `admin:${auth.user.email}`,
+    })
     return errorResponse('فشل إرسال البريد', 500)
   }
 }

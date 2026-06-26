@@ -155,10 +155,22 @@ export async function regenerateOfferToken(id: string): Promise<string | null> {
 
 export async function recordOfferView(token: string): Promise<void> {
   if (!db) return
-  await db
+  const [row] = await db
     .update(partnershipOffers)
     .set({ view_count: sql`${partnershipOffers.view_count} + 1`, last_viewed_at: new Date() })
     .where(eq(partnershipOffers.token, token))
+    .returning({ lead_id: partnershipOffers.lead_id, view_count: partnershipOffers.view_count })
+  // A partner opening their offer is a strong buying signal — surface it on the
+  // timeline. Import the module directly to avoid a CRM↔offers import cycle.
+  if (row) {
+    const { logActivity } = await import("@/lib/partnership-crm/activities")
+    await logActivity(row.lead_id, {
+      type: "offer_viewed",
+      summary: `فتح الشريك العرض (مشاهدة #${row.view_count})`,
+      actor: "public",
+      metadata: { token, view_count: row.view_count },
+    })
+  }
 }
 
 /** Company name for an offer (for the public page heading). */

@@ -15,6 +15,8 @@ import type {
   SponsorshipAnalysis,
   PartnershipFitVerdict,
   PartnershipNextAction,
+  PartnershipObjection,
+  PartnerCampaign,
   ResearchSource,
 } from "@/types/database"
 
@@ -85,6 +87,12 @@ export interface EvaluationResult {
   pricing_strategy: string
   recommended_action: PartnershipNextAction
   action_rationale: string
+  // ─── Partnership Director (deal-closing intelligence) ──────────────────────
+  win_probability: number | null
+  strategy_summary: string
+  talking_points: string[]
+  likely_objections: PartnershipObjection[]
+  negotiation_tactics: string[]
 }
 
 const NEXT_ACTIONS: PartnershipNextAction[] = ["advance", "request_info", "nurture", "decline"]
@@ -92,6 +100,20 @@ const NEXT_ACTIONS: PartnershipNextAction[] = ["advance", "request_info", "nurtu
 const str = (v: unknown): string => (typeof v === "string" ? v : "")
 const strArr = (v: unknown): string[] =>
   Array.isArray(v) ? v.filter((x): x is string => typeof x === "string") : []
+const objectionArr = (v: unknown): PartnershipObjection[] =>
+  Array.isArray(v)
+    ? v
+        .map((x) => {
+          if (x && typeof x === "object") {
+            const o = x as Record<string, unknown>
+            const objection = str(o.objection)
+            const response = str(o.response)
+            if (objection) return { objection, response }
+          }
+          return null
+        })
+        .filter((x): x is PartnershipObjection => x !== null)
+    : []
 
 export async function analyzeSponsorshipLead(
   lead: SponsorshipLead,
@@ -168,6 +190,14 @@ export async function analyzeSponsorshipLead(
           ? (parsed.recommended_action as PartnershipNextAction)
           : "request_info",
         action_rationale: str(parsed.action_rationale),
+        win_probability:
+          typeof parsed.win_probability === "number"
+            ? Math.max(0, Math.min(100, Math.round(parsed.win_probability)))
+            : null,
+        strategy_summary: str(parsed.strategy_summary),
+        talking_points: strArr(parsed.talking_points),
+        likely_objections: objectionArr(parsed.likely_objections),
+        negotiation_tactics: strArr(parsed.negotiation_tactics),
       },
       raw: {
         model: result.modelName,
@@ -196,6 +226,56 @@ interface ProposalResult {
   full_draft: string
   /** A short, ready-to-send reply email introducing the proposal. */
   reply_email: string
+}
+
+// ---------------------------------------------------------------------------
+// Post-campaign performance report — the Director reads the metrics and writes
+// a partner-facing performance + ROI summary in Arabic.
+// ---------------------------------------------------------------------------
+
+export async function generateCampaignReport(
+  lead: SponsorshipLead,
+  campaign: Pick<PartnerCampaign, "title" | "status" | "metrics" | "deliverables" | "episode_refs" | "roi_notes">,
+  opts?: ActorOpts,
+): Promise<{ success: true; report: string; runId?: string } | { success: false; error: string; runId?: string }> {
+  try {
+    const metricsLines = Object.entries(campaign.metrics || {})
+      .map(([k, v]) => `- ${k}: ${v}`)
+      .join("\n")
+    const deliverables = (campaign.deliverables || []).map((d) => `- ${d.label} (${d.done ? "مُنجز" : "قيد التنفيذ"})`).join("\n")
+    const system = `أنت مدير شراكات في بودكاست "خط". اكتب تقرير أداء حملة شراكة موجزًا واحترافيًا بالعربية الفصحى موجّهًا للشريك. اعتمد فقط على الأرقام المعطاة ولا تختلق بيانات. غطِّ: أبرز النتائج، ما تحقق مقابل الأهداف، قراءة العائد على الاستثمار إن أمكن استنتاجها من الأرقام، وتوصية واضحة للخطوة التالية (تجديد/توسعة/تحسين). اكتب نصًا متصلًا قابلًا للإرسال، 4-7 جمل. أعد النص فقط دون JSON.`
+    const user = `الشريك: ${lead.company_name} (${lead.industry})
+الحملة: ${campaign.title} — الحالة: ${campaign.status}
+أهداف الشريك الأصلية: ${lead.main_goal}${lead.campaign_goals ? ` / ${lead.campaign_goals}` : ""}
+الحلقات المرتبطة: ${(campaign.episode_refs || []).join("، ") || "—"}
+المخرجات:
+${deliverables || "—"}
+المؤشرات:
+${metricsLines || "(لا تتوفر مؤشرات رقمية بعد — اكتب تقريرًا نوعيًا واطلب تزويدنا بالأرقام لإكمال قياس العائد)"}
+${campaign.roi_notes ? `ملاحظات العائد: ${campaign.roi_notes}` : ""}`
+
+    const result = await runAiTask<string>({
+      taskKind: "editorial",
+      eirId: null,
+      subjectTable: "sponsorship_leads",
+      subjectId: lead.id ?? null,
+      actorId: opts?.actorId ?? LEGACY_ACTOR,
+      promptVersion: "partnership-campaign-report-v1.0",
+      input: { leadId: lead.id ?? null, campaignTitle: campaign.title },
+      prompt: [
+        { role: "system", content: system },
+        { role: "user", content: user },
+      ],
+      expectJson: false,
+      providerOptions: { temperature: 0.4 },
+    })
+    if (result.status !== "succeeded" || !result.rawText) {
+      return { success: false, error: result.errorMessage || "تعذّر توليد التقرير", runId: result.runId }
+    }
+    return { success: true, report: result.rawText.trim(), runId: result.runId }
+  } catch (error) {
+    return { success: false, error: error instanceof Error ? error.message : "خطأ غير معروف" }
+  }
 }
 
 export async function generateSponsorshipProposal(

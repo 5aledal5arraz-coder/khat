@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
-import { requireAdminAPI } from "@/lib/api-utils"
+import { requireAdminAPI, getAdminAuthUser } from "@/lib/api-utils"
 import { stripHtml } from "@/lib/sanitize"
 import {
   getOfferById,
@@ -8,6 +8,7 @@ import {
   regenerateOfferToken,
   type OfferPatch,
 } from "@/lib/partnership-offers"
+import { logActivity } from "@/lib/partnership-crm"
 
 export async function GET(
   _request: NextRequest,
@@ -67,5 +68,17 @@ export async function PATCH(
   }
 
   const offer = Object.keys(patch).length > 0 ? await updateOffer(offerId, patch) : await getOfferById(offerId)
+
+  // Log the moment an offer goes live (draft → published).
+  if (patch.published === true && existing.published === false) {
+    const user = await getAdminAuthUser()
+    await logActivity(existing.lead_id, {
+      type: "offer_published",
+      summary: `نُشر العرض على رابط سرّي`,
+      actor: user ? `admin:${user.email}` : "admin",
+      metadata: { offer_id: offerId, token: offer?.token },
+    })
+  }
+
   return NextResponse.json({ offer })
 }

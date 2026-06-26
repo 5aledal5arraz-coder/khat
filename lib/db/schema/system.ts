@@ -32,6 +32,8 @@ export const sponsorshipLeads = pgTable("sponsorship_leads", {
   budget_range: text("budget_range").notNull(),
   additional_info: text("additional_info"),
   status: text("status").default("new"),
+  // CRM — the operator who owns this partner relationship ("admin:<email>").
+  owner: text("owner"),
   created_at: timestamp("created_at", { withTimezone: true }).defaultNow(),
 })
 

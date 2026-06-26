@@ -16,6 +16,8 @@ import {
   upsertSponsorshipAnalysis,
   updateSponsorshipStatus,
 } from "@/lib/admin/queries"
+import { logActivity, createTask, hasOpenTaskOfType } from "@/lib/partnership-crm"
+import type { PartnershipNextAction } from "@/types/database"
 
 /**
  * Run the evaluation for a lead and persist every field. Returns ok/error.
@@ -60,16 +62,73 @@ export async function runAndPersistEvaluation(
     pricing_strategy: result.data.pricing_strategy,
     recommended_action: result.data.recommended_action,
     action_rationale: result.data.action_rationale,
+    win_probability: result.data.win_probability,
+    strategy_summary: result.data.strategy_summary,
+    talking_points: result.data.talking_points,
+    likely_objections: result.data.likely_objections,
+    negotiation_tactics: result.data.negotiation_tactics,
     researched_at: new Date().toISOString(),
     raw_response: result.raw,
     error_message: null,
   })
+
+  // Timeline: the Director finished its read.
+  await logActivity(leadId, {
+    type: "evaluation_completed",
+    summary: `اكتمل تقييم المدير — توافق ${result.data.fit_score}/100، احتمال الفوز ${
+      result.data.win_probability ?? "—"
+    }%`,
+    actor: "ai:director",
+    metadata: {
+      fit_score: result.data.fit_score,
+      fit_verdict: result.data.fit_verdict,
+      win_probability: result.data.win_probability,
+      recommended_action: result.data.recommended_action,
+    },
+  })
+
+  // Turn the Director's recommendation into a concrete next action the operator
+  // can't miss. Idempotent: skip if an open task of that kind already exists.
+  await maybeCreateActionTask(leadId, result.data.recommended_action, result.data.action_rationale)
 
   // Auto-advance a brand-new lead into the review stage.
   if (lead.status === "new") {
     await updateSponsorshipStatus(leadId, "reviewing").catch(() => {})
   }
   return { ok: true }
+}
+
+const ACTION_TASK: Record<
+  PartnershipNextAction,
+  { title: string; type: string; dueDays: number; priority: "low" | "normal" | "high" }
+> = {
+  advance: { title: "جهّز عرض الشراكة وأرسله", type: "proposal", dueDays: 2, priority: "high" },
+  request_info: { title: "اطلب معلومات إضافية من الشريك", type: "email", dueDays: 2, priority: "normal" },
+  nurture: { title: "متابعة دافئة لاحقًا", type: "follow_up", dueDays: 30, priority: "low" },
+  decline: { title: "أرسل اعتذارًا لبقًا", type: "email", dueDays: 3, priority: "normal" },
+}
+
+async function maybeCreateActionTask(
+  leadId: string,
+  action: PartnershipNextAction,
+  rationale: string,
+): Promise<void> {
+  try {
+    const spec = ACTION_TASK[action]
+    if (!spec) return
+    if (await hasOpenTaskOfType(leadId, spec.type)) return
+    const due = new Date(Date.now() + spec.dueDays * 24 * 60 * 60 * 1000).toISOString()
+    await createTask(leadId, {
+      title: spec.title,
+      detail: rationale || undefined,
+      type: spec.type,
+      priority: spec.priority,
+      due_at: due,
+      created_by: "ai:director",
+    })
+  } catch (err) {
+    console.error("[partnership] auto action-task failed for", leadId, err)
+  }
 }
 
 /**

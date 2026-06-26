@@ -8,6 +8,8 @@ import {
   updateSponsorshipProposal,
 } from "@/lib/admin/queries"
 import { generateSponsorshipProposal } from "@/lib/ai/sponsorship"
+import { logActivity } from "@/lib/partnership-crm"
+import { getAdminAuthUser } from "@/lib/api-utils"
 
 export const maxDuration = 60
 
@@ -78,6 +80,14 @@ export async function POST(
     reply_email: result.data.reply_email,
     raw_response: result.raw,
     error_message: null,
+  })
+
+  const user = await getAdminAuthUser()
+  await logActivity(id, {
+    type: "proposal_generated",
+    summary: `أُنشئ مقترح شراكة (${tone === "warm" ? "ودّي" : "رسمي"})`,
+    actor: user ? `admin:${user.email}` : "admin",
+    metadata: { proposal_id: proposalId, tone },
   })
 
   const proposal = await getSponsorshipProposal(id)

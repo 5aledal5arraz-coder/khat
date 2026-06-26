@@ -8,6 +8,7 @@ import { validateMutation } from "@/lib/api-utils"
 import { sendSponsorApplicationAdmin, sendSponsorApplicationConfirm } from "@/lib/email/send"
 import { autoTriageLead } from "@/lib/partnership-triage"
 import { partnershipRef } from "@/lib/partnership-ref"
+import { logActivity } from "@/lib/partnership-crm"
 
 export async function POST(request: NextRequest) {
   try {
@@ -136,6 +137,14 @@ export async function POST(request: NextRequest) {
       sendSponsorApplicationAdmin(process.env.ADMIN_NOTIFY_EMAIL || "khatpodcast@hotmail.com", emailParams),
       sendSponsorApplicationConfirm(sanitizedEmail, sanitizedContact, reference),
     ]).catch(e => console.error("Sponsor notification email failed:", e))
+
+    // Open the relationship timeline with the inbound application.
+    void logActivity(inserted.id, {
+      type: "lead_created",
+      summary: `وصل طلب شراكة جديد من ${sanitizedCompany}`,
+      actor: "public",
+      metadata: { reference, budget_range: stripHtml(budget_range) },
+    })
 
     // Auto-triage: run the full AI evaluation in the background so the operator
     // opens a PRE-EVALUATED lead. Fire-and-forget — never blocks the applicant.

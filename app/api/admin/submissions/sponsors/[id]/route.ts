@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server"
-import { deleteSponsorshipLead, updateSponsorshipStatus } from "@/lib/admin/queries"
+import { deleteSponsorshipLead, getSponsorshipLeadById, updateSponsorshipStatus } from "@/lib/admin/queries"
 import type { SponsorshipStatus } from "@/types/database"
-import { requireAdminAPI } from "@/lib/api-utils"
+import { requireAdminAPI, getAdminAuthUser } from "@/lib/api-utils"
+import { logActivity } from "@/lib/partnership-crm"
 
 const VALID_STATUSES: SponsorshipStatus[] = [
   "new",
@@ -9,8 +10,21 @@ const VALID_STATUSES: SponsorshipStatus[] = [
   "proposal_sent",
   "negotiation",
   "confirmed",
+  "active",
+  "renewal",
   "declined",
 ]
+
+const STATUS_LABEL: Record<SponsorshipStatus, string> = {
+  new: "جديدة",
+  reviewing: "قيد المراجعة",
+  proposal_sent: "أُرسل العرض",
+  negotiation: "تفاوض",
+  confirmed: "مؤكّدة",
+  active: "حملة نشطة",
+  renewal: "تجديد",
+  declined: "مرفوضة",
+}
 
 export async function PATCH(
   request: NextRequest,
@@ -30,10 +44,22 @@ export async function PATCH(
       )
     }
 
+    const prev = await getSponsorshipLeadById(id)
     const result = await updateSponsorshipStatus(id, status)
 
     if (!result.success) {
       return NextResponse.json({ error: result.error }, { status: 400 })
+    }
+
+    if (!prev || prev.status !== status) {
+      const user = await getAdminAuthUser()
+      const fromLabel = prev ? STATUS_LABEL[prev.status] : "—"
+      await logActivity(id, {
+        type: "status_changed",
+        summary: `تغيّرت الحالة: ${fromLabel} ← ${STATUS_LABEL[status as SponsorshipStatus]}`,
+        actor: user ? `admin:${user.email}` : "admin",
+        metadata: { from: prev?.status ?? null, to: status },
+      })
     }
 
     return NextResponse.json({ success: true })

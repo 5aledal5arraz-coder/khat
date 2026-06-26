@@ -28,6 +28,17 @@ export const sponsorshipAnalysis = pgTable("sponsorship_analysis", {
   pricing_strategy: text("pricing_strategy"),
   recommended_action: text("recommended_action"),
   action_rationale: text("action_rationale"),
+  // ─── AI Partnership Director upgrade (deal-closing intelligence) ─────────────
+  /** Estimated probability (0-100) of winning this partnership. */
+  win_probability: integer("win_probability"),
+  /** The Director's overall strategy to win and structure the deal. */
+  strategy_summary: text("strategy_summary"),
+  /** Persuasive talking points for the operator to use in conversations. */
+  talking_points: jsonb("talking_points").$type<string[]>().default([]),
+  /** Likely objections the partner may raise, each with a suggested response. */
+  likely_objections: jsonb("likely_objections").$type<{ objection: string; response: string }[]>().default([]),
+  /** Concrete negotiation tactics tailored to this partner. */
+  negotiation_tactics: jsonb("negotiation_tactics").$type<string[]>().default([]),
   researched_at: timestamp("researched_at", { withTimezone: true }),
   raw_response: jsonb("raw_response").$type<Record<string, unknown>>(),
   error_message: text("error_message"),

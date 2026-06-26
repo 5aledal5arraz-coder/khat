@@ -103,6 +103,7 @@ const mockSponsorshipLeads: SponsorshipLead[] = [
     budget_range: "1000_3000",
     additional_info: "نود أن يكون الظهور مرتبطًا بحلقات التقنية وريادة الأعمال تحديدًا.",
     status: "new",
+    owner: null,
     created_at: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString(),
   },
   {
@@ -126,6 +127,7 @@ const mockSponsorshipLeads: SponsorshipLead[] = [
     budget_range: "500_1000",
     additional_info: null,
     status: "reviewing",
+    owner: null,
     created_at: new Date(Date.now() - 4 * 24 * 60 * 60 * 1000).toISOString(),
   },
 ]

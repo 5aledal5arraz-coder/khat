@@ -132,8 +132,10 @@ export type SponsorshipStatus =
   | "reviewing"
   | "proposal_sent"
   | "negotiation"
-  | "confirmed"
-  | "declined"
+  | "confirmed" // won — agreement reached
+  | "active" // campaign is running
+  | "renewal" // up for renewal / repeat partnership
+  | "declined" // lost / not proceeding
 
 export interface SponsorshipLead {
   id: string
@@ -163,6 +165,8 @@ export interface SponsorshipLead {
   additional_info: string | null
   // Meta
   status: SponsorshipStatus
+  /** CRM — operator who owns this relationship ("admin:<email>"). */
+  owner: string | null
   created_at: string
 }
 
@@ -187,6 +191,12 @@ export type PartnershipNextAction =
 export interface ResearchSource {
   title: string
   url: string
+}
+
+/** A likely partner objection paired with the Director's suggested response. */
+export interface PartnershipObjection {
+  objection: string
+  response: string
 }
 
 export interface SponsorshipAnalysis {
@@ -229,6 +239,17 @@ export interface SponsorshipAnalysis {
   recommended_action: PartnershipNextAction | null
   /** One line on why that's the right next move. */
   action_rationale: string | null
+  // ─── AI Partnership Director (deal-closing intelligence) ───────────────────
+  /** Estimated probability (0-100) of winning this partnership. */
+  win_probability: number | null
+  /** The Director's overall strategy to win and structure the deal. */
+  strategy_summary: string | null
+  /** Persuasive talking points for conversations/meetings. */
+  talking_points: string[]
+  /** Likely objections, each with a suggested response. */
+  likely_objections: PartnershipObjection[]
+  /** Concrete negotiation tactics tailored to this partner. */
+  negotiation_tactics: string[]
   /** When the online research last ran. */
   researched_at: string | null
   raw_response: Record<string, unknown> | null
@@ -297,6 +318,170 @@ export interface PublicPartnershipOffer {
   validity_note: string | null
   contact_email: string | null
   company_name: string
+}
+
+// --- Partnership CRM (relationship spine) ---
+
+export type PartnerActivityType =
+  | "lead_created"
+  | "status_changed"
+  | "evaluation_completed"
+  | "note_added"
+  | "task_created"
+  | "task_completed"
+  | "meeting_logged"
+  | "email_sent"
+  | "offer_published"
+  | "offer_viewed"
+  | "proposal_generated"
+  | "contract_updated"
+  | "campaign_updated"
+  | "owner_changed"
+  | "report_generated"
+
+export interface PartnerActivity {
+  id: string
+  lead_id: string
+  type: PartnerActivityType | string
+  summary: string
+  actor: string | null
+  metadata: Record<string, unknown>
+  created_at: string
+}
+
+export interface PartnerNote {
+  id: string
+  lead_id: string
+  body: string
+  author: string | null
+  pinned: boolean
+  created_at: string
+  updated_at: string
+}
+
+export type PartnerTaskType =
+  | "follow_up"
+  | "call"
+  | "email"
+  | "meeting"
+  | "proposal"
+  | "contract"
+  | "custom"
+export type PartnerTaskStatus = "open" | "done" | "dismissed"
+export type PartnerTaskPriority = "low" | "normal" | "high"
+
+export interface PartnerTask {
+  id: string
+  lead_id: string
+  title: string
+  detail: string | null
+  type: PartnerTaskType | string
+  status: PartnerTaskStatus
+  priority: PartnerTaskPriority
+  due_at: string | null
+  created_by: string | null
+  completed_at: string | null
+  created_at: string
+}
+
+export type PartnerMeetingType = "call" | "video" | "in_person"
+export type PartnerMeetingStatus = "scheduled" | "completed" | "cancelled"
+
+export interface PartnerMeeting {
+  id: string
+  lead_id: string
+  title: string
+  type: PartnerMeetingType | string
+  scheduled_at: string | null
+  duration_minutes: number | null
+  attendees: string | null
+  agenda: string | null
+  notes: string | null
+  outcome: string | null
+  status: PartnerMeetingStatus
+  created_by: string | null
+  created_at: string
+}
+
+export interface PartnerEmail {
+  id: string
+  lead_id: string
+  direction: "outbound" | "inbound"
+  to_email: string | null
+  from_email: string | null
+  subject: string | null
+  body: string | null
+  status: "sent" | "failed" | "logged"
+  provider_message_id: string | null
+  created_by: string | null
+  sent_at: string | null
+  created_at: string
+}
+
+export type PartnerContractStatus =
+  | "draft"
+  | "sent"
+  | "signed"
+  | "active"
+  | "completed"
+  | "expired"
+  | "cancelled"
+
+export interface PartnerContract {
+  id: string
+  lead_id: string
+  title: string | null
+  status: PartnerContractStatus
+  value: number | null
+  currency: string
+  start_date: string | null
+  end_date: string | null
+  terms: string | null
+  document_url: string | null
+  signed_at: string | null
+  notes: string | null
+  created_by: string | null
+  created_at: string
+  updated_at: string
+}
+
+export type PartnerCampaignStatus = "planned" | "live" | "completed" | "cancelled"
+
+export interface PartnerCampaignDeliverable {
+  label: string
+  done: boolean
+}
+
+export interface PartnerCampaign {
+  id: string
+  lead_id: string
+  title: string
+  status: PartnerCampaignStatus
+  episode_refs: string[]
+  deliverables: PartnerCampaignDeliverable[]
+  start_date: string | null
+  end_date: string | null
+  metrics: Record<string, number>
+  roi_notes: string | null
+  performance_summary: string | null
+  created_by: string | null
+  created_at: string
+  updated_at: string
+}
+
+/** The full 360° partner record — everything the CRM knows, in one shape. */
+export interface PartnerRecord {
+  lead: SponsorshipLead
+  analysis: SponsorshipAnalysis | null
+  proposal: SponsorshipProposal | null
+  offer: PartnershipOffer | null
+  activities: PartnerActivity[]
+  notes: PartnerNote[]
+  tasks: PartnerTask[]
+  meetings: PartnerMeeting[]
+  emails: PartnerEmail[]
+  contract: PartnerContract | null
+  campaigns: PartnerCampaign[]
 }
 
 // --- Guest Application AI ---

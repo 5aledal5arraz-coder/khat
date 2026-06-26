@@ -12,6 +12,8 @@ const STAGES: { id: SponsorshipStatus; label: string; accent: string }[] = [
   { id: "proposal_sent", label: "أُرسل العرض", accent: "text-amber-700 bg-amber-50 border-amber-200" },
   { id: "negotiation", label: "تفاوض", accent: "text-orange-700 bg-orange-50 border-orange-200" },
   { id: "confirmed", label: "مؤكّدة", accent: "text-emerald-700 bg-emerald-50 border-emerald-200" },
+  { id: "active", label: "حملة نشطة", accent: "text-green-700 bg-green-50 border-green-200" },
+  { id: "renewal", label: "تجديد", accent: "text-teal-700 bg-teal-50 border-teal-200" },
   { id: "declined", label: "مرفوضة", accent: "text-rose-700 bg-rose-50 border-rose-200" },
 ]
 
@@ -55,7 +57,7 @@ function ageLabel(iso: string): string {
 function LeadCard({ lead }: { lead: PipelineLead }) {
   return (
     <Link
-      href={`/admin/submissions?tab=sponsors&lead=${lead.id}`}
+      href={`/admin/partnerships/${lead.id}`}
       className="block rounded-xl border border-slate-200/80 bg-white p-3 shadow-[0_1px_2px_rgba(15,23,42,0.04)] transition-all hover:-translate-y-0.5 hover:border-slate-300 hover:shadow-[0_8px_20px_-12px_rgba(15,23,42,0.2)]"
     >
       <div className="flex items-start justify-between gap-2">

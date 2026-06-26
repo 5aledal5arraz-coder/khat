@@ -137,6 +137,18 @@ const SPONSOR_STATUS_CONFIG: Record<
     bg: "bg-emerald-500/10",
     ring: "ring-emerald-500/20",
   },
+  active: {
+    label: "حملة نشطة",
+    color: "text-green-700",
+    bg: "bg-green-500/10",
+    ring: "ring-green-500/20",
+  },
+  renewal: {
+    label: "تجديد",
+    color: "text-violet-700",
+    bg: "bg-violet-500/10",
+    ring: "ring-violet-500/20",
+  },
   declined: {
     label: "معتذر",
     color: "text-red-700",

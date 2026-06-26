@@ -937,3 +937,121 @@ CREATE TABLE IF NOT EXISTS partnership_offers (
   updated_at timestamptz DEFAULT now()
 );
 CREATE INDEX IF NOT EXISTS idx_partnership_offers_lead ON partnership_offers(lead_id);
+
+-- ─── Partnership CRM (relationship spine) ───────────────────────────────────
+-- Modeled in lib/db/schema/partnership-crm.ts + Director columns on the
+-- existing analysis table. Idempotent; safe to re-run.
+ALTER TABLE sponsorship_leads ADD COLUMN IF NOT EXISTS owner text;
+ALTER TABLE sponsorship_analysis ADD COLUMN IF NOT EXISTS win_probability integer;
+ALTER TABLE sponsorship_analysis ADD COLUMN IF NOT EXISTS strategy_summary text;
+ALTER TABLE sponsorship_analysis ADD COLUMN IF NOT EXISTS talking_points jsonb DEFAULT '[]'::jsonb;
+ALTER TABLE sponsorship_analysis ADD COLUMN IF NOT EXISTS likely_objections jsonb DEFAULT '[]'::jsonb;
+ALTER TABLE sponsorship_analysis ADD COLUMN IF NOT EXISTS negotiation_tactics jsonb DEFAULT '[]'::jsonb;
+
+CREATE TABLE IF NOT EXISTS partner_activities (
+  id text PRIMARY KEY,
+  lead_id text NOT NULL REFERENCES sponsorship_leads(id) ON DELETE CASCADE,
+  type text NOT NULL,
+  summary text NOT NULL,
+  actor text,
+  metadata jsonb DEFAULT '{}'::jsonb,
+  created_at timestamptz DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_partner_activities_lead ON partner_activities(lead_id, created_at);
+
+CREATE TABLE IF NOT EXISTS partner_notes (
+  id text PRIMARY KEY,
+  lead_id text NOT NULL REFERENCES sponsorship_leads(id) ON DELETE CASCADE,
+  body text NOT NULL,
+  author text,
+  pinned boolean NOT NULL DEFAULT false,
+  created_at timestamptz DEFAULT now(),
+  updated_at timestamptz DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_partner_notes_lead ON partner_notes(lead_id);
+
+CREATE TABLE IF NOT EXISTS partner_tasks (
+  id text PRIMARY KEY,
+  lead_id text NOT NULL REFERENCES sponsorship_leads(id) ON DELETE CASCADE,
+  title text NOT NULL,
+  detail text,
+  type text NOT NULL DEFAULT 'follow_up',
+  status text NOT NULL DEFAULT 'open',
+  priority text NOT NULL DEFAULT 'normal',
+  due_at timestamptz,
+  created_by text,
+  completed_at timestamptz,
+  created_at timestamptz DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_partner_tasks_lead ON partner_tasks(lead_id);
+CREATE INDEX IF NOT EXISTS idx_partner_tasks_due ON partner_tasks(status, due_at);
+
+CREATE TABLE IF NOT EXISTS partner_meetings (
+  id text PRIMARY KEY,
+  lead_id text NOT NULL REFERENCES sponsorship_leads(id) ON DELETE CASCADE,
+  title text NOT NULL,
+  type text NOT NULL DEFAULT 'call',
+  scheduled_at timestamptz,
+  duration_minutes integer,
+  attendees text,
+  agenda text,
+  notes text,
+  outcome text,
+  status text NOT NULL DEFAULT 'scheduled',
+  created_by text,
+  created_at timestamptz DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_partner_meetings_lead ON partner_meetings(lead_id);
+
+CREATE TABLE IF NOT EXISTS partner_emails (
+  id text PRIMARY KEY,
+  lead_id text NOT NULL REFERENCES sponsorship_leads(id) ON DELETE CASCADE,
+  direction text NOT NULL DEFAULT 'outbound',
+  to_email text,
+  from_email text,
+  subject text,
+  body text,
+  status text NOT NULL DEFAULT 'sent',
+  provider_message_id text,
+  created_by text,
+  sent_at timestamptz DEFAULT now(),
+  created_at timestamptz DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_partner_emails_lead ON partner_emails(lead_id);
+
+CREATE TABLE IF NOT EXISTS partner_contracts (
+  id text PRIMARY KEY,
+  lead_id text NOT NULL REFERENCES sponsorship_leads(id) ON DELETE CASCADE,
+  title text,
+  status text NOT NULL DEFAULT 'draft',
+  value integer,
+  currency text NOT NULL DEFAULT 'KWD',
+  start_date timestamptz,
+  end_date timestamptz,
+  terms text,
+  document_url text,
+  signed_at timestamptz,
+  notes text,
+  created_by text,
+  created_at timestamptz DEFAULT now(),
+  updated_at timestamptz DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_partner_contracts_lead ON partner_contracts(lead_id);
+
+CREATE TABLE IF NOT EXISTS partner_campaigns (
+  id text PRIMARY KEY,
+  lead_id text NOT NULL REFERENCES sponsorship_leads(id) ON DELETE CASCADE,
+  title text NOT NULL,
+  status text NOT NULL DEFAULT 'planned',
+  episode_refs jsonb DEFAULT '[]'::jsonb,
+  deliverables jsonb DEFAULT '[]'::jsonb,
+  start_date timestamptz,
+  end_date timestamptz,
+  metrics jsonb DEFAULT '{}'::jsonb,
+  roi_notes text,
+  performance_summary text,
+  created_by text,
+  created_at timestamptz DEFAULT now(),
+  updated_at timestamptz DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_partner_campaigns_lead ON partner_campaigns(lead_id);
