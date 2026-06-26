@@ -66,7 +66,7 @@ export async function sendGuestApplicationConfirm(
 
 export async function sendSponsorApplicationAdmin(
   adminEmail: string,
-  params: { company: string; contact: string; email: string; budget: string }
+  params: { company: string; contact: string; email: string; budget: string; reference?: string }
 ) {
   return getResend().emails.send({
     from: FROM_DISPLAY,
@@ -95,12 +95,13 @@ export async function sendPrepSubmittedAdmin(
 
 export async function sendSponsorApplicationConfirm(
   applicantEmail: string,
-  contactName: string
+  contactName: string,
+  reference?: string
 ) {
   return getResend().emails.send({
     from: FROM_DISPLAY,
     to: applicantEmail,
-    subject: 'شكراً لاهتمامك بالشراكة — بودكاست خط',
-    html: sponsorApplicationConfirmHtml(contactName),
+    subject: 'تمّ استلام طلب الشراكة — بودكاست خط',
+    html: sponsorApplicationConfirmHtml(contactName, reference),
   })
 }

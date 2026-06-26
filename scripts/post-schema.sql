@@ -911,6 +911,8 @@ ALTER TABLE sponsorship_analysis ADD COLUMN IF NOT EXISTS fit_reasoning text;
 ALTER TABLE sponsorship_analysis ADD COLUMN IF NOT EXISTS recommended_structure text;
 ALTER TABLE sponsorship_analysis ADD COLUMN IF NOT EXISTS recommended_episodes integer;
 ALTER TABLE sponsorship_analysis ADD COLUMN IF NOT EXISTS pricing_strategy text;
+ALTER TABLE sponsorship_analysis ADD COLUMN IF NOT EXISTS recommended_action text;
+ALTER TABLE sponsorship_analysis ADD COLUMN IF NOT EXISTS action_rationale text;
 ALTER TABLE sponsorship_analysis ADD COLUMN IF NOT EXISTS researched_at timestamptz;
 ALTER TABLE sponsorship_proposals ADD COLUMN IF NOT EXISTS reply_email text;
 

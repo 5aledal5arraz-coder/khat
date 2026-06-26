@@ -26,6 +26,8 @@ export const sponsorshipAnalysis = pgTable("sponsorship_analysis", {
   recommended_structure: text("recommended_structure"),
   recommended_episodes: integer("recommended_episodes"),
   pricing_strategy: text("pricing_strategy"),
+  recommended_action: text("recommended_action"),
+  action_rationale: text("action_rationale"),
   researched_at: timestamp("researched_at", { withTimezone: true }),
   raw_response: jsonb("raw_response").$type<Record<string, unknown>>(),
   error_message: text("error_message"),

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { requireAdminAPI } from "@/lib/api-utils"
-import { getSponsorshipLeadById, getSponsorshipAnalysis, upsertSponsorshipAnalysis, updateSponsorshipStatus } from "@/lib/admin/queries"
-import { analyzeSponsorshipLead } from "@/lib/ai/sponsorship"
+import { getSponsorshipLeadById, getSponsorshipAnalysis } from "@/lib/admin/queries"
+import { runAndPersistEvaluation } from "@/lib/partnership-triage"
 
 // Live web research (Gemini) + a full editorial evaluation — give it room.
 export const maxDuration = 120
@@ -32,55 +32,17 @@ export async function POST(
 
   const { id } = await params
   const lead = await getSponsorshipLeadById(id)
-
   if (!lead) {
     return NextResponse.json({ error: "طلب الشراكة غير موجود" }, { status: 404 })
   }
 
-  // Mark as generating
-  const analysisId = await upsertSponsorshipAnalysis(id, { status: "generating" })
-
-  // Run AI analysis
-  const result = await analyzeSponsorshipLead(lead)
-
-  if (!result.success) {
-    await upsertSponsorshipAnalysis(id, { status: "error", error_message: result.error })
-    return NextResponse.json({ error: result.error }, { status: 500 })
-  }
-
-  // Save results — full evaluation + live research + recommendations.
-  await upsertSponsorshipAnalysis(id, {
-    status: "ready",
-    fit_score: result.data.fit_score,
-    quality: result.data.quality,
-    risk_level: result.data.risk_level,
-    intent_summary: result.data.intent_summary,
-    budget_fit: result.data.budget_fit,
-    recommended_package: result.data.recommended_package,
-    reasoning: result.data.reasoning,
-    risk_flags: result.data.risk_flags,
-    opportunity_highlights: result.data.opportunity_highlights,
-    research_summary: result.data.research_summary,
-    research_sources: result.research_sources,
-    reputation: result.data.reputation,
-    products_summary: result.data.products_summary,
-    market_position: result.data.market_position,
-    audience_summary: result.data.audience_summary,
-    fit_verdict: result.data.fit_verdict,
-    fit_reasoning: result.data.fit_reasoning,
-    recommended_structure: result.data.recommended_structure,
-    recommended_episodes: result.data.recommended_episodes,
-    pricing_strategy: result.data.pricing_strategy,
-    researched_at: new Date().toISOString(),
-    raw_response: result.raw,
-    error_message: null,
-  })
-
-  // Auto-update lead status to "reviewing" if still "new"
-  if (lead.status === "new") {
-    await updateSponsorshipStatus(id, "reviewing")
+  // Shared evaluation path — identical to the auto-triage-on-submission flow.
+  const wasNew = lead.status === "new"
+  const outcome = await runAndPersistEvaluation(id, { actorId: "admin:manual-evaluate" })
+  if (!outcome.ok) {
+    return NextResponse.json({ error: outcome.error || "خطأ غير معروف" }, { status: 500 })
   }
 
   const analysis = await getSponsorshipAnalysis(id)
-  return NextResponse.json({ exists: true, analysis, statusUpdated: lead.status === "new" })
+  return NextResponse.json({ exists: true, analysis, statusUpdated: wasNew })
 }

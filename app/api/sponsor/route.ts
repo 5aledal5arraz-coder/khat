@@ -6,6 +6,8 @@ import { validateEmail } from "@/lib/validation/forms"
 import { checkIpRateLimit } from "@/lib/rate-limit"
 import { validateMutation } from "@/lib/api-utils"
 import { sendSponsorApplicationAdmin, sendSponsorApplicationConfirm } from "@/lib/email/send"
+import { autoTriageLead } from "@/lib/partnership-triage"
+import { partnershipRef } from "@/lib/partnership-ref"
 
 export async function POST(request: NextRequest) {
   try {
@@ -104,7 +106,7 @@ export async function POST(request: NextRequest) {
     const optText = (v: unknown) =>
       typeof v === "string" && v.trim().length > 0 ? stripHtml(v) : null
 
-    await db.insert(sponsorshipLeads).values({
+    const [inserted] = await db.insert(sponsorshipLeads).values({
       company_name: sanitizedCompany,
       industry: stripHtml(industry),
       company_website: cleanWebsite,
@@ -124,16 +126,22 @@ export async function POST(request: NextRequest) {
       budget_range: stripHtml(budget_range),
       additional_info: additional_info ? stripHtml(additional_info) : null,
       status: "new",
-    })
+    }).returning({ id: sponsorshipLeads.id })
+
+    const reference = partnershipRef(inserted.id)
 
     // Send branded notification emails (fire-and-forget)
-    const emailParams = { company: sanitizedCompany, contact: sanitizedContact, email: sanitizedEmail, budget: stripHtml(budget_range) }
+    const emailParams = { company: sanitizedCompany, contact: sanitizedContact, email: sanitizedEmail, budget: stripHtml(budget_range), reference }
     Promise.all([
       sendSponsorApplicationAdmin(process.env.ADMIN_NOTIFY_EMAIL || "khatpodcast@hotmail.com", emailParams),
-      sendSponsorApplicationConfirm(sanitizedEmail, sanitizedContact),
+      sendSponsorApplicationConfirm(sanitizedEmail, sanitizedContact, reference),
     ]).catch(e => console.error("Sponsor notification email failed:", e))
 
-    return NextResponse.json({ success: true })
+    // Auto-triage: run the full AI evaluation in the background so the operator
+    // opens a PRE-EVALUATED lead. Fire-and-forget — never blocks the applicant.
+    void autoTriageLead(inserted.id)
+
+    return NextResponse.json({ success: true, reference })
   } catch {
     return NextResponse.json(
       { error: "حدث خطأ. يرجى المحاولة مرة أخرى." },

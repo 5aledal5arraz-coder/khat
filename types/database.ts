@@ -177,6 +177,13 @@ export type PartnershipFitVerdict =
   | "weak_fit"
   | "not_recommended"
 
+/** AI-recommended next operator action on a partnership lead. */
+export type PartnershipNextAction =
+  | "advance" // proceed to a proposal/offer
+  | "request_info" // promising but need more from them
+  | "nurture" // good fit, not the right moment — keep warm
+  | "decline" // politely decline
+
 export interface ResearchSource {
   title: string
   url: string
@@ -218,6 +225,10 @@ export interface SponsorshipAnalysis {
   recommended_episodes: number | null
   /** Recommended pricing strategy (approach, not a fixed number). */
   pricing_strategy: string | null
+  /** The single clearest next action for the operator. */
+  recommended_action: PartnershipNextAction | null
+  /** One line on why that's the right next move. */
+  action_rationale: string | null
   /** When the online research last ran. */
   researched_at: string | null
   raw_response: Record<string, unknown> | null

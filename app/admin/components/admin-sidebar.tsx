@@ -26,6 +26,7 @@ import {
   Activity,
   Bookmark,
   Gauge,
+  KanbanSquare,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 
@@ -87,6 +88,7 @@ const navGroups: NavGroup[] = [
       { href: "/admin/home-content", icon: Home, label: "الصفحة الرئيسية" },
       { href: "/admin/newsletter", icon: Mail, label: "النشرة البريدية" },
       { href: "/admin/submissions", icon: Inbox, label: "الطلبات" },
+      { href: "/admin/partnerships/pipeline", icon: KanbanSquare, label: "خط الشراكات", badge: "ai" },
       { href: "/admin/partnerships", icon: Handshake, label: "الشركاء" },
       { href: "/admin/media-kit", icon: FileText, label: "ملف الشراكة" },
       { href: "/admin/rss-sync", icon: Rss, label: "مزامنة RSS" },

@@ -14,6 +14,7 @@ import type {
   SponsorshipLead,
   SponsorshipAnalysis,
   PartnershipFitVerdict,
+  PartnershipNextAction,
   ResearchSource,
 } from "@/types/database"
 
@@ -82,7 +83,11 @@ export interface EvaluationResult {
   recommended_structure: string
   recommended_episodes: number | null
   pricing_strategy: string
+  recommended_action: PartnershipNextAction
+  action_rationale: string
 }
+
+const NEXT_ACTIONS: PartnershipNextAction[] = ["advance", "request_info", "nurture", "decline"]
 
 const str = (v: unknown): string => (typeof v === "string" ? v : "")
 const strArr = (v: unknown): string[] =>
@@ -159,6 +164,10 @@ export async function analyzeSponsorshipLead(
         recommended_structure: str(parsed.recommended_structure),
         recommended_episodes: Number.isFinite(episodesNum) && episodesNum > 0 ? Math.round(episodesNum) : null,
         pricing_strategy: str(parsed.pricing_strategy),
+        recommended_action: NEXT_ACTIONS.includes(parsed.recommended_action as PartnershipNextAction)
+          ? (parsed.recommended_action as PartnershipNextAction)
+          : "request_info",
+        action_rationale: str(parsed.action_rationale),
       },
       raw: {
         model: result.modelName,

@@ -302,15 +302,20 @@ export function sponsorApplicationAdminHtml(params: {
   contact: string
   email: string
   budget: string
+  reference?: string
 }): string {
   const content = `
-    <h2 style="margin:0 0 16px;color:${BRAND.ink};font-size:20px;">طلب شراكة جديد</h2>
-    <table role="presentation" cellpadding="0" cellspacing="0" style="width:100%;margin:0 0 20px;">
+    <h2 style="margin:0 0 16px;color:${BRAND.ink};font-size:20px;">طلب شراكة جديد — ${escapeHtml(params.company)}</h2>
+    <table role="presentation" cellpadding="0" cellspacing="0" style="width:100%;margin:0 0 16px;">
+      ${params.reference ? detailRow('المرجع', params.reference) : ''}
       ${detailRow('الشركة', params.company)}
       ${detailRow('المسؤول', params.contact)}
       ${detailRow('البريد', params.email)}
       ${detailRow('الميزانية', params.budget)}
     </table>
+    <div style="margin:0 0 20px;padding:12px 14px;border-radius:10px;background:#f5f3ff;border:1px solid #ddd6fe;color:#5b21b6;font-size:13px;">
+      🤖 يجري الآن تقييم الذكاء الاصطناعي تلقائيًا (بحث عن الشركة + تقييم ملاءمة + توصية). افتح الطلب لرؤية النتيجة والإجراء الموصى به.
+    </div>
     ${ctaButton('مراجعة الطلب', `${APP_URL}/admin/submissions?tab=sponsors`)}
   `
   return legacyEmailLayout(content)
@@ -337,11 +342,36 @@ export function prepSubmittedAdminHtml(params: {
   return legacyEmailLayout(content)
 }
 
-export function sponsorApplicationConfirmHtml(contactName: string): string {
+export function sponsorApplicationConfirmHtml(contactName: string, reference?: string): string {
+  const step = (n: string, title: string, body: string) => `
+    <tr>
+      <td valign="top" style="width:30px;padding:0 0 14px;">
+        <div style="width:24px;height:24px;border-radius:999px;background:#ede9fe;color:#6d28d9;font-weight:700;font-size:12px;text-align:center;line-height:24px;">${n}</div>
+      </td>
+      <td valign="top" style="padding:0 0 14px 10px;">
+        <div style="font-weight:700;color:${BRAND.ink};font-size:14px;">${title}</div>
+        <div style="color:${BRAND.muted};font-size:13px;line-height:1.6;">${body}</div>
+      </td>
+    </tr>`
+  const refBlock = reference
+    ? `<div style="margin:0 0 20px;padding:14px 16px;border-radius:12px;background:#faf9ff;border:1px solid #ede9fe;text-align:center;">
+         <div style="color:${BRAND.muted};font-size:11px;letter-spacing:.5px;">رقمك المرجعي</div>
+         <div style="color:#6d28d9;font-weight:800;font-size:18px;letter-spacing:1px;direction:ltr;">${escapeHtml(reference)}</div>
+       </div>`
+    : ''
   const content = `
-    <h2 style="margin:0 0 16px;color:${BRAND.ink};font-size:20px;">شكراً لاهتمامك بالشراكة، ${escapeHtml(contactName)}</h2>
-    <p style="margin:0 0 16px;">وصلنا طلبك وفريقنا بيراجعه.</p>
-    <p style="margin:0 0 16px;">بنرد عليك بخطة تعاون تناسب أهدافك في أقرب وقت.</p>
+    <h2 style="margin:0 0 12px;color:${BRAND.ink};font-size:20px;">تمّ استلام طلب الشراكة، ${escapeHtml(contactName)}</h2>
+    <p style="margin:0 0 18px;color:${BRAND.muted};font-size:14px;line-height:1.7;">
+      شكرًا لاهتمامك بالشراكة مع خط — لسنا منصة إعلانات، بل نبحث عن شركاء محتوى يشاركوننا الرؤية.
+      دخل طلبك قيد المراجعة، وسنعود إليك بمقترح مصمّم حول أهدافك.
+    </p>
+    ${refBlock}
+    <div style="font-weight:700;color:${BRAND.ink};font-size:14px;margin:0 0 12px;">ما الخطوات التالية؟</div>
+    <table role="presentation" cellpadding="0" cellspacing="0" style="width:100%;margin:0 0 18px;">
+      ${step('١', 'ندرس علامتك', 'يطّلع فريقنا على علامتك وجمهورك وأهدافك بعناية.')}
+      ${step('٢', 'نصمّم مقترحًا', 'نُعدّ خطة شراكة وعدد حلقات ونطاقًا يناسب أهدافك.')}
+      ${step('٣', 'نعود إليك', 'نتواصل معك خلال أيام عمل قليلة لمناقشة التفاصيل.')}
+    </table>
     <p style="margin:0;color:${BRAND.muted};font-size:13px;">— فريق بودكاست خط</p>
   `
   return legacyEmailLayout(content)

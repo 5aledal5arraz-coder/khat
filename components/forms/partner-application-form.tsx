@@ -48,6 +48,7 @@ export function PartnerApplicationForm() {
   const [step, setStep] = useState(0)
   const [status, setStatus] = useState<"idle" | "loading" | "success" | "error">("idle")
   const [message, setMessage] = useState("")
+  const [reference, setReference] = useState("")
 
   // Step 1 — company
   const [companyName, setCompanyName] = useState("")
@@ -160,6 +161,7 @@ export function PartnerApplicationForm() {
       })
       const result = await response.json()
       if (response.ok) {
+        setReference(result.reference || "")
         setStatus("success")
       } else {
         setStatus("error")
@@ -180,8 +182,14 @@ export function PartnerApplicationForm() {
         <h3 className="mt-5 text-xl font-semibold">وصلنا طلبك — شكرًا لثقتك بخط</h3>
         <p className="mt-3 leading-relaxed text-muted-foreground">
           سيراجع فريقنا طلبك بعناية ويعود إليك بمقترح شراكة مصمّم حول أهدافك. عادةً نرد خلال أيام
-          عمل قليلة.
+          عمل قليلة، وأرسلنا لك تأكيدًا على بريدك.
         </p>
+        {reference && (
+          <div className="mx-auto mt-5 inline-flex flex-col items-center rounded-xl border border-primary/20 bg-primary/[0.04] px-6 py-3">
+            <span className="text-[11px] tracking-wide text-muted-foreground">رقمك المرجعي</span>
+            <span className="text-lg font-extrabold tracking-widest text-primary" dir="ltr">{reference}</span>
+          </div>
+        )}
         <div className="mt-6 flex justify-center gap-3">
           <Link href="/episodes">
             <Button variant="outline">استكشف الحلقات</Button>

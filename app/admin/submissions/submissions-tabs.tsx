@@ -799,6 +799,19 @@ export function SubmissionsTabs({
       .catch(() => {})
   }, [selectedLead])
 
+  // Deep link from the partnership pipeline: ?lead=<id> auto-opens that
+  // lead's full review. Runs once when the leads are available.
+  useEffect(() => {
+    const leadId = searchParams.get("lead")
+    if (!leadId) return
+    const match = sponsorshipLeads.find((l) => l.id === leadId)
+    if (match) {
+      setActiveTab("sponsors")
+      setSelectedLead(match)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
   // Fetch guest AI data when application is selected
   useEffect(() => {
     if (!selectedApplication) {
@@ -2784,6 +2797,30 @@ export function SubmissionsTabs({
 
                 {aiAnalysis && aiAnalysis.status === "ready" && (
                   <div className="space-y-4 rounded-2xl bg-violet-500/[0.03] p-5 ring-1 ring-violet-500/15">
+                    {/* Recommended next action — the operator's headline guidance */}
+                    {aiAnalysis.recommended_action && (
+                      <div className={`flex items-start gap-3 rounded-xl px-4 py-3 ring-1 ${
+                        aiAnalysis.recommended_action === "advance" ? "bg-emerald-500/[0.08] ring-emerald-500/25 text-emerald-800"
+                          : aiAnalysis.recommended_action === "request_info" ? "bg-sky-500/[0.08] ring-sky-500/25 text-sky-800"
+                            : aiAnalysis.recommended_action === "nurture" ? "bg-amber-500/[0.08] ring-amber-500/25 text-amber-800"
+                              : "bg-rose-500/[0.08] ring-rose-500/25 text-rose-800"
+                      }`}>
+                        <Sparkles className="mt-0.5 h-4 w-4 shrink-0" />
+                        <div>
+                          <p className="text-[10px] font-semibold uppercase tracking-wide opacity-70">الإجراء الموصى به</p>
+                          <p className="text-sm font-bold">
+                            {aiAnalysis.recommended_action === "advance" ? "المضي قُدمًا — جهّز عرضًا"
+                              : aiAnalysis.recommended_action === "request_info" ? "اطلب معلومات إضافية"
+                                : aiAnalysis.recommended_action === "nurture" ? "مناسب — أبقِه دافئًا للمستقبل"
+                                  : "اعتذر بلطف"}
+                          </p>
+                          {aiAnalysis.action_rationale && (
+                            <p className="mt-0.5 text-[12px] leading-relaxed opacity-90">{aiAnalysis.action_rationale}</p>
+                          )}
+                        </div>
+                      </div>
+                    )}
+
                     {/* Score + Quality + Risk */}
                     <div className="flex items-center gap-4">
                       <div className="text-center">
