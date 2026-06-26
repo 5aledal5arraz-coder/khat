@@ -75,6 +75,7 @@ export async function POST(
     next_steps: result.data.next_steps,
     closing: result.data.closing,
     full_draft: result.data.full_draft,
+    reply_email: result.data.reply_email,
     raw_response: result.raw,
     error_message: null,
   })

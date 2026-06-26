@@ -140,6 +140,7 @@ export interface SponsorshipLead {
   // Company Info
   company_name: string
   industry: string
+  company_website: string | null
   contact_name: string
   job_title: string
   email: string
@@ -150,6 +151,11 @@ export interface SponsorshipLead {
   // Objectives
   main_goal: string
   target_audience: string
+  // Brand & expectations (partnership redesign)
+  brand_values: string | null
+  campaign_goals: string | null
+  expectations: string | null
+  previous_partnerships: string | null
   preferred_timeline: string | null
   // Budget
   budget_range: string
@@ -164,6 +170,18 @@ export interface SponsorshipLead {
 
 export type SponsorshipAnalysisStatus = "generating" | "ready" | "error"
 
+/** AI-recommended fit verdict for a partnership lead. */
+export type PartnershipFitVerdict =
+  | "strong_fit"
+  | "possible_fit"
+  | "weak_fit"
+  | "not_recommended"
+
+export interface ResearchSource {
+  title: string
+  url: string
+}
+
 export interface SponsorshipAnalysis {
   id: string
   lead_id: string
@@ -177,6 +195,31 @@ export interface SponsorshipAnalysis {
   reasoning: string | null
   risk_flags: string[]
   opportunity_highlights: string[]
+  // ─── Partnership evaluation upgrade (live research + recommendations) ───────
+  /** Synthesized summary of what online research surfaced about the company. */
+  research_summary: string | null
+  /** Grounded sources the research drew on (from live web search). */
+  research_sources: ResearchSource[]
+  /** Reputation read — standing, sentiment, any controversies. */
+  reputation: string | null
+  /** What the company makes/sells. */
+  products_summary: string | null
+  /** Market position — scale, competitors, where it sits. */
+  market_position: string | null
+  /** The company's own audience and how it overlaps Khat's. */
+  audience_summary: string | null
+  /** Headline verdict on suitability for Khat. */
+  fit_verdict: PartnershipFitVerdict | null
+  /** Why it is (or isn't) a good fit. */
+  fit_reasoning: string | null
+  /** Recommended partnership structure (which package / shape). */
+  recommended_structure: string | null
+  /** Recommended number of episodes. */
+  recommended_episodes: number | null
+  /** Recommended pricing strategy (approach, not a fixed number). */
+  pricing_strategy: string | null
+  /** When the online research last ran. */
+  researched_at: string | null
   raw_response: Record<string, unknown> | null
   error_message: string | null
   created_at: string
@@ -204,6 +247,8 @@ export interface SponsorshipProposal {
   next_steps: string | null
   closing: string | null
   full_draft: string | null
+  /** Short, ready-to-send reply email introducing the proposal. */
+  reply_email: string | null
   edited_draft: string | null
   tone: string
   raw_response: Record<string, unknown> | null

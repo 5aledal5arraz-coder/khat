@@ -897,3 +897,19 @@ ALTER TABLE sponsorship_leads ADD COLUMN IF NOT EXISTS brand_values text;
 ALTER TABLE sponsorship_leads ADD COLUMN IF NOT EXISTS campaign_goals text;
 ALTER TABLE sponsorship_leads ADD COLUMN IF NOT EXISTS expectations text;
 ALTER TABLE sponsorship_leads ADD COLUMN IF NOT EXISTS previous_partnerships text;
+
+-- Partnership AI engine (Phase 2) — live research + full company evaluation
+-- + structure/episode/pricing recommendations on the analysis row. Idempotent.
+ALTER TABLE sponsorship_analysis ADD COLUMN IF NOT EXISTS research_summary text;
+ALTER TABLE sponsorship_analysis ADD COLUMN IF NOT EXISTS research_sources jsonb DEFAULT '[]'::jsonb;
+ALTER TABLE sponsorship_analysis ADD COLUMN IF NOT EXISTS reputation text;
+ALTER TABLE sponsorship_analysis ADD COLUMN IF NOT EXISTS products_summary text;
+ALTER TABLE sponsorship_analysis ADD COLUMN IF NOT EXISTS market_position text;
+ALTER TABLE sponsorship_analysis ADD COLUMN IF NOT EXISTS audience_summary text;
+ALTER TABLE sponsorship_analysis ADD COLUMN IF NOT EXISTS fit_verdict text;
+ALTER TABLE sponsorship_analysis ADD COLUMN IF NOT EXISTS fit_reasoning text;
+ALTER TABLE sponsorship_analysis ADD COLUMN IF NOT EXISTS recommended_structure text;
+ALTER TABLE sponsorship_analysis ADD COLUMN IF NOT EXISTS recommended_episodes integer;
+ALTER TABLE sponsorship_analysis ADD COLUMN IF NOT EXISTS pricing_strategy text;
+ALTER TABLE sponsorship_analysis ADD COLUMN IF NOT EXISTS researched_at timestamptz;
+ALTER TABLE sponsorship_proposals ADD COLUMN IF NOT EXISTS reply_email text;

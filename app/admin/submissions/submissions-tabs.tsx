@@ -36,6 +36,8 @@ import {
   Sparkles,
   AlertTriangle,
   Shield,
+  Globe,
+  Target,
   Loader2,
   RefreshCw,
   ClipboardCopy,
@@ -2634,6 +2636,9 @@ export function SubmissionsTabs({
                 <div className="grid gap-x-6 gap-y-4 rounded-2xl bg-white/[0.02] p-5 ring-1 ring-border/20 sm:grid-cols-2">
                   <DetailField label="اسم الشركة" value={selectedLead.company_name} />
                   <DetailField label="المجال" value={selectedLead.industry} />
+                  {selectedLead.company_website && (
+                    <DetailField label="الموقع الإلكتروني" value={selectedLead.company_website} />
+                  )}
                   <DetailField label="اسم المسؤول" value={selectedLead.contact_name} />
                   <DetailField label="المسمى الوظيفي" value={selectedLead.job_title} />
                   <DetailField
@@ -2689,6 +2694,18 @@ export function SubmissionsTabs({
                 <div className="space-y-4 rounded-2xl bg-white/[0.02] p-5 ring-1 ring-border/20">
                   <DetailField label="الهدف الرئيسي" value={GOAL_LABELS[selectedLead.main_goal] || selectedLead.main_goal} />
                   <DetailField label="الجمهور المستهدف" value={selectedLead.target_audience} />
+                  {selectedLead.brand_values && (
+                    <DetailField label="قيم العلامة ورسالتها" value={selectedLead.brand_values} />
+                  )}
+                  {selectedLead.campaign_goals && (
+                    <DetailField label="مؤشرات النجاح / أهداف الحملة" value={selectedLead.campaign_goals} />
+                  )}
+                  {selectedLead.expectations && (
+                    <DetailField label="ما يتوقعونه من خط" value={selectedLead.expectations} />
+                  )}
+                  {selectedLead.previous_partnerships && (
+                    <DetailField label="خبرة شراكات سابقة" value={selectedLead.previous_partnerships} />
+                  )}
                   {selectedLead.preferred_timeline && (
                     <DetailField label="الجدول الزمني المفضل" value={selectedLead.preferred_timeline} />
                   )}
@@ -2733,7 +2750,7 @@ export function SubmissionsTabs({
                     <div className="flex h-7 w-7 items-center justify-center rounded-full bg-violet-500/10 text-xs font-bold text-violet-700">
                       <Brain className="h-3.5 w-3.5" />
                     </div>
-                    <h4 className="text-sm font-semibold">تحليل الذكاء الاصطناعي</h4>
+                    <h4 className="text-sm font-semibold">تقييم الذكاء الاصطناعي</h4>
                   </div>
                   <button
                     onClick={handleAnalyzeLead}
@@ -2741,9 +2758,9 @@ export function SubmissionsTabs({
                     className="flex items-center gap-1.5 rounded-lg bg-violet-500/10 px-3 py-1.5 text-[11px] font-medium text-violet-700 ring-1 ring-violet-500/20 transition-all hover:bg-violet-500/20 disabled:opacity-50"
                   >
                     {analyzingLead ? (
-                      <><Loader2 className="h-3 w-3 animate-spin" />{aiAnalysis ? "إعادة التحليل..." : "جارٍ التحليل..."}</>
+                      <><Loader2 className="h-3 w-3 animate-spin" />{aiAnalysis ? "إعادة التقييم..." : "جارٍ البحث والتقييم..."}</>
                     ) : (
-                      <>{aiAnalysis ? <RefreshCw className="h-3 w-3" /> : <Sparkles className="h-3 w-3" />}{aiAnalysis ? "إعادة التحليل" : "تحليل"}</>
+                      <>{aiAnalysis ? <RefreshCw className="h-3 w-3" /> : <Sparkles className="h-3 w-3" />}{aiAnalysis ? "إعادة التقييم" : "تقييم بالذكاء الاصطناعي"}</>
                     )}
                   </button>
                 </div>
@@ -2786,6 +2803,118 @@ export function SubmissionsTabs({
                         </span>
                       </div>
                     </div>
+
+                    {/* Fit verdict + reasoning */}
+                    {aiAnalysis.fit_verdict && (
+                      <div className={`rounded-xl px-4 py-3 ring-1 ${
+                        aiAnalysis.fit_verdict === "strong_fit" ? "bg-emerald-500/[0.07] ring-emerald-500/25"
+                          : aiAnalysis.fit_verdict === "possible_fit" ? "bg-amber-500/[0.07] ring-amber-500/25"
+                            : aiAnalysis.fit_verdict === "weak_fit" ? "bg-orange-500/[0.07] ring-orange-500/25"
+                              : "bg-red-500/[0.07] ring-red-500/25"
+                      }`}>
+                        <span className={`text-sm font-bold ${
+                          aiAnalysis.fit_verdict === "strong_fit" ? "text-emerald-700"
+                            : aiAnalysis.fit_verdict === "possible_fit" ? "text-amber-700"
+                              : aiAnalysis.fit_verdict === "weak_fit" ? "text-orange-700"
+                                : "text-red-700"
+                        }`}>
+                          {aiAnalysis.fit_verdict === "strong_fit" ? "توافق قوي — موصى به"
+                            : aiAnalysis.fit_verdict === "possible_fit" ? "توافق ممكن — يستحق النظر"
+                              : aiAnalysis.fit_verdict === "weak_fit" ? "توافق ضعيف"
+                                : "غير موصى به"}
+                        </span>
+                        {aiAnalysis.fit_reasoning && (
+                          <p className="mt-1.5 text-[13px] leading-relaxed text-foreground/85">{aiAnalysis.fit_reasoning}</p>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Recommendation: structure / episodes / pricing */}
+                    {(aiAnalysis.recommended_structure || aiAnalysis.recommended_episodes != null || aiAnalysis.pricing_strategy) && (
+                      <div className="rounded-xl bg-primary/[0.04] p-4 ring-1 ring-primary/15">
+                        <p className="mb-3 flex items-center gap-1.5 text-[11px] font-semibold text-primary">
+                          <Target className="h-3.5 w-3.5" /> توصية الشراكة
+                        </p>
+                        <div className="grid gap-3 sm:grid-cols-3">
+                          {aiAnalysis.recommended_structure && (
+                            <div className="rounded-lg bg-white/[0.03] p-3 ring-1 ring-border/20">
+                              <p className="text-[10px] text-muted-foreground">الهيكل المقترح</p>
+                              <p className="mt-0.5 text-[12.5px] font-medium leading-relaxed">{aiAnalysis.recommended_structure}</p>
+                            </div>
+                          )}
+                          {aiAnalysis.recommended_episodes != null && (
+                            <div className="rounded-lg bg-white/[0.03] p-3 ring-1 ring-border/20">
+                              <p className="text-[10px] text-muted-foreground">عدد الحلقات</p>
+                              <p className="mt-0.5 text-lg font-bold tabular-nums text-primary">
+                                {aiAnalysis.recommended_episodes} <span className="text-xs font-normal text-muted-foreground">حلقة</span>
+                              </p>
+                            </div>
+                          )}
+                          {aiAnalysis.pricing_strategy && (
+                            <div className="rounded-lg bg-white/[0.03] p-3 ring-1 ring-border/20">
+                              <p className="text-[10px] text-muted-foreground">استراتيجية التسعير</p>
+                              <p className="mt-0.5 text-[12.5px] font-medium leading-relaxed">{aiAnalysis.pricing_strategy}</p>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Online research */}
+                    {aiAnalysis.research_summary && (
+                      <div>
+                        <p className="mb-1 flex items-center gap-1 text-[11px] font-medium text-muted-foreground">
+                          <Globe className="h-3 w-3" /> بحث مباشر عن الشركة
+                        </p>
+                        <p className="text-sm leading-relaxed">{aiAnalysis.research_summary}</p>
+                        {aiAnalysis.research_sources && aiAnalysis.research_sources.length > 0 && (
+                          <div className="mt-2 flex flex-wrap gap-1.5">
+                            {aiAnalysis.research_sources.slice(0, 6).map((s, i) => (
+                              <a
+                                key={i}
+                                href={s.url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="inline-flex items-center gap-1 rounded-md bg-sky-500/[0.08] px-2 py-1 text-[10px] text-sky-700 ring-1 ring-sky-500/15 hover:bg-sky-500/15"
+                              >
+                                <LinkIcon className="h-2.5 w-2.5" />
+                                {(s.title || "مصدر").slice(0, 28)}
+                              </a>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Company evaluation */}
+                    {(aiAnalysis.products_summary || aiAnalysis.reputation || aiAnalysis.market_position || aiAnalysis.audience_summary) && (
+                      <div className="grid gap-3 sm:grid-cols-2">
+                        {aiAnalysis.products_summary && (
+                          <div>
+                            <p className="mb-1 text-[11px] font-medium text-muted-foreground">ماذا تقدّم</p>
+                            <p className="text-[13px] leading-relaxed text-foreground/85">{aiAnalysis.products_summary}</p>
+                          </div>
+                        )}
+                        {aiAnalysis.reputation && (
+                          <div>
+                            <p className="mb-1 text-[11px] font-medium text-muted-foreground">السمعة</p>
+                            <p className="text-[13px] leading-relaxed text-foreground/85">{aiAnalysis.reputation}</p>
+                          </div>
+                        )}
+                        {aiAnalysis.market_position && (
+                          <div>
+                            <p className="mb-1 text-[11px] font-medium text-muted-foreground">المكانة في السوق</p>
+                            <p className="text-[13px] leading-relaxed text-foreground/85">{aiAnalysis.market_position}</p>
+                          </div>
+                        )}
+                        {aiAnalysis.audience_summary && (
+                          <div>
+                            <p className="mb-1 text-[11px] font-medium text-muted-foreground">الجمهور والتقاطع مع خط</p>
+                            <p className="text-[13px] leading-relaxed text-foreground/85">{aiAnalysis.audience_summary}</p>
+                          </div>
+                        )}
+                      </div>
+                    )}
 
                     {/* Intent Summary */}
                     {aiAnalysis.intent_summary && (

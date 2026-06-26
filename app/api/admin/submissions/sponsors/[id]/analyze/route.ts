@@ -3,7 +3,8 @@ import { requireAdminAPI } from "@/lib/api-utils"
 import { getSponsorshipLeadById, getSponsorshipAnalysis, upsertSponsorshipAnalysis, updateSponsorshipStatus } from "@/lib/admin/queries"
 import { analyzeSponsorshipLead } from "@/lib/ai/sponsorship"
 
-export const maxDuration = 30
+// Live web research (Gemini) + a full editorial evaluation — give it room.
+export const maxDuration = 120
 
 export async function GET(
   _request: NextRequest,
@@ -47,7 +48,7 @@ export async function POST(
     return NextResponse.json({ error: result.error }, { status: 500 })
   }
 
-  // Save results
+  // Save results — full evaluation + live research + recommendations.
   await upsertSponsorshipAnalysis(id, {
     status: "ready",
     fit_score: result.data.fit_score,
@@ -59,6 +60,18 @@ export async function POST(
     reasoning: result.data.reasoning,
     risk_flags: result.data.risk_flags,
     opportunity_highlights: result.data.opportunity_highlights,
+    research_summary: result.data.research_summary,
+    research_sources: result.research_sources,
+    reputation: result.data.reputation,
+    products_summary: result.data.products_summary,
+    market_position: result.data.market_position,
+    audience_summary: result.data.audience_summary,
+    fit_verdict: result.data.fit_verdict,
+    fit_reasoning: result.data.fit_reasoning,
+    recommended_structure: result.data.recommended_structure,
+    recommended_episodes: result.data.recommended_episodes,
+    pricing_strategy: result.data.pricing_strategy,
+    researched_at: new Date().toISOString(),
     raw_response: result.raw,
     error_message: null,
   })

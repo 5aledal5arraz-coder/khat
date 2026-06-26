@@ -7,34 +7,54 @@
 
 import type { SponsorshipLead, SponsorshipAnalysis } from "@/types/database"
 
-export const SPONSORSHIP_ANALYSIS_PROMPT_VERSION = "sponsorship-analysis-v1.0"
-export const SPONSORSHIP_PROPOSAL_PROMPT_VERSION = "sponsorship-proposal-v1.0"
+export const SPONSORSHIP_ANALYSIS_PROMPT_VERSION = "partnership-evaluation-v2.0"
+export const SPONSORSHIP_PROPOSAL_PROMPT_VERSION = "sponsorship-proposal-v2.0"
 
-// ─── Analysis ────────────────────────────────────────────────────────
+// ─── Evaluation (live research + full company assessment) ──────────────
 
-const ANALYSIS_SYSTEM = `أنت محلل شراكات متخصص في تقييم طلبات الرعاية لبودكاست "خط" — بودكاست عربي ثقافي فكري يستضيف مفكرين وقادة رأي.
+const EVALUATION_SYSTEM = `أنت لجنة تحريرية واستراتيجية متمرّسة تقيّم طلبات الشراكة لبودكاست "خط" — بودكاست عربي ثقافي فكري عميق.
 
-جمهور البودكاست: شباب عربي مثقف (18-35)، مهتم بالفكر والثقافة والتطوير الذاتي.
-قيم البودكاست: العمق، الأصالة، الجودة، عدم التنازل عن المحتوى لصالح الإعلان.
+عن خط:
+- جمهوره الأساسي في الخليج: السعودية والكويت والعراق ودول الخليج — صنّاع قرار ومهنيون شباب مثقفون (18–35).
+- قيمه: العمق، الأصالة، الجودة، والاستقلالية التحريرية الكاملة. خط لا يقايض مصداقيته بإعلان.
+- الشراكة مع خط حضورٌ داخل محتوى موثوق، لا فاصل إعلاني.
 
-حلل طلب الشراكة التالي وقدم تقييماً شاملاً بصيغة JSON:
+مهمتك: تقييم الشركة كشريك محتمل تقييماً شاملاً وصادقاً، مستندًا إلى (أ) كامل بيانات الطلب، و(ب) نتائج البحث الحيّ عن الشركة على الإنترنت المرفقة أدناه. استخدم البحث لتقييم المنتجات والسمعة والمكانة والجمهور — ولا تخترع حقائق لا يدعمها البحث أو الطلب؛ وإن نقصت المعلومة قُل ذلك صراحةً.
 
+أعد تقييمك بصيغة JSON فقط:
 {
-  "fit_score": (رقم 0-100 — مدى توافق الشريك مع البودكاست),
-  "quality": ("high" أو "medium" أو "low"),
-  "risk_level": ("low" أو "medium" أو "high"),
-  "intent_summary": (ملخص واضح لنية الشريك في 2-3 جمل),
-  "budget_fit": ("good" أو "weak" أو "unclear"),
-  "recommended_package": (اقتراح نوع الشراكة الأنسب — جملة أو جملتين),
-  "reasoning": (تبرير التقييم — 3-4 جمل),
-  "risk_flags": (مصفوفة نصية — مخاطر أو ملاحظات سلبية، فارغة إذا لا يوجد),
-  "opportunity_highlights": (مصفوفة نصية — نقاط قوة وفرص)
+  "research_summary": (ملخص ما كشفه البحث عن الشركة — 3-5 جمل، أو "لا تتوفر نتائج بحث كافية" إن لم يوجد),
+  "products_summary": (ماذا تقدّم الشركة فعلاً — منتجات/خدمات),
+  "reputation": (سمعتها، الانطباع العام، وأي جدل أو مخاوف ظهرت),
+  "market_position": (مكانتها في السوق — حجمها، منافسوها، أين تقف),
+  "audience_summary": (جمهور الشركة ومدى تقاطعه مع جمهور خط الخليجي),
+  "intent_summary": (نية الشريك من الشراكة — جملتان),
+  "fit_score": (رقم 0-100 — مدى ملاءمتها كشريك لخط),
+  "fit_verdict": ("strong_fit" | "possible_fit" | "weak_fit" | "not_recommended"),
+  "fit_reasoning": (لماذا هي مناسبة أو غير مناسبة لخط تحديدًا — صريح ومباشر، 3-5 جمل),
+  "quality": ("high" | "medium" | "low"),
+  "risk_level": ("low" | "medium" | "high"),
+  "risk_flags": (مصفوفة نصية — مخاطر أو تعارضات قيمية أو مخاوف على المصداقية؛ فارغة إن لا يوجد),
+  "opportunity_highlights": (مصفوفة نصية — نقاط قوة وفرص حقيقية),
+  "budget_fit": ("good" | "weak" | "unclear"),
+  "recommended_structure": (هيكل الشراكة الأنسب — أي شكل/باقة ولماذا، جملتان),
+  "recommended_episodes": (رقم — عدد الحلقات المقترح للشراكة),
+  "recommended_package": (اسم مختصر للباقة المقترحة),
+  "pricing_strategy": (استراتيجية تسعير مقترحة — المنهج لا رقمًا ثابتًا: كيف نسعّر بناءً على القيمة والميزانية والمكانة),
+  "reasoning": (خلاصة موجزة تربط التقييم بالتوصية — 2-3 جمل)
 }
 
-كن موضوعياً ودقيقاً. لا تبالغ في التقييم الإيجابي أو السلبي.`
+كن موضوعيًا ودقيقًا. لا تبالغ مدحًا ولا قدحًا. حماية مصداقية خط أولوية: لو كانت الشركة لا تناسب قيم خط، قُلها بوضوح.`
 
-export interface SponsorshipAnalysisPromptInput {
+export interface ResearchSnippet {
+  title: string
+  url: string
+  snippet: string
+}
+
+export interface PartnershipEvaluationPromptInput {
   lead: SponsorshipLead
+  research: ResearchSnippet[]
 }
 
 export interface BuiltSponsorshipPrompt {
@@ -44,34 +64,61 @@ export interface BuiltSponsorshipPrompt {
   input: Record<string, unknown>
 }
 
-export function buildSponsorshipAnalysisPrompt(
-  input: SponsorshipAnalysisPromptInput,
+function leadDossier(lead: SponsorshipLead): string {
+  const line = (label: string, v: string | null | undefined) =>
+    v && v.trim() ? `- ${label}: ${v}` : null
+  return [
+    "معلومات الشركة:",
+    line("الشركة", lead.company_name),
+    line("المجال", lead.industry),
+    line("الموقع الإلكتروني", lead.company_website),
+    line("المسؤول", `${lead.contact_name} (${lead.job_title})`),
+    "",
+    "العلامة والجمهور:",
+    line("قيم العلامة ورسالتها", lead.brand_values),
+    line("الجمهور المستهدف", lead.target_audience),
+    line("أنواع التعاون المطلوبة", lead.collaboration_types.join("، ")),
+    "",
+    "الأهداف والتوقعات:",
+    line("الهدف الرئيسي", lead.main_goal),
+    line("مؤشرات النجاح / أهداف الحملة", lead.campaign_goals),
+    line("ما يتوقعونه من خط", lead.expectations),
+    line("الإطار الزمني", lead.preferred_timeline),
+    "",
+    "الخبرة والميزانية:",
+    line("خبرة شراكات سابقة", lead.previous_partnerships),
+    line("نطاق الميزانية", lead.budget_range),
+    line("معلومات إضافية", lead.additional_info),
+  ]
+    .filter((x) => x !== null)
+    .join("\n")
+}
+
+export function buildPartnershipEvaluationPrompt(
+  input: PartnershipEvaluationPromptInput,
 ): BuiltSponsorshipPrompt {
-  const { lead } = input
-  const user = `
-معلومات الشركة:
-- الشركة: ${lead.company_name}
-- المجال: ${lead.industry}
-- المسؤول: ${lead.contact_name} (${lead.job_title})
-- البريد: ${lead.email}
-- الهاتف: ${lead.phone}
+  const { lead, research } = input
+  const researchBlock =
+    research.length > 0
+      ? research
+          .map(
+            (s, i) =>
+              `[${i + 1}] ${s.title}\n${s.url}\n${(s.snippet || "").slice(0, 600)}`,
+          )
+          .join("\n\n")
+      : "(لا تتوفر نتائج بحث — قيّم بناءً على بيانات الطلب فقط، واذكر أن البحث غير متاح.)"
 
-تفاصيل التعاون:
-- أنواع التعاون المطلوبة: ${lead.collaboration_types.join("، ")}
-${lead.collaboration_other ? `- تفاصيل إضافية: ${lead.collaboration_other}` : ""}
+  const user = `${leadDossier(lead)}
 
-الأهداف:
-- الهدف الرئيسي: ${lead.main_goal}
-- الجمهور المستهدف: ${lead.target_audience}
-${lead.preferred_timeline ? `- الجدول الزمني: ${lead.preferred_timeline}` : ""}
+═══════════════════════════════════
+نتائج البحث الحيّ عن الشركة على الإنترنت:
+═══════════════════════════════════
+${researchBlock}
 
-الميزانية:
-- النطاق: ${lead.budget_range}
-${lead.additional_info ? `\nمعلومات إضافية:\n${lead.additional_info}` : ""}
-`.trim()
+قيّم هذه الشركة كشريك محتمل لخط وفق صيغة JSON المطلوبة.`
 
   return {
-    system: ANALYSIS_SYSTEM,
+    system: EVALUATION_SYSTEM,
     user,
     version: SPONSORSHIP_ANALYSIS_PROMPT_VERSION,
     input: {
@@ -79,6 +126,7 @@ ${lead.additional_info ? `\nمعلومات إضافية:\n${lead.additional_info
       companyName: lead.company_name,
       industry: lead.industry,
       budgetRange: lead.budget_range,
+      researchSourceCount: research.length,
     },
   }
 }
@@ -95,43 +143,49 @@ export interface SponsorshipProposalPromptInput {
     | "budget_fit"
     | "recommended_package"
     | "opportunity_highlights"
+    | "fit_reasoning"
+    | "market_position"
+    | "audience_summary"
+    | "recommended_structure"
+    | "recommended_episodes"
+    | "pricing_strategy"
   > | null
   tone: "formal" | "warm"
 }
 
 function buildProposalSystem(toneLabel: string): string {
-  return `أنت كاتب عروض شراكات محترف لبودكاست "خط" — بودكاست عربي ثقافي فكري.
+  return `أنت كاتب عروض شراكات محترف لبودكاست "خط" — بودكاست عربي ثقافي فكري عميق جمهوره الأساسي في الخليج (السعودية، الكويت، العراق، ودول الخليج).
 
 عن البودكاست:
-- بودكاست خط يستضيف مفكرين وقادة رأي ويقدم محتوى عميق
-- الجمهور: شباب عربي مثقف (18-35)
-- المنصات: يوتيوب، سبوتيفاي، أبل بودكاست، تيك توك، إنستغرام
-- القيم: العمق، الأصالة، الجودة
+- يستضيف مفكرين وقادة رأي ويقدّم محتوى عميق دائم القيمة.
+- المنصات: يوتيوب، سبوتيفاي، أبل بودكاست، تيك توك، إنستغرام.
+- القيم: العمق، الأصالة، الجودة، والاستقلالية التحريرية الكاملة.
+- الشراكة حضورٌ داخل محتوى موثوق، لا فاصل إعلاني.
 
-اكتب عرض شراكة مخصص بناءً على بيانات الشريك المحتمل.
+اكتب عرض شراكة احترافيًا مخصّصًا للشريك المحتمل. استند إلى تقييم الذكاء الاصطناعي المرفق (الهيكل المقترح وعدد الحلقات واستراتيجية التسعير) إن وُجد.
 النبرة المطلوبة: ${toneLabel}
 
 أعد الإجابة بصيغة JSON:
 {
-  "subject": (عنوان البريد الإلكتروني — قصير وجذاب),
+  "subject": (عنوان البريد — قصير وجذاب),
   "greeting": (تحية مخصصة باسم المسؤول),
-  "introduction": (فقرة تعريفية — لماذا نحن متحمسون لهذه الشراكة),
-  "value_proposition": (ماذا يقدم بودكاست خط للشريك — 3-4 جمل),
+  "introduction": (لماذا نحن متحمسون لهذه الشراكة تحديدًا — مربوط بعلامتهم),
+  "value_proposition": (ماذا يقدّم خط لهم وكيف يخدم أهدافهم — 3-4 جمل),
   "proposed_packages": [
     {
       "name": (اسم الباقة),
-      "description": (وصف قصير),
-      "price_range": (نطاق السعر المقترح),
-      "deliverables": [(قائمة المخرجات)]
+      "description": (وصف يربط الباقة بأهدافهم),
+      "price_range": (إن لزم: إشارة لنطاق/منهج التسعير، أو "يُحدّد بعد المواءمة"),
+      "deliverables": [(قائمة المخرجات الملموسة)]
     }
   ],
-  "next_steps": (الخطوات التالية — جملتين),
+  "next_steps": (الخطوات التالية — جملتان),
   "closing": (خاتمة مهنية),
-  "full_draft": (النص الكامل للعرض مجمّعاً كرسالة واحدة متكاملة)
+  "full_draft": (العرض الكامل مجمّعًا كرسالة احترافية متكاملة جاهزة — هذا هو المقترح الكامل),
+  "reply_email": (رسالة قصيرة ودّية ومهنية جاهزة للإرسال مباشرةً للشركة كردّ أولي يقدّم المقترح — 4-6 أسطر فقط)
 }
 
-قدم 2-3 باقات متدرجة. اجعل الأسعار منطقية بناءً على ميزانية الشريك.
-اكتب بالعربية الفصحى. كن مقنعاً دون مبالغة.`
+قدّم 2-3 باقات متدرجة تنطلق من الهيكل المقترح. اجعل التسعير متّسقًا مع استراتيجية التسعير والميزانية. اكتب بالعربية الفصحى. كن مقنعًا دون مبالغة.`
 }
 
 export function buildSponsorshipProposalPrompt(
@@ -141,11 +195,16 @@ export function buildSponsorshipProposalPrompt(
   const toneLabel = tone === "formal" ? "رسمي ومهني" : "ودّي ودافئ مع احترافية"
   const analysisBlock = analysis
     ? `
-تحليل الذكاء الاصطناعي:
+تقييم الذكاء الاصطناعي (استند إليه):
 - درجة التوافق: ${analysis.fit_score}/100 (${analysis.quality})
 - ملخص النية: ${analysis.intent_summary}
+- لماذا تناسب خط: ${analysis.fit_reasoning ?? "—"}
+- مكانتها في السوق: ${analysis.market_position ?? "—"}
+- تقاطع الجمهور: ${analysis.audience_summary ?? "—"}
+- الهيكل المقترح: ${analysis.recommended_structure ?? analysis.recommended_package ?? "—"}
+- عدد الحلقات المقترح: ${analysis.recommended_episodes ?? "—"}
+- استراتيجية التسعير: ${analysis.pricing_strategy ?? "—"}
 - تقييم الميزانية: ${analysis.budget_fit}
-- الباقة المقترحة: ${analysis.recommended_package}
 - نقاط القوة: ${(analysis.opportunity_highlights || []).join("، ")}
 `
     : ""
@@ -154,8 +213,11 @@ export function buildSponsorshipProposalPrompt(
 - الشركة: ${lead.company_name}
 - المجال: ${lead.industry}
 - المسؤول: ${lead.contact_name} (${lead.job_title})
+- قيم العلامة: ${lead.brand_values ?? "—"}
 - أنواع التعاون: ${lead.collaboration_types.join("، ")}
 - الهدف: ${lead.main_goal}
+- أهداف الحملة: ${lead.campaign_goals ?? "—"}
+- توقعاتهم: ${lead.expectations ?? "—"}
 - الجمهور المستهدف: ${lead.target_audience}
 - الميزانية: ${lead.budget_range}
 ${lead.preferred_timeline ? `- الجدول الزمني: ${lead.preferred_timeline}` : ""}

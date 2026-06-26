@@ -86,6 +86,7 @@ const mockSponsorshipLeads: SponsorshipLead[] = [
     id: "1",
     company_name: "شركة التقنية المتقدمة",
     industry: "تقنية المعلومات",
+    company_website: "https://advancedtech.com",
     contact_name: "محمد السعيد",
     job_title: "مدير التسويق",
     email: "mohamed@advancedtech.com",
@@ -94,6 +95,10 @@ const mockSponsorshipLeads: SponsorshipLead[] = [
     collaboration_other: null,
     main_goal: "brand_awareness",
     target_audience: "شباب الخليج المهتمين بالتقنية والابتكار (20-35)",
+    brand_values: "الابتكار والموثوقية",
+    campaign_goals: "بناء إدراك العلامة لدى جيل الشباب التقني",
+    expectations: null,
+    previous_partnerships: null,
     preferred_timeline: "الربع الثالث 2025",
     budget_range: "1000_3000",
     additional_info: "نود أن يكون الظهور مرتبطًا بحلقات التقنية وريادة الأعمال تحديدًا.",
@@ -104,6 +109,7 @@ const mockSponsorshipLeads: SponsorshipLead[] = [
     id: "2",
     company_name: "مقهى السنبلة",
     industry: "أغذية ومشروبات",
+    company_website: null,
     contact_name: "نورة العتيبي",
     job_title: "مؤسسة ومديرة",
     email: "noura@sunbula.co",
@@ -112,6 +118,10 @@ const mockSponsorshipLeads: SponsorshipLead[] = [
     collaboration_other: null,
     main_goal: "community_engagement",
     target_audience: "محبي القهوة المختصة والثقافة المحلية في الكويت",
+    brand_values: null,
+    campaign_goals: null,
+    expectations: null,
+    previous_partnerships: null,
     preferred_timeline: null,
     budget_range: "500_1000",
     additional_info: null,
@@ -532,12 +542,18 @@ export async function upsertSponsorshipAnalysis(
   data: Partial<Omit<SponsorshipAnalysis, "id" | "lead_id" | "created_at">>
 ): Promise<string> {
   if (!USE_DB) return ""
+  // `researched_at` is an ISO string in the domain type, but the timestamp
+  // column needs a Date — coerce at the DB boundary so drizzle can serialize it.
+  const dbData = {
+    ...data,
+    ...(data.researched_at ? { researched_at: new Date(data.researched_at) } : {}),
+  } as Partial<typeof sponsorshipAnalysis.$inferInsert>
   const existing = await getSponsorshipAnalysis(leadId)
   if (existing) {
-    await db!.update(sponsorshipAnalysis).set(data).where(eq(sponsorshipAnalysis.lead_id, leadId))
+    await db!.update(sponsorshipAnalysis).set(dbData).where(eq(sponsorshipAnalysis.lead_id, leadId))
     return existing.id
   }
-  const [row] = await db!.insert(sponsorshipAnalysis).values({ lead_id: leadId, ...data }).returning({ id: sponsorshipAnalysis.id })
+  const [row] = await db!.insert(sponsorshipAnalysis).values({ lead_id: leadId, ...dbData }).returning({ id: sponsorshipAnalysis.id })
   return row.id
 }
 

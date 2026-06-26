@@ -76,7 +76,7 @@ import {
   YOUTUBE_PACK_SECTION_PROMPT_VERSION,
 } from "@/lib/ai/prompts/youtube-pack"
 import {
-  buildSponsorshipAnalysisPrompt,
+  buildPartnershipEvaluationPrompt,
   SPONSORSHIP_ANALYSIS_PROMPT_VERSION,
   buildSponsorshipProposalPrompt,
   SPONSORSHIP_PROPOSAL_PROMPT_VERSION,
@@ -515,7 +515,7 @@ describe("sponsorship builders (B2)", () => {
   } as unknown as SponsorshipLead
 
   it("analysis snapshot", () => {
-    const built = buildSponsorshipAnalysisPrompt({ lead: fixtureLead })
+    const built = buildPartnershipEvaluationPrompt({ lead: fixtureLead, research: [] })
     expect(built.version).toBe(SPONSORSHIP_ANALYSIS_PROMPT_VERSION)
     expect(built.system).toMatchSnapshot()
     expect(built.user).toMatchSnapshot()
