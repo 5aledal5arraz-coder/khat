@@ -13,6 +13,8 @@ export const sponsorshipLeads = pgTable("sponsorship_leads", {
   id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
   company_name: text("company_name").notNull(),
   industry: text("industry").notNull(),
+  // Partnership redesign — company website powers the AI's online research.
+  company_website: text("company_website"),
   contact_name: text("contact_name").notNull(),
   job_title: text("job_title").notNull(),
   email: text("email").notNull(),
@@ -21,6 +23,11 @@ export const sponsorshipLeads = pgTable("sponsorship_leads", {
   collaboration_other: text("collaboration_other"),
   main_goal: text("main_goal").notNull(),
   target_audience: text("target_audience").notNull(),
+  // Partnership redesign — richer application context for AI evaluation.
+  brand_values: text("brand_values"),
+  campaign_goals: text("campaign_goals"),
+  expectations: text("expectations"),
+  previous_partnerships: text("previous_partnerships"),
   preferred_timeline: text("preferred_timeline"),
   budget_range: text("budget_range").notNull(),
   additional_info: text("additional_info"),

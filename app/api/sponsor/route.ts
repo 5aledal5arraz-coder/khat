@@ -26,6 +26,7 @@ export async function POST(request: NextRequest) {
     const {
       company_name,
       industry,
+      company_website,
       contact_name,
       job_title,
       email,
@@ -34,6 +35,10 @@ export async function POST(request: NextRequest) {
       collaboration_other,
       main_goal,
       target_audience,
+      brand_values,
+      campaign_goals,
+      expectations,
+      previous_partnerships,
       preferred_timeline,
       budget_range,
       additional_info,
@@ -89,9 +94,20 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "خطأ في الخادم" }, { status: 500 })
     }
 
+    // Optional URL — keep only a plausibly-valid http(s) value, else null.
+    const cleanWebsite = (() => {
+      if (typeof company_website !== "string") return null
+      const v = stripHtml(company_website).trim()
+      if (!v) return null
+      return /^https?:\/\//i.test(v) ? v : `https://${v}`
+    })()
+    const optText = (v: unknown) =>
+      typeof v === "string" && v.trim().length > 0 ? stripHtml(v) : null
+
     await db.insert(sponsorshipLeads).values({
       company_name: sanitizedCompany,
       industry: stripHtml(industry),
+      company_website: cleanWebsite,
       contact_name: sanitizedContact,
       job_title: stripHtml(job_title),
       email: sanitizedEmail,
@@ -100,6 +116,10 @@ export async function POST(request: NextRequest) {
       collaboration_other: collaboration_other ? stripHtml(collaboration_other) : null,
       main_goal: stripHtml(main_goal),
       target_audience: stripHtml(target_audience),
+      brand_values: optText(brand_values),
+      campaign_goals: optText(campaign_goals),
+      expectations: optText(expectations),
+      previous_partnerships: optText(previous_partnerships),
       preferred_timeline: preferred_timeline ? stripHtml(preferred_timeline) : null,
       budget_range: stripHtml(budget_range),
       additional_info: additional_info ? stripHtml(additional_info) : null,

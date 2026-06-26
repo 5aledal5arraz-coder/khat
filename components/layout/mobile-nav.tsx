@@ -9,7 +9,7 @@ const navItems = [
   { href: "/", icon: Home, label: "الرئيسية" },
   { href: "/episodes", icon: Headphones, label: "الحلقات" },
   { href: "/guests", icon: Users, label: "الضيوف" },
-  { href: "/sponsor", icon: Handshake, label: "شراكة", highlight: true },
+  { href: "/partner", icon: Handshake, label: "شراكة", highlight: true },
 ]
 
 export function MobileNav({ hasNewEpisode = false }: { hasNewEpisode?: boolean }) {

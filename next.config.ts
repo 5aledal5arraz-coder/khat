@@ -55,6 +55,13 @@ const nextConfig: NextConfig = {
   // updated.
   async redirects() {
     return [
+      // Sponsor → Partner rebrand. The page now lives at /partner; keep the old
+      // /sponsor URL resolving for any existing links.
+      {
+        source: "/sponsor",
+        destination: "/partner",
+        permanent: false,
+      },
       {
         source: "/admin/khat-map",
         destination: "/admin/khat-brain/seasons",

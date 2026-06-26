@@ -889,3 +889,11 @@ ALTER TABLE khat_map_episode_candidates ADD COLUMN IF NOT EXISTS topic_category 
 -- Audience-first redesign — admin-internal "why it lands in the GCC" note shown
 -- on the wizard card (never on public content). Modeled in schema. Idempotent.
 ALTER TABLE khat_map_episode_candidates ADD COLUMN IF NOT EXISTS regional_note text;
+
+-- Partnership redesign — richer application fields powering the AI evaluation
+-- engine. Modeled in lib/db/schema/system.ts. Nullable; idempotent.
+ALTER TABLE sponsorship_leads ADD COLUMN IF NOT EXISTS company_website text;
+ALTER TABLE sponsorship_leads ADD COLUMN IF NOT EXISTS brand_values text;
+ALTER TABLE sponsorship_leads ADD COLUMN IF NOT EXISTS campaign_goals text;
+ALTER TABLE sponsorship_leads ADD COLUMN IF NOT EXISTS expectations text;
+ALTER TABLE sponsorship_leads ADD COLUMN IF NOT EXISTS previous_partnerships text;

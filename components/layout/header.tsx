@@ -98,7 +98,7 @@ export function Header({ hasNewEpisode = false }: { hasNewEpisode?: boolean }) {
                 <span className="sr-only">بحث</span>
               </Button>
               <Link
-                href="/sponsor"
+                href="/partner"
                 className={buttonVariants({ variant: "default", size: "sm" })}
               >
                 كن شريكاً

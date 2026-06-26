@@ -13,7 +13,7 @@ const navigation = {
     { name: "استمع", href: "/listen" },
   ],
   partner: [
-    { name: "كن شريكاً", href: "/sponsor" },
+    { name: "كن شريكاً", href: "/partner" },
     { name: "كن ضيفاً", href: "/guest" },
   ],
 }
