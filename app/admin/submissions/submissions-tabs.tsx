@@ -29,9 +29,7 @@ import {
   CircleX,
   Eye,
   ChevronDown,
-  Lightbulb,
   BookOpen,
-  Link,
   Brain,
   Sparkles,
   AlertTriangle,
@@ -57,8 +55,6 @@ import type {
   GuestApplicationConcept,
   GuestApplicationResponse,
   NewsletterSubscriber,
-  ThinkerSuggestion,
-  ThinkerSuggestionStatus,
   GuestPrepForm,
   GuestPrepFormStatus,
   GuestPrepResponse,
@@ -151,36 +147,6 @@ const SPONSOR_STATUS_CONFIG: Record<
   },
   declined: {
     label: "معتذر",
-    color: "text-red-700",
-    bg: "bg-red-500/10",
-    ring: "ring-red-500/20",
-  },
-}
-
-const THINKER_STATUS_CONFIG: Record<
-  ThinkerSuggestionStatus,
-  { label: string; color: string; bg: string; ring: string }
-> = {
-  new: {
-    label: "جديد",
-    color: "text-blue-700",
-    bg: "bg-blue-500/10",
-    ring: "ring-blue-500/20",
-  },
-  reviewing: {
-    label: "قيد المراجعة",
-    color: "text-amber-700",
-    bg: "bg-amber-500/10",
-    ring: "ring-amber-500/20",
-  },
-  approved: {
-    label: "مقبول",
-    color: "text-emerald-700",
-    bg: "bg-emerald-500/10",
-    ring: "ring-emerald-500/20",
-  },
-  rejected: {
-    label: "مرفوض",
     color: "text-red-700",
     bg: "bg-red-500/10",
     ring: "ring-red-500/20",
@@ -678,14 +644,12 @@ interface SubmissionsTabsProps {
   guestApplications: GuestApplication[]
   sponsorshipLeads: SponsorshipLead[]
   newsletterSubscribers: NewsletterSubscriber[]
-  thinkerSuggestions: ThinkerSuggestion[]
 }
 
 export function SubmissionsTabs({
   guestApplications: initialGuestApps,
   sponsorshipLeads: initialSponsors,
   newsletterSubscribers: initialSubscribers,
-  thinkerSuggestions: initialThinkers,
 }: SubmissionsTabsProps) {
   const searchParams = useSearchParams()
   const defaultTab = searchParams.get("tab") || "guests"
@@ -697,7 +661,6 @@ export function SubmissionsTabs({
   const [sponsorshipLeads, setSponsorshipLeads] = useState(initialSponsors)
   const [newsletterSubscribers, setNewsletterSubscribers] =
     useState(initialSubscribers)
-  const [thinkerSuggestions, setThinkerSuggestions] = useState(initialThinkers)
 
   const [selectedApplication, setSelectedApplication] =
     useState<GuestApplication | null>(null)
@@ -1177,46 +1140,6 @@ export function SubmissionsTabs({
     }
   }
 
-  const handleThinkerStatusChange = async (
-    id: string,
-    status: ThinkerSuggestionStatus
-  ) => {
-    try {
-      const response = await fetch(`/api/admin/submissions/thinkers/${id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status }),
-      })
-      if (response.ok) {
-        setThinkerSuggestions((prev) =>
-          prev.map((t) => (t.id === id ? { ...t, status } : t))
-        )
-      }
-    } catch (error) {
-      console.error("Error updating thinker status:", error)
-    }
-  }
-
-  const handleDeleteThinker = async (id: string) => {
-    if (!confirm("متأكد إنك تبي تحذف هذا الاقتراح؟")) return
-    setDeletingIds((prev) => new Set(prev).add(id))
-    try {
-      const response = await fetch(`/api/admin/submissions/thinkers/${id}`, {
-        method: "DELETE",
-      })
-      if (response.ok) {
-        setThinkerSuggestions((prev) => prev.filter((t) => t.id !== id))
-      }
-    } catch (error) {
-      console.error("Error deleting thinker suggestion:", error)
-    } finally {
-      setDeletingIds((prev) => {
-        const next = new Set(prev)
-        next.delete(id)
-        return next
-      })
-    }
-  }
 
   const exportSubscribers = () => {
     const csv = [
@@ -1366,20 +1289,10 @@ export function SubmissionsTabs({
       )
     : newsletterSubscribers
 
-  const filteredThinkers = normalizedSearch
-    ? thinkerSuggestions.filter(
-        (t) =>
-          t.thinker_name.toLowerCase().includes(normalizedSearch) ||
-          t.research_field.toLowerCase().includes(normalizedSearch) ||
-          t.reason.toLowerCase().includes(normalizedSearch)
-      )
-    : thinkerSuggestions
-
   const totalSubmissions =
     guestApplications.length +
     sponsorshipLeads.length +
-    newsletterSubscribers.length +
-    thinkerSuggestions.length
+    newsletterSubscribers.length
 
   return (
     <div className="space-y-6">
@@ -1387,12 +1300,12 @@ export function SubmissionsTabs({
       <div>
         <h1 className="text-xl font-bold">الطلبات والاشتراكات</h1>
         <p className="mt-1 text-[13px] text-muted-foreground">
-          مراجعة طلبات الضيوف والرعاية واقتراحات المفكرين ومشتركي النشرة البريدية
+          مراجعة طلبات الضيوف والرعاية ومشتركي النشرة البريدية
         </p>
       </div>
 
       {/* ─── Stats Grid ─── */}
-      <div className="grid grid-cols-2 gap-4 sm:grid-cols-5">
+      <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
         <GlowCard color="primary">
           <div className="p-5">
             <div className="flex items-center justify-between">
@@ -1454,22 +1367,6 @@ export function SubmissionsTabs({
             </p>
           </div>
         </GlowCard>
-
-        <GlowCard color="muted">
-          <div className="p-5">
-            <div className="flex items-center justify-between">
-              <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-amber-500/10">
-                <Lightbulb className="h-5 w-5 text-amber-700" />
-              </div>
-              <span className="text-3xl font-bold">
-                {thinkerSuggestions.length}
-              </span>
-            </div>
-            <p className="mt-3 text-xs font-medium text-muted-foreground">
-              اقتراحات المفكرين
-            </p>
-          </div>
-        </GlowCard>
       </div>
 
       {/* ─── Tabs ─── */}
@@ -1477,7 +1374,6 @@ export function SubmissionsTabs({
         <TabButton active={activeTab === "guests"} icon={UserPlus} label="طلبات الضيوف" shortLabel="الضيوف" count={guestApplications.length} onClick={() => setActiveTab("guests")} color="purple" />
         <TabButton active={activeTab === "sponsors"} icon={Handshake} label="طلبات الرعاية" shortLabel="الرعاية" count={sponsorshipLeads.length} onClick={() => setActiveTab("sponsors")} color="primary" />
         <TabButton active={activeTab === "newsletter"} icon={Mail} label="المشتركين" shortLabel="النشرة" count={newsletterSubscribers.length} onClick={() => setActiveTab("newsletter")} color="green" />
-        <TabButton active={activeTab === "thinkers"} icon={Lightbulb} label="اقتراحات المفكرين" shortLabel="المفكرين" count={thinkerSuggestions.length} onClick={() => setActiveTab("thinkers")} color="amber" />
       </div>
 
       {/* ─── Search Bar ─── */}
@@ -1489,9 +1385,7 @@ export function SubmissionsTabs({
               ? "ابحث بالاسم أو البريد أو القصة..."
               : activeTab === "sponsors"
                 ? "ابحث بالاسم أو البريد أو الشركة..."
-                : activeTab === "thinkers"
-                  ? "ابحث بالاسم أو المجال أو السبب..."
-                  : "ابحث بالبريد الإلكتروني..."
+                : "ابحث بالبريد الإلكتروني..."
           }
           value={search}
           onChange={(e) => setSearch(e.target.value)}
@@ -1747,93 +1641,6 @@ export function SubmissionsTabs({
                   </button>
                 </div>
               ))}
-            </div>
-          )}
-        </>
-      )}
-
-      {/* ─── Thinker Suggestions Tab ─── */}
-      {activeTab === "thinkers" && (
-        <>
-          {filteredThinkers.length === 0 ? (
-            <EmptyState icon={Lightbulb} title={search ? "لم يتم العثور على اقتراحات" : "لا توجد اقتراحات مفكرين بعد"} description={search ? `لم يتم العثور على اقتراحات تطابق "${search}"` : "ستظهر هنا اقتراحات المفكرين عند إرسالها من الموقع"} />
-          ) : (
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              {filteredThinkers.map((suggestion) => {
-                const statusConfig = THINKER_STATUS_CONFIG[suggestion.status]
-                return (
-                  <div key={suggestion.id} className="group relative overflow-hidden rounded-2xl border border-border/30 bg-card/50 backdrop-blur-sm transition-all hover:border-border/60 hover:bg-card/80">
-                    <div className="absolute inset-x-0 top-0 h-0.5 bg-gradient-to-l from-primary/40 via-amber-500/30 to-transparent opacity-0 transition-opacity group-hover:opacity-100" />
-                    <div className="p-5">
-                      <div className="flex items-start justify-between">
-                        <div className="flex items-start gap-3">
-                          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-amber-500/10 ring-1 ring-amber-500/20">
-                            <Lightbulb className="h-5 w-5 text-amber-700" />
-                          </div>
-                          <div className="min-w-0">
-                            <h3 className="truncate text-sm font-semibold">{suggestion.thinker_name}</h3>
-                            <div className="mt-0.5 flex items-center gap-1.5 text-xs text-muted-foreground">
-                              <BookOpen className="h-3 w-3" />
-                              <span className="truncate">{suggestion.research_field}</span>
-                            </div>
-                          </div>
-                        </div>
-                        <ActionMenu>
-                          {(close) => (
-                            <>
-                              {(Object.keys(THINKER_STATUS_CONFIG) as ThinkerSuggestionStatus[]).map((s) => (
-                                <MenuItem
-                                  key={s}
-                                  icon={s === "approved" ? CircleCheck : s === "rejected" ? CircleX : Eye}
-                                  label={THINKER_STATUS_CONFIG[s].label}
-                                  onClick={() => { handleThinkerStatusChange(suggestion.id, s); close() }}
-                                />
-                              ))}
-                              <div className="my-1 border-t border-border/50" />
-                              <MenuItem icon={Trash2} label="حذف" variant="danger" onClick={() => { handleDeleteThinker(suggestion.id); close() }} />
-                            </>
-                          )}
-                        </ActionMenu>
-                      </div>
-
-                      {/* Status badge */}
-                      <div className="mt-3 flex flex-wrap gap-2">
-                        <span className={`flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-[10px] font-medium ring-1 ${statusConfig.bg} ${statusConfig.color} ${statusConfig.ring}`}>
-                          {statusConfig.label}
-                        </span>
-                      </div>
-
-                      {/* Reason preview */}
-                      <p className="mt-3 line-clamp-3 text-xs leading-relaxed text-muted-foreground">
-                        {suggestion.reason}
-                      </p>
-
-                      {/* Social links / phone indicators */}
-                      {(suggestion.social_links || suggestion.phone) && (
-                        <div className="mt-2 flex flex-wrap gap-1.5">
-                          {suggestion.social_links && (
-                            <span className="flex items-center gap-1 rounded-md bg-white/[0.03] px-2 py-0.5 text-[9px] text-muted-foreground ring-1 ring-border/20">
-                              <Link className="h-2.5 w-2.5" />
-                              روابط
-                            </span>
-                          )}
-                          {suggestion.phone && (
-                            <span className="flex items-center gap-1 rounded-md bg-white/[0.03] px-2 py-0.5 text-[9px] text-muted-foreground ring-1 ring-border/20">
-                              <Phone className="h-2.5 w-2.5" />
-                              {suggestion.phone}
-                            </span>
-                          )}
-                        </div>
-                      )}
-
-                      <div className="mt-4 flex items-center gap-1.5 text-[10px] text-muted-foreground">
-                        <Calendar className="h-3 w-3" />
-                        {timeAgo(suggestion.created_at)}
-                      </div>
-                    </div>
-                  </div>
-                )
-              })}
             </div>
           )}
         </>

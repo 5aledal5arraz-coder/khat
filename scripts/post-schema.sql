@@ -1151,5 +1151,16 @@ CREATE TABLE IF NOT EXISTS community_contributions (
   triaged_at timestamptz,
   created_at timestamptz DEFAULT now()
 );
+-- Phase 3: recognition wall opt-in + outcome-email guard (idempotent).
+ALTER TABLE community_contributions ADD COLUMN IF NOT EXISTS public_credit boolean NOT NULL DEFAULT false;
+ALTER TABLE community_contributions ADD COLUMN IF NOT EXISTS outcome_emailed_at timestamptz;
 CREATE INDEX IF NOT EXISTS idx_community_type_status ON community_contributions(type, status);
 CREATE INDEX IF NOT EXISTS idx_community_created ON community_contributions(created_at);
+-- Public wall lookups: featured contributions, newest first.
+CREATE INDEX IF NOT EXISTS idx_community_public_credit ON community_contributions(public_credit, created_at) WHERE public_credit = true;
+
+-- ─── Retired tables ─────────────────────────────────────────────────────────
+-- thinker_suggestions (the old "suggest a guest" intake) was absorbed by the
+-- community contribution hub above (type = 'guest'). The baseline migration
+-- still CREATEs it; drop it here so the live schema matches the code. Idempotent.
+DROP TABLE IF EXISTS thinker_suggestions;

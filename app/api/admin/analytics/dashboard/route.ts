@@ -11,7 +11,6 @@ import {
   sponsorshipLeads,
   newsletterSubscribers,
   newsletterCampaigns,
-  thinkerSuggestions,
   visitorEvents,
   studioSessions,
   episodeSponsors,
@@ -41,7 +40,6 @@ interface DashboardData {
     newGuestApplications: number
     sponsorshipLeads: number
     newSponsorshipLeads: number
-    thinkerSuggestions: number
     newsletterSubscribers: number
     activeSubscribers: number
   }
@@ -151,7 +149,6 @@ export async function GET() {
       newGuestAppsResult,
       sponsorsResult,
       newSponsorsResult,
-      thinkersResult,
       // Newsletter
       totalSubsResult,
       activeSubsResult,
@@ -173,7 +170,6 @@ export async function GET() {
       db!.select({ count: count() }).from(guestApplications).where(eq(guestApplications.status, "new")),
       db!.select({ count: count() }).from(sponsorshipLeads),
       db!.select({ count: count() }).from(sponsorshipLeads).where(eq(sponsorshipLeads.status, "new")),
-      db!.select({ count: count() }).from(thinkerSuggestions),
       db!.select({ count: count() }).from(newsletterSubscribers),
       db!.select({ count: count() }).from(newsletterSubscribers).where(eq(newsletterSubscribers.status, "active")),
       db!.select({ count: count() }).from(newsletterCampaigns),
@@ -505,7 +501,6 @@ export async function GET() {
         newGuestApplications: newGuestApps,
         sponsorshipLeads: sponsorsResult[0].count,
         newSponsorshipLeads: newSponsorApps,
-        thinkerSuggestions: thinkersResult[0].count,
         newsletterSubscribers: totalSubsResult[0].count,
         activeSubscribers: totalSubs,
       },

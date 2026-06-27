@@ -5,7 +5,7 @@ import Link from "next/link"
 import { useRouter } from "next/navigation"
 import {
   ArrowRight, Sparkles, Brain, Lightbulb, ShieldAlert, Mail, Loader2, Send, CheckCircle2,
-  AlertTriangle, Plus, Trash2, Pin, MessageSquare, Clock, CircleDot, Trash, Eye,
+  AlertTriangle, Plus, Trash2, Pin, MessageSquare, Clock, CircleDot, Trash, Eye, Award,
 } from "lucide-react"
 import type { CommunityRecord } from "@/lib/community/record"
 import type { CommunityContributionStatus, CrmTask, CrmNote, CrmActivity } from "@/types/database"
@@ -55,6 +55,8 @@ export function CommunityRecordView({ record, reference }: { record: CommunityRe
       const res = await call(`/api/admin/community/${c.id}/route-to-brain`, "POST")
       if (!res.ok) { const d = await res.json().catch(() => ({})); alert(d.error || "تعذّر التوجيه") }
     })
+  const toggleCredit = () =>
+    run("credit", async () => { await call(`/api/admin/community/${c.id}`, "PATCH", { public_credit: !c.public_credit }) })
 
   return (
     <div className="space-y-5">
@@ -108,6 +110,18 @@ export function CommunityRecordView({ record, reference }: { record: CommunityRe
           ) : (
             <span className="text-[11px] text-slate-400">للمراجعة فقط — لا توجد وجهة في خط برين</span>
           )}
+          <span className="mx-1 h-4 w-px bg-slate-200" />
+          <button
+            onClick={toggleCredit}
+            disabled={busy !== null}
+            title="اعرض هذه المساهمة على حائط «صُنع مع المجتمع» العام"
+            className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-[12px] font-medium transition-all disabled:opacity-60 ${
+              c.public_credit ? "border-amber-300 bg-amber-50 text-amber-700" : "border-slate-200 bg-white text-slate-500 hover:bg-slate-50"
+            }`}
+          >
+            {busy === "credit" ? <Loader2 className="h-3 w-3 animate-spin" /> : <Award className="h-3 w-3" />}
+            {c.public_credit ? "على حائط المجتمع" : "أضِف إلى الحائط"}
+          </button>
         </div>
       </div>
 
@@ -247,6 +261,7 @@ function NotesCard({ record, run, busy, call }: { record: CommunityRecord; run: 
 const ICON: Record<string, React.ElementType> = {
   contribution_created: Sparkles, triage_completed: Brain, status_changed: CircleDot, routed_to_brain: Send,
   note_added: MessageSquare, task_created: CheckCircle2, task_completed: CheckCircle2,
+  outcome_emailed: Mail, credit_changed: Award,
 }
 function TimelineCard({ activities }: { activities: CrmActivity[] }) {
   return (

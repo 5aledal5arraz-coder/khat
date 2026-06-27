@@ -70,16 +70,9 @@ export const homepageSettings = pgTable("homepage_settings", {
   updated_at: timestamp("updated_at", { withTimezone: true }).defaultNow(),
 })
 
-export const thinkerSuggestions = pgTable("thinker_suggestions", {
-  id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
-  thinker_name: text("thinker_name").notNull(),
-  research_field: text("research_field").notNull(),
-  reason: text("reason").notNull(),
-  social_links: text("social_links"),
-  phone: text("phone"),
-  status: text("status").default("new"),
-  created_at: timestamp("created_at", { withTimezone: true }).defaultNow(),
-})
+// thinker_suggestions retired June 2026 — its "suggest a guest" purpose was
+// absorbed by the community contribution hub (lib/db/schema/community.ts,
+// type = "guest"). The legacy table is dropped in scripts/post-schema.sql.
 
 export const teaserQuestions = pgTable("teaser_questions", {
   id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),

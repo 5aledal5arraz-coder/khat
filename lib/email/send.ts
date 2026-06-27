@@ -10,6 +10,7 @@ import {
   partnerTaskReminderHtml,
   guestPrepConfirmHtml,
   communityContributionConfirmHtml,
+  communityOutcomeHtml,
   type PartnerReminderItem,
 } from './templates'
 
@@ -81,6 +82,22 @@ export async function sendCommunityContributionConfirm(
     replyTo: REPLY_TO,
     subject: 'وصلتنا مساهمتك — بودكاست خط',
     html: communityContributionConfirmHtml(name, typeLabel, reference),
+  })
+}
+
+export async function sendCommunityOutcome(
+  contributorEmail: string,
+  name: string,
+  typeLabel: string,
+  outcome: "accepted" | "routed",
+  reference?: string,
+) {
+  return getResend().emails.send({
+    from: FROM_DISPLAY,
+    to: contributorEmail,
+    replyTo: REPLY_TO,
+    subject: outcome === "routed" ? "فكرتك دخلت ورشة خط 🎙️" : "مساهمتك أعجبتنا — بودكاست خط",
+    html: communityOutcomeHtml(name, typeLabel, outcome, reference),
   })
 }
 

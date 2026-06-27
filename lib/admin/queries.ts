@@ -1,6 +1,6 @@
 import { db, USE_DB } from "@/lib/db"
 import { eq, desc, count } from 'drizzle-orm'
-import { guests, guestApplications, sponsorshipLeads, newsletterSubscribers, thinkerSuggestions, sponsorshipAnalysis, sponsorshipProposals, guestApplicationAnalysis, guestApplicationConcepts, guestApplicationResponses } from '@/lib/db/schema'
+import { guests, guestApplications, sponsorshipLeads, newsletterSubscribers, sponsorshipAnalysis, sponsorshipProposals, guestApplicationAnalysis, guestApplicationConcepts, guestApplicationResponses } from '@/lib/db/schema'
 import type {
   Guest,
   GuestApplication,
@@ -13,7 +13,6 @@ import type {
   GuestApplicationConcept,
   GuestApplicationResponse,
   NewsletterSubscriber,
-  ThinkerSuggestion,
 } from "@/types/database"
 import { mockGuests } from "@/lib/mocks/episodes"
 
@@ -492,20 +491,6 @@ export async function updateSponsorshipStatus(
   }
 }
 
-export async function getThinkerSuggestions(): Promise<ThinkerSuggestion[]> {
-  if (!USE_DB) return []
-
-  try {
-    const rows = await db!
-      .select()
-      .from(thinkerSuggestions)
-      .orderBy(desc(thinkerSuggestions.created_at))
-    return rows as unknown as ThinkerSuggestion[]
-  } catch (error) {
-    console.error("Error fetching thinker suggestions:", error)
-    return []
-  }
-}
 
 export async function deleteNewsletterSubscriber(
   id: string

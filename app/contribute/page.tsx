@@ -1,12 +1,16 @@
 import type { Metadata } from "next"
 import { Sparkles } from "lucide-react"
 import { CommunityContributeForm } from "@/components/forms/community-contribute-form"
+import { CommunityWall } from "@/components/community/community-wall"
 
 export const metadata: Metadata = {
   title: "ساهم في خط — بودكاست خط",
   description:
     "خط يُصنع معكم. اقترح ضيفًا، أو فكرة حلقة، أو سؤالًا للنقاش، أو فكرة محتوى، أو اقتراحًا يجعل خط أفضل.",
 }
+
+// The wall reads featured contributions live; keep this page dynamic.
+export const dynamic = "force-dynamic"
 
 export default function ContributePage() {
   return (
@@ -30,6 +34,8 @@ export default function ContributePage() {
       <p className="mt-8 text-center text-xs leading-relaxed text-muted-foreground/60">
         لا حاجة لحساب. مساهمتك تصلنا مباشرةً، ونحتفظ بالأفكار القوية ونعود إليها حين يحين وقتها.
       </p>
+
+      <CommunityWall />
     </div>
   )
 }

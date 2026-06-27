@@ -14,7 +14,6 @@ import {
   MousePointerClick,
   UserPlus,
   Handshake,
-  Lightbulb,
   AlertTriangle,
   CheckCircle2,
   Info,
@@ -55,7 +54,6 @@ interface DashboardData {
     newGuestApplications: number
     sponsorshipLeads: number
     newSponsorshipLeads: number
-    thinkerSuggestions: number
     newsletterSubscribers: number
     activeSubscribers: number
   }
@@ -612,7 +610,7 @@ export default function AnalyticsDashboard() {
       {/* ─── Submissions Overview ────────────────────────────────────────── */}
       <section className="space-y-4">
         <SectionHeader icon={UserPlus} title="الطلبات والنماذج" />
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
           <div className="rounded-xl border border-border/30 bg-card/50 p-4">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
@@ -640,13 +638,6 @@ export default function AnalyticsDashboard() {
               )}
             </div>
             <p className="mt-2 text-2xl font-bold tabular-nums">{submissions.sponsorshipLeads}</p>
-          </div>
-          <div className="rounded-xl border border-border/30 bg-card/50 p-4">
-            <div className="flex items-center gap-2">
-              <Lightbulb className="h-4 w-4 text-amber-700" />
-              <span className="text-[13px]">اقتراحات ضيوف</span>
-            </div>
-            <p className="mt-2 text-2xl font-bold tabular-nums">{submissions.thinkerSuggestions}</p>
           </div>
           <div className="rounded-xl border border-border/30 bg-card/50 p-4">
             <div className="flex items-center gap-2">

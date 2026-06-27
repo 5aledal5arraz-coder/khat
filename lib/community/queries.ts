@@ -53,6 +53,7 @@ export async function updateCommunityContribution(
     ...data,
     ...(data.triaged_at ? { triaged_at: new Date(data.triaged_at) } : {}),
     ...(data.routed_at ? { routed_at: new Date(data.routed_at) } : {}),
+    ...(data.outcome_emailed_at ? { outcome_emailed_at: new Date(data.outcome_emailed_at) } : {}),
   } as Partial<typeof communityContributions.$inferInsert>
   await db.update(communityContributions).set(set).where(eq(communityContributions.id, id))
 }
@@ -78,6 +79,49 @@ export async function listCommunityContributions(filter?: {
   return rows.map(rowTo)
 }
 
+/** One featured entry on the public recognition wall — only safe fields, never email. */
+export interface CommunityWallEntry {
+  id: string
+  type: string
+  title: string
+  contributor_name: string | null
+  routed_kind: string | null
+  status: CommunityContributionStatus
+  created_at: string
+}
+
+/**
+ * Public "صُنع مع المجتمع" wall: contributions the operator explicitly opted to
+ * credit (public_credit = true). Newest first. Deliberately omits the email,
+ * body, AI triage, and any internal field.
+ */
+export async function getCommunityWall(limit = 24): Promise<CommunityWallEntry[]> {
+  if (!db) return []
+  const rows = await db
+    .select({
+      id: communityContributions.id,
+      type: communityContributions.type,
+      title: communityContributions.title,
+      contributor_name: communityContributions.contributor_name,
+      routed_kind: communityContributions.routed_kind,
+      status: communityContributions.status,
+      created_at: communityContributions.created_at,
+    })
+    .from(communityContributions)
+    .where(eq(communityContributions.public_credit, true))
+    .orderBy(desc(communityContributions.created_at))
+    .limit(limit)
+  return rows.map((r) => ({
+    id: r.id,
+    type: r.type,
+    title: r.title,
+    contributor_name: r.contributor_name ?? null,
+    routed_kind: r.routed_kind ?? null,
+    status: r.status as CommunityContributionStatus,
+    created_at: (r.created_at ?? new Date()).toISOString(),
+  }))
+}
+
 function rowTo(r: typeof communityContributions.$inferSelect): CommunityContribution {
   return {
     id: r.id,
@@ -92,6 +136,8 @@ function rowTo(r: typeof communityContributions.$inferSelect): CommunityContribu
     routed_kind: r.routed_kind ?? null,
     routed_id: r.routed_id ?? null,
     routed_at: r.routed_at ? r.routed_at.toISOString() : null,
+    public_credit: r.public_credit ?? false,
+    outcome_emailed_at: r.outcome_emailed_at ? r.outcome_emailed_at.toISOString() : null,
     triage_status: (r.triage_status as CommunityContribution["triage_status"]) ?? "generating",
     quality_score: r.quality_score ?? null,
     category: r.category ?? null,

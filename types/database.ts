@@ -516,6 +516,10 @@ export interface CommunityContribution {
   routed_kind: string | null
   routed_id: string | null
   routed_at: string | null
+  /** Operator opt-in to feature this on the public community wall. */
+  public_credit: boolean
+  /** When the contributor was emailed about the outcome (accepted/routed). */
+  outcome_emailed_at: string | null
   triage_status: CommunityTriageStatus
   quality_score: number | null
   category: string | null
@@ -705,18 +709,8 @@ export interface GuestApplication {
   created_at: string
 }
 
-export type ThinkerSuggestionStatus = "new" | "reviewing" | "approved" | "rejected"
-
-export interface ThinkerSuggestion {
-  id: string
-  thinker_name: string
-  research_field: string
-  reason: string
-  social_links: string | null
-  phone: string | null
-  status: ThinkerSuggestionStatus
-  created_at: string
-}
+// ThinkerSuggestion retired June 2026 — replaced by the community contribution
+// hub (CommunityContribution, type = "guest"). See lib/db/schema/community.ts.
 
 // ---------------------------------------------------------------------------
 // Admin Episode Views (server-transformed projections for admin UI)

@@ -11,6 +11,7 @@
  */
 
 import { getCommunityContributionById, updateCommunityContribution } from "./queries"
+import { notifyContributionOutcome } from "./notify"
 import { communityRef } from "@/lib/community-ref"
 import { logActivity } from "@/lib/crm"
 import { createCandidate } from "@/lib/guest-candidates/queries"
@@ -133,6 +134,9 @@ export async function routeContribution(id: string, actorId?: string | null): Pr
     actor,
     metadata: { routed_kind, routed_id },
   })
+
+  // Tell the contributor their idea reached production (once, if they left an email).
+  void notifyContributionOutcome(c, "routed")
 
   return { ok: true, routed_kind, routed_id }
 }

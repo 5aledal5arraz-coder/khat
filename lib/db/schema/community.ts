@@ -41,6 +41,12 @@ export const communityContributions = pgTable(
     routed_id: text("routed_id"),
     routed_at: timestamp("routed_at", { withTimezone: true }),
 
+    // ─── Recognition + follow-up ────────────────────────────────────────────────
+    /** Operator opt-in: feature this on the public "صُنع مع المجتمع" wall. */
+    public_credit: boolean("public_credit").notNull().default(false),
+    /** When the contributor was emailed about the outcome (accepted/routed) — guards a single send. */
+    outcome_emailed_at: timestamp("outcome_emailed_at", { withTimezone: true }),
+
     // ─── AI triage ────────────────────────────────────────────────────────────
     /** generating | ready | error */
     triage_status: text("triage_status").default("generating"),
