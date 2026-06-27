@@ -4,7 +4,7 @@ import { stripHtml } from "@/lib/sanitize"
 import { getNotes, createNote } from "@/lib/crm"
 import type { CrmSubjectKind } from "@/types/database"
 
-const KINDS: CrmSubjectKind[] = ["guest", "partner"]
+const KINDS: CrmSubjectKind[] = ["guest", "partner", "community"]
 const kindOf = (k: string): CrmSubjectKind | null => (KINDS.includes(k as CrmSubjectKind) ? (k as CrmSubjectKind) : null)
 
 export async function GET(_req: NextRequest, { params }: { params: Promise<{ kind: string; id: string }> }) {

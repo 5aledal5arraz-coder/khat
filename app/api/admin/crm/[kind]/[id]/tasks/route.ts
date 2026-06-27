@@ -4,7 +4,7 @@ import { stripHtml } from "@/lib/sanitize"
 import { getTasks, createTask } from "@/lib/crm"
 import type { CrmSubjectKind, CrmTaskPriority } from "@/types/database"
 
-const KINDS: CrmSubjectKind[] = ["guest", "partner"]
+const KINDS: CrmSubjectKind[] = ["guest", "partner", "community"]
 const kindOf = (k: string): CrmSubjectKind | null => (KINDS.includes(k as CrmSubjectKind) ? (k as CrmSubjectKind) : null)
 const PRIORITIES: CrmTaskPriority[] = ["low", "normal", "high"]
 

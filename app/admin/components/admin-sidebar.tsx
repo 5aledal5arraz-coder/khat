@@ -27,6 +27,7 @@ import {
   Gauge,
   KanbanSquare,
   Clapperboard,
+  MessagesSquare,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 
@@ -88,6 +89,7 @@ const navGroups: NavGroup[] = [
       { href: "/admin/analytics", icon: BarChart3, label: "تحليلات المنصة" },
       { href: "/admin/submissions", icon: Inbox, label: "الطلبات" },
       { href: "/admin/casting", icon: Clapperboard, label: "ترشيح الضيوف", badge: "ai" },
+      { href: "/admin/community", icon: MessagesSquare, label: "مساهمات المجتمع", badge: "ai" },
       { href: "/admin/partnerships/pipeline", icon: KanbanSquare, label: "خط الشراكات", badge: "ai" },
       { href: "/admin/partnerships", icon: Handshake, label: "الشركاء" },
       { href: "/admin/media-kit", icon: FileText, label: "ملف الشراكة" },

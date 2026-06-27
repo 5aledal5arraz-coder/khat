@@ -3,7 +3,7 @@ import { requireAdminAPI, getAdminAuthUser } from "@/lib/api-utils"
 import { setTaskStatus, deleteTask } from "@/lib/crm"
 import type { CrmSubjectKind, CrmTaskStatus } from "@/types/database"
 
-const KINDS: CrmSubjectKind[] = ["guest", "partner"]
+const KINDS: CrmSubjectKind[] = ["guest", "partner", "community"]
 const kindOf = (k: string): CrmSubjectKind | null => (KINDS.includes(k as CrmSubjectKind) ? (k as CrmSubjectKind) : null)
 const STATUSES: CrmTaskStatus[] = ["open", "done", "dismissed"]
 

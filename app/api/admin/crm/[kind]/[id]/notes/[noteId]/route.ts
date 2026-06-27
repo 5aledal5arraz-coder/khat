@@ -3,7 +3,7 @@ import { requireAdminAPI } from "@/lib/api-utils"
 import { deleteNote, setNotePinned } from "@/lib/crm"
 import type { CrmSubjectKind } from "@/types/database"
 
-const KINDS: CrmSubjectKind[] = ["guest", "partner"]
+const KINDS: CrmSubjectKind[] = ["guest", "partner", "community"]
 const kindOf = (k: string): CrmSubjectKind | null => (KINDS.includes(k as CrmSubjectKind) ? (k as CrmSubjectKind) : null)
 
 export async function PATCH(
