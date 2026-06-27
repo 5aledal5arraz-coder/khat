@@ -66,6 +66,7 @@ import type {
   KhatMapKhatDna,
   KhatMapFingerprintEpisodeEntry,
   KhatMapFingerprintGuestEntry,
+  KhatMapEditorialIntel,
 } from "@/types/khat-map"
 import { episodePreparations } from "./preparation"
 import { guestCandidates } from "./guest-candidates"
@@ -225,6 +226,14 @@ export const khatMapEpisodeCandidates = pgTable("khat_map_episode_candidates", {
    * during persistence so the wizard doesn't need to recompute.
    */
   composite_score_rationale: text("composite_score_rationale"),
+
+  // ─── Editorial intelligence engine (the upgrade) ───────────────────────────
+  /** Knowledge-universe subcategory id (finer than topic_category). Null on legacy. */
+  topic_subcategory: text("topic_subcategory"),
+  /** 0-100 Success Probability from the 14-dimension model. Null on legacy rows. */
+  success_score: real("success_score"),
+  /** Rich editorial intel — titles, lenses, critique, success dims. Null on legacy. */
+  editorial_intel: jsonb("editorial_intel").$type<KhatMapEditorialIntel>(),
 
   // Conversion — `set null` so downstream deletes don't break history
   converted_preparation_id: text("converted_preparation_id").references(

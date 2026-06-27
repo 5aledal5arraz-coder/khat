@@ -433,6 +433,51 @@ export interface KhatMapSeason {
 /**
  * An AI-proposed episode idea. Status moves: proposed → approved → converted.
  */
+/** One title option from the headline layer (persisted inside editorial_intel). */
+export interface KhatMapTitleOption {
+  /** premium | curiosity | controversial | emotional | global | local | youtube | apple */
+  kind: string
+  label_ar: string
+  text: string
+}
+
+/**
+ * The editorial intelligence captured for a candidate by the editorial engine +
+ * Editorial Court. Persisted as one jsonb column. All fields are admin-internal
+ * and surfaced on the wizard card. Null on legacy / audience-first / Phase B rows.
+ */
+export interface KhatMapEditorialIntel {
+  /** Knowledge-universe subcategory id + its Arabic label (denormalized for UI). */
+  subcategory: string | null
+  subcategory_label: string | null
+  /** Thinking-lens ids + their Arabic labels (denormalized for UI). */
+  lenses: string[]
+  lens_labels: string[]
+  /** The full title set + the recommended pick. */
+  titles: KhatMapTitleOption[]
+  recommended_title: string | null
+  recommended_kind: string | null
+  recommended_reason: string | null
+  /** Why this would also land internationally. */
+  global_note: string | null
+  /** The core tension people argue about. */
+  debate_axis: string | null
+  /** The single shareable moment / why it spreads. */
+  viral_angle: string | null
+  /** Self-critique + Editorial Court answers. */
+  why_this_topic: string | null
+  why_this_title: string | null
+  why_succeed: string | null
+  why_fail: string | null
+  is_overdone: boolean | null
+  reference_potential: boolean | null
+  clip_potential: boolean | null
+  /** A sketch of a guest who could carry it (Phase A — not a real booking). */
+  guest_idea: string | null
+  /** The 14 success dimensions (0-10), authoritative from the court when present. */
+  success_dimensions: Record<string, number> | null
+}
+
 export interface KhatMapEpisodeCandidate {
   id: string
   season_id: string
@@ -489,6 +534,14 @@ export interface KhatMapEpisodeCandidate {
    * ADMIN-INTERNAL — surfaced on the wizard card, never on public/published content.
    */
   regional_note: string | null
+
+  // ─── Editorial intelligence engine (the upgrade) ────────────────────────────
+  /** Knowledge-universe subcategory id (finer than topic_category). Null on legacy. */
+  topic_subcategory: string | null
+  /** 0-100 Success Probability from the 14-dimension model. Null on legacy rows. */
+  success_score: number | null
+  /** Rich editorial intel (titles, lenses, critique, success dims). Null on legacy. */
+  editorial_intel: KhatMapEditorialIntel | null
 
   // Conversion
   converted_preparation_id: string | null

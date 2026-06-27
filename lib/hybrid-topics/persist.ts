@@ -23,6 +23,7 @@ import {
 } from "@/lib/db/schema/hybrid-topics"
 import { originalThinkingTopics } from "@/lib/db/schema/original-thinking"
 import type { KhatMapEpisodeType, KhatMapTopicDomain } from "@/types/khat-map"
+import type { EnrichedTopic } from "@/lib/khat-map/v2/editorial-enrich"
 // Phase 1.3 — JSONB validation wrapper.
 import {
   validateJsonbWrite,
@@ -115,6 +116,8 @@ export async function persistAcceptedTopics(input: {
   seasonId: string | null
   generationId: string
   topics: AcceptedHybridTopic[]
+  /** Editorial enrichment keyed by the topic's index in `topics`. */
+  enrichment?: Map<number, EnrichedTopic>
 }): Promise<PersistedCandidate[]> {
   const out: PersistedCandidate[] = []
 
@@ -123,7 +126,9 @@ export async function persistAcceptedTopics(input: {
   // requires season_id NOT NULL — so we just skip persistence.
   if (!input.seasonId) return out
 
-  for (const t of input.topics) {
+  for (let i = 0; i < input.topics.length; i++) {
+    const t = input.topics[i]
+    const e = input.enrichment?.get(i) ?? null
     const productionNote = JSON.stringify({
       source: "hybrid_topics",
       generation_id: input.generationId,
@@ -149,8 +154,15 @@ export async function persistAcceptedTopics(input: {
         topic_domain: t.suggested_topic_domain as KhatMapTopicDomain,
         topic_angle_code: null, // hybrid runs do not pin to a topic-bank angle
         suggested_guest_candidate_id: null,
-        main_axes: [],
-        suggested_questions: [],
+        // Editorial enrichment (the upgrade) — populated when the enrich pass
+        // succeeded; otherwise the topic persists as a plain candidate.
+        main_axes: e?.main_axes ?? [],
+        suggested_questions: e?.suggested_questions ?? [],
+        topic_category: e?.topic_category ?? null,
+        topic_subcategory: e?.topic_subcategory ?? null,
+        regional_note: e?.regional_note ?? null,
+        success_score: e?.success_score ?? null,
+        editorial_intel: e?.editorial_intel ?? null,
         production_notes: productionNote,
       } as never)
       .returning({ id: khatMapEpisodeCandidates.id })

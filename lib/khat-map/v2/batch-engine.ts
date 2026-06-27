@@ -49,6 +49,8 @@ import {
 import { computeRegionalAudienceFit } from "./regional-fit"
 import { seasonCategoryCap, overRepresentedCategories } from "./diversity"
 import { selectByPotential } from "./select-by-potential"
+import { assembleEditorial } from "./editorial-assemble"
+import { successScoreToRank, SUCCESS_THRESHOLD } from "./success-score"
 import { openaiEngineAI } from "./openai-engine-ai"
 import { persistBatchCards } from "./persistence"
 import {
@@ -73,9 +75,12 @@ import type {
   BatchResult,
   BatchStats,
   CandidateGenInput,
+  CourtVerdict,
   EngineAI,
+  RawCandidate,
   ScoredCandidate,
 } from "./types"
+import { clampTitleSet } from "./headline-principles"
 import type {
   KhatMapFeedbackReasonCategory,
   KhatMapInvasionPolicy,
@@ -121,6 +126,13 @@ export interface GenerateBatchInput {
    * in order (one card per role). Used by intelligent completion.
    */
   required_roles?: KhatMapMustIncludeRole[]
+  /**
+   * Phase A engine selector. Defaults to `"editorial"` (the world-class
+   * editorial intelligence engine). `"audience_first"` runs the prior GCC board;
+   * `"legacy"` runs the original combined prompt. Strict mode + required-role
+   * completion always use their own slot-positional flow regardless of this.
+   */
+  engine?: "editorial" | "audience_first" | "legacy"
 }
 
 const DEFAULT_BATCH_SIZE = 4
@@ -211,19 +223,27 @@ export async function generateBatch(
   const phase: "topics" | "guests" =
     season.wizard_stage === "topics" ? "topics" : "guests"
 
-  // ─── 1c. Audience-first generation (the redesign) ─────────────────────────
-  // Runs for ordinary Phase A topic batches. Skips strict angle-bank mode and
-  // required-role completion — those are slot-positional flows with their own
-  // contracts. The board ranks by Regional Audience Fit; category counts are
-  // only a diversity signal (soft prompt hint + the post-rank season cap).
-  const useAudienceFirst =
+  // ─── 1c. Phase A category-balanced generation ─────────────────────────────
+  // Two engines share the category-balance machinery for ordinary Phase A topic
+  // batches (strict angle-bank mode + required-role completion keep their own
+  // slot-positional flows):
+  //   • editorial      — the world-class engine: knowledge universe + lenses +
+  //                      headline craft + Editorial Court + 14 success dims. Default.
+  //   • audience_first — the prior GCC board, ranking by Regional Audience Fit.
+  // Both use categories only as a diversity signal (soft prompt hint + the
+  // post-rank season cap); ranking is by success score / RAF respectively.
+  const phaseTopics =
     phase === "topics" &&
     !strict &&
     !(input.required_roles && input.required_roles.length > 0)
+  const useEditorial =
+    phaseTopics && input.engine !== "audience_first" && input.engine !== "legacy"
+  const useAudienceFirst = phaseTopics && !useEditorial
+  const usesCategoryBalance = useEditorial || useAudienceFirst
 
   const seasonCap = seasonCategoryCap(seasonTarget)
   let acceptedByCategory: Record<string, number> = {}
-  if (useAudienceFirst) {
+  if (usesCategoryBalance) {
     acceptedByCategory = await loadAcceptedCategoryCounts(input.season_id)
   }
 
@@ -232,7 +252,7 @@ export async function generateBatch(
   // diversity-filter (capped so one LLM call stays fast). Completion-mode
   // generates exactly `size` cards (slot-positional). Otherwise size × oversample.
   const AUDIENCE_POOL_CAP = 10
-  const targetCount = useAudienceFirst
+  const targetCount = usesCategoryBalance
     ? Math.min(AUDIENCE_POOL_CAP, Math.max(8, size + 4))
     : input.required_roles && input.required_roles.length > 0
       ? Math.max(input.required_roles.length, size)
@@ -251,9 +271,10 @@ export async function generateBatch(
     editorial_controls: controls,
     phase,
     extra_system_blocks: extraSystemBlocks,
+    editorial: useEditorial,
     audience_first: useAudienceFirst,
-    accepted_category_counts: useAudienceFirst ? acceptedByCategory : undefined,
-    over_represented_categories: useAudienceFirst
+    accepted_category_counts: usesCategoryBalance ? acceptedByCategory : undefined,
+    over_represented_categories: usesCategoryBalance
       ? overRepresentedCategories(acceptedByCategory, seasonCap)
       : undefined,
   }
@@ -306,20 +327,30 @@ export async function generateBatch(
     })
   }
 
-  // ─── 3. Embed each candidate ──────────────────────────────────────────────
+  // ─── 3. Embed each candidate (+ run the Editorial Court in parallel) ───────
+  // The court interrogates + re-calibrates the editorial pool. It runs
+  // concurrently with embedding so it adds no extra wall-clock on the critical
+  // path, and degrades gracefully to the generator's self-score on any failure.
   const embedStart = Date.now()
-  const embeddings = await Promise.all(
-    raws.map((r) =>
-      ai.embed(
-        buildFingerprintText(
-          r.topic.working_title,
-          r.topic.why_matters || r.topic.description || null,
-          r.topic.topic_domain,
+  const [embeddings, courtVerdicts] = await Promise.all([
+    Promise.all(
+      raws.map((r) =>
+        ai.embed(
+          buildFingerprintText(
+            r.topic.working_title,
+            r.topic.why_matters || r.topic.description || null,
+            r.topic.topic_domain,
+          ),
         ),
       ),
     ),
-  )
+    runEditorialCourt(useEditorial, ai, input.season_id, raws),
+  ])
   const embed_ms = Date.now() - embedStart
+  const verdictByIndex = new Map<number, CourtVerdict>()
+  for (const v of courtVerdicts) {
+    if (v.index >= 0 && v.index < raws.length) verdictByIndex.set(v.index, v)
+  }
 
   // ─── 4. Load negatives once, then scan every candidate ────────────────────
   const negatives = await listNegativeFingerprints(input.season_id, {
@@ -342,7 +373,23 @@ export async function generateBatch(
 
     let final_score: number
     let domain_load: number
-    if (useAudienceFirst) {
+    let editorial_success: number | null = null
+    let editorial_sub: string | null = null
+    let editorial_intel: ScoredCandidate["editorial_intel"] = null
+    if (useEditorial) {
+      // Editorial path: rank by the 0-100 Success Probability (scaled to 0-10 for
+      // the selector). The Editorial Court's calibration wins when present; a
+      // court `reject` zeroes the score so it drops out of selection. Category
+      // diversity is applied later in selectByPotential.
+      domain_load = 0
+      const verdict = verdictByIndex.get(i) ?? null
+      const assembled = assembleEditorial(raw, verdict)
+      editorial_success = assembled.success_score
+      editorial_sub = assembled.subcategory
+      editorial_intel = assembled.editorial_intel
+      final_score =
+        verdict?.verdict === "reject" ? 0 : successScoreToRank(assembled.success_score)
+    } else if (useAudienceFirst) {
       // Audience-first path: rank purely by Regional Audience Fit (episode
       // potential for the GCC). No domain-load penalty and no taste/performance
       // multiplier — category diversity is applied later as a constraint in
@@ -384,12 +431,25 @@ export async function generateBatch(
       taste_alignment,
       domain_load,
       final_score,
+      success_score: editorial_success,
+      subcategory: editorial_sub,
+      editorial_intel,
     })
   }
 
   // ─── 5. Rank + pick ───────────────────────────────────────────────────────
   let picks: ScoredCandidate[]
-  if (useAudienceFirst) {
+  if (useEditorial) {
+    // Threshold gate: keep candidates that clear the Success bar and weren't
+    // court-rejected (those have final_score 0). If too few clear it to fill the
+    // batch, relax to the best survivors so the operator is never left short —
+    // each card's success score is on the card, so the relax is transparent.
+    const passing = scored.filter(
+      (s) => s.final_score > 0 && (s.success_score ?? 0) >= SUCCESS_THRESHOLD,
+    )
+    const pool = passing.length >= size ? passing : scored.filter((s) => s.final_score > 0)
+    picks = selectByPotential(pool, { size, seasonCap, acceptedByCategory }).picks
+  } else if (useAudienceFirst) {
     // Potential-first: take the highest Regional Audience Fit, with a soft
     // diversity penalty for near-ties and a hard per-category season cap so no
     // category dominates. Episode potential leads; balance only constrains.
@@ -446,6 +506,41 @@ export async function generateBatch(
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
+
+/**
+ * Run the Editorial Court over the generated pool. Only fires on the editorial
+ * path when the AI implementation provides a critique pass; otherwise returns
+ * [] so the engine falls back to the generator's self-scored success. Never
+ * throws — a court failure must not sink the whole batch.
+ */
+async function runEditorialCourt(
+  useEditorial: boolean,
+  ai: EngineAI,
+  season_id: string,
+  raws: RawCandidate[],
+): Promise<CourtVerdict[]> {
+  if (!useEditorial || !ai.critiqueCandidates || raws.length === 0) return []
+  try {
+    const candidates = raws.map((r, index) => {
+      const titleSet = clampTitleSet(r.topic.titles, r.topic.working_title)
+      return {
+        index,
+        working_title: r.topic.working_title,
+        recommended_title: titleSet.recommended_title,
+        category: r.topic.category,
+        subcategory: r.topic.subcategory ?? null,
+        lenses: r.topic.lenses ?? [],
+        hook: r.topic.hook,
+        debate_axis: r.topic.debate_axis,
+        description: r.topic.description,
+      }
+    })
+    return await ai.critiqueCandidates({ season_id, candidates, threshold: SUCCESS_THRESHOLD })
+  } catch (err) {
+    console.error("[khat-map] editorial court failed; falling back to self-score", err)
+    return []
+  }
+}
 
 async function loadAcceptedDomainCounts(
   season_id: string,

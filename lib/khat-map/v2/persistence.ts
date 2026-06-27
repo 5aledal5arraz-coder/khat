@@ -113,6 +113,7 @@ export async function persistBatchCards(
     // ranking rationale.
     const ratio = (n: number) => Math.round(n * 100) / 100
     const rationale =
+      (pick.success_score != null ? `success ${Math.round(pick.success_score)}/100 · ` : "") +
       `editorial ${ratio(pick.raw.editorial_score)}/10 · ` +
       `taste ${ratio(pick.taste_alignment)} · ` +
       `domain_load ${ratio(pick.domain_load)} · ` +
@@ -146,10 +147,16 @@ export async function persistBatchCards(
       slot_index: null,
       risk_level: pick.raw.topic.risk_level ?? null,
       effort_level: pick.raw.topic.effort_level ?? null,
+      sponsor_appeal: pick.raw.topic.sponsor_appeal ?? null,
       composite_score: pick.final_score,
       composite_score_rationale: rationale,
       // Audience-first: persist the regional rationale for the admin card.
       regional_note: pick.raw.topic.regional_note,
+      // Editorial engine: finer subcategory, the 0-100 success score, and the
+      // rich intel blob (titles, lenses, critique, success dimensions).
+      topic_subcategory: pick.subcategory ?? null,
+      success_score: pick.success_score ?? null,
+      editorial_intel: pick.editorial_intel ?? null,
     })
     const explainability = buildCardExplainability({
       scored: pick,

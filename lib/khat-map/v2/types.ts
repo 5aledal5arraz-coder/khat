@@ -66,6 +66,21 @@ export interface RawTopic {
   viral_angle: string | null
   /** The core tension viewers would argue about — fuels conversation. */
   debate_axis: string | null
+  // ─── Editorial engine fields (the upgrade — all optional, back-compat) ──────
+  /** Finer classification under the category (knowledge-universe subcategory id). */
+  subcategory?: string | null
+  /** 2-5 thinking-lens ids the idea is refracted through. */
+  lenses?: string[]
+  /** One line: why this would also land with an international audience. */
+  global_note?: string | null
+  /** Self-critique: why this specific topic deserves an episode. */
+  why_this_topic?: string | null
+  /** Raw title set from the headline layer (clamped downstream by clampTitleSet). */
+  titles?: unknown
+  /** Raw self-scored success dimensions (clamped downstream by clampSuccessDimensions). */
+  success?: unknown
+  /** A sketch of a guest who could carry it. Phase A: never persisted as a guest. */
+  guest_idea?: string | null
 }
 
 export interface RawGuest {
@@ -105,6 +120,13 @@ export interface ScoredCandidate {
   domain_load: number
   /** Final composite used for ranking. */
   final_score: number
+  // ─── Editorial engine (assembled from generation + Editorial Court) ─────────
+  /** 0-100 Success Probability (editorial path only; null otherwise). */
+  success_score?: number | null
+  /** Knowledge-universe subcategory id (editorial path only). */
+  subcategory?: string | null
+  /** Persisted editorial intel blob (editorial path only). */
+  editorial_intel?: import("@/types/khat-map").KhatMapEditorialIntel | null
 }
 
 // ─── Output shapes ───────────────────────────────────────────────────────────
@@ -244,6 +266,51 @@ export interface EngineAI {
     input: GuestAnchoredTopicsInput,
   ) => Promise<RawCandidate[]>
   embed: (text: string) => Promise<number[]>
+  /**
+   * Editorial Court — a skeptical second pass (the "executive producer") that
+   * interrogates the generated pool, calibrates each idea's success dimensions,
+   * and returns a verdict. OPTIONAL: when absent the engine falls back to the
+   * generator's self-scored success, so existing test stubs keep working.
+   */
+  critiqueCandidates?: (input: CourtInput) => Promise<CourtVerdict[]>
+}
+
+// ─── Editorial Court (self-critique pass) ────────────────────────────────────
+
+/** A slimmed candidate handed to the court for review (one per generated idea). */
+export interface CourtCandidateInput {
+  index: number
+  working_title: string
+  recommended_title: string | null
+  category: string | null
+  subcategory: string | null
+  lenses: string[]
+  hook: string
+  debate_axis: string | null
+  description: string
+}
+
+export interface CourtInput {
+  season_id: string
+  candidates: CourtCandidateInput[]
+  /** The success bar the court should judge against (0-100). */
+  threshold: number
+}
+
+/** The court's verdict on one candidate, aligned back by `index`. */
+export interface CourtVerdict {
+  index: number
+  verdict: "accept" | "revise" | "reject"
+  /** Re-calibrated 0-10 success dimensions (authoritative over self-score). */
+  success: import("./success-score").SuccessDimensions
+  why_succeed: string | null
+  why_fail: string | null
+  is_overdone: boolean
+  reference_potential: boolean
+  clip_potential: boolean
+  /** The court's pick of the strongest title + why (may override the generator's). */
+  recommended_title: string | null
+  recommended_reason: string | null
 }
 
 export interface CandidateGenInput {
@@ -294,6 +361,14 @@ export interface CandidateGenInput {
    * Absent/false → the legacy combined prompt runs (back-compat / Phase B).
    */
   audience_first?: boolean
+  /**
+   * When true, the EDITORIAL engine runs — the world-class editorial intelligence
+   * path: knowledge universe (category + subcategory) + thinking lenses + headline
+   * craft + podcast strategy, emitting multiple titles, a self-critique, and the
+   * 14 success dimensions. Supersedes `audience_first` for Phase A topic batches.
+   * Absent/false → falls back to audience-first or the legacy combined prompt.
+   */
+  editorial?: boolean
   /**
    * Diversity context (audience-first only): how many accepted topics sit in
    * each category so far, and which categories are already at their season cap.

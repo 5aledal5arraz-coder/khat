@@ -161,6 +161,12 @@ function mapEpisodeCandidate(row: EpisodeCandidateRow): KhatMapEpisodeCandidate 
         : Number(row.composite_score),
     composite_score_rationale: row.composite_score_rationale ?? null,
     regional_note: row.regional_note ?? null,
+    topic_subcategory: row.topic_subcategory ?? null,
+    success_score:
+      row.success_score === null || row.success_score === undefined
+        ? null
+        : Number(row.success_score),
+    editorial_intel: row.editorial_intel ?? null,
     converted_preparation_id: row.converted_preparation_id,
     converted_episode_id: row.converted_episode_id,
     converted_at: toIso(row.converted_at),
@@ -405,9 +411,14 @@ export async function createEpisodeCandidate(input: {
   // Production-readiness fix sprint additions:
   risk_level?: KhatMapEpisodeCandidate["risk_level"]
   effort_level?: KhatMapEpisodeCandidate["effort_level"]
+  sponsor_appeal?: KhatMapEpisodeCandidate["sponsor_appeal"]
   composite_score?: number | null
   composite_score_rationale?: string | null
   regional_note?: string | null
+  // Editorial intelligence engine additions:
+  topic_subcategory?: string | null
+  success_score?: number | null
+  editorial_intel?: KhatMapEpisodeCandidate["editorial_intel"]
 }): Promise<KhatMapEpisodeCandidate> {
   const [row] = await db!
     .insert(khatMapEpisodeCandidates)
@@ -430,9 +441,13 @@ export async function createEpisodeCandidate(input: {
       production_notes: input.production_notes ?? null,
       risk_level: input.risk_level ?? null,
       effort_level: input.effort_level ?? null,
+      sponsor_appeal: input.sponsor_appeal ?? null,
       composite_score: input.composite_score ?? null,
       composite_score_rationale: input.composite_score_rationale ?? null,
       regional_note: input.regional_note ?? null,
+      topic_subcategory: input.topic_subcategory ?? null,
+      success_score: input.success_score ?? null,
+      editorial_intel: input.editorial_intel ?? null,
     })
     .returning()
   return mapEpisodeCandidate(row)

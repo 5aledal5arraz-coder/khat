@@ -890,6 +890,13 @@ ALTER TABLE khat_map_episode_candidates ADD COLUMN IF NOT EXISTS topic_category 
 -- on the wizard card (never on public content). Modeled in schema. Idempotent.
 ALTER TABLE khat_map_episode_candidates ADD COLUMN IF NOT EXISTS regional_note text;
 
+-- Editorial intelligence engine — finer subcategory, the 0-100 Success
+-- Probability score, and the rich editorial intel blob (titles, lenses,
+-- critique, success dimensions). Modeled in schema. Idempotent.
+ALTER TABLE khat_map_episode_candidates ADD COLUMN IF NOT EXISTS topic_subcategory text;
+ALTER TABLE khat_map_episode_candidates ADD COLUMN IF NOT EXISTS success_score real;
+ALTER TABLE khat_map_episode_candidates ADD COLUMN IF NOT EXISTS editorial_intel jsonb;
+
 -- Partnership redesign — richer application fields powering the AI evaluation
 -- engine. Modeled in lib/db/schema/system.ts. Nullable; idempotent.
 ALTER TABLE sponsorship_leads ADD COLUMN IF NOT EXISTS company_website text;

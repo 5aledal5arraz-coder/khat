@@ -30,10 +30,18 @@ import {
   buildAudienceFirstSystemPrompt,
   buildAudienceFirstUserPrompt,
 } from "./prompts-audience"
+import {
+  buildEditorialSystemPrompt,
+  buildEditorialUserPrompt,
+} from "./prompts-editorial"
+import { buildCourtSystemPrompt, buildCourtUserPrompt } from "./prompts-court"
 import { clampCategory } from "./categories"
 import { clampAudienceFit } from "./regional-fit"
+import { clampSuccessDimensions } from "./success-score"
 import type {
   CandidateGenInput,
+  CourtInput,
+  CourtVerdict,
   EngineAI,
   GuestAnalyzeInput,
   GuestAnchoredTopicsInput,
@@ -44,34 +52,50 @@ import type {
 async function generateCandidates(
   input: CandidateGenInput,
 ): Promise<RawCandidate[]> {
-  // Audience-first path: act as the GCC editorial board, ranking by Regional
-  // Audience Fit. Otherwise fall back to the legacy combined prompt (Phase B /
-  // guests) unchanged.
-  const audienceFirst = !!input.audience_first
+  // Three generation modes, most-capable first:
+  //   editorial      → the world-class editorial engine (knowledge universe +
+  //                    lenses + headline craft + 14 success dims). Phase A default.
+  //   audience_first → the GCC editorial board ranking by Regional Audience Fit.
+  //   legacy         → the original combined topic+guest prompt (Phase B).
+  // editorial wins when set; the model runs on the editorial (gpt-4o) tier since
+  // the richer reasoning + scoring justifies the stronger model.
+  const editorial = !!input.editorial
+  const audienceFirst = !editorial && !!input.audience_first
+  const promptVersion = editorial
+    ? "khat-map-editorial-v1"
+    : audienceFirst
+      ? "khat-map-audience-first-v1"
+      : "khat-map-batch-v2"
+  const prompt = editorial
+    ? [
+        { role: "system" as const, content: buildEditorialSystemPrompt(input) },
+        { role: "user" as const, content: buildEditorialUserPrompt(input) },
+      ]
+    : audienceFirst
+      ? [
+          { role: "system" as const, content: buildAudienceFirstSystemPrompt(input) },
+          { role: "user" as const, content: buildAudienceFirstUserPrompt(input) },
+        ]
+      : [
+          { role: "system" as const, content: buildBatchSystemPrompt(input) },
+          { role: "user" as const, content: buildBatchUserPrompt(input) },
+        ]
   const r = await runAiTask<{ candidates?: unknown } | unknown[]>({
-    taskKind: "structural",
+    taskKind: editorial ? "editorial" : "structural",
     seasonId: input.season_id,
     subjectTable: "khat_map_seasons",
     subjectId: input.season_id,
-    promptVersion: audienceFirst ? "khat-map-audience-first-v1" : "khat-map-batch-v2",
+    promptVersion,
     input: {
       season_id: input.season_id,
       target_count: input.target_count,
       season_target: input.season_target,
       rejected_count: input.rejected_titles.length,
-      audience_first: audienceFirst,
+      mode: editorial ? "editorial" : audienceFirst ? "audience_first" : "legacy",
     },
-    prompt: audienceFirst
-      ? [
-          { role: "system", content: buildAudienceFirstSystemPrompt(input) },
-          { role: "user", content: buildAudienceFirstUserPrompt(input) },
-        ]
-      : [
-          { role: "system", content: buildBatchSystemPrompt(input) },
-          { role: "user", content: buildBatchUserPrompt(input) },
-        ],
+    prompt,
     expectJson: true,
-    providerOptions: { temperature: 0.8 },
+    providerOptions: { temperature: editorial ? 0.85 : 0.8 },
   })
   if (r.status !== "succeeded" || r.parsed == null) {
     throw new Error(r.errorMessage ?? "batch-candidates: generation failed")
@@ -141,6 +165,7 @@ export const openaiEngineAI: EngineAI = {
   generateCandidates,
   analyzeGuest,
   generateGuestAnchoredTopics,
+  critiqueCandidates,
   embed,
 }
 
@@ -232,11 +257,68 @@ function normalizeRawCandidate(v: unknown): RawCandidate | null {
       regional_note: asOptionalString(topic.regional_note),
       viral_angle: asOptionalString(topic.viral_angle),
       debate_axis: asOptionalString(topic.debate_axis),
+      // ─── Editorial engine fields (raw; clamped where consumed) ──────────────
+      subcategory: asOptionalString(topic.subcategory),
+      lenses: asStringArray(topic.lenses),
+      global_note: asOptionalString(topic.global_note),
+      why_this_topic: asOptionalString(topic.why_this_topic),
+      titles: topic.titles ?? null,
+      success: topic.success ?? null,
+      guest_idea: asOptionalString(topic.guest_idea),
     },
     guest: safeGuest,
     editorial_score: clamp(asNumber(o.editorial_score, 5), 0, 10),
     why_now: asString(o.why_now || topic.why_now),
     domain_reasoning: asOptionalString(o.domain_reasoning),
+  }
+}
+
+// ─── Editorial Court ──────────────────────────────────────────────────────────
+
+async function critiqueCandidates(input: CourtInput): Promise<CourtVerdict[]> {
+  const r = await runAiTask<{ verdicts?: unknown } | unknown[]>({
+    taskKind: "editorial",
+    seasonId: input.season_id,
+    subjectTable: "khat_map_seasons",
+    subjectId: input.season_id,
+    promptVersion: "khat-map-court-v1",
+    input: { season_id: input.season_id, count: input.candidates.length, threshold: input.threshold },
+    prompt: [
+      { role: "system", content: buildCourtSystemPrompt(input.threshold) },
+      { role: "user", content: buildCourtUserPrompt(input) },
+    ],
+    expectJson: true,
+    providerOptions: { temperature: 0.3 },
+  })
+  if (r.status !== "succeeded" || r.parsed == null) {
+    throw new Error(r.errorMessage ?? "court: critique failed")
+  }
+  const list = coerceCandidateList(r.parsed)
+  if (!Array.isArray(list)) throw new Error("court: expected an array at the top level")
+  return list
+    .map(normalizeCourtVerdict)
+    .filter((v): v is CourtVerdict => v !== null)
+}
+
+function normalizeCourtVerdict(v: unknown): CourtVerdict | null {
+  if (!v || typeof v !== "object") return null
+  const o = v as Record<string, unknown>
+  const index = asOptionalNumber(o.index)
+  if (index === null) return null
+  const verdictRaw = asString(o.verdict).trim().toLowerCase()
+  const verdict: CourtVerdict["verdict"] =
+    verdictRaw === "accept" || verdictRaw === "reject" ? verdictRaw : "revise"
+  return {
+    index: Math.round(index),
+    verdict,
+    success: clampSuccessDimensions(o.success),
+    why_succeed: asOptionalString(o.why_succeed),
+    why_fail: asOptionalString(o.why_fail),
+    is_overdone: o.is_overdone === true,
+    reference_potential: o.reference_potential === true,
+    clip_potential: o.clip_potential === true,
+    recommended_title: asOptionalString(o.recommended_title),
+    recommended_reason: asOptionalString(o.recommended_reason),
   }
 }
 

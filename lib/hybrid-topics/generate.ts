@@ -23,6 +23,7 @@
 import { runAiTask } from "@/lib/ai-router"
 import { buildHybridTopicsPrompt } from "@/lib/ai/prompts/hybrid-topics"
 import { loadLenses } from "@/lib/original-thinking/lenses"
+import { enrichTopicsEditorially } from "@/lib/khat-map/v2/editorial-enrich"
 import { loadHybridInputs } from "./inputs"
 import {
   judgeHybridCandidate,
@@ -285,11 +286,33 @@ export async function generateHybridTopics(
       (b.estimated_strength_score ?? 0) - (a.estimated_strength_score ?? 0),
   )
 
+  // ─── Editorial enrichment ───────────────────────────────────────────────
+  // Apply the world-class editorial intelligence layer to the accepted topics:
+  // classify into the Knowledge Universe (category + subcategory), refract
+  // through Thinking Lenses, write the headline set, and run the Editorial
+  // Court (14 success dimensions + critique). Reuses the editorial engine's
+  // modules. Degrades gracefully — a failure leaves topics as plain candidates.
+  const enrichment = await enrichTopicsEditorially(
+    req.seasonId,
+    accepted.map((t, index) => ({
+      index,
+      title: t.title,
+      why_it_matters: t.why_it_matters,
+      why_now: t.why_now,
+      hook: t.emotional_hook,
+      conflict_angle: t.conflict_angle,
+      market_inspiration: t.market_inspiration,
+      episode_type: t.suggested_episode_type,
+      topic_domain: t.suggested_topic_domain,
+    })),
+  )
+
   // Persist accepted topics → khat_map_episode_candidates.
   const persisted = await persistAcceptedTopics({
     seasonId: req.seasonId,
     generationId: log.id,
     topics: accepted as AcceptedHybridTopic[],
+    enrichment,
   })
 
   await completeGenerationLog({
