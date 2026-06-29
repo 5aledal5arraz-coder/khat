@@ -13,6 +13,7 @@ import {
   Plus,
   Pencil,
   Trash2,
+  RefreshCw,
 } from "lucide-react"
 import type {
   KhatMapSeason,
@@ -37,6 +38,7 @@ import {
 import { WizardCard, type PendingCard } from "./card"
 import { AddTopicModal } from "./add-topic-modal"
 import { AlternativeSheet } from "./alternative-sheet"
+import { SUCCESS_THRESHOLD } from "@/lib/khat-map/v2/success-score"
 import { UndoToast } from "./undo-toast"
 import { SeasonOverview, type AcceptedPair } from "./season-overview"
 import { GuestInjectButton } from "./guest-inject-sheet"
@@ -417,6 +419,32 @@ export function WizardClient({
     })
   }
 
+  // ─── Regenerate below threshold ──────────────────────────────────────────
+  // Reject one or more weak cards (records the negative memory so the refill
+  // avoids them) and replace them with fresh editorial-engine candidates.
+  const regenerateCards = (cards: PendingCard[]) => {
+    if (cards.length === 0 || genPending) return
+    setError(null)
+    startGen(async () => {
+      for (const card of cards) {
+        const rej = await rejectCardAction({
+          seasonId: season.id,
+          topicCandidateId: card.topic.id,
+          guestCandidateId: card.guest?.id ?? null,
+          batchIndex: batchIndex - 1,
+        })
+        if (rej.success) removeFromPending(card.topic.id)
+      }
+      const res = await generateBatchAction({ seasonId: season.id, size: cards.length })
+      if (!res.success) {
+        setError(res.error)
+        return
+      }
+      setPending((prev) => [...res.data.cards.map(batchCardToPending), ...prev])
+      setBatchIndex(res.data.batch_index + 1)
+    })
+  }
+
   const handleAlternative = (mode: AlternativeMode) => {
     const card = altForCard
     if (!card) return
@@ -791,6 +819,37 @@ export function WizardClient({
             unique React keys, regardless of how `pending` was assembled. */}
         {pending.length > 0 && (
           <div className="mt-6 space-y-3">
+            {/* Regenerate-below-threshold batch control — appears when one or more
+                pending cards scored under the success bar. Rejects them all and
+                refills with fresh editorial-engine candidates. */}
+            {(() => {
+              const weak = pending.filter(
+                (c) =>
+                  c.topic.success_score != null &&
+                  c.topic.success_score < SUCCESS_THRESHOLD,
+              )
+              if (weak.length === 0) return null
+              return (
+                <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-rose-500/25 bg-rose-500/5 px-3.5 py-2.5">
+                  <span className="text-[12px] font-medium text-rose-700">
+                    {weak.length} بطاقة دون عتبة الجودة ({SUCCESS_THRESHOLD}/100)
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => regenerateCards(weak)}
+                    disabled={genPending}
+                    className="inline-flex items-center gap-1.5 rounded-lg bg-rose-600 px-3 py-1.5 text-[12px] font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-60"
+                  >
+                    {genPending ? (
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    ) : (
+                      <RefreshCw className="h-3.5 w-3.5" />
+                    )}
+                    أعد توليد ما دون العتبة ({weak.length})
+                  </button>
+                </div>
+              )
+            })()}
             {dedupeByTopicId(pending).map((card) => (
               <WizardCard
                 key={card.topic.id}
@@ -800,6 +859,7 @@ export function WizardClient({
                 onAccept={() => handleAccept(card)}
                 onReject={() => handleReject(card)}
                 onAlternative={() => setAltForCard(card)}
+                onRegenerate={() => regenerateCards([card])}
                 hideGuestBlock={isPhaseA}
               />
             ))}

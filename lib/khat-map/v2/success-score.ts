@@ -49,33 +49,43 @@ export interface SuccessDimensions {
 export type SuccessDimension = keyof SuccessDimensions
 
 /**
- * Priority-weighted. Click + retention lead (they make or break a podcast),
- * then the conversation + regional pull, then brand / originality / depth, then
- * the reach + guest + timeless signals, with sponsor / feasibility / risk as
- * lighter modifiers. Sum need not be 1 — the composite normalizes by it.
+ * Priority-weighted for KHAT's identity, not generic virality. Retention leads
+ * (watch time is the #1 podcast survival signal), then the conversation it
+ * sparks. Click matters but is deliberately NOT the top weight — a premium,
+ * timeless brand earns the click, it doesn't chase it. Depth, originality, and
+ * brand alignment are pulled UP (Khat is "deep, original, timeless — never
+ * shallow trend-chasing"), and timeless value is rewarded over raw shareability.
+ * Sponsor / feasibility / risk are light modifiers. Sum need not be 1 — the
+ * composite normalizes by it. Tuning history: v1 led on click+retention 1.5/1.5;
+ * v2 rebalances toward depth/originality/timelessness to protect the brand.
  */
 export const SUCCESS_WEIGHTS: Record<SuccessDimension, number> = {
-  click_potential: 1.5,
-  retention_potential: 1.5,
-  discussion_potential: 1.25,
-  regional_relevance: 1.2,
-  brand_alignment: 1.15,
-  originality: 1.1,
-  depth: 1.1,
+  retention_potential: 1.5, // watch/listen time — the survival metric
+  discussion_potential: 1.35, // debate is Khat's format
+  click_potential: 1.3, // earn the click, don't let it dominate
+  depth: 1.25, // core to the brand
+  originality: 1.25, // "never overdone"
+  brand_alignment: 1.2, // identity fit (also the gate below)
+  regional_relevance: 1.15, // GCC pull
+  timeless_value: 1.1, // "timeless" is in the DNA
   guest_potential: 1.05,
-  shareability: 1.0,
-  timeless_value: 0.95,
+  shareability: 0.95,
   global_relevance: 0.9,
   risk_calibration: 0.7,
-  sponsor_appeal: 0.6,
-  production_feasibility: 0.6,
+  sponsor_appeal: 0.55,
+  production_feasibility: 0.55,
 }
 
 const WEIGHT_SUM = Object.values(SUCCESS_WEIGHTS).reduce((a, b) => a + b, 0)
 const DIMENSIONS = Object.keys(SUCCESS_WEIGHTS) as SuccessDimension[]
 
-/** Default acceptance bar (0-100). Candidates below this are rejected/regenerated. */
-export const SUCCESS_THRESHOLD = 58
+/**
+ * Default acceptance bar (0-100). Neutral (all 5s) scores 50, so 60 means
+ * "clearly above average, with margin." Candidates below this are rejected or
+ * regenerated. Slightly more selective than v1 (58) now that the weights reward
+ * the qualities Khat actually wants.
+ */
+export const SUCCESS_THRESHOLD = 60
 
 function clampScore(v: unknown, fallback = 5): number {
   const n = Number(v)
@@ -125,10 +135,10 @@ export function passesSuccessThreshold(score: number, threshold = SUCCESS_THRESH
 
 export type SuccessBand = "exceptional" | "strong" | "solid" | "weak"
 
-/** A label band for the UI (color + words). */
+/** A label band for the UI (color + words). `solid` starts at the acceptance bar. */
 export function successBand(score: number): SuccessBand {
-  if (score >= 82) return "exceptional"
-  if (score >= 70) return "strong"
+  if (score >= 85) return "exceptional"
+  if (score >= 72) return "strong"
   if (score >= SUCCESS_THRESHOLD) return "solid"
   return "weak"
 }

@@ -86,6 +86,7 @@ export const KNOWLEDGE_UNIVERSE: Record<SeasonCategoryId, readonly KnowledgeSubc
     { id: "architecture_and_cities", label_ar: "العمارة والمدن", scope_ar: "كيف تشكّلنا المدن، وماذا تقول أبراج الخليج عن طموحاتنا." },
     { id: "food_culture", label_ar: "ثقافة الطعام", scope_ar: "الطعام كتاريخ وهوية وسلطة — ما يحكيه طبق واحد." },
     { id: "art_market_and_fame", label_ar: "سوق الفن والشهرة", scope_ar: "كيف يُصنع النجم وتُسعّر اللوحة، ومن يتحكّم بالذوق العام." },
+    { id: "comedy_and_satire", label_ar: "الكوميديا والسخرية", scope_ar: "كيف يقول الضحك ما لا يُقال، والسخرية كسلاح ومرآة ومقاومة." },
   ],
 
   // ─── علم النفس ─────────────────────────────────────────────────────────────
@@ -102,6 +103,8 @@ export const KNOWLEDGE_UNIVERSE: Record<SeasonCategoryId, readonly KnowledgeSubc
     { id: "child_and_development", label_ar: "نفسية الطفل والنشأة", scope_ar: "كيف تصنع السنوات الأولى الإنسان، وما يبقى من الطفولة فينا." },
     { id: "decision_making", label_ar: "صناعة القرار", scope_ar: "كيف نختار تحت الضغط والخوف، ولماذا نندم." },
     { id: "loneliness_and_belonging", label_ar: "الوحدة والانتماء", scope_ar: "وباء العزلة الحديث، وحاجتنا العميقة لأن نُرى." },
+    { id: "memory_and_nostalgia", label_ar: "الذاكرة والحنين", scope_ar: "كيف نعيد كتابة ماضينا بلا وعي، ولماذا نشتاق لزمن ربما لم يكن." },
+    { id: "the_unconscious", label_ar: "اللاوعي", scope_ar: "ما الذي يقرّر بدلاً عنّا في الظلّ — الأحلام، الدوافع الخفية، وزلّات النفس." },
   ],
 
   // ─── علوم ──────────────────────────────────────────────────────────────────
@@ -118,6 +121,8 @@ export const KNOWLEDGE_UNIVERSE: Record<SeasonCategoryId, readonly KnowledgeSubc
     { id: "energy_and_matter", label_ar: "الطاقة والمادة", scope_ar: "من أين تأتي الطاقة، ومستقبل الاندماج النووي والبدائل." },
     { id: "science_controversies", label_ar: "جدل العلم", scope_ar: "حين يصطدم العلم بالأخلاق أو الدين أو السياسة — من يقرّر؟" },
     { id: "everyday_science", label_ar: "علم الحياة اليومية", scope_ar: "فيزياء وكيمياء ما نلمسه كل يوم — لماذا يحدث ما يحدث." },
+    { id: "consciousness_and_unknown", label_ar: "الوعي والمجهول", scope_ar: "أصعب أسئلة العلم: ما الوعي؟ ما الذي لا نعرفه بعد، وحدود ما يمكن معرفته." },
+    { id: "great_scientists", label_ar: "عقول غيّرت العلم", scope_ar: "حياة عالِم واحد وصراعه وفكرته — العبقرية وثمنها الإنساني." },
   ],
 
   // ─── تطوير الذات ───────────────────────────────────────────────────────────
@@ -150,6 +155,7 @@ export const KNOWLEDGE_UNIVERSE: Record<SeasonCategoryId, readonly KnowledgeSubc
     { id: "industry_disruption", label_ar: "زلزلة الصناعات", scope_ar: "كيف يقلب لاعب جديد صناعة كاملة، ومن يُمحى." },
     { id: "wealth_and_power_families", label_ar: "ثروة وعائلات النفوذ", scope_ar: "كيف تُبنى الإمبراطوريات العائلية وتُورّث وتنهار." },
     { id: "ethics_of_business", label_ar: "أخلاقيات الأعمال", scope_ar: "حين يصطدم الربح بالضمير — أين يقف الخط؟" },
+    { id: "monopolies_and_competition", label_ar: "الاحتكار والمنافسة", scope_ar: "كيف تبتلع الشركات الكبرى السوق، ومن يحمي اللاعب الصغير والمستهلك." },
   ],
 
   // ─── المال الشخصي ──────────────────────────────────────────────────────────
@@ -198,6 +204,8 @@ export const KNOWLEDGE_UNIVERSE: Record<SeasonCategoryId, readonly KnowledgeSubc
     { id: "gaming_and_virtual", label_ar: "الألعاب والعوالم الافتراضية", scope_ar: "كيف صارت الألعاب أكبر صناعة ترفيه، وثقافة جيل كامل." },
     { id: "tech_and_children", label_ar: "التقنية والأطفال", scope_ar: "ماذا تفعل الشاشات بأدمغة الصغار، وتربية في زمن رقمي." },
     { id: "deepfakes_and_truth", label_ar: "التزييف والحقيقة", scope_ar: "حين لا نعود نصدّق أعيننا — التزييف العميق وأزمة الثقة." },
+    { id: "creator_economy", label_ar: "اقتصاد صنّاع المحتوى", scope_ar: "كيف صار المحتوى مهنة وثروة، ومن يربح ومن يُستهلك في ماكينة الانتباه." },
+    { id: "data_and_algorithms", label_ar: "البيانات والخوارزميات", scope_ar: "من يقرّر ما نراه ونشتريه ونصدّقه — سلطة الخوارزمية الخفية." },
   ],
 
   // ─── صحة ───────────────────────────────────────────────────────────────────
@@ -214,6 +222,7 @@ export const KNOWLEDGE_UNIVERSE: Record<SeasonCategoryId, readonly KnowledgeSubc
     { id: "women_and_health", label_ar: "صحة المرأة", scope_ar: "قضايا صحية تخصّ المرأة طالما أُهملت أو طُوّقت بالصمت." },
     { id: "preventive_health", label_ar: "الطب الوقائي", scope_ar: "كيف نمنع المرض قبل وقوعه، والعادات التي تُطيل العمر." },
     { id: "health_myths", label_ar: "خرافات الصحة", scope_ar: "تفنيد ما نصدّقه عن أجسادنا بالعلم لا بالشائعات." },
+    { id: "mens_health", label_ar: "صحة الرجل", scope_ar: "قضايا جسدية وذهنية يتجاهلها الرجال طويلاً — الصمت الذي يكلّف غالياً." },
   ],
 
   // ─── مستقبل واتجاهات ───────────────────────────────────────────────────────
@@ -230,6 +239,7 @@ export const KNOWLEDGE_UNIVERSE: Record<SeasonCategoryId, readonly KnowledgeSubc
     { id: "future_of_education", label_ar: "مستقبل التعليم", scope_ar: "نهاية المدرسة التقليدية، والتعلّم في عصر المعرفة المجانية." },
     { id: "emerging_risks", label_ar: "مخاطر ناشئة", scope_ar: "تهديدات لا نراها بعد — أوبئة، أسلحة، انهيارات نظامية." },
     { id: "transhumanism", label_ar: "ما بعد الإنسان", scope_ar: "تطوير الجسد والعقل، وحدود ما يجعلنا بشراً." },
+    { id: "future_of_war", label_ar: "مستقبل الحرب", scope_ar: "الطائرات المسيّرة، حرب السايبر، والذكاء الاصطناعي على ساحة المعركة — ومن يضغط الزر." },
   ],
 
   // ─── قصص إنسانية ───────────────────────────────────────────────────────────

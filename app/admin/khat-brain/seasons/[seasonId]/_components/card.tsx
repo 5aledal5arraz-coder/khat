@@ -24,6 +24,8 @@ import {
   Scissors,
   BookMarked,
   RotateCcw,
+  Gauge,
+  ChevronDown,
 } from "lucide-react"
 import type {
   KhatMapEpisodeCandidate,
@@ -31,7 +33,13 @@ import type {
 } from "@/types/khat-map"
 import type { CardExplainability } from "@/lib/khat-map/v2/types"
 import { categoryById } from "@/lib/khat-map/v2/categories"
-import { successBand } from "@/lib/khat-map/v2/success-score"
+import {
+  successBand,
+  SUCCESS_THRESHOLD,
+  SUCCESS_WEIGHTS,
+  SUCCESS_DIMENSION_LABELS_AR,
+  type SuccessDimension,
+} from "@/lib/khat-map/v2/success-score"
 
 export interface PendingCard {
   topic: KhatMapEpisodeCandidate
@@ -52,6 +60,7 @@ export function WizardCard({
   onAccept,
   onReject,
   onAlternative,
+  onRegenerate,
   hideGuestBlock = false,
 }: {
   card: PendingCard
@@ -60,6 +69,11 @@ export function WizardCard({
   onAccept: () => void
   onReject: () => void
   onAlternative: () => void
+  /**
+   * Regenerate this card — reject it and produce a fresh editorial replacement.
+   * Surfaced prominently when the card scores below the success threshold.
+   */
+  onRegenerate?: () => void
   /**
    * Phase A topics-only mode. When `true`, the guest block (including
    * the "no guest" placeholder) is omitted entirely so the operator
@@ -79,6 +93,7 @@ export function WizardCard({
   const dims = intel?.success_dimensions ?? null
   const successScore = topic.success_score
   const band = successScore != null ? successBand(successScore) : null
+  const belowThreshold = successScore != null && successScore < SUCCESS_THRESHOLD
 
   return (
     <div className="group relative overflow-hidden rounded-2xl border border-border/60 bg-card/50 shadow-sm transition-shadow hover:shadow-md">
@@ -159,6 +174,27 @@ export function WizardCard({
           </div>
         )}
       </div>
+
+      {/* Below-threshold warning + regenerate */}
+      {belowThreshold && (
+        <div className="mx-5 mt-3 flex items-center justify-between gap-2 rounded-xl border border-rose-500/30 bg-rose-500/5 px-3 py-2">
+          <div className="flex items-center gap-1.5 text-[11px] font-medium text-rose-700">
+            <AlertTriangle className="h-3.5 w-3.5 flex-shrink-0" />
+            دون عتبة الجودة ({Math.round(successScore as number)}/{SUCCESS_THRESHOLD})
+          </div>
+          {onRegenerate && (
+            <button
+              type="button"
+              onClick={onRegenerate}
+              disabled={pending}
+              className="inline-flex items-center gap-1 rounded-lg border border-rose-500/40 bg-rose-500/10 px-2.5 py-1 text-[11px] font-semibold text-rose-700 transition-colors hover:bg-rose-500/20 disabled:opacity-50"
+            >
+              <RefreshCw className="h-3 w-3" />
+              أعد التوليد
+            </button>
+          )}
+        </div>
+      )}
 
       {/* Why now */}
       {whyNow && (
@@ -309,6 +345,23 @@ export function WizardCard({
               <Chip tone="slate" label={`رعاية: ${sponsorLabel(topic.sponsor_appeal)}`} />
             )}
           </div>
+
+          {/* Full 14-dimension success breakdown (collapsible) */}
+          {dims && (
+            <details className="group/dims rounded-xl border border-border/30 bg-muted/5">
+              <summary className="flex cursor-pointer select-none items-center justify-between gap-2 px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground hover:text-foreground">
+                <span className="flex items-center gap-1">
+                  <Gauge className="h-3 w-3" /> تفاصيل التقييم · 14 معياراً
+                </span>
+                <ChevronDown className="h-3.5 w-3.5 transition-transform group-open/dims:rotate-180" />
+              </summary>
+              <div className="grid grid-cols-1 gap-x-4 gap-y-1.5 px-3 pb-3 pt-1 sm:grid-cols-2">
+                {SUCCESS_DIMENSION_ORDER.map((d) => (
+                  <DimRow key={d} dim={d} value={Number(dims[d] ?? 0)} />
+                ))}
+              </div>
+            </details>
+          )}
 
           {/* Guest idea sketch (Phase A — not a booking) */}
           {intel.guest_idea && (
@@ -524,6 +577,33 @@ function Chip({
       {Icon && <Icon className="h-2.5 w-2.5" />}
       {label}
     </span>
+  )
+}
+
+// The 14 dimensions in priority (weight) order — highest-weighted first.
+const SUCCESS_DIMENSION_ORDER = (
+  Object.keys(SUCCESS_WEIGHTS) as SuccessDimension[]
+).sort((a, b) => SUCCESS_WEIGHTS[b] - SUCCESS_WEIGHTS[a])
+
+/** One row of the 14-dimension breakdown: label · bar · value/10. */
+function DimRow({ dim, value }: { dim: SuccessDimension; value: number }) {
+  const v = Math.max(0, Math.min(10, value))
+  const barColor = v >= 7 ? "bg-emerald-500" : v >= 4 ? "bg-amber-500" : "bg-rose-500"
+  return (
+    <div className="flex items-center gap-2">
+      <span className="w-[88px] shrink-0 truncate text-[10.5px] text-muted-foreground">
+        {SUCCESS_DIMENSION_LABELS_AR[dim]}
+      </span>
+      <span className="relative h-1.5 flex-1 overflow-hidden rounded-full bg-muted/40">
+        <span
+          className={"absolute inset-y-0 end-0 rounded-full " + barColor}
+          style={{ width: `${v * 10}%` }}
+        />
+      </span>
+      <span className="w-6 shrink-0 text-end text-[10px] font-medium tabular-nums text-foreground/70">
+        {v}
+      </span>
+    </div>
   )
 }
 

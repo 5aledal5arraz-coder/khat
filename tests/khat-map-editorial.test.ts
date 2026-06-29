@@ -179,6 +179,25 @@ describe("success score", () => {
     expect(successBand(90)).toBe("exceptional")
     expect(successBand(50)).toBe("weak")
   })
+
+  it("tuned threshold + bands (v2)", () => {
+    expect(SUCCESS_THRESHOLD).toBe(60)
+    expect(successBand(86)).toBe("exceptional")
+    expect(successBand(75)).toBe("strong")
+    expect(successBand(65)).toBe("solid") // at/above the acceptance bar
+    expect(successBand(59)).toBe("weak") // just below the bar
+  })
+
+  it("rewards depth/originality/timelessness over raw click (brand identity)", () => {
+    // A deep, original, timeless idea should out-score a clickbait-y shallow one.
+    const deep = computeSuccessScore(
+      dims({ depth: 9, originality: 9, timeless_value: 9, retention_potential: 8, click_potential: 5, shareability: 4 }),
+    )
+    const shallow = computeSuccessScore(
+      dims({ depth: 3, originality: 3, timeless_value: 3, retention_potential: 5, click_potential: 9, shareability: 9 }),
+    )
+    expect(deep).toBeGreaterThan(shallow)
+  })
 })
 
 // ─── Editorial assembly ──────────────────────────────────────────────────────
