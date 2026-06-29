@@ -1,3 +1,6 @@
+/* eslint-disable @typescript-eslint/no-explicit-any -- parses untyped JSON from
+ * several external APIs (OpenAlex, etc.); precise per-source typing isn't worth
+ * the churn for a read-only adapter that guards every access. */
 /**
  * v2 enrichment sources. Each returns one slice of EnrichmentSignals and
  * NEVER throws (returns null / zeros on failure) so one slow/keyless

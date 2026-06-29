@@ -55,6 +55,7 @@ vi.mock("@/lib/episodes/overrides", () => ({
 }))
 vi.mock("@/lib/episodes/enrichments", () => ({
   getEpisodeEnrichment: vi.fn().mockResolvedValue(null),
+  getPublicEpisodeEnrichment: vi.fn().mockResolvedValue(null),
 }))
 vi.mock("@/lib/episodes/quotes", () => ({
   getPublishedQuotes: vi.fn().mockResolvedValue([]),

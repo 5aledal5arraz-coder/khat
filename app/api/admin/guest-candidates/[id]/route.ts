@@ -115,7 +115,7 @@ export async function PATCH(request: NextRequest, ctx: RouteContext) {
 }
 
 export async function DELETE(request: NextRequest, ctx: RouteContext) {
-  const auth = await requireAdminAPI()
+  const auth = await requireAdminAPI("EDITOR")
   if (auth) return auth
   const csrf = validateMutation(request)
   if (csrf) return csrf

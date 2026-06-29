@@ -22,7 +22,7 @@ import {
   khatMapGuestCandidates,
   khatMapSeasonDecisions,
 } from "@/lib/db/schema/khat-map"
-import { requireAdmin, getAdminAuthUser } from "@/lib/api-utils"
+import { requireAdmin, requireActionRole, getAdminAuthUser } from "@/lib/api-utils"
 import {
   createSeason,
   getSeasonById,
@@ -83,9 +83,10 @@ type Result<T> =
 export async function deleteSeasonsBulkAction(
   seasonIds: string[],
 ): Promise<Result<{ deletedCount: number }>> {
-  await requireAdmin()
-  const user = await getAdminAuthUser()
-  if (!user) return { success: false, error: "غير مصرح" }
+  // Destructive bulk op — block read-only VIEWERs.
+  const gate = await requireActionRole("EDITOR")
+  if (!gate.ok) return { success: false, error: gate.error }
+  const user = gate.user
 
   const ids = (Array.isArray(seasonIds) ? seasonIds : []).filter(
     (id): id is string => typeof id === "string" && id.length > 0,

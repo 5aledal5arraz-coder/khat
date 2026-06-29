@@ -490,7 +490,7 @@ export function CandidateDetailClient({ candidate, statusHistory, outreachMessag
               <div className="rounded-lg border border-dashed border-violet-500/20 bg-violet-500/5 p-6 text-center">
                 <Sparkles className="mx-auto mb-2 h-6 w-6 text-violet-700/70" />
                 <p className="mb-3 text-xs text-muted-foreground">
-                  لم يتم توليد تحليل بعد. اضغط "تحليل الآن" لتقييم المرشح بناءً على ملفه وروابطه.
+                  لم يتم توليد تحليل بعد. اضغط «تحليل الآن» لتقييم المرشح بناءً على ملفه وروابطه.
                 </p>
                 <Button size="sm" onClick={handleAnalyze} disabled={analyzeBusy}>
                   {analyzeBusy && <Loader2 className="ms-1 h-3.5 w-3.5 animate-spin" />}

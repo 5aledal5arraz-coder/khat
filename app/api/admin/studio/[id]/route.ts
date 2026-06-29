@@ -61,7 +61,7 @@ export async function DELETE(
   _request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const authError = await requireAdminAPI()
+  const authError = await requireAdminAPI("EDITOR")
   if (authError) return authError
   const { id } = await params
   const deleted = await deleteStudioSession(id)

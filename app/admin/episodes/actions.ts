@@ -8,7 +8,7 @@ import {
 } from "@/lib/episodes/overrides"
 import { assignGuestToEpisode as assignGuest } from "@/lib/episodes/guests"
 import { setEpisodeSponsor } from "@/lib/queries/episode-sponsors"
-import { requireAdmin, getAdminAuthUser } from "@/lib/api-utils"
+import { requireAdmin, requireActionRole, getAdminAuthUser } from "@/lib/api-utils"
 import { ADMIN_LIMITS } from "@/lib/validation/forms"
 import { invalidateEpisodeCache, getCacheStatus } from "@/lib/cache/episode-cache"
 import { invalidate } from "@/lib/cache"
@@ -431,7 +431,9 @@ export async function deleteEpisode(episodeId: string): Promise<{ success: boole
 export async function bulkDeleteEpisodes(
   episodeIds: string[]
 ): Promise<{ success: boolean; deletedCount: number; error?: string }> {
-  await requireAdmin()
+  // Destructive bulk op — block read-only VIEWERs.
+  const gate = await requireActionRole("EDITOR")
+  if (!gate.ok) return { success: false, deletedCount: 0, error: gate.error }
   if (!Array.isArray(episodeIds) || episodeIds.length === 0) {
     return { success: false, deletedCount: 0, error: "لم يتم تحديد حلقات" }
   }

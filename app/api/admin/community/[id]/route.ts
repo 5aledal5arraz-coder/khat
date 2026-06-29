@@ -68,7 +68,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
 }
 
 export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const authError = await requireAdminAPI()
+  const authError = await requireAdminAPI("EDITOR")
   if (authError) return authError
   const { id } = await params
   if (!db) return NextResponse.json({ error: "خطأ في الخادم" }, { status: 500 })

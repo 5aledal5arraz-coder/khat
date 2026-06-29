@@ -18,7 +18,7 @@ import { sponsorshipLeads } from "@/lib/db/schema/system"
 import { sendPartnerTaskReminder } from "@/lib/email/send"
 import type { PartnerReminderItem } from "@/lib/email/templates"
 import { registerHandler } from "../registry"
-import { enqueueJob } from "../queue"
+import { enqueueRecurringTick } from "../queue"
 
 const DAY_MS = 24 * 60 * 60 * 1000
 
@@ -143,9 +143,10 @@ registerHandler<{ horizonMs?: number }, ReminderSweepResult>(
   "partner.task_reminder",
   async (payload) => {
     // Schedule the next daily tick FIRST, so a failing sweep can't break the
-    // recurring schedule (the next tick is already queued before we run).
+    // recurring schedule. Idempotent — a reclaim/restart re-run won't add a
+    // second chain (enqueueRecurringTick skips when a tick is already queued).
     const runAfter = new Date(Date.now() + reminderIntervalMs())
-    await enqueueJob("partner.task_reminder", {}, { priority: 2, maxAttempts: 1, runAfter })
+    await enqueueRecurringTick("partner.task_reminder", {}, { priority: 2, maxAttempts: 1, runAfter })
     return runPartnerTaskReminderSweep({ horizonMs: payload?.horizonMs })
   },
 )

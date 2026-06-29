@@ -50,6 +50,28 @@ export async function enqueueJob(
   return mapRow(row)
 }
 
+/**
+ * Idempotent recurring-tick enqueue: enqueue a job of `type` ONLY when no
+ * pending/running job of that type already exists. Self-re-enqueueing
+ * schedulers MUST use this instead of `enqueueJob` — otherwise a worker
+ * restart or a lease-reclaim re-run compounds into multiple parallel schedule
+ * chains (each tick spawning the next). Mirrors the bootstrap's "at most one
+ * future tick" contract. Returns the new job, or null when one was already queued.
+ */
+export async function enqueueRecurringTick(
+  type: string,
+  payload: Record<string, unknown> = {},
+  options: EnqueueOptions = {},
+): Promise<JobRow | null> {
+  const existing = await db!.execute(sql`
+    SELECT id FROM jobs
+    WHERE type = ${type} AND status IN ('pending', 'running')
+    LIMIT 1
+  `)
+  if (existing.rows.length > 0) return null
+  return enqueueJob(type, payload, options)
+}
+
 export async function getJob(id: string): Promise<JobRow | null> {
   const rows = await db!.select().from(jobs).where(eq(jobs.id, id)).limit(1)
   return rows[0] ? mapRow(rows[0]) : null

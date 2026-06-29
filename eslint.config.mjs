@@ -5,6 +5,18 @@ import nextTs from "eslint-config-next/typescript";
 const eslintConfig = defineConfig([
   ...nextVitals,
   ...nextTs,
+  {
+    // The react-hooks v6 "compiler" rules flag several patterns that are
+    // correct at runtime (SSR mounted flags, server-prop → state sync,
+    // subscription/hydration effects, stable-component-ref locals). Keep them
+    // as WARNINGS — visible for incremental cleanup — so CI can gate on genuine
+    // errors. rules-of-hooks / exhaustive-deps stay at error.
+    rules: {
+      "react-hooks/set-state-in-effect": "warn",
+      "react-hooks/static-components": "warn",
+      "react-hooks/immutability": "warn",
+    },
+  },
   // Override default ignores of eslint-config-next.
   globalIgnores([
     // Default ignores of eslint-config-next:

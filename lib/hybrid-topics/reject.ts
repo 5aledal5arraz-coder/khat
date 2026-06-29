@@ -15,12 +15,15 @@
 
 import {
   judgeCandidate,
-  normalizeTitle,
   REJECTION_RULES as ORIGINAL_REJECTION_RULES,
   type CandidateTopic as OriginalCandidate,
   type NoveltyContext,
   type RejectionReason as OriginalRejectionReason,
 } from "@/lib/original-thinking/novelty"
+// Use the strong token-Jaccard near-dup matcher (NFKC + tashkeel-aware) — the
+// same one the batch engine uses — instead of exact normalized-string equality,
+// so paraphrased duplicates are caught too.
+import { isNearDuplicateTitle } from "@/lib/khat-map/v2/title-similarity"
 
 // Hybrid-specific reasons. Inherits + extends the original-thinking set.
 export type HybridRejectionReason =
@@ -102,12 +105,11 @@ export function judgeHybridCandidate(
     reasons.push("weak_strength_score")
   }
 
-  // Near-dup against Khat Map history.
-  const norm = normalizeTitle(c.title)
-  if (norm && ctx.khatMapTitles.some((t) => normalizeTitle(t) === norm)) {
+  // Near-dup against Khat Map history (token-Jaccard, catches paraphrases).
+  if (c.title && isNearDuplicateTitle(c.title, ctx.khatMapTitles)) {
     reasons.push("near_dup_khat_map")
   }
-  if (norm && ctx.consumedOriginalTitles.some((t) => normalizeTitle(t) === norm)) {
+  if (c.title && isNearDuplicateTitle(c.title, ctx.consumedOriginalTitles)) {
     reasons.push("near_dup_consumed_original")
   }
 
@@ -126,9 +128,9 @@ export const HYBRID_REJECTION_RULES: Record<HybridRejectionReason, string> = {
   missing_original_lens:
     "Topic did not specify which editorial lens elevated the market signal.",
   near_dup_khat_map:
-    "Title (normalized) matches an existing khat_map_episode_candidates row — would create a within-show duplicate.",
+    "Title is a near-duplicate (token similarity) of an existing khat_map_episode_candidates row — would create a within-show duplicate.",
   near_dup_consumed_original:
-    "Title (normalized) matches an original-thinking topic the editor has already consumed.",
+    "Title is a near-duplicate (token similarity) of an original-thinking topic the editor has already consumed.",
   weak_strength_score: `Self-rated strength_score is below ${MIN_STRENGTH_SCORE} — the model itself flagged the topic as marginal.`,
   missing_episode_type:
     "suggested_episode_type missing or not a valid KhatMapEpisodeType.",

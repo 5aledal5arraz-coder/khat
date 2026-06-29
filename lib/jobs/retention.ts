@@ -205,30 +205,9 @@ export async function runRetentionJob(input: RetentionInput = {}): Promise<Reten
     : null
 
   // Protected set: the EARLIEST candidate (by completed_at) per
-  // (task_kind, prompt_version). Counted here for the report; the strip
-  // step excludes them via the same window function.
-  const protectedRes = (await db.execute(sql`
-    SELECT COUNT(*)::int AS n
-    FROM (
-      SELECT id
-      FROM ai_runs
-      WHERE stripped_at IS NULL
-        AND completed_at IS NOT NULL
-        AND completed_at < ${aiRunsCutoff.toISOString()}
-      ORDER BY task_kind, COALESCE(prompt_version, ''), completed_at ASC
-    ) t
-    WHERE EXISTS (
-      SELECT 1
-      FROM ai_runs a2
-      WHERE a2.stripped_at IS NULL
-        AND a2.completed_at IS NOT NULL
-        AND a2.completed_at < ${aiRunsCutoff.toISOString()}
-        AND a2.id = t.id
-    )
-  `)) as unknown as { rows: Array<{ n: number }> }
-  // The above just counts candidates again; the real "protected per
-  // version" count is the number of distinct (task_kind, prompt_version)
-  // combos in the candidate set, which equals distinct_versions.
+  // (task_kind, prompt_version) is never stripped. That count equals the
+  // number of distinct (task_kind, prompt_version) combos in the candidate
+  // set, i.e. `distinct_versions` — no extra query needed.
   result.ai_runs.protected_per_version = aiCount.distinct_versions
   result.ai_runs.would_strip = Math.max(
     0,

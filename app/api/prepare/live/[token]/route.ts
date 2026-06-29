@@ -4,6 +4,7 @@ import {
   updateLiveStateByToken,
 } from "@/lib/preparation/queries"
 import { validateOrigin, errorResponse } from "@/lib/api-utils"
+import { checkIpRateLimit } from "@/lib/rate-limit"
 import type { PreparationLiveState } from "@/types/preparation"
 
 export const dynamic = "force-dynamic"
@@ -33,6 +34,13 @@ export async function PATCH(
 ) {
   if (!validateOrigin(request)) {
     return errorResponse("طلب غير صالح", 403)
+  }
+
+  // Generous cap — the live control panel patches state frequently during a
+  // recording, but an unthrottled token still shouldn't be able to hammer the DB.
+  const rate = checkIpRateLimit(request, "prepare_live_patch", 300, 60 * 1000)
+  if (!rate.allowed) {
+    return errorResponse("عدد محاولات كثيرة. يرجى المحاولة لاحقًا.", 429)
   }
 
   const { token } = await params

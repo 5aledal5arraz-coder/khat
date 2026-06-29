@@ -14,7 +14,10 @@
 
 import { eq, sql } from "drizzle-orm"
 import { db } from "@/lib/db"
-import { khatMapEpisodeCandidates } from "@/lib/db/schema/khat-map"
+// Persist through the single chokepoint (createEpisodeCandidate) rather than a
+// raw insert, so hybrid candidates get the full column set + defaults and any
+// future column is applied in one place — same path the batch engine uses.
+import { createEpisodeCandidate } from "@/lib/khat-map/core/queries"
 import {
   hybridTopicGenerations,
   type HybridGenerationStatus,
@@ -139,36 +142,37 @@ export async function persistAcceptedTopics(input: {
       strength_score: t.estimated_strength_score,
     })
 
-    const [inserted] = await db!
-      .insert(khatMapEpisodeCandidates)
-      .values({
-        season_id: input.seasonId,
-        status: "proposed",
-        working_title: t.title,
-        hook: t.emotional_hook,
-        why_matters: t.why_it_matters,
-        why_now: t.why_now,
-        goal: null,
-        description: t.conflict_angle,
-        episode_type: t.suggested_episode_type as KhatMapEpisodeType,
-        topic_domain: t.suggested_topic_domain as KhatMapTopicDomain,
-        topic_angle_code: null, // hybrid runs do not pin to a topic-bank angle
-        suggested_guest_candidate_id: null,
-        // Editorial enrichment (the upgrade) — populated when the enrich pass
-        // succeeded; otherwise the topic persists as a plain candidate.
-        main_axes: e?.main_axes ?? [],
-        suggested_questions: e?.suggested_questions ?? [],
-        topic_category: e?.topic_category ?? null,
-        topic_subcategory: e?.topic_subcategory ?? null,
-        regional_note: e?.regional_note ?? null,
-        success_score: e?.success_score ?? null,
-        editorial_intel: e?.editorial_intel ?? null,
-        production_notes: productionNote,
-      } as never)
-      .returning({ id: khatMapEpisodeCandidates.id })
+    const successScore = e?.success_score ?? null
+    const candidate = await createEpisodeCandidate({
+      season_id: input.seasonId,
+      working_title: t.title,
+      hook: t.emotional_hook,
+      why_matters: t.why_it_matters,
+      why_now: t.why_now,
+      description: t.conflict_angle,
+      episode_type: t.suggested_episode_type as KhatMapEpisodeType,
+      topic_domain: t.suggested_topic_domain as KhatMapTopicDomain,
+      topic_angle_code: null, // hybrid runs do not pin to a topic-bank angle
+      suggested_guest_candidate_id: null,
+      // Editorial enrichment (the upgrade) — populated when the enrich pass
+      // succeeded; otherwise the topic persists as a plain candidate.
+      main_axes: e?.main_axes ?? [],
+      suggested_questions: e?.suggested_questions ?? [],
+      topic_category: e?.topic_category ?? null,
+      topic_subcategory: e?.topic_subcategory ?? null,
+      regional_note: e?.regional_note ?? null,
+      success_score: successScore,
+      editorial_intel: e?.editorial_intel ?? null,
+      // Give the operator a ranking value + rationale (was silently null before).
+      composite_score: successScore != null ? successScore / 10 : null,
+      composite_score_rationale:
+        (successScore != null ? `success ${Math.round(successScore)}/100 · ` : "") +
+        `مولّد هجين · قوة ${t.estimated_strength_score.toFixed(2)}`,
+      production_notes: productionNote,
+    })
 
     out.push({
-      candidate_id: inserted.id,
+      candidate_id: candidate.id,
       consumed_original_topic_id: t.consumed_original_topic_id ?? null,
     })
 

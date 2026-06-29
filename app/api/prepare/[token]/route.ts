@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { validateOrigin } from "@/lib/api-utils"
+import { checkIpRateLimit } from "@/lib/rate-limit"
 import {
   getPrepFormByToken,
   validatePrepToken,
@@ -47,6 +48,17 @@ export async function POST(
   // Origin validation (CSRF protection for public form)
   if (!validateOrigin(request)) {
     return NextResponse.json({ error: "طلب غير صالح" }, { status: 403 })
+  }
+
+  // Rate limit: this writes to the DB AND sends a confirmation email, so an
+  // unthrottled token holder is an email-amplification surface. 10/hour/IP is
+  // generous for a real guest editing their answers.
+  const rate = checkIpRateLimit(request, "guest_prep_submit", 10, 60 * 60 * 1000)
+  if (!rate.allowed) {
+    return NextResponse.json(
+      { error: "عدد محاولات كثيرة. يرجى المحاولة لاحقًا." },
+      { status: 429 },
+    )
   }
 
   const { token } = await params

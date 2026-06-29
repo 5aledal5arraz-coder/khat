@@ -140,7 +140,7 @@ philosophy.
 ABSOLUTE RULES
 1. Output JSON only. Shape: { topics: [ {
      title, why_it_matters, why_now, emotional_hook,
-     conflict_angle, market_inspiration, original_lens,
+     conflict_angle, market_inspiration, primary_theme, original_lens,
      suggested_episode_type, suggested_topic_domain,
      estimated_strength_score
    } ] }.
@@ -148,6 +148,7 @@ ABSOLUTE RULES
 3. Every topic MUST set:
    - original_lens to one of the registry KEYS below.
    - market_inspiration: a sentence naming WHICH cluster/hook/emotion fed this topic.
+   - primary_theme: copy VERBATIM the \`label\` of the single market cluster this topic primarily drew from (from the MARKET CLUSTERS list below). Use "none" if the topic is purely original and drew from no cluster.
    - suggested_episode_type drawn from: intellectual, social, psychological, personal_story, national, historical, economic, controversial, inspirational, mass_audience, signature_khat, invasion.
    - suggested_topic_domain drawn from: philosophy, psychology, relationships, religion, identity_masculinity, money_career, technology_ai, internet_culture, crime_mystery, hidden_history, power_manipulation, parenting, kuwait_gulf, historical, social_issues, modern_society, emotions_inner_life, none.
 4. NEVER copy a market title. Transform it. The relationship between market_inspiration and title must NOT be a paraphrase.
@@ -534,6 +535,8 @@ exports[`guest-application builders (B2) > analysis snapshot 1`] = `
 
 حلل طلب الضيف التالي بصرامة تحريرية. كن صادقاً — لا تجامل. قيّم كأنك تختار ضيوف لموسم محدود الحلقات.
 
+مرفقٌ أدناه نتائج بحث حيّ عن المتقدم على الإنترنت (إن توفّرت). استخدمها للتحقق من هويته وحضوره العلني ومصداقية روايته. مهم جدًا: غياب الحضور الرقمي ليس عيبًا — خط يستضيف أشخاصًا حقيقيين بقصص صادقة، لا مشاهير فقط. لا تخترع حقائق لا يدعمها البحث أو الطلب.
+
 أعد JSON:
 {
   "fit_score": (0-100 — مدى توافق هذا الضيف مع خط),
@@ -549,7 +552,10 @@ exports[`guest-application builders (B2) > analysis snapshot 1`] = `
   "audience_value": (ما القيمة التي سيحصل عليها المستمع — جملتين),
   "concerns": (مصفوفة — مخاوف أو ملاحظات سلبية),
   "strengths": (مصفوفة — نقاط قوة واضحة),
-  "suggested_direction": (اقتراح للاتجاه التحريري إذا تمت الاستضافة — 2-3 جمل)
+  "suggested_direction": (اقتراح للاتجاه التحريري إذا تمت الاستضافة — 2-3 جمل),
+  "research_summary": (ملخص ما كشفه البحث الحيّ عن المتقدم — 2-4 جمل، أو "لا حضور علني واضح" إن لم يوجد),
+  "public_presence": (قراءة لحضوره العلني — هل هو شخصية عامة/مهنية معروفة أم شخص عادي بقصة، وما طبيعة هذا الحضور),
+  "credibility_note": (تحقّق ومصداقية — هل تتطابق روايته مع ما يظهر علنًا؟ أي إشارات أو مخاوف؟ اكتب "لا توجد إشارات" إن لا شيء)
 }"
 `;
 
@@ -571,7 +577,12 @@ exports[`guest-application builders (B2) > analysis snapshot 2`] = `
 - لماذا اختار خط: العمق
 
 التسجيل:
-- يفضل حوار أم سرد: hybrid"
+- يفضل حوار أم سرد: hybrid
+
+═══════════════════════════════════
+نتائج البحث الحيّ عن المتقدم على الإنترنت:
+═══════════════════════════════════
+(لا تتوفر نتائج بحث — قيّم بناءً على الطلب وحده، واعتبر research_summary = "لا حضور علني واضح".)"
 `;
 
 exports[`guest-application builders (B2) > concept snapshot (with analysis) 1`] = `
@@ -986,14 +997,14 @@ exports[`preparation-sections builders (B2) > viral-moments system matches snaps
 `;
 
 exports[`sponsorship builders (B2) > analysis snapshot 1`] = `
-"أنت لجنة تحريرية واستراتيجية متمرّسة تقيّم طلبات الشراكة لبودكاست "خط" — بودكاست عربي ثقافي فكري عميق.
+"أنت "مدير شراكات" متمرّس لبودكاست "خط" — بودكاست عربي ثقافي فكري عميق. دورك ليس التحليل فقط، بل مساعدة خط فعليًا على إتمام الشراكات الجيدة وحماية علامته من غير المناسبة.
 
 عن خط:
 - جمهوره الأساسي في الخليج: السعودية والكويت والعراق ودول الخليج — صنّاع قرار ومهنيون شباب مثقفون (18–35).
 - قيمه: العمق، الأصالة، الجودة، والاستقلالية التحريرية الكاملة. خط لا يقايض مصداقيته بإعلان.
 - الشراكة مع خط حضورٌ داخل محتوى موثوق، لا فاصل إعلاني.
 
-مهمتك: تقييم الشركة كشريك محتمل تقييماً شاملاً وصادقاً، مستندًا إلى (أ) كامل بيانات الطلب، و(ب) نتائج البحث الحيّ عن الشركة على الإنترنت المرفقة أدناه. استخدم البحث لتقييم المنتجات والسمعة والمكانة والجمهور — ولا تخترع حقائق لا يدعمها البحث أو الطلب؛ وإن نقصت المعلومة قُل ذلك صراحةً.
+مهمتك: تقييم الشركة كشريك محتمل تقييماً شاملاً وصادقاً، مستندًا إلى (أ) كامل بيانات الطلب، و(ب) نتائج البحث الحيّ عن الشركة على الإنترنت المرفقة أدناه. استخدم البحث لتقييم المنتجات والسمعة والمكانة والجمهور — ولا تخترع حقائق لا يدعمها البحث أو الطلب؛ وإن نقصت المعلومة قُل ذلك صراحةً. ثم تصرّف كمدير شراكات يريد الإغلاق: قدّر احتمال الفوز، وضع استراتيجية، وجهّز المشغّل بنقاط حوار وردود على الاعتراضات وتكتيكات تفاوض.
 
 أعد تقييمك بصيغة JSON فقط:
 {
@@ -1015,10 +1026,17 @@ exports[`sponsorship builders (B2) > analysis snapshot 1`] = `
   "recommended_episodes": (رقم — عدد الحلقات المقترح للشراكة),
   "recommended_package": (اسم مختصر للباقة المقترحة),
   "pricing_strategy": (استراتيجية تسعير مقترحة — المنهج لا رقمًا ثابتًا: كيف نسعّر بناءً على القيمة والميزانية والمكانة),
+  "win_probability": (رقم 0-100 — احتمال إتمام هذه الشراكة فعليًا بناءً على التوافق والنية والميزانية والجاهزية),
+  "strategy_summary": (استراتيجية المدير لكسب هذه الصفقة وهيكلتها — 2-4 جمل عملية: كيف نقترب، وعلى أي قيمة نركّز, وما الذي يحسم القرار),
+  "talking_points": (مصفوفة نصية — 3-5 نقاط حوار مقنعة يستخدمها المشغّل مع الشريك، مخصّصة لهذه الشركة),
+  "likely_objections": (مصفوفة كائنات — اعتراضات محتملة قد يثيرها الشريك، كل عنصر: { "objection": نص الاعتراض, "response": ردّ مقترح مقنع }),
+  "negotiation_tactics": (مصفوفة نصية — 2-4 تكتيكات تفاوض ملموسة مناسبة لهذا الشريك ولميزانيته),
+  "recommended_action": ("advance" المضي لعرض | "request_info" نحتاج معلومات أكثر | "nurture" مناسب لكن ليس الآن | "decline" نعتذر بلطف),
+  "action_rationale": (سطر واحد يبرّر الإجراء الموصى به — لماذا هذا هو التصرف الأنسب الآن),
   "reasoning": (خلاصة موجزة تربط التقييم بالتوصية — 2-3 جمل)
 }
 
-كن موضوعيًا ودقيقًا. لا تبالغ مدحًا ولا قدحًا. حماية مصداقية خط أولوية: لو كانت الشركة لا تناسب قيم خط، قُلها بوضوح."
+كن موضوعيًا ودقيقًا. لا تبالغ مدحًا ولا قدحًا. حماية مصداقية خط أولوية: لو كانت الشركة لا تناسب قيم خط، قُلها بوضوح واخفِض win_probability وضع recommended_action على "decline"."
 `;
 
 exports[`sponsorship builders (B2) > analysis snapshot 2`] = `

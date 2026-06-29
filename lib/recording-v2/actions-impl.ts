@@ -8,7 +8,7 @@
  * module exports.
  */
 
-import { eq, sql } from "drizzle-orm"
+import { and, eq, sql } from "drizzle-orm"
 import { db } from "@/lib/db"
 import {
   collaborationRooms,
@@ -37,31 +37,16 @@ async function ensureParticipant(
   userId: string,
   displayName: string,
 ): Promise<string> {
-  const scoped = await db!
+  // The unique key is (room_id, user_id) — match both directly. (The previous
+  // implementation used `Array.find` with an async predicate, which always
+  // "matched" the first row because the returned Promise is truthy, then did an
+  // N+1 second pass to compensate.)
+  const [existing] = await db!
     .select({ id: roomParticipants.id })
     .from(roomParticipants)
-    .where(eq(roomParticipants.room_id, roomId))
-  // The unique key is (room_id, user_id). Drizzle doesn't expose a
-  // single-condition AND helper inline cleanly; do the join in code:
-  const matching = scoped.find(async (p) => {
-    const [check] = await db!
-      .select({ user_id: roomParticipants.user_id })
-      .from(roomParticipants)
-      .where(eq(roomParticipants.id, p.id))
-      .limit(1)
-    return check?.user_id === userId
-  })
-  if (matching) {
-    // Re-resolve synchronously (the find above can't await) — second pass.
-    for (const p of scoped) {
-      const [check] = await db!
-        .select({ user_id: roomParticipants.user_id })
-        .from(roomParticipants)
-        .where(eq(roomParticipants.id, p.id))
-        .limit(1)
-      if (check?.user_id === userId) return p.id
-    }
-  }
+    .where(and(eq(roomParticipants.room_id, roomId), eq(roomParticipants.user_id, userId)))
+    .limit(1)
+  if (existing) return existing.id
   const [row] = await db!
     .insert(roomParticipants)
     .values({

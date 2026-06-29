@@ -135,8 +135,9 @@ describe("worker timeout race pattern", () => {
     // for asserting the race result is the timeout error and the
     // orphan eventually settles cleanly.
     const sawUnhandled = vi.fn()
-    const handler_ = (process.on as unknown as (e: string, fn: () => void) => void)
-    handler_("unhandledRejection", sawUnhandled)
+    // Call on `process` directly — extracting `process.on` into a variable and
+    // invoking it unbound throws ("Cannot read properties of undefined (_events)").
+    process.on("unhandledRejection", sawUnhandled)
 
     const { result } = raceWithTimeout(handler, {
       jobType: "demo.echo",

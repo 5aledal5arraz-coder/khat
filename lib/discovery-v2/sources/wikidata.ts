@@ -1,3 +1,7 @@
+/* eslint-disable @typescript-eslint/no-explicit-any -- Wikidata/MediaWiki API
+ * responses are deeply-nested, optional, untyped JSON (claims → mainsnak →
+ * datavalue → value → …). Precise typing of the full entity shape isn't worth
+ * the churn for a read-only external adapter that already guards every access. */
 /**
  * Wikidata + Wikipedia resolver — the v2 truth anchor.
  *

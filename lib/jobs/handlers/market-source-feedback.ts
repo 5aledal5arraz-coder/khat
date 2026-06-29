@@ -9,7 +9,7 @@
 
 import { backfillSourceFeedback } from "@/lib/market-intelligence/source-feedback"
 import { registerHandler } from "../registry"
-import { enqueueJob } from "../queue"
+import { enqueueRecurringTick } from "../queue"
 
 const DAY_MS = 24 * 60 * 60 * 1000
 
@@ -22,8 +22,9 @@ registerHandler<{ limit?: number }, { scanned: number; credited: number }>(
   "market.source_feedback",
   async (payload) => {
     // Queue the next tick first so a failing sweep can't break the schedule.
+    // Idempotent — a reclaim/restart re-run won't spawn a second chain.
     const runAfter = new Date(Date.now() + sourceFeedbackIntervalMs())
-    await enqueueJob("market.source_feedback", {}, { priority: 1, maxAttempts: 1, runAfter })
+    await enqueueRecurringTick("market.source_feedback", {}, { priority: 1, maxAttempts: 1, runAfter })
     return backfillSourceFeedback({ limit: payload?.limit ?? 200 })
   },
 )

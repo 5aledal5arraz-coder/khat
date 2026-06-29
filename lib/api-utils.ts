@@ -58,12 +58,36 @@ export async function requireAdmin(): Promise<void> {
 }
 
 /**
- * Require admin for API routes. Returns 401 response if not authenticated, null if OK.
+ * Require admin for API routes. Returns a 401/403 response on failure, null if OK.
+ *
+ * Pass `minRole` to additionally require a minimum role (and an active account)
+ * — use this on destructive endpoints so a read-only VIEWER cannot delete
+ * content. Without `minRole` the behavior is unchanged (authentication only).
  */
-export async function requireAdminAPI(): Promise<NextResponse | null> {
+export async function requireAdminAPI(minRole?: AdminRole): Promise<NextResponse | null> {
   const user = await getAdminAuthUser()
   if (!user) return unauthorizedResponse()
+  if (minRole) {
+    if (!user.is_active) return forbiddenResponse()
+    if (!hasRole(user.role, minRole)) return forbiddenResponse()
+  }
   return null
+}
+
+/**
+ * Require a minimum admin role for SERVER ACTIONS. Returns the user on success,
+ * or an `{ error }` the action can surface in its Result shape on failure.
+ * (Server actions can't redirect cleanly on a role failure mid-mutation.)
+ */
+export async function requireActionRole(
+  minRole: AdminRole,
+): Promise<{ ok: true; user: AdminUser } | { ok: false; error: string }> {
+  const user = await getAdminAuthUser()
+  if (!user || !user.is_active) return { ok: false, error: "يجب تسجيل الدخول أولاً" }
+  if (!hasRole(user.role, minRole)) {
+    return { ok: false, error: "ليس لديك صلاحية لهذا الإجراء" }
+  }
+  return { ok: true, user }
 }
 
 // -- Admin Role hierarchy --

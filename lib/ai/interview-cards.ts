@@ -415,7 +415,7 @@ export async function enrichCard(
 export async function enrichSingleCard(prepId: string, cardId: string): Promise<EnrichedCardFields> {
   const prep = await getPrep(prepId)
   if (!prep) throw new Error("التحضير غير موجود")
-  const context = prepToContext(prep as any)
+  const context = prepToContext(prep as unknown as Parameters<typeof prepToContext>[0])
   return enrichCard(cardId, context)
 }
 
@@ -430,7 +430,7 @@ export async function enrichAllCards(
   const prep = await getPrep(prepId)
   if (!prep) throw new Error("التحضير غير موجود")
 
-  const context = prepToContext(prep as any)
+  const context = prepToContext(prep as unknown as Parameters<typeof prepToContext>[0])
   const cards = await getCardsByPreparation(prepId)
   const errors: Array<{ cardId: string; error: string }> = []
   let enriched = 0
@@ -534,7 +534,7 @@ export async function populateCardMaterials(
         content: item.content,
         source_url: item.source_url || undefined,
         source_name: item.source_name || undefined,
-        credibility: item.credibility as any,
+        credibility: item.credibility as CreateCardMaterialInput["credibility"],
         sort_order: i,
       })
     }

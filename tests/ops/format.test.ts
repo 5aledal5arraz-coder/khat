@@ -96,8 +96,8 @@ describe("humanizeAge", () => {
 // ─── severityClass ───────────────────────────────────────────────────
 
 describe("severityClass", () => {
-  it("info → gray classes", () => {
-    expect(severityClass("info")).toContain("gray")
+  it("info → muted (neutral) classes", () => {
+    expect(severityClass("info")).toContain("muted")
   })
 
   it("warn → amber classes", () => {
@@ -108,8 +108,8 @@ describe("severityClass", () => {
     expect(severityClass("error")).toContain("red")
   })
 
-  it("unknown severity falls back to info (gray)", () => {
-    expect(severityClass("nonsense")).toContain("gray")
+  it("unknown severity falls back to info (muted/neutral)", () => {
+    expect(severityClass("nonsense")).toContain("muted")
   })
 
   it("each variant includes 'border' class", () => {

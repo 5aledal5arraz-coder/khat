@@ -11,7 +11,7 @@
  */
 
 import { registerHandler } from "../registry"
-import { enqueueJob } from "../queue"
+import { enqueueJob, enqueueRecurringTick } from "../queue"
 import { runPresetCollection } from "@/lib/market-intelligence/ingestion"
 import { extractPendingSignals } from "@/lib/market-intelligence/extraction"
 import { recomputeClusters } from "@/lib/market-intelligence/clustering"
@@ -282,10 +282,10 @@ registerHandler<SchedulerPayload, SchedulerResult>(
       }
     }
 
-    // Re-enqueue the next tick. 24h delay. If the worker crashes, the
-    // bootstrap at startup recreates the scheduler entry (idempotent).
+    // Re-enqueue the next tick. 24h delay. Idempotent — a reclaim/restart
+    // re-run (or the startup bootstrap) won't add a second schedule chain.
     const nextTickAt = new Date(Date.now() + DAILY_MS)
-    await enqueueJob(
+    await enqueueRecurringTick(
       "market.scheduler",
       {},
       { priority: 2, maxAttempts: 1, runAfter: nextTickAt },

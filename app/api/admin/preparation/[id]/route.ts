@@ -82,7 +82,7 @@ export async function DELETE(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
-  const authError = await requireAdminAPI()
+  const authError = await requireAdminAPI("EDITOR")
   if (authError) return authError
   const mutErr = validateMutation(request)
   if (mutErr) return mutErr

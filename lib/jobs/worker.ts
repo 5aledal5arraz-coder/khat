@@ -48,6 +48,20 @@ const POLL_MS = Number(process.env.WORKER_POLL_MS ?? 2000)
 const LEASE_MS = Number(process.env.WORKER_LEASE_MS ?? 300_000)
 const WORKER_ID = process.env.WORKER_ID ?? `worker-${randomUUID().slice(0, 8)}`
 
+// ─── Retry backoff ───────────────────────────────────────────────────
+// A failed job must NOT retry immediately — that burns all max_attempts in
+// milliseconds during a transient upstream outage (rate-limit, 5xx, timeout).
+// Exponential backoff with jitter, computed from the attempt number, capped.
+const RETRY_BASE_MS = Number(process.env.WORKER_RETRY_BASE_MS ?? 10_000) // 10s
+const RETRY_CAP_MS = Number(process.env.WORKER_RETRY_CAP_MS ?? 600_000) // 10min
+
+/** Backoff for the NEXT attempt after `attempts` failures (attempts ≥ 1). */
+function computeRetryAfter(attempts: number): Date {
+  const exp = Math.min(RETRY_CAP_MS, RETRY_BASE_MS * 2 ** Math.max(0, attempts - 1))
+  const jitter = Math.floor(Math.random() * 0.25 * exp) // up to +25% to avoid thundering herds
+  return new Date(Date.now() + exp + jitter)
+}
+
 // ─── A7 — per-handler timeout isolation ──────────────────────────────
 //
 // Without these the worker can be wedged indefinitely by a hung
@@ -268,7 +282,9 @@ async function processOne(): Promise<boolean> {
     if (timeoutHandle) clearTimeout(timeoutHandle)
     const isTimeout = err instanceof HandlerTimeoutError
     const message = err instanceof Error ? err.message : String(err)
-    const outcome = await failJob(job.id, message)
+    // Back off before the next attempt so transient failures don't exhaust
+    // max_attempts instantly. failJob ignores run_after once the job is dead.
+    const outcome = await failJob(job.id, message, computeRetryAfter(job.attempts))
     if (isTimeout) {
       console.error(
         `[${WORKER_ID}] TIMEOUT ${job.id}: ${message} — flowing through failJob (attempts=${outcome.attempts}/${outcome.max_attempts})`,

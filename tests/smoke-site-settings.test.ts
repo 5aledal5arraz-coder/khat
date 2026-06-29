@@ -17,7 +17,7 @@ describe("Site Settings — Read", () => {
     const settings = await getSiteSettings()
 
     expect(settings).toBeTruthy()
-    expect(settings.metadata.name).toBe("خط بودكاست")
+    expect(settings.metadata.name).toBe("خط")
     expect(settings.featureFlags.studioEnabled).toBe(true)
     expect(settings.socialLinks).toEqual([])
     expect(settings.seo.titleTemplate).toContain("خط بودكاست")

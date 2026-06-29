@@ -40,15 +40,18 @@ export async function runPresetCollection(
     collected.push({ source: src, result })
     if (!result.configured) continue
     for (const sig of result.signals) {
-      await persistSignal(sig)
-      inserted++
+      // Count only genuinely-new signals — the auto-pipeline chains on
+      // `inserted > 0`, so counting upserted-updates would re-trigger
+      // extraction for signals that already exist.
+      if (await persistSignal(sig)) inserted++
     }
   }
   return { preset: preset.label, collected, inserted }
 }
 
-export async function persistSignal(s: MarketRawSignal): Promise<void> {
-  await db!.execute(sql`
+/** Upsert a raw signal. Returns true when a NEW row was inserted (vs updated). */
+export async function persistSignal(s: MarketRawSignal): Promise<boolean> {
+  const res = await db!.execute(sql`
     INSERT INTO market_topic_signals (
       id, source, external_id, title, description, language, view_signal, raw
     ) VALUES (
@@ -63,5 +66,9 @@ export async function persistSignal(s: MarketRawSignal): Promise<void> {
       view_signal = EXCLUDED.view_signal,
       raw         = EXCLUDED.raw
     -- preserve theme, emotional_trigger, controversy_score (set by extraction)
+    RETURNING (xmax = 0) AS inserted
   `)
+  // xmax = 0 on a fresh INSERT; non-zero when the row was updated via conflict.
+  const row = (res as unknown as { rows: Array<{ inserted: boolean }> }).rows?.[0]
+  return row?.inserted === true
 }
