@@ -164,10 +164,10 @@ export function computeFinalScore(partial: {
   return editorial + taste + balance + similarity
 }
 
-// Audience-first ranking lives in regional-fit.ts (computeRegionalAudienceFit)
-// and select-by-potential.ts. Episode potential is the objective; this module
-// keeps the legacy editorial × taste × balance composite for the non-audience
-// (Phase B / completion) paths only.
+// The editorial Success-Probability path ranks via select-by-potential.ts;
+// this module keeps the legacy editorial × taste × balance composite for the
+// non-editorial paths (Phase B guests, strict angle-bank, required-role
+// completion, and the guest-first engine).
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 

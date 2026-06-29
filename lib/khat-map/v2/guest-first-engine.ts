@@ -13,19 +13,11 @@
  */
 
 import { getSeasonById, createGuestCandidate } from "@/lib/khat-map/core/queries"
-import {
-  applyEditorialFilters,
-  domainWeightMultiplier,
-} from "./editorial-filter"
+import { applyEditorialFilters } from "./editorial-filter"
 import { KHAT_EDITORIAL_CONTROLS_DEFAULTS } from "@/types/khat-map"
 import { getDomainPerformanceMap } from "@/lib/khat-map/performance"
 import { performanceFactor } from "@/lib/khat-map/scoring/weights"
-import {
-  classifySimilarity,
-  cosineSimilarity,
-  buildFingerprintText,
-  type SimilarityVerdict,
-} from "@/lib/khat-map/learning/embeddings"
+import { buildFingerprintText } from "@/lib/khat-map/learning/embeddings"
 import { listNegativeFingerprints } from "@/lib/khat-map/learning/fingerprints"
 import {
   getTasteProfile,
@@ -33,11 +25,15 @@ import {
 } from "@/lib/khat-map/learning/taste"
 import {
   computeDomainLoad,
-  computeFinalScore,
   computeTasteAlignment,
-  withinBatchDomainPenalty,
   buildTasteReasoning,
 } from "./scoring"
+import {
+  greedyPickByScore,
+  legacyCandidateScore,
+  neutralTaste,
+  scanNegatives,
+} from "./embedding-pipeline"
 import { buildCardExplainability } from "./explainability"
 import { openaiEngineAI } from "./openai-engine-ai"
 import { createEpisodeCandidate } from "@/lib/khat-map/core/queries"
@@ -53,7 +49,6 @@ import type {
 } from "./types"
 import type {
   KhatMapTopicDomain,
-  KhatMapTopicFingerprint,
   KhatMapUserTasteProfile,
 } from "@/types/khat-map"
 
@@ -224,36 +219,20 @@ export async function generateGuestFirstCards(
       similarity_trigger_title: trigger?.title_ar ?? null,
       taste_alignment,
       domain_load,
-      final_score:
-        computeFinalScore({
-          editorial_score: raw.editorial_score,
-          taste_alignment,
-          domain_load,
-          similarity_verdict: verdict,
-          similarity_max: max,
-        }) *
-        domainWeightMultiplier(raw.topic.topic_domain, controls) *
+      final_score: legacyCandidateScore({
+        raw,
+        taste_alignment,
+        domain_load,
+        similarity_verdict: verdict,
+        similarity_max: max,
+        controls,
         perfFactor,
+      }),
     })
   }
 
   // ─── 5. Rank + pick (domain diversity still useful) ──────────────────────
-  const picks: ScoredCandidate[] = []
-  const remaining = [...scored].sort((a, b) => b.final_score - a.final_score)
-  while (picks.length < angleCount && remaining.length > 0) {
-    let bestIdx = 0
-    let bestScore = -Infinity
-    for (let i = 0; i < remaining.length; i++) {
-      const adjusted =
-        remaining[i].final_score - withinBatchDomainPenalty(remaining[i], picks)
-      if (adjusted > bestScore) {
-        bestScore = adjusted
-        bestIdx = i
-      }
-    }
-    picks.push(remaining[bestIdx])
-    remaining.splice(bestIdx, 1)
-  }
+  const picks = greedyPickByScore(scored, angleCount)
 
   // ─── 6. Persist topics — ALL linked to the same guest row ────────────────
   const cards: BatchCard[] = []
@@ -351,31 +330,6 @@ function attachGuestToRaw(
   }
 }
 
-function scanNegatives(
-  candidate: number[],
-  negatives: KhatMapTopicFingerprint[],
-): {
-  verdict: SimilarityVerdict
-  max: number
-  trigger: KhatMapTopicFingerprint | null
-} {
-  let verdict: SimilarityVerdict = "ok"
-  let max = 0
-  let trigger: KhatMapTopicFingerprint | null = null
-  for (const n of negatives) {
-    if (n.embedding.length !== candidate.length) continue
-    const s = cosineSimilarity(candidate, n.embedding)
-    if (s > max) {
-      max = s
-      trigger = n
-    }
-    const v = classifySimilarity(s)
-    if (v === "hard_block") verdict = "hard_block"
-    else if (v === "soft_avoid" && verdict !== "hard_block") verdict = "soft_avoid"
-  }
-  return { verdict, max, trigger }
-}
-
 function emptyStats(
   useCross: boolean,
   oversampled: number,
@@ -393,23 +347,6 @@ function emptyStats(
     cross_season_negatives_included: useCross,
     llm_ms,
     embed_ms,
-  }
-}
-
-function neutralTaste(): KhatMapUserTasteProfile {
-  const now = new Date().toISOString()
-  return {
-    user_id: "",
-    preferred_domains: [],
-    rejected_patterns: [],
-    depth_score: 0.5,
-    controversy_tolerance: 0.5,
-    emotional_preference: 0.5,
-    kuwait_relevance_weight: 0.5,
-    total_decisions: 0,
-    last_recomputed_at: null,
-    created_at: now,
-    updated_at: now,
   }
 }
 

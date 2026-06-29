@@ -29,12 +29,7 @@ import {
   khatMapSeasonDecisions,
 } from "@/lib/db/schema/khat-map"
 import { getSeasonById } from "@/lib/khat-map/core/queries"
-import {
-  classifySimilarity,
-  cosineSimilarity,
-  buildFingerprintText,
-  type SimilarityVerdict,
-} from "@/lib/khat-map/learning/embeddings"
+import { buildFingerprintText } from "@/lib/khat-map/learning/embeddings"
 import { listNegativeFingerprints } from "@/lib/khat-map/learning/fingerprints"
 import {
   getTasteProfile,
@@ -42,10 +37,14 @@ import {
 } from "@/lib/khat-map/learning/taste"
 import {
   computeDomainLoad,
-  computeFinalScore,
   computeTasteAlignment,
-  withinBatchDomainPenalty,
 } from "./scoring"
+import {
+  greedyPickByScore,
+  legacyCandidateScore,
+  neutralTaste,
+  scanNegatives,
+} from "./embedding-pipeline"
 import { seasonCategoryCap, overRepresentedCategories } from "./diversity"
 import { selectByPotential } from "./select-by-potential"
 import { assembleEditorial } from "./editorial-assemble"
@@ -62,10 +61,7 @@ import {
   buildRoleHintBlock,
   type KhatMapMustIncludeRole,
 } from "./completion"
-import {
-  applyEditorialFilters,
-  domainWeightMultiplier,
-} from "./editorial-filter"
+import { applyEditorialFilters } from "./editorial-filter"
 import { isNearDuplicateTitle } from "./title-similarity"
 import { KHAT_EDITORIAL_CONTROLS_DEFAULTS } from "@/types/khat-map"
 import { getDomainPerformanceMap } from "@/lib/khat-map/performance"
@@ -84,7 +80,6 @@ import type {
   KhatMapFeedbackReasonCategory,
   KhatMapInvasionPolicy,
   KhatMapTopicDomain,
-  KhatMapTopicFingerprint,
   KhatMapV2Mode,
 } from "@/types/khat-map"
 
@@ -157,19 +152,7 @@ export async function generateBatch(
       ? refreshTaste
         ? recomputeTasteProfile(input.admin_id)
         : getTasteProfile(input.admin_id)
-      : Promise.resolve({
-          user_id: "",
-          preferred_domains: [],
-          rejected_patterns: [],
-          depth_score: 0.5,
-          controversy_tolerance: 0.5,
-          emotional_preference: 0.5,
-          kuwait_relevance_weight: 0.5,
-          total_decisions: 0,
-          last_recomputed_at: null,
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-        }),
+      : Promise.resolve(neutralTaste()),
     // Cross-season aggregate — feeds the closed-loop multiplier in step 4.
     // Returns an empty Map when no episodes have been published+synced yet.
     getDomainPerformanceMap(),
@@ -377,31 +360,29 @@ export async function generateBatch(
         verdict?.verdict === "reject" ? 0 : successScoreToRank(assembled.success_score)
     } else {
       // Legacy scoring — Phase B (guests), strict angle-bank, and required-role
-      // completion still rank by editorial × taste × domain-balance × similarity.
+      // completion still rank by editorial × taste × domain-balance × similarity,
+      // then the editorial-controls domain weight and the closed-loop performance
+      // band (1.0 for domains without enough published data). Shared with the
+      // guest-first engine via legacyCandidateScore.
       domain_load = computeDomainLoad(
         raw.topic.topic_domain,
         acceptedDomainCounts,
         seasonTarget,
       )
-      const baseScore = computeFinalScore({
-        editorial_score: raw.editorial_score,
-        taste_alignment,
-        domain_load,
-        similarity_verdict: verdict,
-        similarity_max: max,
-      })
-      // Multiplier ladder, applied bottom-up:
-      //   1. Editorial-controls domain weight (admin's pre-generation knob)
-      //   2. Performance-band multiplier (closed-loop signal from published
-      //      episodes in this domain). Domains without enough data return
-      //      1.0 and don't move the score.
-      const editorialFactor = domainWeightMultiplier(raw.topic.topic_domain, controls)
       const perfRow = domainPerformance.get(raw.topic.topic_domain)
       const perfFactor = performanceFactor(
         perfRow?.avg_performance ?? null,
         perfRow?.episodes_count ?? 0,
       )
-      final_score = baseScore * editorialFactor * perfFactor
+      final_score = legacyCandidateScore({
+        raw,
+        taste_alignment,
+        domain_load,
+        similarity_verdict: verdict,
+        similarity_max: max,
+        controls,
+        perfFactor,
+      })
     }
     scored.push({
       raw,
@@ -431,23 +412,9 @@ export async function generateBatch(
     const pool = passing.length >= size ? passing : scored.filter((s) => s.final_score > 0)
     picks = selectByPotential(pool, { size, seasonCap, acceptedByCategory }).picks
   } else {
-    // Legacy path: greedy top-N with a soft within-batch domain penalty.
-    picks = []
-    const remaining = [...scored].sort((a, b) => b.final_score - a.final_score)
-    while (picks.length < size && remaining.length > 0) {
-      let bestIdx = 0
-      let bestScore = -Infinity
-      for (let i = 0; i < remaining.length; i++) {
-        const c = remaining[i]
-        const adjusted = c.final_score - withinBatchDomainPenalty(c, picks)
-        if (adjusted > bestScore) {
-          bestScore = adjusted
-          bestIdx = i
-        }
-      }
-      picks.push(remaining[bestIdx])
-      remaining.splice(bestIdx, 1)
-    }
+    // Legacy path: greedy top-N with a soft within-batch domain penalty
+    // (shared with the guest-first engine via greedyPickByScore).
+    picks = greedyPickByScore(scored, size)
   }
 
   // ─── 6. Persist picks + build BatchResult ─────────────────────────────────
@@ -667,31 +634,6 @@ function estimateSeasonTarget(
 ): number {
   const accepted = Object.values(counts).reduce((a, b) => a + b, 0)
   return Math.max(10, accepted + 5)
-}
-
-function scanNegatives(
-  candidate: number[],
-  negatives: KhatMapTopicFingerprint[],
-): {
-  verdict: SimilarityVerdict
-  max: number
-  trigger: KhatMapTopicFingerprint | null
-} {
-  let verdict: SimilarityVerdict = "ok"
-  let max = 0
-  let trigger: KhatMapTopicFingerprint | null = null
-  for (const n of negatives) {
-    if (n.embedding.length !== candidate.length) continue
-    const s = cosineSimilarity(candidate, n.embedding)
-    if (s > max) {
-      max = s
-      trigger = n
-    }
-    const v = classifySimilarity(s)
-    if (v === "hard_block") verdict = "hard_block"
-    else if (v === "soft_avoid" && verdict !== "hard_block") verdict = "soft_avoid"
-  }
-  return { verdict, max, trigger }
 }
 
 function emptyResult(
