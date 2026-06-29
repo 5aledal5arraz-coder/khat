@@ -21,10 +21,38 @@ reviewable, forward-only, no guessing. `db:push` is now **local-throwaway only**
   history. Its columns are already included in the baseline; see that folder's
   note.
 
-> `scripts/post-schema.sql` is still applied **after** migrations. It holds
-> triggers, RPC functions (`push_episode_data`), CHECK constraints, and a few
-> indexes that aren't modeled in the Drizzle schema (e.g. `uq_gdl_candidate`).
-> Migrations build the tables; post-schema layers the rest.
+- `0007_catchup_post_schema_tables.sql` — **the fold.** Earlier the journal had
+  drifted behind: tables added after the baseline (community, the polymorphic
+  `crm_*`, the partner-specific tables, `partnership_offers`,
+  `market_source_feedback_events`) plus ~60 `ADD COLUMN`s lived **only** in
+  `post-schema.sql` as hand-written idempotent DDL. `0007` captures all of it
+  (and drops the retired `thinker_suggestions`), so the journal is once again the
+  single source of truth for structure. Verified by building scratch DBs both
+  ways and diffing `information_schema` — `migrate(0000→0007) + stripped
+  post-schema` is byte-identical to the old `migrate(0000→0006) + full
+  post-schema`.
+
+> `scripts/post-schema.sql` is still applied **after** migrations. After the
+> `0007` fold it holds ONLY what migrations can't model: triggers, RPC functions
+> (`push_episode_data`), CHECK constraints, partial/conditional indexes (e.g.
+> `idx_community_public_credit`, `uq_studio_analysis_session_kind`,
+> `idx_partnership_offers_lead`), the retirement `DROP`s, and alignment ALTERs
+> (e.g. `community_contributions.triage_status SET NOT NULL`). It no longer
+> re-`CREATE`s tables or re-`ADD`s columns the migrations own.
+
+## ⚠️ One-time before the next PRODUCTION deploy (the `0007` fold)
+
+Production already **has** every object `0007` creates (post-schema built them on
+past deploys). So running `db:migrate` blind would fail trying to `CREATE` a table
+that exists. Baseline production **once** so `0007` is recorded as already applied:
+
+```bash
+DATABASE_URL="postgres://…prod…" npm run db:adopt   # marks 0000–0007 applied
+```
+
+Then deploy as usual (`db:migrate` + re-apply `post-schema.sql`). The local dev DB
+was baselined the same way on 2026-06-30. A brand-new/empty DB needs nothing
+special — `db:migrate` runs `0000→0007` from scratch (validated).
 
 ## Day-to-day: changing the schema
 

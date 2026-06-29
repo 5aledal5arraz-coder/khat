@@ -50,6 +50,13 @@
       "when": 1782253916495,
       "tag": "0006_heavy_darkstar",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1782766141458,
+      "tag": "0007_catchup_post_schema_tables",
+      "breakpoints": true
     }
   ]
 }
