@@ -27,16 +27,11 @@ import {
   buildGuestAnchoredUserPrompt,
 } from "./prompts"
 import {
-  buildAudienceFirstSystemPrompt,
-  buildAudienceFirstUserPrompt,
-} from "./prompts-audience"
-import {
   buildEditorialSystemPrompt,
   buildEditorialUserPrompt,
 } from "./prompts-editorial"
 import { buildCourtSystemPrompt, buildCourtUserPrompt } from "./prompts-court"
 import { clampCategory } from "./categories"
-import { clampAudienceFit } from "./regional-fit"
 import { clampSuccessDimensions } from "./success-score"
 import type {
   CandidateGenInput,
@@ -52,34 +47,22 @@ import type {
 async function generateCandidates(
   input: CandidateGenInput,
 ): Promise<RawCandidate[]> {
-  // Three generation modes, most-capable first:
-  //   editorial      → the world-class editorial engine (knowledge universe +
-  //                    lenses + headline craft + 14 success dims). Phase A default.
-  //   audience_first → the GCC editorial board ranking by Regional Audience Fit.
-  //   legacy         → the original combined topic+guest prompt (Phase B).
-  // editorial wins when set; the model runs on the editorial (gpt-4o) tier since
-  // the richer reasoning + scoring justifies the stronger model.
+  // Two generation modes:
+  //   editorial → the world-class editorial engine (knowledge universe + lenses
+  //               + headline craft + 14 success dims). Phase A default, gpt-4o.
+  //   legacy    → the original combined topic+guest prompt (Phase B / strict /
+  //               required-role completion), gpt-4o-mini.
   const editorial = !!input.editorial
-  const audienceFirst = !editorial && !!input.audience_first
-  const promptVersion = editorial
-    ? "khat-map-editorial-v1"
-    : audienceFirst
-      ? "khat-map-audience-first-v1"
-      : "khat-map-batch-v2"
+  const promptVersion = editorial ? "khat-map-editorial-v1" : "khat-map-batch-v2"
   const prompt = editorial
     ? [
         { role: "system" as const, content: buildEditorialSystemPrompt(input) },
         { role: "user" as const, content: buildEditorialUserPrompt(input) },
       ]
-    : audienceFirst
-      ? [
-          { role: "system" as const, content: buildAudienceFirstSystemPrompt(input) },
-          { role: "user" as const, content: buildAudienceFirstUserPrompt(input) },
-        ]
-      : [
-          { role: "system" as const, content: buildBatchSystemPrompt(input) },
-          { role: "user" as const, content: buildBatchUserPrompt(input) },
-        ]
+    : [
+        { role: "system" as const, content: buildBatchSystemPrompt(input) },
+        { role: "user" as const, content: buildBatchUserPrompt(input) },
+      ]
   const r = await runAiTask<{ candidates?: unknown } | unknown[]>({
     taskKind: editorial ? "editorial" : "structural",
     seasonId: input.season_id,
@@ -91,7 +74,7 @@ async function generateCandidates(
       target_count: input.target_count,
       season_target: input.season_target,
       rejected_count: input.rejected_titles.length,
-      mode: editorial ? "editorial" : audienceFirst ? "audience_first" : "legacy",
+      mode: editorial ? "editorial" : "legacy",
     },
     prompt,
     expectJson: true,
@@ -250,10 +233,8 @@ function normalizeRawCandidate(v: unknown): RawCandidate | null {
         (asOptionalString(topic.sponsor_appeal) as
           | RawCandidate["topic"]["sponsor_appeal"]
           | null) ?? null,
-      // Audience-first fields. `category` is a diversity label; `audience_fit`
-      // holds the nine Regional Audience Fit factors used for ranking.
+      // `category` is the 15-category diversity label.
       category: clampCategory(asOptionalString(topic.category)),
-      audience_fit: clampAudienceFit(topic.audience_fit),
       regional_note: asOptionalString(topic.regional_note),
       viral_angle: asOptionalString(topic.viral_angle),
       debate_axis: asOptionalString(topic.debate_axis),

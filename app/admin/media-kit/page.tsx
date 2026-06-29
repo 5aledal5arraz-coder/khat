@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react"
 import { useSearchParams } from "next/navigation"
+import { formatCompactNumber } from "@/lib/shared/formatters"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import {
@@ -29,11 +30,7 @@ function generatePartnershipPDF(
   const esc = (s: string) =>
     s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
 
-  const formatNumber = (n: number) => {
-    if (n >= 1000000) return `${(n / 1000000).toFixed(1)}M`
-    if (n >= 1000) return `${(n / 1000).toFixed(n >= 10000 ? 0 : 1)}K`
-    return n.toLocaleString()
-  }
+  const formatNumber = formatCompactNumber
 
   const totalReach =
     analytics.youtube.followers +

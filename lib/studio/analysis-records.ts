@@ -17,7 +17,7 @@
  * legacy tables until Phase 5+.
  */
 
-import { and, desc, eq, inArray } from "drizzle-orm"
+import { and, desc, eq, inArray, sql } from "drizzle-orm"
 import { db } from "@/lib/db"
 import {
   studioAnalysisRecords,
@@ -109,33 +109,45 @@ export async function upsertStudioAnalysisRecord(
   const kind = assertKind(input.kind)
   const replace = input.replace !== false
 
-  // For replace+session-keyed records, clear existing rows first.
-  if (replace && input.studio_session_id) {
-    await db!
-      .delete(studioAnalysisRecords)
-      .where(
-        and(
-          eq(studioAnalysisRecords.studio_session_id, input.studio_session_id),
-          eq(studioAnalysisRecords.kind, kind),
-        ),
-      )
+  const values = {
+    eir_id: input.eir_id ?? null,
+    studio_session_id: input.studio_session_id ?? null,
+    kind,
+    status: input.status ?? "ready",
+    data: input.data,
+    raw_provider_response: input.raw_provider_response ?? null,
+    error: input.error ?? null,
+    edited_fields: input.edited_fields ?? null,
+    generated_at: input.generated_at ?? null,
+    published_at: input.published_at ?? null,
   }
 
-  const [row] = await db!
-    .insert(studioAnalysisRecords)
-    .values({
-      eir_id: input.eir_id ?? null,
-      studio_session_id: input.studio_session_id ?? null,
-      kind,
-      status: input.status ?? "ready",
-      data: input.data,
-      raw_provider_response: input.raw_provider_response ?? null,
-      error: input.error ?? null,
-      edited_fields: input.edited_fields ?? null,
-      generated_at: input.generated_at ?? null,
-      published_at: input.published_at ?? null,
-    })
-    .returning()
+  // Replace + session-keyed records are unique on (studio_session_id, kind):
+  // upsert ATOMICALLY via ON CONFLICT (the partial unique index) so two
+  // concurrent same-kind writes (e.g. an SSE retry racing the original) can't
+  // leave duplicate rows — the previous DELETE-then-INSERT was non-atomic.
+  // Append-mode (push_log) and eir-keyed records fall through to a plain insert.
+  const [row] =
+    replace && input.studio_session_id && kind !== "push_log"
+      ? await db!
+          .insert(studioAnalysisRecords)
+          .values(values)
+          .onConflictDoUpdate({
+            target: [studioAnalysisRecords.studio_session_id, studioAnalysisRecords.kind],
+            targetWhere: sql`studio_session_id IS NOT NULL AND kind <> 'push_log'`,
+            set: {
+              status: values.status,
+              data: values.data,
+              raw_provider_response: values.raw_provider_response,
+              error: values.error,
+              edited_fields: values.edited_fields,
+              generated_at: values.generated_at,
+              published_at: values.published_at,
+              updated_at: new Date(),
+            },
+          })
+          .returning()
+      : await db!.insert(studioAnalysisRecords).values(values).returning()
   return mapRow(row)
 }
 

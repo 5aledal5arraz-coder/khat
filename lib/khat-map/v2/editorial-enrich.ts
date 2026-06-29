@@ -13,7 +13,6 @@
 import { runAiTask } from "@/lib/ai-router"
 import { buildEnrichSystemPrompt, buildEnrichUserPrompt, type EnrichTopicInput } from "./prompts-enrich"
 import { assembleEditorial } from "./editorial-assemble"
-import { neutralAudienceFit } from "./regional-fit"
 import { clampCategory } from "./categories"
 import { clampSuccessDimensions } from "./success-score"
 import type { RawCandidate, CourtVerdict } from "./types"
@@ -96,7 +95,6 @@ export async function enrichTopicsEditorially(
           effort_level: null,
           sponsor_appeal: null,
           category,
-          audience_fit: neutralAudienceFit(),
           regional_note,
           viral_angle: optStr(o.viral_angle),
           debate_axis: optStr(o.debate_axis),

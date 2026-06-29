@@ -49,7 +49,6 @@ import type {
   GuestProfile,
   CandidateGenInput,
 } from "@/lib/khat-map/v2/types"
-import { neutralAudienceFit } from "@/lib/khat-map/v2/regional-fit"
 
 function assert(cond: unknown, message: string): asserts cond {
   if (!cond) {
@@ -100,7 +99,6 @@ function mkCandidate(
       effort_level: "medium",
       sponsor_appeal: "medium",
       category: null,
-      audience_fit: neutralAudienceFit(),
       regional_note: null,
       viral_angle: null,
       debate_axis: null,

@@ -4,6 +4,7 @@ import { PartnerApplicationForm } from "@/components/forms/partner-application-f
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { PartnerHeroCTA } from "./partner-hero-cta"
+import { formatCompactNumber } from "@/lib/shared/formatters"
 import {
   Mic,
   Layers,
@@ -169,11 +170,7 @@ export default async function PartnerPage() {
   ])
 
   const totalEpisodes = episodes.length
-  const formatNumber = (n: number): string => {
-    if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1).replace(/\.0$/, "")}M+`
-    if (n >= 1_000) return `${Math.floor(n / 1_000)}K+`
-    return `${n}+`
-  }
+  const formatNumber = (n: number): string => formatCompactNumber(n, { plus: true })
 
   const metrics = [
     { icon: Headphones, value: totalEpisodes > 0 ? `${totalEpisodes}+` : "٥٠+", label: "حلقة منشورة" },

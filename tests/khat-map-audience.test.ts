@@ -1,10 +1,5 @@
 import { describe, it, expect } from "vitest"
 import {
-  computeRegionalAudienceFit,
-  neutralAudienceFit,
-  type AudienceFit,
-} from "@/lib/khat-map/v2/regional-fit"
-import {
   seasonCategoryCap,
   overRepresentedCategories,
   categoryDiversityPenalty,
@@ -21,33 +16,6 @@ describe("clampCategory (model output tolerance)", () => {
     expect(clampCategory("قضايا اجتماعية")).toBe("social_issues") // Arabic label
     expect(clampCategory("not-a-category")).toBeNull()
     expect(clampCategory(null)).toBeNull()
-  })
-})
-
-function uniformFit(v: number, over: Partial<AudienceFit> = {}): AudienceFit {
-  const base = {} as AudienceFit
-  for (const k of Object.keys(neutralAudienceFit()) as (keyof AudienceFit)[]) base[k] = v
-  return { ...base, ...over }
-}
-
-describe("Regional Audience Fit", () => {
-  it("uniform factors (above the quality gate) yield ~that score", () => {
-    expect(computeRegionalAudienceFit(uniformFit(8))).toBeCloseTo(8, 5)
-    expect(computeRegionalAudienceFit(uniformFit(4))).toBeCloseTo(4, 5)
-  })
-
-  it("weights curiosity + discussion above educational value", () => {
-    const curious = uniformFit(5, { curiosity: 10, discussion_potential: 10 })
-    const educational = uniformFit(5, { educational_value: 10 })
-    expect(computeRegionalAudienceFit(curious)).toBeGreaterThan(
-      computeRegionalAudienceFit(educational),
-    )
-  })
-
-  it("applies the identity quality gate (low identity is dampened hard)", () => {
-    const cheapViral = uniformFit(9, { identity_alignment: 2 })
-    // Without the gate this would be ~8.3; the gate pulls it well below.
-    expect(computeRegionalAudienceFit(cheapViral)).toBeLessThan(4)
   })
 })
 
@@ -72,8 +40,8 @@ describe("diversity constraint", () => {
 
 // ─── Potential-first selector ─────────────────────────────────────────────────
 
-function scored(category: string, title: string, raf: number): ScoredCandidate {
-  const fit = uniformFit(raf)
+/** A scored candidate whose `final_score` (the 0-10 ranking value) is `score`. */
+function scored(category: string, title: string, score: number): ScoredCandidate {
   return {
     raw: {
       topic: {
@@ -85,7 +53,6 @@ function scored(category: string, title: string, raf: number): ScoredCandidate {
         description: "",
         episode_type: "social",
         topic_domain: legacyDomainForCategory(category),
-        topic_category: category,
         topic_angle_code: null,
         main_axes: [],
         suggested_questions: [],
@@ -93,13 +60,12 @@ function scored(category: string, title: string, raf: number): ScoredCandidate {
         effort_level: null,
         sponsor_appeal: null,
         category: category as never,
-        audience_fit: fit,
         regional_note: null,
         viral_angle: null,
         debate_axis: null,
       } as ScoredCandidate["raw"]["topic"],
       guest: null,
-      editorial_score: raf,
+      editorial_score: score,
       why_now: "",
       domain_reasoning: null,
     },
@@ -109,12 +75,12 @@ function scored(category: string, title: string, raf: number): ScoredCandidate {
     similarity_trigger_title: null,
     taste_alignment: 0.5,
     domain_load: 0,
-    final_score: computeRegionalAudienceFit(fit),
+    final_score: score,
   }
 }
 
 describe("selectByPotential", () => {
-  it("ranks by audience potential, breaking near-ties toward breadth", () => {
+  it("ranks by potential, breaking near-ties toward breadth", () => {
     const pool = [
       scored("psychology", "psy-top", 9.0),
       scored("psychology", "psy-2", 8.9),
@@ -125,7 +91,7 @@ describe("selectByPotential", () => {
       seasonCap: 99,
       acceptedByCategory: {},
     })
-    // #1 is the highest RAF; #2 is the science (8.5 beats psy-2's 8.9 − 0.8 penalty).
+    // #1 is the highest score; #2 is the science (8.5 beats psy-2's 8.9 − 0.8 penalty).
     expect(picks[0].raw.topic.working_title).toBe("psy-top")
     expect(picks[1].raw.topic.working_title).toBe("sci")
   })
@@ -157,7 +123,7 @@ describe("selectByPotential", () => {
       seasonCap: 3,
       acceptedByCategory: { psychology: 3 }, // already at cap
     })
-    // psychology is capped → the lower-RAF science is taken instead.
+    // psychology is capped → the lower-scored science is taken instead.
     expect(picks[0].raw.topic.working_title).toBe("sci")
   })
 })

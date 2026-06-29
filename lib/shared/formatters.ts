@@ -148,6 +148,23 @@ export function pct(n: number, total: number): string {
   return `${Math.round((n / total) * 100)}%`
 }
 
+/**
+ * Compact number formatting: 1.2M / 12K / 1,234. Pass `{ plus: true }` for the
+ * marketing "rounded-up +" style used on the partner/media-kit pages
+ * (1.2M+ / 12K+ / 1234+). The single source for compact counts — components
+ * must import this rather than re-implementing it.
+ */
+export function formatCompactNumber(n: number, opts?: { plus?: boolean }): string {
+  if (opts?.plus) {
+    if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1).replace(/\.0$/, "")}M+`
+    if (n >= 1_000) return `${Math.floor(n / 1_000)}K+`
+    return `${n}+`
+  }
+  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`
+  if (n >= 1_000) return `${(n / 1_000).toFixed(n >= 10_000 ? 0 : 1)}K`
+  return n.toLocaleString()
+}
+
 /** Arabic month names. */
 export const AR_MONTHS = [
   "يناير", "فبراير", "مارس", "أبريل", "مايو", "يونيو",

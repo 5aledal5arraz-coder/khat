@@ -1,12 +1,7 @@
 "use client"
 
 import type { MediaKitConfig, AnalyticsConfig } from "@/types/media-kit"
-
-function formatNumber(n: number) {
-  if (n >= 1000000) return `${(n / 1000000).toFixed(1)}M`
-  if (n >= 1000) return `${(n / 1000).toFixed(n >= 10000 ? 0 : 1)}K`
-  return n.toLocaleString()
-}
+import { formatCompactNumber as formatNumber } from "@/lib/shared/formatters"
 
 export function MediaKitView({
   mediaKit,

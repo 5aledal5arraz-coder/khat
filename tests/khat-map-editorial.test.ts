@@ -220,11 +220,6 @@ function rawCandidate(over: Partial<RawCandidate["topic"]> = {}): RawCandidate {
       effort_level: null,
       sponsor_appeal: null,
       category: "history",
-      audience_fit: {
-        regional_relevance: 5, cultural_resonance: 5, curiosity: 5, guest_potential: 5,
-        discussion_potential: 5, timelessness: 5, viral_potential: 5, educational_value: 5,
-        identity_alignment: 5,
-      },
       regional_note: null,
       viral_angle: "زاوية",
       debate_axis: "جدل",

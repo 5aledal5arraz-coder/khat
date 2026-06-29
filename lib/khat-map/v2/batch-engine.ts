@@ -46,7 +46,6 @@ import {
   computeTasteAlignment,
   withinBatchDomainPenalty,
 } from "./scoring"
-import { computeRegionalAudienceFit } from "./regional-fit"
 import { seasonCategoryCap, overRepresentedCategories } from "./diversity"
 import { selectByPotential } from "./select-by-potential"
 import { assembleEditorial } from "./editorial-assemble"
@@ -126,13 +125,6 @@ export interface GenerateBatchInput {
    * in order (one card per role). Used by intelligent completion.
    */
   required_roles?: KhatMapMustIncludeRole[]
-  /**
-   * Phase A engine selector. Defaults to `"editorial"` (the world-class
-   * editorial intelligence engine). `"audience_first"` runs the prior GCC board;
-   * `"legacy"` runs the original combined prompt. Strict mode + required-role
-   * completion always use their own slot-positional flow regardless of this.
-   */
-  engine?: "editorial" | "audience_first" | "legacy"
 }
 
 const DEFAULT_BATCH_SIZE = 4
@@ -227,33 +219,28 @@ export async function generateBatch(
   // Two engines share the category-balance machinery for ordinary Phase A topic
   // batches (strict angle-bank mode + required-role completion keep their own
   // slot-positional flows):
-  //   • editorial      — the world-class engine: knowledge universe + lenses +
-  //                      headline craft + Editorial Court + 14 success dims. Default.
-  //   • audience_first — the prior GCC board, ranking by Regional Audience Fit.
-  // Both use categories only as a diversity signal (soft prompt hint + the
-  // post-rank season cap); ranking is by success score / RAF respectively.
-  const phaseTopics =
+  //   • editorial — the world-class engine: knowledge universe + lenses +
+  //                 headline craft + Editorial Court + 14 success dims.
+  // Categories are only a diversity signal (soft prompt hint + the post-rank
+  // season cap); ranking is by success score.
+  const useEditorial =
     phase === "topics" &&
     !strict &&
     !(input.required_roles && input.required_roles.length > 0)
-  const useEditorial =
-    phaseTopics && input.engine !== "audience_first" && input.engine !== "legacy"
-  const useAudienceFirst = phaseTopics && !useEditorial
-  const usesCategoryBalance = useEditorial || useAudienceFirst
 
   const seasonCap = seasonCategoryCap(seasonTarget)
   let acceptedByCategory: Record<string, number> = {}
-  if (usesCategoryBalance) {
+  if (useEditorial) {
     acceptedByCategory = await loadAcceptedCategoryCounts(input.season_id)
   }
 
   // ─── 2. Oversample via LLM ────────────────────────────────────────────────
-  // Audience-first asks for a diverse pool of high-potential ideas to rank +
+  // The editorial path asks for a diverse pool of high-potential ideas to rank +
   // diversity-filter (capped so one LLM call stays fast). Completion-mode
   // generates exactly `size` cards (slot-positional). Otherwise size × oversample.
-  const AUDIENCE_POOL_CAP = 10
-  const targetCount = usesCategoryBalance
-    ? Math.min(AUDIENCE_POOL_CAP, Math.max(8, size + 4))
+  const EDITORIAL_POOL_CAP = 10
+  const targetCount = useEditorial
+    ? Math.min(EDITORIAL_POOL_CAP, Math.max(8, size + 4))
     : input.required_roles && input.required_roles.length > 0
       ? Math.max(input.required_roles.length, size)
       : size * oversample
@@ -272,9 +259,8 @@ export async function generateBatch(
     phase,
     extra_system_blocks: extraSystemBlocks,
     editorial: useEditorial,
-    audience_first: useAudienceFirst,
-    accepted_category_counts: usesCategoryBalance ? acceptedByCategory : undefined,
-    over_represented_categories: usesCategoryBalance
+    accepted_category_counts: useEditorial ? acceptedByCategory : undefined,
+    over_represented_categories: useEditorial
       ? overRepresentedCategories(acceptedByCategory, seasonCap)
       : undefined,
   }
@@ -389,14 +375,9 @@ export async function generateBatch(
       editorial_intel = assembled.editorial_intel
       final_score =
         verdict?.verdict === "reject" ? 0 : successScoreToRank(assembled.success_score)
-    } else if (useAudienceFirst) {
-      // Audience-first path: rank purely by Regional Audience Fit (episode
-      // potential for the GCC). No domain-load penalty and no taste/performance
-      // multiplier — category diversity is applied later as a constraint in
-      // selectByPotential, and taste only breaks near-ties there.
-      domain_load = 0
-      final_score = computeRegionalAudienceFit(raw.topic.audience_fit)
     } else {
+      // Legacy scoring — Phase B (guests), strict angle-bank, and required-role
+      // completion still rank by editorial × taste × domain-balance × similarity.
       domain_load = computeDomainLoad(
         raw.topic.topic_domain,
         acceptedDomainCounts,
@@ -449,15 +430,6 @@ export async function generateBatch(
     )
     const pool = passing.length >= size ? passing : scored.filter((s) => s.final_score > 0)
     picks = selectByPotential(pool, { size, seasonCap, acceptedByCategory }).picks
-  } else if (useAudienceFirst) {
-    // Potential-first: take the highest Regional Audience Fit, with a soft
-    // diversity penalty for near-ties and a hard per-category season cap so no
-    // category dominates. Episode potential leads; balance only constrains.
-    picks = selectByPotential(scored, {
-      size,
-      seasonCap,
-      acceptedByCategory,
-    }).picks
   } else {
     // Legacy path: greedy top-N with a soft within-batch domain penalty.
     picks = []

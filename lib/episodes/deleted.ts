@@ -1,6 +1,6 @@
 import { db, USE_DB as DB_AVAILABLE } from "@/lib/db"
 import { deletedEpisodes } from "@/lib/db/schema"
-import { sql, inArray } from "drizzle-orm"
+import { inArray } from "drizzle-orm"
 
 /**
  * Episode tombstone helpers.
@@ -11,45 +11,11 @@ import { sql, inArray } from "drizzle-orm"
  * cache or re-appears on a subsequent sync.
  */
 
-let bootstrapped = false
-let bootstrapPromise: Promise<void> | null = null
-
-/**
- * Make sure the `deleted_episodes` table exists.
- *
- * We do this lazily via raw SQL so the tombstone pattern starts working
- * immediately without requiring a separate `npm run db:push` run. Once
- * the drizzle schema is pushed normally, this becomes a no-op.
- */
-async function ensureDeletedEpisodesTable(): Promise<void> {
-  if (bootstrapped || !DB_AVAILABLE) return
-  if (bootstrapPromise) {
-    await bootstrapPromise
-    return
-  }
-  bootstrapPromise = (async () => {
-    try {
-      await db!.execute(sql`
-        CREATE TABLE IF NOT EXISTS deleted_episodes (
-          episode_id text PRIMARY KEY,
-          deleted_at timestamptz DEFAULT now(),
-          deleted_by text
-        )
-      `)
-      bootstrapped = true
-    } catch (error) {
-      console.error("[deleted-episodes] Failed to bootstrap tombstone table:", error)
-    } finally {
-      bootstrapPromise = null
-    }
-  })()
-  await bootstrapPromise
-}
+// `deleted_episodes` is created by the baseline migration — no runtime bootstrap.
 
 /** Return the set of permanently-deleted episode IDs. */
 export async function getDeletedEpisodeIds(): Promise<Set<string>> {
   if (!DB_AVAILABLE) return new Set()
-  await ensureDeletedEpisodesTable()
   try {
     const rows = await db!
       .select({ episode_id: deletedEpisodes.episode_id })
@@ -78,8 +44,6 @@ export async function markEpisodesAsDeleted(
   if (!DB_AVAILABLE) return 0
   const clean = episodeIds.filter((id) => typeof id === "string" && id.length > 0)
   if (clean.length === 0) return 0
-
-  await ensureDeletedEpisodesTable()
 
   try {
     const result = await db!
@@ -110,8 +74,6 @@ export async function restoreDeletedEpisodes(episodeIds: string[]): Promise<numb
   if (!DB_AVAILABLE) return 0
   const clean = episodeIds.filter((id) => typeof id === "string" && id.length > 0)
   if (clean.length === 0) return 0
-
-  await ensureDeletedEpisodesTable()
 
   try {
     const result = await db!

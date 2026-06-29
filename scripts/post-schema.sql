@@ -1171,3 +1171,19 @@ CREATE INDEX IF NOT EXISTS idx_community_public_credit ON community_contribution
 -- community contribution hub above (type = 'guest'). The baseline migration
 -- still CREATEs it; drop it here so the live schema matches the code. Idempotent.
 DROP TABLE IF EXISTS thinker_suggestions;
+
+-- ─── studio_analysis_records: one row per (session, kind) ────────────────────
+-- Replace-mode records (chapters/clips/website/etc.) must be unique per
+-- (studio_session_id, kind); only push_log is append-only. The upsert now uses
+-- ON CONFLICT against this partial index instead of a non-atomic DELETE+INSERT.
+-- Dedup any pre-existing duplicates (keep the newest) BEFORE creating the index.
+DELETE FROM studio_analysis_records a
+ USING studio_analysis_records b
+ WHERE a.studio_session_id IS NOT NULL
+   AND a.kind <> 'push_log'
+   AND a.studio_session_id = b.studio_session_id
+   AND a.kind = b.kind
+   AND (a.created_at < b.created_at OR (a.created_at = b.created_at AND a.id < b.id));
+CREATE UNIQUE INDEX IF NOT EXISTS uq_studio_analysis_session_kind
+  ON studio_analysis_records (studio_session_id, kind)
+  WHERE studio_session_id IS NOT NULL AND kind <> 'push_log';

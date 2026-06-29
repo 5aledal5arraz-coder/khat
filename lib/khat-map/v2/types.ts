@@ -55,11 +55,8 @@ export interface RawTopic {
   risk_level: KhatMapRiskLevel | null
   effort_level: KhatMapEffortLevel | null
   sponsor_appeal: KhatMapSponsorAppeal | null
-  // ─── Audience-first redesign fields ───────────────────────────────────────
   /** Diversity-constraint label (the 15-category taxonomy). Null on legacy path. */
   category: import("./categories").SeasonCategoryId | null
-  /** The nine Regional Audience Fit factors — the primary ranking signal. */
-  audience_fit: import("./regional-fit").AudienceFit
   /** One line: why this resonates specifically in KSA / Kuwait / Iraq / the GCC. */
   regional_note: string | null
   /** One line: why this would spread and pull wide interest. */
@@ -355,23 +352,16 @@ export interface CandidateGenInput {
    */
   extra_system_blocks?: string[]
   /**
-   * When true, the AUDIENCE-FIRST generator runs: the prompt acts as a GCC
-   * editorial board and surfaces the strongest episode opportunities (ranked by
-   * Regional Audience Fit), with categories used only as a diversity signal.
-   * Absent/false → the legacy combined prompt runs (back-compat / Phase B).
-   */
-  audience_first?: boolean
-  /**
    * When true, the EDITORIAL engine runs — the world-class editorial intelligence
    * path: knowledge universe (category + subcategory) + thinking lenses + headline
    * craft + podcast strategy, emitting multiple titles, a self-critique, and the
-   * 14 success dimensions. Supersedes `audience_first` for Phase A topic batches.
-   * Absent/false → falls back to audience-first or the legacy combined prompt.
+   * 14 success dimensions. Phase A default. Absent/false → the legacy combined
+   * prompt (Phase B / strict / required-role completion).
    */
   editorial?: boolean
   /**
-   * Diversity context (audience-first only): how many accepted topics sit in
-   * each category so far, and which categories are already at their season cap.
+   * Diversity context (editorial only): how many accepted topics sit in each
+   * category so far, and which categories are already at their season cap.
    * Fed to the prompt as a soft "favor fresh ground" hint — NOT a quota.
    */
   accepted_category_counts?: Record<string, number>

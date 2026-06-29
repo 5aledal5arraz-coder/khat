@@ -30,14 +30,11 @@ export const STUDIO_ANALYSIS_KINDS = [
   "ai_outputs",
   "chapters",
   "clips",
-  "quotes",
   "website_package",
   "analyzer",
   "deep_analysis",
   "guest_intelligence",
   "push_log",
-  "metadata",
-  "reserved",
   // Studio redesign (two-deliverable OS):
   /** Persisted GlobalEpisodeIntelligence — the shared understanding layer,
    *  reused by the Growth package + Website knowledge hub. */

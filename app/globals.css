@@ -50,50 +50,10 @@
     --text-muted: 212 15% 45%;
   }
 
-  .dark {
-    color-scheme: dark;
-
-    /* KHAT 2.0 — Indigo + Orange brand (from the new logo).
-       Deep indigo foundation, vibrant orange as the energy accent.
-       Cinematic, premium, Apple-grade. */
-    --background: 252 44% 6%;
-    --foreground: 250 24% 96%;
-    --card: 252 36% 10%;
-    --card-foreground: 250 24% 96%;
-    --popover: 252 38% 9%;
-    --popover-foreground: 250 24% 96%;
-
-    /* Orange = primary energy / CTA — pops on deep indigo */
-    --primary: 22 90% 55%;
-    --primary-foreground: 252 44% 7%;
-
-    --secondary: 252 30% 16%;
-    --secondary-foreground: 250 24% 96%;
-
-    --muted: 252 28% 15%;
-    --muted-foreground: 250 14% 66%;
-
-    /* Luminous violet-indigo = secondary accent */
-    --accent: 256 64% 70%;
-    --accent-foreground: 252 44% 7%;
-
-    --destructive: 0 74% 60%;
-    --destructive-foreground: 250 24% 96%;
-
-    --border: 252 26% 19%;
-    --input: 252 26% 19%;
-    --ring: 22 90% 55%;
-
-    /* `gold` is the legacy brand-accent token used across museum
-       components; repoint it to the new orange so they inherit the
-       rebrand without per-component edits. */
-    --gold: 22 90% 55%;
-    --purple: 256 64% 70%;
-    --surface: 252 36% 10%;
-    --elevated: 252 30% 16%;
-    --text-secondary: 250 16% 74%;
-    --text-muted: 250 12% 60%;
-  }
+  /* No `.dark {}` block — the app is a single forced-light surface; the root
+     element's `.dark` class is stripped at runtime (app/layout.tsx), so any
+     dark-mode overrides here would be dead. Public + admin scope their own
+     token sets via SITE_LIGHT_TOKENS / ADMIN_LIGHT_TOKENS. */
 }
 
 @theme inline {
