@@ -1161,6 +1161,12 @@ CREATE TABLE IF NOT EXISTS community_contributions (
 -- Phase 3: recognition wall opt-in + outcome-email guard (idempotent).
 ALTER TABLE community_contributions ADD COLUMN IF NOT EXISTS public_credit boolean NOT NULL DEFAULT false;
 ALTER TABLE community_contributions ADD COLUMN IF NOT EXISTS outcome_emailed_at timestamptz;
+-- triage_status is always set (insert default + the triage worker writes one of
+-- generating/ready/error). Enforce NOT NULL so the DB matches the non-null type
+-- contract. Backfill any stray NULLs first; both steps are idempotent.
+UPDATE community_contributions SET triage_status = 'generating' WHERE triage_status IS NULL;
+ALTER TABLE community_contributions ALTER COLUMN triage_status SET DEFAULT 'generating';
+ALTER TABLE community_contributions ALTER COLUMN triage_status SET NOT NULL;
 CREATE INDEX IF NOT EXISTS idx_community_type_status ON community_contributions(type, status);
 CREATE INDEX IF NOT EXISTS idx_community_created ON community_contributions(created_at);
 -- Public wall lookups: featured contributions, newest first.

@@ -14,6 +14,7 @@
  */
 
 import { pgTable, text, integer, boolean, timestamp, jsonb, index } from "drizzle-orm/pg-core"
+import type { CommunityTriageStatus } from "@/types/database"
 
 export const communityContributions = pgTable(
   "community_contributions",
@@ -48,8 +49,8 @@ export const communityContributions = pgTable(
     outcome_emailed_at: timestamp("outcome_emailed_at", { withTimezone: true }),
 
     // ─── AI triage ────────────────────────────────────────────────────────────
-    /** generating | ready | error */
-    triage_status: text("triage_status").default("generating"),
+    /** generating | ready | error — always set (default + notNull); matches the non-null type contract. */
+    triage_status: text("triage_status").$type<CommunityTriageStatus>().notNull().default("generating"),
     /** 0-100 editorial quality / promise. */
     quality_score: integer("quality_score"),
     /** AI editorial category (free-ish: e.g. philosophy, society, tech…). */

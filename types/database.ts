@@ -45,6 +45,8 @@ export interface Episode {
   rss_guid?: string | null
   rss_published_at?: string | null
   audio_duration?: number | null
+  /** Links a published episode back to its Episode Intelligence Record (Khat Brain). */
+  eir_id?: string | null
   created_at: string
   updated_at?: string
 }
@@ -543,7 +545,7 @@ export type CrmTaskPriority = "low" | "normal" | "high"
 
 export interface CrmActivity {
   id: string
-  subject_kind: CrmSubjectKind | string
+  subject_kind: CrmSubjectKind
   subject_id: string
   type: string
   summary: string
@@ -554,7 +556,7 @@ export interface CrmActivity {
 
 export interface CrmNote {
   id: string
-  subject_kind: CrmSubjectKind | string
+  subject_kind: CrmSubjectKind
   subject_id: string
   body: string
   author: string | null
@@ -565,7 +567,7 @@ export interface CrmNote {
 
 export interface CrmTask {
   id: string
-  subject_kind: CrmSubjectKind | string
+  subject_kind: CrmSubjectKind
   subject_id: string
   title: string
   detail: string | null

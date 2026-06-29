@@ -12,15 +12,16 @@
  */
 
 import { pgTable, text, timestamp, jsonb, boolean, index } from "drizzle-orm/pg-core"
-
-/** What kind of entity a CRM row hangs off. */
-export type CrmSubjectKind = "guest" | "partner"
+// CrmSubjectKind is defined once, canonically, in types/database.ts (the single
+// source every consumer imports). It's referenced here only to narrow the
+// subject_kind columns via $type so inferred rows carry the union, not bare string.
+import type { CrmSubjectKind } from "@/types/database"
 
 export const crmActivities = pgTable(
   "crm_activities",
   {
     id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
-    subject_kind: text("subject_kind").notNull(),
+    subject_kind: text("subject_kind").$type<CrmSubjectKind>().notNull(),
     subject_id: text("subject_id").notNull(),
     /** Domain-specific event vocab (e.g. application_created, evaluation_completed). */
     type: text("type").notNull(),
@@ -37,7 +38,7 @@ export const crmNotes = pgTable(
   "crm_notes",
   {
     id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
-    subject_kind: text("subject_kind").notNull(),
+    subject_kind: text("subject_kind").$type<CrmSubjectKind>().notNull(),
     subject_id: text("subject_id").notNull(),
     body: text("body").notNull(),
     author: text("author"),
@@ -52,7 +53,7 @@ export const crmTasks = pgTable(
   "crm_tasks",
   {
     id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
-    subject_kind: text("subject_kind").notNull(),
+    subject_kind: text("subject_kind").$type<CrmSubjectKind>().notNull(),
     subject_id: text("subject_id").notNull(),
     title: text("title").notNull(),
     detail: text("detail"),
