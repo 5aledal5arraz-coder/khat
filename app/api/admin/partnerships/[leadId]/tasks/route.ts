@@ -2,9 +2,9 @@ import { NextRequest, NextResponse } from "next/server"
 import { requireAdminAPI, getAdminAuthUser } from "@/lib/api-utils"
 import { stripHtml } from "@/lib/sanitize"
 import { getTasks, createTask } from "@/lib/partnership-crm"
-import type { PartnerTaskPriority } from "@/types/database"
+import type { CrmTaskPriority } from "@/types/database"
 
-const PRIORITIES: PartnerTaskPriority[] = ["low", "normal", "high"]
+const PRIORITIES: CrmTaskPriority[] = ["low", "normal", "high"]
 
 export async function GET(_req: NextRequest, { params }: { params: Promise<{ leadId: string }> }) {
   const authError = await requireAdminAPI()
@@ -25,8 +25,8 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ lea
     title,
     detail: typeof body.detail === "string" ? stripHtml(body.detail) : null,
     type: typeof body.type === "string" ? body.type : "follow_up",
-    priority: PRIORITIES.includes(body.priority as PartnerTaskPriority)
-      ? (body.priority as PartnerTaskPriority)
+    priority: PRIORITIES.includes(body.priority as CrmTaskPriority)
+      ? (body.priority as CrmTaskPriority)
       : "normal",
     due_at: typeof body.due_at === "string" && body.due_at ? body.due_at : null,
     created_by: user ? `admin:${user.email}` : "admin",

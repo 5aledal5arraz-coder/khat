@@ -466,6 +466,11 @@ export async function deleteSponsorshipLead(
 
   try {
     await db!.delete(sponsorshipLeads).where(eq(sponsorshipLeads.id, id))
+    // The partner activity/note/task timeline now lives on the shared
+    // polymorphic CRM core, which can't FK-cascade off the lead — clear it
+    // explicitly. (Meetings/emails/contracts/campaigns still cascade.)
+    const { deleteCrmForSubject } = await import("@/lib/crm")
+    await deleteCrmForSubject("partner", id).catch(() => {})
     return { success: true }
   } catch (err: unknown) {
     return { success: false, error: err instanceof Error ? err.message : String(err) }

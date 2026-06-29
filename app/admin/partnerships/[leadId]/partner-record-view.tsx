@@ -38,10 +38,10 @@ import {
 import type {
   PartnerRecord,
   SponsorshipStatus,
-  PartnerTask,
-  PartnerNote,
+  CrmTask,
+  CrmNote,
+  CrmActivity,
   PartnerMeeting,
-  PartnerActivity,
 } from "@/types/database"
 import type { NextBestAction } from "@/lib/partnership-crm/record"
 import { generateProposalPdf } from "@/lib/pdf/proposal-pdf"
@@ -977,7 +977,7 @@ function TasksCard({
       setTitle("")
       setAdding(false)
     })
-  const complete = (t: PartnerTask) =>
+  const complete = (t: CrmTask) =>
     run(`task:done:${t.id}`, async () => {
       await call(`/api/admin/partnerships/${lead.id}/tasks/${t.id}`, "PATCH", { status: "done" })
     })
@@ -1074,11 +1074,11 @@ function NotesCard({
       await call(`/api/admin/partnerships/${lead.id}/notes`, "POST", { body: body.trim() })
       setBody("")
     })
-  const pin = (n: PartnerNote) =>
+  const pin = (n: CrmNote) =>
     run(`note:pin:${n.id}`, async () => {
       await call(`/api/admin/partnerships/${lead.id}/notes/${n.id}`, "PATCH", { pinned: !n.pinned })
     })
-  const del = (n: PartnerNote) =>
+  const del = (n: CrmNote) =>
     run(`note:del:${n.id}`, async () => {
       await call(`/api/admin/partnerships/${lead.id}/notes/${n.id}`, "DELETE")
     })
@@ -1233,7 +1233,7 @@ const ACTIVITY_ICON: Record<string, React.ElementType> = {
   report_generated: Sparkles,
 }
 
-function TimelineCard({ activities }: { activities: PartnerActivity[] }) {
+function TimelineCard({ activities }: { activities: CrmActivity[] }) {
   return (
     <SectionCard title="السجل الزمني" icon={Clock}>
       {activities.length === 0 ? (

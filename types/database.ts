@@ -323,6 +323,12 @@ export interface PublicPartnershipOffer {
 }
 
 // --- Partnership CRM (relationship spine) ---
+//
+// The partner activity timeline, notes, and tasks live on the shared
+// polymorphic CRM core — see CrmActivity / CrmNote / CrmTask below. The two
+// enums here are the partner-specific vocab those rows carry in their free-text
+// `type` column (subject_kind="partner"); meetings/emails/contracts/campaigns
+// remain partner-specific (their types follow).
 
 export type PartnerActivityType =
   | "lead_created"
@@ -341,26 +347,6 @@ export type PartnerActivityType =
   | "owner_changed"
   | "report_generated"
 
-export interface PartnerActivity {
-  id: string
-  lead_id: string
-  type: PartnerActivityType | string
-  summary: string
-  actor: string | null
-  metadata: Record<string, unknown>
-  created_at: string
-}
-
-export interface PartnerNote {
-  id: string
-  lead_id: string
-  body: string
-  author: string | null
-  pinned: boolean
-  created_at: string
-  updated_at: string
-}
-
 export type PartnerTaskType =
   | "follow_up"
   | "call"
@@ -369,22 +355,6 @@ export type PartnerTaskType =
   | "proposal"
   | "contract"
   | "custom"
-export type PartnerTaskStatus = "open" | "done" | "dismissed"
-export type PartnerTaskPriority = "low" | "normal" | "high"
-
-export interface PartnerTask {
-  id: string
-  lead_id: string
-  title: string
-  detail: string | null
-  type: PartnerTaskType | string
-  status: PartnerTaskStatus
-  priority: PartnerTaskPriority
-  due_at: string | null
-  created_by: string | null
-  completed_at: string | null
-  created_at: string
-}
 
 export type PartnerMeetingType = "call" | "video" | "in_person"
 export type PartnerMeetingStatus = "scheduled" | "completed" | "cancelled"
@@ -477,9 +447,9 @@ export interface PartnerRecord {
   analysis: SponsorshipAnalysis | null
   proposal: SponsorshipProposal | null
   offer: PartnershipOffer | null
-  activities: PartnerActivity[]
-  notes: PartnerNote[]
-  tasks: PartnerTask[]
+  activities: CrmActivity[]
+  notes: CrmNote[]
+  tasks: CrmTask[]
   meetings: PartnerMeeting[]
   emails: PartnerEmail[]
   contract: PartnerContract | null

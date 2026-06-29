@@ -1,115 +1,58 @@
-/** Tasks / follow-up reminders — created by operators or the AI Director. */
+/**
+ * Tasks / follow-up reminders — a thin partner-scoped adapter over the shared
+ * polymorphic CRM core (`lib/crm`). Storage lives in `crm_tasks` keyed by
+ * subject_kind="partner", subject_id=lead_id. The core writes the
+ * "task_created" / "task_completed" timeline entries, so these wrappers only
+ * bind the kind and keep the partner task vocab.
+ */
 
-import { and, asc, desc, eq, sql } from "drizzle-orm"
-import { db } from "@/lib/db"
-import { partnerTasks } from "@/lib/db/schema/partnership-crm"
+import {
+  getTasks as crmGetTasks,
+  createTask as crmCreateTask,
+  setTaskStatus as crmSetTaskStatus,
+  deleteTask as crmDeleteTask,
+  hasOpenTaskOfType as crmHasOpenTaskOfType,
+} from "@/lib/crm"
 import type {
-  PartnerTask,
-  PartnerTaskPriority,
-  PartnerTaskStatus,
+  CrmTask,
+  CrmTaskPriority,
+  CrmTaskStatus,
   PartnerTaskType,
 } from "@/types/database"
-import { logActivity } from "./activities"
+
+const SUBJECT_KIND = "partner" as const
 
 export interface CreateTaskInput {
   title: string
   detail?: string | null
   type?: PartnerTaskType | string
-  priority?: PartnerTaskPriority
+  priority?: CrmTaskPriority
   due_at?: string | null
   created_by?: string | null
 }
 
-export async function getTasks(leadId: string): Promise<PartnerTask[]> {
-  if (!db) return []
-  const rows = await db
-    .select()
-    .from(partnerTasks)
-    .where(eq(partnerTasks.lead_id, leadId))
-    // Open tasks first, soonest due first, then newest.
-    .orderBy(
-      sql`case when ${partnerTasks.status} = 'open' then 0 else 1 end`,
-      asc(partnerTasks.due_at),
-      desc(partnerTasks.created_at),
-    )
-  return rows.map(rowToTask)
+export function getTasks(leadId: string): Promise<CrmTask[]> {
+  return crmGetTasks(SUBJECT_KIND, leadId)
 }
 
-export async function createTask(leadId: string, input: CreateTaskInput): Promise<PartnerTask | null> {
-  if (!db) return null
-  const [row] = await db
-    .insert(partnerTasks)
-    .values({
-      lead_id: leadId,
-      title: input.title,
-      detail: input.detail ?? null,
-      type: input.type ?? "follow_up",
-      priority: input.priority ?? "normal",
-      due_at: input.due_at ? new Date(input.due_at) : null,
-      created_by: input.created_by ?? null,
-    })
-    .returning()
-  await logActivity(leadId, {
-    type: "task_created",
-    summary: `أُنشئت مهمة: ${input.title}`,
-    actor: input.created_by ?? null,
-    metadata: { task_id: row.id, task_type: row.type },
-  })
-  return rowToTask(row)
+export function createTask(leadId: string, input: CreateTaskInput): Promise<CrmTask | null> {
+  return crmCreateTask(SUBJECT_KIND, leadId, input)
 }
 
-export async function setTaskStatus(
+export function setTaskStatus(
   leadId: string,
   taskId: string,
-  status: PartnerTaskStatus,
+  status: CrmTaskStatus,
   actor?: string | null,
 ): Promise<void> {
-  if (!db) return
-  const [row] = await db
-    .update(partnerTasks)
-    .set({ status, completed_at: status === "done" ? new Date() : null })
-    .where(and(eq(partnerTasks.id, taskId), eq(partnerTasks.lead_id, leadId)))
-    .returning()
-  if (row && status === "done") {
-    await logActivity(leadId, {
-      type: "task_completed",
-      summary: `أُنجزت مهمة: ${row.title}`,
-      actor: actor ?? null,
-      metadata: { task_id: taskId },
-    })
-  }
+  return crmSetTaskStatus(SUBJECT_KIND, leadId, taskId, status, actor)
 }
 
-export async function deleteTask(leadId: string, taskId: string): Promise<void> {
-  if (!db) return
-  await db.delete(partnerTasks).where(and(eq(partnerTasks.id, taskId), eq(partnerTasks.lead_id, leadId)))
+export function deleteTask(leadId: string, taskId: string): Promise<void> {
+  return crmDeleteTask(SUBJECT_KIND, leadId, taskId)
 }
 
 /** Does this lead already have an open task of a given type? (idempotency for AI auto-tasks.) */
-export async function hasOpenTaskOfType(leadId: string, type: string): Promise<boolean> {
-  if (!db) return false
-  const [row] = await db
-    .select({ id: partnerTasks.id })
-    .from(partnerTasks)
-    .where(
-      and(eq(partnerTasks.lead_id, leadId), eq(partnerTasks.type, type), eq(partnerTasks.status, "open")),
-    )
-    .limit(1)
-  return Boolean(row)
-}
-
-function rowToTask(r: typeof partnerTasks.$inferSelect): PartnerTask {
-  return {
-    id: r.id,
-    lead_id: r.lead_id,
-    title: r.title,
-    detail: r.detail ?? null,
-    type: r.type,
-    status: r.status as PartnerTaskStatus,
-    priority: r.priority as PartnerTaskPriority,
-    due_at: r.due_at ? r.due_at.toISOString() : null,
-    created_by: r.created_by ?? null,
-    completed_at: r.completed_at ? r.completed_at.toISOString() : null,
-    created_at: (r.created_at ?? new Date()).toISOString(),
-  }
+export function hasOpenTaskOfType(leadId: string, type: string): Promise<boolean> {
+  return crmHasOpenTaskOfType(SUBJECT_KIND, leadId, type)
 }

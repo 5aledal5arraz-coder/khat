@@ -1,62 +1,36 @@
-/** Internal team notes on a partner. */
+/**
+ * Internal team notes on a partner — a thin partner-scoped adapter over the
+ * shared polymorphic CRM core (`lib/crm`). Storage lives in `crm_notes` keyed by
+ * subject_kind="partner", subject_id=lead_id. The core's createNote already
+ * writes the "note_added" timeline entry, so these wrappers only bind the kind.
+ */
 
-import { and, desc, eq } from "drizzle-orm"
-import { db } from "@/lib/db"
-import { partnerNotes } from "@/lib/db/schema/partnership-crm"
-import type { PartnerNote } from "@/types/database"
-import { logActivity } from "./activities"
+import {
+  getNotes as crmGetNotes,
+  createNote as crmCreateNote,
+  deleteNote as crmDeleteNote,
+  setNotePinned as crmSetNotePinned,
+} from "@/lib/crm"
+import type { CrmNote } from "@/types/database"
 
-export async function getNotes(leadId: string): Promise<PartnerNote[]> {
-  if (!db) return []
-  const rows = await db
-    .select()
-    .from(partnerNotes)
-    .where(eq(partnerNotes.lead_id, leadId))
-    // Pinned first, then newest.
-    .orderBy(desc(partnerNotes.pinned), desc(partnerNotes.created_at))
-  return rows.map(rowToNote)
+const SUBJECT_KIND = "partner" as const
+
+export function getNotes(leadId: string): Promise<CrmNote[]> {
+  return crmGetNotes(SUBJECT_KIND, leadId)
 }
 
-export async function createNote(
+export function createNote(
   leadId: string,
   body: string,
   author?: string | null,
-): Promise<PartnerNote | null> {
-  if (!db) return null
-  const [row] = await db
-    .insert(partnerNotes)
-    .values({ lead_id: leadId, body, author: author ?? null })
-    .returning()
-  await logActivity(leadId, {
-    type: "note_added",
-    summary: `أضاف ملاحظة داخلية`,
-    actor: author ?? null,
-    metadata: { note_id: row.id },
-  })
-  return rowToNote(row)
+): Promise<CrmNote | null> {
+  return crmCreateNote(SUBJECT_KIND, leadId, body, author)
 }
 
-export async function deleteNote(leadId: string, noteId: string): Promise<void> {
-  if (!db) return
-  await db.delete(partnerNotes).where(and(eq(partnerNotes.id, noteId), eq(partnerNotes.lead_id, leadId)))
+export function deleteNote(leadId: string, noteId: string): Promise<void> {
+  return crmDeleteNote(SUBJECT_KIND, leadId, noteId)
 }
 
-export async function setNotePinned(leadId: string, noteId: string, pinned: boolean): Promise<void> {
-  if (!db) return
-  await db
-    .update(partnerNotes)
-    .set({ pinned })
-    .where(and(eq(partnerNotes.id, noteId), eq(partnerNotes.lead_id, leadId)))
-}
-
-function rowToNote(r: typeof partnerNotes.$inferSelect): PartnerNote {
-  return {
-    id: r.id,
-    lead_id: r.lead_id,
-    body: r.body,
-    author: r.author ?? null,
-    pinned: r.pinned,
-    created_at: (r.created_at ?? new Date()).toISOString(),
-    updated_at: (r.updated_at ?? new Date()).toISOString(),
-  }
+export function setNotePinned(leadId: string, noteId: string, pinned: boolean): Promise<void> {
+  return crmSetNotePinned(SUBJECT_KIND, leadId, noteId, pinned)
 }

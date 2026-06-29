@@ -955,43 +955,15 @@ ALTER TABLE sponsorship_analysis ADD COLUMN IF NOT EXISTS talking_points jsonb D
 ALTER TABLE sponsorship_analysis ADD COLUMN IF NOT EXISTS likely_objections jsonb DEFAULT '[]'::jsonb;
 ALTER TABLE sponsorship_analysis ADD COLUMN IF NOT EXISTS negotiation_tactics jsonb DEFAULT '[]'::jsonb;
 
-CREATE TABLE IF NOT EXISTS partner_activities (
-  id text PRIMARY KEY,
-  lead_id text NOT NULL REFERENCES sponsorship_leads(id) ON DELETE CASCADE,
-  type text NOT NULL,
-  summary text NOT NULL,
-  actor text,
-  metadata jsonb DEFAULT '{}'::jsonb,
-  created_at timestamptz DEFAULT now()
-);
-CREATE INDEX IF NOT EXISTS idx_partner_activities_lead ON partner_activities(lead_id, created_at);
-
-CREATE TABLE IF NOT EXISTS partner_notes (
-  id text PRIMARY KEY,
-  lead_id text NOT NULL REFERENCES sponsorship_leads(id) ON DELETE CASCADE,
-  body text NOT NULL,
-  author text,
-  pinned boolean NOT NULL DEFAULT false,
-  created_at timestamptz DEFAULT now(),
-  updated_at timestamptz DEFAULT now()
-);
-CREATE INDEX IF NOT EXISTS idx_partner_notes_lead ON partner_notes(lead_id);
-
-CREATE TABLE IF NOT EXISTS partner_tasks (
-  id text PRIMARY KEY,
-  lead_id text NOT NULL REFERENCES sponsorship_leads(id) ON DELETE CASCADE,
-  title text NOT NULL,
-  detail text,
-  type text NOT NULL DEFAULT 'follow_up',
-  status text NOT NULL DEFAULT 'open',
-  priority text NOT NULL DEFAULT 'normal',
-  due_at timestamptz,
-  created_by text,
-  completed_at timestamptz,
-  created_at timestamptz DEFAULT now()
-);
-CREATE INDEX IF NOT EXISTS idx_partner_tasks_lead ON partner_tasks(lead_id);
-CREATE INDEX IF NOT EXISTS idx_partner_tasks_due ON partner_tasks(status, due_at);
+-- ─── Retired: partner activity/note/task tables ─────────────────────────────
+-- The partner activity timeline, notes, and tasks moved onto the shared
+-- polymorphic CRM core (crm_activities/crm_notes/crm_tasks, subject_kind =
+-- 'partner', subject_id = lead_id). Drop the bespoke copies so the live schema
+-- matches the code. Idempotent; safe to re-run. (No data migration needed —
+-- these were empty.) Meetings/emails/contracts/campaigns remain partner-specific.
+DROP TABLE IF EXISTS partner_activities;
+DROP TABLE IF EXISTS partner_notes;
+DROP TABLE IF EXISTS partner_tasks;
 
 CREATE TABLE IF NOT EXISTS partner_meetings (
   id text PRIMARY KEY,

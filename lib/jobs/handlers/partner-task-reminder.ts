@@ -13,7 +13,7 @@
 
 import { and, asc, eq, isNotNull, lte } from "drizzle-orm"
 import { db } from "@/lib/db"
-import { partnerTasks } from "@/lib/db/schema/partnership-crm"
+import { crmTasks } from "@/lib/db/schema/crm"
 import { sponsorshipLeads } from "@/lib/db/schema/system"
 import { sendPartnerTaskReminder } from "@/lib/email/send"
 import type { PartnerReminderItem } from "@/lib/email/templates"
@@ -75,19 +75,28 @@ export async function runPartnerTaskReminderSweep(opts?: {
   if (!db) return empty
 
   const horizon = new Date(now + horizonMs)
+  // Partner tasks live on the shared polymorphic CRM core (subject_kind="partner",
+  // subject_id=lead_id), joined back to the lead for the owner + company name.
   const rows = await db
     .select({
-      title: partnerTasks.title,
-      priority: partnerTasks.priority,
-      due_at: partnerTasks.due_at,
+      title: crmTasks.title,
+      priority: crmTasks.priority,
+      due_at: crmTasks.due_at,
       leadId: sponsorshipLeads.id,
       company: sponsorshipLeads.company_name,
       owner: sponsorshipLeads.owner,
     })
-    .from(partnerTasks)
-    .innerJoin(sponsorshipLeads, eq(partnerTasks.lead_id, sponsorshipLeads.id))
-    .where(and(eq(partnerTasks.status, "open"), isNotNull(partnerTasks.due_at), lte(partnerTasks.due_at, horizon)))
-    .orderBy(asc(partnerTasks.due_at))
+    .from(crmTasks)
+    .innerJoin(sponsorshipLeads, eq(crmTasks.subject_id, sponsorshipLeads.id))
+    .where(
+      and(
+        eq(crmTasks.subject_kind, "partner"),
+        eq(crmTasks.status, "open"),
+        isNotNull(crmTasks.due_at),
+        lte(crmTasks.due_at, horizon),
+      ),
+    )
+    .orderBy(asc(crmTasks.due_at))
 
   if (rows.length === 0) return empty
 

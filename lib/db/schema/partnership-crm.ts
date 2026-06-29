@@ -1,83 +1,21 @@
 /**
- * Partnership CRM — the relationship spine.
+ * Partnership CRM — partner-specific relationship surfaces.
  *
  * A `sponsorship_leads` row IS the partner/company record. These tables hang
- * off it to make it a full CRM: a timeline of every interaction, internal
- * notes, tasks/reminders, meetings, logged emails, contracts, and campaigns
- * with performance/ROI. All FK-cascade off the lead so deleting a partner
- * cleans up its whole history.
+ * off it for the surfaces that are unique to partners: meetings, logged emails,
+ * contracts, and campaigns with performance/ROI. All FK-cascade off the lead so
+ * deleting a partner cleans up its whole history.
+ *
+ * The three universal CRM primitives — activity timeline, internal notes, and
+ * tasks/reminders — are NOT here: they live on the shared polymorphic core
+ * (`lib/db/schema/crm.ts`, keyed by subject_kind="partner", subject_id=lead_id).
+ * `lib/partnership-crm/{activities,notes,tasks}.ts` are thin partner-scoped
+ * adapters over `lib/crm/*`. Polymorphic rows can't FK-cascade, so the partner
+ * delete path must call `deleteCrmForSubject("partner", leadId)`.
  */
 
-import { pgTable, text, integer, timestamp, jsonb, boolean, index } from "drizzle-orm/pg-core"
+import { pgTable, text, integer, timestamp, jsonb, index } from "drizzle-orm/pg-core"
 import { sponsorshipLeads } from "./system"
-
-/**
- * Unified per-partner activity timeline + audit log. Every meaningful event
- * (lead created, status changed, evaluation ran, note/task/meeting added,
- * email sent, offer published/viewed, contract/campaign updated) writes one
- * append-only row here. This is what powers the relationship history view.
- */
-export const partnerActivities = pgTable(
-  "partner_activities",
-  {
-    id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
-    lead_id: text("lead_id").notNull().references(() => sponsorshipLeads.id, { onDelete: "cascade" }),
-    /**
-     * Frozen vocab: lead_created | status_changed | evaluation_completed |
-     * note_added | task_created | task_completed | meeting_logged |
-     * email_sent | offer_published | offer_viewed | proposal_generated |
-     * contract_updated | campaign_updated | owner_changed | report_generated
-     */
-    type: text("type").notNull(),
-    summary: text("summary").notNull(),
-    /** "admin:<email>" | "system:auto-triage" | "ai:director" | "public" */
-    actor: text("actor"),
-    metadata: jsonb("metadata").$type<Record<string, unknown>>().default({}),
-    created_at: timestamp("created_at", { withTimezone: true }).defaultNow(),
-  },
-  (t) => [index("idx_partner_activities_lead").on(t.lead_id, t.created_at)],
-)
-
-/** Internal team notes on a partner — context the operator wants to remember. */
-export const partnerNotes = pgTable(
-  "partner_notes",
-  {
-    id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
-    lead_id: text("lead_id").notNull().references(() => sponsorshipLeads.id, { onDelete: "cascade" }),
-    body: text("body").notNull(),
-    author: text("author"),
-    pinned: boolean("pinned").notNull().default(false),
-    created_at: timestamp("created_at", { withTimezone: true }).defaultNow(),
-    updated_at: timestamp("updated_at", { withTimezone: true }).defaultNow(),
-  },
-  (t) => [index("idx_partner_notes_lead").on(t.lead_id)],
-)
-
-/** Tasks / follow-up reminders. Can be created by an operator or by the AI Director. */
-export const partnerTasks = pgTable(
-  "partner_tasks",
-  {
-    id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
-    lead_id: text("lead_id").notNull().references(() => sponsorshipLeads.id, { onDelete: "cascade" }),
-    title: text("title").notNull(),
-    detail: text("detail"),
-    /** follow_up | call | email | meeting | proposal | contract | custom */
-    type: text("type").notNull().default("follow_up"),
-    /** open | done | dismissed */
-    status: text("status").notNull().default("open"),
-    /** low | normal | high */
-    priority: text("priority").notNull().default("normal"),
-    due_at: timestamp("due_at", { withTimezone: true }),
-    /** "admin:<email>" | "ai:director" */
-    created_by: text("created_by"),
-    completed_at: timestamp("completed_at", { withTimezone: true }),
-    created_at: timestamp("created_at", { withTimezone: true }).defaultNow(),
-  },
-  (t) => [
-    index("idx_partner_tasks_lead").on(t.lead_id),
-    index("idx_partner_tasks_due").on(t.status, t.due_at),
-  ],
-)
 
 /** Meeting tracking — scheduled calls / videos / in-person, with outcomes. */
 export const partnerMeetings = pgTable(
