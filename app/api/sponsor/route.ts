@@ -1,3 +1,4 @@
+import { env } from "@/lib/env"
 import { NextRequest, NextResponse } from "next/server"
 import { db } from "@/lib/db"
 import { sponsorshipLeads } from "@/lib/db/schema"
@@ -134,7 +135,7 @@ export async function POST(request: NextRequest) {
     // Send branded notification emails (fire-and-forget)
     const emailParams = { company: sanitizedCompany, contact: sanitizedContact, email: sanitizedEmail, budget: stripHtml(budget_range), reference }
     Promise.all([
-      sendSponsorApplicationAdmin(process.env.ADMIN_NOTIFY_EMAIL || "khatpodcast@hotmail.com", emailParams),
+      sendSponsorApplicationAdmin(env.ADMIN_NOTIFY_EMAIL || "khatpodcast@hotmail.com", emailParams),
       sendSponsorApplicationConfirm(sanitizedEmail, sanitizedContact, reference),
     ]).catch(e => console.error("Sponsor notification email failed:", e))
 

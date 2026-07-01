@@ -9,6 +9,7 @@
  * infrastructure. No FK to guests / episodes / studio.
  */
 
+import { env } from "@/lib/env"
 import { db } from "@/lib/db"
 import {
   guestCandidateNotifications,
@@ -25,8 +26,8 @@ function requireDb() {
 }
 
 export const CANDIDATE_NOTIFY_EMAIL =
-  process.env.CANDIDATE_NOTIFY_EMAIL ||
-  process.env.ADMIN_NOTIFY_EMAIL ||
+  env.CANDIDATE_NOTIFY_EMAIL ||
+  env.ADMIN_NOTIFY_EMAIL ||
   "khatpodcast@hotmail.com"
 
 // ---------------------------------------------------------------------------

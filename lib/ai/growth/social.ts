@@ -3,6 +3,7 @@
  * Copywriting quality matters, so this runs on the editorial model.
  */
 
+import { env } from "@/lib/env"
 import { runAiTask } from "@/lib/ai-router"
 import type { SocialPost, ShortFormIdea } from "./types"
 import { buildGrowthContextBlock, growthInputSnapshot, type GrowthGenInput } from "./shared"
@@ -21,7 +22,7 @@ export async function generateSocialBundle(
   input: GrowthGenInput,
 ): Promise<{ success: boolean; data?: SocialBundle; raw?: Record<string, unknown>; error?: string; runId?: string }> {
   try {
-    if (!process.env.OPENAI_API_KEY) {
+    if (!env.OPENAI_API_KEY) {
       return { success: false, error: "OPENAI_API_KEY غير مُعدّ" }
     }
 

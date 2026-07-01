@@ -1,7 +1,8 @@
+import { env } from "@/lib/env"
 import crypto from "crypto"
 
 function getSecret(): string {
-  const secret = process.env.NEWSLETTER_TRACKING_SECRET || process.env.RESEND_API_KEY
+  const secret = env.NEWSLETTER_TRACKING_SECRET || env.RESEND_API_KEY
   if (!secret) throw new Error("NEWSLETTER_TRACKING_SECRET or RESEND_API_KEY is required for tracking")
   return secret
 }

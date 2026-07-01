@@ -1,5 +1,6 @@
 // Phase 2.0 Batch 1 — getClient + EDITORIAL_MODEL no longer needed.
 // prepareTranscript routes internally via runAiTask.
+import { env } from "@/lib/env"
 import { prepareTranscript } from "./client"
 import { runAiTask } from "@/lib/ai-router"
 
@@ -78,7 +79,7 @@ export async function generateGlobalEpisodeIntelligence(
   eirContext?: { eirId?: string | null; subjectTable?: string | null; subjectId?: string | null; actorId?: string | null }
 ): Promise<{ success: true; data: GlobalEpisodeIntelligence; raw?: Record<string, unknown>; runId?: string } | { success: false; error: string; runId?: string }> {
   try {
-    if (!process.env.OPENAI_API_KEY) {
+    if (!env.OPENAI_API_KEY) {
       return { success: false, error: "OPENAI_API_KEY غير مُعدّ" }
     }
     const preparedText = await prepareTranscript(null as never, transcript)

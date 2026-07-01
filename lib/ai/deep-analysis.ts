@@ -1,4 +1,5 @@
 // Phase 2.0 Batch 1 — getClient + EDITORIAL_MODEL no longer needed.
+import { env } from "@/lib/env"
 import { prepareTranscript } from "./client"
 import { runAiTask } from "@/lib/ai-router"
 import type { StudioDeepAnalysis } from "@/types/database"
@@ -20,7 +21,7 @@ export async function generateDeepAnalysis(
   eirContext?: { eirId?: string | null; subjectTable?: string | null; subjectId?: string | null; actorId?: string | null }
 ): Promise<{ success: true; data: DeepAnalysisData; raw?: Record<string, unknown>; runId?: string } | { success: false; error: string; runId?: string }> {
   try {
-    if (!process.env.OPENAI_API_KEY) {
+    if (!env.OPENAI_API_KEY) {
       return { success: false, error: "OPENAI_API_KEY غير مُعدّ" }
     }
     const preparedText = await prepareTranscript(null as never, transcript)

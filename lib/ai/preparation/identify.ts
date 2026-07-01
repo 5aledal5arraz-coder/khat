@@ -23,10 +23,11 @@
  * the error; we never return a silent empty list in that case.
  */
 
+import { env } from "@/lib/env"
 import { getGeminiClient, isGeminiConfigured } from "@/lib/ai/gemini"
 import type { PreparationCandidate } from "@/types/preparation"
 
-const GEMINI_MODEL = process.env.GEMINI_RETRIEVAL_MODEL || "gemini-2.5-flash"
+const GEMINI_MODEL = env.GEMINI_RETRIEVAL_MODEL || "gemini-2.5-flash"
 
 // ─── Input ───────────────────────────────────────────────────────────────────
 
@@ -212,7 +213,7 @@ interface YTChannelSearchItem {
 async function youtubeCandidates(
   input: IdentifyInput,
 ): Promise<{ candidates: PreparationCandidate[]; error?: string }> {
-  const key = process.env.YOUTUBE_API_KEY2 || process.env.YOUTUBE_API_KEY
+  const key = env.YOUTUBE_API_KEY2 || env.YOUTUBE_API_KEY
   if (!key) return { candidates: [], error: "YOUTUBE_API_KEY is not configured" }
 
   const url = new URL("https://www.googleapis.com/youtube/v3/search")

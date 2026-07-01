@@ -1,3 +1,4 @@
+import { env } from "@/lib/env"
 import { XMLParser } from "fast-xml-parser"
 import { db } from "@/lib/db"
 import { episodes } from "@/lib/db/schema"
@@ -204,7 +205,7 @@ async function matchAndUpdate(item: RssItem): Promise<boolean> {
 // ---------------------------------------------------------------------------
 
 export async function syncRssFeed(): Promise<SyncResult> {
-  const feedUrl = process.env.RSS_FEED_URL
+  const feedUrl = env.RSS_FEED_URL
   if (!feedUrl) {
     const result: SyncResult = {
       syncedAt: new Date().toISOString(),

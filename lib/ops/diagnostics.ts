@@ -11,6 +11,7 @@
  *   • integrations — presence of the env keys each integration needs.
  */
 
+import { env } from "@/lib/env"
 import { sql } from "drizzle-orm"
 import { db } from "@/lib/db"
 import { humanizeAge } from "@/lib/ops/format"
@@ -94,23 +95,23 @@ export async function getDiagnostics(): Promise<Diagnostic[]> {
   })
 
   out.push(
-    keyProbe("youtube", "YouTube API", !!process.env.YOUTUBE_API_KEY, "أضف YOUTUBE_API_KEY لجلب الحلقات"),
+    keyProbe("youtube", "YouTube API", !!env.YOUTUBE_API_KEY, "أضف YOUTUBE_API_KEY لجلب الحلقات"),
     keyProbe(
       "openai",
       "OpenAI",
-      !!process.env.OPENAI_API_KEY,
+      !!env.OPENAI_API_KEY,
       "أضف OPENAI_API_KEY لتشغيل الذكاء الاصطناعي",
     ),
     keyProbe(
       "gemini",
       "Gemini",
-      !!(process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY),
+      !!(env.GEMINI_API_KEY || env.GOOGLE_API_KEY),
       "اختياري — أضف GEMINI_API_KEY لتفعيل مزوّد Gemini",
     ),
     keyProbe(
       "email",
       "البريد (Resend)",
-      !!process.env.RESEND_API_KEY,
+      !!env.RESEND_API_KEY,
       "أضف RESEND_API_KEY لإرسال الإشعارات والنشرة",
     ),
   )

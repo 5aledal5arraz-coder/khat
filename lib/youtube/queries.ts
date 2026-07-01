@@ -1,3 +1,4 @@
+import { env } from "@/lib/env"
 import {
   getChannelIdFromHandle,
   getChannelDetails,
@@ -11,8 +12,8 @@ import {
 } from "./client"
 import type { Episode } from "@/types/database"
 
-const CHANNEL_HANDLE = process.env.YOUTUBE_CHANNEL_HANDLE || "@KhatPodcast"
-const EXTRA_PLAYLIST_IDS = (process.env.YOUTUBE_EXTRA_PLAYLIST_IDS || "")
+const CHANNEL_HANDLE = env.YOUTUBE_CHANNEL_HANDLE || "@KhatPodcast"
+const EXTRA_PLAYLIST_IDS = (env.YOUTUBE_EXTRA_PLAYLIST_IDS || "")
   .split(",")
   .map((id) => id.trim())
   .filter(Boolean)

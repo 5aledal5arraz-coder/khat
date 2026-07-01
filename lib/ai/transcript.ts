@@ -1,3 +1,4 @@
+import { env } from "@/lib/env"
 import type { ConfigQuote } from "@/types/episodes"
 import type { StudioTranscriptSummary, StudioTranscriptQuote } from "@/types/database"
 // Phase 2.0 Batch 1 — getClient + STRUCTURE_MODEL/EDITORIAL_MODEL no longer
@@ -101,7 +102,7 @@ export async function processTranscript(
   episodeIntelligence?: GlobalEpisodeIntelligence | null,
   eirContext?: EirContext & { actorId?: string | null },
 ): Promise<{ success: boolean; data?: TranscriptProcessingResult; error?: string; runId?: string }> {
-  if (!process.env.OPENAI_API_KEY) {
+  if (!env.OPENAI_API_KEY) {
     return { success: false, error: "OPENAI_API_KEY غير مُعدّ" }
   }
 
@@ -244,7 +245,7 @@ export async function regenerateQuotes(
   episodeIntelligence?: GlobalEpisodeIntelligence | null,
   eirContext?: EirContext & { actorId?: string | null },
 ): Promise<{ success: boolean; data?: StudioTranscriptQuote[]; error?: string; runId?: string }> {
-  if (!process.env.OPENAI_API_KEY) {
+  if (!env.OPENAI_API_KEY) {
     return { success: false, error: "OPENAI_API_KEY غير مُعدّ" }
   }
 
@@ -329,7 +330,7 @@ export async function regenerateKeyIdeas(
   episodeIntelligence?: GlobalEpisodeIntelligence | null,
   eirContext?: EirContext & { actorId?: string | null },
 ): Promise<{ success: boolean; data?: string[]; error?: string; runId?: string }> {
-  if (!process.env.OPENAI_API_KEY) {
+  if (!env.OPENAI_API_KEY) {
     return { success: false, error: "OPENAI_API_KEY غير مُعدّ" }
   }
 
@@ -403,7 +404,7 @@ export async function regenerateLessons(
   episodeIntelligence?: GlobalEpisodeIntelligence | null,
   eirContext?: EirContext & { actorId?: string | null },
 ): Promise<{ success: boolean; data?: string[]; error?: string; runId?: string }> {
-  if (!process.env.OPENAI_API_KEY) {
+  if (!env.OPENAI_API_KEY) {
     return { success: false, error: "OPENAI_API_KEY غير مُعدّ" }
   }
 

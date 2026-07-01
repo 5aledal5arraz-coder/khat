@@ -1,3 +1,4 @@
+import { env } from "@/lib/env"
 import { execFile } from "child_process"
 import { promisify } from "util"
 import fs from "fs/promises"
@@ -19,7 +20,7 @@ let client: OpenAI | null = null
 
 function getClient(): OpenAI {
   if (!client) {
-    const apiKey = process.env.OPENAI_API_KEY
+    const apiKey = env.OPENAI_API_KEY
     if (!apiKey) throw new Error("OPENAI_API_KEY is not set")
     client = new OpenAI({ apiKey })
   }

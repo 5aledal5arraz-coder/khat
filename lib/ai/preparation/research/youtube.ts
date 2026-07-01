@@ -6,6 +6,7 @@
  * pipeline orchestrator can surface the real error — no silent swallowing.
  */
 
+import { env } from "@/lib/env"
 import type { RawRetrievedSource } from "./types"
 
 interface YouTubeSearchItem {
@@ -55,7 +56,7 @@ export async function youtubeSearch(
   maxResults = 6,
 ): Promise<RawRetrievedSource[]> {
   // Prefer an unrestricted server key if provided; fall back to the main key.
-  const key = process.env.YOUTUBE_API_KEY2 || process.env.YOUTUBE_API_KEY
+  const key = env.YOUTUBE_API_KEY2 || env.YOUTUBE_API_KEY
   if (!key) throw new Error("YOUTUBE_API_KEY is not configured")
 
   const searchUrl = new URL("https://www.googleapis.com/youtube/v3/search")

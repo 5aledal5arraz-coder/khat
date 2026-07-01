@@ -7,6 +7,7 @@
  * appeared on. Distinct from the raw per-episode signals: this is reader-ready.
  */
 
+import { env } from "@/lib/env"
 import { runAiTask } from "@/lib/ai-router"
 import type { GuestPublicKnowledge } from "@/lib/db/schema/guest-identity"
 
@@ -46,7 +47,7 @@ export async function generateGuestKnowledge(
   input: GuestKnowledgeInput,
 ): Promise<{ success: boolean; data?: GuestPublicKnowledge; raw?: Record<string, unknown>; error?: string; runId?: string }> {
   try {
-    if (!process.env.OPENAI_API_KEY) {
+    if (!env.OPENAI_API_KEY) {
       return { success: false, error: "OPENAI_API_KEY غير مُعدّ" }
     }
 

@@ -6,7 +6,8 @@
  * Content decisions are always made by OpenAI.
  */
 
-const GOOGLE_VIDEO_API_KEY = process.env.GOOGLE_VIDEO_API_KEY
+import { env } from "@/lib/env"
+const GOOGLE_VIDEO_API_KEY = env.GOOGLE_VIDEO_API_KEY
 const API_BASE = "https://videointelligence.googleapis.com/v1"
 
 // ---------------------------------------------------------------------------

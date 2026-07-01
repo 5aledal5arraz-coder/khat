@@ -5,6 +5,7 @@
  * checklist. Editorial model (judgement + synthesis).
  */
 
+import { env } from "@/lib/env"
 import { runAiTask } from "@/lib/ai-router"
 import type { GrowthPackage, MarketingStrategy } from "./types"
 import { growthInputSnapshot, type GrowthGenInput } from "./shared"
@@ -49,7 +50,7 @@ export async function generateMarketingStrategy(
   assembledSoFar: GrowthPackage,
 ): Promise<{ success: boolean; data?: MarketingStrategy; raw?: Record<string, unknown>; error?: string; runId?: string }> {
   try {
-    if (!process.env.OPENAI_API_KEY) {
+    if (!env.OPENAI_API_KEY) {
       return { success: false, error: "OPENAI_API_KEY غير مُعدّ" }
     }
 

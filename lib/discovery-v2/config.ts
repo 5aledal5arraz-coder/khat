@@ -4,6 +4,7 @@
  * are always on; YouTube + Listen Notes light up when their key is set.
  */
 
+import { env } from "@/lib/env"
 export interface V2SourceStatus {
   id: string
   label: string
@@ -23,17 +24,17 @@ export function v2Sources(): V2SourceStatus[] {
     {
       id: "youtube",
       label: "YouTube (قناة الشخص ولقاءاته)",
-      configured: !!process.env.YOUTUBE_API_KEY,
+      configured: !!env.YOUTUBE_API_KEY,
       keyless: false,
-      note: process.env.YOUTUBE_API_KEY ? undefined : "YOUTUBE_API_KEY غير مضبوط",
+      note: env.YOUTUBE_API_KEY ? undefined : "YOUTUBE_API_KEY غير مضبوط",
     },
     {
       id: "podcast",
       label: "Listen Notes (ظهوره ضيفاً في بودكاست)",
-      configured: !!process.env.LISTEN_NOTES_API_KEY,
+      configured: !!env.LISTEN_NOTES_API_KEY,
       keyless: false,
-      test: !process.env.LISTEN_NOTES_API_KEY,
-      note: process.env.LISTEN_NOTES_API_KEY
+      test: !env.LISTEN_NOTES_API_KEY,
+      note: env.LISTEN_NOTES_API_KEY
         ? undefined
         : "وضع تجريبي فعّال (بيانات وهمية) — أضف LISTEN_NOTES_API_KEY للبيانات الحقيقية",
     },

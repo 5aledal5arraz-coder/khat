@@ -5,6 +5,7 @@
  * they run on the editorial model.
  */
 
+import { env } from "@/lib/env"
 import { runAiTask } from "@/lib/ai-router"
 import type { ThumbnailConcept } from "./types"
 import { buildGrowthContextBlock, growthInputSnapshot, type GrowthGenInput } from "./shared"
@@ -31,7 +32,7 @@ export async function generatePackagingAssets(
   input: GrowthGenInput,
 ): Promise<{ success: boolean; data?: PackagingAssets; raw?: Record<string, unknown>; error?: string; runId?: string }> {
   try {
-    if (!process.env.OPENAI_API_KEY) {
+    if (!env.OPENAI_API_KEY) {
       return { success: false, error: "OPENAI_API_KEY غير مُعدّ" }
     }
 

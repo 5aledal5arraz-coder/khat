@@ -7,20 +7,21 @@
  * (primary) or GOOGLE_API_KEY (fallback).
  */
 
+import { env } from "@/lib/env"
 import { GoogleGenerativeAI } from "@google/generative-ai"
 
 /** Default Gemini model for structured JSON reasoning. */
 export const GEMINI_REASONING_MODEL =
-  process.env.GEMINI_REASONING_MODEL || "gemini-2.5-flash"
+  env.GEMINI_REASONING_MODEL || "gemini-2.5-flash"
 
 /** Default Gemini model for grounded web retrieval (Google Search tool). */
 export const GEMINI_RETRIEVAL_MODEL =
-  process.env.GEMINI_RETRIEVAL_MODEL || "gemini-2.5-flash"
+  env.GEMINI_RETRIEVAL_MODEL || "gemini-2.5-flash"
 
 let cached: GoogleGenerativeAI | null = null
 
 export function isGeminiConfigured(): boolean {
-  return Boolean(process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY)
+  return Boolean(env.GEMINI_API_KEY || env.GOOGLE_API_KEY)
 }
 
 /**
@@ -29,7 +30,7 @@ export function isGeminiConfigured(): boolean {
  */
 export function getGeminiClient(): GoogleGenerativeAI {
   if (cached) return cached
-  const key = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY
+  const key = env.GEMINI_API_KEY || env.GOOGLE_API_KEY
   if (!key) {
     throw new Error(
       "GEMINI_API_KEY is not configured. Gemini-backed features (research retrieval, channel analysis) require it.",

@@ -8,6 +8,7 @@
  * cleanly when missing — never throws.
  */
 
+import { env } from "@/lib/env"
 import type { MarketCollectionResult, MarketRawSignal } from "./types"
 
 const SEARCH_URL = "https://www.googleapis.com/youtube/v3/search"
@@ -18,7 +19,7 @@ export async function collectYoutubeTopic(
   language: string,
   maxResults = 10,
 ): Promise<MarketCollectionResult> {
-  if (!process.env.YOUTUBE_API_KEY) {
+  if (!env.YOUTUBE_API_KEY) {
     return {
       source: "youtube",
       configured: false,
@@ -42,7 +43,7 @@ export async function collectYoutubeTopic(
   } = {}
   try {
     const res = await fetch(searchUrl.toString(), {
-      headers: { "X-goog-api-key": process.env.YOUTUBE_API_KEY },
+      headers: { "X-goog-api-key": env.YOUTUBE_API_KEY },
     })
     if (!res.ok) {
       return {
@@ -92,7 +93,7 @@ export async function collectYoutubeTopic(
   } = {}
   try {
     const res = await fetch(videosUrl.toString(), {
-      headers: { "X-goog-api-key": process.env.YOUTUBE_API_KEY },
+      headers: { "X-goog-api-key": env.YOUTUBE_API_KEY },
     })
     if (!res.ok) {
       return {

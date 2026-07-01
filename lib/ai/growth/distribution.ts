@@ -4,6 +4,7 @@
  * intelligence + chapter map, so it runs on the cheaper analysis model.
  */
 
+import { env } from "@/lib/env"
 import { runAiTask } from "@/lib/ai-router"
 import type { AdPlacement, PublishTiming, RetentionRec } from "./types"
 import { buildGrowthContextBlock, growthInputSnapshot, type GrowthGenInput } from "./shared"
@@ -26,7 +27,7 @@ export async function generateDistributionPlan(
   input: GrowthGenInput,
 ): Promise<{ success: boolean; data?: DistributionPlan; raw?: Record<string, unknown>; error?: string; runId?: string }> {
   try {
-    if (!process.env.OPENAI_API_KEY) {
+    if (!env.OPENAI_API_KEY) {
       return { success: false, error: "OPENAI_API_KEY غير مُعدّ" }
     }
 

@@ -9,6 +9,7 @@
  * in later requires NO changes to the pipeline orchestrator.
  */
 
+import { env } from "@/lib/env"
 import type { RawRetrievedSource } from "./types"
 import type { PreparationRetrievalDiagnostic } from "@/types/preparation"
 
@@ -18,7 +19,7 @@ export interface XRetrievalResult {
 }
 
 export async function xSearch(_query: string): Promise<XRetrievalResult> {
-  const token = process.env.X_BEARER_TOKEN
+  const token = env.X_BEARER_TOKEN
   if (!token) {
     return {
       sources: [],

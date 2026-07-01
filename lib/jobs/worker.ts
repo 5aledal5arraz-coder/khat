@@ -16,6 +16,7 @@
 // initializes the pg pool. No-op in production. See load-env.ts.
 import "./load-env"
 import { randomUUID } from "node:crypto"
+import { validateEnv } from "@/lib/env"
 import {
   claimNextJob,
   completeJob,
@@ -408,6 +409,10 @@ process.on("SIGINT", () => shutdown("SIGINT"))
 process.on("SIGTERM", () => shutdown("SIGTERM"))
 
 console.log(`[${WORKER_ID}] starting (poll=${POLL_MS}ms lease=${LEASE_MS}ms)`)
+
+// Fail hard on missing REQUIRED config (e.g. DATABASE_URL) — a worker without a
+// database is useless, so crash loudly at boot rather than on the first claim.
+validateEnv()
 
 assertTimeoutKeysAreRegistered()
 

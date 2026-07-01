@@ -13,6 +13,7 @@
  *   - Listen Notes  (LISTEN_NOTES_API_KEY) — prior podcast appearances
  */
 
+import { env } from "@/lib/env"
 import type { EnrichmentSignals } from "../types"
 
 const UA = "KhatPodcast-GuestDiscovery/1.0 (https://khatpodcast.com)"
@@ -53,7 +54,7 @@ export async function openAlex(nameEn: string): Promise<EnrichmentSignals["schol
 export async function googleBooks(nameEn: string, nameAr: string): Promise<EnrichmentSignals["books"]> {
   const q = nameEn || nameAr
   if (!q) return null
-  const key = process.env.GOOGLE_BOOKS_KEY ? `&key=${process.env.GOOGLE_BOOKS_KEY}` : ""
+  const key = env.GOOGLE_BOOKS_KEY ? `&key=${env.GOOGLE_BOOKS_KEY}` : ""
   const j = await getJson(
     `https://www.googleapis.com/books/v1/volumes?q=${encodeURIComponent(`inauthor:"${q}"`)}&maxResults=3&country=US${key}`,
   )
@@ -77,7 +78,7 @@ export async function gdeltNews(name: string, nameEn: string | null): Promise<En
 
 // ─── YouTube — the person's OWN channel + a talk ─────────────────────
 export async function youtubePerson(name: string, nameEn: string | null): Promise<EnrichmentSignals["youtube"]> {
-  const key = process.env.YOUTUBE_API_KEY
+  const key = env.YOUTUBE_API_KEY
   if (!key) return null
   const q = nameEn || name
   const tokens = nameTokens(q)
@@ -114,7 +115,7 @@ export async function youtubePerson(name: string, nameEn: string | null): Promis
 // integration is exercised end-to-end with MOCK data. Add a real key to
 // get live, per-person results — no code change needed.
 export async function podcastAppearances(name: string, nameEn: string | null): Promise<EnrichmentSignals["podcast"]> {
-  const realKey = process.env.LISTEN_NOTES_API_KEY
+  const realKey = env.LISTEN_NOTES_API_KEY
   const testMode = !realKey || realKey.toLowerCase() === "test"
   const base = testMode ? "https://listen-api-test.listennotes.com" : "https://listen-api.listennotes.com"
   const apiKey = testMode ? "test" : realKey!

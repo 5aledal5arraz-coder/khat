@@ -1,3 +1,4 @@
+import { env } from "@/lib/env"
 import type { StudioAnalyzerData, AudioEditSuggestion } from "@/types/database"
 // Phase 2.0 Batch 1 — every generator in this file now routes through
 // runAiTask + an extracted prompt builder. getClient + STRUCTURE_MODEL +
@@ -55,7 +56,7 @@ export async function generateStudioAnalysis(
   stats: YouTubeVideoStats,
   eirContext?: EirContext,
 ): Promise<{ success: boolean; data?: StudioAnalyzerData; raw?: Record<string, unknown>; error?: string; runId?: string }> {
-  if (!process.env.OPENAI_API_KEY) {
+  if (!env.OPENAI_API_KEY) {
     return { success: false, error: "OPENAI_API_KEY غير مُعدّ" }
   }
 
@@ -154,7 +155,7 @@ export async function suggestBestIntro(
   durationSeconds: number | null,
   eirContext?: EirContext,
 ): Promise<{ success: boolean; data?: BestIntroResult; error?: string; runId?: string }> {
-  if (!process.env.OPENAI_API_KEY) {
+  if (!env.OPENAI_API_KEY) {
     return { success: false, error: "OPENAI_API_KEY غير مُعدّ" }
   }
 
@@ -232,7 +233,7 @@ export async function generateEditSuggestions(
   durationSeconds: number | null,
   eirContext?: EirContext,
 ): Promise<{ success: boolean; data?: EditSuggestionsResult; error?: string; runId?: string }> {
-  if (!process.env.OPENAI_API_KEY) {
+  if (!env.OPENAI_API_KEY) {
     return { success: false, error: "OPENAI_API_KEY غير مُعدّ" }
   }
 

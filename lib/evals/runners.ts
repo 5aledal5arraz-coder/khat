@@ -21,6 +21,7 @@
  *     DBs produce smaller pools — that's a real signal, not a bug.
  */
 
+import { env } from "@/lib/env"
 import { generateHybridTopics } from "@/lib/hybrid-topics/generate"
 import { generateOriginalTopics } from "@/lib/original-thinking/generator"
 import { generateStudioPackage } from "@/lib/ai/studio"
@@ -42,7 +43,7 @@ export interface RunnerOutput {
 }
 
 export async function runGenerator(feature: EvalFeature): Promise<RunnerOutput> {
-  if (!process.env.OPENAI_API_KEY) {
+  if (!env.OPENAI_API_KEY) {
     throw new Error(
       "OPENAI_API_KEY is not set — runners require a live key to produce candidates",
     )

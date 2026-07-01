@@ -1,3 +1,4 @@
+import { env } from "@/lib/env"
 import { getHealthStats } from "@/lib/newsletter/queries"
 import Link from "next/link"
 import { ArrowRight, CheckCircle2, XCircle, Database, Settings } from "lucide-react"
@@ -10,8 +11,8 @@ export default async function NewsletterHealthPage() {
   const envChecks = [
     {
       label: "RESEND_API_KEY",
-      ok: !!process.env.RESEND_API_KEY,
-      detail: process.env.RESEND_API_KEY ? "مُعيّن" : "غير مُعيّن",
+      ok: !!env.RESEND_API_KEY,
+      detail: env.RESEND_API_KEY ? "مُعيّن" : "غير مُعيّن",
     },
     {
       label: "NEXT_PUBLIC_APP_URL",
@@ -21,7 +22,7 @@ export default async function NewsletterHealthPage() {
     {
       label: "RESEND_FROM_EMAIL",
       ok: true,
-      detail: process.env.RESEND_FROM_EMAIL || "noreply@khatpodcast.com (افتراضي)",
+      detail: env.RESEND_FROM_EMAIL || "noreply@khatpodcast.com (افتراضي)",
     },
   ]
 

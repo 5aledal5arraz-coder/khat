@@ -1,3 +1,4 @@
+import { env } from "@/lib/env"
 import { NextRequest, NextResponse } from "next/server"
 import { db } from "@/lib/db"
 import { guestApplications } from "@/lib/db/schema"
@@ -210,7 +211,7 @@ export async function POST(request: NextRequest) {
     // Send branded notification emails (fire-and-forget)
     const emailParams = { name: sanitizedName, email: sanitizedEmail, phone: stripHtml(phone), country: stripHtml(country) }
     Promise.all([
-      sendGuestApplicationAdmin(process.env.ADMIN_NOTIFY_EMAIL || "khatpodcast@hotmail.com", emailParams),
+      sendGuestApplicationAdmin(env.ADMIN_NOTIFY_EMAIL || "khatpodcast@hotmail.com", emailParams),
       sendGuestApplicationConfirm(sanitizedEmail, sanitizedName, reference),
     ]).catch(e => console.error("Guest notification email failed:", e))
 

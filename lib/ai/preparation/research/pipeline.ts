@@ -14,6 +14,7 @@
  * so we can swap internals without touching the API surface.
  */
 
+import { env } from "@/lib/env"
 import type {
   PreparationInputs,
   PreparationResearchSource,
@@ -79,7 +80,7 @@ async function runGeminiRetrieval(queries: string[]): Promise<ProviderResult> {
 }
 
 async function runYouTubeRetrieval(queries: string[]): Promise<ProviderResult> {
-  const key = process.env.YOUTUBE_API_KEY2 || process.env.YOUTUBE_API_KEY
+  const key = env.YOUTUBE_API_KEY2 || env.YOUTUBE_API_KEY
   if (!key) {
     return {
       sources: [],

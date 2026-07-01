@@ -1,3 +1,4 @@
+import { env } from "@/lib/env"
 import { db, USE_DB as DB_AVAILABLE } from "@/lib/db"
 import { eq, desc, asc } from "drizzle-orm"
 import {
@@ -31,7 +32,7 @@ import { getDeletedEpisodeIds } from "@/lib/episodes/deleted"
 
 // ─── Configuration ───────────────────────────────────────────────────────────
 
-const USE_YOUTUBE = !!process.env.YOUTUBE_API_KEY
+const USE_YOUTUBE = !!env.YOUTUBE_API_KEY
 const IS_DEV = process.env.NODE_ENV === "development"
 
 // ─── Normalization: DB rows → domain types ───────────────────────────────────

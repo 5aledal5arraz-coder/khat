@@ -5,6 +5,7 @@
  * reuses it so generators that haven't migrated yet continue to work.
  */
 
+import { env } from "@/lib/env"
 import type { ChatCompletion } from "openai/resources/chat/completions"
 import { getClient } from "@/lib/ai/client"
 import type {
@@ -18,7 +19,7 @@ export const openaiAdapter: ProviderAdapter = {
   provider: "openai",
 
   isAvailable() {
-    return Boolean(process.env.OPENAI_API_KEY)
+    return Boolean(env.OPENAI_API_KEY)
   },
 
   async execute(req: ResolvedRequest): Promise<AdapterResult> {

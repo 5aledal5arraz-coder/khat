@@ -1,3 +1,4 @@
+import { env } from "@/lib/env"
 import { NextResponse } from "next/server"
 import { requireAdminAPI } from "@/lib/api-utils"
 import { db, USE_DB } from "@/lib/db"
@@ -18,9 +19,9 @@ import {
 import { count, eq, desc, gte, sql } from "drizzle-orm"
 import { getChannelDetails, getChannelVideos, getChannelIdFromHandle, type YouTubeChannel } from "@/lib/youtube/client"
 
-const YOUTUBE_CHANNEL_ID = process.env.YOUTUBE_CHANNEL_ID || ""
-const YOUTUBE_CHANNEL_HANDLE = process.env.YOUTUBE_CHANNEL_HANDLE || ""
-const HAS_YOUTUBE = !!process.env.YOUTUBE_API_KEY && !!(YOUTUBE_CHANNEL_ID || YOUTUBE_CHANNEL_HANDLE)
+const YOUTUBE_CHANNEL_ID = env.YOUTUBE_CHANNEL_ID || ""
+const YOUTUBE_CHANNEL_HANDLE = env.YOUTUBE_CHANNEL_HANDLE || ""
+const HAS_YOUTUBE = !!env.YOUTUBE_API_KEY && !!(YOUTUBE_CHANNEL_ID || YOUTUBE_CHANNEL_HANDLE)
 
 interface DashboardData {
   // Platform overview

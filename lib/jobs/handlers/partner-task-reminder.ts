@@ -11,6 +11,7 @@
  * ensurePartnerTaskReminderSchedule().
  */
 
+import { env } from "@/lib/env"
 import { and, asc, eq, isNotNull, lte } from "drizzle-orm"
 import { db } from "@/lib/db"
 import { crmTasks } from "@/lib/db/schema/crm"
@@ -23,7 +24,7 @@ import { enqueueRecurringTick } from "../queue"
 const DAY_MS = 24 * 60 * 60 * 1000
 
 function adminFallback(): string {
-  return process.env.ADMIN_NOTIFY_EMAIL || "khatpodcast@hotmail.com"
+  return env.ADMIN_NOTIFY_EMAIL || "khatpodcast@hotmail.com"
 }
 
 export function reminderIntervalMs(): number {

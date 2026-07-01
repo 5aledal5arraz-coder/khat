@@ -1,9 +1,10 @@
+import { env } from "@/lib/env"
 import { NextRequest, NextResponse } from "next/server"
 import { getYouTubeId } from "@/lib/utils"
 import { createStudioSession, getStudioSessions, revalidateStudio } from "@/lib/studio"
 import { requireAdminAPI } from "@/lib/api-utils"
 
-const YOUTUBE_API_KEY = process.env.YOUTUBE_API_KEY
+const YOUTUBE_API_KEY = env.YOUTUBE_API_KEY
 
 /**
  * GET /api/admin/studio — list all studio sessions

@@ -1,6 +1,7 @@
 // Phase 2.0 Batch 2 — routed via the AI Router. The previously inline
 // prompt now lives in `lib/ai/prompts/guest-intelligence.ts` and is
 // snapshot-tested.
+import { env } from "@/lib/env"
 import { prepareTranscript } from "./client"
 import { runAiTask } from "@/lib/ai-router"
 import {
@@ -32,7 +33,7 @@ export async function generateGuestIntelligence(
   episodeIntelligence?: GlobalEpisodeIntelligence | null,
   eirContext?: EirContext,
 ): Promise<{ success: true; data: GuestIntelligenceData; raw?: Record<string, unknown>; runId?: string } | { success: false; error: string; runId?: string }> {
-  if (!process.env.OPENAI_API_KEY) {
+  if (!env.OPENAI_API_KEY) {
     return { success: false, error: "OPENAI_API_KEY غير مُعدّ" }
   }
 

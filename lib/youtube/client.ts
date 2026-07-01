@@ -1,4 +1,5 @@
-const YOUTUBE_API_KEY = process.env.YOUTUBE_API_KEY
+import { env } from "@/lib/env"
+const YOUTUBE_API_KEY = env.YOUTUBE_API_KEY
 const YOUTUBE_API_BASE = "https://www.googleapis.com/youtube/v3"
 
 export interface YouTubeChannel {
