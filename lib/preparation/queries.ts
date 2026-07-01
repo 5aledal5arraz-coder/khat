@@ -113,6 +113,7 @@ export async function forceSetStatus(
     .set({ status: next, updated_at: new Date() })
     .where(eq(episodePreparations.id, id))
     .returning()
+  await syncEirForPrepRow(row, next)
   return row ? mapRow(row) : null
 }
 
@@ -424,6 +425,7 @@ export async function setPreparationSection(
       .set({ status: auto, updated_at: new Date() })
       .where(eq(episodePreparations.id, id))
       .returning()
+    await syncEirForPrepRow(bumped, auto)
     return bumped ? mapRow(bumped) : updated
   }
   return updated
@@ -480,6 +482,27 @@ export async function setSectionStatus(
     .where(eq(episodePreparations.id, id))
 }
 
+/**
+ * Sync the linked EIR phase after ANY prep status change. Monotonic +
+ * non-blocking: a sync failure never fails the status write, and the EIR is
+ * never dragged backward. Every function that writes `episode_preparations.status`
+ * must call this — otherwise the EIR silently stalls (the bug this replaced:
+ * only manual review/approve synced, so a fully-prepared episode stayed at the
+ * `researching` phase forever).
+ */
+async function syncEirForPrepRow(
+  row: PrepRow | undefined,
+  status: PreparationStatus,
+): Promise<void> {
+  if (!row?.eir_id) return
+  try {
+    const { syncEirFromPrepStatus } = await import("@/lib/khat-brain")
+    await syncEirFromPrepStatus({ eirId: row.eir_id, status })
+  } catch (err) {
+    console.error("[khat-brain] prep status sync failed:", err)
+  }
+}
+
 export async function updatePreparationStatus(
   id: string,
   status: PreparationStatus,
@@ -495,19 +518,9 @@ export async function updatePreparationStatus(
     .where(eq(episodePreparations.id, id))
     .returning()
 
-  // Khat Brain — sync EIR phase. Done after the row update so the EIR
-  // never advances ahead of the recorded prep status. Non-blocking.
-  if (row?.eir_id) {
-    try {
-      const { syncEirFromPrepStatus } = await import("@/lib/khat-brain")
-      await syncEirFromPrepStatus({
-        eirId: row.eir_id,
-        status: status as "draft" | "reviewed" | "approved",
-      })
-    } catch (err) {
-      console.error("[khat-brain] prep status sync failed:", err)
-    }
-  }
+  // Sync EIR phase after the row update so it never advances ahead of the
+  // recorded prep status.
+  await syncEirForPrepRow(row, status)
 
   return row ? mapRow(row) : null
 }

@@ -28,5 +28,7 @@ export {
   getEirIdForEpisode,
   type WalkResult,
   type CollaborationRoomStatus,
-  type PreparationStatus,
 } from "./phase-sync"
+// PreparationStatus is owned by types/preparation.ts; re-exported here for the
+// callers that pull the phase-sync surface from a single barrel.
+export type { PreparationStatus } from "@/types/preparation"

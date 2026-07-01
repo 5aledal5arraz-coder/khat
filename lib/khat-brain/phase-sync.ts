@@ -27,6 +27,7 @@ import {
 import {
   getEpisodeIntelligenceRecord,
 } from "@/lib/eir"
+import type { PreparationStatus } from "@/types/preparation"
 import { walkEirToPhase } from "./v2-bridge"
 
 // ─── Status → phase mappings ───────────────────────────────────────────
@@ -49,27 +50,31 @@ export function roomStatusToPhase(
   }
 }
 
-export type PreparationStatus = "draft" | "reviewed" | "approved"
-
 /**
- * Map preparation.status → EIR phase.
+ * Map preparation.status → EIR phase. Covers all five prep statuses; the walk
+ * is monotonic, so mapping an early status to `researching` never drags the EIR
+ * backward.
  *
- *   - draft     → researching   (research happens during prep work)
- *   - reviewed  → prepared      (host has reviewed the questions)
- *   - approved  → prepared      (also prepared; ready_to_record only
- *                                triggers when a live recording room
- *                                exists — that's a separate signal)
+ *   - draft / researched → researching   (research is under way, or just
+ *                                          finished, but the full prep artifact
+ *                                          isn't ready — the EIR stays in the
+ *                                          researching phase until it is)
+ *   - prepared           → prepared      (all sections generated)
+ *   - reviewed           → prepared      (host has reviewed the questions)
+ *   - approved           → prepared      (ready_to_record only triggers when a
+ *                                          live recording room exists — a
+ *                                          separate signal)
  *
- * Note: the brief asked for "approved → ready_to_record if there's a
- * linked live session." We model that as: approved sets `prepared`
- * unconditionally; the room-creation code separately bumps to
- * `ready_to_record`. That keeps each transition driven by exactly one
- * signal, which makes the audit log clean.
+ * Before, `researched` and `prepared` had no case: prep would finish generating
+ * every section yet the EIR stayed stuck at `researching`, because the only
+ * syncs fired on manual review/approval.
  */
 export function prepStatusToPhase(status: PreparationStatus): EpisodePhase {
   switch (status) {
     case "draft":
+    case "researched":
       return "researching"
+    case "prepared":
     case "reviewed":
     case "approved":
       return "prepared"
