@@ -221,8 +221,9 @@ export async function generateHybridTopics(
   const rejected: HybridOutputTopic[] = []
   const seenTitles = new Set<string>()
 
-  // Lens-diversity tracker for tie-break scoring.
+  // Lens- + archetype-diversity trackers for tie-break scoring.
   const batchLensCounts = new Map<string, number>()
+  const batchArchetypeCounts = new Map<string, number>()
 
   // First pass: judge.
   const judged = (ai.parsed.topics as Array<Record<string, unknown>>).map(
@@ -249,11 +250,17 @@ export async function generateHybridTopics(
         }
         return { candidate, out, accepted: false }
       }
-      // Track for diversity scoring.
+      // Track for diversity scoring (lens + episode archetype).
       batchLensCounts.set(
         candidate.original_lens,
         (batchLensCounts.get(candidate.original_lens) ?? 0) + 1,
       )
+      if (candidate.archetype) {
+        batchArchetypeCounts.set(
+          candidate.archetype,
+          (batchArchetypeCounts.get(candidate.archetype) ?? 0) + 1,
+        )
+      }
       return { candidate, accepted: true, out: null as HybridOutputTopic | null }
     },
   )
@@ -267,6 +274,7 @@ export async function generateHybridTopics(
     const finalScore = rescoreHybridCandidate(j.candidate, {
       worked_report: inputs.worked_report,
       batchLensCounts,
+      batchArchetypeCounts,
     })
     const out: HybridOutputTopic = {
       ...j.candidate,
@@ -432,6 +440,8 @@ function coerceCandidate(raw: Record<string, unknown>): HybridCandidate {
     suggested_episode_type: s("suggested_episode_type"),
     suggested_topic_domain: s("suggested_topic_domain"),
     estimated_strength_score: Number.isFinite(n) ? Math.max(0, Math.min(1, n)) : 0,
+    archetype: s("archetype") || undefined,
+    novelty_note: s("novelty_note") || undefined,
   }
 }
 

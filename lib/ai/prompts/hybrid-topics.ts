@@ -14,8 +14,19 @@ import { HYBRID_INPUT_CAPS } from "@/lib/hybrid-topics/inputs"
 import type { EditorialLens } from "@/lib/original-thinking/lenses"
 import type { TopClusterSummary } from "@/lib/market-intelligence/queries"
 import type { WorkedReport } from "@/lib/khat-brain/performance-learning"
+import {
+  ARCHETYPE_FIELD_SPEC,
+  buildArchetypesBlock,
+  buildOriginalityBlock,
+  buildBannedShapesBlock,
+  buildBoldnessDialBlock,
+  buildResonanceEngineBlock,
+} from "@/lib/khat-map/v2/creative-brief"
 
-export const HYBRID_TOPICS_PROMPT_VERSION = "hybrid-topics-v1.0"
+// v2 = the shared creative brief (archetypes / boldness / anti-cliché / novelty /
+// diversity) is now applied here too, so the guided hybrid engine and the
+// editorial batch engine produce equally diverse, original topics.
+export const HYBRID_TOPICS_PROMPT_VERSION = "hybrid-topics-v2.0-creative"
 
 export interface HybridPromptInput {
   language: "ar" | "en"
@@ -105,16 +116,28 @@ export function buildHybridTopicsPrompt(
     "Your job: take REAL market signals (what audiences engage with) and",
     "ELEVATE them through editorial lenses to produce topics that are",
     "neither generic copies of trending content nor disconnected lens-only",
-    "philosophy.",
+    "philosophy. Market signals are RAW MATERIAL — shape them into diverse,",
+    "original episodes using the creative brief below.",
+    "",
+    // Shared creative doctrine — identical to the editorial batch engine.
+    buildOriginalityBlock(),
+    "",
+    buildBannedShapesBlock(),
+    "",
+    buildArchetypesBlock(),
+    "",
+    buildBoldnessDialBlock(),
+    "",
+    buildResonanceEngineBlock(),
     "",
     "ABSOLUTE RULES",
     "1. Output JSON only. Shape: { topics: [ {",
-    "     title, why_it_matters, why_now, emotional_hook,",
+    "     title, archetype, novelty_note, why_it_matters, why_now, emotional_hook,",
     "     conflict_angle, market_inspiration, primary_theme, original_lens,",
     "     suggested_episode_type, suggested_topic_domain,",
     "     estimated_strength_score",
     "   } ] }.",
-    `2. Each title MUST be in ${langLabel}.`,
+    `2. ALL reader-facing text — title, emotional_hook, conflict_angle, why_it_matters, why_now, novelty_note — MUST be written in ${langLabel}. Never write the hook or notes in English when the target is Arabic.`,
     "3. Every topic MUST set:",
     "   - original_lens to one of the registry KEYS below.",
     "   - market_inspiration: a sentence naming WHICH cluster/hook/emotion fed this topic.",
@@ -122,13 +145,14 @@ export function buildHybridTopicsPrompt(
     "   - suggested_episode_type drawn from: intellectual, social, psychological, personal_story, national, historical, economic, controversial, inspirational, mass_audience, signature_khat, invasion.",
     "   - suggested_topic_domain drawn from: philosophy, psychology, relationships, religion, identity_masculinity, money_career, technology_ai, internet_culture, crime_mystery, hidden_history, power_manipulation, parenting, kuwait_gulf, historical, social_issues, modern_society, emotions_inner_life, none.",
     "4. NEVER copy a market title. Transform it. The relationship between market_inspiration and title must NOT be a paraphrase.",
-    "5. Reject your own first draft if it sounds like self-help, listicle, or hustle-culture. No \"how to,\" no \"5 secrets,\" no \"unlock your.\"",
+    "5. Reject your own first draft if it sounds like self-help, listicle, hustle-culture, or any BANNED shape above. No \"how to,\" no \"5 secrets,\" no \"unlock your,\" no \"الخليج + macro trend\" panels.",
     "6. " + kuwaitDirective,
     "7. The conflict_angle MUST name a specific tension, not a vague theme.",
     "8. The emotional_hook MUST be a sentence that would make a thoughtful person stop scrolling — never \"in this episode we explore.\"",
     "9. estimated_strength_score is your honest 0..1 estimate of editorial strength.",
     "10. Distribute across multiple lenses (no single lens > 40% of the batch).",
-    "11. Aim to return the full requested count. Drop a topic ONLY if it would duplicate the EXCLUDED list or violate rules 1–10. Reaching for a slightly weaker but still honest angle is preferred over silently under-delivering.",
+    "11. Aim to return the full requested count. Drop a topic ONLY if it would duplicate the EXCLUDED list or violate rules 1–12. Reaching for a slightly weaker but still honest angle is preferred over silently under-delivering.",
+    `12. Every topic MUST set an \`archetype\` (${ARCHETYPE_FIELD_SPEC}) and a one-line \`novelty_note\` (why this angle is fresh, not the done-to-death version). The batch MUST span at least 4 different archetypes — stacking one shape (e.g. all big_idea panels) is a failed batch.`,
     "",
     "EDITORIAL LENS REGISTRY (always available):",
     lensRegistry,

@@ -32,6 +32,14 @@ import { KNOWLEDGE_UNIVERSE } from "./knowledge-universe"
 import { THINKING_LENSES } from "./lenses"
 import { buildHeadlinePrinciplesBlock } from "./headline-principles"
 import { buildPodcastPrinciplesBlock } from "./podcast-principles"
+import {
+  ARCHETYPE_FIELD_SPEC,
+  buildArchetypesBlock,
+  buildOriginalityBlock,
+  buildBannedShapesBlock,
+  buildBoldnessDialBlock,
+  buildResonanceEngineBlock,
+} from "./creative-brief"
 import { SUCCESS_DIMENSION_LABELS_AR } from "./success-score"
 import type { SeasonCategoryId } from "./categories"
 import type { KhatMapInvasionPolicy } from "@/types/khat-map"
@@ -55,7 +63,7 @@ const TITLE_FIELDS = `{
 
 const TOPIC_FIELDS = `{
     "working_title": string (Arabic — the clear editorial spine of the episode),
-    "archetype": one of "personal_story"|"hidden_world"|"contrarian"|"taboo"|"investigation"|"cultural_moment"|"big_idea"|"reframe"|"provocation" (the SHAPE of the episode — see the archetype menu),
+    "archetype": ${ARCHETYPE_FIELD_SPEC} — see the archetype menu,
     "novelty_note": string (Arabic — why THIS angle is fresh: what the done-to-death version would have been, and why yours isn't it),
     "category": string (best-fit snake_case id from the menu — a loose COVERAGE tag, not a cage),
     "subcategory": string (best-fit subcategory id from that category, OR "off_map" if this idea genuinely doesn't fit any existing one — off-map is welcome, it means you found fresh ground),
@@ -121,35 +129,6 @@ export function buildLensesBlock(): string {
   ].join("\n")
 }
 
-// The nine episode SHAPES. A great season is diverse in shape, not just subject.
-function buildArchetypesBlock(): string {
-  return [
-    "# Episode Archetypes — the SHAPE of an episode (span them; don't stack one)",
-    "Subject ≠ shape. Two episodes about 'money' can be a personal-story and an",
-    "investigation — utterly different experiences. Pick the archetype that makes each",
-    "idea magnetic, and make the BATCH span many archetypes. Repeating one shape (esp.",
-    "the abstract 'big_idea' panel) is the #1 way a season feels samey.",
-    "",
-    "  · personal_story — one human at the centre: a lived experience, a transformation,",
-    "                     a life most listeners have never lived from the inside.",
-    "  · hidden_world   — a subculture, profession, or system outsiders never see: how it",
-    "                     really works, its unwritten rules, who wins and who loses.",
-    "  · contrarian     — challenges something 'everyone knows'. The counter-intuitive",
-    "                     truth, argued credibly — not contrarian for its own sake.",
-    "  · taboo          — عيب: what people avoid saying out loud in Gulf/Arab society, opened",
-    "                     with honesty and care (not shock). The relief of naming it.",
-    "  · investigation  — a mystery, an unexplained pattern, a 'how did this happen': true-",
-    "                     crime energy, a thread pulled until something surprising appears.",
-    "  · cultural_moment— a live phenomenon reshaping how people think, love, work, or",
-    "                     believe RIGHT NOW — captured before anyone else names it.",
-    "  · big_idea       — a deep concept/question that reframes how you see the world. Use",
-    "                     sparingly and only when genuinely fresh — this is the overused one.",
-    "  · reframe        — take something utterly familiar and reveal it isn't what you",
-    "                     thought. The 'wait… really?' episode.",
-    "  · provocation    — a real two-sided tension people will argue about for days.",
-  ].join("\n")
-}
-
 function buildBoardBlock(invasionPolicy: KhatMapInvasionPolicy): string {
   const invasionLine =
     invasionPolicy === "required"
@@ -170,35 +149,14 @@ function buildBoardBlock(invasionPolicy: KhatMapInvasionPolicy): string {
     "they genuinely want to watch and debate, AND carry international appeal — a question the",
     "whole world cares about. The best Khat episodes are locally rooted and globally resonant.",
     "",
-    "## Originality is the job (read twice)",
-    "A batch of similar topics is a FAILURE, even if each one is individually fine. Your",
-    "FIRST idea for any theme is the one every other podcast already made — discard it and",
-    "find the specific, human, surprising version underneath. Aim for topics that make even",
-    "a well-read listener think 'I've never heard anyone talk about that' or 'wait, is that",
-    "true?'. Depth is universal: a science, business, or history idea can be as magnetic as",
-    "a psychology one — do NOT default to introspective/philosophical framing.",
+    // Shared creative doctrine — identical to the guided hybrid engine.
+    buildOriginalityBlock(),
     "",
-    "## BANNED shapes (the generic defaults — never pitch these)",
-    "- 'الخليج + [macro trend]' panels: post-oil economy, digital transformation, green",
-    "  transition, the future of jobs/AI, 'youth between ambition and frustration',",
-    "  'mental-health awareness' — these are the exact clichés that make a season feel dead.",
-    "- explainer-of-a-Wikipedia-topic; awareness-campaign framing; empty self-help /",
-    "  finance / wellness; low-value controversy for its own sake; anything shallow enough",
-    "  to be worthless in a year; clickbait / tabloid.",
-    "If your idea smells like a conference session or a newspaper op-ed headline, kill it.",
+    buildBannedShapesBlock(),
     "",
-    "## The boldness dial (this batch)",
-    "Aim ≈ 70% FRESH ANGLES ON RESONANT THEMES (proven to pull Arab listeners — taboo,",
-    "psychology, true-crime/mystery, power, identity, money, faith, love — but via an angle",
-    "nobody's done) + ≈ 30% WHITE SPACE (underexplored territory, contrarian takes, hidden",
-    "worlds). Include at least ONE genuine WILDCARD: a topic no other Arabic podcast would",
-    "think to make, that you'd personally fight to record. A safe batch is a failed batch.",
+    buildBoldnessDialBlock(),
     "",
-    "## The resonance engine (build each topic on at least one)",
-    "Great episodes run on a real ENGINE, not a subject label: a genuine tension · a personal",
-    "stake · a taboo named out loud · a hidden world opened · a credible contrarian claim · a",
-    "'wait, really?' reframe · a mystery pulled apart. If a topic has none of these, it's an",
-    "article, not an episode.",
+    buildResonanceEngineBlock(),
     "",
     "## Quality bar (do not cross)",
     "- a strong, credible guest must be plausible (feeds guest_potential honestly)",

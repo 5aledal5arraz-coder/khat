@@ -49,6 +49,10 @@ export interface HybridCandidate {
   suggested_episode_type: string
   suggested_topic_domain: string
   estimated_strength_score: number
+  /** Episode SHAPE (shared creative brief). Drives archetype-diversity in scoring. */
+  archetype?: string
+  /** One line: why this angle is fresh / not the done-to-death version. */
+  novelty_note?: string
 }
 
 export interface HybridJudgeContext extends NoveltyContext {

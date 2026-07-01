@@ -18,11 +18,16 @@ export interface ScoringContext {
   worked_report: WorkedReport
   /** Lens diversity bias — penalize the 4th, 5th… use of the same lens in one batch. */
   batchLensCounts: Map<string, number>
+  /** Archetype (episode-shape) diversity bias — penalize a repeated shape. */
+  batchArchetypeCounts?: Map<string, number>
 }
 
 const STRONG_DOMAIN_BONUS = 0.12
 const WEAK_DOMAIN_PENALTY = 0.08
 const LENS_REPEAT_PENALTY = 0.05
+// Archetype repeats bite sooner than lenses (fewer shapes; a repeated shape
+// hurts diversity more) — the 3rd use of a shape starts to ding.
+const ARCHETYPE_REPEAT_PENALTY = 0.06
 
 export function rescoreHybridCandidate(
   c: HybridCandidate,
@@ -46,6 +51,13 @@ export function rescoreHybridCandidate(
   // gets dinged so the editor sees variety).
   const lensCount = ctx.batchLensCounts.get(c.original_lens) ?? 0
   if (lensCount >= 3) score = clamp01(score - LENS_REPEAT_PENALTY * (lensCount - 2))
+
+  // Archetype-diversity penalty — the 3rd+ use of the same episode SHAPE is
+  // dinged so a batch spans shapes, not just subjects.
+  if (c.archetype && ctx.batchArchetypeCounts) {
+    const archCount = ctx.batchArchetypeCounts.get(c.archetype) ?? 0
+    if (archCount >= 2) score = clamp01(score - ARCHETYPE_REPEAT_PENALTY * (archCount - 1))
+  }
 
   return Number(score.toFixed(3))
 }
