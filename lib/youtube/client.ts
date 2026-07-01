@@ -81,6 +81,22 @@ export async function getChannelIdFromHandle(handle: string): Promise<string | n
 }
 
 /**
+ * Resolve a channel id by searching (last resort — search costs ~100 quota
+ * units vs 1 for forHandle). Returns the top channel match for the query.
+ */
+export async function getChannelIdFromSearch(query: string): Promise<string | null> {
+  const data = await fetchYouTube<{
+    items?: Array<{ id?: { channelId?: string } }>
+  }>("search", {
+    q: query,
+    type: "channel",
+    part: "id",
+    maxResults: "1",
+  })
+  return data.items?.[0]?.id?.channelId || null
+}
+
+/**
  * Get channel details
  */
 export async function getChannelDetails(channelId: string): Promise<YouTubeChannel | null> {

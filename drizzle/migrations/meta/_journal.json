@@ -57,6 +57,13 @@
       "when": 1782766141458,
       "tag": "0007_catchup_post_schema_tables",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1782939406660,
+      "tag": "0008_corpus_episodes",
+      "breakpoints": true
     }
   ]
 }
