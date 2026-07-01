@@ -78,6 +78,10 @@ async function generateCandidates(
     },
     prompt,
     expectJson: true,
+    // Editorial generation emits many rich candidates (archetype + novelty +
+    // full title set + 14 success dims each); it legitimately runs long, so it
+    // gets a wider budget than the 120s default to avoid a mid-generation timeout.
+    timeoutMs: editorial ? 220_000 : undefined,
     providerOptions: { temperature: editorial ? 0.85 : 0.8 },
   })
   if (r.status !== "succeeded" || r.parsed == null) {
@@ -169,10 +173,16 @@ function coerceCandidateList(parsed: unknown): unknown[] | null {
   if (Array.isArray(parsed)) return parsed
   if (!parsed || typeof parsed !== "object") return null
   const o = parsed as Record<string, unknown>
+  // Preferred wrappers first (json_object mode forces a top-level object).
+  if (Array.isArray(o.topics)) return o.topics
   if (Array.isArray(o.candidates)) return o.candidates
   for (const v of Object.values(o)) {
     if (Array.isArray(v)) return v
   }
+  // json_object mode sometimes returns a SINGLE item object instead of an array
+  // (no array-valued key anywhere) — a lone candidate or a lone court verdict.
+  // Treat it as a 1-item list rather than failing the whole batch.
+  if ("topic" in o || "working_title" in o || "verdict" in o || "index" in o) return [o]
   return null
 }
 
@@ -239,6 +249,8 @@ function normalizeRawCandidate(v: unknown): RawCandidate | null {
       viral_angle: asOptionalString(topic.viral_angle),
       debate_axis: asOptionalString(topic.debate_axis),
       // ─── Editorial engine fields (raw; clamped where consumed) ──────────────
+      archetype: asOptionalString(topic.archetype),
+      novelty_note: asOptionalString(topic.novelty_note),
       subcategory: asOptionalString(topic.subcategory),
       lenses: asStringArray(topic.lenses),
       global_note: asOptionalString(topic.global_note),

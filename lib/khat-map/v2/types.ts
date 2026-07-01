@@ -64,6 +64,15 @@ export interface RawTopic {
   /** The core tension viewers would argue about — fuels conversation. */
   debate_axis: string | null
   // ─── Editorial engine fields (the upgrade — all optional, back-compat) ──────
+  /**
+   * The episode's SHAPE, independent of subject: personal_story | hidden_world |
+   * contrarian | taboo | investigation | cultural_moment | big_idea | reframe |
+   * provocation. Drives archetype-diversity in selection so a batch spans shapes
+   * instead of stacking "big macro issue" panels.
+   */
+  archetype?: string | null
+  /** One line: why this angle is fresh / not the done-to-death version. */
+  novelty_note?: string | null
   /** Finer classification under the category (knowledge-universe subcategory id). */
   subcategory?: string | null
   /** 2-5 thinking-lens ids the idea is refracted through. */

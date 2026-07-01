@@ -1,17 +1,25 @@
 /**
  * Editorial generation prompt — the world-class editorial intelligence engine.
  *
- * This is the upgrade's heart. The model is asked to think simultaneously as a
- * global podcast strategist, a GCC cultural editor, a newspaper headline editor,
- * a YouTube strategist, and a skeptical executive producer. It draws from the
- * Knowledge Universe (category + a sharp subcategory) and refracts each idea
- * through several Thinking Lenses; writes a full headline set under the headline
- * principles; and scores every idea honestly on the 14 success dimensions while
- * answering the editorial-court questions about itself.
+ * The model thinks at once as a global podcast strategist, a GCC cultural editor,
+ * a newspaper headline editor, a YouTube strategist, and a skeptical executive
+ * producer. It uses the Knowledge Universe as INSPIRATION (not a cage), refracts
+ * each idea through Thinking Lenses, writes a full headline set, and scores every
+ * idea on the 14 success dimensions.
  *
- * The separate, second-pass Editorial Court (prompts-court.ts) then interrogates
- * and re-calibrates the pool. Together they replace "assign a category + score 9
- * RAF factors" with a real editorial process.
+ * Phase A (creativity redesign) changes vs. the original:
+ *   • The taxonomy is inspiration + a coverage tag, NOT a menu the idea must fit.
+ *     Off-map ideas are welcomed (they're the fresh ground — and, later, the
+ *     signal that the Living Knowledge Universe should grow a new subcategory).
+ *   • Every topic declares an ARCHETYPE (its shape). A batch must span archetypes
+ *     instead of stacking "big macro issue" panels.
+ *   • A boldness dial (~70% fresh-angle-on-resonant + ~30% white-space/wildcards)
+ *     + hard anti-cliché rules that ban the generic default shapes.
+ *   • Diversity + originality are the JOB, not a constraint to grudgingly respect.
+ *
+ * The separate Editorial Court (prompts-court.ts) then interrogates the pool;
+ * selection (batch-engine + select-by-potential) keeps semantic + archetype
+ * spread rather than ranking everything toward a safe centre.
  *
  * Pure string builders. No I/O.
  */
@@ -47,8 +55,10 @@ const TITLE_FIELDS = `{
 
 const TOPIC_FIELDS = `{
     "working_title": string (Arabic — the clear editorial spine of the episode),
-    "category": string (exact snake_case id from the category menu),
-    "subcategory": string (exact snake_case id from that category's subcategory list),
+    "archetype": one of "personal_story"|"hidden_world"|"contrarian"|"taboo"|"investigation"|"cultural_moment"|"big_idea"|"reframe"|"provocation" (the SHAPE of the episode — see the archetype menu),
+    "novelty_note": string (Arabic — why THIS angle is fresh: what the done-to-death version would have been, and why yours isn't it),
+    "category": string (best-fit snake_case id from the menu — a loose COVERAGE tag, not a cage),
+    "subcategory": string (best-fit subcategory id from that category, OR "off_map" if this idea genuinely doesn't fit any existing one — off-map is welcome, it means you found fresh ground),
     "lenses": string[] (2-5 lens ids from the lens menu — the angles that truly sharpen THIS idea),
     "hook": string (Arabic — the opening tension that grabs attention),
     "why_matters": string (Arabic),
@@ -81,9 +91,12 @@ const CANDIDATE_SHAPE = `{
 
 export function buildKnowledgeUniverseBlock(): string {
   const lines: string[] = [
-    "# Knowledge Universe — choose a category AND a sharp subcategory",
-    "Pick the best-fit `category` id, then the best-fit `subcategory` id UNDER it. The",
-    "subcategory is where the real idea lives — it forces you past the obvious episode.",
+    "# Knowledge Universe — INSPIRATION + a coverage map (NOT a cage)",
+    "This is Khat's map of what it cares about. Use it two ways: (1) as a springboard —",
+    "a subcategory should spark a specific, surprising idea, never a topic that just",
+    "restates the label; (2) as a COVERAGE tag so the season stays balanced. You are NOT",
+    "limited to it: if the best idea doesn't fit any subcategory, tag `subcategory:\"off_map\"`",
+    "and pick the closest category — off-map ideas are exactly the fresh ground we want.",
     "",
   ]
   for (const cat of SEASON_CATEGORIES) {
@@ -108,6 +121,35 @@ export function buildLensesBlock(): string {
   ].join("\n")
 }
 
+// The nine episode SHAPES. A great season is diverse in shape, not just subject.
+function buildArchetypesBlock(): string {
+  return [
+    "# Episode Archetypes — the SHAPE of an episode (span them; don't stack one)",
+    "Subject ≠ shape. Two episodes about 'money' can be a personal-story and an",
+    "investigation — utterly different experiences. Pick the archetype that makes each",
+    "idea magnetic, and make the BATCH span many archetypes. Repeating one shape (esp.",
+    "the abstract 'big_idea' panel) is the #1 way a season feels samey.",
+    "",
+    "  · personal_story — one human at the centre: a lived experience, a transformation,",
+    "                     a life most listeners have never lived from the inside.",
+    "  · hidden_world   — a subculture, profession, or system outsiders never see: how it",
+    "                     really works, its unwritten rules, who wins and who loses.",
+    "  · contrarian     — challenges something 'everyone knows'. The counter-intuitive",
+    "                     truth, argued credibly — not contrarian for its own sake.",
+    "  · taboo          — عيب: what people avoid saying out loud in Gulf/Arab society, opened",
+    "                     with honesty and care (not shock). The relief of naming it.",
+    "  · investigation  — a mystery, an unexplained pattern, a 'how did this happen': true-",
+    "                     crime energy, a thread pulled until something surprising appears.",
+    "  · cultural_moment— a live phenomenon reshaping how people think, love, work, or",
+    "                     believe RIGHT NOW — captured before anyone else names it.",
+    "  · big_idea       — a deep concept/question that reframes how you see the world. Use",
+    "                     sparingly and only when genuinely fresh — this is the overused one.",
+    "  · reframe        — take something utterly familiar and reveal it isn't what you",
+    "                     thought. The 'wait… really?' episode.",
+    "  · provocation    — a real two-sided tension people will argue about for days.",
+  ].join("\n")
+}
+
 function buildBoardBlock(invasionPolicy: KhatMapInvasionPolicy): string {
   const invasionLine =
     invasionPolicy === "required"
@@ -128,15 +170,39 @@ function buildBoardBlock(invasionPolicy: KhatMapInvasionPolicy): string {
     "they genuinely want to watch and debate, AND carry international appeal — a question the",
     "whole world cares about. The best Khat episodes are locally rooted and globally resonant.",
     "",
-    "## Depth is universal",
-    "A science, business, health, finance, technology, history, or culture topic can be exactly",
-    "as deep, timeless, and magnetic as a psychology or philosophy one. Do NOT default to",
-    "introspective/philosophical framing — explore each idea on its own terms.",
+    "## Originality is the job (read twice)",
+    "A batch of similar topics is a FAILURE, even if each one is individually fine. Your",
+    "FIRST idea for any theme is the one every other podcast already made — discard it and",
+    "find the specific, human, surprising version underneath. Aim for topics that make even",
+    "a well-read listener think 'I've never heard anyone talk about that' or 'wait, is that",
+    "true?'. Depth is universal: a science, business, or history idea can be as magnetic as",
+    "a psychology one — do NOT default to introspective/philosophical framing.",
+    "",
+    "## BANNED shapes (the generic defaults — never pitch these)",
+    "- 'الخليج + [macro trend]' panels: post-oil economy, digital transformation, green",
+    "  transition, the future of jobs/AI, 'youth between ambition and frustration',",
+    "  'mental-health awareness' — these are the exact clichés that make a season feel dead.",
+    "- explainer-of-a-Wikipedia-topic; awareness-campaign framing; empty self-help /",
+    "  finance / wellness; low-value controversy for its own sake; anything shallow enough",
+    "  to be worthless in a year; clickbait / tabloid.",
+    "If your idea smells like a conference session or a newspaper op-ed headline, kill it.",
+    "",
+    "## The boldness dial (this batch)",
+    "Aim ≈ 70% FRESH ANGLES ON RESONANT THEMES (proven to pull Arab listeners — taboo,",
+    "psychology, true-crime/mystery, power, identity, money, faith, love — but via an angle",
+    "nobody's done) + ≈ 30% WHITE SPACE (underexplored territory, contrarian takes, hidden",
+    "worlds). Include at least ONE genuine WILDCARD: a topic no other Arabic podcast would",
+    "think to make, that you'd personally fight to record. A safe batch is a failed batch.",
+    "",
+    "## The resonance engine (build each topic on at least one)",
+    "Great episodes run on a real ENGINE, not a subject label: a genuine tension · a personal",
+    "stake · a taboo named out loud · a hidden world opened · a credible contrarian claim · a",
+    "'wait, really?' reframe · a mystery pulled apart. If a topic has none of these, it's an",
+    "article, not an episode.",
     "",
     "## Quality bar (do not cross)",
-    "- no shallow trend-chasing worthless in a year; no clickbait / tabloid framing",
-    "- no low-value controversy for its own sake; no empty self-help / finance / wellness clichés",
-    "- a strong, credible guest must be plausible (this feeds guest_potential honestly)",
+    "- a strong, credible guest must be plausible (feeds guest_potential honestly)",
+    "- bold ≠ reckless: highly_sensitive is allowed but must be handled with care, not shock",
     "",
     "## Identity anchors (across the season)",
     invasionLine,
@@ -162,7 +228,7 @@ export function buildEditorialSystemPrompt(input: CandidateGenInput): string {
       ? `Already well-covered this season (find FRESH ground elsewhere): ${over
           .map((id) => categoryLabel(id))
           .join("، ")}.`
-      : "Nothing is over-covered yet — range widely across categories AND subcategories."
+      : "Nothing is over-covered yet — range widely across categories, subcategories, AND archetypes."
 
   const successMenu = Object.entries(SUCCESS_DIMENSION_LABELS_AR)
     .map(([k, ar]) => `  · ${k} (${ar})`)
@@ -170,6 +236,8 @@ export function buildEditorialSystemPrompt(input: CandidateGenInput): string {
 
   return [
     buildBoardBlock(input.invasion_policy),
+    "",
+    buildArchetypesBlock(),
     "",
     buildKnowledgeUniverseBlock(),
     "",
@@ -180,21 +248,24 @@ export function buildEditorialSystemPrompt(input: CandidateGenInput): string {
     buildPodcastPrinciplesBlock(),
     "",
     "## Your task",
-    `Propose ${input.target_count} of the STRONGEST possible Khat episode opportunities — each`,
-    `locally magnetic for the GCC AND globally resonant. These are TOPICS only (no guests).`,
-    "For EACH idea you must:",
-    "1. Choose a category + a precise subcategory from the Knowledge Universe.",
-    "2. Refract it through 2-5 thinking lenses that genuinely sharpen it.",
-    "3. Write a full title set (one per angle) and recommend the strongest with a reason.",
-    "4. Answer the self-critique (why this topic, why now, the debate, the hook, why it succeeds).",
-    "5. Score all 14 success dimensions HONESTLY for a real Khat episode:",
+    `Propose ${input.target_count} Khat episode opportunities that are DIVERSE in shape and`,
+    `genuinely original — each locally magnetic for the GCC AND globally resonant. TOPICS`,
+    `only (no guests). For EACH idea:`,
+    "1. Choose an ARCHETYPE and make the batch span many (don't stack one shape).",
+    "2. Build it on a real resonance engine (tension / stake / taboo / hidden world / reframe).",
+    "3. Tag a category + subcategory for coverage — or `\"off_map\"` if it's fresh ground.",
+    "4. Refract it through 2-5 thinking lenses that genuinely sharpen it.",
+    "5. Write a full title set (one per angle) and recommend the strongest with a reason.",
+    "6. Answer the self-critique (why this, why now, the debate, the hook, why it's fresh).",
+    "7. Score all 14 success dimensions HONESTLY for a real Khat episode:",
     successMenu,
-    "   Use the full range — a niche idea can score low on click even if you like it. Be a",
-    "   discerning producer, not a cheerleader. brand_alignment is the quality gate.",
+    "   Use the full range — a bold/niche idea can score low on click yet be worth making.",
+    "   brand_alignment + originality are the gates. Be a discerning producer, not a cheerleader.",
     "",
-    "## On diversity (a constraint, not the goal)",
-    "Episode potential comes first. Do NOT fill quotas. But range naturally — a great board",
-    "doesn't pitch ten psychology ideas. Spread across categories AND subcategories.",
+    "## On diversity (this IS the goal, not a side constraint)",
+    "Range across archetypes AND subjects. A great board does NOT pitch ten variations of one",
+    "theme. If two of your ideas could share a guest or a headline, one of them is redundant —",
+    "replace it. Spread across categories, subcategories, and especially archetypes.",
     overLine,
     "",
     "## Already chosen for this season (do NOT duplicate or paraphrase)",
@@ -208,23 +279,28 @@ export function buildEditorialSystemPrompt(input: CandidateGenInput): string {
     ...controlBlocks.flatMap((b) => ["", b]),
     "",
     "## Ironclad rules",
-    "1. Optimize for the best GCC+global podcast season — strongest opportunities first.",
-    "2. category + subcategory ids must be EXACT snake_case ids from the menus (no Arabic, no brackets).",
-    "3. lenses must be 2-5 exact lens ids. Fill the full title set + all 14 success factors.",
-    "4. TOPICS ONLY — always emit `\"guest\": null`. Put any guest thought in `guest_idea`.",
-    "5. Respect the quality bar, identity anchors, editorial controls, and negative memory strictly.",
-    "6. Output JSON only — a top-level array of candidates. No prose outside the array.",
+    "1. Optimize for the best GCC+global podcast season — strongest, most ORIGINAL opportunities first.",
+    "2. Every topic needs an `archetype`; the batch must span at least 4 different archetypes.",
+    "3. category id must be an exact snake_case id from the menu; subcategory is an exact id OR \"off_map\".",
+    "4. lenses must be 2-5 exact lens ids. Fill the full title set + all 14 success factors.",
+    "5. TOPICS ONLY — always emit `\"guest\": null`. Put any guest thought in `guest_idea`.",
+    "6. Respect the BANNED shapes, quality bar, identity anchors, editorial controls, and negative memory strictly.",
+    '7. Output JSON only — a single object {"topics": [ ... ]} whose "topics" is the array of',
+    "   candidates. No prose outside the object. (JSON mode requires a top-level object.)",
     "",
     "## Output contract",
-    `Array<${CANDIDATE_SHAPE}>`,
+    `{ "topics": Array<${CANDIDATE_SHAPE}> }`,
   ].join("\n")
 }
 
 export function buildEditorialUserPrompt(input: CandidateGenInput): string {
   return [
-    `Produce ${input.target_count} of the strongest Khat episode opportunities — each locally`,
-    `magnetic for the GCC (KSA, Kuwait, Iraq, wider Gulf) AND globally resonant. For each:`,
-    `category + precise subcategory, 2-5 lenses, a full title set with a recommended pick, the`,
-    `self-critique, and all 14 success dimensions scored honestly. Respond with a JSON array only.`,
+    `Produce ${input.target_count} DIVERSE, original Khat episode opportunities — each locally`,
+    `magnetic for the GCC (KSA, Kuwait, Iraq, wider Gulf) AND globally resonant. Span at least`,
+    `4 archetypes, avoid the banned generic shapes, include at least one wildcard, and make`,
+    `every idea run on a real resonance engine. For each: archetype, a novelty note, category +`,
+    `subcategory (or "off_map"), 2-5 lenses, a full title set with a recommended pick, the`,
+    `self-critique, and all 14 success dimensions scored honestly. Respond with a single JSON`,
+    `object of the form {"topics": [ ... ]} — the array under "topics", nothing else.`,
   ].join("\n")
 }

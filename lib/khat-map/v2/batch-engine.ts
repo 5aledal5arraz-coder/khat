@@ -221,7 +221,7 @@ export async function generateBatch(
   // The editorial path asks for a diverse pool of high-potential ideas to rank +
   // diversity-filter (capped so one LLM call stays fast). Completion-mode
   // generates exactly `size` cards (slot-positional). Otherwise size × oversample.
-  const EDITORIAL_POOL_CAP = 10
+  const EDITORIAL_POOL_CAP = 8
   const targetCount = useEditorial
     ? Math.min(EDITORIAL_POOL_CAP, Math.max(8, size + 4))
     : input.required_roles && input.required_roles.length > 0

@@ -70,8 +70,9 @@ export function buildCourtSystemPrompt(threshold: number): string {
     "Always fill why_fail — even an accept has a risk worth naming.",
     "",
     "## Output",
-    "JSON only — a top-level array with ONE verdict per candidate, echoing each `index`.",
-    `Array<${VERDICT_SHAPE}>`,
+    'JSON only — a single object {"verdicts": [ ... ]} with ONE verdict per candidate,',
+    "echoing each `index`. No prose outside the object. (JSON mode requires an object.)",
+    `{ "verdicts": Array<${VERDICT_SHAPE}> }`,
   ].join("\n")
 }
 
@@ -94,7 +95,7 @@ export function buildCourtUserPrompt(input: CourtInput): string {
 
   return [
     "Review this pool. Interrogate and re-score each idea, then return one verdict per",
-    "candidate (echo the index). Be the skeptic. JSON array only.",
+    'candidate (echo the index). Be the skeptic. Respond with {"verdicts": [ ... ]} only.',
     "",
     cards,
   ].join("\n")
