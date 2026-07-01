@@ -16,6 +16,7 @@
 // initializes the pg pool. No-op in production. See load-env.ts.
 import "./load-env"
 import { randomUUID } from "node:crypto"
+import { log } from "@/lib/log"
 import { validateEnv } from "@/lib/env"
 import {
   claimNextJob,
@@ -48,6 +49,7 @@ import {
 const POLL_MS = Number(process.env.WORKER_POLL_MS ?? 2000)
 const LEASE_MS = Number(process.env.WORKER_LEASE_MS ?? 300_000)
 const WORKER_ID = process.env.WORKER_ID ?? `worker-${randomUUID().slice(0, 8)}`
+const wlog = log.child(WORKER_ID)
 
 // ─── Retry backoff ───────────────────────────────────────────────────
 // A failed job must NOT retry immediately — that burns all max_attempts in
@@ -137,8 +139,8 @@ function assertTimeoutKeysAreRegistered(): void {
   const registered = new Set(listRegisteredTypes())
   const stray = Object.keys(HANDLER_TIMEOUT_MS).filter((t) => !registered.has(t))
   if (stray.length > 0) {
-    console.warn(
-      `[${WORKER_ID}] HANDLER_TIMEOUT_MS has ${stray.length} key(s) with no registered handler: ${stray.join(", ")}. ` +
+    wlog.warn(
+      `HANDLER_TIMEOUT_MS has ${stray.length} key(s) with no registered handler: ${stray.join(", ")}. ` +
         `These are dead — the handlers they were meant to cap are running on the ${DEFAULT_HANDLER_TIMEOUT_MS / 60_000}-min default.`,
     )
   }
@@ -150,8 +152,8 @@ async function processOne(): Promise<boolean> {
   const job = await claimNextJob(WORKER_ID)
   if (!job) return false
 
-  console.log(
-    `[${WORKER_ID}] running ${job.type} (id=${job.id} attempt=${job.attempts}/${job.max_attempts})`,
+  wlog.info(
+    `running ${job.type} (id=${job.id} attempt=${job.attempts}/${job.max_attempts})`,
   )
 
   // P2.3.c — mirror claim to unified event log. Fire-and-forget.
@@ -178,7 +180,7 @@ async function processOne(): Promise<boolean> {
   if (!handler) {
     const message = `No handler registered for job type "${job.type}"`
     const outcome = await failJob(job.id, message)
-    console.error(`[${WORKER_ID}] no handler for "${job.type}"`)
+    wlog.error(`no handler for "${job.type}"`)
     if (outcome.status === "dead") {
       void emitSystemEvent(
         buildJobsDeadEvent({
@@ -242,8 +244,8 @@ async function processOne(): Promise<boolean> {
     () => {
       const elapsed = Date.now() - handlerStart
       if (elapsed > timeoutMs) {
-        console.warn(
-          `[${WORKER_ID}] late-arrived handler completion for ${job.id} ` +
+        wlog.warn(
+          `late-arrived handler completion for ${job.id} ` +
             `(elapsed=${elapsed}ms, budget=${timeoutMs}ms) — result discarded`,
         )
       }
@@ -252,8 +254,8 @@ async function processOne(): Promise<boolean> {
       const elapsed = Date.now() - handlerStart
       if (elapsed > timeoutMs) {
         const msg = err instanceof Error ? err.message : String(err)
-        console.warn(
-          `[${WORKER_ID}] late-arrived handler rejection for ${job.id} ` +
+        wlog.warn(
+          `late-arrived handler rejection for ${job.id} ` +
             `(elapsed=${elapsed}ms, budget=${timeoutMs}ms): ${msg} — already failed via timeout`,
         )
       }
@@ -270,7 +272,7 @@ async function processOne(): Promise<boolean> {
       job.id,
       (result ?? null) as Record<string, unknown> | null,
     )
-    console.log(`[${WORKER_ID}] succeeded ${job.id}`)
+    wlog.info(`succeeded ${job.id}`)
     void emitSystemEvent(
       buildJobsSucceededEvent({
         job_id: job.id,
@@ -287,11 +289,11 @@ async function processOne(): Promise<boolean> {
     // max_attempts instantly. failJob ignores run_after once the job is dead.
     const outcome = await failJob(job.id, message, computeRetryAfter(job.attempts))
     if (isTimeout) {
-      console.error(
-        `[${WORKER_ID}] TIMEOUT ${job.id}: ${message} — flowing through failJob (attempts=${outcome.attempts}/${outcome.max_attempts})`,
+      wlog.error(
+        `TIMEOUT ${job.id}: ${message} — flowing through failJob (attempts=${outcome.attempts}/${outcome.max_attempts})`,
       )
     } else {
-      console.error(`[${WORKER_ID}] failed ${job.id}: ${message}`)
+      wlog.error(`failed ${job.id}: ${message}`)
     }
     if (outcome.status === "dead") {
       void emitSystemEvent(
@@ -328,7 +330,7 @@ async function loop(): Promise<void> {
       if (Date.now() - lastReclaimAt > LEASE_MS) {
         const reclaimed = await reclaimStaleJobs(LEASE_MS)
         if (reclaimed.length > 0) {
-          console.log(`[${WORKER_ID}] reclaimed ${reclaimed.length} stale job(s)`)
+          wlog.info(`reclaimed ${reclaimed.length} stale job(s)`)
           // P2.3.c — emit one event per reclaimed row.
           for (const row of reclaimed) {
             void emitSystemEvent(
@@ -354,8 +356,8 @@ async function loop(): Promise<void> {
         ensureAiRunsSweeperSchedule()
           .then((r) => {
             if (r.status === "bootstrapped") {
-              console.log(
-                `[${WORKER_ID}] ai-runs-sweeper re-scheduled` +
+              wlog.info(
+                `ai-runs-sweeper re-scheduled` +
                   (r.jobId ? ` (job=${r.jobId.slice(0, 8)})` : ""),
               )
               // P2.3.c — periodic re-bootstrap is the rare "missed tick"
@@ -374,8 +376,8 @@ async function loop(): Promise<void> {
             }
           })
           .catch((err) =>
-            console.error(
-              `[${WORKER_ID}] ai-runs-sweeper re-schedule failed:`,
+            wlog.error(
+              `ai-runs-sweeper re-schedule failed:`,
               err,
             ),
           )
@@ -387,7 +389,7 @@ async function loop(): Promise<void> {
       }
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err)
-      console.error(`[${WORKER_ID}] loop error:`, msg)
+      wlog.error(`loop error:`, msg)
       await sleep(POLL_MS)
     }
   }
@@ -400,7 +402,7 @@ function sleep(ms: number): Promise<void> {
 function shutdown(reason: string): void {
   if (stopping) return
   stopping = true
-  console.log(`[${WORKER_ID}] shutting down (${reason})`)
+  wlog.info(`shutting down (${reason})`)
   // Give the in-flight job a moment to wrap up; we don't force-kill.
   setTimeout(() => process.exit(0), 1500)
 }
@@ -408,7 +410,7 @@ function shutdown(reason: string): void {
 process.on("SIGINT", () => shutdown("SIGINT"))
 process.on("SIGTERM", () => shutdown("SIGTERM"))
 
-console.log(`[${WORKER_ID}] starting (poll=${POLL_MS}ms lease=${LEASE_MS}ms)`)
+wlog.info(`starting (poll=${POLL_MS}ms lease=${LEASE_MS}ms)`)
 
 // Fail hard on missing REQUIRED config (e.g. DATABASE_URL) — a worker without a
 // database is useless, so crash loudly at boot rather than on the first claim.
@@ -425,7 +427,7 @@ assertTimeoutKeysAreRegistered()
 reclaimStaleJobs(LEASE_MS)
   .then((reclaimed) => {
     if (reclaimed.length > 0) {
-      console.log(`[${WORKER_ID}] startup: reclaimed ${reclaimed.length} stale job(s)`)
+      wlog.info(`startup: reclaimed ${reclaimed.length} stale job(s)`)
       // P2.3.c — emit one event per reclaimed row.
       for (const row of reclaimed) {
         void emitSystemEvent(
@@ -441,7 +443,7 @@ reclaimStaleJobs(LEASE_MS)
     }
   })
   .catch((err) =>
-    console.error(`[${WORKER_ID}] startup reclaim failed:`, err),
+    wlog.error(`startup reclaim failed:`, err),
   )
 
 // Bootstrap the market-intelligence scheduler so it ticks daily
@@ -449,8 +451,8 @@ reclaimStaleJobs(LEASE_MS)
 // exists in the queue.
 ensureMarketScheduler()
   .then((r) => {
-    console.log(
-      `[${WORKER_ID}] market scheduler ${r.status}${r.jobId ? ` (job=${r.jobId.slice(0, 8)})` : ""}`,
+    wlog.info(
+      `market scheduler ${r.status}${r.jobId ? ` (job=${r.jobId.slice(0, 8)})` : ""}`,
     )
     // P2.3.c — only the "bootstrapped" branch is a meaningful event.
     // "already_scheduled" is a no-op and stays silent.
@@ -465,7 +467,7 @@ ensureMarketScheduler()
     }
   })
   .catch((err) =>
-    console.error(`[${WORKER_ID}] market scheduler bootstrap failed:`, err),
+    wlog.error(`market scheduler bootstrap failed:`, err),
   )
 
 // Phase 2.1 (P2.1.f) — bootstrap the ai-runs-sweeper schedule so the
@@ -473,8 +475,8 @@ ensureMarketScheduler()
 // (default 30 min). Idempotent.
 ensureAiRunsSweeperSchedule()
   .then((r) => {
-    console.log(
-      `[${WORKER_ID}] ai-runs-sweeper schedule ${r.status}${r.jobId ? ` (job=${r.jobId.slice(0, 8)})` : ""}`,
+    wlog.info(
+      `ai-runs-sweeper schedule ${r.status}${r.jobId ? ` (job=${r.jobId.slice(0, 8)})` : ""}`,
     )
     // P2.3.c — same gating pattern as the market scheduler above.
     if (r.status === "bootstrapped") {
@@ -492,8 +494,8 @@ ensureAiRunsSweeperSchedule()
     }
   })
   .catch((err) =>
-    console.error(
-      `[${WORKER_ID}] ai-runs-sweeper bootstrap failed:`,
+    wlog.error(
+      `ai-runs-sweeper bootstrap failed:`,
       err,
     ),
   )
@@ -502,8 +504,8 @@ ensureAiRunsSweeperSchedule()
 // follow-ups get emailed daily. Handler self-re-enqueues; idempotent.
 ensurePartnerTaskReminderSchedule()
   .then((r) => {
-    console.log(
-      `[${WORKER_ID}] partner task-reminder schedule ${r.status}${r.jobId ? ` (job=${r.jobId.slice(0, 8)})` : ""}`,
+    wlog.info(
+      `partner task-reminder schedule ${r.status}${r.jobId ? ` (job=${r.jobId.slice(0, 8)})` : ""}`,
     )
     if (r.status === "bootstrapped") {
       const intervalMs = Number(
@@ -520,15 +522,15 @@ ensurePartnerTaskReminderSchedule()
     }
   })
   .catch((err) =>
-    console.error(`[${WORKER_ID}] partner task-reminder bootstrap failed:`, err),
+    wlog.error(`partner task-reminder bootstrap failed:`, err),
   )
 
 // Bootstrap the market source-feedback sweep (performance → source trust).
 // Handler self-re-enqueues daily; idempotent.
 ensureSourceFeedbackSchedule()
   .then((r) => {
-    console.log(
-      `[${WORKER_ID}] source-feedback schedule ${r.status}${r.jobId ? ` (job=${r.jobId.slice(0, 8)})` : ""}`,
+    wlog.info(
+      `source-feedback schedule ${r.status}${r.jobId ? ` (job=${r.jobId.slice(0, 8)})` : ""}`,
     )
     if (r.status === "bootstrapped") {
       void emitSystemEvent(
@@ -541,10 +543,10 @@ ensureSourceFeedbackSchedule()
     }
   })
   .catch((err) =>
-    console.error(`[${WORKER_ID}] source-feedback bootstrap failed:`, err),
+    wlog.error(`source-feedback bootstrap failed:`, err),
   )
 
 loop().catch((err) => {
-  console.error(`[${WORKER_ID}] fatal:`, err)
+  wlog.error(`fatal:`, err)
   process.exit(1)
 })
