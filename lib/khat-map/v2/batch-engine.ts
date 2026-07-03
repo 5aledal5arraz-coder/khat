@@ -29,6 +29,7 @@ import {
   khatMapSeasonDecisions,
 } from "@/lib/db/schema/khat-map"
 import { getSeasonById } from "@/lib/khat-map/core/queries"
+import { getCorpusBrief } from "@/lib/corpus/brief"
 import { buildFingerprintText } from "@/lib/khat-map/learning/embeddings"
 import { listNegativeFingerprints } from "@/lib/khat-map/learning/fingerprints"
 import {
@@ -228,6 +229,11 @@ export async function generateBatch(
       ? Math.max(input.required_roles.length, size)
       : size * oversample
 
+  // Phase B — corpus intelligence grounds boldness/novelty in real data. Only
+  // the editorial path uses it; degrade gracefully to null if the corpus is
+  // unanalyzed or the read fails (generation still runs on the creative brief).
+  const corpusBrief = useEditorial ? await getCorpusBrief().catch(() => null) : null
+
   const genInput: CandidateGenInput = {
     season_id: input.season_id,
     target_count: targetCount,
@@ -241,6 +247,7 @@ export async function generateBatch(
     editorial_controls: controls,
     phase,
     extra_system_blocks: extraSystemBlocks,
+    corpus_brief: corpusBrief,
     editorial: useEditorial,
     accepted_category_counts: useEditorial ? acceptedByCategory : undefined,
     over_represented_categories: useEditorial

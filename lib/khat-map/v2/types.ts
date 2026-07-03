@@ -361,6 +361,13 @@ export interface CandidateGenInput {
    */
   extra_system_blocks?: string[]
   /**
+   * Corpus intelligence brief (Phase B) — what resonated / is saturated / is white
+   * space across the real Arabic-podcast corpus + Khat's own catalogue. Injected
+   * into the editorial prompt as evidence to ground boldness + novelty. Null/absent
+   * when the corpus hasn't been analyzed (graceful fallback to the pure brief).
+   */
+  corpus_brief?: string | null
+  /**
    * When true, the EDITORIAL engine runs — the world-class editorial intelligence
    * path: knowledge universe (category + subcategory) + thinking lenses + headline
    * craft + podcast strategy, emitting multiple titles, a self-critique, and the

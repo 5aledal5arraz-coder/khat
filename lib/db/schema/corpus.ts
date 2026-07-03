@@ -14,6 +14,50 @@
 
 import { pgTable, text, integer, bigint, real, boolean, timestamp, jsonb, index, uniqueIndex } from "drizzle-orm/pg-core"
 
+/**
+ * Living themes derived from the corpus (Phase B3). A projection recomputed from
+ * corpus_episodes, NOT hand-authored state — so it evolves as the corpus grows.
+ * Each theme carries the resonance / saturation / white-space signals the topic
+ * engines consume (B4) and the Living Knowledge Universe evolves from (Phase C).
+ */
+export const corpusThemes = pgTable(
+  "corpus_themes",
+  {
+    id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+    /** Stable slug for the theme (kebab), for joins + episode assignment. */
+    slug: text("slug").notNull().unique(),
+    label_ar: text("label_ar").notNull(),
+    description_ar: text("description_ar"),
+    /** Representative example titles (for the brief + operator review). */
+    example_titles: jsonb("example_titles").$type<string[]>().default([]),
+    keywords: jsonb("keywords").$type<string[]>().default([]),
+    /** Cluster centroid (for assigning new episodes without re-clustering). */
+    centroid: jsonb("centroid").$type<number[]>(),
+
+    // ─── Signals ────────────────────────────────────────────────────────────────
+    episode_count: integer("episode_count").notNull().default(0),
+    /** Distinct competitor sources covering this theme (breadth). */
+    source_count: integer("source_count").notNull().default(0),
+    /** How many of Khat's own episodes fall in this theme. */
+    khat_count: integer("khat_count").notNull().default(0),
+    /** Mean engagement_index of episodes in this theme (resonance, >1 = over-performs). */
+    mean_engagement: real("mean_engagement"),
+    median_engagement: real("median_engagement"),
+    /** 0-1 how much this theme over-performs across the ecosystem. */
+    resonance_score: real("resonance_score"),
+    /** 0-1 how saturated (many episodes across many shows). */
+    saturation_score: real("saturation_score"),
+    /** High resonance + low coverage (or a Khat gap) — an opportunity. */
+    is_white_space: boolean("is_white_space").notNull().default(false),
+
+    computed_at: timestamp("computed_at", { withTimezone: true }).defaultNow(),
+  },
+  (t) => [
+    index("idx_corpus_themes_resonance").on(t.resonance_score),
+    index("idx_corpus_themes_whitespace").on(t.is_white_space),
+  ],
+)
+
 export const corpusEpisodes = pgTable(
   "corpus_episodes",
   {

@@ -64,6 +64,22 @@ export async function embed(text: string): Promise<number[]> {
 }
 
 /**
+ * Embed many texts in chunks (the OpenAI embeddings endpoint takes an array).
+ * Returns vectors in the SAME order as `texts`. Empty strings are sent as a
+ * single space so the API never rejects the batch.
+ */
+export async function batchEmbed(texts: string[], chunkSize = 128): Promise<number[][]> {
+  const client = getClient()
+  const out: number[][] = new Array(texts.length)
+  for (let i = 0; i < texts.length; i += chunkSize) {
+    const slice = texts.slice(i, i + chunkSize).map((t) => (t.trim() ? t.slice(0, 2000) : " "))
+    const res = await client.embeddings.create({ model: EMBEDDING_MODEL, input: slice })
+    for (const item of res.data) out[i + item.index] = item.embedding
+  }
+  return out
+}
+
+/**
  * Cosine similarity of two equal-length vectors. Returns a value in
  * [-1, 1]; in practice OpenAI embeddings cluster tightly in [0, 1].
  * Throws on dimension mismatch — calling code should never pass
