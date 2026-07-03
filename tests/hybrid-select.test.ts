@@ -18,10 +18,16 @@ function norm(v: number[]): number[] {
   return v.map((x) => x / mag)
 }
 
-const item = (index: number, score: number, embedding: number[] | null): HybridSelectable => ({
+const item = (
+  index: number,
+  score: number,
+  embedding: number[] | null,
+  domain?: string,
+): HybridSelectable => ({
   index,
   score,
   embedding,
+  domain,
 })
 
 describe("selectHybridOrder", () => {
@@ -56,6 +62,19 @@ describe("selectHybridOrder", () => {
     const { ordered, dropped } = selectHybridOrder(items, null)
     expect(ordered).toEqual([1, 2, 0])
     expect(dropped).toEqual([])
+  })
+
+  it("pushes the 3rd+ topic of the same domain below a fresh-domain topic", () => {
+    // Semantically distinct (orthogonal embeddings) but all technology_ai —
+    // the live failure mode: fusion/privacy/automation piling up.
+    const tech1 = item(0, 0.9, [1, 0, 0, 0], "technology_ai")
+    const tech2 = item(1, 0.88, [0, 1, 0, 0], "technology_ai")
+    const tech3 = item(2, 0.86, [0, 0, 1, 0], "technology_ai")
+    const hist = item(3, 0.82, [0, 0, 0, 1], "hidden_history")
+    const { ordered, dropped } = selectHybridOrder([tech1, tech2, tech3, hist], null)
+    expect(dropped).toEqual([])
+    // 2nd tech is free; the 3rd is penalized below the hidden_history topic.
+    expect(ordered).toEqual([0, 1, 3, 2])
   })
 
   it("never drops the strongest topic even in a batch of near-duplicates", () => {

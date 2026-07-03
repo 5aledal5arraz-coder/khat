@@ -328,6 +328,7 @@ export async function generateHybridTopics(
           index,
           score: t.estimated_strength_score ?? 0,
           embedding: embeddings[index] ?? null,
+          domain: t.suggested_topic_domain,
         })),
         refs,
       )
@@ -497,6 +498,11 @@ async function callEditorialModel(args: {
 function coerceCandidate(raw: Record<string, unknown>): HybridCandidate {
   const s = (k: string) => String(raw[k] ?? "").trim()
   const n = Number(raw["estimated_strength_score"])
+  // episode_type / topic_domain are METADATA hints, not editorial quality —
+  // rejecting an otherwise-strong topic because the model dropped an enum
+  // wasted the batch's most diverse slots. Default instead of reject.
+  const rawType = s("suggested_episode_type")
+  const rawDomain = s("suggested_topic_domain")
   return {
     title: s("title"),
     why_it_matters: s("why_it_matters"),
@@ -508,8 +514,8 @@ function coerceCandidate(raw: Record<string, unknown>): HybridCandidate {
     // the feedback join simply finds no matching signals and skips.
     primary_theme: s("primary_theme") || "none",
     original_lens: s("original_lens"),
-    suggested_episode_type: s("suggested_episode_type"),
-    suggested_topic_domain: s("suggested_topic_domain"),
+    suggested_episode_type: VALID_EPISODE_TYPES.has(rawType) ? rawType : "intellectual",
+    suggested_topic_domain: VALID_TOPIC_DOMAINS.has(rawDomain) ? rawDomain : "none",
     estimated_strength_score: Number.isFinite(n) ? Math.max(0, Math.min(1, n)) : 0,
     archetype: s("archetype") || undefined,
     novelty_note: s("novelty_note") || undefined,

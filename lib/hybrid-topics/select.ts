@@ -32,6 +32,13 @@ export interface HybridSelectable {
   score: number
   /** Embedding of the topic (title+hook+conflict), or null when unavailable. */
   embedding: number[] | null
+  /**
+   * suggested_topic_domain — a topical FAMILY signal coarser than embeddings.
+   * Four technology topics can be semantically distinct (fusion / privacy /
+   * automation / AI-warfare) yet still make a batch feel tech-heavy; the
+   * domain-repeat penalty pushes the 2nd+ of a family down the ranking.
+   */
+  domain?: string | null
 }
 
 export interface HybridSelection {
@@ -49,6 +56,10 @@ const CORPUS_SAT_FLOOR = 0.55
 const CORPUS_SAT_WEIGHT = 0.35
 const CORPUS_WS_FLOOR = 0.55
 const CORPUS_WS_WEIGHT = 0.25
+// Domain family: the 2nd same-domain pick is free (domains legitimately recur),
+// the 3rd+ gets pushed down so one family can't dominate a batch. "none" and
+// missing domains are exempt — they carry no family signal.
+const DOMAIN_REPEAT_PENALTY = 0.08
 
 function maxSimToPicked(c: HybridSelectable, picked: HybridSelectable[]): number {
   if (!c.embedding || c.embedding.length === 0) return 0
@@ -78,13 +89,16 @@ export function selectHybridOrder(
     corpusAdj.set(c.index, sat - ws) // >0 penalizes, <0 boosts
   }
 
+  const domainCount = new Map<string, number>()
   while (remaining.length > 0) {
     let bestIdx = 0
     let bestAdjusted = -Infinity
     for (let i = 0; i < remaining.length; i++) {
       const c = remaining[i]
       const semantic = Math.max(0, maxSimToPicked(c, picked) - SEMANTIC_FLOOR) * SEMANTIC_WEIGHT
-      const adjusted = c.score - semantic - (corpusAdj.get(c.index) ?? 0)
+      const sameDomain = c.domain && c.domain !== "none" ? domainCount.get(c.domain) ?? 0 : 0
+      const domainPenalty = Math.max(0, sameDomain - 1) * DOMAIN_REPEAT_PENALTY
+      const adjusted = c.score - semantic - domainPenalty - (corpusAdj.get(c.index) ?? 0)
       if (adjusted > bestAdjusted) {
         bestAdjusted = adjusted
         bestIdx = i
@@ -98,6 +112,9 @@ export function selectHybridOrder(
       continue
     }
     picked.push(chosen)
+    if (chosen.domain && chosen.domain !== "none") {
+      domainCount.set(chosen.domain, (domainCount.get(chosen.domain) ?? 0) + 1)
+    }
   }
 
   return { ordered: picked.map((p) => p.index), dropped }
