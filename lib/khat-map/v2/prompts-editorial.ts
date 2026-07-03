@@ -40,6 +40,7 @@ import {
   buildBoldnessDialBlock,
   buildResonanceEngineBlock,
 } from "./creative-brief"
+import { renderExplorationBlock } from "./exploration"
 import { SUCCESS_DIMENSION_LABELS_AR } from "./success-score"
 import type { SeasonCategoryId } from "./categories"
 import type { KhatMapInvasionPolicy } from "@/types/khat-map"
@@ -197,6 +198,15 @@ export function buildEditorialSystemPrompt(input: CandidateGenInput): string {
     "",
     buildArchetypesBlock(),
     "",
+    ...(input.exploration_frames && input.exploration_frames.length > 0
+      ? [
+          renderExplorationBlock(input.exploration_frames),
+          "When a slot's territory is a Knowledge-Universe subcategory, use that exact id as",
+          'the topic\'s `subcategory` (and its parent as `category`); for a white-space territory',
+          'use the closest category + `"off_map"`. The slot\'s archetype is the topic\'s `archetype`.',
+          "",
+        ]
+      : []),
     buildKnowledgeUniverseBlock(),
     "",
     buildLensesBlock(),

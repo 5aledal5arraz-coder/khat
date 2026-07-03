@@ -366,6 +366,12 @@ export interface CandidateGenInput {
    */
   extra_system_blocks?: string[]
   /**
+   * Exploration map — per-slot (territory × archetype) assignments sampled by
+   * the harness from the Knowledge Universe + corpus white-space, skipping the
+   * season's already-explored territories. Forces each batch onto fresh ground.
+   */
+  exploration_frames?: import("./exploration").ExplorationFrame[]
+  /**
    * When true, the EDITORIAL engine runs — the world-class editorial intelligence
    * path: knowledge universe (category + subcategory) + thinking lenses + headline
    * craft + podcast strategy, emitting multiple titles, a self-critique, and the

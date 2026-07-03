@@ -89,7 +89,10 @@ export async function loadHybridInputs(opts: {
     consumedOriginals,
     tasteLookup,
   ] = await Promise.all([
-    getTopClusters(HYBRID_INPUT_CAPS.market_clusters),
+    // Over-fetch 3× the cap so a rotating SAMPLE feeds each run. Always taking
+    // the same deterministic top-12 was a root cause of repetitive output —
+    // identical market anchors every generation.
+    getTopClusters(HYBRID_INPUT_CAPS.market_clusters * 3),
     loadFreshOriginalTopics(opts.language, HYBRID_INPUT_CAPS.original_topics),
     buildWorkedReport(),
     loadCandidateTitles(),
@@ -110,7 +113,10 @@ export async function loadHybridInputs(opts: {
   // Filter market clusters by language. Fall back to all clusters if
   // the requested language has zero clusters yet.
   const clustersFiltered = clusters.filter((c) => c.language === opts.language)
-  const market_clusters = clustersFiltered.length > 0 ? clustersFiltered : clusters
+  const clusterPool = clustersFiltered.length > 0 ? clustersFiltered : clusters
+  // Rotate: sample the cap from the wider pool so consecutive runs see a
+  // different mix of market anchors instead of the same frozen list.
+  const market_clusters = sampleClusters(clusterPool, HYBRID_INPUT_CAPS.market_clusters)
 
   return {
     language: opts.language,
@@ -194,4 +200,21 @@ async function loadConsumedOriginalTitles(language: string): Promise<string[]> {
 
 function unique<T>(xs: T[]): T[] {
   return [...new Set(xs)]
+}
+
+/**
+ * Sample `limit` clusters from the pool: the top third is always kept (the
+ * strongest editorial signal shouldn't vanish), the rest of the slots are a
+ * random draw from the remainder — so consecutive runs see a varying mix.
+ */
+function sampleClusters<T>(pool: T[], limit: number): T[] {
+  if (pool.length <= limit) return pool
+  const keep = Math.ceil(limit / 3)
+  const head = pool.slice(0, keep)
+  const rest = pool.slice(keep)
+  for (let i = rest.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1))
+    ;[rest[i], rest[j]] = [rest[j], rest[i]]
+  }
+  return [...head, ...rest.slice(0, limit - keep)]
 }

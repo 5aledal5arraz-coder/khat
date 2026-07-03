@@ -30,6 +30,11 @@ import {
 } from "@/lib/db/schema/khat-map"
 import { getSeasonById } from "@/lib/khat-map/core/queries"
 import { getCorpusNoveltyRefs, corpusProximity } from "@/lib/corpus/novelty"
+import {
+  buildExplorationFrames,
+  loadUsedTerritoryIds,
+  loadWhiteSpaceThemes,
+} from "./exploration"
 import { buildFingerprintText } from "@/lib/khat-map/learning/embeddings"
 import { listNegativeFingerprints } from "@/lib/khat-map/learning/fingerprints"
 import {
@@ -229,6 +234,22 @@ export async function generateBatch(
       ? Math.max(input.required_roles.length, size)
       : size * oversample
 
+  // Exploration map (editorial path) — per-slot territories sampled from the
+  // Knowledge Universe + corpus white-space, minus this season's already-used
+  // territories, so consecutive batches explore fresh ground by construction.
+  let explorationFrames: CandidateGenInput["exploration_frames"]
+  if (useEditorial) {
+    const [usedTerritories, whiteSpace] = await Promise.all([
+      loadUsedTerritoryIds(input.season_id),
+      loadWhiteSpaceThemes(),
+    ])
+    explorationFrames = buildExplorationFrames({
+      count: targetCount,
+      usedTerritoryIds: usedTerritories,
+      whiteSpace,
+    })
+  }
+
   const genInput: CandidateGenInput = {
     season_id: input.season_id,
     target_count: targetCount,
@@ -242,6 +263,7 @@ export async function generateBatch(
     editorial_controls: controls,
     phase,
     extra_system_blocks: extraSystemBlocks,
+    exploration_frames: explorationFrames,
     editorial: useEditorial,
     accepted_category_counts: useEditorial ? acceptedByCategory : undefined,
     over_represented_categories: useEditorial

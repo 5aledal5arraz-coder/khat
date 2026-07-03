@@ -26,6 +26,11 @@ import { loadLenses } from "@/lib/original-thinking/lenses"
 import { enrichTopicsEditorially } from "@/lib/khat-map/v2/editorial-enrich"
 import { batchEmbed } from "@/lib/khat-map/learning/embeddings"
 import { getCorpusNoveltyRefs } from "@/lib/corpus/novelty"
+import {
+  buildExplorationFrames,
+  loadUsedTerritoryIds,
+  loadWhiteSpaceThemes,
+} from "@/lib/khat-map/v2/exploration"
 import { selectHybridOrder } from "./select"
 import { loadHybridInputs } from "./inputs"
 import {
@@ -209,7 +214,10 @@ export async function generateHybridTopics(
 
   // Validate + judge each candidate. Track rejections.
   const lenses = await loadLenses()
-  const validLensKeys = new Set(lenses.map((l) => l.key))
+  // "none" is legitimate since exploration frames — not every topic is about
+  // inner life, and forcing the 12 introspective lenses onto every idea was a
+  // root cause of the repetitive psychological flavor.
+  const validLensKeys = new Set([...lenses.map((l) => l.key), "none"])
   const ctx = {
     excludedTitles: inputs.excluded_titles,
     validLensKeys,
@@ -435,6 +443,20 @@ async function callEditorialModel(args: {
   // wording lives in one place and ai_runs.prompt_version is meaningful.
   // The output is byte-equivalent to the previous inline code.
   const lenses = await loadLenses()
+  // Exploration map — the harness assigns each slot a (territory × archetype)
+  // sampled from the Knowledge Universe + corpus white-space, skipping the
+  // territories this season already explored. This is what forces every batch
+  // onto fresh ground instead of the model's habitual attractors. Fire-safe:
+  // loader failures yield empty inputs and the frames still build.
+  const [usedTerritories, whiteSpace] = await Promise.all([
+    loadUsedTerritoryIds(req.seasonId),
+    loadWhiteSpaceThemes(),
+  ])
+  const explorationFrames = buildExplorationFrames({
+    count: req.count,
+    usedTerritoryIds: usedTerritories,
+    whiteSpace,
+  })
   const { system, user, version } = buildHybridTopicsPrompt({
     language: req.language,
     count: req.count,
@@ -445,6 +467,7 @@ async function callEditorialModel(args: {
     tasteHints: inputs.taste_hints,
     excludedTitles: inputs.excluded_titles,
     lenses,
+    explorationFrames,
   })
 
   return await runAiTask<{ topics: Array<Record<string, unknown>> }>({

@@ -22,11 +22,18 @@ import {
   buildBoldnessDialBlock,
   buildResonanceEngineBlock,
 } from "@/lib/khat-map/v2/creative-brief"
+import {
+  renderExplorationBlock,
+  type ExplorationFrame,
+} from "@/lib/khat-map/v2/exploration"
 
-// v2 = the shared creative brief (archetypes / boldness / anti-cliché / novelty /
-// diversity) is now applied here too, so the guided hybrid engine and the
-// editorial batch engine produce equally diverse, original topics.
-export const HYBRID_TOPICS_PROMPT_VERSION = "hybrid-topics-v2.0-creative"
+// v3 = exploration frames: the harness assigns each slot a (territory ×
+// archetype) sampled from the Knowledge Universe + corpus white-space, without
+// replacement across a season's batches. Market clusters + the introspective
+// lens registry become optional garnish instead of a mandatory funnel — the
+// funnel (12 pain-lenses × the same frozen top clusters) was why every batch
+// collapsed to the same success/family/AI-anxiety themes.
+export const HYBRID_TOPICS_PROMPT_VERSION = "hybrid-topics-v3.0-exploration"
 
 export interface HybridPromptInput {
   language: "ar" | "en"
@@ -44,6 +51,11 @@ export interface HybridPromptInput {
   tasteHints: Array<{ dimension: string; key: string; weight: number }>
   excludedTitles: string[]
   lenses: EditorialLens[]
+  /**
+   * Per-slot (territory × archetype) assignments sampled by the harness. When
+   * present, these — not the model's own habits — decide where each topic lives.
+   */
+  explorationFrames?: ExplorationFrame[]
 }
 
 export interface BuiltHybridPrompt {
@@ -130,6 +142,9 @@ export function buildHybridTopicsPrompt(
     "",
     buildResonanceEngineBlock(),
     "",
+    ...(input.explorationFrames && input.explorationFrames.length > 0
+      ? [renderExplorationBlock(input.explorationFrames), ""]
+      : []),
     "ABSOLUTE RULES",
     "1. Output JSON only. Shape: { topics: [ {",
     "     title, archetype, novelty_note, why_it_matters, why_now, emotional_hook,",
@@ -139,8 +154,8 @@ export function buildHybridTopicsPrompt(
     "   } ] }.",
     `2. ALL reader-facing text — title, emotional_hook, conflict_angle, why_it_matters, why_now, novelty_note — MUST be written in ${langLabel}. Never write the hook or notes in English when the target is Arabic.`,
     "3. Every topic MUST set:",
-    "   - original_lens to one of the registry KEYS below.",
-    "   - market_inspiration: a sentence naming WHICH cluster/hook/emotion fed this topic.",
+    '   - original_lens: a registry KEY below IF one genuinely sharpens the topic, else "none". Do NOT force an introspective lens onto a topic that is not about inner life — a history, science, or hidden-world episode is allowed to just be itself.',
+    '   - market_inspiration: a sentence naming WHICH cluster/hook/emotion fed this topic, or "none" when the topic is purely original (e.g. mined from its exploration-map territory).',
     "   - primary_theme: copy VERBATIM the `label` of the single market cluster this topic primarily drew from (from the MARKET CLUSTERS list below). Use \"none\" if the topic is purely original and drew from no cluster.",
     "   - suggested_episode_type drawn from: intellectual, social, psychological, personal_story, national, historical, economic, controversial, inspirational, mass_audience, signature_khat, invasion.",
     "   - suggested_topic_domain drawn from: philosophy, psychology, relationships, religion, identity_masculinity, money_career, technology_ai, internet_culture, crime_mystery, hidden_history, power_manipulation, parenting, kuwait_gulf, historical, social_issues, modern_society, emotions_inner_life, none.",
@@ -150,7 +165,7 @@ export function buildHybridTopicsPrompt(
     "7. The conflict_angle MUST name a specific tension, not a vague theme.",
     "8. The emotional_hook MUST be a sentence that would make a thoughtful person stop scrolling — never \"in this episode we explore.\"",
     "9. estimated_strength_score is your honest 0..1 estimate of editorial strength.",
-    "10. Distribute across multiple lenses (no single lens > 40% of the batch).",
+    '10. Distribute across multiple lenses (no single lens > 40% of the batch; "none" is always allowed and exempt).',
     "11. Aim to return the full requested count. Drop a topic ONLY if it would duplicate the EXCLUDED list or violate rules 1–12. Reaching for a slightly weaker but still honest angle is preferred over silently under-delivering.",
     `12. Every topic MUST set an \`archetype\` (${ARCHETYPE_FIELD_SPEC}) and a one-line \`novelty_note\` (why this angle is fresh, not the done-to-death version). The batch MUST span at least 4 different archetypes — stacking one shape (e.g. all big_idea panels) is a failed batch.`,
     "",
@@ -158,8 +173,13 @@ export function buildHybridTopicsPrompt(
     lensRegistry,
   ].join("\n")
 
+  const framesDirective =
+    input.explorationFrames && input.explorationFrames.length > 0
+      ? ` Follow the exploration map: ONE topic per slot, honoring each slot's territory and archetype. A slot assignment NEVER excuses a missing schema field — every topic still needs a valid suggested_episode_type, suggested_topic_domain, and a scroll-stopping emotional_hook.`
+      : ""
+
   const user = [
-    `Generate ${input.count} hybrid topics in ${langLabel}. The button the operator pressed promises ${input.count} candidates — returning fewer than ${input.count} silently breaks that contract. Only fall short if the EXCLUDED list and rules 1–10 truly leave you no room.`,
+    `Generate ${input.count} hybrid topics in ${langLabel}.${framesDirective} The button the operator pressed promises ${input.count} candidates — returning fewer than ${input.count} silently breaks that contract. Only fall short if the EXCLUDED list and rules 1–12 truly leave you no room.`,
     "",
     "FRESH ORIGINAL TOPICS (you may transform any of these — when you do, set original_lens to that topic's lens):",
     input.originalTopics.length === 0 ? "(none)" : lensSummaries,

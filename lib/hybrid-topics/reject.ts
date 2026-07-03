@@ -91,8 +91,10 @@ export function judgeHybridCandidate(
   const inheritedDecision = judgeCandidate(original, ctx)
   for (const r of inheritedDecision.reasons) reasons.push(r)
 
-  // Hybrid-specific checks.
-  if (!c.market_inspiration || c.market_inspiration.trim().length < 10) {
+  // Hybrid-specific checks. "none" is a legitimate value since exploration
+  // frames — a topic mined from an assigned territory needs no market anchor.
+  const marketNone = (c.market_inspiration ?? "").trim().toLowerCase() === "none"
+  if (!marketNone && (!c.market_inspiration || c.market_inspiration.trim().length < 10)) {
     reasons.push("missing_market_inspiration")
   }
   if (!c.original_lens || !ctx.validLensKeys.has(c.original_lens)) {
@@ -129,7 +131,7 @@ function dedupeReasons<T>(xs: T[]): T[] {
 export const HYBRID_REJECTION_RULES: Record<HybridRejectionReason, string> = {
   ...ORIGINAL_REJECTION_RULES,
   missing_market_inspiration:
-    "Topic does not name a market signal it transformed (must reference at least one cluster, hook, or emotional trigger).",
+    'Topic does not name a market signal it transformed, and did not declare itself purely original ("none").',
   missing_original_lens:
     "Topic did not specify which editorial lens elevated the market signal.",
   near_dup_khat_map:
