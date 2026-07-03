@@ -1,11 +1,14 @@
 /**
- * Corpus intelligence → a prompt-ready editorial brief (Phase B4 bridge).
+ * Corpus intelligence → a human-readable editorial brief.
  *
- * Reads the derived corpus_themes (resonance / saturation / white-space / Khat
- * coverage) and renders the block both topic engines inject, so "what resonates"
- * and "where the white space is" come from 1,300+ REAL Arabic-podcast episodes,
- * not the model's priors. Returns null when the corpus hasn't been analyzed yet
- * (generation then falls back to the pure creative brief — graceful degradation).
+ * Renders the derived corpus_themes (resonance / saturation / white-space / Khat
+ * coverage) as a summary for OPERATOR surfaces (a season-planning dashboard) and
+ * Phase C's Living-Knowledge-Universe review — NOT the generation prompt.
+ *
+ * Note: generation grounds itself in the corpus at SELECTION time
+ * (lib/corpus/novelty.ts), not by injecting this text. We tried prompt-injecting
+ * the theme lists and it primed the model toward the very themes it should avoid;
+ * comparing candidate embeddings to theme centroids is the objective mechanism.
  */
 
 import { db } from "@/lib/db"

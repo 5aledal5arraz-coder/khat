@@ -197,7 +197,6 @@ export function buildEditorialSystemPrompt(input: CandidateGenInput): string {
     "",
     buildArchetypesBlock(),
     "",
-    ...(input.corpus_brief ? [input.corpus_brief, ""] : []),
     buildKnowledgeUniverseBlock(),
     "",
     buildLensesBlock(),

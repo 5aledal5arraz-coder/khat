@@ -24,7 +24,6 @@ import { runAiTask } from "@/lib/ai-router"
 import { buildHybridTopicsPrompt } from "@/lib/ai/prompts/hybrid-topics"
 import { loadLenses } from "@/lib/original-thinking/lenses"
 import { enrichTopicsEditorially } from "@/lib/khat-map/v2/editorial-enrich"
-import { getCorpusBrief } from "@/lib/corpus/brief"
 import { loadHybridInputs } from "./inputs"
 import {
   judgeHybridCandidate,
@@ -388,9 +387,6 @@ async function callEditorialModel(args: {
   // wording lives in one place and ai_runs.prompt_version is meaningful.
   // The output is byte-equivalent to the previous inline code.
   const lenses = await loadLenses()
-  // Phase B — ground the hybrid engine in the same corpus intelligence as the
-  // editorial engine. Null/degrade if the corpus isn't analyzed.
-  const corpusBrief = await getCorpusBrief().catch(() => null)
   const { system, user, version } = buildHybridTopicsPrompt({
     language: req.language,
     count: req.count,
@@ -401,7 +397,6 @@ async function callEditorialModel(args: {
     tasteHints: inputs.taste_hints,
     excludedTitles: inputs.excluded_titles,
     lenses,
-    corpusBrief,
   })
 
   return await runAiTask<{ topics: Array<Record<string, unknown>> }>({

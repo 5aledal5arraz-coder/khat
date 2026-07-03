@@ -133,6 +133,11 @@ export interface ScoredCandidate {
   subcategory?: string | null
   /** Persisted editorial intel blob (editorial path only). */
   editorial_intel?: import("@/types/khat-map").KhatMapEditorialIntel | null
+  // ─── Corpus novelty (Phase B4 — selection-time) ─────────────────────────────
+  /** 0-1 similarity to the nearest SATURATED corpus theme (higher = more done-to-death). */
+  corpus_saturation?: number
+  /** 0-1 similarity to the nearest WHITE-SPACE corpus theme (higher = fresher ground). */
+  corpus_whitespace?: number
 }
 
 // ─── Output shapes ───────────────────────────────────────────────────────────
@@ -360,13 +365,6 @@ export interface CandidateGenInput {
    * roles) that don't belong on every call.
    */
   extra_system_blocks?: string[]
-  /**
-   * Corpus intelligence brief (Phase B) — what resonated / is saturated / is white
-   * space across the real Arabic-podcast corpus + Khat's own catalogue. Injected
-   * into the editorial prompt as evidence to ground boldness + novelty. Null/absent
-   * when the corpus hasn't been analyzed (graceful fallback to the pure brief).
-   */
-  corpus_brief?: string | null
   /**
    * When true, the EDITORIAL engine runs — the world-class editorial intelligence
    * path: knowledge universe (category + subcategory) + thinking lenses + headline

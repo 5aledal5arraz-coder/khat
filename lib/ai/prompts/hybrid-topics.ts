@@ -44,8 +44,6 @@ export interface HybridPromptInput {
   tasteHints: Array<{ dimension: string; key: string; weight: number }>
   excludedTitles: string[]
   lenses: EditorialLens[]
-  /** Phase B corpus intelligence (resonance / saturation / white space). Null when unanalyzed. */
-  corpusBrief?: string | null
 }
 
 export interface BuiltHybridPrompt {
@@ -132,7 +130,6 @@ export function buildHybridTopicsPrompt(
     "",
     buildResonanceEngineBlock(),
     "",
-    ...(input.corpusBrief ? [input.corpusBrief, ""] : []),
     "ABSOLUTE RULES",
     "1. Output JSON only. Shape: { topics: [ {",
     "     title, archetype, novelty_note, why_it_matters, why_now, emotional_hook,",

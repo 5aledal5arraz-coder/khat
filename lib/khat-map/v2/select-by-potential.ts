@@ -29,6 +29,13 @@ export interface PotentialSelection {
 const SEMANTIC_WEIGHT = 8 // penalty per unit of (cosine − floor) vs the nearest pick
 const SEMANTIC_FLOOR = 0.5 // cosine below this is "different enough" — no penalty
 const ARCHETYPE_WEIGHT = 1.5 // penalty per prior pick sharing the archetype
+// Corpus novelty (Phase B4): nudge selection away from saturated corpus territory
+// and toward white space. Modest weights — this refines ranking, never dominates
+// episode potential. Floors: only proximity ABOVE the floor moves the score.
+const CORPUS_SAT_WEIGHT = 4
+const CORPUS_SAT_FLOOR = 0.55
+const CORPUS_WS_WEIGHT = 3
+const CORPUS_WS_FLOOR = 0.55
 
 /** Worst-case (max) cosine similarity of `c` to anything already picked. */
 function maxSimilarityToPicks(c: ScoredCandidate, picks: ScoredCandidate[]): number {
@@ -53,6 +60,13 @@ function archetypePenalty(c: ScoredCandidate, picks: ScoredCandidate[]): number 
   if (!a) return 0
   const same = picks.filter((p) => p.raw.topic.archetype === a).length
   return same * ARCHETYPE_WEIGHT
+}
+
+/** Net corpus adjustment: penalize proximity to saturated themes, reward white space. */
+function corpusAdjustment(c: ScoredCandidate): number {
+  const sat = Math.max(0, (c.corpus_saturation ?? 0) - CORPUS_SAT_FLOOR) * CORPUS_SAT_WEIGHT
+  const ws = Math.max(0, (c.corpus_whitespace ?? 0) - CORPUS_WS_FLOOR) * CORPUS_WS_WEIGHT
+  return sat - ws // >0 penalizes (saturated); <0 boosts (white space)
 }
 
 export function selectByPotential(
@@ -84,7 +98,8 @@ export function selectByPotential(
           c.final_score -
           categoryDiversityPenalty(cat, pickedCats) -
           semanticPenalty(c, picks) -
-          archetypePenalty(c, picks)
+          archetypePenalty(c, picks) -
+          corpusAdjustment(c)
         if (adjusted > bestAdjusted) {
           bestAdjusted = adjusted
           best = c
