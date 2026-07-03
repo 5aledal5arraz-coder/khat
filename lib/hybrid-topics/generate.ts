@@ -24,6 +24,9 @@ import { runAiTask } from "@/lib/ai-router"
 import { buildHybridTopicsPrompt } from "@/lib/ai/prompts/hybrid-topics"
 import { loadLenses } from "@/lib/original-thinking/lenses"
 import { enrichTopicsEditorially } from "@/lib/khat-map/v2/editorial-enrich"
+import { batchEmbed } from "@/lib/khat-map/learning/embeddings"
+import { getCorpusNoveltyRefs } from "@/lib/corpus/novelty"
+import { selectHybridOrder } from "./select"
 import { loadHybridInputs } from "./inputs"
 import {
   judgeHybridCandidate,
@@ -293,6 +296,51 @@ export async function generateHybridTopics(
     (a, b) =>
       (b.estimated_strength_score ?? 0) - (a.estimated_strength_score ?? 0),
   )
+
+  // ─── Semantic diversity + corpus novelty (selection-time) ────────────────
+  // Lens/archetype counts can't catch two topics that duplicate each other IN
+  // MEANING (e.g. two "AI enslaves us" pitches with different shapes). Embed
+  // the accepted pool and re-rank with the same meaning-level MMR + corpus
+  // saturation/white-space adjustment the editorial engine uses; a near-dup of
+  // a stronger topic moves to the rejected list instead of an operator slot.
+  // Fire-safe: if embedding or the corpus read fails, the plain score order
+  // above stands.
+  if (accepted.length > 1) {
+    try {
+      const [embeddings, refs] = await Promise.all([
+        batchEmbed(
+          accepted.map(
+            (t) => `${t.title}\n${t.emotional_hook ?? ""}\n${t.conflict_angle ?? ""}`,
+          ),
+        ),
+        getCorpusNoveltyRefs().catch(() => null),
+      ])
+      const { ordered, dropped } = selectHybridOrder(
+        accepted.map((t, index) => ({
+          index,
+          score: t.estimated_strength_score ?? 0,
+          embedding: embeddings[index] ?? null,
+        })),
+        refs,
+      )
+      for (const i of dropped) {
+        bump(rejectionSummary, "semantic_near_dup")
+        rejected.push({
+          ...accepted[i],
+          rejected: true,
+          rejection_reasons: ["semantic_near_dup"],
+        })
+      }
+      const reordered = ordered.map((i) => accepted[i])
+      accepted.length = 0
+      accepted.push(...reordered)
+    } catch (err) {
+      console.error(
+        "[hybrid-topics] semantic selection failed; keeping plain score order",
+        err,
+      )
+    }
+  }
 
   // ─── Editorial enrichment ───────────────────────────────────────────────
   // Apply the world-class editorial intelligence layer to the accepted topics:

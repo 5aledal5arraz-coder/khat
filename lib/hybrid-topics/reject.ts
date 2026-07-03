@@ -32,6 +32,7 @@ export type HybridRejectionReason =
   | "missing_original_lens"
   | "near_dup_khat_map"
   | "near_dup_consumed_original"
+  | "semantic_near_dup"
   | "weak_strength_score"
   | "missing_episode_type"
   | "missing_topic_domain"
@@ -135,6 +136,8 @@ export const HYBRID_REJECTION_RULES: Record<HybridRejectionReason, string> = {
     "Title is a near-duplicate (token similarity) of an existing khat_map_episode_candidates row — would create a within-show duplicate.",
   near_dup_consumed_original:
     "Title is a near-duplicate (token similarity) of an original-thinking topic the editor has already consumed.",
+  semantic_near_dup:
+    "Topic is a near-duplicate IN MEANING (embedding similarity) of a stronger topic in the same batch — kept the stronger one.",
   weak_strength_score: `Self-rated strength_score is below ${MIN_STRENGTH_SCORE} — the model itself flagged the topic as marginal.`,
   missing_episode_type:
     "suggested_episode_type missing or not a valid KhatMapEpisodeType.",
