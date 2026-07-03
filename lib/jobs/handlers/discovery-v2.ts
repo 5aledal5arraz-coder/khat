@@ -49,7 +49,15 @@ function buildEvidence(c: V2Candidate): DiscoveryEvidenceUrl[] {
   push("youtube_talk", c.signals.youtube?.talk_url, "لقاء/مقابلة")
   push("podcast", c.signals.podcast?.latest_url, "ظهور في بودكاست")
   push("news", c.signals.news?.latest_url, c.signals.news?.latest_title ?? "تغطية إعلامية")
-  push("x", c.wiki.social?.x, "X")
+  // Live X presence (enriched via the API) beats the static Wikidata link:
+  // the snippet carries what the person is talking about RIGHT NOW.
+  if (c.signals.x) {
+    const x = c.signals.x
+    const label = `X — @${x.username}${x.posting === "active" ? " (نشط)" : ""}`
+    push("x", x.url, label, x.recent_sample[0] ?? x.bio ?? null)
+  } else {
+    push("x", c.wiki.social?.x, "X")
+  }
   push("instagram", c.wiki.social?.instagram, "Instagram")
   return ev
 }

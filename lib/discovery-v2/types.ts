@@ -81,6 +81,23 @@ export interface EnrichmentSignals {
   news?: { recent_mentions: number; latest_url?: string | null; latest_title?: string | null } | null
   /** Books (Google Books). */
   books?: { count: number; top_title?: string | null } | null
+  /**
+   * X (Twitter) presence + recent activity — looked up via the EXACT handle
+   * Wikidata attaches to the person (P2002), never fuzzy name search. Null
+   * when X_BEARER_TOKEN is unset or the person has no handle on Wikidata.
+   */
+  x?: {
+    url: string
+    username: string
+    followers: number
+    verified: boolean
+    posting: "active" | "occasional" | "dormant"
+    recent_posts: number
+    avg_engagement: number
+    /** First lines of up to 3 recent posts — what they're talking about now. */
+    recent_sample: string[]
+    bio?: string | null
+  } | null
 }
 
 export interface V2Scores {

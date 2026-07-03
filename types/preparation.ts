@@ -135,7 +135,7 @@ export type PreparationSectionsStatus = Partial<
 export type PreparationSourceProvider =
   | "gemini_web" // retrieved via Gemini grounded search (general web)
   | "youtube" // YouTube Data API v3
-  | "x" // X / Twitter (placeholder — not yet implemented)
+  | "x" // X / Twitter — recent-post search via lib/x/client.ts (needs X_BEARER_TOKEN)
 
 export interface PreparationResearchSource {
   id: number
