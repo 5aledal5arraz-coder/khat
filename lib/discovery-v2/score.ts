@@ -27,9 +27,10 @@ function notabilityScore(w: WikiFacts, s: EnrichmentSignals): number {
   else if ((s.scholar?.cited_by ?? 0) >= 500) n += 0.08
   if ((s.books?.count ?? 0) >= 1) n += 0.08
   if (w.official_website) n += 0.05
-  // X audience — a real-time reach signal encyclopedic sitelinks miss
-  // (identity-safe: the handle comes from the person's own Wikidata entry).
-  const followers = s.x?.followers ?? 0
+  // Social audience — a real-time reach signal encyclopedic sitelinks miss
+  // (identity-safe: handles come from the person's own Wikidata entry).
+  // Best single platform, not the sum — reach on X and Instagram overlaps.
+  const followers = Math.max(s.x?.followers ?? 0, s.instagram?.followers ?? 0)
   if (followers >= 500_000) n += 0.1
   else if (followers >= 50_000) n += 0.05
   return clamp(n)
@@ -55,9 +56,10 @@ function guestabilityScore(w: WikiFacts, s: EnrichmentSignals): number {
   if (s.youtube?.talk_url) g += 0.2
   if (s.youtube?.channel_url || w.social?.youtube_channel) g += 0.15
   if (w.official_website) g += 0.1
-  // A verified-live X presence is a real contact/booking channel; a mere
-  // static profile link is a weaker version of the same signal.
-  if (s.x?.posting === "active") g += 0.15
+  // A verified-live social presence (X or Instagram) is a real
+  // contact/booking channel; a mere static profile link is a weaker
+  // version of the same signal.
+  if (s.x?.posting === "active" || s.instagram?.posting === "active") g += 0.15
   else if (w.social?.x || w.social?.instagram) g += 0.1
   return clamp(g)
 }
@@ -65,10 +67,12 @@ function guestabilityScore(w: WikiFacts, s: EnrichmentSignals): number {
 function recencyScore(s: EnrichmentSignals): number {
   const m = s.news?.recent_mentions ?? 0
   const r = m >= 6 ? 1.0 : m >= 3 ? 0.7 : m >= 1 ? 0.5 : 0.2
-  // Publicly active RIGHT NOW on X counts as current presence even when the
-  // person isn't in the press cycle (GDELT misses most Arabic social voices).
-  if (s.x?.posting === "active") return Math.max(r, 0.6)
-  if (s.x?.posting === "occasional") return Math.max(r, 0.4)
+  // Publicly active RIGHT NOW on X/Instagram counts as current presence
+  // even when the person isn't in the press cycle (GDELT misses most
+  // Arabic social voices).
+  if (s.x?.posting === "active" || s.instagram?.posting === "active") return Math.max(r, 0.6)
+  if (s.x?.posting === "occasional" || s.instagram?.posting === "occasional")
+    return Math.max(r, 0.4)
   return r
 }
 
@@ -174,15 +178,21 @@ export function scoreCandidate(
     if ((signals.scholar?.cited_by ?? 0) >= 500) reasons.push("حضور أكاديمي قويّ")
     if ((signals.news?.recent_mentions ?? 0) >= 3) reasons.push("حضور إعلامي حديث")
     if ((wiki.sitelink_count ?? 0) >= 6) reasons.push("شخصية بارزة موثّقة")
+    const followersLabel = (f: number): string | null =>
+      f >= 1_000_000
+        ? `${(f / 1_000_000).toFixed(1)}M متابع`
+        : f >= 1_000
+          ? `${Math.round(f / 1_000)}K متابع`
+          : null
     if (signals.x?.posting === "active") {
-      const f = signals.x.followers
-      const fLabel =
-        f >= 1_000_000
-          ? `${(f / 1_000_000).toFixed(1)}M متابع`
-          : f >= 1_000
-            ? `${Math.round(f / 1_000)}K متابع`
-            : null
+      const fLabel = followersLabel(signals.x.followers)
       reasons.push(fLabel ? `نشط على X حالياً (${fLabel})` : "نشط على X حالياً")
+    }
+    if (signals.instagram?.posting === "active") {
+      const fLabel = followersLabel(signals.instagram.followers)
+      reasons.push(
+        fLabel ? `نشط على إنستغرام حالياً (${fLabel})` : "نشط على إنستغرام حالياً",
+      )
     }
   }
 

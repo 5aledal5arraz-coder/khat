@@ -48,6 +48,14 @@ export const env = {
   // ─── External research ───────────────────────────────────────────────────
   get LISTEN_NOTES_API_KEY() { return process.env.LISTEN_NOTES_API_KEY },
   get X_BEARER_TOKEN() { return process.env.X_BEARER_TOKEN },
+  // Instagram Graph API (official Business Discovery + hashtag search).
+  // Token: long-lived, from a Meta app with instagram_basic via Facebook
+  // Login for Business. Account id: the podcast's own IG professional
+  // account (the anchor for business_discovery/hashtag calls).
+  get IG_GRAPH_TOKEN() { return process.env.IG_GRAPH_TOKEN },
+  get IG_BUSINESS_ACCOUNT_ID() { return process.env.IG_BUSINESS_ACCOUNT_ID },
+  /** Optional Graph version override, e.g. "v24.0" (default v23.0). */
+  get IG_GRAPH_VERSION() { return process.env.IG_GRAPH_VERSION },
 
   // ─── Email (Resend) ──────────────────────────────────────────────────────
   get RESEND_API_KEY() { return process.env.RESEND_API_KEY },

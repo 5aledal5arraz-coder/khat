@@ -12,6 +12,7 @@ import {
   podcastAppearances,
 } from "./sources/enrich-sources"
 import { xPresence } from "./sources/x"
+import { instagramPresence } from "./sources/instagram"
 
 export async function enrich(
   name: string,
@@ -19,13 +20,14 @@ export async function enrich(
 ): Promise<EnrichmentSignals> {
   const nameEn = wiki.label ?? name
   const nameAr = wiki.label_ar ?? name
-  const [scholar, books, news, youtube, podcast, x] = await Promise.all([
+  const [scholar, books, news, youtube, podcast, x, instagram] = await Promise.all([
     openAlex(nameEn).catch(() => null),
     googleBooks(nameEn, nameAr).catch(() => null),
     gdeltNews(name, nameEn).catch(() => null),
     youtubePerson(name, nameEn).catch(() => null),
     podcastAppearances(name, nameEn).catch(() => null),
     xPresence(wiki).catch(() => null),
+    instagramPresence(wiki).catch(() => null),
   ])
   // Prefer Wikidata's own YouTube channel link if present.
   const yt = youtube ?? null
@@ -36,6 +38,7 @@ export async function enrich(
       news,
       podcast,
       x,
+      instagram,
       youtube: {
         channel_url: wiki.social.youtube_channel,
         channel_title: yt?.channel_title ?? wiki.label ?? name,
@@ -44,5 +47,5 @@ export async function enrich(
       },
     }
   }
-  return { scholar, books, news, youtube: yt, podcast, x }
+  return { scholar, books, news, youtube: yt, podcast, x, instagram }
 }

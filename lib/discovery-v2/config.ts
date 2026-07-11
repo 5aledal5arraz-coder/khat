@@ -5,6 +5,7 @@
  */
 
 import { env } from "@/lib/env"
+import { isInstagramConfigured } from "@/lib/instagram/client"
 export interface V2SourceStatus {
   id: string
   label: string
@@ -37,6 +38,22 @@ export function v2Sources(): V2SourceStatus[] {
       note: env.LISTEN_NOTES_API_KEY
         ? undefined
         : "وضع تجريبي فعّال (بيانات وهمية) — أضف LISTEN_NOTES_API_KEY للبيانات الحقيقية",
+    },
+    {
+      id: "x",
+      label: "X (حضوره ونشاطه الحالي)",
+      configured: !!env.X_BEARER_TOKEN,
+      keyless: false,
+      note: env.X_BEARER_TOKEN ? undefined : "X_BEARER_TOKEN غير مضبوط",
+    },
+    {
+      id: "instagram",
+      label: "Instagram (حضوره ونشاطه — Business Discovery الرسمي)",
+      configured: isInstagramConfigured(),
+      keyless: false,
+      note: isInstagramConfigured()
+        ? undefined
+        : "IG_GRAPH_TOKEN و IG_BUSINESS_ACCOUNT_ID غير مضبوطين",
     },
   ]
 }

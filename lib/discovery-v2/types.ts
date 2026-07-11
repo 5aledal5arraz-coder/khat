@@ -98,6 +98,27 @@ export interface EnrichmentSignals {
     recent_sample: string[]
     bio?: string | null
   } | null
+  /**
+   * Instagram presence + recent activity — official Business Discovery
+   * lookup of the EXACT username Wikidata attaches to the person (P2003),
+   * never fuzzy name search. Null when IG_GRAPH_TOKEN /
+   * IG_BUSINESS_ACCOUNT_ID are unset, the person has no handle on
+   * Wikidata, or the account is personal-mode (Business Discovery only
+   * resolves Business/Creator accounts).
+   */
+  instagram?: {
+    url: string
+    username: string
+    followers: number
+    media_count: number
+    posting: "active" | "occasional" | "dormant"
+    recent_posts: number
+    avg_engagement: number
+    /** First lines of up to 3 recent captions — what they're posting about now. */
+    recent_sample: string[]
+    bio?: string | null
+    website?: string | null
+  } | null
 }
 
 export interface V2Scores {

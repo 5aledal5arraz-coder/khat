@@ -58,7 +58,15 @@ function buildEvidence(c: V2Candidate): DiscoveryEvidenceUrl[] {
   } else {
     push("x", c.wiki.social?.x, "X")
   }
-  push("instagram", c.wiki.social?.instagram, "Instagram")
+  // Same for Instagram: the Business-Discovery-verified presence (with a
+  // recent-caption snippet) beats the bare Wikidata profile link.
+  if (c.signals.instagram) {
+    const ig = c.signals.instagram
+    const label = `Instagram — @${ig.username}${ig.posting === "active" ? " (نشط)" : ""}`
+    push("instagram", ig.url, label, ig.recent_sample[0] ?? ig.bio ?? null)
+  } else {
+    push("instagram", c.wiki.social?.instagram, "Instagram")
+  }
   return ev
 }
 
