@@ -15,12 +15,16 @@ import { SiteMetadataForm } from "./site-metadata-form"
 import { SEOForm } from "./seo-form"
 import { FeatureFlagsForm } from "./feature-flags-form"
 import { AiControlsForm, type AiControlsInitial } from "./ai-controls-form"
+import { AiModelsPanel } from "./ai-models-panel"
 import { AccountSecurityForm, type AccountInfo } from "./account-security-form"
 import { DiagnosticsPanel } from "./diagnostics-panel"
 import { OfficialPlatformsClient } from "../audio-platforms/audio-platforms-client"
 import type { SiteSettingsConfig } from "@/types/site-settings"
 import type { OfficialPlatformLink } from "@/lib/queries/official-platforms"
 import type { Diagnostic } from "@/lib/ops/diagnostics"
+import type { AiModelsDiagnostics } from "@/lib/ai-router/model-selection"
+import type { BenchmarkListItem } from "@/lib/ai-router/benchmark/store"
+import type { BenchmarkThresholds } from "@/lib/ai-router/benchmark/scoring"
 
 type TabId = "identity" | "distribution" | "features" | "ai" | "security" | "diagnostics"
 
@@ -28,7 +32,7 @@ const tabs: { id: TabId; label: string; icon: React.ElementType; blurb: string }
   { id: "identity", label: "الهوية و SEO", icon: Globe, blurb: "اسم الموقع، الوصف، والكلمات المفتاحية" },
   { id: "distribution", label: "التوزيع والروابط", icon: Radio, blurb: "منصات الصوت وروابط التواصل" },
   { id: "features", label: "الميزات والتوافر", icon: ToggleLeft, blurb: "مفاتيح تشغيل وإيقاف للمزايا" },
-  { id: "ai", label: "الذكاء الاصطناعي", icon: Cpu, blurb: "حدود الميزانية ووضع المعدل" },
+  { id: "ai", label: "الذكاء الاصطناعي", icon: Cpu, blurb: "النماذج، حدود الميزانية ووضع المعدل" },
   { id: "security", label: "الحساب والأمان", icon: ShieldCheck, blurb: "كلمة المرور والجلسات" },
   { id: "diagnostics", label: "تشخيص النظام", icon: Activity, blurb: "فحوصات حيّة للخدمات" },
 ]
@@ -37,6 +41,9 @@ interface SettingsTabsProps {
   siteSettings: SiteSettingsConfig
   platforms: OfficialPlatformLink[]
   aiControls: AiControlsInitial
+  aiModels: AiModelsDiagnostics
+  aiBenchmarks: BenchmarkListItem[]
+  aiBenchmarkThresholds: BenchmarkThresholds
   account: AccountInfo
   diagnostics: Diagnostic[]
 }
@@ -47,6 +54,9 @@ export function SettingsTabs({
   siteSettings,
   platforms,
   aiControls,
+  aiModels,
+  aiBenchmarks,
+  aiBenchmarkThresholds,
   account,
   diagnostics,
 }: SettingsTabsProps) {
@@ -141,7 +151,16 @@ export function SettingsTabs({
 
         {activeTab === "features" && <FeatureFlagsForm initial={siteSettings.featureFlags} />}
 
-        {activeTab === "ai" && <AiControlsForm initial={aiControls} />}
+        {activeTab === "ai" && (
+          <>
+            <AiModelsPanel
+              initial={aiModels}
+              benchmarks={aiBenchmarks}
+              thresholds={aiBenchmarkThresholds}
+            />
+            <AiControlsForm initial={aiControls} />
+          </>
+        )}
 
         {activeTab === "security" && <AccountSecurityForm account={account} />}
 

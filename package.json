@@ -131,10 +131,13 @@
     "smoke:khat-map-wizard": "npx tsx scripts/smoke-khat-map-wizard.ts",
     "smoke:khat-map-channel-analysis": "npx tsx scripts/smoke-khat-map-channel-analysis.ts",
     "verify:cleanup-phase-a": "npx tsx scripts/verify-cleanup-phase-a.ts",
-    "cycle:khat-brain": "npx tsx scripts/cycle-khat-brain-e2e.ts"
+    "cycle:khat-brain": "npx tsx scripts/cycle-khat-brain-e2e.ts",
+    "ai:models": "npx tsx scripts/ai-models-status.ts",
+    "ai:benchmark": "npx tsx scripts/ai-benchmark.ts"
   },
   "dependencies": {
     "@google/generative-ai": "^0.24.1",
+    "@modelcontextprotocol/sdk": "^1.29.0",
     "bcryptjs": "^3.0.3",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",

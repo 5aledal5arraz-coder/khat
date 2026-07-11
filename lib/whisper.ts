@@ -7,8 +7,24 @@ import OpenAI, { toFile } from "openai"
 
 const execFileAsync = promisify(execFile)
 
-const WHISPER_MAX_SIZE = 24 * 1024 * 1024 // 24 MB (Whisper limit is 25MB, leave margin)
+/**
+ * Transcription model. gpt-4o-transcribe supersedes whisper-1: same
+ * ~$0.006/min price, measurably lower word-error rate (the gap is
+ * largest on non-English audio — our episodes are Arabic). whisper-1
+ * still works but is no longer the recommended default.
+ */
+const TRANSCRIBE_MODEL = "gpt-4o-transcribe"
+
+const WHISPER_MAX_SIZE = 24 * 1024 * 1024 // 24 MB (audio endpoint limit is 25MB, leave margin)
 const CHUNK_DURATION_SECONDS = 600 // 10 minutes per chunk
+
+/**
+ * Tail of the previous chunk's transcript passed as `prompt` to the next
+ * chunk — gives the model continuity across the 10-minute cut points
+ * (names, running topics, sentence fragments). Kept short: the prompt is
+ * guidance, not content.
+ */
+const CHUNK_CONTEXT_CHARS = 600
 
 interface TranscribeResult {
   success: boolean
@@ -46,21 +62,24 @@ export async function probeAudioDuration(filePath: string): Promise<number | nul
 }
 
 /**
- * Transcribe a single audio file with Whisper API.
+ * Transcribe a single audio file via the transcription API.
+ * `contextPrompt` carries the tail of the previous chunk for continuity.
  */
 async function transcribeChunk(
   openai: OpenAI,
   filePath: string,
-  language: string
+  language: string,
+  contextPrompt?: string
 ): Promise<string> {
   const buffer = await fs.readFile(filePath)
   const filename = path.basename(filePath)
   const file = await toFile(buffer, filename)
 
   const response = await openai.audio.transcriptions.create({
-    model: "whisper-1",
+    model: TRANSCRIBE_MODEL,
     file,
     language,
+    ...(contextPrompt ? { prompt: contextPrompt } : {}),
   })
   return response.text
 }
@@ -106,8 +125,9 @@ async function splitIntoChunks(
 }
 
 /**
- * Transcribe an audio file using OpenAI Whisper.
- * If the file exceeds 24MB, it will be split into chunks using ffmpeg.
+ * Transcribe an audio file using OpenAI's transcription API
+ * (gpt-4o-transcribe). If the file exceeds 24MB, it will be split into
+ * chunks using ffmpeg.
  */
 export async function transcribeAudioFile(
   filePath: string,
@@ -140,10 +160,13 @@ export async function transcribeAudioFile(
         return { success: false, error: "فشل في تقسيم الملف الصوتي" }
       }
 
-      // Transcribe chunks sequentially
+      // Transcribe chunks sequentially, feeding each chunk the tail of
+      // the previous transcript so cut-point sentences stay coherent.
       const texts: string[] = []
       for (const chunkPath of chunkPaths) {
-        const text = await transcribeChunk(openai, chunkPath, language)
+        const prev = texts[texts.length - 1]
+        const contextPrompt = prev ? prev.slice(-CHUNK_CONTEXT_CHARS) : undefined
+        const text = await transcribeChunk(openai, chunkPath, language, contextPrompt)
         texts.push(text)
       }
 

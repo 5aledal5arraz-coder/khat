@@ -59,4 +59,7 @@ export * from "./system-events"
 // ─── Phase Beta — Editorial voice fingerprint capture ─────────────────
 export * from "./editorial-voice"
 
+// ─── Model upgrade benchmarks (evidence-based model adoption) ──────────
+export * from "./model-benchmarks"
+
 export * from "./relations"

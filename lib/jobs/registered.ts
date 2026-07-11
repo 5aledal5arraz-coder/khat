@@ -20,3 +20,5 @@ import "./handlers/newsletter-send"
 import "./handlers/partner-task-reminder"
 // Market intelligence — daily performance → source-trust feedback sweep.
 import "./handlers/market-source-feedback"
+// Model-upgrade benchmarks (evidence-based model adoption).
+import "./handlers/model-benchmark"

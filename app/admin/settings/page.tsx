@@ -4,6 +4,8 @@ import { adminSessions } from "@/lib/db/schema/admin-auth"
 import { getSiteSettings } from "@/lib/site-settings"
 import { listAllPlatforms } from "@/lib/queries/official-platforms"
 import { getEffectiveAiConfig } from "@/lib/ai-router/runtime-config"
+import { getAiModelsDiagnostics } from "@/lib/ai-router/model-selection"
+import { listModelBenchmarks, readBenchmarkThresholds } from "@/lib/ai-router/benchmark/store"
 import { getDiagnostics } from "@/lib/ops/diagnostics"
 import { getAdminAuthUser } from "@/lib/api-utils"
 import { AdminPageHeader } from "../components/admin-page-header"
@@ -15,10 +17,13 @@ export const dynamic = "force-dynamic"
 export default async function SettingsAdminPage() {
   const user = await getAdminAuthUser()
 
-  const [siteSettings, platforms, aiConfig, diagnostics, sessionRows] = await Promise.all([
+  const [siteSettings, platforms, aiConfig, aiModels, aiBenchmarks, aiBenchmarkThresholds, diagnostics, sessionRows] = await Promise.all([
     getSiteSettings(),
     listAllPlatforms(),
     getEffectiveAiConfig(),
+    getAiModelsDiagnostics(),
+    listModelBenchmarks(6),
+    readBenchmarkThresholds(),
     getDiagnostics(),
     user && db
       ? db
@@ -46,6 +51,9 @@ export default async function SettingsAdminPage() {
         siteSettings={siteSettings}
         platforms={platforms}
         aiControls={aiConfig}
+        aiModels={aiModels}
+        aiBenchmarks={aiBenchmarks}
+        aiBenchmarkThresholds={aiBenchmarkThresholds}
         account={account}
         diagnostics={diagnostics}
       />

@@ -13,11 +13,19 @@ export const ANALYZER_PROMPT_VERSION = "v1"
 // Model specialization
 // ---------------------------------------------------------------------------
 
-/** Fast model for structural extraction: timestamps, chapters, clips, metadata */
-export const STRUCTURE_MODEL = "gpt-4o-mini"
+/**
+ * Fast model for structural extraction: timestamps, chapters, clips, metadata.
+ * Kept in sync with the AI-router registry (`structural` task kind) — the
+ * registry is authoritative; this constant survives as a telemetry label
+ * for legacy tables.
+ */
+export const STRUCTURE_MODEL = "gpt-5.6-luna"
 
-/** Deep reasoning model for editorial quality: quotes, ideas, summaries, analysis */
-export const EDITORIAL_MODEL = "gpt-4o"
+/**
+ * Deep reasoning model for editorial quality: quotes, ideas, summaries, analysis.
+ * Kept in sync with the AI-router registry (`editorial` task kind).
+ */
+export const EDITORIAL_MODEL = "gpt-5.6-sol"
 
 let client: OpenAI | null = null
 

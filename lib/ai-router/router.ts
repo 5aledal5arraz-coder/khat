@@ -38,6 +38,7 @@ import type {
 } from "./types"
 import { parseJsonWithRepair, type JsonRepairStage } from "@/lib/ai/json-repair"
 import { DEFAULT_MODELS } from "./registry"
+import { resolveModelChoice } from "./model-selection"
 import { openaiAdapter } from "./providers/openai"
 import { geminiAdapter } from "./providers/gemini"
 // Phase 1.6 — rate-limit permit gate. Runs before the ai_runs INSERT.
@@ -230,7 +231,20 @@ export async function runAiTask<TParsed = unknown>(
   }
 
   const provider = req.preferredProvider ?? choice.provider
-  const modelName = req.preferredModel ?? choice.modelName
+  let modelName = req.preferredModel ?? choice.modelName
+  let reasoningEffort = choice.reasoningEffort
+  // Default OpenAI path (no per-call model): dynamic selection — env/
+  // Settings overrides + live-catalog availability fallback. Fail-safe:
+  // any selection hiccup leaves the registry default in place.
+  if (!req.preferredModel && provider === "openai") {
+    try {
+      const selected = await resolveModelChoice(req.taskKind)
+      modelName = selected.modelName
+      reasoningEffort = selected.reasoningEffort ?? reasoningEffort
+    } catch {
+      // keep registry defaults
+    }
+  }
   const adapter = ADAPTERS[provider]
   if (!adapter) {
     throw new Error(`AI Router: no adapter for provider "${provider}"`)
@@ -340,6 +354,10 @@ export async function runAiTask<TParsed = unknown>(
     expectJson: req.expectJson === true,
     providerOptions: req.providerOptions ?? {},
     timeoutMs: req.timeoutMs ?? DEFAULT_TIMEOUT_MS,
+    // Resolved reasoning default (registry, possibly overridden by the
+    // Settings model override); the adapter lets
+    // `providerOptions.reasoningEffort` win over this per call.
+    reasoningEffort,
   }
 
   const maxRetries = Math.max(0, req.maxRetries ?? DEFAULT_MAX_RETRIES)

@@ -1,7 +1,8 @@
 /**
  * Cheap AI ping — verifies the OpenAI key + billing works after the
- * audit-time outage. Fires one tiny structural call (gpt-4o-mini) and
- * reports the result. Doesn't seed any season-level data.
+ * audit-time outage. Fires one tiny structural call (the registry's
+ * structural default) and reports the result. Doesn't seed any
+ * season-level data.
  */
 
 import { runAiTask } from "@/lib/ai-router/router"

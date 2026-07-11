@@ -123,6 +123,9 @@ const HANDLER_TIMEOUT_MS: Record<string, number> = {
   "partner.task_reminder": 60_000,
   // market.source_feedback: batch of SELECTs + small trust updates; lightweight.
   "market.source_feedback": 60_000,
+  // model.benchmark: ~20 AI calls incl. long-context + high-effort judges;
+  // sequential pairs keep load sane but the wall-clock adds up.
+  "model.benchmark": 30 * 60_000,
 }
 
 function timeoutFor(jobType: string): number {
@@ -417,6 +420,29 @@ wlog.info(`starting (poll=${POLL_MS}ms lease=${LEASE_MS}ms)`)
 validateEnv()
 
 assertTimeoutKeysAreRegistered()
+
+// Warm the OpenAI model catalog (fire-and-forget) so the first AI job
+// doesn't pay the /v1/models fetch and availability fallback is armed.
+void import("@/lib/ai-router/model-catalog").then((m) => m.warmModelCatalog())
+
+// Auto-benchmark scan: when the catalog shows a GPT family newer than the
+// registry defaults, benchmark each new model against its tier baseline
+// (once per candidate+suite — dedupe lives in model_benchmarks). Boots
+// 2min after start, then every 12h. Gated by thresholds.autoBenchmark.
+const BENCHMARK_SCAN_INTERVAL_MS = 12 * 60 * 60 * 1000
+const runBenchmarkScan = () =>
+  import("@/lib/ai-router/benchmark/scan")
+    .then((m) => m.scanForModelBenchmarks())
+    .then((r) => {
+      if (r.enqueued.length > 0) {
+        wlog.info(`model-benchmark scan: enqueued ${r.enqueued.length} run(s)`)
+      }
+    })
+    .catch((err) => {
+      wlog.warn(`model-benchmark scan failed: ${err instanceof Error ? err.message : err}`)
+    })
+setTimeout(runBenchmarkScan, 2 * 60_000).unref?.()
+setInterval(runBenchmarkScan, BENCHMARK_SCAN_INTERVAL_MS).unref?.()
 
 // Phase 2.2 — eager startup reclaim. If a predecessor worker crashed
 // mid-job, its `locked_at` is already older than LEASE_MS by the time

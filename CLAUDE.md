@@ -59,9 +59,17 @@ one validation layer (`lib/validation/`), and the domain logic in `lib/`. Infras
 ### AI router (the single chokepoint) — `lib/ai-router/`
 Every AI call goes through **`runAiTask()` in `lib/ai-router/router.ts`**. Callers describe
 *what* they want (a `task_kind`, prompt, input snapshot); the router decides *how*:
-- Resolves provider + model from `task_kind` via `registry.ts` (defaults: OpenAI `gpt-4o-mini`
-  for structural/verification/analysis, `gpt-4o` for editorial/discovery/research; Gemini is
-  reachable via `preferredProvider` override). Adapters: `providers/{openai,gemini}.ts`.
+- Resolves provider + model from `task_kind` via `registry.ts` defaults (OpenAI `gpt-5.6-luna`
+  for structural/verification/analysis, `gpt-5.6-sol` for editorial/discovery, `gpt-5.6-terra`
+  for research; Gemini via `preferredProvider` override) — then `model-selection.ts` applies
+  env/Settings overrides and checks the choice against a live `/v1/models` catalog
+  (`model-catalog.ts`), falling back down `FALLBACK_CHAINS` when a model isn't available to
+  the key. Adopting a newer model = Settings → الذكاء الاصطناعي or `KHAT_AI_MODEL_<KIND>`, no
+  code change (see `docs/ai-model-selection.md`). Newly discovered models are auto-benchmarked
+  against production on real-workload fixtures before recommendation (`lib/ai-router/benchmark/`,
+  `model_benchmarks` table, `npm run ai:benchmark` — see `docs/ai-model-benchmarks.md`).
+  The OpenAI adapter speaks the Responses API and translates `temperature`/`max_tokens` per
+  model family. Adapters: `providers/{openai,gemini}.ts`.
 - Opens an `ai_runs` telemetry row (provider, model, tokens in/out, `cost_usd`, latency,
   `error_class`, prompt hash/version) — this is the observability spine for all AI.
 - Passes a Postgres-backed rate-limit permit (`rate-limit.ts`) before executing.

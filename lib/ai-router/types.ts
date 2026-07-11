@@ -17,6 +17,14 @@ export type { AiTaskKind, AiProvider, AiRunStatus }
 export type { JsonRepairStage }
 
 /**
+ * Reasoning effort for GPT-5-family (and other reasoning) models.
+ * Mirrors the OpenAI Responses API union minus "minimal" (legacy gpt-5.0
+ * alias) and "max" (needs an SDK ≥ 6.19 type; use "xhigh" until then).
+ * Ignored by providers/models without a reasoning dial.
+ */
+export type ReasoningEffort = "none" | "low" | "medium" | "high" | "xhigh"
+
+/**
  * Single shape every generator passes through `runAiTask`. Keep it
  * intentionally minimal — provider-specific options (e.g. `temperature`,
  * `response_format`) live on `provider_options`.
@@ -164,6 +172,13 @@ export interface ResolvedRequest {
   expectJson: boolean
   providerOptions: Record<string, unknown>
   timeoutMs: number
+  /**
+   * Task-kind default reasoning effort resolved by the router from the
+   * registry. Callers override per-call via
+   * `providerOptions.reasoningEffort`. Adapters for providers without a
+   * reasoning dial ignore it.
+   */
+  reasoningEffort?: ReasoningEffort
 }
 
 export interface AdapterResult {

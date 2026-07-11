@@ -10,5 +10,10 @@ export async function register() {
     const { checkDependencies } = await import("@/lib/youtube/download")
     console.log("[Studio] Checking system dependencies...")
     await checkDependencies()
+
+    // Warm the OpenAI model catalog (fire-and-forget) so the first AI call
+    // and the settings AI tab don't pay the /v1/models fetch.
+    const { warmModelCatalog } = await import("@/lib/ai-router/model-catalog")
+    warmModelCatalog()
   }
 }
