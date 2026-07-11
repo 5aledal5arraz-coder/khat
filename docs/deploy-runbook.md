@@ -397,7 +397,8 @@ remediation pointer. Verification command:
 # Force-test: stage a fake "real" secret, attempt commit, expect block.
 cd $(mktemp -d) && git init -q && \
   git config core.hooksPath /Users/aishaalkharraz/Desktop/khat/.githooks
-echo 'OPENAI_API_KEY=***REMOVED***' > test.env.example
+# Synthetic value shaped like a real key — NEVER paste an actual key here.
+echo "OPENAI_API_KEY=sk-proj-$(openssl rand -hex 40 | head -c 80)" > test.env.example
 git add -f test.env.example
 git commit -m "test" 2>&1 | grep -E 'secret-detect|blocked' && echo "✓ HOOK WORKS"
 cd - && rm -rf "$OLDPWD"
