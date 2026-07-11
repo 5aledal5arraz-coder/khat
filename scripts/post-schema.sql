@@ -871,3 +871,34 @@ DELETE FROM studio_analysis_records a
 CREATE UNIQUE INDEX IF NOT EXISTS uq_studio_analysis_session_kind
   ON studio_analysis_records (studio_session_id, kind)
   WHERE studio_session_id IS NOT NULL AND kind <> 'push_log';
+
+-- ─── Guest-identity named FKs (P2.4) ─────────────────────────────────────────
+-- Historically created ONLY by scripts/migrate-phase2-4-guest-identity.ts, so
+-- a DB rebuilt from drizzle migrations + this file was missing them (caught by
+-- smoke:guest-identity-schema). Folded in here 2026-07-11 — this file is the
+-- declared home for constraints not modeled in Drizzle. Idempotent.
+DO $$ BEGIN
+  ALTER TABLE guest_candidate_links ADD CONSTRAINT fk_gcl_guest
+    FOREIGN KEY (guest_id) REFERENCES guests(id) ON DELETE CASCADE;
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE guest_candidate_links ADD CONSTRAINT fk_gcl_candidate
+    FOREIGN KEY (candidate_id) REFERENCES guest_candidates(id) ON DELETE CASCADE;
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE guest_application_links ADD CONSTRAINT fk_gal_guest
+    FOREIGN KEY (guest_id) REFERENCES guests(id) ON DELETE CASCADE;
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE guest_application_links ADD CONSTRAINT fk_gal_application
+    FOREIGN KEY (application_id) REFERENCES guest_applications(id) ON DELETE CASCADE;
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE guest_discovery_candidates ADD CONSTRAINT fk_gdc_promoted_guest
+    FOREIGN KEY (promoted_guest_id) REFERENCES guests(id) ON DELETE SET NULL;
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
