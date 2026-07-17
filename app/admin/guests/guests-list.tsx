@@ -43,7 +43,7 @@ import { SoundCloudIcon } from "@/components/icons/soundcloud-icon"
 import { ImageCropModal } from "@/components/ui/image-crop-modal"
 import type { Guest } from "@/types/database"
 import { normalizeArabic } from "@/lib/search"
-import { formatArabicCount } from "@/lib/utils"
+import { formatArabicCount, cn } from "@/lib/utils"
 import { AtharCard } from "@/components/guests/athar-card"
 
 /* ─── Types ─── */
@@ -579,14 +579,23 @@ function GuestFormDialog({ isNew, formData, setFormData, onSave, onClose, saving
 
 /* ─── Guest List Row ─── */
 
-function GuestListRow({ guest, onEdit, onDelete }: { guest: GuestWithCount; onEdit: () => void; onDelete: () => Promise<void> }) {
+function GuestListRow({ guest, selected, onToggleSelect, onEdit, onDelete }: { guest: GuestWithCount; selected: boolean; onToggleSelect: () => void; onEdit: () => void; onDelete: () => Promise<void> }) {
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [deleting, setDeleting] = useState(false)
   const initials = guest.name.split(" ").map((w) => w[0]).slice(0, 2).join("")
   const socialCount = guest.external_links ? Object.keys(guest.external_links).length : 0
 
   return (
-    <div className="group relative flex items-center gap-3 px-4 py-3 transition-all duration-200 hover:bg-muted/30">
+    <div className={cn("group relative flex items-center gap-3 px-4 py-3 transition-all duration-200 hover:bg-muted/30", selected && "bg-primary/5")}>
+      {/* Select checkbox */}
+      <input
+        type="checkbox"
+        checked={selected}
+        onChange={onToggleSelect}
+        aria-label={`تحديد ${guest.name}`}
+        className="h-4 w-4 shrink-0 cursor-pointer rounded border-border/60 accent-primary"
+      />
+
       {/* Avatar */}
       <div className="relative h-9 w-9 shrink-0 overflow-hidden rounded-xl">
         {guest.photo_url ? (
@@ -670,6 +679,11 @@ export function GuestsList({ guests: initialGuests, episodes: initialEpisodes }:
   const [bulkLinkPreview, setBulkLinkPreview] = useState<{ total: number; alreadyLinked: number; toLink: number; items: { episodeId: string; episodeTitle: string; guestName: string; alreadyLinked: boolean }[] } | null>(null)
   const [bulkLinkResult, setBulkLinkResult] = useState<{ linked: number; guestsCreated: number; failed: number } | null>(null)
 
+  // Bulk selection + delete
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
+  const [confirmBulkDelete, setConfirmBulkDelete] = useState(false)
+  const [bulkDeleting, setBulkDeleting] = useState(false)
+
   // Auto-clear top-level toasts
   useEffect(() => {
     if (!listSuccess) return
@@ -732,6 +746,64 @@ export function GuestsList({ guests: initialGuests, episodes: initialEpisodes }:
   const filteredGuests = !normalizedSearch ? guests : guests.filter((g) => normalizeArabic(g.name).includes(normalizedSearch) || (g.bio && normalizeArabic(g.bio).includes(normalizedSearch)))
   const totalEpisodes = guests.reduce((sum, g) => sum + g.episodeCount, 0)
   const withPhoto = guests.filter((g) => g.photo_url).length
+
+  // Selection is scoped to the currently-visible (filtered) rows so
+  // "select all" never silently selects guests hidden by the search.
+  const selectedVisibleCount = filteredGuests.reduce((n, g) => n + (selectedIds.has(g.id) ? 1 : 0), 0)
+  const allVisibleSelected = filteredGuests.length > 0 && selectedVisibleCount === filteredGuests.length
+
+  const toggleSelected = (id: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
+  const toggleSelectAllVisible = () => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev)
+      if (allVisibleSelected) filteredGuests.forEach((g) => next.delete(g.id))
+      else filteredGuests.forEach((g) => next.add(g.id))
+      return next
+    })
+  }
+  const clearSelection = () => {
+    setSelectedIds(new Set())
+    setConfirmBulkDelete(false)
+  }
+
+  const handleBulkDelete = async () => {
+    const ids = filteredGuests.filter((g) => selectedIds.has(g.id)).map((g) => g.id)
+    if (ids.length === 0) return
+    setBulkDeleting(true)
+    setListError(null)
+    try {
+      const res = await fetch("/api/admin/guests/bulk-delete", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ids }),
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        setListError(data.error || "حدث خطأ أثناء الحذف الجماعي")
+        return
+      }
+      const deletedSet = new Set<string>(data.deletedIds ?? [])
+      setGuests((prev) => prev.filter((g) => !deletedSet.has(g.id)))
+      setSelectedIds(new Set())
+      setConfirmBulkDelete(false)
+      if (data.failed > 0) {
+        setListError(`تم حذف ${data.deleted} ضيف، وتعذّر حذف ${data.failed}`)
+      } else {
+        setListSuccess(`تم حذف ${data.deleted} ${data.deleted === 1 ? "ضيف" : "ضيوف"}`)
+      }
+    } catch {
+      setListError("حدث خطأ في الاتصال. حاول مرة أخرى.")
+    } finally {
+      setBulkDeleting(false)
+    }
+  }
 
   const openAddDialog = () => { setSaveError(null); setPendingImage(null); setFormData({ name: "", bio: "", photo_url: "", testimonial: "", external_links: {} }); setLinkedEpisodeIds([]); setIsAddingNew(true) }
   const openEditDialog = (guest: GuestWithCount) => {
@@ -858,6 +930,12 @@ export function GuestsList({ guests: initialGuests, episodes: initialEpisodes }:
       const res = await fetch(`/api/admin/guests/${guest.id}`, { method: "DELETE" })
       if (res.ok) {
         setGuests(guests.filter((g) => g.id !== guest.id))
+        setSelectedIds((prev) => {
+          if (!prev.has(guest.id)) return prev
+          const next = new Set(prev)
+          next.delete(guest.id)
+          return next
+        })
         setListSuccess(`تم حذف "${guest.name}"`)
       } else {
         const data = await res.json().catch(() => ({}))
@@ -909,10 +987,59 @@ export function GuestsList({ guests: initialGuests, episodes: initialEpisodes }:
         </div>
       )}
 
+      {/* Bulk selection action bar — visible only while rows are selected */}
+      {selectedVisibleCount > 0 && (
+        <div className="flex flex-wrap items-center gap-3 rounded-lg border border-primary/25 bg-primary/5 px-4 py-2.5">
+          <span className="text-[12px] font-medium text-foreground">
+            {formatArabicCount(selectedVisibleCount, "ضيف")} محدّد
+          </span>
+          {confirmBulkDelete ? (
+            <div className="flex items-center gap-2">
+              <span className="text-[12px] text-destructive">تأكيد حذف {selectedVisibleCount}؟</span>
+              <Button size="sm" variant="destructive" disabled={bulkDeleting} onClick={handleBulkDelete} className="h-8 gap-1.5 rounded-lg text-xs">
+                {bulkDeleting ? <><Loader2 className="h-3 w-3 animate-spin" />جارٍ الحذف...</> : "تأكيد الحذف"}
+              </Button>
+              <Button size="sm" variant="ghost" disabled={bulkDeleting} onClick={() => setConfirmBulkDelete(false)} className="h-8 rounded-lg text-xs">تراجع</Button>
+            </div>
+          ) : (
+            <Button size="sm" variant="destructive" onClick={() => setConfirmBulkDelete(true)} className="h-8 gap-1.5 rounded-lg text-xs">
+              <Trash2 className="h-3.5 w-3.5" />حذف المحدّد
+            </Button>
+          )}
+          <div className="flex-1" />
+          <button onClick={clearSelection} className="text-[12px] text-muted-foreground hover:text-foreground">إلغاء التحديد</button>
+        </div>
+      )}
+
       {/* List */}
       {filteredGuests.length > 0 ? (
-        <div className="divide-y divide-border/15 overflow-hidden rounded-xl border border-border/30 bg-card/50 admin-glow">
-          {filteredGuests.map((guest) => <GuestListRow key={guest.id} guest={guest} onEdit={() => openEditDialog(guest)} onDelete={() => handleDelete(guest)} />)}
+        <div className="overflow-hidden rounded-xl border border-border/30 bg-card/50 admin-glow">
+          {/* Select-all header */}
+          <div className="flex items-center gap-3 border-b border-border/15 bg-muted/20 px-4 py-2">
+            <input
+              type="checkbox"
+              checked={allVisibleSelected}
+              ref={(el) => { if (el) el.indeterminate = selectedVisibleCount > 0 && !allVisibleSelected }}
+              onChange={toggleSelectAllVisible}
+              aria-label="تحديد كل الضيوف"
+              className="h-4 w-4 shrink-0 cursor-pointer rounded border-border/60 accent-primary"
+            />
+            <span className="text-[11px] text-muted-foreground">
+              {selectedVisibleCount > 0 ? `${selectedVisibleCount} / ${filteredGuests.length}` : "تحديد الكل"}
+            </span>
+          </div>
+          <div className="divide-y divide-border/15">
+            {filteredGuests.map((guest) => (
+              <GuestListRow
+                key={guest.id}
+                guest={guest}
+                selected={selectedIds.has(guest.id)}
+                onToggleSelect={() => toggleSelected(guest.id)}
+                onEdit={() => openEditDialog(guest)}
+                onDelete={() => handleDelete(guest)}
+              />
+            ))}
+          </div>
         </div>
       ) : (
         <div className="flex flex-col items-center justify-center py-20 text-center">
