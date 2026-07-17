@@ -6,7 +6,7 @@ export function cn(...inputs: ClassValue[]) {
 }
 
 // Re-export formatters from shared module for backward compatibility
-export { formatArabicCount, formatDate, formatDuration, formatTimeSeconds } from "./shared/formatters"
+export { formatArabicCount, formatDate, formatDuration, formatTimeSeconds, guestInitials } from "./shared/formatters"
 
 export function getYouTubeId(url: string): string {
   // Handle watch URLs: v= can be the first or any query param

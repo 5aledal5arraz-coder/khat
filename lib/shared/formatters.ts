@@ -39,6 +39,20 @@ export function formatArabicCount(count: number, singular: string): string {
   return `${count} ${sing}`
 }
 
+/**
+ * Avatar initials for a person's name: first letter of up to two words.
+ * Words that begin with an actual letter are preferred, so imported /
+ * placeholder names like "019 بودكاست خط" render clean initials ("بخ")
+ * instead of a stray leading digit ("0ب"). Returns "•" for empty names.
+ * Single source — components must import this rather than re-implementing.
+ */
+export function guestInitials(name: string): string {
+  const words = (name ?? "").trim().split(/\s+/).filter(Boolean)
+  const letterWords = words.filter((w) => /^\p{L}/u.test(w))
+  const source = letterWords.length > 0 ? letterWords : words
+  return source.map((w) => w.charAt(0)).slice(0, 2).join("") || "•"
+}
+
 // ─── Date Formatting ─────────────────────────────────────────────────────────
 
 /** Format a date as DD/MM/YYYY (local timezone). */

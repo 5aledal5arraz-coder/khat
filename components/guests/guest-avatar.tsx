@@ -2,7 +2,7 @@
 
 import Image from "next/image"
 import { useState } from "react"
-import { cn, formatArabicCount } from "@/lib/utils"
+import { cn, formatArabicCount, guestInitials } from "@/lib/utils"
 
 interface GuestAvatarProps {
   name: string
@@ -55,12 +55,9 @@ export function GuestAvatar({
     }
   }
 
-  // Get initials (first letter of first and last name)
-  const initials = name
-    .split(" ")
-    .map((n) => n.charAt(0))
-    .slice(0, 2)
-    .join("")
+  // Initials via the shared helper — skips leading numeric/placeholder tokens
+  // so odd imported names ("019 بودكاست خط") don't render "0ب".
+  const initials = guestInitials(name)
 
   return (
     <div

@@ -48,16 +48,24 @@ export default async function EpisodesPage({ searchParams }: EpisodesPageProps) 
             تحته خط.
           </p>
 
-          {/* Search */}
+          {/* Search — the visible submit button is required: it gives a
+              clickable control AND guarantees Enter submits (a single-input
+              form without a submit button is unreliable across browsers). */}
           <form action="/episodes" className="mx-auto mt-8 flex max-w-md items-center">
             <div className="relative w-full">
-              <Search className="pointer-events-none absolute end-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <button
+                type="submit"
+                aria-label="بحث"
+                className="absolute end-1.5 top-1/2 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+              >
+                <Search className="h-4 w-4" />
+              </button>
               <input
                 type="search"
                 name="search"
                 defaultValue={query ?? ""}
                 placeholder="ابحث عن حلقة أو ضيف…"
-                className="h-12 w-full rounded-full border border-border bg-card pe-11 ps-5 text-[15px] text-foreground shadow-sm outline-none transition-shadow placeholder:text-muted-foreground focus:border-primary/40 focus:ring-4 focus:ring-primary/10"
+                className="h-12 w-full rounded-full border border-border bg-card pe-12 ps-5 text-[15px] text-foreground shadow-sm outline-none transition-shadow placeholder:text-muted-foreground focus:border-primary/40 focus:ring-4 focus:ring-primary/10"
               />
             </div>
           </form>

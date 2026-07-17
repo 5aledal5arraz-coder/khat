@@ -75,6 +75,11 @@ export function Header({ hasNewEpisode = false }: { hasNewEpisode?: boolean }) {
                 className="w-40 md:w-64"
                 autoFocus
               />
+              {/* Visible submit control — gives a clickable search target and
+                  makes Enter reliably fire the form's onSubmit handler. */}
+              <Button type="submit" variant="ghost" size="icon" aria-label="بحث">
+                <Search className="h-5 w-5" />
+              </Button>
               <Button
                 type="button"
                 variant="ghost"

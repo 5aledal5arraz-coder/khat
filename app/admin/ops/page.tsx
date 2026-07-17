@@ -41,6 +41,7 @@ import {
   type LucideIcon,
 } from "lucide-react"
 import { takeOpsSnapshot } from "@/lib/ops/snapshot"
+import { getEpisodes } from "@/lib/queries/episodes"
 import { formatUtc } from "@/lib/ops/format"
 import { PHASE_LABEL } from "@/lib/khat-brain/phase-labels"
 import { EPISODE_PHASES, type EpisodePhase } from "@/lib/db/schema/eir"
@@ -209,7 +210,14 @@ function SystemHealthBand({
 }
 
 export default async function OpsDashboardPage() {
-  const snap = await takeOpsSnapshot()
+  // "حلقات منشورة" counts the published-episode ARCHIVE (what an operator
+  // reads the label to mean), NOT the EIR production pipeline. Fetched in
+  // parallel with the ops snapshot; the pipeline's own published-phase count
+  // still appears in the production-pipeline section below.
+  const [snap, publishedEpisodes] = await Promise.all([
+    takeOpsSnapshot(),
+    getEpisodes({}).then((eps) => eps.length).catch(() => null),
+  ])
 
   const queue = snap.queue.ok ? snap.queue.data : null
   const ai = snap.aiRouter.ok ? snap.aiRouter.data : null
@@ -230,9 +238,6 @@ export default async function OpsDashboardPage() {
 
   // ── Episode pipeline summary (active phases only) ──────────────────────────
   const publishedCount = eir ? (eir.countByPhase.published ?? 0) : null
-  const totalEpisodes = eir
-    ? EPISODE_PHASES.reduce((s, p) => s + (eir.countByPhase[p] ?? 0), 0)
-    : null
   const activePhases = eir
     ? EPISODE_PHASES.filter((p) => !TERMINAL_PHASES.has(p) && (eir.countByPhase[p] ?? 0) > 0).map(
         (p) => ({ phase: p, label: PHASE_LABEL[p], count: eir.countByPhase[p] ?? 0 }),
@@ -310,10 +315,10 @@ export default async function OpsDashboardPage() {
         />
         <StatTile
           label="حلقات منشورة"
-          value={publishedCount ?? "—"}
+          value={publishedEpisodes ?? "—"}
           icon={Sparkles}
           tone="accent"
-          hint={totalEpisodes !== null ? `من إجمالي ${totalEpisodes} سجلّ` : undefined}
+          hint="منشورة على الموقع"
         />
       </div>
 

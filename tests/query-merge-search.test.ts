@@ -214,6 +214,35 @@ describe("searchEpisodes", () => {
     const result = searchEpisodes(episodes, "ابراهيم")
     expect(result.length).toBe(1)
   })
+
+  it("matches English queries case-insensitively", () => {
+    const episodes = [
+      makeEpisode({ id: "en-1", title: "The Future of Podcasting" }),
+      makeEpisode({ id: "en-2", title: "قصة أخرى" }),
+    ]
+    expect(searchEpisodes(episodes, "podcasting").map((e) => e.id)).toEqual(["en-1"])
+    expect(searchEpisodes(episodes, "FUTURE").map((e) => e.id)).toEqual(["en-1"])
+  })
+
+  it("whitespace-only query returns all episodes (treated as empty)", () => {
+    const result = searchEpisodes(testEpisodes, "   ")
+    expect(result.length).toBe(testEpisodes.length)
+  })
+
+  it("no-result query returns [] and does not throw on repeat", () => {
+    const q = "zzقطعةلاتوجدabc"
+    expect(searchEpisodes(testEpisodes, q)).toEqual([])
+    expect(searchEpisodes(testEpisodes, q)).toEqual([]) // repeated → still empty
+  })
+
+  it("repeated identical searches are deterministic (no input mutation)", () => {
+    const before = testEpisodes.map((e) => e.id)
+    const first = searchEpisodes(testEpisodes, "ضيف")
+    const second = searchEpisodes(testEpisodes, "ضيف")
+    expect(second.map((e) => e.id)).toEqual(first.map((e) => e.id))
+    // Source array must not be mutated/reordered by searching.
+    expect(testEpisodes.map((e) => e.id)).toEqual(before)
+  })
 })
 
 // ── searchGuests ────────────────────────────────────────────────────────────
