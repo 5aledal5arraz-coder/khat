@@ -36,12 +36,6 @@ interface NavItem {
   icon: React.ElementType
   label: string
   badge?: "ai" | "new"
-  /**
-   * UX-4 — legacy items hidden by default but kept reachable via direct
-   * URL. Set NEXT_PUBLIC_KHAT_LEGACY_EPISODES_VISIBLE=true to surface
-   * the legacy episode list again.
-   */
-  legacy?: boolean
 }
 
 interface NavGroup {
@@ -74,7 +68,7 @@ const navGroups: NavGroup[] = [
     items: [
       { href: "/admin/khat-brain", icon: Brain, label: "مركز القيادة" },
       { href: "/admin/khat-brain/seasons", icon: Compass, label: "المواسم", badge: "ai" },
-      { href: "/admin/khat-brain/episodes", icon: PlayCircle, label: "الحلقات" },
+      { href: "/admin/khat-brain/episodes", icon: PlayCircle, label: "الإنتاج" },
       { href: "/admin/discovery-v2", icon: Telescope, label: "اكتشاف الضيوف", badge: "ai" },
       { href: "/admin/guest-candidates", icon: UserPlus, label: "المرشحون" },
       { href: "/admin/khat-brain/market/signals", icon: Activity, label: "إشارات السوق", badge: "ai" },
@@ -84,6 +78,7 @@ const navGroups: NavGroup[] = [
     title: "الموقع",
     items: [
       { href: "/admin/guests", icon: Users, label: "الضيوف" },
+      { href: "/admin/episodes", icon: PlayCircle, label: "الحلقات" },
       { href: "/admin/home-content", icon: Home, label: "الصفحة الرئيسية" },
       { href: "/admin/newsletter", icon: Mail, label: "النشرة البريدية" },
       { href: "/admin/analytics", icon: BarChart3, label: "تحليلات المنصة" },
@@ -105,14 +100,6 @@ const navGroups: NavGroup[] = [
       { href: "/admin/preparation", icon: Sparkles, label: "الإعداد", badge: "ai" },
       { href: "/admin/studio", icon: Mic, label: "الاستديو", badge: "ai" },
       { href: "/admin/khat-brain/original-thinking", icon: Lightbulb, label: "التفكير الأصيل", badge: "ai" },
-      // Legacy episodes list stays gated. Toggle
-      // NEXT_PUBLIC_KHAT_LEGACY_EPISODES_VISIBLE=true to reveal.
-      {
-        href: "/admin/episodes",
-        icon: PlayCircle,
-        label: "الحلقات (القديمة)",
-        legacy: true,
-      },
     ],
   },
 ]
@@ -128,11 +115,6 @@ const OWNER_ONLY_HREFS = new Set(["/admin/team"])
 
 function AdminSidebar({ collapsed, onNavClick, userRole }: AdminSidebarProps) {
   const pathname = usePathname()
-  // UX-4 — flag-gated legacy items. The flag must be NEXT_PUBLIC_…
-  // because the sidebar is a client component.
-  const showLegacy =
-    process.env.NEXT_PUBLIC_KHAT_LEGACY_EPISODES_VISIBLE === "true"
-
   // Track which collapsible groups the operator has opened.
   // Default: closed. Auto-open when an item inside the group is the
   // current pathname.
@@ -159,9 +141,7 @@ function AdminSidebar({ collapsed, onNavClick, userRole }: AdminSidebarProps) {
     <nav className="flex h-full flex-col gap-0.5 p-2.5">
       {navGroups.map((group, groupIndex) => {
         const visibleItems = group.items.filter(
-          (item) =>
-            (!OWNER_ONLY_HREFS.has(item.href) || userRole === "OWNER") &&
-            (!item.legacy || showLegacy),
+          (item) => !OWNER_ONLY_HREFS.has(item.href) || userRole === "OWNER",
         )
         if (visibleItems.length === 0) return null
 
