@@ -3,6 +3,7 @@ import { redirect } from "next/navigation"
 import { verifyAdminSession } from "@/lib/admin/auth"
 import { getAiDegradedState } from "@/lib/ops/ai-degraded"
 import AdminLayoutClient from "./admin-layout-client"
+import { VersionWatcher } from "./components/version-watcher"
 
 export default async function AdminLayout({
   children,
@@ -38,6 +39,9 @@ export default async function AdminLayout({
   return (
     <AdminLayoutClient userRole={user.role} aiDegraded={aiDegraded}>
       {children}
+      {/* Stale-deployment guard: prompts a reload when a new build ships
+          while this tab is open (otherwise Server Actions fail silently). */}
+      <VersionWatcher />
     </AdminLayoutClient>
   )
 }

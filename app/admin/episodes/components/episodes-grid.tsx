@@ -39,6 +39,26 @@ import type { CategoryWithCount } from "./shared"
 import type { EpisodeOverride, EpisodeQuotesConfig } from "@/types/episodes"
 import type { YouTubePackConfig } from "@/types/youtube-pack"
 
+/**
+ * Server-action calls THROW (rather than returning {success:false}) when
+ * this tab predates the current deployment — the action id no longer
+ * exists server-side ("Failed to find Server Action"). Without this
+ * wrapper the throw escapes startTransition and the click silently does
+ * nothing; with it, the failure lands in the normal actionError UI.
+ */
+const STALE_TAB_MSG =
+  "تعذّر تنفيذ الإجراء — يبدو أن لوحة التحكم تحدّثت بعد فتح هذه الصفحة. أعد تحميل الصفحة ثم حاول مجدداً."
+
+async function safeAction<T extends { success: boolean; error?: string }>(
+  fn: () => Promise<T>,
+): Promise<T | { success: false; error: string }> {
+  try {
+    return await fn()
+  } catch {
+    return { success: false, error: STALE_TAB_MSG }
+  }
+}
+
 interface EpisodesGridProps {
   episodes: AdminEpisodeView[]
   overrides: EpisodeOverride[]
@@ -377,7 +397,7 @@ export function EpisodesGrid({
       const ids = Array.from(selectedIds)
       setActionError(null)
       startTransition(async () => {
-        const result = await bulkAssignEpisodeCategory(ids, categoryId)
+        const result = await safeAction(() => bulkAssignEpisodeCategory(ids, categoryId))
         if (!result.success) {
           setActionError(result.error || "فشل نقل الحلقات")
           return
@@ -416,14 +436,14 @@ export function EpisodesGrid({
 
     startTransition(async () => {
       if (isBulk || ids.length > 1) {
-        const result = await bulkDeleteEpisodes(ids)
+        const result = await safeAction(() => bulkDeleteEpisodes(ids))
         if (!result.success) {
           setActionError(result.error || "فشل حذف الحلقات")
           return
         }
         setSuccessMessage(`تم حذف ${result.deletedCount} حلقة`)
       } else {
-        const result = await deleteEpisode(ids[0])
+        const result = await safeAction(() => deleteEpisode(ids[0]))
         if (!result.success) {
           setActionError(result.error || "فشل حذف الحلقة")
           return
@@ -442,7 +462,7 @@ export function EpisodesGrid({
     (episodeId: string, guestId: string | null) => {
       setActionError(null)
       startTransition(async () => {
-        const result = await assignEpisodeGuest(episodeId, guestId)
+        const result = await safeAction(() => assignEpisodeGuest(episodeId, guestId))
         if (!result.success) {
           setActionError(result.error || "فشل تعيين الضيف")
           return
@@ -463,7 +483,7 @@ export function EpisodesGrid({
     (episodeId: string, categoryId: string | null) => {
       setActionError(null)
       startTransition(async () => {
-        const result = await assignEpisodeCategory(episodeId, categoryId)
+        const result = await safeAction(() => assignEpisodeCategory(episodeId, categoryId))
         if (!result.success) {
           setActionError(result.error || "فشل تعيين التصنيف")
           return
