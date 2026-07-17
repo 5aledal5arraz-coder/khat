@@ -406,6 +406,9 @@ export function EpisodesGrid({
           ? categories.find((c) => c.id === categoryId)?.name || "تصنيف"
           : "بدون تصنيف"
         setSuccessMessage(`تم نقل ${result.count} حلقة إلى ${target}`)
+        // Partial success (some ids couldn't be materialized) — show the
+        // warning alongside the honest count instead of swallowing it.
+        if (result.error) setActionError(result.error)
         clearSelection()
         router.refresh()
       })

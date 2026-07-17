@@ -492,6 +492,12 @@ export async function bulkDeleteEpisodes(
 /**
  * Bulk-assign a category (or clear it, when categoryId is null) for
  * multiple episodes in a single update.
+ *
+ * Like the single-assign path, YouTube-only selections must be
+ * materialized into the `episodes` table first — a bare UPDATE matches
+ * zero rows for them and used to report success anyway (the count was
+ * `ids.length`, not rows actually changed). Count now comes from
+ * RETURNING, and un-materializable ids fail loudly.
  */
 export async function bulkAssignEpisodeCategory(
   episodeIds: string[],
@@ -507,14 +513,40 @@ export async function bulkAssignEpisodeCategory(
     return { success: false, count: 0, error: "بيانات غير صالحة" }
   }
 
+  const materialized: string[] = []
+  let notFound = 0
+  for (const id of ids) {
+    const status = await ensureEpisodeInDb(id)
+    if (status === "not-found") {
+      notFound += 1
+      console.error(`[bulkAssignEpisodeCategory] Could not materialize ${id}`)
+    } else {
+      materialized.push(id)
+    }
+  }
+  if (materialized.length === 0) {
+    return {
+      success: false,
+      count: 0,
+      error: "تعذّر العثور على الحلقات المحددة في قاعدة البيانات أو في يوتيوب",
+    }
+  }
+
+  let count = 0
   try {
-    await db!
+    const updated = await db!
       .update(episodesTable)
-      .set({ category_id: categoryId })
-      .where(inArray(episodesTable.id, ids))
+      .set({ category_id: categoryId, updated_at: new Date() })
+      .where(inArray(episodesTable.id, materialized))
+      .returning({ id: episodesTable.id })
+    count = updated.length
   } catch (err) {
     return { success: false, count: 0, error: (err as Error).message || "فشل نقل الحلقات" }
   }
+
+  console.info(
+    `[bulkAssignEpisodeCategory] moved=${count} notFound=${notFound} category=${categoryId ?? "null"}`,
+  )
 
   await invalidateEpisodeCache()
   invalidate("episodes")
@@ -522,7 +554,15 @@ export async function bulkAssignEpisodeCategory(
   revalidatePath("/episodes")
   revalidatePath("/episodes/[slug]", "page")
   revalidatePath("/admin/episodes")
-  return { success: true, count: ids.length }
+
+  if (notFound > 0) {
+    return {
+      success: true,
+      count,
+      error: `نُقلت ${count} حلقة؛ تعذّر نقل ${notFound} (غير موجودة في قاعدة البيانات أو يوتيوب)`,
+    }
+  }
+  return { success: true, count }
 }
 
 /* ─── Sponsor ─── */
