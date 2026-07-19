@@ -80,13 +80,14 @@ interface EditorState {
 export interface ChapterEditorProps {
   eirId: string
   initialDoc: ChapterDocument
-  studioSessionId: string | null
+  /** Studio deep-link (`/admin/studio?video=…`); null when no session is linked. */
+  studioHref: string | null
 }
 
 export function ChapterEditor({
   eirId,
   initialDoc,
-  studioSessionId,
+  studioHref,
 }: ChapterEditorProps) {
   const initial: EditorState = useMemo(
     () => ({ doc: initialDoc, version: initialDoc.version }),
@@ -486,7 +487,7 @@ export function ChapterEditor({
       {state.doc.chapters.length === 0 ? (
         <EmptyState
           onAdd={addChapter}
-          studioSessionId={studioSessionId}
+          studioHref={studioHref}
         />
       ) : (
         <div className="space-y-2" dir="rtl">
@@ -960,10 +961,10 @@ const SUGGESTION_LABEL: Record<ChapterAiSuggestion["kind"], string> = {
 
 function EmptyState({
   onAdd,
-  studioSessionId,
+  studioHref,
 }: {
   onAdd: () => void
-  studioSessionId: string | null
+  studioHref: string | null
 }) {
   return (
     <div className="rounded-2xl border border-border/40 bg-card/20 p-6 text-center">
@@ -982,9 +983,9 @@ function EmptyState({
           <ListPlus className="h-3.5 w-3.5" />
           إضافة فصل
         </button>
-        {studioSessionId && (
+        {studioHref && (
           <a
-            href={`/admin/studio/${studioSessionId}`}
+            href={studioHref}
             className="inline-flex items-center gap-1 rounded-xl border border-border/40 bg-background/40 px-3 py-1.5 text-[12px] text-muted-foreground hover:bg-background/60"
           >
             الصفحة المتقدمة <ExternalLink className="h-3 w-3" />

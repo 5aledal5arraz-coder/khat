@@ -8,9 +8,12 @@ import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { saveFeaturedEpisodesAction, setFeaturedModeAction } from "./featured-actions"
 import { saveThinkersAction, setThinkersModeAction } from "./thinkers-actions"
+import { TeaserTab } from "./teaser-tab"
 import type { HomepageFeaturedRow } from "@/lib/queries/homepage-featured"
 import type { HomepageThinkerRow } from "@/lib/queries/homepage-thinkers"
-import { Star, Brain, Loader2, Check, Pencil, ToggleLeft, ToggleRight, Upload, X, ImageIcon } from "lucide-react"
+import type { TeaserConfig } from "@/types/teaser"
+import type { UpcomingEpisodeOption } from "@/lib/teaser"
+import { Star, Brain, Clapperboard, Loader2, Check, Pencil, ToggleLeft, ToggleRight, Upload, X, ImageIcon } from "lucide-react"
 
 // ─── Types ──────────────────────────────────────────────────
 
@@ -42,6 +45,8 @@ interface Props {
   latestGuests: LatestGuest[]
   featuredMode: "auto" | "manual"
   thinkersMode: "auto" | "manual"
+  teasers: TeaserConfig[]
+  upcomingEpisodes: UpcomingEpisodeOption[]
 }
 
 // ─── Image Uploader ─────────────────────────────────────────
@@ -664,6 +669,8 @@ export function HomeContentTabs({
   latestGuests,
   featuredMode,
   thinkersMode,
+  teasers,
+  upcomingEpisodes,
 }: Props) {
   return (
     <Tabs defaultValue="gallery">
@@ -675,6 +682,10 @@ export function HomeContentTabs({
         <TabsTrigger value="thinkers" className="gap-2">
           <Brain className="h-4 w-4" />
           معرض العقول
+        </TabsTrigger>
+        <TabsTrigger value="teaser" className="gap-2">
+          <Clapperboard className="h-4 w-4" />
+          التيزر
         </TabsTrigger>
       </TabsList>
 
@@ -695,6 +706,10 @@ export function HomeContentTabs({
           latestGuests={latestGuests}
           initialMode={thinkersMode}
         />
+      </TabsContent>
+
+      <TabsContent value="teaser">
+        <TeaserTab teasers={teasers} upcomingEpisodes={upcomingEpisodes} />
       </TabsContent>
     </Tabs>
   )

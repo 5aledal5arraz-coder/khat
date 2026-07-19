@@ -476,7 +476,7 @@ export function DetailQuotes({
                           setEditingId(quote.id)
                           setEditText(quote.text)
                         }}
-                        className="flex h-7 w-7 items-center justify-center rounded-lg text-muted-foreground transition-all hover:bg-white/5 hover:text-foreground"
+                        className="flex h-7 w-7 items-center justify-center rounded-lg text-muted-foreground transition-all hover:bg-muted/60 hover:text-foreground"
                       >
                         <Pencil className="h-3.5 w-3.5" />
                       </button>

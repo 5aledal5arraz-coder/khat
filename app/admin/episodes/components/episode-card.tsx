@@ -270,7 +270,7 @@ export function EpisodeCard({
             </button>
             <button
               onClick={handleCancel}
-              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl text-muted-foreground transition-all hover:bg-white/5"
+              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl text-muted-foreground transition-all hover:bg-muted/60"
             >
               <X className="h-4 w-4" />
             </button>

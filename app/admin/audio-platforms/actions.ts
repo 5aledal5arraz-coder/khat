@@ -21,7 +21,7 @@ function revalidateAll() {
   revalidatePath("/about")
   revalidatePath("/")
   revalidatePath("/episodes", "layout")
-  revalidatePath("/admin/audio-platforms")
+  revalidatePath("/admin/settings")
 }
 
 export async function createPlatformLinkAction(

@@ -15,6 +15,7 @@ import { Loader2, Plus, X } from "lucide-react"
 import { useToast } from "@/lib/use-toast"
 import { CATEGORY_OPTIONS, PRIORITY_META } from "../lib/status"
 import { candidatesApi } from "../lib/api"
+import { EMAIL_REGEX } from "@/lib/validation/forms"
 import type { GuestCandidatePriority, GuestCandidateView } from "@/types/database"
 
 interface CandidateFormDialogProps {
@@ -49,6 +50,8 @@ export function CandidateFormDialog({ open, onOpenChange, candidate, onSuccess }
   const [category, setCategory] = useState("")
   const [city, setCity] = useState("")
   const [country, setCountry] = useState("")
+  const [phone, setPhone] = useState("")
+  const [email, setEmail] = useState("")
   const [bio, setBio] = useState("")
   const [notes, setNotes] = useState("")
   const [priority, setPriority] = useState<GuestCandidatePriority>("medium")
@@ -64,6 +67,8 @@ export function CandidateFormDialog({ open, onOpenChange, candidate, onSuccess }
       setCategory(candidate.category || "")
       setCity(candidate.city || "")
       setCountry(candidate.country || "")
+      setPhone(candidate.phone || "")
+      setEmail(candidate.email || "")
       setBio(candidate.bio || "")
       setNotes(candidate.notes_internal || "")
       setPriority((candidate.priority_level as GuestCandidatePriority) || "medium")
@@ -75,6 +80,8 @@ export function CandidateFormDialog({ open, onOpenChange, candidate, onSuccess }
       setCategory("")
       setCity("")
       setCountry("")
+      setPhone("")
+      setEmail("")
       setBio("")
       setNotes("")
       setPriority("medium")
@@ -110,6 +117,27 @@ export function CandidateFormDialog({ open, onOpenChange, candidate, onSuccess }
       }
     }
 
+    const phoneTrim = phone.trim()
+    const emailTrim = email.trim()
+
+    if (emailTrim && !EMAIL_REGEX.test(emailTrim)) {
+      toast({ variant: "destructive", title: "بريد غير صالح", description: "الرجاء إدخال بريد إلكتروني صحيح" })
+      return
+    }
+
+    // Criterion م1: at least one contact channel is required on save.
+    // In edit mode the dialog doesn't manage socials (they live on the
+    // detail page), so an already-saved social link counts as a channel.
+    const hasExistingSocial = isEdit && (candidate?.social_links?.length ?? 0) > 0
+    if (!phoneTrim && !emailTrim && validSocials.length === 0 && !hasExistingSocial) {
+      toast({
+        variant: "destructive",
+        title: "قناة تواصل مطلوبة",
+        description: "أضف هاتفاً أو بريداً إلكترونياً أو رابطاً اجتماعياً واحداً على الأقل",
+      })
+      return
+    }
+
     setSubmitting(true)
     try {
       if (isEdit && candidate) {
@@ -119,6 +147,8 @@ export function CandidateFormDialog({ open, onOpenChange, candidate, onSuccess }
           category: category || null,
           city: city.trim() || null,
           country: country.trim() || null,
+          phone: phoneTrim || null,
+          email: emailTrim || null,
           bio: bio.trim() || null,
           notes_internal: notes.trim() || null,
           priority_level: priority,
@@ -132,6 +162,8 @@ export function CandidateFormDialog({ open, onOpenChange, candidate, onSuccess }
           category: category || null,
           city: city.trim() || null,
           country: country.trim() || null,
+          phone: phoneTrim || null,
+          email: emailTrim || null,
           bio: bio.trim() || null,
           notes_internal: notes.trim() || null,
           priority_level: priority,
@@ -208,6 +240,32 @@ export function CandidateFormDialog({ open, onOpenChange, candidate, onSuccess }
               <label className="mb-1.5 block text-xs font-medium text-muted-foreground">البلد</label>
               <Input value={country} onChange={(e) => setCountry(e.target.value)} placeholder="السعودية" />
             </div>
+
+            <div>
+              <label className="mb-1.5 block text-xs font-medium text-muted-foreground">الهاتف</label>
+              <Input
+                type="tel"
+                dir="ltr"
+                value={phone}
+                onChange={(e) => setPhone(e.target.value)}
+                placeholder="+965 0000 0000"
+              />
+            </div>
+
+            <div>
+              <label className="mb-1.5 block text-xs font-medium text-muted-foreground">البريد الإلكتروني</label>
+              <Input
+                type="email"
+                dir="ltr"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="name@example.com"
+              />
+            </div>
+
+            <p className="sm:col-span-2 -mt-1 text-[11px] text-muted-foreground">
+              مطلوب قناة تواصل واحدة على الأقل: هاتف أو بريد إلكتروني أو رابط اجتماعي. تُستخدم داخلياً فقط — لا تظهر للعامة.
+            </p>
 
             <div className="sm:col-span-2">
               <label className="mb-1.5 block text-xs font-medium text-muted-foreground">الأولوية</label>

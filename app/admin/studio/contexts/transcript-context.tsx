@@ -5,7 +5,6 @@ import type {
   StudioTranscript,
   StudioTranscriptSummary, StudioTranscriptQuote,
 } from "@/types/database"
-import { fetchTranscriptClient } from "@/lib/youtube/transcript-client"
 import { useSession } from "./session-context"
 import { usePreloadedData } from "./preload-context"
 import type { StudioStageStatus } from "./stage-status"
@@ -109,18 +108,15 @@ export function TranscriptProvider({ children }: { children: ReactNode }) {
       throw new Error("لا يوجد معرّف فيديو لهذه الجلسة")
     }
 
-    // Step 1: Try client-side caption extraction (fast path)
-    const extraction = await fetchTranscriptClient(session.video_id)
-
-    if (extraction.success && extraction.text) {
-      const res = await fetch(`/api/admin/studio/${sessionId}/transcript`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ raw_text: extraction.text, language: extraction.language || "ar" }),
-      })
-      const data = await res.json()
-      if (!res.ok) throw new Error(data.error || "فشل في حفظ النص")
-      return data.transcript as StudioTranscript
+    // Step 1: Try server-side caption extraction via yt-dlp (fast, free path)
+    const capRes = await fetch(`/api/admin/studio/${sessionId}/transcript/captions`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ video_id: session.video_id }),
+    })
+    if (capRes.ok) {
+      const capData = await capRes.json()
+      if (capData?.transcript) return capData.transcript as StudioTranscript
     }
 
     // Step 2: No captions — fallback to YouTube audio → Whisper

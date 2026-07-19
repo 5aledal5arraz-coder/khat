@@ -5,8 +5,7 @@
  * (what our own episodes taught us) in view. Data from buildWorkedReport().
  */
 
-import Link from "next/link"
-import { TrendingUp, TrendingDown, Lightbulb, BarChart3, ArrowLeft } from "lucide-react"
+import { TrendingUp, TrendingDown, Lightbulb, BarChart3 } from "lucide-react"
 import type { WorkedReport } from "@/lib/khat-brain/performance-learning"
 
 function fmtScore(n: number): string {
@@ -21,7 +20,7 @@ function DomainRow({
   tone: "up" | "down"
 }) {
   const Icon = tone === "up" ? TrendingUp : TrendingDown
-  const color = tone === "up" ? "text-emerald-600" : "text-rose-600"
+  const color = tone === "up" ? "text-emerald-700" : "text-rose-700"
   return (
     <li className="flex items-center justify-between gap-2 text-[12px]">
       <span className="flex min-w-0 items-center gap-1.5 text-foreground/90">
@@ -43,19 +42,13 @@ export function WhatWorkedCard({ worked }: { worked: WorkedReport }) {
 
   return (
     <div className="mt-4 rounded-2xl border border-border/40 bg-card/30 p-4">
-      <div className="mb-3 flex items-center justify-between gap-2">
+      <div className="mb-3">
         <h3 className="flex items-center gap-1.5 text-[13px] font-semibold text-foreground">
           <span className="flex h-6 w-6 items-center justify-center rounded-lg bg-primary/10 text-primary">
             <BarChart3 className="h-3.5 w-3.5" />
           </span>
           ما الذي نجح
         </h3>
-        <Link
-          href="/admin/khat-brain"
-          className="inline-flex items-center gap-1 text-[10.5px] text-muted-foreground hover:text-foreground"
-        >
-          التفاصيل <ArrowLeft className="h-3 w-3" />
-        </Link>
       </div>
 
       {!hasData ? (
@@ -66,7 +59,7 @@ export function WhatWorkedCard({ worked }: { worked: WorkedReport }) {
         <div className="space-y-3">
           {strong.length > 0 && (
             <div>
-              <p className="mb-1 text-[10.5px] font-medium text-emerald-600">مجالات قوية — زِد منها</p>
+              <p className="mb-1 text-[10.5px] font-medium text-emerald-700">مجالات قوية — زِد منها</p>
               <ul className="space-y-1">
                 {strong.map((d) => (
                   <DomainRow key={`s-${d.key}`} item={d} tone="up" />
@@ -76,7 +69,7 @@ export function WhatWorkedCard({ worked }: { worked: WorkedReport }) {
           )}
           {weak.length > 0 && (
             <div>
-              <p className="mb-1 text-[10.5px] font-medium text-rose-600">مجالات ضعيفة — غيّر الزاوية</p>
+              <p className="mb-1 text-[10.5px] font-medium text-rose-700">مجالات ضعيفة — غيّر الزاوية</p>
               <ul className="space-y-1">
                 {weak.map((d) => (
                   <DomainRow key={`w-${d.key}`} item={d} tone="down" />

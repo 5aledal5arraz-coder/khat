@@ -51,6 +51,13 @@ export interface IdentityHints {
   photo_url?: string | null
   /** External-link blob for the guests row. */
   external_links?: Record<string, string>
+  /**
+   * Admin-only contact channels fixated onto the guests row at promotion.
+   * NEVER rendered publicly. Callers should pass null (not "") when absent.
+   * Do not drive matching — stored/backfilled only.
+   */
+  phone?: string | null
+  email?: string | null
 }
 
 export type MatchConfidence = "high" | "medium" | "low" | "none"
@@ -359,6 +366,20 @@ export async function ensureGuest(
   }
 
   if (useExisting) {
+    // Fixation on promotion: backfill contact channels onto the matched
+    // guest WITHOUT clobbering values already set (COALESCE — the first
+    // promotion that carries a channel wins; admin edits win over this).
+    // No-op for the many callers that don't supply phone/email, so the
+    // shared chokepoint's behavior is unchanged for them. Admin-only data.
+    if (hints.phone != null || hints.email != null) {
+      await db!
+        .update(guests)
+        .set({
+          phone: sql`COALESCE(${guests.phone}, ${hints.phone ?? null})`,
+          email: sql`COALESCE(${guests.email}, ${hints.email ?? null})`,
+        })
+        .where(eq(guests.id, match.guest_id!))
+    }
     return {
       guest_id: match.guest_id!,
       created: false,
@@ -372,7 +393,10 @@ export async function ensureGuest(
   if (!hints.name || !hints.name.trim()) {
     throw new Error("ensureGuest: cannot create guest without `name`")
   }
-  const slug = await uniqueSlugFor(hints.slug || normalizeSlug(hints.name))
+  // G-042 — every new guest gets a uniform `g-NNN` slug from the chokepoint
+  // sequence. `hints.slug` is a matching hint only; it never seeds the new
+  // slug. `uniqueSlugFor` wraps it as a belt-and-suspenders collision net.
+  const slug = await uniqueSlugFor(await nextGuestSlug())
   const externalLinks: Record<string, string> = { ...(hints.external_links ?? {}) }
   if (hints.website && !externalLinks.website) externalLinks.website = hints.website
   // Promote canonical handles into external_links so future matches succeed.
@@ -390,6 +414,9 @@ export async function ensureGuest(
       bio: hints.bio ?? null,
       photo_url: hints.photo_url ?? null,
       external_links: externalLinks,
+      // Fixation on promotion — admin-only channels, never public.
+      phone: hints.phone ?? null,
+      email: hints.email ?? null,
     })
     .returning({ id: guests.id })
 
@@ -400,6 +427,25 @@ export async function ensureGuest(
     reasons: ["created new guest", ...match.reasons],
     requires_review: false,
   }
+}
+
+/**
+ * G-042 — the single source of new-guest slugs. Draws the next value from the
+ * `guest_slug_seq` Postgres SEQUENCE (defined in scripts/post-schema.sql:
+ * atomic + concurrency-safe, no max+1 race) and formats it as `g-NNN`,
+ * zero-padded to 3 digits (`g-001`, `g-042`; naturally `g-1000` past 999).
+ *
+ * REQUIRES the sequence to exist. Until post-schema.sql is (re)applied this
+ * throws and guest creation is blocked — that is the intended stop-point, NOT
+ * a silent fallback to a parallel slug format.
+ */
+export async function nextGuestSlug(): Promise<string> {
+  const result = await db!.execute(
+    sql`SELECT 'g-' || lpad(nextval('guest_slug_seq')::text, 3, '0') AS slug`,
+  )
+  const slug = (result.rows[0] as { slug?: string } | undefined)?.slug
+  if (!slug) throw new Error("nextGuestSlug: guest_slug_seq returned no value")
+  return slug
 }
 
 async function uniqueSlugFor(base: string): Promise<string> {
@@ -469,15 +515,10 @@ export async function previewEnsureGuest(
   let requiresReview = false
   if (match.confidence === "low") requiresReview = true
 
-  let wouldCreateSlug: string | null = null
-  if (match.confidence === "none") {
-    // Compute the slug deterministically using the same helper as
-    // the writer path. Falls back to a timestamped placeholder when
-    // `hints.name` is missing — mirrors `uniqueSlugFor`'s behavior
-    // when handed an empty base.
-    const base = hints.slug || normalizeSlug(hints.name ?? "")
-    wouldCreateSlug = await uniqueSlugFor(base)
-  }
+  // G-042 — a new guest's slug is a `g-NNN` value assigned from the
+  // guest_slug_seq SEQUENCE at create time. A dry-run must NOT consume a
+  // sequence value, so the exact slug is unknowable here and stays null.
+  const wouldCreateSlug: string | null = null
 
   return {
     guest_id: match.guest_id,

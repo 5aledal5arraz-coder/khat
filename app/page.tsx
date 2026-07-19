@@ -1,8 +1,9 @@
 import type { Metadata } from "next"
 import Link from "next/link"
 import { ArrowLeft, Play, Sparkles } from "lucide-react"
-import { getCachedPublicEpisodes } from "@/lib/cache"
+import { getCachedPublicEpisodes, getCachedActiveTeaser } from "@/lib/cache"
 import type { Episode } from "@/types/database"
+import { TeaserSection } from "@/components/teaser/teaser-section"
 import {
   EpisodePosterCard,
   EpisodeThumb,
@@ -55,7 +56,10 @@ const jsonLd = {
 }
 
 export default async function HomePage() {
-  const episodes = await getCachedPublicEpisodes().catch(() => [] as Episode[])
+  const [episodes, activeTeaser] = await Promise.all([
+    getCachedPublicEpisodes().catch(() => [] as Episode[]),
+    getCachedActiveTeaser().catch(() => null),
+  ])
   const featured = episodes[0] ?? null
   const grid = episodes.slice(1, 7)
 
@@ -111,6 +115,12 @@ export default async function HomePage() {
           </div>
         </div>
       </section>
+
+      {/* ──────────────────── Teaser (upcoming episode) ──────────── */}
+      {/* No active teaser → nothing renders (no placeholder, no layout
+          shift — acceptance م3). Disappears automatically once the linked
+          episode publishes (م4), driven by the cache tag. */}
+      {activeTeaser ? <TeaserSection teaser={activeTeaser} /> : null}
 
       {/* ──────────────────── Featured episode ──────────────────── */}
       {featured ? (

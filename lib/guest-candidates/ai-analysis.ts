@@ -22,11 +22,11 @@ import {
 } from "@/lib/db/schema/guest-candidates"
 import { eq } from "drizzle-orm"
 // Phase 2.0 Batch 2 — direct OpenAI call routed through runAiTask.
-// EDITORIAL_MODEL kept as a label for the parallel `guestCandidateAiRuns`
-// audit row (which has its own `model_name` column the Router doesn't
-// own); the actual model is selected by the Router via task_kind.
-import { EDITORIAL_MODEL, safeParseJSON } from "@/lib/ai/client"
-import { runAiTask } from "@/lib/ai-router"
+// The parallel `guestCandidateAiRuns` audit row has its own `model_name`
+// column: seeded with the registry default, then corrected to the model
+// the router actually used once the call returns.
+import { safeParseJSON } from "@/lib/ai/client"
+import { runAiTask, DEFAULT_MODELS } from "@/lib/ai-router"
 import {
   CANDIDATE_ANALYSIS_SYSTEM,
   CANDIDATE_ANALYSIS_PROMPT_VERSION,
@@ -148,7 +148,9 @@ export async function analyzeCandidate(
     .values({
       candidate_id: candidateId,
       run_type: "profile_analysis",
-      model_name: EDITORIAL_MODEL,
+      // Provisional — the registry default. Overwritten below with the
+      // ACTUAL model the router used once the call completes.
+      model_name: DEFAULT_MODELS.editorial.modelName,
       input_snapshot_json: {
         full_name: candidate.full_name,
         category: candidate.category,
@@ -206,6 +208,9 @@ export async function analyzeCandidate(
       .set({
         status: "ready",
         completed_at: new Date(),
+        // Correct the provisional model_name to the model the router
+        // actually used (may differ via Settings override / fallback).
+        model_name: completion.modelName,
         output_snapshot_json: result as unknown as Record<string, unknown>,
       })
       .where(eq(guestCandidateAiRuns.id, run.id))
@@ -228,7 +233,7 @@ export async function analyzeCandidate(
           ai_reason_to_invite: result.reason_to_invite,
           ai_conversation_angles_json: result.conversation_angles,
           ai_suggested_questions_json: result.suggested_questions,
-          ai_model_used: EDITORIAL_MODEL,
+          ai_model_used: completion.modelName,
           ai_generated_at: new Date(),
           // Auto-advance status if it was 'new' or 'researching'
           status:

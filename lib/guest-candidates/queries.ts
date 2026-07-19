@@ -199,6 +199,8 @@ export interface CreateCandidateInput {
   category?: string | null
   city?: string | null
   country?: string | null
+  phone?: string | null
+  email?: string | null
   bio?: string | null
   notes_internal?: string | null
   source_type?: string | null
@@ -247,6 +249,8 @@ export async function createCandidate(input: CreateCandidateInput, actorId?: str
       category: input.category ?? null,
       city: input.city ?? null,
       country: input.country ?? null,
+      phone: input.phone ?? null,
+      email: input.email ?? null,
       bio: input.bio ?? null,
       notes_internal: input.notes_internal ?? null,
       source_type: input.source_type ?? "manual",
@@ -287,6 +291,8 @@ export interface UpdateCandidateInput {
   category?: string | null
   city?: string | null
   country?: string | null
+  phone?: string | null
+  email?: string | null
   bio?: string | null
   notes_internal?: string | null
   source_note?: string | null

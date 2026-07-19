@@ -29,6 +29,7 @@ import type { PushPreview } from "@/lib/khat-brain/push-preview"
 import { PushButton } from "./push-button"
 import { loadPublishPackageForEir } from "@/lib/khat-brain/publish-loader"
 import { PublishPackageEditor } from "./publish-editor-client"
+import { studioDeepLink } from "./studio-href"
 
 export async function PublishTab({
   episode,
@@ -143,7 +144,7 @@ export async function PublishTab({
               <>
                 <span>·</span>
                 <Link
-                  href={`/admin/studio/${studio.session.id}`}
+                  href={studioDeepLink(studio.session.video_id)}
                   className="inline-flex items-center gap-1 hover:text-muted-foreground"
                 >
                   الاستديو الكامل <ExternalLink className="h-2.5 w-2.5" />
@@ -211,7 +212,7 @@ export async function PublishTab({
           من الاستديو، أنشئ/اربط حلقة ثم ادفع الحزمة.
         </p>
         <Link
-          href={`/admin/studio/${studio.session.id}`}
+          href={studioDeepLink(studio.session.video_id)}
           className="mt-4 inline-flex items-center gap-1.5 rounded-xl border border-violet-500/40 bg-violet-500/10 px-3 py-1.5 text-[12px] text-violet-700 hover:bg-violet-500/20"
         >
           فتح الاستوديو <ExternalLink className="h-3 w-3" />

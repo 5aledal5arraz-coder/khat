@@ -2,6 +2,8 @@ import { Metadata } from "next"
 import { notFound } from "next/navigation"
 import { getGuestBySlug } from "@/lib/queries/episodes"
 import { getGuestPublicKnowledge } from "@/lib/guests/knowledge"
+import { getTeaserForGuest } from "@/lib/teaser"
+import { TeaserInline } from "@/components/teaser/teaser-inline"
 import { EpisodeCard } from "@/components/episodes/episode-card"
 import { QuoteCard } from "@/components/quotes/quote-card"
 import { GuestAvatar } from "@/components/guests/guest-avatar"
@@ -87,6 +89,7 @@ export default async function GuestPage({ params }: GuestPageProps) {
   // Synthesized cross-episode knowledge (Studio redesign, Goal 2). Best-effort:
   // the page degrades to the plain bio when no knowledge has been generated.
   const knowledge = await getGuestPublicKnowledge(guest.id).catch(() => null)
+  const teaser = await getTeaserForGuest(guest.id).catch(() => null)
   const displayBio = knowledge?.bio || guest.bio
   const signatureTopics = knowledge?.signature_topics?.filter(Boolean) ?? []
   const themes = knowledge?.themes?.filter(Boolean) ?? []
@@ -149,6 +152,15 @@ export default async function GuestPage({ params }: GuestPageProps) {
             )}
           </div>
         </div>
+
+        {/* Teaser — the guest's upcoming/aired episode teaser (compact block,
+            Sara note 4/5). */}
+        {teaser && (
+          <div className="mt-10 space-y-3">
+            <h2 className="text-lg font-semibold">التيزر</h2>
+            <TeaserInline teaser={teaser} />
+          </div>
+        )}
 
         {/* Cross-episode knowledge (synthesized) */}
         {(themes.length > 0 || knowledgeQuotes.length > 0 || knowledge?.arc) && (

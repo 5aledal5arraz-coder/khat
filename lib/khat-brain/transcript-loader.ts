@@ -2,10 +2,11 @@
  * UX-7 Phase A — Server-side transcript loader for the workspace.
  *
  * Reads the most-recent `studio_analysis_records` row of kind=transcript
- * for an EIR. Falls back to the legacy `studio_transcripts` table when
- * the consolidated row hasn't been backfilled yet, so the workspace
- * tab always has *something* to show. The shape returned to the client
- * is always the new `TranscriptDocument`.
+ * for an EIR (by eir_id first, then by the linked studio_session_id).
+ * The legacy `studio_transcripts` table is intentionally NOT read here
+ * (see the note at the empty-doc return below) — when neither lookup
+ * hits, an empty doc is returned so the editor still mounts. The shape
+ * returned to the client is always the new `TranscriptDocument`.
  *
  * No writes from this module — see `transcript-actions.ts` for the
  * server action that owns the save path.
@@ -116,9 +117,10 @@ export async function loadTranscriptForEir(
   // Note: the legacy `studio_transcripts` table is intentionally NOT
   // read here — per the UX-7 brief, the workspace surface owns
   // `studio_analysis_records kind=transcript`. Operators with content
-  // only in the legacy table can use the "Open advanced legacy page"
-  // escape hatch to view it there; the workspace will pick up edits
-  // once they flow through Phase 5+ backfill.
+  // only in the legacy table can open the full Studio workspace via
+  // the escape-hatch link (`/admin/studio?video=<videoId>` — there is
+  // no per-session studio route) to view it there; the workspace will
+  // pick up edits once they flow through Phase 5+ backfill.
   return {
     doc: coerceTranscriptDocument(null),
     source: "empty",

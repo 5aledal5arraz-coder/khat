@@ -36,18 +36,19 @@ function phaseAtLeast(actual: EpisodePhase, threshold: EpisodePhase): boolean {
 
 export interface ClipsTabProps {
   eirId: string
-  studioSessionId: string | null
+  /** Studio deep-link (`/admin/studio?video=…`); null when no session is linked. */
+  studioHref: string | null
   currentPhase: EpisodePhase
 }
 
 export async function ClipsTab({
   eirId,
-  studioSessionId,
+  studioHref,
   currentPhase,
 }: ClipsTabProps) {
   const loaded = await loadClipsForEir(eirId)
   const isEarly = !phaseAtLeast(currentPhase, "recorded")
-  const legacyHref = studioSessionId ? `/admin/studio/${studioSessionId}` : null
+  const legacyHref = studioHref
 
   // Project the transcript + chapters onto a small bundle the client
   // can use for previews without re-fetching.
@@ -110,7 +111,7 @@ export async function ClipsTab({
       <ClipEditor
         eirId={eirId}
         initialDoc={loaded.doc}
-        studioSessionId={studioSessionId}
+        studioHref={studioHref}
         transcriptContext={transcriptCtx}
         chaptersContext={chaptersCtx}
       />

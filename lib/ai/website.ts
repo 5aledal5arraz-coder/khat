@@ -1,5 +1,6 @@
 import type { WebsiteQuoteItem, WebsiteResourceItem, WebsiteTimestampItem } from "@/types/database"
-import { getClient, prepareTranscript, prepareTranscriptWithPositions } from "./client"
+import { env } from "@/lib/env"
+import { prepareTranscript, prepareTranscriptWithPositions } from "./client"
 import { runAiTask } from "@/lib/ai-router"
 import type { GlobalEpisodeIntelligence } from "./episode-intelligence"
 import { formatIntelligenceContext } from "./episode-intelligence"
@@ -32,10 +33,7 @@ export async function generateWebsitePackage(
   episodeIntelligence?: GlobalEpisodeIntelligence | null,
   eirContext?: { eirId?: string | null; subjectTable?: string | null; subjectId?: string | null }
 ): Promise<{ success: boolean; data?: WebsitePackageResult; raw?: Record<string, unknown>; error?: string; runId?: string }> {
-  let openaiForPrep: ReturnType<typeof getClient>
-  try {
-    openaiForPrep = getClient()
-  } catch {
+  if (!env.OPENAI_API_KEY) {
     return { success: false, error: "OPENAI_API_KEY غير مُعدّ" }
   }
 
@@ -48,7 +46,7 @@ export async function generateWebsitePackage(
     const takeawayTarget = isLong ? "8-12" : "5-10"
 
     // ── Phase 1: STRUCTURE_MODEL — timestamps ─────────────────────────
-    const positionalText = await prepareTranscriptWithPositions(openaiForPrep, transcript, durationSeconds)
+    const positionalText = await prepareTranscriptWithPositions(null as never, transcript, durationSeconds)
 
     const tsSystem = `أنت متخصص في استخراج الطوابع الزمنية من نصوص البودكاست.
 
@@ -82,7 +80,7 @@ ${positionalText}`
     const tsResult = await runAiTask<{ timestamps: WebsiteTimestampItem[] }>({
       taskKind: "structural",
       eirId: eirContext?.eirId ?? null,
-      subjectTable: eirContext?.subjectTable ?? "studio_website_packages",
+      subjectTable: eirContext?.subjectTable ?? "studio_sessions",
       subjectId: eirContext?.subjectId ?? null,
       input: { videoTitle, durationSeconds, phase: "timestamps" },
       prompt: [
@@ -104,7 +102,7 @@ ${positionalText}`
     }
 
     // ── Phase 2: EDITORIAL_MODEL — content ────────────────────────────
-    const editorialText = await prepareTranscript(openaiForPrep, transcript)
+    const editorialText = await prepareTranscript(null as never, transcript)
     const intelligenceBlock = episodeIntelligence ? `\n\n${formatIntelligenceContext(episodeIntelligence)}` : ""
 
     const edSystem = `أنت المحرر الرئيسي لبودكاست خط — بودكاست عربي عميق يتميز بالذكاء العاطفي والحدة الفكرية والصدق الإنساني.
@@ -189,7 +187,7 @@ ${editorialText}`
     }>({
       taskKind: "editorial",
       eirId: eirContext?.eirId ?? null,
-      subjectTable: eirContext?.subjectTable ?? "studio_website_packages",
+      subjectTable: eirContext?.subjectTable ?? "studio_sessions",
       subjectId: eirContext?.subjectId ?? null,
       input: {
         videoTitle,

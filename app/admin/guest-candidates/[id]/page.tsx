@@ -6,6 +6,9 @@ import {
   listPrepLinks,
   listResponses,
   listTemplates,
+  listPrepMeetings,
+  getEirForCandidate,
+  getCandidateGuestId,
 } from "@/lib/guest-candidates"
 import { CandidateDetailClient } from "./candidate-detail-client"
 
@@ -21,12 +24,15 @@ export default async function CandidateDetailPage({ params }: PageProps) {
   const candidate = await getCandidate(id)
   if (!candidate) notFound()
 
-  const [statusHistory, outreachMessages, prepLinks, prepResponses, templates] = await Promise.all([
+  const [statusHistory, outreachMessages, prepLinks, prepResponses, templates, prepMeetings, productionEir, linkedGuestId] = await Promise.all([
     listStatusHistory(id),
     listOutreachMessages(id),
     listPrepLinks(id),
     listResponses(id),
     listTemplates(),
+    listPrepMeetings(id),
+    getEirForCandidate(id),
+    getCandidateGuestId(id),
   ])
 
   // Serialize Date fields
@@ -88,6 +94,9 @@ export default async function CandidateDetailPage({ params }: PageProps) {
       prepLinks={serializedPrepLinks}
       prepResponses={serializedResponses}
       templates={serializedTemplates}
+      prepMeetings={prepMeetings}
+      productionEir={productionEir}
+      hasCanonicalLink={!!linkedGuestId}
     />
   )
 }

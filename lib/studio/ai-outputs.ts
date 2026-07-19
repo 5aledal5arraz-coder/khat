@@ -27,7 +27,9 @@ function mapToLegacyShape(r: StudioAnalysisRecord): StudioAiOutput {
   return {
     id: r.id,
     session_id: r.studio_session_id ?? "",
-    model: data.model ?? "gpt-4o-mini",
+    // "unknown" — honest fallback for legacy records that predate storing
+    // the model; not a fabricated (and now stale) "gpt-4o-mini".
+    model: data.model ?? "unknown",
     prompt_version: data.prompt_version ?? "v1",
     status: r.status as StudioAiOutputStatus,
     title_best: data.title_best ?? "",

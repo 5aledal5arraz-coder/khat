@@ -75,7 +75,7 @@ export default async function OriginalThinkingPage() {
               type="submit"
               className="rounded-xl border border-border/50 bg-background/40 px-4 py-2 text-[12px] font-medium text-foreground/80 hover:bg-background/60"
             >
-              Generate 10 (English)
+              توليد ١٠ (إنجليزي)
             </button>
           </form>
           <form
@@ -87,9 +87,8 @@ export default async function OriginalThinkingPage() {
             <button
               type="submit"
               className="rounded-xl border border-border/50 bg-background/40 px-4 py-2 text-[12px] text-muted-foreground hover:bg-background/60"
-              dir="ltr"
             >
-              Sweep expired
+              تنظيف المنتهية
             </button>
           </form>
         </div>

@@ -36,13 +36,14 @@ function phaseAtLeast(actual: EpisodePhase, threshold: EpisodePhase): boolean {
 
 export interface TranscriptTabProps {
   eirId: string
-  studioSessionId: string | null
+  /** Studio deep-link (`/admin/studio?video=…`); null when no session is linked. */
+  studioHref: string | null
   currentPhase: EpisodePhase
 }
 
 export async function TranscriptTab({
   eirId,
-  studioSessionId,
+  studioHref,
   currentPhase,
 }: TranscriptTabProps) {
   const loaded = await loadTranscriptForEir(eirId)
@@ -52,11 +53,9 @@ export async function TranscriptTab({
   // surface a hint card when the phase suggests no recording yet.
   const isEarly = !phaseAtLeast(currentPhase, "recorded")
 
-  // Legacy escape hatch — link to the legacy Studio page if a session
-  // is linked. Always available alongside the workspace editor.
-  const legacyHref = studioSessionId
-    ? `/admin/studio/${studioSessionId}`
-    : null
+  // Escape hatch — open the full Studio workspace when a session is
+  // linked. Always available alongside the workspace editor.
+  const legacyHref = studioHref
 
   return (
     <div className="space-y-3">

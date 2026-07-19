@@ -4,7 +4,7 @@
  * UX-5.2 — Workspace-native quick edit for the website package.
  *
  * High-frequency operator edits (title / hero / takeaways / quote text /
- * timestamp titles) used to require a trip to /admin/studio/[id]. Now
+ * timestamp titles) used to require a trip to the /admin/studio page. Now
  * they go through `updateWebsitePackage()` directly, with
  * revalidatePath so the workspace tab re-renders.
  *

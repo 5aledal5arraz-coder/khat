@@ -1,6 +1,15 @@
 export interface TeaserConfig {
   id: string
-  guestName: string
+  /** Linked upcoming-episode record (EIR). Null when unlinked/orphaned. */
+  eirId: string | null
+  /** Linked guest. Null before the EIR reaches guest_assigned. */
+  guestId: string | null
+  /**
+   * Legacy free-text guest name. Nullable since v1: the canonical guest comes
+   * from `guestId`/the linked EIR, and an EIR before guest_assigned has none.
+   * Public readers MUST hide the guest line when this is null (Sara note 8).
+   */
+  guestName: string | null
   title: string
   prompt: string
   videoFilename: string
@@ -23,6 +32,7 @@ export interface TeaserQuestion {
   question_text: string
   status: 'pending' | 'approved' | 'rejected'
   ip_hash: string | null
+  user_agent: string | null
   created_at: string
 }
 

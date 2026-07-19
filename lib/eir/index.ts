@@ -8,6 +8,7 @@ export {
   listEpisodeIntelligenceRecords,
   transitionEpisodePhase,
   setEpisodeIntelligenceGuest,
+  setEpisodeRecordingSchedule,
   countByPhase,
   getEpisodePhaseHistory,
   type EpisodeIntelligenceRecord,
@@ -15,6 +16,7 @@ export {
   type ListEirOptions,
   type TransitionInput,
   type SetEirGuestInput,
+  type SetRecordingScheduleInput,
   type PhaseTransitionEntry,
 } from "./service"
 

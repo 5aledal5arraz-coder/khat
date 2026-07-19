@@ -13,6 +13,7 @@ import {
   type ListCandidatesFilters,
 } from "@/lib/guest-candidates"
 import type { GuestCandidatePriority, GuestCandidateStatus } from "@/types/database"
+import { EMAIL_REGEX } from "@/lib/validation/forms"
 import { revalidatePath } from "next/cache"
 
 const VALID_STATUSES: GuestCandidateStatus[] = [
@@ -91,12 +92,32 @@ export async function POST(request: NextRequest) {
     return errorResponse("الحالة غير صحيحة", 422)
   }
 
+  // Normalize contact channels (admin-only). Phone is free-text (intl
+  // formats vary — mirrors guest_applications.phone); email must be
+  // well-formed when provided.
+  const phone = typeof body.phone === "string" ? body.phone.trim().slice(0, 40) || null : null
+  const email = typeof body.email === "string" ? body.email.trim().slice(0, 200) || null : null
+  if (email && !EMAIL_REGEX.test(email)) {
+    return errorResponse("البريد الإلكتروني غير صالح", 422)
+  }
+
   // Sanitize social links
   const socials = Array.isArray(body.social_links)
     ? body.social_links
         .filter((s) => s && typeof s.platform === "string" && typeof s.url === "string" && s.url.length > 0)
         .slice(0, 20)
     : undefined
+
+  // Criterion م1: manual candidate creation requires at least one contact
+  // channel (phone OR email OR a social link). Enforced HERE, not in the
+  // shared createCandidate() — automated discovery/community flows
+  // legitimately create channel-less candidates and must keep working.
+  if (!phone && !email && !(socials && socials.length > 0)) {
+    return errorResponse(
+      "قناة تواصل واحدة على الأقل مطلوبة (هاتف أو بريد إلكتروني أو رابط اجتماعي)",
+      422,
+    )
+  }
 
   try {
     const created = await createCandidate(
@@ -108,6 +129,8 @@ export async function POST(request: NextRequest) {
         category: body.category?.trim() || null,
         city: body.city?.trim() || null,
         country: body.country?.trim() || null,
+        phone,
+        email,
         bio: body.bio?.trim() || null,
         notes_internal: body.notes_internal?.trim() || null,
         source_type: body.source_type || "manual",

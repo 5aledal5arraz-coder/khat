@@ -17,6 +17,7 @@
  */
 
 import { getClient } from "@/lib/ai/client"
+import { recordAiRun } from "@/lib/ai-router/record-run"
 import type {
   KhatMapTopicDomain,
   KhatMapTopicFingerprint,
@@ -24,6 +25,20 @@ import type {
 
 export const EMBEDDING_MODEL = "text-embedding-3-small"
 export const EMBEDDING_DIMS = 1536
+
+/**
+ * USD per 1M input tokens for the embedding model. NEEDS CONFIRMATION from
+ * OpenAI's official pricing page — this figure is consistent with the
+ * "$0.00002 per topic" estimate above (~1K tokens/topic × $0.02/1M).
+ * `cost_usd` is nullable, so a missing usage count records null rather
+ * than a fabricated number.
+ */
+const EMBEDDING_PRICE_PER_1M_TOKENS = 0.02
+
+function embeddingCost(promptTokens: number | null | undefined): number | null {
+  if (promptTokens == null) return null
+  return (promptTokens / 1_000_000) * EMBEDDING_PRICE_PER_1M_TOKENS
+}
 
 /** Tune-points. Change here; everything downstream follows. */
 export const SIMILARITY_HARD_BLOCK = 0.82
@@ -50,10 +65,25 @@ export function buildFingerprintText(
 
 export async function embed(text: string): Promise<number[]> {
   const client = getClient()
-  const res = await client.embeddings.create({
-    model: EMBEDDING_MODEL,
-    input: text,
-  })
+  const res = await recordAiRun(
+    {
+      taskKind: "embedding",
+      provider: "openai",
+      modelName: EMBEDDING_MODEL,
+      inputSnapshot: { input_chars: text.length },
+    },
+    () =>
+      client.embeddings.create({
+        model: EMBEDDING_MODEL,
+        input: text,
+      }),
+    (r) => ({
+      tokensIn: r.usage?.prompt_tokens ?? null,
+      tokensOut: 0,
+      costUsd: embeddingCost(r.usage?.prompt_tokens),
+      outputSnapshot: { vectors: r.data?.length ?? 0 },
+    }),
+  )
   const vec = res.data?.[0]?.embedding
   if (!vec || vec.length !== EMBEDDING_DIMS) {
     throw new Error(
@@ -73,7 +103,24 @@ export async function batchEmbed(texts: string[], chunkSize = 128): Promise<numb
   const out: number[][] = new Array(texts.length)
   for (let i = 0; i < texts.length; i += chunkSize) {
     const slice = texts.slice(i, i + chunkSize).map((t) => (t.trim() ? t.slice(0, 2000) : " "))
-    const res = await client.embeddings.create({ model: EMBEDDING_MODEL, input: slice })
+    // One ai_runs row per batch call. NOTE: recordAiRun takes NO rate-limit
+    // permit by design — batchEmbed is high-volume during season planning
+    // and a permit here would throttle generation.
+    const res = await recordAiRun(
+      {
+        taskKind: "embedding",
+        provider: "openai",
+        modelName: EMBEDDING_MODEL,
+        inputSnapshot: { batch_size: slice.length, offset: i },
+      },
+      () => client.embeddings.create({ model: EMBEDDING_MODEL, input: slice }),
+      (r) => ({
+        tokensIn: r.usage?.prompt_tokens ?? null,
+        tokensOut: 0,
+        costUsd: embeddingCost(r.usage?.prompt_tokens),
+        outputSnapshot: { vectors: r.data?.length ?? 0 },
+      }),
+    )
     for (const item of res.data) out[i + item.index] = item.embedding
   }
   return out

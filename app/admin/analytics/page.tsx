@@ -140,9 +140,12 @@ interface DashboardData {
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
 function fmt(n: number): string {
+  // Western digits per operator decision §11 (lib/ops/format.ts) — the raw
+  // counts in the `sub` lines are already Latin, so "ar-EG" (Arabic-Indic)
+  // here produced two numbering systems in one card. Keep it Latin.
   if (n >= 1_000_000) return (n / 1_000_000).toFixed(1) + "M"
   if (n >= 1_000) return (n / 1_000).toFixed(1) + "K"
-  return n.toLocaleString("ar-EG")
+  return n.toLocaleString("en-US")
 }
 
 function timeAgo(dateStr: string | null): string {
@@ -292,7 +295,7 @@ export default function AnalyticsDashboard() {
       {/* ─── Page Header ─────────────────────────────────────────────────── */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-xl font-bold">تحليلات المنصة</h1>
+          <h1 className="text-xl font-bold">التحليلات</h1>
           <p className="mt-0.5 text-xs text-muted-foreground">نظرة شاملة على أداء الموقع والقناة والجمهور</p>
         </div>
         <button
@@ -334,7 +337,11 @@ export default function AnalyticsDashboard() {
       <section className="space-y-4">
         <SectionHeader icon={BarChart3} title="نظرة عامة على المنصة" />
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
-          <StatCard icon={Mic2} iconBg="bg-primary/10" iconColor="text-primary" label="إجمالي الحلقات" value={fmt(platform.totalEpisodes)} sub={`${platform.publishedEpisodes} منشورة`} />
+          {/* Source label matters: this counts the episodes TABLE only.
+              The ops «حلقات منشورة» card counts the merged archive
+              (site DB + YouTube-only episodes), so the two numbers
+              legitimately differ — each card states its source. */}
+          <StatCard icon={Mic2} iconBg="bg-primary/10" iconColor="text-primary" label="إجمالي الحلقات (قاعدة الموقع)" value={fmt(platform.totalEpisodes)} sub={`${platform.publishedEpisodes} منشورة`} />
           <StatCard icon={Users} iconBg="bg-emerald-500/10" iconColor="text-emerald-700" label="الضيوف" value={fmt(platform.totalGuests)} color="green" />
           <StatCard icon={Quote} iconBg="bg-amber-500/10" iconColor="text-amber-700" label="الاقتباسات" value={fmt(platform.totalQuotes)} color="muted" />
           <StatCard icon={BookOpen} iconBg="bg-indigo-500/10" iconColor="text-indigo-700" label="الفصول الزمنية" value={fmt(platform.totalTimestamps)} color="muted" />

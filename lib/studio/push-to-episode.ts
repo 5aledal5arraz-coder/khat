@@ -30,10 +30,11 @@
  */
 
 import { eq, sql } from "drizzle-orm"
-import { revalidatePath } from "next/cache"
+import { revalidatePath, revalidateTag } from "next/cache"
 import { db } from "@/lib/db"
 import { episodes as episodesTable } from "@/lib/db/schema/episodes"
 import { invalidate } from "@/lib/cache"
+import { TEASER_CACHE_TAG } from "@/lib/teaser"
 import { invalidateEpisodeCache } from "@/lib/cache/episode-cache"
 import { getEpisodeOverride } from "@/lib/episodes/overrides"
 // P2.4.c — canonical service is the single source of truth. The
@@ -401,6 +402,11 @@ export async function runStudioPushToEpisode(input: {
   safeSync(() => revalidatePath("/episodes"))
   safeSync(() => revalidatePath("/admin/episodes"))
   safeSync(() => revalidatePath(`/admin/episodes/${episodeId}`))
+  // Drop the homepage teaser cache: once this push advances the linked EIR to
+  // `published`, getActiveTeaserForDisplay must re-evaluate and hide the teaser
+  // (acceptance م4 / Sara note 14). Safe to run on every push — a still-upcoming
+  // EIR simply rebuilds the same result.
+  safeSync(() => revalidateTag(TEASER_CACHE_TAG, { expire: 0 }))
 
   return {
     episodeId,

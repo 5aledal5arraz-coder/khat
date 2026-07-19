@@ -16,10 +16,11 @@ import {
 } from "@/lib/db/schema/guest-candidates"
 import { eq, desc, and } from "drizzle-orm"
 // Phase 2.0 Batch 2 — direct OpenAI call routed through runAiTask.
-// EDITORIAL_MODEL kept only as a label for the parallel
-// `guestCandidateAiRuns` audit row (its `model_name` column).
-import { EDITORIAL_MODEL, safeParseJSON } from "@/lib/ai/client"
-import { runAiTask } from "@/lib/ai-router"
+// The parallel `guestCandidateAiRuns` audit row has its own `model_name`
+// column: seeded with the registry default, then corrected to the model
+// the router actually used once the call returns.
+import { safeParseJSON } from "@/lib/ai/client"
+import { runAiTask, DEFAULT_MODELS } from "@/lib/ai-router"
 import {
   buildCandidateOutreachSystem,
   buildCandidateOutreachUser,
@@ -73,7 +74,9 @@ export async function generateOutreachDraft(input: OutreachGenerationInput): Pro
     .values({
       candidate_id: input.candidateId,
       run_type: "outreach_generation",
-      model_name: EDITORIAL_MODEL,
+      // Provisional — the registry default. Overwritten below with the
+      // ACTUAL model the router used once the call completes.
+      model_name: DEFAULT_MODELS.editorial.modelName,
       input_snapshot_json: { channel: input.channel, tone: input.tone, length, customNote: input.customNote ?? null },
       status: "running",
     })
@@ -148,6 +151,9 @@ export async function generateOutreachDraft(input: OutreachGenerationInput): Pro
       .set({
         status: "ready",
         completed_at: new Date(),
+        // Correct the provisional model_name to the model the router
+        // actually used (may differ via Settings override / fallback).
+        model_name: completion.modelName,
         output_snapshot_json: draft as unknown as Record<string, unknown>,
       })
       .where(eq(guestCandidateAiRuns.id, run.id))

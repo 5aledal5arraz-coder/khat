@@ -32,11 +32,26 @@ interface EpisodeDetailProps {
   currentBrandLine: string | null
 }
 
-const tabs: { id: Tab; label: string; icon: React.ElementType }[] = [
+// `source` marks where each editorial tab's content comes from — manual
+// admin editing vs. studio AI generation — so operators stop confusing the
+// hand-written "إثراء الحلقة" with the studio-generated quotes/YouTube pack.
+const tabs: {
+  id: Tab
+  label: string
+  icon: React.ElementType
+  source?: "manual" | "studio"
+  hint?: string
+}[] = [
   { id: "overview", label: "نظرة عامة", icon: Eye },
-  { id: "conversation", label: "المحادثة", icon: BookOpen },
-  { id: "quotes", label: "اقتباسات", icon: MessageSquareQuote },
-  { id: "youtube-pack", label: "حزمة يوتيوب", icon: Youtube },
+  {
+    id: "conversation",
+    label: "إثراء الحلقة",
+    icon: BookOpen,
+    source: "manual",
+    hint: "محتوى تحريري يظهر للزوار في صفحة الحلقة",
+  },
+  { id: "quotes", label: "اقتباسات", icon: MessageSquareQuote, source: "studio" },
+  { id: "youtube-pack", label: "حزمة يوتيوب", icon: Youtube, source: "studio" },
   { id: "versions", label: "السجل", icon: History },
 ]
 
@@ -127,6 +142,26 @@ export function EpisodeDetail({
           )
         })}
       </div>
+
+      {/* Source badge + helper line for the active editorial tab (Khaled). */}
+      {(() => {
+        const t = tabs.find((x) => x.id === activeTab)
+        if (!t?.source) return null
+        return (
+          <div className="flex flex-wrap items-center gap-2 rounded-lg border border-border/40 bg-muted/20 px-3 py-2 text-[11.5px]">
+            <span
+              className={`inline-flex shrink-0 items-center gap-1 rounded-md px-1.5 py-0.5 text-[10.5px] font-semibold ${
+                t.source === "manual"
+                  ? "bg-sky-500/10 text-sky-700"
+                  : "bg-violet-500/10 text-violet-700"
+              }`}
+            >
+              {t.source === "manual" ? "يدوي" : "مولّد من الاستوديو"}
+            </span>
+            {t.hint && <span className="text-muted-foreground">{t.hint}</span>}
+          </div>
+        )
+      })()}
 
       {/* Tab Content */}
       {activeTab === "overview" && (

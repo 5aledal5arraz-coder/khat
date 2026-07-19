@@ -2,7 +2,8 @@
 
 import { revalidatePath } from "next/cache"
 import { getYoutubePackConfig, saveYoutubePackConfig } from "@/lib/youtube-pack"
-import { fetchTranscript } from "@/lib/youtube/transcript"
+import { fetchTranscriptServer } from "@/lib/youtube/transcript-server"
+import { cleanTranscriptText } from "@/lib/studio/utils"
 import {
   generateYoutubePackFromTranscript,
   generateYoutubePackSectionFromTranscript,
@@ -30,15 +31,18 @@ export async function generateYoutubePack(
     return { success: false, error: "رابط يوتيوب غير صالح" }
   }
 
-  const result = await fetchTranscript(videoId)
+  const result = await fetchTranscriptServer(videoId)
   if (!result.success) {
     return { success: false, error: result.error || "فشل في جلب النص" }
   }
 
+  // fetchTranscriptServer returns RAW VTT (timestamps) — strip them before the generator/storage.
+  const transcript = cleanTranscriptText(result.text)
+
   let sections: YouTubePackSection[]
   try {
     sections = await generateYoutubePackFromTranscript(
-      result.text,
+      transcript,
       title,
       guestName
     )
@@ -62,7 +66,7 @@ export async function generateYoutubePack(
     episodeId,
     episodeTitle: title,
     sections,
-    transcript: result.text,
+    transcript,
     generatedAt: new Date().toISOString(),
   }
   await saveYoutubePackConfig(config)
@@ -88,11 +92,12 @@ export async function regenerateYoutubePackSection(
     if (!videoId) {
       return { success: false, error: "رابط يوتيوب غير صالح" }
     }
-    const result = await fetchTranscript(videoId)
+    const result = await fetchTranscriptServer(videoId)
     if (!result.success) {
       return { success: false, error: result.error || "فشل في جلب النص" }
     }
-    transcript = result.text
+    // fetchTranscriptServer returns RAW VTT (timestamps) — strip them before the generator/storage.
+    transcript = cleanTranscriptText(result.text)
   }
 
   let section

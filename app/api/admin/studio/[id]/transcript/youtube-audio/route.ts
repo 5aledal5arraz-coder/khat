@@ -50,7 +50,10 @@ export async function POST(
     cleanup = download.cleanup
 
     // Step 2: Transcribe with Whisper
-    const result = await transcribeAudioFile(download.filePath, "ar")
+    const result = await transcribeAudioFile(download.filePath, "ar", {
+      subjectTable: "studio_sessions",
+      subjectId: id,
+    })
 
     if (!result.success || !result.text) {
       return NextResponse.json(

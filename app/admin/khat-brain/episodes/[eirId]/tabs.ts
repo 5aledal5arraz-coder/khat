@@ -7,6 +7,7 @@
  */
 
 import type { EpisodePhase } from "@/lib/db/schema/eir"
+import { studioDeepLink } from "./studio-href"
 
 /**
  * UX-7 Phase E — IA reorganization.
@@ -81,6 +82,7 @@ export interface TabDef {
   legacy_fallback_href?: (eirId: string, links: {
     preparation_id: string | null
     studio_session_id: string | null
+    studio_video_id: string | null
     episode_id: string | null
   }) => string | null
 }
@@ -106,7 +108,7 @@ export const TABS: Record<TabKey, TabDef> = {
     implemented: true,
     legacy_fallback_href: (_eirId, links) =>
       links.studio_session_id
-        ? `/admin/studio/${links.studio_session_id}`
+        ? studioDeepLink(links.studio_video_id)
         : null,
   },
   chapters: {
@@ -117,7 +119,7 @@ export const TABS: Record<TabKey, TabDef> = {
     implemented: true,
     legacy_fallback_href: (_eirId, links) =>
       links.studio_session_id
-        ? `/admin/studio/${links.studio_session_id}`
+        ? studioDeepLink(links.studio_video_id)
         : null,
   },
   clips: {
@@ -128,7 +130,7 @@ export const TABS: Record<TabKey, TabDef> = {
     implemented: true,
     legacy_fallback_href: (_eirId, links) =>
       links.studio_session_id
-        ? `/admin/studio/${links.studio_session_id}`
+        ? studioDeepLink(links.studio_video_id)
         : null,
   },
   overview: {
@@ -183,7 +185,7 @@ export const TABS: Record<TabKey, TabDef> = {
     implemented: true,
     legacy_fallback_href: (_eirId, links) =>
       links.studio_session_id
-        ? `/admin/studio/${links.studio_session_id}`
+        ? studioDeepLink(links.studio_video_id)
         : null,
   },
   publish: {

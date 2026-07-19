@@ -27,6 +27,30 @@ export const AI_TASK_KINDS = [
 ] as const
 export type AiTaskKind = (typeof AI_TASK_KINDS)[number]
 
+/**
+ * Non-routed telemetry task kinds. These AI calls are logged in `ai_runs`
+ * for cost/observability but NEVER pass through `runAiTask` / the registry:
+ *   - "transcription" — audio → text (`lib/whisper.ts`); per-minute pricing,
+ *     not the chat Responses API.
+ *   - "embedding"     — text → vector (`lib/khat-map/learning/embeddings.ts`);
+ *     input-only, no output tokens.
+ * They are recorded via `recordAiRun()` (`lib/ai-router/record-run.ts`), so
+ * they are DELIBERATELY absent from `DEFAULT_MODELS` / `FALLBACK_CHAINS` /
+ * `TASK_TIER` — those stay exhaustive over the registry-routed kinds only,
+ * and these must not surface as configurable models in the Settings hub.
+ */
+export const AI_TELEMETRY_TASK_KINDS = ["transcription", "embedding"] as const
+export type AiTelemetryTaskKind = (typeof AI_TELEMETRY_TASK_KINDS)[number]
+
+/**
+ * Every value the `ai_runs.task_kind` column can hold: a registry-routed
+ * kind OR a telemetry-only kind. Widen HERE (not `AiTaskKind`) when adding a
+ * new non-routed telemetry source, so the registry Records stay exhaustive.
+ * The column is free-form `text` (no pgEnum / CHECK), so this is a
+ * compile-time-only distinction — no migration is needed to add a kind.
+ */
+export type AiRunTaskKind = AiTaskKind | AiTelemetryTaskKind
+
 /** Provider identifier. Adapters live in lib/ai-router/providers. */
 export const AI_PROVIDERS = ["openai", "gemini", "anthropic"] as const
 export type AiProvider = (typeof AI_PROVIDERS)[number]
@@ -73,7 +97,7 @@ export const aiRuns = pgTable("ai_runs", {
   subject_id: text("subject_id"),
 
   // ─── Routing ─────────────────────────────────────────────────────────
-  task_kind: text("task_kind").$type<AiTaskKind>().notNull(),
+  task_kind: text("task_kind").$type<AiRunTaskKind>().notNull(),
   provider: text("provider").$type<AiProvider>().notNull(),
   model_name: text("model_name").notNull(),
   /**

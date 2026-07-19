@@ -222,7 +222,7 @@ export function GuestRecordView({
             onClick={() => changeStatus("consider_later")}
             disabled={busy !== null}
             className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-[12px] font-medium transition-all disabled:opacity-60 ${
-              app.status === "consider_later" ? "border-amber-300 bg-amber-500 text-white" : "border-slate-200 bg-white text-slate-400 hover:border-amber-200 hover:text-amber-600"
+              app.status === "consider_later" ? "border-amber-300 bg-amber-500 text-white" : "border-slate-200 bg-white text-slate-400 hover:border-amber-200 hover:text-amber-700"
             }`}
           >
             {busy === "status:consider_later" ? <Loader2 className="h-3 w-3 animate-spin" /> : <Heart className="h-3 w-3" />}
@@ -232,7 +232,7 @@ export function GuestRecordView({
             onClick={() => changeStatus("rejected")}
             disabled={busy !== null}
             className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-[12px] font-medium transition-all disabled:opacity-60 ${
-              app.status === "rejected" ? "border-rose-300 bg-rose-600 text-white" : "border-slate-200 bg-white text-slate-400 hover:border-rose-200 hover:text-rose-600"
+              app.status === "rejected" ? "border-rose-300 bg-rose-600 text-white" : "border-slate-200 bg-white text-slate-400 hover:border-rose-200 hover:text-rose-700"
             }`}
           >
             {busy === "status:rejected" ? <Loader2 className="h-3 w-3 animate-spin" /> : <AlertTriangle className="h-3 w-3" />}
@@ -763,7 +763,7 @@ function PrepTab({
                   onClick={() => { navigator.clipboard.writeText(link); setCopied(true); setTimeout(() => setCopied(false), 1500) }}
                   className="shrink-0 rounded-md bg-white px-2 py-1 text-[11px] text-slate-600 hover:bg-slate-100"
                 >
-                  {copied ? <CheckCheck className="h-3.5 w-3.5 text-emerald-600" /> : <Copy className="h-3.5 w-3.5" />}
+                  {copied ? <CheckCheck className="h-3.5 w-3.5 text-emerald-700" /> : <Copy className="h-3.5 w-3.5" />}
                 </button>
               </div>
             ) : (
@@ -780,7 +780,7 @@ function PrepTab({
                 <button onClick={() => action("unlock", "unlock")} disabled={busy !== null} className="rounded-lg border border-slate-200 px-2.5 py-1 text-[11.5px] text-slate-700 hover:bg-slate-50 disabled:opacity-60">فتح</button>
               )}
               {f.status !== "revoked" && (
-                <button onClick={() => action("revoke", "revoke")} disabled={busy !== null} className="rounded-lg border border-rose-200 px-2.5 py-1 text-[11.5px] text-rose-600 hover:bg-rose-50 disabled:opacity-60">إلغاء</button>
+                <button onClick={() => action("revoke", "revoke")} disabled={busy !== null} className="rounded-lg border border-rose-200 px-2.5 py-1 text-[11.5px] text-rose-700 hover:bg-rose-50 disabled:opacity-60">إلغاء</button>
               )}
             </div>
           </div>
@@ -841,7 +841,7 @@ function TasksCard({
     <SectionCard
       title={`المهام (${open.length})`}
       icon={CheckCircle2}
-      action={<button onClick={() => setAdding((s) => !s)} className="text-slate-400 hover:text-indigo-600"><Plus className="h-4 w-4" /></button>}
+      action={<button onClick={() => setAdding((s) => !s)} className="text-slate-400 hover:text-indigo-700"><Plus className="h-4 w-4" /></button>}
     >
       {adding && (
         <div className="mb-3 flex gap-1.5">
@@ -860,14 +860,14 @@ function TasksCard({
             const ai = t.created_by === "ai:casting"
             return (
               <div key={t.id} className="flex items-start gap-2 rounded-xl border border-slate-150 bg-white p-2.5">
-                <button onClick={() => complete(t)} disabled={busy !== null} className="mt-0.5 text-slate-300 transition-colors hover:text-emerald-600" title="إنجاز">
+                <button onClick={() => complete(t)} disabled={busy !== null} className="mt-0.5 text-slate-300 transition-colors hover:text-emerald-700" title="إنجاز">
                   {busy === `task:done:${t.id}` ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
                 </button>
                 <div className="min-w-0 flex-1">
                   <p className="text-[12.5px] font-medium leading-snug text-slate-800">{t.title}</p>
                   <div className="mt-0.5 flex flex-wrap items-center gap-1.5 text-[10.5px]">
                     {ai && <span className="inline-flex items-center gap-0.5 rounded bg-primary/[0.07] px-1 py-px font-medium text-primary"><Sparkles className="h-2.5 w-2.5" /> الترشيح الذكي</span>}
-                    {t.due_at && <span className={overdue ? "text-rose-600" : "text-slate-400"}>{overdue ? "متأخرة · " : "تستحق "}{fmtDate(t.due_at)}</span>}
+                    {t.due_at && <span className={overdue ? "text-rose-700" : "text-slate-400"}>{overdue ? "متأخرة · " : "تستحق "}{fmtDate(t.due_at)}</span>}
                   </div>
                   {t.detail && <p className="mt-0.5 line-clamp-2 text-[11px] leading-relaxed text-slate-500">{t.detail}</p>}
                 </div>
@@ -928,8 +928,8 @@ function NotesCard({
               <div className="mt-1 flex items-center justify-between text-[10.5px] text-slate-400">
                 <span>{(n.author || "").replace(/^admin:/, "")} · {fmtRelative(n.created_at)}</span>
                 <div className="flex items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100">
-                  <button onClick={() => pin(n)} className={n.pinned ? "text-amber-600" : "text-slate-300 hover:text-amber-600"}><Pin className="h-3 w-3" /></button>
-                  <button onClick={() => del(n)} className="text-slate-300 hover:text-rose-600"><Trash2 className="h-3 w-3" /></button>
+                  <button onClick={() => pin(n)} className={n.pinned ? "text-amber-700" : "text-slate-300 hover:text-amber-700"}><Pin className="h-3 w-3" /></button>
+                  <button onClick={() => del(n)} className="text-slate-300 hover:text-rose-700"><Trash2 className="h-3 w-3" /></button>
                 </div>
               </div>
             </div>

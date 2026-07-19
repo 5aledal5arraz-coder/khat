@@ -15,7 +15,7 @@
  */
 
 import Link from "next/link"
-import { Activity, ArrowLeft, Inbox } from "lucide-react"
+import { Activity, ArrowRight, Inbox } from "lucide-react"
 import { requireAdmin } from "@/lib/api-utils"
 import {
   getReviewQueueCounts,
@@ -67,10 +67,10 @@ export default async function MarketSignalsReviewPage({
     <div className="mx-auto max-w-7xl space-y-4 px-4 py-4">
       <div>
         <Link
-          href="/admin/khat-brain"
+          href="/admin/ops"
           className="inline-flex items-center gap-1 text-[11.5px] text-muted-foreground hover:text-foreground"
         >
-          <ArrowLeft className="h-3 w-3" /> العودة إلى مركز القيادة
+          <ArrowRight className="h-3 w-3" /> العودة إلى الرئيسية
         </Link>
         <div className="mt-3 flex items-baseline justify-between gap-2">
           <div>

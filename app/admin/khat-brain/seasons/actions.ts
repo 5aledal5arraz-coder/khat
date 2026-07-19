@@ -9,8 +9,6 @@
  *   - calls the v2 engine / learning layers, never raw Drizzle
  *   - writes editorial signal via recordDecisionAndFingerprint so the
  *     learning layer stays fed
- *
- * NO v1 code is touched. v1's /admin/khat-map planner keeps working.
  */
 
 import { eq, and, inArray, isNull } from "drizzle-orm"
@@ -104,7 +102,9 @@ export async function deleteSeasonsBulkAction(
       `[deleteSeasonsBulkAction] ${user.email} deleted ${deleted.length}/${ids.length} season(s)`,
     )
     revalidatePath("/admin/khat-brain/seasons")
-    revalidatePath("/admin/khat-brain")
+    // The command-center widgets (queue + phase distribution) now live on the
+    // home after the Phase 2.2 merge; refresh there, not the redirect stub.
+    revalidatePath("/admin/ops")
     return { success: true, data: { deletedCount: deleted.length } }
   } catch (err) {
     console.error("[deleteSeasonsBulkAction] failed:", err)

@@ -52,7 +52,10 @@ export async function POST(
   }
 
   try {
-    const result = await transcribeAudioFile(filePath, "ar")
+    const result = await transcribeAudioFile(filePath, "ar", {
+      subjectTable: "studio_sessions",
+      subjectId: id,
+    })
 
     if (!result.success || !result.text) {
       const errorMsg = result.error || "فشل في تحويل الصوت إلى نص"

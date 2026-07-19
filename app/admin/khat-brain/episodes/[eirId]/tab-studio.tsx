@@ -35,6 +35,7 @@ import type {
 import type { EpisodePhase } from "@/lib/db/schema/eir"
 import { formatDateTime } from "@/lib/shared/formatters"
 import { StudioQuickEdit } from "./studio-quick-edit"
+import { studioDeepLink } from "./studio-href"
 
 const KIND_LABEL_AR: Record<string, string> = {
   transcript: "النصّ المنسوخ",
@@ -116,6 +117,11 @@ export function StudioTab({
     )
   }
 
+  // Deep-link to the full studio workspace (`?video=` — there is no
+  // per-session studio route). Falls back to the studio list for
+  // audio-upload sessions that have no video id.
+  const studioHref = studioDeepLink(studio.session.video_id)
+
   return (
     <div className="space-y-4">
       {/* Session meta + open-legacy link */}
@@ -137,7 +143,7 @@ export function StudioTab({
           </div>
         </div>
         <Link
-          href={`/admin/studio/${studio.session.id}`}
+          href={studioHref}
           className="inline-flex items-center gap-1 text-[10.5px] text-muted-foreground hover:text-muted-foreground"
           data-legacy-link
         >
@@ -152,7 +158,7 @@ export function StudioTab({
       {/* Output status grid */}
       <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
         {studio.outputs.map((o) => (
-          <OutputCard key={o.kind} output={o} sessionId={studio.session!.id} />
+          <OutputCard key={o.kind} output={o} studioHref={studioHref} />
         ))}
       </div>
 
@@ -196,10 +202,10 @@ export function StudioTab({
 
 function OutputCard({
   output,
-  sessionId,
+  studioHref,
 }: {
   output: WorkspaceStudioSummary["outputs"][number]
-  sessionId: string
+  studioHref: string
 }) {
   const tone = toneFor(output.status)
   const Icon = iconFor(output.status)
@@ -222,7 +228,7 @@ function OutputCard({
         </div>
       )}
       <Link
-        href={`/admin/studio/${sessionId}`}
+        href={studioHref}
         className="mt-2 inline-flex items-center gap-1 text-[10.5px] text-violet-700 hover:underline"
       >
         فتح في الاستديو <ExternalLink className="h-2.5 w-2.5" />

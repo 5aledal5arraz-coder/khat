@@ -3,11 +3,62 @@
  */
 
 /**
+ * Named HTML entities we decode. Kept small — YouTube/VTT captions use this
+ * handful; numeric entities (&#NN; / &#xHH;) are handled generically below.
+ */
+const NAMED_ENTITIES: Record<string, string> = {
+  amp: "&",
+  lt: "<",
+  gt: ">",
+  quot: '"',
+  apos: "'",
+  nbsp: " ",
+}
+
+/**
+ * Decode HTML entities (named + numeric), resolving DOUBLE-encoding
+ * (e.g. "&amp;gt;" → "&gt;" → ">"). YouTube captions frequently arrive
+ * single- OR double-encoded, so we iterate until the string stops changing
+ * (capped at 3 passes to avoid pathological loops). Restores parity with the
+ * pre-refactor cleaner, which decoded entities before tag-stripping.
+ */
+function decodeHtmlEntities(input: string): string {
+  let text = input
+  for (let pass = 0; pass < 3; pass++) {
+    const before = text
+    text = text.replace(
+      /&(#x[0-9a-fA-F]+|#\d+|[a-zA-Z][a-zA-Z0-9]*);/g,
+      (match, body: string) => {
+        if (body[0] === "#") {
+          const code =
+            body[1] === "x" || body[1] === "X"
+              ? parseInt(body.slice(2), 16)
+              : parseInt(body.slice(1), 10)
+          if (!Number.isFinite(code) || code <= 0 || code > 0x10ffff) return match
+          try {
+            return String.fromCodePoint(code)
+          } catch {
+            return match
+          }
+        }
+        return NAMED_ENTITIES[body.toLowerCase()] ?? match
+      },
+    )
+    if (text === before) break
+  }
+  return text
+}
+
+/**
  * Clean a raw transcript string: strip SRT/VTT formatting, normalize whitespace,
- * remove duplicate lines, but preserve Arabic text intact.
+ * remove duplicate lines, but preserve Arabic text intact. HTML entities are
+ * decoded first (including double-encoded ones), so "&amp;gt;" resolves to ">"
+ * instead of leaking through as literal text.
  */
 export function cleanTranscriptText(raw: string): string {
-  let text = raw
+  // Decode entities before any stripping so entity-encoded VTT tags
+  // (e.g. "&lt;c&gt;") normalize to real tags and get removed below.
+  let text = decodeHtmlEntities(raw)
 
   // Strip VTT header + metadata
   text = text.replace(/^WEBVTT[\s\S]*?\n\n/i, "")

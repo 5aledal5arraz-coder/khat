@@ -182,7 +182,7 @@ export function DetailOverview({
                 <button
                   onClick={handleReset}
                   disabled={saving}
-                  className="flex items-center gap-1 rounded-lg px-2 py-1 text-[11px] text-muted-foreground transition-all hover:bg-white/5 hover:text-foreground"
+                  className="flex items-center gap-1 rounded-lg px-2 py-1 text-[11px] text-muted-foreground transition-all hover:bg-muted/60 hover:text-foreground"
                 >
                   <RotateCcw className="h-3 w-3" />
                   استعادة الأصلي
@@ -191,7 +191,7 @@ export function DetailOverview({
               {!editingTitle && (
                 <button
                   onClick={() => setEditingTitle(true)}
-                  className="flex h-7 w-7 items-center justify-center rounded-lg text-muted-foreground transition-all hover:bg-white/5 hover:text-foreground"
+                  className="flex h-7 w-7 items-center justify-center rounded-lg text-muted-foreground transition-all hover:bg-muted/60 hover:text-foreground"
                 >
                   <Pencil className="h-3.5 w-3.5" />
                 </button>
@@ -254,7 +254,7 @@ export function DetailOverview({
             {!editingDesc && (
               <button
                 onClick={() => setEditingDesc(true)}
-                className="flex h-7 w-7 items-center justify-center rounded-lg text-muted-foreground transition-all hover:bg-white/5 hover:text-foreground"
+                className="flex h-7 w-7 items-center justify-center rounded-lg text-muted-foreground transition-all hover:bg-muted/60 hover:text-foreground"
               >
                 <Pencil className="h-3.5 w-3.5" />
               </button>
@@ -445,7 +445,7 @@ export function DetailOverview({
                 ) : (
                   <button
                     onClick={() => setEditingBrandLine(true)}
-                    className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-start text-xs text-muted-foreground transition-all hover:bg-white/5 hover:text-foreground"
+                    className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-start text-xs text-muted-foreground transition-all hover:bg-muted/60 hover:text-foreground"
                   >
                     <Pencil className="h-3 w-3 shrink-0" />
                     {brandLine || "إضافة عبارة مخصصة..."}
@@ -512,7 +512,7 @@ export function DetailOverview({
               href={`/episodes/${episode.slug}`}
               target="_blank"
               rel="noopener noreferrer"
-              className="flex items-center gap-2 rounded-xl px-3 py-2 text-sm text-muted-foreground transition-all hover:bg-white/5 hover:text-foreground"
+              className="flex items-center gap-2 rounded-xl px-3 py-2 text-sm text-muted-foreground transition-all hover:bg-muted/60 hover:text-foreground"
             >
               <ExternalLink className="h-4 w-4" />
               مشاهدة الحلقة
@@ -521,7 +521,7 @@ export function DetailOverview({
               href={`https://youtube.com/watch?v=${videoId}`}
               target="_blank"
               rel="noopener noreferrer"
-              className="flex items-center gap-2 rounded-xl px-3 py-2 text-sm text-muted-foreground transition-all hover:bg-white/5 hover:text-foreground"
+              className="flex items-center gap-2 rounded-xl px-3 py-2 text-sm text-muted-foreground transition-all hover:bg-muted/60 hover:text-foreground"
             >
               <ExternalLink className="h-4 w-4" />
               YouTube

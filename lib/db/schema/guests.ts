@@ -8,6 +8,16 @@ export const guests = pgTable("guests", {
   bio: text("bio"),
   photo_url: text("photo_url"),
   external_links: jsonb("external_links").$type<Record<string, string>>().default({}),
+  /**
+   * Direct contact channels — ADMIN-ONLY. Captured from guest_candidates
+   * at promotion (lib/guests/canonical.ts → ensureGuest). These MUST NOT
+   * appear on any public surface (/guests/[slug], thinkers gallery). The
+   * public boundary is the `Guest` type (types/database.ts) + its projection
+   * `dbGuestToGuest` (lib/queries/episodes.ts) — deliberately omit phone/email
+   * from both so select()-all public queries never ship them to the client.
+   */
+  phone: text("phone"),
+  email: text("email"),
   testimonial: text("testimonial"),
   /**
    * Phase 8 — generated normalized name for indexed lookup. Computed at

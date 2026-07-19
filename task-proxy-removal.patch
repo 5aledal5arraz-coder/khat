@@ -1,0 +1,1031 @@
+diff --git a/app/admin/episodes/quotes-actions.ts b/app/admin/episodes/quotes-actions.ts
+index 1586304..941f05c 100644
+--- a/app/admin/episodes/quotes-actions.ts
++++ b/app/admin/episodes/quotes-actions.ts
+@@ -2,7 +2,8 @@
+ 
+ import { revalidatePath } from "next/cache"
+ import { getQuotesConfig, saveQuotesConfig } from "@/lib/episodes/quotes"
+-import { fetchTranscript } from "@/lib/youtube/transcript"
++import { fetchTranscriptServer } from "@/lib/youtube/transcript-server"
++import { cleanTranscriptText } from "@/lib/studio/utils"
+ import { generateQuotesFromTranscript } from "@/lib/ai"
+ import { getYouTubeId } from "@/lib/utils"
+ import { requireAdmin } from "@/lib/api-utils"
+@@ -27,15 +28,18 @@ export async function generateEpisodeQuotes(
+     return { success: false, error: "رابط يوتيوب غير صالح" }
+   }
+ 
+-  const result = await fetchTranscript(videoId)
++  const result = await fetchTranscriptServer(videoId)
+   if (!result.success) {
+     return { success: false, error: result.error || "فشل في جلب النص" }
+   }
+ 
++  // fetchTranscriptServer returns RAW VTT (timestamps) — strip them before the generator/storage.
++  const transcript = cleanTranscriptText(result.text)
++
+   let quotes
+   try {
+     quotes = await generateQuotesFromTranscript(
+-      result.text,
++      transcript,
+       title,
+       guestName
+     )
+@@ -63,7 +67,7 @@ export async function generateEpisodeQuotes(
+     episodeId,
+     episodeTitle: title,
+     quotes,
+-    transcript: result.text,
++    transcript,
+     status: "draft",
+     generatedAt: new Date().toISOString(),
+     publishedAt: null,
+diff --git a/app/admin/episodes/youtube-pack-actions.ts b/app/admin/episodes/youtube-pack-actions.ts
+index 94752d3..1919517 100644
+--- a/app/admin/episodes/youtube-pack-actions.ts
++++ b/app/admin/episodes/youtube-pack-actions.ts
+@@ -2,7 +2,8 @@
+ 
+ import { revalidatePath } from "next/cache"
+ import { getYoutubePackConfig, saveYoutubePackConfig } from "@/lib/youtube-pack"
+-import { fetchTranscript } from "@/lib/youtube/transcript"
++import { fetchTranscriptServer } from "@/lib/youtube/transcript-server"
++import { cleanTranscriptText } from "@/lib/studio/utils"
+ import {
+   generateYoutubePackFromTranscript,
+   generateYoutubePackSectionFromTranscript,
+@@ -30,15 +31,18 @@ export async function generateYoutubePack(
+     return { success: false, error: "رابط يوتيوب غير صالح" }
+   }
+ 
+-  const result = await fetchTranscript(videoId)
++  const result = await fetchTranscriptServer(videoId)
+   if (!result.success) {
+     return { success: false, error: result.error || "فشل في جلب النص" }
+   }
+ 
++  // fetchTranscriptServer returns RAW VTT (timestamps) — strip them before the generator/storage.
++  const transcript = cleanTranscriptText(result.text)
++
+   let sections: YouTubePackSection[]
+   try {
+     sections = await generateYoutubePackFromTranscript(
+-      result.text,
++      transcript,
+       title,
+       guestName
+     )
+@@ -62,7 +66,7 @@ export async function generateYoutubePack(
+     episodeId,
+     episodeTitle: title,
+     sections,
+-    transcript: result.text,
++    transcript,
+     generatedAt: new Date().toISOString(),
+   }
+   await saveYoutubePackConfig(config)
+@@ -88,11 +92,12 @@ export async function regenerateYoutubePackSection(
+     if (!videoId) {
+       return { success: false, error: "رابط يوتيوب غير صالح" }
+     }
+-    const result = await fetchTranscript(videoId)
++    const result = await fetchTranscriptServer(videoId)
+     if (!result.success) {
+       return { success: false, error: result.error || "فشل في جلب النص" }
+     }
+-    transcript = result.text
++    // fetchTranscriptServer returns RAW VTT (timestamps) — strip them before the generator/storage.
++    transcript = cleanTranscriptText(result.text)
+   }
+ 
+   let section
+diff --git a/app/admin/studio/contexts/transcript-context.tsx b/app/admin/studio/contexts/transcript-context.tsx
+index 0d5c875..4b3d25a 100644
+--- a/app/admin/studio/contexts/transcript-context.tsx
++++ b/app/admin/studio/contexts/transcript-context.tsx
+@@ -5,7 +5,6 @@ import type {
+   StudioTranscript,
+   StudioTranscriptSummary, StudioTranscriptQuote,
+ } from "@/types/database"
+-import { fetchTranscriptClient } from "@/lib/youtube/transcript-client"
+ import { useSession } from "./session-context"
+ import { usePreloadedData } from "./preload-context"
+ import type { StudioStageStatus } from "./stage-status"
+@@ -109,18 +108,15 @@ export function TranscriptProvider({ children }: { children: ReactNode }) {
+       throw new Error("لا يوجد معرّف فيديو لهذه الجلسة")
+     }
+ 
+-    // Step 1: Try client-side caption extraction (fast path)
+-    const extraction = await fetchTranscriptClient(session.video_id)
+-
+-    if (extraction.success && extraction.text) {
+-      const res = await fetch(`/api/admin/studio/${sessionId}/transcript`, {
+-        method: "POST",
+-        headers: { "Content-Type": "application/json" },
+-        body: JSON.stringify({ raw_text: extraction.text, language: extraction.language || "ar" }),
+-      })
+-      const data = await res.json()
+-      if (!res.ok) throw new Error(data.error || "فشل في حفظ النص")
+-      return data.transcript as StudioTranscript
++    // Step 1: Try server-side caption extraction via yt-dlp (fast, free path)
++    const capRes = await fetch(`/api/admin/studio/${sessionId}/transcript/captions`, {
++      method: "POST",
++      headers: { "Content-Type": "application/json" },
++      body: JSON.stringify({ video_id: session.video_id }),
++    })
++    if (capRes.ok) {
++      const capData = await capRes.json()
++      if (capData?.transcript) return capData.transcript as StudioTranscript
+     }
+ 
+     // Step 2: No captions — fallback to YouTube audio → Whisper
+diff --git a/app/api/admin/studio/[id]/transcript/captions/route.ts b/app/api/admin/studio/[id]/transcript/captions/route.ts
+new file mode 100644
+index 0000000..a3252d0
+--- /dev/null
++++ b/app/api/admin/studio/[id]/transcript/captions/route.ts
+@@ -0,0 +1,64 @@
++import { NextResponse } from "next/server"
++import { getStudioSession, createTranscript, revalidateStudio } from "@/lib/studio"
++import { fetchTranscriptServer } from "@/lib/youtube/transcript-server"
++import { requireAdminAPI } from "@/lib/api-utils"
++
++export const maxDuration = 120 // 2 min — yt-dlp subtitle download
++
++/**
++ * POST /api/admin/studio/[id]/transcript/captions
++ *
++ * Extracts YouTube captions server-side via yt-dlp (fetchTranscriptServer) and
++ * saves them as the session transcript. createTranscript() cleans the raw VTT
++ * (WEBVTT header + timestamps) automatically. Returns 422 when no captions are
++ * available so the client falls back to the audio → Whisper route.
++ *
++ * Replaces the old browser-side proxy extraction (transcript-client.ts).
++ */
++export async function POST(
++  request: Request,
++  { params }: { params: Promise<{ id: string }> }
++) {
++  const authError = await requireAdminAPI()
++  if (authError) return authError
++  const { id } = await params
++  const session = await getStudioSession(id)
++
++  // Accept video_id from body as fallback (mock mode may not share in-memory sessions)
++  let videoId = session?.video_id
++  if (!videoId) {
++    try {
++      const body = await request.json()
++      videoId = body.video_id || null
++    } catch (err) {
++      console.debug("[Studio:captions] no request body (fine):", err)
++    }
++  }
++
++  if (!videoId) {
++    return NextResponse.json(
++      { error: "لا يوجد معرّف فيديو لهذه الجلسة" },
++      { status: 400 }
++    )
++  }
++
++  const result = await fetchTranscriptServer(videoId)
++  if (!result.success || !result.text) {
++    // No captions — 422 signals the client to fall back to audio → Whisper.
++    return NextResponse.json(
++      { error: result.error || "لا تتوفر ترجمة تلقائية لهذا الفيديو" },
++      { status: 422 }
++    )
++  }
++
++  const createResult = await createTranscript(id, "youtube_captions", result.text, result.language || "ar")
++  if (!createResult.success) {
++    return NextResponse.json(
++      { error: createResult.error || "فشل في حفظ النص" },
++      { status: 500 }
++    )
++  }
++
++  revalidateStudio(id)
++  return NextResponse.json({ transcript: createResult.data })
++}
+diff --git a/app/api/admin/studio/youtube-proxy/route.ts b/app/api/admin/studio/youtube-proxy/route.ts
+deleted file mode 100644
+index ee146be..0000000
+--- a/app/api/admin/studio/youtube-proxy/route.ts
++++ /dev/null
+@@ -1,140 +0,0 @@
+-import { NextRequest, NextResponse } from "next/server"
+-import { requireAdminAPI } from "@/lib/api-utils"
+-
+-/**
+- * Thin CORS proxy for YouTube InnerTube / timedtext requests.
+- *
+- * The browser cannot fetch youtube.com cross-origin (no CORS headers).
+- * This route forwards requests from our client code and relays responses.
+- *
+- * Two actions:
+- *   GET ?action=tracks&videoId=X   — InnerTube WEB player → caption track list
+- *   GET ?action=captions&url=X     — fetch raw caption XML/JSON from timedtext URL
+- */
+-
+-const WEB_CLIENT_VERSION = "2.20240101.00.00"
+-
+-export async function GET(request: NextRequest) {
+-  const authError = await requireAdminAPI()
+-  if (authError) return authError
+-  const { searchParams } = request.nextUrl
+-  const action = searchParams.get("action")
+-
+-  if (action === "tracks") {
+-    return handleTracks(searchParams)
+-  }
+-
+-  if (action === "captions") {
+-    return handleCaptions(searchParams)
+-  }
+-
+-  return NextResponse.json({ error: "Invalid action" }, { status: 400 })
+-}
+-
+-// ---------------------------------------------------------------------------
+-// action=tracks — call InnerTube WEB player API for caption track list
+-// ---------------------------------------------------------------------------
+-
+-async function handleTracks(params: URLSearchParams) {
+-  const videoId = params.get("videoId")
+-  if (!videoId) {
+-    return NextResponse.json({ error: "Missing videoId" }, { status: 400 })
+-  }
+-
+-  try {
+-    const res = await fetch(
+-      "https://www.youtube.com/youtubei/v1/player?prettyPrint=false",
+-      {
+-        method: "POST",
+-        headers: {
+-          "Content-Type": "application/json",
+-          "User-Agent":
+-            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+-        },
+-        body: JSON.stringify({
+-          context: {
+-            client: {
+-              clientName: "WEB",
+-              clientVersion: WEB_CLIENT_VERSION,
+-              hl: "ar",
+-              gl: "KW",
+-            },
+-          },
+-          videoId,
+-        }),
+-      }
+-    )
+-
+-    if (!res.ok) {
+-      return NextResponse.json(
+-        { error: `YouTube player API returned ${res.status}` },
+-        { status: 502 }
+-      )
+-    }
+-
+-    const data = await res.json()
+-
+-    // Extract just the caption tracks (don't leak the full player response)
+-    const captionTracks =
+-      data?.captions?.playerCaptionsTracklistRenderer?.captionTracks || []
+-
+-    return NextResponse.json({ captionTracks })
+-  } catch (err) {
+-    const msg = err instanceof Error ? err.message : "Proxy error"
+-    return NextResponse.json({ error: msg }, { status: 502 })
+-  }
+-}
+-
+-// ---------------------------------------------------------------------------
+-// action=captions — fetch raw caption content from a timedtext URL
+-// ---------------------------------------------------------------------------
+-
+-async function handleCaptions(params: URLSearchParams) {
+-  const url = params.get("url")
+-  if (!url) {
+-    return NextResponse.json({ error: "Missing url" }, { status: 400 })
+-  }
+-
+-  // Only allow youtube.com timedtext URLs
+-  try {
+-    const parsed = new URL(url)
+-    const isAllowedDomain = (hostname: string, domain: string) =>
+-      hostname === domain || hostname.endsWith("." + domain)
+-    if (
+-      !isAllowedDomain(parsed.hostname, "youtube.com") &&
+-      !isAllowedDomain(parsed.hostname, "googlevideo.com") &&
+-      !isAllowedDomain(parsed.hostname, "ytimg.com")
+-    ) {
+-      return NextResponse.json({ error: "URL not allowed" }, { status: 403 })
+-    }
+-  } catch {
+-    return NextResponse.json({ error: "Invalid URL" }, { status: 400 })
+-  }
+-
+-  try {
+-    const res = await fetch(url, {
+-      headers: {
+-        "User-Agent":
+-          "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+-      },
+-    })
+-
+-    if (!res.ok) {
+-      return NextResponse.json(
+-        { error: `Caption fetch returned ${res.status}` },
+-        { status: 502 }
+-      )
+-    }
+-
+-    const contentType = res.headers.get("content-type") || ""
+-    const body = await res.text()
+-
+-    return new NextResponse(body, {
+-      status: 200,
+-      headers: { "Content-Type": contentType || "text/plain" },
+-    })
+-  } catch (err) {
+-    const msg = err instanceof Error ? err.message : "Proxy error"
+-    return NextResponse.json({ error: msg }, { status: 502 })
+-  }
+-}
+diff --git a/lib/youtube/transcript-client.ts b/lib/youtube/transcript-client.ts
+deleted file mode 100644
+index 62b3f39..0000000
+--- a/lib/youtube/transcript-client.ts
++++ /dev/null
+@@ -1,292 +0,0 @@
+-/**
+- * Client-side YouTube transcript extraction.
+- *
+- * Strategy cascade:
+- *  1. Direct InnerTube call from browser (via corsproxy.io for CORS)
+- *  2. Server proxy fallback (may fail if server IP is blocked)
+- *
+- * The browser-based approach bypasses server-side bot detection.
+- */
+-
+-export interface ClientTranscriptResult {
+-  success: boolean
+-  text: string
+-  language: string
+-  error?: string
+-}
+-
+-interface CaptionTrack {
+-  baseUrl: string
+-  languageCode: string
+-  kind?: string
+-  name?: { simpleText?: string }
+-}
+-
+-const PROXY_BASE = "/api/admin/studio/youtube-proxy"
+-const VERCEL_PROXY = "https://khat-yt-proxy.vercel.app/api/transcript"
+-
+-/**
+- * Extract transcript — tries multiple approaches:
+- *  1. Vercel Edge proxy (different IP than our server)
+- *  2. Server proxy (may be blocked by YouTube)
+- */
+-export async function fetchTranscriptClient(
+-  videoId: string
+-): Promise<ClientTranscriptResult> {
+-  // Approach 1: Vercel proxy
+-  const vercel = await fetchViaVercelProxy(videoId)
+-  if (vercel.success && vercel.text) return vercel
+-
+-  // Approach 2: Server proxy
+-  const proxied = await fetchViaServerProxy(videoId)
+-  if (proxied.success && proxied.text) return proxied
+-
+-  return {
+-    success: false,
+-    text: "",
+-    language: "",
+-    error: vercel.error || proxied.error || "لا تتوفر ترجمة تلقائية لهذا الفيديو",
+-  }
+-}
+-
+-// ---------------------------------------------------------------------------
+-// Approach 1: Vercel Edge proxy
+-// ---------------------------------------------------------------------------
+-
+-async function fetchViaVercelProxy(
+-  videoId: string
+-): Promise<ClientTranscriptResult> {
+-  try {
+-    const tracksRes = await fetch(
+-      `${VERCEL_PROXY}?v=${encodeURIComponent(videoId)}&action=tracks`
+-    )
+-
+-    if (!tracksRes.ok) {
+-      return { success: false, text: "", language: "", error: `Vercel proxy error (${tracksRes.status})` }
+-    }
+-
+-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+-    const tracksData: any = await tracksRes.json()
+-    const tracks: CaptionTrack[] = tracksData?.captionTracks || []
+-
+-    if (tracks.length === 0) {
+-      const errors = tracksData?.errors?.join(", ") || ""
+-      return { success: false, text: "", language: "", error: errors || "لا تتوفر ترجمة" }
+-    }
+-
+-    const track = pickBestTrack(tracks)
+-    const captionUrl = track.baseUrl.includes("?")
+-      ? `${track.baseUrl}&fmt=json3`
+-      : `${track.baseUrl}?fmt=json3`
+-
+-    const captionRes = await fetch(
+-      `${VERCEL_PROXY}?v=${videoId}&action=captions&url=${encodeURIComponent(captionUrl)}`
+-    )
+-
+-    if (!captionRes.ok) {
+-      return { success: false, text: "", language: track.languageCode, error: "فشل جلب النص" }
+-    }
+-
+-    const captionText = await captionRes.text()
+-    let segments: string[] = []
+-
+-    try {
+-      const captionData = JSON.parse(captionText)
+-      segments = parseJson3Captions(captionData)
+-    } catch {
+-      segments = parseCaptionXml(captionText)
+-    }
+-
+-    if (segments.length === 0) {
+-      return { success: false, text: "", language: track.languageCode, error: "لا توجد نصوص" }
+-    }
+-
+-    const cleaned = cleanSegments(segments)
+-    if (cleaned) {
+-      return { success: true, text: cleaned, language: track.languageCode }
+-    }
+-
+-    return { success: false, text: "", language: track.languageCode, error: "لا توجد نصوص بعد التنظيف" }
+-  } catch {
+-    return { success: false, text: "", language: "", error: "فشل الاتصال بـ Vercel proxy" }
+-  }
+-}
+-
+-// ---------------------------------------------------------------------------
+-// Approach 2: Server proxy fallback
+-// ---------------------------------------------------------------------------
+-
+-async function fetchViaServerProxy(
+-  videoId: string
+-): Promise<ClientTranscriptResult> {
+-  try {
+-    const tracksRes = await fetch(
+-      `${PROXY_BASE}?action=tracks&videoId=${encodeURIComponent(videoId)}`
+-    )
+-
+-    if (!tracksRes.ok) {
+-      return { success: false, text: "", language: "", error: `Proxy error (${tracksRes.status})` }
+-    }
+-
+-    const tracksText = await tracksRes.text()
+-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+-    let tracksData: any
+-    try {
+-      tracksData = JSON.parse(tracksText)
+-    } catch {
+-      return { success: false, text: "", language: "", error: "استجابة غير صالحة من الخادم الوسيط" }
+-    }
+-
+-    const captionTracks: CaptionTrack[] = tracksData?.captionTracks || []
+-    if (captionTracks.length === 0) {
+-      return { success: false, text: "", language: "", error: "لا تتوفر ترجمة عبر الخادم الوسيط" }
+-    }
+-
+-    const track = pickBestTrack(captionTracks)
+-    const language = track.languageCode
+-
+-    const captionUrl = track.baseUrl.includes("?")
+-      ? `${track.baseUrl}&fmt=json3`
+-      : `${track.baseUrl}?fmt=json3`
+-
+-    const captionRes = await fetch(
+-      `${PROXY_BASE}?action=captions&url=${encodeURIComponent(captionUrl)}`
+-    )
+-
+-    if (!captionRes.ok) {
+-      return { success: false, text: "", language, error: "فشل في جلب النص عبر الخادم الوسيط" }
+-    }
+-
+-    const captionText = await captionRes.text()
+-    let segments: string[] = []
+-
+-    try {
+-      const captionData = JSON.parse(captionText)
+-      segments = parseJson3Captions(captionData)
+-    } catch {
+-      segments = parseCaptionXml(captionText)
+-    }
+-
+-    if (segments.length === 0) {
+-      return { success: false, text: "", language, error: "لا توجد نصوص في الترجمة" }
+-    }
+-
+-    const text = cleanSegments(segments)
+-    if (!text) {
+-      return { success: false, text: "", language, error: "لا توجد نصوص في الترجمة" }
+-    }
+-
+-    return { success: true, text, language }
+-  } catch {
+-    return { success: false, text: "", language: "", error: "فشل الخادم الوسيط" }
+-  }
+-}
+-
+-// ---------------------------------------------------------------------------
+-// Shared helpers
+-// ---------------------------------------------------------------------------
+-
+-function pickBestTrack(tracks: CaptionTrack[]): CaptionTrack {
+-  const arManual = tracks.find((t) => t.languageCode === "ar" && t.kind !== "asr")
+-  if (arManual) return arManual
+-  const arAuto = tracks.find((t) => t.languageCode === "ar")
+-  if (arAuto) return arAuto
+-  const anyManual = tracks.find((t) => t.kind !== "asr")
+-  if (anyManual) return anyManual
+-  return tracks[0]
+-}
+-
+-function parseJson3Captions(
+-  data: { events?: { segs?: { utf8?: string }[] }[] }
+-): string[] {
+-  const segments: string[] = []
+-  if (!data.events) return segments
+-
+-  for (const event of data.events) {
+-    if (!event.segs) continue
+-    const text = event.segs
+-      .map((s) => s.utf8 || "")
+-      .join("")
+-      .trim()
+-    if (text && text !== "\n") {
+-      segments.push(text)
+-    }
+-  }
+-
+-  return segments
+-}
+-
+-function parseCaptionXml(xml: string): string[] {
+-  const segments: string[] = []
+-  const hasSrvFormat = xml.includes("<p ")
+-
+-  if (hasSrvFormat) {
+-    const pRegex = /<p[^>]*>([\s\S]*?)<\/p>/g
+-    let pMatch
+-    while ((pMatch = pRegex.exec(xml)) !== null) {
+-      const inner = pMatch[1]
+-      const words: string[] = []
+-      const sRegex = /<s[^>]*>([\s\S]*?)<\/s>/g
+-      let sMatch
+-      while ((sMatch = sRegex.exec(inner)) !== null) {
+-        const word = decodeEntities(sMatch[1]).trim()
+-        if (word) words.push(word)
+-      }
+-      if (words.length > 0) {
+-        segments.push(words.join(""))
+-      }
+-    }
+-  } else {
+-    const textRegex = /<text[^>]*>([\s\S]*?)<\/text>/g
+-    let match
+-    while ((match = textRegex.exec(xml)) !== null) {
+-      const text = decodeEntities(match[1].replace(/<[^>]*>/g, "")).trim()
+-      if (text) segments.push(text)
+-    }
+-  }
+-
+-  return segments
+-}
+-
+-function decodeEntities(text: string): string {
+-  return text
+-    .replace(/&amp;/g, "&")
+-    .replace(/&lt;/g, "<")
+-    .replace(/&gt;/g, ">")
+-    .replace(/&quot;/g, '"')
+-    .replace(/&#39;/g, "'")
+-    .replace(/&apos;/g, "'")
+-}
+-
+-function normalizeForDedup(text: string): string {
+-  return text
+-    .replace(/[\u0617-\u061A\u064B-\u0652\u0670]/g, "")
+-    .replace(/[أإآ]/g, "ا")
+-    .replace(/ة/g, "ه")
+-    .replace(/ى/g, "ي")
+-    .replace(/ـ/g, "")
+-    .toLowerCase()
+-}
+-
+-function cleanSegments(segments: string[]): string {
+-  const seen = new Set<string>()
+-  const cleaned: string[] = []
+-
+-  for (const segment of segments) {
+-    const text = segment
+-      .replace(/\[.*?\]/g, "")
+-      .replace(/\(.*?\)/g, "")
+-      .trim()
+-      .replace(/\s+/g, " ")
+-
+-    if (!text) continue
+-
+-    const normalized = normalizeForDedup(text)
+-    if (seen.has(normalized)) continue
+-    seen.add(normalized)
+-
+-    cleaned.push(text)
+-  }
+-
+-  return cleaned.join(" ").replace(/\s+/g, " ").trim()
+-}
+diff --git a/lib/youtube/transcript-server.ts b/lib/youtube/transcript-server.ts
+index f951814..3f42b26 100644
+--- a/lib/youtube/transcript-server.ts
++++ b/lib/youtube/transcript-server.ts
+@@ -1,12 +1,13 @@
+ /**
+- * Server-side YouTube transcript extraction.
++ * Server-side YouTube transcript extraction via yt-dlp.
+  *
+- * Strategy cascade:
+- *  1. yt-dlp subtitle extraction (fast, reliable — downloads VTT captions directly)
+- *  2. Vercel proxy fallback (uses innertube API — currently broken as of March 2026)
++ * Downloads YouTube's VTT captions directly with yt-dlp, which handles
++ * YouTube's anti-bot measures (JS challenges, impersonation) that the old
++ * innertube proxy could no longer bypass.
+  *
+- * yt-dlp handles YouTube's anti-bot measures (JS challenges, impersonation)
+- * which the innertube proxy can no longer bypass.
++ * NOTE: the returned text is RAW VTT (WEBVTT header + timestamps). Callers that
++ * persist through createTranscript() get cleaning for free; any other caller
++ * must run it through cleanTranscriptText() (lib/studio/utils) first.
+  */
+ 
+ import { execFile } from "child_process"
+@@ -16,7 +17,6 @@ import path from "path"
+ 
+ const execFileAsync = promisify(execFile)
+ 
+-const VERCEL_PROXY = "https://khat-yt-proxy.vercel.app/api/transcript"
+ const VIDEO_ID_REGEX = /^[A-Za-z0-9_-]{11}$/
+ const SUBTITLE_TIMEOUT_MS = 60_000 // 1 minute — subtitle download is fast
+ 
+@@ -28,8 +28,9 @@ export interface ServerTranscriptResult {
+ }
+ 
+ /**
+- * Extract transcript from YouTube (server-side).
+- * Tries yt-dlp subtitle extraction first, then Vercel proxy as fallback.
++ * Extract transcript from YouTube (server-side) via yt-dlp subtitle extraction.
++ * Returns RAW VTT text — clean with cleanTranscriptText() before use unless
++ * persisting through createTranscript() (which cleans automatically).
+  */
+ export async function fetchTranscriptServer(
+   videoId: string
+@@ -38,29 +39,21 @@ export async function fetchTranscriptServer(
+     return { success: false, text: "", language: "", error: "معرّف الفيديو غير صالح" }
+   }
+ 
+-  // Strategy 1: yt-dlp subtitle extraction (preferred)
+   const ytdlpResult = await fetchViaYtDlp(videoId)
+   if (ytdlpResult.success && ytdlpResult.text) {
+     return ytdlpResult
+   }
+ 
+-  // Strategy 2: Vercel proxy fallback
+-  const proxyResult = await fetchViaVercelProxy(videoId)
+-  if (proxyResult.success && proxyResult.text) {
+-    return proxyResult
+-  }
+-
+-  // Both failed — return the most useful error
+   return {
+     success: false,
+     text: "",
+     language: "",
+-    error: ytdlpResult.error || proxyResult.error || "فشل في استخراج النص من يوتيوب",
++    error: ytdlpResult.error || "فشل في استخراج النص من يوتيوب",
+   }
+ }
+ 
+ // ---------------------------------------------------------------------------
+-// Strategy 1: yt-dlp subtitle extraction
++// yt-dlp subtitle extraction
+ // ---------------------------------------------------------------------------
+ 
+ /** Cache the resolved yt-dlp binary path */
+@@ -158,130 +151,3 @@ async function fetchViaYtDlp(videoId: string): Promise<ServerTranscriptResult> {
+     }
+   }
+ }
+-
+-// ---------------------------------------------------------------------------
+-// Strategy 2: Vercel proxy fallback (innertube API — currently unreliable)
+-// ---------------------------------------------------------------------------
+-
+-interface CaptionTrack {
+-  baseUrl: string
+-  languageCode: string
+-  kind?: string
+-}
+-
+-async function fetchViaVercelProxy(videoId: string): Promise<ServerTranscriptResult> {
+-  try {
+-    const tracksRes = await fetch(
+-      `${VERCEL_PROXY}?v=${encodeURIComponent(videoId)}&action=tracks`,
+-      { signal: AbortSignal.timeout(10_000) }
+-    )
+-
+-    if (!tracksRes.ok) {
+-      return { success: false, text: "", language: "", error: `خطأ في الخادم الوسيط (${tracksRes.status})` }
+-    }
+-
+-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+-    const tracksData: any = await tracksRes.json()
+-    const tracks: CaptionTrack[] = tracksData?.captionTracks || []
+-
+-    if (tracks.length === 0) {
+-      return { success: false, text: "", language: "", error: "لا تتوفر ترجمة عبر الخادم الوسيط" }
+-    }
+-
+-    const track = pickBestTrack(tracks)
+-    const captionUrl = track.baseUrl.includes("?")
+-      ? `${track.baseUrl}&fmt=json3`
+-      : `${track.baseUrl}?fmt=json3`
+-
+-    const captionRes = await fetch(
+-      `${VERCEL_PROXY}?v=${videoId}&action=captions&url=${encodeURIComponent(captionUrl)}`,
+-      { signal: AbortSignal.timeout(10_000) }
+-    )
+-
+-    if (!captionRes.ok) {
+-      return { success: false, text: "", language: track.languageCode, error: "فشل جلب النص" }
+-    }
+-
+-    const captionText = await captionRes.text()
+-    let segments: string[] = []
+-
+-    try {
+-      const captionData = JSON.parse(captionText)
+-      segments = parseJson3Captions(captionData)
+-    } catch {
+-      segments = parseCaptionXml(captionText)
+-    }
+-
+-    if (segments.length === 0) {
+-      return { success: false, text: "", language: track.languageCode, error: "لا توجد نصوص" }
+-    }
+-
+-    const cleaned = cleanSegments(segments)
+-    if (cleaned && cleaned.trim().length >= 10) {
+-      return { success: true, text: cleaned, language: track.languageCode }
+-    }
+-
+-    return { success: false, text: "", language: track.languageCode, error: "النص المستخرج فارغ" }
+-  } catch {
+-    return { success: false, text: "", language: "", error: "فشل الاتصال بالخادم الوسيط" }
+-  }
+-}
+-
+-// ---------------------------------------------------------------------------
+-// Helpers
+-// ---------------------------------------------------------------------------
+-
+-function pickBestTrack(tracks: CaptionTrack[]): CaptionTrack {
+-  const arManual = tracks.find((t) => t.languageCode === "ar" && t.kind !== "asr")
+-  if (arManual) return arManual
+-  const arAuto = tracks.find((t) => t.languageCode === "ar")
+-  if (arAuto) return arAuto
+-  const anyManual = tracks.find((t) => t.kind !== "asr")
+-  if (anyManual) return anyManual
+-  return tracks[0]
+-}
+-
+-function parseJson3Captions(
+-  data: { events?: { segs?: { utf8?: string }[] }[] }
+-): string[] {
+-  const segments: string[] = []
+-  if (!data.events) return segments
+-  for (const event of data.events) {
+-    if (!event.segs) continue
+-    const text = event.segs.map((s) => s.utf8 || "").join("").trim()
+-    if (text && text !== "\n") segments.push(text)
+-  }
+-  return segments
+-}
+-
+-function parseCaptionXml(xml: string): string[] {
+-  const segments: string[] = []
+-  const textRegex = /<text[^>]*>([\s\S]*?)<\/text>/g
+-  let match
+-  while ((match = textRegex.exec(xml)) !== null) {
+-    const text = match[1]
+-      .replace(/<[^>]*>/g, "")
+-      .replace(/&amp;/g, "&")
+-      .replace(/&lt;/g, "<")
+-      .replace(/&gt;/g, ">")
+-      .replace(/&quot;/g, '"')
+-      .replace(/&#39;/g, "'")
+-      .trim()
+-    if (text) segments.push(text)
+-  }
+-  return segments
+-}
+-
+-function cleanSegments(segments: string[]): string {
+-  const seen = new Set<string>()
+-  const cleaned: string[] = []
+-  for (const segment of segments) {
+-    const text = segment.replace(/\[.*?\]/g, "").replace(/\(.*?\)/g, "").trim().replace(/\s+/g, " ")
+-    if (!text) continue
+-    const norm = text.replace(/[\u064B-\u0652]/g, "").replace(/[أإآ]/g, "ا").toLowerCase()
+-    if (seen.has(norm)) continue
+-    seen.add(norm)
+-    cleaned.push(text)
+-  }
+-  return cleaned.join(" ").replace(/\s+/g, " ").trim()
+-}
+diff --git a/lib/youtube/transcript.ts b/lib/youtube/transcript.ts
+deleted file mode 100644
+index 839e7ee..0000000
+--- a/lib/youtube/transcript.ts
++++ /dev/null
+@@ -1,161 +0,0 @@
+-import { normalizeArabic } from "@/lib/search"
+-
+-interface TranscriptResult {
+-  success: boolean
+-  text: string
+-  error?: string
+-}
+-
+-interface CaptionTrack {
+-  baseUrl: string
+-  languageCode: string
+-  kind: string
+-}
+-
+-const ANDROID_USER_AGENT =
+-  "com.google.android.youtube/19.02.39 (Linux; U; Android 14) gzip"
+-
+-/**
+- * Fetch YouTube auto-generated or manual captions using the Android InnerTube
+- * player API, which doesn't require PO tokens or browser cookies.
+- */
+-export async function fetchTranscript(videoId: string): Promise<TranscriptResult> {
+-  try {
+-    // Step 1: Get caption tracks via InnerTube Android player endpoint
+-    const playerRes = await fetch(
+-      "https://www.youtube.com/youtubei/v1/player?prettyPrint=false",
+-      {
+-        method: "POST",
+-        headers: {
+-          "Content-Type": "application/json",
+-          "User-Agent": ANDROID_USER_AGENT,
+-        },
+-        body: JSON.stringify({
+-          context: {
+-            client: {
+-              clientName: "ANDROID",
+-              clientVersion: "19.02.39",
+-              androidSdkVersion: 34,
+-              hl: "ar",
+-              gl: "KW",
+-            },
+-          },
+-          videoId,
+-        }),
+-      }
+-    )
+-
+-    if (!playerRes.ok) {
+-      return { success: false, text: "", error: `فشل في جلب بيانات الفيديو (${playerRes.status})` }
+-    }
+-
+-    const playerData = await playerRes.json()
+-    const captionTracks: CaptionTrack[] =
+-      playerData?.captions?.playerCaptionsTracklistRenderer?.captionTracks || []
+-
+-    if (captionTracks.length === 0) {
+-      return { success: false, text: "", error: "لا تتوفر ترجمة تلقائية لهذا الفيديو" }
+-    }
+-
+-    // Step 2: Prefer Arabic, then fall back to first available
+-    const arTrack = captionTracks.find((t) => t.languageCode === "ar")
+-    const track = arTrack || captionTracks[0]
+-
+-    // Step 3: Fetch the caption XML
+-    const captionRes = await fetch(track.baseUrl, {
+-      headers: { "User-Agent": ANDROID_USER_AGENT },
+-    })
+-
+-    if (!captionRes.ok) {
+-      return { success: false, text: "", error: "فشل في جلب النص التلقائي" }
+-    }
+-
+-    const xml = await captionRes.text()
+-    const segments = parseCaptionXml(xml)
+-
+-    if (segments.length === 0) {
+-      return { success: false, text: "", error: "لا توجد نصوص في الترجمة" }
+-    }
+-
+-    const text = cleanTranscript(segments)
+-    return { success: true, text }
+-  } catch (error) {
+-    const message = error instanceof Error ? error.message : "فشل في جلب النص"
+-    return { success: false, text: "", error: message }
+-  }
+-}
+-
+-function parseCaptionXml(xml: string): string[] {
+-  const segments: string[] = []
+-
+-  // YouTube's srv3 format uses <p> elements with <s> children
+-  // Also supports simple <text> elements for basic format
+-  const hasSrvFormat = xml.includes("<p ")
+-
+-  if (hasSrvFormat) {
+-    // srv3 format: <p t="399" d="8561"><s ac="0">word</s><s t="680">word2</s></p>
+-    const pRegex = /<p[^>]*>([\s\S]*?)<\/p>/g
+-    let pMatch
+-    while ((pMatch = pRegex.exec(xml)) !== null) {
+-      const inner = pMatch[1]
+-      // Extract text from <s> elements
+-      const words: string[] = []
+-      const sRegex = /<s[^>]*>([\s\S]*?)<\/s>/g
+-      let sMatch
+-      while ((sMatch = sRegex.exec(inner)) !== null) {
+-        const word = decodeEntities(sMatch[1]).trim()
+-        if (word) words.push(word)
+-      }
+-      if (words.length > 0) {
+-        segments.push(words.join(""))
+-      }
+-    }
+-  } else {
+-    // Simple format: <text start="0" dur="5.2">text content</text>
+-    const textRegex = /<text[^>]*>([\s\S]*?)<\/text>/g
+-    let match
+-    while ((match = textRegex.exec(xml)) !== null) {
+-      const text = decodeEntities(match[1].replace(/<[^>]*>/g, "")).trim()
+-      if (text) segments.push(text)
+-    }
+-  }
+-
+-  return segments
+-}
+-
+-function decodeEntities(text: string): string {
+-  return text
+-    .replace(/&amp;/g, "&")
+-    .replace(/&lt;/g, "<")
+-    .replace(/&gt;/g, ">")
+-    .replace(/&quot;/g, '"')
+-    .replace(/&#39;/g, "'")
+-    .replace(/&apos;/g, "'")
+-}
+-
+-export function cleanTranscript(segments: string[]): string {
+-  const seen = new Set<string>()
+-  const cleaned: string[] = []
+-
+-  for (const segment of segments) {
+-    // Remove noise markers like [music], [applause], etc.
+-    let text = segment
+-      .replace(/\[.*?\]/g, "")
+-      .replace(/\(.*?\)/g, "")
+-      .trim()
+-
+-    // Normalize whitespace
+-    text = text.replace(/\s+/g, " ")
+-
+-    if (!text) continue
+-
+-    // Deduplicate consecutive sentences using normalized Arabic
+-    const normalized = normalizeArabic(text)
+-    if (seen.has(normalized)) continue
+-    seen.add(normalized)
+-
+-    cleaned.push(text)
+-  }
+-
+-  return cleaned.join(" ").replace(/\s+/g, " ").trim()
+-}

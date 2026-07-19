@@ -73,6 +73,7 @@ export interface EditorialIntent {
   source?:
     | "khat_map_candidate"
     | "guest_application"
+    | "guest_candidate"
     | "discovery_candidate"
     | "manual"
   source_id?: string | null
@@ -117,6 +118,17 @@ export const episodeIntelligenceRecords = pgTable(
     // ─── Risk / effort scoring (carried from candidate, mutable) ───────
     risk_level: text("risk_level").$type<KhatMapRiskLevel>(),
     effort_level: text("effort_level").$type<KhatMapEffortLevel>(),
+
+    // ─── Recording schedule ────────────────────────────────────────────
+    /**
+     * Planned filming date/time — ADMIN-ONLY internal scheduling. This is the
+     * RECORDING date, NOT publish (publish lives on episodes.release_date /
+     * episodes.scheduled_for). MUST NOT appear on any public surface; the
+     * public teaser reads select `phase` only and never this column.
+     */
+    recording_scheduled_at: timestamp("recording_scheduled_at", {
+      withTimezone: true,
+    }),
 
     // ─── Audit ─────────────────────────────────────────────────────────
     // Soft reference to admin_users.id — declared as text without an FK

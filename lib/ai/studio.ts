@@ -1,5 +1,6 @@
 import type { StudioChapterItem, StudioClipItem } from "@/types/database"
-import { getClient, prepareTranscript, prepareTranscriptWithPositions, formatSecondsToTimestamp, parseTimestampToSeconds } from "./client"
+import { env } from "@/lib/env"
+import { prepareTranscript, prepareTranscriptWithPositions, formatSecondsToTimestamp, parseTimestampToSeconds } from "./client"
 import { runAiTask } from "@/lib/ai-router"
 import { buildStudioPackagePrompt } from "@/lib/ai/prompts/studio-package"
 import type { GlobalEpisodeIntelligence } from "./episode-intelligence"
@@ -29,16 +30,14 @@ export async function generateStudioPackage(
   episodeIntelligence?: GlobalEpisodeIntelligence | null,
   eirContext?: { eirId?: string | null; subjectTable?: string | null; subjectId?: string | null }
 ): Promise<{ success: boolean; data?: StudioPackageResult; raw?: Record<string, unknown>; error?: string; runId?: string }> {
-  let openaiForPrep: ReturnType<typeof getClient>
-  try {
-    openaiForPrep = getClient()
-  } catch {
+  if (!env.OPENAI_API_KEY) {
     return { success: false, error: "OPENAI_API_KEY غير مُعدّ" }
   }
 
   try {
-    // Step 1: Prepare transcript (summarize if too long)
-    const preparedText = await prepareTranscript(openaiForPrep, transcript)
+    // Step 1: Prepare transcript (summarize if too long).
+    // prepareTranscript ignores its first arg and routes via runAiTask.
+    const preparedText = await prepareTranscript(null as never, transcript)
 
     // Step 2: Generate the full package — uses EDITORIAL_MODEL for quality titles/descriptions
     const intelligenceBlock = episodeIntelligence ? `\n\n${formatIntelligenceContext(episodeIntelligence)}` : ""
@@ -54,7 +53,7 @@ export async function generateStudioPackage(
     const result = await runAiTask<StudioPackageResult>({
       taskKind: "editorial",
       eirId: eirContext?.eirId ?? null,
-      subjectTable: eirContext?.subjectTable ?? "studio_ai_outputs",
+      subjectTable: eirContext?.subjectTable ?? "studio_sessions",
       subjectId: eirContext?.subjectId ?? null,
       promptVersion: version,
       input: {
@@ -126,12 +125,7 @@ export async function generateStudioChapters(
       keep working without it for legacy callers. */
   eirContext?: { eirId?: string | null; subjectTable?: string | null; subjectId?: string | null }
 ): Promise<{ success: boolean; data?: StudioChaptersResult; raw?: Record<string, unknown>; error?: string; runId?: string }> {
-  // Inner helper still uses the legacy client — `prepareTranscriptWithPositions`
-  // will move under the router in a later phase.
-  let openaiForPrep: ReturnType<typeof getClient>
-  try {
-    openaiForPrep = getClient()
-  } catch {
+  if (!env.OPENAI_API_KEY) {
     return { success: false, error: "OPENAI_API_KEY غير مُعدّ" }
   }
 
@@ -141,7 +135,7 @@ export async function generateStudioChapters(
 
   try {
     // Use positional transcript for chapters — preserves time awareness across full episode
-    const preparedText = await prepareTranscriptWithPositions(openaiForPrep, transcript, durationSeconds)
+    const preparedText = await prepareTranscriptWithPositions(null as never, transcript, durationSeconds)
 
     // Dynamic chapter targets based on episode length
     const durationMin = durationSeconds ? Math.round(durationSeconds / 60) : null
@@ -216,7 +210,7 @@ ${preparedText}`
     const result = await runAiTask<{ chapters: StudioChapterItem[] }>({
       taskKind: "structural",
       eirId: eirContext?.eirId ?? null,
-      subjectTable: eirContext?.subjectTable ?? "studio_chapters",
+      subjectTable: eirContext?.subjectTable ?? "studio_sessions",
       subjectId: eirContext?.subjectId ?? null,
       input: {
         videoTitle,
@@ -316,10 +310,7 @@ export async function generateStudioClips(
   visualAnalysis?: string | null,
   eirContext?: { eirId?: string | null; subjectTable?: string | null; subjectId?: string | null }
 ): Promise<{ success: boolean; data?: StudioClipsResult; raw?: Record<string, unknown>; error?: string; runId?: string }> {
-  let openaiForPrep: ReturnType<typeof getClient>
-  try {
-    openaiForPrep = getClient()
-  } catch {
+  if (!env.OPENAI_API_KEY) {
     return { success: false, error: "OPENAI_API_KEY غير مُعدّ" }
   }
 
@@ -333,7 +324,7 @@ export async function generateStudioClips(
 
   try {
     // Use positional transcript for clips — need time awareness across full episode
-    const preparedText = await prepareTranscriptWithPositions(openaiForPrep, transcript, durationSeconds)
+    const preparedText = await prepareTranscriptWithPositions(null as never, transcript, durationSeconds)
 
     const systemPrompt = `أنت صانع محتوى قصير لبودكاست خط — بودكاست عربي عميق وذكي عاطفياً.
 
@@ -397,7 +388,7 @@ ${preparedText}`
     const result = await runAiTask<{ clips: StudioClipItem[] }>({
       taskKind: "structural",
       eirId: eirContext?.eirId ?? null,
-      subjectTable: eirContext?.subjectTable ?? "studio_clips",
+      subjectTable: eirContext?.subjectTable ?? "studio_sessions",
       subjectId: eirContext?.subjectId ?? null,
       input: {
         videoTitle,

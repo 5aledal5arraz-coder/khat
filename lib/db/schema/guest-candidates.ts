@@ -16,6 +16,7 @@ import {
   jsonb,
   integer,
   real,
+  index,
 } from "drizzle-orm/pg-core"
 
 // ---------------------------------------------------------------------------
@@ -35,6 +36,12 @@ export const guestCandidates = pgTable("guest_candidates", {
   category: text("category"), // business, media, philosophy, sports, ...
   city: text("city"),
   country: text("country"),
+  // Direct contact channels — ADMIN-ONLY. Optional per-column, but the
+  // admin candidate form requires at least one channel (phone / email /
+  // social) on save. Fixated onto the canonical guest row at promotion
+  // (lib/guests/canonical.ts → ensureGuest). Never surfaced publicly.
+  phone: text("phone"),
+  email: text("email"),
   bio: text("bio"),
   notes_internal: text("notes_internal"),
 
@@ -293,3 +300,35 @@ export const guestCandidateNotifications = pgTable("guest_candidate_notification
   delivery_error: text("delivery_error"),
   created_at: timestamp("created_at", { withTimezone: true }).defaultNow(),
 })
+
+// ---------------------------------------------------------------------------
+// 11. Prep meetings (pre-recording preparation calls / visits)
+// ---------------------------------------------------------------------------
+//
+// Mirrors partner_meetings (lib/db/schema/partnership-crm.ts) but keyed to a
+// candidate: manually-scheduled preparation meetings with a status lifecycle,
+// notes, and an outcome. No calendar integration — the admin schedules and
+// logs these by hand. FK-cascades off the candidate.
+
+export const guestPrepMeetings = pgTable(
+  "guest_prep_meetings",
+  {
+    id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+    candidate_id: text("candidate_id")
+      .notNull()
+      .references(() => guestCandidates.id, { onDelete: "cascade" }),
+    title: text("title").notNull(),
+    /** call | video | in_person */
+    type: text("type").notNull().default("video"),
+    scheduled_at: timestamp("scheduled_at", { withTimezone: true }),
+    duration_minutes: integer("duration_minutes"),
+    notes: text("notes"),
+    outcome: text("outcome"),
+    /** scheduled | completed | cancelled */
+    status: text("status").notNull().default("scheduled"),
+    created_by: text("created_by"),
+    created_at: timestamp("created_at", { withTimezone: true }).defaultNow(),
+    updated_at: timestamp("updated_at", { withTimezone: true }).defaultNow(),
+  },
+  (t) => [index("idx_guest_prep_meetings_candidate").on(t.candidate_id)],
+)

@@ -136,6 +136,13 @@ export interface WorkspaceGuest {
 export interface WorkspaceLinks {
   preparation_id: string | null
   studio_session_id: string | null
+  /**
+   * YouTube video id of the linked studio session. The studio page has
+   * no per-session route — deep-links are `/admin/studio?video=<id>` —
+   * so link builders need this alongside studio_session_id. Null for
+   * audio-upload sessions (those are only reachable from the list).
+   */
+  studio_video_id: string | null
   episode_id: string | null
 }
 
@@ -159,6 +166,7 @@ export interface EpisodeWorkspaceSnapshot {
     topic_angle_code: string | null
     risk_level: string | null
     effort_level: string | null
+    recording_scheduled_at: string | null
     editorial_intent: Record<string, unknown> | null
     archived_at: string | null
     created_by: string | null
@@ -190,6 +198,7 @@ export async function loadEpisodeWorkspace(
       topic_angle_code: episodeIntelligenceRecords.topic_angle_code,
       risk_level: episodeIntelligenceRecords.risk_level,
       effort_level: episodeIntelligenceRecords.effort_level,
+      recording_scheduled_at: episodeIntelligenceRecords.recording_scheduled_at,
       editorial_intent: episodeIntelligenceRecords.editorial_intent,
       guest_id: episodeIntelligenceRecords.guest_id,
       archived_at: episodeIntelligenceRecords.archived_at,
@@ -267,7 +276,7 @@ export async function loadEpisodeWorkspace(
       .orderBy(desc(episodePreparations.updated_at))
       .limit(1),
     db!
-      .select({ id: studioSessions.id })
+      .select({ id: studioSessions.id, video_id: studioSessions.video_id })
       .from(studioSessions)
       .where(eq(studioSessions.eir_id, eirId))
       .orderBy(desc(studioSessions.updated_at))
@@ -317,6 +326,9 @@ export async function loadEpisodeWorkspace(
       topic_angle_code: row.topic_angle_code ?? null,
       risk_level: row.risk_level ?? null,
       effort_level: row.effort_level ?? null,
+      recording_scheduled_at: row.recording_scheduled_at
+        ? row.recording_scheduled_at.toISOString()
+        : null,
       editorial_intent:
         (row.editorial_intent ?? null) as Record<string, unknown> | null,
       archived_at: row.archived_at ? row.archived_at.toISOString() : null,
@@ -335,6 +347,7 @@ export async function loadEpisodeWorkspace(
     links: {
       preparation_id: prepRow?.[0]?.id ?? null,
       studio_session_id: studioRow?.[0]?.id ?? null,
+      studio_video_id: studioRow?.[0]?.video_id ?? null,
       episode_id: episodeRow?.[0]?.id ?? null,
     },
     hybrid_provenance,

@@ -54,3 +54,7 @@ _QA_TRASH_delete_me/
 # Claude Code local permission allowlist — machine-local, may capture
 # credential-bearing commands; scrubbed from history 2026-07-11. Never commit.
 .claude/settings.local.json
+
+# Admin-uploaded teaser videos — runtime media on disk (public/teasers/),
+# recreated by the upload route. Never commit uploaded/test videos.
+public/teasers/

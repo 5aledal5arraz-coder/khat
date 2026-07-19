@@ -23,8 +23,14 @@ import {
   Youtube,
   Linkedin,
   Mail,
+  Phone,
+  Check,
+  Lock,
+  ChevronDown,
   ClipboardList,
   FileText,
+  CalendarClock,
+  Rocket,
 } from "lucide-react"
 import { useToast } from "@/lib/use-toast"
 import { formatDate, formatDateTime } from "@/lib/shared/formatters"
@@ -32,6 +38,8 @@ import { CandidateFormDialog } from "../components/candidate-form-dialog"
 import { LinkCanonicalDialog } from "../components/link-canonical-dialog"
 import { OutreachPanel } from "../components/outreach-panel"
 import { PrepLinkPanel } from "../components/prep-link-panel"
+import { PrepMeetingsPanel } from "../components/prep-meetings-panel"
+import { ProductionBridgePanel, type LinkedEir } from "../components/production-bridge-panel"
 import { ResponseViewer } from "../components/response-viewer"
 import { STATUS_META, STATUS_OPTIONS, PRIORITY_META, CATEGORY_OPTIONS } from "../lib/status"
 import { candidatesApi } from "../lib/api"
@@ -42,6 +50,7 @@ import type {
   PrepFormLink,
   PrepFormResponse,
   PrepFormTemplate,
+  GuestPrepMeeting,
 } from "@/types/database"
 import { XIcon } from "@/components/icons/x-icon"
 import { TikTokIcon } from "@/components/icons/tiktok-icon"
@@ -63,6 +72,9 @@ interface Props {
   prepLinks: PrepFormLink[]
   prepResponses: PrepFormResponse[]
   templates: PrepFormTemplate[]
+  prepMeetings: GuestPrepMeeting[]
+  productionEir: LinkedEir | null
+  hasCanonicalLink: boolean
 }
 
 const SOCIAL_PLATFORMS = [
@@ -87,7 +99,58 @@ function platformIcon(platform: string) {
   }
 }
 
-export function CandidateDetailClient({ candidate, statusHistory, outreachMessages, prepLinks, prepResponses, templates }: Props) {
+// ─── Guided flow: status → stage map (Sara's binding backbone) ──────────
+
+const AR_NUM = ["١", "٢", "٣", "٤"] as const
+const STAGES = [
+  { n: 1, label: "الدعوة" },
+  { n: 2, label: "المتابعة" },
+  { n: 3, label: "التحضير" },
+  { n: 4, label: "الجدولة والنقل" },
+] as const
+
+interface Flow {
+  current: number | null // active stage (null when archived/out)
+  done: number[] // completed stages
+  terminal: "declined" | "archived" | null
+  nextText: string | null
+}
+
+const ACCEPTED_PLUS: GuestCandidateStatus[] = [
+  "accepted",
+  "prep_sent",
+  "prep_in_progress",
+  "prep_completed",
+]
+
+function computeFlow(status: GuestCandidateStatus, archived: boolean): Flow {
+  if (archived) return { current: null, done: [], terminal: "archived", nextText: null }
+  switch (status) {
+    case "new":
+    case "researching":
+      return { current: 1, done: [], terminal: null, nextText: "حلّل المرشح وجهّز الدعوة" }
+    case "analyzed":
+    case "shortlisted":
+      return { current: 1, done: [], terminal: null, nextText: "ولّد رسالة الدعوة وأرسلها" }
+    case "contacted":
+    case "waiting_response":
+      return { current: 2, done: [1], terminal: null, nextText: "بانتظار الرد — سجّل «وافق» أو «اعتذر»" }
+    case "accepted":
+      return { current: 3, done: [1, 2], terminal: null, nextText: "أرسل نموذج التحضير وحدّد اللقاء" }
+    case "prep_sent":
+    case "prep_in_progress":
+      return { current: 3, done: [1, 2], terminal: null, nextText: "تابع النموذج واللقاء" }
+    case "prep_completed":
+      return { current: 4, done: [1, 2, 3], terminal: null, nextText: "حدّد موعد التصوير وانقله للإنتاج" }
+    case "declined":
+    case "rejected":
+      return { current: 2, done: [1, 2], terminal: "declined", nextText: null }
+    default:
+      return { current: 1, done: [], terminal: null, nextText: null }
+  }
+}
+
+export function CandidateDetailClient({ candidate, statusHistory, outreachMessages, prepLinks, prepResponses, templates, prepMeetings, productionEir, hasCanonicalLink }: Props) {
   const router = useRouter()
   const { toast } = useToast()
 
@@ -109,6 +172,23 @@ export function CandidateDetailClient({ candidate, statusHistory, outreachMessag
   const priority = candidate.priority_level ? PRIORITY_META[candidate.priority_level] : null
   const isArchived = !!candidate.archived_at
 
+  const flow = computeFlow(candidate.status, isArchived)
+  const acceptedPlus = ACCEPTED_PLUS.includes(candidate.status)
+  const stage2Unlocked = STATUS_META[candidate.status].order >= STATUS_META.contacted.order
+  const stageUnlocked = (n: number): boolean =>
+    n === 1 ? true : n === 2 ? stage2Unlocked : acceptedPlus
+
+  const [openStage, setOpenStage] = useState<number>(flow.current ?? 1)
+
+  const reached = new Set<number>([...flow.done, ...(flow.current ? [flow.current] : [])])
+
+  function goToStage(n: number) {
+    setOpenStage(n)
+    requestAnimationFrame(() => {
+      document.getElementById(`stage-${n}`)?.scrollIntoView({ behavior: "smooth", block: "start" })
+    })
+  }
+
   async function handleStatusChange(newStatus: GuestCandidateStatus) {
     if (newStatus === candidate.status) return
     setStatusBusy(true)
@@ -120,6 +200,17 @@ export function CandidateDetailClient({ candidate, statusHistory, outreachMessag
       toast({ variant: "destructive", title: "فشل التغيير", description: err instanceof Error ? err.message : "خطأ غير متوقع" })
     } finally {
       setStatusBusy(false)
+    }
+  }
+
+  async function handleSaveContact(field: "phone" | "email", value: string | null) {
+    try {
+      await candidatesApi.update(candidate.id, { [field]: value })
+      toast({ title: field === "phone" ? "تم حفظ الهاتف" : "تم حفظ البريد" })
+      router.refresh()
+    } catch (err) {
+      toast({ variant: "destructive", title: "تعذّر الحفظ", description: err instanceof Error ? err.message : "خطأ" })
+      throw err
     }
   }
 
@@ -207,17 +298,17 @@ export function CandidateDetailClient({ candidate, statusHistory, outreachMessag
   const categoryLabel = CATEGORY_OPTIONS.find((c) => c.value === candidate.category)?.label || candidate.category
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-5">
       {/* Top bar */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-2">
         <Link
           href="/admin/guest-candidates"
-          className="inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground"
+          className="inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring rounded"
         >
           <ArrowRight className="h-3.5 w-3.5 rtl:rotate-180" />
           العودة إلى المرشحين
         </Link>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <Button variant="ghost" size="sm" onClick={() => setLinkCanonicalOpen(true)}>
             <LinkIcon className="ms-1 h-3.5 w-3.5" /> ربط بضيف قانوني
           </Button>
@@ -253,7 +344,7 @@ export function CandidateDetailClient({ candidate, statusHistory, outreachMessag
                 </span>
               )}
               {isArchived && (
-                <span className="rounded bg-stone-500/15 px-1.5 py-0.5 text-[9px] font-semibold text-stone-700 dark:text-stone-400">
+                <span className="rounded bg-stone-500/15 px-1.5 py-0.5 text-[9px] font-semibold text-stone-700">
                   مؤرشف
                 </span>
               )}
@@ -279,256 +370,317 @@ export function CandidateDetailClient({ candidate, statusHistory, outreachMessag
             )}
           </div>
         </div>
+      </div>
 
-        {/* Status changer */}
-        <div className="mt-5 border-t border-border/30 pt-4">
-          <div className="mb-2 flex items-center gap-2 text-[11px] font-semibold text-muted-foreground">
-            <span>تغيير الحالة:</span>
-            {statusBusy && <Loader2 className="h-3 w-3 animate-spin" />}
-          </div>
-          <div className="flex flex-wrap gap-1.5">
-            {STATUS_OPTIONS.map((s) => (
-              <button
-                key={s}
-                onClick={() => handleStatusChange(s)}
-                disabled={statusBusy || s === candidate.status}
-                className={`rounded px-2 py-1 text-[10px] font-medium transition-all ${
-                  s === candidate.status
-                    ? `${STATUS_META[s].badgeClass} ring-1 ring-current/30 cursor-default`
-                    : "border border-border/40 bg-background text-muted-foreground hover:border-primary/40 hover:text-foreground"
-                }`}
-              >
-                {STATUS_META[s].label}
-              </button>
-            ))}
-          </div>
+      {/* Guided stepper + next action */}
+      <div className="rounded-2xl border border-border/40 bg-card/40 p-4 sm:p-5">
+        <Stepper flow={flow} reached={reached} unlocked={stageUnlocked} onGo={goToStage} />
+
+        <div className="mt-4 border-t border-border/30 pt-3">
+          {flow.terminal === "archived" ? (
+            <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg bg-stone-500/8 p-2.5 text-[12px]">
+              <span className="inline-flex items-center gap-1.5 font-medium text-stone-700">
+                <Archive className="h-3.5 w-3.5" /> هذا المرشّح مؤرشف
+              </span>
+              <Button size="sm" variant="ghost" onClick={handleArchive} disabled={archiveBusy}>
+                {archiveBusy && <Loader2 className="ms-1 h-3 w-3 animate-spin" />} إعادة من الأرشيف
+              </Button>
+            </div>
+          ) : flow.terminal === "declined" ? (
+            <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg bg-zinc-500/8 p-2.5 text-[12px]">
+              <span className="font-medium text-zinc-700">اعتذر الضيف — توقّف مسار الدعوة عند المتابعة.</span>
+              <Button size="sm" variant="ghost" onClick={handleArchive} disabled={archiveBusy}>
+                {archiveBusy && <Loader2 className="ms-1 h-3 w-3 animate-spin" />} أرشفة
+              </Button>
+            </div>
+          ) : flow.nextText ? (
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div className="min-w-0">
+                <div className="text-[10px] uppercase tracking-wider text-muted-foreground">الخطوة التالية</div>
+                <div className="text-[13px] font-semibold text-foreground/90">{flow.nextText}</div>
+              </div>
+              {flow.current && (
+                <Button size="sm" onClick={() => goToStage(flow.current!)}>
+                  اذهب للخطوة
+                </Button>
+              )}
+            </div>
+          ) : null}
         </div>
       </div>
 
       <div className="grid gap-4 lg:grid-cols-3">
-        {/* Left column: details + social */}
-        <div className="space-y-4 lg:col-span-2">
-          {/* Social links */}
-          <Section title="الروابط الاجتماعية" icon={<LinkIcon className="h-4 w-4" />}>
-            {candidate.social_links.length === 0 && !showLinkForm ? (
-              <div className="rounded-lg border border-dashed border-border/40 p-6 text-center">
-                <p className="mb-3 text-xs text-muted-foreground">لا توجد روابط مضافة</p>
-                <Button size="sm" variant="ghost" onClick={() => setShowLinkForm(true)}>
-                  <Plus className="ms-1 h-3.5 w-3.5" /> إضافة رابط
-                </Button>
-              </div>
-            ) : (
-              <div className="space-y-2">
-                {candidate.social_links.map((link) => (
-                  <div key={link.id} className="flex items-center gap-3 rounded-lg border border-border/30 bg-background/30 p-2.5">
-                    <span className="text-muted-foreground">{platformIcon(link.platform)}</span>
-                    <a
-                      href={link.url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="min-w-0 flex-1 truncate text-xs hover:text-primary"
-                    >
-                      {link.label || link.url}
-                    </a>
-                    <a href={link.url} target="_blank" rel="noopener noreferrer" className="text-muted-foreground hover:text-foreground">
-                      <ExternalLink className="h-3.5 w-3.5" />
-                    </a>
-                    <button
-                      onClick={() => handleDeleteLink(link.id)}
-                      className="text-muted-foreground hover:text-rose-700"
-                    >
-                      <X className="h-3.5 w-3.5" />
-                    </button>
-                  </div>
-                ))}
-                {showLinkForm && (
-                  <div className="rounded-lg border border-border/40 bg-muted/20 p-3 space-y-2">
-                    <div className="flex gap-2">
-                      <select
-                        value={newLinkPlatform}
-                        onChange={(e) => setNewLinkPlatform(e.target.value)}
-                        className="h-8 w-32 rounded-md border border-input bg-transparent px-2 text-xs"
-                      >
-                        {SOCIAL_PLATFORMS.map((p) => (
-                          <option key={p.value} value={p.value}>{p.label}</option>
-                        ))}
-                      </select>
-                      <Input
-                        value={newLinkUrl}
-                        onChange={(e) => setNewLinkUrl(e.target.value)}
-                        placeholder="https://..."
-                        className="h-8 flex-1 text-xs"
-                      />
-                    </div>
-                    <Input
-                      value={newLinkLabel}
-                      onChange={(e) => setNewLinkLabel(e.target.value)}
-                      placeholder="تسمية اختيارية"
-                      className="h-8 text-xs"
-                    />
-                    <div className="flex justify-end gap-2">
-                      <Button size="sm" variant="ghost" onClick={() => { setShowLinkForm(false); setNewLinkUrl(""); setNewLinkLabel("") }}>
-                        إلغاء
-                      </Button>
-                      <Button size="sm" onClick={handleAddLink} disabled={linkBusy || !newLinkUrl.trim()}>
-                        {linkBusy && <Loader2 className="ms-1 h-3 w-3 animate-spin" />}
-                        إضافة
-                      </Button>
-                    </div>
-                  </div>
-                )}
-                {!showLinkForm && (
-                  <Button size="sm" variant="ghost" onClick={() => setShowLinkForm(true)} className="w-full text-xs">
-                    <Plus className="ms-1 h-3 w-3" /> إضافة رابط
-                  </Button>
-                )}
-              </div>
-            )}
-          </Section>
-
-          {/* AI analysis */}
-          <Section
-            title="التحليل بالذكاء الاصطناعي"
-            icon={<Sparkles className="h-4 w-4 text-violet-700" />}
-            badge={candidate.ai_generated_at ? formatDate(candidate.ai_generated_at) : undefined}
-            action={
-              <Button size="sm" variant="ghost" onClick={handleAnalyze} disabled={analyzeBusy} className="h-7 text-xs">
-                {analyzeBusy ? <Loader2 className="ms-1 h-3 w-3 animate-spin" /> : <Sparkles className="ms-1 h-3 w-3" />}
-                {candidate.ai_summary ? "إعادة التحليل" : "تحليل الآن"}
-              </Button>
-            }
+        {/* Main column: the 4 stage cards */}
+        <div className="space-y-3 lg:col-span-2">
+          {/* ── Stage ① الدعوة ── */}
+          <StageCard
+            n={1}
+            label="الدعوة"
+            flow={flow}
+            unlocked
+            open={openStage === 1}
+            onToggle={() => setOpenStage(openStage === 1 ? -1 : 1)}
+            summary="بيانات التواصل والروابط والتحليل ورسائل الدعوة"
           >
-            {candidate.ai_summary ? (
-              <div className="space-y-4">
-                {/* Scores grid */}
-                <div className="grid grid-cols-2 gap-2 sm:grid-cols-5">
-                  <ScorePill label="عام" value={candidate.ai_score_overall} accent="violet" highlight />
-                  <ScorePill label="ملاءمة" value={candidate.ai_fit_score} accent="emerald" />
-                  <ScorePill label="عمق" value={candidate.ai_depth_score} accent="blue" />
-                  <ScorePill label="انتشار" value={candidate.ai_reach_score} accent="amber" />
-                  <ScorePill label="مخاطر" value={candidate.ai_risk_score} accent="rose" inverted />
-                </div>
-
-                {/* Summary */}
-                <div className="rounded-lg bg-violet-500/5 p-3">
-                  <p className="text-sm leading-relaxed text-foreground/85">{candidate.ai_summary}</p>
-                  {candidate.ai_reason_to_invite && (
-                    <p className="mt-2 border-t border-violet-500/20 pt-2 text-xs italic text-violet-700 dark:text-violet-300">
-                      <strong>سبب الدعوة:</strong> {candidate.ai_reason_to_invite}
-                    </p>
-                  )}
-                </div>
-
-                {/* Strengths + Weaknesses side-by-side */}
-                <div className="grid gap-3 sm:grid-cols-2">
-                  {(candidate.ai_strengths?.length ?? 0) > 0 && (
-                    <div>
-                      <h4 className="mb-1.5 text-[11px] font-semibold text-emerald-700 dark:text-emerald-400">نقاط القوة</h4>
-                      <ul className="space-y-1 text-xs text-foreground/80">
-                        {candidate.ai_strengths!.map((s, i) => <li key={i}>• {s}</li>)}
-                      </ul>
-                    </div>
-                  )}
-                  {(candidate.ai_weaknesses?.length ?? 0) > 0 && (
-                    <div>
-                      <h4 className="mb-1.5 text-[11px] font-semibold text-amber-700 dark:text-amber-400">نقاط الضعف</h4>
-                      <ul className="space-y-1 text-xs text-foreground/80">
-                        {candidate.ai_weaknesses!.map((s, i) => <li key={i}>• {s}</li>)}
-                      </ul>
-                    </div>
-                  )}
-                </div>
-
-                {/* Risk notes */}
-                {candidate.ai_risk_notes && (
-                  <div className="rounded-lg border border-rose-500/20 bg-rose-500/5 p-3">
-                    <h4 className="mb-1 text-[11px] font-semibold text-rose-700 dark:text-rose-400">مخاطر محتملة</h4>
-                    <p className="text-xs text-foreground/80">{candidate.ai_risk_notes}</p>
-                  </div>
-                )}
-
-                {/* Topics */}
-                {(candidate.ai_topics_json?.length ?? 0) > 0 && (
-                  <div>
-                    <h4 className="mb-1.5 text-[11px] font-semibold text-muted-foreground">المواضيع المقترحة</h4>
-                    <div className="flex flex-wrap gap-1.5">
-                      {candidate.ai_topics_json!.map((topic, i) => (
-                        <span key={i} className="rounded-md bg-muted/60 px-2 py-0.5 text-[10px] text-foreground/80">
-                          {topic}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {/* Conversation angles */}
-                {(candidate.ai_conversation_angles_json?.length ?? 0) > 0 && (
-                  <div>
-                    <h4 className="mb-1.5 text-[11px] font-semibold text-muted-foreground">زوايا الحوار</h4>
-                    <ul className="space-y-1 text-xs text-foreground/80">
-                      {candidate.ai_conversation_angles_json!.map((a, i) => <li key={i}>• {a}</li>)}
-                    </ul>
-                  </div>
-                )}
-
-                {/* Suggested questions */}
-                {candidate.ai_suggested_questions_json && (
-                  <details className="rounded-lg border border-border/30 bg-background/30 p-3">
-                    <summary className="cursor-pointer text-[11px] font-semibold text-muted-foreground hover:text-foreground">
-                      الأسئلة المقترحة
-                    </summary>
-                    <div className="mt-3 space-y-3">
-                      <QuestionGroup label="افتتاحية" questions={candidate.ai_suggested_questions_json.opening} />
-                      <QuestionGroup label="عميقة" questions={candidate.ai_suggested_questions_json.deep} />
-                      <QuestionGroup label="صعبة / مواجهة" questions={candidate.ai_suggested_questions_json.hard} />
-                      <QuestionGroup label="عاطفية" questions={candidate.ai_suggested_questions_json.emotional} />
-                    </div>
-                  </details>
-                )}
+            {/* Contact channels — inline editor */}
+            <SubSection title="بيانات التواصل" icon={<Phone className="h-3.5 w-3.5 text-emerald-700" />}>
+              <div className="space-y-2">
+                <ContactRow kind="phone" value={candidate.phone} onSave={(v) => handleSaveContact("phone", v)} />
+                <ContactRow kind="email" value={candidate.email} onSave={(v) => handleSaveContact("email", v)} />
               </div>
-            ) : (
-              <div className="rounded-lg border border-dashed border-violet-500/20 bg-violet-500/5 p-6 text-center">
-                <Sparkles className="mx-auto mb-2 h-6 w-6 text-violet-700/70" />
-                <p className="mb-3 text-xs text-muted-foreground">
-                  لم يتم توليد تحليل بعد. اضغط «تحليل الآن» لتقييم المرشح بناءً على ملفه وروابطه.
-                </p>
-                <Button size="sm" onClick={handleAnalyze} disabled={analyzeBusy}>
-                  {analyzeBusy && <Loader2 className="ms-1 h-3.5 w-3.5 animate-spin" />}
-                  <Sparkles className="ms-1 h-3.5 w-3.5" />
-                  تحليل بالذكاء الاصطناعي
+            </SubSection>
+
+            {/* Social links */}
+            <SubSection title="الروابط الاجتماعية" icon={<LinkIcon className="h-3.5 w-3.5" />}>
+              {candidate.social_links.length === 0 && !showLinkForm ? (
+                <div className="rounded-lg border border-dashed border-border/40 p-5 text-center">
+                  <p className="mb-3 text-xs text-muted-foreground">لا توجد روابط مضافة</p>
+                  <Button size="sm" variant="ghost" onClick={() => setShowLinkForm(true)}>
+                    <Plus className="ms-1 h-3.5 w-3.5" /> إضافة رابط
+                  </Button>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {candidate.social_links.map((link) => (
+                    <div key={link.id} className="flex items-center gap-3 rounded-lg border border-border/30 bg-background/30 p-2.5">
+                      <span className="text-muted-foreground">{platformIcon(link.platform)}</span>
+                      <a href={link.url} target="_blank" rel="noopener noreferrer" className="min-w-0 flex-1 truncate text-xs hover:text-primary">
+                        {link.label || link.url}
+                      </a>
+                      <a href={link.url} target="_blank" rel="noopener noreferrer" aria-label="فتح الرابط" className="text-muted-foreground hover:text-foreground">
+                        <ExternalLink className="h-3.5 w-3.5" />
+                      </a>
+                      <button onClick={() => handleDeleteLink(link.id)} aria-label="حذف الرابط" className="rounded text-muted-foreground hover:text-rose-700 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring">
+                        <X className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
+                  ))}
+                  {showLinkForm && (
+                    <div className="rounded-lg border border-border/40 bg-muted/20 p-3 space-y-2">
+                      <div className="flex gap-2">
+                        <select
+                          value={newLinkPlatform}
+                          onChange={(e) => setNewLinkPlatform(e.target.value)}
+                          aria-label="المنصة"
+                          className="h-8 w-32 rounded-md border border-input bg-transparent px-2 text-xs"
+                        >
+                          {SOCIAL_PLATFORMS.map((p) => (
+                            <option key={p.value} value={p.value}>{p.label}</option>
+                          ))}
+                        </select>
+                        <Input value={newLinkUrl} onChange={(e) => setNewLinkUrl(e.target.value)} placeholder="https://..." dir="ltr" className="h-8 flex-1 text-xs" />
+                      </div>
+                      <Input value={newLinkLabel} onChange={(e) => setNewLinkLabel(e.target.value)} placeholder="تسمية اختيارية" className="h-8 text-xs" />
+                      <div className="flex justify-end gap-2">
+                        <Button size="sm" variant="ghost" onClick={() => { setShowLinkForm(false); setNewLinkUrl(""); setNewLinkLabel("") }}>إلغاء</Button>
+                        <Button size="sm" onClick={handleAddLink} disabled={linkBusy || !newLinkUrl.trim()}>
+                          {linkBusy && <Loader2 className="ms-1 h-3 w-3 animate-spin" />} إضافة
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+                  {!showLinkForm && (
+                    <Button size="sm" variant="ghost" onClick={() => setShowLinkForm(true)} className="w-full text-xs">
+                      <Plus className="ms-1 h-3 w-3" /> إضافة رابط
+                    </Button>
+                  )}
+                </div>
+              )}
+            </SubSection>
+
+            {/* AI analysis */}
+            <SubSection
+              title="التحليل بالذكاء الاصطناعي"
+              icon={<Sparkles className="h-3.5 w-3.5 text-violet-700" />}
+              action={
+                <Button size="sm" variant="ghost" onClick={handleAnalyze} disabled={analyzeBusy} className="h-7 text-xs">
+                  {analyzeBusy ? <Loader2 className="ms-1 h-3 w-3 animate-spin" /> : <Sparkles className="ms-1 h-3 w-3" />}
+                  {candidate.ai_summary ? "إعادة التحليل" : "تحليل الآن"}
                 </Button>
-              </div>
-            )}
-          </Section>
-
-          {/* Outreach */}
-          <Section title="رسائل التواصل" icon={<Mail className="h-4 w-4 text-sky-700" />}>
-            <OutreachPanel
-              candidateId={candidate.id}
-              initialMessages={outreachMessages}
-              onChange={() => router.refresh()}
-            />
-          </Section>
-
-          {/* Prep links */}
-          <Section title="نموذج التحضير" icon={<ClipboardList className="h-4 w-4 text-violet-700" />}>
-            <PrepLinkPanel
-              candidateId={candidate.id}
-              initialLinks={prepLinks}
-              onChange={() => router.refresh()}
-            />
-          </Section>
-
-          {/* Prep responses */}
-          {prepResponses.length > 0 && (
-            <Section
-              title="إجابات الضيف"
-              icon={<FileText className="h-4 w-4 text-emerald-700" />}
-              badge={`${prepResponses.length}`}
+              }
             >
-              <ResponseViewer responses={prepResponses} prepLinks={prepLinks} templates={templates} />
-            </Section>
-          )}
+              {candidate.ai_summary ? (
+                <div className="space-y-4">
+                  <div className="grid grid-cols-2 gap-2 sm:grid-cols-5">
+                    <ScorePill label="عام" value={candidate.ai_score_overall} accent="violet" highlight />
+                    <ScorePill label="ملاءمة" value={candidate.ai_fit_score} accent="emerald" />
+                    <ScorePill label="عمق" value={candidate.ai_depth_score} accent="blue" />
+                    <ScorePill label="انتشار" value={candidate.ai_reach_score} accent="amber" />
+                    <ScorePill label="مخاطر" value={candidate.ai_risk_score} accent="rose" inverted />
+                  </div>
+                  <div className="rounded-lg bg-violet-500/5 p-3">
+                    <p className="text-sm leading-relaxed text-foreground/85">{candidate.ai_summary}</p>
+                    {candidate.ai_reason_to_invite && (
+                      <p className="mt-2 border-t border-violet-500/20 pt-2 text-xs italic text-violet-700">
+                        <strong>سبب الدعوة:</strong> {candidate.ai_reason_to_invite}
+                      </p>
+                    )}
+                  </div>
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    {(candidate.ai_strengths?.length ?? 0) > 0 && (
+                      <div>
+                        <h4 className="mb-1.5 text-[11px] font-semibold text-emerald-700">نقاط القوة</h4>
+                        <ul className="space-y-1 text-xs text-foreground/80">
+                          {candidate.ai_strengths!.map((s, i) => <li key={i}>• {s}</li>)}
+                        </ul>
+                      </div>
+                    )}
+                    {(candidate.ai_weaknesses?.length ?? 0) > 0 && (
+                      <div>
+                        <h4 className="mb-1.5 text-[11px] font-semibold text-amber-700">نقاط الضعف</h4>
+                        <ul className="space-y-1 text-xs text-foreground/80">
+                          {candidate.ai_weaknesses!.map((s, i) => <li key={i}>• {s}</li>)}
+                        </ul>
+                      </div>
+                    )}
+                  </div>
+                  {candidate.ai_risk_notes && (
+                    <div className="rounded-lg border border-rose-500/20 bg-rose-500/5 p-3">
+                      <h4 className="mb-1 text-[11px] font-semibold text-rose-700">مخاطر محتملة</h4>
+                      <p className="text-xs text-foreground/80">{candidate.ai_risk_notes}</p>
+                    </div>
+                  )}
+                  {(candidate.ai_topics_json?.length ?? 0) > 0 && (
+                    <div>
+                      <h4 className="mb-1.5 text-[11px] font-semibold text-muted-foreground">المواضيع المقترحة</h4>
+                      <div className="flex flex-wrap gap-1.5">
+                        {candidate.ai_topics_json!.map((topic, i) => (
+                          <span key={i} className="rounded-md bg-muted/60 px-2 py-0.5 text-[10px] text-foreground/80">{topic}</span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  {(candidate.ai_conversation_angles_json?.length ?? 0) > 0 && (
+                    <div>
+                      <h4 className="mb-1.5 text-[11px] font-semibold text-muted-foreground">زوايا الحوار</h4>
+                      <ul className="space-y-1 text-xs text-foreground/80">
+                        {candidate.ai_conversation_angles_json!.map((a, i) => <li key={i}>• {a}</li>)}
+                      </ul>
+                    </div>
+                  )}
+                  {candidate.ai_suggested_questions_json && (
+                    <details className="rounded-lg border border-border/30 bg-background/30 p-3">
+                      <summary className="cursor-pointer text-[11px] font-semibold text-muted-foreground hover:text-foreground">الأسئلة المقترحة</summary>
+                      <div className="mt-3 space-y-3">
+                        <QuestionGroup label="افتتاحية" questions={candidate.ai_suggested_questions_json.opening} />
+                        <QuestionGroup label="عميقة" questions={candidate.ai_suggested_questions_json.deep} />
+                        <QuestionGroup label="صعبة / مواجهة" questions={candidate.ai_suggested_questions_json.hard} />
+                        <QuestionGroup label="عاطفية" questions={candidate.ai_suggested_questions_json.emotional} />
+                      </div>
+                    </details>
+                  )}
+                </div>
+              ) : (
+                <div className="rounded-lg border border-dashed border-violet-500/20 bg-violet-500/5 p-5 text-center">
+                  <Sparkles className="mx-auto mb-2 h-6 w-6 text-violet-700/70" />
+                  <p className="mb-3 text-xs text-muted-foreground">لم يتم توليد تحليل بعد. اضغط «تحليل الآن» لتقييم المرشح بناءً على ملفه وروابطه.</p>
+                  <Button size="sm" onClick={handleAnalyze} disabled={analyzeBusy}>
+                    {analyzeBusy && <Loader2 className="ms-1 h-3.5 w-3.5 animate-spin" />}
+                    <Sparkles className="ms-1 h-3.5 w-3.5" /> تحليل بالذكاء الاصطناعي
+                  </Button>
+                </div>
+              )}
+            </SubSection>
+
+            {/* Outreach */}
+            <SubSection title="رسائل الدعوة" icon={<Mail className="h-3.5 w-3.5 text-sky-700" />}>
+              <OutreachPanel candidateId={candidate.id} initialMessages={outreachMessages} onChange={() => router.refresh()} />
+            </SubSection>
+          </StageCard>
+
+          {/* ── Stage ② المتابعة ── */}
+          <StageCard
+            n={2}
+            label="المتابعة"
+            flow={flow}
+            unlocked={stage2Unlocked}
+            lockedMsg="تُفتح بعد التواصل مع المرشّح"
+            open={openStage === 2}
+            onToggle={() => setOpenStage(openStage === 2 ? -1 : 2)}
+            summary={flow.terminal === "declined" ? "اعتذر الضيف" : "سجّل رد الضيف: وافق أو اعتذر"}
+          >
+            <div className="space-y-3">
+              {candidate.status === "waiting_response" && (
+                <div className="flex flex-wrap items-center gap-3 rounded-lg bg-cyan-500/12 p-2.5 text-[11px]">
+                  <span className="font-semibold text-cyan-700">بانتظار الرد</span>
+                  {candidate.last_contacted_at && (
+                    <span className="text-muted-foreground">آخر تواصل {formatDateTime(candidate.last_contacted_at)}</span>
+                  )}
+                </div>
+              )}
+
+              {flow.terminal === "declined" ? (
+                <div className="rounded-lg bg-zinc-500/8 p-3 text-[12px] text-zinc-700">اعتذر الضيف — مسار الدعوة متوقّف. يمكنك أرشفة المرشّح من الأعلى.</div>
+              ) : (
+                <>
+                  <p className="text-[11px] text-muted-foreground">سجّل رد الضيف على الدعوة:</p>
+                  <div className="flex flex-wrap gap-2">
+                    <Button
+                      onClick={() => handleStatusChange("accepted")}
+                      disabled={statusBusy || candidate.status === "accepted"}
+                      className="bg-emerald-600 text-white hover:bg-emerald-700"
+                    >
+                      {statusBusy ? <Loader2 className="ms-1 h-4 w-4 animate-spin" /> : <Check className="ms-1 h-4 w-4" />}
+                      وافق
+                    </Button>
+                    <Button variant="outline" onClick={() => handleStatusChange("declined")} disabled={statusBusy}>
+                      اعتذر
+                    </Button>
+                  </div>
+                  {candidate.status !== "waiting_response" && !acceptedPlus && (
+                    <p className="text-[10px] text-muted-foreground">لا رد بعد.</p>
+                  )}
+                </>
+              )}
+            </div>
+          </StageCard>
+
+          {/* ── Stage ③ التحضير ── */}
+          <StageCard
+            n={3}
+            label="التحضير"
+            flow={flow}
+            unlocked={acceptedPlus}
+            lockedMsg="تُفتح بعد موافقة الضيف"
+            open={openStage === 3}
+            onToggle={() => setOpenStage(openStage === 3 ? -1 : 3)}
+            summary="اللقاء التحضيري ونموذج التحضير وإجابات الضيف"
+          >
+            <div className="space-y-4">
+              <SubSection title="اللقاءات التحضيرية" icon={<CalendarClock className="h-3.5 w-3.5 text-sky-700" />}>
+                <PrepMeetingsPanel candidateId={candidate.id} initialMeetings={prepMeetings} />
+              </SubSection>
+              <SubSection title="نموذج التحضير" icon={<ClipboardList className="h-3.5 w-3.5 text-violet-700" />}>
+                <PrepLinkPanel candidateId={candidate.id} initialLinks={prepLinks} onChange={() => router.refresh()} />
+              </SubSection>
+              {prepResponses.length > 0 && (
+                <SubSection title={`إجابات الضيف (${prepResponses.length})`} icon={<FileText className="h-3.5 w-3.5 text-emerald-700" />}>
+                  <ResponseViewer responses={prepResponses} prepLinks={prepLinks} templates={templates} />
+                </SubSection>
+              )}
+            </div>
+          </StageCard>
+
+          {/* ── Stage ④ الجدولة والنقل ── */}
+          <StageCard
+            n={4}
+            label="الجدولة والنقل"
+            flow={flow}
+            unlocked={acceptedPlus}
+            lockedMsg="تُفتح بعد موافقة الضيف"
+            open={openStage === 4}
+            onToggle={() => setOpenStage(openStage === 4 ? -1 : 4)}
+            summary="موعد التصوير ونقل الحلقة للإنتاج"
+          >
+            <SubSection title="موعد التصوير والنقل للإنتاج" icon={<Rocket className="h-3.5 w-3.5 text-primary" />}>
+              <ProductionBridgePanel
+                candidateId={candidate.id}
+                status={candidate.status}
+                productionEir={productionEir}
+                hasCanonicalLink={hasCanonicalLink}
+              />
+            </SubSection>
+          </StageCard>
 
           {candidate.notes_internal && (
             <Section title="ملاحظات داخلية" icon={<Pencil className="h-4 w-4" />}>
@@ -537,7 +689,7 @@ export function CandidateDetailClient({ candidate, statusHistory, outreachMessag
           )}
         </div>
 
-        {/* Right column: meta + history */}
+        {/* Sidebar: info + history + manual status switcher */}
         <div className="space-y-4">
           <Section title="المعلومات">
             <dl className="space-y-2 text-xs">
@@ -560,7 +712,7 @@ export function CandidateDetailClient({ candidate, statusHistory, outreachMessag
                   const fromMeta = h.old_status ? STATUS_META[h.old_status as GuestCandidateStatus] : null
                   const toMeta = STATUS_META[h.new_status as GuestCandidateStatus]
                   return (
-                    <li key={h.id} className="border-r-2 border-primary/20 ps-3 text-[11px]">
+                    <li key={h.id} className="border-s-2 border-primary/20 ps-3 text-[11px]">
                       <div className="flex items-center gap-1.5">
                         {fromMeta && (
                           <>
@@ -570,28 +722,43 @@ export function CandidateDetailClient({ candidate, statusHistory, outreachMessag
                         )}
                         <span className="font-semibold">{toMeta?.label || h.new_status}</span>
                       </div>
-                      <div className="mt-0.5 text-[10px] text-muted-foreground">
-                        {formatDateTime(h.created_at)}
-                      </div>
-                      {h.change_note && (
-                        <div className="mt-0.5 text-[10px] text-muted-foreground/80">{h.change_note}</div>
-                      )}
+                      <div className="mt-0.5 text-[10px] text-muted-foreground">{formatDateTime(h.created_at)}</div>
+                      {h.change_note && <div className="mt-0.5 text-[10px] text-muted-foreground/80">{h.change_note}</div>}
                     </li>
                   )
                 })}
               </ol>
             )}
+
+            {/* Manual status switcher — secondary, tucked away */}
+            <details className="mt-4 border-t border-border/30 pt-3">
+              <summary className="flex cursor-pointer items-center gap-1.5 text-[11px] font-semibold text-muted-foreground hover:text-foreground">
+                <ChevronDown className="h-3 w-3" /> تغيير الحالة يدويًا
+              </summary>
+              <div className="mt-2 flex flex-wrap gap-1.5">
+                {statusBusy && <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />}
+                {STATUS_OPTIONS.map((s) => (
+                  <button
+                    key={s}
+                    onClick={() => handleStatusChange(s)}
+                    disabled={statusBusy || s === candidate.status}
+                    aria-current={s === candidate.status ? "true" : undefined}
+                    className={`rounded px-2 py-1 text-[10px] font-medium transition-all focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring ${
+                      s === candidate.status
+                        ? `${STATUS_META[s].badgeClass} ring-1 ring-current/30 cursor-default`
+                        : "border border-border/40 bg-background text-muted-foreground hover:border-primary/40 hover:text-foreground"
+                    }`}
+                  >
+                    {STATUS_META[s].label}
+                  </button>
+                ))}
+              </div>
+            </details>
           </Section>
         </div>
       </div>
 
-      <CandidateFormDialog
-        open={editOpen}
-        onOpenChange={setEditOpen}
-        candidate={candidate}
-        onSuccess={() => router.refresh()}
-      />
-
+      <CandidateFormDialog open={editOpen} onOpenChange={setEditOpen} candidate={candidate} onSuccess={() => router.refresh()} />
       <LinkCanonicalDialog
         kind="candidate"
         sourceId={candidate.id}
@@ -603,6 +770,266 @@ export function CandidateDetailClient({ candidate, statusHistory, outreachMessag
   )
 }
 
+// ─── Stepper ────────────────────────────────────────────────────────────
+
+function Stepper({
+  flow,
+  reached,
+  unlocked,
+  onGo,
+}: {
+  flow: Flow
+  reached: Set<number>
+  unlocked: (n: number) => boolean
+  onGo: (n: number) => void
+}) {
+  const nodeState = (n: number): "done" | "current" | "upcoming" => {
+    if (flow.current === n) return "current"
+    if (flow.done.includes(n)) return "done"
+    return "upcoming"
+  }
+  const currentLabel = flow.current ? STAGES[flow.current - 1].label : "—"
+
+  return (
+    <div>
+      {/* Desktop — horizontal stepper (RTL: ① at the start/right) */}
+      <ol className="hidden items-center sm:flex" aria-label="مراحل دعوة الضيف">
+        {STAGES.map((st, i) => {
+          const state = nodeState(st.n)
+          const canGo = unlocked(st.n)
+          const circle =
+            state === "done"
+              ? "bg-primary text-primary-foreground border-primary"
+              : state === "current"
+                ? "border-primary text-primary ring-4 ring-primary/15"
+                : "border-border text-muted-foreground"
+          return (
+            <li key={st.n} className="flex items-center" style={i === 0 ? undefined : { flex: 1 }}>
+              {i > 0 && (
+                <span
+                  aria-hidden="true"
+                  className={`mx-1.5 h-px flex-1 ${reached.has(st.n) ? "bg-primary" : "bg-border"}`}
+                />
+              )}
+              <button
+                type="button"
+                onClick={() => canGo && onGo(st.n)}
+                disabled={!canGo}
+                aria-current={state === "current" ? "step" : undefined}
+                aria-label={`المرحلة ${AR_NUM[i]}: ${st.label}`}
+                className="group inline-flex items-center gap-2 rounded focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-default"
+              >
+                <span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full border text-[12px] font-bold ${circle}`}>
+                  {state === "done" ? <Check className="h-4 w-4" /> : AR_NUM[i]}
+                </span>
+                <span className={`whitespace-nowrap text-[12px] font-medium ${state === "current" ? "text-primary" : state === "done" ? "text-foreground/85" : "text-muted-foreground"}`}>
+                  {st.label}
+                </span>
+              </button>
+            </li>
+          )
+        })}
+      </ol>
+
+      {/* Mobile — compact */}
+      <div className="sm:hidden">
+        <div className="mb-1.5 flex items-center justify-between text-[12px]">
+          <span className="font-semibold text-primary">
+            {flow.current ? `المرحلة ${AR_NUM[flow.current - 1]} من ٤` : "خارج المسار"}
+          </span>
+          <span className="text-muted-foreground">{currentLabel}</span>
+        </div>
+        <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted">
+          <div
+            className="h-full rounded-full bg-primary transition-all"
+            style={{ width: `${((flow.current ?? 0) / STAGES.length) * 100}%` }}
+          />
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ─── Stage card (accordion) ─────────────────────────────────────────────
+
+function StageCard({
+  n,
+  label,
+  flow,
+  unlocked,
+  lockedMsg,
+  open,
+  onToggle,
+  summary,
+  children,
+}: {
+  n: number
+  label: string
+  flow: Flow
+  unlocked: boolean
+  lockedMsg?: string
+  open: boolean
+  onToggle: () => void
+  summary: string
+  children: React.ReactNode
+}) {
+  const isCurrent = flow.current === n
+  const isDone = flow.done.includes(n) && !isCurrent
+  const state: "done" | "current" | "unlocked" | "locked" = isCurrent
+    ? "current"
+    : isDone
+      ? "done"
+      : unlocked
+        ? "unlocked"
+        : "locked"
+
+  const badge =
+    state === "done" ? (
+      <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 text-[9.5px] font-semibold text-primary">
+        <Check className="h-3 w-3" /> منجزة
+      </span>
+    ) : state === "current" ? (
+      <span className="rounded-full bg-primary/15 px-2 py-0.5 text-[9.5px] font-semibold text-primary">الحالية</span>
+    ) : state === "locked" ? (
+      <span className="inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-[9.5px] font-semibold text-muted-foreground">
+        <Lock className="h-3 w-3" /> مقفلة
+      </span>
+    ) : null
+
+  const circleCls =
+    state === "done"
+      ? "bg-primary text-primary-foreground"
+      : state === "current"
+        ? "border border-primary text-primary"
+        : "border border-border text-muted-foreground"
+
+  return (
+    <section
+      id={`stage-${n}`}
+      className={`scroll-mt-4 rounded-2xl border bg-card/40 ${isCurrent ? "border-primary/40 ring-1 ring-primary/10" : "border-border/40"}`}
+    >
+      <button
+        type="button"
+        onClick={onToggle}
+        aria-expanded={open}
+        aria-controls={`stage-body-${n}`}
+        className="flex w-full items-center gap-3 rounded-2xl p-4 text-start focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+      >
+        <span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[12px] font-bold ${circleCls}`}>
+          {state === "done" ? <Check className="h-4 w-4" /> : AR_NUM[n - 1]}
+        </span>
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-2">
+            <h3 className={`text-[13px] font-semibold ${state === "locked" ? "text-muted-foreground" : ""}`}>{label}</h3>
+            {badge}
+          </div>
+          {!open && (
+            <p className="mt-0.5 truncate text-[11px] text-muted-foreground">
+              {state === "locked" ? lockedMsg ?? "غير متاحة بعد" : summary}
+            </p>
+          )}
+        </div>
+        <ChevronDown className={`h-4 w-4 shrink-0 text-muted-foreground transition-transform ${open ? "rotate-180" : ""}`} />
+      </button>
+
+      {open && (
+        <div id={`stage-body-${n}`} className="border-t border-border/30 p-4">
+          {state === "locked" ? (
+            <div className="flex items-start gap-2 rounded-lg border border-dashed border-border/40 bg-muted/20 p-4 text-[12px] text-muted-foreground">
+              <Lock className="mt-0.5 h-4 w-4 shrink-0" />
+              <span>{lockedMsg ?? "تُفتح لاحقًا في مسار الدعوة."}</span>
+            </div>
+          ) : (
+            children
+          )}
+        </div>
+      )}
+    </section>
+  )
+}
+
+// ─── Inline contact editor row ──────────────────────────────────────────
+
+function ContactRow({
+  kind,
+  value,
+  onSave,
+}: {
+  kind: "phone" | "email"
+  value: string | null
+  onSave: (v: string | null) => Promise<void>
+}) {
+  const [editing, setEditing] = useState(false)
+  const [val, setVal] = useState(value ?? "")
+  const [busy, setBusy] = useState(false)
+  const isPhone = kind === "phone"
+  const Icon = isPhone ? Phone : Mail
+  const ariaEdit = isPhone ? "تعديل الهاتف" : "تعديل البريد الإلكتروني"
+  const link = value ? (isPhone ? `https://wa.me/${value.replace(/[^\d]/g, "")}` : `mailto:${value}`) : null
+
+  async function save() {
+    setBusy(true)
+    try {
+      await onSave(val.trim() || null)
+      setEditing(false)
+    } catch {
+      /* stay in edit mode; toast shown by parent */
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <div className="flex items-center gap-2 rounded-lg border border-border/30 bg-background/30 p-2.5">
+      <Icon className="h-4 w-4 shrink-0 text-muted-foreground" />
+      {editing ? (
+        <>
+          <Input
+            type={isPhone ? "tel" : "email"}
+            dir="ltr"
+            value={val}
+            onChange={(e) => setVal(e.target.value)}
+            placeholder={isPhone ? "+965 0000 0000" : "name@example.com"}
+            aria-label={isPhone ? "الهاتف" : "البريد الإلكتروني"}
+            className="h-8 flex-1 text-xs"
+          />
+          <Button size="sm" onClick={save} disabled={busy}>
+            {busy && <Loader2 className="ms-1 h-3 w-3 animate-spin" />} حفظ
+          </Button>
+          <button
+            type="button"
+            onClick={() => { setEditing(false); setVal(value ?? "") }}
+            aria-label="إلغاء"
+            className="rounded p-1 text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+          >
+            <X className="h-3.5 w-3.5" />
+          </button>
+        </>
+      ) : (
+        <>
+          {value ? (
+            <a href={link!} target="_blank" rel="noopener noreferrer" dir="ltr" className="min-w-0 flex-1 truncate text-start text-xs hover:text-primary">
+              {value}
+            </a>
+          ) : (
+            <span className="flex-1 text-xs text-muted-foreground">— لا يوجد {isPhone ? "رقم" : "بريد"}</span>
+          )}
+          <button
+            type="button"
+            onClick={() => { setVal(value ?? ""); setEditing(true) }}
+            aria-label={ariaEdit}
+            className="rounded p-1 text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+          >
+            <Pencil className="h-3.5 w-3.5" />
+          </button>
+        </>
+      )}
+    </div>
+  )
+}
+
+// ─── Shared presentational helpers ──────────────────────────────────────
+
 function Section({ title, icon, badge, action, children }: { title: string; icon?: React.ReactNode; badge?: string; action?: React.ReactNode; children: React.ReactNode }) {
   return (
     <div className="rounded-xl border border-border/40 bg-card/40 p-4">
@@ -611,10 +1038,23 @@ function Section({ title, icon, badge, action, children }: { title: string; icon
           {icon}
           <h3 className="text-xs font-semibold">{title}</h3>
           {badge && (
-            <span className="rounded bg-muted/60 px-1.5 py-0.5 text-[9px] font-semibold text-muted-foreground">
-              {badge}
-            </span>
+            <span className="rounded bg-muted/60 px-1.5 py-0.5 text-[9px] font-semibold text-muted-foreground">{badge}</span>
           )}
+        </div>
+        {action}
+      </div>
+      {children}
+    </div>
+  )
+}
+
+function SubSection({ title, icon, action, children }: { title: string; icon?: React.ReactNode; action?: React.ReactNode; children: React.ReactNode }) {
+  return (
+    <div>
+      <div className="mb-2 flex items-center justify-between gap-2">
+        <div className="flex items-center gap-1.5">
+          {icon}
+          <h4 className="text-[11px] font-semibold text-muted-foreground">{title}</h4>
         </div>
         {action}
       </div>
@@ -637,11 +1077,11 @@ function ScorePill({
   inverted?: boolean
 }) {
   const accentClasses = {
-    violet: "bg-violet-500/10 text-violet-700 dark:text-violet-300 ring-violet-500/20",
-    emerald: "bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 ring-emerald-500/20",
-    blue: "bg-blue-500/10 text-blue-700 dark:text-blue-300 ring-blue-500/20",
-    amber: "bg-amber-500/10 text-amber-700 dark:text-amber-300 ring-amber-500/20",
-    rose: "bg-rose-500/10 text-rose-700 dark:text-rose-300 ring-rose-500/20",
+    violet: "bg-violet-500/10 text-violet-700 ring-violet-500/20",
+    emerald: "bg-emerald-500/10 text-emerald-700 ring-emerald-500/20",
+    blue: "bg-blue-500/10 text-blue-700 ring-blue-500/20",
+    amber: "bg-amber-500/10 text-amber-700 ring-amber-500/20",
+    rose: "bg-rose-500/10 text-rose-700 ring-rose-500/20",
   }
   const display = value === null || value === undefined ? "—" : value.toFixed(1)
   return (
@@ -660,7 +1100,7 @@ function QuestionGroup({ label, questions }: { label: string; questions?: string
       <h5 className="mb-1 text-[10px] font-semibold text-muted-foreground/80">{label}</h5>
       <ul className="space-y-1 text-[11px] text-foreground/80">
         {questions.map((q, i) => (
-          <li key={i} className="border-r-2 border-violet-500/30 ps-2">{q}</li>
+          <li key={i} className="border-s-2 border-violet-500/30 ps-2">{q}</li>
         ))}
       </ul>
     </div>

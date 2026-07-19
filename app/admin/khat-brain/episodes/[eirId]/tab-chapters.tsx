@@ -36,18 +36,19 @@ function phaseAtLeast(actual: EpisodePhase, threshold: EpisodePhase): boolean {
 
 export interface ChaptersTabProps {
   eirId: string
-  studioSessionId: string | null
+  /** Studio deep-link (`/admin/studio?video=…`); null when no session is linked. */
+  studioHref: string | null
   currentPhase: EpisodePhase
 }
 
 export async function ChaptersTab({
   eirId,
-  studioSessionId,
+  studioHref,
   currentPhase,
 }: ChaptersTabProps) {
   const loaded = await loadChaptersForEir(eirId)
   const isEarly = !phaseAtLeast(currentPhase, "recorded")
-  const legacyHref = studioSessionId ? `/admin/studio/${studioSessionId}` : null
+  const legacyHref = studioHref
 
   return (
     <div className="space-y-3">
@@ -86,7 +87,7 @@ export async function ChaptersTab({
       <ChapterEditor
         eirId={eirId}
         initialDoc={loaded.doc}
-        studioSessionId={studioSessionId}
+        studioHref={studioHref}
       />
     </div>
   )

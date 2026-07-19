@@ -53,7 +53,7 @@ export async function generateQuotesFromTranscript(
   }>({
     taskKind: "structural",
     eirId: options?.eirId ?? null,
-    subjectTable: options?.subjectTable ?? "studio_transcripts",
+    subjectTable: options?.subjectTable ?? "studio_sessions",
     subjectId: options?.subjectId ?? null,
     actorId: options?.actorId ?? LEGACY_ACTOR,
     promptVersion: TRANSCRIPT_QUOTES_PROMPT_VERSION,
@@ -186,7 +186,7 @@ ${preparedText}`
     const result = await runAiTask<TranscriptProcessingResult>({
       taskKind: "editorial",
       eirId: eirContext?.eirId ?? null,
-      subjectTable: eirContext?.subjectTable ?? "studio_transcripts",
+      subjectTable: eirContext?.subjectTable ?? "studio_sessions",
       subjectId: eirContext?.subjectId ?? null,
       actorId: eirContext?.actorId ?? LEGACY_ACTOR,
       input: {
@@ -287,7 +287,7 @@ ${preparedText}
     const result = await runAiTask<{ quotes: StudioTranscriptQuote[] }>({
       taskKind: "editorial",
       eirId: eirContext?.eirId ?? null,
-      subjectTable: eirContext?.subjectTable ?? "studio_transcripts",
+      subjectTable: eirContext?.subjectTable ?? "studio_sessions",
       subjectId: eirContext?.subjectId ?? null,
       actorId: eirContext?.actorId ?? LEGACY_ACTOR,
       input: {
@@ -370,7 +370,7 @@ ${preparedText}
     const result = await runAiTask<{ key_ideas: string[] }>({
       taskKind: "editorial",
       eirId: eirContext?.eirId ?? null,
-      subjectTable: eirContext?.subjectTable ?? "studio_transcripts",
+      subjectTable: eirContext?.subjectTable ?? "studio_sessions",
       subjectId: eirContext?.subjectId ?? null,
       actorId: eirContext?.actorId ?? LEGACY_ACTOR,
       input: { videoTitle, transcriptChars: preparedText.length },
@@ -438,7 +438,7 @@ ${preparedText}
     const result = await runAiTask<{ lessons: string[] }>({
       taskKind: "editorial",
       eirId: eirContext?.eirId ?? null,
-      subjectTable: eirContext?.subjectTable ?? "studio_transcripts",
+      subjectTable: eirContext?.subjectTable ?? "studio_sessions",
       subjectId: eirContext?.subjectId ?? null,
       actorId: eirContext?.actorId ?? LEGACY_ACTOR,
       input: { videoTitle, transcriptChars: preparedText.length },

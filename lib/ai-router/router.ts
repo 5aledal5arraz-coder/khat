@@ -120,8 +120,11 @@ function clipSnapshot(value: unknown): Record<string, unknown> {
  *   "server_error"     — provider 5xx / network blip (transient)
  *   "JsonParseError"   — set elsewhere on parse failures
  *   "<Error.name>"     — fallback for unrecognized errors
+ *
+ * Exported so the non-routed telemetry primitive (`recordAiRun`) and the
+ * whisper fallback classify failures identically to the router.
  */
-function classifyError(err: unknown): { name: string; message: string } {
+export function classifyError(err: unknown): { name: string; message: string } {
   const msg = err instanceof Error ? err.message : String(err)
   const lower = msg.toLowerCase()
   // Provider SDKs (OpenAI) attach a numeric HTTP status — prefer it over

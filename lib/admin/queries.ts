@@ -271,6 +271,25 @@ export async function getNewsletterSubscribers(): Promise<
   }
 }
 
+/**
+ * Explicit column projection matching the public `Guest` type. Deliberately
+ * OMITS the admin-only `phone`/`email` columns (migration 0012) and the
+ * generated `normalized_name`, so guest reads on this path never carry PII
+ * that the `Guest` type hides — `getAllGuests` feeds public surfaces
+ * (app/sitemap.ts). The `as unknown as Guest` casts below remain only to
+ * bridge the created_at Date→string shape difference, not to smuggle columns.
+ */
+const GUEST_COLUMNS = {
+  id: guests.id,
+  name: guests.name,
+  slug: guests.slug,
+  bio: guests.bio,
+  photo_url: guests.photo_url,
+  external_links: guests.external_links,
+  testimonial: guests.testimonial,
+  created_at: guests.created_at,
+} as const
+
 export async function getAllGuests(): Promise<Guest[]> {
   if (!USE_DB) {
     return mockGuests
@@ -278,7 +297,7 @@ export async function getAllGuests(): Promise<Guest[]> {
 
   try {
     const rows = await db!
-      .select()
+      .select(GUEST_COLUMNS)
       .from(guests)
       .orderBy(guests.name)
     return rows as unknown as Guest[]
@@ -295,7 +314,7 @@ export async function getGuestById(id: string): Promise<Guest | null> {
 
   try {
     const rows = await db!
-      .select()
+      .select(GUEST_COLUMNS)
       .from(guests)
       .where(eq(guests.id, id))
       .limit(1)
@@ -324,11 +343,15 @@ export async function getGuestById(id: string): Promise<Guest | null> {
  * (USE_DB=false), which is dev-only.
  */
 export async function createGuest(
-  guest: Omit<Guest, "id" | "created_at">
+  // G-042 — slug is no longer caller-supplied: the `ensureGuest` chokepoint
+  // assigns a uniform `g-NNN` slug from the sequence. `slug` stays accepted
+  // (optional) only as a matching hint / offline fallback.
+  guest: Omit<Guest, "id" | "created_at" | "slug"> & { slug?: string }
 ): Promise<{ success: boolean; error?: string; data?: Guest; existing?: boolean }> {
   if (!USE_DB) {
     const newGuest: Guest = {
       ...guest,
+      slug: guest.slug ?? `g-local-${crypto.randomUUID().slice(0, 8)}`,
       id: `guest-${crypto.randomUUID()}`,
       created_at: new Date().toISOString(),
     }
@@ -366,7 +389,7 @@ export async function createGuest(
     await createGuestIdentityProfile(result.guest_id, {})
 
     const [row] = await db!
-      .select()
+      .select(GUEST_COLUMNS)
       .from(guests)
       .where(eq(guests.id, result.guest_id))
       .limit(1)

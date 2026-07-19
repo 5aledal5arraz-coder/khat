@@ -3,7 +3,7 @@
  *
  *   /admin/khat-brain/seasons
  *
- * Replaces the legacy /admin/khat-map dashboard funnel with a clean
+ * Replaces the legacy khat-map dashboard funnel with a clean
  * list of every active season + their status / target / accepted /
  * pending counts. One primary CTA per row: "open workspace".
  *
@@ -13,7 +13,7 @@
  */
 
 import Link from "next/link"
-import { Compass, Plus, ArrowLeft } from "lucide-react"
+import { Compass, Plus, ArrowRight } from "lucide-react"
 import { requireAdmin } from "@/lib/api-utils"
 import { listSeasonSummaries } from "@/lib/khat-brain/seasons-summary"
 import { SeasonsList } from "./components/seasons-list"
@@ -72,10 +72,10 @@ export default async function SeasonsListPage() {
       {/* ── Back link to home ─────────────────────────────────── */}
       <div className="flex justify-end">
         <Link
-          href="/admin/khat-brain"
+          href="/admin/ops"
           className="inline-flex items-center gap-1 text-[11.5px] text-muted-foreground hover:text-foreground"
         >
-          <ArrowLeft className="h-3 w-3" /> رجوع إلى مركز القيادة
+          <ArrowRight className="h-3 w-3" /> رجوع إلى الرئيسية
         </Link>
       </div>
     </div>

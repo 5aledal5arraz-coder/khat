@@ -2,7 +2,8 @@
 
 import { revalidatePath } from "next/cache"
 import { getQuotesConfig, saveQuotesConfig } from "@/lib/episodes/quotes"
-import { fetchTranscript } from "@/lib/youtube/transcript"
+import { fetchTranscriptServer } from "@/lib/youtube/transcript-server"
+import { cleanTranscriptText } from "@/lib/studio/utils"
 import { generateQuotesFromTranscript } from "@/lib/ai"
 import { getYouTubeId } from "@/lib/utils"
 import { requireAdmin } from "@/lib/api-utils"
@@ -27,15 +28,18 @@ export async function generateEpisodeQuotes(
     return { success: false, error: "رابط يوتيوب غير صالح" }
   }
 
-  const result = await fetchTranscript(videoId)
+  const result = await fetchTranscriptServer(videoId)
   if (!result.success) {
     return { success: false, error: result.error || "فشل في جلب النص" }
   }
 
+  // fetchTranscriptServer returns RAW VTT (timestamps) — strip them before the generator/storage.
+  const transcript = cleanTranscriptText(result.text)
+
   let quotes
   try {
     quotes = await generateQuotesFromTranscript(
-      result.text,
+      transcript,
       title,
       guestName
     )
@@ -63,7 +67,7 @@ export async function generateEpisodeQuotes(
     episodeId,
     episodeTitle: title,
     quotes,
-    transcript: result.text,
+    transcript,
     status: "draft",
     generatedAt: new Date().toISOString(),
     publishedAt: null,

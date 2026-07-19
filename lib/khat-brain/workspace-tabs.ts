@@ -167,6 +167,8 @@ export interface WorkspaceStudioSummary {
     id: string
     status: string
     source: string
+    /** YouTube video id — the studio deep-link key (`?video=`). Null for audio uploads. */
+    video_id: string | null
     video_title: string | null
     youtube_url: string | null
     duration_seconds: number | null
@@ -333,6 +335,7 @@ export async function getStudioSummaryForEir(
       // schema column defaults (status defaults to "draft" already).
       status: session.status ?? "draft",
       source: session.source ?? "unknown",
+      video_id: session.video_id,
       video_title: session.video_title,
       youtube_url: session.youtube_url,
       duration_seconds: session.duration_seconds,

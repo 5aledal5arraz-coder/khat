@@ -95,29 +95,6 @@ async function seedAnalytics() {
   console.log(`  ✓ upserted ${count} platforms`)
 }
 
-async function seedStudioPushLog() {
-  console.log("→ studio_push_log")
-  const data = await readJSON<Array<{ sessionId: string; episodeId: string; episodeTitle: string; pushedFields: string[]; pushedAt: string }>>("studio-push-log.json")
-  if (!data || !data.length) return
-
-  let count = 0
-  for (const entry of data) {
-    try {
-      await client.query(
-        `INSERT INTO studio_push_log (session_id, episode_id, episode_title, pushed_fields, pushed_at)
-         VALUES ($1, $2, $3, $4, $5)`,
-        [entry.sessionId, entry.episodeId, entry.episodeTitle, entry.pushedFields, entry.pushedAt]
-      )
-      count++
-    } catch (e: unknown) {
-      const pgErr = e as { code?: string }
-      if (pgErr.code === "23505") continue // duplicate key
-      throw e
-    }
-  }
-  console.log(`  ✓ inserted ${count} entries`)
-}
-
 async function seedEpisodeOverrides() {
   console.log("→ episode_overrides")
   const data = await readJSON<Array<{ id: string; originalTitle: string; customTitle: string; customDescription?: string }>>("episode-overrides.json")
@@ -345,7 +322,6 @@ async function main() {
     await seedSiteSettings()
     await seedStaticContent()
     await seedAnalytics()
-    await seedStudioPushLog()
     await seedEpisodeOverrides()
     await seedEpisodeGuestLinks()
     await seedEpisodeEnrichments()

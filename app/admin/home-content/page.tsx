@@ -3,6 +3,7 @@ import { getHomepageFeatured, getLatestEpisodesForHomepage } from "@/lib/queries
 import { getHomepageThinkers, getLatestGuestsForHomepage } from "@/lib/queries/homepage-thinkers"
 import { getAllGuests } from "@/lib/admin/queries"
 import { getAllHomepageSettings } from "@/lib/queries/homepage-settings"
+import { getTeaserSettings, getUpcomingEpisodesForTeaser } from "@/lib/teaser"
 import { HomeContentTabs } from "./home-content-tabs"
 import { AdminPageHeader } from "../components/admin-page-header"
 
@@ -17,6 +18,8 @@ export default async function HomeContentPage() {
     thinkerRows,
     latestGuests,
     settings,
+    teaserSettings,
+    upcomingEpisodes,
   ] = await Promise.all([
     getEpisodes({ limit: 100 }),
     getHomepageFeatured(),
@@ -25,6 +28,8 @@ export default async function HomeContentPage() {
     getHomepageThinkers(),
     getLatestGuestsForHomepage(),
     getAllHomepageSettings(),
+    getTeaserSettings(),
+    getUpcomingEpisodesForTeaser(),
   ])
 
   const featuredMode = (settings.featured_mode === "manual" ? "manual" : "auto") as "auto" | "manual"
@@ -46,6 +51,8 @@ export default async function HomeContentPage() {
         latestGuests={latestGuests}
         featuredMode={featuredMode}
         thinkersMode={thinkersMode}
+        teasers={teaserSettings.teasers}
+        upcomingEpisodes={upcomingEpisodes}
       />
     </div>
   )

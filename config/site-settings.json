@@ -47,7 +47,6 @@
   },
   "featureFlags": {
     "storeEnabled": false,
-    "hibrEnabled": false,
     "guestApplicationsEnabled": true,
     "maintenanceMode": false,
     "personalizationEnabled": true,

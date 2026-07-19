@@ -278,6 +278,7 @@ async function caseUnimplementedTabFallbacks() {
   const links = {
     preparation_id: "prep-id-stub",
     studio_session_id: "studio-id-stub",
+    studio_video_id: "vid-stub",
     episode_id: "ep-id-stub",
   }
   // Preparation fallback: must point at /admin/preparation/<id> with
@@ -289,17 +290,32 @@ async function caseUnimplementedTabFallbacks() {
       prepHref === "/admin/preparation/prep-id-stub?legacy=1",
     `prep fallback wrong: ${prepHref}`,
   )
-  // Studio fallback
+  // Studio fallback — there is no /admin/studio/[id] page; the studio
+  // opens via the ?video= deep-link (falls back to the list when the
+  // session has no video id).
   const studioHref = TABS.studio.legacy_fallback_href?.("eir", links)
   assert(
-    studioHref === "/admin/studio/studio-id-stub",
+    studioHref === "/admin/studio?video=vid-stub",
     `studio fallback wrong: ${studioHref}`,
+  )
+  const audioOnlyHref = TABS.studio.legacy_fallback_href?.("eir", {
+    ...links,
+    studio_video_id: null,
+  })
+  assert(
+    audioOnlyHref === "/admin/studio",
+    `audio-only studio fallback wrong: ${audioOnlyHref}`,
   )
   // Performance always falls back to /admin/analytics
   const perfHref = TABS.performance.legacy_fallback_href?.("eir", links)
   assert(perfHref === "/admin/analytics", `perf fallback wrong: ${perfHref}`)
   // When no linked record exists, fallback returns null cleanly.
-  const noLinks = { preparation_id: null, studio_session_id: null, episode_id: null }
+  const noLinks = {
+    preparation_id: null,
+    studio_session_id: null,
+    studio_video_id: null,
+    episode_id: null,
+  }
   assert(TABS.preparation.legacy_fallback_href?.("eir", noLinks) === null, "prep no-link should be null")
   console.log(`  ✓ all tabs have a sensible fallback path`)
 }

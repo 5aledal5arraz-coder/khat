@@ -143,7 +143,7 @@ export function PartnershipsForm({ initialPartners }: PartnershipsFormProps) {
     <div className="space-y-6">
       {/* Header */}
       <div className="flex flex-wrap items-center gap-3">
-        <h1 className="text-xl font-bold">جهات وثقت بالحوار</h1>
+        <h1 className="text-xl font-bold">الشركاء</h1>
         <span className="rounded-md bg-muted/60 px-2 py-0.5 text-[11px] font-medium text-muted-foreground">
           {partners.length} شريك
         </span>

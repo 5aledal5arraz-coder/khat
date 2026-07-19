@@ -523,7 +523,7 @@ function GuestFormDialog({ isNew, formData, setFormData, onSave, onClose, saving
                   {showLinkPicker && (
                     <div className="absolute end-0 top-full z-20 mt-1 w-48 overflow-hidden rounded-2xl border border-border/50 bg-card/95 shadow-xl backdrop-blur-xl">
                       {availablePlatforms.map((p) => { const Icon = p.icon; return (
-                        <button key={p.key} onClick={() => addLink(p.key)} className="flex w-full items-center gap-3 px-4 py-2.5 text-sm transition-all hover:bg-white/5">
+                        <button key={p.key} onClick={() => addLink(p.key)} className="flex w-full items-center gap-3 px-4 py-2.5 text-sm transition-all hover:bg-muted/60">
                           <Icon className="h-4 w-4 opacity-60" />{p.label}
                         </button>
                       ) })}

@@ -40,6 +40,7 @@ import {
   type TabStatus,
   type PhaseGroup,
 } from "./tabs"
+import { studioDeepLink } from "./studio-href"
 import type { EpisodePhase } from "@/lib/db/schema/eir"
 import {
   getRoomSummaryForEir,
@@ -107,15 +108,21 @@ export default async function EpisodeWorkspacePage({
   const markers = room ? await getMarkersForRoom(room.id, 30) : []
   const guestOptions = allGuests.map((g) => ({ id: g.id, name: g.name }))
 
+  // Studio deep-link (?video=) — the studio page has no per-session
+  // route. Null when no session is linked yet.
+  const studioHref = snap.links.studio_session_id
+    ? studioDeepLink(snap.links.studio_video_id)
+    : null
+
   return (
     <div className="mx-auto max-w-6xl space-y-5 p-6">
       {/* ── Breadcrumb ─────────────────────────────────────── */}
       <div className="flex items-center gap-2 text-[11.5px] text-muted-foreground">
         <Link
-          href="/admin/khat-brain"
+          href="/admin/ops"
           className="hover:text-foreground"
         >
-          مركز القيادة
+          الرئيسية
         </Link>
         <span>/</span>
         <Link
@@ -286,21 +293,21 @@ export default async function EpisodeWorkspacePage({
         {selected === "transcript" && (
           <TranscriptTab
             eirId={eirId}
-            studioSessionId={snap.links.studio_session_id}
+            studioHref={studioHref}
             currentPhase={snap.eir.phase}
           />
         )}
         {selected === "chapters" && (
           <ChaptersTab
             eirId={eirId}
-            studioSessionId={snap.links.studio_session_id}
+            studioHref={studioHref}
             currentPhase={snap.eir.phase}
           />
         )}
         {selected === "clips" && (
           <ClipsTab
             eirId={eirId}
-            studioSessionId={snap.links.studio_session_id}
+            studioHref={studioHref}
             currentPhase={snap.eir.phase}
           />
         )}
@@ -521,7 +528,7 @@ function OverviewTab({
           value={snap.has_studio_session ? "موجود" : null}
           href={
             snap.links.studio_session_id
-              ? `/admin/studio/${snap.links.studio_session_id}`
+              ? studioDeepLink(snap.links.studio_video_id)
               : null
           }
         />
@@ -541,6 +548,7 @@ function OverviewTab({
           <Field label="مجال الموضوع" value={snap.eir.topic_domain ?? "—"} />
           <Field label="مستوى الخطورة" value={snap.eir.risk_level ?? "—"} />
           <Field label="مستوى الجهد" value={snap.eir.effort_level ?? "—"} />
+          <Field label="موعد التصوير" value={snap.eir.recording_scheduled_at ? formatDateTime(snap.eir.recording_scheduled_at) : "—"} dir="ltr" />
           <Field label="آخر تحديث" value={formatDateTime(snap.eir.updated_at)} dir="ltr" />
         </dl>
       </div>

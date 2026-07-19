@@ -1,0 +1,1 @@
+ALTER TABLE "episode_intelligence_records" ADD COLUMN "recording_scheduled_at" timestamp with time zone;

@@ -1227,7 +1227,7 @@ export function SubmissionsTabs({
               </span>
             </div>
             <p className="mt-3 text-xs font-medium text-muted-foreground">
-              المشتركين
+              المشتركون
             </p>
           </div>
         </GlowCard>
@@ -1237,7 +1237,7 @@ export function SubmissionsTabs({
       <div className="flex items-center gap-1 overflow-x-auto rounded-xl border border-border/30 bg-card/50 p-1.5 backdrop-blur-sm">
         <TabButton active={activeTab === "guests"} icon={UserPlus} label="طلبات الضيوف" shortLabel="الضيوف" count={guestApplications.length} onClick={() => setActiveTab("guests")} color="purple" />
         <TabButton active={activeTab === "sponsors"} icon={Handshake} label="طلبات الرعاية" shortLabel="الرعاية" count={sponsorshipLeads.length} onClick={() => setActiveTab("sponsors")} color="primary" />
-        <TabButton active={activeTab === "newsletter"} icon={Mail} label="المشتركين" shortLabel="النشرة" count={newsletterSubscribers.length} onClick={() => setActiveTab("newsletter")} color="green" />
+        <TabButton active={activeTab === "newsletter"} icon={Mail} label="المشتركون" shortLabel="النشرة" count={newsletterSubscribers.length} onClick={() => setActiveTab("newsletter")} color="green" />
       </div>
 
       {/* ─── Search Bar ─── */}
@@ -1487,7 +1487,7 @@ export function SubmissionsTabs({
           ) : (
             <div className="overflow-hidden rounded-2xl border border-border/30 bg-card/50 backdrop-blur-sm">
               {filteredSubscribers.map((subscriber, index) => (
-                <div key={subscriber.id} className={`group flex items-center justify-between px-5 py-3.5 transition-all hover:bg-white/[0.02] ${index !== 0 ? "border-t border-border/20" : ""}`}>
+                <div key={subscriber.id} className={`group flex items-center justify-between px-5 py-3.5 transition-all hover:bg-muted/60 ${index !== 0 ? "border-t border-border/20" : ""}`}>
                   <div className="flex items-center gap-3">
                     <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-emerald-500/10 ring-1 ring-emerald-500/20">
                       <Mail className="h-4 w-4 text-emerald-700" />
@@ -1678,7 +1678,7 @@ export function SubmissionsTabs({
                             href={link.trim()}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="flex items-center gap-2 rounded-xl bg-white/[0.02] px-3 py-2 text-xs text-primary ring-1 ring-border/30 transition-all hover:bg-white/[0.04] hover:ring-primary/30"
+                            className="flex items-center gap-2 rounded-xl bg-white/[0.02] px-3 py-2 text-xs text-primary ring-1 ring-border/30 transition-all hover:bg-muted/60 hover:ring-primary/30"
                           >
                             <ExternalLink className="h-3 w-3 shrink-0" />
                             <span className="truncate">{link.trim()}</span>
@@ -2161,7 +2161,7 @@ export function SubmissionsTabs({
                     className={`flex flex-1 items-center justify-center gap-2 rounded-xl px-3 py-2.5 text-xs font-medium transition-all ${
                       messageType === "acceptance"
                         ? "bg-emerald-500/10 text-emerald-700 ring-1 ring-emerald-500/20"
-                        : "text-muted-foreground hover:bg-white/[0.03] hover:text-foreground"
+                        : "text-muted-foreground hover:bg-muted/60 hover:text-foreground"
                     }`}
                   >
                     <CircleCheck className="h-3.5 w-3.5" />
@@ -2173,7 +2173,7 @@ export function SubmissionsTabs({
                       className={`flex flex-1 items-center justify-center gap-2 rounded-xl px-3 py-2.5 text-xs font-medium transition-all ${
                         messageType === "consider_later"
                           ? "bg-purple-500/10 text-purple-700 ring-1 ring-purple-500/20"
-                          : "text-muted-foreground hover:bg-white/[0.03] hover:text-foreground"
+                          : "text-muted-foreground hover:bg-muted/60 hover:text-foreground"
                       }`}
                     >
                       <Sparkles className="h-3.5 w-3.5" />
@@ -2185,7 +2185,7 @@ export function SubmissionsTabs({
                     className={`flex flex-1 items-center justify-center gap-2 rounded-xl px-3 py-2.5 text-xs font-medium transition-all ${
                       messageType === "rejection"
                         ? "bg-red-500/10 text-red-700 ring-1 ring-red-500/20"
-                        : "text-muted-foreground hover:bg-white/[0.03] hover:text-foreground"
+                        : "text-muted-foreground hover:bg-muted/60 hover:text-foreground"
                     }`}
                   >
                     <CircleX className="h-3.5 w-3.5" />
@@ -2233,7 +2233,7 @@ export function SubmissionsTabs({
                     className={`flex flex-1 items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-xs font-medium transition-all ${
                       messageCopied === "whatsapp"
                         ? "bg-emerald-500/10 text-emerald-700 ring-1 ring-emerald-500/20"
-                        : "bg-white/[0.03] text-muted-foreground ring-1 ring-border/30 hover:bg-white/[0.06] hover:text-foreground"
+                        : "bg-white/[0.03] text-muted-foreground ring-1 ring-border/30 hover:bg-muted/60 hover:text-foreground"
                     }`}
                   >
                     {messageCopied === "whatsapp" ? (
@@ -2793,7 +2793,7 @@ export function SubmissionsTabs({
                             onClick={() => {
                               navigator.clipboard.writeText(aiProposal.edited_draft || aiProposal.full_draft || "")
                             }}
-                            className="flex items-center gap-1 rounded-lg px-2 py-1 text-[10px] text-muted-foreground transition-all hover:bg-white/[0.05] hover:text-foreground"
+                            className="flex items-center gap-1 rounded-lg px-2 py-1 text-[10px] text-muted-foreground transition-all hover:bg-muted/60 hover:text-foreground"
                           >
                             <ClipboardCopy className="h-3 w-3" />نسخ
                           </button>
@@ -2840,7 +2840,7 @@ export function SubmissionsTabs({
                     className={`flex flex-1 items-center justify-center gap-2 rounded-xl px-3 py-2.5 text-xs font-medium transition-all ${
                       sponsorMessageType === "response"
                         ? "bg-emerald-500/10 text-emerald-700 ring-1 ring-emerald-500/20"
-                        : "text-muted-foreground hover:bg-white/[0.03] hover:text-foreground"
+                        : "text-muted-foreground hover:bg-muted/60 hover:text-foreground"
                     }`}
                   >
                     <CircleCheck className="h-3.5 w-3.5" />
@@ -2855,7 +2855,7 @@ export function SubmissionsTabs({
                       className={`flex flex-1 items-center justify-center gap-2 rounded-xl px-3 py-2.5 text-xs font-medium transition-all ${
                         sponsorMessageType === "proposal"
                           ? "bg-cyan-500/10 text-cyan-700 ring-1 ring-cyan-500/20"
-                          : "text-muted-foreground hover:bg-white/[0.03] hover:text-foreground"
+                          : "text-muted-foreground hover:bg-muted/60 hover:text-foreground"
                       }`}
                     >
                       <Sparkles className="h-3.5 w-3.5" />
@@ -2867,7 +2867,7 @@ export function SubmissionsTabs({
                     className={`flex flex-1 items-center justify-center gap-2 rounded-xl px-3 py-2.5 text-xs font-medium transition-all ${
                       sponsorMessageType === "decline"
                         ? "bg-red-500/10 text-red-700 ring-1 ring-red-500/20"
-                        : "text-muted-foreground hover:bg-white/[0.03] hover:text-foreground"
+                        : "text-muted-foreground hover:bg-muted/60 hover:text-foreground"
                     }`}
                   >
                     <CircleX className="h-3.5 w-3.5" />

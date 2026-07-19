@@ -351,9 +351,12 @@ async function main() {
       src.includes("الصفحة المتقدمة"),
       "transcript tab must surface 'الصفحة المتقدمة' legacy link",
     )
+    // The escape hatch now arrives as a prebuilt `studioHref` prop
+    // (built by studioDeepLink() as /admin/studio?video=… — there is
+    // no /admin/studio/[id] page to link to).
     assert(
-      src.includes("/admin/studio/"),
-      "transcript tab legacy href must point at /admin/studio/",
+      src.includes("studioHref"),
+      "transcript tab must render the studioHref escape hatch",
     )
   })
 

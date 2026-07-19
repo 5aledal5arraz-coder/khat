@@ -27,6 +27,7 @@ import {
 import { getHomepageFeaturedEpisodes } from "@/lib/queries/homepage-featured"
 import { getHomepageThinkersForDisplay } from "@/lib/queries/homepage-thinkers"
 import { getHomepagePartners } from "@/lib/queries/partnerships"
+import { getActiveTeaserForDisplay, TEASER_CACHE_TAG, type ActiveTeaserView } from "@/lib/teaser"
 import { getRelatedEpisodeIds } from "@/lib/episodes/episode-graph"
 import { db } from "@/lib/db"
 import { hiddenEpisodes } from "@/lib/db/schema"
@@ -69,6 +70,18 @@ export const getCachedPublicEpisodes = unstable_cache(
   },
   ["public-episodes-list"],
   { revalidate: TTL.episodes, tags: [CACHE_TAGS.episodes] }
+)
+
+/**
+ * Cached active teaser for the homepage. Tagged with TEASER_CACHE_TAG so both
+ * admin actions AND episode publish can drop it instantly (acceptance م4).
+ */
+export const getCachedActiveTeaser = unstable_cache(
+  async (): Promise<ActiveTeaserView | null> => {
+    return getActiveTeaserForDisplay()
+  },
+  ["active-teaser-display"],
+  { revalidate: TTL.homepage, tags: [TEASER_CACHE_TAG] }
 )
 
 /**

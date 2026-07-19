@@ -165,4 +165,66 @@ export const candidatesApi = {
     call<{ ok: true }>(`/api/admin/guest-candidates/${candidateId}/prep-links/${linkId}`, {
       method: "DELETE",
     }),
+
+  // Prep meetings (per candidate)
+  listPrepMeetings: (candidateId: string) =>
+    call<{ meetings: import("@/types/database").GuestPrepMeeting[] }>(
+      `/api/admin/guest-candidates/${candidateId}/prep-meetings`,
+    ),
+  createPrepMeeting: (
+    candidateId: string,
+    body: {
+      title: string
+      type?: string
+      scheduled_at?: string | null
+      duration_minutes?: number | null
+      notes?: string | null
+      status?: string
+    },
+  ) =>
+    call<{ meeting: import("@/types/database").GuestPrepMeeting }>(
+      `/api/admin/guest-candidates/${candidateId}/prep-meetings`,
+      { method: "POST", body: JSON.stringify(body) },
+    ),
+  updatePrepMeeting: (
+    candidateId: string,
+    meetingId: string,
+    body: Partial<{
+      title: string
+      type: string
+      scheduled_at: string | null
+      duration_minutes: number | null
+      notes: string | null
+      outcome: string | null
+      status: string
+    }>,
+  ) =>
+    call<{ meeting: import("@/types/database").GuestPrepMeeting }>(
+      `/api/admin/guest-candidates/${candidateId}/prep-meetings/${meetingId}`,
+      { method: "PATCH", body: JSON.stringify(body) },
+    ),
+  deletePrepMeeting: (candidateId: string, meetingId: string) =>
+    call<{ ok: true }>(
+      `/api/admin/guest-candidates/${candidateId}/prep-meetings/${meetingId}`,
+      { method: "DELETE" },
+    ),
+
+  // Production bridge — explicit "نقل للإنتاج" (creates a linked EIR)
+  promoteToProduction: (candidateId: string) =>
+    call<{
+      status: "promoted" | "already_in_production"
+      eir_id: string
+      working_title: string | null
+      phase: string
+      created: boolean
+    }>(`/api/admin/guest-candidates/${candidateId}/promote-to-production`, {
+      method: "POST",
+    }),
+
+  // Recording schedule — sets the filming date on the candidate's linked EIR
+  setRecordingSchedule: (candidateId: string, recording_scheduled_at: string | null) =>
+    call<{ eir_id: string; recording_scheduled_at: string | null }>(
+      `/api/admin/guest-candidates/${candidateId}/recording-schedule`,
+      { method: "POST", body: JSON.stringify({ recording_scheduled_at }) },
+    ),
 }

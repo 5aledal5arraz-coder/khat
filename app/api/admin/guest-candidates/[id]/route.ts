@@ -15,6 +15,7 @@ import {
   type UpdateCandidateInput,
 } from "@/lib/guest-candidates"
 import type { GuestCandidatePriority } from "@/types/database"
+import { EMAIL_REGEX } from "@/lib/validation/forms"
 import { revalidatePath } from "next/cache"
 
 const VALID_PRIORITIES: GuestCandidatePriority[] = ["low", "medium", "high"]
@@ -85,6 +86,12 @@ export async function PATCH(request: NextRequest, ctx: RouteContext) {
   if (body.full_name !== undefined && (typeof body.full_name !== "string" || body.full_name.trim().length < 2)) {
     return errorResponse("الاسم الكامل غير صحيح", 422)
   }
+  // Email must be well-formed when a non-empty value is supplied. An
+  // explicit null/empty clears the field and is allowed.
+  const emailTrimmed = typeof body.email === "string" ? body.email.trim() : ""
+  if (emailTrimmed && !EMAIL_REGEX.test(emailTrimmed)) {
+    return errorResponse("البريد الإلكتروني غير صالح", 422)
+  }
 
   const updates: UpdateCandidateInput = {}
   if (body.full_name !== undefined) updates.full_name = body.full_name.trim()
@@ -93,6 +100,9 @@ export async function PATCH(request: NextRequest, ctx: RouteContext) {
   if (body.category !== undefined) updates.category = body.category?.trim() || null
   if (body.city !== undefined) updates.city = body.city?.trim() || null
   if (body.country !== undefined) updates.country = body.country?.trim() || null
+  // Admin-only contact channels. Phone is free-text; email pre-validated above.
+  if (body.phone !== undefined) updates.phone = body.phone?.trim().slice(0, 40) || null
+  if (body.email !== undefined) updates.email = body.email?.trim().slice(0, 200) || null
   if (body.bio !== undefined) updates.bio = body.bio?.trim() || null
   if (body.notes_internal !== undefined) updates.notes_internal = body.notes_internal?.trim() || null
   if (body.source_note !== undefined) updates.source_note = body.source_note?.trim() || null

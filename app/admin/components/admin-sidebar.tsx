@@ -19,7 +19,6 @@ import {
   Rss,
   UserPlus,
   Compass,
-  Brain,
   Telescope,
   Lightbulb,
   ChevronDown,
@@ -35,7 +34,6 @@ interface NavItem {
   href: string
   icon: React.ElementType
   label: string
-  badge?: "ai" | "new"
 }
 
 interface NavGroup {
@@ -46,16 +44,24 @@ interface NavGroup {
 }
 
 /**
- * Pinned home + three groups:
- *   • Khat Brain   — the production pipeline: command center, seasons,
- *                    episodes, market intel, and the guest funnel
- *                    (discovery → المرشحون sit together because v2
- *                    promotion feeds candidates directly).
- *   • الموقع        — back-office (guests, content, newsletter, partners,
- *                    team, settings)
- *   • أدوات متقدمة   — power-user surfaces (collapsed by default)
+ * Phase-2 IA (Sara's approved proposal): pinned home + five function groups,
+ * each answering one operator question, with a single collapsed "النظام" group.
+ *   • الرئيسية        — the operations home (command center merged in).
+ *   • الإنتاج          — the production pipeline (seasons → episodes →
+ *                        preparation → studio) + idea sources (market intel,
+ *                        original thinking). الإعداد/الاستوديو promoted here.
+ *   • الضيوف           — the guest funnel in flow order (discovery → candidates
+ *                        → casting requests → guests).
+ *   • الموقع والجمهور   — public-facing surfaces (episodes catalog, site
+ *                        front, newsletter, community, analytics).
+ *   • الشراكات         — partnerships pipeline, partners, media kit.
+ *   • النظام (collapsed) — RSS sync, team (OWNER), settings.
  *
  * Routes are unchanged. Deep links + URL bookmarks continue to resolve.
+ * "مركز القيادة" (/admin/khat-brain) is dropped from the rail — it merges into
+ * the home; the route keeps resolving until the Phase-2.2 redirect lands.
+ * "الطلبات" (/admin/submissions) is retained here temporarily until the
+ * Phase-2.5 equivalence gate is approved, then removed from the rail.
  */
 const navGroups: NavGroup[] = [
   {
@@ -64,42 +70,52 @@ const navGroups: NavGroup[] = [
     items: [{ href: "/admin/ops", icon: Gauge, label: "الرئيسية" }],
   },
   {
-    title: "Khat Brain",
+    title: "الإنتاج",
     items: [
-      { href: "/admin/khat-brain", icon: Brain, label: "مركز القيادة" },
-      { href: "/admin/khat-brain/seasons", icon: Compass, label: "المواسم", badge: "ai" },
-      { href: "/admin/khat-brain/episodes", icon: PlayCircle, label: "الإنتاج" },
-      { href: "/admin/discovery-v2", icon: Telescope, label: "اكتشاف الضيوف", badge: "ai" },
-      { href: "/admin/guest-candidates", icon: UserPlus, label: "المرشحون" },
-      { href: "/admin/khat-brain/market/signals", icon: Activity, label: "إشارات السوق", badge: "ai" },
+      { href: "/admin/khat-brain/seasons", icon: Compass, label: "المواسم" },
+      { href: "/admin/khat-brain/episodes", icon: PlayCircle, label: "خط الإنتاج" },
+      { href: "/admin/preparation", icon: Sparkles, label: "الإعداد" },
+      { href: "/admin/studio", icon: Mic, label: "الاستوديو" },
+      { href: "/admin/khat-brain/market/signals", icon: Activity, label: "إشارات السوق" },
+      { href: "/admin/khat-brain/original-thinking", icon: Lightbulb, label: "التفكير الأصيل" },
     ],
   },
   {
-    title: "الموقع",
+    title: "الضيوف",
     items: [
+      { href: "/admin/discovery-v2", icon: Telescope, label: "اكتشاف الضيوف" },
+      { href: "/admin/guest-candidates", icon: UserPlus, label: "المرشحون" },
+      { href: "/admin/casting", icon: Clapperboard, label: "طلبات الاستضافة" },
       { href: "/admin/guests", icon: Users, label: "الضيوف" },
+    ],
+  },
+  {
+    title: "الموقع والجمهور",
+    items: [
       { href: "/admin/episodes", icon: PlayCircle, label: "الحلقات" },
-      { href: "/admin/home-content", icon: Home, label: "الصفحة الرئيسية" },
+      { href: "/admin/home-content", icon: Home, label: "واجهة الموقع" },
       { href: "/admin/newsletter", icon: Mail, label: "النشرة البريدية" },
-      { href: "/admin/analytics", icon: BarChart3, label: "تحليلات المنصة" },
+      { href: "/admin/community", icon: MessagesSquare, label: "مساهمات المجتمع" },
+      { href: "/admin/analytics", icon: BarChart3, label: "التحليلات" },
+      // Retained until the Phase-2.5 equivalence gate is approved:
       { href: "/admin/submissions", icon: Inbox, label: "الطلبات" },
-      { href: "/admin/casting", icon: Clapperboard, label: "ترشيح الضيوف", badge: "ai" },
-      { href: "/admin/community", icon: MessagesSquare, label: "مساهمات المجتمع", badge: "ai" },
-      { href: "/admin/partnerships/pipeline", icon: KanbanSquare, label: "خط الشراكات", badge: "ai" },
+    ],
+  },
+  {
+    title: "الشراكات",
+    items: [
+      { href: "/admin/partnerships/pipeline", icon: KanbanSquare, label: "خط الشراكات" },
       { href: "/admin/partnerships", icon: Handshake, label: "الشركاء" },
       { href: "/admin/media-kit", icon: FileText, label: "ملف الشراكة" },
+    ],
+  },
+  {
+    title: "النظام",
+    collapsible: true,
+    items: [
       { href: "/admin/rss-sync", icon: Rss, label: "مزامنة RSS" },
       { href: "/admin/team", icon: UserCog, label: "فريق خط" },
       { href: "/admin/settings", icon: Settings, label: "الإعدادات" },
-    ],
-  },
-  {
-    title: "أدوات متقدمة",
-    collapsible: true,
-    items: [
-      { href: "/admin/preparation", icon: Sparkles, label: "الإعداد", badge: "ai" },
-      { href: "/admin/studio", icon: Mic, label: "الاستديو", badge: "ai" },
-      { href: "/admin/khat-brain/original-thinking", icon: Lightbulb, label: "التفكير الأصيل", badge: "ai" },
     ],
   },
 ]
@@ -221,12 +237,6 @@ function AdminSidebar({ collapsed, onNavClick, userRole }: AdminSidebarProps) {
                       {!collapsed && (
                         <span className="flex-1 truncate transition-opacity duration-200">
                           {item.label}
-                        </span>
-                      )}
-                      {!collapsed && item.badge === "ai" && (
-                        <span className="inline-flex items-center gap-0.5 rounded-md bg-primary/10 px-1.5 py-0.5 text-[9px] font-bold text-primary">
-                          <Sparkles className="h-2.5 w-2.5" />
-                          ذكي
                         </span>
                       )}
                       {/* Tooltip for collapsed state */}

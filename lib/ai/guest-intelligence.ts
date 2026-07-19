@@ -59,7 +59,7 @@ export async function generateGuestIntelligence(
     }>({
       taskKind: "editorial",
       eirId: eirContext?.eirId ?? null,
-      subjectTable: eirContext?.subjectTable ?? "studio_guest_intelligence",
+      subjectTable: eirContext?.subjectTable ?? "studio_sessions",
       subjectId: eirContext?.subjectId ?? null,
       actorId: eirContext?.actorId ?? LEGACY_ACTOR,
       promptVersion: GUEST_INTELLIGENCE_PROMPT_VERSION,

@@ -283,6 +283,9 @@ export function StudioClient({ initialSessions, episodes, aiStatuses: initialAiS
   const [fetchError, setFetchError] = useState("")
   const [sessions, setSessions] = useState<StudioSession[]>(initialSessions)
   const [activeSession, setActiveSession] = useState<StudioSession | null>(null)
+  /** Episode opened read-only (no session yet). Browsing never writes —
+   *  creation happens only via the «بدء الإنتاج» CTA in the preview. */
+  const [previewEpisode, setPreviewEpisode] = useState<Episode | null>(null)
   const [deletingId, setDeletingId] = useState<string | null>(null)
 
   // Audio upload state
@@ -361,14 +364,30 @@ export function StudioClient({ initialSessions, episodes, aiStatuses: initialAiS
     return sessions.find((s) => s.video_id === videoId)
   }
 
-  const handleEpisodeSelect = useCallback(async (episode: Episode) => {
+  /**
+   * Opening from the list is a PURE READ: an existing session opens
+   * directly; an episode without a session opens the read-only preview
+   * panel. No row is created by browsing — session + EIR creation
+   * happens only behind the explicit «بدء الإنتاج» CTA below.
+   */
+  const handleEpisodeSelect = useCallback((episode: Episode) => {
     const videoId = getYouTubeId(episode.youtube_url)
     const existing = videoId ? sessions.find((s) => s.video_id === videoId) : undefined
     if (existing) {
       setActiveSession(existing)
       return
     }
+    setFetchError("")
+    setPreviewEpisode(episode)
+  }, [sessions])
 
+  /**
+   * The explicit production start. Runs the exact create call browsing
+   * used to trigger implicitly: POST /api/admin/studio → creates the
+   * studio session and (server-side, unchanged) resolves/mints the EIR
+   * at phase=producing via resolveEirForStudioSession.
+   */
+  const handleStartProduction = useCallback(async (episode: Episode) => {
     if (!episode.youtube_url) {
       setFetchError("هذه الحلقة لا تحتوي على رابط يوتيوب")
       return
@@ -392,6 +411,7 @@ export function StudioClient({ initialSessions, episodes, aiStatuses: initialAiS
         return
       }
 
+      setPreviewEpisode(null)
       setActiveSession(data)
       setSessions((prev) => [data, ...prev])
       setAiStatuses((prev) => ({ ...prev, [data.id]: "ready" as AiStatus }))
@@ -401,9 +421,11 @@ export function StudioClient({ initialSessions, episodes, aiStatuses: initialAiS
       setFetching(false)
       setFetchingEpisodeId(null)
     }
-  }, [sessions])
+  }, [])
 
-  // Deep-link support: ?video=<videoId> auto-opens the matching session.
+  // Deep-link support: ?video=<videoId> auto-opens the matching session,
+  // or the read-only preview when the episode has no session yet (deep-
+  // linking, like browsing, never creates rows).
   // Consumes the param after handling so back-navigation returns to the list.
   const deepLinkHandled = useRef(false)
   useEffect(() => {
@@ -537,6 +559,91 @@ export function StudioClient({ initialSessions, episodes, aiStatuses: initialAiS
             <StagePublish />
           </div>
         </StudioSessionProvider>
+      </div>
+    )
+  }
+
+  // =========================================================================
+  // Preview View — read-only episode preview (no session, zero writes)
+  // =========================================================================
+
+  if (previewEpisode) {
+    const ep = previewEpisode
+    return (
+      <div className="space-y-5">
+        {/* Back navigation */}
+        <button
+          onClick={() => { setPreviewEpisode(null); setFetchError("") }}
+          className="inline-flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+        >
+          <ArrowLeft className="h-4 w-4" />
+          العودة للقائمة
+        </button>
+
+        <div className="rounded-xl border border-border/30 bg-card/50 p-5">
+          <div className="flex items-start gap-4">
+            {ep.thumbnail_url ? (
+              // eslint-disable-next-line @next/next/no-img-element -- Admin-only studio preview thumbnail with dynamic external URL
+              <img
+                src={ep.thumbnail_url}
+                alt=""
+                className="h-20 w-36 shrink-0 rounded-lg object-cover"
+              />
+            ) : (
+              <div className="flex h-20 w-36 shrink-0 items-center justify-center rounded-lg bg-muted">
+                <ImageIcon className="h-5 w-5 text-muted-foreground" />
+              </div>
+            )}
+            <div className="min-w-0 flex-1">
+              <h2 className="text-[15px] font-semibold leading-snug" dir="auto">
+                {ep.title}
+              </h2>
+              <div className="mt-1.5 flex flex-wrap items-center gap-3 text-[12px] text-muted-foreground">
+                {ep.episode_number != null && <span>حلقة {ep.episode_number}</span>}
+                {ep.guest?.name && <span>{ep.guest.name}</span>}
+                {ep.duration_minutes > 0 && <span>{fmtEpDuration(ep.duration_minutes)}</span>}
+              </div>
+              {ep.youtube_url && (
+                <a
+                  href={ep.youtube_url}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="mt-1.5 inline-block text-[12px] text-primary hover:underline"
+                  dir="ltr"
+                >
+                  {ep.youtube_url}
+                </a>
+              )}
+            </div>
+          </div>
+
+          <div className="mt-4 rounded-lg bg-muted/40 px-3 py-2.5 text-[12px] leading-relaxed text-muted-foreground">
+            وضع المعاينة — التصفّح لا يُنشئ أي سجلّ. «بدء الإنتاج» ينشئ جلسة
+            الاستوديو ويربط الحلقة بخطّ الإنتاج (EIR).
+          </div>
+
+          {fetchError && (
+            <div className="mt-3 flex items-start gap-3 rounded-xl border border-red-200 bg-red-50 p-4 dark:border-red-900/50 dark:bg-red-950/30">
+              <AlertCircle className="h-5 w-5 shrink-0 text-red-700 mt-0.5" />
+              <p className="text-sm font-medium text-red-700 dark:text-red-400">{fetchError}</p>
+            </div>
+          )}
+
+          <div className="mt-4">
+            <Button
+              onClick={() => handleStartProduction(ep)}
+              disabled={fetching}
+              className="gap-2"
+            >
+              {fetching ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Mic className="h-4 w-4" />
+              )}
+              بدء الإنتاج
+            </Button>
+          </div>
+        </div>
       </div>
     )
   }

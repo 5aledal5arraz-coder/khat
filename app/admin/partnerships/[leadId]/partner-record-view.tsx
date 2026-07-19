@@ -198,7 +198,7 @@ export function PartnerRecordView({
                     href={lead.company_website}
                     target="_blank"
                     rel="noreferrer"
-                    className="inline-flex items-center gap-1 text-indigo-600 hover:underline"
+                    className="inline-flex items-center gap-1 text-indigo-700 hover:underline"
                   >
                     <ExternalLink className="h-3 w-3" /> الموقع
                   </a>
@@ -244,7 +244,7 @@ export function PartnerRecordView({
             className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-[12px] font-medium transition-all disabled:opacity-60 ${
               isDeclined
                 ? "border-rose-300 bg-rose-600 text-white"
-                : "border-slate-200 bg-white text-slate-400 hover:border-rose-200 hover:text-rose-600"
+                : "border-slate-200 bg-white text-slate-400 hover:border-rose-200 hover:text-rose-700"
             }`}
           >
             {busy === "status:declined" ? <Loader2 className="h-3 w-3 animate-spin" /> : <AlertTriangle className="h-3 w-3" />}
@@ -628,7 +628,7 @@ function ProposalTab({
               {offer.published ? "منشور" : "مسودّة"} · {offer.view_count} مشاهدة
             </span>
             {offer.published && (
-              <a href={`/offer/${offer.token}`} target="_blank" rel="noreferrer" className="text-indigo-600 hover:underline">
+              <a href={`/offer/${offer.token}`} target="_blank" rel="noreferrer" className="text-indigo-700 hover:underline">
                 فتح الرابط العام
               </a>
             )}
@@ -943,7 +943,7 @@ function OwnerEditor({
           </button>
         </div>
       ) : (
-        <button onClick={() => setEditing(true)} className="mt-1 text-[13px] font-medium text-slate-700 hover:text-indigo-600">
+        <button onClick={() => setEditing(true)} className="mt-1 text-[13px] font-medium text-slate-700 hover:text-indigo-700">
           {owner ? owner.replace(/^admin:/, "") : "+ تعيين مسؤول"}
         </button>
       )}
@@ -987,7 +987,7 @@ function TasksCard({
       title={`المهام (${open.length})`}
       icon={CheckCircle2}
       action={
-        <button onClick={() => setAdding((s) => !s)} className="text-slate-400 hover:text-indigo-600">
+        <button onClick={() => setAdding((s) => !s)} className="text-slate-400 hover:text-indigo-700">
           <Plus className="h-4 w-4" />
         </button>
       }
@@ -1019,7 +1019,7 @@ function TasksCard({
                 <button
                   onClick={() => complete(t)}
                   disabled={busy !== null}
-                  className="mt-0.5 text-slate-300 transition-colors hover:text-emerald-600"
+                  className="mt-0.5 text-slate-300 transition-colors hover:text-emerald-700"
                   title="إنجاز"
                 >
                   {busy === `task:done:${t.id}` ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
@@ -1033,7 +1033,7 @@ function TasksCard({
                       </span>
                     )}
                     {t.due_at && (
-                      <span className={overdue ? "text-rose-600" : "text-slate-400"}>
+                      <span className={overdue ? "text-rose-700" : "text-slate-400"}>
                         {overdue ? "متأخرة · " : "تستحق "}
                         {fmtDate(t.due_at)}
                       </span>
@@ -1106,10 +1106,10 @@ function NotesCard({
               <div className="mt-1 flex items-center justify-between text-[10.5px] text-slate-400">
                 <span>{(n.author || "").replace(/^admin:/, "")} · {fmtRelative(n.created_at)}</span>
                 <div className="flex items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100">
-                  <button onClick={() => pin(n)} className={n.pinned ? "text-amber-600" : "text-slate-300 hover:text-amber-600"} title="تثبيت">
+                  <button onClick={() => pin(n)} className={n.pinned ? "text-amber-700" : "text-slate-300 hover:text-amber-700"} title="تثبيت">
                     <Pin className="h-3 w-3" />
                   </button>
-                  <button onClick={() => del(n)} className="text-slate-300 hover:text-rose-600" title="حذف">
+                  <button onClick={() => del(n)} className="text-slate-300 hover:text-rose-700" title="حذف">
                     <Trash2 className="h-3 w-3" />
                   </button>
                 </div>
@@ -1162,7 +1162,7 @@ function MeetingsCard({
       title="الاجتماعات"
       icon={Phone}
       action={
-        <button onClick={() => setAdding((s) => !s)} className="text-slate-400 hover:text-indigo-600">
+        <button onClick={() => setAdding((s) => !s)} className="text-slate-400 hover:text-indigo-700">
           <Plus className="h-4 w-4" />
         </button>
       }
@@ -1198,7 +1198,7 @@ function MeetingsCard({
                   {m.outcome && <p className="mt-0.5 text-[11px] leading-relaxed text-slate-500">{m.outcome}</p>}
                 </div>
                 {m.status !== "completed" ? (
-                  <button onClick={() => complete(m)} disabled={busy !== null} className="text-[10.5px] text-emerald-600 hover:underline">
+                  <button onClick={() => complete(m)} disabled={busy !== null} className="text-[10.5px] text-emerald-700 hover:underline">
                     {busy === `meeting:done:${m.id}` ? "…" : "تم"}
                   </button>
                 ) : (

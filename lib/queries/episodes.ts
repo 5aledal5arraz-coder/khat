@@ -64,7 +64,29 @@ function nestJoinedRow(row: {
   } as Episode
 }
 
-function dbGuestToGuest(g: typeof guests.$inferSelect): Guest {
+// Public projection — the ONLY guest columns a PUBLIC surface may fetch.
+// Deliberately EXCLUDES admin-only phone/email (and the generated
+// normalized_name). A `SELECT *` puts phone/email into the raw pg Result;
+// React's dev-mode async-debug channel serializes that awaited Result into
+// the RSC flight payload → a real PII leak. The output projection
+// (dbGuestToGuest) is NOT enough — the raw fetched row must never hold PII.
+const GUEST_PUBLIC_COLUMNS = {
+  id: guests.id,
+  name: guests.name,
+  slug: guests.slug,
+  bio: guests.bio,
+  photo_url: guests.photo_url,
+  external_links: guests.external_links,
+  testimonial: guests.testimonial,
+  created_at: guests.created_at,
+} as const
+
+type GuestPublicRow = Pick<
+  typeof guests.$inferSelect,
+  "id" | "name" | "slug" | "bio" | "photo_url" | "external_links" | "testimonial" | "created_at"
+>
+
+function dbGuestToGuest(g: GuestPublicRow): Guest {
   return {
     id: g.id,
     name: g.name,
@@ -187,7 +209,7 @@ async function fetchDbEpisodeDetail(slug: string): Promise<EpisodeWithRelations 
 
   const [guestRows, timestampRows, quoteRows, resourceRows, enrichment] = await Promise.all([
     episodeRow.guest_id
-      ? db!.select().from(guests).where(eq(guests.id, episodeRow.guest_id))
+      ? db!.select(GUEST_PUBLIC_COLUMNS).from(guests).where(eq(guests.id, episodeRow.guest_id))
       : Promise.resolve([]),
     db!
       .select()
@@ -460,7 +482,7 @@ async function resolveAllGuests(): Promise<Guest[]> {
     throw new Error("Database not available — guests require a database connection.")
   }
   try {
-    const rows = await db!.select().from(guests).orderBy(asc(guests.name))
+    const rows = await db!.select(GUEST_PUBLIC_COLUMNS).from(guests).orderBy(asc(guests.name))
     return rows.map(dbGuestToGuest)
   } catch (error) {
     console.error("DB guest fetch failed:", error)
@@ -664,7 +686,7 @@ export async function getGuestBySlug(
 
   try {
     const guestRows = await db!
-      .select()
+      .select(GUEST_PUBLIC_COLUMNS)
       .from(guests)
       .where(eq(guests.slug, slug))
     const guestRow = guestRows[0]

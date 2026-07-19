@@ -65,7 +65,7 @@ ${preparedText}`
     const result = await runAiTask<Partial<DeepAnalysisData>>({
       taskKind: "editorial",
       eirId: eirContext?.eirId ?? null,
-      subjectTable: eirContext?.subjectTable ?? "studio_deep_analysis",
+      subjectTable: eirContext?.subjectTable ?? "studio_sessions",
       subjectId: eirContext?.subjectId ?? null,
       actorId: eirContext?.actorId ?? LEGACY_ACTOR,
       input: {

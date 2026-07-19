@@ -113,7 +113,7 @@ function setupGetEpisodesMocks(
       ? { ...ep.guest, created_at: new Date(ep.guest.created_at) }
       : null,
   }))
-  mockSelectResult(joinedRows as any)
+  mockSelectResult(joinedRows as Record<string, unknown>[])
 
   // #2: hidden episode IDs
   mockSelectResult(hiddenIds.map((id) => ({ episode_id: id })))
@@ -188,7 +188,7 @@ describe("getEpisodes — Hidden episode filtering", () => {
       guests: ep.guest
         ? { ...ep.guest, created_at: new Date(ep.guest.created_at) }
         : null,
-    })) as any)
+    })) as Record<string, unknown>[])
 
     const result = await getEpisodes({ includeHidden: true })
 

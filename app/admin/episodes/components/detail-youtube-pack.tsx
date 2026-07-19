@@ -246,7 +246,7 @@ export function DetailYoutubePack({
                     if (e.key === "Enter" || e.key === " ")
                       toggleCollapse(section.id)
                   }}
-                  className="flex w-full cursor-pointer items-center gap-3 px-4 py-3 text-sm transition-colors hover:bg-white/[0.03]"
+                  className="flex w-full cursor-pointer items-center gap-3 px-4 py-3 text-sm transition-colors hover:bg-muted/60"
                 >
                   <ChevronDown
                     className={`h-4 w-4 shrink-0 text-muted-foreground transition-transform duration-200 ${
@@ -263,7 +263,7 @@ export function DetailYoutubePack({
                         e.stopPropagation()
                         handleCopy(section)
                       }}
-                      className="flex h-7 w-7 items-center justify-center rounded-lg text-muted-foreground transition-all hover:bg-white/5 hover:text-foreground"
+                      className="flex h-7 w-7 items-center justify-center rounded-lg text-muted-foreground transition-all hover:bg-muted/60 hover:text-foreground"
                       title="نسخ"
                     >
                       {isCopied ? (
@@ -278,7 +278,7 @@ export function DetailYoutubePack({
                         handleRegenerateSection(section.type)
                       }}
                       disabled={isRegenerating}
-                      className="flex h-7 w-7 items-center justify-center rounded-lg text-muted-foreground transition-all hover:bg-white/5 hover:text-foreground disabled:opacity-50"
+                      className="flex h-7 w-7 items-center justify-center rounded-lg text-muted-foreground transition-all hover:bg-muted/60 hover:text-foreground disabled:opacity-50"
                       title="إعادة توليد"
                     >
                       {isRegenerating ? (

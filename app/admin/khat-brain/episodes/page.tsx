@@ -15,7 +15,7 @@
 import Link from "next/link"
 import {
   PlayCircle,
-  ArrowLeft,
+  ArrowRight,
   Search,
   Filter,
 } from "lucide-react"
@@ -74,20 +74,20 @@ export default async function EpisodesIndexPage({
       <div className="flex flex-col gap-3 sm:flex-row sm:items-baseline sm:justify-between">
         <div>
           <Link
-            href="/admin/khat-brain"
+            href="/admin/ops"
             className="mb-2 inline-flex items-center gap-1 text-[11.5px] text-muted-foreground hover:text-foreground"
           >
-            <ArrowLeft className="h-3 w-3" /> رجوع إلى مركز القيادة
+            <ArrowRight className="h-3 w-3" /> رجوع إلى الرئيسية
           </Link>
           <h1 className="flex items-center gap-2 text-xl font-bold tracking-tight">
-            <PlayCircle className="h-5 w-5 text-violet-700" /> الحلقات
+            <PlayCircle className="h-5 w-5 text-violet-700" /> خط الإنتاج
           </h1>
           <p className="mt-1 text-[12px] text-muted-foreground">
             كل الحلقات النشطة مع الإجراء التالي المقترح لكل واحدة.
           </p>
         </div>
         <div className="text-[11px] text-muted-foreground" dir="rtl">
-          عرض {rows.length} من ≤ 200
+          {rows.length} حلقة نشطة
         </div>
       </div>
 
@@ -146,7 +146,7 @@ export default async function EpisodesIndexPage({
             defaultValue={params.guest ?? ""}
             className="rounded-lg border border-border/40 bg-background/40 px-2 py-1.5 text-[12px] outline-none"
           >
-            <option value="">— أيًّا كان —</option>
+            <option value="">الكل</option>
             <option value="has">مع ضيف</option>
             <option value="missing">بدون ضيف</option>
           </select>

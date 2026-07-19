@@ -17,7 +17,7 @@ const LABEL_MAP: Record<string, string> = {
   // Episodes / studio / content
   episodes: "الحلقات",
   studio: "الاستوديو",
-  "home-content": "الصفحة الرئيسية",
+  "home-content": "واجهة الموقع",
   preparation: "إعداد الحلقة",
 
   // Guests
@@ -32,24 +32,31 @@ const LABEL_MAP: Record<string, string> = {
   // breadcrumb (e.g. "الرئيسية > khat-brain > market > signals").
   // Map every Khat Brain segment + its children to operator-friendly
   // Arabic labels.
-  ops: "العمليات",
-  "khat-brain": "Khat Brain",
+  ops: "الرئيسية",
+  details: "تفاصيل التشغيل",
+  "khat-brain": "الإنتاج",
   market: "ذكاء السوق",
   signals: "إشارات السوق",
   sources: "المصادر الموثوقة",
   discovery: "اكتشاف الضيوف",
+  "discovery-v2": "اكتشاف الضيوف",
   "original-thinking": "التفكير الأصيل",
   recording: "التسجيل",
+
+  // Guest sourcing / community
+  casting: "طلبات الاستضافة",
+  community: "مساهمات المجتمع",
 
   // System / communications
   submissions: "الطلبات",
   partnerships: "الشركاء",
-  analytics: "الإحصائيات",
+  pipeline: "خط الشراكات",
+  offers: "العروض",
+  analytics: "التحليلات",
   "media-kit": "ملف الشراكة",
   settings: "الإعدادات",
   team: "فريق خط",
   newsletter: "النشرة البريدية",
-  "audio-platforms": "روابط المنصات",
   "rss-sync": "مزامنة RSS",
   subscribers: "المشتركون",
   metrics: "المقاييس",
@@ -57,6 +64,20 @@ const LABEL_MAP: Record<string, string> = {
   campaigns: "الحملات",
   responses: "الردود",
 }
+
+/**
+ * Intermediate paths that exist only as URL folders — they have no
+ * page.tsx, so linking to them produces a 404 (e.g. «ذكاء السوق» →
+ * /admin/khat-brain/market). These render as plain text instead of
+ * a <Link>. Keep in sync with the app/admin route tree.
+ */
+const NON_NAVIGABLE_PATHS = new Set<string>([
+  "/admin/khat-brain/market",
+  "/admin/newsletter/campaigns",
+  "/admin/offers",
+  "/admin/collab",
+  "/admin/recording",
+])
 
 /** UUID v4 detector — used to hide raw ids from breadcrumbs when no override is registered. */
 const UUID_PATTERN =
@@ -79,14 +100,20 @@ export function Breadcrumbs() {
   const overrides = useBreadcrumbLabels()
   const segments = pathname.split("/").filter(Boolean)
 
-  // Don't show breadcrumbs on the root admin page
-  if (segments.length <= 1) return null
+  // Don't show breadcrumbs on the root admin page, nor on /admin/ops — it is
+  // the home itself ("الرئيسية"), so a "الرئيسية › الرئيسية" trail is noise.
+  if (segments.length <= 1 || pathname === "/admin/ops") return null
 
   // Build crumbs, skipping any raw-id segment that has no override —
   // the resolved label from `overrides` is attached to the FULL path,
   // so we check that first and drop the segment entirely if nothing's
   // registered.
-  const crumbs: Array<{ path: string; label: string; isLast: boolean }> = []
+  const crumbs: Array<{
+    path: string
+    label: string
+    isLast: boolean
+    navigable: boolean
+  }> = []
   for (let i = 0; i < segments.length; i++) {
     const segment = segments[i]
     const path = "/" + segments.slice(0, i + 1).join("/")
@@ -109,7 +136,12 @@ export function Breadcrumbs() {
       label = decodeURIComponent(segment)
     }
 
-    crumbs.push({ path, label, isLast: false })
+    crumbs.push({
+      path,
+      label,
+      isLast: false,
+      navigable: !NON_NAVIGABLE_PATHS.has(path),
+    })
   }
 
   if (crumbs.length === 0) return null
@@ -127,13 +159,16 @@ export function Breadcrumbs() {
           )}
           {crumb.isLast ? (
             <span className="font-medium text-foreground/90">{crumb.label}</span>
-          ) : (
+          ) : crumb.navigable ? (
             <Link
               href={crumb.path}
               className="text-muted-foreground transition-colors hover:text-foreground/80"
             >
               {crumb.label}
             </Link>
+          ) : (
+            // Section label without a page of its own — plain text, no link.
+            <span className="text-muted-foreground">{crumb.label}</span>
           )}
         </span>
       ))}

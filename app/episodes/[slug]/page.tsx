@@ -9,6 +9,7 @@ import { getQuotesByEpisodeId } from "@/lib/content/home-quotes"
 import { getReflectionsByEpisodeId } from "@/lib/content/daily-reflections"
 import { getPublicEpisodeEnrichment } from "@/lib/episodes/enrichments"
 import { getEpisodeEirId } from "@/lib/queries/episodes"
+import { getTeaserForEpisode } from "@/lib/teaser"
 import { getEpisodeTopics } from "@/lib/episodes/episode-graph"
 import { getPublicEpisodeDeepAnalysisByEir } from "@/lib/studio/deep-analysis"
 import { buildEpisodeJsonLd } from "@/lib/seo/episode-jsonld"
@@ -81,6 +82,10 @@ export default async function EpisodePage({ params, searchParams }: EpisodePageP
   // content: surface it only when the episode's enrichment is published.
   const deepAnalysis = enrichment ? await getPublicEpisodeDeepAnalysisByEir(eirId) : null
 
+  // Archived teaser for this now-published episode (acceptance م4). Linked by
+  // EIR; null when the episode had no teaser.
+  const teaser = await getTeaserForEpisode(eirId)
+
   // `sameAs` advertises our canonical social/video/audio accounts to search engines.
   const sameAs = allActivePlatforms
     .filter((p) => p.category !== "other" && p.platform_key !== "rss")
@@ -129,6 +134,7 @@ export default async function EpisodePage({ params, searchParams }: EpisodePageP
         sponsor={sponsor}
         topics={topics}
         deepAnalysis={deepAnalysis}
+        episodeTeaser={teaser}
         initialStartTime={startTime}
       />
     </>

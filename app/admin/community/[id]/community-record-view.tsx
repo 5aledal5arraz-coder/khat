@@ -77,7 +77,7 @@ export function CommunityRecordView({ record, reference }: { record: CommunityRe
               <span>· {fmtRel(c.created_at)}</span>
             </div>
           </div>
-          <button onClick={() => run("delete", async () => { if (confirm("حذف المساهمة نهائيًا؟")) { await call(`/api/admin/community/${c.id}`, "DELETE"); router.push("/admin/community") } })} className="text-slate-300 hover:text-rose-600" title="حذف">
+          <button onClick={() => run("delete", async () => { if (confirm("حذف المساهمة نهائيًا؟")) { await call(`/api/admin/community/${c.id}`, "DELETE"); router.push("/admin/community") } })} className="text-slate-300 hover:text-rose-700" title="حذف">
             <Trash className="h-4 w-4" />
           </button>
         </div>
@@ -135,17 +135,17 @@ export function CommunityRecordView({ record, reference }: { record: CommunityRe
                   <span className="rounded-lg bg-slate-100 px-2.5 py-1 text-[12px] font-semibold text-slate-700">الجودة {c.quality_score}/100</span>
                   {c.category && <span className="rounded-lg bg-indigo-50 px-2.5 py-1 text-[12px] text-indigo-700">{c.category}</span>}
                   {c.recommended_action && <span className="rounded-lg bg-primary/[0.07] px-2.5 py-1 text-[12px] font-medium text-primary">{ACTION_LABEL[c.recommended_action]}</span>}
-                  {c.spam && <span className="rounded-lg bg-rose-50 px-2.5 py-1 text-[12px] font-medium text-rose-600">مُعلّمة كعبثية</span>}
+                  {c.spam && <span className="rounded-lg bg-rose-50 px-2.5 py-1 text-[12px] font-medium text-rose-700">مُعلّمة كعبثية</span>}
                 </div>
                 {c.ai_summary && <p className="text-[13px] leading-relaxed text-slate-700">{c.ai_summary}</p>}
                 {c.action_rationale && <p className="text-[12px] text-slate-500">↳ {c.action_rationale}</p>}
                 <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                   {c.highlights.length > 0 && (
-                    <div><p className="mb-1 flex items-center gap-1 text-[11px] font-medium text-emerald-600"><Lightbulb className="h-3 w-3" /> نقاط القوة</p>
+                    <div><p className="mb-1 flex items-center gap-1 text-[11px] font-medium text-emerald-700"><Lightbulb className="h-3 w-3" /> نقاط القوة</p>
                       <ul className="space-y-1">{c.highlights.map((h, i) => <li key={i} className="text-[12.5px] leading-relaxed text-slate-700">• {h}</li>)}</ul></div>
                   )}
                   {c.concerns.length > 0 && (
-                    <div><p className="mb-1 flex items-center gap-1 text-[11px] font-medium text-rose-600"><ShieldAlert className="h-3 w-3" /> مخاوف</p>
+                    <div><p className="mb-1 flex items-center gap-1 text-[11px] font-medium text-rose-700"><ShieldAlert className="h-3 w-3" /> مخاوف</p>
                       <ul className="space-y-1">{c.concerns.map((h, i) => <li key={i} className="text-[12.5px] leading-relaxed text-slate-700">• {h}</li>)}</ul></div>
                   )}
                 </div>
@@ -216,7 +216,7 @@ function TasksCard({ record, run, busy, call }: { record: CommunityRecord; run: 
       {open.length === 0 ? <Empty>لا مهام.</Empty> : (
         <div className="space-y-1.5">{open.map((t) => (
           <div key={t.id} className="flex items-start gap-2 rounded-xl border border-slate-150 bg-white p-2.5">
-            <button onClick={() => done(t)} disabled={busy !== null} className="mt-0.5 text-slate-300 hover:text-emerald-600">{busy === `task:done:${t.id}` ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}</button>
+            <button onClick={() => done(t)} disabled={busy !== null} className="mt-0.5 text-slate-300 hover:text-emerald-700">{busy === `task:done:${t.id}` ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}</button>
             <div className="min-w-0 flex-1">
               <p className="text-[12.5px] font-medium leading-snug text-slate-800">{t.title}</p>
               {t.created_by === "ai:community" && <span className="mt-0.5 inline-flex items-center gap-0.5 rounded bg-primary/[0.07] px-1 py-px text-[10px] font-medium text-primary"><Sparkles className="h-2.5 w-2.5" /> الفرز الذكي</span>}
@@ -247,8 +247,8 @@ function NotesCard({ record, run, busy, call }: { record: CommunityRecord; run: 
             <div className="mt-1 flex items-center justify-between text-[10.5px] text-slate-400">
               <span>{(n.author || "").replace(/^admin:/, "")} · {fmtRel(n.created_at)}</span>
               <div className="flex items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100">
-                <button onClick={() => pin(n)} className={n.pinned ? "text-amber-600" : "text-slate-300 hover:text-amber-600"}><Pin className="h-3 w-3" /></button>
-                <button onClick={() => del(n)} className="text-slate-300 hover:text-rose-600"><Trash2 className="h-3 w-3" /></button>
+                <button onClick={() => pin(n)} className={n.pinned ? "text-amber-700" : "text-slate-300 hover:text-amber-700"}><Pin className="h-3 w-3" /></button>
+                <button onClick={() => del(n)} className="text-slate-300 hover:text-rose-700"><Trash2 className="h-3 w-3" /></button>
               </div>
             </div>
           </div>

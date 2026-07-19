@@ -61,6 +61,8 @@ interface CandidateRow {
   display_name: string | null
   bio: string | null
   country: string | null
+  phone: string | null
+  email: string | null
 }
 
 function candidateToHints(row: CandidateRow): IdentityHints {
@@ -72,6 +74,9 @@ function candidateToHints(row: CandidateRow): IdentityHints {
     name: name || null,
     country: row.country ?? null,
     bio: row.bio ?? null,
+    // Fixated onto the canonical guest by ensureGuest — admin-only.
+    phone: row.phone?.trim() || null,
+    email: row.email?.trim() || null,
   }
 }
 
@@ -84,6 +89,8 @@ async function loadCandidateRow(id: string): Promise<CandidateRow | null> {
       display_name: guestCandidates.display_name,
       bio: guestCandidates.bio,
       country: guestCandidates.country,
+      phone: guestCandidates.phone,
+      email: guestCandidates.email,
     })
     .from(guestCandidates)
     .where(eq(guestCandidates.id, id))

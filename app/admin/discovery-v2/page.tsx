@@ -22,20 +22,15 @@ export default async function DiscoveryV2Page() {
 
   return (
     <div className="mx-auto max-w-4xl space-y-5 p-4 pb-16" dir="rtl">
-      <div className="flex items-center justify-between">
-        <div>
-          <div className="mb-1 inline-flex items-center gap-1.5 rounded-full border border-violet-500/40 bg-violet-500/10 px-2 py-0.5 text-[11px] font-medium text-violet-700">
-            <Compass className="h-3 w-3" /> اكتشاف الضيوف — v2
-          </div>
-          <h1 className="text-2xl font-bold">اكتشاف مرجعيّ موثوق</h1>
-          <p className="max-w-2xl text-[12.5px] leading-relaxed text-muted-foreground">
-            نبدأ بأشخاص حقيقيين، نتحقّق من كلّ اسم عبر ويكي‌داتا/ويكيبيديا، ثمّ نُثري الملف بإشارات مستقلّة
-            (أكاديمية، إعلامية، ظهور في بودكاست) ونرتّب وفق الشهرة والملاءمة وقابلية الاستضافة.
-          </p>
+      <div>
+        <div className="mb-1 inline-flex items-center gap-1.5 rounded-full border border-violet-500/40 bg-violet-500/10 px-2 py-0.5 text-[11px] font-medium text-violet-700">
+          <Compass className="h-3 w-3" /> اكتشاف الضيوف
         </div>
-        <Link href="/admin/discovery" className="shrink-0 text-[11px] text-muted-foreground hover:text-foreground">
-          ← النسخة القديمة
-        </Link>
+        <h1 className="text-2xl font-bold">اكتشاف مرجعيّ موثوق</h1>
+        <p className="max-w-2xl text-[12.5px] leading-relaxed text-muted-foreground">
+          نبدأ بأشخاص حقيقيين، نتحقّق من كلّ اسم عبر ويكي‌داتا/ويكيبيديا، ثمّ نُثري الملف بإشارات مستقلّة
+          (أكاديمية، إعلامية، ظهور في بودكاست) ونرتّب وفق الشهرة والملاءمة وقابلية الاستضافة.
+        </p>
       </div>
 
       <StartV2Form />

@@ -27,7 +27,7 @@ import {
   Compass,
   Sparkles,
   Activity,
-  ArrowLeft,
+  ArrowRight,
   AlertTriangle,
   Telescope,
   Lightbulb,
@@ -171,7 +171,7 @@ export default async function SeasonWorkspacePage({
           href="/admin/khat-brain/seasons"
           className="inline-flex items-center gap-1 text-[11.5px] text-muted-foreground hover:text-foreground"
         >
-          <ArrowLeft className="h-3 w-3" /> العودة إلى المواسم
+          <ArrowRight className="h-3 w-3" /> العودة إلى المواسم
         </Link>
         <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-baseline sm:justify-between">
           <div>

@@ -37,7 +37,7 @@ async function main() {
 
   // Clean dependent tables first (reverse dependency order)
   const cleanOrder = [
-    "studio_push_log", "studio_analyzers", "studio_website_packages",
+    "studio_analyzers", "studio_website_packages",
     "studio_clips", "studio_chapters", "studio_ai_outputs", "studio_transcripts", "studio_sessions",
     "daily_reflections", "home_quotes",
     "hidden_episodes",
@@ -298,30 +298,6 @@ async function main() {
     )
   }
   console.log(`  ✅ platform_analytics — ${Object.keys(analytics).length} rows`)
-
-  // ================================================================
-  // 15. Studio Push Log
-  // ================================================================
-  const pushLog = readJson<JsonRecord[]>("studio-push-log.json")
-  let plCount = 0
-  for (const entry of pushLog) {
-    try {
-      await client.query(
-        `INSERT INTO studio_push_log (session_id, episode_id, episode_title, pushed_fields, pushed_at)
-         VALUES ($1, $2, $3, $4, $5) ON CONFLICT DO NOTHING`,
-        [
-          entry.sessionId,
-          entry.episodeId,
-          entry.episodeTitle,
-          entry.pushedFields || [],
-          entry.pushedAt,
-        ]
-      )
-      plCount++
-    } catch { /* skip FK violations — sessions may not exist */ }
-  }
-  console.log(`  ✅ studio_push_log — ${plCount}/${pushLog.length} rows`)
-
 
   console.log(`\nDone! Database seeded from JSON config files.`)
   await client.end()

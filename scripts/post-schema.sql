@@ -390,6 +390,11 @@ CREATE INDEX IF NOT EXISTS idx_studio_sessions_created_at ON studio_sessions (cr
 CREATE INDEX IF NOT EXISTS idx_guests_slug ON guests (slug);
 CREATE INDEX IF NOT EXISTS idx_guests_name ON guests (name);
 
+-- G-042 — sequence backing the uniform `g-NNN` guest slug (nextGuestSlug() in
+-- lib/guests/canonical.ts). Atomic + concurrency-safe (no max+1 race).
+-- Idempotent; starts at 1, so the first new guest after the reset is g-001.
+CREATE SEQUENCE IF NOT EXISTS guest_slug_seq;
+
 -- Newsletter subscribers: email lookup
 CREATE INDEX IF NOT EXISTS idx_newsletter_subscribers_email ON newsletter_subscribers (email);
 -- Newsletter subscribers: active-recipient selection on every campaign send
@@ -902,3 +907,30 @@ DO $$ BEGIN
     FOREIGN KEY (promoted_guest_id) REFERENCES guests(id) ON DELETE SET NULL;
 EXCEPTION WHEN duplicate_object THEN NULL;
 END $$;
+
+-- ============================================================
+-- Teaser v1 — status guard, id default, and lookup indexes
+-- ============================================================
+-- The column additions (teasers.eir_id/guest_id, teaser_questions.user_agent,
+-- nullable display_name/guest_name) live in migration 0011. These are the
+-- pieces Drizzle does not model — apply AFTER db:migrate.
+
+-- Defence-in-depth DB default for teaser_questions.id. The app also generates
+-- it (Drizzle $defaultFn), but a raw insert must not hit a NOT NULL violation.
+-- Cast to text because the column is text, not uuid.
+ALTER TABLE teaser_questions ALTER COLUMN id SET DEFAULT gen_random_uuid()::text;
+
+-- Moderation status enum guard (was lost in the 2026-02-20 Drizzle migration).
+DO $$ BEGIN
+  ALTER TABLE teaser_questions ADD CONSTRAINT chk_teaser_questions_status
+    CHECK (status IN ('pending', 'approved', 'rejected'));
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
+
+-- Lookup indexes: getActiveTeaserForDisplay filters is_active; the public
+-- display resolves by eir_id; the guest page resolves by guest_id; the
+-- moderation pool filters questions by (teaser_id, status) together.
+CREATE INDEX IF NOT EXISTS idx_teasers_is_active ON teasers (is_active);
+CREATE INDEX IF NOT EXISTS idx_teasers_eir_id ON teasers (eir_id);
+CREATE INDEX IF NOT EXISTS idx_teasers_guest_id ON teasers (guest_id);
+CREATE INDEX IF NOT EXISTS idx_teaser_questions_teaser_status ON teaser_questions (teaser_id, status);

@@ -126,6 +126,11 @@ export async function middleware(request: NextRequest) {
   // unchanged otherwise.
   const requestHeaders = new Headers(request.headers)
   requestHeaders.set('x-pathname', pathname)
+  // Surface the HTTP method to route-handler helpers the same way:
+  // `requireAdminAPI()` (lib/api-utils.ts) reads it via headers() to
+  // default write requests to a minimum role. `.set()` overwrites any
+  // client-supplied value, so the header cannot be forged.
+  requestHeaders.set('x-request-method', request.method)
   const response = NextResponse.next({ request: { headers: requestHeaders } })
   const adminSession = request.cookies.get('__admin_session')?.value
 
@@ -256,6 +261,19 @@ export const config = {
     // Run on all routes except Next.js internals, static assets and files with
     // an extension (images, fonts, etc). Needed so the maintenance-mode gate
     // can catch every public page request.
+    //
+    // SECURITY: the `.*\.[^/]+$` exclusion above also drops any path whose
+    // last segment contains a dot — including real dynamic API segments like
+    // `/api/admin/guests/abc.def` ([id]="abc.def"). Without the explicit
+    // `/api/:path*` entry below those requests bypass the middleware entirely,
+    // so the `x-request-method` / `x-pathname` headers it sets are absent and
+    // `requireAdminAPI()` would read the CLIENT's raw (forgeable) value —
+    // letting a VIEWER defeat the write-role gate via a dotted path. The
+    // second entry forces every /api/** request through the middleware,
+    // closing that bypass and re-covering the admin CSRF + rate-limit checks
+    // on dotted paths at the same time. Overlap with the first entry is a
+    // harmless no-op (the middleware still runs once per request).
     '/((?!_next/static|_next/image|favicon.ico|.*\\.[^/]+$).*)',
+    '/api/:path*',
   ],
 }

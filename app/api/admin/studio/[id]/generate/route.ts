@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server"
 import { getStudioSession, getTranscriptForSession, createAiOutput, getAiOutputForSession, revalidateStudio } from "@/lib/studio"
+import { resolveEirIdForSession } from "@/lib/studio/analysis-records"
 import { generateStudioPackage, STUDIO_PROMPT_VERSION, EDITORIAL_MODEL } from "@/lib/ai"
 import { requireAdminAPI } from "@/lib/api-utils"
 
@@ -90,10 +91,18 @@ export async function POST(
   }
 
   try {
+    // Link this generator's ai_runs row to the session + episode.
+    const eirContext = {
+      eirId: await resolveEirIdForSession(id),
+      subjectTable: "studio_sessions" as const,
+      subjectId: id,
+    }
     const result = await generateStudioPackage(
       transcript.transcript_clean,
       session.video_title || "",
-      session.channel_title || ""
+      session.channel_title || "",
+      null,
+      eirContext
     )
 
     if (!result.success || !result.data) {
@@ -120,7 +129,10 @@ export async function POST(
 
     // Save the successful result
     const saved = await createAiOutput(id, {
-      model: EDITORIAL_MODEL,
+      // The actual model the router used (from generateStudioPackage), not
+      // the static editorial label; falls back to the label only if the
+      // raw telemetry is somehow absent.
+      model: (result.raw?.model as string | undefined) ?? EDITORIAL_MODEL,
       prompt_version: STUDIO_PROMPT_VERSION,
       status: "ready",
       title_best: result.data.title_best,

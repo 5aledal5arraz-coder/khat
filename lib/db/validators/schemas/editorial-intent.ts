@@ -15,6 +15,7 @@ export const EDITORIAL_INTENT_COLUMN = "editorial_intent"
 const sourceEnum = z.enum([
   "khat_map_candidate",
   "guest_application",
+  "guest_candidate",
   "discovery_candidate",
   "manual",
 ])

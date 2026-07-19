@@ -11,9 +11,9 @@
  *   - Topic block:    `topic_fit_rationale`      (verifier output, bold)
  *   - Social links:   `social_links`             (curated, clickable)
  *
- * Two callbacks: assign (promote into the slot) and skip. The legacy
- * `app/admin/discovery/candidate-row.tsx` keeps its season-wide shape;
- * this card is wizard-scoped so it can be tighter and topic-anchored.
+ * Two callbacks: assign (promote into the slot) and skip. This card is
+ * wizard-scoped (topic-anchored) so it can stay tighter than a
+ * season-wide list row.
  */
 
 import {

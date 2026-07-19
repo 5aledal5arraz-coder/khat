@@ -16,10 +16,12 @@ import { CentralQuestion } from "./central-question"
 import { BeforeYouWatch } from "./before-you-watch"
 import { ConversationMap } from "./conversation-map"
 import { ExclusiveClip } from "./exclusive-clip"
+import { TeaserInline } from "@/components/teaser/teaser-inline"
 import { UnsaidReflections } from "./unsaid-reflections"
 import type { EpisodeWithRelations, Episode, Guest, HomeQuote, DailyReflection, PodcastPlatformLink } from "@/types/database"
 import type { EpisodeEnrichment } from "@/types/episodes"
 import type { EpisodeSponsorData } from "@/lib/queries/episode-sponsors"
+import type { ActiveTeaserView } from "@/lib/teaser"
 import { EpisodeConnections } from "./episode-connections"
 import { AudioPlayer } from "./audio-player"
 import { EpisodePlatformLinks } from "./episode-platform-links"
@@ -141,6 +143,7 @@ interface EpisodePageClientProps {
   sponsor?: EpisodeSponsorData | null
   topics?: EpisodeTopicChip[]
   deepAnalysis?: EpisodeDeepAnalysisView | null
+  episodeTeaser?: ActiveTeaserView | null
   initialStartTime?: number
 }
 
@@ -156,6 +159,7 @@ export function EpisodePageClient({
   sponsor,
   topics = [],
   deepAnalysis = null,
+  episodeTeaser = null,
   initialStartTime,
 }: EpisodePageClientProps) {
   // Track episode view
@@ -298,6 +302,15 @@ export function EpisodePageClient({
 
           {/* 11b. Sponsor */}
           {sponsor && <EpisodeSponsor sponsor={sponsor} />}
+
+          {/* 11c. Teaser — the pre-release teaser, now archived on the
+              published episode (compact inline block; Sara note 3/5). */}
+          {episodeTeaser && (
+            <div id="sec-teaser" className="space-y-3">
+              <h2 className="text-lg font-semibold">التيزر</h2>
+              <TeaserInline teaser={episodeTeaser} />
+            </div>
+          )}
 
           {/* 12. Exclusive Clip */}
           <ExclusiveClip data={enrichment?.exclusive_clip} />

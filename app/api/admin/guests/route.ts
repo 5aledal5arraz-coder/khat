@@ -4,16 +4,6 @@ import { createGuest, getAllGuests } from "@/lib/admin/queries"
 import { requireAdminAPI } from "@/lib/api-utils"
 import { invalidate } from "@/lib/cache"
 
-function generateSlug(name: string): string {
-  return name
-    .trim()
-    .toLowerCase()
-    .replace(/\s+/g, "-")
-    .replace(/[^\w\u0600-\u06FF-]/g, "")
-    .replace(/-+/g, "-")
-    .replace(/^-|-$/g, "")
-}
-
 function validateExternalLinks(links: unknown): Record<string, string> | null {
   if (!links || typeof links !== "object") return null
   const result: Record<string, string> = {}
@@ -48,17 +38,13 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "اسم الضيف مطلوب (حتى 200 حرف)" }, { status: 400 })
     }
 
-    const slug = generateSlug(name)
-    if (!slug) {
-      return NextResponse.json({ error: "لا يمكن إنشاء رابط صالح من هذا الاسم" }, { status: 400 })
-    }
-
     const bio = typeof body.bio === "string" && body.bio.trim() ? body.bio.trim().slice(0, 1000) : null
     const photo_url = typeof body.photo_url === "string" && body.photo_url.trim() ? body.photo_url.trim() : null
     const testimonial = typeof body.testimonial === "string" && body.testimonial.trim() ? body.testimonial.trim().slice(0, 450) : null
     const external_links = validateExternalLinks(body.external_links)
 
-    const result = await createGuest({ name, slug, bio, photo_url, testimonial, external_links })
+    // G-042 — no slug here: the ensureGuest chokepoint assigns the uniform g-NNN slug.
+    const result = await createGuest({ name, bio, photo_url, testimonial, external_links })
 
     if (!result.success) {
       return NextResponse.json({ error: result.error }, { status: 400 })

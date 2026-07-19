@@ -176,7 +176,7 @@ export function EpisodeRow({
             </button>
             <button
               onClick={handleCancel}
-              className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-white/5"
+              className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-muted/60"
             >
               <X className="h-3 w-3" />
             </button>

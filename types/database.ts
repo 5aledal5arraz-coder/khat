@@ -1172,6 +1172,9 @@ export interface GuestCandidate {
   category: string | null
   city: string | null
   country: string | null
+  /** Admin-only direct contact channels. Never surfaced publicly. */
+  phone: string | null
+  email: string | null
   bio: string | null
   notes_internal: string | null
   status: GuestCandidateStatus
@@ -1360,6 +1363,24 @@ export interface GuestCandidateNotification {
   delivered_at: string | null
   delivery_error: string | null
   created_at: string
+}
+
+export type GuestPrepMeetingType = "call" | "video" | "in_person"
+export type GuestPrepMeetingStatus = "scheduled" | "completed" | "cancelled"
+
+export interface GuestPrepMeeting {
+  id: string
+  candidate_id: string
+  title: string
+  type: GuestPrepMeetingType | string
+  scheduled_at: string | null
+  duration_minutes: number | null
+  notes: string | null
+  outcome: string | null
+  status: GuestPrepMeetingStatus
+  created_by: string | null
+  created_at: string
+  updated_at: string
 }
 
 // View types — candidate enriched with related data for list/detail rendering

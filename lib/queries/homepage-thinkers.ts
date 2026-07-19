@@ -151,8 +151,11 @@ export async function getHomepageThinkersForDisplay(): Promise<MuseumThinker[] |
 
     const results: MuseumThinker[] = []
     for (const row of rows) {
+      // Public homepage render — project only the columns used. A SELECT *
+      // would put admin-only phone/email into the awaited raw pg Result, which
+      // React's dev-mode async-debug channel serializes into the flight payload.
       const [guest] = await db
-        .select()
+        .select({ id: guests.id, name: guests.name, bio: guests.bio, photo_url: guests.photo_url })
         .from(guests)
         .where(eq(guests.id, row.guest_id))
         .limit(1)

@@ -51,6 +51,8 @@ export interface EpisodeIntelligenceRecord {
   editorial_intent: EditorialIntent
   risk_level: KhatMapRiskLevel | null
   effort_level: KhatMapEffortLevel | null
+  /** Planned filming date/time (ISO). Admin-only — never public. */
+  recording_scheduled_at: string | null
   created_by: string | null
   created_at: string
   updated_at: string
@@ -71,11 +73,50 @@ function mapRow(row: EirRow): EpisodeIntelligenceRecord {
     editorial_intent: (row.editorial_intent ?? {}) as EditorialIntent,
     risk_level: row.risk_level,
     effort_level: row.effort_level,
+    recording_scheduled_at: row.recording_scheduled_at
+      ? row.recording_scheduled_at.toISOString()
+      : null,
     created_by: row.created_by,
     created_at: row.created_at.toISOString(),
     updated_at: row.updated_at.toISOString(),
     archived_at: row.archived_at ? row.archived_at.toISOString() : null,
   }
+}
+
+// ─── Light home-queue fetch ────────────────────────────────────────────
+
+export interface RecentActiveEir {
+  id: string
+  working_title: string
+  phase: EpisodePhase
+  updated_at: string
+}
+
+/**
+ * Most-recently-updated non-archived EIRs, minimal fields only — for the
+ * admin home's "ما يحتاج انتباهك" queue (fed to `buildNextActionQueue`).
+ * Deliberately light: no joins, no jsonb mapping, one query. Unlike
+ * `getCommandCenterData()` (~36 sequential queries for the full command
+ * center), this keeps `/admin/ops` fast now that the two merged.
+ */
+export async function getRecentActiveEirs(limit = 10): Promise<RecentActiveEir[]> {
+  const rows = await db!
+    .select({
+      id: episodeIntelligenceRecords.id,
+      working_title: episodeIntelligenceRecords.working_title,
+      phase: episodeIntelligenceRecords.phase,
+      updated_at: episodeIntelligenceRecords.updated_at,
+    })
+    .from(episodeIntelligenceRecords)
+    .where(isNull(episodeIntelligenceRecords.archived_at))
+    .orderBy(desc(episodeIntelligenceRecords.updated_at))
+    .limit(limit)
+  return rows.map((r) => ({
+    id: r.id,
+    working_title: r.working_title,
+    phase: r.phase as EpisodePhase,
+    updated_at: r.updated_at.toISOString(),
+  }))
 }
 
 // ─── Create ────────────────────────────────────────────────────────────
@@ -223,6 +264,40 @@ export async function setEpisodeIntelligenceGuest(
     .where(eq(episodeIntelligenceRecords.id, input.eir_id))
   const next = await getEpisodeIntelligenceRecord(input.eir_id)
   if (!next) throw new Error("EIR vanished after guest assignment")
+  return next
+}
+
+// ─── Set recording schedule ────────────────────────────────────────────
+
+export interface SetRecordingScheduleInput {
+  eir_id: string
+  /** ISO timestamp, or null to clear. */
+  recording_scheduled_at: string | null
+}
+
+/**
+ * Set (or clear) the EIR's planned recording date/time. Admin-only internal
+ * scheduling — distinct from publish (episodes.release_date). Does not advance
+ * phase. Returns the updated EIR.
+ */
+export async function setEpisodeRecordingSchedule(
+  input: SetRecordingScheduleInput,
+): Promise<EpisodeIntelligenceRecord> {
+  const current = await getEpisodeIntelligenceRecord(input.eir_id)
+  if (!current) {
+    throw new Error(`EIR not found: ${input.eir_id}`)
+  }
+  await db!
+    .update(episodeIntelligenceRecords)
+    .set({
+      recording_scheduled_at: input.recording_scheduled_at
+        ? new Date(input.recording_scheduled_at)
+        : null,
+      updated_at: new Date(),
+    })
+    .where(eq(episodeIntelligenceRecords.id, input.eir_id))
+  const next = await getEpisodeIntelligenceRecord(input.eir_id)
+  if (!next) throw new Error("EIR vanished after recording-schedule set")
   return next
 }
 

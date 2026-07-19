@@ -23,6 +23,20 @@ const REPO_ROOT = path.resolve(__dirname, "..")
 const FAIL: string[] = []
 const PASS: string[] = []
 
+/** Shape of the raw `market_topic_signals` row the live scoring test SELECTs. */
+interface RawScoringRow {
+  id: string
+  collected_at: string
+  review_status: "new" | "approved" | "rejected" | "archived"
+  editorial_tags: unknown
+  operator_created: boolean
+  view_signal: number | null
+  controversy_score: number | null
+  theme: string | null
+  language: string
+  trusted_source_id: string | null
+}
+
 function assert(cond: unknown, msg: string): asserts cond {
   if (!cond) throw new Error(msg)
 }
@@ -448,7 +462,7 @@ async function main() {
             trusted_source_id, NULL::real AS trust_score,
             NULL::real AS editorial_alignment_score
           FROM market_topic_signals WHERE id = ${seed.signal_id}
-        `).then((res) => res.rows as any[])
+        `).then((res) => res.rows as unknown as RawScoringRow[])
         const scored = scoreSignal(
           {
             id: row.id,
@@ -614,7 +628,7 @@ async function main() {
           ORDER BY key
         `)
         const map = new Map<string, number>()
-        for (const row of rows.rows as any[]) {
+        for (const row of rows.rows as unknown as { key: string; weight: number }[]) {
           map.set(row.key, Number(row.weight))
         }
         const strong = map.get(k1)!

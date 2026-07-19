@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server"
 import crypto from "crypto"
 import { db } from "@/lib/db"
-import { sql } from "drizzle-orm"
+import { teaserQuestions } from "@/lib/db/schema"
 import {
   validateMutation,
   errorResponse,
@@ -86,11 +86,17 @@ export async function POST(
     const ipHash = crypto.createHash("sha256").update(ip).digest("hex").substring(0, 16)
     const userAgent = request.headers.get("user-agent") || null
 
-    // Insert into database
-    await db!.execute(sql`
-      INSERT INTO teaser_questions (teaser_id, display_name, question_text, status, ip_hash, user_agent)
-      VALUES (${teaserId}, ${cleanName}, ${cleanQuestion}, 'pending', ${ipHash}, ${userAgent})
-    `)
+    // Insert into database via Drizzle so the id $defaultFn fires and the
+    // column set stays aligned with the schema (the old raw INSERT broke on
+    // the 2026-02-20 migration drift).
+    await db!.insert(teaserQuestions).values({
+      teaser_id: teaserId,
+      display_name: cleanName,
+      question_text: cleanQuestion,
+      status: "pending",
+      ip_hash: ipHash,
+      user_agent: userAgent,
+    })
 
     return successResponse({ message: "سؤالك قيد المراجعة" }, 201)
   } catch (error) {

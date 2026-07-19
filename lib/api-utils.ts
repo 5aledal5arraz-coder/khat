@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { cookies } from 'next/headers'
+import { cookies, headers } from 'next/headers'
 import { verifyAdminSession, type AdminRole, type AdminUser, ROLE_LEVELS as ADMIN_ROLE_LEVELS } from '@/lib/admin/auth'
 
 /**
@@ -60,16 +60,38 @@ export async function requireAdmin(): Promise<void> {
 /**
  * Require admin for API routes. Returns a 401/403 response on failure, null if OK.
  *
- * Pass `minRole` to additionally require a minimum role (and an active account)
- * — use this on destructive endpoints so a read-only VIEWER cannot delete
- * content. Without `minRole` the behavior is unchanged (authentication only).
+ * Pass `minRole` to require a minimum role (and an active account) — use an
+ * explicit role on destructive endpoints (e.g. 'ADMIN' for deletes).
+ *
+ * Without `minRole` the default depends on the HTTP method:
+ *   • GET/HEAD/OPTIONS → authentication only (unchanged — VIEWER can read).
+ *   • anything else    → minimum EDITOR. Write handlers historically called
+ *     this bare, which meant a read-only VIEWER could mutate content.
+ *
+ * The method comes from the `x-request-method` header the middleware sets
+ * on every request via `.set()`, which overwrites any client-supplied value.
+ * This is only unforgeable while the request actually passes through the
+ * middleware — the guarantee therefore depends on `config.matcher` in
+ * middleware.ts covering the path. The explicit `/api/:path*` matcher entry
+ * exists precisely so dotted [id] segments (e.g. `/api/admin/x/a.b`) can't
+ * skip the middleware and smuggle a forged `x-request-method: GET`. If the
+ * header is missing — i.e. the handler ran outside the middleware pipeline —
+ * we fail CLOSED and treat the request as a write.
  */
 export async function requireAdminAPI(minRole?: AdminRole): Promise<NextResponse | null> {
   const user = await getAdminAuthUser()
   if (!user) return unauthorizedResponse()
-  if (minRole) {
+
+  let effectiveMinRole: AdminRole | undefined = minRole
+  if (!effectiveMinRole) {
+    const method = (await headers()).get('x-request-method')
+    const isRead = method === 'GET' || method === 'HEAD' || method === 'OPTIONS'
+    if (!isRead) effectiveMinRole = 'EDITOR'
+  }
+
+  if (effectiveMinRole) {
     if (!user.is_active) return forbiddenResponse()
-    if (!hasRole(user.role, minRole)) return forbiddenResponse()
+    if (!hasRole(user.role, effectiveMinRole)) return forbiddenResponse()
   }
   return null
 }

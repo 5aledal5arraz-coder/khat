@@ -46,7 +46,6 @@ const TABLES = [
   "studio_clips",
   "studio_website_packages",
   "studio_analyzers",
-  "studio_push_log",
 
   // Teasers
   "teasers",

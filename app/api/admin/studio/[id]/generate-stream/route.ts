@@ -22,6 +22,7 @@ import {
   runGrowthPackageForSession,
   revalidateStudio,
 } from "@/lib/studio"
+import { resolveEirIdForSession } from "@/lib/studio/analysis-records"
 import {
   generateStudioPackage,
   generateStudioChapters,
@@ -91,6 +92,16 @@ export async function POST(
         log("session_loaded", { source: session.source, video_id: session.video_id, title: session.video_title })
         send("started", { steps, sessionId: id })
 
+        // Resolve the studio-session → EIR link ONCE so every generator's
+        // ai_runs row is attributable to this session (subject_id) and its
+        // episode (eir_id → season_id derived by the router). subject_table
+        // is the real "studio_sessions" table, not a dropped one.
+        const eirContext = {
+          eirId: await resolveEirIdForSession(id),
+          subjectTable: "studio_sessions" as const,
+          subjectId: id,
+        }
+
         // Global Episode Intelligence — shared across all editorial generators.
         // Pre-hydrate from persistence so downstream steps benefit even when the
         // `episode_intelligence` step itself isn't in this run (e.g. regenerating
@@ -130,7 +141,10 @@ export async function POST(
                   const audioDir = path.join(process.cwd(), "data", "studio-audio")
                   const filePath = path.join(audioDir, id, session.audio_filename)
                   await fs.access(filePath)
-                  const whisperResult = await transcribeAudioFile(filePath, "ar")
+                  const whisperResult = await transcribeAudioFile(filePath, "ar", {
+                    subjectTable: "studio_sessions",
+                    subjectId: id,
+                  })
                   if (!whisperResult.success || !whisperResult.text) {
                     throw new Error(whisperResult.error || "فشل في تحويل الصوت إلى نص")
                   }
@@ -156,7 +170,10 @@ export async function POST(
                     try {
                       const download = await downloadYouTubeAudio(session.video_id!, tempDir)
                       ytCleanup = download.cleanup
-                      const whisperRes = await transcribeAudioFile(download.filePath, "ar")
+                      const whisperRes = await transcribeAudioFile(download.filePath, "ar", {
+                        subjectTable: "studio_sessions",
+                        subjectId: id,
+                      })
                       if (!whisperRes.success || !whisperRes.text) {
                         throw new Error(whisperRes.error || "فشل في تحويل الصوت إلى نص")
                       }
@@ -262,7 +279,8 @@ export async function POST(
                   transcript.transcript_clean,
                   session.video_title || "",
                   session.channel_title || "",
-                  episodeIntelligence
+                  episodeIntelligence,
+                  eirContext
                 )
 
                 if (!result.success || !result.data) {
@@ -283,7 +301,10 @@ export async function POST(
                 }
 
                 await createAiOutput(id, {
-                  model: EDITORIAL_MODEL,
+                  // The actual model the router used (from
+                  // generateStudioPackage), not the static editorial label;
+                  // falls back to the label only if raw telemetry is absent.
+                  model: (result.raw?.model as string | undefined) ?? EDITORIAL_MODEL,
                   prompt_version: STUDIO_PROMPT_VERSION,
                   status: "ready",
                   title_best: result.data.title_best,
@@ -329,7 +350,8 @@ export async function POST(
                 const result = await generateStudioChapters(
                   transcript.transcript_clean,
                   session.video_title || "",
-                  session.duration_seconds
+                  session.duration_seconds,
+                  eirContext
                 )
 
                 if (!result.success || !result.data) {
@@ -383,7 +405,8 @@ export async function POST(
                   transcript.transcript_clean,
                   session.video_title || "",
                   session.duration_seconds,
-                  null // no visual analysis in bulk generation
+                  null, // no visual analysis in bulk generation
+                  eirContext
                 )
 
                 if (!result.success || !result.data) {
@@ -444,7 +467,8 @@ export async function POST(
                   transcript.transcript_clean,
                   session.video_title || "",
                   session.duration_seconds,
-                  episodeIntelligence
+                  episodeIntelligence,
+                  eirContext
                 )
 
                 if (!result.success || !result.data) {
@@ -516,7 +540,8 @@ export async function POST(
                 const result = await generateDeepAnalysis(
                   transcript.transcript_clean,
                   session.video_title || "",
-                  episodeIntelligence
+                  episodeIntelligence,
+                  eirContext
                 )
 
                 if (!result.success) {
@@ -569,7 +594,8 @@ export async function POST(
                 const result = await generateGuestIntelligence(
                   transcript.transcript_clean,
                   session.video_title || "",
-                  episodeIntelligence
+                  episodeIntelligence,
+                  eirContext
                 )
 
                 if (!result.success) {
