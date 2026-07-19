@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server"
 import { getStudioSession, getTranscriptForSession, getWebsitePackageForSession, createWebsitePackage, updateWebsitePackage, revalidateStudio } from "@/lib/studio"
+import { resolveEirIdForSession } from "@/lib/studio/analysis-records"
 import { generateGuestFromTranscript } from "@/lib/ai"
 import { requireAdminAPI } from "@/lib/api-utils"
 
@@ -55,9 +56,15 @@ export async function POST(
   recentCalls.set(id, Date.now())
 
   try {
+    // Link this generator's ai_runs row to the session + episode.
     const result = await generateGuestFromTranscript(
       transcript.transcript_clean,
-      session.video_title || ""
+      session.video_title || "",
+      {
+        subjectTable: "studio_sessions",
+        subjectId: id,
+        eirId: await resolveEirIdForSession(id),
+      }
     )
 
     if (!result.success) {

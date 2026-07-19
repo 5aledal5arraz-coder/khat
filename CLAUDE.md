@@ -107,6 +107,19 @@ analyzing → learned → archived). Key domains:
 - **Season planning**: `lib/khat-map/` (the season wizard) → `lib/eir/` (phase transitions).
 - **Studio**: `lib/studio/` + `app/admin/studio/` — per-episode content generation (transcript →
   intelligence → ai_output → chapters → clips → website package → analysis), streamed over SSE.
+  **Transcript ingestion (yt-dlp primary, Whisper last resort).** Studio pulls episode text through
+  three server-side paths, all fronted by yt-dlp — the former external intermediary
+  (`khat-yt-proxy.vercel.app`) was removed, no third-party proxy in the loop:
+  - Captions (`transcript/captions` → `fetchTranscriptServer`, `lib/youtube/transcript-server.ts`):
+    yt-dlp downloads YouTube's VTT. Returns RAW VTT — callers clean with `cleanTranscriptText()` first.
+  - YouTube audio (`transcript/youtube-audio` → `downloadYouTubeAudio` → `transcribeAudioFile`):
+    yt-dlp pulls audio, Whisper transcribes. Paid fallback when captions don't exist.
+  - Auto pipeline (`generate-stream`): tries yt-dlp captions first, only if that fails downloads
+    audio + Whisper as last resort.
+  Whisper (`lib/whisper.ts`) runs `gpt-4o-transcribe`, falling back per-chunk to
+  `gpt-4o-mini-transcribe` on transient error only. Every call logged to `ai_runs` via `recordAiRun`
+  (`subject_table="studio_sessions"`). yt-dlp + ffmpeg/ffprobe are runtime binary deps
+  (`checkDependencies()` in `lib/youtube/download.ts`).
 - **Guest identity**: fragmented across `guests` + several candidate/junction tables; the
   canonical service is `lib/guests/canonical.ts` (`ensureGuest` create-or-merge).
 

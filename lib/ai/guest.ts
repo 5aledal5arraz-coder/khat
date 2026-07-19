@@ -22,6 +22,8 @@ export interface GuestAIResult {
 interface ActorOpts {
   actorId?: string | null
   eirId?: string | null
+  subjectTable?: string | null
+  subjectId?: string | null
 }
 
 export async function generateGuestFromTranscript(
@@ -38,8 +40,8 @@ export async function generateGuestFromTranscript(
     }>({
       taskKind: "structural",
       eirId: opts?.eirId ?? null,
-      subjectTable: "studio_guests",
-      subjectId: null,
+      subjectTable: opts?.subjectTable ?? "studio_sessions",
+      subjectId: opts?.subjectId ?? null,
       actorId: opts?.actorId ?? LEGACY_ACTOR,
       promptVersion: GUEST_EXTRACT_PROMPT_VERSION,
       input: built.input,
@@ -144,7 +146,9 @@ export async function detectGuestsForEpisodes(
       const completion = await runAiTask<{ results: GuestDetectionResult[] }>({
         taskKind: "structural",
         eirId: opts?.eirId ?? null,
-        subjectTable: "episodes_guest_detection",
+        // Cross-episode batch: no single studio_sessions subject to attribute
+        // to, so leave subject_table null rather than name a phantom table.
+        subjectTable: null,
         subjectId: null,
         actorId: opts?.actorId ?? LEGACY_ACTOR,
         promptVersion: GUEST_DETECTION_BATCH_PROMPT_VERSION,

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server"
 import { getStudioSession, getTranscriptForSession, updateStudioSession, revalidateStudio } from "@/lib/studio"
+import { resolveEirIdForSession } from "@/lib/studio/analysis-records"
 import { generateEditSuggestions } from "@/lib/ai"
 import { requireAdminAPI } from "@/lib/api-utils"
 
@@ -34,10 +35,17 @@ export async function POST(
     return NextResponse.json({ error: "يجب توفر النص أولاً" }, { status: 400 })
   }
 
+  // Link this generator's ai_runs row to the session + episode.
+  const eirContext = {
+    eirId: await resolveEirIdForSession(id),
+    subjectTable: "studio_sessions" as const,
+    subjectId: id,
+  }
   const result = await generateEditSuggestions(
     transcript.transcript_clean,
     session.video_title || session.audio_filename || "حلقة صوتية",
-    session.duration_seconds
+    session.duration_seconds,
+    eirContext
   )
 
   if (!result.success || !result.data) {

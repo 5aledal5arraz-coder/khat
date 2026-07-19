@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { requireAdminAPI } from "@/lib/api-utils"
 import { getGuestIntelligenceForSession, createGuestIntelligence, getTranscriptForSession, getStudioSession, revalidateStudio } from "@/lib/studio"
+import { resolveEirIdForSession } from "@/lib/studio/analysis-records"
 import { generateGuestIntelligence } from "@/lib/ai"
 
 export const maxDuration = 120
@@ -45,9 +46,17 @@ export async function POST(
   await createGuestIntelligence(id, { status: "generating" })
 
   const startTime = Date.now()
+  // Link this generator's ai_runs row to the session + episode.
+  const eirContext = {
+    eirId: await resolveEirIdForSession(id),
+    subjectTable: "studio_sessions" as const,
+    subjectId: id,
+  }
   const result = await generateGuestIntelligence(
     transcript.transcript_clean,
-    session.video_title || ""
+    session.video_title || "",
+    null,
+    eirContext
   )
 
   if (!result.success) {

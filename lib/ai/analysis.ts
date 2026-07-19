@@ -70,7 +70,7 @@ export async function generateStudioAnalysis(
     const result = await runAiTask<StudioAnalyzerData>({
       taskKind: "editorial",
       eirId: eirContext?.eirId ?? null,
-      subjectTable: eirContext?.subjectTable ?? "studio_analyzer",
+      subjectTable: eirContext?.subjectTable ?? "studio_sessions",
       subjectId: eirContext?.subjectId ?? null,
       actorId: eirContext?.actorId ?? LEGACY_ACTOR,
       promptVersion: STUDIO_ANALYSIS_PROMPT_VERSION,
@@ -170,7 +170,7 @@ export async function suggestBestIntro(
     const result = await runAiTask<BestIntroResult>({
       taskKind: "structural",
       eirId: eirContext?.eirId ?? null,
-      subjectTable: eirContext?.subjectTable ?? "studio_audio_intro",
+      subjectTable: eirContext?.subjectTable ?? "studio_sessions",
       subjectId: eirContext?.subjectId ?? null,
       actorId: eirContext?.actorId ?? LEGACY_ACTOR,
       promptVersion: BEST_INTRO_PROMPT_VERSION,
@@ -248,7 +248,7 @@ export async function generateEditSuggestions(
     const result = await runAiTask<EditSuggestionsResult>({
       taskKind: "structural",
       eirId: eirContext?.eirId ?? null,
-      subjectTable: eirContext?.subjectTable ?? "studio_edit_suggestions",
+      subjectTable: eirContext?.subjectTable ?? "studio_sessions",
       subjectId: eirContext?.subjectId ?? null,
       actorId: eirContext?.actorId ?? LEGACY_ACTOR,
       promptVersion: EDIT_SUGGESTIONS_PROMPT_VERSION,

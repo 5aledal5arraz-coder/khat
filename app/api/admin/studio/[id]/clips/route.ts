@@ -4,6 +4,7 @@ import {
   getClipsForSession, createClips, updateClips,
   revalidateStudio,
 } from "@/lib/studio"
+import { resolveEirIdForSession } from "@/lib/studio/analysis-records"
 import { generateStudioClips } from "@/lib/ai"
 import { requireAdminAPI } from "@/lib/api-utils"
 import {
@@ -116,11 +117,18 @@ export async function POST(
   }
 
   try {
+    // Link this generator's ai_runs row to the session + episode.
+    const eirContext = {
+      eirId: await resolveEirIdForSession(id),
+      subjectTable: "studio_sessions" as const,
+      subjectId: id,
+    }
     const result = await generateStudioClips(
       transcript.transcript_clean,
       session.video_title || "",
       session.duration_seconds,
-      visualSummary
+      visualSummary,
+      eirContext
     )
 
     if (!result.success || !result.data) {

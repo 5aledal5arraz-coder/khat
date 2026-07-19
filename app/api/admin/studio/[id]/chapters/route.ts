@@ -4,6 +4,7 @@ import {
   getChaptersForSession, createChapters, updateChapters,
   revalidateStudio,
 } from "@/lib/studio"
+import { resolveEirIdForSession } from "@/lib/studio/analysis-records"
 import { generateStudioChapters } from "@/lib/ai"
 import { requireAdminAPI } from "@/lib/api-utils"
 
@@ -90,10 +91,17 @@ export async function POST(
   })
 
   try {
+    // Link this generator's ai_runs row to the session + episode.
+    const eirContext = {
+      eirId: await resolveEirIdForSession(id),
+      subjectTable: "studio_sessions" as const,
+      subjectId: id,
+    }
     const result = await generateStudioChapters(
       transcript.transcript_clean,
       session.video_title || "",
-      session.duration_seconds
+      session.duration_seconds,
+      eirContext
     )
 
     if (!result.success || !result.data) {

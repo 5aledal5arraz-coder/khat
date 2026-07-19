@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server"
 import { getStudioSession, getTranscriptForSession, createAnalyzer, getAnalyzerForSession, revalidateStudio } from "@/lib/studio"
+import { resolveEirIdForSession } from "@/lib/studio/analysis-records"
 import { generateStudioAnalysis, ANALYZER_PROMPT_VERSION, type YouTubeVideoStats } from "@/lib/ai"
 import { requireAdminAPI } from "@/lib/api-utils"
 
@@ -99,9 +100,16 @@ export async function POST(
   }
 
   try {
+    // Link this generator's ai_runs row to the session + episode.
+    const eirContext = {
+      eirId: await resolveEirIdForSession(id),
+      subjectTable: "studio_sessions" as const,
+      subjectId: id,
+    }
     const result = await generateStudioAnalysis(
       transcript.transcript_clean,
-      stats
+      stats,
+      eirContext
     )
 
     if (!result.success || !result.data) {

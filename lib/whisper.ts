@@ -27,10 +27,10 @@ const TRANSCRIBE_MODEL = "gpt-4o-transcribe"
 const FALLBACK_TRANSCRIBE_MODEL = "gpt-4o-mini-transcribe"
 
 /**
- * Per-minute USD by transcription model. NEEDS CONFIRMATION from OpenAI's
- * official pricing page — last checked 2026-07-19 against secondary
- * sources (costgoat / tokenmix), not the vendor page. `cost_usd` is
- * nullable, so an unverified rate never fabricates a figure: when the
+ * Per-minute USD by transcription model. Confirmed 2026-07-20 against
+ * developers.openai.com/api/docs/pricing. Per-minute figures are OpenAI's
+ * own "Estimated cost"; real meter is audio tokens. `cost_usd` is
+ * nullable, so a missing duration never fabricates a figure: when the
  * audio duration can't be probed we store null instead of guessing.
  */
 const TRANSCRIBE_PRICE_PER_MIN: Record<string, number> = {

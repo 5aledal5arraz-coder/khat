@@ -27,11 +27,11 @@ export const EMBEDDING_MODEL = "text-embedding-3-small"
 export const EMBEDDING_DIMS = 1536
 
 /**
- * USD per 1M input tokens for the embedding model. NEEDS CONFIRMATION from
- * OpenAI's official pricing page — this figure is consistent with the
- * "$0.00002 per topic" estimate above (~1K tokens/topic × $0.02/1M).
- * `cost_usd` is nullable, so a missing usage count records null rather
- * than a fabricated number.
+ * USD per 1M input tokens for the embedding model. Confirmed 2026-07-20
+ * against developers.openai.com/api/docs/pricing — text-embedding-3-small
+ * at $0.02 per 1M input tokens, consistent with the "$0.00002 per topic"
+ * estimate above (~1K tokens/topic × $0.02/1M). `cost_usd` is nullable,
+ * so a missing usage count records null rather than a fabricated number.
  */
 const EMBEDDING_PRICE_PER_1M_TOKENS = 0.02
 
