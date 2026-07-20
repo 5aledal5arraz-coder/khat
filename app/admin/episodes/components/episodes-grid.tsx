@@ -33,6 +33,9 @@ import {
   deleteEpisode,
   assignEpisodeGuest,
   assignEpisodeCategory,
+  toggleEpisodeVisibility,
+  updateEpisodeTitle,
+  removeEpisodeOverride,
 } from "../actions"
 import type { AdminEpisodeView, AdminGuestView } from "./shared"
 import type { CategoryWithCount } from "./shared"
@@ -505,6 +508,76 @@ export function EpisodesGrid({
     [categories, router],
   )
 
+  /* ─── Visibility toggle (per-episode) ─── */
+
+  // Routed through the grid — like delete/assign — so a role rejection
+  // (VIEWER) surfaces the action's { success:false, error } in the shared
+  // banner instead of the previous silent no-op in the card/row.
+  const handleToggleVisibility = useCallback(
+    (episodeId: string) => {
+      const willHide = !hiddenSet.has(episodeId)
+      setActionError(null)
+      startTransition(async () => {
+        const result = await safeAction(() => toggleEpisodeVisibility(episodeId))
+        if (!result.success) {
+          setActionError(result.error || "فشل تغيير حالة عرض الحلقة")
+          return
+        }
+        setSuccessMessage(willHide ? "تم إخفاء الحلقة" : "تم إظهار الحلقة")
+        router.refresh()
+      })
+    },
+    [hiddenSet, router],
+  )
+
+  /* ─── Title override edit / reset (per-episode) ─── */
+
+  // Routed through the grid — same plumbing as delete/assign/visibility — so a
+  // role rejection (VIEWER) surfaces the action's { success:false, error } in
+  // the shared banner instead of the previous silent no-op in the card/row.
+  // These resolve a promise (unlike the void visibility toggle) so the card/row
+  // can keep their inline-editor "saving"/"editing" state in sync with the
+  // action's completion.
+  const handleUpdateTitle = useCallback(
+    (episodeId: string, originalTitle: string, customTitle: string) =>
+      new Promise<void>((resolve) => {
+        setActionError(null)
+        startTransition(async () => {
+          const result = await safeAction(() =>
+            updateEpisodeTitle(episodeId, originalTitle, customTitle),
+          )
+          if (!result.success) {
+            setActionError(result.error || "فشل تعديل العنوان")
+            resolve()
+            return
+          }
+          setSuccessMessage("تم تحديث العنوان")
+          router.refresh()
+          resolve()
+        })
+      }),
+    [router],
+  )
+
+  const handleRemoveOverride = useCallback(
+    (episodeId: string) =>
+      new Promise<void>((resolve) => {
+        setActionError(null)
+        startTransition(async () => {
+          const result = await safeAction(() => removeEpisodeOverride(episodeId))
+          if (!result.success) {
+            setActionError(result.error || "فشل استعادة النسخة الأصلية")
+            resolve()
+            return
+          }
+          setSuccessMessage("تمت استعادة النسخة الأصلية")
+          router.refresh()
+          resolve()
+        })
+      }),
+    [router],
+  )
+
   // Map from id → resolved title (override > original) for the dialog preview
   const resolvedTitleMap = useMemo(() => {
     const m = new Map<string, string>()
@@ -536,6 +609,10 @@ export function EpisodesGrid({
         handleAssignGuest(episode.id, guestId),
       onAssignCategory: (categoryId: string | null) =>
         handleAssignCategory(episode.id, categoryId),
+      onToggleVisibility: () => handleToggleVisibility(episode.id),
+      onUpdateTitle: (originalTitle: string, customTitle: string) =>
+        handleUpdateTitle(episode.id, originalTitle, customTitle),
+      onRemoveOverride: () => handleRemoveOverride(episode.id),
       isAssigning: isPending,
       guests,
       categories,
@@ -552,6 +629,9 @@ export function EpisodesGrid({
       openSingleDelete,
       handleAssignGuest,
       handleAssignCategory,
+      handleToggleVisibility,
+      handleUpdateTitle,
+      handleRemoveOverride,
       isPending,
       guests,
       categories,

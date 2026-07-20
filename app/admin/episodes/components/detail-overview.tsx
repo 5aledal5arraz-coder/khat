@@ -67,6 +67,12 @@ export function DetailOverview({
   const [sponsorId, setSponsorId] = useState(currentSponsorId || "")
   const [brandLine, setBrandLine] = useState(currentBrandLine || "")
   const [editingBrandLine, setEditingBrandLine] = useState(false)
+  const [visibilityError, setVisibilityError] = useState<string | null>(null)
+  const [descError, setDescError] = useState<string | null>(null)
+  const [guestError, setGuestError] = useState<string | null>(null)
+  const [sponsorError, setSponsorError] = useState<string | null>(null)
+  const [titleError, setTitleError] = useState<string | null>(null)
+  const [resetError, setResetError] = useState<string | null>(null)
   const titleInputRef = useRef<HTMLInputElement>(null)
   const descTextareaRef = useRef<HTMLTextAreaElement>(null)
 
@@ -92,8 +98,15 @@ export function DetailOverview({
 
   const handleSaveTitle = async () => {
     setSaving(true)
-    await updateEpisodeTitle(episode.id, originalTitle, title)
+    setTitleError(null)
+    // Surface a role rejection (VIEWER) instead of swallowing the Result;
+    // keep the editor open on failure so the user sees why and can retry.
+    const result = await updateEpisodeTitle(episode.id, originalTitle, title)
     setSaving(false)
+    if (!result.success) {
+      setTitleError(result.error ?? "فشل تعديل العنوان")
+      return
+    }
     setEditingTitle(false)
   }
 
@@ -104,8 +117,15 @@ export function DetailOverview({
 
   const handleSaveDesc = async () => {
     setSavingDesc(true)
-    await updateEpisodeDescription(episode.id, description)
+    setDescError(null)
+    // Surface a role rejection (VIEWER) instead of swallowing the Result;
+    // keep the editor open on failure so the user sees why and can retry.
+    const result = await updateEpisodeDescription(episode.id, description)
     setSavingDesc(false)
+    if (!result.success) {
+      setDescError(result.error ?? "فشل تعديل الوصف")
+      return
+    }
     setEditingDesc(false)
   }
 
@@ -116,42 +136,68 @@ export function DetailOverview({
 
   const handleReset = async () => {
     setSaving(true)
-    await removeEpisodeOverride(episode.id)
+    setResetError(null)
+    const result = await removeEpisodeOverride(episode.id)
+    setSaving(false)
+    if (!result.success) {
+      setResetError(result.error ?? "فشل استعادة النسخة الأصلية")
+      return
+    }
     setTitle(originalTitle)
     setDescription(episode.description)
-    setSaving(false)
   }
 
   const handleGuestChange = async (guestId: string) => {
     setAssigningGuest(true)
-    await assignEpisodeGuest(episode.id, guestId || null)
+    setGuestError(null)
+    const result = await assignEpisodeGuest(episode.id, guestId || null)
+    if (!result.success) {
+      setGuestError(result.error ?? "فشل تعيين الضيف")
+    }
     setAssigningGuest(false)
   }
 
   const handleSponsorChange = async (newPartnerId: string) => {
     setAssigningSponsor(true)
+    setSponsorError(null)
     setSponsorId(newPartnerId)
-    await assignEpisodeSponsorAction(
+    const result = await assignEpisodeSponsorAction(
       episode.id,
       newPartnerId || null,
       brandLine || undefined
     )
+    if (!result.success) {
+      setSponsorError(result.error ?? "فشل تعيين الشريك")
+    }
     setAssigningSponsor(false)
   }
 
   const handleSaveBrandLine = async () => {
     setAssigningSponsor(true)
-    await assignEpisodeSponsorAction(
+    setSponsorError(null)
+    const result = await assignEpisodeSponsorAction(
       episode.id,
       sponsorId || null,
       brandLine || undefined
     )
     setAssigningSponsor(false)
+    // Keep the brand-line editor open on failure so the message shows.
+    if (!result.success) {
+      setSponsorError(result.error ?? "فشل حفظ عبارة الشريك")
+      return
+    }
     setEditingBrandLine(false)
   }
 
   const handleToggleVisibility = async () => {
-    await toggleEpisodeVisibility(episode.id)
+    setVisibilityError(null)
+    // On success the action revalidates this path and `isHidden` re-renders.
+    // On failure (e.g. a VIEWER without permission) surface why instead of
+    // silently swallowing the { success:false, error } Result.
+    const result = await toggleEpisodeVisibility(episode.id)
+    if (!result.success) {
+      setVisibilityError(result.error ?? "فشل تغيير حالة عرض الحلقة")
+    }
   }
 
   return (
@@ -190,7 +236,10 @@ export function DetailOverview({
               )}
               {!editingTitle && (
                 <button
-                  onClick={() => setEditingTitle(true)}
+                  onClick={() => {
+                    setTitleError(null)
+                    setEditingTitle(true)
+                  }}
                   className="flex h-7 w-7 items-center justify-center rounded-lg text-muted-foreground transition-all hover:bg-muted/60 hover:text-foreground"
                 >
                   <Pencil className="h-3.5 w-3.5" />
@@ -198,6 +247,9 @@ export function DetailOverview({
               )}
             </div>
           </div>
+          {resetError && (
+            <p className="mb-2 text-[12px] text-destructive">{resetError}</p>
+          )}
           {editingTitle ? (
             <div className="space-y-3">
               <Input
@@ -230,6 +282,9 @@ export function DetailOverview({
                   إلغاء
                 </Button>
               </div>
+              {titleError && (
+                <p className="text-[12px] text-destructive">{titleError}</p>
+              )}
             </div>
           ) : (
             <div>
@@ -253,7 +308,10 @@ export function DetailOverview({
             </label>
             {!editingDesc && (
               <button
-                onClick={() => setEditingDesc(true)}
+                onClick={() => {
+                  setDescError(null)
+                  setEditingDesc(true)
+                }}
                 className="flex h-7 w-7 items-center justify-center rounded-lg text-muted-foreground transition-all hover:bg-muted/60 hover:text-foreground"
               >
                 <Pencil className="h-3.5 w-3.5" />
@@ -297,6 +355,9 @@ export function DetailOverview({
                   إلغاء
                 </Button>
               </div>
+              {descError && (
+                <p className="text-[12px] text-destructive">{descError}</p>
+              )}
             </div>
           ) : displayDescription ? (
             <p
@@ -381,6 +442,9 @@ export function DetailOverview({
                 </option>
               ))}
             </select>
+            {guestError && (
+              <p className="mt-2 text-[12px] text-destructive">{guestError}</p>
+            )}
           </div>
         </GlowCard>
 
@@ -453,6 +517,9 @@ export function DetailOverview({
                 )}
               </div>
             )}
+            {sponsorError && (
+              <p className="mt-2 text-[12px] text-destructive">{sponsorError}</p>
+            )}
           </div>
         </GlowCard>
 
@@ -498,6 +565,9 @@ export function DetailOverview({
                   </>
                 )}
               </Button>
+              {visibilityError && (
+                <p className="text-[12px] text-destructive">{visibilityError}</p>
+              )}
             </div>
           </div>
         </GlowCard>

@@ -18,11 +18,6 @@ import {
 } from "lucide-react"
 import { Input } from "@/components/ui/input"
 import { getYouTubeId, formatArabicCount } from "@/lib/utils"
-import {
-  updateEpisodeTitle,
-  removeEpisodeOverride,
-  toggleEpisodeVisibility,
-} from "../actions"
 import { ActionMenu, MenuItem, formatDuration, formatDate } from "./shared"
 import type { AdminEpisodeView, AdminGuestView, CategoryWithCount } from "./shared"
 import type { EpisodeOverride, EpisodeQuotesEntry } from "@/types/episodes"
@@ -37,6 +32,9 @@ interface EpisodeRowProps {
   onDelete: () => void
   onAssignGuest: (guestId: string | null) => void
   onAssignCategory: (categoryId: string | null) => void
+  onToggleVisibility: () => void
+  onUpdateTitle: (originalTitle: string, customTitle: string) => Promise<void>
+  onRemoveOverride: () => Promise<void>
   isAssigning?: boolean
   guests: AdminGuestView[]
   categories: CategoryWithCount[]
@@ -54,6 +52,9 @@ export function EpisodeRow({
   onToggleSelect,
   onDelete,
   onAssignGuest,
+  onToggleVisibility,
+  onUpdateTitle,
+  onRemoveOverride,
   guests,
   categories,
   currentGuestId,
@@ -79,7 +80,9 @@ export function EpisodeRow({
 
   const handleSave = async () => {
     setSaving(true)
-    await updateEpisodeTitle(episode.id, originalTitle, title)
+    // Routed through the grid parent, which surfaces a role rejection (VIEWER)
+    // in the shared banner. Await keeps the "saving" spinner until it lands.
+    await onUpdateTitle(originalTitle, title)
     setSaving(false)
     setEditing(false)
   }
@@ -91,17 +94,13 @@ export function EpisodeRow({
 
   const handleReset = async () => {
     setSaving(true)
-    await removeEpisodeOverride(episode.id)
+    await onRemoveOverride()
     setTitle(originalTitle)
     setSaving(false)
   }
 
   const handleGuestChange = (guestId: string) => {
     onAssignGuest(guestId || null)
-  }
-
-  const handleToggleVisibility = async () => {
-    await toggleEpisodeVisibility(episode.id)
   }
 
   const handleRowClick = () => {
@@ -309,7 +308,7 @@ export function EpisodeRow({
                 icon={isHidden ? Eye : EyeOff}
                 label={isHidden ? "إظهار الحلقة" : "إخفاء الحلقة"}
                 onClick={() => {
-                  handleToggleVisibility()
+                  onToggleVisibility()
                   close()
                 }}
               />

@@ -47,13 +47,31 @@ export async function getAdminAuthUser(): Promise<AdminUser | null> {
 
 
 /**
- * Require admin access for server actions. Throws redirect if not authenticated.
+ * Require admin access for server actions / RSC reads. Redirects (throws) when
+ * there is no valid, active admin session.
+ *
+ * `!user.is_active` is defense in depth: getAdminAuthUser() → verifyAdminSession()
+ * already filters `is_active = true` in SQL, so a disabled account yields
+ * `user = null` and is caught by `!user` today. Keeping the explicit check makes
+ * this guard correct even if that SQL filter is ever relaxed, and aligns it with
+ * requireActionRole / requireAdminAPI / requireRole, which all check is_active.
+ * It does NOT weaken the active case: an active EDITOR/VIEWER reads exactly as before.
+ *
+ * Redirect target mirrors app/admin/layout.tsx: a stale/disabled session still
+ * carries a valid-looking `__admin_session` cookie, and the middleware bounces
+ * `/admin/login` → `/admin` whenever that cookie is present (existence-only
+ * check, no DB lookup). Sending such a request straight to `/admin/login` would
+ * trap the browser in a login↔admin loop, so we route it through
+ * `/admin/clear-session` (deletes the DB session + clears the cookie, then lands
+ * on `/admin/login`). A genuinely unauthenticated request (no cookie) has
+ * nothing to clear and goes directly to `/admin/login`.
  */
 export async function requireAdmin(): Promise<void> {
   const user = await getAdminAuthUser()
-  if (!user) {
+  if (!user || !user.is_active) {
+    const token = (await cookies()).get('__admin_session')?.value
     const { redirect } = await import('next/navigation')
-    redirect('/admin/login')
+    redirect(token ? '/admin/clear-session' : '/admin/login')
   }
 }
 

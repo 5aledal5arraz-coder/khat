@@ -45,14 +45,22 @@ export function FeatureFlagsForm({ initial }: { initial: FeatureFlags }) {
   const [flags, setFlags] = useState<FeatureFlags>(initial)
   const [isPending, startTransition] = useTransition()
   const [saved, setSaved] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
   const dirty = (Object.keys(flags) as (keyof FeatureFlags)[]).some((k) => flags[k] !== initial[k])
 
   function handleSave() {
     setSaved(false)
+    setError(null)
     startTransition(async () => {
-      await updateFeatureFlags(flags)
-      setSaved(true)
+      // See site-metadata-form: catch the role-gate throw at the boundary so a
+      // non-ADMIN sees a clean inline message instead of the panel error boundary.
+      try {
+        await updateFeatureFlags(flags)
+        setSaved(true)
+      } catch {
+        setError("تعذّر حفظ الإعدادات — تحقّق من صلاحيتك أو أعد المحاولة.")
+      }
     })
   }
 
@@ -107,6 +115,7 @@ export function FeatureFlagsForm({ initial }: { initial: FeatureFlags }) {
             حفظ
           </Button>
           {saved && !dirty && <span className="text-sm text-green-700">تم الحفظ</span>}
+          {error && <span className="text-sm text-destructive">{error}</span>}
         </div>
       </CardContent>
     </Card>

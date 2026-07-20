@@ -51,6 +51,10 @@ next-env.d.ts
 # QA scratch — safe to delete
 _QA_TRASH_delete_me/
 
+# Agent/session scratch — patches, reports, DB backups written during dev
+# sessions. May contain sensitive data (backup dumps); never commit.
+scratchpad/
+
 # Claude Code local permission allowlist — machine-local, may capture
 # credential-bearing commands; scrubbed from history 2026-07-11. Never commit.
 .claude/settings.local.json

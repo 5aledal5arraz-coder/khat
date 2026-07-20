@@ -30,6 +30,9 @@ vi.mock("@/lib/admin/auth", async (importOriginal) => {
   return { ...actual, verifyAdminSession: vi.fn() }
 })
 
+// requireAdmin() redirects via a dynamic import of next/navigation.
+vi.mock("next/navigation", () => ({ redirect: vi.fn() }))
+
 // Mock the maintenance flag + rate limiter so middleware() runs without a DB.
 vi.mock("@/lib/site-settings", () => ({ getMaintenanceFlag: vi.fn(async () => false) }))
 vi.mock("@/lib/middleware/rate-limit", () => ({
@@ -39,8 +42,9 @@ vi.mock("@/lib/middleware/rate-limit", () => ({
 }))
 
 import { cookies, headers } from "next/headers"
+import { redirect } from "next/navigation"
 import { verifyAdminSession } from "@/lib/admin/auth"
-import { requireAdminAPI } from "@/lib/api-utils"
+import { requireAdmin, requireAdminAPI } from "@/lib/api-utils"
 
 function makeUser(role: AdminRole, is_active = true): AdminUser {
   return {
@@ -131,6 +135,54 @@ describe("requireAdminAPI() write-role gate", () => {
     arrange({ role: null, method: "POST" })
     const res = await requireAdminAPI()
     expect(res?.status).toBe(401)
+  })
+})
+
+describe("requireAdmin() read-path gate (is_active + loop-safe redirect)", () => {
+  beforeEach(() => vi.clearAllMocks())
+
+  // Drives cookie presence and the resolved session user independently, so we
+  // can model a stale cookie (present) whose session no longer resolves.
+  function arrangeAuth(opts: { cookie: boolean; user: AdminUser | null }) {
+    vi.mocked(cookies).mockResolvedValue({
+      get: (name: string) =>
+        opts.cookie && name === "__admin_session" ? { value: "tok" } : undefined,
+    } as unknown as Awaited<ReturnType<typeof cookies>>)
+    vi.mocked(verifyAdminSession).mockResolvedValue(opts.user)
+  }
+
+  it("lets an active VIEWER read (no redirect — unchanged behaviour)", async () => {
+    arrangeAuth({ cookie: true, user: makeUser("VIEWER", true) })
+    await requireAdmin()
+    expect(redirect).not.toHaveBeenCalled()
+  })
+
+  it("lets an active ADMIN read (no redirect)", async () => {
+    arrangeAuth({ cookie: true, user: makeUser("ADMIN", true) })
+    await requireAdmin()
+    expect(redirect).not.toHaveBeenCalled()
+  })
+
+  it("sends a truly unauthenticated request (no cookie) to /admin/login", async () => {
+    arrangeAuth({ cookie: false, user: null })
+    await requireAdmin()
+    expect(redirect).toHaveBeenCalledWith("/admin/login")
+  })
+
+  it("sends a stale/expired session (cookie present, no user) through /admin/clear-session", async () => {
+    // Straight-to-/admin/login would loop: middleware bounces /admin/login →
+    // /admin while the cookie is present. clear-session deletes it first.
+    arrangeAuth({ cookie: true, user: null })
+    await requireAdmin()
+    expect(redirect).toHaveBeenCalledWith("/admin/clear-session")
+  })
+
+  it("bounces a disabled account via clear-session — defense in depth", async () => {
+    // verifyAdminSession() filters is_active in SQL today (→ null, covered
+    // above); this models the guard still holding if that filter is relaxed.
+    arrangeAuth({ cookie: true, user: makeUser("ADMIN", false) })
+    await requireAdmin()
+    expect(redirect).toHaveBeenCalledWith("/admin/clear-session")
   })
 })
 

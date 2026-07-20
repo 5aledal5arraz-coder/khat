@@ -15,6 +15,7 @@ export function SEOForm({ initial }: { initial: SEODefaults }) {
   const [data, setData] = useState<SEODefaults>(initial)
   const [isPending, startTransition] = useTransition()
   const [saved, setSaved] = useState(false)
+  const [error, setError] = useState<string | null>(null)
   const [newKeyword, setNewKeyword] = useState("")
 
   function addKeyword() {
@@ -31,9 +32,16 @@ export function SEOForm({ initial }: { initial: SEODefaults }) {
 
   function handleSave() {
     setSaved(false)
+    setError(null)
     startTransition(async () => {
-      await updateSEODefaults(data)
-      setSaved(true)
+      // See site-metadata-form: catch the role-gate throw at the boundary so a
+      // non-ADMIN sees a clean inline message instead of the panel error boundary.
+      try {
+        await updateSEODefaults(data)
+        setSaved(true)
+      } catch {
+        setError("تعذّر حفظ الإعدادات — تحقّق من صلاحيتك أو أعد المحاولة.")
+      }
     })
   }
 
@@ -106,6 +114,7 @@ export function SEOForm({ initial }: { initial: SEODefaults }) {
             حفظ
           </Button>
           {saved && <span className="text-sm text-green-700">تم الحفظ</span>}
+          {error && <span className="text-sm text-destructive">{error}</span>}
         </div>
       </CardContent>
     </Card>

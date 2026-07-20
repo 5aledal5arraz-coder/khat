@@ -14,12 +14,23 @@ export function SiteMetadataForm({ initial }: { initial: SiteMetadata }) {
   const [data, setData] = useState<SiteMetadata>(initial)
   const [isPending, startTransition] = useTransition()
   const [saved, setSaved] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
   function handleSave() {
     setSaved(false)
+    setError(null)
     startTransition(async () => {
-      await updateSiteMetadata(data)
-      setSaved(true)
+      // The action rejects a non-ADMIN via `throw new Error(gate.error)`. An
+      // uncaught throw inside a transition escapes to the panel error boundary
+      // ("خطأ غير متوقع في اللوحة"); catch it at the boundary and show a clean
+      // inline message. (Next.js redacts the thrown message in production, so
+      // we render a stable Arabic string rather than err.message.)
+      try {
+        await updateSiteMetadata(data)
+        setSaved(true)
+      } catch {
+        setError("تعذّر حفظ الإعدادات — تحقّق من صلاحيتك أو أعد المحاولة.")
+      }
     })
   }
 
@@ -70,6 +81,7 @@ export function SiteMetadataForm({ initial }: { initial: SiteMetadata }) {
             حفظ
           </Button>
           {saved && <span className="text-sm text-green-700">تم الحفظ</span>}
+          {error && <span className="text-sm text-destructive">{error}</span>}
         </div>
       </CardContent>
     </Card>
