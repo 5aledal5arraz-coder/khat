@@ -87,14 +87,14 @@ export async function requireAdmin(): Promise<void> {
  *   • anything else    → minimum EDITOR. Write handlers historically called
  *     this bare, which meant a read-only VIEWER could mutate content.
  *
- * The method comes from the `x-request-method` header the middleware sets
+ * The method comes from the `x-request-method` header the proxy sets
  * on every request via `.set()`, which overwrites any client-supplied value.
  * This is only unforgeable while the request actually passes through the
- * middleware — the guarantee therefore depends on `config.matcher` in
- * middleware.ts covering the path. The explicit `/api/:path*` matcher entry
+ * proxy — the guarantee therefore depends on `config.matcher` in
+ * proxy.ts covering the path. The explicit `/api/:path*` matcher entry
  * exists precisely so dotted [id] segments (e.g. `/api/admin/x/a.b`) can't
- * skip the middleware and smuggle a forged `x-request-method: GET`. If the
- * header is missing — i.e. the handler ran outside the middleware pipeline —
+ * skip the proxy and smuggle a forged `x-request-method: GET`. If the
+ * header is missing — i.e. the handler ran outside the proxy pipeline —
  * we fail CLOSED and treat the request as a write.
  */
 export async function requireAdminAPI(minRole?: AdminRole): Promise<NextResponse | null> {

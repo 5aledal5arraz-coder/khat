@@ -215,9 +215,9 @@ describe("middleware config.matcher coverage", () => {
 
   // Imported lazily inside the describe so the file's top-level mocks are
   // already installed (middleware pulls in site-settings + rate-limit).
-  let config: typeof import("@/middleware").config
+  let config: typeof import("@/proxy").config
   beforeEach(async () => {
-    ;({ config } = await import("@/middleware"))
+    ;({ config } = await import("@/proxy"))
   })
 
   it("(هـ) covers dotted /api/admin [id] segments — the bypass fix", () => {
@@ -252,7 +252,7 @@ describe("middleware config.matcher coverage", () => {
 
 describe("middleware() overwrites a forged x-request-method", () => {
   it("(هـ end-to-end) a dotted write with a forged GET header is corrected to the real method", async () => {
-    const { middleware } = await import("@/middleware")
+    const { proxy } = await import("@/proxy")
     const { NextRequest } = await import("next/server")
 
     const req = new NextRequest("http://localhost/api/admin/guests/abc.def", {
@@ -263,7 +263,7 @@ describe("middleware() overwrites a forged x-request-method", () => {
       },
     })
 
-    const res = await middleware(req)
+    const res = await proxy(req)
 
     // Next encodes forwarded request headers on the response. The middleware
     // set x-request-method via .set(), so the real method (PUT) must win over

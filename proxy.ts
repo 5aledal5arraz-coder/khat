@@ -6,8 +6,10 @@ import {
   policyForRequest,
 } from '@/lib/middleware/rate-limit'
 
-// Node.js runtime so we can query the database (pg driver) from the proxy.
-export const runtime = 'nodejs'
+// Proxy always runs on the Node.js runtime in Next 16 (so it can query the
+// database via the pg driver). A `runtime` route-segment config is no longer
+// permitted in a proxy file — Next throws E1031 at build if one is present —
+// so it is intentionally omitted; Node.js is the guaranteed default.
 
 // ─── A6 — Content-Security-Policy ─────────────────────────────────────
 //
@@ -117,7 +119,7 @@ const CSP_HEADER_VALUE = Object.entries(CSP_DIRECTIVES)
   .map(([directive, sources]) => `${directive} ${sources.join(' ')}`)
   .join('; ')
 
-export async function middleware(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   const pathname = request.nextUrl.pathname
   // Phase 2 — surface the request pathname to server layouts so the root
   // layout can avoid mounting public-site chrome (`<Header>`, `<Footer>`,

@@ -27,6 +27,10 @@ const eslintConfig = defineConfig([
     // Wave 4: scripts/_archive holds historical one-off scripts that
     // are not part of the active test/build loop. Don't lint them.
     "scripts/_archive/**",
+    // .claude holds agent worktrees (a duplicated repo checkout + large
+    // build artifacts). Linting them produces thousands of phantom errors
+    // from a copy that is not part of this project's source.
+    ".claude/**",
   ]),
 ]);
 
