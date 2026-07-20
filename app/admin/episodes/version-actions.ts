@@ -5,7 +5,7 @@ import { getVersionHistory, getVersion, saveVersion } from "@/lib/episodes/versi
 import { setEpisodeOverride } from "@/lib/episodes/overrides"
 import { getQuotesConfig, saveQuotesConfig } from "@/lib/episodes/quotes"
 import { setEpisodeEnrichment } from "@/lib/episodes/enrichments"
-import { requireAdmin } from "@/lib/api-utils"
+import { requireAdmin, requireActionRole } from "@/lib/api-utils"
 import type { EpisodeVersion } from "@/types/database"
 
 export async function getVersionHistoryAction(episodeId: string): Promise<EpisodeVersion[]> {
@@ -14,7 +14,8 @@ export async function getVersionHistoryAction(episodeId: string): Promise<Episod
 }
 
 export async function restoreEpisodeVersionAction(versionId: string) {
-  await requireAdmin()
+  const gate = await requireActionRole("EDITOR")
+  if (!gate.ok) return { success: false, error: gate.error }
 
   const version = await getVersion(versionId)
   if (!version) return { success: false, error: "النسخة غير موجودة" }

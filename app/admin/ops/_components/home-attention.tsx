@@ -36,7 +36,7 @@ export function HomeAttention({
           </span>
         </h2>
         {queue.length === 0 ? (
-          <div className="rounded-2xl border border-border/60 bg-white p-4 text-[12.5px] text-muted-foreground">
+          <div className="rounded-2xl border border-border/60 bg-card p-4 text-[12.5px] text-muted-foreground">
             لا توجد حلقات نشطة بانتظار قرار. ابدأ موسماً جديداً من «المواسم».
           </div>
         ) : (
@@ -176,7 +176,7 @@ function NextActionRow({
       ? "border-rose-500/30 bg-rose-500/5"
       : tone === "warning"
         ? "border-amber-500/30 bg-amber-500/5"
-        : "border-violet-500/20 bg-white"
+        : "border-violet-500/20 bg-card"
   const toneCta =
     tone === "urgent"
       ? "border-rose-500/40 bg-rose-500/10 text-rose-700 hover:bg-rose-500/20"

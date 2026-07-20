@@ -277,7 +277,7 @@ export function PartnershipsForm({ initialPartners }: PartnershipsFormProps) {
               <img
                 src={partner.logo_url}
                 alt={partner.name}
-                className="h-10 w-10 rounded-lg border border-border/30 object-contain bg-white p-1"
+                className="h-10 w-10 rounded-lg border border-border/30 object-contain bg-card p-1"
               />
             ) : (
               <div className="h-10 w-10 rounded-lg border border-border/30 bg-muted flex items-center justify-center text-xs text-muted-foreground">
@@ -442,7 +442,7 @@ function ImageUploadField({
           <img
             src={value}
             alt="معاينة"
-            className="h-16 rounded-xl border border-border/30 object-contain bg-white p-1"
+            className="h-16 rounded-xl border border-border/30 object-contain bg-card p-1"
             onError={(e) => { (e.target as HTMLImageElement).style.display = "none" }}
           />
           <button

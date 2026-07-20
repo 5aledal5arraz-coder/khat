@@ -1,7 +1,7 @@
 "use server"
 
 import { revalidatePath, revalidateTag } from "next/cache"
-import { requireAdmin } from "@/lib/api-utils"
+import { requireActionRole } from "@/lib/api-utils"
 import {
   createTeaser,
   updateTeaser,
@@ -31,7 +31,8 @@ function revalidateTeaser() {
 // (required), poster (optional), publish/expire window (optional). The guest
 // is derived server-side from the EIR — never free-typed (Sara note 7/15).
 export async function createTeaserAction(formData: FormData): Promise<ActionResult> {
-  await requireAdmin()
+  const gate = await requireActionRole("EDITOR")
+  if (!gate.ok) return { success: false, error: gate.error }
 
   const eirId = (formData.get("eirId") as string)?.trim() || ""
   const title = (formData.get("title") as string)?.trim() || ""
@@ -77,7 +78,8 @@ export async function updateTeaserAction(
   id: string,
   formData: FormData,
 ): Promise<ActionResult> {
-  await requireAdmin()
+  const gate = await requireActionRole("EDITOR")
+  if (!gate.ok) return { success: false, error: gate.error }
 
   const title = (formData.get("title") as string)?.trim() || ""
   const posterImage = (formData.get("posterImage") as string)?.trim() || null
@@ -95,7 +97,8 @@ export async function updateTeaserAction(
 
 // ─── Delete ──────────────────────────────────────────────────────
 export async function deleteTeaserAction(id: string): Promise<ActionResult> {
-  await requireAdmin()
+  const gate = await requireActionRole("EDITOR")
+  if (!gate.ok) return { success: false, error: gate.error }
   const deleted = await deleteTeaser(id)
   if (!deleted) return { success: false, error: "التيزر غير موجود" }
 
@@ -105,7 +108,8 @@ export async function deleteTeaserAction(id: string): Promise<ActionResult> {
 
 // ─── Activate / deactivate (single active enforced in lib) ───────
 export async function activateTeaserAction(id: string): Promise<ActionResult> {
-  await requireAdmin()
+  const gate = await requireActionRole("EDITOR")
+  if (!gate.ok) return { success: false, error: gate.error }
   const activated = await activateTeaser(id)
   if (!activated) return { success: false, error: "التيزر غير موجود" }
 
@@ -114,7 +118,8 @@ export async function activateTeaserAction(id: string): Promise<ActionResult> {
 }
 
 export async function deactivateTeaserAction(id: string): Promise<ActionResult> {
-  await requireAdmin()
+  const gate = await requireActionRole("EDITOR")
+  if (!gate.ok) return { success: false, error: gate.error }
   const deactivated = await deactivateTeaser(id)
   if (!deactivated) return { success: false, error: "التيزر غير موجود" }
 

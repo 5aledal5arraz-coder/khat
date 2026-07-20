@@ -98,7 +98,7 @@ export function DetailConversation({ episodeId, enrichment }: DetailConversation
             onChange={(e) => setWhyThisConversation(e.target.value)}
             placeholder="لماذا اخترنا هذا الضيف وهذا الموضوع..."
             dir="auto"
-            className="w-full resize-none rounded-xl border border-border/50 bg-white/[0.02] px-4 py-3 text-sm leading-relaxed placeholder:text-muted-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary/30"
+            className="w-full resize-none rounded-xl border border-border/50 bg-card/[0.02] px-4 py-3 text-sm leading-relaxed placeholder:text-muted-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary/30"
             rows={4}
           />
         </div>
@@ -115,7 +115,7 @@ export function DetailConversation({ episodeId, enrichment }: DetailConversation
             onChange={(e) => setCentralQuestion(e.target.value)}
             placeholder="ما السؤال الأساسي الذي تدور حوله الحلقة؟"
             dir="auto"
-            className="h-11 rounded-xl border-border/50 bg-white/[0.02]"
+            className="h-11 rounded-xl border-border/50 bg-card/[0.02]"
           />
         </div>
       </GlowCard>
@@ -134,7 +134,7 @@ export function DetailConversation({ episodeId, enrichment }: DetailConversation
                 onChange={(e) => setWhoIsItFor(e.target.value)}
                 placeholder="هذه الحلقة مناسبة لـ..."
                 dir="auto"
-                className="w-full resize-none rounded-xl border border-border/50 bg-white/[0.02] px-4 py-3 text-sm leading-relaxed placeholder:text-muted-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary/30"
+                className="w-full resize-none rounded-xl border border-border/50 bg-card/[0.02] px-4 py-3 text-sm leading-relaxed placeholder:text-muted-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary/30"
                 rows={2}
               />
             </div>
@@ -145,7 +145,7 @@ export function DetailConversation({ episodeId, enrichment }: DetailConversation
                 onChange={(e) => setWhoIsItNotFor(e.target.value)}
                 placeholder="قد لا تناسبك هذه الحلقة إذا..."
                 dir="auto"
-                className="w-full resize-none rounded-xl border border-border/50 bg-white/[0.02] px-4 py-3 text-sm leading-relaxed placeholder:text-muted-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary/30"
+                className="w-full resize-none rounded-xl border border-border/50 bg-card/[0.02] px-4 py-3 text-sm leading-relaxed placeholder:text-muted-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary/30"
                 rows={2}
               />
             </div>
@@ -156,7 +156,7 @@ export function DetailConversation({ episodeId, enrichment }: DetailConversation
                 onChange={(e) => setWhatYouGain(e.target.value)}
                 placeholder="بعد مشاهدة هذه الحلقة ستكتسب..."
                 dir="auto"
-                className="w-full resize-none rounded-xl border border-border/50 bg-white/[0.02] px-4 py-3 text-sm leading-relaxed placeholder:text-muted-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary/30"
+                className="w-full resize-none rounded-xl border border-border/50 bg-card/[0.02] px-4 py-3 text-sm leading-relaxed placeholder:text-muted-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary/30"
                 rows={2}
               />
             </div>
@@ -182,14 +182,14 @@ export function DetailConversation({ episodeId, enrichment }: DetailConversation
                 onChange={(e) => node.setTitle(e.target.value)}
                 placeholder="العنوان"
                 dir="auto"
-                className="h-9 rounded-lg border-border/50 bg-white/[0.02] text-sm"
+                className="h-9 rounded-lg border-border/50 bg-card/[0.02] text-sm"
               />
               <textarea
                 value={node.desc}
                 onChange={(e) => node.setDesc(e.target.value)}
                 placeholder="الوصف"
                 dir="auto"
-                className="w-full resize-none rounded-lg border border-border/50 bg-white/[0.02] px-3 py-2 text-sm leading-relaxed placeholder:text-muted-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary/30"
+                className="w-full resize-none rounded-lg border border-border/50 bg-card/[0.02] px-3 py-2 text-sm leading-relaxed placeholder:text-muted-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary/30"
                 rows={2}
               />
             </div>
@@ -208,14 +208,14 @@ export function DetailConversation({ episodeId, enrichment }: DetailConversation
             onChange={(e) => setClipUrl(e.target.value)}
             placeholder="رابط يوتيوب للمقطع الحصري"
             dir="ltr"
-            className="h-11 rounded-xl border-border/50 bg-white/[0.02]"
+            className="h-11 rounded-xl border-border/50 bg-card/[0.02]"
           />
           <textarea
             value={clipMessage}
             onChange={(e) => setClipMessage(e.target.value)}
             placeholder="رسالة أو تعليق من الضيف..."
             dir="auto"
-            className="w-full resize-none rounded-xl border border-border/50 bg-white/[0.02] px-4 py-3 text-sm leading-relaxed placeholder:text-muted-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary/30"
+            className="w-full resize-none rounded-xl border border-border/50 bg-card/[0.02] px-4 py-3 text-sm leading-relaxed placeholder:text-muted-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary/30"
             rows={3}
           />
         </div>
@@ -248,7 +248,7 @@ export function DetailConversation({ episodeId, enrichment }: DetailConversation
                   onChange={(e) => updateUnsaidItem(i, e.target.value)}
                   placeholder="تأمل أو سؤال لم يُطرح..."
                   dir="auto"
-                  className="flex-1 resize-none rounded-lg border border-border/50 bg-white/[0.02] px-3 py-2 text-sm leading-relaxed placeholder:text-muted-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary/30"
+                  className="flex-1 resize-none rounded-lg border border-border/50 bg-card/[0.02] px-3 py-2 text-sm leading-relaxed placeholder:text-muted-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary/30"
                   rows={2}
                 />
                 {unsaidItems.length > 1 && (

@@ -4,7 +4,7 @@
  * Khat Map v2 — Server Actions.
  *
  * The wizard's entire interaction surface. Every action:
- *   - gates on requireAdmin()
+ *   - gates on requireActionRole("EDITOR") (read-only actions keep requireAdmin)
  *   - returns { success, data? | error } (never throws across the network)
  *   - calls the v2 engine / learning layers, never raw Drizzle
  *   - writes editorial signal via recordDecisionAndFingerprint so the
@@ -20,7 +20,7 @@ import {
   khatMapGuestCandidates,
   khatMapSeasonDecisions,
 } from "@/lib/db/schema/khat-map"
-import { requireAdmin, requireActionRole, getAdminAuthUser } from "@/lib/api-utils"
+import { requireAdmin, requireActionRole } from "@/lib/api-utils"
 import {
   createSeason,
   getSeasonById,
@@ -123,9 +123,9 @@ export async function createV2SeasonAction(input: {
   name?: string
   editorial_controls?: KhatMapEditorialControls
 }): Promise<Result<{ seasonId: string }>> {
-  await requireAdmin()
-  const user = await getAdminAuthUser()
-  if (!user) return { success: false, error: "غير مصرح" }
+  const gate = await requireActionRole("EDITOR")
+  if (!gate.ok) return { success: false, error: gate.error }
+  const user = gate.user
   if (input.episode_count < 6 || input.episode_count > 20) {
     return { success: false, error: "عدد الحلقات يجب أن يكون بين 6 و 20" }
   }
@@ -185,9 +185,9 @@ export async function addManualTopicAction(input: {
   why_matters?: string
   why_now?: string
 }): Promise<Result<{ topic: KhatMapEpisodeCandidate }>> {
-  await requireAdmin()
-  const user = await getAdminAuthUser()
-  if (!user) return { success: false, error: "غير مصرح" }
+  const gate = await requireActionRole("EDITOR")
+  if (!gate.ok) return { success: false, error: gate.error }
+  const user = gate.user
 
   const title = input.working_title?.trim()
   if (!title) return { success: false, error: "عنوان الموضوع مطلوب" }
@@ -246,10 +246,8 @@ export async function removeManualTopicAction(input: {
   seasonId: string
   topicCandidateId: string
 }): Promise<Result<{ ok: true }>> {
-  await requireAdmin()
-  const user = await getAdminAuthUser()
-  if (!user) return { success: false, error: "غير مصرح" }
-
+  const gate = await requireActionRole("EDITOR")
+  if (!gate.ok) return { success: false, error: gate.error }
   const season = await getSeasonById(input.seasonId)
   if (!season) return { success: false, error: "الموسم غير موجود" }
   if (season.wizard_stage && season.wizard_stage !== "topics" && season.wizard_stage !== "setup") {
@@ -283,9 +281,8 @@ export async function updateSeasonControlsAction(input: {
   seasonId: string
   controls: KhatMapEditorialControls
 }): Promise<Result<{ ok: true }>> {
-  await requireAdmin()
-  const user = await getAdminAuthUser()
-  if (!user) return { success: false, error: "غير مصرح" }
+  const gate = await requireActionRole("EDITOR")
+  if (!gate.ok) return { success: false, error: gate.error }
   try {
     const updated = await patchSeasonControls(input.seasonId, input.controls)
     if (!updated) return { success: false, error: "الموسم غير موجود" }
@@ -307,9 +304,8 @@ export async function updateSeasonControlsAction(input: {
 export async function lockSeasonTopicsAction(input: {
   seasonId: string
 }): Promise<Result<{ ok: true }>> {
-  await requireAdmin()
-  const user = await getAdminAuthUser()
-  if (!user) return { success: false, error: "غير مصرح" }
+  const gate = await requireActionRole("EDITOR")
+  if (!gate.ok) return { success: false, error: gate.error }
   if (!db) return { success: false, error: "قاعدة البيانات غير متوفرة" }
   try {
     const season = await getSeasonById(input.seasonId)
@@ -380,9 +376,8 @@ export async function startGuestDiscoveryForEpisodeAction(input: {
    */
   bypassStageGate?: boolean
 }): Promise<Result<{ runId: string }>> {
-  await requireAdmin()
-  const user = await getAdminAuthUser()
-  if (!user) return { success: false, error: "غير مصرح" }
+  const gate = await requireActionRole("EDITOR")
+  if (!gate.ok) return { success: false, error: gate.error }
   if (!db) return { success: false, error: "قاعدة البيانات غير متوفرة" }
   try {
     const season = await getSeasonById(input.seasonId)
@@ -539,9 +534,9 @@ export async function assignDiscoveredGuestToEpisodeAction(input: {
   episodeCandidateId: string
   discoveryCandidateId: string
 }): Promise<Result<{ ok: true; seasonComplete: boolean }>> {
-  await requireAdmin()
-  const user = await getAdminAuthUser()
-  if (!user) return { success: false, error: "غير مصرح" }
+  const gate = await requireActionRole("EDITOR")
+  if (!gate.ok) return { success: false, error: gate.error }
+  const user = gate.user
   if (!db) return { success: false, error: "قاعدة البيانات غير متوفرة" }
   try {
     const { promoteDiscoveryCandidate } = await import("@/lib/discovery/promote")
@@ -631,9 +626,9 @@ export async function generateBatchAction(input: {
   seasonId: string
   size?: number
 }): Promise<Result<BatchResult>> {
-  await requireAdmin()
-  const user = await getAdminAuthUser()
-  if (!user) return { success: false, error: "غير مصرح" }
+  const gate = await requireActionRole("EDITOR")
+  if (!gate.ok) return { success: false, error: gate.error }
+  const user = gate.user
 
   const season = await getSeasonById(input.seasonId)
   if (!season) return { success: false, error: "الموسم غير موجود" }
@@ -726,9 +721,9 @@ async function recordCardDecision(
   target: "pair" | "topic" | "guest",
   input: CardDecisionInput,
 ): Promise<Result<{ decisionId: string }>> {
-  await requireAdmin()
-  const user = await getAdminAuthUser()
-  if (!user) return { success: false, error: "غير مصرح" }
+  const gate = await requireActionRole("EDITOR")
+  if (!gate.ok) return { success: false, error: gate.error }
+  const user = gate.user
 
   try {
     const topic = await loadTopic(input.topicCandidateId)
@@ -843,9 +838,9 @@ export async function alternativeAction(
     replacement_card: BatchCard | null
   }>
 > {
-  await requireAdmin()
-  const user = await getAdminAuthUser()
-  if (!user) return { success: false, error: "غير مصرح" }
+  const gate = await requireActionRole("EDITOR")
+  if (!gate.ok) return { success: false, error: gate.error }
+  const user = gate.user
 
   try {
     const topic = await loadTopic(input.topicCandidateId)
@@ -933,7 +928,8 @@ function mapAltMode(mode: AlternativeMode): {
 export async function undoV2DecisionAction(
   decisionId: string,
 ): Promise<Result<{ restored_candidate_id: string | null }>> {
-  await requireAdmin()
+  const gate = await requireActionRole("EDITOR")
+  if (!gate.ok) return { success: false, error: gate.error }
   try {
     // Load the decision before undo so we know which candidate to restore.
     const rows = await db!
@@ -1162,9 +1158,9 @@ export async function injectGuestAction(input: {
   }
   batchIndex?: number
 }): Promise<Result<{ cards: BatchCard[] }>> {
-  await requireAdmin()
-  const user = await getAdminAuthUser()
-  if (!user) return { success: false, error: "غير مصرح" }
+  const gate = await requireActionRole("EDITOR")
+  if (!gate.ok) return { success: false, error: gate.error }
+  const user = gate.user
   if (!input.guest.full_name.trim()) {
     return { success: false, error: "الاسم مطلوب" }
   }
@@ -1261,9 +1257,9 @@ export async function getCompletionPreviewAction(
 export async function autoCompleteSeasonAction(
   seasonId: string,
 ): Promise<Result<{ cards: BatchCard[]; filled_roles: KhatMapMustIncludeRole[] }>> {
-  await requireAdmin()
-  const user = await getAdminAuthUser()
-  if (!user) return { success: false, error: "غير مصرح" }
+  const gate = await requireActionRole("EDITOR")
+  if (!gate.ok) return { success: false, error: gate.error }
+  const user = gate.user
   try {
     const preview = await getCompletionPreviewAction(seasonId)
     if (!preview.success) return preview
@@ -1309,9 +1305,9 @@ export async function regenerateSlotAction(input: {
   seasonId: string
   topicCandidateId: string
 }): Promise<Result<{ card: BatchCard | null }>> {
-  await requireAdmin()
-  const user = await getAdminAuthUser()
-  if (!user) return { success: false, error: "غير مصرح" }
+  const gate = await requireActionRole("EDITOR")
+  if (!gate.ok) return { success: false, error: gate.error }
+  const user = gate.user
   try {
     const topic = await loadTopic(input.topicCandidateId)
     if (!topic) return { success: false, error: "الحلقة غير موجودة" }
@@ -1376,7 +1372,8 @@ export async function editEpisodeAction(input: {
     description?: string | null
   }
 }): Promise<Result<{ ok: true }>> {
-  await requireAdmin()
+  const gate = await requireActionRole("EDITOR")
+  if (!gate.ok) return { success: false, error: gate.error }
   try {
     const clean = {
       ...(input.patch.working_title !== undefined
@@ -1440,7 +1437,8 @@ export async function switchV2ModeAction(input: {
   seasonId: string
   mode: KhatMapV2Mode
 }): Promise<Result<{ ok: true }>> {
-  await requireAdmin()
+  const gate = await requireActionRole("EDITOR")
+  if (!gate.ok) return { success: false, error: gate.error }
   try {
     await db!
       .update(khatMapSeasons)
@@ -1508,11 +1506,11 @@ export async function convertV2CardToPreparationAction(input: {
   seasonId: string
   topicCandidateId: string
 }): Promise<ConvertCardResult> {
-  await requireAdmin()
-  const user = await getAdminAuthUser()
-  if (!user) {
-    return { success: false, error: "غير مصرح", code: "UNAUTHORIZED" }
+  const gate = await requireActionRole("EDITOR")
+  if (!gate.ok) {
+    return { success: false, error: gate.error, code: "UNAUTHORIZED" }
   }
+  const user = gate.user
   if (!input.topicCandidateId) {
     return { success: false, error: "بيانات غير صالحة", code: "NOT_FOUND" }
   }
@@ -1746,7 +1744,8 @@ export async function syncSeasonPerformanceAction(
 ): Promise<
   Result<{ walked: number; upserted: number; not_yet_published: number }>
 > {
-  await requireAdmin()
+  const gate = await requireActionRole("EDITOR")
+  if (!gate.ok) return { success: false, error: gate.error }
   if (!seasonId) return { success: false, error: "بيانات غير صالحة" }
   try {
     const res = await syncSeasonPerformance(seasonId)

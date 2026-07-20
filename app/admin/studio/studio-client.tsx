@@ -716,7 +716,7 @@ export function StudioClient({ initialSessions, episodes, aiStatuses: initialAiS
               "rounded-xl border-2 border-dashed p-8 text-center transition-all",
               dragActive && "border-purple-500 bg-purple-100/50 dark:bg-purple-950/30",
               !dragActive && !audioFile && "border-purple-300/50 hover:border-purple-400 cursor-pointer dark:border-purple-800/50",
-              audioFile && "border-purple-300 bg-white/50 dark:bg-purple-950/10",
+              audioFile && "border-purple-300 bg-card/50 dark:bg-purple-950/10",
               uploading && "pointer-events-none opacity-60"
             )}
           >
@@ -766,7 +766,7 @@ export function StudioClient({ initialSessions, episodes, aiStatuses: initialAiS
                 value={audioTitle}
                 onChange={(e) => setAudioTitle(e.target.value)}
                 placeholder="عنوان الحلقة (اختياري)"
-                className="flex-1 rounded-xl border bg-white px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-primary/20 dark:bg-background"
+                className="flex-1 rounded-xl border bg-card px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-primary/20 dark:bg-background"
               />
               <Button
                 onClick={handleAudioUpload}

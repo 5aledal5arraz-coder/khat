@@ -6,7 +6,7 @@
  */
 
 import { revalidatePath } from "next/cache"
-import { requireAdmin, getAdminAuthUser } from "@/lib/api-utils"
+import { requireActionRole } from "@/lib/api-utils"
 import { createDiscoveryRun } from "@/lib/discovery/runs"
 import { getCandidate, setCandidateStatus } from "@/lib/discovery/candidates"
 import { createCandidate as createGuestCandidate } from "@/lib/guest-candidates/queries"
@@ -32,9 +32,9 @@ export interface StartV2Result {
 export async function startV2DiscoveryAction(
   input: StartV2Input,
 ): Promise<StartV2Result> {
-  await requireAdmin()
-  const user = await getAdminAuthUser()
-  if (!user) return { success: false, error: "غير مصرح" }
+  const gate = await requireActionRole("EDITOR")
+  if (!gate.ok) return { success: false, error: gate.error }
+  const user = gate.user
   const topic = (input.topic ?? "").trim()
   if (!topic) return { success: false, error: "الموضوع مطلوب" }
 
@@ -71,7 +71,8 @@ export async function startV2DiscoveryAction(
 export async function saveV2CandidateAction(
   id: string,
 ): Promise<{ success: boolean; error?: string }> {
-  await requireAdmin()
+  const gate = await requireActionRole("EDITOR")
+  if (!gate.ok) return { success: false, error: gate.error }
   try {
     await setCandidateStatus(id, "saved_for_later")
     return { success: true }
@@ -83,7 +84,8 @@ export async function saveV2CandidateAction(
 export async function rejectV2CandidateAction(
   id: string,
 ): Promise<{ success: boolean; error?: string }> {
-  await requireAdmin()
+  const gate = await requireActionRole("EDITOR")
+  if (!gate.ok) return { success: false, error: gate.error }
   try {
     await setCandidateStatus(id, "rejected", { rejection_reason: "رفض المشغّل" })
     return { success: true }
@@ -100,9 +102,9 @@ export async function rejectV2CandidateAction(
 export async function promoteV2CandidateAction(
   id: string,
 ): Promise<{ success: boolean; candidateId?: string; error?: string }> {
-  await requireAdmin()
-  const user = await getAdminAuthUser()
-  if (!user) return { success: false, error: "غير مصرح" }
+  const gate = await requireActionRole("EDITOR")
+  if (!gate.ok) return { success: false, error: gate.error }
+  const user = gate.user
   try {
     const rec = await getCandidate(id)
     if (!rec) return { success: false, error: "المرشّح غير موجود" }

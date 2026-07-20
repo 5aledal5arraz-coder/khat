@@ -33,22 +33,22 @@ export default async function OpsDetailsPage() {
       <header className="mb-8">
         <Link
           href="/admin/ops"
-          className="mb-3 inline-flex items-center gap-1.5 text-[12.5px] font-medium text-slate-500 transition-colors hover:text-slate-900"
+          className="mb-3 inline-flex items-center gap-1.5 text-[12.5px] font-medium text-muted-foreground transition-colors hover:text-foreground"
         >
           <ArrowRight className="h-3.5 w-3.5" />
           العودة إلى مركز التشغيل
         </Link>
         <div className="flex flex-wrap items-end justify-between gap-4">
           <div>
-            <h1 className="text-[26px] font-semibold leading-tight tracking-tight text-slate-900">
+            <h1 className="text-[26px] font-semibold leading-tight tracking-tight text-foreground">
               تفاصيل التشغيل
             </h1>
-            <p className="mt-1.5 text-[13.5px] text-slate-600">
+            <p className="mt-1.5 text-[13.5px] text-muted-foreground">
               المؤشّرات الكاملة — الطابور والعمال، أحداث النظام، موجّه الذكاء
               الاصطناعي، ومسار الحلقات
             </p>
           </div>
-          <div className="flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3.5 py-1.5 text-[11.5px] text-slate-600 shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
+          <div className="flex items-center gap-2 rounded-full border border-border bg-card px-3.5 py-1.5 text-[11.5px] text-muted-foreground shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
             <span className="admin-pulse-dot h-1.5 w-1.5 rounded-full bg-emerald-500" />
             <span className="font-mono tabular-nums">{formatUtc(snap.taken_at)}</span>
             <span>•</span>

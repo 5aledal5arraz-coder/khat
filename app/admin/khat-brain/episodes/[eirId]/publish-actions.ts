@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache"
 import { and, desc, eq } from "drizzle-orm"
-import { getAdminAuthUser, requireAdmin } from "@/lib/api-utils"
+import { getAdminAuthUser, requireActionRole } from "@/lib/api-utils"
 import { db } from "@/lib/db"
 import { studioAnalysisRecords } from "@/lib/db/schema/studio-analysis"
 import { studioSessions } from "@/lib/db/schema/studio"
@@ -44,7 +44,8 @@ export async function savePublishPackageAction(
   input: SavePublishPackageInput,
 ): Promise<SavePublishPackageResult> {
   try {
-    await requireAdmin()
+    const gate = await requireActionRole("EDITOR")
+    if (!gate.ok) return { ok: false, code: "server_error", message: gate.error }
     const admin = await getAdminAuthUser()
     if (!db)
       return { ok: false, code: "server_error", message: "DB unavailable" }
@@ -156,7 +157,8 @@ export async function seedPublishPackageFromContextAction(input: {
   editorSessionId?: string
 }): Promise<SeedPublishPackageResult> {
   try {
-    await requireAdmin()
+    const gate = await requireActionRole("EDITOR")
+    if (!gate.ok) return { ok: false, code: "server_error", message: gate.error }
     const admin = await getAdminAuthUser()
     if (!db)
       return { ok: false, code: "server_error", message: "DB unavailable" }
@@ -467,7 +469,8 @@ export async function suggestPublishImprovementsAction(
   eirId: string,
 ): Promise<SuggestPublishResult> {
   try {
-    await requireAdmin()
+    const gate = await requireActionRole("EDITOR")
+    if (!gate.ok) return { ok: false, code: "server_error", message: gate.error }
     if (!db)
       return { ok: false, code: "server_error", message: "DB unavailable" }
 

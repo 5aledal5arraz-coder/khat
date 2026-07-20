@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache"
 import { getSiteSettings, saveSiteSettings } from "@/lib/site-settings"
-import { requireAdmin } from "@/lib/api-utils"
+import { requireActionRole } from "@/lib/api-utils"
 import { writeAiRuntimeOverride, type AiRuntimeConfig } from "@/lib/ai-router/runtime-config"
 import {
   writeAiModelOverride,
@@ -17,7 +17,8 @@ import type { AiTaskKind } from "@/lib/ai-router/types"
 import type { SiteMetadata, SEODefaults, FeatureFlags } from "@/types/site-settings"
 
 export async function updateSiteMetadata(metadata: SiteMetadata) {
-  await requireAdmin()
+  const gate = await requireActionRole("ADMIN")
+  if (!gate.ok) throw new Error(gate.error)
   const settings = await getSiteSettings()
   settings.metadata = metadata
   await saveSiteSettings(settings)
@@ -28,7 +29,8 @@ export async function updateSiteMetadata(metadata: SiteMetadata) {
 }
 
 export async function updateSEODefaults(seo: SEODefaults) {
-  await requireAdmin()
+  const gate = await requireActionRole("ADMIN")
+  if (!gate.ok) throw new Error(gate.error)
   const settings = await getSiteSettings()
   settings.seo = seo
   await saveSiteSettings(settings)
@@ -37,7 +39,8 @@ export async function updateSEODefaults(seo: SEODefaults) {
 }
 
 export async function updateFeatureFlags(featureFlags: FeatureFlags) {
-  await requireAdmin()
+  const gate = await requireActionRole("ADMIN")
+  if (!gate.ok) throw new Error(gate.error)
   const settings = await getSiteSettings()
   settings.featureFlags = featureFlags
   await saveSiteSettings(settings)
@@ -49,7 +52,8 @@ export async function updateFeatureFlags(featureFlags: FeatureFlags) {
 }
 
 export async function updateAiRuntimeConfig(cfg: AiRuntimeConfig) {
-  await requireAdmin()
+  const gate = await requireActionRole("ADMIN")
+  if (!gate.ok) throw new Error(gate.error)
   await writeAiRuntimeOverride(cfg)
   // The AI router reads this live; the ops dashboard reflects it.
   revalidatePath("/admin/settings")
@@ -60,14 +64,16 @@ export async function updateAiModelOverride(
   taskKind: AiTaskKind,
   override: TaskModelOverride | null,
 ) {
-  await requireAdmin()
+  const gate = await requireActionRole("ADMIN")
+  if (!gate.ok) throw new Error(gate.error)
   await writeAiModelOverride(taskKind, override)
   // The router reads overrides live (15s cache); settings re-renders the table.
   revalidatePath("/admin/settings")
 }
 
 export async function refreshAiModelsCatalog() {
-  await requireAdmin()
+  const gate = await requireActionRole("ADMIN")
+  if (!gate.ok) throw new Error(gate.error)
   await getModelCatalog({ forceRefresh: true })
   revalidatePath("/admin/settings")
 }
@@ -77,7 +83,8 @@ export async function startModelBenchmark(input: {
   tier: BenchmarkTier
   baseline?: string | null
 }) {
-  await requireAdmin()
+  const gate = await requireActionRole("ADMIN")
+  if (!gate.ok) throw new Error(gate.error)
   const baseline = input.baseline?.trim() || tierBaselineModel(input.tier)
   const candidate = input.candidate.trim()
   if (!/^[a-zA-Z0-9._:-]{1,120}$/.test(candidate)) throw new Error("invalid model id")

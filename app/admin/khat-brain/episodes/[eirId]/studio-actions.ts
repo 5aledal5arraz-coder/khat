@@ -16,7 +16,7 @@ import { revalidatePath } from "next/cache"
 import { eq, desc } from "drizzle-orm"
 import { db } from "@/lib/db"
 import { studioSessions } from "@/lib/db/schema/studio"
-import { requireAdmin } from "@/lib/api-utils"
+import { requireActionRole } from "@/lib/api-utils"
 import {
   getWebsitePackageForSession,
   updateWebsitePackage,
@@ -48,7 +48,8 @@ export interface StudioQuickEditResult {
 export async function updateStudioFieldAction(
   input: StudioQuickEditInput,
 ): Promise<StudioQuickEditResult> {
-  await requireAdmin()
+  const gate = await requireActionRole("EDITOR")
+  if (!gate.ok) return { ok: false, message: gate.error }
   if (!db) return { ok: false, message: "قاعدة البيانات غير متوفرة." }
 
   const [session] = await db

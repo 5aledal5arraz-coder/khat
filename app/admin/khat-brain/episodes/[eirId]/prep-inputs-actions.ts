@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache"
 import { eq } from "drizzle-orm"
-import { getAdminAuthUser, requireAdmin } from "@/lib/api-utils"
+import { getAdminAuthUser, requireActionRole } from "@/lib/api-utils"
 import { db } from "@/lib/db"
 import { episodePreparations } from "@/lib/db/schema/preparation"
 
@@ -47,7 +47,8 @@ export async function savePrepInputsAction(
   input: SavePrepInputsInput,
 ): Promise<SavePrepInputsResult> {
   try {
-    await requireAdmin()
+    const gate = await requireActionRole("EDITOR")
+    if (!gate.ok) return { ok: false, code: "server_error", message: gate.error }
     const admin = await getAdminAuthUser()
     if (!db) return { ok: false, code: "server_error", message: "DB unavailable" }
 

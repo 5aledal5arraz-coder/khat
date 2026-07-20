@@ -12,7 +12,7 @@
 
 import { revalidatePath } from "next/cache"
 import { sql } from "drizzle-orm"
-import { requireAdmin } from "@/lib/api-utils"
+import { requireActionRole } from "@/lib/api-utils"
 import { db } from "@/lib/db"
 import { enqueueJob } from "@/lib/jobs"
 
@@ -25,7 +25,10 @@ export async function refreshMarketIntelligenceAction(input: {
   seasonId: string | null
 }): Promise<RefreshMarketResult> {
   try {
-    await requireAdmin()
+    const gate = await requireActionRole("EDITOR")
+    if (!gate.ok) {
+      return { ok: false, code: "server_error", message: gate.error }
+    }
     if (!db) {
       return { ok: false, code: "server_error", message: "DB unavailable" }
     }

@@ -1194,7 +1194,7 @@ export default function MediaKitPage() {
           </Button>
 
           {shareSlug && shareHasPassword && (
-            <div className="mt-2 flex items-center gap-2 rounded-xl border border-border/30 bg-white/[0.02] px-4 py-3">
+            <div className="mt-2 flex items-center gap-2 rounded-xl border border-border/30 bg-card/[0.02] px-4 py-3">
               <code className="flex-1 truncate text-xs text-muted-foreground" dir="ltr">
                 {typeof window !== "undefined"
                   ? `${window.location.origin}/media-kit/${shareSlug}`
@@ -1444,7 +1444,7 @@ function BilingualField({
           onChange={(e) => onChangeAr(e.target.value)}
           rows={rows}
           dir="rtl"
-          className="w-full resize-none rounded-xl border border-border/30 bg-white/[0.02] px-4 py-3 text-sm leading-relaxed focus:border-primary/40 focus:outline-none focus:ring-1 focus:ring-primary/20"
+          className="w-full resize-none rounded-xl border border-border/30 bg-card/[0.02] px-4 py-3 text-sm leading-relaxed focus:border-primary/40 focus:outline-none focus:ring-1 focus:ring-primary/20"
         />
       </div>
       <div>
@@ -1456,7 +1456,7 @@ function BilingualField({
           onChange={(e) => onChangeEn(e.target.value)}
           rows={rows}
           dir="ltr"
-          className="w-full resize-none rounded-xl border border-border/30 bg-white/[0.02] px-4 py-3 text-sm leading-relaxed focus:border-primary/40 focus:outline-none focus:ring-1 focus:ring-primary/20"
+          className="w-full resize-none rounded-xl border border-border/30 bg-card/[0.02] px-4 py-3 text-sm leading-relaxed focus:border-primary/40 focus:outline-none focus:ring-1 focus:ring-primary/20"
         />
       </div>
     </div>

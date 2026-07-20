@@ -1,7 +1,7 @@
 "use server"
 
 import { revalidatePath } from "next/cache"
-import { requireAdmin } from "@/lib/api-utils"
+import { requireActionRole } from "@/lib/api-utils"
 import {
   createPartner,
   updatePartner,
@@ -23,7 +23,8 @@ function revalidateAll() {
 export async function createPartnerAction(
   data: Omit<NewTrustedPartner, "id" | "created_at" | "updated_at">
 ) {
-  await requireAdmin()
+  const gate = await requireActionRole("EDITOR")
+  if (!gate.ok) throw new Error(gate.error)
   const partner = await createPartner(data)
   revalidateAll()
   return partner
@@ -33,14 +34,16 @@ export async function updatePartnerAction(
   id: string,
   data: Partial<Omit<NewTrustedPartner, "id" | "created_at" | "updated_at">>
 ) {
-  await requireAdmin()
+  const gate = await requireActionRole("EDITOR")
+  if (!gate.ok) throw new Error(gate.error)
   const partner = await updatePartner(id, data)
   revalidateAll()
   return partner
 }
 
 export async function deletePartnerAction(id: string) {
-  await requireAdmin()
+  const gate = await requireActionRole("EDITOR")
+  if (!gate.ok) throw new Error(gate.error)
   const success = await deletePartner(id)
   revalidateAll()
   return success
@@ -49,7 +52,8 @@ export async function deletePartnerAction(id: string) {
 export async function reorderPartnersAction(
   orderedIds: { id: string; display_order: number }[]
 ) {
-  await requireAdmin()
+  const gate = await requireActionRole("EDITOR")
+  if (!gate.ok) throw new Error(gate.error)
   if (!db) return false
   try {
     for (const item of orderedIds) {

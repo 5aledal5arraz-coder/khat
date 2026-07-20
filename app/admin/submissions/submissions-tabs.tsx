@@ -335,7 +335,7 @@ function StatusDropdown({
                     setOpen(false)
                   }}
                   className={`flex w-full items-center gap-2.5 px-4 py-2 text-[13px] transition-all duration-200 hover:bg-muted/40 ${
-                    current === status ? "bg-white/[0.03]" : ""
+                    current === status ? "bg-card/[0.03]" : ""
                   }`}
                 >
                   <span
@@ -402,7 +402,7 @@ function SponsorStatusDropdown({
                     setOpen(false)
                   }}
                   className={`flex w-full items-center gap-2.5 px-4 py-2 text-[13px] transition-all duration-200 hover:bg-muted/40 ${
-                    current === status ? "bg-white/[0.03]" : ""
+                    current === status ? "bg-card/[0.03]" : ""
                   }`}
                 >
                   <span
@@ -1328,7 +1328,7 @@ export function SubmissionsTabs({
                           {statusConfig.label}
                         </span>
                         {app.country && (
-                          <div className="flex items-center gap-1.5 rounded-lg bg-white/[0.03] px-2.5 py-1 ring-1 ring-border/30">
+                          <div className="flex items-center gap-1.5 rounded-lg bg-card/[0.03] px-2.5 py-1 ring-1 ring-border/30">
                             <MapPin className="h-3 w-3 text-muted-foreground" />
                             <span className="text-[10px] text-muted-foreground">{app.country}</span>
                           </div>
@@ -1416,7 +1416,7 @@ export function SubmissionsTabs({
                         <span className={`flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-[10px] font-medium ring-1 ${statusConfig.bg} ${statusConfig.color} ${statusConfig.ring}`}>
                           {statusConfig.label}
                         </span>
-                        <div className="flex items-center gap-1.5 rounded-lg bg-white/[0.03] px-2.5 py-1 ring-1 ring-border/30">
+                        <div className="flex items-center gap-1.5 rounded-lg bg-card/[0.03] px-2.5 py-1 ring-1 ring-border/30">
                           <Building2 className="h-3 w-3 text-muted-foreground" />
                           <span className="text-[10px] text-muted-foreground">{lead.industry}</span>
                         </div>
@@ -1446,7 +1446,7 @@ export function SubmissionsTabs({
                             </span>
                           ))}
                           {lead.collaboration_types.length > 3 && (
-                            <span className="rounded-md bg-white/[0.03] px-2 py-0.5 text-[9px] text-muted-foreground ring-1 ring-border/20">
+                            <span className="rounded-md bg-card/[0.03] px-2 py-0.5 text-[9px] text-muted-foreground ring-1 ring-border/20">
                               +{lead.collaboration_types.length - 3}
                             </span>
                           )}
@@ -1553,7 +1553,7 @@ export function SubmissionsTabs({
                   </div>
                   <h4 className="text-sm font-semibold">المعلومات الأساسية</h4>
                 </div>
-                <div className="grid gap-x-6 gap-y-4 rounded-2xl bg-white/[0.02] p-5 ring-1 ring-border/20 sm:grid-cols-2">
+                <div className="grid gap-x-6 gap-y-4 rounded-2xl bg-card/[0.02] p-5 ring-1 ring-border/20 sm:grid-cols-2">
                   <DetailField label="الاسم" value={selectedApplication.name} />
                   <DetailField
                     label="البريد الإلكتروني"
@@ -1593,7 +1593,7 @@ export function SubmissionsTabs({
                   </div>
                   <h4 className="text-sm font-semibold">القصة والشخصية</h4>
                 </div>
-                <div className="space-y-5 rounded-2xl bg-white/[0.02] p-5 ring-1 ring-border/20">
+                <div className="space-y-5 rounded-2xl bg-card/[0.02] p-5 ring-1 ring-border/20">
                   <NarrativeBlock
                     label="ما القصة أو الفكرة التي يود مشاركتها؟"
                     value={selectedApplication.story_idea}
@@ -1629,7 +1629,7 @@ export function SubmissionsTabs({
                   </div>
                   <h4 className="text-sm font-semibold">التسجيل والنشر</h4>
                 </div>
-                <div className="space-y-4 rounded-2xl bg-white/[0.02] p-5 ring-1 ring-border/20">
+                <div className="space-y-4 rounded-2xl bg-card/[0.02] p-5 ring-1 ring-border/20">
                   <div className="grid gap-x-6 gap-y-4 sm:grid-cols-2">
                     <DetailField
                       label="ظهور سابق في بودكاست"
@@ -1678,7 +1678,7 @@ export function SubmissionsTabs({
                             href={link.trim()}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="flex items-center gap-2 rounded-xl bg-white/[0.02] px-3 py-2 text-xs text-primary ring-1 ring-border/30 transition-all hover:bg-muted/60 hover:ring-primary/30"
+                            className="flex items-center gap-2 rounded-xl bg-card/[0.02] px-3 py-2 text-xs text-primary ring-1 ring-border/30 transition-all hover:bg-muted/60 hover:ring-primary/30"
                           >
                             <ExternalLink className="h-3 w-3 shrink-0" />
                             <span className="truncate">{link.trim()}</span>
@@ -1753,7 +1753,7 @@ export function SubmissionsTabs({
                         { label: "أصالة", value: guestAiAnalysis.originality_score },
                         { label: "جاهزية", value: guestAiAnalysis.readiness_score },
                       ].map((s) => (
-                        <div key={s.label} className="rounded-xl bg-white/[0.03] p-2.5 text-center ring-1 ring-border/15">
+                        <div key={s.label} className="rounded-xl bg-card/[0.03] p-2.5 text-center ring-1 ring-border/15">
                           <div className={`text-lg font-bold tabular-nums ${(s.value ?? 0) >= 70 ? "text-emerald-700" : (s.value ?? 0) >= 40 ? "text-amber-700" : "text-red-700"}`}>
                             {s.value ?? "—"}
                           </div>
@@ -1868,7 +1868,7 @@ export function SubmissionsTabs({
                       {guestAiConcept.title_alternatives.length > 0 && (
                         <div className="mt-2 flex flex-wrap gap-1.5">
                           {guestAiConcept.title_alternatives.map((t, i) => (
-                            <span key={i} className="rounded-lg bg-white/[0.03] px-2.5 py-1 text-[11px] text-muted-foreground ring-1 ring-border/20">{t}</span>
+                            <span key={i} className="rounded-lg bg-card/[0.03] px-2.5 py-1 text-[11px] text-muted-foreground ring-1 ring-border/20">{t}</span>
                           ))}
                         </div>
                       )}
@@ -1898,7 +1898,7 @@ export function SubmissionsTabs({
                     {guestAiConcept.conversation_style && (
                       <div className="flex items-center gap-2">
                         <p className="text-[11px] font-medium text-muted-foreground">أسلوب المحادثة:</p>
-                        <span className="rounded-lg bg-white/[0.05] px-2.5 py-1 text-[11px] font-medium text-foreground ring-1 ring-border/20">
+                        <span className="rounded-lg bg-card/[0.05] px-2.5 py-1 text-[11px] font-medium text-foreground ring-1 ring-border/20">
                           {guestAiConcept.conversation_style === "story" ? "سرد قصصي" : guestAiConcept.conversation_style === "dialogue" ? "حوار فكري" : "مزيج"}
                         </span>
                       </div>
@@ -1918,7 +1918,7 @@ export function SubmissionsTabs({
                         <p className="mb-2 text-[11px] font-medium text-muted-foreground">الأسئلة الأساسية ({guestAiConcept.suggested_core_questions.length})</p>
                         <ol className="space-y-1.5">
                           {guestAiConcept.suggested_core_questions.map((q, i) => (
-                            <li key={i} className="flex gap-2 rounded-lg bg-white/[0.02] px-3 py-2 text-[13px] leading-relaxed ring-1 ring-border/10">
+                            <li key={i} className="flex gap-2 rounded-lg bg-card/[0.02] px-3 py-2 text-[13px] leading-relaxed ring-1 ring-border/10">
                               <span className="shrink-0 text-[11px] font-bold text-muted-foreground">{i + 1}.</span>
                               {q}
                             </li>
@@ -1957,7 +1957,7 @@ export function SubmissionsTabs({
                     {guestAiConcept.host_preparation_notes && (
                       <div>
                         <p className="mb-1 text-[11px] font-medium text-muted-foreground">ملاحظات تحضيرية لخالد</p>
-                        <p className="whitespace-pre-wrap rounded-xl bg-white/[0.03] px-4 py-3 text-[13px] leading-relaxed text-muted-foreground ring-1 ring-border/15">{guestAiConcept.host_preparation_notes}</p>
+                        <p className="whitespace-pre-wrap rounded-xl bg-card/[0.03] px-4 py-3 text-[13px] leading-relaxed text-muted-foreground ring-1 ring-border/15">{guestAiConcept.host_preparation_notes}</p>
                       </div>
                     )}
                   </div>
@@ -2155,7 +2155,7 @@ export function SubmissionsTabs({
                 </div>
 
                 {/* Message Type Toggle */}
-                <div className="mb-3 flex gap-1.5 rounded-2xl bg-white/[0.02] p-1.5 ring-1 ring-border/20">
+                <div className="mb-3 flex gap-1.5 rounded-2xl bg-card/[0.02] p-1.5 ring-1 ring-border/20">
                   <button
                     onClick={() => setMessageType("acceptance")}
                     className={`flex flex-1 items-center justify-center gap-2 rounded-xl px-3 py-2.5 text-xs font-medium transition-all ${
@@ -2196,11 +2196,11 @@ export function SubmissionsTabs({
                 {/* Tone Toggle */}
                 <div className="mb-3 flex items-center justify-between">
                   <p className="text-[11px] text-muted-foreground">نبرة الرسالة</p>
-                  <div className="flex gap-1 rounded-xl bg-white/[0.03] p-1 ring-1 ring-border/30">
+                  <div className="flex gap-1 rounded-xl bg-card/[0.03] p-1 ring-1 ring-border/30">
                     <button
                       onClick={() => setMessageTone("formal")}
                       className={`rounded-lg px-3 py-1.5 text-[11px] font-medium transition-all ${
-                        messageTone === "formal" ? "bg-white/[0.08] text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
+                        messageTone === "formal" ? "bg-card/[0.08] text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
                       }`}
                     >
                       رسمي
@@ -2208,7 +2208,7 @@ export function SubmissionsTabs({
                     <button
                       onClick={() => setMessageTone("warm")}
                       className={`rounded-lg px-3 py-1.5 text-[11px] font-medium transition-all ${
-                        messageTone === "warm" ? "bg-white/[0.08] text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
+                        messageTone === "warm" ? "bg-card/[0.08] text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
                       }`}
                     >
                       ودّي
@@ -2221,7 +2221,7 @@ export function SubmissionsTabs({
                   value={messageText}
                   onChange={(e) => setMessageText(e.target.value)}
                   dir="rtl"
-                  className="w-full resize-none rounded-2xl border border-border/30 bg-white/[0.02] p-4 text-sm leading-relaxed text-foreground/90 focus:border-primary/40 focus:outline-none focus:ring-1 focus:ring-primary/20"
+                  className="w-full resize-none rounded-2xl border border-border/30 bg-card/[0.02] p-4 text-sm leading-relaxed text-foreground/90 focus:border-primary/40 focus:outline-none focus:ring-1 focus:ring-primary/20"
                   rows={10}
                 />
                 <p className="mt-1.5 text-[10px] text-muted-foreground">يمكنك تعديل الرسالة قبل الإرسال</p>
@@ -2233,7 +2233,7 @@ export function SubmissionsTabs({
                     className={`flex flex-1 items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-xs font-medium transition-all ${
                       messageCopied === "whatsapp"
                         ? "bg-emerald-500/10 text-emerald-700 ring-1 ring-emerald-500/20"
-                        : "bg-white/[0.03] text-muted-foreground ring-1 ring-border/30 hover:bg-muted/60 hover:text-foreground"
+                        : "bg-card/[0.03] text-muted-foreground ring-1 ring-border/30 hover:bg-muted/60 hover:text-foreground"
                     }`}
                   >
                     {messageCopied === "whatsapp" ? (
@@ -2329,7 +2329,7 @@ export function SubmissionsTabs({
                   </div>
                   <h4 className="text-sm font-semibold">معلومات الشركة</h4>
                 </div>
-                <div className="grid gap-x-6 gap-y-4 rounded-2xl bg-white/[0.02] p-5 ring-1 ring-border/20 sm:grid-cols-2">
+                <div className="grid gap-x-6 gap-y-4 rounded-2xl bg-card/[0.02] p-5 ring-1 ring-border/20 sm:grid-cols-2">
                   <DetailField label="اسم الشركة" value={selectedLead.company_name} />
                   <DetailField label="المجال" value={selectedLead.industry} />
                   {selectedLead.company_website && (
@@ -2362,7 +2362,7 @@ export function SubmissionsTabs({
                   </div>
                   <h4 className="text-sm font-semibold">تفاصيل التعاون</h4>
                 </div>
-                <div className="rounded-2xl bg-white/[0.02] p-5 ring-1 ring-border/20">
+                <div className="rounded-2xl bg-card/[0.02] p-5 ring-1 ring-border/20">
                   <p className="text-xs font-medium text-muted-foreground mb-2">أنواع التعاون</p>
                   <div className="flex flex-wrap gap-2">
                     {selectedLead.collaboration_types.map((ct) => (
@@ -2387,7 +2387,7 @@ export function SubmissionsTabs({
                   </div>
                   <h4 className="text-sm font-semibold">الأهداف</h4>
                 </div>
-                <div className="space-y-4 rounded-2xl bg-white/[0.02] p-5 ring-1 ring-border/20">
+                <div className="space-y-4 rounded-2xl bg-card/[0.02] p-5 ring-1 ring-border/20">
                   <DetailField label="الهدف الرئيسي" value={GOAL_LABELS[selectedLead.main_goal] || selectedLead.main_goal} />
                   <DetailField label="الجمهور المستهدف" value={selectedLead.target_audience} />
                   {selectedLead.brand_values && (
@@ -2433,7 +2433,7 @@ export function SubmissionsTabs({
                     </div>
                     <h4 className="text-sm font-semibold">معلومات إضافية</h4>
                   </div>
-                  <div className="rounded-2xl bg-white/[0.02] p-5 ring-1 ring-border/20">
+                  <div className="rounded-2xl bg-card/[0.02] p-5 ring-1 ring-border/20">
                     <p className="whitespace-pre-wrap text-sm leading-relaxed">{selectedLead.additional_info}</p>
                   </div>
                 </div>
@@ -2574,13 +2574,13 @@ export function SubmissionsTabs({
                         </p>
                         <div className="grid gap-3 sm:grid-cols-3">
                           {aiAnalysis.recommended_structure && (
-                            <div className="rounded-lg bg-white/[0.03] p-3 ring-1 ring-border/20">
+                            <div className="rounded-lg bg-card/[0.03] p-3 ring-1 ring-border/20">
                               <p className="text-[10px] text-muted-foreground">الهيكل المقترح</p>
                               <p className="mt-0.5 text-[12.5px] font-medium leading-relaxed">{aiAnalysis.recommended_structure}</p>
                             </div>
                           )}
                           {aiAnalysis.recommended_episodes != null && (
-                            <div className="rounded-lg bg-white/[0.03] p-3 ring-1 ring-border/20">
+                            <div className="rounded-lg bg-card/[0.03] p-3 ring-1 ring-border/20">
                               <p className="text-[10px] text-muted-foreground">عدد الحلقات</p>
                               <p className="mt-0.5 text-lg font-bold tabular-nums text-primary">
                                 {aiAnalysis.recommended_episodes} <span className="text-xs font-normal text-muted-foreground">حلقة</span>
@@ -2588,7 +2588,7 @@ export function SubmissionsTabs({
                             </div>
                           )}
                           {aiAnalysis.pricing_strategy && (
-                            <div className="rounded-lg bg-white/[0.03] p-3 ring-1 ring-border/20">
+                            <div className="rounded-lg bg-card/[0.03] p-3 ring-1 ring-border/20">
                               <p className="text-[10px] text-muted-foreground">استراتيجية التسعير</p>
                               <p className="mt-0.5 text-[12.5px] font-medium leading-relaxed">{aiAnalysis.pricing_strategy}</p>
                             </div>
@@ -2723,17 +2723,17 @@ export function SubmissionsTabs({
                   </div>
                   <div className="flex items-center gap-2">
                     {/* Tone toggle */}
-                    <div className="flex gap-1 rounded-xl bg-white/[0.03] p-0.5 ring-1 ring-border/30">
+                    <div className="flex gap-1 rounded-xl bg-card/[0.03] p-0.5 ring-1 ring-border/30">
                       <button
                         onClick={() => setProposalTone("formal")}
                         className={`rounded-lg px-2.5 py-1 text-[10px] font-medium transition-all ${
-                          proposalTone === "formal" ? "bg-white/[0.08] text-foreground shadow-sm" : "text-muted-foreground"
+                          proposalTone === "formal" ? "bg-card/[0.08] text-foreground shadow-sm" : "text-muted-foreground"
                         }`}
                       >رسمي</button>
                       <button
                         onClick={() => setProposalTone("warm")}
                         className={`rounded-lg px-2.5 py-1 text-[10px] font-medium transition-all ${
-                          proposalTone === "warm" ? "bg-white/[0.08] text-foreground shadow-sm" : "text-muted-foreground"
+                          proposalTone === "warm" ? "bg-card/[0.08] text-foreground shadow-sm" : "text-muted-foreground"
                         }`}
                       >ودّي</button>
                     </div>
@@ -2767,7 +2767,7 @@ export function SubmissionsTabs({
                         <p className="mb-2 text-[11px] font-medium text-muted-foreground">الباقات المقترحة</p>
                         <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
                           {aiProposal.proposed_packages.map((pkg, i) => (
-                            <div key={i} className="rounded-xl bg-white/[0.03] p-3 ring-1 ring-border/20">
+                            <div key={i} className="rounded-xl bg-card/[0.03] p-3 ring-1 ring-border/20">
                               <p className="text-xs font-bold text-cyan-700">{pkg.name}</p>
                               <p className="mt-1 text-[11px] text-muted-foreground">{pkg.description}</p>
                               <p className="mt-1.5 text-xs font-semibold text-amber-700">{pkg.price_range}</p>
@@ -2808,7 +2808,7 @@ export function SubmissionsTabs({
                           </button>
                         </div>
                       </div>
-                      <div className="max-h-64 overflow-y-auto rounded-xl bg-white/[0.02] p-4 ring-1 ring-border/20">
+                      <div className="max-h-64 overflow-y-auto rounded-xl bg-card/[0.02] p-4 ring-1 ring-border/20">
                         <p className="whitespace-pre-wrap text-sm leading-relaxed text-foreground/80">
                           {aiProposal.edited_draft || aiProposal.full_draft}
                         </p>
@@ -2878,11 +2878,11 @@ export function SubmissionsTabs({
                 {/* Tone Toggle */}
                 <div className="mb-3 flex items-center justify-between">
                   <p className="text-[11px] text-muted-foreground">نبرة الرسالة</p>
-                  <div className="flex gap-1 rounded-xl bg-white/[0.03] p-1 ring-1 ring-border/30">
+                  <div className="flex gap-1 rounded-xl bg-card/[0.03] p-1 ring-1 ring-border/30">
                     <button
                       onClick={() => setSponsorMessageTone("formal")}
                       className={`rounded-lg px-3 py-1.5 text-[11px] font-medium transition-all ${
-                        sponsorMessageTone === "formal" ? "bg-white/[0.08] text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
+                        sponsorMessageTone === "formal" ? "bg-card/[0.08] text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
                       }`}
                     >
                       رسمي
@@ -2890,7 +2890,7 @@ export function SubmissionsTabs({
                     <button
                       onClick={() => setSponsorMessageTone("warm")}
                       className={`rounded-lg px-3 py-1.5 text-[11px] font-medium transition-all ${
-                        sponsorMessageTone === "warm" ? "bg-white/[0.08] text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
+                        sponsorMessageTone === "warm" ? "bg-card/[0.08] text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
                       }`}
                     >
                       ودّي
@@ -2903,7 +2903,7 @@ export function SubmissionsTabs({
                   value={sponsorMessageText}
                   onChange={(e) => setSponsorMessageText(e.target.value)}
                   dir="rtl"
-                  className="w-full resize-none rounded-2xl border border-border/30 bg-white/[0.02] p-4 text-sm leading-relaxed text-foreground/90 focus:border-primary/40 focus:outline-none focus:ring-1 focus:ring-primary/20"
+                  className="w-full resize-none rounded-2xl border border-border/30 bg-card/[0.02] p-4 text-sm leading-relaxed text-foreground/90 focus:border-primary/40 focus:outline-none focus:ring-1 focus:ring-primary/20"
                   rows={10}
                 />
                 <p className="mt-1.5 text-[10px] text-muted-foreground">يمكنك تعديل الرسالة قبل الإرسال</p>
@@ -3078,7 +3078,7 @@ const TIME_LABELS: Record<string, string> = {
 
 function PrepResponseDisplay({ response }: { response: GuestPrepResponse }) {
   return (
-    <div className="rounded-2xl bg-white/[0.02] p-5 ring-1 ring-border/20 space-y-4">
+    <div className="rounded-2xl bg-card/[0.02] p-5 ring-1 ring-border/20 space-y-4">
       <h5 className="text-xs font-semibold text-muted-foreground">الإجابات المقدمة</h5>
       <div className="grid gap-x-6 gap-y-3 sm:grid-cols-2">
         <PrepField label="الاسم المفضل" value={response.preferred_name} />

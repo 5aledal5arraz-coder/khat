@@ -17,7 +17,7 @@
  */
 
 import { revalidatePath } from "next/cache"
-import { requireAdmin, getAdminAuthUser } from "@/lib/api-utils"
+import { requireActionRole, getAdminAuthUser } from "@/lib/api-utils"
 import {
   generateHybridTopics,
   type GenerateHybridResult,
@@ -55,7 +55,18 @@ export async function generateHybridTopicsAction(input: {
   count?: number
   allowKuwaitBias?: boolean
 }): Promise<HybridActionResult> {
-  await requireAdmin()
+  const gate = await requireActionRole("EDITOR")
+  if (!gate.ok) {
+    return {
+      ok: false,
+      generation_id: null,
+      generated_for_review: 0,
+      auto_filtered: 0,
+      analysis_pending: false,
+      message: gate.error,
+      preview_titles: [],
+    }
+  }
   const user = await getAdminAuthUser()
 
   // ─── Pre-flight: kick any missing pipeline stage ────────────────

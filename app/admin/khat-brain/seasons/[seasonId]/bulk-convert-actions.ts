@@ -16,7 +16,7 @@ import { revalidatePath } from "next/cache"
 import { eq, and } from "drizzle-orm"
 import { db } from "@/lib/db"
 import { khatMapEpisodeCandidates } from "@/lib/db/schema/khat-map"
-import { requireAdmin, getAdminAuthUser } from "@/lib/api-utils"
+import { requireActionRole, getAdminAuthUser } from "@/lib/api-utils"
 import { convertEpisodeToPreparation } from "@/lib/khat-map/conversion/to-preparation"
 
 export interface BulkConvertResult {
@@ -36,7 +36,16 @@ export interface BulkConvertResult {
 export async function bulkConvertApprovedAction(
   seasonId: string,
 ): Promise<BulkConvertResult> {
-  await requireAdmin()
+  const gate = await requireActionRole("EDITOR")
+  if (!gate.ok) {
+    return {
+      ok: false,
+      message: gate.error,
+      total_attempted: 0,
+      total_succeeded: 0,
+      per_card: [],
+    }
+  }
   const user = await getAdminAuthUser()
   if (!user || !db) {
     return {

@@ -1303,7 +1303,7 @@ function FlagToggle({
         }`}
       >
         <div
-          className={`h-4 w-4 rounded-full bg-white shadow transition-transform ${
+          className={`h-4 w-4 rounded-full bg-card shadow transition-transform ${
             value ? "-translate-x-3" : "translate-x-0"
           }`}
         />

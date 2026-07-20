@@ -18,7 +18,7 @@ import { revalidatePath } from "next/cache"
 import { eq } from "drizzle-orm"
 import { db } from "@/lib/db"
 import { episodePreparations } from "@/lib/db/schema/preparation"
-import { requireAdmin, getAdminAuthUser } from "@/lib/api-utils"
+import { requireActionRole, getAdminAuthUser } from "@/lib/api-utils"
 import {
   validateJsonbWrite,
   prepV2Schema,
@@ -67,7 +67,8 @@ export async function updatePrepFieldAction(
   prepId: string,
   edit: PrepEditField,
 ): Promise<PrepEditResult> {
-  await requireAdmin()
+  const gate = await requireActionRole("EDITOR")
+  if (!gate.ok) return { ok: false, message: gate.error }
   const lines = parseLines(edit.value)
   let supported = true
 
@@ -199,7 +200,8 @@ export async function setInsightStatusAction(
   insightId: string,
   status: InsightLiveStatus,
 ): Promise<PrepEditResult> {
-  await requireAdmin()
+  const gate = await requireActionRole("EDITOR")
+  if (!gate.ok) return { ok: false, message: gate.error }
   const stamp = await reviewStamp()
   const r = await mutatePrepV2(prepId, (cur) => {
     const { bank, changed } = setInsightStatus(cur.question_bank, questionId, insightId, status, stamp)
@@ -219,7 +221,8 @@ export async function editInsightAction(
   insightId: string,
   patch: InsightEditPatch,
 ): Promise<PrepEditResult> {
-  await requireAdmin()
+  const gate = await requireActionRole("EDITOR")
+  if (!gate.ok) return { ok: false, message: gate.error }
   const stamp = await reviewStamp()
   const r = await mutatePrepV2(prepId, (cur) => {
     const { bank, changed } = editInsight(cur.question_bank, questionId, insightId, patch, stamp)
@@ -236,7 +239,8 @@ export async function removeInsightAction(
   questionId: string,
   insightId: string,
 ): Promise<PrepEditResult> {
-  await requireAdmin()
+  const gate = await requireActionRole("EDITOR")
+  if (!gate.ok) return { ok: false, message: gate.error }
   const r = await mutatePrepV2(prepId, (cur) => {
     const { bank, changed } = removeInsight(cur.question_bank, questionId, insightId)
     return { next: { ...cur, question_bank: bank }, changed }
@@ -252,7 +256,8 @@ export async function addManualInsightAction(
   questionId: string,
   input: ManualInsightInput,
 ): Promise<PrepEditResult> {
-  await requireAdmin()
+  const gate = await requireActionRole("EDITOR")
+  if (!gate.ok) return { ok: false, message: gate.error }
   const stamp = await reviewStamp()
   const r = await mutatePrepV2(prepId, (cur) => {
     const res = addManualInsight(cur.question_bank, questionId, input, stamp)
@@ -269,7 +274,8 @@ export async function addManualInsightAction(
 export async function approveAllVerifiedInsightsAction(
   prepId: string,
 ): Promise<PrepEditResult> {
-  await requireAdmin()
+  const gate = await requireActionRole("EDITOR")
+  if (!gate.ok) return { ok: false, message: gate.error }
   const stamp = await reviewStamp()
   let approved = 0
   const r = await mutatePrepV2(prepId, (cur) => {

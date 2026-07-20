@@ -10,7 +10,7 @@ import {
 } from "@/lib/ai"
 import { getYouTubeId } from "@/lib/utils"
 import type { YouTubePackSection } from "@/types/youtube-pack"
-import { requireAdmin } from "@/lib/api-utils"
+import { requireActionRole } from "@/lib/api-utils"
 
 function revalidateAll(episodeId?: string) {
   revalidatePath("/")
@@ -25,7 +25,8 @@ export async function generateYoutubePack(
   title: string,
   guestName: string
 ) {
-  await requireAdmin()
+  const gate = await requireActionRole("EDITOR")
+  if (!gate.ok) return { success: false, error: gate.error }
   const videoId = getYouTubeId(youtubeUrl)
   if (!videoId) {
     return { success: false, error: "رابط يوتيوب غير صالح" }
@@ -82,7 +83,8 @@ export async function regenerateYoutubePackSection(
   guestName: string,
   sectionType: YouTubePackSection["type"]
 ) {
-  await requireAdmin()
+  const gate = await requireActionRole("EDITOR")
+  if (!gate.ok) return { success: false, error: gate.error }
   const config = await getYoutubePackConfig()
   const entry = config[episodeId]
 
@@ -148,12 +150,14 @@ export async function regenerateYoutubePack(
   title: string,
   guestName: string
 ) {
-  await requireAdmin()
+  const gate = await requireActionRole("EDITOR")
+  if (!gate.ok) return { success: false, error: gate.error }
   return generateYoutubePack(episodeId, youtubeUrl, title, guestName)
 }
 
 export async function deleteYoutubePack(episodeId: string) {
-  await requireAdmin()
+  const gate = await requireActionRole("EDITOR")
+  if (!gate.ok) return { success: false, error: gate.error }
   const config = await getYoutubePackConfig()
   delete config[episodeId]
   await saveYoutubePackConfig(config)

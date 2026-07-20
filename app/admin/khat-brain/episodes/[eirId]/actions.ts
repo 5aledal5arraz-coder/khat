@@ -19,7 +19,7 @@ import { collaborationRooms } from "@/lib/db/schema/collaboration"
 import { episodePreparations } from "@/lib/db/schema/preparation"
 import { studioSessions } from "@/lib/db/schema/studio"
 import { guests } from "@/lib/db/schema/guests"
-import { requireAdmin, getAdminAuthUser } from "@/lib/api-utils"
+import { requireActionRole } from "@/lib/api-utils"
 import { createRoom } from "@/lib/collaboration/rooms"
 import {
   runStudioPushToEpisode,
@@ -50,11 +50,11 @@ export interface CreateRoomActionResult {
 export async function createRoomForEpisodeAction(
   eirId: string,
 ): Promise<CreateRoomActionResult> {
-  await requireAdmin()
-  const user = await getAdminAuthUser()
-  if (!user) {
-    return { ok: false, reason: "no_admin", message: "غير مخوّل" }
+  const gate = await requireActionRole("EDITOR")
+  if (!gate.ok) {
+    return { ok: false, reason: "no_admin", message: gate.error }
   }
+  const user = gate.user
 
   // 1. If a room already exists for this EIR, just return it.
   const [existing] = await db!
@@ -139,13 +139,12 @@ export async function pushPackageToEpisodeAction(input: {
   eirId: string
   fields?: StudioPushFields
 }): Promise<PushActionResult> {
-  await requireAdmin()
-  const user = await getAdminAuthUser()
-  if (!user) {
+  const gate = await requireActionRole("EDITOR")
+  if (!gate.ok) {
     return {
       ok: false,
       reason: "no_admin",
-      message: "غير مخوّل",
+      message: gate.error,
       pushedFields: [],
       episodeId: null,
       guestLink: null,
@@ -237,11 +236,11 @@ export async function assignEirGuestAction(
   eirId: string,
   guestId: string | null,
 ): Promise<AssignGuestActionResult> {
-  await requireAdmin()
-  const user = await getAdminAuthUser()
-  if (!user) {
-    return { ok: false, reason: "no_admin", message: "غير مخوّل." }
+  const gate = await requireActionRole("EDITOR")
+  if (!gate.ok) {
+    return { ok: false, reason: "no_admin", message: gate.error }
   }
+  const user = gate.user
 
   const eir = await getEpisodeIntelligenceRecord(eirId)
   if (!eir) {
@@ -351,7 +350,8 @@ export interface StartEirDiscoveryResult {
 export async function startGuestDiscoveryForEirAction(
   eirId: string,
 ): Promise<StartEirDiscoveryResult> {
-  await requireAdmin()
+  const gate = await requireActionRole("EDITOR")
+  if (!gate.ok) return { success: false, error: gate.error }
   const eir = await getEpisodeIntelligenceRecord(eirId)
   if (!eir) return { success: false, error: "الحلقة غير موجودة" }
 

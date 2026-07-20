@@ -51,7 +51,8 @@ export async function getHiddenEpisodeIds(): Promise<string[]> {
 }
 
 export async function toggleEpisodeVisibility(episodeId: string) {
-  await requireAdmin()
+  const gate = await requireActionRole("EDITOR")
+  if (!gate.ok) return { success: false, error: gate.error }
   const existing = await db!.select().from(hiddenEpisodes).where(eq(hiddenEpisodes.episode_id, episodeId)).limit(1)
   const wasHidden = existing.length > 0
   await saveVersion(episodeId, "visibility", { hidden: wasHidden }, wasHidden ? "إظهار الحلقة" : "إخفاء الحلقة")
@@ -77,7 +78,8 @@ export async function updateEpisodeTitle(
   originalTitle: string,
   customTitle: string
 ) {
-  await requireAdmin()
+  const gate = await requireActionRole("EDITOR")
+  if (!gate.ok) return { success: false, error: gate.error }
   if (!episodeId || typeof customTitle !== "string") {
     return { success: false, error: "بيانات غير صالحة" }
   }
@@ -124,7 +126,8 @@ export async function updateEpisodeDescription(
   episodeId: string,
   customDescription: string
 ) {
-  await requireAdmin()
+  const gate = await requireActionRole("EDITOR")
+  if (!gate.ok) return { success: false, error: gate.error }
   if (!episodeId || typeof customDescription !== "string") {
     return { success: false, error: "بيانات غير صالحة" }
   }
@@ -167,7 +170,8 @@ export async function updateEpisodeDescription(
 }
 
 export async function removeEpisodeOverride(episodeId: string) {
-  await requireAdmin()
+  const gate = await requireActionRole("EDITOR")
+  if (!gate.ok) return { success: false, error: gate.error }
   await deleteEpisodeOverride(episodeId)
 
   await invalidateEpisodeCache()
@@ -192,7 +196,8 @@ export async function assignEpisodeGuest(
   episodeId: string,
   guestId: string | null
 ): Promise<{ success: boolean; error?: string }> {
-  await requireAdmin()
+  const gate = await requireActionRole("EDITOR")
+  if (!gate.ok) return { success: false, error: gate.error }
   if (!episodeId) {
     return { success: false, error: "بيانات غير صالحة" }
   }
@@ -247,7 +252,8 @@ export async function assignEpisodeGuest(
 /* ─── Cache ─── */
 
 export async function invalidateEpisodeCacheAction() {
-  await requireAdmin()
+  const gate = await requireActionRole("EDITOR")
+  if (!gate.ok) return { success: false, error: gate.error }
   await invalidateEpisodeCache()
   invalidate("all")
   revalidatePath("/")
@@ -274,7 +280,8 @@ export async function getEpisodeCategoriesWithCounts() {
 }
 
 export async function createEpisodeCategory(name: string, slug: string) {
-  await requireAdmin()
+  const gate = await requireActionRole("EDITOR")
+  if (!gate.ok) return { success: false, error: gate.error }
   if (!name.trim() || !slug.trim()) {
     return { success: false, error: "الاسم والمعرّف مطلوبان" }
   }
@@ -288,7 +295,8 @@ export async function createEpisodeCategory(name: string, slug: string) {
 }
 
 export async function updateEpisodeCategory(id: string, name: string, slug: string) {
-  await requireAdmin()
+  const gate = await requireActionRole("EDITOR")
+  if (!gate.ok) return { success: false, error: gate.error }
   if (!id || !name.trim() || !slug.trim()) {
     return { success: false, error: "بيانات غير صالحة" }
   }
@@ -302,7 +310,8 @@ export async function updateEpisodeCategory(id: string, name: string, slug: stri
 }
 
 export async function deleteEpisodeCategory(id: string) {
-  await requireAdmin()
+  const gate = await requireActionRole("EDITOR")
+  if (!gate.ok) return { success: false, error: gate.error }
   if (!id) return { success: false, error: "بيانات غير صالحة" }
   const result = await deleteCat(id)
   if (result.success) {
@@ -319,7 +328,8 @@ export async function assignEpisodeCategory(
   episodeId: string,
   categoryId: string | null
 ): Promise<{ success: boolean; error?: string }> {
-  await requireAdmin()
+  const gate = await requireActionRole("EDITOR")
+  if (!gate.ok) return { success: false, error: gate.error }
   if (!episodeId) return { success: false, error: "بيانات غير صالحة" }
 
   // CRITICAL: YouTube-only episodes must be materialized first, otherwise
@@ -379,7 +389,8 @@ export async function assignEpisodeCategory(
  * are removed automatically by the DB.
  */
 export async function deleteEpisode(episodeId: string): Promise<{ success: boolean; error?: string }> {
-  await requireAdmin()
+  const gate = await requireActionRole("EDITOR")
+  if (!gate.ok) return { success: false, error: gate.error }
   if (!episodeId || typeof episodeId !== "string") {
     return { success: false, error: "بيانات غير صالحة" }
   }
@@ -503,7 +514,8 @@ export async function bulkAssignEpisodeCategory(
   episodeIds: string[],
   categoryId: string | null
 ): Promise<{ success: boolean; count: number; error?: string }> {
-  await requireAdmin()
+  const gate = await requireActionRole("EDITOR")
+  if (!gate.ok) return { success: false, count: 0, error: gate.error }
   if (!Array.isArray(episodeIds) || episodeIds.length === 0) {
     return { success: false, count: 0, error: "لم يتم تحديد حلقات" }
   }
@@ -572,7 +584,8 @@ export async function assignEpisodeSponsorAction(
   partnerId: string | null,
   customBrandLine?: string
 ) {
-  await requireAdmin()
+  const gate = await requireActionRole("EDITOR")
+  if (!gate.ok) return { success: false, error: gate.error }
   if (!episodeId) {
     return { success: false, error: "بيانات غير صالحة" }
   }
@@ -632,7 +645,20 @@ export async function importEpisodesFromYouTube(input: {
   from: string
   to?: string | null
 }): Promise<ImportEpisodesResult> {
-  await requireAdmin()
+  const gate = await requireActionRole("EDITOR")
+  if (!gate.ok) {
+    return {
+      success: false,
+      error: gate.error,
+      from: "",
+      to: null,
+      totalFromYouTube: 0,
+      totalInDateRange: 0,
+      imported: [],
+      skippedExisting: [],
+      skippedTombstoned: [],
+    }
+  }
 
   const fromRaw = String(input?.from || "").trim()
   const toRaw = input?.to ? String(input.to).trim() : ""
@@ -841,7 +867,8 @@ export async function importEpisodesFromYouTube(input: {
 export async function restoreEpisodesFromTombstone(
   episodeIds: string[],
 ): Promise<{ success: boolean; restoredCount: number; error?: string }> {
-  await requireAdmin()
+  const gate = await requireActionRole("EDITOR")
+  if (!gate.ok) return { success: false, restoredCount: 0, error: gate.error }
   if (!Array.isArray(episodeIds) || episodeIds.length === 0) {
     return { success: false, restoredCount: 0, error: "لم يتم تحديد حلقات" }
   }

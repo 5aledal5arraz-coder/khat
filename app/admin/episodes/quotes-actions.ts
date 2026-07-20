@@ -6,7 +6,7 @@ import { fetchTranscriptServer } from "@/lib/youtube/transcript-server"
 import { cleanTranscriptText } from "@/lib/studio/utils"
 import { generateQuotesFromTranscript } from "@/lib/ai"
 import { getYouTubeId } from "@/lib/utils"
-import { requireAdmin } from "@/lib/api-utils"
+import { requireActionRole } from "@/lib/api-utils"
 import { saveVersion } from "@/lib/episodes/versions"
 
 function revalidateAll(episodeId?: string) {
@@ -22,7 +22,8 @@ export async function generateEpisodeQuotes(
   title: string,
   guestName: string
 ) {
-  await requireAdmin()
+  const gate = await requireActionRole("EDITOR")
+  if (!gate.ok) return { success: false, error: gate.error }
   const videoId = getYouTubeId(youtubeUrl)
   if (!videoId) {
     return { success: false, error: "رابط يوتيوب غير صالح" }
@@ -84,7 +85,8 @@ export async function regenerateEpisodeQuotes(
   title: string,
   guestName: string
 ) {
-  await requireAdmin()
+  const gate = await requireActionRole("EDITOR")
+  if (!gate.ok) return { success: false, error: gate.error }
   // Re-fetch transcript and regenerate
   return generateEpisodeQuotes(episodeId, youtubeUrl, title, guestName)
 }
@@ -94,7 +96,8 @@ export async function updateQuoteText(
   quoteId: string,
   newText: string
 ) {
-  await requireAdmin()
+  const gate = await requireActionRole("EDITOR")
+  if (!gate.ok) return { success: false, error: gate.error }
   const config = await getQuotesConfig()
   const entry = config[episodeId]
   if (!entry) return { success: false, error: "لا توجد اقتباسات لهذه الحلقة" }
@@ -110,7 +113,8 @@ export async function updateQuoteText(
 }
 
 export async function deleteQuote(episodeId: string, quoteId: string) {
-  await requireAdmin()
+  const gate = await requireActionRole("EDITOR")
+  if (!gate.ok) return { success: false, error: gate.error }
   const config = await getQuotesConfig()
   const entry = config[episodeId]
   if (!entry) return { success: false, error: "لا توجد اقتباسات لهذه الحلقة" }
@@ -123,7 +127,8 @@ export async function deleteQuote(episodeId: string, quoteId: string) {
 }
 
 export async function publishEpisodeQuotes(episodeId: string) {
-  await requireAdmin()
+  const gate = await requireActionRole("EDITOR")
+  if (!gate.ok) return { success: false, error: gate.error }
   const config = await getQuotesConfig()
   const entry = config[episodeId]
   if (!entry) return { success: false, error: "لا توجد اقتباسات لهذه الحلقة" }
@@ -138,7 +143,8 @@ export async function publishEpisodeQuotes(episodeId: string) {
 }
 
 export async function unpublishEpisodeQuotes(episodeId: string) {
-  await requireAdmin()
+  const gate = await requireActionRole("EDITOR")
+  if (!gate.ok) return { success: false, error: gate.error }
   const config = await getQuotesConfig()
   const entry = config[episodeId]
   if (!entry) return { success: false, error: "لا توجد اقتباسات لهذه الحلقة" }
@@ -152,7 +158,8 @@ export async function unpublishEpisodeQuotes(episodeId: string) {
 }
 
 export async function bulkDeleteQuotes(episodeId: string, quoteIds: string[]) {
-  await requireAdmin()
+  const gate = await requireActionRole("EDITOR")
+  if (!gate.ok) return { success: false, error: gate.error }
   const config = await getQuotesConfig()
   const entry = config[episodeId]
   if (!entry) return { success: false, error: "لا توجد اقتباسات لهذه الحلقة" }
@@ -169,7 +176,8 @@ export async function bulkToggleQuotesVisibility(
   quoteIds: string[],
   hidden: boolean
 ) {
-  await requireAdmin()
+  const gate = await requireActionRole("EDITOR")
+  if (!gate.ok) return { success: false, error: gate.error }
   const config = await getQuotesConfig()
   const entry = config[episodeId]
   if (!entry) return { success: false, error: "لا توجد اقتباسات لهذه الحلقة" }
@@ -186,7 +194,8 @@ export async function bulkToggleQuotesVisibility(
 }
 
 export async function deleteAllEpisodeQuotes(episodeId: string) {
-  await requireAdmin()
+  const gate = await requireActionRole("EDITOR")
+  if (!gate.ok) return { success: false, error: gate.error }
   const config = await getQuotesConfig()
   delete config[episodeId]
   await saveQuotesConfig(config)

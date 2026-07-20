@@ -60,24 +60,24 @@ export function CommunityRecordView({ record, reference }: { record: CommunityRe
 
   return (
     <div className="space-y-5">
-      <Link href="/admin/community" className="inline-flex items-center gap-1.5 text-[13px] text-slate-500 hover:text-slate-800">
+      <Link href="/admin/community" className="inline-flex items-center gap-1.5 text-[13px] text-muted-foreground hover:text-foreground">
         <ArrowRight className="h-3.5 w-3.5" /> مساهمات المجتمع
       </Link>
 
       {/* Header */}
-      <div className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
+      <div className="rounded-2xl border border-border/80 bg-card p-5 shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div className="min-w-0">
-            <span className="inline-flex items-center gap-1 rounded-md bg-slate-100 px-2 py-0.5 text-[11px] font-medium text-slate-600">{TYPE_LABEL[c.type] || c.type}</span>
-            <h1 className="mt-2 text-xl font-bold tracking-tight text-slate-900">{c.title}</h1>
-            <div className="mt-1.5 flex flex-wrap items-center gap-2 text-[12px] text-slate-500">
-              <span className="rounded bg-slate-100 px-2 py-0.5 font-mono text-[11px]">{reference}</span>
+            <span className="inline-flex items-center gap-1 rounded-md bg-muted px-2 py-0.5 text-[11px] font-medium text-muted-foreground">{TYPE_LABEL[c.type] || c.type}</span>
+            <h1 className="mt-2 text-xl font-bold tracking-tight text-foreground">{c.title}</h1>
+            <div className="mt-1.5 flex flex-wrap items-center gap-2 text-[12px] text-muted-foreground">
+              <span className="rounded bg-muted px-2 py-0.5 font-mono text-[11px]">{reference}</span>
               {c.contributor_name && <span>{c.contributor_name}</span>}
-              {c.contributor_email && <a href={`mailto:${c.contributor_email}`} className="inline-flex items-center gap-1 hover:text-slate-800"><Mail className="h-3 w-3" /> {c.contributor_email}</a>}
+              {c.contributor_email && <a href={`mailto:${c.contributor_email}`} className="inline-flex items-center gap-1 hover:text-foreground"><Mail className="h-3 w-3" /> {c.contributor_email}</a>}
               <span>· {fmtRel(c.created_at)}</span>
             </div>
           </div>
-          <button onClick={() => run("delete", async () => { if (confirm("حذف المساهمة نهائيًا؟")) { await call(`/api/admin/community/${c.id}`, "DELETE"); router.push("/admin/community") } })} className="text-slate-300 hover:text-rose-700" title="حذف">
+          <button onClick={() => run("delete", async () => { if (confirm("حذف المساهمة نهائيًا؟")) { await call(`/api/admin/community/${c.id}`, "DELETE"); router.push("/admin/community") } })} className="text-muted-foreground/50 hover:text-rose-700" title="حذف">
             <Trash className="h-4 w-4" />
           </button>
         </div>
@@ -87,13 +87,13 @@ export function CommunityRecordView({ record, reference }: { record: CommunityRe
           {(["reviewing", "accepted", "declined"] as CommunityContributionStatus[]).map((s) => (
             <button key={s} onClick={() => setStatus(s)} disabled={busy !== null}
               className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-[12px] font-medium transition-all disabled:opacity-60 ${
-                c.status === s ? "border-indigo-300 bg-indigo-600 text-white" : "border-slate-200 bg-white text-slate-500 hover:bg-slate-50"
+                c.status === s ? "border-indigo-300 bg-indigo-600 text-white" : "border-border bg-card text-muted-foreground hover:bg-muted"
               }`}>
               {busy === `status:${s}` ? <Loader2 className="h-3 w-3 animate-spin" /> : s === "accepted" ? <CheckCircle2 className="h-3 w-3" /> : s === "declined" ? <AlertTriangle className="h-3 w-3" /> : <Eye className="h-3 w-3" />}
               {s === "reviewing" ? "قيد المراجعة" : s === "accepted" ? "مقبولة" : "مرفوضة"}
             </button>
           ))}
-          <span className="mx-1 h-4 w-px bg-slate-200" />
+          <span className="mx-1 h-4 w-px bg-border" />
           {c.status === "routed" && routeTarget ? (
             <span className="inline-flex items-center gap-1.5 rounded-full border border-indigo-200 bg-indigo-50 px-3 py-1 text-[12px] font-medium text-indigo-700">
               <Send className="h-3 w-3" /> وُجّهت — {routeTarget.label}
@@ -103,20 +103,20 @@ export function CommunityRecordView({ record, reference }: { record: CommunityRe
             </span>
           ) : routable ? (
             <button onClick={routeToBrain} disabled={busy !== null}
-              className="inline-flex items-center gap-1.5 rounded-full bg-slate-900 px-3.5 py-1 text-[12px] font-semibold text-white hover:bg-slate-800 disabled:opacity-60">
+              className="inline-flex items-center gap-1.5 rounded-full bg-foreground px-3.5 py-1 text-[12px] font-semibold text-white hover:bg-foreground/90 disabled:opacity-60">
               {busy === "route" ? <Loader2 className="h-3 w-3 animate-spin" /> : <Send className="h-3 w-3" />}
               وجّه إلى خط برين
             </button>
           ) : (
-            <span className="text-[11px] text-slate-400">للمراجعة فقط — لا توجد وجهة في خط برين</span>
+            <span className="text-[11px] text-muted-foreground">للمراجعة فقط — لا توجد وجهة في خط برين</span>
           )}
-          <span className="mx-1 h-4 w-px bg-slate-200" />
+          <span className="mx-1 h-4 w-px bg-border" />
           <button
             onClick={toggleCredit}
             disabled={busy !== null}
             title="اعرض هذه المساهمة على حائط «صُنع مع المجتمع» العام"
             className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-[12px] font-medium transition-all disabled:opacity-60 ${
-              c.public_credit ? "border-amber-300 bg-amber-50 text-amber-700" : "border-slate-200 bg-white text-slate-500 hover:bg-slate-50"
+              c.public_credit ? "border-amber-300 bg-amber-50 text-amber-700" : "border-border bg-card text-muted-foreground hover:bg-muted"
             }`}
           >
             {busy === "credit" ? <Loader2 className="h-3 w-3 animate-spin" /> : <Award className="h-3 w-3" />}
@@ -132,21 +132,21 @@ export function CommunityRecordView({ record, reference }: { record: CommunityRe
             {c.triage_status === "ready" ? (
               <div className="space-y-3">
                 <div className="flex flex-wrap items-center gap-2">
-                  <span className="rounded-lg bg-slate-100 px-2.5 py-1 text-[12px] font-semibold text-slate-700">الجودة {c.quality_score}/100</span>
+                  <span className="rounded-lg bg-muted px-2.5 py-1 text-[12px] font-semibold text-muted-foreground">الجودة {c.quality_score}/100</span>
                   {c.category && <span className="rounded-lg bg-indigo-50 px-2.5 py-1 text-[12px] text-indigo-700">{c.category}</span>}
                   {c.recommended_action && <span className="rounded-lg bg-primary/[0.07] px-2.5 py-1 text-[12px] font-medium text-primary">{ACTION_LABEL[c.recommended_action]}</span>}
                   {c.spam && <span className="rounded-lg bg-rose-50 px-2.5 py-1 text-[12px] font-medium text-rose-700">مُعلّمة كعبثية</span>}
                 </div>
-                {c.ai_summary && <p className="text-[13px] leading-relaxed text-slate-700">{c.ai_summary}</p>}
-                {c.action_rationale && <p className="text-[12px] text-slate-500">↳ {c.action_rationale}</p>}
+                {c.ai_summary && <p className="text-[13px] leading-relaxed text-muted-foreground">{c.ai_summary}</p>}
+                {c.action_rationale && <p className="text-[12px] text-muted-foreground">↳ {c.action_rationale}</p>}
                 <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                   {c.highlights.length > 0 && (
                     <div><p className="mb-1 flex items-center gap-1 text-[11px] font-medium text-emerald-700"><Lightbulb className="h-3 w-3" /> نقاط القوة</p>
-                      <ul className="space-y-1">{c.highlights.map((h, i) => <li key={i} className="text-[12.5px] leading-relaxed text-slate-700">• {h}</li>)}</ul></div>
+                      <ul className="space-y-1">{c.highlights.map((h, i) => <li key={i} className="text-[12.5px] leading-relaxed text-muted-foreground">• {h}</li>)}</ul></div>
                   )}
                   {c.concerns.length > 0 && (
                     <div><p className="mb-1 flex items-center gap-1 text-[11px] font-medium text-rose-700"><ShieldAlert className="h-3 w-3" /> مخاوف</p>
-                      <ul className="space-y-1">{c.concerns.map((h, i) => <li key={i} className="text-[12.5px] leading-relaxed text-slate-700">• {h}</li>)}</ul></div>
+                      <ul className="space-y-1">{c.concerns.map((h, i) => <li key={i} className="text-[12.5px] leading-relaxed text-muted-foreground">• {h}</li>)}</ul></div>
                   )}
                 </div>
               </div>
@@ -159,12 +159,12 @@ export function CommunityRecordView({ record, reference }: { record: CommunityRe
 
           {/* The submission */}
           <SectionCard title="المساهمة" icon={MessageSquare}>
-            <p className="whitespace-pre-wrap text-[13px] leading-relaxed text-slate-700">{c.body}</p>
+            <p className="whitespace-pre-wrap text-[13px] leading-relaxed text-muted-foreground">{c.body}</p>
             {Object.entries(c.details || {}).filter(([, v]) => typeof v === "string" && v).length > 0 && (
-              <div className="mt-3 space-y-1.5 border-t border-slate-100 pt-3">
+              <div className="mt-3 space-y-1.5 border-t border-border pt-3">
                 {Object.entries(c.details || {}).map(([k, v]) =>
                   typeof v === "string" && v ? (
-                    <div key={k} className="text-[12.5px]"><span className="text-slate-400">{k}: </span><span className="text-slate-700">{v}</span></div>
+                    <div key={k} className="text-[12.5px]"><span className="text-muted-foreground">{k}: </span><span className="text-muted-foreground">{v}</span></div>
                   ) : null,
                 )}
               </div>
@@ -185,9 +185,9 @@ export function CommunityRecordView({ record, reference }: { record: CommunityRe
 
 function SectionCard({ title, icon: Icon, children, action }: { title: string; icon?: React.ElementType; children: React.ReactNode; action?: React.ReactNode }) {
   return (
-    <div className="rounded-2xl border border-slate-200/80 bg-white p-4 shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
+    <div className="rounded-2xl border border-border/80 bg-card p-4 shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
       <div className="mb-3 flex items-center justify-between">
-        <h3 className="flex items-center gap-1.5 text-[13px] font-semibold text-slate-800">{Icon && <Icon className="h-4 w-4 text-slate-400" />}{title}</h3>
+        <h3 className="flex items-center gap-1.5 text-[13px] font-semibold text-foreground">{Icon && <Icon className="h-4 w-4 text-muted-foreground" />}{title}</h3>
         {action}
       </div>
       {children}
@@ -195,7 +195,7 @@ function SectionCard({ title, icon: Icon, children, action }: { title: string; i
   )
 }
 function Empty({ children }: { children: React.ReactNode }) {
-  return <p className="rounded-xl border border-dashed border-slate-200 px-3 py-5 text-center text-[12px] text-slate-400">{children}</p>
+  return <p className="rounded-xl border border-dashed border-border px-3 py-5 text-center text-[12px] text-muted-foreground">{children}</p>
 }
 
 type RunFn = (k: string, fn: () => Promise<void>) => Promise<void>
@@ -210,15 +210,15 @@ function TasksCard({ record, run, busy, call }: { record: CommunityRecord; run: 
   return (
     <SectionCard title={`المهام (${open.length})`} icon={CheckCircle2}>
       <div className="mb-2.5 flex gap-1.5">
-        <input value={title} onChange={(e) => setTitle(e.target.value)} onKeyDown={(e) => e.key === "Enter" && add()} placeholder="مهمة…" className="flex-1 rounded-lg border border-slate-200 px-2.5 py-1 text-[12.5px]" />
+        <input value={title} onChange={(e) => setTitle(e.target.value)} onKeyDown={(e) => e.key === "Enter" && add()} placeholder="مهمة…" className="flex-1 rounded-lg border border-border px-2.5 py-1 text-[12.5px]" />
         <button onClick={add} disabled={busy !== null} className="rounded-lg bg-indigo-600 px-2.5 py-1 text-[11.5px] text-white disabled:opacity-60">{busy === "task:add" ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Plus className="h-3.5 w-3.5" />}</button>
       </div>
       {open.length === 0 ? <Empty>لا مهام.</Empty> : (
         <div className="space-y-1.5">{open.map((t) => (
-          <div key={t.id} className="flex items-start gap-2 rounded-xl border border-slate-150 bg-white p-2.5">
-            <button onClick={() => done(t)} disabled={busy !== null} className="mt-0.5 text-slate-300 hover:text-emerald-700">{busy === `task:done:${t.id}` ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}</button>
+          <div key={t.id} className="flex items-start gap-2 rounded-xl border border-border bg-card p-2.5">
+            <button onClick={() => done(t)} disabled={busy !== null} className="mt-0.5 text-muted-foreground/50 hover:text-emerald-700">{busy === `task:done:${t.id}` ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}</button>
             <div className="min-w-0 flex-1">
-              <p className="text-[12.5px] font-medium leading-snug text-slate-800">{t.title}</p>
+              <p className="text-[12.5px] font-medium leading-snug text-foreground">{t.title}</p>
               {t.created_by === "ai:community" && <span className="mt-0.5 inline-flex items-center gap-0.5 rounded bg-primary/[0.07] px-1 py-px text-[10px] font-medium text-primary"><Sparkles className="h-2.5 w-2.5" /> الفرز الذكي</span>}
             </div>
           </div>
@@ -237,18 +237,18 @@ function NotesCard({ record, run, busy, call }: { record: CommunityRecord; run: 
   return (
     <SectionCard title="ملاحظات الفريق" icon={MessageSquare}>
       <div className="mb-2.5 flex gap-1.5">
-        <textarea value={body} onChange={(e) => setBody(e.target.value)} rows={2} placeholder="ملاحظة…" className="flex-1 resize-none rounded-lg border border-slate-200 px-2.5 py-1.5 text-[12.5px]" />
+        <textarea value={body} onChange={(e) => setBody(e.target.value)} rows={2} placeholder="ملاحظة…" className="flex-1 resize-none rounded-lg border border-border px-2.5 py-1.5 text-[12.5px]" />
         <button onClick={add} disabled={busy !== null || !body.trim()} className="self-end rounded-lg bg-indigo-600 px-2.5 py-1.5 text-[11.5px] text-white disabled:opacity-50">{busy === "note:add" ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Plus className="h-3.5 w-3.5" />}</button>
       </div>
       {record.notes.length === 0 ? <Empty>لا ملاحظات.</Empty> : (
         <div className="space-y-1.5">{record.notes.map((n) => (
-          <div key={n.id} className={`group rounded-xl border p-2.5 ${n.pinned ? "border-amber-200 bg-amber-50/40" : "border-slate-150 bg-white"}`}>
-            <p className="whitespace-pre-wrap text-[12.5px] leading-relaxed text-slate-700">{n.body}</p>
-            <div className="mt-1 flex items-center justify-between text-[10.5px] text-slate-400">
+          <div key={n.id} className={`group rounded-xl border p-2.5 ${n.pinned ? "border-amber-200 bg-amber-50/40" : "border-border bg-card"}`}>
+            <p className="whitespace-pre-wrap text-[12.5px] leading-relaxed text-muted-foreground">{n.body}</p>
+            <div className="mt-1 flex items-center justify-between text-[10.5px] text-muted-foreground">
               <span>{(n.author || "").replace(/^admin:/, "")} · {fmtRel(n.created_at)}</span>
               <div className="flex items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100">
-                <button onClick={() => pin(n)} className={n.pinned ? "text-amber-700" : "text-slate-300 hover:text-amber-700"}><Pin className="h-3 w-3" /></button>
-                <button onClick={() => del(n)} className="text-slate-300 hover:text-rose-700"><Trash2 className="h-3 w-3" /></button>
+                <button onClick={() => pin(n)} className={n.pinned ? "text-amber-700" : "text-muted-foreground/50 hover:text-amber-700"}><Pin className="h-3 w-3" /></button>
+                <button onClick={() => del(n)} className="text-muted-foreground/50 hover:text-rose-700"><Trash2 className="h-3 w-3" /></button>
               </div>
             </div>
           </div>
@@ -273,12 +273,12 @@ function TimelineCard({ activities }: { activities: CrmActivity[] }) {
           return (
             <div key={a.id} className="flex gap-2.5">
               <div className="flex flex-col items-center">
-                <div className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full ${ai ? "bg-primary/10 text-primary" : "bg-slate-100 text-slate-500"}`}><Icon className="h-3 w-3" /></div>
-                {i < activities.length - 1 && <div className="my-0.5 w-px flex-1 bg-slate-150" />}
+                <div className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full ${ai ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground"}`}><Icon className="h-3 w-3" /></div>
+                {i < activities.length - 1 && <div className="my-0.5 w-px flex-1 bg-border" />}
               </div>
               <div className="min-w-0 flex-1 pb-3">
-                <p className="text-[12px] leading-snug text-slate-700">{a.summary}</p>
-                <p className="text-[10.5px] text-slate-400">{(a.actor || "").replace(/^admin:/, "").replace("ai:community", "الفرز الذكي").replace("system:community-triage", "تلقائي").replace("public", "المساهم")} · {fmtRel(a.created_at)}</p>
+                <p className="text-[12px] leading-snug text-muted-foreground">{a.summary}</p>
+                <p className="text-[10.5px] text-muted-foreground">{(a.actor || "").replace(/^admin:/, "").replace("ai:community", "الفرز الذكي").replace("system:community-triage", "تلقائي").replace("public", "المساهم")} · {fmtRel(a.created_at)}</p>
               </div>
             </div>
           )

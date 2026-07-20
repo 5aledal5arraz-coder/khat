@@ -3,8 +3,9 @@ import Link from "next/link"
 import { ArrowRight } from "lucide-react"
 import { requireAdmin } from "@/lib/api-utils"
 import { getSponsorshipLeadById } from "@/lib/admin/queries"
-import { getOrCreateOfferForLead } from "@/lib/partnership-offers"
+import { getOfferByLead } from "@/lib/partnership-offers"
 import { OfferEditor } from "./offer-editor"
+import { CreateOfferCTA } from "./create-offer-cta"
 
 export const dynamic = "force-dynamic"
 
@@ -19,10 +20,10 @@ export default async function OfferEditorPage({
   const lead = await getSponsorshipLeadById(leadId)
   if (!lead) notFound()
 
-  // Seed-or-load: navigating here creates the offer from the AI proposal if it
-  // doesn't exist yet, so it's always ready to edit. Existing edits are kept.
-  const offer = await getOrCreateOfferForLead(leadId)
-  if (!offer) notFound()
+  // Read-only load: viewing this page must NOT create anything. Seeding the
+  // offer from the AI proposal is an explicit, role-gated action (the CTA
+  // below) so a read-only VIEWER opening the page can't mint an offer + token.
+  const offer = await getOfferByLead(leadId)
 
   return (
     <div className="space-y-6" dir="rtl" lang="ar">
@@ -42,7 +43,11 @@ export default async function OfferEditorPage({
         </p>
       </div>
 
-      <OfferEditor offer={offer} companyName={lead.company_name} />
+      {offer ? (
+        <OfferEditor offer={offer} companyName={lead.company_name} />
+      ) : (
+        <CreateOfferCTA leadId={leadId} />
+      )}
     </div>
   )
 }

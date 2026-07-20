@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache"
 import { and, desc, eq } from "drizzle-orm"
-import { getAdminAuthUser, requireAdmin } from "@/lib/api-utils"
+import { getAdminAuthUser, requireActionRole } from "@/lib/api-utils"
 import { db } from "@/lib/db"
 import { studioAnalysisRecords } from "@/lib/db/schema/studio-analysis"
 import { studioSessions } from "@/lib/db/schema/studio"
@@ -44,7 +44,8 @@ export async function saveChaptersAction(
   input: SaveChaptersInput,
 ): Promise<SaveChaptersResult> {
   try {
-    await requireAdmin()
+    const gate = await requireActionRole("EDITOR")
+    if (!gate.ok) return { ok: false, code: "server_error", message: gate.error }
     const admin = await getAdminAuthUser()
     if (!db)
       return { ok: false, code: "server_error", message: "DB unavailable" }
@@ -173,7 +174,8 @@ export async function createChapterFromSegmentAction(input: {
   editorSessionId?: string
 }): Promise<CreateChapterFromSegmentResult> {
   try {
-    await requireAdmin()
+    const gate = await requireActionRole("EDITOR")
+    if (!gate.ok) return { ok: false, code: "server_error", message: gate.error }
     const admin = await getAdminAuthUser()
     if (!db)
       return { ok: false, code: "server_error", message: "DB unavailable" }
@@ -343,7 +345,8 @@ export async function suggestChapterImprovementsAction(
   eirId: string,
 ): Promise<SuggestChaptersResult> {
   try {
-    await requireAdmin()
+    const gate = await requireActionRole("EDITOR")
+    if (!gate.ok) return { ok: false, code: "server_error", message: gate.error }
     if (!db)
       return { ok: false, code: "server_error", message: "DB unavailable" }
 

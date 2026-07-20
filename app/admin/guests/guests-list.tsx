@@ -320,7 +320,7 @@ function LinkedEpisodesSection({ episodes, linkedEpisodeIds, onLink, onUnlink }:
       {linkedEpisodes.length > 0 ? (
         <div className="space-y-1.5">
           {linkedEpisodes.map((ep) => (
-            <div key={ep.id} className="flex items-center gap-2 rounded-xl bg-white/[0.03] px-3 py-2 ring-1 ring-border/30">
+            <div key={ep.id} className="flex items-center gap-2 rounded-xl bg-card/[0.03] px-3 py-2 ring-1 ring-border/30">
               <div className="min-w-0 flex-1">
                 <p className="truncate text-[12px] font-medium" dir="auto">{ep.title}</p>
                 <p className="text-[10px] text-muted-foreground">{ep.release_date}</p>
@@ -336,7 +336,7 @@ function LinkedEpisodesSection({ episodes, linkedEpisodeIds, onLink, onUnlink }:
           ))}
         </div>
       ) : (
-        <p className="rounded-xl bg-white/[0.02] py-4 text-center text-xs text-muted-foreground ring-1 ring-border/30">
+        <p className="rounded-xl bg-card/[0.02] py-4 text-center text-xs text-muted-foreground ring-1 ring-border/30">
           لا توجد حلقات مرتبطة — اضغط &quot;ربط حلقة&quot;
         </p>
       )}
@@ -539,7 +539,7 @@ function GuestFormDialog({ isNew, formData, setFormData, onSave, onClose, saving
                   const platform = SOCIAL_PLATFORMS.find((p) => p.key === key)
                   return (
                     <div key={key} className="flex items-center gap-2">
-                      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white/[0.03] ring-1 ring-border/50"><Icon className="h-4 w-4 text-muted-foreground" /></div>
+                      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-card/[0.03] ring-1 ring-border/50"><Icon className="h-4 w-4 text-muted-foreground" /></div>
                       <Input value={value} onChange={(e) => updateLink(key, e.target.value)} placeholder={platform?.placeholder || "https://..."} dir="ltr" className="h-9 flex-1 rounded-xl text-xs" />
                       <button onClick={() => removeLink(key)} className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl text-muted-foreground transition-all hover:bg-destructive/10 hover:text-destructive"><X className="h-3.5 w-3.5" /></button>
                     </div>
@@ -547,7 +547,7 @@ function GuestFormDialog({ isNew, formData, setFormData, onSave, onClose, saving
                 })}
               </div>
             ) : (
-              <p className="rounded-xl bg-white/[0.02] py-4 text-center text-xs text-muted-foreground ring-1 ring-border/30">لا توجد روابط — اضغط &quot;إضافة رابط&quot;</p>
+              <p className="rounded-xl bg-card/[0.02] py-4 text-center text-xs text-muted-foreground ring-1 ring-border/30">لا توجد روابط — اضغط &quot;إضافة رابط&quot;</p>
             )}
           </div>
 
@@ -1043,7 +1043,7 @@ export function GuestsList({ guests: initialGuests, episodes: initialEpisodes }:
         </div>
       ) : (
         <div className="flex flex-col items-center justify-center py-20 text-center">
-          <div className="mb-5 flex h-16 w-16 items-center justify-center rounded-3xl bg-white/[0.03] ring-1 ring-border/50"><User className="h-6 w-6 text-muted-foreground" /></div>
+          <div className="mb-5 flex h-16 w-16 items-center justify-center rounded-3xl bg-card/[0.03] ring-1 ring-border/50"><User className="h-6 w-6 text-muted-foreground" /></div>
           <p className="text-base font-semibold text-muted-foreground">{search ? "لم يتم العثور على ضيوف" : "لا يوجد ضيوف بعد"}</p>
           <p className="mt-2 max-w-xs text-sm text-muted-foreground">{search ? `لم يتم العثور على ضيوف يطابقون "${search}"` : "اضغط على \"إضافة ضيف\" لإضافة أول ضيف"}</p>
         </div>

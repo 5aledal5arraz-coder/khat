@@ -1,7 +1,7 @@
 "use server"
 
 import { revalidatePath } from "next/cache"
-import { requireAdmin } from "@/lib/api-utils"
+import { requireActionRole } from "@/lib/api-utils"
 import { saveHomepageThinkers } from "@/lib/queries/homepage-thinkers"
 import { setHomepageMode } from "@/lib/queries/homepage-settings"
 import type { HomepageMode } from "@/lib/queries/homepage-settings"
@@ -14,7 +14,8 @@ function revalidateAll() {
 }
 
 export async function setThinkersModeAction(mode: HomepageMode) {
-  await requireAdmin()
+  const gate = await requireActionRole("EDITOR")
+  if (!gate.ok) return { success: false, error: gate.error }
   await setHomepageMode("thinkers", mode)
   revalidateAll()
   return { success: true }
@@ -29,7 +30,8 @@ export async function saveThinkersAction(
     custom_image: string
   }[]
 ) {
-  await requireAdmin()
+  const gate = await requireActionRole("EDITOR")
+  if (!gate.ok) return { success: false, error: gate.error }
 
   const valid = items
     .filter((item) => item.guest_id && item.position >= 1)

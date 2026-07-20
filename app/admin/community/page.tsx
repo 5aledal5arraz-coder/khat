@@ -31,7 +31,7 @@ const ACTION_LABEL: Record<string, string> = {
 }
 
 function qualityColor(s: number | null): string {
-  if (s == null) return "text-slate-400 bg-slate-100"
+  if (s == null) return "text-muted-foreground bg-muted"
   if (s >= 70) return "text-emerald-700 bg-emerald-100"
   if (s >= 45) return "text-amber-700 bg-amber-100"
   return "text-rose-700 bg-rose-100"
@@ -47,14 +47,14 @@ function Card({ c }: { c: CommunityContribution }) {
   return (
     <Link
       href={`/admin/community/${c.id}`}
-      className="block rounded-xl border border-slate-200/80 bg-white p-3 shadow-[0_1px_2px_rgba(15,23,42,0.04)] transition-all hover:-translate-y-0.5 hover:border-slate-300 hover:shadow-[0_8px_20px_-12px_rgba(15,23,42,0.2)]"
+      className="block rounded-xl border border-border/80 bg-card p-3 shadow-[0_1px_2px_rgba(15,23,42,0.04)] transition-all hover:-translate-y-0.5 hover:border-muted-foreground/30 hover:shadow-[0_8px_20px_-12px_rgba(15,23,42,0.2)]"
     >
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0">
-          <span className="inline-flex items-center gap-1 rounded bg-slate-100 px-1.5 py-0.5 text-[10px] text-slate-600">
+          <span className="inline-flex items-center gap-1 rounded bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground">
             <Icon className="h-2.5 w-2.5" /> {tm.label}
           </span>
-          <p className="mt-1 truncate text-[13px] font-semibold text-slate-900">{c.title}</p>
+          <p className="mt-1 truncate text-[13px] font-semibold text-foreground">{c.title}</p>
         </div>
         {c.quality_score != null ? (
           <span className={`shrink-0 rounded-md px-1.5 py-0.5 text-[11px] font-bold tabular-nums ${qualityColor(c.quality_score)}`}>{c.quality_score}</span>
@@ -62,7 +62,7 @@ function Card({ c }: { c: CommunityContribution }) {
           <span className="shrink-0 rounded-md bg-violet-50 px-1.5 py-0.5 text-[10px] text-violet-600">يُفرز…</span>
         ) : null}
       </div>
-      {c.ai_summary && <p className="mt-1.5 line-clamp-2 text-[11.5px] leading-relaxed text-slate-600">{c.ai_summary}</p>}
+      {c.ai_summary && <p className="mt-1.5 line-clamp-2 text-[11.5px] leading-relaxed text-muted-foreground">{c.ai_summary}</p>}
       <div className="mt-2 flex items-center justify-between">
         <div className="flex flex-wrap items-center gap-1.5">
           {c.spam && <span className="rounded bg-rose-50 px-1.5 py-0.5 text-[10px] font-medium text-rose-600">عبثية؟</span>}
@@ -72,7 +72,7 @@ function Card({ c }: { c: CommunityContribution }) {
             </span>
           )}
         </div>
-        <span className="text-[10px] text-slate-400">{communityRef(c.id)} · {ageLabel(c.created_at)}</span>
+        <span className="text-[10px] text-muted-foreground">{communityRef(c.id)} · {ageLabel(c.created_at)}</span>
       </div>
     </Link>
   )
@@ -111,7 +111,7 @@ export default async function CommunityBoardPage() {
               </div>
               <div className="space-y-2.5">
                 {items.length === 0 ? (
-                  <p className="rounded-xl border border-dashed border-slate-200 px-3 py-6 text-center text-[11px] text-slate-400">لا مساهمات</p>
+                  <p className="rounded-xl border border-dashed border-border px-3 py-6 text-center text-[11px] text-muted-foreground">لا مساهمات</p>
                 ) : (
                   items.map((c) => <Card key={c.id} c={c} />)
                 )}
@@ -125,14 +125,14 @@ export default async function CommunityBoardPage() {
 }
 
 function Stat({ icon: Icon, label, value, tone }: { icon: React.ElementType; label: string; value: number; tone: "neutral" | "good" | "warn" }) {
-  const cls = tone === "good" ? "bg-emerald-50 text-emerald-700" : tone === "warn" ? "bg-amber-50 text-amber-700" : "bg-slate-100 text-slate-600"
+  const cls = tone === "good" ? "bg-emerald-50 text-emerald-700" : tone === "warn" ? "bg-amber-50 text-amber-700" : "bg-muted text-muted-foreground"
   return (
-    <div className="rounded-2xl border border-slate-200/80 bg-white p-4 shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
+    <div className="rounded-2xl border border-border/80 bg-card p-4 shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
       <div className="flex items-center justify-between">
-        <span className="text-[12px] font-medium text-slate-600">{label}</span>
+        <span className="text-[12px] font-medium text-muted-foreground">{label}</span>
         <span className={`flex h-7 w-7 items-center justify-center rounded-full ${cls}`}><Icon className="h-3.5 w-3.5" /></span>
       </div>
-      <div className="mt-2 text-[26px] font-bold leading-none tabular-nums text-slate-900">{value}</div>
+      <div className="mt-2 text-[26px] font-bold leading-none tabular-nums text-foreground">{value}</div>
     </div>
   )
 }

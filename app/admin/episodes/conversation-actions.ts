@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache"
 import { getEpisodeEnrichment, setEpisodeEnrichment } from "@/lib/episodes/enrichments"
-import { requireAdmin } from "@/lib/api-utils"
+import { requireActionRole } from "@/lib/api-utils"
 import { saveVersion } from "@/lib/episodes/versions"
 import type { EpisodeEnrichment } from "@/types/episodes"
 
@@ -17,7 +17,8 @@ type ConversationFields = Pick<
 >
 
 export async function saveConversationData(episodeId: string, data: ConversationFields) {
-  await requireAdmin()
+  const gate = await requireActionRole("EDITOR")
+  if (!gate.ok) return { success: false, error: gate.error }
   if (!episodeId) return { success: false, error: "معرّف الحلقة مطلوب" }
 
   // Save version snapshot before change
@@ -44,7 +45,8 @@ export async function clearConversationField(
   episodeId: string,
   field: keyof ConversationFields
 ) {
-  await requireAdmin()
+  const gate = await requireActionRole("EDITOR")
+  if (!gate.ok) return { success: false, error: gate.error }
   if (!episodeId) return { success: false, error: "معرّف الحلقة مطلوب" }
 
   const existing = await getEpisodeEnrichment(episodeId)

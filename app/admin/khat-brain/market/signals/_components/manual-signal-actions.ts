@@ -3,12 +3,12 @@
 /**
  * Phase 4 — Manual Signal server action.
  *
- * Thin wrapper. requireAdmin → stamp actor → call mutation →
+ * Thin wrapper. requireActionRole("EDITOR") → stamp actor → call mutation →
  * revalidate the review queue path. Never auto-fires.
  */
 
 import { revalidatePath } from "next/cache"
-import { requireAdmin, getAdminAuthUser } from "@/lib/api-utils"
+import { requireActionRole } from "@/lib/api-utils"
 import {
   createManualSignal,
   type ManualSignalInput,
@@ -19,15 +19,11 @@ import { enqueueJob } from "@/lib/jobs/queue"
 export async function createManualSignalAction(
   input: ManualSignalInput,
 ): Promise<ManualSignalResult> {
-  await requireAdmin()
-  const user = await getAdminAuthUser()
-  if (!user?.id) {
-    return {
-      ok: false,
-      error: "actor_required",
-      message: "يلزم تسجيل دخول مشغّل.",
-    }
+  const gate = await requireActionRole("EDITOR")
+  if (!gate.ok) {
+    return { ok: false, error: "actor_required", message: gate.error }
   }
+  const user = gate.user
   const r = await createManualSignal(input, { actorId: user.id })
   if (r.ok) {
     // Enqueue scoring so the new row gets a signal_score on the next

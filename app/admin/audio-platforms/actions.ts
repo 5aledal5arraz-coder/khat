@@ -1,7 +1,7 @@
 "use server"
 
 import { revalidatePath } from "next/cache"
-import { requireAdmin } from "@/lib/api-utils"
+import { requireActionRole } from "@/lib/api-utils"
 import {
   createPlatform,
   updatePlatform,
@@ -27,7 +27,8 @@ function revalidateAll() {
 export async function createPlatformLinkAction(
   data: Omit<NewOfficialPlatformLink, "id" | "created_at" | "updated_at">,
 ) {
-  await requireAdmin()
+  const gate = await requireActionRole("EDITOR")
+  if (!gate.ok) throw new Error(gate.error)
   const link = await createPlatform(data)
   revalidateAll()
   return link
@@ -37,14 +38,16 @@ export async function updatePlatformLinkAction(
   id: string,
   data: Partial<Omit<NewOfficialPlatformLink, "id" | "created_at" | "updated_at">>,
 ) {
-  await requireAdmin()
+  const gate = await requireActionRole("EDITOR")
+  if (!gate.ok) throw new Error(gate.error)
   const link = await updatePlatform(id, data)
   revalidateAll()
   return link
 }
 
 export async function deletePlatformLinkAction(id: string) {
-  await requireAdmin()
+  const gate = await requireActionRole("EDITOR")
+  if (!gate.ok) throw new Error(gate.error)
   const success = await deletePlatform(id)
   revalidateAll()
   return success
@@ -53,7 +56,8 @@ export async function deletePlatformLinkAction(id: string) {
 export async function reorderPlatformLinksAction(
   orderedIds: { id: string; sort_order: number }[],
 ) {
-  await requireAdmin()
+  const gate = await requireActionRole("EDITOR")
+  if (!gate.ok) throw new Error(gate.error)
   await reorderPlatforms(orderedIds)
   revalidateAll()
   return true

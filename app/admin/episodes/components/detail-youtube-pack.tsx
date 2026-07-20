@@ -235,7 +235,7 @@ export function DetailYoutubePack({
             return (
               <div
                 key={section.id}
-                className="overflow-hidden rounded-2xl border border-border/30 bg-white/[0.02] transition-all"
+                className="overflow-hidden rounded-2xl border border-border/30 bg-card/[0.02] transition-all"
               >
                 {/* Section Header */}
                 <div

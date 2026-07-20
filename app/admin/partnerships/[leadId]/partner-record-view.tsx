@@ -75,7 +75,7 @@ const TONE_STYLES: Record<NextBestAction["tone"], string> = {
   advance: "from-emerald-50 to-teal-50 border-emerald-200 text-emerald-900",
   info: "from-sky-50 to-indigo-50 border-sky-200 text-sky-900",
   warn: "from-amber-50 to-orange-50 border-amber-200 text-amber-900",
-  neutral: "from-slate-50 to-slate-100 border-slate-200 text-slate-700",
+  neutral: "from-background to-muted border-border text-muted-foreground",
 }
 
 type TabId = "overview" | "director" | "proposal" | "contract" | "campaign" | "email"
@@ -167,27 +167,27 @@ export function PartnerRecordView({
       {/* Back */}
       <Link
         href="/admin/partnerships/pipeline"
-        className="inline-flex items-center gap-1.5 text-[13px] text-slate-500 transition-colors hover:text-slate-800"
+        className="inline-flex items-center gap-1.5 text-[13px] text-muted-foreground transition-colors hover:text-foreground"
       >
         <ArrowRight className="h-3.5 w-3.5" />
         خط الشراكات
       </Link>
 
       {/* Header */}
-      <div className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
+      <div className="rounded-2xl border border-border/80 bg-card p-5 shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div className="flex items-start gap-3">
             <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-500/15 to-orange-500/15 text-indigo-700">
               <Handshake className="h-6 w-6" />
             </div>
             <div>
-              <h1 className="text-xl font-bold tracking-tight text-slate-900">{lead.company_name}</h1>
-              <p className="mt-0.5 text-[13px] text-slate-500">
+              <h1 className="text-xl font-bold tracking-tight text-foreground">{lead.company_name}</h1>
+              <p className="mt-0.5 text-[13px] text-muted-foreground">
                 {lead.industry} · {lead.contact_name} ({lead.job_title})
               </p>
-              <div className="mt-1.5 flex flex-wrap items-center gap-2 text-[12px] text-slate-500">
-                <span className="rounded-md bg-slate-100 px-2 py-0.5 font-mono text-[11px] text-slate-600">{reference}</span>
-                <a href={`mailto:${lead.email}`} className="inline-flex items-center gap-1 hover:text-slate-800">
+              <div className="mt-1.5 flex flex-wrap items-center gap-2 text-[12px] text-muted-foreground">
+                <span className="rounded-md bg-muted px-2 py-0.5 font-mono text-[11px] text-muted-foreground">{reference}</span>
+                <a href={`mailto:${lead.email}`} className="inline-flex items-center gap-1 hover:text-foreground">
                   <Mail className="h-3 w-3" /> {lead.email}
                 </a>
                 <span className="inline-flex items-center gap-1">
@@ -224,7 +224,7 @@ export function PartnerRecordView({
                     ? "border-indigo-300 bg-indigo-600 text-white shadow-sm"
                     : done
                       ? "border-emerald-200 bg-emerald-50 text-emerald-700"
-                      : "border-slate-200 bg-white text-slate-500 hover:border-slate-300 hover:bg-slate-50"
+                      : "border-border bg-card text-muted-foreground hover:border-muted-foreground/30 hover:bg-muted"
                 }`}
               >
                 {busy === `status:${s.id}` ? (
@@ -244,7 +244,7 @@ export function PartnerRecordView({
             className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-[12px] font-medium transition-all disabled:opacity-60 ${
               isDeclined
                 ? "border-rose-300 bg-rose-600 text-white"
-                : "border-slate-200 bg-white text-slate-400 hover:border-rose-200 hover:text-rose-700"
+                : "border-border bg-card text-muted-foreground hover:border-rose-200 hover:text-rose-700"
             }`}
           >
             {busy === "status:declined" ? <Loader2 className="h-3 w-3 animate-spin" /> : <AlertTriangle className="h-3 w-3" />}
@@ -278,13 +278,13 @@ export function PartnerRecordView({
         {/* Main */}
         <div className="space-y-4 lg:col-span-2">
           {/* Tabs */}
-          <div className="flex flex-wrap gap-1 rounded-xl border border-slate-200/80 bg-slate-50 p-1">
+          <div className="flex flex-wrap gap-1 rounded-xl border border-border/80 bg-muted p-1">
             {TABS.map((t) => (
               <button
                 key={t.id}
                 onClick={() => setTab(t.id)}
                 className={`rounded-lg px-3 py-1.5 text-[12.5px] font-medium transition-all ${
-                  tab === t.id ? "bg-white text-slate-900 shadow-sm" : "text-slate-500 hover:text-slate-800"
+                  tab === t.id ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
                 }`}
               >
                 {t.label}
@@ -316,23 +316,23 @@ export function PartnerRecordView({
 
 function Stat({ icon: Icon, label, value, sub }: { icon: React.ElementType; label: string; value: string; sub: string }) {
   return (
-    <div className="rounded-2xl border border-slate-200/80 bg-white p-3.5 shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
-      <div className="flex items-center gap-1.5 text-[11px] font-medium text-slate-500">
+    <div className="rounded-2xl border border-border/80 bg-card p-3.5 shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
+      <div className="flex items-center gap-1.5 text-[11px] font-medium text-muted-foreground">
         <Icon className="h-3.5 w-3.5" />
         {label}
       </div>
-      <div className="mt-1 truncate text-[20px] font-bold leading-tight text-slate-900">{value}</div>
-      {sub && <div className="truncate text-[11px] text-slate-400">{sub}</div>}
+      <div className="mt-1 truncate text-[20px] font-bold leading-tight text-foreground">{value}</div>
+      {sub && <div className="truncate text-[11px] text-muted-foreground">{sub}</div>}
     </div>
   )
 }
 
 function SectionCard({ title, icon: Icon, children, action }: { title: string; icon?: React.ElementType; children: React.ReactNode; action?: React.ReactNode }) {
   return (
-    <div className="rounded-2xl border border-slate-200/80 bg-white p-4 shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
+    <div className="rounded-2xl border border-border/80 bg-card p-4 shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
       <div className="mb-3 flex items-center justify-between">
-        <h3 className="flex items-center gap-1.5 text-[13px] font-semibold text-slate-800">
-          {Icon && <Icon className="h-4 w-4 text-slate-400" />}
+        <h3 className="flex items-center gap-1.5 text-[13px] font-semibold text-foreground">
+          {Icon && <Icon className="h-4 w-4 text-muted-foreground" />}
           {title}
         </h3>
         {action}
@@ -343,7 +343,7 @@ function SectionCard({ title, icon: Icon, children, action }: { title: string; i
 }
 
 function Empty({ children }: { children: React.ReactNode }) {
-  return <p className="rounded-xl border border-dashed border-slate-200 px-3 py-5 text-center text-[12px] text-slate-400">{children}</p>
+  return <p className="rounded-xl border border-dashed border-border px-3 py-5 text-center text-[12px] text-muted-foreground">{children}</p>
 }
 
 function Bullets({ items, tone = "slate" }: { items: string[]; tone?: "slate" | "emerald" | "rose" | "indigo" }) {
@@ -351,7 +351,7 @@ function Bullets({ items, tone = "slate" }: { items: string[]; tone?: "slate" | 
   return (
     <ul className="space-y-1.5">
       {items.map((it, i) => (
-        <li key={i} className="flex gap-2 text-[13px] leading-relaxed text-slate-700">
+        <li key={i} className="flex gap-2 text-[13px] leading-relaxed text-muted-foreground">
           <span className={`mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full ${dot}`} />
           <span>{it}</span>
         </li>
@@ -367,8 +367,8 @@ function OverviewTab({ record, onEvaluate, busy }: { record: PartnerRecord; onEv
   const field = (label: string, v: string | null) =>
     v ? (
       <div>
-        <p className="text-[11px] font-medium text-slate-400">{label}</p>
-        <p className="mt-0.5 text-[13px] leading-relaxed text-slate-700">{v}</p>
+        <p className="text-[11px] font-medium text-muted-foreground">{label}</p>
+        <p className="mt-0.5 text-[13px] leading-relaxed text-muted-foreground">{v}</p>
       </div>
     ) : null
   return (
@@ -396,7 +396,7 @@ function OverviewTab({ record, onEvaluate, busy }: { record: PartnerRecord; onEv
             {field("الجمهور والتقاطع", analysis.audience_summary)}
             {analysis.research_sources.length > 0 && (
               <div>
-                <p className="mb-1 text-[11px] font-medium text-slate-400">المصادر ({analysis.research_sources.length})</p>
+                <p className="mb-1 text-[11px] font-medium text-muted-foreground">المصادر ({analysis.research_sources.length})</p>
                 <div className="flex flex-wrap gap-1.5">
                   {analysis.research_sources.slice(0, 8).map((s, i) => (
                     <a
@@ -404,7 +404,7 @@ function OverviewTab({ record, onEvaluate, busy }: { record: PartnerRecord; onEv
                       href={s.url}
                       target="_blank"
                       rel="noreferrer"
-                      className="inline-flex max-w-[200px] items-center gap-1 truncate rounded-md bg-slate-100 px-2 py-0.5 text-[11px] text-slate-600 hover:bg-slate-200"
+                      className="inline-flex max-w-[200px] items-center gap-1 truncate rounded-md bg-muted px-2 py-0.5 text-[11px] text-muted-foreground hover:bg-muted-foreground/10"
                     >
                       <ExternalLink className="h-2.5 w-2.5 shrink-0" />
                       <span className="truncate">{s.title || s.url}</span>
@@ -421,7 +421,7 @@ function OverviewTab({ record, onEvaluate, busy }: { record: PartnerRecord; onEv
             <Empty>التقييم قيد التشغيل الآن…</Empty>
           ) : (
             <div className="text-center">
-              <p className="mb-3 text-[13px] text-slate-500">لم يُجرَ تقييم بعد. شغّله للحصول على بحث حيّ ودرجة توافق واستراتيجية إغلاق.</p>
+              <p className="mb-3 text-[13px] text-muted-foreground">لم يُجرَ تقييم بعد. شغّله للحصول على بحث حيّ ودرجة توافق واستراتيجية إغلاق.</p>
               <button
                 onClick={onEvaluate}
                 disabled={busy !== null}
@@ -446,7 +446,7 @@ function DirectorTab({ record, onEvaluate, busy }: { record: PartnerRecord; onEv
     return (
       <SectionCard title="استراتيجية مدير الشراكات" icon={Brain}>
         <div className="text-center">
-          <p className="mb-3 text-[13px] text-slate-500">شغّل التقييم أولًا ليضع المدير استراتيجية الإغلاق وتكتيكات التفاوض.</p>
+          <p className="mb-3 text-[13px] text-muted-foreground">شغّل التقييم أولًا ليضع المدير استراتيجية الإغلاق وتكتيكات التفاوض.</p>
           <button
             onClick={onEvaluate}
             disabled={busy !== null}
@@ -463,8 +463,8 @@ function DirectorTab({ record, onEvaluate, busy }: { record: PartnerRecord; onEv
     <div className="space-y-4">
       {a.strategy_summary && (
         <SectionCard title="استراتيجية الإغلاق" icon={Brain}>
-          <p className="text-[13px] leading-relaxed text-slate-700">{a.strategy_summary}</p>
-          {a.fit_reasoning && <p className="mt-2 border-t border-slate-100 pt-2 text-[12.5px] leading-relaxed text-slate-500">{a.fit_reasoning}</p>}
+          <p className="text-[13px] leading-relaxed text-muted-foreground">{a.strategy_summary}</p>
+          {a.fit_reasoning && <p className="mt-2 border-t border-border pt-2 text-[12.5px] leading-relaxed text-muted-foreground">{a.fit_reasoning}</p>}
         </SectionCard>
       )}
 
@@ -491,9 +491,9 @@ function DirectorTab({ record, onEvaluate, busy }: { record: PartnerRecord; onEv
         <SectionCard title="الاعتراضات المتوقعة والردود" icon={Swords}>
           <div className="space-y-2.5">
             {a.likely_objections.map((o, i) => (
-              <div key={i} className="rounded-xl border border-slate-150 bg-slate-50/60 p-3">
-                <p className="text-[12.5px] font-semibold text-slate-800">“{o.objection}”</p>
-                <p className="mt-1 text-[12.5px] leading-relaxed text-slate-600">↳ {o.response}</p>
+              <div key={i} className="rounded-xl border border-border bg-muted/60 p-3">
+                <p className="text-[12.5px] font-semibold text-foreground">“{o.objection}”</p>
+                <p className="mt-1 text-[12.5px] leading-relaxed text-muted-foreground">↳ {o.response}</p>
               </div>
             ))}
           </div>
@@ -510,26 +510,26 @@ function DirectorTab({ record, onEvaluate, busy }: { record: PartnerRecord; onEv
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           {a.recommended_structure && (
             <div>
-              <p className="text-[11px] font-medium text-slate-400">الهيكل المقترح</p>
-              <p className="mt-0.5 text-[13px] leading-relaxed text-slate-700">{a.recommended_structure}</p>
+              <p className="text-[11px] font-medium text-muted-foreground">الهيكل المقترح</p>
+              <p className="mt-0.5 text-[13px] leading-relaxed text-muted-foreground">{a.recommended_structure}</p>
             </div>
           )}
           {a.recommended_episodes != null && (
             <div>
-              <p className="text-[11px] font-medium text-slate-400">عدد الحلقات</p>
-              <p className="mt-0.5 text-[13px] text-slate-700">{a.recommended_episodes} حلقات</p>
+              <p className="text-[11px] font-medium text-muted-foreground">عدد الحلقات</p>
+              <p className="mt-0.5 text-[13px] text-muted-foreground">{a.recommended_episodes} حلقات</p>
             </div>
           )}
           {a.pricing_strategy && (
             <div className="sm:col-span-2">
-              <p className="text-[11px] font-medium text-slate-400">استراتيجية التسعير</p>
-              <p className="mt-0.5 text-[13px] leading-relaxed text-slate-700">{a.pricing_strategy}</p>
+              <p className="text-[11px] font-medium text-muted-foreground">استراتيجية التسعير</p>
+              <p className="mt-0.5 text-[13px] leading-relaxed text-muted-foreground">{a.pricing_strategy}</p>
             </div>
           )}
           {a.budget_fit && (
             <div>
-              <p className="text-[11px] font-medium text-slate-400">ملاءمة الميزانية</p>
-              <p className="mt-0.5 text-[13px] text-slate-700">{a.budget_fit}</p>
+              <p className="text-[11px] font-medium text-muted-foreground">ملاءمة الميزانية</p>
+              <p className="mt-0.5 text-[13px] text-muted-foreground">{a.budget_fit}</p>
             </div>
           )}
         </div>
@@ -574,7 +574,7 @@ function ProposalTab({
               onClick={downloadPdf}
               disabled={!canPdf}
               title={canPdf ? "تنزيل المقترح كملف PDF بهوية خط" : "ولّد المقترح أولًا"}
-              className="inline-flex items-center gap-1 rounded-lg border border-slate-200 px-2.5 py-1 text-[11.5px] font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+              className="inline-flex items-center gap-1 rounded-lg border border-border px-2.5 py-1 text-[11.5px] font-medium text-muted-foreground hover:bg-muted disabled:opacity-50"
             >
               <Download className="h-3 w-3" />
               تنزيل PDF
@@ -599,8 +599,8 @@ function ProposalTab({
       >
         {proposal?.status === "ready" && proposal.full_draft ? (
           <div className="space-y-2">
-            {proposal.subject && <p className="text-[13px] font-semibold text-slate-800">{proposal.subject}</p>}
-            <pre className="max-h-80 overflow-auto whitespace-pre-wrap rounded-xl bg-slate-50 p-3 text-[12.5px] leading-relaxed text-slate-700">
+            {proposal.subject && <p className="text-[13px] font-semibold text-foreground">{proposal.subject}</p>}
+            <pre className="max-h-80 overflow-auto whitespace-pre-wrap rounded-xl bg-muted p-3 text-[12.5px] leading-relaxed text-muted-foreground">
               {proposal.edited_draft || proposal.full_draft}
             </pre>
           </div>
@@ -615,7 +615,7 @@ function ProposalTab({
         action={
           <Link
             href={`/admin/offers/${lead.id}`}
-            className="inline-flex items-center gap-1 rounded-lg border border-slate-200 px-2.5 py-1 text-[11.5px] font-medium text-slate-700 hover:bg-slate-50"
+            className="inline-flex items-center gap-1 rounded-lg border border-border px-2.5 py-1 text-[11.5px] font-medium text-muted-foreground hover:bg-muted"
           >
             <ExternalLink className="h-3 w-3" />
             محرّر العرض
@@ -624,7 +624,7 @@ function ProposalTab({
       >
         {offer ? (
           <div className="flex items-center justify-between text-[12.5px]">
-            <span className={offer.published ? "text-emerald-700" : "text-slate-500"}>
+            <span className={offer.published ? "text-emerald-700" : "text-muted-foreground"}>
               {offer.published ? "منشور" : "مسودّة"} · {offer.view_count} مشاهدة
             </span>
             {offer.published && (
@@ -685,11 +685,11 @@ function ContractTab({
     <SectionCard title="إدارة العقد" icon={FileText}>
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         <label className="block">
-          <span className="text-[11px] font-medium text-slate-500">الحالة</span>
+          <span className="text-[11px] font-medium text-muted-foreground">الحالة</span>
           <select
             value={status}
             onChange={(e) => setStatus(e.target.value as typeof status)}
-            className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-[13px]"
+            className="mt-1 w-full rounded-lg border border-border bg-card px-2.5 py-1.5 text-[13px]"
           >
             {STATUS_OPTS.map((o) => (
               <option key={o.v} value={o.v}>{o.l}</option>
@@ -697,34 +697,34 @@ function ContractTab({
           </select>
         </label>
         <label className="block">
-          <span className="text-[11px] font-medium text-slate-500">القيمة (د.ك)</span>
+          <span className="text-[11px] font-medium text-muted-foreground">القيمة (د.ك)</span>
           <input
             type="number"
             value={value}
             onChange={(e) => setValue(e.target.value)}
-            className="mt-1 w-full rounded-lg border border-slate-200 px-2.5 py-1.5 text-[13px]"
+            className="mt-1 w-full rounded-lg border border-border px-2.5 py-1.5 text-[13px]"
             placeholder="—"
           />
         </label>
         <label className="block">
-          <span className="text-[11px] font-medium text-slate-500">تاريخ البدء</span>
-          <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 px-2.5 py-1.5 text-[13px]" />
+          <span className="text-[11px] font-medium text-muted-foreground">تاريخ البدء</span>
+          <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} className="mt-1 w-full rounded-lg border border-border px-2.5 py-1.5 text-[13px]" />
         </label>
         <label className="block">
-          <span className="text-[11px] font-medium text-slate-500">تاريخ الانتهاء</span>
-          <input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 px-2.5 py-1.5 text-[13px]" />
+          <span className="text-[11px] font-medium text-muted-foreground">تاريخ الانتهاء</span>
+          <input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} className="mt-1 w-full rounded-lg border border-border px-2.5 py-1.5 text-[13px]" />
         </label>
         <label className="block sm:col-span-2">
-          <span className="text-[11px] font-medium text-slate-500">البنود / الملاحظات</span>
-          <textarea value={terms} onChange={(e) => setTerms(e.target.value)} rows={4} className="mt-1 w-full rounded-lg border border-slate-200 px-2.5 py-1.5 text-[13px]" />
+          <span className="text-[11px] font-medium text-muted-foreground">البنود / الملاحظات</span>
+          <textarea value={terms} onChange={(e) => setTerms(e.target.value)} rows={4} className="mt-1 w-full rounded-lg border border-border px-2.5 py-1.5 text-[13px]" />
         </label>
       </div>
       <div className="mt-3 flex items-center justify-between">
-        {contract && <span className="text-[11px] text-slate-400">آخر تحديث {fmtRelative(contract.updated_at)}</span>}
+        {contract && <span className="text-[11px] text-muted-foreground">آخر تحديث {fmtRelative(contract.updated_at)}</span>}
         <button
           onClick={save}
           disabled={busy !== null}
-          className="ms-auto inline-flex items-center gap-1.5 rounded-lg bg-slate-900 px-3.5 py-1.5 text-[12.5px] font-semibold text-white hover:bg-slate-800 disabled:opacity-60"
+          className="ms-auto inline-flex items-center gap-1.5 rounded-lg bg-foreground px-3.5 py-1.5 text-[12.5px] font-semibold text-white hover:bg-foreground/90 disabled:opacity-60"
         >
           {busy === "contract" ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <CheckCheck className="h-3.5 w-3.5" />}
           حفظ العقد
@@ -763,7 +763,7 @@ function CampaignTab({
             value={title}
             onChange={(e) => setTitle(e.target.value)}
             placeholder="عنوان حملة جديدة…"
-            className="flex-1 rounded-lg border border-slate-200 px-2.5 py-1.5 text-[13px]"
+            className="flex-1 rounded-lg border border-border px-2.5 py-1.5 text-[13px]"
           />
           <button
             onClick={add}
@@ -826,8 +826,8 @@ function CampaignCard({
 
   const metricField = (label: string, v: string, set: (s: string) => void) => (
     <label className="block">
-      <span className="text-[10.5px] font-medium text-slate-400">{label}</span>
-      <input type="number" value={v} onChange={(e) => set(e.target.value)} className="mt-0.5 w-full rounded-lg border border-slate-200 px-2 py-1 text-[12.5px]" placeholder="0" />
+      <span className="text-[10.5px] font-medium text-muted-foreground">{label}</span>
+      <input type="number" value={v} onChange={(e) => set(e.target.value)} className="mt-0.5 w-full rounded-lg border border-border px-2 py-1 text-[12.5px]" placeholder="0" />
     </label>
   )
   return (
@@ -839,7 +839,7 @@ function CampaignCard({
           value={campaign.status}
           onChange={(e) => setStatus(e.target.value)}
           disabled={busy !== null}
-          className="rounded-lg border border-slate-200 bg-white px-2 py-0.5 text-[11.5px]"
+          className="rounded-lg border border-border bg-card px-2 py-0.5 text-[11.5px]"
         >
           {STATUS_OPTS.map((o) => (
             <option key={o.v} value={o.v}>{o.l}</option>
@@ -857,7 +857,7 @@ function CampaignCard({
         <button
           onClick={saveMetrics}
           disabled={busy !== null}
-          className="inline-flex items-center gap-1 rounded-lg bg-slate-900 px-3 py-1 text-[11.5px] font-medium text-white hover:bg-slate-800 disabled:opacity-60"
+          className="inline-flex items-center gap-1 rounded-lg bg-foreground px-3 py-1 text-[11.5px] font-medium text-white hover:bg-foreground/90 disabled:opacity-60"
         >
           {busy === `campaign:metrics:${campaign.id}` ? <Loader2 className="h-3 w-3 animate-spin" /> : <CheckCheck className="h-3 w-3" />}
           حفظ المؤشرات
@@ -872,7 +872,7 @@ function CampaignCard({
         </button>
       </div>
       {campaign.performance_summary && (
-        <p className="mt-3 rounded-xl border border-indigo-100 bg-indigo-50/50 p-3 text-[12.5px] leading-relaxed text-slate-700">
+        <p className="mt-3 rounded-xl border border-indigo-100 bg-indigo-50/50 p-3 text-[12.5px] leading-relaxed text-muted-foreground">
           {campaign.performance_summary}
         </p>
       )}
@@ -888,13 +888,13 @@ function EmailTab({ record }: { record: PartnerRecord }) {
     <div className="space-y-2.5">
       {record.emails.map((e) => (
         <SectionCard key={e.id} title={e.subject || "(بدون عنوان)"} icon={Mail}>
-          <div className="mb-1.5 flex items-center gap-2 text-[11px] text-slate-400">
+          <div className="mb-1.5 flex items-center gap-2 text-[11px] text-muted-foreground">
             <span>{e.direction === "outbound" ? "صادر" : "وارد"}</span>
             <span>·</span>
             <span>{fmtDate(e.sent_at)}</span>
             {e.status === "failed" && <span className="text-rose-500">· فشل الإرسال</span>}
           </div>
-          {e.body && <p className="whitespace-pre-wrap text-[12.5px] leading-relaxed text-slate-600">{e.body}</p>}
+          {e.body && <p className="whitespace-pre-wrap text-[12.5px] leading-relaxed text-muted-foreground">{e.body}</p>}
         </SectionCard>
       ))}
     </div>
@@ -929,21 +929,21 @@ function OwnerEditor({
   }
   return (
     <div className="text-end">
-      <p className="text-[11px] font-medium text-slate-400">المسؤول عن العلاقة</p>
+      <p className="text-[11px] font-medium text-muted-foreground">المسؤول عن العلاقة</p>
       {editing ? (
         <div className="mt-1 flex items-center gap-1">
           <input
             value={val}
             onChange={(e) => setVal(e.target.value)}
             placeholder="admin:email"
-            className="w-40 rounded-lg border border-slate-200 px-2 py-1 text-[12px]"
+            className="w-40 rounded-lg border border-border px-2 py-1 text-[12px]"
           />
-          <button onClick={save} disabled={saving} className="rounded-lg bg-slate-900 px-2 py-1 text-[11px] text-white disabled:opacity-60">
+          <button onClick={save} disabled={saving} className="rounded-lg bg-foreground px-2 py-1 text-[11px] text-white disabled:opacity-60">
             {saving ? "…" : "حفظ"}
           </button>
         </div>
       ) : (
-        <button onClick={() => setEditing(true)} className="mt-1 text-[13px] font-medium text-slate-700 hover:text-indigo-700">
+        <button onClick={() => setEditing(true)} className="mt-1 text-[13px] font-medium text-muted-foreground hover:text-indigo-700">
           {owner ? owner.replace(/^admin:/, "") : "+ تعيين مسؤول"}
         </button>
       )}
@@ -987,7 +987,7 @@ function TasksCard({
       title={`المهام (${open.length})`}
       icon={CheckCircle2}
       action={
-        <button onClick={() => setAdding((s) => !s)} className="text-slate-400 hover:text-indigo-700">
+        <button onClick={() => setAdding((s) => !s)} className="text-muted-foreground hover:text-indigo-700">
           <Plus className="h-4 w-4" />
         </button>
       }
@@ -1000,7 +1000,7 @@ function TasksCard({
             onKeyDown={(e) => e.key === "Enter" && addTask()}
             autoFocus
             placeholder="مهمة جديدة…"
-            className="flex-1 rounded-lg border border-slate-200 px-2.5 py-1 text-[12.5px]"
+            className="flex-1 rounded-lg border border-border px-2.5 py-1 text-[12.5px]"
           />
           <button onClick={addTask} disabled={busy !== null} className="rounded-lg bg-indigo-600 px-2.5 py-1 text-[11.5px] text-white disabled:opacity-60">
             {busy === "task:add" ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : "إضافة"}
@@ -1015,17 +1015,17 @@ function TasksCard({
             const overdue = isOverdue(t.due_at)
             const ai = t.created_by === "ai:director"
             return (
-              <div key={t.id} className="flex items-start gap-2 rounded-xl border border-slate-150 bg-white p-2.5">
+              <div key={t.id} className="flex items-start gap-2 rounded-xl border border-border bg-card p-2.5">
                 <button
                   onClick={() => complete(t)}
                   disabled={busy !== null}
-                  className="mt-0.5 text-slate-300 transition-colors hover:text-emerald-700"
+                  className="mt-0.5 text-muted-foreground/50 transition-colors hover:text-emerald-700"
                   title="إنجاز"
                 >
                   {busy === `task:done:${t.id}` ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
                 </button>
                 <div className="min-w-0 flex-1">
-                  <p className="text-[12.5px] font-medium leading-snug text-slate-800">{t.title}</p>
+                  <p className="text-[12.5px] font-medium leading-snug text-foreground">{t.title}</p>
                   <div className="mt-0.5 flex flex-wrap items-center gap-1.5 text-[10.5px]">
                     {ai && (
                       <span className="inline-flex items-center gap-0.5 rounded bg-primary/[0.07] px-1 py-px font-medium text-primary">
@@ -1033,19 +1033,19 @@ function TasksCard({
                       </span>
                     )}
                     {t.due_at && (
-                      <span className={overdue ? "text-rose-700" : "text-slate-400"}>
+                      <span className={overdue ? "text-rose-700" : "text-muted-foreground"}>
                         {overdue ? "متأخرة · " : "تستحق "}
                         {fmtDate(t.due_at)}
                       </span>
                     )}
                   </div>
-                  {t.detail && <p className="mt-0.5 text-[11px] leading-relaxed text-slate-500">{t.detail}</p>}
+                  {t.detail && <p className="mt-0.5 text-[11px] leading-relaxed text-muted-foreground">{t.detail}</p>}
                 </div>
               </div>
             )
           })}
           {done.length > 0 && (
-            <p className="pt-1 text-[11px] text-slate-400">{done.length} مهمة منجزة</p>
+            <p className="pt-1 text-[11px] text-muted-foreground">{done.length} مهمة منجزة</p>
           )}
         </div>
       )}
@@ -1090,7 +1090,7 @@ function NotesCard({
           onChange={(e) => setBody(e.target.value)}
           rows={2}
           placeholder="اكتب ملاحظة داخلية…"
-          className="flex-1 resize-none rounded-lg border border-slate-200 px-2.5 py-1.5 text-[12.5px]"
+          className="flex-1 resize-none rounded-lg border border-border px-2.5 py-1.5 text-[12.5px]"
         />
         <button onClick={add} disabled={busy !== null || !body.trim()} className="self-end rounded-lg bg-indigo-600 px-2.5 py-1.5 text-[11.5px] text-white disabled:opacity-50">
           {busy === "note:add" ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Plus className="h-3.5 w-3.5" />}
@@ -1101,15 +1101,15 @@ function NotesCard({
       ) : (
         <div className="space-y-1.5">
           {notes.map((n) => (
-            <div key={n.id} className={`group rounded-xl border p-2.5 ${n.pinned ? "border-amber-200 bg-amber-50/40" : "border-slate-150 bg-white"}`}>
-              <p className="whitespace-pre-wrap text-[12.5px] leading-relaxed text-slate-700">{n.body}</p>
-              <div className="mt-1 flex items-center justify-between text-[10.5px] text-slate-400">
+            <div key={n.id} className={`group rounded-xl border p-2.5 ${n.pinned ? "border-amber-200 bg-amber-50/40" : "border-border bg-card"}`}>
+              <p className="whitespace-pre-wrap text-[12.5px] leading-relaxed text-muted-foreground">{n.body}</p>
+              <div className="mt-1 flex items-center justify-between text-[10.5px] text-muted-foreground">
                 <span>{(n.author || "").replace(/^admin:/, "")} · {fmtRelative(n.created_at)}</span>
                 <div className="flex items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100">
-                  <button onClick={() => pin(n)} className={n.pinned ? "text-amber-700" : "text-slate-300 hover:text-amber-700"} title="تثبيت">
+                  <button onClick={() => pin(n)} className={n.pinned ? "text-amber-700" : "text-muted-foreground/50 hover:text-amber-700"} title="تثبيت">
                     <Pin className="h-3 w-3" />
                   </button>
-                  <button onClick={() => del(n)} className="text-slate-300 hover:text-rose-700" title="حذف">
+                  <button onClick={() => del(n)} className="text-muted-foreground/50 hover:text-rose-700" title="حذف">
                     <Trash2 className="h-3 w-3" />
                   </button>
                 </div>
@@ -1162,21 +1162,21 @@ function MeetingsCard({
       title="الاجتماعات"
       icon={Phone}
       action={
-        <button onClick={() => setAdding((s) => !s)} className="text-slate-400 hover:text-indigo-700">
+        <button onClick={() => setAdding((s) => !s)} className="text-muted-foreground hover:text-indigo-700">
           <Plus className="h-4 w-4" />
         </button>
       }
     >
       {adding && (
         <div className="mb-3 space-y-1.5">
-          <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="عنوان الاجتماع…" className="w-full rounded-lg border border-slate-200 px-2.5 py-1 text-[12.5px]" />
+          <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="عنوان الاجتماع…" className="w-full rounded-lg border border-border px-2.5 py-1 text-[12.5px]" />
           <div className="flex gap-1.5">
-            <select value={type} onChange={(e) => setType(e.target.value)} className="rounded-lg border border-slate-200 bg-white px-2 py-1 text-[12px]">
+            <select value={type} onChange={(e) => setType(e.target.value)} className="rounded-lg border border-border bg-card px-2 py-1 text-[12px]">
               <option value="call">مكالمة</option>
               <option value="video">فيديو</option>
               <option value="in_person">حضوري</option>
             </select>
-            <input type="datetime-local" value={when} onChange={(e) => setWhen(e.target.value)} className="flex-1 rounded-lg border border-slate-200 px-2 py-1 text-[12px]" />
+            <input type="datetime-local" value={when} onChange={(e) => setWhen(e.target.value)} className="flex-1 rounded-lg border border-border px-2 py-1 text-[12px]" />
             <button onClick={add} disabled={busy !== null} className="rounded-lg bg-indigo-600 px-2.5 py-1 text-[11.5px] text-white disabled:opacity-60">
               {busy === "meeting:add" ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : "حفظ"}
             </button>
@@ -1190,12 +1190,12 @@ function MeetingsCard({
           {meetings.map((m) => {
             const Icon = icon(m.type)
             return (
-              <div key={m.id} className="flex items-start gap-2 rounded-xl border border-slate-150 bg-white p-2.5">
-                <Icon className="mt-0.5 h-4 w-4 shrink-0 text-slate-400" />
+              <div key={m.id} className="flex items-start gap-2 rounded-xl border border-border bg-card p-2.5">
+                <Icon className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
                 <div className="min-w-0 flex-1">
-                  <p className="text-[12.5px] font-medium leading-snug text-slate-800">{m.title}</p>
-                  <p className="text-[10.5px] text-slate-400">{fmtDate(m.scheduled_at)}</p>
-                  {m.outcome && <p className="mt-0.5 text-[11px] leading-relaxed text-slate-500">{m.outcome}</p>}
+                  <p className="text-[12.5px] font-medium leading-snug text-foreground">{m.title}</p>
+                  <p className="text-[10.5px] text-muted-foreground">{fmtDate(m.scheduled_at)}</p>
+                  {m.outcome && <p className="mt-0.5 text-[11px] leading-relaxed text-muted-foreground">{m.outcome}</p>}
                 </div>
                 {m.status !== "completed" ? (
                   <button onClick={() => complete(m)} disabled={busy !== null} className="text-[10.5px] text-emerald-700 hover:underline">
@@ -1246,14 +1246,14 @@ function TimelineCard({ activities }: { activities: CrmActivity[] }) {
             return (
               <div key={a.id} className="flex gap-2.5">
                 <div className="flex flex-col items-center">
-                  <div className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full ${isAi ? "bg-primary/10 text-primary" : "bg-slate-100 text-slate-500"}`}>
+                  <div className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full ${isAi ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground"}`}>
                     <Icon className="h-3 w-3" />
                   </div>
-                  {i < activities.length - 1 && <div className="my-0.5 w-px flex-1 bg-slate-150" />}
+                  {i < activities.length - 1 && <div className="my-0.5 w-px flex-1 bg-border" />}
                 </div>
                 <div className="min-w-0 flex-1 pb-3">
-                  <p className="text-[12px] leading-snug text-slate-700">{a.summary}</p>
-                  <p className="text-[10.5px] text-slate-400">
+                  <p className="text-[12px] leading-snug text-muted-foreground">{a.summary}</p>
+                  <p className="text-[10.5px] text-muted-foreground">
                     {(a.actor || "").replace(/^admin:/, "").replace("ai:director", "المدير الذكي").replace("system:auto-triage", "تلقائي").replace("public", "الشريك")} · {fmtRelative(a.created_at)}
                   </p>
                 </div>

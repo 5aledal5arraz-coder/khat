@@ -26,7 +26,7 @@ export default function OpsErrorPage({
           حدث خطأ غير متوقع أثناء جلب البيانات. حاول إعادة المحاولة أو إعادة
           تحميل المتصفح.
         </p>
-        <div className="mb-4 break-words rounded border border-red-200 bg-white/60 p-2 font-mono text-xs">
+        <div className="mb-4 break-words rounded border border-red-200 bg-card/60 p-2 font-mono text-xs">
           {error.message || "خطأ غير معروف"}
         </div>
         <button

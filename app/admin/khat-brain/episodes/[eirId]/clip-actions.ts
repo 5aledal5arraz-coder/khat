@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache"
 import { and, desc, eq } from "drizzle-orm"
-import { getAdminAuthUser, requireAdmin } from "@/lib/api-utils"
+import { getAdminAuthUser, requireActionRole } from "@/lib/api-utils"
 import { db } from "@/lib/db"
 import { studioAnalysisRecords } from "@/lib/db/schema/studio-analysis"
 import { studioSessions } from "@/lib/db/schema/studio"
@@ -48,7 +48,8 @@ export async function saveClipsAction(
   input: SaveClipsInput,
 ): Promise<SaveClipsResult> {
   try {
-    await requireAdmin()
+    const gate = await requireActionRole("EDITOR")
+    if (!gate.ok) return { ok: false, code: "server_error", message: gate.error }
     const admin = await getAdminAuthUser()
     if (!db)
       return { ok: false, code: "server_error", message: "DB unavailable" }
@@ -155,7 +156,8 @@ export async function createClipFromSegmentAction(input: {
   editorSessionId?: string
 }): Promise<CreateClipFromSegmentResult> {
   try {
-    await requireAdmin()
+    const gate = await requireActionRole("EDITOR")
+    if (!gate.ok) return { ok: false, code: "server_error", message: gate.error }
     const admin = await getAdminAuthUser()
     if (!db)
       return { ok: false, code: "server_error", message: "DB unavailable" }
@@ -299,7 +301,8 @@ export async function generateClipsFromChapterAction(input: {
   editorSessionId?: string
 }): Promise<GenerateClipsFromChapterResult> {
   try {
-    await requireAdmin()
+    const gate = await requireActionRole("EDITOR")
+    if (!gate.ok) return { ok: false, code: "server_error", message: gate.error }
     const admin = await getAdminAuthUser()
     if (!db)
       return { ok: false, code: "server_error", message: "DB unavailable" }
@@ -498,7 +501,8 @@ export async function suggestClipImprovementsAction(
   eirId: string,
 ): Promise<SuggestClipsResult> {
   try {
-    await requireAdmin()
+    const gate = await requireActionRole("EDITOR")
+    if (!gate.ok) return { ok: false, code: "server_error", message: gate.error }
     if (!db)
       return { ok: false, code: "server_error", message: "DB unavailable" }
 

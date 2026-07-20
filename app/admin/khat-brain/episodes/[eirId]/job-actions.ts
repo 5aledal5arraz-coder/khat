@@ -19,7 +19,7 @@ import { eq, desc } from "drizzle-orm"
 import { db } from "@/lib/db"
 import { episodePreparations } from "@/lib/db/schema/preparation"
 import { episodes as episodesTable } from "@/lib/db/schema/episodes"
-import { requireAdmin } from "@/lib/api-utils"
+import { requireActionRole } from "@/lib/api-utils"
 import { runPrepV2Pipeline } from "@/lib/preparation/v2/pipeline"
 import { analyzeEirPerformance } from "@/lib/khat-brain/performance-learning"
 import { enqueueJob } from "@/lib/jobs"
@@ -54,7 +54,8 @@ export interface JobActionResult {
 export async function regeneratePrepV2Action(
   eirId: string,
 ): Promise<JobActionResult> {
-  await requireAdmin()
+  const gate = await requireActionRole("EDITOR")
+  if (!gate.ok) return { ok: false, message: gate.error }
   if (!db) return { ok: false, message: "قاعدة البيانات غير متوفرة." }
 
   const [prep] = await db
@@ -101,7 +102,8 @@ export async function regeneratePrepV2Action(
 export async function recomputePerformanceAction(
   eirId: string,
 ): Promise<JobActionResult> {
-  await requireAdmin()
+  const gate = await requireActionRole("EDITOR")
+  if (!gate.ok) return { ok: false, message: gate.error }
   if (!db) return { ok: false, message: "قاعدة البيانات غير متوفرة." }
 
   try {
@@ -135,7 +137,8 @@ export async function recomputePerformanceAction(
 export async function refreshYoutubePerformanceAction(
   eirId: string,
 ): Promise<JobActionResult> {
-  await requireAdmin()
+  const gate = await requireActionRole("EDITOR")
+  if (!gate.ok) return { ok: false, message: gate.error }
   if (!db) return { ok: false, message: "قاعدة البيانات غير متوفرة." }
 
   const [row] = await db

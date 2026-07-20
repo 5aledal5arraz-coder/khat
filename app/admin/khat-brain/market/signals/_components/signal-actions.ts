@@ -13,7 +13,7 @@
  */
 
 import { revalidatePath } from "next/cache"
-import { requireAdmin, getAdminAuthUser } from "@/lib/api-utils"
+import { requireActionRole } from "@/lib/api-utils"
 import {
   approveSignal,
   rejectSignal,
@@ -36,13 +36,12 @@ import {
 
 const REVIEW_PATH = "/admin/khat-brain/market/signals"
 
-async function actorOrFail(): Promise<string> {
-  await requireAdmin()
-  const user = await getAdminAuthUser()
-  if (!user?.id) {
-    throw new Error("لا يمكن تنفيذ الإجراء بدون مستخدم مسجَّل دخوله.")
-  }
-  return user.id
+async function actorOrFail(): Promise<
+  { ok: true; userId: string } | { ok: false; error: string }
+> {
+  const gate = await requireActionRole("EDITOR")
+  if (!gate.ok) return { ok: false, error: gate.error }
+  return { ok: true, userId: gate.user.id }
 }
 
 function bumpPath() {
@@ -59,8 +58,9 @@ export async function approveSignalAction(input: {
   signalId: string
   note?: string
 }): Promise<SingleSignalResult> {
-  const actorId = await actorOrFail()
-  const r = await approveSignal(input.signalId, { actorId }, input.note)
+  const actor = await actorOrFail()
+  if (!actor.ok) return { ok: false, signalId: input.signalId, previousStatus: null, newStatus: null, eventId: null, message: actor.error }
+  const r = await approveSignal(input.signalId, { actorId: actor.userId }, input.note)
   bumpPath()
   return r
 }
@@ -69,8 +69,9 @@ export async function rejectSignalAction(input: {
   signalId: string
   note?: string
 }): Promise<SingleSignalResult> {
-  const actorId = await actorOrFail()
-  const r = await rejectSignal(input.signalId, { actorId }, input.note)
+  const actor = await actorOrFail()
+  if (!actor.ok) return { ok: false, signalId: input.signalId, previousStatus: null, newStatus: null, eventId: null, message: actor.error }
+  const r = await rejectSignal(input.signalId, { actorId: actor.userId }, input.note)
   bumpPath()
   return r
 }
@@ -79,8 +80,9 @@ export async function archiveSignalAction(input: {
   signalId: string
   note?: string
 }): Promise<SingleSignalResult> {
-  const actorId = await actorOrFail()
-  const r = await archiveSignal(input.signalId, { actorId }, input.note)
+  const actor = await actorOrFail()
+  if (!actor.ok) return { ok: false, signalId: input.signalId, previousStatus: null, newStatus: null, eventId: null, message: actor.error }
+  const r = await archiveSignal(input.signalId, { actorId: actor.userId }, input.note)
   bumpPath()
   return r
 }
@@ -88,8 +90,9 @@ export async function archiveSignalAction(input: {
 export async function restoreSignalAction(input: {
   signalId: string
 }): Promise<SingleSignalResult> {
-  const actorId = await actorOrFail()
-  const r = await restoreSignal(input.signalId, { actorId })
+  const actor = await actorOrFail()
+  if (!actor.ok) return { ok: false, signalId: input.signalId, previousStatus: null, newStatus: null, eventId: null, message: actor.error }
+  const r = await restoreSignal(input.signalId, { actorId: actor.userId })
   bumpPath()
   return r
 }
@@ -98,7 +101,8 @@ export async function addTagAction(input: {
   signalId: string
   tag: string
 }): Promise<SingleSignalResult> {
-  const actorId = await actorOrFail()
+  const actor = await actorOrFail()
+  if (!actor.ok) return { ok: false, signalId: input.signalId, previousStatus: null, newStatus: null, eventId: null, message: actor.error }
   if (!isTag(input.tag)) {
     return {
       ok: false,
@@ -109,7 +113,7 @@ export async function addTagAction(input: {
       message: "وسم غير معتمد.",
     }
   }
-  const r = await addSignalTag(input.signalId, input.tag, { actorId })
+  const r = await addSignalTag(input.signalId, input.tag, { actorId: actor.userId })
   bumpPath()
   return r
 }
@@ -118,7 +122,8 @@ export async function removeTagAction(input: {
   signalId: string
   tag: string
 }): Promise<SingleSignalResult> {
-  const actorId = await actorOrFail()
+  const actor = await actorOrFail()
+  if (!actor.ok) return { ok: false, signalId: input.signalId, previousStatus: null, newStatus: null, eventId: null, message: actor.error }
   if (!isTag(input.tag)) {
     return {
       ok: false,
@@ -129,7 +134,7 @@ export async function removeTagAction(input: {
       message: "وسم غير معتمد.",
     }
   }
-  const r = await removeSignalTag(input.signalId, input.tag, { actorId })
+  const r = await removeSignalTag(input.signalId, input.tag, { actorId: actor.userId })
   bumpPath()
   return r
 }
@@ -138,8 +143,9 @@ export async function setNoteAction(input: {
   signalId: string
   note: string
 }): Promise<SingleSignalResult> {
-  const actorId = await actorOrFail()
-  const r = await setSignalNote(input.signalId, input.note, { actorId })
+  const actor = await actorOrFail()
+  if (!actor.ok) return { ok: false, signalId: input.signalId, previousStatus: null, newStatus: null, eventId: null, message: actor.error }
+  const r = await setSignalNote(input.signalId, input.note, { actorId: actor.userId })
   bumpPath()
   return r
 }
@@ -149,8 +155,9 @@ export async function setNoteAction(input: {
 export async function bulkApproveAction(input: {
   signalIds: string[]
 }): Promise<BulkResult> {
-  const actorId = await actorOrFail()
-  const r = await bulkApproveSignals(input.signalIds, { actorId })
+  const actor = await actorOrFail()
+  if (!actor.ok) return { ok: false, affected: 0, eventIds: [], skipped: input.signalIds }
+  const r = await bulkApproveSignals(input.signalIds, { actorId: actor.userId })
   bumpPath()
   return r
 }
@@ -158,8 +165,9 @@ export async function bulkApproveAction(input: {
 export async function bulkRejectAction(input: {
   signalIds: string[]
 }): Promise<BulkResult> {
-  const actorId = await actorOrFail()
-  const r = await bulkRejectSignals(input.signalIds, { actorId })
+  const actor = await actorOrFail()
+  if (!actor.ok) return { ok: false, affected: 0, eventIds: [], skipped: input.signalIds }
+  const r = await bulkRejectSignals(input.signalIds, { actorId: actor.userId })
   bumpPath()
   return r
 }
@@ -167,8 +175,9 @@ export async function bulkRejectAction(input: {
 export async function bulkArchiveAction(input: {
   signalIds: string[]
 }): Promise<BulkResult> {
-  const actorId = await actorOrFail()
-  const r = await bulkArchiveSignals(input.signalIds, { actorId })
+  const actor = await actorOrFail()
+  if (!actor.ok) return { ok: false, affected: 0, eventIds: [], skipped: input.signalIds }
+  const r = await bulkArchiveSignals(input.signalIds, { actorId: actor.userId })
   bumpPath()
   return r
 }
@@ -177,11 +186,12 @@ export async function bulkTagAction(input: {
   signalIds: string[]
   tag: string
 }): Promise<BulkResult> {
-  const actorId = await actorOrFail()
+  const actor = await actorOrFail()
+  if (!actor.ok) return { ok: false, affected: 0, eventIds: [], skipped: input.signalIds }
   if (!isTag(input.tag)) {
     return { ok: false, affected: 0, eventIds: [], skipped: input.signalIds }
   }
-  const r = await bulkAddSignalTag(input.signalIds, input.tag, { actorId })
+  const r = await bulkAddSignalTag(input.signalIds, input.tag, { actorId: actor.userId })
   bumpPath()
   return r
 }

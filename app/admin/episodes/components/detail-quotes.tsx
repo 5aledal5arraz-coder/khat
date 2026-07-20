@@ -393,10 +393,10 @@ export function DetailQuotes({
                 key={quote.id}
                 className={`group rounded-2xl border p-4 transition-all ${
                   quote.hidden
-                    ? "border-border/20 bg-white/[0.01] opacity-50"
+                    ? "border-border/20 bg-card/[0.01] opacity-50"
                     : isSelected
                     ? "border-primary/30 bg-primary/5"
-                    : "border-border/30 bg-white/[0.02] hover:border-border/50"
+                    : "border-border/30 bg-card/[0.02] hover:border-border/50"
                 }`}
               >
                 {editingId === quote.id ? (

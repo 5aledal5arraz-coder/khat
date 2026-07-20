@@ -368,7 +368,7 @@ export function DetailOverview({
               value={currentGuestId || ""}
               onChange={(e) => handleGuestChange(e.target.value)}
               disabled={assigningGuest}
-              className={`h-10 w-full cursor-pointer rounded-xl border border-border/50 bg-white/[0.02] px-3 text-sm transition-all hover:border-border hover:text-foreground focus:outline-none focus:ring-1 focus:ring-ring ${
+              className={`h-10 w-full cursor-pointer rounded-xl border border-border/50 bg-card/[0.02] px-3 text-sm transition-all hover:border-border hover:text-foreground focus:outline-none focus:ring-1 focus:ring-ring ${
                 currentGuestId
                   ? "text-accent border-accent/30"
                   : "text-muted-foreground"
@@ -394,7 +394,7 @@ export function DetailOverview({
               value={sponsorId}
               onChange={(e) => handleSponsorChange(e.target.value)}
               disabled={assigningSponsor}
-              className={`h-10 w-full cursor-pointer rounded-xl border border-border/50 bg-white/[0.02] px-3 text-sm transition-all hover:border-border hover:text-foreground focus:outline-none focus:ring-1 focus:ring-ring ${
+              className={`h-10 w-full cursor-pointer rounded-xl border border-border/50 bg-card/[0.02] px-3 text-sm transition-all hover:border-border hover:text-foreground focus:outline-none focus:ring-1 focus:ring-ring ${
                 sponsorId
                   ? "text-primary border-primary/30"
                   : "text-muted-foreground"

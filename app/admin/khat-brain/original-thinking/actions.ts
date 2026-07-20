@@ -6,7 +6,7 @@ import {
   markOriginalTopicConsumed,
   expireOldOriginalTopics,
 } from "@/lib/original-thinking/bank"
-import { requireAdmin } from "@/lib/api-utils"
+import { requireActionRole } from "@/lib/api-utils"
 import { generationReasonLabel } from "@/lib/operator-language"
 
 export interface GenerateActionResult {
@@ -21,7 +21,8 @@ export async function generateOriginalTopicsAction(
   language: "ar" | "en" = "ar",
   count: number = 10,
 ): Promise<GenerateActionResult> {
-  await requireAdmin()
+  const gate = await requireActionRole("EDITOR")
+  if (!gate.ok) return { ok: false, accepted: 0, rejected: 0, message: gate.error }
   const r = await generateOriginalTopics({ language, count })
   revalidatePath("/admin/khat-brain/original-thinking")
   return {
@@ -39,14 +40,16 @@ export async function generateOriginalTopicsAction(
 }
 
 export async function markConsumedAction(id: string): Promise<{ ok: boolean }> {
-  await requireAdmin()
+  const gate = await requireActionRole("EDITOR")
+  if (!gate.ok) return { ok: false }
   const ok = await markOriginalTopicConsumed(id)
   revalidatePath("/admin/khat-brain/original-thinking")
   return { ok }
 }
 
 export async function expireOldAction(): Promise<{ expired: number }> {
-  await requireAdmin()
+  const gate = await requireActionRole("EDITOR")
+  if (!gate.ok) return { expired: 0 }
   const r = await expireOldOriginalTopics()
   revalidatePath("/admin/khat-brain/original-thinking")
   return r

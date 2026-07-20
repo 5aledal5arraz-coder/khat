@@ -14,7 +14,7 @@
 import { revalidatePath } from "next/cache"
 import { sql } from "drizzle-orm"
 import { db } from "@/lib/db"
-import { requireAdmin } from "@/lib/api-utils"
+import { requireActionRole } from "@/lib/api-utils"
 import { enqueueJob } from "@/lib/jobs/queue"
 
 export interface RefreshScoringResult {
@@ -24,7 +24,8 @@ export interface RefreshScoringResult {
 }
 
 export async function refreshScoringAction(): Promise<RefreshScoringResult> {
-  await requireAdmin()
+  const gate = await requireActionRole("EDITOR")
+  if (!gate.ok) throw new Error(gate.error)
   if (!db) {
     return {
       ok: false,
