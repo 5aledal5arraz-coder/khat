@@ -62,7 +62,11 @@ function makeUser(role: AdminRole, is_active = true): AdminUser {
  * cookie for `role` (or none), and the `x-request-method` header for
  * `method` (or none, to model a request that skipped the middleware).
  */
-function arrange(opts: { role: AdminRole | null; method: string | null }) {
+function arrange(opts: {
+  role: AdminRole | null
+  method: string | null
+  active?: boolean
+}) {
   vi.mocked(cookies).mockResolvedValue({
     get: (name: string) =>
       opts.role && name === "__admin_session" ? { value: "tok" } : undefined,
@@ -74,7 +78,7 @@ function arrange(opts: { role: AdminRole | null; method: string | null }) {
   } as unknown as Awaited<ReturnType<typeof headers>>)
 
   vi.mocked(verifyAdminSession).mockResolvedValue(
-    opts.role ? makeUser(opts.role) : null,
+    opts.role ? makeUser(opts.role, opts.active ?? true) : null,
   )
 }
 
@@ -135,6 +139,15 @@ describe("requireAdminAPI() write-role gate", () => {
     arrange({ role: null, method: "POST" })
     const res = await requireAdminAPI()
     expect(res?.status).toBe(401)
+  })
+
+  it("blocks a DEACTIVATED account on a bare GET with 403 — defense in depth", async () => {
+    // A disabled account must not read via a bare GET either. verifyAdminSession
+    // filters is_active in SQL today (→ null → 401), so this models the guard
+    // still holding if that filter is ever relaxed. Mirrors requireAdmin.
+    arrange({ role: "ADMIN", method: "GET", active: false })
+    const res = await requireAdminAPI()
+    expect(res?.status).toBe(403)
   })
 })
 

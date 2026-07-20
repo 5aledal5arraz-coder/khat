@@ -82,7 +82,8 @@ export async function requireAdmin(): Promise<void> {
  * explicit role on destructive endpoints (e.g. 'ADMIN' for deletes).
  *
  * Without `minRole` the default depends on the HTTP method:
- *   • GET/HEAD/OPTIONS → authentication only (unchanged — VIEWER can read).
+ *   • GET/HEAD/OPTIONS → authentication only for role (VIEWER can read), but a
+ *     deactivated account is always rejected (403) via the is_active check below.
  *   • anything else    → minimum EDITOR. Write handlers historically called
  *     this bare, which meant a read-only VIEWER could mutate content.
  *
@@ -99,6 +100,10 @@ export async function requireAdmin(): Promise<void> {
 export async function requireAdminAPI(minRole?: AdminRole): Promise<NextResponse | null> {
   const user = await getAdminAuthUser()
   if (!user) return unauthorizedResponse()
+  // A deactivated account must not read OR write — even a bare GET. Mirrors
+  // requireAdmin / requireActionRole. (verifyAdminSession already filters
+  // is_active in SQL, so this is defense-in-depth against a future loosening.)
+  if (!user.is_active) return forbiddenResponse()
 
   let effectiveMinRole: AdminRole | undefined = minRole
   if (!effectiveMinRole) {
@@ -107,9 +112,8 @@ export async function requireAdminAPI(minRole?: AdminRole): Promise<NextResponse
     if (!isRead) effectiveMinRole = 'EDITOR'
   }
 
-  if (effectiveMinRole) {
-    if (!user.is_active) return forbiddenResponse()
-    if (!hasRole(user.role, effectiveMinRole)) return forbiddenResponse()
+  if (effectiveMinRole && !hasRole(user.role, effectiveMinRole)) {
+    return forbiddenResponse()
   }
   return null
 }

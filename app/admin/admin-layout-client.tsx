@@ -21,6 +21,13 @@ import { AiDegradedBanner } from "./components/ai-degraded-banner"
 import { BreadcrumbLabelProvider } from "@/lib/admin/breadcrumb-context"
 import type { AiDegradedState } from "@/lib/ops/ai-degraded"
 
+const ROLE_LABELS: Record<string, string> = {
+  OWNER: "مالك",
+  ADMIN: "مدير",
+  EDITOR: "محرّر",
+  VIEWER: "مشاهد",
+}
+
 export default function AdminLayoutClient({
   children,
   userRole,
@@ -105,9 +112,11 @@ export default function AdminLayoutClient({
               <KhatLogo size={28} />
               <div className="flex items-center gap-2">
                 <h1 className="text-[13px] font-semibold tracking-tight">لوحة التحكم</h1>
-                <span className="rounded-[5px] border border-border/70 bg-muted/60 px-1.5 py-[1px] text-[9px] font-bold tracking-wider text-muted-foreground hidden sm:inline-block">
-                  ADMIN
-                </span>
+                {userRole && (
+                  <span className="rounded-[5px] border border-border/70 bg-muted/60 px-1.5 py-[1px] text-[9px] font-bold text-muted-foreground hidden sm:inline-block">
+                    {ROLE_LABELS[userRole] ?? userRole}
+                  </span>
+                )}
               </div>
             </div>
 

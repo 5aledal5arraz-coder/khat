@@ -160,6 +160,7 @@ export function DetailOverview({
   const handleSponsorChange = async (newPartnerId: string) => {
     setAssigningSponsor(true)
     setSponsorError(null)
+    const prevSponsorId = sponsorId
     setSponsorId(newPartnerId)
     const result = await assignEpisodeSponsorAction(
       episode.id,
@@ -167,6 +168,9 @@ export function DetailOverview({
       brandLine || undefined
     )
     if (!result.success) {
+      // Revert the optimistic select so the UI doesn't imply a write that
+      // never landed (e.g. a VIEWER rejection) — matches the guest picker.
+      setSponsorId(prevSponsorId)
       setSponsorError(result.error ?? "فشل تعيين الشريك")
     }
     setAssigningSponsor(false)
