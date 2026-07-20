@@ -2,10 +2,11 @@
  * Khat Brain — Gemini provider adapter.
  *
  * Executes router requests against the shared Gemini SDK instance
- * (lib/ai/gemini.ts). PromptMessage[] is reshaped to Gemini's
- * systemInstruction + user content; `expectJson` maps to
+ * (lib/ai/gemini.ts, `@google/genai`). PromptMessage[] is reshaped to
+ * Gemini's systemInstruction + user content; `expectJson` maps to
  * `responseMimeType: application/json`. Token usage comes from
- * usageMetadata; cost from the registry pricing table.
+ * usageMetadata (via the shared `deriveGeminiTelemetry`); cost from the
+ * registry pricing table.
  *
  * Grounded web retrieval (Google Search tool) stays in the preparation
  * research module — it returns grounding metadata, not text, so it
@@ -13,12 +14,13 @@
  */
 
 import { getGeminiClient, isGeminiConfigured } from "@/lib/ai/gemini"
+import type { GenerateContentResponse } from "@google/genai"
 import type {
   ProviderAdapter,
   ResolvedRequest,
   AdapterResult,
 } from "../types"
-import { lookupPricing } from "../registry"
+import { deriveGeminiTelemetry } from "../gemini-usage"
 
 export const geminiAdapter: ProviderAdapter = {
   provider: "gemini",
@@ -28,7 +30,7 @@ export const geminiAdapter: ProviderAdapter = {
   },
 
   async execute(req: ResolvedRequest): Promise<AdapterResult> {
-    const client = getGeminiClient()
+    const ai = getGeminiClient()
 
     const systemParts = req.prompt
       .filter((m) => m.role === "system")
@@ -52,40 +54,41 @@ export const geminiAdapter: ProviderAdapter = {
       }
     void rest
 
-    const model = client.getGenerativeModel({
-      model: req.modelName,
-      ...(systemParts.length
-        ? { systemInstruction: systemParts.join("\n\n") }
-        : {}),
-      generationConfig: {
-        ...(req.expectJson ? { responseMimeType: "application/json" } : {}),
-        ...(temperature !== undefined ? { temperature } : {}),
-        ...(maxOutputTokens !== undefined ? { maxOutputTokens } : {}),
-        ...(topP !== undefined ? { topP } : {}),
-      },
-    })
+    // Abort (not just race) on deadline so the request is actually
+    // cancelled client-side. The thrown message must contain "timeout" —
+    // the router's classifyError maps it to the retryable "timeout" class.
+    const controller = new AbortController()
+    const timer = setTimeout(() => controller.abort(), req.timeoutMs)
+    let response: GenerateContentResponse
+    try {
+      response = await ai.models.generateContent({
+        model: req.modelName,
+        contents: conversation,
+        config: {
+          abortSignal: controller.signal,
+          ...(systemParts.length
+            ? { systemInstruction: systemParts.join("\n\n") }
+            : {}),
+          ...(req.expectJson ? { responseMimeType: "application/json" } : {}),
+          ...(temperature !== undefined ? { temperature } : {}),
+          ...(maxOutputTokens !== undefined ? { maxOutputTokens } : {}),
+          ...(topP !== undefined ? { topP } : {}),
+        },
+      })
+    } catch (err) {
+      if (controller.signal.aborted) {
+        throw new Error(`Provider timeout after ${req.timeoutMs}ms`)
+      }
+      throw err
+    } finally {
+      clearTimeout(timer)
+    }
 
-    const result = await Promise.race([
-      model.generateContent({ contents: conversation }),
-      new Promise<never>((_, reject) =>
-        setTimeout(
-          () => reject(new Error(`Provider timeout after ${req.timeoutMs}ms`)),
-          req.timeoutMs,
-        ),
-      ),
-    ])
-
-    const rawText = result.response.text() ?? ""
-    const usage = result.response.usageMetadata
-    const tokensIn = usage?.promptTokenCount ?? null
-    const tokensOut = usage?.candidatesTokenCount ?? null
-
-    const pricing = lookupPricing("gemini", req.modelName)
-    const costUsd =
-      pricing && tokensIn !== null && tokensOut !== null
-        ? (tokensIn / 1_000_000) * pricing.inputCostPer1M +
-          (tokensOut / 1_000_000) * pricing.outputCostPer1M
-        : null
+    const rawText = response.text ?? ""
+    const { tokensIn, tokensOut, costUsd } = deriveGeminiTelemetry(
+      response.usageMetadata,
+      req.modelName,
+    )
 
     return { rawText, tokensIn, tokensOut, costUsd }
   },

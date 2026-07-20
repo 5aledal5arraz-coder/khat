@@ -34,12 +34,26 @@ export type AiTaskKind = (typeof AI_TASK_KINDS)[number]
  *     not the chat Responses API.
  *   - "embedding"     — text → vector (`lib/khat-map/learning/embeddings.ts`);
  *     input-only, no output tokens.
+ *   - "research_retrieval" — Gemini grounded web search in preparation
+ *     (`lib/ai/preparation/research/gemini.ts`, `preparation/identify.ts`);
+ *     returns grounding metadata (real URLs + snippets), not the router's
+ *     text/JSON contract, so it can't route through `runAiTask`.
+ *   - "research_reasoning" — Gemini JSON reasoning over a fixed corpus
+ *     (`preparation/research/gemini.ts` synthesizer/verifier passes).
+ *   - "guest_identify"     — Gemini grounded identity disambiguation
+ *     (`preparation/identify.ts`).
  * They are recorded via `recordAiRun()` (`lib/ai-router/record-run.ts`), so
  * they are DELIBERATELY absent from `DEFAULT_MODELS` / `FALLBACK_CHAINS` /
  * `TASK_TIER` — those stay exhaustive over the registry-routed kinds only,
  * and these must not surface as configurable models in the Settings hub.
  */
-export const AI_TELEMETRY_TASK_KINDS = ["transcription", "embedding"] as const
+export const AI_TELEMETRY_TASK_KINDS = [
+  "transcription",
+  "embedding",
+  "research_retrieval",
+  "research_reasoning",
+  "guest_identify",
+] as const
 export type AiTelemetryTaskKind = (typeof AI_TELEMETRY_TASK_KINDS)[number]
 
 /**

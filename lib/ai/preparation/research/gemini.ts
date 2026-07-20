@@ -13,11 +13,16 @@
  *      and no search tool. Used by the synthesizer and verifier passes where
  *      we want structured output over a fixed corpus, not fresh retrieval.
  *
- * This module also owns the single `@google/generative-ai` SDK instance so
- * the rest of the pipeline only depends on a narrow interface.
+ * This module depends on the shared `@google/genai` SDK instance
+ * (lib/ai/gemini.ts) so the rest of the pipeline only touches a narrow
+ * interface. Every grounded/reasoning call is recorded in `ai_runs` via
+ * `recordAiRun` so preparation Gemini spend is no longer invisible.
  */
 
-import type { GenerativeModel } from "@google/generative-ai"
+import type {
+  GenerateContentResponse,
+  GenerateContentConfig,
+} from "@google/genai"
 import type { RawRetrievedSource } from "./types"
 import {
   getGeminiClient,
@@ -25,6 +30,8 @@ import {
   GEMINI_RETRIEVAL_MODEL,
   GEMINI_REASONING_MODEL,
 } from "@/lib/ai/gemini"
+import { recordAiRun } from "@/lib/ai-router/record-run"
+import { deriveGeminiTelemetry } from "@/lib/ai-router/gemini-usage"
 import {
   repairTruncatedJson,
   sanitizeJsonResponse,
@@ -79,19 +86,15 @@ export async function geminiSearchWeb(
 
   // The tool name differs between Gemini versions; we try the 2.0+ name
   // first and fall back to the 1.5 name if the SDK rejects it.
-  const buildModel = (toolShape: "googleSearch" | "googleSearchRetrieval"): GenerativeModel => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const tools: any[] =
+  const buildConfig = (
+    toolShape: "googleSearch" | "googleSearchRetrieval",
+  ): GenerateContentConfig => ({
+    tools:
       toolShape === "googleSearch"
         ? [{ googleSearch: {} }]
-        : [{ googleSearchRetrieval: {} }]
-    return genAI.getGenerativeModel({
-      model: GEMINI_RETRIEVAL_MODEL,
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      tools: tools as any,
-      generationConfig: { temperature: 0.2 },
-    })
-  }
+        : [{ googleSearchRetrieval: {} }],
+    temperature: 0.2,
+  })
 
   const prompt =
     `أنت باحث محترف. استخدم أداة البحث في Google للعثور على مصادر حقيقية وحديثة للسؤال التالي. ` +
@@ -99,14 +102,36 @@ export async function geminiSearchWeb(
     `ضمّن حقائق، تواريخ، تصريحات، وتفاصيل ملموسة. كل ادعاء يجب أن يكون مدعوماً بمصدر فعلي من نتائج البحث.\n\n` +
     `السؤال: ${query}`
 
-  // Retry wrapper — Gemini frequently returns 503/429 under load.
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const callWithRetry = async (model: GenerativeModel): Promise<any> => {
+  // Retry wrapper — Gemini frequently returns 503/429 under load. Each
+  // actual generateContent attempt is recorded in ai_runs (research_retrieval)
+  // so grounded-search spend is no longer invisible.
+  const callWithRetry = async (
+    toolShape: "googleSearch" | "googleSearchRetrieval",
+  ): Promise<GenerateContentResponse> => {
     const maxAttempts = 3
     let lastErr: unknown
     for (let attempt = 1; attempt <= maxAttempts; attempt++) {
       try {
-        return await model.generateContent(prompt)
+        return await recordAiRun(
+          {
+            taskKind: "research_retrieval",
+            provider: "gemini",
+            modelName: GEMINI_RETRIEVAL_MODEL,
+            inputSnapshot: {
+              query: query.slice(0, 500),
+              tool_shape: toolShape,
+              attempt,
+              max_results: maxResults,
+            },
+          },
+          () =>
+            genAI.models.generateContent({
+              model: GEMINI_RETRIEVAL_MODEL,
+              contents: prompt,
+              config: buildConfig(toolShape),
+            }),
+          (r) => deriveGeminiTelemetry(r.usageMetadata, GEMINI_RETRIEVAL_MODEL),
+        )
       } catch (err) {
         lastErr = err
         const message = err instanceof Error ? err.message : String(err)
@@ -124,19 +149,15 @@ export async function geminiSearchWeb(
   }
 
   let groundingMetadata: GroundingMetadata | undefined
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  let result: any
   try {
-    const model = buildModel("googleSearch")
-    result = await callWithRetry(model)
-    groundingMetadata = extractGroundingMetadata(result)
+    groundingMetadata = extractGroundingMetadata(await callWithRetry("googleSearch"))
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err)
     if (/googleSearch|unknown field|invalid/i.test(message)) {
       try {
-        const model = buildModel("googleSearchRetrieval")
-        result = await callWithRetry(model)
-        groundingMetadata = extractGroundingMetadata(result)
+        groundingMetadata = extractGroundingMetadata(
+          await callWithRetry("googleSearchRetrieval"),
+        )
       } catch (err2) {
         console.error("[preparation/research] Gemini search fallback failed:", err2)
         throw err2
@@ -198,13 +219,16 @@ export async function geminiSearchWeb(
   return sources.slice(0, maxResults)
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-function extractGroundingMetadata(result: any): GroundingMetadata | undefined {
-  const candidate = result?.response?.candidates?.[0]
+function extractGroundingMetadata(
+  result: GenerateContentResponse,
+): GroundingMetadata | undefined {
+  // New SDK: the response IS the result (no `.response` wrapper), grounding
+  // lives on the first candidate, and fields are camelCase. The cast narrows
+  // the SDK's richer GroundingMetadata to the fields this module reads.
   return (
-    candidate?.groundingMetadata ||
-    candidate?.grounding_metadata ||
-    undefined
+    (result.candidates?.[0]?.groundingMetadata as
+      | GroundingMetadata
+      | undefined) ?? undefined
   )
 }
 
@@ -273,28 +297,20 @@ export function repairJsonPayload(raw: string): string | null {
 }
 
 /**
- * Extract whatever text came back from a Gemini response, tolerating the
- * different SDK shapes and candidate positions.
+ * Extract whatever text came back from a Gemini response, tolerating an
+ * empty `text` getter by falling back to the first candidate's parts.
  */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-function extractResponseText(result: any): { text: string; finishReason?: string } {
-  let text = ""
-  try {
-    text = result?.response?.text?.() ?? ""
-  } catch {
-    text = ""
-  }
+function extractResponseText(
+  result: GenerateContentResponse,
+): { text: string; finishReason?: string } {
+  // `text` is a getter in `@google/genai` (was `.text()` in the old SDK); it
+  // already concatenates the candidate's text parts, excluding thoughts.
+  let text = result.text ?? ""
   if (!text) {
-    const parts = result?.response?.candidates?.[0]?.content?.parts ?? []
-    text = parts
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      .map((p: any) => (typeof p?.text === "string" ? p.text : ""))
-      .join("")
+    const parts = result.candidates?.[0]?.content?.parts ?? []
+    text = parts.map((p) => (typeof p.text === "string" ? p.text : "")).join("")
   }
-  const finishReason: string | undefined =
-    result?.response?.candidates?.[0]?.finishReason ||
-    result?.response?.candidates?.[0]?.finish_reason
-  return { text: text || "", finishReason }
+  return { text, finishReason: result.candidates?.[0]?.finishReason }
 }
 
 /**
@@ -322,18 +338,6 @@ export async function geminiJson<T>(
   validate?: (value: unknown) => value is T,
 ): Promise<T> {
   const genAI = getGeminiClient()
-  const model = genAI.getGenerativeModel({
-    model: GEMINI_REASONING_MODEL,
-    systemInstruction: system,
-    generationConfig: {
-      temperature,
-      responseMimeType: "application/json",
-      // Bounding the output is the single biggest driver of truncation
-      // failures. 8k is enough for the synthesizer's richest shape and
-      // well within gemini-2.5-flash's limit.
-      maxOutputTokens: 8192,
-    },
-  })
 
   const logStage = (stage: string, raw: string, detail: string, finishReason?: string) => {
     const excerpt = raw.length > 600 ? raw.slice(0, 600) + "…" : raw
@@ -361,7 +365,29 @@ export async function geminiJson<T>(
   let firstRaw = ""
   let firstFinish: string | undefined
   try {
-    const result = await model.generateContent(user)
+    const result = await recordAiRun(
+      {
+        taskKind: "research_reasoning",
+        provider: "gemini",
+        modelName: GEMINI_REASONING_MODEL,
+        inputSnapshot: { label, temperature, stage: "primary" },
+      },
+      () =>
+        genAI.models.generateContent({
+          model: GEMINI_REASONING_MODEL,
+          contents: user,
+          config: {
+            systemInstruction: system,
+            temperature,
+            responseMimeType: "application/json",
+            // Bounding the output is the single biggest driver of truncation
+            // failures. 8k is enough for the synthesizer's richest shape and
+            // well within gemini-2.5-flash's limit.
+            maxOutputTokens: 8192,
+          },
+        }),
+      (r) => deriveGeminiTelemetry(r.usageMetadata, GEMINI_REASONING_MODEL),
+    )
     const extracted = extractResponseText(result)
     firstRaw = extracted.text
     firstFinish = extracted.finishReason
@@ -414,16 +440,26 @@ export async function geminiJson<T>(
     `--- START MALFORMED ---\n${firstRaw.slice(0, 12000)}\n--- END MALFORMED ---`
 
   try {
-    const correctionModel = genAI.getGenerativeModel({
-      model: GEMINI_REASONING_MODEL,
-      systemInstruction: correctionSystem,
-      generationConfig: {
-        temperature: 0,
-        responseMimeType: "application/json",
-        maxOutputTokens: 8192,
+    const result2 = await recordAiRun(
+      {
+        taskKind: "research_reasoning",
+        provider: "gemini",
+        modelName: GEMINI_REASONING_MODEL,
+        inputSnapshot: { label, stage: "correction" },
       },
-    })
-    const result2 = await correctionModel.generateContent(correctionUser)
+      () =>
+        genAI.models.generateContent({
+          model: GEMINI_REASONING_MODEL,
+          contents: correctionUser,
+          config: {
+            systemInstruction: correctionSystem,
+            temperature: 0,
+            responseMimeType: "application/json",
+            maxOutputTokens: 8192,
+          },
+        }),
+      (r) => deriveGeminiTelemetry(r.usageMetadata, GEMINI_REASONING_MODEL),
+    )
     const extracted2 = extractResponseText(result2)
     const raw2 = extracted2.text
 

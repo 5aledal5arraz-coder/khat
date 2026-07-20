@@ -25,6 +25,12 @@
 
 import { env } from "@/lib/env"
 import { getGeminiClient, isGeminiConfigured } from "@/lib/ai/gemini"
+import { recordAiRun } from "@/lib/ai-router/record-run"
+import { deriveGeminiTelemetry } from "@/lib/ai-router/gemini-usage"
+import type {
+  GenerateContentResponse,
+  GenerateContentConfig,
+} from "@google/genai"
 import type { PreparationCandidate } from "@/types/preparation"
 
 const GEMINI_MODEL = env.GEMINI_RETRIEVAL_MODEL || "gemini-2.5-flash"
@@ -102,39 +108,60 @@ async function geminiCandidates(
     `والمصدر الرسمي أو الأكثر موثوقية. إذا كان هناك أكثر من شخص بنفس الاسم، ` +
     `اذكرهم جميعاً حتى 3 مرشحين، واشرح الفرق بينهم بوضوح.`
 
-  const buildModel = (toolShape: "googleSearch" | "googleSearchRetrieval") => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const tools: any[] =
+  const buildConfig = (
+    toolShape: "googleSearch" | "googleSearchRetrieval",
+  ): GenerateContentConfig => ({
+    tools:
       toolShape === "googleSearch"
         ? [{ googleSearch: {} }]
-        : [{ googleSearchRetrieval: {} }]
-    return genAI.getGenerativeModel({
-      model: GEMINI_MODEL,
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      tools: tools as any,
-      generationConfig: { temperature: 0.2 },
-    })
-  }
+        : [{ googleSearchRetrieval: {} }],
+    temperature: 0.2,
+  })
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  let result: any
+  // Each grounded identity call is recorded in ai_runs (guest_identify) so
+  // disambiguation spend is no longer invisible.
+  const run = (
+    toolShape: "googleSearch" | "googleSearchRetrieval",
+  ): Promise<GenerateContentResponse> =>
+    recordAiRun(
+      {
+        taskKind: "guest_identify",
+        provider: "gemini",
+        modelName: GEMINI_MODEL,
+        inputSnapshot: {
+          guest_name: input.guest_name.slice(0, 200),
+          tool_shape: toolShape,
+        },
+      },
+      () =>
+        genAI.models.generateContent({
+          model: GEMINI_MODEL,
+          contents: query,
+          config: buildConfig(toolShape),
+        }),
+      (r) => deriveGeminiTelemetry(r.usageMetadata, GEMINI_MODEL),
+    )
+
+  let result: GenerateContentResponse
   try {
-    result = await buildModel("googleSearch").generateContent(query)
+    result = await run("googleSearch")
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err)
     if (/googleSearch|unknown field|invalid/i.test(message)) {
-      result = await buildModel("googleSearchRetrieval").generateContent(query)
+      result = await run("googleSearchRetrieval")
     } else {
       throw err
     }
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const candidatesInResponse = (result?.response?.candidates ?? []) as any[]
   const groundingMetadata: GroundingMetadata | undefined =
-    candidatesInResponse[0]?.groundingMetadata
+    (result.candidates?.[0]?.groundingMetadata as
+      | GroundingMetadata
+      | undefined) ?? undefined
   const freeText: string =
-    result?.response?.text?.() || result?.response?.candidates?.[0]?.content?.parts?.[0]?.text || ""
+    result.text ||
+    result.candidates?.[0]?.content?.parts?.[0]?.text ||
+    ""
 
   const chunks = groundingMetadata?.groundingChunks ?? []
 
