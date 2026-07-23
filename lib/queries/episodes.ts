@@ -128,15 +128,51 @@ function dbEpisodeToEpisode(e: typeof episodes.$inferSelect): Episode {
 
 // ─── Data Sources ────────────────────────────────────────────────────────────
 
-async function getHiddenEpisodeIds(): Promise<Set<string>> {
+/**
+ * Last-known-good snapshot of the hidden set.
+ *
+ * `hidden_episodes` is tiny and changes rarely, so replaying a slightly stale
+ * copy through a transient DB failure is strictly safer than replaying none:
+ * it keeps hidden episodes hidden without blanking the public catalogue.
+ */
+let lastKnownHiddenIds: Set<string> | null = null
+
+/**
+ * Ids of the episodes an operator deliberately hid — or `null` when that
+ * could not be determined.
+ *
+ * `null` means UNKNOWN. It must never be read as "nothing is hidden": this is
+ * a visibility control, and an empty set on error re-publishes episodes that
+ * were pulled on purpose. The danger is real rather than theoretical, because
+ * the public episode list is still served from the YouTube/JSON fallbacks
+ * while Postgres is unreachable — so a swallowed error here surfaces hidden
+ * episodes on a live page. An ETIMEDOUT on a cold start hit exactly this path.
+ *
+ * Every caller MUST fail CLOSED on `null`.
+ */
+async function getHiddenEpisodeIds(): Promise<Set<string> | null> {
+  // Running with no database at all is a supported deployment mode (JSON +
+  // YouTube only), not a failure — nothing can be hidden in that mode.
   if (!DB_AVAILABLE) return new Set()
   try {
     const rows = await db!
       .select({ episode_id: hiddenEpisodes.episode_id })
       .from(hiddenEpisodes)
-    return new Set(rows.map((r) => r.episode_id))
-  } catch {
-    return new Set()
+    lastKnownHiddenIds = new Set(rows.map((r) => r.episode_id))
+    return lastKnownHiddenIds
+  } catch (error) {
+    if (lastKnownHiddenIds) {
+      console.error(
+        `[episodes] Hidden-episode lookup FAILED — reusing the last known set of ${lastKnownHiddenIds.size} hidden episode(s); visibility may be stale:`,
+        error,
+      )
+      return lastKnownHiddenIds
+    }
+    console.error(
+      "[episodes] Hidden-episode lookup FAILED and no previous set is cached — failing CLOSED to avoid exposing hidden episodes:",
+      error,
+    )
+    return null
   }
 }
 
@@ -516,6 +552,17 @@ async function applyListPipeline(
     getDeletedEpisodeIds(),
   ])
 
+  // Fail CLOSED. We could not determine which episodes are hidden, so we
+  // cannot safely publish any of them. An empty list during a DB blip is
+  // visible but self-healing; leaking a deliberately-hidden episode is not
+  // recoverable once caches and scrapers have picked it up.
+  if (hiddenIds === null) {
+    console.error(
+      "[episodes] Suppressing the entire episode list — the hidden set is unavailable.",
+    )
+    return []
+  }
+
   let result = applyOverrides(rawEpisodes, overrides)
 
   // Filter deleted (hard-delete tombstones) — always on
@@ -601,6 +648,16 @@ export async function getEpisodeBySlug(
     getHiddenEpisodeIds(),
     getDeletedEpisodeIds(),
   ])
+  // Fail CLOSED — see getHiddenEpisodeIds(). Blocking one slug is a cheap,
+  // bounded cost; serving a hidden episode to whoever knows its direct URL is
+  // exactly the exposure the hidden list exists to prevent.
+  if (hiddenIds === null) {
+    console.error(
+      `[episodes] Blocked slug "${slug}" — the hidden set is unavailable.`,
+    )
+    return null
+  }
+
   const episode = await resolveEpisodeBySlug(slug)
   if (!episode) return null
 
@@ -637,7 +694,15 @@ export async function getMostViewedRecent(
         getDeletedEpisodeIds(),
       ])
       const episode = await ytFetchMostViewed(days)
-      if (episode && !hiddenIds.has(episode.id) && !deletedIds.has(episode.id)) {
+      // Fail CLOSED — a null hidden set means we cannot vouch for this
+      // episode's visibility, so we skip the YouTube fast path entirely and
+      // fall through to the pipeline below (which fails closed in turn).
+      if (
+        hiddenIds !== null &&
+        episode &&
+        !hiddenIds.has(episode.id) &&
+        !deletedIds.has(episode.id)
+      ) {
         return episode
       }
     } catch (error) {

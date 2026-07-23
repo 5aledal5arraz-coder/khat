@@ -22,3 +22,7 @@ import "./handlers/partner-task-reminder"
 import "./handlers/market-source-feedback"
 // Model-upgrade benchmarks (evidence-based model adoption).
 import "./handlers/model-benchmark"
+// Studio Wave 2 — raw-episode time map (whisper timestamps + ffmpeg breaks).
+import "./handlers/episode-map"
+// Studio 3-phase journey (Phase 2) — edit review (whisper edited audio + pure verdict).
+import "./handlers/episode-review"

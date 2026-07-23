@@ -94,6 +94,12 @@ export function WizardCard({
   const successScore = topic.success_score
   const band = successScore != null ? successBand(successScore) : null
   const belowThreshold = successScore != null && successScore < SUCCESS_THRESHOLD
+  // No editorial layer at all: no court score, no intel, no classification.
+  // Such a card renders almost empty, and until now it looked identical to a
+  // card the operator simply hadn't scrolled through — five of them shipped as
+  // "success" on 2026-07-22. Say it out loud instead.
+  const unenriched =
+    intel == null && successScore == null && topic.topic_category == null
 
   return (
     <div className="group relative overflow-hidden rounded-2xl border border-border/60 bg-card/50 shadow-sm transition-shadow hover:shadow-md">
@@ -174,6 +180,21 @@ export function WizardCard({
           </div>
         )}
       </div>
+
+      {/* Un-enriched marker — the editorial pass never covered this card. */}
+      {unenriched && (
+        <div
+          className="mx-5 mt-3 flex items-start gap-2 rounded-xl border border-amber-500/30 bg-amber-500/5 px-3 py-2"
+          data-card-unenriched
+        >
+          <AlertTriangle className="mt-0.5 h-3.5 w-3.5 flex-shrink-0 text-amber-700" />
+          <div className="text-[11px] leading-relaxed text-amber-700">
+            <span className="font-semibold">بدون إثراء تحريري</span> — لم يكتمل
+            التصنيف ولا احتمالية النجاح ولا المحاور لهذا المرشّح. المحتوى الأساسي
+            فقط متاح.
+          </div>
+        </div>
+      )}
 
       {/* Below-threshold warning + regenerate */}
       {belowThreshold && (

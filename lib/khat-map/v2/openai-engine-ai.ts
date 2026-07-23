@@ -82,6 +82,11 @@ async function generateCandidates(
     // full title set + 14 success dims each); it legitimately runs long, so it
     // gets a wider budget than the 120s default to avoid a mid-generation timeout.
     timeoutMs: editorial ? 220_000 : undefined,
+    // Explicit maxRetries 1 on the editorial path: 220_000 × (1 + 1) ≈ 440s,
+    // safely under the 660s nginx admin wall. Without it this inherited 2 →
+    // 220 × 3 ≈ 662s, a latent hang past the wall. The structural path keeps
+    // the registry/global retry policy (undefined → falls through).
+    maxRetries: editorial ? 1 : undefined,
     providerOptions: { temperature: editorial ? 0.85 : 0.8 },
   })
   if (r.status !== "succeeded" || r.parsed == null) {

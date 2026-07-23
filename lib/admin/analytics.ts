@@ -1,7 +1,7 @@
 import { createConfigStore } from "@/lib/config-store"
 import { db, USE_DB } from "@/lib/db"
 import { platformAnalytics } from "@/lib/db/schema"
-import { sql } from "drizzle-orm"
+import { inArray } from "drizzle-orm"
 import type { AnalyticsConfig } from "@/types/media-kit"
 
 const defaultConfig: AnalyticsConfig = {
@@ -18,8 +18,11 @@ const store = createConfigStore<AnalyticsConfig>("analytics.json", defaultConfig
 export async function getAnalyticsConfig(): Promise<AnalyticsConfig> {
   if (USE_DB) {
     try {
+      // `inArray`, not a raw sql`= ANY(${PLATFORMS})`: Drizzle expands a JS array in a
+      // template into one bind param per item, emitting `= ANY(($1,$2,$3,$4))` — a row
+      // expression, which Postgres rejects (42809). This read never once succeeded.
       const rows = await db!.select().from(platformAnalytics)
-        .where(sql`${platformAnalytics.platform} = ANY(${PLATFORMS})`)
+        .where(inArray(platformAnalytics.platform, [...PLATFORMS]))
 
       if (rows.length > 0) {
         const config = { ...defaultConfig }
@@ -37,7 +40,14 @@ export async function getAnalyticsConfig(): Promise<AnalyticsConfig> {
         return config
       }
     } catch (e) {
-      console.error("getAnalyticsConfig DB exception:", e)
+      // Say the consequence, not just the error: the old message reported the exception
+      // but not that callers were silently served file data instead, so a permanently
+      // broken query looked like a working read path.
+      console.error(
+        "[analytics] getAnalyticsConfig: DB read FAILED — serving config/analytics.json instead. " +
+          "Values returned to the media kit may be stale and will NOT reflect saves made in /admin/media-kit.",
+        e
+      )
     }
   }
   return store.read()

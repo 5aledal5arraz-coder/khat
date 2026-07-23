@@ -121,6 +121,19 @@ export function formatTimeSeconds(seconds: number): string {
   return `${mins}:${secs.toString().padStart(2, '0')}`
 }
 
+/**
+ * Approximate remaining-time label for a live countdown, e.g. "~6 دقائق" /
+ * "~دقيقتين" / "أقل من دقيقة". The leading ~ keeps the estimate honestly fuzzy.
+ * Reuses the Arabic plural engine (single source), dropping the "واحدة" for the
+ * 1-minute case since ~ already signals approximation. Used by the Studio
+ * transcription progress bar.
+ */
+export function formatEtaApprox(seconds: number): string {
+  if (!Number.isFinite(seconds) || seconds < 45) return "أقل من دقيقة"
+  const mins = Math.round(seconds / 60)
+  return mins === 1 ? "~دقيقة" : `~${formatArabicCount(mins, "دقيقة")}`
+}
+
 // ─── Relative Time ───────────────────────────────────────────────────────────
 
 /** Arabic relative time string (e.g. "قبل ٣ ساعات", "أمس"). */

@@ -157,6 +157,9 @@ async function labelClusters(
     ],
     expectJson: true,
     timeoutMs: 180_000,
+    // Explicit maxRetries 1: 180_000 × (1 + 1) ≈ 360s, well under the nginx
+    // wall. Without it this inherited 2 → 180 × 3 ≈ 540s; local + obvious.
+    maxRetries: 1,
     providerOptions: { temperature: 0.3 },
   })
   const parsed = r.parsed as { themes?: ClusterLabel[] } | ClusterLabel[] | null

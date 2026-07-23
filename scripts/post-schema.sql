@@ -36,6 +36,14 @@ CREATE TRIGGER trg_studio_sessions_updated_at
   BEFORE UPDATE ON studio_sessions
   FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
+-- Studio Wave 2 — the episode-project spine (migration 0016). The
+-- repository stamps updated_at itself, but this trigger guarantees it
+-- for any raw SQL / RPC path too.
+DROP TRIGGER IF EXISTS trg_studio_projects_updated_at ON studio_projects;
+CREATE TRIGGER trg_studio_projects_updated_at
+  BEFORE UPDATE ON studio_projects
+  FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
 -- Content
 DROP TRIGGER IF EXISTS trg_home_quotes_updated_at ON home_quotes;
 CREATE TRIGGER trg_home_quotes_updated_at

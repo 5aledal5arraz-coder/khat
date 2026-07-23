@@ -17,7 +17,7 @@ import type { EditorialLens } from "@/lib/original-thinking/lenses"
  * comparisons live and die by it. The current value reflects the
  * prompt as it shipped pre-Phase-0.
  */
-export const ORIGINAL_THINKING_PROMPT_VERSION = "original-thinking-v1.0"
+export const ORIGINAL_THINKING_PROMPT_VERSION = "original-thinking-v1.1"
 
 export interface OriginalThinkingPromptInput {
   language: "ar" | "en"
@@ -40,7 +40,7 @@ export function buildOriginalThinkingPrompt(
   const lensSummary = input.lenses
     .map(
       (l) =>
-        `- key: ${l.key}\n  name: ${l.name_en}\n  description: ${l.description}\n  question_kinds: ${l.question_kinds.slice(0, 2).join(" | ")}\n  avoid: ${l.avoid.join(" | ")}`,
+        `- key: ${l.key}\n  name: ${l.name_ar}\n  description: ${l.description}\n  question_kinds: ${l.question_kinds.slice(0, 2).join(" | ")}\n  avoid: ${l.avoid.join(" | ")}`,
     )
     .join("\n")
 
@@ -59,7 +59,7 @@ export function buildOriginalThinkingPrompt(
     "",
     "ABSOLUTE RULES:",
     "1. Output JSON only. The shape is: { topics: [ { title, lens, philosophical_frame, conflict, emotional_hook } ] }.",
-    "2. Each title MUST be in " + langLabel + ".",
+    "2. ALL human-readable text you generate — `title`, `philosophical_frame`, `conflict`, and `emotional_hook` — MUST be written entirely in " + langLabel + ". The `lens` field is the ONLY exception: it stays the exact English lens KEY from the list below. Do not mix languages inside any field, and do not transliterate.",
     "3. Each topic MUST be drawn from one of the lenses listed below — set `lens` to the lens KEY (e.g. \"betrayal_of_self\").",
     "4. Reject your own first draft if it sounds like self-help, listicle, or hustle-culture content.",
     "5. " + kuwaitDirective,

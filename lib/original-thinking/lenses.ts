@@ -13,7 +13,10 @@ export interface EditorialLens {
   key: string
   name_ar: string
   name_en: string
+  /** English steering copy — internal only, shown to the model, never the editor. */
   description: string
+  /** Arabic editor-facing copy — rendered in the admin lens registry. */
+  description_ar: string
   question_kinds: string[]
   avoid: string[]
 }
@@ -64,7 +67,7 @@ function validateLens(l: unknown): asserts l is EditorialLens {
     throw new Error("lens entry must be an object")
   }
   const o = l as Record<string, unknown>
-  for (const f of ["key", "name_ar", "name_en", "description"] as const) {
+  for (const f of ["key", "name_ar", "name_en", "description", "description_ar"] as const) {
     if (typeof o[f] !== "string" || (o[f] as string).trim() === "") {
       throw new Error(`lens missing required string field "${f}"`)
     }

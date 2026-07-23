@@ -1,5 +1,29 @@
+import type { StudioAudioStage } from '@/types/database'
+
 const ALLOWED_EXTENSIONS = ['.mp3', '.wav', '.m4a', '.webm'] as const
 const MAX_FILE_SIZE = 500 * 1024 * 1024 // 500 MB
+
+/**
+ * The hand-rolled magic-byte check is brittle — real-world MP3s (leading
+ * padding before the first frame), M4A variants, and RF64 WAVs legitimately
+ * fail it. The upload route treats THIS specific error as non-fatal and defers
+ * to ffprobe (the authoritative audio decoder) instead of blocking a valid file.
+ * Exported so the route can recognise it exactly rather than string-matching.
+ */
+export const MAGIC_BYTE_MISMATCH_ERROR = 'محتوى الملف لا يتطابق مع الصيغة المحددة'
+
+/**
+ * Normalise the audio-journey choice from an upload request (Studio Wave 2).
+ *
+ * Only the exact string "raw" selects the time-map journey; ANYTHING else —
+ * absent, "edited", or a malformed value — resolves to 'edited' (the existing
+ * full publishing pipeline). Defaulting to 'edited' means a client that never
+ * sends the field keeps the pre-Wave-2 behaviour, and a bad value never
+ * silently drops someone into the raw flow.
+ */
+export function normalizeAudioStage(value: unknown): StudioAudioStage {
+  return value === 'raw' ? 'raw' : 'edited'
+}
 
 interface AudioValidationResult {
   valid: boolean
@@ -45,7 +69,7 @@ export function validateAudioFile(
   if (!isValid) {
     return {
       valid: false,
-      error: 'محتوى الملف لا يتطابق مع الصيغة المحددة',
+      error: MAGIC_BYTE_MISMATCH_ERROR,
     }
   }
 

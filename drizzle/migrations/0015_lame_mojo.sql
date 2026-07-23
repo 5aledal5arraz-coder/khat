@@ -1,0 +1,1 @@
+ALTER TABLE "studio_sessions" ADD COLUMN "audio_stage" text;

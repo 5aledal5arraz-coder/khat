@@ -23,7 +23,6 @@ const FULL_PARSED = {
   sponsor_placements: [
     { type: "mid_roll", position_label: "بعد الموضوع الأول", approx_timestamp: "00:20:00", why: "فاصل طبيعي" },
   ],
-  best_publish_time: { day: "الثلاثاء", time_window: "8-10 مساءً", timezone: "GMT+3", rationale: "ذروة المشاهدة", alternatives: ["الجمعة"] },
   retention_recommendations: [{ risk_point: "مقدمة بطيئة", recommendation: "اقطع أول دقيقة" }],
   social_posts: [{ platform: "x", caption: "تغريدة جاهزة", hashtags: ["بودكاست"] }],
   short_form_ideas: [{ title: "فكرة قصيرة", angle: "خطاف", source_moment: "لحظة", platforms: ["tiktok"] }],
@@ -84,7 +83,8 @@ describe("generateGrowthPackage — assembly", () => {
     expect(res.data.thumbnail_concepts).toHaveLength(1)
     expect(res.data.opening_hook?.hook_script).toContain("الصادم")
     expect(res.data.sponsor_placements[0].type).toBe("mid_roll")
-    expect(res.data.best_publish_time?.day).toBe("الثلاثاء")
+    // best_publish_time was removed in Wave 2 (W2-4) — no longer surfaced.
+    expect("best_publish_time" in res.data).toBe(false)
     expect(res.data.social_posts[0].platform).toBe("x")
     expect(res.data.short_form_ideas).toHaveLength(1)
     expect(res.data.marketing_strategy?.priority_actions).toHaveLength(2)

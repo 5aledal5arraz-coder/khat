@@ -57,6 +57,7 @@ export async function createStudioSession(
       youtube_url: session.youtube_url,
       video_id: session.video_id,
       source: session.source,
+      audio_stage: session.audio_stage ?? null,
       status: session.status,
       video_title: session.video_title,
       channel_title: session.channel_title,

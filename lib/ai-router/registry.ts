@@ -23,6 +23,23 @@ export interface ModelChoice {
    * `providerOptions.reasoningEffort`.
    */
   reasoningEffort?: ReasoningEffort
+  /**
+   * Per-task_kind default abort timeout (ms). The router reads this when
+   * the caller passes no explicit `timeoutMs`. Falls back to the router's
+   * global DEFAULT_TIMEOUT_MS (120_000). This is the single place a
+   * long-running kind (editorial, research) gets a realistic wall instead
+   * of the 120s default — so ~35 call sites don't each have to remember.
+   * Precedence: per-call `req.timeoutMs` → this → global default.
+   */
+  defaultTimeoutMs?: number
+  /**
+   * Per-task_kind default transient-retry cap. The router reads this when
+   * the caller passes no explicit `maxRetries`. Falls back to the router's
+   * global DEFAULT_MAX_RETRIES (2). Lowered for slow kinds so
+   * `timeout × (1 + retries)` stays under the 660s nginx admin wall.
+   * Precedence: per-call `req.maxRetries` → this → global default.
+   */
+  defaultMaxRetries?: number
 }
 
 /**
@@ -54,6 +71,11 @@ export const DEFAULT_MODELS: Record<AiTaskKind, ModelChoice> = {
     inputCostPer1M: 5,
     outputCostPer1M: 30,
     reasoningEffort: "medium",
+    // Core long-running kind: published Arabic text, many rich candidates.
+    // Measured ~230s; +22% headroom → 280s. maxRetries 1 keeps the worst
+    // case 280×2 ≈ 566s under the 660s nginx admin wall.
+    defaultTimeoutMs: 280_000,
+    defaultMaxRetries: 1,
   },
   discovery: {
     provider: "openai",
@@ -61,6 +83,10 @@ export const DEFAULT_MODELS: Record<AiTaskKind, ModelChoice> = {
     inputCostPer1M: 5,
     outputCostPer1M: 30,
     reasoningEffort: "high",
+    // Worker-only. maxRetries 0 — the job queue's lease-reclaim provides
+    // the retry, so a router-level retry would only double the wall time.
+    defaultTimeoutMs: 240_000,
+    defaultMaxRetries: 0,
   },
   verification: {
     provider: "openai",
@@ -68,6 +94,10 @@ export const DEFAULT_MODELS: Record<AiTaskKind, ModelChoice> = {
     inputCostPer1M: 1,
     outputCostPer1M: 6,
     reasoningEffort: "low",
+    // Fast (luna). Same as the global default; set explicitly so the
+    // reviewed policy is local and obvious. 120×3 ≈ 367s.
+    defaultTimeoutMs: 120_000,
+    defaultMaxRetries: 2,
   },
   research: {
     provider: "openai",
@@ -75,6 +105,9 @@ export const DEFAULT_MODELS: Record<AiTaskKind, ModelChoice> = {
     inputCostPer1M: 2.5,
     outputCostPer1M: 15,
     reasoningEffort: "medium",
+    // Long-context synthesis (terra). 240×2 ≈ 486s.
+    defaultTimeoutMs: 240_000,
+    defaultMaxRetries: 1,
   },
   analysis: {
     provider: "openai",
@@ -82,6 +115,9 @@ export const DEFAULT_MODELS: Record<AiTaskKind, ModelChoice> = {
     inputCostPer1M: 1,
     outputCostPer1M: 6,
     reasoningEffort: "medium",
+    // luna-medium. 150×3 ≈ 457s.
+    defaultTimeoutMs: 150_000,
+    defaultMaxRetries: 2,
   },
 }
 

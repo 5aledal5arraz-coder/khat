@@ -18,7 +18,6 @@ function fullPackage(): GrowthPackage {
     sponsor_placements: [
       { type: "mid_roll", position_label: "بعد الموضوع الأول", approx_timestamp: "00:20:00", why: "فاصل طبيعي" },
     ],
-    best_publish_time: { day: "الثلاثاء", time_window: "8-10 مساءً", timezone: "GMT+3", rationale: "ذروة المشاهدة", alternatives: ["الجمعة"] },
     retention_recommendations: [{ risk_point: "مقدمة بطيئة", recommendation: "اقطع أول دقيقة" }],
     social_posts: [{ platform: "x", caption: "تغريدة جاهزة", hashtags: ["بودكاست"] }],
     short_form_ideas: [{ title: "فكرة قصيرة", angle: "خطاف", source_moment: "لحظة", platforms: ["tiktok"] }],
@@ -37,7 +36,8 @@ describe("growthToMarkdown", () => {
     expect(md).toContain("ابدأ بالسؤال الصادم")
     expect(md).toContain("## مفاهيم الصورة المصغّرة")
     expect(md).toContain("high contrast portrait")
-    expect(md).toContain("## أفضل وقت للنشر")
+    // best_publish_time removed in Wave 2 (W2-4) — its section must never render.
+    expect(md).not.toContain("أفضل وقت للنشر")
     expect(md).toContain("## مواضع الإعلانات")
     expect(md).toContain("00:20:00")
     expect(md).toContain("## توصيات الاحتفاظ")

@@ -35,9 +35,10 @@ export async function generateYoutubePackFromTranscript(
   transcript: string,
   episodeTitle: string,
   guestName: string,
+  episodeUrl?: string | null,
   eirContext?: EirContext,
 ): Promise<YouTubePackSection[]> {
-  const built = buildYoutubePackFullPrompt({ transcript, episodeTitle, guestName })
+  const built = buildYoutubePackFullPrompt({ transcript, episodeTitle, guestName, episodeUrl })
 
   const result = await runAiTask<Record<string, string>>({
     taskKind: "structural",
@@ -87,6 +88,7 @@ export async function generateYoutubePackSectionFromTranscript(
   episodeTitle: string,
   guestName: string,
   sectionType: YouTubePackSection["type"],
+  episodeUrl?: string | null,
   eirContext?: EirContext,
 ): Promise<YouTubePackSection | null> {
   const built = buildYoutubePackSectionPrompt({
@@ -94,6 +96,7 @@ export async function generateYoutubePackSectionFromTranscript(
     episodeTitle,
     guestName,
     sectionType,
+    episodeUrl,
   })
 
   const result = await runAiTask<{ content: string }>({

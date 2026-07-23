@@ -45,7 +45,8 @@ export async function generateYoutubePack(
     sections = await generateYoutubePackFromTranscript(
       transcript,
       title,
-      guestName
+      guestName,
+      youtubeUrl
     )
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error)
@@ -108,7 +109,8 @@ export async function regenerateYoutubePackSection(
       transcript,
       title,
       guestName,
-      sectionType
+      sectionType,
+      youtubeUrl
     )
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error)

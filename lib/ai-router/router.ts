@@ -356,14 +356,24 @@ export async function runAiTask<TParsed = unknown>(
     prompt: messages,
     expectJson: req.expectJson === true,
     providerOptions: req.providerOptions ?? {},
-    timeoutMs: req.timeoutMs ?? DEFAULT_TIMEOUT_MS,
+    // Precedence: explicit per-call request → per-task_kind registry
+    // default → global default. The registry default is the systemic fix
+    // so long-running kinds (editorial, research) don't inherit the 120s
+    // default and time out mid-generation.
+    timeoutMs: req.timeoutMs ?? choice.defaultTimeoutMs ?? DEFAULT_TIMEOUT_MS,
     // Resolved reasoning default (registry, possibly overridden by the
     // Settings model override); the adapter lets
     // `providerOptions.reasoningEffort` win over this per call.
     reasoningEffort,
   }
 
-  const maxRetries = Math.max(0, req.maxRetries ?? DEFAULT_MAX_RETRIES)
+  // Same precedence as timeoutMs: explicit request → registry default →
+  // global default. Lowered per-kind so `timeout × (1 + retries)` stays
+  // under the nginx admin wall for the slow kinds.
+  const maxRetries = Math.max(
+    0,
+    req.maxRetries ?? choice.defaultMaxRetries ?? DEFAULT_MAX_RETRIES,
+  )
 
   const startedAt = Date.now()
   let status: AiRunStatus = "running"

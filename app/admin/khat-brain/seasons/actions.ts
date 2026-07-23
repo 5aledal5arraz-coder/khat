@@ -630,18 +630,22 @@ export async function generateBatchAction(input: {
   if (!gate.ok) return { success: false, error: gate.error }
   const user = gate.user
 
-  const season = await getSeasonById(input.seasonId)
-  if (!season) return { success: false, error: "الموسم غير موجود" }
-
-  const mode = (season.v2_mode as KhatMapV2Mode | null) ?? "guided"
-  if (mode === "manual") {
-    return {
-      success: false,
-      error: "الوضع اليدوي لا يولّد تلقائياً — أضف حلقة يدوياً",
-    }
-  }
-
   try {
+    // Season lookup lives INSIDE the try. It used to sit above it, so a
+    // pool hiccup here threw straight past this action's Result contract
+    // into app/admin/error.tsx — which remounts the whole segment and
+    // destroys every pending card the operator hasn't decided on yet.
+    const season = await getSeasonById(input.seasonId)
+    if (!season) return { success: false, error: "الموسم غير موجود" }
+
+    const mode = (season.v2_mode as KhatMapV2Mode | null) ?? "guided"
+    if (mode === "manual") {
+      return {
+        success: false,
+        error: "الوضع اليدوي لا يولّد تلقائياً — أضف حلقة يدوياً",
+      }
+    }
+
     const res = await generateBatch({
       season_id: input.seasonId,
       admin_id: user.id,
@@ -689,6 +693,7 @@ export async function generateBatchAction(input: {
         code: "ANGLE_BANK_EXHAUSTED",
       }
     }
+    console.error("[generateBatchAction]", e)
     return { success: false, error: errorOf(e) }
   }
 }

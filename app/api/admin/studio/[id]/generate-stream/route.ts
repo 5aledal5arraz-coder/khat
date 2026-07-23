@@ -21,6 +21,9 @@ import {
   getGrowthPackageForSession,
   runGrowthPackageForSession,
   revalidateStudio,
+  getProjectByEditedSession,
+  transitionState,
+  evaluateGenerationGate,
 } from "@/lib/studio"
 import { resolveEirIdForSession } from "@/lib/studio/analysis-records"
 import {
@@ -90,6 +93,32 @@ export async function POST(
         }
 
         log("session_loaded", { source: session.source, video_id: session.video_id, title: session.video_title })
+
+        // ── Phase-3 approval gate (Studio 3-phase journey, Step 2) ──────
+        // Content generation (Phase 3) may run for a project-linked EDITED
+        // session ONLY after its Phase-2 review is approved (project state
+        // `reviewed` or later). Scoped purely by `edited_session_id`:
+        // getProjectByEditedSession returns null for YouTube sessions
+        // (journey أ), legacy imports, standalone edited-audio uploads, AND
+        // raw sessions (which are `raw_session_id`, never
+        // `edited_session_id`) — all of which stay UNGATED exactly as
+        // before. Only the edited cut of a linked journey resolves to a
+        // project and is gated. The block is emitted in-band as an SSE
+        // `error` event, mirroring the session-not-found precondition above.
+        const project = await getProjectByEditedSession(id)
+        const gate = evaluateGenerationGate(project)
+        if (!gate.allowed) {
+          log("gate_blocked", { project_id: project!.id, state: gate.state })
+          send("error", {
+            message:
+              "لا يمكن توليد المحتوى قبل اعتماد مراجعة المرحلة ٢ (Phase 2). أكمل مراجعة المرحلة ٢ واعتمدها أولاً.",
+          })
+          return // finally block will close the controller
+        }
+        if (project) {
+          log("gate_passed", { project_id: project.id, state: project.state })
+        }
+
         send("started", { steps, sessionId: id })
 
         // Resolve the studio-session → EIR link ONCE so every generator's
@@ -280,7 +309,8 @@ export async function POST(
                   session.video_title || "",
                   session.channel_title || "",
                   episodeIntelligence,
-                  eirContext
+                  eirContext,
+                  session.youtube_url
                 )
 
                 if (!result.success || !result.data) {
@@ -666,6 +696,27 @@ export async function POST(
         }
 
         log("pipeline_done", { steps })
+
+        // Advance the linked project past the Phase-3 gate on successful
+        // generation: reviewed → finalized. transitionState is idempotent
+        // when already `finalized` (same-state no-op). A `published`
+        // project is left untouched (already past this point); `published`
+        // itself belongs to the push path (runStudioPushToEpisode), not
+        // here, so this route only walks reviewed → finalized. Non-fatal:
+        // the content is already generated and persisted, so a failure to
+        // advance state is logged but does not fail the run.
+        if (project && project.state !== "published") {
+          try {
+            const advanced = await transitionState(project.id, "finalized")
+            log("project_finalized", { project_id: project.id, state: advanced.state })
+          } catch (err) {
+            log("project_finalize_failed", {
+              project_id: project.id,
+              error: err instanceof Error ? err.message : String(err),
+            })
+          }
+        }
+
         revalidateStudio(id)
         send("done", { success: true })
       } catch (err) {

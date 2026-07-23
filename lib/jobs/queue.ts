@@ -6,7 +6,7 @@
  * they need to.
  */
 
-import { eq, and, sql, desc } from "drizzle-orm"
+import { eq, and, sql, desc, inArray } from "drizzle-orm"
 import { db } from "@/lib/db"
 import { jobs } from "@/lib/db/schema/jobs"
 import type { EnqueueOptions, JobRow, JobStatus } from "./types"
@@ -18,6 +18,7 @@ function mapRow(r: typeof jobs.$inferSelect): JobRow {
     status: r.status as JobStatus,
     payload: (r.payload ?? {}) as Record<string, unknown>,
     result: (r.result ?? null) as Record<string, unknown> | null,
+    progress: (r.progress ?? null) as Record<string, unknown> | null,
     error_message: r.error_message,
     priority: r.priority,
     attempts: r.attempts,
@@ -77,6 +78,47 @@ export async function getJob(id: string): Promise<JobRow | null> {
   return rows[0] ? mapRow(rows[0]) : null
 }
 
+/**
+ * Find the latest NON-terminal (pending or running) job of `type` whose payload
+ * field `payloadKey` equals `payloadValue`.
+ *
+ * Two callers, one contract — "is a run already in flight for this session?":
+ *   • the Studio status endpoints use it to RE-ATTACH the UI to an in-flight
+ *     transcription after a page refresh (the jobId lives only in React state
+ *     and is lost on reload) — so the progress bar resumes instead of the UI
+ *     falling back to idle and inviting a duplicate trigger;
+ *   • the Studio POST endpoints use it to DEDUP a second enqueue against a run
+ *     already going for the same session.
+ *
+ * This is the per-payload sibling of `enqueueRecurringTick`'s per-type guard:
+ * schedulers dedup on `type` alone, but a Studio job must dedup on
+ * `type + sessionId` (two different sessions can transcribe concurrently).
+ *
+ * "latest" = most recently created, so a refresh re-attaches to the newest run.
+ * Terminal jobs (succeeded / failed / dead / cancelled) are deliberately
+ * excluded: a finished run must never hold the UI in a running state — the
+ * persisted map/review is the source of truth for "done".
+ */
+export async function findInFlightJobByPayload(
+  type: string,
+  payloadKey: string,
+  payloadValue: string,
+): Promise<JobRow | null> {
+  const rows = await db!
+    .select()
+    .from(jobs)
+    .where(
+      and(
+        eq(jobs.type, type),
+        inArray(jobs.status, ["pending", "running"]),
+        sql`${jobs.payload} ->> ${payloadKey} = ${payloadValue}`,
+      ),
+    )
+    .orderBy(desc(jobs.created_at))
+    .limit(1)
+  return rows[0] ? mapRow(rows[0]) : null
+}
+
 export interface ListJobsOptions {
   status?: JobStatus
   type?: string
@@ -131,6 +173,31 @@ export async function claimNextJob(workerId: string): Promise<JobRow | null> {
       .returning()
     return mapRow(claimed)
   })
+}
+
+/**
+ * Write a live-progress heartbeat onto a RUNNING job. Called mid-execution by
+ * the handler (via `ctx.reportProgress`) so a status poller can surface stage /
+ * % / ETA during a minutes-long job.
+ *
+ * The `status = 'running'` guard makes a late write from an orphaned handler (one
+ * the worker already timed-out and failed) a harmless no-op instead of stamping
+ * progress onto a completed / failed / reclaimed row. Deliberately does NOT bump
+ * `updated_at` — progress is a soft signal, not a lifecycle change, and leaving
+ * `updated_at` for real transitions keeps the stale-lease reaper's accounting honest.
+ *
+ * This CAN throw (DB error) like the other queue writers; resilience — the
+ * contract that a progress-write never fails the job — lives one layer up in
+ * `createProgressReporter`, which wraps this and swallows.
+ */
+export async function reportJobProgress(
+  id: string,
+  progress: Record<string, unknown>,
+): Promise<void> {
+  await db!
+    .update(jobs)
+    .set({ progress })
+    .where(and(eq(jobs.id, id), eq(jobs.status, "running")))
 }
 
 /** Mark a claimed job as completed with its result. */

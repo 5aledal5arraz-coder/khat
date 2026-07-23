@@ -84,6 +84,61 @@ const VALID_TOPIC_DOMAINS = new Set([
   "none",
 ])
 
+/**
+ * Per-call timeout for the hybrid topic generation call, and the attempt cap
+ * that keeps it under the gateway wall.
+ *
+ * The router's DEFAULT_TIMEOUT_MS (120s) is too short for THIS prompt and only
+ * this prompt: it ships the exploration frames, the market clusters, the
+ * worked-report and the exclusion list to a reasoning model and asks for ~10
+ * fully-written Arabic topics. Measured on 2026-07-22 (ai_runs d6d2eeb4-…):
+ * attempt 1 hit the 120s wall, attempt 2 succeeded in ~110s — the real latency
+ * straddles the old default, so roughly every other run paid 120s for nothing
+ * and then billed the prompt twice.
+ *
+ * 240s ≈ 2.2× the measured successful attempt: enough headroom for the
+ * reasoning tail, short enough that a genuinely hung call still fails inside
+ * one request. MAX_RETRIES stays at 1 (a transient 5xx / rate-limit gets its
+ * one retry). See HYBRID_GEN_WALL_MS below for how the WHOLE action stays under
+ * the 660s nginx ceiling.
+ */
+const HYBRID_AI_TIMEOUT_MS = 240_000
+const HYBRID_AI_MAX_RETRIES = 1
+
+/**
+ * Absolute wall budget for the WHOLE synchronous generation, measured from the
+ * moment `generateHybridTopics` starts. Passed to editorial enrichment as a hard
+ * deadline: enrichment launches per-topic calls until this instant (minus one
+ * per-call timeout of reserve), then reports whatever is left as un-enriched.
+ *
+ * WHY A DEADLINE, not a static per-phase cap. The two heavy AI phases —
+ * topic-generation (worst 2 × 240s = 480s) and enrichment — cannot BOTH fit
+ * their pathological caps under 660s if each is fixed independently. A deadline
+ * makes enrichment adapt to how long topic-gen ACTUALLY took: fast topic-gen
+ * leaves a large window (all topics enrich); a near-worst topic-gen leaves a
+ * small one (a few topics degrade honestly). Either way the total is bounded:
+ *
+ *   HARD bound (deadline-enforced), independent of provider latency / topic count:
+ *     preflight (readiness + enqueue)                 ≈   5s
+ *     + generation wall (this constant)               = 580s   ← enrichment stops here
+ *     + persist + completeLog + revalidate            ≈   5s
+ *     ──────────────────────────────────────────────────────────
+ *                                                       590s   < 660s  (≈70s margin)
+ *
+ *   REALISTIC worst (measured latencies, no pathological co-max):
+ *     topic-gen (attempt 1 succeeds, observed max)    ≈ 230s
+ *     + embedding (measured)                          ≈   3s
+ *     + enrichment: 10 topics, pool 3, ~40–75s each   ≈ 240s   (all enriched)
+ *     + persist                                       ≈   3s
+ *     ──────────────────────────────────────────────────────────
+ *                                                       476s   ≈ ~500s target
+ *
+ * Enrichment itself is additionally bounded per topic: 1 capped call (≤90s) +
+ * at most one gated retry (≤90s), across a concurrency-3 pool, and never
+ * launched past this deadline. See lib/khat-map/v2/editorial-enrich.ts.
+ */
+const HYBRID_GEN_WALL_MS = 580_000
+
 export interface GenerateHybridRequest {
   seasonId: string | null
   language: "ar" | "en"
@@ -115,6 +170,13 @@ export interface GenerateHybridResult {
   rejected: HybridOutputTopic[]
   rejection_summary: Record<string, number>
   persisted: PersistedCandidate[]
+  /**
+   * Editorial-enrichment coverage for THIS run. `enriched + unenriched ===
+   * requested`. An un-enriched candidate is persisted with NULL success_score /
+   * editorial_intel / محاور / عدسات, so the operator must be told — a run that
+   * enriched 1 of 6 is not a clean success.
+   */
+  enrichment: { requested: number; enriched: number; unenriched: number }
   /** Which input path the generator used. */
   fallback_path?: HybridFallbackPath
   /** Set when generation could not proceed.
@@ -132,6 +194,11 @@ export interface GenerateHybridResult {
 export async function generateHybridTopics(
   req: GenerateHybridRequest,
 ): Promise<GenerateHybridResult> {
+  // Absolute wall for the whole synchronous action. Enrichment (the last AI
+  // phase) uses this as a hard deadline so the total request can never exceed
+  // HYBRID_GEN_WALL_MS regardless of how long topic-gen took. See the constant.
+  const genStartedAt = Date.now()
+
   // Feature flag (pass-through; the flag is read at the entry point so
   // callers can override per-request via env).
   if (process.env.KHAT_HYBRID_TOPICS_ENABLED === "false") {
@@ -208,6 +275,7 @@ export async function generateHybridTopics(
       rejected: [],
       rejection_summary: {},
       persisted: [],
+      enrichment: { requested: 0, enriched: 0, unenriched: 0 },
       reason: "ai_failed",
     }
   }
@@ -356,7 +424,9 @@ export async function generateHybridTopics(
   // classify into the Knowledge Universe (category + subcategory), refract
   // through Thinking Lenses, write the headline set, and run the Editorial
   // Court (14 success dimensions + critique). Reuses the editorial engine's
-  // modules. Degrades gracefully — a failure leaves topics as plain candidates.
+  // modules. Degrades gracefully — a failure leaves topics as plain candidates,
+  // and `enrichment.missingIndexes` carries that fact out to the operator
+  // instead of letting a 1-of-6 batch read as a clean run.
   const enrichment = await enrichTopicsEditorially(
     req.seasonId,
     accepted.map((t, index) => ({
@@ -370,6 +440,9 @@ export async function generateHybridTopics(
       episode_type: t.suggested_episode_type,
       topic_domain: t.suggested_topic_domain,
     })),
+    // Hard wall-clock deadline: enrichment must not push the synchronous action
+    // past the nginx ceiling no matter how long topic-gen consumed.
+    { deadlineAt: genStartedAt + HYBRID_GEN_WALL_MS },
   )
 
   // Persist accepted topics → khat_map_episode_candidates.
@@ -377,7 +450,7 @@ export async function generateHybridTopics(
     seasonId: req.seasonId,
     generationId: log.id,
     topics: accepted as AcceptedHybridTopic[],
-    enrichment,
+    enrichment: enrichment.byIndex,
   })
 
   await completeGenerationLog({
@@ -399,6 +472,11 @@ export async function generateHybridTopics(
     rejected,
     rejection_summary: rejectionSummary,
     persisted,
+    enrichment: {
+      requested: enrichment.requested,
+      enriched: enrichment.enriched,
+      unenriched: enrichment.missingIndexes.length,
+    },
     fallback_path: pickFallbackPath(inputs),
   }
 }
@@ -490,6 +568,10 @@ async function callEditorialModel(args: {
     ],
     expectJson: true,
     providerOptions: { temperature: 0.8 },
+    // This prompt genuinely needs ~110s; the router's 120s default made
+    // attempt 1 a guaranteed 120s write-off. See HYBRID_AI_TIMEOUT_MS.
+    timeoutMs: HYBRID_AI_TIMEOUT_MS,
+    maxRetries: HYBRID_AI_MAX_RETRIES,
   })
 }
 
@@ -549,6 +631,7 @@ function emptyResult(
     rejected: [],
     rejection_summary: {},
     persisted: [],
+    enrichment: { requested: 0, enriched: 0, unenriched: 0 },
     reason,
   }
 }

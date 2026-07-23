@@ -192,6 +192,23 @@ export function generationReasonLabel(reason: string | null | undefined): string
   return GENERATION_REASON_LABEL[reason] ?? GENERATION_REASON_LABEL.unknown
 }
 
+// ─── Original-thinking novelty rejection reasons ─────────────────
+// The novelty filter (lib/original-thinking/novelty.ts) rejects a
+// candidate topic with internal enum reasons (`duplicate_title`, …).
+// The editor must never see the raw enum — translate here.
+
+const REJECTION_REASON_LABEL: Record<string, string> = {
+  generic_title: "عنوان عام أو قالبي (نمط تحفيزي/قوائم/أسرار)",
+  duplicate_title: "عنوان مكرّر أو قريب جداً من موضوع موجود",
+  weak_emotional_hook: "خطّاف عاطفي ضعيف أو مبتذل",
+  vague_conflict: "صراع غامض أو غير محدّد",
+  lens_mismatch: "العدسة غير معروفة أو غير مطابقة للسجل",
+  kuwait_bias: "تأطير كويتي غير مطلوب في هذه الجولة",
+}
+export function rejectionReasonLabel(reason: string): string {
+  return REJECTION_REASON_LABEL[reason] ?? "سبب رفض غير معروف"
+}
+
 // ─── Data-source labels (transcript / chapters / clips loaders) ─
 // The editorial loaders return a `source` identifier so debugging UIs
 // can show where the doc came from. Operators should NEVER see the

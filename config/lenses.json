@@ -7,6 +7,7 @@
       "name_ar": "خيانة الذات",
       "name_en": "Betrayal of Self",
       "description": "The slow erosion that happens when someone trades a piece of who they are for safety, money, status, or belonging — and the moment they recognize the trade.",
+      "description_ar": "التآكل البطيء الذي يحدث حين يقايض المرء جزءاً من حقيقته مقابل الأمان أو المال أو المكانة أو الانتماء — واللحظة التي يدرك فيها ثمن الصفقة.",
       "question_kinds": [
         "When did you first know you were performing instead of being?",
         "What part of you did you mute to be accepted?",
@@ -23,6 +24,7 @@
       "name_ar": "الحزن غير المعلن",
       "name_en": "Unspoken Grief",
       "description": "Loss that doesn't fit a recognized name — the death of a future, of a friendship, of an identity, of a homeland in memory. Grief no one allows you to claim.",
+      "description_ar": "فقدٌ لا يحمل اسماً معترفاً به — موت مستقبلٍ، أو صداقةٍ، أو هويةٍ، أو وطنٍ في الذاكرة. حزنٌ لا يسمح لك أحد بأن تدّعيه.",
       "question_kinds": [
         "What loss did you have to carry alone because no one knew it was a loss?",
         "What did you grieve quietly while the world expected you to be fine?",
@@ -39,6 +41,7 @@
       "name_ar": "التنازل الأخلاقي",
       "name_en": "Moral Compromise",
       "description": "The small, defensible compromise that compounds — the lines you didn't notice you crossed because each step was 'reasonable.' The biography of a slow ethical drift.",
+      "description_ar": "التنازل الصغير القابل للتبرير الذي يتراكم — الخطوط التي عبرتها دون أن تنتبه لأن كل خطوة بدت «معقولة». سيرة انحرافٍ أخلاقيٍّ بطيء.",
       "question_kinds": [
         "What's the smallest decision you regret most?",
         "When did you realize you were no longer the person who would have said no?",
@@ -55,6 +58,7 @@
       "name_ar": "الوجع الوجودي",
       "name_en": "Existential Dread",
       "description": "The quiet 4 a.m. awareness that nothing means what we pretend it means — and the question of how a person keeps moving anyway. Not nihilism; the courage to live without certainty.",
+      "description_ar": "ذلك الإدراك الهادئ عند الرابعة فجراً بأن لا شيء يعني ما ندّعي أنه يعنيه — وسؤال كيف يواصل المرء المضي رغم ذلك. ليست عدميّة، بل شجاعة العيش بلا يقين.",
       "question_kinds": [
         "What do you do with the knowledge that none of this is permanent?",
         "When do you feel most awake to the meaninglessness — and how do you get up?",
@@ -71,6 +75,7 @@
       "name_ar": "السلطة والقرب",
       "name_en": "Power and Intimacy",
       "description": "The way unequal power — money, fame, gender, age, employer/employee — distorts what we call love, friendship, mentorship. The honest conversation no one wants to have about closeness.",
+      "description_ar": "الطريقة التي تشوّه بها السلطة غير المتكافئة — المال، الشهرة، الجنس، العمر، ربّ العمل والموظف — ما نسمّيه حبّاً وصداقةً ورعايةً. الحديث الصادق الذي لا أحد يريد خوضه عن القُرب.",
       "question_kinds": [
         "When did you mistake admiration for love?",
         "What does a person owe someone who needed them?",
@@ -87,6 +92,7 @@
       "name_ar": "صدى الطفولة",
       "name_en": "Childhood Echo",
       "description": "The patterns set before language — the silences, the looks, the small humiliations — that we keep replaying as adults without ever naming them. The ghost dictating today's choices.",
+      "description_ar": "الأنماط التي تشكّلت قبل اللغة — الصمت، النظرات، الإهانات الصغيرة — التي نعيد تمثيلها كباراً دون أن نسمّيها قط. الشبح الذي يُملي خياراتنا اليوم.",
       "question_kinds": [
         "What did you learn about love before you were old enough to question it?",
         "Whose voice do you still hear in your worst self-talk?",
@@ -103,6 +109,7 @@
       "name_ar": "الوحدة بعد النجاح",
       "name_en": "Loneliness After Success",
       "description": "The specific isolation of arriving — when the people who were with you on the way up don't fit the room you're in, and the people in the room don't know who you used to be.",
+      "description_ar": "العزلة الخاصة بالوصول — حين لا يعود من رافقوك في الصعود يناسبون الغرفة التي أنت فيها، ومن في الغرفة لا يعرفون من كنت.",
       "question_kinds": [
         "Who can you no longer call?",
         "What did you have to leave behind to be where you are?",
@@ -119,6 +126,7 @@
       "name_ar": "العار المخفي",
       "name_en": "Hidden Shame",
       "description": "The thing you have never told anyone — not because it's evil, but because telling it would change how you're seen. The secret that defines a life from underneath.",
+      "description_ar": "الشيء الذي لم تُخبر به أحداً قط — لا لأنه شرّ، بل لأن قوله سيغيّر كيف يراك الناس. السرّ الذي يحدّد حياةً من تحت السطح.",
       "question_kinds": [
         "What story have you told a thousand times leaving out the one part that matters?",
         "What would you not survive being known for?",
@@ -135,6 +143,7 @@
       "name_ar": "حب بلا أمان",
       "name_en": "Love Without Safety",
       "description": "Loving someone whose mind, body, or future cannot guarantee they will stay — illness, distance, instability — and the discipline of staying anyway. Love without the insurance policy.",
+      "description_ar": "أن تحبّ من لا يضمن لك عقله أو جسده أو مستقبله أنه سيبقى — مرضٌ، أو بُعدٌ، أو عدم استقرار — وانضباط البقاء رغم ذلك. حبٌّ بلا وثيقة تأمين.",
       "question_kinds": [
         "What did you commit to knowing it might not last?",
         "How do you love someone you might lose tomorrow?",
@@ -151,6 +160,7 @@
       "name_ar": "الخوف من أن تُرى",
       "name_en": "Fear of Being Seen",
       "description": "The paradox of wanting to be known and dreading it equally — the masks people build out of competence, charm, or silence to be loved at a distance.",
+      "description_ar": "مفارقة الرغبة في أن تُعرَف والخوف من ذلك بالقدر نفسه — الأقنعة التي يبنيها الناس من الكفاءة أو السحر أو الصمت ليُحبّوا عن بُعد.",
       "question_kinds": [
         "What part of you flinches when someone gets too close?",
         "What would change if your most trusted friend saw the unedited you?",
@@ -167,6 +177,7 @@
       "name_ar": "شظايا الهوية",
       "name_en": "Identity Fragments",
       "description": "The lived experience of being multiple selves at once — across languages, generations, classes, geographies — and the cost of having no single room where every fragment is welcome.",
+      "description_ar": "تجربة أن تكون ذواتاً متعددة في آنٍ واحد — عبر اللغات والأجيال والطبقات والجغرافيا — وثمن ألا تجد غرفةً واحدة تُرحَّب فيها كلّ شظاياك.",
       "question_kinds": [
         "Where do you feel most yourself, and where do you feel most a stranger?",
         "Which version of you has paid the highest price?",
@@ -183,6 +194,7 @@
       "name_ar": "الصمت الموروث",
       "name_en": "Inherited Silence",
       "description": "The things families do not say — the war, the disappearance, the addiction, the love that wasn't allowed — and the way that silence is passed down through generations as a shape, not a story.",
+      "description_ar": "الأشياء التي لا تقولها العائلات — الحرب، الاختفاء، الإدمان، الحبّ الذي لم يُسمح به — والطريقة التي يُورَّث بها ذلك الصمت عبر الأجيال كشكلٍ لا كحكاية.",
       "question_kinds": [
         "What did your family agree, without speaking, never to discuss?",
         "What did your parents protect you from by not telling you?",

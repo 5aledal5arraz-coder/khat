@@ -35,9 +35,9 @@ export async function generateSocialBundle(
 ## المطلوب:
 
 ### 1. منشورات المنصات (social_posts)
-منشور لكل منصة من: "x" (تويتر/إكس)، "instagram"، "linkedin"، "youtube_community"، "tiktok".
-- platform: المعرّف بالإنجليزية كما أعلاه
-- caption: النص الكامل الجاهز للنسخ — بأسلوب المنصة (X: حاد ومختصر بخيط أو تغريدة؛ LinkedIn: مهني بزاوية فكرة؛ Instagram: عاطفي مع إيموجي؛ tiktok: خطافي شبابي؛ youtube_community: تشويقي للحلقة)
+منشور لكل منصة من منصات خط الفعلية السبع: "youtube_community"، "instagram"، "tiktok"، "x"، "threads"، "snapchat"، "whatsapp".
+- platform: المعرّف بالإنجليزية كما أعلاه بالضبط (لا تستخدم أي منصة أخرى — خط ليس لديه LinkedIn ولا Facebook)
+- caption: النص الكامل الجاهز للنسخ — بأسلوب المنصة (youtube_community: تشويقي للحلقة كمنشور في تبويب المجتمع؛ instagram: عاطفي بصري مع إيموجي؛ tiktok: خطافي شبابي سريع؛ x: حاد ومختصر بتغريدة أو خيط؛ threads: نبرة محادثة تبدأ نقاشاً؛ snapchat: قصير مباشر يحث على المشاهدة الآن؛ whatsapp: رسالة موجزة لقناة الواتساب تدفع لمتابعة الحلقة)
 - hashtags: 3-6 هاشتاقات مناسبة للمنصة (بدون #)
 
 ### 2. أفكار المحتوى القصير (short_form_ideas)

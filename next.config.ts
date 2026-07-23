@@ -12,6 +12,11 @@ const nextConfig: NextConfig = {
       // Required for Studio audio uploads (large podcast files)
       bodySizeLimit: "200mb",
     },
+    // The Studio audio upload is a Route Handler (POST /api/admin/studio/upload),
+    // NOT a Server Action — it goes through the proxy, whose body limit defaults to
+    // 10MB and silently truncates the request (→ "Failed to parse body as FormData").
+    // Raise it to match validateAudioFile's 500MB cap so real 2h+ episode files upload.
+    proxyClientMaxBodySize: "500mb",
   },
   images: {
     remotePatterns: [

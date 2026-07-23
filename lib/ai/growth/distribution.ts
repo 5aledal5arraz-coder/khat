@@ -1,23 +1,26 @@
 /**
- * Growth — distribution & timing layer: ad/sponsor placements, best publish
- * time, and audience-retention recommendations. Structured reasoning over the
+ * Growth — distribution & timing layer: ad/sponsor placements and
+ * audience-retention recommendations. Structured reasoning over the
  * intelligence + chapter map, so it runs on the cheaper analysis model.
+ *
+ * `best_publish_time` was intentionally dropped in Wave 2 (W2-4): the model was
+ * asked to invent a day/time from inputs that carry ZERO audience analytics
+ * (see growth/shared.ts), which is a fabrication, not a recommendation. It will
+ * return only when real YouTube Studio audience data feeds it.
  */
 
 import { env } from "@/lib/env"
 import { runAiTask } from "@/lib/ai-router"
-import type { AdPlacement, PublishTiming, RetentionRec } from "./types"
+import type { AdPlacement, RetentionRec } from "./types"
 import { buildGrowthContextBlock, growthInputSnapshot, type GrowthGenInput } from "./shared"
 
 export interface DistributionPlan {
   sponsor_placements: AdPlacement[]
-  best_publish_time: PublishTiming | null
   retention_recommendations: RetentionRec[]
 }
 
 interface DistributionRaw {
   sponsor_placements?: Array<Partial<AdPlacement>>
-  best_publish_time?: Partial<PublishTiming>
   retention_recommendations?: Array<Partial<RetentionRec>>
 }
 
@@ -33,7 +36,7 @@ export async function generateDistributionPlan(
 
     const contextBlock = buildGrowthContextBlock(input)
 
-    const systemPrompt = `أنت مسؤول توزيع ونمو لقناة بودكاست عربية. مهمتك: خطة توقيت الإعلانات، أفضل وقت للنشر، وتوصيات الاحتفاظ بالمشاهدين.
+    const systemPrompt = `أنت مسؤول توزيع ونمو لقناة بودكاست عربية. مهمتك: خطة توقيت الإعلانات وتوصيات الاحتفاظ بالمشاهدين.
 
 استند إلى "نوافذ آمنة للإعلان" و"نقاط خطر فقدان الانتباه" وخريطة الفصول في الفهم المرفق.
 
@@ -47,24 +50,17 @@ export async function generateDistributionPlan(
 - why: لماذا هذا فاصل طبيعي لا يقطع لحظة مهمة
 ضع mid_roll في نافذة آمنة فعلية — لا في منتصف ذروة عاطفية.
 
-### 2. أفضل وقت للنشر (best_publish_time)
-- day: اليوم المقترح (مثل: "الثلاثاء")
-- time_window: نافذة الوقت (مثل: "8-10 مساءً")
-- timezone: "توقيت الخليج (GMT+3)" افتراضياً
-- rationale: لماذا هذا التوقيت يناسب جمهور المحتوى العربي العميق
-- alternatives: بديلان
-
-### 3. توصيات الاحتفاظ (retention_recommendations)
+### 2. توصيات الاحتفاظ (retention_recommendations)
 لكل نقطة خطر في الفهم المرفق (وأضف ما تراه):
 - risk_point: موضع الخطر
 - recommendation: إجراء تحريري/تغليفي ملموس (قص، إضافة نص، نقل مقطع، تشويق)
 
 ## قواعد:
 - عربية فصحى معاصرة
+- لا تقترح "أفضل وقت للنشر" — لا نملك بيانات جمهور فعلية تدعم هذا الاقتراح
 - JSON فقط بالشكل:
 {
   "sponsor_placements":[{"type":"mid_roll","position_label":"...","approx_timestamp":"00:32:00","why":"..."}],
-  "best_publish_time":{"day":"...","time_window":"...","timezone":"...","rationale":"...","alternatives":["...","..."]},
   "retention_recommendations":[{"risk_point":"...","recommendation":"..."}]
 }`
 
@@ -103,19 +99,6 @@ export async function generateDistributionPlan(
           }))
       : []
 
-    const bt = parsed.best_publish_time
-    const best_publish_time: PublishTiming | null = bt?.day || bt?.time_window
-      ? {
-          day: bt.day || "",
-          time_window: bt.time_window || "",
-          timezone: bt.timezone || "توقيت الخليج (GMT+3)",
-          rationale: bt.rationale || "",
-          alternatives: Array.isArray(bt.alternatives)
-            ? bt.alternatives.filter((a): a is string => typeof a === "string" && a.trim().length > 0)
-            : [],
-        }
-      : null
-
     const retention_recommendations: RetentionRec[] = Array.isArray(parsed.retention_recommendations)
       ? parsed.retention_recommendations
           .filter((r): r is Partial<RetentionRec> => Boolean(r && r.recommendation))
@@ -124,7 +107,7 @@ export async function generateDistributionPlan(
 
     return {
       success: true,
-      data: { sponsor_placements, best_publish_time, retention_recommendations },
+      data: { sponsor_placements, retention_recommendations },
       raw: { model: result.modelName, run_id: result.runId },
       runId: result.runId,
     }

@@ -10,10 +10,9 @@ import { Sparkles, Lock, Clock, Eye } from "lucide-react"
 import { listOriginalThinkingTopics } from "@/lib/original-thinking/bank"
 import { loadLenses } from "@/lib/original-thinking/lenses"
 import { formatDateTime } from "@/lib/shared/formatters"
-import {
-  generateOriginalTopicsAction,
-  expireOldAction,
-} from "./actions"
+import { GenerateTopicsButton } from "./_components/generate-topics-button"
+import { CleanupExpiredButton } from "./_components/cleanup-expired-button"
+import { MarkConsumedButton } from "./_components/mark-consumed-button"
 import { Empty } from "../../components/ui-kit"
 
 export const dynamic = "force-dynamic"
@@ -51,46 +50,9 @@ export default async function OriginalThinkingPage() {
           <Stat label="عدسات" value={lenses.length} />
         </div>
 
-        <div className="mt-5 flex flex-wrap gap-2">
-          <form
-            action={async () => {
-              "use server"
-              await generateOriginalTopicsAction("ar", 10)
-            }}
-          >
-            <button
-              type="submit"
-              className="rounded-xl border border-violet-500/30 bg-violet-500/10 px-4 py-2 text-[12px] font-medium text-violet-700 hover:bg-violet-500/20"
-            >
-              إنشاء ١٠ مواضيع جديدة (عربي)
-            </button>
-          </form>
-          <form
-            action={async () => {
-              "use server"
-              await generateOriginalTopicsAction("en", 10)
-            }}
-          >
-            <button
-              type="submit"
-              className="rounded-xl border border-border/50 bg-background/40 px-4 py-2 text-[12px] font-medium text-foreground/80 hover:bg-background/60"
-            >
-              توليد ١٠ (إنجليزي)
-            </button>
-          </form>
-          <form
-            action={async () => {
-              "use server"
-              await expireOldAction()
-            }}
-          >
-            <button
-              type="submit"
-              className="rounded-xl border border-border/50 bg-background/40 px-4 py-2 text-[12px] text-muted-foreground hover:bg-background/60"
-            >
-              تنظيف المنتهية
-            </button>
-          </form>
+        <div className="mt-5 flex flex-wrap items-start gap-3">
+          <GenerateTopicsButton />
+          <CleanupExpiredButton />
         </div>
       </div>
 
@@ -103,11 +65,11 @@ export default async function OriginalThinkingPage() {
               className="rounded-2xl border border-border/40 bg-background/40 p-4"
             >
               <div className="mb-1 text-[12.5px] font-semibold">{l.name_ar}</div>
-              <div className="mb-2 text-[10.5px] text-muted-foreground" dir="ltr">
-                {l.key} · {l.name_en}
+              <div className="mb-2 text-[10.5px] text-muted-foreground/70" dir="ltr">
+                {l.key}
               </div>
               <p className="text-[12px] leading-relaxed text-foreground/80">
-                {l.description}
+                {l.description_ar}
               </p>
             </div>
           ))}
@@ -177,11 +139,11 @@ function TopicCard({
       <div className="flex items-start justify-between gap-3">
         <div className="flex-1">
           <div className="mb-1 flex flex-wrap items-center gap-2">
-            <span className="text-[10px] uppercase tracking-wider text-violet-700/70" dir="ltr">
+            <span className="text-[10px] font-medium tracking-wide text-violet-700/70">
               {lensName}
             </span>
-            <span className="text-[10px] text-muted-foreground" dir="ltr">
-              · {topic.language}
+            <span className="text-[10px] text-muted-foreground">
+              · {topic.language === "en" ? "إنجليزي" : "عربي"}
             </span>
             {topic.is_consumed && (
               <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] text-emerald-700">
@@ -207,13 +169,26 @@ function TopicCard({
             <span className="font-medium text-muted-foreground">الخطاف:</span>{" "}
             {topic.emotional_hook}
           </p>
-          <div className="mt-2 text-[10px] text-muted-foreground" dir="ltr">
-            generated {formatDateTime(topic.generated_at)}
-            {topic.consumed_at && ` · consumed ${formatDateTime(topic.consumed_at)}`}
-            {!topic.is_consumed && ` · expires ${formatDateTime(topic.expires_at)}`}
+          <div className="mt-2 flex flex-wrap gap-x-2 gap-y-1 text-[10px] text-muted-foreground">
+            <span>
+              أُنشئ <span dir="ltr">{formatDateTime(topic.generated_at)}</span>
+            </span>
+            {topic.consumed_at && (
+              <span>
+                · استُهلك <span dir="ltr">{formatDateTime(topic.consumed_at)}</span>
+              </span>
+            )}
+            {!topic.is_consumed && (
+              <span>
+                · ينتهي <span dir="ltr">{formatDateTime(topic.expires_at)}</span>
+              </span>
+            )}
           </div>
         </div>
-        <Eye className="h-4 w-4 text-muted-foreground" />
+        <div className="flex flex-col items-end gap-2">
+          <Eye className="h-4 w-4 text-muted-foreground" />
+          {!muted && !topic.is_consumed && <MarkConsumedButton id={topic.id} />}
+        </div>
       </div>
     </li>
   )

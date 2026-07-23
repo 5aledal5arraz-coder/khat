@@ -258,7 +258,7 @@ Your job is to generate ORIGINAL, DEEP topic ideas.
 
 ABSOLUTE RULES:
 1. Output JSON only. The shape is: { topics: [ { title, lens, philosophical_frame, conflict, emotional_hook } ] }.
-2. Each title MUST be in Arabic.
+2. ALL human-readable text you generate — \`title\`, \`philosophical_frame\`, \`conflict\`, and \`emotional_hook\` — MUST be written entirely in Arabic. The \`lens\` field is the ONLY exception: it stays the exact English lens KEY from the list below. Do not mix languages inside any field, and do not transliterate.
 3. Each topic MUST be drawn from one of the lenses listed below — set \`lens\` to the lens KEY (e.g. "betrayal_of_self").
 4. Reject your own first draft if it sounds like self-help, listicle, or hustle-culture content.
 5. Do NOT use Kuwait-specific framing (no city names, no dialect markers, no local references) unless the user explicitly asks.
@@ -270,12 +270,12 @@ ABSOLUTE RULES:
 
 AVAILABLE LENSES:
 - key: betrayal_of_self
-  name: Betrayal of Self
+  name: خيانة الذات
   description: The slow erosion that happens when someone trades a piece of who they are for safety.
   question_kinds: When did you first know you were performing? | What part of you did you mute?
   avoid: Generic 'be authentic' self-help
 - key: unspoken_grief
-  name: Unspoken Grief
+  name: الحزن غير المعلن
   description: Loss that doesn't fit a recognized name.
   question_kinds: What loss did you carry alone?
   avoid: Conventional bereavement narratives"
@@ -408,6 +408,7 @@ exports[`buildStudioPackagePrompt > produces a stable snapshot for a fixed episo
 - أول 3 أسطر = خطاف (يظهر قبل "عرض المزيد") — اجعلها مغناطيسية
 - ثم ملخص الحلقة بفقرة واحدة حية
 - ثم أبرز المحاور (نقاط مرقمة — كل نقطة سطر واحد)
+- ثم سطر إلزامي يحتوي رابط الحلقة الكاملة (المذكور في المدخلات تحت «رابط الحلقة الكاملة») مع دعوة صريحة لمشاهدة الحلقة كاملة على يوتيوب — إن كان الرابط بالصيغة {{EPISODE_URL}} فاتركه حرفياً كما هو ليستبدله المشغّل، ولا تحذفه أبداً
 - نص عادي، بدون Markdown
 
 ### 5. كلمات مفتاحية SEO (seo_keywords)
@@ -430,6 +431,7 @@ exports[`buildStudioPackagePrompt > produces a stable snapshot for a fixed episo
 exports[`buildStudioPackagePrompt > produces a stable snapshot for a fixed episode 2`] = `
 "عنوان الفيديو الحالي: قصة الأسير السابق ناصر سالمين
 القناة: خط بودكاست
+رابط الحلقة الكاملة: {{EPISODE_URL}}
 
 
 [intelligence: turning_points=4, themes=3]
@@ -1178,10 +1180,10 @@ exports[`youtube-pack builders (B2) > full-pack snapshot 1`] = `
 
 أنتج التالي:
 1. **titles**: 3 عناوين مقترحة جذّابة للحلقة على يوتيوب (كل عنوان في سطر منفصل)
-2. **description**: وصف كامل للحلقة لنشره على يوتيوب (3-5 فقرات، يتضمن ملخص الحلقة وأبرز المحاور)
+2. **description**: وصف كامل للحلقة لنشره على يوتيوب (3-5 فقرات، يتضمن ملخص الحلقة وأبرز المحاور). يجب أن يتضمن الوصف سطراً إلزامياً برابط الحلقة الكاملة (المذكور في المدخلات تحت «رابط الحلقة الكاملة») مع دعوة صريحة لمشاهدة الحلقة كاملة على يوتيوب — إن كان الرابط بالصيغة {{EPISODE_URL}} فاتركه حرفياً كما هو ليستبدله المشغّل، ولا تحذفه أبداً
 3. **timestamps**: فصول زمنية تقريبية بتنسيق (00:00 - العنوان) لأهم محاور الحلقة
 4. **hashtags**: 10 هاشتاقات مناسبة (بدون #، مفصولة بمسافات)
-5. **clips**: 5 أفكار لمقاطع قصيرة (كل فكرة تتضمن عنوان المقطع ووصف مختصر للمحتوى)
+5. **clips**: 5 أفكار لمقاطع قصيرة (كل فكرة تتضمن عنوان المقطع ووصفاً مختصراً للمحتوى، وينتهي وصف كل مقطع بإشارة تعيد المشاهد إلى الحلقة الكاملة ورابطها)
 6. **tweets**: 3 تغريدات مقترحة للترويج للحلقة (كل تغريدة أقل من 280 حرف)
 
 أعد النتيجة بتنسيق JSON:
@@ -1198,6 +1200,7 @@ exports[`youtube-pack builders (B2) > full-pack snapshot 1`] = `
 exports[`youtube-pack builders (B2) > full-pack snapshot 2`] = `
 "عنوان الحلقة: حلقة
 اسم الضيف: ضيف
+رابط الحلقة الكاملة: {{EPISODE_URL}}
 
 نص الحلقة:
 نص الحلقة الكامل."

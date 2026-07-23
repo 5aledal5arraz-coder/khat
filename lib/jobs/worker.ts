@@ -24,6 +24,7 @@ import {
   failJob,
   reclaimStaleJobs,
 } from "./queue"
+import { createProgressReporter } from "./progress-reporter"
 import { getHandler, listRegisteredTypes } from "./registry"
 import {
   ensureMarketScheduler,
@@ -126,6 +127,14 @@ const HANDLER_TIMEOUT_MS: Record<string, number> = {
   // model.benchmark: ~20 AI calls incl. long-context + high-effort judges;
   // sequential pairs keep load sane but the wall-clock adds up.
   "model.benchmark": 30 * 60_000,
+  // studio.episode_map: whisper-1 timestamped transcription of a full ~2h raw
+  // recording (chunked, sequential) + ffmpeg silencedetect + one analysis call.
+  // The transcription wall-clock dominates; generous budget.
+  "studio.episode_map": 30 * 60_000,
+  // studio.episode_review: whisper-1 timestamped transcription of the full
+  // EDITED recording (transcription-dominated, same as episode_map) + the pure,
+  // instant verdict algorithm. Same 30-min budget.
+  "studio.episode_review": 30 * 60_000,
 }
 
 function timeoutFor(jobType: string): number {
@@ -224,6 +233,13 @@ async function processOne(): Promise<boolean> {
     attempt: job.attempts,
     maxAttempts: job.max_attempts,
     workerId: WORKER_ID,
+    // Best-effort progress heartbeat — never throws (swallows + logs), so a
+    // failed status write can never fail the job it's reporting on.
+    reportProgress: createProgressReporter(job.id, (err) =>
+      wlog.warn(
+        `progress write failed for ${job.id}: ${err instanceof Error ? err.message : String(err)}`,
+      ),
+    ),
   })
   const timeoutPromise = new Promise<never>((_, reject) => {
     timeoutHandle = setTimeout(() => {

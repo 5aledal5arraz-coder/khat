@@ -12,6 +12,8 @@ import { WebsitePkgProvider } from "./website-pkg-context"
 import { GuestProvider } from "./guest-context"
 import { AnalyzerProvider } from "./analyzer-context"
 import { AudioProvider } from "./audio-context"
+import { EpisodeMapProvider } from "./episode-map-context"
+import { EpisodeReviewProvider } from "./episode-review-context"
 import { DeepAnalysisProvider } from "./deep-analysis-context"
 import { GuestIntelligenceProvider } from "./guest-intelligence-context"
 import { GrowthProvider } from "./growth-context"
@@ -39,6 +41,8 @@ export function StudioSessionProvider({
                 <GuestProvider>
                   <AnalyzerProvider>
                     <AudioProvider>
+                      <EpisodeMapProvider>
+                      <EpisodeReviewProvider>
                       <DeepAnalysisProvider>
                         <GuestIntelligenceProvider>
                           <GrowthProvider>
@@ -48,6 +52,8 @@ export function StudioSessionProvider({
                           </GrowthProvider>
                         </GuestIntelligenceProvider>
                       </DeepAnalysisProvider>
+                      </EpisodeReviewProvider>
+                      </EpisodeMapProvider>
                     </AudioProvider>
                   </AnalyzerProvider>
                 </GuestProvider>
@@ -74,6 +80,8 @@ export { useWebsitePkg } from "./website-pkg-context"
 export { useGuest } from "./guest-context"
 export { useAnalyzer } from "./analyzer-context"
 export { useAudio } from "./audio-context"
+export { useEpisodeMap } from "./episode-map-context"
+export { useEpisodeReview } from "./episode-review-context"
 export { useDeepAnalysis } from "./deep-analysis-context"
 export { useGuestIntelligence } from "./guest-intelligence-context"
 export { useGrowth } from "./growth-context"

@@ -4,7 +4,7 @@ import { useState } from "react"
 import {
   TrendingUp, Loader2, AlertCircle, RefreshCw, Sparkles,
   ChevronDown, ChevronLeft, Rocket, Image as ImageIcon, Megaphone,
-  Clock, CalendarClock, Eye, Share2, Scissors, Flame, Copy, Check, ClipboardList,
+  Clock, Eye, Share2, Scissors, Flame, Copy, Check, ClipboardList,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
@@ -26,13 +26,15 @@ const AD_TYPE_LABELS: Record<string, string> = {
   post_roll: "ختامي",
 }
 
+// khat's real 7 platforms (no LinkedIn / Facebook — those accounts don't exist).
 const PLATFORM_LABELS: Record<string, string> = {
-  x: "إكس (تويتر)",
-  instagram: "إنستغرام",
-  linkedin: "لينكدإن",
   youtube_community: "مجتمع يوتيوب",
+  instagram: "إنستغرام",
   tiktok: "تيك توك",
-  facebook: "فيسبوك",
+  x: "إكس (تويتر)",
+  threads: "ثريدز",
+  snapchat: "سناب شات",
+  whatsapp: "واتساب",
 }
 
 function platformLabel(p: string): string {
@@ -118,14 +120,6 @@ export function growthToMarkdown(g: GrowthPackage): string {
     })
   }
 
-  if (g.best_publish_time) {
-    const b = g.best_publish_time
-    out.push("## أفضل وقت للنشر", `${b.day} — ${b.time_window} (${b.timezone})`)
-    if (b.rationale) out.push(b.rationale)
-    if (b.alternatives.length) out.push(`بدائل: ${b.alternatives.join("، ")}`)
-    out.push("")
-  }
-
   if (g.sponsor_placements.length) {
     out.push("## مواضع الإعلانات")
     g.sponsor_placements.forEach((p) => {
@@ -209,7 +203,7 @@ export function TabGrowth() {
         <div>
           <p className="text-sm font-medium">حزمة النمو والنشر — جاهزة للنسخ</p>
           <p className="text-xs text-muted-foreground mt-1 max-w-md mx-auto">
-            صور مصغّرة، خطاف افتتاح، توقيت الإعلانات وأفضل وقت للنشر، توصيات الاحتفاظ،
+            صور مصغّرة، خطاف افتتاح، توصيات الاحتفاظ،
             محتوى المنصات والمقاطع القصيرة، واستراتيجية تسويقية موحّدة
           </p>
         </div>
@@ -340,20 +334,6 @@ export function TabGrowth() {
                 )}
               </div>
             ))}
-          </div>
-        </SubSection>
-      )}
-
-      {/* Best publish time */}
-      {g.best_publish_time && (
-        <SubSection icon={CalendarClock} iconColor="text-emerald-700" title="أفضل وقت للنشر">
-          <div className="space-y-1">
-            <p className="text-sm font-medium">{g.best_publish_time.day} — {g.best_publish_time.time_window}</p>
-            <p className="text-xs text-muted-foreground">{g.best_publish_time.timezone}</p>
-            {g.best_publish_time.rationale && <p className="text-xs text-muted-foreground mt-1">{g.best_publish_time.rationale}</p>}
-            {g.best_publish_time.alternatives.length > 0 && (
-              <p className="text-xs text-muted-foreground">بدائل: {g.best_publish_time.alternatives.join("، ")}</p>
-            )}
           </div>
         </SubSection>
       )}

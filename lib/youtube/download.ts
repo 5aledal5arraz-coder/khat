@@ -72,8 +72,8 @@ async function getYtDlpBin(): Promise<string> {
  * Check yt-dlp + ffmpeg availability on startup (call from server init).
  * Logs warnings if missing — does not throw.
  */
-export async function checkDependencies(): Promise<{ ytDlp: boolean; ffmpeg: boolean }> {
-  const result = { ytDlp: false, ffmpeg: false }
+export async function checkDependencies(): Promise<{ ytDlp: boolean; ffmpeg: boolean; ffprobe: boolean }> {
+  const result = { ytDlp: false, ffmpeg: false, ffprobe: false }
 
   try {
     const bin = await getYtDlpBin()
@@ -91,6 +91,18 @@ export async function checkDependencies(): Promise<{ ytDlp: boolean; ffmpeg: boo
     result.ffmpeg = true
   } catch {
     console.error("[ffmpeg] ✗ NOT FOUND — Audio conversion will fail. Install: brew install ffmpeg")
+  }
+
+  // ffprobe is a SEPARATE binary from ffmpeg and can be missing independently.
+  // Duration probing (per-minute pricing) and the whole timestamp-map offset
+  // algorithm depend on it, so it must be checked, not assumed present.
+  try {
+    const { stdout } = await execFileAsync("ffprobe", ["-version"], { timeout: 5_000 })
+    const version = stdout.split("\n")[0] || ""
+    console.log(`[ffprobe] ✓ ${version}`)
+    result.ffprobe = true
+  } catch {
+    console.error("[ffprobe] ✗ NOT FOUND — duration probing + timestamp maps will fail. Install: brew install ffmpeg")
   }
 
   return result

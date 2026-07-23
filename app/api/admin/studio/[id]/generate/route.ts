@@ -102,7 +102,8 @@ export async function POST(
       session.video_title || "",
       session.channel_title || "",
       null,
-      eirContext
+      eirContext,
+      session.youtube_url
     )
 
     if (!result.success || !result.data) {

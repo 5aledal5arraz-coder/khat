@@ -19,6 +19,7 @@ import type {
 } from "@/types/khat-map"
 import { KHAT_EDITORIAL_CONTROLS_DEFAULTS } from "@/types/khat-map"
 import { createV2SeasonAction } from "../actions"
+import { runAction } from "@/app/admin/components/run-action"
 import { EditorialControlsForm } from "./editorial-controls-form"
 
 const GENDER_OPTIONS: Array<{ key: KhatMapGuestGenderFilter; label: string }> = [
@@ -47,8 +48,12 @@ interface ModeOption {
 const MODES: ModeOption[] = [
   {
     key: "guided",
-    label: "موجّه",
-    description: "هجين: اختر ~١٠٪ من المواضيع يدوياً، والذكاء الاصطناعي يولّد البقية بتنوّع ودون تكرار.",
+    // "هجين" is the word Khaled actually uses for this mode — it lived only in
+    // the description before, so the label now carries it too. "موجّه" stays so
+    // the switch-mode error copy elsewhere ("بدّل الوضع إلى موجّه") still points
+    // the operator at a label he can see.
+    label: "موجّه (هجين)",
+    description: "اختر ~١٠٪ من المواضيع يدوياً، والذكاء الاصطناعي يولّد البقية بتنوّع ودون تكرار.",
     icon: Compass,
     recommended: true,
   },
@@ -90,11 +95,22 @@ export function SetupClient() {
     // nothing to gate here — the engine applies a filter only when a
     // specific category is chosen.
     start(async () => {
-      const res = await createV2SeasonAction({
-        mode,
-        episode_count: count,
-        editorial_controls: controls,
-      })
+      // Season generation is long-running, so it is the action most likely to
+      // be cut off by the gateway before it answers. Without runAction that
+      // failure rejects the transition and the operator is left watching a
+      // spinner with no explanation — the exact complaint this fixes.
+      const outcome = await runAction(() =>
+        createV2SeasonAction({
+          mode,
+          episode_count: count,
+          editorial_controls: controls,
+        }),
+      )
+      if (!outcome.ok) {
+        setError(outcome.message)
+        return
+      }
+      const res = outcome.data
       if (res.success) {
         router.push(`/admin/khat-brain/seasons/${res.data.seasonId}`)
       } else {
@@ -176,7 +192,13 @@ export function SetupClient() {
             className="w-full cursor-pointer accent-primary"
             dir="ltr"
           />
-          <div className="mt-2 flex justify-between text-[10px] text-muted-foreground">
+          {/* The track is dir="ltr" (min on the left), so the labels must be
+              LTR too — otherwise ٦ sits under the max end of the track and 6
+              parks the thumb under the ٢٠ label. */}
+          <div
+            className="mt-2 flex justify-between text-[10px] text-muted-foreground"
+            dir="ltr"
+          >
             <span>٦</span>
             <span>٢٠</span>
           </div>

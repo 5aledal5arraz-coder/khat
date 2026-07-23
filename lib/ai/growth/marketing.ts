@@ -27,9 +27,6 @@ function summarizeAssets(pkg: GrowthPackage): string {
   if (pkg.opening_hook?.hook_script) {
     lines.push(`- خطاف الافتتاح: ${pkg.opening_hook.hook_script}`)
   }
-  if (pkg.best_publish_time) {
-    lines.push(`- أفضل وقت للنشر: ${pkg.best_publish_time.day} ${pkg.best_publish_time.time_window}`)
-  }
   if (pkg.sponsor_placements.length) {
     lines.push(`- مواضع إعلانية مقترحة: ${pkg.sponsor_placements.length}`)
   }

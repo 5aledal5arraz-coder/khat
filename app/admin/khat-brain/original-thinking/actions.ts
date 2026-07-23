@@ -47,10 +47,14 @@ export async function markConsumedAction(id: string): Promise<{ ok: boolean }> {
   return { ok }
 }
 
-export async function expireOldAction(): Promise<{ expired: number }> {
+export async function expireOldAction(): Promise<{
+  ok: boolean
+  expired: number
+  error?: string
+}> {
   const gate = await requireActionRole("EDITOR")
-  if (!gate.ok) return { expired: 0 }
+  if (!gate.ok) return { ok: false, expired: 0, error: gate.error }
   const r = await expireOldOriginalTopics()
   revalidatePath("/admin/khat-brain/original-thinking")
-  return r
+  return { ok: true, expired: r.expired }
 }

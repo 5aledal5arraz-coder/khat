@@ -53,6 +53,16 @@ export interface JobContext {
   maxAttempts: number
   /** Worker identity stamped on the row when claimed. */
   workerId: string
+  /**
+   * Best-effort live-progress heartbeat for long jobs. The handler calls this
+   * as it works; the value lands on `jobs.progress` for a status poller to
+   * read. It NEVER throws — a progress-write failure is swallowed so it can
+   * never fail the job (see createProgressReporter). Handlers that don't
+   * report progress simply never call it. The shape is generic
+   * (`Record<string, unknown>`); Studio transcription writes
+   * `{ stage, currentChunk, totalChunks, fraction, etaSeconds }`.
+   */
+  reportProgress: (progress: Record<string, unknown>) => Promise<void>
 }
 
 export interface EnqueueOptions {
@@ -70,6 +80,8 @@ export interface JobRow {
   status: JobStatus
   payload: Record<string, unknown>
   result: Record<string, unknown> | null
+  /** Live-progress heartbeat written by the running handler; null until reported. */
+  progress: Record<string, unknown> | null
   error_message: string | null
   priority: number
   attempts: number

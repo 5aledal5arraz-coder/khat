@@ -38,6 +38,17 @@ export const jobs = pgTable("jobs", {
   /** Handler output, only set on success. */
   result: jsonb("result").$type<Record<string, unknown>>(),
 
+  /**
+   * Live progress heartbeat, written BY the running handler (via
+   * `ctx.reportProgress`) while it works — the read side a status poller
+   * surfaces so a minutes-long job isn't a silent black box. Generic +
+   * nullable: any long job may write any shape; a job that never reports
+   * stays null. First consumer is Studio transcription (stage / chunk /
+   * fraction / etaSeconds). A progress-write failure must NEVER fail the
+   * job, so writes are best-effort (see createProgressReporter).
+   */
+  progress: jsonb("progress").$type<Record<string, unknown>>(),
+
   /** Last failure message; cleared on retry success. */
   error_message: text("error_message"),
 

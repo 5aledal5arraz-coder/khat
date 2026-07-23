@@ -280,6 +280,8 @@ async function caseDemoJob() {
     attempt: claimed!.attempts,
     maxAttempts: claimed!.max_attempts,
     workerId: "smoke-worker",
+    // Progress heartbeat is a no-op for this smoke path (demo.echo doesn't report).
+    reportProgress: async () => {},
   })
   await completeJob(claimed!.id, (result ?? null) as Record<string, unknown> | null)
 

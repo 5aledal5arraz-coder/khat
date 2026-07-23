@@ -100,6 +100,7 @@ export async function POST(request: NextRequest) {
       youtube_url: youtubeUrl,
       video_id: videoId,
       source: "youtube",
+      audio_stage: null,
       status: "fetched",
       video_title: item.snippet.title,
       channel_title: item.snippet.channelTitle,

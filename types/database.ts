@@ -723,12 +723,25 @@ export interface GuestWithRelations extends Guest {
 
 export type StudioSessionStatus = 'draft' | 'fetched' | 'error'
 export type StudioSessionSource = 'youtube' | 'audio'
+/**
+ * Studio Wave 2 — for `source==='audio'` uploads only, distinguishes the two
+ * journeys Omar designed:
+ *   'raw'    — the unedited recording, uploaded FIRST to get the time map
+ *              (episode_true_start / breaks / hook_candidates). No publishing
+ *              package yet.
+ *   'edited' — the post-montage audio, the existing full publishing pipeline.
+ * NULL for YouTube sessions, and for legacy audio sessions created before this
+ * field existed — those are treated as 'edited' (the pre-existing behaviour).
+ */
+export type StudioAudioStage = 'raw' | 'edited'
 
 export interface StudioSession {
   id: string
   youtube_url: string | null
   video_id: string | null
   source: StudioSessionSource
+  /** Raw vs edited audio journey (see StudioAudioStage). Only meaningful when source==='audio'. */
+  audio_stage: StudioAudioStage | null
   status: StudioSessionStatus
   video_title: string | null
   channel_title: string | null

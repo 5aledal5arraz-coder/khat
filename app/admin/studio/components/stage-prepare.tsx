@@ -9,6 +9,7 @@ import { TranscriptContent } from "./transcript-content"
 import { AiProcessingContent } from "./ai-processing-content"
 import { AudioToolsContent } from "./audio-tools"
 import { EditSuggestionsContent } from "./edit-suggestions"
+import { StageEpisodeMap } from "./stage-episode-map"
 
 // ---------------------------------------------------------------------------
 // Stage 1: التحضير (Prepare)
@@ -18,6 +19,13 @@ export function StagePrepare() {
   const { session } = useSession()
   const { transcriptStatus, processingStatus } = useTranscript()
   const { audioIntroStatus, editSuggestionsStatus } = useAudio()
+
+  // Raw-audio journey (Studio Wave 2, Stage 1): the whole "prepare" step IS the
+  // time map — no transcript editorial, no publishing. Render only the map flow.
+  const isRawMap = session.source === "audio" && session.audio_stage === "raw"
+  if (isRawMap) {
+    return <StageEpisodeMap />
+  }
 
   const isAudio = session.source === "audio"
 

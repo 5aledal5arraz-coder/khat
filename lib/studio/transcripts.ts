@@ -11,6 +11,9 @@ import {
   resolveEirIdForSession,
   type StudioAnalysisRecord,
 } from "./analysis-records"
+import type { TimedSegment } from "@/lib/studio/segments"
+import type { EpisodeMap } from "@/lib/ai/episode-map"
+import type { EpisodeReview } from "@/lib/studio/episode-review"
 import type {
   StudioTranscript,
   StudioTranscriptSource,
@@ -31,6 +34,13 @@ interface TranscriptData {
   summary?: StudioTranscriptSummary | null
   quotes_extracted?: StudioTranscriptQuote[] | null
   processing_status?: StudioTranscriptProcessingStatus | null
+  // Studio Wave 2 (raw-audio time map). Both live in the transcript record's
+  // `data` JSONB — no new kind, no migration (rashid). Segments are the
+  // whisper-timed anchors the episode-map generator reads; episode_map is the
+  // validated map with REAL seconds.
+  timed_segments?: TimedSegment[] | null
+  timed_segments_duration_seconds?: number | null
+  episode_map?: EpisodeMap | null
 }
 
 function mapToLegacyShape(r: StudioAnalysisRecord): StudioTranscript {
@@ -174,4 +184,140 @@ export async function updateTranscriptProcessing(
     const message = err instanceof Error ? err.message : String(err)
     return { success: false, error: message }
   }
+}
+
+// ─── Studio Wave 2 — timed segments + episode time map ───────────────────────
+//
+// Both persist into the transcript record's `data` JSONB (no new kind, no
+// migration). Writes MERGE into any existing transcript data so the whisper
+// timestamp path never clobbers a YouTube-caption transcript, and reads
+// return null when the field was never written.
+
+/**
+ * Persist the whisper-timed segments the episode-map generator reads back.
+ * Backfills the transcript TEXT fields from the segments ONLY when no
+ * transcript exists yet (raw-audio path) — an existing caption transcript
+ * keeps its own text.
+ */
+export async function saveTimedSegments(
+  sessionId: string,
+  segments: TimedSegment[],
+  durationSeconds: number | null,
+): Promise<void> {
+  const existing = await getStudioAnalysisRecord(sessionId, "transcript")
+  const eirId = existing?.eir_id ?? (await resolveEirIdForSession(sessionId))
+  const prev = (existing?.data ?? {}) as TranscriptData
+
+  const cleanFromSegments = cleanTranscriptText(segments.map((s) => s.text).join(" "))
+
+  const data: TranscriptData = {
+    ...prev,
+    // Backfill text only when absent — never overwrite an existing transcript.
+    source: prev.source ?? "whisper",
+    language: prev.language ?? "ar",
+    transcript_raw: prev.transcript_raw ?? cleanFromSegments,
+    transcript_clean: prev.transcript_clean ?? cleanFromSegments,
+    transcript_article: prev.transcript_article ?? null,
+    word_count: prev.word_count ?? countWords(cleanFromSegments),
+    char_count: prev.char_count ?? cleanFromSegments.length,
+    summary: prev.summary ?? null,
+    quotes_extracted: prev.quotes_extracted ?? null,
+    processing_status: prev.processing_status ?? "idle",
+    timed_segments: segments,
+    timed_segments_duration_seconds: durationSeconds,
+  }
+
+  await upsertStudioAnalysisRecord({
+    studio_session_id: sessionId,
+    eir_id: eirId,
+    kind: "transcript",
+    status: (existing?.status as StudioTranscriptStatus) ?? "ready",
+    data: data as Record<string, unknown>,
+    error: existing?.error ?? null,
+    generated_at: new Date(),
+  })
+}
+
+/** Read the persisted timed segments back (for the generator / re-runs). */
+export async function getTimedSegments(
+  sessionId: string,
+): Promise<{ segments: TimedSegment[]; durationSeconds: number | null } | null> {
+  const record = await getStudioAnalysisRecord(sessionId, "transcript")
+  const data = (record?.data ?? {}) as TranscriptData
+  if (!data.timed_segments || data.timed_segments.length === 0) return null
+  return {
+    segments: data.timed_segments,
+    durationSeconds: data.timed_segments_duration_seconds ?? null,
+  }
+}
+
+/** Persist the validated episode time map onto the transcript record. */
+export async function saveEpisodeMap(
+  sessionId: string,
+  map: EpisodeMap,
+): Promise<void> {
+  const existing = await getStudioAnalysisRecord(sessionId, "transcript")
+  const eirId = existing?.eir_id ?? (await resolveEirIdForSession(sessionId))
+  const prev = (existing?.data ?? {}) as TranscriptData
+
+  const data: TranscriptData = { ...prev, episode_map: map }
+
+  await upsertStudioAnalysisRecord({
+    studio_session_id: sessionId,
+    eir_id: eirId,
+    kind: "transcript",
+    status: (existing?.status as StudioTranscriptStatus) ?? "ready",
+    data: data as Record<string, unknown>,
+    error: existing?.error ?? null,
+    generated_at: new Date(),
+  })
+}
+
+/** Read the persisted episode time map back (for the UI / next task). */
+export async function getEpisodeMap(sessionId: string): Promise<EpisodeMap | null> {
+  const record = await getStudioAnalysisRecord(sessionId, "transcript")
+  const data = (record?.data ?? {}) as TranscriptData
+  return data.episode_map ?? null
+}
+
+// ─── Studio 3-phase journey — Phase-2 edit review ────────────────────────────
+//
+// Unlike the map (which merges into the RAW session's transcript record), the
+// review is its OWN record under the `phase2_review` kind, keyed to the EDITED
+// session id. `kind` is code-only (not DB-CHECK-enforced), so this needs no
+// migration. The partial unique index on (studio_session_id, kind) guarantees
+// exactly one review per edited session — a re-run replaces it in place.
+
+/** Domain shape of the phase2_review record's `data` JSONB. */
+interface EpisodeReviewData {
+  review?: EpisodeReview | null
+}
+
+/**
+ * Persist the deterministic Phase-2 review, keyed to the EDITED session id.
+ * `generated_at` is stamped so the UI can show when the review last ran.
+ */
+export async function saveEpisodeReview(
+  editedSessionId: string,
+  review: EpisodeReview,
+): Promise<void> {
+  const eirId = await resolveEirIdForSession(editedSessionId)
+  const data: EpisodeReviewData = { review }
+  await upsertStudioAnalysisRecord({
+    studio_session_id: editedSessionId,
+    eir_id: eirId,
+    kind: "phase2_review",
+    status: "ready",
+    data: data as Record<string, unknown>,
+    generated_at: new Date(),
+  })
+}
+
+/** Read the persisted Phase-2 review back (for the status endpoint / UI). */
+export async function getEpisodeReview(
+  editedSessionId: string,
+): Promise<EpisodeReview | null> {
+  const record = await getStudioAnalysisRecord(editedSessionId, "phase2_review")
+  const data = (record?.data ?? {}) as EpisodeReviewData
+  return data.review ?? null
 }

@@ -4,28 +4,31 @@ import { useState, useRef, useCallback, useMemo, useEffect } from "react"
 import { useSearchParams, useRouter, usePathname } from "next/navigation"
 import {
   Loader2, Search, AlertCircle,
-  Image as ImageIcon, Trash2, Mic, Upload, FileAudio,
+  Image as ImageIcon, Trash2, Mic, Upload, FileAudio, Scissors,
   ChevronLeft, ChevronDown,
   CheckCircle2, CircleDot, Circle, ArrowLeft,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { cn, getYouTubeId } from "@/lib/utils"
-import type { StudioSession } from "@/types/database"
+import type { StudioSession, StudioAudioStage } from "@/types/database"
 import type { Episode } from "@/types/database"
 import type { AiStatus } from "@/lib/studio"
 import { formatFileSize } from "./components/shared"
 import { StudioSessionProvider } from "./contexts"
-import { SessionHeader } from "./components/session-header"
-import { GenerateAllBar } from "./components/generate-all-bar"
-import { StagePrepare } from "./components/stage-prepare"
-import { StageContent } from "./components/stage-content"
-import { StagePublish } from "./components/stage-publish"
+import { SessionBody } from "./components/session-body"
+import { AudioStageRadio } from "./components/audio-stage-radio"
+// Import the PURE derivation directly — NOT from the "@/lib/studio" barrel,
+// which re-exports db-backed modules (pg) that must never enter the client bundle.
+import { sessionPhaseInfo } from "@/lib/studio/project-stepper"
+import type { StudioProjectState } from "@/lib/db/schema/studio-projects"
 
 interface StudioClientProps {
   initialSessions: StudioSession[]
   episodes: Episode[]
   enrichedEpisodeIds: string[]
   aiStatuses: Record<string, AiStatus>
+  /** session id → its linked project's state (raw + edited both mapped in). */
+  projectsBySession: Record<string, StudioProjectState>
 }
 
 // ---------------------------------------------------------------------------
@@ -173,15 +176,27 @@ function AudioSessionRow({
   session,
   deletingId,
   aiStatus,
+  projectState,
   onSelect,
   onDelete,
 }: {
   session: StudioSession
   deletingId: string | null
   aiStatus: AiStatus
+  projectState: StudioProjectState | undefined
   onSelect: (s: StudioSession) => void
   onDelete: (id: string) => void
 }) {
+  // Distinguish the two legs of a produced episode (Sara): the raw recording
+  // and the post-montage cut used the SAME mic icon, so a project's map and
+  // its edit were indistinguishable. Derive the role + phase from audio_stage
+  // + the linked project's state.
+  const isRaw = session.audio_stage === "raw"
+  const { stageLabel, phaseLabel } = sessionPhaseInfo(
+    session.audio_stage,
+    projectState ?? null,
+  )
+  const RoleIcon = isRaw ? Mic : Scissors
   return (
     <div
       role="button"
@@ -190,9 +205,14 @@ function AudioSessionRow({
       onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") onSelect(session) }}
       className="group flex w-full cursor-pointer items-center gap-3 px-4 py-3 text-start transition-all hover:bg-muted/40 active:bg-muted/60"
     >
-      {/* Purple mic icon */}
-      <div className="flex h-9 w-16 shrink-0 items-center justify-center rounded-md bg-purple-100 dark:bg-purple-950/40">
-        <Mic className="h-4 w-4 text-purple-700" />
+      {/* Role icon — mic for the raw recording, scissors for the edited cut */}
+      <div
+        className={cn(
+          "flex h-9 w-16 shrink-0 items-center justify-center rounded-md",
+          isRaw ? "bg-purple-100 dark:bg-purple-950/40" : "bg-indigo-100 dark:bg-indigo-950/40",
+        )}
+      >
+        <RoleIcon className={cn("h-4 w-4", isRaw ? "text-purple-700" : "text-indigo-700")} />
       </div>
 
       {/* Title + meta */}
@@ -200,11 +220,28 @@ function AudioSessionRow({
         <span className="block truncate text-[13px] font-medium" dir="auto">
           {session.video_title || session.audio_filename || "بدون عنوان"}
         </span>
-        {session.audio_file_size != null && (
-          <span className="text-[11px] text-muted-foreground mt-0.5">
-            {formatFileSize(session.audio_file_size)}
+        <div className="mt-0.5 flex flex-wrap items-center gap-2">
+          {/* Which leg of the journey — raw vs edited */}
+          <span
+            className={cn(
+              "rounded-md px-1.5 py-0.5 text-[10px] font-medium",
+              isRaw ? "bg-purple-500/10 text-purple-700" : "bg-indigo-500/10 text-indigo-700",
+            )}
+          >
+            {stageLabel}
           </span>
-        )}
+          {/* The linked project's phase — ties a raw + edited pair together */}
+          {phaseLabel && (
+            <span className="rounded-md bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
+              {phaseLabel}
+            </span>
+          )}
+          {session.audio_file_size != null && (
+            <span className="text-[11px] text-muted-foreground">
+              {formatFileSize(session.audio_file_size)}
+            </span>
+          )}
+        </div>
       </div>
 
       {/* AI status badge */}
@@ -272,7 +309,7 @@ function StatsBar({
 // Main Studio Client
 // ---------------------------------------------------------------------------
 
-export function StudioClient({ initialSessions, episodes, aiStatuses: initialAiStatuses }: StudioClientProps) {
+export function StudioClient({ initialSessions, episodes, aiStatuses: initialAiStatuses, projectsBySession }: StudioClientProps) {
   const router = useRouter()
   const pathname = usePathname()
   const searchParams = useSearchParams()
@@ -292,6 +329,13 @@ export function StudioClient({ initialSessions, episodes, aiStatuses: initialAiS
   const [showAudioUpload, setShowAudioUpload] = useState(false)
   const [audioFile, setAudioFile] = useState<File | null>(null)
   const [audioTitle, setAudioTitle] = useState("")
+  // Which audio journey (Studio Wave 2). 'raw' first — the time-map flow is
+  // the reason Khaled uploads the unedited recording before montage.
+  const [audioStage, setAudioStage] = useState<StudioAudioStage>("raw")
+  // The raw session this edited upload belongs to, carried by the «المرحلة ٢»
+  // button (?raw=). Forwarded to the upload so the edited session links back
+  // to the SAME episode project instead of orphaning.
+  const [stageTwoRawSessionId, setStageTwoRawSessionId] = useState<string | null>(null)
   const [uploading, setUploading] = useState(false)
   const [uploadProgress, setUploadProgress] = useState(0)
   const [dragActive, setDragActive] = useState(false)
@@ -446,6 +490,22 @@ export function StudioClient({ initialSessions, episodes, aiStatuses: initialAiS
     router.replace(pathname, { scroll: false })
   }, [searchParams, sessions, episodes, handleEpisodeSelect, router, pathname])
 
+  // Deep-link from the raw-map «المرحلة ٢» button: open the audio upload panel
+  // pre-set to the edited (post-montage) journey. The `raw` param carries the
+  // raw session id so the upcoming edited upload attaches to the SAME episode
+  // project (the orphan fix). Consumes both params so a refresh/back doesn't
+  // re-open it.
+  const stageTwoHandled = useRef(false)
+  useEffect(() => {
+    if (stageTwoHandled.current) return
+    if (searchParams.get("upload") !== "edited") return
+    stageTwoHandled.current = true
+    setShowAudioUpload(true)
+    setAudioStage("edited")
+    setStageTwoRawSessionId(searchParams.get("raw"))
+    router.replace(pathname, { scroll: false })
+  }, [searchParams, router, pathname])
+
   const handleAudioSelect = useCallback((file: File) => {
     const ext = file.name.toLowerCase().split(".").pop()
     const allowed = ["mp3", "wav", "m4a", "webm"]
@@ -473,6 +533,12 @@ export function StudioClient({ initialSessions, episodes, aiStatuses: initialAiS
     const formData = new FormData()
     formData.append("file", audioFile)
     if (audioTitle) formData.append("title", audioTitle)
+    formData.append("audio_stage", audioStage)
+    // Orphan fix: on the edited journey, tell the server which raw session
+    // this cut belongs to so it links to the existing episode project.
+    if (audioStage === "edited" && stageTwoRawSessionId) {
+      formData.append("raw_session_id", stageTwoRawSessionId)
+    }
 
     try {
       const result = await new Promise<StudioSession>((resolve, reject) => {
@@ -508,12 +574,13 @@ export function StudioClient({ initialSessions, episodes, aiStatuses: initialAiS
       setAudioFile(null)
       setAudioTitle("")
       setUploadProgress(0)
+      setStageTwoRawSessionId(null)
     } catch (err) {
       setFetchError(err instanceof Error ? err.message : "حدث خطأ أثناء الرفع")
     } finally {
       setUploading(false)
     }
-  }, [audioFile, audioTitle])
+  }, [audioFile, audioTitle, audioStage, stageTwoRawSessionId])
 
   const handleDelete = async (id: string) => {
     setDeletingId(id)
@@ -539,6 +606,9 @@ export function StudioClient({ initialSessions, episodes, aiStatuses: initialAiS
   // =========================================================================
 
   if (activeSession) {
+    // Which journey to render (raw map / Phase-2 review + gated Phase 3 /
+    // the existing full pipeline) is decided by SessionBody, which lives
+    // inside the provider so it can read the project/review context.
     return (
       <div className="space-y-5">
         {/* Back navigation */}
@@ -551,13 +621,7 @@ export function StudioClient({ initialSessions, episodes, aiStatuses: initialAiS
         </button>
 
         <StudioSessionProvider key={activeSession.id} session={activeSession}>
-          <div className="space-y-5">
-            <SessionHeader />
-            <GenerateAllBar />
-            <StagePrepare />
-            <StageContent />
-            <StagePublish />
-          </div>
+          <SessionBody />
         </StudioSessionProvider>
       </div>
     )
@@ -702,6 +766,9 @@ export function StudioClient({ initialSessions, episodes, aiStatuses: initialAiS
             }}
           />
 
+          {/* Which audio journey — chosen BEFORE upload. */}
+          <AudioStageRadio value={audioStage} onChange={setAudioStage} disabled={uploading} />
+
           <div
             onDragOver={(e) => { e.preventDefault(); setDragActive(true) }}
             onDragLeave={() => setDragActive(false)}
@@ -834,6 +901,7 @@ export function StudioClient({ initialSessions, episodes, aiStatuses: initialAiS
                     session={session}
                     deletingId={deletingId}
                     aiStatus={aiStatuses[session.id] || "ready"}
+                    projectState={projectsBySession[session.id]}
                     onSelect={setActiveSession}
                     onDelete={handleDelete}
                   />

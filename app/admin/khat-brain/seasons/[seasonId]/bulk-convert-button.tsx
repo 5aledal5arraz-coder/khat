@@ -23,6 +23,7 @@ import {
   bulkConvertApprovedAction,
   type BulkConvertResult,
 } from "./bulk-convert-actions"
+import { runAction } from "@/app/admin/components/run-action"
 
 export function BulkConvertButton({
   seasonId,
@@ -50,7 +51,18 @@ export function BulkConvertButton({
   const onClick = () => {
     setResult(null)
     startTransition(async () => {
-      const r = await bulkConvertApprovedAction(seasonId)
+      const outcome = await runAction(() => bulkConvertApprovedAction(seasonId))
+      // An infra failure becomes an ordinary failed result, so the existing
+      // toast + panel explain it instead of the transition rejecting silently.
+      const r: BulkConvertResult = outcome.ok
+        ? outcome.data
+        : {
+            ok: false,
+            message: outcome.message,
+            total_attempted: 0,
+            total_succeeded: 0,
+            per_card: [],
+          }
       setResult(r)
       toast({
         title: r.ok ? "تم تحويل الحلقات إلى الإعداد" : "تعذّر التحويل",

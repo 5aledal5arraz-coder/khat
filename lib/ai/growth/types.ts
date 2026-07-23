@@ -37,15 +37,6 @@ export interface AdPlacement {
   why: string
 }
 
-/** Best-time-to-publish recommendation. */
-export interface PublishTiming {
-  day: string
-  time_window: string
-  timezone: string
-  rationale: string
-  alternatives: string[]
-}
-
 /** An audience-retention recommendation tied to a risk point. */
 export interface RetentionRec {
   /** Where attention is at risk (from intelligence.retention_risk_points). */
@@ -56,7 +47,7 @@ export interface RetentionRec {
 
 /** A per-platform social post (copy-ready caption + hashtags). */
 export interface SocialPost {
-  /** youtube_community | x | instagram | linkedin | tiktok | facebook */
+  /** khat's real 7: youtube_community | instagram | tiktok | x | threads | snapchat | whatsapp */
   platform: string
   /** The full caption text, ready to paste. */
   caption: string
@@ -93,8 +84,11 @@ export interface GrowthPackage {
   } | null
 
   // ── Distribution / timing ─────────────────────────────────────────
+  // NOTE: `best_publish_time` was removed in Wave 2 (W2-4). It was fabricated
+  // by the model from inputs containing zero analytics, so it misled rather
+  // than helped. Re-add it only once real YouTube Studio audience data
+  // (retention curves + traffic sources) feeds the recommendation.
   sponsor_placements: AdPlacement[]
-  best_publish_time: PublishTiming | null
   retention_recommendations: RetentionRec[]
 
   // ── Social / short-form ───────────────────────────────────────────
@@ -121,7 +115,6 @@ export function emptyGrowthPackage(): GrowthPackage {
     thumbnail_concepts: [],
     opening_hook: null,
     sponsor_placements: [],
-    best_publish_time: null,
     retention_recommendations: [],
     social_posts: [],
     short_form_ideas: [],

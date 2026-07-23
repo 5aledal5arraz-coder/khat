@@ -81,6 +81,7 @@
     "backfill:eir-downstream": "npx tsx scripts/backfill-eir-downstream.ts",
     "backfill:studio-analysis": "npx tsx scripts/backfill-studio-analysis.ts",
     "jobs:schedule-youtube-performance": "npx tsx scripts/schedule-youtube-performance.ts",
+    "sync:analytics": "npx tsx scripts/sync-analytics-config.ts",
     "seed:owner": "npx tsx scripts/seed-owner.ts",
     "seed:domain-angles": "npx tsx scripts/seed-domain-angles.ts",
     "seed:official-platforms": "npx tsx scripts/seed-official-platforms.ts",

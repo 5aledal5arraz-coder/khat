@@ -7,7 +7,15 @@
  * optional intelligence block + prepared transcript.
  */
 
-export const STUDIO_PACKAGE_PROMPT_VERSION = "studio-package-v1.0"
+export const STUDIO_PACKAGE_PROMPT_VERSION = "studio-package-v1.1"
+
+/**
+ * Placeholder emitted into the description when the episode's full-video URL
+ * isn't known at generation time. Kept verbatim in the output so the operator
+ * can spot-and-replace it before publishing rather than shipping a link-less
+ * description (0/58 clip uploads linked back to the full episode — Wave 2 audit).
+ */
+export const EPISODE_URL_PLACEHOLDER = "{{EPISODE_URL}}"
 
 const SYSTEM_PROMPT = `أنت كاتب محتوى يوتيوب لبودكاست خط — بودكاست عربي يتميز بالعمق والذكاء العاطفي والحدة الفكرية.
 
@@ -41,6 +49,7 @@ const SYSTEM_PROMPT = `أنت كاتب محتوى يوتيوب لبودكاست 
 - أول 3 أسطر = خطاف (يظهر قبل "عرض المزيد") — اجعلها مغناطيسية
 - ثم ملخص الحلقة بفقرة واحدة حية
 - ثم أبرز المحاور (نقاط مرقمة — كل نقطة سطر واحد)
+- ثم سطر إلزامي يحتوي رابط الحلقة الكاملة (المذكور في المدخلات تحت «رابط الحلقة الكاملة») مع دعوة صريحة لمشاهدة الحلقة كاملة على يوتيوب — إن كان الرابط بالصيغة {{EPISODE_URL}} فاتركه حرفياً كما هو ليستبدله المشغّل، ولا تحذفه أبداً
 - نص عادي، بدون Markdown
 
 ### 5. كلمات مفتاحية SEO (seo_keywords)
@@ -64,6 +73,8 @@ export interface StudioPackagePromptInput {
   channelTitle: string
   intelligenceBlock: string
   preparedText: string
+  /** Full-episode video URL for the description back-link + CTA (falls back to a placeholder). */
+  episodeUrl?: string | null
 }
 
 export interface BuiltStudioPackagePrompt {
@@ -75,8 +86,10 @@ export interface BuiltStudioPackagePrompt {
 export function buildStudioPackagePrompt(
   input: StudioPackagePromptInput,
 ): BuiltStudioPackagePrompt {
+  const episodeUrl = input.episodeUrl?.trim() || EPISODE_URL_PLACEHOLDER
   const user = `عنوان الفيديو الحالي: ${input.videoTitle}
 القناة: ${input.channelTitle}
+رابط الحلقة الكاملة: ${episodeUrl}
 ${input.intelligenceBlock}
 نص الحلقة:
 ${input.preparedText}`

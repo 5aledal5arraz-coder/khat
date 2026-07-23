@@ -18,6 +18,9 @@ export const studioSessions = pgTable("studio_sessions", {
   youtube_url: text("youtube_url"),
   video_id: text("video_id"),
   source: text("source"),
+  // Studio Wave 2: 'raw' | 'edited' for audio uploads; NULL for youtube and
+  // legacy audio sessions (legacy = treated as 'edited', the full pipeline).
+  audio_stage: text("audio_stage"),
   status: text("status").default("draft"),
   video_title: text("video_title"),
   channel_title: text("channel_title"),

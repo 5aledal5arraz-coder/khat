@@ -1,6 +1,7 @@
 import Link from "next/link"
 import { Brain, Power } from "lucide-react"
-import { getStudioSessions, getSessionAiStatuses } from "@/lib/studio"
+import { getStudioSessions, getSessionAiStatuses, listProjects } from "@/lib/studio"
+import type { StudioProjectState } from "@/lib/db/schema/studio-projects"
 import { getEpisodes } from "@/lib/queries/episodes"
 import { db } from "@/lib/db"
 import { episodeEnrichments } from "@/lib/db/schema/episodes"
@@ -39,16 +40,25 @@ export default async function StudioPage() {
     )
   }
 
-  const [sessions, episodes, enrichedRows, aiStatuses] = await Promise.all([
+  const [sessions, episodes, enrichedRows, aiStatuses, projects] = await Promise.all([
     getStudioSessions(),
     getEpisodes({ includeHidden: true }),
     db
       ? db.select({ episodeId: episodeEnrichments.episode_id }).from(episodeEnrichments)
       : Promise.resolve([]),
     getSessionAiStatuses(),
+    listProjects().catch(() => []),
   ])
 
   const enrichedEpisodeIds = enrichedRows.map((r) => r.episodeId)
+
+  // Map both legs of each project (raw + edited session) to its journey state
+  // so the studio list can tag them and tie a map to its edit (Sara).
+  const projectsBySession: Record<string, StudioProjectState> = {}
+  for (const p of projects) {
+    if (p.raw_session_id) projectsBySession[p.raw_session_id] = p.state
+    if (p.edited_session_id) projectsBySession[p.edited_session_id] = p.state
+  }
 
   return (
     <div className="space-y-6">
@@ -88,6 +98,7 @@ export default async function StudioPage() {
         episodes={episodes}
         enrichedEpisodeIds={enrichedEpisodeIds}
         aiStatuses={aiStatuses}
+        projectsBySession={projectsBySession}
       />
     </div>
   )

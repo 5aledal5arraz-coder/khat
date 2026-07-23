@@ -41,6 +41,12 @@ export const STUDIO_ANALYSIS_KINDS = [
   "episode_intelligence",
   /** Copy-ready YouTube growth package (Goal 1). */
   "growth_package",
+  // Studio 3-phase journey (Phase 2):
+  /** Persisted EpisodeReview — the deterministic verdict on whether each
+   *  Phase-1 cut (pre-roll + breaks) was actually applied in Khaled's edit.
+   *  Keyed to the EDITED session id. `kind` is NOT DB-CHECK-enforced, so
+   *  adding it is code-only — no migration (yousef). */
+  "phase2_review",
 ] as const
 export type StudioAnalysisKind = (typeof STUDIO_ANALYSIS_KINDS)[number]
 

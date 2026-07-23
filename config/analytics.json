@@ -1,26 +1,34 @@
 {
   "youtube": {
-    "followers": 20485,
+    "followers": 20600,
     "posts": 77,
-    "engagement": "0%",
-    "url": "https://youtube.com/@khatpodcast?si=UUeip3G9fIK5SH_5"
+    "engagement": "1.1%",
+    "url": "https://www.youtube.com/@khatpodcast",
+    "verified_at": "2026-07-22",
+    "source": "YouTube Data API v3 channels.list (id UC6F-j9LyXIK_zXY0gbYRjog). subscriberCount is rounded to 3 significant figures by YouTube itself. engagement = (likes+comments)/views over the 50 most recent uploads = 1.11%. Lifetime viewCount at check time: 2363822."
   },
   "x": {
-    "followers": 0,
+    "followers": 21,
     "posts": 0,
     "engagement": "0%",
-    "url": ""
+    "url": "https://x.com/khat_podcast",
+    "verified_at": "2026-07-22",
+    "source": "followers=21 verified from Khaled's own screenshot of the X app, 2026-07-22 (joined July 2023, 0 following, account not verified, category Podcast, location Kuwait). Handle also confirmed by resolving https://bit.ly/3UAnlez -> https://twitter.com/Khat_Podcast. posts NOT verified - the post count is not displayed on that screen; the stored 0 is a placeholder. engagement NOT verified - no impressions or interaction data without X API access (paid tier)."
   },
   "tiktok": {
-    "followers": 8322,
+    "followers": 8261,
     "posts": 0,
     "engagement": "0%",
-    "url": "https://www.tiktok.com/@khatpodcast?_r=1&_t=ZS-93qG9ox1wpe"
+    "url": "https://www.tiktok.com/@khatpodcast",
+    "verified_at": "2026-07-22",
+    "source": "followers=8261 verified from Khaled's own screenshot of the TikTok app, 2026-07-22 (0 following; 30K total likes shown). posts NOT verified - TikTok's profile screen does not display a video count; the stored 0 is a placeholder, not a measurement. engagement NOT verified - total likes are known (30K) but total views are not, so no honest rate can be computed."
   },
   "instagram": {
-    "followers": 2626,
-    "posts": 38,
+    "followers": 2610,
+    "posts": 39,
     "engagement": "0%",
-    "url": "https://www.instagram.com/khat.podcast?igsh=cXRwZ24yN3F2cTlo&utm_source=qr"
+    "url": "https://www.instagram.com/khat.podcast",
+    "verified_at": "2026-07-22",
+    "source": "followers=2610 and posts=39 verified from Khaled's own screenshot of the Instagram app, 2026-07-22 (3 following; bio link reach.link/khatpodcast). URL also confirmed by resolving https://bit.ly/3Sz4ga7 -> https://www.instagram.com/Khat.Podcast. engagement NOT verified - the profile view exposes no per-post interaction data; requires Instagram Graph API insights."
   }
 }

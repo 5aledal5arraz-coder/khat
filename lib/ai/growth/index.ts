@@ -58,7 +58,6 @@ export async function generateGrowthPackage(
 
   if (distribution.success && distribution.data) {
     pkg.sponsor_placements = distribution.data.sponsor_placements
-    pkg.best_publish_time = distribution.data.best_publish_time
     pkg.retention_recommendations = distribution.data.retention_recommendations
     runIds.distribution = distribution.runId
   } else if (distribution.error) {

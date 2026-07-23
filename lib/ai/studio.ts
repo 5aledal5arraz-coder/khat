@@ -28,7 +28,9 @@ export async function generateStudioPackage(
   videoTitle: string,
   channelTitle: string,
   episodeIntelligence?: GlobalEpisodeIntelligence | null,
-  eirContext?: { eirId?: string | null; subjectTable?: string | null; subjectId?: string | null }
+  eirContext?: { eirId?: string | null; subjectTable?: string | null; subjectId?: string | null },
+  /** Full-episode video URL so the description links back to it (Wave 2 FIX A). */
+  episodeUrl?: string | null
 ): Promise<{ success: boolean; data?: StudioPackageResult; raw?: Record<string, unknown>; error?: string; runId?: string }> {
   if (!env.OPENAI_API_KEY) {
     return { success: false, error: "OPENAI_API_KEY غير مُعدّ" }
@@ -48,6 +50,7 @@ export async function generateStudioPackage(
         channelTitle,
         intelligenceBlock,
         preparedText,
+        episodeUrl,
       })
 
     const result = await runAiTask<StudioPackageResult>({
@@ -60,6 +63,7 @@ export async function generateStudioPackage(
         videoTitle,
         channelTitle,
         hasIntelligence: Boolean(episodeIntelligence),
+        hasEpisodeUrl: Boolean(episodeUrl?.trim()),
         transcriptChars: preparedText.length,
       },
       prompt: [

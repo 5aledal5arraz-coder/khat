@@ -14,8 +14,11 @@ import { vi } from "vitest"
 
 type Row = Record<string, unknown>
 
+/** A queued `.select()` outcome: either rows, or a rejection. */
+type QueuedSelect = Row[] | { __rejectWith: unknown }
+
 /** Stored results that the mock will return for the next query chain. */
-let _selectResults: Row[][] = []
+let _selectResults: QueuedSelect[] = []
 let _insertReturning: Row[] = []
 let _updateReturning: Row[] = []
 let _deleteResult: { rowCount: number } = { rowCount: 0 }
@@ -23,6 +26,15 @@ let _deleteResult: { rowCount: number } = { rowCount: 0 }
 /** Push rows that the next `.select()` chain will resolve to. Multiple calls stack (FIFO). */
 export function mockSelectResult(rows: Row[]) {
   _selectResults.push(rows)
+}
+
+/**
+ * Make the next `.select()` chain REJECT instead of resolving — for
+ * exercising DB-failure branches (connection timeouts, cold starts).
+ * Queued FIFO alongside `mockSelectResult`, so ordering is preserved.
+ */
+export function mockSelectRejection(error: unknown = new Error("ETIMEDOUT")) {
+  _selectResults.push({ __rejectWith: error })
 }
 
 export function mockInsertReturning(rows: Row[]) {
@@ -49,8 +61,9 @@ export function resetMock() {
 function selectChain() {
   const chain: Record<string, unknown> = {}
   const resolve = () => {
-    const rows = _selectResults.length > 0 ? _selectResults.shift()! : []
-    return Promise.resolve(rows)
+    const next = _selectResults.length > 0 ? _selectResults.shift()! : []
+    if (!Array.isArray(next)) return Promise.reject(next.__rejectWith)
+    return Promise.resolve(next)
   }
 
   chain.from = vi.fn().mockReturnValue(chain)
