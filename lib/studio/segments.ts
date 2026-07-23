@@ -21,23 +21,35 @@ import { formatTimeSeconds } from "@/lib/shared/formatters"
 
 /**
  * How far past its own chunk's end a raw segment.start may sit and still be
- * accepted as a normal in-chunk segment. This is the tight band whisper's own
- * timestamps land in; anything beyond it is either a benign trailing artifact
- * (see below) or real corruption.
+ * accepted AS-IS as a normal in-chunk segment. This is the tight band whisper's
+ * own timestamps land in; a start beyond it is either a decode-drift PHANTOM
+ * (dropped) or real corruption (thrown) — see PHANTOM_START_DRIFT_SECONDS and
+ * self-check #4.
  */
 const IN_CHUNK_START_TOLERANCE_SECONDS = 0.5
 
 /**
- * How far past its chunk's end the LAST segment of a chunk may start and still be
- * treated as a benign whisper END-OF-AUDIO ARTIFACT — dropped, not fatal. Whisper
- * routinely emits one trailing segment 1–3s past the true end (a decode overshoot
- * on the final frames). Dropping it — instead of throwing the whole map away —
- * mirrors the trailing-padding-chunk handling in `transcribeWithTimestamps`
- * (whisper.ts). A start beyond THIS tolerance, or an out-of-bounds segment that is
- * NOT the chunk's last, is real corruption and still THROWS. NEEDS CALIBRATION if
+ * The ONE decode-overshoot tolerance, applied SYMMETRICALLY to both benign whisper
+ * end-of-audio artifacts:
+ *   • a segment's START drifting past its CHUNK's true audio (self-check #4) —
+ *     DROPPED as a phantom (no audio behind it to transcribe), and
+ *   • the LAST segment's END overshooting the FULL FILE (self-check #2) —
+ *     CLAMPED down to the real duration.
+ * Both are the SAME phenomenon: whisper's decoder running a few frames past the
+ * real audio on a raw recording that stops mid-sentence (no trailing silence). They
+ * MUST share one band — a WAVE-1 regression split them (5.0s start vs 3.0s end),
+ * which is asymmetric and would THROW a real 3–5s end overshoot, nuking exactly the
+ * 86-min خط بودكاست map the filtering redesign exists to save.
+ *
+ * Calibration evidence (2026-07-23, Khaled's real raw upload): start-side drift was
+ * measured up to ~4.4s past a 600s chunk (mid-chunk as well as trailing); the
+ * end-side on chunk3 (probed 600.000s) overshot the chunk by ~1s — both well inside
+ * 5.0s. A drift/overshoot BEYOND this band is NOT decode drift but real corruption
+ * (e.g. 30s of phantom content) and still THROWS — we clamp/drop the benign 1–5s
+ * artifact but refuse to silently truncate seconds of garbage. NEEDS CALIBRATION if
  * a real episode ever legitimately overshoots further.
  */
-const TRAILING_ARTIFACT_TOLERANCE_SECONDS = 3.0
+const DECODE_OVERSHOOT_TOLERANCE_SECONDS = 5.0
 
 /** One transcript span with absolute (episode-timeline) seconds. */
 export interface TimedSegment {
@@ -95,20 +107,21 @@ export interface WhisperChunk {
  *   2. offsets[0] = 0;  offsets[i] = offsets[i-1] + durations[i-1].
  *   3. Each segment's absolute time = raw time + offsets[chunkIndex].
  *
- * Self-checks (a wrong map is worse than no map — so these THROW, except #5
- * which WARNs):
+ * Self-checks (a wrong map is worse than no map — so these THROW, except the
+ * benign-artifact drop/clamp paths and #5 which WARN):
  *   1. |Σ durations − fullDuration| ≤ 0.2 + 0.05·chunkCount   (durations
  *      must reconstitute the whole file, else offsets are untrustworthy)
- *   2. lastSegment.end overshooting fullDuration by ≤ 3.0s is a benign whisper
- *      end-of-audio artifact — CLAMPED down to fullDuration, not fatal (the same
- *      end-of-audio overshoot as self-check #4, so it shares the same tolerance).
- *      An overshoot BEYOND +3.0s is real corruption and still THROWS.
+ *   2. lastSegment.end overshooting fullDuration by ≤ DECODE_OVERSHOOT_TOLERANCE
+ *      (5.0s) is a benign whisper end-of-audio artifact — CLAMPED down to
+ *      fullDuration, not fatal. An overshoot BEYOND that tolerance is real
+ *      corruption (seconds of phantom content past the file end) and THROWS.
  *   3. segments[i].start ≥ segments[i-1].start                (monotonic)
  *   4. every raw segment.start ∈ [0, durations[i] + 0.5]      (in-chunk) —
- *      EXCEPT a chunk's LAST segment starting ≤ durations[i] + 3.0 is a benign
- *      whisper end-of-audio overshoot: it is DROPPED, not fatal. A mid-chunk
- *      out-of-bounds segment, or any start past the +3.0 artifact tolerance, is
- *      real corruption and still THROWS (see the constants above).
+ *      EXCEPT any segment (trailing OR mid-chunk) whose start is ≤ durations[i] +
+ *      DECODE_OVERSHOOT_TOLERANCE (5.0s) is a benign whisper decode-drift PHANTOM:
+ *      it is DROPPED, not fatal (the adjacent chunk covers that boundary). A start
+ *      past that band is real corruption and THROWS (see the constant). Self-checks
+ *      #2 and #4 share ONE symmetric band (see DECODE_OVERSHOOT_TOLERANCE_SECONDS).
  *   5. every chunk returned ≥ 1 segment                       (WARN only —
  *      a silent chunk is legal; an empty one MAY mean lost content)
  */
@@ -158,11 +171,10 @@ export function buildTimedSegmentsFromWhisperChunks(
     if (segs.length === 0) emptyChunks++
 
     const inBoundsMax = durations[i] + IN_CHUNK_START_TOLERANCE_SECONDS
-    const artifactMax = durations[i] + TRAILING_ARTIFACT_TOLERANCE_SECONDS
+    const phantomMax = durations[i] + DECODE_OVERSHOOT_TOLERANCE_SECONDS
 
     for (let j = 0; j < segs.length; j++) {
       const seg = segs[j]
-      const isTrailing = j === segs.length - 1
 
       // ---- self-check #4: raw segment must sit inside its chunk ----
       if (!Number.isFinite(seg.start) || !Number.isFinite(seg.end)) {
@@ -177,17 +189,23 @@ export function buildTimedSegmentsFromWhisperChunks(
       }
       if (seg.start > inBoundsMax) {
         // A segment whose START sits past the chunk's real audio has NO audio
-        // behind it — there is nothing there to transcribe, so it is a whisper
-        // phantom/decode-drift artifact, ALWAYS. Measured on a real 86-min
-        // episode, whisper drifted a segment's start up to ~4.4s past a 600s
-        // chunk, sometimes several such segments, and not the chunk's last —
-        // a fixed few-seconds tolerance kept nuking the whole map. So DROP any
-        // past-audio segment unconditionally (the adjacent chunk covers that
-        // boundary). Offset integrity is guaranteed elsewhere: self-check #1
-        // (durations reconstitute the file) and #3 (monotonic after offset)
-        // catch a genuine offset bug — this check does not need to throw.
-        void isTrailing
-        void artifactMax
+        // behind it — nothing there to transcribe. Two cases:
+        //   • Within PHANTOM_START_DRIFT of the chunk end → a whisper decode-drift
+        //     PHANTOM (measured up to ~4.4s on a real 86-min episode, mid-chunk as
+        //     well as trailing). DROP it — the adjacent chunk covers that boundary
+        //     — rather than nuke the whole map. Offset integrity is still guaranteed
+        //     by self-check #1 (durations reconstitute the file) and #3 (monotonic
+        //     after offset), so this drop is safe.
+        //   • FURTHER than that → not decode drift but real corruption. THROW; a
+        //     confidently-wrong map is worse than no map.
+        if (seg.start > phantomMax) {
+          throw new Error(
+            `segments: chunk ${i} raw segment.start ${seg.start.toFixed(3)}s ` +
+              `outside [0, ${inBoundsMax.toFixed(3)}s] — ` +
+              `${(seg.start - durations[i]).toFixed(3)}s past chunk end exceeds ` +
+              `decode-overshoot tolerance ${DECODE_OVERSHOOT_TOLERANCE_SECONDS.toFixed(1)}s (real corruption)`,
+          )
+        }
         console.warn(
           `[segments] dropping past-audio phantom in chunk ${i}: raw start ` +
             `${seg.start.toFixed(3)}s is ${(seg.start - durations[i]).toFixed(3)}s ` +
@@ -224,26 +242,27 @@ export function buildTimedSegmentsFromWhisperChunks(
   }
 
   // ---- self-check #2: last segment cannot end far past the file (one-sided) ----
-  // Whisper overshoots the true end by 1–3s on the final frames — the SAME
-  // end-of-audio decode artifact handled on the start side in self-check #4, and
-  // it happens routinely on raw recordings that stop mid-sentence (no trailing
-  // silence). A small overshoot is benign: CLAMP the last end down to the real
-  // duration (the file physically has no content past it) rather than throw away
-  // the whole map. Only an overshoot BEYOND the artifact tolerance is real
-  // corruption and still THROWS. Unified on TRAILING_ARTIFACT_TOLERANCE_SECONDS
-  // so the start-side and end-side overshoot bands match (was an inconsistent
-  // +1.0s here vs +3.0s there, which failed abruptly-ending raw uploads).
+  // Whisper overshoots the true end by 1–5s on the final frames — the SAME
+  // end-of-audio decode artifact handled on the START side in self-check #4, so it
+  // shares the SAME symmetric band (DECODE_OVERSHOOT_TOLERANCE_SECONDS). It happens
+  // routinely on raw recordings that stop mid-sentence (no trailing silence). A
+  // SMALL overshoot (≤ tolerance) is benign: CLAMP the last end down to the real
+  // duration (the file physically has no content past it). An overshoot FAR beyond
+  // that (e.g. 30s) is NOT a decode artifact but real corruption — THROW rather than
+  // silently truncate seconds of garbage down to the duration. (A WAVE-1 regression
+  // set this end throw at 3.0s while the start band was 5.0s — asymmetric, and it
+  // nuked real 3–5s end overshoots; unified here.)
   const last = out[out.length - 1]
   const endOverhang = last.end - fullDurationSeconds
+  if (endOverhang > DECODE_OVERSHOOT_TOLERANCE_SECONDS) {
+    throw new Error(
+      `segments: last segment ends ${last.end.toFixed(3)}s, ` +
+        `${endOverhang.toFixed(3)}s past full duration ${fullDurationSeconds.toFixed(3)}s ` +
+        `— exceeds decode-overshoot tolerance ${DECODE_OVERSHOOT_TOLERANCE_SECONDS.toFixed(1)}s ` +
+        `(real corruption)`,
+    )
+  }
   if (endOverhang > 0) {
-    // The file physically has no content past its own end, so a last segment
-    // ending past `fullDuration` is always a whisper decode overshoot — CLAMP it
-    // down to the real duration rather than throw the map away. Clamp regardless
-    // of magnitude (same principle as the start-side drop in self-check #4): the
-    // end can never legitimately exceed the file, and offset integrity is
-    // guaranteed by self-check #1. `TRAILING_ARTIFACT_TOLERANCE_SECONDS` no
-    // longer gates this — a fixed tolerance failed real episodes whose whisper
-    // overshoot ran past it.
     console.warn(
       `[segments] clamping last segment end ${last.end.toFixed(3)}s down to full ` +
         `duration ${fullDurationSeconds.toFixed(3)}s ` +

@@ -103,6 +103,58 @@ function useAudioSeeker(sessionId: string) {
   return { play, playingKey, audioEl }
 }
 
+/**
+ * Honest transcript-health banner: when Phase 1 FILTERED whisper-loop garbage, the
+ * map has HOLES the editor must know about — a silent gap is exactly the dishonesty
+ * this pipeline refuses (Wave-1.5 #7). Renders only when there is something to say;
+ * defensive against older persisted maps that predate `transcript_health`.
+ */
+function TranscriptHealthBanner({ map }: { map: EpisodeMap }) {
+  const health = map.transcript_health
+  if (!health) return null
+  const hasDrops = health.dropped_seconds > 0 || health.dropped_intervals?.length > 0
+  const suspect = health.suspect_run
+  if (!hasDrops && !suspect) return null
+
+  return (
+    <div className="rounded-2xl border border-amber-500/40 bg-amber-500/5 p-4">
+      <div className="inline-flex items-center gap-2 text-[12px] font-semibold text-amber-700">
+        <AlertTriangle className="h-4 w-4" />
+        تنبيه أمانة: أُزيلت مناطق تكرار غير طبيعي من التفريغ
+      </div>
+      {hasDrops && (
+        <p className="mt-2 text-[11.5px] leading-relaxed text-foreground/85">
+          حُذف {Math.round(health.dropped_seconds)} ثانية ({health.dropped_segments} مقطع) بسبب
+          تكرار غير طبيعي في التفريغ (غالباً تشويش/صمت طويل). بُنيت الخريطة على الباقي النظيف،
+          لكن هذه الفترات <span className="font-semibold">فجوات</span> لا يوثق بمحتواها:
+        </p>
+      )}
+      {hasDrops && health.dropped_intervals?.length > 0 && (
+        <ul className="mt-1.5 flex flex-wrap gap-1.5">
+          {health.dropped_intervals.map((iv, i) => (
+            <li
+              key={`hole-${i}`}
+              className="rounded-md bg-amber-500/10 px-2 py-0.5 text-[10.5px] font-medium tabular-nums text-amber-700"
+              dir="ltr"
+            >
+              {formatTimeSeconds(iv.start)} – {formatTimeSeconds(iv.end)}
+            </li>
+          ))}
+        </ul>
+      )}
+      {suspect && (
+        <p className="mt-2 text-[11px] leading-relaxed text-amber-700/90">
+          منطقة مشبوهة (تكرار حدّي لم يُحذف) عند{" "}
+          <span className="font-semibold tabular-nums" dir="ltr">
+            {formatTimeSeconds(suspect.start_seconds)} – {formatTimeSeconds(suspect.end_seconds)}
+          </span>{" "}
+          — راجعها بالأذن قبل الاعتماد عليها.
+        </p>
+      )}
+    </div>
+  )
+}
+
 function ListenButton({
   active,
   onClick,
@@ -142,6 +194,9 @@ export function EpisodeMapView({
   return (
     <div className="space-y-4">
       {audioEl}
+
+      {/* ── Honesty banner: filtered-out (garbage) holes the map skips over ── */}
+      <TranscriptHealthBanner map={map} />
 
       {/* ── True start — the headline number, trusted via its proof sentence ── */}
       <div className="rounded-2xl border border-emerald-500/30 bg-emerald-500/5 p-4">

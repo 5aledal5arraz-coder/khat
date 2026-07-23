@@ -40,7 +40,10 @@ import {
   saveEpisodeReview,
 } from "@/lib/studio/transcripts"
 import { transcribeWithTimestamps } from "@/lib/whisper"
-import { DEGENERATE_EDITED_TRANSCRIPT_MESSAGE } from "@/lib/studio/transcript-quality"
+import {
+  DEGENERATE_EDITED_TRANSCRIPT_MESSAGE,
+  DEGENERATE_RAW_REVIEW_TRANSCRIPT_MESSAGE,
+} from "@/lib/studio/transcript-quality"
 import { getHandler, type JobContext } from "@/lib/jobs"
 // Side-effect: registers "studio.episode_review".
 import "@/lib/jobs/handlers/episode-review"
@@ -288,6 +291,39 @@ describe("studio.episode_review handler — degenerate EDITED transcript (whispe
   it("still stores a review when the SAME arrangement yields a healthy edited transcript", async () => {
     // Sanity: the guard is specific to degeneracy — the default healthy edited
     // segments proceed to a stored review (guards the guard against over-firing).
+    await handler()({ editedSessionId: EDITED }, CTX)
+    expect(saveEpisodeReview).toHaveBeenCalledTimes(1)
+  })
+})
+
+describe("studio.episode_review handler — degenerate RAW remainder after filtering (Wave-1.6, Finding 1)", () => {
+  // Raw whisper output where the filter drops a middle HARD run and SPLICES the two
+  // sub-HARD "ثاني" runs into one connected 16-long loop in `cleanRaw`. That residual
+  // loop reads "absent" from the (healthy) edited transcript and would fabricate a
+  // FALSE ✅ "applied" — the review's cardinal sin. Monotonic 2s starts so it passes
+  // reviewEpisodeEdits' structural assertSegments; only the residual guard must stop it.
+  const MERGED_RAW: TimedSegment[] = [
+    ...Array.from({ length: 8 }, () => "ثاني"),
+    ...Array.from({ length: 10 }, () => "اكس"),
+    ...Array.from({ length: 8 }, () => "ثاني"),
+  ].map((text, i) => ({ start: i * 2, end: i * 2 + 1.8, text, chunk: 0 }))
+
+  it("FAILS the review with the raw-context Arabic message and stores nothing", async () => {
+    vi.mocked(getTimedSegments).mockResolvedValue({ segments: MERGED_RAW, durationSeconds: 60 })
+    // The EDITED transcript stays HEALTHY (arrangeHappy default) so guard 3b passes and
+    // the raw-remainder guard is unambiguously what fires.
+    await expect(handler()({ editedSessionId: EDITED }, CTX)).rejects.toThrow(
+      DEGENERATE_RAW_REVIEW_TRANSCRIPT_MESSAGE,
+    )
+    // The edited audio WAS transcribed (the raw guard sits AFTER 3b + the raw filter)…
+    expect(transcribeWithTimestamps).toHaveBeenCalledTimes(1)
+    // …but NO review was built on the residual raw loop and NONE stored.
+    expect(saveEpisodeReview).not.toHaveBeenCalled()
+  })
+
+  it("still reviews when the raw remainder is CLEAN after filtering (guard does not over-fire)", async () => {
+    // Sanity: a raw transcript with NO residual loop proceeds to a stored review — the
+    // guard is specific to a degenerate remainder, not any filtering at all.
     await handler()({ editedSessionId: EDITED }, CTX)
     expect(saveEpisodeReview).toHaveBeenCalledTimes(1)
   })

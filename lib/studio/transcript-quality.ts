@@ -182,6 +182,32 @@ export const MAX_SEGMENT_COMPRESSION_RATIO = 2.4
  */
 export const COMPRESSION_SIGNAL_MIN_CHARS = 20
 
+// ─── Filter / build-decision calibration constants (Wave-1 Fix B) ────────────
+// `filterDegenerateSegments` DROPS the clearly-hallucinated segments and lets the
+// caller build on the clean remainder instead of throwing the whole transcript
+// away (Khaled's explicit "فلترة" choice: a clean error on a mostly-garbage
+// transcript is fine, but a real 86-min recording that is ~80% clean MUST still
+// produce a map). These two gates decide when so much was dropped that the clean
+// remainder can no longer be trusted to build a map. Same conservative bar; both
+// NEEDS CALIBRATION on a corpus of real خط بودكاست raw uploads.
+
+/**
+ * Maximum fraction of a transcript's segments that may be filtered as degenerate
+ * before the whole transcript is rejected. Above this, the clean remainder is too
+ * small a sample of the real audio to trust a map on — a clear error beats a map
+ * built on <50% of the episode. Start 0.5. NEEDS CALIBRATION: on Khaled's real file
+ * ~20% was dropped (well under this), so the map builds; tune against more uploads.
+ */
+export const MAX_DEGENERATE_DROP_FRACTION = 0.5
+
+/**
+ * Minimum clean segments that must survive filtering for a map to be built ON a
+ * transcript that HAD degeneracy. This gate only applies once something was
+ * dropped — a naturally SHORT but fully-clean transcript (a teaser) is never
+ * rejected for being short. Start 10. NEEDS CALIBRATION.
+ */
+export const MIN_CLEAN_SEGMENTS = 10
+
 /** The operator-facing failure message when a transcript is judged degenerate. */
 export const DEGENERATE_TRANSCRIPT_MESSAGE =
   "تعذّر إنتاج خريطة موثوقة: التفريغ يحتوي تكراراً غير طبيعي — " +
@@ -198,6 +224,20 @@ export const DEGENERATE_TRANSCRIPT_MESSAGE =
 export const DEGENERATE_EDITED_TRANSCRIPT_MESSAGE =
   "تعذّر مراجعة التعديلات: تفريغ الصوت المعدّل يحتوي تكراراً غير طبيعي — " +
   "غالباً تشويش/صمت طويل في التسجيل. حاول مرة أخرى"
+
+/**
+ * The operator-facing failure message when the RAW reference transcript is STILL
+ * degenerate AFTER filtering, inside the Phase-2 review job. The review classifies each
+ * (filtered) raw segment as PRESENT/ABSENT in the edited transcript; a residual loop
+ * that survived the surgical filter — e.g. two sub-HARD runs of the SAME word spliced
+ * into one connected loop once the HARD run between them was dropped — reads "absent"
+ * and fabricates a FALSE ✅ "applied", the review's cardinal sin. Unlike the map path
+ * (generation, where dropping garbage is safe) a review VERIFIES, so it REFUSES rather
+ * than filter — the map (Phase 1) must be re-generated from a clean recording first.
+ */
+export const DEGENERATE_RAW_REVIEW_TRANSCRIPT_MESSAGE =
+  "تعذّر مراجعة التعديلات: التفريغ الأصلي يحتوي تكراراً غير طبيعي بعد الفلترة — " +
+  "أعد إنتاج خريطة الحلقة من تسجيل نظيف أولاً"
 
 // ─── Verdict shape ───────────────────────────────────────────────────────────
 
@@ -506,4 +546,166 @@ export function assessTranscriptDegeneracy(
   const reason = `degenerate transcript: ${parts.join("; ")}`
 
   return { degenerate: true, reason, metrics }
+}
+
+// ─── Segment-level filter (Wave-1 Fix B) ─────────────────────────────────────
+
+/** A closed time span on the raw-episode timeline, in absolute seconds. */
+export interface TimeInterval {
+  start: number
+  end: number
+}
+
+export interface DegenerateFilterResult {
+  /** Input segments with the clearly-hallucinated ones removed, order preserved. */
+  clean: TimedSegment[]
+  /** How many segments were dropped. */
+  droppedCount: number
+  /** Total wall-clock seconds of the dropped segments (observability). */
+  droppedSeconds: number
+  /**
+   * Total wall-clock seconds across ALL input segments (dropped + kept). This is
+   * the denominator the caller MUST use for a time-weighted drop fraction:
+   * `droppedSeconds / totalSeconds` — a count-based fraction under-counts a loop
+   * that is few-segments-but-many-seconds (a handful of long garbage segments), so
+   * the map-build gate keys on TIME, not segment count. 0 when there are no segments.
+   */
+  totalSeconds: number
+  /**
+   * The absolute-time spans that were dropped, merged where they touch/overlap.
+   * These are HOLES on the raw timeline the clean remainder no longer covers — the
+   * map resolver rejects any true_start point or hook range that lands in one, so
+   * the editor is never sent to a region we deleted as garbage. Empty when nothing
+   * was dropped.
+   */
+  droppedIntervals: TimeInterval[]
+  /** The PRE-filter overall verdict on the input (diagnostic / logging only). */
+  verdict: TranscriptDegeneracyVerdict
+}
+
+/**
+ * Merge a list of time spans (in any order) into disjoint intervals, joining any
+ * two that overlap OR exactly touch (next.start ≤ cur.end). Pure helper for the
+ * dropped-interval hole map. Ignores zero/negative-length spans defensively.
+ */
+function mergeIntervals(spans: TimeInterval[]): TimeInterval[] {
+  const valid = spans
+    .filter((s) => Number.isFinite(s.start) && Number.isFinite(s.end) && s.end > s.start)
+    .sort((a, b) => a.start - b.start)
+  const out: TimeInterval[] = []
+  for (const s of valid) {
+    const last = out[out.length - 1]
+    if (last && s.start <= last.end) {
+      last.end = Math.max(last.end, s.end)
+    } else {
+      out.push({ start: s.start, end: s.end })
+    }
+  }
+  return out
+}
+
+/**
+ * DROP the clearly-hallucinated segments and return the clean remainder, so a
+ * caller can build on real speech instead of throwing the whole transcript away
+ * (Khaled's "فلترة" choice). Deterministic — no AI, no I/O. It removes ONLY the
+ * two UNAMBIGUOUS whisper-loop signatures, reusing the exact same primitives as
+ * `assessTranscriptDegeneracy` (never a second normalizer / heuristic):
+ *   (a) INTER-segment: every segment inside a run of ≥ HARD_LOOP_RUN_LENGTH
+ *       byte-identical consecutive normalized segments (the real loop — 148× in
+ *       Khaled's file). Runs are measured over NON-EMPTY normalized texts only,
+ *       exactly as `assessTranscriptDegeneracy` treats empties (transparent).
+ *   (b) INTRA-segment: every segment whose own text trips `assessSegmentIntra`
+ *       (char-run ≥ 25 / token-run ≥ 10 / collapsed long-segment vocabulary /
+ *       compression_ratio ≥ 2.4) — a single hallucinated segment.
+ *
+ * It deliberately does NOT drop the AMBIGUOUS corroborated-path shape (a 5–9 run
+ * with globally-collapsed uniqueness): that could be emphatic real speech, and
+ * dropping it would risk deleting real content — the opposite of Khaled's bar.
+ * `assessTranscriptDegeneracy` (unchanged) is still the overall verdict; this is
+ * the surgical keep/drop mask built from the same signals.
+ */
+export function filterDegenerateSegments(
+  segments: TimedSegment[],
+): DegenerateFilterResult {
+  // Pre-filter verdict on the whole input — diagnostic only (never a decision).
+  const verdict = assessTranscriptDegeneracy(segments)
+
+  // Per-segment normalized text parallel to `segments`; null == empty-after-
+  // normalize, which is transparent to a run (matches assessTranscriptDegeneracy).
+  const normed = segments.map((seg) => {
+    const t = collapseWhitespace(normalizeArabic(seg.text ?? ""))
+    return t.length === 0 ? null : t
+  })
+
+  const drop = new Array<boolean>(segments.length).fill(false)
+
+  // ── (a) INTER-segment loop runs (≥ HARD_LOOP_RUN_LENGTH identical in a row) ──
+  // Walk the NON-EMPTY normalized texts in order; a maximal run of identical
+  // texts whose length hits the hard floor gets every one of its members dropped.
+  const nonEmptyIdx: number[] = []
+  for (let i = 0; i < segments.length; i++) if (normed[i] !== null) nonEmptyIdx.push(i)
+
+  let runStart = 0
+  while (runStart < nonEmptyIdx.length) {
+    let runEnd = runStart
+    const text = normed[nonEmptyIdx[runStart]]
+    while (
+      runEnd + 1 < nonEmptyIdx.length &&
+      normed[nonEmptyIdx[runEnd + 1]] === text
+    ) {
+      runEnd++
+    }
+    if (runEnd - runStart + 1 >= HARD_LOOP_RUN_LENGTH) {
+      for (let k = runStart; k <= runEnd; k++) drop[nonEmptyIdx[k]] = true
+    }
+    runStart = runEnd + 1
+  }
+
+  // ── (b) INTRA-segment hallucination (same signals the guard reads) ──────────
+  for (let i = 0; i < segments.length; i++) {
+    const text = normed[i]
+    if (text === null) continue
+    const seg = segments[i]
+    const cr =
+      typeof seg.compressionRatio === "number" && Number.isFinite(seg.compressionRatio)
+        ? seg.compressionRatio
+        : null
+    if (assessSegmentIntra(text, seg.end - seg.start, cr).reason !== null) {
+      drop[i] = true
+    }
+  }
+
+  const clean: TimedSegment[] = []
+  let droppedCount = 0
+  let totalSeconds = 0
+  const droppedSpans: TimeInterval[] = []
+  for (let i = 0; i < segments.length; i++) {
+    const dur = Math.max(0, segments[i].end - segments[i].start)
+    totalSeconds += dur
+    if (drop[i]) {
+      droppedCount++
+      droppedSpans.push({ start: segments[i].start, end: segments[i].end })
+    } else {
+      clean.push(segments[i])
+    }
+  }
+
+  // `droppedSeconds` is derived from the MERGED holes, NOT a raw per-segment sum. A
+  // whisper decoding loop can emit many segments carrying DUPLICATE / OVERLAPPING
+  // timestamps, so summing each dropped segment's own duration double-counts the same
+  // wall-clock (e.g. ~300s reported for a real 60s hole) and CONTRADICTS the merged
+  // `droppedIntervals`. Summing `end−start` over the merged intervals makes
+  // `droppedSeconds` equal the actual holes the clean remainder no longer covers — the
+  // honest number Khaled sees and the map-build time-gate keys on.
+  const droppedIntervals = mergeIntervals(droppedSpans)
+  const droppedSeconds = droppedIntervals.reduce((sum, iv) => sum + (iv.end - iv.start), 0)
+
+  return {
+    clean,
+    droppedCount,
+    droppedSeconds,
+    totalSeconds,
+    droppedIntervals,
+    verdict,
+  }
 }

@@ -14,6 +14,8 @@
  */
 
 import { describe, expect, it, vi, beforeEach } from "vitest"
+import fs from "fs"
+import path from "path"
 
 // ── mock the two side-effecting dependencies of the generator ────────────────
 const runAiTaskMock = vi.fn()
@@ -31,6 +33,7 @@ import {
   generateEpisodeMap,
 } from "@/lib/ai/episode-map"
 import { mergeIntoWindows, type TimedSegment } from "@/lib/studio/segments"
+import { filterDegenerateSegments } from "@/lib/studio/transcript-quality"
 import type { EpisodeMapModelOutput } from "@/lib/ai/prompts/episode-map"
 
 // ── helpers to build the authoritative maps resolveEpisodeMap consumes ───────
@@ -341,5 +344,284 @@ describe("generateEpisodeMap — orchestration with mocked deps", () => {
     // Fail-fast: the guard runs BEFORE any ffmpeg break detection or paid AI call.
     expect(detectBreaksMock).not.toHaveBeenCalled()
     expect(runAiTaskMock).not.toHaveBeenCalled()
+  })
+
+  it("HIGH#2: REJECTS a TIME-majority garbage transcript even though the COUNT is a minority", async () => {
+    // 15 short clean segments (4s each = 60s real speech) + 14 long garbage segments
+    // (30s each = 420s intra-loops). By COUNT: 14/29 = 48% dropped (under the 50%
+    // gate → the old count gate would BUILD a whole-episode map on a 60s minority).
+    // By TIME: 420/480 = 87.5% of the audio is garbage → the time gate REJECTS.
+    const GARBAGE_WORDS = ["شغل", "بيت", "وقت", "كلام", "صوت", "باب", "درب", "حال", "يوم", "شهر", "ليل", "نهار", "برد", "حر"]
+    let t = 0
+    const clean: TimedSegment[] = Array.from({ length: 15 }, (_, i) => {
+      const s: TimedSegment = { start: t, end: t + 4, text: `جملة حقيقية متنوعة رقم ${i} في الحلقة`, chunk: 0 }
+      t += 4
+      return s
+    })
+    const garbage: TimedSegment[] = GARBAGE_WORDS.map((w) => {
+      const s: TimedSegment = { start: t, end: t + 30, text: Array.from({ length: 20 }, () => w).join(" "), chunk: 0 }
+      t += 30
+      return s
+    })
+    await expect(
+      generateEpisodeMap({ segments: [...clean, ...garbage], audioFilePath: "/fake/audio.mp3" }),
+    ).rejects.toThrow(/تعذّر إنتاج خريطة موثوقة/)
+    // Rejected on TIME, before any ffmpeg/AI spend.
+    expect(detectBreaksMock).not.toHaveBeenCalled()
+    expect(runAiTaskMock).not.toHaveBeenCalled()
+  })
+
+  it("HIGH#3: REJECTS a diffusely-degenerate transcript the filter can't safely trim (verdict.degenerate, droppedCount===0)", async () => {
+    // The ambiguous corroborated shape: 24 "نعم"/"لا" segments — a 6-run with globally
+    // collapsed uniqueness. The overall verdict is `degenerate: true`, but the surgical
+    // filter DROPS NOTHING (it never deletes possibly-real emphatic repetition). With
+    // no clean-and-safe remainder to fall back to, the map builder must REFUSE rather
+    // than silently build on a transcript the verdict itself calls degenerate.
+    const texts = [
+      ...Array.from({ length: 6 }, () => "نعم"),
+      ...Array.from({ length: 18 }, (_, i) => (i % 2 === 0 ? "لا" : "نعم")),
+    ]
+    const segs: TimedSegment[] = texts.map((text, i) => ({
+      start: i * 2,
+      end: i * 2 + 1.8,
+      text,
+      chunk: 0,
+    }))
+    await expect(
+      generateEpisodeMap({ segments: segs, audioFilePath: "/fake/audio.mp3" }),
+    ).rejects.toThrow(/تعذّر إنتاج خريطة موثوقة/)
+    expect(detectBreaksMock).not.toHaveBeenCalled()
+    expect(runAiTaskMock).not.toHaveBeenCalled()
+  })
+
+  it("surfaces transcript_health (dropped seconds + hole intervals) on a map built over a filtered loop", async () => {
+    // 12 clean + a 12-long "ثاني" HARD inter-loop + 12 clean → the loop is filtered,
+    // the map builds on the clean remainder, and the map REPORTS the hole honestly.
+    let t = 0
+    const mk = (text: string, dur = 5): TimedSegment => {
+      const s: TimedSegment = { start: t, end: t + dur, text, chunk: 0 }
+      t += dur
+      return s
+    }
+    const before = Array.from({ length: 12 }, (_, i) => mk(`مقدمة متنوعة رقم ${i} هنا الآن`))
+    const loopStart = t
+    const loop = Array.from({ length: 12 }, () => mk("ثاني"))
+    const loopEnd = t
+    const after = Array.from({ length: 12 }, (_, i) => mk(`خاتمة متنوعة رقم ${i} هنا الآن`))
+    const segs = [...before, ...loop, ...after]
+
+    const windows = mergeIntoWindows([...before, ...after], 20) // clean-only windows
+    runAiTaskMock.mockResolvedValue({
+      status: "succeeded",
+      parsed: {
+        true_start_segment_id: windowId(0),
+        first_real_sentence: windows[0].text.split(" ").slice(0, 3).join(" "),
+        pre_roll_summary: "",
+        gaps: [],
+        hook_candidates: [],
+      } as EpisodeMapModelOutput,
+      runId: "run-health",
+      modelName: "gpt-5.6-luna",
+    })
+    detectBreaksMock.mockResolvedValue({ peakDb: -16, thresholdDb: -28, silences: [], breaks: [] })
+
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {})
+    const map = await generateEpisodeMap({ segments: segs, audioFilePath: "/fake/audio.mp3" })
+    warn.mockRestore()
+
+    expect(map.transcript_health.dropped_segments).toBe(12)
+    expect(map.transcript_health.dropped_seconds).toBeCloseTo(60, 5) // 12 × 5s
+    expect(map.transcript_health.dropped_intervals).toEqual([
+      { start: loopStart, end: loopEnd },
+    ])
+    expect(map.transcript_health.suspect_run).toBeNull()
+  })
+
+  it("Finding 1 (Wave-1.6): REJECTS a MERGED residual loop the filter splices into `clean` ([8×ثاني][10×اكس][8×ثاني])", async () => {
+    // The filter drops the middle 10-run "اكس" (HARD) and splices the two 8-runs of
+    // "ثاني" into 16 identical segments in `clean` — a loop the pre-filter verdict never
+    // saw. It slips past BOTH existing gates: remainder-too-thin (clean=16 ≥ MIN, drop
+    // fraction ~0.38 < 0.5) and diffuse (droppedCount=10 > 0). Only re-assessing the
+    // CLEAN remainder rejects it. This is the HIGH the adversarial review found.
+    const texts = [
+      ...Array.from({ length: 8 }, () => "ثاني"),
+      ...Array.from({ length: 10 }, () => "اكس"),
+      ...Array.from({ length: 8 }, () => "ثاني"),
+    ]
+    const merged: TimedSegment[] = texts.map((text, i) => ({
+      start: i * 2,
+      end: i * 2 + 1.8,
+      text,
+      chunk: 0,
+    }))
+    await expect(
+      generateEpisodeMap({ segments: merged, audioFilePath: "/fake/audio.mp3" }),
+    ).rejects.toThrow(/تعذّر إنتاج خريطة موثوقة/)
+    // Refused on the residual text-check, before any ffmpeg break detection or paid AI.
+    expect(detectBreaksMock).not.toHaveBeenCalled()
+    expect(runAiTaskMock).not.toHaveBeenCalled()
+  })
+
+  it("Finding 1 (Wave-1.6): REJECTS a corroborated-degenerate clean remainder after a HARD loop is dropped", async () => {
+    // A HARD "اكس" loop (dropped ⇒ droppedCount>0, so the diffuse gate cannot fire),
+    // followed by a corroborated-shape remainder: 21 "نعم"/"لا" segments (uniqueness
+    // 2/21 ≈ 0.095 ≤ 0.3, a 6-run ≥ SUSPECT, ≥ 20 for the ratio). clean=21 ≥ MIN and the
+    // drop-fraction is low, so ONLY re-assessing the remainder rejects it.
+    const texts = [
+      ...Array.from({ length: 12 }, () => "اكس"), // HARD → dropped
+      ...Array.from({ length: 6 }, () => "نعم"), // 6-run survives in the remainder
+      ...Array.from({ length: 15 }, (_, i) => (i % 2 === 0 ? "لا" : "نعم")),
+    ]
+    const segs: TimedSegment[] = texts.map((text, i) => ({
+      start: i * 2,
+      end: i * 2 + 1.8,
+      text,
+      chunk: 0,
+    }))
+    await expect(
+      generateEpisodeMap({ segments: segs, audioFilePath: "/fake/audio.mp3" }),
+    ).rejects.toThrow(/تعذّر إنتاج خريطة موثوقة/)
+    expect(detectBreaksMock).not.toHaveBeenCalled()
+    expect(runAiTaskMock).not.toHaveBeenCalled()
+  })
+
+  it("Finding 3 (Wave-1.6): surfaces a borderline 5–9 suspect_run from the CLEAN remainder even when a HARD loop is dropped", async () => {
+    // A dropped HARD loop pushes the PRE-filter global maxConsecutiveRun ≥ HARD, which
+    // would mask a real borderline run if suspect_run were read from the pre-filter
+    // verdict. Reading it from the CLEAN remainder's own metrics surfaces the 5-run.
+    let t = 0
+    const mk = (text: string, dur = 5): TimedSegment => {
+      const s: TimedSegment = { start: t, end: t + dur, text, chunk: 0 }
+      t += dur
+      return s
+    }
+    const before = Array.from({ length: 12 }, (_, i) => mk(`مقدمة متنوعة رقم ${i} هنا الآن`))
+    const hardLoop = Array.from({ length: 12 }, () => mk("اكس")) // dropped by the filter
+    const mid = Array.from({ length: 6 }, (_, i) => mk(`وسط متنوع رقم ${i} هنا الآن`))
+    const suspectStart = t
+    const suspect = Array.from({ length: 5 }, () => mk("أكيد")) // borderline, healthy uniqueness
+    const suspectEnd = t
+    const after = Array.from({ length: 6 }, (_, i) => mk(`خاتمة متنوعة رقم ${i} هنا الآن`))
+    const segs = [...before, ...hardLoop, ...mid, ...suspect, ...after]
+
+    // Windows built ONLY on what survives the filter (everything but the hard loop).
+    const cleanSegs = [...before, ...mid, ...suspect, ...after]
+    const windows = mergeIntoWindows(cleanSegs, 20)
+    runAiTaskMock.mockResolvedValue({
+      status: "succeeded",
+      parsed: {
+        true_start_segment_id: windowId(0),
+        first_real_sentence: windows[0].text.split(" ").slice(0, 3).join(" "),
+        pre_roll_summary: "",
+        gaps: [],
+        hook_candidates: [],
+      } as EpisodeMapModelOutput,
+      runId: "run-suspect",
+      modelName: "gpt-5.6-luna",
+    })
+    detectBreaksMock.mockResolvedValue({ peakDb: -16, thresholdDb: -28, silences: [], breaks: [] })
+
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {})
+    const map = await generateEpisodeMap({ segments: segs, audioFilePath: "/fake/audio.mp3" })
+    warn.mockRestore()
+
+    // The dropped HARD loop does NOT mask the borderline run — it is reported from the
+    // clean remainder's own metrics, with the run's real absolute span.
+    expect(map.transcript_health.suspect_run).toEqual({
+      length: 5,
+      start_seconds: suspectStart,
+      end_seconds: suspectEnd,
+    })
+  })
+})
+
+// ═══ HIGH#1 — filtered-hole rejection on REAL whisper-1 output ════════════════
+// Loads the ACTUAL whisper-1 verbose_json for chunk3 of Khaled's real 86-min
+// upload (the "no cross-chunk prompt" A/B arm), which still contains an
+// intra-segment اشتغلنا loop (36×, compression_ratio 17.68) at 306–366s. This is
+// the honest, no-mock proof that the filter drops the real garbage AND that the
+// resolver refuses to send the editor across the resulting hole.
+describe("HIGH#1 — dropped-hole rejection on the REAL chunk3 اشتغلنا loop", () => {
+  const FIXTURE = JSON.parse(
+    fs.readFileSync(
+      path.join(process.cwd(), "tests", "fixtures", "whisper", "chunk3.FIXA-no-prompt.verbose.json"),
+      "utf8",
+    ),
+  ) as {
+    text: string
+    segments: Array<{ start: number; end: number; text: string; compression_ratio: number }>
+  }
+
+  function timed(): TimedSegment[] {
+    return FIXTURE.segments.map((s) => ({
+      start: s.start,
+      end: s.end,
+      text: s.text,
+      chunk: 0,
+      compressionRatio: s.compression_ratio,
+    }))
+  }
+
+  it("(a,b,c) drops the two 30s loop segments, keeps the real speech, reports the [306,366] hole", () => {
+    const segs = timed()
+    const { clean, droppedCount, droppedSeconds, droppedIntervals } = filterDegenerateSegments(segs)
+    // (a) exactly the two 30s garbage segments (306–336, 336–366, cr 17.68) are dropped
+    expect(droppedCount).toBe(2)
+    expect(clean.some((s) => s.start === 306)).toBe(false)
+    expect(clean.some((s) => s.start === 336)).toBe(false)
+    expect(clean.some((s) => (s.text.split("اشتغلنا").length - 1) >= 20)).toBe(false)
+    // (b) the real speech survives — 261 segments in, only the 2 garbage out
+    expect(clean).toHaveLength(segs.length - 2)
+    expect(clean).toHaveLength(259)
+    expect(clean[0].text).toContain("سخيفة") // the real opener is kept
+    // (c) the hole is reported and covers the whole loop region
+    expect(droppedSeconds).toBeCloseTo(60, 5)
+    expect(droppedIntervals).toEqual([{ start: 306, end: 366 }])
+  })
+
+  it("(d) a hook that SPANS the real hole is DROPPED; a hook clear of it survives", () => {
+    const { droppedIntervals } = filterDegenerateSegments(timed())
+    // Windows on either side of the REAL hole (306–366): before [300,305], after [400,410].
+    const before: TimedSegment = { start: 300, end: 305, text: "كلام حقيقي واضح قبل الفجوة", chunk: 0 }
+    const after: TimedSegment = { start: 400, end: 410, text: "كلام حقيقي واضح بعد الفجوة", chunk: 0 }
+    const segMap = new Map<string, { segment: TimedSegment; index: number }>([
+      ["S001", { segment: before, index: 0 }],
+      ["S002", { segment: after, index: 1 }],
+    ])
+    const model: EpisodeMapModelOutput = {
+      true_start_segment_id: "S001",
+      first_real_sentence: "كلام حقيقي واضح قبل الفجوة",
+      pre_roll_summary: "",
+      gaps: [],
+      hook_candidates: [
+        { rank: 1, start_segment_id: "S001", end_segment_id: "S002", opens_with: "stake", why: "يعبر الفجوة" },
+        { rank: 2, start_segment_id: "S002", end_segment_id: "S002", opens_with: "context", why: "بعد الفجوة" },
+      ],
+    }
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {})
+    const map = resolveEpisodeMap(model, segMap, buildGapMap([]), PROV, droppedIntervals)
+    // The spanning hook (300→410 crosses 306–366) is dropped; only the clear one remains.
+    expect(map.hook_candidates).toHaveLength(1)
+    expect(map.hook_candidates[0]).toMatchObject({ start_seconds: 400, end_seconds: 410 })
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining("spans a filtered-out"))
+    warn.mockRestore()
+  })
+
+  it("(d) a true_start that lands INSIDE the real hole THROWS (reselect, never anchor on garbage)", () => {
+    const { droppedIntervals } = filterDegenerateSegments(timed())
+    const inHole: TimedSegment = { start: 320, end: 325, text: "اشتغلنا اشتغلنا", chunk: 0 }
+    const segMap = new Map<string, { segment: TimedSegment; index: number }>([
+      ["S001", { segment: inHole, index: 0 }],
+    ])
+    const model: EpisodeMapModelOutput = {
+      true_start_segment_id: "S001",
+      first_real_sentence: "اشتغلنا اشتغلنا",
+      pre_roll_summary: "",
+      gaps: [],
+      hook_candidates: [],
+    }
+    expect(() =>
+      resolveEpisodeMap(model, segMap, buildGapMap([]), PROV, droppedIntervals),
+    ).toThrow(/falls inside a filtered-out/)
   })
 })

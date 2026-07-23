@@ -30,8 +30,14 @@ import {
   type TimedSegment,
 } from "@/lib/studio/segments"
 import {
+  filterDegenerateSegments,
   assessTranscriptDegeneracy,
   DEGENERATE_TRANSCRIPT_MESSAGE,
+  MAX_DEGENERATE_DROP_FRACTION,
+  MIN_CLEAN_SEGMENTS,
+  SUSPECT_LOOP_RUN_LENGTH,
+  HARD_LOOP_RUN_LENGTH,
+  type TimeInterval,
 } from "@/lib/studio/transcript-quality"
 import { formatTimeSeconds } from "@/lib/shared/formatters"
 import {
@@ -110,6 +116,31 @@ export interface EpisodeMapHook {
   why: string
 }
 
+/**
+ * Honesty payload: what whisper degeneracy the map was built AROUND. A map built
+ * on a filtered transcript has HOLES (spans we dropped as garbage), and Khaled
+ * must SEE them — a silent gap is exactly the dishonesty this pipeline refuses.
+ * Surfaced in the map result (persisted in the map JSONB, shown in the UI) instead
+ * of only a `console.warn` the operator never reads.
+ */
+export interface EpisodeMapTranscriptHealth {
+  /** Segments dropped as degenerate whisper loops before the map was built. */
+  dropped_segments: number
+  /** Total wall-clock seconds of dropped (filtered) audio. */
+  dropped_seconds: number
+  /** dropped_seconds / total transcribed seconds (0 when nothing was transcribed). */
+  dropped_fraction: number
+  /** Filtered-out spans on the raw timeline — HOLES the map skips over. */
+  dropped_intervals: TimeInterval[]
+  /**
+   * A borderline 5–9 identical-segment run that was NEITHER dropped (too short to
+   * be an unambiguous loop) NOR flagged degenerate (uniqueness stayed healthy) —
+   * the "dead zone". Surfaced so a possibly-looped region is honest even though the
+   * pipeline could not safely act on it. null when no such run exists.
+   */
+  suspect_run: { length: number; start_seconds: number; end_seconds: number } | null
+}
+
 export interface EpisodeMap {
   /** Real seconds where the episode content actually begins. */
   episode_true_start: number
@@ -118,6 +149,8 @@ export interface EpisodeMap {
   pre_roll_summary: string
   breaks: EpisodeMapBreak[]
   hook_candidates: EpisodeMapHook[]
+  /** Whisper-degeneracy honesty payload (holes the map was built around). */
+  transcript_health: EpisodeMapTranscriptHealth
   // Provenance.
   prompt_version: string
   ai_run_id: string
@@ -169,6 +202,22 @@ function renderGaps(
     .join("\n")
 }
 
+/** True when point `p` sits inside a dropped (filtered-garbage) interval `[c, d)`. */
+function pointInDroppedInterval(p: number, intervals: TimeInterval[]): TimeInterval | null {
+  for (const iv of intervals) {
+    if (p >= iv.start && p < iv.end) return iv
+  }
+  return null
+}
+
+/** True when range `[a, b]` overlaps any dropped interval `[c, d]` (touching ends excluded). */
+function rangeIntersectsDropped(a: number, b: number, intervals: TimeInterval[]): TimeInterval | null {
+  for (const iv of intervals) {
+    if (a < iv.end && iv.start < b) return iv
+  }
+  return null
+}
+
 /**
  * Convert validated model output (ids + labels) into a map with REAL seconds.
  * Pure + exported so the id→seconds resolution and platform_fit derivation are
@@ -176,6 +225,13 @@ function renderGaps(
  *
  * `segMap`  : window id (`Sxxx`) → { segment, index }  (authoritative seconds)
  * `gapMap`  : gap id  (`GAP_n`)  → { start, end, duration }  (ffmpeg's numbers)
+ * `droppedIntervals` : spans FILTERED OUT as degenerate whisper garbage before
+ *   the windows were built. The model reads only clean windows, but a hook range
+ *   can still SPAN a hole (window-before-hole → window-after-hole) and a true_start
+ *   can theoretically land in one. Any true_start in a hole THROWS (reselect); any
+ *   hook range that intersects a hole is DROPPED (a missing hook beats a hook that
+ *   sends the editor to known garbage). Default `[]` — no holes, no checks — so
+ *   every existing caller/test is unchanged.
  *
  * Every rejection path throws with a clear message; a caller that gets a
  * returned value is holding a fully-validated map.
@@ -185,13 +241,27 @@ export function resolveEpisodeMap(
   segMap: Map<string, { segment: TimedSegment; index: number }>,
   gapMap: Map<string, { start: number; end: number; durationSeconds: number }>,
   provenance: { promptVersion: string; aiRunId: string; modelName: string },
-): Omit<EpisodeMap, "generated_at"> {
+  droppedIntervals: TimeInterval[] = [],
+): Omit<EpisodeMap, "generated_at" | "transcript_health"> {
   // ── true_start: id must exist ──────────────────────────────────────────────
   const trueStart = segMap.get(model.true_start_segment_id)
   if (!trueStart) {
     throw new Error(
       `episode-map: true_start_segment_id "${model.true_start_segment_id}" ` +
         `is not a real window id — refusing to emit a fabricated start`,
+    )
+  }
+
+  // ── true_start must NOT land in a filtered-garbage hole ─────────────────────
+  // The window's start is real, but if it falls inside a span we dropped as a
+  // whisper loop, the "start" points at deleted garbage. Refuse — never anchor the
+  // whole episode on a region we know is hallucinated.
+  const startHole = pointInDroppedInterval(trueStart.segment.start, droppedIntervals)
+  if (startHole) {
+    throw new Error(
+      `episode-map: episode_true_start ${trueStart.segment.start.toFixed(1)}s falls inside a ` +
+        `filtered-out (degenerate) span ${startHole.start.toFixed(1)}s→${startHole.end.toFixed(1)}s ` +
+        `— refusing to anchor the episode on dropped garbage`,
     )
   }
 
@@ -264,11 +334,25 @@ export function resolveEpisodeMap(
         `episode-map: hook has unknown opens_with "${h.opens_with}"`,
       )
     }
+    const hookStart = startSeg.segment.start
+    const hookEnd = endSeg.segment.end
+    // A hook that SPANS a filtered-out hole (window-before-hole → window-after-hole)
+    // would send the editor to a clip that includes known garbage. DROP that hook —
+    // a missing hook is strictly better than a garbage hook — and warn. The map
+    // still ships; the other hooks are unaffected.
+    const hole = rangeIntersectsDropped(hookStart, hookEnd, droppedIntervals)
+    if (hole) {
+      console.warn(
+        `[episode-map] dropping hook ${hookStart.toFixed(1)}s→${hookEnd.toFixed(1)}s — it ` +
+          `spans a filtered-out (degenerate) span ${hole.start.toFixed(1)}s→${hole.end.toFixed(1)}s`,
+      )
+      continue
+    }
     const opensWith = h.opens_with as HookOpensWith
     hooks.push({
       rank: h.rank,
-      start_seconds: startSeg.segment.start,
-      end_seconds: endSeg.segment.end,
+      start_seconds: hookStart,
+      end_seconds: hookEnd,
       opens_with: opensWith,
       // platform_fit is DERIVED by code, never taken from the model.
       platform_fit: derivePlatformFit(opensWith),
@@ -302,16 +386,108 @@ export async function generateEpisodeMap(
     throw new Error("episode-map: no segments to build a map from")
   }
 
-  // ── TEXT honesty: reject a hallucinated (looped) transcript BEFORE building a
-  //    map on it. The anti-fabrication spine below proves the MODEL is honest;
-  //    this proves WHISPER is. A whisper decoding loop (dozens of identical
-  //    consecutive segments — happens on raw audio with long silence/breaks,
-  //    Khaled's exact case) passes every downstream self-check (monotonic,
-  //    in-bounds, substring proof) while pointing the editor at garbage. Fail
-  //    fast here, before any ffmpeg or paid AI work.
-  const degeneracy = assessTranscriptDegeneracy(input.segments)
-  if (degeneracy.degenerate) {
-    throw new Error(`${DEGENERATE_TRANSCRIPT_MESSAGE} [${degeneracy.reason}]`)
+  // ── TEXT honesty: FILTER the hallucinated (looped) segments BEFORE building a
+  //    map, then build on the CLEAN remainder. The anti-fabrication spine below
+  //    proves the MODEL is honest; this proves WHISPER is. A whisper decoding loop
+  //    (dozens of identical consecutive segments — happens on raw audio with long
+  //    silence/breaks, Khaled's exact case) passes every downstream self-check
+  //    (monotonic, in-bounds, substring proof) while pointing the editor at
+  //    garbage. We DROP those segments instead of throwing the whole map away
+  //    (Khaled's "فلترة" choice: his real 86-min file is ~80% clean, so a map MUST
+  //    still be built) — but if the transcript is MOSTLY hallucination, a clean
+  //    error beats a map built on a minority of the real audio. Runs before any
+  //    ffmpeg or paid AI work.
+  const { clean, droppedCount, droppedSeconds, totalSeconds, droppedIntervals, verdict } =
+    filterDegenerateSegments(input.segments)
+  const totalCount = input.segments.length
+  // TIME-weighted drop fraction, NOT count-weighted. A loop that is few-segments-
+  // but-many-seconds (a handful of long 30s garbage segments vs. many short clean
+  // ones) has a small COUNT fraction while being mostly-garbage by DURATION; a
+  // count gate would confidently build a whole-episode map on a real-audio minority.
+  // The map is a claim about TIME, so the gate is about time.
+  const dropTimeFraction = totalSeconds > 0 ? droppedSeconds / totalSeconds : 0
+  // Reject in two cases:
+  //   (A) we filtered garbage AND the clean remainder is too thin / too small a
+  //       time-slice of the real audio to trust a full-episode map on; OR
+  //   (B) the overall verdict is degenerate yet NOTHING was surgically dropped —
+  //       the "diffuse" degeneracy the filter deliberately won't touch (an
+  //       ambiguous 5–9 run with collapsed uniqueness). There is no clean-and-safe
+  //       remainder to fall back to, so refuse rather than silently build a map the
+  //       verdict itself calls degenerate (restores the pre-filter guard's floor).
+  const remainderTooThin =
+    droppedCount > 0 &&
+    (clean.length === 0 ||
+      clean.length < MIN_CLEAN_SEGMENTS ||
+      dropTimeFraction > MAX_DEGENERATE_DROP_FRACTION)
+  const diffuseDegeneracy = verdict.degenerate && droppedCount === 0
+  // (C) RE-ASSESS the CLEAN remainder the map will actually be built on, and refuse if
+  //     it is STILL degenerate. `filterDegenerateSegments` measures HARD runs on the
+  //     ORIGINAL stream, so dropping a HARD run that sits BETWEEN two sub-HARD runs of
+  //     the SAME word splices them into ONE connected loop in `clean`
+  //     ([8×"ثاني"][10×"X"][8×"ثاني"] → drop the "X" loop → 16 identical "ثاني" in a
+  //     row) — a loop the pre-filter `verdict` (computed on the raw input) never sees,
+  //     and that slips past both gates above (droppedCount>0 so NOT diffuse; clean is
+  //     long enough and the time-fraction low). A residual diffuse degeneracy survives
+  //     the same way. A map over a residual loop points the editor at garbage exactly
+  //     like the un-filtered case, so the remainder must clear the SAME text check that
+  //     licensed the filter. A borderline 5–9 run with healthy uniqueness is NOT
+  //     degenerate here — it is surfaced as `suspect_run` below.
+  const cleanVerdict = assessTranscriptDegeneracy(clean)
+  if (remainderTooThin || diffuseDegeneracy || cleanVerdict.degenerate) {
+    throw new Error(
+      `${DEGENERATE_TRANSCRIPT_MESSAGE} ` +
+        `[dropped ${droppedCount}/${totalCount} segments ` +
+        `(${Math.round(dropTimeFraction * 100)}% of audio, ${droppedSeconds.toFixed(0)}s), ` +
+        `clean=${clean.length}` +
+        `${verdict.reason ? `; pre-filter: ${verdict.reason}` : ""}` +
+        `${cleanVerdict.degenerate && cleanVerdict.reason ? `; residual: ${cleanVerdict.reason}` : ""}]`,
+    )
+  }
+  if (droppedCount > 0) {
+    console.warn(
+      `[episode-map] filtered ${droppedCount}/${totalCount} degenerate segments ` +
+        `(${droppedSeconds.toFixed(0)}s, ${Math.round(dropTimeFraction * 100)}% of audio) — ` +
+        `building map on ${clean.length} clean segments over ` +
+        `${droppedIntervals.length} hole(s)` +
+        (verdict.reason ? `; ${verdict.reason}` : ""),
+    )
+  }
+
+  // ── dead-zone warning: a borderline 5–9 identical run that the filter did NOT
+  //    drop (too short to be an unambiguous loop) and the CLEAN-remainder verdict did
+  //    NOT flag (uniqueness stayed healthy). Measured on `cleanVerdict` (the POST-filter
+  //    remainder), NOT the pre-filter `verdict`: a hard loop that WAS dropped pushes the
+  //    pre-filter global `maxConsecutiveRun` ≥ HARD, which would mask a real borderline
+  //    5–9 run surviving in the clean remainder (it would fail the `< HARD` test and
+  //    silently vanish). We cannot safely act on it, but a possibly-looped region must
+  //    not be silent — surface it in the map + a warn. (On this non-thrown path
+  //    `cleanVerdict.degenerate` is false, so the remainder's run is always < HARD.)
+  const runLen = cleanVerdict.metrics.maxConsecutiveRun
+  const suspectRun =
+    runLen >= SUSPECT_LOOP_RUN_LENGTH &&
+    runLen < HARD_LOOP_RUN_LENGTH &&
+    cleanVerdict.metrics.loopStartSeconds != null &&
+    cleanVerdict.metrics.loopEndSeconds != null
+      ? {
+          length: runLen,
+          start_seconds: cleanVerdict.metrics.loopStartSeconds,
+          end_seconds: cleanVerdict.metrics.loopEndSeconds,
+        }
+      : null
+  if (suspectRun) {
+    console.warn(
+      `[episode-map] borderline ${suspectRun.length}-run (dead zone) at ` +
+        `${suspectRun.start_seconds.toFixed(1)}s→${suspectRun.end_seconds.toFixed(1)}s — ` +
+        `kept (uniqueness healthy) but flagged for manual review`,
+    )
+  }
+
+  const transcriptHealth: EpisodeMapTranscriptHealth = {
+    dropped_segments: droppedCount,
+    dropped_seconds: droppedSeconds,
+    dropped_fraction: dropTimeFraction,
+    dropped_intervals: droppedIntervals,
+    suspect_run: suspectRun,
   }
 
   // ── ffmpeg owns the break numbers ───────────────────────────────────────────
@@ -331,8 +507,9 @@ export async function generateEpisodeMap(
   })
 
   // ── whisper owns the transcript numbers — the model sees only ids ───────────
+  // Build on the CLEAN (filtered) segments, never the raw input.
   const windows = mergeIntoWindows(
-    input.segments,
+    clean,
     input.windowSeconds ?? DEFAULT_WINDOW_SECONDS,
   )
   const segMap = new Map<string, { segment: TimedSegment; index: number }>()
@@ -353,7 +530,8 @@ export async function generateEpisodeMap(
     input: {
       window_count: windows.length,
       gap_count: gaps.length,
-      segment_count: input.segments.length,
+      // The CLEAN segment count actually fed into the windows (post-filter).
+      segment_count: clean.length,
     },
     prompt: [
       { role: "system", content: EPISODE_MAP_SYSTEM },
@@ -373,11 +551,23 @@ export async function generateEpisodeMap(
     throw new Error("episode-map: model returned no parsable JSON")
   }
 
-  const resolved = resolveEpisodeMap(model, segMap, gapMap, {
-    promptVersion: EPISODE_MAP_PROMPT_VERSION,
-    aiRunId: res.runId,
-    modelName: res.modelName,
-  })
+  const resolved = resolveEpisodeMap(
+    model,
+    segMap,
+    gapMap,
+    {
+      promptVersion: EPISODE_MAP_PROMPT_VERSION,
+      aiRunId: res.runId,
+      modelName: res.modelName,
+    },
+    // Pass the filtered-out holes so a true_start / hook that lands in one is
+    // rejected — the editor is never routed to a region we deleted as garbage.
+    droppedIntervals,
+  )
 
-  return { ...resolved, generated_at: new Date().toISOString() }
+  return {
+    ...resolved,
+    transcript_health: transcriptHealth,
+    generated_at: new Date().toISOString(),
+  }
 }

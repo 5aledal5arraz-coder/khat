@@ -97,14 +97,6 @@ const CHUNK_DURATION_SECONDS = 600 // 10 minutes per chunk
  */
 const MIN_CONTENT_CHUNK_SECONDS = 0.25
 
-/**
- * Tail of the previous chunk's transcript passed as `prompt` to the next
- * chunk — gives the model continuity across the 10-minute cut points
- * (names, running topics, sentence fragments). Kept short: the prompt is
- * guidance, not content.
- */
-const CHUNK_CONTEXT_CHARS = 600
-
 interface TranscribeResult {
   success: boolean
   text?: string
@@ -166,6 +158,18 @@ export async function probeAudioDurationPrecise(filePath: string): Promise<numbe
  * Raw provider call — one model, one attempt, no telemetry. The File is
  * rebuilt from `buffer` on every call because the SDK consumes it as a
  * stream, so it can't be shared across the primary + fallback attempts.
+ *
+ * NO `prompt` is sent. Whisper's `prompt` is a SHORT vocabulary hint, but the
+ * pipeline's only ever-available "hint" was the PREVIOUS chunk's transcript tail,
+ * and feeding long verbatim text triggers a runaway decoding loop — rashid proved
+ * it in isolation (the same audio that transcribed clean standalone looped 148×
+ * once the tail was fed in). The tail→prompt channel is therefore removed entirely,
+ * not just left dark: keeping the parameter wired made re-enabling that bug a
+ * one-line change with no signature review. If a real vocabulary hint is ever
+ * needed, add it back as an EXPLICIT short-hint parameter — never the transcript
+ * tail. Accepted tradeoff: chunks transcribe INDEPENDENTLY, so a word/sentence
+ * straddling a 10-min chunk boundary loses cross-chunk continuity; that is far
+ * cheaper than a 148× hallucinated loop.
  */
 async function rawTranscribe(
   openai: OpenAI,
@@ -173,14 +177,12 @@ async function rawTranscribe(
   buffer: Buffer,
   filename: string,
   language: string,
-  contextPrompt?: string
 ): Promise<string> {
   const file = await toFile(buffer, filename)
   const response = await openai.audio.transcriptions.create({
     model,
     file,
     language,
-    ...(contextPrompt ? { prompt: contextPrompt } : {}),
   })
   return response.text
 }
@@ -190,16 +192,16 @@ async function rawTranscribe(
  * with its ACTUAL model, and falling back to the cheaper model on a
  * TRANSIENT primary failure.
  *
- * `contextPrompt` carries the tail of the previous chunk for continuity.
- * The primary attempt is recorded (as failed) BEFORE the fallback row
- * opens, so the two rows never blur which model ran. The fallback is
- * per-chunk: a transient blip on one chunk doesn't downgrade the rest.
+ * No cross-chunk context is fed to whisper (see `rawTranscribe`) — the previous
+ * chunk's transcript tail as `prompt` caused a runaway decoding loop, so that
+ * channel is gone. The primary attempt is recorded (as failed) BEFORE the fallback
+ * row opens, so the two rows never blur which model ran. The fallback is per-chunk:
+ * a transient blip on one chunk doesn't downgrade the rest.
  */
 async function transcribeChunk(
   openai: OpenAI,
   filePath: string,
   language: string,
-  contextPrompt?: string,
   context?: TranscribeContext
 ): Promise<string> {
   const buffer = await fs.readFile(filePath)
@@ -223,10 +225,9 @@ async function transcribeChunk(
           filename,
           language,
           duration_seconds: durationSeconds,
-          has_context_prompt: Boolean(contextPrompt),
         },
       },
-      () => rawTranscribe(openai, model, buffer, filename, language, contextPrompt),
+      () => rawTranscribe(openai, model, buffer, filename, language),
       (text) => ({
         // Transcription bills per minute, not per token.
         tokensIn: null,
@@ -326,7 +327,7 @@ export async function transcribeAudioFile(
 
     if (stat.size <= WHISPER_MAX_SIZE) {
       // Small file — send directly
-      const text = await transcribeChunk(openai, filePath, language, undefined, context)
+      const text = await transcribeChunk(openai, filePath, language, context)
       return { success: true, text }
     }
 
@@ -340,13 +341,16 @@ export async function transcribeAudioFile(
         return { success: false, error: "فشل في تقسيم الملف الصوتي" }
       }
 
-      // Transcribe chunks sequentially, feeding each chunk the tail of
-      // the previous transcript so cut-point sentences stay coherent.
+      // Transcribe chunks sequentially, each one INDEPENDENTLY. We deliberately
+      // do NOT feed the previous chunk's transcript tail as whisper `prompt`:
+      // whisper's `prompt` is for SHORT vocabulary hints, and passing long
+      // verbatim text triggers a runaway decoding loop — rashid proved this in
+      // isolation (the same audio that transcribes clean standalone looped 148×
+      // inside the pipeline once the tail was fed in). That channel is now removed
+      // from the call path entirely (see `rawTranscribe`).
       const texts: string[] = []
       for (const chunkPath of chunkPaths) {
-        const prev = texts[texts.length - 1]
-        const contextPrompt = prev ? prev.slice(-CHUNK_CONTEXT_CHARS) : undefined
-        const text = await transcribeChunk(openai, chunkPath, language, contextPrompt, context)
+        const text = await transcribeChunk(openai, chunkPath, language, context)
         texts.push(text)
       }
 
@@ -428,7 +432,6 @@ async function rawTranscribeVerbose(
   buffer: Buffer,
   filename: string,
   language: string,
-  contextPrompt?: string,
 ): Promise<RawSegment[]> {
   const file = await toFile(buffer, filename)
   const response = await openai.audio.transcriptions.create({
@@ -438,7 +441,8 @@ async function rawTranscribeVerbose(
     response_format: "verbose_json",
     timestamp_granularities: ["segment"],
     temperature: 0,
-    ...(contextPrompt ? { prompt: contextPrompt } : {}),
+    // No `prompt`: the tail→prompt channel is removed (see `rawTranscribe`) — it
+    // is what turned this whisper-1 verbose path into a 148× decoding loop.
   })
   return (response.segments ?? []).map((s) => ({
     start: s.start,
@@ -461,7 +465,6 @@ async function transcribeChunkVerbose(
   filePath: string,
   language: string,
   pricingDuration: number | null,
-  contextPrompt?: string,
   context?: TranscribeContext,
   phase: string = "timestamp_map",
 ): Promise<RawSegment[]> {
@@ -486,10 +489,9 @@ async function transcribeChunkVerbose(
         filename,
         language,
         duration_seconds: roundedDuration,
-        has_context_prompt: Boolean(contextPrompt),
       },
     },
-    () => rawTranscribeVerbose(openai, buffer, filename, language, contextPrompt),
+    () => rawTranscribeVerbose(openai, buffer, filename, language),
     (segments) => ({
       tokensIn: null,
       tokensOut: null,
@@ -544,7 +546,7 @@ export async function transcribeWithTimestamps(
     // Small enough — the whole file is one chunk (offset 0).
     if (stat.size <= WHISPER_MAX_SIZE) {
       const segs = await transcribeChunkVerbose(
-        openai, filePath, language, fullDuration, undefined, context, phase,
+        openai, filePath, language, fullDuration, context, phase,
       )
       // Single-chunk path still reports 1/1 so a poller sees transcription done.
       emitTranscriptionProgress(onProgress, 1, 1)
@@ -564,7 +566,6 @@ export async function transcribeWithTimestamps(
       }
 
       const chunks: WhisperChunk[] = []
-      let prevTail: string | undefined
       for (let i = 0; i < chunkPaths.length; i++) {
         const chunkPath = chunkPaths[i]
         const durationSeconds = await probeAudioDurationPrecise(chunkPath)
@@ -586,8 +587,14 @@ export async function transcribeWithTimestamps(
           }
         }
 
+        // Each chunk is transcribed INDEPENDENTLY — no cross-chunk `prompt`.
+        // Feeding the previous chunk's transcript tail as whisper `prompt`
+        // triggers a runaway decoding loop (see the loop note in the text path,
+        // `transcribeAudioFile`); whisper's `prompt` is for short vocabulary
+        // hints, not long verbatim text. That channel is removed (see
+        // `rawTranscribe`).
         const segs = await transcribeChunkVerbose(
-          openai, chunkPath, language, durationSeconds, prevTail, context, phase,
+          openai, chunkPath, language, durationSeconds, context, phase,
         )
         chunks.push({ segments: segs, durationSeconds })
         // Report "chunk X of Y done" — X counts content chunks actually
@@ -595,9 +602,6 @@ export async function transcribeWithTimestamps(
         // split count. The transcription wall-clock dominates, so this is the
         // signal a progress bar rides on.
         emitTranscriptionProgress(onProgress, chunks.length, chunkPaths.length)
-        // Carry a little context across the cut for name/topic continuity.
-        const tailText = segs.map((s) => s.text).join(" ")
-        prevTail = tailText ? tailText.slice(-CHUNK_CONTEXT_CHARS) : prevTail
       }
 
       if (chunks.length === 0) {

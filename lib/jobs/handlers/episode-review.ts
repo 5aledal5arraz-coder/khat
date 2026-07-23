@@ -49,7 +49,9 @@ import { transcribeWithTimestamps } from "@/lib/whisper"
 import { reviewEpisodeEdits } from "@/lib/studio/episode-review"
 import {
   assessTranscriptDegeneracy,
+  filterDegenerateSegments,
   DEGENERATE_EDITED_TRANSCRIPT_MESSAGE,
+  DEGENERATE_RAW_REVIEW_TRANSCRIPT_MESSAGE,
 } from "@/lib/studio/transcript-quality"
 import {
   estimateChunkCount,
@@ -199,11 +201,23 @@ registerHandler<EpisodeReviewPayload, EpisodeReviewResult>(
     // transcription is a SECOND whisper pass and can ALSO degenerate into a
     // decoding loop (identical segments repeated) on silence/breaks in the cut.
     // A looped edited transcript passes reviewEpisodeEdits' structural checks but
-    // makes every content-alignment verdict garbage (looped text aligns to nothing,
-    // so real content reads as "cut"). Fail the job with a meaningful message here
-    // rather than store a review built on hallucinated edited text. Raw segments are
-    // NOT re-checked — they already passed Phase 1's guard (the map only exists
-    // because Phase 1 succeeded).
+    // makes every content-alignment verdict garbage. Fail the job with a meaningful
+    // message here rather than store a review built on hallucinated edited text.
+    // (The RAW side is not REFUSED here — the map already exists so Phase 1's guard
+    // passed — but it IS FILTERED before the comparison in step 4, the same way the
+    // map was built, so raw whisper garbage can't fabricate a false ✅. See there.)
+    //
+    // DELIBERATE DIVERGENCE from the Phase-1 map path (Wave-1 Fix B): the map path
+    // FILTERS degenerate segments and builds on the clean remainder, because that
+    // is generation and dropping garbage is safe. This review path does NOT filter
+    // — it REFUSES on any degeneracy. Reviewing verifies whether a cut was APPLIED
+    // by checking that raw content is ABSENT from the edited transcript; a whisper
+    // hallucination that REPLACED still-present edited content makes that content
+    // unmatchable, so the raw content reads "absent" → a FALSE ✅ "applied". That
+    // false ✅ is the review's cardinal sin (see the honesty principle in
+    // episode-review.ts), and filtering the hallucinated region out does NOT rescue
+    // it (the real words are already gone). So the honesty-safe unification is: same
+    // degeneracy engine, but refuse-don't-filter here — flagged for Khaled's sign-off.
     const editedDegeneracy = assessTranscriptDegeneracy(editedSegments)
     if (editedDegeneracy.degenerate) {
       throw new Error(
@@ -219,7 +233,37 @@ registerHandler<EpisodeReviewPayload, EpisodeReviewResult>(
         totalChunks: lastTotalChunks,
       }),
     )
-    const review = reviewEpisodeEdits(rawTimed.segments, map, editedSegments)
+    // FILTER the RAW side the SAME way Phase 1 did before it built the map. The
+    // persisted rawTimed.segments are the FULL, UNFILTERED whisper output (the map
+    // handler saves segments BEFORE generateEpisodeMap filters them locally). The
+    // review classifies each RAW segment as PRESENT/ABSENT in the edited transcript;
+    // a whisper-loop garbage segment ("اشتغلنا ×36") reads ABSENT (its garbage token
+    // is not in the correctly-transcribed edited audio) and, if it overlaps a note
+    // region, fabricates absent-evidence → a FALSE ✅ "applied" on a break that was
+    // never actually cut. Dropping the same garbage the map dropped removes that
+    // fabricated evidence; a region left with no real content then honestly reads
+    // `uncertain`, never a false ✅. The EDITED side stays REFUSE-not-filter (guard
+    // 3b above) — Khaled's confirmed decision — because a hallucination that REPLACED
+    // still-present edited content can't be rescued by filtering (the real words are
+    // already gone).
+    const cleanRaw = filterDegenerateSegments(rawTimed.segments).clean
+    // RE-ASSESS the filtered raw remainder before trusting it as the review reference.
+    // `filterDegenerateSegments` is a keep/drop MASK, not a proof of cleanliness: it
+    // measures HARD runs on the ORIGINAL stream, so dropping a HARD run BETWEEN two
+    // sub-HARD runs of the SAME word splices them into ONE connected loop that survives
+    // in `cleanRaw` ([8×"ثاني"][10×"X"][8×"ثاني"] → the "X" loop is dropped → 16 identical
+    // "ثاني" remain). A residual loop in the reference reads "absent" from the edited
+    // transcript and fabricates a FALSE ✅ "applied" — the review's cardinal sin. Unlike
+    // the map path (generation), a review VERIFIES and there is no honest way to filter
+    // this away (the real words are already gone), so FAIL the review — the same
+    // refuse-not-filter rule the edited side (3b) already applies.
+    const rawResidual = assessTranscriptDegeneracy(cleanRaw)
+    if (rawResidual.degenerate) {
+      throw new Error(
+        `${DEGENERATE_RAW_REVIEW_TRANSCRIPT_MESSAGE} [${rawResidual.reason}]`,
+      )
+    }
+    const review = reviewEpisodeEdits(cleanRaw, map, editedSegments)
 
     // ── 5. Persist the review, keyed to the EDITED session id ─────────────────
     // NOTE: intentionally NO project state transition here — `reviewed` is

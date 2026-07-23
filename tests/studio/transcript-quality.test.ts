@@ -13,6 +13,7 @@
 import { describe, it, expect } from "vitest"
 import {
   assessTranscriptDegeneracy,
+  filterDegenerateSegments,
   HARD_LOOP_RUN_LENGTH,
   SUSPECT_LOOP_RUN_LENGTH,
   MIN_SEGMENTS_FOR_RATIO,
@@ -307,5 +308,153 @@ describe("DEGENERATE_TRANSCRIPT_MESSAGE", () => {
   it("is the Arabic operator message the map job surfaces on failure", () => {
     expect(DEGENERATE_TRANSCRIPT_MESSAGE).toContain("تعذّر إنتاج خريطة موثوقة")
     expect(DEGENERATE_TRANSCRIPT_MESSAGE).toContain("حاول مرة أخرى")
+  })
+})
+
+describe("filterDegenerateSegments — surgical keep/drop mask (Wave-1 Fix B)", () => {
+  // `seg` builds every segment 1.8s long (end − start), so droppedSeconds is
+  // predictable as droppedCount × 1.8.
+  const SEG_SECONDS = 1.8
+
+  it("drops ONLY the INTER-segment loop run, keeping the healthy speech around it", () => {
+    // 20 unique + a 15-long "ثاني" loop + 20 more unique → only the 15 are dropped.
+    const texts = [
+      ...healthyConversation(20, 0),
+      ...Array.from({ length: 15 }, () => "ثاني"),
+      ...healthyConversation(20, 20),
+    ]
+    const { clean, droppedCount, droppedSeconds, verdict } =
+      filterDegenerateSegments(seg(texts))
+    expect(droppedCount).toBe(15)
+    expect(clean).toHaveLength(40)
+    expect(clean.some((s) => s.text === "ثاني")).toBe(false) // no looped text survives
+    expect(droppedSeconds).toBeCloseTo(15 * SEG_SECONDS, 5)
+    expect(verdict.degenerate).toBe(true) // the overall verdict still flags the loop
+  })
+
+  it("drops ONLY the INTRA-segment hallucinated segment, keeping the real speech", () => {
+    // The proven 209-char "ووو…" garble replacing ~26s of quiet mic-check.
+    const garbled = "و".repeat(209)
+    const segments: TimedSegment[] = [
+      { start: 0, end: 3, text: "كلام حقيقي في البدايه", chunk: 0 },
+      { start: 3, end: 29, text: garbled, chunk: 0 }, // 26s intra hallucination
+      { start: 29, end: 33, text: "كلام حقيقي في النهايه", chunk: 0 },
+    ]
+    const { clean, droppedCount, droppedSeconds, droppedIntervals, totalSeconds } =
+      filterDegenerateSegments(segments)
+    expect(droppedCount).toBe(1)
+    expect(clean.map((s) => s.text)).toEqual([
+      "كلام حقيقي في البدايه",
+      "كلام حقيقي في النهايه",
+    ])
+    expect(droppedSeconds).toBeCloseTo(26, 5) // 29 − 3
+    // The dropped-interval hole is exactly the garbled segment's span [3, 29].
+    expect(droppedIntervals).toEqual([{ start: 3, end: 29 }])
+    // totalSeconds spans all three segments: 3 + 26 + 4 = 33.
+    expect(totalSeconds).toBeCloseTo(33, 5)
+  })
+
+  it("merges ADJACENT dropped segments into one hole interval (no false micro-gaps)", () => {
+    // Two back-to-back 30s intra-loops (token-run ≥ 10) touching at 336 → ONE hole
+    // [306, 366], not two — mirrors the real fixture's اشتغلنا loop shape.
+    const loopWord = Array.from({ length: 20 }, () => "اشتغلنا").join(" ")
+    const segments: TimedSegment[] = [
+      { start: 300, end: 306, text: "كلام حقيقي قبل اللوب مباشره", chunk: 0 },
+      { start: 306, end: 336, text: loopWord, chunk: 0, compressionRatio: 17.6 },
+      { start: 336, end: 366, text: loopWord, chunk: 0, compressionRatio: 17.6 },
+      { start: 366, end: 372, text: "كلام حقيقي بعد اللوب مباشره", chunk: 0 },
+    ]
+    const { clean, droppedCount, droppedIntervals } = filterDegenerateSegments(segments)
+    expect(droppedCount).toBe(2)
+    expect(clean.map((s) => s.text)).toEqual([
+      "كلام حقيقي قبل اللوب مباشره",
+      "كلام حقيقي بعد اللوب مباشره",
+    ])
+    expect(droppedIntervals).toEqual([{ start: 306, end: 366 }]) // merged, not two
+  })
+
+  it("reports totalSeconds even when nothing is dropped (denominator for the time gate)", () => {
+    const { totalSeconds, droppedSeconds } = filterDegenerateSegments(seg(healthyConversation(10)))
+    // `seg` builds 1.8s segments → 10 × 1.8 = 18s, nothing dropped.
+    expect(totalSeconds).toBeCloseTo(18, 5)
+    expect(droppedSeconds).toBe(0)
+  })
+
+  it("leaves a fully-HEALTHY transcript untouched (nothing dropped)", () => {
+    const segments = seg(healthyConversation(50))
+    const { clean, droppedCount, droppedSeconds, verdict } =
+      filterDegenerateSegments(segments)
+    expect(droppedCount).toBe(0)
+    expect(droppedSeconds).toBe(0)
+    expect(clean).toEqual(segments) // same segments, order preserved
+    expect(verdict.degenerate).toBe(false)
+  })
+
+  it("drops EVERYTHING when the whole transcript is one loop (clean is empty)", () => {
+    const segments = seg(Array.from({ length: 30 }, () => "ثاني"))
+    const { clean, droppedCount, verdict } = filterDegenerateSegments(segments)
+    expect(clean).toHaveLength(0)
+    expect(droppedCount).toBe(30)
+    expect(verdict.degenerate).toBe(true)
+  })
+
+  it("DELIBERATELY does NOT filter the ambiguous corroborated shape (could be real emphasis)", () => {
+    // total=24, only "نعم"/"لا" → the overall guard flags it via the corroborated
+    // path, but the filter drops NOTHING: no HARD run (≥10) and no intra signal, so
+    // it never deletes possibly-real emphatic repetition. This locks in the
+    // intentional gap between the verdict and the surgical filter.
+    const texts = [
+      ...Array.from({ length: SUSPECT_LOOP_RUN_LENGTH + 1 }, () => "نعم"),
+      ...Array.from({ length: 24 - (SUSPECT_LOOP_RUN_LENGTH + 1) }, (_, i) =>
+        i % 2 === 0 ? "لا" : "نعم",
+      ),
+    ]
+    const { clean, droppedCount, verdict } = filterDegenerateSegments(seg(texts))
+    expect(verdict.degenerate).toBe(true) // the overall guard flags it…
+    expect(droppedCount).toBe(0) // …but the filter drops nothing (ambiguous)
+    expect(clean).toHaveLength(texts.length)
+  })
+
+  it("Finding 2: droppedSeconds equals the MERGED holes, not a raw per-segment sum (no double-count)", () => {
+    // A whisper loop that emitted 12 identical segments ALL sharing the SAME [100,130]
+    // span (duplicate timestamps — the shape that double-counts). A raw per-segment sum
+    // would report 12 × 30 = 360s of "dropped audio"; the real hole is a single 30s span.
+    const dupTs: TimedSegment[] = [
+      { start: 0, end: 30, text: "كلام حقيقي متنوع في البداية هنا", chunk: 0 },
+      ...Array.from({ length: 12 }, () => ({
+        start: 100,
+        end: 130,
+        text: "اشتغلنا",
+        chunk: 0,
+      })),
+      { start: 130, end: 160, text: "كلام حقيقي متنوع في النهاية هنا", chunk: 0 },
+    ]
+    const { droppedCount, droppedSeconds, droppedIntervals } = filterDegenerateSegments(dupTs)
+    expect(droppedCount).toBe(12) // all 12 loop segments dropped…
+    expect(droppedIntervals).toEqual([{ start: 100, end: 130 }]) // …collapsing to ONE hole
+    // The FIX: droppedSeconds = Σ(merged holes) = 30, NOT the raw 12 × 30 = 360.
+    const holesSum = droppedIntervals.reduce((s, iv) => s + (iv.end - iv.start), 0)
+    expect(droppedSeconds).toBeCloseTo(holesSum, 5)
+    expect(droppedSeconds).toBeCloseTo(30, 5)
+  })
+
+  it("MASK-not-proof: a HARD run BETWEEN two sub-HARD same-word runs splices them into a connected loop the filter leaves in `clean`", () => {
+    // [8×"ثاني"][10×"اكس"][8×"ثاني"] — the middle 10-run is HARD (dropped); the two 8-runs
+    // are each sub-HARD (kept), so `clean` becomes 16 identical "ثاني" in a row: a loop the
+    // surgical filter did NOT catch. The filter is a keep/drop MASK, not a cleanliness
+    // proof — so the caller MUST re-assess the remainder (the Wave-1.6 gate).
+    const texts = [
+      ...Array.from({ length: 8 }, () => "ثاني"),
+      ...Array.from({ length: 10 }, () => "اكس"),
+      ...Array.from({ length: 8 }, () => "ثاني"),
+    ]
+    const { clean, droppedCount } = filterDegenerateSegments(seg(texts))
+    expect(droppedCount).toBe(10) // only the middle HARD run
+    expect(clean).toHaveLength(16)
+    expect(new Set(clean.map((s) => s.text)).size).toBe(1) // 16 identical — a connected loop
+    // Re-assessing the remainder is what catches it (what the map/review callers now do).
+    const residual = assessTranscriptDegeneracy(clean)
+    expect(residual.degenerate).toBe(true)
+    expect(residual.metrics.maxConsecutiveRun).toBe(16)
   })
 })

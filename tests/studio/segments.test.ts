@@ -61,10 +61,10 @@ describe("buildTimedSegmentsFromWhisperChunks — offset math", () => {
   })
 
   it("SELF-CHECK #2: CLAMPS a last segment ending slightly past the file (abrupt-end overshoot survives)", () => {
-    // Raw recordings that stop mid-sentence make whisper's last segment end 1–3s
+    // Raw recordings that stop mid-sentence make whisper's last segment end 1–5s
     // past the true duration. That benign end-of-audio overshoot must NOT throw the
-    // whole map away — it is clamped down to the real duration (the old +1.0s throw
-    // failed these files; unified now with the +3.0s start-side artifact tolerance).
+    // whole map away — it is clamped down to the real duration. Start and end now
+    // share ONE symmetric DECODE_OVERSHOOT_TOLERANCE (5.0s).
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {})
     const chunks: WhisperChunk[] = [
       {
@@ -82,13 +82,38 @@ describe("buildTimedSegmentsFromWhisperChunks — offset math", () => {
     warn.mockRestore()
   })
 
+  it("SELF-CHECK #2: CLAMPS a 3–5s end overshoot (Wave-1.5 fix: was thrown at the old asymmetric 3.0s band)", () => {
+    // REGRESSION LOCK (Wave-1 Fix D): a WAVE-1 change threw the whole map away when
+    // the last segment ended >3.0s past the file, while the START side tolerated
+    // 5.0s. That asymmetry nuked Khaled's real 86-min map on a benign 3–5s end
+    // overshoot — exactly the failure the filtering redesign exists to prevent. The
+    // two bands are now unified on 5.0s: a 4s overshoot CLAMPS, it does not throw.
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {})
+    const chunks: WhisperChunk[] = [
+      {
+        durationSeconds: 100,
+        segments: [
+          { start: 0, end: 50, text: "real one" },
+          { start: 96, end: 104, text: "real two" }, // ends 4s past full(100): 3 < 4 ≤ 5
+        ],
+      },
+    ]
+    const out = buildTimedSegmentsFromWhisperChunks(chunks, 100)
+    expect(out).toHaveLength(2) // survives — NOT thrown
+    expect(out[out.length - 1].end).toBe(100) // clamped to the real duration
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining("clamping last segment end"))
+    warn.mockRestore()
+  })
+
   it("SELF-CHECK #2: THROWS when the last segment ends FAR past the file (30s → real corruption)", () => {
+    // The gross-corruption backstop is retained: 32s ≫ the unified 5.0s tolerance is
+    // NOT a decode artifact — refuse rather than silently truncate 32s of garbage.
     const chunks: WhisperChunk[] = [
       {
         durationSeconds: 100,
         segments: [
           { start: 0, end: 50, text: "real" },
-          { start: 98, end: 132, text: "way off" }, // 32s past ≫ artifact tolerance
+          { start: 98, end: 132, text: "way off" }, // 32s past ≫ decode-overshoot tolerance
         ],
       },
     ]
@@ -103,7 +128,7 @@ describe("buildTimedSegmentsFromWhisperChunks — offset math", () => {
     expect(() => buildTimedSegmentsFromWhisperChunks(chunks, 10)).toThrow(/non-monotonic/)
   })
 
-  it("SELF-CHECK #4: DROPS a trailing end-of-audio artifact (start ~2s past chunk end), map survives", () => {
+  it("SELF-CHECK #4: DROPS a trailing decode-drift phantom (start ~2s past chunk end), map survives", () => {
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {})
     const chunks: WhisperChunk[] = [
       {
@@ -111,14 +136,14 @@ describe("buildTimedSegmentsFromWhisperChunks — offset math", () => {
         segments: [
           { start: 0, end: 50, text: "real one" },
           { start: 50, end: 99, text: "real two" },
-          // 2s past the chunk end AND the last segment → benign whisper overshoot.
+          // 2s past the chunk end (≤ PHANTOM_START_DRIFT 5.0s) → benign phantom.
           { start: 102, end: 103, text: "whisper tail" },
         ],
       },
     ]
     const out = buildTimedSegmentsFromWhisperChunks(chunks, 100)
-    expect(out.map((s) => s.text)).toEqual(["real one", "real two"]) // artifact dropped
-    expect(warn).toHaveBeenCalledWith(expect.stringContaining("trailing end-of-audio artifact"))
+    expect(out.map((s) => s.text)).toEqual(["real one", "real two"]) // phantom dropped
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining("past-audio phantom"))
     warn.mockRestore()
   })
 
@@ -128,20 +153,48 @@ describe("buildTimedSegmentsFromWhisperChunks — offset math", () => {
         durationSeconds: 100,
         segments: [
           { start: 0, end: 50, text: "real" },
-          { start: 130, end: 131, text: "way off" }, // 30s past ≫ artifact tolerance
+          { start: 130, end: 131, text: "way off" }, // 30s past ≫ phantom-drift (5.0s)
         ],
       },
     ]
     expect(() => buildTimedSegmentsFromWhisperChunks(chunks, 100)).toThrow(/outside/)
   })
 
-  it("SELF-CHECK #4: THROWS on a NON-trailing out-of-bounds segment (mid-stream corruption, even within artifact tolerance)", () => {
+  it("SELF-CHECK #4: DROPS a NON-trailing phantom within phantom-drift (mid-chunk decode drift is legitimate)", () => {
+    // FLIPPED (Wave-1 Fix C): Khaled's real 86-min episode PROVED whisper drifts a
+    // segment's start up to ~4.4s past a chunk end MID-CHUNK, not only on the last
+    // segment. Those are legitimate decode-drift phantoms with no audio behind them,
+    // so the old unconditional throw here kept nuking a VALID map. A start within
+    // PHANTOM_START_DRIFT (5.0s) is now DROPPED + warned regardless of position; the
+    // adjacent chunk covers that boundary. (The FAR-past case below still throws.)
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {})
     const chunks: WhisperChunk[] = [
       {
         durationSeconds: 100,
         segments: [
           { start: 0, end: 50, text: "real" },
-          { start: 102, end: 103, text: "mid overshoot" }, // 2s past BUT not the last segment
+          { start: 102, end: 103, text: "mid phantom" }, // 2s past, NOT the last segment
+          { start: 60, end: 70, text: "after" },
+        ],
+      },
+    ]
+    const out = buildTimedSegmentsFromWhisperChunks(chunks, 100)
+    expect(out.map((s) => s.text)).toEqual(["real", "after"]) // phantom dropped, map survives
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining("past-audio phantom"))
+    warn.mockRestore()
+  })
+
+  it("SELF-CHECK #4: THROWS on a NON-trailing segment FAR past the chunk (mid-chunk corruption beyond phantom-drift)", () => {
+    // The FAR-past counterpart to the flipped test above: a mid-chunk start ~30s
+    // past the chunk end is NOT decode drift (measured ≤ ~4.4s) — it is real
+    // corruption, and MUST still THROW so widening the phantom band never loses the
+    // ability to catch a genuine offset/decode fault.
+    const chunks: WhisperChunk[] = [
+      {
+        durationSeconds: 100,
+        segments: [
+          { start: 0, end: 50, text: "real" },
+          { start: 130, end: 131, text: "way off mid" }, // 30s past ≫ phantom-drift, NOT last
           { start: 60, end: 70, text: "after" },
         ],
       },
