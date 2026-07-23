@@ -11,11 +11,10 @@ import {
   getProjectByRawSession,
 } from "@/lib/studio"
 import { resolveEirIdForSession } from "@/lib/studio/analysis-records"
+import { AUDIO_DIR } from "@/lib/studio/audio-path"
 import { requireAdminAPI } from "@/lib/api-utils"
 
 export const maxDuration = 300
-
-const AUDIO_DIR = path.join(process.cwd(), "data", "studio-audio")
 
 /** studio_sessions.id is a uuid — guard the client-supplied raw ref before it
  *  hits a uuid column (a malformed value would otherwise throw a cast error). */

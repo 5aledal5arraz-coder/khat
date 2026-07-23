@@ -41,6 +41,7 @@ import type { GlobalEpisodeIntelligence } from "@/lib/ai/episode-intelligence"
 import { fetchTranscriptServer } from "@/lib/youtube/transcript-server"
 import { transcribeAudioFile } from "@/lib/whisper"
 import { downloadYouTubeAudio } from "@/lib/youtube/download"
+import { resolveSessionAudioPath } from "@/lib/studio/audio-path"
 import path from "path"
 import fs from "fs/promises"
 export const maxDuration = 300
@@ -167,9 +168,10 @@ export async function POST(
                 if (session.source === "audio") {
                   send("step_progress", { step, message: "تحويل الصوت إلى نص عبر Whisper..." })
                   if (!session.audio_filename) throw new Error("لم يتم العثور على ملف صوتي لهذه الجلسة")
-                  const audioDir = path.join(process.cwd(), "data", "studio-audio")
-                  const filePath = path.join(audioDir, id, session.audio_filename)
-                  await fs.access(filePath)
+                  // The uploader stores the file as audio-{id}{ext}, NOT under the
+                  // original browser filename — resolveSessionAudioPath derives the
+                  // correct on-disk path (joining audio_filename directly = ENOENT).
+                  const filePath = await resolveSessionAudioPath(id, session.audio_filename)
                   const whisperResult = await transcribeAudioFile(filePath, "ar", {
                     subjectTable: "studio_sessions",
                     subjectId: id,

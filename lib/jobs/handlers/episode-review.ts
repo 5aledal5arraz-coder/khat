@@ -34,8 +34,6 @@
  * the 5-min default — see worker.ts assertTimeoutKeysAreRegistered).
  */
 
-import path from "path"
-import fs from "fs/promises"
 import { registerHandler } from "../registry"
 import { getStudioSession } from "@/lib/studio"
 import { getProjectByEditedSession } from "@/lib/studio/projects"
@@ -45,6 +43,7 @@ import {
   getEpisodeMap,
   saveEpisodeReview,
 } from "@/lib/studio/transcripts"
+import { resolveSessionAudioPath } from "@/lib/studio/audio-path"
 import { transcribeWithTimestamps } from "@/lib/whisper"
 import { reviewEpisodeEdits } from "@/lib/studio/episode-review"
 import {
@@ -57,9 +56,6 @@ import {
   estimateChunkCount,
   buildTranscriptionProgress,
 } from "@/lib/studio/transcription-progress"
-
-/** Matches the upload route's layout: data/studio-audio/{sessionId}/audio-{sessionId}{ext}. */
-const AUDIO_DIR = path.join(process.cwd(), "data", "studio-audio")
 
 interface EpisodeReviewPayload extends Record<string, unknown> {
   editedSessionId?: string
@@ -76,27 +72,6 @@ interface EpisodeReviewResult extends Record<string, unknown> {
   extra_cuts: number
   overall_confidence: number
   edited_segment_count: number
-}
-
-/**
- * Resolve the uploaded audio path for a session from the standard upload
- * location. Mirrors the episode-map handler's helper (kept local rather than
- * imported so this handler module doesn't pull in episode-map's registration
- * side effect): rebuild `audio-{sessionId}{ext}` and confirm it stays inside
- * AUDIO_DIR before use (defence against a crafted session id / extension).
- */
-async function resolveSessionAudioPath(
-  sessionId: string,
-  audioFilename: string,
-): Promise<string> {
-  const ext = path.extname(audioFilename).toLowerCase()
-  const sessionDir = path.join(AUDIO_DIR, sessionId)
-  const filePath = path.join(sessionDir, `audio-${sessionId}${ext}`)
-  if (!path.resolve(filePath).startsWith(path.resolve(sessionDir) + path.sep)) {
-    throw new Error("episode-review: resolved audio path escapes the session directory")
-  }
-  await fs.access(filePath) // throws if the edited audio isn't on disk
-  return filePath
 }
 
 registerHandler<EpisodeReviewPayload, EpisodeReviewResult>(

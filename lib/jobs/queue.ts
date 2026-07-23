@@ -176,15 +176,30 @@ export async function claimNextJob(workerId: string): Promise<JobRow | null> {
 }
 
 /**
- * Write a live-progress heartbeat onto a RUNNING job. Called mid-execution by
- * the handler (via `ctx.reportProgress`) so a status poller can surface stage /
- * % / ETA during a minutes-long job.
+ * Write a live-progress heartbeat onto a RUNNING job AND refresh its lease.
+ * Called mid-execution by the handler (via `ctx.reportProgress`) so a status
+ * poller can surface stage / % / ETA during a minutes-long job.
  *
- * The `status = 'running'` guard makes a late write from an orphaned handler (one
- * the worker already timed-out and failed) a harmless no-op instead of stamping
- * progress onto a completed / failed / reclaimed row. Deliberately does NOT bump
- * `updated_at` — progress is a soft signal, not a lifecycle change, and leaving
- * `updated_at` for real transitions keeps the stale-lease reaper's accounting honest.
+ * As of Wave 2 this ALSO stamps `locked_at = NOW()`. A live handler pulses every
+ * chunk (~1–3 min), so its lease stays fresh and the stale-lease reaper
+ * (`reclaimStaleJobs`) can't reclaim a still-running long job out from under it —
+ * which caused DOUBLE execution whenever the lease (5 min default) was shorter
+ * than a handler's own budget (studio.* map/review = 30 min). A worker that has
+ * actually DIED stops pulsing, so its lease still ages out and gets reclaimed as
+ * intended.
+ *
+ * The write is FENCED on `attempts` as well as `status = 'running'`. `status`
+ * alone is not enough: an attempt that timed out and was returned to the pool can
+ * be re-claimed as a NEW running attempt (same id, `attempts + 1`). The orphaned
+ * handler from the old attempt may still be alive and pulsing — under a
+ * `status='running'`-only guard it would match the re-claimed row and stamp STALE
+ * progress over the fresh run while reviving a lease it no longer owns. `claimNextJob`
+ * bumps `attempts` on every claim, so fencing on the CLAIMED attempts value makes
+ * an orphaned pulse (older `attempts`) a no-op against the re-claimed row
+ * (`attempts + 1`); only the current attempt's own pulses match. Deliberately does
+ * NOT bump `updated_at`: progress + lease refresh are soft signals, not a lifecycle
+ * change, and leaving `updated_at` for real transitions keeps the stale-lease
+ * reaper's accounting honest.
  *
  * This CAN throw (DB error) like the other queue writers; resilience — the
  * contract that a progress-write never fails the job — lives one layer up in
@@ -193,11 +208,18 @@ export async function claimNextJob(workerId: string): Promise<JobRow | null> {
 export async function reportJobProgress(
   id: string,
   progress: Record<string, unknown>,
+  attempts: number,
 ): Promise<void> {
   await db!
     .update(jobs)
-    .set({ progress })
-    .where(and(eq(jobs.id, id), eq(jobs.status, "running")))
+    .set({ progress, locked_at: new Date() })
+    .where(
+      and(
+        eq(jobs.id, id),
+        eq(jobs.status, "running"),
+        eq(jobs.attempts, attempts),
+      ),
+    )
 }
 
 /** Mark a claimed job as completed with its result. */

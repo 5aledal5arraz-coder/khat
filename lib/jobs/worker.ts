@@ -25,6 +25,7 @@ import {
   reclaimStaleJobs,
 } from "./queue"
 import { createProgressReporter } from "./progress-reporter"
+import { effectiveLeaseMs, BOOT_RECLAIM_STALE_MS } from "./lease"
 import { getHandler, listRegisteredTypes } from "./registry"
 import {
   ensureMarketScheduler,
@@ -48,7 +49,10 @@ import {
 } from "@/lib/system-events/builders"
 
 const POLL_MS = Number(process.env.WORKER_POLL_MS ?? 2000)
-const LEASE_MS = Number(process.env.WORKER_LEASE_MS ?? 300_000)
+// Raw configured lease. The EFFECTIVE lease (LEASE_MS, computed below once
+// HANDLER_TIMEOUT_MS is known) may be widened so the reaper can't reclaim a
+// still-running long job — see the LEASE_MS definition after HANDLER_TIMEOUT_MS.
+const CONFIGURED_LEASE_MS = Number(process.env.WORKER_LEASE_MS ?? 300_000)
 const WORKER_ID = process.env.WORKER_ID ?? `worker-${randomUUID().slice(0, 8)}`
 const wlog = log.child(WORKER_ID)
 
@@ -140,6 +144,29 @@ const HANDLER_TIMEOUT_MS: Record<string, number> = {
 function timeoutFor(jobType: string): number {
   return HANDLER_TIMEOUT_MS[jobType] ?? DEFAULT_HANDLER_TIMEOUT_MS
 }
+
+// ─── Effective lease (stale-reaper backstop) ─────────────────────────
+// A live long job refreshes its lease on every progress heartbeat
+// (reportJobProgress stamps locked_at=NOW), so its lease never ages out while
+// it works — that is the primary protection against the reaper stealing it.
+// This is the boot-time BACKSTOP: if WORKER_LEASE_MS is shorter than the
+// longest handler budget (the default 5-min lease vs the 30-min studio.*
+// handlers) AND a handler goes quiet between two long chunks, the reaper would
+// reclaim a still-running job → double execution. effectiveLeaseMs widens the
+// lease to (longest budget + buffer) and warns loudly; it never throws. Every
+// reclaim call below uses this widened value, not CONFIGURED_LEASE_MS.
+const LEASE_MS = effectiveLeaseMs({
+  configuredLeaseMs: CONFIGURED_LEASE_MS,
+  handlerTimeouts: HANDLER_TIMEOUT_MS,
+  defaultTimeoutMs: DEFAULT_HANDLER_TIMEOUT_MS,
+  onWiden: ({ configuredLeaseMs, maxHandlerTimeoutMs, effectiveLeaseMs: eff }) =>
+    wlog.warn(
+      `WORKER_LEASE_MS (${configuredLeaseMs}ms) is shorter than the longest handler ` +
+        `timeout (${maxHandlerTimeoutMs}ms) — raising the effective lease to ${eff}ms so the ` +
+        `stale-lease reaper can't reclaim a still-running long job. ` +
+        `Set WORKER_LEASE_MS ≥ ${eff} to silence this.`,
+    ),
+})
 
 // Guard against the recurring "timeout key doesn't match a registered handler"
 // bug (it has silently dead-lettered market.*, discovery.*, youtube.* and
@@ -234,8 +261,11 @@ async function processOne(): Promise<boolean> {
     maxAttempts: job.max_attempts,
     workerId: WORKER_ID,
     // Best-effort progress heartbeat — never throws (swallows + logs), so a
-    // failed status write can never fail the job it's reporting on.
-    reportProgress: createProgressReporter(job.id, (err) =>
+    // failed status write can never fail the job it's reporting on. Fenced on
+    // `job.attempts` (the value stamped by this claim) so a heartbeat from an
+    // orphaned earlier attempt can't stamp progress / revive the lease on the
+    // row after it was reclaimed and re-claimed as a newer attempt.
+    reportProgress: createProgressReporter(job.id, job.attempts, (err) =>
       wlog.warn(
         `progress write failed for ${job.id}: ${err instanceof Error ? err.message : String(err)}`,
       ),
@@ -460,13 +490,21 @@ const runBenchmarkScan = () =>
 setTimeout(runBenchmarkScan, 2 * 60_000).unref?.()
 setInterval(runBenchmarkScan, BENCHMARK_SCAN_INTERVAL_MS).unref?.()
 
-// Phase 2.2 — eager startup reclaim. If a predecessor worker crashed
-// mid-job, its `locked_at` is already older than LEASE_MS by the time
-// PM2 restarts us (restart_delay >= 2s, crash gap typically much
-// larger). Calling reclaimStaleJobs here returns those rows to
-// `pending` immediately so we don't have to wait for the in-loop
-// reaper to fire (which only runs once every LEASE_MS = 5 min).
-reclaimStaleJobs(LEASE_MS)
+// Phase 2.2 — eager startup reclaim. If a predecessor worker crashed mid-job,
+// this returns its rows to `pending` immediately instead of waiting for the
+// in-loop reaper (which fires only once every LEASE_MS ≈ 31 min after widening).
+//
+// Uses BOOT_RECLAIM_STALE_MS (5 min), NOT the widened LEASE_MS. The loop reaper
+// must stay coarse — a live long job renews its lease every chunk, so LEASE_MS
+// keeps the reaper from stealing it mid-run. But at BOOT that coarseness is
+// wrong: a job stalled seconds before this restart has a locked_at only
+// seconds/minutes old, far younger than 31 min, so a LEASE_MS-keyed boot reclaim
+// would SKIP it — leaving it recoverable only by the loop reaper up to ~31 min
+// later (worst case ~62 min), with the user watching a frozen progress counter.
+// The predecessor is dead-for-certain at boot (single PM2 worker in prod), so the
+// small window is safe; even multi-worker it's safe because a healthy handler's
+// heartbeat keeps locked_at < 5 min fresh (see BOOT_RECLAIM_STALE_MS doc).
+reclaimStaleJobs(BOOT_RECLAIM_STALE_MS)
   .then((reclaimed) => {
     if (reclaimed.length > 0) {
       wlog.info(`startup: reclaimed ${reclaimed.length} stale job(s)`)
@@ -477,7 +515,7 @@ reclaimStaleJobs(LEASE_MS)
             job_id: row.id,
             job_type: row.type,
             previous_locked_by: row.previous_locked_by,
-            lease_ms: LEASE_MS,
+            lease_ms: BOOT_RECLAIM_STALE_MS,
             actor: WORKER_ID,
           }),
         )

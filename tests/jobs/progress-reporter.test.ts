@@ -14,18 +14,19 @@ import { createProgressReporter } from "@/lib/jobs/progress-reporter"
 beforeEach(() => vi.clearAllMocks())
 
 describe("createProgressReporter", () => {
-  it("forwards the write on the happy path", async () => {
+  it("forwards the write on the happy path, threading the claimed attempts as the fence", async () => {
     vi.mocked(reportJobProgress).mockResolvedValue(undefined)
-    const report = createProgressReporter("job-1")
+    const report = createProgressReporter("job-1", 2)
     await expect(report({ stage: "transcribing" })).resolves.toBeUndefined()
-    expect(reportJobProgress).toHaveBeenCalledWith("job-1", { stage: "transcribing" })
+    // The captured attempts (2) is passed through so the DB write can fence on it.
+    expect(reportJobProgress).toHaveBeenCalledWith("job-1", { stage: "transcribing" }, 2)
   })
 
   it("SWALLOWS a rejecting write (resolves anyway) and surfaces it via onError", async () => {
     const boom = new Error("db down")
     vi.mocked(reportJobProgress).mockRejectedValue(boom)
     const onError = vi.fn()
-    const report = createProgressReporter("job-1", onError)
+    const report = createProgressReporter("job-1", 1, onError)
     // The whole point — this must NOT reject, or it would take down a running job.
     await expect(report({ stage: "transcribing" })).resolves.toBeUndefined()
     expect(onError).toHaveBeenCalledWith(boom)
@@ -33,7 +34,7 @@ describe("createProgressReporter", () => {
 
   it("still resolves when a rejecting write has no onError handler", async () => {
     vi.mocked(reportJobProgress).mockRejectedValue(new Error("db down"))
-    const report = createProgressReporter("job-2")
+    const report = createProgressReporter("job-2", 1)
     await expect(report({ any: "shape" })).resolves.toBeUndefined()
   })
 })

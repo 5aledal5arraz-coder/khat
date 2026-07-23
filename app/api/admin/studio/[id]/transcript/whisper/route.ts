@@ -1,13 +1,10 @@
 import { NextResponse } from "next/server"
-import path from "path"
-import fs from "fs/promises"
 import { getStudioSession, createTranscript, createTranscriptError, revalidateStudio } from "@/lib/studio"
+import { resolveSessionAudioPath } from "@/lib/studio/audio-path"
 import { transcribeAudioFile } from "@/lib/whisper"
 import { requireAdminAPI } from "@/lib/api-utils"
 
 export const maxDuration = 600
-
-const AUDIO_DIR = path.join(process.cwd(), "data", "studio-audio")
 
 /**
  * POST /api/admin/studio/[id]/transcript/whisper — transcribe audio via Whisper
@@ -39,11 +36,12 @@ export async function POST(
     )
   }
 
-  const filePath = path.join(AUDIO_DIR, id, session.audio_filename)
-
-  // Check file exists
+  // The uploader stores the file as audio-{id}{ext}, NOT under the original
+  // browser filename — resolve the correct on-disk path (which also confirms the
+  // file exists). Joining audio_filename directly was an ENOENT bug.
+  let filePath: string
   try {
-    await fs.access(filePath)
+    filePath = await resolveSessionAudioPath(id, session.audio_filename)
   } catch {
     return NextResponse.json(
       { error: "الملف الصوتي غير موجود على الخادم" },

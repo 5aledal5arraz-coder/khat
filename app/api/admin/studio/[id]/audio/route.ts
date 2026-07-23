@@ -3,6 +3,7 @@ import fs from "fs"
 import fsp from "fs/promises"
 import { Readable } from "stream"
 import { getStudioSession } from "@/lib/studio"
+import { buildSessionAudioPath } from "@/lib/studio/audio-path"
 import { requireAdminAPI } from "@/lib/api-utils"
 
 /**
@@ -17,8 +18,6 @@ import { requireAdminAPI } from "@/lib/api-utils"
  * setting audio.currentTime to (t − 3) issues a Range request, and without
  * Accept-Ranges/206 a 2-hour file is not reliably seekable.
  */
-
-const AUDIO_DIR = path.join(process.cwd(), "data", "studio-audio")
 
 const CONTENT_TYPES: Record<string, string> = {
   ".mp3": "audio/mpeg",
@@ -41,10 +40,12 @@ export async function GET(
   }
 
   const ext = path.extname(session.audio_filename).toLowerCase()
-  const sessionDir = path.join(AUDIO_DIR, id)
-  const filePath = path.join(sessionDir, `audio-${id}${ext}`)
-  // Defence in depth: the resolved path must stay inside the session directory.
-  if (!path.resolve(filePath).startsWith(path.resolve(sessionDir) + path.sep)) {
+  // Shared builder = one source of truth for the on-disk layout (also does the
+  // in-session-dir escape guard, throwing on a crafted id/ext).
+  let filePath: string
+  try {
+    filePath = buildSessionAudioPath(id, session.audio_filename)
+  } catch {
     return new Response("مسار غير صالح", { status: 400 })
   }
 

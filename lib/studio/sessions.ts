@@ -10,8 +10,7 @@ import { deleteEpisodeQuotesEntry } from "@/lib/episodes/quotes"
 import { getWebsitePackageForSession } from "./website-packages"
 import type { StudioSession } from "@/types/database"
 import { resolveEirForStudioSession } from "@/lib/khat-brain/studio-resolver"
-
-const AUDIO_DIR = path.join(process.cwd(), "data", "studio-audio")
+import { AUDIO_DIR } from "./audio-path"
 
 export async function getStudioSessions(): Promise<StudioSession[]> {
   try {

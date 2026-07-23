@@ -18,22 +18,18 @@
  * 5-min default — see worker.ts assertTimeoutKeysAreRegistered).
  */
 
-import path from "path"
-import fs from "fs/promises"
 import { registerHandler } from "../registry"
 import { getStudioSession } from "@/lib/studio"
 import { getProjectByRawSession, transitionState } from "@/lib/studio/projects"
 import { resolveEirIdForSession } from "@/lib/studio/analysis-records"
 import { saveTimedSegments, saveEpisodeMap } from "@/lib/studio/transcripts"
+import { resolveSessionAudioPath } from "@/lib/studio/audio-path"
 import { transcribeWithTimestamps } from "@/lib/whisper"
 import { generateEpisodeMap } from "@/lib/ai/episode-map"
 import {
   estimateChunkCount,
   buildTranscriptionProgress,
 } from "@/lib/studio/transcription-progress"
-
-/** Matches the upload route's layout: data/studio-audio/{sessionId}/audio-{sessionId}{ext}. */
-const AUDIO_DIR = path.join(process.cwd(), "data", "studio-audio")
 
 interface EpisodeMapPayload extends Record<string, unknown> {
   sessionId?: string
@@ -47,26 +43,6 @@ interface EpisodeMapResult extends Record<string, unknown> {
   hook_count: number
   ai_run_id: string
   segment_count: number
-}
-
-/**
- * Resolve the raw audio path for a session from the standard upload location.
- * The uploader writes `audio-{sessionId}{ext}` where ext is the original
- * extension; we rebuild it and confirm the file is inside AUDIO_DIR before use
- * (defence against a crafted session id / extension).
- */
-async function resolveSessionAudioPath(
-  sessionId: string,
-  audioFilename: string,
-): Promise<string> {
-  const ext = path.extname(audioFilename).toLowerCase()
-  const sessionDir = path.join(AUDIO_DIR, sessionId)
-  const filePath = path.join(sessionDir, `audio-${sessionId}${ext}`)
-  if (!path.resolve(filePath).startsWith(path.resolve(sessionDir) + path.sep)) {
-    throw new Error("episode-map: resolved audio path escapes the session directory")
-  }
-  await fs.access(filePath) // throws if the raw audio isn't on disk
-  return filePath
 }
 
 registerHandler<EpisodeMapPayload, EpisodeMapResult>(
