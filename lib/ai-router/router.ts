@@ -37,6 +37,7 @@ import type {
   AiRunStatus,
 } from "./types"
 import { parseJsonWithRepair, type JsonRepairStage } from "@/lib/ai/json-repair"
+import { isQuotaExceededError } from "./errors"
 import { DEFAULT_MODELS } from "./registry"
 import { resolveModelChoice } from "./model-selection"
 import { openaiAdapter } from "./providers/openai"
@@ -138,13 +139,9 @@ export function classifyError(err: unknown): { name: string; message: string } {
   if (status === 408 || /\btimeout\b/i.test(msg)) {
     return { name: "timeout", message: msg }
   }
-  // Order matters — quota check must run before generic 429.
-  if (
-    lower.includes("exceeded your current quota") ||
-    lower.includes("insufficient_quota") ||
-    lower.includes("quota_exceeded") ||
-    (lower.includes("429") && lower.includes("quota"))
-  ) {
+  // Order matters — quota check must run before generic 429. Single-sourced in
+  // lib/ai-router/errors.ts so the jobs layer classifies quota identically.
+  if (isQuotaExceededError(err)) {
     return { name: "quota_exceeded", message: msg }
   }
   if (status === 429 || lower.includes("429") || lower.includes("rate limit") || lower.includes("ratelimit")) {

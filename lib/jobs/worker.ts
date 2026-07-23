@@ -33,7 +33,8 @@ import {
   ensurePartnerTaskReminderSchedule,
   ensureSourceFeedbackSchedule,
 } from "./scheduler-bootstrap"
-import { HandlerTimeoutError } from "./types"
+import { HandlerTimeoutError, NonRetryableJobError } from "./types"
+import { isQuotaExceededError, QUOTA_EXCEEDED_MESSAGE } from "@/lib/ai-router/errors"
 import "./registered"
 // Phase 2.3.c — unified event log writers. Fire-and-forget per emit
 // contract; failures are caught inside emitSystemEvent and never
@@ -333,14 +334,33 @@ async function processOne(): Promise<boolean> {
   } catch (err) {
     if (timeoutHandle) clearTimeout(timeoutHandle)
     const isTimeout = err instanceof HandlerTimeoutError
-    const message = err instanceof Error ? err.message : String(err)
+    // Quota/billing exhaustion (or an explicit NonRetryableJobError) is TERMINAL:
+    // retrying can't help, so dead-letter on the first attempt with a clear
+    // operator message — instead of spinning through 3 doomed retries (~8 min)
+    // behind a progress bar while the user has no idea why. The quota message is
+    // surfaced verbatim to the Studio error banner via error_message.
+    const isQuota = isQuotaExceededError(err)
+    const terminal = isQuota || err instanceof NonRetryableJobError
+    const message = isQuota
+      ? QUOTA_EXCEEDED_MESSAGE
+      : err instanceof Error
+        ? err.message
+        : String(err)
     // Back off before the next attempt so transient failures don't exhaust
-    // max_attempts instantly. failJob ignores run_after once the job is dead.
-    const outcome = await failJob(job.id, message, computeRetryAfter(job.attempts))
+    // max_attempts instantly. failJob ignores run_after once the job is dead;
+    // a terminal failure skips the backoff and dead-letters immediately.
+    const outcome = await failJob(
+      job.id,
+      message,
+      terminal ? undefined : computeRetryAfter(job.attempts),
+      { terminal },
+    )
     if (isTimeout) {
       wlog.error(
         `TIMEOUT ${job.id}: ${message} — flowing through failJob (attempts=${outcome.attempts}/${outcome.max_attempts})`,
       )
+    } else if (terminal) {
+      wlog.error(`failed ${job.id} (terminal — no retry): ${message}`)
     } else {
       wlog.error(`failed ${job.id}: ${message}`)
     }

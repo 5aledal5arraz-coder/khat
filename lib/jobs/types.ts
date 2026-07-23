@@ -35,6 +35,23 @@ export class HandlerTimeoutError extends Error {
 }
 
 /**
+ * Thrown (or recognized) when a job failed for a reason where retrying is
+ * futile — e.g. the OpenAI account is out of quota/credit. The worker
+ * dead-letters it IMMEDIATELY (skips the remaining attempts) and surfaces
+ * `message` verbatim as the job's `error_message`, so the UI shows a clear
+ * cause at once instead of spinning through 3 doomed retries (~8 min). Quota
+ * errors are also recognized structurally at the worker via
+ * `isQuotaExceededError`, so a handler need not wrap them explicitly; this
+ * class is for a handler that wants to signal "terminal" for any other reason.
+ */
+export class NonRetryableJobError extends Error {
+  constructor(message: string) {
+    super(message)
+    this.name = "NonRetryableJobError"
+  }
+}
+
+/**
  * Handler shape. Every job type registers one. The handler receives the
  * payload it was enqueued with and the row metadata, and returns a
  * result that gets stored on the job row. Throwing causes the worker to

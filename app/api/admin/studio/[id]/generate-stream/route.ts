@@ -42,6 +42,7 @@ import { fetchTranscriptServer } from "@/lib/youtube/transcript-server"
 import { transcribeAudioFile } from "@/lib/whisper"
 import { downloadYouTubeAudio } from "@/lib/youtube/download"
 import { resolveSessionAudioPath } from "@/lib/studio/audio-path"
+import { isQuotaExceededError, QUOTA_EXCEEDED_MESSAGE } from "@/lib/ai-router/errors"
 import path from "path"
 import fs from "fs/promises"
 export const maxDuration = 300
@@ -690,7 +691,13 @@ export async function POST(
                 send("step_skip", { step, reason: "خطوة غير معروفة" })
             }
           } catch (err) {
-            const errMsg = err instanceof Error ? err.message : "خطأ غير متوقع"
+            // An OpenAI quota/billing exhaustion gets the clear, actionable
+            // Arabic message (mirrors the worker path) instead of a raw 429.
+            const errMsg = isQuotaExceededError(err)
+              ? QUOTA_EXCEEDED_MESSAGE
+              : err instanceof Error
+                ? err.message
+                : "خطأ غير متوقع"
             log("step_error", { step, error: errMsg, duration_ms: Date.now() - stepStartTimeRef })
             send("step_error", { step, message: errMsg })
             // Continue to next step instead of aborting the entire pipeline

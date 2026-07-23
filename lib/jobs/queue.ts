@@ -258,6 +258,7 @@ export async function failJob(
   id: string,
   errorMessage: string,
   retryAfter?: Date,
+  opts?: { terminal?: boolean },
 ): Promise<{
   status: "pending" | "dead"
   attempts: number
@@ -271,7 +272,10 @@ export async function failJob(
   const job = rows[0]
   if (!job) return { status: "dead", attempts: 0, max_attempts: 0 }
 
-  const isDead = job.attempts >= job.max_attempts
+  // `terminal` forces a dead-letter regardless of the attempt count — used for
+  // failures where retrying can't help (e.g. OpenAI out of quota). Otherwise a
+  // job is dead only once it has exhausted its attempts.
+  const isDead = opts?.terminal === true || job.attempts >= job.max_attempts
   await db!
     .update(jobs)
     .set({
