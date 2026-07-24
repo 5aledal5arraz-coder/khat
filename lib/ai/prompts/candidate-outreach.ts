@@ -8,7 +8,7 @@
 import type { guestCandidates as guestCandidatesTable } from "@/lib/db/schema/guest-candidates"
 import type { OutreachChannel, OutreachTone } from "@/types/database"
 
-export const CANDIDATE_OUTREACH_PROMPT_VERSION = "candidate-outreach-v1.0"
+export const CANDIDATE_OUTREACH_PROMPT_VERSION = "candidate-outreach-v1.1"
 
 const TONE_LABELS: Record<OutreachTone, string> = {
   formal: "رسمي محترم",
@@ -29,25 +29,37 @@ const LENGTH_GUIDE = {
   long: "مفصلة (فقرة كاملة)",
 }
 
+const TONE_GUIDANCE: Record<OutreachTone, string> = {
+  warm: "نبرة حميمة قريبة من القلب — كأنك تخاطب شخص تكنّ له ودّ واحترام. استخدم صيغ ترحيب دافئة مثل «يسعدنا» و«نتشرّف» و«حاب أوصلك رسالة»، وخلها صادقة بدون رسمية زايدة.",
+  formal: "نبرة رسمية رصينة ومهذبة — لغة راقية محترمة تناسب مخاطبة شخصية مرموقة، بصيغ تقدير واضحة ووقار بدون تكلّف.",
+  concise: "نبرة مختصرة ومباشرة — جمل قصيرة واضحة، بدون مقدمات طويلة، تدخل بالموضوع بسرعة مع الحفاظ على الاحترام والذوق.",
+  premium: "نبرة أنيقة ومنتقاة الكلمات — لهجة كويتية راقية ومهذبة، مفردات مختارة بعناية توحي بالرقي والاهتمام الشخصي، بدون مبالغة أو تصنّع.",
+}
+
 export function buildCandidateOutreachSystem(
   channel: OutreachChannel,
   tone: OutreachTone,
   length: "short" | "medium" | "long",
 ): string {
   const needsSubject = channel === "email"
+  const isFormal = tone === "formal"
+  const dialectPrinciple = isFormal
+    ? "- اكتب الرسالة كاملة بالعربية الفصحى الحديثة الراقية والمهذبة (ليست المعقدة)."
+    : "- اكتب الرسالة كاملة بلهجة كويتية طبيعية ومحترمة — مو فصحى، ومو عامية مبالغ فيها أو ركيكة. لهجة راقية يفهمها المتحدث الخليجي وتناسب مخاطبة شخصية مرموقة."
   return `أنت كاتب رسائل احترافي يعمل لصالح بودكاست عربي عميق اسمه "خط".
 "خط" بودكاست ثقافي يستضيف شخصيات مؤثرة لمحاورات صادقة وعميقة.
 
 مهمتك: كتابة رسالة دعوة شخصية لمرشح محتمل ليكون ضيفاً في البودكاست.
 
 القناة: ${CHANNEL_LABELS[channel]}
-النبرة: ${TONE_LABELS[tone]}
+النبرة: ${TONE_LABELS[tone]} — ${TONE_GUIDANCE[tone]}
 الطول: ${LENGTH_GUIDE[length]}
 
 المبادئ:
-- اكتب بالعربية الفصحى المفهومة (ليست المعقدة)
+${dialectPrinciple}
 - خاطب المرشح باسمه واذكر شيئاً محدداً عنه (ليست رسالة جماعية مكررة)
 - اشرح لماذا هو/هي تحديداً قد يكون ضيفاً مميزاً
+- لا تنسب للمرشح إنجازات أو معلومات غير موجودة في البيانات المعطاة أعلاه — استخدم فقط ما ورد، وحافظ على أسماء الأعلام والمصطلحات التقنية مكتوبة صح.
 - لا تكن مبتذلاً أو متملقاً
 - اختم بدعوة واضحة (مكالمة قصيرة، رد بسيط بنعم/لا، إلخ)
 - لا تذكر مدة الحلقة ولا الحوافز المالية ولا التفاصيل اللوجستية

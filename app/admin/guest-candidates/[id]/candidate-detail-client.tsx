@@ -281,14 +281,36 @@ export function CandidateDetailClient({ candidate, statusHistory, outreachMessag
     }
   }
 
+  // The analyze call can cross the reverse-proxy timeout wall (nginx cuts at 120s while the
+  // AI-router retry budget is longer): the client sees a transport error even though the
+  // server finished and persisted the analysis. Re-fetch and check whether the analysis
+  // timestamp advanced before deciding it truly failed.
+  async function analysisLandedSince(prevGeneratedAt: string | null): Promise<boolean> {
+    try {
+      const { candidate: fresh } = await candidatesApi.get(candidate.id)
+      const c = fresh as GuestCandidateView
+      return !!c.ai_generated_at && c.ai_generated_at !== prevGeneratedAt
+    } catch {
+      return false
+    }
+  }
+
   async function handleAnalyze() {
+    const prevGeneratedAt = candidate.ai_generated_at
     setAnalyzeBusy(true)
     try {
       await candidatesApi.analyze(candidate.id)
       toast({ title: "تم التحليل", description: "تم توليد تحليل ذكي جديد للمرشح" })
       router.refresh()
     } catch (err) {
-      toast({ variant: "destructive", title: "فشل التحليل", description: err instanceof Error ? err.message : "خطأ" })
+      // Don't trust the transport error alone — the server may have saved the analysis
+      // after the proxy already closed the connection. Verify against fresh data first.
+      if (await analysisLandedSince(prevGeneratedAt)) {
+        toast({ title: "تم التحليل", description: "تم توليد تحليل ذكي جديد للمرشح" })
+        router.refresh()
+      } else {
+        toast({ variant: "destructive", title: "فشل التحليل", description: err instanceof Error ? err.message : "تعذّر توليد التحليل. حاول مرة أخرى." })
+      }
     } finally {
       setAnalyzeBusy(false)
     }
@@ -409,7 +431,7 @@ export function CandidateDetailClient({ candidate, statusHistory, outreachMessag
         </div>
       </div>
 
-      <div className="grid gap-4 lg:grid-cols-3">
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
         {/* Main column: the 4 stage cards */}
         <div className="space-y-3 lg:col-span-2">
           {/* ── Stage ① الدعوة ── */}
