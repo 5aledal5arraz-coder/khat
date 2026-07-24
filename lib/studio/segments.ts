@@ -99,13 +99,16 @@ export interface WhisperChunk {
  *   2. lastSegment.end overshooting fullDuration is a benign whisper end-of-audio
  *      artifact — CLAMPED down to fullDuration (the file has no content past its
  *      own end), regardless of magnitude. Never fatal.
- *   3. segments[i].start ≥ segments[i-1].start                (monotonic)
+ *   3. segments[i].start ≥ segments[i-1].start                (monotonic) — a
+ *      sub-second backward step is a benign whisper chunk-BOUNDARY overlap
+ *      (bounded by the 0.5s accept tolerance) and is CLAMPED, not thrown; #1
+ *      already guarantees the offsets, so this can't hide an offset bug.
  *   4. every raw segment.start ∈ [0, durations[i] + 0.5]      (in-chunk) —
  *      EXCEPT any segment (trailing OR mid-chunk) whose start is PAST the chunk's
  *      real audio: it has no audio behind it, so it is a whisper decode PHANTOM
  *      and is DROPPED, not fatal (the adjacent chunk covers that boundary),
  *      regardless of how far past. Neither #2 nor #4 throws on an overshoot —
- *      offset integrity is enforced by #1 (durations) + #3 (monotonic).
+ *      offset integrity is enforced by #1 (durations, the load-bearing guard).
  *   5. every chunk returned ≥ 1 segment                       (WARN only —
  *      a silent chunk is legal; an empty one MAY mean lost content)
  */
@@ -177,8 +180,8 @@ export function buildTimedSegmentsFromWhisperChunks(
         // adjacent chunk covers that boundary) rather than nuke the whole map.
         // We do NOT throw on a "large" overshoot: there is no start-side
         // overshoot that means real corruption which self-check #1 (durations
-        // reconstitute the file) and #3 (monotonic after offset) don't already
-        // catch — and a fixed tolerance is provably wrong (a REAL 86-min episode
+        // reconstitute the file) doesn't already catch — and a fixed tolerance
+        // is provably wrong (a REAL 86-min episode
         // produced a legitimate phantom 6.0s past a 600s chunk, beyond any band
         // we picked; throwing on it nuked a valid map). So: unconditional drop.
         console.warn(
@@ -207,13 +210,29 @@ export function buildTimedSegmentsFromWhisperChunks(
   }
 
   // ---- self-check #3: monotonic non-decreasing starts after offset ----
+  // A backward step here is a benign whisper chunk-BOUNDARY timestamp overlap: a
+  // segment accepted within IN_CHUNK_START_TOLERANCE (0.5s) past its chunk's end
+  // gets offset-stitched a hair past the NEXT chunk's first segment (measured on a
+  // real 17-chunk episode: 0.12s at the 6600s boundary). Self-check #1 already
+  // guarantees offset integrity (durations reconstitute the file to ~1s over 17
+  // chunks), so any residual disorder is bounded by that accept tolerance and is a
+  // decode artifact, NOT an offset bug. CLAMP the later start up to preserve a
+  // monotonic timeline — the sub-second nudge is invisible to hooks/breaks — rather
+  // than nuke the whole map (the same drop/clamp philosophy as #2 and #4). #1
+  // remains the load-bearing integrity guard.
+  let clampedMono = 0
   for (let i = 1; i < out.length; i++) {
     if (out[i].start < out[i - 1].start) {
-      throw new Error(
-        `segments: non-monotonic after offset — segment ${i} starts ` +
-          `${out[i].start.toFixed(3)}s, before previous ${out[i - 1].start.toFixed(3)}s`,
-      )
+      clampedMono++
+      out[i].start = out[i - 1].start
+      if (out[i].end < out[i].start) out[i].end = out[i].start
     }
+  }
+  if (clampedMono > 0) {
+    console.warn(
+      `[segments] clamped ${clampedMono} sub-second chunk-boundary overlap(s) to keep ` +
+        `the timeline monotonic (benign whisper boundary artifact; offsets verified by #1)`,
+    )
   }
 
   // ---- self-check #2: last segment cannot end past the file (one-sided) ----

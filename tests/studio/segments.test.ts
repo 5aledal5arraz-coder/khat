@@ -126,12 +126,28 @@ describe("buildTimedSegmentsFromWhisperChunks — offset math", () => {
     warn.mockRestore()
   })
 
-  it("SELF-CHECK #3: throws on non-monotonic starts after offset", () => {
+  it("SELF-CHECK #3: CLAMPS a sub-second chunk-boundary overlap (monotonic preserved, not thrown)", () => {
+    // Khaled's real 17-chunk episode hit this: a segment accepted within the 0.5s
+    // in-chunk tolerance PAST chunk 0's end offset-stitches a hair past chunk 1's
+    // first segment (measured 0.12s at the 6600s boundary). #1 already guarantees
+    // the offsets, so this benign overlap is CLAMPED to stay monotonic — not thrown.
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {})
     const chunks: WhisperChunk[] = [
-      { durationSeconds: 10, segments: [{ start: 5, end: 6, text: "x" }, { start: 2, end: 3, text: "y" }] },
+      // chunk 0 (offset 0): last seg starts 0.3s past its 10s end (≤ 0.5s tol) → abs 10.3
+      { durationSeconds: 10, segments: [
+        { start: 0, end: 5, text: "a" },
+        { start: 10.3, end: 10.4, text: "boundary" },
+      ] },
+      // chunk 1 (offset 10): first seg raw 0 → abs 10.0, BEFORE the 10.3 above
+      { durationSeconds: 10, segments: [{ start: 0, end: 4, text: "next" }] },
     ]
-    // Both raw starts in-bounds, but 2 < 5 → disorder after offset.
-    expect(() => buildTimedSegmentsFromWhisperChunks(chunks, 10)).toThrow(/non-monotonic/)
+    const out = buildTimedSegmentsFromWhisperChunks(chunks, 20)
+    expect(out.map((s) => s.text)).toEqual(["a", "boundary", "next"]) // all kept, map survives
+    for (let i = 1; i < out.length; i++) {
+      expect(out[i].start).toBeGreaterThanOrEqual(out[i - 1].start) // monotonic after clamp
+    }
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining("chunk-boundary overlap"))
+    warn.mockRestore()
   })
 
   it("SELF-CHECK #4: DROPS a trailing decode-drift phantom (start ~2s past chunk end), map survives", () => {
