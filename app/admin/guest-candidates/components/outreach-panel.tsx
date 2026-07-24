@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
@@ -66,24 +66,87 @@ export function OutreachPanel({ candidateId, initialMessages, onChange }: Props)
     if (channel !== "email") setDraftSubject(null)
   }, [channel])
 
+  // Generation is a BACKGROUND JOB now (moved off the nginx 120s wall), and the
+  // worker PERSISTS the draft — so a proxy timeout can no longer lose it. The
+  // POST enqueues + returns a jobId; we poll the status endpoint until the draft
+  // (already saved server-side) comes back, then drop it into the editor.
+  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null)
+
+  const stopPolling = useCallback(() => {
+    if (pollRef.current) {
+      clearInterval(pollRef.current)
+      pollRef.current = null
+    }
+  }, [])
+
+  const pollGenerate = useCallback(
+    (jobId: string) => {
+      stopPolling()
+      pollRef.current = setInterval(async () => {
+        try {
+          const s = await candidatesApi.outreachStatus(candidateId, jobId)
+          if (s.jobStatus === "succeeded" && s.draft) {
+            stopPolling()
+            setGenerating(false)
+            setDraftSubject(s.draft.subject_line)
+            setDraftBody(s.draft.message_body)
+            setHasDraft(true)
+            setDraftEdited(false)
+            toast({ title: "تم التوليد", description: "حُفظت المسودة تلقائياً — عدّلها ثم احفظ نسخة إن أردت" })
+          } else if (s.jobStatus && ["failed", "dead", "cancelled"].includes(s.jobStatus)) {
+            stopPolling()
+            setGenerating(false)
+            toast({
+              variant: "destructive",
+              title: "فشل التوليد",
+              description: s.jobError || "تعذّر توليد الرسالة. تأكّد أن عامل المهام (worker) يعمل.",
+            })
+          }
+          // pending / running → keep polling.
+        } catch {
+          // Transient network blip — keep polling.
+        }
+      }, 3000)
+    },
+    [candidateId, toast, stopPolling],
+  )
+
+  // Re-attach on mount: resume a generation already in flight (e.g. after a
+  // refresh) instead of showing an idle button.
+  useEffect(() => {
+    let cancelled = false
+    candidatesApi
+      .outreachStatus(candidateId)
+      .then((s) => {
+        if (cancelled) return
+        if (s.jobId && (s.jobStatus === "pending" || s.jobStatus === "running")) {
+          setGenerating(true)
+          pollGenerate(s.jobId)
+        }
+      })
+      .catch(() => {})
+    return () => {
+      cancelled = true
+    }
+  }, [candidateId, pollGenerate])
+
+  // Clean up any live poll on unmount.
+  useEffect(() => stopPolling, [stopPolling])
+
   async function handleGenerate() {
+    if (generating) return
     setGenerating(true)
     try {
-      const result = await candidatesApi.generateOutreach(candidateId, {
+      const { jobId } = await candidatesApi.generateOutreach(candidateId, {
         channel,
         tone,
         length,
         customNote: customNote.trim() || undefined,
       })
-      setDraftSubject(result.draft.subject_line)
-      setDraftBody(result.draft.message_body)
-      setHasDraft(true)
-      setDraftEdited(false)
-      toast({ title: "تم التوليد", description: "يمكنك التعديل ثم الحفظ" })
+      pollGenerate(jobId)
     } catch (err) {
-      toast({ variant: "destructive", title: "فشل التوليد", description: err instanceof Error ? err.message : "خطأ" })
-    } finally {
       setGenerating(false)
+      toast({ variant: "destructive", title: "تعذّر بدء التوليد", description: err instanceof Error ? err.message : "خطأ" })
     }
   }
 
@@ -209,7 +272,7 @@ export function OutreachPanel({ candidateId, initialMessages, onChange }: Props)
         <div className="rounded-lg border border-violet-500/30 bg-violet-500/5 p-3 space-y-3">
           <div className="flex items-center justify-between">
             <span className="text-[11px] font-semibold text-violet-700 dark:text-violet-300">
-              مسودة جديدة {draftEdited && "(تم التعديل)"}
+              مسودة جديدة (محفوظة تلقائياً) {draftEdited && "— تم التعديل"}
             </span>
           </div>
           {channel === "email" && (
@@ -231,15 +294,20 @@ export function OutreachPanel({ candidateId, initialMessages, onChange }: Props)
               className="text-xs leading-relaxed"
             />
           </div>
-          <div className="flex justify-end gap-2">
-            <Button variant="ghost" size="sm" onClick={() => { setHasDraft(false); setDraftBody(""); setDraftSubject(null); setDraftEdited(false) }}>
-              إلغاء
-            </Button>
-            <Button size="sm" onClick={handleSave} disabled={saving}>
-              {saving && <Loader2 className="ms-1 h-3.5 w-3.5 animate-spin" />}
-              <Plus className="ms-1 h-3.5 w-3.5" />
-              حفظ كنسخة
-            </Button>
+          <div className="flex items-center justify-between gap-2">
+            <p className="text-[10px] text-muted-foreground">
+              {draftEdited ? "احفظ تعديلك كنسخة جديدة." : "المسودة محفوظة تلقائياً؛ عدّل النص لحفظ نسخة معدّلة."}
+            </p>
+            <div className="flex justify-end gap-2">
+              <Button variant="ghost" size="sm" onClick={() => { setHasDraft(false); setDraftBody(""); setDraftSubject(null); setDraftEdited(false) }}>
+                إغلاق
+              </Button>
+              <Button size="sm" onClick={handleSave} disabled={saving || !draftEdited}>
+                {saving && <Loader2 className="ms-1 h-3.5 w-3.5 animate-spin" />}
+                <Plus className="ms-1 h-3.5 w-3.5" />
+                حفظ نسخة معدّلة
+              </Button>
+            </div>
           </div>
         </div>
       )}

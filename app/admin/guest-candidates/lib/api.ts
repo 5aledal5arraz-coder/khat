@@ -1,5 +1,7 @@
 "use client"
 
+import type { JobStatus } from "@/lib/db/schema/jobs"
+
 /**
  * Client-side fetcher for guest-candidate API routes.
  * Always sends `x-requested-with: khat` for the CSRF check.
@@ -66,24 +68,49 @@ export const candidatesApi = {
     call<{ ok: true }>(`/api/admin/guest-candidates/${id}/social-links/${linkId}`, {
       method: "DELETE",
     }),
+  // Analysis now runs as a background job (off the nginx 120s path): POST
+  // returns a jobId, and the client polls analyzeStatus until it resolves.
   analyze: (id: string) =>
-    call<{ result: unknown; runId: string }>(`/api/admin/guest-candidates/${id}/analyze`, {
-      method: "POST",
-    }),
+    call<{ jobId: string; status: string; alreadyRunning?: boolean }>(
+      `/api/admin/guest-candidates/${id}/analyze`,
+      { method: "POST" },
+    ),
+  analyzeStatus: (id: string, jobId?: string) =>
+    call<{
+      jobId: string | null
+      jobStatus: JobStatus | null
+      jobError: string | null
+      startedAt: string | null
+    }>(
+      `/api/admin/guest-candidates/${id}/analyze/status${jobId ? `?jobId=${encodeURIComponent(jobId)}` : ""}`,
+    ),
   listOutreach: (id: string) =>
     call<{ messages: unknown[] }>(`/api/admin/guest-candidates/${id}/outreach`),
+  // Outreach generation is also a background job; the worker persists the draft
+  // (fixing draft-loss on a proxy timeout). POST returns a jobId; poll
+  // outreachStatus for the persisted draft.
   generateOutreach: (id: string, body: {
     channel: string
     tone: string
     length?: string
     customNote?: string
   }) =>
-    call<{ draft: { subject_line: string | null; message_body: string }; runId: string }>(
+    call<{ jobId: string; status: string; alreadyRunning?: boolean }>(
       `/api/admin/guest-candidates/${id}/outreach`,
       {
         method: "POST",
         body: JSON.stringify({ action: "generate", ...body }),
       },
+    ),
+  outreachStatus: (id: string, jobId?: string) =>
+    call<{
+      jobId: string | null
+      jobStatus: JobStatus | null
+      jobError: string | null
+      startedAt: string | null
+      draft: { subject_line: string | null; message_body: string } | null
+    }>(
+      `/api/admin/guest-candidates/${id}/outreach/status${jobId ? `?jobId=${encodeURIComponent(jobId)}` : ""}`,
     ),
   saveOutreach: (id: string, body: {
     channel: string

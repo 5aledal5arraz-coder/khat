@@ -26,3 +26,7 @@ import "./handlers/model-benchmark"
 import "./handlers/episode-map"
 // Studio 3-phase journey (Phase 2) — edit review (whisper edited audio + pure verdict).
 import "./handlers/episode-review"
+// Guest candidates — profile analysis + outreach-draft generation moved off the
+// nginx 120s request path (the outreach handler also PERSISTS the draft).
+import "./handlers/candidate-analyze"
+import "./handlers/candidate-outreach"

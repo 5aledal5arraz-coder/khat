@@ -6,14 +6,16 @@ import {
   validateMutation,
 } from "@/lib/api-utils"
 import {
-  generateOutreachDraft,
   listOutreachMessages,
   saveOutreachMessage,
 } from "@/lib/guest-candidates"
+import { enqueueJob, findInFlightJobByPayload } from "@/lib/jobs"
+import {
+  CANDIDATE_OUTREACH_GENERATE_JOB,
+  type CandidateOutreachJobPayload,
+} from "@/lib/jobs/candidate-jobs"
 import type { OutreachChannel, OutreachTone } from "@/types/database"
 import { revalidatePath } from "next/cache"
-
-export const maxDuration = 60
 
 const VALID_CHANNELS: OutreachChannel[] = ["whatsapp", "email", "dm"]
 const VALID_TONES: OutreachTone[] = ["formal", "warm", "concise", "premium"]
@@ -77,15 +79,28 @@ export async function POST(request: NextRequest, ctx: RouteContext) {
       ? (body.length as "short" | "medium" | "long")
       : "medium"
 
-    const outcome = await generateOutreachDraft({
+    // Enqueue — the editorial AI call runs in the worker (off the nginx 120s
+    // path) and PERSISTS the draft; the UI polls .../outreach/status?jobId.
+    // Dedup a double-click against an already-running generation for this
+    // candidate (adopt it) instead of enqueuing a second.
+    const inFlight = await findInFlightJobByPayload(
+      CANDIDATE_OUTREACH_GENERATE_JOB,
+      "candidateId",
+      id,
+    )
+    if (inFlight) {
+      return successResponse({ jobId: inFlight.id, status: inFlight.status, alreadyRunning: true }, 200)
+    }
+
+    const payload: CandidateOutreachJobPayload = {
       candidateId: id,
       channel: body.channel as OutreachChannel,
       tone: body.tone as OutreachTone,
       length,
-      customNote: body.customNote,
-    })
-    if (!outcome.ok) return errorResponse(outcome.error, 500)
-    return successResponse({ draft: outcome.draft, runId: outcome.runId })
+      customNote: body.customNote ?? null,
+    }
+    const job = await enqueueJob(CANDIDATE_OUTREACH_GENERATE_JOB, payload)
+    return successResponse({ jobId: job.id, status: job.status }, 202)
   }
 
   if (action === "save") {

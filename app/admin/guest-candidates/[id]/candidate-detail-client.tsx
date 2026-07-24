@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
@@ -281,38 +281,84 @@ export function CandidateDetailClient({ candidate, statusHistory, outreachMessag
     }
   }
 
-  // The analyze call can cross the reverse-proxy timeout wall (nginx cuts at 120s while the
-  // AI-router retry budget is longer): the client sees a transport error even though the
-  // server finished and persisted the analysis. Re-fetch and check whether the analysis
-  // timestamp advanced before deciding it truly failed.
-  async function analysisLandedSince(prevGeneratedAt: string | null): Promise<boolean> {
-    try {
-      const { candidate: fresh } = await candidatesApi.get(candidate.id)
-      const c = fresh as GuestCandidateView
-      return !!c.ai_generated_at && c.ai_generated_at !== prevGeneratedAt
-    } catch {
-      return false
+  // Analysis is a BACKGROUND JOB now (moved off the nginx 120s wall — the old
+  // `analysisLandedSince` transport-error workaround is gone, root-fixed): the
+  // POST enqueues and returns a jobId, then we poll the status endpoint until the
+  // job resolves. This is a one-shot button action, so a lightweight poll loop
+  // (with cleanup on unmount) beats a full context/provider.
+  const analyzePollRef = useRef<ReturnType<typeof setInterval> | null>(null)
+
+  const stopAnalyzePolling = useCallback(() => {
+    if (analyzePollRef.current) {
+      clearInterval(analyzePollRef.current)
+      analyzePollRef.current = null
     }
-  }
+  }, [])
+
+  const pollAnalyze = useCallback(
+    (jobId: string) => {
+      stopAnalyzePolling()
+      analyzePollRef.current = setInterval(async () => {
+        try {
+          const s = await candidatesApi.analyzeStatus(candidate.id, jobId)
+          if (s.jobStatus === "succeeded") {
+            stopAnalyzePolling()
+            setAnalyzeBusy(false)
+            toast({ title: "تم التحليل", description: "تم توليد تحليل ذكي جديد للمرشح" })
+            router.refresh()
+          } else if (s.jobStatus && ["failed", "dead", "cancelled"].includes(s.jobStatus)) {
+            stopAnalyzePolling()
+            setAnalyzeBusy(false)
+            toast({
+              variant: "destructive",
+              title: "فشل التحليل",
+              description: s.jobError || "تعذّر توليد التحليل. تأكّد أن عامل المهام (worker) يعمل.",
+            })
+          }
+          // pending / running → keep polling.
+        } catch {
+          // Transient network blip — keep polling.
+        }
+      }, 3000)
+    },
+    [candidate.id, router, toast, stopAnalyzePolling],
+  )
+
+  // Re-attach on mount: if an analysis job is already in flight (e.g. the page
+  // was refreshed mid-run), resume the busy state + poll instead of showing idle.
+  useEffect(() => {
+    let cancelled = false
+    candidatesApi
+      .analyzeStatus(candidate.id)
+      .then((s) => {
+        if (cancelled) return
+        if (s.jobId && (s.jobStatus === "pending" || s.jobStatus === "running")) {
+          setAnalyzeBusy(true)
+          pollAnalyze(s.jobId)
+        }
+      })
+      .catch(() => {})
+    return () => {
+      cancelled = true
+    }
+  }, [candidate.id, pollAnalyze])
+
+  // Clean up any live poll on unmount.
+  useEffect(() => stopAnalyzePolling, [stopAnalyzePolling])
 
   async function handleAnalyze() {
-    const prevGeneratedAt = candidate.ai_generated_at
+    if (analyzeBusy) return
     setAnalyzeBusy(true)
     try {
-      await candidatesApi.analyze(candidate.id)
-      toast({ title: "تم التحليل", description: "تم توليد تحليل ذكي جديد للمرشح" })
-      router.refresh()
+      const { jobId } = await candidatesApi.analyze(candidate.id)
+      pollAnalyze(jobId)
     } catch (err) {
-      // Don't trust the transport error alone — the server may have saved the analysis
-      // after the proxy already closed the connection. Verify against fresh data first.
-      if (await analysisLandedSince(prevGeneratedAt)) {
-        toast({ title: "تم التحليل", description: "تم توليد تحليل ذكي جديد للمرشح" })
-        router.refresh()
-      } else {
-        toast({ variant: "destructive", title: "فشل التحليل", description: err instanceof Error ? err.message : "تعذّر توليد التحليل. حاول مرة أخرى." })
-      }
-    } finally {
       setAnalyzeBusy(false)
+      toast({
+        variant: "destructive",
+        title: "تعذّر بدء التحليل",
+        description: err instanceof Error ? err.message : "خطأ غير متوقع",
+      })
     }
   }
 

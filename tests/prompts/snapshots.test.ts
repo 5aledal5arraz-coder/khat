@@ -629,7 +629,7 @@ describe("candidate-analysis builder (B2)", () => {
 
 describe("candidate-outreach builder (B2)", () => {
   it("system snapshot (email + formal + medium)", () => {
-    expect(CANDIDATE_OUTREACH_PROMPT_VERSION).toBe("candidate-outreach-v1.0")
+    expect(CANDIDATE_OUTREACH_PROMPT_VERSION).toBe("candidate-outreach-v1.1")
     expect(buildCandidateOutreachSystem("email", "formal", "medium")).toMatchSnapshot()
   })
   it("system varies with channel (whatsapp drops subject line rule)", () => {

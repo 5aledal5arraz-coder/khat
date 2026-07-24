@@ -140,6 +140,12 @@ const HANDLER_TIMEOUT_MS: Record<string, number> = {
   // EDITED recording (transcription-dominated, same as episode_map) + the pure,
   // instant verdict algorithm. Same 30-min budget.
   "studio.episode_review": 30 * 60_000,
+  // candidate.analyze / candidate.outreach_generate: one editorial AI call each
+  // over a small profile snapshot (no transcript, no chunking). The 5-min
+  // default would do; a slightly wider budget absorbs the router's retry/backoff
+  // ladder on a transient blip without a spurious timeout.
+  "candidate.analyze": 8 * 60_000,
+  "candidate.outreach_generate": 8 * 60_000,
 }
 
 function timeoutFor(jobType: string): number {
