@@ -518,7 +518,7 @@ describe("sponsorship builders (B2)", () => {
   } as unknown as SponsorshipLead
 
   it("analysis snapshot", () => {
-    const built = buildPartnershipEvaluationPrompt({ lead: fixtureLead, research: [] })
+    const built = buildPartnershipEvaluationPrompt({ lead: fixtureLead, researchBlock: "", researchSourceCount: 0 })
     expect(built.version).toBe(SPONSORSHIP_ANALYSIS_PROMPT_VERSION)
     expect(built.system).toMatchSnapshot()
     expect(built.user).toMatchSnapshot()
@@ -607,7 +607,7 @@ describe("guest-application builders (B2)", () => {
 
 describe("candidate-analysis builder (B2)", () => {
   it("system + user snapshots", () => {
-    expect(CANDIDATE_ANALYSIS_PROMPT_VERSION).toBe("candidate-analysis-v1.0")
+    expect(CANDIDATE_ANALYSIS_PROMPT_VERSION).toBe("candidate-analysis-v1.1")
     expect(CANDIDATE_ANALYSIS_SYSTEM).toMatchSnapshot()
     const fakeCandidate = {
       full_name: "خ. ع.",
@@ -624,6 +624,27 @@ describe("candidate-analysis builder (B2)", () => {
         { platform: "twitter", url: "https://x.com/x" },
       ]),
     ).toMatchSnapshot()
+  })
+
+  it("injects a grounded-evidence block when provided, omits it otherwise", () => {
+    const fakeCandidate = {
+      full_name: "خ. ع.",
+      display_name: null,
+      category: "تقني",
+      city: null,
+      country: null,
+      bio: null,
+      notes_internal: null,
+      source_note: null,
+    } as unknown as Parameters<typeof buildCandidateAnalysisUser>[0]
+    const withEvidence = buildCandidateAnalysisUser(
+      fakeCandidate,
+      [],
+      "<untrusted_source index=\"1\" domain=example.com verified=true>\nx\n</untrusted_source>",
+    )
+    expect(withEvidence).toContain("<untrusted_source")
+    const without = buildCandidateAnalysisUser(fakeCandidate, [])
+    expect(without).not.toContain("<untrusted_source")
   })
 })
 

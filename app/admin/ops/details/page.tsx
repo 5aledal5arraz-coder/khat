@@ -10,12 +10,20 @@
  * Server component. Calls the SAME `takeOpsSnapshot()` the home calls —
  * no new data layer. Read-only; reload to refresh. The sections recolor
  * to the admin light surface via the design tokens they already read.
+ *
+ * Auth: minimum ADMIN, enforced here (the layout authenticates only, it
+ * does no role check). This view carries infrastructure diagnostics —
+ * dead-job error text, event `actor` identities, rate-limit ceilings,
+ * invalid-transition counters — i.e. reconnaissance material, not daily
+ * production context.
  */
 
 import Link from "next/link"
 import { ArrowRight } from "lucide-react"
 import { takeOpsSnapshot } from "@/lib/ops/snapshot"
+import { checkPageRole } from "@/lib/api-utils"
 import { formatUtc } from "@/lib/ops/format"
+import { NoAccess } from "../_components/no-access"
 import { QueueHealthSection } from "../_components/queue-health-section"
 import { SystemEventsSection } from "../_components/system-events-section"
 import { AiRouterSection } from "../_components/ai-router-section"
@@ -25,6 +33,10 @@ import { RecentActivitySection } from "../_components/recent-activity-section"
 export const dynamic = "force-dynamic"
 
 export default async function OpsDetailsPage() {
+  // Role gate BEFORE the snapshot fan-out.
+  const gate = await checkPageRole("ADMIN")
+  if (!gate.ok) return <NoAccess roleLabelAr="مدير" />
+
   const snap = await takeOpsSnapshot()
 
   return (

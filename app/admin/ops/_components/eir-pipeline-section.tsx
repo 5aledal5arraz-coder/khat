@@ -49,7 +49,7 @@ export function EirPipelineSection({
     return (
       <SectionCard
         titleAr="مسار سجلات ذكاء الحلقات"
-        errorMode={{ error: result.error }}
+        errorMode={{ error: result.error, errorRef: result.errorRef }}
       />
     )
   }

@@ -10,22 +10,13 @@
  * (which pulls in `@/lib/db` and creates the pg pool at import time), so
  * the vars exist before the pool reads them.
  *
- * Production is unaffected: PM2 supplies env directly and there is no
- * `.env.local` on the server, so the `existsSync` guard makes this a
- * no-op. Vars already present in the environment win — `loadEnvFile`
- * does not clobber an already-set process.env.
+ * The loading itself now lives in `lib/env-file.ts`, shared with
+ * `drizzle.config.ts` and the tsx scripts — the same missing-loader bug bit all
+ * three, so there is exactly one implementation to keep correct. This file
+ * stays as the worker's side-effect import so the ordering contract above
+ * remains explicit at the call site.
  */
 
-import { existsSync } from "node:fs"
-import { resolve } from "node:path"
+import { loadEnvFiles } from "@/lib/env-file"
 
-// `process.loadEnvFile` landed in Node 20.12; type it optionally so the
-// build doesn't depend on the installed @types/node version exposing it.
-const proc = process as NodeJS.Process & {
-  loadEnvFile?: (path?: string) => void
-}
-
-const envPath = resolve(process.cwd(), ".env.local")
-if (existsSync(envPath) && typeof proc.loadEnvFile === "function") {
-  proc.loadEnvFile(envPath)
-}
+loadEnvFiles()

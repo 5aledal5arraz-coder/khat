@@ -21,7 +21,7 @@
  */
 
 import { runAiTask } from "@/lib/ai-router/router"
-import type { AiTaskKind } from "@/lib/ai-router/types"
+import type { AiTaskKind, AiProvider } from "@/lib/ai-router/types"
 import type { BenchmarkTier } from "@/lib/db/schema/model-benchmarks"
 import {
   buildMediumTranscript,
@@ -66,6 +66,13 @@ export function tierBaselineModel(tier: BenchmarkTier): string {
 
 /** Suffix heuristic: which tier a newly-discovered model likely targets. */
 export function tierForCandidate(modelId: string): BenchmarkTier {
+  // Gemini family: "flash" (and flash-lite) is the efficient tier, "pro" is
+  // flagship. The OpenAI suffix rules below don't match Gemini names, so a
+  // Gemini flash candidate would wrongly default to flagship and be compared
+  // against the wrong baseline — handle it explicitly first.
+  if (/gemini/i.test(modelId)) {
+    return /pro/i.test(modelId) ? "flagship" : "efficient"
+  }
   if (/(-luna|-mini|-nano)$/.test(modelId)) return "efficient"
   if (/-terra$/.test(modelId)) return "balanced"
   return "flagship" // -sol, -pro, bare gpt-X.Y, unknown suffixes
@@ -92,10 +99,15 @@ async function callModel(
   prompt: string,
   metrics: CallMetrics,
   timeoutMs = 240_000,
+  provider?: AiProvider,
 ): Promise<ModelRun> {
   const r = await runAiTask({
     taskKind,
     preferredModel: model,
+    // Without this, the router derives the provider from task_kind (all
+    // OpenAI), so a Gemini candidate is sent to the OpenAI adapter → 404.
+    // Undefined keeps the OpenAI-by-default behaviour for the baseline.
+    preferredProvider: provider,
     input: { benchmark: SUITE_VERSION, task: taskKind },
     prompt,
     expectJson: true,
@@ -231,6 +243,13 @@ export interface RunBenchmarkArgs {
   tier: BenchmarkTier
   candidateModel: string
   baselineModel?: string
+  /**
+   * Provider the CANDIDATE model belongs to. Defaults to OpenAI (the
+   * task-kind default) so existing OpenAI benchmarks are unchanged; pass
+   * "gemini" to benchmark a Gemini candidate through its adapter. The
+   * baseline always uses the task-kind default provider (OpenAI).
+   */
+  candidateProvider?: AiProvider
   triggeredBy: "manual" | "auto-discovery" | "cli"
   /** Reuse an existing row (job path); otherwise a row is created. */
   benchmarkId?: string
@@ -263,7 +282,15 @@ export async function runModelBenchmark(args: RunBenchmarkArgs): Promise<{
     const pair = (taskKind: AiTaskKind, prompt: string, timeoutMs?: number) =>
       Promise.all([
         callModel(baseline, taskKind, id, prompt, baseMetrics, timeoutMs),
-        callModel(args.candidateModel, taskKind, id, prompt, candMetrics, timeoutMs),
+        callModel(
+          args.candidateModel,
+          taskKind,
+          id,
+          prompt,
+          candMetrics,
+          timeoutMs,
+          args.candidateProvider,
+        ),
       ])
 
     // Extraction ×3 (also feeds consistency), sequential to keep load sane.

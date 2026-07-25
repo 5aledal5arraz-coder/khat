@@ -1,10 +1,12 @@
 /**
  * Verifier — Step 5 / final gate before claims are accepted.
  *
- * For every proposed claim, we ask Gemini to decide whether the claim is
- * actually supported by its cited sources. The verifier is a separate
- * LLM call (no search tool, JSON mode) so it cannot pull in outside
- * knowledge — it operates strictly on claim + source excerpts.
+ * For every proposed claim, we ask the model to decide whether the claim is
+ * actually supported by its cited sources. The verifier runs on OpenAI via the
+ * AI Router (`runAiTask`, task_kind "verification" — strict, low temperature),
+ * a separate LLM call over a fixed corpus (no search tool) so it cannot pull in
+ * outside knowledge — it operates strictly on claim + source excerpts, each
+ * wrapped in <untrusted_source> so injection payloads inside them are inert.
  *
  * Classification:
  *   verified    — at least one cited source clearly supports the claim
@@ -13,8 +15,15 @@
  */
 
 import type { PreparationResearchSource } from "@/types/preparation"
-import { geminiJson } from "./gemini"
+import { runAiTask } from "@/lib/ai-router"
+import {
+  UNTRUSTED_SOURCE_SAFETY_HEADER,
+  wrapUntrustedSource,
+} from "@/lib/ai/grounded-evidence"
 import type { ProposedClaim, VerifierDecision } from "./types"
+
+/** ai_runs actor attribution for the preparation research reasoning passes. */
+const PREPARATION_ACTOR = "system:preparation-research"
 
 const SYSTEM = `أنت مُدقّق حقائق صارم. مهمتك تصنيف كل ادعاء إلى:
 - verified: مدعوم بوضوح من المصادر المرفقة
@@ -42,7 +51,9 @@ const SYSTEM = `أنت مُدقّق حقائق صارم. مهمتك تصنيف �
 function formatSourceForVerifier(s: PreparationResearchSource): string {
   const meta = [s.provider, s.publisher, s.url].filter(Boolean).join(" | ")
   const body = s.snippet ? s.snippet.replace(/\s+/g, " ").slice(0, 500) : "(no snippet)"
-  return `[${s.id}] ${s.title}\n    ${meta}\n    ${body}`
+  // Web-derived text — wrap so an injection payload inside a snippet can't
+  // steer the verifier into mislabeling a claim. [id] stays inside (our own id).
+  return wrapUntrustedSource(s.id, `[${s.id}] ${s.title}\n    ${meta}\n    ${body}`, `provider=${s.provider}`)
 }
 
 export async function verifyClaims(
@@ -56,6 +67,8 @@ export async function verifyClaims(
   const srcById = new Map(sources.map((s) => [s.id, s]))
 
   const user = [
+    UNTRUSTED_SOURCE_SAFETY_HEADER,
+    "",
     "# الادعاءات المقترحة",
     withIds
       .map((c) => {
@@ -82,13 +95,32 @@ export async function verifyClaims(
     // field exists and is not an array.
     return v.decisions === undefined || Array.isArray(v.decisions)
   }
-  const out = await geminiJson<VerifierPayload>(
-    SYSTEM,
-    user,
-    "verify",
-    0.1,
-    isVerifierShape,
-  )
+  // Verification moved OFF Gemini reasoning onto OpenAI via the AI Router
+  // (task_kind "verification" — luna, strict low-temperature classification).
+  // The router owns JSON repair + telemetry; retrieval stays on Gemini upstream.
+  const completion = await runAiTask<VerifierPayload>({
+    taskKind: "verification",
+    subjectTable: "episode_preparations",
+    actorId: PREPARATION_ACTOR,
+    input: { stage: "verify", claim_count: proposed.length },
+    prompt: [
+      { role: "system", content: SYSTEM },
+      { role: "user", content: user },
+    ],
+    expectJson: true,
+    providerOptions: { temperature: 0.1 },
+  })
+
+  if (completion.status !== "succeeded") {
+    throw new Error(
+      `فشل التحقق من الادعاءات عبر AI Router (${completion.errorClass ?? "unknown"}): ` +
+        `${completion.errorMessage ?? "لا مخرجات"}`,
+    )
+  }
+  const out = completion.parsed
+  if (!out || !isVerifierShape(out)) {
+    throw new Error("التحقق أنتج JSON غير صالح الشكل بعد سلّم الإصلاح")
+  }
 
   const byId = new Map<string, VerifierDecision>()
   for (const d of out.decisions ?? []) {

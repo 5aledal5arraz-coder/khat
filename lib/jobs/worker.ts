@@ -33,7 +33,9 @@ import {
   ensurePartnerTaskReminderSchedule,
   ensureSourceFeedbackSchedule,
 } from "./scheduler-bootstrap"
-import { HandlerTimeoutError, NonRetryableJobError } from "./types"
+import { HandlerTimeoutError, NonRetryableJobError, type JobRow } from "./types"
+import { startWorkerHeartbeat, type WorkerHeartbeatHandle } from "./heartbeat"
+import { checkMigrationDrift, formatDriftMessage } from "@/lib/db/migration-guard"
 import { isQuotaExceededError, QUOTA_EXCEEDED_MESSAGE } from "@/lib/ai-router/errors"
 import "./registered"
 // Phase 2.3.c — unified event log writers. Fire-and-forget per emit
@@ -192,11 +194,80 @@ function assertTimeoutKeysAreRegistered(): void {
   }
 }
 
+// Same boot-guard idea as above, one layer down: the handler timeouts can only
+// be right if the SCHEMA is right. A worker running against a database that is
+// N migrations behind the code doesn't fail at boot — it fails hours later,
+// inside a random handler, as a dead job with a "column does not exist" message
+// that points nowhere near the actual problem. That is exactly how the local DB
+// stayed 9 migrations behind for 22 days.
+//
+// Unlike the timeout guard this one is FATAL when drift is confirmed: there is
+// no useful work a worker can do against the wrong schema. It is deliberately
+// NOT fatal when the check itself can't run (no pool, unreachable host) — an
+// unreachable database is not evidence of drift.
+//
+// Escape hatch: KHAT_SKIP_MIGRATION_GUARD=1 downgrades it to a warning, for the
+// case where an operator knowingly needs a worker up before migrating.
+async function assertNoMigrationDrift(): Promise<void> {
+  const result = await checkMigrationDrift()
+
+  if (result.status === "in_sync") {
+    wlog.info(`migration guard: in sync (${result.applied}/${result.expected})`)
+    return
+  }
+
+  if (result.status === "unknown") {
+    wlog.warn(`migration guard: تعذّر الفحص — ${result.reason}. الاستمرار بدون تحقق.`)
+    return
+  }
+
+  const message = formatDriftMessage(result)
+  if (process.env.KHAT_SKIP_MIGRATION_GUARD === "1") {
+    wlog.warn(`migration guard (متجاوَز عبر KHAT_SKIP_MIGRATION_GUARD):\n${message}`)
+    return
+  }
+
+  wlog.error(
+    `توقّف الـ worker عند الإقلاع.\n${message}\n` +
+      "  (للتجاوز المؤقت وعلى مسؤوليتك: KHAT_SKIP_MIGRATION_GUARD=1)",
+  )
+  process.exit(1)
+}
+
 let stopping = false
+
+// ─── Liveness heartbeat ──────────────────────────────────────────────
+// The job type currently in flight, or null when this worker is idle. Read by
+// the heartbeat timer (see below) so every beat carries the worker's CURRENT
+// busy/idle state — that is what lets the ops page tell "شغّال بلا مهام" apart
+// from "ما يرد" instead of calling every quiet stretch a death.
+let currentJobType: string | null = null
+
+/** ISO boot timestamp — display context on the ops page, never a health input. */
+const BOOTED_AT = new Date().toISOString()
+
+/** The heartbeat timer. Assigned once at boot; see the call site below. */
+let heartbeat: WorkerHeartbeatHandle | null = null
 
 async function processOne(): Promise<boolean> {
   const job = await claimNextJob(WORKER_ID)
   if (!job) return false
+  currentJobType = job.type
+  // Beat on both transitions so the reported busy/idle state is exact rather
+  // than up to one interval stale — see WorkerHeartbeatHandle.beat.
+  heartbeat?.beat()
+  try {
+    return await runClaimedJob(job)
+  } finally {
+    // Cleared on EVERY exit path (success, failure, throw) — a stuck flag
+    // would report an idle worker as permanently busy.
+    currentJobType = null
+    heartbeat?.beat()
+  }
+}
+
+/** The body of `processOne` for a job that was actually claimed. */
+async function runClaimedJob(job: JobRow): Promise<boolean> {
 
   wlog.info(
     `running ${job.type} (id=${job.id} attempt=${job.attempts}/${job.max_attempts})`,
@@ -478,6 +549,10 @@ function shutdown(reason: string): void {
   if (stopping) return
   stopping = true
   wlog.info(`shutting down (${reason})`)
+  // Stop claiming liveness the moment we decide to die. The last beat then
+  // ages out and the ops page flips to "ما يرد" — the honest report for a
+  // worker that was deliberately stopped.
+  heartbeat?.stop()
   // Give the in-flight job a moment to wrap up; we don't force-kill.
   setTimeout(() => process.exit(0), 1500)
 }
@@ -492,6 +567,33 @@ wlog.info(`starting (poll=${POLL_MS}ms lease=${LEASE_MS}ms)`)
 validateEnv()
 
 assertTimeoutKeysAreRegistered()
+
+// Start beating BEFORE the migration guard and the claim loop, so a worker that
+// is up but blocked (or one that has simply never been given work) still proves
+// it is alive. On confirmed drift the guard calls process.exit(1) and the beat
+// dies with it — correctly reported as "ما يرد", because that worker is not
+// going to process anything.
+//
+// Declared as a mutable binding rather than a const so `shutdown()` — hoisted
+// above this line — can stop it. Assigned exactly once.
+heartbeat = startWorkerHeartbeat(
+  () => ({
+    worker_id: WORKER_ID,
+    busy: currentJobType !== null,
+    job_type: currentJobType,
+    booted_at: BOOTED_AT,
+  }),
+  (err) =>
+    wlog.warn(
+      `heartbeat write failed: ${err instanceof Error ? err.message : String(err)}`,
+    ),
+)
+
+// Started HERE, before the scheduler bootstraps, so a drifted schema aborts the
+// process as early as possible instead of after a round of failing enqueues.
+// `loop()` at the bottom of this file is gated on it — the worker never claims a
+// job until the schema question is settled.
+const migrationGuard = assertNoMigrationDrift()
 
 // Warm the OpenAI model catalog (fire-and-forget) so the first AI job
 // doesn't pay the /v1/models fetch and availability fallback is armed.
@@ -652,7 +754,11 @@ ensureSourceFeedbackSchedule()
     wlog.error(`source-feedback bootstrap failed:`, err),
   )
 
-loop().catch((err) => {
-  wlog.error(`fatal:`, err)
-  process.exit(1)
-})
+// Gate the claim loop on the migration guard (see above). On confirmed drift the
+// guard already exited; this only ever proceeds against a schema we trust.
+migrationGuard
+  .then(() => loop())
+  .catch((err) => {
+    wlog.error(`fatal:`, err)
+    process.exit(1)
+  })

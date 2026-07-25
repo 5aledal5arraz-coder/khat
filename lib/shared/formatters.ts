@@ -192,6 +192,59 @@ export function formatCompactNumber(n: number, opts?: { plus?: boolean }): strin
   return n.toLocaleString()
 }
 
+// ─── Grounded research sources ───────────────────────────────────────────────
+
+/**
+ * Primary, human-readable label for a grounded research-source row/chip.
+ * The stored `title` is a raw grounded snippet (markdown `**`, `…` truncation,
+ * mid-word cuts like "ع*") — unfit as a headline. The domain (or publisher) is
+ * the essential, scannable identifier a reviewer needs BEFORE clicking, so it
+ * leads. Pure/display-only — never mutates stored source data. Single source;
+ * components must import this rather than re-implementing it.
+ */
+export function researchSourceLabel(source: {
+  domain?: string | null
+  publisher?: string | null
+  url: string
+}): string {
+  const domain = source.domain?.trim()
+  if (domain) return domain
+  const publisher = source.publisher?.trim()
+  if (publisher) return publisher
+  try {
+    return new URL(source.url).hostname.replace(/^www\./, "")
+  } catch {
+    return source.url
+  }
+}
+
+/**
+ * Strip the inline markdown a grounded snippet can carry — bold/italic `**`/`*`,
+ * inline `` `code` ``, leading list/heading/quote markers, and `[label](url)`
+ * links (kept as `label`) — then collapse whitespace. Pure; returns "" for
+ * empty input. Single source: used both to CLEAN grounded snippets before they
+ * are stored in a display column that must not render markup (the web_grounded
+ * market adapter) and to render `researchSourceSnippet` for already-stored rows.
+ */
+export function stripInlineMarkdown(text: string | null | undefined): string {
+  return (text ?? "")
+    .replace(/\[([^\]]+)\]\([^)]*\)/g, "$1") // [label](url) → label
+    .replace(/^\s*(?:[*+\-•>]+|#{1,6}|\d+[.)])\s+/gm, "") // leading list/heading/quote markers
+    .replace(/[*`]+/g, "") // bold / italic / inline-code markers
+    .replace(/\s+/g, " ")
+    .trim()
+}
+
+/**
+ * Secondary description for a grounded source — the stored `title` holds the
+ * raw grounded snippet. Strip markdown and collapse whitespace so it reads
+ * cleanly as a muted sub-line / tooltip. Display-only; returns "" when there's
+ * nothing useful beyond the label.
+ */
+export function researchSourceSnippet(source: { title?: string | null }): string {
+  return stripInlineMarkdown(source.title)
+}
+
 /** Arabic month names. */
 export const AR_MONTHS = [
   "يناير", "فبراير", "مارس", "أبريل", "مايو", "يونيو",

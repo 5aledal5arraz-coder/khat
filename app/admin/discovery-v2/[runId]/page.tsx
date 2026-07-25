@@ -43,6 +43,7 @@ export default async function V2RunPage({
       birth_year: (v2.birth_year as number) ?? null,
       sitelinks: (v2.sitelinks as number) ?? null,
       signals: v2.signals as V2CardData["signals"],
+      grounded: (v2.grounded as V2CardData["grounded"]) ?? null,
       links: (r.evidence_urls ?? []).map((e) => ({ platform: e.platform, url: e.url, title: e.title })),
     }
   })

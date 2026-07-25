@@ -59,7 +59,7 @@ import type {
   GuestPrepFormStatus,
   GuestPrepResponse,
 } from "@/types/database"
-import { formatDate } from "@/lib/shared/formatters"
+import { formatDate, researchSourceLabel, researchSourceSnippet } from "@/lib/shared/formatters"
 import {
   timeAgo,
   generateAcceptanceMessage,
@@ -2605,20 +2605,34 @@ export function SubmissionsTabs({
                         </p>
                         <p className="text-sm leading-relaxed">{aiAnalysis.research_summary}</p>
                         {aiAnalysis.research_sources && aiAnalysis.research_sources.length > 0 && (
-                          <div className="mt-2 flex flex-wrap gap-1.5">
-                            {aiAnalysis.research_sources.slice(0, 6).map((s, i) => (
-                              <a
-                                key={i}
-                                href={s.url}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="inline-flex items-center gap-1 rounded-md bg-sky-500/[0.08] px-2 py-1 text-[10px] text-sky-700 ring-1 ring-sky-500/15 hover:bg-sky-500/15"
-                              >
-                                <LinkIcon className="h-2.5 w-2.5" />
-                                {(s.title || "مصدر").slice(0, 28)}
-                              </a>
-                            ))}
-                          </div>
+                          <>
+                            <p className="mt-2 text-[10px] text-muted-foreground">المصادر · عبر بحث Gemini المُسنَد</p>
+                            <div className="mt-1 flex flex-wrap gap-1.5">
+                              {aiAnalysis.research_sources.slice(0, 6).map((s, i) => {
+                                const label = researchSourceLabel(s)
+                                const snippet = researchSourceSnippet(s)
+                                const tip = [snippet, s.verified === false ? "(غير مؤكّد)" : null].filter(Boolean).join(" ")
+                                return (
+                                  <a
+                                    key={i}
+                                    href={s.url}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    aria-label={`افتح المصدر: ${label}`}
+                                    title={tip || undefined}
+                                    className={`inline-flex max-w-[200px] items-center gap-1 truncate rounded-md px-2 py-1 text-[10px] hover:bg-sky-500/15 ${
+                                      s.verified === false
+                                        ? "bg-amber-500/[0.08] text-amber-700 ring-1 ring-amber-500/25"
+                                        : "bg-sky-500/[0.08] text-sky-700 ring-1 ring-sky-500/15"
+                                    }`}
+                                  >
+                                    <LinkIcon className="h-2.5 w-2.5 shrink-0" />
+                                    <span dir="ltr" className="truncate">{label}</span>
+                                  </a>
+                                )
+                              })}
+                            </div>
+                          </>
                         )}
                       </div>
                     )}

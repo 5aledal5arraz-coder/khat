@@ -44,7 +44,7 @@ vi.mock("@/lib/middleware/rate-limit", () => ({
 import { cookies, headers } from "next/headers"
 import { redirect } from "next/navigation"
 import { verifyAdminSession } from "@/lib/admin/auth"
-import { requireAdmin, requireAdminAPI } from "@/lib/api-utils"
+import { checkPageRole, requireAdmin, requireAdminAPI } from "@/lib/api-utils"
 
 function makeUser(role: AdminRole, is_active = true): AdminUser {
   return {
@@ -196,6 +196,78 @@ describe("requireAdmin() read-path gate (is_active + loop-safe redirect)", () =>
     arrangeAuth({ cookie: true, user: makeUser("ADMIN", false) })
     await requireAdmin()
     expect(redirect).toHaveBeenCalledWith("/admin/clear-session")
+  })
+})
+
+/**
+ * checkPageRole() — the PAGE-level gate behind `/admin/ops` (VIEWER — it
+ * is the post-login landing page, so its floor is the lowest role; the
+ * sensitive tiles/links inside it carry their own ADMIN gates) and
+ * `/admin/ops/details` (ADMIN). Before it existed, `app/admin` had ZERO
+ * role checks in any .tsx: the proxy checks cookie EXISTENCE and the
+ * layout only authenticates, so every session — VIEWER included — read
+ * the full ops console. It must never redirect (the gated page IS the
+ * admin home, so a redirect would loop).
+ */
+describe("checkPageRole() page-level role gate", () => {
+  beforeEach(() => vi.clearAllMocks())
+
+  function arrangeSession(role: AdminRole | null, active = true) {
+    vi.mocked(cookies).mockResolvedValue({
+      get: (name: string) =>
+        role && name === "__admin_session" ? { value: "tok" } : undefined,
+    } as unknown as Awaited<ReturnType<typeof cookies>>)
+    vi.mocked(verifyAdminSession).mockResolvedValue(
+      role ? makeUser(role, active) : null,
+    )
+  }
+
+  it("ADMIN gate: blocks EDITOR, allows ADMIN and OWNER", async () => {
+    arrangeSession("EDITOR")
+    const editor = await checkPageRole("ADMIN")
+    expect(editor.ok).toBe(false)
+    // The user is still returned on a role failure (only on a role
+    // failure) so a caller could tailor the refusal copy.
+    expect(editor.user?.role).toBe("EDITOR")
+
+    for (const role of ["ADMIN", "OWNER"] as const) {
+      arrangeSession(role)
+      const out = await checkPageRole("ADMIN")
+      expect(out.ok, `${role} should pass an ADMIN gate`).toBe(true)
+      if (out.ok) expect(out.user.role).toBe(role)
+    }
+  })
+
+  it("EDITOR gate: blocks VIEWER, allows EDITOR and up", async () => {
+    arrangeSession("VIEWER")
+    expect((await checkPageRole("EDITOR")).ok).toBe(false)
+
+    for (const role of ["EDITOR", "ADMIN", "OWNER"] as const) {
+      arrangeSession(role)
+      expect((await checkPageRole("EDITOR")).ok, role).toBe(true)
+    }
+  })
+
+  it("no session → { ok: false, user: null }", async () => {
+    arrangeSession(null)
+    const out = await checkPageRole("EDITOR")
+    expect(out.ok).toBe(false)
+    expect(out.user).toBeNull()
+  })
+
+  it("a DEACTIVATED account is refused and exposes no user object", async () => {
+    arrangeSession("OWNER", false)
+    const out = await checkPageRole("EDITOR")
+    expect(out.ok).toBe(false)
+    expect(out.user).toBeNull()
+  })
+
+  it("never redirects — the gated page is the admin home", async () => {
+    arrangeSession("VIEWER")
+    await checkPageRole("ADMIN")
+    arrangeSession(null)
+    await checkPageRole("ADMIN")
+    expect(redirect).not.toHaveBeenCalled()
   })
 })
 

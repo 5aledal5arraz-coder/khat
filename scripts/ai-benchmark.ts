@@ -2,6 +2,7 @@
  * Model benchmark CLI — run the upgrade-evidence suite inline (no worker).
  *
  *   npx tsx scripts/ai-benchmark.ts --candidate gpt-5.7-sol [--tier flagship] [--baseline gpt-5.6-sol]
+ *   npx tsx scripts/ai-benchmark.ts --candidate gemini-3.6-flash --candidate-provider gemini [--tier efficient]
  *   npx tsx scripts/ai-benchmark.ts --list
  *   npx tsx scripts/ai-benchmark.ts --set-threshold minQualityNet=10 [--set-threshold maxCostIncreasePct=20]
  *
@@ -29,6 +30,7 @@ import {
   type BenchmarkSummary,
 } from "@/lib/ai-router/benchmark/scoring"
 import type { BenchmarkTier } from "@/lib/db/schema/model-benchmarks"
+import { AI_PROVIDERS, type AiProvider } from "@/lib/db/schema/ai-runs"
 
 function arg(name: string): string | null {
   const i = process.argv.indexOf(`--${name}`)
@@ -109,17 +111,29 @@ async function main() {
 
   const candidate = arg("candidate")
   if (!candidate) {
-    console.log("Usage: --candidate <model> [--tier flagship|balanced|efficient] [--baseline <model>] | --list | --set-threshold k=v")
+    console.log("Usage: --candidate <model> [--candidate-provider openai|gemini] [--tier flagship|balanced|efficient] [--baseline <model>] | --list | --set-threshold k=v")
     process.exit(2)
   }
   const tier = (arg("tier") as BenchmarkTier | null) ?? tierForCandidate(candidate)
   const baseline = arg("baseline") ?? tierBaselineModel(tier)
-  console.log(`Benchmarking ${candidate} vs ${baseline} (${tier}) — ~20 live AI calls…`)
+  // Provider of the candidate model. Defaults to OpenAI so existing
+  // benchmarks are unchanged; pass --candidate-provider gemini for Gemini.
+  const providerArg = arg("candidate-provider")
+  if (providerArg && !AI_PROVIDERS.includes(providerArg as AiProvider)) {
+    throw new Error(
+      `Unknown --candidate-provider "${providerArg}" (expected: ${AI_PROVIDERS.join(", ")})`,
+    )
+  }
+  const candidateProvider = (providerArg as AiProvider | null) ?? "openai"
+  console.log(
+    `Benchmarking ${candidate} (${candidateProvider}) vs ${baseline} (${tier}) — ~20 live AI calls…`,
+  )
   const started = Date.now()
   const result = await runModelBenchmark({
     tier,
     candidateModel: candidate,
     baselineModel: baseline,
+    candidateProvider,
     triggeredBy: "cli",
   })
   console.log(`Finished in ${Math.round((Date.now() - started) / 1000)}s → ${result.status}`)

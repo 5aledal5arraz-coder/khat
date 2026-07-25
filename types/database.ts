@@ -193,6 +193,16 @@ export type PartnershipNextAction =
 export interface ResearchSource {
   title: string
   url: string
+  /** Real destination domain (e.g. "wikipedia.org"). Null when unresolvable. */
+  domain?: string | null
+  /** Publisher label as reported by the grounded search. */
+  publisher?: string
+  /**
+   * True when the link resolved to a live page. Absent on legacy rows saved
+   * before grounded verification existed — treat `undefined` as "unknown",
+   * not "unverified".
+   */
+  verified?: boolean
 }
 
 /** A likely partner objection paired with the Director's suggested response. */
@@ -1176,6 +1186,19 @@ export type PrepFormLinkStatus =
   | "expired"
   | "cancelled"
 
+/**
+ * One attributed web source behind a candidate's AI analysis — a trimmed
+ * projection of the grounded-evidence `GroundedSource`, sized for storage on
+ * the candidate row and display in the detail-page citation list.
+ */
+export interface CandidateResearchSource {
+  title: string
+  url: string
+  domain: string | null
+  publisher?: string
+  verified: boolean
+}
+
 export interface GuestCandidate {
   id: string
   full_name: string
@@ -1212,6 +1235,8 @@ export interface GuestCandidate {
     hard?: string[]
     emotional?: string[]
   } | null
+  /** Attributed web sources behind the latest AI analysis (grounded search). */
+  ai_research_sources_json: CandidateResearchSource[] | null
   ai_model_used: string | null
   ai_generated_at: string | null
   last_contacted_at: string | null

@@ -129,6 +129,9 @@ registerHandler<V2RunPayload>("discovery_v2.run", async (payload) => {
           qid: c.wiki.qid,
           social: c.wiki.social,
           signals: c.signals,
+          // Optional live-web verification (present only for top advanced
+          // candidates when grounding is enabled; null otherwise).
+          grounded: c.grounded ?? null,
         },
       } as never,
     })

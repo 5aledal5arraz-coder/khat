@@ -39,6 +39,7 @@ import type {
   CrmActivity,
 } from "@/types/database"
 import type { GuestNextBestAction } from "@/lib/guest-crm/record"
+import { researchSourceLabel, researchSourceSnippet } from "@/lib/shared/formatters"
 
 const STAGES: { id: GuestApplicationStatus; label: string }[] = [
   { id: "new", label: "جديد" },
@@ -421,13 +422,31 @@ function OverviewTab({ record }: { record: GuestRecord }) {
             {field("الحضور العلني", a.public_presence)}
             {field("المصداقية", a.credibility_note)}
             {a.research_sources.length > 0 && (
-              <div className="flex flex-wrap gap-1.5 pt-1">
-                {a.research_sources.slice(0, 8).map((s, i) => (
-                  <a key={i} href={s.url} target="_blank" rel="noreferrer" className="inline-flex max-w-[200px] items-center gap-1 truncate rounded-md bg-muted px-2 py-0.5 text-[11px] text-muted-foreground hover:bg-muted-foreground/10">
-                    <ExternalLink className="h-2.5 w-2.5 shrink-0" />
-                    <span className="truncate">{s.title || s.url}</span>
-                  </a>
-                ))}
+              <div className="pt-1">
+                <p className="mb-1 text-[11px] text-muted-foreground">المصادر · عبر بحث Gemini المُسنَد</p>
+                <div className="flex flex-wrap gap-1.5">
+                  {a.research_sources.slice(0, 8).map((s, i) => {
+                    const label = researchSourceLabel(s)
+                    const snippet = researchSourceSnippet(s)
+                    const tip = [snippet, s.verified === false ? "(غير مؤكّد)" : null].filter(Boolean).join(" ")
+                    return (
+                      <a
+                        key={i}
+                        href={s.url}
+                        target="_blank"
+                        rel="noreferrer"
+                        aria-label={`افتح المصدر: ${label}`}
+                        title={tip || undefined}
+                        className={`inline-flex max-w-[200px] items-center gap-1 truncate rounded-md px-2 py-0.5 text-[11px] text-muted-foreground hover:bg-muted-foreground/10 ${
+                          s.verified === false ? "bg-amber-500/[0.08] ring-1 ring-amber-500/25" : "bg-muted"
+                        }`}
+                      >
+                        <ExternalLink className="h-2.5 w-2.5 shrink-0" />
+                        <span dir="ltr" className="truncate">{label}</span>
+                      </a>
+                    )
+                  })}
+                </div>
               </div>
             )}
           </div>

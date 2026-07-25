@@ -73,6 +73,7 @@ export const SOURCE_LABEL: Record<string, string> = {
   // Adapter sources (existing market_topic_signals.source values)
   youtube: "يوتيوب",
   podcast_apple: "آبل بودكاست",
+  web_grounded: "بحث الويب المُسنَد",
   // Curated source types (Phase 3 will surface these too)
   podcast: "بودكاست",
   website: "موقع إلكتروني",

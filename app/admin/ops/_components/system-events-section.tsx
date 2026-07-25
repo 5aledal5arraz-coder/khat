@@ -28,7 +28,7 @@ export function SystemEventsSection({
     return (
       <SectionCard
         titleAr="نظرة عامة على أحداث النظام (24 ساعة)"
-        errorMode={{ error: result.error }}
+        errorMode={{ error: result.error, errorRef: result.errorRef }}
       />
     )
   }

@@ -241,6 +241,12 @@ describe("tier heuristics", () => {
     expect(tierForCandidate("gpt-5.7-terra")).toBe("balanced")
     expect(tierForCandidate("gpt-5.7-sol")).toBe("flagship")
     expect(tierForCandidate("gpt-6")).toBe("flagship")
+    // Gemini family: flash(-lite) is efficient, pro is flagship — the OpenAI
+    // suffix rules don't match Gemini names, so these are handled explicitly.
+    expect(tierForCandidate("gemini-3.6-flash")).toBe("efficient")
+    expect(tierForCandidate("gemini-2.5-flash")).toBe("efficient")
+    expect(tierForCandidate("gemini-2.5-flash-lite")).toBe("efficient")
+    expect(tierForCandidate("gemini-3.6-pro")).toBe("flagship")
     expect(tierBaselineModel("flagship")).toBe(FALLBACK_CHAINS.editorial[0])
     expect(tierBaselineModel("balanced")).toBe(FALLBACK_CHAINS.research[0])
     expect(tierBaselineModel("efficient")).toBe(FALLBACK_CHAINS.structural[0])

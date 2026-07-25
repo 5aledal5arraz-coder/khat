@@ -32,6 +32,10 @@ export const MARKET_SIGNAL_SOURCES = [
   // Phase 4: operator-authored editorial signals (observations, quotes,
   // social tensions, cultural shifts, …). Marked with operator_created=true.
   "manual",
+  // Wave 2: live grounded web signals (trends/news around podcast topics)
+  // gathered via Gemini Google-Search grounding through the shared
+  // grounded-evidence service. Opt-in adapter, see adapters/web-grounded.ts.
+  "web_grounded",
 ] as const
 export type MarketSignalSource = (typeof MARKET_SIGNAL_SOURCES)[number]
 
@@ -58,7 +62,8 @@ export const marketTopicSignals = pgTable(
       .primaryKey()
       .$defaultFn(() => crypto.randomUUID()),
 
-    /** Origin platform. CHECK constraint enforced in post-schema.sql. */
+    /** Origin platform (one of MARKET_SIGNAL_SOURCES). No DB CHECK — the
+     *  union is guarded in application code via the $type cast. */
     source: text("source").$type<MarketSignalSource>().notNull(),
     /** Stable upstream identifier (videoId, trackId, episodeGuid). */
     external_id: text("external_id").notNull(),

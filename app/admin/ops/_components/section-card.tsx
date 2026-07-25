@@ -17,7 +17,13 @@ interface SectionCardProps {
   subtitleAr?: string
   /** Use the full-width grid track on lg screens. Section 5 only. */
   fullWidth?: boolean
-  errorMode?: { error: string }
+  /**
+   * The failed `SectionResult` fields. `error` is the fixed generic
+   * sentence from `lib/ops/snapshot.ts`; `errorRef` is the lookup key
+   * for the real cause in the server log. Nothing else about the
+   * failure may be rendered here.
+   */
+  errorMode?: { error: string; errorRef?: string }
   children?: ReactNode
 }
 
@@ -45,9 +51,21 @@ export function SectionCard({
       {errorMode ? (
         <div className="rounded-lg border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-700 dark:text-red-400">
           <div className="font-medium">غير متاح</div>
-          <div className="mt-1 break-words text-xs opacity-80">
-            خطأ: {errorMode.error}
-          </div>
+          <div className="mt-1 break-words text-xs">{errorMode.error}</div>
+          {errorMode.errorRef ? (
+            // No opacity dimming here: this hex ref is the ONE string the
+            // operator has to transcribe exactly, and `text-red-700` at
+            // 70% opacity on white is ~3.3:1 — below WCAG AA. `-700` is
+            // also the project's darkest coloured-text step (ui-kit.tsx).
+            // The ref itself is set a step larger than the label for the
+            // same reason: it has to be read character by character.
+            <div className="mt-1 text-xs text-red-700">
+              رقم للمتابعة مع المطوّر:{" "}
+              <span className="font-mono text-[13px] font-semibold" dir="ltr">
+                {errorMode.errorRef}
+              </span>
+            </div>
+          ) : null}
         </div>
       ) : (
         <div className="space-y-4 text-sm">{children}</div>

@@ -18,6 +18,7 @@ import {
   real,
   index,
 } from "drizzle-orm/pg-core"
+import type { CandidateResearchSource } from "@/types/database"
 
 // ---------------------------------------------------------------------------
 // 1. Candidates
@@ -70,6 +71,12 @@ export const guestCandidates = pgTable("guest_candidates", {
     hard?: string[]
     emotional?: string[]
   }>().default({}),
+  // Grounded web evidence the analysis was built on (Gemini grounded search).
+  // Persisted so the candidate page can show the attributed sources + their
+  // real domain. Empty when Gemini isn't configured or found nothing.
+  ai_research_sources_json: jsonb("ai_research_sources_json")
+    .$type<CandidateResearchSource[]>()
+    .default([]),
   ai_model_used: text("ai_model_used"),
   ai_generated_at: timestamp("ai_generated_at", { withTimezone: true }),
 

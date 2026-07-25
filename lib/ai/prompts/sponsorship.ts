@@ -53,15 +53,17 @@ const EVALUATION_SYSTEM = `أنت "مدير شراكات" متمرّس لبود�
 
 كن موضوعيًا ودقيقًا. لا تبالغ مدحًا ولا قدحًا. حماية مصداقية خط أولوية: لو كانت الشركة لا تناسب قيم خط، قُلها بوضوح واخفِض win_probability وضع recommended_action على "decline".`
 
-export interface ResearchSnippet {
-  title: string
-  url: string
-  snippet: string
-}
-
 export interface PartnershipEvaluationPromptInput {
   lead: SponsorshipLead
-  research: ResearchSnippet[]
+  /**
+   * Pre-rendered grounded-evidence block (from
+   * `renderGroundedEvidenceBlock` in `lib/ai/grounded-evidence.ts`) — every
+   * web-derived value already wrapped in <untrusted_source>. Empty string
+   * when no grounded sources were found.
+   */
+  researchBlock: string
+  /** How many grounded sources the block covers (for the input snapshot). */
+  researchSourceCount: number
 }
 
 export interface BuiltSponsorshipPrompt {
@@ -104,23 +106,17 @@ function leadDossier(lead: SponsorshipLead): string {
 export function buildPartnershipEvaluationPrompt(
   input: PartnershipEvaluationPromptInput,
 ): BuiltSponsorshipPrompt {
-  const { lead, research } = input
-  const researchBlock =
-    research.length > 0
-      ? research
-          .map(
-            (s, i) =>
-              `[${i + 1}] ${s.title}\n${s.url}\n${(s.snippet || "").slice(0, 600)}`,
-          )
-          .join("\n\n")
-      : "(لا تتوفر نتائج بحث — قيّم بناءً على بيانات الطلب فقط، واذكر أن البحث غير متاح.)"
+  const { lead, researchBlock, researchSourceCount } = input
+  const block = researchBlock.trim()
+    ? researchBlock.trim()
+    : "(لا تتوفر نتائج بحث — قيّم بناءً على بيانات الطلب فقط، واذكر أن البحث غير متاح.)"
 
   const user = `${leadDossier(lead)}
 
 ═══════════════════════════════════
 نتائج البحث الحيّ عن الشركة على الإنترنت:
 ═══════════════════════════════════
-${researchBlock}
+${block}
 
 قيّم هذه الشركة كشريك محتمل لخط وفق صيغة JSON المطلوبة.`
 
@@ -133,7 +129,7 @@ ${researchBlock}
       companyName: lead.company_name,
       industry: lead.industry,
       budgetRange: lead.budget_range,
-      researchSourceCount: research.length,
+      researchSourceCount,
     },
   }
 }

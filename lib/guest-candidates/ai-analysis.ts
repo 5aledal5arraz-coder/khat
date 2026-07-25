@@ -20,7 +20,13 @@ import {
   guestCandidateSocialLinks,
   guestCandidateAiRuns,
 } from "@/lib/db/schema/guest-candidates"
+import type { CandidateResearchSource } from "@/types/database"
 import { eq } from "drizzle-orm"
+import {
+  gatherGroundedEvidence,
+  renderGroundedEvidenceBlock,
+  isGroundedEvidenceConfigured,
+} from "@/lib/ai/grounded-evidence"
 // Phase 2.0 Batch 2 — direct OpenAI call routed through runAiTask.
 // The parallel `guestCandidateAiRuns` audit row has its own `model_name`
 // column: seeded with the registry default, then corrected to the model
@@ -59,6 +65,52 @@ export interface CandidateAnalysisResult {
 // Phase 2.0 Batch 2 — SYSTEM_PROMPT + buildUserPrompt moved to
 // lib/ai/prompts/candidate-analysis.ts. This file now imports
 // CANDIDATE_ANALYSIS_SYSTEM + buildCandidateAnalysisUser.
+
+/**
+ * Live grounded research on the candidate — real Google search via Gemini.
+ * Fail-safe by design: returns an empty block + no sources when Gemini isn't
+ * configured, the daily retrieval budget is spent, or the search errors, so
+ * the analysis still runs from the profile alone. A candidate with no web
+ * footprint is expected and fine.
+ */
+async function researchCandidate(
+  candidate: typeof guestCandidates.$inferSelect,
+  socials: { platform: string; url: string }[],
+  actorId: string | null,
+): Promise<{ block: string; sources: CandidateResearchSource[] }> {
+  if (!isGroundedEvidenceConfigured()) return { block: "", sources: [] }
+  const where = [candidate.city, candidate.country].filter(Boolean).join("، ")
+  const links = socials.length > 0 ? ` روابطه: ${socials.map((s) => s.url).join("، ")}.` : ""
+  const query =
+    `من هو "${candidate.full_name}"${where ? ` من ${where}` : ""}` +
+    `${candidate.category ? ` (${candidate.category})` : ""}؟${links} ` +
+    `ابحث عن حضوره العلني الموثّق: مقابلات، بودكاست، مقالات، أعمال مهنية أو إبداعية، وأي ذكر إعلامي حديث. ` +
+    `إن لم تجد حضوراً واضحاً فاذكر ذلك صراحةً.`
+  try {
+    const evidence = await gatherGroundedEvidence(query, {
+      maxResults: 6,
+      subjectTable: "guest_candidates",
+      subjectId: candidate.id,
+      actorId,
+    })
+    return {
+      block: renderGroundedEvidenceBlock(evidence),
+      sources: evidence.sources.map((s) => ({
+        title: s.title,
+        url: s.url,
+        domain: s.domain,
+        publisher: s.publisher,
+        verified: s.verified,
+      })),
+    }
+  } catch (err) {
+    console.warn(
+      "[guest-candidates/ai] grounded research skipped:",
+      err instanceof Error ? err.message.split("\n")[0] : String(err),
+    )
+    return { block: "", sources: [] }
+  }
+}
 
 function clampScore(value: unknown): number {
   if (typeof value !== "number" || !Number.isFinite(value)) return 0
@@ -163,7 +215,15 @@ export async function analyzeCandidate(
     .returning()
 
   try {
-    const userPrompt = buildCandidateAnalysisUser(candidate, socials)
+    // 1. Live grounded web research (fail-safe; empty when unavailable).
+    const research = await researchCandidate(
+      candidate,
+      socials,
+      options.actorId ?? LEGACY_ACTOR,
+    )
+
+    // 2. Editorial assessment, informed by the grounded evidence.
+    const userPrompt = buildCandidateAnalysisUser(candidate, socials, research.block)
 
     const completion = await runAiTask<Record<string, unknown>>({
       taskKind: "editorial",
@@ -211,7 +271,10 @@ export async function analyzeCandidate(
         // Correct the provisional model_name to the model the router
         // actually used (may differ via Settings override / fallback).
         model_name: completion.modelName,
-        output_snapshot_json: result as unknown as Record<string, unknown>,
+        output_snapshot_json: {
+          ...result,
+          research_sources: research.sources,
+        } as unknown as Record<string, unknown>,
       })
       .where(eq(guestCandidateAiRuns.id, run.id))
 
@@ -233,6 +296,7 @@ export async function analyzeCandidate(
           ai_reason_to_invite: result.reason_to_invite,
           ai_conversation_angles_json: result.conversation_angles,
           ai_suggested_questions_json: result.suggested_questions,
+          ai_research_sources_json: research.sources,
           ai_model_used: completion.modelName,
           ai_generated_at: new Date(),
           // Auto-advance status if it was 'new' or 'researching'

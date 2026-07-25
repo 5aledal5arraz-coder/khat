@@ -7,7 +7,7 @@
  * missing.
  */
 
-export type MarketSource = "youtube" | "podcast_apple"
+export type MarketSource = "youtube" | "podcast_apple" | "web_grounded"
 
 export interface MarketRawSignal {
   source: MarketSource

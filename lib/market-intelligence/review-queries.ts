@@ -28,6 +28,24 @@ export interface ReviewQueueCounts {
   total: number
 }
 
+/**
+ * Web provenance for a `web_grounded` signal — the source link + the
+ * grounding provider/model, lifted out of the `raw` jsonb so the review UI
+ * can stamp "عبر بحث Gemini المُسنَد" without touching the untrusted blob.
+ */
+export interface SignalProvenance {
+  /** Resolved destination URL of the web source (vertex redirect stripped). */
+  url: string
+  /** Destination domain, e.g. "aljazeera.net". Null when unresolvable. */
+  domain: string | null
+  /** False when the link resolved to a dead page (kept, flagged unverified). */
+  verified: boolean
+  /** Grounding provider, e.g. "gemini". */
+  provider: string | null
+  /** Grounding model. */
+  model: string | null
+}
+
 export interface ReviewSignal {
   id: string
   title: string
@@ -48,6 +66,36 @@ export interface ReviewSignal {
   trusted_source_id: string | null
   signal_score: number | null
   score_components: Record<string, number> | null
+  /** Populated only for `web_grounded` signals; null for every other source. */
+  provenance: SignalProvenance | null
+}
+
+/**
+ * Pure extractor — pulls display-safe provenance out of a signal's `raw`
+ * jsonb. Returns null for any non-`web_grounded` source, or when the raw
+ * blob carries no usable URL. Never surfaces the untrusted snippet/query.
+ */
+export function extractSignalProvenance(
+  source: string,
+  raw: unknown,
+): SignalProvenance | null {
+  if (source !== "web_grounded") return null
+  if (!raw || typeof raw !== "object") return null
+  const r = raw as Record<string, unknown>
+  const url = typeof r.url === "string" ? r.url : null
+  if (!url) return null
+  const prov =
+    r.provenance && typeof r.provenance === "object"
+      ? (r.provenance as Record<string, unknown>)
+      : null
+  return {
+    url,
+    domain: typeof r.domain === "string" ? r.domain : null,
+    // Trust the link unless the adapter explicitly flagged it dead.
+    verified: r.verified !== false,
+    provider: prov && typeof prov.provider === "string" ? prov.provider : null,
+    model: prov && typeof prov.model === "string" ? prov.model : null,
+  }
 }
 
 export const PAGE_SIZE = 50
@@ -100,7 +148,7 @@ export async function listSignalsForReview(opts: {
       COALESCE(editorial_tags, '[]'::jsonb) AS editorial_tags,
       reviewed_by, reviewed_at::text AS reviewed_at,
       operator_notes, operator_created,
-      trusted_source_id, signal_score, score_components
+      trusted_source_id, signal_score, score_components, raw
     FROM market_topic_signals
     WHERE ${where}
     ORDER BY
@@ -145,6 +193,7 @@ export async function listSignalsForReview(opts: {
         r.score_components && typeof r.score_components === "object"
           ? (r.score_components as Record<string, number>)
           : null,
+      provenance: extractSignalProvenance(String(r.source ?? ""), r.raw),
     }),
   )
   return { signals, totalForTab }

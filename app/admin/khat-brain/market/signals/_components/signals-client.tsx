@@ -22,6 +22,7 @@ import {
   StickyNote,
   Activity,
   ChevronDown,
+  ExternalLink,
   X as XIcon,
 } from "lucide-react"
 import {
@@ -53,7 +54,10 @@ import {
   SIGNAL_EDITORIAL_TAGS,
   type SignalEditorialTag,
 } from "@/lib/db/schema/editorial-intelligence"
-import type { ReviewSignal } from "@/lib/market-intelligence/review-queries"
+import type {
+  ReviewSignal,
+  SignalProvenance,
+} from "@/lib/market-intelligence/review-queries"
 
 export function SignalsList({
   signals,
@@ -313,6 +317,8 @@ function SignalCard({
             </p>
           )}
 
+          {signal.provenance && <ProvenanceStamp provenance={signal.provenance} />}
+
           {signal.signal_score !== null && (
             <p
               className="mt-1.5 text-[11px] text-muted-foreground/85"
@@ -539,6 +545,45 @@ function SignalCard({
         </div>
       </div>
     </li>
+  )
+}
+
+/**
+ * Provenance stamp for `web_grounded` signals — mirrors the Wave 1/2 grounded
+ * stamp used in casting/partnerships: "عبر بحث Gemini المُسنَد" + a source-domain
+ * chip that opens the real page. Unverified (dead) links get an amber ring so a
+ * broken source is never presented as confirmed.
+ */
+function ProvenanceStamp({ provenance }: { provenance: SignalProvenance }) {
+  const label = provenance.domain ?? provenance.url
+  return (
+    <div className="mt-2" data-provenance>
+      <p className="mb-1 text-[10.5px] text-muted-foreground">
+        عبر بحث Gemini المُسنَد
+      </p>
+      <a
+        href={provenance.url}
+        target="_blank"
+        rel="noreferrer"
+        aria-label={`افتح المصدر: ${label}`}
+        title={provenance.verified ? undefined : "رابط غير مؤكّد"}
+        className={
+          "inline-flex max-w-full items-center gap-1 truncate rounded-md px-2 py-0.5 text-[10.5px] text-muted-foreground hover:bg-muted-foreground/10 " +
+          (provenance.verified
+            ? "bg-muted"
+            : "bg-amber-500/[0.08] ring-1 ring-amber-500/25")
+        }
+        data-provenance-link
+      >
+        <ExternalLink className="h-2.5 w-2.5 shrink-0" />
+        <span dir="ltr" className="truncate">
+          {label}
+        </span>
+        {!provenance.verified && (
+          <span className="shrink-0 text-amber-700">(غير مؤكّد)</span>
+        )}
+      </a>
+    </div>
   )
 }
 

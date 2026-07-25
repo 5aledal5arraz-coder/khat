@@ -21,7 +21,9 @@ export const guestApplicationAnalysis = pgTable("guest_application_analysis", {
   suggested_direction: text("suggested_direction"),
   // ─── Live research (casting brief upgrade) ──────────────────────────────────
   research_summary: text("research_summary"),
-  research_sources: jsonb("research_sources").$type<{ title: string; url: string }[]>().default([]),
+  research_sources: jsonb("research_sources")
+    .$type<{ title: string; url: string; domain?: string | null; publisher?: string; verified?: boolean }[]>()
+    .default([]),
   public_presence: text("public_presence"),
   credibility_note: text("credibility_note"),
   researched_at: timestamp("researched_at", { withTimezone: true }),

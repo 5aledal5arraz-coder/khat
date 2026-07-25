@@ -10,8 +10,10 @@
  *      That gives us verifiable sources, not hallucinated URLs.
  *
  *   2) REASONING — `gemini-2.0-flash` with `responseMimeType: application/json`
- *      and no search tool. Used by the synthesizer and verifier passes where
- *      we want structured output over a fixed corpus, not fresh retrieval.
+ *      and no search tool, for structured output over a fixed corpus (not fresh
+ *      retrieval). NOTE: the research synthesizer + verifier moved to OpenAI via
+ *      `runAiTask` (Gemini grounds → OpenAI composes); `geminiJson` is retained
+ *      for the preparation-v2 insight verifier (`lib/preparation/v2/insights.ts`).
  *
  * This module depends on the shared `@google/genai` SDK instance
  * (lib/ai/gemini.ts) so the rest of the pipeline only touches a narrow
@@ -315,8 +317,10 @@ function extractResponseText(
 
 /**
  * Run a structured reasoning call through Gemini with JSON output enforced.
- * Used by the synthesizer and verifier — NO search tool attached here,
- * because those stages must operate strictly over the retrieved corpus.
+ * NO search tool attached — the stage operates strictly over a fixed corpus.
+ * The research synthesizer + verifier now route through OpenAI (`runAiTask`);
+ * this helper remains in use by the preparation-v2 insight verifier
+ * (`lib/preparation/v2/insights.ts`).
  *
  * Recovery ladder (in order):
  *   1. Strict `JSON.parse` of the raw response.

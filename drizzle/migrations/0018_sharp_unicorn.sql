@@ -1,0 +1,1 @@
+ALTER TABLE "guest_candidates" ADD COLUMN "ai_research_sources_json" jsonb DEFAULT '[]'::jsonb;

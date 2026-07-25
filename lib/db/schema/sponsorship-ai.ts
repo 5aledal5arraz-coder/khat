@@ -16,7 +16,9 @@ export const sponsorshipAnalysis = pgTable("sponsorship_analysis", {
   opportunity_highlights: jsonb("opportunity_highlights").$type<string[]>().default([]),
   // ─── Partnership evaluation upgrade (live research + recommendations) ────────
   research_summary: text("research_summary"),
-  research_sources: jsonb("research_sources").$type<{ title: string; url: string }[]>().default([]),
+  research_sources: jsonb("research_sources")
+    .$type<{ title: string; url: string; domain?: string | null; publisher?: string; verified?: boolean }[]>()
+    .default([]),
   reputation: text("reputation"),
   products_summary: text("products_summary"),
   market_position: text("market_position"),

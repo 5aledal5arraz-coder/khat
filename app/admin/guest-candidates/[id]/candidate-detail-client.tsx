@@ -31,9 +31,10 @@ import {
   FileText,
   CalendarClock,
   Rocket,
+  Cpu,
 } from "lucide-react"
 import { useToast } from "@/lib/use-toast"
-import { formatDate, formatDateTime } from "@/lib/shared/formatters"
+import { formatDate, formatDateTime, researchSourceLabel, researchSourceSnippet } from "@/lib/shared/formatters"
 import { CandidateFormDialog } from "../components/candidate-form-dialog"
 import { LinkCanonicalDialog } from "../components/link-canonical-dialog"
 import { OutreachPanel } from "../components/outreach-panel"
@@ -54,6 +55,7 @@ import type {
 } from "@/types/database"
 import { XIcon } from "@/components/icons/x-icon"
 import { TikTokIcon } from "@/components/icons/tiktok-icon"
+import { Empty } from "@/app/admin/components/ui-kit"
 
 interface StatusHistoryEntry {
   id: string
@@ -173,6 +175,7 @@ export function CandidateDetailClient({ candidate, statusHistory, outreachMessag
   const isArchived = !!candidate.archived_at
 
   const flow = computeFlow(candidate.status, isArchived)
+  const researchSources = candidate.ai_research_sources_json ?? []
   const acceptedPlus = ACCEPTED_PLUS.includes(candidate.status)
   const stage2Unlocked = STATUS_META[candidate.status].order >= STATUS_META.contacted.order
   const stageUnlocked = (n: number): boolean =>
@@ -576,6 +579,29 @@ export function CandidateDetailClient({ candidate, statusHistory, outreachMessag
                     <ScorePill label="انتشار" value={candidate.ai_reach_score} accent="amber" />
                     <ScorePill label="مخاطر" value={candidate.ai_risk_score} accent="rose" inverted />
                   </div>
+                  {(candidate.ai_model_used || candidate.ai_generated_at) && (
+                    <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[10px] text-muted-foreground">
+                      <span className="inline-flex items-center gap-1">
+                        <Cpu className="h-3 w-3 shrink-0" />
+                        <span>أُنتج بواسطة</span>
+                        {candidate.ai_model_used && (
+                          <span dir="ltr" className="font-mono text-foreground/70">{candidate.ai_model_used}</span>
+                        )}
+                      </span>
+                      {researchSources.length > 0 && (
+                        <span className="inline-flex items-center gap-1">
+                          <span aria-hidden="true">·</span>
+                          <span>بحث عبر Gemini (Google)</span>
+                        </span>
+                      )}
+                      {candidate.ai_generated_at && (
+                        <span className="inline-flex items-center gap-1">
+                          <span aria-hidden="true">·</span>
+                          <span>{formatDateTime(candidate.ai_generated_at)}</span>
+                        </span>
+                      )}
+                    </div>
+                  )}
                   <div className="rounded-lg bg-violet-500/5 p-3">
                     <p className="text-sm leading-relaxed text-foreground/85">{candidate.ai_summary}</p>
                     {candidate.ai_reason_to_invite && (
@@ -637,6 +663,53 @@ export function CandidateDetailClient({ candidate, statusHistory, outreachMessag
                       </div>
                     </details>
                   )}
+                  {/* Grounded sources — neutral tone (link-backed evidence, NOT
+                      unverified model speculation, so deliberately not violet). */}
+                  <div>
+                    <h4 className="mb-1 flex items-center gap-1 text-[11px] font-semibold text-foreground/70">
+                      <Globe className="h-3 w-3 shrink-0" /> مصادر موثّقة (بحث Gemini عبر جوجل)
+                    </h4>
+                    <p className="mb-2 text-[10px] text-muted-foreground">الملخّص قد يعيد الصياغة — المصدر هو المرجع.</p>
+                    {researchSources.length === 0 ? (
+                      <Empty text="لا مصادر موثّقة لهذا التحليل" />
+                    ) : (
+                      <div className="space-y-2">
+                        {researchSources.map((s, i) => {
+                          const label = researchSourceLabel(s)
+                          const snippet = researchSourceSnippet(s)
+                          return (
+                            <a
+                              key={i}
+                              href={s.url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              aria-label={`افتح المصدر: ${label} (يفتح في تبويب جديد)`}
+                              title={snippet || undefined}
+                              className="flex items-center gap-3 rounded-lg border border-border/30 bg-background/30 p-2.5 transition-colors hover:border-primary/40 hover:bg-primary/5 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                            >
+                              <Globe className="h-4 w-4 shrink-0 text-muted-foreground" />
+                              <div className="min-w-0 flex-1">
+                                <div dir="ltr" className="truncate text-start text-xs font-medium text-foreground/85">{label}</div>
+                                {snippet && snippet !== label && (
+                                  <div className="truncate text-[11px] text-foreground/60">{snippet}</div>
+                                )}
+                              </div>
+                              {s.verified ? (
+                                <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-emerald-500/10 px-1.5 py-0.5 text-[9.5px] font-semibold text-emerald-700">
+                                  <Check className="h-3 w-3" /> موثّق
+                                </span>
+                              ) : (
+                                <span className="inline-flex shrink-0 items-center rounded-full bg-amber-500/10 px-1.5 py-0.5 text-[9.5px] font-semibold text-amber-700">
+                                  غير مؤكّد
+                                </span>
+                              )}
+                              <ExternalLink className="h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-hidden="true" />
+                            </a>
+                          )
+                        })}
+                      </div>
+                    )}
+                  </div>
                 </div>
               ) : (
                 <div className="rounded-lg border border-dashed border-violet-500/20 bg-violet-500/5 p-5 text-center">

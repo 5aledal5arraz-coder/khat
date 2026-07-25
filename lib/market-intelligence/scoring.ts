@@ -28,6 +28,25 @@
  * Phase 5 contract: clustering does NOT yet read signal_score (that's
  * Phase 6). This module only writes signal_score / score_components.
  * Hybrid generation is untouched.
+ *
+ * Per-source trust calibration
+ * ────────────────────────────
+ * There is NO per-`source` trust table. Trust is calibrated exclusively
+ * through the `trusted_source_id` join (source_trust + editorial_alignment
+ * come from `trusted_sources`). ALL adapter-collected sources — `youtube`,
+ * `podcast_apple`, and the new `web_grounded` — carry no trusted-source link
+ * at ingestion, so their trust terms default to 0 (trust-neutral, never a
+ * blind lift). This is deliberate and sufficient for `web_grounded`:
+ *   • its `source_trust`/`editorial_alignment` default to 0 exactly like the
+ *     other two adapters — a conservative floor, not an inflated default;
+ *   • it exposes no popularity proxy (`view_signal` is null), so the 0.10
+ *     popularity weight drops out too — it scores structurally LOWER than a
+ *     view-counted YouTube signal on the same recency/taste;
+ *   • the real trust gate is human review — an untrusted web signal starts
+ *     `new` (0.3 prior) and only reaches the full review_status lift once an
+ *     operator approves it.
+ * So `web_grounded` rides the general calibration by design; a bespoke
+ * per-source penalty would add complexity without changing the outcome.
  */
 
 import type { SignalEditorialTag } from "@/lib/db/schema/editorial-intelligence"

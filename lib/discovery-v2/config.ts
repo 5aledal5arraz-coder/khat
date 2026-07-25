@@ -6,6 +6,8 @@
 
 import { env } from "@/lib/env"
 import { isInstagramConfigured } from "@/lib/instagram/client"
+import { isGroundedEvidenceConfigured } from "@/lib/ai/grounded-evidence"
+import { isDiscoveryGroundingEnabled } from "./grounded-verify"
 export interface V2SourceStatus {
   id: string
   label: string
@@ -54,6 +56,18 @@ export function v2Sources(): V2SourceStatus[] {
       note: isInstagramConfigured()
         ? undefined
         : "IG_GRAPH_TOKEN و IG_BUSINESS_ACCOUNT_ID غير مضبوطين",
+    },
+    {
+      id: "grounded",
+      label: "تحقّق حيّ من الويب (Gemini + بحث Google) — للمرشّحين المتقدّمين",
+      configured: isDiscoveryGroundingEnabled() && isGroundedEvidenceConfigured(),
+      keyless: false,
+      note:
+        isDiscoveryGroundingEnabled() && isGroundedEvidenceConfigured()
+          ? undefined
+          : !isDiscoveryGroundingEnabled()
+            ? "اختياري ومطفأ — فعّله عبر DISCOVERY_WEB_GROUNDED_ENABLED=true"
+            : "GEMINI_API_KEY غير مضبوط",
     },
   ]
 }

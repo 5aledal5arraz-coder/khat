@@ -18,6 +18,7 @@ import { loadDiscoveryMemory } from "./memory"
 import { resolvePerson } from "./sources/wikidata"
 import { enrich } from "./enrich"
 import { scoreCandidate } from "./score"
+import { attachGroundedVerification } from "./grounded-verify"
 
 const DECISION_RANK: Record<V2Candidate["decision"], number> = {
   accepted: 0,
@@ -104,13 +105,19 @@ export async function runV2Discovery(input: V2RunInput): Promise<V2RunResult> {
       b.scores.overall - a.scores.overall,
   )
 
+  // Optional live-web verification of the top advanced candidates (opt-in,
+  // cost-capped, fail-safe). Runs on the ranked list so "top" = highest first;
+  // a no-op unless DISCOVERY_WEB_GROUNDED_ENABLED=true and Gemini is set.
+  const verified = await attachGroundedVerification(deduped, input)
+
+  // Grounding preserves decisions/resolution, so stats read from the same set.
   const stats = {
     proposed: proposal.names.length,
-    resolved: deduped.filter((c) => c.wiki.resolved).length,
-    accepted: deduped.filter((c) => c.decision === "accepted").length,
-    shortlist: deduped.filter((c) => c.decision === "shortlist").length,
-    rejected: deduped.filter((c) => c.decision === "rejected").length,
+    resolved: verified.filter((c) => c.wiki.resolved).length,
+    accepted: verified.filter((c) => c.decision === "accepted").length,
+    shortlist: verified.filter((c) => c.decision === "shortlist").length,
+    rejected: verified.filter((c) => c.decision === "rejected").length,
   }
 
-  return { candidates: deduped, proposeRunId: proposal.runId, stats }
+  return { candidates: verified, proposeRunId: proposal.runId, stats }
 }

@@ -23,7 +23,7 @@ export function RecentActivitySection({
         titleAr="النشاط الأخير"
         subtitleAr="آخر 20 حدثًا عبر جميع المصادر"
         fullWidth
-        errorMode={{ error: result.error }}
+        errorMode={{ error: result.error, errorRef: result.errorRef }}
       />
     )
   }

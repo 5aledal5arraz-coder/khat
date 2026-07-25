@@ -45,6 +45,7 @@ import type {
 } from "@/types/database"
 import type { NextBestAction } from "@/lib/partnership-crm/record"
 import { generateProposalPdf } from "@/lib/pdf/proposal-pdf"
+import { researchSourceLabel, researchSourceSnippet } from "@/lib/shared/formatters"
 
 const STAGES: { id: SponsorshipStatus; label: string }[] = [
   { id: "new", label: "جديدة" },
@@ -396,20 +397,31 @@ function OverviewTab({ record, onEvaluate, busy }: { record: PartnerRecord; onEv
             {field("الجمهور والتقاطع", analysis.audience_summary)}
             {analysis.research_sources.length > 0 && (
               <div>
-                <p className="mb-1 text-[11px] font-medium text-muted-foreground">المصادر ({analysis.research_sources.length})</p>
+                <p className="mb-1 text-[11px] font-medium text-muted-foreground">
+                  المصادر ({analysis.research_sources.length}) · عبر بحث Gemini المُسنَد
+                </p>
                 <div className="flex flex-wrap gap-1.5">
-                  {analysis.research_sources.slice(0, 8).map((s, i) => (
-                    <a
-                      key={i}
-                      href={s.url}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="inline-flex max-w-[200px] items-center gap-1 truncate rounded-md bg-muted px-2 py-0.5 text-[11px] text-muted-foreground hover:bg-muted-foreground/10"
-                    >
-                      <ExternalLink className="h-2.5 w-2.5 shrink-0" />
-                      <span className="truncate">{s.title || s.url}</span>
-                    </a>
-                  ))}
+                  {analysis.research_sources.slice(0, 8).map((s, i) => {
+                    const label = researchSourceLabel(s)
+                    const snippet = researchSourceSnippet(s)
+                    const tip = [snippet, s.verified === false ? "(غير مؤكّد)" : null].filter(Boolean).join(" ")
+                    return (
+                      <a
+                        key={i}
+                        href={s.url}
+                        target="_blank"
+                        rel="noreferrer"
+                        aria-label={`افتح المصدر: ${label}`}
+                        title={tip || undefined}
+                        className={`inline-flex max-w-[200px] items-center gap-1 truncate rounded-md px-2 py-0.5 text-[11px] text-muted-foreground hover:bg-muted-foreground/10 ${
+                          s.verified === false ? "bg-amber-500/[0.08] ring-1 ring-amber-500/25" : "bg-muted"
+                        }`}
+                      >
+                        <ExternalLink className="h-2.5 w-2.5 shrink-0" />
+                        <span dir="ltr" className="truncate">{label}</span>
+                      </a>
+                    )
+                  })}
                 </div>
               </div>
             )}

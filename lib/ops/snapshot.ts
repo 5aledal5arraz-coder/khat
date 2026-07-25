@@ -28,6 +28,7 @@
  *   • Time-window selector — fixed 24h in v1.
  */
 
+import { createHash } from "crypto"
 import { sql } from "drizzle-orm"
 import { db } from "@/lib/db"
 import {
@@ -57,17 +58,26 @@ import {
   getGuestIdentitySnapshot,
   type GuestIdentitySnapshot,
 } from "@/lib/guest-identity/integrity"
+import { probeWorkerHeartbeat, type WorkerHeartbeat } from "@/lib/ops/diagnostics"
 
 // ─── Public types ────────────────────────────────────────────────────
 
 /**
  * Caller-facing discriminated union. The UI MUST check `ok` before
  * accessing `data`; on failure the section renders an unavailable state
- * with the error message (and nothing else from this section).
+ * with the generic message + `errorRef` (and nothing else from this
+ * section).
+ *
+ * `error` is a FIXED Arabic sentence — never the underlying failure.
+ * The raw reason is infrastructure detail (DB hostnames, column names,
+ * server file paths) and this object is plain data rendered into the
+ * page, so Next.js never sanitizes it the way it sanitizes a thrown
+ * server error. `errorRef` is the only link to the real cause, which is
+ * logged server-side under the same ref.
  */
 export type SectionResult<T> =
   | { ok: true; data: T }
-  | { ok: false; error: string }
+  | { ok: false; error: string; errorRef: string }
 
 export interface OpsSnapshot {
   /** Wall-clock at the start of takeOpsSnapshot(). */
@@ -82,6 +92,14 @@ export interface OpsSnapshot {
   /** P2.4.e.1 — guest-identity integrity counters. Rendered as a
    *  compact section by the dashboard (P2.4.e.2). */
   guestIdentity: SectionResult<GuestIdentitySnapshot>
+  /**
+   * Proof-of-life for the job worker. Every other section only proves that
+   * a QUERY returned — a dead worker enqueues nothing, so the queue looks
+   * empty and calm. This is the one signal that says the system is alive,
+   * not merely reachable. Reused from `lib/ops/diagnostics.ts` so the home
+   * band and the Settings hub can never disagree about "is the worker up".
+   */
+  worker: SectionResult<WorkerHeartbeat>
 }
 
 // ─── Section 1: Queue & Worker Health ────────────────────────────────
@@ -113,6 +131,21 @@ export interface QueueHealth {
     completed_at: Date | null
     error_message: string | null
   }>
+  /**
+   * TRUE count of dead jobs in the same 24h window as `recentDead`.
+   * `recentDead` is capped at 5 rows for display; callers that need a
+   * COUNT must read THIS field — `recentDead.length` silently saturates
+   * at 5 and under-reports a pile-up as "5".
+   */
+  deadCount24h: number
+  /** pending AND run_after <= NOW() — work that is actually due now. */
+  duePendingCount: number
+  /**
+   * pending AND run_after > NOW() — deliberately scheduled for later.
+   * Not a backlog; separated so "active jobs" doesn't inflate with
+   * future-dated retries/schedules.
+   */
+  scheduledPendingCount: number
 }
 
 // ─── Section 2: System Events Overview ───────────────────────────────
@@ -145,6 +178,33 @@ export interface AiRouterSnapshot {
   tiers: Record<RateLimitTier, TierSnapshot>
   /** All 5 AiRunStatus keys present, zero-filled. */
   ai_runs_status_counts_24h: Record<AiRunStatus, number>
+  /**
+   * Today's TOTAL AI spend across every `ai_runs` row — **no task_kind
+   * filter**. `tiers[*].daily_cost_usd` only covers the 6 registry-routed
+   * kinds in `TASK_TIER`; the 5 telemetry-only kinds (transcription,
+   * embedding, research_retrieval, research_reasoning, guest_identify)
+   * write to the same table and are real money. This is the honest number.
+   */
+  daily_cost_usd_total: number
+  /**
+   * Today's runs with `cost_usd IS NULL` (failed / timed_out runs never
+   * get a price stamped). They enter every SUM as zero, so any cost
+   * total is a LOWER BOUND whenever this is > 0.
+   */
+  unpriced_runs_today: number
+  /**
+   * The DB server's TimeZone — the timezone `date_trunc('day', NOW())`
+   * resolves against. Deliberately NOT pinned to Asia/Kuwait: this must
+   * stay the exact same day boundary the rate limiter uses
+   * (`rate-limit.ts` daily-cost check), otherwise "% of cap" would
+   * measure a different window than the one actually enforced. We
+   * surface the zone instead of silently changing it.
+   *
+   * `null` when the server didn't report one. We do NOT default to "UTC":
+   * printing a guessed zone next to a money figure states as fact something
+   * we never read.
+   */
+  day_boundary_tz: string | null
   /** Last 10 rate-limit.rejected events. */
   recentRateLimitRejects: SystemEventRow[]
   /** Last 5 ai-router.rejected events. */
@@ -173,24 +233,35 @@ export interface RecentActivity {
 
 const WINDOW_24H_MS = 24 * 60 * 60 * 1000
 
+/** The ONLY failure text that reaches the browser. Never interpolated. */
+export const SECTION_ERROR_MESSAGE_AR = "تعذّر جلب بيانات هذا القسم"
+
 /**
  * Map a settled promise into the discriminated SectionResult.
  *
- * Pure — no I/O. Unit-tested directly so the orchestrator's
- * error-containment contract is provable without spinning the DB.
+ * On rejection the raw reason is NOT returned: it is logged server-side
+ * and replaced with `SECTION_ERROR_MESSAGE_AR` + a short, stable
+ * `errorRef` (first 8 hex chars of sha256 over the raw message). Same
+ * failure ⇒ same ref, so an operator reading the screen can grep the
+ * worker/server log for the real message.
+ *
+ * The only side effect is the `console.error`; the returned value is a
+ * pure function of the input, which is what the unit tests assert.
  */
 export function settledToSection<T>(
   settled: PromiseSettledResult<T>,
 ): SectionResult<T> {
   if (settled.status === "fulfilled") return { ok: true, data: settled.value }
   const reason = settled.reason
-  const message =
+  const raw =
     reason instanceof Error
       ? reason.message
       : typeof reason === "string"
         ? reason
         : "unknown error"
-  return { ok: false, error: message }
+  const errorRef = createHash("sha256").update(raw).digest("hex").slice(0, 8)
+  console.error(`[ops-snapshot] section failed (ref=${errorRef}): ${raw}`)
+  return { ok: false, error: SECTION_ERROR_MESSAGE_AR, errorRef }
 }
 
 /**
@@ -307,12 +378,33 @@ async function fetchQueueHealth(): Promise<QueueHealth> {
     error_message: r.error_message,
   }))
 
+  // 6. True counters the display lists can't provide: `recentDead` is
+  //    LIMIT 5, and `countsByStatus.pending` mixes due work with jobs
+  //    deliberately scheduled for the future. One roundtrip, FILTERed.
+  //    The dead predicate is character-identical to query 5's WHERE.
+  const countersRes = (await db.execute(sql`
+    SELECT
+      COUNT(*) FILTER (
+        WHERE status = 'dead'
+          AND COALESCE(completed_at, updated_at) > NOW() - interval '24 hours'
+      )::int AS dead_24h,
+      COUNT(*) FILTER (WHERE status = 'pending' AND run_after <= NOW())::int AS due_pending,
+      COUNT(*) FILTER (WHERE status = 'pending' AND run_after > NOW())::int AS scheduled_pending
+    FROM jobs
+  `)) as unknown as {
+    rows: Array<{ dead_24h: number; due_pending: number; scheduled_pending: number }>
+  }
+  const counters = countersRes.rows[0]
+
   return {
     countsByStatus,
     oldestPending,
     oldestRunning,
     staleLeaseCount,
     recentDead,
+    deadCount24h: Number(counters?.dead_24h ?? 0),
+    duePendingCount: Number(counters?.due_pending ?? 0),
+    scheduledPendingCount: Number(counters?.scheduled_pending ?? 0),
   }
 }
 
@@ -398,6 +490,21 @@ async function fetchAiRouterSnapshot(): Promise<AiRouterSnapshot> {
     }
   }
 
+  // Unfiltered daily spend + the unpriced-run count that makes it a
+  // lower bound. NOTE the day boundary is `date_trunc('day', NOW())`,
+  // byte-identical to the rate limiter's daily-cost window — see the
+  // `day_boundary_tz` doc comment for why we don't pin a timezone here.
+  const totalCostRes = (await db.execute(sql`
+    SELECT
+      COALESCE(SUM(cost_usd), 0)::float8 AS total,
+      COUNT(*) FILTER (WHERE cost_usd IS NULL)::int AS unpriced
+      FROM ai_runs
+     WHERE started_at >= date_trunc('day', NOW())
+  `)) as unknown as { rows: Array<{ total: number; unpriced: number }> }
+  const tzRes = (await db.execute(sql`
+    SELECT current_setting('TimeZone') AS tz
+  `)) as unknown as { rows: Array<{ tz: string }> }
+
   // Recent rejects per source — via the read API.
   const since24h = new Date(Date.now() - WINDOW_24H_MS)
   const [light, expensive, recentRateLimitRejects, recentAiRouterRejects] =
@@ -422,6 +529,9 @@ async function fetchAiRouterSnapshot(): Promise<AiRouterSnapshot> {
     rate_limit_mode: mode,
     tiers: { light, expensive },
     ai_runs_status_counts_24h,
+    daily_cost_usd_total: Number(totalCostRes.rows[0]?.total ?? 0),
+    unpriced_runs_today: Number(totalCostRes.rows[0]?.unpriced ?? 0),
+    day_boundary_tz: tzRes.rows[0]?.tz ?? null,
     recentRateLimitRejects,
     recentAiRouterRejects,
   }
@@ -509,6 +619,7 @@ export async function takeOpsSnapshot(): Promise<OpsSnapshot> {
     fetchEirPipelineSnapshot(),
     fetchRecentActivity(),
     fetchGuestIdentitySnapshot(),
+    probeWorkerHeartbeat(),
   ])
 
   return {
@@ -520,5 +631,6 @@ export async function takeOpsSnapshot(): Promise<OpsSnapshot> {
     eirPipeline: settledToSection(settled[3]),
     recentActivity: settledToSection(settled[4]),
     guestIdentity: settledToSection(settled[5]),
+    worker: settledToSection(settled[6]),
   }
 }

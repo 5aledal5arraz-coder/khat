@@ -27,11 +27,25 @@ export interface PresetRunSummary {
   inserted: number
 }
 
+/**
+ * Opt-in: append the live grounded-web adapter to a collection run.
+ * Off by default so the daily schedule (and its grounding-fee spend) is
+ * unchanged until an operator sets MARKET_WEB_GROUNDED_ENABLED=true.
+ */
+function webGroundedEnabled(): boolean {
+  return process.env.MARKET_WEB_GROUNDED_ENABLED === "true"
+}
+
 export async function runPresetCollection(
   preset: MarketPreset,
   opts?: { maxPerSource?: number },
 ): Promise<PresetRunSummary> {
-  const sources = preset.sources ?? ALL_MARKET_SOURCES
+  const sources = [...(preset.sources ?? ALL_MARKET_SOURCES)]
+  // Extra grounded-web source, gated by env so it can't break the existing
+  // schedule if grounding is misconfigured or over budget.
+  if (webGroundedEnabled() && !sources.includes("web_grounded")) {
+    sources.push("web_grounded")
+  }
   const maxPerSource = opts?.maxPerSource ?? 10
   const collected: Array<{ source: MarketSource; result: MarketCollectionResult }> = []
   let inserted = 0

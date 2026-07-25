@@ -143,30 +143,28 @@ export interface BuiltGuestApplicationPrompt {
   input: Record<string, unknown>
 }
 
-export interface GuestResearchSnippet {
-  title: string
-  url: string
-  snippet: string
-}
-
 export function buildGuestApplicationAnalysisPrompt(args: {
   application: GuestApplication
-  research?: GuestResearchSnippet[]
+  /**
+   * Pre-rendered grounded-evidence block (from
+   * `renderGroundedEvidenceBlock` in `lib/ai/grounded-evidence.ts`) — every
+   * web-derived value already wrapped in <untrusted_source>. Empty string
+   * when no grounded sources were found.
+   */
+  researchBlock?: string
+  /** How many grounded sources the block covers (for the input snapshot). */
+  researchSourceCount?: number
 }): BuiltGuestApplicationPrompt {
-  const research = args.research ?? []
-  const researchBlock =
-    research.length > 0
-      ? research
-          .map((s, i) => `[${i + 1}] ${s.title}\n${s.url}\n${(s.snippet || "").slice(0, 500)}`)
-          .join("\n\n")
-      : "(لا تتوفر نتائج بحث — قيّم بناءً على الطلب وحده، واعتبر research_summary = \"لا حضور علني واضح\".)"
+  const block = args.researchBlock?.trim()
+    ? args.researchBlock.trim()
+    : "(لا تتوفر نتائج بحث — قيّم بناءً على الطلب وحده، واعتبر research_summary = \"لا حضور علني واضح\".)"
 
   const user = `${formatGuestApplicationContext(args.application)}
 
 ═══════════════════════════════════
 نتائج البحث الحيّ عن المتقدم على الإنترنت:
 ═══════════════════════════════════
-${researchBlock}`
+${block}`
 
   return {
     system: ANALYSIS_SYSTEM,
@@ -175,7 +173,7 @@ ${researchBlock}`
     input: {
       applicationId: args.application.id ?? null,
       country: args.application.country,
-      researchSourceCount: research.length,
+      researchSourceCount: args.researchSourceCount ?? 0,
     },
   }
 }

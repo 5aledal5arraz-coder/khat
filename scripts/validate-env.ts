@@ -24,6 +24,15 @@
  * NO live API calls; this is a one-second prebuild check.
  */
 
+// MUST be first: this runs under tsx as a bare Node process, which — unlike
+// `next dev`/`next build` — does not auto-load `.env.local`. Without it every
+// var read below is undefined, the validator reports `required=0/2`, and the
+// `prebuild` hook fails `npm run build` on a machine that is correctly
+// configured. See lib/env-file.ts.
+import { loadEnvFiles } from "../lib/env-file"
+
+loadEnvFiles()
+
 type Severity = "required" | "recommended" | "optional"
 
 interface EnvSpec {

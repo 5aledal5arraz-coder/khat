@@ -17,7 +17,20 @@
  * flips KHAT tokens to the light surface; bespoke tiles here use a calm
  * slate palette with a single, sparing accent. No motion — quietly premium.
  *
- * Auth + RBAC: handled by the admin layout. Read-only — reload to refresh.
+ * Auth: the admin layout only AUTHENTICATES (valid session → render); it
+ * performs no role check, and the proxy only checks that the session
+ * cookie exists. RBAC is therefore enforced HERE, and the page gate is
+ * deliberately the LOWEST role: `/admin` redirects here, so this page is
+ * where every session lands after login — gating it above VIEWER left a
+ * read-only account with no reachable landing page at all, and
+ * contradicted the read/write split stated in `lib/api-utils.ts`
+ * (GET-style reads are open to VIEWER). Sensitive material stays behind
+ * its OWN, unchanged ADMIN gates rather than behind the page gate:
+ *   • the AI-cost tile        → `canSeeCost`  (spend is not crew data)
+ *   • `/admin/ops/details`    → ADMIN, enforced in that page + its link
+ *     is hidden here for lower roles (worker identities, dead-job error
+ *     text, rate-limit ceilings).
+ * Read-only — reload to refresh.
  */
 
 import type { ReactNode } from "react"
@@ -41,14 +54,29 @@ import {
   type LucideIcon,
 } from "lucide-react"
 import { takeOpsSnapshot } from "@/lib/ops/snapshot"
+import {
+  deriveAiActivity,
+  deriveAiHealthSentence,
+  deriveAiHint,
+  deriveCostCapLine,
+  deriveCostStatus,
+  deriveQueueStatus,
+  deriveSystemHealth,
+  deriveWorkerSentence,
+  type AiActivity,
+  type SystemHealth,
+} from "@/lib/ops/home-metrics"
+import type { WorkerHeartbeat } from "@/lib/ops/diagnostics"
 import { getEpisodes } from "@/lib/queries/episodes"
 import { getRecentActiveEirs } from "@/lib/eir/service"
 import { getStaleEirs } from "@/lib/khat-brain/staleness"
-import { buildNextActionQueue } from "@/lib/khat-brain/next-action"
+import { buildAttentionQueue } from "@/lib/khat-brain/attention"
 import { formatUtc } from "@/lib/ops/format"
 import { PHASE_LABEL } from "@/lib/khat-brain/phase-labels"
 import { EPISODE_PHASES, type EpisodePhase } from "@/lib/db/schema/eir"
+import { checkPageRole, hasRole } from "@/lib/api-utils"
 import { HomeAttention } from "./_components/home-attention"
+import { NoAccess } from "./_components/no-access"
 
 export const dynamic = "force-dynamic"
 
@@ -75,18 +103,31 @@ function StatTile({
   hint,
   icon: Icon,
   tone = "neutral",
+  className = "",
 }: {
   label: string
   value: ReactNode
-  hint?: string
+  /** ReactNode so a card can qualify its number on more than one line
+   *  (e.g. the cost tile's "this is a lower bound" caveat). */
+  hint?: ReactNode
   icon: LucideIcon
   tone?: StatTone
+  /** Grid-placement escape hatch so a role-trimmed row never ends with a
+   *  half-width orphan tile (reads as a card that failed to load). */
+  className?: string
 }) {
   return (
-    <div className="rounded-2xl border border-border/80 bg-white p-5 shadow-[0_1px_2px_rgba(15,23,42,0.04),0_8px_24px_-12px_rgba(15,23,42,0.10)]">
+    <div
+      className={
+        "rounded-2xl border border-border/80 bg-white p-5 shadow-[0_1px_2px_rgba(15,23,42,0.04),0_8px_24px_-12px_rgba(15,23,42,0.10)] " +
+        className
+      }
+    >
       <div className="flex items-center justify-between">
         <span className="text-[12px] font-medium text-muted-foreground">{label}</span>
-        <span className={`flex h-8 w-8 items-center justify-center rounded-full ${STAT_ICON[tone]}`}>
+        <span
+          className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full ${STAT_ICON[tone]}`}
+        >
           <Icon className="h-[15px] w-[15px]" />
         </span>
       </div>
@@ -127,41 +168,89 @@ function QuickTile({
 }
 
 /**
- * System-health band — the single "is everything OK?" answer. Green and
- * reassuring by default; surfaces an attention banner with the specific
- * non-zero problems ONLY when something is actually wrong (exceptions-first).
+ * System-health band — the single "is everything OK?" answer.
+ *
+ * Green is EARNED, not the default: it requires all seven snapshot
+ * sections to have resolved, a CONFIRMED-live job worker, AND zero
+ * issues. "No AI calls at all" is stated as a fact in the subtitle
+ * rather than dressed up as "no errors" — a silent system must not read
+ * as a healthy one, and neither must an unreachable one.
  */
 function SystemHealthBand({
-  healthy,
-  metricsAvailable,
-  issues,
+  health,
+  aiActivity,
+  worker,
+  canSeeDetails,
 }: {
-  healthy: boolean
-  metricsAvailable: boolean
-  issues: Array<{ label: string; value: number }>
+  health: SystemHealth
+  aiActivity: AiActivity
+  /** The raw heartbeat — the band names the exact worker state. */
+  worker: WorkerHeartbeat | null
+  /**
+   * `/admin/ops/details` requires ADMIN. Below that role, BOTH the link
+   * and the copy that points at it are withheld — sending a user to a
+   * page that is guaranteed to refuse them is the opposite of the
+   * "leave them somewhere they can read" contract in `checkPageRole`.
+   */
+  canSeeDetails: boolean
 }) {
-  const tone = !metricsAvailable
+  // Unknown covers both "a section failed" and "we can't confirm the
+  // worker is alive"; the subtitle below names which one it was.
+  const known = health.level !== "unknown"
+  const healthy = health.level === "healthy"
+  const issues = health.issues
+
+  // The two halves of the green subtitle, each stated honestly per state.
+  const aiSentence = deriveAiHealthSentence(aiActivity)
+  const workerSentence = deriveWorkerSentence(worker)
+
+  // A confirmed-dead worker means production is STOPPED — nothing new is
+  // processed at all. Dressing that in the same amber as "one job got
+  // stuck" trains the operator to read both as routine, so it earns its
+  // own red state. Red is reserved for exactly this: `workerAlive === false`,
+  // which now requires a MISSED HEARTBEAT — not merely a quiet queue. An
+  // idle worker is alive and is never painted red.
+  const workerDead = health.workerAlive === false
+
+  const tone = workerDead
     ? {
-        wrap: "border-border bg-white",
-        chip: "bg-muted text-muted-foreground",
+        wrap: "border-red-200 bg-gradient-to-l from-red-50/80 to-white",
+        chip: "bg-red-100 text-red-700",
         title: "text-foreground",
         sub: "text-muted-foreground",
+        issueChip: "border-red-200 text-red-800",
       }
-    : healthy
+    : !known
       ? {
-          wrap: "border-emerald-200/70 bg-gradient-to-l from-emerald-50/70 to-white",
-          chip: "bg-emerald-100 text-emerald-700",
+          wrap: "border-border bg-white",
+          chip: "bg-muted text-muted-foreground",
           title: "text-foreground",
           sub: "text-muted-foreground",
+          // A neutral/white band with amber chips inside it was two
+          // conflicting signals in one box; the chips follow the band.
+          issueChip: "border-border text-muted-foreground",
         }
-      : {
-          wrap: "border-amber-200/80 bg-gradient-to-l from-amber-50/80 to-white",
-          chip: "bg-amber-100 text-amber-700",
-          title: "text-foreground",
-          sub: "text-muted-foreground",
-        }
+      : healthy
+        ? {
+            wrap: "border-emerald-200/70 bg-gradient-to-l from-emerald-50/70 to-white",
+            chip: "bg-emerald-100 text-emerald-700",
+            title: "text-foreground",
+            sub: "text-muted-foreground",
+            issueChip: "border-border text-muted-foreground",
+          }
+        : {
+            wrap: "border-amber-200/80 bg-gradient-to-l from-amber-50/80 to-white",
+            chip: "bg-amber-100 text-amber-700",
+            title: "text-foreground",
+            sub: "text-muted-foreground",
+            issueChip: "border-amber-200 text-amber-800",
+          }
 
-  const Icon = !metricsAvailable ? Gauge : healthy ? CheckCircle2 : AlertTriangle
+  const Icon = workerDead || (known && !healthy) ? AlertTriangle : known ? CheckCircle2 : Gauge
+
+  // Chips are rendered whenever we have any — including in the unknown
+  // state, so an unconfirmable worker never hides a stalled queue.
+  const showIssues = issues.length > 0
 
   return (
     <div
@@ -173,47 +262,94 @@ function SystemHealthBand({
         </span>
         <div>
           <div className={`text-[16px] font-semibold tracking-tight ${tone.title}`}>
-            {!metricsAvailable
-              ? "تعذّر جلب بعض المؤشّرات"
-              : healthy
-                ? "كل الأنظمة تعمل بسلاسة"
-                : "هناك ما يحتاج انتباهك"}
+            {workerDead
+              ? "الإنتاج متوقف — عامل المهام ميت"
+              : !known
+                ? "تعذّر التأكد من حالة الأنظمة"
+                : healthy
+                  ? "كل الأنظمة تعمل بسلاسة"
+                  : "هناك ما يحتاج انتباهك"}
           </div>
-          {!metricsAvailable ? (
+          {!known ? (
             <div className={`mt-0.5 text-[12.5px] ${tone.sub}`}>
-              راجع تفاصيل التشغيل لمعرفة المصدر
+              {!health.allSectionsOk
+                ? canSeeDetails
+                  ? "تعذّر جلب بعض المؤشّرات — راجع تفاصيل التشغيل لمعرفة المصدر"
+                  : "تعذّر جلب بعض المؤشّرات — أعِد تحميل الصفحة، وإذا استمر بلّغ مدير النظام"
+                : // Names WHICH unknown it is (no beat yet / unreadable / DB
+                  // down) instead of a vague "ما قدرنا نتأكد".
+                  workerSentence}
             </div>
           ) : healthy ? (
             <div className={`mt-0.5 text-[12.5px] ${tone.sub}`}>
-              لا مهام متعثّرة · لا أخطاء في الذكاء الاصطناعي خلال ٢٤ ساعة
+              {/* Was a hard-coded «العامل نشط», which could not tell a busy
+                  worker from an idle one — the exact distinction the red
+                  false-alarm hinged on. */}
+              {workerSentence} · لا مهام متعثّرة · {aiSentence}
             </div>
-          ) : (
+          ) : !workerDead ? (
+            /* Amber "something needs attention". The worker line is stated
+               here too: the issue chips below describe the PROBLEM, and
+               without this the operator has no way to see whether production
+               is still moving while they read them. Skipped in the red
+               branch, where the title AND a chip already say it. */
+            <div className={`mt-0.5 text-[12.5px] ${tone.sub}`}>{workerSentence}</div>
+          ) : null}
+          {showIssues ? (
             <div className="mt-1.5 flex flex-wrap gap-1.5">
               {issues.map((it) => (
                 <span
                   key={it.label}
-                  className="inline-flex items-center gap-1.5 rounded-full border border-amber-200 bg-white px-2.5 py-0.5 text-[11.5px] font-medium text-amber-800"
+                  // rounded-xl/py-1, not a pill: the longest chip
+                  // ("العامل (worker) ما يرد — آخر نبض منذ 21 يوم") sits a
+                  // few px under the available width at 390px, and a pill
+                  // that wraps to two lines renders as a deformed blob.
+                  className={`inline-flex items-center gap-1.5 rounded-xl border bg-white px-2.5 py-1 text-[11.5px] font-medium ${tone.issueChip}`}
                 >
-                  <span className="tabular-nums">{it.value}</span>
-                  {it.label}
+                  {/* Counts read before the label ("5 مهام متعثّرة");
+                      qualitative values read after it ("… منذ 21 يوم"). */}
+                  {typeof it.value === "number" ? (
+                    <>
+                      <span className="tabular-nums">{it.value}</span>
+                      {it.label}
+                    </>
+                  ) : (
+                    <>
+                      {it.label}
+                      <span>{it.value}</span>
+                    </>
+                  )}
                 </span>
               ))}
             </div>
-          )}
+          ) : null}
         </div>
       </div>
-      <Link
-        href="/admin/ops/details"
-        className="inline-flex items-center gap-1.5 rounded-full border border-border bg-white px-3.5 py-2 text-[12.5px] font-semibold text-muted-foreground shadow-[0_1px_2px_rgba(15,23,42,0.04)] transition-colors hover:border-border hover:text-foreground"
-      >
-        تفاصيل التشغيل
-        <ArrowLeft className="h-3.5 w-3.5" />
-      </Link>
+      {canSeeDetails ? (
+        <Link
+          href="/admin/ops/details"
+          className="inline-flex items-center gap-1.5 rounded-full border border-border bg-white px-3.5 py-2 text-[12.5px] font-semibold text-muted-foreground shadow-[0_1px_2px_rgba(15,23,42,0.04)] transition-colors hover:border-border hover:text-foreground"
+        >
+          تفاصيل التشغيل
+          <ArrowLeft className="h-3.5 w-3.5" />
+        </Link>
+      ) : null}
     </div>
   )
 }
 
 export default async function OpsDashboardPage() {
+  // Gate BEFORE any data work: an unauthorized visitor must not cost us
+  // the snapshot fan-out, let alone see it. VIEWER is the floor — this is
+  // the post-login landing page (see the header comment); at this level
+  // the only sessions refused are unauthenticated or deactivated ones.
+  const gate = await checkPageRole("VIEWER")
+  if (!gate.ok) return <NoAccess roleLabelAr="مشاهد" />
+  // Money is an owner/admin concern, not production-crew context.
+  const canSeeCost = hasRole(gate.user.role, "ADMIN")
+  // The deep telemetry view is ADMIN-only; don't advertise it below that.
+  const canSeeDetails = hasRole(gate.user.role, "ADMIN")
+
   // "حلقات منشورة" counts the published-episode ARCHIVE (what an operator
   // reads the label to mean), NOT the EIR production pipeline. Fetched in
   // parallel with the ops snapshot; the pipeline's own published-phase count
@@ -234,21 +370,41 @@ export default async function OpsDashboardPage() {
   const eir = snap.eirPipeline.ok ? snap.eirPipeline.data : null
 
   // "ما يحتاج انتباهك" — merged in from the retired Khat Brain command center
-  // (Phase 2.2). Top 8 keeps the home scannable.
-  const nextActionQueue = buildNextActionQueue(recentEirs).slice(0, 8)
+  // (Phase 2.2). ONE deduped list: `recentEirs` and `staleEirs` overlap by
+  // construction (stale rows are a subset of the recently-touched ones), and
+  // rendering them as two sections drew the same episode twice. The merge is
+  // keyed by `eir.id` — see lib/khat-brain/attention.ts.
+  const attentionQueue = buildAttentionQueue({ recent: recentEirs, stale: staleEirs })
 
-  const activeJobs = queue
-    ? (queue.countsByStatus.pending ?? 0) + (queue.countsByStatus.running ?? 0)
-    : null
-  const deadJobs = queue ? queue.recentDead.length : null
-  const staleLease = queue ? queue.staleLeaseCount : null
-  const aiSucceeded = ai ? (ai.ai_runs_status_counts_24h.succeeded ?? 0) : null
-  const aiFailed = ai
-    ? (ai.ai_runs_status_counts_24h.failed ?? 0) + (ai.ai_runs_status_counts_24h.timed_out ?? 0)
-    : null
-  const aiCost = ai
-    ? Object.values(ai.tiers).reduce((s, t) => s + (t.daily_cost_usd ?? 0), 0)
-    : null
+  // Every headline number is derived in `lib/ops/home-metrics.ts` — pure,
+  // unit-tested, and the single place the "absence ≠ success" rule lives.
+  // Nothing on this page computes a metric inline.
+  const queueStatus = deriveQueueStatus(queue)
+  const aiActivity = deriveAiActivity(ai)
+  const cost = deriveCostStatus(ai)
+  const health = deriveSystemHealth(snap)
+
+  // "Active" = due now + running. Future-scheduled pending jobs are
+  // reported separately instead of padding this number.
+  const activeJobs =
+    queueStatus.dueNow !== null && queueStatus.running !== null
+      ? queueStatus.dueNow + queueStatus.running
+      : null
+  // The stalled-queue age deliberately does NOT appear here: the health
+  // band directly above already states it verbatim, and repeating it
+  // pushed this hint to four lines on a 390px screen — shoving the
+  // "ابدأ من هنا" launchpad below the fold.
+  const activeJobsHint = [
+    "مستحقة الآن + قيد التنفيذ",
+    queueStatus.scheduled && queueStatus.scheduled > 0
+      ? `${queueStatus.scheduled} مجدولة لاحقًا`
+      : null,
+  ]
+    .filter(Boolean)
+    .join(" · ")
+
+  const aiHint = deriveAiHint(aiActivity)
+  const costCapLine = deriveCostCapLine(cost)
 
   // ── Episode pipeline summary (active phases only) ──────────────────────────
   const publishedCount = eir ? (eir.countByPhase.published ?? 0) : null
@@ -270,16 +426,6 @@ export default async function OpsDashboardPage() {
       }))
     : []
   const phasePeak = Math.max(1, ...allPhases.map((p) => p.count))
-
-  // ── System health (exceptions-first) ───────────────────────────────────────
-  const metricsAvailable = snap.queue.ok && snap.aiRouter.ok
-  const issues: Array<{ label: string; value: number }> = []
-  if (deadJobs && deadJobs > 0) issues.push({ label: "مهام متعثّرة", value: deadJobs })
-  if (staleLease && staleLease > 0)
-    issues.push({ label: "مهام بإيجار منتهٍ", value: staleLease })
-  if (aiFailed && aiFailed > 0)
-    issues.push({ label: "فشل في الذكاء الاصطناعي", value: aiFailed })
-  const healthy = metricsAvailable && issues.length === 0
 
   return (
     <div dir="rtl" lang="ar">
@@ -304,50 +450,80 @@ export default async function OpsDashboardPage() {
       {/* System health band */}
       <div className="mb-6">
         <SystemHealthBand
-          healthy={healthy}
-          metricsAvailable={metricsAvailable}
-          issues={issues}
+          health={health}
+          aiActivity={aiActivity}
+          worker={snap.worker.ok ? snap.worker.data : null}
+          canSeeDetails={canSeeDetails}
         />
       </div>
 
-      {/* ما يحتاج انتباهك + حلقات متوقفة — merged from the command center (P2.2) */}
-      <HomeAttention queue={nextActionQueue} staleEirs={staleEirs} />
+      {/* ما يحتاج انتباهك — one card per episode, stalls shown as a badge */}
+      <HomeAttention queue={attentionQueue} />
 
-      {/* Headline stats */}
-      <div className="mb-8 grid grid-cols-2 gap-4 lg:grid-cols-4">
+      {/* Headline stats. The cost tile is ADMIN-only and is REMOVED from
+          the grid for lower roles — a permanent "—" placeholder would
+          read as a broken metric. The track count follows the tile
+          count so the row never ends ragged. */}
+      <div
+        className={
+          "mb-8 grid grid-cols-2 gap-4 " + (canSeeCost ? "lg:grid-cols-4" : "sm:grid-cols-3")
+        }
+      >
         <StatTile
           label="مهام نشطة"
           value={activeJobs ?? "—"}
           icon={ListChecks}
           tone={activeJobs && activeJobs > 0 ? "gold" : "neutral"}
-          hint="قيد الانتظار + قيد التنفيذ"
+          // A hint that describes what the number is made of must not
+          // survive the number itself going unreadable.
+          hint={queue === null ? "تعذّر قراءة الطابور" : activeJobsHint}
         />
         <StatTile
-          label="استدعاءات الذكاء الاصطناعي"
-          value={aiSucceeded ?? "—"}
+          label="استدعاءات الذكاء الاصطناعي (24 ساعة)"
+          value={aiActivity.state === "unavailable" ? "—" : aiActivity.total24h}
           icon={Cpu}
           tone="neutral"
-          hint={
-            aiFailed !== null
-              ? aiFailed > 0
-                ? `${aiFailed} فشل خلال ٢٤ ساعة`
-                : "بلا أخطاء خلال ٢٤ ساعة"
-              : undefined
-          }
+          hint={aiHint}
         />
-        <StatTile
-          label="كلفة الذكاء الاصطناعي اليوم"
-          value={aiCost !== null ? `$${aiCost.toFixed(2)}` : "—"}
-          icon={CircleDollarSign}
-          tone="neutral"
-          hint="إجمالي اليوم"
-        />
+        {canSeeCost ? (
+          <StatTile
+            label="كلفة الذكاء الاصطناعي اليوم"
+            value={cost.totalUsd !== null ? `$${cost.totalUsd.toFixed(2)}` : "—"}
+            icon={CircleDollarSign}
+            tone={cost.totalUsd !== null && cost.level !== "ok" ? "gold" : "neutral"}
+            hint={
+              cost.totalUsd === null ? undefined : (
+                <>
+                  {/* The zone is printed ONLY when the DB actually reported
+                      one — a guessed "UTC" next to a money figure is a fact
+                      we never read. */}
+                  <span className="block">
+                    {cost.tz ? `إجمالي اليوم (بتوقيت ${cost.tz})` : "إجمالي اليوم"}
+                  </span>
+                  {costCapLine ? <span className="block">{costCapLine}</span> : null}
+                  {cost.mode === "enforce" && cost.level === "danger" ? (
+                    <span className="block">قريب من السقف — الاستدعاءات راح تتوقف</span>
+                  ) : null}
+                  {cost.unpricedCount > 0 ? (
+                    <span className="block">
+                      الرقم حدّ أدنى — {cost.unpricedCount} استدعاء بلا كلفة مسجّلة
+                    </span>
+                  ) : null}
+                </>
+              )
+            }
+          />
+        ) : null}
         <StatTile
           label="حلقات منشورة"
           value={publishedEpisodes ?? "—"}
           icon={Sparkles}
           tone="accent"
           hint="الأرشيف الكامل مع يوتيوب"
+          // Without the cost tile the row is 3 tiles; on the 2-column
+          // mobile grid the third would sit alone at half width and read
+          // as a card that dropped out. Full-width below `sm` instead.
+          className={canSeeCost ? "" : "max-sm:col-span-2"}
         />
       </div>
 

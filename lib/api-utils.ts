@@ -134,6 +134,30 @@ export async function requireActionRole(
   return { ok: true, user }
 }
 
+/**
+ * Require a minimum admin role for a PAGE (server component) read.
+ *
+ * Deliberately does NOT redirect, unlike `requireAdmin()`. The first
+ * consumer is `/admin/ops` — the admin HOME. Redirecting away from the
+ * home on a role failure is a trap: `/admin` resolves to the same page,
+ * so any redirect target that isn't itself public would bounce straight
+ * back. The caller renders an inline "no access" panel instead, which
+ * also keeps the shell/nav usable so the user can go somewhere they can
+ * actually read.
+ *
+ * `is_active` is folded into the no-session branch on purpose: a
+ * deactivated account gets `user: null`, so a caller can never
+ * accidentally render account details for a disabled user.
+ */
+export async function checkPageRole(
+  minRole: AdminRole,
+): Promise<{ ok: true; user: AdminUser } | { ok: false; user: AdminUser | null }> {
+  const user = await getAdminAuthUser()
+  if (!user || !user.is_active) return { ok: false, user: null }
+  if (!hasRole(user.role, minRole)) return { ok: false, user }
+  return { ok: true, user }
+}
+
 // -- Admin Role hierarchy --
 
 export function hasRole(userRole: string | null | undefined, requiredRole: AdminRole): boolean {

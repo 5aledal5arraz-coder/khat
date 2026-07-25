@@ -78,7 +78,7 @@ export function AiRouterSection({
     return (
       <SectionCard
         titleAr="موجّه الذكاء الاصطناعي وحدّ المعدل"
-        errorMode={{ error: result.error }}
+        errorMode={{ error: result.error, errorRef: result.errorRef }}
       />
     )
   }

@@ -6,14 +6,24 @@
  * least one source id. The verifier pass downstream will drop claims
  * that fail to line up with their cited sources.
  *
- * Gemini is the primary model (reasoning mode, no search tool). The
- * synthesizer operates strictly over the provided corpus — the model is
- * instructed not to pull in outside knowledge.
+ * Synthesis runs on OpenAI via the AI Router (`runAiTask`, task_kind
+ * "research") — the collaboration model is "Gemini grounds → OpenAI composes".
+ * Retrieval (grounded web search) stays on Gemini upstream; this reasoning
+ * pass operates strictly over the provided corpus and is instructed not to
+ * pull in outside knowledge. All web-derived source text is wrapped in
+ * <untrusted_source> so an injection payload inside it is inert.
  */
 
 import type { PreparationInputs, PreparationResearchSource } from "@/types/preparation"
-import { geminiJson } from "./gemini"
+import { runAiTask } from "@/lib/ai-router"
+import {
+  UNTRUSTED_SOURCE_SAFETY_HEADER,
+  wrapUntrustedSource,
+} from "@/lib/ai/grounded-evidence"
 import type { SynthesizerOutput } from "./types"
+
+/** ai_runs actor attribution for the preparation research reasoning passes. */
+const PREPARATION_ACTOR = "system:preparation-research"
 
 function formatInputs(inputs: PreparationInputs): string {
   const lines: string[] = []
@@ -48,7 +58,11 @@ function formatOneSource(s: PreparationResearchSource): string {
   ]
   if (s.snippet) lines.push(`    مقتطف: ${s.snippet.replace(/\s+/g, " ").slice(0, 500)}`)
   if (s.metrics?.view_count) lines.push(`    مشاهدات: ${s.metrics.view_count}`)
-  return lines.join("\n")
+  // Every source is web-derived (title/snippet/publisher come from Gemini's
+  // grounded search, YouTube, or X) — wrap it so an injection payload inside
+  // that text is inert data. The [id] stays inside for citation; it's our own
+  // trusted numbering, not model-fed.
+  return wrapUntrustedSource(s.id, lines.join("\n"), `provider=${s.provider}`)
 }
 
 /**
@@ -75,7 +89,9 @@ function formatSources(sources: PreparationResearchSource[]): string {
         items.map(formatOneSource).join("\n\n"),
     )
   }
-  return blocks.join("\n\n")
+  // Prompt-injection safety preamble first: everything inside the
+  // <untrusted_source> wrappers below is DATA for citation, never commands.
+  return `${UNTRUSTED_SOURCE_SAFETY_HEADER}\n\n${blocks.join("\n\n")}`
 }
 
 function sourceCountsLine(sources: PreparationResearchSource[]): string {
@@ -175,13 +191,33 @@ ${formatSources(sources)}
     return hasOne
   }
 
-  const out = await geminiJson<Partial<SynthesizerOutput>>(
-    SYSTEM,
-    user,
-    "synthesize",
-    0.3,
-    isSynthShape,
-  )
+  // Synthesis moved OFF Gemini reasoning onto OpenAI via the AI Router
+  // (task_kind "research" — terra, long-form Arabic synthesis). The router
+  // owns the JSON-repair ladder (strict→sanitize→extract→truncation-repair)
+  // and telemetry; retrieval stays on Gemini upstream (grounding is its edge).
+  const completion = await runAiTask<Partial<SynthesizerOutput>>({
+    taskKind: "research",
+    subjectTable: "episode_preparations",
+    actorId: PREPARATION_ACTOR,
+    input: { stage: "synthesize", source_count: sources.length },
+    prompt: [
+      { role: "system", content: SYSTEM },
+      { role: "user", content: user },
+    ],
+    expectJson: true,
+    providerOptions: { temperature: 0.3 },
+  })
+
+  if (completion.status !== "succeeded") {
+    throw new Error(
+      `فشل تركيب البحث عبر AI Router (${completion.errorClass ?? "unknown"}): ` +
+        `${completion.errorMessage ?? "لا مخرجات"}`,
+    )
+  }
+  const out = completion.parsed
+  if (!out || !isSynthShape(out)) {
+    throw new Error("تركيب البحث أنتج JSON غير صالح الشكل بعد سلّم الإصلاح")
+  }
 
   const cleaned: SynthesizerOutput = {
     claims: Array.isArray(out.claims)

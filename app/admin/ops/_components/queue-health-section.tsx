@@ -30,7 +30,7 @@ export function QueueHealthSection({
       <SectionCard
         titleAr="صحة الطابور والعمال"
         subtitleAr="حالة المهام المجدولة والجارية"
-        errorMode={{ error: result.error }}
+        errorMode={{ error: result.error, errorRef: result.errorRef }}
       />
     )
   }
@@ -117,8 +117,14 @@ export function QueueHealthSection({
 
       {/* Recent dead. */}
       <div className="border-t border-border/60 pt-2">
-        <div className="mb-1 text-xs font-medium text-foreground">
-          المهام الميتة (24 ساعة)
+        {/* True count first — the list below is capped at 5 rows, so its
+            length under-reports a pile-up. */}
+        <KvRow
+          labelAr="المهام الميتة (24 ساعة)"
+          value={d.deadCount24h.toLocaleString("en-US")}
+        />
+        <div className="mb-1 mt-1.5 text-xs font-medium text-foreground">
+          آخر 5
         </div>
         {d.recentDead.length === 0 ? (
           <InlineEmpty messageAr="لا يوجد" />

@@ -9,9 +9,12 @@ import {
   GUEST_APPLICATION_CONCEPT_PROMPT_VERSION,
   buildGuestApplicationResponsesPrompt,
   GUEST_APPLICATION_RESPONSES_PROMPT_VERSION,
-  type GuestResearchSnippet,
 } from "@/lib/ai/prompts/guest-application"
-import { geminiSearchWeb, isGeminiConfigured } from "@/lib/ai/preparation/research/gemini"
+import {
+  gatherGroundedEvidence,
+  renderGroundedEvidenceBlock,
+  isGroundedEvidenceConfigured,
+} from "@/lib/ai/grounded-evidence"
 import type { GuestApplication, GuestApplicationAnalysis, ResearchSource } from "@/types/database"
 
 const LEGACY_ACTOR = "system:legacy-callsite"
@@ -21,29 +24,48 @@ interface ActorOpts {
 }
 
 // ---------------------------------------------------------------------------
-// Live online research on the applicant — real Google search via Gemini.
-// Fail-safe: returns empty sets when Gemini isn't configured or errors, so the
-// analysis still runs from the application alone. A private individual with no
-// web footprint is expected and fine (خط hosts real people, not just names).
+// Live online research on the applicant — real Google search via the shared
+// grounded-evidence service (Gemini gathers ATTRIBUTED evidence, wrapped in
+// <untrusted_source>; OpenAI does the Arabic JSON). Fail-safe: returns an
+// empty block + no sources when Gemini isn't configured, the daily retrieval
+// budget is spent, or the search errors, so the analysis still runs from the
+// application alone. A private individual with no web footprint is expected and
+// fine (خط hosts real people, not just names).
 // ---------------------------------------------------------------------------
 
 export async function researchGuestApplicant(
   app: GuestApplication,
-): Promise<{ snippets: GuestResearchSnippet[]; sources: ResearchSource[] }> {
-  if (!isGeminiConfigured()) return { snippets: [], sources: [] }
+  actorId: string | null = null,
+): Promise<{ block: string; sources: ResearchSource[] }> {
+  if (!isGroundedEvidenceConfigured()) return { block: "", sources: [] }
   const links = app.social_links ? ` ${app.social_links}` : ""
   const query =
     `من هو "${app.name}" من ${app.country}؟${links} ابحث عن أي حضور علني موثّق: ` +
     `مقابلات، بودكاست، مقالات، حسابات تواصل اجتماعي، عمل مهني أو إبداعي، أو أي ذكر إعلامي. ` +
     `إن لم تجد حضورًا واضحًا فاذكر ذلك صراحةً.`
   try {
-    const sources = await geminiSearchWeb(query, 6)
+    const evidence = await gatherGroundedEvidence(query, {
+      maxResults: 6,
+      subjectTable: "guest_applications",
+      subjectId: app.id ?? null,
+      actorId,
+    })
     return {
-      snippets: sources.map((s) => ({ title: s.title, url: s.url, snippet: s.snippet })),
-      sources: sources.map((s) => ({ title: s.title, url: s.url })),
+      block: renderGroundedEvidenceBlock(evidence),
+      sources: evidence.sources.map((s) => ({
+        title: s.title,
+        url: s.url,
+        domain: s.domain,
+        publisher: s.publisher,
+        verified: s.verified,
+      })),
     }
-  } catch {
-    return { snippets: [], sources: [] }
+  } catch (err) {
+    console.warn(
+      "[guest-application/ai] grounded research skipped:",
+      err instanceof Error ? err.message.split("\n")[0] : String(err),
+    )
+    return { block: "", sources: [] }
   }
 }
 
@@ -81,10 +103,14 @@ export async function analyzeGuestApplication(
 > {
   try {
     // 1. Live research on the applicant (real web search; fail-safe).
-    const research = await researchGuestApplicant(app)
+    const research = await researchGuestApplicant(app, opts?.actorId ?? LEGACY_ACTOR)
 
     // 2. Editorial casting read, informed by the research.
-    const built = buildGuestApplicationAnalysisPrompt({ application: app, research: research.snippets })
+    const built = buildGuestApplicationAnalysisPrompt({
+      application: app,
+      researchBlock: research.block,
+      researchSourceCount: research.sources.length,
+    })
 
     const result = await runAiTask<Record<string, unknown>>({
       taskKind: "structural",

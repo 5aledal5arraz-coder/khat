@@ -11,6 +11,8 @@ import {
   GraduationCap,
   Star,
   UserPlus,
+  ShieldCheck,
+  Globe,
 } from "lucide-react"
 import {
   saveV2CandidateAction,
@@ -39,6 +41,14 @@ export interface V2CardData {
     news?: { recent_mentions: number } | null
   }
   links?: { platform: string; url: string; title?: string | null }[]
+  grounded?: {
+    presence: "confirmed" | "weak" | "none"
+    recent_activity: boolean
+    source_count: number
+    verified_count: number
+    sources: { title: string; url: string; domain: string | null; verified: boolean }[]
+    model: string
+  } | null
 }
 
 const DECISION = {
@@ -123,6 +133,31 @@ export function CandidateCard({ c }: { c: V2CardData }) {
         {(c.signals?.podcast?.appearances ?? 0) > 0 && <span className="inline-flex items-center gap-0.5 rounded-md bg-background/60 px-1.5 py-0.5"><Mic className="h-2.5 w-2.5" /> {c.signals!.podcast!.appearances} بودكاست</span>}
         {(c.signals?.news?.recent_mentions ?? 0) > 0 && <span className="inline-flex items-center gap-0.5 rounded-md bg-background/60 px-1.5 py-0.5"><Newspaper className="h-2.5 w-2.5" /> {c.signals!.news!.recent_mentions} خبر</span>}
       </div>
+
+      {c.grounded && (
+        <div className="mt-2 rounded-lg border border-sky-500/25 bg-sky-500/5 p-2">
+          <div className="flex flex-wrap items-center gap-1.5 text-[10px]">
+            {c.grounded.presence === "confirmed" ? (
+              <span className="inline-flex items-center gap-1 rounded-md bg-emerald-500/10 px-1.5 py-0.5 font-medium text-emerald-700"><ShieldCheck className="h-2.5 w-2.5" /> تحقّق حيّ: مؤكّد</span>
+            ) : c.grounded.presence === "weak" ? (
+              <span className="inline-flex items-center gap-1 rounded-md bg-amber-500/10 px-1.5 py-0.5 font-medium text-amber-700"><ShieldCheck className="h-2.5 w-2.5" /> تحقّق حيّ: أوّليّ</span>
+            ) : (
+              <span className="inline-flex items-center gap-1 rounded-md bg-rose-500/5 px-1.5 py-0.5 font-medium text-rose-700/80"><ShieldCheck className="h-2.5 w-2.5" /> تحقّق حيّ: بلا حضور</span>
+            )}
+            {c.grounded.recent_activity && <span className="inline-flex items-center gap-1 rounded-md bg-background/60 px-1.5 py-0.5 text-muted-foreground">نشاط حديث</span>}
+            {c.grounded.verified_count > 0 && <span className="rounded-md bg-background/60 px-1.5 py-0.5 text-muted-foreground">{c.grounded.verified_count} مصدر موثّق</span>}
+          </div>
+          {c.grounded.sources.length > 0 && (
+            <div className="mt-1.5 flex flex-wrap gap-1.5">
+              {c.grounded.sources.slice(0, 4).map((s, i) => (
+                <a key={i} href={s.url} target="_blank" rel="noreferrer" title={s.title} className={"inline-flex items-center gap-1 rounded-md border px-1.5 py-0.5 text-[10px] hover:text-foreground " + (s.verified ? "border-sky-500/30 bg-background/40 text-foreground/80" : "border-border/30 bg-background/20 text-muted-foreground")}>
+                  <Globe className="h-2.5 w-2.5" /> {s.domain ?? "مصدر"}
+                </a>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
 
       {c.links && c.links.length > 0 && (
         <div className="mt-2 flex flex-wrap gap-1.5">

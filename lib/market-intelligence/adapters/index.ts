@@ -8,11 +8,16 @@
 
 import { collectYoutubeTopic } from "./youtube"
 import { collectPodcastTopic } from "./podcast"
+import { collectWebGroundedTopic } from "./web-grounded"
 import type { MarketCollectionResult, MarketSource } from "./types"
 
 export type { MarketCollectionResult, MarketSource } from "./types"
 export type { MarketRawSignal } from "./types"
 
+// Default set run for every preset. `web_grounded` is intentionally NOT
+// here — it's an opt-in paid (grounding-fee) source appended by the
+// ingestion layer only when MARKET_WEB_GROUNDED_ENABLED=true, so the
+// existing daily schedule is unchanged when the flag is off.
 export const ALL_MARKET_SOURCES: MarketSource[] = ["youtube", "podcast_apple"]
 
 export async function runAdapter(
@@ -26,6 +31,8 @@ export async function runAdapter(
       return collectYoutubeTopic(query, language, maxResults)
     case "podcast_apple":
       return collectPodcastTopic(query, language, maxResults)
+    case "web_grounded":
+      return collectWebGroundedTopic(query, language, maxResults)
     default:
       // exhaustive narrow
       return {

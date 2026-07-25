@@ -7,6 +7,8 @@
  * the shared vocabulary for that pipeline.
  */
 
+import type { CandidateResearchSource } from "@/types/database"
+
 export interface V2Filters {
   gender?: "male" | "female" | null
   nationality?: "kuwaiti" | "non_kuwaiti" | null
@@ -121,6 +123,42 @@ export interface EnrichmentSignals {
   } | null
 }
 
+/**
+ * Optional live-web verification for ONE advanced candidate — the grounded
+ * layer that confirms a Wikidata-resolved person is not just structurally real
+ * but *currently active on the open web* (interviews, talks, articles, recent
+ * press). Produced by the shared grounded-evidence service (Gemini + Google
+ * Search), OUTSIDE the AI router. Attached only to top advanced candidates and
+ * only when `DISCOVERY_WEB_GROUNDED_ENABLED=true` — it is an add-on signal,
+ * never a gate, so its absence never changes a decision.
+ */
+export interface GroundedVerification {
+  /**
+   * Live-web presence, derived deterministically from the attributed sources
+   * (no extra AI call): "confirmed" = ≥2 verified live sources, "weak" = ≥1
+   * source found, "none" = the search returned nothing usable.
+   */
+  presence: "confirmed" | "weak" | "none"
+  /**
+   * Heuristic "active recently" flag — true when a source title/snippet
+   * mentions the current or previous calendar year. A signal, not a proof.
+   */
+  recent_activity: boolean
+  /** Total attributed sources returned. */
+  source_count: number
+  /** How many resolved to a live (non-4xx) page. */
+  verified_count: number
+  /** Attributed web sources (same trimmed shape the candidate UI already renders). */
+  sources: CandidateResearchSource[]
+  /** Who produced the evidence (for a provenance stamp in the UI). */
+  provider: "gemini"
+  model: string
+  /** ISO timestamp the check ran. */
+  checked_at: string
+  /** Set when the search was skipped/failed (budget spent, transient) — fail-safe. */
+  note?: string
+}
+
 export interface V2Scores {
   /** 0..1 each */
   notability: number
@@ -143,4 +181,9 @@ export interface V2Candidate {
   scores: V2Scores
   decision: "accepted" | "shortlist" | "rejected"
   reasons: string[]
+  /**
+   * Optional live-web verification — present only for top advanced candidates
+   * when grounding is enabled; null/absent otherwise (fail-safe add-on).
+   */
+  grounded?: GroundedVerification | null
 }

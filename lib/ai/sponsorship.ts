@@ -7,9 +7,12 @@ import {
   SPONSORSHIP_ANALYSIS_PROMPT_VERSION,
   buildSponsorshipProposalPrompt,
   SPONSORSHIP_PROPOSAL_PROMPT_VERSION,
-  type ResearchSnippet,
 } from "@/lib/ai/prompts/sponsorship"
-import { geminiSearchWeb, isGeminiConfigured } from "@/lib/ai/preparation/research/gemini"
+import {
+  gatherGroundedEvidence,
+  renderGroundedEvidenceBlock,
+  isGroundedEvidenceConfigured,
+} from "@/lib/ai/grounded-evidence"
 import type {
   SponsorshipLead,
   SponsorshipAnalysis,
@@ -28,28 +31,46 @@ const FIT_VERDICTS: PartnershipFitVerdict[] = [
 ]
 
 // ---------------------------------------------------------------------------
-// Live online research — real Google search via Gemini grounding.
-// Fail-safe: returns empty sets when Gemini isn't configured or errors, so the
-// evaluation still runs from the application alone.
+// Live online research — real Google search via the shared grounded-evidence
+// service (Gemini gathers ATTRIBUTED evidence, wrapped in <untrusted_source>;
+// OpenAI does the Arabic JSON). Fail-safe: returns an empty block + no sources
+// when Gemini isn't configured, the daily retrieval budget is spent, or the
+// search errors, so the evaluation still runs from the application alone.
 // ---------------------------------------------------------------------------
 
 export async function researchCompany(
   lead: SponsorshipLead,
-): Promise<{ snippets: ResearchSnippet[]; sources: ResearchSource[] }> {
-  if (!isGeminiConfigured()) return { snippets: [], sources: [] }
+  actorId: string | null = null,
+): Promise<{ block: string; sources: ResearchSource[] }> {
+  if (!isGroundedEvidenceConfigured()) return { block: "", sources: [] }
   const site = lead.company_website ? ` (موقعها: ${lead.company_website})` : ""
   const query =
     `ابحث عن شركة "${lead.company_name}"${site} العاملة في مجال ${lead.industry}. ` +
     `اجمع معلومات موثّقة عن: ماذا تقدّم من منتجات أو خدمات، حجمها ومكانتها في السوق ومنافسيها، ` +
     `سمعتها والانطباع العام عنها وأي جدل أو مخاوف، جمهورها وعملاؤها، وأي تغطية إعلامية حديثة.`
   try {
-    const sources = await geminiSearchWeb(query, 8)
+    const evidence = await gatherGroundedEvidence(query, {
+      maxResults: 8,
+      subjectTable: "sponsorship_leads",
+      subjectId: lead.id ?? null,
+      actorId,
+    })
     return {
-      snippets: sources.map((s) => ({ title: s.title, url: s.url, snippet: s.snippet })),
-      sources: sources.map((s) => ({ title: s.title, url: s.url })),
+      block: renderGroundedEvidenceBlock(evidence),
+      sources: evidence.sources.map((s) => ({
+        title: s.title,
+        url: s.url,
+        domain: s.domain,
+        publisher: s.publisher,
+        verified: s.verified,
+      })),
     }
-  } catch {
-    return { snippets: [], sources: [] }
+  } catch (err) {
+    console.warn(
+      "[sponsorship/ai] grounded research skipped:",
+      err instanceof Error ? err.message.split("\n")[0] : String(err),
+    )
+    return { block: "", sources: [] }
   }
 }
 
@@ -124,10 +145,14 @@ export async function analyzeSponsorshipLead(
 > {
   try {
     // 1. Research the company online (real web search; fail-safe).
-    const research = await researchCompany(lead)
+    const research = await researchCompany(lead, opts?.actorId ?? LEGACY_ACTOR)
 
     // 2. Evaluate: full application + live research → structured assessment.
-    const built = buildPartnershipEvaluationPrompt({ lead, research: research.snippets })
+    const built = buildPartnershipEvaluationPrompt({
+      lead,
+      researchBlock: research.block,
+      researchSourceCount: research.sources.length,
+    })
     const result = await runAiTask<Record<string, unknown>>({
       taskKind: "editorial",
       eirId: null,
