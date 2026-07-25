@@ -40,6 +40,13 @@ export interface ModelChoice {
    * Precedence: per-call `req.maxRetries` → this → global default.
    */
   defaultMaxRetries?: number
+  /**
+   * When true, every call of this kind MUST declare a grounding contract
+   * (`req.grounding`) and its output is verified against the cited corpus.
+   * Set for kinds whose model is not trustworthy from memory — see
+   * `lib/ai-router/grounding.ts` for the evidence and the enforcement.
+   */
+  requiresGrounding?: boolean
 }
 
 /**
@@ -108,6 +115,10 @@ export const DEFAULT_MODELS: Record<AiTaskKind, ModelChoice> = {
     // Long-context synthesis (terra). 240×2 ≈ 486s.
     defaultTimeoutMs: 240_000,
     defaultMaxRetries: 1,
+    // terra scores −0.22 on AA-Omniscience (read 2026-07-25): answering from
+    // memory produces more wrong facts than right ones. Research output must
+    // therefore be traceable to retrieved sources — enforced, not requested.
+    requiresGrounding: true,
   },
   analysis: {
     provider: "openai",
@@ -141,8 +152,13 @@ const EXTRA_PRICING: Array<{
   // Legacy OpenAI (pre-upgrade defaults — keeps old overrides costed)
   { provider: "openai", modelName: "gpt-4o", inputCostPer1M: 2.5, outputCostPer1M: 10 },
   { provider: "openai", modelName: "gpt-4o-mini", inputCostPer1M: 0.15, outputCostPer1M: 0.6 },
-  // Gemini
+  // Gemini — rates from ai.google.dev/gemini-api/docs/pricing (page last
+  // updated 2026-07-21, read 2026-07-25). gemini-3.1-pro-preview is the
+  // ≤200k-context tier; longer prompts bill higher, so its cost here is a
+  // floor, not a ceiling.
   { provider: "gemini", modelName: "gemini-3.6-flash", inputCostPer1M: 1.5, outputCostPer1M: 7.5 },
+  { provider: "gemini", modelName: "gemini-3.5-flash", inputCostPer1M: 1.5, outputCostPer1M: 9 },
+  { provider: "gemini", modelName: "gemini-3.1-pro-preview", inputCostPer1M: 2, outputCostPer1M: 12 },
   { provider: "gemini", modelName: "gemini-2.5-flash", inputCostPer1M: 0.3, outputCostPer1M: 2.5 },
   { provider: "gemini", modelName: "gemini-2.5-pro", inputCostPer1M: 1.25, outputCostPer1M: 10 },
   { provider: "gemini", modelName: "gemini-2.0-flash", inputCostPer1M: 0.1, outputCostPer1M: 0.4 },
@@ -185,9 +201,28 @@ export function registerRuntimePricing(
 }
 
 /**
+ * Models we were asked to cost but have no rates for. A null `cost_usd` is
+ * honest per row, but `sum(cost_usd)` in Postgres skips NULLs silently — so
+ * an unpriced model reads as a DISCOUNT in every cost report. Recording the
+ * misses here (plus a one-time warn below) makes that ignorance visible.
+ */
+const UNPRICED_MODELS = new Set<string>()
+
+/** `provider:model` keys seen without pricing, for ops surfaces to display. */
+export function getUnpricedModels(): string[] {
+  return [...UNPRICED_MODELS].sort()
+}
+
+/** Test seam — clears the recorded misses. */
+export function resetUnpricedModels(): void {
+  UNPRICED_MODELS.clear()
+}
+
+/**
  * Cost lookup helper. Returns null when we don't have pricing for the
  * requested model — `cost_usd` then stores null in ai_runs (honest
- * "unknown" rather than a fabricated number).
+ * "unknown" rather than a fabricated number) — and flags the model once so
+ * the gap surfaces instead of quietly deflating cost totals.
  */
 export function lookupPricing(
   provider: AiProvider,
@@ -202,6 +237,15 @@ export function lookupPricing(
         outputCostPer1M: choice.outputCostPer1M,
       }
     }
+  }
+  const key = `${provider}:${modelName}`
+  if (!UNPRICED_MODELS.has(key)) {
+    UNPRICED_MODELS.add(key)
+    console.warn(
+      `[ai-router] no pricing registered for "${key}" — ai_runs.cost_usd will ` +
+        `be NULL for it and cost totals will UNDER-report. Add it to ` +
+        `EXTRA_PRICING or register it via registerRuntimePricing().`,
+    )
   }
   return null
 }

@@ -10,13 +10,22 @@
 import { env } from "@/lib/env"
 import { GoogleGenAI } from "@google/genai"
 
-/** Default Gemini model for structured JSON reasoning. */
+/**
+ * Default Gemini model for structured JSON reasoning (`research_reasoning`,
+ * `guest_identify`).
+ *
+ * `gemini-2.5-flash` is on Google's shutdown calendar for 2026-10-16, and
+ * these defaults are what runs wherever the env override is unset — so the
+ * default itself has to be current, not just the deployed env. Also measured
+ * to follow the "run 2-3 focused searches" instruction far better on our real
+ * workload (2.57 queries/call vs 10.0 on 2.5-flash).
+ */
 export const GEMINI_REASONING_MODEL =
-  env.GEMINI_REASONING_MODEL || "gemini-2.5-flash"
+  env.GEMINI_REASONING_MODEL || "gemini-3.6-flash"
 
 /** Default Gemini model for grounded web retrieval (Google Search tool). */
 export const GEMINI_RETRIEVAL_MODEL =
-  env.GEMINI_RETRIEVAL_MODEL || "gemini-2.5-flash"
+  env.GEMINI_RETRIEVAL_MODEL || "gemini-3.6-flash"
 
 let cached: GoogleGenAI | null = null
 

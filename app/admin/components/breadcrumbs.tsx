@@ -18,6 +18,9 @@ const LABEL_MAP: Record<string, string> = {
   episodes: "الحلقات",
   studio: "الاستوديو",
   "home-content": "واجهة الموقع",
+  // Reachable from the ops inbox + the teaser tab, never from the sidebar —
+  // without this entry the Arabic trail would read "…› teaser-questions".
+  "teaser-questions": "أسئلة الجمهور",
   preparation: "إعداد الحلقة",
 
   // Guests

@@ -25,15 +25,31 @@ export interface TeaserSettings {
   teasers: TeaserConfig[]
 }
 
+/**
+ * The three moderation states allowed by `chk_teaser_questions_status`
+ * (scripts/post-schema.sql). No fourth state exists — «تراجع» moves a question
+ * back to `pending`, it does not introduce one.
+ */
+export type TeaserQuestionStatus = 'pending' | 'approved' | 'rejected'
+
+/**
+ * A teaser question as every reader OUTSIDE the insert path may see it.
+ *
+ * `ip_hash` and `user_agent` are deliberately ABSENT. They are abuse-tracking
+ * material written by `POST /api/teaser/[id]/questions` and must never leave
+ * the server: an admin page is a serialized RSC payload, so a bare
+ * `select()` would ship a visitor's fingerprint into the HTML. Keeping the two
+ * columns out of the type makes a leak a compile error rather than a review
+ * finding (team decision 2026-07-19).
+ */
 export interface TeaserQuestion {
   id: string
   teaser_id: string
   display_name: string | null
   question_text: string
-  status: 'pending' | 'approved' | 'rejected'
-  ip_hash: string | null
-  user_agent: string | null
-  created_at: string
+  status: TeaserQuestionStatus
+  /** ISO string. Nullable because the column is (it only has a DB default). */
+  created_at: string | null
 }
 
 export interface TeaserQuestionStats {

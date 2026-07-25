@@ -4,6 +4,7 @@ import { useState, useRef } from "react"
 import Image from "next/image"
 import { Play, Sparkles } from "lucide-react"
 import type { ActiveTeaserView } from "@/lib/teaser"
+import { TeaserQuestionForm } from "./teaser-question-form"
 
 /**
  * Homepage teaser card. Site identity (SITE_LIGHT_TOKENS — indigo/orange) via
@@ -95,6 +96,11 @@ export function TeaserSection({ teaser }: { teaser: ActiveTeaserView }) {
               <span className="mt-2 block text-[13px] font-semibold text-accent">
                 مع {teaser.guestName}
               </span>
+            ) : null}
+
+            {/* «اسأل الضيف» — live teasers only. */}
+            {teaser.acceptsQuestions ? (
+              <TeaserQuestionForm teaserId={teaser.id} prompt={teaser.prompt} />
             ) : null}
           </div>
         </div>

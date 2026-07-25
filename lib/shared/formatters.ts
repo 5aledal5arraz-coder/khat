@@ -23,6 +23,7 @@ const ARABIC_PLURALS: Record<string, [string, string, string]> = {
   "تعليق": ["تعليق", "تعليقان", "تعليقات"],
   "رد": ["رد", "ردّان", "ردود"],
   "اقتباس": ["اقتباس", "اقتباسان", "اقتباسات"],
+  "سؤال": ["سؤال", "سؤالان", "أسئلة"],
 }
 
 export function formatArabicCount(count: number, singular: string): string {
@@ -37,6 +38,26 @@ export function formatArabicCount(count: number, singular: string): string {
   if (count === 2) return dual
   if (count <= 10) return `${count} ${plural}`
   return `${count} ${sing}`
+}
+
+/**
+ * The NOUN alone, agreeing with `count` — for layouts that already render the
+ * numeral as its own visual element (a headline counter tile, where
+ * `formatArabicCount` would print the digit twice).
+ *
+ * Reads the same `ARABIC_PLURALS` table as `formatArabicCount`, so the plural
+ * of a word is still defined in exactly one place.
+ */
+export function arabicPluralNoun(count: number, singular: string): string {
+  const forms = ARABIC_PLURALS[singular]
+  if (!forms) return singular
+
+  const [sing, dual, plural] = forms
+  if (count === 1) return sing
+  if (count === 2) return dual
+  if (count >= 3 && count <= 10) return plural
+  // 0 → plural («لا أسئلة»), 11+ → singular tamyiz («15 سؤال»).
+  return count === 0 ? plural : sing
 }
 
 /**

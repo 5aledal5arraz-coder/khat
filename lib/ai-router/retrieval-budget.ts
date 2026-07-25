@@ -16,15 +16,24 @@
  * still runs, just without fresh sources.
  *
  * Cap is a load-time tuning knob (read at point of use, per lib/env.ts's scope
- * note): GEMINI_RETRIEVAL_DAILY_USD_CAP, default $5.00/day. Set to 0 to disable
- * retrieval entirely; set high to effectively lift the cap.
+ * note): GEMINI_RETRIEVAL_DAILY_USD_CAP. Set to 0 to disable retrieval
+ * entirely; set high to effectively lift the cap.
+ *
+ * Sizing (2026-07-25): the cap is a runaway-loop brake, NOT a usage budget.
+ * Tripping it degrades quality silently — callers fall back to source-less
+ * analysis — so it must sit far above normal operation. Measured on the real
+ * `research_retrieval` rows for 2026-07-24: 31 calls / 87 queries cost $1.83
+ * with every query billed (the free tier ignored). $25/day is ~13× that peak,
+ * matches the `expensive` AI tier's existing $25/day limit, and still bounds
+ * a runaway job. The old $5 default put a 31-call day at 37% of cap on the
+ * corrected numbers — and at 75% on the inflated ones this cap was set with.
  */
 
 import { and, gte, sql } from "drizzle-orm"
 import { db } from "@/lib/db"
 import { aiRuns } from "@/lib/db/schema/ai-runs"
 
-const DEFAULT_DAILY_CAP_USD = 5.0
+const DEFAULT_DAILY_CAP_USD = 25.0
 
 /** Thrown when the retrieval daily budget is exhausted. */
 export class RetrievalBudgetExceededError extends Error {

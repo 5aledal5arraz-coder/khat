@@ -206,6 +206,11 @@ ${formatSources(sources)}
     ],
     expectJson: true,
     providerOptions: { temperature: 0.3 },
+    // Mandatory grounding: the router verifies every source_id in the output
+    // against exactly these corpus ids, so a claim the model invented from
+    // memory (or cited to a source number that doesn't exist) fails the run
+    // instead of landing in the research file.
+    grounding: { mode: "required", sourceIds: sources.map((s) => s.id) },
   })
 
   if (completion.status !== "succeeded") {
@@ -262,6 +267,22 @@ ${formatSources(sources)}
           }))
           .filter((p) => p.title.length > 0 && p.source_ids.length > 0)
       : [],
+  }
+
+  // The filters above drop any item that came back without a citation. That's
+  // the right call, but dropping it in silence hides how much of the model's
+  // output was ungrounded — so report the shortfall.
+  const rawCount =
+    (Array.isArray(out.claims) ? out.claims.length : 0) +
+    (Array.isArray(out.quotes) ? out.quotes.length : 0) +
+    (Array.isArray(out.past_interviews) ? out.past_interviews.length : 0)
+  const keptCount =
+    cleaned.claims.length + cleaned.quotes.length + cleaned.past_interviews.length
+  if (rawCount > keptCount) {
+    console.warn(
+      `[preparation/research] synthesize: dropped ${rawCount - keptCount}/${rawCount} ` +
+        `items with no usable source_ids (run ${completion.runId})`,
+    )
   }
 
   return cleaned

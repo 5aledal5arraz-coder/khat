@@ -223,6 +223,59 @@ describe("scorecard + decision", () => {
     expect(d.reasons.join(" ")).toContain("ثبات")
   })
 
+  it("cost does NOT block a quality-led upgrade — quality first, by policy", () => {
+    const { aggregates } = buildScorecard({
+      ...baseInput,
+      // 3× the baseline cost, far past maxCostIncreasePct (30%).
+      measured: { ...baseInput.measured, cost: { baseline: 1.0, candidate: 3.0 } },
+    })
+    expect(aggregates.cost_delta_pct).toBeCloseTo(200, 5)
+    const d = decide(aggregates, DEFAULT_THRESHOLDS)
+    expect(d.recommendation).toBe("upgrade")
+    expect(d.rule).toBe("quality_led")
+  })
+
+  it("reports the cost increase it chose not to block on", () => {
+    const { aggregates } = buildScorecard({
+      ...baseInput,
+      measured: { ...baseInput.measured, cost: { baseline: 1.0, candidate: 3.0 } },
+    })
+    const joined = decide(aggregates, DEFAULT_THRESHOLDS).reasons.join(" ")
+    expect(joined).toContain("الكلفة")
+    expect(joined).toContain("200.0%")
+  })
+
+  it("still applies the cost gate on the accuracy-led path", () => {
+    const { aggregates } = buildScorecard({
+      ...baseInput,
+      tier: "efficient",
+      judged: { discovery: 0.5, editorial: 0.5, research: 0.5 },
+      programmatic: {
+        extraction: { baseline: 70, candidate: 85 },
+        long_context: { baseline: 70, candidate: 82 },
+        consistency: { baseline: 85, candidate: 90 },
+      },
+      measured: { ...baseInput.measured, cost: { baseline: 1.0, candidate: 3.0 } },
+    })
+    const d = decide(aggregates, DEFAULT_THRESHOLDS)
+    expect(d.recommendation).toBe("keep_current")
+    expect(d.reasons.join(" ")).toContain("الكلفة ارتفعت")
+  })
+
+  it("latency and consistency still gate the quality-led path", () => {
+    const { aggregates } = buildScorecard({
+      ...baseInput,
+      measured: {
+        ...baseInput.measured,
+        cost: { baseline: 1.0, candidate: 3.0 },
+        latencyMs: { baseline: 8000, candidate: 16_000 },
+      },
+    })
+    expect(decide(aggregates, DEFAULT_THRESHOLDS).recommendation).toBe(
+      "keep_current",
+    )
+  })
+
   it("unknown cost doesn't block a quality-led upgrade but is surfaced", () => {
     const { aggregates, dimensions } = buildScorecard({
       ...baseInput,

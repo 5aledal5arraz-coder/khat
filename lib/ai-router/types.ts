@@ -12,9 +12,11 @@ import type {
   AiRunStatus,
 } from "@/lib/db/schema/ai-runs"
 import type { JsonRepairStage } from "@/lib/ai/json-repair"
+import type { GroundingContract } from "./grounding"
 
 export type { AiTaskKind, AiProvider, AiRunStatus }
 export type { JsonRepairStage }
+export type { GroundingContract }
 
 /**
  * Reasoning effort for GPT-5-family (and other reasoning) models.
@@ -115,6 +117,20 @@ export interface AiTaskRequest {
    * visible. Defaults to `false`.
    */
   bypassRateLimit?: boolean
+
+  /**
+   * Grounding declaration. REQUIRED for task kinds the registry marks
+   * `requiresGrounding` (currently `research`) — omitting it throws a
+   * `GroundingContractError` before any provider spend.
+   *
+   * `{ mode: "required", sourceIds }` makes the router inject the mandatory
+   * citation directive and verify that the output cites only those ids.
+   * `{ mode: "exempt", reason }` is for non-product calls (benchmark
+   * fixtures); the reason is stamped into `ai_runs.input_snapshot`.
+   *
+   * Ignored for kinds that don't require grounding.
+   */
+  grounding?: GroundingContract
 }
 
 export type PromptInput = string | PromptMessage[]

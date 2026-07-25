@@ -25,16 +25,19 @@ import {
   PowerOff,
   CheckCircle2,
   Pencil,
+  MessageCircleQuestion,
 } from "lucide-react"
 
 interface Props {
   teasers: TeaserConfig[]
   upcomingEpisodes: UpcomingEpisodeOption[]
+  /** Pending teaser questions; null when the count could not be read. */
+  pendingQuestions: number | null
 }
 
 const MAX_VIDEO_BYTES = 200 * 1024 * 1024
 
-export function TeaserTab({ teasers, upcomingEpisodes }: Props) {
+export function TeaserTab({ teasers, upcomingEpisodes, pendingQuestions }: Props) {
   // ─── Create-form state ───────────────────────────────────────
   const [eirId, setEirId] = useState("")
   const [title, setTitle] = useState("")
@@ -204,6 +207,31 @@ export function TeaserTab({ teasers, upcomingEpisodes }: Props) {
           <span>{error}</span>
         </div>
       )}
+
+      {/* ─── Questions entrance ──────────────────────────────────
+          One of only two ways into `/admin/teaser-questions` (the other is the
+          «الوارد» card on the home page) — the review screen is deliberately
+          not in the sidebar. Always visible, including at zero: an entrance
+          that appears only when there is work is an entrance nobody learns. */}
+      <Link
+        href="/admin/teaser-questions?status=pending"
+        className="flex min-h-11 items-center justify-between gap-3 rounded-xl border border-border bg-card px-4 py-3 transition-colors hover:border-primary/40"
+      >
+        <span className="flex items-center gap-2 text-[13px] font-semibold text-foreground">
+          <MessageCircleQuestion className="h-4 w-4 text-primary" />
+          راجع الأسئلة
+          <span className="rounded-full bg-muted px-2 py-0.5 text-[11.5px] font-semibold tabular-nums text-muted-foreground">
+            {pendingQuestions ?? "—"}
+          </span>
+        </span>
+        <span className="text-[11.5px] text-muted-foreground">
+          {pendingQuestions === null
+            ? "تعذّر قراءة العدّاد"
+            : pendingQuestions === 0
+              ? "ما فيه أسئلة قيد المراجعة"
+              : "قيد المراجعة"}
+        </span>
+      </Link>
 
       {/* ─── Create form ─────────────────────────────────────── */}
       <section className="rounded-2xl border border-border bg-card p-5">

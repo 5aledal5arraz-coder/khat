@@ -14,10 +14,11 @@
  *   • Prompt-injection safety — `renderGroundedEvidenceBlock()` wraps every
  *     web-derived title/snippet/publisher in <untrusted_source> tags with an
  *     explicit instruction that the enclosed text is DATA, never commands.
- *   • Honest grounding cost — Gemini's Google-Search grounding carries a
- *     per-search FEE on top of tokens. We count the search queries Gemini ran
- *     and add an estimated fee to the `ai_runs` cost so retrieval spend is
- *     never silently recorded as token-only (or zero).
+ *   • Honest grounding cost — Gemini's Google-Search grounding carries a FEE
+ *     on top of tokens, and the billing UNIT differs by family (Gemini 3 bills
+ *     per search query, Gemini 2.5 per grounded request). We count the queries
+ *     the model ran and add the family-correct fee to the `ai_runs` cost, so
+ *     retrieval spend is neither recorded as token-only nor inflated.
  *   • Daily cost cap — a light Postgres-backed permit (`assertRetrievalBudget`)
  *     guards the record-run path, which otherwise bypasses the rate limiter.
  *   • Real destination domains — Gemini returns `vertexaisearch…/redirect`
@@ -26,9 +27,8 @@
  *   • Provenance — the provider + model that produced the evidence rides along
  *     so the UI can stamp it.
  *
- * Model is read from env (GEMINI_RETRIEVAL_MODEL via lib/ai/gemini.ts).
- * NOTE: the default `gemini-2.5-flash` is scheduled for shutdown 2026-10-16 —
- * upgrade by setting GEMINI_RETRIEVAL_MODEL, NOT by editing code.
+ * Model is read from env (GEMINI_RETRIEVAL_MODEL via lib/ai/gemini.ts), which
+ * defaults to `gemini-3.6-flash`.
  */
 
 import type {
@@ -111,19 +111,88 @@ interface GroundingMetadata {
   webSearchQueries?: string[]
 }
 
-// ─── Cost knobs (load-time tuning, read at point of use) ─────────────────────
+// ─── Grounding fees (load-time tuning, read at point of use) ─────────────────
 
 /**
- * Estimated USD fee per grounded search query. Google bills Google-Search
- * grounding per request beyond a free daily tier; token cost alone
- * under-counts retrieval. Override via GEMINI_GROUNDING_COST_PER_QUERY_USD.
- * Default 0.035 ($35 / 1,000 grounded prompts) — the published list rate.
+ * Google-Search grounding fees. Source: ai.google.dev/gemini-api/docs/pricing
+ * (page last updated 2026-07-21, read 2026-07-25). The two live families bill
+ * on DIFFERENT units — conflating them is an accounting error, not rounding:
+ *
+ *   • Gemini 3.x — $14 per 1,000 search QUERIES → charged per query the model
+ *                  actually ran.
+ *   • Gemini 2.5 — $35 per 1,000 grounded PROMPTS → charged ONCE per request,
+ *                  however many sub-searches it fanned out into.
+ *
+ * Both apply only beyond the free daily tier, so a fee computed here is the
+ * worst case (fully paid), never an under-count.
  */
-export function groundingCostPerQueryUsd(): number {
+export const GEMINI_3_GROUNDING_USD_PER_QUERY = 0.014
+export const GEMINI_25_GROUNDING_USD_PER_REQUEST = 0.035
+
+/** The unit a family's grounding fee is charged on. */
+export type GroundingBillingUnit = "per_query" | "per_request"
+
+/** Dedupe key set so an unrecognised model id warns once, not per call. */
+const warnedGroundingModels = new Set<string>()
+
+/** Major version from a Gemini model id (`gemini-3.6-flash` → 3). */
+function geminiMajorVersion(modelName: string): number | null {
+  const m = /^gemini-(\d+)/i.exec(modelName.trim())
+  if (!m) return null
+  const n = Number(m[1])
+  return Number.isFinite(n) ? n : null
+}
+
+/**
+ * Explicit operator override of the grounding RATE, in USD:
+ * `GEMINI_GROUNDING_COST_PER_QUERY_USD`. It replaces the published rate so a
+ * price change can be absorbed without a deploy; the billing UNIT still
+ * follows the model family, so an override corrects the price without
+ * silently re-shaping how we count.
+ */
+function groundingRateOverrideUsd(): number | null {
   const raw = process.env.GEMINI_GROUNDING_COST_PER_QUERY_USD
-  if (raw == null || raw === "") return 0.035
+  if (raw == null || raw === "") return null
   const n = Number(raw)
-  return Number.isFinite(n) && n >= 0 ? n : 0.035
+  return Number.isFinite(n) && n >= 0 ? n : null
+}
+
+/**
+ * Resolve the grounding rate + billing unit for a model. An id we can't parse
+ * is treated as the CURRENT (per-query) shape — every future Gemini is ≥3 —
+ * and warned once so an unknown id is visible instead of silently mis-costed.
+ */
+export function groundingRate(modelName: string): {
+  usd: number
+  unit: GroundingBillingUnit
+} {
+  const major = geminiMajorVersion(modelName)
+  if (major === null && !warnedGroundingModels.has(modelName)) {
+    warnedGroundingModels.add(modelName)
+    console.warn(
+      `[grounded-evidence] unrecognised Gemini model id "${modelName}" — ` +
+        `assuming the current per-query grounding rate ` +
+        `($${GEMINI_3_GROUNDING_USD_PER_QUERY}/query).`,
+    )
+  }
+  const override = groundingRateOverrideUsd()
+  if (major !== null && major < 3) {
+    return {
+      usd: override ?? GEMINI_25_GROUNDING_USD_PER_REQUEST,
+      unit: "per_request",
+    }
+  }
+  return { usd: override ?? GEMINI_3_GROUNDING_USD_PER_QUERY, unit: "per_query" }
+}
+
+/**
+ * Grounding fee for one retrieval call: `queryCount` searches run by
+ * `modelName`. Zero when no search actually ran.
+ */
+export function groundingFeeUsd(modelName: string, queryCount: number): number {
+  if (queryCount <= 0) return 0
+  const { usd, unit } = groundingRate(modelName)
+  return unit === "per_query" ? queryCount * usd : usd
 }
 
 // ─── Pure helpers (unit-testable, no network) ────────────────────────────────
@@ -149,14 +218,16 @@ export function domainFromUrl(url: string): string | null {
 }
 
 /**
- * Estimate total retrieval cost = token cost + grounding fee.
+ * Estimate total retrieval cost = token cost + grounding fee, for a call that
+ * ran `queryCount` searches on `modelName`.
  * Returns null only when BOTH inputs are unknown (honest "unknown").
  */
 export function estimateRetrievalCostUsd(
   tokenCostUsd: number | null,
   queryCount: number,
+  modelName: string,
 ): number | null {
-  const fee = queryCount > 0 ? queryCount * groundingCostPerQueryUsd() : 0
+  const fee = groundingFeeUsd(modelName, queryCount)
   if (tokenCostUsd == null && fee === 0) return null
   return (tokenCostUsd ?? 0) + fee
 }
@@ -377,14 +448,23 @@ export async function gatherGroundedEvidence(
               r.usageMetadata,
               GEMINI_RETRIEVAL_MODEL,
             )
-            const costUsd = estimateRetrievalCostUsd(token.costUsd, queryCount)
+            const costUsd = estimateRetrievalCostUsd(
+              token.costUsd,
+              queryCount,
+              GEMINI_RETRIEVAL_MODEL,
+            )
             return {
               tokensIn: token.tokensIn,
               tokensOut: token.tokensOut,
               costUsd,
               outputSnapshot: {
                 web_search_queries: queryCount,
-                grounding_fee_usd: queryCount * groundingCostPerQueryUsd(),
+                grounding_fee_usd: groundingFeeUsd(
+                  GEMINI_RETRIEVAL_MODEL,
+                  queryCount,
+                ),
+                grounding_billing_unit: groundingRate(GEMINI_RETRIEVAL_MODEL)
+                  .unit,
                 sources_found: meta?.groundingChunks?.length ?? 0,
               },
             }
@@ -400,7 +480,11 @@ export async function gatherGroundedEvidence(
         )
         return {
           response,
-          costUsd: estimateRetrievalCostUsd(token.costUsd, queryCount),
+          costUsd: estimateRetrievalCostUsd(
+            token.costUsd,
+            queryCount,
+            GEMINI_RETRIEVAL_MODEL,
+          ),
           queryCount,
         }
       } catch (err) {

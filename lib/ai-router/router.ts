@@ -38,6 +38,15 @@ import type {
 } from "./types"
 import { parseJsonWithRepair, type JsonRepairStage } from "@/lib/ai/json-repair"
 import { isQuotaExceededError } from "./errors"
+// Mandatory grounding for research-grade kinds. Lives in the router for the
+// same reason the JSON-repair ladder does: every generator inherits it.
+import {
+  assertGroundingContract,
+  verifyGroundedOutput,
+  MANDATORY_GROUNDING_DIRECTIVE,
+  UNGROUNDED_ERROR_CLASS,
+  type GroundingContract,
+} from "./grounding"
 import { DEFAULT_MODELS } from "./registry"
 import { resolveModelChoice } from "./model-selection"
 import { openaiAdapter } from "./providers/openai"
@@ -230,6 +239,13 @@ export async function runAiTask<TParsed = unknown>(
     throw new Error(`AI Router: unknown task_kind "${req.taskKind}"`)
   }
 
+  // Grounding pre-flight — BEFORE model selection, the permit, and the
+  // ai_runs INSERT. An ungrounded research call must cost nothing and fail
+  // where the caller can see it, not produce a confident uncited answer.
+  const groundingContract: GroundingContract | null = choice.requiresGrounding
+    ? assertGroundingContract(req.taskKind, req.grounding)
+    : null
+
   const provider = req.preferredProvider ?? choice.provider
   let modelName = req.preferredModel ?? choice.modelName
   let reasoningEffort = choice.reasoningEffort
@@ -256,7 +272,16 @@ export async function runAiTask<TParsed = unknown>(
     )
   }
 
-  const messages = normalizePrompt(req.prompt)
+  // Under a "required" contract the directive is injected by the router, so
+  // the guarantee doesn't depend on each generator remembering to ask for
+  // citations in its own prompt.
+  const messages =
+    groundingContract?.mode === "required"
+      ? [
+          { role: "system" as const, content: MANDATORY_GROUNDING_DIRECTIVE },
+          ...normalizePrompt(req.prompt),
+        ]
+      : normalizePrompt(req.prompt)
   const promptHash = hashPrompt(messages)
 
   // ─── Open ai_runs row ──────────────────────────────────────────────
@@ -282,7 +307,23 @@ export async function runAiTask<TParsed = unknown>(
   // Phase 1.3 — validate the input snapshot before the INSERT lands.
   // Schema is lenient (record of any unknown values); the wrapper exists
   // here so a future tightening doesn't require touching this site.
-  const inputSnapshotValue = clipSnapshot(req.input)
+  // Stamp the grounding contract into the snapshot so an exemption — or the
+  // size of the corpus a research answer was allowed to draw on — is visible
+  // in ai_runs rather than implied.
+  const inputSnapshotValue = clipSnapshot(
+    groundingContract
+      ? {
+          ...req.input,
+          _grounding:
+            groundingContract.mode === "required"
+              ? {
+                  mode: "required",
+                  source_count: groundingContract.sourceIds.length,
+                }
+              : { mode: "exempt", reason: groundingContract.reason },
+        }
+      : req.input,
+  )
   validateJsonbWrite(
     { table: AI_RUNS_TABLE, column: AI_RUNS_INPUT_SNAPSHOT_COLUMN, rowId: null },
     inputSnapshotValue,
@@ -426,7 +467,31 @@ export async function runAiTask<TParsed = unknown>(
             "Response was not valid JSON after strict/sanitize/extract/truncation-repair recovery"
         }
       }
-      status = "succeeded"
+
+      // Grounding verification — the half of the contract a prompt can't
+      // guarantee. An output that cites nothing, or cites a source id that
+      // was never retrieved, is the model answering from memory.
+      //
+      // The provider call succeeded, but the RUN did not: we drop the payload
+      // and close the row as `failed`. That status is what every caller
+      // already checks, so the rejection surfaces with its real reason
+      // instead of resurfacing later as a mystery empty result.
+      let groundingRejected = false
+      if (groundingContract?.mode === "required" && parsed !== null) {
+        const verdict = verifyGroundedOutput(parsed, groundingContract.sourceIds)
+        if (!verdict.ok) {
+          groundingRejected = true
+          parsed = null
+          errorClass = UNGROUNDED_ERROR_CLASS
+          errorMessage = verdict.reason ?? "ungrounded output"
+          console.warn(
+            `[ai-router] ${req.taskKind} (${provider}/${modelName}): ` +
+              `ungrounded output rejected — cited ${verdict.citedCount}, ` +
+              `unknown ids [${verdict.unknownIds.join(", ")}]`,
+          )
+        }
+      }
+      status = groundingRejected ? "failed" : "succeeded"
     } catch (err) {
       const c = classifyError(err)
       status = c.name === "timeout" ? "timed_out" : "failed"

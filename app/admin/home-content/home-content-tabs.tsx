@@ -47,6 +47,8 @@ interface Props {
   thinkersMode: "auto" | "manual"
   teasers: TeaserConfig[]
   upcomingEpisodes: UpcomingEpisodeOption[]
+  /** Pending teaser questions; null when the count could not be read. */
+  pendingQuestions: number | null
 }
 
 // ─── Image Uploader ─────────────────────────────────────────
@@ -671,6 +673,7 @@ export function HomeContentTabs({
   thinkersMode,
   teasers,
   upcomingEpisodes,
+  pendingQuestions,
 }: Props) {
   return (
     <Tabs defaultValue="gallery">
@@ -709,7 +712,11 @@ export function HomeContentTabs({
       </TabsContent>
 
       <TabsContent value="teaser">
-        <TeaserTab teasers={teasers} upcomingEpisodes={upcomingEpisodes} />
+        <TeaserTab
+          teasers={teasers}
+          upcomingEpisodes={upcomingEpisodes}
+          pendingQuestions={pendingQuestions}
+        />
       </TabsContent>
     </Tabs>
   )

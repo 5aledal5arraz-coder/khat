@@ -75,7 +75,9 @@ import { formatUtc } from "@/lib/ops/format"
 import { PHASE_LABEL } from "@/lib/khat-brain/phase-labels"
 import { EPISODE_PHASES, type EpisodePhase } from "@/lib/db/schema/eir"
 import { checkPageRole, hasRole } from "@/lib/api-utils"
+import { getInboxCounts, buildInboxChannels, totalWaiting } from "@/lib/ops/inbox"
 import { HomeAttention } from "./_components/home-attention"
+import { InboxSection } from "./_components/inbox-section"
 import { NoAccess } from "./_components/no-access"
 
 export const dynamic = "force-dynamic"
@@ -358,11 +360,14 @@ export default async function OpsDashboardPage() {
   // only episodes not materialized in the DB), so this number is larger
   // than the analytics dashboard's «إجمالي الحلقات (قاعدة الموقع)», which
   // counts the episodes table alone. Both cards state their source.
-  const [snap, publishedEpisodes, recentEirs, staleEirs] = await Promise.all([
+  const [snap, publishedEpisodes, recentEirs, staleEirs, inboxCounts] = await Promise.all([
     takeOpsSnapshot(),
     getEpisodes({}).then((eps) => eps.length).catch(() => null),
     getRecentActiveEirs(),
     getStaleEirs(),
+    // The four human channels in ONE statement (lib/ops/inbox.ts); it swallows
+    // its own errors into `null`, so it can never blank the page.
+    getInboxCounts(),
   ])
 
   const queue = snap.queue.ok ? snap.queue.data : null
@@ -456,6 +461,13 @@ export default async function OpsDashboardPage() {
           canSeeDetails={canSeeDetails}
         />
       </div>
+
+      {/* الوارد — the four HUMAN channels. Above the attention queue on
+          purpose: an unanswered person outranks a stalled record. */}
+      <InboxSection
+        channels={buildInboxChannels(inboxCounts)}
+        total={totalWaiting(inboxCounts)}
+      />
 
       {/* ما يحتاج انتباهك — one card per episode, stalls shown as a badge */}
       <HomeAttention queue={attentionQueue} />

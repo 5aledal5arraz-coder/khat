@@ -117,6 +117,14 @@ async function callModel(
     actorId: "model-benchmark",
     subjectTable: "model_benchmarks",
     subjectId: benchmarkId,
+    // The suite's `research` calls are fixtures graded programmatically
+    // against planted facts (and by the blind judge), not product output —
+    // no retrieval runs, so there is no corpus to cite. Declared explicitly
+    // so the exemption is stamped in ai_runs, not assumed.
+    grounding: {
+      mode: "exempt",
+      reason: "benchmark suite fixture — graded against planted facts",
+    },
   })
   metrics.latencies.push(r.latencyMs)
   metrics.costs.push(r.costUsd)

@@ -5,9 +5,15 @@ import { db, USE_DB } from "@/lib/db"
 import { teasers, teaserQuestions } from "@/lib/db/schema"
 import { episodeIntelligenceRecords } from "@/lib/db/schema/eir"
 import { guests } from "@/lib/db/schema/guests"
-import { eq, desc, sql, notInArray } from "drizzle-orm"
+import { eq, asc, desc, sql, notInArray } from "drizzle-orm"
 import type { EpisodePhase } from "@/lib/db/schema/eir"
-import type { TeaserConfig, TeaserSettings, TeaserQuestion, TeaserQuestionStats } from "@/types/teaser"
+import type {
+  TeaserConfig,
+  TeaserSettings,
+  TeaserQuestion,
+  TeaserQuestionStats,
+  TeaserQuestionStatus,
+} from "@/types/teaser"
 
 const TEASERS_DIR = path.join(process.cwd(), "public", "teasers")
 
@@ -265,14 +271,76 @@ export async function deactivateTeaser(id: string): Promise<boolean> {
 }
 
 // ─── Question Queries (pool) ─────────────────────────────────────
+//
+// SECURITY — every reader below projects PUBLIC columns only. `ip_hash` and
+// `user_agent` are abuse-tracking material written by the public POST route and
+// must never leave the server; an admin page is a serialized RSC payload, so a
+// bare `select()` would ship a visitor's fingerprint into the HTML. This object
+// is the SINGLE definition of what a reader may see (team decision 2026-07-19).
+export const TEASER_QUESTION_PUBLIC_COLUMNS = {
+  id: teaserQuestions.id,
+  teaser_id: teaserQuestions.teaser_id,
+  display_name: teaserQuestions.display_name,
+  question_text: teaserQuestions.question_text,
+  status: teaserQuestions.status,
+  created_at: teaserQuestions.created_at,
+} as const
+
+/**
+ * `teaser_questions.status` is NULLABLE with a `'pending'` default, and the
+ * CHECK guard (`status IN (…)`) evaluates to NULL — i.e. PASSES — on a NULL
+ * value, so a raw insert can leave it empty. Every read path therefore reads
+ * NULL as `pending`: treating it as "no status" would hide the question from
+ * all three filters AND from the inbox counter at once, which is exactly the
+ * invisible-queue failure this feature exists to end.
+ */
+export function normalizeQuestionStatus(
+  raw: string | null | undefined,
+): TeaserQuestionStatus {
+  return raw === "approved" || raw === "rejected" ? raw : "pending"
+}
+
+/** NULL-safe status predicate — the SQL twin of `normalizeQuestionStatus`. */
+function questionStatusIs(status: TeaserQuestionStatus) {
+  return sql`COALESCE(${teaserQuestions.status}, 'pending') = ${status}`
+}
+
+/**
+ * Scalar sub-select for the «أسئلة الجمهور» inbox counter. Defined HERE, next
+ * to the rule it implements, so the counter on `/admin/ops` and the «قيد
+ * المراجعة» filter on the review page can never drift apart. There is no
+ * further condition by design — filtering on, say, "the teaser is still
+ * active" would rebuild the hidden queue we just dismantled.
+ */
+export const PENDING_TEASER_QUESTIONS_COUNT = sql`(SELECT COUNT(*) FROM teaser_questions WHERE COALESCE(status, 'pending') = 'pending')::int`
+
+type PublicQuestionRow = {
+  id: string
+  teaser_id: string
+  display_name: string | null
+  question_text: string
+  status: string | null
+  created_at: Date | string | null
+}
+
+function rowToQuestion(r: PublicQuestionRow): TeaserQuestion {
+  return {
+    id: r.id,
+    teaser_id: r.teaser_id,
+    display_name: r.display_name || null,
+    question_text: r.question_text,
+    status: normalizeQuestionStatus(r.status),
+    created_at: r.created_at ? new Date(r.created_at).toISOString() : null,
+  }
+}
 
 export async function getApprovedQuestions(teaserId: string): Promise<TeaserQuestion[]> {
   if (!db) return []
   try {
-    const rows = await db.select().from(teaserQuestions)
-      .where(sql`${teaserQuestions.teaser_id} = ${teaserId} AND ${teaserQuestions.status} = 'approved'`)
+    const rows = await db.select(TEASER_QUESTION_PUBLIC_COLUMNS).from(teaserQuestions)
+      .where(sql`${teaserQuestions.teaser_id} = ${teaserId} AND ${questionStatusIs("approved")}`)
       .orderBy(desc(teaserQuestions.created_at))
-    return rows as unknown as TeaserQuestion[]
+    return rows.map(rowToQuestion)
   } catch (e) {
     console.error("Error fetching approved questions:", e)
     return []
@@ -282,10 +350,10 @@ export async function getApprovedQuestions(teaserId: string): Promise<TeaserQues
 export async function getPendingQuestions(teaserId: string): Promise<TeaserQuestion[]> {
   if (!db) return []
   try {
-    const rows = await db.select().from(teaserQuestions)
-      .where(sql`${teaserQuestions.teaser_id} = ${teaserId} AND ${teaserQuestions.status} = 'pending'`)
+    const rows = await db.select(TEASER_QUESTION_PUBLIC_COLUMNS).from(teaserQuestions)
+      .where(sql`${teaserQuestions.teaser_id} = ${teaserId} AND ${questionStatusIs("pending")}`)
       .orderBy(desc(teaserQuestions.created_at))
-    return rows as unknown as TeaserQuestion[]
+    return rows.map(rowToQuestion)
   } catch (e) {
     console.error("Error fetching pending questions:", e)
     return []
@@ -295,24 +363,35 @@ export async function getPendingQuestions(teaserId: string): Promise<TeaserQuest
 export async function getAllQuestions(teaserId: string): Promise<TeaserQuestion[]> {
   if (!db) return []
   try {
-    const rows = await db.select().from(teaserQuestions)
+    const rows = await db.select(TEASER_QUESTION_PUBLIC_COLUMNS).from(teaserQuestions)
       .where(eq(teaserQuestions.teaser_id, teaserId))
       .orderBy(desc(teaserQuestions.created_at))
-    return rows as unknown as TeaserQuestion[]
+    return rows.map(rowToQuestion)
   } catch (e) {
     console.error("Error fetching questions:", e)
     return []
   }
 }
 
+/**
+ * Moderation write. Accepts `pending` too — that is «تراجع», the undo that
+ * keeps a mis-click from being final. No audit columns are written: the review
+ * table has none, and adding them is explicitly out of scope.
+ */
 export async function updateQuestionStatus(
   questionId: string,
-  status: "approved" | "rejected"
+  status: TeaserQuestionStatus,
 ): Promise<boolean> {
   if (!db) return false
   try {
-    await db.update(teaserQuestions).set({ status }).where(eq(teaserQuestions.id, questionId))
-    return true
+    const res = await db
+      .update(teaserQuestions)
+      .set({ status })
+      .where(eq(teaserQuestions.id, questionId))
+      .returning({ id: teaserQuestions.id })
+    // A no-op UPDATE used to report success, so deleting a question in another
+    // tab and then acting on it here rendered a cheerful lie.
+    return res.length > 0
   } catch (e) {
     console.error("Error updating question status:", e)
     return false
@@ -346,6 +425,129 @@ export async function getTeaserQuestionStats(teaserId: string): Promise<TeaserQu
   } catch (e) {
     console.error("Error fetching question stats:", e)
     return { total: 0, pending: 0, approved: 0, rejected: 0 }
+  }
+}
+
+// ─── Review page (/admin/teaser-questions) ───────────────────────
+
+/** Filter slices on the review page. `all` is a slice, not a status. */
+export type TeaserQuestionFilter = TeaserQuestionStatus | "all"
+
+export const TEASER_QUESTION_FILTERS: readonly TeaserQuestionFilter[] = [
+  "pending",
+  "approved",
+  "rejected",
+  "all",
+]
+
+export function parseQuestionFilter(raw: string | undefined): TeaserQuestionFilter {
+  return TEASER_QUESTION_FILTERS.includes(raw as TeaserQuestionFilter)
+    ? (raw as TeaserQuestionFilter)
+    : "pending"
+}
+
+/** One teaser's worth of questions, with the header context the page shows. */
+export interface TeaserQuestionGroup {
+  teaserId: string
+  teaserTitle: string
+  guestName: string | null
+  /** Title of the linked EIR (the episode), when the teaser still has one. */
+  episodeTitle: string | null
+  eirId: string | null
+  /**
+   * DERIVED, never stored: `is_active` AND inside the publish/expire window.
+   * Drives the نشط/منتهي chip — an operator reading a five-week-old question
+   * needs to know at a glance whether that teaser is still on the site.
+   */
+  isLive: boolean
+  questions: TeaserQuestion[]
+}
+
+/**
+ * Every question in the pool, grouped by teaser.
+ *
+ * Ordering is two-level and deliberate: groups newest-teaser-first (the work
+ * an operator actually cares about is at the top), but questions inside a
+ * group OLDEST-FIRST — whoever has waited longest must not be pushed to the
+ * bottom of the list by newer arrivals.
+ */
+export async function getTeaserQuestionGroups(
+  filter: TeaserQuestionFilter,
+): Promise<TeaserQuestionGroup[]> {
+  if (!db) return []
+  try {
+    const rows = await db
+      .select({
+        ...TEASER_QUESTION_PUBLIC_COLUMNS,
+        t_id: teasers.id,
+        t_title: teasers.title,
+        t_guest_name: teasers.guest_name,
+        t_eir_id: teasers.eir_id,
+        t_is_active: teasers.is_active,
+        t_publish_at: teasers.publish_at,
+        t_expire_at: teasers.expire_at,
+        eir_working_title: episodeIntelligenceRecords.working_title,
+        eir_final_title: episodeIntelligenceRecords.final_title,
+      })
+      .from(teaserQuestions)
+      // INNER join: teaser_id is NOT NULL with an ON DELETE CASCADE FK, so a
+      // question without its teaser cannot exist.
+      .innerJoin(teasers, eq(teasers.id, teaserQuestions.teaser_id))
+      .leftJoin(
+        episodeIntelligenceRecords,
+        eq(episodeIntelligenceRecords.id, teasers.eir_id),
+      )
+      .where(filter === "all" ? sql`TRUE` : questionStatusIs(filter))
+      .orderBy(desc(teasers.created_at), asc(teaserQuestions.created_at))
+
+    const now = new Date()
+    const groups = new Map<string, TeaserQuestionGroup>()
+    for (const r of rows) {
+      let g = groups.get(r.t_id)
+      if (!g) {
+        g = {
+          teaserId: r.t_id,
+          teaserTitle: r.t_title,
+          guestName: r.t_guest_name || null,
+          episodeTitle: r.eir_final_title || r.eir_working_title || null,
+          eirId: r.t_eir_id || null,
+          isLive:
+            r.t_is_active === true &&
+            isTeaserWithinWindow(
+              { publishAt: r.t_publish_at, expireAt: r.t_expire_at },
+              now,
+            ),
+          questions: [],
+        }
+        groups.set(r.t_id, g)
+      }
+      g.questions.push(rowToQuestion(r))
+    }
+    return Array.from(groups.values())
+  } catch (e) {
+    console.error("getTeaserQuestionGroups exception:", e)
+    return []
+  }
+}
+
+/**
+ * Pending-question count for the «راجع الأسئلة (n)» link in the teaser tab.
+ * Same predicate as the ops inbox counter — both use
+ * `PENDING_TEASER_QUESTIONS_COUNT`, so the two numbers cannot disagree.
+ * Returns null when the count is UNREADABLE, which a caller must not paint as
+ * zero.
+ */
+export async function countPendingTeaserQuestions(): Promise<number | null> {
+  if (!db) return null
+  try {
+    const res = await db.execute(
+      sql`SELECT ${PENDING_TEASER_QUESTIONS_COUNT} AS count`,
+    )
+    const row = res.rows[0] as { count?: number } | undefined
+    return typeof row?.count === "number" ? row.count : null
+  } catch (e) {
+    console.error("countPendingTeaserQuestions exception:", e)
+    return null
   }
 }
 
@@ -402,11 +604,27 @@ export async function getUpcomingEpisodesForTeaser(): Promise<UpcomingEpisodeOpt
 export interface ActiveTeaserView {
   id: string
   title: string
+  /**
+   * The public "ask the guest" prompt. `teasers.prompt` is an EXISTING NOT NULL
+   * column (default «اكتب سؤالك للضيف») that had simply never been surfaced —
+   * exposing it needs no migration.
+   */
+  prompt: string
   guestName: string | null
   videoFilename: string
   posterImage: string | null
   eirId: string
   guestId: string | null
+  /**
+   * Whether the public question form may be shown. DERIVED, never stored:
+   * `is_active` AND inside the publish/expire window.
+   *
+   * The homepage read path only ever returns live teasers, but the episode and
+   * guest pages render the teaser as an ARCHIVE block long after it stopped
+   * being active — and a form that files questions against a finished teaser
+   * is just another queue nobody will ever read.
+   */
+  acceptsQuestions: boolean
 }
 
 /**
@@ -444,11 +662,15 @@ export async function getActiveTeaserForDisplay(): Promise<ActiveTeaserView | nu
     return {
       id: active.id,
       title: active.title,
+      prompt: active.prompt,
       guestName: active.guest_name || null,
       videoFilename: active.video_filename,
       posterImage: active.poster_image || null,
       eirId: active.eir_id,
       guestId: active.guest_id || null,
+      // True by construction: this function already filtered on `is_active`
+      // and `isTeaserWithinWindow` above.
+      acceptsQuestions: true,
     }
   } catch (e) {
     console.error("getActiveTeaserForDisplay exception:", e)
@@ -456,16 +678,25 @@ export async function getActiveTeaserForDisplay(): Promise<ActiveTeaserView | nu
   }
 }
 
-function rowToActiveView(t: typeof teasers.$inferSelect): ActiveTeaserView | null {
+function rowToActiveView(
+  t: typeof teasers.$inferSelect,
+  now: Date = new Date(),
+): ActiveTeaserView | null {
   if (!t.eir_id) return null
   return {
     id: t.id,
     title: t.title,
+    prompt: t.prompt,
     guestName: t.guest_name || null,
     videoFilename: t.video_filename,
     posterImage: t.poster_image || null,
     eirId: t.eir_id,
     guestId: t.guest_id || null,
+    // The episode/guest pages show teasers regardless of state (archive view),
+    // so the question form has to be gated here rather than by the query.
+    acceptsQuestions:
+      t.is_active === true &&
+      isTeaserWithinWindow({ publishAt: t.publish_at, expireAt: t.expire_at }, now),
   }
 }
 

@@ -24,7 +24,11 @@
  */
 
 import { env } from "@/lib/env"
-import { getGeminiClient, isGeminiConfigured } from "@/lib/ai/gemini"
+import {
+  getGeminiClient,
+  isGeminiConfigured,
+  GEMINI_RETRIEVAL_MODEL,
+} from "@/lib/ai/gemini"
 import { recordAiRun } from "@/lib/ai-router/record-run"
 import { deriveGeminiTelemetry } from "@/lib/ai-router/gemini-usage"
 import type {
@@ -33,7 +37,10 @@ import type {
 } from "@google/genai"
 import type { PreparationCandidate } from "@/types/preparation"
 
-const GEMINI_MODEL = env.GEMINI_RETRIEVAL_MODEL || "gemini-2.5-flash"
+// Single source of truth for the retrieval default (lib/ai/gemini.ts) — a
+// local copy of the model string is how this call site kept running the
+// EOL gemini-2.5-flash after the shared default moved on.
+const GEMINI_MODEL = GEMINI_RETRIEVAL_MODEL
 
 // ─── Input ───────────────────────────────────────────────────────────────────
 

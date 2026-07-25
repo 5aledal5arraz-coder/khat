@@ -4,6 +4,7 @@ import { useState, useRef } from "react"
 import Image from "next/image"
 import { Play, Sparkles } from "lucide-react"
 import type { ActiveTeaserView } from "@/lib/teaser"
+import { TeaserQuestionForm } from "./teaser-question-form"
 
 /**
  * Compact teaser block for the episode & guest pages (Sara note 5): a
@@ -77,6 +78,13 @@ export function TeaserInline({ teaser }: { teaser: ActiveTeaserView }) {
           </div>
         </button>
       )}
+
+      {/* «اسأل الضيف» — only while the teaser is still live. On these pages the
+          teaser is usually an ARCHIVE block (the episode already aired), and
+          those must not collect questions. */}
+      {teaser.acceptsQuestions ? (
+        <TeaserQuestionForm teaserId={teaser.id} prompt={teaser.prompt} />
+      ) : null}
     </div>
   )
 }

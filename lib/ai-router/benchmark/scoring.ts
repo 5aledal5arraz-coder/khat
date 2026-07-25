@@ -30,7 +30,12 @@ export interface BenchmarkThresholds {
   minAccuracyGainPp: number
   /** Floor: programmatic score may not regress more than this (pp, ≤0). */
   minAccuracyDeltaPp: number
-  /** Gates for any upgrade path. */
+  /**
+   * Cost gate for the accuracy-led and cost-led paths. Deliberately NOT a
+   * gate on the quality-led path: policy is quality first, cost second, so a
+   * model the blind judge clearly prefers must not be rejected for being
+   * dearer. The cost delta is still measured and reported either way.
+   */
   maxCostIncreasePct: number
   maxLatencyIncreasePct: number
   /** Cost-led: min measured cost saving (%). */
@@ -313,14 +318,25 @@ export function decide(
   if (!consistencyOk) reasons.push(`ثبات المخرجات تراجع ${fmt(a.consistency_delta_pp, " نقطة")}`)
   if (!accuracyFloorOk) reasons.push(`الدقة البرمجية تراجعت ${fmt(a.accuracy_delta_pp, " نقطة")}`)
 
-  const gates = costOk && latencyOk && consistencyOk
+  // Gates shared by every path. Cost is NOT one of them: the quality-led path
+  // below ignores it by policy (quality first), and the accuracy-/cost-led
+  // paths add it back explicitly.
+  const gates = latencyOk && consistencyOk
 
   if (gates && accuracyFloorOk && a.quality_net !== null && a.quality_net >= t.minQualityNet) {
+    // Cost never blocks here — but it is always reported, so an expensive
+    // upgrade is a known, deliberate call rather than an invisible one.
+    if (!costOk) {
+      reasons.push(
+        `الكلفة أعلى بـ${fmt(a.cost_delta_pct, "%")} — لا تمنع الترقية في المسار المقاد بالجودة`,
+      )
+    }
     reasons.unshift(`الحكم الأعمى فضّل المرشح بصافي ${fmt(a.quality_net)} (الحد ${t.minQualityNet})`)
     return { recommendation: "upgrade", rule: "quality_led", reasons }
   }
   if (
     gates &&
+    costOk &&
     a.accuracy_delta_pp !== null &&
     a.accuracy_delta_pp >= t.minAccuracyGainPp &&
     (a.quality_net === null || a.quality_net >= -5)

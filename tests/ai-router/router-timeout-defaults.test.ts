@@ -25,8 +25,13 @@ import { mockDb, mockInsertReturning, resetMock } from "../db-mock"
 // Hoisted mutable state the fake adapter records into.
 const state = vi.hoisted(() => ({
   executeCalls: 0,
-  lastResolved: null as null | { timeoutMs: number; modelName: string },
+  lastResolved: null as null | {
+    timeoutMs: number
+    modelName: string
+    prompt?: Array<{ role: string; content: string }>
+  },
   throwTransient: false,
+  rawText: "{}",
 }))
 
 vi.mock("@/lib/db", () => ({ db: mockDb }))
@@ -63,7 +68,11 @@ vi.mock("@/lib/ai-router/providers/openai", () => ({
   openaiAdapter: {
     provider: "openai",
     isAvailable: () => true,
-    execute: async (req: { timeoutMs: number; modelName: string }) => {
+    execute: async (req: {
+      timeoutMs: number
+      modelName: string
+      prompt?: Array<{ role: string; content: string }>
+    }) => {
       state.executeCalls++
       state.lastResolved = req
       if (state.throwTransient) {
@@ -71,7 +80,7 @@ vi.mock("@/lib/ai-router/providers/openai", () => ({
         e.status = 503 // → classifyError "server_error" (retryable)
         throw e
       }
-      return { rawText: "{}", tokensIn: 1, tokensOut: 1, costUsd: 0 }
+      return { rawText: state.rawText, tokensIn: 1, tokensOut: 1, costUsd: 0 }
     },
   },
 }))
@@ -96,7 +105,66 @@ beforeEach(() => {
   state.executeCalls = 0
   state.lastResolved = null
   state.throwTransient = false
+  state.rawText = "{}"
   mockInsertReturning([{ id: "run-test-1" }])
+})
+
+describe("router — mandatory grounding for research output", () => {
+  const research = (sourceIds: number[], extra: Record<string, unknown> = {}) =>
+    req("research", "gpt-5.6-terra", {
+      expectJson: true,
+      grounding: { mode: "required", sourceIds },
+      ...extra,
+    })
+
+  it("accepts output whose citations all resolve to the retrieved corpus", async () => {
+    state.rawText = JSON.stringify({
+      claims: [{ claim: "ادعاء", source_ids: [1] }],
+    })
+    const res = await runAiTask(research([1, 2]))
+    expect(res.status).toBe("succeeded")
+    expect(res.errorClass).toBeNull()
+    expect(res.parsed).not.toBeNull()
+  })
+
+  it("fails the run when the output cites a source that was never retrieved", async () => {
+    state.rawText = JSON.stringify({
+      claims: [{ claim: "ادعاء ملفّق", source_ids: [99] }],
+    })
+    const res = await runAiTask(research([1, 2]))
+    expect(res.status).toBe("failed")
+    expect(res.errorClass).toBe("ungrounded_output")
+    // The payload is dropped, not handed back for a caller to persist.
+    expect(res.parsed).toBeNull()
+  })
+
+  it("fails the run when the model answers from memory with no citations", async () => {
+    state.rawText = JSON.stringify({
+      claims: [{ claim: "ادعاء واثق بلا مصدر" }],
+    })
+    const res = await runAiTask(research([1, 2]))
+    expect(res.status).toBe("failed")
+    expect(res.errorClass).toBe("ungrounded_output")
+    expect(res.errorMessage).toContain("لا يستشهد")
+  })
+
+  it("leaves a declared exemption unverified (benchmark fixtures have no corpus)", async () => {
+    state.rawText = JSON.stringify({ answers: ["بلا استشهاد"] })
+    const res = await runAiTask(
+      req("research", "gpt-5.6-terra", {
+        expectJson: true,
+        grounding: { mode: "exempt", reason: "benchmark fixture" },
+      }),
+    )
+    expect(res.status).toBe("succeeded")
+    expect(res.parsed).not.toBeNull()
+  })
+
+  it("does not impose the contract on non-research kinds", async () => {
+    state.rawText = JSON.stringify({ chapters: [] })
+    const res = await runAiTask(req("structural", "gpt-5.6-luna", { expectJson: true }))
+    expect(res.status).toBe("succeeded")
+  })
 })
 
 describe("router — per-task_kind timeout defaults", () => {
@@ -107,8 +175,32 @@ describe("router — per-task_kind timeout defaults", () => {
   })
 
   it("research with no explicit timeoutMs uses its registry default (240_000)", async () => {
-    await runAiTask(req("research", "gpt-5.6-terra"))
+    // `research` is grounding-required — the contract is mandatory even here.
+    await runAiTask(
+      req("research", "gpt-5.6-terra", {
+        grounding: { mode: "exempt", reason: "router unit test" },
+      }),
+    )
     expect(state.lastResolved?.timeoutMs).toBe(240_000)
+  })
+
+  it("a research call without a grounding contract is refused before any spend", async () => {
+    await expect(runAiTask(req("research", "gpt-5.6-terra"))).rejects.toThrow(
+      /عقد التأريض/,
+    )
+    // Pre-flight: the adapter was never invoked, so nothing was billed.
+    expect(state.executeCalls).toBe(0)
+  })
+
+  it("the router injects the mandatory citation directive under a corpus contract", async () => {
+    await runAiTask(
+      req("research", "gpt-5.6-terra", {
+        grounding: { mode: "required", sourceIds: [1, 2, 3] },
+      }),
+    )
+    const first = state.lastResolved?.prompt?.[0]
+    expect(first?.role).toBe("system")
+    expect(first?.content).toContain("معرفتك الداخلية ليست مصدراً")
   })
 
   it("analysis with no explicit timeoutMs uses its registry default (150_000)", async () => {

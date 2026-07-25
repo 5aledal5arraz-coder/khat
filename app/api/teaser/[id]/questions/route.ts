@@ -10,7 +10,7 @@ import {
   successResponse,
 } from "@/lib/api-utils"
 import { checkIpRateLimit } from "@/lib/rate-limit"
-import { validateQuestionContent, validateDisplayName } from "@/lib/validation/forms"
+import { validateQuestionContent, validateDisplayName, QUESTION_LIMITS } from "@/lib/validation/forms"
 import { stripHtml } from "@/lib/sanitize"
 import { arabicProfanity, englishProfanity } from "@/lib/profanity-lists"
 import { normalizeArabic } from "@/lib/search"
@@ -39,8 +39,14 @@ export async function POST(
   const csrfError = validateMutation(request)
   if (csrfError) return csrfError
 
-  // Rate limiting: 3 questions per hour
-  const rateLimit = checkIpRateLimit(request, "submit_teaser_question", 3, 3600000)
+  // Rate limiting: 3 questions per hour. The numbers come from the same
+  // constant the form quotes back to the visitor on a 429 — see QUESTION_LIMITS.
+  const rateLimit = checkIpRateLimit(
+    request,
+    "submit_teaser_question",
+    QUESTION_LIMITS.PER_HOUR,
+    QUESTION_LIMITS.WINDOW_MS,
+  )
   if (!rateLimit.allowed) return rateLimitResponse()
 
   const { id: teaserId } = await params
