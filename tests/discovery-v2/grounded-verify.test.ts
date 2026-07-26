@@ -10,6 +10,7 @@
 
 import { describe, expect, it, vi, beforeEach, afterEach } from "vitest"
 import type { GroundedEvidence, GroundedSource } from "@/lib/ai/grounded-evidence"
+import { RetrievalSearchNotRunError } from "@/lib/ai/retrieval-guard"
 import type { V2Candidate } from "@/lib/discovery-v2/types"
 
 const gather = vi.fn<(q: string, o?: unknown) => Promise<GroundedEvidence>>()
@@ -163,6 +164,27 @@ describe("verifyCandidateGrounded", () => {
   it("returns null (never throws) when grounding errors — fail-safe", async () => {
     gather.mockRejectedValue(new Error("retrieval daily cap reached\ndetail"))
     const g = await verifyCandidateGrounded(candidate(), input)
+    expect(g).toBeNull()
+  })
+
+  // The reason the shared service now THROWS instead of returning an empty
+  // list when the search tool never fired. Both cases arrive here as "zero
+  // sources", but only one of them is a fact about the candidate.
+  it("records «لا حضور» only for a search that actually happened", async () => {
+    gather.mockResolvedValue(evidence([]))
+    const g = await verifyCandidateGrounded(candidate(), input)
+    expect(g).not.toBeNull()
+    expect(g!.presence).toBe("none") // a real finding: we looked, nothing there
+    expect(g!.source_count).toBe(0)
+  })
+
+  it("skips the stamp entirely when the search never ran (no false «لا حضور»)", async () => {
+    gather.mockRejectedValue(
+      new RetrievalSearchNotRunError("gemini-3.6-flash", 2),
+    )
+    const g = await verifyCandidateGrounded(candidate(), input)
+    // null = "not checked". Anything else would put a verdict on the
+    // candidate that no search supports.
     expect(g).toBeNull()
   })
 

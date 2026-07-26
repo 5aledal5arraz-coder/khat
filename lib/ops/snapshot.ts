@@ -327,6 +327,28 @@ export interface AiRouterSnapshot {
    * from the classified counts.
    */
   unclassified_failures_24h: number
+  /**
+   * Grounded web retrieval over 24h — the ONE part of the AI layer that can
+   * fail while every status column says `succeeded`.
+   *
+   * A retrieval call whose Google-Search tool never fired returns a
+   * well-formed answer written from the model's memory. It is not a failure
+   * anywhere in `ai_runs.status`, it costs normal money, and downstream it
+   * arrives as "no evidence found" — indistinguishable from a genuinely
+   * empty web. The only record of it is `output_snapshot.search_ran`, which
+   * nothing read until this field.
+   *
+   * `runs` counts only FINAL attempts that report the flag: rows marked
+   * `superseded_by_retry` (an empty attempt the service re-rolled) are
+   * excluded, so this measures outcomes and not the re-rolls, and rows
+   * written before the flag existed are excluded rather than assumed good.
+   */
+  retrieval_24h: {
+    runs: number
+    /** Of `runs`, the ones where no search happened at all. */
+    blind: number
+    lastBlindAt: Date | null
+  }
 }
 
 // ─── Section 7: AI model configuration health ────────────────────────
@@ -710,6 +732,22 @@ async function fetchAiRouterSnapshot(): Promise<AiRouterSnapshot> {
        AND started_at >= ${sinceIso}
   `)) as unknown as { rows: Array<{ n: number }> }
 
+  // Grounded retrieval: how many searches actually searched. `jsonb_exists`
+  // keeps rows written before the flag existed out of BOTH the numerator and
+  // the denominator — an unmeasured run must not count as a healthy one.
+  const retrievalRes = (await db.execute(sql`
+    SELECT COUNT(*)::int AS runs,
+           COUNT(*) FILTER (WHERE output_snapshot->>'search_ran' = 'false')::int AS blind,
+           MAX(started_at) FILTER (WHERE output_snapshot->>'search_ran' = 'false') AS last_blind_at
+      FROM ai_runs
+     WHERE task_kind = 'research_retrieval'
+       AND started_at >= ${sinceIso}
+       AND jsonb_exists(output_snapshot, 'search_ran')
+       AND COALESCE((output_snapshot->>'superseded_by_retry')::boolean, false) = false
+  `)) as unknown as {
+    rows: Array<{ runs: number; blind: number; last_blind_at: Date | null }>
+  }
+
 
   // Recent rejects per source — via the read API.
   const since24h = new Date(Date.now() - WINDOW_24H_MS)
@@ -748,6 +786,13 @@ async function fetchAiRouterSnapshot(): Promise<AiRouterSnapshot> {
       lastAt: blocked?.last_at ? new Date(blocked.last_at) : null,
     },
     unclassified_failures_24h: Number(unclassifiedRes.rows[0]?.n ?? 0),
+    retrieval_24h: {
+      runs: Number(retrievalRes.rows[0]?.runs ?? 0),
+      blind: Number(retrievalRes.rows[0]?.blind ?? 0),
+      lastBlindAt: retrievalRes.rows[0]?.last_blind_at
+        ? new Date(retrievalRes.rows[0].last_blind_at)
+        : null,
+    },
   }
 }
 

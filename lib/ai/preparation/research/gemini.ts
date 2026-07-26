@@ -21,10 +21,7 @@
  * `recordAiRun` so preparation Gemini spend is no longer invisible.
  */
 
-import type {
-  GenerateContentResponse,
-  GenerateContentConfig,
-} from "@google/genai"
+import type { GenerateContentResponse } from "@google/genai"
 import type { RawRetrievedSource } from "./types"
 import {
   getGeminiClient,
@@ -38,6 +35,11 @@ import {
   repairTruncatedJson,
   sanitizeJsonResponse,
 } from "@/lib/ai/json-repair"
+import {
+  buildRetrievalPrompt,
+  deriveRetrievalCounts,
+  type RetrievalOnlyConfig,
+} from "@/lib/ai/retrieval-guard"
 
 // Client + model defaults now live in lib/ai/gemini.ts (shared with the
 // AI Router adapter and channel analysis). Re-export so existing callers
@@ -65,6 +67,22 @@ interface GroundingMetadata {
 }
 
 /**
+ * The instruction segment of this retrieval prompt — the text WE write. The
+ * caller's question is appended by `buildRetrievalPrompt`, which scans only
+ * this constant. Exported so the guard test scans the real text.
+ *
+ * DO NOT ask for a shape here (JSON, a field list, an example object): a
+ * structured-output directive in a search-tool prompt disables the search
+ * entirely — 0 sources in 4 of 4 measured cells, on both live models — and
+ * the model then answers from memory with no error at all. Structured output
+ * belongs to the OpenAI composition step. See lib/ai/retrieval-guard.ts.
+ */
+export const PREPARATION_RETRIEVAL_INSTRUCTIONS =
+  `أنت باحث محترف. استخدم أداة البحث في Google للعثور على مصادر حقيقية وحديثة للسؤال التالي. ` +
+  `أنتج ملخصاً بحثياً مفصّلاً باللغة العربية (أو بالإنجليزية عند الضرورة) يستند إلى المصادر التي وجدتها. ` +
+  `ضمّن حقائق، تواريخ، تصريحات، وتفاصيل ملموسة. كل ادعاء يجب أن يكون مدعوماً بمصدر فعلي من نتائج البحث.`
+
+/**
  * Ask Gemini to search the web for a query and return grounded sources.
  *
  * Strategy:
@@ -84,13 +102,40 @@ export async function geminiSearchWeb(
   query: string,
   maxResults = 8,
 ): Promise<RawRetrievedSource[]> {
+  return (await geminiSearchWebDetailed(query, maxResults)).sources
+}
+
+/**
+ * Same retrieval, plus the answer to "did the search tool actually fire?".
+ *
+ * `sources: []` alone cannot distinguish a genuinely empty web from a model
+ * that skipped the search and answered from memory (measured 2026-07-26:
+ * gemini-3.6-flash, 0 queries / 0 sources — one incident in six observations
+ * of the same question, i.e. grounding FLAKINESS, not a fixed behaviour). The
+ * pipeline reports a per-provider diagnostic to the operator, so it needs the
+ * distinction; `geminiSearchWeb` above stays for callers that treat both
+ * cases the same way.
+ *
+ * Deliberately NO empty-response re-roll here, unlike the shared service
+ * (`gatherGroundedEvidence`): this path runs up to 4 queries per pipeline run
+ * and pre-dates the shared service, which the Wave-1 callers are converging
+ * on. Buying retries for a path we intend to retire is spend without a
+ * future; the honest diagnostic below costs nothing and says the same thing.
+ */
+export async function geminiSearchWebDetailed(
+  query: string,
+  maxResults = 8,
+): Promise<{ sources: RawRetrievedSource[]; searchRan: boolean; queryCount: number }> {
   const genAI = getGeminiClient()
 
   // The tool name differs between Gemini versions; we try the 2.0+ name
   // first and fall back to the 1.5 name if the SDK rejects it.
+  // `RetrievalOnlyConfig` (not `GenerateContentConfig`) makes a JSON mime
+  // type / schema / systemInstruction a COMPILE error on this call — they
+  // switch Google Search off. See lib/ai/retrieval-guard.ts.
   const buildConfig = (
     toolShape: "googleSearch" | "googleSearchRetrieval",
-  ): GenerateContentConfig => ({
+  ): RetrievalOnlyConfig => ({
     tools:
       toolShape === "googleSearch"
         ? [{ googleSearch: {} }]
@@ -98,11 +143,11 @@ export async function geminiSearchWeb(
     temperature: 0.2,
   })
 
-  const prompt =
-    `أنت باحث محترف. استخدم أداة البحث في Google للعثور على مصادر حقيقية وحديثة للسؤال التالي. ` +
-    `أنتج ملخصاً بحثياً مفصّلاً باللغة العربية (أو بالإنجليزية عند الضرورة) يستند إلى المصادر التي وجدتها. ` +
-    `ضمّن حقائق، تواريخ، تصريحات، وتفاصيل ملموسة. كل ادعاء يجب أن يكون مدعوماً بمصدر فعلي من نتائج البحث.\n\n` +
-    `السؤال: ${query}`
+  const prompt = buildRetrievalPrompt(
+    "lib/ai/preparation/research/gemini.ts",
+    PREPARATION_RETRIEVAL_INSTRUCTIONS,
+    query,
+  )
 
   // Retry wrapper — Gemini frequently returns 503/429 under load. Each
   // actual generateContent attempt is recorded in ai_runs (research_retrieval)
@@ -132,7 +177,23 @@ export async function geminiSearchWeb(
               contents: prompt,
               config: buildConfig(toolShape),
             }),
-          (r) => deriveGeminiTelemetry(r.usageMetadata, GEMINI_RETRIEVAL_MODEL),
+          (r) => {
+            // Same three fields the shared service writes, so BOTH retrieval
+            // implementations feed the one `/admin/ops` retrieval alert
+            // instead of only the newer one being observable. No
+            // `superseded_by_retry` here: this path does not re-roll an empty
+            // response (see the note on `geminiSearchWebDetailed`), so every
+            // row it writes is a final outcome.
+            const counts = deriveRetrievalCounts(extractGroundingMetadata(r))
+            return {
+              ...deriveGeminiTelemetry(r.usageMetadata, GEMINI_RETRIEVAL_MODEL),
+              outputSnapshot: {
+                web_search_queries: counts.queryCount,
+                sources_found: counts.sourcesFound,
+                search_ran: counts.searchRan,
+              },
+            }
+          },
         )
       } catch (err) {
         lastErr = err
@@ -218,7 +279,12 @@ export async function geminiSearchWeb(
 
   // Prefer sources with richer snippets first.
   sources.sort((a, b) => b.snippet.length - a.snippet.length)
-  return sources.slice(0, maxResults)
+  const counts = deriveRetrievalCounts(groundingMetadata)
+  return {
+    sources: sources.slice(0, maxResults),
+    searchRan: counts.searchRan,
+    queryCount: counts.queryCount,
+  }
 }
 
 function extractGroundingMetadata(

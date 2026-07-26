@@ -234,6 +234,7 @@ function snapshot(over: Partial<OpsSnapshot> = {}): OpsSnapshot {
       day_boundary_tz: "UTC",
       provider_blocked_60m: { count: 0, classes: [], lastAt: null },
       unclassified_failures_24h: 0,
+      retrieval_24h: { runs: 0, blind: 0, lastBlindAt: null },
     }),
     eirPipeline: section({}),
     recentActivity: section({}),

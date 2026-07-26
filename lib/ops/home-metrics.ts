@@ -340,6 +340,7 @@ export type AiAlertId =
   | "catalog_unchecked"
   | "model_eol"
   | "unclassified_failures"
+  | "retrieval_blind"
 
 export interface AiAlert {
   id: AiAlertId
@@ -364,6 +365,28 @@ export interface AiAlert {
 
 /** Daily-budget utilisation at or above this fraction of the cap alerts. */
 export const BUDGET_ALERT_PCT = 90
+
+/**
+ * Share of FINAL retrieval attempts that ran no search at all before we call
+ * grounded retrieval broken.
+ *
+ * Calibrated against what was actually measured on 2026-07-26, not a round
+ * number: re-running one production query six times gave five searches and
+ * one blind response (≈17%) — grounding is flaky, and an alert that fired on
+ * flakiness would be furniture within a week. The service now re-rolls an
+ * empty response once, so a FINAL blind row means two blind draws in a row —
+ * a few percent if the draws are independent. 50% therefore sits far above
+ * anything variance produces and squarely on "this is not variance": half of
+ * everything we retrieve, twice each, came back without a search. That is a
+ * model / key / configuration problem a human must look at.
+ */
+export const RETRIEVAL_BLIND_ALERT_PCT = 50
+
+/**
+ * …but never on fewer than this many runs. A 1-of-1 blind day is 100% and
+ * means nothing; the floor keeps the arithmetic honest on a quiet day.
+ */
+export const RETRIEVAL_BLIND_MIN_RUNS = 3
 
 export function deriveAiAlerts(
   snap: OpsSnapshotPartial,
@@ -491,6 +514,32 @@ export function deriveAiAlerts(
           ? ""
           : formatArabicCount(worst.daysLeft, "يوم"),
     })
+  }
+
+  // (و) Grounded retrieval that never searched. The one condition on this
+  // page that hides INSIDE a success: `ai_runs.status = 'succeeded'`, cost
+  // normal, no error class — and the answer written from the model's memory
+  // instead of the web. Downstream it becomes "no evidence found", which is
+  // a sentence about the world, not about us, so nothing else can reveal it.
+  // Warn, not critical: nothing stops. Discovery, market intelligence and
+  // candidate analysis all keep running — they just run blind, which is a
+  // quality collapse, not an outage, and `critical` here would train the
+  // operator to read a red band as routine.
+  if (ai && ai.retrieval_24h.runs >= RETRIEVAL_BLIND_MIN_RUNS) {
+    const pct = Math.round((ai.retrieval_24h.blind / ai.retrieval_24h.runs) * 100)
+    if (pct >= RETRIEVAL_BLIND_ALERT_PCT) {
+      alerts.push({
+        id: "retrieval_blind",
+        severity: "warn",
+        // The count lives inside the label and agrees in number; the SHARE is
+        // the qualitative trailing value, which is also why the denominator
+        // isn't spelled out — «4 عمليات … 50%» already says "out of 8".
+        label:
+          `${formatArabicCount(ai.retrieval_24h.blind, "عملية استرجاع")} ` +
+          `بلا بحث فعلي (24 ساعة) — إجابات من ذاكرة الموديل`,
+        value: `${pct}%`,
+      })
+    }
   }
 
   // Not one of the five, but the reason the five can be trusted: a failure

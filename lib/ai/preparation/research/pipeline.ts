@@ -23,7 +23,7 @@ import type {
   PreparationSourceProvider,
 } from "@/types/preparation"
 import { buildResearchQueries } from "./queries"
-import { geminiSearchWeb, isGeminiConfigured } from "./gemini"
+import { geminiSearchWebDetailed, isGeminiConfigured } from "./gemini"
 import { youtubeSearch } from "./youtube"
 import { xSearch } from "./x"
 import { normalizeSources } from "./normalize"
@@ -36,6 +36,41 @@ import type {
 } from "./types"
 
 // ─── Retrieval orchestration ─────────────────────────────────────────────────
+
+/**
+ * The Gemini provider's honesty rule, as a pure function.
+ *
+ * `status: "ok", count: 0` used to mean two different things: "we searched
+ * and the web had nothing" (a finding) and "the search tool never fired"
+ * (a malfunction — grounding is measurably flaky). The operator reads this
+ * diagnostic to decide whether a thin preparation brief is the world's fault
+ * or ours, so the two must not print the same.
+ *
+ * Every query blind → `failed`: we retrieved nothing and never even asked.
+ * Some blind → still `ok` (we did get sources), with how much of the plan
+ * silently didn't run. None blind → today's message-free `ok`.
+ */
+export function geminiRetrievalDiagnostic(
+  count: number,
+  blind: number,
+  planned: number,
+): PreparationRetrievalDiagnostic {
+  if (planned > 0 && blind === planned) {
+    return {
+      provider: "gemini_web",
+      status: "failed",
+      message: `أداة بحث Google ما اشتغلت في أي من ${planned} استعلامات — ما صار بحث فعلي.`,
+      count,
+    }
+  }
+  return {
+    provider: "gemini_web",
+    status: "ok",
+    count,
+    message:
+      blind > 0 ? `${blind}/${planned} استعلامات ما شغّلت البحث فعلياً` : undefined,
+  }
+}
 
 async function runGeminiRetrieval(queries: string[]): Promise<ProviderResult> {
   if (!isGeminiConfigured()) {
@@ -53,17 +88,21 @@ async function runGeminiRetrieval(queries: string[]): Promise<ProviderResult> {
     // Run queries sequentially so we don't trip Gemini concurrency limits
     // and so a later query can bail out early if the earlier ones failed.
     const all: RawRetrievedSource[] = []
-    for (const q of queries.slice(0, 4)) {
-      const batch = await geminiSearchWeb(q, 6)
-      all.push(...batch)
+    const picked = queries.slice(0, 4)
+    let blind = 0
+    for (const q of picked) {
+      const batch = await geminiSearchWebDetailed(q, 6)
+      // "The search tool never fired" is NOT "the web had nothing" — the
+      // second is a finding, the first is a malfunction (grounding is
+      // measurably flaky: 15 chunks → 1 → 0 on identical inputs). Reporting
+      // both as `status: "ok", count: 0` is how a run with no retrieval at
+      // all looked healthy in the operator's diagnostics.
+      if (!batch.searchRan) blind++
+      all.push(...batch.sources)
     }
     return {
       sources: all,
-      diagnostic: {
-        provider: "gemini_web",
-        status: "ok",
-        count: all.length,
-      },
+      diagnostic: geminiRetrievalDiagnostic(all.length, blind, picked.length),
     }
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err)

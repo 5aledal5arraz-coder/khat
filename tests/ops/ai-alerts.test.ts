@@ -16,6 +16,7 @@ import path from "path"
 import { describe, expect, it } from "vitest"
 import {
   BUDGET_ALERT_PCT,
+  RETRIEVAL_BLIND_MIN_RUNS,
   deriveAiAlerts,
   deriveSystemHealth,
   type AiAlertId,
@@ -61,6 +62,8 @@ function makeAi(over: Partial<AiRouterSnapshot> = {}): AiRouterSnapshot {
     recentAiRouterRejects: [],
     provider_blocked_60m: { count: 0, classes: [], lastAt: null },
     unclassified_failures_24h: 0,
+    // Healthy default: retrieval ran and every search actually searched.
+    retrieval_24h: { runs: 8, blind: 0, lastBlindAt: null },
     ...over,
   }
 }
@@ -495,6 +498,77 @@ describe("unclassified failures", () => {
 
   it("is ABSENT when every failure was classified", () => {
     expect(ids(snapshot())).not.toContain("unclassified_failures")
+  })
+})
+
+// ─── Grounded retrieval that never searched ──────────────────────────
+
+/**
+ * The one condition that hides inside a SUCCESS: `status = 'succeeded'`,
+ * normal cost, no error class — and an answer written from the model's
+ * memory. Threshold notes live on `RETRIEVAL_BLIND_ALERT_PCT`; these tests
+ * pin both halves, and the absence half is the important one: grounding is
+ * measurably flaky (≈1 blind draw in 6), and an alert that fired on that
+ * would be furniture inside a week.
+ */
+describe("retrieval ran blind", () => {
+  const withRetrieval = (runs: number, blind: number) =>
+    snapshot({
+      aiRouter: {
+        ok: true,
+        data: makeAi({ retrieval_24h: { runs, blind, lastBlindAt: new Date() } }),
+      },
+    })
+
+  it("fires when half of the retrievals never searched", () => {
+    const alert = deriveAiAlerts(withRetrieval(8, 4), { includeCost: true }).find(
+      (a) => a.id === "retrieval_blind",
+    )!
+    expect(alert.severity).toBe("warn")
+    expect(alert.value).toBe("50%")
+    expect(alert.label).toContain("بلا بحث فعلي")
+    // Counts agree in Arabic — «4 عمليات استرجاع», not «4 عملية استرجاع».
+    expect(alert.label).toContain("4 عمليات استرجاع")
+  })
+
+  it("fires at 100% — retrieval is effectively off", () => {
+    const alert = deriveAiAlerts(withRetrieval(5, 5), { includeCost: true }).find(
+      (a) => a.id === "retrieval_blind",
+    )!
+    expect(alert.value).toBe("100%")
+    // Still a warn: discovery/market/analysis keep running, they just run
+    // blind. Red is reserved for "production is stopped".
+    expect(alert.severity).toBe("warn")
+  })
+
+  it("is ABSENT just below the threshold", () => {
+    expect(ids(withRetrieval(10, 4))).not.toContain("retrieval_blind")
+  })
+
+  it("is ABSENT for ordinary flakiness (1 blind in 6)", () => {
+    expect(ids(withRetrieval(6, 1))).not.toContain("retrieval_blind")
+  })
+
+  it("is ABSENT below the minimum sample — 1-of-1 is not a trend", () => {
+    expect(ids(withRetrieval(1, 1))).not.toContain("retrieval_blind")
+    expect(ids(withRetrieval(2, 2))).not.toContain("retrieval_blind")
+    expect(RETRIEVAL_BLIND_MIN_RUNS).toBe(3)
+  })
+
+  it("is ABSENT when no retrieval ran at all (no division by zero)", () => {
+    expect(ids(withRetrieval(0, 0))).not.toContain("retrieval_blind")
+  })
+
+  it("is ABSENT when every retrieval actually searched", () => {
+    expect(ids(snapshot())).not.toContain("retrieval_blind")
+  })
+
+  it("counts as a health issue on the band", () => {
+    const snap = withRetrieval(4, 4)
+    const alerts = deriveAiAlerts(snap, { includeCost: true })
+    const health = deriveSystemHealth(snap, { aiAlerts: alerts })
+    expect(health.issues.some((i) => i.label.includes("بلا بحث فعلي"))).toBe(true)
+    expect(health.hasCritical).toBe(false)
   })
 })
 

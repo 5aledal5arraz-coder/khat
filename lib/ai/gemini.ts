@@ -23,7 +23,23 @@ import { GoogleGenAI } from "@google/genai"
 export const GEMINI_REASONING_MODEL =
   env.GEMINI_REASONING_MODEL || "gemini-3.6-flash"
 
-/** Default Gemini model for grounded web retrieval (Google Search tool). */
+/**
+ * Default Gemini model for grounded web retrieval (Google Search tool).
+ *
+ * ⚠️ THIS CONSTANT IS NOT ONLY A "RETRIEVAL MODEL" KNOB. Three call sites
+ * read it, and one of them depends on the model's PROSE SHAPE, not just on
+ * the grounding metadata:
+ *   • lib/ai/grounded-evidence.ts        — metadata only (prose discarded) ✔
+ *   • lib/ai/preparation/research/gemini.ts — metadata only ✔
+ *   • lib/ai/preparation/identify.ts:43  — pairs paragraph `i` with grounded
+ *     source `i` by REGEX over the free text to extract candidate NAMES.
+ *
+ * So changing `GEMINI_RETRIEVAL_MODEL` via env silently changes guest-name
+ * EXTRACTION too: a model that formats its answer differently breaks the
+ * pairing with no error. Isolating identify.ts onto its own constant is ~5–8
+ * lines across 3 files and is NOT done here (out of scope, 2026-07-26) —
+ * this note exists so the next person doesn't discover it in production.
+ */
 export const GEMINI_RETRIEVAL_MODEL =
   env.GEMINI_RETRIEVAL_MODEL || "gemini-3.6-flash"
 

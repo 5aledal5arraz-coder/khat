@@ -10,6 +10,7 @@
 
 import { describe, expect, it, vi, beforeEach } from "vitest"
 import type { GroundedEvidence, GroundedSource } from "@/lib/ai/grounded-evidence"
+import { RetrievalSearchNotRunError } from "@/lib/ai/retrieval-guard"
 
 const gather = vi.fn<(q: string, o?: unknown) => Promise<GroundedEvidence>>()
 const configured = vi.fn<() => boolean>()
@@ -134,6 +135,25 @@ describe("collectWebGroundedTopic", () => {
     expect(r.configured).toBe(true)
     expect(r.signals).toHaveLength(0)
     expect(r.note).toBe("retrieval daily cap reached")
+  })
+
+  // Zero sources reaches this adapter two ways, and only one of them is a
+  // statement about the topic. A collect run must not silently record "the
+  // web is quiet about X" when no search ran.
+  it("returns an empty, note-free result when the search found nothing", async () => {
+    gather.mockResolvedValue(evidence([]))
+    const r = await collectWebGroundedTopic("العلاقات", "ar")
+    expect(r.configured).toBe(true)
+    expect(r.signals).toHaveLength(0)
+    expect(r.note).toBeUndefined()
+  })
+
+  it("records a NOTE (not a silent empty) when the search never ran", async () => {
+    gather.mockRejectedValue(new RetrievalSearchNotRunError("gemini-3.6-flash", 2))
+    const r = await collectWebGroundedTopic("العلاقات", "ar")
+    expect(r.configured).toBe(true)
+    expect(r.signals).toHaveLength(0)
+    expect(r.note).toContain("ما شغّل بحث Google")
   })
 
   it("passes market_topic_signals attribution to the shared service", async () => {

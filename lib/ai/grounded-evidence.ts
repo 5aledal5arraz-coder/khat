@@ -26,15 +26,21 @@
  *     domain and mark any 404 / dead link as unverified.
  *   • Provenance — the provider + model that produced the evidence rides along
  *     so the UI can stamp it.
+ *   • Search actually RUNS — the prompt is built through
+ *     `buildRetrievalPrompt` and the config is typed `RetrievalOnlyConfig`, so
+ *     a structured-output directive (which measurably switches Google Search
+ *     off — see lib/ai/retrieval-guard.ts) can't be added by accident.
+ *   • Search actually RAN — grounding is measurably non-deterministic (same
+ *     question, same model: 15 chunks → 1 → 0). A response with zero grounding
+ *     is re-rolled once, and one that still never searched throws
+ *     `RetrievalSearchNotRunError` instead of being handed to the caller as
+ *     the same empty array a genuinely empty web produces.
  *
  * Model is read from env (GEMINI_RETRIEVAL_MODEL via lib/ai/gemini.ts), which
  * defaults to `gemini-3.6-flash`.
  */
 
-import type {
-  GenerateContentResponse,
-  GenerateContentConfig,
-} from "@google/genai"
+import type { GenerateContentResponse } from "@google/genai"
 import {
   getGeminiClient,
   isGeminiConfigured,
@@ -43,6 +49,13 @@ import {
 import { recordAiRun } from "@/lib/ai-router/record-run"
 import { deriveGeminiTelemetry } from "@/lib/ai-router/gemini-usage"
 import { assertRetrievalBudget } from "@/lib/ai-router/retrieval-budget"
+import {
+  buildRetrievalPrompt,
+  deriveRetrievalCounts,
+  RetrievalSearchNotRunError,
+  type RetrievalCounts,
+  type RetrievalOnlyConfig,
+} from "@/lib/ai/retrieval-guard"
 
 /** True when a Gemini key is configured — retrieval is a no-op without it. */
 export function isGroundedEvidenceConfigured(): boolean {
@@ -77,13 +90,27 @@ export interface EvidenceProvenance {
   model: string
 }
 
-/** Full result of one grounded-evidence gather. */
+/**
+ * Full result of one grounded-evidence gather.
+ *
+ * INVARIANT: if you are holding one of these, the Google-Search tool RAN.
+ * `sources: []` therefore means exactly one thing — we searched and the web
+ * had nothing to attribute. The other case (the tool never fired, so the
+ * model answered from its own memory) never reaches a caller: it is re-rolled
+ * once and then thrown as `RetrievalSearchNotRunError`. Both used to arrive
+ * as the same empty array, which is how a candidate could be stamped "no
+ * public presence" by a search that never happened.
+ */
 export interface GroundedEvidence {
   sources: GroundedSource[]
   provenance: EvidenceProvenance
   /** Number of web-search queries Gemini actually ran (for cost + audit). */
   queryCount: number
-  /** Token cost + estimated grounding fee, USD. Null when uncomputable. */
+  /**
+   * Token cost + estimated grounding fee, USD, summed over EVERY attempt this
+   * gather billed (a re-rolled empty attempt costs money too — see
+   * `EMPTY_GROUNDING_RETRIES`). Null when uncomputable.
+   */
   estimatedCostUsd: number | null
 }
 
@@ -345,9 +372,15 @@ async function resolveRedirect(
   }
 }
 
+/**
+ * `RetrievalOnlyConfig`, not `GenerateContentConfig`: the return type is what
+ * makes `responseMimeType` / `responseSchema` / `systemInstruction`
+ * unrepresentable here — a compile error rather than a silent 0-source run.
+ * See lib/ai/retrieval-guard.ts for the measured evidence.
+ */
 function buildConfig(
   toolShape: "googleSearch" | "googleSearchRetrieval",
-): GenerateContentConfig {
+): RetrievalOnlyConfig {
   return {
     tools:
       toolShape === "googleSearch"
@@ -367,12 +400,94 @@ function extractGroundingMetadata(
   )
 }
 
+// ─── Empty-grounding re-roll policy ──────────────────────────────────────────
+
 /**
- * Gather attributed web evidence for a query. Fail-safe by contract: callers
- * (candidate analysis, etc.) still run without sources, so this THROWS only on
- * misconfiguration you want to surface; transient/quota/budget conditions are
- * the caller's to catch. Records one `ai_runs` row per generateContent attempt
- * (task_kind `research_retrieval`) with token cost + grounding fee.
+ * Extra attempts granted to a call that SUCCEEDED with zero grounding.
+ *
+ * The problem, measured on the same question / model / config on 2026-07-26:
+ * grounding is not deterministic. Six observations of one query ranged from
+ * 15 grounded chunks down to 1, and once to 0 (no search at all). The retry
+ * loop below only ever re-tried THROWN transient errors, so a successful
+ * response with nothing attached sailed through and became "no evidence
+ * found" downstream — a fabricated finding, produced by variance.
+ *
+ * Why ONE extra attempt and not more: the blind rate we can actually cite is
+ * ~1 in 6 (≈17%); a second independent draw takes the both-blind case to a
+ * few percent, while a third would add ~50% to the cost of every genuinely
+ * empty topic to buy well under one point of recovery. One re-roll is ~$0.05.
+ *
+ * Budget note: `assertRetrievalBudget()` is a per-GATHER permit, and the
+ * transient-error retry already spends up to 3 calls under one permit, so a
+ * re-roll adds no new class of overshoot — at most one extra call, once.
+ */
+export const EMPTY_GROUNDING_RETRIES = 1
+
+/**
+ * Re-roll ONLY on zero sources — never on "few" sources.
+ *
+ * The tempting threshold is "fewer than N sources", because the ugliest
+ * observation was a full candidate analysis built on ONE source. It is the
+ * wrong threshold: one source is a perfectly normal outcome for a person with
+ * thin web coverage, and with the measured spread (1→15 on identical inputs)
+ * any N in that band would re-roll a large share of healthy calls — turning
+ * natural variance into guaranteed double spend. Thin evidence is a QUALITY
+ * signal, not a retry trigger, and the codebase already treats it as one:
+ * `deriveGroundedSignal` (discovery-v2) grades a single verified source as
+ * `weak`, not `confirmed`. Zero is different in kind: there is nothing to
+ * grade, and nothing for the composing model to cite.
+ *
+ * The last attempt never re-rolls — its result is the answer either way.
+ */
+export function shouldRerollEmptyGrounding(
+  counts: RetrievalCounts,
+  emptyRetriesLeft: number,
+  attempt: number,
+  maxAttempts: number,
+): boolean {
+  return counts.sourcesFound === 0 && emptyRetriesLeft > 0 && attempt < maxAttempts
+}
+
+/**
+ * The instruction segment of the retrieval prompt — everything WE say to the
+ * model. The caller's question is appended by `buildRetrievalPrompt`, which
+ * scans ONLY this constant (see lib/ai/retrieval-guard.ts for why the split
+ * matters). Exported so the guard test can scan the real text, not a copy.
+ *
+ * Cost lever: Google-Search grounding bills PER search query, and the model
+ * decides how many to run from the prompt. A broad "produce a detailed brief
+ * covering everything" prompt fans out into ~6 queries per candidate. We
+ * instruct a small number of FOCUSED searches (2-3) so the grounding fee drops
+ * ~2× without losing real, attributed sources — the model still runs live
+ * search and returns grounding metadata; it just stops enumerating the
+ * question into many sub-searches. This is a soft cap (search count is
+ * ultimately model-decided — the Google Search tool exposes no hard limit),
+ * so we bias the plan rather than truncate results.
+ *
+ * DO NOT add a shape here ("أعد النتيجة بصيغة JSON", a field list, an example
+ * object). It does not tighten the output — it switches the search tool OFF
+ * and the model answers from memory. Measured: 0 sources in 4 of 4 cells.
+ */
+export const RETRIEVAL_INSTRUCTIONS =
+  `أنت باحث محترف. استخدم أداة البحث في Google للعثور على مصادر حقيقية وحديثة للسؤال التالي. ` +
+  `أجرِ عدداً محدوداً من عمليات البحث المركّزة (استعلامان إلى ثلاثة كحدّ أقصى) تغطّي جوهر السؤال، ` +
+  `ولا تُوسّع البحث إلى استعلامات فرعية كثيرة. ` +
+  `أنتج ملخصاً بحثياً موجزاً باللغة العربية (أو بالإنجليزية عند الضرورة) يستند إلى المصادر التي وجدتها، ` +
+  `متضمّناً حقائق وتواريخ وتفاصيل ملموسة. كل ادعاء يجب أن يكون مدعوماً بمصدر فعلي من نتائج البحث.`
+
+/**
+ * Gather attributed web evidence for a query.
+ *
+ * Throwing is the contract for anything that isn't evidence: misconfiguration,
+ * and — since 2026-07-26 — a search that never ran (`RetrievalSearchNotRunError`,
+ * after one re-roll). Transient / quota / budget conditions are likewise the
+ * caller's to catch. Callers remain fail-SAFE around it — candidate analysis,
+ * discovery and market collection all degrade and continue — but they now
+ * degrade knowingly instead of receiving a dead search as an empty result.
+ * A searched-and-empty web still returns normally: that IS evidence.
+ *
+ * Records one `ai_runs` row per generateContent attempt (task_kind
+ * `research_retrieval`) with token cost + grounding fee.
  */
 export async function gatherGroundedEvidence(
   query: string,
@@ -391,31 +506,32 @@ export async function gatherGroundedEvidence(
   const maxResults = options.maxResults ?? 8
   const genAI = getGeminiClient()
 
-  // Cost lever: Google-Search grounding bills PER search query, and the
-  // model decides how many to run from the prompt. A broad "produce a
-  // detailed brief covering everything" prompt fans out into ~6 queries per
-  // candidate. We instruct a small number of FOCUSED searches (2-3) so the
-  // grounding fee drops ~2× without losing real, attributed sources — the
-  // model still runs live search and returns grounding metadata; it just
-  // stops enumerating the question into many sub-searches. This is a soft
-  // cap (search count is ultimately model-decided — the Google Search tool
-  // exposes no hard limit), so we bias the plan rather than truncate results.
-  const prompt =
-    `أنت باحث محترف. استخدم أداة البحث في Google للعثور على مصادر حقيقية وحديثة للسؤال التالي. ` +
-    `أجرِ عدداً محدوداً من عمليات البحث المركّزة (استعلامان إلى ثلاثة كحدّ أقصى) تغطّي جوهر السؤال، ` +
-    `ولا تُوسّع البحث إلى استعلامات فرعية كثيرة. ` +
-    `أنتج ملخصاً بحثياً موجزاً باللغة العربية (أو بالإنجليزية عند الضرورة) يستند إلى المصادر التي وجدتها، ` +
-    `متضمّناً حقائق وتواريخ وتفاصيل ملموسة. كل ادعاء يجب أن يكون مدعوماً بمصدر فعلي من نتائج البحث.\n\n` +
-    `السؤال: ${query}`
+  const prompt = buildRetrievalPrompt(
+    "lib/ai/grounded-evidence.ts",
+    RETRIEVAL_INSTRUCTIONS,
+    query,
+  )
 
   const callWithRetry = async (
     toolShape: "googleSearch" | "googleSearchRetrieval",
-  ): Promise<{ response: GenerateContentResponse; costUsd: number | null; queryCount: number }> => {
+  ): Promise<{
+    response: GenerateContentResponse
+    costUsd: number | null
+    counts: RetrievalCounts
+  }> => {
     const maxAttempts = 3
     let lastErr: unknown
+    // Cost of attempts we threw away (empty re-rolls), added to the final
+    // one so the caller's `estimatedCostUsd` is what we actually spent.
+    let discardedCostUsd = 0
+    let emptyRetriesLeft = EMPTY_GROUNDING_RETRIES
     for (let attempt = 1; attempt <= maxAttempts; attempt++) {
       try {
-        let queryCount = 0
+        // Decided ONCE per attempt and read from two places (the ai_runs
+        // telemetry callback and the loop below). Computing it twice is how
+        // `superseded_by_retry` would drift from what the loop actually did,
+        // and the /admin/ops alert reads exactly that flag.
+        let willRerollEmpty = false
         const response = await recordAiRun(
           {
             taskKind: "research_retrieval",
@@ -438,19 +554,20 @@ export async function gatherGroundedEvidence(
               config: buildConfig(toolShape),
             }),
           (r) => {
-            const meta = extractGroundingMetadata(r)
-            // A search happened iff the model ran ≥1 query. Fall back to 1
-            // when a grounding tool clearly fired but the list came empty.
-            const listed = meta?.webSearchQueries?.length ?? 0
-            const grounded = (meta?.groundingChunks?.length ?? 0) > 0
-            queryCount = listed > 0 ? listed : grounded ? 1 : 0
+            const counts = deriveRetrievalCounts(extractGroundingMetadata(r))
+            willRerollEmpty = shouldRerollEmptyGrounding(
+              counts,
+              emptyRetriesLeft,
+              attempt,
+              maxAttempts,
+            )
             const token = deriveGeminiTelemetry(
               r.usageMetadata,
               GEMINI_RETRIEVAL_MODEL,
             )
             const costUsd = estimateRetrievalCostUsd(
               token.costUsd,
-              queryCount,
+              counts.queryCount,
               GEMINI_RETRIEVAL_MODEL,
             )
             return {
@@ -458,34 +575,57 @@ export async function gatherGroundedEvidence(
               tokensOut: token.tokensOut,
               costUsd,
               outputSnapshot: {
-                web_search_queries: queryCount,
+                web_search_queries: counts.queryCount,
                 grounding_fee_usd: groundingFeeUsd(
                   GEMINI_RETRIEVAL_MODEL,
-                  queryCount,
+                  counts.queryCount,
                 ),
                 grounding_billing_unit: groundingRate(GEMINI_RETRIEVAL_MODEL)
                   .unit,
-                sources_found: meta?.groundingChunks?.length ?? 0,
+                sources_found: counts.sourcesFound,
+                // The two fields `/admin/ops` alerts on. Stored explicitly
+                // (not re-derived at read time) so a row keeps the verdict
+                // the code actually acted on. `superseded_by_retry` marks an
+                // attempt we threw away, so the alert measures OUTCOMES and
+                // not the re-rolls it triggered.
+                search_ran: counts.searchRan,
+                superseded_by_retry: willRerollEmpty,
               },
             }
           },
         )
-        const meta = extractGroundingMetadata(response)
-        const listed = meta?.webSearchQueries?.length ?? 0
-        const grounded = (meta?.groundingChunks?.length ?? 0) > 0
-        queryCount = listed > 0 ? listed : grounded ? 1 : 0
+        const counts = deriveRetrievalCounts(extractGroundingMetadata(response))
         const token = deriveGeminiTelemetry(
           response.usageMetadata,
           GEMINI_RETRIEVAL_MODEL,
         )
+        const costUsd = estimateRetrievalCostUsd(
+          token.costUsd,
+          counts.queryCount,
+          GEMINI_RETRIEVAL_MODEL,
+        )
+
+        if (willRerollEmpty) {
+          emptyRetriesLeft--
+          discardedCostUsd += costUsd ?? 0
+          console.warn(
+            `[grounded-evidence] تأريض فارغ (${counts.queryCount} استعلام، ` +
+              `${counts.sourcesFound} مصدر) — إعادة محاولة واحدة. السؤال: ${query.slice(0, 100)}`,
+          )
+          // Short pause: the observed variance is in Google's grounding
+          // service, not in us, so an immediate identical re-ask is the point
+          // — we only avoid hammering it back-to-back.
+          await new Promise((r) => setTimeout(r, 800))
+          continue
+        }
+
         return {
           response,
-          costUsd: estimateRetrievalCostUsd(
-            token.costUsd,
-            queryCount,
-            GEMINI_RETRIEVAL_MODEL,
-          ),
-          queryCount,
+          costUsd:
+            costUsd === null && discardedCostUsd === 0
+              ? null
+              : (costUsd ?? 0) + discardedCostUsd,
+          counts,
         }
       } catch (err) {
         lastErr = err
@@ -499,7 +639,11 @@ export async function gatherGroundedEvidence(
   }
 
   // Tool name differs across Gemini versions — try 2.0+ then fall back.
-  let call: { response: GenerateContentResponse; costUsd: number | null; queryCount: number }
+  let call: {
+    response: GenerateContentResponse
+    costUsd: number | null
+    counts: RetrievalCounts
+  }
   try {
     call = await callWithRetry("googleSearch")
   } catch (err) {
@@ -509,6 +653,24 @@ export async function gatherGroundedEvidence(
     } else {
       throw err
     }
+  }
+
+  // Fail LOUD on a search that never happened — after the re-roll above had
+  // its chance. Not fail-safe, and deliberately so: every caller of this
+  // service already catches (discovery skips its stamp, the market adapter
+  // records a note, the analysers run profile-only), and none of them awaits
+  // retrieval inside an HTTP response, so nothing hangs and no user waits.
+  // What changes is that "the tool never fired" stops being delivered as the
+  // same empty array as "the web had nothing".
+  //
+  // Note the asymmetry with the re-roll: we re-roll on ZERO SOURCES (cheap
+  // insurance against variance) but only throw on ZERO SEARCH. A searched-
+  // and-empty result is real information and is returned normally.
+  if (!call.counts.searchRan) {
+    throw new RetrievalSearchNotRunError(
+      GEMINI_RETRIEVAL_MODEL,
+      EMPTY_GROUNDING_RETRIES + 1,
+    )
   }
 
   const meta = extractGroundingMetadata(call.response)
@@ -565,7 +727,7 @@ export async function gatherGroundedEvidence(
   return {
     sources: resolved.slice(0, maxResults),
     provenance: { provider: "gemini", model: GEMINI_RETRIEVAL_MODEL },
-    queryCount: call.queryCount,
+    queryCount: call.counts.queryCount,
     estimatedCostUsd: call.costUsd,
   }
 }

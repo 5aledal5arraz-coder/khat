@@ -85,6 +85,7 @@ function makeAi(over: {
       lastAt: over.blockedCount ? new Date() : null,
     },
     unclassified_failures_24h: over.unclassified ?? 0,
+    retrieval_24h: { runs: 0, blind: 0, lastBlindAt: null },
   }
 }
 

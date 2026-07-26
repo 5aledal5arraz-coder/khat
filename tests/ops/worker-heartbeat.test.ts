@@ -266,6 +266,7 @@ function snapshotWithWorker(worker: WorkerHeartbeat): OpsSnapshot {
         recentAiRouterRejects: [],
         provider_blocked_60m: { count: 0, classes: [], lastAt: null },
         unclassified_failures_24h: 0,
+        retrieval_24h: { runs: 0, blind: 0, lastBlindAt: null },
       },
     },
     eirPipeline: {

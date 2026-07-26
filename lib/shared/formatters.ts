@@ -55,6 +55,11 @@ const ARABIC_PLURALS: Record<string, [string, string, string]> = {
     "استدعاءات ذكاء اصطناعي",
   ],
   "سجل": ["سجل", "سجلان", "سجلات"],
+  // The grounded-retrieval alert («البحث المؤرَّض ما اشتغل في 4 عمليات
+  // استرجاع من 8 عمليات»). Both terms are needed: the phrase carries its own
+  // plural («عمليات استرجاع» is an iḍāfa, so the second term never inflects).
+  "عملية": ["عملية", "عمليتان", "عمليات"],
+  "عملية استرجاع": ["عملية استرجاع", "عمليتا استرجاع", "عمليات استرجاع"],
 }
 
 /**
