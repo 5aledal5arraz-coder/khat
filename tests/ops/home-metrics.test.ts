@@ -17,7 +17,12 @@ import {
   deriveQueueStatus,
   deriveSystemHealth,
 } from "@/lib/ops/home-metrics"
-import type { AiRouterSnapshot, OpsSnapshot, QueueHealth } from "@/lib/ops/snapshot"
+import type {
+  AiModelHealth,
+  AiRouterSnapshot,
+  OpsSnapshot,
+  QueueHealth,
+} from "@/lib/ops/snapshot"
 import type { WorkerHeartbeat } from "@/lib/ops/diagnostics"
 import type { AiRunStatus } from "@/lib/db/schema/ai-runs"
 import type { RateLimitMode } from "@/lib/db/schema/ai-rate-limit-events"
@@ -35,6 +40,11 @@ function makeAi(over: {
   totalCost?: number
   unpriced?: number
   tz?: string | null
+  /** Account-level provider blocks in the last 60 minutes. */
+  blockedCount?: number
+  blockedClasses?: string[]
+  /** 24h failures the router could not name. */
+  unclassified?: number
 } = {}): AiRouterSnapshot {
   return {
     rate_limit_mode: over.mode ?? "report",
@@ -66,6 +76,27 @@ function makeAi(over: {
     day_boundary_tz: over.tz === undefined ? "UTC" : over.tz,
     recentRateLimitRejects: [],
     recentAiRouterRejects: [],
+    provider_blocked_60m: {
+      count: over.blockedCount ?? 0,
+      classes: over.blockedClasses ?? [],
+      lastAt: over.blockedCount ? new Date() : null,
+    },
+    unclassified_failures_24h: over.unclassified ?? 0,
+  }
+}
+
+/** AI-model health section. Defaults to "everything is as configured". */
+function makeModels(over: Partial<AiModelHealth> = {}): AiModelHealth {
+  return {
+    catalog: {
+      stale: false,
+      lastError: null,
+      refreshedAt: new Date().toISOString(),
+      everLoaded: true,
+      ...over.catalog,
+    },
+    fallbacks: over.fallbacks ?? [],
+    eolRisks: over.eolRisks ?? [],
   }
 }
 
@@ -149,6 +180,7 @@ const okSnapshot = (over: Partial<OpsSnapshot> = {}): OpsSnapshot => ({
     },
   },
   worker: workerSection(),
+  aiModels: { ok: true, data: makeModels() },
   ...over,
 })
 

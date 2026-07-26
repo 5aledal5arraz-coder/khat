@@ -56,6 +56,7 @@ import {
 import { takeOpsSnapshot } from "@/lib/ops/snapshot"
 import {
   deriveAiActivity,
+  deriveAiAlerts,
   deriveAiHealthSentence,
   deriveAiHint,
   deriveCostCapLine,
@@ -214,7 +215,14 @@ function SystemHealthBand({
   // idle worker is alive and is never painted red.
   const workerDead = health.workerAlive === false
 
-  const tone = workerDead
+  // A critical AI alert is the same class of event as a dead worker —
+  // the provider refused us, or an enforcing cap is about to bite, and
+  // nothing AI-powered will run until a human acts. Painting it amber
+  // next to "one job got stuck" is exactly how a real outage gets read as
+  // routine, so it earns the same red band.
+  const stopped = workerDead || health.hasCritical
+
+  const tone = stopped
     ? {
         wrap: "border-red-200 bg-gradient-to-l from-red-50/80 to-white",
         chip: "bg-red-100 text-red-700",
@@ -248,7 +256,7 @@ function SystemHealthBand({
             issueChip: "border-amber-200 text-amber-800",
           }
 
-  const Icon = workerDead || (known && !healthy) ? AlertTriangle : known ? CheckCircle2 : Gauge
+  const Icon = stopped || (known && !healthy) ? AlertTriangle : known ? CheckCircle2 : Gauge
 
   // Chips are rendered whenever we have any — including in the unknown
   // state, so an unconfirmable worker never hides a stalled queue.
@@ -266,11 +274,15 @@ function SystemHealthBand({
           <div className={`text-[16px] font-semibold tracking-tight ${tone.title}`}>
             {workerDead
               ? "الإنتاج متوقف — عامل المهام ميت"
-              : !known
-                ? "تعذّر التأكد من حالة الأنظمة"
-                : healthy
-                  ? "كل الأنظمة تعمل بسلاسة"
-                  : "هناك ما يحتاج انتباهك"}
+              : health.hasCritical
+                ? // Names the CLASS of failure, not the detail — the chips
+                  // below carry the specifics (which provider, which cap).
+                  "الذكاء الاصطناعي متوقف — يحتاج تدخّل الآن"
+                : !known
+                  ? "تعذّر التأكد من حالة الأنظمة"
+                  : healthy
+                    ? "كل الأنظمة تعمل بسلاسة"
+                    : "هناك ما يحتاج انتباهك"}
           </div>
           {!known ? (
             <div className={`mt-0.5 text-[12.5px] ${tone.sub}`}>
@@ -306,15 +318,29 @@ function SystemHealthBand({
                   // ("العامل (worker) ما يرد — آخر نبض منذ 21 يوم") sits a
                   // few px under the available width at 390px, and a pill
                   // that wraps to two lines renders as a deformed blob.
-                  className={`inline-flex items-center gap-1.5 rounded-xl border bg-white px-2.5 py-1 text-[11.5px] font-medium ${tone.issueChip}`}
+                  //
+                  // A critical chip keeps its red regardless of the band's
+                  // tone: in a mixed state the band can only be one colour,
+                  // and the operator still has to be able to tell WHICH
+                  // chip is the outage.
+                  className={
+                    "inline-flex items-center gap-1.5 rounded-xl border bg-white px-2.5 py-1 text-[11.5px] font-medium " +
+                    (it.severity === "critical"
+                      ? "border-red-200 text-red-800"
+                      : tone.issueChip)
+                  }
                 >
                   {/* Counts read before the label ("5 مهام متعثّرة");
-                      qualitative values read after it ("… منذ 21 يوم"). */}
+                      qualitative values read after it ("… منذ 21 يوم").
+                      An empty value renders the label alone — some alerts
+                      are a statement, not a measurement. */}
                   {typeof it.value === "number" ? (
                     <>
                       <span className="tabular-nums">{it.value}</span>
                       {it.label}
                     </>
+                  ) : it.value === "" ? (
+                    it.label
                   ) : (
                     <>
                       {it.label}
@@ -387,7 +413,12 @@ export default async function OpsDashboardPage() {
   const queueStatus = deriveQueueStatus(queue)
   const aiActivity = deriveAiActivity(ai)
   const cost = deriveCostStatus(ai)
-  const health = deriveSystemHealth(snap)
+  // The five silent-failure alerts. Exceptions-first: this is an empty array
+  // on a healthy system and nothing renders. The cost-derived one is
+  // ADMIN-only, same rule as the cost tile — so health is derived from
+  // exactly the alerts this viewer can actually see.
+  const aiAlerts = deriveAiAlerts(snap, { includeCost: canSeeCost })
+  const health = deriveSystemHealth(snap, { aiAlerts })
 
   // "Active" = due now + running. Future-scheduled pending jobs are
   // reported separately instead of padding this number.

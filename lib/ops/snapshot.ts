@@ -53,6 +53,13 @@ import {
 } from "@/lib/system-events/queries"
 import { TASK_TIER } from "@/lib/ai-router/rate-limit"
 import { getEffectiveLimits, getEffectiveMode } from "@/lib/ai-router/runtime-config"
+import {
+  PROVIDER_BLOCKED_ERROR_CLASSES,
+  UNCLASSIFIED_ERROR_CLASS,
+} from "@/lib/ai-router/errors"
+import { getAiModelsDiagnostics } from "@/lib/ai-router/model-selection"
+import { findEolRisks, type EolRisk } from "@/lib/ai-router/model-lifecycle"
+import { GEMINI_REASONING_MODEL, GEMINI_RETRIEVAL_MODEL } from "@/lib/ai/gemini"
 import { countByPhase } from "@/lib/eir/service"
 import {
   getGuestIdentitySnapshot,
@@ -100,6 +107,13 @@ export interface OpsSnapshot {
    * band and the Settings hub can never disagree about "is the worker up".
    */
   worker: SectionResult<WorkerHeartbeat>
+  /**
+   * AI model configuration health — catalog freshness, silent fallbacks,
+   * and end-of-life exposure. Every other AI signal answers "did the calls
+   * work"; this one answers "which model actually produced the output, and
+   * is it about to be switched off".
+   */
+  aiModels: SectionResult<AiModelHealth>
 }
 
 // ─── Section 1: Queue & Worker Health ────────────────────────────────
@@ -209,6 +223,49 @@ export interface AiRouterSnapshot {
   recentRateLimitRejects: SystemEventRow[]
   /** Last 5 ai-router.rejected events. */
   recentAiRouterRejects: SystemEventRow[]
+  /**
+   * Account-level provider failures in the last 60 MINUTES (not 24h):
+   * `quota_exceeded` / `auth_failed`. These mean every AI feature is down
+   * until a human fixes billing or the key, so the window is deliberately
+   * tight — a 24h window would keep shouting about an outage that was
+   * already resolved this morning.
+   */
+  provider_blocked_60m: {
+    count: number
+    /** The distinct error classes seen, for naming the cause exactly. */
+    classes: string[]
+    lastAt: Date | null
+  }
+  /**
+   * 24h failures whose `error_class` is `unclassified` — the router met an
+   * error it could not name. Surfaced on its own because every alert that
+   * branches on `error_class` is BLIND to these by construction: an
+   * unclassifiable failure must be visible as a gap, not silently absent
+   * from the classified counts.
+   */
+  unclassified_failures_24h: number
+}
+
+// ─── Section 7: AI model configuration health ────────────────────────
+
+export interface AiModelHealth {
+  catalog: {
+    /** Snapshot is past its 6h TTL at read time. */
+    stale: boolean
+    /** Why the last refresh failed; null when it succeeded. */
+    lastError: string | null
+    refreshedAt: string | null
+    /** False = never loaded once, so availability checks always fail open. */
+    everLoaded: boolean
+  }
+  /** Task kinds resolved to a model other than the configured one. */
+  fallbacks: Array<{
+    taskKind: string
+    requestedModel: string
+    effectiveModel: string
+  }>
+  /** Retirements within EOL_WARN_DAYS for models we actually depend on. */
+  eolRisks: EolRisk[]
 }
 
 // ─── Section 4: EIR Pipeline ─────────────────────────────────────────
@@ -505,6 +562,33 @@ async function fetchAiRouterSnapshot(): Promise<AiRouterSnapshot> {
     SELECT current_setting('TimeZone') AS tz
   `)) as unknown as { rows: Array<{ tz: string }> }
 
+  // Account-level provider blocks in the last 60 minutes. `started_at` (not
+  // completed_at) so a run still hanging open is counted from when it began.
+  const blockedClasses = sql.join(
+    [...PROVIDER_BLOCKED_ERROR_CLASSES].map((c) => sql`${c}`),
+    sql`,`,
+  )
+  const blockedRes = (await db.execute(sql`
+    SELECT COUNT(*)::int AS n,
+           MAX(started_at) AS last_at,
+           ARRAY_AGG(DISTINCT error_class) AS classes
+      FROM ai_runs
+     WHERE error_class = ANY(ARRAY[${blockedClasses}]::text[])
+       AND started_at >= NOW() - interval '60 minutes'
+  `)) as unknown as {
+    rows: Array<{ n: number; last_at: Date | null; classes: string[] | null }>
+  }
+  const blocked = blockedRes.rows[0]
+
+  // Unclassified failures + the 30-day model inventory, one roundtrip each.
+  const unclassifiedRes = (await db.execute(sql`
+    SELECT COUNT(*)::int AS n
+      FROM ai_runs
+     WHERE error_class = ${UNCLASSIFIED_ERROR_CLASS}
+       AND started_at >= ${sinceIso}
+  `)) as unknown as { rows: Array<{ n: number }> }
+
+
   // Recent rejects per source — via the read API.
   const since24h = new Date(Date.now() - WINDOW_24H_MS)
   const [light, expensive, recentRateLimitRejects, recentAiRouterRejects] =
@@ -534,6 +618,86 @@ async function fetchAiRouterSnapshot(): Promise<AiRouterSnapshot> {
     day_boundary_tz: tzRes.rows[0]?.tz ?? null,
     recentRateLimitRejects,
     recentAiRouterRejects,
+    provider_blocked_60m: {
+      count: Number(blocked?.n ?? 0),
+      // ARRAY_AGG over zero rows yields NULL, and over rows always yields
+      // non-null members here (the WHERE pins error_class).
+      classes: (blocked?.classes ?? []).filter((c): c is string => Boolean(c)),
+      lastAt: blocked?.last_at ? new Date(blocked.last_at) : null,
+    },
+    unclassified_failures_24h: Number(unclassifiedRes.rows[0]?.n ?? 0),
+  }
+}
+
+/**
+ * Section 7 — AI model configuration health.
+ *
+ * Three things that are individually invisible and jointly decide what
+ * quality of model our output is actually produced by:
+ *   • the availability catalog is stale/failing — the check that guards
+ *     model selection is `fail-open`, so when it breaks NOTHING complains
+ *     and every model is assumed available;
+ *   • a task kind is silently running on a fallback model;
+ *   • a model we depend on is near (or past) its retirement date.
+ *
+ * Reads the live selection rather than the event log: the question the
+ * operator needs answered is "what am I running on RIGHT NOW", which a
+ * historical event can only approximate. The persisted `ai-router.fallback`
+ * event complements this by answering "since when".
+ *
+ * Cheap: the model catalog is cached in-process for 6h (stale-while-
+ * revalidate) and warmed at boot by `instrumentation.ts`.
+ */
+async function fetchAiModelHealth(): Promise<AiModelHealth> {
+  if (!db) throw new Error("DB not configured")
+
+  // Distinct models with at least one real call in the last 30 days. Kept in
+  // THIS fetcher rather than borrowed from the AI-router section so the two
+  // stay independent — the fan-out's whole point is that one failing section
+  // never takes another down with it.
+  const modelsRes = (await db.execute(sql`
+    SELECT DISTINCT model_name
+      FROM ai_runs
+     WHERE started_at >= NOW() - interval '30 days'
+       AND model_name IS NOT NULL
+  `)) as unknown as { rows: Array<{ model_name: string }> }
+  const modelsUsed30d = modelsRes.rows.map((r) => r.model_name)
+
+  const diagnostics = await getAiModelsDiagnostics()
+
+  const fallbacks = diagnostics.tasks
+    .filter((t) => t.effective.source === "fallback")
+    .map((t) => ({
+      taskKind: t.taskKind,
+      requestedModel: t.effective.requestedModel,
+      effectiveModel: t.effective.modelName,
+    }))
+
+  // "Selected" = every model the system would use by configuration today:
+  // the resolved OpenAI model per task kind, plus the two Gemini defaults
+  // (env-overridable, so an operator can pin a retiring model there and
+  // nothing in the OpenAI catalog would ever notice).
+  const selectedModels = [
+    ...diagnostics.tasks.map((t) => t.effective.modelName),
+    GEMINI_REASONING_MODEL,
+    GEMINI_RETRIEVAL_MODEL,
+  ]
+
+  return {
+    catalog: {
+      stale: diagnostics.catalog.stale,
+      lastError: diagnostics.catalog.lastError,
+      refreshedAt: diagnostics.catalog.refreshedAt,
+      // null textModelCount === the catalog has NEVER loaded, so every
+      // availability check has been failing open since boot.
+      everLoaded: diagnostics.catalog.textModelCount !== null,
+    },
+    fallbacks,
+    eolRisks: findEolRisks({
+      selectedModels,
+      recentlyUsedModels: modelsUsed30d,
+      now: new Date(),
+    }),
   }
 }
 
@@ -620,6 +784,7 @@ export async function takeOpsSnapshot(): Promise<OpsSnapshot> {
     fetchRecentActivity(),
     fetchGuestIdentitySnapshot(),
     probeWorkerHeartbeat(),
+    fetchAiModelHealth(),
   ])
 
   return {
@@ -632,5 +797,6 @@ export async function takeOpsSnapshot(): Promise<OpsSnapshot> {
     recentActivity: settledToSection(settled[4]),
     guestIdentity: settledToSection(settled[5]),
     worker: settledToSection(settled[6]),
+    aiModels: settledToSection(settled[7]),
   }
 }

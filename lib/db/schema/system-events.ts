@@ -90,6 +90,7 @@ export type SystemEventSubjectKind = (typeof SYSTEM_EVENT_SUBJECT_KINDS)[number]
  *   jobs.dead                   error job
  *   jobs.reclaimed              warn  job
  *   ai-router.rejected          warn  ai_run
+ *   ai-router.fallback          warn  NULL
  *   rate-limit.rejected         warn  NULL
  *   sweeper.summary             info  NULL
  *   schedule.created            info  NULL
@@ -104,6 +105,13 @@ export type SystemEventSubjectKind = (typeof SYSTEM_EVENT_SUBJECT_KINDS)[number]
  * payload carries the linked junction kind and ids; the subject of the
  * row stays NULL because system_events.subject_kind has no
  * "guest_candidate" / "guest_application" member (keeping it frozen).
+ *
+ * `ai-router.fallback` records that a task kind ran on a model OTHER than
+ * the one configured for it, because the configured id wasn't available to
+ * the API key. It used to exist only as a `console.warn` fired once per
+ * process — so a system could spend weeks on a lower-grade fallback model
+ * with no readable trace anywhere. Adding it needs no migration: the
+ * columns are free-form text.
  */
 export const SYSTEM_EVENT_TYPES = [
   "transition",
@@ -114,6 +122,7 @@ export const SYSTEM_EVENT_TYPES = [
   "dead",
   "reclaimed",
   "rejected",
+  "fallback",
   "summary",
   "created",
   "disabled",

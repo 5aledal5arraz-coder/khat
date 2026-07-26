@@ -287,20 +287,191 @@ export function deriveQueueStatus(queue: QueueHealth | null): QueueStatus {
   }
 }
 
+// ─── AI alerts (the silent-failure band) ─────────────────────────────
+
+/**
+ * Five conditions that were each individually invisible before this: the
+ * system kept serving, the dashboard kept reading green, and the only
+ * evidence was a console line nobody tails or a column nobody queried.
+ *
+ * Design rules, in order of importance:
+ *   • **Exceptions-first.** An alert renders ONLY when its condition holds.
+ *     There is no permanent banner, no "all clear" row — an operator who
+ *     scrolls past the same box every morning has stopped reading it, and
+ *     then misses the one that mattered.
+ *   • **Urgency must match reality.** `critical` is reserved for "AI is
+ *     stopped or about to stop". A retirement 82 days out is a WARN at
+ *     most, and below the 30-day threshold it isn't shown at all.
+ *   • **Absence is never success.** A section we couldn't read produces no
+ *     alert — and `deriveSystemHealth` already refuses to paint the band
+ *     green when any section failed, so silence here can't be mistaken for
+ *     an all-clear.
+ */
+export type AiAlertSeverity = "critical" | "warn"
+
+export type AiAlertId =
+  | "provider_blocked"
+  | "budget_near_cap"
+  | "model_fallback"
+  | "catalog_unchecked"
+  | "model_eol"
+  | "unclassified_failures"
+
+export interface AiAlert {
+  id: AiAlertId
+  severity: AiAlertSeverity
+  /** Arabic label. Rendered before a numeric value, after a string one. */
+  label: string
+  value: number | string
+}
+
+/** Daily-budget utilisation at or above this fraction of the cap alerts. */
+export const BUDGET_ALERT_PCT = 90
+
+export function deriveAiAlerts(
+  snap: OpsSnapshot,
+  opts: {
+    /**
+     * Spend is ADMIN-only on this page (same rule as the cost tile). When
+     * false the budget alert is omitted entirely rather than blanked — a
+     * redacted alert is still a leak of the fact that we're near the cap.
+     */
+    includeCost: boolean
+  },
+): AiAlert[] {
+  const alerts: AiAlert[] = []
+  const ai = snap.aiRouter.ok ? snap.aiRouter.data : null
+  const models = snap.aiModels.ok ? snap.aiModels.data : null
+
+  // (أ) Provider refused us outright — no credit, or a rejected key. This is
+  // "everything stopped": no retry anywhere in the system can recover it,
+  // and it has bitten this project before. Highest priority, hence critical.
+  if (ai && ai.provider_blocked_60m.count > 0) {
+    const hasQuota = ai.provider_blocked_60m.classes.includes("quota_exceeded")
+    const hasAuth = ai.provider_blocked_60m.classes.includes("auth_failed")
+    alerts.push({
+      id: "provider_blocked",
+      severity: "critical",
+      label:
+        hasQuota && hasAuth
+          ? "رصيد المزوّد نفد والمفتاح مرفوض — استدعاءات فاشلة آخر ساعة"
+          : hasQuota
+            ? "رصيد المزوّد نفد — استدعاءات فاشلة آخر ساعة"
+            : "مفتاح المزوّد مرفوض — استدعاءات فاشلة آخر ساعة",
+      value: ai.provider_blocked_60m.count,
+    })
+  }
+
+  // (ب) Daily budget near its cap. Critical ONLY when the cap actually
+  // enforces — in `report` mode nothing stops, so it cannot cause an outage
+  // and must not be dressed as one.
+  if (opts.includeCost && ai) {
+    const cost = deriveCostStatus(ai)
+    if (cost.pct !== null && cost.pct >= BUDGET_ALERT_PCT) {
+      alerts.push({
+        id: "budget_near_cap",
+        severity: cost.mode === "enforce" ? "critical" : "warn",
+        label:
+          cost.mode === "enforce"
+            ? "الميزانية اليومية قاربت السقف — الاستدعاءات راح تتوقف"
+            : "الميزانية اليومية قاربت السقف (للمراقبة فقط)",
+        value: `${cost.pct}%`,
+      })
+    }
+  }
+
+  // (ج) Running on a model nobody chose. The call succeeds and the cost
+  // looks normal, so nothing else on this page can reveal it — you could
+  // work for weeks on a weaker model and never know.
+  if (models && models.fallbacks.length > 0) {
+    const first = models.fallbacks[0]
+    alerts.push({
+      id: "model_fallback",
+      severity: "warn",
+      label:
+        models.fallbacks.length === 1
+          ? `${first.taskKind}: يشتغل على ${first.effectiveModel} بدل ${first.requestedModel}`
+          : "مهام تشتغل على موديل بديل بدل المطلوب",
+      value: models.fallbacks.length === 1 ? "" : models.fallbacks.length,
+    })
+  }
+
+  // (د) The availability check is fail-open by design, so when the catalog
+  // never loads, model selection silently stops being verified at all and
+  // NOTHING complains. A merely stale-but-cached catalog is normal
+  // stale-while-revalidate and is deliberately not alerted — only a catalog
+  // that has never loaded, or one whose refresh keeps failing while the
+  // cached copy has expired.
+  if (models) {
+    if (!models.catalog.everLoaded) {
+      alerts.push({
+        id: "catalog_unchecked",
+        severity: "warn",
+        label: "فحص توفّر الموديلات معطّل — الكتالوج ما تحمّل ولا مرة",
+        value: "",
+      })
+    } else if (models.catalog.lastError !== null && models.catalog.stale) {
+      alerts.push({
+        id: "catalog_unchecked",
+        severity: "warn",
+        label: "كتالوج الموديلات بايت وتعذّر تحديثه",
+        value: "",
+      })
+    }
+  }
+
+  // (هـ) A model we depend on is retiring. Already-past dates are critical
+  // (the model is GONE — calls fail now); an upcoming one inside the 30-day
+  // window is a warn. `findEolRisks` has already filtered to models we
+  // actually select or call, so this stays quiet by default.
+  if (models && models.eolRisks.length > 0) {
+    const worst = models.eolRisks[0]
+    alerts.push({
+      id: "model_eol",
+      severity: worst.retired ? "critical" : "warn",
+      label: worst.retired
+        ? `${worst.modelName} انتهى عمره الافتراضي (${worst.retiresOn}) وما زال مستعملاً`
+        : `${worst.modelName} يتوقف بعد`,
+      value: worst.retired ? "" : `${worst.daysLeft} يوم`,
+    })
+  }
+
+  // Not one of the five, but the reason the five can be trusted: a failure
+  // the router could not name is invisible to every class-based condition
+  // above. Showing the gap is the only honest alternative to guessing.
+  if (ai && ai.unclassified_failures_24h > 0) {
+    alerts.push({
+      id: "unclassified_failures",
+      severity: "warn",
+      label: "فشل غير مصنَّف (24 ساعة) — سببه غير معروف",
+      value: ai.unclassified_failures_24h,
+    })
+  }
+
+  return alerts
+}
+
 // ─── System health band ──────────────────────────────────────────────
 
 export type SystemHealthLevel = "unknown" | "healthy" | "attention"
 
 export interface SystemHealthIssue {
   label: string
-  /** Number → rendered before the label; string → after it. */
+  /** Number → rendered before the label; string → after it. Empty string
+   *  renders the label alone. */
   value: number | string
+  /**
+   * `critical` = AI is stopped or about to stop (provider refused us, an
+   * enforcing cap about to bite, a model already retired). It repaints the
+   * whole band red, so it is deliberately hard to earn. Defaults to `warn`.
+   */
+  severity?: AiAlertSeverity
 }
 
 export interface SystemHealth {
   level: SystemHealthLevel
   issues: SystemHealthIssue[]
-  /** All SEVEN snapshot sections resolved — not just queue + aiRouter. */
+  /** All EIGHT snapshot sections resolved — not just queue + aiRouter. */
   allSectionsOk: boolean
   /**
    * Positive proof of life for the job worker: `true` = fresh heartbeat,
@@ -308,9 +479,26 @@ export interface SystemHealth {
    * way. `null` can never be green.
    */
   workerAlive: boolean | null
+  /**
+   * At least one issue is `critical`. The band paints red on this the same
+   * way it does for a dead worker — both mean production is stopped, and
+   * amber for one and red for the other would teach the operator that the
+   * amber ones are optional.
+   */
+  hasCritical: boolean
 }
 
-export function deriveSystemHealth(snap: OpsSnapshot): SystemHealth {
+export function deriveSystemHealth(
+  snap: OpsSnapshot,
+  opts: {
+    /**
+     * AI alerts from `deriveAiAlerts`. Passed in rather than derived here
+     * because the caller decides whether the cost-sensitive one is included
+     * (ADMIN-only), and health must reflect exactly what is rendered.
+     */
+    aiAlerts?: AiAlert[]
+  } = {},
+): SystemHealth {
   // "كل الأنظمة تعمل بسلاسة" is a claim about the whole snapshot, so it
   // has to be checked against the whole snapshot. Checking two of six
   // sections let a failed guest-identity / EIR / events fetch render as
@@ -322,7 +510,8 @@ export function deriveSystemHealth(snap: OpsSnapshot): SystemHealth {
     snap.eirPipeline.ok &&
     snap.recentActivity.ok &&
     snap.guestIdentity.ok &&
-    snap.worker.ok
+    snap.worker.ok &&
+    snap.aiModels.ok
 
   const queue = deriveQueueStatus(snap.queue.ok ? snap.queue.data : null)
   const aiActivity = deriveAiActivity(snap.aiRouter.ok ? snap.aiRouter.data : null)
@@ -348,7 +537,19 @@ export function deriveSystemHealth(snap: OpsSnapshot): SystemHealth {
           : // never / unreadable / db_down — nothing to measure.
             null
 
-  const issues: SystemHealthIssue[] = []
+  // AI alerts bracket the operational issues: critical ones ABOVE (an
+  // account with no credit outranks a single stuck job), warns below.
+  const aiAlerts = opts.aiAlerts ?? []
+  const toIssue = (a: AiAlert): SystemHealthIssue => ({
+    label: a.label,
+    value: a.value,
+    severity: a.severity,
+  })
+
+  const issues: SystemHealthIssue[] = aiAlerts
+    .filter((a) => a.severity === "critical")
+    .map(toIssue)
+
   if (workerAlive === false)
     issues.push({
       label: "العامل (worker) ما يرد — آخر نبض",
@@ -369,6 +570,10 @@ export function deriveSystemHealth(snap: OpsSnapshot): SystemHealth {
       value: humanizeAge(queue.oldestPendingAgeMs),
     })
 
+  for (const a of aiAlerts) {
+    if (a.severity !== "critical") issues.push(toIssue(a))
+  }
+
   // `workerAlive === null` blocks green the same way a failed section
   // does: "كل الأنظمة تعمل بسلاسة" is a claim about a LIVE system, and we
   // have no evidence it is one.
@@ -379,5 +584,11 @@ export function deriveSystemHealth(snap: OpsSnapshot): SystemHealth {
         ? "healthy"
         : "attention"
 
-  return { level, issues, allSectionsOk, workerAlive }
+  return {
+    level,
+    issues,
+    allSectionsOk,
+    workerAlive,
+    hasCritical: issues.some((i) => i.severity === "critical"),
+  }
 }

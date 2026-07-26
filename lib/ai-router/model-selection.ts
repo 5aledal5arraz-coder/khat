@@ -35,6 +35,8 @@ import {
   lookupPricing,
   registerRuntimePricing,
 } from "./registry"
+import { emitSystemEvent } from "@/lib/system-events/emit"
+import { buildAiRouterFallbackEvent } from "@/lib/system-events/builders"
 import {
   getModelCatalog,
   relevantTextModels,
@@ -242,6 +244,19 @@ export async function resolveModelChoice(
     if (!warnedFallbacks.has(key)) {
       warnedFallbacks.add(key)
       console.warn(`[ai-router] ${taskKind}: ${picked.fallbackReason}`)
+      // A console line is not a trace: it dies with the process and nobody
+      // reads stdout in production. Persist the SAME event so "we have been
+      // running on a fallback model" is answerable after the fact. Behind
+      // the same once-per-process gate, so this cannot flood the feed;
+      // fire-and-forget, so a logging failure never affects model selection.
+      void emitSystemEvent(
+        buildAiRouterFallbackEvent({
+          task_kind: taskKind,
+          requested_model: picked.requestedModel,
+          effective_model: picked.modelName,
+          reason: picked.fallbackReason,
+        }),
+      )
     }
   }
 

@@ -44,6 +44,72 @@ describe("registry ↔ fallback-chain consistency", () => {
       }
     }
   })
+
+  /**
+   * Ordering rule: a model we have NO quality evidence for must never sit
+   * ahead of one we do. A chain is only ever consulted when something is
+   * already broken, so its order is the decision nobody is watching — and
+   * an arbitrary rank there quietly degrades output for as long as the
+   * fallback lasts.
+   *
+   * Evidence: Artificial Analysis / AA-Omniscience, read 2026-07-25.
+   */
+  describe("evidence-based ordering", () => {
+    /** Models with a published score. Anything absent is UNSCORED. */
+    const SCORED: Record<string, number> = {
+      "gpt-5.6-sol": 21.7,
+      "gpt-5.6-terra": -0.22,
+    }
+
+    /**
+     * The rule is one-directional, and the asymmetry is the point:
+     * a model with GOOD evidence must never sit below an unscored one —
+     * that trades a known-good for a guess. The reverse does NOT hold. A
+     * model measured to be BAD (terra, −0.22: it produces more wrong facts
+     * than right ones from memory) has not earned a promotion over an
+     * unmeasured peer just because we happen to have measured it. So
+     * `gpt-5.5` legitimately sits ahead of terra in the editorial chain.
+     */
+    const isProvenGood = (m: string) => (SCORED[m] ?? -Infinity) > 0
+
+    it("research falls back to the best-scored model before any unscored one", () => {
+      const chain = FALLBACK_CHAINS.research
+      const sol = chain.indexOf("gpt-5.6-sol")
+      const unscored = chain.indexOf("gpt-5.4")
+      expect(sol).toBeGreaterThan(-1)
+      expect(unscored).toBeGreaterThan(-1)
+      // The regression this pins: the chain used to read
+      // terra → gpt-5.4 → sol, putting an unscored model ahead of the
+      // single best-scored model available to us, on no basis at all.
+      expect(sol).toBeLessThan(unscored)
+    })
+
+    it("no chain places an unscored model ahead of a PROVEN-GOOD one", () => {
+      for (const [kind, chain] of Object.entries(FALLBACK_CHAINS)) {
+        // Position 0 is exempt: the head is pinned to the registry default,
+        // chosen on cost + grounding policy rather than on this score.
+        const tail = chain.slice(1)
+        const firstGood = tail.findIndex(isProvenGood)
+        if (firstGood === -1) continue
+        expect(
+          tail.slice(0, firstGood).filter((m) => !(m in SCORED)),
+          `${kind}: unscored models ahead of a proven-good one in ${JSON.stringify(chain)}`,
+        ).toEqual([])
+      }
+    })
+
+    it("documents which chains have NO on-point evidence at all (not reordered on a guess)", () => {
+      const unevidenced = Object.entries(FALLBACK_CHAINS)
+        .filter(([, chain]) => chain.every((m) => !(m in SCORED)))
+        .map(([kind]) => kind)
+        .sort()
+      // These three share one chain shape and no member has an
+      // AA-Omniscience score. Their order is the pre-existing
+      // newest-generation-first ordering, left untouched deliberately:
+      // settling it needs a benchmark run, not a coin flip.
+      expect(unevidenced).toEqual(["analysis", "structural", "verification"])
+    })
+  })
 })
 
 describe("pickModel", () => {

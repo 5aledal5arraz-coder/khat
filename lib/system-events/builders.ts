@@ -24,6 +24,7 @@ import type {
   SweeperSummaryEvent,
   ScheduleCreatedEvent,
   AiRouterRejectedEvent,
+  AiRouterFallbackEvent,
   RateLimitRejectedEvent,
   GuestIdentityLinkedEvent,
 } from "./types"
@@ -314,6 +315,37 @@ export function buildAiRouterRejectedEvent(input: {
       task_kind: input.task_kind,
       reason: input.reason,
       ...(input.actor_id ? { actor_id: input.actor_id } : {}),
+    },
+  }
+}
+
+// ─── AI-router fallback (availability-chain walk) ────────────────────
+
+/**
+ * A task kind is running on a model other than the one configured for it.
+ *
+ * Emit site: `lib/ai-router/model-selection.ts`, behind the SAME warn-once
+ * gate as the existing `console.warn` — one row per distinct
+ * (task_kind, requested→effective) per process. The console line stays: it
+ * serves the operator tailing logs, this row serves everyone else.
+ */
+export function buildAiRouterFallbackEvent(input: {
+  task_kind: string
+  requested_model: string
+  effective_model: string
+  reason: string
+  actor?: string | null
+}): AiRouterFallbackEvent {
+  return {
+    source: "ai-router",
+    event_type: "fallback",
+    severity: "warn",
+    actor: input.actor ?? undefined,
+    payload: {
+      task_kind: input.task_kind,
+      requested_model: input.requested_model,
+      effective_model: input.effective_model,
+      reason: input.reason,
     },
   }
 }

@@ -37,7 +37,7 @@ import type {
   AiRunStatus,
 } from "./types"
 import { parseJsonWithRepair, type JsonRepairStage } from "@/lib/ai/json-repair"
-import { isQuotaExceededError } from "./errors"
+import { isQuotaExceededError, UNCLASSIFIED_ERROR_CLASS } from "./errors"
 // Mandatory grounding for research-grade kinds. Lives in the router for the
 // same reason the JSON-repair ladder does: every generator inherits it.
 import {
@@ -129,7 +129,10 @@ function clipSnapshot(value: unknown): Record<string, unknown> {
  *   "timeout"          — caller-side timeout (transient)
  *   "server_error"     — provider 5xx / network blip (transient)
  *   "JsonParseError"   — set elsewhere on parse failures
- *   "<Error.name>"     — fallback for unrecognized errors
+ *   "<Error.name>"     — a NAMED error keeps its own name (SDK classes,
+ *                        GroundingContractError) — those are informative
+ *   "unclassified"     — everything else, incl. plain `new Error(...)`
+ *                        whose `.name` is the meaningless string "Error"
  *
  * Exported so the non-routed telemetry primitive (`recordAiRun`) and the
  * whisper fallback classify failures identically to the router.
@@ -180,10 +183,19 @@ export function classifyError(err: unknown): { name: string; message: string } {
   ) {
     return { name: "server_error", message: msg }
   }
+  // Nothing matched. A named error still carries information — the OpenAI
+  // SDK's BadRequestError/NotFoundError, our own GroundingContractError —
+  // so its name is kept verbatim. A PLAIN `new Error(...)` does not: its
+  // `.name` is the literal string "Error", which told us nothing and read
+  // like a real class in every dashboard and alert built on error_class.
+  // Those collapse to one honest, greppable label instead.
   if (err instanceof Error) {
-    return { name: err.name || "Error", message: err.message }
+    const name = err.name && err.name !== "Error" ? err.name : UNCLASSIFIED_ERROR_CLASS
+    return { name, message: err.message }
   }
-  return { name: "UnknownError", message: msg }
+  // Thrown non-Errors (strings, objects) are the same "we don't know" —
+  // reported under the same class so an alert needs one condition, not two.
+  return { name: UNCLASSIFIED_ERROR_CLASS, message: msg }
 }
 
 function sleep(ms: number): Promise<void> {

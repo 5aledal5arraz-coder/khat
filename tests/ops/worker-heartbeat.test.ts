@@ -264,6 +264,8 @@ function snapshotWithWorker(worker: WorkerHeartbeat): OpsSnapshot {
         day_boundary_tz: "UTC",
         recentRateLimitRejects: [],
         recentAiRouterRejects: [],
+        provider_blocked_60m: { count: 0, classes: [], lastAt: null },
+        unclassified_failures_24h: 0,
       },
     },
     eirPipeline: {
@@ -307,5 +309,18 @@ function snapshotWithWorker(worker: WorkerHeartbeat): OpsSnapshot {
       },
     },
     worker: { ok: true, data: worker },
+    aiModels: {
+      ok: true,
+      data: {
+        catalog: {
+          stale: false,
+          lastError: null,
+          refreshedAt: new Date().toISOString(),
+          everLoaded: true,
+        },
+        fallbacks: [],
+        eolRisks: [],
+      },
+    },
   }
 }

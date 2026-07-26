@@ -169,6 +169,42 @@ export interface AiRouterRejectedEvent extends BaseSystemEventInput {
   }
 }
 
+/**
+ * A task kind resolved to a model OTHER than the one configured for it,
+ * because the configured id is not available to this API key and the
+ * availability chain was walked.
+ *
+ * This is a QUALITY event, not an availability one: the call succeeds, the
+ * dashboard stays green, and the only symptom is that output is being
+ * produced by a different — usually weaker or cheaper — model than the one
+ * anyone reviewed. Before this event the single trace was a `console.warn`
+ * emitted once per process, which is gone the moment the process restarts
+ * and unreadable in production regardless.
+ *
+ * Subjectless: the fallback is a property of the task kind's configuration,
+ * not of any one `ai_run` — every subsequent call inherits it.
+ *
+ * Volume: emitted once per distinct (task_kind, requested→effective) per
+ * process, sharing the existing warn-once gate in `model-selection.ts`. That
+ * caps it at one row per task kind per process lifetime, so it cannot flood
+ * the activity feed.
+ */
+export interface AiRouterFallbackEvent extends BaseSystemEventInput {
+  source: "ai-router"
+  event_type: "fallback"
+  severity: "warn"
+  subject_kind?: undefined
+  subject_id?: undefined
+  payload: {
+    task_kind: string
+    /** The model that was configured/asked for. */
+    requested_model: string
+    /** The model actually used instead. */
+    effective_model: string
+    reason: string
+  }
+}
+
 // ─── Rate-limit (rejects only — operator §13 Q2) ─────────────────────
 
 /**
@@ -304,6 +340,7 @@ export type SystemEventInput =
   | JobsDeadEvent
   | JobsReclaimedEvent
   | AiRouterRejectedEvent
+  | AiRouterFallbackEvent
   | RateLimitRejectedEvent
   | SweeperSummaryEvent
   | ScheduleCreatedEvent

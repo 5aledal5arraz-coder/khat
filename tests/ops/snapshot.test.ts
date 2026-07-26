@@ -232,6 +232,19 @@ describe("Promise.allSettled → settledToSection — integration of the adapter
         ok: true,
         data: { state: "working", ageMs: 1_000, workerId: "w-1", jobType: "demo.echo" },
       },
+      aiModels: {
+        ok: true,
+        data: {
+          catalog: {
+            stale: false,
+            lastError: null,
+            refreshedAt: new Date().toISOString(),
+            everLoaded: true,
+          },
+          fallbacks: [],
+          eolRisks: [],
+        },
+      },
     }
     expect(sample.guestIdentity.ok).toBe(true)
     if (sample.guestIdentity.ok) {

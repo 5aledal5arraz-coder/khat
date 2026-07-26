@@ -173,12 +173,52 @@ const EXTRA_PRICING: Array<{
  * operators point a task at a new model via the Settings override or
  * `KHAT_AI_MODEL_<KIND>`; chains only guard availability.
  */
+/**
+ * Ordering rule (applies to every chain below): **never place a model we
+ * have NO quality evidence for ahead of one we do.** A fallback chain is
+ * consulted precisely when things are already going wrong, so its order is
+ * the one decision nobody is watching — an arbitrary rank here silently
+ * downgrades output for as long as the fallback lasts.
+ *
+ * Evidence on hand — Artificial Analysis, AA-Omniscience (read 2026-07-25).
+ * The metric is hallucination-adjusted factual reliability, so it is ON POINT
+ * for `research` and only partially informative elsewhere:
+ *     gpt-5.6-sol    +21.7
+ *     gpt-5.6-terra   −0.22   (answers from memory produce more wrong facts
+ *                              than right ones — hence requiresGrounding)
+ *     gpt-5.5 / gpt-5.4 / gpt-5.4-mini / gpt-5.4-nano / gpt-4o* — no score.
+ *
+ * Where no chain member has an on-point score, the order below is the
+ * pre-existing newest-generation-first ordering and is left ALONE rather
+ * than reshuffled on a metric that doesn't measure the task. Those chains
+ * are flagged as un-evidenced in the comments; settling them needs
+ * `npm run ai:benchmark` (paid), not a guess.
+ */
 export const FALLBACK_CHAINS: Record<AiTaskKind, readonly string[]> = {
+  // NO on-point evidence for any member — extraction accuracy is not what
+  // AA-Omniscience measures. Order = newest generation first, then cheaper
+  // tiers. Unverified; needs a benchmark run to become evidence-based.
   structural: ["gpt-5.6-luna", "gpt-5.4-mini", "gpt-5.4-nano", "gpt-4o-mini"],
+  // sol first is evidence-backed (+21.7, best scored model we have). The
+  // tail is generation-ordered and un-evidenced for PROSE quality, which is
+  // what this kind is judged on — left as-is deliberately.
   editorial: ["gpt-5.6-sol", "gpt-5.5", "gpt-5.6-terra", "gpt-5.4", "gpt-4o"],
+  // Same reasoning as editorial: sol's lead is evidenced, the tail is not.
   discovery: ["gpt-5.6-sol", "gpt-5.5", "gpt-5.6-terra", "gpt-5.4", "gpt-4o"],
+  // NO on-point evidence for any member — see `structural`.
   verification: ["gpt-5.6-luna", "gpt-5.4-mini", "gpt-5.4-nano", "gpt-4o-mini"],
-  research: ["gpt-5.6-terra", "gpt-5.4", "gpt-5.6-sol", "gpt-4o"],
+  // terra stays FIRST only because it is this kind's default (chain[0] must
+  // equal DEFAULT_MODELS — asserted by a unit test) and its −0.22 is bought
+  // off by `requiresGrounding`: research answers are verified against a
+  // retrieved corpus, so memory reliability is not what carries them.
+  //
+  // The FALLBACK order, though, was `terra → gpt-5.4 → sol`: an unscored
+  // model ahead of the single best-scored model we have. Nothing supported
+  // that. When terra is unavailable the next choice is now sol (+21.7) —
+  // the same model editorial and discovery already fall back to first.
+  // gpt-5.4 keeps its slot ahead of gpt-4o purely on generation.
+  research: ["gpt-5.6-terra", "gpt-5.6-sol", "gpt-5.4", "gpt-4o"],
+  // NO on-point evidence for any member — see `structural`.
   analysis: ["gpt-5.6-luna", "gpt-5.4-mini", "gpt-5.4-nano", "gpt-4o-mini"],
 }
 
