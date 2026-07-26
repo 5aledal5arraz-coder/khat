@@ -13,7 +13,7 @@ import {
   LogOut,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
-import { Button } from "@/components/ui/button"
+import { Button, buttonVariants } from "@/components/ui/button"
 import { AdminSidebar } from "./components/admin-sidebar"
 import { ADMIN_LIGHT_TOKENS } from "./components/light-theme"
 import { Breadcrumbs } from "./components/breadcrumbs"
@@ -88,6 +88,8 @@ export default function AdminLayoutClient({
               variant="ghost"
               size="icon"
               onClick={() => setSidebarOpen(!sidebarOpen)}
+              aria-label={sidebarOpen ? "إخفاء القائمة الجانبية" : "إظهار القائمة الجانبية"}
+              aria-expanded={sidebarOpen}
               className="hidden h-9 w-9 shrink-0 text-muted-foreground hover:text-foreground lg:flex"
             >
               {sidebarOpen ? (
@@ -97,12 +99,20 @@ export default function AdminLayoutClient({
               )}
             </Button>
 
-            {/* Mobile: hamburger */}
+            {/* Mobile: hamburger.
+                Icon-only, so it had NO accessible name at all — and below
+                `lg` it is the ONLY navigation on the page, which made the
+                whole admin unnavigable by screen reader. The size override
+                is gone too: `size="icon"` is already 44px (button.tsx), and
+                the old `h-9 w-9` shrank the sole mobile nav control to 36px,
+                under the 44px touch-target floor. */}
             <Button
               variant="ghost"
               size="icon"
               onClick={() => setMobileDrawerOpen(true)}
-              className="h-9 w-9 shrink-0 text-muted-foreground lg:hidden"
+              aria-label="فتح قائمة التنقّل"
+              aria-expanded={mobileDrawerOpen}
+              className="shrink-0 text-muted-foreground lg:hidden"
             >
               <Menu className="h-[18px] w-[18px]" />
             </Button>
@@ -127,24 +137,40 @@ export default function AdminLayoutClient({
             </div>
           </div>
 
+          {/* Both controls hide their Arabic label below `sm`, so both need
+              an explicit accessible name or they are two unlabelled icons at
+              390px. Both also grow to the 44px touch floor on mobile only —
+              the compact 32px desktop chrome is unchanged. */}
           <div className="flex items-center gap-1">
             <Button
               variant="ghost"
               size="sm"
               onClick={handleLogout}
               disabled={loggingOut}
-              className="h-8 gap-2 px-2.5 text-xs text-muted-foreground hover:text-destructive"
+              aria-label="تسجيل الخروج"
+              className="h-11 min-w-[44px] gap-2 px-2.5 text-xs text-muted-foreground hover:text-destructive sm:h-8 sm:min-w-0"
               title="تسجيل الخروج"
             >
               <LogOut className="h-3.5 w-3.5" />
               <span className="hidden sm:inline">خروج</span>
             </Button>
             <div className="mx-1 h-4 w-px bg-border/40 hidden sm:block" />
-            <Link href="/">
-              <Button variant="ghost" size="sm" className="h-8 gap-2 px-2.5 text-xs text-muted-foreground">
-                <span className="hidden sm:inline">الموقع</span>
-                <ArrowRight className="h-3.5 w-3.5" />
-              </Button>
+            {/* Was <Link><Button/></Link> — an <a> wrapping a <button>. Nested
+                interactive content is invalid HTML and leaves keyboard/AT
+                behaviour undefined (which element takes focus, which one
+                Enter activates, is it a link or a command?). `button.tsx`
+                has no `asChild`, so the link carries the button's classes
+                directly: ONE element, one role, one focus stop. */}
+            <Link
+              href="/"
+              aria-label="فتح الموقع العام"
+              className={cn(
+                buttonVariants({ variant: "ghost", size: "sm" }),
+                "h-11 min-w-[44px] gap-2 px-2.5 text-xs text-muted-foreground sm:h-8 sm:min-w-0",
+              )}
+            >
+              <span className="hidden sm:inline">الموقع</span>
+              <ArrowRight className="h-3.5 w-3.5" />
             </Link>
           </div>
         </div>
@@ -197,6 +223,7 @@ export default function AdminLayoutClient({
                 variant="ghost"
                 size="icon"
                 onClick={closeMobileDrawer}
+                aria-label="إغلاق قائمة التنقّل"
                 className="h-8 w-8 text-muted-foreground"
               >
                 <X className="h-4 w-4" />

@@ -85,6 +85,19 @@ export function InlineEmpty({ messageAr }: { messageAr: string }) {
 /**
  * Small KV row — Arabic label on the right (RTL natural), value on
  * the left. Used in oldest-pending / oldest-running / mode blocks.
+ *
+ * The value slot is FORCED to `dir="ltr"`, and that is load-bearing, not
+ * cosmetic. Several values are ratios of the form «current / limit»
+ * (`ai-router-section.tsx`: concurrency, daily cost vs cap). Inside the
+ * RTL page, the bidi algorithm resolves the neutral " / " between two
+ * numbers to the surrounding RTL direction (UAX#9 N1 — numbers act as R
+ * for neighbouring neutrals), so L2 reverses the whole run and «2 / 8»
+ * PAINTS as «8 / 2». The cost and its cap swapped places on screen: the
+ * operator read the spend as the ceiling.
+ *
+ * Safe for the Arabic values too (`humanizeAge` → «منذ 5 أيام»): a run
+ * that is entirely RTL-plus-digits reorders identically under either base
+ * direction — only the neutrals BETWEEN two numbers change hands.
  */
 export function KvRow({
   labelAr,
@@ -96,7 +109,7 @@ export function KvRow({
   return (
     <div className="flex items-baseline justify-between gap-3">
       <span className="text-xs text-muted-foreground">{labelAr}</span>
-      <span className="font-mono text-xs text-foreground tabular-nums">
+      <span className="font-mono text-xs text-foreground tabular-nums" dir="ltr">
         {value}
       </span>
     </div>

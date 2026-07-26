@@ -15,6 +15,7 @@
 
 import type { RateLimitMode } from "@/lib/db/schema/ai-rate-limit-events"
 import { AI_RUN_STATUSES } from "@/lib/db/schema/ai-runs"
+import { EPISODE_PHASES, type EpisodePhase } from "@/lib/db/schema/eir"
 import { WORKER_HEALTHY_STATES, type WorkerHeartbeat } from "@/lib/ops/diagnostics"
 import { humanizeAge } from "./format"
 import type { AiRouterSnapshot, OpsSnapshot, QueueHealth } from "./snapshot"
@@ -590,5 +591,62 @@ export function deriveSystemHealth(
     allSectionsOk,
     workerAlive,
     hasCritical: issues.some((i) => i.severity === "critical"),
+  }
+}
+
+// ─── Episode pipeline card ───────────────────────────────────────────
+
+/** One phase cell in the pipeline card's distribution grid. */
+export interface PipelineCell {
+  phase: EpisodePhase
+  label: string
+  count: number
+}
+
+export interface PipelineSummary {
+  /** The headline number. Sum of `cells` — see the note below. */
+  inPipeline: number
+  /** EIRs that have REACHED the `published` phase. Never mixed into the
+   *  headline, and never the same figure as the «حلقات منشورة» KPI tile,
+   *  which counts the public episode archive (episodes + YouTube). */
+  publishedCount: number
+  /** Non-terminal phases, in `EPISODE_PHASES` order, zeros included. */
+  cells: PipelineCell[]
+  /** Largest cell count, floored at 1 so the bar width never divides by 0. */
+  peak: number
+}
+
+/**
+ * The pipeline card, derived in one place so its two numbers cannot drift.
+ *
+ * The bug this closes: the headline summed only NON-TERMINAL phases while the
+ * grid under it rendered every phase except `archived` — i.e. it included
+ * `published`. The grid therefore added up to `inPipeline + publishedCount`
+ * and never matched the number printed directly above it, inside the same
+ * card. Nothing was miscounted; the two views simply had different scopes.
+ *
+ * Reconciled by scope, not by relabelling: the card is «خط إنتاج الحلقات», so
+ * both the headline and the grid are now exactly the work still IN the
+ * pipeline. `published` is terminal — it leaves the pipeline — and is
+ * reported once, beside the headline, explicitly named as a phase count.
+ * `archived` was already excluded from both and stays excluded.
+ *
+ * INVARIANT (locked by tests/ops/home-metrics.test.ts):
+ *   cells.reduce((s, c) => s + c.count, 0) === inPipeline
+ */
+export function derivePipelineSummary(
+  eir: { countByPhase: Record<EpisodePhase, number> } | null,
+  labels: Record<EpisodePhase, string>,
+  terminalPhases: ReadonlySet<EpisodePhase>,
+): PipelineSummary | null {
+  if (!eir) return null
+  const cells: PipelineCell[] = EPISODE_PHASES.filter(
+    (p) => !terminalPhases.has(p),
+  ).map((p) => ({ phase: p, label: labels[p], count: eir.countByPhase[p] ?? 0 }))
+  return {
+    inPipeline: cells.reduce((s, c) => s + c.count, 0),
+    publishedCount: eir.countByPhase.published ?? 0,
+    cells,
+    peak: Math.max(1, ...cells.map((c) => c.count)),
   }
 }

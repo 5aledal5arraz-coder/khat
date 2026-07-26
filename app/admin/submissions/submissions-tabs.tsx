@@ -60,6 +60,7 @@ import type {
   GuestPrepResponse,
 } from "@/types/database"
 import { formatDate, researchSourceLabel, researchSourceSnippet } from "@/lib/shared/formatters"
+import { INBOX_STATUS_PARAM, matchesInboxStatus } from "@/lib/ops/inbox-filter"
 import {
   timeAgo,
   generateAcceptanceMessage,
@@ -520,6 +521,14 @@ export function SubmissionsTabs({
 
   const [activeTab, setActiveTab] = useState(defaultTab)
   const [search, setSearch] = useState("")
+  // Arriving from the «الوارد» card on /admin/ops, which links to
+  // `?tab=…&status=new`. The card counts ONLY the new slice, so landing on
+  // the full list made its number unverifiable. Held in state (not read from
+  // the URL on every render) so the operator can widen it to the whole list
+  // in one click without a navigation.
+  const [statusFilter, setStatusFilter] = useState<string | null>(
+    () => searchParams.get(INBOX_STATUS_PARAM),
+  )
 
   const [guestApplications, setGuestApplications] = useState(initialGuestApps)
   const [sponsorshipLeads, setSponsorshipLeads] = useState(initialSponsors)
@@ -1126,26 +1135,53 @@ export function SubmissionsTabs({
     }
   }
 
-  // Filtered data
+  // Filtered data. Status first, then search — the status slice is what the
+  // «الوارد» counter promised, so it must survive whatever is typed.
   const normalizedSearch = search.trim().toLowerCase()
+  const statusGuests = guestApplications.filter((a) =>
+    matchesInboxStatus(a.status, statusFilter)
+  )
   const filteredGuests = normalizedSearch
-    ? guestApplications.filter(
+    ? statusGuests.filter(
         (a) =>
           a.name.toLowerCase().includes(normalizedSearch) ||
           a.email.toLowerCase().includes(normalizedSearch) ||
           a.story_idea.toLowerCase().includes(normalizedSearch)
       )
-    : guestApplications
+    : statusGuests
 
+  const statusSponsors = sponsorshipLeads.filter((l) =>
+    matchesInboxStatus(l.status, statusFilter)
+  )
   const filteredSponsors = normalizedSearch
-    ? sponsorshipLeads.filter(
+    ? statusSponsors.filter(
         (l) =>
           l.company_name.toLowerCase().includes(normalizedSearch) ||
           l.contact_name.toLowerCase().includes(normalizedSearch) ||
           l.email.toLowerCase().includes(normalizedSearch) ||
           l.industry.toLowerCase().includes(normalizedSearch)
       )
-    : sponsorshipLeads
+    : statusSponsors
+
+  // Label for the active filter chip. Falls back to the raw value rather than
+  // rendering nothing, so an unknown param is visible instead of silent.
+  const statusFilterLabel =
+    statusFilter === null
+      ? null
+      : activeTab === "sponsors"
+        ? (SPONSOR_STATUS_CONFIG[statusFilter as SponsorshipStatus]?.label ?? statusFilter)
+        : (STATUS_CONFIG[statusFilter as GuestApplicationStatus]?.label ?? statusFilter)
+  // Only guests + sponsors carry a status; the newsletter tab has none, so the
+  // chip must not claim to be filtering it.
+  const statusFilterApplies =
+    statusFilter !== null && (activeTab === "guests" || activeTab === "sponsors")
+  const statusFilterShown = statusFilterApplies
+    ? activeTab === "guests"
+      ? statusGuests.length
+      : statusSponsors.length
+    : 0
+  const statusFilterTotal =
+    activeTab === "guests" ? guestApplications.length : sponsorshipLeads.length
 
   const filteredSubscribers = normalizedSearch
     ? newsletterSubscribers.filter((s) =>
@@ -1258,6 +1294,7 @@ export function SubmissionsTabs({
         {search && (
           <button
             onClick={() => setSearch("")}
+            aria-label="مسح البحث"
             className="absolute end-4 top-1/2 -translate-y-1/2 text-muted-foreground transition-colors hover:text-foreground"
           >
             <X className="h-4 w-4" />
@@ -1265,14 +1302,47 @@ export function SubmissionsTabs({
         )}
       </div>
 
+      {/* ─── Active status filter ───
+          Arriving from «الوارد» shows a SLICE, so the page has to say so and
+          offer the way out. Without this the operator sees 3 of 40 cards with
+          no explanation and reads it as data loss. */}
+      {statusFilterApplies && (
+        <div className="flex flex-wrap items-center gap-2 rounded-lg border border-primary/20 bg-primary/[0.04] px-3 py-2 text-[12px]">
+          <span className="text-muted-foreground">مفلتر على:</span>
+          <span className="font-semibold text-foreground">{statusFilterLabel}</span>
+          <span className="text-muted-foreground tabular-nums" dir="ltr">
+            {statusFilterShown} / {statusFilterTotal}
+          </span>
+          <button
+            onClick={() => setStatusFilter(null)}
+            className="inline-flex items-center gap-1 rounded-md border border-border/60 px-2 py-1 text-[11px] text-muted-foreground transition-colors hover:text-foreground"
+          >
+            <X className="h-3 w-3" />
+            اعرض الكل
+          </button>
+        </div>
+      )}
+
       {/* ─── Guest Applications Tab ─── */}
       {activeTab === "guests" && (
         <>
           {filteredGuests.length === 0 ? (
             <EmptyState
               icon={UserPlus}
-              title={search ? "لم يتم العثور على طلبات" : "لا توجد طلبات ضيوف جديدة"}
-              description={search ? `لم يتم العثور على طلبات تطابق "${search}"` : "ستظهر هنا الطلبات الجديدة عند إرسالها"}
+              title={
+                search
+                  ? "لم يتم العثور على طلبات"
+                  : statusFilterApplies
+                    ? `ما فيه طلبات بحالة «${statusFilterLabel}»`
+                    : "لا توجد طلبات ضيوف جديدة"
+              }
+              description={
+                search
+                  ? `لم يتم العثور على طلبات تطابق "${search}"`
+                  : statusFilterApplies
+                    ? "شيل الفلتر من الأعلى لعرض كل الطلبات"
+                    : "ستظهر هنا الطلبات الجديدة عند إرسالها"
+              }
             />
           ) : (
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -1376,7 +1446,23 @@ export function SubmissionsTabs({
       {activeTab === "sponsors" && (
         <>
           {filteredSponsors.length === 0 ? (
-            <EmptyState icon={Handshake} title={search ? "لم يتم العثور على طلبات" : "لا توجد طلبات شراكة جديدة"} description={search ? `لم يتم العثور على طلبات تطابق "${search}"` : "ستظهر هنا طلبات الشراكة عند إرسالها"} />
+            <EmptyState
+              icon={Handshake}
+              title={
+                search
+                  ? "لم يتم العثور على طلبات"
+                  : statusFilterApplies
+                    ? `ما فيه طلبات بحالة «${statusFilterLabel}»`
+                    : "لا توجد طلبات شراكة جديدة"
+              }
+              description={
+                search
+                  ? `لم يتم العثور على طلبات تطابق "${search}"`
+                  : statusFilterApplies
+                    ? "شيل الفلتر من الأعلى لعرض كل الطلبات"
+                    : "ستظهر هنا طلبات الشراكة عند إرسالها"
+              }
+            />
           ) : (
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
               {filteredSponsors.map((lead) => {

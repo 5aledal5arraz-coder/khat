@@ -30,6 +30,7 @@
 import { sql } from "drizzle-orm"
 import { db } from "@/lib/db"
 import { PENDING_TEASER_QUESTIONS_COUNT } from "@/lib/teaser"
+import { INBOX_NEW_STATUS, INBOX_STATUS_PARAM } from "./inbox-filter"
 
 export const INBOX_CHANNEL_KEYS = [
   "guest_applications",
@@ -88,18 +89,31 @@ export interface InboxChannel {
   emptyHint: string
 }
 
+/**
+ * The `href` on every channel has to LAND on the waiting items — the card
+ * says so in its own copy, and a promise the link doesn't keep is worse than
+ * no promise. What "filtered" means differs by destination, and each one is
+ * verified, not assumed:
+ *   • submissions (guests + sponsors) — `?status=new`, read by
+ *     `submissions-tabs.tsx` through `matchesInboxStatus`, which mirrors this
+ *     module's `COALESCE(status,'new')` including the NULL case. Both links
+ *     used to open the FULL list.
+ *   • community — the board's «جديدة» column IS the new queue, visible with
+ *     no second click, so the plain board URL already satisfies the promise.
+ *   • teaser questions — `?status=pending`, the page's own filter.
+ */
 const CHANNEL_META: Record<
   InboxChannelKey,
   { label: string; href: string; emptyHint: string }
 > = {
   guest_applications: {
     label: "طلبات الضيوف",
-    href: "/admin/submissions?tab=guests",
+    href: `/admin/submissions?tab=guests&${INBOX_STATUS_PARAM}=${INBOX_NEW_STATUS}`,
     emptyHint: "ما فيه طلبات ضيوف جديدة",
   },
   sponsorship_leads: {
     label: "طلبات الرعاية",
-    href: "/admin/submissions?tab=sponsors",
+    href: `/admin/submissions?tab=sponsors&${INBOX_STATUS_PARAM}=${INBOX_NEW_STATUS}`,
     emptyHint: "ما فيه طلبات رعاية جديدة",
   },
   community_contributions: {

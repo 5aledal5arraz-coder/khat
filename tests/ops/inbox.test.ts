@@ -26,6 +26,11 @@ import {
   totalWaiting,
   type InboxCounts,
 } from "@/lib/ops/inbox"
+import {
+  INBOX_NEW_STATUS,
+  INBOX_STATUS_PARAM,
+  matchesInboxStatus,
+} from "@/lib/ops/inbox-filter"
 
 /** The statement as Postgres will actually receive it. */
 const RENDERED = new PgDialect().sqlToQuery(INBOX_COUNTS_SQL).sql
@@ -139,5 +144,75 @@ describe("totalWaiting", () => {
         teaser_questions: 3,
       }),
     ).toBe(10)
+  })
+})
+
+/**
+ * The link contract. The card's own copy promises every channel opens on the
+ * waiting items; two of the four opened the FULL list instead, so the number
+ * the operator had just read was unverifiable on arrival.
+ */
+describe("inbox links — «مفلتر مسبقًا» has to be true", () => {
+  const CH = buildInboxChannels({
+    guest_applications: 3,
+    sponsorship_leads: 1,
+    community_contributions: 2,
+    teaser_questions: 5,
+  })
+  const href = (k: string) => CH.find((c) => c.key === k)!.href
+
+  it("opens guest applications on the new slice, not the whole list", () => {
+    expect(href("guest_applications")).toBe(
+      `/admin/submissions?tab=guests&${INBOX_STATUS_PARAM}=${INBOX_NEW_STATUS}`,
+    )
+  })
+
+  it("opens sponsorship leads on the new slice, not the whole list", () => {
+    expect(href("sponsorship_leads")).toBe(
+      `/admin/submissions?tab=sponsors&${INBOX_STATUS_PARAM}=${INBOX_NEW_STATUS}`,
+    )
+  })
+
+  it("keeps the teaser-question filter", () => {
+    expect(href("teaser_questions")).toBe("/admin/teaser-questions?status=pending")
+  })
+
+  it("sends every submissions channel through the shared param name", () => {
+    for (const c of CH) {
+      if (!c.href.startsWith("/admin/submissions")) continue
+      expect(c.href).toContain(`${INBOX_STATUS_PARAM}=`)
+    }
+  })
+})
+
+/**
+ * The destination filter and the counter must be ONE rule. `guest_applications`
+ * and `sponsorship_leads` are nullable with no CHECK, and the counter's
+ * `COALESCE(status,'new')` deliberately counts a NULL as new; if the list
+ * dropped those rows the card would count records the page then hides.
+ */
+describe("matchesInboxStatus — the in-memory twin of COALESCE(status,'new')", () => {
+  it("treats a NULL status as new, exactly like the SQL", () => {
+    expect(matchesInboxStatus(null, "new")).toBe(true)
+    expect(matchesInboxStatus(undefined, "new")).toBe(true)
+  })
+
+  it("treats an empty-string status as new too", () => {
+    expect(matchesInboxStatus("", "new")).toBe(true)
+  })
+
+  it("excludes rows that have already been triaged", () => {
+    expect(matchesInboxStatus("accepted", "new")).toBe(false)
+    expect(matchesInboxStatus("under_review", "new")).toBe(false)
+  })
+
+  it("matches a non-new filter exactly, without the NULL fallback firing", () => {
+    expect(matchesInboxStatus("accepted", "accepted")).toBe(true)
+    expect(matchesInboxStatus(null, "accepted")).toBe(false)
+  })
+
+  it("matches everything when there is no filter — the unfiltered entrance", () => {
+    expect(matchesInboxStatus(null, null)).toBe(true)
+    expect(matchesInboxStatus("rejected", null)).toBe(true)
   })
 })

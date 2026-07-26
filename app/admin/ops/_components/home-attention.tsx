@@ -151,7 +151,13 @@ function NextActionRow({
       data-eir-row
       data-stalled={stalled !== null ? "true" : "false"}
     >
-      <div className="flex items-start justify-between gap-3">
+      {/* Below `sm` this stacks. The CTA is `shrink-0`, so side-by-side it
+          took ~110px of a 390px row and left the title ~200px — half the
+          queue truncated mid-word and the operator could not tell WHICH
+          episode a row was about. The title column keeps `min-w-0`: without
+          it a flex item refuses to shrink below its content and `truncate`
+          never engages at all. */}
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between sm:gap-3">
         <div className="min-w-0 flex-1">
           <div className="mb-1 flex flex-wrap items-center gap-2">
             <span className="rounded-full bg-muted/30 px-1.5 py-0.5 text-[10px] uppercase tracking-wider text-muted-foreground">
@@ -172,13 +178,23 @@ function NextActionRow({
               {formatDateTime(updatedAt)}
             </span>
           </div>
-          <h3 className="truncate text-[13px] font-semibold leading-tight">{title}</h3>
-          <p className="mt-1 line-clamp-1 text-[11.5px] text-muted-foreground/85">
+          {/* Two lines on mobile where the row is full-width, one truncated
+              line on wider screens where the CTA sits alongside. */}
+          <h3 className="line-clamp-2 text-[13px] font-semibold leading-tight sm:truncate">
+            {title}
+          </h3>
+          {/* «ما المطلوب» — was `line-clamp-1`, which cut the instruction in
+              EVERY row, not just the long ones. Two lines fits the sentences
+              this field actually holds (lib/khat-brain/next-action.ts). */}
+          <p className="mt-1 line-clamp-2 text-[11.5px] text-muted-foreground/85">
             {description}
           </p>
         </div>
         <span
-          className={"shrink-0 rounded-xl border px-3 py-1.5 text-[11.5px] font-medium " + toneCta}
+          className={
+            "shrink-0 self-start rounded-xl border px-3 py-1.5 text-[11.5px] font-medium " +
+            toneCta
+          }
         >
           {actionLabel} ←
         </span>

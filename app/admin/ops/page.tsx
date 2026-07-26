@@ -61,6 +61,7 @@ import {
   deriveAiHint,
   deriveCostCapLine,
   deriveCostStatus,
+  derivePipelineSummary,
   deriveQueueStatus,
   deriveSystemHealth,
   deriveWorkerSentence,
@@ -74,10 +75,12 @@ import { getStaleEirs } from "@/lib/khat-brain/staleness"
 import { buildAttentionQueue } from "@/lib/khat-brain/attention"
 import { formatUtc } from "@/lib/ops/format"
 import { PHASE_LABEL } from "@/lib/khat-brain/phase-labels"
-import { EPISODE_PHASES, type EpisodePhase } from "@/lib/db/schema/eir"
+import { type EpisodePhase } from "@/lib/db/schema/eir"
 import { checkPageRole, hasRole } from "@/lib/api-utils"
 import { getInboxCounts, buildInboxChannels, totalWaiting } from "@/lib/ops/inbox"
+import { getAgendaRows, buildAgenda } from "@/lib/ops/agenda"
 import { HomeAttention } from "./_components/home-attention"
+import { AgendaSection } from "./_components/agenda-section"
 import { InboxSection } from "./_components/inbox-section"
 import { NoAccess } from "./_components/no-access"
 
@@ -386,15 +389,19 @@ export default async function OpsDashboardPage() {
   // only episodes not materialized in the DB), so this number is larger
   // than the analytics dashboard's «إجمالي الحلقات (قاعدة الموقع)», which
   // counts the episodes table alone. Both cards state their source.
-  const [snap, publishedEpisodes, recentEirs, staleEirs, inboxCounts] = await Promise.all([
-    takeOpsSnapshot(),
-    getEpisodes({}).then((eps) => eps.length).catch(() => null),
-    getRecentActiveEirs(),
-    getStaleEirs(),
-    // The four human channels in ONE statement (lib/ops/inbox.ts); it swallows
-    // its own errors into `null`, so it can never blank the page.
-    getInboxCounts(),
-  ])
+  const [snap, publishedEpisodes, recentEirs, staleEirs, inboxCounts, agendaRows] =
+    await Promise.all([
+      takeOpsSnapshot(),
+      getEpisodes({}).then((eps) => eps.length).catch(() => null),
+      getRecentActiveEirs(),
+      getStaleEirs(),
+      // The four human channels in ONE statement (lib/ops/inbox.ts); it swallows
+      // its own errors into `null`, so it can never blank the page.
+      getInboxCounts(),
+      // Every dated commitment in ONE statement (lib/ops/agenda.ts). Same
+      // contract: errors become `null`, never a blank or a false "nothing due".
+      getAgendaRows(),
+    ])
 
   const queue = snap.queue.ok ? snap.queue.data : null
   const ai = snap.aiRouter.ok ? snap.aiRouter.data : null
@@ -442,26 +449,17 @@ export default async function OpsDashboardPage() {
   const aiHint = deriveAiHint(aiActivity)
   const costCapLine = deriveCostCapLine(cost)
 
-  // ── Episode pipeline summary (active phases only) ──────────────────────────
-  const publishedCount = eir ? (eir.countByPhase.published ?? 0) : null
-  const activePhases = eir
-    ? EPISODE_PHASES.filter((p) => !TERMINAL_PHASES.has(p) && (eir.countByPhase[p] ?? 0) > 0).map(
-        (p) => ({ phase: p, label: PHASE_LABEL[p], count: eir.countByPhase[p] ?? 0 }),
-      )
-    : []
-  const inPipeline = activePhases.reduce((s, p) => s + p.count, 0)
+  // ── Episode pipeline summary ───────────────────────────────────────────────
+  // Derived in `lib/ops/home-metrics.ts` so the headline and the grid under it
+  // are computed ONCE, from one scope. They used to be built separately here:
+  // the headline summed non-terminal phases, the grid rendered everything
+  // except `archived`, and the cells therefore never added up to the number
+  // printed above them in the same card.
+  const pipeline = derivePipelineSummary(eir, PHASE_LABEL, TERMINAL_PHASES)
 
-  // Full phase distribution (all 14 non-archived stages, incl. empty ones) —
-  // merged in from the retired command center (P2.2). Empty stages render
-  // dimmed so the operator sees the whole pipeline shape, not just active work.
-  const allPhases = eir
-    ? EPISODE_PHASES.filter((p) => p !== "archived").map((p) => ({
-        phase: p,
-        label: PHASE_LABEL[p],
-        count: eir.countByPhase[p] ?? 0,
-      }))
-    : []
-  const phasePeak = Math.max(1, ...allPhases.map((p) => p.count))
+  // The agenda: rows in → capped, sorted, overdue-flagged items out. `null`
+  // propagates as "unreadable" and renders as such.
+  const agenda = buildAgenda(agendaRows)
 
   return (
     <div dir="rtl" lang="ar">
@@ -502,6 +500,9 @@ export default async function OpsDashboardPage() {
 
       {/* ما يحتاج انتباهك — one card per episode, stalls shown as a badge */}
       <HomeAttention queue={attentionQueue} />
+
+      {/* الأيام الجاية — recordings, scheduled content, and due follow-ups */}
+      <AgendaSection agenda={agenda} />
 
       {/* Headline stats. The cost tile is ADMIN-only and is REMOVED from
           the grid for lower roles — a permanent "—" placeholder would
@@ -562,7 +563,9 @@ export default async function OpsDashboardPage() {
           value={publishedEpisodes ?? "—"}
           icon={Sparkles}
           tone="accent"
-          hint="الأرشيف الكامل مع يوتيوب"
+          // Names its source, because the pipeline card below carries a
+          // SECOND «منشورة» number with a different (smaller) definition.
+          hint="الأرشيف الكامل مع يوتيوب — غير عدّاد المرحلة في بطاقة خط الإنتاج"
           // Without the cost tile the row is 3 tiles; on the 2-column
           // mobile grid the third would sit alone at half width and read
           // as a card that dropped out. Full-width below `sm` instead.
@@ -600,26 +603,40 @@ export default async function OpsDashboardPage() {
           </Link>
         </div>
 
-        {eir === null ? (
+        {pipeline === null ? (
           <p className="mt-4 text-[12.5px] text-muted-foreground">تعذّر جلب بيانات المسار.</p>
         ) : (
           <div className="mt-4">
             <div className="flex items-baseline gap-3">
-              <div className="text-[32px] font-semibold leading-none tracking-tight text-foreground tabular-nums">
-                {inPipeline}
+              <div
+                className="text-[32px] font-semibold leading-none tracking-tight text-foreground tabular-nums"
+                data-pipeline-total
+              >
+                {pipeline.inPipeline}
               </div>
+              {/* The published figure is named by its SOURCE. There is a second
+                  «منشورة» number on this page — the KPI tile above — and it is
+                  legitimately larger: that one counts the public archive
+                  (episodes + YouTube), this one counts production records that
+                  reached the `published` PHASE. Two different questions; both
+                  now say which one they answer. */}
               <div className="text-[12px] text-muted-foreground">
-                حلقة في خط الإنتاج
-                {publishedCount !== null ? (
-                  <span className="text-muted-foreground"> · {publishedCount} منشورة</span>
-                ) : null}
+                حلقة داخل خط الإنتاج
+                <span className="text-muted-foreground">
+                  {" "}
+                  · {pipeline.publishedCount} سجل وصل مرحلة «منشورة»
+                </span>
               </div>
             </div>
 
-            {/* Full phase distribution — the 14 stages, compact (P2.2). */}
-            <div className="mt-5 grid grid-cols-3 gap-2 sm:grid-cols-4 lg:grid-cols-7">
-              {allPhases.map((p) => {
-                const pct = (p.count / phasePeak) * 100
+            {/* Phase distribution — exactly the stages the number above counts,
+                empty ones included so the pipeline's shape stays visible. */}
+            <div
+              className="mt-5 grid grid-cols-3 gap-2 sm:grid-cols-4 lg:grid-cols-7"
+              data-pipeline-grid
+            >
+              {pipeline.cells.map((p) => {
+                const pct = (p.count / pipeline.peak) * 100
                 return (
                   <div
                     key={p.phase}

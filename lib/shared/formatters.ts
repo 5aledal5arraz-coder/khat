@@ -271,3 +271,23 @@ export const AR_MONTHS = [
   "يناير", "فبراير", "مارس", "أبريل", "مايو", "يونيو",
   "يوليو", "أغسطس", "سبتمبر", "أكتوبر", "نوفمبر", "ديسمبر",
 ] as const
+
+/**
+ * A dated commitment, written the way an Arabic reader says it:
+ * «26 يوليو · 14:30». Western digits, per the admin's stated convention
+ * (`lib/ops/format.ts` §11) — the month NAME is what makes a date scannable,
+ * not the numeral system.
+ *
+ * Local timezone, matching `formatDate`/`formatDateTime` above rather than
+ * introducing a second clock into the same screen.
+ * Invalid input returns "—", never "NaN يناير".
+ */
+export function formatArabicDateTime(date: string | Date): string {
+  const d = typeof date === "string" ? new Date(date) : date
+  if (!(d instanceof Date) || isNaN(d.getTime())) return "—"
+  const day = d.getDate()
+  const month = AR_MONTHS[d.getMonth()]
+  const hh = String(d.getHours()).padStart(2, "0")
+  const mm = String(d.getMinutes()).padStart(2, "0")
+  return `${day} ${month} · ${hh}:${mm}`
+}

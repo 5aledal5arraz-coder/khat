@@ -14,6 +14,7 @@ import {
   deriveAiHint,
   deriveCostCapLine,
   deriveCostStatus,
+  derivePipelineSummary,
   deriveQueueStatus,
   deriveSystemHealth,
 } from "@/lib/ops/home-metrics"
@@ -617,5 +618,79 @@ describe("deriveSystemHealth", () => {
     const out = deriveSystemHealth(okSnapshot())
     expect(out.workerAlive).toBe(true)
     expect(out.level).toBe("healthy")
+  })
+})
+
+// ─── Episode pipeline card ───────────────────────────────────────────
+
+/**
+ * The card printed a headline and a phase grid that could not both be right:
+ * the headline summed the NON-TERMINAL phases while the grid rendered every
+ * phase except `archived` — i.e. it included `published`. Reading the card
+ * top-to-bottom, the cells never added up to the number above them.
+ *
+ * The invariant below is the fix, expressed as a property rather than as a
+ * hope that the JSX keeps using the same list.
+ */
+describe("derivePipelineSummary — the card's two numbers agree", () => {
+  const TERMINAL: ReadonlySet<EpisodePhase> = new Set<EpisodePhase>([
+    "published",
+    "archived",
+  ])
+  const LABELS = Object.fromEntries(
+    EPISODE_PHASES.map((p) => [p, `label:${p}`]),
+  ) as Record<EpisodePhase, string>
+
+  const counts = (over: Partial<Record<EpisodePhase, number>>) =>
+    Object.fromEntries(
+      EPISODE_PHASES.map((p) => [p, over[p] ?? 0]),
+    ) as Record<EpisodePhase, number>
+
+  const SAMPLE = counts({
+    idea: 3,
+    guest_discovery: 1,
+    researching: 2,
+    recorded: 4,
+    published: 41,
+    archived: 7,
+  })
+
+  it("makes the grid cells sum to EXACTLY the headline number", () => {
+    const s = derivePipelineSummary({ countByPhase: SAMPLE }, LABELS, TERMINAL)!
+    const gridTotal = s.cells.reduce((sum, c) => sum + c.count, 0)
+    expect(gridTotal).toBe(s.inPipeline)
+    expect(s.inPipeline).toBe(10)
+  })
+
+  it("keeps published OUT of both the headline and the grid", () => {
+    const s = derivePipelineSummary({ countByPhase: SAMPLE }, LABELS, TERMINAL)!
+    expect(s.cells.map((c) => c.phase)).not.toContain("published")
+    expect(s.inPipeline).not.toBe(51)
+  })
+
+  it("keeps archived out of the grid too", () => {
+    const s = derivePipelineSummary({ countByPhase: SAMPLE }, LABELS, TERMINAL)!
+    expect(s.cells.map((c) => c.phase)).not.toContain("archived")
+  })
+
+  it("still reports the published count, separately and by name", () => {
+    const s = derivePipelineSummary({ countByPhase: SAMPLE }, LABELS, TERMINAL)!
+    expect(s.publishedCount).toBe(41)
+  })
+
+  it("renders every non-terminal phase, including the empty ones", () => {
+    const s = derivePipelineSummary({ countByPhase: SAMPLE }, LABELS, TERMINAL)!
+    const expected = EPISODE_PHASES.filter((p) => !TERMINAL.has(p))
+    expect(s.cells.map((c) => c.phase)).toEqual(expected)
+  })
+
+  it("floors the bar peak at 1 so an all-zero pipeline never divides by zero", () => {
+    const s = derivePipelineSummary({ countByPhase: counts({}) }, LABELS, TERMINAL)!
+    expect(s.peak).toBe(1)
+    expect(s.inPipeline).toBe(0)
+  })
+
+  it("returns null when the section failed — never a confident zero", () => {
+    expect(derivePipelineSummary(null, LABELS, TERMINAL)).toBeNull()
   })
 })
