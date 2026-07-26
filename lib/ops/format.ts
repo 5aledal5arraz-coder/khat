@@ -66,6 +66,32 @@ export function humanizeAge(ms: number): string {
 }
 
 /**
+ * The FORWARD-looking twin of `humanizeAge`, for a commitment that has not
+ * happened yet. Lives here rather than in `lib/shared/formatters.ts` because
+ * it is the same Arabic dual/plural table as `humanizeAge` and would otherwise
+ * be a second, drifting copy of it.
+ *
+ *   -1              → "متأخر"       (already due — never phrased as "بعد …")
+ *   30 * 60_000     → "خلال ساعة"
+ *   3 * 3600_000    → "بعد 3 ساعات"
+ *   2 * 86_400_000  → "بعد يومين"
+ *   5 * 86_400_000  → "بعد 5 أيام"
+ *
+ * Sub-hour is deliberately NOT rounded down to "بعد 0 ساعة" the way a naive
+ * floor would; a commitment 10 minutes out is the most urgent case there is.
+ */
+export function humanizeDueIn(ms: number): string {
+  if (!Number.isFinite(ms)) return "—"
+  if (ms < 0) return "متأخر"
+  const minutes = Math.floor(ms / 60_000)
+  if (minutes < 60) return "خلال ساعة"
+  const hours = Math.floor(minutes / 60)
+  if (hours < 24) return arabicIn(hours, "ساعة واحدة", "ساعتين", "ساعة", "ساعات")
+  const days = Math.floor(hours / 24)
+  return arabicIn(days, "يوم واحد", "يومين", "يوم", "أيام")
+}
+
+/**
  * Apply Arabic dual + plural rules to a count + unit. Arabic has
  * distinct singular/dual/plural forms; this helper covers the four
  * units we use (second/minute/hour/day) without bringing in a full
@@ -89,10 +115,36 @@ function arabicAge(
   fewSingular: string,
   plural: string,
 ): string {
-  if (n === 1) return `منذ ${singularPhrase}`
-  if (n === 2) return `منذ ${dual}`
-  if (n >= 3 && n <= 10) return `منذ ${n} ${plural}`
-  return `منذ ${n} ${fewSingular}`
+  return `منذ ${arabicCountPhrase(n, singularPhrase, dual, fewSingular, plural)}`
+}
+
+/** Same table, forward tense — see `humanizeDueIn`. */
+function arabicIn(
+  n: number,
+  singularPhrase: string,
+  dual: string,
+  fewSingular: string,
+  plural: string,
+): string {
+  return `بعد ${arabicCountPhrase(n, singularPhrase, dual, fewSingular, plural)}`
+}
+
+/**
+ * The count → Arabic phrase rule, with NO tense prefix. Extracted so the past
+ * ("منذ") and future ("بعد") readings share one implementation rather than one
+ * of them quietly growing a different plural rule.
+ */
+function arabicCountPhrase(
+  n: number,
+  singularPhrase: string,
+  dual: string,
+  fewSingular: string,
+  plural: string,
+): string {
+  if (n === 1) return singularPhrase
+  if (n === 2) return dual
+  if (n >= 3 && n <= 10) return `${n} ${plural}`
+  return `${n} ${fewSingular}`
 }
 
 // ─── Severity → Tailwind class ───────────────────────────────────────
@@ -102,17 +154,22 @@ function arabicAge(
  * mapping — info/warn/error always have the same visual identity
  * across the dashboard.
  *
- * Uses tinted-translucent backgrounds (`/10`) + theme-aware text so
- * the badges read correctly in BOTH the light and dark KHAT themes.
- * The earlier solid-light palette (`bg-red-50`, `bg-gray-100`, …)
- * washed out to near-invisible on the dark museum background.
+ * Uses tinted-translucent backgrounds (`/10`) + `-700` text, the admin's
+ * documented coloured-text step (`ui-kit.tsx`). The earlier solid-light
+ * palette (`bg-red-50`, `bg-gray-100`, …) washed out to near-invisible.
+ *
+ * The `dark:` variants that used to sit here were DEAD: `app/layout.tsx`
+ * strips `.dark` from the root element at runtime and `globals.css` defines no
+ * `.dark {}` block, so the app is a single forced-light surface. Carrying them
+ * cost nothing at runtime but claimed a dark theme existed, which is how the
+ * next person adds a sixth one. Only `app/admin/ops/` consumes this helper.
  */
 export function severityClass(s: "info" | "warn" | "error" | string): string {
   switch (s) {
     case "warn":
-      return "border border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-400"
+      return "border border-amber-500/30 bg-amber-500/10 text-amber-700"
     case "error":
-      return "border border-red-500/30 bg-red-500/10 text-red-700 dark:text-red-400"
+      return "border border-red-500/30 bg-red-500/10 text-red-700"
     case "info":
     default:
       return "border border-border bg-muted/60 text-muted-foreground"

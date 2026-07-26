@@ -26,11 +26,11 @@ export function AgendaSection({ agenda }: { agenda: Agenda | null }) {
 
   return (
     <section className="mb-8" data-agenda-section>
-      <h2 className="mb-3 flex items-center gap-2 text-[15px] font-semibold tracking-tight text-foreground">
+      <h2 className="mb-3 flex items-center gap-2 text-[15px] font-semibold text-foreground">
         <CalendarClock className="h-4 w-4 text-violet-700" />
         الأيام الجاية
         {overdueCount > 0 ? (
-          <span className="rounded-md bg-amber-500/10 px-1.5 py-0.5 text-[10px] font-semibold tabular-nums text-amber-700">
+          <span className="rounded-md bg-amber-500/10 px-1.5 py-0.5 text-[11px] font-semibold tabular-nums text-amber-700">
             {overdueCount} متأخر
           </span>
         ) : null}
@@ -38,14 +38,14 @@ export function AgendaSection({ agenda }: { agenda: Agenda | null }) {
 
       {agenda === null ? (
         <div
-          className="rounded-2xl border border-border/60 bg-card p-4 text-[12.5px] text-muted-foreground"
+          className="rounded-2xl border border-border/60 bg-card p-4 text-[13px] text-muted-foreground"
           data-agenda-state="unreadable"
         >
           تعذّر قراءة المواعيد — أعِد تحميل الصفحة، وإذا استمر بلّغ مدير النظام.
         </div>
       ) : agenda.items.length === 0 ? (
         <div
-          className="rounded-2xl border border-border/60 bg-card p-4 text-[12.5px] text-muted-foreground"
+          className="rounded-2xl border border-border/60 bg-card p-4 text-[13px] text-muted-foreground"
           data-agenda-state="empty"
         >
           ما فيه مواعيد في الـ{AGENDA_WINDOW_DAYS} يوم الجاية، ولا متابعات متأخرة.
@@ -69,19 +69,19 @@ export function AgendaSection({ agenda }: { agenda: Agenda | null }) {
               >
                 <span className="min-w-0 flex-1">
                   <span className="mb-1 flex flex-wrap items-center gap-2">
-                    <span className="rounded-full bg-muted/40 px-1.5 py-0.5 text-[10px] text-muted-foreground">
+                    <span className="rounded-full bg-muted/40 px-1.5 py-0.5 text-[11px] text-muted-foreground">
                       {item.kindLabel}
                     </span>
                     {item.overdue ? (
                       <span
-                        className="inline-flex items-center gap-1 rounded-full bg-amber-500/10 px-2 py-0.5 text-[10px] font-medium text-amber-700"
+                        className="inline-flex items-center gap-1 rounded-full bg-amber-500/10 px-2 py-0.5 text-[11px] font-medium text-amber-700"
                         data-agenda-overdue-badge
                       >
                         <AlertTriangle className="h-3 w-3" />
                         متأخر
                       </span>
                     ) : null}
-                    <span className="text-[10px] text-muted-foreground">
+                    <span className="text-[11px] text-muted-foreground">
                       {formatArabicDateTime(item.due_at)}
                     </span>
                   </span>
@@ -91,7 +91,7 @@ export function AgendaSection({ agenda }: { agenda: Agenda | null }) {
                     {item.title}
                   </span>
                 </span>
-                <ArrowLeft className="h-4 w-4 shrink-0 self-start text-muted-foreground/50 sm:self-center" />
+                <ArrowLeft className="h-4 w-4 shrink-0 self-start text-muted-foreground sm:self-center" />
               </Link>
             ))}
           </div>

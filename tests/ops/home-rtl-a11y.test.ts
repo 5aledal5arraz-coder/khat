@@ -148,7 +148,9 @@ describe("attention rows — the title survives 390px", () => {
 
   it("no longer clamps «ما المطلوب» to a single line", () => {
     expect(codeOnly(ATTENTION)).not.toContain("line-clamp-1")
-    expect(ATTENTION).toMatch(/line-clamp-2 text-\[11\.5px\]/)
+    // 11px, not 11.5 — the admin type scale bottoms out at 11 (see the
+    // scale table in app/admin/ops/page.tsx). The clamp is what this guards.
+    expect(ATTENTION).toMatch(/line-clamp-2 text-\[11px\]/)
   })
 })
 
@@ -167,7 +169,13 @@ describe("agenda rows — same treatment, so the section is not born broken", ()
 
 describe("ops loading skeleton — same sections, same order", () => {
   /** The section order `page.tsx` actually renders. */
-  const ORDER = ["الوارد", "ما يحتاج انتباهك", "الأيام الجاية", "KPI row", "ابدأ من هنا", "خط إنتاج"]
+  const ORDER = [
+    "الوارد",
+    "ما يحتاج انتباهك",
+    "الأيام الجاية",
+    "نبض التشغيل",
+    "خط إنتاج",
+  ]
 
   it("includes a placeholder for every section, including the two it used to skip", () => {
     for (const section of ORDER) {
@@ -185,10 +193,14 @@ describe("ops loading skeleton — same sections, same order", () => {
   })
 
   it("mirrors the page's own grid breakpoints, not a generic 4-up row", () => {
-    // الوارد: 1 col mobile → 4 on xl, exactly like inbox-section.tsx.
-    expect(LOADING).toContain("grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-4")
-    // Phase grid: 13 non-terminal cells, 3 → 4 → 7 columns.
-    expect(LOADING).toContain("grid-cols-3 gap-2 sm:grid-cols-4 lg:grid-cols-7")
-    expect(LOADING).toContain("length: 13")
+    // الوارد: 2 cols mobile → 4 on xl, exactly like inbox-section.tsx.
+    expect(LOADING).toContain("grid-cols-2 gap-2 xl:grid-cols-4")
+    // Funnel: 5 stage tiles, 5 columns at every width.
+    expect(LOADING).toContain("grid-cols-5 gap-1.5 sm:gap-2")
+    expect(LOADING).toContain("length: 5")
+  })
+
+  it("caps the attention rows at the same 1100px the page does", () => {
+    expect(LOADING).toContain("max-w-[1100px]")
   })
 })

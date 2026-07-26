@@ -24,9 +24,9 @@ const AI_RUN_STATUS_ORDER = [
 function modeClass(mode: string): string {
   switch (mode) {
     case "enforce":
-      return "border border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400"
+      return "border border-emerald-500/30 bg-emerald-500/10 text-emerald-700"
     case "report":
-      return "border border-blue-500/30 bg-blue-500/10 text-blue-700 dark:text-blue-400"
+      return "border border-blue-500/30 bg-blue-500/10 text-blue-700"
     case "off":
     default:
       return "border border-border bg-muted/60 text-muted-foreground"

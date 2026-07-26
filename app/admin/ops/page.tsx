@@ -3,19 +3,48 @@
  *
  * Server component. Calls `takeOpsSnapshot()` server-side (no API route).
  *
- * Design intent (redesign): the home answers three questions at a glance —
- *   1. Is everything OK?      → one System-Health band (green by default,
- *      flips to an attention banner ONLY when something is actually wrong).
- *   2. What needs me / what's the pulse? → a tidy 4-KPI row + a compact
- *      episode-pipeline summary (active phases only, not a 15-cell grid).
- *   3. What do I want to go do? → a promoted "ابدأ من هنا" launchpad of the
- *      six daily workflows.
- * The deep operational telemetry (queue/events/AI-router/pipeline/feed) now
- * lives one click away at `/admin/ops/details` — nothing was removed.
+ * Design intent: the home is read top-down, and the order IS the priority —
+ *   1. ملخّص اليوم    — one computed sentence: who is waiting, what is due,
+ *      is the machine healthy (lib/ops/day-summary.ts; no AI call).
+ *   2. شريط الحالة    — the System-Health band. Green is EARNED, never default.
+ *   3. الوارد         — the four human queues. A person waiting outranks a record.
+ *   4. ما يحتاج انتباهك — the deduped episode attention queue.
+ *   5. الأيام الجاية  — every dated commitment.
+ *   6. نبض التشغيل    — THREE machine indicators. Deliberately down here: it is
+ *      the least actionable block on the page («حلقات منشورة ٤١» asks nothing).
+ *   7. خط إنتاج الحلقات — the five-stage funnel, each stage a filtered link.
+ *
+ * The «ابدأ من هنا» launchpad was DELETED: six tiles with no state and no
+ * count, each a verbatim duplicate of an always-visible sidebar item, costing
+ * 558px at 390px. Omar's rule — a link with a number beats a link without one
+ * — and «الوارد» took its place in practice. Every destination it held is
+ * still in the sidebar (locked by tests/ops/home-structure.test.ts).
+ *
+ * The deep operational telemetry (queue/events/AI-router/the full per-phase
+ * pipeline breakdown/feed) lives one click away at `/admin/ops/details` —
+ * nothing was removed, only rolled up.
  *
  * Visual system: a LIGHT, Apple-clean workspace. The admin shell already
  * flips KHAT tokens to the light surface; bespoke tiles here use a calm
  * slate palette with a single, sparing accent. No motion — quietly premium.
+ *
+ * TYPE SCALE — six steps, and nothing off them. This screen used to carry
+ * SIXTEEN distinct sizes (9, 10, 10.5, 11, 11.5, 12, 12.5, 13, 14, 15, 16, 17,
+ * 26, 28, 30, 32 + `text-xs`/`text-sm`), most of them half-pixel apart. At
+ * those deltas a size stops encoding hierarchy and just reads as inconsistency.
+ * The floor also mattered on its own: an Arabic glyph body is ~74% of the
+ * equivalent Latin x-height, so Arabic needs a LARGER minimum than a Latin UI,
+ * not a smaller one — and this screen bottomed out at 9px.
+ *   30px  display  — the page title, once per page
+ *   26px  metric   — headline numerals (KPI values, pipeline total, inbox)
+ *   17px  lead     — health-band title, funnel numeral
+ *   15px  section  — h2 headings + the «ملخّص اليوم» lead sentence
+ *   13px  body     — labels, row titles, CTAs, links, sentences
+ *   11px  meta     — badges, timestamps, hints. Hard floor.
+ * Sizes only — no element moved, no layout changed.
+ *
+ * `tracking-*` is gone from every Arabic run on this page (see the h1). It is
+ * kept on the numerals, which are Latin and pair with `tabular-nums`.
  *
  * Auth: the admin layout only AUTHENTICATES (valid session → render); it
  * performs no role check, and the proxy only checks that the session
@@ -36,20 +65,13 @@
 import type { ReactNode } from "react"
 import Link from "next/link"
 import {
-  Compass,
-  Telescope,
-  PlayCircle,
-  Mic,
-  Mail,
-  Inbox,
+  Activity,
   ListChecks,
-  Cpu,
   CircleDollarSign,
   Sparkles,
   CheckCircle2,
   AlertTriangle,
   Gauge,
-  ArrowUpLeft,
   ArrowLeft,
   type LucideIcon,
 } from "lucide-react"
@@ -58,9 +80,9 @@ import {
   deriveAiActivity,
   deriveAiAlerts,
   deriveAiHealthSentence,
-  deriveAiHint,
   deriveCostCapLine,
   deriveCostStatus,
+  derivePipelineFunnel,
   derivePipelineSummary,
   deriveQueueStatus,
   deriveSystemHealth,
@@ -68,6 +90,7 @@ import {
   type AiActivity,
   type SystemHealth,
 } from "@/lib/ops/home-metrics"
+import { deriveDaySummary } from "@/lib/ops/day-summary"
 import type { WorkerHeartbeat } from "@/lib/ops/diagnostics"
 import { getEpisodes } from "@/lib/queries/episodes"
 import { getRecentActiveEirs } from "@/lib/eir/service"
@@ -75,7 +98,8 @@ import { getStaleEirs } from "@/lib/khat-brain/staleness"
 import { buildAttentionQueue } from "@/lib/khat-brain/attention"
 import { formatUtc } from "@/lib/ops/format"
 import { PHASE_LABEL } from "@/lib/khat-brain/phase-labels"
-import { type EpisodePhase } from "@/lib/db/schema/eir"
+import { TERMINAL_PHASES } from "@/lib/khat-brain/pipeline-stages"
+import { arabicPluralNoun, formatArabicCount } from "@/lib/shared/formatters"
 import { checkPageRole, hasRole } from "@/lib/api-utils"
 import { getInboxCounts, buildInboxChannels, totalWaiting } from "@/lib/ops/inbox"
 import { getAgendaRows, buildAgenda } from "@/lib/ops/agenda"
@@ -86,23 +110,40 @@ import { NoAccess } from "./_components/no-access"
 
 export const dynamic = "force-dynamic"
 
-// Phases that represent live work "in the pipeline" — everything except the
-// terminal published/archived buckets (published is celebrated separately).
-const TERMINAL_PHASES: ReadonlySet<EpisodePhase> = new Set<EpisodePhase>([
-  "published",
-  "archived",
-])
+// `TERMINAL_PHASES` — the phases that have LEFT the pipeline — now lives in
+// `lib/khat-brain/pipeline-stages.ts`, next to the five-stage grouping the
+// funnel below renders. They describe the same scope and must not be able to
+// drift apart in two files.
 
 // ─── Calm tone accents (used sparingly) ──────────────────────────────────────
 
 type StatTone = "neutral" | "accent" | "gold"
 
+// `-700`, not `-600`: the admin is a single forced-light surface and its
+// colored text floor is documented by `ui-kit.tsx` (TONE_ICON/TONE_VALUE) —
+// `-600` on a `-50` tint lands under 4.5:1 at these sizes.
 const STAT_ICON: Record<StatTone, string> = {
   neutral: "bg-muted text-muted-foreground",
-  accent: "bg-violet-50 text-violet-600",
-  gold: "bg-amber-50 text-amber-600",
+  accent: "bg-violet-50 text-violet-700",
+  gold: "bg-amber-50 text-amber-700",
 }
 
+/**
+ * NOT `StatCard` from `app/admin/components/ui-kit.tsx`. Checked, and kept
+ * local for two behavioural reasons, not for taste:
+ *   • `hint` is a `ReactNode` here. The cost tile renders FOUR stacked
+ *     `<span className="block">` caveats (timezone, cap line, enforce
+ *     warning, "this is a lower bound"). `StatCard.hint` is typed `string`
+ *     and would collapse all four into one run — losing the qualification
+ *     that keeps that number honest.
+ *   • The layouts genuinely differ: `StatCard` puts the icon in a 40px square
+ *     at the inline-start with the text beside it; this tile puts label and
+ *     icon on a header row with a 26px numeral beneath. Swapping would be a
+ *     re-layout of the KPI row, which this pass is explicitly not doing.
+ * `className` (the grid escape hatch) is the third gap, and the cheapest to
+ * close — but on its own it does not justify the merge. If `StatCard.hint`
+ * ever widens to `ReactNode` AND this row is redesigned, revisit.
+ */
 function StatTile({
   label,
   value,
@@ -125,51 +166,23 @@ function StatTile({
   return (
     <div
       className={
-        "rounded-2xl border border-border/80 bg-white p-5 shadow-[0_1px_2px_rgba(15,23,42,0.04),0_8px_24px_-12px_rgba(15,23,42,0.10)] " +
+        "rounded-2xl border border-border/80 bg-card p-5 shadow-[0_1px_2px_rgba(15,23,42,0.04),0_8px_24px_-12px_rgba(15,23,42,0.10)] " +
         className
       }
     >
       <div className="flex items-center justify-between">
-        <span className="text-[12px] font-medium text-muted-foreground">{label}</span>
+        <span className="text-[13px] font-medium text-muted-foreground">{label}</span>
         <span
           className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full ${STAT_ICON[tone]}`}
         >
           <Icon className="h-[15px] w-[15px]" />
         </span>
       </div>
-      <div className="mt-3 text-[28px] font-semibold leading-none tracking-tight text-foreground tabular-nums">
+      <div className="mt-3 text-[26px] font-semibold leading-none tracking-tight text-foreground tabular-nums">
         {value}
       </div>
-      {hint ? <div className="mt-2 text-[11.5px] text-muted-foreground">{hint}</div> : null}
+      {hint ? <div className="mt-2 text-[11px] text-muted-foreground">{hint}</div> : null}
     </div>
-  )
-}
-
-function QuickTile({
-  href,
-  icon: Icon,
-  label,
-  description,
-}: {
-  href: string
-  icon: LucideIcon
-  label: string
-  description: string
-}) {
-  return (
-    <Link
-      href={href}
-      className="group flex items-center gap-3.5 rounded-2xl border border-border/80 bg-card p-4 shadow-[0_1px_2px_rgba(15,23,42,0.04)] transition-colors hover:border-muted-foreground/30 hover:bg-muted/60"
-    >
-      <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-muted text-muted-foreground transition-colors group-hover:bg-foreground group-hover:text-white">
-        <Icon className="h-5 w-5" />
-      </span>
-      <span className="min-w-0 flex-1">
-        <span className="block truncate text-[13.5px] font-semibold text-foreground">{label}</span>
-        <span className="block truncate text-[11.5px] text-muted-foreground">{description}</span>
-      </span>
-      <ArrowUpLeft className="h-4 w-4 shrink-0 text-muted-foreground/50 transition-colors group-hover:text-muted-foreground" />
-    </Link>
   )
 }
 
@@ -231,11 +244,11 @@ function SystemHealthBand({
         chip: "bg-red-100 text-red-700",
         title: "text-foreground",
         sub: "text-muted-foreground",
-        issueChip: "border-red-200 text-red-800",
+        issueChip: "border-red-200 text-red-700",
       }
     : !known
       ? {
-          wrap: "border-border bg-white",
+          wrap: "border-border bg-card",
           chip: "bg-muted text-muted-foreground",
           title: "text-foreground",
           sub: "text-muted-foreground",
@@ -256,7 +269,7 @@ function SystemHealthBand({
             chip: "bg-amber-100 text-amber-700",
             title: "text-foreground",
             sub: "text-muted-foreground",
-            issueChip: "border-amber-200 text-amber-800",
+            issueChip: "border-amber-200 text-amber-700",
           }
 
   const Icon = stopped || (known && !healthy) ? AlertTriangle : known ? CheckCircle2 : Gauge
@@ -274,7 +287,7 @@ function SystemHealthBand({
           <Icon className="h-[22px] w-[22px]" />
         </span>
         <div>
-          <div className={`text-[16px] font-semibold tracking-tight ${tone.title}`}>
+          <div className={`text-[17px] font-semibold ${tone.title}`}>
             {workerDead
               ? "الإنتاج متوقف — عامل المهام ميت"
               : health.hasCritical
@@ -288,7 +301,7 @@ function SystemHealthBand({
                     : "هناك ما يحتاج انتباهك"}
           </div>
           {!known ? (
-            <div className={`mt-0.5 text-[12.5px] ${tone.sub}`}>
+            <div className={`mt-0.5 text-[13px] ${tone.sub}`}>
               {!health.allSectionsOk
                 ? canSeeDetails
                   ? "تعذّر جلب بعض المؤشّرات — راجع تفاصيل التشغيل لمعرفة المصدر"
@@ -298,7 +311,7 @@ function SystemHealthBand({
                   workerSentence}
             </div>
           ) : healthy ? (
-            <div className={`mt-0.5 text-[12.5px] ${tone.sub}`}>
+            <div className={`mt-0.5 text-[13px] ${tone.sub}`}>
               {/* Was a hard-coded «العامل نشط», which could not tell a busy
                   worker from an idle one — the exact distinction the red
                   false-alarm hinged on. */}
@@ -310,7 +323,7 @@ function SystemHealthBand({
                without this the operator has no way to see whether production
                is still moving while they read them. Skipped in the red
                branch, where the title AND a chip already say it. */
-            <div className={`mt-0.5 text-[12.5px] ${tone.sub}`}>{workerSentence}</div>
+            <div className={`mt-0.5 text-[13px] ${tone.sub}`}>{workerSentence}</div>
           ) : null}
           {showIssues ? (
             <div className="mt-1.5 flex flex-wrap gap-1.5">
@@ -327,29 +340,22 @@ function SystemHealthBand({
                   // and the operator still has to be able to tell WHICH
                   // chip is the outage.
                   className={
-                    "inline-flex items-center gap-1.5 rounded-xl border bg-white px-2.5 py-1 text-[11.5px] font-medium " +
+                    "inline-flex items-center gap-1.5 rounded-xl border bg-card px-2.5 py-1 text-[11px] font-medium tabular-nums " +
                     (it.severity === "critical"
-                      ? "border-red-200 text-red-800"
+                      ? "border-red-200 text-red-700"
                       : tone.issueChip)
                   }
                 >
-                  {/* Counts read before the label ("5 مهام متعثّرة");
-                      qualitative values read after it ("… منذ 21 يوم").
-                      An empty value renders the label alone — some alerts
-                      are a statement, not a measurement. */}
-                  {typeof it.value === "number" ? (
-                    <>
-                      <span className="tabular-nums">{it.value}</span>
-                      {it.label}
-                    </>
-                  ) : it.value === "" ? (
-                    it.label
-                  ) : (
-                    <>
-                      {it.label}
-                      <span>{it.value}</span>
-                    </>
-                  )}
+                  {/* The label is the whole sentence and already carries its
+                      own count, agreeing in number («3 مهام متعثّرة»,
+                      «مهمتان متعثّرتان») — see lib/ops/home-metrics.ts. The
+                      old numeric branch printed «{value}{label}» over a fixed
+                      singular and produced «1 مهام متعثّرة»; `value` is now
+                      typed `string` so that shape cannot come back.
+                      A qualitative value still reads AFTER the label
+                      («العامل … ما يرد — آخر نبض · منذ 21 يوم»). */}
+                  {it.label}
+                  {it.value === "" ? null : <span>{it.value}</span>}
                 </span>
               ))}
             </div>
@@ -359,7 +365,10 @@ function SystemHealthBand({
       {canSeeDetails ? (
         <Link
           href="/admin/ops/details"
-          className="inline-flex items-center gap-1.5 rounded-full border border-border bg-white px-3.5 py-2 text-[12.5px] font-semibold text-muted-foreground shadow-[0_1px_2px_rgba(15,23,42,0.04)] transition-colors hover:border-border hover:text-foreground"
+          // 37px tall before this — under the 44px pointer floor (WCAG 2.5.5,
+          // and short of the 24px minimum of 2.5.8 only by luck). Mobile gets
+          // the full target; the compact desktop chrome is unchanged at `sm`.
+          className="inline-flex min-h-[44px] items-center gap-1.5 rounded-full border border-border bg-card px-3.5 py-2 text-[13px] font-semibold text-muted-foreground shadow-[0_1px_2px_rgba(15,23,42,0.04)] transition-colors hover:border-border hover:text-foreground sm:min-h-0"
         >
           تفاصيل التشغيل
           <ArrowLeft className="h-3.5 w-3.5" />
@@ -435,18 +444,19 @@ export default async function OpsDashboardPage() {
       : null
   // The stalled-queue age deliberately does NOT appear here: the health
   // band directly above already states it verbatim, and repeating it
-  // pushed this hint to four lines on a 390px screen — shoving the
-  // "ابدأ من هنا" launchpad below the fold.
+  // pushed this hint to four lines on a 390px screen.
   const activeJobsHint = [
     "مستحقة الآن + قيد التنفيذ",
     queueStatus.scheduled && queueStatus.scheduled > 0
-      ? `${queueStatus.scheduled} مجدولة لاحقًا`
+      ? // «1 مجدولة لاحقًا» / «15 مجدولة» before this. The adjective agrees
+        // with the noun in Arabic, so both travel together through the shared
+        // table («مهمة مجدولة»); «لاحقًا» is an adverb and stays outside it.
+        `${formatArabicCount(queueStatus.scheduled, "مهمة مجدولة")} لاحقًا`
       : null,
   ]
     .filter(Boolean)
     .join(" · ")
 
-  const aiHint = deriveAiHint(aiActivity)
   const costCapLine = deriveCostCapLine(cost)
 
   // ── Episode pipeline summary ───────────────────────────────────────────────
@@ -457,25 +467,52 @@ export default async function OpsDashboardPage() {
   // printed above them in the same card.
   const pipeline = derivePipelineSummary(eir, PHASE_LABEL, TERMINAL_PHASES)
 
+  // The five-stage funnel the card renders. Σ groups === `pipeline.inPipeline`
+  // by construction — see lib/khat-brain/pipeline-stages.ts.
+  const funnel = pipeline ? derivePipelineFunnel(pipeline) : null
+
   // The agenda: rows in → capped, sorted, overdue-flagged items out. `null`
   // propagates as "unreadable" and renders as such.
   const agenda = buildAgenda(agendaRows)
+
+  // The header sentence. Derived LAST because it reads the three things
+  // already computed above — the inbox total, the nearest agenda item, and the
+  // health verdict — rather than re-deriving any of them.
+  const inboxTotal = totalWaiting(inboxCounts)
+  const daySummary = deriveDaySummary({ inboxTotal, agenda, health })
 
   return (
     <div dir="rtl" lang="ar">
       {/* Hero */}
       <header className="mb-7 flex flex-wrap items-end justify-between gap-4">
         <div>
-          <h1 className="text-[30px] font-semibold leading-tight tracking-tight text-foreground">
+          {/* No `tracking-tight` on Arabic: negative letter-spacing fights
+              the cursive join. Chrome no-ops it on a pure-Arabic run, but it
+              applies the moment a Latin token lands on the same line — so the
+              SAME heading style renders two different ways depending on its
+              content. Removed everywhere Arabic is the content; numerals keep
+              theirs (they are Latin and it is what `tabular-nums` expects). */}
+          <h1 className="text-[30px] font-semibold leading-tight text-foreground">
             الرئيسية
           </h1>
-          <p className="mt-1.5 text-[14px] text-muted-foreground">
-            كل أدواتك في مكان واحد — لمحة سريعة، ثم انطلق إلى العمل
+          {/* «ملخّص اليوم» — computed, never generated. Three clauses, each a
+              direct read of a number rendered further down this page, so the
+              headline and the sections can never disagree. See the rationale
+              (and why an AI summary was rejected) in lib/ops/day-summary.ts. */}
+          <p className="mt-1.5 text-[15px] text-muted-foreground" data-day-summary>
+            {daySummary.text}
           </p>
         </div>
-        <div className="flex items-center gap-2 rounded-full border border-border bg-white px-3.5 py-1.5 text-[11.5px] text-muted-foreground shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
+        <div className="flex items-center gap-2 rounded-full border border-border bg-card px-3.5 py-1.5 text-[11px] text-muted-foreground shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
           <span className="admin-pulse-dot h-1.5 w-1.5 rounded-full bg-emerald-500" />
-          <span className="font-mono tabular-nums">{formatUtc(snap.taken_at)}</span>
+          {/* «2026-05-26 14:23:45Z» — the space between date and time is a
+              bidi-neutral, so inside the RTL page UAX#9 handed it to the
+              surrounding run and painted the TIME before the DATE. The
+              duration span next to it needs no pin: it has no internal
+              neutral to reorder. */}
+          <span className="font-mono tabular-nums" dir="ltr">
+            {formatUtc(snap.taken_at)}
+          </span>
           <span>•</span>
           <span className="font-mono tabular-nums">{snap.duration_ms}ms</span>
         </div>
@@ -493,10 +530,7 @@ export default async function OpsDashboardPage() {
 
       {/* الوارد — the four HUMAN channels. Above the attention queue on
           purpose: an unanswered person outranks a stalled record. */}
-      <InboxSection
-        channels={buildInboxChannels(inboxCounts)}
-        total={totalWaiting(inboxCounts)}
-      />
+      <InboxSection channels={buildInboxChannels(inboxCounts)} total={inboxTotal} />
 
       {/* ما يحتاج انتباهك — one card per episode, stalls shown as a badge */}
       <HomeAttention queue={attentionQueue} />
@@ -504,15 +538,28 @@ export default async function OpsDashboardPage() {
       {/* الأيام الجاية — recordings, scheduled content, and due follow-ups */}
       <AgendaSection agenda={agenda} />
 
-      {/* Headline stats. The cost tile is ADMIN-only and is REMOVED from
-          the grid for lower roles — a permanent "—" placeholder would
-          read as a broken metric. The track count follows the tile
-          count so the row never ends ragged. */}
-      <div
-        className={
-          "mb-8 grid grid-cols-2 gap-4 " + (canSeeCost ? "lg:grid-cols-4" : "sm:grid-cols-3")
-        }
-      >
+      {/* نبض التشغيل — THREE indicators, deliberately not four.
+          «استدعاءات الذكاء الاصطناعي (24 ساعة)» was removed: it is an activity
+          counter with no decision attached to it — 69 calls or 690 change
+          nothing the operator would do — and the ONE actionable thing in it,
+          failures, is exceptions-first material that the health band above
+          already raises by itself.
+          The cost tile is ADMIN-only and is REMOVED from the grid for lower
+          roles; a permanent "—" placeholder would read as a broken metric. The
+          track count follows the tile count so the row never ends ragged. */}
+      <section className="mb-8">
+        <h2 className="mb-3 flex items-center gap-2 text-[15px] font-semibold text-foreground">
+          <Activity className="h-4 w-4 text-violet-700" />
+          نبض التشغيل
+        </h2>
+        <div
+          className={
+            // Was `lg:grid-cols-4` over four tiles, which made every card
+            // NARROWER at 1024px than at 640px. Three tiles, and the column
+            // count never goes down as the viewport grows.
+            "grid grid-cols-2 gap-4 " + (canSeeCost ? "sm:grid-cols-3" : "")
+          }
+        >
         <StatTile
           label="مهام نشطة"
           value={activeJobs ?? "—"}
@@ -521,13 +568,6 @@ export default async function OpsDashboardPage() {
           // A hint that describes what the number is made of must not
           // survive the number itself going unreadable.
           hint={queue === null ? "تعذّر قراءة الطابور" : activeJobsHint}
-        />
-        <StatTile
-          label="استدعاءات الذكاء الاصطناعي (24 ساعة)"
-          value={aiActivity.state === "unavailable" ? "—" : aiActivity.total24h}
-          icon={Cpu}
-          tone="neutral"
-          hint={aiHint}
         />
         {canSeeCost ? (
           <StatTile
@@ -541,6 +581,14 @@ export default async function OpsDashboardPage() {
                   {/* The zone is printed ONLY when the DB actually reported
                       one — a guessed "UTC" next to a money figure is a fact
                       we never read. */}
+                  {/* No `ltrIsolate` here, and that was CHECKED, not assumed:
+                      an A/B of both strings in the live RTL page renders
+                      «)Asia/Kuwait» identically with and without it. A zone id
+                      is letters plus `/`, which resolves to one strong-L run
+                      on its own — unlike «$30.00» (see `deriveCostCapLine`),
+                      where `$` is a bidi EUROPEAN TERMINATOR and really does
+                      migrate. Isolating this one would be a no-op wrapped in a
+                      comment claiming a bug that isn't there. */}
                   <span className="block">
                     {cost.tz ? `إجمالي اليوم (بتوقيت ${cost.tz})` : "إجمالي اليوم"}
                   </span>
@@ -569,47 +617,41 @@ export default async function OpsDashboardPage() {
           // Without the cost tile the row is 3 tiles; on the 2-column
           // mobile grid the third would sit alone at half width and read
           // as a card that dropped out. Full-width below `sm` instead.
-          className={canSeeCost ? "" : "max-sm:col-span-2"}
+          // With the cost tile the row is 3 tiles; on the 2-column mobile grid
+          // the third would sit alone at half width and read as a card that
+          // dropped out. Full-width below `sm` instead. WITHOUT the cost tile
+          // the row is exactly 2 and needs no escape hatch.
+          className={canSeeCost ? "max-sm:col-span-2" : ""}
         />
-      </div>
-
-      {/* Launchpad — the daily workflows, promoted */}
-      <div className="mb-8">
-        <div className="mb-3 text-[12px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">
-          ابدأ من هنا
         </div>
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
-          <QuickTile href="/admin/khat-brain/seasons" icon={Compass} label="المواسم" description="تخطيط وتوليد المواسم" />
-          <QuickTile href="/admin/discovery-v2" icon={Telescope} label="اكتشاف الضيوف" description="بحث ذكي عن ضيوف" />
-          <QuickTile href="/admin/khat-brain/episodes" icon={PlayCircle} label="خط الإنتاج" description="خط إنتاج الحلقات" />
-          <QuickTile href="/admin/studio" icon={Mic} label="الاستوديو" description="معالجة المحتوى" />
-          <QuickTile href="/admin/newsletter" icon={Mail} label="النشرة" description="حملات بريدية" />
-          <QuickTile href="/admin/submissions" icon={Inbox} label="الطلبات" description="وارد الموقع" />
-        </div>
-      </div>
+      </section>
 
-      {/* Episode pipeline summary — headline count + full phase distribution */}
-      <div className="rounded-2xl border border-border/80 bg-white p-6 shadow-[0_1px_2px_rgba(15,23,42,0.04),0_8px_24px_-12px_rgba(15,23,42,0.10)]">
+      {/* Episode pipeline — headline count + the five-stage funnel */}
+      <div className="rounded-2xl border border-border/80 bg-card p-6 shadow-[0_1px_2px_rgba(15,23,42,0.04),0_8px_24px_-12px_rgba(15,23,42,0.10)]">
         <div className="flex items-center justify-between gap-4">
-          <h2 className="text-[15px] font-semibold tracking-tight text-foreground">
+          <h2 className="text-[15px] font-semibold text-foreground">
             خط إنتاج الحلقات
           </h2>
           <Link
             href="/admin/khat-brain/episodes"
-            className="inline-flex items-center gap-1.5 text-[12.5px] font-semibold text-muted-foreground transition-colors hover:text-foreground"
+            // Bare text + icon, so its hit box was the 19px line box — it
+            // failed even the 24px floor of WCAG 2.5.8, let alone 2.5.5's 44.
+            // Padding is negative-margined away on `sm` so the desktop header
+            // keeps its exact optical alignment with the heading beside it.
+            className="-my-2 inline-flex min-h-[44px] items-center gap-1.5 text-[13px] font-semibold text-muted-foreground transition-colors hover:text-foreground sm:my-0 sm:min-h-0"
           >
             كل الحلقات
             <ArrowLeft className="h-3.5 w-3.5" />
           </Link>
         </div>
 
-        {pipeline === null ? (
-          <p className="mt-4 text-[12.5px] text-muted-foreground">تعذّر جلب بيانات المسار.</p>
+        {pipeline === null || funnel === null ? (
+          <p className="mt-4 text-[13px] text-muted-foreground">تعذّر جلب بيانات المسار.</p>
         ) : (
           <div className="mt-4">
             <div className="flex items-baseline gap-3">
               <div
-                className="text-[32px] font-semibold leading-none tracking-tight text-foreground tabular-nums"
+                className="text-[26px] font-semibold leading-none tracking-tight text-foreground tabular-nums"
                 data-pipeline-total
               >
                 {pipeline.inPipeline}
@@ -620,48 +662,66 @@ export default async function OpsDashboardPage() {
                   (episodes + YouTube), this one counts production records that
                   reached the `published` PHASE. Two different questions; both
                   now say which one they answer. */}
-              <div className="text-[12px] text-muted-foreground">
-                حلقة داخل خط الإنتاج
+              <div className="text-[13px] text-muted-foreground">
+                {/* The numeral is the 26px element beside this caption, so the
+                    caption carries the NOUN only — `arabicPluralNoun`, not
+                    `formatArabicCount`, or the digit would print twice.
+                    Was a fixed «حلقة»: «2 حلقة», «7 حلقة». */}
+                {arabicPluralNoun(pipeline.inPipeline, "حلقة")} داخل خط الإنتاج
                 <span className="text-muted-foreground">
                   {" "}
-                  · {pipeline.publishedCount} سجل وصل مرحلة «منشورة»
+                  {/* Was «{n} سجل وصل …» — «3 سجل», and the verb «وصل» could
+                      not agree either. Phrased with a preposition so the count
+                      is the only thing that has to inflect. */}
+                  · {formatArabicCount(pipeline.publishedCount, "سجل")} في مرحلة «منشورة»
                 </span>
               </div>
             </div>
 
-            {/* Phase distribution — exactly the stages the number above counts,
-                empty ones included so the pipeline's shape stays visible. */}
-            <div
-              className="mt-5 grid grid-cols-3 gap-2 sm:grid-cols-4 lg:grid-cols-7"
-              data-pipeline-grid
-            >
-              {pipeline.cells.map((p) => {
-                const pct = (p.count / pipeline.peak) * 100
-                return (
-                  <div
-                    key={p.phase}
-                    className={
-                      "rounded-xl border p-2.5 transition-colors " +
-                      (p.count > 0
-                        ? "border-border bg-white"
-                        : "border-border/40 bg-muted/20 opacity-60")
-                    }
-                  >
-                    <div className="truncate text-[10px] uppercase tracking-wider text-muted-foreground">
-                      {p.label}
-                    </div>
-                    <div className="mt-0.5 text-[17px] font-bold tabular-nums text-foreground">
-                      {p.count}
-                    </div>
-                    <div className="mt-1.5 h-1 overflow-hidden rounded-full bg-muted/40">
-                      <div
-                        className={"h-full " + (p.count > 0 ? "bg-primary" : "bg-transparent")}
-                        style={{ width: `${pct}%` }}
-                      />
-                    </div>
+            {/* The funnel — FIVE stages, in lifecycle order, each one a link
+                that lands on exactly the episodes it counted.
+
+                It replaces a 13-cell grid whose bars were `count / peak`: a
+                ratio with no statistical meaning (one record in every phase
+                painted thirteen full bars), on a grid that wrapped to four
+                rows at `lg` — destroying the pipeline ORDER, which is the one
+                thing this view exists to show. `sharePct` below is
+                `count / inPipeline`, a real share; the five bars sum to 100%.
+
+                Nothing was lost: the full per-phase breakdown still renders in
+                `EirPipelineSection` on /admin/ops/details.
+
+                Five columns at EVERY width. A stack on mobile would keep the
+                order but not the shape, and the shape is the point — so the
+                labels are allowed two lines instead. */}
+            <div className="mt-5 grid grid-cols-5 gap-1.5 sm:gap-2" data-pipeline-funnel>
+              {funnel.map((g) => (
+                <Link
+                  key={g.key}
+                  href={g.href}
+                  data-funnel-stage={g.key}
+                  data-funnel-count={g.count}
+                  className={
+                    "rounded-xl border p-2.5 transition-colors " +
+                    (g.count > 0
+                      ? "border-border bg-card hover:border-muted-foreground/40 hover:bg-muted/40"
+                      : "border-border/40 bg-muted/20 hover:border-border")
+                  }
+                >
+                  <div className="line-clamp-2 text-[11px] leading-tight text-muted-foreground">
+                    {g.label}
                   </div>
-                )
-              })}
+                  <div className="mt-1 text-[17px] font-bold leading-none tabular-nums text-foreground">
+                    {g.count}
+                  </div>
+                  <div className="mt-1.5 h-1 overflow-hidden rounded-full bg-muted/40">
+                    <div
+                      className={"h-full " + (g.count > 0 ? "bg-primary" : "bg-transparent")}
+                      style={{ width: `${g.sharePct}%` }}
+                    />
+                  </div>
+                </Link>
+              ))}
             </div>
           </div>
         )}

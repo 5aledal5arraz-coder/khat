@@ -12,6 +12,15 @@
  * Arabic plural forms: [singular, dual, plural (3-10)]
  * Rules: 0 → plural, 1 → singular + واحد/واحدة, 2 → dual,
  *        3-10 → number + plural, 11+ → number + singular
+ *
+ * A key may be a single noun («حلقة») or a whole NOUN PHRASE («مهمة متعثّرة»).
+ * The phrase form exists because an Arabic adjective agrees with its noun in
+ * number too: «مهمة متعثّرة» / «مهمتان متعثّرتان» / «3 مهام متعثّرة». Splitting
+ * that into a noun lookup plus a hard-coded adjective is how «1 مهام متعثّرة»
+ * gets shipped, so the adjective travels with the noun in the same table.
+ * Keep a phrase key ending at the ADJECTIVE — `formatArabicCount` appends
+ * «واحد/واحدة» after the whole key at count 1, so any trailing adverb or
+ * prepositional phrase belongs at the call site, not in the key.
  */
 const ARABIC_PLURALS: Record<string, [string, string, string]> = {
   "حلقة": ["حلقة", "حلقتان", "حلقات"],
@@ -24,10 +33,53 @@ const ARABIC_PLURALS: Record<string, [string, string, string]> = {
   "رد": ["رد", "ردّان", "ردود"],
   "اقتباس": ["اقتباس", "اقتباسان", "اقتباسات"],
   "سؤال": ["سؤال", "سؤالان", "أسئلة"],
+  // Used by the admin home's computed day summary («3 طلبات بانتظارك»). Added
+  // here rather than as a local table in `lib/ops/day-summary.ts` — a second
+  // plural implementation is exactly what this map exists to prevent.
+  "طلب": ["طلب", "طلبان", "طلبات"],
+  // Was reaching the (now removed) silent fallback from
+  // `app/admin/guests/guests-list.tsx` — it printed «2 ضيف محدّد».
+  "ضيف": ["ضيف", "ضيفان", "ضيوف"],
+  // ── The admin home's status band + KPI hints (lib/ops/home-metrics.ts) ──
+  "مهمة": ["مهمة", "مهمتان", "مهام"],
+  "مهمة متعثّرة": ["مهمة متعثّرة", "مهمتان متعثّرتان", "مهام متعثّرة"],
+  "مهمة مجدولة": ["مهمة مجدولة", "مهمتان مجدولتان", "مهام مجدولة"],
+  "استدعاء": ["استدعاء", "استدعاءان", "استدعاءات"],
+  "استدعاء فاشل": ["استدعاء فاشل", "استدعاءان فاشلان", "استدعاءات فاشلة"],
+  "استدعاء ناجح": ["استدعاء ناجح", "استدعاءان ناجحان", "استدعاءات ناجحة"],
+  // Dual is the iḍāfa form («استدعاءا ذكاء») — the nūn drops before the
+  // second term, so this is NOT «استدعاءان ذكاء اصطناعي».
+  "استدعاء ذكاء اصطناعي": [
+    "استدعاء ذكاء اصطناعي",
+    "استدعاءا ذكاء اصطناعي",
+    "استدعاءات ذكاء اصطناعي",
+  ],
+  "سجل": ["سجل", "سجلان", "سجلات"],
+}
+
+/**
+ * Look a noun up, and FAIL LOUDLY when it isn't registered.
+ *
+ * The old behaviour was `return \`${count} ${singular}\`` — a silent fallback
+ * to the single form that is wrong for 1, 2 and 3–10 («1 مهام متعثّرة»,
+ * «3 سؤال»). Because it never threw and never logged, an unregistered noun
+ * shipped and read as a deliberate choice. Non-production throws so the gap
+ * surfaces in dev and in `npm run test`; production logs and degrades, because
+ * a missing plural must not blank an operator's page.
+ */
+function lookupPlural(singular: string): [string, string, string] | null {
+  const forms = ARABIC_PLURALS[singular]
+  if (forms) return forms
+  const message =
+    `[formatters] «${singular}» غير مسجّل في ARABIC_PLURALS — ` +
+    `أضِف [مفرد, مثنّى, جمع] في lib/shared/formatters.ts`
+  if (process.env.NODE_ENV !== "production") throw new Error(message)
+  console.error(message)
+  return null
 }
 
 export function formatArabicCount(count: number, singular: string): string {
-  const forms = ARABIC_PLURALS[singular]
+  const forms = lookupPlural(singular)
   if (!forms) return `${count} ${singular}`
 
   const [sing, dual, plural] = forms
@@ -47,6 +99,11 @@ export function formatArabicCount(count: number, singular: string): string {
  *
  * Reads the same `ARABIC_PLURALS` table as `formatArabicCount`, so the plural
  * of a word is still defined in exactly one place.
+ *
+ * Unlike `formatArabicCount` this one does NOT throw on an unregistered noun:
+ * its fallback returns the word unchanged, which is under-specified but never
+ * grammatically wrong (it is the correct form at 1 and 11+). Callers that pass
+ * a genuinely invariant word — a product name like «تيزر» — rely on that.
  */
 export function arabicPluralNoun(count: number, singular: string): string {
   const forms = ARABIC_PLURALS[singular]
@@ -72,6 +129,29 @@ export function guestInitials(name: string): string {
   const letterWords = words.filter((w) => /^\p{L}/u.test(w))
   const source = letterWords.length > 0 ? letterWords : words
   return source.map((w) => w.charAt(0)).slice(0, 2).join("") || "•"
+}
+
+// ─── Bidi ────────────────────────────────────────────────────────────────────
+
+/**
+ * Wrap an LTR run (a date, a model id, a version) in Unicode isolate marks so
+ * it renders correctly INSIDE an Arabic sentence.
+ *
+ * `dir="ltr"` is the right tool when the run has its own element. It is not
+ * available when the run is interpolated into a plain string that a caller
+ * renders as one text node — e.g. the model-EOL alert label in
+ * `lib/ops/home-metrics.ts`, where «gpt-5.6-luna انتهى عمره (2026-10-16)»
+ * had UAX#9 resolve the neutral parentheses and hyphens to the surrounding
+ * RTL run and paint the date reversed and the brackets swapped.
+ *
+ * U+2066 LEFT-TO-RIGHT ISOLATE … U+2069 POP DIRECTIONAL ISOLATE: unlike the
+ * deprecated embedding marks, an isolate also keeps the run from affecting the
+ * ordering of the Arabic text around it. Zero-width — no visual change beyond
+ * the ordering fix. Returns "" for empty input so it never emits bare controls.
+ */
+export function ltrIsolate(text: string | null | undefined): string {
+  const s = (text ?? "").toString()
+  return s === "" ? "" : `\u2066${s}\u2069`
 }
 
 // ─── Date Formatting ─────────────────────────────────────────────────────────

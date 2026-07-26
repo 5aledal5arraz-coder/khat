@@ -126,6 +126,34 @@
     @apply outline-none ring-2 ring-ring ring-offset-2 ring-offset-background;
   }
 
+  /* ── Reduced motion ────────────────────────────────────────────────
+     The project had NO `prefers-reduced-motion` handling anywhere while
+     shipping genuinely non-stop animation: `.admin-pulse-dot` and
+     `.admin-shimmer` are `infinite`, and every spinner is `animate-spin`.
+     For a user with a vestibular disorder that is not a preference we get
+     to ignore — the OS-level setting is the request.
+
+     A blanket rule rather than per-component opt-in, because the offenders
+     are spread across ~40 admin surfaces plus the museum homepage and a
+     rule added file-by-file is a rule that goes stale on the next component.
+
+     `0.01ms` instead of `none`: it keeps animations *running* — so
+     `animationend`/`transitionend` handlers still fire and nothing stalls
+     waiting on a callback — while removing all perceived motion.
+     `!important` because the offending declarations are utilities and
+     component classes with equal-or-higher specificity.
+     `scroll-behavior: auto` cancels smooth scrolling, which is motion too. */
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+
   /* Remove default focus outline for mouse users */
   :focus:not(:focus-visible) {
     outline: none;
@@ -378,10 +406,15 @@ header {
   transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
+/* The active marker sits on the rail's OUTER edge — the side the sidebar is
+   docked to. `inset-inline-end` put it on the inline-END of the item, which in
+   this RTL admin is the LEFT edge: the marker floated on the inner boundary
+   facing the content area instead of hugging the rail. `inset-inline-start` is
+   the outer edge in RTL, and stays correct if the app is ever mirrored. */
 .admin-nav-item::before {
   content: "";
   position: absolute;
-  inset-inline-end: 0;
+  inset-inline-start: 0;
   top: 50%;
   transform: translateY(-50%);
   width: 2px;

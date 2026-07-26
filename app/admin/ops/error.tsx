@@ -18,6 +18,8 @@
 
 "use client"
 
+import { AlertTriangle } from "lucide-react"
+
 export default function OpsErrorPage({
   error,
   reset,
@@ -29,26 +31,43 @@ export default function OpsErrorPage({
     // No wrapper padding/width: the admin shell already applies
     // `p-4 lg:p-6` + `max-w-[1400px]`, same as `page.tsx`.
     <div dir="rtl" lang="ar">
-      <div className="rounded-lg border border-red-200 bg-red-50 p-6 text-red-900">
-        <h1 className="mb-2 text-lg font-semibold">تعذّر تحميل لوحة العمليات</h1>
-        <p className="mb-3 text-sm">
+      {/* Token surface, not a raw `bg-red-50 / text-red-900` panel. The sister
+          boundary one level up (app/admin/error.tsx) renders through the UI kit
+          on the neutral card surface, and a failed data fetch is not a
+          destructive event — the whole-panel red made a transient read error
+          look like data loss. `-900` was also two steps past the admin's
+          documented `-700` colored-text floor (ui-kit.tsx). The destructive
+          token now appears once, on the icon, where it identifies the state
+          without shouting it. */}
+      <div className="rounded-2xl border border-border/60 bg-card p-6">
+        <div className="mb-3 flex items-center gap-2.5">
+          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-destructive/12 text-destructive">
+            <AlertTriangle className="h-[18px] w-[18px]" />
+          </span>
+          <h1 className="text-[17px] font-semibold text-foreground">
+            تعذّر تحميل لوحة العمليات
+          </h1>
+        </div>
+        <p className="mb-3 text-[13px] text-muted-foreground">
           حدث خطأ غير متوقع أثناء جلب البيانات. حاول إعادة المحاولة أو إعادة
           تحميل المتصفح.
         </p>
         {error.digest ? (
-          <div className="mb-4 break-words rounded border border-red-200 bg-card/60 p-2 text-xs">
+          <div className="mb-4 break-words rounded-xl border border-border/60 bg-muted/40 p-2 text-[11px] text-muted-foreground">
             رقم للمتابعة مع المطوّر:{" "}
             <span className="font-mono" dir="ltr">
               {error.digest}
             </span>
           </div>
         ) : null}
+        {/* `text-background`, not `text-white`: the pair to `bg-foreground` is
+            the background token, so the two move together if the palette does.
+            Neutral, not red — retrying is safe and idempotent. `min-h-[44px]`
+            on mobile for the pointer-target floor. */}
         <button
           type="button"
           onClick={reset}
-          // Neutral, not red: retrying is a safe, idempotent action —
-          // red is reserved for destructive controls.
-          className="rounded bg-foreground px-3 py-1.5 text-sm font-medium text-white hover:bg-foreground/90"
+          className="inline-flex min-h-[44px] items-center rounded-xl bg-foreground px-3.5 py-1.5 text-[13px] font-medium text-background transition-colors hover:bg-foreground/90 sm:min-h-0"
         >
           إعادة المحاولة
         </button>

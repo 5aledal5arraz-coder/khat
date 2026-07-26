@@ -245,10 +245,12 @@ describe("deriveAiHint / deriveAiHealthSentence", () => {
   it("in_flight never claims success", () => {
     const ai = deriveAiActivity(makeAi({ statuses: { running: 2 } }))
     const hint = deriveAiHint(ai)
-    expect(hint).toBe("2 استدعاء قيد التنفيذ — ما خلص شي بعد")
+    // Dual, not «2 استدعاء» — Arabic marks two on the noun and drops the
+    // numeral. All counts on this page go through `formatArabicCount`.
+    expect(hint).toBe("استدعاءان قيد التنفيذ — ما خلص شي بعد")
     expect(hint).not.toContain("نجح")
     const sentence = deriveAiHealthSentence(ai)
-    expect(sentence).toBe("2 استدعاء ذكاء اصطناعي قيد التنفيذ")
+    expect(sentence).toBe("استدعاءا ذكاء اصطناعي قيد التنفيذ")
     expect(sentence).not.toContain("بلا أخطاء")
   })
 
@@ -261,7 +263,7 @@ describe("deriveAiHint / deriveAiHealthSentence", () => {
   it("a still-running call is never folded into 'كلها نجحت'", () => {
     const ai = deriveAiActivity(makeAi({ statuses: { succeeded: 3, running: 1 } }))
     expect(deriveAiHint(ai)).not.toBe("كلها نجحت")
-    expect(deriveAiHint(ai)).toBe("3 نجحت · 1 قيد التنفيذ")
+    expect(deriveAiHint(ai)).toBe("3 استدعاءات ناجحة · استدعاء واحد قيد التنفيذ")
     expect(deriveAiHealthSentence(ai)).toContain("لسه شغّال")
   })
 
@@ -281,7 +283,7 @@ describe("deriveAiHint / deriveAiHealthSentence", () => {
   it("failures are reported as failures", () => {
     expect(
       deriveAiHint(deriveAiActivity(makeAi({ statuses: { succeeded: 1, failed: 2 } }))),
-    ).toBe("2 فشل خلال 24 ساعة")
+    ).toBe("استدعاءان فاشلان خلال 24 ساعة")
   })
 
   // Western digits everywhere — `lib/ops/format.ts` §11: "Western digits
@@ -401,12 +403,17 @@ describe("deriveCostCapLine", () => {
     const cost = deriveCostStatus(
       makeAi({ mode: "enforce", lightCost: 4, lightCap: 5, expensiveCap: 25 }),
     )
-    expect(deriveCostCapLine(cost)).toBe("80% من السقف ($30.00)")
+    // The amount is wrapped in U+2066 LRI … U+2069 PDI. `$` is a bidi
+    // EUROPEAN TERMINATOR, so inside an Arabic sentence its side of the
+    // number depends on what precedes it — the isolate pins the figure.
+    expect(deriveCostCapLine(cost)).toBe("80% من السقف (\u2066$30.00\u2069)")
   })
 
   it("report mode is never phrased as a limit", () => {
     const cost = deriveCostStatus(makeAi({ mode: "report", lightCap: 5, expensiveCap: 25 }))
-    expect(deriveCostCapLine(cost)).toBe("السقف $30.00 للمراقبة فقط — ما يوقف شي")
+    expect(deriveCostCapLine(cost)).toBe(
+      "السقف \u2066$30.00\u2069 للمراقبة فقط — ما يوقف شي",
+    )
   })
 
   it("an unusable cap is never printed as '$0.00'", () => {
@@ -541,8 +548,11 @@ describe("deriveSystemHealth", () => {
     const out = deriveSystemHealth(
       okSnapshot({ queue: { ok: true, data: makeQueue({ deadCount24h: 40 }) } }),
     )
-    const dead = out.issues.find((i) => i.label === "مهام متعثّرة")
-    expect(dead?.value).toBe(40)
+    // The count lives INSIDE the label now (`value` is typed `string`), so
+    // the assertion is on the rendered sentence. 40 is 11+, which takes the
+    // singular tamyiz: «40 مهمة متعثّرة», never «40 مهام».
+    const dead = out.issues.find((i) => i.label.includes("متعثّرة"))
+    expect(dead?.label).toBe("40 مهمة متعثّرة")
   })
 
   it("AI failures raise an attention issue", () => {
@@ -552,7 +562,9 @@ describe("deriveSystemHealth", () => {
       }),
     )
     expect(out.level).toBe("attention")
-    expect(out.issues.find((i) => i.label.includes("فشل"))?.value).toBe(2)
+    expect(out.issues.find((i) => i.label.includes("فاشل"))?.label).toBe(
+      "استدعاءان فاشلان في الذكاء الاصطناعي",
+    )
   })
 
   it("a failed worker section → unknown", () => {
@@ -684,10 +696,10 @@ describe("derivePipelineSummary — the card's two numbers agree", () => {
     expect(s.cells.map((c) => c.phase)).toEqual(expected)
   })
 
-  it("floors the bar peak at 1 so an all-zero pipeline never divides by zero", () => {
+  it("reports an EMPTY pipeline as zero, with every cell still present", () => {
     const s = derivePipelineSummary({ countByPhase: counts({}) }, LABELS, TERMINAL)!
-    expect(s.peak).toBe(1)
     expect(s.inPipeline).toBe(0)
+    expect(s.cells).toHaveLength(13)
   })
 
   it("returns null when the section failed — never a confident zero", () => {

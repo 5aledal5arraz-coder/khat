@@ -37,6 +37,15 @@ import { episodes } from "@/lib/db/schema/episodes"
 
 export interface EpisodeIndexFilter {
   phase?: EpisodePhase | null
+  /**
+   * Restrict to a SET of phases — how the admin home's five-stage funnel
+   * filters (`?stage=…`, resolved through `lib/khat-brain/pipeline-stages.ts`).
+   * Combines with `phase` as an AND, so a stage link plus an explicit phase
+   * narrows rather than contradicts. An EMPTY array is ignored, never applied:
+   * `inArray(col, [])` matches nothing, which would render as "no episodes in
+   * this stage" — a lie the operator cannot see through.
+   */
+  phases?: readonly EpisodePhase[] | null
   seasonId?: string | null
   /** "has" → guest_id IS NOT NULL; "missing" → IS NULL; null/undefined → no filter. */
   hasGuest?: "has" | "missing" | null
@@ -62,6 +71,9 @@ export async function listEpisodeWorkspaceIndex(
   const conds = [isNull(episodeIntelligenceRecords.archived_at)]
   if (filter.phase) {
     conds.push(eq(episodeIntelligenceRecords.phase, filter.phase))
+  }
+  if (filter.phases && filter.phases.length > 0) {
+    conds.push(inArray(episodeIntelligenceRecords.phase, [...filter.phases]))
   }
   if (filter.seasonId) {
     conds.push(eq(episodeIntelligenceRecords.season_id, filter.seasonId))

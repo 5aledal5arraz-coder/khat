@@ -130,7 +130,20 @@ export function SystemEventsSection({
                         </span>
                         <span className="text-muted-foreground">{subject}</span>
                       </div>
-                      <div className="mt-0.5 break-words font-mono text-[10px] text-muted-foreground">
+                      {/* Raw JSON inside an RTL page. Every `{`, `}`, `[`,
+                          `]`, `"`, `:` and `,` is a bidi-NEUTRAL, so UAX#9
+                          hands them all to the surrounding Arabic run: the
+                          braces render mirrored and the key/value pairs come
+                          out in the wrong order. The result cannot be read as
+                          JSON and cannot be copied into a bug report either —
+                          which is the entire purpose of a diagnostic payload.
+                          `dir="ltr"` (not just `font-mono`) is what fixes it;
+                          `text-start` keeps the block flush inside the RTL
+                          list item rather than jumping to the far edge. */}
+                      <div
+                        dir="ltr"
+                        className="mt-0.5 break-words text-start font-mono text-[10px] text-muted-foreground"
+                      >
                         {payloadPreview}
                       </div>
                     </li>

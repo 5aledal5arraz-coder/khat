@@ -2,12 +2,12 @@
 
 import Link from "next/link"
 import { KhatLogo } from "@/components/brand/khat-logo"
-import { useState, useEffect, useCallback } from "react"
+import { useState, useEffect, useCallback, useRef } from "react"
 import { usePathname } from "next/navigation"
 import {
-  ArrowRight,
-  PanelLeftClose,
-  PanelLeft,
+  ArrowLeft,
+  PanelRightClose,
+  PanelRight,
   Menu,
   X,
   LogOut,
@@ -42,6 +42,10 @@ export default function AdminLayoutClient({
   const [sidebarOpen, setSidebarOpen] = useState(true)
   const [mobileDrawerOpen, setMobileDrawerOpen] = useState(false)
   const [loggingOut, setLoggingOut] = useState(false)
+  /** The drawer panel — the focus trap's boundary. */
+  const drawerRef = useRef<HTMLDivElement>(null)
+  /** The control that opened the drawer; focus goes back here on close. */
+  const hamburgerRef = useRef<HTMLButtonElement>(null)
 
   const handleLogout = useCallback(async () => {
     setLoggingOut(true)
@@ -71,12 +75,101 @@ export default function AdminLayoutClient({
   }, [mobileDrawerOpen])
 
   const closeMobileDrawer = useCallback(() => {
+    // Restore focus to the opener BEFORE the state flip unmounts the panel.
+    // Done here rather than in the effect's cleanup for two reasons: the
+    // cleanup also runs on unmount/route change, where stealing focus is
+    // wrong; and reading a ref in a cleanup is the exact pattern
+    // `react-hooks/exhaustive-deps` warns about, because the node it points at
+    // may already have been replaced. Synchronous focus here lands on a
+    // button that is still mounted and still the one the user pressed.
+    hamburgerRef.current?.focus()
     setMobileDrawerOpen(false)
   }, [])
+
+  /**
+   * Modal-dialog behaviour for the mobile drawer.
+   *
+   * Below `lg` this drawer is the ONLY navigation in the entire admin, and it
+   * shipped as a plain `<div>`: no dialog role, no Escape, no focus
+   * management. A keyboard or screen-reader user could open it and then tab
+   * straight past it into the page behind — which is still rendered and still
+   * focusable — with no way to close it and no announcement that anything had
+   * opened. That is not a rough edge on mobile navigation; it is no mobile
+   * navigation at all for those users.
+   *
+   * Three behaviours, all conditional on the drawer being open so nothing is
+   * bound while it is closed:
+   *   • Escape closes it (the expected exit from any modal).
+   *   • Tab is cycled inside the panel — `preventDefault` + explicit focus on
+   *     the first/last tabbable, so the wrap happens in both directions.
+   *   • Focus moves INTO the panel on open. Moving it back out lives in
+   *     `closeMobileDrawer`, not in this cleanup — see the note there.
+   *
+   * Written by hand rather than pulling in a focus-trap dependency: this is
+   * one panel with a static, shallow DOM, and a new runtime dependency for it
+   * needs approval this task does not have.
+   */
+  useEffect(() => {
+    if (!mobileDrawerOpen) return
+    const panel = drawerRef.current
+    if (!panel) return
+
+    const TABBABLE =
+      'a[href],button:not([disabled]),input:not([disabled]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])'
+    const tabbables = () =>
+      Array.from(panel.querySelectorAll<HTMLElement>(TABBABLE)).filter(
+        // `offsetParent === null` catches `display:none` ancestors — the
+        // collapsed nav groups render nothing, but be defensive about it.
+        (el) => el.offsetParent !== null || el === document.activeElement,
+      )
+
+    // Move focus in. The close button is the safest landing spot: it is first
+    // in the panel and it is the escape hatch.
+    tabbables()[0]?.focus()
+
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        e.preventDefault()
+        closeMobileDrawer()
+        return
+      }
+      if (e.key !== "Tab") return
+      const items = tabbables()
+      if (items.length === 0) return
+      const first = items[0]
+      const last = items[items.length - 1]
+      const active = document.activeElement as HTMLElement | null
+      if (e.shiftKey && (active === first || !panel.contains(active))) {
+        e.preventDefault()
+        last.focus()
+      } else if (!e.shiftKey && active === last) {
+        e.preventDefault()
+        first.focus()
+      }
+    }
+
+    document.addEventListener("keydown", onKeyDown)
+    return () => document.removeEventListener("keydown", onKeyDown)
+  }, [mobileDrawerOpen, closeMobileDrawer])
 
   return (
     <BreadcrumbLabelProvider>
     <div style={ADMIN_LIGHT_TOKENS} className="min-h-screen bg-background text-foreground">
+      {/*
+        `.skip-link` has been defined in globals.css since the beginning and was
+        rendered by NOTHING — a styled class with no element is not an
+        accessibility feature, it is dead CSS that reads like one in review.
+        Given the choice the brief offered (use it or delete it): the admin is
+        where it actually earns its keep. Every page here sits behind a sticky
+        header plus a nav rail of up to 20 links, so a keyboard user pays that
+        toll on every single navigation. First tab stop in the DOM, visually
+        hidden until focused (the class handles that), targeting the `<main>`
+        landmark below.
+      */}
+      <a href="#admin-main" className="skip-link">
+        تخطَّ إلى المحتوى
+      </a>
+
       {/* Admin Header */}
       <header className="sticky top-0 z-40 border-b border-border/60 bg-background/85 backdrop-blur-xl">
         {/* Brand hairline */}
@@ -92,10 +185,13 @@ export default function AdminLayoutClient({
               aria-expanded={sidebarOpen}
               className="hidden h-9 w-9 shrink-0 text-muted-foreground hover:text-foreground lg:flex"
             >
+              {/* Panel*Right*, not Panel*Left*: in RTL the rail this button
+                  toggles is docked to the RIGHT, so the left-panel glyph drew
+                  a sidebar on the side of the screen that has none. */}
               {sidebarOpen ? (
-                <PanelLeftClose className="h-[18px] w-[18px]" />
+                <PanelRightClose className="h-[18px] w-[18px]" />
               ) : (
-                <PanelLeft className="h-[18px] w-[18px]" />
+                <PanelRight className="h-[18px] w-[18px]" />
               )}
             </Button>
 
@@ -107,6 +203,7 @@ export default function AdminLayoutClient({
                 the old `h-9 w-9` shrank the sole mobile nav control to 36px,
                 under the 44px touch-target floor. */}
             <Button
+              ref={hamburgerRef}
               variant="ghost"
               size="icon"
               onClick={() => setMobileDrawerOpen(true)}
@@ -121,9 +218,9 @@ export default function AdminLayoutClient({
             <div className="flex items-center gap-2.5">
               <KhatLogo size={28} />
               <div className="flex items-center gap-2">
-                <h1 className="text-[13px] font-semibold tracking-tight">لوحة التحكم</h1>
+                <h1 className="text-[13px] font-semibold">لوحة التحكم</h1>
                 {userRole && (
-                  <span className="rounded-[5px] border border-border/70 bg-muted/60 px-1.5 py-[1px] text-[9px] font-bold text-muted-foreground hidden sm:inline-block">
+                  <span className="rounded-[5px] border border-border/70 bg-muted/60 px-1.5 py-[1px] text-[11px] font-bold text-muted-foreground hidden sm:inline-block">
                     {ROLE_LABELS[userRole] ?? userRole}
                   </span>
                 )}
@@ -148,7 +245,7 @@ export default function AdminLayoutClient({
               onClick={handleLogout}
               disabled={loggingOut}
               aria-label="تسجيل الخروج"
-              className="h-11 min-w-[44px] gap-2 px-2.5 text-xs text-muted-foreground hover:text-destructive sm:h-8 sm:min-w-0"
+              className="h-11 min-w-[44px] gap-2 px-2.5 text-[13px] text-muted-foreground hover:text-destructive sm:h-8 sm:min-w-0"
               title="تسجيل الخروج"
             >
               <LogOut className="h-3.5 w-3.5" />
@@ -166,11 +263,15 @@ export default function AdminLayoutClient({
               aria-label="فتح الموقع العام"
               className={cn(
                 buttonVariants({ variant: "ghost", size: "sm" }),
-                "h-11 min-w-[44px] gap-2 px-2.5 text-xs text-muted-foreground sm:h-8 sm:min-w-0",
+                "h-11 min-w-[44px] gap-2 px-2.5 text-[13px] text-muted-foreground sm:h-8 sm:min-w-0",
               )}
             >
               <span className="hidden sm:inline">الموقع</span>
-              <ArrowRight className="h-3.5 w-3.5" />
+              {/* `ArrowLeft`: in RTL the icon sits at the inline-end of the
+                  label and "onward" points LEFT. `ArrowRight` aimed back into
+                  the word it followed — and every other "go there" link in
+                  /admin/ops already uses ArrowLeft. */}
+              <ArrowLeft className="h-3.5 w-3.5" />
             </Link>
           </div>
         </div>
@@ -196,7 +297,7 @@ export default function AdminLayoutClient({
         </aside>
 
         {/* Main content — seamless light workspace (palette is on the root). */}
-        <main className="min-w-0 flex-1 p-4 lg:p-6">
+        <main id="admin-main" className="min-w-0 flex-1 p-4 lg:p-6">
           <div className="admin-animate-in mx-auto max-w-[1400px]">
             {children}
           </div>
@@ -206,25 +307,45 @@ export default function AdminLayoutClient({
       {/* Mobile Drawer Overlay */}
       {mobileDrawerOpen && (
         <div className="fixed inset-0 z-50 lg:hidden">
-          {/* Backdrop */}
+          {/* Backdrop. `aria-hidden` + no tab stop: the click-to-close is a
+              convenience for pointer users, and Escape is the keyboard path. */}
           <div
+            aria-hidden="true"
             className="absolute inset-0 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200"
             onClick={closeMobileDrawer}
           />
-          {/* Drawer panel - slides from right (RTL) */}
-          <div className="absolute inset-y-0 end-0 w-72 bg-background shadow-2xl animate-in slide-in-from-right duration-300">
+          {/* Drawer panel.
+              SIDE: was `end-0`, which in this RTL admin is the LEFT edge — so
+              the drawer flew in from the opposite side of the screen to both
+              its own hamburger and the desktop rail it stands in for.
+              `start-0` is the right edge in RTL, matching them. The
+              `slide-in-from-right` animation was already correct for a
+              right-docked panel (transforms are physical, not logical), so it
+              was the position that was wrong, not the motion.
+              SEMANTICS: role/aria-modal/aria-label + the focus trap above turn
+              it into a real dialog. */}
+          <div
+            ref={drawerRef}
+            role="dialog"
+            aria-modal="true"
+            aria-label="قائمة التنقّل"
+            className="absolute inset-y-0 start-0 w-72 bg-background shadow-2xl animate-in slide-in-from-right duration-300"
+          >
             {/* Drawer header */}
             <div className="flex h-14 items-center justify-between border-b border-border/40 px-4">
               <div className="flex items-center gap-2.5">
                 <KhatLogo size={26} />
-                <span className="text-[13px] font-semibold tracking-tight">لوحة التحكم</span>
+                <span className="text-[13px] font-semibold">لوحة التحكم</span>
               </div>
+              {/* 32px before this — and it is the ONLY way to close the drawer
+                  by pointer other than hitting the backdrop. Full 44px target;
+                  this control is mobile-only, so there is no desktop variant. */}
               <Button
                 variant="ghost"
                 size="icon"
                 onClick={closeMobileDrawer}
                 aria-label="إغلاق قائمة التنقّل"
-                className="h-8 w-8 text-muted-foreground"
+                className="h-11 w-11 text-muted-foreground"
               >
                 <X className="h-4 w-4" />
               </Button>

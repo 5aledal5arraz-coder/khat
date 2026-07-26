@@ -28,15 +28,20 @@ export function InboxSection({
 }) {
   return (
     <section className="mb-8">
-      <h2 className="mb-3 flex items-center gap-2 text-[15px] font-semibold tracking-tight text-foreground">
+      <h2 className="mb-3 flex items-center gap-2 text-[15px] font-semibold text-foreground">
         <Inbox className="h-4 w-4 text-violet-700" />
         الوارد
-        <span className="rounded-md bg-violet-500/10 px-1.5 py-0.5 text-[10px] font-semibold tabular-nums text-violet-700">
+        <span className="rounded-md bg-violet-500/10 px-1.5 py-0.5 text-[11px] font-semibold tabular-nums text-violet-700">
           {total ?? "—"}
         </span>
       </h2>
 
-      <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-4">
+      {/* TWO columns on mobile, not one. Single-column cost 485px of a 390px
+          viewport to show four numbers — the section that exists to be seen
+          first pushed everything after it below the fold. Two columns halve
+          that; the cards hold a label, a 26px numeral and one short line, all
+          of which fit ~170px. */}
+      <div className="grid grid-cols-2 gap-2 xl:grid-cols-4">
         {channels.map((c) => {
           const waiting = c.count !== null && c.count > 0
           return (
@@ -54,7 +59,7 @@ export function InboxSection({
             >
               <span className="min-w-0">
                 <span className="flex items-center gap-1.5">
-                  <span className="text-[12px] font-medium text-muted-foreground">
+                  <span className="text-[13px] font-medium text-muted-foreground">
                     {c.label}
                   </span>
                   {waiting ? (
@@ -76,7 +81,7 @@ export function InboxSection({
                       : "بانتظار قرارك"}
                 </span>
               </span>
-              <ArrowLeft className="h-4 w-4 shrink-0 text-muted-foreground/50 transition-colors group-hover:text-muted-foreground" />
+              <ArrowLeft className="h-4 w-4 shrink-0 text-muted-foreground transition-colors group-hover:text-muted-foreground" />
             </Link>
           )
         })}

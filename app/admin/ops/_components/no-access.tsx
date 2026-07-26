@@ -19,7 +19,7 @@ export function NoAccess({ roleLabelAr }: { roleLabelAr: string }) {
         <span className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-muted text-muted-foreground">
           <ShieldAlert className="h-6 w-6" />
         </span>
-        <h1 className="text-[18px] font-semibold tracking-tight text-foreground">
+        <h1 className="text-[17px] font-semibold text-foreground">
           ما عندك صلاحية لهالصفحة
         </h1>
         <p className="mt-2 text-[13px] text-muted-foreground">

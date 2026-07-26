@@ -2,8 +2,18 @@ import * as React from "react"
 import { cva, type VariantProps } from "class-variance-authority"
 import { cn } from "@/lib/utils"
 
+/**
+ * `focus-visible:ring-2`, not `ring-1`.
+ *
+ * `globals.css` sets the app-wide focus indicator to `ring-2 + ring-offset-2`.
+ * A `.focus-visible\:ring-1:focus-visible` utility outranks the bare
+ * `:focus-visible` element rule on specificity, so THIS class — shared by every
+ * button in the admin — silently halved the standard everywhere it applied,
+ * leaving the thinner ring only on buttons and the full one on everything else.
+ * The offset still comes from the global rule; only the width was wrong.
+ */
 const buttonVariants = cva(
-  "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0",
+  "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0",
   {
     variants: {
       variant: {

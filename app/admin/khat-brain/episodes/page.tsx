@@ -31,6 +31,7 @@ import {
 } from "@/lib/db/schema/eir"
 import { nextActionFor, type NextActionTone } from "@/lib/khat-brain/next-action"
 import { PHASE_LABEL } from "@/lib/khat-brain/phase-labels"
+import { resolveStage } from "@/lib/khat-brain/pipeline-stages"
 import { Empty } from "../../components/ui-kit"
 import { formatDateTime } from "@/lib/shared/formatters"
 
@@ -38,6 +39,13 @@ export const dynamic = "force-dynamic"
 
 interface SearchParamsShape {
   phase?: string
+  /**
+   * One of the five funnel stages on `/admin/ops` (see
+   * `lib/khat-brain/pipeline-stages.ts`). The home's funnel tiles link here
+   * with it — a tile that showed a count and then opened the UNFILTERED list
+   * would be a link that breaks its own promise.
+   */
+  stage?: string
   season?: string
   guest?: string
   q?: string
@@ -50,12 +58,16 @@ export default async function EpisodesIndexPage({
 }) {
   await requireAdmin()
   const params = await searchParams
+  // An unrecognised key resolves to `null` → no stage filter at all, rather
+  // than an empty phase set that would silently render "no episodes".
+  const stage = resolveStage(params.stage)
   const filter: EpisodeIndexFilter = {
     phase:
       params.phase &&
       (EPISODE_PHASES as readonly string[]).includes(params.phase)
         ? (params.phase as EpisodePhase)
         : null,
+    phases: stage?.phases ?? null,
     seasonId: params.season ?? null,
     hasGuest:
       params.guest === "has" || params.guest === "missing" ? params.guest : null,
@@ -97,6 +109,13 @@ export default async function EpisodesIndexPage({
         method="get"
         className="flex flex-wrap items-end gap-2 rounded-2xl border border-border/40 bg-card/30 p-3"
       >
+        {/* The stage arrives in the URL, not from a control in this form. It
+            is carried through submits as a hidden field so that refining the
+            search does not silently widen the list back to every phase; the
+            chip beside it is how the operator drops it deliberately. */}
+        {stage ? (
+          <input type="hidden" name="stage" value={stage.key} />
+        ) : null}
         <FilterField label="بحث" htmlFor="q">
           <div className="flex items-center gap-1 rounded-lg border border-border/40 bg-background/40 px-2 py-1.5">
             <Search className="h-3 w-3 text-muted-foreground" />
@@ -159,6 +178,23 @@ export default async function EpisodesIndexPage({
         </button>
       </form>
 
+      {/* Active stage — stated, and removable in one click. A filter the page
+          applies without saying so is how a list gets misread as empty. */}
+      {stage ? (
+        <div className="flex flex-wrap items-center gap-2 text-[12px]" data-active-stage={stage.key}>
+          <span className="text-muted-foreground">المرحلة المعروضة:</span>
+          <span className="rounded-full border border-violet-500/40 bg-violet-500/10 px-2.5 py-1 font-medium text-violet-700">
+            {stage.label}
+          </span>
+          <Link
+            href={clearStageHref(params)}
+            className="text-muted-foreground underline underline-offset-2 hover:text-foreground"
+          >
+            إلغاء التصفية
+          </Link>
+        </div>
+      ) : null}
+
       {/* ── Rows ──────────────────────────────────────────── */}
       {rows.length === 0 ? (
         <Empty text="لا توجد حلقات تطابق هذه المعايير." />
@@ -171,6 +207,20 @@ export default async function EpisodesIndexPage({
       )}
     </div>
   )
+}
+
+/**
+ * The current URL minus `stage`, so «إلغاء التصفية» drops ONLY the stage and
+ * keeps whatever else the operator had narrowed to.
+ */
+function clearStageHref(params: SearchParamsShape): string {
+  const qs = new URLSearchParams()
+  if (params.q) qs.set("q", params.q)
+  if (params.phase) qs.set("phase", params.phase)
+  if (params.season) qs.set("season", params.season)
+  if (params.guest) qs.set("guest", params.guest)
+  const s = qs.toString()
+  return s ? `/admin/khat-brain/episodes?${s}` : "/admin/khat-brain/episodes"
 }
 
 // ─── Subcomponents ───────────────────────────────────────────────

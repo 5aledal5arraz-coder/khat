@@ -17,6 +17,11 @@ import type { RateLimitMode } from "@/lib/db/schema/ai-rate-limit-events"
 import { AI_RUN_STATUSES } from "@/lib/db/schema/ai-runs"
 import { EPISODE_PHASES, type EpisodePhase } from "@/lib/db/schema/eir"
 import { WORKER_HEALTHY_STATES, type WorkerHeartbeat } from "@/lib/ops/diagnostics"
+import {
+  PIPELINE_STAGES,
+  type PipelineStageKey,
+} from "@/lib/khat-brain/pipeline-stages"
+import { formatArabicCount, ltrIsolate } from "@/lib/shared/formatters"
 import { humanizeAge } from "./format"
 import type { AiRouterSnapshot, OpsSnapshot, QueueHealth } from "./snapshot"
 
@@ -91,6 +96,10 @@ export function deriveAiActivity(ai: AiRouterSnapshot | null): AiActivity {
  * The AI stat tile's sub-line. Every branch is bounded by what we actually
  * counted: "كلها نجحت" is only said when `succeeded` really is the whole
  * window, and a still-running call is never folded into a success claim.
+ *
+ * Every count goes through `formatArabicCount`. Interpolating a fixed singular
+ * («2 استدعاء», «2 فشل») is wrong in Arabic for exactly the counts an ops
+ * dashboard shows most: 1, 2 and 3–10.
  */
 export function deriveAiHint(ai: AiActivity): string {
   switch (ai.state) {
@@ -101,14 +110,20 @@ export function deriveAiHint(ai: AiActivity): string {
     case "no_data":
       return "ما صار أي استدعاء خلال 24 ساعة"
     case "in_flight":
-      return `${ai.running} استدعاء قيد التنفيذ — ما خلص شي بعد`
+      return `${formatArabicCount(ai.running, "استدعاء")} قيد التنفيذ — ما خلص شي بعد`
     case "has_failures":
-      return `${ai.failed} فشل خلال 24 ساعة`
+      return `${formatArabicCount(ai.failed, "استدعاء فاشل")} خلال 24 ساعة`
     case "clean":
-      if (ai.running > 0) return `${ai.succeeded} نجحت · ${ai.running} قيد التنفيذ`
+      if (ai.running > 0)
+        return (
+          `${formatArabicCount(ai.succeeded, "استدعاء ناجح")} · ` +
+          `${formatArabicCount(ai.running, "استدعاء")} قيد التنفيذ`
+        )
       // `cancelled` runs land here too — they neither failed nor succeeded,
       // so "كلها نجحت" is reserved for a window that is 100% successes.
-      return ai.succeeded === ai.total24h ? "كلها نجحت" : `${ai.succeeded} نجحت بلا أخطاء`
+      return ai.succeeded === ai.total24h
+        ? "كلها نجحت"
+        : `${formatArabicCount(ai.succeeded, "استدعاء ناجح")} بلا أخطاء`
   }
 }
 
@@ -144,13 +159,15 @@ export function deriveWorkerSentence(worker: WorkerHeartbeat | null): string {
   }
 }
 
-/** The AI half of the health band's subtitle. Same honesty rules. */
+/** The AI half of the health band's subtitle. Same honesty + plural rules. */
 export function deriveAiHealthSentence(ai: AiActivity): string {
   if (ai.state === "no_data") return "ما صار أي استدعاء ذكاء اصطناعي خلال 24 ساعة"
-  if (ai.state === "in_flight") return `${ai.running} استدعاء ذكاء اصطناعي قيد التنفيذ`
+  if (ai.state === "in_flight")
+    return `${formatArabicCount(ai.running, "استدعاء ذكاء اصطناعي")} قيد التنفيذ`
+  const total = `${formatArabicCount(ai.total24h, "استدعاء ذكاء اصطناعي")} بلا أخطاء`
   if (ai.running > 0)
-    return `${ai.total24h} استدعاء ذكاء اصطناعي بلا أخطاء · ${ai.running} لسه شغّال`
-  return `${ai.total24h} استدعاء ذكاء اصطناعي بلا أخطاء`
+    return `${total} · ${formatArabicCount(ai.running, "استدعاء")} لسه شغّال`
+  return total
 }
 
 // ─── Cost ────────────────────────────────────────────────────────────
@@ -228,9 +245,14 @@ export function deriveCostStatus(ai: AiRouterSnapshot | null): CostStatus {
  * `report` stops nothing, so it is never phrased as a limit.
  */
 export function deriveCostCapLine(cost: CostStatus): string | null {
+  // Isolated: «$30.00» sits inside an Arabic sentence, and `$` is a bidi
+  // EUROPEAN TERMINATOR — its side of the number is decided by the
+  // surrounding run, so the symbol drifts to the wrong end of its own figure
+  // depending on what precedes it. An LRI pins the whole amount as one atomic
+  // LTR run. (The standalone tile value needs no pin: it is its own element.)
   const capText =
     cost.capUsd !== null && Number.isFinite(cost.capUsd) && cost.capUsd > 0
-      ? `$${cost.capUsd.toFixed(2)}`
+      ? ltrIsolate(`$${cost.capUsd.toFixed(2)}`)
       : null
 
   switch (cost.mode) {
@@ -321,9 +343,22 @@ export type AiAlertId =
 export interface AiAlert {
   id: AiAlertId
   severity: AiAlertSeverity
-  /** Arabic label. Rendered before a numeric value, after a string one. */
+  /**
+   * The full Arabic sentence, counts already formatted through
+   * `formatArabicCount`. See `AiAlert["value"]` for why it is not split.
+   */
   label: string
-  value: number | string
+  /**
+   * A QUALITATIVE trailing value («منذ 21 يوم», «95%»), rendered after the
+   * label. Empty string renders the label alone.
+   *
+   * Deliberately NOT `number | string`: the numeric channel rendered as
+   * «{value}{label}» with a fixed singular noun behind it, which is how «1
+   * مهام متعثّرة» and «15 مهام» reached the band. A count now goes through
+   * `formatArabicCount` into `label`, and the type makes the old shortcut
+   * unrepresentable rather than merely discouraged.
+   */
+  value: string
 }
 
 /** Daily-budget utilisation at or above this fraction of the cap alerts. */
@@ -350,16 +385,20 @@ export function deriveAiAlerts(
   if (ai && ai.provider_blocked_60m.count > 0) {
     const hasQuota = ai.provider_blocked_60m.classes.includes("quota_exceeded")
     const hasAuth = ai.provider_blocked_60m.classes.includes("auth_failed")
+    // The count belongs INSIDE the sentence: rendered as «{value}{label}» it
+    // read «3 رصيد المزوّد نفد — استدعاءات فاشلة آخر ساعة», a numeral glued to
+    // the front of a clause it does not quantify.
+    const failed = formatArabicCount(ai.provider_blocked_60m.count, "استدعاء فاشل")
     alerts.push({
       id: "provider_blocked",
       severity: "critical",
       label:
         hasQuota && hasAuth
-          ? "رصيد المزوّد نفد والمفتاح مرفوض — استدعاءات فاشلة آخر ساعة"
+          ? `رصيد المزوّد نفد والمفتاح مرفوض — ${failed} آخر ساعة`
           : hasQuota
-            ? "رصيد المزوّد نفد — استدعاءات فاشلة آخر ساعة"
-            : "مفتاح المزوّد مرفوض — استدعاءات فاشلة آخر ساعة",
-      value: ai.provider_blocked_60m.count,
+            ? `رصيد المزوّد نفد — ${failed} آخر ساعة`
+            : `مفتاح المزوّد مرفوض — ${failed} آخر ساعة`,
+      value: "",
     })
   }
 
@@ -391,9 +430,13 @@ export function deriveAiAlerts(
       severity: "warn",
       label:
         models.fallbacks.length === 1
-          ? `${first.taskKind}: يشتغل على ${first.effectiveModel} بدل ${first.requestedModel}`
-          : "مهام تشتغل على موديل بديل بدل المطلوب",
-      value: models.fallbacks.length === 1 ? "" : models.fallbacks.length,
+          ? // Task kind + both model ids are Latin identifiers dropped into an
+            // Arabic run — isolated so the hyphens don't migrate.
+            `${ltrIsolate(first.taskKind)}: يشتغل على ${ltrIsolate(first.effectiveModel)} بدل ${ltrIsolate(first.requestedModel)}`
+          : // The count is INSIDE the label now: the chip renders «{value}{label}»,
+            // which produced «15 مهام تشتغل…» — the one form Arabic never uses.
+            `${formatArabicCount(models.fallbacks.length, "مهمة")} تشتغل على موديل بديل بدل المطلوب`,
+      value: "",
     })
   }
 
@@ -427,13 +470,25 @@ export function deriveAiAlerts(
   // actually select or call, so this stays quiet by default.
   if (models && models.eolRisks.length > 0) {
     const worst = models.eolRisks[0]
+    // The model id and the ISO retirement date are LTR runs inside an Arabic
+    // sentence. Without an isolate, UAX#9 hands the neutral `-` and `()` to the
+    // surrounding RTL run: «(2026-10-16)» painted as «(16-10-2026)» with the
+    // brackets swapped — an operator cannot read the deadline off that.
+    const name = ltrIsolate(worst.modelName)
     alerts.push({
       id: "model_eol",
       severity: worst.retired ? "critical" : "warn",
       label: worst.retired
-        ? `${worst.modelName} انتهى عمره الافتراضي (${worst.retiresOn}) وما زال مستعملاً`
-        : `${worst.modelName} يتوقف بعد`,
-      value: worst.retired ? "" : `${worst.daysLeft} يوم`,
+        ? `${name} انتهى عمره الافتراضي (${ltrIsolate(worst.retiresOn)}) وما زال مستعملاً`
+        : // `formatArabicCount(0, "يوم")` is «لا أيام» — correct as a count,
+          // nonsense after «يتوقف بعد». Retiring today gets its own sentence.
+          worst.daysLeft <= 0
+          ? `${name} يتوقف اليوم`
+          : `${name} يتوقف بعد`,
+      value:
+        worst.retired || worst.daysLeft <= 0
+          ? ""
+          : formatArabicCount(worst.daysLeft, "يوم"),
     })
   }
 
@@ -444,8 +499,10 @@ export function deriveAiAlerts(
     alerts.push({
       id: "unclassified_failures",
       severity: "warn",
-      label: "فشل غير مصنَّف (24 ساعة) — سببه غير معروف",
-      value: ai.unclassified_failures_24h,
+      label:
+        `${formatArabicCount(ai.unclassified_failures_24h, "استدعاء فاشل")} ` +
+        `بلا تصنيف (24 ساعة) — السبب غير معروف`,
+      value: "",
     })
   }
 
@@ -457,10 +514,10 @@ export function deriveAiAlerts(
 export type SystemHealthLevel = "unknown" | "healthy" | "attention"
 
 export interface SystemHealthIssue {
+  /** Full Arabic sentence; any count already agrees (see `AiAlert.label`). */
   label: string
-  /** Number → rendered before the label; string → after it. Empty string
-   *  renders the label alone. */
-  value: number | string
+  /** Qualitative trailing value, rendered after the label. "" = label alone. */
+  value: string
   /**
    * `critical` = AI is stopped or about to stop (provider refused us, an
    * enforcing cap about to bite, a model already retired). It repaints the
@@ -556,15 +613,33 @@ export function deriveSystemHealth(
       label: "العامل (worker) ما يرد — آخر نبض",
       value: humanizeAge(worker?.ageMs ?? 0),
     })
+  // The three COUNTED chips carry their number inside the label, via
+  // `formatArabicCount`. The band renders «{value}{label}» for a numeric
+  // value, which pinned the noun to one fixed form and printed «1 مهام
+  // متعثّرة» and «15 مهام» — both wrong, and on the one band an operator
+  // reads to decide whether to intervene. A pre-formatted label makes the
+  // noun agree («مهمة متعثّرة واحدة» / «مهمتان متعثّرتان» / «3 مهام متعثّرة» /
+  // «15 مهمة متعثّرة») and the empty `value` keeps the label-alone branch.
   if (queue.deadCount24h !== null && queue.deadCount24h > 0)
-    issues.push({ label: "مهام متعثّرة", value: queue.deadCount24h })
+    issues.push({
+      label: formatArabicCount(queue.deadCount24h, "مهمة متعثّرة"),
+      value: "",
+    })
   if (queue.staleLeaseCount !== null && queue.staleLeaseCount > 0)
-    issues.push({ label: "مهام بإيجار منتهٍ", value: queue.staleLeaseCount })
+    // «بإيجار منتهٍ» is an invariant prepositional phrase, so the plain noun
+    // is enough — no adjective to agree, hence no phrase key for this one.
+    issues.push({
+      label: `${formatArabicCount(queue.staleLeaseCount, "مهمة")} بإيجار منتهٍ`,
+      value: "",
+    })
   // `no_data` is deliberately NOT an issue: nothing ran, which is
   // neither an error nor a success. It's reported as its own neutral
   // sentence in the band's subtitle.
   if (aiActivity.failed > 0)
-    issues.push({ label: "فشل في الذكاء الاصطناعي", value: aiActivity.failed })
+    issues.push({
+      label: `${formatArabicCount(aiActivity.failed, "استدعاء فاشل")} في الذكاء الاصطناعي`,
+      value: "",
+    })
   if (queue.stalled && queue.oldestPendingAgeMs !== null)
     issues.push({
       label: "الطابور متوقّف — أقدم مهمة تنتظر",
@@ -610,10 +685,12 @@ export interface PipelineSummary {
    *  headline, and never the same figure as the «حلقات منشورة» KPI tile,
    *  which counts the public episode archive (episodes + YouTube). */
   publishedCount: number
-  /** Non-terminal phases, in `EPISODE_PHASES` order, zeros included. */
+  /**
+   * Non-terminal phases, in `EPISODE_PHASES` order, zeros included. The home
+   * rolls these up into five stages (`derivePipelineFunnel`); the per-phase
+   * breakdown itself is rendered on `/admin/ops/details`.
+   */
   cells: PipelineCell[]
-  /** Largest cell count, floored at 1 so the bar width never divides by 0. */
-  peak: number
 }
 
 /**
@@ -647,6 +724,54 @@ export function derivePipelineSummary(
     inPipeline: cells.reduce((s, c) => s + c.count, 0),
     publishedCount: eir.countByPhase.published ?? 0,
     cells,
-    peak: Math.max(1, ...cells.map((c) => c.count)),
   }
+}
+
+// ─── Pipeline funnel (the five stages the home renders) ──────────────
+
+/** One tile in the home's five-stage funnel. */
+export interface PipelineStageGroup {
+  key: PipelineStageKey
+  label: string
+  count: number
+  /** Share of `inPipeline`, 0–100. A REAL proportion — see below. */
+  sharePct: number
+  /** Opens the episodes index already filtered to this stage's phases. */
+  href: string
+}
+
+/**
+ * Roll the 13 non-terminal phase cells up into the five operator-facing
+ * stages of `lib/khat-brain/pipeline-stages.ts`.
+ *
+ * What this replaces, and why: the home used to draw one cell per phase, each
+ * with a bar sized `count / peak`. That ratio is not a statistic — with one
+ * record in every phase, all thirteen bars rendered 100% full — and the grid
+ * wrapped to four rows at `lg`, so the pipeline ORDER, the only thing the view
+ * exists to communicate, was lost. `sharePct` here is `count / inPipeline`:
+ * an actual share of the pipeline, and the five bars sum to 100%.
+ *
+ * Nothing is lost by the rollup — the full 13-phase (in fact 15-phase)
+ * breakdown is still rendered by `EirPipelineSection` on `/admin/ops/details`.
+ *
+ * INVARIANT (locked by tests/ops/pipeline-funnel.test.ts):
+ *   groups.reduce((s, g) => s + g.count, 0) === summary.inPipeline
+ * It holds because `PIPELINE_STAGES` is a COVERING, DISJOINT partition of the
+ * non-terminal phases — coverage enforced by the type system in that module,
+ * disjointness by the same test file.
+ */
+export function derivePipelineFunnel(summary: PipelineSummary): PipelineStageGroup[] {
+  const byPhase = new Map(summary.cells.map((c) => [c.phase, c.count]))
+  return PIPELINE_STAGES.map((stage) => {
+    const count = stage.phases.reduce((s, p) => s + (byPhase.get(p) ?? 0), 0)
+    return {
+      key: stage.key,
+      label: stage.label,
+      count,
+      // Guarded, not `?? 0`-ed after the fact: an empty pipeline divides by
+      // zero and would paint every bar `NaN%`, which CSS silently drops.
+      sharePct: summary.inPipeline > 0 ? (count / summary.inPipeline) * 100 : 0,
+      href: `/admin/khat-brain/episodes?stage=${stage.key}`,
+    }
+  })
 }

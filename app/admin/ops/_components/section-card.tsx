@@ -8,6 +8,16 @@
  * Error containment contract: when `errorMode` is provided, the body
  * is replaced with a muted error placeholder. The section heading
  * stays visible so the operator knows which section failed.
+ *
+ * NOT consolidated into `KitCard` (app/admin/components/ui-kit.tsx), and that
+ * is a decision, not an oversight. `errorMode` IS this component: it is the
+ * per-section failure-containment contract that `takeOpsSnapshot`'s
+ * `Promise.allSettled` design depends on — heading stays, body is replaced,
+ * only the generic sentence and the `errorRef` may be shown. `KitCard` has no
+ * such state, and teaching it one would push an ops-specific concern into a
+ * primitive that ~40 unrelated admin surfaces render. Merging them would move
+ * risk, not remove duplication. If a THIRD surface ever needs section-level
+ * error containment, promote it then, with a real second caller to design for.
  */
 
 import type { ReactNode } from "react"
@@ -49,7 +59,7 @@ export function SectionCard({
       </header>
 
       {errorMode ? (
-        <div className="rounded-lg border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-700 dark:text-red-400">
+        <div className="rounded-lg border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-700">
           <div className="font-medium">غير متاح</div>
           <div className="mt-1 break-words text-xs">{errorMode.error}</div>
           {errorMode.errorRef ? (
@@ -77,6 +87,13 @@ export function SectionCard({
 /**
  * Inline empty-state placeholder. Used for sub-blocks inside a
  * successful section (e.g., "no dead jobs" inside Section 1).
+ *
+ * Deliberately NOT `Empty` from the ui-kit: that one is a dashed, padded,
+ * centered BOX. This renders inside a card that is already a box, often two or
+ * three times on the same card — nesting dashed boxes inside a bordered card
+ * is visual noise, and the sub-block it replaces was never a box to begin
+ * with. Same words, different job; unifying them would be a layout change
+ * dressed up as deduplication.
  */
 export function InlineEmpty({ messageAr }: { messageAr: string }) {
   return <div className="text-xs text-muted-foreground">{messageAr}</div>

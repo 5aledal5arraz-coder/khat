@@ -21,7 +21,7 @@ import { PHASE_LABEL } from "@/lib/khat-brain/phase-labels"
 import type { NextActionTone } from "@/lib/khat-brain/next-action"
 import type { AttentionItem } from "@/lib/khat-brain/attention"
 import type { RecentActiveEir } from "@/lib/eir/service"
-import { formatDateTime } from "@/lib/shared/formatters"
+import { formatArabicCount, formatDateTime } from "@/lib/shared/formatters"
 import { humanizeAge } from "@/lib/ops/format"
 
 type QueueItem = AttentionItem<RecentActiveEir>
@@ -31,19 +31,26 @@ export function HomeAttention({ queue }: { queue: QueueItem[] }) {
     <div className="mb-8 space-y-6">
       {/* ── ما الذي يحتاج انتباهك الآن؟ ── */}
       <section>
-        <h2 className="mb-3 flex items-center gap-2 text-[15px] font-semibold tracking-tight text-foreground">
+        <h2 className="mb-3 flex items-center gap-2 text-[15px] font-semibold text-foreground">
           <ListChecks className="h-4 w-4 text-violet-700" />
           ما الذي يحتاج انتباهك الآن؟
-          <span className="rounded-md bg-violet-500/10 px-1.5 py-0.5 text-[10px] font-semibold tabular-nums text-violet-700">
+          <span className="rounded-md bg-violet-500/10 px-1.5 py-0.5 text-[11px] font-semibold tabular-nums text-violet-700">
             {queue.length}
           </span>
         </h2>
         {queue.length === 0 ? (
-          <div className="rounded-2xl border border-border/60 bg-card p-4 text-[12.5px] text-muted-foreground">
+          <div className="rounded-2xl border border-border/60 bg-card p-4 text-[13px] text-muted-foreground">
             لا توجد حلقات نشطة بانتظار قرار. ابدأ موسماً جديداً من «المواسم».
           </div>
         ) : (
-          <div className="space-y-2">
+          /* Capped at 1100px. Unbounded, the row stretched the full shell
+             width and left 995–1111px of empty space between the episode
+             title and its CTA at desktop sizes — the two things the operator
+             has to read together sat at opposite edges of the screen, which is
+             both a proximity failure and a long Fitts-law travel to the
+             button. The cap is on the ROWS, not the heading, so the section
+             title keeps its normal alignment. */
+          <div className="max-w-[1100px] space-y-2">
             {/* At-a-glance summary — groups identical actions into count chips. */}
             {(() => {
               const summary = new Map<
@@ -80,8 +87,16 @@ export function HomeAttention({ queue }: { queue: QueueItem[] }) {
                             : "rounded-full bg-violet-500/10 px-2 py-0.5 text-violet-700"
                       }
                     >
-                      <span className="font-semibold tabular-nums">{g.count}</span>{" "}
-                      {g.label}
+                      {/* Was «{count} {label}» → «3 اختيار موضوع». The action
+                          labels in lib/khat-brain/next-action.ts are verbal
+                          nouns («اختيار موضوع», «مراجعة الإعداد»), so the count
+                          never quantified them — what it counts is EPISODES.
+                          Naming that makes the chip both grammatical and, for
+                          the first time, unambiguous about its own unit. */}
+                      <span className="font-semibold tabular-nums">
+                        {formatArabicCount(g.count, "حلقة")}
+                      </span>{" "}
+                      · {g.label}
                     </span>
                   ))}
                 </div>
@@ -160,21 +175,21 @@ function NextActionRow({
       <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between sm:gap-3">
         <div className="min-w-0 flex-1">
           <div className="mb-1 flex flex-wrap items-center gap-2">
-            <span className="rounded-full bg-muted/30 px-1.5 py-0.5 text-[10px] uppercase tracking-wider text-muted-foreground">
+            <span className="rounded-full bg-muted/30 px-1.5 py-0.5 text-[11px] text-muted-foreground">
               {phaseLabel}
             </span>
             {/* The stall badge — replaces the whole duplicate card this row
                 used to get in the deleted «حلقات متوقفة» section. */}
             {stalled !== null ? (
               <span
-                className="inline-flex items-center gap-1 rounded-full bg-amber-500/10 px-2 py-0.5 text-[10px] font-medium text-amber-700"
+                className="inline-flex items-center gap-1 rounded-full bg-amber-500/10 px-2 py-0.5 text-[11px] font-medium text-amber-700"
                 data-stalled-badge
               >
                 <Clock className="h-3 w-3" />
                 متوقفة {humanizeAge(stalled.ageHours * 3_600_000)}
               </span>
             ) : null}
-            <span className="text-[10px] text-muted-foreground" dir="ltr">
+            <span className="text-[11px] text-muted-foreground" dir="ltr">
               {formatDateTime(updatedAt)}
             </span>
           </div>
@@ -186,13 +201,13 @@ function NextActionRow({
           {/* «ما المطلوب» — was `line-clamp-1`, which cut the instruction in
               EVERY row, not just the long ones. Two lines fits the sentences
               this field actually holds (lib/khat-brain/next-action.ts). */}
-          <p className="mt-1 line-clamp-2 text-[11.5px] text-muted-foreground/85">
+          <p className="mt-1 line-clamp-2 text-[11px] text-muted-foreground">
             {description}
           </p>
         </div>
         <span
           className={
-            "shrink-0 self-start rounded-xl border px-3 py-1.5 text-[11.5px] font-medium " +
+            "shrink-0 self-start rounded-xl border px-3 py-1.5 text-[13px] font-medium " +
             toneCta
           }
         >

@@ -178,7 +178,7 @@ function AdminSidebar({ collapsed, onNavClick, userRole }: AdminSidebarProps) {
                         [group.title]: !open,
                       }))
                     }
-                    className="group flex w-full items-center gap-1 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-muted-foreground transition-colors hover:text-muted-foreground"
+                    className="group flex w-full items-center gap-1 px-3 py-1 text-[11px] font-semibold text-muted-foreground transition-colors hover:text-muted-foreground"
                     data-collapsible-group={group.title}
                     data-collapsible-open={open}
                     aria-expanded={open}
@@ -193,7 +193,7 @@ function AdminSidebar({ collapsed, onNavClick, userRole }: AdminSidebarProps) {
                   </button>
                 ) : (
                   <div className="px-3 pb-1 pt-2">
-                    <span className="text-[10px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
+                    <span className="text-[11px] font-semibold text-muted-foreground">
                       {group.title}
                     </span>
                   </div>
@@ -212,7 +212,7 @@ function AdminSidebar({ collapsed, onNavClick, userRole }: AdminSidebarProps) {
                       onClick={onNavClick}
                       data-active={isActive}
                       className={cn(
-                        "admin-nav-item group/nav flex items-center gap-2.5 rounded-xl px-2 py-[7px] text-[12.5px] transition-all",
+                        "admin-nav-item group/nav flex items-center gap-2.5 rounded-xl px-2 py-[7px] text-[13px] transition-all",
                         isActive
                           ? "bg-primary/10 font-semibold text-foreground"
                           : "text-muted-foreground hover:bg-muted/60 hover:text-foreground",
@@ -241,7 +241,7 @@ function AdminSidebar({ collapsed, onNavClick, userRole }: AdminSidebarProps) {
                       )}
                       {/* Tooltip for collapsed state */}
                       {collapsed && (
-                        <div className="pointer-events-none absolute start-full top-1/2 z-50 ms-2 -translate-y-1/2 rounded-lg border border-border/50 bg-popover px-3 py-1.5 text-xs font-medium text-popover-foreground opacity-0 shadow-lg transition-all group-hover/nav:pointer-events-auto group-hover/nav:opacity-100">
+                        <div className="pointer-events-none absolute start-full top-1/2 z-50 ms-2 -translate-y-1/2 rounded-lg border border-border/50 bg-popover px-3 py-1.5 text-[13px] font-medium text-popover-foreground opacity-0 shadow-lg transition-all group-hover/nav:pointer-events-auto group-hover/nav:opacity-100">
                           {item.label}
                         </div>
                       )}
@@ -258,11 +258,11 @@ function AdminSidebar({ collapsed, onNavClick, userRole }: AdminSidebarProps) {
           <div className="rounded-xl border border-primary/15 bg-gradient-to-br from-primary/8 to-accent/5 p-3">
             <div className="flex items-center gap-2">
               <Sparkles className="h-3.5 w-3.5 text-primary" />
-              <span className="text-[11px] font-semibold text-foreground/85">
+              <span className="text-[11px] font-semibold text-foreground">
                 خط بودكاست
               </span>
             </div>
-            <p className="mt-1 text-[10px] leading-relaxed text-muted-foreground/80">
+            <p className="mt-1 text-[11px] leading-relaxed text-muted-foreground">
               منظومة تشغيل مدعومة بالذكاء الاصطناعي
             </p>
           </div>

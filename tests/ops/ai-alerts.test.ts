@@ -204,7 +204,11 @@ describe("alert (أ) — provider blocked", () => {
     const [alert] = deriveAiAlerts(snap, { includeCost: true })
     expect(alert.id).toBe("provider_blocked")
     expect(alert.severity).toBe("critical")
-    expect(alert.value).toBe(4)
+    // The count is folded into the sentence — rendered as «{value}{label}» it
+    // used to print «4 رصيد المزوّد نفد …», a numeral glued to a clause it
+    // does not quantify.
+    expect(alert.value).toBe("")
+    expect(alert.label).toBe("رصيد المزوّد نفد — 4 استدعاءات فاشلة آخر ساعة")
     expect(alert.label).toContain("رصيد")
   })
 
@@ -344,7 +348,8 @@ describe("alert (ج) — running on a fallback model", () => {
     const alert = deriveAiAlerts(snap, { includeCost: true }).find(
       (a) => a.id === "model_fallback",
     )!
-    expect(alert.value).toBe(2)
+    expect(alert.value).toBe("")
+    expect(alert.label).toBe("مهمتان تشتغل على موديل بديل بدل المطلوب")
   })
 
   it("is ABSENT when every task kind runs on its configured model", () => {
@@ -479,7 +484,12 @@ describe("unclassified failures", () => {
     const alert = deriveAiAlerts(snap, { includeCost: true }).find(
       (a) => a.id === "unclassified_failures",
     )!
-    expect(alert.value).toBe(15)
+    expect(alert.value).toBe("")
+    // 15 is 11+ → singular tamyiz. The old «15» + fixed «فشل غير مصنَّف» could
+    // not inflect at all.
+    expect(alert.label).toBe(
+      "15 استدعاء فاشل بلا تصنيف (24 ساعة) — السبب غير معروف",
+    )
     expect(alert.severity).toBe("warn")
   })
 
@@ -547,11 +557,18 @@ describe("SystemHealthBand wiring (source guards)", () => {
 
   it("renders a distinct red chip for critical issues even inside an amber band", () => {
     expect(source).toContain('it.severity === "critical"')
-    expect(source).toContain('"border-red-200 text-red-800"')
+    // `-700`, not `-800`: the admin's documented coloured-text step.
+    expect(source).toContain('"border-red-200 text-red-700"')
   })
 
   it("renders an empty-value alert as the label alone (no dangling blank span)", () => {
-    expect(source).toContain('it.value === "" ? (')
+    expect(source).toContain('it.value === "" ? null : <span>{it.value}</span>')
+  })
+
+  it("has no numeric-value branch left — counts belong in the label", () => {
+    // The `typeof it.value === "number"` branch printed «{value}{label}» over
+    // a fixed singular noun, which is how «1 مهام متعثّرة» reached the band.
+    expect(source).not.toContain('typeof it.value === "number"')
   })
 
   it("has a title branch for the AI-stopped state", () => {
