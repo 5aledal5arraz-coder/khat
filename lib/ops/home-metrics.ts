@@ -23,7 +23,8 @@ import {
 } from "@/lib/khat-brain/pipeline-stages"
 import { formatArabicCount, ltrIsolate } from "@/lib/shared/formatters"
 import { humanizeAge } from "./format"
-import type { AiRouterSnapshot, OpsSnapshot, QueueHealth } from "./snapshot"
+import { OPS_SECTIONS } from "./snapshot"
+import type { AiRouterSnapshot, OpsSnapshotPartial, QueueHealth } from "./snapshot"
 
 /**
  * A pending job older than this is treated as a stalled queue, not as
@@ -365,7 +366,7 @@ export interface AiAlert {
 export const BUDGET_ALERT_PCT = 90
 
 export function deriveAiAlerts(
-  snap: OpsSnapshot,
+  snap: OpsSnapshotPartial,
   opts: {
     /**
      * Spend is ADMIN-only on this page (same rule as the cost tile). When
@@ -376,8 +377,8 @@ export function deriveAiAlerts(
   },
 ): AiAlert[] {
   const alerts: AiAlert[] = []
-  const ai = snap.aiRouter.ok ? snap.aiRouter.data : null
-  const models = snap.aiModels.ok ? snap.aiModels.data : null
+  const ai = snap.aiRouter?.ok ? snap.aiRouter.data : null
+  const models = snap.aiModels?.ok ? snap.aiModels.data : null
 
   // (أ) Provider refused us outright — no credit, or a rejected key. This is
   // "everything stopped": no retry anywhere in the system can recover it,
@@ -547,7 +548,7 @@ export interface SystemHealth {
 }
 
 export function deriveSystemHealth(
-  snap: OpsSnapshot,
+  snap: OpsSnapshotPartial,
   opts: {
     /**
      * AI alerts from `deriveAiAlerts`. Passed in rather than derived here
@@ -561,18 +562,17 @@ export function deriveSystemHealth(
   // has to be checked against the whole snapshot. Checking two of six
   // sections let a failed guest-identity / EIR / events fetch render as
   // an all-green band.
-  const allSectionsOk =
-    snap.queue.ok &&
-    snap.systemEvents.ok &&
-    snap.aiRouter.ok &&
-    snap.eirPipeline.ok &&
-    snap.recentActivity.ok &&
-    snap.guestIdentity.ok &&
-    snap.worker.ok &&
-    snap.aiModels.ok
+  //
+  // "The whole snapshot" means every section the caller ACTUALLY REQUESTED
+  // (`takeOpsSnapshot({ sections })`). A section that was never fetched is
+  // `undefined` and is skipped: it contributes no evidence either way, and
+  // counting it as a failure would paint every page that fetches a subset
+  // permanently «تعذّر التأكد». The claim therefore narrows honestly with
+  // the request — a page that reads five sections asserts about five.
+  const allSectionsOk = OPS_SECTIONS.every((k) => snap[k] === undefined || snap[k].ok)
 
-  const queue = deriveQueueStatus(snap.queue.ok ? snap.queue.data : null)
-  const aiActivity = deriveAiActivity(snap.aiRouter.ok ? snap.aiRouter.data : null)
+  const queue = deriveQueueStatus(snap.queue?.ok ? snap.queue.data : null)
+  const aiActivity = deriveAiActivity(snap.aiRouter?.ok ? snap.aiRouter.data : null)
 
   // Every section above only proves that a QUERY came back. A dead worker
   // enqueues nothing — no new jobs, no stalled ones, no AI runs — so the
@@ -584,7 +584,7 @@ export function deriveSystemHealth(
   // healthy worker, and the previous mapping had no way to say so — it read
   // job activity, so ten quiet minutes produced `workerAlive === false` and a
   // red «الإنتاج متوقف» band on a system that was working fine.
-  const worker = snap.worker.ok ? snap.worker.data : null
+  const worker = snap.worker?.ok ? snap.worker.data : null
   const workerAlive =
     worker === null
       ? null

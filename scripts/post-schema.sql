@@ -942,3 +942,68 @@ CREATE INDEX IF NOT EXISTS idx_teasers_is_active ON teasers (is_active);
 CREATE INDEX IF NOT EXISTS idx_teasers_eir_id ON teasers (eir_id);
 CREATE INDEX IF NOT EXISTS idx_teasers_guest_id ON teasers (guest_id);
 CREATE INDEX IF NOT EXISTS idx_teaser_questions_teaser_status ON teaser_questions (teaser_id, status);
+
+-- ============================================================
+-- Hot-path indexes: jobs · ai_runs · episode_intelligence_records
+-- ============================================================
+-- These three tables carried NOTHING but their pkey, so every query against
+-- them was a Seq Scan. Drizzle does not model them, so this file is their
+-- home — no migration needed, and it is re-applied after every db:migrate.
+--
+-- NOT `CREATE INDEX CONCURRENTLY`: the migrator wraps this file in a single
+-- transaction and CONCURRENTLY cannot run inside one.
+--
+-- Every index below was chosen by measuring which one the PLANNER actually
+-- picks (EXPLAIN ANALYZE at 60k jobs / 2k EIR rows), not by predicting it.
+-- They are PARTIAL on purpose: `jobs` is written on every state transition,
+-- so index-maintenance cost is paid constantly, while each of these queries
+-- only ever looks at ONE status. Restricting each index to that status made
+-- them 14–32x smaller AND faster than the equivalent full `(status, …)`
+-- index (200 kB vs 4.7 MB for the pending pair at 60k rows), because the
+-- 90% of rows that are `succeeded` stop being indexed at all.
+-- NOTE: a partial index is only usable when the query's WHERE clause
+-- contains the same literal `status = '…'` predicate. All four callers do.
+
+-- Worker claim — `claimNextJob`, runs on EVERY worker poll and is the single
+-- most frequent query in the system. It orders by priority THEN run_after, so
+-- an index on (run_after) alone leaves it on a Seq Scan + Sort (measured:
+-- 4.3ms vs 0.06ms at 60k rows).
+CREATE INDEX IF NOT EXISTS idx_jobs_claim
+  ON jobs (priority DESC, run_after) WHERE status = 'pending';
+
+-- Ops snapshot — the oldest-pending lateral, which orders by run_after only
+-- and therefore cannot use the priority-led index above.
+CREATE INDEX IF NOT EXISTS idx_jobs_pending_run_after
+  ON jobs (run_after) WHERE status = 'pending';
+
+-- Worker reclaim — `reclaimStaleJobs`, also every poll. Doubles as the index
+-- for the ops oldest-running lateral (the running set is tiny, so the planner
+-- filters on this partial index and sorts in memory).
+CREATE INDEX IF NOT EXISTS idx_jobs_running_locked_at
+  ON jobs (locked_at) WHERE status = 'running';
+
+-- Ops snapshot — the recent-dead lateral. The expression matches the query's
+-- COALESCE exactly, or the index cannot be used for the ordering. This one
+-- matters most over time: `jobs` has no retention, so dead rows accumulate
+-- indefinitely and this scan grows without bound.
+CREATE INDEX IF NOT EXISTS idx_jobs_dead_recent
+  ON jobs ((COALESCE(completed_at, updated_at)) DESC) WHERE status = 'dead';
+
+-- ai_runs is bounded by lib/jobs/retention.ts, so two indexes are enough and
+-- a third would just tax a table written on every single AI call.
+-- Serves the 24h status counts, the daily cost sums, and the error-class
+-- windows — every one of which is a `started_at >= …` range.
+CREATE INDEX IF NOT EXISTS idx_ai_runs_started_at ON ai_runs (started_at DESC);
+-- Serves the per-tier concurrency probe (`status='running' AND task_kind = ANY(…)`),
+-- which becomes an Index Only Scan.
+CREATE INDEX IF NOT EXISTS idx_ai_runs_status_kind ON ai_runs (status, task_kind);
+
+-- EIR: the recently-touched list on the admin home (ORDER BY updated_at DESC).
+CREATE INDEX IF NOT EXISTS idx_eir_updated_at
+  ON episode_intelligence_records (updated_at DESC) WHERE archived_at IS NULL;
+-- DELIBERATELY NOT INDEXED: `countByPhase` (phase, archived_at IS NULL).
+-- A partial index on (phase) was written, applied and measured — the planner
+-- REFUSED it at both 2 and 2,000 rows and kept the Seq Scan, because that
+-- query aggregates every non-archived row and a full scan beats an index for
+-- a whole-table aggregate. One row per episode means this table is measured
+-- in hundreds, so the index would be permanent write cost for zero reads.

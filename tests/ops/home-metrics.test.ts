@@ -21,7 +21,9 @@ import {
 import type {
   AiModelHealth,
   AiRouterSnapshot,
+  OpsSection,
   OpsSnapshot,
+  OpsSnapshotPartial,
   QueueHealth,
 } from "@/lib/ops/snapshot"
 import type { WorkerHeartbeat } from "@/lib/ops/diagnostics"
@@ -498,6 +500,55 @@ describe("deriveSystemHealth", () => {
   it("a failed guestIdentity section alone → unknown (it used to be ignored)", () => {
     const out = deriveSystemHealth(
       okSnapshot({ guestIdentity: { ok: false, error: "boom", errorRef: "00000000" } }),
+    )
+    expect(out.allSectionsOk).toBe(false)
+    expect(out.level).toBe("unknown")
+  })
+
+  // ── Wave 3: a NOT-REQUESTED section is not a failed one ──────────────
+  // `takeOpsSnapshot({ sections })` omits what a page doesn't render. The
+  // health verdict has to narrow to what was actually asked for; the
+  // alternative is a home page that reads «تعذّر التأكد من حالة الأنظمة»
+  // forever because it declined to run six queries it never displays.
+  /** Drop sections from a snapshot the way `takeOpsSnapshot({ sections })` does. */
+  const without = (
+    snap: OpsSnapshot,
+    keys: readonly OpsSection[],
+  ): OpsSnapshotPartial => {
+    const out: OpsSnapshotPartial = { ...snap }
+    for (const k of keys) delete out[k]
+    return out
+  }
+
+  /** The three sections `/admin/ops` no longer fetches. */
+  const HOME_OMITS = ["systemEvents", "recentActivity", "guestIdentity"] as const
+
+  it.each(HOME_OMITS)("an ABSENT %s section does not make health unknown", (section) => {
+    const out = deriveSystemHealth(without(okSnapshot(), [section]))
+    expect(out.allSectionsOk).toBe(true)
+    expect(out.level).toBe("healthy")
+  })
+
+  it("the exact section set the home requests still reaches healthy", () => {
+    const out = deriveSystemHealth(without(okSnapshot(), HOME_OMITS))
+    expect(out.allSectionsOk).toBe(true)
+    expect(out.level).toBe("healthy")
+  })
+
+  it("absent ≠ failed: the same section present-and-failed IS unknown", () => {
+    expect(deriveSystemHealth(without(okSnapshot(), ["guestIdentity"])).level).toBe(
+      "healthy",
+    )
+    expect(
+      deriveSystemHealth(
+        okSnapshot({ guestIdentity: { ok: false, error: "boom", errorRef: "00000000" } }),
+      ).level,
+    ).toBe("unknown")
+  })
+
+  it("a failed REQUESTED section still wins even when others are absent", () => {
+    const out = deriveSystemHealth(
+      without(okSnapshot({ queue: { ok: false, error: "boom", errorRef: "00000000" } }), HOME_OMITS),
     )
     expect(out.allSectionsOk).toBe(false)
     expect(out.level).toBe("unknown")

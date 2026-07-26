@@ -46,6 +46,30 @@ export async function getCachedEpisodes(): Promise<Episode[]> {
   }
 }
 
+/**
+ * Read the cached YouTube snapshot WITHOUT triggering a refresh.
+ *
+ * `getCachedEpisodes()` refreshes on a stale read, which means calling it
+ * from a page render can fire a YouTube Data API request inside that
+ * render — unbounded network latency plus quota, on whichever request
+ * happens to be the unlucky one after the 12h TTL expires. Callers that
+ * only need to REPORT on the archive (counters, status tiles) use this
+ * instead and say how fresh the answer is; the refresh stays with the
+ * callers that actually serve the episode list.
+ */
+export async function peekCachedEpisodes(): Promise<{
+  episodes: Episode[]
+  stale: boolean
+  fetchedAt: string | null
+}> {
+  const cached = await store.read()
+  return {
+    episodes: cached.episodes,
+    stale: isStale(cached),
+    fetchedAt: cached.fetchedAt,
+  }
+}
+
 export async function invalidateEpisodeCache(): Promise<void> {
   const cached = await store.read()
   await store.write({

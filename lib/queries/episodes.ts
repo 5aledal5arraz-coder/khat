@@ -1,6 +1,6 @@
 import { env } from "@/lib/env"
 import { db, USE_DB as DB_AVAILABLE } from "@/lib/db"
-import { eq, desc, asc } from "drizzle-orm"
+import { eq, desc, asc, sql } from "drizzle-orm"
 import {
   episodes,
   guests,
@@ -18,7 +18,7 @@ import type {
   EpisodeWithRelations,
   GuestWithRelations,
 } from "@/types/database"
-import { getCachedEpisodes } from "@/lib/cache/episode-cache"
+import { getCachedEpisodes, peekCachedEpisodes } from "@/lib/cache/episode-cache"
 import {
   fetchEpisodeBySlug as ytFetchBySlug,
   fetchMostViewedRecent as ytFetchMostViewed,
@@ -639,6 +639,119 @@ export async function getEpisodes(options?: {
 }): Promise<Episode[]> {
   const rawEpisodes = await resolveAllEpisodes()
   return applyListPipeline(rawEpisodes, options)
+}
+
+/** What produced an archive count — the label has to say which. */
+export type ArchiveCountSource = "merged" | "db"
+
+export interface ArchiveCount {
+  count: number
+  /**
+   * `merged` — the YouTube snapshot unioned with the database, i.e. the
+   * same archive `getEpisodes({})` returns.
+   * `db` — the database alone, because YouTube is not configured or its
+   * cache has never been populated. A SMALLER, different definition, so a
+   * caller that prints this number must print a different label with it.
+   */
+  source: ArchiveCountSource
+  /** `merged` only: the YouTube snapshot is past its 12h TTL. */
+  stale: boolean
+}
+
+/**
+ * Count the public episode archive — WITHOUT materialising it.
+ *
+ * `getEpisodes({}).then(e => e.length)` was the previous way to get this
+ * number, and it charged four Postgres round-trips plus a possible
+ * YouTube Data API call to produce one integer:
+ *   • `SELECT *` from `episodes` LEFT JOIN `guests`, unbounded — every
+ *     guest column, contact fields included, pulled into memory to be
+ *     counted and dropped;
+ *   • the overrides read, which is a pure `.map()` downstream and cannot
+ *     change the length at all;
+ *   • the hidden and deleted id sets;
+ *   • and, when the 12h episode cache had expired, a live YouTube fetch
+ *     ON THE RENDER PATH — unbounded latency and quota spend for a KPI.
+ *
+ * This is one query, and it reads the YouTube snapshot without refreshing
+ * it (`peekCachedEpisodes`), so rendering a counter can never trigger an
+ * external API call. Freshness is REPORTED (`stale`) rather than forced.
+ *
+ * The arithmetic mirrors `mergeEpisodeLists` + `applyListPipeline` exactly:
+ *   • every YouTube episode counts;
+ *   • a database episode counts only if YouTube doesn't already have that
+ *     id AND it has a non-empty `title` and `youtube_url` (the same guard
+ *     `mergeEpisodeLists` applies before pushing a DB-only row);
+ *   • tombstoned and hidden ids are excluded from both.
+ * Returns `null` when the count is unreadable — never `0`, which would be
+ * indistinguishable from a genuinely empty archive.
+ */
+export async function countArchiveEpisodes(): Promise<ArchiveCount | null> {
+  if (!DB_AVAILABLE) return null
+
+  // Peek, never refresh. An empty snapshot (YouTube disabled, or the cache
+  // has never been warmed) drops us to the DB-only definition, which is
+  // what `resolveAllEpisodes` also falls back to.
+  let ytIds: string[] = []
+  let stale = false
+  if (USE_YOUTUBE) {
+    try {
+      const peeked = await peekCachedEpisodes()
+      ytIds = peeked.episodes.map((e) => e.id)
+      stale = peeked.stale
+    } catch (error) {
+      console.error("[episodes] YouTube cache peek failed for the archive count:", error)
+    }
+  }
+
+  try {
+    if (ytIds.length === 0) {
+      // DB-only: `fetchDbEpisodeList()` applies no title/url guard in this
+      // mode, so neither do we.
+      const res = (await db!.execute(sql`
+        SELECT COUNT(*)::int AS n
+          FROM episodes e
+         WHERE NOT EXISTS (SELECT 1 FROM hidden_episodes h WHERE h.episode_id = e.id)
+           AND NOT EXISTS (SELECT 1 FROM deleted_episodes d WHERE d.episode_id = e.id)
+      `)) as unknown as { rows: Array<{ n: number }> }
+      return { count: Number(res.rows[0]?.n ?? 0), source: "db", stale: false }
+    }
+
+    // NOT EXISTS rather than NOT IN throughout: NOT IN against a set that
+    // ever yields a NULL evaluates to NULL and silently drops every row.
+    const res = (await db!.execute(sql`
+      WITH yt(id) AS (SELECT unnest(${sql.param(ytIds)}::text[]))
+      SELECT
+        (
+          SELECT COUNT(*)::int
+            FROM yt
+           WHERE NOT EXISTS (SELECT 1 FROM hidden_episodes h WHERE h.episode_id = yt.id)
+             AND NOT EXISTS (SELECT 1 FROM deleted_episodes d WHERE d.episode_id = yt.id)
+        ) AS yt_n,
+        (
+          SELECT COUNT(*)::int
+            FROM episodes e
+           WHERE e.title <> ''
+             AND e.youtube_url <> ''
+             AND NOT EXISTS (SELECT 1 FROM yt WHERE yt.id = e.id)
+             AND NOT EXISTS (SELECT 1 FROM hidden_episodes h WHERE h.episode_id = e.id)
+             AND NOT EXISTS (SELECT 1 FROM deleted_episodes d WHERE d.episode_id = e.id)
+        ) AS db_n
+    `)) as unknown as { rows: Array<{ yt_n: number; db_n: number }> }
+
+    const row = res.rows[0]
+    return {
+      count: Number(row?.yt_n ?? 0) + Number(row?.db_n ?? 0),
+      source: "merged",
+      stale,
+    }
+  } catch (error) {
+    // Fail to "unknown", not to zero. The hidden/deleted sets are part of
+    // this query, so a failure here means we cannot prove an episode is
+    // visible — and a confident «0» would be a worse lie than «—».
+    console.error("[episodes] Archive count failed:", error)
+    return null
+  }
 }
 
 export async function getEpisodeBySlug(

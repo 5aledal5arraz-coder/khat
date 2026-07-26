@@ -75,7 +75,7 @@ import {
   ArrowLeft,
   type LucideIcon,
 } from "lucide-react"
-import { takeOpsSnapshot } from "@/lib/ops/snapshot"
+import { takeOpsSnapshot, OPS_HOME_SECTIONS } from "@/lib/ops/snapshot"
 import {
   deriveAiActivity,
   deriveAiAlerts,
@@ -92,7 +92,7 @@ import {
 } from "@/lib/ops/home-metrics"
 import { deriveDaySummary } from "@/lib/ops/day-summary"
 import type { WorkerHeartbeat } from "@/lib/ops/diagnostics"
-import { getEpisodes } from "@/lib/queries/episodes"
+import { countArchiveEpisodes } from "@/lib/queries/episodes"
 import { getRecentActiveEirs } from "@/lib/eir/service"
 import { getStaleEirs } from "@/lib/khat-brain/staleness"
 import { buildAttentionQueue } from "@/lib/khat-brain/attention"
@@ -400,8 +400,14 @@ export default async function OpsDashboardPage() {
   // counts the episodes table alone. Both cards state their source.
   const [snap, publishedEpisodes, recentEirs, staleEirs, inboxCounts, agendaRows] =
     await Promise.all([
-      takeOpsSnapshot(),
-      getEpisodes({}).then((eps) => eps.length).catch(() => null),
+      // Exactly the five sections this page reads. `systemEvents` and
+      // `recentActivity` render only on /admin/ops/details, and the
+      // guest-identity counters render nowhere at all — fetching them here
+      // cost nine Postgres round-trips per load for data that was thrown
+      // away. The list is `OPS_HOME_SECTIONS`, next to the section
+      // definitions, so it can be checked against them.
+      takeOpsSnapshot({ sections: OPS_HOME_SECTIONS }),
+      countArchiveEpisodes(),
       getRecentActiveEirs(),
       getStaleEirs(),
       // The four human channels in ONE statement (lib/ops/inbox.ts); it swallows
@@ -608,12 +614,35 @@ export default async function OpsDashboardPage() {
         ) : null}
         <StatTile
           label="حلقات منشورة"
-          value={publishedEpisodes ?? "—"}
+          value={publishedEpisodes?.count ?? "—"}
           icon={Sparkles}
           tone="accent"
           // Names its source, because the pipeline card below carries a
           // SECOND «منشورة» number with a different (smaller) definition.
-          hint="الأرشيف الكامل مع يوتيوب — غير عدّاد المرحلة في بطاقة خط الإنتاج"
+          // The label follows the SOURCE the count actually came from: when
+          // the YouTube snapshot is unavailable the number really is the
+          // database alone, and claiming «مع يوتيوب» over it would be a
+          // smaller archive wearing a bigger label.
+          hint={
+            publishedEpisodes === null ? (
+              "تعذّر قراءة الأرشيف"
+            ) : (
+              <>
+                <span className="block">
+                  {publishedEpisodes.source === "merged"
+                    ? "الأرشيف الكامل مع يوتيوب — غير عدّاد المرحلة في بطاقة خط الإنتاج"
+                    : "قاعدة الموقع فقط (لقطة يوتيوب غير متوفرة) — غير عدّاد المرحلة في بطاقة خط الإنتاج"}
+                </span>
+                {/* Reading this tile no longer REFRESHES the YouTube snapshot
+                    — a page render must not fire an external API call — so on
+                    the rare load where the snapshot has aged past its 12h TTL
+                    the number says so rather than quietly under-reporting. */}
+                {publishedEpisodes.stale ? (
+                  <span className="block">لقطة يوتيوب قديمة — الرقم قد يكون متأخرًا</span>
+                ) : null}
+              </>
+            )
+          }
           // Without the cost tile the row is 3 tiles; on the 2-column
           // mobile grid the third would sit alone at half width and read
           // as a card that dropped out. Full-width below `sm` instead.

@@ -20,7 +20,7 @@
 
 import Link from "next/link"
 import { ArrowRight } from "lucide-react"
-import { takeOpsSnapshot } from "@/lib/ops/snapshot"
+import { takeOpsSnapshot, OPS_DETAILS_SECTIONS } from "@/lib/ops/snapshot"
 import { checkPageRole } from "@/lib/api-utils"
 import { formatUtc } from "@/lib/ops/format"
 import { NoAccess } from "../_components/no-access"
@@ -37,7 +37,10 @@ export default async function OpsDetailsPage() {
   const gate = await checkPageRole("ADMIN")
   if (!gate.ok) return <NoAccess roleLabelAr="مدير" />
 
-  const snap = await takeOpsSnapshot()
+  // Exactly the five sections rendered below. The worker heartbeat, the
+  // AI-model health read and the six guest-identity queries are fetched by
+  // nothing on this page — they were pure round-trips on the render path.
+  const snap = await takeOpsSnapshot({ sections: OPS_DETAILS_SECTIONS })
 
   return (
     <div dir="rtl" lang="ar">

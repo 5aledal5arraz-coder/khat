@@ -86,19 +86,21 @@ export type SectionResult<T> =
   | { ok: true; data: T }
   | { ok: false; error: string; errorRef: string }
 
-export interface OpsSnapshot {
-  /** Wall-clock at the start of takeOpsSnapshot(). */
-  taken_at: Date
-  /** Total ms inside Promise.allSettled. Smoke perf gate reads this. */
-  duration_ms: number
-  queue: SectionResult<QueueHealth>
-  systemEvents: SectionResult<SystemEventsOverview>
-  aiRouter: SectionResult<AiRouterSnapshot>
-  eirPipeline: SectionResult<EirPipelineSnapshot>
-  recentActivity: SectionResult<RecentActivity>
+/**
+ * The payload each section resolves to. This map is the single source of
+ * truth for "which sections exist" — `OpsSection`, the fetcher table, and
+ * every snapshot type below are derived from it, so a new section cannot
+ * be added in one place and forgotten in another.
+ */
+interface OpsSectionData {
+  queue: QueueHealth
+  systemEvents: SystemEventsOverview
+  aiRouter: AiRouterSnapshot
+  eirPipeline: EirPipelineSnapshot
+  recentActivity: RecentActivity
   /** P2.4.e.1 — guest-identity integrity counters. Rendered as a
    *  compact section by the dashboard (P2.4.e.2). */
-  guestIdentity: SectionResult<GuestIdentitySnapshot>
+  guestIdentity: GuestIdentitySnapshot
   /**
    * Proof-of-life for the job worker. Every other section only proves that
    * a QUERY returned — a dead worker enqueues nothing, so the queue looks
@@ -106,14 +108,95 @@ export interface OpsSnapshot {
    * not merely reachable. Reused from `lib/ops/diagnostics.ts` so the home
    * band and the Settings hub can never disagree about "is the worker up".
    */
-  worker: SectionResult<WorkerHeartbeat>
+  worker: WorkerHeartbeat
   /**
    * AI model configuration health — catalog freshness, silent fallbacks,
    * and end-of-life exposure. Every other AI signal answers "did the calls
    * work"; this one answers "which model actually produced the output, and
    * is it about to be switched off".
    */
-  aiModels: SectionResult<AiModelHealth>
+  aiModels: AiModelHealth
+}
+
+export type OpsSection = keyof OpsSectionData
+
+/** Every section, in fan-out order. Also the default for `takeOpsSnapshot`. */
+export const OPS_SECTIONS = [
+  "queue",
+  "systemEvents",
+  "aiRouter",
+  "eirPipeline",
+  "recentActivity",
+  "guestIdentity",
+  "worker",
+  "aiModels",
+] as const satisfies readonly OpsSection[]
+
+/**
+ * The sections `/admin/ops` renders — and therefore the only ones it pays
+ * for. Excluded deliberately:
+ *   • `systemEvents` + `recentActivity` — rendered only on the details page.
+ *   • `guestIdentity` — rendered NOWHERE. Its nine counters have no consumer
+ *     in `app/`; the only thing that ever read the section was the
+ *     `allSectionsOk` roll-up, i.e. six Postgres queries per page load to
+ *     compute one boolean. Kept as a section (a planned P2.4.e.2 panel is
+ *     referenced in `lib/guest-identity/integrity.ts`) rather than deleted,
+ *     so re-enabling it is one entry in this list.
+ */
+export const OPS_HOME_SECTIONS = [
+  "queue",
+  "aiRouter",
+  "eirPipeline",
+  "worker",
+  "aiModels",
+] as const satisfies readonly OpsSection[]
+
+/**
+ * The five sections `/admin/ops/details` renders. `worker` and `aiModels`
+ * feed the home's health band only, and `guestIdentity` renders nowhere —
+ * see `OPS_HOME_SECTIONS`.
+ */
+export const OPS_DETAILS_SECTIONS = [
+  "queue",
+  "systemEvents",
+  "aiRouter",
+  "eirPipeline",
+  "recentActivity",
+] as const satisfies readonly OpsSection[]
+
+interface OpsSnapshotMeta {
+  /** Wall-clock at the start of takeOpsSnapshot(). */
+  taken_at: Date
+  /** Total ms inside Promise.allSettled. Smoke perf gate reads this. */
+  duration_ms: number
+}
+
+/**
+ * A snapshot of exactly the sections `S` that were REQUESTED.
+ *
+ * The sections that were not requested are typed `?: undefined` rather
+ * than omitted, which is the whole point of this shape: reading
+ * `snap.systemEvents.ok` on a snapshot that never fetched system events
+ * is a compile error, not a runtime crash — and, more importantly, a
+ * not-fetched section is statically distinguishable from a fetched one
+ * that failed. Those two must never collapse into the same value, or
+ * "we didn't ask" starts rendering as "it's broken" (or worse, as "it's
+ * fine").
+ */
+export type OpsSnapshotFor<S extends OpsSection> = OpsSnapshotMeta & {
+  [K in S]: SectionResult<OpsSectionData[K]>
+} & { [K in Exclude<OpsSection, S>]?: undefined }
+
+/** The full 8-section snapshot — what `takeOpsSnapshot()` returns by default. */
+export type OpsSnapshot = OpsSnapshotFor<OpsSection>
+
+/**
+ * Any snapshot, whatever subset it carries. Derivation helpers
+ * (`lib/ops/home-metrics.ts`) accept THIS, not `OpsSnapshot`: they must
+ * work on a page that deliberately fetched five sections instead of eight.
+ */
+export type OpsSnapshotPartial = OpsSnapshotMeta & {
+  [K in OpsSection]?: SectionResult<OpsSectionData[K]>
 }
 
 // ─── Section 1: Queue & Worker Health ────────────────────────────────
@@ -333,135 +416,174 @@ function zeroFilled<K extends string>(keys: readonly K[]): Record<K, number> {
 
 // ─── Section fetchers (each throws on failure; allSettled converts) ──
 
+/**
+ * ONE round-trip. This used to be SIX sequential `db.execute` calls, each
+ * awaiting the one before it — six serial network latencies to render a
+ * single card. On the managed DB that is the dominant cost of the section;
+ * the queries themselves are trivial.
+ *
+ * Shape: the counters are `FILTER` aggregates over a single scan of `jobs`.
+ * The three ROW-shaped reads stay exact by hanging off `LEFT JOIN LATERAL`
+ * instead of being folded into that aggregate — `oldestPending.type`,
+ * `oldestRunning.type` and `oldestRunning.locked_by` are all rendered on
+ * /admin/ops/details, so rolling them up into a `min(run_after)` would have
+ * silently dropped columns the UI displays.
+ *
+ * Every predicate below is character-identical to the query it replaced,
+ * including the two that must agree with each other: `dead_24h` and the
+ * `recentDead` lateral share one dead-window definition.
+ */
 async function fetchQueueHealth(): Promise<QueueHealth> {
   if (!db) throw new Error("DB not configured")
   const now = Date.now()
 
-  // 1. Counts by status.
-  const countsRes = (await db.execute(sql`
-    SELECT status, COUNT(*)::int AS n FROM jobs GROUP BY status
-  `)) as unknown as { rows: Array<{ status: string; n: number }> }
-  const countsByStatus = zeroFilled(JOB_STATUSES)
-  for (const r of countsRes.rows) {
-    const k = r.status as JobStatus
-    if (k in countsByStatus) countsByStatus[k] = Number(r.n)
-  }
+  // Built from JOB_STATUSES so the per-status columns cannot drift from the
+  // tuple the zero-fill below pads against. Values are bound parameters;
+  // only the derived column alias is an identifier.
+  const statusCounts = sql.join(
+    JOB_STATUSES.map(
+      (s) =>
+        sql`COUNT(*) FILTER (WHERE status = ${s})::int AS ${sql.identifier(`n_${s}`)}`,
+    ),
+    sql`, `,
+  )
 
-  // 2. Oldest pending.
-  const oldestPendingRes = (await db.execute(sql`
-    SELECT id, type, run_after
+  const res = (await db.execute(sql`
+    WITH agg AS (
+      SELECT
+        ${statusCounts},
+        COUNT(*) FILTER (
+          WHERE status = 'running'
+            AND locked_at IS NOT NULL
+            AND locked_at < NOW() - interval '5 minutes'
+        )::int AS stale_lease,
+        COUNT(*) FILTER (
+          WHERE status = 'dead'
+            AND COALESCE(completed_at, updated_at) > NOW() - interval '24 hours'
+        )::int AS dead_24h,
+        COUNT(*) FILTER (WHERE status = 'pending' AND run_after <= NOW())::int AS due_pending,
+        COUNT(*) FILTER (WHERE status = 'pending' AND run_after > NOW())::int AS scheduled_pending
       FROM jobs
-     WHERE status = 'pending'
-     ORDER BY run_after ASC
-     LIMIT 1
-  `)) as unknown as {
-    rows: Array<{ id: string; type: string; run_after: Date }>
-  }
-  const op = oldestPendingRes.rows[0] ?? null
-  const oldestPending = op
-    ? {
-        id: op.id,
-        type: op.type,
-        run_after: new Date(op.run_after),
-        age_ms: now - new Date(op.run_after).getTime(),
-      }
-    : null
-
-  // 3. Oldest running (NULLS LAST so a row with null started_at doesn't
-  //    eclipse a real claim).
-  const oldestRunningRes = (await db.execute(sql`
-    SELECT id, type, started_at, locked_by, locked_at
-      FROM jobs
-     WHERE status = 'running'
-     ORDER BY started_at ASC NULLS LAST
-     LIMIT 1
-  `)) as unknown as {
-    rows: Array<{
-      id: string
-      type: string
-      started_at: Date | null
-      locked_by: string | null
-      locked_at: Date | null
-    }>
-  }
-  const or = oldestRunningRes.rows[0] ?? null
-  const oldestRunning = or
-    ? {
-        id: or.id,
-        type: or.type,
-        started_at: or.started_at ? new Date(or.started_at) : null,
-        locked_by: or.locked_by,
-        locked_at: or.locked_at ? new Date(or.locked_at) : null,
-        age_ms: or.started_at
-          ? now - new Date(or.started_at).getTime()
-          : null,
-      }
-    : null
-
-  // 4. Stale-lease count (lease window matches worker's 5-min default).
-  const staleRes = (await db.execute(sql`
-    SELECT COUNT(*)::int AS n
-      FROM jobs
-     WHERE status = 'running'
-       AND locked_at IS NOT NULL
-       AND locked_at < NOW() - interval '5 minutes'
-  `)) as unknown as { rows: Array<{ n: number }> }
-  const staleLeaseCount = Number(staleRes.rows[0]?.n ?? 0)
-
-  // 5. Recent dead (last 5 in 24h).
-  const deadRes = (await db.execute(sql`
-    SELECT id, type, attempts, max_attempts, completed_at, error_message
-      FROM jobs
-     WHERE status = 'dead'
-       AND COALESCE(completed_at, updated_at) > NOW() - interval '24 hours'
-     ORDER BY COALESCE(completed_at, updated_at) DESC
-     LIMIT 5
-  `)) as unknown as {
-    rows: Array<{
-      id: string
-      type: string
-      attempts: number
-      max_attempts: number
-      completed_at: Date | null
-      error_message: string | null
-    }>
-  }
-  const recentDead = deadRes.rows.map((r) => ({
-    id: r.id,
-    type: r.type,
-    attempts: Number(r.attempts),
-    max_attempts: Number(r.max_attempts),
-    completed_at: r.completed_at ? new Date(r.completed_at) : null,
-    error_message: r.error_message,
-  }))
-
-  // 6. True counters the display lists can't provide: `recentDead` is
-  //    LIMIT 5, and `countsByStatus.pending` mixes due work with jobs
-  //    deliberately scheduled for the future. One roundtrip, FILTERed.
-  //    The dead predicate is character-identical to query 5's WHERE.
-  const countersRes = (await db.execute(sql`
+    )
     SELECT
-      COUNT(*) FILTER (
-        WHERE status = 'dead'
-          AND COALESCE(completed_at, updated_at) > NOW() - interval '24 hours'
-      )::int AS dead_24h,
-      COUNT(*) FILTER (WHERE status = 'pending' AND run_after <= NOW())::int AS due_pending,
-      COUNT(*) FILTER (WHERE status = 'pending' AND run_after > NOW())::int AS scheduled_pending
-    FROM jobs
+      agg.*,
+      op.id AS op_id, op.type AS op_type, op.run_after AS op_run_after,
+      orn.id AS or_id, orn.type AS or_type, orn.started_at AS or_started_at,
+      orn.locked_by AS or_locked_by, orn.locked_at AS or_locked_at,
+      dead.rows AS dead_rows
+    FROM agg
+    -- Oldest pending.
+    LEFT JOIN LATERAL (
+      SELECT id, type, run_after
+        FROM jobs
+       WHERE status = 'pending'
+       ORDER BY run_after ASC
+       LIMIT 1
+    ) op ON TRUE
+    -- Oldest running (NULLS LAST so a row with null started_at doesn't
+    -- eclipse a real claim).
+    LEFT JOIN LATERAL (
+      SELECT id, type, started_at, locked_by, locked_at
+        FROM jobs
+       WHERE status = 'running'
+       ORDER BY started_at ASC NULLS LAST
+       LIMIT 1
+    ) orn ON TRUE
+    -- Recent dead (last 5 in 24h). Returned as JSON so a LIST can ride
+    -- along in the same single-row result. Every timestamp column on
+    -- \`jobs\` is timestamptz, so the JSON rendering carries an explicit
+    -- offset and \`new Date()\` cannot reinterpret it in another zone.
+    LEFT JOIN LATERAL (
+      SELECT COALESCE(
+               json_agg(to_jsonb(d) - 'sort_key' ORDER BY d.sort_key DESC),
+               '[]'::json
+             ) AS rows
+        FROM (
+          SELECT id, type, attempts, max_attempts, completed_at, error_message,
+                 COALESCE(completed_at, updated_at) AS sort_key
+            FROM jobs
+           WHERE status = 'dead'
+             AND COALESCE(completed_at, updated_at) > NOW() - interval '24 hours'
+           ORDER BY COALESCE(completed_at, updated_at) DESC
+           LIMIT 5
+        ) d
+    ) dead ON TRUE
   `)) as unknown as {
-    rows: Array<{ dead_24h: number; due_pending: number; scheduled_pending: number }>
+    rows: Array<
+      Record<string, unknown> & {
+        stale_lease: number
+        dead_24h: number
+        due_pending: number
+        scheduled_pending: number
+        op_id: string | null
+        op_type: string | null
+        op_run_after: Date | null
+        or_id: string | null
+        or_type: string | null
+        or_started_at: Date | null
+        or_locked_by: string | null
+        or_locked_at: Date | null
+        dead_rows: Array<{
+          id: string
+          type: string
+          attempts: number
+          max_attempts: number
+          completed_at: string | null
+          error_message: string | null
+        }> | null
+      }
+    >
   }
-  const counters = countersRes.rows[0]
+
+  const r = res.rows[0]
+
+  const countsByStatus = zeroFilled(JOB_STATUSES)
+  for (const s of JOB_STATUSES) {
+    countsByStatus[s] = Number(r?.[`n_${s}`] ?? 0)
+  }
+
+  // `op_id` is the presence test, not `op_run_after`: the column is NOT NULL
+  // on the table, so a null id is the only thing that means "no such row".
+  const oldestPending =
+    r?.op_id != null && r.op_run_after != null
+      ? {
+          id: r.op_id,
+          type: r.op_type as string,
+          run_after: new Date(r.op_run_after),
+          age_ms: now - new Date(r.op_run_after).getTime(),
+        }
+      : null
+
+  const oldestRunning =
+    r?.or_id != null
+      ? {
+          id: r.or_id,
+          type: r.or_type as string,
+          started_at: r.or_started_at ? new Date(r.or_started_at) : null,
+          locked_by: r.or_locked_by,
+          locked_at: r.or_locked_at ? new Date(r.or_locked_at) : null,
+          age_ms: r.or_started_at ? now - new Date(r.or_started_at).getTime() : null,
+        }
+      : null
+
+  const recentDead = (r?.dead_rows ?? []).map((d) => ({
+    id: d.id,
+    type: d.type,
+    attempts: Number(d.attempts),
+    max_attempts: Number(d.max_attempts),
+    completed_at: d.completed_at ? new Date(d.completed_at) : null,
+    error_message: d.error_message,
+  }))
 
   return {
     countsByStatus,
     oldestPending,
     oldestRunning,
-    staleLeaseCount,
+    staleLeaseCount: Number(r?.stale_lease ?? 0),
     recentDead,
-    deadCount24h: Number(counters?.dead_24h ?? 0),
-    duePendingCount: Number(counters?.due_pending ?? 0),
-    scheduledPendingCount: Number(counters?.scheduled_pending ?? 0),
+    deadCount24h: Number(r?.dead_24h ?? 0),
+    duePendingCount: Number(r?.due_pending ?? 0),
+    scheduledPendingCount: Number(r?.scheduled_pending ?? 0),
   }
 }
 
@@ -767,36 +889,55 @@ async function fetchGuestIdentitySnapshot(): Promise<GuestIdentitySnapshot> {
 
 // ─── Orchestrator ────────────────────────────────────────────────────
 
+/** The one fetcher per section. Keyed by `OpsSection`, so adding a section
+ *  to `OpsSectionData` without wiring a fetcher is a type error. */
+const SECTION_FETCHERS: {
+  [K in OpsSection]: () => Promise<OpsSectionData[K]>
+} = {
+  queue: fetchQueueHealth,
+  systemEvents: fetchSystemEventsOverview,
+  aiRouter: fetchAiRouterSnapshot,
+  eirPipeline: fetchEirPipelineSnapshot,
+  recentActivity: fetchRecentActivity,
+  guestIdentity: fetchGuestIdentitySnapshot,
+  worker: probeWorkerHeartbeat,
+  aiModels: fetchAiModelHealth,
+}
+
 /**
- * Take a parallel snapshot of all five sections. Uses
- * `Promise.allSettled` so one slow / failing section doesn't blank the
- * page. Each section's outcome is wrapped in `SectionResult<T>`.
+ * Take a parallel snapshot of the requested sections (all of them by
+ * default). Uses `Promise.allSettled` so one slow / failing section doesn't
+ * blank the page; each outcome is wrapped in `SectionResult<T>`.
+ *
+ * `sections` exists because the two pages that call this render DIFFERENT
+ * things, and a section that is fetched but never rendered is pure cost:
+ * every fetcher here is one or more Postgres round-trips on the render path.
+ * `/admin/ops` was paying for system events, the activity feed and the six
+ * guest-identity queries it does not display; `/admin/ops/details` was
+ * paying for the worker probe, the model-health reads and the same six
+ * guest-identity queries. Each page now asks for exactly what it shows.
+ *
+ * Sections that are NOT requested are absent from the result (typed
+ * `?: undefined`) rather than faked into a failure — see `OpsSnapshotFor`.
  */
-export async function takeOpsSnapshot(): Promise<OpsSnapshot> {
+export async function takeOpsSnapshot<S extends OpsSection = OpsSection>(
+  opts: { sections?: readonly S[] } = {},
+): Promise<OpsSnapshotFor<S>> {
   const taken_at = new Date()
   const t0 = Date.now()
 
-  const settled = await Promise.allSettled([
-    fetchQueueHealth(),
-    fetchSystemEventsOverview(),
-    fetchAiRouterSnapshot(),
-    fetchEirPipelineSnapshot(),
-    fetchRecentActivity(),
-    fetchGuestIdentitySnapshot(),
-    probeWorkerHeartbeat(),
-    fetchAiModelHealth(),
-  ])
+  // Deduped: a caller listing a section twice must not run its queries twice.
+  const names = [
+    ...new Set<OpsSection>(opts.sections ?? (OPS_SECTIONS as readonly OpsSection[])),
+  ]
 
-  return {
-    taken_at,
-    duration_ms: Date.now() - t0,
-    queue: settledToSection(settled[0]),
-    systemEvents: settledToSection(settled[1]),
-    aiRouter: settledToSection(settled[2]),
-    eirPipeline: settledToSection(settled[3]),
-    recentActivity: settledToSection(settled[4]),
-    guestIdentity: settledToSection(settled[5]),
-    worker: settledToSection(settled[6]),
-    aiModels: settledToSection(settled[7]),
-  }
+  const settled = await Promise.allSettled(names.map((n) => SECTION_FETCHERS[n]()))
+
+  const out: Record<string, unknown> = { taken_at }
+  names.forEach((n, i) => {
+    out[n] = settledToSection(settled[i])
+  })
+  out.duration_ms = Date.now() - t0
+
+  return out as OpsSnapshotFor<S>
 }
