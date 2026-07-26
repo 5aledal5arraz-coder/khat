@@ -19,14 +19,54 @@
  * note): GEMINI_RETRIEVAL_DAILY_USD_CAP. Set to 0 to disable retrieval
  * entirely; set high to effectively lift the cap.
  *
- * Sizing (2026-07-25): the cap is a runaway-loop brake, NOT a usage budget.
- * Tripping it degrades quality silently — callers fall back to source-less
- * analysis — so it must sit far above normal operation. Measured on the real
- * `research_retrieval` rows for 2026-07-24: 31 calls / 87 queries cost $1.83
- * with every query billed (the free tier ignored). $25/day is ~13× that peak,
- * matches the `expensive` AI tier's existing $25/day limit, and still bounds
- * a runaway job. The old $5 default put a 31-call day at 37% of cap on the
- * corrected numbers — and at 75% on the inflated ones this cap was set with.
+ * ── Sizing: where $25 comes from, and what it is NOT based on ──────────────
+ *
+ * The cap is a runaway-loop brake, NOT a usage budget. Tripping it degrades
+ * quality silently (callers fall back to source-less analysis), so it must
+ * sit far above normal operation — a cap that trips on a busy-but-legitimate
+ * day is worse than no cap, because it converts "expensive" into "quietly
+ * wrong".
+ *
+ * WE HAVE NO PRODUCTION USAGE HISTORY TO SIZE AGAINST. Say it plainly: this
+ * number was not derived from observed spend. `research_retrieval` telemetry
+ * only started being written recently and the table holds a handful of local
+ * rows. Anyone can check what history actually exists before trusting any
+ * usage-based claim about this cap — including a future version of this
+ * comment:
+ *
+ *     SELECT date_trunc('day', started_at) AS day,
+ *            count(*) AS calls, sum(cost_usd) AS usd
+ *       FROM ai_runs
+ *      WHERE task_kind = 'research_retrieval'
+ *      GROUP BY 1 ORDER BY 1;
+ *
+ * An earlier revision of this comment justified the cap with a specific
+ * measured day ("31 calls / 87 queries / $1.83 on 2026-07-24"). That day has
+ * no rows behind it — the figure could not be reproduced from `ai_runs`, so
+ * it has been removed rather than restated. A number that justifies a cap has
+ * to be one someone else can look up.
+ *
+ * What the $25 IS derived from — both checkable in this repo today:
+ *
+ *   1. Ceiling arithmetic, from the published rate the code already uses.
+ *      `GEMINI_3_GROUNDING_USD_PER_QUERY = 0.014` (grounded-evidence.ts), so
+ *      $25/day ≈ 1,785 billed searches/day before the brake engages. A single
+ *      gather runs a handful of queries and may bill one re-roll
+ *      (`EMPTY_GROUNDING_RETRIES = 1`), i.e. tens of cents at the very most —
+ *      so reaching the cap takes hundreds of gathers in one UTC day, which is
+ *      a loop, not a work day. Token cost rides on top and only lowers that
+ *      count; the brake is deliberately sized off the fee that scales with
+ *      searches, because that is the one a runaway multiplies.
+ *   2. Deliberate alignment: $25/day is the same figure as the router's
+ *      `expensive` tier daily limit (`lib/ai-router/rate-limit.ts`,
+ *      DEFAULT_LIMITS.expensive.maxDailyCostUsd). Retrieval must not be the
+ *      one path allowed to outspend the most expensive routed tier, and
+ *      keeping the two equal means an operator reasons about one ceiling.
+ *
+ * Limits of the above: (1) is an ORDER-OF-MAGNITUDE bound, not a forecast —
+ * it says the cap cannot plausibly be hit by normal use, which is the only
+ * property a brake needs. It does NOT establish that $25 is optimal, and it
+ * should be replaced by the query above once real days exist to read.
  */
 
 import { and, gte, sql } from "drizzle-orm"

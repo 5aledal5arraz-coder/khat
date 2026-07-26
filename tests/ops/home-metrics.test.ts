@@ -11,7 +11,6 @@ import {
   STALLED_PENDING_MS,
   deriveAiActivity,
   deriveAiHealthSentence,
-  deriveAiHint,
   deriveCostCapLine,
   deriveCostStatus,
   derivePipelineSummary,
@@ -208,7 +207,6 @@ describe("deriveAiActivity", () => {
       makeAi({ statuses: { succeeded: 3, cancelled: 2, running: 1 } }),
     )
     expect(out.total24h).toBe(6)
-    expect(out.succeeded).toBe(3)
     expect(out.running).toBe(1)
     expect(out.state).toBe("clean")
   })
@@ -224,7 +222,6 @@ describe("deriveAiActivity", () => {
 
   it("only running calls → 'in_flight', NOT 'clean' (nothing finished yet)", () => {
     const out = deriveAiActivity(makeAi({ statuses: { running: 2 } }))
-    expect(out.succeeded).toBe(0)
     expect(out.failed).toBe(0)
     expect(out.running).toBe(2)
     expect(out.state).toBe("in_flight")
@@ -244,49 +241,42 @@ describe("deriveAiActivity", () => {
 
 // ─── AI wording ──────────────────────────────────────────────────────
 
-describe("deriveAiHint / deriveAiHealthSentence", () => {
+/**
+ * `deriveAiHint` used to be tested here too. It was the AI-calls stat tile's
+ * sub-line, and the tile was deleted for counting activity without attaching a
+ * decision to it — so the function went with it, along with `AiActivity.succeeded`
+ * (its only reader) and the «استدعاء ناجح» plural entry.
+ *
+ * The health SENTENCE survives and is what these cases now pin: it is what the
+ * health band actually renders, and its honesty rules are the same ones —
+ * never claim success while calls are still running, never say "بلا أخطاء"
+ * about a window nobody has finished.
+ */
+describe("deriveAiHealthSentence", () => {
   it("in_flight never claims success", () => {
     const ai = deriveAiActivity(makeAi({ statuses: { running: 2 } }))
-    const hint = deriveAiHint(ai)
+    const sentence = deriveAiHealthSentence(ai)
     // Dual, not «2 استدعاء» — Arabic marks two on the noun and drops the
     // numeral. All counts on this page go through `formatArabicCount`.
-    expect(hint).toBe("استدعاءان قيد التنفيذ — ما خلص شي بعد")
-    expect(hint).not.toContain("نجح")
-    const sentence = deriveAiHealthSentence(ai)
     expect(sentence).toBe("استدعاءا ذكاء اصطناعي قيد التنفيذ")
     expect(sentence).not.toContain("بلا أخطاء")
   })
 
-  it("'كلها نجحت' only when every call in the window succeeded", () => {
-    expect(deriveAiHint(deriveAiActivity(makeAi({ statuses: { succeeded: 4 } })))).toBe(
-      "كلها نجحت",
-    )
-  })
-
-  it("a still-running call is never folded into 'كلها نجحت'", () => {
+  it("a still-running call is never folded into a clean claim", () => {
     const ai = deriveAiActivity(makeAi({ statuses: { succeeded: 3, running: 1 } }))
-    expect(deriveAiHint(ai)).not.toBe("كلها نجحت")
-    expect(deriveAiHint(ai)).toBe("3 استدعاءات ناجحة · استدعاء واحد قيد التنفيذ")
     expect(deriveAiHealthSentence(ai)).toContain("لسه شغّال")
   })
 
-  it("a cancelled-only window is not reported as all-succeeded", () => {
+  it("a cancelled-only window still reads as clean, not as succeeded", () => {
     const ai = deriveAiActivity(makeAi({ statuses: { cancelled: 2 } }))
     expect(ai.state).toBe("clean")
-    expect(deriveAiHint(ai)).not.toBe("كلها نجحت")
+    expect(deriveAiHealthSentence(ai)).not.toContain("نجح")
   })
 
-  it("no_data / unavailable keep their neutral wording", () => {
-    expect(deriveAiHint(deriveAiActivity(makeAi()))).toBe("ما صار أي استدعاء خلال 24 ساعة")
-    // `unavailable` names the failure instead of dropping the hint —
-    // the tile's "—" must never be left unexplained.
-    expect(deriveAiHint(deriveAiActivity(null))).toBe("تعذّر قراءة سجل الاستدعاءات")
-  })
-
-  it("failures are reported as failures", () => {
-    expect(
-      deriveAiHint(deriveAiActivity(makeAi({ statuses: { succeeded: 1, failed: 2 } }))),
-    ).toBe("استدعاءان فاشلان خلال 24 ساعة")
+  it("no_data keeps its neutral wording", () => {
+    expect(deriveAiHealthSentence(deriveAiActivity(makeAi()))).toBe(
+      "ما صار أي استدعاء ذكاء اصطناعي خلال 24 ساعة",
+    )
   })
 
   // Western digits everywhere — `lib/ops/format.ts` §11: "Western digits
@@ -301,7 +291,6 @@ describe("deriveAiHint / deriveAiHealthSentence", () => {
       deriveAiActivity(makeAi({ statuses: { succeeded: 4 } })),
       deriveAiActivity(makeAi({ statuses: { succeeded: 1, failed: 2 } })),
     ]) {
-      expect(deriveAiHint(ai)).not.toMatch(arabicIndic)
       expect(deriveAiHealthSentence(ai)).not.toMatch(arabicIndic)
     }
   })

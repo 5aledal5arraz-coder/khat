@@ -61,7 +61,6 @@ export type AiActivityState =
 export interface AiActivity {
   /** Every `ai_runs` row in the window — all five statuses. */
   total24h: number
-  succeeded: number
   /** failed + timed_out — both are money spent on nothing. */
   failed: number
   running: number
@@ -70,7 +69,7 @@ export interface AiActivity {
 
 export function deriveAiActivity(ai: AiRouterSnapshot | null): AiActivity {
   if (!ai) {
-    return { total24h: 0, succeeded: 0, failed: 0, running: 0, state: "unavailable" }
+    return { total24h: 0, failed: 0, running: 0, state: "unavailable" }
   }
   const c = ai.ai_runs_status_counts_24h
   const succeeded = c.succeeded ?? 0
@@ -90,42 +89,12 @@ export function deriveAiActivity(ai: AiRouterSnapshot | null): AiActivity {
           ? "in_flight"
           : "clean"
 
-  return { total24h, succeeded, failed, running, state }
-}
-
-/**
- * The AI stat tile's sub-line. Every branch is bounded by what we actually
- * counted: "كلها نجحت" is only said when `succeeded` really is the whole
- * window, and a still-running call is never folded into a success claim.
- *
- * Every count goes through `formatArabicCount`. Interpolating a fixed singular
- * («2 استدعاء», «2 فشل») is wrong in Arabic for exactly the counts an ops
- * dashboard shows most: 1, 2 and 3–10.
- */
-export function deriveAiHint(ai: AiActivity): string {
-  switch (ai.state) {
-    case "unavailable":
-      // A missing hint left the tile's "—" unexplained; naming the
-      // failure is the same honesty rule the rest of this file follows.
-      return "تعذّر قراءة سجل الاستدعاءات"
-    case "no_data":
-      return "ما صار أي استدعاء خلال 24 ساعة"
-    case "in_flight":
-      return `${formatArabicCount(ai.running, "استدعاء")} قيد التنفيذ — ما خلص شي بعد`
-    case "has_failures":
-      return `${formatArabicCount(ai.failed, "استدعاء فاشل")} خلال 24 ساعة`
-    case "clean":
-      if (ai.running > 0)
-        return (
-          `${formatArabicCount(ai.succeeded, "استدعاء ناجح")} · ` +
-          `${formatArabicCount(ai.running, "استدعاء")} قيد التنفيذ`
-        )
-      // `cancelled` runs land here too — they neither failed nor succeeded,
-      // so "كلها نجحت" is reserved for a window that is 100% successes.
-      return ai.succeeded === ai.total24h
-        ? "كلها نجحت"
-        : `${formatArabicCount(ai.succeeded, "استدعاء ناجح")} بلا أخطاء`
-  }
+  // `succeeded` stays a local, not a field: `state` is derived from it here,
+  // but the only reader of the FIELD was the AI-calls stat tile's sub-line
+  // (`deriveAiHint`), and that tile was deleted for being an activity counter
+  // with no decision attached. Failures are what the health band reports, and
+  // it reads `failed`.
+  return { total24h, failed, running, state }
 }
 
 // ─── Worker ──────────────────────────────────────────────────────────
@@ -720,7 +689,12 @@ export function deriveSystemHealth(
 
 // ─── Episode pipeline card ───────────────────────────────────────────
 
-/** One phase cell in the pipeline card's distribution grid. */
+/**
+ * One phase cell in the per-phase breakdown.
+ *
+ * Rendered by `EirPipelineSection` on `/admin/ops/details`, not by the home:
+ * the home's pipeline card rolls these up into the five-stage funnel below.
+ */
 export interface PipelineCell {
   phase: EpisodePhase
   label: string
@@ -752,9 +726,12 @@ export interface PipelineSummary {
  * card. Nothing was miscounted; the two views simply had different scopes.
  *
  * Reconciled by scope, not by relabelling: the card is «خط إنتاج الحلقات», so
- * both the headline and the grid are now exactly the work still IN the
- * pipeline. `published` is terminal — it leaves the pipeline — and is
+ * the headline and every per-phase count under it are exactly the work still
+ * IN the pipeline. `published` is terminal — it leaves the pipeline — and is
  * reported once, beside the headline, explicitly named as a phase count.
+ * (The 13-cell grid this paragraph was written for is gone; the home now
+ * renders the five-stage funnel and the per-phase cells live on
+ * `/admin/ops/details`. The scope rule is unchanged and applies to both.)
  * `archived` was already excluded from both and stays excluded.
  *
  * INVARIANT (locked by tests/ops/home-metrics.test.ts):

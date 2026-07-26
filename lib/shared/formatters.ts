@@ -46,7 +46,9 @@ const ARABIC_PLURALS: Record<string, [string, string, string]> = {
   "مهمة مجدولة": ["مهمة مجدولة", "مهمتان مجدولتان", "مهام مجدولة"],
   "استدعاء": ["استدعاء", "استدعاءان", "استدعاءات"],
   "استدعاء فاشل": ["استدعاء فاشل", "استدعاءان فاشلان", "استدعاءات فاشلة"],
-  "استدعاء ناجح": ["استدعاء ناجح", "استدعاءان ناجحان", "استدعاءات ناجحة"],
+  // No «استدعاء ناجح» entry: the only phrase that inflected it was the AI-calls
+  // tile's sub-line, deleted with the tile. The band reports failures, not
+  // successes — a success count is not a thing anyone acts on.
   // Dual is the iḍāfa form («استدعاءا ذكاء») — the nūn drops before the
   // second term, so this is NOT «استدعاءان ذكاء اصطناعي».
   "استدعاء ذكاء اصطناعي": [

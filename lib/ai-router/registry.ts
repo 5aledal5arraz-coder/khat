@@ -144,6 +144,17 @@ const EXTRA_PRICING: Array<{
   inputCostPer1M: number
   outputCostPer1M: number
 }> = [
+  // OpenAI `-pro` tiers — rates from developers.openai.com/api/docs/pricing
+  // (Flagship models → Standard → SHORT context; page shows no last-updated
+  // date, read 2026-07-26). These are the dearest models on the key by a wide
+  // margin: 6× gpt-5.6-sol and 30× gpt-5.6-luna on input. Both figures are a
+  // FLOOR, not a flat rate — the long-context column is $60/$270, and for
+  // gpt-5.4-pro OpenAI states that a prompt over 272K input tokens bills at
+  // 2× input / 1.5× output for the WHOLE session, not just the excess. The
+  // same 2×/1.5× long-context column exists for gpt-5.5-pro, but its page
+  // states no numeric threshold, so none is asserted here.
+  { provider: "openai", modelName: "gpt-5.5-pro", inputCostPer1M: 30, outputCostPer1M: 180 },
+  { provider: "openai", modelName: "gpt-5.4-pro", inputCostPer1M: 30, outputCostPer1M: 180 },
   // Current OpenAI alternates (quality ↓, cost ↓ — for high-volume overrides)
   { provider: "openai", modelName: "gpt-5.5", inputCostPer1M: 5, outputCostPer1M: 30 },
   { provider: "openai", modelName: "gpt-5.4", inputCostPer1M: 2.5, outputCostPer1M: 15 },
@@ -162,6 +173,16 @@ const EXTRA_PRICING: Array<{
   { provider: "gemini", modelName: "gemini-2.5-flash", inputCostPer1M: 0.3, outputCostPer1M: 2.5 },
   { provider: "gemini", modelName: "gemini-2.5-pro", inputCostPer1M: 1.25, outputCostPer1M: 10 },
   { provider: "gemini", modelName: "gemini-2.0-flash", inputCostPer1M: 0.1, outputCostPer1M: 0.4 },
+  // Gemini flash-lite tiers — same source (page last updated 2026-07-21, read
+  // 2026-07-26), Standard/Paid rates. No context tiers on either. The 3.1
+  // input figure is a floor only if AUDIO is ever sent to it ($0.50/1M for
+  // audio input vs $0.25 for text/image/video); today audio goes to Whisper,
+  // never here. gemini-3.5-flash-lite prices audio at the same $0.30 as text.
+  // 3.5-flash-lite is not decoration: it had already run 7 times locally with
+  // cost_usd NULL, and a model_benchmarks row for it came back with
+  // cost_delta_pct = null — the cost gate did not fail, it never ran.
+  { provider: "gemini", modelName: "gemini-3.5-flash-lite", inputCostPer1M: 0.3, outputCostPer1M: 2.5 },
+  { provider: "gemini", modelName: "gemini-3.1-flash-lite", inputCostPer1M: 0.25, outputCostPer1M: 1.5 },
 ]
 
 /**

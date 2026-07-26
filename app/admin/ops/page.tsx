@@ -1,5 +1,10 @@
 /**
- * `/admin/ops` — the admin home: a calm, launchpad-style command dashboard.
+ * `/admin/ops` — the admin home: what needs attention today, in one screen.
+ *
+ * NOT a launchpad. It was one, and the «ابدأ من هنا» block of six stateless
+ * links was deleted (see below) precisely because a wall of links duplicating
+ * the always-visible sidebar is not a home — it is a second navigation. What
+ * earns space here is anything carrying a number, a queue, or a decision.
  *
  * Server component. Calls `takeOpsSnapshot()` server-side (no API route).
  *

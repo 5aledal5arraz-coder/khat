@@ -16,12 +16,33 @@ import { cn } from "@/lib/utils"
 
 export type KitTone = "default" | "gold" | "purple" | "success" | "warning" | "danger"
 
+/**
+ * NO `dark:` VARIANTS HERE — and not merely because they were unused.
+ *
+ * These five tone strings carried `dark:text-emerald-400` / `-amber-400` /
+ * `dark:text-accent-foreground/90`. The assumption was that they were dead
+ * because the root layout strips `.dark` off `<html>`. They were not dead.
+ * This project is Tailwind v4 with no `@custom-variant dark` declared, so
+ * `dark:` compiles to `@media (prefers-color-scheme: dark)` — an OS setting,
+ * not a class. Verified in the compiled stylesheet: 94 `prefers-color-scheme`
+ * blocks, zero `.dark` selectors.
+ *
+ * So on any operator whose Mac is in dark mode, the `-400` shade won while the
+ * admin surface stayed forced-light. Measured in the browser on this page:
+ * emerald resolved to L=75.1 instead of L=44.5, amber to L=80.2 instead of
+ * L=47.3 — against an L≈98 card. Near-invisible text, on the tone colours
+ * whose entire job is to say "this one needs attention".
+ *
+ * The admin is one light surface (see admin-light-contrast): coloured text is
+ * the `-700` step, full stop. Any `dark:` added back here is a contrast bug
+ * that only reproduces on half the machines.
+ */
 const TONE_ICON: Record<KitTone, string> = {
   default: "bg-muted/70 text-muted-foreground",
   gold: "bg-primary/12 text-primary",
-  purple: "bg-accent/12 text-accent dark:text-accent-foreground/90",
-  success: "bg-emerald-500/12 text-emerald-700 dark:text-emerald-400",
-  warning: "bg-amber-500/12 text-amber-700 dark:text-amber-400",
+  purple: "bg-accent/12 text-accent",
+  success: "bg-emerald-500/12 text-emerald-700",
+  warning: "bg-amber-500/12 text-amber-700",
   danger: "bg-destructive/12 text-destructive",
 }
 
@@ -29,8 +50,8 @@ const TONE_VALUE: Record<KitTone, string> = {
   default: "text-foreground",
   gold: "text-foreground",
   purple: "text-foreground",
-  success: "text-emerald-700 dark:text-emerald-400",
-  warning: "text-amber-700 dark:text-amber-400",
+  success: "text-emerald-700",
+  warning: "text-amber-700",
   danger: "text-destructive",
 }
 

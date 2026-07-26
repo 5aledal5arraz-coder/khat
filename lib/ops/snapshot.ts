@@ -59,7 +59,11 @@ import {
 } from "@/lib/ai-router/errors"
 import { getAiModelsDiagnostics } from "@/lib/ai-router/model-selection"
 import { findEolRisks, type EolRisk } from "@/lib/ai-router/model-lifecycle"
-import { GEMINI_REASONING_MODEL, GEMINI_RETRIEVAL_MODEL } from "@/lib/ai/gemini"
+import {
+  GEMINI_REASONING_MODEL,
+  GEMINI_RETRIEVAL_MODEL,
+  GEMINI_IDENTIFY_MODEL,
+} from "@/lib/ai/gemini"
 import { countByPhase } from "@/lib/eir/service"
 import {
   getGuestIdentitySnapshot,
@@ -841,13 +845,17 @@ async function fetchAiModelHealth(): Promise<AiModelHealth> {
     }))
 
   // "Selected" = every model the system would use by configuration today:
-  // the resolved OpenAI model per task kind, plus the two Gemini defaults
+  // the resolved OpenAI model per task kind, plus ALL THREE Gemini defaults
   // (env-overridable, so an operator can pin a retiring model there and
-  // nothing in the OpenAI catalog would ever notice).
+  // nothing in the OpenAI catalog would ever notice). Every Gemini constant
+  // exported by lib/ai/gemini.ts belongs in this list — splitting identify
+  // off retrieval added a knob, and a knob nobody EOL-checks is exactly the
+  // shape of the gemini-2.5-flash problem this list exists to catch.
   const selectedModels = [
     ...diagnostics.tasks.map((t) => t.effective.modelName),
     GEMINI_REASONING_MODEL,
     GEMINI_RETRIEVAL_MODEL,
+    GEMINI_IDENTIFY_MODEL,
   ]
 
   return {

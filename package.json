@@ -135,7 +135,8 @@
     "verify:cleanup-phase-a": "npx tsx scripts/verify-cleanup-phase-a.ts",
     "cycle:khat-brain": "npx tsx scripts/cycle-khat-brain-e2e.ts",
     "ai:models": "npx tsx scripts/ai-models-status.ts",
-    "ai:benchmark": "npx tsx scripts/ai-benchmark.ts"
+    "ai:benchmark": "npx tsx scripts/ai-benchmark.ts",
+    "ai:blind-panel": "npx tsx scripts/ai-blind-panel.ts"
   },
   "dependencies": {
     "@google/genai": "^2.12.0",

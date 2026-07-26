@@ -64,6 +64,16 @@ export function tierBaselineModel(tier: BenchmarkTier): string {
   return FALLBACK_CHAINS[TIER_BASELINE_TASK[tier]][0]
 }
 
+/**
+ * Which provider a model id belongs to. The router derives the provider from
+ * `task_kind` (all OpenAI), so anything reaching it by id alone — the
+ * auto-discovery scan, the CLI without `--provider` — needs this or it is
+ * sent to the wrong adapter.
+ */
+export function providerForModel(modelId: string): AiProvider {
+  return /^gemini-/i.test(modelId.trim()) ? "gemini" : "openai"
+}
+
 /** Suffix heuristic: which tier a newly-discovered model likely targets. */
 export function tierForCandidate(modelId: string): BenchmarkTier {
   // Gemini family: "flash" (and flash-lite) is the efficient tier, "pro" is
@@ -252,10 +262,13 @@ export interface RunBenchmarkArgs {
   candidateModel: string
   baselineModel?: string
   /**
-   * Provider the CANDIDATE model belongs to. Defaults to OpenAI (the
-   * task-kind default) so existing OpenAI benchmarks are unchanged; pass
-   * "gemini" to benchmark a Gemini candidate through its adapter. The
-   * baseline always uses the task-kind default provider (OpenAI).
+   * Provider the CANDIDATE model belongs to. Omit to derive it from the
+   * model id (`providerForModel`) — the auto-discovery path has no other
+   * way to know, and defaulting to OpenAI there sent every discovered
+   * Gemini candidate to the OpenAI adapter for a guaranteed 404 that would
+   * have been recorded as the candidate "failing" the suite. Pass it
+   * explicitly only to override the derivation. The baseline always uses
+   * the task-kind default provider (OpenAI).
    */
   candidateProvider?: AiProvider
   triggeredBy: "manual" | "auto-discovery" | "cli"
@@ -297,7 +310,7 @@ export async function runModelBenchmark(args: RunBenchmarkArgs): Promise<{
           prompt,
           candMetrics,
           timeoutMs,
-          args.candidateProvider,
+          args.candidateProvider ?? providerForModel(args.candidateModel),
         ),
       ])
 

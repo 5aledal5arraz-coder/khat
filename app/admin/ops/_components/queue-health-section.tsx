@@ -142,7 +142,7 @@ export function QueueHealthSection({
                   {/* Same bidi rule as KvRow: a ratio is pinned LTR so
                       attempts and the ceiling can never swap on screen. */}
                   <span
-                    className="text-[10px] text-muted-foreground tabular-nums"
+                    className="text-[11px] text-muted-foreground tabular-nums"
                     dir="ltr"
                   >
                     {j.attempts}/{j.max_attempts}

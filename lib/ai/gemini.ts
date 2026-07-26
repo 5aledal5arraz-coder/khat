@@ -26,22 +26,42 @@ export const GEMINI_REASONING_MODEL =
 /**
  * Default Gemini model for grounded web retrieval (Google Search tool).
  *
- * ⚠️ THIS CONSTANT IS NOT ONLY A "RETRIEVAL MODEL" KNOB. Three call sites
- * read it, and one of them depends on the model's PROSE SHAPE, not just on
- * the grounding metadata:
- *   • lib/ai/grounded-evidence.ts        — metadata only (prose discarded) ✔
+ * Read ONLY by call sites that discard the model's prose and keep the
+ * grounding metadata:
+ *   • lib/ai/grounded-evidence.ts           — metadata only ✔
  *   • lib/ai/preparation/research/gemini.ts — metadata only ✔
- *   • lib/ai/preparation/identify.ts:43  — pairs paragraph `i` with grounded
- *     source `i` by REGEX over the free text to extract candidate NAMES.
  *
- * So changing `GEMINI_RETRIEVAL_MODEL` via env silently changes guest-name
- * EXTRACTION too: a model that formats its answer differently breaks the
- * pairing with no error. Isolating identify.ts onto its own constant is ~5–8
- * lines across 3 files and is NOT done here (out of scope, 2026-07-26) —
- * this note exists so the next person doesn't discover it in production.
+ * That invariant is what makes this knob safe to retune from env: swapping
+ * the model changes which sources come back, never how a downstream parser
+ * reads them. **Do not point a prose-parsing call site at this constant** —
+ * add its own, as GEMINI_IDENTIFY_MODEL below does.
  */
 export const GEMINI_RETRIEVAL_MODEL =
   env.GEMINI_RETRIEVAL_MODEL || "gemini-3.6-flash"
+
+/**
+ * Default Gemini model for guest-identity disambiguation
+ * (lib/ai/preparation/identify.ts).
+ *
+ * Separate from GEMINI_RETRIEVAL_MODEL on purpose. identify.ts does not
+ * consume grounding metadata alone: it splits the model's FREE TEXT into
+ * paragraph blocks and pairs block `i` with grounded source `i`, then pulls
+ * the candidate's NAME out of that block by regex. It therefore depends on
+ * the model's prose SHAPE, not just on its search results — a model that
+ * formats its answer differently (one block instead of three, a leading
+ * preamble, numbered instead of bulleted) mis-pairs names to sources and
+ * fails silently, with candidates that look plausible and cite the wrong
+ * person.
+ *
+ * While the two shared one env var, tuning "the retrieval model" — a change
+ * whose blast radius reads as "which websites we search" — silently retuned
+ * guest-name extraction too. Splitting them makes each knob's blast radius
+ * equal to its name. The default is pinned to the same literal both knobs
+ * had, so only a box that had deliberately overridden retrieval sees any
+ * change, and on that box the change IS the fix.
+ */
+export const GEMINI_IDENTIFY_MODEL =
+  env.GEMINI_IDENTIFY_MODEL || "gemini-3.6-flash"
 
 let cached: GoogleGenAI | null = null
 

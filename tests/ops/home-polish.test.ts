@@ -57,6 +57,14 @@ const GLOBALS = read("app", "globals.css")
 const INBOX = read("app", "admin", "ops", "_components", "inbox-section.tsx")
 const AGENDA = read("app", "admin", "ops", "_components", "agenda-section.tsx")
 const NO_ACCESS = read("app", "admin", "ops", "_components", "no-access.tsx")
+// `/admin/ops/details` + the five dense sections it (and only it) renders.
+const DETAILS = read("app", "admin", "ops", "details", "page.tsx")
+const QUEUE_HEALTH = read("app", "admin", "ops", "_components", "queue-health-section.tsx")
+const SYSTEM_EVENTS = read("app", "admin", "ops", "_components", "system-events-section.tsx")
+const AI_ROUTER = read("app", "admin", "ops", "_components", "ai-router-section.tsx")
+const EIR_PIPELINE = read("app", "admin", "ops", "_components", "eir-pipeline-section.tsx")
+const RECENT_ACTIVITY = read("app", "admin", "ops", "_components", "recent-activity-section.tsx")
+const SECTION_CARD = read("app", "admin", "ops", "_components", "section-card.tsx")
 
 // ─── 1. Arabic plurals — the five cases, on every noun the home renders ──────
 
@@ -393,10 +401,38 @@ describe("app/admin/ops uses KHAT tokens, not raw colours", () => {
     }
   })
 
-  it("has no `dark:` variants — `.dark` is stripped at runtime", () => {
+  /**
+   * The rule is right; the reason this test used to give was wrong, and the
+   * wrong reason is what let `dark:` survive in the SHARED kit.
+   *
+   * It said "`.dark` is stripped at runtime", implying the variants were
+   * merely dead. They are not dead. Tailwind v4 here declares no
+   * `@custom-variant dark`, so `dark:` compiles to
+   * `@media (prefers-color-scheme: dark)` — the operator's OS setting, which
+   * no amount of class-stripping touches. Verified in the compiled
+   * stylesheet: 94 `prefers-color-scheme` blocks and zero `.dark` selectors;
+   * and in the browser, `text-emerald-700 dark:text-emerald-400` resolved to
+   * L=75.1 (the -400) on the L≈98 admin card.
+   *
+   * So a `dark:` here is not clutter — it is low-contrast text that appears
+   * only for operators in dark mode, which is exactly the bug class that
+   * survives review on a light-mode laptop.
+   */
+  it("has no `dark:` variants — they resolve by OS setting, not by class", () => {
     for (const f of FILES) {
       expect(codeOnly(fs.readFileSync(f, "utf8")), f).not.toMatch(/\bdark:/)
     }
+  })
+
+  it("the SHARED admin kit has none either — it paints ~12 surfaces", () => {
+    // ui-kit.tsx is imported across the admin, so one `dark:` here is one
+    // low-contrast tone repeated everywhere. Guarded separately because the
+    // kit lives outside app/admin/ops and the walk above never reached it.
+    const kit = fs.readFileSync(
+      path.join(process.cwd(), "app", "admin", "components", "ui-kit.tsx"),
+      "utf8",
+    )
+    expect(codeOnly(kit)).not.toMatch(/\bdark:/)
   })
 
   it("pairs `bg-foreground` with `text-background`, not `text-white`", () => {
@@ -436,9 +472,18 @@ describe("no letter-spacing or uppercase on Arabic text", () => {
 
 describe("the type scale has a floor of 11px and no half-pixel steps", () => {
   const SCALE = new Set(["30px", "26px", "17px", "15px", "13px", "11px"])
-  // Every component the admin HOME renders. `/admin/ops/details` is
-  // deliberately excluded: it is a dense diagnostic table view with its own
-  // (mono, tabular) needs, and re-scaling it is not this pass.
+  /**
+   * Every admin-ops surface — home AND `/admin/ops/details`.
+   *
+   * details/ used to be excluded as "a dense diagnostic table view with its
+   * own mono/tabular needs, re-scaling it is not this pass". That deferral is
+   * now spent: the exclusion was about ORDER OF WORK, not an exemption, and
+   * what it protected turned out not to need protecting. Its off-scale sizes
+   * were three half-pixel steps (12.5/13.5/11.5px) in the page HEADER — not
+   * diagnostic content at all — plus ten 10px runs of Latin mono (severity
+   * codes, UTC stamps, JSON previews, UUIDs). Those went to 11px: the floor is
+   * a hard floor, and 1px on content that sizes to itself moves no layout.
+   */
   const FILES: Array<[string, string]> = [
     ["ops/page.tsx", OPS_PAGE],
     ["home-attention.tsx", ATTENTION],
@@ -448,6 +493,13 @@ describe("the type scale has a floor of 11px and no half-pixel steps", () => {
     ["inbox-section.tsx", INBOX],
     ["agenda-section.tsx", AGENDA],
     ["no-access.tsx", NO_ACCESS],
+    ["ops/details/page.tsx", DETAILS],
+    ["queue-health-section.tsx", QUEUE_HEALTH],
+    ["system-events-section.tsx", SYSTEM_EVENTS],
+    ["ai-router-section.tsx", AI_ROUTER],
+    ["eir-pipeline-section.tsx", EIR_PIPELINE],
+    ["recent-activity-section.tsx", RECENT_ACTIVITY],
+    ["section-card.tsx", SECTION_CARD],
   ]
 
   it.each(FILES)("%s uses only the six documented steps", (_name, src) => {
@@ -577,6 +629,47 @@ describe("RTL — sides, indicators and direction-pinned runs", () => {
     const idx = EVENTS.indexOf("{payloadPreview}")
     expect(idx).toBeGreaterThan(-1)
     expect(EVENTS.slice(idx - 300, idx)).toContain('dir="ltr"')
+  })
+
+  /**
+   * The home's timestamp was fixed and pinned above — and the SIX identical
+   * renders on `/admin/ops/details` and its sections were left behind, inside
+   * the same `dir="rtl"` subtree. A fix that lands on one of seven call sites
+   * and gets test-locked reads, from then on, as a solved problem.
+   *
+   * The bug: the space in `2026-05-26 14:23:45Z` is a bidi-neutral, so UAX#9
+   * resolves it to the surrounding RTL run and paints the time BEFORE the
+   * date. Every `formatUtc` render needs `dir="ltr"` — this sweeps for the
+   * call, not for a known list, so a seventh site added tomorrow is caught.
+   */
+  it("pins EVERY formatUtc render LTR, not just the home's", () => {
+    const files = [
+      ["details/page.tsx", read("app", "admin", "ops", "details", "page.tsx")],
+      ["ai-router-section.tsx", AI_ROUTER],
+      ["eir-pipeline-section.tsx", EIR_PIPELINE],
+      ["recent-activity-section.tsx", RECENT_ACTIVITY],
+      ["system-events-section.tsx", SYSTEM_EVENTS],
+      ["ops/page.tsx", OPS_PAGE],
+    ] as const
+
+    let found = 0
+    for (const [name, src] of files) {
+      // Each `{formatUtc(...)}` must have `dir="ltr"` on its own opening tag,
+      // i.e. within the element that immediately encloses it.
+      const re = /\{formatUtc\(/g
+      let m: RegExpExecArray | null
+      while ((m = re.exec(src)) !== null) {
+        found++
+        const before = src.slice(0, m.index)
+        const openTag = before.slice(before.lastIndexOf("<"))
+        expect(openTag, `${name} @${m.index} — enclosing tag: ${openTag.trim()}`).toContain(
+          'dir="ltr"',
+        )
+      }
+    }
+    // Guard the guard: if formatUtc is ever renamed, this must fail loudly
+    // rather than silently pass over zero matches.
+    expect(found).toBeGreaterThanOrEqual(7)
   })
 })
 

@@ -108,7 +108,7 @@ export function EirPipelineSection({
                   className="rounded-lg border border-border/60 bg-muted/30 px-2.5 py-1.5"
                 >
                   <div className="flex flex-wrap items-baseline gap-2 text-[11px]">
-                    <span className="font-mono text-muted-foreground tabular-nums">
+                    <span className="font-mono text-muted-foreground tabular-nums" dir="ltr">
                       {formatUtc(e.event_at)}
                     </span>
                     <span className="font-mono text-foreground">
@@ -116,7 +116,7 @@ export function EirPipelineSection({
                     </span>
                   </div>
                   {e.subject_id ? (
-                    <div className="mt-0.5 break-words font-mono text-[10px] text-muted-foreground">
+                    <div className="mt-0.5 break-words font-mono text-[11px] text-muted-foreground">
                       eir: {e.subject_id}
                     </div>
                   ) : null}
@@ -141,7 +141,7 @@ export function EirPipelineSection({
             labelAr="آخر محاولة"
             value={
               <>
-                <span className="block">
+                <span className="block" dir="ltr">
                   {formatUtc(d.most_recent_invalid_attempt_at)}
                 </span>
                 <span className="block text-muted-foreground">

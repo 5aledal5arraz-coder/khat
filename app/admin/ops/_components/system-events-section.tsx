@@ -117,11 +117,11 @@ export function SystemEventsSection({
                       className="rounded-lg border border-border/60 bg-muted/30 px-2.5 py-1.5"
                     >
                       <div className="flex flex-wrap items-baseline gap-2 text-[11px]">
-                        <span className="font-mono text-muted-foreground tabular-nums">
+                        <span className="font-mono text-muted-foreground tabular-nums" dir="ltr">
                           {formatUtc(e.event_at)}
                         </span>
                         <span
-                          className={`rounded px-1.5 py-0.5 text-[10px] font-mono ${severityClass(e.severity)}`}
+                          className={`rounded px-1.5 py-0.5 text-[11px] font-mono ${severityClass(e.severity)}`}
                         >
                           {e.severity}
                         </span>
@@ -142,7 +142,7 @@ export function SystemEventsSection({
                           list item rather than jumping to the far edge. */}
                       <div
                         dir="ltr"
-                        className="mt-0.5 break-words text-start font-mono text-[10px] text-muted-foreground"
+                        className="mt-0.5 break-words text-start font-mono text-[11px] text-muted-foreground"
                       >
                         {payloadPreview}
                       </div>

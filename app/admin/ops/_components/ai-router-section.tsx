@@ -90,7 +90,7 @@ export function AiRouterSection({
       <div className="flex items-baseline gap-2">
         <span className="text-xs text-muted-foreground">الوضع</span>
         <span
-          className={`rounded px-1.5 py-0.5 text-[10px] font-mono ${modeClass(d.rate_limit_mode)}`}
+          className={`rounded px-1.5 py-0.5 text-[11px] font-mono ${modeClass(d.rate_limit_mode)}`}
         >
           {d.rate_limit_mode}
         </span>
@@ -133,8 +133,8 @@ export function AiRouterSection({
                 key={e.id}
                 className="rounded-lg border border-border/60 bg-muted/30 px-2.5 py-1.5"
               >
-                <div className="flex flex-wrap items-baseline gap-2 text-[10px]">
-                  <span className="font-mono text-muted-foreground tabular-nums">
+                <div className="flex flex-wrap items-baseline gap-2 text-[11px]">
+                  <span className="font-mono text-muted-foreground tabular-nums" dir="ltr">
                     {formatUtc(e.event_at)}
                   </span>
                   <span
@@ -146,7 +146,7 @@ export function AiRouterSection({
                     {String(e.payload.decision ?? "—")}
                   </span>
                 </div>
-                <div className="mt-0.5 break-words font-mono text-[10px] text-muted-foreground">
+                <div className="mt-0.5 break-words font-mono text-[11px] text-muted-foreground">
                   {truncate(JSON.stringify(e.payload), 80)}
                 </div>
               </li>
@@ -169,15 +169,15 @@ export function AiRouterSection({
                 key={e.id}
                 className="rounded-lg border border-border/60 bg-muted/30 px-2.5 py-1.5"
               >
-                <div className="flex flex-wrap items-baseline gap-2 text-[10px]">
-                  <span className="font-mono text-muted-foreground tabular-nums">
+                <div className="flex flex-wrap items-baseline gap-2 text-[11px]">
+                  <span className="font-mono text-muted-foreground tabular-nums" dir="ltr">
                     {formatUtc(e.event_at)}
                   </span>
                   <span className="font-mono text-foreground">
                     {String(e.payload.task_kind ?? "—")}
                   </span>
                 </div>
-                <div className="mt-0.5 break-words text-[10px] text-muted-foreground">
+                <div className="mt-0.5 break-words text-[11px] text-muted-foreground">
                   {truncate(String(e.payload.reason ?? ""), 80)}
                 </div>
               </li>

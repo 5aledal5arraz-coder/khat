@@ -16,6 +16,7 @@ import {
   runModelBenchmark,
   tierForCandidate,
   tierBaselineModel,
+  providerForModel,
   SUITE_VERSION,
 } from "@/lib/ai-router/benchmark/run"
 import {
@@ -116,15 +117,16 @@ async function main() {
   }
   const tier = (arg("tier") as BenchmarkTier | null) ?? tierForCandidate(candidate)
   const baseline = arg("baseline") ?? tierBaselineModel(tier)
-  // Provider of the candidate model. Defaults to OpenAI so existing
-  // benchmarks are unchanged; pass --candidate-provider gemini for Gemini.
+  // Provider of the candidate model. Derived from the model id when the flag
+  // is omitted — the old "default to openai" meant `--candidate gemini-3.6-flash`
+  // without the flag benchmarked a 404. --candidate-provider still overrides.
   const providerArg = arg("candidate-provider")
   if (providerArg && !AI_PROVIDERS.includes(providerArg as AiProvider)) {
     throw new Error(
       `Unknown --candidate-provider "${providerArg}" (expected: ${AI_PROVIDERS.join(", ")})`,
     )
   }
-  const candidateProvider = (providerArg as AiProvider | null) ?? "openai"
+  const candidateProvider = (providerArg as AiProvider | null) ?? providerForModel(candidate)
   console.log(
     `Benchmarking ${candidate} (${candidateProvider}) vs ${baseline} (${tier}) — ~20 live AI calls…`,
   )

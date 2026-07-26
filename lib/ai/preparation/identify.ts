@@ -27,7 +27,7 @@ import { env } from "@/lib/env"
 import {
   getGeminiClient,
   isGeminiConfigured,
-  GEMINI_RETRIEVAL_MODEL,
+  GEMINI_IDENTIFY_MODEL,
 } from "@/lib/ai/gemini"
 import { recordAiRun } from "@/lib/ai-router/record-run"
 import { deriveGeminiTelemetry } from "@/lib/ai-router/gemini-usage"
@@ -37,10 +37,14 @@ import type {
 } from "@google/genai"
 import type { PreparationCandidate } from "@/types/preparation"
 
-// Single source of truth for the retrieval default (lib/ai/gemini.ts) — a
-// local copy of the model string is how this call site kept running the
-// EOL gemini-2.5-flash after the shared default moved on.
-const GEMINI_MODEL = GEMINI_RETRIEVAL_MODEL
+// This module's OWN model default (lib/ai/gemini.ts) — not the retrieval
+// one it used to borrow. The name extraction below parses the model's prose
+// shape, so it needs a knob nobody turns while tuning web search; see the
+// GEMINI_IDENTIFY_MODEL comment for the failure mode that knob-sharing hid.
+// Still read from the shared module rather than hardcoded here: a local copy
+// of the model string is how this call site kept running the EOL
+// gemini-2.5-flash after the shared default moved on.
+const GEMINI_MODEL = GEMINI_IDENTIFY_MODEL
 
 // ─── Input ───────────────────────────────────────────────────────────────────
 

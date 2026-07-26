@@ -36,6 +36,10 @@ export const env = {
   get GOOGLE_VIDEO_API_KEY() { return process.env.GOOGLE_VIDEO_API_KEY },
   get GEMINI_RETRIEVAL_MODEL() { return process.env.GEMINI_RETRIEVAL_MODEL },
   get GEMINI_REASONING_MODEL() { return process.env.GEMINI_REASONING_MODEL },
+  // Deliberately separate from GEMINI_RETRIEVAL_MODEL — see the constant's
+  // comment in lib/ai/gemini.ts. identify.ts parses the model's PROSE, so it
+  // cannot share a knob with the call sites that read only grounding metadata.
+  get GEMINI_IDENTIFY_MODEL() { return process.env.GEMINI_IDENTIFY_MODEL },
 
   // ─── YouTube / podcast sources ───────────────────────────────────────────
   get YOUTUBE_API_KEY() { return process.env.YOUTUBE_API_KEY },
