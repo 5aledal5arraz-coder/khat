@@ -104,7 +104,13 @@ const HANDLER_TIMEOUT_MS: Record<string, number> = {
   // market.scheduler / taste_decay just enqueue/decay — no AI calls.
   "market.scheduler": 60_000,
   "market.taste_decay": 60_000,
-  // market.collect fetches from sources (network-bound, not AI).
+  // market.collect fetches from sources (network-bound, not AI). This budget
+  // caps ONE SLICE, not a whole collection run: the handler processes presets
+  // until COLLECT_SLICE_MS (180s) then hands the remainder to a fresh job, so
+  // its wall time no longer grows with the preset count or the number of
+  // enabled sources. Worst case = 180s + one preset (~24s grounded) = 204s.
+  // Do NOT raise this to "fix" a timeout — a collect that needs more than 300s
+  // means the slice budget is wrong, not this one. See the handler's header.
   "market.collect": 5 * 60_000,
   // AI-bound handlers: extract fills theme/emotional_trigger via the AI
   // router; score/cluster run the editorial model over the backlog. These

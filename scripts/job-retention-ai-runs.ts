@@ -14,7 +14,12 @@
  * No cron wiring. Manual command only.
  */
 
-import { runRetentionJob, DEFAULT_MAX_ROWS } from "@/lib/jobs/retention"
+import {
+  runRetentionJob,
+  DEFAULT_MAX_ROWS,
+  jobRetentionRules,
+  JOB_PROTECTED_STATUSES,
+} from "@/lib/jobs/retention"
 import type { RetentionResult } from "@/lib/jobs/retention"
 
 const SCRIPT_VERSION = "retention-cli-v1.0"
@@ -92,6 +97,15 @@ function fmtNumber(n: number): string {
   return n.toLocaleString()
 }
 
+/** Render the jobs policy from the policy itself, so the printed line can
+ *  never disagree with what the DELETE will do. */
+function jobPolicyLine(): string {
+  const rules = jobRetentionRules()
+    .map((r) => `${r.status}>${r.days}d`)
+    .join(", ")
+  return `${rules || "(none)"} · never: ${JOB_PROTECTED_STATUSES.join("/")}`
+}
+
 function printReport(r: RetentionResult) {
   console.log("")
   console.log(`Mode:    ${r.dry_run ? "DRY-RUN (no changes applied)" : "CONFIRMED (mutations committed)"}`)
@@ -132,8 +146,29 @@ function printReport(r: RetentionResult) {
     console.log(`  Deleted:                                 ${fmtNumber(r.jsonb_validation_events.deleted)}`)
   }
   console.log("")
+  console.log("jobs (prune terminal rows; live queue states never touched):")
+  console.log(`  Policy:                                  ${jobPolicyLine()}`)
+  console.log(`  Candidates (status + age):               ${fmtNumber(r.jobs.candidates)}`)
+  console.log(`  Protected (pending/running, any age):    ${fmtNumber(r.jobs.protected_active)}`)
+  console.log(`  Protected (status not in policy):        ${fmtNumber(r.jobs.protected_status)}`)
+  if (r.dry_run) {
+    console.log(`  Would delete:                            ${fmtNumber(r.jobs.would_delete)}`)
+  } else {
+    console.log(`  Deleted:                                 ${fmtNumber(r.jobs.deleted)}`)
+  }
+  const byStatus = Object.entries(r.jobs.by_status)
+  if (byStatus.length > 0) {
+    console.log(
+      `  By status:                               ${byStatus.map(([k, v]) => `${k}=${fmtNumber(v)}`).join(", ")}`,
+    )
+  }
+  if (r.jobs.oldest_prunable_at) {
+    console.log(`  Oldest prunable-status row:              ${r.jobs.oldest_prunable_at}`)
+  }
+  console.log("")
   console.log("Untouched:")
   console.log("  eir_phase_transitions, admin_audit_logs, khat_map_season_decisions")
+  console.log("  jobs rows in status: pending, running (live queue — never pruned)")
   console.log("")
   console.log(`Wall time: ${r.wall_ms} ms`)
 }

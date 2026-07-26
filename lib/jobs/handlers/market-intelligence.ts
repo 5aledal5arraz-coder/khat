@@ -31,6 +31,35 @@ const WEEKLY_MS = 7 * DAILY_MS
 const CHAIN_DELAY_MS = 60 * 1000 // 1 min — give the DB writes a beat to settle
 
 // ── market.collect ────────────────────────────────────────────────────
+//
+// SLICED. One `market.collect` job processes as many presets as fit inside
+// COLLECT_SLICE_MS, then hands the REST to a fresh job via `startIndex`.
+// The wall time of a single job is therefore bounded by the slice budget —
+// it does NOT grow with the preset count or the number of enabled sources.
+//
+// Why (2026-07-26): the handler used to run every preset in one job, so its
+// wall time was O(presets × sources) against a fixed 300s budget. Measured on
+// the real adapters, 30 presets cost:
+//     youtube + podcast_apple (default)   ~41s   → comfortably inside 300s
+//     + web_grounded (opt-in, per preset) ~681s  → 722s total, 2.4× the budget
+// Turning on MARKET_WEB_GROUNDED_ENABLED therefore dead-lettered EVERY run
+// (observed: 616s / 653s "late-arrived handler completion … result discarded"),
+// even though the work itself completed. Slicing fixes the class of bug, not
+// the one instance: adding presets or a 4th source can no longer blow the
+// budget, and a failure now costs one slice instead of the whole run.
+//
+// The slice budget must stay strictly under the handler budget in worker.ts
+// (`HANDLER_TIMEOUT_MS["market.collect"]` = 5 * 60_000). The deadline is
+// checked BETWEEN presets, so the true worst case is
+// COLLECT_SLICE_MS + (slowest single preset). Slowest measured preset is the
+// grounded one at ~24s → 180s + 24s = 204s, a 1.47× margin under 300s.
+// `tests/jobs/market-collect-slicing.test.ts` pins that relationship.
+export const COLLECT_SLICE_MS = 180_000
+
+/** Worst observed wall time for ONE preset across all sources (grounded web,
+ *  measured 2026-07-26: 21.2s / 22.6s / 24.4s). Used only by the test that
+ *  pins the slice-vs-budget margin. */
+export const COLLECT_SLOWEST_PRESET_MS = 25_000
 
 interface CollectPayload extends Record<string, unknown> {
   /** When set, only this preset is run. Otherwise all presets. */
@@ -42,25 +71,57 @@ interface CollectPayload extends Record<string, unknown> {
    *  success. Manual "refresh now" calls (operator button) also set
    *  this so the pipeline still completes end-to-end. */
   scheduled?: boolean
+  /** Continuation cursor — index of the first preset THIS slice handles.
+   *  Absent/0 on the first slice; set by the handler when it hands the
+   *  remainder to the next job. */
+  startIndex?: number
+  /** New signals inserted by the earlier slices of this chain, so the
+   *  extract hand-off can fire once, on the last slice, on the CHAIN's
+   *  total rather than the final slice's own count. */
+  insertedSoFar?: number
 }
 interface CollectResult extends Record<string, unknown> {
+  /** Presets processed by THIS slice. */
   presets_run: number
+  /** New signals inserted by THIS slice. */
   inserted: number
   not_configured: string[]
   notes: Array<{ preset: string; source: MarketSource; note: string }>
+  /** Slice bookkeeping — the operator can see a chain's shape at a glance. */
+  slice_start: number
+  slice_end: number
+  presets_total: number
+  /** false → this slice enqueued a continuation; the chain is still running. */
+  completed: boolean
+  /** Cumulative inserts across the whole chain up to and including this slice. */
+  inserted_total: number
 }
 
 registerHandler<CollectPayload, CollectResult>(
   "market.collect",
   async (payload) => {
     const presets = payload.preset ? [payload.preset] : await getPresets()
+    // Clamp: a cursor from an older payload shape (or a hand-edited row) must
+    // never index outside the list — an out-of-range start would silently
+    // "succeed" having collected nothing.
+    const startIndex = Math.min(
+      Math.max(0, Math.trunc(payload.startIndex ?? 0)),
+      presets.length,
+    )
+    const sliceDeadline = Date.now() + COLLECT_SLICE_MS
+
     let inserted = 0
     const not_configured: string[] = []
     const notes: Array<{ preset: string; source: MarketSource; note: string }> = []
-    for (const preset of presets) {
+
+    // `cursor` is always the index of the next UNPROCESSED preset.
+    let cursor = startIndex
+    while (cursor < presets.length) {
+      const preset = presets[cursor]
       const r = await runPresetCollection(preset, {
         maxPerSource: payload.maxPerSource,
       })
+      cursor++
       inserted += r.inserted
       for (const c of r.collected) {
         if (!c.result.configured) {
@@ -70,11 +131,45 @@ registerHandler<CollectPayload, CollectResult>(
           notes.push({ preset: preset.label, source: c.source, note: c.result.note })
         }
       }
+      // Slice is full and work remains → stop here and hand over. Checked
+      // AFTER a whole preset so a preset is never split mid-way.
+      if (cursor < presets.length && Date.now() >= sliceDeadline) break
     }
 
-    // Auto-chain → extract (so a single trigger drives the full
-    // pipeline). Always runs, even for one-off manual refreshes.
-    if (inserted > 0) {
+    const completed = cursor >= presets.length
+    const insertedTotal = (payload.insertedSoFar ?? 0) + inserted
+
+    if (!completed) {
+      // Hand the remainder to a fresh job. No delay — the slices touch
+      // disjoint presets, so there is nothing to let "settle" between them.
+      // Priority 4 > the scheduler's 3, so an in-flight chain always drains
+      // before a newly scheduled collect starts.
+      //
+      // `preset` is carried through deliberately: the continuation must
+      // rebuild the SAME list this slice indexed into. Dropping it would make
+      // the next slice index `startIndex` into the full 30-preset list.
+      await enqueueJob(
+        "market.collect",
+        {
+          ...(payload.preset ? { preset: payload.preset } : {}),
+          maxPerSource: payload.maxPerSource,
+          scheduled: payload.scheduled === true,
+          startIndex: cursor,
+          insertedSoFar: insertedTotal,
+        },
+        {
+          priority: 4,
+          // Retry a slice: the collection is idempotent by construction
+          // (persistSignal upserts ON CONFLICT and counts only genuine
+          // inserts via xmax=0), and a slice that dies without retrying now
+          // abandons every remaining preset in the chain.
+          maxAttempts: 2,
+        },
+      )
+    } else if (insertedTotal > 0) {
+      // Auto-chain → extract (so a single trigger drives the full
+      // pipeline). Always runs, even for one-off manual refreshes. Fires on
+      // the LAST slice only, against the chain's cumulative insert count.
       await enqueueJob(
         "market.extract",
         { scheduled: payload.scheduled === true },
@@ -87,10 +182,15 @@ registerHandler<CollectPayload, CollectResult>(
     }
 
     return {
-      presets_run: presets.length,
+      presets_run: cursor - startIndex,
       inserted,
       not_configured,
       notes,
+      slice_start: startIndex,
+      slice_end: cursor,
+      presets_total: presets.length,
+      completed,
+      inserted_total: insertedTotal,
     }
   },
 )
@@ -228,7 +328,12 @@ registerHandler<SchedulerPayload, SchedulerResult>(
         await enqueueJob(
           "market.collect",
           { scheduled: true },
-          { priority: 3, maxAttempts: 1 },
+          // maxAttempts 2 matches the continuation slices: collection is
+          // idempotent (upsert), and since collect is now sliced, losing the
+          // FIRST slice to a transient blip would abandon the whole chain.
+          // The `inflight === 0` guard above still prevents a duplicate chain —
+          // a pending continuation slice counts as in-flight.
+          { priority: 3, maxAttempts: 2 },
         )
         enqueuedCollect = true
       }
