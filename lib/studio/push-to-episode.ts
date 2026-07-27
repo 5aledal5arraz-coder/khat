@@ -82,20 +82,16 @@ export interface StudioPushResult {
   } | null
 }
 
+export type StudioPushErrorCode =
+  | "package_missing"
+  | "package_not_ready"
+  | "package_unlinked"
+  | "db_unavailable"
+  | "title_unresolved"
+
 export class StudioPushError extends Error {
-  code:
-    | "package_missing"
-    | "package_not_ready"
-    | "package_unlinked"
-    | "db_unavailable"
-  constructor(
-    message: string,
-    code:
-      | "package_missing"
-      | "package_not_ready"
-      | "package_unlinked"
-      | "db_unavailable",
-  ) {
+  code: StudioPushErrorCode
+  constructor(message: string, code: StudioPushErrorCode) {
     super(message)
     this.code = code
     this.name = "StudioPushError"
@@ -132,14 +128,27 @@ export async function runStudioPushToEpisode(input: {
   const episodeId = pkg.linked_episode_id
   const pushedFields: string[] = []
 
-  // Episode title fallback for override + log
-  let episodeTitle = ""
-  try {
-    const eps = await fetchAllEpisodes()
-    const ep = eps.find((e) => e.id === episodeId)
-    episodeTitle = ep?.title || episodeId
-  } catch {
-    episodeTitle = episodeId
+  // ص-٤ — resolve the real episode title. NEVER fall back to the id:
+  // `episodes.id` IS the YouTube video id, so the old
+  // `ep?.title || episodeId` fallback wrote `dQw4w9WgXcQ` into
+  // `custom_title` AND `original_title` — the recovery reference
+  // itself — on any quota/network failure, and `episode_overrides` has
+  // no publish gate, so it reached the public page (and <title>) the
+  // moment it was written.
+  const episodeTitle = await resolveEpisodeTitle(episodeId)
+
+  // Every write that needs a title needs a REAL one. Overrides persist
+  // `original_title`; `episode_quotes_config.episode_title` is NOT NULL.
+  // Enrichment-only pushes don't need it and stay unaffected.
+  const needsTitle =
+    (fields.title && !!pkg.custom_title) ||
+    (fields.description && !!pkg.full_summary) ||
+    (fields.quotes && pkg.quotes.length > 0)
+  if (needsTitle && !episodeTitle) {
+    throw new StudioPushError(
+      "تعذّر تحديد عنوان الحلقة الأصلي — لن نكتب معرّف الفيديو مكان العنوان. تحقق من مفتاح YouTube أو أضف الحلقة إلى قاعدة البيانات ثم أعد المحاولة.",
+      "title_unresolved",
+    )
   }
 
   // ── 2. Build RPC payloads ───────────────────────────────────────
@@ -186,9 +195,17 @@ export async function runStudioPushToEpisode(input: {
           theme: q.theme,
           speaker: q.speaker,
         })),
-        status: "published",
+        // ص-١ — generated quotes land as DRAFTS. `getPublishedQuotes`
+        // filters on status='published', and the episode page attributes
+        // EVERY quote it renders to the guest by name and photo (the
+        // `speaker` field never reaches the public site) with a
+        // share-image button. A model-composed line must not be able to
+        // travel that path without a human pressing "نشر" on
+        // /admin/episodes/[id] (publishEpisodeQuotes). The RPC already
+        // defaults to 'draft'; it was this literal that overrode it.
+        status: "draft",
         generated_at: new Date().toISOString(),
-        published_at: new Date().toISOString(),
+        published_at: null,
       }
       pushedFields.push("quotes")
     }
@@ -413,6 +430,49 @@ export async function runStudioPushToEpisode(input: {
     pushedFields,
     guestLink,
   }
+}
+
+/** A bare YouTube video id — never a legitimate episode title. */
+const YOUTUBE_ID_RE = /^[A-Za-z0-9_-]{11}$/
+
+function isVideoIdTitle(title: string, episodeId: string): boolean {
+  return title === episodeId || YOUTUBE_ID_RE.test(title)
+}
+
+/**
+ * ص-٤ — episode title, cheapest reliable source first:
+ *   1. the local `episodes` row (a DB read, no API quota)
+ *   2. the YouTube Data API
+ *   3. null — and the caller refuses to write a title field.
+ *
+ * Every failure is logged. The old version swallowed them in an empty
+ * `catch {}` and returned the video id.
+ */
+async function resolveEpisodeTitle(episodeId: string): Promise<string | null> {
+  try {
+    const rows = await db!
+      .select({ title: episodesTable.title })
+      .from(episodesTable)
+      .where(eq(episodesTable.id, episodeId))
+      .limit(1)
+    const dbTitle = rows[0]?.title?.trim()
+    if (dbTitle && !isVideoIdTitle(dbTitle, episodeId)) return dbTitle
+  } catch (err) {
+    console.error("[studio push] episodes title lookup failed:", err)
+  }
+
+  try {
+    const eps = await fetchAllEpisodes()
+    const ytTitle = eps.find((e) => e.id === episodeId)?.title?.trim()
+    if (ytTitle && !isVideoIdTitle(ytTitle, episodeId)) return ytTitle
+    console.error(
+      `[studio push] YouTube returned no usable title for ${episodeId}`,
+    )
+  } catch (err) {
+    console.error("[studio push] fetchAllEpisodes failed:", err)
+  }
+
+  return null
 }
 
 function safeSync(fn: () => void): void {

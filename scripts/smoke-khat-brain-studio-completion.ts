@@ -254,8 +254,11 @@ async function caseDeleteCascade(sid: string) {
     .where(eq(studioAnalysisRecords.studio_session_id, sid))
   assert((before[0]?.c ?? 0) >= 9, "expected 9+ rows before delete")
 
-  const ok = await deleteStudioSession(sid)
-  assert(ok, "deleteStudioSession returned false")
+  const result = await deleteStudioSession(sid)
+  assert(
+    result.success,
+    `deleteStudioSession failed: ${result.success ? "" : (result.error ?? result.reason)}`,
+  )
 
   const after = await db!
     .select({ c: sql<number>`count(*)::int` })

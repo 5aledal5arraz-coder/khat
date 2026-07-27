@@ -77,7 +77,7 @@ export function TabExport() {
   const [selectedEpisodeId, setSelectedEpisodeId] = useState<string>("")
   const [showDiff, setShowDiff] = useState(false)
   const [pushing, setPushing] = useState(false)
-  const [pushResult, setPushResult] = useState<{ success: boolean; fields: string[]; guestLink?: { linked: boolean; guestName?: string; created?: boolean } | null } | null>(null)
+  const [pushResult, setPushResult] = useState<{ success: boolean; fields: string[]; guestLink?: { linked: boolean; guestName?: string; created?: boolean } | null; error?: string } | null>(null)
   const [loaded, setLoaded] = useState(false)
   const [showRestoreConfirm, setShowRestoreConfirm] = useState(false)
   const [restoring, setRestoring] = useState(false)
@@ -88,13 +88,15 @@ export function TabExport() {
     if (!loaded) {
       setLoaded(true)
       loadEpisodes()
+      // ص-٣ — only an explicit, previously-saved link pre-selects the
+      // episode. Falling back to `session.video_id` re-created the exact
+      // bug the server fix removes: two sessions on one video silently
+      // pointing at the same published episode. The operator picks.
       if (websitePkg?.linked_episode_id) {
         setSelectedEpisodeId(websitePkg.linked_episode_id)
-      } else if (session.video_id) {
-        setSelectedEpisodeId(session.video_id)
       }
     }
-  }, [loaded, loadEpisodes, websitePkg, session.video_id])
+  }, [loaded, loadEpisodes, websitePkg])
 
   const selectedEpisode = episodes.find((e) => e.id === selectedEpisodeId)
 
@@ -135,8 +137,10 @@ export function TabExport() {
         // Confirm with actual server response (may include guest link info)
         setPushResult({ success: true, fields: json.pushedFields || selectedFields, guestLink: json.guestLink || null })
       } else {
-        // Rollback: show error
-        setPushResult({ success: false, fields: [] })
+        // Rollback — and show WHY. `title_unresolved` (ص-٤) and
+        // `package_unlinked` (ص-٣) are both operator-fixable; a generic
+        // "try again" sends them in a loop.
+        setPushResult({ success: false, fields: [], error: json?.error })
       }
     } catch {
       // Rollback: show error
@@ -279,7 +283,9 @@ export function TabExport() {
                   <>
                     <AlertCircle className="h-4 w-4 shrink-0 text-red-700 mt-0.5" />
                     <div>
-                      <p className="text-sm text-red-700 dark:text-red-400">فشل في النشر — يرجى المحاولة مرة أخرى</p>
+                      <p className="text-sm text-red-700 dark:text-red-400">
+                        {pushResult.error || "فشل في النشر — يرجى المحاولة مرة أخرى"}
+                      </p>
                       <Button
                         variant="ghost"
                         size="sm"

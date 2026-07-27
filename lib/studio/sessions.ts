@@ -4,10 +4,6 @@ import { studioSessions } from "@/lib/db/schema/studio"
 import { studioAnalysisRecords } from "@/lib/db/schema/studio-analysis"
 import fs from "fs/promises"
 import path from "path"
-import { deleteEpisodeEnrichment } from "@/lib/episodes/enrichments"
-import { deleteEpisodeOverride } from "@/lib/episodes/overrides"
-import { deleteEpisodeQuotesEntry } from "@/lib/episodes/quotes"
-import { getWebsitePackageForSession } from "./website-packages"
 import type { StudioSession } from "@/types/database"
 import { resolveEirForStudioSession } from "@/lib/khat-brain/studio-resolver"
 import { AUDIO_DIR } from "./audio-path"
@@ -103,26 +99,33 @@ export async function updateStudioSession(
   }
 }
 
-export async function deleteStudioSession(id: string): Promise<boolean> {
-  // Clean up pushed episode data if this session was linked to an episode
-  const pkg = await getWebsitePackageForSession(id)
-  if (pkg?.linked_episode_id) {
-    try {
-      await deleteEpisodeEnrichment(pkg.linked_episode_id)
-      await deleteEpisodeOverride(pkg.linked_episode_id)
-      await deleteEpisodeQuotesEntry(pkg.linked_episode_id)
-    } catch {
-      // ignore — config files may not exist
-    }
-  }
+export type DeleteStudioSessionResult =
+  | { success: true }
+  | { success: false; reason: "not_found" | "failed"; error?: string }
 
-  // Clean up audio files if they exist
-  const audioDir = path.join(AUDIO_DIR, id)
-  try {
-    await fs.rm(audioDir, { recursive: true, force: true })
-  } catch {
-    // ignore — directory may not exist for YouTube sessions
-  }
+/**
+ * ص-٢ — deleting a studio session deletes THE SESSION. Nothing else.
+ *
+ * It used to also hard-delete `episode_enrichments`, `episode_overrides`
+ * and `episode_quotes_config` for the linked episode — outside the
+ * transaction, behind an empty `catch {}` that swallowed the first
+ * failure, skipped the remaining deletes, and still returned `true`. So
+ * a routine "clean up the failed session" silently wiped a PUBLISHED
+ * episode's summary, takeaways, timestamps and quotes off the public
+ * site, with no confirmation, no audit trail and no way back — and,
+ * because the link was inferred from the video id (ص-٣), it hit the
+ * episode belonging to the OTHER session on the same video.
+ *
+ * Resetting an episode is a separate, deliberate action that already
+ * exists with its own two-step confirmation:
+ *   DELETE /api/admin/episodes/[id]/enrichments  ("استعادة الحلقة")
+ * It is not a side effect of housekeeping.
+ */
+export async function deleteStudioSession(
+  id: string,
+): Promise<DeleteStudioSessionResult> {
+  const existing = await getStudioSession(id)
+  if (!existing) return { success: false, reason: "not_found" }
 
   try {
     await db!.transaction(async (tx) => {
@@ -134,8 +137,24 @@ export async function deleteStudioSession(id: string): Promise<boolean> {
         .where(eq(studioAnalysisRecords.studio_session_id, id))
       await tx.delete(studioSessions).where(eq(studioSessions.id, id))
     })
-    return true
-  } catch {
-    return false
+  } catch (err) {
+    // No more silent `false`. A DB failure here is a DB failure, not a
+    // missing session — the caller must be able to tell them apart.
+    console.error(`[studio] deleteStudioSession(${id}) failed:`, err)
+    return {
+      success: false,
+      reason: "failed",
+      error: err instanceof Error ? err.message : String(err),
+    }
   }
+
+  // Audio files last: the row is already gone, so a leftover directory
+  // is disk noise, not data loss. Still reported rather than swallowed.
+  try {
+    await fs.rm(path.join(AUDIO_DIR, id), { recursive: true, force: true })
+  } catch (err) {
+    console.error(`[studio] audio cleanup for session ${id} failed:`, err)
+  }
+
+  return { success: true }
 }

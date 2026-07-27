@@ -49,7 +49,8 @@ export async function POST(
       const status =
         err.code === "package_missing" ||
         err.code === "package_not_ready" ||
-        err.code === "package_unlinked"
+        err.code === "package_unlinked" ||
+        err.code === "title_unresolved"
           ? 400
           : 500
       // Preserve the legacy error copy for `package_missing` /

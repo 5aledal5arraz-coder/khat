@@ -197,6 +197,13 @@ function AudioSessionRow({
     projectState ?? null,
   )
   const RoleIcon = isRaw ? Mic : Scissors
+  // ص-٢ — deletion is two-step and names what is going away. The
+  // 28px hover-revealed trash used to fire instantly, and back when it
+  // also wiped the linked episode that single misclick took published
+  // content off the site with it.
+  const [confirming, setConfirming] = useState(false)
+  const sessionLabel =
+    session.video_title || session.audio_filename || "بدون عنوان"
   return (
     <div
       role="button"
@@ -247,21 +254,49 @@ function AudioSessionRow({
       {/* AI status badge */}
       <AiStatusBadge status={aiStatus} />
 
-      {/* Delete button */}
-      <button
-        onClick={(e) => {
-          e.stopPropagation()
-          onDelete(session.id)
-        }}
-        disabled={deletingId === session.id}
-        className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg opacity-0 transition-all hover:bg-red-100 hover:text-red-700 dark:hover:bg-red-950/50 dark:hover:text-red-400 group-hover:opacity-100"
-      >
-        {deletingId === session.id ? (
-          <Loader2 className="h-3.5 w-3.5 animate-spin" />
-        ) : (
-          <Trash2 className="h-3.5 w-3.5" />
-        )}
-      </button>
+      {/* Delete — two-step, and the confirmation says what is deleted */}
+      {confirming ? (
+        <div
+          onClick={(e) => e.stopPropagation()}
+          className="flex shrink-0 items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-2 py-1 dark:border-red-900 dark:bg-red-950/30"
+        >
+          <span className="text-[11px] text-red-700 dark:text-red-400">
+            حذف جلسة «{sessionLabel}» ومخرجاتها؟ الحلقة المنشورة لا تتأثر.
+          </span>
+          <button
+            onClick={() => {
+              setConfirming(false)
+              onDelete(session.id)
+            }}
+            disabled={deletingId === session.id}
+            className="rounded-md bg-red-600 px-2 py-0.5 text-[11px] font-medium text-white transition-colors hover:bg-red-700"
+          >
+            {deletingId === session.id ? "جارٍ الحذف..." : "احذف"}
+          </button>
+          <button
+            onClick={() => setConfirming(false)}
+            className="rounded-md px-2 py-0.5 text-[11px] font-medium text-muted-foreground transition-colors hover:text-foreground"
+          >
+            إلغاء
+          </button>
+        </div>
+      ) : (
+        <button
+          onClick={(e) => {
+            e.stopPropagation()
+            setConfirming(true)
+          }}
+          aria-label={`حذف جلسة ${sessionLabel}`}
+          disabled={deletingId === session.id}
+          className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg opacity-0 transition-all hover:bg-red-100 hover:text-red-700 dark:hover:bg-red-950/50 dark:hover:text-red-400 group-hover:opacity-100"
+        >
+          {deletingId === session.id ? (
+            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+          ) : (
+            <Trash2 className="h-3.5 w-3.5" />
+          )}
+        </button>
+      )}
 
       <ChevronLeft className="h-4 w-4 shrink-0 text-muted-foreground/30 transition-transform group-hover:-translate-x-0.5 group-hover:text-foreground/60" />
     </div>

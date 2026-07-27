@@ -64,10 +64,13 @@ export async function DELETE(
   const authError = await requireAdminAPI("EDITOR")
   if (authError) return authError
   const { id } = await params
-  const deleted = await deleteStudioSession(id)
+  const result = await deleteStudioSession(id)
 
-  if (!deleted) {
-    return NextResponse.json({ error: "الجلسة غير موجودة" }, { status: 404 })
+  if (!result.success) {
+    // ص-٢ — a DB failure is no longer reported as "session not found".
+    return result.reason === "not_found"
+      ? NextResponse.json({ error: "الجلسة غير موجودة" }, { status: 404 })
+      : NextResponse.json({ error: "فشل حذف الجلسة" }, { status: 500 })
   }
 
   revalidateStudio(id)

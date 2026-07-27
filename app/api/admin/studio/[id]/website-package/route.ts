@@ -91,7 +91,6 @@ export async function POST(
     quotes: [],
     resources: [],
     timestamps: [],
-    linked_episode_id: session.video_id || null,
     raw_openai_response: null,
     error_message: null,
   })
@@ -120,7 +119,6 @@ export async function POST(
         quotes: [],
             resources: [],
         timestamps: [],
-        linked_episode_id: session.video_id || null,
         raw_openai_response: null,
         error_message: result.error || "فشل التوليد",
       })
@@ -135,7 +133,6 @@ export async function POST(
       quotes: result.data.quotes,
       resources: result.data.resources,
       timestamps: result.data.timestamps,
-      linked_episode_id: session.video_id || null,
       guest_package: result.data.guest_name ? {
         guest_name: result.data.guest_name,
         guest_bio: result.data.guest_bio || "",
@@ -166,7 +163,6 @@ export async function POST(
       quotes: [],
         resources: [],
       timestamps: [],
-      linked_episode_id: session.video_id || null,
       raw_openai_response: null,
       error_message: error instanceof Error ? error.message : "خطأ غير متوقع",
     })
@@ -204,6 +200,20 @@ export async function PATCH(
 
     if (Object.keys(updates).length === 0) {
       return NextResponse.json({ error: "لا توجد حقول للتحديث" }, { status: 400 })
+    }
+
+    // ص-٣ — this PATCH is now the ONLY way a session gets linked to an
+    // episode (the generators no longer infer it from video_id), so the
+    // value has to be a real episode id or an explicit unlink.
+    if ("linked_episode_id" in updates) {
+      const link = updates.linked_episode_id
+      if (link !== null && (typeof link !== "string" || link.trim() === "")) {
+        return NextResponse.json(
+          { error: "معرّف الحلقة غير صالح" },
+          { status: 400 },
+        )
+      }
+      updates.linked_episode_id = link === null ? null : (link as string).trim()
     }
 
     const result = await updateWebsitePackage(existing.id, updates as Parameters<typeof updateWebsitePackage>[1])

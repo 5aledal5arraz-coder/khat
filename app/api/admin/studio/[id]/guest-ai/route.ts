@@ -93,7 +93,6 @@ export async function POST(
         quotes: [],
         resources: [],
         timestamps: [],
-        linked_episode_id: session.video_id || null,
         guest_package: guestPackage,
         raw_openai_response: null,
         error_message: null,
