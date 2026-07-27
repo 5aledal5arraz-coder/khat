@@ -3,6 +3,7 @@
 import { createContext, useContext, useState, useCallback, useEffect, useRef, type ReactNode } from "react"
 import type { StudioChapters, StudioChapterItem } from "@/types/database"
 import { useSession } from "./session-context"
+import { postGeneration, type GenerationOptions } from "./generation-request"
 import { usePreloadedData } from "./preload-context"
 import type { StudioStageStatus } from "./stage-status"
 import { normalizeStageStatus } from "./stage-status"
@@ -12,7 +13,7 @@ interface ChaptersContextValue {
   chaptersItems: StudioChapterItem[]
   chaptersStatus: StudioStageStatus
   chaptersError: string
-  generateChapters: () => Promise<void>
+  generateChapters: (options?: GenerationOptions) => Promise<void>
   updateChaptersItems: (items: StudioChapterItem[]) => void
   saveChapters: (items: StudioChapterItem[]) => Promise<void>
   setChaptersStatus: (status: StudioStageStatus) => void
@@ -74,11 +75,11 @@ export function ChaptersProvider({ children }: { children: ReactNode }) {
   }, [preloaded, preloadReady])
   /* eslint-enable react-hooks/set-state-in-effect */
 
-  const generateChapters = useCallback(async () => {
+  const generateChapters = useCallback(async (options?: GenerationOptions) => {
     setChaptersStatus("generating")
     setChaptersError("")
     try {
-      const res = await fetch(`/api/admin/studio/${sessionId}/chapters`, { method: "POST" })
+      const res = await postGeneration(`/api/admin/studio/${sessionId}/chapters`, options)
       const json = await res.json()
       if (!res.ok) { setChaptersStatus("error"); setChaptersError(json.error || "فشل"); return }
       setChapters(json.chapters)

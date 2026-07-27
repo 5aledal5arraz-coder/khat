@@ -3,6 +3,7 @@
 import { createContext, useContext, useState, useCallback, useEffect, type ReactNode } from "react"
 import type { StudioAiOutput } from "@/types/database"
 import { useSession } from "./session-context"
+import { postGeneration, type GenerationOptions } from "./generation-request"
 import { usePreloadedData } from "./preload-context"
 import type { StudioStageStatus } from "./stage-status"
 import { normalizeStageStatus } from "./stage-status"
@@ -11,7 +12,7 @@ interface ContentContextValue {
   aiOutput: StudioAiOutput | null
   aiStatus: StudioStageStatus
   aiError: string
-  generateAiOutput: () => Promise<void>
+  generateAiOutput: (options?: GenerationOptions) => Promise<void>
   updateAiField: (field: string, value: unknown) => Promise<void>
   setAiStatus: (status: StudioStageStatus) => void
   setAiError: (error: string) => void
@@ -64,11 +65,11 @@ export function ContentProvider({ children }: { children: ReactNode }) {
   }, [preloaded, preloadReady])
   /* eslint-enable react-hooks/set-state-in-effect */
 
-  const generateAiOutput = useCallback(async () => {
+  const generateAiOutput = useCallback(async (options?: GenerationOptions) => {
     setAiStatus("generating")
     setAiError("")
     try {
-      const res = await fetch(`/api/admin/studio/${sessionId}/generate`, { method: "POST" })
+      const res = await postGeneration(`/api/admin/studio/${sessionId}/generate`, options)
       const data = await res.json()
       if (!res.ok) {
         setAiStatus("error")

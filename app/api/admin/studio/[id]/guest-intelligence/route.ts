@@ -19,12 +19,22 @@ export async function GET(
 }
 
 export async function POST(
-  _request: NextRequest,
+  request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   const authError = await requireAdminAPI()
   if (authError) return authError
   const { id } = await params
+
+  // ص-٨ — AI guard: return the cached result unless force=true.
+  let forceRegenerate = false
+  try { const b = await request.clone().json(); forceRegenerate = b?.force === true } catch (err) { console.debug("[Studio:guest-intelligence] no request body (fine):", err) }
+  if (!forceRegenerate) {
+    const existing = await getGuestIntelligenceForSession(id)
+    if (existing && existing.status === "ready") {
+      return NextResponse.json({ data: existing, cached: true })
+    }
+  }
 
   console.info(`[Studio:guest-intelligence] [${id}] started, provider=openai`)
 

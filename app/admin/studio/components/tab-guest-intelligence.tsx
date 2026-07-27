@@ -31,7 +31,7 @@ export function TabGuestIntelligence() {
             كشف تلقائي للضيف وأسلوب الحديث والمواقف الرئيسية والاقتباسات البارزة
           </p>
         </div>
-        <Button onClick={generateGuestIntelligence} size="sm" className="gap-2">
+        <Button onClick={() => generateGuestIntelligence()} size="sm" className="gap-2">
           <Sparkles className="h-3.5 w-3.5" />
           تحليل الضيف
         </Button>
@@ -55,7 +55,7 @@ export function TabGuestIntelligence() {
           <AlertCircle className="h-4 w-4 shrink-0 text-red-700 mt-0.5" />
           <p className="text-sm text-red-700 dark:text-red-400">{guestIntelligenceError}</p>
         </div>
-        <Button onClick={generateGuestIntelligence} variant="outline" size="sm" className="gap-2">
+        <Button onClick={() => generateGuestIntelligence()} variant="outline" size="sm" className="gap-2">
           <RefreshCw className="h-3.5 w-3.5" />
           إعادة المحاولة
         </Button>
@@ -69,7 +69,7 @@ export function TabGuestIntelligence() {
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <span className="text-xs text-muted-foreground">تحليل ذكي للضيف</span>
-        <Button onClick={generateGuestIntelligence} variant="ghost" size="sm" className="gap-1.5 h-7 text-xs">
+        <Button onClick={() => generateGuestIntelligence({ force: true })} title="توليد جديد — يستهلك نداء AI جديداً بتكلفة. العرض الحالي محفوظ ومجاني." variant="ghost" size="sm" className="gap-1.5 h-7 text-xs">
           <RefreshCw className="h-3 w-3" />
           إعادة التحليل
         </Button>

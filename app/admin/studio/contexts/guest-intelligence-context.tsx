@@ -3,6 +3,7 @@
 import { createContext, useContext, useState, useCallback, useEffect, type ReactNode } from "react"
 import type { StudioGuestIntelligence } from "@/types/database"
 import { useSession } from "./session-context"
+import { postGeneration, type GenerationOptions } from "./generation-request"
 import { usePreloadedData } from "./preload-context"
 import type { StudioStageStatus } from "./stage-status"
 import { normalizeStageStatus } from "./stage-status"
@@ -11,7 +12,7 @@ interface GuestIntelligenceContextValue {
   guestIntelligence: StudioGuestIntelligence | null
   guestIntelligenceStatus: StudioStageStatus
   guestIntelligenceError: string
-  generateGuestIntelligence: () => Promise<void>
+  generateGuestIntelligence: (options?: GenerationOptions) => Promise<void>
   setGuestIntelligenceStatus: (status: StudioStageStatus) => void
   reloadGuestIntelligence: () => Promise<void>
 }
@@ -62,11 +63,11 @@ export function GuestIntelligenceProvider({ children }: { children: ReactNode })
   }, [preloaded, preloadReady])
   /* eslint-enable react-hooks/set-state-in-effect */
 
-  const generateGuestIntelligence = useCallback(async () => {
+  const generateGuestIntelligence = useCallback(async (options?: GenerationOptions) => {
     setGuestIntelligenceStatus("generating")
     setGuestIntelligenceError("")
     try {
-      const res = await fetch(`/api/admin/studio/${sessionId}/guest-intelligence`, { method: "POST" })
+      const res = await postGeneration(`/api/admin/studio/${sessionId}/guest-intelligence`, options)
       const json = await res.json()
       if (!res.ok) {
         setGuestIntelligenceStatus("error")

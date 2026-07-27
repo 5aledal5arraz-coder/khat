@@ -50,7 +50,11 @@ export async function generateGuestFromTranscript(
         { role: "user", content: built.user },
       ],
       expectJson: true,
-      providerOptions: { temperature: 0.3, max_tokens: 500 },
+      // ص-٧ — 500 tokens has to cover the reasoning budget too
+      // (`structural` runs at reasoningEffort "low"), leaving a guest
+      // bio at real risk of being cut mid-string. The JSON is small;
+      // the headroom is nearly free.
+      providerOptions: { temperature: 0.3, max_tokens: 1500 },
     })
 
     if (result.status !== "succeeded") {

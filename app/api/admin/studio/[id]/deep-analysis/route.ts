@@ -19,12 +19,24 @@ export async function GET(
 }
 
 export async function POST(
-  _request: NextRequest,
+  request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   const authError = await requireAdminAPI()
   if (authError) return authError
   const { id } = await params
+
+  // ص-٨ — AI guard: return the cached result unless force=true. This
+  // route had NO guard at all, so every idle click re-paid for the most
+  // expensive call in the pipeline ($0.17).
+  let forceRegenerate = false
+  try { const b = await request.clone().json(); forceRegenerate = b?.force === true } catch (err) { console.debug("[Studio:deep-analysis] no request body (fine):", err) }
+  if (!forceRegenerate) {
+    const existing = await getDeepAnalysisForSession(id)
+    if (existing && existing.status === "ready") {
+      return NextResponse.json({ data: existing, cached: true })
+    }
+  }
 
   console.info(`[Studio:deep-analysis] [${id}] started, provider=openai`)
 

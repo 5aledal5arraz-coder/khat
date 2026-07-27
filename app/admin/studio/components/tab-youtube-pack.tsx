@@ -41,7 +41,7 @@ export function TabYoutubePack() {
             <p className="text-sm text-muted-foreground">
               ولّد حزمة محتوى كاملة لليوتيوب من نص الحلقة: عناوين، وصف، كلمات مفتاحية، هاشتاقات، ونص للصورة المصغرة
             </p>
-            <Button onClick={generateAiOutput} className="gap-2">
+            <Button onClick={() => generateAiOutput()} className="gap-2">
               <Sparkles className="h-4 w-4" />
               توليد حزمة AI
             </Button>
@@ -64,7 +64,7 @@ export function TabYoutubePack() {
               <AlertCircle className="h-4 w-4 shrink-0 text-red-700 mt-0.5" />
               <p className="text-sm text-red-700 dark:text-red-400">{aiError}</p>
             </div>
-            <Button variant="outline" onClick={generateAiOutput} className="gap-2">
+            <Button variant="outline" onClick={() => generateAiOutput()} className="gap-2">
               <RefreshCw className="h-4 w-4" />
               إعادة المحاولة
             </Button>
@@ -119,7 +119,7 @@ export function TabYoutubePack() {
             />
 
             <div className="border-t border-border/30 pt-4">
-              <Button variant="outline" onClick={generateAiOutput} className="gap-2">
+              <Button variant="outline" onClick={() => generateAiOutput({ force: true })} title="توليد جديد — يستهلك نداء AI جديداً بتكلفة. العرض الحالي محفوظ ومجاني." className="gap-2">
                 <RefreshCw className="h-4 w-4" />
                 إعادة التوليد
               </Button>

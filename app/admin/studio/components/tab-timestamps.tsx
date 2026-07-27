@@ -78,7 +78,7 @@ export function TabTimestamps() {
             <p className="text-sm text-muted-foreground">
               ولّد فصولاً زمنية لفيديو يوتيوب لتحسين التنقل و SEO
             </p>
-            <Button onClick={generateChapters} className="gap-2">
+            <Button onClick={() => generateChapters()} className="gap-2">
               <ListOrdered className="h-4 w-4" />
               توليد الفصول
             </Button>
@@ -98,7 +98,7 @@ export function TabTimestamps() {
               <AlertCircle className="h-4 w-4 shrink-0 text-red-700 mt-0.5" />
               <p className="text-sm text-red-700 dark:text-red-400">{chaptersError}</p>
             </div>
-            <Button variant="outline" onClick={generateChapters} className="gap-2">
+            <Button variant="outline" onClick={() => generateChapters()} className="gap-2">
               <RefreshCw className="h-4 w-4" />
               إعادة المحاولة
             </Button>
@@ -175,7 +175,7 @@ export function TabTimestamps() {
             )}
 
             <div className="border-t border-border/30 pt-4">
-              <Button variant="outline" onClick={generateChapters} className="gap-2">
+              <Button variant="outline" onClick={() => generateChapters({ force: true })} title="توليد جديد — يستهلك نداء AI جديداً بتكلفة. العرض الحالي محفوظ ومجاني." className="gap-2">
                 <RefreshCw className="h-4 w-4" />
                 إعادة التوليد
               </Button>

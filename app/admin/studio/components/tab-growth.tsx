@@ -207,7 +207,7 @@ export function TabGrowth() {
             محتوى المنصات والمقاطع القصيرة، واستراتيجية تسويقية موحّدة
           </p>
         </div>
-        <Button onClick={generateGrowth} size="sm" className="gap-2">
+        <Button onClick={() => generateGrowth()} size="sm" className="gap-2">
           <Sparkles className="h-3.5 w-3.5" />
           توليد حزمة النمو
         </Button>
@@ -231,7 +231,7 @@ export function TabGrowth() {
           <AlertCircle className="h-4 w-4 shrink-0 text-red-700 mt-0.5" />
           <p className="text-sm text-red-700 dark:text-red-400">{growthError}</p>
         </div>
-        <Button onClick={generateGrowth} variant="outline" size="sm" className="gap-2">
+        <Button onClick={() => generateGrowth()} variant="outline" size="sm" className="gap-2">
           <RefreshCw className="h-3.5 w-3.5" />
           إعادة المحاولة
         </Button>
@@ -247,7 +247,7 @@ export function TabGrowth() {
         <span className="text-xs text-muted-foreground">حزمة جاهزة للنسخ والنشر</span>
         <div className="flex items-center gap-2">
           <CopyAllButton g={g} />
-          <Button onClick={generateGrowth} variant="ghost" size="sm" className="gap-1.5 h-7 text-xs">
+          <Button onClick={() => generateGrowth({ force: true })} title="توليد جديد — يستهلك نداء AI جديداً بتكلفة. العرض الحالي محفوظ ومجاني." variant="ghost" size="sm" className="gap-1.5 h-7 text-xs">
             <RefreshCw className="h-3 w-3" />
             إعادة التوليد
           </Button>

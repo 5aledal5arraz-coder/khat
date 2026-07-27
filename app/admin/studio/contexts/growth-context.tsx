@@ -3,6 +3,7 @@
 import { createContext, useContext, useState, useCallback, useEffect, type ReactNode } from "react"
 import type { GrowthPackage } from "@/lib/ai/growth/types"
 import { useSession } from "./session-context"
+import { postGeneration, type GenerationOptions } from "./generation-request"
 import { usePreloadedData } from "./preload-context"
 import type { StudioStageStatus } from "./stage-status"
 import { normalizeStageStatus } from "./stage-status"
@@ -11,7 +12,7 @@ interface GrowthContextValue {
   growth: GrowthPackage | null
   growthStatus: StudioStageStatus
   growthError: string
-  generateGrowth: () => Promise<void>
+  generateGrowth: (options?: GenerationOptions) => Promise<void>
   setGrowthStatus: (status: StudioStageStatus) => void
   reloadGrowth: () => Promise<void>
 }
@@ -60,11 +61,11 @@ export function GrowthProvider({ children }: { children: ReactNode }) {
   }, [preloaded, preloadReady])
   /* eslint-enable react-hooks/set-state-in-effect */
 
-  const generateGrowth = useCallback(async () => {
+  const generateGrowth = useCallback(async (options?: GenerationOptions) => {
     setGrowthStatus("generating")
     setGrowthError("")
     try {
-      const res = await fetch(`/api/admin/studio/${sessionId}/growth-package`, { method: "POST" })
+      const res = await postGeneration(`/api/admin/studio/${sessionId}/growth-package`, options)
       const json = await res.json()
       if (!res.ok) {
         setGrowthStatus("error")

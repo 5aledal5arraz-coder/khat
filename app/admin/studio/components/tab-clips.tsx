@@ -112,7 +112,7 @@ export function TabClips() {
             <p className="text-sm text-muted-foreground">
               ولّد اقتراحات مقاطع قصيرة فيروسية من الحلقة مع أوقات القص والوصف والخطاف وحزمة النشر الكاملة
             </p>
-            <Button onClick={generateClips} className="gap-2">
+            <Button onClick={() => generateClips()} className="gap-2">
               <Scissors className="h-4 w-4" />
               توليد مقاطع قصيرة
             </Button>
@@ -132,7 +132,7 @@ export function TabClips() {
               <AlertCircle className="h-4 w-4 shrink-0 text-red-700 mt-0.5" />
               <p className="text-sm text-red-700 dark:text-red-400">{clipsError}</p>
             </div>
-            <Button variant="outline" onClick={generateClips} className="gap-2">
+            <Button variant="outline" onClick={() => generateClips()} className="gap-2">
               <RefreshCw className="h-4 w-4" />
               إعادة المحاولة
             </Button>
@@ -231,7 +231,7 @@ export function TabClips() {
             </div>
 
             <div className="border-t border-border/30 pt-4">
-              <Button variant="outline" onClick={generateClips} className="gap-2">
+              <Button variant="outline" onClick={() => generateClips({ force: true })} title="توليد جديد — يستهلك نداء AI جديداً بتكلفة. العرض الحالي محفوظ ومجاني." className="gap-2">
                 <RefreshCw className="h-4 w-4" />
                 إعادة التوليد
               </Button>

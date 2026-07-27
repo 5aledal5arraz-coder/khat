@@ -69,7 +69,10 @@ export async function generateGuestIntelligence(
         { role: "user", content: built.user },
       ],
       expectJson: true,
-      providerOptions: { temperature: 0.3, max_tokens: 2000 },
+      // ص-٧ — the live run consumed 1,148 of 2,000 (57%) for ONE guest;
+      // a two-guest episode truncates. `max_output_tokens` includes
+      // reasoning tokens on the Responses API.
+      providerOptions: { temperature: 0.3, max_tokens: 3000 },
     })
 
     if (result.status !== "succeeded") {

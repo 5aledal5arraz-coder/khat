@@ -78,7 +78,13 @@ ${preparedText}`
         { role: "user", content: userPrompt },
       ],
       expectJson: true,
-      providerOptions: { temperature: 0.3, max_tokens: 4000 },
+      // ص-٧ — 4000 was a hard ceiling this prompt hit EXACTLY (live run:
+      // tokens_out = 4000, $0.17065, and a 179-char shell with every
+      // field empty saved as `ready`). On the Responses API
+      // `max_output_tokens` also covers reasoning tokens, and `editorial`
+      // runs at reasoningEffort "medium" — so part of the budget was
+      // spent thinking before the visible JSON was cut off.
+      providerOptions: { temperature: 0.3, max_tokens: 8000 },
     })
 
     if (result.status !== "succeeded") {
@@ -90,6 +96,27 @@ ${preparedText}`
     }
 
     const parsed = result.parsed ?? {}
+
+    // ص-٧ — a truncated response survives the JSON-repair ladder as an
+    // empty shell, and `?? []` / `?? null` below turn every missing
+    // field into an innocent default. That is how the most expensive
+    // call in the run got saved as `ready` with a green dot and zero
+    // content. If nothing came back, say so.
+    const isEmpty =
+      (parsed.themes?.length ?? 0) === 0 &&
+      (parsed.lessons?.length ?? 0) === 0 &&
+      (parsed.arguments?.length ?? 0) === 0 &&
+      (parsed.open_questions?.length ?? 0) === 0 &&
+      !parsed.thesis &&
+      !parsed.conversation_arc
+    if (isEmpty) {
+      return {
+        success: false,
+        error:
+          "التحليل العميق رجع فارغاً — على الأرجح انبتر المخرج قبل اكتماله. أعد التوليد.",
+        runId: result.runId,
+      }
+    }
 
     return {
       success: true,

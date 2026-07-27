@@ -3,6 +3,7 @@
 import { createContext, useContext, useState, useCallback, useEffect, useRef, type ReactNode } from "react"
 import type { StudioClips, StudioClipItem } from "@/types/database"
 import { useSession } from "./session-context"
+import { postGeneration, type GenerationOptions } from "./generation-request"
 import { usePreloadedData } from "./preload-context"
 import type { StudioStageStatus } from "./stage-status"
 import { normalizeStageStatus } from "./stage-status"
@@ -12,7 +13,7 @@ interface ClipsContextValue {
   clipsItems: StudioClipItem[]
   clipsStatus: StudioStageStatus
   clipsError: string
-  generateClips: () => Promise<void>
+  generateClips: (options?: GenerationOptions) => Promise<void>
   updateClipsItems: (items: StudioClipItem[]) => void
   saveClips: (items: StudioClipItem[]) => Promise<void>
   setClipsStatus: (status: StudioStageStatus) => void
@@ -74,11 +75,11 @@ export function ClipsProvider({ children }: { children: ReactNode }) {
   }, [preloaded, preloadReady])
   /* eslint-enable react-hooks/set-state-in-effect */
 
-  const generateClips = useCallback(async () => {
+  const generateClips = useCallback(async (options?: GenerationOptions) => {
     setClipsStatus("generating")
     setClipsError("")
     try {
-      const res = await fetch(`/api/admin/studio/${sessionId}/clips`, { method: "POST" })
+      const res = await postGeneration(`/api/admin/studio/${sessionId}/clips`, options)
       const json = await res.json()
       if (!res.ok) { setClipsStatus("error"); setClipsError(json.error || "فشل"); return }
       setClips(json.clips)

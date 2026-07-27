@@ -3,6 +3,7 @@
 import { createContext, useContext, useState, useCallback, useEffect, type ReactNode } from "react"
 import type { StudioAnalyzer } from "@/types/database"
 import { useSession } from "./session-context"
+import { postGeneration, type GenerationOptions } from "./generation-request"
 import { usePreloadedData } from "./preload-context"
 import type { StudioStageStatus } from "./stage-status"
 import { normalizeStageStatus } from "./stage-status"
@@ -11,7 +12,7 @@ interface AnalyzerContextValue {
   analyzer: StudioAnalyzer | null
   analyzerStatus: StudioStageStatus
   analyzerError: string
-  generateAnalyzer: () => Promise<void>
+  generateAnalyzer: (options?: GenerationOptions) => Promise<void>
 }
 
 const AnalyzerContext = createContext<AnalyzerContextValue | null>(null)
@@ -44,11 +45,11 @@ export function AnalyzerProvider({ children }: { children: ReactNode }) {
   }, [preloaded, preloadReady])
   /* eslint-enable react-hooks/set-state-in-effect */
 
-  const generateAnalyzer = useCallback(async () => {
+  const generateAnalyzer = useCallback(async (options?: GenerationOptions) => {
     setAnalyzerStatus("generating")
     setAnalyzerError("")
     try {
-      const res = await fetch(`/api/admin/studio/${sessionId}/analyzer`, { method: "POST" })
+      const res = await postGeneration(`/api/admin/studio/${sessionId}/analyzer`, options)
       const json = await res.json()
       if (!res.ok) { setAnalyzerStatus("error"); setAnalyzerError(json.error || "فشل"); return }
       setAnalyzer(json.analyzer)

@@ -64,7 +64,7 @@ export function TabDeepAnalysis() {
             تحليل المحاور والأطروحات والحجج واللحظات العاطفية والدروس المستفادة
           </p>
         </div>
-        <Button onClick={generateDeepAnalysis} size="sm" className="gap-2">
+        <Button onClick={() => generateDeepAnalysis()} size="sm" className="gap-2">
           <Sparkles className="h-3.5 w-3.5" />
           بدء التحليل
         </Button>
@@ -88,7 +88,7 @@ export function TabDeepAnalysis() {
           <AlertCircle className="h-4 w-4 shrink-0 text-red-700 mt-0.5" />
           <p className="text-sm text-red-700 dark:text-red-400">{deepAnalysisError}</p>
         </div>
-        <Button onClick={generateDeepAnalysis} variant="outline" size="sm" className="gap-2">
+        <Button onClick={() => generateDeepAnalysis()} variant="outline" size="sm" className="gap-2">
           <RefreshCw className="h-3.5 w-3.5" />
           إعادة المحاولة
         </Button>
@@ -102,7 +102,7 @@ export function TabDeepAnalysis() {
     <div className="space-y-3">
       <div className="flex items-center justify-between">
         <span className="text-xs text-muted-foreground">تحليل عميق للمحتوى</span>
-        <Button onClick={generateDeepAnalysis} variant="ghost" size="sm" className="gap-1.5 h-7 text-xs">
+        <Button onClick={() => generateDeepAnalysis({ force: true })} title="توليد جديد — يستهلك نداء AI جديداً بتكلفة. العرض الحالي محفوظ ومجاني." variant="ghost" size="sm" className="gap-1.5 h-7 text-xs">
           <RefreshCw className="h-3 w-3" />
           إعادة التحليل
         </Button>

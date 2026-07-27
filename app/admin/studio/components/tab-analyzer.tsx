@@ -140,7 +140,7 @@ export function TabAnalyzer() {
                 : "حلّل محتوى الحلقة واحصل على اقتراحات للتحسين ومقاطع قصيرة مقترحة"
               }
             </p>
-            <Button onClick={generateAnalyzer} className="gap-2">
+            <Button onClick={() => generateAnalyzer()} className="gap-2">
               <BarChart3 className="h-4 w-4" />
               بدء التحليل
             </Button>
@@ -160,7 +160,7 @@ export function TabAnalyzer() {
               <AlertCircle className="h-4 w-4 shrink-0 text-red-700 mt-0.5" />
               <p className="text-sm text-red-700 dark:text-red-400">{analyzerError}</p>
             </div>
-            <Button variant="outline" onClick={generateAnalyzer} className="gap-2">
+            <Button variant="outline" onClick={() => generateAnalyzer()} className="gap-2">
               <RefreshCw className="h-4 w-4" />
               إعادة المحاولة
             </Button>
@@ -329,7 +329,7 @@ export function TabAnalyzer() {
 
             {/* Regenerate */}
             <div className="border-t border-border/30 pt-4">
-              <Button variant="outline" onClick={generateAnalyzer} className="gap-2">
+              <Button variant="outline" onClick={() => generateAnalyzer({ force: true })} title="توليد جديد — يستهلك نداء AI جديداً بتكلفة. العرض الحالي محفوظ ومجاني." className="gap-2">
                 <RefreshCw className="h-4 w-4" />
                 إعادة التحليل
               </Button>

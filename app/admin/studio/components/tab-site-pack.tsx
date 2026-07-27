@@ -57,7 +57,7 @@ export function TabSitePack() {
             <p className="text-sm text-muted-foreground">
               ولّد محتوى شامل لصفحة الحلقة على الموقع: ملخص، أفكار رئيسية، اقتباسات، مصادر
             </p>
-            <Button onClick={generateWebsitePackage} className="gap-2">
+            <Button onClick={() => generateWebsitePackage()} className="gap-2">
               <Globe className="h-4 w-4" />
               توليد حزمة الموقع
             </Button>
@@ -78,7 +78,7 @@ export function TabSitePack() {
               <AlertCircle className="h-4 w-4 shrink-0 text-red-700 mt-0.5" />
               <p className="text-sm text-red-700 dark:text-red-400">{websitePkgError}</p>
             </div>
-            <Button variant="outline" onClick={generateWebsitePackage} className="gap-2">
+            <Button variant="outline" onClick={() => generateWebsitePackage()} className="gap-2">
               <RefreshCw className="h-4 w-4" />
               إعادة المحاولة
             </Button>
@@ -421,7 +421,7 @@ export function TabSitePack() {
 
             {/* Re-generate */}
             <div className="border-t border-border/30 pt-4">
-              <Button variant="outline" onClick={generateWebsitePackage} className="gap-2">
+              <Button variant="outline" onClick={() => generateWebsitePackage({ force: true })} title="توليد جديد — يستهلك نداء AI جديداً بتكلفة. العرض الحالي محفوظ ومجاني." className="gap-2">
                 <RefreshCw className="h-4 w-4" />
                 إعادة التوليد
               </Button>

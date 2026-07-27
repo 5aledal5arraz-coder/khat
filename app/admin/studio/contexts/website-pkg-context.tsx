@@ -3,6 +3,7 @@
 import { createContext, useContext, useState, useCallback, useEffect, useRef, type ReactNode } from "react"
 import type { StudioWebsitePackage, WebsiteQuoteItem, WebsiteResourceItem, WebsiteTimestampItem } from "@/types/database"
 import { useSession } from "./session-context"
+import { postGeneration, type GenerationOptions } from "./generation-request"
 import { usePreloadedData } from "./preload-context"
 import type { StudioStageStatus } from "./stage-status"
 import { normalizeStageStatus } from "./stage-status"
@@ -20,7 +21,7 @@ interface WebsitePkgContextValue {
   timestamps: WebsiteTimestampItem[]
   selectedQuoteIndices: Set<number>
   selectedTakeawayIndices: Set<number>
-  generateWebsitePackage: () => Promise<void>
+  generateWebsitePackage: (options?: GenerationOptions) => Promise<void>
   updateWebsitePkgField: (updates: Record<string, unknown>) => void
   debouncedSaveWebPkg: (updates: Record<string, unknown>) => void
   setSelectedTitle: (v: string) => void
@@ -146,11 +147,11 @@ export function WebsitePkgProvider({ children }: { children: ReactNode }) {
   }, [preloaded, preloadReady, applyPkg])
   /* eslint-enable react-hooks/set-state-in-effect */
 
-  const generateWebsitePackage = useCallback(async () => {
+  const generateWebsitePackage = useCallback(async (options?: GenerationOptions) => {
     setWebsitePkgStatus("generating")
     setWebsitePkgError("")
     try {
-      const res = await fetch(`/api/admin/studio/${sessionId}/website-package`, { method: "POST" })
+      const res = await postGeneration(`/api/admin/studio/${sessionId}/website-package`, options)
       const json = await res.json()
       if (!res.ok) { setWebsitePkgStatus("error"); setWebsitePkgError(json.error || "فشل"); return }
       const p = json.package as StudioWebsitePackage
