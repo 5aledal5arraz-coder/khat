@@ -46,8 +46,31 @@ const MIN_TRANSCRIPT_CHARS = 10
 // Token-safe transcript limit for a single API call (~8000 words Arabic)
 const MAX_TRANSCRIPT_CHARS = 24000
 
-// Maximum chars to feed into summarizer input
-const SUMMARIZER_INPUT_CAP = 100000
+/**
+ * Maximum chars to feed into summarizer input.
+ *
+ * `B′` (wave 3) — was 100,000, which cut the reference episode at
+ * character 100,032. Measured: the last 37 minutes begin at offset
+ * 100,032, so the cap landed almost exactly on the boundary and every
+ * generator downstream worked from 83.2% of the episode. Four of the
+ * five acceptance markers sit entirely past it — العاضد (9/9 hits),
+ * النوبة (2/2), «توفي نور الدين» (2/2 at 99.1%), and the fall of the
+ * Fatimid state (98.4%) — so no amount of prompt work downstream could
+ * have recovered them.
+ *
+ * The original justification was the model context window, and that
+ * reason is gone: the whole episode is ~39,000 tokens against a 272,000
+ * window. What is still worth having is a COST bound — chunk count grows
+ * linearly with input and every chunk is a paid call — so the cap stays
+ * but moves to a level no real episode reaches (400k chars ≈ a 12-hour
+ * recording, ~20 chunks). Combined with the ص-١٠ warning, a cap that
+ * fires is now both rare and loud.
+ *
+ * Measured cost of the change on the reference episode: one extra chunk
+ * call, +$0.016. Passing the full transcript to the five editorial
+ * generators instead would have been +$0.824 (see the wave-3 report).
+ */
+const SUMMARIZER_INPUT_CAP = 400_000
 
 /**
  * ص-١٠ — the summarizer cap used to cut with `slice()` and say nothing.

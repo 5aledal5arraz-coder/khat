@@ -47,54 +47,75 @@ beforeEach(() => {
 })
 
 describe("transcript chunking", () => {
-  it("does not emit a runt final chunk for the live episode length", async () => {
-    // A distinct length per test keeps the content-hash memo from sharing
-    // results between cases.
+  it("covers the WHOLE reference episode — no cap, no runt", async () => {
+    // B′ — the 100k cap used to cut this episode at char 100,032, which is
+    // where its last 37 minutes begin. Six chunks now, and every one of
+    // them a real section: the runt-folding from ص-١٠ still holds at the
+    // new length.
     await prepareTranscript({} as never, arabicText(LIVE_TRANSCRIPT_CHARS))
 
     const calls = chunkCalls()
-    expect(calls).toHaveLength(5) // was 6 — the sixth was 10 chars
+    expect(calls).toHaveLength(6)
     for (const call of calls) {
       expect(call.prompt.at(-1)!.content.length).toBeGreaterThanOrEqual(500)
     }
   })
 
-  it("keeps the runt's text — it is folded in, not dropped", async () => {
+  it("sends the END of the episode, not just the first 100k", async () => {
     const text = arabicText(LIVE_TRANSCRIPT_CHARS - 1)
     await prepareTranscript({} as never, text)
 
     const sent = chunkCalls()
       .map((c) => c.prompt.at(-1)!.content)
       .join(" ")
-    // The last words that survive the 100k cap must still be present.
-    const lastKeptWord = text.slice(0, 100_000).trim().split(" ").at(-1)!
-    expect(sent).toContain(lastKeptWord)
+    // The very last word of the transcript — previously 18,786 chars past
+    // the cap and therefore invisible to every generator.
+    const lastWord = text.trim().split(" ").at(-1)!
+    expect(sent).toContain(lastWord)
   })
 
-  it("warns loudly when the 100k cap drops the end of the episode", async () => {
+  it("never emits a chunk under 500 chars, at any input length", async () => {
+    // The runt came from word-boundary backoff accumulating, so it appears
+    // only at particular lengths. Sweep instead of guessing one.
+    for (const len of [40_010, 60_003, 99_998, 119_991, 140_007]) {
+      vi.clearAllMocks()
+      runAiTask.mockResolvedValue({ status: "succeeded", rawText: "ملخّص" })
+      await prepareTranscript({} as never, arabicText(len))
+      for (const call of chunkCalls()) {
+        expect(call.prompt.at(-1)!.content.length).toBeGreaterThanOrEqual(500)
+      }
+    }
+  })
+
+  it("stays silent for any realistic episode — the cap no longer fires", async () => {
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {})
 
     await prepareTranscript({} as never, arabicText(LIVE_TRANSCRIPT_CHARS - 2))
 
+    expect(warn).not.toHaveBeenCalled()
+  })
+
+  it("still warns loudly if the (now much higher) cap is ever hit", async () => {
+    // The cap survives as a COST bound, not a content decision — chunk
+    // count grows linearly with input and every chunk is a paid call. If
+    // it ever fires it must still be impossible to miss.
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {})
+
+    await prepareTranscript({} as never, arabicText(420_000))
+
     expect(warn).toHaveBeenCalledWith(
       expect.stringContaining("TRANSCRIPT TRUNCATED"),
     )
-    expect(warn.mock.calls[0][0]).toMatch(/18,?78\d chars \(15\.8%\)/)
+    expect(chunkCalls()[0].input).toMatchObject({
+      transcriptDroppedChars: expect.any(Number),
+    })
   })
 
-  it("records the dropped chars on the ai_runs input snapshot", async () => {
+  it("records zero dropped chars when nothing is dropped", async () => {
     await prepareTranscript({} as never, arabicText(LIVE_TRANSCRIPT_CHARS - 3))
 
     const input = chunkCalls()[0].input as { transcriptDroppedChars?: number }
-    expect(input.transcriptDroppedChars).toBeGreaterThan(18_000)
-  })
-
-  it("stays silent when nothing is truncated", async () => {
-    const warn = vi.spyOn(console, "warn").mockImplementation(() => {})
-
-    await prepareTranscript({} as never, arabicText(60_000))
-
-    expect(warn).not.toHaveBeenCalled()
+    expect(input.transcriptDroppedChars).toBe(0)
   })
 
   it("labels the positional chunks 1..N with no phantom tail", async () => {
@@ -105,10 +126,10 @@ describe("transcript chunking", () => {
     )
 
     const calls = chunkCalls()
-    expect(calls).toHaveLength(5)
+    expect(calls).toHaveLength(6)
     const system = calls.at(-1)!.prompt[0].content
-    expect(system).toContain("الجزء 5/5")
-    // The 180→216 minute label belonged to the ten-char phantom part.
-    expect(system).not.toContain("الجزء 6/6")
+    expect(system).toContain("الجزء 6/6")
+    // The phantom part was a SEVENTH of ten characters, not the sixth.
+    expect(system).not.toContain("الجزء 7/7")
   })
 })
