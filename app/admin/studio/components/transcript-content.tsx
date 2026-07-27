@@ -63,7 +63,7 @@ export function TranscriptContent() {
             }
           </p>
           {isAudio ? (
-            <Button onClick={transcribeAudio} className="gap-2 bg-purple-600 hover:bg-purple-700">
+            <Button onClick={() => transcribeAudio()} className="gap-2 bg-purple-600 hover:bg-purple-700">
               <Mic className="h-4 w-4" />
               تحويل الصوت إلى نص (Whisper)
             </Button>
@@ -109,7 +109,7 @@ export function TranscriptContent() {
           </div>
           <Button
             variant="outline"
-            onClick={isAudio ? transcribeAudio : fetchTranscript}
+            onClick={() => (isAudio ? transcribeAudio() : fetchTranscript())}
             className="gap-2"
           >
             {isAudio ? <Mic className="h-4 w-4" /> : <Search className="h-4 w-4" />}
@@ -151,7 +151,10 @@ export function TranscriptContent() {
             <Button
               variant="outline"
               size="sm"
-              onClick={isAudio ? transcribeAudio : fetchTranscript}
+              onClick={() =>
+                isAudio ? transcribeAudio({ force: true }) : fetchTranscript()
+              }
+              title={isAudio ? "إعادة تفريغ كاملة عبر Whisper — أغلى عملية في الاستوديو وتُحتسب من جديد. النص الحالي محفوظ." : undefined}
               className="gap-1.5"
             >
               {isAudio ? <Mic className="h-3.5 w-3.5" /> : <Search className="h-3.5 w-3.5" />}

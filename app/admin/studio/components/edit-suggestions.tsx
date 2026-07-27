@@ -79,7 +79,7 @@ export function EditSuggestionsContent() {
 
       {editSuggestionsStatus === "idle" && (
         <Button
-          onClick={generateEditSuggestions}
+          onClick={() => generateEditSuggestions()}
           className="gap-2 bg-rose-600 hover:bg-rose-700"
         >
           <Scissors className="h-4 w-4" />
@@ -101,7 +101,7 @@ export function EditSuggestionsContent() {
             <AlertCircle className="h-4 w-4 shrink-0 text-red-700 mt-0.5" />
             <p className="text-sm text-red-700 dark:text-red-400">{editSuggestionsError}</p>
           </div>
-          <Button variant="outline" onClick={generateEditSuggestions} className="gap-2">
+          <Button variant="outline" onClick={() => generateEditSuggestions()} className="gap-2">
             <RefreshCw className="h-4 w-4" />
             إعادة المحاولة
           </Button>
@@ -150,7 +150,7 @@ export function EditSuggestionsContent() {
           <Button
             variant="outline"
             size="sm"
-            onClick={generateEditSuggestions}
+            onClick={() => generateEditSuggestions({ force: true })} title="توليد جديد — يستهلك نداء AI جديداً بتكلفة. العرض الحالي محفوظ ومجاني."
             className="gap-1.5"
           >
             <RefreshCw className="h-3.5 w-3.5" />

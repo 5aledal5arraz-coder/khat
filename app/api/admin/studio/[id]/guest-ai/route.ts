@@ -22,12 +22,28 @@ function cleanupRateLimit() {
  * POST /api/admin/studio/[id]/guest-ai — AI-generate guest name + bio only
  */
 export async function POST(
-  _request: Request,
+  request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   const authError = await requireAdminAPI()
   if (authError) return authError
   const { id } = await params
+
+  // ص-٨ — AI guard: return the cached guest package unless force=true.
+  // This route had no guard at all, so every click re-ran extraction.
+  // The 10s rate limit below throttles hammering; it does not stop a
+  // deliberate second click from being billed.
+  let forceRegenerate = false
+  try { const b = await request.clone().json(); forceRegenerate = b?.force === true } catch (err) { console.debug("[Studio:guest-ai] no request body (fine):", err) }
+  if (!forceRegenerate) {
+    const existing = await getWebsitePackageForSession(id)
+    if (existing?.guest_package?.guest_name) {
+      return NextResponse.json({
+        guest_package: existing.guest_package,
+        cached: true,
+      })
+    }
+  }
 
   // Rate limit
   cleanupRateLimit()

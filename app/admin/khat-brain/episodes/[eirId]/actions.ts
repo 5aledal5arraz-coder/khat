@@ -18,7 +18,12 @@ import { db } from "@/lib/db"
 import { collaborationRooms } from "@/lib/db/schema/collaboration"
 import { episodePreparations } from "@/lib/db/schema/preparation"
 import { studioSessions } from "@/lib/db/schema/studio"
+import { episodes } from "@/lib/db/schema/episodes"
 import { guests } from "@/lib/db/schema/guests"
+import {
+  getWebsitePackageForSession,
+  updateWebsitePackage,
+} from "@/lib/studio/website-packages"
 import { requireActionRole } from "@/lib/api-utils"
 import { createRoom } from "@/lib/collaboration/rooms"
 import {
@@ -126,6 +131,7 @@ export interface PushActionResult extends StudioPushResult {
     | "no_admin"
     | "no_studio_session"
     | "no_package"
+    | "no_episode_link"
     | "push_failed"
   message: string
 }
@@ -165,6 +171,55 @@ export async function pushPackageToEpisodeAction(input: {
       pushedFields: [],
       episodeId: null,
       guestLink: null,
+    }
+  }
+
+  // ص-٣ follow-up — the generators no longer infer `linked_episode_id`
+  // from `session.video_id` (two sessions on one video used to share a
+  // link, so cleaning up the failed one hit the good one's episode).
+  // This page has no episode picker, so without an explicit link every
+  // push from here would dead-end on "اربطها أولاً" with no way to fix
+  // it from the same screen.
+  //
+  // The EIR already carries a first-class, per-record link —
+  // `episodes.eir_id` — which is NOT the ambiguous video id. Pushing
+  // from an EIR page IS the operator saying "this episode", so we
+  // resolve it from there and persist it onto the package. We still
+  // never guess: zero or multiple matches is an error, not a pick.
+  const pkg = await getWebsitePackageForSession(session.id)
+  if (pkg && !pkg.linked_episode_id) {
+    const linkedEpisodes = await db!
+      .select({ id: episodes.id })
+      .from(episodes)
+      .where(eq(episodes.eir_id, input.eirId))
+      .limit(2)
+
+    if (linkedEpisodes.length !== 1) {
+      return {
+        ok: false,
+        reason: "no_episode_link",
+        message:
+          linkedEpisodes.length === 0
+            ? "لا توجد حلقة مرتبطة بهذا السجل — اربط الحلقة من الاستوديو (تبويب التصدير) قبل الدفع."
+            : "أكثر من حلقة مرتبطة بهذا السجل — اربط الحلقة يدوياً من الاستوديو (تبويب التصدير).",
+        pushedFields: [],
+        episodeId: null,
+        guestLink: null,
+      }
+    }
+
+    const linked = await updateWebsitePackage(pkg.id, {
+      linked_episode_id: linkedEpisodes[0].id,
+    })
+    if (!linked.success) {
+      return {
+        ok: false,
+        reason: "push_failed",
+        message: linked.error || "تعذّر ربط الحزمة بالحلقة.",
+        pushedFields: [],
+        episodeId: null,
+        guestLink: null,
+      }
     }
   }
 

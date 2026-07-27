@@ -3,6 +3,7 @@
 import { createContext, useContext, useState, useCallback, type ReactNode } from "react"
 import type { AudioEditSuggestion } from "@/types/database"
 import { useSession } from "./session-context"
+import { postGeneration, type GenerationOptions } from "./generation-request"
 import { formatTimeSeconds } from "@/lib/utils"
 import type { StudioStageStatus } from "./stage-status"
 
@@ -16,14 +17,14 @@ interface AudioContextValue {
   setAudioStartSeconds: (v: number | null) => void
   setAudioEndSeconds: (v: number | null) => void
   saveAudioTimestamps: (start: number | null, end: number | null) => Promise<void>
-  generateBestIntro: () => Promise<void>
+  generateBestIntro: (options?: GenerationOptions) => Promise<void>
 
   // Edit suggestions
   editSuggestions: AudioEditSuggestion[] | null
   editSuggestionsStatus: StudioStageStatus
   editSuggestionsError: string
   editSuggestionsCutSeconds: number
-  generateEditSuggestions: () => Promise<void>
+  generateEditSuggestions: (options?: GenerationOptions) => Promise<void>
 }
 
 const AudioContext = createContext<AudioContextValue | null>(null)
@@ -78,11 +79,11 @@ export function AudioProvider({ children }: { children: ReactNode }) {
     }
   }, [sessionId])
 
-  const generateBestIntro = useCallback(async () => {
+  const generateBestIntro = useCallback(async (options?: GenerationOptions) => {
     setAudioIntroStatus("generating")
     setAudioIntroError("")
     try {
-      const res = await fetch(`/api/admin/studio/${sessionId}/audio-intro`, { method: "POST" })
+      const res = await postGeneration(`/api/admin/studio/${sessionId}/audio-intro`, options)
       const data = await res.json()
       if (!res.ok) {
         setAudioIntroStatus("error")
@@ -101,11 +102,11 @@ export function AudioProvider({ children }: { children: ReactNode }) {
     }
   }, [sessionId])
 
-  const generateEditSuggestions = useCallback(async () => {
+  const generateEditSuggestions = useCallback(async (options?: GenerationOptions) => {
     setEditSuggestionsStatus("generating")
     setEditSuggestionsError("")
     try {
-      const res = await fetch(`/api/admin/studio/${sessionId}/edit-suggestions`, { method: "POST" })
+      const res = await postGeneration(`/api/admin/studio/${sessionId}/edit-suggestions`, options)
       const data = await res.json()
       if (!res.ok) {
         setEditSuggestionsStatus("error")

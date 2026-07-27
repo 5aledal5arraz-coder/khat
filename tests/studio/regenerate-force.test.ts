@@ -37,49 +37,71 @@ describe("postGeneration", () => {
   })
 })
 
-describe("studio generation routes", () => {
-  /** Routes whose POST runs a billable generator. */
-  const GUARDED = [
-    "chapters",
-    "clips",
-    "website-package",
-    "analyzer",
-    "generate",
-    "deep-analysis",
-    "growth-package",
-    "guest-intelligence",
-  ]
+/**
+ * Every studio route whose POST spends money on a generator.
+ *
+ * A hand-written list is exactly how the first version of this test
+ * passed green while `guest-ai`, `audio-intro` and `edit-suggestions`
+ * were broken: they simply were not on the list. The set is now
+ * DERIVED from the filesystem, so a new billable route cannot be added
+ * without either carrying a guard or failing this test.
+ */
+const ROUTES_DIR = join(ROOT, "app/api/admin/studio/[id]")
 
-  it.each(GUARDED)("%s reads a force flag and short-circuits on cache", (route) => {
-    const src = readFileSync(
-      join(ROOT, "app/api/admin/studio/[id]", route, "route.ts"),
-      "utf8",
-    )
-    expect(src).toContain("force === true")
-    expect(src).toContain("cached: true")
+function billableRoutes(): { route: string; src: string }[] {
+  const out: { route: string; src: string }[] = []
+  for (const entry of readdirSync(ROUTES_DIR, { withFileTypes: true })) {
+    if (!entry.isDirectory()) continue
+    let src: string
+    try {
+      src = readFileSync(join(ROUTES_DIR, entry.name, "route.ts"), "utf8")
+    } catch {
+      continue // nested groups (transcript/*) have no route file of their own
+    }
+    if (!/export async function POST/.test(src)) continue
+    // Generators are imported from @/lib/ai, or reached through a
+    // lib/studio runner that wraps them. Transcription routes are out of
+    // scope on purpose: their spend guard is the transcript record
+    // itself, not a `force` flag.
+    const callsGenerator =
+      /from "@\/lib\/ai"/.test(src) || /runGrowthPackageForSession/.test(src)
+    if (callsGenerator) out.push({ route: entry.name, src })
+  }
+  return out
+}
+
+describe("studio generation routes", () => {
+  const routes = billableRoutes()
+
+  it("actually finds the billable routes", () => {
+    // Without this, a broken sweep would make every case below vacuous.
+    expect(routes.length).toBeGreaterThanOrEqual(9)
   })
+
+  it.each(routes.map((r) => r.route))(
+    "%s reads a force flag and short-circuits on cache",
+    (route) => {
+      const src = routes.find((r) => r.route === route)!.src
+      expect(src).toContain("force === true")
+      expect(src).toContain("cached: true")
+    },
+  )
 })
 
 describe("studio generate calls", () => {
-  it("no context POSTs to a generator without a body", () => {
+  it("no context POSTs to any studio route without a body", () => {
     const dir = join(ROOT, "app/admin/studio/contexts")
+    // Catch ANY bodyless POST to a studio endpoint, whatever it is
+    // named. The previous version matched a fixed set of route names and
+    // was therefore blind to the three that were broken.
+    const bodyless =
+      /fetch\(\s*`\/api\/admin\/studio\/\$\{sessionId\}\/([^`]+)`\s*,\s*\{\s*method:\s*"POST"\s*\}\s*\)/g
     const offenders: string[] = []
     for (const file of readdirSync(dir)) {
-      if (!file.endsWith("-context.tsx")) continue
+      if (!file.endsWith(".tsx")) continue
       const src = readFileSync(join(dir, file), "utf8")
-      for (const route of [
-        "chapters",
-        "clips",
-        "website-package",
-        "analyzer",
-        "generate",
-        "deep-analysis",
-        "growth-package",
-        "guest-intelligence",
-      ]) {
-        if (src.includes(`/${route}\`, { method: "POST" })`)) {
-          offenders.push(`${file} → ${route}`)
-        }
+      for (const m of src.matchAll(bodyless)) {
+        offenders.push(`${file} \u2192 ${m[1]}`)
       }
     }
     expect(offenders).toEqual([])

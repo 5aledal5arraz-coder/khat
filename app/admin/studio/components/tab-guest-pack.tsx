@@ -143,10 +143,21 @@ export function TabGuestPack() {
             <Button
               variant="outline"
               size="sm"
-              onClick={generateGuestAI}
+              // ص-٩ — one button serves both first run and re-run here.
+              // Once a guest is already extracted, pressing it again is
+              // an explicit request for a fresh extraction, so it must
+              // force past the new cache guard — otherwise the button
+              // would silently return the same result.
+              onClick={() => generateGuestAI({ force: Boolean(guestName.trim()) })}
               disabled={!canGenerateAI}
               className="gap-1.5 text-xs h-7"
-              title={!canGenerateAI ? "يجب جلب النص التلقائي أولاً" : "توليد اسم ونبذة الضيف بالذكاء الاصطناعي"}
+              title={
+                !canGenerateAI
+                  ? "يجب جلب النص التلقائي أولاً"
+                  : guestName.trim()
+                    ? "إعادة استخراج بيانات الضيف — يستهلك نداء AI جديداً بتكلفة"
+                    : "توليد اسم ونبذة الضيف بالذكاء الاصطناعي"
+              }
             >
               {guestAiGenerating ? (
                 <Loader2 className="h-3 w-3 animate-spin" />

@@ -6,6 +6,7 @@ import type {
   StudioTranscriptSummary, StudioTranscriptQuote,
 } from "@/types/database"
 import { useSession } from "./session-context"
+import { postGeneration, type GenerationOptions } from "./generation-request"
 import { usePreloadedData } from "./preload-context"
 import type { StudioStageStatus } from "./stage-status"
 import { normalizeStageStatus } from "./stage-status"
@@ -16,7 +17,7 @@ interface TranscriptContextValue {
   transcriptError: string
   transcriptUploading: boolean
   fetchTranscript: () => Promise<void>
-  transcribeAudio: () => Promise<void>
+  transcribeAudio: (options?: GenerationOptions) => Promise<void>
   uploadTranscript: (file: File) => Promise<void>
 
   // Transcript processing
@@ -25,7 +26,7 @@ interface TranscriptContextValue {
   transcriptArticle: string | null
   transcriptSummary: StudioTranscriptSummary | null
   transcriptQuotes: StudioTranscriptQuote[] | null
-  processTranscript: () => Promise<void>
+  processTranscript: (options?: GenerationOptions) => Promise<void>
   regeneratingSection: string | null
   regenerateSectionError: string
   regenerateSection: (section: "quotes" | "key_ideas" | "lessons") => Promise<void>
@@ -143,11 +144,11 @@ export function TranscriptProvider({ children }: { children: ReactNode }) {
     }
   }, [extractAndSaveTranscript])
 
-  const transcribeAudio = useCallback(async () => {
+  const transcribeAudio = useCallback(async (options?: GenerationOptions) => {
     setTranscriptStatus("generating")
     setTranscriptError("")
     try {
-      const res = await fetch(`/api/admin/studio/${sessionId}/transcript/whisper`, { method: "POST" })
+      const res = await postGeneration(`/api/admin/studio/${sessionId}/transcript/whisper`, options)
       const data = await res.json()
       if (!res.ok) {
         setTranscriptStatus("error")
@@ -212,11 +213,11 @@ export function TranscriptProvider({ children }: { children: ReactNode }) {
   }, [sessionId])
 
   // --- Transcript Processing ---
-  const processTranscript = useCallback(async () => {
+  const processTranscript = useCallback(async (options?: GenerationOptions) => {
     setProcessingStatus("generating")
     setProcessingError("")
     try {
-      const res = await fetch(`/api/admin/studio/${sessionId}/transcript/process`, { method: "POST" })
+      const res = await postGeneration(`/api/admin/studio/${sessionId}/transcript/process`, options)
       const data = await res.json()
       if (!res.ok) {
         setProcessingStatus("error")

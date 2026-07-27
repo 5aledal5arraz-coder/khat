@@ -120,7 +120,7 @@ export function AudioToolsContent() {
 
         {audioIntroStatus === "idle" && (
           <Button
-            onClick={generateBestIntro}
+            onClick={() => generateBestIntro()}
             className="gap-2 bg-amber-600 hover:bg-amber-700"
           >
             <Sparkles className="h-4 w-4" />
@@ -141,7 +141,7 @@ export function AudioToolsContent() {
               <AlertCircle className="h-4 w-4 shrink-0 text-red-700 mt-0.5" />
               <p className="text-sm text-red-700 dark:text-red-400">{audioIntroError}</p>
             </div>
-            <Button variant="outline" onClick={generateBestIntro} className="gap-2">
+            <Button variant="outline" onClick={() => generateBestIntro()} className="gap-2">
               <RefreshCw className="h-4 w-4" />
               إعادة المحاولة
             </Button>
@@ -161,7 +161,7 @@ export function AudioToolsContent() {
             <Button
               variant="outline"
               size="sm"
-              onClick={generateBestIntro}
+              onClick={() => generateBestIntro({ force: true })} title="توليد جديد — يستهلك نداء AI جديداً بتكلفة. العرض الحالي محفوظ ومجاني."
               className="gap-1.5"
             >
               <RefreshCw className="h-3.5 w-3.5" />

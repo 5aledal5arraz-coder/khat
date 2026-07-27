@@ -77,7 +77,7 @@ export function TabExport() {
   const [selectedEpisodeId, setSelectedEpisodeId] = useState<string>("")
   const [showDiff, setShowDiff] = useState(false)
   const [pushing, setPushing] = useState(false)
-  const [pushResult, setPushResult] = useState<{ success: boolean; fields: string[]; guestLink?: { linked: boolean; guestName?: string; created?: boolean } | null; error?: string } | null>(null)
+  const [pushResult, setPushResult] = useState<{ success: boolean; fields: string[]; guestLink?: { linked: boolean; guestName?: string; created?: boolean } | null; error?: string; episodeId?: string | null } | null>(null)
   const [loaded, setLoaded] = useState(false)
   const [showRestoreConfirm, setShowRestoreConfirm] = useState(false)
   const [restoring, setRestoring] = useState(false)
@@ -135,7 +135,7 @@ export function TabExport() {
       const json = await res.json()
       if (res.ok) {
         // Confirm with actual server response (may include guest link info)
-        setPushResult({ success: true, fields: json.pushedFields || selectedFields, guestLink: json.guestLink || null })
+        setPushResult({ success: true, fields: json.pushedFields || selectedFields, guestLink: json.guestLink || null, episodeId: json.episodeId ?? selectedEpisodeId })
       } else {
         // Rollback — and show WHY. `title_unresolved` (ص-٤) and
         // `package_unlinked` (ص-٣) are both operator-fixable; a generic
@@ -275,6 +275,28 @@ export function TabExport() {
                         <p className="text-xs text-green-700/70 dark:text-green-400/60 mt-1">
                           تم ربط الضيف: {pushResult.guestLink.guestName}
                           {pushResult.guestLink.created ? " (تم إنشاء ملف جديد)" : " (ملف موجود)"}
+                        </p>
+                      )}
+                      {/* ص-١ — quotes are pushed as DRAFTS now. Saying
+                          "نُشرت بنجاح" while they sit unpublished is the
+                          same class of lie, just pointing the other way:
+                          the operator would never go and approve them. */}
+                      {!pushing && pushResult.fields.includes("quotes") && (
+                        <p className="mt-2 rounded-md bg-amber-500/10 px-2 py-1 text-xs text-amber-700 dark:text-amber-400">
+                          الاقتباسات دُفعت <strong>كمسودة</strong> ولن تظهر على
+                          الموقع قبل اعتمادها.
+                          {pushResult.episodeId && (
+                            <>
+                              {" "}
+                              <a
+                                href={`/admin/episodes/${pushResult.episodeId}`}
+                                className="underline underline-offset-2 hover:text-amber-800 dark:hover:text-amber-300"
+                              >
+                                راجعها واعتمدها من صفحة الحلقة
+                              </a>
+                              .
+                            </>
+                          )}
                         </p>
                       )}
                     </div>

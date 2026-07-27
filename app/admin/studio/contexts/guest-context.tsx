@@ -3,6 +3,7 @@
 import { createContext, useContext, useState, useCallback, useEffect, useRef, type ReactNode } from "react"
 import type { TabStatus } from "../components/shared"
 import { useSession } from "./session-context"
+import { postGeneration, type GenerationOptions } from "./generation-request"
 import { useWebsitePkg } from "./website-pkg-context"
 
 interface GuestContextValue {
@@ -13,7 +14,7 @@ interface GuestContextValue {
   guestPackageStatus: TabStatus
   guestAiGenerating: boolean
   guestAiError: string
-  generateGuestAI: () => Promise<void>
+  generateGuestAI: (options?: GenerationOptions) => Promise<void>
   setGuestName: (v: string) => void
   setGuestBio: (v: string) => void
   setGuestPhotoUrl: (v: string) => void
@@ -62,11 +63,11 @@ export function GuestProvider({ children }: { children: ReactNode }) {
     return "idle"
   })()
 
-  const generateGuestAI = useCallback(async () => {
+  const generateGuestAI = useCallback(async (options?: GenerationOptions) => {
     setGuestAiGenerating(true)
     setGuestAiError("")
     try {
-      const res = await fetch(`/api/admin/studio/${sessionId}/guest-ai`, { method: "POST" })
+      const res = await postGeneration(`/api/admin/studio/${sessionId}/guest-ai`, options)
       const data = await res.json()
       if (!res.ok) {
         setGuestAiError(data.error || "فشل في توليد بيانات الضيف")

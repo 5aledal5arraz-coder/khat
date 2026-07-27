@@ -149,7 +149,7 @@ export function AiProcessingContent() {
           <p className="text-sm text-muted-foreground">
             حوّل النص الخام إلى مقال مقروء، ملخص مُهيكل، واقتباسات مستخرجة
           </p>
-          <Button onClick={processTranscript} className="gap-2 bg-violet-600 hover:bg-violet-700">
+          <Button onClick={() => processTranscript()} className="gap-2 bg-violet-600 hover:bg-violet-700">
             <Wand2 className="h-4 w-4" />
             معالجة النص
           </Button>
@@ -170,7 +170,7 @@ export function AiProcessingContent() {
             <AlertCircle className="h-4 w-4 shrink-0 text-red-700 mt-0.5" />
             <p className="text-sm text-red-700 dark:text-red-400">{processingError || "فشل في المعالجة"}</p>
           </div>
-          <Button variant="outline" onClick={processTranscript} className="gap-2">
+          <Button variant="outline" onClick={() => processTranscript()} className="gap-2">
             <RefreshCw className="h-4 w-4" />
             إعادة المحاولة
           </Button>
@@ -180,7 +180,7 @@ export function AiProcessingContent() {
       {processingStatus === "ready" && (
         <div className="space-y-4">
           <div className="flex justify-end">
-            <Button variant="outline" size="sm" onClick={processTranscript} className="gap-1.5">
+            <Button variant="outline" size="sm" onClick={() => processTranscript({ force: true })} title="توليد جديد — يستهلك نداء AI جديداً بتكلفة. العرض الحالي محفوظ ومجاني." className="gap-1.5">
               <RefreshCw className="h-3.5 w-3.5" />
               إعادة المعالجة الكاملة
             </Button>

@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server"
-import { getStudioSession, createTranscript, createTranscriptError, revalidateStudio } from "@/lib/studio"
+import { getStudioSession, getTranscriptForSession, createTranscript, createTranscriptError, revalidateStudio } from "@/lib/studio"
 import { resolveSessionAudioPath } from "@/lib/studio/audio-path"
 import { transcribeAudioFile } from "@/lib/whisper"
 import { requireAdminAPI } from "@/lib/api-utils"
@@ -10,12 +10,26 @@ export const maxDuration = 600
  * POST /api/admin/studio/[id]/transcript/whisper — transcribe audio via Whisper
  */
 export async function POST(
-  _request: Request,
+  request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   const authError = await requireAdminAPI()
   if (authError) return authError
   const { id } = await params
+
+  // ص-٨ — Whisper is the single most expensive call in the Studio
+  // ($1.2954 for the 216-minute reference episode) and it had NO cache
+  // guard whatsoever: every click re-transcribed the whole file and
+  // re-paid in full. Re-transcribing must be a deliberate act.
+  let forceRegenerate = false
+  try { const b = await request.clone().json(); forceRegenerate = b?.force === true } catch (err) { console.debug("[Studio:whisper] no request body (fine):", err) }
+  if (!forceRegenerate) {
+    const existing = await getTranscriptForSession(id)
+    if (existing?.status === "ready" && existing.transcript_clean?.trim()) {
+      return NextResponse.json({ transcript: existing, cached: true })
+    }
+  }
+
   const session = await getStudioSession(id)
 
   if (!session) {
