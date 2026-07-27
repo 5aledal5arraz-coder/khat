@@ -110,7 +110,23 @@ export function cleanTranscriptText(raw: string): string {
  * Nothing user-facing should ever contain them. Applied on OUTPUT only:
  * the labels stay in the input, where they do a job.
  */
-const CHUNK_SCAFFOLD_RE = /\[?\s*الجزء\s*\d+\s*[/\\]\s*\d+[^\]\n]*\]?/g
+/**
+ * Bracketed form, exactly as the summarizer emits it:
+ *   `[الجزء 3/6 — تقريباً من الدقيقة 22 إلى الدقيقة 33]`
+ * The whole bracket goes.
+ */
+const CHUNK_SCAFFOLD_BRACKETED = /\[[^\]\n]*الجزء\s*\d+\s*[/\\]\s*\d+[^\]\n]*\]/g
+
+/**
+ * Bare form, which the model also produced:
+ *   `الجزء 3/6 — من الدقيقة 72 إلى 108:`
+ * The trailing range clause is matched EXPLICITLY rather than "everything
+ * up to a bracket" — a greedy tail here swallowed the real sentence that
+ * followed it, which would have quietly deleted content instead of
+ * cleaning markup.
+ */
+const CHUNK_SCAFFOLD_BARE =
+  /الجزء\s*\d+\s*[/\\]\s*\d+(\s*[—–-]\s*(?:تقريباً\s*)?من\s*الدقيقة\s*\d+\s*إلى\s*(?:الدقيقة\s*)?\d+)?\s*:?/g
 
 export function stripChunkScaffold(text: string): string
 export function stripChunkScaffold(text: null | undefined): null
@@ -118,7 +134,8 @@ export function stripChunkScaffold(text: string | null | undefined): string | nu
 export function stripChunkScaffold(text: string | null | undefined): string | null {
   if (text == null) return null
   return text
-    .replace(CHUNK_SCAFFOLD_RE, " ")
+    .replace(CHUNK_SCAFFOLD_BRACKETED, " ")
+    .replace(CHUNK_SCAFFOLD_BARE, " ")
     .replace(/[ \t]{2,}/g, " ")
     .replace(/\s+([.,،؛!؟])/g, "$1")
     .trim()

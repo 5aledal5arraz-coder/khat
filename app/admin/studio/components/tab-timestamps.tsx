@@ -2,7 +2,7 @@
 
 import { useState } from "react"
 import {
-  ListOrdered, Clock, Loader2, AlertCircle, RefreshCw,
+  ListOrdered, Clock, Loader2, AlertCircle, AlertTriangle, RefreshCw,
   Copy, Check, Pencil, Plus, Minus,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
@@ -13,9 +13,18 @@ import type { StudioChapterItem } from "@/types/database"
 
 export function TabTimestamps() {
   const {
-    chaptersItems, chaptersStatus, chaptersError,
+    chapters, chaptersItems, chaptersStatus, chaptersError,
     generateChapters, updateChaptersItems, saveChapters,
   } = useChapters()
+
+  // ص-٥ — the generator now MEASURES how much of the episode its chapters
+  // actually reach and records it on the run. Removing the old "shove the
+  // last chapter to 95%" hack was right (it invented a timestamp), but it
+  // exposed a real gap that the operator has to see rather than inherit
+  // silently: on the reference episode the last chapter sits at 77%.
+  const coverageWarning =
+    (chapters?.raw_openai_response as { coverage_warning?: string } | null)
+      ?.coverage_warning ?? null
   const { timestamps, websitePkgStatus } = useWebsitePkg()
 
   const [editing, setEditing] = useState(false)
@@ -123,6 +132,15 @@ export function TabTimestamps() {
                 {editing ? "إغلاق التحرير" : "تحرير"}
               </button>
             </div>
+
+            {coverageWarning && (
+              <div className="flex items-start gap-2 rounded-lg border border-amber-300 bg-amber-50 p-3 dark:border-amber-800 dark:bg-amber-950/30">
+                <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-700 dark:text-amber-400" />
+                <p className="text-xs text-amber-800 dark:text-amber-300">
+                  {coverageWarning} — راجع الجزء الأخير وأضف فصولاً يدوياً إن لزم.
+                </p>
+              </div>
+            )}
 
             <div className="space-y-1.5">
               {chaptersItems.map((ch, idx) => (

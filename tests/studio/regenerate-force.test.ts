@@ -38,44 +38,89 @@ describe("postGeneration", () => {
 })
 
 /**
- * Every studio route whose POST spends money on a generator.
+ * Every studio route whose POST spends real money.
  *
- * A hand-written list is exactly how the first version of this test
- * passed green while `guest-ai`, `audio-intro` and `edit-suggestions`
- * were broken: they simply were not on the list. The set is now
- * DERIVED from the filesystem, so a new billable route cannot be added
- * without either carrying a guard or failing this test.
+ * Two blind spots have already shipped here, and each was found only
+ * because someone attacked the TEST rather than the code:
+ *
+ *   1. a hand-written list of route names — it passed green while
+ *      `guest-ai`, `audio-intro` and `edit-suggestions` were broken,
+ *      because they simply were not on it; and
+ *   2. a top-level-only directory scan that defined "billable" as
+ *      "imports @/lib/ai" — so the sweep never descended into
+ *      `transcript/` and never saw Whisper, which imports @/lib/whisper.
+ *      Noura deleted the guard on the single most expensive route in the
+ *      Studio and this file still reported 16/16 green.
+ *
+ * So: walk RECURSIVELY, and define billable by "reaches a paid provider",
+ * not by one import path. Anything intentionally exempt must be named in
+ * `EXEMPT` with a reason — an exemption that has to be written down is a
+ * decision; a directory the walker never entered is an accident.
  */
 const ROUTES_DIR = join(ROOT, "app/api/admin/studio/[id]")
 
-function billableRoutes(): { route: string; src: string }[] {
+/**
+ * Routes that reach a paid provider but must NOT carry a `force` cache
+ * guard. Each entry is a deliberate, justified exception.
+ */
+const EXEMPT: Record<string, string> = {
+  // Its entire purpose is to regenerate one section on demand; a cache
+  // guard would make it a no-op. It also requires an explicit `section`
+  // in the body, so a bodyless click cannot trigger it.
+  "transcript/regenerate": "explicit per-section regeneration endpoint",
+  // Enqueue-only: they create a job row and the worker does the paid
+  // work, so the spend guard is job de-duplication, not a request flag.
+  "episode-map": "enqueues a job; guarded by job dedup",
+  "episode-review": "enqueues a job; guarded by job dedup",
+}
+
+/** Every route.ts under the studio route tree, at any depth. */
+function walkRoutes(dir: string, prefix = ""): { route: string; src: string }[] {
   const out: { route: string; src: string }[] = []
-  for (const entry of readdirSync(ROUTES_DIR, { withFileTypes: true })) {
+  for (const entry of readdirSync(dir, { withFileTypes: true })) {
     if (!entry.isDirectory()) continue
-    let src: string
+    const name = prefix ? `${prefix}/${entry.name}` : entry.name
+    const child = join(dir, entry.name)
     try {
-      src = readFileSync(join(ROUTES_DIR, entry.name, "route.ts"), "utf8")
+      out.push({ route: name, src: readFileSync(join(child, "route.ts"), "utf8") })
     } catch {
-      continue // nested groups (transcript/*) have no route file of their own
+      // no route file at this level — keep descending
     }
-    if (!/export async function POST/.test(src)) continue
-    // Generators are imported from @/lib/ai, or reached through a
-    // lib/studio runner that wraps them. Transcription routes are out of
-    // scope on purpose: their spend guard is the transcript record
-    // itself, not a `force` flag.
-    const callsGenerator =
-      /from "@\/lib\/ai"/.test(src) || /runGrowthPackageForSession/.test(src)
-    if (callsGenerator) out.push({ route: entry.name, src })
+    out.push(...walkRoutes(child, name))
   }
   return out
+}
+
+/** Does this handler reach something that bills us? */
+function isBillable(src: string): boolean {
+  return (
+    /from "@\/lib\/ai"/.test(src) || // the ~38 generators
+    /from "@\/lib\/whisper"/.test(src) || // transcription
+    /transcribeAudioFile/.test(src) ||
+    /runAiTask/.test(src) || // a direct router call
+    /runGrowthPackageForSession/.test(src) // lib/studio runner over generators
+  )
+}
+
+function billableRoutes(): { route: string; src: string }[] {
+  return walkRoutes(ROUTES_DIR)
+    .filter((r) => /export async function POST/.test(r.src))
+    .filter((r) => isBillable(r.src))
+    .filter((r) => !(r.route in EXEMPT))
 }
 
 describe("studio generation routes", () => {
   const routes = billableRoutes()
 
+  it("descends into nested route groups", () => {
+    // The exact regression: `transcript/whisper` must be in the sweep.
+    // Without this the suite can silently stop covering the priciest path.
+    expect(routes.map((r) => r.route)).toContain("transcript/whisper")
+  })
+
   it("actually finds the billable routes", () => {
     // Without this, a broken sweep would make every case below vacuous.
-    expect(routes.length).toBeGreaterThanOrEqual(9)
+    expect(routes.length).toBeGreaterThanOrEqual(12)
   })
 
   it.each(routes.map((r) => r.route))(

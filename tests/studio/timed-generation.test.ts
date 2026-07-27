@@ -12,6 +12,8 @@ import {
   resolveTimedChapters,
   resolveTimedClips,
   windowIdFor,
+  assessWindowSpans,
+  assessChapterCoverage,
 } from "@/lib/ai/studio-timed"
 import { timedSegmentsFromRaw } from "@/lib/studio/timed-transcript"
 import {
@@ -238,5 +240,74 @@ describe("stripChunkScaffold", () => {
 
   it("passes null through", () => {
     expect(stripChunkScaffold(null)).toBeNull()
+  })
+})
+
+describe("assessWindowSpans", () => {
+  it("confirms the ≤30s accuracy claim when windows are tight", () => {
+    const r = assessWindowSpans(windows(50, 20))
+    expect(r.withinClaim).toBe(true)
+    expect(r.overLimit).toBe(0)
+    expect(r.maxSpanSeconds).toBe(20)
+  })
+
+  it("flags the case the claim was silently assuming away", () => {
+    // mergeIntoWindows grows a window until the NEXT segment would exceed
+    // the target, so one long caption cue can push a window past 30s. The
+    // reference episode never did — every other episode was unverified.
+    const wide = [
+      { start: 0, end: 20, text: "أ", chunk: 0 },
+      { start: 20, end: 65, text: "ب", chunk: 0 },
+    ]
+    const r = assessWindowSpans(wide)
+    expect(r.withinClaim).toBe(false)
+    expect(r.overLimit).toBe(1)
+    expect(r.maxSpanSeconds).toBe(45)
+  })
+})
+
+describe("assessChapterCoverage", () => {
+  const EPISODE = 12954 // the reference episode, 215.9 min
+
+  it("warns on the real gap the reference run left behind", () => {
+    // Last chapter at 02:47:11 = 77.4% → 48.7 minutes with no chapter.
+    const r = assessChapterCoverage(
+      [
+        { start_time: "00:00:00", title: "أ" },
+        { start_time: "02:47:11", title: "ب" },
+      ],
+      EPISODE,
+    )
+    expect(r.warning).toContain("77%")
+    expect(Math.round(r.tailGapSeconds / 60)).toBe(49)
+  })
+
+  it("warns on a large gap between two chapters", () => {
+    const r = assessChapterCoverage(
+      [
+        { start_time: "00:00:00", title: "أ" },
+        { start_time: "00:27:00", title: "ب" },
+        { start_time: "03:35:00", title: "ج" },
+      ],
+      EPISODE,
+    )
+    expect(r.warning).toContain("فجوة")
+  })
+
+  it("stays silent when coverage is healthy", () => {
+    const chapters = Array.from({ length: 20 }, (_, i) => ({
+      start_time: new Date(i * 640 * 1000).toISOString().slice(11, 19),
+      title: `فصل ${i}`,
+    }))
+    const r = assessChapterCoverage(chapters, EPISODE)
+    expect(r.warning).toBeNull()
+  })
+
+  it("never invents a timestamp — it only reports", () => {
+    const input = [{ start_time: "00:00:00", title: "أ" }]
+    const r = assessChapterCoverage(input, EPISODE)
+    // The old path would have relocated the last chapter to 95%.
+    expect(r.lastChapterSeconds).toBe(0)
+    expect(r.warning).not.toBeNull()
   })
 })

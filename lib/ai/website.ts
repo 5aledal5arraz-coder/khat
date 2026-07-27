@@ -99,6 +99,18 @@ ${positionalText}`
             .filter((t) => typeof t.time_seconds === "number" && t.title)
             .filter((t) => !durationSeconds || t.time_seconds <= durationSeconds)
             .sort((a, b) => a.time_seconds - b.time_seconds)
+            // ص-١٠ — THIS is where the summarizer scaffold actually leaks.
+            // The timestamp prompt is the one that tells the model to read
+            // the `[الجزء X/Y — من الدقيقة…]` labels, so the model echoes
+            // them straight into `description` (17 occurrences in the
+            // captured live output) — and this is the field that lands in
+            // episode_enrichments.timestamps and renders publicly. The
+            // editorial fields are cleaned too, but they were never dirty.
+            .map((t) => ({
+              ...t,
+              title: stripChunkScaffold(t.title),
+              description: stripChunkScaffold(t.description ?? null),
+            }))
         : []
     }
 

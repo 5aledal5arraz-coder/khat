@@ -132,6 +132,101 @@ export function resolveTimedClips(
   )
 }
 
+/**
+ * The accuracy claim for the timed path is "a chapter cannot be further
+ * from its topic than the span of the window it points at". That holds
+ * only while windows stay short — and `mergeIntoWindows` grows a window
+ * until adding the NEXT segment would exceed the target, so a single long
+ * caption cue can push one past it. Nothing measured this before, so the
+ * ≤30s figure was true for the reference episode and merely assumed for
+ * every other one.
+ *
+ * This does not throw: one long cue should not cost the operator the
+ * whole generation. It measures, so the claim is checkable per episode
+ * instead of taken on faith.
+ */
+export const MAX_WINDOW_SPAN_SECONDS = 30
+
+export interface WindowSpanReport {
+  maxSpanSeconds: number
+  overLimit: number
+  withinClaim: boolean
+}
+
+export function assessWindowSpans(windows: TimedSegment[]): WindowSpanReport {
+  let maxSpanSeconds = 0
+  let overLimit = 0
+  for (const w of windows) {
+    const span = w.end - w.start
+    if (span > maxSpanSeconds) maxSpanSeconds = span
+    if (span > MAX_WINDOW_SPAN_SECONDS) overLimit++
+  }
+  return {
+    maxSpanSeconds: Math.round(maxSpanSeconds * 100) / 100,
+    overLimit,
+    withinClaim: overLimit === 0,
+  }
+}
+
+/**
+ * How much of the episode the chosen chapters actually reach.
+ *
+ * Removing the old "relocate the last chapter to 95%" hack was right — it
+ * invented a timestamp to satisfy a coverage heuristic — but it was also
+ * hiding a real weakness: on the reference episode the last chapter sits
+ * at 77.4%, leaving 48.7 minutes with no chapter at all, and the largest
+ * gap between two chapters is 27 minutes. The answer is to TELL the
+ * operator, not to fabricate an anchor.
+ */
+export const MAX_TAIL_GAP_SECONDS = 15 * 60
+export const MAX_INTERNAL_GAP_SECONDS = 20 * 60
+
+export interface CoverageReport {
+  lastChapterSeconds: number
+  coveredFraction: number
+  tailGapSeconds: number
+  maxInternalGapSeconds: number
+  /** Operator-facing Arabic, or null when coverage looks healthy. */
+  warning: string | null
+}
+
+export function assessChapterCoverage(
+  chapters: StudioChapterItem[],
+  episodeEndSeconds: number,
+): CoverageReport {
+  const starts = chapters.map((c) => parseClock(c.start_time)).sort((a, b) => a - b)
+  const last = starts.length > 0 ? starts[starts.length - 1] : 0
+  const tailGapSeconds = Math.max(0, episodeEndSeconds - last)
+
+  let maxInternalGapSeconds = 0
+  for (let i = 1; i < starts.length; i++) {
+    const gap = starts[i] - starts[i - 1]
+    if (gap > maxInternalGapSeconds) maxInternalGapSeconds = gap
+  }
+
+  const problems: string[] = []
+  if (tailGapSeconds > MAX_TAIL_GAP_SECONDS) {
+    problems.push(
+      `آخر فصل عند ${Math.round((last / episodeEndSeconds) * 100)}% من الحلقة — ` +
+        `${Math.round(tailGapSeconds / 60)} دقيقة بلا أي فصل`,
+    )
+  }
+  if (maxInternalGapSeconds > MAX_INTERNAL_GAP_SECONDS) {
+    problems.push(
+      `أكبر فجوة بين فصلين ${Math.round(maxInternalGapSeconds / 60)} دقيقة`,
+    )
+  }
+
+  return {
+    lastChapterSeconds: last,
+    coveredFraction:
+      episodeEndSeconds > 0 ? Math.round((last / episodeEndSeconds) * 1000) / 1000 : 0,
+    tailGapSeconds,
+    maxInternalGapSeconds,
+    warning: problems.length > 0 ? `تغطية ناقصة — ${problems.join(" · ")}` : null,
+  }
+}
+
 function parseClock(hhmmss: string): number {
   const [h = 0, m = 0, s = 0] = hhmmss.split(":").map(Number)
   return h * 3600 + m * 60 + s

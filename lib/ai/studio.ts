@@ -22,6 +22,9 @@ import {
   buildWindowMap,
   resolveTimedChapters,
   resolveTimedClips,
+  assessWindowSpans,
+  assessChapterCoverage,
+  MAX_WINDOW_SPAN_SECONDS,
 } from "./studio-timed"
 
 /** Window span for the timed path — same default the episode map uses. */
@@ -400,6 +403,23 @@ async function generateStudioChaptersTimed(
     // plausible wrong number that ships.
     const chapters = resolveTimedChapters(items, buildWindowMap(windows))
 
+    // Measure the two things the accuracy claim rests on, instead of
+    // assuming them: how wide the widest window is, and how much of the
+    // episode the chosen chapters actually reach.
+    const spans = assessWindowSpans(windows)
+    const episodeEnd = windows[windows.length - 1]?.end ?? durationSeconds ?? 0
+    const coverage = assessChapterCoverage(chapters, episodeEnd)
+
+    if (!spans.withinClaim) {
+      console.warn(
+        `[studio-timed] ${spans.overLimit} window(s) exceed ${MAX_WINDOW_SPAN_SECONDS}s ` +
+          `(max ${spans.maxSpanSeconds}s) — chapter accuracy is bounded by the window, not by 30s`,
+      )
+    }
+    if (coverage.warning) {
+      console.warn(`[studio-timed] ${coverage.warning}`)
+    }
+
     return {
       success: true,
       data: { chapters },
@@ -408,6 +428,10 @@ async function generateStudioChaptersTimed(
         usage: { prompt_tokens: result.tokensIn, completion_tokens: result.tokensOut },
         run_id: result.runId,
         timing_source: "captions",
+        max_window_span_seconds: spans.maxSpanSeconds,
+        windows_over_limit: spans.overLimit,
+        covered_fraction: coverage.coveredFraction,
+        coverage_warning: coverage.warning,
       },
       runId: result.runId,
     }

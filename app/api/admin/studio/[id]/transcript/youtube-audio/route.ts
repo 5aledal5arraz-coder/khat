@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server"
 import path from "path"
 import fs from "fs/promises"
-import { getStudioSession, createTranscript, revalidateStudio } from "@/lib/studio"
+import { getStudioSession, getTranscriptForSession, createTranscript, revalidateStudio } from "@/lib/studio"
 import { transcribeAudioFile } from "@/lib/whisper"
 import { downloadYouTubeAudio } from "@/lib/youtube/download"
 import { requireAdminAPI } from "@/lib/api-utils"
@@ -21,6 +21,19 @@ export async function POST(
   const authError = await requireAdminAPI()
   if (authError) return authError
   const { id } = await params
+
+  // ص-٨ — download + Whisper is the second-most expensive path in the
+  // Studio and it had no cache guard: a retry after a ready transcript
+  // re-downloaded and re-transcribed the whole episode at full price.
+  let forceRegenerate = false
+  try { const b = await request.clone().json(); forceRegenerate = b?.force === true } catch (err) { console.debug("[Studio:youtube-audio] no request body (fine):", err) }
+  if (!forceRegenerate) {
+    const existing = await getTranscriptForSession(id)
+    if (existing?.status === "ready" && existing.transcript_clean?.trim()) {
+      return NextResponse.json({ transcript: existing, cached: true })
+    }
+  }
+
   const session = await getStudioSession(id)
 
   // Accept video_id from body as fallback (mock mode may not share in-memory sessions)
