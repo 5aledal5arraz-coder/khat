@@ -282,7 +282,7 @@ export function TabExport() {
                           same class of lie, just pointing the other way:
                           the operator would never go and approve them. */}
                       {!pushing && pushResult.fields.includes("quotes") && (
-                        <p className="mt-2 rounded-md bg-amber-500/10 px-2 py-1 text-xs text-amber-700 dark:text-amber-400">
+                        <p className="mt-2 rounded-md border border-amber-300 bg-amber-50 px-2 py-1 text-xs text-amber-800">
                           الاقتباسات دُفعت <strong>كمسودة</strong> ولن تظهر على
                           الموقع قبل اعتمادها.
                           {pushResult.episodeId && (
@@ -290,7 +290,7 @@ export function TabExport() {
                               {" "}
                               <a
                                 href={`/admin/episodes/${pushResult.episodeId}`}
-                                className="underline underline-offset-2 hover:text-amber-800 dark:hover:text-amber-300"
+                                className="underline underline-offset-2 hover:text-amber-900"
                               >
                                 راجعها واعتمدها من صفحة الحلقة
                               </a>

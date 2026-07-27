@@ -349,10 +349,13 @@ ${preparedText}`
     // `[الجزء X/Y]` scaffold, and chapter titles are copied straight into
     // the YouTube description. The website package was cleaned; these two
     // call sites emit the identical markup and were not.
-    chapters = chapters.map((c) => ({
-      ...c,
-      title: stripChunkScaffold(c.title),
-    }))
+    // Clean, then RE-FILTER: the `c.title` check above ran on the dirty
+    // value, so a title made entirely of scaffold survived it and became
+    // "" here. An empty chapter title prints as a bare timestamp line and
+    // YouTube rejects the whole chapter block.
+    chapters = chapters
+      .map((c) => ({ ...c, title: stripChunkScaffold(c.title) }))
+      .filter((c) => c.title.trim().length > 0)
 
     // ص-٥ — coverage is reported on THIS path too. It was only wired to
     // the timed branch, so the sessions with the weakest timings of all
@@ -643,7 +646,8 @@ ${preparedText}`
 
     // ص-١٠ — same scaffold, same leak: clip captions and hooks go
     // straight to social copy.
-    clips = clips.map((c) => ({
+    clips = clips
+      .map((c) => ({
       ...c,
       hook_text: stripChunkScaffold(c.hook_text),
       caption: stripChunkScaffold(c.caption ?? ""),
@@ -651,7 +655,9 @@ ${preparedText}`
       clip_title: c.clip_title ? stripChunkScaffold(c.clip_title) : c.clip_title,
       viral_hook: c.viral_hook ? stripChunkScaffold(c.viral_hook) : c.viral_hook,
       description: c.description ? stripChunkScaffold(c.description) : c.description,
-    }))
+      }))
+      // Same re-check: `hook_text` was filtered while still dirty.
+      .filter((c) => c.hook_text.trim().length > 0)
 
     return {
       success: true,

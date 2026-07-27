@@ -16,6 +16,12 @@
  * transcript of an episode that long.
  */
 
+import { eq } from "drizzle-orm"
+import { db } from "@/lib/db"
+import { episodes } from "@/lib/db/schema/episodes"
+import { fetchTranscriptServer } from "@/lib/youtube/transcript-server"
+import { cleanTranscriptText } from "./utils"
+
 /** Below this many characters nothing is a usable episode transcript. */
 export const MIN_CAPTION_CHARS = 500
 
@@ -91,4 +97,62 @@ export function assessCaptionQuality(
   }
 
   return { usable: true, reason: "ok", charsPerMinute }
+}
+
+/**
+ * Fetch YouTube captions and REJECT a track that is not a plausible
+ * transcript of this episode — the same gate the Studio pipeline uses.
+ *
+ * Why the episode features outside the Studio need it: the wave-2 change
+ * to `fetchTranscriptServer` made track selection deterministic, and the
+ * track it now prefers is the human-written one. That is the right
+ * default for text quality, but partial manual subtitle tracks are common
+ * on YouTube — so a preference that used to be a coin flip is now a
+ * consistent choice, and without a gate a track covering a fraction of
+ * the episode silently becomes the source for quotes attributed to the
+ * guest on the public page.
+ *
+ * Duration is read from the `episodes` row so the density check has real
+ * teeth; if it is unknown the gate degrades to the length floor alone
+ * rather than inventing a threshold.
+ */
+export async function fetchGatedTranscript(
+  videoId: string,
+  episodeId?: string | null,
+): Promise<
+  { ok: true; text: string; clean: string } | { ok: false; error: string }
+> {
+  const result = await fetchTranscriptServer(videoId)
+  if (!result.success || !result.text) {
+    return { ok: false, error: result.error || "فشل في جلب النص" }
+  }
+
+  let durationSeconds: number | null = null
+  if (episodeId && db) {
+    try {
+      const rows = await db
+        .select({ minutes: episodes.duration_minutes })
+        .from(episodes)
+        .where(eq(episodes.id, episodeId))
+        .limit(1)
+      const minutes = rows[0]?.minutes
+      if (typeof minutes === "number" && minutes > 0) durationSeconds = minutes * 60
+    } catch (err) {
+      console.error("[caption-gate] duration lookup failed:", err)
+    }
+  }
+
+  const clean = cleanTranscriptText(result.text)
+  const verdict = assessCaptionQuality(clean, durationSeconds)
+  if (!verdict.usable) {
+    console.warn(
+      `[caption-gate] ${videoId} rejected (${verdict.reason}): ${verdict.message}`,
+    )
+    return {
+      ok: false,
+      error: verdict.message || "الترجمة التلقائية غير صالحة لهذه الحلقة",
+    }
+  }
+
+  return { ok: true, text: result.text, clean }
 }

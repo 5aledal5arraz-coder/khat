@@ -159,8 +159,8 @@ export function TranscriptContent() {
                 happens, so this is a real two-step confirmation (same
                 pattern as the ص-٢ delete). */}
             {confirmingRetranscribe ? (
-              <div className="flex flex-wrap items-center gap-2 rounded-lg border border-amber-300 bg-amber-50 px-3 py-1.5 dark:border-amber-800 dark:bg-amber-950/30">
-                <span className="text-[11px] text-amber-800 dark:text-amber-300">
+              <div className="flex flex-wrap items-center gap-2 rounded-lg border border-amber-300 bg-amber-50 px-3 py-1.5">
+                <span className="text-[11px] text-amber-800">
                   {isAudio
                     ? "إعادة التفريغ عبر Whisper تُحتسب من جديد — حوالي ‎$1.30 لحلقة كاملة. النص الحالي محفوظ."
                     : "إعادة الجلب مجانية إذا توفرت الترجمة من يوتيوب، وإذا ما توفرت يرجع النظام إلى التفريغ المدفوع — حوالي ‎$1.30 لحلقة كاملة. النص الحالي محفوظ."}

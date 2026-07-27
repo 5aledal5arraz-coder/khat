@@ -2,8 +2,7 @@
 
 import { revalidatePath } from "next/cache"
 import { getQuotesConfig, saveQuotesConfig } from "@/lib/episodes/quotes"
-import { fetchTranscriptServer } from "@/lib/youtube/transcript-server"
-import { cleanTranscriptText } from "@/lib/studio/utils"
+import { fetchGatedTranscript } from "@/lib/studio/caption-gate"
 import { generateQuotesFromTranscript } from "@/lib/ai"
 import { getYouTubeId } from "@/lib/utils"
 import { requireActionRole } from "@/lib/api-utils"
@@ -29,13 +28,14 @@ export async function generateEpisodeQuotes(
     return { success: false, error: "رابط يوتيوب غير صالح" }
   }
 
-  const result = await fetchTranscriptServer(videoId)
-  if (!result.success) {
-    return { success: false, error: result.error || "فشل في جلب النص" }
+  // Gated: a partial caption track must not become the source for quotes
+  // attributed to the guest by name and photo on the public page.
+  const result = await fetchGatedTranscript(videoId, episodeId)
+  if (!result.ok) {
+    return { success: false, error: result.error }
   }
 
-  // fetchTranscriptServer returns RAW VTT (timestamps) — strip them before the generator/storage.
-  const transcript = cleanTranscriptText(result.text)
+  const transcript = result.clean
 
   let quotes
   try {

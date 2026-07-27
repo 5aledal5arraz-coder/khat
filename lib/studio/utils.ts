@@ -114,43 +114,52 @@ export function cleanTranscriptText(raw: string): string {
 const PART_NUMBERING = String.raw`الجزء\s*\d+\s*(?:[/\\]|من)\s*\d+`
 
 /**
- * Bracketed form, exactly as `prepareTranscriptWithPositions` emits it:
- *   `[الجزء 3/6 — تقريباً من الدقيقة 22 إلى الدقيقة 33]`
+ * The minute range that PROVES a part reference is summarizer scaffold
+ * rather than prose. Accepts `الى` without the hamza and a plain hyphen,
+ * both of which the model emits.
+ */
+const MINUTE_CLAUSE =
+  String.raw`\s*[—–-]\s*(?:تقريباً\s*)?من\s*الدقيقة\s*\d+` +
+  String.raw`(?:\s*(?:إلى|الى)\s*(?:الدقيقة\s*)?\d+)?`
+
+/**
+ * All three patterns match the numbering and (at most) its minute clause
+ * — never arbitrary text sitting inside the delimiters.
  *
- * The character class excludes `[` as well as `]`. It previously excluded
- * only `]`, so an unclosed bracket plus any later `]` on the same line
- * made the match span everything between them:
- *   `[الجزء 5/6 … وفاة نور الدين … [المصدر].`  →  `.`
- * i.e. it deleted the sentence while claiming to clean markup.
+ * This is the third time the same mistake had to be undone, so it is
+ * worth naming: every earlier version let the pattern span whatever
+ * happened to be between two delimiters, and each time that meant
+ * DELETING REAL SENTENCES while claiming to clean markup.
+ *   v1  `[^\]\n]*` ran to end-of-line on the bare form.
+ *   v2  the same class excluded `]` but not `[`, so an unclosed bracket
+ *       plus a later `]` swallowed everything between them.
+ *   v3  the bare form was hardened to require the minute clause, but the
+ *       parenthesised form was left wide open:
+ *         `(الجزء 2 من 4 من السلسلة)` — ordinary Arabic prose — vanished.
+ *
+ * The rule now is positive, not exclusionary: the delimiters must contain
+ * the scaffold and NOTHING else. Anything richer is somebody's sentence.
  */
 const CHUNK_SCAFFOLD_BRACKETED = new RegExp(
-  String.raw`\[[^\][\n]*${PART_NUMBERING}[^\][\n]*\]`,
+  String.raw`\[\s*${PART_NUMBERING}(?:${MINUTE_CLAUSE})?\s*\]`,
   "g",
 )
 
-/**
- * Parenthesised form, from the FLAT summarizer prompt (`client.ts`):
- *   `لخّص هذا الجزء (الجزء 1 من 6) …`
- */
+/** `لخّص هذا الجزء (الجزء 1 من 6) …` — the FLAT summarizer's form. */
 const CHUNK_SCAFFOLD_PARENS = new RegExp(
-  String.raw`\([^()\n]*${PART_NUMBERING}[^()\n]*\)`,
+  String.raw`\(\s*${PART_NUMBERING}(?:${MINUTE_CLAUSE})?\s*\)`,
   "g",
 )
 
 /**
- * Bare form the model also produced:
- *   `الجزء 3/6 — من الدقيقة 72 إلى 108:`
+ * Bare form: `الجزء 3/6 — من الدقيقة 72 إلى 108:`
  *
- * The time clause is REQUIRED, not optional. A naked `الجزء 3/6` is
- * ambiguous — `الجزء 3/6 من الكتاب` is ordinary prose — and stripping it
- * leaves a mutilated sentence. Deleting real words is a worse failure
- * than leaving a marker, so the bare pattern only fires when the minute
- * range proves it is scaffold. Accepts `الى` without the hamza and a
- * plain hyphen, both of which the model emits.
+ * Here the minute clause is REQUIRED. A naked `الجزء 3/6` is ambiguous —
+ * `الجزء 3/6 من الكتاب` is ordinary prose — and stripping it leaves a
+ * mutilated sentence. Leaving a marker beats deleting words.
  */
 const CHUNK_SCAFFOLD_BARE = new RegExp(
-  String.raw`${PART_NUMBERING}\s*[—–-]\s*(?:تقريباً\s*)?من\s*الدقيقة\s*\d+` +
-    String.raw`(?:\s*(?:إلى|الى)\s*(?:الدقيقة\s*)?\d+)?\s*:?`,
+  String.raw`${PART_NUMBERING}${MINUTE_CLAUSE}\s*:?`,
   "g",
 )
 

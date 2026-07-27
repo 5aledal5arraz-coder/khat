@@ -258,9 +258,9 @@ function AudioSessionRow({
       {confirming ? (
         <div
           onClick={(e) => e.stopPropagation()}
-          className="flex shrink-0 items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-2 py-1 dark:border-red-900 dark:bg-red-950/30"
+          className="flex shrink-0 items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-2 py-1"
         >
-          <span className="text-[11px] text-red-700 dark:text-red-400">
+          <span className="text-[11px] text-red-700">
             حذف جلسة «{sessionLabel}» ومخرجاتها؟ الحلقة المنشورة لا تتأثر.
           </span>
           <button

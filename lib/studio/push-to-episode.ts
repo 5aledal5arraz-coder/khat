@@ -58,6 +58,7 @@ import {
   syncEirOnEpisodePublish,
 } from "@/lib/khat-brain"
 import { getWebsitePackageForSession } from "@/lib/studio"
+import { stripChunkScaffold } from "@/lib/studio/utils"
 
 export interface StudioPushFields {
   title?: boolean
@@ -242,9 +243,29 @@ export async function runStudioPushToEpisode(input: {
     pushedFields.push("resources")
   }
   if (fields.timestamps && pkg.timestamps.length > 0) {
-    enrichmentFields.timestamps = pkg.timestamps
-    hasEnrichment = true
-    pushedFields.push("timestamps")
+    // Last gate before the public page. Packages generated before the
+    // ص-١٠ cleaning landed can still hold a row whose title is nothing
+    // but summarizer scaffold; one empty title renders as a bare
+    // timestamp line and takes the whole chapter block down with it.
+    // Filtering per item here means an old package degrades to "fewer
+    // rows" instead of "broken block".
+    const usableTimestamps = pkg.timestamps.filter(
+      (t) => typeof t.title === "string" && stripChunkScaffold(t.title).trim().length > 0,
+    )
+    if (usableTimestamps.length < pkg.timestamps.length) {
+      console.warn(
+        `[studio push] dropped ${pkg.timestamps.length - usableTimestamps.length} timestamp(s) with an empty title for ${episodeId}`,
+      )
+    }
+    if (usableTimestamps.length > 0) {
+      enrichmentFields.timestamps = usableTimestamps.map((t) => ({
+        ...t,
+        title: stripChunkScaffold(t.title),
+        description: t.description ? stripChunkScaffold(t.description) : t.description,
+      }))
+      hasEnrichment = true
+      pushedFields.push("timestamps")
+    }
   }
   if (hasEnrichment) rpcEnrichment = enrichmentFields
 

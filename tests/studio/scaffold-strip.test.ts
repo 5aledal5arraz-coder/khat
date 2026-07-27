@@ -62,6 +62,20 @@ describe("stripChunkScaffold — never eats real words", () => {
     expect(out).toContain("المصدر")
   })
 
+  it("leaves a PARENTHESISED part reference that is ordinary prose", () => {
+    // `الجزء N من M` is an entirely normal Arabic construction, and this
+    // field renders on the public episode page. The parens pattern used
+    // to allow arbitrary content between the brackets, so the whole
+    // parenthetical — including "من السلسلة" — disappeared.
+    const prose = "ذكر ذلك في مقدمته (الجزء 2 من 4 من السلسلة) وأضاف تعليقاً."
+    expect(stripChunkScaffold(prose)).toBe(prose)
+  })
+
+  it("leaves a BRACKETED reference carrying real prose", () => {
+    const prose = "راجع [الجزء 2 من 4 من السلسلة الوثائقية] لمزيد من التفاصيل."
+    expect(stripChunkScaffold(prose)).toBe(prose)
+  })
+
   it("leaves a bare part reference that is ordinary prose", () => {
     // No minute range → not scaffold. Stripping it would leave
     // "من الكتاب" dangling, which is worse than leaving the words alone.

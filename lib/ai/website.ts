@@ -111,6 +111,12 @@ ${positionalText}`
               title: stripChunkScaffold(t.title),
               description: stripChunkScaffold(t.description ?? null),
             }))
+            // Re-check AFTER cleaning. The `t.title` filter above ran on
+            // the DIRTY value, so a title that was nothing but scaffold
+            // passed it and came out "" — and an empty title renders as a
+            // bare timestamp line, which makes YouTube reject the entire
+            // chapter block, not just that row.
+            .filter((t) => t.title.trim().length > 0)
         : []
     }
 

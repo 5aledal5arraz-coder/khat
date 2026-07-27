@@ -134,9 +134,9 @@ export function TabTimestamps() {
             </div>
 
             {coverageWarning && (
-              <div className="flex items-start gap-2 rounded-lg border border-amber-300 bg-amber-50 p-3 dark:border-amber-800 dark:bg-amber-950/30">
-                <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-700 dark:text-amber-400" />
-                <p className="text-xs text-amber-800 dark:text-amber-300">
+              <div className="flex items-start gap-2 rounded-lg border border-amber-300 bg-amber-50 p-3">
+                <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-700" />
+                <p className="text-xs text-amber-800">
                   {coverageWarning} — راجع الجزء الأخير وأضف فصولاً يدوياً إن لزم.
                 </p>
               </div>
