@@ -62,16 +62,38 @@ describe("transcript chunking", () => {
   })
 
   it("sends the END of the episode, not just the first 100k", async () => {
-    const text = arabicText(LIVE_TRANSCRIPT_CHARS - 1)
+    // A UNIQUE anchor placed past the old cap. The previous version of
+    // this test looked for the transcript's last WORD, which the filler
+    // repeats 7,407 times inside the first 100k — so it passed against
+    // the broken code and proved nothing.
+    const ANCHOR = "مرساةفريدةلاتتكررأبدا"
+    const text =
+      arabicText(105_000) + " " + ANCHOR + " " + arabicText(14_000)
+    expect(text.indexOf(ANCHOR)).toBeGreaterThan(100_000) // past the old cap
+    expect(text.split(ANCHOR)).toHaveLength(2) // and genuinely unique
+
     await prepareTranscript({} as never, text)
 
     const sent = chunkCalls()
       .map((c) => c.prompt.at(-1)!.content)
       .join(" ")
-    // The very last word of the transcript — previously 18,786 chars past
-    // the cap and therefore invisible to every generator.
-    const lastWord = text.trim().split(" ").at(-1)!
-    expect(sent).toContain(lastWord)
+    expect(sent).toContain(ANCHOR)
+  })
+
+  it("pins the cap: 400k, not merely 'bigger than the episode'", async () => {
+    // Any value between 118,784 and 420,000 passed the other cases, so
+    // the constant was never actually asserted. Bracket it by behaviour.
+    const warnBelow = vi.spyOn(console, "warn").mockImplementation(() => {})
+    await prepareTranscript({} as never, arabicText(399_000))
+    expect(warnBelow).not.toHaveBeenCalled()
+
+    vi.clearAllMocks()
+    runAiTask.mockResolvedValue({ status: "succeeded", rawText: "ملخّص" })
+    const warnAbove = vi.spyOn(console, "warn").mockImplementation(() => {})
+    await prepareTranscript({} as never, arabicText(401_000))
+    expect(warnAbove).toHaveBeenCalledWith(
+      expect.stringContaining("TRANSCRIPT TRUNCATED"),
+    )
   })
 
   it("never emits a chunk under 500 chars, at any input length", async () => {

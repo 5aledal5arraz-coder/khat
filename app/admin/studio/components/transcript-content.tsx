@@ -149,25 +149,32 @@ export function TranscriptContent() {
                 <><Copy className="h-3.5 w-3.5" />نسخ النص الكامل</>
               )}
             </Button>
-            {/* ص-٩ — re-transcribing costs ~$1.30 on a full episode. A
-                `title` tooltip is invisible on touch, which is exactly
-                where a stray tap happens, so the warning is a real
-                two-step confirmation (same pattern as the ص-٢ delete). */}
+            {/* ص-٩ — BOTH re-fetch paths can spend. The audio button runs
+                Whisper directly; the YouTube button re-runs the caption
+                fetch, and when captions fail (or fail the ص-٦ quality
+                gate) it falls through to transcript/youtube-audio —
+                yt-dlp + Whisper, the same bill. Guarding only `isAudio`
+                left the more common path unwarned. A `title` tooltip is
+                also invisible on touch, which is exactly where a stray tap
+                happens, so this is a real two-step confirmation (same
+                pattern as the ص-٢ delete). */}
             {confirmingRetranscribe ? (
               <div className="flex flex-wrap items-center gap-2 rounded-lg border border-amber-300 bg-amber-50 px-3 py-1.5 dark:border-amber-800 dark:bg-amber-950/30">
                 <span className="text-[11px] text-amber-800 dark:text-amber-300">
-                  إعادة التفريغ عبر Whisper تُحتسب من جديد — حوالي ‎$1.30 لحلقة
-                  كاملة. النص الحالي محفوظ.
+                  {isAudio
+                    ? "إعادة التفريغ عبر Whisper تُحتسب من جديد — حوالي ‎$1.30 لحلقة كاملة. النص الحالي محفوظ."
+                    : "إعادة الجلب مجانية إذا توفرت الترجمة من يوتيوب، وإذا ما توفرت يرجع النظام إلى التفريغ المدفوع — حوالي ‎$1.30 لحلقة كاملة. النص الحالي محفوظ."}
                 </span>
                 <Button
                   size="sm"
                   className="h-7 bg-amber-600 text-white hover:bg-amber-700"
                   onClick={() => {
                     setConfirmingRetranscribe(false)
-                    transcribeAudio({ force: true })
+                    if (isAudio) transcribeAudio({ force: true })
+                    else fetchTranscript()
                   }}
                 >
-                  أعد التفريغ
+                  {isAudio ? "أعد التفريغ" : "أعد الجلب"}
                 </Button>
                 <Button
                   variant="ghost"
@@ -182,9 +189,7 @@ export function TranscriptContent() {
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() =>
-                  isAudio ? setConfirmingRetranscribe(true) : fetchTranscript()
-                }
+                onClick={() => setConfirmingRetranscribe(true)}
                 className="gap-1.5"
               >
                 {isAudio ? <Mic className="h-3.5 w-3.5" /> : <Search className="h-3.5 w-3.5" />}

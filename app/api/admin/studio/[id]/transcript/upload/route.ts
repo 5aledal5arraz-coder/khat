@@ -4,6 +4,8 @@ import { requireAdminAPI } from "@/lib/api-utils"
 
 const ALLOWED_EXTENSIONS = [".txt", ".srt", ".vtt"]
 const MAX_FILE_SIZE = 10 * 1024 * 1024 // 10 MB
+/** ~7× the longest real episode (120,130 chars); a 12-hour recording. */
+const MAX_TRANSCRIPT_CHARS = 800_000
 
 /**
  * POST /api/admin/studio/[id]/transcript/upload — upload a transcript file
@@ -58,6 +60,20 @@ export async function POST(
     }
 
     const rawText = parseUploadedTranscript(content, file.name)
+
+    // A 10 MB file can parse to far more text than any episode contains,
+    // and nothing between here and the summarizer bounded it — every
+    // 20,000 chars is one more paid chunk call. Reject rather than
+    // silently bill for it; the summarizer's own cap is a backstop, not
+    // an entry check.
+    if (rawText.length > MAX_TRANSCRIPT_CHARS) {
+      return NextResponse.json(
+        {
+          error: `النص أطول من الحد المسموح (${rawText.length.toLocaleString("en")} حرف مقابل ${MAX_TRANSCRIPT_CHARS.toLocaleString("en")}) — تأكد أنه نص حلقة واحدة`,
+        },
+        { status: 400 }
+      )
+    }
 
     const result = await createTranscript(id, "upload", rawText, "ar")
 

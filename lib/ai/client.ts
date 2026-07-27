@@ -66,9 +66,11 @@ const MAX_TRANSCRIPT_CHARS = 24000
  * recording, ~20 chunks). Combined with the ص-١٠ warning, a cap that
  * fires is now both rare and loud.
  *
- * Measured cost of the change on the reference episode: one extra chunk
- * call, +$0.016. Passing the full transcript to the five editorial
- * generators instead would have been +$0.824 (see the wave-3 report).
+ * Measured cost on the reference episode: BOTH capped prep paths go 5→6
+ * chunks, so the full round is ≈ +$0.07 (the flat path alone measured
+ * +$0.036 — quoting that as the total, as the first report did,
+ * undercounted by half). Passing the full transcript to the five
+ * editorial generators instead would have been +$0.824.
  */
 const SUMMARIZER_INPUT_CAP = 400_000
 
@@ -200,8 +202,10 @@ export async function prepareTranscript(
     const chunks = splitIntoChunks(fullText, CHUNK_CHARS)
 
     // Summarize each chunk in parallel — each call writes one ai_runs row.
-    const chunkSummaries = await Promise.all(
-      chunks.map(async (chunk, idx) => {
+    const chunkSummaries = await mapWithConcurrency(
+      chunks,
+      CHUNK_CONCURRENCY,
+      async (chunk, idx) => {
         const result = await runAiTask<unknown>({
           taskKind: "structural",
           eirId: eirContext?.eirId ?? null,
@@ -233,7 +237,7 @@ export async function prepareTranscript(
           providerOptions: { temperature: 0.2 },
         })
         return result.rawText ?? ""
-      }),
+      },
     )
 
     const merged = chunkSummaries.filter(Boolean).join("\n\n---\n\n")
@@ -318,8 +322,10 @@ export async function prepareTranscriptWithPositions(
     const totalChunks = chunks.length
     const totalDuration = durationSeconds || estimateDurationFromChars(fullText.length)
 
-    const chunkSummaries = await Promise.all(
-      chunks.map(async (chunk, idx) => {
+    const chunkSummaries = await mapWithConcurrency(
+      chunks,
+      CHUNK_CONCURRENCY,
+      async (chunk, idx) => {
         const startMin = Math.round((idx / totalChunks) * totalDuration / 60)
         const endMin = Math.round(((idx + 1) / totalChunks) * totalDuration / 60)
         const posLabel = `[الجزء ${idx + 1}/${totalChunks} — تقريباً من الدقيقة ${startMin} إلى الدقيقة ${endMin}]`
@@ -360,7 +366,7 @@ export async function prepareTranscriptWithPositions(
 
         const summary = result.rawText ?? ""
         return `${posLabel}\n${summary}`
-      }),
+      },
     )
 
     return chunkSummaries.filter(Boolean).join("\n\n")
@@ -373,6 +379,36 @@ export async function prepareTranscriptWithPositions(
  * `splitIntoChunks`.
  */
 const MIN_CHUNK_CHARS = 500
+
+/**
+ * How many chunk-summary calls may be in flight at once.
+ *
+ * `Promise.all` over the chunk list has no limit of its own — the old
+ * 100,000-char cap was silently holding this at 5. Raising the cap to
+ * 400,000 raised the peak to ~20 simultaneous provider calls, which is a
+ * rate-limit and latency problem nobody asked for. Cap it explicitly at
+ * the concurrency the system has actually been running at.
+ */
+const CHUNK_CONCURRENCY = 5
+
+/** `Promise.all` with a ceiling, preserving input order. */
+async function mapWithConcurrency<T, R>(
+  items: T[],
+  limit: number,
+  fn: (item: T, index: number) => Promise<R>,
+): Promise<R[]> {
+  const out = new Array<R>(items.length)
+  let next = 0
+  const workers = Array.from({ length: Math.min(limit, items.length) }, async () => {
+    while (true) {
+      const i = next++
+      if (i >= items.length) return
+      out[i] = await fn(items[i], i)
+    }
+  })
+  await Promise.all(workers)
+  return out
+}
 
 /**
  * Split text into chunks at word boundaries.

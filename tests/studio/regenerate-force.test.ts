@@ -91,13 +91,22 @@ function walkRoutes(dir: string, prefix = ""): { route: string; src: string }[] 
   return out
 }
 
-/** Does this handler reach something that bills us? */
+/**
+ * Does this handler reach something that bills us?
+ *
+ * Matching `from "@/lib/ai"` — with the closing quote — was blind to both
+ * of these, and the suite stayed green at 20/20 while they were removed:
+ *   import { generateStudioChapters } from "@/lib/ai/studio"   // deep path
+ *   const mod = await import("@/lib/ai")                       // dynamic
+ * So match the module PATH wherever it appears, in any import form.
+ */
 function isBillable(src: string): boolean {
   return (
-    /from "@\/lib\/ai"/.test(src) || // the ~38 generators
-    /from "@\/lib\/whisper"/.test(src) || // transcription
+    /@\/lib\/ai(?:\/|["'])/.test(src) || // the ~38 generators, root or deep
+    /@\/lib\/whisper(?:\/|["'])/.test(src) || // transcription
+    /@\/lib\/ai-router(?:\/|["'])/.test(src) || // a direct router call
     /transcribeAudioFile/.test(src) ||
-    /runAiTask/.test(src) || // a direct router call
+    /runAiTask/.test(src) ||
     /runGrowthPackageForSession/.test(src) // lib/studio runner over generators
   )
 }

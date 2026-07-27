@@ -311,3 +311,40 @@ describe("assessChapterCoverage", () => {
     expect(r.warning).not.toBeNull()
   })
 })
+
+describe("chapter prompt — per-part floor", () => {
+  /** Mirrors the derivation in generateStudioChapters. */
+  const floorFor = (chars: number, targetMax: number) => {
+    const parts = Math.max(1, Math.ceil(Math.min(chars, 400_000) / 20_000))
+    const floor = parts <= targetMax ? Math.floor(targetMax / parts) : null
+    return { parts, floor }
+  }
+
+  it("never demands more chapters than the target allows", () => {
+    for (const chars of [40_000, 120_130, 200_000, 400_000]) {
+      const { parts, floor } = floorFor(chars, 16)
+      // Either the floor fits inside the target, or no numeric floor is
+      // stated at all — never an instruction the model cannot satisfy.
+      if (floor !== null) expect(parts * floor).toBeLessThanOrEqual(16)
+    }
+  })
+
+  it("the old fixed floor of 2 becomes impossible past 8 parts", () => {
+    // 9 parts × 2 = 18 chapters against a 12-16 target. Unreachable while
+    // the 100k cap held the split at 5; reachable now that B′ lifted it.
+    const { parts, floor } = floorFor(180_000, 16)
+    expect(parts).toBeGreaterThan(8)
+    expect(parts * 2).toBeGreaterThan(16)
+    expect(parts * floor!).toBeLessThanOrEqual(16)
+  })
+
+  it("drops the numeric floor entirely when parts exceed the target", () => {
+    // 400k chars → 20 parts against a 16 target: even one per part is too
+    // many, so there is no honest number to state.
+    expect(floorFor(400_000, 16).floor).toBeNull()
+  })
+
+  it("keeps a real floor at ordinary episode lengths", () => {
+    expect(floorFor(120_130, 16).floor).toBeGreaterThanOrEqual(1)
+  })
+})

@@ -2,6 +2,7 @@ import type { StudioChapterItem, StudioClipItem } from "@/types/database"
 import { env } from "@/lib/env"
 import { prepareTranscript, prepareTranscriptWithPositions, formatSecondsToTimestamp, parseTimestampToSeconds } from "./client"
 import { runAiTask } from "@/lib/ai-router"
+import { stripChunkScaffold } from "@/lib/studio/utils"
 import { buildStudioPackagePrompt } from "@/lib/ai/prompts/studio-package"
 import type { GlobalEpisodeIntelligence } from "./episode-intelligence"
 import { formatIntelligenceContext } from "./episode-intelligence"
@@ -29,6 +30,12 @@ import {
 
 /** Window span for the timed path — same default the episode map uses. */
 const TIMED_WINDOW_SECONDS = 20
+
+// Mirrors of the summarizer's own constants, used ONLY to predict how many
+// labelled parts the positional prep will produce so the prompt's per-part
+// floor stays consistent with its chapter target.
+const CHUNK_CHARS_HINT = 20_000
+const SUMMARIZER_CAP_HINT = 400_000
 
 // ---------------------------------------------------------------------------
 // Studio: Generate YouTube Package from transcript
@@ -187,6 +194,25 @@ export async function generateStudioChapters(
     const isMediumEp = durationMin && durationMin >= 60
     const chapterTarget = isLongEp ? "12-16" : isMediumEp ? "10-14" : "8-12"
 
+    // The per-part floor has to be DERIVED from the target, not fixed at
+    // two. With B′ lifting the input cap, a long episode can now split
+    // into 9+ parts, and "at least two per part" would demand 18+ chapters
+    // against a 12-16 target — an instruction the model cannot satisfy.
+    // Under the old 100k cap the split never exceeded 5 parts, so the
+    // contradiction was unreachable and nobody saw it.
+    const partCount = Math.max(
+      1,
+      Math.ceil(Math.min(transcript.trim().length, SUMMARIZER_CAP_HINT) / CHUNK_CHARS_HINT),
+    )
+    const targetMax = Number(chapterTarget.split("-")[1])
+    // Past `targetMax` parts even a floor of one exceeds the target, so
+    // there is no honest number to give — ask for spread instead.
+    const perPartFloor = partCount <= targetMax ? Math.floor(targetMax / partCount) : null
+    const distributionRule =
+      perPartFloor && perPartFloor >= 1
+        ? `يجب ${perPartFloor} فصل على الأقل من كل جزء (عدد الأجزاء ${partCount}) — ولا تتجاوز الهدف أعلاه.`
+        : `وزّع الفصول على كل الأجزاء الـ${partCount} — لا تترك ثلث الحلقة الأخير بلا فصول. الهدف أعلاه هو الحد.`
+
     const systemPrompt = `أنت كاتب فصول يوتيوب لبودكاست خط — بودكاست عربي يتميز بالعمق الفكري والحدة والذكاء العاطفي.
 
 الفصول الجيدة ليست مجرد فهرس — هي خريطة تجعل المشاهد يقول "أريد سماع هذا الجزء".
@@ -198,7 +224,7 @@ export async function generateStudioChapters(
 
 ## النص:
 مقسم إلى أجزاء مُعلّمة بالموقع الزمني (مثل: [الجزء 1/5 — من الدقيقة 0 إلى 18]).
-يجب فصلان على الأقل من كل جزء.
+${distributionRule}
 
 ## القواعد:
 - JSON فقط
@@ -319,6 +345,24 @@ ${preparedText}`
       }
     }
 
+    // ص-١٠ — this prompt labels the transcript with the same
+    // `[الجزء X/Y]` scaffold, and chapter titles are copied straight into
+    // the YouTube description. The website package was cleaned; these two
+    // call sites emit the identical markup and were not.
+    chapters = chapters.map((c) => ({
+      ...c,
+      title: stripChunkScaffold(c.title),
+    }))
+
+    // ص-٥ — coverage is reported on THIS path too. It was only wired to
+    // the timed branch, so the sessions with the weakest timings of all
+    // (no caption cues, every timestamp an estimate) were the ones never
+    // told their chapters stop early.
+    const coverage = assessChapterCoverage(chapters, durationSeconds ?? 0)
+    if (coverage.warning) {
+      console.warn(`[studio] ${coverage.warning}`)
+    }
+
     return {
       success: true,
       data: { chapters },
@@ -326,6 +370,9 @@ ${preparedText}`
         model: result.modelName,
         usage: { prompt_tokens: result.tokensIn, completion_tokens: result.tokensOut },
         run_id: result.runId,
+        timing_source: "estimated",
+        covered_fraction: coverage.coveredFraction,
+        coverage_warning: coverage.warning,
       },
       runId: result.runId,
     }
@@ -593,6 +640,18 @@ ${preparedText}`
 
     // Sort by start_time
     clips.sort((a, b) => parseTimestampToSeconds(a.start_time) - parseTimestampToSeconds(b.start_time))
+
+    // ص-١٠ — same scaffold, same leak: clip captions and hooks go
+    // straight to social copy.
+    clips = clips.map((c) => ({
+      ...c,
+      hook_text: stripChunkScaffold(c.hook_text),
+      caption: stripChunkScaffold(c.caption ?? ""),
+      why_it_works: stripChunkScaffold(c.why_it_works ?? ""),
+      clip_title: c.clip_title ? stripChunkScaffold(c.clip_title) : c.clip_title,
+      viral_hook: c.viral_hook ? stripChunkScaffold(c.viral_hook) : c.viral_hook,
+      description: c.description ? stripChunkScaffold(c.description) : c.description,
+    }))
 
     return {
       success: true,

@@ -110,23 +110,49 @@ export function cleanTranscriptText(raw: string): string {
  * Nothing user-facing should ever contain them. Applied on OUTPUT only:
  * the labels stay in the input, where they do a job.
  */
-/**
- * Bracketed form, exactly as the summarizer emits it:
- *   `[الجزء 3/6 — تقريباً من الدقيقة 22 إلى الدقيقة 33]`
- * The whole bracket goes.
- */
-const CHUNK_SCAFFOLD_BRACKETED = /\[[^\]\n]*الجزء\s*\d+\s*[/\\]\s*\d+[^\]\n]*\]/g
+/** `N/M`, `N\M`, or the flat summarizer's `N من M`. */
+const PART_NUMBERING = String.raw`الجزء\s*\d+\s*(?:[/\\]|من)\s*\d+`
 
 /**
- * Bare form, which the model also produced:
- *   `الجزء 3/6 — من الدقيقة 72 إلى 108:`
- * The trailing range clause is matched EXPLICITLY rather than "everything
- * up to a bracket" — a greedy tail here swallowed the real sentence that
- * followed it, which would have quietly deleted content instead of
- * cleaning markup.
+ * Bracketed form, exactly as `prepareTranscriptWithPositions` emits it:
+ *   `[الجزء 3/6 — تقريباً من الدقيقة 22 إلى الدقيقة 33]`
+ *
+ * The character class excludes `[` as well as `]`. It previously excluded
+ * only `]`, so an unclosed bracket plus any later `]` on the same line
+ * made the match span everything between them:
+ *   `[الجزء 5/6 … وفاة نور الدين … [المصدر].`  →  `.`
+ * i.e. it deleted the sentence while claiming to clean markup.
  */
-const CHUNK_SCAFFOLD_BARE =
-  /الجزء\s*\d+\s*[/\\]\s*\d+(\s*[—–-]\s*(?:تقريباً\s*)?من\s*الدقيقة\s*\d+\s*إلى\s*(?:الدقيقة\s*)?\d+)?\s*:?/g
+const CHUNK_SCAFFOLD_BRACKETED = new RegExp(
+  String.raw`\[[^\][\n]*${PART_NUMBERING}[^\][\n]*\]`,
+  "g",
+)
+
+/**
+ * Parenthesised form, from the FLAT summarizer prompt (`client.ts`):
+ *   `لخّص هذا الجزء (الجزء 1 من 6) …`
+ */
+const CHUNK_SCAFFOLD_PARENS = new RegExp(
+  String.raw`\([^()\n]*${PART_NUMBERING}[^()\n]*\)`,
+  "g",
+)
+
+/**
+ * Bare form the model also produced:
+ *   `الجزء 3/6 — من الدقيقة 72 إلى 108:`
+ *
+ * The time clause is REQUIRED, not optional. A naked `الجزء 3/6` is
+ * ambiguous — `الجزء 3/6 من الكتاب` is ordinary prose — and stripping it
+ * leaves a mutilated sentence. Deleting real words is a worse failure
+ * than leaving a marker, so the bare pattern only fires when the minute
+ * range proves it is scaffold. Accepts `الى` without the hamza and a
+ * plain hyphen, both of which the model emits.
+ */
+const CHUNK_SCAFFOLD_BARE = new RegExp(
+  String.raw`${PART_NUMBERING}\s*[—–-]\s*(?:تقريباً\s*)?من\s*الدقيقة\s*\d+` +
+    String.raw`(?:\s*(?:إلى|الى)\s*(?:الدقيقة\s*)?\d+)?\s*:?`,
+  "g",
+)
 
 export function stripChunkScaffold(text: string): string
 export function stripChunkScaffold(text: null | undefined): null
@@ -135,6 +161,7 @@ export function stripChunkScaffold(text: string | null | undefined): string | nu
   if (text == null) return null
   return text
     .replace(CHUNK_SCAFFOLD_BRACKETED, " ")
+    .replace(CHUNK_SCAFFOLD_PARENS, " ")
     .replace(CHUNK_SCAFFOLD_BARE, " ")
     .replace(/[ \t]{2,}/g, " ")
     .replace(/\s+([.,،؛!؟])/g, "$1")
