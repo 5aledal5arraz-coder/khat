@@ -49,6 +49,35 @@ const MAX_TRANSCRIPT_CHARS = 24000
 // Maximum chars to feed into summarizer input
 const SUMMARIZER_INPUT_CAP = 100000
 
+/**
+ * ص-١٠ — the summarizer cap used to cut with `slice()` and say nothing.
+ * On the live 216-minute episode that removed 18,786 of 118,786 chars
+ * (15.8% ≈ 34-37 minutes) BEFORE any generator saw the text, so the
+ * closing third of the episode simply did not exist downstream — and
+ * every output still reported success.
+ *
+ * Removing the cap entirely is the Wave-3 change (pass the full
+ * transcript; the model window is 272,000 tokens against ~38,557 for
+ * this episode). Until then the loss is at least audible in the logs
+ * and recorded on the ai_runs row, so nobody has to rediscover it.
+ */
+function capSummarizerInput(
+  trimmed: string,
+  phase: string,
+): { text: string; droppedChars: number } {
+  if (trimmed.length <= SUMMARIZER_INPUT_CAP) {
+    return { text: trimmed, droppedChars: 0 }
+  }
+  const droppedChars = trimmed.length - SUMMARIZER_INPUT_CAP
+  const pct = ((droppedChars / trimmed.length) * 100).toFixed(1)
+  console.warn(
+    `[ai:${phase}] TRANSCRIPT TRUNCATED — ${trimmed.length} chars capped at ` +
+      `${SUMMARIZER_INPUT_CAP}; ${droppedChars} chars (${pct}%) of the END of ` +
+      `the episode will not reach any generator.`,
+  )
+  return { text: trimmed.slice(0, SUMMARIZER_INPUT_CAP), droppedChars }
+}
+
 // Chunk size for positional transcript preparation
 const CHUNK_CHARS = 20000
 
@@ -144,7 +173,7 @@ export async function prepareTranscript(
   }
 
   return memoizePrep(prepCacheKey("flat", trimmed), async () => {
-    const fullText = trimmed.slice(0, SUMMARIZER_INPUT_CAP)
+    const { text: fullText, droppedChars } = capSummarizerInput(trimmed, "prep")
     const chunks = splitIntoChunks(fullText, CHUNK_CHARS)
 
     // Summarize each chunk in parallel — each call writes one ai_runs row.
@@ -155,7 +184,14 @@ export async function prepareTranscript(
           eirId: eirContext?.eirId ?? null,
           subjectTable: eirContext?.subjectTable ?? "transcript_prep",
           subjectId: eirContext?.subjectId ?? null,
-          input: { phase: "chunk_summary", chunkIndex: idx, totalChunks: chunks.length, chars: chunk.length },
+          input: {
+            phase: "chunk_summary",
+            chunkIndex: idx,
+            totalChunks: chunks.length,
+            chars: chunk.length,
+            // ص-١٠ — so `SELECT ... FROM ai_runs` can find truncated runs.
+            transcriptDroppedChars: droppedChars,
+          },
           prompt: [
             {
               role: "system",
@@ -184,12 +220,20 @@ export async function prepareTranscript(
     }
 
     // Final condensation pass.
+    const condensationInput = capSummarizerInput(merged, "prep:condensation")
     const finalResult = await runAiTask<unknown>({
       taskKind: "structural",
       eirId: eirContext?.eirId ?? null,
       subjectTable: eirContext?.subjectTable ?? "transcript_prep",
       subjectId: eirContext?.subjectId ?? null,
-      input: { phase: "final_condensation", chars: merged.length },
+      input: {
+        phase: "final_condensation",
+        chars: merged.length,
+        // ص-١٠ — the second silent cut on this path: the merged chunk
+        // summaries were sliced again with no signal.
+        transcriptDroppedChars: droppedChars,
+        mergedDroppedChars: condensationInput.droppedChars,
+      },
       prompt: [
         {
           role: "system",
@@ -203,7 +247,7 @@ export async function prepareTranscript(
 
 اكتب الملخص بالعربية في حدود 4000 كلمة. غطِّ كامل الحلقة من أولها لآخرها.`,
         },
-        { role: "user", content: merged.slice(0, SUMMARIZER_INPUT_CAP) },
+        { role: "user", content: condensationInput.text },
       ],
       providerOptions: { temperature: 0.2 },
     })
@@ -246,7 +290,7 @@ export async function prepareTranscriptWithPositions(
   // Output depends on durationSeconds (it drives the per-chunk time labels),
   // so it's part of the cache namespace.
   return memoizePrep(prepCacheKey(`pos:${durationSeconds ?? "auto"}`, trimmed), async () => {
-    const fullText = trimmed.slice(0, SUMMARIZER_INPUT_CAP)
+    const { text: fullText, droppedChars } = capSummarizerInput(trimmed, "prep:positional")
     const chunks = splitIntoChunks(fullText, CHUNK_CHARS)
     const totalChunks = chunks.length
     const totalDuration = durationSeconds || estimateDurationFromChars(fullText.length)
@@ -269,6 +313,8 @@ export async function prepareTranscriptWithPositions(
             startMin,
             endMin,
             chars: chunk.length,
+            // ص-١٠ — so `SELECT ... FROM ai_runs` can find truncated runs.
+            transcriptDroppedChars: droppedChars,
           },
           prompt: [
             {
@@ -299,7 +345,29 @@ export async function prepareTranscriptWithPositions(
 }
 
 /**
+ * ص-١٠ — a chunk below this is not a part of the episode, it is the
+ * rounding error left over from word-boundary backoff. See
+ * `splitIntoChunks`.
+ */
+const MIN_CHUNK_CHARS = 500
+
+/**
  * Split text into chunks at word boundaries.
+ *
+ * ص-١٠ — each chunk backs off to the last space at or before
+ * `chunkSize`, so every chunk lands a few chars SHORT of the target.
+ * Over five chunks that shortfall accumulates and leaves a tail too
+ * small to be a real section: on the live 216-minute episode the split
+ * was [19997, 19997, 19997, 19997, 19997, 10] — a SIXTH chunk of ten
+ * characters, which was then sent as its own labelled AI call
+ * ("الجزء 6/6 — تقريباً من الدقيقة 180 إلى الدقيقة 216"). The model
+ * answered, reasonably, «يرجى إرسال نص الجزء السادس…» and that
+ * apology was concatenated into the merged summary and carried into
+ * the final condensation as though it were a section summary.
+ *
+ * A trailing fragment is therefore folded back into the chunk it broke
+ * off from: one fewer paid call, no phantom final section, and no
+ * apology text entering the summary.
  */
 function splitIntoChunks(text: string, chunkSize: number): string[] {
   const chunks: string[] = []
@@ -323,7 +391,16 @@ function splitIntoChunks(text: string, chunkSize: number): string[] {
     start = end + 1
   }
 
-  return chunks.filter(Boolean)
+  const out = chunks.filter(Boolean)
+
+  // Fold a runt tail back into its predecessor. Only the LAST chunk can
+  // be short — every other chunk is full by construction.
+  if (out.length > 1 && out[out.length - 1].length < MIN_CHUNK_CHARS) {
+    const runt = out.pop()!
+    out[out.length - 1] = `${out[out.length - 1]} ${runt}`.trim()
+  }
+
+  return out
 }
 
 /**
