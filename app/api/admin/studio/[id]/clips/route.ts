@@ -5,6 +5,7 @@ import {
   revalidateStudio,
 } from "@/lib/studio"
 import { resolveEirIdForSession } from "@/lib/studio/analysis-records"
+import { getTimedSegmentsForSession } from "@/lib/studio/timed-transcript"
 import { generateStudioClips } from "@/lib/ai"
 import { requireAdminAPI } from "@/lib/api-utils"
 import {
@@ -123,12 +124,15 @@ export async function POST(
       subjectTable: "studio_sessions" as const,
       subjectId: id,
     }
+    // ص-٥ — real caption timings when available.
+    const timedSegments = await getTimedSegmentsForSession(id)
     const result = await generateStudioClips(
       transcript.transcript_clean,
       session.video_title || "",
       session.duration_seconds,
       visualSummary,
-      eirContext
+      eirContext,
+      timedSegments,
     )
 
     if (!result.success || !result.data) {

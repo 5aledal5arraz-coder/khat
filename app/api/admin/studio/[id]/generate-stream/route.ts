@@ -26,6 +26,7 @@ import {
   evaluateGenerationGate,
 } from "@/lib/studio"
 import { resolveEirIdForSession } from "@/lib/studio/analysis-records"
+import { getTimedSegmentsForSession } from "@/lib/studio/timed-transcript"
 import {
   generateStudioPackage,
   generateStudioChapters,
@@ -45,7 +46,69 @@ import { resolveSessionAudioPath } from "@/lib/studio/audio-path"
 import { isQuotaExceededError, QUOTA_EXCEEDED_MESSAGE } from "@/lib/ai-router/errors"
 import path from "path"
 import fs from "fs/promises"
+import { cleanTranscriptText } from "@/lib/studio/utils"
+import { assessCaptionQuality } from "@/lib/studio/caption-gate"
 export const maxDuration = 300
+
+/**
+ * ص-٦ — try YouTube captions and accept them only if they are a REAL
+ * transcript of an episode this long.
+ *
+ * Returns true when captions were fetched, passed the gate, and saved;
+ * false means the caller should fall through to paid transcription.
+ *
+ * Why captions go first for every session that has a video id — including
+ * audio-source ones, which used to skip this entirely: measured on 36
+ * proper nouns, captions beat Whisper 11 to 3 (22 ties); Whisper's only
+ * gain was punctuation, at $1.2954 an episode; and Whisper DESTROYS the
+ * per-cue timings that chapters and clips now depend on (ص-٥), because
+ * `gpt-4o-transcribe` will not return them.
+ */
+async function tryCaptions(
+  sessionId: string,
+  videoId: string | null | undefined,
+  durationSeconds: number | null,
+  progress: (message: string) => void,
+): Promise<boolean> {
+  if (!videoId) return false
+
+  progress("جلب النص التلقائي من يوتيوب...")
+  const captionResult = await fetchTranscriptServer(videoId)
+  if (!captionResult.success || !captionResult.text) {
+    console.info(
+      `[Studio:captions] ${sessionId} — no caption track (${captionResult.error ?? "unknown"})`,
+    )
+    return false
+  }
+
+  // Gate on the CLEAN text: the raw VTT is mostly timing markup, so its
+  // length says nothing about how much speech the track actually holds.
+  // This is what replaced the old "> 10 characters" test.
+  const verdict = assessCaptionQuality(
+    cleanTranscriptText(captionResult.text),
+    durationSeconds,
+  )
+  if (!verdict.usable) {
+    console.warn(
+      `[Studio:captions] ${sessionId} — rejected (${verdict.reason}): ${verdict.message}`,
+    )
+    return false
+  }
+
+  const saved = await createTranscript(
+    sessionId,
+    "youtube_captions",
+    captionResult.text,
+    captionResult.language || "ar",
+  )
+  if (!saved.success) throw new Error(saved.error || "فشل في حفظ النص")
+
+  console.info(
+    `[Studio:captions] ${sessionId} — accepted track=${captionResult.track ?? "unknown"} ` +
+      `cues=${captionResult.hasCues ?? false} density=${Math.round(verdict.charsPerMinute ?? 0)}/min`,
+  )
+  return true
+}
 
 export async function POST(
   request: NextRequest,
@@ -165,6 +228,25 @@ export async function POST(
                   break
                 }
 
+                // ص-٦ — captions first, ALWAYS, whenever there is a video
+                // to pull them from. They are free, they measured BETTER
+                // than Whisper on proper nouns (11 wins to 3, 22 ties),
+                // and they are the only source that carries the timings
+                // ص-٥ needs — `gpt-4o-transcribe` refuses to return them.
+                // An audio-source session that also has a video_id used to
+                // skip this branch entirely and pay $1.2954 for a worse
+                // result.
+                const captionsFirst = await tryCaptions(
+                  id,
+                  session.video_id,
+                  session.duration_seconds,
+                  (m) => send("step_progress", { step, message: m }),
+                )
+                if (captionsFirst) {
+                  send("step_complete", { step, cached: false })
+                  break
+                }
+
                 // For audio sessions, use Whisper; for YouTube, try caption extraction first
                 if (session.source === "audio") {
                   send("step_progress", { step, message: "تحويل الصوت إلى نص عبر Whisper..." })
@@ -184,17 +266,9 @@ export async function POST(
                   if (!saveResult.success) throw new Error(saveResult.error || "فشل في حفظ النص")
                   send("step_complete", { step, cached: false })
                 } else if (session.video_id) {
-                  // Strategy 1: Fast caption extraction via proxies (no download needed)
-                  send("step_progress", { step, message: "جلب النص التلقائي من يوتيوب..." })
-                  const captionResult = await fetchTranscriptServer(session.video_id)
-
-                  if (captionResult.success && captionResult.text && captionResult.text.trim().length >= 10) {
-                    // Captions found — save directly to DB
-                    const saveResult = await createTranscript(id, "youtube_captions", captionResult.text, captionResult.language || "ar")
-                    if (!saveResult.success) {
-                      throw new Error(saveResult.error || "فشل في حفظ النص")
-                    }
-                  } else {
+                  {
+                    // Captions were already attempted above and did not
+                    // pass the quality gate — fall through to paid audio.
                     // Strategy 2: Download audio + Whisper transcription
                     send("step_progress", { step, message: "تحميل الصوت من يوتيوب وتحويله إلى نص..." })
                     const tempDir = path.join(process.cwd(), "data", "studio-audio", id, "yt-temp")
@@ -380,11 +454,14 @@ export async function POST(
                   error_message: null,
                 })
 
+                // ص-٥ — real caption timings when available.
+                const chapterSegments = await getTimedSegmentsForSession(id)
                 const result = await generateStudioChapters(
                   transcript.transcript_clean,
                   session.video_title || "",
                   session.duration_seconds,
-                  eirContext
+                  eirContext,
+                  chapterSegments,
                 )
 
                 if (!result.success || !result.data) {
@@ -434,12 +511,15 @@ export async function POST(
                   error_message: null,
                 })
 
+                // ص-٥ — real caption timings when available.
+                const clipSegments = await getTimedSegmentsForSession(id)
                 const result = await generateStudioClips(
                   transcript.transcript_clean,
                   session.video_title || "",
                   session.duration_seconds,
                   null, // no visual analysis in bulk generation
-                  eirContext
+                  eirContext,
+                  clipSegments,
                 )
 
                 if (!result.success || !result.data) {

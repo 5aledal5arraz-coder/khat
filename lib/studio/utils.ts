@@ -97,6 +97,33 @@ export function cleanTranscriptText(raw: string): string {
   return deduped.join(" ").replace(/\s+/g, " ").trim()
 }
 
+/**
+ * ص-١٠ — strip the summarizer's internal scaffold out of generated prose.
+ *
+ * `prepareTranscriptWithPositions` labels each chunk
+ * `[الجزء 3/6 — تقريباً من الدقيقة 22 إلى الدقيقة 33]` so the model can
+ * estimate positions. Those labels are plumbing, but the model echoed them
+ * into its own prose — they turned up verbatim inside a website package
+ * that then went out to the public page, alongside an apology about a part
+ * it never received.
+ *
+ * Nothing user-facing should ever contain them. Applied on OUTPUT only:
+ * the labels stay in the input, where they do a job.
+ */
+const CHUNK_SCAFFOLD_RE = /\[?\s*الجزء\s*\d+\s*[/\\]\s*\d+[^\]\n]*\]?/g
+
+export function stripChunkScaffold(text: string): string
+export function stripChunkScaffold(text: null | undefined): null
+export function stripChunkScaffold(text: string | null | undefined): string | null
+export function stripChunkScaffold(text: string | null | undefined): string | null {
+  if (text == null) return null
+  return text
+    .replace(CHUNK_SCAFFOLD_RE, " ")
+    .replace(/[ \t]{2,}/g, " ")
+    .replace(/\s+([.,،؛!؟])/g, "$1")
+    .trim()
+}
+
 export function countWords(text: string): number {
   if (!text) return 0
   return text.split(/\s+/).filter(Boolean).length

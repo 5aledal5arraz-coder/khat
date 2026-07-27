@@ -2,6 +2,7 @@ import type { WebsiteQuoteItem, WebsiteResourceItem, WebsiteTimestampItem } from
 import { env } from "@/lib/env"
 import { prepareTranscript, prepareTranscriptWithPositions } from "./client"
 import { runAiTask } from "@/lib/ai-router"
+import { stripChunkScaffold } from "@/lib/studio/utils"
 import type { GlobalEpisodeIntelligence } from "./episode-intelligence"
 import { formatIntelligenceContext } from "./episode-intelligence"
 
@@ -59,7 +60,7 @@ export async function generateWebsitePackage(
 ${durationMin ? `- المدة: ${durationMin} دقيقة = ${durationMin * 60} ثانية
 - جميع القيم بين 0 و ${durationMin * 60}
 - أول طابع = 0، آخر طابع بين ${Math.round((durationMin - 15) * 60)} و ${durationMin * 60}` : "- قدّر الأوقات من علامات الأجزاء الزمنية"}
-- استخدم علامات [الجزء X/Y — من الدقيقة...] لتحديد الأوقات
+- استخدم علامات [الجزء X/Y — من الدقيقة...] لتحديد الأوقات فقط — **ولا تكتبها أبداً في أي نص تُخرجه**
 - وزّع حسب كثافة الأحداث، لا بمسافات متساوية
 - ✅ عناوين جيدة: "لحظة سقوط الرها"، "السؤال الذي أحرج الجميع"، "كيف بدأ كل شيء"
 - ❌ عناوين سيئة: "أحداث تاريخية"، "نقاش مهم"، "محور ثالث"
@@ -220,9 +221,13 @@ ${editorialText}`
       success: true,
       runId: edResult.runId,
       data: {
-        hero_summary: parsed.hero_summary,
-        full_summary: parsed.full_summary,
-        takeaways: Array.isArray(parsed.takeaways) ? parsed.takeaways : [],
+        // ص-١٠ — the chunk scaffold is plumbing for the summarizer, not
+        // prose. It reached a published website package verbatim.
+        hero_summary: stripChunkScaffold(parsed.hero_summary),
+        full_summary: stripChunkScaffold(parsed.full_summary),
+        takeaways: Array.isArray(parsed.takeaways)
+          ? parsed.takeaways.map((t) => stripChunkScaffold(String(t)))
+          : [],
         quotes: Array.isArray(parsed.quotes) ? parsed.quotes : [],
         resources: Array.isArray(parsed.resources) ? parsed.resources : [],
         timestamps,

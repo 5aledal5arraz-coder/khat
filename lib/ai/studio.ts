@@ -5,6 +5,27 @@ import { runAiTask } from "@/lib/ai-router"
 import { buildStudioPackagePrompt } from "@/lib/ai/prompts/studio-package"
 import type { GlobalEpisodeIntelligence } from "./episode-intelligence"
 import { formatIntelligenceContext } from "./episode-intelligence"
+// ص-٥ — proven-timing path. Optional everywhere: when a session has no
+// caption cues (Whisper output, pasted text) every generator below falls
+// back to the exact behaviour it had before.
+import type { TimedSegment } from "@/lib/studio/segments"
+import { mergeIntoWindows, renderWithIds } from "@/lib/studio/segments"
+import {
+  buildTimedChaptersPrompt,
+  buildTimedClipsPrompt,
+  STUDIO_CHAPTERS_TIMED_PROMPT_VERSION,
+  STUDIO_CLIPS_TIMED_PROMPT_VERSION,
+  type TimedChapterModelItem,
+  type TimedClipModelItem,
+} from "@/lib/ai/prompts/studio-timed"
+import {
+  buildWindowMap,
+  resolveTimedChapters,
+  resolveTimedClips,
+} from "./studio-timed"
+
+/** Window span for the timed path — same default the episode map uses. */
+const TIMED_WINDOW_SECONDS = 20
 
 // ---------------------------------------------------------------------------
 // Studio: Generate YouTube Package from transcript
@@ -127,7 +148,14 @@ export async function generateStudioChapters(
   durationSeconds: number | null,
   /** Optional EIR scope for telemetry. Plumbed in Phase 2 — generators
       keep working without it for legacy callers. */
-  eirContext?: { eirId?: string | null; subjectTable?: string | null; subjectId?: string | null }
+  eirContext?: { eirId?: string | null; subjectTable?: string | null; subjectId?: string | null },
+  /**
+   * ص-٥ — real per-cue timings from the caption file. When supplied the
+   * model picks WINDOW IDS and code re-attaches the seconds, so a chapter
+   * can no longer land 20 minutes from where the topic actually starts.
+   * Omitted → the legacy estimate-from-a-summary path, unchanged.
+   */
+  timedSegments?: TimedSegment[] | null,
 ): Promise<{ success: boolean; data?: StudioChaptersResult; raw?: Record<string, unknown>; error?: string; runId?: string }> {
   if (!env.OPENAI_API_KEY) {
     return { success: false, error: "OPENAI_API_KEY غير مُعدّ" }
@@ -136,6 +164,15 @@ export async function generateStudioChapters(
   const durationStr = durationSeconds
     ? formatSecondsToTimestamp(durationSeconds)
     : "غير معروف"
+
+  if (timedSegments && timedSegments.length > 0) {
+    return generateStudioChaptersTimed(
+      timedSegments,
+      videoTitle,
+      durationSeconds,
+      eirContext,
+    )
+  }
 
   try {
     // Use positional transcript for chapters — preserves time awareness across full episode
@@ -295,6 +332,91 @@ ${preparedText}`
   }
 }
 
+/**
+ * ص-٥ — chapters anchored to caption timings.
+ *
+ * Two things change versus the legacy path, and both matter:
+ *   1. the model reads the REAL windowed text, not a reworded summary, and
+ *   2. it returns window ids, so every timestamp is the caption file's.
+ *
+ * It also needs no `prepareTranscriptWithPositions` call, which is why this
+ * path is cheaper despite carrying more text.
+ */
+async function generateStudioChaptersTimed(
+  segments: TimedSegment[],
+  videoTitle: string,
+  durationSeconds: number | null,
+  eirContext?: { eirId?: string | null; subjectTable?: string | null; subjectId?: string | null },
+): Promise<{ success: boolean; data?: StudioChaptersResult; raw?: Record<string, unknown>; error?: string; runId?: string }> {
+  try {
+    const windows = mergeIntoWindows(segments, TIMED_WINDOW_SECONDS)
+    const durationMin = durationSeconds ? Math.round(durationSeconds / 60) : null
+    const isLongEp = durationMin && durationMin >= 120
+    const isMediumEp = durationMin && durationMin >= 60
+    const chapterTarget = isLongEp ? "12-16" : isMediumEp ? "10-14" : "8-12"
+
+    const built = buildTimedChaptersPrompt({
+      videoTitle,
+      renderedWindows: renderWithIds(windows),
+      chapterTarget,
+      windowCount: windows.length,
+    })
+
+    const result = await runAiTask<{ chapters: TimedChapterModelItem[] }>({
+      taskKind: "structural",
+      eirId: eirContext?.eirId ?? null,
+      subjectTable: eirContext?.subjectTable ?? "studio_sessions",
+      subjectId: eirContext?.subjectId ?? null,
+      promptVersion: STUDIO_CHAPTERS_TIMED_PROMPT_VERSION,
+      input: {
+        videoTitle,
+        durationSeconds,
+        chapterTarget,
+        windowCount: windows.length,
+        timingSource: "captions",
+      },
+      prompt: [
+        { role: "system", content: built.system },
+        { role: "user", content: built.user },
+      ],
+      expectJson: true,
+      providerOptions: { temperature: 0.3 },
+    })
+
+    if (result.status !== "succeeded") {
+      return {
+        success: false,
+        error: result.errorMessage || "حدث خطأ أثناء توليد الفصول",
+        runId: result.runId,
+      }
+    }
+
+    const items = result.parsed?.chapters
+    if (!Array.isArray(items) || items.length === 0) {
+      return { success: false, error: "لم يتم توليد أي فصول", runId: result.runId }
+    }
+
+    // Throws on any unknown id — a wrong id is a validation error, never a
+    // plausible wrong number that ships.
+    const chapters = resolveTimedChapters(items, buildWindowMap(windows))
+
+    return {
+      success: true,
+      data: { chapters },
+      raw: {
+        model: result.modelName,
+        usage: { prompt_tokens: result.tokensIn, completion_tokens: result.tokensOut },
+        run_id: result.runId,
+        timing_source: "captions",
+      },
+      runId: result.runId,
+    }
+  } catch (error) {
+    const msg = error instanceof Error ? error.message : "حدث خطأ أثناء توليد الفصول"
+    return { success: false, error: msg }
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Studio: Generate Viral Clips Suggestions
 // ---------------------------------------------------------------------------
@@ -312,7 +434,9 @@ export async function generateStudioClips(
   videoTitle: string,
   durationSeconds: number | null,
   visualAnalysis?: string | null,
-  eirContext?: { eirId?: string | null; subjectTable?: string | null; subjectId?: string | null }
+  eirContext?: { eirId?: string | null; subjectTable?: string | null; subjectId?: string | null },
+  /** ص-٥ — see `generateStudioChapters`. Omitted → legacy path unchanged. */
+  timedSegments?: TimedSegment[] | null,
 ): Promise<{ success: boolean; data?: StudioClipsResult; raw?: Record<string, unknown>; error?: string; runId?: string }> {
   if (!env.OPENAI_API_KEY) {
     return { success: false, error: "OPENAI_API_KEY غير مُعدّ" }
@@ -321,6 +445,15 @@ export async function generateStudioClips(
   const durationStr = durationSeconds
     ? formatSecondsToTimestamp(durationSeconds)
     : "غير معروف"
+
+  if (timedSegments && timedSegments.length > 0) {
+    return generateStudioClipsTimed(
+      timedSegments,
+      videoTitle,
+      durationSeconds,
+      eirContext,
+    )
+  }
 
   const visualBlock = visualAnalysis
     ? `\n\n## بيانات التحليل البصري (من Google Video Intelligence):\nاستخدم هذه البيانات لتحسين اختيار المقاطع — فضّل اللحظات التي تجمع بين محتوى قوي في النص ونشاط بصري عالٍ (كثافة تغيير لقطات).\n\n${visualAnalysis}`
@@ -444,6 +577,81 @@ ${preparedText}`
         model: result.modelName,
         usage: { prompt_tokens: result.tokensIn, completion_tokens: result.tokensOut },
         run_id: result.runId,
+      },
+      runId: result.runId,
+    }
+  } catch (error) {
+    const msg = error instanceof Error ? error.message : "حدث خطأ أثناء توليد المقاطع"
+    return { success: false, error: msg }
+  }
+}
+
+/**
+ * ص-٥ — clips anchored to caption timings.
+ *
+ * The measured failure this replaces: clip timings drifted in BOTH
+ * directions (to −56.7 minutes) and some were not valid clock values at
+ * all ("00:64:20", "00:76:10") — minutes above 59, which nothing in the
+ * pipeline rejected. Window ids make that unrepresentable.
+ */
+async function generateStudioClipsTimed(
+  segments: TimedSegment[],
+  videoTitle: string,
+  durationSeconds: number | null,
+  eirContext?: { eirId?: string | null; subjectTable?: string | null; subjectId?: string | null },
+): Promise<{ success: boolean; data?: StudioClipsResult; raw?: Record<string, unknown>; error?: string; runId?: string }> {
+  try {
+    const windows = mergeIntoWindows(segments, TIMED_WINDOW_SECONDS)
+    const built = buildTimedClipsPrompt({
+      videoTitle,
+      renderedWindows: renderWithIds(windows),
+      windowCount: windows.length,
+      clipTarget: "10-20",
+    })
+
+    const result = await runAiTask<{ clips: TimedClipModelItem[] }>({
+      taskKind: "structural",
+      eirId: eirContext?.eirId ?? null,
+      subjectTable: eirContext?.subjectTable ?? "studio_sessions",
+      subjectId: eirContext?.subjectId ?? null,
+      promptVersion: STUDIO_CLIPS_TIMED_PROMPT_VERSION,
+      input: {
+        videoTitle,
+        durationSeconds,
+        windowCount: windows.length,
+        timingSource: "captions",
+      },
+      prompt: [
+        { role: "system", content: built.system },
+        { role: "user", content: built.user },
+      ],
+      expectJson: true,
+      providerOptions: { temperature: 0.3 },
+    })
+
+    if (result.status !== "succeeded") {
+      return {
+        success: false,
+        error: result.errorMessage || "حدث خطأ أثناء توليد المقاطع",
+        runId: result.runId,
+      }
+    }
+
+    const items = result.parsed?.clips
+    if (!Array.isArray(items) || items.length === 0) {
+      return { success: false, error: "لم يتم توليد أي مقاطع", runId: result.runId }
+    }
+
+    const clips = resolveTimedClips(items, buildWindowMap(windows))
+
+    return {
+      success: true,
+      data: { clips },
+      raw: {
+        model: result.modelName,
+        usage: { prompt_tokens: result.tokensIn, completion_tokens: result.tokensOut },
+        run_id: result.runId,
+        timing_source: "captions",
       },
       runId: result.runId,
     }

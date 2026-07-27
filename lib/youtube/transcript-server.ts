@@ -25,6 +25,16 @@ export interface ServerTranscriptResult {
   text: string
   language: string
   error?: string
+  /**
+   * ص-٦ — where the caption track came from. `-orig` used to be stripped
+   * off the language and the distinction thrown away, so nothing
+   * downstream could tell a human-written track from a machine one. That
+   * matters twice: manual tracks read better, auto tracks are the ones
+   * that carry word-level timing tags.
+   */
+  track?: "manual" | "auto" | "unknown"
+  /** True when the VTT carries `-->` cue timings (ص-٥ can use it). */
+  hasCues?: boolean
 }
 
 /**
@@ -118,9 +128,14 @@ async function fetchViaYtDlp(videoId: string): Promise<ServerTranscriptResult> {
       env: { ...process.env, PATH: `${process.env.PATH}:/usr/local/bin:/opt/homebrew/bin` },
     })
 
-    // Find the downloaded subtitle file
+    // Find the downloaded subtitle file. ص-٦ — when yt-dlp lands BOTH a
+    // plain `.ar.vtt` and an auto-generated `.ar-orig.vtt`, `find` used to
+    // return whichever the filesystem listed first. Prefer the
+    // human-written track deterministically.
     const files = await fs.readdir(tempDir)
-    const vttFile = files.find(f => f.endsWith(".vtt"))
+    const vttFiles = files.filter((f) => f.endsWith(".vtt"))
+    const manualFile = vttFiles.find((f) => !/-orig\.vtt$/i.test(f))
+    const vttFile = manualFile ?? vttFiles[0]
 
     if (!vttFile) {
       return { success: false, text: "", language: "", error: "لم يتم العثور على ترجمة عربية" }
@@ -134,9 +149,28 @@ async function fetchViaYtDlp(videoId: string): Promise<ServerTranscriptResult> {
 
     // Detect language from filename (e.g., "ZPeBeS87EeI.ar.vtt" or "ZPeBeS87EeI.ar-orig.vtt")
     const langMatch = vttFile.match(/\.([a-z]{2}(?:-[a-z]+)?)\.vtt$/i)
-    const language = langMatch ? langMatch[1].replace("-orig", "") : "ar"
+    const rawLang = langMatch ? langMatch[1] : "ar"
+    const language = rawLang.replace("-orig", "")
 
-    return { success: true, text: vttContent, language }
+    // Auto-generated YouTube captions declare themselves in the header
+    // (`Kind: captions`) and carry inline word-level timing tags; the
+    // `-orig` suffix is yt-dlp's own marker for the auto track. Any one of
+    // those is enough to call it machine-made.
+    const isAuto =
+      /-orig$/i.test(rawLang) || /<\d{2}:\d{2}:\d{2}\.\d{3}>/.test(vttContent)
+    const track: ServerTranscriptResult["track"] = isAuto
+      ? "auto"
+      : manualFile
+        ? "manual"
+        : "unknown"
+
+    return {
+      success: true,
+      text: vttContent,
+      language,
+      track,
+      hasCues: vttContent.includes("-->"),
+    }
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err)
     // Don't log full error — it's expected when yt-dlp isn't available

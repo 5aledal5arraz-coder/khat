@@ -5,6 +5,7 @@ import {
   revalidateStudio,
 } from "@/lib/studio"
 import { resolveEirIdForSession } from "@/lib/studio/analysis-records"
+import { getTimedSegmentsForSession } from "@/lib/studio/timed-transcript"
 import { generateStudioChapters } from "@/lib/ai"
 import { requireAdminAPI } from "@/lib/api-utils"
 
@@ -97,11 +98,15 @@ export async function POST(
       subjectTable: "studio_sessions" as const,
       subjectId: id,
     }
+    // ص-٥ — real caption timings when the transcript has cues; null
+    // falls back to the legacy estimate path.
+    const timedSegments = await getTimedSegmentsForSession(id)
     const result = await generateStudioChapters(
       transcript.transcript_clean,
       session.video_title || "",
       session.duration_seconds,
-      eirContext
+      eirContext,
+      timedSegments,
     )
 
     if (!result.success || !result.data) {

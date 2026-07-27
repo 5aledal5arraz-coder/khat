@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server"
 import { getStudioSession, createTranscript, revalidateStudio } from "@/lib/studio"
 import { fetchTranscriptServer } from "@/lib/youtube/transcript-server"
+import { cleanTranscriptText } from "@/lib/studio/utils"
+import { assessCaptionQuality } from "@/lib/studio/caption-gate"
 import { requireAdminAPI } from "@/lib/api-utils"
 
 export const maxDuration = 120 // 2 min — yt-dlp subtitle download
@@ -47,6 +49,25 @@ export async function POST(
     // No captions — 422 signals the client to fall back to audio → Whisper.
     return NextResponse.json(
       { error: result.error || "لا تتوفر ترجمة تلقائية لهذا الفيديو" },
+      { status: 422 }
+    )
+  }
+
+  // ص-٦ — same gate the pipeline uses. Judge the CLEAN text: raw VTT is
+  // mostly timing markup, so its length says nothing about how much
+  // speech the track holds. 422 again, so the client falls back to paid
+  // transcription rather than saving a track that covers a fraction of
+  // the episode.
+  const verdict = assessCaptionQuality(
+    cleanTranscriptText(result.text),
+    session?.duration_seconds ?? null,
+  )
+  if (!verdict.usable) {
+    console.warn(
+      `[Studio:captions] ${id} — rejected (${verdict.reason}): ${verdict.message}`,
+    )
+    return NextResponse.json(
+      { error: verdict.message || "الترجمة التلقائية غير صالحة" },
       { status: 422 }
     )
   }
