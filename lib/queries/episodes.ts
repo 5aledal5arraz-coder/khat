@@ -544,8 +544,17 @@ async function applyListPipeline(
     limit?: number
     offset?: number
     includeHidden?: boolean
+    withCategories?: boolean
   }
 ): Promise<Episode[]> {
+  // The category map is a real SELECT, so only pay for it when this call
+  // actually consumes categories:
+  //   • filtering by category cannot work without it;
+  //   • otherwise only a caller that renders category badges needs it.
+  // Most callers (the admin lists, /api/episodes, the newsletter builder)
+  // read neither, and were paying the query on every single call.
+  const needsCategories = Boolean(options?.category) || options?.withCategories === true
+
   const [overrides, hiddenIds, deletedIds, categoriesById] = await Promise.all([
     getEpisodeOverrides(),
     options?.includeHidden ? Promise.resolve(new Set<string>()) : getHiddenEpisodeIds(),
@@ -553,7 +562,9 @@ async function applyListPipeline(
     getDeletedEpisodeIds(),
     // ONE query, shared by the category filter below AND the category object
     // attached to every episode at the end of this function.
-    loadCategoryMap(),
+    needsCategories
+      ? loadCategoryMap()
+      : Promise.resolve(new Map<string, EpisodeCategory>()),
   ])
 
   // Fail CLOSED. We could not determine which episodes are hidden, so we
@@ -689,6 +700,13 @@ export async function getEpisodes(options?: {
   limit?: number
   offset?: number
   includeHidden?: boolean
+  /**
+   * Hydrate `episode.category` on every returned episode — one extra SELECT.
+   * Only pass it when something downstream renders the category (today: the
+   * `showCategory` grid on /episodes). Filtering by `category` loads the map
+   * on its own, so it does not need this flag.
+   */
+  withCategories?: boolean
 }): Promise<Episode[]> {
   const rawEpisodes = await resolveAllEpisodes()
   return applyListPipeline(rawEpisodes, options)

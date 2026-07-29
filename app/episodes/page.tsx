@@ -46,7 +46,13 @@ export default async function EpisodesPage({ searchParams }: EpisodesPageProps) 
   const filtered = query !== undefined || activeSlug !== null
 
   const episodes: Episode[] = filtered
-    ? await getEpisodes({ search: query, category: activeSlug ?? undefined }).catch(() => [])
+    // withCategories: this grid renders the category badge (`showCategory`
+    // below), and a search-only filter would otherwise skip the lookup.
+    ? await getEpisodes({
+        search: query,
+        category: activeSlug ?? undefined,
+        withCategories: true,
+      }).catch(() => [])
     : await getCachedPublicEpisodes()
       .then((list) =>
         [...list].sort(

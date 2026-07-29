@@ -19,9 +19,14 @@ export async function generateMetadata({ params }: CategoryPageProps): Promise<M
   const resolved = resolveCategorySlug(await getCategoriesForRequest(), slug)
 
   if (resolved.state !== "known") {
-    // Trigger a REAL 404 response, not a soft-404 body with HTTP 200: once
-    // metadata commits a successful response, the body's notFound() can no
-    // longer change the status. Same guard as app/guests/[slug]/page.tsx.
+    // Stops metadata generation for a slug that has no category, so the page
+    // never advertises a title/canonical for something that doesn't exist.
+    //
+    // It does NOT currently produce a 404 status: measured, an unknown slug
+    // still responds 200 here — and so does app/guests/[slug], which carries
+    // the same guard and the same claim. Harmless as-is (the body's
+    // notFound() still renders the not-found UI), but the status code is a
+    // separate, unsolved problem — don't read this as "404 handled".
     notFound()
   }
 

@@ -63,10 +63,14 @@ const TTL = {
  * Cached episode listing for public pages.
  * Only caches the default (no search, no category) call — filtered/searched
  * queries bypass the cache since they're user-specific.
+ *
+ * Hydrates categories: this list feeds the unfiltered /episodes grid, which
+ * renders the category badge. It is a shared cache entry, so the one extra
+ * SELECT is paid once per revalidation, not per caller.
  */
 export const getCachedPublicEpisodes = unstable_cache(
   async (): Promise<Episode[]> => {
-    return getEpisodes({})
+    return getEpisodes({ withCategories: true })
   },
   ["public-episodes-list"],
   { revalidate: TTL.episodes, tags: [CACHE_TAGS.episodes] }
