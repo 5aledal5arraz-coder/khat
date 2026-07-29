@@ -1,3 +1,4 @@
+import { cache } from "react"
 import { db, USE_DB } from "@/lib/db"
 import { episodeCategories, episodes } from "@/lib/db/schema"
 import { eq, asc, count, sql } from "drizzle-orm"
@@ -24,6 +25,25 @@ export async function getCategories(): Promise<EpisodeCategory[]> {
     return []
   }
 }
+
+/**
+ * `getCategories()`, de-duplicated for the duration of ONE server request.
+ *
+ * Not to be confused with `lib/cache.ts`, which is `unstable_cache` — a
+ * cross-request TTL cache. React's `cache()` only collapses repeat calls
+ * inside a single render.
+ *
+ * It exists because two independent consumers need the same three rows on the
+ * same render: the page renders the filter chips, and `applyListPipeline`
+ * (`lib/queries/episodes.ts`) attaches the category object to every episode in
+ * the list. Without this they would each issue their own SELECT. With it, a
+ * page load costs exactly one extra query — never one per episode.
+ *
+ * The table is three rows and admin-driven, so a stale read inside one render
+ * is not a concern; correctness comes from `dynamic = "force-dynamic"` on the
+ * public routes.
+ */
+export const getCategoriesForRequest = cache(getCategories)
 
 export async function getCategoryBySlug(slug: string): Promise<EpisodeCategory | null> {
   if (!USE_DB) return null

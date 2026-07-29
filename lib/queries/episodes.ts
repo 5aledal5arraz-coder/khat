@@ -11,6 +11,7 @@ import {
 } from "@/lib/db/schema"
 import type {
   Episode,
+  EpisodeCategory,
   Guest,
   Timestamp,
   Quote,
@@ -545,11 +546,14 @@ async function applyListPipeline(
     includeHidden?: boolean
   }
 ): Promise<Episode[]> {
-  const [overrides, hiddenIds, deletedIds] = await Promise.all([
+  const [overrides, hiddenIds, deletedIds, categoriesById] = await Promise.all([
     getEpisodeOverrides(),
     options?.includeHidden ? Promise.resolve(new Set<string>()) : getHiddenEpisodeIds(),
     // Tombstoned episodes are ALWAYS excluded, regardless of includeHidden.
     getDeletedEpisodeIds(),
+    // ONE query, shared by the category filter below AND the category object
+    // attached to every episode at the end of this function.
+    loadCategoryMap(),
   ])
 
   // Fail CLOSED. We could not determine which episodes are hidden, so we
@@ -583,7 +587,7 @@ async function applyListPipeline(
 
   // Filter by category
   if (options?.category) {
-    result = await filterByCategory(result, options.category)
+    result = filterByCategory(result, options.category, categoriesById)
   }
 
   // Filter by season
@@ -607,23 +611,72 @@ async function applyListPipeline(
     result = result.slice(offset, offset + options.limit)
   }
 
-  return result
+  // Attach the category object LAST — after pagination, so we only build new
+  // objects for the episodes actually returned.
+  return attachCategories(result, categoriesById)
 }
 
 // ─── Category Filtering ──────────────────────────────────────────────────────
 
 /**
- * Filter episodes by category slug.
- * Uses the DB-backed category_id on each episode + a slug→id lookup.
+ * id → category, for the whole request.
+ *
+ * `getCategoriesForRequest` is React-`cache()`d, so the page that renders the
+ * filter chips and this pipeline share ONE SELECT per render. Never a lookup
+ * per episode — that was the N+1 this shape exists to prevent.
  */
-async function filterByCategory(
+async function loadCategoryMap(): Promise<Map<string, EpisodeCategory>> {
+  const { getCategoriesForRequest } = await import("@/lib/queries/categories")
+  try {
+    const rows = await getCategoriesForRequest()
+    return new Map(rows.map((c) => [c.id, c]))
+  } catch (error) {
+    // A missing map costs badges, not episodes — degrade, never blank the list.
+    console.error("[episodes] Category map lookup failed; list badges omitted:", error)
+    return new Map()
+  }
+}
+
+/**
+ * Filter episodes by category slug, against an already-loaded map.
+ *
+ * An unknown slug still yields an empty list, because there is nothing to
+ * match — but it is now LOGGED rather than silent. Callers that render this
+ * must resolve the slug themselves first (`resolveCategorySlug` in
+ * `lib/episodes/category-filter.ts`) so the UI can say «unknown category»
+ * instead of showing an empty archive that looks like a real, empty result.
+ */
+function filterByCategory(
   episodeList: Episode[],
   categorySlug: string,
-): Promise<Episode[]> {
-  const { getCategoryBySlug } = await import("@/lib/queries/categories")
-  const category = await getCategoryBySlug(categorySlug)
-  if (!category) return []
+  categoriesById: Map<string, EpisodeCategory>,
+): Episode[] {
+  const category = [...categoriesById.values()].find((c) => c.slug === categorySlug)
+  if (!category) {
+    console.warn(
+      `[episodes] Unknown category slug "${categorySlug}" — returning an empty list. ` +
+        "Resolve the slug before rendering so the UI can distinguish it from an empty category.",
+    )
+    return []
+  }
   return episodeList.filter((e) => e.category_id === category.id)
+}
+
+/**
+ * Give every episode in a LIST its `category` object (name + slug).
+ *
+ * The detail path (`resolveEpisodeBySlug`) already did this for a single
+ * episode; list mode carried only `category_id`, which is why no card could
+ * ever render a category badge.
+ */
+function attachCategories(
+  episodeList: Episode[],
+  categoriesById: Map<string, EpisodeCategory>,
+): Episode[] {
+  if (categoriesById.size === 0) return episodeList
+  return episodeList.map((ep) =>
+    ep.category_id ? { ...ep, category: categoriesById.get(ep.category_id) ?? null } : ep,
+  )
 }
 
 // ─── Public API ──────────────────────────────────────────────────────────────
