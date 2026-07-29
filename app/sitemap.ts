@@ -1,13 +1,15 @@
 import type { MetadataRoute } from "next"
 import { fetchAllEpisodes } from "@/lib/youtube/queries"
 import { getAllGuests } from "@/lib/admin/queries"
+import { getCategories } from "@/lib/queries/categories"
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const baseUrl = "https://khatpodcast.com"
 
-  const [episodes, guests] = await Promise.all([
+  const [episodes, guests, categories] = await Promise.all([
     fetchAllEpisodes().catch(() => []),
     getAllGuests().catch(() => []),
+    getCategories().catch(() => []),
   ])
 
   const staticRoutes: MetadataRoute.Sitemap = [
@@ -35,5 +37,14 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     priority: 0.6,
   }))
 
-  return [...staticRoutes, ...episodeRoutes, ...guestRoutes]
+  // Category archives. The slugs are Arabic, so they MUST be percent-encoded —
+  // a sitemap URL has to be a valid URI or the whole document is rejected.
+  const categoryRoutes: MetadataRoute.Sitemap = categories.map((c) => ({
+    url: `${baseUrl}/categories/${encodeURIComponent(c.slug)}`,
+    lastModified: new Date(c.created_at),
+    changeFrequency: "weekly" as const,
+    priority: 0.7,
+  }))
+
+  return [...staticRoutes, ...episodeRoutes, ...guestRoutes, ...categoryRoutes]
 }

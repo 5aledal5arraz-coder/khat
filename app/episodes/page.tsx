@@ -2,8 +2,11 @@ import { Metadata } from "next"
 import Link from "next/link"
 import { Search } from "lucide-react"
 import { getEpisodes } from "@/lib/queries/episodes"
-import { getCachedPublicEpisodes } from "@/lib/cache"
+import { getCategoriesForRequest } from "@/lib/queries/categories"
+import { resolveCategorySlug } from "@/lib/episodes/category-filter"
+import { getCachedPublicEpisodes, getCachedEpisodeCounts } from "@/lib/cache"
 import { EpisodePosterCard } from "@/components/episodes/episode-poster-card"
+import { CategoryChips } from "@/components/episodes/category-chips"
 import type { Episode } from "@/types/database"
 
 export const dynamic = "force-dynamic"
@@ -14,15 +17,36 @@ export const metadata: Metadata = {
 }
 
 interface EpisodesPageProps {
-  searchParams: Promise<{ search?: string }>
+  searchParams: Promise<{ search?: string; category?: string }>
+}
+
+/** `/episodes` with the search and category that are currently in effect. */
+function archiveHref(search: string | undefined, categorySlug: string | null): string {
+  const params = new URLSearchParams()
+  if (categorySlug) params.set("category", categorySlug)
+  if (search) params.set("search", search)
+  const qs = params.toString()
+  return qs ? `/episodes?${qs}` : "/episodes"
 }
 
 export default async function EpisodesPage({ searchParams }: EpisodesPageProps) {
-  const { search } = await searchParams
-  const query = search?.trim()
+  const { search, category } = await searchParams
+  const query = search?.trim() || undefined
 
-  const episodes: Episode[] = query
-    ? await getEpisodes({ search: query }).catch(() => [])
+  // One query for the chips — and `applyListPipeline` reuses the very same
+  // result (React `cache()`), so the category feature costs ONE extra query
+  // per page load, not one per episode.
+  const categories = await getCategoriesForRequest()
+  const resolved = resolveCategorySlug(categories, category)
+  const activeSlug = resolved.state === "known" ? resolved.category.slug : null
+
+  // An unknown slug deliberately does NOT filter: filtering by it would return
+  // an empty archive, which reads as a truthful "no episodes" answer. We show
+  // the whole archive and say the category is unknown.
+  const filtered = query !== undefined || activeSlug !== null
+
+  const episodes: Episode[] = filtered
+    ? await getEpisodes({ search: query, category: activeSlug ?? undefined }).catch(() => [])
     : await getCachedPublicEpisodes()
       .then((list) =>
         [...list].sort(
@@ -31,6 +55,12 @@ export default async function EpisodesPage({ searchParams }: EpisodesPageProps) 
         ),
       )
       .catch(() => [])
+
+  // Counts describe the whole archive, so they contradict a search result —
+  // show them only when no search narrows the list.
+  const counts = query ? undefined : await getCachedEpisodeCounts().catch(() => undefined)
+
+  const categoryScope = resolved.state === "known" ? ` في «${resolved.category.name}»` : ""
 
   return (
     <div className="px-6 pb-24 pt-14 sm:pt-20">
@@ -52,6 +82,10 @@ export default async function EpisodesPage({ searchParams }: EpisodesPageProps) 
               clickable control AND guarantees Enter submits (a single-input
               form without a submit button is unreliable across browsers). */}
           <form action="/episodes" className="mx-auto mt-8 flex max-w-md items-center">
+            {/* The active category must survive a search. A GET form submits
+                ONLY its own fields, so without this hidden input the first
+                search silently drops the filter the visitor just chose. */}
+            {activeSlug ? <input type="hidden" name="category" value={activeSlug} /> : null}
             <div className="relative w-full">
               <button
                 type="submit"
@@ -69,17 +103,48 @@ export default async function EpisodesPage({ searchParams }: EpisodesPageProps) 
               />
             </div>
           </form>
+
+          {/* Category filter — under the search, and every chip carries the
+              current search so the two compose in both directions. */}
+          <CategoryChips
+            className="mt-5"
+            categories={categories}
+            activeSlug={activeSlug}
+            counts={counts}
+            hrefFor={(slug) => archiveHref(query, slug)}
+          />
         </header>
 
-        {/* Result summary */}
-        {query ? (
-          <div className="mt-10 flex items-center justify-between text-[14px]">
+        {/* An unknown category is an error, not a result. Say it, and keep the
+            archive visible instead of showing a blank page. */}
+        {resolved.state === "unknown" ? (
+          <div className="mt-10 rounded-2xl border border-border bg-secondary px-5 py-4 text-center text-[14px]">
+            <p className="font-semibold text-foreground">تصنيف غير معروف</p>
+            <p className="mt-1 text-muted-foreground">
+              ما فيه تصنيف بالاسم «{resolved.slug}» — هذي كل الحلقات.
+            </p>
+            <Link
+              href="/episodes"
+              className="mt-2 inline-block font-semibold text-primary hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+            >
+              عرض الكل
+            </Link>
+          </div>
+        ) : null}
+
+        {/* Result summary. The zero case for a KNOWN category is left to the
+            empty state below, which says it in full rather than twice. */}
+        {filtered && (episodes.length > 0 || query) ? (
+          <div className="mt-10 flex items-center justify-between gap-3 text-[14px]">
             <span className="text-muted-foreground">
               {episodes.length > 0
-                ? `${episodes.length} نتيجة لـ «${query}»`
-                : `لا توجد نتائج لـ «${query}»`}
+                ? `${episodes.length} نتيجة${query ? ` لـ «${query}»` : ""}${categoryScope}`
+                : `لا توجد نتائج لـ «${query}»${categoryScope}`}
             </span>
-            <Link href="/episodes" className="font-semibold text-primary hover:underline">
+            <Link
+              href="/episodes"
+              className="shrink-0 font-semibold text-primary hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+            >
               عرض الكل
             </Link>
           </div>
@@ -89,16 +154,22 @@ export default async function EpisodesPage({ searchParams }: EpisodesPageProps) 
         {episodes.length > 0 ? (
           <div className="mt-10 grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
             {episodes.map((ep) => (
-              <EpisodePosterCard key={ep.id} ep={ep} />
+              <EpisodePosterCard key={ep.id} ep={ep} showCategory />
             ))}
           </div>
         ) : (
           <div className="mt-16 rounded-3xl border border-dashed border-border bg-card/50 px-6 py-20 text-center">
-            <p className="text-lg font-bold text-foreground">لا توجد حلقات بعد</p>
+            <p className="text-lg font-bold text-foreground">
+              {resolved.state === "known" && !query
+                ? `ما فيه حلقات في تصنيف «${resolved.category.name}» بعد`
+                : "لا توجد حلقات بعد"}
+            </p>
             <p className="mt-2 text-[14px] text-muted-foreground">
               {query
                 ? "جرّب البحث بكلمات مختلفة."
-                : "ستظهر الحلقات هنا فور نشرها."}
+                : resolved.state === "known"
+                  ? "بتظهر هنا أول ما تنضاف حلقة لهذا التصنيف."
+                  : "ستظهر الحلقات هنا فور نشرها."}
             </p>
           </div>
         )}
