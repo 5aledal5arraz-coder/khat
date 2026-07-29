@@ -753,7 +753,7 @@ function ReIdentifyDialog({
 
   return (
     <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/60 p-4 backdrop-blur-sm">
-      <div className="my-8 w-full max-w-xl rounded-2xl border border-border bg-card p-6 shadow-2xl">
+      <div className="my-8 w-full max-w-xl lg:max-w-2xl rounded-2xl border border-border bg-card p-6 shadow-2xl">
         <div className="mb-4 flex items-center justify-between">
           <h2 className="text-base font-bold">تأكيد هوية الضيف</h2>
           <button
@@ -781,8 +781,8 @@ function ReIdentifyDialog({
               <textarea
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
-                rows={3}
-                className="w-full resize-none rounded-lg border border-input bg-background p-3 text-sm focus:border-violet-500 focus:outline-none"
+                rows={5}
+                className="min-h-[7rem] w-full resize-y rounded-lg border border-input bg-background p-3 text-sm focus:border-violet-500 focus:outline-none focus:ring-2 focus:ring-violet-500/20"
               />
             </div>
             <div>
@@ -831,7 +831,7 @@ function ReIdentifyDialog({
                   key={c.id}
                   type="button"
                   onClick={() => setSelectedId(c.id)}
-                  className={`w-full rounded-xl border p-3 text-right transition-colors ${
+                  className={`w-full rounded-xl border p-3 text-start transition-colors ${
                     selected
                       ? "border-violet-500 bg-violet-500/10"
                       : "border-border/40 bg-card/30 hover:border-violet-500/30"

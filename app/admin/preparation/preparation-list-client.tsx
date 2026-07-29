@@ -459,7 +459,7 @@ export function PreparationListClient({ initialItems }: Props) {
       {/* Wizard modal */}
       {showModal && (
         <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/60 p-4 backdrop-blur-sm">
-          <div className="my-8 w-full max-w-2xl rounded-2xl border border-border bg-card shadow-2xl">
+          <div className="my-8 w-full max-w-2xl lg:max-w-3xl rounded-2xl border border-border bg-card shadow-2xl">
             {/* Wizard header */}
             <div className="flex items-center justify-between border-b border-border/40 px-6 py-4">
               <div>
@@ -511,7 +511,7 @@ export function PreparationListClient({ initialItems }: Props) {
                       value={title}
                       onChange={(e) => setTitle(e.target.value)}
                       placeholder="مثال: محادثة حول الفقد والكتابة"
-                      className="h-10 w-full rounded-lg border border-input bg-background px-3 text-sm focus:border-violet-500 focus:outline-none"
+                      className="h-11 w-full rounded-lg border border-input bg-background px-3 text-sm focus:border-violet-500 focus:outline-none focus:ring-2 focus:ring-violet-500/20"
                       autoFocus
                     />
                   </div>
@@ -525,7 +525,7 @@ export function PreparationListClient({ initialItems }: Props) {
                       value={guestName}
                       onChange={(e) => setGuestName(e.target.value)}
                       placeholder="مثال: أحمد الشقيري"
-                      className="h-10 w-full rounded-lg border border-input bg-background px-3 text-sm focus:border-violet-500 focus:outline-none"
+                      className="h-11 w-full rounded-lg border border-input bg-background px-3 text-sm focus:border-violet-500 focus:outline-none focus:ring-2 focus:ring-violet-500/20"
                     />
                   </div>
 
@@ -537,8 +537,8 @@ export function PreparationListClient({ initialItems }: Props) {
                       value={guestDescription}
                       onChange={(e) => setGuestDescription(e.target.value)}
                       placeholder="مثال: كاتب ومقدم برامج سعودي، عُرف ببرنامج خواطر"
-                      rows={3}
-                      className="w-full resize-none rounded-lg border border-input bg-background p-3 text-sm focus:border-violet-500 focus:outline-none"
+                      rows={5}
+                      className="min-h-[7rem] w-full resize-y rounded-lg border border-input bg-background p-3 text-sm focus:border-violet-500 focus:outline-none focus:ring-2 focus:ring-violet-500/20"
                     />
                     <p className="mt-1 text-[10px] text-muted-foreground">
                       سيتم استخدام هذا الوصف لتمييز الشخص الصحيح إذا كان هناك أكثر من شخص بنفس الاسم.
@@ -554,7 +554,7 @@ export function PreparationListClient({ initialItems }: Props) {
                       value={guestProfileLink}
                       onChange={(e) => setGuestProfileLink(e.target.value)}
                       placeholder="https://... (موقع، يوتيوب، أو حساب رسمي)"
-                      className="h-10 w-full rounded-lg border border-input bg-background px-3 text-sm focus:border-violet-500 focus:outline-none"
+                      className="h-11 w-full rounded-lg border border-input bg-background px-3 text-sm focus:border-violet-500 focus:outline-none focus:ring-2 focus:ring-violet-500/20"
                       dir="ltr"
                     />
                   </div>
@@ -617,7 +617,7 @@ export function PreparationListClient({ initialItems }: Props) {
                           type="button"
                           key={c.id}
                           onClick={() => setSelectedCandidateId(c.id)}
-                          className={`w-full rounded-xl border p-4 text-right transition-all ${
+                          className={`w-full rounded-xl border p-4 text-start transition-all ${
                             selected
                               ? "border-violet-500 bg-violet-500/10"
                               : "border-border/40 bg-card/30 hover:border-violet-500/30 hover:bg-card/60"
