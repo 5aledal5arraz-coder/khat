@@ -298,7 +298,10 @@ export default function AdminLayoutClient({
 
         {/* Main content — seamless light workspace (palette is on the root). */}
         <main id="admin-main" className="min-w-0 flex-1 p-4 lg:p-6">
-          <div className="admin-animate-in mx-auto max-w-[1400px]">
+          {/* admin-fade-in, not admin-animate-in: this wrapper contains every admin
+              page, and a lingering transform here would capture their `fixed`
+              modal layers. Fade only — the 8px slide is not worth 21 broken modals. */}
+          <div className="admin-fade-in mx-auto max-w-[1400px]">
             {children}
           </div>
         </main>

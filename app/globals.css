@@ -356,6 +356,25 @@ header {
   animation: admin-fade-up 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
+/* Opacity-only entrance, for wrappers that must NOT become a containing block.
+   Any non-`none` transform — including the translateY(0) that `forwards` leaves
+   behind — makes an element the containing block for `position: fixed`
+   descendants. On the admin shell that pinned every modal to the content column
+   AND made it travel with the page: measured at scrollY 1500 a modal's top was
+   -1371px, i.e. scrolled clean off the screen. Same fade, no transform. */
+@keyframes admin-fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.admin-fade-in {
+  animation: admin-fade-in 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
 /* Staggered animation delay helpers */
 .admin-delay-1 { animation-delay: 50ms; opacity: 0; }
 .admin-delay-2 { animation-delay: 100ms; opacity: 0; }
