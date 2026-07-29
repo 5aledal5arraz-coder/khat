@@ -459,7 +459,12 @@ export function PreparationListClient({ initialItems }: Props) {
       {/* Wizard modal */}
       {showModal && (
         <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/60 p-4 backdrop-blur-sm">
-          <div className="my-8 w-full max-w-2xl lg:max-w-3xl rounded-2xl border border-border bg-card shadow-2xl">
+          {/* max-h + internal scroll, not "it fits": `.admin-animate-in` leaves a
+              permanent transform on an ancestor, so this fixed layer is sized to
+              the content column (≈463px in iPad landscape), not the viewport.
+              Constrain to that box and scroll the body — the header stays put and
+              nothing is unreachable, whichever box we end up inside. */}
+          <div className="my-8 flex max-h-[calc(100%-4rem)] w-full max-w-2xl flex-col rounded-2xl border border-border bg-card shadow-2xl lg:max-w-3xl">
             {/* Wizard header */}
             <div className="flex items-center justify-between border-b border-border/40 px-6 py-4">
               <div>
@@ -498,7 +503,7 @@ export function PreparationListClient({ initialItems }: Props) {
               })}
             </div>
 
-            <div className="space-y-5 p-6">
+            <div className="min-h-0 flex-1 space-y-5 overflow-y-auto p-6">
               {/* ─── Step 1: Inputs ─────────────────────────────────── */}
               {step === "inputs" && (
                 <>
