@@ -164,6 +164,18 @@ export default async function HomePage() {
         </section>
       ) : null}
 
+      {/* ──────────────────── Newsletter ────────────────────
+          Sits ABOVE the episodes grid on purpose. Its old spot was two short
+          sections above the footer band, so both asks landed within ~1.25
+          screens of each other and the first caught nobody the footer wouldn't.
+          max-w-6xl (not 3xl) so the band's edges line up with the featured
+          card and the grid instead of pinching in mid-page. */}
+      <section className="px-6 py-8">
+        <div className="mx-auto max-w-6xl">
+          <NewsletterSignup variant="inline" />
+        </div>
+      </section>
+
       {/* ──────────────────── Episodes grid ──────────────────── */}
       {grid.length > 0 ? (
         <section className="px-6 py-12">
@@ -185,13 +197,6 @@ export default async function HomePage() {
           </div>
         </section>
       ) : null}
-
-      {/* ──────────────────── Newsletter ──────────────────── */}
-      <section className="px-6 py-12">
-        <div className="mx-auto max-w-3xl">
-          <NewsletterSignup variant="hero" />
-        </div>
-      </section>
 
       {/* ──────────────────── Statement ──────────────────── */}
       <section className="px-6 py-24 sm:py-32">

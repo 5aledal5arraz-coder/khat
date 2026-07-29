@@ -2,9 +2,17 @@
 
 /**
  * Public newsletter signup — the entry point that feeds POST /api/newsletter.
- * Two presentations share one piece of logic:
+ * Presentations sharing one piece of logic:
  *   • variant="footer" — compact block for the site footer
  *   • variant="hero"   — a centered brand CTA section for the homepage
+ *   • variant="inline" — a horizontal band for in-page placement, matching
+ *     the footer band's proportions (~160px tall instead of the hero's 462)
+ *
+ * The DOM ids are derived from the variant name (`nl-email-${variant}`), so
+ * two instances on one page must use two different variant names — otherwise
+ * the duplicate id sends every `htmlFor`/`aria-describedby` to the first
+ * field. That is why the homepage band is "inline" and not a reuse of
+ * "footer-bare", which the footer already occupies on the same document.
  *
  * Sends the CSRF custom header the API requires (validateMutation →
  * validateCustomHeader) and gives clear, localized feedback for every
@@ -23,7 +31,7 @@ export function NewsletterSignup({
   variant = "footer",
   className,
 }: {
-  variant?: "footer" | "footer-bare" | "hero"
+  variant?: "footer" | "footer-bare" | "hero" | "inline"
   className?: string
 }) {
   const [email, setEmail] = useState("")
@@ -33,6 +41,7 @@ export function NewsletterSignup({
   const [website, setWebsite] = useState("")
 
   const isHero = variant === "hero"
+  const isInline = variant === "inline"
   const done = status === "success" || status === "duplicate"
   const loading = status === "loading"
 
@@ -84,7 +93,34 @@ export function NewsletterSignup({
   // ── Resolved state ────────────────────────────────────────────────────
   // Fresh subscription = celebratory green check. Already-subscribed = a
   // calmer info tone, so the two outcomes never look identical.
-  if (done) {
+  // The inline band keeps its own shell on success — only the form column is
+  // swapped — so the homepage never jumps by the height of the whole block.
+  const successBar = (
+    <div
+      className={cn(
+        "flex items-center gap-3 rounded-2xl border px-4 py-3",
+        status === "duplicate"
+          ? "border-border bg-muted/50 text-foreground"
+          : "border-primary/20 bg-primary/5 text-foreground",
+      )}
+      role="status"
+      aria-live="polite"
+    >
+      <span
+        className={cn(
+          "flex h-8 w-8 shrink-0 items-center justify-center rounded-full",
+          status === "duplicate"
+            ? "bg-muted-foreground/15 text-muted-foreground"
+            : "bg-primary text-primary-foreground",
+        )}
+      >
+        {status === "duplicate" ? <Info className="h-4 w-4" /> : <Check className="h-4 w-4" />}
+      </span>
+      <p className="text-sm font-medium leading-snug">{message}</p>
+    </div>
+  )
+
+  if (done && !isInline) {
     const isDuplicate = status === "duplicate"
     return (
       <div
@@ -190,6 +226,31 @@ export function NewsletterSignup({
       </p>
     </form>
   )
+
+  // ── Inline variant (mid-page band) ────────────────────────────────────
+  // Deliberately a short horizontal band, NOT the hero card: at ~160px it
+  // reads as a divider between two sections instead of a page ending, so it
+  // can't create a false bottom above the episodes grid.
+  if (isInline) {
+    return (
+      <div
+        className={cn(
+          "flex flex-col gap-6 rounded-3xl border border-border bg-card px-6 py-8 shadow-sm sm:px-10 md:flex-row md:items-center md:justify-between",
+          className,
+        )}
+      >
+        <div className="max-w-sm">
+          <h2 className="text-xl font-bold tracking-tight text-foreground sm:text-2xl">
+            حوارات تستحق أن تبقى — في بريدك
+          </h2>
+          <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
+            أحدث الحلقات، اقتباسات مختارة، ومحتوى حصري — بدون إزعاج.
+          </p>
+        </div>
+        <div className="w-full md:max-w-sm">{done ? successBar : form}</div>
+      </div>
+    )
+  }
 
   // ── Footer variants ───────────────────────────────────────────────────
   if (!isHero) {
