@@ -11,6 +11,7 @@ import {
   roomSessionMarkers,
   interviewCards,
   cardMaterials,
+  episodePreparations,
 } from "@/lib/db/schema"
 import { eq, and, asc, inArray, lt } from "drizzle-orm"
 import {
@@ -35,6 +36,7 @@ import type {
   CardMaterial,
   ParticipantRole,
 } from "@/types/collaboration"
+import type { PrepV2Payload } from "@/lib/preparation/v2/types"
 
 // ─── Rooms ──────────────────────────────────────────────────────────
 
@@ -83,6 +85,16 @@ export async function getRoomById(id: string): Promise<CollaborationRoom | null>
 export async function getRoomSnapshot(roomId: string): Promise<CollaborationRoomSnapshot | null> {
   const room = await getRoomById(roomId)
   if (!room) return null
+
+  // Fetch the preparation's prep_v2. Re-read on EVERY snapshot (i.e. every
+  // SSE connect/reconnect) because rooms are routinely opened while the
+  // prep_v2 pipeline is still running — the page's server render can hold a
+  // `null` that is already stale by the time anyone joins.
+  const [prepRow] = await db!
+    .select({ prep_v2: episodePreparations.prep_v2 })
+    .from(episodePreparations)
+    .where(eq(episodePreparations.id, room.preparation_id))
+    .limit(1)
 
   // Fetch cards for the room's preparation (non-deleted)
   const cardRows = await db!
@@ -151,6 +163,7 @@ export async function getRoomSnapshot(roomId: string): Promise<CollaborationRoom
     card_states: cardStateRows.map(rowToCardState),
     notes: noteRows.map(rowToNote),
     markers: markerRows.map(rowToMarker),
+    prep_v2: (prepRow?.prep_v2 as PrepV2Payload | null) ?? null,
   }
 }
 

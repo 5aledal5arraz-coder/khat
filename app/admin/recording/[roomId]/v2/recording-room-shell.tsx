@@ -13,7 +13,7 @@
  * here.
  */
 
-import { useEffect, useRef } from "react"
+import { useEffect, useMemo, useRef } from "react"
 import {
   RoomProvider,
   useRoomConnection,
@@ -59,9 +59,24 @@ function RoomShellInner({
   roomId: string
 }) {
   const { status: connStatus } = useRoomConnection()
-  const { joinRoom, leaveRoom, myParticipant, participants, room, updateEnergy } =
-    useRoomState()
+  const {
+    joinRoom, leaveRoom, myParticipant, participants, room, updateEnergy, prepV2,
+  } = useRoomState()
   const autoJoinAttempted = useRef(false)
+
+  // `initial` is a one-shot server render. Rooms are opened (and their link
+  // shared) while the prep_v2 pipeline is still running, so that render can
+  // hold a `null` prep_v2 that is stale minutes later — and nothing below
+  // re-reads it. `prepV2` is the room's live copy (SSE snapshot on every
+  // connect + `prep_update` when generation lands); prefer it as soon as the
+  // server has spoken, and hand the healed snapshot to both view branches.
+  const snapshot = useMemo(
+    () =>
+      prepV2 && prepV2 !== initial.preparation.prep_v2
+        ? { ...initial, preparation: { ...initial.preparation, prep_v2: prepV2 } }
+        : initial,
+    [initial, prepV2],
+  )
 
   // Auto-join once the SSE connection is live (mirrors the collab room).
   useEffect(() => {
@@ -108,9 +123,9 @@ function RoomShellInner({
         // shows a quiet team indicator (counts + an amber pulse only when an
         // unseen urgent note exists) that opens a TeamDrawer on demand — so
         // team notes/markers never pop over the host mid-answer.
-        <LiveV2Client initial={initial} />
+        <LiveV2Client initial={snapshot} />
       ) : (
-        <ParticipantRoomView initial={initial} role={role} />
+        <ParticipantRoomView initial={snapshot} role={role} />
       )}
     </>
   )

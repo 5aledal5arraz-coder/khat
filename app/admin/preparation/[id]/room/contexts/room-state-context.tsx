@@ -27,6 +27,7 @@ import type {
   ParticipantRole,
   RoomEvent,
 } from "@/types/collaboration"
+import type { PrepV2Payload } from "@/lib/preparation/v2/types"
 import { useRoomConnection } from "./room-connection-context"
 
 // ─── Types ──────────────────────────────────────────────────────────
@@ -36,6 +37,17 @@ interface RoomStateContextValue {
   room: CollaborationRoom | null
   participants: RoomParticipant[]
   myParticipant: RoomParticipant | null
+
+  /**
+   * The preparation's prep_v2 as the SERVER last reported it — from the SSE
+   * snapshot on (re)connect, then from `prep_update` events. `null` until the
+   * first snapshot arrives, so callers fall back to their server-rendered
+   * copy for the first paint and prefer this one after.
+   *
+   * Deliberately a separate slice, NOT a field on `room`: `room_update`
+   * events replace `room` wholesale, which would drop the payload again.
+   */
+  prepV2: PrepV2Payload | null
 
   // Derived
   isHost: boolean
@@ -88,6 +100,7 @@ export function RoomStateProvider({
   const [room, setRoom] = useState<CollaborationRoom | null>(null)
   const [participants, setParticipants] = useState<RoomParticipant[]>([])
   const [myParticipantId, setMyParticipantId] = useState<string | null>(null)
+  const [prepV2, setPrepV2] = useState<PrepV2Payload | null>(null)
 
   // Heartbeat interval
   const heartbeatRef = useRef<ReturnType<typeof setInterval> | null>(null)
@@ -96,9 +109,17 @@ export function RoomStateProvider({
 
   useEffect(() => {
     if (!snapshot) return
-    const { cards, card_states, notes, participants: ps, ...roomData } = snapshot
+    const {
+      cards,
+      card_states,
+      notes,
+      participants: ps,
+      prep_v2,
+      ...roomData
+    } = snapshot
     setRoom(roomData as CollaborationRoom)
     setParticipants(ps)
+    setPrepV2(prep_v2 ?? null)
   }, [snapshot])
 
   // ── Subscribe to SSE events ─────────────────────────────────────
@@ -122,6 +143,10 @@ export function RoomStateProvider({
           })
           break
         }
+
+        case "prep_update":
+          setPrepV2(event.data as PrepV2Payload)
+          break
       }
     })
     return unsub
@@ -241,6 +266,7 @@ export function RoomStateProvider({
         room,
         participants,
         myParticipant,
+        prepV2,
         isHost,
         isDirectorOrAbove,
         onlineCount,

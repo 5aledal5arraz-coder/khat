@@ -6,6 +6,7 @@
  */
 
 import type { StoredMarkerType } from "@/lib/recording-v2/marker-types"
+import type { PrepV2Payload } from "@/lib/preparation/v2/types"
 
 // ─── Enums / Unions ─────────────────────────────────────────────────
 
@@ -225,6 +226,16 @@ export interface CollaborationRoomSnapshot extends CollaborationRoom {
   card_states: RoomCardState[]
   notes: RoomCardNote[]
   markers: RoomSessionMarker[]
+  /**
+   * The room preparation's prep_v2 payload as of THIS snapshot.
+   *
+   * The live room is opened (and its link shared) before the prep_v2
+   * pipeline finishes — the page's server render can therefore legitimately
+   * see `null`. Carrying the payload on the snapshot means every SSE
+   * (re)connect re-reads it, so a room that opened early heals itself
+   * instead of freezing on the server-render copy forever.
+   */
+  prep_v2: PrepV2Payload | null
 }
 
 /** Lightweight room listing item */
@@ -249,6 +260,7 @@ export type RoomEventType =
   | "card_pinned"       // card pin toggled in room
   | "marker_added"      // new session marker
   | "marker_deleted"    // session marker removed
+  | "prep_update"       // prep_v2 generated/edited for the room's preparation
 
 export interface RoomEvent {
   type: RoomEventType

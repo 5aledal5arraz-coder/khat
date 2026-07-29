@@ -353,6 +353,20 @@ async function persistPrepV2(
       updated_at: new Date(),
     })
     .where(eq(episodePreparations.id, preparationId))
+
+  // Tell any live recording room on this preparation that the structure
+  // exists now. Rooms are opened before generation finishes, so without
+  // this the team sits on the server-rendered `null` until they reload.
+  // Never let a broadcast failure fail a generation that already persisted.
+  try {
+    const { broadcastPrepV2Update } = await import("@/lib/collaboration/prep-live")
+    await broadcastPrepV2Update(preparationId, payload)
+  } catch (err) {
+    console.warn(
+      `[prep-v2] live room broadcast failed for prep ${preparationId} (non-fatal):`,
+      err instanceof Error ? err.message : err,
+    )
+  }
 }
 
 // ─── Context loader ───────────────────────────────────────────────────
