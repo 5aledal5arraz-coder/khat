@@ -75,12 +75,19 @@ export function EpisodeHero({ episode, teaser, initialStartTime }: EpisodeHeroPr
             </>
           ) : null}
           {episode.category ? (
-            <Link
-              href={`/episodes?category=${episode.category.slug}`}
-              className="rounded-full border border-border bg-secondary px-2.5 py-0.5 text-[12px] font-medium text-muted-foreground transition-colors hover:border-primary/40 hover:text-primary"
-            >
-              {episode.category.name}
-            </Link>
+            <>
+              <span className="text-border">•</span>
+              {/* Was `/episodes?category=…`, which no page ever read — the
+                  archive ignored the param and returned all 41 episodes, so
+                  the badge looked broken. The category archive is a real
+                  route; encode the slug because ours are Arabic. */}
+              <Link
+                href={`/categories/${encodeURIComponent(episode.category.slug)}`}
+                className="rounded-full border border-border bg-secondary px-2.5 py-0.5 text-[12px] font-medium text-muted-foreground transition-colors hover:border-primary/40 hover:text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:ring-offset-2"
+              >
+                {episode.category.name}
+              </Link>
+            </>
           ) : null}
         </div>
 

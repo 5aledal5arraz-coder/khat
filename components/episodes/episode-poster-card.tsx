@@ -46,8 +46,23 @@ export function EpisodeThumb({
   )
 }
 
-/** The light, Apple-editorial episode card — shared across home + episodes list. */
-export function EpisodePosterCard({ ep }: { ep: Episode }) {
+/**
+ * The light, Apple-editorial episode card — shared across home + episodes list.
+ *
+ * `showCategory` is opt-in rather than automatic: this card renders on several
+ * surfaces, and a badge that leaks onto all of them is noise (on a category
+ * page every card would carry the same badge). The badge is a `<span>`, never
+ * an `<a>` — the whole card is already a `Link`, and a nested link produces
+ * invalid markup that breaks keyboard traversal.
+ */
+export function EpisodePosterCard({
+  ep,
+  showCategory = false,
+}: {
+  ep: Episode
+  showCategory?: boolean
+}) {
+  const categoryName = showCategory ? ep.category?.name : null
   return (
     <Link
       href={`/episodes/${ep.slug}`}
@@ -68,8 +83,18 @@ export function EpisodePosterCard({ ep }: { ep: Episode }) {
         <h3 className="mt-1 line-clamp-2 text-[15px] font-bold leading-snug tracking-tight text-foreground">
           {ep.title}
         </h3>
-        <div className="mt-auto pt-3 text-[12px] text-muted-foreground">
-          {episodeDurationLabel(ep.duration_minutes) ?? "حلقة"}
+        <div className="mt-auto flex flex-wrap items-center gap-x-2 gap-y-1 pt-3 text-[12px] text-muted-foreground">
+          <span>{episodeDurationLabel(ep.duration_minutes) ?? "حلقة"}</span>
+          {categoryName ? (
+            <>
+              <span aria-hidden="true" className="text-border">
+                •
+              </span>
+              <span className="rounded-full border border-border bg-secondary px-2 py-0.5 font-medium">
+                {categoryName}
+              </span>
+            </>
+          ) : null}
         </div>
       </div>
     </Link>
