@@ -18,6 +18,7 @@ export {
   roomStatusToPhase,
   prepStatusToPhase,
   syncEirFromRoomStatus,
+  syncEirOnRetake,
   syncEirFromPrepStatus,
   syncEirOnEpisodePublish,
   syncEirOnPerformanceWrite,

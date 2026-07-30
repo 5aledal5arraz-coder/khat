@@ -7,6 +7,7 @@
  * which the prep generated but the room never showed. Ends in a big GO-LIVE.
  */
 
+import { forwardRef, useEffect, useRef, useState } from "react"
 import { Sparkles, Mic, Compass, AlertTriangle, Radio, PlayCircle } from "lucide-react"
 import type {
   PrepV2HostGuidance,
@@ -31,6 +32,7 @@ export function PreflightView({
   onSetEnergy,
   onStart,
   busy,
+  gate,
 }: {
   title: string
   guestName: string | null
@@ -45,9 +47,41 @@ export function PreflightView({
   onSetEnergy: (level: number) => void
   onStart: () => void
   busy: boolean
+  /**
+   * The checklist gate bar. When provided it REPLACES the bare CTA — the gate
+   * renders the same rose button once the studio is confirmed ready. Optional so
+   * the legacy (no prep_v2) path and tests can still render the view ungated.
+   */
+  gate?: React.ReactNode
 }) {
+  // The bottom bar is FIXED, not sticky. `sticky bottom-3` was doing nothing
+  // here: the bar is the last child of this scrolling column, so it had no
+  // travel room and only appeared once you reached the end of the page —
+  // measured at 724px of scrolling on an 812px-tall screen. Tolerable when it
+  // was just a CTA; not tolerable now that it carries the reason the take is
+  // locked.
+  //
+  // Its height is MEASURED rather than reserved with a fixed `pb-*`, because it
+  // varies a lot by state: 84px when ready, 298px when locked with both escape
+  // hatches showing. A static pb-32 (128px) left 154px of the last panel
+  // permanently hidden behind the bar even at full scroll.
+  const [barH, setBarH] = useState(0)
+  const barRef = useRef<HTMLDivElement | null>(null)
+  useEffect(() => {
+    const el = barRef.current
+    if (!el) return
+    const ro = new ResizeObserver(() => setBarH(el.getBoundingClientRect().height))
+    ro.observe(el)
+    setBarH(el.getBoundingClientRect().height)
+    return () => ro.disconnect()
+  }, [])
+
   return (
-    <div className="mx-auto max-w-3xl space-y-4 p-4" dir="rtl">
+    <div
+      className="mx-auto max-w-3xl space-y-4 p-4"
+      style={{ paddingBottom: barH + 24 }}
+      dir="rtl"
+    >
       {/* Header */}
       <div>
         <div className="mb-1 inline-flex items-center gap-1.5 text-[11px] font-medium text-violet-700">
@@ -147,22 +181,62 @@ export function PreflightView({
         </Panel>
       )}
 
-      {/* GO LIVE */}
-      <div className="sticky bottom-3 flex items-center justify-between gap-3 rounded-2xl border border-rose-500/30 bg-rose-500/5 p-3 backdrop-blur">
-        <span className="inline-flex items-center gap-2 text-[11.5px] text-muted-foreground">
-          الطاقة المبدئية:
-          <CompactEnergyControl level={energy} interactive={canSetEnergy} onSet={onSetEnergy} />
-        </span>
-        <button
-          type="button"
-          onClick={onStart}
-          disabled={busy}
-          className="inline-flex items-center gap-2 rounded-xl bg-rose-700 px-6 py-3 text-[15px] font-semibold text-white transition hover:bg-rose-800 disabled:opacity-50"
-        >
-          <Radio className="h-5 w-5" /> ابدأ التسجيل
-        </button>
-      </div>
+      {/* GO LIVE — gated on the director's pre-shoot checklist. The gate owns
+          the CTA now; in its ready state it renders the identical rose button.
+          Positioning lives HERE, in one place, so both gate branches stay
+          purely presentational. */}
+      <BottomBar ref={barRef}>
+        {gate ?? (
+          <div className="flex items-center justify-between gap-3 rounded-2xl border border-rose-500/30 bg-rose-500/5 p-3 backdrop-blur">
+            <EnergyLabel energy={energy} canSetEnergy={canSetEnergy} onSetEnergy={onSetEnergy} />
+            <button
+              type="button"
+              onClick={onStart}
+              disabled={busy}
+              className="inline-flex items-center gap-2 rounded-xl bg-rose-700 px-6 py-3 text-[15px] font-semibold text-white transition hover:bg-rose-800 disabled:opacity-50"
+            >
+              <Radio className="h-5 w-5" /> ابدأ التسجيل
+            </button>
+          </div>
+        )}
+      </BottomBar>
     </div>
+  )
+}
+
+/**
+ * Viewport-pinned container for the go-live bar. Keeps the inset, rounded look
+ * of the room's other panels (rather than a full-bleed bar) while actually
+ * staying on screen, and clears the iPad home indicator.
+ */
+const BottomBar = forwardRef<HTMLDivElement, { children: React.ReactNode }>(
+  function BottomBar({ children }, ref) {
+    return (
+      <div
+        ref={ref}
+        className="fixed inset-x-0 bottom-0 z-20 px-4 pb-[max(0.75rem,env(safe-area-inset-bottom))]"
+      >
+        <div className="mx-auto max-w-3xl">{children}</div>
+      </div>
+    )
+  },
+)
+
+/** The energy control that sits beside the CTA in both gated and ungated bars. */
+export function EnergyLabel({
+  energy,
+  canSetEnergy,
+  onSetEnergy,
+}: {
+  energy: number
+  canSetEnergy: boolean
+  onSetEnergy: (level: number) => void
+}) {
+  return (
+    <span className="inline-flex items-center gap-2 text-[11.5px] text-muted-foreground">
+      الطاقة المبدئية:
+      <CompactEnergyControl level={energy} interactive={canSetEnergy} onSet={onSetEnergy} />
+    </span>
   )
 }
 

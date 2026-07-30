@@ -13,7 +13,7 @@
  * here.
  */
 
-import { useEffect, useMemo, useRef } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 import {
   RoomProvider,
   useRoomConnection,
@@ -22,15 +22,24 @@ import {
 import { LiveV2Client } from "./live-v2-client"
 import { ParticipantRoomView } from "./participant-room-view"
 import type { LiveV2Snapshot } from "@/lib/recording-v2/load"
+import type { ParticipantRole } from "@/types/collaboration"
 import { Loader2, Users, Wifi, WifiOff, Zap } from "lucide-react"
 import { cn } from "@/lib/utils"
 
 export function RecordingRoomShell({
   initial,
   userName,
+  initialRole,
 }: {
   initial: LiveV2Snapshot
   userName: string
+  /**
+   * Room role resolved during the server render from the admin identity — the
+   * same deterministic mapping the join route applies. Present so the shell
+   * never has to guess which view to mount while the SSE participant list is
+   * still in flight.
+   */
+  initialRole?: ParticipantRole | null
 }) {
   return (
     <RoomProvider
@@ -42,6 +51,7 @@ export function RecordingRoomShell({
         userName={userName}
         prepId={initial.room.preparation_id}
         roomId={initial.room.id}
+        initialRole={initialRole ?? null}
       />
     </RoomProvider>
   )
@@ -52,11 +62,13 @@ function RoomShellInner({
   userName,
   prepId,
   roomId,
+  initialRole,
 }: {
   initial: LiveV2Snapshot
   userName: string
   prepId: string
   roomId: string
+  initialRole: ParticipantRole | null
 }) {
   const { status: connStatus } = useRoomConnection()
   const {
@@ -79,19 +91,44 @@ function RoomShellInner({
   )
 
   // Auto-join once the SSE connection is live (mirrors the collab room).
+  //
+  // The latch is set only AFTER a successful join. Setting it before the await
+  // meant a failed join was permanent: no participant row, so no participant id,
+  // so the heartbeat effect never armed, so `sweepStaleParticipants` never ran
+  // for this room — and any stale `is_online = true` row stayed online forever,
+  // which the checklist gate reads as "a director is connected".
+  const [joinFailed, setJoinFailed] = useState(false)
   useEffect(() => {
     if (connStatus !== "connected" || autoJoinAttempted.current) return
-    autoJoinAttempted.current = true
-    void joinRoom(userName)
+    let cancelled = false
+    void (async () => {
+      try {
+        const p = await joinRoom(userName)
+        if (cancelled) return
+        if (p) {
+          autoJoinAttempted.current = true
+          setJoinFailed(false)
+        } else {
+          // Swallowing this was the bug: presence silently never worked.
+          setJoinFailed(true)
+        }
+      } catch {
+        if (!cancelled) setJoinFailed(true)
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
   }, [connStatus, joinRoom, userName])
 
   // Best-effort leave on unmount / tab close so presence stays accurate.
   useEffect(() => {
     const onUnload = () => {
-      navigator.sendBeacon?.(
-        `/api/admin/preparation/${prepId}/rooms/${roomId}/join`,
-        "",
-      )
+      // `leaveRoom` issues a DELETE with `keepalive`, which survives the unload.
+      // This previously used `navigator.sendBeacon` — but sendBeacon is ALWAYS
+      // POST, and POST on this route is JOIN, so closing the tab re-registered
+      // the leaver as freshly online.
+      void leaveRoom()
     }
     window.addEventListener("beforeunload", onUnload)
     return () => {
@@ -100,25 +137,38 @@ function RoomShellInner({
     }
   }, [leaveRoom, prepId, roomId])
 
-  // Host (and the operator before the join resolves) drives the cockpit;
-  // everyone else gets the role-based live follow-along on prep_v2.
-  const role = myParticipant?.role
-  const isHostOrOperator = !role || role === "host"
+  // The host drives the cockpit; everyone else gets the role-based live
+  // follow-along on prep_v2.
+  //
+  // `initialRole` comes from the server render (same deterministic mapping the
+  // join route uses), so the role is known on the first paint and the SSE
+  // participant list only ever confirms it. This used to read
+  // `!role || role === "host"` — i.e. an UNKNOWN role fell through to the host
+  // branch, so every director saw the host cockpit, with a live "ابدأ التسجيل"
+  // button, for as long as the participant list took to arrive (measured at
+  // ~50s on a loaded dev server). An unknown role must never resolve to the
+  // most privileged view: prefer the live value, fall back to the server's,
+  // and only if BOTH are absent show a neutral resolving state.
+  const role = myParticipant?.role ?? initialRole
+  const isHost = role === "host"
 
   return (
     <>
       <PresenceStrip
         connStatus={connStatus}
         online={participants.filter((p) => p.is_online).length}
+        joinFailed={joinFailed}
         joinedAs={role ?? null}
         energy={room?.energy_level ?? 3}
-        canSetEnergy={isHostOrOperator}
+        canSetEnergy={isHost}
         onSetEnergy={updateEnergy}
         // The host cockpit's own StatusRail owns energy + connection on air, so
         // the host's top strip stays minimal (presence only) — no duplication.
-        compact={isHostOrOperator}
+        compact={isHost}
       />
-      {isHostOrOperator ? (
+      {role == null ? (
+        <RoleResolving />
+      ) : isHost ? (
         // The host cockpit owns its own team surface now: the on-air StatusRail
         // shows a quiet team indicator (counts + an amber pulse only when an
         // unseen urgent note exists) that opens a TeamDrawer on demand — so
@@ -128,6 +178,21 @@ function RoomShellInner({
         <ParticipantRoomView initial={snapshot} role={role} />
       )}
     </>
+  )
+}
+
+/**
+ * Neutral state for the sliver of time when neither the server render nor the
+ * SSE snapshot has given us a role. Deliberately shows NO cockpit and no
+ * "ابدأ التسجيل" button: the old code defaulted an unknown role to the host
+ * view, which is the one surface that can start a take.
+ */
+function RoleResolving() {
+  return (
+    <div className="mx-auto flex max-w-3xl flex-col items-center gap-2 p-10 text-center" dir="rtl">
+      <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+      <p className="text-[12.5px] text-muted-foreground">جارٍ تحديد دورك في الغرفة…</p>
+    </div>
   )
 }
 
@@ -142,6 +207,7 @@ const ROLE_LABEL_AR: Record<string, string> = {
 function PresenceStrip({
   connStatus,
   online,
+  joinFailed,
   joinedAs,
   energy,
   canSetEnergy,
@@ -150,6 +216,8 @@ function PresenceStrip({
 }: {
   connStatus: string
   online: number
+  /** Join never succeeded — presence is unreliable, so say so out loud. */
+  joinFailed: boolean
   joinedAs: string | null
   energy: number
   canSetEnergy: boolean
@@ -164,7 +232,7 @@ function PresenceStrip({
       <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-2 text-[11px]">
         <span className="inline-flex items-center gap-1.5 text-muted-foreground">
           <Users className="h-3 w-3" />
-          {online} متصل الآن
+          {joinFailed ? "تعذّر تسجيل حضورك" : `${online} متصل الآن`}
           {joinedAs && (
             <span className="rounded-full bg-violet-500/10 px-1.5 py-0.5 text-violet-700">
               أنت: {ROLE_LABEL_AR[joinedAs] ?? joinedAs}

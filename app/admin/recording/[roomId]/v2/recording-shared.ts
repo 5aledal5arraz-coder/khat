@@ -169,10 +169,23 @@ export function formatHms(ms: number): string {
   return clockParts(ms).hms
 }
 
-/** "HH:MM:SS.cc" — full precision for marker timestamps. */
+/**
+ * "HH:MM:SS.cc" — full precision for marker timestamps.
+ *
+ * Sign-aware, unlike `clockParts`. A marker's camera time CAN be negative: a
+ * negative `camera_offset_ms` (the supported "the camera rolled AFTER I pressed
+ * start" case) puts early markers before the camera's first frame. Clamping
+ * those to zero rendered them as `00:00:00.00` — visually identical to "at the
+ * very start of the take" — which is exactly the false-cut-at-the-head problem
+ * camera-time.ts warns about. The export already excludes them; the screen has
+ * to be just as honest, so they render as `−00:00:02.10`.
+ *
+ * `clockParts` keeps clamping because its other caller is the running clock,
+ * where elapsed time genuinely cannot be negative.
+ */
 export function formatPrecise(ms: number): string {
-  const { hms, cs } = clockParts(ms)
-  return `${hms}.${cs}`
+  const { hms, cs } = clockParts(Math.abs(ms))
+  return `${ms < 0 ? "−" : ""}${hms}.${cs}`
 }
 
 const NICE_MINUTES = [1, 2, 3, 5, 7, 10, 15, 20, 30, 45, 60, 90, 120, 180, 240, 300]

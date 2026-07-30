@@ -89,11 +89,13 @@ describe("EIR transition matrix — TS / SQL parity", () => {
   it("SQL IN-list contains exactly the expected explicit pairs (count check)", () => {
     // Linear chain has 14 entries that target a non-null next (every
     // phase except `archived`, which is terminal). Plus the
-    // idea→guest_discovery branch. = 15 explicit pairs in the SQL
+    // idea→guest_discovery branch. Plus the recorded→ready_to_record
+    // RETAKE edge — the one backward transition, added when re-shooting
+    // an episode became a real workflow. = 16 explicit pairs in the SQL
     // IN-list. (learned→archived counts here because it's in
     // LINEAR_NEXT — even though the archive escape would also catch
     // it. Belt-and-suspenders.)
-    expect(SQL_PAIRS.size).toBe(15)
+    expect(SQL_PAIRS.size).toBe(16)
   })
 
   it("pair-by-pair predicate parity: SQL verdict === TS verdict for all 15² combinations", () => {

@@ -11,7 +11,7 @@
  * elapsed time is derived from Date.now() each frame, so it stays accurate even
  * if the tab was backgrounded.
  *
- * The timeline plots every marker at its exact recording_ms, shows the planned
+ * The timeline plots every marker at its exact net_recording_ms, shows the planned
  * section structure as bands, and tracks a playhead at the current position.
  */
 
@@ -30,7 +30,7 @@ import {
 
 type Sections = NonNullable<LiveV2Snapshot["preparation"]["prep_v2"]>["episode_sections"]
 type Status = "waiting" | "live" | "paused" | "ended"
-export type EnergyPoint = { recording_ms: number; level: number }
+export type EnergyPoint = { net_recording_ms: number; level: number }
 
 export function RecordingClock(props: {
   status: Status
@@ -144,7 +144,7 @@ export function Timeline(props: {
     [sections],
   )
   const maxMarkerMs = useMemo(
-    () => markers.reduce((mx, m) => Math.max(mx, m.recording_ms), 0),
+    () => markers.reduce((mx, m) => Math.max(mx, m.net_recording_ms), 0),
     [markers],
   )
 
@@ -175,13 +175,13 @@ export function Timeline(props: {
   // 3) is prepended so the area draws from 0; the last reading holds to "now".
   const energySegments = useMemo(() => {
     if (energyHistory.length === 0) return []
-    const pts = [{ recording_ms: 0, level: 3 }, ...energyHistory].sort(
-      (a, b) => a.recording_ms - b.recording_ms,
+    const pts = [{ net_recording_ms: 0, level: 3 }, ...energyHistory].sort(
+      (a, b) => a.net_recording_ms - b.net_recording_ms,
     )
     const out: { startPct: number; widthPct: number; level: number }[] = []
     for (let i = 0; i < pts.length; i++) {
-      const start = pts[i].recording_ms
-      const end = i + 1 < pts.length ? pts[i + 1].recording_ms : scaleMax
+      const start = pts[i].net_recording_ms
+      const end = i + 1 < pts.length ? pts[i + 1].net_recording_ms : scaleMax
       const startPct = Math.min(100, (start / scaleMax) * 100)
       const endPct = Math.min(100, (end / scaleMax) * 100)
       if (endPct - startPct > 0.01) {
@@ -235,16 +235,16 @@ export function Timeline(props: {
           />
         ))}
 
-        {/* Marker pins at exact recording_ms */}
+        {/* Marker pins at exact net_recording_ms */}
         {markers.map((m) => {
           const st = markerStyle(m.marker_type)
-          const pct = Math.min(100, Math.max(0, (m.recording_ms / scaleMax) * 100))
+          const pct = Math.min(100, Math.max(0, (m.net_recording_ms / scaleMax) * 100))
           return (
             <div
               key={m.id}
               className="group absolute top-0 bottom-0 z-10 -ml-px w-0.5"
               style={{ left: `${pct}%` }}
-              title={`${st.label} · ${formatPrecise(m.recording_ms)}`}
+              title={`${st.label} · ${formatPrecise(m.net_recording_ms)}`}
             >
               <span className={"block h-full w-0.5 " + st.dot} />
               <span

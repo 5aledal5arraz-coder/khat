@@ -36,6 +36,16 @@ interface RoomConnectionContextValue {
   snapshot: CollaborationRoomSnapshot | null
   subscribe: (handler: EventHandler) => () => void
   disconnect: () => void
+  /**
+   * Reconnect by hand after the automatic backoff has given up.
+   *
+   * Without this, `disconnected` was terminal: after MAX_RETRIES the room went
+   * permanently silent with no way back short of reloading the page. That is
+   * survivable for a notes panel and not survivable for the pre-shoot checklist,
+   * where a dead stream means the host's start button can never learn that the
+   * studio is ready.
+   */
+  reconnect: () => void
 }
 
 // ─── Context ────────────────────────────────────────────────────────
@@ -176,8 +186,25 @@ export function RoomConnectionProvider({
     setStatus("disconnected")
   }, [])
 
+  /**
+   * Manual retry. Resets the attempt counter so the caller gets a full fresh
+   * backoff budget rather than one doomed attempt — the operator pressing this
+   * is telling us the network is back, not asking for a single probe.
+   */
+  const reconnect = useCallback(() => {
+    if (reconnectTimerRef.current) {
+      clearTimeout(reconnectTimerRef.current)
+      reconnectTimerRef.current = null
+    }
+    retriesRef.current = 0
+    setStatus("connecting")
+    connect()
+  }, [connect])
+
   return (
-    <RoomConnectionContext.Provider value={{ status, snapshot, subscribe, disconnect }}>
+    <RoomConnectionContext.Provider
+      value={{ status, snapshot, subscribe, disconnect, reconnect }}
+    >
       {children}
     </RoomConnectionContext.Provider>
   )

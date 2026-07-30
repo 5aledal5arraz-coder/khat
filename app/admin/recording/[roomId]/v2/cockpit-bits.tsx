@@ -259,7 +259,21 @@ export function CompactEnergyControl({
   return (
     <span className="inline-flex items-center gap-1" title={`الطاقة ${n}/5`}>
       <Zap className="h-3.5 w-3.5 text-amber-600" />
-      <span className="inline-flex gap-0.5">
+      {/*
+        The dot stays 8px VISUALLY; the hit area is the button around it.
+        Previously the button itself was `h-2 w-2` — an 8×8px target with 2px
+        of gap, which is unhittable with a thumb on a tablet (and the padding
+        fix that was attempted landed on the wrapping span, so the buttons
+        never grew at all).
+
+        14×40px per step is a deliberate compromise, not the 44px ideal: this
+        is a 5-step control living inside a compact strip that also carries the
+        go-live CTA, and five 44px-wide targets would be 220px and wrap the bar
+        on a 375px screen. 14×40 is ~10× the old area (64px² → 560px²) and the
+        steps never overlap because the padding replaces the old gap rather
+        than adding to it.
+      */}
+      <span className="inline-flex">
         {Array.from({ length: 5 }).map((_, i) =>
           interactive ? (
             <button
@@ -267,16 +281,26 @@ export function CompactEnergyControl({
               type="button"
               onClick={() => i + 1 !== level && onSet(i + 1)}
               aria-label={`ضبط الطاقة على ${i + 1}`}
-              className={
-                "h-2 w-2 rounded-full transition " +
-                (i < n ? "bg-amber-500" : "bg-muted-foreground/25 hover:bg-amber-500/40")
-              }
-            />
+              className="group flex h-10 w-3.5 items-center justify-center rounded-md [touch-action:manipulation]"
+            >
+              <span
+                className={
+                  "h-2 w-2 rounded-full transition " +
+                  (i < n
+                    ? "bg-amber-500"
+                    : "bg-muted-foreground/25 group-hover:bg-amber-500/40")
+                }
+              />
+            </button>
           ) : (
-            <span
-              key={i}
-              className={"h-2 w-2 rounded-full " + (i < n ? "bg-amber-500" : "bg-muted-foreground/25")}
-            />
+            <span key={i} className="flex h-10 w-3.5 items-center justify-center">
+              <span
+                className={
+                  "h-2 w-2 rounded-full " +
+                  (i < n ? "bg-amber-500" : "bg-muted-foreground/25")
+                }
+              />
+            </span>
           ),
         )}
       </span>

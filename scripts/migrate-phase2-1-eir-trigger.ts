@@ -96,7 +96,9 @@ async function main() {
   //
   // The legal-transition matrix is a literal encoded as a VALUES list.
   // It mirrors `lib/eir/transitions.ts` exactly: linear chain + the
-  // single 'idea → guest_discovery' branch + universal archive escape.
+  // 'idea → guest_discovery' branch + the 'recorded → ready_to_record'
+  // retake edge + universal archive escape. Parity is enforced by
+  // tests/eir/trigger-matrix.test.ts — edit both sides or that test fails.
   //
   // The function ships in REPORT mode. ENFORCE mode is opt-in per
   // session via `SET LOCAL app.khat_eir_transition_mode = 'enforce'`.
@@ -131,7 +133,7 @@ async function main() {
         v_allowed := true;
       END IF;
 
-      -- Linear forward chain + the single allowed branch.
+      -- Linear forward chain + the allowed branches (incl. the retake edge).
       IF NOT v_allowed THEN
         v_allowed := (OLD.phase, NEW.phase) IN (
           ('idea',              'guest_assigned'),
@@ -144,6 +146,7 @@ async function main() {
           ('ready_to_record',   'recording'),
           ('recording',         'recorded'),
           ('recorded',          'producing'),
+          ('recorded',          'ready_to_record'),
           ('producing',         'ready_to_publish'),
           ('ready_to_publish',  'published'),
           ('published',         'analyzing'),

@@ -22,7 +22,12 @@
 
 import { useMemo, useRef, useState, useTransition } from "react"
 import { Empty } from "../../../components/ui-kit"
-import { useRoomState, useRoomMarkers } from "@/app/admin/preparation/[id]/room/contexts"
+import {
+  useRoomState,
+  useRoomMarkers,
+  useRoomChecklist,
+  useRoomConnection,
+} from "@/app/admin/preparation/[id]/room/contexts"
 import type { LiveV2Marker, LiveV2Snapshot } from "@/lib/recording-v2/load"
 import { energyBand, rankQuestionsByEnergy, coachHint } from "@/lib/recording-v2/energy"
 import { QUICK_MARKER_GROUPS, QUICK_MARKER_META, type QuickMarkerType } from "@/lib/recording-v2/marker-types"
@@ -31,6 +36,9 @@ import {
   pauseTimerAction,
   resumeTimerAction,
   resetTimerAction,
+  setTakeCameraOffsetAction,
+  setChecklistItemAction,
+  overrideChecklistGateAction,
   endTimerAction,
   setCurrentSectionAction,
   saveDirectorNotesAction,
@@ -41,9 +49,15 @@ import type { SectionKind, PrepV2Question, PrepV2Insight } from "@/lib/preparati
 import { RecordingClock } from "./recording-clock"
 import { markerStyle, formatPrecise, nowMs, computeElapsedMs } from "./recording-shared"
 import { INSIGHT_META } from "./cockpit-bits"
-import { PreflightView } from "./preflight-view"
+import { PreflightView, EnergyLabel } from "./preflight-view"
 import { OnAirView } from "./onair-view"
 import { WrapView } from "./wrap-view"
+import { ChecklistPanel } from "./checklist-panel"
+import { PreflightGate } from "./preflight-gate"
+import {
+  deriveChecklistModel,
+  deriveHostGateState,
+} from "@/lib/recording-v2/preflight-checklist"
 
 export function LiveV2Client({ initial }: { initial: LiveV2Snapshot }) {
   const room = initial.room
@@ -51,26 +65,133 @@ export function LiveV2Client({ initial }: { initial: LiveV2Snapshot }) {
   const sections = prep.prep_v2?.episode_sections ?? null
 
   // ── Live energy (set by the director / host, synced over SSE) ──────
-  const { room: liveRoom, updateEnergy } = useRoomState()
+  const { room: liveRoom, updateEnergy, participants } = useRoomState()
+  const { status: connStatus, reconnect } = useRoomConnection()
   const energy = liveRoom?.energy_level ?? room.energy_level ?? 3
   const band = energyBand(energy)
   const onSetEnergy = (level: number) => void updateEnergy(level)
 
+  // Which recording attempt is loaded. Bumped by onReset so the ribbon below
+  // drops the scrapped take's points without waiting for a reload.
+  const [takeNumber, setTakeNumber] = useState<number>(room.take_number)
+
+  // Camera-sync correction for the current take. Local so the wrap screen shows
+  // the saved value immediately; a new take starts uncorrected.
+  const [cameraOffsetMs, setCameraOffsetMs] = useState<number | null>(
+    room.camera_offset_ms,
+  )
+  // ── Pre-shoot checklist ───────────────────────────────────────────
+  //
+  // The server-rendered rows are the first paint; the SSE slice takes over the
+  // moment it arrives (same contract as prepV2), so the host's gate reacts to the
+  // director's taps live. `takeNumber` guards against showing a scrapped take's
+  // confirmations after a re-shoot.
+  const { checklist: liveChecklist, takeNumber: liveChecklistTake } = useRoomChecklist()
+  /**
+   * Rows for the take being set up NOW.
+   *
+   * BOTH sources must be take-matched, and an unmatched source yields an EMPTY
+   * list — never the other source. `room.checklist` is a prop from the initial
+   * server render: it never updates, so after a reset it still holds the previous
+   * take's 17 confirmations. Falling back to it on a take mismatch made the gate
+   * open itself for a take whose checklist had not been touched — the exact
+   * failure this whole phase exists to prevent.
+   *
+   * A re-shoot therefore starts locked, and stays locked until the SSE slice
+   * reports rows for the new take.
+   */
+  const checklistEntries = useMemo(() => {
+    if (liveChecklist && liveChecklistTake === takeNumber) return liveChecklist
+    // Server-render copy is only valid while we are still on the take it was
+    // rendered for.
+    if (room.take_number === takeNumber) return room.checklist
+    return []
+  }, [liveChecklist, liveChecklistTake, takeNumber, room.checklist, room.take_number])
+  const checklistModel = useMemo(
+    () => deriveChecklistModel(checklistEntries),
+    [checklistEntries],
+  )
+
+  const [selfCompleting, setSelfCompleting] = useState(false)
+  const [overridden, setOverridden] = useState(room.checklist_overridden)
+
+  const gateState = deriveHostGateState({
+    model: checklistModel,
+    // Presence only. `role` on a participant row is written as a hardcoded
+    // "director" by ensureParticipant, so it is not trustworthy for any
+    // PERMISSION decision — every action is gated by requireActionRole instead.
+    // Here it selects which help text and which escape hatches appear, so its
+    // accuracy still matters: see the presence fixes in recording-room-shell
+    // (tab close was re-joining via sendBeacon) and the immediate first
+    // heartbeat in room-state-context.
+    directorOnline: participants.some((p) => p.is_online && p.role === "director"),
+    connected: connStatus === "connected",
+    connecting: connStatus === "connecting" || connStatus === "reconnecting",
+  })
+
+  const directorLabel = useMemo(() => {
+    const d = participants.find((p) => p.is_online && p.role === "director")
+    const at = checklistModel.lastUpdatedAt
+    const time = at
+      ? new Date(at).toLocaleTimeString("ar-KW", { hour: "2-digit", minute: "2-digit" })
+      : null
+    if (!d) return null
+    return `${d.display_name} (المخرج) متصل${time ? ` · آخر تحديث ${time}` : ""}`
+  }, [participants, checklistModel.lastUpdatedAt])
+
+  async function onSetChecklistItem(
+    itemKey: string,
+    state: "done" | "not_applicable" | "pending",
+    reason?: string,
+  ) {
+    await setChecklistItemAction({
+      roomId: room.id,
+      itemKey,
+      state,
+      notApplicableReason: reason ?? null,
+    })
+  }
+
+  async function onOverride(reason: string): Promise<boolean> {
+    const r = await overrideChecklistGateAction({
+      roomId: room.id,
+      reason,
+      resolvedCount: checklistModel.resolvedCount,
+      total: checklistModel.total,
+    })
+    if (r.ok) setOverridden(true)
+    return r.ok
+  }
+
+  async function onSetCameraOffset(ms: number): Promise<boolean> {
+    const r = await setTakeCameraOffsetAction({
+      roomId: room.id,
+      takeNumber,
+      offsetMs: ms,
+    })
+    if (r.ok) setCameraOffsetMs(r.camera_offset_ms)
+    return r.ok
+  }
+
   // Energy ribbon — built from the room's energy_change markers (recorded
   // server-side on every change, delivered live over SSE).
+  //
+  // Scoped to the current take: the SSE snapshot carries every marker in the
+  // room, and after a re-shoot the old take's points would be plotted against
+  // the new take's timeline (its offsets restart at zero).
   const { markers: sessionMarkers } = useRoomMarkers()
   const energyHistory = useMemo(() => {
     const pts = sessionMarkers
-      .filter((m) => m.marker_type === "energy_change")
+      .filter((m) => m.marker_type === "energy_change" && m.take_number === takeNumber)
       .map((m) => ({
-        recording_ms: m.recording_ms,
+        net_recording_ms: m.net_recording_ms,
         level: Math.max(0, Math.min(5, Number(m.note) || 3)),
       }))
-      .sort((a, b) => a.recording_ms - b.recording_ms)
+      .sort((a, b) => a.net_recording_ms - b.net_recording_ms)
     const byMs = new Map<number, number>()
-    for (const p of pts) byMs.set(p.recording_ms, p.level)
-    return [...byMs.entries()].map(([recording_ms, level]) => ({ recording_ms, level }))
-  }, [sessionMarkers])
+    for (const p of pts) byMs.set(p.net_recording_ms, p.level)
+    return [...byMs.entries()].map(([net_recording_ms, level]) => ({ net_recording_ms, level }))
+  }, [sessionMarkers, takeNumber])
 
   // ── Timer baseline (changes only on start/pause/resume/reset/end) ──
   const [status, setStatus] = useState<typeof room.status>(room.status)
@@ -142,6 +263,9 @@ export function LiveV2Client({ initial }: { initial: LiveV2Snapshot }) {
     setElapsedMsAtBaseline(0)
     setWindowStartedAt(nowMs())
     setStatus("live")
+    // startTimer just created this take's anchor row, so an offset can now be
+    // recorded against it — 0 until someone measures the real gap.
+    setCameraOffsetMs((prev) => prev ?? 0)
   })
   const onPause = withBusy(async () => {
     setElapsedMsAtBaseline(nowElapsed())
@@ -155,11 +279,45 @@ export function LiveV2Client({ initial }: { initial: LiveV2Snapshot }) {
     setWindowStartedAt(nowMs())
     setStatus("live")
   })
+  /**
+   * Open a new take. Destructive enough to confirm: the reset control is
+   * reachable mid-recording (RecordingClock), so a stray click used to wipe the
+   * running timer with no warning — and now also burns a take number.
+   *
+   * Everything the previous take accumulated is cleared here to match what
+   * `resetTimer` clears server-side; leaving it meant take 2 opened with every
+   * question already ticked "asked" and take 1's notes still in the box. The
+   * markers themselves are NOT cleared — they stay in the DB tagged with their
+   * own take number.
+   */
   const onReset = withBusy(async () => {
-    await resetTimerAction(room.id)
+    if (
+      !window.confirm(
+        "إعادة الضبط تبدأ تسجيلاً جديداً (تيك جديد): يصفّر المؤقّت، والأسئلة المطروحة، وملاحظات المخرج. العلامات المسجّلة تُحفظ باسم التيك الحالي. تكمل؟",
+      )
+    ) {
+      return
+    }
+    const r = await resetTimerAction(room.id)
+    if (r.ok && typeof r.take_number === "number") setTakeNumber(r.take_number)
     setElapsedMsAtBaseline(0)
     setWindowStartedAt(null)
     setStatus("waiting")
+    setCompletedQuestionIds(new Set())
+    setCompletedSections(new Set())
+    setSectionIndex(0)
+    setNotes("")
+    setMarkers([])
+    // The new take has no anchor row until it starts, so there is nothing to
+    // correct yet — and the previous take's offset must not be shown as if it
+    // applied to this one.
+    setCameraOffsetMs(null)
+    // RE-ARM THE GATE. The override is per-take on the server, but this local
+    // flag would have carried it into take 2 inside the same tab — the host
+    // would never see the checklist again for the rest of the session. Same for
+    // `selfCompleting`: a new take needs a fresh decision about who confirms it.
+    setOverridden(false)
+    setSelfCompleting(false)
   })
   const onEnd = withBusy(async () => {
     setElapsedMsAtBaseline(nowElapsed())
@@ -196,7 +354,12 @@ export function LiveV2Client({ initial }: { initial: LiveV2Snapshot }) {
             marker_type: type,
             label,
             note: null,
-            recording_ms: r.recording_ms ?? fallbackMs,
+            net_recording_ms: r.net_recording_ms ?? fallbackMs,
+            take_number: takeNumber,
+            // Camera time is derived server-side from the take anchor; an
+            // optimistic row cannot know it. `null` = "not yet resolved", which
+            // the recap renders honestly instead of inventing a timecode.
+            camera_ms: null,
             section_key: currentSection,
             created_at: new Date().toISOString(),
             author_name: "you",
@@ -237,7 +400,12 @@ export function LiveV2Client({ initial }: { initial: LiveV2Snapshot }) {
             marker_type: "insight_used",
             label: "إسناد",
             note,
-            recording_ms: r.recording_ms ?? fallbackMs,
+            net_recording_ms: r.net_recording_ms ?? fallbackMs,
+            take_number: takeNumber,
+            // Camera time is derived server-side from the take anchor; an
+            // optimistic row cannot know it. `null` = "not yet resolved", which
+            // the recap renders honestly instead of inventing a timecode.
+            camera_ms: null,
             section_key: currentSection,
             created_at: new Date().toISOString(),
             author_name: "you",
@@ -290,8 +458,42 @@ export function LiveV2Client({ initial }: { initial: LiveV2Snapshot }) {
   }
 
   if (status === "waiting") {
+    // The host either sees the gate bar, or — after choosing "أكمل التشك-ليست
+    // بنفسي" — the director's own checklist on their screen. Same component, same
+    // unlock condition; only the confirming person differs.
+    if (selfCompleting) {
+      return (
+        <ChecklistPanel
+          model={checklistModel}
+          onSet={onSetChecklistItem}
+          busy={busy}
+          previousTakeWasComplete={room.checklist_previous_take_complete}
+          takeNumber={takeNumber}
+          // Self mode: this panel stands in for the gate, so it must carry both
+          // ways out — start the take, or go back to the read-in.
+          selfMode
+          onStart={onStart}
+          onBack={() => setSelfCompleting(false)}
+        />
+      )
+    }
     return (
       <PreflightView
+        gate={
+          <PreflightGate
+            gateState={gateState}
+            model={checklistModel}
+            overridden={overridden}
+            directorLabel={directorLabel}
+            onStart={onStart}
+            onSelfComplete={() => setSelfCompleting(true)}
+            onOverride={onOverride}
+            onReconnect={reconnect}
+            busy={busy}
+          >
+            <EnergyLabel energy={energy} canSetEnergy onSetEnergy={onSetEnergy} />
+          </PreflightGate>
+        }
         title={prep.title}
         guestName={prep.guest_name}
         thesis={pv.thesis}
@@ -320,6 +522,9 @@ export function LiveV2Client({ initial }: { initial: LiveV2Snapshot }) {
         questionsTotal={pv.question_bank.length}
         markers={contentMarkers}
         closingOptions={pv.closing_options}
+        takeNumber={takeNumber}
+        cameraOffsetMs={cameraOffsetMs}
+        onSetCameraOffset={onSetCameraOffset}
         onReset={onReset}
         busy={busy}
       />
@@ -371,7 +576,7 @@ function LegacyCockpit(props: {
   onReset: () => void
   onEnd: () => void
   contentMarkers: LiveV2Marker[]
-  energyHistory: { recording_ms: number; level: number }[]
+  energyHistory: { net_recording_ms: number; level: number }[]
   sectionIndex: number
   legacyQuestions: string[]
   onTag: (type: QuickMarkerType, label: string) => void
@@ -470,7 +675,7 @@ function QuickTagsPanel(props: {
                   <Icon className={"h-3 w-3 " + st.text} />
                   <span className={"font-medium " + st.text}>{st.label}</span>
                   <span className="font-mono text-foreground/70 tabular-nums" dir="ltr">
-                    {formatPrecise(m.recording_ms)}
+                    {formatPrecise(m.net_recording_ms)}
                   </span>
                 </span>
               )

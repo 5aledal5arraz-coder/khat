@@ -356,7 +356,7 @@ export interface WorkspaceMarker {
   id: string
   marker_type: string
   label: string
-  recording_ms: number
+  net_recording_ms: number
   section_key: string | null
   created_at: string
 }
@@ -370,19 +370,19 @@ export async function getMarkersForRoom(
       id: roomSessionMarkers.id,
       marker_type: roomSessionMarkers.marker_type,
       label: roomSessionMarkers.label,
-      recording_ms: roomSessionMarkers.recording_ms,
+      net_recording_ms: roomSessionMarkers.net_recording_ms,
       section_key: roomSessionMarkers.section_key,
       created_at: roomSessionMarkers.created_at,
     })
     .from(roomSessionMarkers)
     .where(eq(roomSessionMarkers.room_id, roomId))
-    .orderBy(desc(roomSessionMarkers.recording_ms))
+    .orderBy(desc(roomSessionMarkers.net_recording_ms))
     .limit(limit)
   return rows.map((r) => ({
     id: r.id,
     marker_type: r.marker_type,
     label: r.label,
-    recording_ms: r.recording_ms,
+    net_recording_ms: r.net_recording_ms,
     section_key: r.section_key ?? null,
     created_at: r.created_at.toISOString(),
   }))

@@ -2,14 +2,23 @@
  * Khat Brain — Episode phase state machine.
  *
  * Forward-only transitions + an `archived` escape from any non-terminal
- * phase. If editorial decides to "go back" (e.g. re-record), the design
- * decision for Phase 1 is to archive the EIR and create a new one
- * downstream of the same season + guest. This keeps the audit clean and
- * prevents ambiguous "what version of the prep is real?" questions.
+ * phase, plus ONE deliberate backward edge (`recorded → ready_to_record`,
+ * the re-shoot; see ADDITIONAL_TRANSITIONS).
  *
- * Recovery transitions (e.g. producing → recording) are intentionally
- * NOT in the map. Add them in a later phase if real workflow demands it,
- * with a written justification per transition.
+ * The original Phase-1 decision was that going back meant archiving the EIR
+ * and creating a new one. Real workflow overruled it: when the crew scraps a
+ * take and re-shoots the same guest on the same prep, that is the SAME
+ * episode. Cloning the EIR left two records competing for "which prep is
+ * real?", which is the exact ambiguity the archive rule was meant to avoid.
+ *
+ * Other recovery transitions (e.g. producing → recording) remain
+ * intentionally absent. Add them only with a written justification per
+ * transition, and remember the matrix is duplicated in SQL — see below.
+ *
+ * ⚠️ This matrix is encoded TWICE. Any edit here MUST be mirrored in the
+ * trigger function literal in `scripts/migrate-phase2-1-eir-trigger.ts`,
+ * then that migration re-run. `tests/eir/trigger-matrix.test.ts` fails if
+ * the two drift.
  */
 
 import type { EpisodePhase } from "@/lib/db/schema/eir"
@@ -45,6 +54,20 @@ const LINEAR_NEXT: Record<EpisodePhase, EpisodePhase | null> = {
 const ADDITIONAL_TRANSITIONS: Partial<Record<EpisodePhase, EpisodePhase[]>> = {
   // Idea may skip guest_discovery if a guest is already known.
   idea: ["guest_discovery"],
+  /**
+   * RETAKE — the one backward edge in the machine.
+   *
+   * The crew scrapped the take and is re-shooting the same episode with the
+   * same guest and the same prep. Fired by `resetTimer` when a new take is
+   * opened. Without it the EIR stayed `recorded` while the studio was being
+   * re-lit, and every producer surface kept reading «مسجّلة».
+   *
+   * ⚠️ This edge makes the phase graph CYCLIC (ready_to_record → recording →
+   * recorded → ready_to_record). Anything that walks phase history must not
+   * assume monotonic progress — `eir_phase_transitions` can now legitimately
+   * contain the same phase more than once for one EIR.
+   */
+  recorded: ["ready_to_record"],
 }
 
 /** Final, frozen transition table. Computed once. */

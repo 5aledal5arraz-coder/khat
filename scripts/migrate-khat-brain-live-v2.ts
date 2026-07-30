@@ -53,7 +53,7 @@ async function main() {
       marker_type  text NOT NULL,
       label        text NOT NULL,
       note         text,
-      recording_ms integer NOT NULL,
+      net_recording_ms integer NOT NULL,
       wall_time    timestamptz NOT NULL DEFAULT now(),
       created_at   timestamptz NOT NULL DEFAULT now(),
       section_key  text
@@ -96,7 +96,7 @@ async function main() {
   )
   await exec(
     "idx by room",
-    `CREATE INDEX IF NOT EXISTS idx_room_session_markers_room ON room_session_markers (room_id, recording_ms)`,
+    `CREATE INDEX IF NOT EXISTS idx_room_session_markers_room ON room_session_markers (room_id, net_recording_ms)`,
   )
 
   console.log("\nDone!")

@@ -1,0 +1,1 @@
+ALTER TABLE "room_session_markers" RENAME COLUMN "recording_ms" TO "net_recording_ms";

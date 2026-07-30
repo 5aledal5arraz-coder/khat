@@ -482,7 +482,7 @@ async function caseQuickTags(ctx: RoomCtx, adminId: string, email: string) {
   const first = rows[0]
   assert(first.marker_type === "highlight", `first marker_type: ${first.marker_type}`)
   assert(first.section_key === "emotional_peak", `first section_key: ${first.section_key}`)
-  assert(first.recording_ms > 0, `first recording_ms <= 0: ${first.recording_ms}`)
+  assert(first.net_recording_ms > 0, `first net_recording_ms <= 0: ${first.net_recording_ms}`)
   const second = rows[1]
   assert(second.marker_type === "quote", `second marker_type: ${second.marker_type}`)
   assert(second.section_key === "deep_dive", `second section_key: ${second.section_key}`)
@@ -494,7 +494,7 @@ async function caseQuickTags(ctx: RoomCtx, adminId: string, email: string) {
 
   await endTimer(ctx.roomId)
   await resetTimer(ctx.roomId)
-  console.log(`  ✓ markers persisted (highlight + quote) with section_key + recording_ms`)
+  console.log(`  ✓ markers persisted (highlight + quote) with section_key + net_recording_ms`)
 }
 
 async function caseEirMappingStillWorks(adminId: string) {

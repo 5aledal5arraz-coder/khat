@@ -109,14 +109,20 @@ export function RoomStateProvider({
 
   useEffect(() => {
     if (!snapshot) return
+    // Every non-room slice must be destructured OUT here: whatever is left lands
+    // on `room`, and a checklist hanging off `room` would be wiped by the next
+    // `room_update` (which replaces the object wholesale). Its own provider owns
+    // it — see room-checklist-context.tsx.
     const {
       cards,
       card_states,
       notes,
       participants: ps,
       prep_v2,
+      checklist,
       ...roomData
     } = snapshot
+    void checklist
     setRoom(roomData as CollaborationRoom)
     setParticipants(ps)
     setPrepV2(prep_v2 ?? null)
@@ -164,6 +170,14 @@ export function RoomStateProvider({
         body: JSON.stringify({ participant_id: myParticipantId }),
       }).catch(() => {})
     }
+
+    // Beat IMMEDIATELY, then on the interval. `setInterval` alone leaves the
+    // first 30s with no heartbeat at all, and this PATCH is the only thing that
+    // runs `sweepStaleParticipants` — so a room whose members all joined in the
+    // last half-minute never cleared its stale rows, and a stale
+    // `is_online = true` is what makes the checklist gate read "a director is
+    // connected" when nobody is there.
+    beat()
 
     heartbeatRef.current = setInterval(beat, 30_000)
     return () => {
@@ -250,6 +264,13 @@ export function RoomStateProvider({
     try {
       await fetch(`/api/admin/preparation/${prepId}/rooms/${roomId}/join`, {
         method: "DELETE",
+        // `keepalive` lets this outlive the document, which is what makes it
+        // usable from a `beforeunload` handler. It replaces a `navigator
+        // .sendBeacon` call that was being used for the same purpose — but
+        // sendBeacon can only issue POST, and POST on this route means JOIN, so
+        // closing a tab was re-joining the leaver with a fresh heartbeat and
+        // pinning them online forever.
+        keepalive: true,
         headers: { "Content-Type": "application/json", "x-requested-with": "khat" },
         body: JSON.stringify({ participant_id: myParticipantId }),
       })

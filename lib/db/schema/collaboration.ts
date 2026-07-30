@@ -1,13 +1,19 @@
 /**
  * Live Collaboration Room — DB schema.
  *
- * Six tables supporting the Interview Cards + Live Recording Room MVP:
+ * Tables supporting the Interview Cards + Live Recording Room MVP:
  *   - interview_cards: rich question cards (source of truth for live sessions)
  *   - card_materials: supporting evidence/context per card
  *   - collaboration_rooms: live recording sessions
+ *   - room_takes: one row per recording attempt + the wall-clock anchor
  *   - room_participants: who is in a room + presence
  *   - room_card_state: per-card live status within a room
+ *   - room_session_markers: timestamped flags during a take
  *   - room_card_notes: team notes attached to cards during recording
+ *
+ * TWO CLOCKS, on purpose — see `roomTakes` and `roomSessionMarkers` below:
+ * net recording time (cockpit) and camera wall-clock time (editors). Mixing
+ * them is the bug class this file's comments exist to prevent.
  */
 
 import {
@@ -18,6 +24,7 @@ import {
   timestamp,
   jsonb,
   unique,
+  index,
 } from "drizzle-orm/pg-core"
 import { episodePreparations } from "./preparation"
 
@@ -132,6 +139,17 @@ export const collaborationRooms = pgTable("collaboration_rooms", {
   recording_elapsed_ms: integer("recording_elapsed_ms").notNull().default(0),
 
   /**
+   * Which take is currently loaded in this room. Incremented by `resetTimer`
+   * ("إعادة ضبط لتسجيل جديد"), never decremented. Every marker copies this
+   * value at insert time so take-1 flags never mix with take-2 flags in an
+   * export — see `room_takes` for the per-take wall-clock anchor.
+   *
+   * NOTE: `recording_started_at` above is NOT an anchor — `resumeTimer`
+   * overwrites it on every resume. `room_takes.anchor_at` is the anchor.
+   */
+  take_number: integer("take_number").notNull().default(1),
+
+  /**
    * Phase X Step 5 — Live V2 director surface state. Independent from
    * the legacy `phase` column (which maps to EIR phases via the room
    * status walker). The V2 page reads/writes these and stays a no-op
@@ -161,6 +179,138 @@ export const collaborationRooms = pgTable("collaboration_rooms", {
   created_at: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   updated_at: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
 })
+
+// ═══════════════════════════════════════════════════════════════
+// Room Takes — one row per recording attempt, and the ONLY wall-clock anchor
+// ═══════════════════════════════════════════════════════════════
+
+/**
+ * A "take" is one attempt at recording the episode. Re-shooting (the WrapView
+ * "إعادة ضبط لتسجيل جديد" button) opens take N+1 in the SAME room, against the
+ * same EIR — the episode walks back to `ready_to_record`, it does not become a
+ * new episode.
+ *
+ * This table exists for ONE reason: **`anchor_at` is the only stable wall-clock
+ * zero point we have.** `collaboration_rooms.recording_started_at` cannot serve
+ * as one because `resumeTimer` overwrites it on every resume.
+ *
+ * Why that matters: the camera keeps rolling through a pause, but
+ * `room_session_markers.net_recording_ms` deliberately EXCLUDES paused time.
+ * So after the first break the two clocks diverge, and the divergence
+ * accumulates. Editors need camera time; the cockpit needs net time. Both are
+ * available:
+ *
+ *   net time    = room_session_markers.net_recording_ms       (stored)
+ *   camera time = (marker.wall_time − take.anchor_at)
+ *                 + take.camera_offset_ms                     (derived)
+ *
+ * Camera time is DERIVED, not stored, precisely so `camera_offset_ms` can fix
+ * it after the fact — see below. Net time must be stored because it cannot be
+ * reconstructed from wall clocks alone (that would need the full pause history).
+ * The derivation lives in `lib/recording-v2/camera-time.ts`.
+ */
+export const roomTakes = pgTable(
+  "room_takes",
+  {
+    id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+    room_id: text("room_id")
+      .notNull()
+      .references(() => collaborationRooms.id, { onDelete: "cascade" }),
+
+    /** 1-based, matches `collaboration_rooms.take_number` while the take is live. */
+    take_number: integer("take_number").notNull().default(1),
+
+    /**
+     * Wall clock at the FIRST "ابدأ التسجيل" of this take. Written exactly once
+     * (`startTimer` only sets it when creating the row) and never overwritten —
+     * not by resume, not by pause, not by end. Sourced from the Node clock, the
+     * same clock that stamps `room_session_markers.wall_time`, so the
+     * subtraction carries no app↔DB clock skew.
+     */
+    anchor_at: timestamp("anchor_at", { withTimezone: true }).notNull(),
+
+    /** Wall clock at "أوقف التسجيل" (`endTimer`). Null while the take is open. */
+    ended_at: timestamp("ended_at", { withTimezone: true }),
+
+    /**
+     * Manual sync correction, in ms, added to every derived camera timestamp of
+     * this take. Positive = the camera started BEFORE we pressed "ابدأ".
+     *
+     * Nobody presses a browser button on the exact frame the camera rolls, so
+     * the raw anchor is always off by seconds. The editor measures the real
+     * offset once and it is entered here; every marker of the take re-derives
+     * correctly with no re-export and no data rewrite. This field is the whole
+     * reason camera time is derived instead of frozen onto each marker row.
+     */
+    camera_offset_ms: integer("camera_offset_ms").notNull().default(0),
+
+    created_at: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => [
+    unique("room_takes_room_take").on(t.room_id, t.take_number),
+  ],
+)
+
+// ═══════════════════════════════════════════════════════════════
+// Recording Checklist — the director's pre-shoot confirmation, per take
+// ═══════════════════════════════════════════════════════════════
+
+/**
+ * One row per confirmed (or explicitly waived) checklist item.
+ *
+ * The ITEM CATALOGUE is not in the database — it lives in
+ * `lib/recording-v2/preflight-checklist.ts`, the same way the marker taxonomy
+ * lives in `marker-types.ts`. This table stores only *what happened*: which key
+ * was confirmed, when, and by whom. Adding or renaming a checklist item is then
+ * a code change with no migration, and a row whose `item_key` is no longer in
+ * the catalogue is simply ignored rather than corrupting the flow.
+ *
+ * **Scoped to `take_number` on purpose.** A re-shoot means the studio was
+ * changed or struck — usually that IS the reason for the re-shoot — so take 1's
+ * confirmations say nothing about take 2. State is never copied forward; the UI
+ * shows a context line that the previous take was fully confirmed instead.
+ *
+ * `checked_by` holds the ADMIN USER id from the session (soft ref, no FK, the
+ * same pattern as `created_by` / `eir_phase_transitions.actor_id`). It is
+ * deliberately NOT a `room_participants.id`: `ensureParticipant` hardcodes
+ * `role: "director"` for anyone who creates a marker, so participant rows carry
+ * a role that is not trustworthy. Session identity is.
+ */
+export const recordingChecklistItems = pgTable(
+  "recording_checklist_items",
+  {
+    id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+    room_id: text("room_id")
+      .notNull()
+      .references(() => collaborationRooms.id, { onDelete: "cascade" }),
+    /** Which take these confirmations belong to. See `room_takes`. */
+    take_number: integer("take_number").notNull().default(1),
+    /** Stable key from the code catalogue, e.g. `cam.guest_main`. */
+    item_key: text("item_key").notNull(),
+
+    checked_at: timestamp("checked_at", { withTimezone: true }),
+    /** admin_users.id — soft reference, project convention. */
+    checked_by: text("checked_by"),
+
+    /**
+     * Set when the item is waived rather than satisfied. A waived item counts as
+     * resolved for the gate, but the reason is recorded so "we shot without
+     * cam 4" is answerable afterwards instead of being indistinguishable from
+     * "cam 4 was fine".
+     */
+    not_applicable_reason: text("not_applicable_reason"),
+
+    created_at: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    updated_at: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => [
+    unique("recording_checklist_room_take_item").on(
+      t.room_id,
+      t.take_number,
+      t.item_key,
+    ),
+  ],
+)
 
 // ═══════════════════════════════════════════════════════════════
 // Room Participants — who is in a room + presence
@@ -221,7 +371,9 @@ export const roomCardState = pgTable(
 // Room Session Markers — timestamped events during recording
 // ═══════════════════════════════════════════════════════════════
 
-export const roomSessionMarkers = pgTable("room_session_markers", {
+export const roomSessionMarkers = pgTable(
+  "room_session_markers",
+  {
   id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
   room_id: text("room_id")
     .notNull()
@@ -229,6 +381,15 @@ export const roomSessionMarkers = pgTable("room_session_markers", {
   author_id: text("author_id")
     .notNull()
     .references(() => roomParticipants.id, { onDelete: "cascade" }),
+
+  /**
+   * Which take this marker belongs to. Copied from
+   * `collaboration_rooms.take_number` at insert time — NOT looked up later,
+   * because the room's counter moves on the next reset and a late lookup would
+   * relabel take-1 markers as take-3. Also the join key to `room_takes` for the
+   * wall-clock anchor.
+   */
+  take_number: integer("take_number").notNull().default(1),
 
   marker_type: text("marker_type").notNull(),
   // Canonical quick-marker taxonomy (single vocabulary for host/director/editor)
@@ -239,12 +400,37 @@ export const roomSessionMarkers = pgTable("room_session_markers", {
   // (Older rows may carry legacy values; they render via a fallback style.)
   label: text("label").notNull(),
   note: text("note"),
-  recording_ms: integer("recording_ms").notNull(), // ms offset from recording start
+  /**
+   * NET recording time in ms — accumulated time the app spent in `live`,
+   * EXCLUDING every paused stretch. This is the cockpit clock's number: what
+   * the host sees on the big timer and where the pin sits on the live timeline.
+   *
+   * ⚠️ NEVER export this to an editor. The camera keeps rolling through a
+   * pause, so from the first break onward this value drifts behind the camera
+   * file by the total paused duration. Editor-facing timestamps come from
+   * `cameraMsForMarker()` in `lib/recording-v2/camera-time.ts`.
+   *
+   * (Renamed from the ambiguous `recording_ms`, which read like "position in
+   * the recording" and was being treated as such.)
+   */
+  net_recording_ms: integer("net_recording_ms").notNull(),
   /** Phase X Step 5 — current Prep V2 section key when the marker was created. */
   section_key: text("section_key"),
+  /**
+   * Wall clock at which the marker was flagged — the basis for CAMERA time
+   * (`wall_time − room_takes.anchor_at`). Always written explicitly from the
+   * Node clock by every insert path; never left to the Postgres `now()` default,
+   * because the app server and the managed DB are different hosts and the skew
+   * between them would land directly in the exported timecode. The `defaultNow()`
+   * below is a safety net for hand-written SQL only.
+   */
   wall_time: timestamp("wall_time", { withTimezone: true }).notNull().defaultNow(),
   created_at: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
-})
+  },
+  (t) => [
+    index("idx_room_session_markers_room_take").on(t.room_id, t.take_number),
+  ],
+)
 
 // ═══════════════════════════════════════════════════════════════
 // Room Card Notes — team notes attached to cards during recording

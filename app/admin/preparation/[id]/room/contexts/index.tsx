@@ -3,8 +3,8 @@
 /**
  * Room Contexts — composed provider and re-exports.
  *
- * Wraps the five room context layers in the correct dependency order:
- *   Connection → State → Cards → Timer → Markers
+ * Wraps the room context layers in the correct dependency order:
+ *   Connection → State → Cards → Timer → Markers → Checklist
  */
 
 import type { ReactNode } from "react"
@@ -13,6 +13,7 @@ import { RoomStateProvider } from "./room-state-context"
 import { RoomCardsProvider } from "./room-cards-context"
 import { RoomTimerProvider } from "./room-timer-context"
 import { RoomMarkersProvider } from "./room-markers-context"
+import { RoomChecklistProvider } from "./room-checklist-context"
 
 // ─── Re-exports ─────────────────────────────────────────────────────
 
@@ -21,6 +22,7 @@ export { useRoomState } from "./room-state-context"
 export { useRoomCards } from "./room-cards-context"
 export { useRoomTimer, type TimerStatus } from "./room-timer-context"
 export { useRoomMarkers } from "./room-markers-context"
+export { useRoomChecklist } from "./room-checklist-context"
 
 // ─── Composed Provider ──────────────────────────────────────────────
 
@@ -39,7 +41,7 @@ export function RoomProvider({
         <RoomCardsProvider prepId={prepId} roomId={roomId}>
           <RoomTimerProvider prepId={prepId} roomId={roomId}>
             <RoomMarkersProvider prepId={prepId} roomId={roomId}>
-              {children}
+              <RoomChecklistProvider>{children}</RoomChecklistProvider>
             </RoomMarkersProvider>
           </RoomTimerProvider>
         </RoomCardsProvider>

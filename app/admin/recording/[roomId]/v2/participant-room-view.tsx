@@ -12,7 +12,12 @@
  */
 
 import { useMemo, useState } from "react"
-import { useRoomState, useRoomMarkers } from "@/app/admin/preparation/[id]/room/contexts"
+import {
+  useRoomState,
+  useRoomMarkers,
+  useRoomChecklist,
+  useRoomConnection,
+} from "@/app/admin/preparation/[id]/room/contexts"
 import { cn } from "@/lib/utils"
 import type { LiveV2Snapshot } from "@/lib/recording-v2/load"
 import type { PrepV2Question, PrepV2Payload, SectionKind } from "@/lib/preparation/v2/types"
@@ -20,10 +25,14 @@ import {
   Circle, Film, Quote, Volume2, Scissors, AlertTriangle,
   Flag, Loader2, Trash2,
   Camera, Clapperboard, Sparkles, Zap, BookOpen, ChevronDown, ChevronUp, Check,
+  RefreshCw,
 } from "lucide-react"
 import { Empty } from "../../../components/ui-kit"
 import { RoomNotesPanel } from "./room-notes-panel"
 import { markerStyle } from "./recording-shared"
+import { ChecklistPanel } from "./checklist-panel"
+import { setChecklistItemAction } from "./actions"
+import { deriveChecklistModel } from "@/lib/recording-v2/preflight-checklist"
 import {
   DIRECTOR_MARKER_TYPES,
   QUICK_MARKER_META,
@@ -145,7 +154,7 @@ export function TeamMarkerFeed({
         </span>
         <span className="inline-flex items-center gap-2">
           <time className="tabular-nums text-[10.5px] text-muted-foreground" dir="ltr">
-            {formatClock(m.recording_ms)}
+            {formatClock(m.net_recording_ms)}
           </time>
           {canDelete && (
             <button
@@ -215,6 +224,117 @@ export function ParticipantRoomView({
   const isDirector = role === "director"
   const isPhotographer = role === "photographer"
   const isEditor = role === "editor"
+
+  const status0 = room?.status ?? initial.room.status
+  const takeNumber = room?.take_number ?? initial.room.take_number
+
+  // ── The director's pre-shoot checklist ────────────────────────────
+  //
+  // Shown BEFORE the take, to the director, on the director's own surface — the
+  // host never sees the 17 rows, only the gate's summary. This is the whole
+  // reason the checklist lives here and not in PreflightView: PreflightView is
+  // inside LiveV2Client, which only the host (or an operator before the join
+  // resolves) ever renders.
+  const { checklist: liveChecklist, takeNumber: liveChecklistTake } = useRoomChecklist()
+  const { status: connStatus, reconnect } = useRoomConnection()
+  // Both sources take-matched; an unmatched source yields EMPTY, never the other
+  // one. `initial.room.checklist` is a frozen server-render prop, so after a
+  // reset it still holds the scrapped take's rows.
+  const checklistModel = useMemo(() => {
+    const entries =
+      liveChecklist && liveChecklistTake === takeNumber
+        ? liveChecklist
+        : initial.room.take_number === takeNumber
+          ? initial.room.checklist
+          : []
+    return deriveChecklistModel(entries)
+  }, [
+    liveChecklist,
+    liveChecklistTake,
+    takeNumber,
+    initial.room.checklist,
+    initial.room.take_number,
+  ])
+  const [busy, setBusy] = useState(false)
+
+  async function onSetChecklistItem(
+    itemKey: string,
+    state: "done" | "not_applicable" | "pending",
+    reason?: string,
+  ) {
+    setBusy(true)
+    try {
+      await setChecklistItemAction({
+        roomId: initial.room.id,
+        itemKey,
+        state,
+        notApplicableReason: reason ?? null,
+      })
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  // Before the take starts, the checklist IS the director's screen — nothing
+  // else on it matters until the studio is confirmed. Once recording begins the
+  // normal follow-along takes over.
+  if (isDirector && status0 === "waiting") {
+    return (
+      <>
+        {/* The director owns the taps, so a dead stream matters MORE here than on
+            the host's screen: their confirmations would stop reaching anyone.
+            The host had a reconnect control and the director did not. */}
+        {connStatus !== "connected" && (
+          <div className="mx-auto mt-3 max-w-2xl px-4">
+            {/* "Connecting" is every page load and resolves on its own, so it
+                gets the quiet neutral treatment. Only a genuinely dead stream
+                earns the amber alarm — sharing one amber box for both made a
+                normal load look like a fault. */}
+            <div
+              className={cn(
+                "flex flex-wrap items-center justify-between gap-2 rounded-2xl border px-3 py-2.5",
+                connStatus === "disconnected"
+                  ? "border-amber-500/40 bg-amber-500/10"
+                  : "border-border/40 bg-background/50",
+              )}
+            >
+              <span
+                className={cn(
+                  "inline-flex items-center gap-1.5 text-[12px] font-medium",
+                  connStatus === "disconnected" ? "text-amber-800" : "text-muted-foreground",
+                )}
+              >
+                {connStatus === "disconnected" ? (
+                  "الاتصال مقطوع — تأكيداتك ما توصل المقدم"
+                ) : (
+                  <>
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    جارٍ الاتصال… ثانية وتبيّن
+                  </>
+                )}
+              </span>
+              {connStatus === "disconnected" && (
+                <button
+                  type="button"
+                  onClick={reconnect}
+                  className="inline-flex min-h-[44px] items-center gap-1.5 rounded-xl border border-amber-500/50 bg-background/60 px-3.5 py-2 text-[12.5px] font-semibold text-amber-800"
+                >
+                  <RefreshCw className="h-3.5 w-3.5" /> إعادة الاتصال
+                </button>
+              )}
+            </div>
+          </div>
+        )}
+        <ChecklistPanel
+          model={checklistModel}
+          onSet={onSetChecklistItem}
+          busy={busy}
+          previousTakeWasComplete={initial.room.checklist_previous_take_complete}
+          takeNumber={takeNumber}
+        />
+      </>
+    )
+  }
 
   if (!prep || !prep.episode_sections?.length) {
     return (

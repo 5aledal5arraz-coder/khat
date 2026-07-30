@@ -26,6 +26,7 @@ import {
 } from "@/lib/db/schema/eir"
 import {
   getEpisodeIntelligenceRecord,
+  transitionEpisodePhase,
 } from "@/lib/eir"
 import type { PreparationStatus } from "@/types/preparation"
 import { walkEirToPhase } from "./v2-bridge"
@@ -132,6 +133,47 @@ export async function syncEirFromRoomStatus(input: {
     actorId: input.actorId,
     reason: `room:${input.status}`,
   })
+}
+
+/**
+ * RETAKE — walk the EIR BACKWARD from `recorded` to `ready_to_record`.
+ *
+ * The only backward sync in this module, and deliberately NOT built on
+ * `walkForwardIfBehind`: that helper's whole contract is "never go back", so
+ * routing a retake through it would silently no-op (recorded is *ahead* of
+ * ready_to_record, which is exactly the bug this fixes).
+ *
+ * Narrow on purpose — it only fires from `recorded`:
+ *   • Already `ready_to_record` (or earlier) → nothing to undo, "noop".
+ *   • Mid-take (`recording`) → the operator hit reset before ending; the EIR
+ *     is still `recording` and a reset does not retreat past it. "noop".
+ *   • Past `recorded` (producing / published / …) → post has already started
+ *     on this footage. Silently rewinding would strip the phase history of
+ *     what actually happened. "noop", and the caller is expected to surface
+ *     the refusal rather than pretend the walk happened.
+ *   • Archived → never reanimated, same as everywhere else.
+ */
+export async function syncEirOnRetake(input: {
+  eirId: string | null | undefined
+  actorId?: string | null
+}): Promise<WalkResult> {
+  if (!input.eirId) return "missing"
+  const eir = await getEpisodeIntelligenceRecord(input.eirId)
+  if (!eir) return "missing"
+  if (eir.phase === "archived") return "archived"
+  if (eir.phase !== "recorded") return "noop"
+
+  // Called directly, NOT via `walkEirToPhase`: that composer walks the linear
+  // chain forward and throws outright on a backward target. This is a single
+  // legal step in the transition table, so the state machine + audit row +
+  // system event all still flow through `transitionEpisodePhase`.
+  await transitionEpisodePhase({
+    eir_id: input.eirId,
+    to_phase: "ready_to_record",
+    actor_id: input.actorId ?? null,
+    reason: "room:retake",
+  })
+  return "advanced"
 }
 
 export async function syncEirFromPrepStatus(input: {

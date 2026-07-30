@@ -2,29 +2,10 @@ import { NextRequest, NextResponse } from "next/server"
 import { requireRole, errorResponse, validationErrorResponse } from "@/lib/api-utils"
 import { joinRoom, leaveRoom, heartbeat, sweepStaleParticipants } from "@/lib/collaboration/rooms"
 import { broadcast } from "@/lib/collaboration/broadcast"
-import type { AdminRole } from "@/lib/admin/auth"
-import type { ParticipantRole } from "@/types/collaboration"
-
-/**
- * Deterministic room-role assignment from admin identity.
- * No client self-selection — the server always decides.
- *
- *   OWNER  → host
- *   ADMIN  → director
- *   EDITOR → editor
- *   VIEWER → viewer
- *
- * On rejoin (existing participant record), the role is re-derived
- * from the current admin identity — always authoritative.
- */
-function adminRoleToRoomRole(adminRole: AdminRole): ParticipantRole {
-  switch (adminRole) {
-    case "OWNER": return "host"
-    case "ADMIN": return "director"
-    case "EDITOR": return "editor"
-    case "VIEWER": return "viewer"
-  }
-}
+// Shared with the recording page's server render, which resolves the same role
+// up front so a director is never handed the host cockpit while the SSE
+// participant list is still in flight. See lib/collaboration/room-roles.ts.
+import { adminRoleToRoomRole } from "@/lib/collaboration/room-roles"
 
 /** POST — join a room (role is server-assigned from admin identity) */
 export async function POST(

@@ -20,6 +20,7 @@ import {
   walkForwardIfBehind,
 } from "@/lib/khat-brain"
 import type { CollaborationRoomStatus } from "@/lib/khat-brain"
+import { getChecklistEntries } from "@/lib/recording-v2/checklist"
 import type {
   CollaborationRoom,
   CollaborationRoomSnapshot,
@@ -154,7 +155,12 @@ export async function getRoomSnapshot(roomId: string): Promise<CollaborationRoom
     .select()
     .from(roomSessionMarkers)
     .where(eq(roomSessionMarkers.room_id, roomId))
-    .orderBy(asc(roomSessionMarkers.recording_ms))
+    .orderBy(asc(roomSessionMarkers.net_recording_ms))
+
+  // Pre-shoot checklist for the CURRENT take. Re-read on every snapshot (i.e.
+  // every SSE connect/reconnect) for the same reason as prep_v2: otherwise a
+  // refresh hands the host an empty checklist and re-locks a ready studio.
+  const checklist = await getChecklistEntries(roomId, room.take_number)
 
   return {
     ...room,
@@ -164,6 +170,12 @@ export async function getRoomSnapshot(roomId: string): Promise<CollaborationRoom
     notes: noteRows.map(rowToNote),
     markers: markerRows.map(rowToMarker),
     prep_v2: (prepRow?.prep_v2 as PrepV2Payload | null) ?? null,
+    checklist: checklist.map((c) => ({
+      item_key: c.item_key,
+      checked_at: typeof c.checked_at === "string" ? c.checked_at : (c.checked_at?.toISOString() ?? null),
+      checked_by: c.checked_by,
+      not_applicable_reason: c.not_applicable_reason,
+    })),
   }
 }
 
@@ -471,8 +483,13 @@ export async function resolveNote(noteId: string): Promise<void> {
 
 // ─── Session Markers ─────────────────────────────────────────────────
 
-/** Compute current recording offset in ms from room state. */
-function computeRecordingMs(room: CollaborationRoom): number {
+/**
+ * Compute the current NET recording time in ms — accumulated live time,
+ * excluding paused stretches. Cockpit-facing only; editor timestamps are
+ * derived from `wall_time` against `room_takes.anchor_at`
+ * (`lib/recording-v2/camera-time.ts`).
+ */
+function computeNetRecordingMs(room: CollaborationRoom): number {
   if (room.status === "live" && room.recording_started_at) {
     return (room.recording_elapsed_ms || 0) + (Date.now() - new Date(room.recording_started_at).getTime())
   }
@@ -493,7 +510,7 @@ export async function recordEnergyChangeMarker(
   try {
     const room = await getRoomById(roomId)
     // Only record during a live take — paused/ended/waiting sets aren't part of
-    // the recording (and would share a frozen recording_ms).
+    // the recording (and would share a frozen net_recording_ms).
     if (!room || room.status !== "live") return null
     const [participant] = await db!
       .select({ id: roomParticipants.id })
@@ -512,7 +529,10 @@ export async function recordEnergyChangeMarker(
         marker_type: "energy_change",
         label: "طاقة",
         note: String(level),
-        recording_ms: computeRecordingMs(room),
+        net_recording_ms: computeNetRecordingMs(room),
+        take_number: room.take_number,
+        // Node clock, matching room_takes.anchor_at — never the PG default.
+        wall_time: new Date(),
       } as never)
       .returning()
     return row ? rowToMarker(row) : null
@@ -528,7 +548,7 @@ export async function createMarker(
   input: CreateSessionMarkerInput,
 ): Promise<RoomSessionMarker> {
   const room = await getRoomById(roomId)
-  const recordingMs = room ? computeRecordingMs(room) : 0
+  const netRecordingMs = room ? computeNetRecordingMs(room) : 0
 
   const [row] = await db!
     .insert(roomSessionMarkers)
@@ -538,7 +558,10 @@ export async function createMarker(
       marker_type: input.marker_type,
       label: input.label,
       note: input.note ?? null,
-      recording_ms: recordingMs,
+      net_recording_ms: netRecordingMs,
+      // Copied from the room at insert time, not resolved on read — the room's
+      // counter advances on the next reset.
+      take_number: room?.take_number ?? 1,
       wall_time: new Date(),
     })
     .returning()
@@ -550,7 +573,7 @@ export async function getMarkersByRoom(roomId: string): Promise<RoomSessionMarke
     .select()
     .from(roomSessionMarkers)
     .where(eq(roomSessionMarkers.room_id, roomId))
-    .orderBy(asc(roomSessionMarkers.recording_ms))
+    .orderBy(asc(roomSessionMarkers.net_recording_ms))
   return rows.map(rowToMarker)
 }
 

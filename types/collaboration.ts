@@ -150,6 +150,12 @@ export interface CollaborationRoom {
   recording_paused_at: string | null
   recording_elapsed_ms: number
   /**
+   * Current recording attempt, 1-based. Bumped by `resetTimer` when the crew
+   * re-shoots. Markers copy it at insert time so takes stay separable; the
+   * per-take wall-clock anchor lives in `room_takes`.
+   */
+  take_number: number
+  /**
    * Khat Brain — back-pointer to the master EIR. Stamped by createRoom
    * via walkForwardIfBehind so the cycle script + workspace can verify
    * phase progression. Type-only addition mirroring the schema column
@@ -187,10 +193,14 @@ export interface RoomSessionMarker {
   id: string
   room_id: string
   author_id: string
+  /** Which recording attempt this marker belongs to (see `room_takes`). */
+  take_number: number
   marker_type: SessionMarkerType
   label: string
   note: string | null
-  recording_ms: number
+  /** NET recording time — excludes paused stretches. Cockpit display only. */
+  net_recording_ms: number
+  /** Wall clock — the basis for CAMERA time, the editor-facing timestamp. */
   wall_time: string
   created_at: string
 }
@@ -236,6 +246,27 @@ export interface CollaborationRoomSnapshot extends CollaborationRoom {
    * instead of freezing on the server-render copy forever.
    */
   prep_v2: PrepV2Payload | null
+
+  /**
+   * Pre-shoot checklist rows for the room's CURRENT take.
+   *
+   * On the snapshot for the same reason as `prep_v2`: without it every SSE
+   * reconnect or page refresh would hand the host an empty checklist and
+   * re-lock a studio that is actually ready.
+   *
+   * Consumed by its own context slice (`RoomChecklistProvider`), NOT as a field
+   * on `room` — `room_update` replaces the `room` object wholesale and would
+   * drop it.
+   */
+  checklist: ChecklistEntrySnapshot[]
+}
+
+/** A persisted checklist row as carried over the wire. */
+export interface ChecklistEntrySnapshot {
+  item_key: string
+  checked_at: string | null
+  checked_by: string | null
+  not_applicable_reason: string | null
 }
 
 /** Lightweight room listing item */
@@ -261,6 +292,7 @@ export type RoomEventType =
   | "marker_added"      // new session marker
   | "marker_deleted"    // session marker removed
   | "prep_update"       // prep_v2 generated/edited for the room's preparation
+  | "checklist_update"  // pre-shoot checklist item confirmed / waived / cleared
 
 export interface RoomEvent {
   type: RoomEventType

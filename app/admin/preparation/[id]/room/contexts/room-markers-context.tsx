@@ -72,7 +72,7 @@ export function RoomMarkersProvider({
       switch (event.type) {
         case "marker_added": {
           const m = event.data as RoomSessionMarker
-          setMarkers((prev) => [...prev, m].sort((a, b) => a.recording_ms - b.recording_ms))
+          setMarkers((prev) => [...prev, m].sort((a, b) => a.net_recording_ms - b.net_recording_ms))
           break
         }
         case "marker_deleted": {

@@ -21,9 +21,12 @@ import {
   saveDirectorNotes,
   createMarker,
   toggleQuestionDone,
+  setTakeCameraOffset,
+  recordChecklistOverride,
   ALLOWED_MARKER_TYPES,
   type LiveV2MarkerType,
 } from "@/lib/recording-v2/actions-impl"
+import { setChecklistItem } from "@/lib/recording-v2/checklist"
 import { getRoomById } from "@/lib/collaboration/rooms"
 import { broadcast } from "@/lib/collaboration/broadcast"
 import type { SectionKind } from "@/lib/preparation/v2/types"
@@ -69,6 +72,92 @@ export async function endTimerAction(roomId: string) {
   if (!gate.ok) throw new Error(gate.error)
   const r = await endTimer(roomId)
   revalidate(roomId)
+  return r
+}
+
+/**
+ * Confirm / waive / clear one pre-shoot checklist item.
+ *
+ * Gated on `requireActionRole("EDITOR")`, consistent with every other v2 action.
+ * Permission is deliberately NOT derived from the room role: `ensureParticipant`
+ * hardcodes `role: "director"` for anyone who writes a marker, so
+ * `room_participants.role` is provably unreliable — a check built on it would be
+ * security theatre over dirty data, which is worse than no check.
+ *
+ * The confirming identity comes from the session (`admin_users.id`).
+ */
+export async function setChecklistItemAction(input: {
+  roomId: string
+  itemKey: string
+  state: "done" | "not_applicable" | "pending"
+  notApplicableReason?: string | null
+}) {
+  const gate = await requireActionRole("EDITOR")
+  if (!gate.ok) throw new Error(gate.error)
+  const user = await getAdminAuthUser()
+  const r = await setChecklistItem({
+    roomId: input.roomId,
+    itemKey: input.itemKey,
+    state: input.state,
+    notApplicableReason: input.notApplicableReason ?? null,
+    actorId: user?.id ?? null,
+  })
+  if (r.ok) {
+    // Its own event type + its own context slice: `room_update` replaces the
+    // whole `room` object, so carrying checklist state on it would drop it.
+    broadcast(input.roomId, {
+      type: "checklist_update",
+      data: { take_number: r.takeNumber, entries: r.entries },
+      timestamp: new Date().toISOString(),
+    })
+    revalidate(input.roomId)
+  }
+  return r
+}
+
+/**
+ * Emergency override of the checklist gate.
+ *
+ * Reached ONLY from the host bar's `no_director` / `offline` states — never as a
+ * general shortcut. Recorded as a `tech_issue` marker rather than a bespoke audit
+ * table so it lands in the CSV export and the wrap screen automatically: the
+ * decision to shoot unverified shows up next to the footage it affected, where
+ * post will actually see it.
+ */
+export async function overrideChecklistGateAction(input: {
+  roomId: string
+  reason: string
+  resolvedCount: number
+  total: number
+}) {
+  const gate = await requireActionRole("EDITOR")
+  if (!gate.ok) throw new Error(gate.error)
+  const user = await getAdminAuthUser()
+  if (!user) return { ok: false as const, error: "no_user" }
+  const reason = input.reason.trim().slice(0, 200)
+  if (!reason) return { ok: false as const, error: "reason_required" }
+
+  const r = await recordChecklistOverride({
+    roomId: input.roomId,
+    reason,
+    resolvedCount: input.resolvedCount,
+    total: input.total,
+    actorUserId: user.id,
+    actorDisplayName: user.email.split("@")[0],
+  })
+  if (r.ok) revalidate(input.roomId)
+  return r
+}
+
+export async function setTakeCameraOffsetAction(input: {
+  roomId: string
+  takeNumber: number
+  offsetMs: number
+}) {
+  const gate = await requireActionRole("EDITOR")
+  if (!gate.ok) throw new Error(gate.error)
+  const r = await setTakeCameraOffset(input)
+  revalidate(input.roomId)
   return r
 }
 

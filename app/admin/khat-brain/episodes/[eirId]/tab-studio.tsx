@@ -290,7 +290,7 @@ function MarkersStrip({ markers }: { markers: WorkspaceMarker[] }) {
               <Icon className={"h-3 w-3 " + st.text} />
               <span className={"font-medium " + st.text}>{st.label}</span>
               <span className="font-mono text-foreground/85" dir="ltr">
-                {formatHms(m.recording_ms)}
+                {formatHms(m.net_recording_ms)}
               </span>
             </span>
           )
