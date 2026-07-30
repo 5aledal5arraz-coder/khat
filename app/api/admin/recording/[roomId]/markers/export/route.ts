@@ -19,15 +19,15 @@
  */
 
 import { NextRequest, NextResponse } from "next/server"
-import { and, eq, asc } from "drizzle-orm"
+import { and, eq } from "drizzle-orm"
 import { requireRole, errorResponse } from "@/lib/api-utils"
 import { db } from "@/lib/db"
 import {
-  roomSessionMarkers,
-  roomParticipants,
   roomTakes,
   collaborationRooms,
 } from "@/lib/db/schema/collaboration"
+import { exportSafeMemberName } from "@/lib/admin/team-identity"
+import { loadExportMarkerRows } from "@/lib/recording-v2/export-query"
 import {
   QUICK_MARKER_META,
   QUICK_MARKER_GROUPS,
@@ -156,27 +156,10 @@ export async function GET(
   const takeNumber =
     Number.isInteger(takeParam) && takeParam > 0 ? takeParam : room.take_number
 
-  const rawRows = await db!
-    .select({
-      marker_type: roomSessionMarkers.marker_type,
-      note: roomSessionMarkers.note,
-      net_recording_ms: roomSessionMarkers.net_recording_ms,
-      take_number: roomSessionMarkers.take_number,
-      wall_time: roomSessionMarkers.wall_time,
-      section_key: roomSessionMarkers.section_key,
-      created_at: roomSessionMarkers.created_at,
-      author_name: roomParticipants.display_name,
-    })
-    .from(roomSessionMarkers)
-    .leftJoin(roomParticipants, eq(roomParticipants.id, roomSessionMarkers.author_id))
-    // ONE take per file. Without this the two takes' camera timecodes interleave.
-    .where(
-      and(
-        eq(roomSessionMarkers.room_id, roomId),
-        eq(roomSessionMarkers.take_number, takeNumber),
-      ),
-    )
-    .orderBy(asc(roomSessionMarkers.net_recording_ms))
+  // The query lives in lib/recording-v2/export-query.ts so the smoke can run
+  // the SAME statement against a real Postgres — it contains a uuid/text cast
+  // that no type-checker or unit test can validate.
+  const rawRows = await loadExportMarkerRows({ roomId, takeNumber })
 
   const takes = await db!
     .select({
@@ -255,7 +238,10 @@ export async function GET(
       groupLabel,
       isEnergy ? `المستوى ${m.note ?? ""}` : (m.note ?? ""),
       m.section_key ?? "",
-      m.author_name ?? "",
+      exportSafeMemberName({
+        display_name: m.author_display_name,
+        job_title: m.author_job_title,
+      }),
       m.created_at instanceof Date ? m.created_at.toISOString() : (m.created_at ?? ""),
     ]
     lines.push(cells.map(csvCell).join(","))

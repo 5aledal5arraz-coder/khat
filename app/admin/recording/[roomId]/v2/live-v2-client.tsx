@@ -117,13 +117,19 @@ export function LiveV2Client({ initial }: { initial: LiveV2Snapshot }) {
 
   const gateState = deriveHostGateState({
     model: checklistModel,
-    // Presence only. `role` on a participant row is written as a hardcoded
-    // "director" by ensureParticipant, so it is not trustworthy for any
-    // PERMISSION decision — every action is gated by requireActionRole instead.
-    // Here it selects which help text and which escape hatches appear, so its
-    // accuracy still matters: see the presence fixes in recording-room-shell
-    // (tab close was re-joining via sendBeacon) and the immediate first
-    // heartbeat in room-state-context.
+    // Presence only — and now actually truthful. Both write paths
+    // (`joinRoom` from the join route and `ensureParticipant` when someone
+    // tags a moment) stamp the role `resolveRoomRole()` derived from the
+    // member's صفحة; `ensureParticipant` used to hardcode "director", which
+    // meant the first person to tag anything satisfied this check whatever his
+    // job was. Participant rows written before that fix can still carry a
+    // wrong "director" — they age out as rooms end.
+    //
+    // It is still NOT a permission input: every action is gated by
+    // requireActionRole against admin_users.role. Here it selects which help
+    // text and which escape hatches appear, so its accuracy still matters: see
+    // the presence fixes in recording-room-shell (tab close was re-joining via
+    // sendBeacon) and the immediate first heartbeat in room-state-context.
     directorOnline: participants.some((p) => p.is_online && p.role === "director"),
     connected: connStatus === "connected",
     connecting: connStatus === "connecting" || connStatus === "reconnecting",

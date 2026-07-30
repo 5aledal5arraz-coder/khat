@@ -5,11 +5,15 @@ import { broadcast } from "@/lib/collaboration/broadcast"
 // Shared with the recording page's server render, which resolves the same role
 // up front so a director is never handed the host cockpit while the SSE
 // participant list is still in flight. See lib/collaboration/room-roles.ts.
-import { adminRoleToRoomRole } from "@/lib/collaboration/room-roles"
+import { resolveRoomRole } from "@/lib/collaboration/room-roles"
+import { resolveMemberName } from "@/lib/admin/team-identity"
 
-/** POST — join a room (role is server-assigned from admin identity) */
+/**
+ * POST — join a room. BOTH the name and the role are server-assigned from the
+ * admin identity; the request body is ignored entirely (see below).
+ */
 export async function POST(
-  req: NextRequest,
+  _req: NextRequest,
   { params }: { params: Promise<{ id: string; roomId: string }> }
 ) {
   const auth = await requireRole("VIEWER")
@@ -18,9 +22,21 @@ export async function POST(
   const { roomId } = await params
 
   try {
-    const body = await req.json().catch(() => ({}))
-    const displayName = body.display_name?.trim() || auth.user.email.split("@")[0]
-    const role = adminRoleToRoomRole(auth.user.role)
+    /**
+     * The display name is SERVER-DERIVED. The request body is not consulted.
+     *
+     * This used to be `body.display_name?.trim() || resolveMemberName(...)`,
+     * unvalidated and unbounded — and `joinRoom` writes display_name over the
+     * stored value on EVERY join. Since this route only requires VIEWER, any
+     * admin account could join as «خالد» and have its markers attributed to him
+     * in the file the external editor receives. There is no legitimate reason
+     * for a client to name itself: the session already tells us who this is.
+     */
+    const displayName = resolveMemberName(auth.user)
+    const role = resolveRoomRole({
+      jobTitle: auth.user.job_title,
+      adminRole: auth.user.role,
+    })
 
     const participant = await joinRoom(
       roomId,

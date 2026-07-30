@@ -3,11 +3,17 @@
  *
  * Maps each room action to the minimum participant role required.
  * Role hierarchy: host > director > photographer > editor > viewer
+ *
+ * ⚠️ The enforced role is derived from `admin_users.role`, NOT read from
+ * `room_participants.role`. See `requireRoomRole()` for why that distinction is
+ * load-bearing.
  */
 
 import { db } from "@/lib/db"
-import { roomParticipants } from "@/lib/db/schema"
+import { adminUsers, roomParticipants } from "@/lib/db/schema"
 import { eq, and } from "drizzle-orm"
+import type { AdminRole } from "@/lib/admin/auth"
+import { adminRoleToRoomRole } from "@/lib/collaboration/room-roles"
 import type { ParticipantRole } from "@/types/collaboration"
 
 const ROLE_RANK: Record<ParticipantRole, number> = {
@@ -42,6 +48,30 @@ export async function getParticipant(roomId: string, userId: string) {
 /**
  * Require a minimum room role for an action.
  * Returns { error: string } if denied, or { participant } if allowed.
+ *
+ * ⚠️ THE ENFORCED ROLE IS DERIVED FROM `admin_users.role`, NEVER READ FROM
+ * `room_participants.role`.
+ *
+ * This is a real authorization gate — `delete_marker`, `end_room`,
+ * `change_phase` and `edit_host_notes` all hang off it. `room_participants.role`
+ * must not feed it, because that column is now a projection of
+ * `admin_users.job_title` (the member's صفحة), a DESCRIPTIVE field edited from
+ * /admin/team. If this function read it, giving the مخرج his صفحة on a limited
+ * EDITOR account would silently promote him from rank 2 to rank 4 and hand him
+ * marker deletion — a label change granting a permission.
+ *
+ * So the two stay split, and the split is total:
+ *   - `admin_users.role`        → what you may DO (here, and requireActionRole)
+ *   - `admin_users.job_title`   → which screen you SEE + how you are named
+ *   - `room_participants.role`  → presence + display ONLY, never authorization
+ *
+ * `room_participants` is still consulted for MEMBERSHIP (you must be in the
+ * room) and for the participant id callers attribute markers/notes to — just
+ * not for the rank. A stale participant row therefore can no longer carry stale
+ * permissions, which also closes the `ensureParticipant` gap (it returns an
+ * existing row without refreshing its role).
+ *
+ * Fails closed: no admin record → denied.
  */
 export async function requireRoomRole(
   roomId: string,
@@ -51,7 +81,14 @@ export async function requireRoomRole(
   const p = await getParticipant(roomId, userId)
   if (!p) return { error: "لست مشاركاً في هذه الغرفة" }
 
-  const role = p.role as ParticipantRole
+  const [admin] = await db!
+    .select({ role: adminUsers.role })
+    .from(adminUsers)
+    .where(eq(adminUsers.id, userId))
+    .limit(1)
+  if (!admin) return { error: "ليس لديك صلاحية لهذا الإجراء في الغرفة" }
+
+  const role = adminRoleToRoomRole(admin.role as AdminRole)
   if (!hasRoomRole(role, minimumRole)) {
     return { error: "ليس لديك صلاحية لهذا الإجراء في الغرفة" }
   }

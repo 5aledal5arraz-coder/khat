@@ -11,6 +11,8 @@ import {
   getAdminUserById,
   type AdminRole,
 } from '@/lib/admin/auth'
+import { validateDisplayName } from '@/lib/validation/forms'
+import { isJobTitle } from '@/lib/admin/team-identity'
 
 function getIp(request: NextRequest): string {
   return request.headers.get('x-forwarded-for')?.split(',')[0].trim()
@@ -19,7 +21,8 @@ function getIp(request: NextRequest): string {
 
 /**
  * PATCH /api/admin/team/[id] — Update admin user (OWNER only)
- * Supports: role change, enable/disable, password reset
+ * Supports: name + صفحة (descriptive), role change, enable/disable,
+ * password reset. The OWNER row accepts the descriptive fields only.
  */
 export async function PATCH(
   request: NextRequest,
@@ -34,27 +37,126 @@ export async function PATCH(
   const target = await getAdminUserById(id)
   if (!target) return errorResponse('المستخدم غير موجود', 404)
 
-  // Protect OWNER
-  if (target.role === 'OWNER') {
-    return errorResponse('لا يمكن تعديل حساب المالك', 403)
+  let body: {
+    role?: string
+    is_active?: boolean
+    new_password?: string
+    display_name?: string | null
+    job_title?: string | null
   }
-
-  let body: { role?: string; is_active?: boolean; new_password?: string }
   try {
     body = await request.json()
   } catch {
     return errorResponse('بيانات غير صالحة', 400)
   }
 
+  /**
+   * The OWNER row is protected against SECURITY edits, not against being
+   * described.
+   *
+   * This guard used to reject any PATCH on the OWNER, which made the headline
+   * case of the صفحة feature impossible: Khaled is the OWNER and he is the
+   * مقدم, so he has to be able to set his own name and job_title. Role change,
+   * enable/disable and password reset stay blocked for the OWNER exactly as
+   * before.
+   *
+   * Depth of that protection is NOT uniform, so do not read this guard as
+   * belt-and-braces across the board: `role` and `is_active` are also enforced
+   * in the database (trg_prevent_owner_role_change / trg_prevent_owner_disable
+   * in scripts/post-schema.sql), but there is NO trigger on `password_hash` —
+   * grep it, the count is zero. Blocking the OWNER's password reset is an
+   * application-layer check only, and this line is the whole of it.
+   *
+   * display_name and job_title grant nothing — job_title only selects a
+   * recording-room screen and a label — so allowing them here does not widen
+   * anyone's permissions.
+   */
+  const touchesPermissions =
+    body.role !== undefined || body.is_active !== undefined || body.new_password !== undefined
+  if (target.role === 'OWNER' && touchesPermissions) {
+    return errorResponse('لا يمكن تعديل حساب المالك', 403)
+  }
+
   const ip = getIp(request)
 
-  // Role change
+  /**
+   * ── VALIDATE EVERYTHING, THEN WRITE ────────────────────────────────
+   *
+   * All validation happens before the first UPDATE, because this handler
+   * applies several independent fields in one request. When the identity write
+   * ran before the role/password checks, a mixed payload against a NON-OWNER
+   * target — `{ display_name: "X", role: "BOGUS" }` — persisted the name, then
+   * returned a validation error for the role: a partially-applied PATCH whose
+   * error response told the caller nothing had happened.
+   *
+   * (A mixed payload against the OWNER was already safe, because the guard
+   * above returns 403 before any write. That is why it did not show up when the
+   * OWNER row was used to test this — the reachable case needs a normal target.)
+   */
+  let identityPatch: { display_name?: string | null; job_title?: string | null } | null = null
+
+  if (body.display_name !== undefined || body.job_title !== undefined) {
+    identityPatch = {}
+
+    if (body.display_name !== undefined) {
+      // Type first: `validateDisplayName` calls `.trim()`, so a non-string
+      // (`{"display_name": 123}`) threw a TypeError and surfaced as a 500
+      // instead of a 400.
+      if (body.display_name !== null && typeof body.display_name !== 'string') {
+        return validationErrorResponse('الاسم يجب أن يكون نصاً')
+      }
+      const nameVal = validateDisplayName(body.display_name ?? '')
+      if (!nameVal.valid) return validationErrorResponse(nameVal.error!)
+      identityPatch.display_name = body.display_name?.trim() || null
+    }
+
+    if (body.job_title !== undefined) {
+      // An explicit null/"" clears the صفحة — the member then falls back to
+      // having his room screen derived from his permission role. `isJobTitle`
+      // type-guards, so a non-string is rejected here rather than thrown.
+      if (body.job_title !== null && body.job_title !== '' && !isJobTitle(body.job_title)) {
+        return validationErrorResponse('الصفحة غير صالحة')
+      }
+      identityPatch.job_title = isJobTitle(body.job_title) ? body.job_title : null
+    }
+  }
+
   if (body.role !== undefined) {
     const validRoles: AdminRole[] = ['ADMIN', 'EDITOR', 'VIEWER']
     if (!validRoles.includes(body.role as AdminRole)) {
       return validationErrorResponse('صلاحية غير صالحة')
     }
+  }
 
+  if (body.new_password !== undefined) {
+    if (typeof body.new_password !== 'string') {
+      return validationErrorResponse('كلمة المرور يجب أن تكون نصاً')
+    }
+    const pwVal = validateAdminPassword(body.new_password)
+    if (!pwVal.valid) return validationErrorResponse(pwVal.error!)
+  }
+
+  // ── Writes ─────────────────────────────────────────────────────────
+
+  // Identity (name + صفحة). Descriptive only — see the OWNER guard above.
+  if (identityPatch) {
+    await db.update(adminUsers).set(identityPatch).where(eq(adminUsers.id, id))
+
+    await logAuditEvent({
+      actorId: auth.user.id,
+      action: 'USER_PROFILE_UPDATED',
+      targetId: id,
+      ip,
+      metadata: {
+        old_display_name: target.display_name,
+        old_job_title: target.job_title,
+        ...identityPatch,
+      },
+    })
+  }
+
+  // Role change
+  if (body.role !== undefined) {
     await db
       .update(adminUsers)
       .set({ role: body.role })
@@ -88,11 +190,8 @@ export async function PATCH(
     })
   }
 
-  // Password reset
+  // Password reset (already validated above)
   if (body.new_password) {
-    const pwVal = validateAdminPassword(body.new_password)
-    if (!pwVal.valid) return validationErrorResponse(pwVal.error!)
-
     const passwordHash = await hashPassword(body.new_password)
     await db
       .update(adminUsers)
@@ -117,6 +216,8 @@ export async function PATCH(
       ? {
           id: updated.id,
           email: updated.email,
+          display_name: updated.display_name,
+          job_title: updated.job_title,
           role: updated.role,
           is_active: updated.is_active,
           last_login_at: updated.last_login_at,

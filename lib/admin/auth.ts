@@ -13,6 +13,18 @@ export type AdminRole = "OWNER" | "ADMIN" | "EDITOR" | "VIEWER"
 export interface AdminUser {
   id: string
   email: string
+  /**
+   * Arabic name, nullable until Khaled fills it in from /admin/team. Never read
+   * it raw for display — go through `resolveMemberName()`
+   * (lib/admin/team-identity.ts), which applies the email-local-part fallback.
+   */
+  display_name: string | null
+  /**
+   * The member's صفحة. DESCRIPTIVE ONLY — it selects the recording-room screen
+   * and the label others see. `role` below remains the only thing any
+   * permission check may read. See lib/admin/team-identity.ts.
+   */
+  job_title: string | null
   role: AdminRole
   is_active: boolean
   last_login_at: Date | null
@@ -174,6 +186,8 @@ export async function verifyAdminSession(token: string): Promise<AdminUser | nul
       // user fields
       id: adminUsers.id,
       email: adminUsers.email,
+      display_name: adminUsers.display_name,
+      job_title: adminUsers.job_title,
       role: adminUsers.role,
       is_active: adminUsers.is_active,
       last_login_at: adminUsers.last_login_at,
@@ -227,6 +241,8 @@ export async function verifyAdminSession(token: string): Promise<AdminUser | nul
   return {
     id: row.id,
     email: row.email,
+    display_name: row.display_name,
+    job_title: row.job_title,
     role: row.role as AdminRole,
     is_active: row.is_active,
     last_login_at: row.last_login_at,
@@ -258,6 +274,8 @@ export type AuditAction =
   | "USER_DISABLED"
   | "USER_ENABLED"
   | "USER_PASSWORD_RESET"
+  /** Name and/or صفحة edited — descriptive identity, never permissions. */
+  | "USER_PROFILE_UPDATED"
   | "USER_DELETED"
   | "FORCE_LOGOUT"
 

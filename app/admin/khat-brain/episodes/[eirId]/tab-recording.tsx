@@ -18,6 +18,8 @@
 import Link from "next/link"
 import { Radio, AlertTriangle, ExternalLink, Brain } from "lucide-react"
 import { getAdminAuthUser } from "@/lib/api-utils"
+import { resolveMemberName } from "@/lib/admin/team-identity"
+import { resolveRoomRole } from "@/lib/collaboration/room-roles"
 import { loadLiveV2 } from "@/lib/recording-v2/load"
 import { RecordingRoomShell } from "@/app/admin/recording/[roomId]/v2/recording-room-shell"
 import type {
@@ -111,7 +113,7 @@ export async function RecordingTab({
   // uses. Rendering <LiveV2Client> bare here throws "must be used within
   // RoomStateProvider".
   const user = await getAdminAuthUser()
-  const userName = user?.email?.split("@")[0] ?? "operator"
+  const userName = user ? resolveMemberName(user) : "operator"
 
   return (
     <div className="space-y-3">
@@ -120,8 +122,16 @@ export async function RecordingTab({
         roomName={room.name}
         createdAt={room.created_at}
         createdByEmail={room.created_by_email}
+        createdByName={room.created_by_name}
       />
-      <RecordingRoomShell initial={snapshot} userName={userName} />
+      <RecordingRoomShell
+        initial={snapshot}
+        userName={userName}
+        initialRole={
+          user ? resolveRoomRole({ jobTitle: user.job_title, adminRole: user.role }) : null
+        }
+        jobTitle={user?.job_title ?? null}
+      />
     </div>
   )
 }

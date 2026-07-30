@@ -15,7 +15,8 @@
 import { notFound } from "next/navigation"
 import { requireAdmin, getAdminAuthUser } from "@/lib/api-utils"
 import { loadLiveV2 } from "@/lib/recording-v2/load"
-import { adminRoleToRoomRole } from "@/lib/collaboration/room-roles"
+import { resolveMemberName } from "@/lib/admin/team-identity"
+import { resolveRoomRole } from "@/lib/collaboration/room-roles"
 import { RecordingRoomShell } from "./recording-room-shell"
 
 export const dynamic = "force-dynamic"
@@ -30,15 +31,17 @@ export default async function RecordingV2Page({
   const { roomId } = await params
   const snapshot = await loadLiveV2(roomId)
   if (!snapshot) notFound()
-  const userName = user?.email?.split("@")[0] ?? "operator"
+  const userName = user ? resolveMemberName(user) : "operator"
 
-  // Resolve the room role HERE, not from the SSE participant list. The mapping
-  // is a pure function of the admin role and the join route applies the same
-  // one, so this render already knows the answer the snapshot will confirm.
-  // Without it the shell saw `role === undefined` until the participant list
-  // landed and fell back to the host cockpit — handing a live "ابدأ التسجيل"
-  // button to whoever opened the page, director included.
-  const initialRole = user ? adminRoleToRoomRole(user.role) : null
+  // Resolve the room role HERE, not from the SSE participant list. It is a pure
+  // function of the member's صفحة (falling back to his admin role) and the join
+  // route applies the same one, so this render already knows the answer the
+  // snapshot will confirm. Without it the shell saw `role === undefined` until
+  // the participant list landed and fell back to the host cockpit — handing a
+  // live "ابدأ التسجيل" button to whoever opened the page, director included.
+  const initialRole = user
+    ? resolveRoomRole({ jobTitle: user.job_title, adminRole: user.role })
+    : null
 
   // The header carries the episode name and nothing else. The "فتح في Khat
   // Brain" jump, the raw room id and the EIR phase were all removed: they are
@@ -54,7 +57,12 @@ export default async function RecordingV2Page({
         </div>
       </header>
 
-      <RecordingRoomShell initial={snapshot} userName={userName} initialRole={initialRole} />
+      <RecordingRoomShell
+        initial={snapshot}
+        userName={userName}
+        initialRole={initialRole}
+        jobTitle={user?.job_title ?? null}
+      />
     </div>
   )
 }

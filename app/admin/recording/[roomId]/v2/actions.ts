@@ -27,6 +27,8 @@ import {
   type LiveV2MarkerType,
 } from "@/lib/recording-v2/actions-impl"
 import { setChecklistItem } from "@/lib/recording-v2/checklist"
+import { resolveMemberName } from "@/lib/admin/team-identity"
+import { resolveRoomRole } from "@/lib/collaboration/room-roles"
 import { getRoomById } from "@/lib/collaboration/rooms"
 import { broadcast } from "@/lib/collaboration/broadcast"
 import type { SectionKind } from "@/lib/preparation/v2/types"
@@ -79,10 +81,11 @@ export async function endTimerAction(roomId: string) {
  * Confirm / waive / clear one pre-shoot checklist item.
  *
  * Gated on `requireActionRole("EDITOR")`, consistent with every other v2 action.
- * Permission is deliberately NOT derived from the room role: `ensureParticipant`
- * hardcodes `role: "director"` for anyone who writes a marker, so
- * `room_participants.role` is provably unreliable — a check built on it would be
- * security theatre over dirty data, which is worse than no check.
+ * Permission is deliberately NOT derived from the room role, and that stays true
+ * now that `ensureParticipant` writes the real role instead of a hardcoded
+ * "director": the room role is a projection of `job_title`, a descriptive field
+ * edited on /admin/team. Gating an action on it would let a label change grant
+ * the action. `admin_users.role` is the only permission input.
  *
  * The confirming identity comes from the session (`admin_users.id`).
  */
@@ -143,7 +146,8 @@ export async function overrideChecklistGateAction(input: {
     resolvedCount: input.resolvedCount,
     total: input.total,
     actorUserId: user.id,
-    actorDisplayName: user.email.split("@")[0],
+    actorDisplayName: resolveMemberName(user),
+    actorRoomRole: resolveRoomRole({ jobTitle: user.job_title, adminRole: user.role }),
   })
   if (r.ok) revalidate(input.roomId)
   return r
@@ -199,7 +203,8 @@ export async function createMarkerAction(input: {
   const r = await createMarker({
     ...input,
     authorUserId: user.id,
-    authorDisplayName: user.email.split("@")[0],
+    authorDisplayName: resolveMemberName(user),
+    authorRoomRole: resolveRoomRole({ jobTitle: user.job_title, adminRole: user.role }),
   })
   revalidate(input.roomId)
   return r

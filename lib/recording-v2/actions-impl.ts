@@ -18,6 +18,7 @@ import {
 } from "@/lib/db/schema/collaboration"
 import { syncEirFromRoomStatus, syncEirOnRetake } from "@/lib/khat-brain"
 import type { SectionKind } from "@/lib/preparation/v2/types"
+import type { ParticipantRole } from "@/types/collaboration"
 import { QUICK_MARKER_TYPES, type QuickMarkerType } from "./marker-types"
 
 /**
@@ -33,10 +34,25 @@ export const ALLOWED_MARKER_TYPES: readonly LiveV2MarkerType[] = [
 
 // ─── Helpers ──────────────────────────────────────────────────────────
 
+/**
+ * Find (or lazily create) the participant row a marker is authored by.
+ *
+ * `roomRole` MUST be the caller's real room role, resolved from his identity by
+ * `resolveRoomRole()` — the same function the join route and the page render
+ * use. This used to insert a hardcoded `role: "director"`, so the first person
+ * to tag a moment was stamped as the director whatever his صفحة was; that made
+ * `room_participants.role` unusable for the presence read that decides whether
+ * a director is online (and for the labels beside marker authors).
+ *
+ * It is still NOT a permission input: every action above this layer is gated on
+ * `requireActionRole` against `admin_users.role`. This only has to be TRUE, not
+ * trusted.
+ */
 async function ensureParticipant(
   roomId: string,
   userId: string,
   displayName: string,
+  roomRole: ParticipantRole,
 ): Promise<string> {
   // The unique key is (room_id, user_id) — match both directly. (The previous
   // implementation used `Array.find` with an async predicate, which always
@@ -54,7 +70,7 @@ async function ensureParticipant(
       room_id: roomId,
       user_id: userId,
       display_name: displayName,
-      role: "director",
+      role: roomRole,
       is_online: true,
     })
     .returning({ id: roomParticipants.id })
@@ -279,6 +295,7 @@ export async function recordChecklistOverride(input: {
   total: number
   actorUserId: string
   actorDisplayName: string
+  actorRoomRole: ParticipantRole
 }) {
   const room = await loadRoom(input.roomId)
   if (!room) return { ok: false as const, error: "room_not_found" }
@@ -287,6 +304,7 @@ export async function recordChecklistOverride(input: {
     input.roomId,
     input.actorUserId,
     input.actorDisplayName,
+    input.actorRoomRole,
   )
   const now = new Date()
   const [row] = await db!
@@ -444,6 +462,7 @@ export async function createMarker(input: {
   sectionKey?: SectionKind | null
   authorUserId: string
   authorDisplayName: string
+  authorRoomRole: ParticipantRole
 }) {
   if (!ALLOWED_MARKER_TYPES.includes(input.markerType)) {
     return { ok: false as const, error: "invalid_marker_type" }
@@ -471,6 +490,7 @@ export async function createMarker(input: {
     input.roomId,
     input.authorUserId,
     input.authorDisplayName,
+    input.authorRoomRole,
   )
 
   const [row] = await db!

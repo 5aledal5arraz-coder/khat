@@ -27,6 +27,8 @@ import {
 import { episodePreparations } from "@/lib/db/schema/preparation"
 import { khatMapSeasons } from "@/lib/db/schema/khat-map"
 import { loadLiveV2, questionsForSection } from "@/lib/recording-v2/load"
+import { loadExportMarkerRows } from "@/lib/recording-v2/export-query"
+import { exportSafeMemberName } from "@/lib/admin/team-identity"
 import {
   startTimer,
   pauseTimer,
@@ -460,6 +462,7 @@ async function caseQuickTags(ctx: RoomCtx, adminId: string, email: string) {
     label: "highlight",
     authorUserId: adminId,
     authorDisplayName: email.split("@")[0],
+    authorRoomRole: "host",
   })
   assert(a.ok, `createMarker failed: ${a.error ?? "?"}`)
   await new Promise((r) => setTimeout(r, 60))
@@ -470,6 +473,7 @@ async function caseQuickTags(ctx: RoomCtx, adminId: string, email: string) {
     sectionKey: "deep_dive",
     authorUserId: adminId,
     authorDisplayName: email.split("@")[0],
+    authorRoomRole: "host",
   })
   assert(b.ok, "second marker failed")
 
@@ -487,10 +491,18 @@ async function caseQuickTags(ctx: RoomCtx, adminId: string, email: string) {
   assert(second.marker_type === "quote", `second marker_type: ${second.marker_type}`)
   assert(second.section_key === "deep_dive", `second section_key: ${second.section_key}`)
   const part = await db!
-    .select({ id: roomParticipants.id })
+    .select({ id: roomParticipants.id, role: roomParticipants.role })
     .from(roomParticipants)
     .where(eq(roomParticipants.room_id, ctx.roomId))
   assert(part.length >= 1, "participant not auto-created on first marker")
+  // The lazily-created participant must carry the role the CALLER passed.
+  // `ensureParticipant` used to hardcode "director", which stamped whoever
+  // tagged first as the director and made room_participants.role unusable for
+  // the "is a director online" presence read.
+  assert(
+    part[0].role === "host",
+    `participant role should be the passed room role, got: ${part[0].role}`,
+  )
 
   await endTimer(ctx.roomId)
   await resetTimer(ctx.roomId)
@@ -531,8 +543,53 @@ async function caseOldPageStillLoads() {
   console.log(`  ✓ legacy collab route resolves (redirects to /admin/recording/[roomId]/v2)`)
 }
 
+/**
+ * The editor-facing export query, run against a REAL Postgres.
+ *
+ * It joins `admin_users.id` (uuid) to `room_participants.user_id` (text), which
+ * needs an explicit cast — without it Postgres rejects the whole statement
+ * (42883 "operator does not exist: uuid = text") and the CSV/EDL download
+ * returns 500. tsc, `next build` and the entire unit suite all pass while that
+ * is broken, because none of them execute SQL. This case is the only gate that
+ * catches it, which is why the query lives in lib/recording-v2/export-query.ts
+ * instead of inline in the route.
+ *
+ * Also asserts the author column never carries an email: the file goes to an
+ * external editor.
+ */
+async function caseExportQueryRunsOnRealPostgres(ctx: RoomCtx) {
+  console.log("\nCase 11 — marker export query executes + hides staff emails:")
+  // Use the take the markers were actually written on — `resetTimer` in the
+  // earlier cases advances the room's take counter, so hardcoding 1 silently
+  // exercised an empty result set and never checked an author cell.
+  const [anyMarker] = await db!
+    .select({ take_number: roomSessionMarkers.take_number })
+    .from(roomSessionMarkers)
+    .where(eq(roomSessionMarkers.room_id, ctx.roomId))
+    .limit(1)
+  assert(anyMarker !== undefined, "no markers to export — earlier cases should have created two")
+  const rows = await loadExportMarkerRows({
+    roomId: ctx.roomId,
+    takeNumber: anyMarker.take_number,
+  })
+  assert(rows.length > 0, `export query returned 0 rows for take ${anyMarker.take_number}`)
+  for (const r of rows) {
+    const name = exportSafeMemberName({
+      display_name: r.author_display_name,
+      job_title: r.author_job_title,
+    })
+    assert(!name.includes("@"), `export author name leaked an email: ${name}`)
+    assert(
+      !name.includes("smoke-livev2"),
+      `export author name leaked an email local part: ${name}`,
+    )
+    assert(name.trim().length > 0, "export author name was empty")
+  }
+  console.log(`  \u2713 export query ran (${rows.length} rows), no email in the author column`)
+}
+
 async function caseCleanupCheck() {
-  console.log("\nCase 11 — cleanup leaves no smoke rows behind:")
+  console.log("\nCase 12 — cleanup leaves no smoke rows behind:")
   await cleanup()
   const rooms = await db!
     .select({ c: drSql<number>`count(*)::int` })
@@ -575,9 +632,10 @@ async function main() {
   await caseQuickTags(v2Room, admin.id, admin.email)
   await caseEirMappingStillWorks(admin.id)
   await caseOldPageStillLoads()
+  await caseExportQueryRunsOnRealPostgres(v2Room)
   await caseCleanupCheck()
 
-  console.log("\n✅ smoke-khat-brain-live-v2: all 11 cases passed")
+  console.log("\n✅ smoke-khat-brain-live-v2: all 12 cases passed")
 }
 
 main()

@@ -23,6 +23,7 @@ import { LiveV2Client } from "./live-v2-client"
 import { ParticipantRoomView } from "./participant-room-view"
 import type { LiveV2Snapshot } from "@/lib/recording-v2/load"
 import type { ParticipantRole } from "@/types/collaboration"
+import { isJobTitle, jobTitleLabel } from "@/lib/admin/team-identity"
 import { Loader2, Users, Wifi, WifiOff, Zap } from "lucide-react"
 import { cn } from "@/lib/utils"
 
@@ -30,6 +31,7 @@ export function RecordingRoomShell({
   initial,
   userName,
   initialRole,
+  jobTitle,
 }: {
   initial: LiveV2Snapshot
   userName: string
@@ -40,6 +42,13 @@ export function RecordingRoomShell({
    * still in flight.
    */
   initialRole?: ParticipantRole | null
+  /**
+   * The member's صفحة (`admin_users.job_title`), for the "أنت: …" badge only.
+   * Seven titles map onto five room screens, so `initialRole` alone cannot name
+   * a مهندس صوت or a منتج — both of them follow along on the viewer screen and
+   * would otherwise be greeted as "مشاهد". Label, never permission.
+   */
+  jobTitle?: string | null
 }) {
   return (
     <RoomProvider
@@ -52,6 +61,7 @@ export function RecordingRoomShell({
         prepId={initial.room.preparation_id}
         roomId={initial.room.id}
         initialRole={initialRole ?? null}
+        jobTitle={jobTitle ?? null}
       />
     </RoomProvider>
   )
@@ -63,12 +73,14 @@ function RoomShellInner({
   prepId,
   roomId,
   initialRole,
+  jobTitle,
 }: {
   initial: LiveV2Snapshot
   userName: string
   prepId: string
   roomId: string
   initialRole: ParticipantRole | null
+  jobTitle: string | null
 }) {
   const { status: connStatus } = useRoomConnection()
   const {
@@ -158,7 +170,11 @@ function RoomShellInner({
         connStatus={connStatus}
         online={participants.filter((p) => p.is_online).length}
         joinFailed={joinFailed}
-        joinedAs={role ?? null}
+        // Raw catalog KEYS, not labels — PresenceStrip does the one lookup, so
+        // the string is never transformed twice. The صفحة is what he calls
+        // himself; the room role is only the screen he landed on, so prefer the
+        // former and fall back to the latter.
+        joinedAs={(isJobTitle(jobTitle) ? jobTitle : null) ?? (role ?? null)}
         energy={room?.energy_level ?? 3}
         canSetEnergy={isHost}
         onSetEnergy={updateEnergy}
@@ -196,12 +212,21 @@ function RoleResolving() {
   )
 }
 
-const ROLE_LABEL_AR: Record<string, string> = {
-  host: "المضيف",
-  director: "المخرج",
-  photographer: "المصوّر",
-  editor: "المحرّر",
-  viewer: "مشاهد",
+/**
+ * One vocabulary for the "أنت: …" badge, from the صفحة catalog.
+ *
+ * There used to be a local map here ("المضيف"/"المخرج"/…) used for the room-role
+ * fallback while the صفحة path used the catalog ("مقدم"/"مخرج"/…), so the same
+ * person was greeted differently depending on which branch resolved — and the
+ * local map was internally inconsistent too ("المخرج" with the article,
+ * "مشاهد" without).
+ *
+ * This works because every `ParticipantRole` is also a `JobTitle` (the room's
+ * five screens are five of the seven صفحات) — pinned by a test in
+ * tests/team-identity.test.ts so a future rename cannot silently break it.
+ */
+function roomRoleLabel(role: string): string {
+  return jobTitleLabel(role) ?? role
 }
 
 function PresenceStrip({
@@ -235,7 +260,7 @@ function PresenceStrip({
           {joinFailed ? "تعذّر تسجيل حضورك" : `${online} متصل الآن`}
           {joinedAs && (
             <span className="rounded-full bg-violet-500/10 px-1.5 py-0.5 text-violet-700">
-              أنت: {ROLE_LABEL_AR[joinedAs] ?? joinedAs}
+              أنت: {roomRoleLabel(joinedAs)}
             </span>
           )}
         </span>

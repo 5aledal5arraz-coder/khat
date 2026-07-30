@@ -40,6 +40,12 @@ export interface WorkspaceRoomSummary {
   /** UX-5.5b — actor + timestamp for the "آخر إجراء" trust strip. */
   created_by: string | null
   created_by_email: string | null
+  /**
+   * The creator's name (`admin_users.display_name`). Null while a member has no
+   * name yet — the UI then falls back to the email, which is what this strip
+   * showed before names existed.
+   */
+  created_by_name: string | null
 }
 
 /**
@@ -58,15 +64,18 @@ export async function getRoomSummaryForEir(
     .limit(1)
   if (!row) return null
 
-  // UX-5.5b — resolve created_by → admin email (best-effort).
+  // UX-5.5b — resolve created_by → admin identity (best-effort). The name is
+  // what the strip shows; the email is kept as the fallback + disambiguator.
   let createdByEmail: string | null = null
+  let createdByName: string | null = null
   if (row.created_by) {
     const [actor] = await db!
-      .select({ email: adminUsers.email })
+      .select({ email: adminUsers.email, display_name: adminUsers.display_name })
       .from(adminUsers)
       .where(eq(adminUsers.id, row.created_by))
       .limit(1)
     createdByEmail = actor?.email ?? null
+    createdByName = actor?.display_name ?? null
   }
 
   return {
@@ -84,6 +93,7 @@ export async function getRoomSummaryForEir(
     updated_at: row.updated_at.toISOString(),
     created_by: row.created_by ?? null,
     created_by_email: createdByEmail,
+    created_by_name: createdByName,
   }
 }
 

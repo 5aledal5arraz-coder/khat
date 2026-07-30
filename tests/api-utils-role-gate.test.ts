@@ -50,6 +50,8 @@ function makeUser(role: AdminRole, is_active = true): AdminUser {
   return {
     id: "user-1",
     email: "u@khat.local",
+    display_name: null,
+    job_title: null,
     role,
     is_active,
     last_login_at: null,

@@ -3,12 +3,19 @@
 import { useState, useEffect, useCallback } from "react"
 import {
   Plus, Shield, Trash2, LogOut, KeyRound,
-  Loader2, AlertCircle, CheckCircle, UserX, UserCheck, Copy,
+  Loader2, AlertCircle, CheckCircle, UserX, UserCheck, Copy, Pencil,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { cn } from "@/lib/utils"
 import { formatDateDDMMYYYY } from "@/lib/admin/date"
+import {
+  JOB_TITLES,
+  JOB_TITLE_META,
+  jobTitleLabel,
+  resolveMemberName,
+  type JobTitle,
+} from "@/lib/admin/team-identity"
 
 // ---------------------------------------------------------------------------
 // Types
@@ -19,6 +26,10 @@ type AdminRole = "OWNER" | "ADMIN" | "EDITOR" | "VIEWER"
 interface AdminUser {
   id: string
   email: string
+  /** Arabic name; null until it is filled in here. */
+  display_name: string | null
+  /** The member's صفحة — descriptive, never a permission. */
+  job_title: string | null
   role: AdminRole
   is_active: boolean
   last_login_at: string | null
@@ -44,6 +55,13 @@ const ROLE_COLORS: Record<AdminRole, string> = {
 }
 
 const ASSIGNABLE_ROLES: AdminRole[] = ["ADMIN", "EDITOR", "VIEWER"]
+
+/**
+ * The صفحة picker's empty option. A member with no صفحة still works — his
+ * recording-room screen is derived from his صلاحية instead — so "بدون" is a
+ * real state, not a validation failure.
+ */
+const NO_JOB_TITLE = ""
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -81,8 +99,19 @@ export function TeamManager() {
   const [addEmail, setAddEmail] = useState("")
   const [addPassword, setAddPassword] = useState("")
   const [addRole, setAddRole] = useState<AdminRole>("VIEWER")
+  const [addName, setAddName] = useState("")
+  const [addJobTitle, setAddJobTitle] = useState<JobTitle | "">(NO_JOB_TITLE)
   const [addLoading, setAddLoading] = useState(false)
   const [addError, setAddError] = useState("")
+
+  // Edit identity modal (name + صفحة). Available for EVERY row, the OWNER
+  // included — the OWNER is the مقدم, and describing him is not a permission
+  // change. The API enforces the same split.
+  const [editUser, setEditUser] = useState<AdminUser | null>(null)
+  const [editName, setEditName] = useState("")
+  const [editJobTitle, setEditJobTitle] = useState<JobTitle | "">(NO_JOB_TITLE)
+  const [editLoading, setEditLoading] = useState(false)
+  const [editError, setEditError] = useState("")
 
   // Reset password modal
   const [resetUserId, setResetUserId] = useState<string | null>(null)
@@ -129,18 +158,54 @@ export function TeamManager() {
     try {
       await api("/api/admin/team", {
         method: "POST",
-        body: JSON.stringify({ email: addEmail, password: addPassword, role: addRole }),
+        body: JSON.stringify({
+          email: addEmail,
+          password: addPassword,
+          role: addRole,
+          display_name: addName,
+          job_title: addJobTitle,
+        }),
       })
       setShowAddModal(false)
       setAddEmail("")
       setAddPassword("")
       setAddRole("VIEWER")
+      setAddName("")
+      setAddJobTitle(NO_JOB_TITLE)
       showToast("success", "تم إنشاء المستخدم بنجاح")
       fetchUsers()
     } catch (err: unknown) {
       setAddError(err instanceof Error ? err.message : "حدث خطأ")
     } finally {
       setAddLoading(false)
+    }
+  }
+
+  const openEditIdentity = (user: AdminUser) => {
+    setEditUser(user)
+    setEditName(user.display_name ?? "")
+    setEditJobTitle((user.job_title as JobTitle | null) ?? NO_JOB_TITLE)
+    setEditError("")
+  }
+
+  const handleSaveIdentity = async () => {
+    if (!editUser) return
+    setEditLoading(true)
+    setEditError("")
+    try {
+      await api(`/api/admin/team/${editUser.id}`, {
+        method: "PATCH",
+        // Both sent every time, so clearing a field actually clears it: the
+        // route treats `undefined` as "don't touch" and ""/null as "unset".
+        body: JSON.stringify({ display_name: editName, job_title: editJobTitle }),
+      })
+      setEditUser(null)
+      showToast("success", "تم تحديث الاسم والصفحة")
+      fetchUsers()
+    } catch (err: unknown) {
+      setEditError(err instanceof Error ? err.message : "حدث خطأ")
+    } finally {
+      setEditLoading(false)
     }
   }
 
@@ -284,7 +349,8 @@ export function TeamManager() {
           <table className="w-full text-[13px]">
             <thead>
               <tr className="border-b border-border/30 text-muted-foreground">
-                <th className="px-4 py-3 text-start text-[11px] font-medium uppercase tracking-wider">البريد الإلكتروني</th>
+                <th className="px-4 py-3 text-start text-[11px] font-medium uppercase tracking-wider">العضو</th>
+                <th className="px-4 py-3 text-start text-[11px] font-medium uppercase tracking-wider">الصفحة</th>
                 <th className="px-4 py-3 text-start text-[11px] font-medium uppercase tracking-wider">الصلاحية</th>
                 <th className="px-4 py-3 text-start text-[11px] font-medium uppercase tracking-wider">الحالة</th>
                 <th className="px-4 py-3 text-start text-[11px] font-medium uppercase tracking-wider">آخر دخول</th>
@@ -299,9 +365,31 @@ export function TeamManager() {
 
                 return (
                   <tr key={user.id} className="border-b border-border/15 last:border-b-0 hover:bg-muted/20 transition-all duration-200">
-                    {/* Email */}
-                    <td className="px-4 py-3 font-mono text-xs" dir="ltr">
-                      {user.email}
+                    {/* Member — the name leads, the email only disambiguates */}
+                    <td className="px-4 py-3">
+                      <div className="font-medium text-[13px] text-foreground">
+                        {resolveMemberName(user)}
+                        {!user.display_name && (
+                          <span className="ms-1.5 text-[10px] font-normal text-muted-foreground">
+                            (بدون اسم)
+                          </span>
+                        )}
+                      </div>
+                      <div className="mt-0.5 font-mono text-[10.5px] text-muted-foreground" dir="ltr">
+                        {user.email}
+                      </div>
+                    </td>
+
+                    {/* صفحة — job in the studio. Descriptive: it picks the
+                        recording-room screen and the label, never a permission. */}
+                    <td className="px-4 py-3">
+                      {jobTitleLabel(user.job_title) ? (
+                        <span className="inline-flex items-center rounded-md bg-teal-500/15 px-2 py-0.5 text-[10px] font-medium text-teal-700">
+                          {jobTitleLabel(user.job_title)}
+                        </span>
+                      ) : (
+                        <span className="text-[11px] text-muted-foreground">—</span>
+                      )}
                     </td>
 
                     {/* Role */}
@@ -351,10 +439,23 @@ export function TeamManager() {
 
                     {/* Actions */}
                     <td className="px-4 py-3">
-                      {isOwner ? (
-                        <span className="text-xs text-muted-foreground">—</span>
-                      ) : (
-                        <div className="flex items-center gap-1">
+                      <div className="flex items-center gap-1">
+                        {/* Edit identity — every row, OWNER included. Naming the
+                            OWNER and giving him a صفحة is not a permission
+                            change, and he is the مقدم. */}
+                        <button
+                          onClick={() => openEditIdentity(user)}
+                          disabled={isActionLoading}
+                          className="rounded-md p-1.5 hover:bg-muted transition-colors"
+                          title="تعديل الاسم والصفحة"
+                        >
+                          <Pencil className="h-3.5 w-3.5 text-muted-foreground" />
+                        </button>
+
+                        {isOwner ? (
+                          <span className="text-xs text-muted-foreground">—</span>
+                        ) : (
+                        <>
                           {/* Toggle active */}
                           <button
                             onClick={() => handleToggleActive(user.id, user.is_active)}
@@ -407,8 +508,9 @@ export function TeamManager() {
                           {isActionLoading && (
                             <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />
                           )}
-                        </div>
-                      )}
+                        </>
+                        )}
+                      </div>
                     </td>
                   </tr>
                 )
@@ -432,6 +534,40 @@ export function TeamManager() {
             )}
 
             <div className="space-y-3">
+              <div className="space-y-1">
+                <label className="text-[11px] text-muted-foreground">الاسم (اختياري)</label>
+                <Input
+                  type="text"
+                  value={addName}
+                  onChange={(e) => setAddName(e.target.value)}
+                  placeholder="فهد"
+                  disabled={addLoading}
+                />
+                <p className="text-[10px] text-muted-foreground">
+                  إذا تركته فاضي، يظهر أول البريد الإلكتروني بدلاً منه.
+                </p>
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-[11px] text-muted-foreground">الصفحة (اختياري)</label>
+                <select
+                  value={addJobTitle}
+                  onChange={(e) => setAddJobTitle(e.target.value as JobTitle | "")}
+                  disabled={addLoading}
+                  className="w-full rounded-lg border bg-background px-3 py-2 text-sm outline-none"
+                >
+                  <option value={NO_JOB_TITLE}>بدون صفحة</option>
+                  {JOB_TITLES.map((t) => (
+                    <option key={t} value={t}>{JOB_TITLE_META[t].label}</option>
+                  ))}
+                </select>
+                <p className="text-[10px] text-muted-foreground">
+                  {addJobTitle
+                    ? JOB_TITLE_META[addJobTitle].hint
+                    : "الصفحة تحدد شاشته في غرفة التسجيل والتسمية فقط — الصلاحية تحت هي اللي تحدد شنو يقدر يسوي."}
+                </p>
+              </div>
+
               <div className="space-y-1">
                 <label className="text-[11px] text-muted-foreground">البريد الإلكتروني</label>
                 <Input
@@ -482,6 +618,76 @@ export function TeamManager() {
               >
                 {addLoading && <Loader2 className="h-3.5 w-3.5 animate-spin me-1.5" />}
                 إنشاء
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ---------- Edit Identity Modal (name + صفحة) ---------- */}
+      {editUser && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={() => setEditUser(null)} />
+          <div className="relative z-10 w-full max-w-md rounded-2xl border border-border/30 bg-card p-6 shadow-2xl mx-4 space-y-4">
+            <h3 className="font-semibold text-[15px]">تعديل الاسم والصفحة</h3>
+            <p className="font-mono text-[11px] text-muted-foreground" dir="ltr">
+              {editUser.email}
+            </p>
+
+            {editError && (
+              <div className="rounded-md bg-destructive/10 p-2.5 text-center text-xs text-destructive">
+                {editError}
+              </div>
+            )}
+
+            <div className="space-y-3">
+              <div className="space-y-1">
+                <label className="text-[11px] text-muted-foreground">الاسم</label>
+                <Input
+                  type="text"
+                  value={editName}
+                  onChange={(e) => setEditName(e.target.value)}
+                  placeholder="اسم العضو"
+                  disabled={editLoading}
+                />
+                <p className="text-[10px] text-muted-foreground">
+                  يظهر في غرفة التسجيل وفي تصدير العلامات للمونتير.
+                </p>
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-[11px] text-muted-foreground">الصفحة</label>
+                <select
+                  value={editJobTitle}
+                  onChange={(e) => setEditJobTitle(e.target.value as JobTitle | "")}
+                  disabled={editLoading}
+                  className="w-full rounded-lg border bg-background px-3 py-2 text-sm outline-none"
+                >
+                  <option value={NO_JOB_TITLE}>بدون صفحة</option>
+                  {JOB_TITLES.map((t) => (
+                    <option key={t} value={t}>{JOB_TITLE_META[t].label}</option>
+                  ))}
+                </select>
+                <p className="text-[10px] text-muted-foreground">
+                  {editJobTitle
+                    ? JOB_TITLE_META[editJobTitle].hint
+                    : "بدون صفحة: شاشته في الغرفة تُشتق من صلاحيته."}
+                </p>
+              </div>
+
+              <p className="rounded-lg bg-muted/50 p-2 text-[10px] leading-relaxed text-muted-foreground">
+                الصفحة وصفية: تحدد الشاشة والتسمية فقط ولا تعطي أي صلاحية. الصلاحية
+                ({ROLE_LABELS[editUser.role]}) وحدها تحدد شنو يقدر يسوي.
+              </p>
+            </div>
+
+            <div className="flex justify-end gap-2 pt-2">
+              <Button variant="outline" size="sm" onClick={() => setEditUser(null)} disabled={editLoading}>
+                إلغاء
+              </Button>
+              <Button size="sm" onClick={handleSaveIdentity} disabled={editLoading}>
+                {editLoading && <Loader2 className="h-3.5 w-3.5 animate-spin me-1.5" />}
+                حفظ
               </Button>
             </div>
           </div>

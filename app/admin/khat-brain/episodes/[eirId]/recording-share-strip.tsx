@@ -19,6 +19,7 @@ export function RecordingShareStrip({
   roomName,
   createdAt,
   createdByEmail,
+  createdByName,
 }: {
   roomId: string
   roomName: string
@@ -26,6 +27,12 @@ export function RecordingShareStrip({
   createdAt?: string | null
   /** Admin email of the operator who created the room. */
   createdByEmail?: string | null
+  /**
+   * The operator's name (`admin_users.display_name`), preferred over his email:
+   * an email is an account identifier, not how the team refers to a person.
+   * Falls back to the email while names are still being filled in.
+   */
+  createdByName?: string | null
 }) {
   const [copied, setCopied] = useState(false)
   const path = `/admin/recording/${roomId}/v2`
@@ -91,7 +98,7 @@ export function RecordingShareStrip({
         فتح بملء الشاشة
       </Link>
 
-      {(createdAt || createdByEmail) && (
+      {(createdAt || createdByEmail || createdByName) && (
         <div
           className="basis-full text-[10.5px] text-muted-foreground"
           dir="ltr"
@@ -101,7 +108,9 @@ export function RecordingShareStrip({
           {createdAt && (
             <> {new Date(createdAt).toLocaleString("en-GB", { hour12: false })}</>
           )}
-          {createdByEmail && <> · by {createdByEmail}</>}
+          {(createdByName || createdByEmail) && (
+            <> · by {createdByName || createdByEmail}</>
+          )}
         </div>
       )}
     </div>
