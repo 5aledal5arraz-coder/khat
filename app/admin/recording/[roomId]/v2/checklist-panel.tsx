@@ -65,13 +65,25 @@ export function ChecklistPanel({
    * Two consequences, both load-bearing:
    *   1. the copy addresses the reader directly — in director mode it talks
    *      ABOUT the host, which reads as nonsense when the host is the reader;
-   *   2. the bottom bar must become a real "ابدأ التسجيل" button, because in
-   *      self mode this panel REPLACES the gate. Without it the host completes
-   *      17/17 and has no way to start the take and no way back — a dead end on
+   *   2. the panel needs a way back, because in self mode it REPLACES the gate.
+   *      Without it the host completes 17/17 and has no way out — a dead end on
    *      the exact path the gate recommends when no director is around.
+   *
+   * It does NOT decide whether the start button appears — `onStart` does. The
+   * director gets the same button on his own copy of this panel.
    */
   selfMode?: boolean
-  /** Required in self mode: starts the take once the checklist is complete. */
+  /**
+   * Start the take. Passed by BOTH screens that may start one:
+   *   • the host in self mode (this panel stands in for his gate),
+   *   • the director, from his own pre-shoot panel.
+   *
+   * The button is locked behind the SAME `model.isComplete` in both cases — the
+   * director has no override path, deliberately: the two escape hatches
+   * («تجاوز وابدأ» / «أكمل التشك-ليست بنفسي») exist for the host when NO
+   * director is reachable, so handing them to the director would be handing him
+   * a way around his own job.
+   */
   onStart?: () => void
   /** Required in self mode: returns to the preflight read-in. */
   onBack?: () => void
@@ -107,8 +119,12 @@ export function ChecklistPanel({
             لصفحة التحضير في أي وقت.
           </p>
         )}
+        {/* Addresses whoever is holding the tablet. The line said "المقدم ما
+            يقدر يبدأ" directly above the DIRECTOR's own start button — telling
+            him about someone else's lock while his was the one on screen. The
+            reader is identified by having a start button, not by `selfMode`. */}
         <p className="mt-1 text-[12.5px] leading-relaxed text-muted-foreground">
-          {selfMode
+          {onStart
             ? "ما تقدر تبدأ التسجيل إلا لما تكمل القائمة."
             : "المقدم ما يقدر يبدأ التسجيل إلا لما تكمل القائمة."}{" "}
           أي بند مو منطبق اليوم، علّمه «غير منطبق» واذكر السبب.
@@ -154,14 +170,18 @@ export function ChecklistPanel({
 
           {model.isComplete && !selfMode && (
             <span className="inline-flex items-center gap-1.5 text-[12.5px] font-semibold text-emerald-700">
-              <CheckCircle2 className="h-4 w-4" /> تم — المقدم يقدر يبدأ التسجيل الآن
+              <CheckCircle2 className="h-4 w-4" />{" "}
+              {onStart
+                ? "تم — تقدر تبدأ التسجيل، أو ينتظر المقدم يبدأ"
+                : "تم — المقدم يقدر يبدأ التسجيل الآن"}
             </span>
           )}
 
-          {/* Self mode: this panel replaced the gate, so it owns the CTA. Same
-              rose button as the gate's ready state — identical affordance for the
-              one action that starts a shoot. */}
-          {model.isComplete && selfMode && onStart && (
+          {/* The one action that starts a shoot, on whichever screen may take
+              it: the same rose button as the gate's ready state, unlocked by the
+              same completed checklist. Whoever presses first wins — the loser's
+              screen simply moves on to the live view, never an error. */}
+          {model.isComplete && onStart && (
             <button
               type="button"
               onClick={onStart}

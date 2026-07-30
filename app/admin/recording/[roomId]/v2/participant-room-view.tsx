@@ -11,7 +11,7 @@
  * full question metadata; viewers get a calm read-only follow-along.
  */
 
-import { useMemo, useState } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 import {
   useRoomState,
   useRoomMarkers,
@@ -29,10 +29,12 @@ import {
 } from "lucide-react"
 import { Empty } from "../../../components/ui-kit"
 import { RoomNotesPanel } from "./room-notes-panel"
-import { markerStyle } from "./recording-shared"
+import { markerStyle, computeElapsedMs } from "./recording-shared"
 import { ChecklistPanel } from "./checklist-panel"
-import { setChecklistItemAction } from "./actions"
+import { setChecklistItemAction, startTimerAction } from "./actions"
 import { deriveChecklistModel } from "@/lib/recording-v2/preflight-checklist"
+import { CompactClock } from "./cockpit-clock"
+import { ENERGY_BAND_LABEL_AR, energyBand } from "@/lib/recording-v2/energy"
 import {
   DIRECTOR_MARKER_TYPES,
   QUICK_MARKER_META,
@@ -219,7 +221,7 @@ export function ParticipantRoomView({
   initial: LiveV2Snapshot
   role: string
 }) {
-  const { room, updateEnergy } = useRoomState()
+  const { room, updateEnergy, energyDecision } = useRoomState()
   const prep = initial.preparation.prep_v2
   const isDirector = role === "director"
   const isPhotographer = role === "photographer"
@@ -256,6 +258,18 @@ export function ParticipantRoomView({
     initial.room.take_number,
   ])
   const [busy, setBusy] = useState(false)
+
+  async function onStartTake() {
+    setBusy(true)
+    try {
+      // No optimistic flip here: the room's own `room_update` broadcast (added
+      // to every timer action) is what moves this screen off the checklist, so
+      // both operators see the take start from the same event.
+      await startTimerAction(initial.room.id)
+    } finally {
+      setBusy(false)
+    }
+  }
 
   async function onSetChecklistItem(
     itemKey: string,
@@ -331,6 +345,17 @@ export function ParticipantRoomView({
           busy={busy}
           previousTakeWasComplete={initial.room.checklist_previous_take_complete}
           takeNumber={takeNumber}
+          /**
+           * The director starts the take too.
+           *
+           * He is the one standing at the camera, and he was the one person who
+           * could see 17/17 confirmed and still had to shout across the studio
+           * for someone else to press the button. Same lock (`model.isComplete`
+           * inside the panel), no override path, and `startTimer` enforces
+           * first-press-wins server-side — the loser of a simultaneous press is
+           * simply carried into the live view.
+           */
+          onStart={onStartTake}
         />
       </>
     )
@@ -403,11 +428,28 @@ export function ParticipantRoomView({
         )}
       </div>
 
-      {/* Director: set the room energy — the live cue to the host */}
+      {/* Director: the clock. He had NONE — not a single one — while being the
+          person who calls "we're at forty minutes". Same net time as the host,
+          same size, so the two of them are never reading different numbers at
+          each other across the studio. */}
+      {isDirector && (
+        <DirectorClock
+          status={status}
+          elapsedMsAtBaseline={room?.recording_elapsed_ms ?? initial.room.recording_elapsed_ms}
+          recordingStartedAt={room?.recording_started_at ?? initial.room.recording_started_at}
+          recordingPausedAt={room?.recording_paused_at ?? initial.room.recording_paused_at}
+          sectionIndex={idx}
+          sectionLabel={SECTION_LABEL_AR[section.kind] ?? section.kind}
+        />
+      )}
+
+      {/* Director: propose the room energy — a cue to the host, not a command */}
       {isDirector && (
         <DirectorEnergyControl
           energy={room?.energy_level ?? initial.room.energy_level ?? 3}
           onSet={updateEnergy}
+          decision={energyDecision}
+          live={status === "live" || status === "paused"}
         />
       )}
 
@@ -594,47 +636,205 @@ function GuidanceList({
   )
 }
 
-/** Live room-energy indicator (0–5), set by the host, shown to everyone. */
-/** Director's primary input: set the room energy → live cue to the host. */
+/**
+ * The director's clock — the one thing his screen simply did not have.
+ *
+ * It shows the SAME net recording time as the host, from the same room row and
+ * through the same `<CompactClock>`, at the same size. That is deliberate: the
+ * two of them call times at each other across a studio, and two clocks that
+ * disagree by even a pause's worth of drift is how a take gets ruined.
+ *
+ * Underneath, smaller, the time in the CURRENT SECTION — stamped locally the
+ * moment `current_section_index` changes over SSE. It is NOT called "camera
+ * time": `camera_offset_ms` is usually zero and uncalibrated, and labelling an
+ * uncalibrated number as camera time is worse than not showing it.
+ */
+function DirectorClock({
+  status,
+  elapsedMsAtBaseline,
+  recordingStartedAt,
+  recordingPausedAt,
+  sectionIndex,
+  sectionLabel,
+}: {
+  status: string
+  elapsedMsAtBaseline: number
+  recordingStartedAt: string | null
+  recordingPausedAt: string | null
+  sectionIndex: number
+  sectionLabel: string
+}) {
+  const live = status === "live"
+  const windowStartedAt =
+    recordingStartedAt && !recordingPausedAt ? Date.parse(recordingStartedAt) : null
+  const netNow = () => computeElapsedMs(elapsedMsAtBaseline, windowStartedAt, live)
+
+  return (
+    <div className="rounded-2xl border border-border/40 bg-card/40 p-3" dir="rtl">
+      <div className="flex flex-wrap items-baseline justify-between gap-2">
+        <span className="text-[10.5px] uppercase tracking-wider text-muted-foreground">
+          زمن التسجيل الصافي
+        </span>
+        <CompactClock
+          status={live ? "live" : status === "paused" ? "paused" : "waiting"}
+          elapsedMsAtBaseline={elapsedMsAtBaseline}
+          windowStartedAt={windowStartedAt}
+        />
+      </div>
+      <SectionClock sectionIndex={sectionIndex} sectionLabel={sectionLabel} netNow={netNow} />
+    </div>
+  )
+}
+
+/**
+ * Time inside the current section.
+ *
+ * The start is stamped client-side when the section index changes, because
+ * nothing records it: `setCurrentSection` writes the index and no timestamp,
+ * and there is no `section_change` marker type in the taxonomy (adding one
+ * means touching the CHECK constraint in scripts/post-schema.sql — a DB change,
+ * out of scope here). The consequence is honest and bounded: a director who
+ * joins mid-section sees "—" until the next section starts, rather than a
+ * number that would be a guess.
+ *
+ * Ticks from an interval, never a synchronous set inside the effect, so it
+ * costs one cheap re-render of this leaf twice a second and nothing above it.
+ */
+function SectionClock({
+  sectionIndex,
+  sectionLabel,
+  netNow,
+}: {
+  sectionIndex: number
+  sectionLabel: string
+  netNow: () => number
+}) {
+  const [elapsed, setElapsed] = useState<number | null>(null)
+  const startRef = useRef<{ index: number; net: number; observed: boolean } | null>(null)
+
+  useEffect(() => {
+    const id = setInterval(() => {
+      const now = netNow()
+      const s = startRef.current
+      if (!s) {
+        // First sighting. The section was already running when we arrived and
+        // nothing records when it began, so we do not know its age — and we do
+        // not start counting from the moment we happened to load. That printed
+        // "0:17" for a section twenty minutes old, to the one person in the room
+        // who calls the times out loud.
+        startRef.current = { index: sectionIndex, net: now, observed: false }
+        setElapsed(null)
+        return
+      }
+      if (s.index !== sectionIndex) {
+        // We WATCHED this one start. Now the number is earned.
+        startRef.current = { index: sectionIndex, net: now, observed: true }
+        setElapsed(0)
+        return
+      }
+      setElapsed(s.observed ? Math.max(0, now - s.net) : null)
+    }, 500)
+    return () => clearInterval(id)
+  }, [sectionIndex, netNow])
+
+  return (
+    <div className="mt-1 flex items-baseline justify-between gap-2">
+      <span className="text-[10.5px] text-muted-foreground">
+        في «{sectionLabel}»
+        {elapsed == null && <span className="ms-1">· بدأ قبل دخولك</span>}
+      </span>
+      <span className="font-mono text-[13px] tabular-nums text-foreground/80" dir="ltr">
+        {elapsed == null ? "—" : formatClock(elapsed)}
+      </span>
+    </div>
+  )
+}
+
+/**
+ * The director PROPOSES the room energy; the host disposes.
+ *
+ * It used to change it outright and in silence, which re-sorted the host's
+ * question list under his eyes while he was reading from it. Now the tap still
+ * moves the shared value instantly (the host must see the cue, and it is still
+ * recorded as an `energy_change` marker) — but the host's question ORDER does
+ * not move until he approves. The status line below is the receipt: without it
+ * the director taps the same cue again and again, assuming it never landed.
+ *
+ * Targets are ≥44px and the panel is sticky while a take is running: at 28px it
+ * was a thumb-miss on a tablet, and it scrolled off exactly when it was needed.
+ */
 function DirectorEnergyControl({
   energy,
   onSet,
+  decision,
+  live,
 }: {
   energy: number
   onSet: (level: number) => void
+  decision: { decision: string; level: number; approved: number; muted: boolean; seq: number } | null
+  live: boolean
 }) {
   const [pending, setPending] = useState(false)
+  /** The cue we are waiting on, tagged with the decision counter at send time. */
+  const [awaiting, setAwaiting] = useState<{ level: number; seq: number } | null>(null)
+
   const set = async (level: number) => {
     const clamped = Math.max(0, Math.min(5, level))
     if (clamped === energy || pending) return
     setPending(true)
+    setAwaiting({ level: clamped, seq: decision?.seq ?? 0 })
     try {
       await onSet(clamped)
     } finally {
       setPending(false)
     }
   }
+
+  // Derived, not stored: a decision counts only if it arrived AFTER our cue.
+  const answered = awaiting && decision && decision.seq > awaiting.seq ? decision : null
+  /**
+   * The channel is closed until told otherwise. Derived from the LATEST verdict,
+   * because that is the only thing that changes it: two lapses in a row close
+   * it, and the host touching his dial (or a new take) re-opens it.
+   *
+   * Without this the line kept reading "معلّق… ينتظر موافقته" for five measured
+   * minutes after the host had stopped receiving anything at all — a status line
+   * asserting the opposite of the truth, which is worse than none.
+   */
+  const silenced = decision?.muted === true
+
   return (
-    <div className="rounded-2xl border border-amber-500/25 bg-amber-500/5 p-3">
+    <div className="sticky top-2 z-30 rounded-2xl border border-amber-500/25 bg-card/95 p-3 shadow-sm backdrop-blur">
       <div className="mb-2 flex items-center justify-between">
         <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-amber-700">
-          <Zap className="h-3 w-3" /> طاقة الغرفة
+          <Zap className="h-3 w-3" /> طاقة الغرفة · {ENERGY_BAND_LABEL_AR[energyBand(energy)]}
         </span>
         <span className="text-[10.5px] tabular-nums text-muted-foreground" dir="ltr">
           {energy}/5
         </span>
       </div>
-      <div className="flex items-center gap-2">
+      {/*
+        Fits a 375px phone. Seven targets at a hard 44px wide plus gap-2 needed
+        356px inside a 319px card, so «خفّض الطاقة» was sliced off at the edge —
+        on the one control a director uses one-handed in the dark.
+
+        Height is the dimension that decides whether a thumb lands, so all seven
+        keep h-11 (44px); the five numbers give up their fixed WIDTH and share
+        the row instead (`flex-1 min-w-0`, ~39px each at 375px, growing on any
+        larger screen). The chevrons stay square because they are the two
+        one-step nudges and are hit without looking.
+      */}
+      <div className="flex items-center gap-1.5">
         <button
           type="button"
           onClick={() => void set(energy - 1)}
           disabled={pending || energy <= 0}
           aria-label="خفّض الطاقة"
-          className="flex h-7 w-7 items-center justify-center rounded-lg border border-border/60 text-muted-foreground transition hover:bg-muted/40 disabled:opacity-40"
+          className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-border/60 text-muted-foreground transition hover:bg-muted/40 disabled:opacity-40 [touch-action:manipulation]"
         >
-          <ChevronDown className="h-4 w-4" />
+          <ChevronDown className="h-5 w-5" />
         </button>
-        <div className="flex flex-1 items-center justify-center gap-1.5">
+        <div className="flex min-w-0 flex-1 items-center justify-center gap-1.5">
           {[1, 2, 3, 4, 5].map((n) => (
             <button
               key={n}
@@ -643,7 +843,7 @@ function DirectorEnergyControl({
               disabled={pending}
               aria-label={`ضبط الطاقة على ${n}`}
               className={cn(
-                "h-7 w-7 rounded-full border text-[11px] font-semibold transition disabled:opacity-50",
+                "h-11 min-w-0 flex-1 rounded-xl border text-[13px] font-semibold transition disabled:opacity-50 [touch-action:manipulation]",
                 n <= energy
                   ? "border-amber-500 bg-amber-500 text-white"
                   : "border-border/60 text-muted-foreground hover:border-amber-400",
@@ -658,13 +858,42 @@ function DirectorEnergyControl({
           onClick={() => void set(energy + 1)}
           disabled={pending || energy >= 5}
           aria-label="ارفع الطاقة"
-          className="flex h-7 w-7 items-center justify-center rounded-lg border border-border/60 text-muted-foreground transition hover:bg-muted/40 disabled:opacity-40"
+          className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-border/60 text-muted-foreground transition hover:bg-muted/40 disabled:opacity-40 [touch-action:manipulation]"
         >
-          <ChevronUp className="h-4 w-4" />
+          <ChevronUp className="h-5 w-5" />
         </button>
       </div>
-      <p className="mt-1.5 text-[10px] text-muted-foreground">
-        يراها المضيف فوراً — إشارتك لرفع الحدّة أو خفضها.
+
+      {/* The receipt. Silence here is what made the same cue get tapped four
+          times: the director could not tell "not seen" from "seen and refused". */}
+      <p className="mt-2 min-h-[16px] text-[11px]">
+        {!live ? (
+          <span className="text-muted-foreground">يبدأ الأثر على ترتيب أسئلة المقدم بعد بدء التسجيل.</span>
+        ) : silenced ? (
+          // Checked BEFORE "معلّق…": while the channel is closed nothing is
+          // waiting on the host, so claiming otherwise is the lie itself.
+          <span className="text-amber-700">
+            توقّف الإشعار لبقية التيك — المقدم ما تفاعل مرّتين. القيمة توصله، والترتيب بيده.
+          </span>
+        ) : answered ? (
+          answered.decision === "approved" ? (
+            <span className="font-medium text-emerald-700">وافق المقدم ✓ — الترتيب تحدّث</span>
+          ) : answered.decision === "overridden" ? (
+            <span className="text-muted-foreground">
+              المقدم ضبطها بنفسه على {answered.level}/5
+            </span>
+          ) : answered.decision === "unmuted" ? (
+            <span className="text-emerald-700">رجع الإشعار — تقدر تقترح من جديد</span>
+          ) : (
+            <span className="text-amber-700">ما تفاعل المقدم — الاقتراح سقط</span>
+          )
+        ) : awaiting ? (
+          <span className="text-muted-foreground">معلّق… وصلت المقدم، ينتظر موافقته</span>
+        ) : (
+          <span className="text-muted-foreground">
+            القيمة توصل المقدم فوراً؛ ترتيب أسئلته ما يتغيّر إلا بموافقته.
+          </span>
+        )}
       </p>
     </div>
   )
@@ -678,6 +907,8 @@ function EnergyDots({ level }: { level: number }) {
       title="مستوى الطاقة"
     >
       <Zap className="h-3 w-3 text-amber-500" />
+      {/* One vocabulary for the three grades across every screen in the room. */}
+      <span className="font-medium text-amber-700">{ENERGY_BAND_LABEL_AR[energyBand(n)]}</span>
       <span className="inline-flex gap-0.5">
         {Array.from({ length: 5 }).map((_, i) => (
           <span

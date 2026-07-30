@@ -293,11 +293,36 @@ export type RoomEventType =
   | "marker_deleted"    // session marker removed
   | "prep_update"       // prep_v2 generated/edited for the room's preparation
   | "checklist_update"  // pre-shoot checklist item confirmed / waived / cleared
+  | "energy_decision"   // host acted on (or let lapse) a director's energy cue
 
 export interface RoomEvent {
   type: RoomEventType
   data: unknown
   timestamp: string
+}
+
+/**
+ * What the host did with the director's energy cue — the ONLY way the director
+ * learns whether his tap landed.
+ *
+ * Carries no state: the displayed energy is already on the room row, and the
+ * host's "approved for ranking" number is a live-take decision, not a fact
+ * worth persisting. Broadcast-only, no DB write, no marker.
+ */
+export type EnergyDecisionKind =
+  | "approved"   // the host adopted it for question ranking
+  | "expired"    // 90s passed with no reaction
+  | "overridden" // the host set his own value instead
+  | "unmuted"    // the channel re-opened (host touched the dial, or a new take)
+
+export interface EnergyDecisionEvent {
+  decision: EnergyDecisionKind
+  /** The level the decision was about (0–5). */
+  level: number
+  /** The energy the host's question ranking runs on AFTER this decision (0–5). */
+  approved: number
+  /** True when this decision left the cue channel silent for the rest of the take. */
+  muted: boolean
 }
 
 // ─── Card CRUD Input Types ──────────────────────────────────────────

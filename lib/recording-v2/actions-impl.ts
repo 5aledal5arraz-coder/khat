@@ -119,8 +119,28 @@ export async function startTimer(roomId: string) {
   if (!room) return { ok: false as const, error: "room_not_found" }
   // Anchor BEFORE flipping to live: once the room is live, markers can arrive,
   // and a marker whose take has no anchor row cannot be placed on a timeline.
+  // Write-once via ON CONFLICT DO NOTHING, so it is safe for BOTH racers to run
+  // it — the loser's insert is a no-op and the anchor keeps the earlier stamp.
   await ensureTakeAnchor(roomId, room.take_number, now)
-  await db!
+
+  /**
+   * FIRST PRESS WINS — decided by the DATABASE, not by a prior read.
+   *
+   * Two people can start a take now (the host from his gate, the director from
+   * his checklist) and they press together, because they are shouting at each
+   * other when it happens. A read-then-check-then-write lost that race four
+   * times out of five under `Promise.all`: both callers saw `waiting`, both
+   * wrote, and the take ended up with `recording_started_at` overwritten and
+   * TWO `episode_started` markers.
+   *
+   * `WHERE status <> 'live'` makes the flip conditional inside the single
+   * statement, so exactly one caller gets a row back. Everything that must
+   * happen once — the EIR walk, the attribution marker — hangs off that row.
+   *
+   * The loser gets `ok: true` with `already_started`, never an error: from where
+   * he stands the take IS recording, which is exactly what he asked for.
+   */
+  const started = await db!
     .update(collaborationRooms)
     .set({
       status: "live",
@@ -129,7 +149,12 @@ export async function startTimer(roomId: string) {
       recording_ended_at: null,
       updated_at: now,
     })
-    .where(eq(collaborationRooms.id, roomId))
+    .where(and(eq(collaborationRooms.id, roomId), sql`${collaborationRooms.status} <> 'live'`))
+    .returning({ id: collaborationRooms.id })
+
+  if (started.length === 0) {
+    return { ok: true as const, already_started: true as const }
+  }
   if (room.eir_id) {
     await syncEirFromRoomStatus({ eirId: room.eir_id, status: "live" })
   }
@@ -323,6 +348,54 @@ export async function recordChecklistOverride(input: {
     .returning({ id: roomSessionMarkers.id })
 
   return { ok: true as const, marker_id: row.id }
+}
+
+/**
+ * Record WHO started this take.
+ *
+ * Both the host (from the pre-flight gate) and the director (from his
+ * checklist) can now press "ابدأ التسجيل", so the starter is no longer
+ * inferable from the screen the press came from. It rides on the marker's
+ * `author_id` — no new column, no migration — at `net_recording_ms = 0`, which
+ * is what the take's own clock reads at the moment of the press.
+ *
+ * Best-effort by design: a failure here must never cost a take. If the marker
+ * does not land, the recording is still running and the only thing lost is a
+ * line in the export.
+ */
+export async function recordTakeStartMarker(input: {
+  roomId: string
+  actorUserId: string
+  actorDisplayName: string
+  actorRoomRole: ParticipantRole
+}) {
+  try {
+    const room = await loadRoom(input.roomId)
+    if (!room) return { ok: false as const, error: "room_not_found" }
+    const participantId = await ensureParticipant(
+      input.roomId,
+      input.actorUserId,
+      input.actorDisplayName,
+      input.actorRoomRole,
+    )
+    const [row] = await db!
+      .insert(roomSessionMarkers)
+      .values({
+        room_id: input.roomId,
+        author_id: participantId,
+        marker_type: "episode_started",
+        label: "recording start",
+        note: `بدأ التسجيل: ${input.actorDisplayName}`,
+        net_recording_ms: 0,
+        take_number: room.take_number,
+        wall_time: new Date(),
+        section_key: null,
+      } as never)
+      .returning({ id: roomSessionMarkers.id })
+    return { ok: true as const, marker_id: row.id }
+  } catch {
+    return { ok: false as const, error: "marker_failed" }
+  }
 }
 
 /**

@@ -31,12 +31,22 @@ export type QuickMarkerType = (typeof QUICK_MARKER_TYPES)[number]
 /**
  * System markers are recorded automatically (not from the quick-tag UI) and
  * rendered specially.
- *   - `energy_change` records every energy-dial change.
- *   - `insight_used`  records when the host deploys a question's support card
+ *   - `energy_change`    records every energy-dial change.
+ *   - `insight_used`     records when the host deploys a question's support card
  *     (Insight Card) live, with the card's type + claim in `note`.
- * Both flow into the timeline ribbon + CSV export + post analytics.
+ *   - `episode_started`  records WHO pressed "ابدأ التسجيل" for this take. Both
+ *     the host and the director can start a take, so "who started" stopped being
+ *     inferable; it rides on the marker's `author_id` — no column, no migration.
+ *     The value is an old one the DB CHECK in scripts/post-schema.sql already
+ *     accepts (it is listed there among the legacy values), which is exactly why
+ *     it was chosen over a new name.
+ * All three flow into the timeline ribbon + CSV export + post analytics.
  */
-export const SYSTEM_MARKER_TYPES = ["energy_change", "insight_used"] as const
+export const SYSTEM_MARKER_TYPES = [
+  "energy_change",
+  "insight_used",
+  "episode_started",
+] as const
 export type SystemMarkerType = (typeof SYSTEM_MARKER_TYPES)[number]
 
 /** Any value the marker_type column may hold (quick + system). */

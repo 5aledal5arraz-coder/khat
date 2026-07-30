@@ -137,6 +137,28 @@ describe("ChecklistPanel", () => {
     expect(panel({ model: COMPLETE })).toContain("المقدم يقدر يبدأ التسجيل الآن")
   })
 
+  it("offers the START button to whoever is given one — director included", () => {
+    // The director is the person standing at the camera; he had to shout across
+    // the studio for someone else to press this.
+    // The heading always reads «قبل «ابدأ التسجيل»», so the BUTTON is what is
+    // asserted: the same rose CTA the host's gate uses.
+    const html = panel({ model: COMPLETE, onStart: () => {} })
+    expect(html).toContain("bg-rose-700")
+    expect(html).toContain("تقدر تبدأ التسجيل، أو ينتظر المقدم يبدأ")
+  })
+
+  it("LOCKS that button behind the same completed checklist — no director override", () => {
+    const html = panel({ model: PARTIAL, onStart: () => {} })
+    expect(html).not.toContain("bg-rose-700")
+    // The escape hatches belong to the host, for when no director is reachable.
+    expect(html).not.toContain("تجاوز وابدأ")
+    expect(html).not.toContain("أكمل التشك-ليست بنفسي")
+  })
+
+  it("shows no start button on a screen that was not given one", () => {
+    expect(panel({ model: COMPLETE })).not.toContain("bg-rose-700")
+  })
+
   it("offers «غير منطبق» on unresolved rows", () => {
     expect(panel()).toContain("غير منطبق")
   })

@@ -20,7 +20,7 @@
  * All persistence flows through the server actions in actions.ts.
  */
 
-import { useMemo, useRef, useState, useTransition } from "react"
+import { useEffect, useMemo, useRef, useState, useTransition } from "react"
 import { Empty } from "../../../components/ui-kit"
 import {
   useRoomState,
@@ -29,7 +29,20 @@ import {
   useRoomConnection,
 } from "@/app/admin/preparation/[id]/room/contexts"
 import type { LiveV2Marker, LiveV2Snapshot } from "@/lib/recording-v2/load"
-import { energyBand, rankQuestionsByEnergy, coachHint } from "@/lib/recording-v2/energy"
+import {
+  energyBand,
+  rankQuestionsByEnergy,
+  coachHint,
+  sectionRespondsToEnergy,
+} from "@/lib/recording-v2/energy"
+import {
+  ENERGY_LAPSE_NOTICE_MS,
+  energyHandshake,
+  initEnergyHandshake,
+  resolveHero,
+  type EnergyHandshakeEvent,
+  type EnergyHandshakeState,
+} from "@/lib/recording-v2/energy-handshake"
 import { QUICK_MARKER_GROUPS, QUICK_MARKER_META, type QuickMarkerType } from "@/lib/recording-v2/marker-types"
 import {
   startTimerAction,
@@ -64,12 +77,120 @@ export function LiveV2Client({ initial }: { initial: LiveV2Snapshot }) {
   const prep = initial.preparation
   const sections = prep.prep_v2?.episode_sections ?? null
 
-  // ── Live energy (set by the director / host, synced over SSE) ──────
-  const { room: liveRoom, updateEnergy, participants } = useRoomState()
+  // ── Live energy — TWO numbers, deliberately ────────────────────────
+  //
+  //  displayedEnergy : the shared room value. Live for everyone, moved by the
+  //                    host OR the director, drives the ribbon + energy_change
+  //                    markers. Reaches the host instantly, as asked.
+  //  approved        : what the QUESTION RANKING reads. Moves only by the
+  //                    host's hand (his dial, or his approval of a cue).
+  //
+  // One number could not satisfy both requirements at once: with one, the
+  // director's tap re-sorted the host's list under his eyes, mid-question.
+  const { room: liveRoom, updateEnergy, sendEnergyDecision, participants } = useRoomState()
   const { status: connStatus, reconnect } = useRoomConnection()
-  const energy = liveRoom?.energy_level ?? room.energy_level ?? 3
-  const band = energyBand(energy)
-  const onSetEnergy = (level: number) => void updateEnergy(level)
+  const displayedEnergy = liveRoom?.energy_level ?? room.energy_level ?? 3
+
+  const [handshake, setHandshake] = useState<EnergyHandshakeState>(() =>
+    initEnergyHandshake(room.energy_level ?? 3),
+  )
+  const band = energyBand(handshake.approved)
+
+  /**
+   * The on-air hero PIN — which question is on screen.
+   *
+   * It lives here, not in the view, because both moves that touch it have to
+   * happen in the SAME synchronous handler that changes the ranking:
+   *   • the host crosses a band with his own dial → release the pin, re-deal;
+   *   • he approves a director's cue            → pin what is on screen FIRST,
+   *     so the re-rank can only change the "next up" row.
+   * Done from an effect instead, the question would move for a frame under a
+   * host who is reading it out loud.
+   */
+  const [heroId, setHeroId] = useState<string | null>(null)
+
+  // The reducer's side effects (telling the director, moving the pin) must NOT
+  // run inside a `setState` updater — React may invoke an updater more than
+  // once, which would double-post the decision. So the current state is mirrored
+  // in a ref and the dispatch is a plain function.
+  const handshakeRef = useRef(handshake)
+  handshakeRef.current = handshake
+
+  function dispatchEnergy(event: EnergyHandshakeEvent) {
+    const r = energyHandshake(handshakeRef.current, event)
+    if (r.state === handshakeRef.current && !r.decision && !r.hero) return
+    // Freeze the displayed question BEFORE the approval's re-rank lands.
+    // `openQuestions` below still holds the PRE-approval ranking here — this
+    // function only ever runs after the render body, from a handler or an
+    // effect — which is exactly the order this depends on.
+    if (r.decision?.kind === "approved") {
+      setHeroId((prev) => resolveHero(openQuestions, prev)?.id ?? null)
+    }
+    handshakeRef.current = r.state
+    setHandshake(r.state)
+    if (r.decision) {
+      void sendEnergyDecision(
+        r.decision.kind,
+        r.decision.level,
+        r.state.approved,
+        r.decision.muted === true,
+      )
+    }
+    if (r.hero === "reset") setHeroId(null)
+  }
+
+  // The shared value moved. If it is not what the host ranks on, it is a cue —
+  // but only once a take is running. Before "ابدأ التسجيل" the dial is just a
+  // setting being agreed on, so it is ADOPTED silently: turning it into a cue
+  // there would let two pre-roll taps burn the two-strike mute and leave the
+  // director unable to signal for the whole take he had not started yet.
+  useEffect(() => {
+    if (status === "live" || status === "paused") {
+      dispatchEnergy({ kind: "displayed", level: displayedEnergy, now: Date.now() })
+    } else {
+      dispatchEnergy({ kind: "reset", level: displayedEnergy })
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [displayedEnergy])
+
+  // A cue nobody reacts to is dropped after 90s — and the drop is VISIBLE.
+  useEffect(() => {
+    const pending = handshake.pending
+    if (!pending) return
+    const t = setTimeout(
+      () => dispatchEnergy({ kind: "expire", now: Date.now() }),
+      Math.max(0, pending.expiresAt - Date.now()),
+    )
+    return () => clearTimeout(t)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [handshake.pending])
+
+  useEffect(() => {
+    if (!handshake.lapsed) return
+    const t = setTimeout(
+      () => dispatchEnergy({ kind: "clear_lapsed" }),
+      ENERGY_LAPSE_NOTICE_MS,
+    )
+    return () => clearTimeout(t)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [handshake.lapsed])
+
+  /**
+   * The host's own dial — an OWNER ACTION, applied to BOTH numbers.
+   *
+   * `host_set` moves the ranking energy and cancels any pending cue; the PATCH
+   * moves the shared displayed value. The PATCH is skipped only when the shared
+   * value is ALREADY what he tapped — re-sending it would write a second
+   * identical `energy_change` marker and put a duplicate point on the ribbon.
+   * The local half always runs, which is what makes re-asserting a diverged
+   * value work instead of being silently swallowed.
+   */
+  const onSetEnergy = (level: number) => {
+    dispatchEnergy({ kind: "host_set", level, now: Date.now() })
+    if (level !== displayedEnergy) void updateEnergy(level)
+  }
+
+  const onApproveEnergy = () => dispatchEnergy({ kind: "approve", now: Date.now() })
 
   // Which recording attempt is loaded. Bumped by onReset so the ribbon below
   // drops the scrapped take's points without waiting for a reload.
@@ -312,6 +433,7 @@ export function LiveV2Client({ initial }: { initial: LiveV2Snapshot }) {
     setCompletedQuestionIds(new Set())
     setCompletedSections(new Set())
     setSectionIndex(0)
+    setHeroId(null)
     setNotes("")
     setMarkers([])
     // The new take has no anchor row until it starts, so there is nothing to
@@ -324,6 +446,10 @@ export function LiveV2Client({ initial }: { initial: LiveV2Snapshot }) {
     // `selfCompleting`: a new take needs a fresh decision about who confirms it.
     setOverridden(false)
     setSelfCompleting(false)
+    // The energy handshake is per-take too: a new take re-adopts whatever the
+    // room currently shows, and the "quiet for the rest of the take" mute is
+    // lifted — it was a judgement about THAT take, not about the director.
+    dispatchEnergy({ kind: "reset", level: displayedEnergy })
   })
   const onEnd = withBusy(async () => {
     setElapsedMsAtBaseline(nowElapsed())
@@ -345,6 +471,8 @@ export function LiveV2Client({ initial }: { initial: LiveV2Snapshot }) {
       return next
     })
     setSectionIndex(clamped)
+    // A pin belongs to the section it was made in.
+    setHeroId(null)
     await setCurrentSectionAction({ roomId: room.id, index: clamped, key: sections[clamped].kind })
   }
 
@@ -433,7 +561,27 @@ export function LiveV2Client({ initial }: { initial: LiveV2Snapshot }) {
     return rankQuestionsByEnergy(all, band, (id) => completedQuestionIds.has(id))
   }, [prep.prep_v2, currentSection, band, completedQuestionIds])
 
-  const hint = coachHint(currentSection, energy)
+  const openQuestions = useMemo(
+    () => currentSectionQuestions.filter((q) => !completedQuestionIds.has(q.id)),
+    [currentSectionQuestions, completedQuestionIds],
+  )
+
+  /**
+   * Whether the dial can reorder anything HERE. Four of the six sections in the
+   * real prep hold no sharp question at all — by editorial choice — so in those
+   * the indicator genuinely cannot move the list, and the view says so instead
+   * of leaving the host to discover it by moving the dial and seeing nothing.
+   */
+  const energyReordersSection = useMemo(
+    () => sectionRespondsToEnergy(currentSectionQuestions, (id) => completedQuestionIds.has(id)),
+    [currentSectionQuestions, completedQuestionIds],
+  )
+
+  // The whisper follows the APPROVED energy, not the displayed one — it and the
+  // ranking must say the same thing, which is the contradiction this whole
+  // change exists to end. And while a cue is on screen the whisper goes quiet:
+  // two amber banners competing for the same glance is one too many.
+  const hint = handshake.pending ? null : coachHint(currentSection, handshake.approved)
   // Energy markers drive the ribbon, not the content pins / count / list.
   const contentMarkers = markers.filter((m) => m.marker_type !== "energy_change")
 
@@ -497,7 +645,7 @@ export function LiveV2Client({ initial }: { initial: LiveV2Snapshot }) {
             onReconnect={reconnect}
             busy={busy}
           >
-            <EnergyLabel energy={energy} canSetEnergy onSetEnergy={onSetEnergy} />
+            <EnergyLabel energy={displayedEnergy} canSetEnergy onSetEnergy={onSetEnergy} />
           </PreflightGate>
         }
         title={prep.title}
@@ -508,7 +656,7 @@ export function LiveV2Client({ initial }: { initial: LiveV2Snapshot }) {
         openingOptions={pv.opening_options}
         sensitiveZones={pv.sensitive_zones}
         sections={pv.episode_sections}
-        energy={energy}
+        energy={displayedEnergy}
         canSetEnergy
         onSetEnergy={onSetEnergy}
         onStart={onStart}
@@ -556,7 +704,14 @@ export function LiveV2Client({ initial }: { initial: LiveV2Snapshot }) {
       band={band}
       usedInsightIds={usedInsightIds}
       onUseInsight={tagInsight}
-      energy={energy}
+      energy={displayedEnergy}
+      approvedEnergy={handshake.approved}
+      suggestion={handshake.pending}
+      lapsedSuggestion={handshake.lapsed}
+      onApproveEnergy={onApproveEnergy}
+      heroId={heroId}
+      onPickHero={setHeroId}
+      energyReordersSection={energyReordersSection}
       canSetEnergy
       onSetEnergy={onSetEnergy}
       contentMarkers={contentMarkers}

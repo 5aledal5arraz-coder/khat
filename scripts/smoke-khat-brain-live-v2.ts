@@ -12,17 +12,20 @@
  *   9. EIR status mapping still works (recording → recorded on end)
  *  10. legacy /admin/collab/[roomId] now redirects to V2
  *  11. cleanup leaves no smoke rows behind
+ *  13. two simultaneous "ابدأ التسجيل" presses produce ONE take + ONE start marker
+ *  14. every energy decision (approve / lapse / override) leaves an energy_change row
  *
  * Idempotent. Cleans up its own rows on success.
  */
 
-import { sql, eq, like, asc } from "drizzle-orm"
+import { sql, eq, and, like, asc } from "drizzle-orm"
 import { db } from "@/lib/db"
 import { adminUsers } from "@/lib/db/schema/admin-auth"
 import {
   collaborationRooms,
   roomSessionMarkers,
   roomParticipants,
+  roomTakes,
 } from "@/lib/db/schema/collaboration"
 import { episodePreparations } from "@/lib/db/schema/preparation"
 import { khatMapSeasons } from "@/lib/db/schema/khat-map"
@@ -38,7 +41,9 @@ import {
   setCurrentSection,
   saveDirectorNotes,
   createMarker,
+  recordTakeStartMarker,
 } from "@/lib/recording-v2/actions-impl"
+import { recordEnergyDecisionMarker } from "@/lib/collaboration/rooms"
 import type { PrepV2Payload } from "@/lib/preparation/v2/types"
 import { ensureEirForCandidate } from "@/lib/khat-brain"
 import { getEpisodeIntelligenceRecord } from "@/lib/eir"
@@ -509,6 +514,136 @@ async function caseQuickTags(ctx: RoomCtx, adminId: string, email: string) {
   console.log(`  ✓ markers persisted (highlight + quote) with section_key + net_recording_ms`)
 }
 
+
+/**
+ * Two operators press "ابدأ التسجيل" in the same instant.
+ *
+ * This is not hypothetical: the host has the button on his gate and the
+ * director has it on his checklist, and they press together precisely because
+ * they are shouting at each other about it. The take must come out singular —
+ * one flip, one anchor, ONE attribution marker — or the export shows the
+ * episode starting twice and `recording_started_at` has been overwritten by
+ * whichever write landed second.
+ *
+ * Read-then-check-then-write lost this race 4 times out of 5; the guard now
+ * lives in the UPDATE's own WHERE clause.
+ */
+async function caseConcurrentStartIsAtomic(ctx: RoomCtx, adminId: string, email: string) {
+  console.log("\nCase 13 — two simultaneous starts produce ONE take:")
+  const ROUNDS = 5
+  for (let i = 0; i < ROUNDS; i++) {
+    await resetTimer(ctx.roomId)
+    // Both callers race, exactly as two clients on two tablets would.
+    const [a, b] = await Promise.all([startTimer(ctx.roomId), startTimer(ctx.roomId)])
+    assert(a.ok && b.ok, "a start returned an error — the loser must never see one")
+    const winners = [a, b].filter((r) => !("already_started" in r && r.already_started))
+    assert(
+      winners.length === 1,
+      `round ${i + 1}: expected exactly 1 winner, got ${winners.length}`,
+    )
+
+    // Only the winner writes the attribution marker — mirror what the server
+    // action does, so the smoke proves the whole path and not just the flip.
+    for (const r of [a, b]) {
+      if (!("already_started" in r && r.already_started)) {
+        await recordTakeStartMarker({
+          roomId: ctx.roomId,
+          actorUserId: adminId,
+          actorDisplayName: email.split("@")[0],
+          actorRoomRole: "host",
+        })
+      }
+    }
+
+    const [room] = await db!
+      .select()
+      .from(collaborationRooms)
+      .where(eq(collaborationRooms.id, ctx.roomId))
+      .limit(1)
+    assert(room.status === "live", `round ${i + 1}: room not live`)
+
+    const anchors = await db!
+      .select({ id: roomTakes.id })
+      .from(roomTakes)
+      .where(
+        and(eq(roomTakes.room_id, ctx.roomId), eq(roomTakes.take_number, room.take_number)),
+      )
+    assert(anchors.length === 1, `round ${i + 1}: expected 1 anchor, got ${anchors.length}`)
+
+    const starts = await db!
+      .select({ id: roomSessionMarkers.id })
+      .from(roomSessionMarkers)
+      .where(
+        and(
+          eq(roomSessionMarkers.room_id, ctx.roomId),
+          eq(roomSessionMarkers.take_number, room.take_number),
+          eq(roomSessionMarkers.marker_type, "episode_started"),
+        ),
+      )
+    assert(
+      starts.length === 1,
+      `round ${i + 1}: expected 1 episode_started marker, got ${starts.length}`,
+    )
+  }
+  await endTimer(ctx.roomId)
+  await resetTimer(ctx.roomId)
+  console.log(`  ✓ ${ROUNDS}/${ROUNDS} rounds: one winner, one anchor, one start marker`)
+}
+
+/**
+ * Every verdict on a director cue leaves a trace (mariam's criterion 13-b).
+ *
+ * A session log that holds only dial movements cannot answer "did the indicator
+ * change anything?" after the take — which is the question the whole feature
+ * was opened to settle.
+ */
+async function caseEnergyDecisionsAreRecorded(ctx: RoomCtx, adminId: string) {
+  console.log("\nCase 14 — approve / lapse / override each leave a trace:")
+  await startTimer(ctx.roomId)
+  await new Promise((r) => setTimeout(r, 40))
+
+  const decisions = [
+    { decision: "approved", level: 5, approved: 5 },
+    { decision: "expired", level: 1, approved: 5 },
+    { decision: "overridden", level: 2, approved: 2 },
+  ]
+  for (const d of decisions) {
+    const m = await recordEnergyDecisionMarker(ctx.roomId, adminId, d)
+    assert(m !== null, `decision ${d.decision} was not recorded`)
+  }
+
+  const rows = await db!
+    .select()
+    .from(roomSessionMarkers)
+    .where(
+      and(
+        eq(roomSessionMarkers.room_id, ctx.roomId),
+        eq(roomSessionMarkers.marker_type, "energy_change"),
+      ),
+    )
+    .orderBy(asc(roomSessionMarkers.created_at))
+  assert(rows.length === 3, `expected 3 decision rows, got ${rows.length}`)
+
+  for (let i = 0; i < decisions.length; i++) {
+    const d = decisions[i]
+    assert(
+      rows[i].label === `${d.decision}:${d.level}`,
+      `row ${i} label: ${rows[i].label}`,
+    )
+    // `note` must stay a bare number: the energy ribbon parses it with
+    // Number(), so a decorated string would silently plot as 3 — and it must be
+    // the ADOPTED level, never a lapsed cue the host refused.
+    assert(
+      Number(rows[i].note) === d.approved,
+      `row ${i} note must be the adopted level ${d.approved}, got ${rows[i].note}`,
+    )
+  }
+
+  await endTimer(ctx.roomId)
+  await resetTimer(ctx.roomId)
+  console.log(`  ✓ 3 decisions recorded as energy_change; note stays the adopted 0–5 level`)
+}
+
 async function caseEirMappingStillWorks(adminId: string) {
   console.log("\nCase 9 — EIR phase mapping preserved (fresh scenario):")
   // Seed an independent scenario so we don't inherit any phase state
@@ -633,9 +768,11 @@ async function main() {
   await caseEirMappingStillWorks(admin.id)
   await caseOldPageStillLoads()
   await caseExportQueryRunsOnRealPostgres(v2Room)
+  await caseConcurrentStartIsAtomic(v2Room, admin.id, admin.email)
+  await caseEnergyDecisionsAreRecorded(v2Room, admin.id)
   await caseCleanupCheck()
 
-  console.log("\n✅ smoke-khat-brain-live-v2: all 12 cases passed")
+  console.log("\n✅ smoke-khat-brain-live-v2: all 14 cases passed")
 }
 
 main()

@@ -42,10 +42,24 @@ export function CompactClock({
   const { hms, cs } = clockParts(
     computeElapsedMs(elapsedMsAtBaseline, windowStartedAt, status === "live"),
   )
+  /**
+   * `suppressHydrationWarning` on the two time nodes.
+   *
+   * Elapsed is derived from `Date.now()` DURING RENDER — deliberately, so the
+   * value can never go stale — which means the server's HTML and the client's
+   * first render disagree by however long the response took. React logged
+   * "Hydration failed" for it. The text is expected to differ; nothing else in
+   * this subtree is, so the suppression stays on the two nodes that carry the
+   * clock rather than on a wrapper where it would hide real mismatches.
+   */
   return (
     <span className="inline-flex items-baseline font-mono font-bold tabular-nums" dir="ltr">
-      <span className="text-[20px] leading-none">{hms}</span>
-      <span className="ms-0.5 text-[12px] text-muted-foreground/70">.{cs}</span>
+      <span className="text-[20px] leading-none" suppressHydrationWarning>
+        {hms}
+      </span>
+      <span className="ms-0.5 text-[12px] text-muted-foreground/70" suppressHydrationWarning>
+        .{cs}
+      </span>
     </span>
   )
 }

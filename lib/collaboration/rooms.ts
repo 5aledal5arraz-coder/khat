@@ -542,6 +542,55 @@ export async function recordEnergyChangeMarker(
   }
 }
 
+/**
+ * Best-effort: record the host's VERDICT on a director cue as a marker.
+ *
+ * Same `energy_change` type as a dial move, on purpose — the timeline should
+ * carry one story about the room's energy, and the decision is the half that
+ * was missing: after an approval and an override, the table held six dial-move
+ * rows and no evidence that any decision had ever been taken.
+ *
+ * Two fields, split deliberately:
+ *   - `note` stays a bare 0–5 number, ALWAYS the energy the ranking runs on
+ *     after the decision. The ribbon parses it with `Number(note)`, so a
+ *     decorated string would silently plot as 3, and a lapsed cue's level would
+ *     draw a line the host never adopted.
+ *   - `label` carries `"<decision>:<cue level>"`, which is what makes the row
+ *     readable in the CSV export without touching the ribbon's contract.
+ */
+export async function recordEnergyDecisionMarker(
+  roomId: string,
+  userId: string,
+  input: { decision: string; level: number; approved: number },
+): Promise<RoomSessionMarker | null> {
+  try {
+    const room = await getRoomById(roomId)
+    if (!room || room.status !== "live") return null
+    const [participant] = await db!
+      .select({ id: roomParticipants.id })
+      .from(roomParticipants)
+      .where(and(eq(roomParticipants.room_id, roomId), eq(roomParticipants.user_id, userId)))
+      .limit(1)
+    if (!participant) return null
+    const [row] = await db!
+      .insert(roomSessionMarkers)
+      .values({
+        room_id: roomId,
+        author_id: participant.id,
+        marker_type: "energy_change",
+        label: `${input.decision}:${input.level}`,
+        note: String(input.approved),
+        net_recording_ms: computeNetRecordingMs(room),
+        take_number: room.take_number,
+        wall_time: new Date(),
+      } as never)
+      .returning()
+    return row ? rowToMarker(row) : null
+  } catch {
+    return null
+  }
+}
+
 export async function createMarker(
   roomId: string,
   authorId: string,

@@ -28,6 +28,7 @@ export function StatusRail({
   sectionIndex,
   sectionTotal,
   energy,
+  approvedEnergy,
   canSetEnergy,
   onSetEnergy,
   onOpenTeam,
@@ -43,6 +44,8 @@ export function StatusRail({
   sectionIndex: number
   sectionTotal: number
   energy: number
+  /** The ranking energy, so the rail can say so when it differs from displayed. */
+  approvedEnergy?: number
   canSetEnergy: boolean
   onSetEnergy: (level: number) => void
   onOpenTeam: () => void
@@ -94,7 +97,12 @@ export function StatusRail({
 
       <Divider />
 
-      <CompactEnergyControl level={energy} interactive={canSetEnergy} onSet={onSetEnergy} />
+      <CompactEnergyControl
+        level={energy}
+        approvedLevel={approvedEnergy}
+        interactive={canSetEnergy}
+        onSet={onSetEnergy}
+      />
 
       <span className="ms-auto inline-flex items-center gap-2.5">
         <TeamIndicator onOpen={onOpenTeam} />

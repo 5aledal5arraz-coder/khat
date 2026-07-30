@@ -23,6 +23,8 @@ import {
 import type {
   CollaborationRoom,
   CollaborationRoomStatus,
+  EnergyDecisionEvent,
+  EnergyDecisionKind,
   RoomParticipant,
   ParticipantRole,
   RoomEvent,
@@ -54,9 +56,28 @@ interface RoomStateContextValue {
   isDirectorOrAbove: boolean
   onlineCount: number
 
+  /**
+   * The host's latest verdict on a director energy cue, as broadcast — the
+   * director's receipt. `seq` increments on every event so a repeat of the same
+   * decision still re-renders. Never persisted; cleared on nothing.
+   */
+  energyDecision: (EnergyDecisionEvent & { seq: number }) | null
+
   // Actions (host only)
   updatePhase: (phase: string) => Promise<void>
   updateEnergy: (level: number) => Promise<void>
+  /**
+   * Announce (and record) what the host did with a director's cue.
+   * `approved` is the energy his ranking runs on AFTER the decision — it is what
+   * the persisted marker stores, so the energy ribbon never plots a level the
+   * host did not adopt.
+   */
+  sendEnergyDecision: (
+    decision: EnergyDecisionKind,
+    level: number,
+    approved: number,
+    muted: boolean,
+  ) => Promise<void>
   updateStatus: (status: CollaborationRoomStatus) => Promise<void>
   setActiveCard: (cardId: string | null) => Promise<void>
   updateHostNotes: (notes: string) => Promise<void>
@@ -101,6 +122,9 @@ export function RoomStateProvider({
   const [participants, setParticipants] = useState<RoomParticipant[]>([])
   const [myParticipantId, setMyParticipantId] = useState<string | null>(null)
   const [prepV2, setPrepV2] = useState<PrepV2Payload | null>(null)
+  const [energyDecision, setEnergyDecision] = useState<
+    (EnergyDecisionEvent & { seq: number }) | null
+  >(null)
 
   // Heartbeat interval
   const heartbeatRef = useRef<ReturnType<typeof setInterval> | null>(null)
@@ -153,6 +177,12 @@ export function RoomStateProvider({
         case "prep_update":
           setPrepV2(event.data as PrepV2Payload)
           break
+
+        case "energy_decision": {
+          const d = event.data as EnergyDecisionEvent
+          setEnergyDecision((prev) => ({ ...d, seq: (prev?.seq ?? 0) + 1 }))
+          break
+        }
       }
     })
     return unsub
@@ -223,6 +253,24 @@ export function RoomStateProvider({
     [patchRoom],
   )
 
+  const sendEnergyDecision = useCallback(
+    async (decision: EnergyDecisionKind, level: number, approved: number, muted: boolean) => {
+      try {
+        await fetch(
+          `/api/admin/preparation/${prepId}/rooms/${roomId}/energy-decision`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json", "x-requested-with": "khat" },
+            body: JSON.stringify({ decision, level, approved, muted }),
+          },
+        )
+      } catch {
+        // Best-effort receipt — never fail the host's take over a status line.
+      }
+    },
+    [prepId, roomId],
+  )
+
   const updateStatus = useCallback(
     (status: CollaborationRoomStatus) => patchRoom({ status }),
     [patchRoom],
@@ -288,11 +336,13 @@ export function RoomStateProvider({
         participants,
         myParticipant,
         prepV2,
+        energyDecision,
         isHost,
         isDirectorOrAbove,
         onlineCount,
         updatePhase,
         updateEnergy,
+        sendEnergyDecision,
         updateStatus,
         setActiveCard,
         updateHostNotes,

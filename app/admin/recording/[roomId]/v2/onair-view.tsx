@@ -28,7 +28,14 @@ import {
 import type { LiveV2Marker, LiveV2Snapshot } from "@/lib/recording-v2/load"
 import type { PrepV2Question, SectionKind } from "@/lib/preparation/v2/types"
 import { isLiveInsight } from "@/lib/preparation/v2/types"
-import { matchesEnergy, type EnergyBand } from "@/lib/recording-v2/energy"
+import {
+  ENERGY_BAND_LABEL_AR,
+  ENERGY_FIT_LABEL_AR,
+  energyBand,
+  matchesEnergy,
+  type EnergyBand,
+} from "@/lib/recording-v2/energy"
+import { resolveHero, type EnergySuggestion } from "@/lib/recording-v2/energy-handshake"
 import { Zap } from "lucide-react"
 import { SECTION_LABEL_AR, computeElapsedMs } from "./recording-shared"
 import { Timeline, type EnergyPoint } from "./recording-clock"
@@ -65,7 +72,27 @@ export function OnAirView(props: {
   band: EnergyBand
   usedInsightIds: Set<string>
   onUseInsight: (insight: import("@/lib/preparation/v2/types").PrepV2Insight) => void
+  /** The shared, live value — what everyone in the room sees. */
   energy: number
+  /** What the question ranking is actually built on. Only the host moves it. */
+  approvedEnergy: number
+  /** The director's cue awaiting a decision, if any. */
+  suggestion: EnergySuggestion | null
+  /** A cue that just lapsed — shown briefly so the drop is never silent. */
+  lapsedSuggestion: { level: number; at: number } | null
+  onApproveEnergy: () => void
+  /**
+   * The pinned question, owned by the orchestrator. `null` = unpinned, i.e.
+   * whatever the current ranking floats to the top.
+   */
+  heroId: string | null
+  onPickHero: (id: string) => void
+  /**
+   * False when NO ordering of this section's open questions changes with the
+   * dial — every remaining question carries the same intensity. Said out loud
+   * instead of leaving the host to move the dial and watch nothing happen.
+   */
+  energyReordersSection: boolean
   canSetEnergy: boolean
   onSetEnergy: (level: number) => void
   contentMarkers: LiveV2Marker[]
@@ -76,7 +103,6 @@ export function OnAirView(props: {
   onTag: (type: QuickMarkerType, label: string) => void
 }) {
   const [teamOpen, setTeamOpen] = useState(false)
-  const [heroId, setHeroId] = useState<string | null>(null)
 
   // The live clock + per-frame ticking is fully isolated inside <CompactClock>
   // (its own rAF re-renders only itself, never this view). So OnAirView derives
@@ -89,9 +115,13 @@ export function OnAirView(props: {
     props.status === "live",
   )
 
+  // The hero PIN lives in the orchestrator, not here: releasing it (the host
+  // crossed a band) and setting it (he approved a cue, so freeze what is on
+  // screen) both have to happen in the same handler that changes the ranking,
+  // synchronously, or the question moves for a frame under a host who is
+  // reading it aloud.
   const open = props.questions.filter((q) => !props.completedIds.has(q.id))
-  const hero =
-    open.find((q) => q.id === heroId) ?? open[0] ?? null
+  const hero = resolveHero(open, props.heroId)
   const nextUp = open.filter((q) => q.id !== hero?.id).slice(0, 2)
 
   const sectionLabel = props.currentSection
@@ -113,6 +143,7 @@ export function OnAirView(props: {
         sectionIndex={props.sectionIndex}
         sectionTotal={sectionTotal}
         energy={props.energy}
+        approvedEnergy={props.approvedEnergy}
         canSetEnergy={props.canSetEnergy}
         onSetEnergy={props.onSetEnergy}
         onOpenTeam={() => setTeamOpen((o) => !o)}
@@ -124,9 +155,31 @@ export function OnAirView(props: {
         sectionKey={props.currentSection ?? undefined}
       />
 
-      {props.hint && (
-        <CoachHintBanner hint={props.hint} energy={props.energy} section={props.currentSection} />
-      )}
+      {/*
+        ONE reserved slot, always occupied by a box of the same height.
+        It used to be a bare `{hint && <CoachHintBanner/>}`, so the banner
+        appearing shoved the question ~40px down the screen — a layout jump in
+        front of a host who is mid-sentence reading it. The director's cue and
+        the lapse notice share the slot (the whisper is muted while a cue is up),
+        so nothing can ever stack here either.
+      */}
+      <div className="min-h-[40px]">
+        {props.suggestion ? (
+          <EnergyCueBanner
+            suggestion={props.suggestion}
+            approvedEnergy={props.approvedEnergy}
+            onApprove={props.onApproveEnergy}
+          />
+        ) : props.lapsedSuggestion ? (
+          <EnergyLapsedBanner level={props.lapsedSuggestion.level} />
+        ) : props.hint ? (
+          <CoachHintBanner
+            hint={props.hint}
+            energy={props.approvedEnergy}
+            section={props.currentSection}
+          />
+        ) : null}
+      </div>
 
       {props.sections && (
         <SectionSwitcher
@@ -134,6 +187,19 @@ export function OnAirView(props: {
           currentIndex={props.sectionIndex}
           onSelect={props.moveTo}
         />
+      )}
+
+      {/*
+        Honesty about REACH. The dial keeps working everywhere — it still
+        reaches the director and still writes `energy_change` markers — but in a
+        section whose remaining questions all carry the same intensity it cannot
+        reorder anything, and saying so is the difference between a feature that
+        looks broken and one whose limits are understood.
+      */}
+      {!props.energyReordersSection && open.length > 0 && (
+        <p className="text-[11.5px] text-muted-foreground" dir="rtl">
+          أسئلة هذا القسم متقاربة الشدّة — المؤشّر ما يغيّر ترتيبها هنا.
+        </p>
       )}
 
       {/* THE FOCAL POINT */}
@@ -154,7 +220,7 @@ export function OnAirView(props: {
         />
       )}
 
-      {nextUp.length > 0 && <NextUpPeek questions={nextUp} onPick={setHeroId} />}
+      {nextUp.length > 0 && <NextUpPeek questions={nextUp} onPick={props.onPickHero} />}
 
       <FlagControl onTag={props.onTag} />
 
@@ -173,7 +239,7 @@ export function OnAirView(props: {
             questions={props.questions}
             completedIds={props.completedIds}
             onToggleDone={props.onToggleDone}
-            onPickHero={setHeroId}
+            onPickHero={props.onPickHero}
             band={props.band}
           />
         </Drawer>
@@ -197,6 +263,66 @@ export function OnAirView(props: {
           />
         </Drawer>
       </div>
+    </div>
+  )
+}
+
+// ─── The director's energy cue (propose → approve) ────────────────────
+
+/**
+ * The director asks; the host decides. Until he taps «اعتمد» the question order
+ * does not move a millimetre — approving is the ONLY thing that re-ranks, and
+ * even then the question on screen stays put (see the pin above).
+ *
+ * The two numbers are named out loud rather than hidden, because they genuinely
+ * differ for as long as the cue is pending: the room already shows the
+ * director's number, the ranking still runs on the host's.
+ */
+function EnergyCueBanner({
+  suggestion,
+  approvedEnergy,
+  onApprove,
+}: {
+  suggestion: EnergySuggestion
+  approvedEnergy: number
+  onApprove: () => void
+}) {
+  const proposed = ENERGY_BAND_LABEL_AR[energyBand(suggestion.level)]
+  const current = ENERGY_BAND_LABEL_AR[energyBand(approvedEnergy)]
+  return (
+    <div
+      className={
+        "flex flex-wrap items-center justify-between gap-2 rounded-xl border border-violet-500/40 bg-violet-500/10 px-3 py-2 " +
+        // One pulse per window at most — a second cue inside the same 90s
+        // replaces this one in place, silently.
+        (suggestion.pulse ? "animate-pulse" : "")
+      }
+      dir="rtl"
+    >
+      <span className="inline-flex items-center gap-2 text-[12.5px] font-medium text-violet-700">
+        <Zap className="h-3.5 w-3.5 shrink-0 text-violet-600" />
+        المخرج يقترح: {proposed} · ترتيبك الآن على {current}
+      </span>
+      <button
+        type="button"
+        onClick={onApprove}
+        className="inline-flex min-h-[36px] items-center gap-1.5 rounded-xl border border-violet-500/50 bg-violet-500/15 px-3.5 py-1.5 text-[12.5px] font-semibold text-violet-800 transition hover:bg-violet-500/25"
+      >
+        <Check className="h-3.5 w-3.5" /> اعتمد
+      </button>
+    </div>
+  )
+}
+
+/** A cue that lapsed. Shown, never swallowed — silence would read as "taken". */
+function EnergyLapsedBanner({ level }: { level: number }) {
+  return (
+    <div
+      className="flex items-center gap-2 rounded-xl border border-border/50 bg-background/50 px-3 py-2 text-[12px] text-muted-foreground"
+      dir="rtl"
+    >
+      <Zap className="h-3.5 w-3.5 shrink-0 text-muted-foreground/70" />
+      سقط اقتراح المخرج ({ENERGY_BAND_LABEL_AR[energyBand(level)]}) — ترتيبك ما تغيّر
     </div>
   )
 }
@@ -226,9 +352,12 @@ function QuestionHero({
         <PriorityChip priority={q.priority} />
         <TypeChips types={q.types} />
         <RiskChip risk={q.risk_level} />
+        {/* The badge names what the question DOES to the room, not that it
+            "matches" — the ranking is corrective now, so a hot question floats
+            when the room is flat and "يناسب الطاقة" would read as a lie. */}
         {matchesEnergy(q, band) && (
           <span className="inline-flex items-center gap-0.5 rounded-full bg-amber-500/15 px-1.5 py-0.5 text-[10px] font-medium text-amber-700">
-            <Zap className="h-2.5 w-2.5" /> يناسب الطاقة
+            <Zap className="h-2.5 w-2.5" /> {ENERGY_FIT_LABEL_AR[band]}
           </span>
         )}
       </div>
@@ -441,7 +570,7 @@ function QuestionBank({
                   <RiskChip risk={q.risk_level} />
                   {!done && matchesEnergy(q, band) && (
                     <span className="inline-flex items-center gap-0.5 rounded-full bg-amber-500/15 px-1.5 py-0.5 text-[10px] font-medium text-amber-700">
-                      <Zap className="h-2.5 w-2.5" /> يناسب الطاقة
+                      <Zap className="h-2.5 w-2.5" /> {ENERGY_FIT_LABEL_AR[band]}
                     </span>
                   )}
                 </div>

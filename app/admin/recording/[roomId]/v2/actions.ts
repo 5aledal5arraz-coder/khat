@@ -23,6 +23,7 @@ import {
   toggleQuestionDone,
   setTakeCameraOffset,
   recordChecklistOverride,
+  recordTakeStartMarker,
   ALLOWED_MARKER_TYPES,
   type LiveV2MarkerType,
 } from "@/lib/recording-v2/actions-impl"
@@ -37,10 +38,56 @@ function revalidate(roomId: string) {
   revalidatePath(`/admin/recording/${roomId}/v2`)
 }
 
+/**
+ * Push the room row to every connected screen.
+ *
+ * These actions used to `revalidatePath` and stop there — which reaches the
+ * caller's own page and nobody else's. So the director's screen never learned
+ * that the take had started, that it was paused, or that the host had moved to
+ * another section: it sat on the pre-shoot checklist until the SSE stream
+ * happened to reconnect and re-send a snapshot. Every other room mutation in
+ * this file already broadcasts (`toggleQuestionDone`, `setChecklistItem`); the
+ * transport was the gap, and it is the one the director's clock hangs off.
+ */
+async function broadcastRoom(roomId: string) {
+  const room = await getRoomById(roomId)
+  if (!room) return
+  broadcast(roomId, {
+    type: "room_update",
+    data: room,
+    timestamp: new Date().toISOString(),
+  })
+}
+
+/**
+ * Start the take. Callable from BOTH the host's gate and the director's
+ * checklist — the two of them are in the same room shouting at each other, and
+ * "first press wins" is enforced in `startTimer` (the loser gets `ok` with
+ * `already_started`, never an error).
+ *
+ * Permission is unchanged and deliberately not widened: `requireActionRole`
+ * reads `admin_users.role`, exactly as before. What changed is which SCREEN
+ * offers the button — and the director's copy is locked behind the same
+ * completed checklist the host's is.
+ */
 export async function startTimerAction(roomId: string) {
   const gate = await requireActionRole("EDITOR")
   if (!gate.ok) throw new Error(gate.error)
   const r = await startTimer(roomId)
+  // Attribution: who pressed it. Only on the press that actually started the
+  // take — the losing half of a two-press race must not log a second start.
+  if (r.ok && !("already_started" in r && r.already_started)) {
+    const user = await getAdminAuthUser()
+    if (user) {
+      await recordTakeStartMarker({
+        roomId,
+        actorUserId: user.id,
+        actorDisplayName: resolveMemberName(user),
+        actorRoomRole: resolveRoomRole({ jobTitle: user.job_title, adminRole: user.role }),
+      })
+    }
+  }
+  await broadcastRoom(roomId)
   revalidate(roomId)
   return r
 }
@@ -49,6 +96,7 @@ export async function pauseTimerAction(roomId: string) {
   const gate = await requireActionRole("EDITOR")
   if (!gate.ok) throw new Error(gate.error)
   const r = await pauseTimer(roomId)
+  await broadcastRoom(roomId)
   revalidate(roomId)
   return r
 }
@@ -57,6 +105,7 @@ export async function resumeTimerAction(roomId: string) {
   const gate = await requireActionRole("EDITOR")
   if (!gate.ok) throw new Error(gate.error)
   const r = await resumeTimer(roomId)
+  await broadcastRoom(roomId)
   revalidate(roomId)
   return r
 }
@@ -65,6 +114,7 @@ export async function resetTimerAction(roomId: string) {
   const gate = await requireActionRole("EDITOR")
   if (!gate.ok) throw new Error(gate.error)
   const r = await resetTimer(roomId)
+  await broadcastRoom(roomId)
   revalidate(roomId)
   return r
 }
@@ -73,6 +123,7 @@ export async function endTimerAction(roomId: string) {
   const gate = await requireActionRole("EDITOR")
   if (!gate.ok) throw new Error(gate.error)
   const r = await endTimer(roomId)
+  await broadcastRoom(roomId)
   revalidate(roomId)
   return r
 }
@@ -173,6 +224,10 @@ export async function setCurrentSectionAction(input: {
   const gate = await requireActionRole("EDITOR")
   if (!gate.ok) throw new Error(gate.error)
   const r = await setCurrentSection(input)
+  // The director's screen follows `current_section_index`, and his section
+  // clock is stamped from the moment this lands. Without the broadcast both sat
+  // still.
+  await broadcastRoom(input.roomId)
   revalidate(input.roomId)
   return r
 }

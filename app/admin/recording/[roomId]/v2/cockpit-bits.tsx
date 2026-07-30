@@ -30,7 +30,11 @@ import {
   AlertTriangle,
   type LucideIcon,
 } from "lucide-react"
-import { SECTION_TARGET_LEVEL } from "@/lib/recording-v2/energy"
+import {
+  ENERGY_BAND_LABEL_AR,
+  SECTION_TARGET_LEVEL,
+  energyBand,
+} from "@/lib/recording-v2/energy"
 import type {
   SectionKind,
   PrepV2Insight,
@@ -250,15 +254,44 @@ export function CompactEnergyControl({
   level,
   interactive,
   onSet,
+  approvedLevel,
 }: {
   level: number
   interactive: boolean
   onSet: (level: number) => void
+  /**
+   * The energy the question ranking runs on, when it is NOT the displayed one.
+   *
+   * The two diverge by design while a director cue is unanswered — and after a
+   * cue lapsed, the rail read "حادّ ●●●●●" while every question badge said
+   * "يدفع للأمام", with nothing on screen explaining why. Two numbers are
+   * defensible; two numbers in silence are not.
+   */
+  approvedLevel?: number
 }) {
   const n = Math.max(0, Math.min(5, level))
+  const approved = approvedLevel == null ? null : Math.max(0, Math.min(5, approvedLevel))
+  // Only a GRADE difference matters — the ranking is a function of the band, so
+  // 4 vs 5 is the same order and would be noise.
+  const diverged = approved != null && energyBand(approved) !== energyBand(n)
   return (
     <span className="inline-flex items-center gap-1" title={`الطاقة ${n}/5`}>
       <Zap className="h-3.5 w-3.5 text-amber-600" />
+      {/* The room talks in three grades (هادئ · متوسط · حادّ). The stored value
+          stays 0–5 — five dots, one name — because every historical
+          `energy_change` marker holds a 0–5 number and re-scaling would rewrite
+          what those rows mean. */}
+      <span className="text-[11px] font-medium text-amber-700">
+        {ENERGY_BAND_LABEL_AR[energyBand(n)]}
+      </span>
+      {diverged && (
+        <span
+          className="rounded-full bg-muted/40 px-1.5 py-0.5 text-[10.5px] font-medium text-muted-foreground"
+          title="اضغط على النقاط لاعتماد الطاقة المعروضة لترتيب أسئلتك"
+        >
+          ترتيبك على {ENERGY_BAND_LABEL_AR[energyBand(approved)]}
+        </span>
+      )}
       {/*
         The dot stays 8px VISUALLY; the hit area is the button around it.
         Previously the button itself was `h-2 w-2` — an 8×8px target with 2px
@@ -279,7 +312,19 @@ export function CompactEnergyControl({
             <button
               key={i}
               type="button"
-              onClick={() => i + 1 !== level && onSet(i + 1)}
+              /**
+               * ALWAYS fires. The guard here used to be `i + 1 !== level`, with
+               * `level` being the DISPLAYED energy — so once the two numbers
+               * diverged (a lapsed cue leaves displayed at 5 and the ranking at
+               * 3), tapping the dot that was already lit was swallowed: no
+               * PATCH, no re-rank, nothing. A dead button in a cockpit during a
+               * live take, and the same complaint that started all of this.
+               *
+               * The host's tap is an OWNER ACTION: it adopts the value for the
+               * ranking and cancels any pending cue, whether or not the shared
+               * number is already there. Re-asserting must be possible.
+               */
+              onClick={() => onSet(i + 1)}
               aria-label={`ضبط الطاقة على ${i + 1}`}
               className="group flex h-10 w-3.5 items-center justify-center rounded-md [touch-action:manipulation]"
             >
