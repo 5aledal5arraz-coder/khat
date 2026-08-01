@@ -324,13 +324,18 @@ export function EpisodePageClient({
             reflections={reflections}
           />
 
-          {/* 15. Next / Previous Navigation */}
+          {/* 15. Next / Previous Navigation.
+              `min-w-0` on each card is load-bearing: `truncate` sets
+              white-space:nowrap, so the card's automatic minimum size became
+              the full untruncated title and `flex-1` could not shrink it. On a
+              375px viewport that pushed «الحلقة التالية» right off the page,
+              behind the container's overflow-x-hidden. */}
           {(prev || next) && (
             <div className="flex items-stretch gap-4 pt-8 border-t">
               {prev ? (
                 <Link
                   href={`/episodes/${prev.slug}`}
-                  className="group flex flex-1 items-center gap-3 rounded-xl border p-4 transition-colors hover:border-primary/50 hover:bg-muted/50"
+                  className="group flex min-w-0 flex-1 items-center gap-3 rounded-xl border p-4 transition-colors hover:border-primary/50 hover:bg-muted/50"
                 >
                   <ChevronRight className="h-5 w-5 shrink-0 text-muted-foreground transition-colors group-hover:text-primary" />
                   <div className="min-w-0">
@@ -346,7 +351,7 @@ export function EpisodePageClient({
               {next ? (
                 <Link
                   href={`/episodes/${next.slug}`}
-                  className="group flex flex-1 items-center justify-end gap-3 rounded-xl border p-4 text-end transition-colors hover:border-primary/50 hover:bg-muted/50"
+                  className="group flex min-w-0 flex-1 items-center justify-end gap-3 rounded-xl border p-4 text-end transition-colors hover:border-primary/50 hover:bg-muted/50"
                 >
                   <div className="min-w-0">
                     <p className="text-xs text-muted-foreground">الحلقة التالية</p>

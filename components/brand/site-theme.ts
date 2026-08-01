@@ -22,8 +22,13 @@ export const SITE_LIGHT_TOKENS = {
   "--secondary-foreground": "252 40% 11%",
   "--muted": "250 28% 96%",
   "--muted-foreground": "250 12% 46%",
-  /* Orange = energy accent */
-  "--accent": "22 90% 53%",
+  /* Orange = energy accent. Lightness 53% → 40.5% (hue and saturation kept):
+     at 53% the orange measured 2.97:1 on --background and 3.05:1 on --card,
+     failing WCAG AA for normal text (4.5:1) everywhere `text-accent` is used —
+     and failing SC 1.4.11 (3:1) for the accent icons too. 40.5% is the
+     smallest step that clears 4.5:1 on both (4.61:1 / 4.73:1); the 42% first
+     estimated only reaches 4.34:1 on --background. */
+  "--accent": "22 90% 40.5%",
   "--accent-foreground": "0 0% 100%",
   "--destructive": "0 72% 51%",
   "--destructive-foreground": "0 0% 100%",

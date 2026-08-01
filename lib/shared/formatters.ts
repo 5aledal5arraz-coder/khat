@@ -125,17 +125,49 @@ export function arabicPluralNoun(count: number, singular: string): string {
 }
 
 /**
+ * Honorifics that precede a name. Counting them as name words made distinct
+ * guests collide on the same avatar — «الأستاذ علي دريساوي» and «الملازم
+ * عبدالله البطي» both rendered «اع». Compared after `normalizeNameToken`, so
+ * hamza spellings and the ة/ه ending don't each need their own entry.
+ */
+const NAME_HONORIFICS = new Set([
+  "الاستاذ", "الاستاذه", "استاذ", "استاذه",
+  "الدكتور", "الدكتوره", "دكتور", "دكتوره", "د",
+  "المهندس", "المهندسه", "مهندس", "مهندسه",
+  "الشيخ", "الشيخه", "شيخ", "شيخه",
+  "السيد", "السيده", "سيد", "سيده",
+  "الملازم", "النقيب", "الرائد", "المقدم", "العقيد", "العميد", "اللواء", "الفريق",
+  "الكابتن", "كابتن", "القائد",
+  "dr", "mr", "mrs", "ms", "prof",
+])
+
+/** Fold a name word to the form `NAME_HONORIFICS` is written in. */
+function normalizeNameToken(word: string): string {
+  return word
+    .toLowerCase()
+    .replace(/[ً-ْـ]/g, "") // diacritics + tatweel
+    .replace(/[أإآ]/g, "ا") // أ إ آ → ا
+    .replace(/ة$/, "ه") // trailing ة → ه
+    .replace(/[.,،]$/, "") // «د.» → «د»
+}
+
+/**
  * Avatar initials for a person's name: first letter of up to two words.
  * Words that begin with an actual letter are preferred, so imported /
  * placeholder names like "019 بودكاست خط" render clean initials ("بخ")
- * instead of a stray leading digit ("0ب"). Returns "•" for empty names.
+ * instead of a stray leading digit ("0ب"). Honorifics are skipped so the
+ * title doesn't eat one of the two slots. Both filters fall back to the
+ * unfiltered list rather than returning nothing (a name that is *only* a
+ * title still gets an initial). Returns "•" for empty names.
  * Single source — components must import this rather than re-implementing.
  */
 export function guestInitials(name: string): string {
   const words = (name ?? "").trim().split(/\s+/).filter(Boolean)
   const letterWords = words.filter((w) => /^\p{L}/u.test(w))
   const source = letterWords.length > 0 ? letterWords : words
-  return source.map((w) => w.charAt(0)).slice(0, 2).join("") || "•"
+  const named = source.filter((w) => !NAME_HONORIFICS.has(normalizeNameToken(w)))
+  const picked = named.length > 0 ? named : source
+  return picked.map((w) => w.charAt(0)).slice(0, 2).join("") || "•"
 }
 
 // ─── Bidi ────────────────────────────────────────────────────────────────────

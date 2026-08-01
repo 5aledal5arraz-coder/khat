@@ -30,6 +30,19 @@ describe("guestInitials", () => {
     expect(guestInitials("2024 سالفة")).toBe("س")
   })
 
+  it("skips honorifics so titled guests don't share one avatar", () => {
+    // Regression: all three collapsed to «اع»/«اع»/«اا» when the title counted
+    // as a name word — two of three guests on /guests had identical initials.
+    expect(guestInitials("الأستاذ علي دريساوي")).toBe("عد")
+    expect(guestInitials("الملازم عبدالله البطي")).toBe("عا")
+    expect(guestInitials("د. حسام مطر")).toBe("حم")
+    expect(guestInitials("الدكتورة سارة العلي")).toBe("سا")
+  })
+
+  it("keeps an initial when the name is nothing but a title", () => {
+    expect(guestInitials("الشيخ")).toBe("ا")
+  })
+
   it("falls back to raw first chars when there are no letter-initial words", () => {
     // All-numeric name: no letter words, so use the raw tokens rather than crash.
     expect(guestInitials("019")).toBe("0")

@@ -74,7 +74,10 @@ export default async function HomePage() {
       <section className="relative isolate flex min-h-[88vh] items-center justify-center px-6 text-center">
         {/* ambient brand light */}
         <div className="pointer-events-none absolute inset-0 -z-10 overflow-hidden">
-          <div className="absolute start-1/2 top-[-10%] h-[42rem] w-[42rem] -translate-x-1/2 rounded-full bg-[radial-gradient(closest-side,hsl(252_48%_40%/0.14),transparent)]" />
+          {/* `start-1/2` is logical (right:50% in RTL) but translate is
+              physical, so the negative form shifted the glow a full 42rem to
+              the left instead of centering it — invisible below ~700px. */}
+          <div className="absolute start-1/2 top-[-10%] h-[42rem] w-[42rem] translate-x-1/2 rounded-full bg-[radial-gradient(closest-side,hsl(252_48%_40%/0.14),transparent)]" />
           <div className="absolute end-[12%] top-[22%] h-72 w-72 rounded-full bg-[radial-gradient(closest-side,hsl(22_90%_53%/0.14),transparent)]" />
         </div>
 

@@ -64,7 +64,20 @@ function ThumbnailOverlay({
   onPlay?: () => void
 }) {
   return (
-    <div className="group relative h-full w-full cursor-pointer" onClick={onPlay}>
+    <div className="group relative h-full w-full">
+      {/* A real <button>, not a click-handling div: the thumbnail is the only
+          way to start the video, and as a div it was unreachable by keyboard
+          (WCAG 2.1.1 — the whole player exposed exactly one tab stop, the
+          "watch on YouTube" link). Transparent and full-bleed, so the visual
+          design is byte-for-byte what it was. The focus ring is drawn inset
+          because the player wrapper clips overflow, which would swallow the
+          global ring-offset-2. */}
+      <button
+        type="button"
+        onClick={onPlay}
+        aria-label={`تشغيل الفيديو: ${title}`}
+        className="absolute inset-0 z-10 h-full w-full cursor-pointer focus-visible:ring-inset focus-visible:ring-offset-0"
+      />
       <Image
         src={`https://img.youtube.com/vi/${videoId}/maxresdefault.jpg`}
         alt={title}
@@ -72,7 +85,7 @@ function ThumbnailOverlay({
         sizes="(max-width: 768px) 100vw, 800px"
         className="object-cover"
       />
-      <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-black/40 transition-colors group-hover:bg-black/50">
+      <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center gap-3 bg-black/40 transition-colors group-hover:bg-black/50">
         <div className="flex h-16 w-16 items-center justify-center rounded-full bg-red-600 shadow-lg transition-transform group-hover:scale-110">
           <Play className="h-7 w-7 ms-1 text-white" fill="currentColor" />
         </div>
@@ -81,8 +94,7 @@ function ThumbnailOverlay({
         href={watchUrl}
         target="_blank"
         rel="noopener noreferrer"
-        onClick={(e) => e.stopPropagation()}
-        className="absolute bottom-3 start-3 rounded-lg bg-black/70 px-3 py-1.5 text-xs text-white/80 hover:text-white transition-colors"
+        className="absolute bottom-3 start-3 z-20 rounded-lg bg-black/70 px-3 py-1.5 text-xs text-white/80 hover:text-white transition-colors"
       >
         شاهد على يوتيوب
       </a>
