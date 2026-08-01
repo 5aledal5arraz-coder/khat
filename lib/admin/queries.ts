@@ -275,9 +275,14 @@ export async function getNewsletterSubscribers(): Promise<
  * Explicit column projection matching the public `Guest` type. Deliberately
  * OMITS the admin-only `phone`/`email` columns (migration 0012) and the
  * generated `normalized_name`, so guest reads on this path never carry PII
- * that the `Guest` type hides — `getAllGuests` feeds public surfaces
- * (app/sitemap.ts). The `as unknown as Guest` casts below remain only to
- * bridge the created_at Date→string shape difference, not to smuggle columns.
+ * that the `Guest` type hides. The `as unknown as Guest` casts below remain only
+ * to bridge the created_at Date→string shape difference, not to smuggle columns.
+ *
+ * This projection is NOT justified by a public consumer — app/sitemap.ts used to
+ * call `getAllGuests` and no longer does (it uses `getGuests` in
+ * lib/queries/episodes, like /guests itself). The omission stands on its own: the
+ * `Guest` type has no phone/email, so nothing on this path may select them.
+ * Do not widen it back on the argument that the public consumer is gone.
  */
 const GUEST_COLUMNS = {
   id: guests.id,

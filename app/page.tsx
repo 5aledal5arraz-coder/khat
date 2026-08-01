@@ -10,21 +10,30 @@ import {
   episodeDurationLabel,
 } from "@/components/episodes/episode-poster-card"
 import { NewsletterSignup } from "@/components/forms/newsletter-signup"
+import { resolveDefaultOgImage } from "@/lib/seo/og"
 
-export const metadata: Metadata = {
-  title: "خط | بودكاست",
-  description:
-    "بودكاست عربي يستكشف القصص والأفكار من خلال حوارات صادقة مع عقول ملهمة. حوارات تستحق أن تبقى.",
-  alternates: { canonical: "https://khatpodcast.com" },
-  openGraph: {
+// `images` must be stated explicitly, NOT deleted: a page-level `openGraph`
+// replaces the root layout's block instead of merging into it, so dropping the
+// key would leave the homepage with no og:image at all. It resolves to the same
+// default the layout uses, so og:image and twitter:image agree — the hardcoded
+// /logo-wide.jpg (2560x424, 6:1) disagreed with the inherited twitter:image and
+// was cropped hard on a 1.91:1 card.
+export async function generateMetadata(): Promise<Metadata> {
+  return {
     title: "خط | بودكاست",
-    description: "حوارات عميقة وأفكار تبقى — بودكاست خط.",
-    url: "https://khatpodcast.com",
-    type: "website",
-    locale: "ar_SA",
-    siteName: "خط",
-    images: [{ url: "/logo-wide.jpg", width: 2560, height: 424, alt: "بودكاست خط" }],
-  },
+    description:
+      "بودكاست عربي يستكشف القصص والأفكار من خلال حوارات صادقة مع عقول ملهمة. حوارات تستحق أن تبقى.",
+    alternates: { canonical: "https://khatpodcast.com" },
+    openGraph: {
+      title: "خط | بودكاست",
+      description: "حوارات عميقة وأفكار تبقى — بودكاست خط.",
+      url: "https://khatpodcast.com",
+      type: "website",
+      locale: "ar_SA",
+      siteName: "خط",
+      images: [await resolveDefaultOgImage()],
+    },
+  }
 }
 
 const jsonLd = {

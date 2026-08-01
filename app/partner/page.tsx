@@ -29,16 +29,23 @@ import {
 } from "lucide-react"
 import { getActivePartners } from "@/lib/queries/partnerships"
 import { fetchAllEpisodes, fetchTotalViews } from "@/lib/youtube/queries"
+import { resolveDefaultOgImage } from "@/lib/seo/og"
 
-export const metadata: Metadata = {
-  title: "كن شريكًا في المحادثة",
-  description:
-    "شراكة محتوى طويلة المدى مع بودكاست خط — لسنا منصة إعلانات، بل مساحة حضور داخل محادثات تُشكّل وعي جيل في الخليج والعالم العربي.",
-  openGraph: {
-    title: "كن شريكًا في المحادثة — بودكاست خط",
+// A page-level `openGraph` block replaces the root layout's rather than merging
+// into it, so this must carry `images` itself — without them the site's most
+// important commercial page shared as a blank `summary_large_image` card.
+export async function generateMetadata(): Promise<Metadata> {
+  return {
+    title: "كن شريكًا في المحادثة",
     description:
-      "شراكة محتوى تُصمَّم على مقاسك مع بودكاست خط — حضور أصيل داخل محتوى يُنصت إليه باهتمام، لا إعلان عابر.",
-  },
+      "شراكة محتوى طويلة المدى مع بودكاست خط — لسنا منصة إعلانات، بل مساحة حضور داخل محادثات تُشكّل وعي جيل في الخليج والعالم العربي.",
+    openGraph: {
+      title: "كن شريكًا في المحادثة — بودكاست خط",
+      description:
+        "شراكة محتوى تُصمَّم على مقاسك مع بودكاست خط — حضور أصيل داخل محتوى يُنصت إليه باهتمام، لا إعلان عابر.",
+      images: [await resolveDefaultOgImage()],
+    },
+  }
 }
 
 // ─── Partnership packages (no pricing — value, deliverables, flexibility) ──────

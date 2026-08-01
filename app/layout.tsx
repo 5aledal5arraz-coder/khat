@@ -10,6 +10,7 @@ import { ScrollToTop } from "@/components/ui/scroll-to-top"
 import { SITE_LIGHT_TOKENS } from "@/components/brand/site-theme"
 import { fetchAllEpisodes } from "@/lib/youtube/queries"
 import { getSiteSettings } from "@/lib/site-settings"
+import { resolveDefaultOgImage } from "@/lib/seo/og"
 
 const FALLBACK_DESCRIPTION =
   "بودكاست يستكشف القصص الإنسانية والتجارب الحياتية من خلال حوارات عميقة مع ضيوف ملهمين."
@@ -33,12 +34,10 @@ export async function generateMetadata(): Promise<Metadata> {
     settings?.seo.keywords && settings.seo.keywords.length > 0
       ? settings.seo.keywords
       : ["بودكاست", "خط", "حوارات", "قصص", "عربي"]
-  const ogImage = settings?.seo.defaultOgImage?.trim() || "/logo-wide.jpg"
   const defaultTitle = tagline ? `${name} | ${tagline}` : "خط | بودكاست"
-  const ogImageEntry =
-    ogImage === "/logo-wide.jpg"
-      ? { url: ogImage, width: 2560, height: 424, alt: `بودكاست ${name}` }
-      : { url: ogImage, alt: `بودكاست ${name}` }
+  // Shared with /partner and the guest pages so all three agree on the card.
+  const ogImageEntry = await resolveDefaultOgImage(settings)
+  const ogImage = ogImageEntry.url
 
   return {
     metadataBase: new URL("https://khatpodcast.com"),

@@ -1,6 +1,7 @@
 import { Metadata } from "next"
 import { notFound } from "next/navigation"
 import { getGuestBySlug } from "@/lib/queries/episodes"
+import { resolveDefaultOgImage } from "@/lib/seo/og"
 import { getGuestPublicKnowledge } from "@/lib/guests/knowledge"
 import { getTeaserForGuest } from "@/lib/teaser"
 import { TeaserInline } from "@/components/teaser/teaser-inline"
@@ -72,7 +73,10 @@ export async function generateMetadata({ params }: GuestPageProps): Promise<Meta
       title: guest.name,
       description: guest.bio || undefined,
       type: "profile",
-      images: guest.photo_url ? [guest.photo_url] : undefined,
+      // Declaring `openGraph` replaces the root layout's block, so a guest with
+      // no photo used to ship a card with no image at all. Fall back to the
+      // site card instead of dropping it.
+      images: guest.photo_url ? [guest.photo_url] : [await resolveDefaultOgImage()],
     },
   }
 }

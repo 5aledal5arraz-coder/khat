@@ -13,6 +13,7 @@ import { getTeaserForEpisode } from "@/lib/teaser"
 import { getEpisodeTopics } from "@/lib/episodes/episode-graph"
 import { getPublicEpisodeDeepAnalysisByEir } from "@/lib/studio/deep-analysis"
 import { buildEpisodeJsonLd } from "@/lib/seo/episode-jsonld"
+import { resolveDefaultOgImage } from "@/lib/seo/og"
 import { listPlatformsForSurface, listActivePlatforms } from "@/lib/queries/official-platforms"
 import { getEpisodeSponsor } from "@/lib/queries/episode-sponsors"
 import { getYouTubeId } from "@/lib/utils"
@@ -49,7 +50,13 @@ export async function generateMetadata({ params }: EpisodePageProps): Promise<Me
       title: episode.title,
       description: episode.summary || undefined,
       type: "article",
-      images: ogImage ? [{ url: ogImage, width: 1280, height: 720 }] : undefined,
+      // The YouTube thumbnail stays the card whenever we can derive a video id.
+      // When we can't (a non-standard `youtube_url`), fall back to the site card
+      // instead of `undefined`: declaring `openGraph` REPLACES the root layout's
+      // block, so `undefined` here shipped an episode with no og:image at all.
+      images: ogImage
+        ? [{ url: ogImage, width: 1280, height: 720 }]
+        : [await resolveDefaultOgImage()],
     },
   }
 }

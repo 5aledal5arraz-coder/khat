@@ -16,7 +16,9 @@ import { invalidate } from "@/lib/cache"
 function revalidateAll() {
   invalidate("homepage")
   revalidatePath("/")
-  revalidatePath("/sponsor")
+  // /sponsor is only a redirect to /partner — revalidating it was a no-op, so
+  // the partners strip never refreshed on the page that actually renders it.
+  revalidatePath("/partner")
   revalidatePath("/admin/partnerships")
 }
 
