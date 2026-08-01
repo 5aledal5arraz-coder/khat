@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useTransition, useCallback } from "react"
+import { runAction } from "@/app/admin/components/run-action"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import {
@@ -153,9 +154,10 @@ export function TeaserTab({ teasers, upcomingEpisodes, pendingQuestions }: Props
     if (expireAt) form.append("expireAt", expireAt)
 
     startSave(async () => {
-      const res = await createTeaserAction(form)
-      if (res.success) resetForm()
-      else setError(res.error || "فشل حفظ التيزر")
+      const outcome = await runAction(() => createTeaserAction(form))
+      if (!outcome.ok) return setError(outcome.message)
+      if (outcome.data.success) resetForm()
+      else setError(outcome.data.error || "فشل حفظ التيزر")
     })
   }, [eirId, title, videoFilename, posterImage, publishAt, expireAt, resetForm])
 
@@ -169,8 +171,9 @@ export function TeaserTab({ teasers, upcomingEpisodes, pendingQuestions }: Props
       if (!window.confirm(msg)) return
       setError("")
       startSave(async () => {
-        const res = await activateTeaserAction(t.id)
-        if (!res.success) setError(res.error || "فشل التفعيل")
+        const outcome = await runAction(() => activateTeaserAction(t.id))
+        if (!outcome.ok) return setError(outcome.message)
+        if (!outcome.data.success) setError(outcome.data.error || "فشل التفعيل")
       })
     },
     [teasers],
@@ -180,8 +183,9 @@ export function TeaserTab({ teasers, upcomingEpisodes, pendingQuestions }: Props
     if (!window.confirm("إيقاف هذا التيزر وإخفاؤه من الصفحة الرئيسية؟")) return
     setError("")
     startSave(async () => {
-      const res = await deactivateTeaserAction(t.id)
-      if (!res.success) setError(res.error || "فشل الإيقاف")
+      const outcome = await runAction(() => deactivateTeaserAction(t.id))
+      if (!outcome.ok) return setError(outcome.message)
+      if (!outcome.data.success) setError(outcome.data.error || "فشل الإيقاف")
     })
   }, [])
 
@@ -189,8 +193,9 @@ export function TeaserTab({ teasers, upcomingEpisodes, pendingQuestions }: Props
     if (!window.confirm(`حذف التيزر «${t.title}»؟ سيُحذف الفيديو نهائيًا ولا يمكن التراجع.`)) return
     setError("")
     startSave(async () => {
-      const res = await deleteTeaserAction(t.id)
-      if (!res.success) setError(res.error || "فشل الحذف")
+      const outcome = await runAction(() => deleteTeaserAction(t.id))
+      if (!outcome.ok) return setError(outcome.message)
+      if (!outcome.data.success) setError(outcome.data.error || "فشل الحذف")
     })
   }, [])
 
@@ -568,9 +573,10 @@ function TeaserEditForm({ teaser, onDone }: { teaser: TeaserConfig; onDone: () =
     if (publishAt) form.append("publishAt", publishAt)
     if (expireAt) form.append("expireAt", expireAt)
     startSave(async () => {
-      const res = await updateTeaserAction(teaser.id, form)
-      if (res.success) onDone()
-      else setError(res.error || "فشل الحفظ")
+      const outcome = await runAction(() => updateTeaserAction(teaser.id, form))
+      if (!outcome.ok) return setError(outcome.message)
+      if (outcome.data.success) onDone()
+      else setError(outcome.data.error || "فشل الحفظ")
     })
   }
 

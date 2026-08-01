@@ -24,20 +24,34 @@ import { studioDeepLink } from "./studio-href"
  * resolving — the rendered nav order below puts the new IA up front
  * with the legacy keys behind a separator.
  */
+/**
+ * Canonical tab list. Membership drives validation (`parseTabKey`) and the
+ * per-tab state map; ORDER drives the nav strip, which renders
+ * `TAB_KEYS.filter(phase_group === g)` group by group.
+ *
+ * The order below is workflow order, and it now matches the phase-group
+ * comment further down that always claimed to describe it. Previously the
+ * "legacy" keys were parked at the end of the array, so the قبل-التسجيل group
+ * rendered «الإعداد» and «الذكاء» BEFORE «نظرة عامة / الموضوع / الضيف» — the
+ * operator was offered the preparation tab before the screens that produce
+ * what the preparation is built from.
+ */
 export const TAB_KEYS = [
-  "intelligence",
+  // before — قبل التسجيل
+  "overview",
+  "topic",
+  "guest",
   "preparation",
+  "intelligence",
+  // during — أثناء التسجيل
   "recording",
+  // after — بعد التسجيل والنشر
+  "studio",
   "transcript",
   "chapters",
   "clips",
   "publish",
   "performance",
-  // Legacy keys preserved for deep-link safety + power-user access:
-  "overview",
-  "topic",
-  "guest",
-  "studio",
 ] as const
 export type TabKey = (typeof TAB_KEYS)[number]
 
@@ -258,6 +272,18 @@ function phaseAtLeast(actual: EpisodePhase, threshold: EpisodePhase): boolean {
   return PHASE_ORDER.indexOf(actual) >= PHASE_ORDER.indexOf(threshold)
 }
 
+/**
+ * Has this EIR reached the phase at which `key` becomes available?
+ *
+ * Exported because the phase gate has to be enforced in TWO places and both
+ * must agree: `computeTabStates` greys the tab out in the nav, and the page
+ * refuses to render its body. Deriving both from this one predicate is what
+ * keeps them from drifting apart.
+ */
+export function isTabReached(phase: EpisodePhase, key: TabKey): boolean {
+  return phaseAtLeast(phase, TABS[key].available_from)
+}
+
 export type TabStatus = "available" | "current" | "upcoming" | "unavailable"
 
 /**
@@ -272,17 +298,39 @@ export function computeTabStates(
 ): Record<TabKey, TabStatus> {
   const out = {} as Record<TabKey, TabStatus>
   for (const key of TAB_KEYS) {
-    const def = TABS[key]
-    const reached = phaseAtLeast(phase, def.available_from)
-    if (key === selected) {
-      out[key] = "current"
-    } else if (reached) {
-      out[key] = "available"
-    } else {
+    // Phase availability is checked FIRST and wins. The previous order tested
+    // `key === selected` first, which meant a deep link to a tab the EIR had
+    // not reached (`?tab=publish` on an `idea` EIR) relabelled that tab
+    // "current" — the gate opened for whichever tab the URL asked for, which
+    // is the exact input an unauthorised operator controls.
+    if (!isTabReached(phase, key)) {
       out[key] = "unavailable"
+    } else if (key === selected) {
+      out[key] = "current"
+    } else {
+      out[key] = "available"
     }
   }
   return out
+}
+
+/**
+ * Resolve the tab to actually render from the URL's `?tab=` value.
+ *
+ * `computeTabStates` only governs how the nav LOOKS. The page body is
+ * switched on the resolved key alone, so without this clamp a request for an
+ * unreached tab still rendered that tab's full editor — greyed out in the nav
+ * and fully interactive underneath it. An unreached request falls back to
+ * `defaultTabForPhase`, which is guaranteed reached (asserted in
+ * `tests/khat-brain/tab-phase-gate.test.ts`).
+ */
+export function resolveSelectedTab(
+  phase: EpisodePhase,
+  rawTab: unknown,
+): TabKey {
+  const requested = parseTabKey(rawTab)
+  if (requested && isTabReached(phase, requested)) return requested
+  return defaultTabForPhase(phase)
 }
 
 /**
@@ -294,8 +342,15 @@ export function defaultTabForPhase(phase: EpisodePhase): TabKey {
     case "idea":
       return "topic"
     case "guest_discovery":
-      return "guest"
+    // `guest_assigned` used to land on `preparation`, but preparation is gated
+    // at `approved` — so the default sent the operator to a tab the same file
+    // declares unreached. Harmless while the gate was cosmetic; once the gate
+    // is enforced it means landing on a tab the nav greys out. The guest tab
+    // is both reached and the obviously right screen for "a guest was just
+    // assigned". `defaultTabForPhase` must return a reached tab for EVERY
+    // phase — that invariant is asserted in tab-phase-gate.test.ts.
     case "guest_assigned":
+      return "guest"
     case "approved":
     case "researching":
     case "prepared":

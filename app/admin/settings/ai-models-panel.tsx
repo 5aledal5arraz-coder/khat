@@ -22,6 +22,7 @@ import {
   type DimensionScore,
 } from "@/lib/ai-router/benchmark/scoring"
 import type { BenchmarkTier } from "@/lib/db/schema/model-benchmarks"
+import { runAction } from "@/app/admin/components/run-action"
 
 const TASK_LABELS: Record<string, string> = {
   structural: "هيكلة (فصول، مقاطع، طوابع زمنية)",
@@ -75,21 +76,26 @@ export function AiModelsPanel({
   function handleRefresh() {
     setMessage(null)
     startTransition(async () => {
-      try {
-        await refreshAiModelsCatalog()
-        setMessage({ type: "ok", text: "تم تحديث كتالوج النماذج من OpenAI" })
-        router.refresh()
-      } catch {
-        setMessage({ type: "error", text: "تعذّر تحديث الكتالوج" })
+      // A live /v1/models fetch — the network causes are the likely ones here,
+      // so naming them beats one catch-all sentence.
+      const outcome = await runAction(() => refreshAiModelsCatalog())
+      if (!outcome.ok) {
+        setMessage({
+          type: "error",
+          text: outcome.kind === "unknown" ? "تعذّر تحديث الكتالوج" : outcome.message,
+        })
+        return
       }
+      setMessage({ type: "ok", text: "تم تحديث كتالوج النماذج من OpenAI" })
+      router.refresh()
     })
   }
 
   function handleSave(clear: boolean) {
     setMessage(null)
     startTransition(async () => {
-      try {
-        await updateAiModelOverride(
+      const outcome = await runAction(() =>
+        updateAiModelOverride(
           taskKind,
           clear
             ? null
@@ -99,21 +105,29 @@ export function AiModelsPanel({
                 inputCostPer1M: costIn ? Number(costIn) : null,
                 outputCostPer1M: costOut ? Number(costOut) : null,
               },
-        )
+        ),
+      )
+      // This decides which model every call of this task_kind uses. Reporting
+      // "حُفظ التخصيص" for a write that never landed means the next expensive
+      // run silently uses the old model.
+      if (!outcome.ok) {
         setMessage({
-          type: "ok",
-          text: clear ? "أُزيل التخصيص — عاد الافتراضي" : "حُفظ التخصيص — يُطبَّق على النداءات فوراً",
+          type: "error",
+          text: outcome.kind === "unknown" ? "تعذّر الحفظ" : outcome.message,
         })
-        if (clear) {
-          setModel("")
-          setEffort("")
-          setCostIn("")
-          setCostOut("")
-        }
-        router.refresh()
-      } catch {
-        setMessage({ type: "error", text: "تعذّر الحفظ" })
+        return
       }
+      setMessage({
+        type: "ok",
+        text: clear ? "أُزيل التخصيص — عاد الافتراضي" : "حُفظ التخصيص — يُطبَّق على النداءات فوراً",
+      })
+      if (clear) {
+        setModel("")
+        setEffort("")
+        setCostIn("")
+        setCostOut("")
+      }
+      router.refresh()
     })
   }
 
@@ -358,17 +372,22 @@ function BenchmarksCard({
   function handleRun() {
     setMessage(null)
     startTransition(async () => {
-      try {
-        await startModelBenchmark({ candidate: candidate.trim(), tier })
+      const outcome = await runAction(() =>
+        startModelBenchmark({ candidate: candidate.trim(), tier }),
+      )
+      if (!outcome.ok) {
         setMessage({
-          type: "ok",
-          text: "أُدرج القياس في قائمة المهام — يتطلب تشغيل عامل الخلفية (npm run worker)",
+          type: "error",
+          text: outcome.kind === "unknown" ? "تعذّر بدء القياس" : outcome.message,
         })
-        setCandidate("")
-        router.refresh()
-      } catch {
-        setMessage({ type: "error", text: "تعذّر بدء القياس" })
+        return
       }
+      setMessage({
+        type: "ok",
+        text: "أُدرج القياس في قائمة المهام — يتطلب تشغيل عامل الخلفية (npm run worker)",
+      })
+      setCandidate("")
+      router.refresh()
     })
   }
 

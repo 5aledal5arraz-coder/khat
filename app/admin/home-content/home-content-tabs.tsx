@@ -6,6 +6,7 @@ import type { Episode, Guest } from "@/types/database"
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
+import { runAction } from "@/app/admin/components/run-action"
 import { saveFeaturedEpisodesAction, setFeaturedModeAction } from "./featured-actions"
 import { saveThinkersAction, setThinkersModeAction } from "./thinkers-actions"
 import { TeaserTab } from "./teaser-tab"
@@ -232,6 +233,7 @@ function FeaturedTab({
   const [mode, setMode] = useState(initialMode)
   const [pending, startTransition] = useTransition()
   const [saved, setSaved] = useState(false)
+  const [error, setError] = useState<string | null>(null)
   const [editingIdx, setEditingIdx] = useState<number | null>(null)
 
   function buildInitialSlots(): FeaturedSlot[] {
@@ -267,8 +269,13 @@ function FeaturedTab({
 
   function handleToggleMode() {
     const newMode = mode === "auto" ? "manual" : "auto"
+    setError(null)
     startTransition(async () => {
-      await setFeaturedModeAction(newMode)
+      const outcome = await runAction(() => setFeaturedModeAction(newMode))
+      // The local `setMode` is what the whole panel renders from, so flipping
+      // it after a failed write left the screen showing manual mode while the
+      // homepage kept serving auto.
+      if (!outcome.ok) return setError(outcome.message)
       setMode(newMode)
       if (newMode === "auto") {
         setSlots(
@@ -303,16 +310,22 @@ function FeaturedTab({
   }
 
   function handleSave() {
+    setError(null)
     startTransition(async () => {
-      await saveFeaturedEpisodesAction(
-        slots.map((s, i) => ({
-          position: i + 1,
-          episode_id: s.episode_id,
-          custom_quote: s.custom_quote,
-          custom_description: s.custom_description,
-          custom_image: s.custom_image,
-        }))
+      const outcome = await runAction(() =>
+        saveFeaturedEpisodesAction(
+          slots.map((s, i) => ({
+            position: i + 1,
+            episode_id: s.episode_id,
+            custom_quote: s.custom_quote,
+            custom_description: s.custom_description,
+            custom_image: s.custom_image,
+          }))
+        )
       )
+      // «تم الحفظ» used to appear whatever happened — the button reported
+      // success for a write that never reached the database.
+      if (!outcome.ok) return setError(outcome.message)
       setSaved(true)
       setTimeout(() => setSaved(false), 2000)
     })
@@ -334,6 +347,12 @@ function FeaturedTab({
           {saved ? "تم الحفظ" : "حفظ"}
         </Button>
       </div>
+
+      {error && (
+        <div className="rounded-lg border border-destructive/40 bg-destructive/10 px-3 py-2 text-[12px] text-destructive" data-save-error>
+          {error}
+        </div>
+      )}
 
       {mode === "auto" && (
         <p className="text-xs text-muted-foreground">
@@ -459,6 +478,7 @@ function ThinkersTab({
   const [mode, setMode] = useState(initialMode)
   const [pending, startTransition] = useTransition()
   const [saved, setSaved] = useState(false)
+  const [error, setError] = useState<string | null>(null)
   const [editingIdx, setEditingIdx] = useState<number | null>(null)
 
   function buildInitialSlots(): ThinkerSlot[] {
@@ -489,8 +509,10 @@ function ThinkersTab({
 
   function handleToggleMode() {
     const newMode = mode === "auto" ? "manual" : "auto"
+    setError(null)
     startTransition(async () => {
-      await setThinkersModeAction(newMode)
+      const outcome = await runAction(() => setThinkersModeAction(newMode))
+      if (!outcome.ok) return setError(outcome.message)
       setMode(newMode)
       if (newMode === "auto") {
         setSlots(
@@ -525,18 +547,22 @@ function ThinkersTab({
   }
 
   function handleSave() {
+    setError(null)
     startTransition(async () => {
-      await saveThinkersAction(
-        slots
-          .filter((s) => s.guest_id)
-          .map((s, i) => ({
-            position: i + 1,
-            guest_id: s.guest_id,
-            custom_title: s.custom_title,
-            custom_description: s.custom_description,
-            custom_image: s.custom_image,
-          }))
+      const outcome = await runAction(() =>
+        saveThinkersAction(
+          slots
+            .filter((s) => s.guest_id)
+            .map((s, i) => ({
+              position: i + 1,
+              guest_id: s.guest_id,
+              custom_title: s.custom_title,
+              custom_description: s.custom_description,
+              custom_image: s.custom_image,
+            }))
+        )
       )
+      if (!outcome.ok) return setError(outcome.message)
       setSaved(true)
       setTimeout(() => setSaved(false), 2000)
     })
@@ -558,6 +584,12 @@ function ThinkersTab({
           {saved ? "تم الحفظ" : "حفظ"}
         </Button>
       </div>
+
+      {error && (
+        <div className="rounded-lg border border-destructive/40 bg-destructive/10 px-3 py-2 text-[12px] text-destructive" data-save-error>
+          {error}
+        </div>
+      )}
 
       {mode === "auto" && (
         <p className="text-xs text-muted-foreground">

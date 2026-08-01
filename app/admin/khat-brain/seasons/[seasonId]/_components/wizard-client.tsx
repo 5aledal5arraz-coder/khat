@@ -1,6 +1,7 @@
 "use client"
 
 import { useCallback, useEffect, useState, useTransition } from "react"
+import { runAction } from "@/app/admin/components/run-action"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import {
@@ -167,8 +168,15 @@ export function WizardClient({
     setError(null)
     setRemovingId(topicId)
     startTopicRemove(async () => {
-      const res = await removeManualTopicAction({ seasonId: season.id, topicCandidateId: topicId })
+      const outcome = await runAction(() =>
+        removeManualTopicAction({ seasonId: season.id, topicCandidateId: topicId }),
+      )
       setRemovingId(null)
+      if (!outcome.ok) {
+        setError(outcome.message)
+        return
+      }
+      const res = outcome.data
       if (!res.success) {
         setError(res.error)
         return
@@ -182,7 +190,12 @@ export function WizardClient({
     if (lockPending) return
     setError(null)
     startLock(async () => {
-      const res = await lockSeasonTopicsAction({ seasonId: season.id })
+      const outcome = await runAction(() => lockSeasonTopicsAction({ seasonId: season.id }))
+      if (!outcome.ok) {
+        setError(outcome.message)
+        return
+      }
+      const res = outcome.data
       if (!res.success) {
         setError(res.error)
         return
@@ -237,7 +250,14 @@ export function WizardClient({
     setError(null)
     setStrictExhausted(null)
     startGen(async () => {
-      const res = await generateBatchAction({ seasonId: season.id, size: 4 })
+      const outcome = await runAction(() =>
+        generateBatchAction({ seasonId: season.id, size: 4 }),
+      )
+      if (!outcome.ok) {
+        setError(outcome.message)
+        return
+      }
+      const res = outcome.data
       if (!res.success) {
         if (res.code === "ANGLE_BANK_EXHAUSTED") {
           setStrictExhausted(res.error)
@@ -280,7 +300,12 @@ export function WizardClient({
     setError(null)
     setStrictExhausted(null)
     startAutoComplete(async () => {
-      const res = await autoCompleteSeasonAction(season.id)
+      const outcome = await runAction(() => autoCompleteSeasonAction(season.id))
+      if (!outcome.ok) {
+        setError(outcome.message)
+        return
+      }
+      const res = outcome.data
       if (!res.success) {
         if (res.code === "ANGLE_BANK_EXHAUSTED") {
           setStrictExhausted(res.error)
@@ -296,10 +321,14 @@ export function WizardClient({
   // Strict-mode hard-stop → one-click switch to Guided.
   const handleSwitchToGuided = () => {
     startSwitch(async () => {
-      const res = await switchV2ModeAction({
-        seasonId: season.id,
-        mode: "guided",
-      })
+      const outcome = await runAction(() =>
+        switchV2ModeAction({ seasonId: season.id, mode: "guided" }),
+      )
+      if (!outcome.ok) {
+        setError(outcome.message)
+        return
+      }
+      const res = outcome.data
       if (!res.success) {
         setError(res.error)
         return
@@ -316,11 +345,15 @@ export function WizardClient({
     setError(null)
     setRegenPendingFor(topicId)
     startRegen(async () => {
-      const res = await regenerateSlotAction({
-        seasonId: season.id,
-        topicCandidateId: topicId,
-      })
+      const outcome = await runAction(() =>
+        regenerateSlotAction({ seasonId: season.id, topicCandidateId: topicId }),
+      )
       setRegenPendingFor(null)
+      if (!outcome.ok) {
+        setError(outcome.message)
+        return
+      }
+      const res = outcome.data
       if (!res.success) {
         if (res.code === "ANGLE_BANK_EXHAUSTED") {
           setStrictExhausted(res.error)
@@ -366,13 +399,20 @@ export function WizardClient({
     setError(null)
     addPending(card.topic.id)
     startAction(async () => {
-      const res = await acceptCardAction({
-        seasonId: season.id,
-        topicCandidateId: card.topic.id,
-        guestCandidateId: card.guest?.id ?? null,
-        batchIndex: batchIndex - 1,
-      })
+      const outcome = await runAction(() =>
+        acceptCardAction({
+          seasonId: season.id,
+          topicCandidateId: card.topic.id,
+          guestCandidateId: card.guest?.id ?? null,
+          batchIndex: batchIndex - 1,
+        }),
+      )
       removePending(card.topic.id)
+      if (!outcome.ok) {
+        setError(outcome.message)
+        return
+      }
+      const res = outcome.data
       if (!res.success) {
         setError(res.error)
         return
@@ -396,13 +436,20 @@ export function WizardClient({
     setError(null)
     addPending(card.topic.id)
     startAction(async () => {
-      const res = await rejectCardAction({
-        seasonId: season.id,
-        topicCandidateId: card.topic.id,
-        guestCandidateId: card.guest?.id ?? null,
-        batchIndex: batchIndex - 1,
-      })
+      const outcome = await runAction(() =>
+        rejectCardAction({
+          seasonId: season.id,
+          topicCandidateId: card.topic.id,
+          guestCandidateId: card.guest?.id ?? null,
+          batchIndex: batchIndex - 1,
+        }),
+      )
       removePending(card.topic.id)
+      if (!outcome.ok) {
+        setError(outcome.message)
+        return
+      }
+      const res = outcome.data
       if (!res.success) {
         setError(res.error)
         return
@@ -427,15 +474,26 @@ export function WizardClient({
     setError(null)
     startGen(async () => {
       for (const card of cards) {
-        const rej = await rejectCardAction({
-          seasonId: season.id,
-          topicCandidateId: card.topic.id,
-          guestCandidateId: card.guest?.id ?? null,
-          batchIndex: batchIndex - 1,
-        })
-        if (rej.success) removeFromPending(card.topic.id)
+        const rejOutcome = await runAction(() =>
+          rejectCardAction({
+            seasonId: season.id,
+            topicCandidateId: card.topic.id,
+            guestCandidateId: card.guest?.id ?? null,
+            batchIndex: batchIndex - 1,
+          }),
+        )
+        // A transport failure on one reject must not abandon the loop and
+        // strand the spinner — the remaining cards still get their turn.
+        if (rejOutcome.ok && rejOutcome.data.success) removeFromPending(card.topic.id)
       }
-      const res = await generateBatchAction({ seasonId: season.id, size: cards.length })
+      const outcome = await runAction(() =>
+        generateBatchAction({ seasonId: season.id, size: cards.length }),
+      )
+      if (!outcome.ok) {
+        setError(outcome.message)
+        return
+      }
+      const res = outcome.data
       if (!res.success) {
         setError(res.error)
         return
@@ -452,14 +510,21 @@ export function WizardClient({
     setAltForCard(null)
     addPending(card.topic.id)
     startAction(async () => {
-      const res = await alternativeAction({
-        seasonId: season.id,
-        topicCandidateId: card.topic.id,
-        guestCandidateId: card.guest?.id ?? null,
-        batchIndex: batchIndex - 1,
-        mode,
-      })
+      const outcome = await runAction(() =>
+        alternativeAction({
+          seasonId: season.id,
+          topicCandidateId: card.topic.id,
+          guestCandidateId: card.guest?.id ?? null,
+          batchIndex: batchIndex - 1,
+          mode,
+        }),
+      )
       removePending(card.topic.id)
+      if (!outcome.ok) {
+        setError(outcome.message)
+        return
+      }
+      const res = outcome.data
       if (!res.success) {
         setError(res.error)
         return
@@ -495,7 +560,13 @@ export function WizardClient({
   const handleUndo = () => {
     if (!undoState) return
     startUndo(async () => {
-      const res = await undoV2DecisionAction(undoState.decisionId)
+      const outcome = await runAction(() => undoV2DecisionAction(undoState.decisionId))
+      if (!outcome.ok) {
+        setError(outcome.message)
+        setUndoState(null)
+        return
+      }
+      const res = outcome.data
       if (!res.success) {
         setError(res.error)
         setUndoState(null)

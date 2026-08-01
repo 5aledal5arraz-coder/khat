@@ -31,6 +31,7 @@ import {
 } from "@/lib/ai/gemini"
 import { recordAiRun } from "@/lib/ai-router/record-run"
 import { deriveGeminiTelemetry } from "@/lib/ai-router/gemini-usage"
+import { isRetriableProviderError } from "@/lib/ai-router/errors"
 import {
   repairTruncatedJson,
   sanitizeJsonResponse,
@@ -40,11 +41,36 @@ import {
   deriveRetrievalCounts,
   type RetrievalOnlyConfig,
 } from "@/lib/ai/retrieval-guard"
+import {
+  estimateRetrievalCostUsd,
+  groundingFeeUsd,
+  groundingRate,
+} from "@/lib/ai/grounded-evidence"
 
 // Client + model defaults now live in lib/ai/gemini.ts (shared with the
 // AI Router adapter and channel analysis). Re-export so existing callers
 // keep importing from here.
 export { getGeminiClient, isGeminiConfigured }
+
+/**
+ * Which record a Gemini call belongs to, written to the `ai_runs` row.
+ *
+ * Without it every row this module opens carries NULL `eir_id` /
+ * `subject_table` / `subject_id` — measured 2026-07-31 on the local DB: all
+ * 180 failed `research_retrieval` rows were unattributed. The failure alert
+ * could therefore say "grounding calls are failing" but never *for which
+ * episode*, which is the only fact that makes the alert actionable.
+ *
+ * Optional so callers with no record in scope (the legacy research pipeline,
+ * whose entry point takes `PreparationInputs` and never sees an id) keep
+ * compiling unchanged rather than being forced to fabricate an attribution.
+ */
+export interface GeminiCallAttribution {
+  eirId?: string | null
+  /** e.g. "episode_preparations" — the table `subjectId` points into. */
+  subjectTable?: string | null
+  subjectId?: string | null
+}
 
 // ─── Retrieval with grounded search ──────────────────────────────────────────
 
@@ -101,8 +127,9 @@ export const PREPARATION_RETRIEVAL_INSTRUCTIONS =
 export async function geminiSearchWeb(
   query: string,
   maxResults = 8,
+  attribution?: GeminiCallAttribution,
 ): Promise<RawRetrievedSource[]> {
-  return (await geminiSearchWebDetailed(query, maxResults)).sources
+  return (await geminiSearchWebDetailed(query, maxResults, attribution)).sources
 }
 
 /**
@@ -125,6 +152,7 @@ export async function geminiSearchWeb(
 export async function geminiSearchWebDetailed(
   query: string,
   maxResults = 8,
+  attribution?: GeminiCallAttribution,
 ): Promise<{ sources: RawRetrievedSource[]; searchRan: boolean; queryCount: number }> {
   const genAI = getGeminiClient()
 
@@ -164,6 +192,9 @@ export async function geminiSearchWebDetailed(
             taskKind: "research_retrieval",
             provider: "gemini",
             modelName: GEMINI_RETRIEVAL_MODEL,
+            eirId: attribution?.eirId ?? null,
+            subjectTable: attribution?.subjectTable ?? null,
+            subjectId: attribution?.subjectId ?? null,
             inputSnapshot: {
               query: query.slice(0, 500),
               tool_shape: toolShape,
@@ -185,10 +216,31 @@ export async function geminiSearchWebDetailed(
             // response (see the note on `geminiSearchWebDetailed`), so every
             // row it writes is a final outcome.
             const counts = deriveRetrievalCounts(extractGroundingMetadata(r))
+            const token = deriveGeminiTelemetry(
+              r.usageMetadata,
+              GEMINI_RETRIEVAL_MODEL,
+            )
             return {
-              ...deriveGeminiTelemetry(r.usageMetadata, GEMINI_RETRIEVAL_MODEL),
+              tokensIn: token.tokensIn,
+              tokensOut: token.tokensOut,
+              // Token cost ALONE understated this path: Google bills grounded
+              // search per query on top of tokens, and only the shared service
+              // was adding that fee. Every row this module wrote therefore
+              // reported a cost lower than the invoice, and the two retrieval
+              // implementations disagreed about the price of the same call.
+              // Same helper as `grounded-evidence.ts`, so they now agree.
+              costUsd: estimateRetrievalCostUsd(
+                token.costUsd,
+                counts.queryCount,
+                GEMINI_RETRIEVAL_MODEL,
+              ),
               outputSnapshot: {
                 web_search_queries: counts.queryCount,
+                grounding_fee_usd: groundingFeeUsd(
+                  GEMINI_RETRIEVAL_MODEL,
+                  counts.queryCount,
+                ),
+                grounding_billing_unit: groundingRate(GEMINI_RETRIEVAL_MODEL).unit,
                 sources_found: counts.sourcesFound,
                 search_ran: counts.searchRan,
               },
@@ -198,8 +250,10 @@ export async function geminiSearchWebDetailed(
       } catch (err) {
         lastErr = err
         const message = err instanceof Error ? err.message : String(err)
-        const retriable = /\b(503|429|504|UNAVAILABLE|overloaded)\b/i.test(message)
-        if (!retriable || attempt === maxAttempts) throw err
+        // Central predicate, not a local regex: a Gemini spend-cap failure is
+        // a 429, so the old pattern retried it three times per candidate and
+        // the operator alert never fired.
+        if (!isRetriableProviderError(err) || attempt === maxAttempts) throw err
         const backoffMs = 1500 * attempt
         console.warn(
           `[preparation/research] Gemini transient error (attempt ${attempt}/${maxAttempts}), retrying in ${backoffMs}ms:`,
@@ -406,6 +460,7 @@ export async function geminiJson<T>(
   label: string,
   temperature = 0.3,
   validate?: (value: unknown) => value is T,
+  attribution?: GeminiCallAttribution,
 ): Promise<T> {
   const genAI = getGeminiClient()
 
@@ -440,6 +495,9 @@ export async function geminiJson<T>(
         taskKind: "research_reasoning",
         provider: "gemini",
         modelName: GEMINI_REASONING_MODEL,
+        eirId: attribution?.eirId ?? null,
+        subjectTable: attribution?.subjectTable ?? null,
+        subjectId: attribution?.subjectId ?? null,
         inputSnapshot: { label, temperature, stage: "primary" },
       },
       () =>
@@ -515,6 +573,9 @@ export async function geminiJson<T>(
         taskKind: "research_reasoning",
         provider: "gemini",
         modelName: GEMINI_REASONING_MODEL,
+        eirId: attribution?.eirId ?? null,
+        subjectTable: attribution?.subjectTable ?? null,
+        subjectId: attribution?.subjectId ?? null,
         inputSnapshot: { label, stage: "correction" },
       },
       () =>

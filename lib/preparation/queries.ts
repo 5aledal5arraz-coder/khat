@@ -151,6 +151,7 @@ function mapRow(row: PrepRow): EpisodePreparation {
     conversation_axes: row.conversation_axes ?? null,
     episode_flow: row.episode_flow ?? null,
     question_system: row.question_system ?? null,
+    prep_v2: (row.prep_v2 as EpisodePreparation["prep_v2"]) ?? null,
     host_instructions: row.host_instructions ?? null,
     quotes_references: row.quotes_references ?? null,
     viral_moments: row.viral_moments ?? null,

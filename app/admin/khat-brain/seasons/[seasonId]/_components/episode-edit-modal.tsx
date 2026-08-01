@@ -4,6 +4,7 @@ import { useState, useTransition } from "react"
 import { X, Save, Loader2 } from "lucide-react"
 import type { KhatMapEpisodeCandidate } from "@/types/khat-map"
 import { editEpisodeAction } from "../../actions"
+import { runAction } from "@/app/admin/components/run-action"
 
 /**
  * Minimal Overview edit modal. Only exposes the fields the admin is
@@ -38,18 +39,27 @@ export function EpisodeEditModal({
   const handleSave = () => {
     setError(null)
     start(async () => {
-      const res = await editEpisodeAction({
-        seasonId,
-        topicCandidateId: topic.id,
-        patch: {
-          working_title: title,
-          hook,
-          why_matters: whyMatters,
-          why_now: whyNow,
-          goal,
-          description,
-        },
-      })
+      const outcome = await runAction(() =>
+        editEpisodeAction({
+          seasonId,
+          topicCandidateId: topic.id,
+          patch: {
+            working_title: title,
+            hook,
+            why_matters: whyMatters,
+            why_now: whyNow,
+            goal,
+            description,
+          },
+        }),
+      )
+      // `onSaved()` closes the modal; closing it on a failed save would throw
+      // away the operator's edits and imply they were written.
+      if (!outcome.ok) {
+        setError(outcome.message)
+        return
+      }
+      const res = outcome.data
       if (!res.success) {
         setError(res.error)
         return

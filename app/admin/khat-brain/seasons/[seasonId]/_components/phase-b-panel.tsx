@@ -16,6 +16,7 @@
  */
 
 import { useCallback, useEffect, useRef, useState, useTransition } from "react"
+import { runAction } from "@/app/admin/components/run-action"
 import { useRouter } from "next/navigation"
 import { Loader2, RefreshCw, Search, UserRoundCheck } from "lucide-react"
 import type {
@@ -107,16 +108,27 @@ function EpisodeBlock({
   const handleStartDiscovery = useCallback(() => {
     setError(null)
     startSearch(async () => {
-      const existing = await listDiscoveryCandidatesForEpisodeAction({
-        episodeCandidateId: ep.topic.id,
-      })
-      baselineCount.current = existing.success
-        ? existing.data.candidates.length
-        : 0
-      const res = await startGuestDiscoveryForEpisodeAction({
-        seasonId,
-        episodeCandidateId: ep.topic.id,
-      })
+      // The baseline read is best-effort: a failure here only means the poller
+      // starts from 0, so it is not worth blocking discovery over.
+      const existingOutcome = await runAction(() =>
+        listDiscoveryCandidatesForEpisodeAction({ episodeCandidateId: ep.topic.id }),
+      )
+      // Two nested envelopes here: `runAction`'s outcome wraps the action's own
+      // `{ success, data }`, so the candidate list is one level deeper than it
+      // reads.
+      const existing = existingOutcome.ok ? existingOutcome.data : null
+      baselineCount.current = existing?.success ? existing.data.candidates.length : 0
+      const outcome = await runAction(() =>
+        startGuestDiscoveryForEpisodeAction({
+          seasonId,
+          episodeCandidateId: ep.topic.id,
+        }),
+      )
+      if (!outcome.ok) {
+        setError(outcome.message)
+        return
+      }
+      const res = outcome.data
       if (!res.success) {
         setError(res.error)
         return
@@ -130,9 +142,14 @@ function EpisodeBlock({
   const handleLoadCandidates = useCallback(() => {
     setError(null)
     startLoad(async () => {
-      const res = await listDiscoveryCandidatesForEpisodeAction({
-        episodeCandidateId: ep.topic.id,
-      })
+      const outcome = await runAction(() =>
+        listDiscoveryCandidatesForEpisodeAction({ episodeCandidateId: ep.topic.id }),
+      )
+      if (!outcome.ok) {
+        setError(outcome.message)
+        return
+      }
+      const res = outcome.data
       if (!res.success) {
         setError(res.error)
         return
@@ -146,11 +163,19 @@ function EpisodeBlock({
       setError(null)
       setAssignPendingId(candidateId)
       startAssign(async () => {
-        const res = await assignDiscoveredGuestToEpisodeAction({
-          seasonId,
-          episodeCandidateId: ep.topic.id,
-          discoveryCandidateId: candidateId,
-        })
+        const outcome = await runAction(() =>
+          assignDiscoveredGuestToEpisodeAction({
+            seasonId,
+            episodeCandidateId: ep.topic.id,
+            discoveryCandidateId: candidateId,
+          }),
+        )
+        if (!outcome.ok) {
+          setError(outcome.message)
+          setAssignPendingId(null)
+          return
+        }
+        const res = outcome.data
         if (!res.success) {
           setError(res.error)
           setAssignPendingId(null)

@@ -15,6 +15,7 @@ import { useState, useTransition } from "react"
 import { useRouter } from "next/navigation"
 import { Pencil, Loader2, Check, X, Save } from "lucide-react"
 import { toast } from "@/lib/use-toast"
+import { runAction } from "@/app/admin/components/run-action"
 import type { PrepV2Payload } from "@/lib/preparation/v2/types"
 import {
   updatePrepFieldAction,
@@ -65,7 +66,9 @@ const FIELDS: FieldDef[] = [
   {
     field: "must_ask_questions",
     label: "أسئلة لا بد منها",
-    helper: "سؤال لكل سطر — هذه هي أسئلة must_ask فقط.",
+    // The stored enum stays `must_ask`; only the rendering is Arabic — same
+    // rule as PRIORITY_LABEL_AR in prep-v2-view.tsx, which reads "أساسي".
+    helper: "سؤال لكل سطر — الأسئلة الأساسية فقط، دون «إن سمح الوقت».",
     rows: 6,
     read: (p) =>
       (p.question_bank ?? [])
@@ -150,10 +153,15 @@ function PrepFieldRow({
 
   const onSave = () => {
     startTransition(async () => {
-      const result: PrepEditResult = await updatePrepFieldAction(prepId, {
-        field: def.field,
-        value: draft,
-      })
+      // Worst blast radius of the seven: the whole row is `disabled={pending}`,
+      // so a rejected promise here left the operator unable to press even
+      // "إلغاء" — their edit trapped in a textarea they could not close.
+      const outcome = await runAction(() =>
+        updatePrepFieldAction(prepId, { field: def.field, value: draft }),
+      )
+      const result: PrepEditResult = outcome.ok
+        ? outcome.data
+        : { ok: false, message: outcome.message }
       toast({
         title: result.ok ? "تم حفظ التعديل" : "فشل الحفظ",
         description: result.message,
@@ -178,7 +186,7 @@ function PrepFieldRow({
       data-prep-field={def.field}
     >
       <div className="mb-1 flex items-center justify-between gap-2">
-        <div className="text-[11px] font-semibold text-foreground/85">
+        <div className="text-[13px] font-semibold text-foreground/85">
           {def.label}
         </div>
         {!editing && (
@@ -188,20 +196,24 @@ function PrepFieldRow({
               setDraft(initial)
               setEditing(true)
             }}
-            className="inline-flex items-center gap-1 rounded-md border border-border/40 bg-background/40 px-2 py-0.5 text-[10.5px] text-muted-foreground hover:text-foreground"
+            // 21.8px tall measured at 375px — under even the lenient WCAG
+            // 24×24. `min-h-[44px]` matches the preflight screens; it is
+            // relaxed on `sm:` and up so the desktop row keeps its density,
+            // where a pointer does not need the larger target.
+            className="inline-flex min-h-[44px] items-center gap-1 rounded-md border border-border/40 bg-background/40 px-3 py-1 text-[13px] text-muted-foreground hover:text-foreground sm:min-h-0 sm:py-0.5"
           >
-            <Pencil className="h-2.5 w-2.5" /> تعديل
+            <Pencil className="h-3.5 w-3.5" /> تعديل
           </button>
         )}
         {savedAt && !editing && (
-          <span className="inline-flex items-center gap-1 text-[10px] text-emerald-700">
-            <Check className="h-2.5 w-2.5" />
+          <span className="inline-flex items-center gap-1 text-[13px] text-emerald-800">
+            <Check className="h-3.5 w-3.5" />
             تم الحفظ
           </span>
         )}
       </div>
       {def.helper && (
-        <div className="mb-1 text-[10.5px] text-muted-foreground">
+        <div className="mb-1 text-[13px] text-muted-foreground">
           {def.helper}
         </div>
       )}
@@ -216,7 +228,16 @@ function PrepFieldRow({
             data-prep-textarea
           />
           <div className="mt-2 flex items-center justify-between gap-2">
-            <span className="text-[10px] text-muted-foreground">
+            {/* 13px — the /admin/ops body step. This warns the operator that
+                edits are still unsaved, so it must not be the smallest text on
+                the row; 11px merely put it on the ladder's bottom rung. */}
+            <span
+              className={
+                dirty
+                  ? "text-[13px] font-medium text-amber-800"
+                  : "text-[13px] text-muted-foreground"
+              }
+            >
               {dirty ? "تغييرات غير محفوظة" : "بدون تغيير"}
             </span>
             <div className="flex flex-wrap gap-2">
@@ -249,12 +270,20 @@ function PrepFieldRow({
           </div>
         </>
       ) : (
-        <pre
+        // A <pre> here was only ever for line preservation, but Tailwind's
+        // preflight gives <pre> the MONO font stack — and not one family in
+        // it (ui-monospace/Menlo/Monaco/Consolas) ships Arabic glyphs. The
+        // browser therefore fell back per-character and the fixed advance
+        // width broke Arabic letter joining: the 28 questions, the most
+        // important text on the screen, rendered in its worst possible form.
+        // A div with `whitespace-pre-wrap` preserves the newlines and
+        // inherits the page's Arabic face.
+        <div
           className="whitespace-pre-wrap break-words rounded-lg bg-background/40 p-2 text-[11.5px] leading-relaxed text-foreground/85"
           dir={def.field === "host_guidance.overall_tone" || def.field === "thesis" ? "rtl" : undefined}
         >
           {initial.trim() ? initial : <span className="text-muted-foreground">— فارغ —</span>}
-        </pre>
+        </div>
       )}
     </div>
   )

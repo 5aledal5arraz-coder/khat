@@ -29,6 +29,7 @@ import type {
   PreparationCandidate,
   PreparationGuestIdentity,
 } from "@/types/preparation"
+import { runAction } from "@/app/admin/components/run-action"
 
 const STATUS_LABELS: Record<PreparationStatus, { label: string; bg: string; text: string }> = {
   draft: { label: "مسودة", bg: "bg-neutral-500/10", text: "text-neutral-700" },
@@ -226,26 +227,36 @@ export function PreparationListClient({ initialItems }: Props) {
     }
 
     startCreate(async () => {
-      const res = await fetch("/api/admin/preparation", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "x-requested-with": "khat",
-        },
-        body: JSON.stringify({
-          title: title.trim(),
-          guest_name: picked.name,
-          guest_description: guestDescription.trim(),
-          guest_profile_link: guestProfileLink.trim() || null,
-          guest_identity: identity,
-          depth_level: 3,
-          boldness_level: 3,
-          key_questions: [],
-          content_focus: [],
-        }),
+      // Sibling handler `handleSearch` already guards its fetch with
+      // try/catch; this one did not, so a dropped connection left the
+      // "إنشاء" button spinning with no way back except a reload.
+      const outcome = await runAction(async () => {
+        const res = await fetch("/api/admin/preparation", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "x-requested-with": "khat",
+          },
+          body: JSON.stringify({
+            title: title.trim(),
+            guest_name: picked.name,
+            guest_description: guestDescription.trim(),
+            guest_profile_link: guestProfileLink.trim() || null,
+            guest_identity: identity,
+            depth_level: 3,
+            boldness_level: 3,
+            key_questions: [],
+            content_focus: [],
+          }),
+        })
+        return { ok: res.ok, data: await res.json() }
       })
-      const data = await res.json()
-      if (!res.ok) {
+      if (!outcome.ok) {
+        setError(outcome.message)
+        return
+      }
+      const { ok, data } = outcome.data
+      if (!ok) {
         setError(data.error || "فشل الإنشاء")
         return
       }

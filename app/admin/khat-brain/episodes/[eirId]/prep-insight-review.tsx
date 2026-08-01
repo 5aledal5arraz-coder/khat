@@ -34,6 +34,7 @@ import {
   Smile,
   type LucideIcon,
 } from "lucide-react"
+import { runAction } from "@/app/admin/components/run-action"
 import {
   setInsightStatus,
   editInsight,
@@ -139,14 +140,19 @@ export function PrepInsightReview({
     const snapshot = bank
     setBank(localMutate(bank).bank)
     startTransition(async () => {
-      try {
-        const r = await action()
-        setToast({ ok: r.ok, msg: r.message })
-        if (!r.ok) setBank(snapshot)
-      } catch {
-        setToast({ ok: false, msg: "تعذّر حفظ التغيير." })
+      // This file already caught its rejections, so the transition settled —
+      // but a bare `catch` also swallows Next's redirect()/notFound() control
+      // flow and collapses every distinct failure into one generic sentence.
+      // `runAction` rethrows the former and names the latter.
+      const outcome = await runAction(action)
+      if (!outcome.ok) {
+        setToast({ ok: false, msg: outcome.message })
         setBank(snapshot)
+        return
       }
+      const r = outcome.data
+      setToast({ ok: r.ok, msg: r.message })
+      if (!r.ok) setBank(snapshot)
     })
   }
 

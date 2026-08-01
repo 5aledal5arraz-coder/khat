@@ -25,6 +25,7 @@ import {
   ShieldCheck,
 } from "lucide-react"
 import { toast } from "@/lib/use-toast"
+import { runAction } from "@/app/admin/components/run-action"
 import {
   pushPackageToEpisodeAction,
   type PushActionResult,
@@ -71,7 +72,31 @@ export function PushButton({
   const onConfirm = () => {
     startTransition(async () => {
       const fields = pushableToFieldsMap(preview.pushableFields)
-      const r = await pushPackageToEpisodeAction({ eirId, fields })
+      const outcome = await runAction(() =>
+        pushPackageToEpisodeAction({ eirId, fields }),
+      )
+      if (!outcome.ok) {
+        // The destructive one. On a gateway timeout the write may well have
+        // landed server-side, so the panel stays OPEN with the failure text
+        // rather than closing and implying nothing happened — `runAction`'s
+        // gateway copy explicitly tells the operator to refresh before
+        // retrying instead of overwriting the episode a second time.
+        setResult({
+          ok: false,
+          reason: "push_failed",
+          message: outcome.message,
+          pushedFields: [],
+          episodeId: null,
+          guestLink: null,
+        })
+        toast({
+          title: "فشل دفع الحزمة",
+          description: outcome.message,
+          variant: "error",
+        })
+        return
+      }
+      const r = outcome.data
       setResult(r)
       // UX-5.5b — destructive transition feedback toast.
       if (r.ok) {

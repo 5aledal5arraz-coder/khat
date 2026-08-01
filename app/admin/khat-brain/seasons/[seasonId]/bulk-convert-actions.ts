@@ -28,7 +28,18 @@ export interface BulkConvertResult {
     candidate_id: string
     title: string
     status: "converted" | "skipped_existing" | "failed"
+    /** Why this card FAILED. Developer-ish, often English. Only on `failed`. */
     reason?: string
+    /**
+     * A non-fatal problem on a card that SUCCEEDED (today: prep_v2 generation
+     * failing while the preparation row landed). Arabic, operator-facing.
+     *
+     * Kept apart from `reason` on purpose: they are read in opposite moods and
+     * rendered differently. Folding a long Arabic warning into `reason` put
+     * error-red LTR text next to a green check — two contradictory signals on
+     * one row — and squeezed the episode title out of a truncating flex row.
+     */
+    warning?: string
     preparation_id?: string
   }>
 }
@@ -105,7 +116,12 @@ export async function bulkConvertApprovedAction(
       per_card.push({
         candidate_id: card.id,
         title: card.title,
+        // Still "converted" — the prep row exists. A non-fatal problem
+        // (prep_v2 generation failed) rides along in `warning`, NOT in
+        // `reason`, instead of demoting a real success to "failed" and
+        // hiding the preparation the operator can open.
         status: result.was_existing ? "skipped_existing" : "converted",
+        warning: result.warning,
         preparation_id: result.link.target_id,
       })
       succeeded++

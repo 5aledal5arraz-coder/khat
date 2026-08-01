@@ -17,6 +17,7 @@ import { SnapchatIcon } from "@/components/icons/snapchat-icon"
 import type { KhatMapGuestSocialAccounts } from "@/types/khat-map"
 import type { BatchCard } from "@/lib/khat-map/v2/types"
 import { injectGuestAction } from "../../actions"
+import { runAction } from "@/app/admin/components/run-action"
 
 /**
  * Floating "+ ضيف" affordance + bottom sheet. On submit it fires the
@@ -95,16 +96,23 @@ function GuestInjectSheet({
     }
     setError(null)
     start(async () => {
-      const res = await injectGuestAction({
-        seasonId,
-        batchIndex,
-        guest: {
-          full_name: name.trim(),
-          bio: bio.trim() || null,
-          official_website: website.trim() || null,
-          social_accounts: cleanSocials(socials),
-        },
-      })
+      const outcome = await runAction(() =>
+        injectGuestAction({
+          seasonId,
+          batchIndex,
+          guest: {
+            full_name: name.trim(),
+            bio: bio.trim() || null,
+            official_website: website.trim() || null,
+            social_accounts: cleanSocials(socials),
+          },
+        }),
+      )
+      if (!outcome.ok) {
+        setError(outcome.message)
+        return
+      }
+      const res = outcome.data
       if (!res.success) {
         setError(res.error)
         return

@@ -12,6 +12,7 @@ import { useState, useTransition } from "react"
 import { useRouter } from "next/navigation"
 import { RefreshCw, Trash2 } from "lucide-react"
 import { expireOldAction } from "../actions"
+import { runAction } from "@/app/admin/components/run-action"
 
 export function CleanupExpiredButton() {
   const router = useRouter()
@@ -21,7 +22,9 @@ export function CleanupExpiredButton() {
   const onClick = () => {
     setNote(null)
     start(async () => {
-      const r = await expireOldAction()
+      const outcome = await runAction(() => expireOldAction())
+      if (!outcome.ok) return setNote(outcome.message)
+      const r = outcome.data
       if (!r.ok && r.error) {
         setNote(r.error)
       } else {

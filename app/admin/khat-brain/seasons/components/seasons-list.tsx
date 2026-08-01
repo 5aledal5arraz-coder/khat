@@ -39,6 +39,7 @@ import {
 } from "@/types/khat-map"
 import type { SeasonSummary } from "@/lib/khat-brain/seasons-summary"
 import { deleteSeasonsBulkAction } from "../actions"
+import { runAction } from "@/app/admin/components/run-action"
 
 export function SeasonsList({
   active,
@@ -88,7 +89,15 @@ export function SeasonsList({
     setError(null)
     const ids = [...selected]
     startTransition(async () => {
-      const res = await deleteSeasonsBulkAction(ids)
+      // Destructive and irreversible. A stranded transition here left the
+      // confirmation dialog open with its buttons disabled, so the operator
+      // could neither retry nor cancel.
+      const outcome = await runAction(() => deleteSeasonsBulkAction(ids))
+      if (!outcome.ok) {
+        setError(outcome.message)
+        return
+      }
+      const res = outcome.data
       if (!res.success) {
         setError(res.error)
         return

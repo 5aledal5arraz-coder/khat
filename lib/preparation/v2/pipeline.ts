@@ -289,6 +289,11 @@ export async function runPrepV2Pipeline(
           ...payload.ai_run_ids,
           pass5_insights: p5.ok ? p5.ai_run_ids : null,
         },
+        // Persist the counters, not just log them. "48 drafted, 0 kept" was
+        // previously a console line on a worker nobody tails — the DB held no
+        // record that the pass had run at all, so a prep with zero cards was
+        // indistinguishable from a prep whose cards were never attempted.
+        insight_stats: { ...p5.stats, outcome: p5.ok ? "ok" : "skipped" },
       }
       if (p5.ok) {
         console.info(
@@ -298,6 +303,18 @@ export async function runPrepV2Pipeline(
         )
       }
     } catch (err) {
+      // Counters are UNKNOWN here, not zero — `outcome: "error"` says so
+      // rather than recording a confident 0/0 that never happened.
+      payload = {
+        ...payload,
+        insight_stats: {
+          drafted: 0,
+          kept: 0,
+          grounded: 0,
+          capped: false,
+          outcome: "error",
+        },
+      }
       console.warn(
         `[prep-v2/insights] Pass 5 errored for prep ${input.preparationId} (non-fatal):`,
         err instanceof Error ? err.message : err,
@@ -346,13 +363,36 @@ async function persistPrepV2(
     prepV2Schema,
   )
 
-  await db!
-    .update(episodePreparations)
-    .set({
-      prep_v2: payload as never,
-      updated_at: new Date(),
-    })
-    .where(eq(episodePreparations.id, preparationId))
+  // Take the SAME row lock the inline-edit path takes (`mutatePrepV2` in
+  // app/admin/khat-brain/episodes/[eirId]/prep-actions.ts): SELECT … FOR UPDATE
+  // inside a transaction. This write was the only prep_v2 writer doing a bare,
+  // unlocked UPDATE, so it could land in the middle of an editor's
+  // read-modify-write and make that editor's commit overwrite a fresh payload
+  // (or be overwritten by a stale one). Now both writers queue on the row.
+  //
+  // Deadlock note: safe only because no caller of `runPrepV2Pipeline` holds an
+  // open transaction on this row — verified across all four call sites
+  // (khat-map conversion, the regenerate action, and two scripts). A future
+  // caller that wraps the pipeline in its own transaction would self-block here.
+  //
+  // The broadcast below stays OUTSIDE the transaction: it is network I/O and
+  // must not hold a row lock open, and it must only announce a committed write.
+  await db!.transaction(async (tx) => {
+    await tx
+      .select({ id: episodePreparations.id })
+      .from(episodePreparations)
+      .where(eq(episodePreparations.id, preparationId))
+      .for("update")
+      .limit(1)
+
+    await tx
+      .update(episodePreparations)
+      .set({
+        prep_v2: payload as never,
+        updated_at: new Date(),
+      })
+      .where(eq(episodePreparations.id, preparationId))
+  })
 
   // Tell any live recording room on this preparation that the structure
   // exists now. Rooms are opened before generation finishes, so without

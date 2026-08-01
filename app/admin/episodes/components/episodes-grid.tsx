@@ -37,29 +37,28 @@ import {
   updateEpisodeTitle,
   removeEpisodeOverride,
 } from "../actions"
+import { runAction } from "@/app/admin/components/run-action"
 import type { AdminEpisodeView, AdminGuestView } from "./shared"
 import type { CategoryWithCount } from "./shared"
 import type { EpisodeOverride, EpisodeQuotesConfig } from "@/types/episodes"
 import type { YouTubePackConfig } from "@/types/youtube-pack"
 
 /**
- * Server-action calls THROW (rather than returning {success:false}) when
- * this tab predates the current deployment — the action id no longer
- * exists server-side ("Failed to find Server Action"). Without this
- * wrapper the throw escapes startTransition and the click silently does
- * nothing; with it, the failure lands in the normal actionError UI.
+ * Adapts `runAction` to this file's `{ success, error }` result convention.
+ *
+ * This used to be a bare `try/catch` that answered EVERY throw with "the panel
+ * was updated, reload the page". That never froze a button, but it was wrong
+ * twice over: a gateway timeout on a bulk delete got told to reload when the
+ * delete may well have been running, and Next's own control-flow throws
+ * (`redirect()`, `notFound()`) were swallowed into a fake error result instead
+ * of reaching the framework. `runAction` classifies the failure and rethrows
+ * those — see `app/admin/components/run-action.ts`.
  */
-const STALE_TAB_MSG =
-  "تعذّر تنفيذ الإجراء — يبدو أن لوحة التحكم تحدّثت بعد فتح هذه الصفحة. أعد تحميل الصفحة ثم حاول مجدداً."
-
 async function safeAction<T extends { success: boolean; error?: string }>(
   fn: () => Promise<T>,
 ): Promise<T | { success: false; error: string }> {
-  try {
-    return await fn()
-  } catch {
-    return { success: false, error: STALE_TAB_MSG }
-  }
+  const outcome = await runAction(fn)
+  return outcome.ok ? outcome.data : { success: false, error: outcome.message }
 }
 
 interface EpisodesGridProps {

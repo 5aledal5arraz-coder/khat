@@ -4,6 +4,7 @@ import { useState, useTransition } from "react"
 import { useRouter } from "next/navigation"
 import { Sparkles, Loader2 } from "lucide-react"
 import { startV2DiscoveryAction } from "./actions"
+import { runAction } from "@/app/admin/components/run-action"
 
 const TASTES: { id: "famous" | "balanced" | "hidden_gems"; label: string }[] = [
   { id: "famous", label: "مشاهير" },
@@ -24,13 +25,17 @@ export function StartV2Form() {
   const submit = () => {
     setError(null)
     start(async () => {
-      const r = await startV2DiscoveryAction({
-        topic,
-        gender: gender || null,
-        nationality: nationality || null,
-        taste,
-        limit,
-      })
+      const outcome = await runAction(() =>
+        startV2DiscoveryAction({
+          topic,
+          gender: gender || null,
+          nationality: nationality || null,
+          taste,
+          limit,
+        }),
+      )
+      if (!outcome.ok) return setError(outcome.message)
+      const r = outcome.data
       if (r.success && r.runId) router.push(`/admin/discovery-v2/${r.runId}`)
       else setError(r.error ?? "تعذّر بدء التشغيل")
     })

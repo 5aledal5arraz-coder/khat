@@ -82,9 +82,16 @@ function ToolbarButton({
         {action.icon}
         <span>{action.label}</span>
         {action.shortcut && (
-          <kbd className="rounded bg-background/70 px-1 text-[9.5px] text-muted-foreground" dir="ltr">
+          // <bdi> + dir="ltr": the dir attribute alone already isolates in
+          // modern browsers, but <bdi> states the intent — this is a foreign-
+          // direction run embedded in an Arabic line and must never reorder
+          // the label beside it.
+          <bdi
+            className="rounded bg-background/70 px-1 text-[11px] text-muted-foreground"
+            dir="ltr"
+          >
             {action.shortcut}
-          </kbd>
+          </bdi>
         )}
       </button>
       {divider && (

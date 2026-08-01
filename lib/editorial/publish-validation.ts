@@ -169,21 +169,21 @@ export function validateWebsitePackageDocument(
     issues.push({
       code: "missing_slug",
       severity: "blocker",
-      message: "الـ slug مفقود",
+      message: "الرابط الدائم (slug) مفقود",
       field: "website_package.slug",
     })
   } else if (!isValidSlug(w.slug)) {
     issues.push({
       code: "invalid_slug",
       severity: "blocker",
-      message: "صيغة الـ slug غير صحيحة",
+      message: "صيغة الرابط الدائم (slug) غير صحيحة",
       field: "website_package.slug",
     })
   } else if (knownSiblingSlugs.includes(w.slug)) {
     issues.push({
       code: "duplicate_slug",
       severity: "blocker",
-      message: "هذا الـ slug مستخدم في حلقة أخرى",
+      message: "هذا الرابط الدائم (slug) مستخدم في حلقة أخرى",
       field: "website_package.slug",
     })
   }

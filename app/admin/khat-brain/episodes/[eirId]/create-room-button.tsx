@@ -12,6 +12,7 @@ import { useState, useTransition } from "react"
 import { useRouter } from "next/navigation"
 import { Radio, Loader2, CheckCircle2, XCircle } from "lucide-react"
 import { toast } from "@/lib/use-toast"
+import { runAction } from "@/app/admin/components/run-action"
 import {
   createRoomForEpisodeAction,
   type CreateRoomActionResult,
@@ -25,7 +26,10 @@ export function CreateRoomButton({ eirId }: { eirId: string }) {
   const onClick = () => {
     setResult(null)
     startTransition(async () => {
-      const r = await createRoomForEpisodeAction(eirId)
+      const outcome = await runAction(() => createRoomForEpisodeAction(eirId))
+      const r: CreateRoomActionResult = outcome.ok
+        ? outcome.data
+        : { ok: false, message: outcome.message }
       setResult(r)
       // UX-5.5b — toast confirms the phase transition. `existing=true`
       // is reported as a success but with neutral copy because no phase

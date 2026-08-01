@@ -20,7 +20,7 @@
  * All persistence flows through the server actions in actions.ts.
  */
 
-import { useEffect, useMemo, useRef, useState, useTransition } from "react"
+import { useEffect, useMemo, useRef, useState, useTransition, type ReactNode } from "react"
 import { Empty } from "../../../components/ui-kit"
 import {
   useRoomState,
@@ -71,6 +71,8 @@ import {
   deriveChecklistModel,
   deriveHostGateState,
 } from "@/lib/recording-v2/preflight-checklist"
+import { runAction } from "@/app/admin/components/run-action"
+import { AlertTriangle } from "lucide-react"
 
 export function LiveV2Client({ initial }: { initial: LiveV2Snapshot }) {
   const room = initial.room
@@ -362,6 +364,10 @@ export function LiveV2Client({ initial }: { initial: LiveV2Snapshot }) {
     }
   }
 
+  // Surfaced by the banner below; shared by the notes autosave and every timer
+  // control, since both go through `runAction` now.
+  const [actionError, setActionError] = useState<string | null>(null)
+
   // ── Notes (debounced autosave) ────────────────────────────────────
   const [notes, setNotes] = useState(room.director_notes)
   const [, startNotesTransition] = useTransition()
@@ -371,7 +377,12 @@ export function LiveV2Client({ initial }: { initial: LiveV2Snapshot }) {
     if (noteSaveTimer.current) clearTimeout(noteSaveTimer.current)
     noteSaveTimer.current = setTimeout(() => {
       startNotesTransition(async () => {
-        await saveDirectorNotesAction({ roomId: room.id, notes: value })
+        // Debounced autosave: a failure here must be visible, because the
+        // director keeps typing into a box that looks saved.
+        const outcome = await runAction(() =>
+          saveDirectorNotesAction({ roomId: room.id, notes: value }),
+        )
+        if (!outcome.ok) setActionError(outcome.message)
       })
     }, 750)
   }
@@ -381,8 +392,23 @@ export function LiveV2Client({ initial }: { initial: LiveV2Snapshot }) {
 
   // ── Timer actions ─────────────────────────────────────────────────
   const [busy, startTransition] = useTransition()
+  /**
+   * Every timer control (start / pause / resume / reset / end) is routed
+   * through here, so this is the single place where their failure behaviour
+   * lives — and it used to be `startTransition(fn)` with no catch.
+   *
+   * Mid-recording that is the worst version of the stranded-transition bug in
+   * the admin: one rejected call left `busy` true forever, and `busy` disables
+   * the whole timer row, so the director lost start/pause/end on a take that
+   * was still rolling, with nothing on screen saying why. `runAction` never
+   * rejects, so the transition always settles and the row comes back.
+   */
   function withBusy(fn: () => Promise<void>) {
-    return () => startTransition(fn)
+    return () =>
+      startTransition(async () => {
+        const outcome = await runAction(fn)
+        setActionError(outcome.ok ? null : outcome.message)
+      })
   }
 
   const onStart = withBusy(async () => {
@@ -585,10 +611,55 @@ export function LiveV2Client({ initial }: { initial: LiveV2Snapshot }) {
   // Energy markers drive the ribbon, not the content pins / count / list.
   const contentMarkers = markers.filter((m) => m.marker_type !== "energy_change")
 
+  /**
+   * IN NORMAL FLOW — deliberately NOT a positioned overlay.
+   *
+   * What gets this in front of the director from all four phase branches is
+   * `withBanner` below; the positioning never contributed to that. As
+   * `fixed inset-x-0 top-0 z-50` it left the flow, so nothing reserved its
+   * ~44px and it painted on top of the first rows of whatever branch was
+   * mounted. In <OnAirView> those rows are the <StatusRail> — pause / resume /
+   * end. So the one moment the director needs to stop the take was the one
+   * moment the stop button sat underneath a banner.
+   *
+   * A block in normal flow cannot overlap a later sibling — at any scroll
+   * offset, any viewport width. The rail is pushed down instead of covered and
+   * the guarantee is structural, not a padding constant that would have to
+   * track the banner's wrapped height (which varies with the message).
+   *
+   * Trade-off taken knowingly: it scrolls with the page instead of staying
+   * pinned. `sticky`/`fixed` both re-create the overlap the instant the rail
+   * scrolls under them, and a covered stop button is the worse failure.
+   * `role="alert"` still announces it regardless of scroll position.
+   * Dismissible: mid-take, a banner they cannot clear is its own distraction.
+   */
+  const actionErrorBanner = actionError ? (
+    <div
+      role="alert"
+      className="flex items-start gap-3 border-b border-red-500/30 bg-card px-4 py-3 text-[13px] text-red-700 shadow-sm"
+    >
+      <AlertTriangle className="mt-0.5 size-4 shrink-0" />
+      <span className="flex-1">{actionError}</span>
+      <button
+        type="button"
+        onClick={() => setActionError(null)}
+        className="shrink-0 rounded px-2 py-0.5 text-[11px] text-muted-foreground hover:bg-muted"
+      >
+        إخفاء
+      </button>
+    </div>
+  ) : null
+  const withBanner = (node: ReactNode) => (
+    <>
+      {actionErrorBanner}
+      {node}
+    </>
+  )
+
   // ── Phase routing ─────────────────────────────────────────────────
   const pv = prep.prep_v2
   if (!pv) {
-    return (
+    return withBanner(
       <LegacyCockpit
         status={status}
         elapsedMsAtBaseline={elapsedMsAtBaseline}
@@ -616,7 +687,7 @@ export function LiveV2Client({ initial }: { initial: LiveV2Snapshot }) {
     // بنفسي" — the director's own checklist on their screen. Same component, same
     // unlock condition; only the confirming person differs.
     if (selfCompleting) {
-      return (
+      return withBanner(
         <ChecklistPanel
           model={checklistModel}
           onSet={onSetChecklistItem}
@@ -631,7 +702,7 @@ export function LiveV2Client({ initial }: { initial: LiveV2Snapshot }) {
         />
       )
     }
-    return (
+    return withBanner(
       <PreflightView
         gate={
           <PreflightGate
@@ -666,7 +737,7 @@ export function LiveV2Client({ initial }: { initial: LiveV2Snapshot }) {
   }
 
   if (status === "ended") {
-    return (
+    return withBanner(
       <WrapView
         roomId={room.id}
         durationMs={nowElapsed()}
@@ -685,7 +756,7 @@ export function LiveV2Client({ initial }: { initial: LiveV2Snapshot }) {
     )
   }
 
-  return (
+  return withBanner(
     <OnAirView
       status={status === "paused" ? "paused" : "live"}
       elapsedMsAtBaseline={elapsedMsAtBaseline}

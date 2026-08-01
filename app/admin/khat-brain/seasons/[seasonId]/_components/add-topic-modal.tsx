@@ -10,6 +10,7 @@ import {
   type KhatMapEpisodeCandidate,
 } from "@/types/khat-map"
 import { addManualTopicAction } from "../../actions"
+import { runAction } from "@/app/admin/components/run-action"
 
 const EPISODE_TYPES = Object.entries(KHAT_EPISODE_TYPE_LABEL) as Array<
   [KhatMapEpisodeType, string]
@@ -63,15 +64,23 @@ export function AddTopicModal({
       return
     }
     start(async () => {
-      const res = await addManualTopicAction({
-        seasonId,
-        working_title: title,
-        episode_type: episodeType,
-        topic_domain: domain || undefined,
-        hook,
-        why_matters: whyMatters,
-        why_now: whyNow,
-      })
+      const outcome = await runAction(() =>
+        addManualTopicAction({
+          seasonId,
+          working_title: title,
+          episode_type: episodeType,
+          topic_domain: domain || undefined,
+          hook,
+          why_matters: whyMatters,
+          why_now: whyNow,
+        }),
+      )
+      // `reset()` below wipes the form, so it must never run on a failure.
+      if (!outcome.ok) {
+        setError(outcome.message)
+        return
+      }
+      const res = outcome.data
       if (!res.success) {
         setError(res.error)
         return

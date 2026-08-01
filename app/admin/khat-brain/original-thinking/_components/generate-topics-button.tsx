@@ -21,20 +21,47 @@ import {
   generateOriginalTopicsAction,
   type GenerateActionResult,
 } from "../actions"
+import { runAction } from "@/app/admin/components/run-action"
+
+/**
+ * The two things this button can end up showing are NOT the same kind of fact,
+ * and flattening them into one object is how a failed call starts lying.
+ *
+ * - `result` is an answer from the generator: `accepted`/`rejected` are counts
+ *   it actually measured.
+ * - `failure` is the call never coming back — the gateway cut the connection.
+ *   There are no counts, because the generation may well have succeeded on the
+ *   server (see the `gateway` copy in `run-action.ts`). Reporting
+ *   `accepted: 0, rejected: 0` here would state a zero nobody counted.
+ */
+type ButtonState =
+  | { kind: "result"; result: GenerateActionResult }
+  | { kind: "failure"; message: string }
 
 export function GenerateTopicsButton() {
   const router = useRouter()
   const [pending, start] = useTransition()
-  const [result, setResult] = useState<GenerateActionResult | null>(null)
+  const [state, setState] = useState<ButtonState | null>(null)
 
   const onClick = () => {
-    setResult(null)
+    setState(null)
     start(async () => {
-      const r = await generateOriginalTopicsAction("ar", 10)
-      setResult(r)
+      // Topic generation is a long AI call — the gateway cut is the likeliest
+      // failure, and it is exactly the one that used to freeze the button.
+      const outcome = await runAction(() => generateOriginalTopicsAction("ar", 10))
+      if (!outcome.ok) {
+        setState({ kind: "failure", message: outcome.message })
+        return
+      }
+      const r = outcome.data
+      setState({ kind: "result", result: r })
       if (r.ok) router.refresh()
     })
   }
+
+  const result = state?.kind === "result" ? state.result : null
+  const message =
+    state === null ? "" : state.kind === "result" ? state.result.message : state.message
 
   return (
     <div className="flex flex-col items-start gap-2">
@@ -52,20 +79,20 @@ export function GenerateTopicsButton() {
         {pending ? "جارٍ التوليد…" : "إنشاء ١٠ مواضيع جديدة"}
       </button>
 
-      {result && (
+      {state && (
         <div
           className={cn(
             "w-full max-w-xl rounded-xl border p-3 text-[11.5px] leading-relaxed",
-            result.ok
+            result?.ok
               ? "border-emerald-500/30 bg-emerald-500/5 text-foreground/80"
               : "border-destructive/30 bg-destructive/5 text-destructive",
           )}
         >
-          <div className={cn("font-medium", result.ok ? "text-emerald-700" : "text-destructive")}>
-            {result.message}
+          <div className={cn("font-medium", result?.ok ? "text-emerald-700" : "text-destructive")}>
+            {message}
           </div>
 
-          {result.ok && result.rejection_reasons && result.rejection_reasons.length > 0 && (
+          {result && result.ok && result.rejection_reasons && result.rejection_reasons.length > 0 && (
             <div className="mt-2 border-t border-border/40 pt-2">
               <div className="mb-1 text-[10.5px] font-medium text-muted-foreground">
                 أسباب الرفض

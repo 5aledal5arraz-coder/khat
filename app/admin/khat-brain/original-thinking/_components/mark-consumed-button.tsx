@@ -13,6 +13,7 @@ import { useState, useTransition } from "react"
 import { useRouter } from "next/navigation"
 import { Check, RefreshCw } from "lucide-react"
 import { markConsumedAction } from "../actions"
+import { runAction } from "@/app/admin/components/run-action"
 
 export function MarkConsumedButton({ id }: { id: string }) {
   const router = useRouter()
@@ -22,8 +23,9 @@ export function MarkConsumedButton({ id }: { id: string }) {
   const onClick = () => {
     setFailed(false)
     start(async () => {
-      const r = await markConsumedAction(id)
-      if (r.ok) router.refresh()
+      const outcome = await runAction(() => markConsumedAction(id))
+      if (!outcome.ok) return setFailed(true)
+      if (outcome.data.ok) router.refresh()
       else setFailed(true)
     })
   }

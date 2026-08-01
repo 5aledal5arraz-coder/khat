@@ -44,6 +44,12 @@ import type {
   PreparationQuestionSystem,
   PreparationResearch,
 } from "@/types/preparation"
+import type {
+  PrepV2Payload,
+  PrepV2Question,
+  SectionKind,
+} from "@/lib/preparation/v2/types"
+import { hasCardQuestionSource } from "@/lib/preparation/question-source"
 
 // ─── Text quality validation ────────────────────────────────────────
 
@@ -201,8 +207,81 @@ function prepToContext(prep: {
 }
 
 // ═══════════════════════════════════════════════════════════════════
-// 1. generateInterviewCards — question_system → interview_cards rows
+// 1. generateInterviewCards — question source → interview_cards rows
 // ═══════════════════════════════════════════════════════════════════
+
+/**
+ * Arabic labels for the prep_v2 section kinds.
+ *
+ * Duplicated from `app/admin/recording/[roomId]/v2/recording-shared.ts` (and
+ * three other UI copies) rather than imported: that module pulls in
+ * lucide-react for its marker styles, which has no business inside a server
+ * generator. Consolidating the five copies is its own task, not this fix.
+ */
+const V2_SECTION_LABEL_AR: Record<SectionKind, string> = {
+  opening: "افتتاحية",
+  build_up: "بناء التوتر",
+  conflict: "المواجهة",
+  deep_dive: "الغوص العميق",
+  emotional_peak: "الذروة العاطفية",
+  resolution: "الخاتمة",
+}
+
+/** Which card bucket a prep_v2 section plays the role of. */
+const V2_SECTION_BUCKET: Record<SectionKind, InterviewCardBucket> = {
+  opening: "opening",
+  build_up: "deep",
+  conflict: "escalation",
+  deep_dive: "deep",
+  emotional_peak: "escalation",
+  resolution: "deep",
+}
+
+/**
+ * Adapt a prep_v2 question bank into card inputs.
+ *
+ * ROOT CAUSE this exists for: `question_system` is the prep-V1 column, and
+ * nothing has written it since prep_v2 became the generator — verified
+ * 2026-07-31 on the local DB, where `question_system IS NOT NULL` matches
+ * ZERO rows while the real preparation carries 28 questions in
+ * `prep_v2.question_bank`. Reading only `question_system` therefore made card
+ * generation permanently impossible and made the UI tell the operator to go
+ * generate questions that already existed.
+ *
+ * Exported for tests only: it decides the CONTENT of every card (bucket,
+ * labels, follow-ups, the three potential flags), and none of that is
+ * observable through `generateInterviewCards` without a DB.
+ */
+export function cardInputsFromPrepV2(
+  prepId: string,
+  questions: PrepV2Question[],
+): CreateInterviewCardInput[] {
+  return questions.map((q, i) => {
+    // `if_time` questions are exactly what the "احتياطي" bucket is for — the
+    // host reaches for them only when the conversation leaves room.
+    const bucket: InterviewCardBucket =
+      q.priority === "if_time" ? "backup" : V2_SECTION_BUCKET[q.section] ?? "deep"
+    const followUp = q.follow_up_prompt?.trim()
+    return {
+      preparation_id: prepId,
+      section_id: `v2-${q.section}`,
+      section_label: V2_SECTION_LABEL_AR[q.section] ?? q.section,
+      bucket,
+      short_title: q.text.slice(0, 80),
+      spoken_kuwaiti: q.text, // Initial: raw text. Enrichment replaces this.
+      source_question_id: q.id,
+      sort_order: i,
+      follow_ups: followUp ? [{ id: `fu-${q.id}-0`, text: followUp }] : [],
+      why_this_matters: q.purpose || undefined,
+      // Same bucket→flag derivation the v1 path uses, so a card's content
+      // potential doesn't depend on which generator produced it.
+      clip_potential: bucket === "surprise" || bucket === "escalation",
+      quote_potential: bucket === "deep" || bucket === "escalation",
+      emotional_peak: bucket === "escalation" || bucket === "surprise",
+    }
+  })
+}
+
 
 export interface GenerateCardsResult {
   cards_created: number
@@ -211,7 +290,13 @@ export interface GenerateCardsResult {
 }
 
 /**
- * Transform preparation's question_system into interview_cards DB rows.
+ * Transform a preparation's questions into interview_cards DB rows.
+ *
+ * Source precedence: the legacy `question_system` when it exists (it carries
+ * richer per-question support fields), otherwise `prep_v2.question_bank` —
+ * which is where every question generated since prep_v2 shipped actually
+ * lives. See `cardInputsFromPrepV2` for why the fallback is the real fix and
+ * not a workaround.
  *
  * Duplication protection:
  * - If cards already exist for this prep, returns early with count.
@@ -226,8 +311,11 @@ export async function generateInterviewCards(
   if (!prep) throw new Error("التحضير غير موجود")
 
   const qs = prep.question_system as PreparationQuestionSystem | null
-  if (!qs?.sections?.length) {
-    throw new Error("يجب توليد نظام الأسئلة أولاً قبل إنشاء البطاقات")
+  const v2 = prep.prep_v2 as PrepV2Payload | null
+  const v2Questions = v2?.question_bank ?? []
+  // Same predicate the UI button is disabled by — imported, not re-derived.
+  if (!hasCardQuestionSource({ question_system: qs, prep_v2: v2 })) {
+    throw new Error("لا توجد أسئلة في هذا الإعداد — ولّد الأسئلة أولاً")
   }
 
   // Check for existing cards
@@ -251,11 +339,13 @@ export async function generateInterviewCards(
       ))
   }
 
-  // Transform question_system sections → card inputs
-  const inputs: CreateInterviewCardInput[] = []
+  // Transform the question source → card inputs
+  const inputs: CreateInterviewCardInput[] = qs?.sections?.length
+    ? []
+    : cardInputsFromPrepV2(prepId, v2Questions)
   let globalOrder = 0
 
-  for (const section of qs.sections) {
+  for (const section of qs?.sections ?? []) {
     for (const q of section.questions) {
       inputs.push({
         preparation_id: prepId,

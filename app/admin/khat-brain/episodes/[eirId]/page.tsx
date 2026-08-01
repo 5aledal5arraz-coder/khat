@@ -31,8 +31,7 @@ import {
   TABS,
   TAB_KEYS,
   computeTabStates,
-  defaultTabForPhase,
-  parseTabKey,
+  resolveSelectedTab,
   currentPhaseGroup,
   PHASE_GROUP_LABEL,
   PHASE_GROUP_ORDER,
@@ -52,6 +51,7 @@ import {
 } from "@/lib/khat-brain/workspace-tabs"
 import { getPushPreview } from "@/lib/khat-brain/push-preview"
 import { PHASE_LABEL } from "@/lib/khat-brain/phase-labels"
+import { reconcileEpisodeBadges } from "@/lib/khat-brain/guest-badge"
 import { PreparationTab } from "./tab-preparation"
 import { RecordingTab } from "./tab-recording"
 import { StudioTab } from "./tab-studio"
@@ -87,9 +87,17 @@ export default async function EpisodeWorkspacePage({
   const snap = await loadEpisodeWorkspace(eirId)
   if (!snap) notFound()
 
-  const requested = parseTabKey(rawTab)
-  const selected: TabKey = requested ?? defaultTabForPhase(snap.eir.phase)
+  // The `?tab=` value is operator-controlled input, so it is clamped to the
+  // phase gate before anything renders — the tab body below switches on
+  // `selected` alone, and an unclamped `?tab=publish` drew the entire publish
+  // editor on an EIR that had not been recorded yet.
+  const selected: TabKey = resolveSelectedTab(snap.eir.phase, rawTab)
   const tabStates = computeTabStates(snap.eir.phase, selected)
+  const badges = reconcileEpisodeBadges(
+    snap.eir.phase,
+    snap.guest?.name,
+    snap.guest_fallback_name,
+  )
   const action = nextActionFor(snap.eir.phase)
 
   // UX-3b — load the data each tab needs in parallel. Cheap because
@@ -117,17 +125,20 @@ export default async function EpisodeWorkspacePage({
   return (
     <div className="mx-auto max-w-6xl space-y-5 p-6">
       {/* ── Breadcrumb ─────────────────────────────────────── */}
-      <div className="flex items-center gap-2 text-[11.5px] text-muted-foreground">
+      {/* 17.3px-tall link targets measured at 375px. The links get a 44px
+          touch height on mobile only — the crumb row keeps its desktop
+          density from `sm:` up. */}
+      <div className="flex items-center gap-2 text-[13px] text-muted-foreground">
         <Link
           href="/admin/ops"
-          className="hover:text-foreground"
+          className="inline-flex min-h-[44px] items-center hover:text-foreground sm:min-h-0"
         >
           الرئيسية
         </Link>
         <span>/</span>
         <Link
           href="/admin/khat-brain/episodes"
-          className="hover:text-foreground"
+          className="inline-flex min-h-[44px] items-center hover:text-foreground sm:min-h-0"
         >
           الحلقات
         </Link>
@@ -151,8 +162,16 @@ export default async function EpisodeWorkspacePage({
           </div>
         )}
         <div className="mt-2 flex flex-wrap items-center gap-2 text-[11.5px]">
-          <span className="rounded-full bg-muted/30 px-2 py-0.5 text-[10.5px] uppercase tracking-wider text-muted-foreground">
-            {PHASE_LABEL[snap.eir.phase]}
+          <span
+            className={
+              "rounded-full px-2 py-0.5 text-[10.5px] uppercase tracking-wider " +
+              (badges.phase.tone === "warning"
+                ? "border border-amber-500/40 bg-amber-500/10 text-amber-800"
+                : "bg-muted/30 text-muted-foreground")
+            }
+            data-phase-tone={badges.phase.tone}
+          >
+            {badges.phase.text}
           </span>
           <span className="text-[10.5px] text-muted-foreground" dir="ltr">
             {snap.eir.phase}
@@ -162,9 +181,22 @@ export default async function EpisodeWorkspacePage({
               {snap.eir.season_name}
             </span>
           )}
-          {snap.guest && (
+          {/* Nothing is rendered for `unrecorded` — the pill above already
+              states that the phase claims a guest the record does not have.
+              Same reconciler as the episodes list, so the two screens cannot
+              describe the same EIR differently. */}
+          {badges.guest.kind === "linked" && (
             <span className="text-muted-foreground">
-              <span className="text-foreground">ضيف:</span> {snap.guest.name}
+              <span className="text-foreground">ضيف:</span> {badges.guest.name}
+            </span>
+          )}
+          {badges.guest.kind === "unlinked" && (
+            <span className="text-muted-foreground">
+              <span className="text-foreground">ضيف:</span>{" "}
+              {badges.guest.name}
+              <span className="ms-1 rounded-full border border-amber-500/40 bg-amber-500/10 px-1.5 py-0.5 text-[10.5px] text-amber-800">
+                غير مربوط بملف ضيف
+              </span>
             </span>
           )}
           <span className="text-muted-foreground" dir="ltr">
@@ -397,6 +429,9 @@ function TabLink({
 
 // ─── Phase timeline ────────────────────────────────────────────────────
 
+/** How many transition chips to render before collapsing to a count. */
+const MAX_SHOWN_TRANSITIONS = 6
+
 function PhaseTimeline({
   transitions,
   currentPhase,
@@ -408,40 +443,56 @@ function PhaseTimeline({
     : never
   currentPhase: EpisodePhase
 }) {
+  // Newest first, and capped. An EIR that bounced between ready_to_record ⇄
+  // recording ⇄ recorded produced ~20 near-identical chips that pushed the
+  // actually-actionable content off the top of the page. The older entries are
+  // still counted, so nothing silently disappears.
+  const ordered = transitions.slice().reverse()
+  const shownTransitions = ordered.slice(0, MAX_SHOWN_TRANSITIONS)
+  const hiddenCount = ordered.length - shownTransitions.length
+
   return (
     <div className="rounded-2xl border border-border/40 bg-card/30 p-3">
-      <div className="mb-1.5 inline-flex items-center gap-1.5 text-[10.5px] uppercase tracking-wider text-muted-foreground">
+      <div className="mb-1.5 inline-flex items-center gap-1.5 text-[11px] uppercase tracking-wider text-muted-foreground">
         <ListChecks className="h-3 w-3" /> آخر التحولات
       </div>
-      <ol className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px]">
-        {transitions
-          .slice()
-          .reverse()
-          .map((t, i, arr) => {
-            const isLast = i === arr.length - 1
-            return (
-              <li key={t.id} className="inline-flex items-center gap-1.5">
-                {t.from_phase ? (
-                  <span className="text-muted-foreground">
-                    {PHASE_LABEL[t.from_phase]}
-                  </span>
-                ) : (
-                  <span className="text-muted-foreground">—</span>
-                )}
-                <span className="text-muted-foreground">→</span>
-                <span
-                  className={
-                    isLast && t.to_phase === currentPhase
-                      ? "font-medium text-violet-700"
-                      : "font-medium text-foreground/85"
-                  }
-                >
-                  {PHASE_LABEL[t.to_phase]}
+      <ol className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[12px]">
+        {shownTransitions.map((t, i, arr) => {
+          const isLast = i === arr.length - 1
+          return (
+            <li key={t.id} className="inline-flex items-center gap-1.5">
+              {t.from_phase ? (
+                <span className="text-muted-foreground">
+                  {PHASE_LABEL[t.from_phase]}
                 </span>
-                {!isLast && <span className="text-muted-foreground">·</span>}
-              </li>
-            )
-          })}
+              ) : (
+                <span className="text-muted-foreground">—</span>
+              )}
+              {/* LEFTWARDS arrow. The row is RTL, so the source renders to the
+                  RIGHT of the target (measured: source x=1078, target x=1001)
+                  and a `→` pointed from the target back at the source — it
+                  read as if the episode had moved backwards. */}
+              <span className="text-muted-foreground" aria-hidden="true">
+                ←
+              </span>
+              <span
+                className={
+                  isLast && t.to_phase === currentPhase
+                    ? "font-medium text-violet-700"
+                    : "font-medium text-foreground/85"
+                }
+              >
+                {PHASE_LABEL[t.to_phase]}
+              </span>
+              {!isLast && <span className="text-muted-foreground">·</span>}
+            </li>
+          )
+        })}
+        {hiddenCount > 0 && (
+          <li className="text-[11.5px] text-muted-foreground">
+            {`+${hiddenCount} أقدم`}
+          </li>
+        )}
       </ol>
     </div>
   )
@@ -511,6 +562,7 @@ function OverviewTab({
           present={Boolean(snap.guest)}
           value={snap.guest?.name ?? null}
           href={snap.guest ? `/admin/guests/${snap.guest.id}` : null}
+          unlinkedValue={snap.guest_fallback_name}
         />
         <LinkPill
           label="إعداد"
@@ -563,7 +615,11 @@ function Warnings({
 }) {
   const items: string[] = []
   if (!snap.guest && phaseAtLeast(snap.eir.phase, "guest_assigned")) {
-    items.push("لا يوجد ضيف مرتبط رغم أنّ المرحلة بعد «اكتشاف الضيف».")
+    items.push(
+      snap.guest_fallback_name
+        ? `الإعداد يذكر «${snap.guest_fallback_name}» لكن ما فيه ملف ضيف مربوط — اربطه من تبويب «الضيف».`
+        : "لا يوجد ضيف مرتبط رغم أنّ المرحلة بعد «اكتشاف الضيف».",
+    )
   }
   if (!snap.has_preparation && phaseAtLeast(snap.eir.phase, "approved")) {
     items.push("لا توجد سجلّ إعداد رغم أنّ الحلقة معتمدة.")
@@ -730,7 +786,13 @@ function GuestTab({
   guestOptions: { id: string; name: string }[]
 }) {
   if (!snap.guest) {
-    return <GuestEmpty eirId={snap.eir.id} guestOptions={guestOptions} />
+    return (
+      <GuestEmpty
+        eirId={snap.eir.id}
+        guestOptions={guestOptions}
+        fallbackName={snap.guest_fallback_name}
+      />
+    )
   }
   const id = snap.guest.identity ?? {}
   const social_accounts = (id.social_accounts ?? null) as Record<string, string> | null
@@ -829,29 +891,55 @@ function GuestTab({
 function GuestEmpty({
   eirId,
   guestOptions,
+  fallbackName,
 }: {
   eirId: string
   guestOptions: { id: string; name: string }[]
+  /** Name the preparation already carries, with no canonical guest row. */
+  fallbackName?: string | null
 }) {
+  // A guest is already CHOSEN — only the canonical link is missing. Leading
+  // with "ابدأ اكتشافاً" here is what sends an operator to pay for discovery
+  // of someone the preparation next door already named and profiled.
+  const chosen = Boolean(fallbackName)
   return (
     <div className="rounded-2xl border border-amber-500/30 bg-amber-500/5 p-6 text-center">
       <Telescope className="mx-auto h-6 w-6 text-amber-700" />
-      <h3 className="mt-2 text-[13px] font-semibold">لم يتم ربط ضيف بعد</h3>
+      <h3 className="mt-2 text-[13px] font-semibold">
+        {chosen ? "الضيف مُختار لكنه غير مربوط بملف" : "لم يتم ربط ضيف بعد"}
+      </h3>
       <p className="mx-auto mt-1 max-w-md text-[12px] leading-relaxed text-foreground/80">
-        ابدأ اكتشافاً ذكياً يقترح ضيوفاً لهذه الحلقة، أو عيّن ضيفاً موجوداً
-        في سجلّك.
+        {chosen ? (
+          <>
+            الإعداد يذكر{" "}
+            <span className="font-semibold text-foreground">
+              «{fallbackName}»
+            </span>{" "}
+            — ما يحتاج اكتشاف جديد. اربطه بملف ضيف من القائمة أدناه عشان
+            بقية النظام يشوفه.
+          </>
+        ) : (
+          <>
+            ابدأ اكتشافاً ذكياً يقترح ضيوفاً لهذه الحلقة، أو عيّن ضيفاً موجوداً
+            في سجلّك.
+          </>
+        )}
       </p>
 
-      {/* Primary path — discover guests for this episode */}
-      <div className="mt-4 flex justify-center">
-        <LaunchEpisodeDiscoveryButton eirId={eirId} prominent />
-      </div>
+      {/* Discovery stays reachable either way — an operator may still want to
+          re-discover. But when a guest is already chosen it is DEMOTED below
+          the linking form instead of being the prominent primary CTA. */}
+      {!chosen && (
+        <div className="mt-4 flex justify-center">
+          <LaunchEpisodeDiscoveryButton eirId={eirId} prominent />
+        </div>
+      )}
 
-      {/* Secondary path — assign an already-known guest */}
+      {/* Assign an already-known guest. Primary when one is already chosen. */}
       <div className="mx-auto mt-5 max-w-md">
         <div className="mb-2 flex items-center gap-2 text-[11px] text-muted-foreground">
           <span className="h-px flex-1 bg-border/60" />
-          أو عيّن ضيفاً معروفاً
+          {chosen ? "اربط بملف ضيف" : "أو عيّن ضيفاً معروفاً"}
           <span className="h-px flex-1 bg-border/60" />
         </div>
         <AssignGuestForm
@@ -860,6 +948,19 @@ function GuestEmpty({
           currentGuestId={null}
         />
       </div>
+
+      {chosen && (
+        <div className="mx-auto mt-5 max-w-md">
+          <div className="mb-2 flex items-center gap-2 text-[11px] text-muted-foreground">
+            <span className="h-px flex-1 bg-border/60" />
+            أو ابحث عن ضيف بديل
+            <span className="h-px flex-1 bg-border/60" />
+          </div>
+          <div className="flex justify-center">
+            <LaunchEpisodeDiscoveryButton eirId={eirId} />
+          </div>
+        </div>
+      )}
 
       {/* Tertiary — navigate to the related registries */}
       <div className="mt-5 flex flex-wrap items-center justify-center gap-x-4 gap-y-1 text-[11px] text-muted-foreground">
@@ -918,15 +1019,27 @@ function LinkPill({
   present,
   value,
   href,
+  /**
+   * A known value with NO linked record behind it (today: a preparation's
+   * guest_name with no canonical `guests` row). Rendered in the "missing"
+   * amber state — the operator must see the name AND that it isn't linked,
+   * because "—" beside a preparation that names a guest reads as a system
+   * fault, and a green pill would hide real missing work.
+   */
+  unlinkedValue,
 }: {
   label: string
   present: boolean
   value: string | null
   href: string | null
+  unlinkedValue?: string | null
 }) {
+  const showUnlinked = !present && Boolean(unlinkedValue)
   const cls = present
     ? "border-emerald-500/30 bg-emerald-500/5 text-foreground"
-    : "border-border/40 bg-card/20 text-muted-foreground"
+    : showUnlinked
+      ? "border-amber-500/30 bg-amber-500/5 text-foreground"
+      : "border-border/40 bg-card/20 text-muted-foreground"
   const inner = (
     <div className={"rounded-2xl border p-3 " + cls}>
       <div className="text-[10.5px] uppercase tracking-wider text-muted-foreground/80">
@@ -938,10 +1051,20 @@ function LinkPill({
             <CheckCircle2 className="h-3 w-3 text-emerald-700" />
             {value ?? "موجود"}
           </span>
+        ) : showUnlinked ? (
+          <span className="inline-flex items-center gap-1">
+            <AlertTriangle className="h-3 w-3 shrink-0 text-amber-800" />
+            {unlinkedValue}
+          </span>
         ) : (
           "—"
         )}
       </div>
+      {showUnlinked && (
+        <div className="mt-0.5 text-[10.5px] text-amber-800">
+          غير مربوط بملف ضيف
+        </div>
+      )}
     </div>
   )
   if (href && present) {

@@ -62,6 +62,17 @@ export interface EpisodeIndexRow {
   season_name: string | null
   guest_id: string | null
   guest_name: string | null
+  /**
+   * Same display fallback as `EpisodeWorkspaceSnapshot.guest_fallback_name`,
+   * for the same reason — see the long note there. It has to exist on BOTH
+   * paths: the index is the operator's normal entry point, so fixing only the
+   * detail page left the contradiction on the first screen they see (a row
+   * reading «بلا ضيف» that opens onto «الأستاذ علي دريساوي»).
+   *
+   * Never a canonical guest: null whenever `guest_id` is set, and it carries
+   * no id, so nothing may render it as a link.
+   */
+  guest_fallback_name: string | null
   updated_at: string
 }
 
@@ -113,6 +124,12 @@ export async function listEpisodeWorkspaceIndex(
     .orderBy(desc(episodeIntelligenceRecords.updated_at))
     .limit(limit)
 
+  // One extra batched read for the rows that have NO canonical guest — never
+  // one query per row. It projects two small columns (no JSONB) and is
+  // skipped entirely when every row already has a linked guest.
+  const unlinkedIds = rows.filter((r) => !r.guest_name).map((r) => r.id)
+  const fallbackByEir = await loadPrepGuestNames(unlinkedIds)
+
   return rows.map((r) => ({
     id: r.id,
     working_title: r.working_title,
@@ -121,8 +138,49 @@ export async function listEpisodeWorkspaceIndex(
     season_name: r.season_name ?? null,
     guest_id: r.guest_id ?? null,
     guest_name: r.guest_name ?? null,
+    guest_fallback_name: r.guest_name
+      ? null
+      : (fallbackByEir.get(r.id) ?? null),
     updated_at: r.updated_at.toISOString(),
   }))
+}
+
+/**
+ * eir_id → the most recently updated preparation's `guest_name`, for the
+ * given EIRs only. Empty input short-circuits without a query.
+ *
+ * Deliberately ONE statement for the whole page: `listPreparations` already
+ * demonstrates how a list route degrades when it pulls more per row than it
+ * needs, and adding a per-row read here would be strictly worse. Ordering by
+ * `updated_at DESC` and keeping the first hit per eir_id reproduces exactly
+ * what `loadEpisodeWorkspace` does for a single episode, so the index and the
+ * detail page cannot disagree about which preparation they read.
+ */
+async function loadPrepGuestNames(
+  eirIds: string[],
+): Promise<Map<string, string>> {
+  const out = new Map<string, string>()
+  if (eirIds.length === 0) return out
+  const prepRows = await db!
+    .select({
+      eir_id: episodePreparations.eir_id,
+      guest_name: episodePreparations.guest_name,
+    })
+    .from(episodePreparations)
+    .where(inArray(episodePreparations.eir_id, eirIds))
+    .orderBy(desc(episodePreparations.updated_at))
+  // `seen` is tracked apart from `out`: the newest preparation is the one that
+  // answers, even when its guest_name is empty. Falling through to an OLDER
+  // prep's name would make the index show a guest the detail page does not —
+  // the same class of contradiction this whole fix exists to remove.
+  const seen = new Set<string>()
+  for (const p of prepRows) {
+    if (!p.eir_id || seen.has(p.eir_id)) continue
+    seen.add(p.eir_id)
+    const name = p.guest_name?.trim()
+    if (name) out.set(p.eir_id, name)
+  }
+  return out
 }
 
 // ─── Workspace snapshot ──────────────────────────────────────────────
@@ -186,6 +244,22 @@ export interface EpisodeWorkspaceSnapshot {
     updated_at: string
   }
   guest: WorkspaceGuest | null
+  /**
+   * The guest name the preparation carries, when no canonical guest is linked.
+   *
+   * Why this exists: `eir.guest_id` has exactly one writer — the manual
+   * "إسناد ضيف" button — so it is NULL on 8 of 8 local EIRs even when the
+   * preparation names a guest and holds a full extraction strategy for them.
+   * The workspace derived the guest ONLY from `eir.guest_id`, so the guest tab
+   * showed "لم يتم ربط ضيف" + a discovery CTA while the preparation tab, on
+   * the same screen, showed that guest's name and strategy — an operator
+   * acting on the first spends money re-discovering someone already chosen.
+   *
+   * This is a DISPLAY fallback and is deliberately NOT folded into `guest`:
+   * there is no canonical `guests` row behind it, so it has no id, no slug,
+   * and no profile link. Every render of it must say so.
+   */
+  guest_fallback_name: string | null
   transitions: WorkspaceTransition[]
   links: WorkspaceLinks
   hybrid_provenance: WorkspaceHybridProvenance | null
@@ -282,7 +356,10 @@ export async function loadEpisodeWorkspace(
         .limit(1)
     })(),
     db!
-      .select({ id: episodePreparations.id })
+      .select({
+        id: episodePreparations.id,
+        guest_name: episodePreparations.guest_name,
+      })
       .from(episodePreparations)
       .where(eq(episodePreparations.eir_id, eirId))
       .orderBy(desc(episodePreparations.updated_at))
@@ -349,6 +426,11 @@ export async function loadEpisodeWorkspace(
       updated_at: row.updated_at.toISOString(),
     },
     guest,
+    // Only when there is no canonical guest — a linked guest is always the
+    // authority, and showing both would be a second contradiction.
+    guest_fallback_name: guest
+      ? null
+      : (prepRow?.[0]?.guest_name?.trim() || null),
     transitions: transitionRows.map((t) => ({
       id: t.id,
       from_phase: (t.from_phase ?? null) as EpisodePhase | null,

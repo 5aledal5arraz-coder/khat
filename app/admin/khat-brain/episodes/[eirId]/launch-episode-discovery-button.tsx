@@ -14,6 +14,7 @@ import { useTransition } from "react"
 import { useRouter } from "next/navigation"
 import { Loader2, Telescope } from "lucide-react"
 import { toast } from "@/lib/use-toast"
+import { runAction } from "@/app/admin/components/run-action"
 import { startGuestDiscoveryForEirAction } from "./actions"
 
 export function LaunchEpisodeDiscoveryButton({
@@ -29,7 +30,12 @@ export function LaunchEpisodeDiscoveryButton({
 
   const onClick = () => {
     start(async () => {
-      const res = await startGuestDiscoveryForEirAction(eirId)
+      const outcome = await runAction(() =>
+        startGuestDiscoveryForEirAction(eirId),
+      )
+      const res = outcome.ok
+        ? outcome.data
+        : { success: false as const, runId: undefined, error: outcome.message }
       if (res.success && res.runId) {
         toast({
           title: "بدأ البحث عن ضيف",

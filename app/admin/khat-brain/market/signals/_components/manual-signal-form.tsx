@@ -30,6 +30,7 @@ import {
   SIGNAL_EDITORIAL_TAGS,
   type SignalEditorialTag,
 } from "@/lib/db/schema/editorial-intelligence"
+import { runAction } from "@/app/admin/components/run-action"
 
 export interface TrustedSourceChoice {
   id: string
@@ -97,20 +98,29 @@ export function ManualSignalForm({
     setError(null)
     setSuccess(null)
     start(async () => {
-      const r = await createManualSignalAction({
-        title: draft.title,
-        summary: draft.summary,
-        manual_kind: draft.manual_kind,
-        source_link: draft.source_link || null,
-        trusted_source_id: draft.trusted_source_id || null,
-        language: draft.language,
-        geography: draft.geography || null,
-        theme: draft.theme || null,
-        emotional_trigger: draft.emotional_trigger || null,
-        controversy_score: draft.controversy_score,
-        editorial_tags: draft.editorial_tags,
-        operator_notes: draft.operator_notes || null,
-      })
+      const outcome = await runAction(() =>
+        createManualSignalAction({
+          title: draft.title,
+          summary: draft.summary,
+          manual_kind: draft.manual_kind,
+          source_link: draft.source_link || null,
+          trusted_source_id: draft.trusted_source_id || null,
+          language: draft.language,
+          geography: draft.geography || null,
+          theme: draft.theme || null,
+          emotional_trigger: draft.emotional_trigger || null,
+          controversy_score: draft.controversy_score,
+          editorial_tags: draft.editorial_tags,
+          operator_notes: draft.operator_notes || null,
+        }),
+      )
+      // The draft is only cleared on a real success — a failed submit that
+      // wiped the form would cost the operator everything they typed.
+      if (!outcome.ok) {
+        setError(outcome.message)
+        return
+      }
+      const r = outcome.data
       if (!r.ok) {
         setError(r.message)
         return

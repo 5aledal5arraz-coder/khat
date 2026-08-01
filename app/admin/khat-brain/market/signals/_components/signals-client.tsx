@@ -58,6 +58,7 @@ import type {
   ReviewSignal,
   SignalProvenance,
 } from "@/lib/market-intelligence/review-queries"
+import { runAction } from "@/app/admin/components/run-action"
 
 export function SignalsList({
   signals,
@@ -76,6 +77,7 @@ export function SignalsList({
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [pending, start] = useTransition()
   const [bulkTagOpen, setBulkTagOpen] = useState(false)
+  const [bulkError, setBulkError] = useState<string | null>(null)
 
   const allOnPage = useMemo(() => signals.map((s) => s.id), [signals])
   const allSelected =
@@ -103,11 +105,20 @@ export function SignalsList({
   }
 
   const ids = Array.from(selected)
-  const runBulk = (
-    fn: () => Promise<unknown>,
-  ) => {
+  /**
+   * Every bulk button shares one `pending` flag, so a rejection here froze
+   * approve, reject, archive AND tag at once. `runAction` guarantees the
+   * transition settles; the selection is only cleared once the action really
+   * came back, so a failed bulk leaves the operator's picks intact to retry.
+   */
+  const runBulk = (fn: () => Promise<unknown>) => {
+    setBulkError(null)
     start(async () => {
-      await fn()
+      const outcome = await runAction(fn)
+      if (!outcome.ok) {
+        setBulkError(outcome.message)
+        return
+      }
       setSelected(new Set())
       setBulkTagOpen(false)
       router.refresh()
@@ -202,6 +213,15 @@ export function SignalsList({
           )}
         </div>
       </div>
+
+      {bulkError && (
+        <div
+          className="rounded-xl border border-destructive/30 bg-destructive/5 px-3 py-2 text-[11.5px] leading-relaxed text-destructive"
+          data-bulk-error
+        >
+          {bulkError}
+        </div>
+      )}
 
       {/* Card list */}
       <ul className="grid grid-cols-1 gap-3 md:grid-cols-2">

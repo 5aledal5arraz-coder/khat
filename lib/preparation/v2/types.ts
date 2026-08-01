@@ -225,6 +225,35 @@ export interface PrepV2Payload {
      */
     pass5_insights: string[] | null
   }
+  /**
+   * Pass-5 outcome counters, persisted so the result is auditable.
+   *
+   * Until now these existed only as a `console.info` line inside the worker:
+   * a run could draft 48 support cards, keep 0 of them because every grounding
+   * call was rejected, and leave NOTHING behind in the database saying so. The
+   * prep simply had no cards and no explanation. Written on every attempted
+   * Pass 5 — including the skipped and errored ones, because "we didn't run"
+   * and "we ran and kept nothing" are different facts.
+   *
+   * Optional: absent on payloads written before this shipped, and on runs
+   * whose validation failed before Pass 5 was reached.
+   */
+  insight_stats?: {
+    /** Candidates the model proposed. */
+    drafted: number
+    /** Candidates that survived grounding + verification and attached. */
+    kept: number
+    /** Candidates actually sent for grounding (≤ drafted when capped). */
+    grounded: number
+    /** True when the grounding budget cut the candidate list short. */
+    capped: boolean
+    /**
+     * `ok` — the pass ran.
+     * `skipped` — feature flag off, or the provider is not configured.
+     * `error` — the pass threw; counters are unknown, not zero.
+     */
+    outcome: "ok" | "skipped" | "error"
+  }
 }
 
 // ─── Insight review helpers ───────────────────────────────────────────

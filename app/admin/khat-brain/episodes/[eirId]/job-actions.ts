@@ -21,6 +21,7 @@ import { episodePreparations } from "@/lib/db/schema/preparation"
 import { episodes as episodesTable } from "@/lib/db/schema/episodes"
 import { requireActionRole } from "@/lib/api-utils"
 import { runPrepV2Pipeline } from "@/lib/preparation/v2/pipeline"
+import { describeValidationFailuresAr } from "@/lib/preparation/v2/validation"
 import { analyzeEirPerformance } from "@/lib/khat-brain/performance-learning"
 import { enqueueJob } from "@/lib/jobs"
 
@@ -79,11 +80,17 @@ export async function regeneratePrepV2Action(
     })
     revalidatePath(`/admin/khat-brain/episodes/${eirId}`)
     if (!r.ok) {
+      // Name the checks that failed. `r.validation.failures` was always
+      // populated here; the message just never read it, so the operator was
+      // told "validation failed" with no way to learn what to fix.
+      const why = describeValidationFailuresAr(r.validation.failures)
       return {
         ok: false,
         message:
           r.reason === "validation_failed_after_retry"
-            ? "فشل التحقق من بنية الإعداد بعد محاولتين."
+            ? why
+              ? `فشل التحقق من بنية الإعداد بعد محاولتين: ${why}.`
+              : "فشل التحقق من بنية الإعداد بعد محاولتين."
             : `تعذّر توليد الإعداد (${r.reason ?? "سبب غير معروف"}).`,
       }
     }

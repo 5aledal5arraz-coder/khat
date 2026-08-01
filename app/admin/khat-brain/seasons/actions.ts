@@ -1476,6 +1476,11 @@ export type ConvertCardResult =
         href: string
         was_existing: boolean
         converted_at: string
+        /**
+         * Non-fatal problem after creation (prep_v2 generation failed).
+         * The conversion still succeeded — see ConversionResult.warning.
+         */
+        warning?: string
       }
     }
   | {
@@ -1561,6 +1566,7 @@ export async function convertV2CardToPreparationAction(input: {
       href: result.link.href,
       was_existing: result.was_existing,
       converted_at: result.link.converted_at,
+      warning: result.warning,
     },
   }
 }

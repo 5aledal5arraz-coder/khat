@@ -19,6 +19,7 @@ import { useState, useTransition } from "react"
 import { useRouter } from "next/navigation"
 import { Pencil, Loader2, Check, X, Save } from "lucide-react"
 import { toast } from "@/lib/use-toast"
+import { runAction } from "@/app/admin/components/run-action"
 import {
   updateStudioFieldAction,
   type StudioQuickEditField,
@@ -136,11 +137,24 @@ function StudioFieldRow({
 
   const onSave = () => {
     startTransition(async () => {
-      const result: StudioQuickEditResult = await updateStudioFieldAction({
-        eirId,
-        field: def.field,
-        value: draft,
-      })
+      const outcome = await runAction(() =>
+        updateStudioFieldAction({
+          eirId,
+          field: def.field,
+          value: draft,
+        }),
+      )
+      if (!outcome.ok) {
+        // Stay in edit mode: the operator's unsaved draft is still in the
+        // textarea and closing the editor here would throw it away.
+        toast({
+          title: "فشل الحفظ",
+          description: outcome.message,
+          variant: "error",
+        })
+        return
+      }
+      const result: StudioQuickEditResult = outcome.data
       toast({
         title: result.ok ? "تم تحديث الاستديو" : "فشل الحفظ",
         description: result.message,

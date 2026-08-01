@@ -13,6 +13,7 @@ import { Button } from "@/components/ui/button"
 import { formatDateTime } from "@/lib/shared/formatters"
 import { invalidateEpisodeCacheAction, getEpisodeCacheStatusAction } from "../actions"
 import { ImportFromYoutubeButton } from "./import-dialog"
+import { runAction } from "@/app/admin/components/run-action"
 
 interface EpisodesToolbarProps {
   search: string
@@ -28,6 +29,7 @@ export function EpisodesToolbar({
   onViewModeChange,
 }: EpisodesToolbarProps) {
   const [cacheInfo, setCacheInfo] = useState<{ fetchedAt: string | null; isStale: boolean } | null>(null)
+  const [cacheError, setCacheError] = useState<string | null>(null)
   const [isRefreshing, startRefresh] = useTransition()
 
   useEffect(() => {
@@ -36,9 +38,16 @@ export function EpisodesToolbar({
 
   const handleRefreshCache = () => {
     startRefresh(async () => {
-      await invalidateEpisodeCacheAction()
-      const status = await getEpisodeCacheStatusAction()
-      setCacheInfo(status)
+      // Both calls in one wrapper: if the invalidate succeeds and the status
+      // read then fails, the cache really was cleared, so re-reading is the
+      // only thing lost — and the spinner still has to stop either way.
+      const outcome = await runAction(async () => {
+        await invalidateEpisodeCacheAction()
+        return getEpisodeCacheStatusAction()
+      })
+      if (!outcome.ok) return setCacheError(outcome.message)
+      setCacheError(null)
+      setCacheInfo(outcome.data)
     })
   }
 
@@ -108,6 +117,12 @@ export function EpisodesToolbar({
         <RefreshCw className={`h-4 w-4 ${isRefreshing ? "animate-spin" : ""}`} />
         <span className="hidden lg:inline">مزامنة كاملة</span>
       </Button>
+
+      {cacheError && (
+        <span role="alert" className="text-[11px] text-destructive">
+          {cacheError}
+        </span>
+      )}
     </div>
   )
 }

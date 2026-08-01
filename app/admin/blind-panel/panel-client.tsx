@@ -27,6 +27,7 @@ import {
   CLEAR_DIFFERENCE_AT,
   NO_DIFFERENCE_AT_OR_BELOW,
 } from "@/lib/ai-router/blind-panel/stats"
+import { runAction } from "@/app/admin/components/run-action"
 import { recordVerdictAction, revealPanelAction } from "./actions"
 import { LimitsNote } from "./limits-note"
 
@@ -72,7 +73,14 @@ export function BlindPanelClient({
   function choose(verdict: PanelVerdict) {
     setError(null)
     startTransition(async () => {
-      const res = await recordVerdictAction(pair.index, verdict)
+      const outcome = await runAction(() =>
+        recordVerdictAction(pair.index, verdict),
+      )
+      if (!outcome.ok) {
+        setError(outcome.message)
+        return
+      }
+      const res = outcome.data
       if (!res.success) {
         setError(res.error ?? "تعذّر حفظ الحكم")
         return
@@ -87,8 +95,11 @@ export function BlindPanelClient({
   function reveal() {
     setError(null)
     startTransition(async () => {
-      const res = await revealPanelAction()
-      if (!res.success) setError(res.error ?? "تعذّر كشف النتيجة")
+      const outcome = await runAction(() => revealPanelAction())
+      if (!outcome.ok) return setError(outcome.message)
+      if (!outcome.data.success) {
+        setError(outcome.data.error ?? "تعذّر كشف النتيجة")
+      }
     })
   }
 

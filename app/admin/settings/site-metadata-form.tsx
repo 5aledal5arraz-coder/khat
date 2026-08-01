@@ -9,6 +9,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { Globe, Loader2 } from "lucide-react"
 import type { SiteMetadata } from "@/types/site-settings"
 import { updateSiteMetadata } from "./actions"
+import { runAction } from "@/app/admin/components/run-action"
 
 export function SiteMetadataForm({ initial }: { initial: SiteMetadata }) {
   const [data, setData] = useState<SiteMetadata>(initial)
@@ -25,12 +26,22 @@ export function SiteMetadataForm({ initial }: { initial: SiteMetadata }) {
       // ("خطأ غير متوقع في اللوحة"); catch it at the boundary and show a clean
       // inline message. (Next.js redacts the thrown message in production, so
       // we render a stable Arabic string rather than err.message.)
-      try {
-        await updateSiteMetadata(data)
-        setSaved(true)
-      } catch {
-        setError("تعذّر حفظ الإعدادات — تحقّق من صلاحيتك أو أعد المحاولة.")
+      // A bare `catch` settles the transition but collapses every cause into
+      // one sentence — it told an ADMIN to "check your permission" when the
+      // real problem was a dropped connection. `runAction` names the causes it
+      // can identify and rethrows Next's redirect()/notFound() control flow;
+      // the role rejection arrives as a plain Error and classifies as
+      // "unknown", which is where this file's own copy still belongs.
+      const outcome = await runAction(() => updateSiteMetadata(data))
+      if (!outcome.ok) {
+        setError(
+          outcome.kind === "unknown"
+            ? "تعذّر حفظ الإعدادات — تحقّق من صلاحيتك أو أعد المحاولة."
+            : outcome.message,
+        )
+        return
       }
+      setSaved(true)
     })
   }
 

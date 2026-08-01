@@ -12,6 +12,7 @@ import { useState, useTransition } from "react"
 import { useRouter } from "next/navigation"
 import { Sparkles, RefreshCw } from "lucide-react"
 import { refreshScoringAction } from "./refresh-scoring-action"
+import { runAction } from "@/app/admin/components/run-action"
 
 export function RefreshScoringButton() {
   const router = useRouter()
@@ -21,7 +22,9 @@ export function RefreshScoringButton() {
   const onClick = () => {
     setNote(null)
     start(async () => {
-      const r = await refreshScoringAction()
+      const outcome = await runAction(() => refreshScoringAction())
+      if (!outcome.ok) return setNote(outcome.message)
+      const r = outcome.data
       setNote(r.message)
       if (r.ok) router.refresh()
     })

@@ -27,6 +27,7 @@ import type {
   InterviewCardBucket,
   CreateInterviewCardInput,
 } from "@/types/collaboration"
+import { hasCardQuestionSource } from "@/lib/preparation/question-source"
 import { CardEditorSheet } from "./card-editor-sheet"
 
 // ─── Bucket metadata ────────────────────────────────────────────────
@@ -239,7 +240,12 @@ export function CardsPanel({ prep }: CardsPanelProps) {
   const enrichedCount = cards.filter((c) => c.formal_version).length
   const materialsCount = cards.reduce((sum, c) => sum + c.materials.length, 0)
 
-  const hasQuestionSystem = !!prep.question_system
+  // Ask the SAME question the generator asks (`hasCardQuestionSource`), not
+  // "is the prep-V1 column populated?". That column has had no writer since
+  // prep_v2 shipped, so the old check was permanently false: it disabled
+  // "توليد البطاقات" on a preparation holding 28 questions and told the
+  // operator to go generate questions that were already on the screen.
+  const hasQuestionSource = hasCardQuestionSource(prep)
 
   // ─── Render ─────────────────────────────────────────────────────
 
@@ -289,7 +295,7 @@ export function CardsPanel({ prep }: CardsPanelProps) {
               <button
                 type="button"
                 onClick={generateCards}
-                disabled={!hasQuestionSystem || actionState.status === "loading"}
+                disabled={!hasQuestionSource || actionState.status === "loading"}
                 className="inline-flex items-center gap-1.5 rounded-lg bg-violet-600 px-3 py-1.5 text-[11px] font-semibold text-white hover:bg-violet-500 disabled:opacity-40"
               >
                 {actionState.action === "generate" && actionState.status === "loading" ? (
@@ -304,7 +310,7 @@ export function CardsPanel({ prep }: CardsPanelProps) {
                 <button
                   type="button"
                   onClick={() => (confirmRegenerate ? regenerateCards() : setConfirmRegenerate(true))}
-                  disabled={!hasQuestionSystem || actionState.status === "loading"}
+                  disabled={!hasQuestionSource || actionState.status === "loading"}
                   className={`inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-[11px] disabled:opacity-40 ${
                     confirmRegenerate
                       ? "border-rose-500/40 bg-rose-500/10 text-rose-700"
@@ -347,7 +353,7 @@ export function CardsPanel({ prep }: CardsPanelProps) {
                 <button
                   type="button"
                   onClick={runFullPipeline}
-                  disabled={!hasQuestionSystem || actionState.status === "loading"}
+                  disabled={!hasQuestionSource || actionState.status === "loading"}
                   className="inline-flex items-center gap-1.5 rounded-lg bg-violet-600 px-3 py-1.5 text-[11px] font-semibold text-white hover:bg-violet-500 disabled:opacity-40"
                 >
                   {actionState.action === "full" && actionState.status === "loading" ? (
@@ -387,9 +393,9 @@ export function CardsPanel({ prep }: CardsPanelProps) {
           <Layers className="mx-auto h-6 w-6 text-muted-foreground" />
           <p className="mt-3 text-sm font-medium">لا توجد بطاقات بعد</p>
           <p className="mt-1 text-xs text-muted-foreground">
-            {hasQuestionSystem
-              ? "اضغط \"توليد البطاقات\" لإنشاء بطاقات من نظام الأسئلة"
-              : "يجب توليد نظام الأسئلة أولاً من تبويب \"الأسئلة\""}
+            {hasQuestionSource
+              ? "اضغط \"توليد البطاقات\" لإنشاء بطاقات من أسئلة هذا الإعداد"
+              : "لا توجد أسئلة في هذا الإعداد بعد — ولّد الأسئلة أولاً"}
           </p>
         </div>
       )}

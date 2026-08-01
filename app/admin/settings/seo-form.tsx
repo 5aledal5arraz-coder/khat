@@ -10,6 +10,7 @@ import { Search, Loader2, X } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import type { SEODefaults } from "@/types/site-settings"
 import { updateSEODefaults } from "./actions"
+import { runAction } from "@/app/admin/components/run-action"
 
 export function SEOForm({ initial }: { initial: SEODefaults }) {
   const [data, setData] = useState<SEODefaults>(initial)
@@ -36,12 +37,16 @@ export function SEOForm({ initial }: { initial: SEODefaults }) {
     startTransition(async () => {
       // See site-metadata-form: catch the role-gate throw at the boundary so a
       // non-ADMIN sees a clean inline message instead of the panel error boundary.
-      try {
-        await updateSEODefaults(data)
-        setSaved(true)
-      } catch {
-        setError("تعذّر حفظ الإعدادات — تحقّق من صلاحيتك أو أعد المحاولة.")
+      const outcome = await runAction(() => updateSEODefaults(data))
+      if (!outcome.ok) {
+        setError(
+          outcome.kind === "unknown"
+            ? "تعذّر حفظ الإعدادات — تحقّق من صلاحيتك أو أعد المحاولة."
+            : outcome.message,
+        )
+        return
       }
+      setSaved(true)
     })
   }
 

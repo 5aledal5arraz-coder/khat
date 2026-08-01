@@ -5,6 +5,8 @@
  * same contract. New sections should be added here first.
  */
 
+import type { PrepV2Payload } from "@/lib/preparation/v2/types"
+
 // ─── Inputs ──────────────────────────────────────────────────────────────────
 
 export type PreparationToneType =
@@ -475,7 +477,15 @@ export interface EpisodePreparation {
   guest_intelligence: PreparationGuestIntelligence | null
   conversation_axes: PreparationConversationAxes | null
   episode_flow: PreparationEpisodeFlow | null
+  /** Prep-V1 question bank. Nothing writes it since prep_v2 shipped. */
   question_system: PreparationQuestionSystem | null
+  /**
+   * Prep-V2 payload — where questions actually live now. Surfaced on the
+   * shared type because UI that asks "does this preparation have questions?"
+   * must be able to see both generators; reading only `question_system` is
+   * what made the cards panel claim a 28-question preparation had none.
+   */
+  prep_v2: PrepV2Payload | null
   host_instructions: PreparationHostInstructions | null
   quotes_references: PreparationQuotesReferences | null
   viral_moments: PreparationViralMoments | null

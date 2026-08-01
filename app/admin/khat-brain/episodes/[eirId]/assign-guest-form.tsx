@@ -12,6 +12,7 @@ import { useState, useTransition } from "react"
 import { useRouter } from "next/navigation"
 import { Loader2, UserPlus } from "lucide-react"
 import { toast } from "@/lib/use-toast"
+import { runAction } from "@/app/admin/components/run-action"
 import { assignEirGuestAction } from "./actions"
 
 interface GuestOption {
@@ -36,7 +37,12 @@ export function AssignGuestForm({
     e.preventDefault()
     if (!selected) return
     startTransition(async () => {
-      const r = await assignEirGuestAction(eirId, selected)
+      const outcome = await runAction(() =>
+        assignEirGuestAction(eirId, selected),
+      )
+      const r = outcome.ok
+        ? outcome.data
+        : { ok: false as const, message: outcome.message }
       toast({
         title: r.ok ? "تم تعيين الضيف" : "تعذّر تعيين الضيف",
         description: r.message,

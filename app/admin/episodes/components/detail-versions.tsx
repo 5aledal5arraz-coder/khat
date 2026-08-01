@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { History, RotateCcw, Loader2 } from "lucide-react"
 import { formatDateTime } from "@/lib/shared/formatters"
+import { runAction } from "@/app/admin/components/run-action"
 import { getVersionHistoryAction, restoreEpisodeVersionAction } from "../version-actions"
 import type { EpisodeVersion, EpisodeVersionChangeType } from "@/types/database"
 
@@ -32,6 +33,7 @@ export function DetailVersions({ episodeId }: DetailVersionsProps) {
   const [loading, setLoading] = useState(true)
   const [isPending, startTransition] = useTransition()
   const [restoringId, setRestoringId] = useState<string | null>(null)
+  const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     getVersionHistoryAction(episodeId)
@@ -41,12 +43,23 @@ export function DetailVersions({ episodeId }: DetailVersionsProps) {
 
   const handleRestore = (versionId: string) => {
     setRestoringId(versionId)
+    setError(null)
     startTransition(async () => {
-      const result = await restoreEpisodeVersionAction(versionId)
-      if (result.success) {
+      const restored = await runAction(() =>
+        restoreEpisodeVersionAction(versionId),
+      )
+      if (!restored.ok) {
+        // Restore is the one destructive control on this panel; a silent
+        // failure here reads as "the version I clicked is now live".
+        setError(restored.message)
+        setRestoringId(null)
+        return
+      }
+      if (restored.data.success) {
         // Refresh version list
-        const updated = await getVersionHistoryAction(episodeId)
-        setVersions(updated)
+        const updated = await runAction(() => getVersionHistoryAction(episodeId))
+        if (updated.ok) setVersions(updated.data)
+        else setError(updated.message)
       }
       setRestoringId(null)
     })
@@ -80,6 +93,15 @@ export function DetailVersions({ episodeId }: DetailVersionsProps) {
         <History className="h-5 w-5 text-muted-foreground" />
         <h3 className="font-semibold">سجل التعديلات ({versions.length})</h3>
       </div>
+
+      {error && (
+        <div
+          className="rounded-lg border border-rose-500/40 bg-rose-500/10 px-3 py-2 text-[12px] text-rose-700"
+          data-restore-error
+        >
+          {error}
+        </div>
+      )}
 
       <div className="space-y-3">
         {versions.map((version) => (

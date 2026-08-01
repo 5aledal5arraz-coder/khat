@@ -89,6 +89,115 @@ export const PREP_V2_VALIDATION_RULES: Record<ValidationCode, string> = {
 }
 
 /**
+ * Operator-facing Arabic label per failure code.
+ *
+ * `PREP_V2_VALIDATION_RULES` above is English and written for a developer
+ * reading the guard. It is the wrong text to show an operator — and until
+ * now nothing showed them ANY text: the regenerate button said only "فشل
+ * التحقق من بنية الإعداد بعد محاولتين", never which check failed, while
+ * `result.validation.failures` sat right there in the return value unused.
+ *
+ * Deliberately short: this is a label rendered inside a toast, not a manual.
+ */
+export const PREP_V2_VALIDATION_LABELS_AR: Record<ValidationCode, string> = {
+  missing_thesis: "لا توجد أطروحة للحلقة",
+  weak_thesis: "الأطروحة قصيرة جداً — تبدو نصاً مؤقتاً",
+  missing_sections: "لا توجد أقسام للحلقة",
+  wrong_section_count: "عدد الأقسام ليس ٦",
+  wrong_section_order: "ترتيب الأقسام غير صحيح",
+  section_low_question_count: `قسم أو أكثر فيه أقل من ${MIN_SECTION_QUESTIONS} أسئلة`,
+  section_only_generic_questions: "أسئلة أحد الأقسام كلها عامة/جاهزة",
+  question_count_out_of_range: `مجموع الأسئلة خارج النطاق [${MIN_QUESTIONS}, ${MAX_QUESTIONS}]`,
+  must_ask_count_below_minimum: `الأسئلة الأساسية أقل من ${MIN_MUST_ASK}`,
+  duration_out_of_range: `مجموع دقائق الحلقة خارج النطاق [${MIN_DURATION}, ${MAX_DURATION}]`,
+  missing_host_guidance: "إرشادات المقدّم ناقصة",
+  missing_director_guidance: "إرشادات المخرج ناقصة",
+  missing_opening_options: "خيارات الافتتاح أقل من خيارين",
+  missing_closing_options: "خيارات الختام أقل من خيارين",
+  missing_axes_of_tension: `محاور التوتر أقل من ${MIN_AXES}`,
+  missing_guest_extraction_strategy: "استراتيجية استخراج الضيف ناقصة",
+  vague_emotional_hook: "الذروة العاطفية بلا سؤال عاطفي أو بنيّة ضعيفة",
+  missing_sensitive_zones_for_risky_topic:
+    "الموضوع حسّاس والمناطق الحسّاسة فارغة",
+  unverified_guest_reference: "النص يذكر اسم ضيف غير موثّق",
+}
+
+/**
+ * Render validation failures as one Arabic clause for a toast/pill.
+ *
+ * Caps the list so a payload that fails eight checks does not produce an
+ * unreadable wall of text; the count of what was cut is still reported, so
+ * the operator knows the list is longer than what they see.
+ */
+export function describeValidationFailuresAr(
+  failures: ValidationFailure[],
+  max = 3,
+): string {
+  if (failures.length === 0) return ""
+  const shown = failures
+    .slice(0, max)
+    .map((f) => PREP_V2_VALIDATION_LABELS_AR[f.code] ?? f.code)
+  const rest = failures.length - shown.length
+  return rest > 0 ? `${shown.join("، ")} (+${rest} أخرى)` : shown.join("، ")
+}
+
+/** What the operator should do next — the same closing line in both cases. */
+const PREP_V2_RECOVERY_AR =
+  "استخدم «إعادة توليد الإعداد» من صفحة الحلقة."
+
+/**
+ * Best available text for an unknown throw.
+ *
+ * Not `String(err)`: a rejected provider SDK call often carries a plain object,
+ * and `String({...})` is `"[object Object]"` — a warning that says only that a
+ * failure happened is the silent-failure bug wearing a message.
+ */
+function errorDetail(error: unknown): string {
+  if (error instanceof Error) return error.message
+  if (typeof error === "string") return error
+  try {
+    const json = JSON.stringify(error)
+    if (json && json !== "{}") return json
+  } catch {
+    // Circular or non-serialisable — fall through to the generic text.
+  }
+  return "خطأ غير معروف"
+}
+
+/**
+ * The operator-facing warning for a conversion whose record WAS created but
+ * whose `prep_v2` structure was not.
+ *
+ * Extracted from `convertEpisodeToPreparation` so it can be asserted without
+ * a database: the whole point of the fix is the sentence the operator reads,
+ * and that sentence was previously unreachable from any test.
+ *
+ * Both branches deliberately open by confirming the record exists. The failure
+ * here is partial, and a warning that leads with "فشل" makes an operator go
+ * looking for a preparation they think was never created.
+ */
+export function prepV2WarningAr(
+  outcome:
+    | { kind: "not_ok"; reason?: string; failures: ValidationFailure[] }
+    | { kind: "threw"; error: unknown },
+): string {
+  if (outcome.kind === "threw") {
+    // The raw error text is developer English on purpose — it is the only
+    // diagnostic available for a throw, and losing it leaves the operator and
+    // the team with nothing. It is fenced off after a colon rather than
+    // written as though it were Arabic copy.
+    return `أُنشئ سجلّ الإعداد، لكن توليد بنيته فشل: ${errorDetail(outcome.error)}. ${PREP_V2_RECOVERY_AR}`
+  }
+  const why = describeValidationFailuresAr(outcome.failures)
+  const reason = outcome.reason ?? "سبب غير معروف"
+  return (
+    `أُنشئ سجلّ الإعداد، لكن تعذّر توليد بنيته (${reason})` +
+    (why ? `: ${why}` : "") +
+    `. ${PREP_V2_RECOVERY_AR}`
+  )
+}
+
+/**
  * Risk-prone topic domains. When a prep payload targets one of these
  * AND its sensitive_zones array is empty, validation fails — host walks
  * into a recording without flagged subjects to handle carefully.

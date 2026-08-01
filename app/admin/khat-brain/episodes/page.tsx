@@ -31,6 +31,7 @@ import {
 } from "@/lib/db/schema/eir"
 import { nextActionFor, type NextActionTone } from "@/lib/khat-brain/next-action"
 import { PHASE_LABEL } from "@/lib/khat-brain/phase-labels"
+import { reconcileEpisodeBadges } from "@/lib/khat-brain/guest-badge"
 import { resolveStage } from "@/lib/khat-brain/pipeline-stages"
 import { Empty } from "../../components/ui-kit"
 import { formatDateTime } from "@/lib/shared/formatters"
@@ -232,13 +233,28 @@ function EpisodeRow({
 }) {
   const action = nextActionFor(row.phase)
   const toneCta = toneClasses(action.tone)
+  // One call decides BOTH the pill and the guest line, so the row can never
+  // say «ضيف معيّن» and «بلا ضيف» about itself at the same time.
+  const badges = reconcileEpisodeBadges(
+    row.phase,
+    row.guest_name,
+    row.guest_fallback_name,
+  )
   return (
     <li className="rounded-2xl border border-border/40 bg-card/30 p-4 transition-colors hover:border-violet-500/40">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="min-w-0 flex-1">
           <div className="mb-1.5 flex flex-wrap items-center gap-2">
-            <span className="rounded-full bg-muted/30 px-2 py-0.5 text-[10px] uppercase tracking-wider text-muted-foreground">
-              {PHASE_LABEL[row.phase]}
+            <span
+              className={
+                "rounded-full px-2 py-0.5 text-[10px] uppercase tracking-wider " +
+                (badges.phase.tone === "warning"
+                  ? "border border-amber-500/40 bg-amber-500/10 text-amber-800"
+                  : "bg-muted/30 text-muted-foreground")
+              }
+              data-phase-tone={badges.phase.tone}
+            >
+              {badges.phase.text}
             </span>
             <span className="text-[10.5px] text-muted-foreground" dir="ltr">
               {row.phase}
@@ -258,15 +274,34 @@ function EpisodeRow({
           <h3 className="truncate text-[13.5px] font-semibold leading-tight">
             {row.working_title}
           </h3>
-          <div className="mt-1 text-[11px] text-muted-foreground">
-            {row.guest_name ? (
-              <>
-                <span className="text-foreground">ضيف:</span> {row.guest_name}
-              </>
-            ) : (
-              <span className="text-amber-700">بلا ضيف</span>
-            )}
-          </div>
+          {/* Four states, not three. Beyond the name contradiction the display
+              fallback removed, there is a PHASE contradiction: a row whose
+              phase asserts a guest but whose record has none. In that case the
+              pill above already carries the whole statement, so this line
+              renders nothing rather than adding «بلا ضيف» underneath it. */}
+          {badges.guest.kind !== "unrecorded" && (
+            <div
+              className="mt-1 text-[11px] text-muted-foreground"
+              data-guest-state={badges.guest.kind}
+            >
+              {badges.guest.kind === "linked" ? (
+                <>
+                  <span className="text-foreground">ضيف:</span>{" "}
+                  {badges.guest.name}
+                </>
+              ) : badges.guest.kind === "unlinked" ? (
+                <>
+                  <span className="text-foreground">ضيف:</span>{" "}
+                  {badges.guest.name}
+                  <span className="ms-1 rounded-full border border-amber-500/40 bg-amber-500/10 px-1.5 py-0.5 text-[10px] text-amber-800">
+                    غير مربوط بملف ضيف
+                  </span>
+                </>
+              ) : (
+                <span className="text-amber-800">بلا ضيف</span>
+              )}
+            </div>
+          )}
         </div>
         <Link
           href={`/admin/khat-brain/episodes/${row.id}`}

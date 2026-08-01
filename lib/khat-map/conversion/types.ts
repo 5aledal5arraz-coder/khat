@@ -39,6 +39,18 @@ export type ConversionResult =
       /** Was already converted before this call? Idempotent signal. */
       was_existing: boolean
       link: ConversionLink
+      /**
+       * A NON-fatal problem that happened after the record was created —
+       * today, `prep_v2` generation failing while the preparation row itself
+       * landed fine. Arabic, operator-facing.
+       *
+       * It is deliberately a field on the SUCCESS variant rather than a flip
+       * to `ok: false`: the conversion genuinely succeeded, and reporting it
+       * as a failure would tell the operator nothing was created while the
+       * row (and its back-link) exist — leaving them with no link to open and
+       * a bulk run that marks a converted card "failed".
+       */
+      warning?: string
     }
   | {
       ok: false

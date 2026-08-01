@@ -131,6 +131,19 @@ const aiRunIdsSchema = z.object({
   pass5_insights: z.array(z.string()).nullable().optional(),
 })
 
+/**
+ * Pass-5 (insight cards) outcome counters. `outcome` separates "ran and kept
+ * nothing" from "never ran" — the two states the old console-only logging
+ * made indistinguishable.
+ */
+const insightStatsSchema = z.object({
+  drafted: z.number(),
+  kept: z.number(),
+  grounded: z.number(),
+  capped: z.boolean(),
+  outcome: z.enum(["ok", "skipped", "error"]),
+})
+
 export const prepV2Schema = z
   .object({
     thesis: z.string(),
@@ -152,5 +165,10 @@ export const prepV2Schema = z
     generator_version: z.literal("v2.1"),
     generated_at: z.string(),
     ai_run_ids: aiRunIdsSchema,
+    // Pass-5 outcome counters. Optional + additive: payloads written before
+    // this shipped omit it, and so do runs that failed validation before
+    // Pass 5 ran. `.loose()` would have let it through unchecked — declaring
+    // it here makes the shape a contract instead of a silent passenger.
+    insight_stats: insightStatsSchema.optional(),
   })
   .loose()

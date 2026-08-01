@@ -9,6 +9,7 @@ import { ToggleRight, Loader2, AlertTriangle } from "lucide-react"
 import { cn } from "@/lib/utils"
 import type { FeatureFlags } from "@/types/site-settings"
 import { updateFeatureFlags } from "./actions"
+import { runAction } from "@/app/admin/components/run-action"
 
 interface FlagMeta {
   key: keyof FeatureFlags
@@ -55,12 +56,16 @@ export function FeatureFlagsForm({ initial }: { initial: FeatureFlags }) {
     startTransition(async () => {
       // See site-metadata-form: catch the role-gate throw at the boundary so a
       // non-ADMIN sees a clean inline message instead of the panel error boundary.
-      try {
-        await updateFeatureFlags(flags)
-        setSaved(true)
-      } catch {
-        setError("تعذّر حفظ الإعدادات — تحقّق من صلاحيتك أو أعد المحاولة.")
+      const outcome = await runAction(() => updateFeatureFlags(flags))
+      if (!outcome.ok) {
+        setError(
+          outcome.kind === "unknown"
+            ? "تعذّر حفظ الإعدادات — تحقّق من صلاحيتك أو أعد المحاولة."
+            : outcome.message,
+        )
+        return
       }
+      setSaved(true)
     })
   }
 

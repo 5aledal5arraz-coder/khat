@@ -33,7 +33,8 @@ import {
   Trash2,
   Layers,
 } from "lucide-react"
-import { formatDateTime } from "@/lib/shared/formatters"
+import { formatDateTime, formatArabicCount } from "@/lib/shared/formatters"
+import { countPreparationQuestions } from "@/lib/preparation/question-source"
 import { CardsPanel } from "./cards-panel"
 import type {
   EpisodePreparation,
@@ -46,6 +47,7 @@ import type {
   PreparationQuestionBucket,
   PreparationCandidate,
 } from "@/types/preparation"
+import { runAction } from "@/app/admin/components/run-action"
 
 // ─── Constants ──────────────────────────────────────────────────────────────
 
@@ -911,6 +913,7 @@ function InputsPanel({
   const [newQuestion, setNewQuestion] = useState("")
   const [saving, startSave] = useTransition()
   const [saved, setSaved] = useState(false)
+  const [saveError, setSaveError] = useState<string | null>(null)
 
   const update = <K extends keyof PreparationInputs>(key: K, value: PreparationInputs[K]) => {
     setDraft((d) => ({ ...d, [key]: value }))
@@ -919,7 +922,15 @@ function InputsPanel({
 
   const handleSave = () => {
     startSave(async () => {
-      await onSave(draft)
+      // `onSave` is a raw `fetch` with no catch, so a dropped connection used
+      // to escape the transition and leave the حفظ button spinning on an edit
+      // the operator believed was saved.
+      const outcome = await runAction(() => onSave(draft))
+      if (!outcome.ok) {
+        setSaveError(outcome.message)
+        return
+      }
+      setSaveError(null)
       setSaved(true)
       setTimeout(() => setSaved(false), 2000)
     })
@@ -967,6 +978,12 @@ function InputsPanel({
           {saved ? "تم الحفظ" : "حفظ"}
         </button>
       </div>
+
+      {saveError && (
+        <p role="alert" className="text-[12px] text-destructive">
+          {saveError}
+        </p>
+      )}
 
       <div className="grid gap-4 md:grid-cols-2">
         <Field label="عنوان الحلقة *">
@@ -1968,10 +1985,30 @@ function QuestionsPanel({
           })}
         </div>
       ) : (
-        <EmptyState message="لم تُولَّد الأسئلة بعد" />
+        // Same defect class as the cards panel, same root: this page reads the
+        // prep-V1 `question_system` column, which is NULL on every row in the
+        // database, while today's generator writes `prep_v2.question_bank`. So
+        // "لم تُولَّد الأسئلة بعد" was printed on top of a preparation holding 28
+        // generated questions.
+        //
+        // Rendering the v2 bank inside this V1 sections/buckets panel would be
+        // a new adapter, not a bug fix — and which of the two systems owns this
+        // screen is Khaled's open decision. What is NOT acceptable meanwhile is
+        // the screen stating a falsehood, so the empty state now reports what
+        // the record actually holds.
+        <EmptyState message={emptyQuestionsMessage(prep)} />
       )}
     </Section>
   )
+}
+
+/** Truthful empty-state text for the V1 questions panel. */
+function emptyQuestionsMessage(prep: EpisodePreparation): string {
+  const v2Count = countPreparationQuestions({ prep_v2: prep.prep_v2 })
+  if (v2Count > 0) {
+    return `${formatArabicCount(v2Count, "سؤال")} مولّدة بنظام الإعداد الجديد (prep_v2) ولا تُعرض في هذه اللوحة — افتحها من تبويب «الإعداد» في صفحة الحلقة.`
+  }
+  return "لم تُولَّد الأسئلة بعد"
 }
 
 function FilterChip({

@@ -79,12 +79,22 @@ export function CandidatesListClient({ initialCandidates, stats }: Props) {
 
       {/* Stats grid */}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-6">
-        <StatCard label="الإجمالي" value={stats.total} accent="bg-primary/8 text-primary" />
-        <StatCard label="جديد" value={stats.new} accent="bg-slate-500/10 text-slate-700 dark:text-slate-300" />
-        <StatCard label="ضمن القائمة" value={stats.shortlisted} accent="bg-amber-500/10 text-amber-700 dark:text-amber-400" />
-        <StatCard label="تم التواصل" value={stats.contacted} accent="bg-sky-500/10 text-sky-700 dark:text-sky-400" />
-        <StatCard label="وافق" value={stats.accepted} accent="bg-emerald-500/10 text-emerald-700 dark:text-emerald-400" />
-        <StatCard label="أكمل التحضير" value={stats.prep_completed} accent="bg-green-500/10 text-green-700 dark:text-green-400" />
+        {/*
+          The `dark:` overrides that used to sit on these five are REMOVED, not
+          re-toned. This project is on Tailwind v4 and declares no
+          `@custom-variant dark`, so `dark:` still resolves to
+          `@media (prefers-color-scheme: dark)` — the operator's OS setting.
+          Admin, meanwhile, is forced light (`ADMIN_LIGHT_TOKENS`). So on a Mac
+          in dark mode these rendered `slate-300` on a light card: 1.29:1
+          measured, against a 4.5 requirement. The light `-700`/-800` value was
+          always the correct one; the override only ever fired when it was wrong.
+        */}
+        <StatCard label="الإجمالي" value={stats.total} accent="bg-primary/10 text-primary" />
+        <StatCard label="جديد" value={stats.new} accent="bg-slate-500/10 text-slate-700" />
+        <StatCard label="ضمن القائمة" value={stats.shortlisted} accent="bg-amber-500/10 text-amber-800" />
+        <StatCard label="تم التواصل" value={stats.contacted} accent="bg-sky-500/10 text-sky-800" />
+        <StatCard label="وافق" value={stats.accepted} accent="bg-emerald-500/10 text-emerald-800" />
+        <StatCard label="أكمل التحضير" value={stats.prep_completed} accent="bg-green-500/10 text-green-800" />
       </div>
 
       {/* Filters */}
@@ -148,7 +158,9 @@ export function CandidatesListClient({ initialCandidates, stats }: Props) {
 function StatCard({ label, value, accent }: { label: string; value: number; accent: string }) {
   return (
     <div className="rounded-xl border border-border/40 bg-card/40 p-3">
-      <div className={`mb-1 inline-flex h-6 items-center rounded-md px-2 text-[10px] font-semibold ${accent}`}>
+      {/* 10px → 12px: below the /admin/ops ladder floor, and these labels are
+          the only thing naming what each number counts. */}
+      <div className={`mb-1 inline-flex h-7 items-center rounded-md px-2 text-[12px] font-semibold ${accent}`}>
         {label}
       </div>
       <div className="text-xl font-bold tracking-tight">{value}</div>

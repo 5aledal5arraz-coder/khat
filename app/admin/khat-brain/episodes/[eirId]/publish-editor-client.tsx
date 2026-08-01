@@ -1343,8 +1343,10 @@ function ReadinessDashboard({
             data-readiness-score
           >
             <div className="text-[28px] leading-none">{readiness.score}</div>
-            <div className="mt-0.5 text-[9px] uppercase tracking-wider text-muted-foreground">
-              readiness
+            {/* Was the English word `readiness` at 9px under a dir="ltr"
+                wrapper, so the tile read «23 READINESS» on an Arabic screen. */}
+            <div className="mt-0.5 text-[12px] text-muted-foreground" dir="rtl">
+              الجاهزية
             </div>
           </div>
         </div>

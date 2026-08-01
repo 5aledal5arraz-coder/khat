@@ -7,7 +7,16 @@
 
 import { Sparkles, Mic, Compass, Eye, AlertTriangle } from "lucide-react"
 import type { PrepV2Payload, PrepV2Question, SectionKind } from "@/lib/preparation/v2/types"
+import { formatArabicCount } from "@/lib/shared/formatters"
 import { Empty } from "../../components/ui-kit"
+
+/*
+ * Typography note — sizes here are taken from the scale already in use on
+ * `/admin/ops` and the recording preflight screens (11 · 13 · 15 · 17 · 20),
+ * not invented. The question text is the largest body size on the page on
+ * purpose: it is the one string a human reads OUT LOUD, off a screen, while
+ * a guest is sitting opposite him.
+ */
 
 const SECTION_LABEL_AR: Record<SectionKind, string> = {
   opening: "افتتاحية",
@@ -16,6 +25,21 @@ const SECTION_LABEL_AR: Record<SectionKind, string> = {
   deep_dive: "الغوص العميق",
   emotional_peak: "الذروة العاطفية",
   resolution: "الخاتمة",
+}
+
+/**
+ * Display-only Arabic for the stored enums. The VALUES in the database stay
+ * `must_ask` / `if_time` / `low|medium|high` — only the rendering is Arabic.
+ */
+const PRIORITY_LABEL_AR: Record<PrepV2Question["priority"], string> = {
+  must_ask: "أساسي",
+  if_time: "إن سمح الوقت",
+}
+
+const RISK_LABEL_AR: Record<PrepV2Question["risk_level"], string> = {
+  low: "منخفضة",
+  medium: "متوسطة",
+  high: "مرتفعة",
 }
 
 const TYPE_LABEL_AR: Record<string, string> = {
@@ -36,24 +60,26 @@ export function PrepV2View({ payload }: { payload: PrepV2Payload }) {
     <div className="mb-6 space-y-6 rounded-3xl border border-violet-500/20 bg-gradient-to-br from-violet-500/5 to-primary/5 p-6">
       {/* ── Hero ────────────────────────────────────────────────────── */}
       <div>
-        <div className="mb-2 inline-flex items-center gap-1.5 text-[11px] font-medium text-violet-700">
-          <Sparkles className="h-3 w-3" />
+        <div className="mb-2 inline-flex items-center gap-1.5 text-[13px] font-medium text-violet-800">
+          <Sparkles className="h-3.5 w-3.5" />
           إعداد V2 — ضمير التحرير
         </div>
-        <h2 className="text-[15px] font-semibold leading-snug text-foreground">
+        <h2 className="text-[20px] font-semibold leading-snug text-foreground">
           {payload.thesis}
         </h2>
         <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
           <Stat label="مدة مقدّرة" value={`${total} د`} />
           <Stat label="أسئلة" value={String(totalQ)} />
-          <Stat label="must_ask" value={String(mustAsk)} />
-          <Stat label="عدسة" value={payload.generator_version} ltr />
+          <Stat label="أسئلة أساسية" value={String(mustAsk)} />
+          {/* Was labelled «عدسة» (lens), which describes nothing about a
+              generator version string. */}
+          <Stat label="إصدار المولّد" value={payload.generator_version} ltr />
         </div>
       </div>
 
       {/* ── Axes of tension ─────────────────────────────────────────── */}
       <Section title="محاور التوتر" icon={<Compass className="h-3.5 w-3.5" />}>
-        <ul className="grid grid-cols-1 gap-1.5 text-[12px] text-foreground/85 sm:grid-cols-2">
+        <ul className="grid grid-cols-1 gap-1.5 text-[13px] text-foreground/85 sm:grid-cols-2">
           {payload.axes_of_tension.map((a, i) => (
             <li
               key={i}
@@ -70,7 +96,7 @@ export function PrepV2View({ payload }: { payload: PrepV2Payload }) {
 
       {/* ── Guest extraction strategy ───────────────────────────────── */}
       <Section title="استراتيجية استخراج الضيف">
-        <p className="text-[12.5px] leading-relaxed text-foreground/85">
+        <p className="text-[13px] leading-relaxed text-foreground/85">
           {payload.guest_extraction_strategy}
         </p>
       </Section>
@@ -86,21 +112,27 @@ export function PrepV2View({ payload }: { payload: PrepV2Payload }) {
                 className="rounded-2xl border border-border/40 bg-background/40 p-4"
               >
                 <div className="mb-2 flex flex-wrap items-baseline justify-between gap-2">
-                  <h3 className="text-[12.5px] font-semibold text-foreground">
+                  <h3 className="text-[17px] font-semibold text-foreground">
                     {SECTION_LABEL_AR[s.kind]}
                   </h3>
-                  <div className="text-[10.5px] text-muted-foreground" dir="ltr">
-                    {s.estimated_minutes} min · {s.target_emotion} · {qs.length} q
+                  {/* Was `6 min · فضول · 4 q` forced to dir="ltr" — two English
+                      units and an LTR override on a line that is mostly Arabic. */}
+                  <div className="text-[13px] text-muted-foreground">
+                    {formatArabicCount(s.estimated_minutes, "دقيقة")}
+                    {" · "}
+                    {s.target_emotion}
+                    {" · "}
+                    {formatArabicCount(qs.length, "سؤال")}
                   </div>
                 </div>
-                <p className="mb-2 text-[12px] leading-relaxed text-foreground/80">
+                <p className="mb-2 text-[13px] leading-relaxed text-foreground/80">
                   {s.intent}
                 </p>
-                <p className="mb-3 text-[11px] italic text-muted-foreground/80">
-                  → {s.transition_goal}
+                <p className="mb-3 text-[13px] italic text-muted-foreground/80">
+                  <span aria-hidden="true">←</span> {s.transition_goal}
                 </p>
                 {qs.length === 0 ? (
-                  <Empty text="(no questions in this section)" />
+                  <Empty text="لا توجد أسئلة في هذا القسم." />
                 ) : (
                   <ul className="space-y-2">
                     {qs.map((q) => (
@@ -117,10 +149,10 @@ export function PrepV2View({ payload }: { payload: PrepV2Payload }) {
       {/* ── Host + director guidance ────────────────────────────────── */}
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
         <Section title="إرشاد المضيف" icon={<Mic className="h-3.5 w-3.5" />}>
-          <p className="mb-2 text-[12px] text-foreground/80">
+          <p className="mb-2 text-[13px] text-foreground/80">
             <strong>النبرة:</strong> {payload.host_guidance.overall_tone}
           </p>
-          <p className="mb-2 text-[12px] italic text-muted-foreground/85">
+          <p className="mb-2 text-[13px] italic text-muted-foreground/85">
             {payload.host_guidance.energy_curve}
           </p>
           <ListBlock label="افعل" items={payload.host_guidance.do_list} good />
@@ -151,7 +183,7 @@ export function PrepV2View({ payload }: { payload: PrepV2Payload }) {
           title="مناطق حسّاسة"
           icon={<AlertTriangle className="h-3.5 w-3.5 text-amber-700" />}
         >
-          <ul className="list-inside list-disc space-y-0.5 text-[12px] text-foreground/85">
+          <ul className="list-inside list-disc space-y-0.5 text-[13px] text-foreground/85">
             {payload.sensitive_zones.map((z, i) => (
               <li key={i}>{z}</li>
             ))}
@@ -177,60 +209,64 @@ export function PrepV2View({ payload }: { payload: PrepV2Payload }) {
 function QuestionRow({ q }: { q: PrepV2Question }) {
   return (
     <li className="rounded-lg border border-border/30 bg-background/30 p-2.5">
-      <div className="mb-1 flex flex-wrap items-center gap-1.5">
+      <div className="mb-1.5 flex flex-wrap items-center gap-1.5">
         <PriorityChip priority={q.priority} />
         {q.types.map((t) => (
           <span
             key={t}
-            className="rounded-full border border-border/40 px-1.5 py-0.5 text-[9.5px] text-muted-foreground"
+            className="rounded-full border border-border/40 px-2 py-0.5 text-[12px] text-muted-foreground"
           >
             {TYPE_LABEL_AR[t] ?? t}
           </span>
         ))}
         <RiskChip risk={q.risk_level} />
       </div>
-      <div className="text-[12.5px] font-medium leading-snug text-foreground">
+      {/* 17px: the single string a host reads out loud, mid-recording. */}
+      <div className="text-[17px] font-medium leading-relaxed text-foreground">
         {q.text}
       </div>
       {q.purpose && (
-        <div className="mt-1 text-[11px] text-muted-foreground/80">
+        <div className="mt-1 text-[13px] text-muted-foreground">
           {q.purpose}
         </div>
       )}
       {q.follow_up_prompt && (
-        <div className="mt-1 text-[11px] text-foreground/75">
-          ↳ {q.follow_up_prompt}
+        <div className="mt-1 text-[13px] text-foreground/75">
+          {/* ↳ points right; in an RTL column the follow-up hangs to the LEFT. */}
+          <span aria-hidden="true">↲</span> {q.follow_up_prompt}
         </div>
       )}
     </li>
   )
 }
 
-function PriorityChip({ priority }: { priority: "must_ask" | "if_time" }) {
+function PriorityChip({ priority }: { priority: PrepV2Question["priority"] }) {
   if (priority === "must_ask") {
     return (
-      <span className="rounded-full bg-emerald-500/10 px-1.5 py-0.5 text-[9.5px] font-medium text-emerald-700">
-        must_ask
+      <span className="rounded-full bg-emerald-500/10 px-2 py-0.5 text-[12px] font-medium text-emerald-800">
+        {PRIORITY_LABEL_AR.must_ask}
       </span>
     )
   }
   return (
-    <span className="rounded-full bg-muted/30 px-1.5 py-0.5 text-[9.5px] text-muted-foreground">
-      if_time
+    <span className="rounded-full bg-muted/30 px-2 py-0.5 text-[12px] text-muted-foreground">
+      {PRIORITY_LABEL_AR.if_time}
     </span>
   )
 }
 
-function RiskChip({ risk }: { risk: "low" | "medium" | "high" }) {
+function RiskChip({ risk }: { risk: PrepV2Question["risk_level"] }) {
   const cls =
     risk === "high"
-      ? "bg-rose-500/10 text-rose-700"
+      ? "bg-rose-500/10 text-rose-800"
       : risk === "medium"
-        ? "bg-amber-500/10 text-amber-700"
-        : "bg-sky-500/10 text-sky-700"
+        ? "bg-amber-500/10 text-amber-800"
+        : "bg-sky-500/10 text-sky-800"
+  // Was `risk: low` under dir="ltr" — an English key and an English value,
+  // 28 times, on an Arabic screen.
   return (
-    <span className={`rounded-full px-1.5 py-0.5 text-[9.5px] ${cls}`} dir="ltr">
-      risk: {risk}
+    <span className={`rounded-full px-2 py-0.5 text-[12px] ${cls}`}>
+      خطورة: {RISK_LABEL_AR[risk]}
     </span>
   )
 }
@@ -254,8 +290,11 @@ function ListBlock({
       : "text-foreground/85"
   return (
     <div className="mb-2">
-      <div className={`text-[10.5px] uppercase tracking-wider ${tone}`}>{label}</div>
-      <ul className="mt-1 list-inside list-disc space-y-0.5 text-[12px] text-foreground/85">
+      {/* `uppercase` does nothing to Arabic glyphs and `tracking-wider` only
+          loosens its cursive joins, so both are dropped wherever the label is
+          Arabic; the weight now carries the emphasis instead. */}
+      <div className={`text-[13px] font-medium ${tone}`}>{label}</div>
+      <ul className="mt-1 list-inside list-disc space-y-0.5 text-[13px] text-foreground/85">
         {items.map((x, i) => (
           <li key={i}>{x}</li>
         ))}
@@ -269,7 +308,7 @@ function ApproachList({
 }: {
   items: Array<{ approach: string; text: string }>
 }) {
-  if (items.length === 0) return <Empty text="(none)" />
+  if (items.length === 0) return <Empty text="لا توجد خيارات." />
   return (
     <ul className="space-y-3">
       {items.map((o, i) => (
@@ -277,10 +316,11 @@ function ApproachList({
           key={i}
           className="rounded-xl border border-border/40 bg-background/40 p-3"
         >
-          <div className="text-[10.5px] uppercase tracking-wider text-muted-foreground">
+          <div className="text-[13px] font-medium text-muted-foreground">
             {o.approach}
           </div>
-          <div className="mt-1 text-[12.5px] leading-relaxed text-foreground/90">
+          {/* Opening/closing lines are also read aloud — 15px, not 12.5. */}
+          <div className="mt-1 text-[15px] leading-relaxed text-foreground/90">
             {o.text}
           </div>
         </li>
@@ -300,7 +340,7 @@ function Section({
 }) {
   return (
     <section>
-      <h3 className="mb-2 inline-flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground/80">
+      <h3 className="mb-2 inline-flex items-center gap-1.5 text-[15px] font-semibold text-foreground/70">
         {icon}
         {title}
       </h3>
@@ -320,11 +360,9 @@ function Stat({
 }) {
   return (
     <div className="rounded-xl border border-border/40 bg-background/40 p-2.5">
-      <div className="text-[9.5px] uppercase tracking-wider text-muted-foreground">
-        {label}
-      </div>
+      <div className="text-[12px] text-muted-foreground">{label}</div>
       <div
-        className="text-[14px] font-semibold tabular-nums"
+        className="text-[20px] font-semibold tabular-nums"
         dir={ltr ? "ltr" : undefined}
       >
         {value}

@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label"
 import { Cpu, Loader2, RotateCcw, Gauge } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { updateAiRuntimeConfig } from "./actions"
+import { runAction } from "@/app/admin/components/run-action"
 
 export interface AiControlsInitial {
   mode: "off" | "report" | "enforce"
@@ -53,35 +54,50 @@ export function AiControlsForm({ initial }: { initial: AiControlsInitial }) {
     }
     setMessage(null)
     startTransition(async () => {
-      try {
-        await updateAiRuntimeConfig({
+      const outcome = await runAction(() =>
+        updateAiRuntimeConfig({
           mode,
           light: { maxConcurrent: Math.floor(num(lightConc)), maxDailyCostUsd: num(lightCost) },
           expensive: { maxConcurrent: Math.floor(num(expConc)), maxDailyCostUsd: num(expCost) },
+        }),
+      )
+      // These are the AI router's live spend caps — "تم الحفظ" on a write that
+      // never landed leaves the operator believing a cap is in force.
+      if (!outcome.ok) {
+        setMessage({
+          type: "error",
+          text: outcome.kind === "unknown" ? "تعذّر الحفظ" : outcome.message,
         })
-        setMessage({ type: "ok", text: "تم الحفظ — يُطبَّق على موجّه الذكاء فوراً" })
-        router.refresh()
-      } catch {
-        setMessage({ type: "error", text: "تعذّر الحفظ" })
+        return
       }
+      setMessage({ type: "ok", text: "تم الحفظ — يُطبَّق على موجّه الذكاء فوراً" })
+      router.refresh()
     })
   }
 
   function handleReset() {
     setMessage(null)
     startTransition(async () => {
-      try {
-        await updateAiRuntimeConfig({ mode: null, light: null, expensive: null })
-        setMode(initial.envMode)
-        setLightConc(String(initial.envLimits.light.maxConcurrent))
-        setLightCost(String(initial.envLimits.light.maxDailyCostUsd))
-        setExpConc(String(initial.envLimits.expensive.maxConcurrent))
-        setExpCost(String(initial.envLimits.expensive.maxDailyCostUsd))
-        setMessage({ type: "ok", text: "تمت العودة إلى إعدادات البيئة" })
-        router.refresh()
-      } catch {
-        setMessage({ type: "error", text: "تعذّرت العودة للإعدادات الافتراضية" })
+      const outcome = await runAction(() =>
+        updateAiRuntimeConfig({ mode: null, light: null, expensive: null }),
+      )
+      if (!outcome.ok) {
+        setMessage({
+          type: "error",
+          text:
+            outcome.kind === "unknown"
+              ? "تعذّرت العودة للإعدادات الافتراضية"
+              : outcome.message,
+        })
+        return
       }
+      setMode(initial.envMode)
+      setLightConc(String(initial.envLimits.light.maxConcurrent))
+      setLightCost(String(initial.envLimits.light.maxDailyCostUsd))
+      setExpConc(String(initial.envLimits.expensive.maxConcurrent))
+      setExpCost(String(initial.envLimits.expensive.maxDailyCostUsd))
+      setMessage({ type: "ok", text: "تمت العودة إلى إعدادات البيئة" })
+      router.refresh()
     })
   }
 

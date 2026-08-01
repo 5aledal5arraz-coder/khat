@@ -24,6 +24,33 @@ import { PrepInsightReview } from "./prep-insight-review"
 import { PrepInputsEditor } from "./prep-inputs-editor"
 import { AssignGuestForm } from "./assign-guest-form"
 
+/**
+ * Regeneration REPLACES `episode_preparations.prep_v2` wholesale
+ * (`persistPayload` in lib/preparation/v2/pipeline.ts does a plain
+ * `set({ prep_v2: payload })`, not a merge). Everything the operator layered
+ * onto that JSONB therefore disappears: inline field edits and the review
+ * state of every insight card, approvals included.
+ *
+ * The copy states those two consequences literally. It is only attached to
+ * the call site BELOW — the one where a prep_v2 already exists. The other
+ * button (rendered when `!prep.prep_v2`) destroys nothing, so gating it would
+ * be friction with a false warning attached.
+ */
+const REGENERATE_PREP_CONFIRM = {
+  title: "تأكيد إعادة توليد الإعداد",
+  body: (
+    <>
+      إعادة التوليد تكتب إعداداً جديداً كاملاً فوق الحالي، ويروح معاه:
+      <ul className="mt-1 list-inside list-disc space-y-0.5">
+        <li>كل تعديل يدوي سويته على حقول الإعداد.</li>
+        <li>حالة مراجعة بطاقات الإسناد كلها، وفيها المعتمدة.</li>
+      </ul>
+      <span className="mt-1 block">ما فيه تراجع بعد التأكيد.</span>
+    </>
+  ),
+  confirmLabel: "إعادة التوليد وحذف التعديلات",
+}
+
 export function PreparationTab({
   prep,
   room,
@@ -164,12 +191,14 @@ export function PreparationTab({
                 بالكامل.
               </span>
               <span
-                className="inline-flex items-center gap-1 text-[10.5px] text-muted-foreground"
-                dir="ltr"
+                className="inline-flex items-center gap-1 text-[13px] text-muted-foreground"
                 data-prep-last-action
               >
-                <Clock className="h-2.5 w-2.5" />
-                last update {formatDateTime(prep.updated_at)}
+                <Clock className="h-3.5 w-3.5" />
+                {/* Was `last update …` under a whole-span dir="ltr". Only the
+                    timestamp needs LTR; the label is Arabic like the rest. */}
+                آخر تحديث{" "}
+                <span dir="ltr">{formatDateTime(prep.updated_at)}</span>
               </span>
             </div>
             <JobActionButton
@@ -178,6 +207,7 @@ export function PreparationTab({
               icon={<RefreshCw className="h-3 w-3" />}
               successTitle="تم تحديث الإعداد"
               action={regeneratePrepV2Action.bind(null, eirId)}
+              confirm={REGENERATE_PREP_CONFIRM}
             />
           </div>
           <PrepV2InlineEditor prepId={prep.id} payload={prep.prep_v2} />

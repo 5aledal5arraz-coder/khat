@@ -124,6 +124,32 @@ describe("PROVIDER_BLOCKED_ERROR_CLASSES", () => {
     ])
   })
 
+  it("fires for Gemini's spend cap — the failure that never raised the alert", () => {
+    // The whole seam in one assertion: the message 180 ai_runs rows actually
+    // carry must classify as quota_exceeded, and quota_exceeded must be a class
+    // the ops alert queries. Previously it landed in `rate_limited`, so the
+    // "provider stopped serving us" alert stayed silent through a total outage.
+    const geminiSpendCap = new Error(
+      '{"error":{"code":429,"message":"Your project has exceeded its monthly ' +
+        'spending cap. Please go to AI Studio at https://ai.studio/spend to manage ' +
+        'your project spend cap.","status":"RESOURCE_EXHAUSTED"}}',
+    )
+    const cls = classifyError(geminiSpendCap).name
+    expect(cls).toBe("quota_exceeded")
+    expect(PROVIDER_BLOCKED_ERROR_CLASSES.has(cls)).toBe(true)
+  })
+
+  it("does NOT fire for Gemini's per-minute throttle (same code, same status)", () => {
+    const throttle = new Error(
+      '{"error":{"code":429,"message":"Quota exceeded for quota metric ' +
+        "'Generate Content API requests per minute' and limit 'GenerateContent " +
+        'request limit per minute per project".","status":"RESOURCE_EXHAUSTED"}}',
+    )
+    const cls = classifyError(throttle).name
+    expect(cls).toBe("rate_limited")
+    expect(PROVIDER_BLOCKED_ERROR_CLASSES.has(cls)).toBe(false)
+  })
+
   it("the classifier really does produce both of those strings", () => {
     // Guards the seam: the alert queries these literals against ai_runs, so
     // a rename on either side would silently stop matching any row.

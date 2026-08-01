@@ -18,6 +18,7 @@ import {
   rejectQuestionAction,
   resetQuestionAction,
 } from "./actions"
+import { runAction } from "@/app/admin/components/run-action"
 
 /**
  * Review rows for `/admin/teaser-questions`.
@@ -131,8 +132,16 @@ function QuestionRow({
   ) => {
     onError("")
     start(async () => {
-      const res = await action(question.id)
-      if (!res.success) onError(res.error || "تعذّر تنفيذ الإجراء")
+      // `busy` disables approve AND reject on this row, so an unwrapped
+      // rejection left the row permanently un-actionable with no explanation.
+      const outcome = await runAction(() => action(question.id))
+      if (!outcome.ok) {
+        onError(outcome.message)
+        return
+      }
+      if (!outcome.data.success) {
+        onError(outcome.data.error || "تعذّر تنفيذ الإجراء")
+      }
     })
   }
 

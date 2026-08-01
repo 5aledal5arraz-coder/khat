@@ -60,6 +60,7 @@ import {
   type SourceRow,
   type SourceSortKey,
 } from "@/lib/market-intelligence/sources-types"
+import { runAction } from "@/app/admin/components/run-action"
 
 type FormDraft = {
   source_type: TrustedSourceType
@@ -153,17 +154,26 @@ export function SourcesClient({
   const submitAdd = () => {
     setFormError(null)
     start(async () => {
-      const r = await createSourceAction({
-        source_type: addDraft.source_type,
-        identifier: addDraft.identifier,
-        display_name: addDraft.display_name,
-        language: addDraft.language,
-        geography: addDraft.geography || null,
-        trust_score: addDraft.trust_score,
-        editorial_alignment_score: addDraft.editorial_alignment_score,
-        active: addDraft.active,
-        notes: addDraft.notes || null,
-      })
+      // Both failure kinds land in the same `formError` line: the action's own
+      // validation message, and the call never returning at all.
+      const outcome = await runAction(() =>
+        createSourceAction({
+          source_type: addDraft.source_type,
+          identifier: addDraft.identifier,
+          display_name: addDraft.display_name,
+          language: addDraft.language,
+          geography: addDraft.geography || null,
+          trust_score: addDraft.trust_score,
+          editorial_alignment_score: addDraft.editorial_alignment_score,
+          active: addDraft.active,
+          notes: addDraft.notes || null,
+        }),
+      )
+      if (!outcome.ok) {
+        setFormError(outcome.message)
+        return
+      }
+      const r = outcome.data
       if (!r.ok) {
         setFormError(r.message)
         return
@@ -178,17 +188,24 @@ export function SourcesClient({
     if (!editDraft) return
     setFormError(null)
     start(async () => {
-      const r = await updateSourceAction({
-        id,
-        source_type: editDraft.source_type,
-        identifier: editDraft.identifier,
-        display_name: editDraft.display_name,
-        language: editDraft.language,
-        geography: editDraft.geography || null,
-        trust_score: editDraft.trust_score,
-        editorial_alignment_score: editDraft.editorial_alignment_score,
-        notes: editDraft.notes || null,
-      })
+      const outcome = await runAction(() =>
+        updateSourceAction({
+          id,
+          source_type: editDraft.source_type,
+          identifier: editDraft.identifier,
+          display_name: editDraft.display_name,
+          language: editDraft.language,
+          geography: editDraft.geography || null,
+          trust_score: editDraft.trust_score,
+          editorial_alignment_score: editDraft.editorial_alignment_score,
+          notes: editDraft.notes || null,
+        }),
+      )
+      if (!outcome.ok) {
+        setFormError(outcome.message)
+        return
+      }
+      const r = outcome.data
       if (!r.ok) {
         setFormError(r.message)
         return

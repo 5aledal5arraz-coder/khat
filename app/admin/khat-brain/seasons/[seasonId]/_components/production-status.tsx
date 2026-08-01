@@ -18,6 +18,7 @@ import {
   listSeasonProductionStatusAction,
   type ProductionStatusRow,
 } from "../../actions"
+import { runAction } from "@/app/admin/components/run-action"
 
 /**
  * "Closing the loop" panel for the v2 Overview.
@@ -61,7 +62,9 @@ export function ProductionStatusPanel({
 
   const refresh = () => {
     startRefresh(async () => {
-      const res = await listSeasonProductionStatusAction(seasonId)
+      const outcome = await runAction(() => listSeasonProductionStatusAction(seasonId))
+      if (!outcome.ok) return setError(outcome.message)
+      const res = outcome.data
       if (res.success) setRows(res.data.rows)
       else setError(res.error)
     })
@@ -72,11 +75,22 @@ export function ProductionStatusPanel({
     setError(null)
     setBusyId(candidateId)
     startBusy(async () => {
-      const res = await convertV2CardToPreparationAction({
-        seasonId,
-        topicCandidateId: candidateId,
-      })
+      const outcome = await runAction(() =>
+        convertV2CardToPreparationAction({
+          seasonId,
+          topicCandidateId: candidateId,
+        }),
+      )
+      // Cleared before any early return. `handleConvert` refuses to start while
+      // `busyId` is set, so leaving it set on a failed call disabled conversion
+      // for EVERY row on the page until reload — the rejection path used to
+      // skip this line entirely.
       setBusyId(null)
+      if (!outcome.ok) {
+        setFlash({ candidateId, kind: "error", message: outcome.message })
+        return
+      }
+      const res = outcome.data
       if (!res.success) {
         setFlash({
           candidateId,
@@ -85,12 +99,16 @@ export function ProductionStatusPanel({
         })
         return
       }
+      // The prep row was created either way, so the flash stays "ok" — but a
+      // non-fatal warning (prep_v2 generation failed) is appended instead of
+      // being dropped, which is what used to happen.
+      const base = res.data.was_existing
+        ? "موجود مسبقاً — افتح الإعداد"
+        : "تم الإنشاء"
       setFlash({
         candidateId,
         kind: "ok",
-        message: res.data.was_existing
-          ? "موجود مسبقاً — افتح الإعداد"
-          : "تم الإنشاء",
+        message: res.data.warning ? `${base} — ${res.data.warning}` : base,
       })
       // Optimistic: optimistically inject the preparation link into the
       // local row so the UI updates without waiting for refresh().

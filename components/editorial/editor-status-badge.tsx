@@ -24,6 +24,13 @@ function formatRelative(ts: number): string {
  * Reusable status badge for any autosave-driven editor. Matches
  * existing workspace tone (rose-on-error / amber-on-pending / emerald-
  * on-saved). RTL-safe.
+ *
+ * Colour weights are `-700`, never `-200`: admin is a single forced LIGHT
+ * surface, where `-200` text measured 1.02–1.15:1 against the background —
+ * i.e. invisible, against a 4.5 requirement. The `error` state was in that
+ * set, so a failed save had no visible signal at all. This is the rule in
+ * `admin-light-contrast`; the badge is used by 5 editors, so a regression
+ * here is a regression everywhere.
  */
 export function EditorStatusBadge({
   status,
@@ -37,13 +44,13 @@ export function EditorStatusBadge({
       case "saving":
         return {
           icon: <Loader2 className="h-3 w-3 animate-spin" />,
-          cls: "border-violet-500/30 bg-violet-500/10 text-violet-200",
+          cls: "border-violet-500/30 bg-violet-500/10 text-violet-700",
           label: compact ? "جارٍ الحفظ" : "جارٍ الحفظ…",
         }
       case "saved":
         return {
           icon: <Check className="h-3 w-3" />,
-          cls: "border-emerald-500/30 bg-emerald-500/10 text-emerald-200",
+          cls: "border-emerald-500/30 bg-emerald-500/10 text-emerald-700",
           label: compact
             ? "محفوظ"
             : savedAt
@@ -53,7 +60,7 @@ export function EditorStatusBadge({
       case "pending":
         return {
           icon: <Cloud className="h-3 w-3" />,
-          cls: "border-amber-500/30 bg-amber-500/10 text-amber-200",
+          cls: "border-amber-500/30 bg-amber-500/10 text-amber-800",
           label: compact
             ? `${pendingChanges} غير محفوظ`
             : `تغييرات قيد الحفظ${pendingChanges > 0 ? ` (${pendingChanges})` : ""}`,
@@ -61,13 +68,13 @@ export function EditorStatusBadge({
       case "error":
         return {
           icon: <AlertTriangle className="h-3 w-3" />,
-          cls: "border-rose-500/30 bg-rose-500/10 text-rose-200",
+          cls: "border-rose-500/30 bg-rose-500/10 text-rose-700",
           label: compact ? "خطأ" : error ? `خطأ: ${error}` : "خطأ في الحفظ",
         }
       case "offline":
         return {
           icon: <CloudOff className="h-3 w-3" />,
-          cls: "border-slate-500/30 bg-slate-500/10 text-slate-200",
+          cls: "border-slate-500/30 bg-slate-500/10 text-slate-700",
           label: compact ? "غير متصل" : "غير متصل — سيُحفظ لاحقاً",
         }
       default:

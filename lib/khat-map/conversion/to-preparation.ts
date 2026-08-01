@@ -43,6 +43,11 @@ import {
   markTopicUsed,
 } from "@/lib/khat-map/core/queries"
 import type { ConversionResult } from "./types"
+// Static, unlike the pipeline import below: this module is pure (it reaches
+// only `preparation/v2/types` — no DB, no cycle), and a dynamic import inside
+// the catch block could itself throw and abort a conversion that is required
+// to survive any prep_v2 failure.
+import { prepV2WarningAr } from "@/lib/preparation/v2/validation"
 
 // ─── Input ───────────────────────────────────────────────────────────────────
 
@@ -236,17 +241,36 @@ export async function convertEpisodeToPreparation(
   // legacy column; it only writes to episode_preparations.prep_v2.
   // Failure here does NOT abort the conversion — the legacy prep still
   // exists. Set PREP_V2_ENABLED=false to opt out (ops escape hatch).
+  //
+  // Non-fatal, but no longer SILENT. The pipeline's return value was
+  // discarded entirely, so even a clean `{ok:false, reason:"pass3_failed"}`
+  // vanished alongside the thrown errors the catch swallowed — the operator
+  // got "إعداد جديد" and a prep with no structure, and nothing anywhere said
+  // why. The outcome now rides out on `warning`.
+  let prepV2Warning: string | undefined
   if (process.env.PREP_V2_ENABLED !== "false") {
     try {
       const { runPrepV2Pipeline } = await import("@/lib/preparation/v2/pipeline")
       const lang =
         (candidate as { language?: string }).language === "en" ? "en" : "ar"
-      await runPrepV2Pipeline({
+      const r = await runPrepV2Pipeline({
         preparationId: prep.id,
         language: lang as "ar" | "en",
       })
+      if (!r.ok) {
+        prepV2Warning = prepV2WarningAr({
+          kind: "not_ok",
+          reason: r.reason,
+          failures: r.validation.failures,
+        })
+        console.error(
+          `[prep-v2] pipeline returned not-ok for prep ${prep.id}: ${r.reason}`,
+          r.validation.failures.map((f) => f.code),
+        )
+      }
     } catch (err) {
-      console.error("[prep-v2] pipeline failed (non-fatal):", err)
+      prepV2Warning = prepV2WarningAr({ kind: "threw", error: err })
+      console.error("[prep-v2] pipeline threw (non-fatal):", err)
     }
   }
 
@@ -254,6 +278,7 @@ export async function convertEpisodeToPreparation(
     ok: true,
     created: true,
     was_existing: false,
+    warning: prepV2Warning,
     link: {
       kind: "episode_to_preparation",
       target_id: prep.id,

@@ -16,6 +16,7 @@ import { Activity, RefreshCw, CheckCircle2, AlertTriangle, Clock } from "lucide-
 import { toast } from "@/lib/use-toast"
 import { refreshMarketIntelligenceAction } from "./market-actions"
 import type { MarketFreshness } from "@/lib/market-intelligence/freshness"
+import { runAction } from "@/app/admin/components/run-action"
 
 export interface MarketSignalsCardProps {
   seasonId: string
@@ -74,7 +75,18 @@ export function MarketSignalsCard({ seasonId, freshness }: MarketSignalsCardProp
   const onRefresh = () => {
     setAcknowledged(false)
     start(async () => {
-      const r = await refreshMarketIntelligenceAction({ seasonId })
+      const outcome = await runAction(() =>
+        refreshMarketIntelligenceAction({ seasonId }),
+      )
+      if (!outcome.ok) {
+        toast({
+          title: "تعذّر بدء التحديث",
+          description: outcome.message,
+          variant: "error",
+        })
+        return
+      }
+      const r = outcome.data
       if (!r.ok) {
         toast({
           title: "تعذّر بدء التحديث",

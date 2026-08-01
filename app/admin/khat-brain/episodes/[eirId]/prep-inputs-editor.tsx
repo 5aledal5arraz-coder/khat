@@ -262,7 +262,7 @@ export function PrepInputsEditor({
 
       <FieldRow
         id="key_questions"
-        label="الأسئلة الأساسية"
+        label="أسئلتك التمهيدية (مُدخل للتوليد)"
         dirty={dirty.isFieldDirty("key_questions")}
         validationError={
           validationError?.field === "key_questions"
@@ -311,8 +311,10 @@ function FieldRow({
         )}
       </label>
       {children}
+      {/* A save-failure reason is body text the operator must read and act
+          on, not a micro-label — 13px is the /admin/ops body step. */}
       {validationError && (
-        <p className="mt-1 text-[10.5px] text-rose-700">{validationError}</p>
+        <p className="mt-1 text-[13px] text-rose-700">{validationError}</p>
       )}
     </div>
   )
@@ -329,7 +331,8 @@ function KeyQuestionsList({
     <div className="space-y-1.5">
       {value.length === 0 && (
         <p className="rounded-xl border border-dashed border-border/40 bg-background/20 px-3 py-2 text-[11.5px] text-muted-foreground">
-          لا توجد أسئلة بعد. اضغط «إضافة سؤال» لتبدأ.
+          ما أضفت أسئلة تمهيدية. هذي أسئلتك أنت — تدخل كمُدخل للتوليد،
+          وغير أسئلة الإعداد المولّدة تحت.
         </p>
       )}
       {value.map((q, i) => (

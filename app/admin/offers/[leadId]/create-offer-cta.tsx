@@ -4,6 +4,7 @@ import { useState, useTransition } from "react"
 import { Loader2, FileText } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { createOfferForLeadAction } from "./actions"
+import { runAction } from "@/app/admin/components/run-action"
 
 /**
  * Empty-state CTA shown when a lead has no offer yet. Creation is an explicit,
@@ -17,10 +18,13 @@ export function CreateOfferCTA({ leadId }: { leadId: string }) {
   function create() {
     setError(null)
     startTransition(async () => {
-      const r = await createOfferForLeadAction(leadId)
+      const outcome = await runAction(() => createOfferForLeadAction(leadId))
       // On success the action revalidates this path and the page re-renders with
       // the editor. On failure (e.g. a VIEWER without permission) surface why.
-      if (!r.success) setError(r.error ?? "فشل إنشاء العرض")
+      if (!outcome.ok) return setError(outcome.message)
+      if (!outcome.data.success) {
+        setError(outcome.data.error ?? "فشل إنشاء العرض")
+      }
     })
   }
 

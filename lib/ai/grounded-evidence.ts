@@ -49,6 +49,7 @@ import {
 import { recordAiRun } from "@/lib/ai-router/record-run"
 import { deriveGeminiTelemetry } from "@/lib/ai-router/gemini-usage"
 import { assertRetrievalBudget } from "@/lib/ai-router/retrieval-budget"
+import { isRetriableProviderError } from "@/lib/ai-router/errors"
 import {
   buildRetrievalPrompt,
   deriveRetrievalCounts,
@@ -629,9 +630,10 @@ export async function gatherGroundedEvidence(
         }
       } catch (err) {
         lastErr = err
-        const message = err instanceof Error ? err.message : String(err)
-        const retriable = /\b(503|429|504|UNAVAILABLE|overloaded)\b/i.test(message)
-        if (!retriable || attempt === maxAttempts) throw err
+        // Same central predicate as the research path — these two loops had
+        // identical copies of a regex that treated a spend-cap 429 as
+        // transient.
+        if (!isRetriableProviderError(err) || attempt === maxAttempts) throw err
         await new Promise((r) => setTimeout(r, 1500 * attempt))
       }
     }

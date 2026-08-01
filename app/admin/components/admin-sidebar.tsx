@@ -74,7 +74,11 @@ const navGroups: NavGroup[] = [
     items: [
       { href: "/admin/khat-brain/seasons", icon: Compass, label: "المواسم" },
       { href: "/admin/khat-brain/episodes", icon: PlayCircle, label: "خط الإنتاج" },
-      { href: "/admin/preparation", icon: Sparkles, label: "الإعداد" },
+      // «كل التحضيرات», not «الإعداد»: the episode workspace already has a tab
+      // labelled «الإعداد» (`?tab=preparation`) that opens ONE episode's prep,
+      // while this goes to the cross-episode registry. Two different
+      // destinations under one word on the same screen.
+      { href: "/admin/preparation", icon: Sparkles, label: "كل التحضيرات" },
       { href: "/admin/studio", icon: Mic, label: "الاستوديو" },
       { href: "/admin/khat-brain/market/signals", icon: Activity, label: "إشارات السوق" },
       { href: "/admin/khat-brain/original-thinking", icon: Lightbulb, label: "التفكير الأصيل" },

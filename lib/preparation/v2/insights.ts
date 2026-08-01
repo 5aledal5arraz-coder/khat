@@ -25,6 +25,7 @@ import {
   geminiSearchWeb,
   geminiJson,
   isGeminiConfigured,
+  type GeminiCallAttribution,
 } from "@/lib/ai/preparation/research/gemini"
 import type { RawRetrievedSource } from "@/lib/ai/preparation/research/types"
 import {
@@ -51,8 +52,94 @@ const MAX_DRAFTS_PER_QUESTION = 2
  * Per-run grounding budget. Each candidate costs ~2 Gemini calls (search +
  * verify); this caps cost/latency on a large bank. Excess candidates are left
  * un-grounded (and therefore dropped) — logged, never silently swallowed.
+ *
+ * 30 → 15 (Khaled, 2026-08-01). Measured: a full preparation grounded at 30
+ * costs ≈$1.76 — more than the entire reference preparation `2fdb6a84…`
+ * ($1.2311). At 15 it lands near $1.0.
+ *
+ * Selection is `selectGroundingCandidates` below — round-robin across sections,
+ * best-first inside each — NOT the section-order slice this used to be.
  */
-const MAX_GROUNDING_CANDIDATES = 30
+const MAX_GROUNDING_CANDIDATES = 15
+
+/**
+ * Selection weights. `must_ask` outranks the insight type on purpose: a card
+ * the host will definitely reach for is worth more than a nicer card on a
+ * question they may skip.
+ */
+const WEIGHT_MUST_ASK = 2
+/** A correction stops the host repeating something false on air. */
+const WEIGHT_CORRECTION = 2
+/** Types that carry a checkable fact, so grounding has something to verify. */
+const WEIGHT_FACTUAL_TYPE = 1
+const FACTUAL_INSIGHT_TYPES = new Set<InsightType>(["stat", "research", "date"])
+
+/** Higher = more worth spending grounding budget on. Pure; no I/O. */
+export function scoreGroundingCandidate(
+  cand: Pick<DraftCandidate, "type" | "correction">,
+  questionPriority: PrepV2Question["priority"] | undefined,
+): number {
+  let score = 0
+  if (questionPriority === "must_ask") score += WEIGHT_MUST_ASK
+  if (cand.type === "correction" || cand.correction) score += WEIGHT_CORRECTION
+  if (FACTUAL_INSIGHT_TYPES.has(cand.type)) score += WEIGHT_FACTUAL_TYPE
+  return score
+}
+
+/**
+ * Choose which drafted candidates get the grounding budget.
+ *
+ * Two properties, and the order matters:
+ *
+ *  1. ROUND-ROBIN ACROSS SECTIONS. The drafts arrive concatenated in section
+ *     order, so a plain `slice(0, 15)` handed the whole budget to the first
+ *     few sections and grounded ZERO cards for the last ones — on the
+ *     reference preparation that meant the closing sections were always the
+ *     ones left bare, regardless of how good their candidates were.
+ *  2. BEST-FIRST INSIDE EACH SECTION, by `scoreGroundingCandidate`.
+ *
+ * Ties keep drafting order (`sort` is stable in Node), so the function is
+ * deterministic and re-running it on the same input yields the same picks.
+ *
+ * Exported for the offline evaluation in
+ * `tests/preparation/grounding-selection.test.ts`, which replays the real
+ * reference preparation through it with no AI calls.
+ */
+export function selectGroundingCandidates<T extends Pick<DraftCandidate, "section" | "type" | "correction" | "question_id">>(
+  drafted: T[],
+  priorityByQuestionId: Map<string, PrepV2Question["priority"]>,
+  budget: number = MAX_GROUNDING_CANDIDATES,
+): T[] {
+  if (drafted.length <= budget) return drafted
+
+  const bySection = new Map<SectionKind, T[]>()
+  for (const c of drafted) {
+    const list = bySection.get(c.section)
+    if (list) list.push(c)
+    else bySection.set(c.section, [c])
+  }
+  // Section insertion order = drafting order, so the rotation is stable.
+  const queues = [...bySection.values()].map((list) =>
+    [...list].sort(
+      (a, b) =>
+        scoreGroundingCandidate(b, priorityByQuestionId.get(b.question_id)) -
+        scoreGroundingCandidate(a, priorityByQuestionId.get(a.question_id)),
+    ),
+  )
+
+  const picked: T[] = []
+  for (let round = 0; picked.length < budget; round++) {
+    let tookAny = false
+    for (const q of queues) {
+      if (round >= q.length) continue
+      picked.push(q[round])
+      tookAny = true
+      if (picked.length === budget) break
+    }
+    if (!tookAny) break
+  }
+  return picked
+}
 /** How many candidates we ground at once. */
 const GROUNDING_CONCURRENCY = 4
 /** Web results pulled per claim before verification. */
@@ -124,6 +211,18 @@ export async function runInsightGeneration(
     return noop
   }
 
+  // Stamp every Gemini call in this pass with the record it belongs to. The
+  // drafting call already did this (it goes through `runAiTask`, which takes
+  // subject fields); the grounding + verification calls go direct to Gemini
+  // and did not, so a rate-limited grounding storm wrote rows that named no
+  // episode at all. Same three fields, same values — one attribution object
+  // shared by both halves so they can never drift apart.
+  const attribution: GeminiCallAttribution = {
+    eirId: input.eir_id,
+    subjectTable: "episode_preparations",
+    subjectId: input.preparation_id,
+  }
+
   // 1) Draft candidates per section (parallel, independent).
   const sectionsWithEligible = SECTION_KINDS.map((kind) => ({
     kind,
@@ -170,15 +269,21 @@ export async function runInsightGeneration(
     return { ok: true, questions: baseQuestions, ai_run_ids, stats: { drafted: 0, kept: 0, grounded: 0, capped: false } }
   }
 
-  // 2) Apply the grounding budget (candidates arrive in section order).
+  // 2) Apply the grounding budget — by QUALITY and section coverage, not by
+  //    the order the sections happened to finish drafting in.
   const capped = totalDrafted > MAX_GROUNDING_CANDIDATES
   if (capped) {
+    const priorityByQuestionId = new Map(
+      baseQuestions.map((q) => [q.id, q.priority] as const),
+    )
+    drafted = selectGroundingCandidates(drafted, priorityByQuestionId)
+    const sectionsKept = new Set(drafted.map((c) => c.section)).size
     console.warn(
       `[prep-v2/insights] ${totalDrafted} candidates exceed grounding budget ` +
-        `${MAX_GROUNDING_CANDIDATES} — grounding the first ${MAX_GROUNDING_CANDIDATES}, ` +
-        `${totalDrafted - MAX_GROUNDING_CANDIDATES} dropped un-grounded.`,
+        `${MAX_GROUNDING_CANDIDATES} — grounding the best ${drafted.length} ` +
+        `across ${sectionsKept}/${sectionsWithEligible.length} section(s), ` +
+        `${totalDrafted - drafted.length} dropped un-grounded.`,
     )
-    drafted = drafted.slice(0, MAX_GROUNDING_CANDIDATES)
   }
 
   // 3) Ground every candidate (bounded concurrency). Survivors carry sources.
@@ -195,6 +300,7 @@ export async function runInsightGeneration(
         const { confidence, sources } = await groundClaim(
           searchQueryFor(cand),
           verifyClaimFor(cand),
+          attribution,
         )
         if ((confidence !== "verified" && confidence !== "partial") || sources.length === 0) {
           return null
@@ -470,10 +576,11 @@ function isVerdict(v: unknown): v is VerifierVerdict {
 async function groundClaim(
   searchQuery: string,
   verifyClaim: string,
+  attribution: GeminiCallAttribution,
 ): Promise<{ confidence: InsightConfidence; sources: PrepV2InsightSource[] }> {
   let raw: RawRetrievedSource[]
   try {
-    raw = await geminiSearchWeb(searchQuery, SOURCES_PER_CLAIM)
+    raw = await geminiSearchWeb(searchQuery, SOURCES_PER_CLAIM, attribution)
   } catch (err) {
     console.warn(
       "[prep-v2/insights] grounding search failed:",
@@ -483,7 +590,7 @@ async function groundClaim(
   }
   if (raw.length === 0) return { confidence: "weak", sources: [] }
 
-  const verdict = await verifyAgainstSources(verifyClaim, raw)
+  const verdict = await verifyAgainstSources(verifyClaim, raw, attribution)
   const confidence: InsightConfidence =
     verdict.verdict === "supported"
       ? "verified"
@@ -509,6 +616,7 @@ async function groundClaim(
 async function verifyAgainstSources(
   claim: string,
   raw: RawRetrievedSource[],
+  attribution: GeminiCallAttribution,
 ): Promise<VerifierVerdict> {
   const corpus = raw
     .map((s, i) => `[${i}] ${s.publisher ?? safeHost(s.url)} — ${s.snippet || s.title}`)
@@ -529,7 +637,14 @@ async function verifyAgainstSources(
   const user = `Claim:\n${claim}\n\nRetrieved sources:\n${corpus}`
 
   try {
-    return await geminiJson<VerifierVerdict>(system, user, "insight-verify", 0.1, isVerdict)
+    return await geminiJson<VerifierVerdict>(
+      system,
+      user,
+      "insight-verify",
+      0.1,
+      isVerdict,
+      attribution,
+    )
   } catch (err) {
     console.warn(
       "[prep-v2/insights] verifier failed:",

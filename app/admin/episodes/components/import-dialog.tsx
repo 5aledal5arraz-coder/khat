@@ -23,6 +23,7 @@ import {
 } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { runAction } from "@/app/admin/components/run-action"
 import {
   importEpisodesFromYouTube,
   type ImportEpisodesResult,
@@ -69,10 +70,20 @@ export function ImportFromYoutubeButton(_props: ImportFromYoutubeButtonProps) {
     if (!canSubmit || isPending) return
     reset()
     startTransition(async () => {
-      const res = await importEpisodesFromYouTube({
-        from,
-        to: mode === "range" ? to : null,
-      })
+      const outcome = await runAction(() =>
+        importEpisodesFromYouTube({
+          from,
+          to: mode === "range" ? to : null,
+        }),
+      )
+      // A YouTube import is long enough to hit the gateway timeout, which is
+      // exactly the failure that used to leave the dialog spinning forever
+      // with its close button disabled.
+      if (!outcome.ok) {
+        setError(outcome.message)
+        return
+      }
+      const res = outcome.data
       if (!res.success) {
         setError(res.error || "فشل الاستيراد")
         setResult(res)

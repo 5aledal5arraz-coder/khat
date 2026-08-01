@@ -154,20 +154,42 @@ export function BulkConvertButton({
               {result.per_card.map((c) => (
                 <li
                   key={c.candidate_id}
-                  className="flex items-center gap-2 rounded-lg border border-border/30 bg-background/30 px-2 py-1"
+                  className="rounded-lg border border-border/30 bg-background/30 px-2 py-1"
                 >
-                  {c.status === "converted" ? (
-                    <CheckCircle2 className="h-3 w-3 shrink-0 text-emerald-700" />
-                  ) : c.status === "skipped_existing" ? (
-                    <CheckCircle2 className="h-3 w-3 shrink-0 text-muted-foreground" />
-                  ) : (
-                    <XCircle className="h-3 w-3 shrink-0 text-rose-700" />
-                  )}
-                  <span className="min-w-0 flex-1 truncate">{c.title}</span>
-                  {c.reason && (
-                    <span className="text-[10px] text-rose-700" dir="ltr">
-                      {c.reason}
-                    </span>
+                  <div className="flex items-center gap-2">
+                    {c.status === "converted" ? (
+                      <CheckCircle2 className="h-3 w-3 shrink-0 text-emerald-700" />
+                    ) : c.status === "skipped_existing" ? (
+                      <CheckCircle2 className="h-3 w-3 shrink-0 text-muted-foreground" />
+                    ) : (
+                      <XCircle className="h-3 w-3 shrink-0 text-rose-700" />
+                    )}
+                    <span className="min-w-0 flex-1 truncate">{c.title}</span>
+                    {/* A failure's reason is short and often English — it can
+                        stay on the title's row, LTR. */}
+                    {c.reason && (
+                      <span
+                        className="shrink-0 text-[10px] text-rose-700"
+                        dir="ltr"
+                      >
+                        {c.reason}
+                      </span>
+                    )}
+                  </div>
+                  {/* A warning is a full Arabic sentence on a card that
+                      SUCCEEDED: it gets its own line (the title above
+                      truncates, so sharing the row would swallow it), amber
+                      not rose, and RTL — it is Arabic prose, and `dir="ltr"`
+                      here was pushing its punctuation to the wrong end. */}
+                  {c.warning && (
+                    <div
+                      className="mt-1 flex items-start gap-1.5 rounded-md bg-amber-500/10 px-1.5 py-1 text-[10px] leading-relaxed text-amber-800"
+                      dir="rtl"
+                      data-bulk-convert-warning
+                    >
+                      <AlertTriangle className="mt-px h-2.5 w-2.5 shrink-0" />
+                      <span className="min-w-0">{c.warning}</span>
+                    </div>
                   )}
                 </li>
               ))}
