@@ -58,8 +58,24 @@ import { extendTailwindMerge } from "tailwind-merge"
  * does not conflict with, plus a two-way conflict with the built-in `leading`
  * so ours and Tailwind's still override each other by argument order.
  *
- * Any new step or leading token added to `@theme` in globals.css must be added
- * here too — tests/type-scale-guards.test.ts enforces both.
+ * AND THE SAME HOLE EXISTED A THIRD TIME, for `--container-measure`.
+ *
+ * `max-w-measure` — the Arabic line-length cap — landed in NO group at all, the
+ * `--leading-prose` failure mode: it neither merges nor loses, so
+ * `cn("max-w-measure", "max-w-2xl")` kept BOTH and the stylesheet decided.
+ * Latent when found (all 23 call sites are literal className strings and none
+ * passes a second `max-w-*` through `cn()`), so nothing on screen was wrong —
+ * but it is the identical defect twice repaired above, sitting in a namespace
+ * neither repair looked at.
+ *
+ * The lesson is the reason the guard changed shape: registering the tokens we
+ * REMEMBER is what produced three of these. `@theme` mints a utility for every
+ * key in a Tailwind namespace, so the guard now enumerates that block and
+ * demands each minted class land in the right group — a new key is a failing
+ * test until it is registered here.
+ *
+ * Any new step, leading or container token added to `@theme` in globals.css
+ * must be added here too — tests/type-scale-guards.test.ts enforces all three.
  */
 // The generic parameter declares the class-group id we are ADDING, so
 // "khat-leading" type-checks as a group in both `classGroups` and
@@ -96,6 +112,10 @@ const twMerge = extendTailwindMerge<"khat-leading">({
           ],
         },
       ],
+      // `--container-measure` → `max-w-measure`. twMerge's own `max-w` group is
+      // right here: a width cap genuinely conflicts with another width cap, and
+      // nothing in a different namespace should ever delete it.
+      "max-w": [{ "max-w": ["measure"] }],
     },
     conflictingClassGroups: {
       // Ours replaces Tailwind's, and Tailwind's replaces ours — but neither

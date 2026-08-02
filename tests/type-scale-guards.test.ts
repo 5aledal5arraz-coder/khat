@@ -64,6 +64,129 @@ function declaredSteps(): string[] {
   return [...steps]
 }
 
+// ── globals.css, read the way the browser reads it ───────────────────────────
+//
+// Guards 1–5 all check a token's TEXT. That is what let wave 3-b's worst
+// mutant through: `--leading-control: 1.2` leaves `--ui-heading-leading: 1.75`
+// declared, above its floor, and referenced by name in the kit — and connected
+// to nothing. The helpers below resolve a token the way the cascade does, per
+// surface and through `var()`, so a guard can assert on the number that
+// actually ARRIVES at the element.
+
+/** The whole file with comments removed — prose says `--radius: 0.5rem` too. */
+const CSS = readFileSync(join(ROOT, "app/globals.css"), "utf8").replace(/\/\*[\s\S]*?\*\//g, "")
+
+/** Split on a separator that is not inside parentheses. */
+function splitTopLevel(s: string, sep: string): string[] {
+  const out: string[] = []
+  let depth = 0
+  let cur = ""
+  for (const ch of s) {
+    if (ch === "(") depth++
+    else if (ch === ")") depth--
+    if (ch === sep && depth === 0) {
+      out.push(cur)
+      cur = ""
+    } else cur += ch
+  }
+  out.push(cur)
+  return out.map((p) => p.trim()).filter(Boolean)
+}
+
+/** The custom-property declarations of one block, by its opening text. */
+function blockDecls(opener: string): Record<string, string> {
+  const start = CSS.indexOf(opener)
+  if (start < 0) throw new Error(`block not found in globals.css: ${opener}`)
+  let depth = 0
+  for (let i = start + opener.length - 1; i < CSS.length; i++) {
+    if (CSS[i] === "{") depth++
+    else if (CSS[i] === "}" && --depth === 0) {
+      const out: Record<string, string> = {}
+      for (const m of CSS.slice(start + opener.length, i).matchAll(/(--[a-z0-9-]+)\s*:\s*([^;]+);/g)) {
+        out[m[1]] = m[2].trim()
+      }
+      return out
+    }
+  }
+  throw new Error(`unbalanced block in globals.css: ${opener}`)
+}
+
+const THEME_DECLS = blockDecls("@theme inline {")
+const SITE_DECLS = blockDecls(":root {")
+const ADMIN_DECLS = { ...SITE_DECLS, ...blockDecls(':root[data-surface="admin"] {') }
+const SURFACES = { site: SITE_DECLS, admin: ADMIN_DECLS }
+type Surface = keyof typeof SURFACES
+
+/**
+ * `@theme inline` emits its declarations OUTSIDE any cascade layer, so for a
+ * name declared in both it beats the `@layer base` :root block. No name is in
+ * both today; the order encodes the rule rather than the coincidence.
+ */
+function lookup(name: string, surface: Surface): string {
+  const v = THEME_DECLS[name] ?? SURFACES[surface][name]
+  if (v === undefined) throw new Error(`${name} is not declared for surface "${surface}"`)
+  return v
+}
+
+/** Replace every `var(--x)` with the value that surface resolves it to. */
+function substitute(value: string, surface: Surface, seen: string[] = []): string {
+  return value.replace(/var\((--[a-z0-9-]+)\)/g, (_, name: string) => {
+    if (seen.includes(name)) throw new Error(`var() cycle: ${[...seen, name].join(" → ")}`)
+    return substitute(lookup(name, surface), surface, [...seen, name])
+  })
+}
+
+const balanced = (s: string) => {
+  let d = 0
+  for (const ch of s) {
+    if (ch === "(") d++
+    else if (ch === ")" && --d < 0) return false
+  }
+  return d === 0
+}
+
+/**
+ * A fully substituted value as a number — px for a length, the bare number for
+ * a unitless ratio — or null when it cannot be reduced without a viewport
+ * (`clamp(… vw …)`) or a font context (`em`). Callers that need a number
+ * assert it is not null, so an unresolvable value FAILS rather than skips.
+ */
+function toNumber(expr: string): number | null {
+  const s = expr.trim()
+  const leaf = s.match(/^(-?\d*\.?\d+)(rem|px)?$/)
+  if (leaf) return leaf[2] === "rem" ? parseFloat(leaf[1]) * 16 : parseFloat(leaf[1])
+  const fn = s.match(/^([a-z]*)\(([\s\S]*)\)$/)
+  if (fn && balanced(fn[2])) {
+    const args = splitTopLevel(fn[2], ",").map(toNumber)
+    if (args.some((a) => a === null)) return null
+    const n = args as number[]
+    if (fn[1] === "max") return Math.max(...n)
+    if (fn[1] === "min") return Math.min(...n)
+    if ((fn[1] === "calc" || fn[1] === "") && n.length === 1) return n[0]
+    return null
+  }
+  // Binary operators, lowest precedence first, scanning right so `a - b - c`
+  // stays left-associative. CSS requires whitespace around + and -.
+  for (const ops of ["+-", "*/"]) {
+    let depth = 0
+    for (let i = s.length - 1; i > 0; i--) {
+      const ch = s[i]
+      if (ch === ")") depth++
+      else if (ch === "(") depth--
+      else if (depth === 0 && ops.includes(ch) && (ops === "*/" || /\s/.test(s[i - 1]))) {
+        const l = toNumber(s.slice(0, i))
+        const r = toNumber(s.slice(i + 1))
+        if (l === null || r === null) return null
+        return ch === "+" ? l + r : ch === "-" ? l - r : ch === "*" ? l * r : l / r
+      }
+    }
+  }
+  return null
+}
+
+/** The number a surface actually delivers for a token. */
+const resolved = (name: string, surface: Surface) => toNumber(substitute(lookup(name, surface), surface))
+
 // ── 1. cn() must not eat a scale class that sits next to a colour ────────────
 
 describe("cn() keeps every declared type step", () => {
@@ -287,12 +410,14 @@ describe("components/ui headings cannot collide", () => {
   })
 
   it("no heading sets leading-none, and every one names a leading", () => {
-    // `leading-none` is a line box exactly as tall as the font size. Arabic ink
-    // is 1.365x its font size PLAIN and 1.708x with a shadda+kasratan stack
-    // (measured 2026-08-02, IBM Plex Sans Arabic 600, canvas actualBoundingBox
-    // — the ratio is size-independent). So leading-none collides at every size
-    // this kit uses. Deleting `leading-control` from DialogTitle or CardTitle,
-    // or putting `leading-none` back, must fail here.
+    // `leading-none` is a line box exactly as tall as the font size, and
+    // Arabic ink is taller than that across nearly all of our copy: measured
+    // over 4905 harvested strings, mean 1.103x and max 1.763x the font size at
+    // weight 600 (see the note on --ui-heading-leading in globals.css for the
+    // method and for why the per-category table that used to be quoted here
+    // was unreproducible). So leading-none collides at every size this kit
+    // uses. Deleting `leading-control` from DialogTitle or CardTitle, or
+    // putting `leading-none` back, must fail here.
     const offenders: string[] = []
     for (const { file, line, tag } of headingTags()) {
       if (/\bleading-none\b/.test(tag)) offenders.push(`${file}:${line} leading-none`)
@@ -310,9 +435,16 @@ describe("components/ui headings cannot collide", () => {
     //
     // The size half is the CardTitle defect: a primitive with no size class
     // does not have a size, it has whatever its parent had.
+    //
+    // THE ARBITRARY-VALUE BRANCH USED TO BE `text-\[[^\]]+\]`, which accepts
+    // ANY bracketed value — so `text-[#fff]`, a COLOUR, satisfied a test whose
+    // subject is size. Mutation H03 put exactly that on CardTitle and passed
+    // all thirty-one guards while the primitive went back to having no size at
+    // all. An arbitrary size is a LENGTH, so only a length is accepted here.
     const offenders: string[] = []
     const sizePattern = new RegExp(
-      `(^|[\\s"'\`{])text-(${steps.join("|")})(?=[\\s"'\`}]|$)|text-\\[[^\\]]+\\]`,
+      `(^|[\\s"'\`{])text-(${steps.join("|")})(?=[\\s"'\`}]|$)` +
+        `|text-\\[(?:length:)?\\d+(?:\\.\\d+)?(?:px|rem|em)\\]`,
     )
     for (const { file, line, tag } of headingTags()) {
       if (/\btracking-tight(er)?\b/.test(tag)) offenders.push(`${file}:${line} tracking-tight`)
@@ -321,11 +453,14 @@ describe("components/ui headings cannot collide", () => {
     expect(offenders).toEqual([])
   })
 
-  it("--ui-heading-leading clears the measured worst-case Arabic ink", () => {
-    // The number itself, not just its presence. 1.708 is the tallest ink/size
-    // ratio measured on this typeface at 600 weight; Noura independently
-    // measured 1.737 on a harsher sample. A future edit that "tidies" this back
-    // toward a Latin-looking 1.2 must fail.
+  it("--ui-heading-leading clears the ink of every heading the kit renders", () => {
+    // The number itself, not just its presence. The tallest of the 18 strings
+    // the shared kit actually puts in a Card/DialogTitle measures 1.365x its
+    // font size at weight 600, so 1.75 clears the kit's own worst case with
+    // room; over the whole 4905-string corpus the tallest is 1.763, which it
+    // does NOT clear — recorded, not hidden, on --ui-heading-leading itself.
+    // A future edit that "tidies" this back toward a Latin-looking 1.2 fails
+    // here; one that detaches it from its consumers fails in section 6.
     const css = readFileSync(join(ROOT, "app/globals.css"), "utf8")
     const m = css.match(/--ui-heading-leading:\s*([\d.]+)\s*;/)
     expect(m, "--ui-heading-leading not declared").not.toBeNull()
@@ -466,10 +601,22 @@ describe("spacing, radius and elevation resolve from the switch point", () => {
     expect(tooClose).toEqual([])
   })
 
-  it("every elevation rung is drawn in --shadow-tint", () => {
+  it("every LAYER of every elevation rung is drawn in --shadow-tint", () => {
+    // Per LAYER, not per rung. A box-shadow is a comma-separated list and each
+    // rung here has two, so `v.includes("var(--shadow-tint)")` was satisfied by
+    // ONE surviving layer: mutation M13 hardcoded the first half of --shadow-md
+    // back to `rgb(0 0 0 / 0.1)` and passed, leaving a rung half on the switch
+    // point and half off it — which is worse than being wholly off, because
+    // retinting the brand would then split one shadow into two colours.
     const rungs = [...theme.matchAll(/^\s*--shadow-([a-z0-9]+):\s*([^;]+);/gm)]
     expect(rungs.length).toBeGreaterThanOrEqual(4)
-    expect(rungs.filter(([, , v]) => !v.includes("var(--shadow-tint)")).map(([, k]) => k)).toEqual([])
+    const offenders: string[] = []
+    for (const [, key, value] of rungs) {
+      splitTopLevel(value, ",").forEach((layer, i) => {
+        if (!layer.includes("var(--shadow-tint)")) offenders.push(`--shadow-${key} layer ${i + 1}`)
+      })
+    }
+    expect(offenders).toEqual([])
     // …and the tint itself is NOT in @theme, or Tailwind mints a `shadow-tint`
     // utility that renders a colour triplet as a box-shadow.
     expect(theme).not.toMatch(/--shadow-tint:/)
@@ -479,10 +626,29 @@ describe("spacing, radius and elevation resolve from the switch point", () => {
   it("no source file still uses the two merged-away rungs", () => {
     // `rounded` and `rounded-sm` computed the SAME 4px under two names, and
     // bare `rounded` is a v3 compatibility constant that `@theme` cannot
-    // reach at all (tried `--radius-DEFAULT`; Tailwind ignores it, verified in
-    // the compiled stylesheet). `shadow` and `shadow-sm` were likewise
-    // byte-identical. Both were rewritten to the surviving name for exactly
-    // zero pixels of change; this stops them coming back.
+    // reach at all (tried `--radius-DEFAULT`; Tailwind ignores it).
+    //
+    // `shadow` and `shadow-sm` were NOT byte-identical, and calling them that
+    // was wrong. Read back off the served stylesheet 2026-08-02:
+    //
+    //   .shadow     0 1px 3px 0 #0000001a,               0 1px 2px -1px #0000001a
+    //   .shadow-sm  0 1px 3px 0 hsl(var(--shadow-tint)/.1), 0 1px 2px -1px …
+    //
+    // Identical GEOMETRY, and the colours differ: `#0000001a` is alpha
+    // 26/255 = 0.10196, the tint ladder asks for 0.1. A 0.002 alpha delta on a
+    // 10%-opacity shadow is not visible and the rewrite was still right — but
+    // "zero pixels of change" is the honest claim and "byte-identical" was not.
+    //
+    // NOTE FOR ANYONE VERIFYING THIS FROM THE COMPILED CSS: `.rounded` and
+    // `.shadow` are STILL emitted, and that is not evidence of a call site.
+    // Tailwind v4 scans every file it can reach and treats any word-shaped
+    // token as a candidate, comments and JSON prose included. Proved
+    // 2026-08-02 by compiling globals.css against a directory holding one
+    // file whose entire content is `// duration is rounded down, with a
+    // subtle shadow` — both classes were minted. `lib/whisper.ts` ("do not
+    // swap in the rounded one") and components/guests/guest-avatar.tsx
+    // ("Subtle inner shadow for depth") are the live sources today. So the
+    // source scan below is the real check; the stylesheet cannot answer this.
     const files = [...walk(join(ROOT, "app")), ...walk(join(ROOT, "components"))]
     const BARE = /(?<![a-zA-Z-])(rounded|shadow)(?![a-zA-Z0-9/:[-])/
     const offenders: string[] = []
@@ -496,5 +662,298 @@ describe("spacing, radius and elevation resolve from the switch point", () => {
       })
     }
     expect(offenders).toEqual([])
+  })
+})
+
+// ── 6. The CHAIN, not the two endpoints ──────────────────────────────────────
+
+/**
+ * WAVE 3-B. Mutation testing put twenty-three mutants past guards 1–5 and five
+ * of them SURVIVED. Four were one shape: a token whose value is checked and
+ * whose LINK is not.
+ *
+ *   --leading-control: 1.2
+ *
+ * restores the exact collision this whole wave existed to remove, and every
+ * one of the thirty-one guards stayed green. Guard 4 asserts
+ * `--ui-heading-leading >= 1.74`, and asserts the kit's headings carry
+ * `leading-control`; nothing asserted that `leading-control` READS
+ * `--ui-heading-leading`. Cut the wire between them and the measurement is
+ * still declared, still above its floor, and reaches no element on either
+ * surface. The same cut worked on `--leading-prose` and on `--ui-control-lead`.
+ *
+ * So these guards resolve the variable chain the way the browser does — per
+ * surface, through `var()` and `calc()`/`max()` — and assert on the number that
+ * ARRIVES. Note what that buys: `--leading-control: 1.75`, a literal copy of
+ * today's correct value, ALSO fails. That is the point. The next person to
+ * retune the ink measurement must have every consumer follow it.
+ */
+describe("the switch point reaches the element, not just the stylesheet", () => {
+  const SURFACE_NAMES = Object.keys(SURFACES) as Surface[]
+
+  /**
+   * INK, MEASURED PROPERLY THIS TIME — and the earlier table was wrong.
+   *
+   * Wave 3 justified --ui-heading-leading with five per-category ratios
+   * (plain 1.365 … shadda+kasratan 1.708). Noura could not reproduce any of
+   * them; her own canvas run returned 1.044 / 1.561 on the same font. Both
+   * runs were correct and the labels were the defect: THE RATIO IS A PROPERTY
+   * OF THE STRING, not of a category. "Plain Arabic" measures 0.961 on `كتاب`
+   * and 1.441 on the tallest untashkeel'd string we actually ship, so a table
+   * of category names is unreproducible by construction.
+   *
+   * Re-measured 2026-08-02 the only way that is reproducible: over the copy
+   * this project renders. 4905 Arabic strings harvested from app/ +
+   * components/, canvas actualBoundingBoxAscent+Descent over font size, IBM
+   * Plex Sans Arabic, with a width check against a bogus family first so a
+   * silent fallback cannot be mistaken for a measurement. Ratios confirmed
+   * size-independent at 13 / 16 / 18 / 32px.
+   *
+   *   weight 600   mean 1.103   max 1.763  ("أُزيل التخصيص — عاد الافتراضي")
+   *   weight 400   mean 1.082   max 1.705   (same string)
+   *   tallest with no tashkeel at all       1.441
+   *   the 18 strings the shared kit actually
+   *   puts in a Card/DialogTitle, max       1.365  ("كن ضيفاً على البودكاست")
+   *
+   * That last line is where the old 1.365 came from — it is real, it was just
+   * labelled "plain Arabic" instead of "the worst heading we ship".
+   *
+   * WHAT THIS MEANS FOR 1.75, STATED HONESTLY. It clears every string the kit
+   * puts in a heading today (1.365) by a wide margin. It does NOT clear the
+   * corpus maximum of 1.763 — one string in 4905, and not a heading — which
+   * would overlap by 0.23px at 18px if it ever wrapped in a DialogTitle. The
+   * value is left alone: raising it would loosen every kit heading on both
+   * surfaces to chase a string that never appears in one. Recorded rather than
+   * silently rounded away.
+   */
+  const INK_MEAN = 1.103
+  const INK_HEADING_FLOOR = 1.74
+
+  it("the kit's leading IS the ink measurement, on every surface", () => {
+    for (const surface of SURFACE_NAMES) {
+      const measured = resolved("--ui-heading-leading", surface)
+      const applied = resolved("--leading-control", surface)
+      expect(applied, `--leading-control did not resolve on "${surface}"`).not.toBeNull()
+      expect(applied, `leading-control is detached from the measurement on "${surface}"`).toBe(measured)
+      expect(applied!).toBeGreaterThanOrEqual(INK_HEADING_FLOOR)
+    }
+  })
+
+  it("leading-prose IS the body step's leading", () => {
+    // `--leading-prose` exists so running prose set at a HEADLINE size keeps
+    // body leading. Detached, it is just another number and the homepage
+    // statement stops following the scale.
+    for (const surface of SURFACE_NAMES) {
+      const body = resolved("--type-leading-body", surface)
+      const prose = resolved("--leading-prose", surface)
+      expect(prose, `--leading-prose did not resolve on "${surface}"`).not.toBeNull()
+      expect(prose).toBe(body)
+    }
+  })
+
+  it("every step's paired line-height IS that step's declared leading", () => {
+    // The eight `--text-<step>--line-height` pairings are what make the wave-2
+    // promise — "a step can never be used at a leading that collides" — true.
+    // Nothing checked they still point at `--type-leading-<step>`; repointing
+    // one, or pasting a literal into it, was invisible to all thirty-one.
+    const steps = ["micro", "caption", "body", "lead", "subhead", "heading", "title", "display"]
+    for (const surface of SURFACE_NAMES) {
+      for (const step of steps) {
+        const paired = resolved(`--text-${step}--line-height`, surface)
+        const declared = resolved(`--type-leading-${step}`, surface)
+        expect(paired, `--text-${step}--line-height did not resolve`).not.toBeNull()
+        expect(paired, `text-${step} no longer carries --type-leading-${step}`).toBe(declared)
+      }
+    }
+  })
+
+  it("no leading falls under the mean ink of our own copy", () => {
+    // A floor, not a target. At 1.103 the AVERAGE string in this project's
+    // copy exactly fills its line box, so anything below it overlaps more
+    // often than not — `--type-leading-body: 1` was one of the surviving
+    // mutants and this is what stops it.
+    //
+    // Deliberately NOT claimed: that these values clear the WORST string.
+    // `--type-leading-title` and `--type-leading-display` are 1.4, under the
+    // 1.441 tallest-untashkeel'd measurement, so a title can still collide on
+    // its worst input. That is a real residual at display sizes — where the
+    // copy is short and hand-chosen — and it is a decision, not an oversight.
+    const offenders: string[] = []
+    for (const surface of SURFACE_NAMES) {
+      for (const [name] of Object.entries(SURFACES[surface])) {
+        if (!/^--(type-)?leading-/.test(name)) continue
+        const v = resolved(name, surface)
+        if (v === null || v < INK_MEAN) offenders.push(`${surface}: ${name} = ${v}`)
+      }
+    }
+    expect(offenders).toEqual([])
+  })
+
+  it("the shared kit's size ladder is monotonic and above both floors", () => {
+    // `--ui-control-lead` is the size of every Card/DialogTitle. Setting it to
+    // 0.5rem — 8px headings, smaller than the body text beside them — passed
+    // every guard, because nothing said a heading has to be bigger than what
+    // it heads. Ordering is that rule; it also catches a swapped pair.
+    //
+    // The 16px floor on `--ui-field` is the iOS zoom rule, asserted here on
+    // the RESOLVED number. Guard 3 only checks that the declaration is spelled
+    // `max(1rem, …)`, which a surface override could still undercut.
+    for (const surface of SURFACE_NAMES) {
+      const sm = resolved("--ui-control-sm", surface)
+      const base = resolved("--ui-control", surface)
+      const lead = resolved("--ui-control-lead", surface)
+      const field = resolved("--ui-field", surface)
+      for (const [n, v] of [["sm", sm], ["control", base], ["lead", lead], ["field", field]] as const) {
+        expect(v, `--ui-${n} did not resolve to a number on "${surface}"`).not.toBeNull()
+      }
+      expect(sm!, `${surface}: control-sm is not below control`).toBeLessThan(base!)
+      expect(base!, `${surface}: a kit heading is not bigger than kit body text`).toBeLessThan(lead!)
+      expect(sm!, `${surface}: below the 12px floor for visible text`).toBeGreaterThanOrEqual(12)
+      expect(field!, `${surface}: under the 16px iOS zoom floor`).toBeGreaterThanOrEqual(16)
+    }
+  })
+
+  it("every value in @theme traces back to a :root token", () => {
+    // The rule the block already follows, made enforceable. `@theme inline` is
+    // the seam: :root declares the identity, @theme turns it into utilities.
+    // A value with no `var()` back into :root is a utility that the switch
+    // point cannot reach — which is what `--leading-control: 1.2` was, and
+    // what every one of the 27 shadows and 35 radii was before wave 3.
+    //
+    // This is the DECLARATION half. The resolved-identity tests above are the
+    // other half: this one catches a literal pasted in today, those catch the
+    // source being retuned tomorrow without its consumer following.
+    const ALLOWED_LITERALS: Record<string, string> = {
+      // The museum overlay's own near-black. Genuinely off the switch point
+      // and left that way in wave 3: it is a fixed dark scrim behind a single
+      // gallery surface, not a brand colour, and the palette above has no slot
+      // for it. Named here so it is a decision on the record rather than a
+      // token nobody noticed.
+      "--color-museum-bg": "hsl(252 44% 6%)",
+    }
+    const offenders: string[] = []
+    for (const [token, value] of Object.entries(THEME_DECLS)) {
+      if (token in ALLOWED_LITERALS) {
+        expect(value, `${token} changed — re-decide whether it is still an exception`).toBe(
+          ALLOWED_LITERALS[token],
+        )
+        continue
+      }
+      const refs = [...value.matchAll(/var\((--[a-z0-9-]+)\)/g)].map((m) => m[1])
+      if (!refs.some((r) => r in SITE_DECLS)) offenders.push(`${token}: ${value}`)
+    }
+    expect(offenders).toEqual([])
+  })
+
+  it("--spacing resolves to a real length, on every surface", () => {
+    // Guard 5 checks --spacing is spelled `var(--type-rhythm)`. This checks it
+    // still ARRIVES as a number: every p-/m-/gap-/size- utility in the app is
+    // `calc(var(--spacing) * N)`, so an unresolvable value silently collapses
+    // the entire layout rather than one component.
+    for (const surface of SURFACE_NAMES) {
+      const px = resolved("--spacing", surface)
+      expect(px, `--spacing did not resolve on "${surface}"`).not.toBeNull()
+      expect(px!).toBeGreaterThan(0)
+    }
+  })
+})
+
+// ── 7. tailwind-merge knows every utility @theme mints ───────────────────────
+
+/**
+ * THE THIRD TIME, so the guard stopped being a list.
+ *
+ * Registering the tokens we REMEMBER is what produced all three cn() defects:
+ * the eight type steps (wave 2, silently deleted by a colour class), the two
+ * leadings (wave 3, deleted by a caller's font-size), and `max-w-measure`,
+ * which Noura found in no group at all. That third one was latent — all 23
+ * call sites are literal className strings and none passes a second `max-w-*`
+ * through cn() — but it is the identical defect twice repaired, sitting in a
+ * namespace neither repair thought to look at.
+ *
+ * `@theme` mints a utility for EVERY key in a Tailwind namespace, so this
+ * enumerates that block instead of a list of names. A new key is a failing
+ * test until lib/utils.ts learns it, and a new NAMESPACE is a failing test
+ * until someone decides which group it belongs to.
+ */
+describe("tailwind-merge knows every utility @theme mints", () => {
+  /** `--<namespace>-<key>` → the class it mints and the group it must land in. */
+  const NAMESPACES: Record<string, { cls: (k: string) => string; group: string }> = {
+    color: { cls: (k) => `text-${k}`, group: "text-color" },
+    font: { cls: (k) => `font-${k}`, group: "font-family" },
+    text: { cls: (k) => `text-${k}`, group: "font-size" },
+    // Ours live in `khat-leading`, which conflicts with `leading` BOTH ways —
+    // so by annihilation the two are indistinguishable, which is exactly the
+    // behaviour we want. That ours is in the separate group is asserted by
+    // name in guard 4, and its consequence by the font-size test there.
+    leading: { cls: (k) => `leading-${k}`, group: "leading" },
+    radius: { cls: (k) => `rounded-${k}`, group: "rounded" },
+    shadow: { cls: (k) => `shadow-${k}`, group: "shadow" },
+    container: { cls: (k) => `max-w-${k}`, group: "max-w" },
+  }
+
+  /** Two known members of each group; a class is IN a group if it kills them. */
+  const PROBES: Record<string, string[]> = {
+    "text-color": ["text-red-500", "text-black"],
+    "font-family": ["font-mono", "font-serif"],
+    "font-size": ["text-sm", "text-9xl"],
+    leading: ["leading-relaxed", "leading-7"],
+    rounded: ["rounded-none", "rounded-full"],
+    // `shadow-xs`, not `shadow-inner`. `shadow-inner` still COMPILES (v4 keeps
+    // it as a legacy alias and guest-avatar.tsx uses it), but tailwind-merge
+    // 3.4 does not group it — v4's inset shadows are the `inset-shadow-*`
+    // namespace now. So it is a bad probe, and separately a thing to know
+    // before anyone passes it through cn(): it will coexist, not merge.
+    shadow: ["shadow-none", "shadow-xs"],
+    "max-w": ["max-w-none", "max-w-full"],
+    padding: ["p-0", "p-12"],
+  }
+
+  const groupsOf = (cls: string) =>
+    Object.entries(PROBES)
+      .filter(([, ps]) => ps.every((p) => cn(cls, p) === p && cn(p, cls) === cls))
+      .map(([g]) => g)
+
+  const minted: { token: string; cls: string; group: string }[] = []
+  const unknownNamespaces: string[] = []
+  for (const token of Object.keys(THEME_DECLS)) {
+    if (token.includes("--line-height")) continue // a pairing; mints no class
+    if (token === "--spacing") {
+      // Mints no single class — it is the multiplier under every p-/m-/gap-.
+      minted.push({ token, cls: "p-4", group: "padding" })
+      continue
+    }
+    const ns = Object.keys(NAMESPACES).find((n) => token.startsWith(`--${n}-`))
+    if (!ns) {
+      unknownNamespaces.push(token)
+      continue
+    }
+    minted.push({ token, cls: NAMESPACES[ns].cls(token.slice(ns.length + 3)), group: NAMESPACES[ns].group })
+  }
+
+  it("every namespace in @theme is one this guard knows how to check", () => {
+    // A new namespace (`--tracking-*`, `--ease-*`, …) mints utilities nobody
+    // has decided a merge group for. Failing here is the decision point.
+    expect(unknownNamespaces).toEqual([])
+    expect(minted.length).toBeGreaterThanOrEqual(30)
+  })
+
+  it.each(minted.map((m) => [m.cls, m.group, m.token]))(
+    "%s lands in exactly tailwind-merge's `%s` group  (%s)",
+    (cls, group) => {
+      // Exactly one group: landing in NONE is the max-w-measure /
+      // --leading-prose failure (coexists, stylesheet order decides); landing
+      // in TWO means an ambiguous key across namespaces.
+      expect(groupsOf(cls as string)).toEqual([group])
+    },
+  )
+
+  it("a width cap merges with another width cap and with nothing else", () => {
+    // The bug in its own shape, so it reads as a regression rather than as a
+    // row in a table.
+    expect(cn("max-w-measure", "max-w-2xl")).toBe("max-w-2xl")
+    expect(cn("max-w-2xl", "max-w-measure")).toBe("max-w-measure")
+    expect(cn("max-w-measure", "text-body")).toContain("max-w-measure")
+    expect(cn("max-w-measure", "p-4")).toContain("max-w-measure")
   })
 })

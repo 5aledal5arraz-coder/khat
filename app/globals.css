@@ -133,8 +133,8 @@
 
        Binding the unit to the body step fixes exactly that: one text step is
        four rhythm units, so growing body copy grows the space around it in
-       the same proportion. 1rem / 4 = 0.25rem, which is byte-identical to
-       what Tailwind already emitted — this ships zero pixels of change and
+       the same proportion. 1rem / 4 computes to exactly the 0.25rem Tailwind
+       already emitted — this ships zero pixels of change and
        only moves the number under the switch point. Verified by perturbation
        on the homepage: before, scaling --type-size-body x1.5 moved 0 of the
        100 elements that carry padding/margin/gap; after, it moves all of
@@ -143,28 +143,47 @@
 
     /* Leading for the SHARED KIT's headings (DialogTitle, CardTitle).
 
-       Not a taste value — a measurement, by the same canvas-ink method as
-       the eight --type-leading-* steps above. Both titles shipped
-       `leading-none`, which is a line box exactly as tall as the font size,
-       and Arabic ink is taller than its font size at every weight this kit
-       uses. Measured 2026-08-02, IBM Plex Sans Arabic 600, ink height as a
-       ratio of font size (the ratio is size-independent, verified at 13 /
-       16 / 18px):
+       Not a taste value — a measurement. Both titles shipped `leading-none`,
+       which is a line box exactly as tall as the font size, and Arabic ink is
+       taller than its font size across almost all of this project's copy.
 
-         plain Arabic                 1.365   → collides at leading-none
-         descenders only              1.088   → collides
-         light tashkeel               1.365   → collides
-         tashkeel over a descender    1.689   → collides
-         shadda + kasratan stack      1.708   → collides
+       THE TABLE THAT USED TO BE HERE WAS WRONG AND IS WORTH THE SPACE TO SAY
+       SO. It listed five per-CATEGORY ratios (plain 1.365 … shadda+kasratan
+       1.708). Noura could not reproduce a single one; her own canvas run on
+       the same font returned 1.044 / 1.561. Both runs were right and the
+       LABELS were the defect: the ink ratio is a property of the STRING, not
+       of a category. "Plain Arabic" measures 0.961 on `كتاب` and 1.441 on the
+       tallest untashkeel'd string we actually ship, so any table keyed by
+       category is unreproducible by construction, and a reader who trusts it
+       reasons from a number nobody can get back.
 
-       So `leading-none` overlapped consecutive lines in EVERY sample, plain
-       text included — 6.57px on an 18px DialogTitle, 5.84px on a 16px
-       CardTitle. Noura measured the same defect live on a wrapped dialog
-       title (9px) and a harsher sample (1.737).
+       Re-measured 2026-08-02 the only reproducible way — over the copy this
+       project renders. 4905 Arabic strings harvested from app/ + components/,
+       canvas actualBoundingBoxAscent+Descent ÷ font size, IBM Plex Sans
+       Arabic, checked against a bogus family first so a silent font fallback
+       cannot be mistaken for a measurement. Size-independent, verified at
+       13 / 16 / 18 / 32px:
 
-       1.75 clears the worst of both measurements with margin, and is not a
-       new number: it is --type-leading-caption, so the kit's headings sit on
-       the same rhythm as the scale rather than beside it.
+         weight 600   mean 1.103   max 1.763  ("أُزيل التخصيص — عاد الافتراضي")
+         weight 400   mean 1.082   max 1.705   (the same string)
+         tallest string carrying no tashkeel at all          1.441
+         tallest of the 18 strings the kit actually puts
+         in a Card/DialogTitle                               1.365
+
+       That last line is where the old 1.365 came from: it is real, it was
+       just labelled "plain Arabic" instead of "the worst heading we ship".
+       So `leading-none` collided on essentially everything, and 1.75 clears
+       every heading string the kit renders today by a wide margin.
+
+       WHAT 1.75 DOES NOT CLEAR, on the record: the corpus maximum of 1.763 —
+       one string in 4905, and not a heading. If that exact text ever wrapped
+       inside a DialogTitle at 18px it would overlap by 0.23px. Left alone
+       deliberately: raising the value would loosen every kit heading on both
+       surfaces to chase a string that never appears in one.
+
+       It is also not a new number — it is --type-leading-caption, so the
+       kit's headings sit on the same rhythm as the scale rather than beside
+       it.
 
        DELIBERATELY NOT OVERRIDDEN BY THE ADMIN. The other UI primitives are
        pinned per-surface because density is a product decision. Ink height
@@ -388,8 +407,18 @@
        rounded-2xl             2x    16px   unchanged
        rounded-3xl             3x    24px   unchanged
 
-     `rounded-full` stays a constant on purpose: it is a shape (a pill),
-     not a size, and must not shrink when the identity's corner does. */
+     `rounded-full` (421 usages) stays a constant on purpose: it is a shape
+     (a pill), not a size, and must not shrink when the identity's corner
+     does.
+
+     Still outside the switch point, and named here for the same reason the
+     elevation block names its leftovers — an unnamed remainder reads as a
+     complete job: five arbitrary corners survive, `rounded-[28px]` on the
+     homepage hero card and the teaser section, `rounded-[26px]` further down
+     the homepage, `rounded-[22px]` on the media-kit view, and a `rounded-[5px]`
+     in the admin shell. Four of the five are one-off editorial cards on the
+     public site; the 5px is a chrome detail. A wave of their own, not this
+     one. */
   --radius-sm: calc(var(--radius) * 0.5);
   --radius-md: var(--radius);
   --radius-lg: var(--radius);
@@ -410,11 +439,27 @@
      recolouring the brand could not touch them: perturbing the tokens moved
      0 of the 27 shadowed elements on the homepage.
 
-     The tail is merged rather than re-valued. `shadow` and `shadow-sm`
-     already computed BYTE-IDENTICAL geometry in v4 (both `0 1px 3px …`) —
-     one rung wearing two names — so the six bare `shadow` usages were
-     rewritten to `shadow-sm` for exactly zero pixels of change. Five rungs
-     remain, each a distinct step, all reading one tint.
+     The tail is merged rather than re-valued. `shadow` and `shadow-sm` are
+     the same rung wearing two names — but NOT "byte-identical", which is what
+     this comment used to claim. Read back off the served stylesheet:
+
+       .shadow     0 1px 3px 0 #0000001a,                  0 1px 2px -1px …
+       .shadow-sm  0 1px 3px 0 hsl(var(--shadow-tint)/.1), 0 1px 2px -1px …
+
+     Identical geometry; the colours differ. `#0000001a` is alpha 26/255 =
+     0.10196 and the ladder asks for 0.1 — invisible at 10% opacity on a
+     shadow, and the rewrite was still right, but "zero pixels of change" is
+     the claim that holds and "byte-identical" was not.
+
+     FIVE bare `shadow` usages were rewritten, not six. The sixth "shadow"
+     was the word inside a JSX comment in components/guests/guest-avatar.tsx
+     ("Subtle inner shadow for depth") — and that same comment is why
+     `.shadow` is STILL compiled into the stylesheet with no call site left:
+     Tailwind v4 treats any word-shaped token in any file it scans as a
+     candidate, prose included. So "is it still in the compiled CSS" cannot
+     answer "is it still used"; only the source scan in
+     tests/type-scale-guards.test.ts can. Five rungs remain, each a distinct
+     step, all reading one tint.
 
      `shadow-inner` (one usage, components/guests/guest-avatar.tsx) is NOT
      part of this ladder and was left alone on purpose: an inset shadow is a
