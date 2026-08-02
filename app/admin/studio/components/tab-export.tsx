@@ -217,7 +217,7 @@ export function TabExport() {
                 <div className="flex items-center gap-3 rounded-lg border bg-muted/30 p-3">
                   {selectedEpisode.thumbnail_url && (
                     // eslint-disable-next-line @next/next/no-img-element -- Admin-only export tab thumbnail with dynamic external URL
-                    <img src={selectedEpisode.thumbnail_url} alt="" className="h-12 w-20 rounded object-cover shrink-0" />
+                    <img src={selectedEpisode.thumbnail_url} alt="" className="h-12 w-20 rounded-sm object-cover shrink-0" />
                   )}
                   <div className="min-w-0">
                     <p className="text-sm font-medium truncate">{selectedEpisode.title}</p>

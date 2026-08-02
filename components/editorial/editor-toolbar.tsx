@@ -87,7 +87,7 @@ function ToolbarButton({
           // direction run embedded in an Arabic line and must never reorder
           // the label beside it.
           <bdi
-            className="rounded bg-background/70 px-1 text-[11px] text-muted-foreground"
+            className="rounded-sm bg-background/70 px-1 text-[11px] text-muted-foreground"
             dir="ltr"
           >
             {action.shortcut}

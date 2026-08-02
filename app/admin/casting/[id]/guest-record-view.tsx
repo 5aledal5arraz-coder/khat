@@ -187,7 +187,7 @@ export function GuestRecordView({
               </a>
               <span className="inline-flex items-center gap-1"><Phone className="h-3 w-3" /> {app.phone}</span>
               {app.previous_podcast && (
-                <span className="inline-flex items-center gap-1 rounded bg-muted px-1.5 py-0.5 text-[10.5px] text-muted-foreground">
+                <span className="inline-flex items-center gap-1 rounded-sm bg-muted px-1.5 py-0.5 text-[10.5px] text-muted-foreground">
                   <Mic className="h-2.5 w-2.5" /> ضيف سابق
                 </span>
               )}
@@ -885,7 +885,7 @@ function TasksCard({
                 <div className="min-w-0 flex-1">
                   <p className="text-[12.5px] font-medium leading-snug text-foreground">{t.title}</p>
                   <div className="mt-0.5 flex flex-wrap items-center gap-1.5 text-[10.5px]">
-                    {ai && <span className="inline-flex items-center gap-0.5 rounded bg-primary/[0.07] px-1 py-px font-medium text-primary"><Sparkles className="h-2.5 w-2.5" /> الترشيح الذكي</span>}
+                    {ai && <span className="inline-flex items-center gap-0.5 rounded-sm bg-primary/[0.07] px-1 py-px font-medium text-primary"><Sparkles className="h-2.5 w-2.5" /> الترشيح الذكي</span>}
                     {t.due_at && <span className={overdue ? "text-rose-700" : "text-muted-foreground"}>{overdue ? "متأخرة · " : "تستحق "}{fmtDate(t.due_at)}</span>}
                   </div>
                   {t.detail && <p className="mt-0.5 line-clamp-2 text-[11px] leading-relaxed text-muted-foreground">{t.detail}</p>}

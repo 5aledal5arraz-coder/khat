@@ -652,7 +652,7 @@ function ChapterCard({
             onClick={onMoveUp}
             disabled={index === 0}
             title="نقل لأعلى"
-            className="rounded p-0.5 text-muted-foreground hover:bg-background/40 disabled:opacity-30"
+            className="rounded-sm p-0.5 text-muted-foreground hover:bg-background/40 disabled:opacity-30"
           >
             <ArrowUp className="h-3 w-3" />
           </button>
@@ -661,7 +661,7 @@ function ChapterCard({
             onClick={onMoveDown}
             disabled={index === totalCount - 1}
             title="نقل لأسفل"
-            className="rounded p-0.5 text-muted-foreground hover:bg-background/40 disabled:opacity-30"
+            className="rounded-sm p-0.5 text-muted-foreground hover:bg-background/40 disabled:opacity-30"
           >
             <ArrowDown className="h-3 w-3" />
           </button>
@@ -669,7 +669,7 @@ function ChapterCard({
             type="button"
             onClick={onGenerateClip}
             title="توليد مقطع من هذا الفصل"
-            className="rounded p-0.5 text-muted-foreground hover:bg-amber-500/10 hover:text-amber-700"
+            className="rounded-sm p-0.5 text-muted-foreground hover:bg-amber-500/10 hover:text-amber-700"
             aria-label="توليد مقطع من هذا الفصل"
           >
             <Film className="h-3 w-3" />
@@ -678,7 +678,7 @@ function ChapterCard({
             type="button"
             onClick={onDelete}
             title="حذف"
-            className="rounded p-0.5 text-muted-foreground hover:bg-rose-500/10 hover:text-rose-700"
+            className="rounded-sm p-0.5 text-muted-foreground hover:bg-rose-500/10 hover:text-rose-700"
           >
             <Trash2 className="h-3 w-3" />
           </button>

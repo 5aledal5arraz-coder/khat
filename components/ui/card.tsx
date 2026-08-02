@@ -34,7 +34,15 @@ const CardTitle = React.forwardRef<
 >(({ className, ...props }, ref) => (
   <h3
     ref={ref}
-    className={cn("font-semibold leading-none tracking-tight", className)}
+    // Same defect as DialogTitle, plus one of its own: this shipped with NO
+    // size class at all, so a card title took whatever it inherited — 16px on
+    // /contact, and whatever the surrounding admin panel happened to set
+    // elsewhere. It now names a step like every other primitive. All twelve
+    // admin call sites already override the size (`text-[13px]`), so the only
+    // element this resizes is app/contact/page.tsx:50, from an inherited 16px
+    // to 18px — which puts it in agreement with the two other CardTitles on
+    // that same page, both already `text-lead`.
+    className={cn("text-control-lead font-semibold leading-control", className)}
     {...props}
   />
 ))

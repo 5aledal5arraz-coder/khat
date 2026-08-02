@@ -293,7 +293,7 @@ export function LinkCanonicalDialog({
                     </ul>
                     {previewBody.confidence === "none" &&
                       previewBody.would_create_slug && (
-                        <div className="mt-2 rounded bg-muted/50 px-2 py-1 text-xs">
+                        <div className="mt-2 rounded-sm bg-muted/50 px-2 py-1 text-xs">
                           سيتم إنشاء ضيف قانوني جديد بالمعرّف:{" "}
                           <code className="font-mono">
                             {previewBody.would_create_slug}

@@ -51,7 +51,7 @@ function Card({ c }: { c: CommunityContribution }) {
     >
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0">
-          <span className="inline-flex items-center gap-1 rounded bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground">
+          <span className="inline-flex items-center gap-1 rounded-sm bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground">
             <Icon className="h-2.5 w-2.5" /> {tm.label}
           </span>
           <p className="mt-1 truncate text-[13px] font-semibold text-foreground">{c.title}</p>
@@ -65,7 +65,7 @@ function Card({ c }: { c: CommunityContribution }) {
       {c.ai_summary && <p className="mt-1.5 line-clamp-2 text-[11.5px] leading-relaxed text-muted-foreground">{c.ai_summary}</p>}
       <div className="mt-2 flex items-center justify-between">
         <div className="flex flex-wrap items-center gap-1.5">
-          {c.spam && <span className="rounded bg-rose-50 px-1.5 py-0.5 text-[10px] font-medium text-rose-600">عبثية؟</span>}
+          {c.spam && <span className="rounded-sm bg-rose-50 px-1.5 py-0.5 text-[10px] font-medium text-rose-600">عبثية؟</span>}
           {c.recommended_action && !c.spam && (
             <span className="inline-flex items-center gap-1 rounded-md bg-primary/[0.06] px-1.5 py-0.5 text-[10px] font-medium text-primary">
               <Sparkles className="h-2.5 w-2.5" /> {ACTION_LABEL[c.recommended_action]}

@@ -268,7 +268,16 @@ const DialogTitle = React.forwardRef<HTMLHeadingElement, DialogTitleProps>(
   ({ className, ...props }, ref) => (
     <h2
       ref={ref}
-      className={cn("text-control-lead font-semibold leading-none tracking-tight", className)}
+      // `leading-none` + `tracking-tight` was the shadcn Latin default and it
+      // does not survive Arabic. At 18px/600 the ink of a plain Arabic title
+      // measures 24.57px and a tashkeel-bearing one 30.74px, so consecutive
+      // lines overlapped by 6.57px and 9.22px respectively — reproduced live
+      // on a wrapped dialog title. `leading-control` is the measured floor
+      // (see --ui-heading-leading in globals.css); `tracking-tight` is dropped
+      // because negative letter-spacing on Arabic pulls joined letterforms
+      // into each other, and this component is one of the two places in the
+      // shared kit where it reached the public site.
+      className={cn("text-control-lead font-semibold leading-control", className)}
       {...props}
     />
   )

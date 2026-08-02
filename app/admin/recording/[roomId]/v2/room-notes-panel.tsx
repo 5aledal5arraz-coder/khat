@@ -88,7 +88,7 @@ export function RoomNotesPanel({
       >
         <div className="mb-1 flex items-center justify-between gap-2">
           <span className="inline-flex items-center gap-1.5">
-            <span className={cn("rounded px-1.5 py-0.5 text-[9.5px] font-bold", badge.cls)}>
+            <span className={cn("rounded-sm px-1.5 py-0.5 text-[9.5px] font-bold", badge.cls)}>
               {badge.label}
             </span>
             <span className="text-[10.5px] font-medium text-foreground/80">

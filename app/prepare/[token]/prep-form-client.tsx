@@ -417,7 +417,7 @@ function Checkbox({ checked, onChange, label, required }: { checked: boolean; on
         type="checkbox"
         checked={checked}
         onChange={(e) => onChange(e.target.checked)}
-        className="mt-0.5 h-4 w-4 shrink-0 rounded border-border accent-primary"
+        className="mt-0.5 h-4 w-4 shrink-0 rounded-sm border-border accent-primary"
       />
       <span className="text-caption text-foreground">
         {label}

@@ -15,7 +15,6 @@ import {
 import { cn } from "@/lib/utils"
 import { Button, buttonVariants } from "@/components/ui/button"
 import { AdminSidebar } from "./components/admin-sidebar"
-import { ADMIN_LIGHT_TOKENS } from "./components/light-theme"
 import { Breadcrumbs } from "./components/breadcrumbs"
 import { AiDegradedBanner } from "./components/ai-degraded-banner"
 import { BreadcrumbLabelProvider } from "@/lib/admin/breadcrumb-context"
@@ -154,7 +153,7 @@ export default function AdminLayoutClient({
 
   return (
     <BreadcrumbLabelProvider>
-    <div style={ADMIN_LIGHT_TOKENS} className="min-h-screen bg-background text-foreground">
+    <div className="min-h-screen bg-background text-foreground">
       {/*
         `.skip-link` has been defined in globals.css since the beginning and was
         rendered by NOTHING — a styled class with no element is not an

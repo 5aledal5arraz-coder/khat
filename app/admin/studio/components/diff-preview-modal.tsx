@@ -131,7 +131,7 @@ export function DiffPreviewModal({
                   type="checkbox"
                   checked={row.checked}
                   onChange={() => toggleRow(row.key)}
-                  className="h-4 w-4 rounded border-gray-300 accent-primary"
+                  className="h-4 w-4 rounded-sm border-gray-300 accent-primary"
                 />
                 <span className="text-sm font-medium">{row.label}</span>
               </label>

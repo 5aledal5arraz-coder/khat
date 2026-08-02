@@ -374,7 +374,7 @@ export function CandidateDetailClient({ candidate, statusHistory, outreachMessag
       <div className="flex flex-wrap items-center justify-between gap-2">
         <Link
           href="/admin/guest-candidates"
-          className="inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring rounded"
+          className="inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring rounded-sm"
         >
           <ArrowRight className="h-3.5 w-3.5 rtl:rotate-180" />
           العودة إلى المرشحين
@@ -406,16 +406,16 @@ export function CandidateDetailClient({ candidate, statusHistory, outreachMessag
           <div className="min-w-0 flex-1">
             <div className="flex flex-wrap items-center gap-2">
               <h1 className="text-xl font-bold">{candidate.display_name || candidate.full_name}</h1>
-              <span className={`rounded px-2 py-0.5 text-[10px] font-semibold ${status.badgeClass}`}>
+              <span className={`rounded-sm px-2 py-0.5 text-[10px] font-semibold ${status.badgeClass}`}>
                 {status.label}
               </span>
               {priority && (
-                <span className={`rounded px-1.5 py-0.5 text-[9px] font-semibold ${priority.badgeClass}`}>
+                <span className={`rounded-sm px-1.5 py-0.5 text-[9px] font-semibold ${priority.badgeClass}`}>
                   {priority.label}
                 </span>
               )}
               {isArchived && (
-                <span className="rounded bg-stone-500/15 px-1.5 py-0.5 text-[9px] font-semibold text-stone-700">
+                <span className="rounded-sm bg-stone-500/15 px-1.5 py-0.5 text-[9px] font-semibold text-stone-700">
                   مؤرشف
                 </span>
               )}
@@ -521,7 +521,7 @@ export function CandidateDetailClient({ candidate, statusHistory, outreachMessag
                       <a href={link.url} target="_blank" rel="noopener noreferrer" aria-label="فتح الرابط" className="text-muted-foreground hover:text-foreground">
                         <ExternalLink className="h-3.5 w-3.5" />
                       </a>
-                      <button onClick={() => handleDeleteLink(link.id)} aria-label="حذف الرابط" className="rounded text-muted-foreground hover:text-rose-700 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring">
+                      <button onClick={() => handleDeleteLink(link.id)} aria-label="حذف الرابط" className="rounded-sm text-muted-foreground hover:text-rose-700 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring">
                         <X className="h-3.5 w-3.5" />
                       </button>
                     </div>
@@ -884,7 +884,7 @@ export function CandidateDetailClient({ candidate, statusHistory, outreachMessag
                     onClick={() => handleStatusChange(s)}
                     disabled={statusBusy || s === candidate.status}
                     aria-current={s === candidate.status ? "true" : undefined}
-                    className={`rounded px-2 py-1 text-[10px] font-medium transition-all focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring ${
+                    className={`rounded-sm px-2 py-1 text-[10px] font-medium transition-all focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring ${
                       s === candidate.status
                         ? `${STATUS_META[s].badgeClass} ring-1 ring-current/30 cursor-default`
                         : "border border-border/40 bg-background text-muted-foreground hover:border-primary/40 hover:text-foreground"
@@ -958,7 +958,7 @@ function Stepper({
                 disabled={!canGo}
                 aria-current={state === "current" ? "step" : undefined}
                 aria-label={`المرحلة ${AR_NUM[i]}: ${st.label}`}
-                className="group inline-flex items-center gap-2 rounded focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-default"
+                className="group inline-flex items-center gap-2 rounded-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-default"
               >
                 <span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full border text-[12px] font-bold ${circle}`}>
                   {state === "done" ? <Check className="h-4 w-4" /> : AR_NUM[i]}
@@ -1141,7 +1141,7 @@ function ContactRow({
             type="button"
             onClick={() => { setEditing(false); setVal(value ?? "") }}
             aria-label="إلغاء"
-            className="rounded p-1 text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+            className="rounded-sm p-1 text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
           >
             <X className="h-3.5 w-3.5" />
           </button>
@@ -1159,7 +1159,7 @@ function ContactRow({
             type="button"
             onClick={() => { setVal(value ?? ""); setEditing(true) }}
             aria-label={ariaEdit}
-            className="rounded p-1 text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+            className="rounded-sm p-1 text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
           >
             <Pencil className="h-3.5 w-3.5" />
           </button>
@@ -1179,7 +1179,7 @@ function Section({ title, icon, badge, action, children }: { title: string; icon
           {icon}
           <h3 className="text-xs font-semibold">{title}</h3>
           {badge && (
-            <span className="rounded bg-muted/60 px-1.5 py-0.5 text-[9px] font-semibold text-muted-foreground">{badge}</span>
+            <span className="rounded-sm bg-muted/60 px-1.5 py-0.5 text-[9px] font-semibold text-muted-foreground">{badge}</span>
           )}
         </div>
         {action}

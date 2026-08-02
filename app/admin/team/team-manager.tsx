@@ -722,7 +722,7 @@ export function TeamManager() {
                   <code className="flex-1 text-xs font-mono" dir="ltr">{resetPassword}</code>
                   <button
                     onClick={() => navigator.clipboard.writeText(resetPassword)}
-                    className="rounded p-1 hover:bg-muted"
+                    className="rounded-sm p-1 hover:bg-muted"
                     title="نسخ"
                   >
                     <Copy className="h-3.5 w-3.5 text-muted-foreground" />

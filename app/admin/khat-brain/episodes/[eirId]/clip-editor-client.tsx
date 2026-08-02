@@ -753,7 +753,7 @@ function FilterBar({
           <button
             type="button"
             onClick={() => onSearch("")}
-            className="rounded p-0.5 hover:bg-background/40"
+            className="rounded-sm p-0.5 hover:bg-background/40"
           >
             <X className="h-3 w-3" />
           </button>
@@ -1043,7 +1043,7 @@ function ClipCard({
             onClick={onMoveUp}
             disabled={index === 0}
             title="نقل لأعلى"
-            className="rounded p-0.5 text-muted-foreground hover:bg-background/40 disabled:opacity-30"
+            className="rounded-sm p-0.5 text-muted-foreground hover:bg-background/40 disabled:opacity-30"
           >
             <ArrowUp className="h-3 w-3" />
           </button>
@@ -1051,7 +1051,7 @@ function ClipCard({
             type="button"
             onClick={onMoveDown}
             title="نقل لأسفل"
-            className="rounded p-0.5 text-muted-foreground hover:bg-background/40"
+            className="rounded-sm p-0.5 text-muted-foreground hover:bg-background/40"
           >
             <ArrowDown className="h-3 w-3" />
           </button>
@@ -1059,7 +1059,7 @@ function ClipCard({
             type="button"
             onClick={onDelete}
             title="حذف"
-            className="rounded p-0.5 text-muted-foreground hover:bg-rose-500/10 hover:text-rose-700"
+            className="rounded-sm p-0.5 text-muted-foreground hover:bg-rose-500/10 hover:text-rose-700"
           >
             <Trash2 className="h-3 w-3" />
           </button>

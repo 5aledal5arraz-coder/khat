@@ -593,7 +593,7 @@ function GuestListRow({ guest, selected, onToggleSelect, onEdit, onDelete }: { g
         checked={selected}
         onChange={onToggleSelect}
         aria-label={`تحديد ${guest.name}`}
-        className="h-4 w-4 shrink-0 cursor-pointer rounded border-border/60 accent-primary"
+        className="h-4 w-4 shrink-0 cursor-pointer rounded-sm border-border/60 accent-primary"
       />
 
       {/* Avatar */}
@@ -1022,7 +1022,7 @@ export function GuestsList({ guests: initialGuests, episodes: initialEpisodes }:
               ref={(el) => { if (el) el.indeterminate = selectedVisibleCount > 0 && !allVisibleSelected }}
               onChange={toggleSelectAllVisible}
               aria-label="تحديد كل الضيوف"
-              className="h-4 w-4 shrink-0 cursor-pointer rounded border-border/60 accent-primary"
+              className="h-4 w-4 shrink-0 cursor-pointer rounded-sm border-border/60 accent-primary"
             />
             <span className="text-[11px] text-muted-foreground">
               {selectedVisibleCount > 0 ? `${selectedVisibleCount} / ${filteredGuests.length}` : "تحديد الكل"}

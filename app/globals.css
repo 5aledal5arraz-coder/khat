@@ -118,6 +118,61 @@
     --type-char-advance: 0.3907em;
     --type-measure: calc(75 * var(--type-char-advance));
 
+    /* ── Rhythm ──────────────────────────────────────────────────────────
+       THE SPACING HALF OF THE SWITCH POINT (wave 3). Every `p-*`, `m-*`,
+       `gap-*`, `space-y-*`, `h-*`, `w-*` and `size-*` in Tailwind v4 is
+       `calc(var(--spacing) * N)`, and --spacing was left at Tailwind's own
+       0.25rem — i.e. the entire spacing system sat OUTSIDE the block that
+       claims to be the one place the identity is defined.
+
+       The census said the values were fine: zero arbitrary spacing on the
+       visitor files, fourteen rungs of the standard scale. The defect was
+       never the values, it was that every gap was picked locally with no
+       relationship to the text beside it, so a font swap moves the type and
+       leaves the whitespace where it was.
+
+       Binding the unit to the body step fixes exactly that: one text step is
+       four rhythm units, so growing body copy grows the space around it in
+       the same proportion. 1rem / 4 = 0.25rem, which is byte-identical to
+       what Tailwind already emitted — this ships zero pixels of change and
+       only moves the number under the switch point. Verified by perturbation
+       on the homepage: before, scaling --type-size-body x1.5 moved 0 of the
+       100 elements that carry padding/margin/gap; after, it moves all of
+       them. */
+    --type-rhythm: calc(var(--type-size-body) / 4);
+
+    /* Leading for the SHARED KIT's headings (DialogTitle, CardTitle).
+
+       Not a taste value — a measurement, by the same canvas-ink method as
+       the eight --type-leading-* steps above. Both titles shipped
+       `leading-none`, which is a line box exactly as tall as the font size,
+       and Arabic ink is taller than its font size at every weight this kit
+       uses. Measured 2026-08-02, IBM Plex Sans Arabic 600, ink height as a
+       ratio of font size (the ratio is size-independent, verified at 13 /
+       16 / 18px):
+
+         plain Arabic                 1.365   → collides at leading-none
+         descenders only              1.088   → collides
+         light tashkeel               1.365   → collides
+         tashkeel over a descender    1.689   → collides
+         shadda + kasratan stack      1.708   → collides
+
+       So `leading-none` overlapped consecutive lines in EVERY sample, plain
+       text included — 6.57px on an 18px DialogTitle, 5.84px on a 16px
+       CardTitle. Noura measured the same defect live on a wrapped dialog
+       title (9px) and a harsher sample (1.737).
+
+       1.75 clears the worst of both measurements with margin, and is not a
+       new number: it is --type-leading-caption, so the kit's headings sit on
+       the same rhythm as the scale rather than beside it.
+
+       DELIBERATELY NOT OVERRIDDEN BY THE ADMIN. The other UI primitives are
+       pinned per-surface because density is a product decision. Ink height
+       is a property of the typeface, not of the surface, so there is one
+       value and both surfaces read it. A new brand font means re-measuring
+       this line — see the warning on --type-leading-display-font. */
+    --ui-heading-leading: 1.75;
+
     /* ── UI primitive sizes ──────────────────────────────────────────────
        THE LAST GAP IN THE SWITCH POINT. `components/ui/*` is the one folder
        BOTH surfaces share — 56 admin files import Button alone — so it was
@@ -160,9 +215,12 @@
 
        So: a new field on a public route is written `text-field md:text-control`
        (or built on components/ui/Input/Textarea, which already are). A raw
-       `text-caption`/`text-sm` on a focusable field is the bug. The one
-       deliberate exception is the live director console's notes textarea,
-       which is part of the deferred sub-12px pass — see live-client.tsx. */
+       `text-caption`/`text-sm` — or a raw `text-[13px]` — on a focusable field
+       is the bug. There are now NO exceptions on the public surface: wave 2-c
+       exempted the live director console's notes textarea as "part of the
+       deferred sub-12px label pass", which was wrong on both halves — it is a
+       field, not a label, and it is the field the director taps mid-recording.
+       Fixed in wave 2-d; the guard no longer skips that file. */
     --ui-field: max(1rem, var(--ui-control));
 
     /* ── Colour ────────────────────────────────────────────────────────── */
@@ -200,9 +258,13 @@
     --input: 250 22% 92%;
     --ring: 252 48% 40%;
     --radius: 0.5rem;
+    /* The stain every elevation is drawn in — see the shadow ladder in
+       `@theme inline`. Bare `H S% L%`, like the palette, so the ladder can
+       apply its own alpha per rung. */
+    --shadow-tint: 0 0% 0%;
   }
 
-  /* ── Admin surface: pin the shared primitives ────────────────────────────
+  /* ── Admin surface: everything the admin diverges on ─────────────────────
      `components/ui/*` is shared, but the two surfaces want different things
      from it. The public site wants its controls to follow the brand type
      scale. The admin is a dense operations panel: a font swap that grows
@@ -212,29 +274,67 @@
      `--ui-field` follows from `--ui-control` through the same max() as the
      site, so it needs no entry here.
 
-     WHY ON :root AND NOT THE ADMIN WRAPPER. This is the wave-1 lesson
-     repeated: ADMIN_LIGHT_TOKENS is an inline style on a <div> inside
-     <body>, so anything `createPortal`'d to document.body — every Dialog in
-     the admin — resolves the tokens from :root and never sees the wrapper.
-     Colour got the same bug and was moved here for the same reason. The
-     attribute is set on <html> in app/layout.tsx from the same `isAdminRoute`
-     check that already picks the admin chrome, so there is ONE definition of
-     "this is the admin" and portals inherit it like everything else.
+     WHY ON :root AND NOT THE ADMIN WRAPPER — CORRECTED 2026-08-02. This
+     block used to justify itself with "every Dialog in the admin is
+     `createPortal`'d to document.body". THAT WAS FACTUALLY WRONG and worth
+     recording, because a comment that gives the wrong reason is more
+     dangerous than no comment: the next person reasons from it. Our
+     `DialogPortal` (components/ui/dialog.tsx) is `return <>{children}</>` —
+     it renders in place and calls no portal at all, so every admin dialog is
+     INSIDE the wrapper. Measured chain for an open dialog:
+     `DIV[role=dialog] < … < DIV[wrapper] < BODY`.
 
-     Deliberately NOT here: the eight --type-size-* steps. Admin never
-     references them, and the perturbation test in the wave-2b report relies
-     on scaling those steps moving ZERO admin elements. */
+     The reason is nonetheless sound, because there IS a real portal: the row
+     menu in app/admin/guests/guests-list.tsx calls
+     `createPortal(…, document.body)`. Measured inside it before this change,
+     the sizes arrived (--ui-control .875rem, from here) and the colours did
+     not (--accent 22 90% 40.5%, --muted-foreground 250 12% 46%, --secondary
+     250 30% 96% — all the SITE's values), because those three were still
+     inline on the wrapper <div>. The Toaster is a second such subtree.
+
+     So the rule is not "dialogs portal" but "some subtrees escape the
+     wrapper, and a token that is not at the root does not follow them". The
+     three colours below have joined the sizes; ADMIN_LIGHT_TOKENS is gone.
+     The leak it caused was latent, not visible — nothing inside that menu
+     used one of the three yet — which is exactly why it had to be fixed
+     before someone wrote `text-muted-foreground` in a portal and spent a day
+     on it.
+
+     The attribute is set on <html> in app/layout.tsx from the same
+     `isAdminRoute` check that already picks the admin chrome, so there is ONE
+     definition of "this is the admin" and portals inherit it like everything
+     else.
+
+     Deliberately NOT here: the eight --type-size-* steps, and
+     --ui-heading-leading. Admin never references the steps, and the
+     perturbation test in the wave-2b report relies on scaling them moving
+     ZERO admin elements; the heading leading is a measurement of the
+     typeface's ink, which does not change because the surface did. */
   :root[data-surface="admin"] {
     --ui-control: 0.875rem;
     --ui-control-sm: 0.75rem;
     --ui-control-lead: 1.125rem;
+
+    /* Half a percent lighter than the site's `250 30% 96%`. Dense admin
+       tables sit on secondary far more than the public site does. */
+    --secondary: 250 28% 96%;
+    /* Secondary text. Darkened from the site's 46% L to 38% so muted copy
+       clears WCAG AA (~6.7:1 on white) — the site value washed out in the
+       admin, especially where callers reduced its opacity further. */
+    --muted-foreground: 250 14% 38%;
+    /* The undimmed orange. The site steps this down to 40.5% L for contrast
+       on body text; the admin uses accent almost entirely for chrome and
+       status chips, where the brighter tone reads better. NOTE: any admin
+       surface that puts `text-accent` on normal-size copy fails WCAG AA at
+       this lightness — worth a separate audit, not a silent change here. */
+    --accent: 22 90% 53%;
   }
 
   /* No `.dark {}` block — the app is a single forced-light surface; the root
      element's `.dark` class is stripped at runtime (app/layout.tsx), so any
-     dark-mode overrides here would be dead. The admin overrides the three
-     tokens it deliberately diverges on via ADMIN_LIGHT_TOKENS; everything
-     else it inherits from here. */
+     dark-mode overrides here would be dead. Everything the admin diverges on
+     is in the `[data-surface="admin"]` block above; everything else it
+     inherits from here. */
 }
 
 @theme inline {
@@ -264,10 +364,79 @@
      `--gold` and never these). They were decoys next to the switch point:
      `--gold` had been quietly reassigned an ORANGE value, so anyone
      recolouring "the gold" would have edited a dead token. */
-  --radius-sm: calc(var(--radius) - 4px);
-  --radius-md: calc(var(--radius) - 2px);
+  /* ── Corner radius: eight names, five sizes, ONE number ──────────────────
+     Before wave 3 only sm/md/lg/xl derived from --radius; `rounded`,
+     `rounded-2xl` and `rounded-3xl` were Tailwind's own constants, so half
+     the ladder ignored the switch point. Measured on the homepage: scaling
+     --radius x3 moved 6 of the 35 elements that carry a radius.
+
+     Two rungs were also indistinguishable from a neighbour. `rounded`
+     (169 usages) and `rounded-sm` computed the SAME 4px under two names.
+     `rounded-md` (6px) sat two pixels from each of them and two from
+     `rounded-lg` (8px) — three rungs inside a four-pixel band, which is not
+     a scale, it is noise. The consequence was visible in the shared kit:
+     Button is `rounded-md` and Input/Textarea are `rounded-lg`, so a button
+     and the field next to it in the same form disagreed by 2px.
+
+     Now: multipliers of --radius, and the two collisions collapsed onto
+     their neighbours.
+
+       rounded / rounded-sm    0.5x   4px   unchanged
+       rounded-md              1x     8px   WAS 6px — the one visible change
+       rounded-lg              1x     8px   unchanged
+       rounded-xl              1.5x  12px   unchanged
+       rounded-2xl             2x    16px   unchanged
+       rounded-3xl             3x    24px   unchanged
+
+     `rounded-full` stays a constant on purpose: it is a shape (a pill),
+     not a size, and must not shrink when the identity's corner does. */
+  --radius-sm: calc(var(--radius) * 0.5);
+  --radius-md: var(--radius);
   --radius-lg: var(--radius);
-  --radius-xl: calc(var(--radius) + 4px);
+  --radius-xl: calc(var(--radius) * 1.5);
+  --radius-2xl: calc(var(--radius) * 2);
+  --radius-3xl: calc(var(--radius) * 3);
+
+  /* ── Spacing: the rhythm unit, from the type scale ───────────────────────
+     Tailwind v4 builds every p-/m-/gap-/space-/h-/w-/size- utility as
+     `calc(var(--spacing) * N)`, so this single declaration is the whole
+     spacing system. It was Tailwind's default 0.25rem, i.e. off the switch
+     point entirely; --type-rhythm is the identical 0.25rem expressed as a
+     quarter of the body step. See the comment on --type-rhythm. */
+  --spacing: var(--type-rhythm);
+
+  /* ── Elevation: four rungs on one tint ───────────────────────────────────
+     Every shadow was a Tailwind constant with a hardcoded `#0000001a`, so
+     recolouring the brand could not touch them: perturbing the tokens moved
+     0 of the 27 shadowed elements on the homepage.
+
+     The tail is merged rather than re-valued. `shadow` and `shadow-sm`
+     already computed BYTE-IDENTICAL geometry in v4 (both `0 1px 3px …`) —
+     one rung wearing two names — so the six bare `shadow` usages were
+     rewritten to `shadow-sm` for exactly zero pixels of change. Five rungs
+     remain, each a distinct step, all reading one tint.
+
+     `shadow-inner` (one usage, components/guests/guest-avatar.tsx) is NOT
+     part of this ladder and was left alone on purpose: an inset shadow is a
+     different effect, not a lower rung of elevation, and folding it into an
+     outer shadow would be a visible change bought with no architecture.
+     Still outside the switch point, and named as such, are the 33
+     `shadow-[0 …]` arbitrary values and the 11 `shadow-black/NN` tints — the
+     real remaining mass, and a wave of their own.
+
+     --shadow-tint is the knob: one edit restains every elevation on both
+     surfaces. It stays neutral black here because the identity has not
+     landed yet; a warm or indigo-tinted shade is a one-line change. It is
+     declared up in `:root`, NOT here, on purpose: `--shadow-*` is a Tailwind
+     namespace, so a `--shadow-tint` key in this block would also mint a
+     `shadow-tint` utility — a fifth rung that renders `0 0% 0%` as a
+     box-shadow and means nothing. */
+  --shadow-sm: 0 1px 3px 0 hsl(var(--shadow-tint) / 0.1), 0 1px 2px -1px hsl(var(--shadow-tint) / 0.1);
+  --shadow-md: 0 4px 6px -1px hsl(var(--shadow-tint) / 0.1), 0 2px 4px -2px hsl(var(--shadow-tint) / 0.1);
+  --shadow-lg: 0 10px 15px -3px hsl(var(--shadow-tint) / 0.1), 0 4px 6px -4px hsl(var(--shadow-tint) / 0.1);
+  --shadow-xl: 0 20px 25px -5px hsl(var(--shadow-tint) / 0.1), 0 8px 10px -6px hsl(var(--shadow-tint) / 0.1);
+  --shadow-2xl: 0 25px 50px -12px hsl(var(--shadow-tint) / 0.25);
+
   --font-sans: var(--font-brand-sans), ui-sans-serif, system-ui, sans-serif;
   --color-museum-bg: hsl(252 44% 6%);
 
@@ -309,6 +478,14 @@
      at a headline SIZE (the homepage statement). Prose needs prose leading
      even at 44px, otherwise the tashkeel in `عالمٍ يتدفّق` collides. */
   --leading-prose: var(--type-leading-body);
+
+  /* `leading-control` — the shared kit's heading leading. The four
+     --text-control-* steps deliberately ship WITHOUT a paired line-height
+     (buttons centre their label in a fixed height), which left DialogTitle
+     and CardTitle free to reach for `leading-none` and collide. This is the
+     leading a shared-kit heading is supposed to use; see the measurements on
+     --ui-heading-leading. */
+  --leading-control: var(--ui-heading-leading);
 
   /* `max-w-measure` — the line-length cap for body copy. */
   --container-measure: var(--type-measure);

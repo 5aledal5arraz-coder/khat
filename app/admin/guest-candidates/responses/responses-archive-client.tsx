@@ -188,7 +188,7 @@ export function ResponsesArchiveClient({ rows, templates }: Props) {
                           {row.candidate.display_name || row.candidate.full_name}
                         </span>
                         {row.response.completion_percent !== null && row.response.completion_percent !== undefined && (
-                          <span className="rounded bg-muted/60 px-1.5 py-0.5 text-[9px] text-muted-foreground shrink-0">
+                          <span className="rounded-sm bg-muted/60 px-1.5 py-0.5 text-[9px] text-muted-foreground shrink-0">
                             {Math.round(row.response.completion_percent)}%
                           </span>
                         )}
@@ -210,7 +210,7 @@ export function ResponsesArchiveClient({ rows, templates }: Props) {
                     <Link
                       href={`/admin/guest-candidates/${row.candidate.id}`}
                       onClick={(e) => e.stopPropagation()}
-                      className="rounded p-1.5 text-muted-foreground hover:bg-muted/40 hover:text-foreground"
+                      className="rounded-sm p-1.5 text-muted-foreground hover:bg-muted/40 hover:text-foreground"
                       title="فتح ملف المرشّح"
                     >
                       <ExternalLink className="h-3.5 w-3.5" />
@@ -240,7 +240,7 @@ export function ResponsesArchiveClient({ rows, templates }: Props) {
                       })
                     )}
                     {row.link.admin_message && (
-                      <div className="mt-2 rounded border border-violet-500/20 bg-violet-500/5 p-2 text-[10px] text-muted-foreground">
+                      <div className="mt-2 rounded-sm border border-violet-500/20 bg-violet-500/5 p-2 text-[10px] text-muted-foreground">
                         <FileText className="me-1 inline h-3 w-3" />
                         رسالة مرافقة للرابط: {row.link.admin_message}
                       </div>

@@ -43,7 +43,7 @@ export default function AdminLoading() {
         <div className="space-y-6 lg:col-span-8">
           <div className="admin-card overflow-hidden">
             <div className="flex items-center gap-2.5 border-b border-border/30 px-5 py-3.5">
-              <div className="h-4 w-4 admin-shimmer rounded" />
+              <div className="h-4 w-4 admin-shimmer rounded-sm" />
               <div className="h-4 w-28 admin-shimmer" />
             </div>
             <div className="p-3 space-y-1">

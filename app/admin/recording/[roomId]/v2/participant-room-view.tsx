@@ -477,20 +477,20 @@ export function ParticipantRoomView({
             >
               <div className="mb-1 flex flex-wrap items-center gap-1.5">
                 {q.priority === "must_ask" && (
-                  <span className="rounded bg-emerald-500/10 px-1.5 py-0.5 text-[9.5px] font-bold text-emerald-700">
+                  <span className="rounded-sm bg-emerald-500/10 px-1.5 py-0.5 text-[9.5px] font-bold text-emerald-700">
                     أساسي
                   </span>
                 )}
-                <span className="rounded bg-muted/40 px-1.5 py-0.5 text-[9.5px] text-muted-foreground">
+                <span className="rounded-sm bg-muted/40 px-1.5 py-0.5 text-[9.5px] text-muted-foreground">
                   {q.types.join(" · ")}
                 </span>
                 {isDirector && q.risk_level && q.risk_level !== "low" && (
-                  <span className="rounded bg-amber-500/10 px-1.5 py-0.5 text-[9.5px] text-amber-700">
+                  <span className="rounded-sm bg-amber-500/10 px-1.5 py-0.5 text-[9.5px] text-amber-700">
                     حساسية: {q.risk_level}
                   </span>
                 )}
                 {done && (
-                  <span className="inline-flex items-center gap-1 rounded bg-emerald-500/15 px-1.5 py-0.5 text-[9.5px] font-bold text-emerald-700">
+                  <span className="inline-flex items-center gap-1 rounded-sm bg-emerald-500/15 px-1.5 py-0.5 text-[9.5px] font-bold text-emerald-700">
                     <Check className="h-2.5 w-2.5" /> تم طرحه
                   </span>
                 )}

@@ -318,16 +318,16 @@ export function TabGrowth() {
                 <div className="flex items-center justify-between">
                   <p className="text-sm font-semibold text-violet-700 dark:text-violet-400">{t.concept}</p>
                   {t.focal_text && (
-                    <span className="rounded bg-violet-100 px-2 py-0.5 text-xs font-bold text-violet-800 dark:bg-violet-950/40 dark:text-violet-300">{t.focal_text}</span>
+                    <span className="rounded-sm bg-violet-100 px-2 py-0.5 text-xs font-bold text-violet-800 dark:bg-violet-950/40 dark:text-violet-300">{t.focal_text}</span>
                   )}
                 </div>
                 {t.mood && <p className="text-xs text-muted-foreground"><span className="font-medium">المزاج:</span> {t.mood}</p>}
                 {t.color_palette && <p className="text-xs text-muted-foreground"><span className="font-medium">الألوان:</span> {t.color_palette}</p>}
                 {t.composition && <p className="text-xs text-muted-foreground"><span className="font-medium">التكوين:</span> {t.composition}</p>}
                 {t.image_prompt && (
-                  <div className="flex items-start justify-between gap-2 rounded bg-muted/50 p-2">
+                  <div className="flex items-start justify-between gap-2 rounded-sm bg-muted/50 p-2">
                     <p className="text-[11px] font-mono text-muted-foreground" dir="ltr">{t.image_prompt}</p>
-                    <button onClick={() => copyText(t.image_prompt)} className="shrink-0 rounded p-1 hover:bg-muted" title="نسخ الـ prompt">
+                    <button onClick={() => copyText(t.image_prompt)} className="shrink-0 rounded-sm p-1 hover:bg-muted" title="نسخ الـ prompt">
                       <Copy className="h-3 w-3 text-muted-foreground" />
                     </button>
                   </div>
@@ -402,7 +402,7 @@ export function TabGrowth() {
                 {s.platforms.length > 0 && (
                   <div className="flex flex-wrap gap-1">
                     {s.platforms.map((pl, j) => (
-                      <span key={j} className="rounded bg-pink-100 px-1.5 py-0.5 text-[10px] text-pink-700 dark:bg-pink-950/40 dark:text-pink-400">{platformLabel(pl)}</span>
+                      <span key={j} className="rounded-sm bg-pink-100 px-1.5 py-0.5 text-[10px] text-pink-700 dark:bg-pink-950/40 dark:text-pink-400">{platformLabel(pl)}</span>
                     ))}
                   </div>
                 )}

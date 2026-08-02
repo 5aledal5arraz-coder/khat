@@ -721,14 +721,14 @@ function EditableField({
           <button
             type="button"
             onClick={save}
-            className="inline-flex items-center gap-1 rounded px-2 py-0.5 text-[10px] text-violet-700 hover:bg-violet-500/10"
+            className="inline-flex items-center gap-1 rounded-sm px-2 py-0.5 text-[10px] text-violet-700 hover:bg-violet-500/10"
           >
             <Save className="h-2.5 w-2.5" /> حفظ
           </button>
           <button
             type="button"
             onClick={cancel}
-            className="rounded px-2 py-0.5 text-[10px] text-muted-foreground hover:bg-muted/40"
+            className="rounded-sm px-2 py-0.5 text-[10px] text-muted-foreground hover:bg-muted/40"
           >
             إلغاء
           </button>
@@ -818,27 +818,27 @@ function FollowUpsEditor({
                 onChange={(e) => setEditText(e.target.value)}
                 rows={2}
                 autoFocus
-                className="w-full rounded border border-violet-500/40 bg-background px-2 py-1.5 text-[11px]"
+                className="w-full rounded-sm border border-violet-500/40 bg-background px-2 py-1.5 text-[11px]"
               />
               <input
                 type="text"
                 value={editTrigger}
                 onChange={(e) => setEditTrigger(e.target.value)}
                 placeholder="شرط التفعيل (اختياري)"
-                className="w-full rounded border border-border/40 bg-background px-2 py-1 text-[10px]"
+                className="w-full rounded-sm border border-border/40 bg-background px-2 py-1 text-[10px]"
               />
               <div className="flex gap-1">
                 <button
                   type="button"
                   onClick={saveEdit}
-                  className="rounded px-2 py-0.5 text-[10px] text-violet-700 hover:bg-violet-500/10"
+                  className="rounded-sm px-2 py-0.5 text-[10px] text-violet-700 hover:bg-violet-500/10"
                 >
                   حفظ
                 </button>
                 <button
                   type="button"
                   onClick={() => setEditingId(null)}
-                  className="rounded px-2 py-0.5 text-[10px] text-muted-foreground hover:bg-muted/40"
+                  className="rounded-sm px-2 py-0.5 text-[10px] text-muted-foreground hover:bg-muted/40"
                 >
                   إلغاء
                 </button>
@@ -861,7 +861,7 @@ function FollowUpsEditor({
               <button
                 type="button"
                 onClick={() => removeFollowUp(fu.id)}
-                className="shrink-0 rounded p-1 text-muted-foreground hover:text-rose-700"
+                className="shrink-0 rounded-sm p-1 text-muted-foreground hover:text-rose-700"
               >
                 <X className="h-3 w-3" />
               </button>
@@ -878,28 +878,28 @@ function FollowUpsEditor({
             rows={2}
             placeholder="نص المتابعة..."
             autoFocus
-            className="w-full rounded border border-border/40 bg-background px-2 py-1.5 text-[11px]"
+            className="w-full rounded-sm border border-border/40 bg-background px-2 py-1.5 text-[11px]"
           />
           <input
             type="text"
             value={newTrigger}
             onChange={(e) => setNewTrigger(e.target.value)}
             placeholder="شرط التفعيل (اختياري)"
-            className="w-full rounded border border-border/40 bg-background px-2 py-1 text-[10px]"
+            className="w-full rounded-sm border border-border/40 bg-background px-2 py-1 text-[10px]"
           />
           <div className="flex gap-1">
             <button
               type="button"
               onClick={addFollowUp}
               disabled={!newText.trim()}
-              className="rounded px-2 py-0.5 text-[10px] text-violet-700 hover:bg-violet-500/10 disabled:opacity-40"
+              className="rounded-sm px-2 py-0.5 text-[10px] text-violet-700 hover:bg-violet-500/10 disabled:opacity-40"
             >
               إضافة
             </button>
             <button
               type="button"
               onClick={() => setAdding(false)}
-              className="rounded px-2 py-0.5 text-[10px] text-muted-foreground hover:bg-muted/40"
+              className="rounded-sm px-2 py-0.5 text-[10px] text-muted-foreground hover:bg-muted/40"
             >
               إلغاء
             </button>
@@ -1004,7 +1004,7 @@ function MaterialsEditor({
             <select
               value={newType}
               onChange={(e) => setNewType(e.target.value as CardMaterialType)}
-              className="w-full rounded border border-border/40 bg-background px-2 py-1.5 text-[11px]"
+              className="w-full rounded-sm border border-border/40 bg-background px-2 py-1.5 text-[11px]"
             >
               {(Object.keys(MATERIAL_TYPE_LABELS) as CardMaterialType[]).map((t) => (
                 <option key={t} value={t}>{MATERIAL_TYPE_LABELS[t]}</option>
@@ -1019,7 +1019,7 @@ function MaterialsEditor({
               type="text"
               value={newTitle}
               onChange={(e) => setNewTitle(e.target.value)}
-              className="w-full rounded border border-border/40 bg-background px-2 py-1.5 text-[11px]"
+              className="w-full rounded-sm border border-border/40 bg-background px-2 py-1.5 text-[11px]"
             />
           </div>
 
@@ -1030,7 +1030,7 @@ function MaterialsEditor({
               value={newContent}
               onChange={(e) => setNewContent(e.target.value)}
               rows={2}
-              className="w-full rounded border border-border/40 bg-background px-2 py-1.5 text-[11px]"
+              className="w-full rounded-sm border border-border/40 bg-background px-2 py-1.5 text-[11px]"
             />
           </div>
 
@@ -1043,7 +1043,7 @@ function MaterialsEditor({
                 value={newSourceName}
                 onChange={(e) => setNewSourceName(e.target.value)}
                 placeholder="اسم المصدر"
-                className="w-full rounded border border-border/40 bg-background px-2 py-1.5 text-[10px]"
+                className="w-full rounded-sm border border-border/40 bg-background px-2 py-1.5 text-[10px]"
               />
             </div>
             <div>
@@ -1053,7 +1053,7 @@ function MaterialsEditor({
                 value={newSourceUrl}
                 onChange={(e) => setNewSourceUrl(e.target.value)}
                 placeholder="https://..."
-                className="w-full rounded border border-border/40 bg-background px-2 py-1.5 text-[10px]"
+                className="w-full rounded-sm border border-border/40 bg-background px-2 py-1.5 text-[10px]"
               />
             </div>
           </div>
@@ -1084,7 +1084,7 @@ function MaterialsEditor({
               type="button"
               onClick={handleAdd}
               disabled={!newTitle.trim() || !newContent.trim() || savingNew}
-              className="inline-flex items-center gap-1 rounded px-2.5 py-1 text-[10px] font-medium text-violet-700 hover:bg-violet-500/10 disabled:opacity-40"
+              className="inline-flex items-center gap-1 rounded-sm px-2.5 py-1 text-[10px] font-medium text-violet-700 hover:bg-violet-500/10 disabled:opacity-40"
             >
               {savingNew ? <Loader2 className="h-2.5 w-2.5 animate-spin" /> : <Plus className="h-2.5 w-2.5" />}
               إضافة
@@ -1092,7 +1092,7 @@ function MaterialsEditor({
             <button
               type="button"
               onClick={() => setAdding(false)}
-              className="rounded px-2 py-1 text-[10px] text-muted-foreground hover:bg-muted/40"
+              className="rounded-sm px-2 py-1 text-[10px] text-muted-foreground hover:bg-muted/40"
             >
               إلغاء
             </button>
@@ -1156,7 +1156,7 @@ function MaterialItem({
     return (
       <div className="mb-1.5 rounded-lg border border-violet-500/20 bg-violet-500/5 p-2.5">
         <div className="mb-1 flex flex-wrap items-center gap-1.5">
-          <span className="rounded bg-muted/40 px-1.5 py-0.5 text-[9px] text-muted-foreground">
+          <span className="rounded-sm bg-muted/40 px-1.5 py-0.5 text-[9px] text-muted-foreground">
             {typeLabel}
           </span>
         </div>
@@ -1164,21 +1164,21 @@ function MaterialItem({
           type="text"
           value={editTitle}
           onChange={(e) => setEditTitle(e.target.value)}
-          className="mb-1.5 w-full rounded border border-border/40 bg-background px-2 py-1.5 text-[11px] font-medium"
+          className="mb-1.5 w-full rounded-sm border border-border/40 bg-background px-2 py-1.5 text-[11px] font-medium"
           autoFocus
         />
         <textarea
           value={editContent}
           onChange={(e) => setEditContent(e.target.value)}
           rows={2}
-          className="w-full rounded border border-border/40 bg-background px-2 py-1.5 text-[10px]"
+          className="w-full rounded-sm border border-border/40 bg-background px-2 py-1.5 text-[10px]"
         />
         <div className="mt-1.5 flex items-center gap-1">
           <button
             type="button"
             onClick={handleSaveEdit}
             disabled={!editTitle.trim() || !editContent.trim() || savingEdit}
-            className="inline-flex items-center gap-1 rounded px-2 py-0.5 text-[10px] text-violet-700 hover:bg-violet-500/10 disabled:opacity-40"
+            className="inline-flex items-center gap-1 rounded-sm px-2 py-0.5 text-[10px] text-violet-700 hover:bg-violet-500/10 disabled:opacity-40"
           >
             {savingEdit ? <Loader2 className="h-2.5 w-2.5 animate-spin" /> : <Save className="h-2.5 w-2.5" />}
             حفظ
@@ -1186,7 +1186,7 @@ function MaterialItem({
           <button
             type="button"
             onClick={() => setEditing(false)}
-            className="rounded px-2 py-0.5 text-[10px] text-muted-foreground hover:bg-muted/40"
+            className="rounded-sm px-2 py-0.5 text-[10px] text-muted-foreground hover:bg-muted/40"
           >
             إلغاء
           </button>
@@ -1200,7 +1200,7 @@ function MaterialItem({
       <div className="flex items-start justify-between gap-2">
         <button type="button" onClick={startEdit} className="flex-1 text-start">
           <div className="mb-1 flex flex-wrap items-center gap-1.5">
-            <span className="rounded bg-muted/40 px-1.5 py-0.5 text-[9px] text-muted-foreground">
+            <span className="rounded-sm bg-muted/40 px-1.5 py-0.5 text-[9px] text-muted-foreground">
               {typeLabel}
             </span>
             {credLabel && (
@@ -1240,14 +1240,14 @@ function MaterialItem({
                 type="button"
                 onClick={handleDelete}
                 disabled={deleting}
-                className="rounded px-1.5 py-0.5 text-[9px] text-rose-700 hover:bg-rose-500/10"
+                className="rounded-sm px-1.5 py-0.5 text-[9px] text-rose-700 hover:bg-rose-500/10"
               >
                 {deleting ? <Loader2 className="h-2.5 w-2.5 animate-spin" /> : "حذف"}
               </button>
               <button
                 type="button"
                 onClick={() => setConfirmDelete(false)}
-                className="rounded px-1.5 py-0.5 text-[9px] text-muted-foreground hover:bg-muted/40"
+                className="rounded-sm px-1.5 py-0.5 text-[9px] text-muted-foreground hover:bg-muted/40"
               >
                 لا
               </button>
@@ -1256,7 +1256,7 @@ function MaterialItem({
             <button
               type="button"
               onClick={() => setConfirmDelete(true)}
-              className="rounded p-1 text-muted-foreground/30 hover:text-rose-700"
+              className="rounded-sm p-1 text-muted-foreground/30 hover:text-rose-700"
             >
               <Trash2 className="h-3 w-3" />
             </button>
@@ -1303,7 +1303,7 @@ function FlagToggle({
         }`}
       >
         <div
-          className={`h-4 w-4 rounded-full bg-card shadow transition-transform ${
+          className={`h-4 w-4 rounded-full bg-card shadow-sm transition-transform ${
             value ? "-translate-x-3" : "translate-x-0"
           }`}
         />

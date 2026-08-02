@@ -64,7 +64,7 @@ export function ResponseViewer({ responses, prepLinks, templates }: Props) {
                   {isFinal ? "إجابة نهائية" : "مسودة قيد التعبئة"}
                 </span>
                 {resp.completion_percent !== null && resp.completion_percent !== undefined && (
-                  <span className="rounded bg-muted/60 px-1.5 py-0.5 text-[9px] text-muted-foreground">
+                  <span className="rounded-sm bg-muted/60 px-1.5 py-0.5 text-[9px] text-muted-foreground">
                     {Math.round(resp.completion_percent)}%
                   </span>
                 )}
@@ -97,7 +97,7 @@ export function ResponseViewer({ responses, prepLinks, templates }: Props) {
                   ))
                 )}
                 {link?.admin_message && (
-                  <div className="mt-2 rounded border border-violet-500/20 bg-violet-500/5 p-2 text-[10px] text-muted-foreground">
+                  <div className="mt-2 rounded-sm border border-violet-500/20 bg-violet-500/5 p-2 text-[10px] text-muted-foreground">
                     <FileText className="me-1 inline h-3 w-3" />
                     رسالة مرافقة للرابط: {link.admin_message}
                   </div>

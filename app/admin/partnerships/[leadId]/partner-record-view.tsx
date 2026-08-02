@@ -1040,7 +1040,7 @@ function TasksCard({
                   <p className="text-[12.5px] font-medium leading-snug text-foreground">{t.title}</p>
                   <div className="mt-0.5 flex flex-wrap items-center gap-1.5 text-[10.5px]">
                     {ai && (
-                      <span className="inline-flex items-center gap-0.5 rounded bg-primary/[0.07] px-1 py-px font-medium text-primary">
+                      <span className="inline-flex items-center gap-0.5 rounded-sm bg-primary/[0.07] px-1 py-px font-medium text-primary">
                         <Sparkles className="h-2.5 w-2.5" /> المدير
                       </span>
                     )}

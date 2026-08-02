@@ -30,7 +30,7 @@
  */
 
 function Bar({ className = "" }: { className?: string }) {
-  return <div className={`animate-pulse rounded bg-border ${className}`} />
+  return <div className={`animate-pulse rounded-sm bg-border ${className}`} />
 }
 
 function Block({ className = "" }: { className?: string }) {

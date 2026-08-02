@@ -251,7 +251,7 @@ export function PrepLinkPanel({ candidateId, initialLinks, onChange }: Props) {
                     <Icon className={`h-3.5 w-3.5 ${meta.color}`} />
                     <span className="text-[11px] font-semibold">{meta.label}</span>
                     {expired && link.status !== "completed" && (
-                      <span className="rounded bg-zinc-500/15 px-1.5 py-0.5 text-[9px] text-zinc-700 dark:text-zinc-400">
+                      <span className="rounded-sm bg-zinc-500/15 px-1.5 py-0.5 text-[9px] text-zinc-700 dark:text-zinc-400">
                         منتهي الصلاحية
                       </span>
                     )}
@@ -262,12 +262,12 @@ export function PrepLinkPanel({ candidateId, initialLinks, onChange }: Props) {
                 </div>
 
                 <div className="mb-2 flex items-center gap-1">
-                  <code className="min-w-0 flex-1 truncate rounded bg-muted/40 px-2 py-1 text-[10px] text-foreground/70">
+                  <code className="min-w-0 flex-1 truncate rounded-sm bg-muted/40 px-2 py-1 text-[10px] text-foreground/70">
                     {url}
                   </code>
                   <button
                     onClick={() => handleCopy(link)}
-                    className="rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
+                    className="rounded-sm p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
                     title="نسخ"
                   >
                     {copiedId === link.id ? (
@@ -280,7 +280,7 @@ export function PrepLinkPanel({ candidateId, initialLinks, onChange }: Props) {
                     href={url}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
+                    className="rounded-sm p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
                     title="فتح"
                   >
                     <ExternalLink className="h-3.5 w-3.5" />
@@ -309,7 +309,7 @@ export function PrepLinkPanel({ candidateId, initialLinks, onChange }: Props) {
                     </a>
                     <button
                       onClick={() => handleCancel(link)}
-                      className="ms-auto rounded p-1 text-muted-foreground hover:bg-rose-500/10 hover:text-rose-700"
+                      className="ms-auto rounded-sm p-1 text-muted-foreground hover:bg-rose-500/10 hover:text-rose-700"
                       title="إلغاء"
                     >
                       <X className="h-3.5 w-3.5" />

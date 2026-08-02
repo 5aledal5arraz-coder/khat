@@ -48,6 +48,28 @@
  * step sizes are rem, so the ratio holds at any root size; `leading-normal`
  * (1.5) and `leading-relaxed` (1.625) are unitless and hold by construction.
  *
+ * LEADING IS OWNED AT THE ROOT — the actual fix (wave 2-d, 2026-08-02).
+ * Pinning the fourteen was necessary and insufficient, and the reason is the
+ * mistake worth remembering: we assumed "we did not touch it" implied "it did
+ * not move". Leading is INHERITED, so an ancestor we DID touch moves it.
+ * `/prepare/live` is a public route with no layout of its own, so it renders
+ * inside the public wrapper in app/layout.tsx — and wave 2 gave that wrapper
+ * `text-body`, i.e. `line-height: 1.85`. The panel had never declared a
+ * line-height, so every element here without an explicit `leading-*` silently
+ * went from the document's 1.5 to 1.85. Measured at 375 on the composed panel
+ * against a pre-wave-1 baseline server: 33 of 70 rendered text nodes moved,
+ * font-size delta 0 on every one of them, line-height +3.15 to +3.85px — the
+ * mid-recording reflow the fourteen pins existed to prevent, arriving through
+ * the one path the pins could not see.
+ *
+ * So the root <div> now carries `leading-normal`. That is not a per-element
+ * patch — it is the panel declaring its own vertical rhythm, which is the
+ * correct relationship for a console that must not move when the SITE's
+ * typography changes. Nothing inherits leading across the panel boundary any
+ * more, so the twenty-four raw-px labels below are once again genuinely
+ * frozen rather than accidentally stable. A guard in
+ * tests/type-scale-guards.test.ts asserts the root keeps that pin.
+ *
  * REM vs PX, decided 2026-08-02: the fourteen stay on the rem-based scale.
  * Zero-delta is exact only at a 16px root — at a larger browser font these
  * fourteen grow and the twenty-five raw-px labels below do not. That mix is
@@ -60,15 +82,25 @@
  * cares about is mid-recording movement; browser font-size is set before the
  * session, not during it. End state is all-rem, via the deferred pass below.
  *
- * DELIBERATELY LEFT RAW: 4x text-[9px], 11x text-[10px], 9x text-[11px] and
- * 1x text-[13px] — twenty-five labels that sit BELOW the scale's 12px floor.
- * Moving them onto the scale grows them 1–3px each, and they are the phase
- * strip, bucket chips, drawer headers and micro-labels of a console the
- * director reads at arm's length DURING a live recording, where a reflow is
- * not a cosmetic risk. That is a layout change, not a typography change, so
- * it was stopped and referred rather than pushed through. It needs its own
- * pass with a rehearsal on the real device — and note this panel is also the
- * only one of the four token routes with no layout of its own.
+ * DELIBERATELY LEFT RAW: 4x text-[9px], 11x text-[10px] and 9x text-[11px] —
+ * twenty-four labels that sit BELOW the scale's 12px floor. Moving them onto
+ * the scale grows them 1–3px each, and they are the phase strip, bucket
+ * chips, drawer headers and micro-labels of a console the director reads at
+ * arm's length DURING a live recording, where a reflow is not a cosmetic
+ * risk. That is a layout change, not a typography change, so it was stopped
+ * and referred rather than pushed through. It needs its own pass with a
+ * rehearsal on the real device — and note this panel is also the only one of
+ * the four token routes with no layout of its own.
+ *
+ * THE NOTES TEXTAREA IS NO LONGER ONE OF THEM (wave 2-d). It was listed above
+ * as a twenty-fifth deferred label at `text-[13px]`, which was a
+ * miscategorisation: it is not a label, it is the one FOCUSABLE FIELD on a
+ * public route, so under 16px iOS Safari zooms the whole viewport when the
+ * director taps it — mid-recording, on the screen that must not move. It now
+ * reads `text-field md:text-control` like every other public field. That is a
+ * deliberate, measured 13px→16px growth (line box 21.13→26px); it is the only
+ * row in this panel that does NOT return to its pre-wave value, and it is a
+ * fix, not drift.
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
@@ -421,7 +453,10 @@ export function LiveModeClient({ token, initial }: Props) {
   }, [initial.question_system])
 
   return (
-    <div className="min-h-screen bg-neutral-950 text-neutral-100" dir="rtl">
+    // `leading-normal` (1.5) is THIS PANEL'S OWN vertical rhythm, declared at
+    // its root so no line-height inheritance can cross into it — see
+    // "LEADING IS OWNED AT THE ROOT" in the file header.
+    <div className="min-h-screen bg-neutral-950 text-neutral-100 leading-normal" dir="rtl">
       {/* Sticky top bar */}
       <header className="sticky top-0 z-40 border-b border-neutral-800 bg-neutral-950/90 backdrop-blur-md">
         <div className="mx-auto max-w-xl px-4 py-3">
@@ -687,7 +722,14 @@ export function LiveModeClient({ token, initial }: Props) {
             onChange={(e) => onNotesChange(e.target.value)}
             rows={6}
             placeholder="اكتب أي ملاحظة سريعة أثناء التسجيل..."
-            className="w-full rounded-lg border border-neutral-800 bg-neutral-900 p-3 text-[13px] leading-relaxed outline-none focus:border-violet-500"
+            // `text-field md:text-control` is the house pairing for a public
+            // focusable field (globals.css, --ui-field): 16px on a phone so
+            // iOS Safari does not zoom the viewport MID-RECORDING, 14px from
+            // md up where there is no phone to zoom. It replaces a raw
+            // text-[13px] that was documented as a deliberate exception —
+            // wrongly, because the exception was written for the sub-12px
+            // LABEL pass and this is a field on the public surface.
+            className="w-full rounded-lg border border-neutral-800 bg-neutral-900 p-3 text-field leading-relaxed outline-none focus:border-violet-500 md:text-control"
           />
         </Drawer>
 

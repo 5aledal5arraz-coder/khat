@@ -28,8 +28,43 @@ import { extendTailwindMerge } from "tailwind-merge"
  * exactly that reason.
  *
  * Any new step added to `@theme` in globals.css must be added here too.
+ *
+ * THE SAME HOLE EXISTED FOR LEADING, one namespace over, and it has TWO sides.
+ *
+ * Leave a custom `--leading-*` unregistered and it lands in no group at all:
+ * it does not merge and it does not lose — it simply coexists with whatever
+ * `leading-*` the caller passes, and the winner is decided by stylesheet order
+ * rather than by argument order. `--leading-prose` shipped in wave 2 like that.
+ *
+ * But registering it into twMerge's own `leading` group is ALSO wrong, and
+ * measurably so. twMerge declares `font-size` as CONFLICTING WITH `leading` —
+ * correct for Tailwind's own steps, where `text-sm` carries a paired
+ * line-height — so a caller's later `text-*` DELETES an earlier `leading-*`.
+ * Measured 2026-08-02 on /admin/settings, with `leading-control` registered in
+ * the built-in group:
+ *
+ *   cn("text-control-lead font-semibold leading-control",   ← CardTitle's base
+ *      "text-[13px] font-semibold flex items-center gap-2") ← the call site
+ *   → "text-[13px] font-semibold flex items-center gap-2"
+ *
+ * `leading-control` gone, and all twelve admin card titles rendered at 19.5px
+ * of leading on 13px Arabic — i.e. the collision this wave exists to remove was
+ * still live, in the exact place a green suite would never look.
+ *
+ * That conflict does not even hold in Tailwind v4: `leading-*` sets
+ * `--tw-leading`, and a step's paired line-height reads
+ * `var(--tw-leading, <paired>)`, so an explicit leading wins in CSS no matter
+ * which class came first. So our tokens get their OWN group, which `font-size`
+ * does not conflict with, plus a two-way conflict with the built-in `leading`
+ * so ours and Tailwind's still override each other by argument order.
+ *
+ * Any new step or leading token added to `@theme` in globals.css must be added
+ * here too — tests/type-scale-guards.test.ts enforces both.
  */
-const twMerge = extendTailwindMerge({
+// The generic parameter declares the class-group id we are ADDING, so
+// "khat-leading" type-checks as a group in both `classGroups` and
+// `conflictingClassGroups`. Without it twMerge only accepts its own ids.
+const twMerge = extendTailwindMerge<"khat-leading">({
   extend: {
     classGroups: {
       "font-size": [
@@ -52,6 +87,21 @@ const twMerge = extendTailwindMerge({
           ],
         },
       ],
+      // A group of our own — NOT twMerge's `leading`. See above.
+      "khat-leading": [
+        {
+          leading: [
+            "prose",   // body leading at a headline size
+            "control", // the shared kit's heading leading
+          ],
+        },
+      ],
+    },
+    conflictingClassGroups: {
+      // Ours replaces Tailwind's, and Tailwind's replaces ours — but neither
+      // is touched by a font-size.
+      "khat-leading": ["leading"],
+      leading: ["khat-leading"],
     },
   },
 })

@@ -71,7 +71,7 @@ export function CommunityRecordView({ record, reference }: { record: CommunityRe
             <span className="inline-flex items-center gap-1 rounded-md bg-muted px-2 py-0.5 text-[11px] font-medium text-muted-foreground">{TYPE_LABEL[c.type] || c.type}</span>
             <h1 className="mt-2 text-xl font-bold tracking-tight text-foreground">{c.title}</h1>
             <div className="mt-1.5 flex flex-wrap items-center gap-2 text-[12px] text-muted-foreground">
-              <span className="rounded bg-muted px-2 py-0.5 font-mono text-[11px]">{reference}</span>
+              <span className="rounded-sm bg-muted px-2 py-0.5 font-mono text-[11px]">{reference}</span>
               {c.contributor_name && <span>{c.contributor_name}</span>}
               {c.contributor_email && <a href={`mailto:${c.contributor_email}`} className="inline-flex items-center gap-1 hover:text-foreground"><Mail className="h-3 w-3" /> {c.contributor_email}</a>}
               <span>· {fmtRel(c.created_at)}</span>
@@ -219,7 +219,7 @@ function TasksCard({ record, run, busy, call }: { record: CommunityRecord; run: 
             <button onClick={() => done(t)} disabled={busy !== null} className="mt-0.5 text-muted-foreground/50 hover:text-emerald-700">{busy === `task:done:${t.id}` ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}</button>
             <div className="min-w-0 flex-1">
               <p className="text-[12.5px] font-medium leading-snug text-foreground">{t.title}</p>
-              {t.created_by === "ai:community" && <span className="mt-0.5 inline-flex items-center gap-0.5 rounded bg-primary/[0.07] px-1 py-px text-[10px] font-medium text-primary"><Sparkles className="h-2.5 w-2.5" /> الفرز الذكي</span>}
+              {t.created_by === "ai:community" && <span className="mt-0.5 inline-flex items-center gap-0.5 rounded-sm bg-primary/[0.07] px-1 py-px text-[10px] font-medium text-primary"><Sparkles className="h-2.5 w-2.5" /> الفرز الذكي</span>}
             </div>
           </div>
         ))}</div>

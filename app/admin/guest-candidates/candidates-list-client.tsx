@@ -84,7 +84,8 @@ export function CandidatesListClient({ initialCandidates, stats }: Props) {
           re-toned. This project is on Tailwind v4 and declares no
           `@custom-variant dark`, so `dark:` still resolves to
           `@media (prefers-color-scheme: dark)` — the operator's OS setting.
-          Admin, meanwhile, is forced light (`ADMIN_LIGHT_TOKENS`). So on a Mac
+          Admin, meanwhile, is forced light (`:root[data-surface="admin"]`).
+          So on a Mac
           in dark mode these rendered `slate-300` on a light card: 1.29:1
           measured, against a 4.5 requirement. The light `-700`/-800` value was
           always the correct one; the override only ever fired when it was wrong.
@@ -187,12 +188,12 @@ function CandidateRow({ candidate }: { candidate: GuestCandidateView }) {
         <div className="flex items-center gap-2">
           <h3 className="truncate text-sm font-semibold">{candidate.display_name || candidate.full_name}</h3>
           {priority && (
-            <span className={`shrink-0 rounded px-1.5 py-0.5 text-[9px] font-semibold ${priority.badgeClass}`}>
+            <span className={`shrink-0 rounded-sm px-1.5 py-0.5 text-[9px] font-semibold ${priority.badgeClass}`}>
               {priority.label}
             </span>
           )}
           {aiScore !== null && aiScore !== undefined && (
-            <span className="inline-flex shrink-0 items-center gap-0.5 rounded bg-violet-500/10 px-1.5 py-0.5 text-[9px] font-semibold text-violet-700 dark:text-violet-400">
+            <span className="inline-flex shrink-0 items-center gap-0.5 rounded-sm bg-violet-500/10 px-1.5 py-0.5 text-[9px] font-semibold text-violet-700 dark:text-violet-400">
               <Sparkles className="h-2.5 w-2.5" />
               {aiScore.toFixed(1)}
             </span>
@@ -211,7 +212,7 @@ function CandidateRow({ candidate }: { candidate: GuestCandidateView }) {
       </div>
 
       <div className="hidden flex-col items-end gap-1 sm:flex">
-        <span className={`rounded px-2 py-0.5 text-[10px] font-semibold ${status.badgeClass}`}>
+        <span className={`rounded-sm px-2 py-0.5 text-[10px] font-semibold ${status.badgeClass}`}>
           {status.label}
         </span>
         {candidate.has_completed_prep && (

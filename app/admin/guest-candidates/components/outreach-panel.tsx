@@ -321,7 +321,7 @@ export function OutreachPanel({ candidateId, initialMessages, onChange }: Props)
               <div key={msg.id} className="rounded-lg border border-border/30 bg-background/30 p-3">
                 <div className="mb-2 flex items-center justify-between">
                   <div className="flex items-center gap-2">
-                    <span className="rounded bg-muted/60 px-1.5 py-0.5 text-[9px] font-semibold uppercase">
+                    <span className="rounded-sm bg-muted/60 px-1.5 py-0.5 text-[9px] font-semibold uppercase">
                       v{msg.version_number}
                     </span>
                     <span className="text-[10px] text-muted-foreground">
@@ -330,7 +330,7 @@ export function OutreachPanel({ candidateId, initialMessages, onChange }: Props)
                       {TONES.find((t) => t.value === msg.tone)?.label || msg.tone}
                     </span>
                     {msg.edited_by_admin && (
-                      <span className="rounded bg-amber-500/15 px-1.5 py-0.5 text-[9px] text-amber-700 dark:text-amber-400">
+                      <span className="rounded-sm bg-amber-500/15 px-1.5 py-0.5 text-[9px] text-amber-700 dark:text-amber-400">
                         معدلة
                       </span>
                     )}
@@ -341,14 +341,14 @@ export function OutreachPanel({ candidateId, initialMessages, onChange }: Props)
                         msg.subject_line ? `${msg.subject_line}\n\n${msg.message_body}` : msg.message_body,
                         msg.id,
                       )}
-                      className="rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
+                      className="rounded-sm p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
                       title="نسخ"
                     >
                       {copiedId === msg.id ? <Check className="h-3.5 w-3.5 text-emerald-700" /> : <Copy className="h-3.5 w-3.5" />}
                     </button>
                     <button
                       onClick={() => handleDelete(msg.id)}
-                      className="rounded p-1 text-muted-foreground hover:bg-rose-500/10 hover:text-rose-700"
+                      className="rounded-sm p-1 text-muted-foreground hover:bg-rose-500/10 hover:text-rose-700"
                       title="حذف"
                     >
                       <Trash2 className="h-3.5 w-3.5" />

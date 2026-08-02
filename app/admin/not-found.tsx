@@ -4,8 +4,9 @@ import { Button } from "@/components/ui/button"
 import { EmptyState } from "./components/ui-kit"
 
 /**
- * Admin-scoped 404. Renders inside app/admin/layout.tsx (admin shell +
- * ADMIN_LIGHT_TOKENS), so operators stay in the panel instead of being
+ * Admin-scoped 404. Renders inside app/admin/layout.tsx (the admin shell,
+ * tokenised by `:root[data-surface="admin"]`), so operators stay in the panel
+ * instead of being
  * bounced to the public-site 404. Reached via notFound() from any admin
  * page — including app/admin/[...missing], which catches URLs that
  * match no admin route.

@@ -485,7 +485,13 @@ export function displayEpisodeTitle(title: string | null | undefined): string {
   if (!original) return ""
 
   let out = original
-  // The stamp can nest («جاسم عباس- 003 بودكاست خط»), so peel until stable.
+  // Peel until stable, bounded at four. Measured on the 42 stored titles
+  // (2026-08-02): 11 need no pass and 31 need exactly one — NO real title has
+  // ever needed a second. The bound is headroom for a COMPOUND stamp
+  // («… مقاطع من بودكاست خط | 019 بودكاست خط», which needs two), and four is
+  // where it stops: a fifth repetition survives by design rather than
+  // spinning. Tests pin passes 2 and 4 and the ceiling at 5, so this number
+  // cannot be lowered silently.
   for (let i = 0; i < 4; i++) {
     const next = out.replace(TITLE_STAMP, "").trim()
     if (next === out) break

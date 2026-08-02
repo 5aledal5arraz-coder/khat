@@ -643,7 +643,7 @@ export function LiveV2Client({ initial }: { initial: LiveV2Snapshot }) {
       <button
         type="button"
         onClick={() => setActionError(null)}
-        className="shrink-0 rounded px-2 py-0.5 text-[11px] text-muted-foreground hover:bg-muted"
+        className="shrink-0 rounded-sm px-2 py-0.5 text-[11px] text-muted-foreground hover:bg-muted"
       >
         إخفاء
       </button>

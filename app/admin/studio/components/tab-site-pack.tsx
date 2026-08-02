@@ -281,7 +281,7 @@ export function TabSitePack() {
                           debouncedSaveWebPkg({ selected_takeaway_indices: [...next] })
                         }}
                         className={cn(
-                          "mt-2 flex h-5 w-5 shrink-0 items-center justify-center rounded border-2 transition-colors",
+                          "mt-2 flex h-5 w-5 shrink-0 items-center justify-center rounded-sm border-2 transition-colors",
                           isSelected
                             ? "border-emerald-500 bg-emerald-500"
                             : "border-muted-foreground/30 hover:border-muted-foreground/50"
@@ -359,7 +359,7 @@ export function TabSitePack() {
                       }}
                     >
                       <div className={cn(
-                        "mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded border-2 transition-colors",
+                        "mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-sm border-2 transition-colors",
                         isSelected
                           ? "border-amber-500 bg-amber-500"
                           : "border-muted-foreground/30"
@@ -407,7 +407,7 @@ export function TabSitePack() {
                   {resources.map((r, idx) => (
                     <div key={idx} className="flex items-center gap-2 text-sm">
                       {r.type && (
-                        <span className="shrink-0 rounded bg-muted px-1.5 py-0.5 text-[10px]">{r.type}</span>
+                        <span className="shrink-0 rounded-sm bg-muted px-1.5 py-0.5 text-[10px]">{r.type}</span>
                       )}
                       <span dir="rtl">{r.title}</span>
                       {r.url && (

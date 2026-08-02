@@ -121,7 +121,7 @@ export function SystemEventsSection({
                           {formatUtc(e.event_at)}
                         </span>
                         <span
-                          className={`rounded px-1.5 py-0.5 text-[11px] font-mono ${severityClass(e.severity)}`}
+                          className={`rounded-sm px-1.5 py-0.5 text-[11px] font-mono ${severityClass(e.severity)}`}
                         >
                           {e.severity}
                         </span>

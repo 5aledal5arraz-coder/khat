@@ -65,7 +65,7 @@ export function RecentActivitySection({
                     </td>
                     <td className="px-2 py-1 text-start">
                       <span
-                        className={`rounded px-1 py-0.5 text-[11px] font-mono ${severityClass(e.severity)}`}
+                        className={`rounded-sm px-1 py-0.5 text-[11px] font-mono ${severityClass(e.severity)}`}
                       >
                         {e.severity}
                       </span>

@@ -83,8 +83,8 @@ export default async function RootLayout({
 
   // Theme is a single light surface platform-wide. The palette lives in one
   // place — the :root block in globals.css — so it reaches <body> and any
-  // React portal too; the admin overrides only the three tokens it
-  // deliberately diverges on. The old system/dark/light toggle was vestigial
+  // React portal too; the admin's divergences ride the same block, keyed off
+  // `[data-surface="admin"]`. The old system/dark/light toggle was vestigial
   // (forced light by the inline token overrides), so it has been removed.
   const episodes = isAdminRoute ? [] : await fetchAllEpisodes().catch(() => [])
 
@@ -100,14 +100,24 @@ export default async function RootLayout({
       lang="ar"
       dir="rtl"
       data-theme-mode="light"
-      // Which surface's values the SHARED primitives (components/ui/*) resolve
-      // to. The site maps them onto the brand type scale so a font swap moves
-      // controls with their labels; the admin pins them, so a font swap never
-      // reflows the operations panel. Both sets live in the :root block of
-      // globals.css — on <html>, not on the admin wrapper <div>, so that
-      // portalled Dialogs (rendered into document.body, outside that wrapper)
-      // inherit the right ones. Same `isAdminRoute` that picks the chrome
-      // below, so "this is the admin" is decided exactly once.
+      // Which surface's values EVERYTHING the two surfaces disagree on
+      // resolves to: the four shared-primitive sizes (components/ui/*) and the
+      // three colours the admin diverges on. The site maps the primitives onto
+      // the brand type scale so a font swap moves controls with their labels;
+      // the admin pins them, so a font swap never reflows the operations
+      // panel. Both sets live in the :root block of globals.css.
+      //
+      // ON <html>, NOT ON THE ADMIN WRAPPER <div>, because a token that is not
+      // at the root does not follow a subtree that escapes the wrapper. The
+      // wrapper is inside <body>, and `createPortal(…, document.body)` puts
+      // its subtree outside it — the guests row menu
+      // (app/admin/guests/guests-list.tsx) and the Toaster both do this.
+      // NOTE: our own <DialogPortal> does NOT — it is `<>{children}</>` and
+      // renders in place. The earlier version of this comment claimed dialogs
+      // were the reason; they are not, and the real portals are.
+      //
+      // Same `isAdminRoute` that picks the chrome below, so "this is the
+      // admin" is decided exactly once.
       data-surface={isAdminRoute ? "admin" : "site"}
       suppressHydrationWarning
     >

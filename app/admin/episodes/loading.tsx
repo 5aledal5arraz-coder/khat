@@ -18,10 +18,10 @@ export default function EpisodesLoading() {
           <div key={i} className="flex items-center gap-4 px-3 py-3">
             <div className="h-9 w-16 admin-shimmer rounded-md bg-muted/30" />
             <div className="flex-1 space-y-2">
-              <div className="h-4 w-3/4 admin-shimmer rounded bg-muted/30" />
-              <div className="h-3 w-1/3 admin-shimmer rounded bg-muted/20" />
+              <div className="h-4 w-3/4 admin-shimmer rounded-sm bg-muted/30" />
+              <div className="h-3 w-1/3 admin-shimmer rounded-sm bg-muted/20" />
             </div>
-            <div className="hidden h-4 w-16 admin-shimmer rounded bg-muted/20 md:block" />
+            <div className="hidden h-4 w-16 admin-shimmer rounded-sm bg-muted/20 md:block" />
           </div>
         ))}
       </div>

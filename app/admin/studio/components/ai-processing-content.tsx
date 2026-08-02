@@ -250,7 +250,7 @@ export function AiProcessingContent() {
                               <textarea
                                 value={idea}
                                 onChange={(e) => updateIdea(i, e.target.value)}
-                                className="w-full rounded border bg-background px-2 py-1.5 text-sm outline-none focus:ring-2 focus:ring-primary/20"
+                                className="w-full rounded-sm border bg-background px-2 py-1.5 text-sm outline-none focus:ring-2 focus:ring-primary/20"
                                 dir="rtl"
                                 rows={2}
                               />
@@ -261,7 +261,7 @@ export function AiProcessingContent() {
                             </div>
                           ) : (
                             <span
-                              className="flex-1 cursor-pointer rounded px-1 -mx-1 transition-colors hover:bg-muted/40"
+                              className="flex-1 cursor-pointer rounded-sm px-1 -mx-1 transition-colors hover:bg-muted/40"
                               onClick={() => setEditingIdeaIdx(i)}
                               title="اضغط للتعديل"
                               style={{ lineHeight: 1.9 }}
@@ -291,7 +291,7 @@ export function AiProcessingContent() {
                               <textarea
                                 value={lesson}
                                 onChange={(e) => updateLesson(i, e.target.value)}
-                                className="w-full rounded border bg-background px-2 py-1.5 text-sm outline-none focus:ring-2 focus:ring-primary/20"
+                                className="w-full rounded-sm border bg-background px-2 py-1.5 text-sm outline-none focus:ring-2 focus:ring-primary/20"
                                 dir="rtl"
                                 rows={2}
                               />
@@ -302,7 +302,7 @@ export function AiProcessingContent() {
                             </div>
                           ) : (
                             <span
-                              className="flex-1 cursor-pointer rounded px-1 -mx-1 transition-colors hover:bg-muted/40"
+                              className="flex-1 cursor-pointer rounded-sm px-1 -mx-1 transition-colors hover:bg-muted/40"
                               onClick={() => setEditingLessonIdx(i)}
                               title="اضغط للتعديل"
                               style={{ lineHeight: 1.9 }}
@@ -348,7 +348,7 @@ export function AiProcessingContent() {
                           <textarea
                             value={q.text}
                             onChange={(e) => updateQuote(i, "text", e.target.value)}
-                            className="w-full rounded border bg-background px-2 py-1.5 text-sm outline-none focus:ring-2 focus:ring-primary/20"
+                            className="w-full rounded-sm border bg-background px-2 py-1.5 text-sm outline-none focus:ring-2 focus:ring-primary/20"
                             dir="rtl"
                             rows={3}
                           />
@@ -356,7 +356,7 @@ export function AiProcessingContent() {
                             type="text"
                             value={q.theme}
                             onChange={(e) => updateQuote(i, "theme", e.target.value)}
-                            className="w-40 rounded border bg-background px-2 py-1 text-xs outline-none focus:ring-2 focus:ring-primary/20"
+                            className="w-40 rounded-sm border bg-background px-2 py-1 text-xs outline-none focus:ring-2 focus:ring-primary/20"
                             dir="rtl"
                             placeholder="التصنيف"
                           />
@@ -367,7 +367,7 @@ export function AiProcessingContent() {
                         </div>
                       ) : (
                         <div
-                          className="cursor-pointer rounded px-1 -mx-1 transition-colors hover:bg-muted/40"
+                          className="cursor-pointer rounded-sm px-1 -mx-1 transition-colors hover:bg-muted/40"
                           onClick={() => setEditingQuoteIdx(i)}
                           title="اضغط للتعديل"
                         >

@@ -110,6 +110,66 @@ describe("displayEpisodeTitle", () => {
   })
 })
 
+/**
+ * The peel loop — `for (let i = 0; i < 4; i++)` in displayEpisodeTitle.
+ *
+ * Every fixture above is stripped by a SINGLE pass, so the loop was untested
+ * headroom: mutating the bound to `i < 1` left the whole suite green. Measured
+ * against the 42 stored titles in the local database on 2026-08-02, the
+ * histogram of passes-to-stable is {0: 11, 1: 31} — the archive has never
+ * needed a second pass, so the 4 is deliberate headroom for a COMPOUND stamp,
+ * not a number the data asked for.
+ *
+ * Headroom still has to be a number someone can defend, so these tests pin it:
+ * a two-pass shape and a four-pass shape make `i < 1`, `i < 2` and `i < 3` all
+ * fail, and the five-repeat case documents where the ceiling actually is
+ * instead of implying there is none.
+ */
+describe("displayEpisodeTitle peels a compound stamp until it is stable", () => {
+  const BRAND = "بودكاست خط"
+
+  it("strips a doubled stamp that one pass would leave half-eaten", () => {
+    // «مقاطع من بودكاست خط» behind «| 019 بودكاست خط». Pass 1 removes the
+    // numbered stamp and EXPOSES the clips stamp; only pass 2 removes that.
+    const input = `لقاء مميز مقاطع من ${BRAND} | 019 ${BRAND}`
+    expect(displayEpisodeTitle(input)).toBe("لقاء مميز")
+  })
+
+  it("peels four repetitions — the exact bound the loop declares", () => {
+    const input = `حوار عميق ${BRAND} ${BRAND} ${BRAND} ${BRAND}`
+    expect(displayEpisodeTitle(input)).toBe("حوار عميق")
+  })
+
+  it("stops at four and returns a sane string rather than looping", () => {
+    // The ceiling, stated rather than implied: a fifth repetition survives.
+    // It still returns real text, never an empty string — that is the
+    // guarantee, and it is what makes a bounded loop acceptable here.
+    const input = `حوار عميق ${BRAND} ${BRAND} ${BRAND} ${BRAND} ${BRAND}`
+    const out = displayEpisodeTitle(input)
+    expect(out).toBe(`حوار عميق ${BRAND}`)
+    expect(out.length).toBeGreaterThan(0)
+  })
+
+  it("is idempotent within the bound", () => {
+    // The property the loop exists to provide, and the honest scope of it: a
+    // BOUNDED peel cannot be idempotent past its own bound — the five-repeat
+    // case above is stripped further on a second call, by construction. That
+    // is precisely why the bound is a documented number with tests on it
+    // rather than a silent `4`. Everything at or under the bound is stable.
+    const inputs = [
+      ...REAL.map(([i]) => i),
+      `لقاء مميز مقاطع من ${BRAND} | 019 ${BRAND}`,
+      `حوار عميق ${BRAND} ${BRAND} ${BRAND} ${BRAND}`,
+      "ما حدث في عام 2024",
+      "| 03",
+    ]
+    for (const input of inputs) {
+      const once = displayEpisodeTitle(input)
+      expect(displayEpisodeTitle(once)).toBe(once)
+    }
+  })
+})
+
 describe("search still matches the stored title, not the display title", () => {
   const episodes = REAL.map(([title], i) => ({
     id: `e${i}`,

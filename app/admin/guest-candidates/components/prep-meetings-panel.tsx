@@ -147,11 +147,11 @@ export function PrepMeetingsPanel({ candidateId, initialMeetings }: Props) {
             return (
               <div key={mtg.id} className="rounded-lg border border-border/30 bg-background/30 p-3">
                 <div className="flex flex-wrap items-center gap-2">
-                  <span className={`rounded px-1.5 py-0.5 text-[9px] font-semibold ${meta.badgeClass}`}>
+                  <span className={`rounded-sm px-1.5 py-0.5 text-[9px] font-semibold ${meta.badgeClass}`}>
                     {meta.label}
                   </span>
                   <h4 className="text-xs font-semibold">{mtg.title}</h4>
-                  <span className="rounded bg-muted/60 px-1.5 py-0.5 text-[9px] text-muted-foreground">
+                  <span className="rounded-sm bg-muted/60 px-1.5 py-0.5 text-[9px] text-muted-foreground">
                     {TYPE_LABEL[mtg.type] ?? mtg.type}
                   </span>
                   {isBusy && <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />}
@@ -225,7 +225,7 @@ export function PrepMeetingsPanel({ candidateId, initialMeetings }: Props) {
                   <button
                     onClick={() => handleDelete(mtg.id)}
                     disabled={isBusy}
-                    className="ms-auto inline-flex items-center gap-1 rounded px-2 py-1 text-[10px] font-medium text-muted-foreground hover:bg-rose-500/10 hover:text-rose-700 disabled:opacity-50"
+                    className="ms-auto inline-flex items-center gap-1 rounded-sm px-2 py-1 text-[10px] font-medium text-muted-foreground hover:bg-rose-500/10 hover:text-rose-700 disabled:opacity-50"
                   >
                     <Trash2 className="h-3 w-3" /> حذف
                   </button>
@@ -303,7 +303,7 @@ function ActionBtn({ onClick, disabled, icon, children }: { onClick: () => void;
     <button
       onClick={onClick}
       disabled={disabled}
-      className="inline-flex items-center gap-1 rounded border border-border/40 bg-background px-2 py-1 text-[10px] font-medium text-muted-foreground transition-colors hover:border-primary/40 hover:text-foreground disabled:opacity-50"
+      className="inline-flex items-center gap-1 rounded-sm border border-border/40 bg-background px-2 py-1 text-[10px] font-medium text-muted-foreground transition-colors hover:border-primary/40 hover:text-foreground disabled:opacity-50"
     >
       {icon}
       {children}

@@ -191,14 +191,18 @@ export function ImageCropModal({
     <div className="fixed inset-0 z-[60] flex flex-col bg-black/90 backdrop-blur-md">
       {/* Header */}
       <div className="flex items-center justify-between border-b border-white/10 px-6 py-4">
-        {/* The one raw Tailwind size left in components/ui, and a bounded
-            exception rather than an oversight: this modal has a single
-            importer, app/admin/guests/guests-list.tsx, so it renders only on
-            the admin surface — where every --ui-* token is pinned to a fixed
-            rem by design and following the site type scale would be wrong.
-            If this component is ever mounted on the public site, switch it to
-            a --ui-* token first. */}
-        <h3 className="text-base font-semibold text-white">تعديل الصورة</h3>
+        {/* WAVE 3: this used to be `text-base`, argued as a bounded exception
+            because the modal has a single importer
+            (app/admin/guests/guests-list.tsx) and therefore only ever renders
+            on the admin surface. The reasoning was about which SCALE to
+            follow, and it was right about that — but it left the element on
+            Tailwind's own scale with no leading at all, which is the same
+            defect DialogTitle had, in the same folder. `--ui-control-lead` IS
+            the pinned admin token the old comment was reaching for, and this
+            is a dialog heading in everything but name, so it now matches
+            DialogTitle exactly: 16px → 18px, with the measured Arabic
+            leading. */}
+        <h3 className="text-control-lead font-semibold leading-control text-white">تعديل الصورة</h3>
         <button
           onClick={onCancel}
           className="flex h-9 w-9 items-center justify-center rounded-xl text-white/60 transition-colors hover:bg-white/10 hover:text-white"

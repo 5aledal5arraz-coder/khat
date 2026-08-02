@@ -53,7 +53,7 @@ function TierCard({ titleAr, tier }: { titleAr: string; tier: TierSnapshot }) {
         labelAr="التزامن"
         value={`${tier.current_concurrency} / ${tier.concurrency_limit}`}
       />
-      <div className="mt-1 h-1.5 w-full overflow-hidden rounded bg-border/60">
+      <div className="mt-1 h-1.5 w-full overflow-hidden rounded-sm bg-border/60">
         <div
           className={`h-full ${barClass(util)}`}
           style={{ width: `${util}%` }}
@@ -90,7 +90,7 @@ export function AiRouterSection({
       <div className="flex items-baseline gap-2">
         <span className="text-xs text-muted-foreground">الوضع</span>
         <span
-          className={`rounded px-1.5 py-0.5 text-[11px] font-mono ${modeClass(d.rate_limit_mode)}`}
+          className={`rounded-sm px-1.5 py-0.5 text-[11px] font-mono ${modeClass(d.rate_limit_mode)}`}
         >
           {d.rate_limit_mode}
         </span>
@@ -138,7 +138,7 @@ export function AiRouterSection({
                     {formatUtc(e.event_at)}
                   </span>
                   <span
-                    className={`rounded px-1 py-0.5 ${severityClass(e.severity)}`}
+                    className={`rounded-sm px-1 py-0.5 ${severityClass(e.severity)}`}
                   >
                     {e.severity}
                   </span>

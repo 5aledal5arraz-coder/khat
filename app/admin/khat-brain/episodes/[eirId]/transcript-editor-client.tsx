@@ -805,7 +805,7 @@ function SegmentRow({
             type="button"
             onClick={onCreateChapter}
             title="إنشاء فصل من هذا المقطع"
-            className="rounded p-0.5 text-muted-foreground hover:bg-violet-500/10 hover:text-violet-700"
+            className="rounded-sm p-0.5 text-muted-foreground hover:bg-violet-500/10 hover:text-violet-700"
             aria-label="إنشاء فصل من هذا المقطع"
           >
             <BookmarkPlus className="h-3 w-3" />
@@ -814,7 +814,7 @@ function SegmentRow({
             type="button"
             onClick={onCreateClip}
             title="إنشاء مقطع من هنا"
-            className="rounded p-0.5 text-muted-foreground hover:bg-amber-500/10 hover:text-amber-700"
+            className="rounded-sm p-0.5 text-muted-foreground hover:bg-amber-500/10 hover:text-amber-700"
             aria-label="إنشاء مقطع من هنا"
           >
             <FilmIcon className="h-3 w-3" />
@@ -826,7 +826,7 @@ function SegmentRow({
               onSplit(caret)
             }}
             title="تقسيم عند المؤشّر"
-            className="rounded p-0.5 text-muted-foreground hover:bg-background/40 hover:text-foreground"
+            className="rounded-sm p-0.5 text-muted-foreground hover:bg-background/40 hover:text-foreground"
           >
             <Split className="h-3 w-3" />
           </button>
@@ -880,7 +880,7 @@ function MarkBtn({
       onClick={onClick}
       title={title}
       className={
-        "rounded p-0.5 transition-colors " +
+        "rounded-sm p-0.5 transition-colors " +
         (active
           ? "bg-violet-500/20 text-violet-700"
           : "text-muted-foreground hover:bg-background/40 hover:text-foreground")

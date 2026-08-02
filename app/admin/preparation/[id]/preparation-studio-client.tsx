@@ -533,7 +533,7 @@ export function PreparationStudioClient({ initial }: Props) {
           <button
             type="button"
             onClick={() => setNotice(null)}
-            className="shrink-0 rounded px-1 text-amber-700/80 hover:text-amber-700"
+            className="shrink-0 rounded-sm px-1 text-amber-700/80 hover:text-amber-700"
             aria-label="إغلاق"
           >
             ✕
@@ -2388,13 +2388,13 @@ function ApprovalFooter({
             تم توليد رابط الوضع المباشر:
           </p>
           <div className="flex items-center gap-2">
-            <code className="flex-1 truncate rounded border border-emerald-500/20 bg-background/60 px-2 py-1 text-[10px]">
+            <code className="flex-1 truncate rounded-sm border border-emerald-500/20 bg-background/60 px-2 py-1 text-[10px]">
               {url}
             </code>
             <button
               type="button"
               onClick={copy}
-              className="inline-flex items-center gap-1 rounded bg-emerald-500/20 px-2 py-1 text-[10px] text-emerald-700"
+              className="inline-flex items-center gap-1 rounded-sm bg-emerald-500/20 px-2 py-1 text-[10px] text-emerald-700"
             >
               {copied ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
               {copied ? "نُسخ" : "نسخ"}

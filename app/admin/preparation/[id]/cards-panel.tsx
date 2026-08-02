@@ -547,7 +547,7 @@ function CardRow({
           type="button"
           onClick={(e) => { e.stopPropagation(); onMoveUp() }}
           disabled={isFirst}
-          className="rounded p-0.5 text-muted-foreground hover:text-foreground disabled:invisible"
+          className="rounded-sm p-0.5 text-muted-foreground hover:text-foreground disabled:invisible"
         >
           <ChevronUp className="h-3 w-3" />
         </button>
@@ -556,7 +556,7 @@ function CardRow({
           type="button"
           onClick={(e) => { e.stopPropagation(); onMoveDown() }}
           disabled={isLast}
-          className="rounded p-0.5 text-muted-foreground hover:text-foreground disabled:invisible"
+          className="rounded-sm p-0.5 text-muted-foreground hover:text-foreground disabled:invisible"
         >
           <ChevronDown className="h-3 w-3" />
         </button>

@@ -297,32 +297,32 @@ function ClipEditForm({
       <div className="grid grid-cols-2 gap-2">
         <div>
           <label className="text-[10px] text-muted-foreground">البداية</label>
-          <input type="text" value={clip.start_time} onChange={(e) => updateField(idx, "start_time", e.target.value)} className="w-full rounded border bg-background px-2 py-1 text-xs font-mono outline-none" dir="ltr" />
+          <input type="text" value={clip.start_time} onChange={(e) => updateField(idx, "start_time", e.target.value)} className="w-full rounded-sm border bg-background px-2 py-1 text-xs font-mono outline-none" dir="ltr" />
         </div>
         <div>
           <label className="text-[10px] text-muted-foreground">النهاية</label>
-          <input type="text" value={clip.end_time} onChange={(e) => updateField(idx, "end_time", e.target.value)} className="w-full rounded border bg-background px-2 py-1 text-xs font-mono outline-none" dir="ltr" />
+          <input type="text" value={clip.end_time} onChange={(e) => updateField(idx, "end_time", e.target.value)} className="w-full rounded-sm border bg-background px-2 py-1 text-xs font-mono outline-none" dir="ltr" />
         </div>
       </div>
       <div>
         <label className="text-[10px] text-muted-foreground">عنوان المقطع</label>
-        <input type="text" value={clip.clip_title || ""} onChange={(e) => updateField(idx, "clip_title", e.target.value)} dir="rtl" className="w-full rounded border bg-background px-2 py-1.5 text-sm outline-none" />
+        <input type="text" value={clip.clip_title || ""} onChange={(e) => updateField(idx, "clip_title", e.target.value)} dir="rtl" className="w-full rounded-sm border bg-background px-2 py-1.5 text-sm outline-none" />
       </div>
       <div>
         <label className="text-[10px] text-muted-foreground">الخطاف الفيروسي</label>
-        <input type="text" value={clip.viral_hook || ""} onChange={(e) => updateField(idx, "viral_hook", e.target.value)} dir="rtl" className="w-full rounded border bg-background px-2 py-1.5 text-sm outline-none" />
+        <input type="text" value={clip.viral_hook || ""} onChange={(e) => updateField(idx, "viral_hook", e.target.value)} dir="rtl" className="w-full rounded-sm border bg-background px-2 py-1.5 text-sm outline-none" />
       </div>
       <div>
         <label className="text-[10px] text-muted-foreground">الخطاف</label>
-        <input type="text" value={clip.hook_text} onChange={(e) => updateField(idx, "hook_text", e.target.value)} dir="rtl" className="w-full rounded border bg-background px-2 py-1.5 text-sm outline-none" />
+        <input type="text" value={clip.hook_text} onChange={(e) => updateField(idx, "hook_text", e.target.value)} dir="rtl" className="w-full rounded-sm border bg-background px-2 py-1.5 text-sm outline-none" />
       </div>
       <div>
         <label className="text-[10px] text-muted-foreground">الوصف (كابشن)</label>
-        <textarea value={clip.caption} onChange={(e) => updateField(idx, "caption", e.target.value)} dir="rtl" className="w-full rounded border bg-background px-2 py-1.5 text-sm outline-none resize-none" rows={2} />
+        <textarea value={clip.caption} onChange={(e) => updateField(idx, "caption", e.target.value)} dir="rtl" className="w-full rounded-sm border bg-background px-2 py-1.5 text-sm outline-none resize-none" rows={2} />
       </div>
       <div>
         <label className="text-[10px] text-muted-foreground">الوصف المفصّل</label>
-        <textarea value={clip.description || ""} onChange={(e) => updateField(idx, "description", e.target.value)} dir="rtl" className="w-full rounded border bg-background px-2 py-1.5 text-sm outline-none resize-none" rows={3} />
+        <textarea value={clip.description || ""} onChange={(e) => updateField(idx, "description", e.target.value)} dir="rtl" className="w-full rounded-sm border bg-background px-2 py-1.5 text-sm outline-none resize-none" rows={3} />
       </div>
       <div>
         <label className="text-[10px] text-muted-foreground">الهاشتاقات (مفصولة بفاصلة)</label>
@@ -334,13 +334,13 @@ function ClipEditForm({
             updateField(idx, "hashtags", tags)
           }}
           dir="ltr"
-          className="w-full rounded border bg-background px-2 py-1.5 text-sm outline-none"
+          className="w-full rounded-sm border bg-background px-2 py-1.5 text-sm outline-none"
           placeholder="بودكاست_خط, podcast, motivation"
         />
       </div>
       <div>
         <label className="text-[10px] text-muted-foreground">لماذا ينجح</label>
-        <input type="text" value={clip.why_it_works} onChange={(e) => updateField(idx, "why_it_works", e.target.value)} dir="rtl" className="w-full rounded border bg-background px-2 py-1.5 text-sm outline-none" />
+        <input type="text" value={clip.why_it_works} onChange={(e) => updateField(idx, "why_it_works", e.target.value)} dir="rtl" className="w-full rounded-sm border bg-background px-2 py-1.5 text-sm outline-none" />
       </div>
     </div>
   )

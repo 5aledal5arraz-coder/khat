@@ -1,10 +1,35 @@
+import type { Metadata } from "next"
 import { cookies, headers } from "next/headers"
 import { redirect } from "next/navigation"
 import { verifyAdminSession } from "@/lib/admin/auth"
 import { getAiDegradedState } from "@/lib/ops/ai-degraded"
 import AdminLayoutClient from "./admin-layout-client"
-import { ADMIN_LIGHT_TOKENS } from "./components/light-theme"
 import { VersionWatcher } from "./components/version-watcher"
+
+/**
+ * The admin's own title. All 52 `page.tsx` under /admin plus /admin/login
+ * exported no `metadata` at all, so every operations screen inherited the
+ * PUBLIC site's default — «خط | كل إنسان يحمل قصة تستحق أن تُروى» — which is
+ * marketing copy on a tool, and makes a row of pinned admin tabs
+ * indistinguishable from a row of pinned site tabs.
+ *
+ * Declared on the layout, so it covers every admin route including the
+ * chrome-less ones (login, /admin/recording/*) without 53 edits, and a page
+ * that wants a specific title just exports its own `metadata` and lands in
+ * the template. `robots: noindex` because the public `metadataBase` makes
+ * these absolute-URL'd, and an operations panel has no business in an index.
+ *
+ * `absolute`, not `default`: the ROOT layout also declares a template
+ * (`%s | خط`), and Next applies a parent template to a child's `default`.
+ * Measured — with `default` the admin home rendered «لوحة خط | بودكاست خط»,
+ * i.e. the public brand tail was still there. `absolute` stops the parent
+ * template at this boundary; the `template` here still serves the pages
+ * below.
+ */
+export const metadata: Metadata = {
+  title: { absolute: "لوحة خط", template: "%s | لوحة خط" },
+  robots: { index: false, follow: false },
+}
 
 export default async function AdminLayout({
   children,
@@ -41,12 +66,12 @@ export default async function AdminLayout({
   // rejection counts) inside the RSC payload to every room participant.
   const pathname = (await headers()).get("x-pathname") ?? ""
   if (pathname.startsWith("/admin/recording/")) {
-    // The token scope still has to be applied here: it normally rides on
-    // AdminLayoutClient, and the root layout deliberately leaves /admin
-    // untokenised. Same pattern the login page already uses for an admin
-    // surface that renders without the dashboard chrome.
+    // No token scope to apply here any more: the admin's colour and control
+    // overrides moved to `:root[data-surface="admin"]` in globals.css, so a
+    // chrome-less admin surface is tokenised by <html> like every other one.
+    // This wrapper survives only for the background/foreground pair.
     return (
-      <div style={ADMIN_LIGHT_TOKENS} className="min-h-screen bg-background text-foreground">
+      <div className="min-h-screen bg-background text-foreground">
         {children}
       </div>
     )

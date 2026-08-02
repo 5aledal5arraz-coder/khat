@@ -446,20 +446,20 @@ export function OfficialPlatformsClient({ initialPlatforms }: Props) {
                   <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-center gap-2">
                       <span className="text-sm font-medium">{p.platform_name}</span>
-                      <span className="rounded bg-muted px-1.5 py-0.5 text-[10px] font-mono text-muted-foreground">
+                      <span className="rounded-sm bg-muted px-1.5 py-0.5 text-[10px] font-mono text-muted-foreground">
                         {p.platform_key}
                       </span>
-                      <span className="rounded bg-primary/10 px-1.5 py-0.5 text-[10px] text-primary">
+                      <span className="rounded-sm bg-primary/10 px-1.5 py-0.5 text-[10px] text-primary">
                         {CATEGORY_LABEL[p.category] ?? p.category}
                       </span>
                       {p.is_primary && (
-                        <span className="inline-flex items-center gap-0.5 rounded bg-amber-500/10 px-1.5 py-0.5 text-[10px] text-amber-700">
+                        <span className="inline-flex items-center gap-0.5 rounded-sm bg-amber-500/10 px-1.5 py-0.5 text-[10px] text-amber-700">
                           <Star className="h-2.5 w-2.5" />
                           أساسي
                         </span>
                       )}
                       {!p.is_active && (
-                        <span className="rounded bg-amber-500/10 px-1.5 py-0.5 text-[10px] text-amber-700">
+                        <span className="rounded-sm bg-amber-500/10 px-1.5 py-0.5 text-[10px] text-amber-700">
                           معطّل
                         </span>
                       )}
@@ -673,7 +673,7 @@ export function OfficialPlatformsClient({ initialPlatforms }: Props) {
                       type="checkbox"
                       checked={form.is_active}
                       onChange={(e) => setForm({ ...form, is_active: e.target.checked })}
-                      className="h-4 w-4 rounded border-input"
+                      className="h-4 w-4 rounded-sm border-input"
                     />
                     <span className="text-sm">مفعّل</span>
                   </label>
@@ -682,7 +682,7 @@ export function OfficialPlatformsClient({ initialPlatforms }: Props) {
                       type="checkbox"
                       checked={form.is_primary}
                       onChange={(e) => setForm({ ...form, is_primary: e.target.checked })}
-                      className="h-4 w-4 rounded border-input"
+                      className="h-4 w-4 rounded-sm border-input"
                     />
                     <span className="text-sm">أساسي</span>
                   </label>
@@ -701,7 +701,7 @@ export function OfficialPlatformsClient({ initialPlatforms }: Props) {
                         type="checkbox"
                         checked={!!form[s.field as keyof FormState]}
                         onChange={(e) => setForm({ ...form, [s.field]: e.target.checked } as FormState)}
-                        className="h-4 w-4 rounded border-input"
+                        className="h-4 w-4 rounded-sm border-input"
                       />
                       <span className="text-sm">{s.label}</span>
                     </label>
