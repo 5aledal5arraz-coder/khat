@@ -36,6 +36,38 @@
  *      once for being in the exempted file, and once for spelling its size
  *      `text-[13px]` instead of a step. Both holes are closed: the exemption is
  *      gone and raw px/rem sizes are now measured numerically.
+ *
+ * ─────────────────────────────────────────────────────────────────────────────
+ * READ THIS BEFORE MEASURING ANYTHING IN A BROWSER WHILE MUTATION-TESTING.
+ *
+ * The harness for these guards edits `app/globals.css` in place, runs vitest,
+ * and restores. Any dev server pointed at this repo is watching that file, and
+ * a browser measurement taken during a run measures the MUTANT.
+ *
+ * There is no external signal that this has happened. Three things were tried
+ * and none of them tells you:
+ *
+ *   · The stylesheet FILENAME is derived from the path, not the content. A real
+ *     declaration was changed and the served name stayed
+ *     `app_globals_0yg4wg8.css`, byte for byte. Watching for a new hash tells
+ *     you nothing.
+ *   · The served CONTENT changes under that same unchanged name in under two
+ *     seconds. So there is no window in which the old stylesheet is still being
+ *     served and the measurement is stale-but-honest.
+ *   · The page does not reload visibly, so nothing on screen announces it.
+ *
+ * This is not hypothetical: a wave-3 measurement of 8px was recorded and
+ * puzzled over, and 8px is `0.5rem`, which is verbatim the value the mutation
+ * running at that moment had written. The rule is therefore mechanical, not a
+ * matter of care — DO NOT RUN THE MUTATION HARNESS AND THE BROWSER AT THE SAME
+ * TIME. Measure on a clean tree (`git status` empty of globals.css), or stop
+ * the dev server for the duration of the run.
+ *
+ * A SECOND MEASUREMENT TRAP, in the same family — see INK_TITLE_MAX. Proving a
+ * webfont is really loaded by comparing measured WIDTH against a bogus family
+ * does not work for this typeface: the probe string differs by 0.8% between
+ * IBM Plex Sans Arabic and the fallback. Its INK differs by 24%. Check ink, or
+ * `document.fonts.check()` with the exact weight, never width.
  */
 import { describe, it, expect } from "vitest"
 import { readFileSync, readdirSync, statSync } from "node:fs"
@@ -147,21 +179,34 @@ const balanced = (s: string) => {
 
 /**
  * A fully substituted value as a number — px for a length, the bare number for
- * a unitless ratio — or null when it cannot be reduced without a viewport
- * (`clamp(… vw …)`) or a font context (`em`). Callers that need a number
- * assert it is not null, so an unresolvable value FAILS rather than skips.
+ * a unitless ratio — or null when it cannot be reduced without a font context
+ * (`em`). Callers that need a number assert it is not null, so an unresolvable
+ * value FAILS rather than skips.
+ *
+ * WAVE 3-C: `vw` and `clamp()` are now evaluated at a given viewport instead of
+ * returning null. The two top steps of the scale are
+ * `clamp(2.25rem, 1.71rem + 2.29vw, 2.75rem)`-shaped, so with them
+ * unresolvable, EVERY numeric check silently stopped at `heading` — the two
+ * biggest sizes on the site were outside the reach of the guards that claim to
+ * cover "the ladder". Fluid steps get checked at both ends of their range.
  */
-function toNumber(expr: string): number | null {
+function toNumber(expr: string, vw = 1280): number | null {
   const s = expr.trim()
-  const leaf = s.match(/^(-?\d*\.?\d+)(rem|px)?$/)
-  if (leaf) return leaf[2] === "rem" ? parseFloat(leaf[1]) * 16 : parseFloat(leaf[1])
+  const leaf = s.match(/^(-?\d*\.?\d+)(rem|px|vw)?$/)
+  if (leaf) {
+    const n = parseFloat(leaf[1])
+    if (leaf[2] === "rem") return n * 16
+    if (leaf[2] === "vw") return (n * vw) / 100
+    return n
+  }
   const fn = s.match(/^([a-z]*)\(([\s\S]*)\)$/)
   if (fn && balanced(fn[2])) {
-    const args = splitTopLevel(fn[2], ",").map(toNumber)
+    const args = splitTopLevel(fn[2], ",").map((a) => toNumber(a, vw))
     if (args.some((a) => a === null)) return null
     const n = args as number[]
     if (fn[1] === "max") return Math.max(...n)
     if (fn[1] === "min") return Math.min(...n)
+    if (fn[1] === "clamp" && n.length === 3) return Math.min(Math.max(n[0], n[1]), n[2])
     if ((fn[1] === "calc" || fn[1] === "") && n.length === 1) return n[0]
     return null
   }
@@ -174,8 +219,8 @@ function toNumber(expr: string): number | null {
       if (ch === ")") depth++
       else if (ch === "(") depth--
       else if (depth === 0 && ops.includes(ch) && (ops === "*/" || /\s/.test(s[i - 1]))) {
-        const l = toNumber(s.slice(0, i))
-        const r = toNumber(s.slice(i + 1))
+        const l = toNumber(s.slice(0, i), vw)
+        const r = toNumber(s.slice(i + 1), vw)
         if (l === null || r === null) return null
         return ch === "+" ? l + r : ch === "-" ? l - r : ch === "*" ? l * r : l / r
       }
@@ -184,8 +229,32 @@ function toNumber(expr: string): number | null {
   return null
 }
 
-/** The number a surface actually delivers for a token. */
-const resolved = (name: string, surface: Surface) => toNumber(substitute(lookup(name, surface), surface))
+/** The number a surface actually delivers for a token, at a viewport width. */
+const resolved = (name: string, surface: Surface, vw = 1280) =>
+  toNumber(substitute(lookup(name, surface), surface), vw)
+
+/**
+ * The distinct token names a declaration references DIRECTLY — one hop, no
+ * following.
+ *
+ * ONE HOP AND NOT A CHAIN, WHICH IS THE WHOLE POINT AND WAS LEARNED THE HARD
+ * WAY. Section 8 first asked whether the bound source appears ANYWHERE in the
+ * var() chain, and one mutation walked straight through that:
+ *
+ *   --text-control: var(--ui-control)  →  var(--ui-field)
+ *
+ * `--ui-field` is `max(1rem, var(--ui-control))`, so the chain from
+ * `--text-control` still CONTAINED `--ui-control` — transitively, through the
+ * very token that had replaced it. Every button, label and badge in the shared
+ * kit would have gone from 14px to 16px on both surfaces with the guard green.
+ * A reachability test cannot tell "reads X" from "reads something that happens
+ * to read X"; a one-hop test can, and `@theme` is a one-hop seam by
+ * construction — every one of its declarations references exactly one `:root`
+ * token today.
+ */
+function directRefs(value: string): Set<string> {
+  return new Set([...value.matchAll(/var\((--[a-z0-9-]+)\)/g)].map((m) => m[1]))
+}
 
 // ── 1. cn() must not eat a scale class that sits next to a colour ────────────
 
@@ -512,6 +581,88 @@ describe("components/ui headings cannot collide", () => {
     expect(tokens.length).toBeGreaterThanOrEqual(2)
     expect(tokens.filter((t) => !group![1].includes(`"${t}"`))).toEqual([])
   })
+
+  /**
+   * WAVE 3-C — THE UMBRELLA WAS THE WRONG SHAPE, not too small by accident.
+   *
+   * Everything above is scoped to `<h1>`–`<h6>` inside `components/ui`. That
+   * caught the two primitives wave 3 was about and, by construction, could
+   * never catch `leading-none` on a scale step anywhere else — which is where
+   * Noura found the next one (components/guests/athar-card.tsx:54). The rule
+   * "a step is never used at a leading that collides" is not a property of the
+   * kit or of heading tags; it is a property of the class pairing. So the scan
+   * is by PAIRING, over every public and shared file.
+   *
+   * Two occurrences exist and both are named below. Naming beats widening in
+   * silence and beats an exemption with no reason attached: the value of this
+   * test is that occurrence number THREE fails.
+   */
+  const LEADING_NONE_ALLOWED: Record<string, string> = {
+    // A single decorative “ glyph at opacity 0.07 behind the card, absolutely
+    // positioned, one character, cannot wrap. `leading-none` is what stops the
+    // watermark reserving a 62px line box in the layout. Not a collision:
+    // there is no second line to collide with.
+    "components/guests/athar-card.tsx": "decorative single-glyph watermark, absolutely positioned",
+    // NOT A DECISION — AN OPEN DEFECT, RECORDED RATHER THAN HIDDEN BEHIND A
+    // GUARD THAT DOES NOT LOOK. `Label` is `text-control leading-none`: a 14px
+    // line box on 14px Arabic. Measured 2026-08-02 on /partner at 375, the one
+    // public route using this primitive: 7 labels, all single-line today, and
+    // 6 of the 7 have ink TALLER than their line box (1.052–1.239 × 14px), so
+    // the first label long enough to wrap overlaps. It is latent, not live.
+    // Left alone in this wave on purpose: Label is imported by the admin as
+    // well, where `leading-none` is load-bearing for toolbar rhythm across 56
+    // files, so changing it is a measured wave of its own and not a drive-by
+    // on the way past.
+    "components/ui/label.tsx": "OPEN: latent collision if a label ever wraps — see comment, needs its own wave",
+  }
+
+  /** Every line of a file that pairs a declared step with `leading-none`. */
+  const pairedLines = (file: string): number[] =>
+    readFileSync(join(ROOT, file), "utf8")
+      .split("\n")
+      .flatMap((l, i) =>
+        /\bleading-none\b/.test(l) && new RegExp(`(^|[\\s"'\`{])text-(${steps.join("|")})(?=[\\s"'\`}]|$)`).test(l)
+          ? [i + 1]
+          : [],
+      )
+
+  it("no scale step is paired with leading-none outside the two named cases", () => {
+    // Line-scoped, and that is not laziness: both halves of the pairing are
+    // written into one class string, and a file-wide search would report the
+    // wrong line and — worse — be satisfied by an unrelated `leading-none`
+    // elsewhere in the file. athar-card.tsx has exactly such a second one on a
+    // `text-[10rem]` watermark, which is how this was found.
+    const files = [...walk(join(ROOT, "app")), ...walk(join(ROOT, "components"))].filter(
+      (f) => !f.includes(`${join("app", "admin")}`) && !f.includes(`${join("components", "admin")}`),
+    )
+    const offenders: string[] = []
+    for (const f of files) {
+      const rel = relative(ROOT, f)
+      if (rel in LEADING_NONE_ALLOWED) continue
+      offenders.push(...pairedLines(rel).map((n) => `${rel}:${n}`))
+    }
+    expect(offenders).toEqual([])
+  })
+
+  it("both named leading-none exceptions still pair a step, and still say why", () => {
+    // An exemption list that outlives what it exempts is a lie the next reader
+    // inherits. If either file stops pairing a step with `leading-none` — the
+    // Label wave lands, the watermark is redrawn — its row must go.
+    //
+    // THE FIRST VERSION OF THIS CHECKED `src.includes("leading-none")` AND WAS
+    // SATISFIED BY THE WRONG LINE: removing the exempted pairing from
+    // athar-card.tsx left the test green, because the file's OTHER decorative
+    // watermark (`text-[10rem] leading-none`, an arbitrary size and not a step)
+    // still matched. Same failure as the `leading:`-group lesson two tests up —
+    // a guard satisfied by a coincidence somewhere else in the same file.
+    for (const [file, reason] of Object.entries(LEADING_NONE_ALLOWED)) {
+      expect(
+        pairedLines(file).length,
+        `${file} no longer pairs a step with leading-none — delete its exemption`,
+      ).toBeGreaterThan(0)
+      expect(reason.length, `${file} is exempt with no reason given`).toBeGreaterThan(20)
+    }
+  })
 })
 
 // ── 5. Spacing, radius and elevation are ON the switch point ─────────────────
@@ -688,46 +839,93 @@ describe("spacing, radius and elevation resolve from the switch point", () => {
  * today's correct value, ALSO fails. That is the point. The next person to
  * retune the ink measurement must have every consumer follow it.
  */
+/**
+ * INK, MEASURED PROPERLY THIS TIME — and the earlier table was wrong.
+ *
+ * Wave 3 justified --ui-heading-leading with five per-category ratios
+ * (plain 1.365 … shadda+kasratan 1.708). Noura could not reproduce any of
+ * them; her own canvas run returned 1.044 / 1.561 on the same font. Both
+ * runs were correct and the labels were the defect: THE RATIO IS A PROPERTY
+ * OF THE STRING, not of a category. "Plain Arabic" measures 0.961 on `كتاب`
+ * and 1.441 on the tallest untashkeel'd string we actually ship, so a table
+ * of category names is unreproducible by construction.
+ *
+ * Re-measured 2026-08-02 the only way that is reproducible: over the copy
+ * this project renders. 4905 Arabic strings harvested from app/ +
+ * components/, canvas actualBoundingBoxAscent+Descent over font size, IBM
+ * Plex Sans Arabic, with a width check against a bogus family first so a
+ * silent fallback cannot be mistaken for a measurement. Ratios confirmed
+ * size-independent at 13 / 16 / 18 / 32px.
+ *
+ *   weight 600   mean 1.103   max 1.763  ("أُزيل التخصيص — عاد الافتراضي")
+ *   weight 400   mean 1.082   max 1.705   (same string)
+ *   tallest with no tashkeel at all       1.441
+ *   the 18 strings the shared kit actually
+ *   puts in a Card/DialogTitle, max       1.365  ("كن ضيفاً على البودكاست")
+ *
+ * That last line is where the old 1.365 came from — it is real, it was just
+ * labelled "plain Arabic" instead of "the worst heading we ship".
+ *
+ * WHAT THIS MEANS FOR 1.75, STATED HONESTLY. It clears every string the kit
+ * puts in a heading today (1.365) by a wide margin. It does NOT clear the
+ * corpus maximum of 1.763 — one string in 4905, and not a heading — which
+ * would overlap by 0.23px at 18px if it ever wrapped in a DialogTitle. The
+ * value is left alone: raising it would loosen every kit heading on both
+ * surfaces to chase a string that never appears in one. Recorded rather than
+ * silently rounded away.
+ */
+const INK_MEAN = 1.103
+const INK_HEADING_FLOOR = 1.74
+
+/**
+ * WAVE 3-C — AND THE SAMPLE ABOVE HAS A HOLE THAT THIS NUMBER FILLS.
+ *
+ * Those 4905 strings were harvested from `app/` + `components/`. That is
+ * every string a developer typed, and NONE of the strings a visitor mostly
+ * reads, because those come out of Postgres. Two steps are affected, and
+ * only one of them was justified correctly:
+ *
+ *   · `text-display` — one call site, app/page.tsx:99, the homepage hero,
+ *     whose two lines are authored in the file with a literal <br>. Measured
+ *     live at 375: 10.87px of ink clearance at 1.4. "Short text, chosen by
+ *     hand" is simply true here.
+ *   · `text-title`  — components/episodes/episode-hero.tsx:63 and
+ *     app/guests/[slug]/page.tsx:141 (both at `sm:`), which render an
+ *     EPISODE TITLE and a GUEST NAME out of the database. The same sentence
+ *     was written about this step and it was never true of it.
+ *
+ * Re-measured 2026-08-02 over the real population — the 42 stored episode
+ * titles as `displayEpisodeTitle` renders them (that transform is what the
+ * <h1> prints; measuring the raw stored string measures text no visitor
+ * sees) plus the 3 guest names, read-only from the local DB — at weight 700,
+ * which is the `font-bold` both <h1>s carry:
+ *
+ *   n = 45   mean 1.2362   max 1.4468 ("كيف تصبح مليونيراً .!")
+ *   above 1.4 (the old value):  2 of 45
+ *   above 1.5:                  0 of 45   ⇒ `text-heading`, the phone half
+ *                                          of the same two <h1>s, is clear
+ *                                          at 1.5 with room.
+ *
+ * WHAT THE OLD 1.4 ACTUALLY COST, measured on a live episode page instead of
+ * inferred: worst adjacent-line ink clearance across all 45 rendered in the
+ * real <h1> was +0.47px at 640, +0.48px at 841 and +0.48px at 1280 — thin,
+ * but positive, because the only two strings over 1.4 are 21 and 56
+ * characters and do not wrap at a title size. Nothing was colliding. The
+ * value moved to 1.45 to restore a margin, not to fix a live defect, and
+ * both halves of that are stated so neither can be quoted alone.
+ *
+ * A METHOD NOTE WORTH MORE THAN THE NUMBER. The font-loaded check that wave
+ * 3-b used — compare the measured WIDTH against a bogus family — is weak
+ * here: at 44px the probe string measures 423.94px in IBM Plex Sans Arabic
+ * and 420.69px in the fallback, a 0.8% difference that no threshold can
+ * safely separate. The INK ratio of the same string is 1.389 versus 1.1189.
+ * Width is the wrong discriminator for a font substitution; ink is the right
+ * one, and it is what these tests are about anyway.
+ */
+const INK_TITLE_MAX = 1.4468
+
 describe("the switch point reaches the element, not just the stylesheet", () => {
   const SURFACE_NAMES = Object.keys(SURFACES) as Surface[]
-
-  /**
-   * INK, MEASURED PROPERLY THIS TIME — and the earlier table was wrong.
-   *
-   * Wave 3 justified --ui-heading-leading with five per-category ratios
-   * (plain 1.365 … shadda+kasratan 1.708). Noura could not reproduce any of
-   * them; her own canvas run returned 1.044 / 1.561 on the same font. Both
-   * runs were correct and the labels were the defect: THE RATIO IS A PROPERTY
-   * OF THE STRING, not of a category. "Plain Arabic" measures 0.961 on `كتاب`
-   * and 1.441 on the tallest untashkeel'd string we actually ship, so a table
-   * of category names is unreproducible by construction.
-   *
-   * Re-measured 2026-08-02 the only way that is reproducible: over the copy
-   * this project renders. 4905 Arabic strings harvested from app/ +
-   * components/, canvas actualBoundingBoxAscent+Descent over font size, IBM
-   * Plex Sans Arabic, with a width check against a bogus family first so a
-   * silent fallback cannot be mistaken for a measurement. Ratios confirmed
-   * size-independent at 13 / 16 / 18 / 32px.
-   *
-   *   weight 600   mean 1.103   max 1.763  ("أُزيل التخصيص — عاد الافتراضي")
-   *   weight 400   mean 1.082   max 1.705   (same string)
-   *   tallest with no tashkeel at all       1.441
-   *   the 18 strings the shared kit actually
-   *   puts in a Card/DialogTitle, max       1.365  ("كن ضيفاً على البودكاست")
-   *
-   * That last line is where the old 1.365 came from — it is real, it was just
-   * labelled "plain Arabic" instead of "the worst heading we ship".
-   *
-   * WHAT THIS MEANS FOR 1.75, STATED HONESTLY. It clears every string the kit
-   * puts in a heading today (1.365) by a wide margin. It does NOT clear the
-   * corpus maximum of 1.763 — one string in 4905, and not a heading — which
-   * would overlap by 0.23px at 18px if it ever wrapped in a DialogTitle. The
-   * value is left alone: raising it would loosen every kit heading on both
-   * surfaces to chase a string that never appears in one. Recorded rather than
-   * silently rounded away.
-   */
-  const INK_MEAN = 1.103
-  const INK_HEADING_FLOOR = 1.74
 
   it("the kit's leading IS the ink measurement, on every surface", () => {
     for (const surface of SURFACE_NAMES) {
@@ -773,11 +971,12 @@ describe("the switch point reaches the element, not just the stylesheet", () => 
     // often than not — `--type-leading-body: 1` was one of the surviving
     // mutants and this is what stops it.
     //
-    // Deliberately NOT claimed: that these values clear the WORST string.
-    // `--type-leading-title` and `--type-leading-display` are 1.4, under the
-    // 1.441 tallest-untashkeel'd measurement, so a title can still collide on
-    // its worst input. That is a real residual at display sizes — where the
-    // copy is short and hand-chosen — and it is a decision, not an oversight.
+    // Deliberately NOT claimed: that these values clear the WORST string in
+    // the whole corpus (1.763). What IS claimed, per step, is that each clears
+    // the population that step actually renders — see INK_TITLE_MAX below for
+    // the two steps where that population lives in the database rather than in
+    // the source, and where the wave-3-b justification was measured on the
+    // wrong crowd.
     const offenders: string[] = []
     for (const surface of SURFACE_NAMES) {
       for (const [name] of Object.entries(SURFACES[surface])) {
@@ -787,6 +986,29 @@ describe("the switch point reaches the element, not just the stylesheet", () => 
       }
     }
     expect(offenders).toEqual([])
+  })
+
+  it("the two DB-fed heading steps clear the ink of the DB's own strings", () => {
+    // The step the episode <h1> and the guest <h1> use at `sm:` and above, and
+    // the step they use below it. Their copy is not in this repository, so a
+    // guard that only reads source files can never re-derive INK_TITLE_MAX —
+    // it is pinned here, with the harvest described above, precisely so that
+    // raising it is a deliberate act with a number attached.
+    //
+    // Reverting --type-leading-title to its old 1.4 must fail here.
+    for (const surface of SURFACE_NAMES) {
+      const title = resolved("--type-leading-title", surface)
+      const heading = resolved("--type-leading-heading", surface)
+      expect(title, `--type-leading-title did not resolve on "${surface}"`).not.toBeNull()
+      expect(heading, `--type-leading-heading did not resolve on "${surface}"`).not.toBeNull()
+      expect(title!, `${surface}: text-title no longer clears the tallest title in the DB`).toBeGreaterThanOrEqual(
+        INK_TITLE_MAX,
+      )
+      expect(
+        heading!,
+        `${surface}: text-heading (the phone half of the same <h1>) no longer clears it`,
+      ).toBeGreaterThanOrEqual(INK_TITLE_MAX)
+    }
   })
 
   it("the shared kit's size ladder is monotonic and above both floors", () => {
@@ -955,5 +1177,290 @@ describe("tailwind-merge knows every utility @theme mints", () => {
     expect(cn("max-w-2xl", "max-w-measure")).toBe("max-w-measure")
     expect(cn("max-w-measure", "text-body")).toContain("max-w-measure")
     expect(cn("max-w-measure", "p-4")).toContain("max-w-measure")
+  })
+})
+
+// ── 8. The guard asserts on the END of the chain the element actually reads ──
+
+/**
+ * WAVE 3-C. Wave 3-b resolved the chain instead of reading a token's text, and
+ * that killed five mutants. NINE more survived it, and they are ONE shape, not
+ * nine problems: every guard so far asserts on a `:root` token, while the
+ * element wears a class minted from a `@theme` token. So pointing a `@theme`
+ * token at a DIFFERENT, PERFECTLY VALID `:root` token passes everything —
+ * because the value still arrives through `var()`, just from the wrong place.
+ *
+ *   --text-field: var(--ui-field)  →  var(--ui-control)
+ *
+ * compiles to `.text-field { font-size: var(--ui-control) }`, i.e. 14px, and
+ * reproduces the LITERAL defect written at the top of this file: iOS Safari
+ * zooms the viewport when a focused field computes under 16px. Confirmed live
+ * on /contact at 375 — a real public field with `text-field` computing
+ * `fontSize: "14px"` — with all 88 guards green. `--ui-field` was still
+ * `max(1rem, …)`, still resolved to 16, still above every floor asserted about
+ * it, and reached no field on the site.
+ *
+ * WHY A TENTH GUARD FOR THE TENTH MUTANT IS THE WRONG ANSWER. The nine differ
+ * only in which pair of tokens is swapped; the tenth will swap a pair nobody
+ * listed. So this section does not check values at all in its first half. It
+ * checks the WIRE: every token in `@theme` declares which `:root` token it is
+ * the utility FOR, and its declaration must reference that token — exactly
+ * that one, in one hop. A token with no declared binding fails too, so a new
+ * key in `@theme` is a failing test until someone says what it is bound to.
+ *
+ * "Exactly, in one hop" is not pedantry; it is the second thing this section
+ * got wrong before it got right. The first version asked whether the source
+ * appeared anywhere in the resolved chain, and `--text-control: var(--ui-field)`
+ * survived it — 14px to 16px on every button and label on both surfaces —
+ * because `--ui-field` is itself `max(1rem, var(--ui-control))`. The full note
+ * is on `directRefs`.
+ *
+ * The strength of that is easiest to see in the case no value check can ever
+ * catch: `--text-title--line-height: var(--type-leading-display)`. Both are
+ * 1.4 today, so every resolved NUMBER is byte-identical and correct — and the
+ * title step has silently stopped following its own leading, so the moment the
+ * two are retuned apart the titles follow the wrong one. Only the chain sees
+ * it. Same for `--color-ring: hsl(var(--primary))`: `--ring` and `--primary`
+ * hold the same triplet, so nothing numeric moves, and the focus ring has
+ * quietly stopped being independently tunable.
+ *
+ * The second half then asserts the numbers that MUST hold, on the minted
+ * token rather than on its source, plus the sanity floors under the brand
+ * steps themselves — because a chain can be perfectly wired and still deliver
+ * 9.6px body text.
+ */
+describe("what the class delivers, not what the token declares", () => {
+  const SURFACE_NAMES = Object.keys(SURFACES) as Surface[]
+  const BRAND_STEPS = ["micro", "caption", "body", "lead", "subhead", "heading", "title", "display"]
+
+  /**
+   * Tokens in `@theme` that are a literal on purpose. Kept in step with the
+   * same list in section 6 — a literal has no chain, so it cannot be bound.
+   */
+  const LITERALS = ["--color-museum-bg"]
+
+  /** `@theme` token → the `:root` token it is the utility for. */
+  const EXPLICIT: Record<string, string> = {
+    // The shared-kit primitives. THE X01/X02 PAIR: swapping any two of these
+    // four is invisible to every value assertion, because all four are real
+    // sizes that pass every floor asserted about *themselves*.
+    "--text-control": "--ui-control",
+    "--text-control-sm": "--ui-control-sm",
+    "--text-control-lead": "--ui-control-lead",
+    "--text-field": "--ui-field",
+    // Leading.
+    "--leading-prose": "--type-leading-body",
+    "--leading-control": "--ui-heading-leading",
+    // Width cap and rhythm.
+    "--container-measure": "--type-measure",
+    "--spacing": "--type-rhythm",
+    // Family.
+    "--font-sans": "--font-brand-sans",
+  }
+
+  /**
+   * The families whose binding follows from the name, so that ADDING a step or
+   * a colour does not mean remembering to add a row above. A name that matches
+   * no rule and is in neither list is a failing test by design.
+   */
+  function boundTo(token: string): string | null {
+    const paired = token.match(/^--text-([a-z-]+)--line-height$/)
+    if (paired && BRAND_STEPS.includes(paired[1])) return `--type-leading-${paired[1]}`
+    const step = token.match(/^--text-([a-z-]+)$/)
+    if (step && BRAND_STEPS.includes(step[1])) return `--type-size-${step[1]}`
+    if (token in EXPLICIT) return EXPLICIT[token]
+    if (token.startsWith("--color-")) return `--${token.slice("--color-".length)}`
+    if (token.startsWith("--radius-")) return "--radius"
+    if (token.startsWith("--shadow-")) return "--shadow-tint"
+    return null
+  }
+
+  const bindings = Object.keys(THEME_DECLS)
+    .filter((t) => !LITERALS.includes(t))
+    .map((token) => ({ token, source: boundTo(token) }))
+
+  it("every token in @theme declares which :root token it is the utility for", () => {
+    // The decision point. A new `@theme` key — a step, a colour, a namespace
+    // nobody has thought about — lands here as a failure until someone writes
+    // down what it is FOR. That is the whole reason this is not a list of nine
+    // regression tests.
+    expect(bindings.filter((b) => b.source === null).map((b) => b.token)).toEqual([])
+    expect(bindings.length).toBeGreaterThanOrEqual(40)
+    // …and the literals are still literals, so the exemption cannot quietly
+    // grow to cover a token that should have been wired.
+    for (const token of LITERALS) {
+      expect(THEME_DECLS[token], `${token} is exempt from binding but is no longer a literal`).not.toMatch(/var\(/)
+    }
+  })
+
+  it.each(bindings.filter((b) => b.source !== null).map(({ token, source }) => [token, source as string]))(
+    "%s reads exactly %s",
+    (token, source) => {
+      // EXACTLY, not "contains". See the note on `directRefs`: asking whether
+      // the source is reachable let `--text-control: var(--ui-field)` through,
+      // because --ui-field reads --ui-control itself.
+      const refs = [...directRefs(THEME_DECLS[token])].sort()
+      expect(refs, `${token} reads ${refs.join(", ") || "no token at all"}, not ${source}`).toEqual([source])
+      // …and the source is a :root token on BOTH surfaces, not another @theme
+      // entry. A binding satisfied by a second utility token is not a binding.
+      for (const surface of SURFACE_NAMES) {
+        expect(source in SURFACES[surface], `${source} is not declared in :root for "${surface}"`).toBe(true)
+      }
+    },
+  )
+
+  /**
+   * ONE LAYER FURTHER DOWN, because the seam has two sides.
+   *
+   * Everything above polices `@theme → :root`. The same swap is available
+   * inside `:root` itself for the six tokens there that are DERIVED rather
+   * than authored — `--ui-control-lead: var(--type-size-lead)` becoming
+   * `var(--ui-field)` moves every kit heading to 16px with all of the above
+   * still green, because `--text-control-lead` still reads
+   * `--ui-control-lead` exactly as it should.
+   *
+   * Authored values (the palette, --radius, the eight steps, the leadings) are
+   * deliberately literals and are NOT listed: :root is where a human decides a
+   * number. Only the tokens that claim to follow another token are here.
+   */
+  const ROOT_DERIVATIONS: Record<string, string> = {
+    "--ui-control": "--type-size-caption",
+    "--ui-control-sm": "--type-size-micro",
+    "--ui-control-lead": "--type-size-lead",
+    "--ui-field": "--ui-control",
+    "--type-rhythm": "--type-size-body",
+    "--type-measure": "--type-char-advance",
+  }
+
+  it.each(Object.entries(ROOT_DERIVATIONS))("%s follows exactly %s on the site", (token, source) => {
+    const refs = [...directRefs(SITE_DECLS[token] ?? "")].sort()
+    expect(refs, `${token} follows ${refs.join(", ") || "nothing"}, not ${source}`).toEqual([source])
+  })
+
+  it("the admin pins its primitives to literals, so a font swap cannot move it", () => {
+    // The mirror image of the rule above, and it is a rule the stylesheet
+    // already states: admin density must NOT follow the brand type scale, so
+    // the perturbation claim ("scaling the eight steps moves 0 of 8 admin
+    // elements") holds. Making any of these three a `var()` onto the scale
+    // would be the same defect wearing the opposite sign.
+    const adminOnly = blockDecls(':root[data-surface="admin"] {')
+    for (const token of ["--ui-control", "--ui-control-sm", "--ui-control-lead"]) {
+      expect(adminOnly[token], `${token} is no longer pinned in the admin block`).toBeDefined()
+      expect(adminOnly[token], `${token} now follows the brand scale in the admin`).not.toMatch(/var\(/)
+    }
+  })
+
+  // ── the numbers, asserted where the class lands ────────────────────────────
+
+  it("the 16px iOS floor holds on the CLASS, on every surface", () => {
+    // Section 3 checks `--ui-field` is spelled `max(1rem, …)`; section 6 checks
+    // `--ui-field` RESOLVES to >= 16. Neither says anything about `text-field`,
+    // which is the only thing an <input> actually wears. This does.
+    for (const surface of SURFACE_NAMES) {
+      const px = resolved("--text-field", surface)
+      expect(px, `--text-field did not resolve on "${surface}"`).not.toBeNull()
+      expect(px!, `${surface}: the text-field CLASS computes ${px}px — iOS zooms on focus`).toBeGreaterThanOrEqual(16)
+    }
+  })
+
+  it("the minted control ladder is ordered, on every surface", () => {
+    // The same ordering section 6 asserts on `--ui-*`, restated on the four
+    // classes `components/ui/*` actually wear. A kit heading smaller than kit
+    // body text is the visible half of X02.
+    for (const surface of SURFACE_NAMES) {
+      const sm = resolved("--text-control-sm", surface)
+      const base = resolved("--text-control", surface)
+      const lead = resolved("--text-control-lead", surface)
+      for (const [n, v] of [["control-sm", sm], ["control", base], ["control-lead", lead]] as const) {
+        expect(v, `--text-${n} did not resolve on "${surface}"`).not.toBeNull()
+      }
+      expect(sm!, `${surface}: text-control-sm is not below text-control`).toBeLessThan(base!)
+      expect(base!, `${surface}: a kit heading is not bigger than kit body text`).toBeLessThan(lead!)
+      expect(sm!, `${surface}: below the 12px floor for visible text`).toBeGreaterThanOrEqual(12)
+    }
+  })
+
+  it("the minted brand ladder is ordered at both ends of the fluid range", () => {
+    // Checked at 375 and 1280 because the top two steps are `clamp(… vw …)`:
+    // `title` and `display` cross over on a phone if either anchor is edited
+    // carelessly, which is exactly what the flat 2.75rem used to do. Until
+    // wave 3-c `toNumber` returned null for both, so no guard in this file
+    // reached the two biggest sizes on the site.
+    for (const vw of [375, 1280]) {
+      for (const surface of SURFACE_NAMES) {
+        const px = BRAND_STEPS.map((s) => {
+          const v = resolved(`--text-${s}`, surface, vw)
+          expect(v, `--text-${s} did not resolve at ${vw}px on "${surface}"`).not.toBeNull()
+          return { s, v: v! }
+        })
+        for (let i = 1; i < px.length; i++) {
+          expect(
+            px[i].v,
+            `${surface} @${vw}: text-${px[i].s} (${px[i].v}px) is not above text-${px[i - 1].s} (${px[i - 1].v}px)`,
+          ).toBeGreaterThan(px[i - 1].v)
+        }
+      }
+    }
+  })
+
+  it("the brand steps have a floor a retune cannot fall through", () => {
+    // S08: `--type-size-body: 0.6rem` — 9.6px body copy, and because
+    // `--spacing` is body/4 the ENTIRE layout shrinks with it — passed all 88
+    // guards. Ordering alone does not catch a ladder scaled uniformly down, so
+    // the two absolute anchors the stylesheet already documents are asserted:
+    // 12px is written beside --type-size-micro as "the floor for visible text",
+    // and body copy outside 14–24px is not body copy.
+    for (const vw of [375, 1280]) {
+      for (const surface of SURFACE_NAMES) {
+        const micro = resolved("--text-micro", surface, vw)!
+        const body = resolved("--text-body", surface, vw)!
+        expect(micro, `${surface} @${vw}: the smallest step is under the 12px visible-text floor`).toBeGreaterThanOrEqual(12)
+        expect(body, `${surface} @${vw}: body copy at ${body}px is not readable`).toBeGreaterThanOrEqual(14)
+        expect(body, `${surface} @${vw}: body copy at ${body}px is a heading, not body`).toBeLessThanOrEqual(24)
+      }
+    }
+  })
+
+  it("every minted line-height arrives, and none is under the mean ink", () => {
+    // Section 6 asserts the PAIRING equals `--type-leading-<step>`; this
+    // asserts the number that pairing delivers is a usable leading. Both are
+    // needed: the pairing test compares two tokens, so pointing BOTH at the
+    // same wrong value satisfies it.
+    for (const surface of SURFACE_NAMES) {
+      for (const step of BRAND_STEPS) {
+        const v = resolved(`--text-${step}--line-height`, surface)
+        expect(v, `--text-${step}--line-height did not resolve on "${surface}"`).not.toBeNull()
+        expect(
+          v!,
+          `${surface}: text-${step} would render at leading ${v}, under the mean ink of our copy`,
+        ).toBeGreaterThanOrEqual(INK_MEAN)
+      }
+      const control = resolved("--leading-control", surface)
+      expect(control!, `${surface}: leading-control is under the kit's ink floor`).toBeGreaterThanOrEqual(
+        INK_HEADING_FLOOR,
+      )
+    }
+  })
+
+  it("the line-length cap is DERIVED from the measured glyph advance", () => {
+    // S07: `--type-measure: 29.3rem` — the same 468.84px, written as a dead
+    // number. Every guard passed, `max-w-measure` still capped paragraphs at
+    // the right width, and the ONE property the token exists for was gone: a
+    // new typeface changes --type-char-advance and the line length no longer
+    // follows it. The cap is a count of characters times a measured advance,
+    // so that is the shape asserted — not the value.
+    const measure = SITE_DECLS["--type-measure"]
+    expect(measure, "--type-measure is not declared in :root").toBeDefined()
+    const m = measure.match(/^calc\(\s*(\d+(?:\.\d+)?)\s*\*\s*var\(--type-char-advance\)\s*\)$/)
+    expect(m, `--type-measure must be \`calc(<chars> * var(--type-char-advance))\`, got \`${measure}\``).not.toBeNull()
+    const chars = Number(m![1])
+    // 50–80 is the comfortable band for Arabic quoted beside --type-char-advance.
+    // The episode summary ran at a measured 142 before the cap existed.
+    expect(chars, "the character count is outside the comfortable Arabic band").toBeGreaterThanOrEqual(50)
+    expect(chars).toBeLessThanOrEqual(80)
+    // …and the advance is a FONT-RELATIVE length, or the cap stops tracking the
+    // type size at all. X09's shape — pointing the cap at a font-size token —
+    // is caught by the binding above; this catches the same idea one level down.
+    expect(SITE_DECLS["--type-char-advance"]).toMatch(/^[\d.]+em$/)
   })
 })

@@ -102,7 +102,49 @@
     --type-leading-lead: 1.8;
     --type-leading-subhead: 1.65;
     --type-leading-heading: 1.5;
-    --type-leading-title: 1.4;
+    /* WAS 1.4, AND THE REASON GIVEN FOR IT WAS MEASURED ON THE WRONG CROWD.
+       Wave 3-b justified the two cross sizes together — "short text, chosen by
+       hand" — because the 4905-string corpus behind every other number here was
+       harvested from app/ + components/ only. That sample cannot contain the
+       text these two steps mostly render, because it is not in the source: it
+       is in the DATABASE. `text-title` is the episode <h1>
+       (components/episodes/episode-hero.tsx) and the guest <h1>
+       (app/guests/[slug]/page.tsx), i.e. an episode title and a guest name
+       straight out of Postgres. The justification was true of `display` and
+       false of `title`, and the defect was the population, not the method.
+
+       RE-MEASURED 2026-08-02 over that population — the 42 stored episode
+       titles as `displayEpisodeTitle` renders them plus the 3 guest names, read
+       from the local DB, at weight 700 (`font-bold`, which is what the two <h1>s
+       carry; the earlier pass measured 600):
+
+         n = 45   mean 1.2362   max 1.4468   ("كيف تصبح مليونيراً .!")
+         above the old 1.4:  2 of 45         (1.4468 and 1.4152)
+         above 1.5:          0 of 45
+
+       1.45 clears the measured maximum. The change is small and real: a wrapped
+       title gains 2.2px per line gap at 44px, ~1.4px at the 36px phone end.
+
+       WHAT THE OLD VALUE ACTUALLY COST, measured on a real episode page rather
+       than asserted: at 640 / 841 / 1280 the worst adjacent-line ink clearance
+       across all 45 was +0.47 / +0.48 / +0.48px — thin, but nothing collided,
+       because the two strings that exceed 1.4 are 21 and 56 characters and
+       never wrap at a title size. So this is not a bug being fixed, it is a
+       margin being restored to the size of the population it serves. Both
+       statements are on the record because the first one alone would have been
+       a scare and the second one alone would have been an excuse.
+
+       STILL NOT CLAIMED: that 1.45 clears every title anyone will ever write. A
+       title carrying tashkeel on a descender measures up to 1.763 in the wider
+       corpus. The floor tracks the copy we actually have, and the guard in
+       tests/type-scale-guards.test.ts pins it to that measurement so the next
+       person who adds a taller title finds out from a failing test. */
+    --type-leading-title: 1.45;
+    /* Left at 1.4, and here the "short, hand-picked" justification survives its
+       own audit: `text-display` has exactly ONE call site (app/page.tsx:99), the
+       homepage hero, whose copy is authored in the file with a hard <br> in it.
+       Measured at 375 on the live page: two lines, 10.87px of ink clearance. No
+       database string reaches this step. */
     --type-leading-display: 1.4;
     /* Amiri (--font-brand-display) is a Naskh face with much deeper
        descenders than the sans — it needs its own, looser value or
