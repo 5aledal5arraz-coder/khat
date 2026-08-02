@@ -1,5 +1,10 @@
 import { APP_URL } from './resend'
 import { escapeHtml } from './escape'
+import {
+  EMAIL_LOCKUP_HEIGHT,
+  khatLogoGeometry,
+} from '@/components/brand/khat-logo-geometry'
+import { KHAT_INDIGO, KHAT_ORANGE } from '@/components/brand/khat-logo-art'
 
 /**
  * Strip any AI-generated unsubscribe blocks from body content so that only the
@@ -16,17 +21,27 @@ function stripBodyUnsubscribe(html: string): string {
 }
 
 // ───────────────────────────────────────────────────────────────────────────
-// Khat brand email palette (light, Apple-editorial — deep indigo + orange).
-// Mirrors the public site identity (the :root token block in
-// app/globals.css). Hex, inline — email clients don't get CSS variables, so
-// this is the one copy of the palette that CANNOT read the tokens and has to
-// be re-derived by hand whenever the brand colours change.
+// Khat brand email palette. Hex, inline — email clients don't get CSS
+// variables, so this is the one copy of the palette that cannot read the
+// tokens.
+//
+// `indigo` and `orange` are IMPORTED from the identity artwork, not re-typed.
+// They used to be #3a2d70 / #ee6a2c — the two colours the deleted CSS lookalike
+// invented, which are in no palette — plus two gradient stops (#45367f /
+// #2f2560) that existed only to fake a logo tile. Those four hexes are gone
+// from the codebase now; a hand-kept copy is exactly how they survived a
+// cleanup that removed them everywhere else, so this file no longer keeps one.
+// The neutrals below are email chrome (text, rules, page fill), not brand
+// colours, and stay local.
+//
+// Exported because `lib/ai/content.ts` writes the newsletter BODY and used to
+// carry its own typed-out copy of these hexes inside the prompt — so the AI was
+// being told to compose in the invented colours, and its output lands inside
+// this very wrapper. One palette, one place.
 // ───────────────────────────────────────────────────────────────────────────
-const BRAND = {
-  indigo: '#3a2d70',
-  indigoSoft: '#45367f',
-  indigoDeep: '#2f2560',
-  orange: '#ee6a2c',
+export const EMAIL_PALETTE = {
+  indigo: KHAT_INDIGO,
+  orange: KHAT_ORANGE,
   ink: '#1b1630',
   body: '#403a55',
   muted: '#6c6783',
@@ -34,7 +49,9 @@ const BRAND = {
   border: '#ece9f5',
   pageBg: '#f1eef8',
   soft: '#f7f5fc',
-}
+} as const
+
+const BRAND = EMAIL_PALETTE
 
 // Social icon — light circular chip for the footer.
 function socialIconCell(url: string, label: string, glyph: string): string {
@@ -43,18 +60,43 @@ function socialIconCell(url: string, label: string, glyph: string): string {
 </td>`
 }
 
-// The Khat mark, recreated in email-safe HTML: indigo squircle with the خط
-// wordmark + an orange spark, plus the Arabic/Latin lockup.
-function khatMark(): string {
-  return `<table role="presentation" cellpadding="0" cellspacing="0"><tr>
-    <td style="width:48px;height:48px;background:linear-gradient(150deg,${BRAND.indigoSoft},${BRAND.indigoDeep});border-radius:14px;text-align:center;vertical-align:middle;">
-      <span style="color:#ffffff;font-size:21px;font-weight:700;line-height:48px;font-family:'Segoe UI',Tahoma,Arial,sans-serif;">خط</span>
-    </td>
-    <td style="padding-right:12px;vertical-align:middle;">
-      <div style="font-size:17px;font-weight:800;color:${BRAND.ink};">بودكاست خط <span style="color:${BRAND.orange};font-size:12px;">&#9670;</span></div>
-      <div style="font-size:10px;letter-spacing:3px;color:${BRAND.faint};text-transform:uppercase;margin-top:3px;">Podcast Khat</div>
-    </td>
-  </tr></table>`
+/**
+ * The Khat logo in email — the real horizontal lockup, as a hosted PNG.
+ *
+ * WHAT THIS REPLACED. This function used to *rebuild* the logo out of table
+ * HTML: a gradient-filled rounded square, the string "خط" set in Segoe UI, and
+ * an orange &#9670; diamond, in four invented colours. It was the same lookalike
+ * that was deleted from `components/`, `lib/pdf/`, and the media kit — but it
+ * survived here, and this file is on the campaign send path
+ * (`lib/newsletter/sender.ts` → `newsletterHtml` → `newsletterLayout`), so the
+ * fake went to every subscriber. The real khaa is a custom speech-bubble drawing
+ * that no typeface contains, so "خط" in a UI font is not a small deviation.
+ *
+ * WHY A RASTER AND NOT THE VECTOR. Everywhere else in this codebase the logo is
+ * inlined SVG. Email cannot take it: Gmail strips inline `<svg>` from message
+ * bodies and will not load `<img src="*.svg">`, and Outlook's Word-based
+ * renderer supports neither. A hosted PNG at an absolute URL is the only form
+ * that renders in Gmail, Apple Mail, and Outlook alike. It is generated from
+ * `public/brand/khat-lockup-horizontal.svg` by `scripts/build-brand-icons.ts`
+ * at 2x for retina — the artwork, downscaled, never redrawn.
+ *
+ * WHEN IMAGES ARE BLOCKED. Outlook and some corporate clients suppress remote
+ * images until the reader opts in. The `alt` text is styled so that state
+ * degrades to the brand name in brand indigo rather than a broken-image icon.
+ * No HTML wordmark sits beside the image: the lockup already carries
+ * "بودكاست خط / PODCAST KHAT" as artwork, and duplicating it in a UI font is
+ * how the last replica started.
+ *
+ * NO CSS GRADIENTS ANYWHERE IN THIS FILE. Outlook's Word renderer drops
+ * `linear-gradient` outright, so every gradient here was a brand element that
+ * only some readers ever saw — and each one carried a stop colour that is in no
+ * palette. Flat brand colours, in nested table cells, render everywhere.
+ */
+function khatLockup(): string {
+  // Sized through the shared geometry helper, so email is held to the same
+  // MIN_HEIGHT guard as every other surface instead of hard-coding a number.
+  const { width, height } = khatLogoGeometry('lockup-horizontal', EMAIL_LOCKUP_HEIGHT)
+  return `<img src="${APP_URL}/brand/email-lockup.png" width="${Math.round(width)}" height="${Math.round(height)}" alt="بودكاست خط" style="display:block;border:0;outline:none;text-decoration:none;width:${Math.round(width)}px;height:${Math.round(height)}px;color:${BRAND.indigo};font-size:17px;font-weight:800;font-family:'Segoe UI',Tahoma,Arial,sans-serif;" />`
 }
 
 /**
@@ -104,12 +146,22 @@ function newsletterLayout(
           <!-- Header -->
           <tr>
             <td class="nl-px" style="padding:26px 34px 22px;">
-              ${khatMark()}
+              ${khatLockup()}
             </td>
           </tr>
-          <!-- Brand accent rule -->
+          <!-- Brand accent rule: two flat bands in a nested table. See the
+               note above khatLockup() for why this is not a CSS gradient. NB
+               this is a real HTML comment that ships inside every message, so
+               keep it short and keep retired colour values out of it. -->
           <tr>
-            <td style="height:4px;line-height:4px;font-size:0;background:linear-gradient(90deg,${BRAND.indigo} 0%,#5a47a8 50%,${BRAND.orange} 100%);background-color:${BRAND.indigo};">&nbsp;</td>
+            <td style="height:4px;line-height:4px;font-size:0;padding:0;">
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;">
+                <tr>
+                  <td width="70%" bgcolor="${BRAND.indigo}" style="height:4px;line-height:4px;font-size:0;background-color:${BRAND.indigo};">&nbsp;</td>
+                  <td width="30%" bgcolor="${BRAND.orange}" style="height:4px;line-height:4px;font-size:0;background-color:${BRAND.orange};">&nbsp;</td>
+                </tr>
+              </table>
+            </td>
           </tr>
           <!-- Content -->
           <tr>
@@ -150,7 +202,7 @@ function newsletterLayout(
 function ctaButtonLight(text: string, url: string): string {
   return `<table role="presentation" cellpadding="0" cellspacing="0" style="margin:28px auto 6px;">
     <tr>
-      <td align="center" bgcolor="${BRAND.indigo}" style="border-radius:10px;background:linear-gradient(135deg,${BRAND.indigoSoft},${BRAND.indigoDeep});">
+      <td align="center" bgcolor="${BRAND.indigo}" style="border-radius:10px;background-color:${BRAND.indigo};">
         <a href="${url}" style="display:inline-block;padding:14px 38px;color:#ffffff;font-size:15px;font-weight:700;text-decoration:none;border-radius:10px;">${text} &#8592;</a>
       </td>
     </tr>
@@ -188,7 +240,7 @@ function legacyEmailLayout(content: string, unsubscribeUrl?: string): string {
         <table role="presentation" width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;background-color:#ffffff;border-radius:16px;overflow:hidden;border:1px solid ${BRAND.border};">
           <tr>
             <td style="padding:24px 32px 20px;border-bottom:1px solid ${BRAND.border};">
-              ${khatMark()}
+              ${khatLockup()}
             </td>
           </tr>
           <tr>

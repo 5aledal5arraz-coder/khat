@@ -12,6 +12,21 @@ export const KHAT_INDIGO = "#362e6d"
 export const KHAT_ORANGE = "#fd4f04"
 export const KHAT_IVORY = "#f8f3ef"
 
+/**
+ * The secondary mark's counter — the parallelogram inside the bubble — is a
+ * DESIGNED FILL REGION, not a hole, and this is the fill the identity file
+ * ships it with (KHAT SECONDARY MARK, p.17).
+ *
+ * It was deleted once on the theory that the counter is meant to be
+ * transparent. It is not, and the file says so twice: p.17 draws the counter as
+ * its own path over a white page, so a transparent counter would have printed
+ * white; and p.18 (KHAT COLOR SYSTEM 02) is eight copies of this same mark with
+ * the same counter path filled in each of the eight secondary colours. It is
+ * the mark's one recolourable surface. Restoring it is why this value is not in
+ * either palette list — it belongs to the artwork, not to the colour system.
+ */
+export const KHAT_SECONDARY_COUNTER = "#fff0e6"
+
 export interface BrandArt {
   /** Intrinsic width in viewBox units. */
   readonly width: number
@@ -67,5 +82,5 @@ export const SECONDARY_MARK: BrandArt = {
   width: 378,
   height: 198.52,
   body:
-    "<path fill=\"#362e6d\" d=\"M108.58 107.24L44.23 42.89L269.42 42.89L333.77 107.24ZM365.69 78.52L299.49 12.29C291.56 4.38 281.01 0 269.8 0L41.97 0C24.94 0 9.72 10.17 3.21 25.89C-3.31 41.63 0.27 59.58 12.32 71.61L78.5 137.84C86.44 145.75 97 150.13 108.19 150.13L205.03 150.13L253.42 198.52L253.42 150.13L336.02 150.13C353.06 150.13 368.28 139.96 374.79 124.26C381.3 108.51 377.72 90.55 365.69 78.52\"/>",
+    "<path fill=\"#362e6d\" d=\"M108.58 107.24L44.23 42.89L269.42 42.89L333.77 107.24ZM365.69 78.52L299.49 12.29C291.56 4.38 281.01 0 269.8 0L41.97 0C24.94 0 9.72 10.17 3.21 25.89C-3.31 41.63 0.27 59.58 12.32 71.61L78.5 137.84C86.44 145.75 97 150.13 108.19 150.13L205.03 150.13L253.42 198.52L253.42 150.13L336.02 150.13C353.06 150.13 368.28 139.96 374.79 124.26C381.3 108.51 377.72 90.55 365.69 78.52\"/><path fill=\"#fff0e6\" d=\"M333.77 107.24L108.58 107.24L44.23 42.89L269.42 42.89ZM333.77 107.24\"/>",
 }

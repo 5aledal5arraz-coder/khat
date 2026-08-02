@@ -1,5 +1,6 @@
 import { forwardRef } from "react"
 import type { Quote, Guest } from "@/types/database"
+import { KhatLogo } from "@/components/brand/khat-logo"
 
 export type TemplateType = "minimal" | "framed" | "gradient"
 
@@ -43,17 +44,23 @@ function BrandingBar() {
         marginTop: "auto",
       }}
     >
-      {/* eslint-disable-next-line @next/next/no-img-element -- Native <img> required for modern-screenshot canvas capture */}
-      <img
-        src="/logo-small.jpg"
-        alt="KHAT"
-        style={{
-          width: "56px",
-          height: "56px",
-          borderRadius: "12px",
-          objectFit: "cover",
-        }}
-      />
+      {/*
+        The real mark, inlined.
+
+        This was `<img src="/logo-small.jpg">` — a periwinkle (#748ec7) square
+        with "خط" set in a UI font. That is neither the current identity nor the
+        retired gold one: a THIRD mark, stamped on every quote image published
+        to social. It is the widest-reaching surface in the app, because these
+        images leave the site entirely.
+
+        Inline SVG rather than an <img>, deliberately: modern-screenshot clones
+        the node into a <foreignObject> and has to fetch-and-inline every image
+        source it finds, which is a network round trip that can fail silently
+        mid-capture. Inline geometry is already in the DOM it serialises, so
+        there is nothing to fetch. `mark-reversed` because these templates are
+        all dark-ground.
+      */}
+      <KhatLogo variant="mark-reversed" height={40} label={null} />
       <span
         style={{
           fontSize: "20px",

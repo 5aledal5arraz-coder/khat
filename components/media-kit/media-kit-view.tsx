@@ -43,7 +43,7 @@ export function MediaKitView({
           />
           <h1 className="text-[52px] font-bold leading-tight text-[#f5f2ed]">بودكاست خط</h1>
           <p className="mt-2 text-base font-light tracking-[10px] text-[#c9a84c]" dir="ltr">
-            KHAT PODCAST
+            PODCAST KHAT
           </p>
           <div className="mx-auto my-12 h-[60px] w-px bg-gradient-to-b from-transparent via-[#c9a84c] to-transparent" />
           <p className="text-[22px] font-light tracking-[6px] text-[#c9a84c]">ملف الشراكة</p>
@@ -198,7 +198,7 @@ export function MediaKitView({
           </div>
 
           <div className="mt-20 border-t border-[#2a2a2a] pt-10 text-center">
-            <div className="text-[13px] font-medium tracking-[6px] text-[#c9a84c]">KHAT PODCAST</div>
+            <div className="text-[13px] font-medium tracking-[6px] text-[#c9a84c]">PODCAST KHAT</div>
             <div className="mt-2 text-xs tracking-[2px] text-[#6b6560]" dir="ltr">khatpodcast.com</div>
           </div>
         </div>

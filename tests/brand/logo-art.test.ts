@@ -15,6 +15,7 @@ import {
   KHAT_INDIGO,
   KHAT_IVORY,
   KHAT_ORANGE,
+  KHAT_SECONDARY_COUNTER,
   LOCKUP_HORIZONTAL,
   LOCKUP_VERTICAL,
   MARK,
@@ -37,7 +38,7 @@ const VARIANTS = Object.keys(ART) as KhatLogoVariant[]
 
 /** The invented colours the CSS lookalike used. Neither is in any palette. */
 const INVENTED = ["#3a2d70", "#ee6a2c", "#45367f", "#2f2560"]
-const PALETTE = [KHAT_INDIGO, KHAT_ORANGE, KHAT_IVORY]
+const PALETTE = [KHAT_INDIGO, KHAT_ORANGE, KHAT_IVORY, KHAT_SECONDARY_COUNTER]
 
 describe("the shipped assets are the real artwork", () => {
   it("keeps the generated module and public/brand/*.svg in lockstep", () => {
@@ -81,6 +82,17 @@ describe("the shipped assets are the real artwork", () => {
         expect(body, variant).not.toContain(effect)
       }
     }
+  })
+
+  it("keeps the secondary mark's counter filled, not hollow", () => {
+    // Deleted once as "a counter that is meant to be transparent". It is not:
+    // p.17 of the identity file draws it as its own path over a WHITE page, so
+    // transparent would have printed white, and p.18 recolours this same path
+    // eight times as the secondary colour system. Losing it is a silent change
+    // to the artwork, so it gets its own assertion rather than riding along in
+    // the palette check.
+    expect(SECONDARY_MARK.body).toContain(`fill="${KHAT_SECONDARY_COUNTER}"`)
+    expect(SECONDARY_MARK.body.match(/<path/g)).toHaveLength(2)
   })
 
   it("keeps the mark light enough to use as an icon", () => {

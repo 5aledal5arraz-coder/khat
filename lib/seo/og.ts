@@ -22,7 +22,11 @@ export const FALLBACK_OG_IMAGE = "/og-image.png"
  */
 const KNOWN_SIZES: Record<string, { width: number; height: number }> = {
   "/og-image.png": { width: 1200, height: 630 },
-  "/logo-wide.jpg": { width: 2560, height: 424 },
+  // `/logo-wide.jpg` used to be listed here as a brand asset. It is not one: it
+  // is a retired SLOGAN graphic in an off-palette purple, nothing points at it
+  // any more, and leaving it in a table headed "brand assets we ship" is how a
+  // dead asset gets picked up again. An admin URL that is not in this table is
+  // emitted without dimensions, which is the documented fallback.
 }
 
 export interface OgImageEntry {

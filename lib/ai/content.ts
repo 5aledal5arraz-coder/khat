@@ -1,4 +1,10 @@
 import { runAiTask } from "@/lib/ai-router"
+// The generated body is dropped straight into `newsletterLayout`, so it has to
+// be composed in the same palette the wrapper uses. These hexes used to be
+// typed out here by hand — including the two the CSS lookalike invented — which
+// meant the AI was instructed to paint every campaign in colours that are in no
+// KHAT palette. Importing them keeps the body and its wrapper in one system.
+import { EMAIL_PALETTE } from "@/lib/email/templates"
 
 // ---------------------------------------------------------------------------
 // Newsletter: AI-generated monthly newsletter content
@@ -49,13 +55,14 @@ export async function generateNewsletterContent(params: {
 - الخطوط: font-family: 'Segoe UI', Tahoma, Arial, sans-serif
 
 ## ألوان العلامة (ثيم فاتح — لا تستخدم خلفيات داكنة إطلاقاً):
-- خلفية البطاقات: #f7f5fc (أو أبيض #ffffff مع حد)
-- نص رئيسي/عناوين: #1b1630
-- نص الفقرات: #403a55
-- نص ثانوي/باهت: #6c6783
-- حدود: #ece9f5
-- اللون الأساسي (إنديغو): #3a2d70
-- لون التمييز (برتقالي): #ee6a2c — استخدمه للمسات صغيرة فقط (علامات، روابط مميزة)
+- خلفية البطاقات: ${EMAIL_PALETTE.soft} (أو أبيض #ffffff مع حد)
+- نص رئيسي/عناوين: ${EMAIL_PALETTE.ink}
+- نص الفقرات: ${EMAIL_PALETTE.body}
+- نص ثانوي/باهت: ${EMAIL_PALETTE.muted}
+- حدود: ${EMAIL_PALETTE.border}
+- اللون الأساسي (إنديغو): ${EMAIL_PALETTE.indigo}
+- لون التمييز (برتقالي): ${EMAIL_PALETTE.orange} — استخدمه للمسات صغيرة فقط (علامات، روابط مميزة)
+- لا تستخدم أي لون آخر للعلامة، ولا تُنشئ شعاراً أو أيقونة نصية — الشعار يضيفه النظام
 
 ## البنية المطلوبة:
 1. **الحلقة المميزة**: صورة مصغرة (إذا متوفرة كـ <img>)، عنوان الحلقة، اسم الضيف (إذا متوفر)، زر "استمع الآن" يوجه للرابط
@@ -71,7 +78,7 @@ export async function generateNewsletterContent(params: {
 ## تعليمات:
 - اجعل النشرة مختصرة وجذابة — لا تكتب فقرات طويلة
 - أضف personality عربية دافئة
-- أزرار CTA: خلفية إنديغو (#3a2d70) مع نص أبيض (#ffffff)، padding مناسب (مثل 14px 36px)، border-radius: 10px، خط عريض
+- أزرار CTA: خلفية إنديغو (${EMAIL_PALETTE.indigo}) مع نص أبيض (#ffffff)، padding مناسب (مثل 14px 36px)، border-radius: 10px، خط عريض
 - الصور تظهر فقط إذا كان الرابط موجوداً (ليس null)
 - لا تضف صور من عندك — استخدم فقط الروابط المقدمة
 

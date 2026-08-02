@@ -94,6 +94,21 @@ export const KHAT_INDIGO = "#362e6d"
 export const KHAT_ORANGE = "#fd4f04"
 export const KHAT_IVORY = "#f8f3ef"
 
+/**
+ * The secondary mark's counter — the parallelogram inside the bubble — is a
+ * DESIGNED FILL REGION, not a hole, and this is the fill the identity file
+ * ships it with (KHAT SECONDARY MARK, p.17).
+ *
+ * It was deleted once on the theory that the counter is meant to be
+ * transparent. It is not, and the file says so twice: p.17 draws the counter as
+ * its own path over a white page, so a transparent counter would have printed
+ * white; and p.18 (KHAT COLOR SYSTEM 02) is eight copies of this same mark with
+ * the same counter path filled in each of the eight secondary colours. It is
+ * the mark's one recolourable surface. Restoring it is why this value is not in
+ * either palette list — it belongs to the artwork, not to the colour system.
+ */
+export const KHAT_SECONDARY_COUNTER = "#fff0e6"
+
 export interface BrandArt {
   /** Intrinsic width in viewBox units. */
   readonly width: number

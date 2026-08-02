@@ -29,7 +29,15 @@ export default function manifest(): MetadataRoute.Manifest {
       { src: "/brand/icon-192.png", sizes: "192x192", type: "image/png" },
       { src: "/brand/icon-512.png", sizes: "512x512", type: "image/png" },
       {
-        src: "/brand/icon-512.png",
+        // A SEPARATE asset, not icon-512 listed twice. Android may crop a
+        // maskable icon to any shape inside a circle of 80% of the canvas. The
+        // shared asset reached 98.2% of that safe radius — it fit, with 1.8% to
+        // spare, which is not a margin — and on the current tile the same reuse
+        // would reach 112% and lose the bubble's tail. This canvas is padded
+        // wider so the artwork lands at 84.3%, measured from the rendered
+        // pixels by scripts/build-brand-icons.ts, which fails the build if the
+        // maskable icon ever leaves the safe zone.
+        src: "/brand/icon-maskable-512.png",
         sizes: "512x512",
         type: "image/png",
         purpose: "maskable",

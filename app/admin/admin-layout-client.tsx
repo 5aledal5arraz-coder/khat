@@ -336,7 +336,11 @@ export default function AdminLayoutClient({
             {/* Drawer header */}
             <div className="flex h-14 items-center justify-between border-b border-border/40 px-4">
               <div className="flex items-center gap-2.5">
-                <KhatLogo variant="mark" height={20} label={null} />
+                {/* 22, matching the top bar above — not 20. 20 is MIN_HEIGHT
+                    itself, so it left the drawer sitting exactly on the floor
+                    with no headroom: any later nudge downward is a silent
+                    clamp, not a visible change. */}
+                <KhatLogo variant="mark" height={22} label={null} />
                 <span className="text-[13px] font-semibold">لوحة التحكم</span>
               </div>
               {/* 32px before this — and it is the ONLY way to close the drawer

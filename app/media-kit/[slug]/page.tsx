@@ -78,7 +78,7 @@ export default function MediaKitSharePage() {
           />
           <h1 className="text-2xl font-bold text-[#f5f2ed]">بودكاست خط</h1>
           <p className="mt-1 text-xs font-light tracking-[8px] text-[#c9a84c]" dir="ltr">
-            KHAT PODCAST
+            PODCAST KHAT
           </p>
         </div>
 

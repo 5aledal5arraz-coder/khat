@@ -618,7 +618,7 @@ function generatePartnershipPDF(
     <div class="divider-title-en">ABOUT KHAT</div>
     <div class="divider-line"></div>
     <div class="page-footer">
-      <div class="page-footer-brand">KHAT PODCAST</div>
+      <div class="page-footer-brand">PODCAST KHAT</div>
       <div class="page-footer-line"></div>
       <div class="page-footer-page">02</div>
     </div>
@@ -647,7 +647,7 @@ function generatePartnershipPDF(
     </div>
 
     <div class="page-footer">
-      <div class="page-footer-brand">KHAT PODCAST</div>
+      <div class="page-footer-brand">PODCAST KHAT</div>
       <div class="page-footer-line"></div>
       <div class="page-footer-page">03</div>
     </div>
@@ -662,7 +662,7 @@ function generatePartnershipPDF(
     <div class="divider-title-en">VISION &amp; VALUES</div>
     <div class="divider-line"></div>
     <div class="page-footer">
-      <div class="page-footer-brand">KHAT PODCAST</div>
+      <div class="page-footer-brand">PODCAST KHAT</div>
       <div class="page-footer-line"></div>
       <div class="page-footer-page">04</div>
     </div>
@@ -694,7 +694,7 @@ function generatePartnershipPDF(
     </div>
 
     <div class="page-footer">
-      <div class="page-footer-brand">KHAT PODCAST</div>
+      <div class="page-footer-brand">PODCAST KHAT</div>
       <div class="page-footer-line"></div>
       <div class="page-footer-page">05</div>
     </div>
@@ -709,7 +709,7 @@ function generatePartnershipPDF(
     <div class="divider-title-en">AUDIENCE &amp; REACH</div>
     <div class="divider-line"></div>
     <div class="page-footer">
-      <div class="page-footer-brand">KHAT PODCAST</div>
+      <div class="page-footer-brand">PODCAST KHAT</div>
       <div class="page-footer-line"></div>
       <div class="page-footer-page">06</div>
     </div>
@@ -730,7 +730,7 @@ function generatePartnershipPDF(
     </div>
 
     <div class="page-footer">
-      <div class="page-footer-brand">KHAT PODCAST</div>
+      <div class="page-footer-brand">PODCAST KHAT</div>
       <div class="page-footer-line"></div>
       <div class="page-footer-page">07</div>
     </div>
@@ -779,7 +779,7 @@ function generatePartnershipPDF(
     </div>
 
     <div class="page-footer">
-      <div class="page-footer-brand">KHAT PODCAST</div>
+      <div class="page-footer-brand">PODCAST KHAT</div>
       <div class="page-footer-line"></div>
       <div class="page-footer-page">08</div>
     </div>
@@ -794,7 +794,7 @@ function generatePartnershipPDF(
     <div class="divider-title-en">PARTNERSHIP PHILOSOPHY</div>
     <div class="divider-line"></div>
     <div class="page-footer">
-      <div class="page-footer-brand">KHAT PODCAST</div>
+      <div class="page-footer-brand">PODCAST KHAT</div>
       <div class="page-footer-line"></div>
       <div class="page-footer-page">09</div>
     </div>
@@ -815,7 +815,7 @@ function generatePartnershipPDF(
     </div>
 
     <div class="page-footer">
-      <div class="page-footer-brand">KHAT PODCAST</div>
+      <div class="page-footer-brand">PODCAST KHAT</div>
       <div class="page-footer-line"></div>
       <div class="page-footer-page">10</div>
     </div>
@@ -858,7 +858,7 @@ function generatePartnershipPDF(
     </div>
 
     <div class="page-footer">
-      <div class="page-footer-brand">KHAT PODCAST</div>
+      <div class="page-footer-brand">PODCAST KHAT</div>
       <div class="page-footer-line"></div>
       <div class="page-footer-page">11</div>
     </div>
@@ -884,7 +884,7 @@ function generatePartnershipPDF(
     </div>
 
     <div class="contact-footer">
-      <div class="contact-footer-brand">KHAT PODCAST</div>
+      <div class="contact-footer-brand">PODCAST KHAT</div>
       <div class="contact-footer-url">khatpodcast.com</div>
       <div class="contact-footer-confidential">هذا المستند سري وأُعدّ خصيصًا لـ ${esc(companyName)} &nbsp;·&nbsp; CONFIDENTIAL</div>
     </div>

@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation"
 import { Search, X } from "lucide-react"
 import { Button, buttonVariants } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { KhatLogo } from "@/components/brand/khat-logo"
+import { KhatLogoSwap } from "@/components/brand/khat-logo"
 
 const navigation = [
   { name: "الحلقات", href: "/episodes" },
@@ -41,21 +41,27 @@ export function Header({ hasNewEpisode = false }: { hasNewEpisode?: boolean }) {
             narrow ones, because `PODCAST KHAT` is unreadable once the lockup is
             squeezed below ~40px tall. The `خط` text that used to sit next to
             the old badge is gone — the lockup already carries the name, and at
-            <lg the mark stands alone by design. */}
+            <lg the mark stands alone by design.
+
+            This was two <KhatLogo> elements toggled with lg:hidden /
+            hidden lg:block, which put BOTH inline in every page — including
+            ~14 KB of lockup geometry on phones that never render it. <picture>
+            with a media source makes the browser fetch exactly one. */}
         <Link
           href="/"
           aria-label="خط — الرئيسية"
           className="flex shrink-0 items-center transition-opacity hover:opacity-90"
         >
-          <KhatLogo variant="mark" height={32} label={null} className="lg:hidden" />
-          <KhatLogo
-            variant="lockup-horizontal"
-            // 40, not the 36–40 band's midpoint: 40px IS the identity file's
-            // floor for this lockup, so the band has exactly one legal value.
-            // Asking for 38 got clamped here and warned — the guard works.
-            height={40}
+          <KhatLogoSwap
+            compact={{ variant: "mark", height: 32 }}
+            // 44 in a 64px bar (lg:), leaving 10px above and below. It was 40 —
+            // exactly MIN_HEIGHT for this lockup, i.e. sitting on the floor with
+            // zero headroom, where any later nudge downward gets silently
+            // clamped instead of showing up as a visual change.
+            full={{ variant: "lockup-horizontal", height: 44 }}
+            breakpoint="1024px"
+            heightClassName="h-[32px] lg:h-[44px]"
             label={null}
-            className="hidden lg:block"
           />
         </Link>
 
