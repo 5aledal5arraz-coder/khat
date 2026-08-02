@@ -64,10 +64,24 @@
  * the dev server for the duration of the run.
  *
  * A SECOND MEASUREMENT TRAP, in the same family — see INK_TITLE_MAX. Proving a
- * webfont is really loaded by comparing measured WIDTH against a bogus family
- * does not work for this typeface: the probe string differs by 0.8% between
- * IBM Plex Sans Arabic and the fallback. Its INK differs by 24%. Check ink, or
- * `document.fonts.check()` with the exact weight, never width.
+ * webfont is really loaded by MEASURING it does not work at all, in either
+ * dimension. `document.fonts.check()` with the exact weight is the only
+ * reliable signal, and it must be read on a COLD page — see below.
+ *
+ * A THIRD ONE, and it is the reason the second is stated so absolutely. THE
+ * PROBE LOADS THE FONT IT IS PROBING FOR. Setting `ctx.font = '400 100px
+ * Amiri'` on a canvas is itself a request for that face: on a page where Amiri
+ * is not already painted, the FIRST measureText() returns the fallback serif
+ * and the second returns Amiri, with nothing announcing the difference.
+ * Noura hit this and so did the wave that wrote 1.644. The protocol is
+ * therefore: load a page that RENDERS the class, read `document.fonts.check()`
+ * BEFORE touching a canvas, and only measure if it was already true.
+ *
+ * A FOURTH, which is about reading evidence rather than taking it: a console
+ * error can outlive the page that produced it. One was observed here naming a
+ * class that does not exist anywhere in globals.css, surviving a client-side
+ * navigation. "The console shows an error" is not evidence that the code under
+ * test is broken — same family as "the name did not change".
  */
 import { describe, it, expect } from "vitest"
 import { readFileSync, readdirSync, statSync } from "node:fs"
@@ -125,22 +139,26 @@ function splitTopLevel(s: string, sep: string): string[] {
   return out.map((p) => p.trim()).filter(Boolean)
 }
 
-/** The custom-property declarations of one block, by its opening text. */
-function blockDecls(opener: string): Record<string, string> {
+/** The `[start, end)` offsets of one top-level block, by its opening text. */
+function blockSpan(opener: string): [number, number] {
   const start = CSS.indexOf(opener)
   if (start < 0) throw new Error(`block not found in globals.css: ${opener}`)
   let depth = 0
   for (let i = start + opener.length - 1; i < CSS.length; i++) {
     if (CSS[i] === "{") depth++
-    else if (CSS[i] === "}" && --depth === 0) {
-      const out: Record<string, string> = {}
-      for (const m of CSS.slice(start + opener.length, i).matchAll(/(--[a-z0-9-]+)\s*:\s*([^;]+);/g)) {
-        out[m[1]] = m[2].trim()
-      }
-      return out
-    }
+    else if (CSS[i] === "}" && --depth === 0) return [start, i + 1]
   }
   throw new Error(`unbalanced block in globals.css: ${opener}`)
+}
+
+/** The custom-property declarations of one block, by its opening text. */
+function blockDecls(opener: string): Record<string, string> {
+  const [start, end] = blockSpan(opener)
+  const out: Record<string, string> = {}
+  for (const m of CSS.slice(start + opener.length, end - 1).matchAll(/(--[a-z0-9-]+)\s*:\s*([^;]+);/g)) {
+    out[m[1]] = m[2].trim()
+  }
+  return out
 }
 
 const THEME_DECLS = blockDecls("@theme inline {")
@@ -608,11 +626,21 @@ describe("components/ui headings cannot collide", () => {
     // line box on 14px Arabic. Measured 2026-08-02 on /partner at 375, the one
     // public route using this primitive: 7 labels, all single-line today, and
     // 6 of the 7 have ink TALLER than their line box (1.052–1.239 × 14px), so
-    // the first label long enough to wrap overlaps. It is latent, not live.
-    // Left alone in this wave on purpose: Label is imported by the admin as
-    // well, where `leading-none` is load-bearing for toolbar rhythm across 56
-    // files, so changing it is a measured wave of its own and not a drive-by
-    // on the way past.
+    // the first label long enough to wrap overlaps. It is latent, not live —
+    // and more than latent: measured 2026-08-02, no viewport reaches the wrap.
+    // The widest of the 7 was narrowed to 200px without a single one wrapping.
+    //
+    // THE DEFERRAL STANDS AND ITS STATED REASON WAS WRONG, which is worse than
+    // no reason because the next reader sizes the wave from it. This comment
+    // used to say `leading-none` was load-bearing "across 56 files". 56 is the
+    // number of admin files that import BUTTON — it is written verbatim beside
+    // --ui-control in app/globals.css and it walked from one component to
+    // another on the way into this file. Label's own number, counted
+    // 2026-08-02: 9 importers (8 admin + components/forms/
+    // partner-application-form.tsx), 38 usages. The wave is roughly six times
+    // cheaper than this comment claimed. It is still its own wave and not a
+    // drive-by on the way past, but for the right reason: the fix is a
+    // measured leading on a shared primitive, not a scope the size of Button.
     "components/ui/label.tsx": "OPEN: latent collision if a label ever wraps — see comment, needs its own wave",
   }
 
@@ -750,6 +778,35 @@ describe("spacing, radius and elevation resolve from the switch point", () => {
       .map((v, i) => (i > 0 ? { gap: v - sorted[i - 1], between: [sorted[i - 1], v] } : null))
       .filter((g) => g && g.gap < basePx / 2)
     expect(tooClose).toEqual([])
+  })
+
+  it("the ladder is the documented one — same rungs, same order", () => {
+    // N03: `--radius-3xl: calc(var(--radius) * 3)` → `* 2` passed everything,
+    // including the gap test one line up, because that test dedupes with
+    // `new Set` BEFORE measuring gaps. A rung collapsing ONTO its neighbour
+    // produces a duplicate, the Set eats it, and the surviving ladder is
+    // perfectly well spaced — while `rounded-3xl` silently renders 16px
+    // instead of 24px on all 30 of its call sites. Deduping is right for the
+    // gap question and blind to the collapse question, so the collapse gets
+    // its own assertion.
+    //
+    // The ladder is PINNED rather than merely ordered, because md and lg are a
+    // deliberate alias pair (both 1x — see the table beside --radius-sm), so
+    // "strictly increasing" is not true of it and "non-decreasing" would not
+    // have caught N03 either: 0.5/1/1/1.5/2/2 is non-decreasing. Adding or
+    // retuning a rung is meant to land here as a failing test.
+    const rungs = radiusRungs()
+    expect(Object.entries(rungs).map(([k, v]) => `${k}=${v}`)).toEqual([
+      "sm=0.5",
+      "md=1",
+      "lg=1",
+      "xl=1.5",
+      "2xl=2",
+      "3xl=3",
+    ])
+    // …and the distinct rung COUNT, stated separately so the failure message
+    // says "a rung collapsed" and not just "the list differs".
+    expect(new Set(Object.values(rungs)).size, "two rungs now compute the same corner").toBe(5)
   })
 
   it("every LAYER of every elevation rung is drawn in --shadow-tint", () => {
@@ -900,11 +957,21 @@ const INK_HEADING_FLOOR = 1.74
  * sees) plus the 3 guest names, read-only from the local DB — at weight 700,
  * which is the `font-bold` both <h1>s carry:
  *
- *   n = 45   mean 1.2362   max 1.4468 ("كيف تصبح مليونيراً .!")
+ *   n = 45   mean 1.2362   max 1.4470 ("كيف تصبح مليونيراً .!")
  *   above 1.4 (the old value):  2 of 45
  *   above 1.5:                  0 of 45   ⇒ `text-heading`, the phone half
  *                                          of the same two <h1>s, is clear
  *                                          at 1.5 with room.
+ *
+ * THE PIN WAS 1.4468 AND THE MEASUREMENT IS 1.4470, which is the wrong
+ * direction by 0.0002: a floor UNDER the population it claims to clear lets
+ * `--type-leading-title: 1.4469` through with the tallest stored title's ink
+ * a hair taller than its line box. Re-measured 2026-08-02 on a cold page
+ * (`document.fonts.check('700 100px "IBM Plex Sans Arabic"')` true before any
+ * canvas call), the value is 1.447 at every size from 16px to 1000px. Nothing
+ * was live — `--type-leading-title` is 1.45 and 0 of 45 exceed it — but a
+ * floor rounded down is not a floor, so the constant now carries the measured
+ * number.
  *
  * WHAT THE OLD 1.4 ACTUALLY COST, measured on a live episode page instead of
  * inferred: worst adjacent-line ink clearance across all 45 rendered in the
@@ -914,15 +981,26 @@ const INK_HEADING_FLOOR = 1.74
  * value moved to 1.45 to restore a margin, not to fix a live defect, and
  * both halves of that are stated so neither can be quoted alone.
  *
- * A METHOD NOTE WORTH MORE THAN THE NUMBER. The font-loaded check that wave
- * 3-b used — compare the measured WIDTH against a bogus family — is weak
- * here: at 44px the probe string measures 423.94px in IBM Plex Sans Arabic
- * and 420.69px in the fallback, a 0.8% difference that no threshold can
- * safely separate. The INK ratio of the same string is 1.389 versus 1.1189.
- * Width is the wrong discriminator for a font substitution; ink is the right
- * one, and it is what these tests are about anyway.
+ * A METHOD NOTE WORTH MORE THAN THE NUMBER, AND ITS FIRST VERSION WAS HALF
+ * WRONG. Wave 3-b checked "is the webfont really loaded?" by comparing
+ * measured WIDTH against a bogus family, found the gap was only 0.8% on its
+ * probe string, and concluded: measure INK instead. The conclusion does not
+ * hold. BOTH numbers are properties of the STRING, not of the substitution —
+ * the same defect as the category table two blocks up, made again. Measured
+ * 2026-08-02, IBM Plex Sans Arabic 700 against the fallback:
+ *
+ *   «كن ضيفاً على البودكاست»      width 3.24%   ink  1.12%   ← ink is WORSE
+ *   «كيف تصبح مليونيراً .!»        width 8.85%   ink  2.99%   ← ink is WORSE
+ *   «حوارات تستحق أن تبقى»        width 5.35%   ink 17.98%
+ *
+ * So there is no "right dimension". The only reliable signal is
+ * `document.fonts.check()` with the exact weight, read before any canvas has
+ * touched the family — see the fourth trap in the header. Where ink DOES
+ * separate cleanly it is a happy accident of the string: Amiri's tallest
+ * headline measures 1.6440 against 1.1528 in the fallback serif, a 30% gap,
+ * while the Plex row above is 3% on the very string that sets INK_TITLE_MAX.
  */
-const INK_TITLE_MAX = 1.4468
+const INK_TITLE_MAX = 1.447
 
 describe("the switch point reaches the element, not just the stylesheet", () => {
   const SURFACE_NAMES = Object.keys(SURFACES) as Surface[]
@@ -1309,6 +1387,28 @@ describe("what the class delivers, not what the token declares", () => {
     },
   )
 
+  it("the brand family is FIRST in the sans stack, not merely present in it", () => {
+    // N09: `--font-sans: ui-sans-serif, system-ui, var(--font-brand-sans),
+    // sans-serif` satisfies the binding above exactly — the declaration reads
+    // --font-brand-sans and nothing else, so `toEqual([source])` is green. But
+    // a font stack is an ORDERED fallback list: a token that is read from
+    // third position is read only for glyphs the two families before it do not
+    // cover. "Reads the token" and "is the family that paints" are different
+    // claims, and only the second one is what the switch point promises.
+    //
+    // HONEST ABOUT WHAT IS AND IS NOT PROVEN: the gap is logical and certain;
+    // the visible damage is not demonstrated on macOS, where `system-ui` has
+    // no Arabic coverage, so the brand face would still paint the site's copy
+    // and the mutation would show as zero pixels here. It would not on a
+    // platform whose system UI face covers Arabic. Position is asserted
+    // because position is the property that decides, not because a screenshot
+    // was produced.
+    const stack = splitTopLevel(THEME_DECLS["--font-sans"], ",")
+    expect(stack[0], `--font-sans paints ${stack[0]} first, not the brand family`).toBe(
+      "var(--font-brand-sans)",
+    )
+  })
+
   /**
    * ONE LAYER FURTHER DOWN, because the seam has two sides.
    *
@@ -1462,5 +1562,213 @@ describe("what the class delivers, not what the token declares", () => {
     // type size at all. X09's shape — pointing the cap at a font-size token —
     // is caught by the binding above; this catches the same idea one level down.
     expect(SITE_DECLS["--type-char-advance"]).toMatch(/^[\d.]+em$/)
+  })
+})
+
+// ── 9. The rules that READ the switch point, not the utilities it mints ──────
+
+/**
+ * THE THIRD HOLE, and it is a whole CLASS rather than a pair of tokens.
+ *
+ * Sections 6 and 8 police two seams: `@theme → :root`, and the six `:root`
+ * tokens that derive from another `:root` token. Between them they cover every
+ * CUSTOM PROPERTY in the file. They cover no ORDINARY CSS RULE at all — and
+ * globals.css has fifteen declarations in plain selectors that read a brand
+ * token seventeen times across nine tokens. Every one of them was outside the
+ * reach of all 160 guards.
+ *
+ * Two of the fifteen are on a live element, `.museum-font-headline`, which is
+ * the episode card's <h3> (components/episodes/episode-card.tsx:61) and
+ * therefore renders on the episode page, on /topics/[slug] and on
+ * /guests/[slug]. Both mutations survived the whole suite:
+ *
+ *   N01  --type-leading-display-font: 1.8 → 1.2
+ *        The stylesheet DOCUMENTS that Amiri needs 1.644 minimum and no guard
+ *        held the number. Reproduced live 2026-08-02 at 375 on
+ *        /guests/الأستاذ-علي-دريساوي, the one public route whose card title
+ *        wraps at that width: adjacent-line ink clearance went from +4.644px
+ *        to −6.156px — a real overlap, on a real page — with 160 guards green.
+ *
+ *   N02  .museum-font-headline { font-family: var(--font-brand-display) }
+ *        repointed to var(--font-brand-sans). The display family then has NO
+ *        consumer, so replacing it at the switch point is a no-op: the exact
+ *        failure this whole wave exists to prevent, one layer below where the
+ *        wave was looking.
+ *
+ * So this section does not test those two. It enumerates the class: every
+ * declaration in globals.css outside the three switch-point blocks that reads
+ * a token declared in them must say WHICH tokens it reads, and read exactly
+ * those. A new rule that reaches for a token is a failing test until someone
+ * writes down what it is for; a repointed one fails on the token list; a rule
+ * that drops its `var()` for a literal fails as a stale entry. That is the
+ * same decision-point shape as section 8's binding table, applied to the side
+ * of the seam nobody had looked at.
+ */
+describe("ordinary rules read the switch point, and say what they read", () => {
+  const SURFACE_NAMES = Object.keys(SURFACES) as Surface[]
+
+  /** Every custom property the switch point declares, on either surface. */
+  const BRAND_TOKENS = new Set([
+    ...Object.keys(SITE_DECLS),
+    ...Object.keys(ADMIN_DECLS),
+    ...Object.keys(THEME_DECLS),
+  ])
+
+  /**
+   * Token references INCLUDING the fallback form. `directRefs` matches only
+   * `var(--x)`, so `var(--primary, red)` would slip past it — a repoint with a
+   * fallback attached is still a repoint, and this side of the seam is exactly
+   * where someone would write one.
+   */
+  const tokenRefs = (value: string) =>
+    [...new Set([...value.matchAll(/var\(\s*(--[a-z0-9-]+)/g)].map((m) => m[1]))]
+      .filter((t) => BRAND_TOKENS.has(t))
+      .sort()
+
+  /**
+   * Every declaration outside `@theme inline`, `:root` and the admin `:root`,
+   * keyed by `<full selector path> { <property> }`. The selector path keeps
+   * the enclosing at-rule, so `@layer base ::-webkit-scrollbar-thumb` and a
+   * bare `::-webkit-scrollbar-thumb` are not the same rule.
+   */
+  function ordinaryReads(): Map<string, string[]> {
+    let rest = CSS
+    const spans = ["@theme inline {", ":root {", ':root[data-surface="admin"] {']
+      .map(blockSpan)
+      .sort((a, b) => b[0] - a[0])
+    for (const [s, e] of spans) rest = rest.slice(0, s) + rest.slice(e)
+
+    const out = new Map<string, string[]>()
+    const stack: string[] = []
+    let buf = ""
+    const flush = () => {
+      const m = buf.match(/^\s*(-{0,2}[a-zA-Z][-a-zA-Z0-9]*)\s*:\s*([\s\S]+?)\s*$/)
+      if (m) {
+        const tokens = tokenRefs(m[2])
+        if (tokens.length) {
+          const key = `${stack.join(" ")} { ${m[1]} }`
+          // Union, so a second declaration of the same property in the same
+          // rule cannot hide behind the first.
+          out.set(key, [...new Set([...(out.get(key) ?? []), ...tokens])].sort())
+        }
+      }
+      buf = ""
+    }
+    for (const ch of rest) {
+      if (ch === "{") {
+        stack.push(buf.trim().replace(/\s+/g, " "))
+        buf = ""
+      } else if (ch === "}") {
+        flush()
+        stack.pop()
+        buf = ""
+      } else if (ch === ";") flush()
+      else buf += ch
+    }
+    return out
+  }
+
+  /**
+   * `<selector> { <property> }` → the brand tokens that rule is FOR.
+   *
+   * Grouped by what they are, because the reason is the point of the table:
+   * a row here is a statement that this rule is supposed to follow the
+   * identity, and which part of it.
+   */
+  const RULE_BINDINGS: Record<string, string[]> = {
+    // Browser chrome: the scrollbar is painted from the palette so a retint
+    // reaches it. Not decorative — it sits over every scrolling surface.
+    "@layer base ::-webkit-scrollbar-track { background }": ["--background"],
+    "@layer base ::-webkit-scrollbar-thumb { background }": ["--border"],
+    "@layer base ::-webkit-scrollbar-thumb:hover { background }": ["--muted-foreground"],
+
+    // The admin shell's glass/elevation set. All five follow --card/--border
+    // so the admin's single light surface stays one surface after a retint.
+    ".admin-glass { background }": ["--card"],
+    ".admin-surface { background }": ["--card"],
+    ".admin-glow { box-shadow }": ["--border"],
+    ".admin-glow-hover:hover { box-shadow }": ["--border"],
+    ".admin-card { background }": ["--card"],
+    ".admin-card { border }": ["--border"],
+    ".admin-card:hover { border-color }": ["--border"],
+    ".admin-shimmer { background }": ["--muted"],
+    ".admin-nav-item::before { background }": ["--primary"],
+
+    // THE FONT HALF OF THE SWITCH POINT, and the only place either family is
+    // consumed by a plain rule. `.transcript-viewer` is the studio transcript
+    // pane; `.museum-font-headline` is the episode card's <h3>.
+    ".transcript-viewer { font-family }": ["--font-brand-sans"],
+    ".museum-font-headline { font-family }": ["--font-brand-display"],
+    // N01's home. The leading is bound here AND floored below: binding alone
+    // would let 1.2 through, a floor alone would let the wire be cut.
+    ".museum-font-headline { line-height }": ["--type-leading-display-font"],
+  }
+
+  const observed = ordinaryReads()
+
+  it("every ordinary rule that reads a brand token is declared above", () => {
+    // The decision point, same as section 8's. A rule added tomorrow that
+    // reaches into the palette or the type scale lands here as a failure
+    // until someone writes down what it is following.
+    const undeclared = [...observed.keys()].filter((k) => !(k in RULE_BINDINGS))
+    expect(undeclared, "these rules read the switch point and nothing says why").toEqual([])
+    expect(observed.size).toBeGreaterThanOrEqual(15)
+  })
+
+  it("no declared rule has quietly disappeared", () => {
+    // The other direction, and it is not symmetry for its own sake: replacing
+    // `font-family: var(--font-brand-display)` with a literal `"Amiri", serif`
+    // detaches the rule from the switch point WITHOUT tripping the test above,
+    // because the rule stops reading any token at all. It trips this one.
+    const missing = Object.keys(RULE_BINDINGS).filter((k) => !observed.has(k))
+    expect(missing, "declared here but no longer reading a brand token").toEqual([])
+  })
+
+  it.each(Object.entries(RULE_BINDINGS))("%s reads exactly %s", (key, tokens) => {
+    expect(observed.get(key), `${key} is not in globals.css any more`).toBeDefined()
+    expect(observed.get(key), `${key} reads ${observed.get(key)?.join(", ")}, not ${tokens.join(", ")}`).toEqual(
+      tokens,
+    )
+  })
+
+  /**
+   * AMIRI'S OWN INK, RE-MEASURED WITH THE PROBE HELD PROPERLY.
+   *
+   * globals.css has said "Amiri 400 runs 1.644em" since wave 2 and no guard
+   * held the number — which is all N01 needed. The figure was also suspect on
+   * method: a canvas probe LOADS the family it asks about, so a first
+   * measurement on a page that does not already paint Amiri returns the
+   * fallback serif. Re-measured 2026-08-02 under the cold-page protocol in the
+   * header — /guests/الأستاذ-علي-دريساوي at 375, which renders
+   * `.museum-font-headline` in Amiri, `document.fonts.check('400 100px
+   * Amiri')` read as true BEFORE any canvas call — over the real population of
+   * this class, the 42 stored episode titles as `displayEpisodeTitle` prints
+   * them:
+   *
+   *   n = 42   mean 1.375   max 1.6440  ("قصة "كافيه دوز" ورحلتها …")
+   *   above 1.644:  1 of 42 (the max itself)      above 1.8:  0 of 42
+   *   same string in the fallback serif: 1.1528   — a 30% gap, so the
+   *   measurement is demonstrably not the fallback's
+   *
+   * The documented 1.644 reproduces exactly. It is the max of the population,
+   * not a constant of the typeface — a new family or new titles means
+   * re-measuring, and that is why the number lives beside a test.
+   */
+  const INK_DISPLAY_FONT_MAX = 1.644
+
+  it("the Amiri headline leading clears Amiri's own ink, on every surface", () => {
+    // The floor the stylesheet documents and nothing enforced. `1.2` — N01 —
+    // is a measured −6.156px overlap on a live public page; the generic
+    // "no leading under the mean ink" sweep in section 6 passes it at 1.103,
+    // because that floor is the SANS's average and this token is the display
+    // face's worst case.
+    for (const surface of SURFACE_NAMES) {
+      const v = resolved("--type-leading-display-font", surface)
+      expect(v, `--type-leading-display-font did not resolve on "${surface}"`).not.toBeNull()
+      expect(
+        v!,
+        `${surface}: .museum-font-headline would render at leading ${v}, under Amiri's own ink (${INK_DISPLAY_FONT_MAX})`,
+      ).toBeGreaterThanOrEqual(INK_DISPLAY_FONT_MAX)
+    }
   })
 })

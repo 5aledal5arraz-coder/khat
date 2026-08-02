@@ -70,6 +70,14 @@
        (canvas actualBoundingBoxAscent + Descent), not the font's own box —
        see the warning on --type-leading-display-font.
 
+       AND MEASURE IT ON A COLD PAGE. Asking a canvas for "Amiri" is itself a
+       request to LOAD Amiri: on a page that does not already paint it, the
+       first measurement is the fallback serif and nothing says so. The Amiri
+       1.644 above was re-derived 2026-08-02 under that protocol
+       (document.fonts.check read true BEFORE any canvas call, fallback
+       control 1.1528 on the same string) and reproduces exactly. Protocol in
+       tests/type-scale-guards.test.ts, top of file.
+
        The old values were 1.08 on the hero and 1.25 on card titles, i.e.
        roughly half of what the script needs: the hero overlapped by a
        measured 7.82px at 1280 and the Amiri card titles by 7.01px. Body
@@ -961,7 +969,16 @@ header {
    sans's 1.389em, so the `leading-tight` (1.25) this used to carry made
    consecutive lines overlap by a measured 7.01px on the guest page. The
    token wins over the step's paired line-height because this is a class
-   selector, not a utility. */
+   selector, not a utility.
+
+   BOTH LINES BELOW ARE NOW GUARDED, and until wave 3-d neither was: these
+   are ordinary CSS rules, and every guard in the file policed custom
+   properties only. Dropping the leading to 1.2 was a measured −6.156px ink
+   overlap on /guests/الأستاذ-علي-دريساوي at 375 with all 160 guards green.
+   The 1.644 floor and both bindings live in
+   tests/type-scale-guards.test.ts § 9 — re-measured there on a cold page,
+   because a canvas probe LOADS the family it asks about and its first
+   answer is the fallback serif. */
 .museum-font-headline {
   font-family: var(--font-brand-display);
   line-height: var(--type-leading-display-font);
