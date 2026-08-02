@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react"
 import { useSearchParams } from "next/navigation"
 import { formatCompactNumber } from "@/lib/shared/formatters"
+import { khatLogoMarkup } from "@/components/brand/khat-logo-geometry"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import {
@@ -162,58 +163,18 @@ function generatePartnershipPDF(
       opacity: 0.4;
     }
 
-    /* Khat brand mark — CSS replica of <KhatLogo> (indigo squircle, white خط,
-       orange diamond). Brand colors are fixed/theme-independent; a soft gold
-       halo keeps it at home on the dark luxury cover. */
+    /* The real vertical lockup, reversed (ivory) for the dark cover — the
+       treatment the identity file itself uses on indigo. The gold halo that
+       used to sit behind the old badge is gone: "no added effects" is one of
+       the six formal don'ts, and the mark needs no help to read here.
+       .cover-brand / .cover-brand-en were removed with it — the lockup
+       carries بودكاست خط and PODCAST KHAT, so the name was being set three
+       times on one cover. */
     .cover-logo {
-      position: relative;
       display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      width: 90px;
-      height: 90px;
-      border-radius: 25px;
       margin-bottom: 40px;
-      overflow: hidden;
-      background: linear-gradient(160deg, #45367f 0%, #3a2d70 55%, #2f2560 100%);
-      box-shadow: 0 0 60px rgba(201, 168, 76, 0.12), 0 6px 18px -5px rgba(58, 45, 112, 0.6);
       -webkit-print-color-adjust: exact !important;
       print-color-adjust: exact !important;
-    }
-    .cover-logo .wm {
-      color: #fff;
-      font-weight: 700;
-      font-size: 41px;
-      line-height: 1;
-      margin-top: 5px;
-    }
-    .cover-logo .dia {
-      position: absolute;
-      width: 14px;
-      height: 14px;
-      top: 18px;
-      inset-inline-start: 31px;
-      background: #ee6a2c;
-      border-radius: 3px;
-      transform: rotate(45deg);
-      box-shadow: 0 0 10px rgba(238, 106, 44, 0.5);
-      -webkit-print-color-adjust: exact !important;
-      print-color-adjust: exact !important;
-    }
-    .cover-brand {
-      font-size: 52px;
-      font-weight: 700;
-      color: var(--white);
-      letter-spacing: -1px;
-    }
-    .cover-brand-en {
-      font-size: 16px;
-      font-weight: 300;
-      color: var(--gold);
-      margin-top: 8px;
-      letter-spacing: 10px;
-      text-transform: uppercase;
-      direction: ltr;
     }
     .cover-divider {
       width: 1px;
@@ -638,9 +599,7 @@ function generatePartnershipPDF(
        PAGE 1: COVER
        ═══════════════════════════════════════ -->
   <div class="cover page">
-    <div class="cover-logo"><span class="wm">خط</span><span class="dia"></span></div>
-    <div class="cover-brand">بودكاست خط</div>
-    <div class="cover-brand-en">KHAT PODCAST</div>
+    <div class="cover-logo">${khatLogoMarkup("lockup-vertical-reversed", 150)}</div>
     <div class="cover-divider"></div>
     <div class="cover-type">عرض شراكة</div>
     <div class="cover-type-en">PARTNERSHIP PROPOSAL</div>

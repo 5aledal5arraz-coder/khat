@@ -215,7 +215,7 @@ export default function AdminLayoutClient({
 
             {/* Logo + Title */}
             <div className="flex items-center gap-2.5">
-              <KhatLogo size={28} />
+              <KhatLogo variant="mark" height={22} label={null} />
               <div className="flex items-center gap-2">
                 <h1 className="text-[13px] font-semibold">لوحة التحكم</h1>
                 {userRole && (
@@ -336,7 +336,7 @@ export default function AdminLayoutClient({
             {/* Drawer header */}
             <div className="flex h-14 items-center justify-between border-b border-border/40 px-4">
               <div className="flex items-center gap-2.5">
-                <KhatLogo size={26} />
+                <KhatLogo variant="mark" height={20} label={null} />
                 <span className="text-[13px] font-semibold">لوحة التحكم</span>
               </div>
               {/* 32px before this — and it is the ONLY way to close the drawer

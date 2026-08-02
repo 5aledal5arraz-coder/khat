@@ -1,89 +1,82 @@
 import { cn } from "@/lib/utils"
+import {
+  DEFAULT_LABEL,
+  khatLogoGeometry,
+  type KhatLogoVariant,
+} from "./khat-logo-geometry"
+
+export {
+  khatLogoMarkup,
+  khatLogoGeometry,
+  MIN_HEIGHT,
+  type KhatLogoVariant,
+} from "./khat-logo-geometry"
 
 /**
- * Khat brand mark — the new identity (deep-indigo squircle, white خط wordmark,
- * orange diamond accent). Built from the loaded Arabic font so it's crisp at any
- * size and theme-independent (brand colors are fixed). Replaces the legacy
- * /logo.png across the site. The pixel-exact production asset can later be
- * dropped at public/logo.png; this mark carries the identity until then.
+ * The Khat logo — the real artwork, not a rebuild of it.
+ *
+ * Every variant is the official vector cropped out of the identity file and
+ * inlined verbatim (see `scripts/build-brand-art.ts`). What that buys us is the
+ * one thing a CSS reconstruction can never have: the خ is a custom drawing
+ * shaped like a speech bubble, so no font produces it, and the previous
+ * component — a rotated square over the word "خط" set in the UI font, on a
+ * gradient, with two glows — was a lookalike in invented colours (#3a2d70 /
+ * #ee6a2c, neither of which is in the palette).
+ *
+ * Consequences of "the artwork is the artwork", all deliberate:
+ *  · **No colour props.** The fills live in the path data. The identity file
+ *    forbids recolouring, and deriving them from theme tokens would break that
+ *    silently the first time a palette moves. The reversed / single-colour
+ *    variants are the sanctioned exceptions, and they are their own assets
+ *    rather than a runtime override.
+ *  · **No mirroring in RTL.** The approved horizontal lockup puts the mark on
+ *    the left and the name on the right, and the bubble's tail points one way.
+ *    Inline SVG geometry ignores `dir`, so this holds for free — and
+ *    `tests/brand/logo-art.test.ts` fails if anyone adds a transform.
+ *  · **No effects.** No gradient, no shadow, no glow: four of the six formal
+ *    "don'ts" were being broken at once.
  */
 
-const INDIGO = "#3a2d70"
-const ORANGE = "#ee6a2c"
-
-export function KhatLogo({
-  size = 40,
-  className,
-}: {
-  size?: number
+export interface KhatLogoProps {
+  variant?: KhatLogoVariant
+  /** Height of the logo itself, in CSS pixels. Clamped to `MIN_HEIGHT`. */
+  height: number
+  /** Reserve the mandated clear space (x = ⅙ of the logo's width) around it. */
+  clearSpace?: boolean
+  /**
+   * Accessible name. Pass `null` when an ancestor already names the control —
+   * a link labelled "خط — الرئيسية" wrapping a logo labelled "خط" is announced
+   * twice.
+   */
+  label?: string | null
   className?: string
-}) {
-  return (
-    <span
-      role="img"
-      aria-label="خط"
-      className={cn(
-        "relative inline-flex shrink-0 select-none items-center justify-center overflow-hidden",
-        className,
-      )}
-      style={{
-        width: size,
-        height: size,
-        borderRadius: size * 0.28,
-        background: `linear-gradient(160deg, #45367f 0%, ${INDIGO} 55%, #2f2560 100%)`,
-        boxShadow: `0 ${size * 0.04}px ${size * 0.18}px -${size * 0.06}px rgba(58,45,112,0.55)`,
-      }}
-    >
-      {/* خط wordmark */}
-      <span
-        aria-hidden
-        className="font-bold leading-none text-white"
-        style={{ fontSize: size * 0.46, marginTop: size * 0.06 }}
-      >
-        خط
-      </span>
-      {/* orange diamond accent (the dot of the خ) */}
-      <span
-        aria-hidden
-        className="absolute"
-        style={{
-          width: size * 0.15,
-          height: size * 0.15,
-          top: size * 0.2,
-          insetInlineStart: size * 0.34,
-          background: ORANGE,
-          borderRadius: size * 0.03,
-          transform: "rotate(45deg)",
-          boxShadow: `0 0 ${size * 0.12}px ${ORANGE}66`,
-        }}
-      />
-    </span>
-  )
 }
 
-/** Logo + Arabic/Latin wordmark lockup, for the footer and wide placements. */
-export function KhatLogoLockup({
-  size = 40,
+export function KhatLogo({
+  variant = "lockup-horizontal",
+  height,
+  clearSpace = false,
+  label,
   className,
-}: {
-  size?: number
-  className?: string
-}) {
+}: KhatLogoProps) {
+  const geo = khatLogoGeometry(variant, height, clearSpace)
+  const name = label === undefined ? DEFAULT_LABEL[variant] : label
+
   return (
-    <span className={cn("inline-flex items-center gap-3", className)}>
-      <KhatLogo size={size} />
-      {/* The wordmark reads the type scale instead of deriving its size from
-          `size`. The old `size * 0.2` produced 8.8px at the one call site
-          (footer, size={44}) — below any legible floor, and invisible to a
-          scale that only governs classes. `size` still drives the mark. */}
-      <span className="flex flex-col leading-none">
-        <span className="text-lead font-bold text-foreground">بودكاست خط</span>
-        {/* Latin wordmark: positive tracking is correct here — it is the one
-            run on the site that is not connected Arabic script. */}
-        <span className="mt-1 text-micro font-medium uppercase tracking-[0.28em] text-muted-foreground">
-          Podcast Khat
-        </span>
-      </span>
-    </span>
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      viewBox={geo.viewBox}
+      width={geo.width}
+      height={geo.height}
+      className={cn("block shrink-0", className)}
+      {...(name === null
+        ? { "aria-hidden": true as const, focusable: false as const }
+        : { role: "img", "aria-label": name })}
+      // Static, build-time artwork generated from public/brand/*.svg — no user
+      // input reaches this string. Inlined rather than <img src> so the mark
+      // never flashes, never 404s, and is one code path with the two print
+      // documents, which cannot resolve a URL at "Save as PDF" time.
+      dangerouslySetInnerHTML={{ __html: geo.art.body }}
+    />
   )
 }

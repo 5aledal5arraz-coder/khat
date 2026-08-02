@@ -71,7 +71,7 @@ export default function AdminLoginPage() {
 
           <div className="flex flex-col items-center mb-8">
             <div className="mb-4">
-              <KhatLogo size={48} />
+              <KhatLogo variant="lockup-vertical" height={88} />
             </div>
             <h1 className="text-lg font-semibold tracking-tight">لوحة تحكم خط</h1>
             <p className="mt-1 text-[13px] text-muted-foreground">

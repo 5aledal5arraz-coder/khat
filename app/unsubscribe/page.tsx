@@ -70,7 +70,7 @@ export default async function UnsubscribePage({ searchParams }: PageProps) {
       <div className="w-full max-w-md">
         <div className="flex justify-center">
           <Link href="/" aria-label="خط — الرئيسية">
-            <KhatLogo size={52} />
+            <KhatLogo variant="lockup-vertical" height={88} label={null} />
           </Link>
         </div>
 

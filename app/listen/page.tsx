@@ -1,5 +1,5 @@
 import { Metadata } from "next"
-import Image from "next/image"
+import { KhatLogo } from "@/components/brand/khat-logo"
 import { Headphones, ExternalLink, Rss } from "lucide-react"
 import { listActivePlatforms, getPlatformByKey } from "@/lib/queries/official-platforms"
 import { PlatformIcon } from "@/components/platforms/platform-icon"
@@ -30,13 +30,11 @@ export default async function ListenPage() {
       <div className="mx-auto max-w-2xl px-4 py-16 sm:py-24">
         {/* Header */}
         <div className="text-center space-y-6">
-          <Image
-            src="/logo.png"
-            alt="بودكاست خط"
-            width={80}
-            height={80}
-            className="mx-auto rounded-2xl shadow-lg"
-          />
+          {/* Was /logo.png — the RETIRED gold wordmark, at 80px under a
+              drop-shadow. The mark is the right element above a heading that
+              already names the brand, and the shadow is one of the six formal
+              don'ts. */}
+          <KhatLogo variant="mark" height={72} label={null} className="mx-auto" />
           <div>
             <h1 className="text-heading font-bold">استمع لبودكاست خط</h1>
             <p className="mt-2 text-muted-foreground">

@@ -36,15 +36,27 @@ export function Header({ hasNewEpisode = false }: { hasNewEpisode?: boolean }) {
     >
       <nav className="container mx-auto flex h-14 items-center justify-between px-4 sm:h-16">
         {/* Logo */}
+        {/* Two variants, not one scaled asset: the identity file pairs the
+            horizontal lockup with wide placements and the mark alone with
+            narrow ones, because `PODCAST KHAT` is unreadable once the lockup is
+            squeezed below ~40px tall. The `خط` text that used to sit next to
+            the old badge is gone — the lockup already carries the name, and at
+            <lg the mark stands alone by design. */}
         <Link
           href="/"
           aria-label="خط — الرئيسية"
-          className="flex shrink-0 items-center gap-2.5 transition-opacity hover:opacity-90"
+          className="flex shrink-0 items-center transition-opacity hover:opacity-90"
         >
-          <KhatLogo size={40} />
-          <span className="hidden text-body font-bold text-foreground sm:inline">
-            خط
-          </span>
+          <KhatLogo variant="mark" height={32} label={null} className="lg:hidden" />
+          <KhatLogo
+            variant="lockup-horizontal"
+            // 40, not the 36–40 band's midpoint: 40px IS the identity file's
+            // floor for this lockup, so the band has exactly one legal value.
+            // Asking for 38 got clamped here and warned — the guard works.
+            height={40}
+            label={null}
+            className="hidden lg:block"
+          />
         </Link>
 
         {/* Desktop Navigation */}

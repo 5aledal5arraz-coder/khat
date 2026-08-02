@@ -11,6 +11,7 @@
  * what's been reviewed.
  */
 
+import { khatLogoMarkup } from "@/components/brand/khat-logo-geometry"
 import type {
   SponsorshipLead,
   SponsorshipProposal,
@@ -110,14 +111,11 @@ export function buildProposalHtml(input: ProposalPdfInput): string {
 
   /* Cover */
   .cover{display:flex;flex-direction:column;}
-  .brandrow{display:flex;align-items:center;gap:12px;}
-  /* Khat brand mark — CSS replica of <KhatLogo> (indigo squircle, white خط,
-     orange diamond). Theme-independent, crisp at print resolution. */
-  .klogo{position:relative;display:inline-flex;width:54px;height:54px;align-items:center;justify-content:center;border-radius:15px;overflow:hidden;background:linear-gradient(160deg,#45367f 0%,#3a2d70 55%,#2f2560 100%);box-shadow:0 2px 10px -3px rgba(58,45,112,.55);}
-  .klogo .wm{color:#fff;font-weight:700;font-size:25px;line-height:1;margin-top:3px;}
-  .klogo .dia{position:absolute;width:8px;height:8px;top:11px;inset-inline-start:18px;background:var(--orange);border-radius:2px;transform:rotate(45deg);box-shadow:0 0 6px rgba(238,106,44,.4);}
-  .wordmark{font-size:20px;font-weight:700;color:var(--indigo);}
-  .wordmark small{display:block;font-size:11px;font-weight:500;color:var(--muted);letter-spacing:.5px;}
+  /* The real horizontal lockup, inlined. gap:0 is correct: the SVG is asked
+     for its clear space, so it carries the mandated x margin inside its own
+     box and the URL cannot crowd it. */
+  .brandrow{display:flex;align-items:center;gap:0;}
+  .brandurl{font-size:11px;font-weight:500;color:var(--muted);letter-spacing:.5px;direction:ltr;}
   .cover-mid{margin-top:34mm;}
   .eyebrow{display:inline-block;background:var(--indigo-soft);color:var(--indigo);font-weight:600;font-size:12px;padding:5px 12px;border-radius:999px;}
   .cover-title{font-size:30px;font-weight:700;line-height:1.4;margin:14px 0 6px;}
@@ -156,8 +154,8 @@ export function buildProposalHtml(input: ProposalPdfInput): string {
   <!-- Cover -->
   <div class="page cover">
     <div class="brandrow">
-      <div class="klogo"><span class="wm">خط</span><span class="dia"></span></div>
-      <div class="wordmark">بودكاست خط<small>khatpodcast.com</small></div>
+      ${khatLogoMarkup("lockup-horizontal", 44, { clearSpace: true })}
+      <div class="brandurl">khatpodcast.com</div>
     </div>
     <div class="cover-mid">
       <span class="eyebrow">عرض شراكة</span>

@@ -1,6 +1,7 @@
 "use client"
 
 import type { MediaKitConfig, AnalyticsConfig } from "@/types/media-kit"
+import { KhatLogo } from "@/components/brand/khat-logo"
 import { formatCompactNumber as formatNumber } from "@/lib/shared/formatters"
 
 export function MediaKitView({
@@ -32,12 +33,13 @@ export function MediaKitView({
         <div className="pointer-events-none absolute bottom-16 left-10 h-20 w-20 border-b border-l border-[#8b7a3e]/40" />
 
         <div className="relative z-10">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src="/logo.png"
-            alt="KHAT"
-            className="mx-auto mb-10 h-[90px] w-[90px] rounded-[22px] border border-[#333] shadow-[0_0_60px_rgba(201,168,76,0.12)]"
-            onError={(e) => { (e.target as HTMLImageElement).style.display = "none" }}
+          {/* Was /logo.png — the RETIRED gold wordmark — in a bordered tile
+              under a gold halo. Reversed mark on this dark cover, no effects. */}
+          <KhatLogo
+            variant="mark-reversed"
+            height={72}
+            label={null}
+            className="mx-auto mb-10"
           />
           <h1 className="text-[52px] font-bold leading-tight text-[#f5f2ed]">بودكاست خط</h1>
           <p className="mt-2 text-base font-light tracking-[10px] text-[#c9a84c]" dir="ltr">

@@ -1,6 +1,7 @@
 import type { Metadata } from "next"
 import Image from "next/image"
 import Link from "next/link"
+import { KhatLogo } from "@/components/brand/khat-logo"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -234,15 +235,11 @@ export default async function AboutPage() {
       <section className="py-16">
         <div className="container mx-auto px-4">
           <div className="max-w-2xl mx-auto text-center">
-            <div className="relative inline-block mb-8">
-              <div className="absolute inset-0 bg-gradient-to-r from-primary to-accent rounded-full blur-2xl opacity-30 animate-pulse" />
-              <Image
-                src="/logo.png"
-                alt="KHAT"
-                width={80}
-                height={80}
-                className="relative rounded-2xl"
-              />
+            {/* Was /logo.png — the RETIRED gold wordmark — behind a pulsing
+                blurred gradient. Both had to go: wrong logo, and "no added
+                effects" is a formal don't. */}
+            <div className="mb-8 inline-block">
+              <KhatLogo variant="mark" height={72} label={null} />
             </div>
 
             <h2 className="text-heading font-bold mb-4">{content.ctaTitle}</h2>

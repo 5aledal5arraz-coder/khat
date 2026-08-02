@@ -71,8 +71,8 @@ export function EpisodeCard({ episode }: EpisodeCardProps) {
         {/* No `tracking-wider` here. This row is mixed — a Latin date and view
             count, but also `الموسم {n}` — and letter-spacing on Arabic forces
             gaps between glyphs that are supposed to JOIN, so the cursive
-            connections break. Positive tracking is only ever correct on the
-            site's non-connected Latin runs (see KhatLogoLockup). */}
+            connections break. Positive tracking is only ever correct on a
+            non-connected Latin run, on its own. */}
         <div className="flex items-center gap-2 pt-1 text-micro text-muted-foreground/60">
           <span>{formatDate(episode.release_date)}</span>
           {episode.view_count != null && episode.view_count > 0 && (

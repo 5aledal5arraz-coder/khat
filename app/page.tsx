@@ -50,7 +50,11 @@ const jsonLd = {
       name: "خط",
       alternateName: "Khat Podcast",
       url: "https://khatpodcast.com",
-      logo: "https://khatpodcast.com/logo.png",
+      // /logo.png is the RETIRED gold wordmark. This is the current horizontal
+      // lockup, rasterised at 1200x287 by scripts/build-brand-icons.ts —
+      // structured-data consumers want real pixel dimensions, which an SVG
+      // cannot state.
+      logo: "https://khatpodcast.com/brand/khat-lockup-horizontal.png",
       sameAs: [
         "https://www.youtube.com/@khatpodcast",
         "https://www.instagram.com/khatpodcast",

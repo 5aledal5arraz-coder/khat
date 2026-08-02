@@ -5,6 +5,7 @@ import { useParams } from "next/navigation"
 import { Loader2, Lock } from "lucide-react"
 import type { MediaKitConfig, AnalyticsConfig } from "@/types/media-kit"
 import { MediaKitView } from "@/components/media-kit/media-kit-view"
+import { KhatLogo } from "@/components/brand/khat-logo"
 
 export default function MediaKitSharePage() {
   const params = useParams()
@@ -67,12 +68,13 @@ export default function MediaKitSharePage() {
       <div className="relative z-10 w-full max-w-sm px-6">
         {/* Logo & Branding */}
         <div className="mb-10 text-center">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src="/logo.png"
-            alt="KHAT"
-            className="mx-auto mb-6 h-16 w-16 rounded-2xl border border-[#333] shadow-[0_0_40px_rgba(201,168,76,0.1)]"
-            onError={(e) => { (e.target as HTMLImageElement).style.display = "none" }}
+          {/* Was /logo.png — the RETIRED gold wordmark — in a bordered tile
+              under a gold halo. Reversed mark on this dark surface, no effects. */}
+          <KhatLogo
+            variant="mark-reversed"
+            height={56}
+            label={null}
+            className="mx-auto mb-6"
           />
           <h1 className="text-2xl font-bold text-[#f5f2ed]">بودكاست خط</h1>
           <p className="mt-1 text-xs font-light tracking-[8px] text-[#c9a84c]" dir="ltr">
