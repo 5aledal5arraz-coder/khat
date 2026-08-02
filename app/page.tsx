@@ -10,6 +10,11 @@ import {
   episodeDurationLabel,
 } from "@/components/episodes/episode-poster-card"
 import { NewsletterSignup } from "@/components/forms/newsletter-signup"
+import {
+  displayEpisodeTitle,
+  episodeBlurb,
+  formatArabicDate,
+} from "@/lib/shared/formatters"
 import { resolveDefaultOgImage } from "@/lib/seo/og"
 
 // `images` must be stated explicitly, NOT deleted: a page-level `openGraph`
@@ -70,6 +75,7 @@ export default async function HomePage() {
     getCachedActiveTeaser().catch(() => null),
   ])
   const featured = episodes[0] ?? null
+  const featuredBlurb = featured ? episodeBlurb(featured) : null
   const grid = episodes.slice(1, 7)
 
   return (
@@ -150,16 +156,46 @@ export default async function HomePage() {
                   شاهد الآن
                 </span>
               </div>
-              <div className="px-2 pb-2 lg:px-4">
+              {/* The card's empty half was two separate faults, not one.
+                  HORIZONTAL: nothing capped or filled the text column.
+                  VERTICAL: the column printed a title and a duration and
+                  stopped, leaving ~200px of blank card beside a 364px image,
+                  because `featured.summary` — the only paragraph the card
+                  could render — is NULL on all 41 published episodes. The
+                  prose lives in `description`; `episodeBlurb` is the shared
+                  fallback (and strips the YouTube link/hashtag tail).
+                  The meta line adds only fields that are actually populated
+                  here: release_date on 42/42 and category on 42/42. No
+                  episode NUMBER — it is stored, but 77 of these rows are
+                  clips, so printing «الحلقة ٧٧» would state something the
+                  data does not mean. */}
+              <div className="flex flex-col px-2 pb-2 lg:px-4">
+                <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-micro text-muted-foreground">
+                  <span>{formatArabicDate(featured.release_date)}</span>
+                  {featured.category?.name ? (
+                    <>
+                      <span aria-hidden="true" className="text-border">
+                        •
+                      </span>
+                      <span className="rounded-full border border-border bg-secondary px-2 py-0.5 font-medium">
+                        {featured.category.name}
+                      </span>
+                    </>
+                  ) : null}
+                </div>
                 {featured.guest?.name ? (
-                  <span className="text-caption font-semibold text-accent">{featured.guest.name}</span>
+                  <span className="mt-3 text-caption font-semibold text-accent">{featured.guest.name}</span>
                 ) : null}
+                {/* `displayEpisodeTitle`, matching every card in the grid
+                    below. Raw `featured.title` printed the YouTube brand stamp
+                    («… مقاطع من بودكاست خط») on the one card that sets the
+                    tone for the page, while the six cards under it did not. */}
                 <h3 className="mt-2 text-pretty text-subhead font-bold text-foreground lg:text-heading">
-                  {featured.title}
+                  {displayEpisodeTitle(featured.title)}
                 </h3>
-                {featured.summary ? (
+                {featuredBlurb ? (
                   <p className="mt-3 line-clamp-3 text-body text-muted-foreground">
-                    {featured.summary}
+                    {featuredBlurb}
                   </p>
                 ) : null}
                 <div className="mt-5 flex items-center gap-3 text-caption text-muted-foreground">

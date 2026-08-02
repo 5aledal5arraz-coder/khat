@@ -392,6 +392,32 @@ export const AR_MONTHS = [
 ] as const
 
 /**
+ * A publication date, written the way an Arabic reader says it: «26 سبتمبر 2025».
+ *
+ * Takes the DATE-ONLY branch seriously. `episodes.release_date` is a bare
+ * `YYYY-MM-DD` string, and `new Date("2025-09-26")` is parsed as UTC midnight —
+ * so in any timezone behind UTC `.getDate()` returns 25 and the whole archive
+ * reads one day early. Splitting the string ourselves keeps the stored day the
+ * displayed day. A full timestamp still goes through `Date` as before.
+ *
+ * Invalid input returns "—", never "NaN يناير".
+ */
+export function formatArabicDate(date: string | Date | null | undefined): string {
+  if (date == null) return "—"
+
+  const dateOnly = typeof date === "string" ? date.trim().match(/^(\d{4})-(\d{2})-(\d{2})$/) : null
+  if (dateOnly) {
+    const month = AR_MONTHS[Number(dateOnly[2]) - 1]
+    if (!month) return "—"
+    return `${Number(dateOnly[3])} ${month} ${dateOnly[1]}`
+  }
+
+  const d = typeof date === "string" ? new Date(date) : date
+  if (!(d instanceof Date) || isNaN(d.getTime())) return "—"
+  return `${d.getDate()} ${AR_MONTHS[d.getMonth()]} ${d.getFullYear()}`
+}
+
+/**
  * A dated commitment, written the way an Arabic reader says it:
  * «26 يوليو · 14:30». Western digits, per the admin's stated convention
  * (`lib/ops/format.ts` §11) — the month NAME is what makes a date scannable,
@@ -504,6 +530,53 @@ export function displayEpisodeTitle(title: string | null | undefined): string {
   if (tidied) out = tidied
 
   return out || original
+}
+
+/**
+ * The one-paragraph blurb a card should print under an episode title.
+ *
+ * WHY THIS EXISTS. The homepage's «الحلقة الأحدث» card read `episode.summary`
+ * and nothing else, and `summary` is NULL on every published episode in this
+ * database (measured 2026-08-02: 0 of 41 populated). So the card's paragraph
+ * was unreachable code and the card rendered a title with ~200px of empty
+ * column under it. The prose is in `description`, which the archive cards
+ * already fall back to (`components/episodes/episode-card.tsx`).
+ *
+ * Falling back NAIVELY is what stopped anyone doing it here: `description` is
+ * the raw YouTube description, 405–602 characters on the three newest rows,
+ * and after its first blank line it carries bit.ly links («حساب الضيف على
+ * الإنستغرام : https://…») and hashtag blocks. Pasting that onto the homepage
+ * trades empty space for spam.
+ *
+ * So: prefer `summary`; otherwise take the FIRST paragraph of `description`
+ * and drop any line inside it that is a link or a hashtag run. Returns null —
+ * not "" — when nothing readable survives, so the caller omits the paragraph
+ * instead of rendering an empty one that still takes vertical space.
+ */
+export function episodeBlurb(episode: {
+  summary?: string | null
+  description?: string | null
+}): string | null {
+  const summary = episode.summary?.trim()
+  if (summary) return summary
+
+  const description = episode.description?.trim()
+  if (!description) return null
+
+  // First paragraph = everything up to the first BLANK line. A single newline
+  // inside a paragraph is a wrap in this data, not a paragraph break.
+  const [firstBlock = ""] = description.split(/\n\s*\n/)
+
+  const prose = firstBlock
+    .split("\n")
+    .map((line) => line.trim())
+    // A line carrying a URL, or opening on a hashtag, is channel boilerplate
+    // rather than prose — true for every such line in the stored descriptions.
+    .filter((line) => line && !line.startsWith("#") && !/https?:\/\//i.test(line))
+    .join(" ")
+    .trim()
+
+  return prose || null
 }
 
 /**

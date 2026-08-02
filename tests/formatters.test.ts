@@ -3,6 +3,8 @@
  */
 import { describe, it, expect } from "vitest"
 import {
+  episodeBlurb,
+  formatArabicDate,
   guestInitials,
   researchSourceLabel,
   researchSourceSnippet,
@@ -118,5 +120,71 @@ describe("researchSourceSnippet", () => {
   it("returns an empty string for a missing title", () => {
     expect(researchSourceSnippet({})).toBe("")
     expect(researchSourceSnippet({ title: null })).toBe("")
+  })
+})
+
+describe("formatArabicDate", () => {
+  it("prints the STORED day for a bare YYYY-MM-DD, not the UTC-shifted one", () => {
+    // `episodes.release_date` is date-only. `new Date("2025-09-26")` is UTC
+    // midnight, so anywhere behind UTC the naive path prints 25 سبتمبر and the
+    // whole archive reads a day early. This is the regression guard.
+    expect(formatArabicDate("2025-09-26")).toBe("26 سبتمبر 2025")
+    expect(formatArabicDate("2025-01-01")).toBe("1 يناير 2025")
+    expect(formatArabicDate("2024-12-31")).toBe("31 ديسمبر 2024")
+  })
+
+  it("still accepts a full timestamp and a Date", () => {
+    expect(formatArabicDate(new Date(2025, 7, 30))).toBe("30 أغسطس 2025")
+    expect(formatArabicDate("2025-08-30T13:45:00")).toBe("30 أغسطس 2025")
+  })
+
+  it("returns the em dash for missing or unparseable input", () => {
+    expect(formatArabicDate(null)).toBe("—")
+    expect(formatArabicDate(undefined)).toBe("—")
+    expect(formatArabicDate("not a date")).toBe("—")
+    expect(formatArabicDate("2025-13-01")).toBe("—")
+  })
+})
+
+describe("episodeBlurb", () => {
+  it("prefers summary when it exists", () => {
+    expect(episodeBlurb({ summary: "ملخص محرَّر", description: "وصف يوتيوب" })).toBe(
+      "ملخص محرَّر",
+    )
+  })
+
+  it("falls back to description — the case that matters, since summary is NULL on all 41 published episodes", () => {
+    expect(episodeBlurb({ summary: null, description: "وصف الحلقة" })).toBe("وصف الحلقة")
+    expect(episodeBlurb({ summary: "   ", description: "وصف الحلقة" })).toBe("وصف الحلقة")
+  })
+
+  it("keeps only the first paragraph of a description", () => {
+    expect(
+      episodeBlurb({ description: "الفقرة الأولى.\n\nالفقرة الثانية." }),
+    ).toBe("الفقرة الأولى.")
+  })
+
+  it("joins wrapped lines inside that paragraph rather than cutting at the first newline", () => {
+    expect(episodeBlurb({ description: "سطر أول\nسطر ثانٍ\n\nفقرة أخرى" })).toBe(
+      "سطر أول سطر ثانٍ",
+    )
+  })
+
+  it("drops the YouTube link and hashtag lines that follow the prose", () => {
+    // Shape taken from the two newest stored descriptions.
+    const stored =
+      "صلاح الغزالي يروي قصة اسره.\nحساب الضيف على الإنستغرام : https://bit.ly/4dsERI6\n#المرأة_والقيادة"
+    const out = episodeBlurb({ description: stored })
+    expect(out).toBe("صلاح الغزالي يروي قصة اسره.")
+    expect(out).not.toContain("http")
+    expect(out).not.toContain("#")
+  })
+
+  it("returns null — never an empty string — when nothing readable survives", () => {
+    // The caller renders no <p> at all on null; "" would still occupy a line box.
+    expect(episodeBlurb({ summary: null, description: null })).toBeNull()
+    expect(episodeBlurb({})).toBeNull()
+    expect(episodeBlurb({ description: "https://example.com" })).toBeNull()
+    expect(episodeBlurb({ description: "#وسم #آخر" })).toBeNull()
   })
 })

@@ -6,6 +6,7 @@ import { Mail, Mic, ArrowLeft, ExternalLink } from "lucide-react"
 import { listPlatformsForSurface } from "@/lib/queries/official-platforms"
 import { PlatformIcon } from "@/components/platforms/platform-icon"
 import { getSiteSettings } from "@/lib/site-settings"
+import { cn } from "@/lib/utils"
 
 export const metadata: Metadata = {
   title: "تواصل معنا",
@@ -39,7 +40,12 @@ export default async function ContactPage() {
         </div>
 
         <div className="grid gap-8 lg:grid-cols-2">
-          {/* Guest Application CTA */}
+          {/* Guest Application CTA — the widest box on the page (896px) held a
+              301px-wide stack pinned to the start edge, so ~595px of it was
+              empty (measured 2026-08-02 @1280). The content that can honestly
+              fill that width is the four-item list, so the LIST goes two-up at
+              `sm` instead of running down one edge. Nothing was invented to
+              pad it. */}
           <Card className="lg:col-span-2">
             <CardHeader>
               <div className="flex items-center gap-3">
@@ -56,8 +62,8 @@ export default async function ContactPage() {
             </CardHeader>
             <CardContent>
               <div className="mb-6 rounded-lg bg-muted/50 p-4">
-                <h3 className="mb-2 font-semibold">نبحث عن ضيوف:</h3>
-                <ul className="list-disc space-y-1 ps-5 text-caption text-muted-foreground">
+                <h3 className="mb-3 font-semibold">نبحث عن ضيوف:</h3>
+                <ul className="grid list-disc gap-x-8 gap-y-1 ps-5 text-caption text-muted-foreground sm:grid-cols-2">
                   <li>لديهم قصص وتجارب حقيقية ملهمة</li>
                   <li>يمتلكون خبرة في مجال معين يمكنهم مشاركتها</li>
                   <li>مستعدون للحديث بصراحة وعمق</li>
@@ -73,8 +79,13 @@ export default async function ContactPage() {
             </CardContent>
           </Card>
 
-          {/* Email */}
-          <Card>
+          {/* Email — spans the row when the platforms card below is absent.
+              The grid is `lg:grid-cols-2` but its second cell is conditional
+              on DB rows, so with no `contact_page` platforms configured this
+              card sat in a two-column row next to a 432px hole. Both cells are
+              populated in this database, which is why the empty cell is not
+              visible today — it is a latent layout bug, not a live one. */}
+          <Card className={cn(contactPlatforms.length === 0 && "lg:col-span-2")}>
             <CardHeader>
               <div className="flex items-center gap-3">
                 <div className="rounded-lg bg-primary/10 p-2">
@@ -125,31 +136,35 @@ export default async function ContactPage() {
           )}
         </div>
 
-        {/* FAQ */}
+        {/* FAQ — four short Q&A pairs stacked in a 896px box left 533px of it
+            empty (measured 2026-08-02 @1280). Two-up at `sm` puts the same
+            four pairs across the box; each answer then sits in ~420px, which
+            is already inside the Arabic measure cap, so nothing needs
+            clamping. */}
         <div className="mt-12 rounded-xl border bg-muted/30 p-6">
           <h2 className="mb-6 text-lead font-bold">أسئلة شائعة</h2>
-          <div className="space-y-4">
+          <div className="grid gap-x-8 gap-y-5 sm:grid-cols-2">
             <div>
               <h3 className="font-semibold">كم تستغرق الحلقة؟</h3>
-              <p className="mt-1 text-caption text-muted-foreground">
+              <p className="mt-1 max-w-measure text-caption text-muted-foreground">
                 عادة تستغرق الحلقات بين 60-90 دقيقة، لكننا مرنون حسب الموضوع.
               </p>
             </div>
             <div>
               <h3 className="font-semibold">أين يتم التسجيل؟</h3>
-              <p className="mt-1 text-caption text-muted-foreground">
+              <p className="mt-1 max-w-measure text-caption text-muted-foreground">
                 يمكن التسجيل في استوديونا أو عبر الإنترنت حسب موقعك وتفضيلك.
               </p>
             </div>
             <div>
               <h3 className="font-semibold">متى سيتم نشر الحلقة؟</h3>
-              <p className="mt-1 text-caption text-muted-foreground">
+              <p className="mt-1 max-w-measure text-caption text-muted-foreground">
                 نخطط لجدول النشر مسبقاً وسنخبرك بموعد النشر المتوقع.
               </p>
             </div>
             <div>
               <h3 className="font-semibold">هل يمكنني مراجعة الحلقة قبل النشر؟</h3>
-              <p className="mt-1 text-caption text-muted-foreground">
+              <p className="mt-1 max-w-measure text-caption text-muted-foreground">
                 نعم، نرسل الحلقة للمراجعة قبل النشر لضمان رضاك عن المحتوى.
               </p>
             </div>
