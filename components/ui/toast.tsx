@@ -55,10 +55,10 @@ const Toast = React.forwardRef<HTMLDivElement, ToastProps>(
           <Icon className="h-5 w-5 shrink-0 mt-0.5" />
           <div className="grid gap-1">
             {title && (
-              <div className="text-sm font-semibold">{title}</div>
+              <div className="text-control font-semibold">{title}</div>
             )}
             {description && (
-              <div className="text-sm opacity-90">{description}</div>
+              <div className="text-control opacity-90">{description}</div>
             )}
           </div>
         </div>

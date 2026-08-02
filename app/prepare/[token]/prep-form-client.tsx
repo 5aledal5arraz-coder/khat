@@ -109,7 +109,7 @@ export function PrepFormClient({ token, guestName, status, existingResponse, edi
       <SuccessState guestName={guestName}>
         <button
           onClick={() => setSubmitted(false)}
-          className="mt-4 rounded-xl border border-border/30 px-6 py-2.5 text-sm text-muted-foreground transition-colors hover:bg-muted/30 hover:text-foreground"
+          className="mt-4 rounded-xl border border-border/30 px-6 py-2.5 text-caption text-muted-foreground transition-colors hover:bg-muted/30 hover:text-foreground"
         >
           تعديل الإجابات
         </button>
@@ -121,17 +121,17 @@ export function PrepFormClient({ token, guestName, status, existingResponse, edi
     <div className="mx-auto max-w-2xl px-4 py-8 sm:py-12">
       {/* Header */}
       <div className="mb-10 text-center">
-        <div className="mb-4 text-sm font-medium tracking-wide text-muted-foreground">خط بودكاست</div>
-        <h1 className="mb-3 text-2xl font-bold text-foreground sm:text-3xl">استبيان التحضير للحلقة</h1>
-        <p className="text-sm leading-relaxed text-muted-foreground">
+        <div className="mb-4 text-caption font-medium text-muted-foreground">خط بودكاست</div>
+        <h1 className="mb-3 text-subhead font-bold text-foreground sm:text-heading">استبيان التحضير للحلقة</h1>
+        <p className="text-caption text-muted-foreground">
           أهلاً <span className="font-medium text-foreground">{guestName}</span>، شكراً لقبولك دعوتنا. هذا الاستبيان يساعدنا في تحضير أفضل تجربة تسجيل ممكنة لك.
         </p>
       </div>
 
       {/* Instructions card */}
       <div className="mb-10 rounded-2xl border border-primary/10 bg-primary/[0.03] p-5 sm:p-6">
-        <h2 className="mb-3 text-sm font-semibold text-primary">ملاحظات مهمة</h2>
-        <ul className="space-y-2 text-[13px] leading-relaxed text-muted-foreground">
+        <h2 className="mb-3 text-caption font-semibold text-primary">ملاحظات مهمة</h2>
+        <ul className="space-y-2 text-caption text-muted-foreground">
           <li className="flex gap-2">
             <span className="mt-1 shrink-0 text-primary">•</span>
             <span>يرجى الحضور <strong className="text-foreground">قبل ٣٠ دقيقة</strong> من موعد التسجيل لإتمام التحضيرات</span>
@@ -199,14 +199,14 @@ export function PrepFormClient({ token, guestName, status, existingResponse, edi
               { key: "website", label: "موقع شخصي", placeholder: "https://..." },
             ].map(({ key, label, placeholder }) => (
               <div key={key}>
-                <label className="mb-1 block text-xs text-muted-foreground">{label}</label>
+                <label className="mb-1 block text-micro text-muted-foreground">{label}</label>
                 <input
                   type="text"
                   dir="ltr"
                   value={(socialAccounts as Record<string, string>)[key] || ""}
                   onChange={(e) => updateSocial(key, e.target.value)}
                   placeholder={placeholder}
-                  className="form-input text-left text-[13px]"
+                  className="form-input text-left"
                 />
               </div>
             ))}
@@ -232,7 +232,7 @@ export function PrepFormClient({ token, guestName, status, existingResponse, edi
                   key={value}
                   type="button"
                   onClick={() => toggleDay(value)}
-                  className={`rounded-lg border px-3 py-1.5 text-[13px] transition-all ${
+                  className={`rounded-lg border px-3 py-1.5 text-caption transition-all ${
                     preferredFilmingDays.includes(value)
                       ? "border-primary/30 bg-primary/10 text-primary"
                       : "border-border/30 text-muted-foreground hover:border-border/50 hover:text-foreground"
@@ -251,7 +251,7 @@ export function PrepFormClient({ token, guestName, status, existingResponse, edi
                   key={value}
                   type="button"
                   onClick={() => setPreferredFilmingTime(value)}
-                  className={`rounded-lg border px-3 py-1.5 text-[13px] transition-all ${
+                  className={`rounded-lg border px-3 py-1.5 text-caption transition-all ${
                     preferredFilmingTime === value
                       ? "border-primary/30 bg-primary/10 text-primary"
                       : "border-border/30 text-muted-foreground hover:border-border/50 hover:text-foreground"
@@ -343,7 +343,7 @@ export function PrepFormClient({ token, guestName, status, existingResponse, edi
 
         {/* Error */}
         {error && (
-          <div className="rounded-xl border border-red-500/20 bg-red-500/5 p-4 text-center text-sm text-red-400">
+          <div className="rounded-xl border border-red-500/20 bg-red-500/5 p-4 text-center text-caption text-red-400">
             {error}
           </div>
         )}
@@ -353,7 +353,7 @@ export function PrepFormClient({ token, guestName, status, existingResponse, edi
           <button
             onClick={handleSubmit}
             disabled={submitting}
-            className="w-full rounded-xl bg-primary px-8 py-3.5 text-sm font-medium text-primary-foreground transition-all hover:bg-primary/90 disabled:opacity-50"
+            className="w-full rounded-xl bg-primary px-8 py-3.5 text-caption font-medium text-primary-foreground transition-all hover:bg-primary/90 disabled:opacity-50"
           >
             {submitting ? "جارٍ الإرسال..." : existingResponse ? "حفظ التعديلات" : "إرسال الاستبيان"}
           </button>
@@ -374,12 +374,12 @@ function SuccessState({ guestName, children }: { guestName: string; children?: R
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
           </svg>
         </div>
-        <h1 className="mb-3 text-xl font-semibold text-foreground">تم استلام إجاباتك</h1>
-        <p className="text-sm leading-relaxed text-muted-foreground">
+        <h1 className="mb-3 text-subhead font-semibold text-foreground">تم استلام إجاباتك</h1>
+        <p className="text-caption text-muted-foreground">
           شكراً <span className="font-medium text-foreground">{guestName}</span>. سيتواصل معك فريق خط قريباً لتأكيد موعد التسجيل ومشاركة تفاصيل الاستوديو.
         </p>
         {children}
-        <div className="mt-8 text-xs text-muted-foreground/60">خط بودكاست</div>
+        <div className="mt-8 text-micro text-muted-foreground/60">خط بودكاست</div>
       </div>
     </div>
   )
@@ -389,8 +389,8 @@ function FormSection({ title, subtitle, children }: { title: string; subtitle?: 
   return (
     <section>
       <div className="mb-5">
-        <h2 className="text-base font-semibold text-foreground">{title}</h2>
-        {subtitle && <p className="mt-1 text-xs text-muted-foreground">{subtitle}</p>}
+        <h2 className="text-body font-semibold text-foreground">{title}</h2>
+        {subtitle && <p className="mt-1 text-micro text-muted-foreground">{subtitle}</p>}
       </div>
       <div className="space-y-5">{children}</div>
     </section>
@@ -400,11 +400,11 @@ function FormSection({ title, subtitle, children }: { title: string; subtitle?: 
 function FormField({ label, hint, required, children }: { label: string; hint?: string; required?: boolean; children: React.ReactNode }) {
   return (
     <div>
-      <label className="mb-1.5 block text-[13px] font-medium text-foreground">
+      <label className="mb-1.5 block text-caption font-medium text-foreground">
         {label}
         {required && <span className="mr-1 text-red-400">*</span>}
       </label>
-      {hint && <p className="mb-2 text-xs text-muted-foreground">{hint}</p>}
+      {hint && <p className="mb-2 text-micro text-muted-foreground">{hint}</p>}
       {children}
     </div>
   )
@@ -419,7 +419,7 @@ function Checkbox({ checked, onChange, label, required }: { checked: boolean; on
         onChange={(e) => onChange(e.target.checked)}
         className="mt-0.5 h-4 w-4 shrink-0 rounded border-border accent-primary"
       />
-      <span className="text-[13px] leading-relaxed text-foreground">
+      <span className="text-caption text-foreground">
         {label}
         {required && <span className="mr-1 text-red-400">*</span>}
       </span>

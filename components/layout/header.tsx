@@ -42,7 +42,7 @@ export function Header({ hasNewEpisode = false }: { hasNewEpisode?: boolean }) {
           className="flex shrink-0 items-center gap-2.5 transition-opacity hover:opacity-90"
         >
           <KhatLogo size={40} />
-          <span className="hidden text-[15px] font-bold tracking-tight text-foreground sm:inline">
+          <span className="hidden text-body font-bold text-foreground sm:inline">
             خط
           </span>
         </Link>
@@ -53,7 +53,7 @@ export function Header({ hasNewEpisode = false }: { hasNewEpisode?: boolean }) {
             <Link
               key={item.name}
               href={item.href}
-              className="relative text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
+              className="relative text-caption font-medium text-muted-foreground transition-colors hover:text-foreground"
             >
               {item.name}
               {hasNewEpisode && item.href === "/episodes" && (

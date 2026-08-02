@@ -100,6 +100,15 @@ export default async function RootLayout({
       lang="ar"
       dir="rtl"
       data-theme-mode="light"
+      // Which surface's values the SHARED primitives (components/ui/*) resolve
+      // to. The site maps them onto the brand type scale so a font swap moves
+      // controls with their labels; the admin pins them, so a font swap never
+      // reflows the operations panel. Both sets live in the :root block of
+      // globals.css — on <html>, not on the admin wrapper <div>, so that
+      // portalled Dialogs (rendered into document.body, outside that wrapper)
+      // inherit the right ones. Same `isAdminRoute` that picks the chrome
+      // below, so "this is the admin" is decided exactly once.
+      data-surface={isAdminRoute ? "admin" : "site"}
       suppressHydrationWarning
     >
       <head>
@@ -141,7 +150,15 @@ export default async function RootLayout({
             <Toaster />
           </>
         ) : (
-          <div className="flex min-h-dvh flex-col bg-background text-foreground">
+          // `text-body` here is the public site's type DEFAULT, not a local
+          // choice: it hands every element that doesn't name a step the body
+          // size and — the part that matters — the body LEADING (1.85, a
+          // unitless number, so descendants scale it against their own size).
+          // Without it, unstyled Arabic prose falls back to `normal` (~1.5),
+          // which is below the 1.607em this typeface needs to keep tashkeel
+          // from colliding. Admin never mounts this wrapper, so it is
+          // unaffected.
+          <div className="flex min-h-dvh flex-col bg-background text-body text-foreground">
             <Header hasNewEpisode={hasNewEpisode} />
             <main className="main-content flex-1">{children}</main>
             <Footer />

@@ -51,7 +51,7 @@ export function AtharCard({
 
         {/* Quotation mark watermark */}
         <span
-          className="pointer-events-none absolute -top-3 end-2 select-none font-serif text-5xl leading-none text-primary/[0.07]"
+          className="pointer-events-none absolute -top-3 end-2 select-none font-serif text-title leading-none text-primary/[0.07]"
           aria-hidden="true"
         >
           &ldquo;
@@ -59,17 +59,17 @@ export function AtharCard({
 
         <div className="relative px-3.5 py-2.5">
           <div className="mb-1.5 flex items-center gap-1.5">
-            <span className="text-[10px] font-semibold text-primary/60">
+            <span className="text-micro font-semibold text-primary/60">
               أثر
             </span>
           </div>
           <p
-            className="line-clamp-2 text-xs leading-relaxed text-stone-700 dark:text-[hsl(40_30%_85%)]"
+            className="line-clamp-2 text-micro text-stone-700 dark:text-[hsl(40_30%_85%)]"
             dir="auto"
           >
             {text}
           </p>
-          <p className="mt-2 text-[10px] text-stone-500 dark:text-[hsl(40_20%_50%)]">
+          <p className="mt-2 text-micro text-stone-500 dark:text-[hsl(40_20%_50%)]">
             — {guestName}
           </p>
         </div>
@@ -88,10 +88,10 @@ export function AtharCard({
     >
       {/* Section label */}
       <div className="mb-4">
-        <p className="text-sm font-medium tracking-wide text-primary/80">
+        <p className="text-caption font-medium text-primary/80">
           أثر الضيف
         </p>
-        <p className="mt-0.5 text-[11px] text-muted-foreground/50">
+        <p className="mt-0.5 text-micro text-muted-foreground/50">
           كُتب بعد الحوار
         </p>
       </div>
@@ -123,7 +123,7 @@ export function AtharCard({
         {/* Content */}
         <div className="relative px-8 pb-8 pt-10 sm:px-12 sm:pb-10 sm:pt-14">
           <blockquote
-            className="text-lg leading-[2.1] sm:text-xl sm:leading-[2.1] text-stone-800 dark:text-[hsl(40_30%_85%)]"
+            className="text-lead leading-[2.1] sm:leading-[2.1] text-stone-800 dark:text-[hsl(40_30%_85%)]"
             dir="auto"
           >
             {text}
@@ -131,11 +131,11 @@ export function AtharCard({
 
           {/* Signature */}
           <div className="mt-8 border-t border-primary/10 pt-5">
-            <p className="text-sm font-medium text-stone-600 dark:text-[hsl(40_20%_65%)]">
+            <p className="text-caption font-medium text-stone-600 dark:text-[hsl(40_20%_65%)]">
               — {guestName}
             </p>
             {formattedDate && (
-              <p className="mt-1 text-[11px] text-muted-foreground/40">
+              <p className="mt-1 text-micro text-muted-foreground/40">
                 {formattedDate}
               </p>
             )}

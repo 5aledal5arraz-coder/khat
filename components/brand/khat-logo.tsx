@@ -72,17 +72,15 @@ export function KhatLogoLockup({
   return (
     <span className={cn("inline-flex items-center gap-3", className)}>
       <KhatLogo size={size} />
+      {/* The wordmark reads the type scale instead of deriving its size from
+          `size`. The old `size * 0.2` produced 8.8px at the one call site
+          (footer, size={44}) — below any legible floor, and invisible to a
+          scale that only governs classes. `size` still drives the mark. */}
       <span className="flex flex-col leading-none">
-        <span
-          className="font-bold tracking-tight text-foreground"
-          style={{ fontSize: size * 0.42 }}
-        >
-          بودكاست خط
-        </span>
-        <span
-          className="mt-1 font-medium uppercase tracking-[0.28em] text-muted-foreground"
-          style={{ fontSize: size * 0.2 }}
-        >
+        <span className="text-lead font-bold text-foreground">بودكاست خط</span>
+        {/* Latin wordmark: positive tracking is correct here — it is the one
+            run on the site that is not connected Arabic script. */}
+        <span className="mt-1 text-micro font-medium uppercase tracking-[0.28em] text-muted-foreground">
           Podcast Khat
         </span>
       </span>

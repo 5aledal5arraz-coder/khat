@@ -80,12 +80,12 @@ export default async function UnsubscribePage({ searchParams }: PageProps) {
           >
             <Icon className="h-7 w-7" />
           </span>
-          <h1 className="mt-5 text-xl font-bold tracking-tight text-foreground">{view.title}</h1>
-          <p className="mt-2.5 text-[14.5px] leading-relaxed text-muted-foreground">{view.body}</p>
+          <h1 className="mt-5 text-lead font-bold text-foreground">{view.title}</h1>
+          <p className="mt-2.5 text-caption text-muted-foreground">{view.body}</p>
 
           {status === 'success' && (
             <div className="mt-7 border-t border-border pt-6 text-start">
-              <p className="mb-3 text-center text-[13px] font-medium text-foreground">
+              <p className="mb-3 text-center text-caption font-medium text-foreground">
                 غيّرت رأيك؟ يمكنك العودة في أي وقت
               </p>
               <NewsletterSignup variant="footer-bare" />
@@ -96,7 +96,7 @@ export default async function UnsubscribePage({ searchParams }: PageProps) {
         <div className="mt-6 text-center">
           <Link
             href="/"
-            className="inline-flex items-center gap-1.5 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
+            className="inline-flex items-center gap-1.5 text-caption font-medium text-muted-foreground transition-colors hover:text-foreground"
           >
             العودة إلى الصفحة الرئيسية
             <ArrowLeft className="h-4 w-4" />

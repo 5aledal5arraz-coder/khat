@@ -116,7 +116,7 @@ export function NewsletterSignup({
       >
         {status === "duplicate" ? <Info className="h-4 w-4" /> : <Check className="h-4 w-4" />}
       </span>
-      <p className="text-sm font-medium leading-snug">{message}</p>
+      <p className="text-caption font-medium">{message}</p>
     </div>
   )
 
@@ -145,7 +145,7 @@ export function NewsletterSignup({
         >
           {isDuplicate ? <Info className="h-4 w-4" /> : <Check className="h-4 w-4" />}
         </span>
-        <p className={cn("font-medium leading-snug", isHero ? "text-[15px]" : "text-sm")}>
+        <p className={cn("font-medium", isHero ? "text-body" : "text-caption")}>
           {message}
         </p>
       </div>
@@ -189,7 +189,7 @@ export function NewsletterSignup({
           aria-describedby={`nl-help-${variant}`}
           className={cn(
             "min-w-0 flex-1 rounded-xl border border-border bg-background text-foreground text-end placeholder:text-muted-foreground/70 transition-colors focus:border-primary/50 focus:outline-none focus:ring-2 focus:ring-primary/20 disabled:opacity-60",
-            isHero ? "px-4 py-3 text-[15px]" : "px-3.5 py-2.5 text-sm",
+            isHero ? "px-4 py-3 text-body" : "px-3.5 py-2.5 text-field md:text-control",
           )}
         />
         <button
@@ -197,7 +197,7 @@ export function NewsletterSignup({
           disabled={loading}
           className={cn(
             "inline-flex shrink-0 items-center justify-center gap-2 rounded-xl bg-primary font-semibold text-primary-foreground shadow-sm transition-all hover:bg-primary/90 disabled:opacity-70",
-            isHero ? "px-7 py-3 text-[15px]" : "px-5 py-2.5 text-sm",
+            isHero ? "px-7 py-3 text-body" : "px-5 py-2.5 text-caption",
           )}
         >
           {loading ? (
@@ -211,7 +211,7 @@ export function NewsletterSignup({
         </button>
       </div>
       {status === "error" && (
-        <p className="mt-2 text-[12.5px] text-destructive" role="alert">
+        <p className="mt-2 text-micro text-destructive" role="alert">
           {message}
         </p>
       )}
@@ -219,7 +219,7 @@ export function NewsletterSignup({
         id={`nl-help-${variant}`}
         className={cn(
           "text-muted-foreground/80",
-          isHero ? "mt-3 text-center text-[12.5px]" : "mt-2 text-[11.5px]",
+          isHero ? "mt-3 text-center text-micro" : "mt-2 text-micro",
         )}
       >
         بدون إزعاج — يمكنك إلغاء الاشتراك في أي وقت.
@@ -240,10 +240,10 @@ export function NewsletterSignup({
         )}
       >
         <div className="max-w-sm">
-          <h2 className="text-xl font-bold tracking-tight text-foreground sm:text-2xl">
+          <h2 className="text-lead font-bold text-foreground sm:text-subhead">
             حوارات تستحق أن تبقى — في بريدك
           </h2>
-          <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
+          <p className="mt-2 text-caption text-muted-foreground">
             أحدث الحلقات، اقتباسات مختارة، ومحتوى حصري — بدون إزعاج.
           </p>
         </div>
@@ -260,8 +260,8 @@ export function NewsletterSignup({
     }
     return (
       <div className={className}>
-        <h3 className="text-sm font-semibold">النشرة البريدية</h3>
-        <p className="mt-2 mb-3 text-sm text-muted-foreground">
+        <h3 className="text-caption font-semibold">النشرة البريدية</h3>
+        <p className="mt-2 mb-3 text-caption text-muted-foreground">
           أحدث الحلقات والاقتباسات، مباشرة إلى بريدك.
         </p>
         {form}
@@ -283,14 +283,14 @@ export function NewsletterSignup({
         className="pointer-events-none absolute -top-20 start-1/2 h-56 w-56 -translate-x-1/2 rounded-full bg-primary/10 blur-3xl"
       />
       <div className="relative">
-        <span className="inline-flex items-center gap-1.5 rounded-full border border-accent/30 bg-accent/10 px-3 py-1 text-[12px] font-semibold text-accent">
+        <span className="inline-flex items-center gap-1.5 rounded-full border border-accent/30 bg-accent/10 px-3 py-1 text-micro font-semibold text-accent">
           <Sparkles className="h-3.5 w-3.5" />
           النشرة البريدية
         </span>
-        <h2 className="mt-5 text-pretty text-2xl font-extrabold tracking-tight text-foreground sm:text-3xl">
+        <h2 className="mt-5 text-pretty text-subhead font-bold text-foreground sm:text-heading">
           حوارات تستحق أن تبقى — في بريدك
         </h2>
-        <p className="mx-auto mt-3 max-w-md text-pretty text-[15px] leading-relaxed text-muted-foreground">
+        <p className="mx-auto mt-3 max-w-md text-pretty text-body text-muted-foreground">
           اشترك في نشرة خط لتصلك أحدث الحلقات، اقتباسات مختارة، ومحتوى حصري — باعتناء، وبدون إزعاج.
         </p>
         <div className="mt-7">{form}</div>

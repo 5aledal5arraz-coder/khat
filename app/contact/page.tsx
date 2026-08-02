@@ -32,7 +32,7 @@ export default async function ContactPage() {
       <div className="mx-auto max-w-4xl">
         {/* Header */}
         <div className="mb-12 text-center">
-          <h1 className="text-3xl font-bold">تواصل معنا</h1>
+          <h1 className="text-heading font-bold">تواصل معنا</h1>
           <p className="mt-2 text-muted-foreground">
             نحب أن نسمع منك! سواء كنت تريد أن تكون ضيفاً أو لديك استفسار
           </p>
@@ -57,7 +57,7 @@ export default async function ContactPage() {
             <CardContent>
               <div className="mb-6 rounded-lg bg-muted/50 p-4">
                 <h3 className="mb-2 font-semibold">نبحث عن ضيوف:</h3>
-                <ul className="list-disc space-y-1 ps-5 text-sm text-muted-foreground">
+                <ul className="list-disc space-y-1 ps-5 text-caption text-muted-foreground">
                   <li>لديهم قصص وتجارب حقيقية ملهمة</li>
                   <li>يمتلكون خبرة في مجال معين يمكنهم مشاركتها</li>
                   <li>مستعدون للحديث بصراحة وعمق</li>
@@ -81,7 +81,7 @@ export default async function ContactPage() {
                   <emailMethod.icon className="h-5 w-5 text-primary" />
                 </div>
                 <div>
-                  <CardTitle className="text-lg">{emailMethod.title}</CardTitle>
+                  <CardTitle className="text-lead">{emailMethod.title}</CardTitle>
                   <CardDescription>{emailMethod.description}</CardDescription>
                 </div>
               </div>
@@ -89,7 +89,7 @@ export default async function ContactPage() {
             <CardContent>
               <a
                 href={emailMethod.href}
-                className="text-lg font-medium text-primary hover:underline"
+                className="text-lead font-medium text-primary hover:underline"
               >
                 {emailMethod.value}
               </a>
@@ -100,7 +100,7 @@ export default async function ContactPage() {
           {contactPlatforms.length > 0 && (
             <Card>
               <CardHeader>
-                <CardTitle className="text-lg">وسائل التواصل</CardTitle>
+                <CardTitle className="text-lead">وسائل التواصل</CardTitle>
                 <CardDescription>تابعنا وتواصل معنا</CardDescription>
               </CardHeader>
               <CardContent>
@@ -111,7 +111,7 @@ export default async function ContactPage() {
                         href={p.url}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="group inline-flex items-center gap-2 text-sm text-primary hover:underline"
+                        className="group inline-flex items-center gap-2 text-caption text-primary hover:underline"
                       >
                         <PlatformIcon iconName={p.icon_name} className="h-4 w-4" />
                         <span>{p.handle || p.platform_name}</span>
@@ -127,29 +127,29 @@ export default async function ContactPage() {
 
         {/* FAQ */}
         <div className="mt-12 rounded-xl border bg-muted/30 p-6">
-          <h2 className="mb-6 text-xl font-bold">أسئلة شائعة</h2>
+          <h2 className="mb-6 text-lead font-bold">أسئلة شائعة</h2>
           <div className="space-y-4">
             <div>
               <h3 className="font-semibold">كم تستغرق الحلقة؟</h3>
-              <p className="mt-1 text-sm text-muted-foreground">
+              <p className="mt-1 text-caption text-muted-foreground">
                 عادة تستغرق الحلقات بين 60-90 دقيقة، لكننا مرنون حسب الموضوع.
               </p>
             </div>
             <div>
               <h3 className="font-semibold">أين يتم التسجيل؟</h3>
-              <p className="mt-1 text-sm text-muted-foreground">
+              <p className="mt-1 text-caption text-muted-foreground">
                 يمكن التسجيل في استوديونا أو عبر الإنترنت حسب موقعك وتفضيلك.
               </p>
             </div>
             <div>
               <h3 className="font-semibold">متى سيتم نشر الحلقة؟</h3>
-              <p className="mt-1 text-sm text-muted-foreground">
+              <p className="mt-1 text-caption text-muted-foreground">
                 نخطط لجدول النشر مسبقاً وسنخبرك بموعد النشر المتوقع.
               </p>
             </div>
             <div>
               <h3 className="font-semibold">هل يمكنني مراجعة الحلقة قبل النشر؟</h3>
-              <p className="mt-1 text-sm text-muted-foreground">
+              <p className="mt-1 text-caption text-muted-foreground">
                 نعم، نرسل الحلقة للمراجعة قبل النشر لضمان رضاك عن المحتوى.
               </p>
             </div>

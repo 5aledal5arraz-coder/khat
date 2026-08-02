@@ -12,7 +12,7 @@ export function PartnerHeroCTA() {
     <div className="flex flex-wrap items-center justify-center gap-3">
       <Button
         size="lg"
-        className="gap-2 px-8 py-6 text-lg shadow-lg shadow-primary/25"
+        className="gap-2 px-8 py-6 text-lead shadow-lg shadow-primary/25"
         onClick={() => scrollTo("partnership-form")}
       >
         قدّم طلب شراكة
@@ -21,7 +21,7 @@ export function PartnerHeroCTA() {
       <Button
         size="lg"
         variant="outline"
-        className="px-8 py-6 text-lg"
+        className="px-8 py-6 text-lead"
         onClick={() => scrollTo("packages")}
       >
         استعرض الباقات

@@ -58,7 +58,7 @@ export default async function QuotePage({ params }: Props) {
         {/* Back link */}
         <Link
           href="/"
-          className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
+          className="inline-flex items-center gap-2 text-caption text-muted-foreground hover:text-foreground transition-colors"
         >
           <ArrowRight className="h-4 w-4" />
           العودة للرئيسية
@@ -66,14 +66,14 @@ export default async function QuotePage({ params }: Props) {
 
         {/* Main Quote */}
         <section className="space-y-6 text-center py-8">
-          <blockquote className="text-2xl font-bold leading-relaxed md:text-3xl">
+          <blockquote className="text-subhead font-bold md:text-heading">
             &ldquo;{quote.text}&rdquo;
           </blockquote>
 
-          <p className="text-lg text-muted-foreground">— {quote.attribution}</p>
+          <p className="text-lead text-muted-foreground">— {quote.attribution}</p>
 
           {quote.theme && (
-            <Badge variant="outline" className="text-sm">{quote.theme}</Badge>
+            <Badge variant="outline" className="text-caption">{quote.theme}</Badge>
           )}
         </section>
 
@@ -90,12 +90,12 @@ export default async function QuotePage({ params }: Props) {
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-transparent" />
                 <div className="absolute bottom-4 start-4 end-4">
-                  <p className="mb-1 text-xs font-medium text-white/70">شاهد المحادثة كاملة</p>
-                  <h3 className="text-lg font-bold text-white">{episode.title}</h3>
+                  <p className="mb-1 text-micro font-medium text-white/70">شاهد المحادثة كاملة</p>
+                  <h3 className="text-lead font-bold text-white">{episode.title}</h3>
                   {episode.guest && (
-                    <p className="mt-1 text-sm text-white/80">مع {episode.guest.name}</p>
+                    <p className="mt-1 text-caption text-white/80">مع {episode.guest.name}</p>
                   )}
-                  <div className="mt-2 flex items-center gap-3 text-xs text-white/70">
+                  <div className="mt-2 flex items-center gap-3 text-micro text-white/70">
                     <span className="flex items-center gap-1">
                       <Clock className="h-3 w-3" />
                       {formatDuration(episode.duration_minutes)}
@@ -118,7 +118,7 @@ export default async function QuotePage({ params }: Props) {
           <Card className="border-primary/20">
             <CardContent className="flex items-center justify-between p-6">
               <div>
-                <p className="text-sm text-muted-foreground">شاهد المحادثة كاملة</p>
+                <p className="text-caption text-muted-foreground">شاهد المحادثة كاملة</p>
                 <p className="mt-1 font-semibold">{quote.episode_title}</p>
               </div>
               <Link href={`/episodes/${quote.episode_slug}`}>
@@ -134,16 +134,16 @@ export default async function QuotePage({ params }: Props) {
         {/* Related Quotes */}
         {related.length > 0 && (
           <section className="space-y-4">
-            <h2 className="text-lg font-semibold">اقتباسات مشابهة</h2>
+            <h2 className="text-lead font-semibold">اقتباسات مشابهة</h2>
             <div className="space-y-3">
               {related.map((q) => (
                 <Link key={q.id} href={`/quotes/${q.id}`}>
                   <Card className="transition-all hover:border-primary/50">
                     <CardContent className="p-5">
-                      <blockquote className="text-sm leading-relaxed">
+                      <blockquote className="text-caption">
                         &ldquo;{q.text}&rdquo;
                       </blockquote>
-                      <p className="mt-2 text-xs text-muted-foreground">— {q.attribution}</p>
+                      <p className="mt-2 text-micro text-muted-foreground">— {q.attribution}</p>
                     </CardContent>
                   </Card>
                 </Link>

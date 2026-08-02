@@ -15,11 +15,11 @@ interface GuestAvatarProps {
 }
 
 const sizeClasses = {
-  sm: "h-10 w-10 text-sm",
-  md: "h-14 w-14 text-base",
-  lg: "h-20 w-20 text-xl",
-  xl: "h-28 w-28 text-2xl",
-  "2xl": "h-36 w-36 text-3xl",
+  sm: "h-10 w-10 text-caption",
+  md: "h-14 w-14 text-body",
+  lg: "h-20 w-20 text-lead",
+  xl: "h-28 w-28 text-subhead",
+  "2xl": "h-36 w-36 text-heading",
 }
 
 const borderSizeClasses = {
@@ -138,12 +138,12 @@ export function GuestCard({
           {name}
         </h3>
         {title && (
-          <p className="mt-1 text-sm text-muted-foreground line-clamp-1">
+          <p className="mt-1 text-caption text-muted-foreground line-clamp-1">
             {title}
           </p>
         )}
         {episodeCount !== undefined && episodeCount > 0 && (
-          <p className="mt-1 text-xs text-muted-foreground">
+          <p className="mt-1 text-micro text-muted-foreground">
             {formatArabicCount(episodeCount, "حلقة")}
           </p>
         )}

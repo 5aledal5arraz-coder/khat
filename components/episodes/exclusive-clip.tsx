@@ -14,7 +14,7 @@ export function ExclusiveClip({ data }: ExclusiveClipProps) {
 
   return (
     <div className="space-y-4">
-      <h2 className="text-lg font-semibold">الدقيقة الحصرية</h2>
+      <h2 className="text-lead font-semibold">الدقيقة الحصرية</h2>
       {youtube_url && (
         <div className="overflow-hidden rounded-lg border">
           <div className="relative aspect-video w-full">
@@ -30,7 +30,7 @@ export function ExclusiveClip({ data }: ExclusiveClipProps) {
       )}
       {message && (
         <div className="rounded-lg border border-accent/20 bg-accent/5 p-4">
-          <p className="text-sm leading-relaxed text-muted-foreground whitespace-pre-line">{message}</p>
+          <p className="max-w-measure text-caption text-muted-foreground whitespace-pre-line">{message}</p>
         </div>
       )}
     </div>

@@ -21,7 +21,7 @@ export function ConversationMap({ data }: ConversationMapProps) {
 
   return (
     <div className="space-y-4">
-      <h2 className="text-lg font-semibold">خريطة الحوار</h2>
+      <h2 className="text-lead font-semibold">خريطة الحوار</h2>
       <div className="relative flex flex-col gap-4 sm:flex-row sm:gap-0">
         {nodes.map((n, i) => (
           <div key={n.key} className="relative flex-1">
@@ -30,12 +30,12 @@ export function ConversationMap({ data }: ConversationMapProps) {
               <div className="absolute start-1/2 top-5 hidden h-0.5 w-full -translate-x-1/2 bg-border sm:block" />
             )}
             <div className="relative rounded-lg border bg-card p-4 text-center">
-              <div className="mx-auto mb-2 flex h-10 w-10 items-center justify-center rounded-full bg-primary/10 text-sm font-bold text-primary">
+              <div className="mx-auto mb-2 flex h-10 w-10 items-center justify-center rounded-full bg-primary/10 text-caption font-bold text-primary">
                 {i + 1}
               </div>
-              <p className="text-xs text-muted-foreground">{n.label}</p>
+              <p className="text-micro text-muted-foreground">{n.label}</p>
               <p className="mt-1 font-medium">{n.node!.title}</p>
-              <p className="mt-1 text-sm leading-relaxed text-muted-foreground">{n.node!.description}</p>
+              <p className="mt-1 max-w-measure text-caption text-muted-foreground">{n.node!.description}</p>
             </div>
           </div>
         ))}

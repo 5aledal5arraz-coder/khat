@@ -15,25 +15,25 @@ export function EpisodeConnections({ homeQuotes, reflections }: Props) {
 
   return (
     <div className="space-y-6">
-      <h2 className="text-lg font-semibold">اكتشف أكثر</h2>
+      <h2 className="text-lead font-semibold">اكتشف أكثر</h2>
 
       {/* Home Quotes from this episode */}
       {homeQuotes.length > 0 && (
         <div className="space-y-3">
           <div className="flex items-center gap-2">
             <Quote className="h-4 w-4 text-muted-foreground" />
-            <h3 className="text-sm font-medium text-muted-foreground">اقتباسات مميّزة</h3>
+            <h3 className="text-caption font-medium text-muted-foreground">اقتباسات مميّزة</h3>
           </div>
           <div className="grid gap-3 sm:grid-cols-2">
             {homeQuotes.map((q) => (
               <Link key={q.id} href={`/quotes/${q.id}`}>
                 <Card className="h-full border-accent/20 transition-all hover:border-accent/50 hover:bg-accent/5">
                   <CardContent className="p-4">
-                    <blockquote className="text-sm leading-relaxed line-clamp-3">
+                    <blockquote className="text-caption line-clamp-3">
                       &ldquo;{q.text}&rdquo;
                     </blockquote>
-                    <p className="mt-2 text-xs text-muted-foreground">— {q.attribution}</p>
-                    {q.theme && <Badge variant="outline" className="mt-2 text-xs">{q.theme}</Badge>}
+                    <p className="mt-2 text-micro text-muted-foreground">— {q.attribution}</p>
+                    {q.theme && <Badge variant="outline" className="mt-2 text-micro">{q.theme}</Badge>}
                   </CardContent>
                 </Card>
               </Link>
@@ -47,15 +47,15 @@ export function EpisodeConnections({ homeQuotes, reflections }: Props) {
         <div className="space-y-3">
           <div className="flex items-center gap-2">
             <Sparkles className="h-4 w-4 text-muted-foreground" />
-            <h3 className="text-sm font-medium text-muted-foreground">تأملات مرتبطة</h3>
+            <h3 className="text-caption font-medium text-muted-foreground">تأملات مرتبطة</h3>
           </div>
           {reflections.map((ref) => (
             <Card key={ref.id} className="border-primary/10 bg-gradient-to-br from-primary/5 to-transparent">
               <CardContent className="p-4 space-y-2">
-                <p className="text-sm font-medium">&ldquo;{ref.short_quote}&rdquo;</p>
-                <p className="text-xs text-muted-foreground line-clamp-2">{ref.reflection}</p>
+                <p className="text-caption font-medium">&ldquo;{ref.short_quote}&rdquo;</p>
+                <p className="max-w-measure text-micro text-muted-foreground line-clamp-2">{ref.reflection}</p>
                 <div className="rounded-md border border-primary/10 bg-primary/5 p-2">
-                  <p className="text-xs text-primary">❓ {ref.thinking_question}</p>
+                  <p className="max-w-measure text-micro text-primary">❓ {ref.thinking_question}</p>
                 </div>
               </CardContent>
             </Card>

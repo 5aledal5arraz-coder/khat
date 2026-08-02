@@ -1,6 +1,7 @@
 import Link from "next/link"
 import { Play } from "lucide-react"
 import { getYouTubeId } from "@/lib/utils"
+import { displayEpisodeTitle } from "@/lib/shared/formatters"
 import type { Episode } from "@/types/database"
 
 /** YouTube/explicit thumbnail for an episode, or null when none resolvable. */
@@ -30,7 +31,7 @@ export function EpisodeThumb({
   const src = episodeThumb(ep)
   if (!src) {
     return (
-      <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-primary/15 to-accent/15 text-3xl font-black text-primary/40">
+      <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-primary/15 to-accent/15 text-heading font-bold text-primary/40">
         خط
       </div>
     )
@@ -78,12 +79,25 @@ export function EpisodePosterCard({
       </div>
       <div className="flex flex-1 flex-col p-4">
         {ep.guest?.name ? (
-          <span className="text-[12px] font-semibold text-accent">{ep.guest.name}</span>
+          <span className="text-micro font-semibold text-accent">{ep.guest.name}</span>
         ) : null}
-        <h3 className="mt-1 line-clamp-2 text-[15px] font-bold leading-snug tracking-tight text-foreground">
-          {ep.title}
+        {/* `text-lead`, not `text-body`: at `text-body` the card's TITLE sat at
+            exactly the body step, so the only thing separating a title from
+            running copy was font-weight. One step up restores a size
+            difference and lines this card's base size up with EpisodeCard's
+            (`text-lead sm:text-subhead`). NOTE: the two cards still disagree
+            on FAMILY — EpisodeCard sets its title in Amiri via
+            .museum-font-headline, this one uses the sans — which is a brand
+            decision left open, not an oversight. */}
+        {/* `displayEpisodeTitle`, not `ep.title`: every stored title ends in the
+            YouTube brand stamp («… | 019 بودكاست خط»), which on this site's own
+            grid prints 41 times down one page and costs a measured 25% of the
+            characters on average. Display only — `ep.title` is still what
+            search, `og:title` and the JSON-LD name use. */}
+        <h3 className="mt-1 line-clamp-2 text-lead font-bold text-foreground">
+          {displayEpisodeTitle(ep.title)}
         </h3>
-        <div className="mt-auto flex flex-wrap items-center gap-x-2 gap-y-1 pt-3 text-[12px] text-muted-foreground">
+        <div className="mt-auto flex flex-wrap items-center gap-x-2 gap-y-1 pt-3 text-micro text-muted-foreground">
           <span>{episodeDurationLabel(ep.duration_minutes) ?? "حلقة"}</span>
           {categoryName ? (
             <>

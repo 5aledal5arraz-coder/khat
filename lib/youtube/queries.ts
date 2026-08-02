@@ -10,6 +10,7 @@ import {
   type YouTubePlaylist,
   type YouTubeChannel,
 } from "./client"
+import { isBrandStampName } from "@/lib/shared/formatters"
 import type { Episode } from "@/types/database"
 
 const CHANNEL_HANDLE = env.YOUTUBE_CHANNEL_HANDLE || "@KhatPodcast"
@@ -72,7 +73,19 @@ function extractEpisodeNumber(title: string): number | null {
 }
 
 /**
- * Extract guest name from title if present
+ * Extract guest name from title if present.
+ *
+ * The `|`/`-` patterns below assume the title ends with the guest's name. On
+ * this channel it ends with the BRAND STAMP instead — «… | 019 بودكاست خط»,
+ * «… | سالفة 06», «… | 04» — so before the guard was added the archive
+ * rendered 35 guest badges of which one was a person. `isBrandStampName`
+ * rejects a match that is only the stamp, and the extraction then falls
+ * through to the next pattern (or to null, i.e. "no known guest", which is
+ * the truth).
+ *
+ * This also stops the fake name reaching `generateMetadata`'s description and
+ * the JSON-LD `actor`, both of which were publishing a Person named
+ * «019 بودكاست خط».
  */
 function extractGuestName(title: string): string | null {
   // Common patterns: "مع فلان", "| فلان", "- فلان"
@@ -85,9 +98,10 @@ function extractGuestName(title: string): string | null {
 
   for (const pattern of patterns) {
     const match = title.match(pattern)
-    if (match) {
-      return match[1].trim()
-    }
+    if (!match) continue
+    const candidate = match[1].trim()
+    if (isBrandStampName(candidate)) continue
+    return candidate
   }
 
   return null

@@ -40,8 +40,8 @@ export default async function TopicPage({ params }: TopicPageProps) {
     <div className="container mx-auto px-4 py-8">
       <div className="mx-auto max-w-5xl">
         <header className="mb-8">
-          <p className="text-sm text-muted-foreground">موضوع</p>
-          <h1 className="mt-1 text-3xl font-bold">{topic.name}</h1>
+          <p className="text-caption text-muted-foreground">موضوع</p>
+          <h1 className="mt-1 text-heading font-bold">{topic.name}</h1>
           <p className="mt-2 text-muted-foreground">
             {episodes.length > 0
               ? `${episodes.length} حلقة عن ${topic.name}`

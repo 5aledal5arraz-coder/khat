@@ -6,7 +6,7 @@ export function EpisodeSponsor({ sponsor }: { sponsor: EpisodeSponsorData }) {
     <div className="relative overflow-hidden rounded-lg border border-primary/10 bg-muted/30">
       <div className="px-6 py-8 sm:px-8">
         {/* Header */}
-        <p className="mb-6 text-center text-[10px] font-bold tracking-[0.3em] text-primary/60">
+        <p className="mb-6 text-center text-micro font-bold text-primary/60">
           شريك الحوار
         </p>
 
@@ -32,7 +32,7 @@ export function EpisodeSponsor({ sponsor }: { sponsor: EpisodeSponsorData }) {
               href={sponsor.websiteUrl || undefined}
               target="_blank"
               rel="noopener noreferrer"
-              className="text-2xl font-semibold tracking-wide transition-colors hover:text-primary"
+              className="text-subhead font-semibold transition-colors hover:text-primary"
             >
               {sponsor.name}
             </a>
@@ -40,7 +40,7 @@ export function EpisodeSponsor({ sponsor }: { sponsor: EpisodeSponsorData }) {
 
           {/* Brand line or description */}
           {(sponsor.brandLine || sponsor.description) && (
-            <p className="max-w-md text-sm font-light leading-relaxed text-muted-foreground">
+            <p className="max-w-md text-caption font-light text-muted-foreground">
               {sponsor.brandLine || sponsor.description}
             </p>
           )}
@@ -51,7 +51,7 @@ export function EpisodeSponsor({ sponsor }: { sponsor: EpisodeSponsorData }) {
               href={sponsor.websiteUrl}
               target="_blank"
               rel="noopener noreferrer"
-              className="text-xs font-medium tracking-wide text-primary/70 transition-colors hover:text-primary"
+              className="text-micro font-medium tracking-wide text-primary/70 transition-colors hover:text-primary"
             >
               {sponsor.websiteUrl.replace(/^https?:\/\//, "").replace(/\/$/, "")}
             </a>

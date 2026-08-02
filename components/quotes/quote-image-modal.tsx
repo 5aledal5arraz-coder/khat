@@ -146,7 +146,7 @@ export function QuoteImageModal({ quote, episodeTitle, onClose }: QuoteImageModa
       >
         {/* Header */}
         <div className="flex items-center justify-between mb-4">
-          <h3 className="text-lg font-semibold">مشاركة كصورة</h3>
+          <h3 className="text-lead font-semibold">مشاركة كصورة</h3>
           <Button variant="ghost" size="icon" onClick={onClose}>
             <X className="h-4 w-4" />
           </Button>
@@ -158,7 +158,7 @@ export function QuoteImageModal({ quote, episodeTitle, onClose }: QuoteImageModa
             <button
               key={t.key}
               onClick={() => setTemplate(t.key)}
-              className={`flex-1 rounded-lg px-3 py-2 text-sm font-medium transition-colors border ${
+              className={`flex-1 rounded-lg px-3 py-2 text-caption font-medium transition-colors border ${
                 template === t.key
                   ? "bg-primary text-primary-foreground border-primary"
                   : "bg-muted/50 text-muted-foreground border-transparent hover:bg-muted"

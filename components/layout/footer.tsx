@@ -34,8 +34,8 @@ export async function Footer() {
         <div className="mb-12 rounded-3xl border border-border bg-card px-6 py-8 shadow-sm sm:px-10">
           <div className="mx-auto flex max-w-3xl flex-col gap-6 md:flex-row md:items-center md:justify-between">
             <div className="max-w-sm">
-              <h3 className="text-lg font-bold tracking-tight text-foreground">النشرة البريدية</h3>
-              <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
+              <h3 className="text-lead font-bold text-foreground">النشرة البريدية</h3>
+              <p className="mt-2 text-caption text-muted-foreground">
                 أحدث الحلقات والاقتباسات المختارة، مباشرة إلى بريدك — بدون إزعاج.
               </p>
             </div>
@@ -51,7 +51,7 @@ export async function Footer() {
             <Link href="/" className="inline-flex" aria-label="خط — الرئيسية">
               <KhatLogoLockup size={44} />
             </Link>
-            <p className="mt-4 text-sm text-muted-foreground max-w-xs">
+            <p className="mt-4 text-caption text-muted-foreground max-w-xs">
               بودكاست يستكشف القصص الإنسانية والتجارب الحياتية من خلال حوارات عميقة مع ضيوف ملهمين.
             </p>
             {/* Social */}
@@ -75,14 +75,14 @@ export async function Footer() {
 
           {/* Navigation */}
           <div>
-            <h3 className="text-sm font-semibold">تصفّح</h3>
+            <h3 className="text-caption font-semibold">تصفّح</h3>
             <ul className="mt-4 space-y-2">
               {navigation.main.map((item) => (
                 <li key={item.name}>
                   <Link
                     href={item.href}
                     prefetch={item.href === "/episodes" || item.href === "/guests"}
-                    className="text-sm text-muted-foreground transition-colors hover:text-foreground"
+                    className="text-caption text-muted-foreground transition-colors hover:text-foreground"
                   >
                     {item.name}
                   </Link>
@@ -93,13 +93,13 @@ export async function Footer() {
 
           {/* Partner / Join */}
           <div>
-            <h3 className="text-sm font-semibold">انضم إلينا</h3>
+            <h3 className="text-caption font-semibold">انضم إلينا</h3>
             <ul className="mt-4 space-y-2">
               {navigation.partner.map((item) => (
                 <li key={item.name}>
                   <Link
                     href={item.href}
-                    className="text-sm text-muted-foreground transition-colors hover:text-foreground"
+                    className="text-caption text-muted-foreground transition-colors hover:text-foreground"
                   >
                     {item.name}
                   </Link>
@@ -111,7 +111,7 @@ export async function Footer() {
           {/* Platforms */}
           {listenLinks.length > 0 && (
             <div>
-              <h3 className="text-sm font-semibold">استمع عبر</h3>
+              <h3 className="text-caption font-semibold">استمع عبر</h3>
               <ul className="mt-4 space-y-2">
                 {listenLinks.map((item) => (
                   <li key={item.id}>
@@ -119,7 +119,7 @@ export async function Footer() {
                       href={item.url}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="text-sm text-muted-foreground transition-colors hover:text-foreground"
+                      className="text-caption text-muted-foreground transition-colors hover:text-foreground"
                     >
                       {item.platform_name}
                     </a>
@@ -131,7 +131,7 @@ export async function Footer() {
         </div>
 
         <div className="mt-8 border-t pt-8 flex items-center justify-center">
-          <p className="text-sm text-muted-foreground">
+          <p className="text-caption text-muted-foreground">
             &copy; {new Date().getFullYear()} خط. جميع الحقوق محفوظة.
           </p>
         </div>

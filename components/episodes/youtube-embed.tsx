@@ -99,7 +99,7 @@ function ThumbnailOverlay({
         href={watchUrl}
         target="_blank"
         rel="noopener noreferrer"
-        className="absolute bottom-3 start-3 z-20 rounded-lg bg-black/70 px-3 py-1.5 text-xs text-white/80 hover:text-white transition-colors"
+        className="absolute bottom-3 start-3 z-20 rounded-lg bg-black/70 px-3 py-1.5 text-micro text-white/80 hover:text-white transition-colors"
       >
         شاهد على يوتيوب
       </a>
@@ -274,10 +274,10 @@ export function YouTubeEmbed({
             />
             <div className="relative flex flex-col items-center gap-3 text-center px-6">
               <ExternalLink className="h-8 w-8 text-white/80" />
-              <p className="text-sm font-medium text-white">
+              <p className="text-caption font-medium text-white">
                 التضمين غير متاح لهذا الفيديو
               </p>
-              <span className="rounded-full border border-white/30 px-5 py-2 text-sm text-white transition-colors group-hover:bg-white/10">
+              <span className="rounded-full border border-white/30 px-5 py-2 text-caption text-white transition-colors group-hover:bg-white/10">
                 شاهد على يوتيوب
               </span>
             </div>
@@ -293,7 +293,7 @@ export function YouTubeEmbed({
         href={watchUrl}
         target="_blank"
         rel="noopener noreferrer"
-        className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors"
+        className="inline-flex items-center gap-1 text-caption text-muted-foreground hover:text-foreground transition-colors"
       >
         <ExternalLink className="h-4 w-4" />
         شاهد على يوتيوب

@@ -28,7 +28,7 @@ export function AboutVideo({ videoId, welcomeVideoUrl, welcomeVideoPosterUrl }: 
               <Play className="w-3 h-3 me-1.5" />
               رسالة ترحيبية
             </Badge>
-            <h2 className="text-3xl font-bold mb-4">تعرف على خط</h2>
+            <h2 className="text-heading font-bold mb-4">تعرف على خط</h2>
             <p className="text-muted-foreground">
               شاهد هذا الفيديو القصير لتتعرف على البودكاست ورؤيتنا
             </p>
@@ -61,11 +61,11 @@ export function AboutVideo({ videoId, welcomeVideoUrl, welcomeVideoPosterUrl }: 
                     </div>
                   </button>
                 ) : (
-                  <div className="absolute inset-0 flex items-center justify-center text-muted-foreground text-sm">
+                  <div className="absolute inset-0 flex items-center justify-center text-muted-foreground text-caption">
                     تعذر تشغيل الفيديو في هذا المتصفح
                   </div>
                 )}
-                <div className="absolute bottom-4 start-4 end-4 flex items-center justify-between text-white/80 text-sm">
+                <div className="absolute bottom-4 start-4 end-4 flex items-center justify-between text-white/80 text-caption">
                   <span>فيديو ترحيبي</span>
                 </div>
               </>

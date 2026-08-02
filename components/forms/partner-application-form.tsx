@@ -179,15 +179,15 @@ export function PartnerApplicationForm() {
         <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-primary/10">
           <Check className="h-7 w-7 text-primary" />
         </div>
-        <h3 className="mt-5 text-xl font-semibold">وصلنا طلبك — شكرًا لثقتك بخط</h3>
-        <p className="mt-3 leading-relaxed text-muted-foreground">
+        <h3 className="mt-5 text-lead font-semibold">وصلنا طلبك — شكرًا لثقتك بخط</h3>
+        <p className="mt-3 text-muted-foreground">
           سيراجع فريقنا طلبك بعناية ويعود إليك بمقترح شراكة مصمّم حول أهدافك. عادةً نرد خلال أيام
           عمل قليلة، وأرسلنا لك تأكيدًا على بريدك.
         </p>
         {reference && (
           <div className="mx-auto mt-5 inline-flex flex-col items-center rounded-xl border border-primary/20 bg-primary/[0.04] px-6 py-3">
-            <span className="text-[11px] tracking-wide text-muted-foreground">رقمك المرجعي</span>
-            <span className="text-lg font-extrabold tracking-widest text-primary" dir="ltr">{reference}</span>
+            <span className="text-micro text-muted-foreground">رقمك المرجعي</span>
+            <span className="text-lead font-bold tracking-widest text-primary" dir="ltr">{reference}</span>
           </div>
         )}
         <div className="mt-6 flex justify-center gap-3">
@@ -217,7 +217,7 @@ export function PartnerApplicationForm() {
               }`}
             />
             <span
-              className={`hidden text-[10px] transition-colors sm:block ${
+              className={`hidden text-micro transition-colors sm:block ${
                 i <= step ? "font-medium text-primary" : "text-muted-foreground"
               }`}
             >
@@ -229,11 +229,11 @@ export function PartnerApplicationForm() {
 
       {/* Step header */}
       <div className="flex items-center gap-2.5">
-        <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary text-sm font-bold text-primary-foreground">
+        <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary text-caption font-bold text-primary-foreground">
           {STEPS[step].number}
         </div>
-        <h3 className="text-lg font-semibold">{STEPS[step].label}</h3>
-        <span className="ms-auto text-sm text-muted-foreground">
+        <h3 className="text-lead font-semibold">{STEPS[step].label}</h3>
+        <span className="ms-auto text-caption text-muted-foreground">
           {step + 1} / {STEPS.length}
         </span>
       </div>
@@ -407,7 +407,7 @@ export function PartnerApplicationForm() {
       )}
 
       {message && status === "error" && (
-        <p className="text-sm text-destructive">{message}</p>
+        <p className="text-caption text-destructive">{message}</p>
       )}
 
       {/* Navigation */}
@@ -454,7 +454,7 @@ function Field({
     <div className="space-y-2">
       <Label>{label}</Label>
       {children}
-      {hint ? <p className="text-[11px] text-muted-foreground">{hint}</p> : null}
+      {hint ? <p className="text-micro text-muted-foreground">{hint}</p> : null}
     </div>
   )
 }
@@ -490,7 +490,7 @@ function SelectChip({
         className="accent-primary"
         disabled={disabled}
       />
-      <span className="text-sm">{label}</span>
+      <span className="text-caption">{label}</span>
     </label>
   )
 }

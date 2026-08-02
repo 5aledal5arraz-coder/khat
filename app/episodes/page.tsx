@@ -73,13 +73,13 @@ export default async function EpisodesPage({ searchParams }: EpisodesPageProps) 
       <div className="mx-auto max-w-6xl">
         {/* Header */}
         <header className="text-center">
-          <span className="text-[12px] font-bold uppercase tracking-[0.18em] text-accent">
+          <span className="text-micro font-bold uppercase text-accent">
             أرشيف الحوارات
           </span>
-          <h1 className="mt-3 text-5xl font-extrabold tracking-tight text-foreground sm:text-6xl">
+          <h1 className="mt-3 text-title font-bold text-foreground">
             الحلقات
           </h1>
-          <p className="mx-auto mt-4 max-w-xl text-[15px] leading-relaxed text-muted-foreground">
+          <p className="mx-auto mt-4 max-w-xl text-body text-muted-foreground">
             كل حوار هو فكرة تستحق أن تبقى — استمع، تأمّل، ودوّن ما يستحق أن تضع
             تحته خط.
           </p>
@@ -105,7 +105,7 @@ export default async function EpisodesPage({ searchParams }: EpisodesPageProps) 
                 name="search"
                 defaultValue={query ?? ""}
                 placeholder="ابحث عن حلقة أو ضيف…"
-                className="h-12 w-full rounded-full border border-border bg-card pe-12 ps-5 text-[15px] text-foreground shadow-sm outline-none transition-shadow placeholder:text-muted-foreground focus:border-primary/40 focus:ring-4 focus:ring-primary/10"
+                className="h-12 w-full rounded-full border border-border bg-card pe-12 ps-5 text-body text-foreground shadow-sm outline-none transition-shadow placeholder:text-muted-foreground focus:border-primary/40 focus:ring-4 focus:ring-primary/10"
               />
             </div>
           </form>
@@ -124,7 +124,7 @@ export default async function EpisodesPage({ searchParams }: EpisodesPageProps) 
         {/* An unknown category is an error, not a result. Say it, and keep the
             archive visible instead of showing a blank page. */}
         {resolved.state === "unknown" ? (
-          <div className="mt-10 rounded-2xl border border-border bg-secondary px-5 py-4 text-center text-[14px]">
+          <div className="mt-10 rounded-2xl border border-border bg-secondary px-5 py-4 text-center text-caption">
             <p className="font-semibold text-foreground">تصنيف غير معروف</p>
             <p className="mt-1 text-muted-foreground">
               ما فيه تصنيف بالاسم «{resolved.slug}» — هذي كل الحلقات.
@@ -141,7 +141,7 @@ export default async function EpisodesPage({ searchParams }: EpisodesPageProps) 
         {/* Result summary. The zero case for a KNOWN category is left to the
             empty state below, which says it in full rather than twice. */}
         {filtered && (episodes.length > 0 || query) ? (
-          <div className="mt-10 flex items-center justify-between gap-3 text-[14px]">
+          <div className="mt-10 flex items-center justify-between gap-3 text-caption">
             <span className="text-muted-foreground">
               {episodes.length > 0
                 ? `${episodes.length} نتيجة${query ? ` لـ «${query}»` : ""}${categoryScope}`
@@ -165,12 +165,12 @@ export default async function EpisodesPage({ searchParams }: EpisodesPageProps) 
           </div>
         ) : (
           <div className="mt-16 rounded-3xl border border-dashed border-border bg-card/50 px-6 py-20 text-center">
-            <p className="text-lg font-bold text-foreground">
+            <p className="text-lead font-bold text-foreground">
               {resolved.state === "known" && !query
                 ? `ما فيه حلقات في تصنيف «${resolved.category.name}» بعد`
                 : "لا توجد حلقات بعد"}
             </p>
-            <p className="mt-2 text-[14px] text-muted-foreground">
+            <p className="mt-2 text-caption text-muted-foreground">
               {query
                 ? "جرّب البحث بكلمات مختلفة."
                 : resolved.state === "known"

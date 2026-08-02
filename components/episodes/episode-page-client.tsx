@@ -37,10 +37,10 @@ function TimestampLink({ seconds, title }: { seconds: number; title: string }) {
       onClick={() => seekTo(seconds)}
       className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-start transition-colors hover:bg-muted"
     >
-      <span className="shrink-0 font-mono text-sm tabular-nums text-primary">
+      <span className="shrink-0 font-mono text-caption tabular-nums text-primary">
         {formatTimeSeconds(seconds)}
       </span>
-      <span className="text-sm">{title}</span>
+      <span className="text-caption">{title}</span>
     </button>
   )
 }
@@ -53,7 +53,7 @@ function TimestampLink({ seconds, title }: { seconds: number; title: string }) {
 function BehindTheConversation({ analysis }: { analysis: EpisodeDeepAnalysisView }) {
   return (
     <details id="sec-behind" className="group rounded-xl border bg-card/40 p-5">
-      <summary className="cursor-pointer list-none text-lg font-semibold marker:content-none">
+      <summary className="cursor-pointer list-none text-lead font-semibold marker:content-none">
         <span className="inline-flex items-center gap-2">
           <ChevronLeft className="h-4 w-4 transition-transform group-open:-rotate-90" />
           خلف المحادثة — قراءة أعمق
@@ -63,25 +63,25 @@ function BehindTheConversation({ analysis }: { analysis: EpisodeDeepAnalysisView
       <div className="mt-4 space-y-5">
         {analysis.thesis && (
           <div>
-            <h3 className="mb-1 text-sm font-medium text-primary">الأطروحة الرئيسية</h3>
-            <p className="leading-relaxed text-muted-foreground">{analysis.thesis}</p>
+            <h3 className="mb-1 text-caption font-medium text-primary">الأطروحة الرئيسية</h3>
+            <p className="max-w-measure text-muted-foreground">{analysis.thesis}</p>
           </div>
         )}
 
         {analysis.conversation_arc && (
           <div>
-            <h3 className="mb-1 text-sm font-medium text-primary">مسار المحادثة</h3>
-            <p className="leading-relaxed text-muted-foreground">{analysis.conversation_arc}</p>
+            <h3 className="mb-1 text-caption font-medium text-primary">مسار المحادثة</h3>
+            <p className="max-w-measure text-muted-foreground">{analysis.conversation_arc}</p>
           </div>
         )}
 
         {analysis.themes.length > 0 && (
           <div className="space-y-2">
-            <h3 className="text-sm font-medium text-primary">المحاور</h3>
+            <h3 className="text-caption font-medium text-primary">المحاور</h3>
             {analysis.themes.map((t, i) => (
               <div key={i}>
-                <p className="text-sm font-medium">{t.name}</p>
-                {t.description && <p className="text-sm text-muted-foreground">{t.description}</p>}
+                <p className="text-caption font-medium">{t.name}</p>
+                {t.description && <p className="text-caption text-muted-foreground">{t.description}</p>}
               </div>
             ))}
           </div>
@@ -89,11 +89,11 @@ function BehindTheConversation({ analysis }: { analysis: EpisodeDeepAnalysisView
 
         {analysis.lessons.length > 0 && (
           <div className="space-y-2">
-            <h3 className="text-sm font-medium text-primary">دروس مستفادة</h3>
+            <h3 className="text-caption font-medium text-primary">دروس مستفادة</h3>
             {analysis.lessons.map((l, i) => (
               <div key={i}>
-                <p className="text-sm font-medium">{l.title}</p>
-                {l.explanation && <p className="text-sm text-muted-foreground">{l.explanation}</p>}
+                <p className="text-caption font-medium">{l.title}</p>
+                {l.explanation && <p className="text-caption text-muted-foreground">{l.explanation}</p>}
               </div>
             ))}
           </div>
@@ -101,10 +101,10 @@ function BehindTheConversation({ analysis }: { analysis: EpisodeDeepAnalysisView
 
         {analysis.open_questions.length > 0 && (
           <div className="space-y-1.5">
-            <h3 className="text-sm font-medium text-primary">أسئلة مفتوحة</h3>
+            <h3 className="text-caption font-medium text-primary">أسئلة مفتوحة</h3>
             <ul className="space-y-1">
               {analysis.open_questions.map((q, i) => (
-                <li key={i} className="flex items-start gap-2 text-sm text-muted-foreground">
+                <li key={i} className="flex items-start gap-2 text-caption text-muted-foreground">
                   <span className="mt-0.5 shrink-0 text-primary">؟</span>
                   {q}
                 </li>
@@ -238,7 +238,7 @@ export function EpisodePageClient({
           {/* 8. Timestamps */}
           {hasDbTimestamps && (
             <div id="sec-timestamps" className="space-y-4">
-              <h2 className="text-lg font-semibold">فهرس الحلقة</h2>
+              <h2 className="text-lead font-semibold">فهرس الحلقة</h2>
               <div className="space-y-1">
                 {episode.timestamps.map((ts) => (
                   <TimestampLink
@@ -254,7 +254,7 @@ export function EpisodePageClient({
           {/* 9. Quotes */}
           {hasDbQuotes && (
             <div id="sec-quotes" className="space-y-3">
-              <h2 className="text-lg font-semibold">اقتباسات من الحلقة</h2>
+              <h2 className="text-lead font-semibold">اقتباسات من الحلقة</h2>
               <div className="grid gap-4 sm:grid-cols-2">
                 {episode.quotes.map((quote) => (
                   <QuoteCard
@@ -278,13 +278,13 @@ export function EpisodePageClient({
           {/* 10c. Topics */}
           {topics.length > 0 && (
             <div id="sec-topics" className="space-y-3">
-              <h2 className="text-lg font-semibold">موضوعات الحلقة</h2>
+              <h2 className="text-lead font-semibold">موضوعات الحلقة</h2>
               <div className="flex flex-wrap gap-2">
                 {topics.map((t) => (
                   <Link
                     key={t.id}
                     href={`/topics/${encodeURIComponent(t.slug)}`}
-                    className="inline-flex items-center rounded-full bg-primary/10 px-3 py-1 text-sm font-medium text-primary transition-colors hover:bg-primary/20"
+                    className="inline-flex items-center rounded-full bg-primary/10 px-3 py-1 text-caption font-medium text-primary transition-colors hover:bg-primary/20"
                   >
                     {t.name}
                   </Link>
@@ -307,7 +307,7 @@ export function EpisodePageClient({
               published episode (compact inline block; Sara note 3/5). */}
           {episodeTeaser && (
             <div id="sec-teaser" className="space-y-3">
-              <h2 className="text-lg font-semibold">التيزر</h2>
+              <h2 className="text-lead font-semibold">التيزر</h2>
               <TeaserInline teaser={episodeTeaser} />
             </div>
           )}
@@ -339,8 +339,8 @@ export function EpisodePageClient({
                 >
                   <ChevronRight className="h-5 w-5 shrink-0 text-muted-foreground transition-colors group-hover:text-primary" />
                   <div className="min-w-0">
-                    <p className="text-xs text-muted-foreground">الحلقة السابقة</p>
-                    <p className="mt-0.5 truncate text-sm font-medium group-hover:text-primary transition-colors">
+                    <p className="text-micro text-muted-foreground">الحلقة السابقة</p>
+                    <p className="mt-0.5 truncate text-caption font-medium group-hover:text-primary transition-colors">
                       {prev.title}
                     </p>
                   </div>
@@ -354,8 +354,8 @@ export function EpisodePageClient({
                   className="group flex min-w-0 flex-1 items-center justify-end gap-3 rounded-xl border p-4 text-end transition-colors hover:border-primary/50 hover:bg-muted/50"
                 >
                   <div className="min-w-0">
-                    <p className="text-xs text-muted-foreground">الحلقة التالية</p>
-                    <p className="mt-0.5 truncate text-sm font-medium group-hover:text-primary transition-colors">
+                    <p className="text-micro text-muted-foreground">الحلقة التالية</p>
+                    <p className="mt-0.5 truncate text-caption font-medium group-hover:text-primary transition-colors">
                       {next.title}
                     </p>
                   </div>

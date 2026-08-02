@@ -71,8 +71,8 @@ export function TeaserInline({ teaser }: { teaser: ActiveTeaserView }) {
             </span>
           </div>
           <div className="min-w-0 flex-1">
-            <span className="text-[14px] font-bold text-foreground">شاهد التيزر</span>
-            <p dir="auto" className="mt-0.5 truncate text-[12.5px] text-muted-foreground">
+            <span className="text-caption font-bold text-foreground">شاهد التيزر</span>
+            <p dir="auto" className="mt-0.5 truncate text-micro text-muted-foreground">
               {teaser.title}
             </p>
           </div>

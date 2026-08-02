@@ -101,7 +101,7 @@ export function AudioPlayer({ audioUrl, audioType, title, duration }: AudioPlaye
 
         {/* Progress + info */}
         <div className="min-w-0 flex-1 space-y-2">
-          <p className="truncate text-sm font-medium">{title}</p>
+          <p className="truncate text-caption font-medium">{title}</p>
 
           {/* Progress bar */}
           <div
@@ -120,7 +120,7 @@ export function AudioPlayer({ audioUrl, audioType, title, duration }: AudioPlaye
           </div>
 
           {/* Time */}
-          <div className="flex justify-between text-[11px] text-muted-foreground tabular-nums" dir="ltr">
+          <div className="flex justify-between text-micro text-muted-foreground tabular-nums" dir="ltr">
             <span>{formatTimeSeconds(currentTime)}</span>
             <span>{formatTimeSeconds(totalDuration)}</span>
           </div>

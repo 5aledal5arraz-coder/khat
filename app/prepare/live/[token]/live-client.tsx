@@ -11,6 +11,64 @@
  *   - Energy meter (0–5) with live sync
  *   - Quick notes field (debounced save)
  *   - Shows the next-recommended question prominently
+ *
+ * TYPE SCALE — PARTIALLY ADOPTED ON PURPOSE (wave 2-b, 2026-08-02).
+ * The sizes that already equalled a scale step were switched to the token, so
+ * they follow a font change: text-[12px]/text-xs → text-micro, text-[14px]/
+ * text-sm → text-caption, text-[16px] → text-body. Fourteen occurrences, all
+ * a measured 0px delta IN FONT-SIZE.
+ *
+ * LEADING PINS — the other half of "0px delta" (wave 2-c, 2026-08-02).
+ * The `0px` claim above was measured on ONE axis and was therefore wrong.
+ * Every step in the scale carries a paired `--text-<step>--line-height`
+ * (app/globals.css), so switching the SIZE token drags the LEADING with it.
+ * Seven of the fourteen carried no explicit `leading-*` and moved — measured
+ * at 375, root 16px:
+ *
+ *   header <h1>          text-sm     20   → text-caption 24.5   +4.5
+ *   «استخدمت» button      text-[12px] 18   → text-micro   19.8   +1.8
+ *   «الدعم» button        text-[12px] 18   → text-micro   19.8   +1.8
+ *   empty-bucket state   text-xs     16   → text-micro   19.8   +3.8
+ *   «لحظات قابلة» <h3>    text-xs     16   → text-micro   19.8   +3.8
+ *   Drawer label <span>  text-xs     16   → text-micro   19.8   +3.8
+ *   Instruction <p>      text-[12px] 19.5 → text-micro   19.8   +0.3
+ *
+ * The Instruction row is the one worth reading twice. It has no `leading-*`
+ * of its own, but it renders inside the instructions drawer, whose container
+ * carries `leading-relaxed` — so its "before" was the INHERITED 1.625
+ * (19.5px), not the document's 1.5 (18px). Predicting it from the class
+ * alone gives +1.8; measuring it in place gives +0.3. Leading is inherited,
+ * so it can only be measured in situ, never derived from the class string.
+ *
+ * Each of the seven now pins the leading it had before the switch, so the
+ * panel's vertical rhythm is byte-identical to the pre-wave layout while the
+ * SIZE still follows the scale. These pins deliberately use Tailwind's own
+ * `leading-*` (not a brand token): their job is to FREEZE this console's
+ * rhythm, not to track the scale. `leading-5`/`leading-4` are rem, and the
+ * step sizes are rem, so the ratio holds at any root size; `leading-normal`
+ * (1.5) and `leading-relaxed` (1.625) are unitless and hold by construction.
+ *
+ * REM vs PX, decided 2026-08-02: the fourteen stay on the rem-based scale.
+ * Zero-delta is exact only at a 16px root — at a larger browser font these
+ * fourteen grow and the twenty-five raw-px labels below do not. That mix is
+ * the honest cost of a half-migrated panel, and it is the RIGHT half to have
+ * migrated: reverting to px would make this the only public route that
+ * ignores the reader's font-size preference, and 12px Arabic is already at
+ * the legibility floor. The mix only misorders anything below a 16px root,
+ * where the lone `text-[13px]` notes textarea would outgrow the body
+ * step — a textarea that shares a line with nothing. The reflow risk Khalid
+ * cares about is mid-recording movement; browser font-size is set before the
+ * session, not during it. End state is all-rem, via the deferred pass below.
+ *
+ * DELIBERATELY LEFT RAW: 4x text-[9px], 11x text-[10px], 9x text-[11px] and
+ * 1x text-[13px] — twenty-five labels that sit BELOW the scale's 12px floor.
+ * Moving them onto the scale grows them 1–3px each, and they are the phase
+ * strip, bucket chips, drawer headers and micro-labels of a console the
+ * director reads at arm's length DURING a live recording, where a reflow is
+ * not a cosmetic risk. That is a layout change, not a typography change, so
+ * it was stopped and referred rather than pushed through. It needs its own
+ * pass with a rehearsal on the real device — and note this panel is also the
+ * only one of the four token routes with no layout of its own.
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
@@ -373,7 +431,8 @@ export function LiveModeClient({ token, initial }: Props) {
                 <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-400" />
                 جلسة نشطة
               </div>
-              <h1 className="mt-0.5 truncate text-sm font-bold">{initial.title}</h1>
+              {/* leading-5 pins the pre-switch 20px — see LEADING PINS above. */}
+              <h1 className="mt-0.5 truncate text-caption leading-5 font-bold">{initial.title}</h1>
               {initial.guest_name && (
                 <p className="truncate text-[11px] text-neutral-400">مع {initial.guest_name}</p>
               )}
@@ -426,7 +485,7 @@ export function LiveModeClient({ token, initial }: Props) {
                 {BUCKET_LABELS[nextQuestion.bucket]}
               </span>
             </div>
-            <p className="text-[16px] font-semibold leading-relaxed">{nextQuestion.text}</p>
+            <p className="text-body font-semibold leading-relaxed">{nextQuestion.text}</p>
             {nextQuestion.intent && (
               <p className="mt-2 text-[11px] text-neutral-400">{nextQuestion.intent}</p>
             )}
@@ -440,7 +499,7 @@ export function LiveModeClient({ token, initial }: Props) {
               <button
                 type="button"
                 onClick={() => toggleQuestionUsed(nextQuestion.id)}
-                className="inline-flex items-center gap-1.5 rounded-lg bg-violet-500/20 px-3 py-1.5 text-[12px] font-semibold text-violet-200 active:scale-95"
+                className="inline-flex items-center gap-1.5 rounded-lg bg-violet-500/20 px-3 py-1.5 text-micro leading-normal font-semibold text-violet-200 active:scale-95"
               >
                 <Check className="h-3.5 w-3.5" />
                 استخدمت
@@ -453,7 +512,7 @@ export function LiveModeClient({ token, initial }: Props) {
                       expandedQuestionId === nextQuestion.id ? null : nextQuestion.id,
                     )
                   }
-                  className="inline-flex items-center gap-1.5 rounded-lg border border-neutral-800 bg-neutral-900/60 px-3 py-1.5 text-[12px] text-neutral-300 active:scale-95"
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-neutral-800 bg-neutral-900/60 px-3 py-1.5 text-micro leading-normal text-neutral-300 active:scale-95"
                 >
                   <Lightbulb className="h-3.5 w-3.5 text-amber-400" />
                   الدعم
@@ -561,7 +620,7 @@ export function LiveModeClient({ token, initial }: Props) {
                     onClick={() => toggleQuestionUsed(q.id)}
                     className="block w-full text-start active:scale-[0.99]"
                   >
-                    <p className={`text-[14px] leading-relaxed ${used ? "line-through" : ""}`}>
+                    <p className={`text-caption leading-relaxed ${used ? "line-through" : ""}`}>
                       {q.text}
                     </p>
                   </button>
@@ -590,7 +649,7 @@ export function LiveModeClient({ token, initial }: Props) {
             )
           })}
           {visibleQuestions.length === 0 && (
-            <div className="rounded-xl border border-dashed border-neutral-800 p-6 text-center text-xs text-neutral-500">
+            <div className="rounded-xl border border-dashed border-neutral-800 p-6 text-center text-micro leading-4 text-neutral-500">
               لا أسئلة في هذا التصنيف لهذا القسم
             </div>
           )}
@@ -604,7 +663,7 @@ export function LiveModeClient({ token, initial }: Props) {
             open={showInstructions}
             onToggle={() => setShowInstructions(!showInstructions)}
           >
-            <div className="space-y-3 text-[12px] leading-relaxed">
+            <div className="space-y-3 text-micro leading-relaxed">
               <Instruction label="التوجيه العام" text={initial.host_instructions.overall_directive} />
               <Instruction label="إدارة الطاقة" text={initial.host_instructions.energy_management} />
               <Bullets label="ابقَ هادئاً عندما" items={initial.host_instructions.stay_calm_when} />
@@ -637,7 +696,7 @@ export function LiveModeClient({ token, initial }: Props) {
           <div className="rounded-2xl border border-fuchsia-500/20 bg-fuchsia-500/5 p-4">
             <div className="mb-2 flex items-center gap-2">
               <Flame className="h-3.5 w-3.5 text-fuchsia-400" />
-              <h3 className="text-xs font-bold text-fuchsia-300">لحظات قابلة للانتشار</h3>
+              <h3 className="text-micro leading-4 font-bold text-fuchsia-300">لحظات قابلة للانتشار</h3>
             </div>
             <ul className="space-y-2">
               {initial.viral_moments.moments.map((m) => (
@@ -720,7 +779,7 @@ function GuidanceBanner({
       {phaseMsg && (
         <div className="flex items-start gap-2 rounded-xl border border-emerald-500/25 bg-emerald-500/10 p-3">
           <span className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-emerald-400" />
-          <p className="text-[12px] font-medium leading-relaxed text-emerald-100">
+          <p className="text-micro font-medium leading-relaxed text-emerald-100">
             {phaseMsg}
           </p>
         </div>
@@ -732,13 +791,13 @@ function GuidanceBanner({
               energyBand === "high" ? "text-rose-300" : "text-sky-300"
             }`}
           />
-          <p className="text-[12px] font-medium leading-relaxed">{energyMsg}</p>
+          <p className="text-micro font-medium leading-relaxed">{energyMsg}</p>
         </div>
       )}
       {dynamicHint && (
         <div className="flex items-start gap-2 rounded-xl border border-amber-500/30 bg-gradient-to-l from-amber-500/15 to-amber-500/5 p-3">
           <Lightbulb className="mt-0.5 h-3.5 w-3.5 shrink-0 text-amber-400" />
-          <p className="text-[12px] font-semibold leading-relaxed text-amber-100">
+          <p className="text-micro font-semibold leading-relaxed text-amber-100">
             {dynamicHint}
           </p>
         </div>
@@ -827,7 +886,7 @@ function Drawer({
       >
         <div className="flex items-center gap-2">
           <Icon className="h-3.5 w-3.5 text-neutral-400" />
-          <span className="text-xs font-semibold">{label}</span>
+          <span className="text-micro leading-4 font-semibold">{label}</span>
         </div>
         {open ? (
           <ChevronUp className="h-4 w-4 text-neutral-500" />
@@ -844,7 +903,7 @@ function Instruction({ label, text }: { label: string; text: string }) {
   return (
     <div>
       <div className="mb-1 text-[9px] font-semibold uppercase text-neutral-500">{label}</div>
-      <p className="text-[12px] text-neutral-300">{text}</p>
+      <p className="text-micro leading-relaxed text-neutral-300">{text}</p>
     </div>
   )
 }
@@ -857,7 +916,7 @@ function QuestionSupportPanel({ support }: { support: PreparationQuestionSupport
           <div className="mb-1 text-[9px] font-semibold uppercase text-amber-400">
             السياق
           </div>
-          <p className="text-[12px] leading-relaxed text-neutral-300">
+          <p className="text-micro leading-relaxed text-neutral-300">
             {support.context}
           </p>
         </div>

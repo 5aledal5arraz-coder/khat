@@ -133,12 +133,17 @@ export default async function GuestPage({ params }: GuestPageProps) {
             showGlow
           />
           <div className="flex-1">
-            <h1 className="text-3xl font-bold">{guest.name}</h1>
+            {/* `sm:text-title` matches the episode title (episode-hero.tsx).
+                Without it this h1 was a flat 32px while an episode title
+                reached 44px — so a guest's own page ranked their name BELOW
+                the title of an episode, on the one page most likely to be
+                sent to that guest. */}
+            <h1 className="text-heading font-bold sm:text-title">{guest.name}</h1>
             {knowledge?.headline && (
-              <p className="mt-1.5 text-base font-medium text-primary">{knowledge.headline}</p>
+              <p className="mt-1.5 text-body font-medium text-primary">{knowledge.headline}</p>
             )}
             {displayBio && (
-              <p className="mt-3 leading-relaxed text-muted-foreground">
+              <p className="mt-3 max-w-measure text-muted-foreground">
                 {displayBio}
               </p>
             )}
@@ -147,7 +152,7 @@ export default async function GuestPage({ params }: GuestPageProps) {
                 {signatureTopics.map((topic) => (
                   <span
                     key={topic}
-                    className="inline-flex items-center rounded-full bg-primary/10 px-3 py-1 text-xs font-medium text-primary"
+                    className="inline-flex items-center rounded-full bg-primary/10 px-3 py-1 text-micro font-medium text-primary"
                   >
                     {topic}
                   </span>
@@ -161,7 +166,7 @@ export default async function GuestPage({ params }: GuestPageProps) {
             Sara note 4/5). */}
         {teaser && (
           <div className="mt-10 space-y-3">
-            <h2 className="text-lg font-semibold">التيزر</h2>
+            <h2 className="text-lead font-semibold">التيزر</h2>
             <TeaserInline teaser={teaser} />
           </div>
         )}
@@ -169,20 +174,20 @@ export default async function GuestPage({ params }: GuestPageProps) {
         {/* Cross-episode knowledge (synthesized) */}
         {(themes.length > 0 || knowledgeQuotes.length > 0 || knowledge?.arc) && (
           <div className="mt-10 space-y-6 rounded-2xl border bg-card/50 p-6">
-            <h2 className="text-lg font-semibold">معرفة عن الضيف عبر حلقاته</h2>
+            <h2 className="text-lead font-semibold">معرفة عن الضيف عبر حلقاته</h2>
 
             {knowledge?.arc && (
-              <p className="leading-relaxed text-muted-foreground">{knowledge.arc}</p>
+              <p className="max-w-measure text-muted-foreground">{knowledge.arc}</p>
             )}
 
             {themes.length > 0 && (
               <div className="space-y-2">
-                <h3 className="text-sm font-medium text-foreground">محاور متكررة</h3>
+                <h3 className="text-caption font-medium text-foreground">محاور متكررة</h3>
                 <div className="flex flex-wrap gap-2">
                   {themes.map((theme) => (
                     <span
                       key={theme}
-                      className="inline-flex items-center rounded-md bg-muted px-2.5 py-1 text-xs text-muted-foreground"
+                      className="inline-flex items-center rounded-md bg-muted px-2.5 py-1 text-micro text-muted-foreground"
                     >
                       {theme}
                     </span>
@@ -193,16 +198,16 @@ export default async function GuestPage({ params }: GuestPageProps) {
 
             {knowledgeQuotes.length > 0 && (
               <div className="space-y-3">
-                <h3 className="text-sm font-medium text-foreground">أقوى ما قال</h3>
+                <h3 className="text-caption font-medium text-foreground">أقوى ما قال</h3>
                 <div className="grid gap-3 sm:grid-cols-2">
                   {knowledgeQuotes.map((q, i) => (
                     <blockquote
                       key={i}
                       className="rounded-xl border-s-2 border-primary/40 bg-background/60 p-4"
                     >
-                      <p className="text-sm leading-relaxed">&ldquo;{q.text}&rdquo;</p>
+                      <p className="text-caption">&ldquo;{q.text}&rdquo;</p>
                       {q.context && (
-                        <footer className="mt-2 text-xs text-muted-foreground">{q.context}</footer>
+                        <footer className="mt-2 text-micro text-muted-foreground">{q.context}</footer>
                       )}
                     </blockquote>
                   ))}
@@ -234,7 +239,7 @@ export default async function GuestPage({ params }: GuestPageProps) {
                   href={url}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md border border-input bg-background px-3 py-1 text-sm font-medium shadow-sm transition-colors hover:bg-accent hover:text-accent-foreground"
+                  className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md border border-input bg-background px-3 py-1 text-caption font-medium shadow-sm transition-colors hover:bg-accent hover:text-accent-foreground"
                 >
                   <Icon className="h-4 w-4" />
                   <span className="capitalize">{platform}</span>
@@ -247,7 +252,7 @@ export default async function GuestPage({ params }: GuestPageProps) {
         {/* Episodes */}
         {guest.episodes.length > 0 && (
           <div className="mt-12 space-y-4">
-            <h2 className="text-xl font-semibold">
+            <h2 className="text-lead font-semibold">
               الحلقات ({guest.episodes.length})
             </h2>
             <div className="grid gap-6 sm:grid-cols-2">
@@ -261,7 +266,7 @@ export default async function GuestPage({ params }: GuestPageProps) {
         {/* Quotes */}
         {guest.quotes.length > 0 && (
           <div className="mt-12 space-y-4">
-            <h2 className="text-xl font-semibold">اقتباسات</h2>
+            <h2 className="text-lead font-semibold">اقتباسات</h2>
             <div className="grid gap-4 sm:grid-cols-2">
               {guest.quotes.map((quote) => (
                 <QuoteCard key={quote.id} quote={{ ...quote, guest }} />

@@ -38,7 +38,7 @@ export default async function ListenPage() {
             className="mx-auto rounded-2xl shadow-lg"
           />
           <div>
-            <h1 className="text-3xl font-bold">استمع لبودكاست خط</h1>
+            <h1 className="text-heading font-bold">استمع لبودكاست خط</h1>
             <p className="mt-2 text-muted-foreground">
               اختر منصتك المفضلة
             </p>
@@ -59,7 +59,7 @@ export default async function ListenPage() {
                   className={`flex items-center gap-4 rounded-xl border border-border/40 bg-card/60 px-5 py-4 transition-all hover:shadow-md ${colorClass}`}
                 >
                   <PlatformIcon iconName={p.icon_name} className="h-6 w-6 shrink-0" />
-                  <span className="flex-1 text-base font-medium">{p.platform_name}</span>
+                  <span className="flex-1 text-body font-medium">{p.platform_name}</span>
                   <ExternalLink className="h-4 w-4 opacity-40" />
                 </a>
               )
@@ -73,7 +73,7 @@ export default async function ListenPage() {
                   href={rss.url}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="mt-3 inline-flex items-center gap-1.5 text-sm text-primary hover:underline"
+                  className="mt-3 inline-flex items-center gap-1.5 text-caption text-primary hover:underline"
                 >
                   <Rss className="h-4 w-4" />
                   اشترك عبر RSS
@@ -90,7 +90,7 @@ export default async function ListenPage() {
               href={rss.url}
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-primary transition-colors"
+              className="inline-flex items-center gap-1.5 text-micro text-muted-foreground hover:text-primary transition-colors"
             >
               <Rss className="h-3.5 w-3.5" />
               اشترك عبر RSS Feed

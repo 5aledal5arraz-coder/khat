@@ -53,12 +53,12 @@ function FieldLabel({
 }) {
   return (
     <div className="space-y-1">
-      <label htmlFor={htmlFor} className="block text-sm font-medium">
+      <label htmlFor={htmlFor} className="block text-caption font-medium">
         {children}
         {required && <span className="text-destructive"> *</span>}
       </label>
       {hint && (
-        <p className="text-xs leading-relaxed text-muted-foreground/60">
+        <p className="text-micro text-muted-foreground/60">
           {hint}
         </p>
       )}
@@ -83,7 +83,7 @@ function RadioOption({
 }) {
   return (
     <label
-      className={`flex cursor-pointer items-center gap-2.5 rounded-xl px-4 py-3 text-sm ring-1 transition-all ${
+      className={`flex cursor-pointer items-center gap-2.5 rounded-xl px-4 py-3 text-caption ring-1 transition-all ${
         checked
           ? "bg-primary/[0.06] text-foreground ring-primary/30"
           : "bg-white/[0.01] text-muted-foreground ring-border/30 hover:ring-border/60"
@@ -116,7 +116,7 @@ function StepIndicator({
         <div key={step.number} className="flex items-center gap-3">
           <div className="flex items-center gap-2">
             <div
-              className={`flex h-7 w-7 items-center justify-center rounded-full text-xs font-bold transition-all ${
+              className={`flex h-7 w-7 items-center justify-center rounded-full text-micro font-bold transition-all ${
                 i + 1 === current
                   ? "bg-primary text-primary-foreground"
                   : i + 1 < current
@@ -131,7 +131,7 @@ function StepIndicator({
               )}
             </div>
             <span
-              className={`hidden text-xs font-medium sm:inline ${
+              className={`hidden text-micro font-medium sm:inline ${
                 i + 1 === current
                   ? "text-foreground"
                   : i + 1 < current
@@ -265,20 +265,20 @@ export function GuestApplicationForm() {
         <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-primary/10">
           <Check className="h-8 w-8 text-primary" />
         </div>
-        <h3 className="mt-6 text-xl font-bold">وصلتنا قصتك</h3>
-        <p className="mx-auto mt-3 max-w-sm text-sm leading-relaxed text-muted-foreground">
+        <h3 className="mt-6 text-lead font-bold">وصلتنا قصتك</h3>
+        <p className="mx-auto mt-3 max-w-sm text-caption text-muted-foreground">
           شكراً إنك شاركتنا. نقرأ كل كلمة بعناية. الصمت لا يعني الرفض — نحتفظ بالقصص القوية ونعود إليها.
         </p>
         {reference && (
           <div className="mx-auto mt-6 max-w-xs rounded-2xl border border-primary/15 bg-card px-5 py-4">
-            <p className="text-[11px] tracking-wide text-muted-foreground">رقمك المرجعي</p>
-            <p className="mt-1 text-lg font-bold tracking-widest text-primary" dir="ltr">{reference}</p>
-            <a href={`/guest/status?ref=${encodeURIComponent(reference)}`} className="mt-2 inline-block text-xs font-medium text-primary hover:underline">
+            <p className="text-micro text-muted-foreground">رقمك المرجعي</p>
+            <p className="mt-1 text-lead font-bold tracking-widest text-primary" dir="ltr">{reference}</p>
+            <a href={`/guest/status?ref=${encodeURIComponent(reference)}`} className="mt-2 inline-block text-micro font-medium text-primary hover:underline">
               تابِع حالة طلبك ←
             </a>
           </div>
         )}
-        <p className="mt-6 text-xs text-muted-foreground/40">
+        <p className="mt-6 text-micro text-muted-foreground/40">
           الحوار يبدأ من هني.
         </p>
       </div>
@@ -348,7 +348,7 @@ export function GuestApplicationForm() {
               }}
               disabled={loading}
               aria-label="دولة الإقامة"
-              className="h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+              className="h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-field ring-offset-background md:text-control focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
             >
               <option value="">اختر الدولة</option>
               {COUNTRIES.map((c) => (
@@ -425,7 +425,7 @@ export function GuestApplicationForm() {
               rows={5}
               disabled={loading}
               dir="auto"
-              className="leading-relaxed"
+              className="text-body"
             />
           </div>
 
@@ -444,7 +444,7 @@ export function GuestApplicationForm() {
               rows={5}
               disabled={loading}
               dir="auto"
-              className="leading-relaxed"
+              className="text-body"
             />
           </div>
 
@@ -459,9 +459,9 @@ export function GuestApplicationForm() {
               rows={6}
               disabled={loading}
               dir="auto"
-              className="leading-relaxed"
+              className="text-body"
             />
-            <p className="text-[10px] text-muted-foreground/40">
+            <p className="text-micro text-muted-foreground/40">
               ٦–١٠ أسطر تقريباً
             </p>
           </div>
@@ -477,7 +477,7 @@ export function GuestApplicationForm() {
               rows={4}
               disabled={loading}
               dir="auto"
-              className="leading-relaxed"
+              className="text-body"
             />
           </div>
 
@@ -492,7 +492,7 @@ export function GuestApplicationForm() {
               rows={3}
               disabled={loading}
               dir="auto"
-              className="leading-relaxed"
+              className="text-body"
             />
           </div>
 
@@ -507,7 +507,7 @@ export function GuestApplicationForm() {
               rows={4}
               disabled={loading}
               dir="auto"
-              className="leading-relaxed"
+              className="text-body"
             />
           </div>
 
@@ -584,7 +584,7 @@ export function GuestApplicationForm() {
               rows={4}
               disabled={loading}
               dir="auto"
-              className="leading-relaxed"
+              className="text-body"
             />
           </div>
 
@@ -597,7 +597,7 @@ export function GuestApplicationForm() {
               rows={3}
               disabled={loading}
               dir="auto"
-              className="leading-relaxed"
+              className="text-body"
             />
           </div>
 
@@ -679,7 +679,7 @@ export function GuestApplicationForm() {
 
           {errorMessage && formStatus === "error" && (
             <div className="flex items-center justify-between rounded-lg border border-destructive/20 bg-destructive/5 px-4 py-3">
-              <p className="text-sm text-destructive">{errorMessage}</p>
+              <p className="text-caption text-destructive">{errorMessage}</p>
               <Button
                 type="button"
                 variant="ghost"

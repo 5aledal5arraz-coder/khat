@@ -55,7 +55,7 @@ export function GuestStatusClient() {
             onChange={(e) => setReference(e.target.value)}
             placeholder="KHAT-G-XXXXXX"
             dir="ltr"
-            className="mt-1 w-full rounded-xl border border-border bg-background px-3.5 py-2.5 text-sm tracking-widest text-foreground placeholder:text-muted-foreground/50 focus:border-primary focus:outline-none"
+            className="mt-1 w-full rounded-xl border border-border bg-background px-3.5 py-2.5 text-field tracking-widest text-foreground placeholder:text-muted-foreground/50 focus:border-primary focus:outline-none md:text-control"
           />
         </label>
         <label className="block">
@@ -66,7 +66,7 @@ export function GuestStatusClient() {
             onChange={(e) => setEmail(e.target.value)}
             placeholder="you@example.com"
             dir="ltr"
-            className="mt-1 w-full rounded-xl border border-border bg-background px-3.5 py-2.5 text-sm text-foreground placeholder:text-muted-foreground/50 focus:border-primary focus:outline-none"
+            className="mt-1 w-full rounded-xl border border-border bg-background px-3.5 py-2.5 text-field text-foreground placeholder:text-muted-foreground/50 focus:border-primary focus:outline-none md:text-control"
           />
         </label>
         <button

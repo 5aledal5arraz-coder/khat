@@ -113,14 +113,14 @@ export function TeaserQuestionForm({
         <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-primary/10">
           <CheckCircle2 className="h-7 w-7 text-primary" />
         </div>
-        <h4 className="mt-5 text-lg font-bold text-foreground">وصلنا سؤالك</h4>
-        <p className="mx-auto mt-2 max-w-sm text-[13px] leading-relaxed text-muted-foreground">
+        <h4 className="mt-5 text-lead font-bold text-foreground">وصلنا سؤالك</h4>
+        <p className="mx-auto mt-2 max-w-sm text-caption text-muted-foreground">
           كل سؤال يمر على المراجعة قبل أي استخدام. إذا اختير سؤالك، بتشوفه مع الحلقة.
         </p>
         <button
           type="button"
           onClick={askAnother}
-          className="mt-6 inline-flex min-h-11 items-center gap-1.5 rounded-xl border border-border bg-card px-4 text-sm font-medium text-foreground transition-colors hover:bg-muted/40"
+          className="mt-6 inline-flex min-h-11 items-center gap-1.5 rounded-xl border border-border bg-card px-4 text-caption font-medium text-foreground transition-colors hover:bg-muted/40"
         >
           اسأل سؤالًا ثانيًا
         </button>
@@ -192,8 +192,8 @@ export function TeaserQuestionForm({
       role="alert"
       className={
         f.tone === "notice"
-          ? "mt-2 text-[12.5px] text-muted-foreground"
-          : "mt-2 text-[12.5px] text-destructive"
+          ? "mt-2 text-micro text-muted-foreground"
+          : "mt-2 text-micro text-destructive"
       }
     >
       {f.message}
@@ -204,7 +204,7 @@ export function TeaserQuestionForm({
     <form onSubmit={submit} className="mt-5 border-t border-border pt-4">
       <label
         htmlFor={questionId}
-        className="block text-[13.5px] font-bold text-foreground"
+        className="block text-caption font-bold text-foreground"
         dir="auto"
       >
         {prompt}
@@ -228,9 +228,9 @@ export function TeaserQuestionForm({
         aria-describedby={questionMessage ? feedbackId : undefined}
         // resize-none: height is driven by fitToContent(), and the native
         // handle is inert on iOS Safari anyway.
-        className="mt-2 w-full resize-none overflow-hidden rounded-xl border border-border bg-background px-3 py-2.5 text-[13.5px] leading-relaxed text-foreground outline-none focus:border-primary"
+        className="mt-2 w-full resize-none overflow-hidden rounded-xl border border-border bg-background px-3 py-2.5 text-field text-foreground outline-none focus:border-primary md:text-control"
       />
-      <div className="mt-1 flex items-center justify-between gap-3 text-[11px] text-muted-foreground">
+      <div className="mt-1 flex items-center justify-between gap-3 text-micro text-muted-foreground">
         <span>{hint}</span>
         <span className="tabular-nums">
           {question.length}/{QUESTION_LIMITS.MAX_CHARS}
@@ -240,7 +240,7 @@ export function TeaserQuestionForm({
 
       <label
         htmlFor={nameId}
-        className="mt-3 block text-[12px] font-semibold text-foreground"
+        className="mt-3 block text-micro font-semibold text-foreground"
       >
         اسمك <span className="font-normal text-muted-foreground">(اختياري)</span>
       </label>
@@ -256,7 +256,7 @@ export function TeaserQuestionForm({
         aria-invalid={nameMessage ? true : undefined}
         aria-describedby={nameMessage ? feedbackId : undefined}
         // min-h-11 → the 44px touch target, same as the submit button.
-        className="mt-1.5 min-h-11 w-full rounded-xl border border-border bg-background px-3 text-[13.5px] text-foreground outline-none focus:border-primary"
+        className="mt-1.5 min-h-11 w-full rounded-xl border border-border bg-background px-3 text-field text-foreground outline-none focus:border-primary md:text-control"
       />
       {nameMessage ? feedbackBlock(nameMessage) : null}
 
@@ -267,7 +267,7 @@ export function TeaserQuestionForm({
         <button
           type="submit"
           disabled={sending || question.trim().length === 0}
-          className="inline-flex min-h-11 items-center gap-2 rounded-full bg-primary px-5 text-[13px] font-semibold text-primary-foreground transition-opacity hover:opacity-90 disabled:opacity-45"
+          className="inline-flex min-h-11 items-center gap-2 rounded-full bg-primary px-5 text-caption font-semibold text-primary-foreground transition-opacity hover:opacity-90 disabled:opacity-45"
         >
           {sending ? (
             <Loader2 className="h-4 w-4 animate-spin" />
@@ -276,7 +276,7 @@ export function TeaserQuestionForm({
           )}
           أرسل السؤال
         </button>
-        <span className="text-[11.5px] text-muted-foreground">
+        <span className="text-micro text-muted-foreground">
           كل سؤال يمر على المراجعة قبل أي استخدام
         </span>
       </div>

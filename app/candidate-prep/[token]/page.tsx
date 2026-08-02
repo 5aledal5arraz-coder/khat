@@ -97,9 +97,9 @@ function ErrorState({ reason }: { reason: "not_found" | "expired" | "cancelled" 
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z" />
           </svg>
         </div>
-        <h1 className="mb-3 text-xl font-semibold text-foreground">{title}</h1>
-        <p className="text-sm leading-relaxed text-muted-foreground">{description}</p>
-        <div className="mt-8 text-xs text-muted-foreground/60">خط بودكاست</div>
+        <h1 className="mb-3 text-subhead font-semibold text-foreground">{title}</h1>
+        <p className="text-caption text-muted-foreground">{description}</p>
+        <div className="mt-8 text-micro text-muted-foreground/60">خط بودكاست</div>
       </div>
     </div>
   )

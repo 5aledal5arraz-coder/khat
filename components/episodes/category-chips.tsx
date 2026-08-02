@@ -73,7 +73,7 @@ function CategoryChip({
       href={href}
       aria-current={active ? "page" : undefined}
       className={cn(
-        "inline-flex items-center gap-1.5 rounded-full border px-3.5 py-1.5 text-[13px] font-semibold transition-colors",
+        "inline-flex items-center gap-1.5 rounded-full border px-3.5 py-1.5 text-caption font-semibold transition-colors",
         "focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:ring-offset-2",
         active
           ? "border-primary bg-primary text-primary-foreground"
@@ -82,7 +82,7 @@ function CategoryChip({
     >
       {label}
       {typeof count === "number" ? (
-        <span className={cn("text-[12px] font-medium", active ? "opacity-80" : "opacity-70")}>
+        <span className={cn("text-micro font-medium", active ? "opacity-80" : "opacity-70")}>
           {count}
         </span>
       ) : null}

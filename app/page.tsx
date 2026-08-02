@@ -91,18 +91,18 @@ export default async function HomePage() {
         </div>
 
         <div className="mx-auto max-w-4xl">
-          <span className="inline-flex items-center gap-2 rounded-full border border-border bg-card px-3.5 py-1.5 text-[12px] font-semibold tracking-wide text-muted-foreground shadow-sm">
+          <span className="inline-flex items-center gap-2 rounded-full border border-border bg-card px-3.5 py-1.5 text-micro font-semibold text-muted-foreground shadow-sm">
             <Sparkles className="h-3.5 w-3.5 text-accent" />
             بودكاست خط
           </span>
 
-          <h1 className="mt-7 text-balance text-5xl font-extrabold leading-[1.08] tracking-tight text-foreground sm:text-6xl lg:text-[5.2rem]">
+          <h1 className="mt-7 text-balance text-display font-bold text-foreground">
             حوارات تستحق
             <br />
             أن تبقى<span className="text-accent">.</span>
           </h1>
 
-          <p className="mx-auto mt-6 max-w-2xl text-pretty text-lg leading-relaxed text-muted-foreground sm:text-xl">
+          <p className="mx-auto mt-6 max-w-measure text-pretty text-lead text-muted-foreground">
             بودكاست عربي يستكشف القصص والأفكار من خلال حوارات صادقة مع عقولٍ
             ملهمة — عباراتٌ تستحق أن تضع تحتها خط.
           </p>
@@ -110,7 +110,7 @@ export default async function HomePage() {
           <div className="mt-9 flex flex-wrap items-center justify-center gap-3">
             <Link
               href="/episodes"
-              className="inline-flex h-12 items-center gap-2 rounded-full bg-primary px-7 text-[15px] font-semibold text-primary-foreground shadow-lg shadow-primary/25 transition-all hover:scale-[1.02] hover:shadow-xl hover:shadow-primary/30"
+              className="inline-flex h-12 items-center gap-2 rounded-full bg-primary px-7 text-body font-semibold text-primary-foreground shadow-lg shadow-primary/25 transition-all hover:scale-[1.02] hover:shadow-xl hover:shadow-primary/30"
             >
               استكشف الحلقات
               <ArrowLeft className="h-4 w-4" />
@@ -118,7 +118,7 @@ export default async function HomePage() {
             {featured ? (
               <Link
                 href={`/episodes/${featured.slug}`}
-                className="inline-flex h-12 items-center gap-2 rounded-full border border-border bg-card px-7 text-[15px] font-semibold text-foreground transition-colors hover:bg-secondary"
+                className="inline-flex h-12 items-center gap-2 rounded-full border border-border bg-card px-7 text-body font-semibold text-foreground transition-colors hover:bg-secondary"
               >
                 <Play className="h-4 w-4 fill-current text-accent" />
                 شاهد الأحدث
@@ -145,24 +145,24 @@ export default async function HomePage() {
             >
               <div className="relative aspect-video overflow-hidden rounded-2xl bg-secondary">
                 <EpisodeThumb ep={featured} priority className="transition-transform duration-700 group-hover:scale-[1.03]" />
-                <span className="absolute bottom-3 start-3 inline-flex items-center gap-2 rounded-full bg-black/55 px-3 py-1.5 text-[12px] font-semibold text-white backdrop-blur">
+                <span className="absolute bottom-3 start-3 inline-flex items-center gap-2 rounded-full bg-black/55 px-3 py-1.5 text-micro font-semibold text-white backdrop-blur">
                   <Play className="h-3.5 w-3.5 fill-current text-accent" />
                   شاهد الآن
                 </span>
               </div>
               <div className="px-2 pb-2 lg:px-4">
                 {featured.guest?.name ? (
-                  <span className="text-[13px] font-semibold text-accent">{featured.guest.name}</span>
+                  <span className="text-caption font-semibold text-accent">{featured.guest.name}</span>
                 ) : null}
-                <h3 className="mt-2 text-pretty text-2xl font-bold leading-snug tracking-tight text-foreground lg:text-3xl">
+                <h3 className="mt-2 text-pretty text-subhead font-bold text-foreground lg:text-heading">
                   {featured.title}
                 </h3>
                 {featured.summary ? (
-                  <p className="mt-3 line-clamp-3 text-[15px] leading-relaxed text-muted-foreground">
+                  <p className="mt-3 line-clamp-3 text-body text-muted-foreground">
                     {featured.summary}
                   </p>
                 ) : null}
-                <div className="mt-5 flex items-center gap-3 text-[13px] text-muted-foreground">
+                <div className="mt-5 flex items-center gap-3 text-caption text-muted-foreground">
                   {episodeDurationLabel(featured.duration_minutes) ? (
                     <span>{episodeDurationLabel(featured.duration_minutes)}</span>
                   ) : null}
@@ -196,7 +196,7 @@ export default async function HomePage() {
               <SectionLabel>أحدث الحلقات</SectionLabel>
               <Link
                 href="/episodes"
-                className="inline-flex items-center gap-1 text-[14px] font-semibold text-primary transition-all hover:gap-2"
+                className="inline-flex items-center gap-1 text-caption font-semibold text-primary transition-all hover:gap-2"
               >
                 كل الحلقات <ArrowLeft className="h-4 w-4" />
               </Link>
@@ -213,7 +213,7 @@ export default async function HomePage() {
       {/* ──────────────────── Statement ──────────────────── */}
       <section className="px-6 py-24 sm:py-32">
         <div className="mx-auto max-w-4xl text-center">
-          <p className="text-balance text-3xl font-bold leading-[1.4] tracking-tight text-foreground sm:text-4xl lg:text-[2.85rem]">
+          <p className="text-balance text-heading font-bold leading-prose text-foreground lg:text-title">
             في عالمٍ يتدفّق فيه الكلام بلا توقّف،
             <br className="hidden sm:block" />{" "}
             <span className="text-muted-foreground">اخترنا أن نتوقّف… </span>
@@ -248,7 +248,7 @@ export default async function HomePage() {
 
 function SectionLabel({ children }: { children: React.ReactNode }) {
   return (
-    <h2 className="text-[13px] font-bold uppercase tracking-[0.18em] text-muted-foreground">
+    <h2 className="text-caption font-bold uppercase text-muted-foreground">
       {children}
     </h2>
   )
@@ -277,21 +277,21 @@ function CtaCard({
       }`}
     >
       <span
-        className={`text-[12px] font-bold uppercase tracking-[0.16em] ${
+        className={`text-micro font-bold uppercase ${
           accent ? "text-primary-foreground/70" : "text-accent"
         }`}
       >
         {eyebrow}
       </span>
-      <h3 className="mt-3 text-2xl font-bold tracking-tight sm:text-[26px]">{title}</h3>
+      <h3 className="mt-3 text-subhead font-bold">{title}</h3>
       <p
-        className={`mt-3 text-[15px] leading-relaxed ${
+        className={`mt-3 text-body ${
           accent ? "text-primary-foreground/85" : "text-muted-foreground"
         }`}
       >
         {body}
       </p>
-      <span className="mt-6 inline-flex items-center gap-1.5 text-[14px] font-semibold transition-all group-hover:gap-3">
+      <span className="mt-6 inline-flex items-center gap-1.5 text-caption font-semibold transition-all group-hover:gap-3">
         ابدأ الآن <ArrowLeft className="h-4 w-4" />
       </span>
     </Link>

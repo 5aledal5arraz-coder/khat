@@ -111,15 +111,15 @@ export function GuestIntroSection({ guest, testimonial, testimonialVideoUrl }: G
 
           {/* Guest Details */}
           <div className="flex-1 text-center sm:text-start">
-            <p className="text-sm text-muted-foreground">ضيف الحلقة</p>
+            <p className="text-caption text-muted-foreground">ضيف الحلقة</p>
             <Link href={`/guests/${guest.slug}`}>
-              <h2 className="mt-1 text-2xl font-bold hover:text-primary transition-colors">
+              <h2 className="mt-1 text-subhead font-bold hover:text-primary transition-colors">
                 {guest.name}
               </h2>
             </Link>
 
             {guest.bio && (
-              <p className="mt-3 text-muted-foreground leading-relaxed line-clamp-3">
+              <p className="mt-3 text-muted-foreground line-clamp-3">
                 {guest.bio}
               </p>
             )}
@@ -127,11 +127,11 @@ export function GuestIntroSection({ guest, testimonial, testimonialVideoUrl }: G
             {/* Testimonial Message */}
             {testimonial && (
               <div className="mt-4 rounded-lg bg-muted/50 p-4 relative">
-                <div className="absolute -top-2 start-4 text-4xl text-primary/30">&ldquo;</div>
-                <p className="text-sm italic text-foreground/90 ps-4">
+                <div className="absolute -top-2 start-4 text-heading text-primary/30">&ldquo;</div>
+                <p className="text-caption italic text-foreground/90 ps-4">
                   {testimonial}
                 </p>
-                <p className="mt-2 text-xs text-muted-foreground ps-4">
+                <p className="mt-2 text-micro text-muted-foreground ps-4">
                   — {guest.name}، بعد تسجيل الحلقة
                 </p>
               </div>
@@ -140,7 +140,7 @@ export function GuestIntroSection({ guest, testimonial, testimonialVideoUrl }: G
             {/* View Full Profile Link */}
             <Link
               href={`/guests/${guest.slug}`}
-              className="mt-4 inline-block text-sm text-primary hover:underline"
+              className="mt-4 inline-block text-caption text-primary hover:underline"
             >
               شوف الملف الكامل →
             </Link>
@@ -150,7 +150,7 @@ export function GuestIntroSection({ guest, testimonial, testimonialVideoUrl }: G
         {/* Testimonial Video */}
         {videoId && (
           <div className="mt-6 border-t pt-6">
-            <h3 className="mb-3 text-sm font-medium text-muted-foreground">
+            <h3 className="mb-3 text-caption font-medium text-muted-foreground">
               كلمة من الضيف
             </h3>
             <div className="relative aspect-video max-w-md overflow-hidden rounded-xl bg-muted" style={{ contain: "layout paint", transform: "translateZ(0)" }}>
@@ -180,7 +180,7 @@ export function GuestIntroSection({ guest, testimonial, testimonialVideoUrl }: G
                   <div className="relative flex h-14 w-14 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg group-hover:scale-110 transition-transform">
                     <Play className="h-6 w-6 ms-1" fill="currentColor" />
                   </div>
-                  <span className="relative text-sm font-medium text-white">
+                  <span className="relative text-caption font-medium text-white">
                     شوف كلمة الضيف
                   </span>
                 </button>

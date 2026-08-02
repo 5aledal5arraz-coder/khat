@@ -73,13 +73,13 @@ export default async function AboutPage() {
                     className="object-cover"
                   />
                 ) : (
-                  <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-primary/20 to-accent/20 text-6xl font-bold text-muted-foreground">
+                  <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-primary/20 to-accent/20 text-title font-bold text-muted-foreground">
                     خ
                   </div>
                 )}
               </div>
               <div className="absolute -bottom-2 inset-x-0 flex justify-center">
-                <Badge className="bg-primary text-primary-foreground px-4 py-1.5 text-sm font-medium shadow-lg">
+                <Badge className="bg-primary text-primary-foreground px-4 py-1.5 text-caption font-medium shadow-lg">
                   <Mic className="w-3.5 h-3.5 me-1.5" />
                   Podcast Host
                 </Badge>
@@ -89,15 +89,15 @@ export default async function AboutPage() {
             {/* Host Info */}
             <div className="flex-1 text-center lg:text-start">
               <div className="inline-flex items-center gap-2 mb-4">
-                <span className="text-sm text-muted-foreground">مرحباً، أنا</span>
+                <span className="text-caption text-muted-foreground">مرحباً، أنا</span>
               </div>
-              <h1 className="text-4xl lg:text-5xl font-bold mb-4">
+              <h1 className="text-heading lg:text-title font-bold mb-4">
                 {content.hostName}
               </h1>
-              <p className="text-xl text-primary font-medium mb-6">
+              <p className="text-lead text-primary font-medium mb-6">
                 {content.hostTitle}
               </p>
-              <p className="text-lg text-muted-foreground leading-relaxed max-w-xl">
+              <p className="text-lead text-muted-foreground max-w-xl">
                 {content.hostDescription}
               </p>
 
@@ -141,7 +141,7 @@ export default async function AboutPage() {
             {content.missionQuote && (
               <div className="relative mb-16">
                 <Quote className="absolute -top-4 -start-4 w-12 h-12 text-primary/20" />
-                <blockquote className="text-2xl lg:text-3xl font-medium text-center leading-relaxed py-8 px-6">
+                <blockquote className="text-subhead lg:text-heading font-medium text-center py-8 px-6">
                   {content.missionQuote}
                 </blockquote>
                 <Quote className="absolute -bottom-4 -end-4 w-12 h-12 text-primary/20 rotate-180" />
@@ -166,7 +166,7 @@ export default async function AboutPage() {
                             <div className="flex items-center justify-center w-14 h-14 rounded-2xl bg-primary/10 text-primary mb-4 group-hover:scale-110 transition-transform duration-300">
                               <Icon className="w-7 h-7" />
                             </div>
-                            <h3 className="text-xl font-bold mb-2">{value.title}</h3>
+                            <h3 className="text-lead font-bold mb-2">{value.title}</h3>
                             <p className="text-muted-foreground">{value.description}</p>
                           </div>
                         </CardContent>
@@ -189,7 +189,7 @@ export default async function AboutPage() {
                   <Users className="w-3 h-3 me-1.5" />
                   فريق العمل
                 </Badge>
-                <h2 className="text-3xl font-bold mb-4">فريق بودكاست خط</h2>
+                <h2 className="text-heading font-bold mb-4">فريق بودكاست خط</h2>
                 <p className="text-muted-foreground max-w-xl mx-auto">
                   ورا كل حلقة فريق يشتغل بشغف عشان يقدّم لك أفضل محتوى
                 </p>
@@ -213,14 +213,14 @@ export default async function AboutPage() {
                               className="object-cover"
                             />
                           ) : (
-                            <div className="flex items-center justify-center h-full text-2xl font-bold text-muted-foreground">
+                            <div className="flex items-center justify-center h-full text-subhead font-bold text-muted-foreground">
                               {member.name.charAt(0)}
                             </div>
                           )}
                         </div>
-                        <h3 className="text-lg font-bold mb-1">{member.name}</h3>
+                        <h3 className="text-lead font-bold mb-1">{member.name}</h3>
                         {member.role && <Badge variant="secondary" className="mb-3">{member.role}</Badge>}
-                        <p className="text-sm text-muted-foreground">{member.description}</p>
+                        <p className="text-caption text-muted-foreground">{member.description}</p>
                       </CardContent>
                     </Card>
                   ))}
@@ -245,8 +245,8 @@ export default async function AboutPage() {
               />
             </div>
 
-            <h2 className="text-3xl font-bold mb-4">{content.ctaTitle}</h2>
-            <p className="text-lg text-muted-foreground mb-8">
+            <h2 className="text-heading font-bold mb-4">{content.ctaTitle}</h2>
+            <p className="mx-auto mb-8 max-w-measure text-lead text-muted-foreground">
               {content.ctaDescription}
             </p>
 

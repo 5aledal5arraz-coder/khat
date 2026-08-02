@@ -44,16 +44,16 @@ export function QuoteCard({ quote, episodeTitle }: QuoteCardProps) {
   return (
     <Card className="bg-muted/50">
       <CardContent className="p-4">
-        <blockquote className="text-lg leading-relaxed">
+        <blockquote className="text-lead">
           &ldquo;{quote.text}&rdquo;
         </blockquote>
         {quote.guest && (
-          <p className="mt-2 text-sm text-muted-foreground">
+          <p className="mt-2 text-caption text-muted-foreground">
             — {quote.guest.name}
           </p>
         )}
         {quote.theme && (
-          <p className="mt-1 text-xs text-muted-foreground">
+          <p className="mt-1 text-micro text-muted-foreground">
             {quote.theme}
           </p>
         )}

@@ -37,6 +37,134 @@
     --font-brand-sans: "IBM Plex Sans Arabic", "Noto Naskh Arabic", "Cairo", sans-serif;
     --font-brand-display: "Amiri", serif;
 
+    /* ── Type scale ──────────────────────────────────────────────────────
+       THE OTHER HALF OF THE SWITCH POINT. Wave 1 made the palette and the
+       font FAMILY swappable from here; this block does the same for SIZE
+       and LEADING. Every font-size on the public site resolves to one of
+       these eight steps, so re-tuning to a new family is an edit here —
+       not a hunt through 98 hand-written `text-[13.5px]`-style values.
+
+         · sizes   → --type-size-*
+         · leading → --type-leading-*
+         · measure → --type-char-advance (see below)
+
+       WHY LEADING IS A PROPERTY OF EACH STEP, NOT ONE SITE-WIDE NUMBER.
+       Arabic ink is far taller than Latin ink, so leading that looks
+       generous for Latin makes Arabic lines collide. Measured with canvas
+       actualBoundingBox against the site's own copy, the minimum leading
+       that kept two consecutive lines from overlapping *in ink* was:
+
+         IBM Plex Sans Arabic 700  1.389em   (1.607em once a word carries
+                                              tashkeel — `كن ضيفًا`, `عالمٍ`)
+         Amiri 400                 1.644em   (1.771em with tashkeel)
+
+       READ THOSE AS MEASUREMENTS OF THIS SITE'S COPY, NOT CONSTANTS OF THE
+       TYPEFACE. They are the tallest ink found in the strings the site
+       actually renders, so they move with the text. Re-measured 2026-08-02
+       against the same two families with a DIFFERENT sample, the same
+       method returned 1.061 / 1.531 / 1.651 — materially lower, because
+       that sample happened to carry no tashkeel-on-descender pair. The
+       values below are chosen on the high side of the observed range and
+       are therefore safe, but they are not laws: A NEW FONT FAMILY, OR A
+       MEANINGFUL CHANGE IN THE COPY, REQUIRES RE-MEASURING. Measure ink
+       (canvas actualBoundingBoxAscent + Descent), not the font's own box —
+       see the warning on --type-leading-display-font.
+
+       The old values were 1.08 on the hero and 1.25 on card titles, i.e.
+       roughly half of what the script needs: the hero overlapped by a
+       measured 7.82px at 1280 and the Amiri card titles by 7.01px. Body
+       steps sit at 1.75–1.85, which clears even the tashkeel case.
+
+       Small steps get generous leading too (1.65+), because micro/caption
+       carry wrapping body copy (episode teasers), not just single-line
+       labels — a 1.3 here would collide the moment a line wraps. */
+    --type-size-micro: 0.75rem;    /* 12px — the floor for visible text */
+    --type-size-caption: 0.875rem; /* 14px */
+    --type-size-body: 1rem;        /* 16px */
+    --type-size-lead: 1.125rem;    /* 18px */
+    --type-size-subhead: 1.5rem;   /* 24px */
+    --type-size-heading: 2rem;     /* 32px */
+    /* Fluid 36px @375 → 44px @1280. It used to be a flat 2.75rem, which put
+       it 4px under `display`'s own 48px floor at 375: the top two steps of
+       the scale collapsed into each other on a phone and a hero stopped
+       reading as a hero. Desktop is unchanged at exactly 44px, and `display`
+       is untouched at both ends, so the homepage hero block keeps its
+       measured height. */
+    --type-size-title: clamp(2.25rem, 1.71rem + 2.29vw, 2.75rem);
+    /* One fluid token replaces the old `text-5xl sm:text-6xl lg:text-[5.2rem]`
+       ladder. Anchored to preserve the previous end points exactly: 48px at
+       375 and 83.2px at 1280, interpolating between them. */
+    --type-size-display: clamp(3rem, 2.09rem + 3.89vw, 5.2rem);
+
+    --type-leading-micro: 1.65;
+    --type-leading-caption: 1.75;
+    --type-leading-body: 1.85;
+    --type-leading-lead: 1.8;
+    --type-leading-subhead: 1.65;
+    --type-leading-heading: 1.5;
+    --type-leading-title: 1.4;
+    --type-leading-display: 1.4;
+    /* Amiri (--font-brand-display) is a Naskh face with much deeper
+       descenders than the sans — it needs its own, looser value or
+       `.museum-font-headline` collides no matter what the step says. */
+    --type-leading-display-font: 1.8;
+
+    /* Comfortable Arabic line length. 0.3907em is the MEASURED mean glyph
+       advance of the brand sans for Arabic body copy (constant across
+       sizes); 75 characters is the top of the comfortable band for Arabic.
+       The episode summary ran to a measured 142 characters per line before
+       this cap. Re-measure this ONE number for a new family and every
+       capped paragraph follows it. */
+    --type-char-advance: 0.3907em;
+    --type-measure: calc(75 * var(--type-char-advance));
+
+    /* ── UI primitive sizes ──────────────────────────────────────────────
+       THE LAST GAP IN THE SWITCH POINT. `components/ui/*` is the one folder
+       BOTH surfaces share — 56 admin files import Button alone — so it was
+       left hardcoded to Tailwind's own scale (`text-sm` / `text-xs` /
+       `text-base`) rather than the site's.
+
+       That looked harmless because the two scales happen to agree today:
+       Tailwind's `text-sm` is 0.875rem and --type-size-caption is 0.875rem,
+       so a <label class="text-caption"> and the <input> beside it both
+       render 14px and nothing on screen contradicts anything. It is a
+       coincidence, not a rule, and it dies at exactly the moment this whole
+       block exists for. Measured 2026-08-02 on /guest by scaling the eight
+       steps x1.5: the label followed to 21px, the input stayed at 14px.
+
+       So the primitives read THESE tokens and each surface supplies values —
+       the same indirection wave 1 used for colour. The site maps them onto
+       the type scale here; the admin pins them to fixed rem below, because
+       admin density is a deliberately different problem from site reading
+       comfort and must NOT move when the brand font does. */
+    --ui-control: var(--type-size-caption);
+    --ui-control-sm: var(--type-size-micro);
+    --ui-control-lead: var(--type-size-lead);
+    /* Fields carry a 16px FLOOR independent of the step: iOS Safari zooms
+       the viewport when a focused field computes under 16px. `max()` keeps
+       the floor while still following the scale upward. This reproduces the
+       existing `text-base md:text-sm` pairing exactly (16 mobile / 14 md+)
+       without hardcoding either number.
+
+       THE FLOOR ONLY PROTECTS FIELDS THAT ASK FOR IT. `--ui-field` is
+       reachable as the `text-field` utility, and until wave 2-c only THREE
+       places used it: components/ui/{input,textarea}.tsx and `.form-input`.
+       Every hand-rolled `<input>/<textarea>/<select>` on the public site had
+       picked a raw step instead — measured 2026-08-02 at 375, fifteen fields
+       across eight files still computed 14px and zoomed the page on focus:
+       the `<select>` on /guest, the compact newsletter input, five on the
+       contribute form, both teaser fields, both on /guest/status, three on
+       /candidate-prep, one on /prepare and the /media-kit password. They all
+       now read `text-field md:text-control`, which is the SAME mechanism the
+       three originals use — not a per-field patch.
+
+       So: a new field on a public route is written `text-field md:text-control`
+       (or built on components/ui/Input/Textarea, which already are). A raw
+       `text-caption`/`text-sm` on a focusable field is the bug. The one
+       deliberate exception is the live director console's notes textarea,
+       which is part of the deferred sub-12px pass — see live-client.tsx. */
+    --ui-field: max(1rem, var(--ui-control));
+
     /* ── Colour ────────────────────────────────────────────────────────── */
     --background: 250 33% 99%;
     --foreground: 252 40% 11%;
@@ -72,6 +200,34 @@
     --input: 250 22% 92%;
     --ring: 252 48% 40%;
     --radius: 0.5rem;
+  }
+
+  /* ── Admin surface: pin the shared primitives ────────────────────────────
+     `components/ui/*` is shared, but the two surfaces want different things
+     from it. The public site wants its controls to follow the brand type
+     scale. The admin is a dense operations panel: a font swap that grows
+     site body copy must NOT reflow 56 files of admin tables and toolbars.
+     So the admin restates ONLY the primitive sizes, at exactly the values
+     they render today — Tailwind's text-sm / text-xs / text-lg — and
+     `--ui-field` follows from `--ui-control` through the same max() as the
+     site, so it needs no entry here.
+
+     WHY ON :root AND NOT THE ADMIN WRAPPER. This is the wave-1 lesson
+     repeated: ADMIN_LIGHT_TOKENS is an inline style on a <div> inside
+     <body>, so anything `createPortal`'d to document.body — every Dialog in
+     the admin — resolves the tokens from :root and never sees the wrapper.
+     Colour got the same bug and was moved here for the same reason. The
+     attribute is set on <html> in app/layout.tsx from the same `isAdminRoute`
+     check that already picks the admin chrome, so there is ONE definition of
+     "this is the admin" and portals inherit it like everything else.
+
+     Deliberately NOT here: the eight --type-size-* steps. Admin never
+     references them, and the perturbation test in the wave-2b report relies
+     on scaling those steps moving ZERO admin elements. */
+  :root[data-surface="admin"] {
+    --ui-control: 0.875rem;
+    --ui-control-sm: 0.75rem;
+    --ui-control-lead: 1.125rem;
   }
 
   /* No `.dark {}` block — the app is a single forced-light surface; the root
@@ -114,6 +270,48 @@
   --radius-xl: calc(var(--radius) + 4px);
   --font-sans: var(--font-brand-sans), ui-sans-serif, system-ui, sans-serif;
   --color-museum-bg: hsl(252 44% 6%);
+
+  /* The eight steps, as `text-*` utilities. Each carries its own leading:
+     `--text-<step>--line-height` is Tailwind v4's pairing syntax, so
+     `text-body` emits font-size AND line-height together and a step can
+     never be used at a leading that collides. `leading-*` still wins when
+     a component genuinely needs to override (see --leading-prose). */
+  --text-micro: var(--type-size-micro);
+  --text-micro--line-height: var(--type-leading-micro);
+  --text-caption: var(--type-size-caption);
+  --text-caption--line-height: var(--type-leading-caption);
+  --text-body: var(--type-size-body);
+  --text-body--line-height: var(--type-leading-body);
+  --text-lead: var(--type-size-lead);
+  --text-lead--line-height: var(--type-leading-lead);
+  --text-subhead: var(--type-size-subhead);
+  --text-subhead--line-height: var(--type-leading-subhead);
+  --text-heading: var(--type-size-heading);
+  --text-heading--line-height: var(--type-leading-heading);
+  --text-title: var(--type-size-title);
+  --text-title--line-height: var(--type-leading-title);
+  --text-display: var(--type-size-display);
+  --text-display--line-height: var(--type-leading-display);
+
+  /* The shared-primitive steps, as `text-*` utilities for components/ui/*.
+     DELIBERATELY WITHOUT a paired `--line-height`, unlike the eight steps
+     above. Buttons and labels centre their text in a fixed height and carry
+     `leading-none`; emitting a line-height here would change their vertical
+     rhythm on every admin toolbar the moment this shipped. Size is the thing
+     that was off the switch point, so size is the only thing this moves —
+     which is also what makes the admin histogram provably unchanged. */
+  --text-control: var(--ui-control);
+  --text-control-sm: var(--ui-control-sm);
+  --text-control-lead: var(--ui-control-lead);
+  --text-field: var(--ui-field);
+
+  /* For the one case a step's default leading is wrong: running prose set
+     at a headline SIZE (the homepage statement). Prose needs prose leading
+     even at 44px, otherwise the tashkeel in `عالمٍ يتدفّق` collides. */
+  --leading-prose: var(--type-leading-body);
+
+  /* `max-w-measure` — the line-length cap for body copy. */
+  --container-measure: var(--type-measure);
 }
 
 @layer base {
@@ -237,9 +435,14 @@ header {
   font-family: var(--font-brand-sans);
 }
 
-/* Guest prep form input */
+/* Guest prep form input (app/prepare/[token], app/candidate-prep/[token]).
+   `text-field md:text-control` replaces a hardcoded `text-sm`, matching
+   components/ui/input exactly: on the scale, and with the 16px mobile floor
+   that stops iOS Safari zooming the viewport on focus. These are pages a
+   guest opens on a phone, so the old flat 14px triggered that zoom on every
+   field. */
 .form-input {
-  @apply w-full rounded-xl border border-border/30 bg-muted/20 px-4 py-2.5 text-sm text-foreground placeholder:text-muted-foreground/50 transition-colors focus:border-primary/40 focus:bg-muted/30 focus:outline-none;
+  @apply w-full rounded-xl border border-border/30 bg-muted/20 px-4 py-2.5 text-field text-foreground placeholder:text-muted-foreground/50 transition-colors focus:border-primary/40 focus:bg-muted/30 focus:outline-none md:text-control;
 }
 
 /* Animation utilities */
@@ -489,8 +692,15 @@ header {
    subsets, so Amiri covers every glyph these headlines can contain and
    the next family in the stack never gets a turn. It is dropped from the
    <link> in app/layout.tsx too. */
+/* Amiri needs its own leading, not the step's. Measured: Amiri's ink runs
+   1.644em tall for this site's copy (1.771em with tashkeel) against the
+   sans's 1.389em, so the `leading-tight` (1.25) this used to carry made
+   consecutive lines overlap by a measured 7.01px on the guest page. The
+   token wins over the step's paired line-height because this is a class
+   selector, not a utility. */
 .museum-font-headline {
   font-family: var(--font-brand-display);
+  line-height: var(--type-leading-display-font);
 }
 
 /* Museum gold text-shadow effect */

@@ -92,7 +92,7 @@ export default function MediaKitSharePage() {
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             placeholder="أدخل كلمة المرور"
-            className="w-full rounded-xl border border-[#2a2a2a] bg-[#1e1e1e] px-4 py-3 text-sm text-[#e8e4dd] placeholder-[#6b6560] outline-none transition-colors focus:border-[#c9a84c]/40"
+            className="w-full rounded-xl border border-[#2a2a2a] bg-[#1e1e1e] px-4 py-3 text-field text-[#e8e4dd] placeholder-[#6b6560] outline-none transition-colors focus:border-[#c9a84c]/40 md:text-control"
             dir="rtl"
             autoFocus
           />

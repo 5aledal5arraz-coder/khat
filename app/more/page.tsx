@@ -21,11 +21,11 @@ const menuItems = [
 export default function MorePage() {
   return (
     <div className="container mx-auto px-4 py-8 pb-24">
-      <h1 className="mb-6 text-2xl font-bold">المزيد</h1>
+      <h1 className="mb-6 text-subhead font-bold">المزيد</h1>
 
       {/* Browse Section */}
       <div className="mb-8">
-        <h2 className="mb-3 text-sm font-medium text-muted-foreground">تصفح</h2>
+        <h2 className="mb-3 text-caption font-medium text-muted-foreground">تصفح</h2>
         <div className="space-y-1">
           {menuItems.map((item) => (
             <Link
@@ -38,7 +38,7 @@ export default function MorePage() {
               </div>
               <div className="flex-1">
                 <p className="font-medium">{item.label}</p>
-                <p className="text-sm text-muted-foreground">{item.description}</p>
+                <p className="text-caption text-muted-foreground">{item.description}</p>
               </div>
             </Link>
           ))}

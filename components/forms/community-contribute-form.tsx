@@ -114,17 +114,17 @@ export function CommunityContributeForm() {
         <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-primary/10">
           <Check className="h-8 w-8 text-primary" />
         </div>
-        <h3 className="mt-6 text-xl font-bold">وصلتنا مساهمتك</h3>
-        <p className="mx-auto mt-3 max-w-sm text-sm leading-relaxed text-muted-foreground">
+        <h3 className="mt-6 text-lead font-bold">وصلتنا مساهمتك</h3>
+        <p className="mx-auto mt-3 max-w-sm text-caption text-muted-foreground">
           شكرًا أنك شاركتنا. خط يُصنع معكم — نقرأ كل مساهمة بعناية، وقد نبني عليها حلقة قادمة.
         </p>
         {reference && (
           <div className="mx-auto mt-6 max-w-xs rounded-2xl border border-primary/15 bg-card px-5 py-4">
-            <p className="text-[11px] tracking-wide text-muted-foreground">رقمك المرجعي</p>
-            <p className="mt-1 text-lg font-bold tracking-widest text-primary" dir="ltr">{reference}</p>
+            <p className="text-micro text-muted-foreground">رقمك المرجعي</p>
+            <p className="mt-1 text-lead font-bold tracking-widest text-primary" dir="ltr">{reference}</p>
           </div>
         )}
-        <button onClick={reset} className="mt-7 inline-flex items-center gap-1.5 rounded-xl border border-border bg-card px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-muted/40">
+        <button onClick={reset} className="mt-7 inline-flex items-center gap-1.5 rounded-xl border border-border bg-card px-4 py-2 text-caption font-medium text-foreground transition-colors hover:bg-muted/40">
           ساهم بفكرة أخرى
         </button>
       </div>
@@ -155,8 +155,8 @@ export function CommunityContributeForm() {
                 <Icon className="h-[18px] w-[18px]" />
               </span>
               <span className="min-w-0">
-                <span className="block text-[13.5px] font-semibold text-foreground">{t.label}</span>
-                <span className="block text-[11.5px] leading-snug text-muted-foreground">{t.blurb}</span>
+                <span className="block text-caption font-semibold text-foreground">{t.label}</span>
+                <span className="block text-micro text-muted-foreground">{t.blurb}</span>
               </span>
             </button>
           )
@@ -167,36 +167,36 @@ export function CommunityContributeForm() {
       {cfg && (
         <form onSubmit={submit} className="space-y-4 rounded-3xl border border-border bg-card p-6">
           <div>
-            <label className="text-[13px] font-medium text-foreground">{cfg.titleLabel}</label>
+            <label className="text-caption font-medium text-foreground">{cfg.titleLabel}</label>
             <input
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               placeholder={cfg.titlePlaceholder}
               disabled={loading}
-              className="mt-1.5 w-full rounded-xl border border-border bg-background px-3.5 py-2.5 text-sm text-foreground placeholder:text-muted-foreground/50 focus:border-primary focus:outline-none"
+              className="mt-1.5 w-full rounded-xl border border-border bg-background px-3.5 py-2.5 text-field text-foreground placeholder:text-muted-foreground/50 focus:border-primary focus:outline-none md:text-control"
             />
           </div>
           <div>
-            <label className="text-[13px] font-medium text-foreground">{cfg.bodyLabel}</label>
+            <label className="text-caption font-medium text-foreground">{cfg.bodyLabel}</label>
             <textarea
               value={content}
               onChange={(e) => setContent(e.target.value)}
               placeholder={cfg.bodyPlaceholder}
               rows={5}
               disabled={loading}
-              className="mt-1.5 w-full resize-y rounded-xl border border-border bg-background px-3.5 py-2.5 text-sm leading-relaxed text-foreground placeholder:text-muted-foreground/50 focus:border-primary focus:outline-none"
+              className="mt-1.5 w-full resize-y rounded-xl border border-border bg-background px-3.5 py-2.5 text-field text-foreground placeholder:text-muted-foreground/50 focus:border-primary focus:outline-none md:text-control"
             />
           </div>
           {cfg.detail && (
             <div>
-              <label className="text-[13px] font-medium text-foreground">{cfg.detail.label}</label>
+              <label className="text-caption font-medium text-foreground">{cfg.detail.label}</label>
               <input
                 value={detail}
                 onChange={(e) => setDetail(e.target.value)}
                 placeholder={cfg.detail.placeholder}
                 disabled={loading}
                 dir="auto"
-                className="mt-1.5 w-full rounded-xl border border-border bg-background px-3.5 py-2.5 text-sm text-foreground placeholder:text-muted-foreground/50 focus:border-primary focus:outline-none"
+                className="mt-1.5 w-full rounded-xl border border-border bg-background px-3.5 py-2.5 text-field text-foreground placeholder:text-muted-foreground/50 focus:border-primary focus:outline-none md:text-control"
               />
             </div>
           )}
@@ -206,7 +206,7 @@ export function CommunityContributeForm() {
               onChange={(e) => setName(e.target.value)}
               placeholder="اسمك (اختياري)"
               disabled={loading}
-              className="w-full rounded-xl border border-border bg-background px-3.5 py-2.5 text-sm text-foreground placeholder:text-muted-foreground/50 focus:border-primary focus:outline-none"
+              className="w-full rounded-xl border border-border bg-background px-3.5 py-2.5 text-field text-foreground placeholder:text-muted-foreground/50 focus:border-primary focus:outline-none md:text-control"
             />
             <input
               type="email"
@@ -215,18 +215,18 @@ export function CommunityContributeForm() {
               placeholder="بريدك لنعود إليك (اختياري)"
               disabled={loading}
               dir="ltr"
-              className="w-full rounded-xl border border-border bg-background px-3.5 py-2.5 text-sm text-foreground placeholder:text-muted-foreground/50 focus:border-primary focus:outline-none"
+              className="w-full rounded-xl border border-border bg-background px-3.5 py-2.5 text-field text-foreground placeholder:text-muted-foreground/50 focus:border-primary focus:outline-none md:text-control"
             />
           </div>
 
           {status === "error" && (
-            <p className="rounded-xl border border-destructive/20 bg-destructive/5 px-3.5 py-2.5 text-center text-sm text-destructive">{errorMsg}</p>
+            <p className="rounded-xl border border-destructive/20 bg-destructive/5 px-3.5 py-2.5 text-center text-caption text-destructive">{errorMsg}</p>
           )}
 
           <button
             type="submit"
             disabled={loading || !title.trim() || content.trim().length < 10}
-            className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground transition-opacity hover:opacity-90 disabled:opacity-50"
+            className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-primary px-4 py-3 text-caption font-semibold text-primary-foreground transition-opacity hover:opacity-90 disabled:opacity-50"
           >
             {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <ArrowRight className="h-4 w-4" />}
             أرسل مساهمتك

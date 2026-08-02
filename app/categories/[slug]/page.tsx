@@ -62,13 +62,13 @@ export default async function CategoryPage({ params }: CategoryPageProps) {
     <div className="px-6 pb-24 pt-14 sm:pt-20">
       <div className="mx-auto max-w-6xl">
         <header className="text-center">
-          <span className="text-[12px] font-bold uppercase tracking-[0.18em] text-accent">
+          <span className="text-micro font-bold uppercase text-accent">
             تصنيف
           </span>
-          <h1 className="mt-3 text-4xl font-extrabold tracking-tight text-foreground sm:text-5xl">
+          <h1 className="mt-3 text-heading font-bold text-foreground sm:text-title">
             {category.name}
           </h1>
-          <p className="mt-4 text-[15px] text-muted-foreground">
+          <p className="mt-4 text-body text-muted-foreground">
             {episodes.length > 0
               ? `${episodes.length} حلقة في «${category.name}»`
               : `ما فيه حلقات في تصنيف «${category.name}» بعد`}
@@ -95,10 +95,10 @@ export default async function CategoryPage({ params }: CategoryPageProps) {
           </div>
         ) : (
           <div className="mt-16 rounded-3xl border border-dashed border-border bg-card/50 px-6 py-20 text-center">
-            <p className="text-lg font-bold text-foreground">
+            <p className="text-lead font-bold text-foreground">
               ما فيه حلقات في تصنيف «{category.name}» بعد
             </p>
-            <p className="mt-2 text-[14px] text-muted-foreground">
+            <p className="mt-2 text-caption text-muted-foreground">
               بتظهر هنا أول ما تنضاف حلقة لهذا التصنيف.
             </p>
           </div>

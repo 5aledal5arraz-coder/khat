@@ -410,3 +410,129 @@ export function formatArabicDateTime(date: string | Date): string {
   const mm = String(d.getMinutes()).padStart(2, "0")
   return `${day} ${month} · ${hh}:${mm}`
 }
+
+// ─── Episode titles ──────────────────────────────────────────────────────────
+
+/**
+ * Every published episode title carries a trailing brand/series stamp that was
+ * written for YouTube, where a title appears alone in a feed next to a thousand
+ * other channels. Measured on the 42 published rows in this database, 41 of
+ * them end in one of:
+ *
+ *     «… | 019 بودكاست خط»      «… |001 بودكاست خط»    «… | 006 - بودكاست خط»
+ *     «… جاسم عباس- 003 بودكاست خط»                     «… مقاطع من بودكاست خط»
+ *     «… | سالفة 06»            «… | 03»                «… بودكاست خط»
+ *
+ * On khatpodcast.com's own archive that stamp is pure repetition: the reader
+ * already knows whose site they are on, so the same three or four words print
+ * 41 times down one grid and the eye stops reading titles. It also costs
+ * roughly 40% of the visible characters, which is what pushed clamped card
+ * titles from 9 to 16 out of 42 when the type scale grew the step to 18px.
+ *
+ * DISPLAY ONLY. This never touches stored data. The full title stays canonical
+ * everywhere it leaves the site or identifies the work:
+ *
+ *   · `searchEpisodes` (lib/search.ts) matches `episode.title`, so a reader can
+ *     still find an episode by a word that only exists in the stamp.
+ *   · `<title>`, `og:title` and the JSON-LD `PodcastEpisode.name` keep the full
+ *     string — off-site the brand is doing its job, not repeating itself, and
+ *     the JSON-LD name must match the title published to the directories.
+ *
+ * WHAT IT WILL NOT DO:
+ *   · never returns an empty string — if stripping would empty the title, the
+ *     original is returned untouched;
+ *   · only removes a NUMBER when a separator or the brand marks it as a stamp
+ *     («… | 03»), never a number that is part of the sentence («… عام 2024»);
+ *   · leaves a guest name that happens to sit in the tail alone
+ *     («… | جاسم العبوة - 002 بودكاست خط» → «… | جاسم العبوة»), because on most
+ *     rows no guest is linked and the name is the only place it appears.
+ */
+const AR_DIGITS = "[0-9\\u0660-\\u0669]"
+const TITLE_DASH = "[|\\-\\u2013\\u2014]"
+const KHAT_BRAND = "\\u0628\\u0648\\u062f\\u0643\\u0627\\u0633\\u062a\\s+\\u062e\\u0637" // بودكاست خط
+const SALFA = "\\u0633\\u0627\\u0644\\u0641\\u0629" // سالفة
+const CLIPS = "\\u0645\\u0642\\u0627\\u0637\\u0639" // مقاطع
+const FROM = "\\u0645\\u0646" // من
+
+/** «… | 019 بودكاست خط» · «… مقاطع من بودكاست خط» · «… | سالفة 06» */
+const TITLE_STAMP = new RegExp(
+  `(?:\\s*(?:${TITLE_DASH}|\\.{2,})\\s*|\\s+)` +
+    `(?:${CLIPS}(?:\\s+${FROM})?\\s+)?` +
+    `(?:` +
+    `${SALFA}\\s*${AR_DIGITS}{1,3}` +
+    `|${AR_DIGITS}{1,3}\\s*${TITLE_DASH}?\\s*${KHAT_BRAND}` +
+    `|${KHAT_BRAND}` +
+    `)\\s*$`,
+)
+
+/**
+ * A bare series number, and ONLY behind a pipe: «… | 03».
+ * The pipe is what makes it a stamp rather than content — a hyphen would also
+ * match «كوفيد - 19», which is part of the sentence.
+ */
+const TITLE_BARE_NUMBER = new RegExp(`\\s*\\|\\s*${AR_DIGITS}{1,3}\\s*$`)
+
+/** A separator left dangling once the stamp behind it is gone. */
+const TITLE_TRAILING_SEP = new RegExp(`\\s*${TITLE_DASH}\\s*$`)
+
+/**
+ * The episode title as it should READ on this site — the stored title with its
+ * trailing brand/series stamp removed. Use for card titles and page headings;
+ * use `episode.title` itself for metadata, structured data and search.
+ */
+export function displayEpisodeTitle(title: string | null | undefined): string {
+  const original = (title ?? "").trim()
+  if (!original) return ""
+
+  let out = original
+  // The stamp can nest («جاسم عباس- 003 بودكاست خط»), so peel until stable.
+  for (let i = 0; i < 4; i++) {
+    const next = out.replace(TITLE_STAMP, "").trim()
+    if (next === out) break
+    out = next
+  }
+  const withoutNumber = out.replace(TITLE_BARE_NUMBER, "").trim()
+  if (withoutNumber) out = withoutNumber
+
+  const tidied = out.replace(TITLE_TRAILING_SEP, "").trim()
+  if (tidied) out = tidied
+
+  return out || original
+}
+
+/**
+ * True when a string that is being presented as a GUEST NAME is really the
+ * podcast's own brand stamp — «019 بودكاست خط», «سالفة 06», «04».
+ *
+ * WHY THIS EXISTS. `extractGuestName` in `lib/youtube/queries.ts` derives a
+ * guest from the video title by taking everything after the last `|`. On this
+ * channel everything after the last `|` IS the stamp, so the archive rendered
+ * 35 guest badges of which exactly ONE («الأستاذ علي دريساوي») was a person.
+ * The rest printed the same four words the title already ended with — the
+ * "tail twice on one card" Khaled reported. None of it is stored: the `guests`
+ * table holds three rows; these names are synthesised per request.
+ *
+ * The predicate matches the WHOLE string, never a substring, so a real guest
+ * whose name merely contains a digit is never suppressed. It cannot catch a
+ * derived name that is ordinary Arabic prose — «العملاء في البنك», sliced out
+ * of «سالفة فيصل مع العملاء في البنك» by the `مع …` pattern, still gets
+ * through, because nothing in the string distinguishes it from a person's
+ * name. That one needs the title fixed, not a cleverer regex.
+ */
+const BRAND_STAMP_NAME = new RegExp(
+  `^\\s*(?:` +
+    // «019 بودكاست خط», «006 - بودكاست خط», «مقاطع من بودكاست خط», «بودكاست خط»
+    `(?:${CLIPS}(?:\\s+${FROM})?\\s+)?(?:${AR_DIGITS}{1,3}\\s*${TITLE_DASH}?\\s*)?${KHAT_BRAND}` +
+    // «بودكاست خط 003» — the same stamp with the number on the other side.
+    // Real, and only visible after the first fix removed the louder shapes.
+    `(?:\\s*${TITLE_DASH}?\\s*${AR_DIGITS}{1,3})?` +
+    `|${SALFA}\\s*${AR_DIGITS}{1,3}` +
+    `|${AR_DIGITS}{1,3}` +
+  `)\\s*$`,
+)
+
+export function isBrandStampName(name: string | null | undefined): boolean {
+  const value = (name ?? "").trim()
+  if (!value) return true
+  return BRAND_STAMP_NAME.test(value)
+}

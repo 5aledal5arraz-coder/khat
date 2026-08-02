@@ -159,12 +159,12 @@ export function CandidatePrepClient({
           <div className="mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-full bg-emerald-500/10">
             <CheckCircle2 className="h-10 w-10 text-emerald-500" />
           </div>
-          <h1 className="mb-3 text-2xl font-bold">شكراً لك، {displayName}!</h1>
-          <p className="mb-6 text-sm leading-relaxed text-muted-foreground">
+          <h1 className="mb-3 text-subhead font-bold">شكراً لك، {displayName}!</h1>
+          <p className="mb-6 text-caption text-muted-foreground">
             وصلتنا إجاباتك بنجاح. سيتواصل معك فريق خط بودكاست في أقرب وقت لتنسيق التفاصيل.
             نقدّر وقتك واهتمامك، ونحن متشوقون لاستضافتك.
           </p>
-          <div className="text-xs text-muted-foreground/60">— فريق خط بودكاست</div>
+          <div className="text-micro text-muted-foreground/60">— فريق خط بودكاست</div>
         </div>
       </div>
     )
@@ -174,17 +174,17 @@ export function CandidatePrepClient({
     <div className="mx-auto max-w-2xl px-4 py-8 sm:py-12">
       {/* Header */}
       <header className="mb-8 text-center">
-        <div className="mb-3 inline-flex items-center gap-2 rounded-full bg-violet-500/10 px-3 py-1 text-[11px] font-medium text-violet-700 dark:text-violet-300">
+        <div className="mb-3 inline-flex items-center gap-2 rounded-full bg-violet-500/10 px-3 py-1 text-micro font-medium text-violet-700 dark:text-violet-300">
           <Sparkles className="h-3 w-3" />
           نموذج تحضير
         </div>
-        <h1 className="mb-2 text-2xl font-bold sm:text-3xl">أهلاً بك، {displayName}</h1>
-        <p className="text-sm leading-relaxed text-muted-foreground">
+        <h1 className="mb-2 text-subhead font-bold sm:text-heading">أهلاً بك، {displayName}</h1>
+        <p className="text-caption text-muted-foreground">
           ساعدنا نعرفك أكثر قبل التصوير. كل سؤال اختياري إلا ما هو معلّم بـ <span className="text-rose-500">*</span>.
           إجاباتك تساعدنا نصمم لك تجربة استضافة مميزة وشخصية.
         </p>
         {link.admin_message && (
-          <div className="mt-4 rounded-lg border border-violet-500/20 bg-violet-500/5 p-3 text-start text-xs text-foreground/80">
+          <div className="mt-4 rounded-lg border border-violet-500/20 bg-violet-500/5 p-3 text-start text-caption text-foreground/80">
             {link.admin_message}
           </div>
         )}
@@ -193,7 +193,7 @@ export function CandidatePrepClient({
       {/* Progress */}
       {totalRequired > 0 && (
         <div className="mb-6">
-          <div className="mb-1 flex items-center justify-between text-[10px] text-muted-foreground">
+          <div className="mb-1 flex items-center justify-between text-micro text-muted-foreground">
             <span>الحقول المطلوبة</span>
             <span>{completedRequired} / {totalRequired}</span>
           </div>
@@ -210,9 +210,9 @@ export function CandidatePrepClient({
       <div className="space-y-6">
         {template.schema_json.sections.map((section) => (
           <section key={section.id} className="rounded-2xl border border-border/40 bg-card/40 p-5 sm:p-6">
-            <h2 className="mb-1 text-base font-semibold">{section.title}</h2>
+            <h2 className="mb-1 text-body font-semibold">{section.title}</h2>
             {section.description && (
-              <p className="mb-4 text-xs leading-relaxed text-muted-foreground">{section.description}</p>
+              <p className="mb-4 text-caption text-muted-foreground">{section.description}</p>
             )}
             <div className="space-y-4">
               {section.fields.map((field) => (
@@ -232,12 +232,12 @@ export function CandidatePrepClient({
       {/* Footer actions */}
       <div className="mt-8 space-y-3">
         {error && (
-          <div className="rounded-lg border border-rose-500/20 bg-rose-500/10 p-3 text-xs text-rose-700 dark:text-rose-400">
+          <div className="rounded-lg border border-rose-500/20 bg-rose-500/10 p-3 text-caption text-rose-700 dark:text-rose-400">
             {error}
           </div>
         )}
         <div className="flex items-center justify-between gap-3">
-          <div className="text-[10px] text-muted-foreground">
+          <div className="text-micro text-muted-foreground">
             {savingDraft ? (
               <span className="inline-flex items-center gap-1">
                 <Loader2 className="h-3 w-3 animate-spin" /> حفظ تلقائي...
@@ -254,7 +254,7 @@ export function CandidatePrepClient({
             type="button"
             onClick={handleSubmit}
             disabled={submitting || !allRequiredFilled}
-            className="inline-flex items-center gap-2 rounded-lg bg-foreground px-5 py-2.5 text-sm font-semibold text-background transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
+            className="inline-flex items-center gap-2 rounded-lg bg-foreground px-5 py-2.5 text-caption font-semibold text-background transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
           >
             {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
             {submitting ? "جارٍ الإرسال..." : "إرسال النموذج"}
@@ -262,7 +262,7 @@ export function CandidatePrepClient({
         </div>
       </div>
 
-      <div className="mt-12 text-center text-[10px] text-muted-foreground/50">
+      <div className="mt-12 text-center text-micro text-muted-foreground/50">
         خط بودكاست — نموذج خاص بالضيوف
       </div>
     </div>
@@ -284,20 +284,25 @@ function FieldRenderer({
   onChange: (v: FieldValue) => void
   disabled: boolean
 }) {
+  // `text-caption`, not `text-micro`. These came off `text-xs` / `text-[10px]`,
+  // and mapping them straight onto the nearest step would have parked a
+  // guest-facing QUESTION at the 12px floor — while the sibling form at
+  // app/prepare/[token] asks its questions at 14px. Micro is for meta, not for
+  // the thing the guest is being asked to answer.
   const labelEl = (
-    <label className="mb-1.5 block text-xs font-semibold text-foreground/90">
+    <label className="mb-1.5 block text-caption font-semibold text-foreground/90">
       {field.label}
       {field.required && <span className="ms-1 text-rose-500">*</span>}
     </label>
   )
   const desc = field.description && (
-    <p className="mb-2 text-[10px] text-muted-foreground">{field.description}</p>
+    <p className="mb-2 text-caption text-muted-foreground">{field.description}</p>
   )
 
   switch (field.type) {
     case "instructions":
       return (
-        <div className="rounded-lg border border-border/30 bg-muted/20 p-3 text-xs leading-relaxed text-muted-foreground">
+        <div className="rounded-lg border border-border/30 bg-muted/20 p-3 text-caption text-muted-foreground">
           {field.label}
           {field.description && <div className="mt-1">{field.description}</div>}
         </div>
@@ -316,7 +321,7 @@ function FieldRenderer({
             onChange={(e) => onChange(e.target.value)}
             placeholder={field.placeholder}
             disabled={disabled}
-            className="h-10 w-full rounded-lg border border-input bg-background px-3 text-sm focus:border-violet-500 focus:outline-none"
+            className="h-10 w-full rounded-lg border border-input bg-background px-3 text-field focus:border-violet-500 focus:outline-none md:text-control"
           />
         </div>
       )
@@ -332,7 +337,7 @@ function FieldRenderer({
             placeholder={field.placeholder}
             disabled={disabled}
             rows={4}
-            className="w-full rounded-lg border border-input bg-background p-3 text-sm leading-relaxed focus:border-violet-500 focus:outline-none"
+            className="w-full rounded-lg border border-input bg-background p-3 text-field focus:border-violet-500 focus:outline-none md:text-control"
           />
         </div>
       )
@@ -347,7 +352,7 @@ function FieldRenderer({
             value={(value as string) ?? ""}
             onChange={(e) => onChange(e.target.value)}
             disabled={disabled}
-            className="h-10 w-full rounded-lg border border-input bg-background px-3 text-sm focus:border-violet-500 focus:outline-none"
+            className="h-10 w-full rounded-lg border border-input bg-background px-3 text-field focus:border-violet-500 focus:outline-none md:text-control"
           />
         </div>
       )
@@ -367,7 +372,7 @@ function FieldRenderer({
                   type="button"
                   onClick={() => onChange(opt)}
                   disabled={disabled}
-                  className={`rounded-full border px-3 py-1.5 text-xs transition-colors ${
+                  className={`rounded-full border px-3 py-1.5 text-caption transition-colors ${
                     selected
                       ? "border-violet-500 bg-violet-500/10 text-violet-700 dark:text-violet-300"
                       : "border-input bg-transparent text-muted-foreground hover:border-violet-500/50"
@@ -400,7 +405,7 @@ function FieldRenderer({
                     onChange(selected ? arr.filter((v) => v !== opt) : [...arr, opt])
                   }
                   disabled={disabled}
-                  className={`rounded-full border px-3 py-1.5 text-xs transition-colors ${
+                  className={`rounded-full border px-3 py-1.5 text-caption transition-colors ${
                     selected
                       ? "border-violet-500 bg-violet-500/10 text-violet-700 dark:text-violet-300"
                       : "border-input bg-transparent text-muted-foreground hover:border-violet-500/50"
@@ -432,7 +437,7 @@ function FieldRenderer({
                   type="button"
                   onClick={() => onChange(opt.v)}
                   disabled={disabled}
-                  className={`flex-1 rounded-lg border px-3 py-2 text-sm transition-colors ${
+                  className={`flex-1 rounded-lg border px-3 py-2 text-caption transition-colors ${
                     selected
                       ? "border-violet-500 bg-violet-500/10 text-violet-700 dark:text-violet-300"
                       : "border-input bg-transparent text-muted-foreground hover:border-violet-500/50"

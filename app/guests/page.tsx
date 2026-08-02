@@ -29,7 +29,7 @@ async function GuestsContent({ searchParams }: { searchParams: Awaited<GuestsPag
     console.error("[GuestsPage] Failed to fetch guests:", error)
     return (
       <div className="py-12 text-center">
-        <p className="text-lg text-muted-foreground">
+        <p className="text-lead text-muted-foreground">
           تعذّر تحميل الضيوف حالياً. يرجى المحاولة لاحقاً.
         </p>
       </div>
@@ -39,7 +39,7 @@ async function GuestsContent({ searchParams }: { searchParams: Awaited<GuestsPag
   if (guests.length === 0) {
     return (
       <div className="py-12 text-center">
-        <p className="text-lg text-muted-foreground">
+        <p className="text-lead text-muted-foreground">
           {searchParams.search ? "لا يوجد ضيوف مطابقين للبحث" : "لا يوجد ضيوف بعد"}
         </p>
       </div>
@@ -77,7 +77,9 @@ export default async function GuestsPage({ searchParams }: GuestsPageProps) {
   return (
     <div className="container mx-auto px-4 py-8">
       <div className="mb-8">
-        <h1 className="text-3xl font-bold">الضيوف</h1>
+        {/* Matches /episodes, which is `text-title`. These two index pages are
+            siblings and were 32px vs 44px. */}
+        <h1 className="text-heading font-bold sm:text-title">الضيوف</h1>
         <p className="mt-2 text-muted-foreground">
           تعرف على الضيوف الملهمين الذين شاركونا قصصهم
         </p>

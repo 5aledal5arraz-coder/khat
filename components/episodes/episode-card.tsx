@@ -2,6 +2,7 @@ import Link from "next/link"
 import Image from "next/image"
 import { Clock, Play, Eye } from "lucide-react"
 import { formatDuration, formatDate, getYouTubeId } from "@/lib/utils"
+import { displayEpisodeTitle } from "@/lib/shared/formatters"
 import { BLUR_DATA_URL_16_9 } from "@/lib/image-utils"
 import type { Episode, Guest } from "@/types/database"
 
@@ -39,14 +40,14 @@ export function EpisodeCard({ episode }: EpisodeCardProps) {
               </div>
             </div>
             {summary && (
-              <p className="line-clamp-2 text-xs leading-relaxed text-white/80 italic">
+              <p className="line-clamp-2 text-micro text-white/80 italic">
                 {summary}
               </p>
             )}
           </div>
 
           {/* Duration */}
-          <div className="absolute bottom-2 start-2 flex items-center gap-1 bg-black/70 px-2 py-1 text-[10px] tracking-wider text-white/70">
+          <div className="absolute bottom-2 start-2 flex items-center gap-1 bg-black/70 px-2 py-1 text-micro text-white/70">
             <Clock className="h-3 w-3" />
             <span>{formatDuration(episode.duration_minutes)}</span>
           </div>
@@ -54,17 +55,25 @@ export function EpisodeCard({ episode }: EpisodeCardProps) {
       </div>
 
       <div className="space-y-2 px-1">
-        <h3 className="museum-font-headline text-xl leading-tight transition-colors duration-500 group-hover:text-primary sm:text-2xl">
-          {episode.title}
+        {/* Display title — see the note in episode-poster-card.tsx. The image
+            `alt` above deliberately keeps the FULL title: it is the accessible
+            name of the thumbnail, not a line of running copy. */}
+        <h3 className="museum-font-headline text-lead transition-colors duration-500 group-hover:text-primary sm:text-subhead">
+          {displayEpisodeTitle(episode.title)}
         </h3>
 
         {episode.guest && (
-          <p className="text-xs tracking-widest text-muted-foreground">
+          <p className="text-micro text-muted-foreground">
             مع {episode.guest.name}
           </p>
         )}
 
-        <div className="flex items-center gap-2 pt-1 text-[10px] tracking-wider text-muted-foreground/60">
+        {/* No `tracking-wider` here. This row is mixed — a Latin date and view
+            count, but also `الموسم {n}` — and letter-spacing on Arabic forces
+            gaps between glyphs that are supposed to JOIN, so the cursive
+            connections break. Positive tracking is only ever correct on the
+            site's non-connected Latin runs (see KhatLogoLockup). */}
+        <div className="flex items-center gap-2 pt-1 text-micro text-muted-foreground/60">
           <span>{formatDate(episode.release_date)}</span>
           {episode.view_count != null && episode.view_count > 0 && (
             <>

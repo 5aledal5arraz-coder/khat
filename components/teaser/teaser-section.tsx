@@ -34,7 +34,7 @@ export function TeaserSection({ teaser }: { teaser: ActiveTeaserView }) {
   return (
     <section className="px-6 pb-8">
       <div className="mx-auto max-w-4xl">
-        <h2 className="text-[13px] font-bold uppercase tracking-[0.18em] text-muted-foreground">
+        <h2 className="text-caption font-bold uppercase text-muted-foreground">
           قريبًا على خط
         </h2>
 
@@ -76,7 +76,7 @@ export function TeaserSection({ teaser }: { teaser: ActiveTeaserView }) {
                     <Sparkles className="h-10 w-10 text-primary/40" />
                   </div>
                 )}
-                <span className="relative z-10 inline-flex items-center gap-2 rounded-full bg-black/55 px-4 py-2.5 text-[13px] font-semibold text-white backdrop-blur transition-transform group-hover:scale-[1.03]">
+                <span className="relative z-10 inline-flex items-center gap-2 rounded-full bg-black/55 px-4 py-2.5 text-caption font-semibold text-white backdrop-blur transition-transform group-hover:scale-[1.03]">
                   {/* Play triangle points inline-end (right in LTR); a universal
                       control glyph — do not RTL-flip (Sara 11). */}
                   <Play className="h-4 w-4 fill-current text-accent" />
@@ -89,12 +89,12 @@ export function TeaserSection({ teaser }: { teaser: ActiveTeaserView }) {
           <div className="px-2 pb-2 pt-4">
             <h3
               dir="auto"
-              className="text-pretty text-xl font-bold leading-snug tracking-tight text-foreground lg:text-2xl"
+              className="text-pretty text-lead font-bold text-foreground lg:text-subhead"
             >
               {teaser.title}
             </h3>
             {teaser.guestName ? (
-              <span className="mt-2 block text-[13px] font-semibold text-accent">
+              <span className="mt-2 block text-caption font-semibold text-accent">
                 مع {teaser.guestName}
               </span>
             ) : null}

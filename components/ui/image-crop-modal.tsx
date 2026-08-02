@@ -191,6 +191,13 @@ export function ImageCropModal({
     <div className="fixed inset-0 z-[60] flex flex-col bg-black/90 backdrop-blur-md">
       {/* Header */}
       <div className="flex items-center justify-between border-b border-white/10 px-6 py-4">
+        {/* The one raw Tailwind size left in components/ui, and a bounded
+            exception rather than an oversight: this modal has a single
+            importer, app/admin/guests/guests-list.tsx, so it renders only on
+            the admin surface — where every --ui-* token is pinned to a fixed
+            rem by design and following the site type scale would be wrong.
+            If this component is ever mounted on the public site, switch it to
+            a --ui-* token first. */}
         <h3 className="text-base font-semibold text-white">تعديل الصورة</h3>
         <button
           onClick={onCancel}

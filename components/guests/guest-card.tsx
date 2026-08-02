@@ -25,11 +25,11 @@ export function GuestCard({ guest }: GuestCardProps) {
               className="shrink-0 transition-all group-hover:ring-primary group-hover:shadow-lg group-hover:shadow-primary/20"
             />
             <div className="flex-1">
-              <h3 className="text-lg font-semibold group-hover:text-primary transition-colors">
+              <h3 className="text-lead font-semibold group-hover:text-primary transition-colors">
                 {guest.name}
               </h3>
               {guest.bio && (
-                <p className="mt-1 line-clamp-2 text-sm text-muted-foreground">
+                <p className="mt-1 line-clamp-2 text-caption text-muted-foreground">
                   {guest.bio}
                 </p>
               )}
@@ -41,12 +41,12 @@ export function GuestCard({ guest }: GuestCardProps) {
                 // that no longer belonged to any palette. Safe to retarget —
                 // zero guests currently carry a testimonial, so this branch
                 // renders for nobody today.
-                <p className="mt-1.5 line-clamp-1 text-xs italic text-accent/70">
+                <p className="mt-1.5 line-clamp-1 text-micro italic text-accent/70">
                   &ldquo;{guest.testimonial}&rdquo;
                 </p>
               )}
               {guest.episode_count !== undefined && (
-                <p className="mt-2 text-xs text-muted-foreground">
+                <p className="mt-2 text-micro text-muted-foreground">
                   {formatArabicCount(guest.episode_count, "حلقة")}
                 </p>
               )}
