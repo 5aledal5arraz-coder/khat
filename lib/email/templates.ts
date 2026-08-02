@@ -17,8 +17,10 @@ function stripBodyUnsubscribe(html: string): string {
 
 // ───────────────────────────────────────────────────────────────────────────
 // Khat brand email palette (light, Apple-editorial — deep indigo + orange).
-// Mirrors the public site identity (components/brand/site-theme.ts). Hex,
-// inline — email clients don't get CSS variables.
+// Mirrors the public site identity (the :root token block in
+// app/globals.css). Hex, inline — email clients don't get CSS variables, so
+// this is the one copy of the palette that CANNOT read the tokens and has to
+// be re-derived by hand whenever the brand colours change.
 // ───────────────────────────────────────────────────────────────────────────
 const BRAND = {
   indigo: '#3a2d70',

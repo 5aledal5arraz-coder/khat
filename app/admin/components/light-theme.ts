@@ -1,39 +1,35 @@
 import type { CSSProperties } from "react"
 
 /**
- * Apple-clean LIGHT token palette for the admin workspace.
+ * Admin workspace token OVERRIDES.
  *
- * The admin shell (sidebar/header) stays dark; the content area is scoped to
- * this light palette ("dark rail + light workspace" — a deliberate premium
- * pattern). Because every admin primitive reads the KHAT semantic tokens
- * (`bg-card`, `text-foreground`, `border-border`, `text-muted-foreground`, …),
- * applying these CSS variables to the content container recolors the whole
- * subtree cohesively with no per-component rewrite. Applied once in
- * admin-layout-client.tsx.
+ * The brand palette lives in one place — the `:root` block in
+ * `app/globals.css` — and the admin inherits all of it. This object carries
+ * only the three tokens the admin deliberately diverges on, so that when the
+ * brand colours change in `:root` the admin follows automatically instead of
+ * staying pinned to a stale copy. It used to restate the whole palette
+ * (nineteen tokens, sixteen of them byte-identical to the base), which is
+ * exactly how a palette change leaks: recolour the site, and the admin keeps
+ * the old one.
+ *
+ * Applied to the admin content container (admin-layout-client.tsx,
+ * admin/layout.tsx, admin/login/page.tsx). Because every admin primitive
+ * reads the KHAT semantic tokens (`bg-card`, `text-foreground`,
+ * `border-border`, `text-muted-foreground`, …), the three values below
+ * recolour the whole subtree with no per-component edit.
  */
 export const ADMIN_LIGHT_TOKENS = {
-  "--background": "250 33% 99%",
-  "--foreground": "252 40% 11%",
-  "--card": "0 0% 100%",
-  "--card-foreground": "252 40% 11%",
-  "--popover": "0 0% 100%",
-  "--popover-foreground": "252 40% 11%",
-  /* Deep indigo = primary brand / active states */
-  "--primary": "252 48% 40%",
-  "--primary-foreground": "0 0% 100%",
+  /* Half a percent lighter than the site's `250 30% 96%`. Dense admin tables
+     sit on secondary far more than the public site does. */
   "--secondary": "250 28% 96%",
-  "--secondary-foreground": "252 40% 11%",
-  "--muted": "250 28% 96%",
-  /* Secondary text. Darkened from 46%→38% L so muted copy clears WCAG AA
-     (~6.7:1 on white) — the old value washed out, especially where callers
-     reduced its opacity further. */
+  /* Secondary text. Darkened from the site's 46% L to 38% so muted copy
+     clears WCAG AA (~6.7:1 on white) — the site value washed out in the
+     admin, especially where callers reduced its opacity further. */
   "--muted-foreground": "250 14% 38%",
-  /* Orange = energy accent */
+  /* The undimmed orange. The site steps this down to 40.5% L for contrast on
+     body text; the admin uses accent almost entirely for chrome and status
+     chips, where the brighter tone reads better. NOTE: any admin surface that
+     puts `text-accent` on normal-size copy fails WCAG AA at this lightness —
+     worth a separate audit, not a silent change here. */
   "--accent": "22 90% 53%",
-  "--accent-foreground": "0 0% 100%",
-  "--destructive": "0 72% 51%",
-  "--destructive-foreground": "0 0% 100%",
-  "--border": "250 22% 92%",
-  "--input": "250 22% 92%",
-  "--ring": "252 48% 40%",
 } as CSSProperties

@@ -86,6 +86,11 @@ function ThumbnailOverlay({
         className="object-cover"
       />
       <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center gap-3 bg-black/40 transition-colors group-hover:bg-black/50">
+        {/* `bg-red-600` stays a literal on purpose — it is YouTube's play
+            button, not ours. This is functional colour: it tells the visitor
+            "this plays on YouTube" before anything loads. Tokenising it would
+            wire a third party's brand to KHAT's palette, so the next identity
+            change would silently repaint YouTube's mark. Do not convert. */}
         <div className="flex h-16 w-16 items-center justify-center rounded-full bg-red-600 shadow-lg transition-transform group-hover:scale-110">
           <Play className="h-7 w-7 ms-1 text-white" fill="currentColor" />
         </div>

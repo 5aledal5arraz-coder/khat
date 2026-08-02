@@ -7,7 +7,6 @@ import { MobileNav } from "@/components/layout/mobile-nav"
 import { ViewportFix } from "@/components/layout/viewport-fix"
 import { Toaster } from "@/components/ui/toaster"
 import { ScrollToTop } from "@/components/ui/scroll-to-top"
-import { SITE_LIGHT_TOKENS } from "@/components/brand/site-theme"
 import { fetchAllEpisodes } from "@/lib/youtube/queries"
 import { getSiteSettings } from "@/lib/site-settings"
 import { resolveDefaultOgImage } from "@/lib/seo/og"
@@ -82,10 +81,11 @@ export default async function RootLayout({
   const pathname = hdrs.get("x-pathname") ?? ""
   const isAdminRoute = pathname.startsWith("/admin")
 
-  // Theme is a single light surface platform-wide: the public site is scoped to
-  // SITE_LIGHT_TOKENS and the admin to its own light tokens. The old
-  // system/dark/light toggle was vestigial (forced light by the inline token
-  // overrides), so it has been removed.
+  // Theme is a single light surface platform-wide. The palette lives in one
+  // place — the :root block in globals.css — so it reaches <body> and any
+  // React portal too; the admin overrides only the three tokens it
+  // deliberately diverges on. The old system/dark/light toggle was vestigial
+  // (forced light by the inline token overrides), so it has been removed.
   const episodes = isAdminRoute ? [] : await fetchAllEpisodes().catch(() => [])
 
   // Check if there's an episode published in the last 48 hours
@@ -103,13 +103,25 @@ export default async function RootLayout({
       suppressHydrationWarning
     >
       <head>
-        {/* Fonts loaded via Google Fonts <link> in the root layout <head> (App Router equivalent of _document.js):
-            IBM Plex Sans Arabic (body, drives --font-ibm-plex-arabic), Amiri (headlines), Playfair Display (accent).
-            Loaded as a stylesheet rather than next/font/google so the build never depends on a build-time font fetch. */}
+        {/* Fonts loaded via a Google Fonts <link> in the root layout <head> (App Router equivalent of
+            _document.js), as a stylesheet rather than next/font/google so the build never depends on a
+            build-time font fetch.
+
+            THIS href IS THE OTHER HALF OF THE FONT SWITCH POINT. The families are *named* by
+            --font-brand-sans / --font-brand-display in the :root block of app/globals.css and *fetched*
+            here — changing the brand font means editing both, and nothing else.
+              · IBM Plex Sans Arabic → --font-brand-sans (body copy, every surface)
+              · Amiri               → --font-brand-display (.museum-font-headline)
+
+            Playfair Display was removed: it appeared only as the middle entry of
+            `Amiri, "Playfair Display", serif` and could never render, because Google serves Amiri with
+            latin + latin-ext + arabic subsets and Amiri therefore covers every glyph those headlines can
+            contain. Verified in the browser: no Playfair face ever reached `loaded`. Dropping it stops
+            fetching 8 unused @font-face declarations. */}
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
         {/* eslint-disable-next-line @next/next/no-page-custom-font -- App Router root layout <head> is the correct location; rule is a Pages Router false positive */}
-        <link href="https://fonts.googleapis.com/css2?family=Amiri:ital,wght@0,400;0,700;1,400;1,700&family=IBM+Plex+Sans+Arabic:wght@300;400;500;600;700&family=Playfair+Display:ital,wght@0,400..900;1,400..900&display=swap" rel="stylesheet" />
+        <link href="https://fonts.googleapis.com/css2?family=Amiri:ital,wght@0,400;0,700;1,400;1,700&family=IBM+Plex+Sans+Arabic:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
         <script
           dangerouslySetInnerHTML={{
             // Single light surface — strip any stale `.dark` class a returning
@@ -129,10 +141,7 @@ export default async function RootLayout({
             <Toaster />
           </>
         ) : (
-          <div
-            style={SITE_LIGHT_TOKENS}
-            className="flex min-h-dvh flex-col bg-background text-foreground"
-          >
+          <div className="flex min-h-dvh flex-col bg-background text-foreground">
             <Header hasNewEpisode={hasNewEpisode} />
             <main className="main-content flex-1">{children}</main>
             <Footer />

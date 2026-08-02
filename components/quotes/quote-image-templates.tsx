@@ -26,7 +26,11 @@ function getFontSize(text: string): number {
   return 28
 }
 
-const FONT_FAMILY = "var(--font-ibm-plex-arabic), 'IBM Plex Sans Arabic', sans-serif"
+// Reads the brand token (defined in the :root block of app/globals.css) so a
+// font swap reaches the rendered quote images too. The literal tail stays as a
+// safety net: these nodes get rasterised by modern-screenshot, which clones
+// them into a detached tree where a var() can fail to resolve.
+const FONT_FAMILY = "var(--font-brand-sans), 'IBM Plex Sans Arabic', sans-serif"
 
 function BrandingBar() {
   return (

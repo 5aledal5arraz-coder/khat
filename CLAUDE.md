@@ -132,10 +132,18 @@ chain in `index.tsx` and a service module in `lib/studio/`.
 Theming is **token-driven** — components read KHAT semantic CSS variables (`bg-card`,
 `text-foreground`, `border-border`, `bg-primary`, etc.) defined in `app/globals.css`, so a
 scoped palette recolors a whole subtree with no per-component edits.
-- **Public site**: a light, Apple-editorial identity (deep **indigo** + **orange**), scoped via
-  `SITE_LIGHT_TOKENS` (`components/brand/site-theme.ts`) on the layout wrapper.
+- **Public site**: a light, Apple-editorial identity (deep **indigo** + **orange**). The palette
+  and the font families live in `:root` in `app/globals.css` — **that is the single swap point**.
+  A new identity (colours + typeface) is dropped in there and propagates everywhere, portals
+  included. It used to be a JS object applied as an inline `style` on a wrapper `<div>`, which
+  left `<body>` and every React portal reading a stale pre-redesign palette.
+- **Not covered by that swap point** (must be updated by hand when the identity changes):
+  the font `<link>` in `app/layout.tsx`, `lib/email/templates.ts` (mail clients ignore CSS
+  variables), `scripts/generate-og-image.ts`, and the deliberately separate black/gold palettes
+  in `app/admin/media-kit/page.tsx` and `lib/pdf/proposal-pdf.ts`.
 - **Admin**: forced **single light mode** via `ADMIN_LIGHT_TOKENS`
-  (`app/admin/components/light-theme.ts`) on the shell; admin routes never get `.dark`.
+  (`app/admin/components/light-theme.ts`) on the shell — now only the handful of tokens that
+  genuinely differ from `:root`; the rest inherit. Admin routes never get `.dark`.
 - **Brand mark**: `<KhatLogo>` (`components/brand/khat-logo.tsx`) — replaces `/logo.png`. The
   shared admin UI kit is `app/admin/components/ui-kit.tsx`.
 

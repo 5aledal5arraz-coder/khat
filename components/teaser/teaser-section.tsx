@@ -7,8 +7,9 @@ import type { ActiveTeaserView } from "@/lib/teaser"
 import { TeaserQuestionForm } from "./teaser-question-form"
 
 /**
- * Homepage teaser card. Site identity (SITE_LIGHT_TOKENS — indigo/orange) via
- * semantic tokens; never imports admin theme.
+ * Homepage teaser card. Brand identity (indigo/orange) via the semantic
+ * tokens defined in the :root block of app/globals.css; never imports admin
+ * theme.
  *
  * Performance/UX contract (Sara 1,2,6,7,8,13 · Mariam م7,م8):
  *  - aspect-video box is reserved at every size → zero CLS.

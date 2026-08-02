@@ -34,7 +34,14 @@ export function GuestCard({ guest }: GuestCardProps) {
                 </p>
               )}
               {guest.testimonial && (
-                <p className="mt-1.5 line-clamp-1 text-xs italic text-amber-500/70">
+                // `text-accent` (the brand's warm/energy token), not the
+                // literal `text-amber-500/70` this used to be: amber was a
+                // leftover of the retired gold identity, so it would have
+                // survived a brand swap as the one warm colour on the page
+                // that no longer belonged to any palette. Safe to retarget —
+                // zero guests currently carry a testimonial, so this branch
+                // renders for nobody today.
+                <p className="mt-1.5 line-clamp-1 text-xs italic text-accent/70">
                   &ldquo;{guest.testimonial}&rdquo;
                 </p>
               )}

@@ -1,59 +1,84 @@
 @import "tailwindcss";
 
 @layer base {
+  /* ══════════════════════════════════════════════════════════════════════
+     THE BRAND SWITCH POINT
+
+     This block is the ONE place the KHAT identity is defined. The public
+     site and the admin both inherit it; no other file declares a palette
+     or a font family. When the new brand assets land, everything changes
+     here and nowhere else:
+
+       · colours → replace the HSL triplets below. Bare `H S% L%`, no
+                   `hsl()` wrapper — the `@theme inline` block feeds them
+                   into `hsl(var(--token))`, and alpha modifiers
+                   (`bg-primary/10`) only work on that bare form.
+       · fonts   → replace --font-brand-sans / --font-brand-display below,
+                   AND the Google Fonts <link> href in app/layout.tsx
+                   (two halves of one switch: the token names the family,
+                   the <link> fetches it).
+
+     Why :root and not a scoped wrapper: this used to live in a JS object
+     inlined onto a <div> inside <body> (components/brand/site-theme.ts),
+     which left `<body>` itself and every `createPortal(…, document.body)`
+     subtree resolving the stale pre-redesign palette that :root still
+     held. Measured: a probe appended to <body> computed `--primary` as
+     `43 54% 54%` (old gold) while the same token inside the wrapper was
+     `252 48% 40%`. One source, at the root, has no outside.
+     ══════════════════════════════════════════════════════════════════════ */
   :root {
     color-scheme: light;
 
-    /* Body font family. Loaded via Google Fonts <link> in app/layout.tsx
-       (not next/font/google) so the build never depends on a build-time
-       font fetch. --font-sans and the base body rule reference this var. */
-    --font-ibm-plex-arabic: "IBM Plex Sans Arabic", "Noto Naskh Arabic", "Cairo", sans-serif;
+    /* ── Type ────────────────────────────────────────────────────────────
+       Loaded via a Google Fonts <link> in app/layout.tsx (not
+       next/font/google) so the build never depends on a build-time font
+       fetch. --font-sans in @theme and the base body rule read the sans
+       token; .museum-font-headline reads the display token. */
+    --font-brand-sans: "IBM Plex Sans Arabic", "Noto Naskh Arabic", "Cairo", sans-serif;
+    --font-brand-display: "Amiri", serif;
 
-    /* KHAT Light Theme */
-    --background: 40 33% 97%;
-    --foreground: 212 29% 12%;
+    /* ── Colour ────────────────────────────────────────────────────────── */
+    --background: 250 33% 99%;
+    --foreground: 252 40% 11%;
     --card: 0 0% 100%;
-    --card-foreground: 212 29% 12%;
+    --card-foreground: 252 40% 11%;
     --popover: 0 0% 100%;
-    --popover-foreground: 212 29% 12%;
+    --popover-foreground: 252 40% 11%;
 
-    /* Gold accent as primary */
-    --primary: 43 54% 54%;
+    /* Deep indigo = primary brand / CTA */
+    --primary: 252 48% 40%;
     --primary-foreground: 0 0% 100%;
 
-    /* Elevated surface as secondary */
-    --secondary: 40 20% 93%;
-    --secondary-foreground: 212 29% 12%;
+    --secondary: 250 30% 96%;
+    --secondary-foreground: 252 40% 11%;
 
-    /* Muted colors */
-    --muted: 40 20% 93%;
-    --muted-foreground: 212 15% 45%;
+    --muted: 250 28% 96%;
+    --muted-foreground: 250 12% 46%;
 
-    /* Purple accent */
-    --accent: 266 32% 44%;
+    /* Orange = energy accent. Lightness 53% → 40.5% (hue and saturation
+       kept): at 53% the orange measured 2.97:1 on --background and 3.05:1
+       on --card, failing WCAG AA for normal text (4.5:1) everywhere
+       `text-accent` is used — and failing SC 1.4.11 (3:1) for the accent
+       icons too. 40.5% is the smallest step that clears 4.5:1 on both
+       (4.61:1 / 4.73:1); the 42% first estimated only reaches 4.34:1 on
+       --background. */
+    --accent: 22 90% 40.5%;
     --accent-foreground: 0 0% 100%;
 
-    --destructive: 0 84% 60%;
+    --destructive: 0 72% 51%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 40 15% 87%;
-    --input: 40 15% 87%;
-    --ring: 43 54% 54%;
+    --border: 250 22% 92%;
+    --input: 250 22% 92%;
+    --ring: 252 48% 40%;
     --radius: 0.5rem;
-
-    /* Custom KHAT colors */
-    --gold: 43 54% 54%;
-    --purple: 266 32% 44%;
-    --surface: 0 0% 100%;
-    --elevated: 40 20% 93%;
-    --text-secondary: 212 15% 45%;
-    --text-muted: 212 15% 45%;
   }
 
   /* No `.dark {}` block — the app is a single forced-light surface; the root
      element's `.dark` class is stripped at runtime (app/layout.tsx), so any
-     dark-mode overrides here would be dead. Public + admin scope their own
-     token sets via SITE_LIGHT_TOKENS / ADMIN_LIGHT_TOKENS. */
+     dark-mode overrides here would be dead. The admin overrides the three
+     tokens it deliberately diverges on via ADMIN_LIGHT_TOKENS; everything
+     else it inherits from here. */
 }
 
 @theme inline {
@@ -76,17 +101,18 @@
   --color-border: hsl(var(--border));
   --color-input: hsl(var(--input));
   --color-ring: hsl(var(--ring));
-  --color-gold: hsl(var(--gold));
-  --color-purple: hsl(var(--purple));
-  --color-surface: hsl(var(--surface));
-  --color-elevated: hsl(var(--elevated));
-  --color-text-secondary: hsl(var(--text-secondary));
-  --color-text-muted: hsl(var(--text-muted));
+  /* --color-gold / -purple / -surface / -elevated / -text-secondary /
+     -text-muted were removed: leftovers of the pre-redesign palette with
+     zero usages in the codebase (no `bg-gold`, `text-purple`, … utility
+     anywhere outside app/admin/media-kit, which uses its own local hex
+     `--gold` and never these). They were decoys next to the switch point:
+     `--gold` had been quietly reassigned an ORANGE value, so anyone
+     recolouring "the gold" would have edited a dead token. */
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
   --radius-xl: calc(var(--radius) + 4px);
-  --font-sans: var(--font-ibm-plex-arabic), ui-sans-serif, system-ui, sans-serif;
+  --font-sans: var(--font-brand-sans), ui-sans-serif, system-ui, sans-serif;
   --color-museum-bg: hsl(252 44% 6%);
 }
 
@@ -208,7 +234,7 @@ header {
   line-height: 1.9;
   word-break: normal;
   overflow-wrap: break-word;
-  font-family: var(--font-ibm-plex-arabic), "IBM Plex Sans Arabic", "Noto Naskh Arabic", "Cairo", sans-serif;
+  font-family: var(--font-brand-sans);
 }
 
 /* Guest prep form input */
@@ -452,9 +478,19 @@ header {
    These styles power the museum-themed homepage sections.
    ============================================================ */
 
-/* Museum headline font — Amiri (loaded via Google Fonts in layout) */
+/* Museum headline font. Reads the brand display token so swapping the
+   headline family is one edit in :root, not a hunt through stylesheets.
+   Live on the public episode page: EpisodeCard's <h3> (verified — three
+   nodes render it in the recommendations grid, and the Amiri arabic
+   subset loads on its own to paint them).
+
+   "Playfair Display" used to sit between Amiri and serif and was
+   unreachable: Google serves Amiri with latin + latin-ext + arabic
+   subsets, so Amiri covers every glyph these headlines can contain and
+   the next family in the stack never gets a turn. It is dropped from the
+   <link> in app/layout.tsx too. */
 .museum-font-headline {
-  font-family: "Amiri", "Playfair Display", serif;
+  font-family: var(--font-brand-display);
 }
 
 /* Museum gold text-shadow effect */

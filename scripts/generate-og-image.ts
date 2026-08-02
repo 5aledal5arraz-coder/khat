@@ -27,7 +27,8 @@ import sharp from "sharp"
 const WIDTH = 1200
 const HEIGHT = 630
 
-/** KHAT brand tokens, mirrored from components/brand/site-theme.ts. */
+/** KHAT brand tokens, mirrored from `:root` in app/globals.css. A PNG cannot read
+ *  CSS variables, so these are a hand-kept copy — update them with the palette. */
 const INDIGO = "#493597" // --primary: 252 48% 40%
 const INDIGO_DEEP = "#2f2560" // the dark stop of the KhatLogo gradient
 const ORANGE = "#f36a1b" // --accent at full chroma; on indigo it is decorative,
