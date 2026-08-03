@@ -27,7 +27,22 @@ export function ConversationMap({ data }: ConversationMapProps) {
           <div key={n.key} className="relative flex-1">
             {/* Connector line between nodes */}
             {i < nodes.length - 1 && (
-              <div className="absolute start-1/2 top-5 hidden h-0.5 w-full -translate-x-1/2 bg-border sm:block" />
+              // ص-٨ — `-translate-x-1/2` removed, not flipped.
+              //
+              // It was reported as the logical/physical mismatch we fixed on
+              // the hero halo (`start-*` is direction-aware, `translate-x` is
+              // not). It is that — but the honest fix is deletion, because
+              // the translate is wrong in BOTH directions:
+              //
+              // each node is `flex-1`, so `w-full` is exactly one node wide,
+              // and `start-1/2` anchors the line at the node's centre — where
+              // the numbered circle sits (`mx-auto`). Extending one node width
+              // in the inline direction lands precisely on the NEXT node's
+              // circle, which is the whole intent. The translate then dragged
+              // it back half a node, so the line spanned its own node instead
+              // of bridging to the next one. `start-*` already handles RTL, so
+              // with the translate gone no direction-specific rule is needed.
+              <div className="absolute start-1/2 top-5 hidden h-0.5 w-full bg-border sm:block" />
             )}
             <div className="relative rounded-lg border bg-card p-4 text-center">
               <div className="mx-auto mb-2 flex h-10 w-10 items-center justify-center rounded-full bg-primary/10 text-caption font-bold text-primary">

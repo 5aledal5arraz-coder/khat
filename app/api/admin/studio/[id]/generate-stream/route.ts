@@ -575,12 +575,17 @@ export async function POST(
                   error_message: null,
                 })
 
+                // ص-٨ — same caption timings the chapters/clips steps
+                // already use, so the public index stops being interpolated.
+                const websiteSegments = await getTimedSegmentsForSession(id)
+
                 const result = await generateWebsitePackage(
                   transcript.transcript_clean,
                   session.video_title || "",
                   session.duration_seconds,
                   episodeIntelligence,
-                  eirContext
+                  eirContext,
+                  websiteSegments
                 )
 
                 if (!result.success || !result.data) {

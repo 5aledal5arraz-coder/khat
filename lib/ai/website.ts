@@ -3,8 +3,18 @@ import { env } from "@/lib/env"
 import { prepareTranscript, prepareTranscriptWithPositions } from "./client"
 import { runAiTask } from "@/lib/ai-router"
 import { stripChunkScaffold } from "@/lib/studio/utils"
+import { mergeIntoWindows, renderWithIds, type TimedSegment } from "@/lib/studio/segments"
+import {
+  buildTimedTimestampsPrompt,
+  WEBSITE_TIMESTAMPS_TIMED_PROMPT_VERSION,
+  type TimedTimestampModelItem,
+} from "./prompts/studio-timed"
+import { buildWindowMap, resolveTimedTimestamps, assessWindowSpans } from "./studio-timed"
 import type { GlobalEpisodeIntelligence } from "./episode-intelligence"
 import { formatIntelligenceContext } from "./episode-intelligence"
+
+/** Same window size the chapters/clips timed paths use. */
+const TIMED_WINDOW_SECONDS = 20
 
 // ---------------------------------------------------------------------------
 // Studio: Generate Website Package (summary, takeaways, quotes, etc.)
@@ -32,7 +42,14 @@ export async function generateWebsitePackage(
   videoTitle: string,
   durationSeconds: number | null,
   episodeIntelligence?: GlobalEpisodeIntelligence | null,
-  eirContext?: { eirId?: string | null; subjectTable?: string | null; subjectId?: string | null }
+  eirContext?: { eirId?: string | null; subjectTable?: string | null; subjectId?: string | null },
+  /**
+   * ص-٨ — real per-cue timings from the caption file. When supplied, the
+   * index is built from window ids and CODE re-attaches the seconds, so a
+   * row can no longer land 7-9 minutes from where the topic actually
+   * starts. Omitted → the legacy estimate path, unchanged.
+   */
+  timedSegments?: TimedSegment[] | null,
 ): Promise<{ success: boolean; data?: WebsitePackageResult; raw?: Record<string, unknown>; error?: string; runId?: string }> {
   if (!env.OPENAI_API_KEY) {
     return { success: false, error: "OPENAI_API_KEY غير مُعدّ" }
@@ -47,77 +64,86 @@ export async function generateWebsitePackage(
     const takeawayTarget = isLong ? "8-12" : "5-10"
 
     // ── Phase 1: STRUCTURE_MODEL — timestamps ─────────────────────────
-    const positionalText = await prepareTranscriptWithPositions(null as never, transcript, durationSeconds)
-
-    const tsSystem = `أنت متخصص في استخراج الطوابع الزمنية من نصوص البودكاست.
-
-## مهمتك:
-أنتج ${timestampTarget} طابع زمني يغطي كامل الحلقة.
-
-## القواعد:
-- كل طابع = لحظة يريد القارئ القفز إليها: تحوّل في القصة، سؤال محوري، مفاجأة، صراع، أو بصيرة
-- كل نقطة: time_seconds (بالثواني)، title (3-7 كلمات)، description (جملة واحدة أو null)
-${durationMin ? `- المدة: ${durationMin} دقيقة = ${durationMin * 60} ثانية
-- جميع القيم بين 0 و ${durationMin * 60}
-- أول طابع = 0، آخر طابع بين ${Math.round((durationMin - 15) * 60)} و ${durationMin * 60}` : "- قدّر الأوقات من علامات الأجزاء الزمنية"}
-- استخدم علامات [الجزء X/Y — من الدقيقة...] لتحديد الأوقات فقط — **ولا تكتبها أبداً في أي نص تُخرجه**
-- وزّع حسب كثافة الأحداث، لا بمسافات متساوية
-- ✅ عناوين جيدة: "لحظة سقوط الرها"، "السؤال الذي أحرج الجميع"، "كيف بدأ كل شيء"
-- ❌ عناوين سيئة: "أحداث تاريخية"، "نقاش مهم"، "محور ثالث"
-
-⚠️ حساب time_seconds = الدقيقة × 60:
-الدقيقة 15 = 900، الدقيقة 36 = 2160، الدقيقة 90 = 5400، الدقيقة 120 = 7200
-${durationMin ? `الحد الأقصى: ${durationMin * 60}` : ""}
-
-## JSON:
-{ "timestamps": [{"time_seconds": 0, "title": "كيف بدأ كل شيء", "description": "..."}, ...] }`
-
-    const tsUser = `عنوان الحلقة: ${videoTitle}
-${durationMin ? `المدة الكاملة: ${durationMin} دقيقة (${durationMin * 60} ثانية) — لا يوجد محتوى بعد الثانية ${durationMin * 60}` : ""}
-
-نص الحلقة:
-${positionalText}`
-
-    const tsResult = await runAiTask<{ timestamps: WebsiteTimestampItem[] }>({
-      taskKind: "structural",
-      eirId: eirContext?.eirId ?? null,
-      subjectTable: eirContext?.subjectTable ?? "studio_sessions",
-      subjectId: eirContext?.subjectId ?? null,
-      input: { videoTitle, durationSeconds, phase: "timestamps" },
-      prompt: [
-        { role: "system", content: tsSystem },
-        { role: "user", content: tsUser },
-      ],
-      expectJson: true,
-      providerOptions: { temperature: 0.3 },
-    })
+    // ص-٨ — the honest path first. It needs no positional prep call at
+    // all, which is why it is also the cheaper one: the whole
+    // `transcript_prep_positional` chunk-summary fan-out exists ONLY to
+    // manufacture the time labels this branch does not need.
+    const useTimed = Boolean(timedSegments && timedSegments.length > 0)
 
     let timestamps: WebsiteTimestampItem[] = []
-    if (tsResult.status === "succeeded" && tsResult.parsed) {
-      timestamps = Array.isArray(tsResult.parsed.timestamps)
-        ? tsResult.parsed.timestamps
-            .filter((t) => typeof t.time_seconds === "number" && t.title)
-            .filter((t) => !durationSeconds || t.time_seconds <= durationSeconds)
-            .sort((a, b) => a.time_seconds - b.time_seconds)
-            // ص-١٠ — THIS is where the summarizer scaffold actually leaks.
-            // The timestamp prompt is the one that tells the model to read
-            // the `[الجزء X/Y — من الدقيقة…]` labels, so the model echoes
-            // them straight into `description` (17 occurrences in the
-            // captured live output) — and this is the field that lands in
-            // episode_enrichments.timestamps and renders publicly. The
-            // editorial fields are cleaned too, but they were never dirty.
-            .map((t) => ({
-              ...t,
-              title: stripChunkScaffold(t.title),
-              description: stripChunkScaffold(t.description ?? null),
-            }))
-            // Re-check AFTER cleaning. The `t.title` filter above ran on
-            // the DIRTY value, so a title that was nothing but scaffold
-            // passed it and came out "" — and an empty title renders as a
-            // bare timestamp line, which makes YouTube reject the entire
-            // chapter block, not just that row.
-            .filter((t) => t.title.trim().length > 0)
-        : []
+    let tsRunId: string | undefined
+    let tsModelName: string | undefined
+    const tsMeta: Record<string, unknown> = { timing_source: useTimed ? "captions" : "estimated" }
+
+    if (useTimed) {
+      const windows = mergeIntoWindows(timedSegments!, TIMED_WINDOW_SECONDS)
+      const built = buildTimedTimestampsPrompt({
+        videoTitle,
+        renderedWindows: renderWithIds(windows),
+        timestampTarget,
+        windowCount: windows.length,
+      })
+
+      const timedResult = await runAiTask<{ timestamps: TimedTimestampModelItem[] }>({
+        taskKind: "structural",
+        eirId: eirContext?.eirId ?? null,
+        subjectTable: eirContext?.subjectTable ?? "studio_sessions",
+        subjectId: eirContext?.subjectId ?? null,
+        promptVersion: WEBSITE_TIMESTAMPS_TIMED_PROMPT_VERSION,
+        input: {
+          videoTitle,
+          durationSeconds,
+          phase: "timestamps",
+          timestampTarget,
+          windowCount: windows.length,
+          timingSource: "captions",
+        },
+        prompt: [
+          { role: "system", content: built.system },
+          { role: "user", content: built.user },
+        ],
+        expectJson: true,
+        providerOptions: { temperature: 0.3 },
+      })
+
+      tsRunId = timedResult.runId
+      tsModelName = timedResult.modelName
+
+      if (timedResult.status === "succeeded" && Array.isArray(timedResult.parsed?.timestamps)) {
+        // Throws on an unknown id — a wrong id is a validation error, never
+        // a plausible wrong number that ships to the public page.
+        timestamps = resolveTimedTimestamps(
+          timedResult.parsed.timestamps,
+          buildWindowMap(windows),
+        ).map((t) => ({
+          ...t,
+          title: stripChunkScaffold(t.title),
+          description: stripChunkScaffold(t.description),
+        }))
+          .filter((t) => t.title.trim().length > 0)
+      }
+
+      const spans = assessWindowSpans(windows)
+      tsMeta.max_window_span_seconds = spans.maxSpanSeconds
+      tsMeta.windows_over_limit = spans.overLimit
+      if (!spans.withinClaim) {
+        console.warn(
+          `[website-timed] ${spans.overLimit} window(s) exceed the span claim ` +
+            `(max ${spans.maxSpanSeconds}s) — index accuracy is bounded by the window`,
+        )
+      }
+    } else {
+      const legacy = await generateTimestampsEstimated({
+        transcript,
+        videoTitle,
+        durationSeconds,
+        durationMin,
+        timestampTarget,
+        eirContext,
+      })
+      timestamps = legacy.timestamps
+      tsRunId = legacy.runId
+      tsModelName = legacy.modelName
     }
 
     // ── Phase 2: EDITORIAL_MODEL — content ────────────────────────────
@@ -263,14 +289,116 @@ ${editorialText}`
             : null,
       },
       raw: {
-        structure_run_id: tsResult.runId,
+        structure_run_id: tsRunId,
         editorial_run_id: edResult.runId,
-        structure_model: tsResult.modelName,
+        structure_model: tsModelName,
         editorial_model: edResult.modelName,
+        ...tsMeta,
       },
     }
   } catch (error) {
     const msg = error instanceof Error ? error.message : "حدث خطأ أثناء توليد حزمة الموقع"
     return { success: false, error: msg }
   }
+}
+
+/**
+ * ص-٨ — the legacy index path, unchanged in behaviour and now clearly
+ * fenced off as the fallback it is.
+ *
+ * It is reached only when the session has NO caption timings (a Whisper
+ * transcription or a hand-pasted transcript). Every timestamp it produces
+ * is the model's arithmetic over `prepareTranscriptWithPositions` labels
+ * that were interpolated LINEARLY from character counts — measured on a
+ * real 86-minute episode, that put the first half 7-9 minutes late.
+ */
+async function generateTimestampsEstimated(args: {
+  transcript: string
+  videoTitle: string
+  durationSeconds: number | null
+  durationMin: number | null
+  timestampTarget: string
+  eirContext?: { eirId?: string | null; subjectTable?: string | null; subjectId?: string | null }
+}): Promise<{ timestamps: WebsiteTimestampItem[]; runId?: string; modelName?: string }> {
+  const { transcript, videoTitle, durationSeconds, durationMin, timestampTarget, eirContext } = args
+
+  const positionalText = await prepareTranscriptWithPositions(null as never, transcript, durationSeconds)
+
+  const tsSystem = `أنت متخصص في استخراج الطوابع الزمنية من نصوص البودكاست.
+
+## مهمتك:
+أنتج ${timestampTarget} طابع زمني يغطي كامل الحلقة.
+
+## القواعد:
+- كل طابع = لحظة يريد القارئ القفز إليها: تحوّل في القصة، سؤال محوري، مفاجأة، صراع، أو بصيرة
+- كل نقطة: time_seconds (بالثواني)، title (3-7 كلمات)، description (جملة واحدة أو null)
+${durationMin ? `- المدة: ${durationMin} دقيقة = ${durationMin * 60} ثانية
+- جميع القيم بين 0 و ${durationMin * 60}
+- أول طابع = 0، آخر طابع بين ${Math.round((durationMin - 15) * 60)} و ${durationMin * 60}` : "- قدّر الأوقات من علامات الأجزاء الزمنية"}
+- استخدم علامات [الجزء X/Y — من الدقيقة...] لتحديد الأوقات فقط — **ولا تكتبها أبداً في أي نص تُخرجه**
+- وزّع حسب كثافة الأحداث، لا بمسافات متساوية
+- ✅ عناوين جيدة: "لحظة سقوط الرها"، "السؤال الذي أحرج الجميع"، "كيف بدأ كل شيء"
+- ❌ عناوين سيئة: "أحداث تاريخية"، "نقاش مهم"، "محور ثالث"
+
+⚠️ حساب time_seconds = الدقيقة × 60:
+الدقيقة 15 = 900، الدقيقة 36 = 2160، الدقيقة 90 = 5400، الدقيقة 120 = 7200
+${durationMin ? `الحد الأقصى: ${durationMin * 60}` : ""}
+
+## JSON:
+{ "timestamps": [{"time_seconds": 0, "title": "كيف بدأ كل شيء", "description": "..."}, ...] }`
+
+  const tsUser = `عنوان الحلقة: ${videoTitle}
+${durationMin ? `المدة الكاملة: ${durationMin} دقيقة (${durationMin * 60} ثانية) — لا يوجد محتوى بعد الثانية ${durationMin * 60}` : ""}
+
+نص الحلقة:
+${positionalText}`
+
+  const tsResult = await runAiTask<{ timestamps: WebsiteTimestampItem[] }>({
+    taskKind: "structural",
+    eirId: eirContext?.eirId ?? null,
+    subjectTable: eirContext?.subjectTable ?? "studio_sessions",
+    subjectId: eirContext?.subjectId ?? null,
+    input: { videoTitle, durationSeconds, phase: "timestamps", timingSource: "estimated" },
+    prompt: [
+      { role: "system", content: tsSystem },
+      { role: "user", content: tsUser },
+    ],
+    expectJson: true,
+    providerOptions: { temperature: 0.3 },
+  })
+
+  let timestamps: WebsiteTimestampItem[] = []
+  if (tsResult.status === "succeeded" && tsResult.parsed) {
+    timestamps = Array.isArray(tsResult.parsed.timestamps)
+      ? tsResult.parsed.timestamps
+          .filter((t) => typeof t.time_seconds === "number" && t.title)
+          // ص-٨ — `!durationSeconds` disabled this filter entirely whenever
+          // the duration was 0, and 0 is exactly what
+          // `app/api/admin/studio/route.ts` stores when the YouTube ISO-8601
+          // duration fails to parse. A null duration means "unknown, cannot
+          // check"; a zero one used to mean "check nothing".
+          .filter((t) => durationSeconds == null || t.time_seconds <= durationSeconds)
+          .sort((a, b) => a.time_seconds - b.time_seconds)
+          // ص-١٠ — THIS is where the summarizer scaffold actually leaks.
+          // The timestamp prompt is the one that tells the model to read
+          // the `[الجزء X/Y — من الدقيقة…]` labels, so the model echoes
+          // them straight into `description` (17 occurrences in the
+          // captured live output) — and this is the field that lands in
+          // episode_enrichments.timestamps and renders publicly. The
+          // editorial fields are cleaned too, but they were never dirty.
+          .map((t) => ({
+            ...t,
+            title: stripChunkScaffold(t.title),
+            description: stripChunkScaffold(t.description ?? null),
+          }))
+          // Re-check AFTER cleaning. The `t.title` filter above ran on
+          // the DIRTY value, so a title that was nothing but scaffold
+          // passed it and came out "" — and an empty title renders as a
+          // bare timestamp line, which makes YouTube reject the entire
+          // chapter block, not just that row.
+          .filter((t) => t.title.trim().length > 0)
+      : []
+  }
+
+  return { timestamps, runId: tsResult.runId, modelName: tsResult.modelName }
 }

@@ -17,6 +17,19 @@ export type { StudioPackageResult, StudioChaptersResult, StudioClipsResult } fro
 export { generateWebsitePackage } from "./website"
 export type { WebsitePackageResult } from "./website"
 
+// Episode "conversation" sections (ص-٨)
+export {
+  generateEpisodeConversation,
+  mergeConversationFields,
+  conversationFieldIsEmpty,
+  CONVERSATION_FIELDS,
+} from "./episode-conversation"
+export type {
+  ConversationField,
+  ConversationPatch,
+  GenerateConversationResult,
+} from "./episode-conversation"
+
 // Transcript processing
 export { processTranscript, regenerateQuotes, regenerateKeyIdeas, regenerateLessons, generateQuotesFromTranscript } from "./transcript"
 export type { TranscriptProcessingResult } from "./transcript"

@@ -11,6 +11,7 @@ import {
   buildWindowMap,
   resolveTimedChapters,
   resolveTimedClips,
+  resolveTimedTimestamps,
   windowIdFor,
   assessWindowSpans,
   assessChapterCoverage,
@@ -135,6 +136,74 @@ describe("resolveTimedClips", () => {
         buildWindowMap(windows(30)),
       ),
     ).toThrow(/no clips resolved/)
+  })
+})
+
+/**
+ * ص-٨ — the public episode index. Same contract as chapters, but this is
+ * the one that renders on khatpodcast.com, and until now it was the only
+ * timed output still being estimated from interpolated labels.
+ */
+describe("resolveTimedTimestamps", () => {
+  const segMap = buildWindowMap(windows(100))
+
+  it("takes time_seconds from the window, never from the model", () => {
+    const out = resolveTimedTimestamps(
+      [
+        { start_segment_id: "S001", title: "كيف بدأ كل شيء", description: "وصف" },
+        { start_segment_id: "S040", title: "نقطة التحول", description: null },
+      ],
+      segMap,
+    )
+    expect(out).toEqual([
+      { time_seconds: 0, title: "كيف بدأ كل شيء", description: "وصف" },
+      { time_seconds: 780, title: "نقطة التحول", description: null },
+    ])
+  })
+
+  it("throws on an unknown id rather than shipping a plausible number", () => {
+    expect(() =>
+      resolveTimedTimestamps(
+        [{ start_segment_id: "S999", title: "مخترع" }],
+        segMap,
+      ),
+    ).toThrow(/not a real window id/)
+  })
+
+  it("throws when nothing resolved at all", () => {
+    expect(() => resolveTimedTimestamps([], segMap)).toThrow(/no timestamps resolved/)
+  })
+
+  it("sorts by time and drops two titles landing on one window", () => {
+    const out = resolveTimedTimestamps(
+      [
+        { start_segment_id: "S010", title: "متأخر" },
+        { start_segment_id: "S002", title: "مبكر" },
+        { start_segment_id: "S002", title: "مكرر" },
+      ],
+      segMap,
+    )
+    expect(out.map((t) => t.time_seconds)).toEqual([20, 180])
+    expect(out[0].title).toBe("مبكر")
+  })
+
+  it("skips rows with no title, and blanks a whitespace-only description", () => {
+    const out = resolveTimedTimestamps(
+      [
+        { start_segment_id: "S003", title: "  " },
+        { start_segment_id: "S004", title: "عنوان", description: "   " },
+      ],
+      segMap,
+    )
+    expect(out).toEqual([{ time_seconds: 60, title: "عنوان", description: null }])
+  })
+
+  it("does NOT force the first row to zero — that is a YouTube rule, not a page rule", () => {
+    const out = resolveTimedTimestamps(
+      [{ start_segment_id: "S005", title: "يبدأ متأخراً" }],
+      segMap,
+    )
+    expect(out[0].time_seconds).toBe(80)
   })
 })
 

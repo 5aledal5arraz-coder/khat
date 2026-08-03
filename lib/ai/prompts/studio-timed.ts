@@ -21,11 +21,23 @@
 
 export const STUDIO_CHAPTERS_TIMED_PROMPT_VERSION = "studio-chapters-timed-v1.0"
 export const STUDIO_CLIPS_TIMED_PROMPT_VERSION = "studio-clips-timed-v1.0"
+export const WEBSITE_TIMESTAMPS_TIMED_PROMPT_VERSION = "website-timestamps-timed-v1.0"
 
 /** Raw chapter output — an id and a title, never a timestamp. */
 export interface TimedChapterModelItem {
   start_segment_id: string
   title: string
+}
+
+/**
+ * Raw website-index output — an id, a title, and an optional one-line
+ * description. Same no-clock contract as chapters; the extra `description`
+ * field is what the public episode page renders under each index row.
+ */
+export interface TimedTimestampModelItem {
+  start_segment_id: string
+  title: string
+  description?: string | null
 }
 
 /** Raw clip output — a window RANGE and the editorial fields, never seconds. */
@@ -94,6 +106,67 @@ ${NO_CLOCK_RULES}
 { "chapters": [
   {"start_segment_id": "S001", "title": "..."},
   {"start_segment_id": "S047", "title": "..."}
+]}`
+
+  const user = `عنوان الحلقة: ${input.videoTitle}
+
+نوافذ الحلقة:
+${input.renderedWindows}`
+
+  return { system, user }
+}
+
+/**
+ * The public episode index (فهرس الحلقة).
+ *
+ * This is the same job the legacy `generateWebsitePackage` timestamp phase
+ * did against `prepareTranscriptWithPositions` — a summary whose only time
+ * signal was a per-chunk label interpolated LINEARLY from character counts.
+ * The model was told "وزّع حسب كثافة الأحداث لا بمسافات متساوية" while
+ * holding nothing but equal-width labels, so it returned equal spacing and
+ * the first half of the episode came out 7-9 minutes late.
+ *
+ * Here it points at real caption windows instead, and never emits a number.
+ */
+export function buildTimedTimestampsPrompt(input: {
+  videoTitle: string
+  renderedWindows: string
+  timestampTarget: string
+  windowCount: number
+}): { system: string; user: string } {
+  const system = `أنت متخصص في بناء فهرس حلقة لبودكاست خط — بودكاست عربي عميق يتميز بالحدة الفكرية والذكاء العاطفي.
+
+الفهرس الجيد ليس تقسيماً للزمن — هو خريطة تجعل القارئ يقول "أريد القفز إلى هنا".
+
+## مهمتك:
+اختر ${input.timestampTarget} نقطة تغطي كامل الحلقة من أولها لآخرها.
+كل نقطة = لحظة يريد القارئ القفز إليها: تحوّل في القصة، سؤال محوري، مفاجأة، صراع، أو بصيرة.
+لا تنشئ نقاطاً لمجرد ملء الزمن.
+
+## النص:
+وصلك النص كنوافذ مرقّمة، كل نافذة لها معرّف [Sxxx] ونصّها الحرفي — لا ملخّص.
+النوافذ من [S001] إلى [S${String(input.windowCount).padStart(3, "0")}] بالترتيب الزمني.
+
+${NO_CLOCK_RULES}
+
+## كيف تختار:
+- لكل نقطة، عيّن **معرّف النافذة التي يبدأ عندها الموضوع فعلاً** — النافذة التي يُنطق فيها أول كلام عن الفكرة الجديدة، لا التي قبلها ولا التي بعدها.
+- النقطة الأولى يجب أن تكون [S001].
+- رتّب النقاط تصاعدياً بترتيب النوافذ، ولا تكرّر معرّفاً.
+- وزّع حسب **كثافة الأحداث**: حيث تتلاحق المواضيع ضع نقاطاً متقاربة، وحيث يمتد موضوع واحد طويلاً لا تقطعه. المسافات بين النقاط يجب ألا تكون متساوية.
+- الثلث الأخير من النوافذ يحتاج نقاطاً حقيقية أيضاً — لا تكدّس كل شيء في الأول.
+
+## الحقول:
+- title: 3-7 كلمات تحمل حدثاً أو فكرة أو سؤالاً محدداً
+- description: جملة واحدة تشرح النقطة، أو null
+
+✅ عناوين جيدة: "لحظة سقوط الرها"، "السؤال الذي أحرج الجميع"، "كيف بدأ كل شيء"
+❌ عناوين سيئة: "أحداث تاريخية"، "نقاش مهم"، "محور ثالث"
+
+## الصيغة — JSON فقط:
+{ "timestamps": [
+  {"start_segment_id": "S001", "title": "كيف بدأ كل شيء", "description": "..."},
+  {"start_segment_id": "S047", "title": "...", "description": null}
 ]}`
 
   const user = `عنوان الحلقة: ${input.videoTitle}

@@ -5,6 +5,7 @@ import {
   revalidateStudio,
 } from "@/lib/studio"
 import { resolveEirIdForSession } from "@/lib/studio/analysis-records"
+import { getTimedSegmentsForSession } from "@/lib/studio/timed-transcript"
 import { generateWebsitePackage } from "@/lib/ai"
 import { requireAdminAPI } from "@/lib/api-utils"
 
@@ -102,12 +103,17 @@ export async function POST(
       subjectTable: "studio_sessions" as const,
       subjectId: id,
     }
+    // ص-٨ — real caption timings when the transcript has them, so the
+    // public index is anchored to the clock instead of interpolated.
+    const timedSegments = await getTimedSegmentsForSession(id)
+
     const result = await generateWebsitePackage(
       transcript.transcript_clean,
       session.video_title || "",
       session.duration_seconds,
       null,
-      eirContext
+      eirContext,
+      timedSegments
     )
 
     if (!result.success || !result.data) {

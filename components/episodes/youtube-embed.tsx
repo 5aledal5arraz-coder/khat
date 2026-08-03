@@ -54,12 +54,10 @@ function loadYTApi(): Promise<void> {
 
 function ThumbnailOverlay({
   url,
-  watchUrl,
   title,
   onPlay,
 }: {
   url: string
-  watchUrl: string
   title: string
   onPlay?: () => void
 }) {
@@ -92,14 +90,13 @@ function ThumbnailOverlay({
           <Play className="h-7 w-7 ms-1 text-white" fill="currentColor" />
         </div>
       </div>
-      <a
-        href={watchUrl}
-        target="_blank"
-        rel="noopener noreferrer"
-        className="absolute bottom-3 start-3 z-20 rounded-lg bg-black/70 px-3 py-1.5 text-micro text-white/80 hover:text-white transition-colors"
-      >
-        شاهد على يوتيوب
-      </a>
+      {/* ص-٨ — the overlaid "شاهد على يوتيوب" chip was removed.
+          An identical link already renders immediately below the frame and,
+          unlike this one, it survives all three player states. On load both
+          were visible a few pixels apart, and this copy sat INSIDE the
+          thumbnail at z-20 — above the transparent play button — so a
+          visitor aiming at the video could leave the site instead of
+          starting it. The link below the frame is the one that stays. */}
     </div>
   )
 }
@@ -251,7 +248,6 @@ export function YouTubeEmbed({
         {playerState === "thumbnail" ? (
           <ThumbnailOverlay
             url={url}
-            watchUrl={watchUrl}
             title={title}
             onPlay={handlePlay}
           />

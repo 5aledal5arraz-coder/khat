@@ -57,7 +57,7 @@ import {
   syncEirOnStudioPushed,
   syncEirOnEpisodePublish,
 } from "@/lib/khat-brain"
-import { getWebsitePackageForSession } from "@/lib/studio"
+import { getWebsitePackageForSession, getStudioSession } from "@/lib/studio"
 import { stripChunkScaffold } from "@/lib/studio/utils"
 
 export interface StudioPushFields {
@@ -249,12 +249,47 @@ export async function runStudioPushToEpisode(input: {
     // timestamp line and takes the whole chapter block down with it.
     // Filtering per item here means an old package degrades to "fewer
     // rows" instead of "broken block".
-    const usableTimestamps = pkg.timestamps.filter(
-      (t) => typeof t.title === "string" && stripChunkScaffold(t.title).trim().length > 0,
-    )
-    if (usableTimestamps.length < pkg.timestamps.length) {
+    //
+    // ص-٨ — and it now checks the CLOCK too. Until this point the only
+    // duration validation lived inside the generator, which made the
+    // generator the last line of defence for rows it did not necessarily
+    // produce: a package generated before the bound existed, or one
+    // hand-edited in the admin, walked straight through to the public
+    // page carrying a timestamp past the end of the episode. The
+    // reference package for `knyKlUZIwYQ` held four such rows (up to
+    // 7200s on a 5178s episode).
+    const episodeDuration = await resolveSessionDuration(sessionId)
+    let outOfRange = 0
+
+    const usableTimestamps = pkg.timestamps.filter((t) => {
+      if (typeof t.title !== "string" || stripChunkScaffold(t.title).trim().length === 0) {
+        return false
+      }
+      if (typeof t.time_seconds !== "number" || !Number.isFinite(t.time_seconds)) {
+        outOfRange++
+        return false
+      }
+      if (t.time_seconds < 0) {
+        outOfRange++
+        return false
+      }
+      // A null duration means "unknown, cannot check" — never "check
+      // nothing". Only a positive, known duration can reject a row.
+      if (episodeDuration != null && t.time_seconds > episodeDuration) {
+        outOfRange++
+        return false
+      }
+      return true
+    })
+
+    if (outOfRange > 0) {
       console.warn(
-        `[studio push] dropped ${pkg.timestamps.length - usableTimestamps.length} timestamp(s) with an empty title for ${episodeId}`,
+        `[studio push] dropped ${outOfRange} timestamp(s) outside [0, ${episodeDuration ?? "unknown"}]s for ${episodeId}`,
+      )
+    }
+    if (usableTimestamps.length < pkg.timestamps.length - outOfRange) {
+      console.warn(
+        `[studio push] dropped ${pkg.timestamps.length - outOfRange - usableTimestamps.length} timestamp(s) with an empty title for ${episodeId}`,
       )
     }
     if (usableTimestamps.length > 0) {
@@ -455,6 +490,23 @@ export async function runStudioPushToEpisode(input: {
 
 /** A bare YouTube video id — never a legitimate episode title. */
 const YOUTUBE_ID_RE = /^[A-Za-z0-9_-]{11}$/
+
+/**
+ * ص-٨ — the episode length the timestamp gate measures against.
+ *
+ * Returns null for "unknown", and treats a stored 0 as unknown rather
+ * than as a real zero-length episode: `app/api/admin/studio/route.ts`
+ * writes 0 when the YouTube ISO-8601 duration fails to parse, so a 0
+ * here means the fetch failed, not that the episode has no content.
+ * Rejecting every row against a 0 bound would be worse than not
+ * checking at all.
+ */
+async function resolveSessionDuration(sessionId: string): Promise<number | null> {
+  const session = await getStudioSession(sessionId)
+  const d = session?.duration_seconds
+  if (typeof d !== "number" || !Number.isFinite(d) || d <= 0) return null
+  return d
+}
 
 function isVideoIdTitle(title: string, episodeId: string): boolean {
   return title === episodeId || YOUTUBE_ID_RE.test(title)

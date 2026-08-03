@@ -361,6 +361,30 @@ export function stripInlineMarkdown(text: string | null | undefined): string {
 }
 
 /**
+ * Truncate to at most `max` characters WITHOUT cutting a word in half.
+ *
+ * ص-٨ — the episode hero used a bare `summary.slice(0, 150)`, which on the
+ * reference episode ended "…مشاعر الخوف والقلق التي ا…". Backing up to the
+ * last space keeps the ellipsis meaningful. Returns undefined for empty
+ * input so callers can pass it straight to an optional prop.
+ *
+ * If the first `max` characters contain no space at all (one very long
+ * token), the hard cut is kept — better a clipped word than a blank slot.
+ */
+export function truncateOnWord(
+  text: string | null | undefined,
+  max: number,
+): string | undefined {
+  const t = (text ?? "").trim()
+  if (!t) return undefined
+  if (t.length <= max) return t
+  const head = t.slice(0, max)
+  const lastSpace = head.lastIndexOf(" ")
+  const cut = lastSpace > 0 ? head.slice(0, lastSpace) : head
+  return `${cut.replace(/[،,.\s]+$/, "")}…`
+}
+
+/**
  * Secondary description for a grounded source — the stored `title` holds the
  * raw grounded snippet. Strip markdown and collapse whitespace so it reads
  * cleanly as a muted sub-line / tooltip. Display-only; returns "" when there's

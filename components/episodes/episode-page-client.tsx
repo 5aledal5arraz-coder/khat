@@ -28,6 +28,7 @@ import { EpisodePlatformLinks } from "./episode-platform-links"
 import { EpisodeSponsor } from "./episode-sponsor"
 import { trackEvent } from "@/lib/personalization/tracker"
 import { formatTimeSeconds } from "@/lib/utils"
+import { truncateOnWord } from "@/lib/shared/formatters"
 
 function TimestampLink({ seconds, title }: { seconds: number; title: string }) {
   const { seekTo } = usePlayer()
@@ -35,7 +36,14 @@ function TimestampLink({ seconds, title }: { seconds: number; title: string }) {
   return (
     <button
       onClick={() => seekTo(seconds)}
-      className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-start transition-colors hover:bg-muted"
+      // ص-٨ — `py-2` on a `text-caption` line box measures 40.5px, under the
+      // 44px target, and this is the most-tapped control on the page.
+      // `min-h-11` (44px) fixes the floor without changing the resting look.
+      // The focus ring is the same convention as `episode-hero.tsx` — the
+      // global `:focus-visible` rule did draw *a* ring here, but with
+      // `ring-ring` rather than the brand `ring-primary/40` every other
+      // focusable control on this page uses.
+      className="flex min-h-11 w-full items-center gap-3 rounded-lg px-3 py-2 text-start transition-colors hover:bg-muted focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:ring-offset-2"
     >
       <span className="shrink-0 font-mono text-caption tabular-nums text-primary">
         {formatTimeSeconds(seconds)}
@@ -177,8 +185,18 @@ export function EpisodePageClient({
   const hasDbTimestamps = episode.timestamps.length > 0
   const hasDbQuotes = episode.quotes.length > 0
 
-  // Teaser: first ~150 chars of summary
-  const teaser = summary ? summary.slice(0, 150) + (summary.length > 150 ? "..." : "") : undefined
+  // ص-٨ — the hero teaser.
+  //
+  // `hero_summary` is written for this exact slot (two sentences, under
+  // 200 chars, explicitly forbidden from opening with "في هذه الحلقة") and
+  // was generated on 7/7 enriched episodes without ever being read by any
+  // public surface. The slot was instead filled by the first 153
+  // characters of `full_summary` — cut mid-word, and rendered again in
+  // full about 500px further down the same page.
+  //
+  // The slice stays only as the fallback for episodes that have no
+  // enrichment yet, and it now cuts on a word boundary.
+  const teaser = enrichment?.hero_summary?.trim() || truncateOnWord(summary, 150)
 
   return (
     <EpisodePlayerProvider>

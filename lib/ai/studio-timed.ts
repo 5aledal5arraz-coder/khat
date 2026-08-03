@@ -7,12 +7,17 @@
  * whose every timestamp came from the caption file, not from the model.
  */
 
-import type { StudioChapterItem, StudioClipItem } from "@/types/database"
+import type {
+  StudioChapterItem,
+  StudioClipItem,
+  WebsiteTimestampItem,
+} from "@/types/database"
 import type { TimedSegment } from "@/lib/studio/segments"
 import { formatSecondsToTimestamp } from "./client"
 import type {
   TimedChapterModelItem,
   TimedClipModelItem,
+  TimedTimestampModelItem,
 } from "./prompts/studio-timed"
 
 export type WindowMap = Map<string, { segment: TimedSegment; index: number }>
@@ -75,6 +80,56 @@ export function resolveTimedChapters(
     start_time: formatSecondsToTimestamp(c.seconds),
     title: c.title,
   }))
+}
+
+/**
+ * The public episode index — same contract as chapters, different shape.
+ *
+ * `WebsiteTimestampItem` carries raw seconds rather than a clock string,
+ * so this is where the caption window's start becomes `time_seconds`. The
+ * legacy path let the model compute that number from an interpolated
+ * label; here the model never sees a number at all.
+ *
+ * Deliberately NOT here: any "first entry must be 0" rewrite. Chapters
+ * force it because YouTube rejects a chapter block that doesn't start at
+ * 00:00:00 — the public page has no such rule, so the first index row
+ * keeps the real start of the window the model actually chose.
+ */
+export function resolveTimedTimestamps(
+  items: TimedTimestampModelItem[],
+  segMap: WindowMap,
+): WebsiteTimestampItem[] {
+  const resolved: WebsiteTimestampItem[] = []
+
+  for (const item of items) {
+    if (!item?.start_segment_id || !item?.title?.trim()) continue
+    const hit = segMap.get(item.start_segment_id)
+    if (!hit) {
+      throw new Error(
+        `studio-timed: timestamp start_segment_id "${item.start_segment_id}" is not a real window id`,
+      )
+    }
+    const description =
+      typeof item.description === "string" && item.description.trim()
+        ? item.description.trim()
+        : null
+    resolved.push({
+      time_seconds: Math.round(hit.segment.start),
+      title: item.title.trim(),
+      description,
+    })
+  }
+
+  if (resolved.length === 0) {
+    throw new Error("studio-timed: no timestamps resolved to a real window")
+  }
+
+  resolved.sort((a, b) => a.time_seconds - b.time_seconds)
+
+  // Two titles on one window is one index row.
+  return resolved.filter(
+    (t, i) => i === 0 || t.time_seconds !== resolved[i - 1].time_seconds,
+  )
 }
 
 /**

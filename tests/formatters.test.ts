@@ -8,6 +8,7 @@ import {
   researchSourceLabel,
   researchSourceSnippet,
   stripInlineMarkdown,
+  truncateOnWord,
 } from "@/lib/shared/formatters"
 
 describe("researchSourceLabel", () => {
@@ -139,5 +140,39 @@ describe("episodeBlurb", () => {
     expect(episodeBlurb({})).toBeNull()
     expect(episodeBlurb({ description: "https://example.com" })).toBeNull()
     expect(episodeBlurb({ description: "#وسم #آخر" })).toBeNull()
+  })
+})
+
+/**
+ * ص-٨ — the episode hero teaser. The old `summary.slice(0, 150)` cut
+ * mid-word on the reference episode ("…مشاعر الخوف والقلق التي ا…").
+ */
+describe("truncateOnWord", () => {
+  it("returns short text untouched, with no ellipsis", () => {
+    expect(truncateOnWord("نص قصير", 150)).toBe("نص قصير")
+  })
+
+  it("returns undefined for empty or missing input", () => {
+    expect(truncateOnWord(null, 150)).toBeUndefined()
+    expect(truncateOnWord("   ", 150)).toBeUndefined()
+  })
+
+  it("never cuts a word in half", () => {
+    const text = "مشاعر الخوف والقلق التي انتابته في تلك اللحظة كانت أقوى من أي شيء"
+    const out = truncateOnWord(text, 30)!
+    expect(out.endsWith("…")).toBe(true)
+    const body = out.slice(0, -1)
+    // Every word kept must appear whole in the source.
+    for (const w of body.split(" ")) expect(text.split(" ")).toContain(w)
+    expect(body.length).toBeLessThanOrEqual(30)
+  })
+
+  it("strips a dangling comma or space before the ellipsis", () => {
+    expect(truncateOnWord("واحد اثنان، ثلاثة أربعة", 12)).toBe("واحد اثنان…")
+  })
+
+  it("falls back to a hard cut when there is no space to back up to", () => {
+    const out = truncateOnWord("ا".repeat(300), 150)!
+    expect(out).toBe("ا".repeat(150) + "…")
   })
 })

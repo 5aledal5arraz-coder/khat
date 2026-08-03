@@ -13,8 +13,10 @@ import { mockDb, resetMock } from "../db-mock"
 vi.mock("@/lib/db", () => ({ db: mockDb, pool: {}, USE_DB: true }))
 
 const getWebsitePackageForSession = vi.fn()
+const getStudioSession = vi.fn()
 vi.mock("@/lib/studio", () => ({
   getWebsitePackageForSession: (id: string) => getWebsitePackageForSession(id),
+  getStudioSession: (id: string) => getStudioSession(id),
 }))
 
 vi.mock("@/lib/episodes/overrides", () => ({
@@ -54,6 +56,7 @@ import { runStudioPushToEpisode, StudioPushError } from "@/lib/studio/push-to-ep
 function rpcPayloads(): {
   override: Record<string, unknown> | null
   quotes: Record<string, unknown> | null
+  enrichment: Record<string, unknown> | null
 } {
   const call = mockDb.execute.mock.calls.at(-1)
   const chunks = (call?.[0] as { queryChunks?: unknown[] })?.queryChunks ?? []
@@ -68,7 +71,11 @@ function rpcPayloads(): {
   // Param order in the template: episodeId, override, quotes, enrichment, log
   const parse = (v: unknown) =>
     typeof v === "string" ? (JSON.parse(v) as Record<string, unknown>) : null
-  return { override: parse(params[1]), quotes: parse(params[2]) }
+  return {
+    override: parse(params[1]),
+    quotes: parse(params[2]),
+    enrichment: parse(params[3]),
+  }
 }
 
 function pkg(overrides: Record<string, unknown> = {}) {
@@ -99,6 +106,97 @@ beforeEach(() => {
   fetchAllEpisodes.mockResolvedValue([
     { id: "ZPeBeS87EeI", title: "نور الدين زنكي" },
   ])
+  getStudioSession.mockResolvedValue({ duration_seconds: 5178 })
+})
+
+/**
+ * ص-٨ — the duration gate.
+ *
+ * Before this, the ONLY check on a timestamp's clock lived inside the
+ * generator, which made the generator the last line of defence for rows it
+ * did not necessarily produce. A package generated before that bound
+ * existed — or hand-edited in the admin — walked straight onto the public
+ * page carrying a timestamp past the end of the episode. The reference
+ * package for `knyKlUZIwYQ` held four such rows, up to 7200s on a 5178s
+ * episode.
+ */
+describe("Studio push — timestamp duration gate", () => {
+  const ts = (time_seconds: number, title = "عنوان") => ({
+    time_seconds,
+    title,
+    description: null,
+  })
+
+  it("drops timestamps past the end of the episode", async () => {
+    getWebsitePackageForSession.mockResolvedValue(
+      pkg({ quotes: [], timestamps: [ts(300), ts(5000), ts(7200), ts(6000)] }),
+    )
+    await runStudioPushToEpisode({
+      sessionId: "s1",
+      fields: { timestamps: true },
+    })
+    const { enrichment } = rpcPayloads()
+    expect((enrichment?.timestamps as unknown[]).map((t) => (t as { time_seconds: number }).time_seconds))
+      .toEqual([300, 5000])
+  })
+
+  it("drops a negative or non-numeric timestamp", async () => {
+    getWebsitePackageForSession.mockResolvedValue(
+      pkg({
+        quotes: [],
+        timestamps: [ts(-5), { time_seconds: "غير رقم", title: "س", description: null }, ts(10)],
+      }),
+    )
+    await runStudioPushToEpisode({
+      sessionId: "s1",
+      fields: { timestamps: true },
+    })
+    const { enrichment } = rpcPayloads()
+    expect((enrichment?.timestamps as unknown[]).map((t) => (t as { time_seconds: number }).time_seconds))
+      .toEqual([10])
+  })
+
+  it("checks nothing when the duration is unknown — never rejects everything", async () => {
+    getStudioSession.mockResolvedValue({ duration_seconds: null })
+    getWebsitePackageForSession.mockResolvedValue(
+      pkg({ quotes: [], timestamps: [ts(300), ts(99999)] }),
+    )
+    await runStudioPushToEpisode({
+      sessionId: "s1",
+      fields: { timestamps: true },
+    })
+    const { enrichment } = rpcPayloads()
+    expect((enrichment?.timestamps as unknown[]).length).toBe(2)
+  })
+
+  it("treats a stored 0 duration as unknown, not as a zero-length episode", async () => {
+    // `app/api/admin/studio/route.ts` writes 0 when the YouTube ISO-8601
+    // duration fails to parse. Rejecting every row against a 0 bound would
+    // be worse than not checking at all.
+    getStudioSession.mockResolvedValue({ duration_seconds: 0 })
+    getWebsitePackageForSession.mockResolvedValue(
+      pkg({ quotes: [], timestamps: [ts(300), ts(1200)] }),
+    )
+    await runStudioPushToEpisode({
+      sessionId: "s1",
+      fields: { timestamps: true },
+    })
+    const { enrichment } = rpcPayloads()
+    expect((enrichment?.timestamps as unknown[]).length).toBe(2)
+  })
+
+  it("still drops an empty title, and keeps both gates independent", async () => {
+    getWebsitePackageForSession.mockResolvedValue(
+      pkg({ quotes: [], timestamps: [ts(300, "   "), ts(400, "عنوان صالح"), ts(9000, "بعد النهاية")] }),
+    )
+    await runStudioPushToEpisode({
+      sessionId: "s1",
+      fields: { timestamps: true },
+    })
+    const { enrichment } = rpcPayloads()
+    expect((enrichment?.timestamps as unknown[]).map((t) => (t as { title: string }).title))
+      .toEqual(["عنوان صالح"])
+  })
 })
 
 describe("Studio push — quote publish gate", () => {
