@@ -24,7 +24,9 @@ export function ScrollToTop() {
       onClick={scrollToTop}
       aria-label="العودة للأعلى"
       className={cn(
-        "fixed z-40 flex h-10 w-10 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg transition-all duration-300 hover:bg-primary/90",
+        // 44×44 — the same floor the episode-index rows were raised to. This
+        // was 40px, and it is a control that only ever appears on a phone.
+        "fixed z-40 flex h-11 w-11 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg transition-all duration-300 hover:bg-primary/90",
         "bottom-20 end-4 md:bottom-6 md:end-6",
         visible
           ? "translate-y-0 opacity-100"

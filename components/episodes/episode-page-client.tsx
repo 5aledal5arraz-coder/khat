@@ -45,7 +45,11 @@ function TimestampLink({ seconds, title }: { seconds: number; title: string }) {
       // focusable control on this page uses.
       className="flex min-h-11 w-full items-center gap-3 rounded-lg px-3 py-2 text-start transition-colors hover:bg-muted focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:ring-offset-2"
     >
-      <span className="shrink-0 font-mono text-caption tabular-nums text-primary">
+      {/* Fixed column. `formatTimeSeconds` returns `M:SS` under the hour and
+          `H:MM:SS` over it, so in a list that crosses the hour every title
+          below that point started ~35px further in than the ones above it.
+          `min-w-16` (64px) holds the widest form at this size. */}
+      <span className="min-w-16 shrink-0 font-mono text-caption tabular-nums text-primary">
         {formatTimeSeconds(seconds)}
       </span>
       <span className="text-caption">{title}</span>
@@ -236,10 +240,16 @@ export function EpisodePageClient({
             </div>
           )}
 
-          {/* 3. Why This Conversation */}
-          <div id="sec-why">
-          <WhyThisConversation text={enrichment?.why_this_conversation} />
-          </div>
+          {/* 3. Why This Conversation — the anchor only exists when the
+              section does. `WhyThisConversation` returns null without text,
+              so the unconditional wrapper left `<div id="sec-why"></div>` in
+              the markup and any index link pointing at it jumped to nothing.
+              Same shape as `sec-summary` below. */}
+          {enrichment?.why_this_conversation && (
+            <div id="sec-why">
+              <WhyThisConversation text={enrichment.why_this_conversation} />
+            </div>
+          )}
 
           {/* 4. Central Question */}
           <CentralQuestion question={enrichment?.central_question} />

@@ -223,14 +223,39 @@ export function formatTime(iso: string): string {
 
 // ─── Duration / Time Formatting ──────────────────────────────────────────────
 
-/** Format minutes as Arabic duration (e.g., "٤٥ دقيقة" or "1:05"). */
+/**
+ * Minutes as one Arabic duration label — «2 س 15 د» / «18 دقيقة».
+ *
+ * ONE FORM, and it is unit-bearing at both ends. The site used to show three:
+ * this function returned a bare `2:15` above the hour and «18 دقيقة» below it
+ * (inconsistent with ITSELF, and `2:15` reads as a clock time, not a length),
+ * while `episodeDurationLabel` — a second copy living in
+ * `components/episodes/episode-poster-card.tsx` — returned «2 س 15 د» on the
+ * cards. Same episode, three renderings depending on the surface.
+ *
+ * The `س`/`د` shape is the one kept: it is the only one that says what the
+ * numbers ARE. Below the hour it goes through `formatArabicCount` so the
+ * plural is right («5 دقائق», not «5 دقيقة»).
+ */
 export function formatDuration(minutes: number): string {
   const hours = Math.floor(minutes / 60)
   const mins = minutes % 60
   if (hours > 0) {
-    return `${hours}:${mins.toString().padStart(2, '0')}`
+    // «2 س», not «2 س 0 د» — a whole number of hours is real in this archive
+    // (one episode measures exactly 120 minutes).
+    return mins > 0 ? `${hours} س ${mins} د` : `${hours} س`
   }
   return formatArabicCount(mins, "دقيقة")
+}
+
+/**
+ * The same label, for surfaces that omit the field entirely when the duration
+ * is missing or zero rather than printing a placeholder. The formatting itself
+ * is `formatDuration`'s — this only decides "show nothing".
+ */
+export function episodeDurationLabel(min?: number | null): string | null {
+  if (!min || min <= 0) return null
+  return formatDuration(min)
 }
 
 /** Format seconds as HH:MM:SS or MM:SS. */

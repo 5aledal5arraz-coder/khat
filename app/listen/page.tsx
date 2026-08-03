@@ -5,7 +5,10 @@ import { listActivePlatforms, getPlatformByKey } from "@/lib/queries/official-pl
 import { PlatformIcon } from "@/components/platforms/platform-icon"
 
 export const metadata: Metadata = {
-  title: "استمع الآن | بودكاست خط",
+  // NO SITE NAME HERE — `app/layout.tsx` appends it via `title.template`, so
+  // spelling it out shipped «استمع الآن | بودكاست خط | بودكاست خط». Same rule
+  // `categoryMetadata` documents in lib/episodes/programs.ts.
+  title: "استمع الآن",
   description: "استمع لبودكاست خط على منصتك المفضلة — Spotify, Apple Podcasts والمزيد",
 }
 

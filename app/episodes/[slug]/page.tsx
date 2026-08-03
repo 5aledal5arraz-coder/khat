@@ -1,3 +1,4 @@
+import { cache } from "react"
 import { Metadata } from "next"
 import { notFound } from "next/navigation"
 import {
@@ -18,12 +19,23 @@ import { resolveDefaultOgImage } from "@/lib/seo/og"
 import { listPlatformsForSurface, listActivePlatforms } from "@/lib/queries/official-platforms"
 import { getEpisodeSponsor } from "@/lib/queries/episode-sponsors"
 import { getYouTubeId } from "@/lib/utils"
+import { displayEpisodeTitle } from "@/lib/shared/formatters"
 import { EpisodePageClient } from "@/components/episodes/episode-page-client"
 import { ReadingProgress } from "@/components/ui/reading-progress"
 
 // Note: searchParams (t= timestamp) forces dynamic rendering in Next.js 15+
 // ISR would require moving timestamp param to client-side parsing
 export const dynamic = "force-dynamic"
+
+/**
+ * One enrichment read per request, shared by `generateMetadata` and the page
+ * body — both need it now that the share card uses `hero_summary`, and Next
+ * runs the two separately. Same `cache()` pattern as
+ * `getCategoriesForRequest` in lib/queries/categories.ts.
+ */
+const getEnrichmentForRequest = cache((episodeId: string) =>
+  getPublicEpisodeEnrichment(episodeId),
+)
 
 interface EpisodePageProps {
   params: Promise<{ slug: string }>
@@ -45,13 +57,32 @@ export async function generateMetadata({ params }: EpisodePageProps): Promise<Me
   // obeyed it.
   const ogImage = episodeThumbUrl(episode) ?? undefined
 
+  // The layout's `title.template` appends the site name to every page, and
+  // these titles arrive from YouTube already carrying the brand stamp — so 12
+  // episodes shipped «… | بودكاست خط | بودكاست خط», the longest 113 characters
+  // against the ~60 a search result shows.
+  //
+  // `displayEpisodeTitle` is the SAME peeler the cards and the page's own <h1>
+  // already use, so the tab and the heading now read alike instead of the head
+  // carrying a stamp the body had stripped. Not a second stripper written for
+  // metadata — that is how the two would drift.
+  const metaTitle = displayEpisodeTitle(episode.title)
+
+  // `og:description` is a CARD, not the article. `summary` is the full
+  // multi-paragraph body — 900+ characters on the episodes measured — which
+  // every share surface truncates mid-sentence. `hero_summary` is the
+  // one-sentence version written for exactly this, so prefer it and fall back
+  // to the long one only when it is missing.
+  const heroSummary = (await getEnrichmentForRequest(episode.id))?.hero_summary?.trim()
+  const cardDescription = heroSummary || episode.summary || undefined
+
   return {
-    title: episode.title,
-    description: episode.summary || `حلقة من بودكاست خط مع ${episode.guest?.name || "ضيف مميز"}`,
+    title: metaTitle,
+    description: cardDescription || `حلقة من بودكاست خط مع ${episode.guest?.name || "ضيف مميز"}`,
     alternates: { canonical: `https://khatpodcast.com/episodes/${episode.slug}` },
     openGraph: {
-      title: episode.title,
-      description: episode.summary || undefined,
+      title: metaTitle,
+      description: cardDescription,
       type: "article",
       // The YouTube thumbnail stays the card whenever we can derive a video id.
       // When we can't (a non-standard `youtube_url`), fall back to the site card
@@ -80,7 +111,7 @@ export default async function EpisodePage({ params, searchParams }: EpisodePageP
     getCachedAdjacentEpisodes(episode.slug),
     getQuotesByEpisodeId(episode.id),
     getReflectionsByEpisodeId(episode.id),
-    getPublicEpisodeEnrichment(episode.id),
+    getEnrichmentForRequest(episode.id),
     listPlatformsForSurface("episode_page"),
     listActivePlatforms(),
     getEpisodeSponsor(episode.id),

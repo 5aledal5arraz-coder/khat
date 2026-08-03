@@ -2,7 +2,7 @@ import type { WebsiteQuoteItem, WebsiteResourceItem, WebsiteTimestampItem } from
 import { env } from "@/lib/env"
 import { prepareTranscript, prepareTranscriptWithPositions } from "./client"
 import { runAiTask } from "@/lib/ai-router"
-import { stripChunkScaffold } from "@/lib/studio/utils"
+import { normalizeDurationSeconds, stripChunkScaffold } from "@/lib/studio/utils"
 import { mergeIntoWindows, renderWithIds, type TimedSegment } from "@/lib/studio/segments"
 import {
   buildTimedTimestampsPrompt,
@@ -56,7 +56,11 @@ export async function generateWebsitePackage(
   }
 
   try {
-    const durationMin = durationSeconds ? Math.round(durationSeconds / 60) : null
+    // ص-٨ — normalise ONCE, at the entry. Everything below reads `duration`,
+    // never the raw argument, so the prompt bound, the telemetry snapshot and
+    // the output filter cannot disagree about what a 0 meant.
+    const duration = normalizeDurationSeconds(durationSeconds)
+    const durationMin = duration ? Math.round(duration / 60) : null
     const isLong = durationMin && durationMin >= 120
     const isMedium = durationMin && durationMin >= 60
     const timestampTarget = isLong ? "14-18" : isMedium ? "10-15" : "8-12"
@@ -92,7 +96,7 @@ export async function generateWebsitePackage(
         promptVersion: WEBSITE_TIMESTAMPS_TIMED_PROMPT_VERSION,
         input: {
           videoTitle,
-          durationSeconds,
+          durationSeconds: duration,
           phase: "timestamps",
           timestampTarget,
           windowCount: windows.length,
@@ -136,7 +140,7 @@ export async function generateWebsitePackage(
       const legacy = await generateTimestampsEstimated({
         transcript,
         videoTitle,
-        durationSeconds,
+        durationSeconds: duration,
         durationMin,
         timestampTarget,
         eirContext,
@@ -236,7 +240,7 @@ ${editorialText}`
       subjectId: eirContext?.subjectId ?? null,
       input: {
         videoTitle,
-        durationSeconds,
+        durationSeconds: duration,
         phase: "editorial",
         hasIntelligence: Boolean(episodeIntelligence),
       },
@@ -315,6 +319,7 @@ ${editorialText}`
 async function generateTimestampsEstimated(args: {
   transcript: string
   videoTitle: string
+  /** Already through `normalizeDurationSeconds` — null means "unknown". */
   durationSeconds: number | null
   durationMin: number | null
   timestampTarget: string
@@ -372,11 +377,14 @@ ${positionalText}`
     timestamps = Array.isArray(tsResult.parsed.timestamps)
       ? tsResult.parsed.timestamps
           .filter((t) => typeof t.time_seconds === "number" && t.title)
-          // ص-٨ — `!durationSeconds` disabled this filter entirely whenever
-          // the duration was 0, and 0 is exactly what
-          // `app/api/admin/studio/route.ts` stores when the YouTube ISO-8601
-          // duration fails to parse. A null duration means "unknown, cannot
-          // check"; a zero one used to mean "check nothing".
+          // ص-٨ — a null duration means "unknown, cannot check" — never
+          // "check nothing", and never "reject everything". `0` never
+          // reaches here as a bound: `normalizeDurationSeconds` at the
+          // entry already turned it into null, because 0 is what
+          // `app/api/admin/studio/route.ts` stores when the YouTube
+          // ISO-8601 duration fails to parse. Rejecting every row against
+          // a 0 bound would be worse than not checking at all — the same
+          // rule `lib/studio/push-to-episode.ts` applies at the publish end.
           .filter((t) => durationSeconds == null || t.time_seconds <= durationSeconds)
           .sort((a, b) => a.time_seconds - b.time_seconds)
           // ص-١٠ — THIS is where the summarizer scaffold actually leaks.

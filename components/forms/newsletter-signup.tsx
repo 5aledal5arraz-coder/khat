@@ -218,7 +218,12 @@ export function NewsletterSignup({
       <p
         id={`nl-help-${variant}`}
         className={cn(
-          "text-muted-foreground/80",
+          // FULL opacity. `--muted-foreground` is already tuned to sit just
+          // above 4.5:1 on the page background; the /80 dropped this line to a
+          // measured 3.56:1 (rgb(137,133,156) on white) — the only contrast
+          // failure on the public site. Muted text does not get an opacity
+          // modifier on top of an already-muted token.
+          "text-muted-foreground",
           isHero ? "mt-3 text-center text-micro" : "mt-2 text-micro",
         )}
       >

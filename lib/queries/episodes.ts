@@ -30,6 +30,7 @@ import { getPublishedQuotes } from "@/lib/episodes/quotes"
 import { getEpisodeEnrichment, getPublicEpisodeEnrichment } from "@/lib/episodes/enrichments"
 import { mergeEpisodeLists, mergeEpisode } from "@/lib/episodes/merge"
 import { getDeletedEpisodeIds } from "@/lib/episodes/deleted"
+import { filterLane, laneOfEpisode } from "@/lib/episodes/programs"
 
 // ─── Configuration ───────────────────────────────────────────────────────────
 
@@ -983,15 +984,38 @@ export async function getGuestBySlug(
 // single cached list instead of re-running the YouTube+DB merge per call —
 // which is what every episode detail page and the list page used to do.
 
+/**
+ * Both selectors below stay INSIDE the lane of the episode being displayed.
+ *
+ * They used to walk the whole archive, and the archive is one newest-first
+ * list across every lane, so «الحلقة التالية» from a خط conversation was
+ * whatever happened to be adjacent by date — measured, episode 019's "next"
+ * was a clip. `filterLane`/`laneOfEpisode` (lib/episodes/programs.ts) is the
+ * one place that decides what lane a row is in; this reads it rather than
+ * re-deriving adjacency from categories on its own.
+ *
+ * An episode whose lane cannot be resolved falls back to the full list, which
+ * is exactly the old behaviour — `filterLane` already warns in that case, and
+ * a page with no neighbours at all is worse than a page with loose ones.
+ */
+function laneScope(list: Episode[], current: Episode): Episode[] {
+  const scoped = filterLane(list, laneOfEpisode(current))
+  return scoped.some((e) => e.id === current.id) ? scoped : list
+}
+
 /** List is newest-first: "next" = newer (index − 1), "prev" = older (index + 1). */
 export function selectAdjacentEpisodes(
   list: Episode[],
   currentSlug: string,
 ): { prev: Episode | null; next: Episode | null } {
-  const currentIndex = list.findIndex((e) => e.slug === currentSlug)
+  const current = list.find((e) => e.slug === currentSlug)
+  if (!current) return { prev: null, next: null }
+
+  const scoped = laneScope(list, current)
+  const currentIndex = scoped.findIndex((e) => e.slug === currentSlug)
   if (currentIndex === -1) return { prev: null, next: null }
-  const next = currentIndex > 0 ? list[currentIndex - 1] : null
-  const prev = currentIndex < list.length - 1 ? list[currentIndex + 1] : null
+  const next = currentIndex > 0 ? scoped[currentIndex - 1] : null
+  const prev = currentIndex < scoped.length - 1 ? scoped[currentIndex + 1] : null
   return { prev, next }
 }
 
@@ -1000,7 +1024,16 @@ export function selectRelatedEpisodes(
   episodeId: string,
   limit: number = 3,
 ): Episode[] {
-  return list.filter((e) => e.id !== episodeId).slice(0, limit)
+  const current = list.find((e) => e.id === episodeId)
+  if (!current) return list.slice(0, limit)
+  // Still "the newest in this lane", not real relatedness — that is what the
+  // curated graph in lib/episodes/episode-graph.ts is for, and this runs only
+  // when the graph returns nothing. But newest-in-lane is at least ABOUT the
+  // episode being viewed: the unscoped version returned the same three clips
+  // on all 8 episodes measured, none of them from the خط lane at all.
+  return laneScope(list, current)
+    .filter((e) => e.id !== episodeId)
+    .slice(0, limit)
 }
 
 export function tallyEpisodeCounts(list: Episode[]): Record<string, number> {
@@ -1013,17 +1046,21 @@ export function tallyEpisodeCounts(list: Episode[]): Record<string, number> {
   return counts
 }
 
+// `withCategories: true` is REQUIRED now, not an optimisation: both selectors
+// scope to the episode's lane, and `laneOfEpisode` reads `ep.category.slug`.
+// Fetched without it, `filterLane` warns and every row classifies as خط. The
+// live pages go through `getCachedPublicEpisodes()`, which already sets it.
 export async function getAdjacentEpisodes(
   currentSlug: string
 ): Promise<{ prev: Episode | null; next: Episode | null }> {
-  return selectAdjacentEpisodes(await getEpisodes({}), currentSlug)
+  return selectAdjacentEpisodes(await getEpisodes({ withCategories: true }), currentSlug)
 }
 
 export async function getRelatedEpisodes(
   episodeId: string,
   limit: number = 3
 ): Promise<Episode[]> {
-  return selectRelatedEpisodes(await getEpisodes({}), episodeId, limit)
+  return selectRelatedEpisodes(await getEpisodes({ withCategories: true }), episodeId, limit)
 }
 
 export async function getEpisodeCounts(): Promise<Record<string, number>> {

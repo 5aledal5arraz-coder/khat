@@ -58,7 +58,7 @@ import {
   syncEirOnEpisodePublish,
 } from "@/lib/khat-brain"
 import { getWebsitePackageForSession, getStudioSession } from "@/lib/studio"
-import { stripChunkScaffold } from "@/lib/studio/utils"
+import { normalizeDurationSeconds, stripChunkScaffold } from "@/lib/studio/utils"
 
 export interface StudioPushFields {
   title?: boolean
@@ -494,18 +494,14 @@ const YOUTUBE_ID_RE = /^[A-Za-z0-9_-]{11}$/
 /**
  * ص-٨ — the episode length the timestamp gate measures against.
  *
- * Returns null for "unknown", and treats a stored 0 as unknown rather
- * than as a real zero-length episode: `app/api/admin/studio/route.ts`
- * writes 0 when the YouTube ISO-8601 duration fails to parse, so a 0
- * here means the fetch failed, not that the episode has no content.
- * Rejecting every row against a 0 bound would be worse than not
- * checking at all.
+ * The "is this duration usable" rule itself lives in
+ * `normalizeDurationSeconds` (`lib/studio/utils.ts`) so this gate and the
+ * generator in `lib/ai/website.ts` cannot disagree about what a stored 0
+ * means — they did, and the generator's reading emptied the index.
  */
 async function resolveSessionDuration(sessionId: string): Promise<number | null> {
   const session = await getStudioSession(sessionId)
-  const d = session?.duration_seconds
-  if (typeof d !== "number" || !Number.isFinite(d) || d <= 0) return null
-  return d
+  return normalizeDurationSeconds(session?.duration_seconds)
 }
 
 function isVideoIdTitle(title: string, episodeId: string): boolean {

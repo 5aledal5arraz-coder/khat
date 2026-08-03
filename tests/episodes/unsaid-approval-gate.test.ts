@@ -234,3 +234,15 @@ describe("setEpisodeEnrichment — approvals persist, and generation cannot gran
     ).toEqual([])
   })
 })
+
+describe("getPublicEpisodeEnrichment — the internal review list never ships", () => {
+  it("drops unsaid_reflections_approved from the public payload", async () => {
+    mockSelectResult([row({ unsaid_reflections_approved: [ITEM_A] })])
+    const result = await getPublicEpisodeEnrichment("ep-1")
+
+    expect(result).not.toBeNull()
+    expect(result).not.toHaveProperty("unsaid_reflections_approved")
+    // The gate itself still works — the approved item is still published.
+    expect(result!.unsaid_reflections).toEqual([ITEM_A])
+  })
+})

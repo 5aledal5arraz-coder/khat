@@ -124,8 +124,16 @@ export async function getPublicEpisodeEnrichment(episodeId: string): Promise<Epi
   const enrichment = await getEpisodeEnrichment(episodeId)
   if (!isEnrichmentPublic(enrichment) || !enrichment) return null
   const approved = publicUnsaidReflections(enrichment)
+  // `unsaid_reflections_approved` is the editor's internal review list — it is
+  // the INPUT to the gate above, never output. Spreading it kept shipping it to
+  // the public page (and into the serialised RSC payload), where a stale
+  // approval for a since-deleted item is the one thing that could surface an
+  // item the editor no longer has. It is dropped here rather than trimmed at
+  // save time, so no future write path can put it back on a public payload.
+  const publicFields: EpisodeEnrichment = { ...enrichment }
+  delete publicFields.unsaid_reflections_approved
   return {
-    ...enrichment,
+    ...publicFields,
     unsaid_reflections: approved.length > 0 ? approved : undefined,
   }
 }

@@ -28,7 +28,11 @@ export function EpisodeIdeas({ keyIdeas, takeaways }: EpisodeIdeasProps) {
         )}
         {hasTakeaways && (
           <div className="rounded-lg border p-4">
-            <h3 className="mb-3 font-medium">دروس وفوايد</h3>
+            {/* Was «دروس وفوايد»: a near-synonym of the «ودروس» in the h2 one
+                line above it, and «فوايد» is the spoken spelling of «فوائد» on
+                a page written in فصحى throughout. `takeaways` are the
+                conclusions, and that is a word of its own. */}
+            <h3 className="mb-3 font-medium">الخلاصات</h3>
             <ol className="space-y-2">
               {takeaways.map((takeaway, i) => (
                 <li key={i} className="flex gap-2 text-caption">

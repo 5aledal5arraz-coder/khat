@@ -4,16 +4,14 @@ import { ArrowLeft, Play, Sparkles } from "lucide-react"
 import { getCachedPublicEpisodes, getCachedActiveTeaser } from "@/lib/cache"
 import type { Episode } from "@/types/database"
 import { TeaserSection } from "@/components/teaser/teaser-section"
-import {
-  EpisodePosterCard,
-  episodeDurationLabel,
-} from "@/components/episodes/episode-poster-card"
+import { EpisodePosterCard } from "@/components/episodes/episode-poster-card"
 import { EpisodeThumb } from "@/components/media/episode-thumb"
 import { filterLane } from "@/lib/episodes/programs"
 import { NewsletterSignup } from "@/components/forms/newsletter-signup"
 import {
   displayEpisodeTitle,
   episodeBlurb,
+  episodeDurationLabel,
   formatArabicDate,
 } from "@/lib/shared/formatters"
 import { resolveDefaultOgImage } from "@/lib/seo/og"
@@ -185,7 +183,11 @@ export default async function HomePage() {
                 className="inline-flex h-12 items-center gap-2 rounded-full border border-border bg-card px-7 text-body font-semibold text-foreground transition-colors hover:bg-secondary"
               >
                 <Play className="h-4 w-4 fill-current text-accent" />
-                شاهد الأحدث
+                {/* Same verb as the card below, which links to the SAME
+                    episode — the hero said «شاهد» and the card said «استمع»
+                    for one destination. «استمع» is the one the rest of the
+                    site uses (/listen, the featured card). */}
+                استمع للأحدث
               </Link>
             ) : null}
           </div>

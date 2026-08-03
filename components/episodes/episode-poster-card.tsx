@@ -1,16 +1,16 @@
 import Link from "next/link"
 import { EpisodeThumb } from "@/components/media/episode-thumb"
-import { displayEpisodeTitle, formatArabicDate } from "@/lib/shared/formatters"
+import {
+  displayEpisodeTitle,
+  episodeDurationLabel,
+  formatArabicDate,
+} from "@/lib/shared/formatters"
 import type { Episode } from "@/types/database"
 
-
-/** Arabic short duration label, e.g. "1 س 12 د" / "18 دقيقة". */
-export function episodeDurationLabel(min?: number | null): string | null {
-  if (!min || min <= 0) return null
-  const h = Math.floor(min / 60)
-  const m = min % 60
-  return h > 0 ? `${h} س ${m} د` : `${m} دقيقة`
-}
+// `episodeDurationLabel` used to be DEFINED here, which is how the site ended
+// up with two duration formats: this copy said «2 س 15 د» and `formatDuration`
+// in the formatters module said «2:15» for the same episode. Date/time/duration
+// formatting lives in lib/shared/formatters.ts only — import it from there.
 
 /**
  * The episode card. There is one — this one.

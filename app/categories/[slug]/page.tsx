@@ -11,9 +11,11 @@ import {
   categoryMetadata,
   laneGroups,
   laneOfCategorySlug,
+  laneUnitNoun,
   showsGroupRow,
   type ProgramLane,
 } from "@/lib/episodes/programs"
+import { arabicPluralNoun, formatArabicCount } from "@/lib/shared/formatters"
 
 /** The archive view for a whole lane. `/episodes` already means the default. */
 function laneUrl(lane: ProgramLane): string {
@@ -112,9 +114,14 @@ export default async function CategoryPage({ params }: CategoryPageProps) {
             {category.name}
           </h1>
           <p className="mt-4 text-body text-muted-foreground">
+            {/* The count and its unit both come from the shared helpers, the
+                same two `/episodes` already uses. Written inline, this line
+                printed «6 حلقة في «مقاطع خط»» — the wrong plural for 3-10 AND
+                the wrong noun for a lane whose own note says «مو حلقات
+                كاملة». Two contradictions of the same page, in one string. */}
             {episodes.length > 0
-              ? `${episodes.length} حلقة في «${category.name}»`
-              : `ما فيه حلقات في تصنيف «${category.name}» بعد`}
+              ? `${formatArabicCount(episodes.length, laneUnitNoun(lane))} في «${category.name}»`
+              : `ما فيه ${arabicPluralNoun(0, laneUnitNoun(lane))} في تصنيف «${category.name}» بعد`}
           </p>
 
           {/* The SAME two-level nav as /episodes, so the taxonomy a visitor

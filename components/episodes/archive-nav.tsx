@@ -118,7 +118,9 @@ export function ArchiveNav({
               href={laneHref(lane)}
               aria-current={current ? "page" : undefined}
               className={cn(
-                "inline-flex items-center gap-2 rounded-full border px-4 py-2 text-caption font-semibold transition-colors",
+                // `min-h-11` (44px), not more padding: these measured 43px, and
+                // the floor belongs on the box so the label keeps its size.
+                "inline-flex min-h-11 items-center gap-2 rounded-full border px-4 py-2 text-caption font-semibold transition-colors",
                 "focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:ring-offset-2",
                 active
                   ? "border-primary bg-primary text-primary-foreground"

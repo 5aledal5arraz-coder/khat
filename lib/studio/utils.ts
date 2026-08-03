@@ -183,6 +183,29 @@ export function countWords(text: string): number {
 }
 
 /**
+ * ص-٨ — the ONE definition of "how long is this episode".
+ *
+ * `app/api/admin/studio/route.ts` stores `duration_seconds: 0` when the
+ * YouTube ISO-8601 duration fails to parse, so a 0 on a session means
+ * "the fetch failed", never "zero seconds of content". That distinction
+ * used to be re-decided at every consumer, and the two ends of the same
+ * pipeline drifted apart: the publish gate normalised 0 to unknown while
+ * the website generator bounded against it and dropped every row past
+ * 0s. Neither reading is wrong on its own — having two is.
+ *
+ * Returns a positive finite number, or null for "unknown — nothing may
+ * be bounded against this". Callers keep the `x != null` shape, which
+ * fails safe: an unknown duration checks nothing rather than rejecting
+ * everything.
+ */
+export function normalizeDurationSeconds(
+  value: number | null | undefined,
+): number | null {
+  if (typeof value !== "number" || !Number.isFinite(value) || value <= 0) return null
+  return value
+}
+
+/**
  * Parse uploaded file content (SRT, VTT, or plain TXT) into raw text.
  */
 export function parseUploadedTranscript(content: string, filename: string): string {

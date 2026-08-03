@@ -305,7 +305,10 @@ export default async function EpisodesPage({ searchParams }: EpisodesPageProps) 
               <button
                 type="submit"
                 aria-label="بحث"
-                className="absolute end-1.5 top-1/2 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+                // 44×44 inside a 48px-tall field — it fits with 2px of inset on
+                // each side, so the target reaches the floor without the button
+                // touching the border. Was 36px.
+                className="absolute end-0.5 top-1/2 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
               >
                 <Search className="h-4 w-4" />
               </button>
@@ -387,9 +390,16 @@ export default async function EpisodesPage({ searchParams }: EpisodesPageProps) 
         ) : (
           <div className="mt-16 rounded-3xl border border-dashed border-border bg-card/50 px-6 py-20 text-center">
             <p className="text-lead font-bold text-foreground">
-              {resolved.state === "known" && !query
-                ? `ما فيه حلقات في تصنيف «${resolved.category.name}» بعد`
-                : "لا توجد حلقات بعد"}
+              {/* A SEARCH that matched nothing is not an empty archive. This
+                  card used to print «لا توجد حلقات بعد» under a summary line
+                  already reading «لا توجد نتائج لـ …» — the same fact twice,
+                  and the second telling saying something false: the archive is
+                  full, the query just missed. */}
+              {query
+                ? "ما فيه شي يطابق بحثك"
+                : resolved.state === "known"
+                  ? `ما فيه حلقات في تصنيف «${resolved.category.name}» بعد`
+                  : "لا توجد حلقات بعد"}
             </p>
             <p className="mt-2 text-caption text-muted-foreground">
               {query
