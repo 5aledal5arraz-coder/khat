@@ -82,6 +82,22 @@
  * class that does not exist anywhere in globals.css, surviving a client-side
  * navigation. "The console shows an error" is not evidence that the code under
  * test is broken — same family as "the name did not change".
+ *
+ * AND THE MECHANISM, MEASURED 2026-08-03, because "stale, probably" is where
+ * that note stopped and it is not where it should have. A Turbopack COMPILE
+ * error is held by the DEV SERVER, not by the page, and it is re-pushed over
+ * the HMR socket to every client that connects. Observed on
+ * `lib/episodes/programs.ts`: an editing intermediate put one character in the
+ * wrong place, the module failed to parse once, and after the file was fixed
+ * the browser console still reported the parse error — WITH THE OLD SOURCE
+ * QUOTED IN IT — while `curl` of the same route returned a correct 200. It
+ * survived a full navigation and it survived `touch`ing the file.
+ *
+ * So the reading is: an error quoting source that is not in the file is a
+ * SERVER-HELD error, and the only thing that clears it is restarting the dev
+ * server. Two corollaries worth as much as the fact — a console error whose
+ * quoted lines do not match the file on disk is evidence about a PAST state,
+ * and a green `curl` of the route is the cheapest way to tell the two apart.
  */
 import { describe, it, expect } from "vitest"
 import { readFileSync, readdirSync, statSync } from "node:fs"
@@ -1764,11 +1780,16 @@ describe("ordinary rules read the switch point, and say what they read", () => {
    *   href={FONT_HREF}       the URL behind a constant.
    *   @import url(…)         inside a <style> block — no <link> at all.
    *
-   * And the last one is not hypothetical: THE TREE ALREADY HAD FOUR OF THEM,
+   * And the last one is not hypothetical: THE TREE ALREADY HAD THREE OF THEM,
    * every one single-quoted, none ever read by this test —
-   * `app/admin/media-kit/page.tsx`, `app/admin/submissions/submissions-tabs.tsx`
-   * and `lib/pdf/proposal-pdf.ts`. They happen to fetch the family we paint
-   * with, so nothing is wrong today; the guard simply had no idea they existed.
+   * `app/admin/media-kit/page.tsx:48`, `app/admin/submissions/submissions-tabs
+   * .tsx:1066` and `lib/pdf/proposal-pdf.ts:96`. They happen to fetch the family
+   * we paint with, so nothing is wrong today; the guard simply had no idea they
+   * existed. (This comment said FOUR for a wave, counting `app/layout.tsx`,
+   * which is a `<link>` and the one file the old test DID read. Three `@import`s
+   * plus one `<link>` is four FILES fetching fonts, and that is the number below
+   * — but it was written as four `@import`s, and a guard's own arithmetic being
+   * wrong is how nobody notices the fifth.)
    *
    * The root cause is that it matched the DELIVERY MECHANISM instead of the
    * thing that costs bytes. A stylesheet URL is a stylesheet URL whether an
@@ -1778,8 +1799,24 @@ describe("ordinary rules read the switch point, and say what they read", () => {
    * that is not on it, so the list cannot silently go out of date the way the
    * single hardcoded filename did.
    *
-   * DECLARED LIMIT: a URL assembled at runtime (`\`…css2?family=${name}\``) is
-   * not resolved. The literal text has to be in the file.
+   * ── AND THREE MORE WAYS OUT, ALL CLOSED BELOW ────────────────────────────
+   * "It fails if a fifth file appears" was not true either. Measured:
+   *   · the sweep read `.ts`/`.tsx`/`.css` ONLY, so a `.js`, `.mjs`, `.cjs` or
+   *     a `public/*.html` fetching a font was never opened. The tree has such a
+   *     file today — `scripts/qa-admin-page.mjs` — and it went unread;
+   *   · it skipped every entry whose name starts with a dot, which is a rule
+   *     about four directories written as a rule about all of them. Named
+   *     skips now, so a dot-directory no longer hides a file by existing;
+   *   · the URL pattern demanded `https:`, so `//fonts.googleapis.com/css2?…`
+   *     (protocol-relative — what a copy-pasted embed often is) and `http://`
+   *     both walked past it. The scheme is optional now.
+   *
+   * DECLARED LIMITS, both real:
+   *   · a URL assembled at runtime (`\`…css2?family=${name}\``) is not
+   *     resolved. The literal text has to be in the file.
+   *   · a font host other than Google — Adobe, Bunny, a self-hosted woff2 — is
+   *     not what this rule is about. It is about the switch point: the families
+   *     we FETCH from the one host the site uses must be families we paint.
    */
   const FONT_FETCHING_FILES = [
     "app/layout.tsx",
@@ -1788,8 +1825,25 @@ describe("ordinary rules read the switch point, and say what they read", () => {
     "lib/pdf/proposal-pdf.ts",
   ]
 
-  /** Both endpoints, any quoting, href or @import — the URL is the URL. */
-  const FONT_URL = /https:\/\/fonts\.googleapis\.com\/css2?\?[^"'`\s)]*/g
+  /**
+   * Both endpoints, either scheme or none at all, any quoting, href or @import
+   * — the URL is the URL, and the delivery mechanism was never the subject.
+   */
+  const FONT_URL = /(?:https?:)?\/\/fonts\.googleapis\.com\/css2?\?[^"'`\s)]*/g
+
+  /** Directories that are not this project's source. NAMED, not "dotted". */
+  const NOT_SOURCE = new Set([
+    "node_modules",
+    ".next",
+    ".git",
+    ".claude", // agent scratch — holds whole worktree copies of this repo
+    ".vercel",
+    ".turbo",
+    "coverage",
+  ])
+
+  /** Anything a browser can be made to load a stylesheet from. */
+  const READABLE = /\.(ts|tsx|js|jsx|mjs|cjs|css|scss|html)$/
 
   it("every family we fetch from Google Fonts is a family we actually paint with", () => {
     const urls = FONT_FETCHING_FILES.flatMap((rel) => [
@@ -1847,29 +1901,67 @@ describe("ordinary rules read the switch point, and say what they read", () => {
     ).toEqual([])
   })
 
+  /** Every source file this sweep can open, so a caller can count them. */
+  function scannableFiles(): string[] {
+    const out: string[] = []
+    const scan = (dir: string) => {
+      for (const entry of readdirSync(dir)) {
+        if (NOT_SOURCE.has(entry)) continue
+        const full = join(dir, entry)
+        if (statSync(full).isDirectory()) {
+          scan(full)
+          continue
+        }
+        if (READABLE.test(entry)) out.push(relative(ROOT, full))
+      }
+    }
+    scan(ROOT)
+    return out
+  }
+
   it("fetches no font from a file the guard above does not read", () => {
     // The reason the previous version could claim "every <link>" while reading
     // one hardcoded filename is that nothing checked the filename was still the
     // whole story. Four files were fetching fonts outside it. This is the check
     // that would have said so, and it is the same shape as the OUTWARD_SURFACES
     // guard in tests/brand/outward-surfaces.test.ts.
-    const found: string[] = []
-    const scan = (dir: string) => {
-      for (const entry of readdirSync(dir)) {
-        if (entry === "node_modules" || entry === ".next" || entry.startsWith(".")) continue
-        const full = join(dir, entry)
-        if (statSync(full).isDirectory()) {
-          scan(full)
-          continue
-        }
-        if (!/\.(ts|tsx|css)$/.test(entry)) continue
-        const rel = relative(ROOT, full)
-        // The test file itself names these URLs in order to look for them.
-        if (rel.startsWith("tests/") || FONT_FETCHING_FILES.includes(rel)) continue
-        if (new RegExp(FONT_URL.source).test(readFileSync(full, "utf8"))) found.push(rel)
-      }
-    }
-    scan(ROOT)
+    const found = scannableFiles().filter((rel) => {
+      // The test file itself names these URLs in order to look for them.
+      if (rel.startsWith("tests/") || FONT_FETCHING_FILES.includes(rel)) return false
+      return new RegExp(FONT_URL.source).test(readFileSync(join(ROOT, rel), "utf8"))
+    })
     expect(found, "fetches a Google font and is not in FONT_FETCHING_FILES").toEqual([])
+  })
+
+  it("actually opens the file kinds it claims to — including the .mjs in the tree", () => {
+    // THE SWEEP ABOVE IS ONLY WORTH ITS EXTENSION LIST, and the list was
+    // `.ts|.tsx|.css`. `scripts/qa-admin-page.mjs` is a real file in this repo
+    // that the sweep never opened, so "it fails if a fifth file appears" was
+    // false for every `.js`, `.mjs`, `.cjs` and `public/*.html` in the project.
+    // Naming the live one pins the widening: if the extension list narrows
+    // again, this says so instead of the sweep quietly reading less.
+    const files = scannableFiles()
+    expect(files, "the .mjs in scripts/ is outside the sweep again").toContain(
+      "scripts/qa-admin-page.mjs",
+    )
+    expect(files.length, "the sweep suddenly reads almost nothing").toBeGreaterThan(200)
+  })
+
+  it("loads no font through next/font either, which carries no URL at all", () => {
+    // The one fetching mechanism the URL rule CANNOT see: `next/font/google`
+    // downloads and self-hosts a family at build time, so a page can pull a
+    // whole typeface with no googleapis.com string anywhere in the tree. It was
+    // a declared limit and it did not have to be — nothing here uses it (there
+    // is one mention, in a comment in app/layout.tsx explaining why we do not),
+    // so the honest guard is that it stays that way and whoever adopts it comes
+    // through this test and adds it to the switch point deliberately.
+    const importers = scannableFiles().filter(
+      (rel) =>
+        !rel.startsWith("tests/") &&
+        /from\s*["']next\/font\b|require\(\s*["']next\/font\b/.test(
+          readFileSync(join(ROOT, rel), "utf8"),
+        ),
+    )
+    expect(importers, "imports next/font — declare the family at the switch point").toEqual([])
   })
 })

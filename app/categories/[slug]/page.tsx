@@ -9,7 +9,9 @@ import { ArchiveNav } from "@/components/episodes/archive-nav"
 import {
   DEFAULT_LANE,
   categoryMetadata,
+  laneGroups,
   laneOfCategorySlug,
+  showsGroupRow,
   type ProgramLane,
 } from "@/lib/episodes/programs"
 
@@ -80,6 +82,25 @@ export default async function CategoryPage({ params }: CategoryPageProps) {
     getCachedEpisodeCounts().catch(() => undefined),
   ])
 
+  // ── THE EXPIRY ALARM FOR THE NAVIGATION DECISION DOCUMENTED BELOW ─────────
+  // That decision — `groupHref` sending a visitor from this canonical page to
+  // `/episodes?category=X`, which is NOT canonical — rests partly on the season
+  // row not rendering at all today. That half of the argument stops being true
+  // the moment a second season exists, and the change arrives as a row in
+  // Postgres: no test in this repository can see it coming, and the row would
+  // simply appear with the hop live and nobody looking. So it says so, once,
+  // at the one moment it becomes detectable. Same shape as the lane-drift
+  // warning in archive-nav: it reports, it does not correct.
+  if (showsGroupRow(laneGroups(categories, lane, counts))) {
+    console.warn(
+      "[episodes] the season row is now live on /categories/* — `groupHref` here " +
+        "points at /episodes?category=…, whose canonical is /categories/…, so this " +
+        "page now links out of the canonical set. Deliberate while the row was " +
+        "invisible; it is visible now. Revisit with sara/Khaled. " +
+        "See showsGroupRow() in lib/episodes/programs.ts.",
+    )
+  }
+
   return (
     <div className="px-6 pb-24 pt-14 sm:pt-20">
       <div className="mx-auto max-w-6xl">
@@ -110,16 +131,24 @@ export default async function CategoryPage({ params }: CategoryPageProps) {
               answers the same question the other way, linking straight to
               /categories/* precisely BECAUSE it is canonical.
 
-              LEFT AS IT IS, on three counts. The season row is the only thing
-              `groupHref` feeds and it does not render at all today (one season
-              ⇒ `groups.length > 1` is false in archive-nav), so nothing here
-              is currently reachable. The canonical is correct either way, so
-              a crawler consolidates properly and the only cost is one extra
-              hop. And "from a category page every control returns you to the
-              archive" is a navigation decision someone made on purpose —
-              changing it is a redesign for sara and Khaled, not a correctness
-              fix, and quietly flipping it would be exactly the kind of
-              undocumented second answer this comment exists to prevent. */}
+              LEFT AS IT IS, on three counts of DIFFERENT STRENGTH, and saying
+              so matters because the first one expires.
+                1. MEASURED. The season row is the only thing `groupHref`
+                   feeds, and it does not render at all today: خط has one
+                   category, so `showsGroupRow()` is false and nothing here is
+                   reachable. TRUE UNTIL «الموسم الثاني» — which is why the
+                   warning above exists, and it is the whole reason this leg
+                   could be leaned on at all.
+                2. MEASURED. The canonical is correct either way, so a crawler
+                   consolidates properly and the only cost is one extra hop.
+                3. ASSERTED, NOT PROVEN, and labelled as such: "from a category
+                   page every control returns you to the archive" is read off
+                   the code, not off a decision anyone is recorded as making —
+                   this comment is its only source, and it was written in the
+                   same commit as the code. It is still the right default (a
+                   redesign is sara's and Khaled's call, and quietly flipping
+                   it would be the undocumented second answer this comment
+                   exists to prevent) but it must not be quoted as evidence. */}
           <ArchiveNav
             className="mt-6"
             categories={categories}

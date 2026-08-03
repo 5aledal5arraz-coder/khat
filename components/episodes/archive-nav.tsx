@@ -7,6 +7,7 @@ import {
   laneLabel,
   laneNote,
   laneTag,
+  showsGroupRow,
   unresolvedLaneExceptions,
   type ProgramLane,
 } from "@/lib/episodes/programs"
@@ -87,7 +88,12 @@ export function ArchiveNav({
   // page is chrome pretending to be a control. The selected state is still
   // visible without it: the lane tab is current and the page states the scope
   // by name. Season two makes this row appear on its own.
-  const showGroups = groups.length > 1
+  //
+  // THE RULE ITSELF LIVES IN lib/episodes/programs.ts, not here. It is a season
+  // decision, and `app/categories/[slug]/page.tsx` now asks the same question
+  // to know whether a navigation choice it deferred has come due — two copies
+  // of "> 1" is exactly how those two would answer differently one day.
+  const showGroups = showsGroupRow(groups)
 
   const note = activeLane ? laneNote(activeLane, categories) : null
 

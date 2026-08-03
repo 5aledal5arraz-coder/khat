@@ -133,6 +133,28 @@ const SEPARATE_PROGRAM_SLUGS: ReadonlySet<string> = new Set([
   "سالفة",
 ])
 
+/**
+ * Every enumerated exception slug, in the order `laneOfCategorySlug` checks
+ * them. ONE FAMILY PER SLUG — that is the invariant, and this is where it is
+ * visible.
+ *
+ * It used to be built inline inside `unresolvedLaneExceptions`, which made the
+ * invariant checkable only as a side effect: the sole way to notice the clips
+ * slug had been added to the separate set was that this list came out with a
+ * duplicate in it, reported by a test about renamed categories. That is a
+ * tripwire that a `new Set()` in the wrong place would remove without anyone
+ * meaning to. Naming the list lets the invariant be asserted on the DATA
+ * instead of on the behaviour of a function that could legitimately change.
+ *
+ * Why it matters at all: if a slug were in both families, one of the two lanes
+ * would silently stop existing, and WHICH one would depend on the order of two
+ * `if`s nobody thinks of as load-bearing.
+ */
+export const LANE_EXCEPTION_SLUGS: readonly string[] = [
+  CLIPS_CATEGORY_SLUG,
+  ...SEPARATE_PROGRAM_SLUGS,
+]
+
 /** The lane a category slug belongs to. Unknown/absent slug ⇒ خط. */
 export function laneOfCategorySlug(slug: string | null | undefined): ProgramLane {
   if (!slug) return DEFAULT_LANE
@@ -203,7 +225,7 @@ export function laneCategories(
 export function unresolvedLaneExceptions(categories: EpisodeCategory[]): string[] {
   if (categories.length === 0) return []
   const present = new Set(categories.map((c) => c.slug))
-  return [CLIPS_CATEGORY_SLUG, ...SEPARATE_PROGRAM_SLUGS].filter((slug) => !present.has(slug))
+  return LANE_EXCEPTION_SLUGS.filter((slug) => !present.has(slug))
 }
 
 /**
@@ -235,6 +257,33 @@ export function khatSeasonGroups(
     name: c.name,
     count: counts?.[c.id],
   }))
+}
+
+/**
+ * Does the group row have anything to choose BETWEEN?
+ *
+ * ── THIS LIVED IN THE COMPONENT, AND IT IS A SEASON DECISION ───────────────
+ * `groups.length > 1` was written in `components/episodes/archive-nav.tsx`, and
+ * the comment at the switch point above already flagged it as a season rule
+ * living somewhere else. Moving it here is not tidiness — it is what lets a
+ * SECOND caller ask the same question without the two drifting apart, and there
+ * is now a second caller.
+ *
+ * ── AND THE DECISION IT GATES HAS AN EXPIRY DATE ───────────────────────────
+ * `app/categories/[slug]/page.tsx` points its `groupHref` at
+ * `/episodes?category=X`, whose canonical is `/categories/X` — a deliberate
+ * navigation choice, argued in a comment there, and resting in part on the fact
+ * that THE ROW DOES NOT RENDER AT ALL TODAY: one season ⇒ this returns false ⇒
+ * nothing that link feeds is reachable. That is a true reason with a date on
+ * it. The day «الموسم الثاني» arrives the row appears, the cross-canonical hop
+ * goes live, and nothing anywhere was going to say so — no test can, because
+ * the number of seasons is a row count in Postgres and not a fact about this
+ * repository. So the predicate is exported and that page warns off it, which
+ * is the same shape as `unresolvedLaneExceptions` above: it reports at the one
+ * moment the change is detectable and it corrects nothing.
+ */
+export function showsGroupRow(groups: ArchiveGroup[]): boolean {
+  return groups.length > 1
 }
 
 /** The selectable groups inside any lane. For خط these are its seasons. */

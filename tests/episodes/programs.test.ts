@@ -27,6 +27,7 @@ import { describe, it, expect, vi, afterEach } from "vitest"
 
 import {
   DEFAULT_LANE,
+  LANE_EXCEPTION_SLUGS,
   PROGRAM_LANES,
   categoryMetadata,
   filterLane,
@@ -40,6 +41,7 @@ import {
   laneTag,
   laneUnitNoun,
   parseLane,
+  showsGroupRow,
   unresolvedLaneExceptions,
 } from "@/lib/episodes/programs"
 import { CLIPS_CATEGORY_SLUG } from "@/lib/episodes/clips"
@@ -81,6 +83,20 @@ describe("laneOfCategorySlug", () => {
     expect(laneOfCategorySlug(undefined)).toBe("khat")
   })
 
+  it("matches an exception slug WHOLE — containing one is not being one", () => {
+    // The rule reads "a category is خط UNLESS it is one of the two enumerated
+    // exceptions", and both checks are equality. Nothing said so, so a widened
+    // check — `includes`, `startsWith`, a `some()` over the set — passed every
+    // test in this file while quietly annexing categories into a lane they do
+    // not belong to. «سالفة الموسم الثاني» is a plausible admin-typed slug and
+    // it is a season of خط; under `includes` it becomes a separate programme
+    // and disappears from the default landing view.
+    expect(laneOfCategorySlug("سالفة-٢")).toBe("khat")
+    expect(laneOfCategorySlug("ما-قبل-سالفة")).toBe("khat")
+    expect(laneOfCategorySlug(`${CLIPS_CATEGORY_SLUG}-٢`)).toBe("khat")
+    expect(laneOfCategorySlug(`أرشيف-${CLIPS_CATEGORY_SLUG}`)).toBe("khat")
+  })
+
   it("DOES NOT survive a one-letter edit to the slug — the declared hole", () => {
     // ة→ه. This is not a wish-list item, it is the documented limit of the
     // "unknown ⇒ خط" rule, and it is pinned here so that a later change which
@@ -104,13 +120,33 @@ describe("laneOfCategorySlug", () => {
    * What IS worth pinning is the precondition that makes the order irrelevant.
    * If the clips slug is ever added to the exception set, one of the two lanes
    * silently stops existing and WHICH one depends on a line order nobody thinks
-   * of as load-bearing. That is checkable, and it is checked here.
+   * of as load-bearing.
+   *
+   * ── AND THE FIRST VERSION OF THAT PIN DID NOT PIN IT ──────────────────────
+   * It asserted `laneOfCategorySlug(CLIPS_CATEGORY_SLUG)` is "clips" and not
+   * "separate" — which is a statement about the ORDER's EFFECT, not about the
+   * families being disjoint, and the order is precisely what makes the fault
+   * invisible: adding the clips slug to the exception set leaves that answer
+   * unchanged, because clips is checked first. Measured — the test stayed
+   * green, and what went red instead was an unrelated test about renamed
+   * categories, by accident, because the enumerated list came out with a
+   * duplicate in it. A guard whose warning arrives from somewhere else is not
+   * a guard; it is a coincidence with a good outcome.
+   *
+   * So the invariant is asserted on the DATA. `LANE_EXCEPTION_SLUGS` is the
+   * enumerated list itself, and one slug appearing twice in it IS the fault —
+   * no derivation, nothing that a `new Set()` added elsewhere could quietly
+   * absorb.
    */
   it("keeps the two exception families disjoint — the reason their order cannot matter", () => {
+    expect(
+      LANE_EXCEPTION_SLUGS.length - new Set(LANE_EXCEPTION_SLUGS).size,
+      `a slug is enumerated in BOTH lane families (${LANE_EXCEPTION_SLUGS.join(", ")}) — ` +
+        "one of the two lanes has silently stopped existing, and which one depends " +
+        "on the order of the two checks inside laneOfCategorySlug",
+    ).toBe(0)
+    // …and the classification that the disjointness is what makes order-free.
     expect(laneOfCategorySlug(CLIPS_CATEGORY_SLUG)).toBe("clips")
-    // The one input that would make the order observable. If this ever becomes
-    // "separate", the clips lane has been swallowed by the exception set.
-    expect(laneOfCategorySlug(CLIPS_CATEGORY_SLUG)).not.toBe("separate")
   })
 })
 
@@ -164,8 +200,19 @@ describe("filterLane — what the archive actually shows", () => {
     }
   })
 
-  it("returns a copy, never the caller's array", () => {
+  it("returns a copy, never the caller's array — on BOTH paths", () => {
+    // The filtering path copies for free, because `.filter()` does. The
+    // WARNING path is the one that has to mean it, and it is the one nothing
+    // covered: `return [...list]` mutated to `return list` survived every test
+    // here while the doc comment two lines above it still promised a copy.
+    // A caller that sorts what it gets back would then be reordering the
+    // cached archive snapshot in place.
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {})
     expect(filterLane(rows, "khat")).not.toBe(rows)
+
+    const raw = [makeEpisode({ id: "e1" })].map((e) => ({ ...e, category: undefined }))
+    expect(filterLane(raw, "clips")).not.toBe(raw)
+    expect(warn).toHaveBeenCalled()
   })
 
   it("never invents or loses an episode: the three lanes partition the archive", () => {
@@ -193,6 +240,30 @@ describe("filterLane — what the archive actually shows", () => {
     expect(out.map((e) => e.id)).toEqual(["e1", "e2"])
     expect(warn).toHaveBeenCalledTimes(1)
     expect(warn.mock.calls[0][0]).toContain("withCategories")
+  })
+
+  it("treats a category that did NOT resolve as uncategorised, not as categorised", () => {
+    // `attachCategories` in lib/queries/episodes.ts writes
+    // `category: categoriesById.get(ep.category_id) ?? null` — so a row whose
+    // category_id points at a category that no longer exists arrives with the
+    // FIELD PRESENT and the value null. The check here is
+    // `!== undefined && !== null`, and dropping either half is a live mutation:
+    // with `!== undefined` alone, a list of null-category rows reads as
+    // "categorised", the warning never fires, and every row classifies as خط —
+    // the clips and سالفة tabs empty out while the default landing view looks
+    // entirely correct. That is the exact silent misclassification the warning
+    // exists for, arriving through the other of the two null-ish states.
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {})
+    const dangling = [makeEpisode({ id: "e1" }), makeEpisode({ id: "e2" })].map((e) => ({
+      ...e,
+      category_id: "gone",
+      category: null,
+    }))
+
+    const out = filterLane(dangling, "clips")
+
+    expect(out.map((e) => e.id)).toEqual(["e1", "e2"])
+    expect(warn).toHaveBeenCalledTimes(1)
   })
 
   it("says nothing about an empty list", () => {
@@ -233,6 +304,31 @@ describe("khatSeasonGroups / laneGroups — the season row", () => {
     expect(khatSeasonGroups(ALL, counts)[0].count).toBe(19)
   })
 
+  it("gives each season its own NAME, not its slug or its id", () => {
+    // Only the slugs were ever asserted for the خط lane, so `name: c.name`
+    // could become `c.slug` and survive — and the two are different strings by
+    // construction («الموسم الاول» against «الموسم-الاول»). The season chip
+    // would then read with hyphens where a reader expects spaces, on the one
+    // control this lane has, with the whole suite green. The other two lanes
+    // were checked whole; خط was the one that was not.
+    expect(khatSeasonGroups(ALL, counts)).toEqual([
+      { slug: SEASON.slug, name: SEASON.name, count: 19 },
+    ])
+  })
+
+  it("keeps the admin's own order once there is more than one season", () => {
+    // UNTESTABLE WITH ONE SEASON, which is why reversing the list survived:
+    // every assertion about the خط lane ran against a single-element array,
+    // where order is not a property. This is the shape of the archive the
+    // moment «الموسم الثاني» is added — the case the whole module exists to
+    // make possible — and it is the only one in which the season row renders
+    // at all (see showsGroupRow).
+    const second = cat("الموسم الثاني", "الموسم-الثاني", "c5")
+    const groups = khatSeasonGroups([SEASON, SALFA, second, CLIPS], { ...counts, c5: 7 })
+    expect(groups.map((g) => g.name)).toEqual(["الموسم الاول", "الموسم الثاني"])
+    expect(groups.map((g) => g.count)).toEqual([19, 7])
+  })
+
   it("leaves the count undefined when the caller has no counts", () => {
     expect(khatSeasonGroups(ALL)[0].count).toBeUndefined()
   })
@@ -247,7 +343,39 @@ describe("khatSeasonGroups / laneGroups — the season row", () => {
   })
 
   it("routes the خط lane through khatSeasonGroups", () => {
+    // DECLARED EQUIVALENT TODAY, and pinned anyway because that expires.
+    // Deleting the `lane === "khat"` branch from `laneGroups` survives this
+    // and every other test here — measured — because the generic branch maps
+    // `laneCategories(categories, "khat")` into exactly the same shape.
+    // No test can tell the two apart while they compute the same thing, and no
+    // test should: the delegation only becomes observable when
+    // `khatSeasonGroups` stops deriving seasons from categories and starts
+    // deriving them from `episodes.season` (the migration written out at the
+    // switch point). On that day this assertion is what fails if `laneGroups`
+    // was left mapping categories behind its back.
     expect(laneGroups(ALL, "khat", counts)).toEqual(khatSeasonGroups(ALL, counts))
+  })
+})
+
+describe("showsGroupRow — the rule with an expiry date on it", () => {
+  const counts = { c1: 19, c2: 16, c3: 6 }
+
+  it("hides the row while there is nothing to choose between", () => {
+    // Zero and one are both "no choice". One is the live case: خط has exactly
+    // one season today, so the season row does not render anywhere on the site
+    // — which is half the argument for the cross-canonical `groupHref` on
+    // /categories/[slug], and the half that expires.
+    expect(showsGroupRow([])).toBe(false)
+    expect(showsGroupRow(khatSeasonGroups(ALL, counts))).toBe(false)
+  })
+
+  it("shows it the moment a second season exists", () => {
+    // `> 1` mutated to `>= 1` renders a one-chip "filter" that filters nothing,
+    // beside a tab that already means the same thing — the duplicate control
+    // the «الكل» chip was removed for. `>= 2` is the same rule; `> 2` swallows
+    // the first real choice a visitor ever gets.
+    const second = cat("الموسم الثاني", "الموسم-الثاني", "c5")
+    expect(showsGroupRow(khatSeasonGroups([SEASON, second, SALFA, CLIPS], counts))).toBe(true)
   })
 })
 
@@ -305,6 +433,16 @@ describe("unresolvedLaneExceptions — the cheap half of that hole", () => {
     expect(unresolvedLaneExceptions([SEASON, SALFA])).toEqual(["مقاطع-خط"])
   })
 
+  it("reports the SLUG that stopped resolving, not the display name", () => {
+    // The slug is the key the lane rule is built on and the thing an operator
+    // has to go and fix in /admin/episodes → التصنيفات. Reading `c.name` here
+    // instead builds the "present" set out of the wrong column, so every
+    // enumerated slug reads as missing and the warning fires on a healthy
+    // archive — a warning that cries every render is one everybody turns off.
+    expect(unresolvedLaneExceptions(ALL)).toEqual([])
+    expect(unresolvedLaneExceptions([cat("سالفة", "سالفة", "c2"), CLIPS])).toEqual([])
+  })
+
   it("stays silent on an empty list", () => {
     // A page whose category fetch failed has nothing to say about categories.
     // Warning there would fire on every error path and train everyone to
@@ -321,6 +459,22 @@ describe("laneLabel — one name per thing, on one screen", () => {
     expect(laneLabel("clips", ALL)).toBe(CLIPS.name)
   })
 
+  it("FOLLOWS the clips category when it is renamed — the rule, not the coincidence", () => {
+    // The test above proves nothing on its own: `LANE_LABEL.clips` is the
+    // string «مقاطع خط» and so is the category's name, so removing `clips`
+    // from LANE_NAMES_ITS_ONLY_MEMBER — deleting the adaptive rule for this
+    // lane outright — passes it. Measured: that mutation survived the whole
+    // file. The two strings agree today by design and the rule is what keeps
+    // them agreeing tomorrow, which only shows when they are made to differ.
+    //
+    // Renaming a category is one field in /admin/episodes → التصنيفات and does
+    // not touch the slug, so this is a state Khaled can reach this afternoon.
+    // Without the adaptive rule the tab would read «مقاطع خط» over cards
+    // badged «مقاطع» — the same two-names-for-one-thing bug, back again.
+    const renamed = cat("مقاطع", CLIPS_CATEGORY_SLUG, "c3")
+    expect(laneLabel("clips", [SEASON, SALFA, renamed])).toBe("مقاطع")
+  })
+
   it("calls the separate lane by its programme's name", () => {
     expect(laneLabel("separate", ALL)).toBe(SALFA.name)
   })
@@ -333,11 +487,49 @@ describe("laneLabel — one name per thing, on one screen", () => {
     expect(laneLabel("khat", ALL)).toBe("حلقات خط")
   })
 
-  it("falls back to the kind once a lane holds more than one programme", () => {
+  it("does not let an UN-enumerated programme join the lane and rename it", () => {
+    // THE TITLE OF THIS TEST USED TO SAY THE OPPOSITE OF ITS ASSERTION. It read
+    // "falls back to the kind once a lane holds more than one programme" and
+    // then expected «سالفة» — the adaptive name, i.e. NOT the fallback. The
+    // setup is why: «برنامج-ثاني» is not in SEPARATE_PROGRAM_SLUGS, so it is a
+    // season of خط (unknown ⇒ خط) and the separate lane still holds exactly
+    // one. The assertion was right and the sentence above it was not, which is
+    // worse than an untested branch: the next reader takes the branch as
+    // covered. What it really pins is that adding a category does NOT quietly
+    // move a lane's name, and that is worth pinning, so it stays and says so.
     const second = cat("برنامج ثاني", "برنامج-ثاني", "c4")
-    // Not in SEPARATE_PROGRAM_SLUGS yet, so this is the state right after a
-    // second programme is enumerated: the adaptive name stops being right.
+    expect(laneOfCategorySlug(second.slug)).toBe("khat")
     expect(laneLabel("separate", [SALFA, second, SEASON])).toBe("سالفة")
+  })
+
+  /**
+   * AND THE `own.length === 1` BRANCH ITSELF CANNOT BE REACHED TODAY — stated
+   * as a fact with its evidence, not waved past.
+   *
+   * `own.length === 1` → `>= 1` survives every test in this file and always
+   * will, for the same reason the check ORDER inside `laneOfCategorySlug`
+   * does: two preconditions make the two spellings identical.
+   *
+   *   · `episode_categories.slug` is UNIQUE (lib/db/schema/episodes.ts:7), so
+   *     no two categories can carry the same slug;
+   *   · each adaptive lane is keyed to exactly one slug — `clips` to the single
+   *     `CLIPS_CATEGORY_SLUG`, `separate` to a one-member set.
+   *
+   * Together: an adaptive lane holds AT MOST one category, so `=== 1` and
+   * `>= 1` agree on every input that can exist. Writing a test that kills the
+   * mutation would mean handing `laneLabel` two categories with the same slug —
+   * a state Postgres forbids — i.e. pinning an implementation detail against an
+   * impossible input, which is the move P03 taught us not to make.
+   *
+   * So what is pinned is the PRECONDITION. The moment a second separate
+   * programme is enumerated, the branch goes live and this fails, naming it.
+   */
+  it("pins the precondition that makes the adaptive-name branch unreachable", () => {
+    expect(
+      LANE_EXCEPTION_SLUGS.length,
+      "a second lane exception has been enumerated. `own.length === 1` in laneLabel " +
+        "and laneNote is now a LIVE branch — write the real >1 test and delete this one",
+    ).toBe(2)
   })
 })
 
@@ -378,8 +570,17 @@ describe("laneNote", () => {
     expect(note).toContain("مو حلقات كاملة")
   })
 
-  it("says سالفة is not خط", () => {
-    expect(laneNote("separate", ALL)).toContain("مو من حلقات بودكاست خط")
+  it("says سالفة is not خط, AND names it", () => {
+    // `توقّع toContain("مو من حلقات بودكاست خط")` alone is satisfied by BOTH
+    // branches — the singular «سالفة» برنامج مستقل — مو من حلقات بودكاست خط
+    // and the plural «برامج مستقلة — مو من حلقات بودكاست خط» end in the same
+    // clause. Measured: inverting the branch condition survived. With one
+    // programme in the lane the plural is simply wrong copy about a single
+    // named thing, and naming it is the entire reason the branch exists.
+    const note = laneNote("separate", ALL)
+    expect(note).toContain("مو من حلقات بودكاست خط")
+    expect(note).toContain(`«${SALFA.name}»`)
+    expect(note).not.toContain("برامج مستقلة")
   })
 })
 
@@ -409,10 +610,17 @@ describe("categoryMetadata — the head must agree with the body", () => {
     expect(meta.description).toBe(laneNote("clips", ALL))
   })
 
-  it("keeps the true copy for an actual season of خط", () => {
+  it("keeps the true copy for an actual season of خط — and says WHICH season", () => {
+    // `toContain("كل حلقات بودكاست خط")` is a prefix of the real string, so
+    // dropping «ضمن «الموسم الاول»» off the end passed it. Measured: that
+    // mutation survived. Every season of خط would then carry the identical
+    // meta description — the definition of a duplicate-description problem for
+    // a search engine, on the one page family that has more than one member as
+    // soon as season two lands.
     const meta = categoryMetadata(SEASON, ALL)
     expect(meta.title).toBe(SEASON.name)
     expect(meta.description).toContain("كل حلقات بودكاست خط")
+    expect(meta.description).toContain(`«${SEASON.name}»`)
   })
 
   it("never spells the brand — app/layout.tsx appends it to every title", () => {
