@@ -53,13 +53,19 @@ export async function getHiddenEpisodeIds(): Promise<string[]> {
 export async function toggleEpisodeVisibility(episodeId: string) {
   const gate = await requireActionRole("EDITOR")
   if (!gate.ok) return { success: false, error: gate.error }
-  const existing = await db!.select().from(hiddenEpisodes).where(eq(hiddenEpisodes.episode_id, episodeId)).limit(1)
+  // `db` is null when DATABASE_URL is absent. The `db!` below asserted that
+  // away, so the action threw a raw TypeError inside a server action — which
+  // reaches the operator as a button that does nothing at all. Same failure
+  // class as ص-٩'s: state the reason instead of dying silently. (The other
+  // `db!` sites in this file have the same hole and are a separate task.)
+  if (!db) return { success: false, error: "قاعدة البيانات غير متوفرة" }
+  const existing = await db.select().from(hiddenEpisodes).where(eq(hiddenEpisodes.episode_id, episodeId)).limit(1)
   const wasHidden = existing.length > 0
   await saveVersion(episodeId, "visibility", { hidden: wasHidden }, wasHidden ? "إظهار الحلقة" : "إخفاء الحلقة")
   if (wasHidden) {
-    await db!.delete(hiddenEpisodes).where(eq(hiddenEpisodes.episode_id, episodeId))
+    await db.delete(hiddenEpisodes).where(eq(hiddenEpisodes.episode_id, episodeId))
   } else {
-    await db!.insert(hiddenEpisodes).values({ episode_id: episodeId })
+    await db.insert(hiddenEpisodes).values({ episode_id: episodeId })
   }
   await invalidateEpisodeCache()
   invalidate("hidden")

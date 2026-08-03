@@ -18,6 +18,7 @@ function rowToEnrichment(row: Record<string, unknown>): EpisodeEnrichment {
     central_question: (row.central_question as string) || undefined,
     exclusive_clip: (row.exclusive_clip as EpisodeEnrichment["exclusive_clip"]) || undefined,
     unsaid_reflections: (row.unsaid_reflections as string[]) || undefined,
+    unsaid_reflections_approved: (row.unsaid_reflections_approved as string[]) || undefined,
     publish_status: (row.publish_status as string) || "published",
     scheduled_for:
       row.scheduled_for instanceof Date
@@ -32,6 +33,13 @@ function rowToEnrichment(row: Record<string, unknown>): EpisodeEnrichment {
  * INERT-FIRST: a missing/empty status counts as published, so existing rows
  * keep showing. Public only when status='published' AND not scheduled in the
  * future. `now` is injectable for deterministic tests.
+ *
+ * ⚠️ This gate is INERT-FIRST **on purpose** and must stay that way: it was
+ * added to rows that were already live, so "no opinion recorded" has to mean
+ * "keep showing" or shipping it would have blanked every published episode.
+ * `publicUnsaidReflections()` below is its deliberate OPPOSITE — read the note
+ * there before reconciling the two. They are not in conflict; they answer
+ * different questions about different content.
  */
 export function isEnrichmentPublic(
   enrichment: Pick<EpisodeEnrichment, "publish_status" | "scheduled_for"> | null | undefined,
@@ -49,6 +57,46 @@ export function isEnrichmentPublic(
   return true
 }
 
+/**
+ * ص-٩ — per-ITEM review gate for «ما لم يُقال». Returns only the reflections
+ * Khaled has explicitly approved for the public page, in the author's order.
+ *
+ * WHY THIS ONE FIELD, AND WHY DEFAULT-DENY
+ * The other four generated conversation fields describe the episode. This one
+ * states what the guest did NOT say — and a review of nine generated items
+ * found the sharpest of them ("… التلاعب …") also the least reproducible
+ * between runs: the highest-liability sentence was the least stable one, on a
+ * page that names a real person. So the decision (Khaled, ص-٩) is that nothing
+ * here reaches the public page by silence, default, or accident.
+ *
+ * ⚠️ DELIBERATE INVERSION of `isEnrichmentPublic()` above. That gate is
+ * INERT-FIRST (no opinion ⇒ visible) because it was retrofitted onto content
+ * that was ALREADY published and must not disappear. This gate is
+ * DEFAULT-DENY (no opinion ⇒ hidden) because it guards content that has never
+ * been published and whose failure mode is an unreviewed accusation going
+ * live. Neither is a bug, and neither is a precedent for the other: pick
+ * inert-first when the risk is hiding something that already shipped, and
+ * default-deny when the risk is publishing something nobody read.
+ *
+ * Approval is keyed by the item's exact TEXT, not its index, so a re-worded
+ * item silently loses its approval instead of inheriting it, and reordering or
+ * deleting items cannot shift an approval onto a different sentence.
+ */
+export function publicUnsaidReflections(
+  enrichment:
+    | Pick<EpisodeEnrichment, "unsaid_reflections" | "unsaid_reflections_approved">
+    | null
+    | undefined,
+): string[] {
+  const items = enrichment?.unsaid_reflections
+  const approved = enrichment?.unsaid_reflections_approved
+  if (!Array.isArray(items) || items.length === 0) return []
+  if (!Array.isArray(approved) || approved.length === 0) return []
+  const allowed = new Set(approved.map((s) => (typeof s === "string" ? s.trim() : "")))
+  allowed.delete("")
+  return items.filter((item) => typeof item === "string" && allowed.has(item.trim()))
+}
+
 /** Ungated read — admin/internal use (returns enrichment regardless of gate). */
 export async function getEpisodeEnrichment(episodeId: string): Promise<EpisodeEnrichment | null> {
   if (!db) return null
@@ -64,10 +112,22 @@ export async function getEpisodeEnrichment(episodeId: string): Promise<EpisodeEn
  * Public read — returns the enrichment ONLY when its publish gate is open.
  * Use on public surfaces so unpublished/scheduled knowledge-hub content stays
  * hidden. Admin surfaces keep using getEpisodeEnrichment.
+ *
+ * ص-٩ — `unsaid_reflections` is additionally filtered to the approved items
+ * HERE, at the single read every public surface goes through, rather than in
+ * the page component. A future public consumer that forgets the gate is the
+ * exact way an unreviewed item would reach the site, so the gate is applied
+ * where it cannot be forgotten. Unapproved ⇒ the field comes back `undefined`,
+ * which is what `<UnsaidReflections>` already renders as "no section at all".
  */
 export async function getPublicEpisodeEnrichment(episodeId: string): Promise<EpisodeEnrichment | null> {
   const enrichment = await getEpisodeEnrichment(episodeId)
-  return isEnrichmentPublic(enrichment) ? enrichment : null
+  if (!isEnrichmentPublic(enrichment) || !enrichment) return null
+  const approved = publicUnsaidReflections(enrichment)
+  return {
+    ...enrichment,
+    unsaid_reflections: approved.length > 0 ? approved : undefined,
+  }
 }
 
 export async function setEpisodeEnrichment(enrichment: EpisodeEnrichment): Promise<void> {
@@ -92,6 +152,12 @@ export async function setEpisodeEnrichment(enrichment: EpisodeEnrichment): Promi
     central_question: enrichment.central_question ?? existing?.central_question as string ?? null,
     exclusive_clip: enrichment.exclusive_clip ?? existing?.exclusive_clip ?? null,
     unsaid_reflections: enrichment.unsaid_reflections ?? existing?.unsaid_reflections as string[] ?? [],
+    // ص-٩ — callers that can change approval (the admin form) always send an
+    // explicit array, so `[]` here means "Khaled un-approved everything" and
+    // must be written, not merged away. `undefined` still means "not my field"
+    // — which is what the AI generator sends, so generating can never approve.
+    unsaid_reflections_approved:
+      enrichment.unsaid_reflections_approved ?? existing?.unsaid_reflections_approved as string[] ?? [],
   }
 
   await db.insert(episodeEnrichments).values(row).onConflictDoUpdate({
@@ -108,6 +174,7 @@ export async function setEpisodeEnrichment(enrichment: EpisodeEnrichment): Promi
       central_question: row.central_question,
       exclusive_clip: row.exclusive_clip,
       unsaid_reflections: row.unsaid_reflections,
+      unsaid_reflections_approved: row.unsaid_reflections_approved,
     },
   })
 }

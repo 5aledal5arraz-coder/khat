@@ -29,6 +29,12 @@ export interface EpisodeEnrichment {
     message?: string
   }
   unsaid_reflections?: string[]
+  /**
+   * ص-٩ — the exact «ما لم يُقال» items Khaled approved for the public page.
+   * Content-keyed, not index-keyed, and DEFAULT-DENY: absent/empty publishes
+   * nothing. See `publicUnsaidReflections()` in lib/episodes/enrichments.ts.
+   */
+  unsaid_reflections_approved?: string[]
   /** Publish gate (P6). Defaults to 'published'. */
   publish_status?: string
   /** ISO date; when set and in the future, the enrichment is not yet public. */

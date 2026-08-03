@@ -1,0 +1,1 @@
+ALTER TABLE "episode_enrichments" ADD COLUMN "unsaid_reflections_approved" jsonb;

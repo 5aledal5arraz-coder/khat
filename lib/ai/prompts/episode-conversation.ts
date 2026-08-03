@@ -38,7 +38,14 @@ const DIALECT_RULE: Record<ConversationDialect, string> = {
     "لهجة كويتية طبيعية — قريبة ودافئة كما يتكلم الناس فعلاً، بلا تكلّف وبلا مبالغة في العامية.",
 }
 
-export const EPISODE_CONVERSATION_PROMPT_VERSION = "episode-conversation-v1.0"
+/**
+ * Bump this whenever the brief changes, or `ai_runs` rows from two different
+ * prompts become indistinguishable and no before/after comparison is possible.
+ * v1.1 — «ما لم يُقال» now fixes the sentence form (خبرية, not استفهامية); it
+ * was alternating between runs, which would have printed the same section in
+ * two different voices across the published archive.
+ */
+export const EPISODE_CONVERSATION_PROMPT_VERSION = "episode-conversation-v1.1"
 
 /** Which of the five to ask for. Absent/false → not requested. */
 export interface ConversationFieldRequest {
@@ -126,6 +133,7 @@ function fieldBriefs(): Record<
     unsaid_reflections: {
       brief: `### ما لم يُقال (unsaid_reflections)
 - 3-5 عناصر، كل واحد **جملة واحدة** تُعرض في قائمة مرقّمة.
+- **الصيغة خبرية لا استفهامية** — اكتب ما بقي معلّقاً ("ظلّ ... بلا جواب"، "لم يُحسم ..."), لا سؤالاً موجّهاً للضيف ("لماذا لم يوضّح ...؟"). القائمة تصف الحوار ولا تستجوب أحداً، والصيغتان كانتا تتناوبان بين التشغيلات فتخرج القائمة بأسلوبين على صفحات مختلفة.
 - هذه أصعب حقل: المطلوب ما تركته الحلقة معلّقاً — سؤال لم يُسأل، توتر لم يُحسم، أو ما بين السطور.
 - يجب أن يكون كل عنصر **مستنداً إلى النص**: شيء لُمّح إليه أو تُجُنّب فعلاً، لا تخمين حر.
 - ❌ لا تكتب خلاصات أو دروساً — تلك حقل آخر في الصفحة.

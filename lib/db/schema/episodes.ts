@@ -103,6 +103,18 @@ export const episodeEnrichments = pgTable("episode_enrichments", {
   exclusive_clip: jsonb("exclusive_clip").$type<unknown>(),
   unsaid_reflections: jsonb("unsaid_reflections").$type<string[]>(),
   /**
+   * ص-٩ — per-ITEM review gate for «ما لم يُقال», and the ONLY field with one.
+   *
+   * Holds the exact TEXTS Khaled approved for the public page, not indices:
+   * editing an item's wording therefore drops it out of the set by itself, so
+   * a re-worded claim can never inherit the old approval (fail-closed).
+   *
+   * DELIBERATELY THE INVERSE of `publish_status` below: absent/empty here means
+   * NOTHING is public. See `publicUnsaidReflections()` in
+   * lib/episodes/enrichments.ts for why the two gates disagree on purpose.
+   */
+  unsaid_reflections_approved: jsonb("unsaid_reflections_approved").$type<string[]>(),
+  /**
    * Studio redesign (P6) — publish gate for the enriched knowledge-hub
    * content. INERT-FIRST: defaults to 'published' so existing rows keep
    * showing. The public episode page renders enrichment only when

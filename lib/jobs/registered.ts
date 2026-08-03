@@ -30,3 +30,6 @@ import "./handlers/episode-review"
 // nginx 120s request path (the outreach handler also PERSISTS the draft).
 import "./handlers/candidate-analyze"
 import "./handlers/candidate-outreach"
+// Episode conversation sections — transcript-length AI generation (~132s
+// measured), likewise moved off the nginx 120s request path.
+import "./handlers/episode-conversation"

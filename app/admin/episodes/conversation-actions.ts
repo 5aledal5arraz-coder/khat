@@ -4,15 +4,12 @@ import { revalidatePath } from "next/cache"
 import { getEpisodeEnrichment, setEpisodeEnrichment } from "@/lib/episodes/enrichments"
 import { requireActionRole } from "@/lib/api-utils"
 import { saveVersion } from "@/lib/episodes/versions"
+import { enqueueJob, findInFlightJobByPayload, getJob } from "@/lib/jobs"
 import {
-  findSessionLinkedToEpisode,
-  getEpisodeIntelligenceForSession,
-  getStudioSession,
-  getStudioSessionsByVideoId,
-  getTranscriptForSession,
-} from "@/lib/studio"
-import { generateEpisodeConversation, type ConversationField } from "@/lib/ai"
-import type { StudioSession } from "@/types/database"
+  EPISODE_CONVERSATION_GENERATE_JOB,
+  type EpisodeConversationJobPayload,
+} from "@/lib/jobs/episode-conversation-jobs"
+import type { ConversationField } from "@/lib/ai"
 import type { EpisodeEnrichment } from "@/types/episodes"
 
 type ConversationFields = Pick<
@@ -23,6 +20,7 @@ type ConversationFields = Pick<
   | "central_question"
   | "exclusive_clip"
   | "unsaid_reflections"
+  | "unsaid_reflections_approved"
 >
 
 export async function saveConversationData(episodeId: string, data: ConversationFields) {
@@ -56,100 +54,110 @@ export async function saveConversationData(episodeId: string, data: Conversation
 }
 
 /**
- * ص-٨ — generate the empty "conversation" sections for one episode.
+ * ص-٩ — START generating the empty "conversation" sections for one episode.
  *
- * Fills ONLY what is currently blank; anything Khaled typed is read first
- * and wins on every leaf (see `mergeConversationFields`). Returns without
- * an AI call — and without cost — when nothing is empty.
+ * ENQUEUES ONLY. The generation itself takes ~132s, and nginx severs a proxied
+ * request at 120s on the droplet, so doing it inline would give the operator a
+ * dead button and no reason — so the work runs in the worker
+ * (lib/jobs/handlers/episode-conversation.ts) and this returns a jobId the UI
+ * polls with `getConversationGenerationStatus`.
  *
- * `exclusive_clip` is not part of this: it embeds a separate published
- * clip's YouTube URL, which no model can know.
+ * REQUIRES THE WORKER: `npm run worker` (or `npm run dev:all`) locally, the
+ * `khat-worker` PM2 process in production. Without it the job sits `pending`
+ * forever — which the UI says out loud rather than spinning silently.
+ *
+ * DEDUP: a double-click (or refresh-then-click) must not spawn a second run
+ * against the same episode; an in-flight job is adopted instead.
  */
-export async function generateConversationData(
+export async function startConversationGeneration(
   episodeId: string,
   options?: { only?: ConversationField[] },
 ) {
   const gate = await requireActionRole("EDITOR")
-  if (!gate.ok) return { success: false, error: gate.error }
-  if (!episodeId) return { success: false, error: "معرّف الحلقة مطلوب" }
+  if (!gate.ok) return { success: false as const, error: gate.error }
+  if (!episodeId) return { success: false as const, error: "معرّف الحلقة مطلوب" }
 
   try {
-    // The transcript lives on a studio session. Preferred route: the website
-    // package the operator explicitly linked to this episode. Fallback:
-    // `episodes.id` IS the YouTube video id, so a session imported from the
-    // same video carries the same transcript. Reading a transcript through
-    // the video id is safe — unlike WRITING `linked_episode_id`, which stays
-    // an explicit operator action (see lib/studio/website-packages.ts, ص-٣).
-    const candidates: StudioSession[] = []
-    const linkedSessionId = await findSessionLinkedToEpisode(episodeId)
-    if (linkedSessionId) {
-      const linked = await getStudioSession(linkedSessionId)
-      if (linked) candidates.push(linked)
-    }
-    for (const session of await getStudioSessionsByVideoId(episodeId)) {
-      if (!candidates.some((c) => c.id === session.id)) candidates.push(session)
-    }
-
-    if (candidates.length === 0) {
-      return {
-        success: false,
-        error: "لا توجد جلسة استوديو لهذه الحلقة — استورد الحلقة في الاستوديو أولاً.",
-      }
-    }
-
-    // A failed import and a good one can share a video; take the first
-    // session that actually has a ready transcript.
-    let session: StudioSession | null = null
-    let transcriptText = ""
-    for (const candidate of candidates) {
-      const transcript = await getTranscriptForSession(candidate.id)
-      if (transcript?.status === "ready" && transcript.transcript_clean) {
-        session = candidate
-        transcriptText = transcript.transcript_clean
-        break
-      }
-    }
-    if (!session) return { success: false, error: "لا يوجد نص جاهز لهذه الحلقة" }
-
-    const existing = await getEpisodeEnrichment(episodeId)
-    // Free quality lift when the Studio already computed it for this
-    // session — the generator folds it into the prompt.
-    const intelligence = await getEpisodeIntelligenceForSession(session.id)
-
-    const result = await generateEpisodeConversation({
-      transcript: transcriptText,
-      videoTitle: session.video_title ?? "",
-      existing,
-      episodeIntelligence: intelligence?.status === "ready" ? intelligence.data : null,
-      only: options?.only,
-      eirContext: { subjectTable: "episode_enrichments", subjectId: episodeId },
-    })
-
-    if (!result.success) return { success: false, error: result.error }
-    if (!result.filled || result.filled.length === 0) {
-      return { success: true, filled: [], skipped: result.skipped ?? [] }
-    }
-
-    if (existing) {
-      await saveVersion(episodeId, "conversation", { enrichment: existing }, "توليد أقسام الحوار")
-    }
-
-    await setEpisodeEnrichment({
+    const inFlight = await findInFlightJobByPayload(
+      EPISODE_CONVERSATION_GENERATE_JOB,
+      "episodeId",
       episodeId,
-      ...result.patch,
-      updatedAt: new Date().toISOString(),
-    })
+    )
+    if (inFlight) {
+      return {
+        success: true as const,
+        jobId: inFlight.id,
+        status: inFlight.status,
+        alreadyRunning: true,
+      }
+    }
 
-    revalidatePath("/")
-    revalidatePath("/episodes")
-    revalidatePath("/episodes/[slug]", "page")
-    revalidatePath("/admin/episodes")
-    return { success: true, filled: result.filled, skipped: result.skipped ?? [] }
+    const payload: EpisodeConversationJobPayload = { episodeId }
+    if (options?.only?.length) payload.only = options.only
+    const job = await enqueueJob(EPISODE_CONVERSATION_GENERATE_JOB, payload)
+    return { success: true as const, jobId: job.id, status: job.status, alreadyRunning: false }
   } catch (error) {
     // A server action that throws reaches the operator as nothing at all —
     // the button just stops. Always come back with a readable reason.
-    console.error("generateConversationData failed:", error)
-    return { success: false, error: "تعذّر توليد أقسام الحوار — راجع سجلّ الخادم" }
+    console.error("startConversationGeneration failed:", error)
+    return { success: false as const, error: "تعذّر بدء التوليد — راجع سجلّ الخادم" }
+  }
+}
+
+/**
+ * Poll one conversation-generation job.
+ *
+ * Called WITHOUT a jobId it looks up the latest in-flight run for the episode,
+ * so a tab refreshed mid-run resumes its «جارٍ التوليد…» state instead of
+ * falling back to idle and inviting a duplicate trigger.
+ *
+ * The cache invalidation the old inline action did at the end now happens
+ * HERE, on the poll that first observes success: `revalidatePath` needs a Next
+ * request context, which the worker process does not have.
+ *
+ * A succeeded poll also returns the FRESH enrichment. The form is a controlled
+ * client component seeded once from its props, so `router.refresh()` alone
+ * would leave the operator staring at empty boxes under a "تم التوليد" banner
+ * until a manual reload — a generated result that never reaches the screen is
+ * the same silent failure as no result at all. Handing the new values back on
+ * the terminal poll re-seeds the form deterministically, with no dependence on
+ * when React happens to deliver the refreshed props.
+ */
+export async function getConversationGenerationStatus(episodeId: string, jobId?: string) {
+  const gate = await requireActionRole("EDITOR")
+  if (!gate.ok) return { success: false as const, error: gate.error }
+
+  try {
+    const job = jobId
+      ? await getJob(jobId)
+      : await findInFlightJobByPayload(
+          EPISODE_CONVERSATION_GENERATE_JOB,
+          "episodeId",
+          episodeId,
+        )
+
+    let enrichment: EpisodeEnrichment | null = null
+    if (job?.status === "succeeded") {
+      enrichment = await getEpisodeEnrichment(episodeId)
+      revalidatePath("/")
+      revalidatePath("/episodes")
+      // episodeId is a UUID, not a slug — invalidate all episode detail pages
+      revalidatePath("/episodes/[slug]", "page")
+      revalidatePath("/admin/episodes")
+    }
+
+    return {
+      success: true as const,
+      jobId: job?.id ?? null,
+      jobStatus: job?.status ?? null,
+      jobError: job?.error_message ?? null,
+      filled: (job?.result?.filled as string[] | undefined) ?? null,
+      skipped: (job?.result?.skipped as string[] | undefined) ?? null,
+      enrichment,
+    }
+  } catch (error) {
+    console.error("getConversationGenerationStatus failed:", error)
+    return { success: false as const, error: "تعذّر قراءة حالة التوليد — راجع سجلّ الخادم" }
   }
 }
 

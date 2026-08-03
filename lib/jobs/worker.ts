@@ -154,6 +154,11 @@ const HANDLER_TIMEOUT_MS: Record<string, number> = {
   // ladder on a transient blip without a spurious timeout.
   "candidate.analyze": 8 * 60_000,
   "candidate.outreach_generate": 8 * 60_000,
+  // episode.conversation_generate: prepareTranscript chunk-summarizes a full
+  // ~2h transcript (memoized by content hash, so usually warm) then makes ONE
+  // editorial call. Measured end-to-end at ~132s cold; 15 min leaves room for
+  // a cold cache plus the router's retry ladder without a spurious timeout.
+  "episode.conversation_generate": 15 * 60_000,
 }
 
 function timeoutFor(jobType: string): number {
