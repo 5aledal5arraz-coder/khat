@@ -122,6 +122,23 @@ export interface KhatLogoSwapProps {
  * this is deliberately NOT the default `<KhatLogo>` — it is for the one place
  * that pays for two variants. Sizes still resolve through `khatLogoGeometry`,
  * so this path is held to the same `MIN_HEIGHT` guard as every other caller.
+ *
+ * EVERY CANDIDATE CARRIES ITS OWN BOX. `<img width height>` describes the
+ * DEFAULT source only, so when a `<source>` wins the media query the browser
+ * reserves a box at the wrong ratio until the file lands. That is not
+ * theoretical: measured in Chrome at 1280px, the header reserved 61.7x44
+ * (the mark's 1.40:1 at the lockup's height) and settled at 183.8x44 once the
+ * lockup arrived — 122.1px of horizontal reflow, shoving the whole nav on the
+ * first uncached load. Below the breakpoint it was already 0, which is why an
+ * earlier version of this comment claimed there was no shift at all.
+ *
+ * The fix is `width`/`height` on the `<source>` too: per HTML, the selected
+ * source's dimensions become the img's intrinsic ratio, so each candidate
+ * reserves its own box before a byte is fetched. Both pairs come out of
+ * `khatLogoGeometry`, so nothing here is hand-written and nothing can drift
+ * from the artwork. (Safari below 15.4 ignores source dimensions and falls back
+ * to today's behaviour — no worse than before, and not worth a second
+ * mechanism.)
  */
 export function KhatLogoSwap({
   compact,
@@ -134,20 +151,29 @@ export function KhatLogoSwap({
   // Both go through the clamp, so neither breakpoint can ask for a size below
   // MIN_HEIGHT without being caught — the guard follows the artwork here too.
   const compactGeo = khatLogoGeometry(compact.variant, compact.height)
-  khatLogoGeometry(full.variant, full.height)
+  const fullGeo = khatLogoGeometry(full.variant, full.height)
   const name = label === undefined ? DEFAULT_LABEL[full.variant] : label
 
   return (
     <picture>
-      <source media={`(min-width: ${breakpoint})`} srcSet={ART_SRC[full.variant]} />
+      <source
+        media={`(min-width: ${breakpoint})`}
+        srcSet={ART_SRC[full.variant]}
+        // Intrinsic box of THIS candidate. Without it the browser reserves the
+        // <img>'s ratio — the mark's — for the lockup, and the header jumps
+        // 122px sideways when the lockup lands. See the note above.
+        width={fullGeo.width}
+        height={fullGeo.height}
+      />
       {/* eslint-disable-next-line @next/next/no-img-element -- <picture> media
           selection is the point; next/image has no equivalent, and these are
           already-optimal hand-cropped SVGs. */}
       <img
         src={ART_SRC[compact.variant]}
-        // Intrinsic box of the DEFAULT source, so there is no layout shift
-        // before the file arrives; the CSS below is what resizes it at the
-        // breakpoint. Both numbers come from the clamped geometry.
+        // Intrinsic box of the DEFAULT source. It describes this candidate only
+        // — the <source> above carries its own — so each breakpoint reserves the
+        // right box before the file arrives. Both pairs come from the clamped
+        // geometry, and the CSS height below is what actually sizes it.
         width={compactGeo.width}
         height={compactGeo.height}
         // Above the fold on every page — worth jumping the queue.

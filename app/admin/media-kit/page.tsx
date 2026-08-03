@@ -105,6 +105,22 @@ function generatePartnershipPDF(
       padding: 16px 60px;
       border-top: 1px solid var(--border);
     }
+    /* DELIBERATELY LEFT AS TYPE. This is a running foot — it repeats on every
+       page beside the folio, at 10px, and it is the only "PODCAST KHAT" in the
+       codebase that is still set rather than drawn. Two reasons, both checked
+       in tests/brand/outward-surfaces.test.ts, which allows it by name and
+       nothing else:
+
+       · No lockup can go here. The shortest is MIN_HEIGHT 40px against a 10px
+         footer band; asking for it would trip the clamp and print a logo four
+         times the height of the rule it sits on.
+       · It is not a logo placement. A publication name repeated next to a page
+         number is document furniture, the same as the folio itself — the
+         identity's rules govern where the LOGO appears, and the logo appears on
+         the cover and in the sign-off, both of which are now the artwork.
+
+       --gold-dim is part of the media kit's own black/gold document palette,
+       which CLAUDE.md records as deliberately separate from the site tokens. */
     .page-footer-brand {
       font-size: 10px;
       font-weight: 500;
@@ -565,11 +581,16 @@ function generatePartnershipPDF(
       padding-top: 40px;
       border-top: 1px solid var(--border);
     }
-    .contact-footer-brand {
-      font-size: 13px;
-      font-weight: 500;
-      color: var(--gold);
-      letter-spacing: 6px;
+    /* The closing signature was "PODCAST KHAT" at 13px in --gold: the retired
+       identity's colour, in the UI font, standing in for the logo on the last
+       page a sponsor reads. It is the artwork now. There is no reversed
+       HORIZONTAL lockup and 13px is under every lockup's minimum, so the mark
+       is the variant that fits; the URL line below carries the name in words.
+       The screen view got the same fix — see components/media-kit/. */
+    .contact-footer-logo {
+      display: inline-flex;
+      -webkit-print-color-adjust: exact !important;
+      print-color-adjust: exact !important;
     }
     .contact-footer-url {
       font-size: 12px;
@@ -884,7 +905,7 @@ function generatePartnershipPDF(
     </div>
 
     <div class="contact-footer">
-      <div class="contact-footer-brand">PODCAST KHAT</div>
+      <div class="contact-footer-logo">${khatLogoMarkup("mark-reversed", 28)}</div>
       <div class="contact-footer-url">khatpodcast.com</div>
       <div class="contact-footer-confidential">هذا المستند سري وأُعدّ خصيصًا لـ ${esc(companyName)} &nbsp;·&nbsp; CONFIDENTIAL</div>
     </div>

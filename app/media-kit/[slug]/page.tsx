@@ -69,17 +69,14 @@ export default function MediaKitSharePage() {
         {/* Logo & Branding */}
         <div className="mb-10 text-center">
           {/* Was /logo.png — the RETIRED gold wordmark — in a bordered tile
-              under a gold halo. Reversed mark on this dark surface, no effects. */}
-          <KhatLogo
-            variant="mark-reversed"
-            height={56}
-            label={null}
-            className="mx-auto mb-6"
-          />
-          <h1 className="text-2xl font-bold text-[#f5f2ed]">بودكاست خط</h1>
-          <p className="mt-1 text-xs font-light tracking-[8px] text-[#c9a84c]" dir="ltr">
-            PODCAST KHAT
-          </p>
+              under a gold halo. Now the real vertical lockup, reversed for this
+              dark surface, no effects. The mark + «بودكاست خط» + a gold
+              `PODCAST KHAT` line set the name three times, the last of them in
+              the retired identity's colour; the lockup carries both names as
+              artwork. Same treatment as the cover this gate opens. */}
+          <h1>
+            <KhatLogo variant="lockup-vertical-reversed" height={96} className="mx-auto" />
+          </h1>
         </div>
 
         {/* Password Form */}

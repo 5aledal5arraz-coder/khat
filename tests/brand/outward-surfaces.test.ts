@@ -27,6 +27,37 @@ const ROOT = process.cwd()
 const INVENTED = ["#3a2d70", "#ee6a2c", "#45367f", "#2f2560", "#5a47a8"]
 
 /**
+ * The retired identity's gold, and the one question the earlier sweep never
+ * asked. The media kit was searched for the wordmark's ORDER and not for its
+ * PALETTE, so `#c9a84c` survived in 20 places across three files — the
+ * partner-facing surface — while every other surface was cleaned.
+ *
+ * The answer is not "delete the gold". CLAUDE.md records the media kit's
+ * black/gold palette as deliberately separate from the site tokens, and it is
+ * the art direction of a document, not a logo colour: rules, folios, section
+ * numerals, eyebrows, stat figures, the gate's button. That stays.
+ *
+ * What does not stay is gold setting the brand NAME. `PODCAST KHAT` typeset in
+ * the retired identity's colour, next to the new mark, is a wordmark
+ * substitute — the exact thing this wave removed everywhere else, wearing the
+ * palette that was supposed to have been retired with it. The cover, the
+ * password gate and the closing signature all did that, on screen and in the
+ * PDF; all four are the artwork now.
+ */
+const RETIRED_GOLD = "#c9a84c"
+
+/**
+ * The one place the name may still be set as type, and why.
+ *
+ * A running foot repeated beside a page number, at 10px, in a print document.
+ * No lockup fits (MIN_HEIGHT 40 against a 10px band) and it is document
+ * furniture rather than a logo placement. Written down and checked, so the
+ * exception cannot quietly spread — same shape as MIN_HEIGHT_EXEMPT in the
+ * icon builder.
+ */
+const TYPESET_NAME_EXEMPT = /class="page-footer-brand"/
+
+/**
  * The retired identities: the gold wordmark (`/logo.png`, `/logo-wide.jpg`) and
  * the periwinkle chat badge (`/logo-small.jpg`).
  *
@@ -83,6 +114,41 @@ describe("no outward-facing surface rebuilds or misbrands the logo", () => {
     for (const asset of RETIRED_ASSETS) {
       expect(src, `${rel} still points at ${asset}`).not.toMatch(asset)
     }
+  })
+
+  it("never paints the brand name in the retired gold", () => {
+    // Not "no gold anywhere" — the media kit's document palette is sanctioned.
+    // The rule is that gold may not BE the wordmark. Checked per element, so a
+    // gold divider two lines from the name does not trip it and a gold name
+    // does.
+    const offenders: string[] = []
+    for (const rel of OUTWARD_SURFACES) {
+      const src = code(read(rel))
+      // Each element-ish chunk: an opening tag plus the text up to the next tag.
+      for (const [, chunk] of src.matchAll(/(<[a-zA-Z][^<]*)/g)) {
+        if (!chunk.toLowerCase().includes(RETIRED_GOLD)) continue
+        if (/PODCAST\s+KHAT|بودكاست\s+خط/.test(chunk)) {
+          offenders.push(`${rel}: ${chunk.trim().slice(0, 120)}`)
+        }
+      }
+    }
+    expect(offenders, "brand name typeset in the retired gold").toEqual([])
+  })
+
+  it("sets the brand name as type only where the artwork cannot go", () => {
+    // Everything else must be a <KhatLogo> / khatLogoMarkup() call. The cover,
+    // the password gate and the closing signature were all typeset wordmarks;
+    // the only survivor is the declared running-footer exemption.
+    const offenders: string[] = []
+    for (const rel of OUTWARD_SURFACES) {
+      const src = code(read(rel))
+      for (const [, chunk] of src.matchAll(/(<[a-zA-Z][^<]*)/g)) {
+        if (!/>\s*PODCAST\s+KHAT\s*$|>\s*PODCAST\s+KHAT\s/.test(chunk)) continue
+        if (TYPESET_NAME_EXEMPT.test(chunk)) continue
+        offenders.push(`${rel}: ${chunk.trim().slice(0, 120)}`)
+      }
+    }
+    expect(offenders, "brand name typeset outside the declared exemption").toEqual([])
   })
 
   it("keeps the wordmark in the order the artwork uses: PODCAST KHAT", () => {
@@ -157,13 +223,11 @@ describe("the icon set is one treatment with a declared exemption", () => {
     expect(iconSvg, "tab icon is back on transparency").toContain("<rect")
   })
 
-  it("declares its MIN_HEIGHT exemption in exactly one place", () => {
-    const src = read("scripts/build-brand-icons.ts")
-    expect(src).toContain("MIN_HEIGHT_EXEMPT")
-    // Only the browser-dictated tab slots may be exempt.
-    expect(src).toMatch(/MIN_HEIGHT_EXEMPT: readonly number\[\] = \[16, 32\]/)
-    expect(src, "the icon path must check itself").toContain("assertMinHeightPolicy")
-  })
+  // The exemption itself, and whether the guard around it actually throws, are
+  // checked by CALLING it in tests/brand/icon-policy.test.ts. This file used to
+  // assert that the source contains the string "assertMinHeightPolicy", which
+  // passes just as happily if the function is never called — the same class of
+  // hollow check as a comment promising a build gate that does not exist.
 
   it("gives the maskable icon its own asset", () => {
     const manifest = read("app/manifest.ts")

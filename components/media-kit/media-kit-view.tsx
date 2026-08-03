@@ -34,17 +34,18 @@ export function MediaKitView({
 
         <div className="relative z-10">
           {/* Was /logo.png — the RETIRED gold wordmark — in a bordered tile
-              under a gold halo. Reversed mark on this dark cover, no effects. */}
-          <KhatLogo
-            variant="mark-reversed"
-            height={72}
-            label={null}
-            className="mx-auto mb-10"
-          />
-          <h1 className="text-[52px] font-bold leading-tight text-[#f5f2ed]">بودكاست خط</h1>
-          <p className="mt-2 text-base font-light tracking-[10px] text-[#c9a84c]" dir="ltr">
-            PODCAST KHAT
-          </p>
+              under a gold halo. Now the real vertical lockup, reversed for this
+              dark cover, no effects.
+
+              The mark used to sit above «بودكاست خط» and a gold `PODCAST KHAT`
+              line, which set the name THREE times on one cover — and the third
+              was the retired identity's gold, typeset in the UI font, wrapped
+              around the new mark. The lockup already carries both names as
+              artwork. The PDF cover was fixed this way in the last pass; this
+              is the same document on screen, so it gets the same treatment. */}
+          <h1 className="mb-2">
+            <KhatLogo variant="lockup-vertical-reversed" height={150} className="mx-auto" />
+          </h1>
           <div className="mx-auto my-12 h-[60px] w-px bg-gradient-to-b from-transparent via-[#c9a84c] to-transparent" />
           <p className="text-[22px] font-light tracking-[6px] text-[#c9a84c]">ملف الشراكة</p>
           <p className="mt-2 text-[11px] font-light tracking-[8px] uppercase text-[#6b6560]" dir="ltr">
@@ -197,9 +198,16 @@ export function MediaKitView({
             )}
           </div>
 
+          {/* The closing signature. This was `PODCAST KHAT` at 13px in the
+              retired gold, in the UI font — a typeset wordmark standing in for
+              the logo, on the surface whose entire job is handing the identity
+              to a sponsor. The artwork replaces it: there is no reversed
+              HORIZONTAL lockup, and 13px is under every lockup's minimum, so
+              the mark is the variant that fits. The domain below it carries the
+              name in words. */}
           <div className="mt-20 border-t border-[#2a2a2a] pt-10 text-center">
-            <div className="text-[13px] font-medium tracking-[6px] text-[#c9a84c]">PODCAST KHAT</div>
-            <div className="mt-2 text-xs tracking-[2px] text-[#6b6560]" dir="ltr">khatpodcast.com</div>
+            <KhatLogo variant="mark-reversed" height={28} className="mx-auto" />
+            <div className="mt-3 text-xs tracking-[2px] text-[#6b6560]" dir="ltr">khatpodcast.com</div>
           </div>
         </div>
       </section>

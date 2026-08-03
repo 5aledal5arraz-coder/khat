@@ -28,10 +28,19 @@
  * whatever the user's wallpaper happens to be.
  *
  * THE TRADE-OFF, stated because it is real: a tile costs canvas. At the 16px
- * favicon slot the mark goes from 11.4px tall to 9.8px, and solid ink drops
- * from 13.7% of the canvas to about 9%. That buys contrast that works in both
+ * favicon slot the mark goes from 11.4px tall to 9.8px, and the mark's ink
+ * covers 22.7% of the canvas instead of 16.7% — a 26.5% relative loss, which is
+ * exactly the 1.361x the canvas grew by. That buys contrast that works in both
  * themes, and a recognisable indigo block, which is most of what a favicon does
  * at that size.
+ *
+ * Those coverage figures are the VECTOR's, measured at 2048px where
+ * anti-aliasing has converged, and `tests/brand/icon-policy.test.ts` re-derives
+ * them from the geometry. An earlier version of this comment quoted "13.7% to
+ * about 9%", read off a 16px render. Do not quote a 16px render: counting the
+ * same two icons at 16px gives anywhere from 7.4% to 34.4% depending only on
+ * the alpha cutoff you call ink, so the absolute number says more about the
+ * rasteriser than about the artwork. The RATIO is stable; the anchor was not.
  *
  * The ivory-on-indigo tile is the identity file's own reversed treatment (p.11
  * is exactly this, as an app icon), not a recolour: the mark keeps one flat
@@ -40,6 +49,21 @@
  *
  * Run: npx tsx scripts/build-brand-icons.ts
  * The generated files are committed; nothing at runtime depends on this script.
+ *
+ * WHAT CHECKS THESE ICONS, AND WHAT DOES NOT. The two assertions below run when
+ * this script runs — which is by hand, on purpose. `prebuild` is
+ * `validate-env` + `check-migration-drift`; it does not call this file, and it
+ * should not: regenerating committed binaries on every production build makes
+ * the build write to the working tree, makes the bytes depend on the installed
+ * sharp, and adds image work to a droplet build that already has to be told
+ * `--max-old-space-size` to survive its TypeScript step.
+ *
+ * So the assertions are exported and `tests/brand/icon-policy.test.ts` drives
+ * them: it calls each one with an input that must fail, and re-measures the
+ * COMMITTED maskable PNG. That is the real gate. An earlier version of this
+ * header, and a comment in `app/manifest.ts`, claimed a build-time gate that
+ * never existed — and a comment promising a check nobody runs is worse than no
+ * comment at all.
  */
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs"
 import path from "node:path"
@@ -62,11 +86,11 @@ const BRAND = path.join(ROOT, "public", "brand")
  * reads as a normal app tile and buys back 1.2px of mark at the 16px slot,
  * which at that size is the difference between a shape and a smudge.
  */
-const TILE_PAD = MARK.width / 12
+export const TILE_PAD = MARK.width / 12
 
 /** Canvas side, and the fraction of it the mark's height occupies. */
 const TILE_SIDE = MARK.width + TILE_PAD * 2
-const MARK_FRACTION = MARK.height / TILE_SIDE
+export const MARK_FRACTION = MARK.height / TILE_SIDE
 
 /**
  * The one place the icon pipeline is allowed to fall below `MIN_HEIGHT.mark`.
@@ -75,9 +99,10 @@ const MARK_FRACTION = MARK.height / TILE_SIDE
  * clamp: a browser tab slot is 16 or 32 device-independent pixels and there is
  * no larger option to render into. So the rule genuinely does not reach here —
  * but "does not reach here" has to be written down and checked, not inferred
- * from a missing call. `assertMinHeightPolicy` below fails the build if any
- * icon outside this list renders the mark under the minimum, which is what
- * stops the exemption from quietly spreading to a new surface.
+ * from a missing call. `assertMinHeightPolicy` below throws if any icon outside
+ * this list renders the mark under the minimum, which is what stops the
+ * exemption from quietly spreading to a new surface. It runs on every run of
+ * this script, and `tests/brand/icon-policy.test.ts` runs it on every test run.
  *
  * At the current TILE_PAD the first canvas that satisfies MIN_HEIGHT.mark is
  * 33px, so 16 and 32 are exactly the sizes that cannot — and every home-screen
@@ -85,9 +110,30 @@ const MARK_FRACTION = MARK.height / TILE_SIDE
  * effective mark height for every size so this stays checkable rather than
  * asserted in prose.
  */
-const MIN_HEIGHT_EXEMPT: readonly number[] = [16, 32]
+export const MIN_HEIGHT_EXEMPT: readonly number[] = [16, 32]
 
-function assertMinHeightPolicy(sizes: number[]): void {
+/**
+ * Every tile raster this script writes: the size, and where it goes.
+ *
+ * ONE list drives rendering, the policy check, and the printed report. It used
+ * to be three: `png(tileSvg, N)` calls scattered through `main`, a hand-typed
+ * `[16, 32, 180, 192, 512]` passed to `assertMinHeightPolicy` thirty lines
+ * above them, and a third copy in the console loop. Adding a size and
+ * forgetting one of the copies silenced the guard for exactly the new size
+ * nobody had checked — the guard would still pass, loudly, about the old ones.
+ *
+ * `files` is relative to the repo root. An empty list means the raster is not
+ * written on its own; 16 and 32 exist only as members of favicon.ico.
+ */
+export const TILE_TARGETS: readonly { size: number; files: readonly string[] }[] = [
+  { size: 16, files: [] },
+  { size: 32, files: [] },
+  { size: 180, files: ["app/apple-icon.png", "public/apple-touch-icon.png"] },
+  { size: 192, files: ["public/brand/icon-192.png"] },
+  { size: 512, files: ["public/brand/icon-512.png"] },
+]
+
+export function assertMinHeightPolicy(sizes: readonly number[]): void {
   const offenders = sizes.filter(
     (s) => !MIN_HEIGHT_EXEMPT.includes(s) && s * MARK_FRACTION < MIN_HEIGHT.mark,
   )
@@ -107,7 +153,7 @@ function assertMinHeightPolicy(sizes: number[]): void {
  * shipped icon, except the maskable one, which passes MASKABLE_PAD because
  * Android crops that canvas to a circle.
  */
-function squareMarkSvg(body: string, background: string | null, pad: number): string {
+export function squareMarkSvg(body: string, background: string | null, pad: number): string {
   const round = (n: number) => Math.round(n * 100) / 100
   const side = round(MARK.width + pad * 2)
   // Vertical centring only — the mark is 1.4:1 and the canvas is square. This
@@ -138,10 +184,10 @@ function squareMarkSvg(body: string, background: string | null, pad: number): st
  * `assertMaskableSafeZone` re-measures it from the rendered pixels every build
  * rather than trusting the arithmetic.
  */
-const MASKABLE_PAD = 71
+export const MASKABLE_PAD = 71
 
 /** Fraction of the canvas diameter Android guarantees it will not crop. */
-const MASKABLE_SAFE_FRACTION = 0.8
+export const MASKABLE_SAFE_FRACTION = 0.8
 
 /**
  * How much of the maskable safe circle the artwork actually uses, measured from
@@ -152,7 +198,7 @@ const MASKABLE_SAFE_FRACTION = 0.8
  * Only the icon declared `purpose: "maskable"` has to satisfy this — the `any`
  * icon is drawn as-is and is allowed to fill its canvas.
  */
-async function safeZoneUsage(png: Buffer): Promise<number> {
+export async function safeZoneUsage(png: Buffer): Promise<number> {
   const { data, info } = await sharp(png).ensureAlpha().raw().toBuffer({ resolveWithObject: true })
   const { width: w, height: h, channels: c } = info
   const cx = (w - 1) / 2
@@ -173,7 +219,7 @@ async function safeZoneUsage(png: Buffer): Promise<number> {
   return maxR / ((MASKABLE_SAFE_FRACTION / 2) * w)
 }
 
-async function assertMaskableSafeZone(png: Buffer, label: string): Promise<number> {
+export async function assertMaskableSafeZone(png: Buffer, label: string): Promise<number> {
   const used = await safeZoneUsage(png)
   if (used > 1) {
     throw new Error(
@@ -221,26 +267,33 @@ async function main() {
 
   // ONE tile for every surface: ivory mark, indigo ground, identity clear space.
   const tileSvg = squareMarkSvg(MARK_REVERSED.body, KHAT_INDIGO, TILE_PAD)
-  assertMinHeightPolicy([16, 32, 180, 192, 512])
+  // Derived from the render list below, never typed out beside it.
+  assertMinHeightPolicy(TILE_TARGETS.map((t) => t.size))
 
-  // Tab icons.
+  // Render every declared size once, then dispatch. `png` is the only place a
+  // size becomes pixels, so nothing can be written at a size the check missed.
+  const rendered = new Map<number, Buffer>()
+  for (const target of TILE_TARGETS) {
+    const data = await png(tileSvg, target.size)
+    rendered.set(target.size, data)
+    // iOS and some crawlers probe /apple-touch-icon.png directly, ignoring the
+    // <link> Next emits. That path held a 1.4MB copy of the RETIRED gold logo —
+    // which is why 180 writes to two places.
+    for (const file of target.files) writeFileSync(path.join(ROOT, file), data)
+  }
+
+  // Tab icons: the vector where it is accepted, the two smallest rasters where
+  // it is not.
   writeFileSync(path.join(APP, "icon.svg"), tileSvg + "\n")
+  const tile = (size: number): Buffer => {
+    const data = rendered.get(size)
+    if (!data) throw new Error(`favicon.ico wants a ${size}px tile, which is not in TILE_TARGETS`)
+    return data
+  }
   writeFileSync(
     path.join(APP, "favicon.ico"),
-    ico([
-      { size: 16, data: await png(tileSvg, 16) },
-      { size: 32, data: await png(tileSvg, 32) },
-    ]),
+    ico([16, 32].map((size) => ({ size, data: tile(size) }))),
   )
-
-  // Home-screen icons.
-  const tile180 = await png(tileSvg, 180)
-  writeFileSync(path.join(APP, "apple-icon.png"), tile180)
-  // iOS and some crawlers probe /apple-touch-icon.png directly, ignoring the
-  // <link> Next emits. That path held a 1.4MB copy of the RETIRED gold logo.
-  writeFileSync(path.join(ROOT, "public", "apple-touch-icon.png"), tile180)
-  writeFileSync(path.join(BRAND, "icon-192.png"), await png(tileSvg, 192))
-  writeFileSync(path.join(BRAND, "icon-512.png"), await png(tileSvg, 512))
 
   // Maskable icon — same treatment, wider canvas so Android's circular crop
   // cannot reach the artwork.
@@ -250,7 +303,7 @@ async function main() {
   const maskableUse = await assertMaskableSafeZone(maskable512, "icon-maskable-512.png")
   // Informational: what the plain tile WOULD have cost if it were still doing
   // double duty as the maskable icon, which is how it shipped before.
-  const anyUse = await safeZoneUsage(await png(tileSvg, 512))
+  const anyUse = await safeZoneUsage(tile(512))
 
   // Raster lockup for email. Email clients are the one surface that cannot take
   // the vector: Gmail strips inline <svg> and refuses <img src="*.svg">, and
@@ -287,10 +340,7 @@ async function main() {
   for (const f of [
     "app/icon.svg",
     "app/favicon.ico",
-    "app/apple-icon.png",
-    "public/apple-touch-icon.png",
-    "public/brand/icon-192.png",
-    "public/brand/icon-512.png",
+    ...TILE_TARGETS.flatMap((t) => t.files),
     "public/brand/icon-maskable-512.png",
     "public/brand/email-lockup.png",
     "public/brand/khat-lockup-horizontal.png",
@@ -299,7 +349,7 @@ async function main() {
   }
 
   console.log(`\nmark height per canvas (MIN_HEIGHT.mark = ${MIN_HEIGHT.mark}px):`)
-  for (const size of [16, 32, 180, 192, 512]) {
+  for (const { size } of TILE_TARGETS) {
     const eff = size * MARK_FRACTION
     const flag = eff < MIN_HEIGHT.mark ? "  ← exempt (browser-dictated tab slot)" : ""
     console.log(`  ${String(size).padStart(3)}px canvas → ${eff.toFixed(1)}px mark${flag}`)
@@ -315,7 +365,11 @@ async function main() {
   )
 }
 
-main().catch((err) => {
-  console.error(err)
-  process.exit(1)
-})
+// Only when run as the entry point — `tests/brand/icon-policy.test.ts` imports
+// the assertions above, and importing a module must not rewrite the icon set.
+if (process.argv[1]?.endsWith("build-brand-icons.ts")) {
+  main().catch((err) => {
+    console.error(err)
+    process.exit(1)
+  })
+}

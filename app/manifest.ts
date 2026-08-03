@@ -35,8 +35,13 @@ export default function manifest(): MetadataRoute.Manifest {
         // spare, which is not a margin — and on the current tile the same reuse
         // would reach 112% and lose the bubble's tail. This canvas is padded
         // wider so the artwork lands at 84.3%, measured from the rendered
-        // pixels by scripts/build-brand-icons.ts, which fails the build if the
-        // maskable icon ever leaves the safe zone.
+        // pixels by scripts/build-brand-icons.ts.
+        //
+        // That script is run by hand — it is NOT wired into `prebuild`, which
+        // is validate-env + check-migration-drift. An earlier version of this
+        // comment said it "fails the build"; it does not, and never did. What
+        // actually holds the line is tests/brand/icon-policy.test.ts, which
+        // re-measures THIS committed file's pixels on every test run.
         src: "/brand/icon-maskable-512.png",
         sizes: "512x512",
         type: "image/png",
