@@ -9,7 +9,6 @@ import {
   episodeDurationLabel,
 } from "@/components/episodes/episode-poster-card"
 import { EpisodeThumb } from "@/components/media/episode-thumb"
-import { mainFeed } from "@/lib/episodes/clips"
 import { filterLane } from "@/lib/episodes/programs"
 import { NewsletterSignup } from "@/components/forms/newsletter-signup"
 import {
@@ -80,11 +79,22 @@ export default async function HomePage() {
     getCachedPublicEpisodes().catch(() => [] as Episode[]),
     getCachedActiveTeaser().catch(() => null),
   ])
-  // Conversations only. The six «مقاطع خط» cut-downs are the newest uploads, so
-  // before this they took the featured slot AND five of the six grid tiles —
-  // the homepage led with clips of episodes that were also in the same grid.
-  // They keep their chip on /episodes and their own category page.
-  const conversations = mainFeed(episodes)
+  // حلقات خط ONLY — the lane, not "everything that is not a clip".
+  //
+  // `mainFeed()` drops the six «مقاطع خط» cut-downs, which is what this needed
+  // when clips were the only other kind of row. They are not: «سالفة» is a
+  // separate programme, and the badge on a homepage card reads «موسم من خط», so
+  // one سالفة row reaching this grid is the homepage stating that a different
+  // show is a season of ours.
+  //
+  // TODAY'S MEASURED IMPACT IS ZERO — 7/7 خط — AND THAT IS NOT A DEFENCE. The
+  // reason it holds is not that سالفة is too old to make the newest seven: this
+  // list is `getCachedPublicEpisodes()` UNSORTED, and the proof is on the next
+  // page over — /episodes sorts it by date and leads with a row this page never
+  // shows. Nothing orders the homepage feed, so nothing keeps سالفة out of it;
+  // the current result is an accident of insertion order that any re-fetch,
+  // re-sort or re-index can end. `filterLane` is the rule that was meant.
+  const conversations = filterLane(episodes, "khat")
   const featured = conversations[0] ?? null
   const season = currentKhatSeason(episodes)
   const featuredBlurb = featured ? episodeBlurb(featured) : null
@@ -109,26 +119,40 @@ export default async function HomePage() {
         </div>
 
         <div className="mx-auto max-w-4xl">
-          {/* The badge KEEPS THE NAME and gains information — it does not
-              become one or the other.
-              · The name stays because at 375 the header renders the mark
-                alone, with no wordmark, so this is the only place «بودكاست خط»
-                is spelled on the first screen — and 375 is most of the traffic
-                (Noura's finding, and the reason the badge survives at all).
-              · The season is the information. The h1 right below already says
-                «حوارات تستحق أن تبقى», so a badge repeating the promise says
-                nothing twice; what a first-time visitor cannot know from
-                anything else on this screen is WHICH SEASON the archive is on.
-              It is derived, never typed: `currentKhatSeason()` reads the newest
-              خط episode's own category, so season two names itself here the day
-              its first episode publishes. No season resolved ⇒ the name alone,
-              which is exactly what this badge said before. */}
+          {/* THE NAME BELOW lg, THE SEASON ALWAYS — both arguments were right,
+              they were just measured at different widths.
+              · Below 1024 the header renders `khat-mark.svg` alone (44.87×32,
+                no wordmark), so this badge is the only place «بودكاست خط» is
+                spelled on the first screen. That is most of the traffic, and it
+                is why the badge survives at all.
+              · At 1024 and up the header swaps to `khat-lockup-horizontal.svg`
+                — measured 183.8×44 — and the lockup DRAWS the name, in both
+                scripts, as artwork. Printing it again 150px below is the name
+                twice on one screen, which is the very thing this wave removed
+                from five other surfaces.
+              1024 is not a guess and not a copy: `HEADER_LOGO.breakpoint` is
+              the single place that swap is declared (components/layout/
+              header.tsx), and `lg:` IS 1024px in this Tailwind config. If that
+              constant moves, this must move with it — it is the same decision.
+              The season is the information either way. The h1 right below
+              already says «حوارات تستحق أن تبقى», so a badge repeating the
+              promise says nothing twice; what a first-time visitor cannot know
+              from anything else on this screen is WHICH SEASON the archive is
+              on. It is derived, never typed: `currentKhatSeason()` reads the
+              newest خط episode's own category, so season two names itself here
+              the day its first episode publishes.
+              NO SEASON RESOLVED ⇒ THE NAME AT EVERY WIDTH. Hiding it above lg
+              with nothing to replace it would leave a bordered pill containing
+              one decorative icon — a control-shaped object that says nothing. */}
           <span className="inline-flex items-center gap-2 rounded-full border border-border bg-card px-3.5 py-1.5 text-micro font-semibold text-muted-foreground shadow-sm">
             <Sparkles className="h-3.5 w-3.5 text-accent" />
-            بودكاست خط
+            <span className={season ? "lg:hidden" : undefined}>بودكاست خط</span>
             {season ? (
               <>
-                <span aria-hidden="true" className="text-border">
+                {/* The separator belongs to the name, not to the season: above
+                    lg the name is gone and a leading «·» would be punctuation
+                    hanging off nothing. */}
+                <span aria-hidden="true" className="text-border lg:hidden">
                   ·
                 </span>
                 <span className="text-foreground">{season}</span>

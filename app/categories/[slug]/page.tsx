@@ -8,6 +8,7 @@ import { EpisodePosterCard } from "@/components/episodes/episode-poster-card"
 import { ArchiveNav } from "@/components/episodes/archive-nav"
 import {
   DEFAULT_LANE,
+  categoryMetadata,
   laneOfCategorySlug,
   type ProgramLane,
 } from "@/lib/episodes/programs"
@@ -26,7 +27,8 @@ interface CategoryPageProps {
 
 export async function generateMetadata({ params }: CategoryPageProps): Promise<Metadata> {
   const { slug } = await params
-  const resolved = resolveCategorySlug(await getCategoriesForRequest(), slug)
+  const categories = await getCategoriesForRequest()
+  const resolved = resolveCategorySlug(categories, slug)
 
   if (resolved.state !== "known") {
     // Stops metadata generation for a slug that has no category, so the page
@@ -40,10 +42,19 @@ export async function generateMetadata({ params }: CategoryPageProps): Promise<M
     notFound()
   }
 
+  // The copy follows the CLASSIFICATION, and the classification has exactly one
+  // home (lib/episodes/programs.ts). Writing it here is what produced a <title>
+  // reading «سالفة — خط بودكاست» over a body reading «سالفة» برنامج مستقل — مو
+  // من حلقات بودكاست خط»: two answers to one question, and because this page
+  // holds the canonical, the wrong one is the one that gets indexed.
   return {
-    title: `${resolved.category.name} — خط بودكاست`,
-    description: `كل حلقات بودكاست خط ضمن تصنيف ${resolved.category.name}`,
+    ...categoryMetadata(resolved.category, categories),
     alternates: {
+      // This route stays the canonical home of a category — it is the leaf the
+      // sitemap submits and the one every episode page links to. The three URLs
+      // that render this same list now all point HERE (see /episodes), instead
+      // of the duplicate declaring itself the original while the original said
+      // nothing at all.
       canonical: `https://khatpodcast.com/categories/${encodeURIComponent(resolved.category.slug)}`,
     },
   }
@@ -98,9 +109,7 @@ export default async function CategoryPage({ params }: CategoryPageProps) {
             activeSlug={category.slug}
             counts={counts}
             laneHref={laneUrl}
-            groupHref={(slug) =>
-              slug ? `/episodes?category=${encodeURIComponent(slug)}` : laneUrl(lane)
-            }
+            groupHref={(slug) => `/episodes?category=${encodeURIComponent(slug)}`}
           />
         </header>
 

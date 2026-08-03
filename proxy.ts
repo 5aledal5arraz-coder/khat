@@ -60,7 +60,12 @@ const CSP_DIRECTIVES: Record<string, string[]> = {
 
   // Inline styles required (Tailwind/shadcn inline style attrs + Next
   // styled-jsx). External CSS from Google Fonts (manual <link> in
-  // app/layout.tsx for Amiri + Playfair Display).
+  // app/layout.tsx — ONE family, IBM Plex Sans Arabic). It said "Amiri +
+  // Playfair Display" long after both were deleted: Playfair was never in that
+  // <link> at all, and Amiri went with `.museum-font-headline`. The directive
+  // itself was always right — the comment was describing a stylesheet that had
+  // not existed for weeks, which is how a reviewer talks themselves out of
+  // asking why the host is allowed.
   'style-src': ["'self'", "'unsafe-inline'", 'https://fonts.googleapis.com'],
 
   // Six remote hosts come from next.config.ts image patterns. `data:`

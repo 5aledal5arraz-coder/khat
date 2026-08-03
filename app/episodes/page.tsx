@@ -10,23 +10,77 @@ import { ArchiveNav } from "@/components/episodes/archive-nav"
 import {
   DEFAULT_LANE,
   filterLane,
+  laneCategories,
   laneOfCategorySlug,
   laneUnitNoun,
   parseLane,
   type ProgramLane,
 } from "@/lib/episodes/programs"
 import { formatArabicCount } from "@/lib/shared/formatters"
-import type { Episode } from "@/types/database"
+import type { Episode, EpisodeCategory } from "@/types/database"
 
 export const dynamic = "force-dynamic"
 
-export const metadata: Metadata = {
-  title: "الحلقات",
-  description: "استعرض جميع حلقات بودكاست خط — حوارات عميقة وأفكار تبقى.",
-}
-
 interface EpisodesPageProps {
   searchParams: Promise<{ search?: string; category?: string; lane?: string }>
+}
+
+/**
+ * THE ARCHIVE HAD NO CANONICAL AT ALL, and this wave added a second family of
+ * URLs to it. Measured, three URLs render the identical sixteen cards:
+ *
+ *   /categories/سالفة          16 cards   ✅ canonical → itself
+ *   /episodes?lane=separate    16 cards   ❌ none
+ *   /episodes?category=سالفة   16 cards   ❌ none
+ *
+ * A duplicate that declares itself the original while the original says nothing
+ * is worse than either one alone: it is the only instruction a crawler is
+ * given, so it is the one that wins. Every `/episodes` URL now declares where
+ * its content really lives.
+ *
+ *   · `?category=X` is by definition the same list as /categories/X, which is
+ *     the leaf the sitemap submits and every episode page links to. It points
+ *     there.
+ *   · A lane holding exactly ONE category IS that category — «سالفة» today — so
+ *     it points there too, and stops doing so by itself the day a second
+ *     separate programme is added. Derived from `laneCategories`, never from a
+ *     second copy of the classification.
+ *   · خط IS EXCLUDED from that collapse even though it also has one category
+ *     right now: the lane also holds every uncategorised episode (measured: 20
+ *     in the lane, 19 in «الموسم الاول»), so /categories/الموسم-الاول is a
+ *     genuinely smaller list and pointing at it would drop an episode.
+ *   · `?search=` never survives. Search results are an unbounded URL space over
+ *     the same archive and must not be indexed as pages of their own.
+ */
+function canonicalFor(
+  categories: EpisodeCategory[],
+  lane: ProgramLane,
+  activeSlug: string | null,
+): string {
+  const BASE = "https://khatpodcast.com"
+  const categoryUrl = (slug: string) => `${BASE}/categories/${encodeURIComponent(slug)}`
+
+  if (activeSlug !== null) return categoryUrl(activeSlug)
+  if (lane !== DEFAULT_LANE) {
+    const own = laneCategories(categories, lane)
+    return own.length === 1 ? categoryUrl(own[0].slug) : `${BASE}/episodes?lane=${lane}`
+  }
+  return `${BASE}/episodes`
+}
+
+export async function generateMetadata({ searchParams }: EpisodesPageProps): Promise<Metadata> {
+  const { category, lane } = await searchParams
+  const categories = await getCategoriesForRequest()
+  const resolved = resolveCategorySlug(categories, category)
+  const activeSlug = resolved.state === "known" ? resolved.category.slug : null
+  const activeLane: ProgramLane =
+    activeSlug !== null ? laneOfCategorySlug(activeSlug) : (parseLane(lane) ?? DEFAULT_LANE)
+
+  return {
+    title: "الحلقات",
+    description: "استعرض جميع حلقات بودكاست خط — حوارات عميقة وأفكار تبقى.",
+    alternates: { canonical: canonicalFor(categories, activeLane, activeSlug) },
+  }
 }
 
 /**
@@ -131,7 +185,14 @@ export default async function EpisodesPage({ searchParams }: EpisodesPageProps) 
     episodes.length === 0
       ? `لا توجد نتائج لـ «${query}»${categoryScope}`
       : query
-        ? `${episodes.length} نتيجة لـ «${query}»${categoryScope}`
+        // THROUGH THE SAME FUNCTION, not a hand-written string beside it. This
+        // branch printed «4 نتيجة» — Arabic takes the plural from 3 to 10 —
+        // while the branch directly below it got the identical question right,
+        // because that one goes through `formatArabicCount` and this one
+        // interpolated the digit itself. Two ways to say one thing is how one
+        // of them ends up wrong; «نتيجة» belongs in ARABIC_PLURALS like every
+        // other counted noun on the site.
+        ? `${formatArabicCount(episodes.length, "نتيجة")} لـ «${query}»${categoryScope}`
         : `${formatArabicCount(episodes.length, unit)}${categoryScope}`
 
   return (

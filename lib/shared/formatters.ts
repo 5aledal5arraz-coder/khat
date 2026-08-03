@@ -28,6 +28,10 @@ const ARABIC_PLURALS: Record<string, [string, string, string]> = {
   // tells the visitor «مو حلقات كاملة» and then had to print «6 حلقات» right
   // under it. See `laneUnitNoun()` in lib/episodes/programs.ts.
   "مقطع": ["مقطع", "مقطعان", "مقاطع"],
+  // The archive's search summary. It was `${n} نتيجة` written inline in
+  // app/episodes/page.tsx — «4 نتيجة» — one line above a branch that asked the
+  // very same question through this map and got it right.
+  "نتيجة": ["نتيجة", "نتيجتان", "نتائج"],
   "مقال": ["مقال", "مقالان", "مقالات"],
   "متابع": ["متابع", "متابعان", "متابعين"],
   "دقيقة": ["دقيقة", "دقيقتين", "دقائق"],

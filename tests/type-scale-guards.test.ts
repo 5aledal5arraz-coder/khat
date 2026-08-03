@@ -1751,29 +1751,65 @@ describe("ordinary rules read the switch point, and say what they read", () => {
    * token is silent, costs every visitor a download, and is exactly what we
    * shipped.
    */
-  it("every family in the <link> is named by a font token", () => {
+  it("every family in every <link> is a family we actually paint with", () => {
     const layout = readFileSync(join(ROOT, "app/layout.tsx"), "utf8")
-    const href = layout.match(/href="(https:\/\/fonts\.googleapis\.com\/css2\?[^"]+)"/)?.[1]
-    expect(href, "no Google Fonts <link> found in app/layout.tsx").toBeDefined()
+
+    // EVERY <link>, not the first one. `String.match` without /g returns one
+    // match, so a second stylesheet tag was outside the guard entirely — and
+    // "the guard reads one thing while the browser downloads another" is the
+    // exact shape of the hole this test was written for. Measured: a second
+    // <link> fetching Lobster passed.
+    const hrefs = [...layout.matchAll(/href="(https:\/\/fonts\.googleapis\.com\/css2\?[^"]*)"/g)]
+      .map((m) => m[1])
+    expect(hrefs.length, "no Google Fonts <link> found in app/layout.tsx").toBeGreaterThan(0)
 
     // `family=IBM+Plex+Sans+Arabic:wght@300;400` → `IBM Plex Sans Arabic`
-    const fetched = [...href!.matchAll(/family=([^&:]+)/g)].map((m) =>
-      decodeURIComponent(m[1]).replace(/\+/g, " ").trim(),
+    const fetched = hrefs.flatMap((href) =>
+      [...href.matchAll(/family=([^&:]+)/g)].map((m) =>
+        decodeURIComponent(m[1]).replace(/\+/g, " ").trim(),
+      ),
     )
     expect(fetched.length, "the <link> fetches nothing").toBeGreaterThan(0)
 
-    // Every `--font-*` token value across both surfaces, as one haystack.
-    const named = Object.entries(SITE_DECLS)
-      .concat(Object.entries(ADMIN_DECLS))
-      .filter(([k]) => k.startsWith("--font-"))
-      .map(([, v]) => v)
-      .join(" ")
+    // ── WHAT COUNTS AS "NAMED" ────────────────────────────────────────────
+    // The FIRST family in a token's stack, and only that one. Two separate
+    // faults made the old haystack answer yes to things it should not have:
+    //
+    //   · SUBSTRING, NOT FAMILY. `named.includes("IBM Plex Sans")` is true
+    //     because «IBM Plex Sans Arabic» contains it — so a genuinely
+    //     DIFFERENT Google family, one nothing on the site can paint, passed.
+    //     Font names nest constantly (Noto Sans / Noto Sans Arabic, Cairo /
+    //     Cairo Play), so this is the normal case, not a corner one.
+    //
+    //   · FALLBACK POSITION IS NOT INTENT. «Cairo» sits in --font-brand-sans
+    //     as the third entry, i.e. a name we hope is already ON THE DEVICE if
+    //     the first two fail. Downloading it makes it not a fallback at all:
+    //     every visitor pays for a face that can only paint if a font arriving
+    //     in the SAME stylesheet failed to. Fetching a family is a statement
+    //     that we intend to paint with it, and that is the head of the stack.
+    //
+    // A leading `var(--x)` is resolved one hop, because --font-sans is written
+    // `var(--font-brand-sans), ui-sans-serif, …` and its real head lives there.
+    const decls: Record<string, string> = { ...THEME_DECLS, ...SITE_DECLS, ...ADMIN_DECLS }
+    const head = (value: string, depth = 0): string => {
+      const first = splitTopLevel(value, ",")[0] ?? ""
+      const ref = depth > 4 ? null : first.match(/^var\(\s*(--[\w-]+)\s*\)$/)
+      const next = ref ? decls[ref[1]] : undefined
+      return next === undefined ? first.replace(/^["']|["']$/g, "").trim() : head(next, depth + 1)
+    }
+    const painted = new Set(
+      Object.entries(decls)
+        .filter(([k]) => k.startsWith("--font-"))
+        .map(([, v]) => head(v))
+        .filter(Boolean),
+    )
 
-    const orphans = fetched.filter((family) => !named.includes(family))
+    const orphans = fetched.filter((family) => !painted.has(family))
     expect(
       orphans,
-      `fetched but named by no --font-* token — every visitor downloads these ` +
-        `and nothing on the site can paint them`,
+      `fetched but painted by no --font-* token — every visitor downloads these ` +
+        `and nothing on the site sets them as its first family. Painted: ` +
+        `${[...painted].join(", ")}`,
     ).toEqual([])
   })
 })

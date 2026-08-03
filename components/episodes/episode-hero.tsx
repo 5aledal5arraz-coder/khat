@@ -83,10 +83,16 @@ export function EpisodeHero({ episode, teaser, initialStartTime }: EpisodeHeroPr
           {episode.category ? (
             <>
               <span className="text-border">•</span>
-              {/* Was `/episodes?category=…`, which no page ever read — the
-                  archive ignored the param and returned all 41 episodes, so
-                  the badge looked broken. The category archive is a real
-                  route; encode the slug because ours are Arabic. */}
+              {/* `/categories/…`, not `/episodes?category=…`, and the reason
+                  has changed since this was written. The old one was "the
+                  archive ignores the param and returns all 41 episodes" —
+                  no longer true, /episodes reads `?category=` now. The reason
+                  today is that this is the CANONICAL url for a category: both
+                  /episodes variants that render the same list point their
+                  canonical here, and the sitemap submits this one. Linking to
+                  a page that canonicalises somewhere else would be the site
+                  disagreeing with its own <head>.
+                  Encode the slug — ours are Arabic. */}
               <Link
                 href={`/categories/${encodeURIComponent(episode.category.slug)}`}
                 className="rounded-full border border-border bg-secondary px-2.5 py-0.5 text-micro font-medium text-muted-foreground transition-colors hover:border-primary/40 hover:text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:ring-offset-2"

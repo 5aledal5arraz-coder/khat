@@ -64,9 +64,141 @@ const BRAND_NAME = /PODCAST\s+KHAT|بودكاست\s+خط/
  * («أُعدّ لـ &nbsp;/&nbsp; PREPARED FOR»), so `PODCAST&nbsp;KHAT` is the same
  * wordmark to a reader and a different string to `\s`. Both spellings of the
  * name went through the guard untouched until this normalised first.
+ *
+ * ENTITIES ARE DECODED, NOT LISTED. The first version enumerated the six space
+ * entities it knew about, which answered "is this whitespace" and left the
+ * letters alone: «&#1576;&#1608;&#1583;&#1603;&#1575;&#1587;&#1578; &#1582;&#1591;»
+ * is «بودكاست خط» to every reader, and matched nothing here. Any name can
+ * be spelled that way, in any script, so the fix is to decode the numeric forms
+ * generally rather than to add another six strings to a list.
+ *
+ * DECLARED LIMIT: only the NUMERIC forms are decoded. NAMED entities other than
+ * the spaces below are not, and that is a judgement rather than an omission —
+ * neither Arabic letters nor the Latin alphabet have named entities, so there
+ * is no way to spell either half of this brand with them. If a name ever
+ * appears here that can be (an accented Latin one, say), this is the function
+ * to widen, and the canary block near the bottom is where the case gets pinned
+ * before the fix.
  */
 function renderedText(chunk: string): string {
-  return chunk.replace(/&nbsp;|&#160;|&#xa0;|&ensp;|&emsp;|&thinsp;| /gi, " ")
+  const cp = (raw: string, point: number) =>
+    Number.isFinite(point) && point >= 0 && point <= 0x10ffff ? String.fromCodePoint(point) : raw
+  return (
+    chunk
+      .replace(/&#x([0-9a-f]+);/gi, (raw, hex) => cp(raw, parseInt(hex, 16)))
+      .replace(/&#(\d+);/g, (raw, dec) => cp(raw, Number(dec)))
+      // The named spaces have no numeric form to decode, and a decoded
+      // non-breaking or thin space is still not a plain space to `\s`.
+      .replace(/&nbsp;|&ensp;|&emsp;|&thinsp;/gi, " ")
+      .replace(/[\u00a0\u2002\u2003\u2009\u202f]/g, " ")
+  )
+}
+
+/**
+ * The index of the `}` closing the `{` at `start`, or -1 if nothing closes it.
+ *
+ * Nesting and quoting both matter: `{cond && <X>{y}</X>}` closes at the LAST
+ * brace, and `{"}"}` closes at the last one too. A plain `indexOf("}")` folds
+ * away half a container and leaves the other half sitting in the text — the
+ * same class of half-fix as stripping `/* … *\/` and leaving `{}` behind.
+ */
+function matchBrace(text: string, start: number): number {
+  let depth = 0
+  let quote: string | null = null
+  for (let i = start; i < text.length; i++) {
+    const ch = text[i]
+    if (quote) {
+      if (ch === "\\") i++
+      else if (ch === quote) quote = null
+      continue
+    }
+    if (ch === '"' || ch === "'" || ch === "`") quote = ch
+    else if (ch === "{") depth++
+    else if (ch === "}" && --depth === 0) return i
+  }
+  return -1
+}
+
+/**
+ * What a `{…}` container renders, when that is knowable: the content of a
+ * string literal, or the value behind a binding we resolved. `null` = unknown.
+ */
+function containerValue(inner: string, bindings: Map<string, string>): string | null {
+  const literal = inner.match(/^(["'`])([^"'`]*)\1$/)
+  if (literal) return literal[2]
+  if (/^[A-Za-z_$][\w$]*$/.test(inner)) return bindings.get(inner) ?? null
+  return null
+}
+
+/**
+ * ╔═══════════════════════════════════════════════════════════════════════╗
+ * ║  THE ROOT CAUSE OF THE BLIND GUARD — a JSX comment was never the class.  ║
+ * ╚═══════════════════════════════════════════════════════════════════════╝
+ *
+ * `code()` below strips the comment form `{/* … *\/}` because a bare `{}` left
+ * in the text pushed the name off the `^\s*` anchor. That treated ONE spelling
+ * of a general fault: the anchor is defeated by ANY expression container, and
+ * the comment is the least likely of them. Measured, each of these hid a live
+ * violation with the whole file green:
+ *
+ *   {" "}   {null}   {cond && <Icon />}   {"بودكاست خط"}   {BRAND}
+ *
+ * `{" "}` is the one that matters, because NOBODY HAS TO WRITE IT: Prettier
+ * emits it when it wraps a line, so reformatting app/page.tsx is enough to
+ * blind the guard with no intent and nothing in the diff worth reviewing. One
+ * is already live in that file, harmless only because of where it happens to
+ * sit.
+ *
+ * So the fold is over containers, not over comments. Three outcomes:
+ *   · a literal — `{"بودكاست خط"}` — renders its content, so the name held
+ *     in a JS string is caught exactly like the name written as text;
+ *   · a resolved binding — `{BRAND}` — renders the string it holds. This is
+ *     the same one-hop resolution the colour rule already does for
+ *     `style={{ color: LEGACY }}`, and the symmetry is the point: two rules
+ *     disagreeing about what a binding means is how a surface falls between
+ *     them;
+ *   · anything else renders an unknown, folded to a space. DELIBERATELY
+ *     CONSERVATIVE — `{x}بودكاست خط` is reported even though `x` may print
+ *     something first. A guard that guesses "probably prose" is the guard we
+ *     already had. A false positive costs one declared exemption; a false
+ *     negative ships a wordmark to a partner.
+ *
+ * `${…}` in a template literal is the same container wearing a dollar — the
+ * `.ts` surfaces (email, PDF) are built entirely out of those — so the `$` is
+ * folded away with it instead of being left behind to break the anchor itself.
+ *
+ * `literalsOnly` is for the whole-FILE scan, where a JSX container cannot be
+ * told apart from an object literal or a CSS block. There, only containers
+ * whose rendered value is KNOWN are folded and the rest are left alone.
+ */
+function foldExpressions(
+  text: string,
+  bindings: Map<string, string>,
+  literalsOnly = false,
+): string {
+  let out = ""
+  let i = 0
+  while (i < text.length) {
+    if (text[i] !== "{") {
+      out += text[i++]
+      continue
+    }
+    const end = matchBrace(text, i)
+    // Unbalanced — a stray brace in prose is text, like any other character.
+    if (end === -1) {
+      out += text[i++]
+      continue
+    }
+    const value = containerValue(text.slice(i + 1, end).trim(), bindings)
+    if (value === null && literalsOnly) {
+      out += text.slice(i, end + 1)
+    } else {
+      if (out.endsWith("$")) out = out.slice(0, -1)
+      out += value ?? " "
+    }
+    i = end + 1
+  }
+  return out
 }
 
 /**
@@ -200,11 +332,18 @@ function elements(src: string): Element[] {
 }
 
 /**
- * A whole file as a reader would see it: entities resolved and inline elements
- * removed. For the rules that scan a file rather than an element.
+ * A whole file as a reader would see it: entities resolved, inline elements
+ * removed, and the containers whose value is knowable folded to it. For the
+ * rules that scan a file rather than an element.
+ *
+ * `literalsOnly`, because at file level there is no way to tell a JSX container
+ * from an object literal or a CSS block, and folding those away would delete
+ * the vocabulary the colour rules read. It is still enough for the spelling
+ * that actually occurs — `KHAT{" "}PODCAST`, which Prettier can write on its
+ * own — without inventing a parser for the rest.
  */
 function renderedSource(src: string): string {
-  return renderedText(src).replace(INLINE_TAG, "")
+  return foldExpressions(renderedText(src), new Map(), true).replace(INLINE_TAG, "")
 }
 
 /**
@@ -401,6 +540,69 @@ const TYPESET_NAME_EXEMPTIONS: { surface: string; anchor: RegExp; why: string }[
 ]
 
 /**
+ * The bindings on this surface that HOLD the brand name, one hop out.
+ *
+ * The colour rule resolves `LEGACY` to the hex it holds; this is the same
+ * question asked of the other half of the wordmark. Without it `{BRAND}`
+ * renders an unknown and the name is reported as an unattributable offender —
+ * true, but useless to whoever has to fix it — and `<span>{BRAND}</span>` with
+ * `const BRAND = "بودكاست خط"` is a wordmark by any reading.
+ *
+ * One hop, the same limit the colour side declares: it resolves the extraction
+ * refactor that actually happens, not a chain of re-exports.
+ */
+function brandNameBindings(rel: string, src: string): Map<string, string> {
+  const harvest = (text: string): Map<string, string> => {
+    const found = new Map<string, string>()
+    const keep = (name: string, value: string) => {
+      if (BRAND_NAME.test(renderedText(value))) found.set(name, value)
+    }
+    for (const [, name, value] of text.matchAll(
+      /(?:const|let|var)\s+([A-Za-z_$][\w$]*)\s*(?::[^=]+)?=\s*["'`]([^"'`]+)["'`]/g,
+    )) keep(name, value)
+    for (const [, name, value] of text.matchAll(/([A-Za-z_$][\w$]*)\s*:\s*["'`]([^"'`]+)["'`]/g))
+      keep(name, value)
+    return found
+  }
+
+  const out = harvest(src)
+  const dir = path.dirname(path.join(ROOT, rel))
+  for (const [, names, spec] of src.matchAll(
+    /import\s*\{([^}]*)\}\s*from\s*["'](\.[^"']+|@\/[^"']+)["']/g,
+  )) {
+    const base = spec.startsWith("@/") ? path.join(ROOT, spec.slice(2)) : path.resolve(dir, spec)
+    const file = [base, `${base}.ts`, `${base}.tsx`, `${base}/index.ts`].find(
+      (p) => existsSync(p) && statSync(p).isFile(),
+    )
+    if (!file) continue
+    const found = harvest(code(readFileSync(file, "utf8")))
+    if (found.size === 0) continue
+    for (const entry of names.split(",")) {
+      const [imported, alias] = entry.trim().split(/\s+as\s+/)
+      const value = imported ? found.get(imported.trim()) : undefined
+      if (value !== undefined) out.set((alias || imported).trim(), value)
+    }
+  }
+  return out
+}
+
+/** The anchor: the name is the FIRST thing a reader sees inside an element. */
+const ANCHORED_NAME = new RegExp(`^\\s*(?:${BRAND_NAME.source})(?:\\s|$)`)
+
+/**
+ * Every run on one surface whose own text OPENS with the brand name.
+ *
+ * Takes the source rather than reading it, so the canary block at the bottom of
+ * this file can push planted violations through the exact same pipeline the
+ * real surfaces go through. That is the whole point of it: a scanner can only
+ * be proved to still see if something known-visible is fed to it.
+ */
+function typesetNameRuns(rel: string, src: string): Element[] {
+  const bindings = brandNameBindings(rel, src)
+  return elements(src).filter((el) => ANCHORED_NAME.test(foldExpressions(el.text, bindings)))
+}
+
+/**
  * One walk of every surface for typeset brand names, returning both the
  * offenders and which exemptions actually fired.
  *
@@ -409,15 +611,10 @@ const TYPESET_NAME_EXEMPTIONS: { surface: string; anchor: RegExp; why: string }[
  * test having run first — running either one alone gives the same answer.
  */
 function scanTypesetNames(): { offenders: string[]; used: Set<RegExp> } {
-  // The name is the element's OWN text — the first thing inside it. `^` rather
-  // than the old `>`: an element's text now starts where its markup ends, and
-  // the inline tags in between have been folded away.
-  const anchored = new RegExp(`^\\s*(?:${BRAND_NAME.source})(?:\\s|$)`)
   const offenders: string[] = []
   const used = new Set<RegExp>()
   for (const rel of OUTWARD_SURFACES) {
-    for (const el of elements(code(read(rel)))) {
-      if (!anchored.test(el.text)) continue
+    for (const el of typesetNameRuns(rel, code(read(rel)))) {
       // Exemptions are matched against the element's whole markup, so an anchor
       // may name any tag in the run rather than only the one it opens with.
       const hit = TYPESET_NAME_EXEMPTIONS.filter((e) => e.surface === rel && e.anchor.test(el.markup))
@@ -599,6 +796,68 @@ describe("no outward-facing surface rebuilds or misbrands the logo", () => {
       if (/KHAT\s+PODCAST/.test(renderedSource(code(read(rel))))) offenders.push(rel)
     }
     expect(offenders, "reversed wordmark").toEqual([])
+  })
+})
+
+/**
+ * ╔═══════════════════════════════════════════════════════════════════════╗
+ * ║  THE CANARY — proof the scanner can still SEE, on any surface.        ║
+ * ╚═══════════════════════════════════════════════════════════════════════╝
+ *
+ * EVERY FAULT THIS FILE HAS EVER HAD WAS THE SCANNER GOING BLIND, and not one
+ * of them was found by the rule that was supposed to fire. `&nbsp;` in the
+ * name, an inline `<span>` splitting it, `{}` left by a stripped comment — each
+ * one made a live violation invisible, and each was caught by accident: the
+ * dead-exemption test noticed an exemption had stopped matching. That test is a
+ * tripwire in ONE place. Where a surface has no exemption — nine of the eleven —
+ * the same blindness is completely silent, measured: a wordmark planted after
+ * `{" "}` in components/quotes/quote-image-templates.tsx passed 36/36.
+ *
+ * So the guard cannot only assert that the surfaces are clean. It has to assert
+ * that it would still notice if they were not. Each entry below is a spelling
+ * of the name that a reader reads as the name, pushed through the SAME
+ * `typesetNameRuns` the real surfaces go through — with no exemption anywhere
+ * near it, so a green result means the scanner genuinely saw it.
+ *
+ * Every entry is a fault that was real: the first four shipped, the rest were
+ * measured as evasions before the container fold. When the next one is found,
+ * it is added here first — that is what turns "we fixed it" into "we would
+ * know".
+ *
+ * The last case is the inverse, and it is not optional: without it a scanner
+ * that reported EVERY run would satisfy the whole table, and "catches
+ * everything" is not the rule — the rule is that the name standing alone is a
+ * wordmark and the name inside a sentence is prose.
+ */
+const SCANNER_CANARIES: { spelling: string; source: string }[] = [
+  { spelling: "plain text", source: `<div>\n  بودكاست خط\n</div>` },
+  { spelling: "&nbsp; inside the name", source: `<div>\n  \u0628\u0648\u062f\u0643\u0627\u0633\u062a&nbsp;\u062e\u0637\n</div>` },
+  { spelling: "an inline tag splitting the name", source: `<div>\n  \u0628\u0648\u062f\u0643\u0627\u0633\u062a <span class="em">\u062e\u0637</span>\n</div>` },
+  { spelling: "a JSX comment before it", source: `<div>\n  {/* why this is here */}\n  بودكاست خط\n</div>` },
+  { spelling: '{" "} before it (Prettier writes this)', source: `<div>\n  {" "}بودكاست خط\n</div>` },
+  { spelling: "{null} before it", source: `<div>\n  {null}بودكاست خط\n</div>` },
+  { spelling: "a conditional element before it", source: `<div>\n  {show && <Icon />}بودكاست خط\n</div>` },
+  { spelling: "the name as a JS string literal", source: `<div>\n  {"بودكاست خط"}\n</div>` },
+  { spelling: "the name behind a binding", source: `const BRAND = "بودكاست خط"\n<div>\n  {BRAND}\n</div>` },
+  { spelling: "a template interpolation before it", source: `<div>\n  \${ref}بودكاست خط\n</div>` },
+  { spelling: "numeric HTML entities", source: `<div>\n  &#1576;&#1608;&#1583;&#1603;&#1575;&#1587;&#1578; &#1582;&#1591;\n</div>` },
+  { spelling: "the Latin wordmark", source: `<div>\n  PODCAST KHAT\n</div>` },
+]
+
+describe("the scanner is not blind", () => {
+  it.each(SCANNER_CANARIES)("still sees the name written as $spelling", ({ source }) => {
+    // A path that does not exist on disk: the import hop resolves nothing, so
+    // this measures the scanner and not the repository around it.
+    const runs = typesetNameRuns("virtual/canary.tsx", code(source))
+    expect(runs.length, `the scanner no longer sees the name in:\n${source}`).toBeGreaterThan(0)
+  })
+
+  it("still leaves the name inside a sentence alone", () => {
+    // «\u0645\u0642\u0627\u0637\u0639 \u0645\u0646 \u0628\u0648\u062f\u0643\u0627\u0633\u062a \u062e\u0637» is prose about the show, and it is live on a
+    // card in app/page.tsx. A scanner that reported it would pass every case
+    // above while telling us nothing.
+    const prose = `<div>\n  \u0645\u0642\u0627\u0637\u0639 \u0645\u0646 بودكاست خط\n</div>`
+    expect(typesetNameRuns("virtual/canary.tsx", code(prose))).toEqual([])
   })
 })
 
