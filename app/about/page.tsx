@@ -2,6 +2,7 @@ import type { Metadata } from "next"
 import Image from "next/image"
 import Link from "next/link"
 import { KhatLogo } from "@/components/brand/khat-logo"
+import { GuestPortrait } from "@/components/media/guest-portrait"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -205,20 +206,21 @@ export default async function AboutPage() {
                       className="group hover:shadow-xl transition-all duration-300 hover:-translate-y-1 text-center overflow-hidden"
                     >
                       <CardContent className="p-6">
-                        <div className="relative w-24 h-24 mx-auto mb-4 rounded-full overflow-hidden bg-gradient-to-br from-primary/20 to-accent/20 group-hover:scale-105 transition-transform duration-300">
-                          {member.image ? (
-                            <Image
-                              src={member.image}
-                              alt={member.name}
-                              fill
-                              className="object-cover"
-                            />
-                          ) : (
-                            <div className="flex items-center justify-center h-full text-subhead font-bold text-muted-foreground">
-                              {member.name.charAt(0)}
-                            </div>
-                          )}
-                        </div>
+                        {/* Was a hand-rolled avatar: a `rounded-full` gradient
+                            box falling back to `{member.name.charAt(0)}`. Both
+                            halves broke a rule this wave settled. The circle is
+                            the shape the identity does not own, and the initial
+                            is the deleted `guestInitials` rebuilt inline — it
+                            renders «ا» for every Arabic name that opens with
+                            «ال», which is most of them. The 96px rung of the
+                            shared portrait is the same box, with the «ط» panel
+                            and the onError ladder already in it. */}
+                        <GuestPortrait
+                          name={member.name}
+                          photoUrl={member.image}
+                          variant="episode"
+                          className="mx-auto mb-4 group-hover:scale-105 transition-transform duration-300"
+                        />
                         <h3 className="text-lead font-bold mb-1">{member.name}</h3>
                         {member.role && <Badge variant="secondary" className="mb-3">{member.role}</Badge>}
                         <p className="text-caption text-muted-foreground">{member.description}</p>

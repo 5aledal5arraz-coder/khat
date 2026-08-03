@@ -19,9 +19,14 @@
 import { describe, it, expect } from "vitest"
 import { readFileSync, readdirSync, statSync } from "node:fs"
 import path from "node:path"
+import { createElement } from "react"
+import { renderToStaticMarkup } from "react-dom/server"
 
 import { episodeThumbSources } from "@/lib/episodes/thumbnail"
 import { isClip, mainFeed, CLIPS_CATEGORY_SLUG } from "@/lib/episodes/clips"
+import { EpisodeThumb } from "@/components/media/episode-thumb"
+import { GuestPortrait } from "@/components/media/guest-portrait"
+import { PlayBadge } from "@/components/media/play-badge"
 import type { Episode } from "@/types/database"
 
 const ROOT = process.cwd()
@@ -191,6 +196,23 @@ function sourceFiles(): [string, string][] {
   return out
 }
 
+/**
+ * An expression that takes the leading character (or the leading two) off
+ * something called a name or a title, inside a rendered fragment.
+ *
+ * Deliberately written against the OPERATION rather than against any spelling
+ * of it, because the four spellings we have actually seen in this repo —
+ * `.charAt(0)`, `[0]`, `.slice(0, 1)`, `.substring(0, 2)` — are the same bug
+ * and the guards that named one of them missed the others.
+ *
+ * The leading `\{[^{}]*` keeps it to JSX expression containers, i.e. to text a
+ * visitor reads; slicing a name in data logic is not what this is about.
+ * NOT a `/g` regex: `.test()` on a global regex carries `lastIndex` between
+ * calls and would skip files at random.
+ */
+const LEADING_NAME_LETTER =
+  /\{[^{}]*\b\w*(?:[Nn]ame|[Tt]itle)\b(?:\.\w+)*\s*(?:\.charAt\(\s*0\s*\)|\[\s*0\s*\]|\.slice\(\s*0\s*,\s*[12]\s*\)|\.substring\(\s*0\s*,\s*[12]\s*\))/
+
 /** Public site only — `app/admin` is a separate surface with its own rules. */
 function publicFiles(): [string, string][] {
   return sourceFiles().filter(
@@ -201,12 +223,63 @@ function publicFiles(): [string, string][] {
   )
 }
 
+/**
+ * The directories the guards below make claims about.
+ *
+ * `SKIP` matches a BASENAME at any depth, so one word in it can empty several
+ * of these at once: adding `"components"` removes `components/` and also
+ * `app/admin/components/`, `app/admin/studio/components/` and the rest — 144
+ * files — while every rule underneath goes on passing on what is left.
+ */
+const WALKED_ROOTS = ["app", "components", "lib", "types"] as const
+
+/**
+ * `.ts`/`.tsx` under `root`, counted WITHOUT consulting `SKIP` — the whole
+ * point is to have a number the walk cannot influence. Only `node_modules` and
+ * dot-directories are stepped over, and neither is a directory any guard here
+ * asserts about, so nothing can hide behind that exception.
+ */
+function onDiskCount(root: string): number {
+  let n = 0
+  const walk = (dir: string) => {
+    for (const entry of readdirSync(dir)) {
+      if (entry === "node_modules" || entry.startsWith(".")) continue
+      const full = path.join(dir, entry)
+      if (statSync(full).isDirectory()) {
+        walk(full)
+        continue
+      }
+      if (/\.(ts|tsx)$/.test(entry)) n += 1
+    }
+  }
+  walk(path.join(ROOT, root))
+  return n
+}
+
 describe("the tree guards below can actually fail", () => {
-  it("the walk actually reads files", () => {
-    // Without this, a broken SKIP set or a renamed folder turns every guard in
-    // this block into a test that passes on zero input.
-    const files = sourceFiles()
-    expect(files.length).toBeGreaterThan(300)
+  it("the walk reaches every directory these guards are about", () => {
+    // NOT a size threshold. This test used to assert `files.length > 300`,
+    // which is decoration: skipping `components/` outright still leaves 1298
+    // files — four times the bar — so the walk went green while
+    // `grayscale group-hover:grayscale-0` sat live in `episode-thumb.tsx` and
+    // the saturation rule below "passed". Measured, both numbers, before this
+    // was rewritten.
+    //
+    // What replaces it is an equality the walk cannot satisfy by accident: for
+    // each root, what the walk collected must equal what is on disk. A skipped
+    // folder, a rename, or a `SKIP` entry that catches more than it meant to
+    // all break it, and the failure names the directory.
+    const perRoot = new Map<string, number>()
+    for (const [rel] of sourceFiles()) {
+      const root = rel.split(path.sep)[0]
+      perRoot.set(root, (perRoot.get(root) ?? 0) + 1)
+    }
+    for (const root of WALKED_ROOTS) {
+      expect(perRoot.get(root) ?? 0, `the walk did not read all of ${root}/`).toBe(
+        onDiskCount(root),
+      )
+    }
+    // And the derived list the public-site rules run on is not empty either.
     expect(publicFiles().length).toBeGreaterThan(100)
   })
 
@@ -233,6 +306,31 @@ describe("no initials anywhere", () => {
   it("no component was left rendering a two-letter name fragment", () => {
     const hits = publicFiles()
       .filter(([, src]) => /\.slice\(0,\s*2\)\.join\(""\)/.test(src))
+      .map(([rel]) => rel)
+    expect(hits).toEqual([])
+  })
+
+  it("no public surface takes a leading letter off a name, however it is spelled", () => {
+    // THE CLASS, NOT THE LINE — and this is the one the wave missed.
+    //
+    // The three rules above each name a symbol (`guestInitials`), a call
+    // (`.slice(0,2).join("")`) or a module (`guests/guest-avatar`). Deleting
+    // the helper satisfied all three, so nothing looked at `app/about/page.tsx`,
+    // where the identical mechanism was living inline as
+    // `{member.name.charAt(0)}` inside a `rounded-full` gradient. It was a
+    // dormant fault — no `teamMembers` in `static_content` today — which is
+    // precisely the kind this codebase keeps shipping unseen.
+    //
+    // So this bans the OPERATION: taking the first character (or the first
+    // two) off anything called a name or a title, anywhere a visitor can reach
+    // it. In Arabic that character is «ا» for every name that opens with «ال»,
+    // which is most of ours; no restyling makes it mean anything.
+    //
+    // `app/admin/**` is out of scope here for the same reason as every other
+    // rule in this file — a separate surface with its own rules. It has two
+    // live instances, in `app/admin/preparation/preparation-list-client.tsx`.
+    const hits = publicFiles()
+      .filter(([, src]) => LEADING_NAME_LETTER.test(src))
       .map(([rel]) => rel)
     expect(hits).toEqual([])
   })
@@ -381,5 +479,152 @@ describe("nothing is drawn over a thumbnail", () => {
     expect(body).toContain("<EpisodeThumb")
     expect(body).not.toContain("absolute")
     expect(body).not.toContain("gradient")
+  })
+})
+
+// ─── The two things this wave actually changed ───────────────────────────────
+
+/**
+ * Both of the wave's own constants shipped with no coverage at all, and it was
+ * provable: `PlayBadge` was moved `h-14 w-14` → `h-12 w-12` and `onError` was
+ * deleted from `episode-thumb.tsx`, together, and all 30 tests here passed.
+ *
+ * They were unreachable for opposite reasons. The badge's size is a className
+ * inside a component nothing rendered — fixed below by rendering it, with
+ * `react-dom/server`, which is already a dependency; no DOM environment and no
+ * new package. The ladder's `onError` is an event handler, which React does
+ * not put in markup at all, so it stays a source guard — narrowed to the
+ * `<Image>`'s own attribute list rather than a substring on the file.
+ */
+
+/** The attribute list of the first `<tag …>` in `src`, up to the `/>`. */
+function jsxAttrs(src: string, tag: string): string {
+  const at = src.indexOf(`<${tag}`)
+  expect(at, `<${tag} not found — this guard is pointing at nothing`).toBeGreaterThan(-1)
+  return src.slice(at, src.indexOf("/>", at))
+}
+
+describe("one play control, one size", () => {
+  it("renders a 56px circle", () => {
+    // 56px is the settled size. Six different ones existed before this wave —
+    // 64, 56, 48, 48, 44, 40 — so a drift here is not cosmetic, it is the
+    // whole reason the component exists.
+    const html = renderToStaticMarkup(createElement(PlayBadge))
+    expect(html).toContain("h-14 w-14")
+    expect(html).not.toMatch(/\bh-(?:8|10|11|12|16|20)\b/)
+    // Round on purpose: a transport control is not a portrait, and the
+    // rounded-square rule in `GuestPortrait` is about faces.
+    expect(html).toContain("rounded-full")
+  })
+
+  it("survives every className its call sites pass it", () => {
+    // The size is merged through `cn()`, so a call site passing `h-12 w-12`
+    // would silently win and no guard on the component alone would notice.
+    // This renders the badge with each className that is really in the tree.
+    const callSites = sourceFiles().flatMap(([rel, src]) =>
+      [...src.matchAll(/<PlayBadge\s+className="([^"]*)"/g)].map(
+        (m) => [rel, m[1]] as const,
+      ),
+    )
+    expect(callSites.length, "no PlayBadge call site found").toBeGreaterThanOrEqual(2)
+    for (const [rel, className] of callSites) {
+      const html = renderToStaticMarkup(createElement(PlayBadge, { className }))
+      expect(html, `${rel} resizes the shared badge`).toContain("h-14 w-14")
+    }
+  })
+})
+
+describe("the fallback ladder is wired, not merely computed", () => {
+  it("EpisodeThumb gives next/image an onError that advances the source", () => {
+    // `episodeThumbSources` returning two rungs proves nothing on its own:
+    // with this attribute gone the component still renders rung one, every
+    // ladder test above still passes, and a 404 just stays broken on screen.
+    //
+    // QA fired `error` on the live <img> and watched maxres → hq → the «ط»
+    // panel before this existed; that is the behavioural evidence. This is its
+    // regression guard, and it is structural by necessity — an event handler
+    // is a function prop, absent from rendered markup, and observing it needs
+    // a DOM environment this suite does not have.
+    const attrs = jsxAttrs(
+      code(readFileSync(path.join(ROOT, "components/media/episode-thumb.tsx"), "utf8")),
+      "Image",
+    )
+    expect(attrs, "the <Image> carries no onError").toContain("onError=")
+    expect(attrs, "onError does not advance the index").toMatch(/onError=\{\(\)\s*=>\s*setIndex/)
+  })
+
+  it("GuestPortrait gives its photo the same escape to the «ط» panel", () => {
+    const attrs = jsxAttrs(
+      code(readFileSync(path.join(ROOT, "components/media/guest-portrait.tsx"), "utf8")),
+      "Image",
+    )
+    expect(attrs, "the <Image> carries no onError").toContain("onError=")
+    expect(attrs, "onError does not reach the empty state").toMatch(
+      /onError=\{\(\)\s*=>\s*setFailed\(true\)\}/,
+    )
+  })
+
+  it("draws the first rung, and the panel when there is no rung at all", () => {
+    const withSource = renderToStaticMarkup(
+      createElement(EpisodeThumb, {
+        ep: {
+          title: "حلقة",
+          thumbnail_url: null,
+          youtube_url: "https://www.youtube.com/watch?v=oNyFz82BVzY",
+        },
+        sizes: "300px",
+      } as never),
+    )
+    expect(withSource).toContain("maxresdefault.jpg")
+    expect(withSource).toContain('sizes="300px"')
+
+    const withoutSource = renderToStaticMarkup(
+      createElement(EpisodeThumb, {
+        ep: { title: "حلقة", thumbnail_url: null, youtube_url: "https://example.com/x" },
+        sizes: "300px",
+      } as never),
+    )
+    expect(withoutSource).toContain("ط")
+    expect(withoutSource).not.toContain("<img")
+  })
+})
+
+describe("the guest portrait renders at all three sizes", () => {
+  // Not one guest row in the local DB has a photo, so `page` (200px) and
+  // `episode` (96px) had never been drawn — by anyone, in a browser or in a
+  // test. They shipped unseen. These render each variant directly, which is
+  // the only way to see them without writing to the database.
+  it.each([
+    ["card", "h-20 w-20", "rounded-2xl", "80px"],
+    ["page", "h-[200px] w-[200px]", "rounded-[20px]", "200px"],
+    ["episode", "h-24 w-24", "rounded-[20px]", "96px"],
+  ] as const)("%s is a %s rounded square asking for %s", (variant, box, corner, sizes) => {
+    const html = renderToStaticMarkup(
+      createElement(GuestPortrait, {
+        name: "الدكتور الحارث المزيدي",
+        photoUrl: "/guests/test.jpg",
+        variant,
+      }),
+    )
+    expect(html).toContain(box)
+    expect(html).toContain(corner)
+    expect(html).toContain(`sizes="${sizes}"`)
+    expect(html, "a circle — the one shape the identity does not own").not.toContain(
+      "rounded-full",
+    )
+  })
+
+  it("shows «ط» and never an initial when the photo is missing", () => {
+    // «الدكتور الحارث المزيدي» is the exact name that rendered «اا» live.
+    const html = renderToStaticMarkup(
+      createElement(GuestPortrait, {
+        name: "الدكتور الحارث المزيدي",
+        photoUrl: null,
+        variant: "page",
+      }),
+    )
+    expect(html).toContain("ط")
+    expect(html).not.toContain("اا")
+    expect(html).not.toContain("<img")
   })
 })
