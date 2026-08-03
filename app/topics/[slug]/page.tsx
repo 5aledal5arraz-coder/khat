@@ -2,7 +2,7 @@ import { Metadata } from "next"
 import { notFound } from "next/navigation"
 import { getTopicBySlug, getEpisodesForTopic } from "@/lib/episodes/episode-graph"
 import { getCachedPublicEpisodes } from "@/lib/cache"
-import { EpisodeCard } from "@/components/episodes/episode-card"
+import { EpisodePosterCard } from "@/components/episodes/episode-poster-card"
 
 // The taxonomy is admin-driven; render on every request.
 export const dynamic = "force-dynamic"
@@ -52,7 +52,7 @@ export default async function TopicPage({ params }: TopicPageProps) {
         {episodes.length > 0 && (
           <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
             {episodes.map((episode) => (
-              <EpisodeCard key={episode.id} episode={episode} />
+              <EpisodePosterCard key={episode.id} ep={episode} showDate />
             ))}
           </div>
         )}

@@ -33,7 +33,8 @@ export default function HomeLoading() {
         {/* Episodes skeleton */}
         <div className="py-12 space-y-4">
           <div className="h-6 w-40 animate-pulse rounded-sm bg-muted" />
-          <div className="aspect-video animate-pulse rounded-xl bg-muted" />
+          {/* `rounded-2xl` — every 16:9 frame on the site is 16px now. */}
+          <div className="aspect-video animate-pulse rounded-2xl bg-muted" />
           {[1, 2, 3].map((i) => (
             <div key={i} className="flex gap-4 rounded-xl border p-4">
               <div className="h-20 w-32 shrink-0 animate-pulse rounded-lg bg-muted" />

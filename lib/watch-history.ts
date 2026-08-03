@@ -1,4 +1,5 @@
 import { getYouTubeId } from "@/lib/utils"
+import { youTubeThumbUrl } from "@/lib/episodes/thumbnail"
 
 // Watch history management using localStorage
 
@@ -44,7 +45,10 @@ export function updateWatchProgress(episode: {
     episodeId: episode.id,
     title: episode.title,
     slug: episode.slug,
-    thumbnailUrl: `https://img.youtube.com/vi/${videoId}/mqdefault.jpg`,
+    // `mqdefault` deliberately: this string is persisted per episode in
+    // localStorage and rendered in a small "continue watching" row, so the
+    // 320x180 still is the right one — not the 1280x720 the cards use.
+    thumbnailUrl: youTubeThumbUrl(videoId, "mqdefault"),
     progress: Math.round(Math.min(100, Math.max(0, progress))),
     lastWatched: new Date().toISOString(),
     durationMinutes: episode.duration_minutes,

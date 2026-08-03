@@ -9,6 +9,8 @@
  * Pure — no I/O — so it's trivially testable.
  */
 
+import { youTubeThumbUrl } from "@/lib/episodes/thumbnail"
+
 export interface EpisodeJsonLdInput {
   title: string
   slug: string
@@ -42,7 +44,7 @@ function iso8601Duration(seconds: number): string {
 export function buildEpisodeJsonLd(input: EpisodeJsonLdInput): Record<string, unknown> {
   const episodeUrl = `${SITE}/episodes/${input.slug}`
   const videoId = input.youtubeVideoId || null
-  const thumb = videoId ? `https://img.youtube.com/vi/${videoId}/maxresdefault.jpg` : undefined
+  const thumb = videoId ? youTubeThumbUrl(videoId) : undefined
   const topics = (input.topics ?? []).filter(Boolean)
 
   const graph: Record<string, unknown>[] = []

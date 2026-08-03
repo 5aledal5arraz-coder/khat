@@ -1,6 +1,6 @@
 import Link from "next/link"
 import { Card, CardContent } from "@/components/ui/card"
-import { GuestAvatar } from "@/components/guests/guest-avatar"
+import { GuestPortrait } from "@/components/media/guest-portrait"
 import { formatArabicCount } from "@/lib/utils"
 import type { Guest } from "@/types/database"
 
@@ -16,13 +16,18 @@ export function GuestCard({ guest }: GuestCardProps) {
       <Card className="group h-full overflow-hidden transition-all hover:shadow-lg hover:border-primary/50">
         <CardContent className="p-6">
           <div className="flex items-start gap-4">
-            <GuestAvatar
+            {/* 80px rounded square, and — when there is no photo — the same flat
+                panel every other empty image slot shows. What it replaced was a
+                ring + gradient + glow circle carrying two Arabic initials that
+                were wrong for five of our seven names; see the note in
+                `lib/shared/formatters.ts`. This is the ONE surface that still
+                shows the empty state for a guest: a list of cards needs
+                something in the slot to stay a grid. The guest's own page and
+                the episode page show nothing at all. */}
+            <GuestPortrait
               name={guest.name}
-              slug={guest.slug}
               photoUrl={guest.photo_url}
-              size="lg"
-              showBorder
-              className="shrink-0 transition-all group-hover:ring-primary group-hover:shadow-lg group-hover:shadow-primary/20"
+              variant="card"
             />
             <div className="flex-1">
               <h3 className="text-lead font-semibold group-hover:text-primary transition-colors">

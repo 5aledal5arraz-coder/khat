@@ -984,52 +984,22 @@ header {
   line-height: var(--type-leading-display-font);
 }
 
-/* Museum gold text-shadow effect */
-.museum-gold-glow {
-  text-shadow: 0 0 15px rgba(240, 201, 84, 0.4);
-}
+/* `.museum-gold-glow` WAS HERE. A text-shadow in the RETIRED gold
+   (rgba(240,201,84,…)) with zero callers anywhere in the tree — the last
+   surviving declaration of that identity in this stylesheet, sitting next to
+   the deleted `.museum-frame` which was its only companion. */
 
 /* Museum cinematic scroll */
 .museum-cinematic-scroll {
   scroll-behavior: smooth;
 }
 
-/* Museum frame — decorative border with hover effect */
-.museum-frame {
-  position: relative;
-  padding: 1rem;
-  background: #121110;
-  border: 1px solid rgba(240, 201, 84, 0.1);
-  transition: all 0.7s cubic-bezier(0.4, 0, 0.2, 1);
-  box-shadow: inset 0 0 20px rgba(0, 0, 0, 0.5);
-}
-
-.museum-frame::after {
-  content: "";
-  position: absolute;
-  inset: -2px;
-  background: linear-gradient(
-    135deg,
-    rgba(240, 201, 84, 0.2) 0%,
-    transparent 50%,
-    rgba(240, 201, 84, 0.2) 100%
-  );
-  z-index: -1;
-  opacity: 0;
-  transition: opacity 0.7s ease;
-}
-
-.museum-frame:hover {
-  border-color: rgba(240, 201, 84, 0.4);
-  box-shadow:
-    0 20px 50px rgba(0, 0, 0, 0.5),
-    0 0 20px rgba(240, 201, 84, 0.1);
-  transform: translateY(-5px);
-}
-
-.museum-frame:hover::after {
-  opacity: 1;
-}
+/* `.museum-frame` WAS HERE and is deleted with its only caller
+   (components/episodes/episode-card.tsx). It was a #121110 panel with a
+   rgba(240,201,84,…) border — the RETIRED gold identity — wrapping episode
+   thumbnails on /guests/[slug], /topics/[slug] and the recommendation rail, on
+   a site whose public identity has been indigo + orange on ivory since the
+   redesign. Every episode card is `rounded-2xl border-border bg-card` now. */
 
 /* Museum glow pulse animation */
 .museum-glow-pulse {

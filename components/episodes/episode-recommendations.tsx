@@ -1,4 +1,4 @@
-import { EpisodeCard } from "./episode-card"
+import { EpisodePosterCard } from "./episode-poster-card"
 import type { Episode, Guest } from "@/types/database"
 
 interface EpisodeRecommendationsProps {
@@ -13,7 +13,7 @@ export function EpisodeRecommendations({ episodes }: EpisodeRecommendationsProps
       <h2 className="text-lead font-semibold">حلقات لها علاقة</h2>
       <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
         {episodes.map((episode) => (
-          <EpisodeCard key={episode.id} episode={episode} />
+          <EpisodePosterCard key={episode.id} ep={episode} />
         ))}
       </div>
     </div>

@@ -60,7 +60,11 @@ function GuestsGridSkeleton() {
     <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
       {Array.from({ length: 6 }).map((_, i) => (
         <div key={i} className="flex items-start gap-4 rounded-lg border p-6">
-          <Skeleton className="h-16 w-16 rounded-full" />
+          {/* 80px rounded square — the exact box `GuestPortrait variant="card"`
+              settles into. It was `h-16 w-16 rounded-full`: 64px against an
+              80px avatar, so every card jumped 16px sideways and changed shape
+              the moment the data landed. */}
+          <Skeleton className="h-20 w-20 rounded-2xl" />
           <div className="flex-1 space-y-2">
             <Skeleton className="h-5 w-3/4" />
             <Skeleton className="h-4 w-full" />

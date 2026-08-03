@@ -4,6 +4,7 @@ import { episodes, guests } from "@/lib/db/schema"
 import { eq, asc, desc, and, ne } from "drizzle-orm"
 import { getHomepageMode } from "./homepage-settings"
 import type { MuseumEpisode } from "@/lib/content/museum-data"
+import { youTubeThumbUrl } from "@/lib/episodes/thumbnail"
 
 export interface HomepageFeaturedRow {
   id: string
@@ -108,7 +109,7 @@ async function buildMuseumEpisode(
     number: ep.episode_number ? `المعرض ٠${String(ep.episode_number).padStart(2, "0")}` : "",
     quote: featured?.custom_quote || "",
     description: featured?.custom_description || ep.description || "",
-    imageUrl: featured?.custom_image || ep.thumbnail_url || (videoId ? `https://img.youtube.com/vi/${videoId}/maxresdefault.jpg` : ""),
+    imageUrl: featured?.custom_image || ep.thumbnail_url || (videoId ? youTubeThumbUrl(videoId) : ""),
     youtubeUrl: ep.youtube_url || "",
     transcript: "",
   }

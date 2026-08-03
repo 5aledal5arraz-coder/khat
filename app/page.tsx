@@ -6,9 +6,10 @@ import type { Episode } from "@/types/database"
 import { TeaserSection } from "@/components/teaser/teaser-section"
 import {
   EpisodePosterCard,
-  EpisodeThumb,
   episodeDurationLabel,
 } from "@/components/episodes/episode-poster-card"
+import { EpisodeThumb } from "@/components/media/episode-thumb"
+import { mainFeed } from "@/lib/episodes/clips"
 import { NewsletterSignup } from "@/components/forms/newsletter-signup"
 import {
   displayEpisodeTitle,
@@ -78,9 +79,14 @@ export default async function HomePage() {
     getCachedPublicEpisodes().catch(() => [] as Episode[]),
     getCachedActiveTeaser().catch(() => null),
   ])
-  const featured = episodes[0] ?? null
+  // Conversations only. The six «مقاطع خط» cut-downs are the newest uploads, so
+  // before this they took the featured slot AND five of the six grid tiles —
+  // the homepage led with clips of episodes that were also in the same grid.
+  // They keep their chip on /episodes and their own category page.
+  const conversations = mainFeed(episodes)
+  const featured = conversations[0] ?? null
   const featuredBlurb = featured ? episodeBlurb(featured) : null
-  const grid = episodes.slice(1, 7)
+  const grid = conversations.slice(1, 7)
 
   return (
     <div className="overflow-hidden">
@@ -153,12 +159,18 @@ export default async function HomePage() {
               href={`/episodes/${featured.slug}`}
               className="group mt-5 grid items-center gap-8 rounded-[28px] border border-border bg-card p-4 shadow-[0_2px_8px_rgba(40,30,90,0.04),0_24px_60px_-30px_rgba(40,30,90,0.28)] transition-all hover:shadow-[0_2px_8px_rgba(40,30,90,0.05),0_36px_80px_-30px_rgba(40,30,90,0.35)] sm:p-5 lg:grid-cols-[1.5fr_1fr]"
             >
+              {/* Bare frame. The «شاهد الآن» pill that used to sit at
+                  bottom-start landed on the poster's burned-in title — every
+                  thumbnail in this archive has its type baked into the artwork
+                  — and it repeated the «استمع للحلقة» CTA that is already in
+                  the column beside it. */}
               <div className="relative aspect-video overflow-hidden rounded-2xl bg-secondary">
-                <EpisodeThumb ep={featured} priority className="transition-transform duration-700 group-hover:scale-[1.03]" />
-                <span className="absolute bottom-3 start-3 inline-flex items-center gap-2 rounded-full bg-black/55 px-3 py-1.5 text-micro font-semibold text-white backdrop-blur">
-                  <Play className="h-3.5 w-3.5 fill-current text-accent" />
-                  شاهد الآن
-                </span>
+                <EpisodeThumb
+                  ep={featured}
+                  priority
+                  sizes="(max-width: 1024px) 100vw, 700px"
+                  className="transition-transform duration-700 group-hover:scale-[1.03]"
+                />
               </div>
               {/* The card's empty half was two separate faults, not one.
                   HORIZONTAL: nothing capped or filled the text column.

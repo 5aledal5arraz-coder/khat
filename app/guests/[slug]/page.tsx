@@ -5,9 +5,9 @@ import { resolveDefaultOgImage } from "@/lib/seo/og"
 import { getGuestPublicKnowledge } from "@/lib/guests/knowledge"
 import { getTeaserForGuest } from "@/lib/teaser"
 import { TeaserInline } from "@/components/teaser/teaser-inline"
-import { EpisodeCard } from "@/components/episodes/episode-card"
+import { EpisodePosterCard } from "@/components/episodes/episode-poster-card"
 import { QuoteCard } from "@/components/quotes/quote-card"
-import { GuestAvatar } from "@/components/guests/guest-avatar"
+import { GuestPortrait } from "@/components/media/guest-portrait"
 import { AtharCard } from "@/components/guests/athar-card"
 import { Linkedin, Globe, Instagram, Youtube, Mail } from "lucide-react"
 import { XIcon } from "@/components/icons/x-icon"
@@ -124,14 +124,20 @@ export default async function GuestPage({ params }: GuestPageProps) {
       <div className="mx-auto max-w-4xl">
         {/* Guest Header */}
         <div className="flex flex-col items-center gap-6 text-center sm:flex-row sm:text-start">
-          <GuestAvatar
-            name={guest.name}
-            slug={guest.slug}
-            photoUrl={guest.photo_url}
-            size="2xl"
-            showBorder
-            showGlow
-          />
+          {/* NO PLACEHOLDER HERE — the name is the hero when there is no photo.
+              What stood here was a 144px circle (about 265px on a phone, ~40%
+              of the viewport) printing two initials that were wrong for most
+              Arabic names — «الدكتور الحارث المزيدي» rendered «اا» live. An
+              empty box that size does not "hold the layout", it dominates the
+              page to say nothing. All three guests in the database have
+              `photo_url = NULL` today, so this is the branch that renders. */}
+          {guest.photo_url ? (
+            <GuestPortrait
+              name={guest.name}
+              photoUrl={guest.photo_url}
+              variant="page"
+            />
+          ) : null}
           <div className="flex-1">
             {/* `sm:text-title` matches the episode title (episode-hero.tsx).
                 Without it this h1 was a flat 32px while an episode title
@@ -257,7 +263,7 @@ export default async function GuestPage({ params }: GuestPageProps) {
             </h2>
             <div className="grid gap-6 sm:grid-cols-2">
               {guest.episodes.map((episode) => (
-                <EpisodeCard key={episode.id} episode={episode} />
+                <EpisodePosterCard key={episode.id} ep={episode} showDate />
               ))}
             </div>
           </div>

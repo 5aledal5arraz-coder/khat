@@ -8,6 +8,7 @@ import {
 import { getQuotesByEpisodeId } from "@/lib/content/home-quotes"
 import { getReflectionsByEpisodeId } from "@/lib/content/daily-reflections"
 import { getPublicEpisodeEnrichment } from "@/lib/episodes/enrichments"
+import { episodeThumbUrl } from "@/lib/episodes/thumbnail"
 import { getEpisodeEirId } from "@/lib/queries/episodes"
 import { getTeaserForEpisode } from "@/lib/teaser"
 import { getEpisodeTopics } from "@/lib/episodes/episode-graph"
@@ -39,8 +40,10 @@ export async function generateMetadata({ params }: EpisodePageProps): Promise<Me
     notFound()
   }
 
-  const videoId = getYouTubeId(episode.youtube_url)
-  const ogImage = videoId ? `https://img.youtube.com/vi/${videoId}/maxresdefault.jpg` : undefined
+  // Through the shared resolver, so the card honours `episodes.thumbnail_url`
+  // — an editor's override used to be ignored here while the homepage queries
+  // obeyed it.
+  const ogImage = episodeThumbUrl(episode) ?? undefined
 
   return {
     title: episode.title,

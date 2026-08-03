@@ -4,6 +4,7 @@ import { episodes, guests } from "@/lib/db/schema"
 import { eq, asc, desc } from "drizzle-orm"
 import { getHomepageMode } from "./homepage-settings"
 import type { MuseumThinker } from "@/lib/content/museum-data"
+import { youTubeThumbUrl } from "@/lib/episodes/thumbnail"
 
 export interface HomepageThinkerRow {
   id: string
@@ -134,7 +135,7 @@ export async function getHomepageThinkersForDisplay(): Promise<MuseumThinker[] |
           name: guest.name,
           title: t?.custom_title || "",
           description: t?.custom_description || guest.bio || "",
-          imageUrl: t?.custom_image || guest.photo_url || (videoId ? `https://img.youtube.com/vi/${videoId}/maxresdefault.jpg` : ""),
+          imageUrl: t?.custom_image || guest.photo_url || (videoId ? youTubeThumbUrl(videoId) : ""),
         }
       })
 
@@ -171,7 +172,7 @@ export async function getHomepageThinkersForDisplay(): Promise<MuseumThinker[] |
           .orderBy(desc(episodes.release_date))
           .limit(1)
         const videoId = ep?.youtube_url?.match(/(?:v=|youtu\.be\/)([^&\s]+)/)?.[1] || ""
-        if (videoId) imageUrl = `https://img.youtube.com/vi/${videoId}/maxresdefault.jpg`
+        if (videoId) imageUrl = youTubeThumbUrl(videoId)
       }
 
       results.push({

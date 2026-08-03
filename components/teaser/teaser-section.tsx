@@ -2,7 +2,8 @@
 
 import { useState, useRef } from "react"
 import Image from "next/image"
-import { Play, Sparkles } from "lucide-react"
+import { Sparkles } from "lucide-react"
+import { PlayBadge } from "@/components/media/play-badge"
 import type { ActiveTeaserView } from "@/lib/teaser"
 import { TeaserQuestionForm } from "./teaser-question-form"
 
@@ -76,12 +77,11 @@ export function TeaserSection({ teaser }: { teaser: ActiveTeaserView }) {
                     <Sparkles className="h-10 w-10 text-primary/40" />
                   </div>
                 )}
-                <span className="relative z-10 inline-flex items-center gap-2 rounded-full bg-black/55 px-4 py-2.5 text-caption font-semibold text-white backdrop-blur transition-transform group-hover:scale-[1.03]">
-                  {/* Play triangle points inline-end (right in LTR); a universal
-                      control glyph — do not RTL-flip (Sara 11). */}
-                  <Play className="h-4 w-4 fill-current text-accent" />
-                  شاهد التيزر
-                </span>
+                {/* The shared badge, not a labelled pill. The pill was a
+                    120px-wide block of white type sitting on an image we did
+                    not compose — and the card's own title, one row below,
+                    already names the thing. */}
+                <PlayBadge className="relative z-10 group-hover:scale-105" />
               </button>
             )}
           </div>

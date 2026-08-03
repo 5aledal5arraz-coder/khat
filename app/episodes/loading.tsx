@@ -17,7 +17,9 @@ export default function EpisodesLoading() {
       <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
         {Array.from({ length: 6 }).map((_, i) => (
           <div key={i} className="space-y-3">
-            <Skeleton className="aspect-video w-full rounded-xl" />
+            {/* `rounded-2xl`, matching the card this stands in for. At
+                `rounded-xl` the skeleton settled into a 4px-rounder frame. */}
+            <Skeleton className="aspect-video w-full rounded-2xl" />
             <Skeleton className="h-6 w-3/4" />
             <Skeleton className="h-4 w-1/2" />
             <div className="flex gap-2">

@@ -124,51 +124,28 @@ export function arabicPluralNoun(count: number, singular: string): string {
   return count === 0 ? plural : sing
 }
 
-/**
- * Honorifics that precede a name. Counting them as name words made distinct
- * guests collide on the same avatar — «الأستاذ علي دريساوي» and «الملازم
- * عبدالله البطي» both rendered «اع». Compared after `normalizeNameToken`, so
- * hamza spellings and the ة/ه ending don't each need their own entry.
+/*
+ * `guestInitials` USED TO LIVE HERE. It is gone, and it is not coming back —
+ * the mechanism does not work in Arabic, which is the language of every name on
+ * this site.
+ *
+ * Two initials means "first letter of the given name, first letter of the
+ * family name". Arabic family names begin with the definite article «ال», so
+ * the second letter is «ا» for most of them. Measured on our seven real guest
+ * names, five came out with «ا» in the second slot:
+ *
+ *   الملازم عبدالله البطي  → «عا»      الأستاذ علي دريساوي  → «عد»
+ *   الدكتور الحارث المزيدي → «اا»      باسم اللوغاني        → «با»
+ *   فيصل الفرحان           → «فا»
+ *
+ * «اا» was live on khatpodcast.com. An earlier fix stripped honorifics
+ * (الدكتور/الملازم/…) and made the collisions rarer without touching this, the
+ * larger fault — it treated a bad output as a formatting problem.
+ *
+ * The replacement is `components/media/khat-mark-panel.tsx`: one identical
+ * quiet panel for every subject, which says «no image yet» instead of asserting
+ * a wrong identity.
  */
-const NAME_HONORIFICS = new Set([
-  "الاستاذ", "الاستاذه", "استاذ", "استاذه",
-  "الدكتور", "الدكتوره", "دكتور", "دكتوره", "د",
-  "المهندس", "المهندسه", "مهندس", "مهندسه",
-  "الشيخ", "الشيخه", "شيخ", "شيخه",
-  "السيد", "السيده", "سيد", "سيده",
-  "الملازم", "النقيب", "الرائد", "المقدم", "العقيد", "العميد", "اللواء", "الفريق",
-  "الكابتن", "كابتن", "القائد",
-  "dr", "mr", "mrs", "ms", "prof",
-])
-
-/** Fold a name word to the form `NAME_HONORIFICS` is written in. */
-function normalizeNameToken(word: string): string {
-  return word
-    .toLowerCase()
-    .replace(/[ً-ْـ]/g, "") // diacritics + tatweel
-    .replace(/[أإآ]/g, "ا") // أ إ آ → ا
-    .replace(/ة$/, "ه") // trailing ة → ه
-    .replace(/[.,،]$/, "") // «د.» → «د»
-}
-
-/**
- * Avatar initials for a person's name: first letter of up to two words.
- * Words that begin with an actual letter are preferred, so imported /
- * placeholder names like "019 بودكاست خط" render clean initials ("بخ")
- * instead of a stray leading digit ("0ب"). Honorifics are skipped so the
- * title doesn't eat one of the two slots. Both filters fall back to the
- * unfiltered list rather than returning nothing (a name that is *only* a
- * title still gets an initial). Returns "•" for empty names.
- * Single source — components must import this rather than re-implementing.
- */
-export function guestInitials(name: string): string {
-  const words = (name ?? "").trim().split(/\s+/).filter(Boolean)
-  const letterWords = words.filter((w) => /^\p{L}/u.test(w))
-  const source = letterWords.length > 0 ? letterWords : words
-  const named = source.filter((w) => !NAME_HONORIFICS.has(normalizeNameToken(w)))
-  const picked = named.length > 0 ? named : source
-  return picked.map((w) => w.charAt(0)).slice(0, 2).join("") || "•"
-}
 
 // ─── Bidi ────────────────────────────────────────────────────────────────────
 

@@ -29,6 +29,7 @@ import { getHomepageThinkersForDisplay } from "@/lib/queries/homepage-thinkers"
 import { getHomepagePartners } from "@/lib/queries/partnerships"
 import { getActiveTeaserForDisplay, TEASER_CACHE_TAG, type ActiveTeaserView } from "@/lib/teaser"
 import { getRelatedEpisodeIds } from "@/lib/episodes/episode-graph"
+import { mainFeed } from "@/lib/episodes/clips"
 import { db } from "@/lib/db"
 import { hiddenEpisodes } from "@/lib/db/schema"
 import type { Episode, EpisodeWithRelations, GuestWithRelations } from "@/types/database"
@@ -130,7 +131,13 @@ export async function getCachedAdjacentEpisodes(
  * derived from the single cached list (was a full resolution per list view).
  */
 export async function getCachedEpisodeCounts(): Promise<Record<string, number>> {
-  return tallyEpisodeCounts(await getCachedPublicEpisodes())
+  const list = await getCachedPublicEpisodes()
+  // `all` is the DEFAULT VIEW's size, not the table's. `/episodes` with no
+  // category selected renders `mainFeed(list)` — conversations, no clips — so
+  // tallying the raw list here would print «الكل 42» above a grid of 36. The
+  // per-category numbers stay whole: the «مقاطع خط» chip still says 6, and
+  // clicking it still shows all 6.
+  return { ...tallyEpisodeCounts(list), all: mainFeed(list).length }
 }
 
 /**

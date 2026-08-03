@@ -2,7 +2,7 @@
 
 import { useState, useRef } from "react"
 import Image from "next/image"
-import { Play, Sparkles } from "lucide-react"
+import { Sparkles } from "lucide-react"
 import type { ActiveTeaserView } from "@/lib/teaser"
 import { TeaserQuestionForm } from "./teaser-question-form"
 
@@ -49,7 +49,7 @@ export function TeaserInline({ teaser }: { teaser: ActiveTeaserView }) {
           aria-label="تشغيل التيزر"
           className="group flex w-full items-center gap-4 rounded-2xl border border-border bg-card p-3 text-start transition-colors hover:border-accent/40"
         >
-          <div className="relative aspect-video w-28 shrink-0 overflow-hidden rounded-lg bg-secondary sm:w-36">
+          <div className="relative aspect-video w-28 shrink-0 overflow-hidden rounded-2xl bg-secondary sm:w-36">
             {teaser.posterImage ? (
               <Image
                 src={teaser.posterImage}
@@ -63,12 +63,10 @@ export function TeaserInline({ teaser }: { teaser: ActiveTeaserView }) {
                 <Sparkles className="h-5 w-5 text-primary/40" />
               </div>
             )}
-            <span className="absolute inset-0 flex items-center justify-center">
-              <span className="inline-flex h-11 w-11 items-center justify-center rounded-full bg-black/55 backdrop-blur transition-transform group-hover:scale-105">
-                {/* Play triangle points inline-end — universal glyph, not RTL-flipped (Sara 11). */}
-                <Play className="h-5 w-5 fill-current text-white" />
-              </span>
-            </span>
+            {/* No badge on this one. The poster is 112px wide (63px tall) and
+                the shared 56px PlayBadge would fill it edge to edge — and the
+                affordance is already the row itself, which is a button
+                labelled «شاهد التيزر» one column over. */}
           </div>
           <div className="min-w-0 flex-1">
             <span className="text-caption font-bold text-foreground">شاهد التيزر</span>

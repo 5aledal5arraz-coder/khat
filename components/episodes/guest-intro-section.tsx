@@ -2,8 +2,10 @@
 
 import { useState } from "react"
 import { Card, CardContent } from "@/components/ui/card"
-import { GuestAvatar } from "@/components/guests/guest-avatar"
-import { Play, Instagram, Linkedin, Globe, Youtube, Mail } from "lucide-react"
+import { GuestPortrait } from "@/components/media/guest-portrait"
+import { Instagram, Linkedin, Globe, Youtube, Mail } from "lucide-react"
+import { EpisodeThumb } from "@/components/media/episode-thumb"
+import { PlayBadge } from "@/components/media/play-badge"
 import { XIcon } from "@/components/icons/x-icon"
 import { TikTokIcon } from "@/components/icons/tiktok-icon"
 import { SnapchatIcon } from "@/components/icons/snapchat-icon"
@@ -19,7 +21,6 @@ import { PinterestIcon } from "@/components/icons/pinterest-icon"
 import { getYouTubeId } from "@/lib/utils"
 import { trackEvent } from "@/lib/personalization/tracker"
 import Link from "next/link"
-import Image from "next/image"
 
 interface GuestIntroSectionProps {
   guest: {
@@ -75,17 +76,19 @@ export function GuestIntroSection({ guest, testimonial, testimonialVideoUrl }: G
         <div className="flex flex-col gap-6 sm:flex-row">
           {/* Guest Photo & Basic Info */}
           <div className="flex flex-col items-center gap-4 sm:items-start">
-            <Link href={`/guests/${guest.slug}`} onClick={handleGuestClick}>
-              <GuestAvatar
-                name={guest.name}
-                slug={guest.slug}
-                photoUrl={guest.photo_url}
-                size="2xl"
-                showBorder
-                showGlow
-                className="transition-transform hover:scale-105"
-              />
-            </Link>
+            {/* Same rule as the guest's own page: no photo, no box. The
+                144px initials circle that stood here said «اا» for
+                «الدكتور الحارث المزيدي» — see `lib/shared/formatters.ts`. */}
+            {guest.photo_url ? (
+              <Link href={`/guests/${guest.slug}`} onClick={handleGuestClick}>
+                <GuestPortrait
+                  name={guest.name}
+                  photoUrl={guest.photo_url}
+                  variant="episode"
+                  className="transition-transform hover:scale-105"
+                />
+              </Link>
+            ) : null}
 
             {/* Social Links */}
             {Object.keys(externalLinks).length > 0 && (
@@ -153,7 +156,7 @@ export function GuestIntroSection({ guest, testimonial, testimonialVideoUrl }: G
             <h3 className="mb-3 text-caption font-medium text-muted-foreground">
               كلمة من الضيف
             </h3>
-            <div className="relative aspect-video max-w-md overflow-hidden rounded-xl bg-muted" style={{ contain: "layout paint", transform: "translateZ(0)" }}>
+            <div className="relative aspect-video max-w-md overflow-hidden rounded-2xl bg-muted" style={{ contain: "layout paint", transform: "translateZ(0)" }}>
               {showVideo ? (
                 <iframe
                   src={`https://www.youtube.com/embed/${videoId}?autoplay=1&playsinline=1`}
@@ -165,24 +168,26 @@ export function GuestIntroSection({ guest, testimonial, testimonialVideoUrl }: G
                 />
               ) : (
                 <button
+                  type="button"
                   onClick={() => setShowVideo(true)}
-                  className="group absolute inset-0 flex flex-col items-center justify-center gap-2"
+                  aria-label={`تشغيل: كلمة ${guest.name}`}
+                  className="group absolute inset-0 flex items-center justify-center"
                 >
-                  {/* Thumbnail */}
-                  <Image
-                    src={`https://img.youtube.com/vi/${videoId}/maxresdefault.jpg`}
-                    alt={`كلمة ${guest.name}`}
-                    fill
-                    className="object-cover"
-                    sizes="(max-width: 768px) 100vw, 50vw"
+                  {/* Through the shared renderer, so this frame gets the same
+                      maxres→hq fallback as every other thumbnail. The dimming
+                      layer and the white «شوف كلمة الضيف» caption that used to
+                      sit on top are gone: the heading above the frame already
+                      says what this is, and the caption landed on whatever the
+                      video's own title card happens to be. */}
+                  <EpisodeThumb
+                    ep={{
+                      title: `كلمة ${guest.name}`,
+                      thumbnail_url: null,
+                      youtube_url: testimonialVideoUrl as string,
+                    }}
+                    sizes="(max-width: 768px) 100vw, 448px"
                   />
-                  <div className="absolute inset-0 bg-black/40 group-hover:bg-black/50 transition-colors" />
-                  <div className="relative flex h-14 w-14 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg group-hover:scale-110 transition-transform">
-                    <Play className="h-6 w-6 ms-1" fill="currentColor" />
-                  </div>
-                  <span className="relative text-caption font-medium text-white">
-                    شوف كلمة الضيف
-                  </span>
+                  <PlayBadge className="relative group-hover:scale-105" />
                 </button>
               )}
             </div>

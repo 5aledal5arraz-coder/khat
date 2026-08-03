@@ -1,11 +1,11 @@
 "use client"
 
 import { useState, useEffect, useRef, useCallback } from "react"
-import Image from "next/image"
 import { getYouTubeId, getYouTubeWatchUrl } from "@/lib/utils"
 import { updateWatchProgress } from "@/lib/watch-history"
 import { trackEvent } from "@/lib/personalization/tracker"
 import { usePlayer } from "./episode-player-context"
+import { EpisodeThumb } from "@/components/media/episode-thumb"
 import { ExternalLink, Play } from "lucide-react"
 
 interface YouTubeEmbedProps {
@@ -53,12 +53,12 @@ function loadYTApi(): Promise<void> {
 }
 
 function ThumbnailOverlay({
-  videoId,
+  url,
   watchUrl,
   title,
   onPlay,
 }: {
-  videoId: string
+  url: string
   watchUrl: string
   title: string
   onPlay?: () => void
@@ -78,12 +78,9 @@ function ThumbnailOverlay({
         aria-label={`تشغيل الفيديو: ${title}`}
         className="absolute inset-0 z-10 h-full w-full cursor-pointer focus-visible:ring-inset focus-visible:ring-offset-0"
       />
-      <Image
-        src={`https://img.youtube.com/vi/${videoId}/maxresdefault.jpg`}
-        alt={title}
-        fill
+      <EpisodeThumb
+        ep={{ title, thumbnail_url: null, youtube_url: url }}
         sizes="(max-width: 768px) 100vw, 800px"
-        className="object-cover"
       />
       <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center gap-3 bg-black/40 transition-colors group-hover:bg-black/50">
         {/* `bg-red-600` stays a literal on purpose — it is YouTube's play
@@ -233,7 +230,7 @@ export function YouTubeEmbed({
 
   if (!url || !videoId) {
     return (
-      <div className="relative aspect-video w-full overflow-hidden rounded-xl bg-muted flex items-center justify-center">
+      <div className="relative aspect-video w-full overflow-hidden rounded-2xl bg-muted flex items-center justify-center">
         <p className="text-muted-foreground">الفيديو غير متوفر</p>
       </div>
     )
@@ -244,7 +241,7 @@ export function YouTubeEmbed({
       <div
         id="episode-player"
         ref={containerRef}
-        className="relative w-full overflow-hidden rounded-xl bg-black"
+        className="relative w-full overflow-hidden rounded-2xl bg-black"
         style={{
           aspectRatio: "16 / 9",
           contain: "layout paint",
@@ -253,7 +250,7 @@ export function YouTubeEmbed({
       >
         {playerState === "thumbnail" ? (
           <ThumbnailOverlay
-            videoId={videoId}
+            url={url}
             watchUrl={watchUrl}
             title={title}
             onPlay={handlePlay}
@@ -265,12 +262,13 @@ export function YouTubeEmbed({
             rel="noopener noreferrer"
             className="group relative flex h-full w-full items-center justify-center"
           >
-            <Image
-              src={`https://img.youtube.com/vi/${videoId}/maxresdefault.jpg`}
-              alt={title}
-              fill
+            {/* `brightness-50` here is NOT the saturation policy the cards had
+                — this state is a dead player with a white message printed over
+                it, and that message has to be readable. */}
+            <EpisodeThumb
+              ep={{ title, thumbnail_url: null, youtube_url: url }}
               sizes="(max-width: 768px) 100vw, 800px"
-              className="object-cover brightness-50"
+              className="brightness-50"
             />
             <div className="relative flex flex-col items-center gap-3 text-center px-6">
               <ExternalLink className="h-8 w-8 text-white/80" />

@@ -1,14 +1,14 @@
 import type { Metadata } from "next"
 import Link from "next/link"
-import Image from "next/image"
 import { notFound } from "next/navigation"
 import { getHomeQuoteById, getPublishedHomeQuotes } from "@/lib/content/home-quotes"
 import { getEpisodeBySlug } from "@/lib/queries/episodes"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { ArrowLeft, ArrowRight, Play, Clock } from "lucide-react"
-import { formatDuration, formatDate, getYouTubeId } from "@/lib/utils"
+import { ArrowLeft, ArrowRight, Clock } from "lucide-react"
+import { formatDuration, formatDate } from "@/lib/utils"
+import { EpisodeThumb } from "@/components/media/episode-thumb"
 
 interface Props {
   params: Promise<{ id: string }>
@@ -80,35 +80,38 @@ export default async function QuotePage({ params }: Props) {
         {/* Rich Episode Card */}
         {episode && (
           <Link href={`/episodes/${episode.slug}`}>
-            <Card className="group overflow-hidden border-primary/20 transition-all hover:border-primary/50 hover:shadow-lg">
-              <div className="relative aspect-video overflow-hidden">
-                <Image
-                  src={`https://img.youtube.com/vi/${getYouTubeId(episode.youtube_url)}/maxresdefault.jpg`}
-                  alt={episode.title}
-                  fill
-                  className="object-cover transition-transform group-hover:scale-105"
+            <Card className="group overflow-hidden rounded-2xl border-primary/20 transition-all hover:border-primary/50 hover:shadow-lg">
+              {/* The frame carries nothing. It used to carry a black gradient,
+                  an eyebrow, the full title, the guest, the duration, the date
+                  AND a 40px play button — all of it laid over a poster whose
+                  own title is burned into the artwork, and none of it matching
+                  any other card on the site. It reads below the image now,
+                  where it is legible and where it cannot cover anything. */}
+              <div className="relative aspect-video overflow-hidden bg-secondary">
+                <EpisodeThumb
+                  ep={episode}
+                  sizes="(max-width: 768px) 100vw, 768px"
+                  className="transition-transform group-hover:scale-105"
                 />
-                <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-transparent" />
-                <div className="absolute bottom-4 start-4 end-4">
-                  <p className="mb-1 text-micro font-medium text-white/70">شاهد المحادثة كاملة</p>
-                  <h3 className="text-lead font-bold text-white">{episode.title}</h3>
-                  {episode.guest && (
-                    <p className="mt-1 text-caption text-white/80">مع {episode.guest.name}</p>
-                  )}
-                  <div className="mt-2 flex items-center gap-3 text-micro text-white/70">
-                    <span className="flex items-center gap-1">
-                      <Clock className="h-3 w-3" />
-                      {formatDuration(episode.duration_minutes)}
-                    </span>
-                    <span>{formatDate(episode.release_date)}</span>
-                  </div>
-                </div>
-                <div className="absolute bottom-4 end-4">
-                  <Button size="icon" variant="secondary" className="h-10 w-10 rounded-full">
-                    <Play className="h-5 w-5" />
-                  </Button>
-                </div>
               </div>
+              <CardContent className="p-4">
+                <p className="text-micro font-medium text-muted-foreground">
+                  شاهد المحادثة كاملة
+                </p>
+                <h3 className="mt-1 text-lead font-bold text-foreground">{episode.title}</h3>
+                {episode.guest && (
+                  <p className="mt-1 text-caption text-muted-foreground">
+                    مع {episode.guest.name}
+                  </p>
+                )}
+                <div className="mt-2 flex items-center gap-3 text-micro text-muted-foreground">
+                  <span className="flex items-center gap-1">
+                    <Clock className="h-3 w-3" />
+                    {formatDuration(episode.duration_minutes)}
+                  </span>
+                  <span>{formatDate(episode.release_date)}</span>
+                </div>
+              </CardContent>
             </Card>
           </Link>
         )}

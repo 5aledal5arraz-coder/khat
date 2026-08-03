@@ -7,6 +7,7 @@ import { resolveCategorySlug } from "@/lib/episodes/category-filter"
 import { getCachedPublicEpisodes, getCachedEpisodeCounts } from "@/lib/cache"
 import { EpisodePosterCard } from "@/components/episodes/episode-poster-card"
 import { CategoryChips } from "@/components/episodes/category-chips"
+import { mainFeed } from "@/lib/episodes/clips"
 import type { Episode } from "@/types/database"
 
 export const dynamic = "force-dynamic"
@@ -53,9 +54,14 @@ export default async function EpisodesPage({ searchParams }: EpisodesPageProps) 
         category: activeSlug ?? undefined,
         withCategories: true,
       }).catch(() => [])
+    // Unfiltered = the main feed: conversations, no clips. The six «مقاطع خط»
+    // cut-downs stay one click away on their own chip (and on
+    // /categories/مقاطع-خط) — they are excluded from the DEFAULT view, not
+    // from the site. `all` in `counts` below counts the same list, so the
+    // chip's number and the grid never disagree.
     : await getCachedPublicEpisodes()
       .then((list) =>
-        [...list].sort(
+        mainFeed(list).sort(
           (a, b) =>
             new Date(b.release_date).getTime() - new Date(a.release_date).getTime(),
         ),
