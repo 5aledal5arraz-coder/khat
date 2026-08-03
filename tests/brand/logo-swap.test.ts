@@ -12,9 +12,15 @@
  *
  * The check is the arithmetic the browser does, not a screenshot: for each
  * candidate, the box implied by its own `width`/`height` attributes at the CSS
- * height it is given must equal the box the artwork actually occupies. Anything
- * that drifts — a new variant, a changed height, a dropped attribute — moves
- * those two apart and fails here.
+ * height it is given must equal the box the artwork actually occupies.
+ *
+ * WHAT THAT ARITHMETIC CAN AND CANNOT FAIL ON. A swapped variant and a dropped
+ * attribute move the two boxes apart and fail it. A CHANGED HEIGHT CANNOT, and
+ * this comment used to claim it would: `reserved` and `loaded` are both derived
+ * from the same `ART` entry, so the height cancels out of the comparison and
+ * 44 → 12 passed. That is correct behaviour — a ratio is a ratio, and no height
+ * reflows a box whose aspect is right. The height is covered instead by the
+ * last test here, which holds the CSS class and the props to the same numbers.
  */
 
 import { createElement } from "react"
@@ -97,5 +103,23 @@ describe("KhatLogoSwap reserves a box that matches the artwork", () => {
     // the class. If this ever moved into the attributes the two breakpoints
     // would collapse to one size.
     expect(attrs("img", html).class).toContain(HEADER.heightClassName)
+  })
+
+  it("spells the same two heights in the class and in the props", () => {
+    // The height the browser sizes the box with lives in `heightClassName`; the
+    // height the attributes are computed from lives in `compact`/`full`. Two
+    // spellings of one number, and nothing held them together — which is why
+    // the file could promise coverage of "a changed height" while 32 → 12 left
+    // all 68 tests green.
+    //
+    // Compared as a SET, so this stays off the breakpoint: which height sits
+    // behind which media prefix is a design choice, and pinning it here would
+    // only make this a change-detector, the same reason the breakpoint VALUE is
+    // deliberately not asserted above.
+    const inClass = [...HEADER.heightClassName.matchAll(/h-\[(\d+)px\]/g)].map((m) => Number(m[1]))
+    expect(inClass.length, "no pixel heights in heightClassName").toBeGreaterThan(0)
+    expect(new Set(inClass), "class and props disagree on the heights").toEqual(
+      new Set<number>([HEADER.compact.height, HEADER.full.height]),
+    )
   })
 })

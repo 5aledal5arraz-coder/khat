@@ -12,7 +12,7 @@
  * documents, structured data, the media kit — and asserts on what they emit.
  */
 import { describe, it, expect } from "vitest"
-import { readFileSync, readdirSync, statSync } from "node:fs"
+import { existsSync, readFileSync, readdirSync, statSync } from "node:fs"
 import path from "node:path"
 
 import { KHAT_INDIGO, KHAT_ORANGE, KHAT_IVORY } from "@/components/brand/khat-logo-art"
@@ -67,6 +67,144 @@ const BRAND_NAME = /PODCAST\s+KHAT|بودكاست\s+خط/
  */
 function renderedText(chunk: string): string {
   return chunk.replace(/&nbsp;|&#160;|&#xa0;|&ensp;|&emsp;|&thinsp;| /gi, " ")
+}
+
+/**
+ * The elements that render INSIDE a run of text instead of breaking it.
+ *
+ * THE SECOND HALF OF THE SAME ROOT CAUSE. Normalising `&nbsp;` fixed the
+ * characters and left the markup: the previous walk cut a new chunk at every
+ * `<`, so a name with an inline element in the middle of it arrived as two
+ * chunks and neither one held the name. That was not hypothetical — it was
+ * shipping, in `lib/pdf/proposal-pdf.ts`, on the partner-facing document:
+ *
+ *   <div>بودكاست <span class="em">خط</span> · ${esc(reference)}</div>
+ *
+ * A reader gets «بودكاست خط · REF-…»; the guard got `<div>بودكاست ` and
+ * `<span class="em">خط` and reported zero matches. Text sitting after an inline
+ * close (` · …` above) was in no chunk at all. Folding these tags away is the
+ * markup-level version of what `renderedText` does at the character level.
+ */
+const INLINE_ELEMENTS = new Set([
+  "a", "abbr", "b", "bdi", "bdo", "big", "cite", "code", "del", "dfn", "em", "i", "ins",
+  "kbd", "label", "mark", "q", "s", "samp", "small", "span", "strong", "sub", "sup",
+  "time", "tspan", "u",
+])
+
+/** The same set as markup, for stripping inline tags out of a whole file. */
+const INLINE_TAG = new RegExp(`</?(?:${[...INLINE_ELEMENTS].join("|")})\\b[^<>]*>`, "gi")
+
+/** Elements that never have a closing tag, so they must not open a run. */
+const VOID_ELEMENTS = new Set([
+  "area", "base", "br", "col", "embed", "hr", "img", "input", "link", "meta", "param",
+  "source", "track", "wbr",
+])
+
+/**
+ * The elements whose nesting is tracked, so a colour set on a WRAPPER is known
+ * to reach the name inside it.
+ *
+ * A fixed HTML vocabulary on purpose, not "anything shaped like a tag". These
+ * are TypeScript files: `Record<string, X>` and `<QuoteImageTemplateProps>`
+ * split on `<` exactly like markup and would push an element that never closes,
+ * and a drifting stack invents ancestors. Components are therefore NOT tracked
+ * — see the limits declared on the colour rule.
+ */
+const BLOCK_ELEMENTS = new Set([
+  "article", "aside", "blockquote", "body", "button", "div", "dd", "dl", "dt", "fieldset",
+  "figcaption", "figure", "footer", "form", "g", "h1", "h2", "h3", "h4", "h5", "h6",
+  "head", "header", "html", "li", "main", "nav", "ol", "p", "section", "svg", "table",
+  "tbody", "td", "text", "tfoot", "th", "thead", "title", "tr", "ul",
+])
+
+/**
+ * One element and the text a reader actually reads inside it.
+ *
+ * `text` is the run with inline elements folded in and entities resolved.
+ * `markup` is every tag that opened in it, so an exemption can be anchored to
+ * any of them. `segments` records which tags were OPEN across each stretch of
+ * that text, and `ancestors` the block elements enclosing the whole run —
+ * together they answer "what is painting this name", wrapper included.
+ */
+type Element = {
+  head: string
+  markup: string
+  text: string
+  ancestors: string[]
+  segments: { from: number; to: number; tags: string[] }[]
+}
+
+function elements(src: string): Element[] {
+  const out: Element[] = []
+  const stack: string[] = [] // open block elements, outermost first
+  let cur: Element | null = null
+  let inline: string[] = [] // open inline elements inside `cur`
+
+  const addText = (raw: string) => {
+    if (!cur || !raw) return
+    const from = cur.text.length
+    cur.text += renderedText(raw)
+    cur.markup += raw
+    cur.segments.push({ from, to: cur.text.length, tags: [cur.head, ...inline] })
+  }
+  const flush = () => {
+    if (cur) out.push(cur)
+    cur = null
+    inline = []
+  }
+
+  const parts = src.split("<")
+  for (let i = 1; i < parts.length; i++) {
+    const part = parts[i]
+    // A `<` that does not begin a tag — a comparison, the tail of a generic —
+    // is text. Same tolerance the previous chunker had.
+    const m = part.match(/^(\/?)([A-Za-z][\w.:-]*)(?=[\s/>]|$)/)
+    if (!m) {
+      addText("<" + part)
+      continue
+    }
+    const closing = m[1] === "/"
+    const gt = part.indexOf(">")
+    const tag = "<" + (gt === -1 ? part : part.slice(0, gt + 1))
+    const after = gt === -1 ? "" : part.slice(gt + 1)
+    const name = m[2].toLowerCase()
+    const selfClosing = tag.endsWith("/>")
+
+    if (INLINE_ELEMENTS.has(name)) {
+      if (cur) cur.markup += tag
+      if (closing) inline.pop()
+      else if (!selfClosing) inline.push(tag)
+      addText(after)
+      continue
+    }
+    // Void and self-closing elements own no text: an <img/> or a <Sparkles/>
+    // does not end its parent's run, it sits inside it.
+    if (selfClosing || VOID_ELEMENTS.has(name)) {
+      if (cur) cur.markup += tag
+      addText(after)
+      continue
+    }
+
+    flush()
+    const ancestors = [...stack]
+    if (BLOCK_ELEMENTS.has(name)) {
+      if (closing) stack.pop()
+      else stack.push(tag)
+    }
+    if (closing) continue
+    cur = { head: tag, markup: tag, text: "", ancestors, segments: [] }
+    addText(after)
+  }
+  flush()
+  return out
+}
+
+/**
+ * A whole file as a reader would see it: entities resolved and inline elements
+ * removed. For the rules that scan a file rather than an element.
+ */
+function renderedSource(src: string): string {
+  return renderedText(src).replace(INLINE_TAG, "")
 }
 
 /**
@@ -153,16 +291,47 @@ function goldIdentifiers(src: string): Set<string> {
   return out
 }
 
-/** Is the brand name in this chunk set in the retired gold? */
-function chunkPaintsGold(
-  chunk: string,
+/**
+ * The same resolution across a module boundary, one hop.
+ *
+ * `goldIdentifiers` only ever looked inside the file it was handed, so lifting
+ * the palette into a shared module — an ordinary refactor, not a corner case —
+ * reopened the very rule this guard was written for: `${LEGACY_GOLD}` imported
+ * from `./palette` repainted the wordmark with the hex nowhere in the file, and
+ * all 68 tests stayed green. One hop covers extraction; a constant re-exported
+ * through a second module is a limit declared on the colour rule.
+ */
+function importedGoldIdentifiers(rel: string, src: string): Set<string> {
+  const out = new Set<string>()
+  const dir = path.dirname(path.join(ROOT, rel))
+  for (const [, names, spec] of src.matchAll(
+    /import\s*\{([^}]*)\}\s*from\s*["'](\.[^"']+|@\/[^"']+)["']/g,
+  )) {
+    const base = spec.startsWith("@/") ? path.join(ROOT, spec.slice(2)) : path.resolve(dir, spec)
+    const file = [base, `${base}.ts`, `${base}.tsx`, `${base}/index.ts`].find(
+      (p) => existsSync(p) && statSync(p).isFile(),
+    )
+    if (!file) continue
+    const gold = goldIdentifiers(code(readFileSync(file, "utf8")))
+    if (gold.size === 0) continue
+    for (const entry of names.split(",")) {
+      const [imported, alias] = entry.trim().split(/\s+as\s+/)
+      if (imported && gold.has(imported.trim())) out.add((alias || imported).trim())
+    }
+  }
+  return out
+}
+
+/** Is the name in this stretch of text set in the retired gold by this tag? */
+function tagPaintsGold(
+  tag: string,
   vars: Set<string>,
   classes: Set<string>,
   idents: Set<string>,
 ): boolean {
-  if (valuePaintsGold(chunk, vars)) return true
-  for (const id of idents) if (new RegExp(`\\b${id}\\b`).test(chunk)) return true
-  const named = chunk.match(/class(?:Name)?="([^"]*)"/)
+  if (valuePaintsGold(tag, vars)) return true
+  for (const id of idents) if (new RegExp(`\\b${id}\\b`).test(tag)) return true
+  const named = tag.match(/class(?:Name)?="([^"]*)"/)
   return named ? named[1].split(/\s+/).some((c) => classes.has(c)) : false
 }
 
@@ -200,15 +369,34 @@ const TYPESET_NAME_EXEMPTIONS: { surface: string; anchor: RegExp; why: string }[
   },
   {
     surface: "app/page.tsx",
-    anchor: /^<Sparkles[^>]*\/>/,
+    anchor: /className="inline-flex[^"]*rounded-full[^"]*text-micro/,
     why:
-      "The hero eyebrow pill. Anchored to the icon that opens it because the " +
-      "guard reads one tag plus the text after it, and the pill's text follows " +
-      "the <Sparkles /> tag rather than the <span> that carries the styling. " +
-      "OPEN DESIGN QUESTION, not a settled exemption: the site header directly " +
-      "above already renders the real lockup, so this is the name set a second " +
-      "time on the same screen. Left as-is because removing it changes the " +
-      "homepage — sara and Khaled decide, and until then it is at least declared.",
+      "The hero eyebrow pill, anchored to the <span> that actually carries its " +
+      "styling. It used to be anchored to the <Sparkles /> icon instead, purely " +
+      "because the old chunker cut a new chunk at every '<' and the pill's text " +
+      "landed after the icon rather than after the span; now that inline " +
+      "elements are folded into their run, the exemption can name the real " +
+      "thing. OPEN DESIGN QUESTION, not a settled exemption: the site header " +
+      "directly above already renders the real lockup, so this is the name set " +
+      "a second time on the same screen. Left as-is because removing it changes " +
+      "the homepage — sara and Khaled decide, and until then it is declared.",
+  },
+  {
+    surface: "lib/pdf/proposal-pdf.ts",
+    anchor: /class="footer-brand"/,
+    why:
+      "The proposal's running foot, at 12px beside the reference number, under " +
+      "a cover that already carries the real horizontal lockup at 44px. Same " +
+      "case as the media-kit and newsletter footers: no lockup fits (MIN_HEIGHT " +
+      "40 against a 12px band) and a publication name next to a reference is " +
+      "document furniture. THIS WAS NOT A JUDGEMENT ANYONE MADE — it shipped " +
+      "unseen: «بودكاست <span class=\"em\">خط</span>» split the name across two " +
+      "chunks, so the guard counted zero matches on a partner-facing document " +
+      "and no exemption was ever needed. The class exists so the exemption has " +
+      "something a rewrite has to touch on purpose. STILL OPEN: the <span> sets " +
+      "خط in indigo, which makes this two-tone type rather than the flat single " +
+      "colour the other two footers use — a design call for sara, not a guard " +
+      "call, and deliberately not changed here.",
   },
 ]
 
@@ -221,16 +409,19 @@ const TYPESET_NAME_EXEMPTIONS: { surface: string; anchor: RegExp; why: string }[
  * test having run first — running either one alone gives the same answer.
  */
 function scanTypesetNames(): { offenders: string[]; used: Set<RegExp> } {
-  const anchored = new RegExp(`>\\s*(?:${BRAND_NAME.source})(?:\\s|$)`)
+  // The name is the element's OWN text — the first thing inside it. `^` rather
+  // than the old `>`: an element's text now starts where its markup ends, and
+  // the inline tags in between have been folded away.
+  const anchored = new RegExp(`^\\s*(?:${BRAND_NAME.source})(?:\\s|$)`)
   const offenders: string[] = []
   const used = new Set<RegExp>()
   for (const rel of OUTWARD_SURFACES) {
-    const src = code(read(rel))
-    for (const [, raw] of src.matchAll(/(<[a-zA-Z][^<]*)/g)) {
-      const chunk = renderedText(raw)
-      if (!anchored.test(chunk)) continue
-      const hit = TYPESET_NAME_EXEMPTIONS.filter((e) => e.surface === rel && e.anchor.test(chunk))
-      if (hit.length === 0) offenders.push(`${rel}: ${chunk.trim().slice(0, 120)}`)
+    for (const el of elements(code(read(rel)))) {
+      if (!anchored.test(el.text)) continue
+      // Exemptions are matched against the element's whole markup, so an anchor
+      // may name any tag in the run rather than only the one it opens with.
+      const hit = TYPESET_NAME_EXEMPTIONS.filter((e) => e.surface === rel && e.anchor.test(el.markup))
+      if (hit.length === 0) offenders.push(`${rel}: ${el.text.trim().slice(0, 120)}`)
       for (const e of hit) used.add(e.anchor)
     }
   }
@@ -303,18 +494,47 @@ describe("no outward-facing surface rebuilds or misbrands the logo", () => {
     // does — and now through the file's own colour vocabulary, so `var(--gold)`
     // and `.some-gold-class` count as the colour they resolve to. That includes
     // the exempted footers: they may keep being type, they may not become gold.
+    //
+    // "What paints it" is every tag OPEN where the name sits — the element, the
+    // inline tags wrapping it, and the block elements enclosing the run. The
+    // ancestors matter: colour inherits, so wrapping the exempted footer in
+    // `<div style="color:var(--gold)">` produced the exact rendered result this
+    // rule exists to forbid, and reached it without touching the exempted
+    // element at all. Position could not save that case by definition — the
+    // element is exempt — so the colour rule had to learn ancestry.
+    //
+    // Ancestry is a real stack, so it holds at any depth and across siblings
+    // that open and close in between — both measured, not assumed. And it stays
+    // quiet on gold that is merely NEAR the name: a gold inline divider that
+    // closes before it, a gold sibling block, a gold span after it. Only what
+    // is open where the name sits counts.
+    //
+    // DECLARED LIMITS, both measured as still passing:
+    //   · A gold `style` on a wrapper that is NOT in BLOCK_ELEMENTS — a JSX
+    //     component, `<Wrapper style="color:var(--gold)">` — is not tracked.
+    //     Widening the vocabulary to "anything shaped like a tag" is what makes
+    //     the stack drift on `Record<string, X>`, and an invented ancestor is a
+    //     false alarm on a guard that then gets deleted. Not a good trade.
+    //   · Gold re-exported through a SECOND module. One hop resolves the
+    //     extraction refactor that actually happens; a chain does not.
     const offenders: string[] = []
     for (const rel of OUTWARD_SURFACES) {
       const src = code(read(rel))
       const vars = goldVars(src)
       const classes = goldClasses(src, vars)
-      const idents = goldIdentifiers(src)
-      // Each element-ish chunk: an opening tag plus the text up to the next tag.
-      for (const [, raw] of src.matchAll(/(<[a-zA-Z][^<]*)/g)) {
-        const chunk = renderedText(raw)
-        if (!BRAND_NAME.test(chunk)) continue
-        if (!chunkPaintsGold(chunk, vars, classes, idents)) continue
-        offenders.push(`${rel}: ${chunk.trim().slice(0, 120)}`)
+      const idents = new Set([...goldIdentifiers(src), ...importedGoldIdentifiers(rel, src)])
+      const anywhere = new RegExp(BRAND_NAME.source, "g")
+      for (const el of elements(src)) {
+        for (const hit of el.text.matchAll(anywhere)) {
+          const from = hit.index!
+          const to = from + hit[0].length
+          const painting = new Set(el.ancestors)
+          for (const seg of el.segments) {
+            if (seg.from < to && seg.to > from) for (const tag of seg.tags) painting.add(tag)
+          }
+          if (![...painting].some((tag) => tagPaintsGold(tag, vars, classes, idents))) continue
+          offenders.push(`${rel}: ${el.text.trim().slice(0, 120)}`)
+        }
       }
     }
     expect(offenders, "brand name typeset in the retired gold").toEqual([])
@@ -324,9 +544,12 @@ describe("no outward-facing surface rebuilds or misbrands the logo", () => {
     // Everything else must be a <KhatLogo> / khatLogoMarkup() call. The cover,
     // the password gate and the closing signature were all typeset wordmarks.
     //
-    // "As type" means the name is an element's OWN text — the first thing after
-    // its tag. The name inside a sentence is prose about the show and is left
-    // alone; the name standing on its own is a wordmark substitute.
+    // "As type" means the name is an element's OWN text — the first thing
+    // INSIDE it, with the inline elements folded away, so `بودكاست <span>خط
+    // </span>` is caught and `· بودكاست خط` is not. The name inside a sentence
+    // is prose about the show and is left alone; the name standing on its own is
+    // a wordmark substitute. (A name that is not first but IS painted gold is
+    // still caught — by the colour rule above, which matches it anywhere.)
     expect(
       scanTypesetNames().offenders,
       "brand name typeset outside the declared exemptions",
@@ -346,10 +569,16 @@ describe("no outward-facing surface rebuilds or misbrands the logo", () => {
     // Every shipped SVG reads `PODCAST KHAT`. The media kit had it reversed in
     // 14 places, including the footer of every PDF page, under a cover that had
     // it the right way round.
+    //
+    // ON THE RENDERED FILE, like every other rule here. This one read the raw
+    // source and so kept the whole hole the rest of the file was rewritten to
+    // close: `KHAT&nbsp;PODCAST` and `KHAT <span>PODCAST</span>` are the
+    // reversed wordmark to a reader and passed 68/68. Comments are stripped too
+    // — naming the reversed order while explaining its removal is not shipping
+    // it, which is the same call `code()` makes everywhere else.
     const offenders: string[] = []
     for (const rel of OUTWARD_SURFACES) {
-      const src = read(rel)
-      if (/KHAT\s+PODCAST/.test(src)) offenders.push(rel)
+      if (/KHAT\s+PODCAST/.test(renderedSource(code(read(rel))))) offenders.push(rel)
     }
     expect(offenders, "reversed wordmark").toEqual([])
   })

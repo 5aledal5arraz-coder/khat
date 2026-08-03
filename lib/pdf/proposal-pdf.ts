@@ -186,7 +186,7 @@ export function buildProposalHtml(input: ProposalPdfInput): string {
     ${closing ? `<p class="para">${esc(closing)}</p>` : ""}
 
     <div class="footer">
-      <div>بودكاست <span class="em">خط</span> · ${esc(reference)}</div>
+      <div class="footer-brand">بودكاست <span class="em">خط</span> · ${esc(reference)}</div>
       <div><a href="mailto:${esc(contactEmail)}">${esc(contactEmail)}</a></div>
     </div>
   </div>
