@@ -101,7 +101,25 @@ export default async function CategoryPage({ params }: CategoryPageProps) {
               canonical — it is a leaf, not a second archive — so every link
               here points back into /episodes rather than deeper into
               /categories/*. The old flat chip row reproduced the exact
-              ambiguity that page was rebuilt to remove. */}
+              ambiguity that page was rebuilt to remove.
+
+              KNOWN AND DELIBERATE CONSEQUENCE: `groupHref` below points at
+              `/episodes?category=X`, whose canonical is `/categories/X`. So
+              this page — itself the canonical for its own list — links to no
+              other canonical URL, and `components/episodes/episode-hero.tsx`
+              answers the same question the other way, linking straight to
+              /categories/* precisely BECAUSE it is canonical.
+
+              LEFT AS IT IS, on three counts. The season row is the only thing
+              `groupHref` feeds and it does not render at all today (one season
+              ⇒ `groups.length > 1` is false in archive-nav), so nothing here
+              is currently reachable. The canonical is correct either way, so
+              a crawler consolidates properly and the only cost is one extra
+              hop. And "from a category page every control returns you to the
+              archive" is a navigation decision someone made on purpose —
+              changing it is a redesign for sara and Khaled, not a correctness
+              fix, and quietly flipping it would be exactly the kind of
+              undocumented second answer this comment exists to prevent. */}
           <ArchiveNav
             className="mt-6"
             categories={categories}

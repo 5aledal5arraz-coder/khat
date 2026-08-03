@@ -9,8 +9,11 @@ import { EpisodePosterCard } from "@/components/episodes/episode-poster-card"
 import { ArchiveNav } from "@/components/episodes/archive-nav"
 import {
   DEFAULT_LANE,
+  categoryMetadata,
   filterLane,
   laneCategories,
+  laneLabel,
+  laneNote,
   laneOfCategorySlug,
   laneUnitNoun,
   parseLane,
@@ -49,8 +52,21 @@ interface EpisodesPageProps {
  *     right now: the lane also holds every uncategorised episode (measured: 20
  *     in the lane, 19 in «الموسم الاول»), so /categories/الموسم-الاول is a
  *     genuinely smaller list and pointing at it would drop an episode.
- *   · `?search=` never survives. Search results are an unbounded URL space over
- *     the same archive and must not be indexed as pages of their own.
+ *
+ * A SEARCH NEVER REACHES THIS FUNCTION — see `generateMetadata` below. The
+ * earlier note here said «`?search=` never survives», which was true about the
+ * URL and wrong about the consequence: dropping the parameter does not make the
+ * page uncanonical, it makes it claim to BE the unsearched page. Measured:
+ *
+ *   /episodes?search=غزو&lane=separate    → canonical /categories/سالفة
+ *   /episodes?search=غزو&category=سالفة   → canonical /categories/سالفة
+ *
+ * i.e. every search inside a non-default lane declared itself a duplicate of
+ * one category page, which is the single strongest instruction a crawler is
+ * given about it. A canonical is "this content lives there"; a search result
+ * over a subset is not that content. The right answer for an unbounded URL
+ * space is to say it is not a page — `robots: noindex` — not to hand its rank
+ * to a page it does not match.
  */
 function canonicalFor(
   categories: EpisodeCategory[],
@@ -68,17 +84,77 @@ function canonicalFor(
   return `${BASE}/episodes`
 }
 
+/** The archive as a whole — every lane, which is what a bare /episodes means. */
+const ARCHIVE_DESCRIPTION = "استعرض جميع حلقات بودكاست خط — حوارات عميقة وأفكار تبقى."
+
+/**
+ * THE CANONICAL WAS FIXED HERE AND THE COPY WAS NOT — half a fix, and the half
+ * that a crawler and every social unfurl actually read on this URL.
+ *
+ * `/categories/سالفة` was corrected to say «سالفة» برنامج مستقل — مو من حلقات
+ * بودكاست خط», because its <head> contradicted its own body. The URL that
+ * renders THE IDENTICAL SIXTEEN CARDS kept the archive-wide string:
+ *
+ *   /categories/سالفة        <description> «سالفة» برنامج مستقل — مو من …  ✅
+ *   /episodes?lane=separate  <description> استعرض جميع حلقات بودكاست خط…   🔴
+ *   /episodes?lane=clips     <description> استعرض جميع حلقات بودكاست خط…   🔴
+ *
+ * So the same contradiction survived, one URL over, on the copy the canonical
+ * does not govern: a canonical consolidates ranking, it does not replace the
+ * description a crawler quotes or the card a share preview draws. The title is
+ * the same fault — «الحلقات» over six rows the page itself says are NOT
+ * complete episodes.
+ *
+ * The fix is the one `/categories/[slug]` already got: the copy comes from the
+ * CLASSIFICATION, not from a string beside it. `categoryMetadata` for a chosen
+ * category — so the two URLs are now literally the same function call and
+ * cannot drift again — and `laneLabel`/`laneNote` for a bare lane, which is
+ * the sentence written for exactly this purpose.
+ */
 export async function generateMetadata({ searchParams }: EpisodesPageProps): Promise<Metadata> {
-  const { category, lane } = await searchParams
+  const { search, category, lane } = await searchParams
+  const query = search?.trim() || undefined
   const categories = await getCategoriesForRequest()
   const resolved = resolveCategorySlug(categories, category)
   const activeSlug = resolved.state === "known" ? resolved.category.slug : null
   const activeLane: ProgramLane =
     activeSlug !== null ? laneOfCategorySlug(activeSlug) : (parseLane(lane) ?? DEFAULT_LANE)
 
+  // A LANE HOLDING EXACTLY ONE CATEGORY *IS* THAT CATEGORY — the same rule
+  // `canonicalFor` already applies, applied to the copy so the two halves of
+  // the <head> cannot disagree. Without it `?lane=separate` said «سالفة» while
+  // the page it canonicalises to said «سالفة — برنامج منفصل», over the
+  // identical sixteen cards: a second answer to one question, which is the
+  // fault this whole change exists to remove. Derived from `laneCategories`,
+  // never from a second copy of the classification, and it stops applying by
+  // itself the day a second separate programme is added.
+  const only = activeLane === DEFAULT_LANE ? [] : laneCategories(categories, activeLane)
+
+  const copy: { title: string; description: string } =
+    resolved.state === "known"
+      ? // Byte-identical to what /categories/<slug> emits, by construction.
+        categoryMetadata(resolved.category, categories)
+      : only.length === 1
+        ? categoryMetadata(only[0], categories)
+        : activeLane !== DEFAULT_LANE
+          ? {
+              title: laneLabel(activeLane, categories),
+              description: laneNote(activeLane, categories) ?? ARCHIVE_DESCRIPTION,
+            }
+          : // The default lane IS خط, and «استعرض جميع حلقات بودكاست خط» is a
+            // true sentence about it. Left alone deliberately: `laneNote("khat")`
+            // is the tab's one-line note, written to sit beside two other tabs,
+            // and it is not the description of the archive's front door.
+            { title: "الحلقات", description: ARCHIVE_DESCRIPTION }
+
+  // A SEARCH IS NOT A PAGE. It is an unbounded URL space over the same archive,
+  // so it gets no canonical at all — see canonicalFor above for why pointing it
+  // at the category page was worse than pointing it nowhere. `follow` stays on:
+  // the episode links in the results are still worth crawling.
+  if (query) return { ...copy, robots: { index: false, follow: true } }
+
   return {
-    title: "الحلقات",
-    description: "استعرض جميع حلقات بودكاست خط — حوارات عميقة وأفكار تبقى.",
+    ...copy,
     alternates: { canonical: canonicalFor(categories, activeLane, activeSlug) },
   }
 }

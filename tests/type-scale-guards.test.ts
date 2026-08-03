@@ -1745,31 +1745,65 @@ describe("ordinary rules read the switch point, and say what they read", () => {
    * would have failed on the day episode-card.tsx was deleted, is about the
    * OTHER half of the switch point — the <link> that costs real bytes.
    *
-   * So: every family in the Google Fonts href must be named by a font token in
-   * globals.css. It is one direction on purpose. A token with no <link> is a
+   * So: every family we fetch from Google Fonts must be named by a font token
+   * in globals.css. It is one direction on purpose. A token with no <link> is a
    * missing font — loud, visible, and nobody ships it twice. A <link> with no
    * token is silent, costs every visitor a download, and is exactly what we
    * shipped.
+   *
+   * ── IT SAID "EVERY <link>" AND READ ONE ATTRIBUTE IN ONE FILE ─────────────
+   * The claim above the previous version was "every family in every <link>".
+   * What it actually matched was a DOUBLE-QUOTED href beginning
+   * `https://fonts.googleapis.com/css2?`, in `app/layout.tsx` alone. Four ways
+   * to fetch a font went straight through it, none of them exotic:
+   *
+   *   /css?family=Lobster    the OLDER endpoint. It still works in every
+   *                          browser and it is what most copy-pasted snippets
+   *                          on the web still say.
+   *   href='…'               single quotes.
+   *   href={FONT_HREF}       the URL behind a constant.
+   *   @import url(…)         inside a <style> block — no <link> at all.
+   *
+   * And the last one is not hypothetical: THE TREE ALREADY HAD FOUR OF THEM,
+   * every one single-quoted, none ever read by this test —
+   * `app/admin/media-kit/page.tsx`, `app/admin/submissions/submissions-tabs.tsx`
+   * and `lib/pdf/proposal-pdf.ts`. They happen to fetch the family we paint
+   * with, so nothing is wrong today; the guard simply had no idea they existed.
+   *
+   * The root cause is that it matched the DELIVERY MECHANISM instead of the
+   * thing that costs bytes. A stylesheet URL is a stylesheet URL whether an
+   * href, an @import or a template literal carries it, so this now scans for
+   * the URL itself and the four evasions collapse into one rule. The file list
+   * is explicit — and the test below fails if a file appears with a font URL
+   * that is not on it, so the list cannot silently go out of date the way the
+   * single hardcoded filename did.
+   *
+   * DECLARED LIMIT: a URL assembled at runtime (`\`…css2?family=${name}\``) is
+   * not resolved. The literal text has to be in the file.
    */
-  it("every family in every <link> is a family we actually paint with", () => {
-    const layout = readFileSync(join(ROOT, "app/layout.tsx"), "utf8")
+  const FONT_FETCHING_FILES = [
+    "app/layout.tsx",
+    "app/admin/media-kit/page.tsx",
+    "app/admin/submissions/submissions-tabs.tsx",
+    "lib/pdf/proposal-pdf.ts",
+  ]
 
-    // EVERY <link>, not the first one. `String.match` without /g returns one
-    // match, so a second stylesheet tag was outside the guard entirely — and
-    // "the guard reads one thing while the browser downloads another" is the
-    // exact shape of the hole this test was written for. Measured: a second
-    // <link> fetching Lobster passed.
-    const hrefs = [...layout.matchAll(/href="(https:\/\/fonts\.googleapis\.com\/css2\?[^"]*)"/g)]
-      .map((m) => m[1])
-    expect(hrefs.length, "no Google Fonts <link> found in app/layout.tsx").toBeGreaterThan(0)
+  /** Both endpoints, any quoting, href or @import — the URL is the URL. */
+  const FONT_URL = /https:\/\/fonts\.googleapis\.com\/css2?\?[^"'`\s)]*/g
+
+  it("every family we fetch from Google Fonts is a family we actually paint with", () => {
+    const urls = FONT_FETCHING_FILES.flatMap((rel) => [
+      ...readFileSync(join(ROOT, rel), "utf8").matchAll(FONT_URL),
+    ].map((m) => m[0]))
+    expect(urls.length, "no Google Fonts URL found at all").toBeGreaterThan(0)
 
     // `family=IBM+Plex+Sans+Arabic:wght@300;400` → `IBM Plex Sans Arabic`
-    const fetched = hrefs.flatMap((href) =>
+    const fetched = urls.flatMap((href) =>
       [...href.matchAll(/family=([^&:]+)/g)].map((m) =>
         decodeURIComponent(m[1]).replace(/\+/g, " ").trim(),
       ),
     )
-    expect(fetched.length, "the <link> fetches nothing").toBeGreaterThan(0)
+    expect(fetched.length, "the stylesheet URLs fetch nothing").toBeGreaterThan(0)
 
     // ── WHAT COUNTS AS "NAMED" ────────────────────────────────────────────
     // The FIRST family in a token's stack, and only that one. Two separate
@@ -1811,5 +1845,31 @@ describe("ordinary rules read the switch point, and say what they read", () => {
         `and nothing on the site sets them as its first family. Painted: ` +
         `${[...painted].join(", ")}`,
     ).toEqual([])
+  })
+
+  it("fetches no font from a file the guard above does not read", () => {
+    // The reason the previous version could claim "every <link>" while reading
+    // one hardcoded filename is that nothing checked the filename was still the
+    // whole story. Four files were fetching fonts outside it. This is the check
+    // that would have said so, and it is the same shape as the OUTWARD_SURFACES
+    // guard in tests/brand/outward-surfaces.test.ts.
+    const found: string[] = []
+    const scan = (dir: string) => {
+      for (const entry of readdirSync(dir)) {
+        if (entry === "node_modules" || entry === ".next" || entry.startsWith(".")) continue
+        const full = join(dir, entry)
+        if (statSync(full).isDirectory()) {
+          scan(full)
+          continue
+        }
+        if (!/\.(ts|tsx|css)$/.test(entry)) continue
+        const rel = relative(ROOT, full)
+        // The test file itself names these URLs in order to look for them.
+        if (rel.startsWith("tests/") || FONT_FETCHING_FILES.includes(rel)) continue
+        if (new RegExp(FONT_URL.source).test(readFileSync(full, "utf8"))) found.push(rel)
+      }
+    }
+    scan(ROOT)
+    expect(found, "fetches a Google font and is not in FONT_FETCHING_FILES").toEqual([])
   })
 })

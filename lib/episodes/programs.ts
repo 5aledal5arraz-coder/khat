@@ -66,6 +66,12 @@ export const DEFAULT_LANE: ProgramLane = "khat"
  *   · `components/episodes/archive-nav.tsx` renders the groups. It asks for
  *     nothing but `ArchiveGroup`, which is the point — but the season row's
  *     visibility rule (`groups.length > 1`) is a season decision living there.
+ *     MEASURED: with one season, that rule is false, so THE SEASON ROW DOES
+ *     NOT RENDER ANYWHERE ON THE SITE TODAY. Nothing about choosing between
+ *     seasons can be tested through the UI until a second one exists — the
+ *     control is not merely empty, it is absent — so the group logic is
+ *     covered at this module's own boundary (tests/episodes/programs.test.ts)
+ *     and a green suite is NOT evidence that the row works.
  *   · `app/categories/[slug]/page.tsx` renders the same nav from a page whose
  *     only episode list is `getEpisodes({ category })` — ALREADY FILTERED to
  *     one category. Deriving season groups from an episode list would give this
@@ -348,6 +354,12 @@ export function laneNote(lane: ProgramLane, categories: EpisodeCategory[]): stri
     // of the row that is not. «قصيرة» was a claim about the wrong axis: what
     // makes these different is that they are CUT OUT of something, which is
     // what the rest of the sentence already says.
+    //
+    // THE CONDITION ON THOSE TWO MEANS, which was applied and not written
+    // down: the `smoke-ux3b` fixture row is excluded. It is a test artefact,
+    // not a published episode, and its duration drags the سالفة mean. Anyone
+    // re-measuring without excluding it will get different numbers and think
+    // the comment has rotted, so the exclusion is part of the claim.
     return "مقاطع مقتطعة من حلقات خط — مو حلقات كاملة."
   }
   const own = laneCategories(categories, "separate")
