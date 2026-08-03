@@ -1,13 +1,18 @@
 "use server"
 
 import { revalidatePath } from "next/cache"
-import { sql } from "drizzle-orm"
-import { db } from "@/lib/db"
 import { getEpisodeEnrichment, setEpisodeEnrichment } from "@/lib/episodes/enrichments"
 import { requireActionRole } from "@/lib/api-utils"
 import { saveVersion } from "@/lib/episodes/versions"
-import { getTranscriptForSession } from "@/lib/studio"
+import {
+  findSessionLinkedToEpisode,
+  getEpisodeIntelligenceForSession,
+  getStudioSession,
+  getStudioSessionsByVideoId,
+  getTranscriptForSession,
+} from "@/lib/studio"
 import { generateEpisodeConversation, type ConversationField } from "@/lib/ai"
+import type { StudioSession } from "@/types/database"
 import type { EpisodeEnrichment } from "@/types/episodes"
 
 type ConversationFields = Pick<
@@ -25,24 +30,29 @@ export async function saveConversationData(episodeId: string, data: Conversation
   if (!gate.ok) return { success: false, error: gate.error }
   if (!episodeId) return { success: false, error: "معرّف الحلقة مطلوب" }
 
-  // Save version snapshot before change
-  const existing = await getEpisodeEnrichment(episodeId)
-  if (existing) {
-    await saveVersion(episodeId, "conversation", { enrichment: existing }, "تعديل بيانات المحادثة")
+  try {
+    // Save version snapshot before change
+    const existing = await getEpisodeEnrichment(episodeId)
+    if (existing) {
+      await saveVersion(episodeId, "conversation", { enrichment: existing }, "تعديل بيانات المحادثة")
+    }
+
+    await setEpisodeEnrichment({
+      episodeId,
+      ...data,
+      updatedAt: new Date().toISOString(),
+    })
+
+    revalidatePath("/")
+    revalidatePath("/episodes")
+    // episodeId is a UUID, not a slug — invalidate all episode detail pages
+    revalidatePath("/episodes/[slug]", "page")
+    revalidatePath("/admin/episodes")
+    return { success: true }
+  } catch (error) {
+    console.error("saveConversationData failed:", error)
+    return { success: false, error: "تعذّر حفظ بيانات المحادثة — راجع سجلّ الخادم" }
   }
-
-  await setEpisodeEnrichment({
-    episodeId,
-    ...data,
-    updatedAt: new Date().toISOString(),
-  })
-
-  revalidatePath("/")
-  revalidatePath("/episodes")
-  // episodeId is a UUID, not a slug — invalidate all episode detail pages
-  revalidatePath("/episodes/[slug]", "page")
-  revalidatePath("/admin/episodes")
-  return { success: true }
 }
 
 /**
@@ -62,65 +72,85 @@ export async function generateConversationData(
   const gate = await requireActionRole("EDITOR")
   if (!gate.ok) return { success: false, error: gate.error }
   if (!episodeId) return { success: false, error: "معرّف الحلقة مطلوب" }
-  if (!db) return { success: false, error: "قاعدة البيانات غير متوفرة" }
 
-  // The transcript lives on the studio session whose package is linked to
-  // this episode — that link is what the studio push already establishes.
-  const rows = await db.execute(sql`
-    SELECT p.session_id, s.video_title
-    FROM studio_website_packages p
-    JOIN studio_sessions s ON s.id = p.session_id
-    WHERE p.linked_episode_id = ${episodeId}
-    ORDER BY p.updated_at DESC NULLS LAST
-    LIMIT 1`)
-  const row = (
-    (rows as unknown as { rows?: { session_id?: string; video_title?: string }[] }).rows ??
-    (rows as unknown as { session_id?: string; video_title?: string }[])
-  )[0]
-  const sessionId = row?.session_id
-
-  if (!sessionId) {
-    return {
-      success: false,
-      error: "لا توجد جلسة استوديو مرتبطة بهذه الحلقة — اربط حزمة الموقع أولاً.",
+  try {
+    // The transcript lives on a studio session. Preferred route: the website
+    // package the operator explicitly linked to this episode. Fallback:
+    // `episodes.id` IS the YouTube video id, so a session imported from the
+    // same video carries the same transcript. Reading a transcript through
+    // the video id is safe — unlike WRITING `linked_episode_id`, which stays
+    // an explicit operator action (see lib/studio/website-packages.ts, ص-٣).
+    const candidates: StudioSession[] = []
+    const linkedSessionId = await findSessionLinkedToEpisode(episodeId)
+    if (linkedSessionId) {
+      const linked = await getStudioSession(linkedSessionId)
+      if (linked) candidates.push(linked)
     }
+    for (const session of await getStudioSessionsByVideoId(episodeId)) {
+      if (!candidates.some((c) => c.id === session.id)) candidates.push(session)
+    }
+
+    if (candidates.length === 0) {
+      return {
+        success: false,
+        error: "لا توجد جلسة استوديو لهذه الحلقة — استورد الحلقة في الاستوديو أولاً.",
+      }
+    }
+
+    // A failed import and a good one can share a video; take the first
+    // session that actually has a ready transcript.
+    let session: StudioSession | null = null
+    let transcriptText = ""
+    for (const candidate of candidates) {
+      const transcript = await getTranscriptForSession(candidate.id)
+      if (transcript?.status === "ready" && transcript.transcript_clean) {
+        session = candidate
+        transcriptText = transcript.transcript_clean
+        break
+      }
+    }
+    if (!session) return { success: false, error: "لا يوجد نص جاهز لهذه الحلقة" }
+
+    const existing = await getEpisodeEnrichment(episodeId)
+    // Free quality lift when the Studio already computed it for this
+    // session — the generator folds it into the prompt.
+    const intelligence = await getEpisodeIntelligenceForSession(session.id)
+
+    const result = await generateEpisodeConversation({
+      transcript: transcriptText,
+      videoTitle: session.video_title ?? "",
+      existing,
+      episodeIntelligence: intelligence?.status === "ready" ? intelligence.data : null,
+      only: options?.only,
+      eirContext: { subjectTable: "episode_enrichments", subjectId: episodeId },
+    })
+
+    if (!result.success) return { success: false, error: result.error }
+    if (!result.filled || result.filled.length === 0) {
+      return { success: true, filled: [], skipped: result.skipped ?? [] }
+    }
+
+    if (existing) {
+      await saveVersion(episodeId, "conversation", { enrichment: existing }, "توليد أقسام الحوار")
+    }
+
+    await setEpisodeEnrichment({
+      episodeId,
+      ...result.patch,
+      updatedAt: new Date().toISOString(),
+    })
+
+    revalidatePath("/")
+    revalidatePath("/episodes")
+    revalidatePath("/episodes/[slug]", "page")
+    revalidatePath("/admin/episodes")
+    return { success: true, filled: result.filled, skipped: result.skipped ?? [] }
+  } catch (error) {
+    // A server action that throws reaches the operator as nothing at all —
+    // the button just stops. Always come back with a readable reason.
+    console.error("generateConversationData failed:", error)
+    return { success: false, error: "تعذّر توليد أقسام الحوار — راجع سجلّ الخادم" }
   }
-
-  const transcript = await getTranscriptForSession(sessionId)
-  if (!transcript || transcript.status !== "ready" || !transcript.transcript_clean) {
-    return { success: false, error: "لا يوجد نص جاهز لهذه الحلقة" }
-  }
-
-  const existing = await getEpisodeEnrichment(episodeId)
-
-  const result = await generateEpisodeConversation({
-    transcript: transcript.transcript_clean,
-    videoTitle: row?.video_title ?? "",
-    existing,
-    only: options?.only,
-    eirContext: { subjectTable: "episode_enrichments", subjectId: episodeId },
-  })
-
-  if (!result.success) return { success: false, error: result.error }
-  if (!result.filled || result.filled.length === 0) {
-    return { success: true, filled: [], skipped: result.skipped ?? [] }
-  }
-
-  if (existing) {
-    await saveVersion(episodeId, "conversation", { enrichment: existing }, "توليد أقسام الحوار")
-  }
-
-  await setEpisodeEnrichment({
-    episodeId,
-    ...result.patch,
-    updatedAt: new Date().toISOString(),
-  })
-
-  revalidatePath("/")
-  revalidatePath("/episodes")
-  revalidatePath("/episodes/[slug]", "page")
-  revalidatePath("/admin/episodes")
-  return { success: true, filled: result.filled, skipped: result.skipped ?? [] }
 }
 
 export async function clearConversationField(
@@ -131,19 +161,24 @@ export async function clearConversationField(
   if (!gate.ok) return { success: false, error: gate.error }
   if (!episodeId) return { success: false, error: "معرّف الحلقة مطلوب" }
 
-  const existing = await getEpisodeEnrichment(episodeId)
-  if (!existing) return { success: true }
+  try {
+    const existing = await getEpisodeEnrichment(episodeId)
+    if (!existing) return { success: true }
 
-  await setEpisodeEnrichment({
-    ...existing,
-    [field]: undefined,
-    updatedAt: new Date().toISOString(),
-  })
+    await setEpisodeEnrichment({
+      ...existing,
+      [field]: undefined,
+      updatedAt: new Date().toISOString(),
+    })
 
-  revalidatePath("/")
-  revalidatePath("/episodes")
-  // episodeId is a UUID, not a slug — invalidate all episode detail pages
-  revalidatePath("/episodes/[slug]", "page")
-  revalidatePath("/admin/episodes")
-  return { success: true }
+    revalidatePath("/")
+    revalidatePath("/episodes")
+    // episodeId is a UUID, not a slug — invalidate all episode detail pages
+    revalidatePath("/episodes/[slug]", "page")
+    revalidatePath("/admin/episodes")
+    return { success: true }
+  } catch (error) {
+    console.error("clearConversationField failed:", error)
+    return { success: false, error: "تعذّر مسح الحقل — راجع سجلّ الخادم" }
+  }
 }

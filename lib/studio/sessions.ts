@@ -27,6 +27,29 @@ export async function getStudioSession(id: string): Promise<StudioSession | null
   }
 }
 
+/**
+ * Every session recorded from one YouTube video, newest first.
+ *
+ * `episodes.id` IS the YouTube video id, so this is how an episode
+ * reaches its transcript when no operator ever linked a website package
+ * to it. Several sessions can share a video (a failed import plus a good
+ * one), which is why this returns the list and not a single row — the
+ * caller picks the one that actually carries a ready transcript.
+ */
+export async function getStudioSessionsByVideoId(videoId: string): Promise<StudioSession[]> {
+  try {
+    const rows = await db!
+      .select()
+      .from(studioSessions)
+      .where(eq(studioSessions.video_id, videoId))
+      .orderBy(desc(studioSessions.created_at))
+    return rows as unknown as StudioSession[]
+  } catch (err) {
+    console.error("Error fetching studio sessions by video id:", err)
+    return []
+  }
+}
+
 export async function createStudioSession(
   session: Omit<StudioSession, "id" | "created_at" | "updated_at">,
   /**
