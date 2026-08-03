@@ -23,15 +23,25 @@ import { describe, expect, it } from "vitest"
 
 import { KhatLogoSwap } from "@/components/brand/khat-logo"
 import { ART, khatLogoGeometry } from "@/components/brand/khat-logo-geometry"
+import { HEADER_LOGO } from "@/components/layout/header"
 
-/** Exactly what `components/layout/header.tsx` renders. */
-const HEADER = {
-  compact: { variant: "mark", height: 32 },
-  full: { variant: "lockup-horizontal", height: 44 },
-  breakpoint: "1024px",
-  heightClassName: "h-[32px] lg:h-[44px]",
-  label: null,
-} as const
+/**
+ * The header's real props, imported — not a copy.
+ *
+ * This was a local object literal under the comment "Exactly what header.tsx
+ * renders", which nothing checked: changing the header's actual breakpoint from
+ * 1024px to 640px left all 67 tests green, because the test was measuring the
+ * copy. The reflow fix itself was never at risk — it derives every number from
+ * khatLogoGeometry whatever props it is handed — but a test that names a file
+ * has to read that file, or the next reader trusts a coverage it does not have.
+ *
+ * WHAT THIS DOES AND DOES NOT COVER. It asserts the reserved box matches the
+ * artwork for whichever variants and heights the header ships, so swapping a
+ * variant or a height here is measured for real. It does not assert the
+ * breakpoint VALUE: 1024px is a design choice, and pinning it would only make
+ * this a change-detector.
+ */
+const HEADER = HEADER_LOGO
 
 function render(props: Parameters<typeof KhatLogoSwap>[0] = HEADER): string {
   return renderToStaticMarkup(createElement(KhatLogoSwap, props))

@@ -47,15 +47,195 @@ const INVENTED = ["#3a2d70", "#ee6a2c", "#45367f", "#2f2560", "#5a47a8"]
 const RETIRED_GOLD = "#c9a84c"
 
 /**
- * The one place the name may still be set as type, and why.
+ * The brand name, in either script.
  *
- * A running foot repeated beside a page number, at 10px, in a print document.
- * No lockup fits (MIN_HEIGHT 40 against a 10px band) and it is document
- * furniture rather than a logo placement. Written down and checked, so the
- * exception cannot quietly spread — same shape as MIN_HEIGHT_EXEMPT in the
- * icon builder.
+ * BOTH SCRIPTS, DELIBERATELY. The first version of the typeset-name rule below
+ * matched `PODCAST KHAT` only, so the Arabic name — the one a reader of this
+ * site actually reads — could be set as type on any surface and the whole file
+ * stayed green. The cover mutation that put «بودكاست خط» back beside the lockup,
+ * i.e. exactly the third printing of the name this wave removed, passed 67/67.
  */
-const TYPESET_NAME_EXEMPT = /class="page-footer-brand"/
+const BRAND_NAME = /PODCAST\s+KHAT|بودكاست\s+خط/
+
+/**
+ * What the reader sees, not what the file contains.
+ *
+ * `&nbsp;` renders as a space and this document already uses it between words
+ * («أُعدّ لـ &nbsp;/&nbsp; PREPARED FOR»), so `PODCAST&nbsp;KHAT` is the same
+ * wordmark to a reader and a different string to `\s`. Both spellings of the
+ * name went through the guard untouched until this normalised first.
+ */
+function renderedText(chunk: string): string {
+  return chunk.replace(/&nbsp;|&#160;|&#xa0;|&ensp;|&emsp;|&thinsp;| /gi, " ")
+}
+
+/**
+ * The retired gold in any notation these files actually use. `--gold-glow` is
+ * already written `rgba(201, 168, 76, …)`, so hex-only matching left the same
+ * colour reachable under a second spelling.
+ */
+function isRetiredGold(value: string): boolean {
+  const v = value.trim().toLowerCase()
+  if (v === RETIRED_GOLD) return true
+  const rgb = v.match(/^rgba?\(\s*(\d+)[\s,]+(\d+)[\s,]+(\d+)/)
+  if (!rgb) return false
+  const hex = rgb.slice(1, 4).map((n) => Number(n).toString(16).padStart(2, "0")).join("")
+  return `#${hex}` === RETIRED_GOLD
+}
+
+/**
+ * The custom properties in a file that resolve — through `var()` chains — to
+ * the retired gold.
+ *
+ * THIS IS THE HOLE THE WAVE WAS BUILT TO FIND, in its own guard. The PDF path
+ * is one big `<style>` block over CSS variables: `#c9a84c` appears once in the
+ * entire file, in the `--gold:` declaration, and every use is `var(--gold)`. A
+ * rule that demanded the literal hex on the element therefore could not fire on
+ * that surface at all — the brand name painted `var(--gold)` in the PDF passed
+ * 67/67. Resolving the vocabulary first is the difference between checking
+ * characters and checking the colour.
+ */
+function goldVars(src: string): Set<string> {
+  const declared = new Map<string, string>()
+  for (const [, name, value] of src.matchAll(/(--[\w-]+)\s*:\s*([^;{}]+)[;}]/g)) {
+    declared.set(name, value.trim())
+  }
+  const resolve = (value: string, depth = 0): string => {
+    const ref = depth > 8 ? null : value.match(/^var\(\s*(--[\w-]+)/)
+    const next = ref ? declared.get(ref[1]) : undefined
+    return next === undefined ? value : resolve(next, depth + 1)
+  }
+  const gold = new Set<string>()
+  for (const [name, value] of declared) if (isRetiredGold(resolve(value))) gold.add(name)
+  return gold
+}
+
+/** Does this declaration value land on the retired gold, directly or via a var? */
+function valuePaintsGold(value: string, vars: Set<string>): boolean {
+  if (value.toLowerCase().includes(RETIRED_GOLD)) return true
+  for (const [, name] of value.matchAll(/var\(\s*(--[\w-]+)/g)) if (vars.has(name)) return true
+  for (const [rgb] of value.matchAll(/rgba?\([^)]*\)/g)) if (isRetiredGold(rgb)) return true
+  return false
+}
+
+/**
+ * The classes in a stylesheet whose `color` lands on the retired gold. Without
+ * this, `.page-footer-brand { color: var(--gold) }` would repaint the one
+ * placement this file exempts by name straight back into the retired identity,
+ * and the colour rule — which never looks inside the style block — would agree.
+ */
+function goldClasses(src: string, vars: Set<string>): Set<string> {
+  const out = new Set<string>()
+  for (const [, selector, body] of src.matchAll(/([^{}]*)\{([^{}]*)\}/g)) {
+    const color = body.match(/(?:^|[;\s])color\s*:\s*([^;]+)/)
+    if (!color || !valuePaintsGold(color[1], vars)) continue
+    for (const [, cls] of selector.matchAll(/\.([\w-]+)/g)) out.add(cls)
+  }
+  return out
+}
+
+/**
+ * The same resolution one level up, for the TSX surfaces: JavaScript bindings
+ * whose value IS the retired gold, so `style={{ color: LEGACY }}` counts as the
+ * colour it holds. CSS variables were not the only way to spell the hex without
+ * writing it — this is the JS spelling of the identical dodge.
+ */
+function goldIdentifiers(src: string): Set<string> {
+  const out = new Set<string>()
+  for (const [, name, value] of src.matchAll(
+    /(?:const|let|var)\s+([A-Za-z_$][\w$]*)\s*(?::[^=]+)?=\s*["'`]([^"'`]+)["'`]/g,
+  )) {
+    if (isRetiredGold(value)) out.add(name)
+  }
+  for (const [, name, value] of src.matchAll(/([A-Za-z_$][\w$]*)\s*:\s*["'`]([^"'`]+)["'`]/g)) {
+    if (isRetiredGold(value)) out.add(name)
+  }
+  return out
+}
+
+/** Is the brand name in this chunk set in the retired gold? */
+function chunkPaintsGold(
+  chunk: string,
+  vars: Set<string>,
+  classes: Set<string>,
+  idents: Set<string>,
+): boolean {
+  if (valuePaintsGold(chunk, vars)) return true
+  for (const id of idents) if (new RegExp(`\\b${id}\\b`).test(chunk)) return true
+  const named = chunk.match(/class(?:Name)?="([^"]*)"/)
+  return named ? named[1].split(/\s+/).some((c) => classes.has(c)) : false
+}
+
+/**
+ * The places the name may still be set as type, and why. Each is anchored to
+ * something a rewrite has to touch on purpose, so the exception cannot quietly
+ * spread — same shape as MIN_HEIGHT_EXEMPT in the icon builder. The last test
+ * in this describe fails if an entry here stops matching anything, so the list
+ * cannot rot into a rubber stamp either.
+ */
+const TYPESET_NAME_EXEMPTIONS: { surface: string; anchor: RegExp; why: string }[] = [
+  {
+    surface: "app/admin/media-kit/page.tsx",
+    anchor: /class="page-footer-brand"/,
+    why:
+      "Running foot repeated beside a page number at 10px in a print document. " +
+      "No lockup fits (MIN_HEIGHT 40 against a 10px band) and a publication name " +
+      "next to a folio is document furniture, not a logo placement.",
+  },
+  {
+    surface: "lib/email/templates.ts",
+    anchor: /^<title>/,
+    why:
+      "The document title — the string the mail client puts in its own chrome. " +
+      "It is metadata, never rendered as type inside the message, and no image " +
+      "can go there.",
+  },
+  {
+    surface: "lib/email/templates.ts",
+    anchor: /class="nl-footer-brand"/,
+    why:
+      "The newsletter's own running foot, under the social row at 12–12.5px. " +
+      "Same case as the print footer: the real lockup is already at the top of " +
+      "the message as artwork, and this is the sign-off line beside the URL.",
+  },
+  {
+    surface: "app/page.tsx",
+    anchor: /^<Sparkles[^>]*\/>/,
+    why:
+      "The hero eyebrow pill. Anchored to the icon that opens it because the " +
+      "guard reads one tag plus the text after it, and the pill's text follows " +
+      "the <Sparkles /> tag rather than the <span> that carries the styling. " +
+      "OPEN DESIGN QUESTION, not a settled exemption: the site header directly " +
+      "above already renders the real lockup, so this is the name set a second " +
+      "time on the same screen. Left as-is because removing it changes the " +
+      "homepage — sara and Khaled decide, and until then it is at least declared.",
+  },
+]
+
+/**
+ * One walk of every surface for typeset brand names, returning both the
+ * offenders and which exemptions actually fired.
+ *
+ * Computed once here rather than accumulated as a side effect of the offender
+ * test, so the dead-exemption check below does not silently depend on another
+ * test having run first — running either one alone gives the same answer.
+ */
+function scanTypesetNames(): { offenders: string[]; used: Set<RegExp> } {
+  const anchored = new RegExp(`>\\s*(?:${BRAND_NAME.source})(?:\\s|$)`)
+  const offenders: string[] = []
+  const used = new Set<RegExp>()
+  for (const rel of OUTWARD_SURFACES) {
+    const src = code(read(rel))
+    for (const [, raw] of src.matchAll(/(<[a-zA-Z][^<]*)/g)) {
+      const chunk = renderedText(raw)
+      if (!anchored.test(chunk)) continue
+      const hit = TYPESET_NAME_EXEMPTIONS.filter((e) => e.surface === rel && e.anchor.test(chunk))
+      if (hit.length === 0) offenders.push(`${rel}: ${chunk.trim().slice(0, 120)}`)
+      for (const e of hit) used.add(e.anchor)
+    }
+  }
+  return { offenders, used }
+}
 
 /**
  * The retired identities: the gold wordmark (`/logo.png`, `/logo-wide.jpg`) and
@@ -120,16 +300,21 @@ describe("no outward-facing surface rebuilds or misbrands the logo", () => {
     // Not "no gold anywhere" — the media kit's document palette is sanctioned.
     // The rule is that gold may not BE the wordmark. Checked per element, so a
     // gold divider two lines from the name does not trip it and a gold name
-    // does.
+    // does — and now through the file's own colour vocabulary, so `var(--gold)`
+    // and `.some-gold-class` count as the colour they resolve to. That includes
+    // the exempted footers: they may keep being type, they may not become gold.
     const offenders: string[] = []
     for (const rel of OUTWARD_SURFACES) {
       const src = code(read(rel))
+      const vars = goldVars(src)
+      const classes = goldClasses(src, vars)
+      const idents = goldIdentifiers(src)
       // Each element-ish chunk: an opening tag plus the text up to the next tag.
-      for (const [, chunk] of src.matchAll(/(<[a-zA-Z][^<]*)/g)) {
-        if (!chunk.toLowerCase().includes(RETIRED_GOLD)) continue
-        if (/PODCAST\s+KHAT|بودكاست\s+خط/.test(chunk)) {
-          offenders.push(`${rel}: ${chunk.trim().slice(0, 120)}`)
-        }
+      for (const [, raw] of src.matchAll(/(<[a-zA-Z][^<]*)/g)) {
+        const chunk = renderedText(raw)
+        if (!BRAND_NAME.test(chunk)) continue
+        if (!chunkPaintsGold(chunk, vars, classes, idents)) continue
+        offenders.push(`${rel}: ${chunk.trim().slice(0, 120)}`)
       }
     }
     expect(offenders, "brand name typeset in the retired gold").toEqual([])
@@ -137,18 +322,24 @@ describe("no outward-facing surface rebuilds or misbrands the logo", () => {
 
   it("sets the brand name as type only where the artwork cannot go", () => {
     // Everything else must be a <KhatLogo> / khatLogoMarkup() call. The cover,
-    // the password gate and the closing signature were all typeset wordmarks;
-    // the only survivor is the declared running-footer exemption.
-    const offenders: string[] = []
-    for (const rel of OUTWARD_SURFACES) {
-      const src = code(read(rel))
-      for (const [, chunk] of src.matchAll(/(<[a-zA-Z][^<]*)/g)) {
-        if (!/>\s*PODCAST\s+KHAT\s*$|>\s*PODCAST\s+KHAT\s/.test(chunk)) continue
-        if (TYPESET_NAME_EXEMPT.test(chunk)) continue
-        offenders.push(`${rel}: ${chunk.trim().slice(0, 120)}`)
-      }
-    }
-    expect(offenders, "brand name typeset outside the declared exemption").toEqual([])
+    // the password gate and the closing signature were all typeset wordmarks.
+    //
+    // "As type" means the name is an element's OWN text — the first thing after
+    // its tag. The name inside a sentence is prose about the show and is left
+    // alone; the name standing on its own is a wordmark substitute.
+    expect(
+      scanTypesetNames().offenders,
+      "brand name typeset outside the declared exemptions",
+    ).toEqual([])
+  })
+
+  it("declares no exemption that has stopped matching anything", () => {
+    // An exemption that no longer fires is either dead weight or — worse — a
+    // renamed anchor that silently stopped protecting the thing it names, which
+    // is how a guard turns into decoration.
+    const { used } = scanTypesetNames()
+    const dead = TYPESET_NAME_EXEMPTIONS.filter((e) => !used.has(e.anchor))
+    expect(dead.map((e) => `${e.surface} ${e.anchor}`), "dead exemption").toEqual([])
   })
 
   it("keeps the wordmark in the order the artwork uses: PODCAST KHAT", () => {

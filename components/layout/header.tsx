@@ -8,6 +8,29 @@ import { Button, buttonVariants } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { KhatLogoSwap } from "@/components/brand/khat-logo"
 
+/**
+ * The header's logo swap, exported so the reflow guard can measure what this
+ * component actually renders.
+ *
+ * It used to be spelled inline here and hand-copied into
+ * tests/brand/logo-swap.test.ts under the comment "Exactly what header.tsx
+ * renders" — a promise nothing enforced. Changing the real breakpoint left all
+ * 67 tests green, because the test was measuring its own copy. One object, one
+ * place.
+ *
+ * The 44: it sits in a 64px bar (lg:), leaving 10px above and below. It was 40 —
+ * exactly MIN_HEIGHT for this lockup, i.e. on the floor with zero headroom,
+ * where any later nudge downward gets silently clamped instead of showing up as
+ * a visual change.
+ */
+export const HEADER_LOGO = {
+  compact: { variant: "mark", height: 32 },
+  full: { variant: "lockup-horizontal", height: 44 },
+  breakpoint: "1024px",
+  heightClassName: "h-[32px] lg:h-[44px]",
+  label: null,
+} as const
+
 const navigation = [
   { name: "الحلقات", href: "/episodes" },
   { name: "الضيوف", href: "/guests" },
@@ -52,17 +75,7 @@ export function Header({ hasNewEpisode = false }: { hasNewEpisode?: boolean }) {
           aria-label="خط — الرئيسية"
           className="flex shrink-0 items-center transition-opacity hover:opacity-90"
         >
-          <KhatLogoSwap
-            compact={{ variant: "mark", height: 32 }}
-            // 44 in a 64px bar (lg:), leaving 10px above and below. It was 40 —
-            // exactly MIN_HEIGHT for this lockup, i.e. sitting on the floor with
-            // zero headroom, where any later nudge downward gets silently
-            // clamped instead of showing up as a visual change.
-            full={{ variant: "lockup-horizontal", height: 44 }}
-            breakpoint="1024px"
-            heightClassName="h-[32px] lg:h-[44px]"
-            label={null}
-          />
+          <KhatLogoSwap {...HEADER_LOGO} />
         </Link>
 
         {/* Desktop Navigation */}

@@ -87,6 +87,13 @@ function socialIconCell(url: string, label: string, glyph: string): string {
  * "بودكاست خط / PODCAST KHAT" as artwork, and duplicating it in a UI font is
  * how the last replica started.
  *
+ * THE ONE TYPESET NAME IN THIS FILE is `class="nl-footer-brand"`, the running
+ * foot at the bottom of both layouts — the sign-off line beside the URL, the
+ * same case as the media kit's print footer. It carries that class for one
+ * reason: the typeset-name guard exempts it BY NAME, so renaming the class or
+ * moving the name anywhere else in this file fails
+ * tests/brand/outward-surfaces.test.ts instead of passing quietly.
+ *
  * NO CSS GRADIENTS ANYWHERE IN THIS FILE. Outlook's Word renderer drops
  * `linear-gradient` outright, so every gradient here was a brand element that
  * only some readers ever saw — and each one carried a stop colour that is in no
@@ -180,7 +187,7 @@ function newsletterLayout(
                   ${socialIconCell('https://tiktok.com/@khatpodcast', 'TikTok', '&#9836;')}
                 </tr>
               </table>
-              <p style="margin:0 0 6px;color:${BRAND.muted};font-size:12.5px;text-align:center;font-weight:700;">بودكاست خط</p>
+              <p class="nl-footer-brand" style="margin:0 0 6px;color:${BRAND.muted};font-size:12.5px;text-align:center;font-weight:700;">بودكاست خط</p>
               <p style="margin:0 0 ${unsubscribeUrl ? '10' : '0'}px;text-align:center;">
                 <a href="${APP_URL}" style="color:${BRAND.muted};font-size:11.5px;text-decoration:none;">khatpodcast.com</a>
               </p>
@@ -250,7 +257,7 @@ function legacyEmailLayout(content: string, unsubscribeUrl?: string): string {
           </tr>
           <tr>
             <td style="padding:20px 32px;background-color:${BRAND.soft};border-top:1px solid ${BRAND.border};">
-              <p style="margin:0;color:${BRAND.muted};font-size:12px;text-align:center;">بودكاست خط — khatpodcast.com</p>
+              <p class="nl-footer-brand" style="margin:0;color:${BRAND.muted};font-size:12px;text-align:center;">بودكاست خط — khatpodcast.com</p>
               ${unsubscribeUrl ? `<p style="margin:8px 0 0;text-align:center;"><a href="${unsubscribeUrl}" style="color:${BRAND.faint};font-size:11px;text-decoration:underline;">إلغاء الاشتراك</a></p>` : ''}
             </td>
           </tr>
