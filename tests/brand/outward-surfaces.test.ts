@@ -462,9 +462,27 @@ const OUTWARD_SURFACES = [
   "scripts/build-brand-icons.ts",
 ]
 
-/** Strip comments — a comment explaining what was removed is not a rebuild. */
+/**
+ * Strip comments — a comment explaining what was removed is not a rebuild.
+ *
+ * A JSX COMMENT IS `{/* … *\/}`, AND THE BRACES ARE PART OF IT. Stripping only
+ * the `/* … *\/` left a bare `{}` sitting in the text where the comment had
+ * been, and `scanTypesetNames` anchors the name to the START of a run (`^\s*`).
+ * So a comment written directly above the homepage hero pill pushed `{}` in
+ * front of «بودكاست خط» and the guard stopped seeing the name at all — it did
+ * not report an offender, it reported nothing.
+ *
+ * Caught only because the dead-exemption test noticed the hero exemption had
+ * stopped matching anything. That test exists so the exemption list cannot rot
+ * into a rubber stamp; here it caught the SCANNER going blind instead, which is
+ * the same failure wearing different clothes and the better argument for
+ * keeping it.
+ */
 function code(src: string): string {
-  return src.replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*(\/\/|\*).*$/gm, "")
+  return src
+    .replace(/\{\s*\/\*[\s\S]*?\*\/\s*\}/g, "")
+    .replace(/\/\*[\s\S]*?\*\//g, "")
+    .replace(/^\s*(\/\/|\*).*$/gm, "")
 }
 
 const read = (rel: string) => readFileSync(path.join(ROOT, rel), "utf8")

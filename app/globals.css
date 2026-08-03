@@ -13,10 +13,9 @@
                    `hsl()` wrapper — the `@theme inline` block feeds them
                    into `hsl(var(--token))`, and alpha modifiers
                    (`bg-primary/10`) only work on that bare form.
-       · fonts   → replace --font-brand-sans / --font-brand-display below,
-                   AND the Google Fonts <link> href in app/layout.tsx
-                   (two halves of one switch: the token names the family,
-                   the <link> fetches it).
+       · fonts   → replace --font-brand-sans below, AND the Google Fonts
+                   <link> href in app/layout.tsx (two halves of one switch:
+                   the token names the family, the <link> fetches it).
 
      Why :root and not a scoped wrapper: this used to live in a JS object
      inlined onto a <div> inside <body> (components/brand/site-theme.ts),
@@ -32,10 +31,19 @@
     /* ── Type ────────────────────────────────────────────────────────────
        Loaded via a Google Fonts <link> in app/layout.tsx (not
        next/font/google) so the build never depends on a build-time font
-       fetch. --font-sans in @theme and the base body rule read the sans
-       token; .museum-font-headline reads the display token. */
+       fetch. --font-sans in @theme and the base body rule read this token.
+
+       ONE FAMILY. `--font-brand-display: "Amiri", serif` WAS HERE, beside
+       `--type-leading-display-font` and the `.museum-font-headline` rule
+       that was its only reader. That rule's only caller,
+       components/episodes/episode-card.tsx, was deleted a wave earlier and
+       the token outlived it — so we shipped a <link> for four weights x two
+       styles of a display face that nothing drew. Measured on the running
+       site before removal: zero `.museum-font-headline` nodes on every
+       public route, and all 12 Amiri faces `status: "unloaded"`.
+       Re-introducing a display family means re-introducing all three
+       (token, leading token, consuming rule) AND the <link>. */
     --font-brand-sans: "IBM Plex Sans Arabic", "Noto Naskh Arabic", "Cairo", sans-serif;
-    --font-brand-display: "Amiri", serif;
 
     /* ── Type scale ──────────────────────────────────────────────────────
        THE OTHER HALF OF THE SWITCH POINT. Wave 1 made the palette and the
@@ -56,32 +64,31 @@
 
          IBM Plex Sans Arabic 700  1.389em   (1.607em once a word carries
                                               tashkeel — `كن ضيفًا`, `عالمٍ`)
-         Amiri 400                 1.644em   (1.771em with tashkeel)
 
-       READ THOSE AS MEASUREMENTS OF THIS SITE'S COPY, NOT CONSTANTS OF THE
-       TYPEFACE. They are the tallest ink found in the strings the site
-       actually renders, so they move with the text. Re-measured 2026-08-02
-       against the same two families with a DIFFERENT sample, the same
-       method returned 1.061 / 1.531 / 1.651 — materially lower, because
-       that sample happened to carry no tashkeel-on-descender pair. The
-       values below are chosen on the high side of the observed range and
+       READ THAT AS A MEASUREMENT OF THIS SITE'S COPY, NOT A CONSTANT OF THE
+       TYPEFACE. It is the tallest ink found in the strings the site actually
+       renders, so it moves with the text. Re-measured 2026-08-02 against a
+       DIFFERENT sample, the same method returned 1.061 — materially lower,
+       because that sample happened to carry no tashkeel-on-descender pair.
+       The values below are chosen on the high side of the observed range and
        are therefore safe, but they are not laws: A NEW FONT FAMILY, OR A
        MEANINGFUL CHANGE IN THE COPY, REQUIRES RE-MEASURING. Measure ink
-       (canvas actualBoundingBoxAscent + Descent), not the font's own box —
-       see the warning on --type-leading-display-font.
+       (canvas actualBoundingBoxAscent + Descent), not the font's own box.
 
-       AND MEASURE IT ON A COLD PAGE. Asking a canvas for "Amiri" is itself a
-       request to LOAD Amiri: on a page that does not already paint it, the
-       first measurement is the fallback serif and nothing says so. The Amiri
-       1.644 above was re-derived 2026-08-02 under that protocol
-       (document.fonts.check read true BEFORE any canvas call, fallback
-       control 1.1528 on the same string) and reproduces exactly. Protocol in
-       tests/type-scale-guards.test.ts, top of file.
+       AND MEASURE IT ON A COLD PAGE. Asking a canvas for a family is itself a
+       request to LOAD it: on a page that does not already paint that family,
+       the first measurement is the fallback and nothing says so. Check
+       `document.fonts.check(...)` reads true BEFORE the first canvas call, and
+       keep a fallback control on the same string to prove the gap. Protocol in
+       tests/type-scale-guards.test.ts, top of file. It mattered most for the
+       display face this site no longer has — the removed Amiri figures were
+       1.644em / 1.771em with tashkeel, and the fallback serif answered 1.1528
+       on the same string, a 30% gap that a warm-page probe would have missed.
 
        The old values were 1.08 on the hero and 1.25 on card titles, i.e.
        roughly half of what the script needs: the hero overlapped by a
-       measured 7.82px at 1280 and the Amiri card titles by 7.01px. Body
-       steps sit at 1.75–1.85, which clears even the tashkeel case.
+       measured 7.82px at 1280. Body steps sit at 1.75–1.85, which clears
+       even the tashkeel case.
 
        Small steps get generous leading too (1.65+), because micro/caption
        carry wrapping body copy (episode teasers), not just single-line
@@ -154,10 +161,10 @@
        Measured at 375 on the live page: two lines, 10.87px of ink clearance. No
        database string reaches this step. */
     --type-leading-display: 1.4;
-    /* Amiri (--font-brand-display) is a Naskh face with much deeper
-       descenders than the sans — it needs its own, looser value or
-       `.museum-font-headline` collides no matter what the step says. */
-    --type-leading-display-font: 1.8;
+    /* `--type-leading-display-font: 1.8` WAS HERE — Amiri's own leading, and
+       it left with Amiri. It existed only for `.museum-font-headline`; with
+       no display family there is no second font whose ink needs its own
+       floor. */
 
     /* Comfortable Arabic line length. 0.3907em is the MEASURED mean glyph
        advance of the brand sans for Arabic body copy (constant across
@@ -239,7 +246,7 @@
        pinned per-surface because density is a product decision. Ink height
        is a property of the typeface, not of the surface, so there is one
        value and both surfaces read it. A new brand font means re-measuring
-       this line — see the warning on --type-leading-display-font. */
+       this line — see the cold-page warning in the type-scale block above. */
     --ui-heading-leading: 1.75;
 
     /* ── UI primitive sizes ──────────────────────────────────────────────
@@ -953,36 +960,23 @@ header {
    These styles power the museum-themed homepage sections.
    ============================================================ */
 
-/* Museum headline font. Reads the brand display token so swapping the
-   headline family is one edit in :root, not a hunt through stylesheets.
-   Live on the public episode page: EpisodeCard's <h3> (verified — three
-   nodes render it in the recommendations grid, and the Amiri arabic
-   subset loads on its own to paint them).
+/* `.museum-font-headline` WAS HERE, with `--font-brand-display` and
+   `--type-leading-display-font` — the whole Amiri apparatus, removed together.
 
-   "Playfair Display" used to sit between Amiri and serif and was
-   unreachable: Google serves Amiri with latin + latin-ext + arabic
-   subsets, so Amiri covers every glyph these headlines can contain and
-   the next family in the stack never gets a turn. It is dropped from the
-   <link> in app/layout.tsx too. */
-/* Amiri needs its own leading, not the step's. Measured: Amiri's ink runs
-   1.644em tall for this site's copy (1.771em with tashkeel) against the
-   sans's 1.389em, so the `leading-tight` (1.25) this used to carry made
-   consecutive lines overlap by a measured 7.01px on the guest page. The
-   token wins over the step's paired line-height because this is a class
-   selector, not a utility.
+   THE COMMENT THAT STOOD HERE WAS THE INTERESTING PART. It said the class was
+   "live on the public episode page: EpisodeCard's <h3> (verified — three nodes
+   render it in the recommendations grid, and the Amiri arabic subset loads on
+   its own to paint them)". That was true when written. Its caller,
+   components/episodes/episode-card.tsx, was deleted a wave later — the same
+   deletion recorded a few blocks down for `.museum-frame` — and the claim
+   stayed, along with two guards in tests/type-scale-guards.test.ts § 9 built on
+   top of it and a Google Fonts <link> fetching eight faces.
 
-   BOTH LINES BELOW ARE NOW GUARDED, and until wave 3-d neither was: these
-   are ordinary CSS rules, and every guard in the file policed custom
-   properties only. Dropping the leading to 1.2 was a measured −6.156px ink
-   overlap on /guests/الأستاذ-علي-دريساوي at 375 with all 160 guards green.
-   The 1.644 floor and both bindings live in
-   tests/type-scale-guards.test.ts § 9 — re-measured there on a cold page,
-   because a canvas probe LOADS the family it asks about and its first
-   answer is the fallback serif. */
-.museum-font-headline {
-  font-family: var(--font-brand-display);
-  line-height: var(--type-leading-display-font);
-}
+   Re-measured on the running site before removing any of it: zero
+   `.museum-font-headline` nodes on every public route, and all 12 Amiri faces
+   `status: "unloaded"`. A verified comment is only verified on the day it was
+   written; a class with no caller has no ink to clear, and every number about
+   Amiri's ink went with it. */
 
 /* `.museum-gold-glow` WAS HERE. A text-shadow in the RETIRED gold
    (rgba(240,201,84,…)) with zero callers anywhere in the tree — the last

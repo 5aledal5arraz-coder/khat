@@ -6,8 +6,16 @@ import { getCategoriesForRequest } from "@/lib/queries/categories"
 import { resolveCategorySlug } from "@/lib/episodes/category-filter"
 import { getCachedPublicEpisodes, getCachedEpisodeCounts } from "@/lib/cache"
 import { EpisodePosterCard } from "@/components/episodes/episode-poster-card"
-import { CategoryChips } from "@/components/episodes/category-chips"
-import { mainFeed } from "@/lib/episodes/clips"
+import { ArchiveNav } from "@/components/episodes/archive-nav"
+import {
+  DEFAULT_LANE,
+  filterLane,
+  laneOfCategorySlug,
+  laneUnitNoun,
+  parseLane,
+  type ProgramLane,
+} from "@/lib/episodes/programs"
+import { formatArabicCount } from "@/lib/shared/formatters"
 import type { Episode } from "@/types/database"
 
 export const dynamic = "force-dynamic"
@@ -18,61 +26,113 @@ export const metadata: Metadata = {
 }
 
 interface EpisodesPageProps {
-  searchParams: Promise<{ search?: string; category?: string }>
+  searchParams: Promise<{ search?: string; category?: string; lane?: string }>
 }
 
-/** `/episodes` with the search and category that are currently in effect. */
-function archiveHref(search: string | undefined, categorySlug: string | null): string {
+/**
+ * `/episodes` with a lane, a group, and the current search.
+ *
+ * `?category=` is left exactly as it was — every existing link, bookmark and
+ * `/categories/*` chip keeps resolving — and `?lane=` is added only for the
+ * lane tabs, which have no single category to point at. `?category=` is the
+ * more specific of the two and therefore wins when both are present.
+ */
+function archiveHref(
+  search: string | undefined,
+  lane: ProgramLane | null,
+  categorySlug: string | null,
+): string {
   const params = new URLSearchParams()
   if (categorySlug) params.set("category", categorySlug)
+  // The default lane needs no parameter: `/episodes` already means it.
+  else if (lane && lane !== DEFAULT_LANE) params.set("lane", lane)
   if (search) params.set("search", search)
   const qs = params.toString()
   return qs ? `/episodes?${qs}` : "/episodes"
 }
 
 export default async function EpisodesPage({ searchParams }: EpisodesPageProps) {
-  const { search, category } = await searchParams
+  const { search, category, lane } = await searchParams
   const query = search?.trim() || undefined
 
-  // One query for the chips — and `applyListPipeline` reuses the very same
+  // One query for the nav — and `applyListPipeline` reuses the very same
   // result (React `cache()`), so the category feature costs ONE extra query
   // per page load, not one per episode.
   const categories = await getCategoriesForRequest()
   const resolved = resolveCategorySlug(categories, category)
   const activeSlug = resolved.state === "known" ? resolved.category.slug : null
 
+  // Which program are we looking at? A chosen category answers it outright; a
+  // bare `?lane=` answers it for the tabs, which have no category to point at.
+  // Neither ⇒ حلقات خط, because خط is what this site is (م3).
+  //
+  // An unrecognised `?lane=` falls back silently, and unlike an unrecognised
+  // `?category=` that is right: a lane key is a code constant that only our own
+  // links produce, so it cannot be a stale bookmark of a renamed thing.
+  const requestedLane: ProgramLane =
+    activeSlug !== null ? laneOfCategorySlug(activeSlug) : (parseLane(lane) ?? DEFAULT_LANE)
+
+  // A search with no lane and no category is ARCHIVE-WIDE, so no tab describes
+  // it and none is marked current. Marking خط current over a result list that
+  // can contain سالفة rows is the same "the label doesn't mean what it says"
+  // fault this page was rebuilt to remove.
+  const laneIsScoped = activeSlug !== null || parseLane(lane) !== null
+  const activeLane: ProgramLane | null = query && !laneIsScoped ? null : requestedLane
+
   // An unknown slug deliberately does NOT filter: filtering by it would return
   // an empty archive, which reads as a truthful "no episodes" answer. We show
   // the whole archive and say the category is unknown.
   const filtered = query !== undefined || activeSlug !== null
 
-  const episodes: Episode[] = filtered
-    // withCategories: this grid renders the category badge (`showCategory`
-    // below), and a search-only filter would otherwise skip the lookup.
+  const rows: Episode[] = filtered
+    // withCategories: the grid renders the category badge, the lane scoping
+    // below needs the slug, and a search-only filter would otherwise skip the
+    // lookup entirely.
+    //
+    // ── SECOND HALF OF THE SEASON SWITCH POINT ──────────────────────────────
+    // `activeSlug` is an `ArchiveGroup.slug`, which today is a category slug.
+    // When `episodes.season` is filled and `khatSeasonGroups()` starts deriving
+    // groups from it (see lib/episodes/programs.ts), THIS call is the one that
+    // becomes `getEpisodes({ season })`. There is no third place.
     ? await getEpisodes({
         search: query,
         category: activeSlug ?? undefined,
         withCategories: true,
       }).catch(() => [])
-    // Unfiltered = the main feed: conversations, no clips. The six «مقاطع خط»
-    // cut-downs stay one click away on their own chip (and on
-    // /categories/مقاطع-خط) — they are excluded from the DEFAULT view, not
-    // from the site. `all` in `counts` below counts the same list, so the
-    // chip's number and the grid never disagree.
     : await getCachedPublicEpisodes()
       .then((list) =>
-        mainFeed(list).sort(
+        [...list].sort(
           (a, b) =>
             new Date(b.release_date).getTime() - new Date(a.release_date).getTime(),
         ),
       )
       .catch(() => [])
 
+  // Scope to the lane. Cheap and post-fetch on purpose: a lane is a set of
+  // categories, and pushing it into SQL would mean a second category filter in
+  // `getEpisodes` for a list this size (42 rows). Skipped when a category is
+  // already selected — that IS the narrower filter — and when a search is
+  // archive-wide, where scoping would hide the results the visitor asked for.
+  const episodes =
+    activeLane !== null && activeSlug === null ? filterLane(rows, activeLane) : rows
+
   // Counts describe the whole archive, so they contradict a search result —
   // show them only when no search narrows the list.
   const counts = query ? undefined : await getCachedEpisodeCounts().catch(() => undefined)
 
   const categoryScope = resolved.state === "known" ? ` في «${resolved.category.name}»` : ""
+
+  // The scope is named ONLY when a season is selected. Naming the lane too
+  // would print «٢٠ حلقة في «حلقات خط»» directly under a tab that already reads
+  // «حلقات خط» — the count is the new information, the lane is not.
+  const unit = laneUnitNoun(activeLane ?? DEFAULT_LANE)
+
+  const summary =
+    episodes.length === 0
+      ? `لا توجد نتائج لـ «${query}»${categoryScope}`
+      : query
+        ? `${episodes.length} نتيجة لـ «${query}»${categoryScope}`
+        : `${formatArabicCount(episodes.length, unit)}${categoryScope}`
 
   return (
     <div className="px-6 pb-24 pt-14 sm:pt-20">
@@ -94,10 +154,16 @@ export default async function EpisodesPage({ searchParams }: EpisodesPageProps) 
               clickable control AND guarantees Enter submits (a single-input
               form without a submit button is unreliable across browsers). */}
           <form action="/episodes" className="mx-auto mt-8 flex max-w-md items-center">
-            {/* The active category must survive a search. A GET form submits
-                ONLY its own fields, so without this hidden input the first
-                search silently drops the filter the visitor just chose. */}
+            {/* Where the visitor currently is must survive a search. A GET form
+                submits ONLY its own fields, so without these the first search
+                silently drops the program or season they just chose. `lane`
+                only when no category is set — the category already implies it,
+                and sending both would put a redundant parameter in every
+                shared URL. */}
             {activeSlug ? <input type="hidden" name="category" value={activeSlug} /> : null}
+            {!activeSlug && laneIsScoped ? (
+              <input type="hidden" name="lane" value={requestedLane} />
+            ) : null}
             <div className="relative w-full">
               <button
                 type="submit"
@@ -116,14 +182,17 @@ export default async function EpisodesPage({ searchParams }: EpisodesPageProps) 
             </div>
           </form>
 
-          {/* Category filter — under the search, and every chip carries the
-              current search so the two compose in both directions. */}
-          <CategoryChips
-            className="mt-5"
+          {/* The archive's two levels — program, then season. Under the search,
+              and every link carries the current search so the two compose in
+              both directions. */}
+          <ArchiveNav
+            className="mt-6"
             categories={categories}
+            activeLane={activeLane}
             activeSlug={activeSlug}
             counts={counts}
-            hrefFor={(slug) => archiveHref(query, slug)}
+            laneHref={(l) => archiveHref(query, l, null)}
+            groupHref={(slug) => archiveHref(query, requestedLane, slug)}
           />
         </header>
 
@@ -132,41 +201,50 @@ export default async function EpisodesPage({ searchParams }: EpisodesPageProps) 
         {resolved.state === "unknown" ? (
           <div className="mt-10 rounded-2xl border border-border bg-secondary px-5 py-4 text-center text-caption">
             <p className="font-semibold text-foreground">تصنيف غير معروف</p>
+            {/* NOT «هذي كل الحلقات» any more: an unresolved slug falls back to
+                the default lane, so what follows is حلقات خط — the other
+                programs are one tab away. Saying "all" would be the same
+                mislabelling this page was rebuilt to remove. */}
             <p className="mt-1 text-muted-foreground">
-              ما فيه تصنيف بالاسم «{resolved.slug}» — هذي كل الحلقات.
+              ما فيه تصنيف بالاسم «{resolved.slug}» — هذي حلقات خط.
             </p>
             <Link
               href="/episodes"
               className="mt-2 inline-block font-semibold text-primary hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
             >
-              عرض الكل
+              عرض حلقات خط
             </Link>
           </div>
         ) : null}
 
-        {/* Result summary. The zero case for a KNOWN category is left to the
-            empty state below, which says it in full rather than twice. */}
-        {filtered && (episodes.length > 0 || query) ? (
+        {/* Result summary — ALWAYS states the size of what is on screen, not
+            only when a filter is on. The old page printed a number for filtered
+            views and nothing for the default one, which is how «الكل ٣٦» became
+            the only number a visitor ever saw and the only one that was wrong.
+            The zero case for a KNOWN category is left to the empty state below,
+            which says it in full rather than twice. */}
+        {episodes.length > 0 || query ? (
           <div className="mt-10 flex items-center justify-between gap-3 text-caption">
-            <span className="text-muted-foreground">
-              {episodes.length > 0
-                ? `${episodes.length} نتيجة${query ? ` لـ «${query}»` : ""}${categoryScope}`
-                : `لا توجد نتائج لـ «${query}»${categoryScope}`}
-            </span>
-            <Link
-              href="/episodes"
-              className="shrink-0 font-semibold text-primary hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
-            >
-              عرض الكل
-            </Link>
+            <span className="text-muted-foreground">{summary}</span>
+            {filtered ? (
+              <Link
+                href="/episodes"
+                className="shrink-0 font-semibold text-primary hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+              >
+                عرض حلقات خط
+              </Link>
+            ) : null}
           </div>
         ) : null}
 
         {/* Grid */}
         {episodes.length > 0 ? (
           <div className="mt-10 grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
+            {/* The badge only where it distinguishes something. Inside a chosen
+                season every card would carry the identical label, which is the
+                same noise `/categories/[slug]` already refuses to print. */}
             {episodes.map((ep) => (
-              <EpisodePosterCard key={ep.id} ep={ep} showCategory />
+              <EpisodePosterCard key={ep.id} ep={ep} showCategory={activeSlug === null} />
             ))}
           </div>
         ) : (

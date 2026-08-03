@@ -5,7 +5,17 @@ import { getCategoriesForRequest } from "@/lib/queries/categories"
 import { getCachedEpisodeCounts } from "@/lib/cache"
 import { resolveCategorySlug } from "@/lib/episodes/category-filter"
 import { EpisodePosterCard } from "@/components/episodes/episode-poster-card"
-import { CategoryChips } from "@/components/episodes/category-chips"
+import { ArchiveNav } from "@/components/episodes/archive-nav"
+import {
+  DEFAULT_LANE,
+  laneOfCategorySlug,
+  type ProgramLane,
+} from "@/lib/episodes/programs"
+
+/** The archive view for a whole lane. `/episodes` already means the default. */
+function laneUrl(lane: ProgramLane): string {
+  return lane === DEFAULT_LANE ? "/episodes" : `/episodes?lane=${lane}`
+}
 
 // The taxonomy is admin-driven; render on every request.
 export const dynamic = "force-dynamic"
@@ -49,6 +59,7 @@ export default async function CategoryPage({ params }: CategoryPageProps) {
   }
 
   const category = resolved.category
+  const lane = laneOfCategorySlug(category.slug)
 
   // Filtered listing goes to getEpisodes(), never the cached full-archive
   // snapshot. `getCategoriesForRequest` inside the pipeline is the SAME
@@ -74,13 +85,21 @@ export default async function CategoryPage({ params }: CategoryPageProps) {
               : `ما فيه حلقات في تصنيف «${category.name}» بعد`}
           </p>
 
-          <CategoryChips
+          {/* The SAME two-level nav as /episodes, so the taxonomy a visitor
+              sees is one taxonomy. This route keeps working and keeps its own
+              canonical — it is a leaf, not a second archive — so every link
+              here points back into /episodes rather than deeper into
+              /categories/*. The old flat chip row reproduced the exact
+              ambiguity that page was rebuilt to remove. */}
+          <ArchiveNav
             className="mt-6"
             categories={categories}
+            activeLane={lane}
             activeSlug={category.slug}
             counts={counts}
-            hrefFor={(chipSlug) =>
-              chipSlug ? `/categories/${encodeURIComponent(chipSlug)}` : "/episodes"
+            laneHref={laneUrl}
+            groupHref={(slug) =>
+              slug ? `/episodes?category=${encodeURIComponent(slug)}` : laneUrl(lane)
             }
           />
         </header>

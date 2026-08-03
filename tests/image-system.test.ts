@@ -596,8 +596,11 @@ describe("the guest portrait renders at all three sizes", () => {
   // the only way to see them without writing to the database.
   it.each([
     ["card", "h-20 w-20", "rounded-2xl", "80px"],
-    ["page", "h-[200px] w-[200px]", "rounded-[20px]", "200px"],
-    ["episode", "h-24 w-24", "rounded-[20px]", "96px"],
+    // Both were `rounded-[20px]` — an arbitrary corner outside `--radius`, so
+    // the switch point could not move them. Now two rungs of the ladder, chosen
+    // by box size: 3x on the 200px header, 2x on the 96px block.
+    ["page", "h-[200px] w-[200px]", "rounded-3xl", "200px"],
+    ["episode", "h-24 w-24", "rounded-2xl", "96px"],
   ] as const)("%s is a %s rounded square asking for %s", (variant, box, corner, sizes) => {
     const html = renderToStaticMarkup(
       createElement(GuestPortrait, {

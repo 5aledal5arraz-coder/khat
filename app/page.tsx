@@ -10,6 +10,7 @@ import {
 } from "@/components/episodes/episode-poster-card"
 import { EpisodeThumb } from "@/components/media/episode-thumb"
 import { mainFeed } from "@/lib/episodes/clips"
+import { filterLane } from "@/lib/episodes/programs"
 import { NewsletterSignup } from "@/components/forms/newsletter-signup"
 import {
   displayEpisodeTitle,
@@ -85,6 +86,7 @@ export default async function HomePage() {
   // They keep their chip on /episodes and their own category page.
   const conversations = mainFeed(episodes)
   const featured = conversations[0] ?? null
+  const season = currentKhatSeason(episodes)
   const featuredBlurb = featured ? episodeBlurb(featured) : null
   const grid = conversations.slice(1, 7)
 
@@ -107,9 +109,31 @@ export default async function HomePage() {
         </div>
 
         <div className="mx-auto max-w-4xl">
+          {/* The badge KEEPS THE NAME and gains information — it does not
+              become one or the other.
+              · The name stays because at 375 the header renders the mark
+                alone, with no wordmark, so this is the only place «بودكاست خط»
+                is spelled on the first screen — and 375 is most of the traffic
+                (Noura's finding, and the reason the badge survives at all).
+              · The season is the information. The h1 right below already says
+                «حوارات تستحق أن تبقى», so a badge repeating the promise says
+                nothing twice; what a first-time visitor cannot know from
+                anything else on this screen is WHICH SEASON the archive is on.
+              It is derived, never typed: `currentKhatSeason()` reads the newest
+              خط episode's own category, so season two names itself here the day
+              its first episode publishes. No season resolved ⇒ the name alone,
+              which is exactly what this badge said before. */}
           <span className="inline-flex items-center gap-2 rounded-full border border-border bg-card px-3.5 py-1.5 text-micro font-semibold text-muted-foreground shadow-sm">
             <Sparkles className="h-3.5 w-3.5 text-accent" />
             بودكاست خط
+            {season ? (
+              <>
+                <span aria-hidden="true" className="text-border">
+                  ·
+                </span>
+                <span className="text-foreground">{season}</span>
+              </>
+            ) : null}
           </span>
 
           <h1 className="mt-7 text-balance text-display font-bold text-foreground">
@@ -294,6 +318,27 @@ export default async function HomePage() {
       </section>
     </div>
   )
+}
+
+/**
+ * The season خط is currently on, for the hero badge — or `null`.
+ *
+ * The NEWEST خط episode's own category, not a constant and not a lookup of
+ * «الموسم الاول»: see the switch point in `lib/episodes/programs.ts`. Skips the
+ * separate program and the clips (they are not seasons of خط, and the clips are
+ * the most recent uploads, so a naive "newest episode" would print «مقاطع خط»
+ * as the season) and skips khat episodes that have no category yet.
+ *
+ * Reads the list the page has already fetched — no extra query.
+ */
+function currentKhatSeason(episodes: Episode[]): string | null {
+  const seasoned = filterLane(episodes, "khat").filter((ep) => ep.category?.name)
+  if (seasoned.length === 0) return null
+  // Explicit sort: `getCachedPublicEpisodes()` does not promise date order.
+  const newest = seasoned.reduce((a, b) =>
+    new Date(b.release_date).getTime() > new Date(a.release_date).getTime() ? b : a,
+  )
+  return newest.category?.name ?? null
 }
 
 // ─── pieces ──────────────────────────────────────────────────────────────────

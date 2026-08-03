@@ -1577,25 +1577,26 @@ describe("what the class delivers, not what the token declares", () => {
  * token seventeen times across nine tokens. Every one of them was outside the
  * reach of all 160 guards.
  *
- * Two of the fifteen are on a live element, `.museum-font-headline`, which is
- * the episode card's <h3> (components/episodes/episode-card.tsx:61) and
- * therefore renders on the episode page, on /topics/[slug] and on
- * /guests/[slug]. Both mutations survived the whole suite:
+ * THE TWO MUTANTS THIS SECTION WAS BUILT ON ARE GONE, AND SO IS THEIR ELEMENT.
+ * N01 (`--type-leading-display-font: 1.8 → 1.2`) and N02
+ * (`.museum-font-headline { font-family }` repointed to the sans) were both
+ * about the Amiri apparatus. That apparatus was removed in wave 4, and the
+ * reason is worth keeping here rather than in a changelog: this comment used to
+ * assert the class "is the episode card's <h3>
+ * (components/episodes/episode-card.tsx:61) and therefore renders on the
+ * episode page, on /topics/[slug] and on /guests/[slug]". That component had
+ * already been deleted. Measured on the running site: zero
+ * `.museum-font-headline` nodes on every public route, all 12 Amiri faces
+ * `status: "unloaded"`.
  *
- *   N01  --type-leading-display-font: 1.8 → 1.2
- *        The stylesheet DOCUMENTS that Amiri needs 1.644 minimum and no guard
- *        held the number. Reproduced live 2026-08-02 at 375 on
- *        /guests/الأستاذ-علي-دريساوي, the one public route whose card title
- *        wraps at that width: adjacent-line ink clearance went from +4.644px
- *        to −6.156px — a real overlap, on a real page — with 160 guards green.
+ * So N01's −6.156px overlap was real when measured and had since become
+ * unreachable, and N02 was describing the state the file was ALREADY in — a
+ * display family with no consumer. Two guards were holding a rule that drew
+ * nothing, over a font we were still fetching. THE GUARDS WERE GREEN AND THE
+ * THING THEY GUARDED WAS DEAD, which is its own failure mode and the reason the
+ * removal is written down here at all.
  *
- *   N02  .museum-font-headline { font-family: var(--font-brand-display) }
- *        repointed to var(--font-brand-sans). The display family then has NO
- *        consumer, so replacing it at the switch point is a no-op: the exact
- *        failure this whole wave exists to prevent, one layer below where the
- *        wave was looking.
- *
- * So this section does not test those two. It enumerates the class: every
+ * The section keeps its shape. It enumerates the class: every
  * declaration in globals.css outside the three switch-point blocks that reads
  * a token declared in them must say WHICH tokens it reads, and read exactly
  * those. A new rule that reaches for a token is a failing test until someone
@@ -1605,7 +1606,9 @@ describe("what the class delivers, not what the token declares", () => {
  * of the seam nobody had looked at.
  */
 describe("ordinary rules read the switch point, and say what they read", () => {
-  const SURFACE_NAMES = Object.keys(SURFACES) as Surface[]
+  // `SURFACE_NAMES` WAS HERE. Its only reader in this section was the Amiri ink
+  // guard, which left with Amiri; the binding tests are per-rule, not
+  // per-surface. Section 8 keeps its own copy.
 
   /** Every custom property the switch point declares, on either surface. */
   const BRAND_TOKENS = new Set([
@@ -1694,14 +1697,11 @@ describe("ordinary rules read the switch point, and say what they read", () => {
     ".admin-shimmer { background }": ["--muted"],
     ".admin-nav-item::before { background }": ["--primary"],
 
-    // THE FONT HALF OF THE SWITCH POINT, and the only place either family is
-    // consumed by a plain rule. `.transcript-viewer` is the studio transcript
-    // pane; `.museum-font-headline` is the episode card's <h3>.
+    // THE FONT HALF OF THE SWITCH POINT, and now the ONLY place the brand
+    // family is consumed by a plain rule: `.transcript-viewer`, the studio
+    // transcript pane. The two `.museum-font-headline` entries that stood here
+    // went with the rule and with Amiri — see the section header.
     ".transcript-viewer { font-family }": ["--font-brand-sans"],
-    ".museum-font-headline { font-family }": ["--font-brand-display"],
-    // N01's home. The leading is bound here AND floored below: binding alone
-    // would let 1.2 through, a floor alone would let the wire be cut.
-    ".museum-font-headline { line-height }": ["--type-leading-display-font"],
   }
 
   const observed = ordinaryReads()
@@ -1712,12 +1712,15 @@ describe("ordinary rules read the switch point, and say what they read", () => {
     // until someone writes down what it is following.
     const undeclared = [...observed.keys()].filter((k) => !(k in RULE_BINDINGS))
     expect(undeclared, "these rules read the switch point and nothing says why").toEqual([])
-    expect(observed.size).toBeGreaterThanOrEqual(15)
+    // Was 15. Removing `.museum-font-headline` took two of them with it, and
+    // the floor moves with the file rather than being left high to "keep the
+    // number" — a floor nothing can satisfy is not a guard.
+    expect(observed.size).toBeGreaterThanOrEqual(13)
   })
 
   it("no declared rule has quietly disappeared", () => {
     // The other direction, and it is not symmetry for its own sake: replacing
-    // `font-family: var(--font-brand-display)` with a literal `"Amiri", serif`
+    // `font-family: var(--font-brand-sans)` with a literal `"IBM Plex …", serif`
     // detaches the rule from the switch point WITHOUT tripping the test above,
     // because the rule stops reading any token at all. It trips this one.
     const missing = Object.keys(RULE_BINDINGS).filter((k) => !observed.has(k))
@@ -1732,43 +1735,45 @@ describe("ordinary rules read the switch point, and say what they read", () => {
   })
 
   /**
-   * AMIRI'S OWN INK, RE-MEASURED WITH THE PROBE HELD PROPERLY.
+   * WE FETCH ONLY WHAT WE NAME — the guard the Amiri hole actually needed.
    *
-   * globals.css has said "Amiri 400 runs 1.644em" since wave 2 and no guard
-   * held the number — which is all N01 needed. The figure was also suspect on
-   * method: a canvas probe LOADS the family it asks about, so a first
-   * measurement on a page that does not already paint Amiri returns the
-   * fallback serif. Re-measured 2026-08-02 under the cold-page protocol in the
-   * header — /guests/الأستاذ-علي-دريساوي at 375, which renders
-   * `.museum-font-headline` in Amiri, `document.fonts.check('400 100px
-   * Amiri')` read as true BEFORE any canvas call — over the real population of
-   * this class, the 42 stored episode titles as `displayEpisodeTitle` prints
-   * them:
+   * The two guards that stood here pinned Amiri's leading and Amiri's binding.
+   * Both were green for weeks while `.museum-font-headline` had no caller and
+   * `document.fonts` reported every Amiri face `unloaded`: they policed the
+   * relationship between the token and the rule, and nobody policed whether
+   * either end was connected to a page. A stronger question, and the one that
+   * would have failed on the day episode-card.tsx was deleted, is about the
+   * OTHER half of the switch point — the <link> that costs real bytes.
    *
-   *   n = 42   mean 1.375   max 1.6440  ("قصة "كافيه دوز" ورحلتها …")
-   *   above 1.644:  1 of 42 (the max itself)      above 1.8:  0 of 42
-   *   same string in the fallback serif: 1.1528   — a 30% gap, so the
-   *   measurement is demonstrably not the fallback's
-   *
-   * The documented 1.644 reproduces exactly. It is the max of the population,
-   * not a constant of the typeface — a new family or new titles means
-   * re-measuring, and that is why the number lives beside a test.
+   * So: every family in the Google Fonts href must be named by a font token in
+   * globals.css. It is one direction on purpose. A token with no <link> is a
+   * missing font — loud, visible, and nobody ships it twice. A <link> with no
+   * token is silent, costs every visitor a download, and is exactly what we
+   * shipped.
    */
-  const INK_DISPLAY_FONT_MAX = 1.644
+  it("every family in the <link> is named by a font token", () => {
+    const layout = readFileSync(join(ROOT, "app/layout.tsx"), "utf8")
+    const href = layout.match(/href="(https:\/\/fonts\.googleapis\.com\/css2\?[^"]+)"/)?.[1]
+    expect(href, "no Google Fonts <link> found in app/layout.tsx").toBeDefined()
 
-  it("the Amiri headline leading clears Amiri's own ink, on every surface", () => {
-    // The floor the stylesheet documents and nothing enforced. `1.2` — N01 —
-    // is a measured −6.156px overlap on a live public page; the generic
-    // "no leading under the mean ink" sweep in section 6 passes it at 1.103,
-    // because that floor is the SANS's average and this token is the display
-    // face's worst case.
-    for (const surface of SURFACE_NAMES) {
-      const v = resolved("--type-leading-display-font", surface)
-      expect(v, `--type-leading-display-font did not resolve on "${surface}"`).not.toBeNull()
-      expect(
-        v!,
-        `${surface}: .museum-font-headline would render at leading ${v}, under Amiri's own ink (${INK_DISPLAY_FONT_MAX})`,
-      ).toBeGreaterThanOrEqual(INK_DISPLAY_FONT_MAX)
-    }
+    // `family=IBM+Plex+Sans+Arabic:wght@300;400` → `IBM Plex Sans Arabic`
+    const fetched = [...href!.matchAll(/family=([^&:]+)/g)].map((m) =>
+      decodeURIComponent(m[1]).replace(/\+/g, " ").trim(),
+    )
+    expect(fetched.length, "the <link> fetches nothing").toBeGreaterThan(0)
+
+    // Every `--font-*` token value across both surfaces, as one haystack.
+    const named = Object.entries(SITE_DECLS)
+      .concat(Object.entries(ADMIN_DECLS))
+      .filter(([k]) => k.startsWith("--font-"))
+      .map(([, v]) => v)
+      .join(" ")
+
+    const orphans = fetched.filter((family) => !named.includes(family))
+    expect(
+      orphans,
+      `fetched but named by no --font-* token — every visitor downloads these ` +
+        `and nothing on the site can paint them`,
+    ).toEqual([])
   })
 })

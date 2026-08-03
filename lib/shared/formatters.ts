@@ -24,6 +24,10 @@
  */
 const ARABIC_PLURALS: Record<string, [string, string, string]> = {
   "حلقة": ["حلقة", "حلقتان", "حلقات"],
+  // The archive's clips lane counts CLIPS, not episodes: `/episodes?lane=clips`
+  // tells the visitor «مو حلقات كاملة» and then had to print «6 حلقات» right
+  // under it. See `laneUnitNoun()` in lib/episodes/programs.ts.
+  "مقطع": ["مقطع", "مقطعان", "مقاطع"],
   "مقال": ["مقال", "مقالان", "مقالات"],
   "متابع": ["متابع", "متابعان", "متابعين"],
   "دقيقة": ["دقيقة", "دقيقتين", "دقائق"],

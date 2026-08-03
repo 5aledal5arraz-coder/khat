@@ -22,14 +22,24 @@ import { KhatMarkPanel } from "./khat-mark-panel"
  *
  * `sizes` is exact rather than a viewport expression because every variant is a
  * fixed box at every breakpoint.
+ *
+ * THE CORNERS ARE ON THE SWITCH POINT. Both of these were `rounded-[20px]` — an
+ * arbitrary literal that `--radius` cannot move, on the one component that
+ * draws a person's face at three sizes. globals.css states the policy (every
+ * corner a multiple of `--radius`, so one number moves the whole identity) and
+ * names the five arbitrary corners it knowingly left behind; `rounded-[20px]`
+ * was a SIXTH, added after that list was written and never added to it. Two
+ * rungs, not one, because the boxes differ by 2x: 200px takes `rounded-3xl`
+ * (3x = 24px) and 96px takes `rounded-2xl` (2x = 16px), which is also what the
+ * 80px `card` already used.
  */
 const VARIANTS = {
   /** `/guests` list card. */
   card: { box: "h-20 w-20 rounded-2xl", sizes: "80px", mark: "text-subhead" },
   /** The guest's own page header. */
-  page: { box: "h-[200px] w-[200px] rounded-[20px]", sizes: "200px", mark: "text-title" },
+  page: { box: "h-[200px] w-[200px] rounded-3xl", sizes: "200px", mark: "text-title" },
   /** The guest block on an episode page — and the team card on `/about`. */
-  episode: { box: "h-24 w-24 rounded-[20px]", sizes: "96px", mark: "text-heading" },
+  episode: { box: "h-24 w-24 rounded-2xl", sizes: "96px", mark: "text-heading" },
 } as const
 
 export type GuestPortraitVariant = keyof typeof VARIANTS

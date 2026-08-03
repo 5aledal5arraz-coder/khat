@@ -126,21 +126,27 @@ export default async function RootLayout({
             _document.js), as a stylesheet rather than next/font/google so the build never depends on a
             build-time font fetch.
 
-            THIS href IS THE OTHER HALF OF THE FONT SWITCH POINT. The families are *named* by
-            --font-brand-sans / --font-brand-display in the :root block of app/globals.css and *fetched*
-            here — changing the brand font means editing both, and nothing else.
+            THIS href IS THE OTHER HALF OF THE FONT SWITCH POINT. The family is *named* by
+            --font-brand-sans in the :root block of app/globals.css and *fetched* here — changing the
+            brand font means editing both, and nothing else.
               · IBM Plex Sans Arabic → --font-brand-sans (body copy, every surface)
-              · Amiri               → --font-brand-display (.museum-font-headline)
 
-            Playfair Display was removed: it appeared only as the middle entry of
-            `Amiri, "Playfair Display", serif` and could never render, because Google serves Amiri with
-            latin + latin-ext + arabic subsets and Amiri therefore covers every glyph those headlines can
-            contain. Verified in the browser: no Playfair face ever reached `loaded`. Dropping it stops
-            fetching 8 unused @font-face declarations. */}
+            ONE FAMILY, because one family is all this site paints. Playfair Display went first: it was
+            the middle entry of `Amiri, "Playfair Display", serif` and could never render, since Google
+            serves Amiri with latin + latin-ext + arabic subsets and Amiri covered every glyph those
+            headlines could contain.
+
+            AMIRI FOLLOWED IT, for the same reason one level up. Its only consumer was
+            `.museum-font-headline`, whose only caller — components/episodes/episode-card.tsx — was
+            deleted; the stylesheet's claim that it renders "three nodes in the recommendations grid"
+            outlived the component. Measured on the running site before removal:
+            `document.querySelectorAll('.museum-font-headline').length === 0` on every public route, and
+            all 12 Amiri faces reported `status: "unloaded"`. We were fetching a display family, four
+            weights x two styles, that nothing on the site draws. */}
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
         {/* eslint-disable-next-line @next/next/no-page-custom-font -- App Router root layout <head> is the correct location; rule is a Pages Router false positive */}
-        <link href="https://fonts.googleapis.com/css2?family=Amiri:ital,wght@0,400;0,700;1,400;1,700&family=IBM+Plex+Sans+Arabic:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+        <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
         <script
           dangerouslySetInnerHTML={{
             // Single light surface — strip any stale `.dark` class a returning
