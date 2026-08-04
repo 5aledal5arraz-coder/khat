@@ -324,35 +324,46 @@
        quietly re-darken this token. */
     --background: 27 39% 95.5%;
     --foreground: 248 40% 11%;
-    --card: 0 0% 100%;
+    /* KHAT Soft Blush #FFF7F5 — the identity's lighter surface. Pure white was
+       a guess made before «KHAT COLOR SYSTEM 02» was read. */
+    --card: 12 100% 98%;
     --card-foreground: 248 40% 11%;
-    --popover: 0 0% 100%;
+    --popover: 12 100% 98%;
     --popover-foreground: 248 40% 11%;
 
     /* KHAT DEEP INDIGO #362E6D — primary brand / CTA */
     --primary: 248 41% 30.4%;
     --primary-foreground: 0 0% 100%;
 
-    /* Surfaces are the cream's family, ink is the indigo's. The identity is
-       indigo on cream paper, so a neutral that stayed on the old cool hue
-       (250) would read as a grey patch ON the cream rather than part of it —
-       and these three are all now DARKER than --background, where before
-       they were lighter than a 99% page and barely registered. */
-    --secondary: 27 32% 91%;
+    /* KHAT Warm Stone #D9D0C8 — the identity's own neutral. These three were
+       tints I mixed by hand from the cream, before page 14 of the identity
+       file turned out to define a full second system. Mixed-by-eye neutrals
+       beside named ones is exactly the drift this palette work was fixing. */
+    --secondary: 28 18% 81.8%;
     --secondary-foreground: 248 40% 11%;
 
-    --muted: 27 30% 92%;
-    --muted-foreground: 248 12% 40%;
+    --muted: 28 18% 81.8%;
+    /* KHAT Dusty Violet #7570A3 — 4.14:1 on the ivory, so it clears 3:1 for UI
+       and misses 4.5:1 for body copy. Muted copy that must be READ should use
+       --foreground; this is for labels and chrome. */
+    --muted-foreground: 246 22% 53.9%;
 
     /* KHAT ORANGE #FD4F04 — see the accent warning above. */
     --accent: 18 98.4% 50.4%;
     --accent-foreground: 0 0% 100%;
 
+    /* KHAT Burnt Orange #C83B0D — the identity's OWN text-safe orange, 4.66:1
+       on the ivory. Its existence is why the accent warning above is not a
+       trade-off after all: the brand ships both a display orange and a
+       readable one, and the old #C44E0A was a hand-darkened miss (4.29:1) at
+       the colour this was all along. Use for `text-accent` on body copy. */
+    --accent-strong: 14.8 88% 41.8%;
+
     --destructive: 0 72% 51%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 27 25% 87%;
-    --input: 27 25% 87%;
+    --border: 28 18% 81.8%;
+    --input: 28 18% 81.8%;
     --ring: 248 41% 30.4%;
     --radius: 0.5rem;
     /* The stain every elevation is drawn in — see the shadow ladder in
@@ -456,6 +467,9 @@
   --color-muted-foreground: hsl(var(--muted-foreground));
   --color-accent: hsl(var(--accent));
   --color-accent-foreground: hsl(var(--accent-foreground));
+  /* `text-accent-strong` — KHAT Burnt Orange, the identity's readable orange.
+     Reach for it whenever the accent lands on body-size copy. */
+  --color-accent-strong: hsl(var(--accent-strong));
   --color-destructive: hsl(var(--destructive));
   --color-destructive-foreground: hsl(var(--destructive-foreground));
   --color-border: hsl(var(--border));
