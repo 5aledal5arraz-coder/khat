@@ -183,9 +183,21 @@ export default async function HomePage() {
             {BRAND_HEADLINE_LEAD}
             <br />
             {BRAND_HEADLINE_REST_BEFORE}{" "}
-            <span className="underline decoration-accent decoration-[0.09em] underline-offset-[0.18em]">
-              {BRAND_HEADLINE_ACCENT}
-            </span>
+            {/* THE WORD IS DRAWN, NOT SET. The sentence describes underlining
+                something, so the last word is left as the line itself and the
+                reader closes it — «تضع تحتها ___» is idiomatic enough in Arabic
+                that the mind supplies «خطًّا» before it notices it was asked to.
+
+                THE WORD IS STILL HERE. It is `sr-only`, not deleted: a screen
+                reader gets the whole sentence, `BRAND_DESCRIPTION` carries it
+                into the metadata, and the pun costs a blind visitor nothing.
+                Deleting it would have made the headline a sentence that simply
+                stops. */}
+            <span className="sr-only">{BRAND_HEADLINE_ACCENT}</span>
+            <span
+              aria-hidden="true"
+              className="mx-1 inline-block h-[0.09em] w-[1.45em] translate-y-[0.14em] rounded-full bg-accent align-baseline"
+            />
           </h1>
 
           <p className="mx-auto mt-6 max-w-measure text-pretty text-lead text-muted-foreground">
