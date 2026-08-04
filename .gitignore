@@ -63,3 +63,4 @@ scratchpad/
 # recreated by the upload route. Never commit uploaded/test videos.
 public/teasers/
 youtube-sync-backup-*.json
+quotes-backup-*.json
