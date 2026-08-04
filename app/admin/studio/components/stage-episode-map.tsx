@@ -42,22 +42,34 @@ const FIT_LEVEL_AR: Record<PlatformFitLevel, { text: string; className: string }
   weak: { text: "ضعيف", className: "bg-muted text-muted-foreground" },
 }
 
-// How the "اسمع" button samples audio around a POINT timestamp (an anchor with
-// no end, e.g. «بداية الحلقة الفعلية»): start a little early, play a short taste.
+/**
+ * Only a POINT anchor gets a run-up. «بداية الحلقة الفعلية» is a boundary
+ * claim — "the episode really starts here" — and you cannot check a boundary
+ * without hearing the moment before it.
+ */
 export const SEEK_PRE_ROLL_SECONDS = 3
-export const SEEK_PLAY_SECONDS = 8
+
+/**
+ * How long one "اسمع" press plays.
+ *
+ * Khaled's call (2026-08-04): five seconds, and no more. The button answers
+ * one question — "does this land where it says?" — and the opening seconds
+ * answer it. It is not a player, and playing a hook clip end to end (a first
+ * attempt at this) makes verifying four clips take ten minutes.
+ */
+export const SEEK_PLAY_SECONDS = 5
 
 /**
  * What one "اسمع" press should do — the whole decision, as data.
  *
  * Pulled out of the hook so it can be tested in the node environment: this
  * repo has no jsdom/component-test setup, and an untested branch here is how
- * the 8-second taste silently became the ONLY behaviour for clips that are
- * minutes long (the summary describes all of a hook clip, so hearing only its
- * opening reads as a wrong timestamp when the timestamp is correct).
+ * the wrong sampling silently became the only behaviour.
  *
  * @param atSeconds  the card's in-point
- * @param endSeconds the card's out-point; absent/invalid ⇒ point anchor
+ * @param endSeconds the card's out-point; its presence marks this as a RANGE
+ *   (a hook clip) rather than a point anchor. It bounds playback but does not
+ *   extend it — a 5-second sample of a 3-second clip stops with the clip.
  */
 export function resolvePlayback(
   atSeconds: number,
@@ -65,11 +77,12 @@ export function resolvePlayback(
 ): { startAt: number; stopAt: number | null; playSeconds: number } {
   const isRange = typeof endSeconds === "number" && endSeconds > atSeconds
   if (isRange) {
-    // No pre-roll: the range start IS the intended in-point.
+    // No run-up here: the question is how the CLIP opens, so a pre-roll would
+    // spend the first seconds on audio that is not part of it.
     return {
       startAt: atSeconds,
-      stopAt: endSeconds,
-      playSeconds: endSeconds - atSeconds,
+      stopAt: Math.min(endSeconds, atSeconds + SEEK_PLAY_SECONDS),
+      playSeconds: Math.min(SEEK_PLAY_SECONDS, endSeconds - atSeconds),
     }
   }
   return {
@@ -224,11 +237,11 @@ function TranscriptHealthBanner({ map }: { map: EpisodeMap }) {
 function ListenButton({
   active,
   onClick,
-  title = "اسمع ٨ ثوانٍ حول هذا التوقيت للتأكد بالأذن",
+  title = "اسمع ٥ ثوانٍ حول هذا التوقيت للتأكد بالأذن",
 }: {
   active: boolean
   onClick: () => void
-  /** Ranges say how long they run; the default describes the point-anchor taste. */
+  /** Clips say they start on the in-point; the default describes the anchor. */
   title?: string
 }) {
   return (
@@ -406,9 +419,7 @@ export function EpisodeMapView({
                     <ListenButton
                       active={playingKey === key}
                       onClick={() => play(key, h.start_seconds, h.end_seconds)}
-                      title={`اسمع المقطع كاملاً (${formatTimeSeconds(
-                        Math.max(0, h.end_seconds - h.start_seconds),
-                      )}) — الوصف يلخّص المقطع كله، لا بدايته وحدها`}
+                      title="اسمع أول ٥ ثوانٍ من المقطع — من بدايته بالضبط"
                     />
                   </div>
 

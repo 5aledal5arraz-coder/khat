@@ -9,30 +9,39 @@ import {
 /**
  * The "اسمع" button on the raw-recording time map.
  *
- * The defect this locks down: every card used the point-anchor taste (3s early,
- * 8s long), including hook clips that run for MINUTES and whose card summarises
- * the whole clip. Hearing 8 seconds of a clip's opening cannot match a summary
- * of all of it — which reads to the operator as a wrong timestamp even though
- * the timestamp is right (verified against the episode's own YouTube captions).
+ * The button answers ONE question — does this land where it says? — and the
+ * opening seconds answer it. Khaled's call (2026-08-04): five seconds, no more.
+ *
+ * Two things had to be got right, and each was got wrong once:
+ *   1. A hook clip must start on its OWN in-point. The original 3-second
+ *      run-up spent the sample on audio outside the clip.
+ *   2. Five seconds means five seconds. Playing a clip end to end (a first
+ *      attempt) turns checking four clips into ten minutes of listening.
  */
-describe("resolvePlayback — hook clips play whole, anchors stay a taste", () => {
+describe("resolvePlayback — five seconds from where the card says", () => {
   describe("range (a hook clip: it has an out-point)", () => {
     // Hook #2 of episode 018 — 40:37 → 43:17.
     const start = 40 * 60 + 37
     const end = 43 * 60 + 17
 
-    it("starts exactly on the in-point, with no pre-roll", () => {
+    it("starts exactly on the in-point, with no run-up", () => {
       expect(resolvePlayback(start, end).startAt).toBe(start)
     })
 
-    it("plays the clip whole, not an 8-second sample", () => {
+    it("plays five seconds, not the whole clip", () => {
       const { playSeconds } = resolvePlayback(start, end)
-      expect(playSeconds).toBe(end - start)
-      expect(playSeconds).toBeGreaterThan(SEEK_PLAY_SECONDS)
+      expect(playSeconds).toBe(SEEK_PLAY_SECONDS)
+      expect(playSeconds).toBeLessThan(end - start)
     })
 
-    it("carries the out-point so playback can stop by position", () => {
-      expect(resolvePlayback(start, end).stopAt).toBe(end)
+    it("stops five seconds in, not at the clip's out-point", () => {
+      expect(resolvePlayback(start, end).stopAt).toBe(start + SEEK_PLAY_SECONDS)
+    })
+
+    it("never plays past a clip shorter than the sample", () => {
+      const { stopAt, playSeconds } = resolvePlayback(100, 103)
+      expect(stopAt).toBe(103)
+      expect(playSeconds).toBe(3)
     })
   })
 
@@ -40,11 +49,11 @@ describe("resolvePlayback — hook clips play whole, anchors stay a taste", () =
     // «بداية الحلقة الفعلية» — 2:32, verified against the YouTube captions.
     const at = 2 * 60 + 32
 
-    it("keeps the pre-roll so the anchor is not clipped off the front", () => {
+    it("keeps the run-up — a boundary claim needs the moment before it", () => {
       expect(resolvePlayback(at).startAt).toBe(at - SEEK_PRE_ROLL_SECONDS)
     })
 
-    it("keeps the short taste", () => {
+    it("plays the same five seconds", () => {
       expect(resolvePlayback(at).playSeconds).toBe(SEEK_PLAY_SECONDS)
     })
 
@@ -71,19 +80,29 @@ describe("resolvePlayback — hook clips play whole, anchors stay a taste", () =
   })
 
   /**
-   * Two-direction check: the assertions above must FAIL if the old
-   * always-a-taste behaviour comes back, otherwise they prove nothing.
+   * Two-direction check. The assertions above must FAIL against BOTH wrong
+   * behaviours this went through, or they prove nothing.
    */
-  it("would catch a regression to the old always-8-seconds behaviour", () => {
-    const legacy = (at: number) => ({
-      startAt: Math.max(0, at - SEEK_PRE_ROLL_SECONDS),
-      stopAt: null,
-      playSeconds: SEEK_PLAY_SECONDS,
-    })
+  describe("catches both regressions", () => {
     const start = 40 * 60 + 37
     const end = 43 * 60 + 17
-    expect(legacy(start)).not.toEqual(resolvePlayback(start, end))
-    // ...while staying identical for a point anchor.
-    expect(legacy(152)).toEqual(resolvePlayback(152))
+
+    it("rejects the run-up being applied to a clip", () => {
+      const withRunUp = { startAt: start - SEEK_PRE_ROLL_SECONDS, stopAt: null, playSeconds: SEEK_PLAY_SECONDS }
+      expect(withRunUp).not.toEqual(resolvePlayback(start, end))
+    })
+
+    it("rejects playing the clip end to end", () => {
+      const wholeClip = { startAt: start, stopAt: end, playSeconds: end - start }
+      expect(wholeClip).not.toEqual(resolvePlayback(start, end))
+    })
+
+    it("leaves the point anchor exactly as it always was", () => {
+      expect(resolvePlayback(152)).toEqual({
+        startAt: 152 - SEEK_PRE_ROLL_SECONDS,
+        stopAt: null,
+        playSeconds: SEEK_PLAY_SECONDS,
+      })
+    })
   })
 })
