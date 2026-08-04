@@ -299,40 +299,61 @@
        Fixed in wave 2-d; the guard no longer skips that file. */
     --ui-field: max(1rem, var(--ui-control));
 
-    /* ── Colour ────────────────────────────────────────────────────────── */
-    --background: 250 33% 99%;
-    --foreground: 252 40% 11%;
-    --card: 0 0% 100%;
-    --card-foreground: 252 40% 11%;
-    --popover: 0 0% 100%;
-    --popover-foreground: 252 40% 11%;
+    /* ── Colour ──────────────────────────────────────────────────────────
+       THE THREE BRAND COLOURS ARE EXACT, BY KHALED'S INSTRUCTION (2026-08-04),
+       taken from «ملف عرض الشعار» — the same values the logo SVGs in
+       public/brand carry:
 
-    /* Deep indigo = primary brand / CTA */
-    --primary: 252 48% 40%;
+         KHAT DEEP INDIGO  #362E6D   248 41%   30.4%
+         KHAT ORANGE       #FD4F04    18 98.4% 50.4%
+         KHAT OFF WHITE    #F8F3EF    27 39%   95.5%
+
+       Each HSL triple round-trips to its hex exactly — verified, not
+       eyeballed. Do not "tidy" the decimals: 41%/30% renders #372E6E, and a
+       brand colour that is one step off is worse than one that is obviously
+       different, because nobody catches it.
+
+       ⚠️ THE ACCENT NO LONGER MEETS WCAG AA FOR TEXT, AND THAT IS THE
+       DECISION, NOT AN OVERSIGHT. The brand orange measures 3.03:1 on this
+       background — it passes SC 1.4.11 (3:1, UI components and icons) and
+       fails SC 1.4.3 (4.5:1, normal-size text). The previous value was a
+       darkened #C44E0A invented to clear 4.5:1; Khaled was shown that
+       measurement and chose the real colour anyway. So: `text-accent` on
+       body copy is now an accessibility defect wherever it appears, and the
+       fix for that is to stop putting the accent on small text — NOT to
+       quietly re-darken this token. */
+    --background: 27 39% 95.5%;
+    --foreground: 248 40% 11%;
+    --card: 0 0% 100%;
+    --card-foreground: 248 40% 11%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 248 40% 11%;
+
+    /* KHAT DEEP INDIGO #362E6D — primary brand / CTA */
+    --primary: 248 41% 30.4%;
     --primary-foreground: 0 0% 100%;
 
-    --secondary: 250 30% 96%;
-    --secondary-foreground: 252 40% 11%;
+    /* Surfaces are the cream's family, ink is the indigo's. The identity is
+       indigo on cream paper, so a neutral that stayed on the old cool hue
+       (250) would read as a grey patch ON the cream rather than part of it —
+       and these three are all now DARKER than --background, where before
+       they were lighter than a 99% page and barely registered. */
+    --secondary: 27 32% 91%;
+    --secondary-foreground: 248 40% 11%;
 
-    --muted: 250 28% 96%;
-    --muted-foreground: 250 12% 46%;
+    --muted: 27 30% 92%;
+    --muted-foreground: 248 12% 40%;
 
-    /* Orange = energy accent. Lightness 53% → 40.5% (hue and saturation
-       kept): at 53% the orange measured 2.97:1 on --background and 3.05:1
-       on --card, failing WCAG AA for normal text (4.5:1) everywhere
-       `text-accent` is used — and failing SC 1.4.11 (3:1) for the accent
-       icons too. 40.5% is the smallest step that clears 4.5:1 on both
-       (4.61:1 / 4.73:1); the 42% first estimated only reaches 4.34:1 on
-       --background. */
-    --accent: 22 90% 40.5%;
+    /* KHAT ORANGE #FD4F04 — see the accent warning above. */
+    --accent: 18 98.4% 50.4%;
     --accent-foreground: 0 0% 100%;
 
     --destructive: 0 72% 51%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 250 22% 92%;
-    --input: 250 22% 92%;
-    --ring: 252 48% 40%;
+    --border: 27 25% 87%;
+    --input: 27 25% 87%;
+    --ring: 248 41% 30.4%;
     --radius: 0.5rem;
     /* The stain every elevation is drawn in — see the shadow ladder in
        `@theme inline`. Bare `H S% L%`, like the palette, so the ladder can
@@ -391,19 +412,26 @@
     --ui-control-sm: 0.75rem;
     --ui-control-lead: 1.125rem;
 
-    /* Half a percent lighter than the site's `250 30% 96%`. Dense admin
-       tables sit on secondary far more than the public site does. */
+    /* SURFACES PINNED, 2026-08-04. The site moved to the brand's cream
+       (#F8F3EF) when the identity palette was applied exactly. The admin is a
+       dense operations panel and Khaled asked for the SITE's colours, so its
+       page and panel tones are restated here at the values they rendered
+       before that change rather than inheriting cream. This is a scope
+       boundary, not a design opinion — extending the cream to the admin is a
+       one-line deletion of these two lines whenever he wants it. */
+    --background: 250 33% 99%;
     --secondary: 250 28% 96%;
     /* Secondary text. Darkened from the site's 46% L to 38% so muted copy
        clears WCAG AA (~6.7:1 on white) — the site value washed out in the
        admin, especially where callers reduced its opacity further. */
     --muted-foreground: 250 14% 38%;
-    /* The undimmed orange. The site steps this down to 40.5% L for contrast
-       on body text; the admin uses accent almost entirely for chrome and
-       status chips, where the brighter tone reads better. NOTE: any admin
-       surface that puts `text-accent` on normal-size copy fails WCAG AA at
-       this lightness — worth a separate audit, not a silent change here. */
-    --accent: 22 90% 53%;
+
+    /* NO --accent OVERRIDE ANY MORE. It used to lift the orange to 53% L
+       because the site had darkened its own to 40.5% for text contrast. The
+       site now carries the real brand orange (#FD4F04, 50.4% L), so the
+       override was inventing a fourth orange to sit beside it. The caveat it
+       carried still stands and now applies to both surfaces: `text-accent`
+       on normal-size copy fails WCAG AA at this lightness. */
   }
 
   /* No `.dark {}` block — the app is a single forced-light surface; the root

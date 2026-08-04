@@ -4,7 +4,7 @@ import {
   EMAIL_LOCKUP_HEIGHT,
   khatLogoGeometry,
 } from '@/components/brand/khat-logo-geometry'
-import { KHAT_INDIGO, KHAT_ORANGE } from '@/components/brand/khat-logo-art'
+import { KHAT_INDIGO, KHAT_IVORY, KHAT_ORANGE } from '@/components/brand/khat-logo-art'
 
 /**
  * Strip any AI-generated unsubscribe blocks from body content so that only the
@@ -46,9 +46,20 @@ export const EMAIL_PALETTE = {
   body: '#403a55',
   muted: '#6c6783',
   faint: '#9a93b5',
-  border: '#ece9f5',
-  pageBg: '#f1eef8',
-  soft: '#f7f5fc',
+  /* 2026-08-04 — the chrome was a COOL lilac family (#f1eef8 page, #ece9f5
+     rules) that belongs to no palette. Now tints of the real indigo laid over
+     the real off-white, so an email reads as the same paper as the site. */
+  border: '#ddd7dd',
+  pageBg: KHAT_IVORY,
+  soft: '#ece7e7',
+  /* Callouts and the numbered-step chips used Tailwind violet (#6d28d9 text
+     on #ede9fe, plus #faf9ff / #f5f3ff / #ddd6fe / #5b21b6) — six shades of a
+     purple that is not the brand indigo, sent to every subscriber. Named here
+     so there is one palette and no inline hexes to drift again. */
+  chipBg: '#e5dfe2',
+  chipInk: KHAT_INDIGO,
+  calloutBg: '#ece7e7',
+  calloutBorder: '#d1ccd5',
 } as const
 
 const BRAND = EMAIL_PALETTE
@@ -56,7 +67,7 @@ const BRAND = EMAIL_PALETTE
 // Social icon — light circular chip for the footer.
 function socialIconCell(url: string, label: string, glyph: string): string {
   return `<td style="padding:0 5px;">
-  <a href="${url}" title="${label}" style="text-decoration:none;display:inline-block;width:30px;height:30px;border-radius:50%;border:1px solid #ddd8ec;text-align:center;line-height:30px;font-size:12px;color:${BRAND.muted};">${glyph}</a>
+  <a href="${url}" title="${label}" style="text-decoration:none;display:inline-block;width:30px;height:30px;border-radius:50%;border:1px solid ${BRAND.border};text-align:center;line-height:30px;font-size:12px;color:${BRAND.muted};">${glyph}</a>
 </td>`
 }
 
@@ -195,7 +206,7 @@ function newsletterLayout(
             </td>
           </tr>
         </table>
-        <p style="max-width:600px;margin:18px auto 0;color:#a9a3c0;font-size:11px;text-align:center;line-height:1.6;">
+        <p style="max-width:600px;margin:18px auto 0;color:${BRAND.faint};font-size:11px;text-align:center;line-height:1.6;">
           وصلتك هذه الرسالة لأنك مشترك في نشرة بودكاست خط.
         </p>
       </td>
@@ -352,7 +363,7 @@ export function guestApplicationConfirmHtml(name: string, reference?: string): s
   const step = (n: string, title: string, body: string) => `
     <tr>
       <td valign="top" style="width:30px;padding:0 0 14px;">
-        <div style="width:24px;height:24px;border-radius:999px;background:#ede9fe;color:#6d28d9;font-weight:700;font-size:12px;text-align:center;line-height:24px;">${n}</div>
+        <div style="width:24px;height:24px;border-radius:999px;background:${BRAND.chipBg};color:${BRAND.chipInk};font-weight:700;font-size:12px;text-align:center;line-height:24px;">${n}</div>
       </td>
       <td valign="top" style="padding:0 0 14px 10px;">
         <div style="font-weight:700;color:${BRAND.ink};font-size:14px;">${title}</div>
@@ -360,9 +371,9 @@ export function guestApplicationConfirmHtml(name: string, reference?: string): s
       </td>
     </tr>`
   const refBlock = reference
-    ? `<div style="margin:0 0 20px;padding:14px 16px;border-radius:12px;background:#faf9ff;border:1px solid #ede9fe;text-align:center;">
+    ? `<div style="margin:0 0 20px;padding:14px 16px;border-radius:12px;background:${BRAND.calloutBg};border:1px solid ${BRAND.calloutBorder};text-align:center;">
          <div style="color:${BRAND.muted};font-size:11px;letter-spacing:.5px;">رقمك المرجعي</div>
-         <div style="color:#6d28d9;font-weight:800;font-size:18px;letter-spacing:1px;direction:ltr;">${escapeHtml(reference)}</div>
+         <div style="color:${BRAND.chipInk};font-weight:800;font-size:18px;letter-spacing:1px;direction:ltr;">${escapeHtml(reference)}</div>
        </div>`
     : ''
   const trackBlock = reference
@@ -394,9 +405,9 @@ export function communityContributionConfirmHtml(
 ): string {
   const greeting = name ? `، ${escapeHtml(name)}` : ""
   const refBlock = reference
-    ? `<div style="margin:0 0 20px;padding:14px 16px;border-radius:12px;background:#faf9ff;border:1px solid #ede9fe;text-align:center;">
+    ? `<div style="margin:0 0 20px;padding:14px 16px;border-radius:12px;background:${BRAND.calloutBg};border:1px solid ${BRAND.calloutBorder};text-align:center;">
          <div style="color:${BRAND.muted};font-size:11px;letter-spacing:.5px;">رقمك المرجعي</div>
-         <div style="color:#6d28d9;font-weight:800;font-size:18px;letter-spacing:1px;direction:ltr;">${escapeHtml(reference)}</div>
+         <div style="color:${BRAND.chipInk};font-weight:800;font-size:18px;letter-spacing:1px;direction:ltr;">${escapeHtml(reference)}</div>
        </div>`
     : ""
   const content = `
@@ -431,9 +442,9 @@ export function communityOutcomeHtml(
       ? `«${escapeHtml(typeLabel)}» الذي شاركتنا انتقل الآن إلى مرحلة الإنتاج في خط، وصار جزءًا مما نبني عليه حلقاتنا القادمة. هذا بفضلك.`
       : `راجعنا «${escapeHtml(typeLabel)}» الذي اقترحته، وأعجبَنا فعلًا. صار الآن قيد الدراسة الجدّية ضمن خططنا القادمة، وقد نعود إليك ونحن نطوّره.`
   const refBlock = reference
-    ? `<div style="margin:0 0 20px;padding:14px 16px;border-radius:12px;background:#faf9ff;border:1px solid #ede9fe;text-align:center;">
+    ? `<div style="margin:0 0 20px;padding:14px 16px;border-radius:12px;background:${BRAND.calloutBg};border:1px solid ${BRAND.calloutBorder};text-align:center;">
          <div style="color:${BRAND.muted};font-size:11px;letter-spacing:.5px;">رقمك المرجعي</div>
-         <div style="color:#6d28d9;font-weight:800;font-size:18px;letter-spacing:1px;direction:ltr;">${escapeHtml(reference)}</div>
+         <div style="color:${BRAND.chipInk};font-weight:800;font-size:18px;letter-spacing:1px;direction:ltr;">${escapeHtml(reference)}</div>
        </div>`
     : ""
   const content = `
@@ -475,7 +486,7 @@ export function sponsorApplicationAdminHtml(params: {
       ${detailRow('البريد', params.email)}
       ${detailRow('الميزانية', params.budget)}
     </table>
-    <div style="margin:0 0 20px;padding:12px 14px;border-radius:10px;background:#f5f3ff;border:1px solid #ddd6fe;color:#5b21b6;font-size:13px;">
+    <div style="margin:0 0 20px;padding:12px 14px;border-radius:10px;background:${BRAND.calloutBg};border:1px solid ${BRAND.calloutBorder};color:${BRAND.indigo};font-size:13px;">
       🤖 يجري الآن تقييم الذكاء الاصطناعي تلقائيًا (بحث عن الشركة + تقييم ملاءمة + توصية). افتح الطلب لرؤية النتيجة والإجراء الموصى به.
     </div>
     ${ctaButton('مراجعة الطلب', `${APP_URL}/admin/submissions?tab=sponsors`)}
@@ -500,7 +511,7 @@ export function partnerTaskReminderHtml(params: { items: PartnerReminderItem[] }
       const dueColor = it.overdue ? BRAND.orange : BRAND.muted
       const flag = it.priority === "high" ? ' <span style="color:' + BRAND.orange + ';">● عالية</span>' : ""
       return `
-      <div style="border:1px solid #ece9f5;border-inline-start:4px solid ${accent};border-radius:10px;padding:12px 14px;margin:0 0 10px;">
+      <div style="border:1px solid ${BRAND.border};border-inline-start:4px solid ${accent};border-radius:10px;padding:12px 14px;margin:0 0 10px;">
         <div style="color:${BRAND.ink};font-size:15px;font-weight:700;">${escapeHtml(it.title)}${flag}</div>
         <div style="color:${BRAND.muted};font-size:13px;margin:3px 0 8px;">${escapeHtml(it.company)} · <span style="color:${dueColor};font-weight:600;">${escapeHtml(it.dueLabel)}</span></div>
         <a href="${APP_URL}/admin/partnerships/${encodeURIComponent(it.leadId)}" style="color:${BRAND.indigo};font-size:13px;font-weight:600;text-decoration:none;">فتح ملف الشراكة ←</a>
@@ -543,7 +554,7 @@ export function sponsorApplicationConfirmHtml(contactName: string, reference?: s
   const step = (n: string, title: string, body: string) => `
     <tr>
       <td valign="top" style="width:30px;padding:0 0 14px;">
-        <div style="width:24px;height:24px;border-radius:999px;background:#ede9fe;color:#6d28d9;font-weight:700;font-size:12px;text-align:center;line-height:24px;">${n}</div>
+        <div style="width:24px;height:24px;border-radius:999px;background:${BRAND.chipBg};color:${BRAND.chipInk};font-weight:700;font-size:12px;text-align:center;line-height:24px;">${n}</div>
       </td>
       <td valign="top" style="padding:0 0 14px 10px;">
         <div style="font-weight:700;color:${BRAND.ink};font-size:14px;">${title}</div>
@@ -551,9 +562,9 @@ export function sponsorApplicationConfirmHtml(contactName: string, reference?: s
       </td>
     </tr>`
   const refBlock = reference
-    ? `<div style="margin:0 0 20px;padding:14px 16px;border-radius:12px;background:#faf9ff;border:1px solid #ede9fe;text-align:center;">
+    ? `<div style="margin:0 0 20px;padding:14px 16px;border-radius:12px;background:${BRAND.calloutBg};border:1px solid ${BRAND.calloutBorder};text-align:center;">
          <div style="color:${BRAND.muted};font-size:11px;letter-spacing:.5px;">رقمك المرجعي</div>
-         <div style="color:#6d28d9;font-weight:800;font-size:18px;letter-spacing:1px;direction:ltr;">${escapeHtml(reference)}</div>
+         <div style="color:${BRAND.chipInk};font-weight:800;font-size:18px;letter-spacing:1px;direction:ltr;">${escapeHtml(reference)}</div>
        </div>`
     : ''
   const content = `
