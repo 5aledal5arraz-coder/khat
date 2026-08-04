@@ -1,6 +1,7 @@
 import Link from "next/link"
 import { listPlatformsForSurface } from "@/lib/queries/official-platforms"
 import { PlatformIcon } from "@/components/platforms/platform-icon"
+import { BRAND_DESCRIPTION } from "@/lib/brand/voice"
 import { KhatLogo } from "@/components/brand/khat-logo"
 import { NewsletterSignup } from "@/components/forms/newsletter-signup"
 
@@ -52,7 +53,7 @@ export async function Footer() {
               <KhatLogo variant="lockup-vertical" height={96} label={null} />
             </Link>
             <p className="mt-4 text-caption text-muted-foreground max-w-xs">
-              بودكاست يستكشف القصص الإنسانية والتجارب الحياتية من خلال حوارات عميقة مع ضيوف ملهمين.
+              {BRAND_DESCRIPTION}
             </p>
             {/* Social */}
             {socialLinks.length > 0 && (

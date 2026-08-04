@@ -2,11 +2,12 @@ import { db } from "@/lib/db"
 import { staticContent } from "@/lib/db/schema"
 import { eq } from "drizzle-orm"
 import type { StaticContentConfig, AboutPageContent } from "@/types/static-content"
+import { BRAND_DESCRIPTION } from "@/lib/brand/voice"
 
 const defaultAboutContent: AboutPageContent = {
   hostName: "بودكاست خط",
   hostTitle: "مؤسس ومقدم بودكاست خط",
-  hostDescription: "بودكاست يستكشف القصص الإنسانية والتجارب الحياتية من خلال حوارات عميقة مع ضيوف ملهمين.",
+  hostDescription: BRAND_DESCRIPTION,
   hostPhoto: "",
   hostImageUrl: "",
   welcomeVideoId: "",

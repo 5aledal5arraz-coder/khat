@@ -10,9 +10,10 @@ import { ScrollToTop } from "@/components/ui/scroll-to-top"
 import { fetchAllEpisodes } from "@/lib/youtube/queries"
 import { getSiteSettings } from "@/lib/site-settings"
 import { resolveDefaultOgImage } from "@/lib/seo/og"
+import { BRAND_DESCRIPTION } from "@/lib/brand/voice"
 
 const FALLBACK_DESCRIPTION =
-  "بودكاست يستكشف القصص الإنسانية والتجارب الحياتية من خلال حوارات عميقة مع ضيوف ملهمين."
+  BRAND_DESCRIPTION
 
 /**
  * Site-wide metadata is driven by the admin Settings hub (`site_settings`):

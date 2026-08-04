@@ -15,6 +15,13 @@ import {
   formatArabicDate,
 } from "@/lib/shared/formatters"
 import { resolveDefaultOgImage } from "@/lib/seo/og"
+import {
+  BRAND_DESCRIPTION,
+  BRAND_HEADLINE_ACCENT,
+  BRAND_HEADLINE_LEAD,
+  BRAND_HEADLINE_REST_BEFORE,
+  BRAND_SUBHEAD,
+} from "@/lib/brand/voice"
 
 // `images` must be stated explicitly, NOT deleted: a page-level `openGraph`
 // replaces the root layout's block instead of merging into it, so dropping the
@@ -26,11 +33,11 @@ export async function generateMetadata(): Promise<Metadata> {
   return {
     title: "خط | بودكاست",
     description:
-      "بودكاست عربي يستكشف القصص والأفكار من خلال حوارات صادقة مع عقول ملهمة. حوارات تستحق أن تبقى.",
+      BRAND_DESCRIPTION,
     alternates: { canonical: "https://khatpodcast.com" },
     openGraph: {
       title: "خط | بودكاست",
-      description: "حوارات عميقة وأفكار تبقى — بودكاست خط.",
+      description: BRAND_DESCRIPTION,
       url: "https://khatpodcast.com",
       type: "website",
       locale: "ar_SA",
@@ -54,10 +61,20 @@ const jsonLd = {
       // structured-data consumers want real pixel dimensions, which an SVG
       // cannot state.
       logo: "https://khatpodcast.com/brand/khat-lockup-horizontal.png",
+      // THESE WERE THE WRONG ACCOUNTS. `instagram.com/khatpodcast` and
+      // `twitter.com/khatpodcast` are not KHAT's — the real handles carry a dot
+      // and an underscore. This block is what tells Google which profiles are
+      // officially the show's, so it was pointing the knowledge panel at two
+      // strangers. Resolved from the links in the episode descriptions, same
+      // source as `podcast_platform_links` (scripts/seed-khat-social-links.ts);
+      // if one changes, change both.
       sameAs: [
-        "https://www.youtube.com/@khatpodcast",
-        "https://www.instagram.com/khatpodcast",
-        "https://twitter.com/khatpodcast",
+        "https://www.youtube.com/@KhatPodcast",
+        "https://www.instagram.com/Khat.Podcast",
+        "https://x.com/Khat_Podcast",
+        "https://www.tiktok.com/@khatpodcast",
+        "https://www.threads.com/@khat.podcast",
+        "https://www.snapchat.com/@khatpodcast",
       ],
     },
     {
@@ -67,7 +84,7 @@ const jsonLd = {
       url: "https://khatpodcast.com",
       inLanguage: "ar",
       description:
-        "بودكاست عربي يستكشف القصص والأفكار من خلال حوارات صادقة مع عقول ملهمة.",
+        BRAND_DESCRIPTION,
     },
   ],
 }
@@ -133,8 +150,8 @@ export default async function HomePage() {
               header.tsx), and `lg:` IS 1024px in this Tailwind config. If that
               constant moves, this must move with it — it is the same decision.
               The season is the information either way. The h1 right below
-              already says «حوارات تستحق أن تبقى», so a badge repeating the
-              promise says nothing twice; what a first-time visitor cannot know
+              already carries the brand line, so a badge repeating the promise
+              says nothing twice; what a first-time visitor cannot know
               from anything else on this screen is WHICH SEASON the archive is
               on. It is derived, never typed: `currentKhatSeason()` reads the
               newest خط episode's own category, so season two names itself here
@@ -158,15 +175,21 @@ export default async function HomePage() {
             ) : null}
           </span>
 
+          {/* The mark is a khaa with a line under it, so the headline draws the
+              line it names. `decoration-accent` is decorative, not text: the
+              orange clears SC 1.4.11 (3:1) on the page ground, which is the
+              bar a non-text mark has to meet — the WORD stays --foreground. */}
           <h1 className="mt-7 text-balance text-display font-bold text-foreground">
-            حوارات تستحق
+            {BRAND_HEADLINE_LEAD}
             <br />
-            أن تبقى<span className="text-accent">.</span>
+            {BRAND_HEADLINE_REST_BEFORE}{" "}
+            <span className="underline decoration-accent decoration-[0.09em] underline-offset-[0.18em]">
+              {BRAND_HEADLINE_ACCENT}
+            </span>
           </h1>
 
           <p className="mx-auto mt-6 max-w-measure text-pretty text-lead text-muted-foreground">
-            بودكاست عربي يستكشف القصص والأفكار من خلال حوارات صادقة مع عقولٍ
-            ملهمة — عباراتٌ تستحق أن تضع تحتها خط.
+            {BRAND_SUBHEAD}
           </p>
 
           <div className="mt-9 flex flex-wrap items-center justify-center gap-3">

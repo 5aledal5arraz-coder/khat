@@ -1,5 +1,7 @@
 import type { MetadataRoute } from "next"
 
+import { BRAND_DESCRIPTION } from "@/lib/brand/voice"
+
 /**
  * Web app manifest — added so the PWA / Android home-screen icon is the brand
  * mark rather than a screenshot of the page. Deliberately minimal: this is not
@@ -18,7 +20,7 @@ export default function manifest(): MetadataRoute.Manifest {
     name: "بودكاست خط",
     short_name: "خط",
     description:
-      "بودكاست يستكشف القصص الإنسانية والتجارب الحياتية من خلال حوارات عميقة مع ضيوف ملهمين.",
+      BRAND_DESCRIPTION,
     start_url: "/",
     display: "browser",
     dir: "rtl",

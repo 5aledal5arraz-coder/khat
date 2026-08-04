@@ -160,7 +160,18 @@
        homepage hero, whose copy is authored in the file with a hard <br> in it.
        Measured at 375 on the live page: two lines, 10.87px of ink clearance. No
        database string reaches this step. */
-    --type-leading-display: 1.4;
+    /* 1.4 → 1.5, 2026-08-04. The headline now ends in «خطًّا», and a doubled
+       letter carrying tanween is the tallest ink this step has ever been asked
+       to set. Measured on the live page at 1280 (66.15px): the line box was
+       92.62px against 91.8px of ink — 0.8px of clearance, i.e. inside the
+       variance between one platform's hinting and another's. 1.5 gives 99.2px,
+       so ~7px.
+       This is also what the alternative spelling costs. «خطاً», the form the
+       identity artwork uses, puts the fatḥatān on the ALIF — a tall letter —
+       and measures 95.7px, which OVERFLOWED the old 1.4 box outright. At 1.5
+       either spelling fits, so the choice between them stays editorial rather
+       than being forced by the leading. */
+    --type-leading-display: 1.5;
     /* `--type-leading-display-font: 1.8` WAS HERE — Amiri's own leading, and
        it left with Amiri. It existed only for `.museum-font-headline`; with
        no display family there is no second font whose ink needs its own
