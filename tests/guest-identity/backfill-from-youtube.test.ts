@@ -120,6 +120,27 @@ describe("the reviewed table itself", () => {
     expect(GUESTS.some((g) => g.name.includes("سعد السند"))).toBe(false)
   })
 
+  it("keeps the three سالفة runs separate, at the counts Khaled gave", () => {
+    // Three numbered runs share the name «سالفة» and restart at 01, so the
+    // number on an episode does not identify its speaker — the COUNT does.
+    // Khaled: «فيصل الفرحان عنده ٥ سالفات، وعلي دريساوي عنده ٦».
+    const runOf = (p: string) => GUESTS.filter((g) => g.label.startsWith(p))
+    expect(runOf("سالفة ف")).toHaveLength(5)
+    expect(new Set(runOf("سالفة ف").map((g) => g.name))).toEqual(new Set(["فيصل الفرحان"]))
+    expect(runOf("سالفة ع")).toHaveLength(6)
+    expect(new Set(runOf("سالفة ع").map((g) => g.name))).toEqual(new Set(["علي دريساوي"]))
+  })
+
+  it("does not confuse the three different فيصل in this archive", () => {
+    const faisals = new Set(GUESTS.filter((g) => g.name.startsWith("فيصل")).map((g) => g.name))
+    expect(faisals).toEqual(new Set(["فيصل المحيني", "فيصل الغضوري", "فيصل الفرحان"]))
+    // and none of them collapses onto another under the matcher
+    for (const a of faisals) {
+      const others = [...faisals].filter((n) => n !== a).map((n) => ({ id: n, normalized_name: normalizeName(n) }))
+      expect(findExisting(a, others), `${a} matched a different فيصل`).toBeNull()
+    }
+  })
+
   it("carries باسم اللوغاني across the whole سالفة run and 014", () => {
     const his = GUESTS.filter((g) => g.name === "باسم اللوغاني").map((g) => g.label)
     expect(his).toEqual(["014", "سالفة 01", "سالفة 02", "سالفة 03", "سالفة 04", "سالفة 05"])
@@ -127,11 +148,35 @@ describe("the reviewed table itself", () => {
 
   it("gives each clip the guest of the episode it was cut from", () => {
     const clips = GUESTS.filter((g) => g.label.startsWith("مقطع"))
-    expect(clips).toHaveLength(4)
+    // Six: four whose descriptions name the guest and could be inherited by
+    // reading, and two — «الزواج مو بس حب» and «لماذا يبقى الرجال» — that open
+    // on a question and name nobody. Khaled placed those; nothing in the text
+    // could have.
+    expect(clips).toHaveLength(6)
     for (const c of clips) {
       const parent = c.label.replace("مقطع ← ", "")
       expect(GUESTS.find((g) => g.label === parent)?.name).toBe(c.name)
     }
+  })
+
+  /**
+   * Khaled, 2026-08-05: «دايماً أسماء الضيوف بدون ألقاب، وفي صفحة الضيف نكتب
+   * الألقاب». Three rows predated the rule and carried the title inside `name`
+   * — «الملازم عبدالله البطي» — which also made them miss the matcher on the
+   * bare name and risked a duplicate. scripts/strip-guest-honorifics.ts moved
+   * each into `bio`; this keeps the table from growing a fourth.
+   */
+  it("carries no honorific in any name — titles live in the bio", () => {
+    const TITLES = ["الملازم", "الأستاذ", "الدكتور", "العقيد", "الشيخ", "المهندس", "الكابتن", "النقيب"]
+    const offenders = GUESTS.filter((g) => TITLES.some((t) => g.name.startsWith(t + " ")))
+      .map((g) => `${g.label}: ${g.name}`)
+    expect(offenders, "a guest name starts with a title — put it in `bio`").toEqual([])
+  })
+
+  it("puts the rank in the bio where the name used to carry it", () => {
+    const buti = GUESTS.find((g) => g.label === "011")
+    expect(buti?.name).toBe("عبدالله البطي")
+    expect(buti?.bio).toContain("ملازم")
   })
 
   it("stores every Instagram handle as a bare handle, not a URL", () => {

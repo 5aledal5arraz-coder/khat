@@ -46,9 +46,15 @@ export async function Footer() {
           </div>
         </div>
 
-        <div className="grid gap-8 md:grid-cols-5">
+        {/* TWO COLUMNS ON A PHONE, NOT ONE. This was `grid` with no column
+            count until md, so «تصفّح» and «انضم إلينا» — four and three short
+            links — stacked into two full-width blocks and pushed the legal line
+            most of a screen further down. They are narrow lists; they fit side
+            by side at 375 with room. The brand block keeps the full width
+            above them, because the lockup and the description need it. */}
+        <div className="grid grid-cols-2 gap-8 md:grid-cols-5">
           {/* Brand */}
-          <div className="md:col-span-2">
+          <div className="col-span-2">
             <Link href="/" className="inline-flex" aria-label="خط — الرئيسية">
               <KhatLogo variant="lockup-vertical" height={96} label={null} />
             </Link>

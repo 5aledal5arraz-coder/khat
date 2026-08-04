@@ -87,11 +87,41 @@ export const GUESTS: GuestRow[] = [
   { episode: "xQtI8cE7Igc", label: "سالفة 04", name: "باسم اللوغاني", bio: null, ig: null },
   { episode: "VFlYnIQiIUo", label: "سالفة 05", name: "باسم اللوغاني", bio: null, ig: null },
 
+  // فيصل الفرحان's run — five سالفات. The descriptions name him «فيصل» only,
+  // first name and no more, so no amount of reading them could have resolved
+  // which فيصل: this archive already holds فيصل الغضوري (017) and فيصل المحيني
+  // (016). Khaled supplied the surname and the count, and the count is what
+  // confirms the boundary — five here, six in the run below.
+  { episode: "vHH0LheJQFs", label: "سالفة ف01", name: "فيصل الفرحان", bio: null, ig: null },
+  { episode: "5ZYWspIqYLw", label: "سالفة ف02", name: "فيصل الفرحان", bio: null, ig: null },
+  { episode: "0pMIwYMKE9w", label: "سالفة ف03", name: "فيصل الفرحان", bio: null, ig: null },
+  { episode: "qGe25_jFNQ0", label: "سالفة ف04", name: "فيصل الفرحان", bio: null, ig: null },
+  { episode: "v8e_tW3NX0Y", label: "سالفة ف05", name: "فيصل الفرحان", bio: null, ig: null },
+
+  // علي دريساوي's run — six سالفات, and a SECOND numbered 01–06 series. Their
+  // descriptions name nobody at all: they open on a verse or an idea and never
+  // introduce a speaker, which is why they read as unattributed reflections.
+  // He is already a guest here from 009; these attach to that same row.
+  { episode: "I-sJTe9u0j4", label: "سالفة ع01", name: "علي دريساوي", bio: null, ig: null },
+  { episode: "agDEZAVDYAU", label: "سالفة ع02", name: "علي دريساوي", bio: null, ig: null },
+  { episode: "uNFmnch6DkU", label: "سالفة ع03", name: "علي دريساوي", bio: null, ig: null },
+  { episode: "jJmOjPGDdHQ", label: "سالفة ع04", name: "علي دريساوي", bio: null, ig: null },
+  { episode: "dFcdYCKkc3Q", label: "سالفة ع05", name: "علي دريساوي", bio: null, ig: null },
+  { episode: "RVo_ar7OSDk", label: "سالفة ع06", name: "علي دريساوي", bio: null, ig: null },
+
   // Clips — the guest is inherited from the episode each was cut from.
   { episode: "r_NzVN4OmIs", label: "مقطع ← 001", name: "ناصر سلطان سالمين", bio: null, ig: null },
   { episode: "qhNxSY35WZU", label: "مقطع ← 011", name: "عبدالله البطي", bio: null, ig: "buti61" },
   { episode: "WEoJyqjOLDs", label: "مقطع ← 015", name: "صلاح الغزالي", bio: null, ig: "alghazalis" },
   { episode: "VrP9i5gRFmM", label: "مقطع ← 002", name: "جاسم العبوة", bio: null, ig: null },
+  // «الزواج مو بس حب» — cut from 004, «أسرار الزواج الذكي». Its description
+  // opens on the question and never names anyone, so unlike the four above it
+  // could not be inherited by reading; Khaled placed it.
+  { episode: "rkb-6qjO3YM", label: "مقطع ← 004", name: "الحارث المزيدي", bio: null, ig: null },
+  // «لماذا يبقى الرجال في القمه» — cut from 007, the leadership episode with
+  // عبد العزيز الرومي. Same as the one above: its description asks the question
+  // and names nobody, so Khaled placed it rather than the text.
+  { episode: "V3MNyEwmqr8", label: "مقطع ← 007", name: "عبد العزيز الرومي", bio: null, ig: null },
 ]
 
 /** Mirrors the DB's own generated `normalized_name`, so matching agrees with it. */
