@@ -64,3 +64,4 @@ scratchpad/
 public/teasers/
 youtube-sync-backup-*.json
 quotes-backup-*.json
+guests-backup-*.json
