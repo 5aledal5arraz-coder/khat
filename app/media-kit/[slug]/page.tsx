@@ -61,7 +61,7 @@ export default function MediaKitSharePage() {
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-[#0a0a0a]"
       dir="rtl"
-      style={{ fontFamily: "'IBM Plex Sans Arabic', -apple-system, sans-serif" }}
+      style={{ fontFamily: "'Manifa V2', 'Noto Naskh Arabic', sans-serif" }}
     >
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_60%_50%_at_50%_45%,rgba(201,168,76,0.06)_0%,transparent_70%)]" />
 

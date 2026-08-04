@@ -1,5 +1,69 @@
 @import "tailwindcss";
 
+/* ══════════════════════════════════════════════════════════════════════════
+   MANIFA V2 — the identity's PRIMARY TYPOGRAPHY, self-hosted.
+
+   The site ran on IBM Plex Sans Arabic from Google Fonts until 2026-08-04.
+   That was not a near-miss: «Manifa» appeared nowhere in the repository, and
+   the same headline measured 764.74px in IBM Plex against 841.86px in a font
+   name that does not exist — i.e. Manifa was resolving to the fallback, so the
+   site carried Khaled's colours and mark in someone else's letterforms.
+
+   `document.fonts.check("Manifa V2")` answers TRUE for an absent font, because
+   it reports whether the name would resolve, and a fallback makes it resolve.
+   Availability has to be measured (same string, real family vs a nonsense
+   family: equal widths ⇒ absent), never asked.
+
+   ROMAN FACES ONLY. The four italic files ship broken metadata — every one is
+   flagged non-italic, and «Bold Italic» reports usWeightClass 400 — and Arabic
+   does not set italics. The five `italic` usages are all in the admin and get
+   a synthesised oblique.
+
+   NO 500. Manifa's ladder is 100/300/400/600/700, and `font-medium` is the
+   single most used weight on this site (776 usages against 720 semibold). The
+   400 face therefore claims `400 500`: CSS weight matching would send 500 down
+   to 400 anyway, and saying so explicitly keeps medium and semibold as two
+   visibly different levels instead of collapsing both onto Semibold.
+
+   `swap` on purpose: Arabic text must paint immediately, and this file is on
+   the critical path for every route.
+   ══════════════════════════════════════════════════════════════════════════ */
+@font-face {
+  font-family: "Manifa V2";
+  src: url("/fonts/manifa-v2-100.woff2") format("woff2");
+  font-weight: 100 200;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Manifa V2";
+  src: url("/fonts/manifa-v2-300.woff2") format("woff2");
+  font-weight: 300;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Manifa V2";
+  src: url("/fonts/manifa-v2-400.woff2") format("woff2");
+  font-weight: 400 500;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Manifa V2";
+  src: url("/fonts/manifa-v2-600.woff2") format("woff2");
+  font-weight: 600;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Manifa V2";
+  src: url("/fonts/manifa-v2-700.woff2") format("woff2");
+  font-weight: 700 900;
+  font-style: normal;
+  font-display: swap;
+}
+
 @layer base {
   /* ══════════════════════════════════════════════════════════════════════
      THE BRAND SWITCH POINT
@@ -13,9 +77,10 @@
                    `hsl()` wrapper — the `@theme inline` block feeds them
                    into `hsl(var(--token))`, and alpha modifiers
                    (`bg-primary/10`) only work on that bare form.
-       · fonts   → replace --font-brand-sans below, AND the Google Fonts
-                   <link> href in app/layout.tsx (two halves of one switch:
-                   the token names the family, the <link> fetches it).
+       · fonts   → replace the @font-face block at the top of this file and
+                   --font-brand-sans below. BOTH halves are now here: the face
+                   is self-hosted, so there is no <link> in app/layout.tsx to
+                   keep in sync (there was, while the family came from Google).
 
      Why :root and not a scoped wrapper: this used to live in a JS object
      inlined onto a <div> inside <body> (components/brand/site-theme.ts),
@@ -29,9 +94,10 @@
     color-scheme: light;
 
     /* ── Type ────────────────────────────────────────────────────────────
-       Loaded via a Google Fonts <link> in app/layout.tsx (not
-       next/font/google) so the build never depends on a build-time font
-       fetch. --font-sans in @theme and the base body rule read this token.
+       Self-hosted from /public/fonts, declared in the @font-face block at the
+       top of this file. Nothing is fetched at build time and nothing is
+       fetched from a third party at runtime. --font-sans in @theme and the
+       base body rule read this token.
 
        ONE FAMILY. `--font-brand-display: "Amiri", serif` WAS HERE, beside
        `--type-leading-display-font` and the `.museum-font-headline` rule
@@ -43,7 +109,17 @@
        public route, and all 12 Amiri faces `status: "unloaded"`.
        Re-introducing a display family means re-introducing all three
        (token, leading token, consuming rule) AND the <link>. */
-    --font-brand-sans: "IBM Plex Sans Arabic", "Noto Naskh Arabic", "Cairo", sans-serif;
+    /* Manifa V2 is the identity's typeface; the tail is NOT a second brand
+       font. Measured against everything the site actually renders (142 database
+       strings + 8,497 source literals, comments excluded — comments were what
+       made a first pass report 946 missing box-drawing characters), Manifa
+       covers every Arabic letter, every tashkeel mark, the Latin set, both
+       digit systems and the punctuation. What it does not carry is emoji, a
+       handful of UI symbols (• ← ✓ ●), and two Quranic marks (U+06D6/U+06D7)
+       that appear in the سالفة 01 and سالفة 06 descriptions. No text face ships
+       emoji, so a fallback is not optional — it is the difference between a
+       system glyph and a tofu box. */
+    --font-brand-sans: "Manifa V2", "Noto Naskh Arabic", sans-serif;
 
     /* ── Type scale ──────────────────────────────────────────────────────
        THE OTHER HALF OF THE SWITCH POINT. Wave 1 made the palette and the
@@ -111,12 +187,29 @@
        375 and 83.2px at 1280, interpolating between them. */
     --type-size-display: clamp(3rem, 2.09rem + 3.89vw, 5.2rem);
 
+    /* ── RE-MEASURED FOR MANIFA V2, 2026-08-04 ───────────────────────────
+       Every value below this line was tuned against IBM Plex Sans Arabic,
+       whose ink measured 1.389em — 1.607em once a word carried tashkeel. Manifa
+       sets much shorter: measured over the site's own strings (the headline,
+       the tashkeel cases «كن ضيفًا» «عالمٍ» «تُروى؟», the longest stored episode
+       titles) the worst ink ratio is 1.049em at BOTH 400 and 700, on a warm
+       page with a nonsense-family control proving Manifa actually answered.
+
+       So the four display steps are coming DOWN. They were not reading-comfort
+       numbers — they were raised to stop collisions (display went 1.08 → 1.4 →
+       1.5 over two waves of overlap), and those collisions belonged to the
+       other typeface. Held above the measured 1.049 with real headroom:
+         display 1.15  title 1.2  heading 1.25  subhead 1.4
+
+       The body steps are NOT re-tuned. 1.75–1.85 is a legibility choice for
+       running Arabic, not a collision floor, and shortening the ink does not
+       make long-form copy want tighter lines. */
     --type-leading-micro: 1.65;
     --type-leading-caption: 1.75;
     --type-leading-body: 1.85;
     --type-leading-lead: 1.8;
-    --type-leading-subhead: 1.65;
-    --type-leading-heading: 1.5;
+    --type-leading-subhead: 1.4;
+    --type-leading-heading: 1.25;
     /* WAS 1.4, AND THE REASON GIVEN FOR IT WAS MEASURED ON THE WRONG CROWD.
        Wave 3-b justified the two cross sizes together — "short text, chosen by
        hand" — because the 4905-string corpus behind every other number here was
@@ -154,7 +247,7 @@
        corpus. The floor tracks the copy we actually have, and the guard in
        tests/type-scale-guards.test.ts pins it to that measurement so the next
        person who adds a taller title finds out from a failing test. */
-    --type-leading-title: 1.45;
+    --type-leading-title: 1.2;
     /* Left at 1.4, and here the "short, hand-picked" justification survives its
        own audit: `text-display` has exactly ONE call site (app/page.tsx:99), the
        homepage hero, whose copy is authored in the file with a hard <br> in it.
@@ -171,7 +264,7 @@
        and measures 95.7px, which OVERFLOWED the old 1.4 box outright. At 1.5
        either spelling fits, so the choice between them stays editorial rather
        than being forced by the leading. */
-    --type-leading-display: 1.5;
+    --type-leading-display: 1.15;
     /* `--type-leading-display-font: 1.8` WAS HERE — Amiri's own leading, and
        it left with Amiri. It existed only for `.museum-font-headline`; with
        no display family there is no second font whose ink needs its own

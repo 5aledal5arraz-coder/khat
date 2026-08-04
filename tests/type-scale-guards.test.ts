@@ -1016,7 +1016,37 @@ const INK_HEADING_FLOOR = 1.74
  * headline measures 1.6440 against 1.1528 in the fallback serif, a 30% gap,
  * while the Plex row above is 3% on the very string that sets INK_TITLE_MAX.
  */
-const INK_TITLE_MAX = 1.447
+/*
+ * RE-MEASURED FOR MANIFA V2, 2026-08-04. 1.447 was IBM Plex Sans Arabic, and
+ * this site no longer ships it — Manifa V2, the identity's own PRIMARY
+ * TYPOGRAPHY, is self-hosted from /public/fonts. A pinned ink figure is a
+ * property of a TYPEFACE crossed with a POPULATION, so changing the family
+ * invalidates it outright; leaving 1.447 in place would have held the leading
+ * ladder to a font nobody downloads.
+ *
+ * Same method as the 2026-08-02 pass, same population definition — every
+ * stored episode title as `displayEpisodeTitle` renders it, plus every guest
+ * name, read-only from the production DB, at weight 700 (the `font-bold` both
+ * <h1>s carry). The population itself grew from 45 to 60 in between, because
+ * the guest backfill took the roster from 3 names to 19.
+ *
+ *   n = 60   mean 0.7442   max 0.8900
+ *   tallest: "المفاتيح العشرين للتفوق… مع الأستاذ علي دريساوي"
+ *   above 1.2:  0 of 60      above 1.25:  0 of 60
+ *
+ * Measured in the browser on a warm page, with a nonsense-family control
+ * proving Manifa actually answered before any number was read (the trap in the
+ * header: `document.fonts.check` returns true for an absent family). Stable at
+ * 0.8900 at 16px, 100px and 1000px.
+ *
+ * Manifa sets MUCH shorter ink than Plex — 0.89 against 1.447 on the same job.
+ * That is why the four display leadings came down in the same commit
+ * (display 1.5 → 1.15, title 1.45 → 1.2, heading 1.5 → 1.25, subhead 1.65 →
+ * 1.4): those numbers were collision floors for a taller face, not
+ * reading-comfort choices, and holding them would have left the headings
+ * visibly loose.
+ */
+const INK_TITLE_MAX = 0.89
 
 describe("the switch point reaches the element, not just the stylesheet", () => {
   const SURFACE_NAMES = Object.keys(SURFACES) as Surface[]
@@ -1845,60 +1875,43 @@ describe("ordinary rules read the switch point, and say what they read", () => {
   /** Anything a browser can be made to load a stylesheet from. */
   const READABLE = /\.(ts|tsx|js|jsx|mjs|cjs|css|scss|html)$/
 
-  it("every family we fetch from Google Fonts is a family we actually paint with", () => {
+  /**
+   * INVERTED 2026-08-04, AND THAT IS THE POINT OF IT NOW.
+   *
+   * This used to assert "every family we fetch from Google is one we paint
+   * with", and it opened by requiring that a Google URL exist at all. The site
+   * now fetches NONE: Manifa V2 — «ملف عرض الشعار», PRIMARY TYPOGRAPHY — is
+   * self-hosted from /public/fonts. So the old precondition failed on a site
+   * that had become MORE correct, which is the signature of a guard that pins
+   * the implementation instead of the requirement.
+   *
+   * The requirement Khaled actually stated is stronger and simpler: the site
+   * uses no typeface that is not in the identity file. That is what is checked
+   * here, and it is what caught the real defect during the migration — three
+   * standalone documents (the media kit, the submissions print view, the
+   * proposal PDF) had their `font-family` switched to Manifa while their
+   * `@import` still downloaded IBM Plex. They declared one face and fetched
+   * another, so they silently fell back, and a visual check would have passed
+   * because the fallback is a perfectly reasonable Arabic face.
+   */
+  it("fetches no webfont from a third party — the brand face is self-hosted", () => {
     const urls = FONT_FETCHING_FILES.flatMap((rel) => [
       ...readFileSync(join(ROOT, rel), "utf8").matchAll(FONT_URL),
     ].map((m) => m[0]))
-    expect(urls.length, "no Google Fonts URL found at all").toBeGreaterThan(0)
-
-    // `family=IBM+Plex+Sans+Arabic:wght@300;400` → `IBM Plex Sans Arabic`
-    const fetched = urls.flatMap((href) =>
-      [...href.matchAll(/family=([^&:]+)/g)].map((m) =>
-        decodeURIComponent(m[1]).replace(/\+/g, " ").trim(),
-      ),
-    )
-    expect(fetched.length, "the stylesheet URLs fetch nothing").toBeGreaterThan(0)
-
-    // ── WHAT COUNTS AS "NAMED" ────────────────────────────────────────────
-    // The FIRST family in a token's stack, and only that one. Two separate
-    // faults made the old haystack answer yes to things it should not have:
-    //
-    //   · SUBSTRING, NOT FAMILY. `named.includes("IBM Plex Sans")` is true
-    //     because «IBM Plex Sans Arabic» contains it — so a genuinely
-    //     DIFFERENT Google family, one nothing on the site can paint, passed.
-    //     Font names nest constantly (Noto Sans / Noto Sans Arabic, Cairo /
-    //     Cairo Play), so this is the normal case, not a corner one.
-    //
-    //   · FALLBACK POSITION IS NOT INTENT. «Cairo» sits in --font-brand-sans
-    //     as the third entry, i.e. a name we hope is already ON THE DEVICE if
-    //     the first two fail. Downloading it makes it not a fallback at all:
-    //     every visitor pays for a face that can only paint if a font arriving
-    //     in the SAME stylesheet failed to. Fetching a family is a statement
-    //     that we intend to paint with it, and that is the head of the stack.
-    //
-    // A leading `var(--x)` is resolved one hop, because --font-sans is written
-    // `var(--font-brand-sans), ui-sans-serif, …` and its real head lives there.
-    const decls: Record<string, string> = { ...THEME_DECLS, ...SITE_DECLS, ...ADMIN_DECLS }
-    const head = (value: string, depth = 0): string => {
-      const first = splitTopLevel(value, ",")[0] ?? ""
-      const ref = depth > 4 ? null : first.match(/^var\(\s*(--[\w-]+)\s*\)$/)
-      const next = ref ? decls[ref[1]] : undefined
-      return next === undefined ? first.replace(/^["']|["']$/g, "").trim() : head(next, depth + 1)
-    }
-    const painted = new Set(
-      Object.entries(decls)
-        .filter(([k]) => k.startsWith("--font-"))
-        .map(([, v]) => head(v))
-        .filter(Boolean),
-    )
-
-    const orphans = fetched.filter((family) => !painted.has(family))
     expect(
-      orphans,
-      `fetched but painted by no --font-* token — every visitor downloads these ` +
-        `and nothing on the site sets them as its first family. Painted: ` +
-        `${[...painted].join(", ")}`,
+      urls,
+      "a third-party font URL is back. Manifa V2 ships from /public/fonts; " +
+        "anything fetched from Google is either a face the identity does not " +
+        "name, or the same one paid for twice",
     ).toEqual([])
+
+    const rootCss = readFileSync(join(ROOT, "app/globals.css"), "utf8")
+    const faces = [...rootCss.matchAll(/@font-face\s*\{[^}]*\}/g)].map((m) => m[0])
+    expect(faces.length, "no @font-face at all — the brand face is not declared").toBeGreaterThan(0)
+    for (const face of faces) {
+      expect(face, "a @font-face names a family other than Manifa V2").toMatch(/font-family:\s*"Manifa V2"/)
+      expect(face, "a @font-face loads from somewhere other than /fonts").toMatch(/url\("\/fonts\/[^"]+\.woff2"\)/)
+    }
   })
 
   /** Every source file this sweep can open, so a caller can count them. */

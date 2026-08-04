@@ -24,7 +24,7 @@ export function MediaKitView({
     <div
       dir="rtl"
       className="min-h-screen bg-[#0a0a0a] text-[#e8e4dd]"
-      style={{ fontFamily: "'IBM Plex Sans Arabic', -apple-system, sans-serif" }}
+      style={{ fontFamily: "'Manifa V2', 'Noto Naskh Arabic', sans-serif" }}
     >
       {/* Cover */}
       <section className="relative flex min-h-screen flex-col items-center justify-center overflow-hidden px-8 py-20 text-center">

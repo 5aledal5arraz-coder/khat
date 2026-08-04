@@ -1,5 +1,7 @@
 "use client"
 
+import { manifaFontFace } from "@/lib/brand/standalone-css"
+
 import { useState, useEffect } from "react"
 import { useSearchParams } from "next/navigation"
 import { formatCompactNumber } from "@/lib/shared/formatters"
@@ -45,7 +47,7 @@ function generatePartnershipPDF(
   <meta charset="UTF-8">
   <title>عرض شراكة - ${esc(companyName)}</title>
   <style>
-    @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@200;300;400;500;600;700&display=swap');
+    ${manifaFontFace("")}
 
     :root {
       --black: #0a0a0a;
@@ -74,7 +76,7 @@ function generatePartnershipPDF(
     }
 
     body {
-      font-family: 'IBM Plex Sans Arabic', -apple-system, sans-serif;
+      font-family: 'Manifa V2', 'Noto Naskh Arabic', sans-serif;
       background: var(--black);
       color: var(--text);
       line-height: 1.8;

@@ -127,10 +127,12 @@ export default async function RootLayout({
             _document.js), as a stylesheet rather than next/font/google so the build never depends on a
             build-time font fetch.
 
-            THIS href IS THE OTHER HALF OF THE FONT SWITCH POINT. The family is *named* by
-            --font-brand-sans in the :root block of app/globals.css and *fetched* here — changing the
-            brand font means editing both, and nothing else.
-              · IBM Plex Sans Arabic → --font-brand-sans (body copy, every surface)
+            THIS IS NO LONGER HALF OF THE FONT SWITCH POINT. It was, while the family came from
+            Google and had to be *fetched* here as well as *named* in globals.css. Manifa V2 —
+            the identity's own face — is self-hosted from /public/fonts and both declared and
+            named in app/globals.css, so the whole switch is one file now. What is left below is
+            a preload of the two weights the first screen paints, which is an optimisation and
+            not a declaration: deleting it costs a frame, not a typeface.
 
             ONE FAMILY, because one family is all this site paints. Playfair Display went first: it was
             the middle entry of `Amiri, "Playfair Display", serif` and could never render, since Google
@@ -144,10 +146,29 @@ export default async function RootLayout({
             `document.querySelectorAll('.museum-font-headline').length === 0` on every public route, and
             all 12 Amiri faces reported `status: "unloaded"`. We were fetching a display family, four
             weights x two styles, that nothing on the site draws. */}
-        <link rel="preconnect" href="https://fonts.googleapis.com" />
-        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
-        {/* eslint-disable-next-line @next/next/no-page-custom-font -- App Router root layout <head> is the correct location; rule is a Pages Router false positive */}
-        <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+        {/* NO GOOGLE FONTS. Manifa V2 — the identity's own typeface — is
+            self-hosted from /public/fonts and declared in app/globals.css, so
+            the two preconnects and the stylesheet <link> that used to fetch
+            IBM Plex Sans Arabic are gone with it. Two fewer third-party
+            handshakes on first paint, and the brand face no longer depends on
+            a network Khaled does not control.
+            The half of the switch point that lived HERE now lives entirely in
+            globals.css: adopting a new family is `@font-face` plus
+            `--font-brand-sans`, with nothing to keep in sync across files. */}
+        <link
+          rel="preload"
+          href="/fonts/manifa-v2-400.woff2"
+          as="font"
+          type="font/woff2"
+          crossOrigin="anonymous"
+        />
+        <link
+          rel="preload"
+          href="/fonts/manifa-v2-600.woff2"
+          as="font"
+          type="font/woff2"
+          crossOrigin="anonymous"
+        />
         <script
           dangerouslySetInnerHTML={{
             // Single light surface — strip any stale `.dark` class a returning

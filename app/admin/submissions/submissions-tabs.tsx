@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useRef, useEffect } from "react"
+import { manifaFontFace } from "@/lib/brand/standalone-css"
 import { useSearchParams } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -1063,9 +1064,9 @@ export function SubmissionsTabs({
   <meta charset="UTF-8">
   <title>طلب ضيف - ${esc(app.name)}</title>
   <style>
-    @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@300;400;500;600;700&display=swap');
+    ${manifaFontFace("")}
     * { margin: 0; padding: 0; box-sizing: border-box; }
-    body { font-family: 'IBM Plex Sans Arabic', sans-serif; background: #fff; color: #1a1a1a; padding: 48px; line-height: 1.7; direction: rtl; }
+    body { font-family: 'Manifa V2', 'Noto Naskh Arabic', sans-serif; background: #fff; color: #1a1a1a; padding: 48px; line-height: 1.7; direction: rtl; }
     .header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 40px; padding-bottom: 24px; border-bottom: 2px solid #d4a853; }
     .brand { font-size: 28px; font-weight: 700; color: #d4a853; }
     .brand-sub { font-size: 12px; color: #888; margin-top: 4px; }

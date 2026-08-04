@@ -31,7 +31,7 @@ function getFontSize(text: string): number {
 // font swap reaches the rendered quote images too. The literal tail stays as a
 // safety net: these nodes get rasterised by modern-screenshot, which clones
 // them into a detached tree where a var() can fail to resolve.
-const FONT_FAMILY = "var(--font-brand-sans), 'IBM Plex Sans Arabic', sans-serif"
+const FONT_FAMILY = "var(--font-brand-sans), 'Manifa V2', sans-serif"
 
 function BrandingBar() {
   return (

@@ -12,6 +12,7 @@
  */
 
 import { khatLogoMarkup } from "@/components/brand/khat-logo-geometry"
+import { manifaFontFace } from "@/lib/brand/standalone-css"
 import type {
   SponsorshipLead,
   SponsorshipProposal,
@@ -93,11 +94,11 @@ export function buildProposalHtml(input: ProposalPdfInput): string {
 <meta charset="utf-8"/>
 <title>${esc(title)}</title>
 <style>
-  @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@300;400;500;600;700&display=swap');
+  ${manifaFontFace()}
   :root{
-    --indigo:hsl(252 48% 40%);
-    --indigo-soft:hsl(252 48% 96%);
-    --orange:hsl(22 90% 53%);
+    --indigo:#362e6d;
+    --indigo-soft:#ece7e7;
+    --orange:#fd4f04;
     --ink:hsl(252 40% 11%);
     --muted:hsl(250 12% 46%);
     --line:hsl(250 20% 90%);
@@ -105,7 +106,7 @@ export function buildProposalHtml(input: ProposalPdfInput): string {
   *{box-sizing:border-box;-webkit-print-color-adjust:exact !important;print-color-adjust:exact !important;}
   @page{size:A4;margin:0;}
   html,body{margin:0;padding:0;}
-  body{font-family:'IBM Plex Sans Arabic',-apple-system,sans-serif;color:var(--ink);background:#fff;line-height:1.85;font-size:13.5px;}
+  body{font-family:'Manifa V2','Noto Naskh Arabic',sans-serif;color:var(--ink);background:#fff;line-height:1.85;font-size:13.5px;}
   .page{width:210mm;min-height:297mm;padding:22mm 20mm 18mm;margin:0 auto;position:relative;page-break-after:always;}
   .page:last-child{page-break-after:auto;}
 

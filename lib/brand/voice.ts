@@ -26,25 +26,26 @@
 /**
  * The headline, split where it should break. The second line carries the pun.
  *
- * THE BREAK IS A TYPESETTING DECISION, NOT A RHETORICAL ONE. It was
- * «كالعبارات التي / تضع تحتها خطًّا» — balanced on the page and broken in the
- * ink. The ي of «التي» drops 30.1px below its baseline; the tanween-plus-shadda
- * over «خطًّا» climbs 71.6px above its own. At the display size (66.2px) that
- * is 101.7px of stacked ink inside a 99.2px line box: the two marks touched,
- * and Khaled saw it before any guard did.
+ * THE BREAK IS A TYPESETTING DECISION, AND IT MOVED TWICE.
  *
- * Moving the break puts «كالعبارات» above the accented word instead — it ends
- * in ت, whose dots sit ABOVE, so line one now descends only 15.9px and the gap
- * is +11.7px. Two lines of unequal length, which centred display type carries
- * fine; a collision it does not.
+ * Under IBM Plex Sans Arabic this balanced break collided: the ي of «التي»
+ * dropped 30.1px, the tanween-plus-shadda over «خطًّا» climbed 71.6px, and
+ * 101.7px of stacked ink did not fit a 99.2px line. Khaled saw it before any
+ * guard did, and the fix then was to break after «كالعبارات» instead.
  *
- * MEASURE THE PAIR, NOT THE LINE. The earlier check measured each line's own
- * ink height against the leading and passed — it could not see this, because
- * the constraint is descender(line 1) + ascender(line 2). Any future edit to
- * these three strings has to be re-measured that way.
+ * Manifa V2 — the identity's own face, installed 2026-08-04 — sets far shorter
+ * ink: the same pair needs 69.4px, a leading of 1.049 against the 1.5 in force.
+ * The collision was a property of the wrong typeface, not of the sentence, so
+ * the balanced break comes back.
+ *
+ * MEASURE THE PAIR, NOT THE LINE, AND MEASURE IT IN THE FONT YOU SHIP. The
+ * first check compared each line's own ink height to the leading and passed,
+ * because the constraint is descender(line 1) + ascender(line 2). The second
+ * was correct but measured a font this site no longer uses. Any edit to these
+ * three strings needs both halves of that.
  */
-export const BRAND_HEADLINE_LEAD = "كالعبارات"
-export const BRAND_HEADLINE_REST_BEFORE = "التي تضع تحتها"
+export const BRAND_HEADLINE_LEAD = "كالعبارات التي"
+export const BRAND_HEADLINE_REST_BEFORE = "تضع تحتها"
 /** Underlined in the accent on the page — the sentence performing itself. */
 export const BRAND_HEADLINE_ACCENT = "خطًّا"
 
