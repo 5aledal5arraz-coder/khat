@@ -196,7 +196,16 @@ export function NewsletterSignup({
           type="submit"
           disabled={loading}
           className={cn(
-            "inline-flex shrink-0 items-center justify-center gap-2 rounded-xl bg-primary font-semibold text-primary-foreground shadow-sm transition-all hover:bg-primary/90 disabled:opacity-70",
+            "inline-flex shrink-0 items-center justify-center gap-2 rounded-xl font-semibold shadow-sm transition-all disabled:opacity-70",
+            /* On the indigo band the CTA is KHAT Orange — the identity's accent
+               doing the one job it exists for. Its label is `--foreground`, the
+               palette's near-black indigo, at 5.52:1; white would have been
+               3.34:1 and indigo-on-orange 3.56:1, both failing AA for a 14px
+               label. The button itself clears SC 1.4.11 against the card at
+               3.56:1, so the shape reads as a control. */
+            isInline
+              ? "bg-accent text-foreground hover:bg-accent/90"
+              : "bg-primary text-primary-foreground hover:bg-primary/90",
             isHero ? "px-7 py-3 text-body" : "px-5 py-2.5 text-caption",
           )}
         >
@@ -223,7 +232,10 @@ export function NewsletterSignup({
           // measured 3.56:1 (rgb(137,133,156) on white) — the only contrast
           // failure on the public site. Muted text does not get an opacity
           // modifier on top of an already-muted token.
-          "text-muted-foreground",
+          /* On the indigo band the muted token (Dusty Violet) would sit at
+             1.9:1 — the whole point of a dark surface is that "muted" has to
+             be a LIGHT tone, not the light surface's grey. */
+          isInline ? "text-background/85" : "text-muted-foreground",
           isHero ? "mt-3 text-center text-micro" : "mt-2 text-micro",
         )}
       >
@@ -238,17 +250,25 @@ export function NewsletterSignup({
   // can't create a false bottom above the episodes grid.
   if (isInline) {
     return (
+      /* KHAT DEEP INDIGO field with a KHAT ORANGE call to action.
+         Khaled asked whether this band should be orange, to pull the eye. The
+         identity answers it: across the whole file there is no large orange
+         surface — the approved backgrounds are the cream and the indigo, and
+         orange appears as the diamond over the khaa and as sparse marks in the
+         pattern. It is a stress, not a field. Made the whole band orange, the
+         orange becomes the background and the button has nothing left to pop
+         against; on the indigo it is the only warm thing on the page. */
       <div
         className={cn(
-          "flex flex-col gap-6 rounded-3xl border border-border bg-card px-6 py-8 shadow-sm sm:px-10 md:flex-row md:items-center md:justify-between",
+          "flex flex-col gap-6 rounded-3xl bg-primary px-6 py-8 shadow-sm sm:px-10 md:flex-row md:items-center md:justify-between",
           className,
         )}
       >
         <div className="max-w-sm">
-          <h2 className="text-lead font-bold text-foreground sm:text-subhead">
+          <h2 className="text-lead font-bold text-background sm:text-subhead">
             حوارات تستحق أن تبقى — في بريدك
           </h2>
-          <p className="mt-2 text-caption text-muted-foreground">
+          <p className="mt-2 text-caption text-background/85">
             أحدث الحلقات، اقتباسات مختارة، ومحتوى حصري — بدون إزعاج.
           </p>
         </div>
