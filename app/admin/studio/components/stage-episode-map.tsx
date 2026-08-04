@@ -42,9 +42,42 @@ const FIT_LEVEL_AR: Record<PlatformFitLevel, { text: string; className: string }
   weak: { text: "ضعيف", className: "bg-muted text-muted-foreground" },
 }
 
-// How the "اسمع" button samples audio around a timestamp.
-const SEEK_PRE_ROLL_SECONDS = 3
-const SEEK_PLAY_SECONDS = 8
+// How the "اسمع" button samples audio around a POINT timestamp (an anchor with
+// no end, e.g. «بداية الحلقة الفعلية»): start a little early, play a short taste.
+export const SEEK_PRE_ROLL_SECONDS = 3
+export const SEEK_PLAY_SECONDS = 8
+
+/**
+ * What one "اسمع" press should do — the whole decision, as data.
+ *
+ * Pulled out of the hook so it can be tested in the node environment: this
+ * repo has no jsdom/component-test setup, and an untested branch here is how
+ * the 8-second taste silently became the ONLY behaviour for clips that are
+ * minutes long (the summary describes all of a hook clip, so hearing only its
+ * opening reads as a wrong timestamp when the timestamp is correct).
+ *
+ * @param atSeconds  the card's in-point
+ * @param endSeconds the card's out-point; absent/invalid ⇒ point anchor
+ */
+export function resolvePlayback(
+  atSeconds: number,
+  endSeconds?: number,
+): { startAt: number; stopAt: number | null; playSeconds: number } {
+  const isRange = typeof endSeconds === "number" && endSeconds > atSeconds
+  if (isRange) {
+    // No pre-roll: the range start IS the intended in-point.
+    return {
+      startAt: atSeconds,
+      stopAt: endSeconds,
+      playSeconds: endSeconds - atSeconds,
+    }
+  }
+  return {
+    startAt: Math.max(0, atSeconds - SEEK_PRE_ROLL_SECONDS),
+    stopAt: null,
+    playSeconds: SEEK_PLAY_SECONDS,
+  }
+}
 
 /** Honest expectation set BEFORE the click — transcription is minutes, not seconds. */
 const EXPECTED_COPY =
@@ -55,6 +88,8 @@ const EXPECTED_COPY =
 function useAudioSeeker(sessionId: string) {
   const audioRef = useRef<HTMLAudioElement | null>(null)
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  /** End of the range currently playing; null while a point anchor plays. */
+  const stopAtRef = useRef<number | null>(null)
   const [playingKey, setPlayingKey] = useState<string | null>(null)
 
   const stop = useCallback(() => {
@@ -62,13 +97,25 @@ function useAudioSeeker(sessionId: string) {
       clearTimeout(timerRef.current)
       timerRef.current = null
     }
+    stopAtRef.current = null
     const el = audioRef.current
     if (el) el.pause()
     setPlayingKey(null)
   }, [])
 
+  /**
+   * @param atSeconds  where playback starts
+   * @param endSeconds end of a RANGE. Given ⇒ play the clip whole, start to
+   *   end, with no pre-roll — the range start is already the intended in-point.
+   *   Omitted ⇒ the legacy point-anchor taste (3s early, 8s long).
+   *
+   *   Why the range case exists: a hook clip is minutes long and its summary
+   *   describes ALL of it, so an 8-second sample of the opening could not
+   *   match what the card promises — it reads as a wrong timestamp when the
+   *   timestamp is in fact correct.
+   */
   const play = useCallback(
-    (key: string, atSeconds: number) => {
+    (key: string, atSeconds: number, endSeconds?: number) => {
       const el = audioRef.current
       if (!el) return
       // Toggle off if this same row is already playing.
@@ -77,17 +124,35 @@ function useAudioSeeker(sessionId: string) {
         return
       }
       if (timerRef.current) clearTimeout(timerRef.current)
-      el.currentTime = Math.max(0, atSeconds - SEEK_PRE_ROLL_SECONDS)
+      const { startAt, stopAt, playSeconds } = resolvePlayback(
+        atSeconds,
+        endSeconds,
+      )
+      stopAtRef.current = stopAt
+      el.currentTime = startAt
+      if (stopAt == null) {
+        // Point anchor: a wall-clock timer is enough for a fixed short taste.
+        timerRef.current = setTimeout(() => {
+          el.pause()
+          setPlayingKey(null)
+          timerRef.current = null
+        }, playSeconds * 1000)
+      }
+      // A range ends on `timeupdate` instead, so a slow seek or a stalled
+      // buffer cannot truncate the clip.
       void el.play().catch(() => {}) // autoplay/format failures are non-fatal
       setPlayingKey(key)
-      timerRef.current = setTimeout(() => {
-        el.pause()
-        setPlayingKey(null)
-        timerRef.current = null
-      }, SEEK_PLAY_SECONDS * 1000)
     },
     [playingKey, stop],
   )
+
+  /** Range out-point. Point anchors leave `stopAtRef` null and are unaffected. */
+  const handleTimeUpdate = useCallback(() => {
+    const el = audioRef.current
+    const stopAt = stopAtRef.current
+    if (!el || stopAt == null) return
+    if (el.currentTime >= stopAt) stop()
+  }, [stop])
 
   useEffect(() => stop, [stop]) // cleanup on unmount
 
@@ -96,6 +161,7 @@ function useAudioSeeker(sessionId: string) {
       ref={audioRef}
       src={`/api/admin/studio/${sessionId}/audio`}
       preload="none"
+      onTimeUpdate={handleTimeUpdate}
       onEnded={() => setPlayingKey(null)}
     />
   )
@@ -158,9 +224,12 @@ function TranscriptHealthBanner({ map }: { map: EpisodeMap }) {
 function ListenButton({
   active,
   onClick,
+  title = "اسمع ٨ ثوانٍ حول هذا التوقيت للتأكد بالأذن",
 }: {
   active: boolean
   onClick: () => void
+  /** Ranges say how long they run; the default describes the point-anchor taste. */
+  title?: string
 }) {
   return (
     <button
@@ -172,7 +241,7 @@ function ListenButton({
           ? "border-purple-400 bg-purple-600 text-white"
           : "border-purple-300/60 bg-white text-purple-700 hover:bg-purple-50",
       )}
-      title="اسمع ٨ ثوانٍ حول هذا التوقيت للتأكد بالأذن"
+      title={title}
     >
       {active ? <Square className="h-3 w-3" /> : <Play className="h-3 w-3" />}
       {active ? "إيقاف" : "اسمع"}
@@ -336,7 +405,10 @@ export function EpisodeMapView({
                     </div>
                     <ListenButton
                       active={playingKey === key}
-                      onClick={() => play(key, h.start_seconds)}
+                      onClick={() => play(key, h.start_seconds, h.end_seconds)}
+                      title={`اسمع المقطع كاملاً (${formatTimeSeconds(
+                        Math.max(0, h.end_seconds - h.start_seconds),
+                      )}) — الوصف يلخّص المقطع كله، لا بدايته وحدها`}
                     />
                   </div>
 
