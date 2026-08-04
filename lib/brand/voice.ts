@@ -33,19 +33,24 @@
  * 101.7px of stacked ink did not fit a 99.2px line. Khaled saw it before any
  * guard did, and the fix then was to break after «كالعبارات» instead.
  *
- * Manifa V2 — the identity's own face, installed 2026-08-04 — sets far shorter
- * ink: the same pair needs 69.4px, a leading of 1.049 against the 1.5 in force.
- * The collision was a property of the wrong typeface, not of the sentence, so
- * the balanced break comes back.
+ * Manifa V2 sets shorter ink, so after the font swap the pair measured 69.4px
+ * against a 76.1px line box and the balanced break was restored — and Khaled
+ * looked at the result and said the marks were still sitting under the dots.
+ * He was right and the measurement was not wrong, it was answering a smaller
+ * question: +6.7px of clearance is NON-OVERLAP, and non-overlap is not the
+ * same as legible. Two diacritic clusters that miss each other by a hairline
+ * still read as one crowded smudge at 66px.
  *
- * MEASURE THE PAIR, NOT THE LINE, AND MEASURE IT IN THE FONT YOU SHIP. The
- * first check compared each line's own ink height to the leading and passed,
- * because the constraint is descender(line 1) + ascender(line 2). The second
- * was correct but measured a font this site no longer uses. Any edit to these
- * three strings needs both halves of that.
+ * So the break stays off «التي» — «كالعبارات» ends in ت, whose dots sit ABOVE,
+ * and it descends 11.6px where «التي» descends 16.2px — and the display leading
+ * goes to 1.3 for optical room rather than arithmetic room.
+ *
+ * THE RULE THIS COST THREE ATTEMPTS TO LEARN. Measure the PAIR, not the line;
+ * measure it in the font you actually ship; and then LOOK AT IT, because the
+ * threshold that matters is not the one a canvas can report.
  */
-export const BRAND_HEADLINE_LEAD = "كالعبارات التي"
-export const BRAND_HEADLINE_REST_BEFORE = "تضع تحتها"
+export const BRAND_HEADLINE_LEAD = "كالعبارات"
+export const BRAND_HEADLINE_REST_BEFORE = "التي تضع تحتها"
 /** Underlined in the accent on the page — the sentence performing itself. */
 export const BRAND_HEADLINE_ACCENT = "خطًّا"
 

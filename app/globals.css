@@ -199,7 +199,12 @@
        numbers — they were raised to stop collisions (display went 1.08 → 1.4 →
        1.5 over two waves of overlap), and those collisions belonged to the
        other typeface. Held above the measured 1.049 with real headroom:
-         display 1.15  title 1.2  heading 1.25  subhead 1.4
+         display 1.3   title 1.2  heading 1.25  subhead 1.4
+
+       display carries more than the measured 1.049 needs, and deliberately:
+       the headline ends in a shadda-plus-tanween cluster and the line above it
+       ends in a dotted letter. Arithmetic clearance of +6.7px passed and still
+       read as crowded — see lib/brand/voice.ts.
 
        The body steps are NOT re-tuned. 1.75–1.85 is a legibility choice for
        running Arabic, not a collision floor, and shortening the ink does not
@@ -264,7 +269,7 @@
        and measures 95.7px, which OVERFLOWED the old 1.4 box outright. At 1.5
        either spelling fits, so the choice between them stays editorial rather
        than being forced by the leading. */
-    --type-leading-display: 1.15;
+    --type-leading-display: 1.3;
     /* `--type-leading-display-font: 1.8` WAS HERE — Amiri's own leading, and
        it left with Amiri. It existed only for `.museum-font-headline`; with
        no display family there is no second font whose ink needs its own
