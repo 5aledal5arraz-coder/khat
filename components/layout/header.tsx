@@ -23,11 +23,32 @@ import { KhatLogoSwap } from "@/components/brand/khat-logo"
  * where any later nudge downward gets silently clamped instead of showing up as
  * a visual change.
  */
+/*
+ * THE NAME COMES BACK TO THE HEADER, 2026-08-05.
+ *
+ * This swapped to the bare mark below 1024px, on the reasoning that the hero
+ * badge spells «بودكاست خط» at those widths so the header need not. Khaled sent
+ * a screenshot from his phone and the reasoning does not survive it: on a 402px
+ * viewport the mark is 45px wide sitting hard against the right edge, and the
+ * run between it and the search icon measures 217px of nothing. Over half the
+ * header was empty in order to avoid a repetition there was room for.
+ *
+ * The lockup is 4.2:1, so at MIN_HEIGHT (40px — the artwork's floor, not a
+ * preference) it needs 167px. Measured against that 217px gap it fits with
+ * 50px to spare at 402, and still fits at 375. Below 380 the gap closes and
+ * the mark takes over again — that is what the breakpoint is for.
+ *
+ * ONE SIZE ABOVE THE BREAKPOINT, NOT TWO. The lg:44px step is gone: the swap
+ * declares exactly two candidates, and the guard in tests/brand/logo-swap.test.ts
+ * checks that the heights spelled in the class are the heights spelled in the
+ * props. A third CSS height reserved a box no candidate claimed — which is the
+ * layout-shift bug that guard exists to catch.
+ */
 export const HEADER_LOGO = {
   compact: { variant: "mark", height: 32 },
-  full: { variant: "lockup-horizontal", height: 44 },
-  breakpoint: "1024px",
-  heightClassName: "h-[32px] lg:h-[44px]",
+  full: { variant: "lockup-horizontal", height: 40 },
+  breakpoint: "380px",
+  heightClassName: "h-[32px] min-[380px]:h-[40px]",
   label: null,
 } as const
 

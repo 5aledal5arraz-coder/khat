@@ -15,6 +15,7 @@ import {
   formatArabicDate,
 } from "@/lib/shared/formatters"
 import { resolveDefaultOgImage } from "@/lib/seo/og"
+import { KhatLogo } from "@/components/brand/khat-logo"
 import {
   BRAND_DESCRIPTION,
   BRAND_HEADLINE_ACCENT,
@@ -131,6 +132,31 @@ export default async function HomePage() {
               the left instead of centering it — invisible below ~700px. */}
           <div className="absolute start-1/2 top-[-10%] h-[42rem] w-[42rem] translate-x-1/2 rounded-full bg-[radial-gradient(closest-side,hsl(252_48%_40%/0.14),transparent)]" />
           <div className="absolute end-[12%] top-[22%] h-72 w-72 rounded-full bg-[radial-gradient(closest-side,hsl(22_90%_53%/0.14),transparent)]" />
+        </div>
+
+        {/* ── The secondary mark, as the field the hero sits on ─────────────
+            The hero measured 38.6% empty — 237px of air in a 614px block — and
+            Khaled said so before the number did. The answer is not a third
+            drawing of the wordmark: the header lockup already spells the name
+            in both scripts, and the badge below repeats it under 1024px.
+
+            This is «KHAT SECONDARY MARK» (identity file p.17): the speech
+            bubble alone, no khaa, no name. It is the one piece of the identity
+            the site had never used, it carries the brand without saying it
+            again, and at 5.5% it gives the block something to sit on rather
+            than something to read.
+
+            aria-hidden and behind everything: it is a surface, not content. */}
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-0 -z-[1] flex items-center justify-center"
+        >
+          <KhatLogo
+            variant="secondary-mark"
+            height={340}
+            label={null}
+            className="opacity-[0.055]"
+          />
         </div>
 
         <div className="mx-auto max-w-4xl">
