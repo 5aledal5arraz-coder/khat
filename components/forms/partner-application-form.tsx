@@ -1,6 +1,7 @@
 "use client"
 
 import { useState } from "react"
+import { COLLABORATION_OPTIONS, UNDECIDED } from "@/lib/partnerships/collaboration"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
@@ -8,16 +9,6 @@ import { Label } from "@/components/ui/label"
 import { Loader2, Check, ChevronRight, ChevronLeft } from "lucide-react"
 import Link from "next/link"
 
-const COLLABORATION_OPTIONS = [
-  { value: "episode_partnership", label: "شريك حلقة" },
-  { value: "season_partnership", label: "شريك موسم" },
-  { value: "collaborative_episode", label: "حلقة بتوقيع مشترك" },
-  { value: "custom_strategic", label: "شراكة استراتيجية مخصّصة" },
-  { value: "website_presence", label: "حضور على الموقع" },
-  { value: "social_media_content", label: "محتوى على المنصات" },
-  { value: "live_event", label: "فعالية حية" },
-  { value: "not_sure", label: "غير متأكد بعد — أرشدونا" },
-]
 
 const GOAL_OPTIONS = [
   { value: "brand_awareness", label: "بناء الوعي بالعلامة" },
@@ -29,11 +20,16 @@ const GOAL_OPTIONS = [
   { value: "other", label: "هدف آخر" },
 ]
 
+/**
+ * The bands now have products behind them. «أقل من 500» used to read as
+ * "probably not for you" because nothing on the site cost less than 500;
+ * رعاية حلقة is 350, so the lowest band is a real door rather than a filter.
+ */
 const BUDGET_OPTIONS = [
-  { value: "below_500", label: "أقل من 500 د.ك" },
+  { value: "below_500", label: "أقل من 500 د.ك — رعاية حلقة" },
   { value: "500_1000", label: "500 – 1,000 د.ك" },
-  { value: "1000_3000", label: "1,000 – 3,000 د.ك" },
-  { value: "3000_plus", label: "أكثر من 3,000 د.ك" },
+  { value: "1000_3000", label: "1,000 – 3,000 د.ك — 5 حلقات" },
+  { value: "3000_plus", label: "أكثر من 3,000 د.ك — شريك الموسم" },
   { value: "flexible", label: "مرن / حسب المقترح" },
 ]
 
@@ -104,7 +100,7 @@ export function PartnerApplicationForm() {
            talking to — the one asking to be guided. Everyone else still
            answers, because the packages now carry prices and the question has
            become easy rather than intrusive. */
-        if (!budgetRange && !collaborationTypes.includes("not_sure")) {
+        if (!budgetRange && !collaborationTypes.includes(UNDECIDED)) {
           return "اختر نطاق الميزانية"
         }
         return null

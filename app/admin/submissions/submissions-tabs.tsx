@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useRef, useEffect } from "react"
+import { COLLABORATION_LABELS } from "@/lib/partnerships/collaboration"
 import { manifaFontFace } from "@/lib/brand/standalone-css"
 import { useSearchParams } from "next/navigation"
 import { Button } from "@/components/ui/button"
@@ -162,16 +163,6 @@ const SPONSOR_STATUS_CONFIG: Record<
   },
 }
 
-const COLLABORATION_LABELS: Record<string, string> = {
-  episode_partnership: "شراكة حلقة",
-  multiple_episodes: "عدة حلقات",
-  season_partnership: "شراكة موسم",
-  collaborative_episode: "حلقة تعاونية",
-  website_presence: "ظهور على الموقع",
-  social_media_content: "سوشيال ميديا",
-  live_event: "فعالية حية",
-  other: "أخرى",
-}
 
 const GOAL_LABELS: Record<string, string> = {
   brand_awareness: "زيادة الوعي بالعلامة",

@@ -79,70 +79,79 @@ interface PartnerPackage {
   investmentNote?: string
 }
 
+/**
+ * WHAT EVERY SPONSORSHIP INCLUDES — one list, because it is one offer.
+ *
+ * The tiers differ in HOW LONG the partner is present, not in what presence
+ * means. Writing the deliverables once per package would let the three drift
+ * apart, and a sponsor comparing them would be reading three different
+ * promises about the same product.
+ *
+ * ── THE LAST LINE IS THE PRODUCT, NOT A DISCLAIMER ──────────────────────
+ * Khaled, 2026-08-05: «محتوى الحلقه يخلو من ذكر الرعاة». Nothing is read out,
+ * nothing is endorsed, the conversation is never interrupted. That is why
+ * every global benchmark I researched — $15–30 CPM audio host-read, $25–65
+ * video mid-roll, $40+ dedicated YouTube — prices a DIFFERENT product: all of
+ * them pay for the host's voice, and this one deliberately withholds it.
+ *
+ * What is sold instead is presence and permanence. A 45-second host-read is
+ * 0.6% of a two-hour episode; a logo and a product on the table is 100% of it,
+ * and the episode keeps being watched for years. That is the argument the
+ * prices rest on, and it is a stronger one than a read.
+ */
+const SPONSORSHIP_INCLUDES = [
+  "شعار شركتكم داخل الحلقة",
+  "رابط موقعكم وحساباتكم في وصف الحلقة على يوتيوب",
+  "حضور دائم على موقع خط",
+  "منتجكم حاضر على الطاولة أثناء التصوير — إن كان لكم منتج",
+  "محتوى الحلقة يخلو من أي ذكر للرعاة — وهذا ما يحفظ قيمة حضوركم",
+]
+
 const PACKAGES: PartnerPackage[] = [
   {
     icon: Mic,
-    name: "شريك الحلقة",
-    nameEn: "Episode Partner",
-    positioning: "حضور مدروس في حلقة واحدة — نقطة دخول مثالية.",
-    deliverables: [
-      "إدماج صوتي بصوت المُقدّم (لا فاصل إعلاني)",
-      "ذكر العلامة في وصف الحلقة وتعليق مثبّت",
-      "منشور تعريفي عبر منصّاتنا",
-      "لقطة أداء مختصرة بعد النشر",
-    ],
-    investment: "500 – 1,000 د.ك",
+    name: "رعاية حلقة",
+    nameEn: "Single Episode",
+    positioning: "حضورك في حلقة واحدة — نقطة دخول لتجربة الشراكة.",
+    investment: "350 د.ك",
     investmentNote: "للحلقة الواحدة",
-    bestFor: "لحظة إطلاق محددة، أو تجربة أولى للشراكة.",
+    deliverables: SPONSORSHIP_INCLUDES,
+    bestFor: "لحظة إطلاق محددة، أو أول تجربة معنا.",
   },
   {
     icon: Layers,
-    name: "شريك الموسم",
-    nameEn: "Season Partner",
-    positioning: "حضور متّصل عبر الموسم كله يبني ارتباطًا يدوم.",
-    deliverables: [
-      "حضور متكرر في كل حلقات الموسم",
-      "شعارك ضمن هوية الفيديو",
-      "إدماج على المنصّات طوال الموسم",
-      "مساحة مخصّصة على موقع خط",
-      "تقارير أداء دورية",
-      "أولوية لمواضيع تلامس مجالك",
-    ],
-    investment: "من 3,000 د.ك",
-    investmentNote: "للموسم كاملًا — سعر الحلقة أقل",
-    bestFor: "بناء ارتباط ذهني مستمر بين علامتك والمحتوى.",
-  },
-  {
-    icon: Sparkles,
-    name: "حلقة بتوقيع مشترك",
-    nameEn: "Co-Created Signature Episode",
-    positioning: "حلقة كاملة تُبنى حول قصة تخدم رسالتك.",
-    deliverables: [
-      "حلقة تُصمَّم حول موضوع يلتقي مع علامتك",
-      "ضيف من قيادتكم أو خبرائكم",
-      "تعاون تحريري على السرد — مع احتفاظ خط باستقلاليته",
-      "ترويج موسّع قبل النشر وبعده",
-      "محتوى دائم القيمة تعيدون استخدامه",
-    ],
-    investment: "1,000 – 3,000 د.ك",
-    investmentNote: "حسب حجم الإنتاج",
-    bestFor: "الريادة الفكرية، استقطاب المواهب، أو سرد عميق للعلامة.",
+    name: "رعاية 5 حلقات",
+    nameEn: "Five Episodes",
+    positioning: "حضور متكرر يبني تذكّرًا لا تصنعه مرة واحدة.",
+    investment: "1,500 د.ك",
+    investmentNote: "300 د.ك للحلقة — أقل من سعر الحلقة المفردة",
+    deliverables: SPONSORSHIP_INCLUDES,
+    bestFor: "علامة تريد أن تُرى أكثر من مرة قبل أن تُذكر.",
   },
   {
     icon: Award,
-    name: "شراكة استراتيجية مخصّصة",
-    nameEn: "Bespoke Strategic Partnership",
-    positioning: "برنامج متكامل طويل المدى يُصمَّم من الصفر.",
-    deliverables: [
-      "مزيج مصمّم: حلقات + فعاليات + محتوى رقمي + منصّات",
-      "مبادرات بعلامة مشتركة",
-      "خارطة محتوى طويلة المدى",
-      "شريك حساب مخصّص يرافقكم خطوة بخطوة",
-    ],
-    investment: "يُحدَّد بعد الجلسة",
-    investmentNote: "نبني النطاق معًا",
-    bestFor: "العلامات الباحثة عن علاقة عميقة ومستمرة، لا حملة عابرة.",
+    name: "شريك الموسم",
+    nameEn: "Season Partner",
+    positioning: "اسمك مع الموسم كله — لا في حلقة، بل في عمل يبقى.",
+    investment: "4,750 د.ك",
+    investmentNote: "19 حلقة · 250 د.ك للحلقة — أفضل قيمة",
+    deliverables: SPONSORSHIP_INCLUDES,
+    bestFor: "شريك حقيقي في بناء موسم يترك أثرًا، لا حملة تمر.",
     featured: true,
+  },
+  {
+    icon: Sparkles,
+    name: "إضافة: فيديو دعائي",
+    nameEn: "In-Episode Promo Video",
+    positioning: "فيديو من إنتاجكم يُعرض مرة واحدة داخل الحلقة.",
+    investment: "+1,500 د.ك",
+    investmentNote: "تُضاف على أي باقة، للحلقة الواحدة",
+    deliverables: [
+      "فيديو دعائي كامل من إنتاجكم يُعرض مرة واحدة داخل الحلقة",
+      "كل ما تتضمنه الباقة الأساسية",
+      "متاح لعدد محدود من الشراكات في الموسم",
+    ],
+    bestFor: "إطلاق يستحق أن يُرى، لا أن يُذكر فقط.",
   },
 ]
 
@@ -370,7 +379,12 @@ export default async function PartnerPage() {
             </Badge>
             <h2 className="mb-4 text-heading font-bold">طرق متعددة للحضور</h2>
             <p className="mx-auto max-w-measure text-lead text-muted-foreground">
-              نقاط انطلاق نبني عليها معًا. كل باقة قابلة للتفصيل — والسعر يُحدَّد بعد فهم أهدافك ضمن مقترح مخصّص.
+              {/* THE SUBHEAD CONTRADICTED THE CARDS BELOW IT: «والسعر يُحدَّد بعد فهم
+                  أهدافك ضمن مقترح مخصّص» — written when no price was shown, and left
+                  standing directly above four printed prices. A company read the
+                  sentence, then read 350 د.ك, and had to guess which one we meant. */}
+              الأسعار معلنة، لا تُطلب. اختر مدة الحضور — أما ما تحصل عليه فواحد في كل
+              الباقات: حضور كامل داخل الحلقة، وبلا أي مقاطعة لمحتواها.
             </p>
           </div>
           <div className="mx-auto grid max-w-5xl gap-6 md:grid-cols-2">

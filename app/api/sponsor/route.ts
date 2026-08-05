@@ -1,4 +1,5 @@
 import { env } from "@/lib/env"
+import { UNDECIDED } from "@/lib/partnerships/collaboration"
 import { NextRequest, NextResponse } from "next/server"
 import { db } from "@/lib/db"
 import { sponsorshipLeads } from "@/lib/db/schema"
@@ -89,7 +90,7 @@ export async function POST(request: NextRequest) {
        below — DOMPurify.sanitize(undefined) does not quietly return "".
        The stored text says WHY it is empty, so a lead that skipped the
        question stays distinguishable in the admin from one never asked. */
-    const undecided = collaboration_types.includes("not_sure")
+    const undecided = collaboration_types.includes(UNDECIDED)
     if (!undecided && (!budget_range || typeof budget_range !== "string")) {
       return NextResponse.json({ error: "نطاق الميزانية مطلوب" }, { status: 400 })
     }
