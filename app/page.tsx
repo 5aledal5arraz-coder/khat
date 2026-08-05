@@ -21,7 +21,6 @@ import {
   formatArabicDate,
 } from "@/lib/shared/formatters"
 import { resolveDefaultOgImage } from "@/lib/seo/og"
-import { KhatLogo } from "@/components/brand/khat-logo"
 import {
   BRAND_DESCRIPTION,
   BRAND_HEADLINE_ACCENT,
@@ -144,30 +143,12 @@ export default async function HomePage() {
           <div className="absolute end-[12%] top-[22%] h-72 w-72 rounded-full bg-[radial-gradient(closest-side,hsl(22_90%_53%/0.14),transparent)]" />
         </div>
 
-        {/* ── The secondary mark, as the field the hero sits on ─────────────
-            The hero measured 38.6% empty — 237px of air in a 614px block — and
-            Khaled said so before the number did. The answer is not a third
-            drawing of the wordmark: the header lockup already spells the name
-            in both scripts, and the badge below repeats it under 1024px.
-
-            This is «KHAT SECONDARY MARK» (identity file p.17): the speech
-            bubble alone, no khaa, no name. It is the one piece of the identity
-            the site had never used, it carries the brand without saying it
-            again, and at 5.5% it gives the block something to sit on rather
-            than something to read.
-
-            aria-hidden and behind everything: it is a surface, not content. */}
-        <div
-          aria-hidden="true"
-          className="pointer-events-none absolute inset-0 -z-[1] flex items-center justify-center"
-        >
-          <KhatLogo
-            variant="secondary-mark"
-            height={340}
-            label={null}
-            className="opacity-[0.055]"
-          />
-        </div>
+        {/* NO WATERMARK HERE. The KHAT secondary mark sat behind this block at
+            5.5% to fill the 38.6% of empty hero — Khaled asked for it, saw it,
+            and removed it on 2026-08-05. The emptiness was never the problem it
+            was solving: the orange rule below now sits under the whole headline
+            rather than inside it, which is what the block needed. Do not put a
+            background mark back without asking him. */}
 
         <div className="mx-auto max-w-4xl">
           {/* THE NAME BELOW lg, THE SEASON ALWAYS — both arguments were right,
@@ -212,29 +193,48 @@ export default async function HomePage() {
           </span>
 
           {/* The mark is a khaa with a line under it, so the headline draws the
-              line it names. `decoration-accent` is decorative, not text: the
-              orange clears SC 1.4.11 (3:1) on the page ground, which is the
-              bar a non-text mark has to meet — the WORD stays --foreground. */}
-          <h1 className="mt-7 text-balance text-display font-bold text-foreground">
-            {BRAND_HEADLINE_LEAD}
-            <br />
-            {BRAND_HEADLINE_REST_BEFORE}{" "}
-            {/* THE WORD IS DRAWN, NOT SET. The sentence describes underlining
-                something, so the last word is left as the line itself and the
-                reader closes it — «تضع تحتها ___» is idiomatic enough in Arabic
-                that the mind supplies «خطًّا» before it notices it was asked to.
+              line it names. The rule is decorative, not text: the orange clears
+              SC 1.4.11 (3:1) on the page ground, which is the bar a non-text
+              mark has to meet — the WORDS stay --foreground.
 
-                THE WORD IS STILL HERE. It is `sr-only`, not deleted: a screen
-                reader gets the whole sentence, `BRAND_DESCRIPTION` carries it
-                into the metadata, and the pun costs a blind visitor nothing.
-                Deleting it would have made the headline a sentence that simply
-                stops. */}
-            <span className="sr-only">{BRAND_HEADLINE_ACCENT}</span>
-            <span
-              aria-hidden="true"
-              className="mx-1 inline-block h-[0.09em] w-[1.45em] translate-y-[0.14em] rounded-full bg-accent align-baseline"
-            />
+              THE WORD IS DRAWN, NOT SET. The sentence describes underlining
+              something, so the last word is left as the line itself and the
+              reader closes it — «تضع تحتها ___» is idiomatic enough in Arabic
+              that the mind supplies «خطًّا» before it notices it was asked to.
+              The word is still HERE, `sr-only` rather than deleted: a screen
+              reader gets the whole sentence, `BRAND_DESCRIPTION` carries it
+              into the metadata, and the pun costs a blind visitor nothing.
+
+              THE RULE MOVED OUT OF THE SENTENCE, 2026-08-05. It used to be an
+              inline span sitting where «خطًّا» would have been — on the
+              baseline, at the end of line two, 1.45em long. Khaled asked for it
+              below the text, and he is right for a reason the inline version
+              could not satisfy: the line the brand names is one you put UNDER a
+              phrase, not one you put after it. Inline, it read as a redaction
+              bar mid-sentence; under the block, it is the gesture the name
+              describes, and it does the job the watermark was added for.
+
+              It lives OUTSIDE the <h1>: it is not a word, and an empty span
+              inside the heading was already `aria-hidden`. Width is in `em` of
+              the display size so it tracks the headline at every breakpoint
+              instead of needing its own responsive scale. */}
+          <h1 className="mt-7 text-balance text-display font-bold text-foreground">
+            {BRAND_HEADLINE_LEAD}{" "}
+            {/* The space is NOT redundant next to the <br>. Anything that
+                flattens this heading to a string — a screen reader that treats
+                <br> as a break rather than whitespace, a share preview, a
+                scraper — otherwise reads «كالعباراتالتي». One character. */}
+            <br />
+            {BRAND_HEADLINE_REST_BEFORE}
+            <span className="sr-only"> {BRAND_HEADLINE_ACCENT}</span>
           </h1>
+
+          <div
+            aria-hidden="true"
+            className="mt-5 flex justify-center text-display"
+          >
+            <span className="block h-[0.075em] w-[3.6em] rounded-full bg-accent" />
+          </div>
 
           <p className="mx-auto mt-6 max-w-measure text-pretty text-lead text-muted-foreground">
             {BRAND_SUBHEAD}
