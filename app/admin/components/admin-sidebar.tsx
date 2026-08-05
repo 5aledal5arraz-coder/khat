@@ -98,6 +98,7 @@ const navGroups: NavGroup[] = [
     items: [
       { href: "/admin/episodes", icon: PlayCircle, label: "الحلقات" },
       { href: "/admin/home-content", icon: Home, label: "واجهة الموقع" },
+      { href: "/admin/about-team", icon: Users, label: "فريق «من نحن»" },
       { href: "/admin/newsletter", icon: Mail, label: "النشرة البريدية" },
       { href: "/admin/community", icon: MessagesSquare, label: "مساهمات المجتمع" },
       { href: "/admin/analytics", icon: BarChart3, label: "التحليلات" },

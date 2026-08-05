@@ -26,7 +26,25 @@ export interface TeamMember {
    * shipping a third-party iframe on a page nobody asked to watch.
    */
   videoUrl?: string
+  /**
+   * His email, so a reader can write to the RIGHT person instead of a shared
+   * inbox. Khalid, 2026-08-06: «ضيف لي ايميل كل واحد عشان اللي حاب يراسلنا
+   * يقدر». Optional — a member with none simply shows no mail link.
+   */
+  email?: string
+  /**
+   * His own accounts, separate from خط's. `platform` is a key from the shared
+   * icon map (`components/platforms/platform-icon.tsx`), so a member's X icon is
+   * the same X icon the footer uses and no second set of glyphs appears.
+   */
+  socials?: TeamMemberSocial[]
   order: number
+}
+
+export interface TeamMemberSocial {
+  /** A key `PlatformIcon` knows: x · instagram · tiktok · youtube · threads … */
+  platform: string
+  url: string
 }
 
 export interface ValueItem {

@@ -31,6 +31,7 @@ import { getAboutContent } from "@/lib/content/static-content"
 import { AboutVideo } from "./about-video"
 import { YouTubeEmbed } from "@/components/episodes/youtube-embed"
 import { cn } from "@/lib/utils"
+import { PlatformIcon } from "@/components/platforms/platform-icon"
 import type { TeamMember } from "@/types/static-content"
 
 // Map icon string names to Lucide components
@@ -340,6 +341,47 @@ function TeamMemberRow({ member, flip }: { member: TeamMember; flip: boolean }) 
           <p className="mx-auto mt-5 max-w-measure text-pretty text-lead leading-prose text-muted-foreground md:mx-0">
             {member.description}
           </p>
+        )}
+
+        {/* ── HOW TO REACH HIM ────────────────────────────────────────────
+            Khaled: «ضيف لي ايميل كل واحد عشان اللي حاب يراسلنا يقدر». A named
+            person with a named address beats a shared inbox — the reader knows
+            who will read it, and each of the three gets what belongs to him
+            rather than everything landing on the founder.
+
+            His own accounts, NOT خط's: the icons come from the same
+            `PlatformIcon` map the footer uses, so a member's X is the site's X
+            and no second set of glyphs appears on one page. */}
+        {(member.email || (member.socials?.length ?? 0) > 0) && (
+          <div
+            className={cn(
+              "mt-6 flex flex-wrap items-center gap-2",
+              flip ? "justify-center md:justify-end" : "justify-center md:justify-start",
+            )}
+          >
+            {member.email && (
+              <a
+                href={`mailto:${member.email}`}
+                className="inline-flex items-center gap-2 rounded-full border border-border bg-card px-4 py-2 text-caption font-medium text-foreground transition-colors hover:border-primary hover:text-primary"
+              >
+                <Mail className="h-3.5 w-3.5" />
+                {member.email}
+              </a>
+            )}
+            {(member.socials ?? []).map((s) => (
+              <a
+                key={`${s.platform}-${s.url}`}
+                href={s.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                aria-label={`${member.name} — ${s.platform}`}
+                title={s.platform}
+                className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-border text-muted-foreground transition-colors hover:border-primary hover:text-primary"
+              >
+                <PlatformIcon iconName={s.platform} className="h-4 w-4" />
+              </a>
+            ))}
+          </div>
         )}
 
         {member.message && (
