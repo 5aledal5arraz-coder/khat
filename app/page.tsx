@@ -81,6 +81,14 @@ const jsonLd = {
         "https://www.tiktok.com/@khatpodcast",
         "https://www.threads.com/@khat.podcast",
         "https://www.snapchat.com/@khatpodcast",
+        // The audio platforms, added 2026-08-05 once real URLs existed. Every
+        // one is verified — see scripts/set-official-audio-platforms.ts, which
+        // refuses to write a URL that does not resolve. `sameAs` is how a
+        // knowledge panel learns these profiles are the same show, so a wrong
+        // entry here points Google at a stranger, which is exactly what the
+        // Instagram and X lines above were doing before they were fixed.
+        "https://podcasts.apple.com/us/podcast/khatpodcast/id1701324741",
+        "https://open.spotify.com/show/6DVDvDO6oCdNTG0snPlpGn",
       ],
     },
     {
@@ -89,6 +97,11 @@ const jsonLd = {
       name: "خط",
       url: "https://khatpodcast.com",
       inLanguage: "ar",
+      // `webFeed` is the property schema.org defines for a PodcastSeries, and
+      // it was missing — so nothing on this site declared that KHAT has a feed
+      // at all. Khaled supplied it on 2026-08-05; it is the host's own RSS.com
+      // feed, checked: 19 items, every one with an audio enclosure.
+      webFeed: "https://media.rss.com/khatpodcast/feed.xml",
       description:
         BRAND_DESCRIPTION,
     },
