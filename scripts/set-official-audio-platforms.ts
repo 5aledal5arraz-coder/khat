@@ -91,7 +91,18 @@ export const AUDIO_PLATFORMS: Row[] = [
   {
     platform_key: "amazon_music",
     platform_name: "Amazon Music",
-    url: "https://music.amazon.com/podcasts/6030a0a2-9f89-4d3e-be75-510af25c2ba2",
+    // KHALED'S OWN URL, from his browser — the canonical form, with the show's
+    // name in the path. The bare-UUID form I scraped off the RSS.com page also
+    // answers 200 and Amazon redirects it here, so both work; this one is
+    // preferred because it is the one Amazon itself settles on, and because it
+    // is the only one a human can read.
+    //
+    // IT ALSO SUPPLIED THE VERIFICATION THE OTHER THREE HAD AND THIS ONE DID
+    // NOT. Apple and Spotify were confirmed by «بودكاست خط» in their <title>;
+    // Amazon's page renders its title client-side, so it came back empty and
+    // all I had was a 200 — which a search page returns too. The slug here
+    // decodes to «بودكاست-خط», so the show is now named in the URL itself.
+    url: "https://music.amazon.com/podcasts/6030a0a2-9f89-4d3e-be75-510af25c2ba2/%D8%A8%D9%88%D8%AF%D9%83%D8%A7%D8%B3%D8%AA-%D8%AE%D8%B7",
     // No amazon entry in ICON_MAP (components/platforms/platform-icon.tsx);
     // `getPlatformIcon` falls back to Headphones, which is correct for an audio
     // platform and not a broken glyph. Add a real mark there when one exists.
