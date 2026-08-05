@@ -64,7 +64,7 @@ interface Platform {
 
 /** `icon_name` values must exist in components/platforms/platform-icon.tsx. */
 export const SOCIAL_PLATFORMS: Platform[] = [
-  { key: "youtube", name: "يوتيوب", url: "https://www.youtube.com/@KhatPodcast",
+  { key: "youtube", name: "YouTube", url: "https://www.youtube.com/@KhatPodcast",
     handle: "@KhatPodcast", icon: "youtube", category: "video", order: 1, episodePage: true,
     source: "YOUTUBE_CHANNEL_HANDLE — the handle the episode sync itself reads" },
   { key: "instagram", name: "إنستغرام", url: "https://www.instagram.com/Khat.Podcast",

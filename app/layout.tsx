@@ -81,13 +81,27 @@ export default async function RootLayout({
   const hdrs = await headers()
   const pathname = hdrs.get("x-pathname") ?? ""
   const isAdminRoute = pathname.startsWith("/admin")
+  /**
+   * The maintenance page gets NO public chrome either, for a reason the admin
+   * case does not share: every link in the Header, Footer and MobileNav points
+   * into a site that is closed, and the middleware rewrites all of them
+   * straight back to this page. A visitor could click «الحلقات» and arrive
+   * here again — a menu of dead links wrapped around the notice explaining why
+   * they are dead.
+   *
+   * It also skips the episode fetch below, which is the whole point of a
+   * maintenance page: it must not depend on the data layer that may be the
+   * reason for the outage in the first place.
+   */
+  const isMaintenance = pathname === "/maintenance"
+  const isBareRoute = isAdminRoute || isMaintenance
 
   // Theme is a single light surface platform-wide. The palette lives in one
   // place — the :root block in globals.css — so it reaches <body> and any
   // React portal too; the admin's divergences ride the same block, keyed off
   // `[data-surface="admin"]`. The old system/dark/light toggle was vestigial
   // (forced light by the inline token overrides), so it has been removed.
-  const episodes = isAdminRoute ? [] : await fetchAllEpisodes().catch(() => [])
+  const episodes = isBareRoute ? [] : await fetchAllEpisodes().catch(() => [])
 
   // Check if there's an episode published in the last 48 hours
   const cutoff = new Date()
@@ -179,7 +193,7 @@ export default async function RootLayout({
       </head>
       <body className="font-sans antialiased" suppressHydrationWarning>
         <ViewportFix />
-        {isAdminRoute ? (
+        {isBareRoute ? (
           // Admin pages bring their own chrome via app/admin/layout.tsx.
           // Skip Header / Footer / MobileNav and the public min-h-dvh
           // flex wrapper — admin layout owns its own structure.

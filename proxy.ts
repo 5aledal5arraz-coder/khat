@@ -155,7 +155,20 @@ export async function proxy(request: NextRequest) {
       if (maintenance) {
         const url = request.nextUrl.clone()
         url.pathname = '/maintenance'
-        return NextResponse.rewrite(url, { status: 503 })
+        // FORWARD THE HEADERS, AND SAY WHERE THE REWRITE LANDED. A bare
+        // `NextResponse.rewrite(url)` drops every header set above, so the root
+        // layout read `x-pathname` as "" and mounted the full public chrome
+        // around the maintenance page — a header and a nav whose every link
+        // leads back into the closed site, and the middleware rewrites each of
+        // them straight back here. `x-pathname` is set to the DESTINATION, not
+        // the original path, because what the layout needs is the page it is
+        // about to render.
+        const maintenanceHeaders = new Headers(requestHeaders)
+        maintenanceHeaders.set('x-pathname', '/maintenance')
+        return NextResponse.rewrite(url, {
+          status: 503,
+          request: { headers: maintenanceHeaders },
+        })
       }
     } catch (err) {
       console.error(
