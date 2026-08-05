@@ -77,27 +77,27 @@ interface PartnerPackage {
    */
   investment: string
   investmentNote?: string
+  /**
+   * How many of `deliverables` are the shared floor. Everything after this
+   * index is what THIS tier adds, and the card draws it in KHAT Orange — so a
+   * company reading the season card sees what the extra 4,400 د.ك buys rather
+   * than diffing two ten-item lists in its head.
+   */
+  baseCount?: number
 }
 
 /**
- * WHAT EVERY SPONSORSHIP INCLUDES — one list, because it is one offer.
- *
- * The tiers differ in HOW LONG the partner is present, not in what presence
- * means. Writing the deliverables once per package would let the three drift
- * apart, and a sponsor comparing them would be reading three different
- * promises about the same product.
+ * WHAT EVERY SPONSORSHIP INCLUDES — the floor, not the whole offer.
  *
  * ── THE LAST LINE IS THE PRODUCT, NOT A DISCLAIMER ──────────────────────
  * Khaled, 2026-08-05: «محتوى الحلقه يخلو من ذكر الرعاة». Nothing is read out,
  * nothing is endorsed, the conversation is never interrupted. That is why
- * every global benchmark I researched — $15–30 CPM audio host-read, $25–65
- * video mid-roll, $40+ dedicated YouTube — prices a DIFFERENT product: all of
- * them pay for the host's voice, and this one deliberately withholds it.
- *
- * What is sold instead is presence and permanence. A 45-second host-read is
- * 0.6% of a two-hour episode; a logo and a product on the table is 100% of it,
- * and the episode keeps being watched for years. That is the argument the
- * prices rest on, and it is a stronger one than a read.
+ * every global benchmark researched for this page — $15–30 CPM audio
+ * host-read, $25–65 video mid-roll, $40+ dedicated YouTube — prices a
+ * DIFFERENT product: all of them pay for the host's voice, and this one
+ * deliberately withholds it. What is sold instead is presence and permanence:
+ * a 45-second read is 0.6% of a two-hour episode; a logo and a product on the
+ * table is 100% of it, and the episode keeps being watched for years.
  */
 const SPONSORSHIP_INCLUDES = [
   "شعار شركتكم داخل الحلقة",
@@ -105,6 +105,38 @@ const SPONSORSHIP_INCLUDES = [
   "حضور دائم على موقع خط",
   "منتجكم حاضر على الطاولة أثناء التصوير — إن كان لكم منتج",
   "محتوى الحلقة يخلو من أي ذكر للرعاة — وهذا ما يحفظ قيمة حضوركم",
+]
+
+/**
+ * ── THE TIERS HAD IDENTICAL DELIVERABLES, AND THAT WAS THE PROBLEM ───────
+ * Khaled: «المبلغ زين ولكن يحتاج شرح ليش ادفع هذا المبلغ». He was right, and
+ * the fault was mine: I gave all three tiers one shared list, so the only
+ * difference a company could see between 350 د.ك and 4,750 د.ك was a number of
+ * episodes. Thirteen times the price for thirteen times the same thing is a
+ * quantity discount, not a partnership — and it invites the obvious reply,
+ * "then I will take one episode and see".
+ *
+ * What actually scales with commitment is REACH BEYOND THE EPISODE. A season
+ * partner is not buying more minutes; they are entering خط's own marketing —
+ * every poster, every platform, for a whole season, plus an announcement that
+ * says the partnership exists at all. None of that is available for one
+ * episode, and that is what the 4,750 is buying.
+ *
+ * Each tier's list is the base PLUS its own additions, composed here so the
+ * shared floor cannot drift between three copies.
+ */
+const FIVE_EPISODE_ADDS = [
+  "شعاركم على بوسترات تسويق الحلقات الخمس — إنستقرام وتيك توك وإكس",
+  "منشور تعريفي بالشراكة على حسابات خط",
+]
+
+const SEASON_ADDS = [
+  "فيديو توقيع الشراكة — يُصوَّر وينشر على حساباتنا وحساباتكم",
+  "شعاركم على كل بوسترات تسويق الموسم — إنستقرام وتيك توك وإكس، طوال الموسم",
+  "منشورات متكررة تعرّف بالشراكة عبر منصات خط",
+  "ذكر الشراكة في الإعلان عن الموسم وفي التيزر",
+  "حضور مميّز في صفحة الموسم على الموقع",
+  "أولوية الحجز في الموسم التالي قبل طرحه",
 ]
 
 const PACKAGES: PartnerPackage[] = [
@@ -125,7 +157,8 @@ const PACKAGES: PartnerPackage[] = [
     positioning: "حضور متكرر يبني تذكّرًا لا تصنعه مرة واحدة.",
     investment: "1,500 د.ك",
     investmentNote: "300 د.ك للحلقة — أقل من سعر الحلقة المفردة",
-    deliverables: SPONSORSHIP_INCLUDES,
+    deliverables: [...SPONSORSHIP_INCLUDES, ...FIVE_EPISODE_ADDS],
+    baseCount: SPONSORSHIP_INCLUDES.length,
     bestFor: "علامة تريد أن تُرى أكثر من مرة قبل أن تُذكر.",
   },
   {
@@ -135,7 +168,8 @@ const PACKAGES: PartnerPackage[] = [
     positioning: "اسمك مع الموسم كله — لا في حلقة، بل في عمل يبقى.",
     investment: "4,750 د.ك",
     investmentNote: "19 حلقة · 250 د.ك للحلقة — أفضل قيمة",
-    deliverables: SPONSORSHIP_INCLUDES,
+    deliverables: [...SPONSORSHIP_INCLUDES, ...SEASON_ADDS],
+    baseCount: SPONSORSHIP_INCLUDES.length,
     bestFor: "شريك حقيقي في بناء موسم يترك أثرًا، لا حملة تمر.",
     featured: true,
   },
@@ -427,12 +461,23 @@ export default async function PartnerPage() {
                     </div>
                   </div>
                   <ul className="mb-5 space-y-2.5 border-t border-border/40 pt-5">
-                    {pkg.deliverables.map((d) => (
-                      <li key={d} className="flex items-start gap-2.5">
-                        <Check className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
-                        <span className="text-caption text-foreground/85">{d}</span>
-                      </li>
-                    ))}
+                    {/* An item this tier ADDS is drawn in KHAT Orange and at full
+                          weight; the shared floor stays in indigo. A company
+                          reading the season card can then see what the extra
+                          4,400 د.ك buys, instead of diffing two ten-item lists
+                          in its head — which is what «يحتاج شرح ليش ادفع هذا
+                          المبلغ» was actually asking for. */}
+                    {pkg.deliverables.map((d, i) => {
+                        const isAdd = pkg.baseCount !== undefined && i >= pkg.baseCount
+                        return (
+                          <li key={d} className="flex items-start gap-2.5">
+                            <Check className={`mt-0.5 h-4 w-4 shrink-0 ${isAdd ? "text-accent" : "text-primary"}`} />
+                            <span className={`text-caption ${isAdd ? "font-semibold text-foreground" : "text-foreground/85"}`}>
+                              {d}
+                            </span>
+                          </li>
+                        )
+                      })}
                   </ul>
                   <div className="rounded-xl bg-muted/30 px-4 py-3">
                     <span className="text-micro font-semibold uppercase text-muted-foreground">
