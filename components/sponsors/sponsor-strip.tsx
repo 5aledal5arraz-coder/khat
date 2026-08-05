@@ -64,9 +64,30 @@ export function SponsorStrip({
     <section className={className} aria-labelledby="sponsor-strip-heading">
       <div className="mx-auto max-w-6xl px-6">
         <div className="rounded-2xl border border-border/70 bg-card px-6 py-10 sm:px-10">
+          {/* ── NO `uppercase`, NO `tracking-` — AND THEY WERE NOT DOING ANY
+              DAMAGE EITHER, WHICH IS THE POINT ────────────────────────────
+              This label carried `uppercase tracking-[0.2em]`: the standard
+              Latin eyebrow treatment, applied to Arabic. Measured on the live
+              page, both are dead CSS here. `text-transform: uppercase` has no
+              effect on Arabic glyphs, and the CSS Text spec forbids applying
+              letter-spacing between characters joined by a cursive script —
+              Chrome implements that, so «شركاء الموسم» rendered 48px wide with
+              the 2.4px tracking and 48px wide without it. Zero difference.
+
+              Removed anyway, because dead CSS that LOOKS load-bearing is how a
+              later reader concludes the spacing is intentional and copies it
+              onto something Latin, or "fixes" the Arabic to make it take.
+
+              WHAT WAS ACTUALLY WRONG was plainer: 12px in Dusty Violet is
+              4.32:1 on the Soft Blush card, just under the 4.5 AA line, and
+              small enough to read as an artefact rather than a heading. Dusty
+              Violet is the palette's only mid-tone, so there is no lighter ink
+              that clears AA — the label goes to the identity's own ink at
+              14px, which is legible and still quiet because it is small.
+              Khaled asked «شنو الخط المستخدم» about exactly this. */}
           <h2
             id="sponsor-strip-heading"
-            className="text-center text-micro font-semibold uppercase tracking-[0.2em] text-muted-foreground"
+            className="text-center text-caption font-semibold text-foreground"
           >
             {heading}
           </h2>

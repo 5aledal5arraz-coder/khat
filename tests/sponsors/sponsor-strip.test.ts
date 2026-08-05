@@ -102,6 +102,37 @@ describe("an empty band never renders", () => {
   })
 })
 
+describe("an uploaded logo is served the moment it lands", () => {
+  /**
+   * Khalid uploaded a partner logo on 2026-08-05 and it did not appear. The
+   * row was right and the file was on disk at full size; `/partners/<f>.png`
+   * still 404'd. Next resolves `public/` when the server BOOTS, so a file
+   * written afterwards is invisible until a restart — measured on production:
+   * 404 before a plain `pm2 restart`, 200 after, with no rebuild between.
+   *
+   * The upload reported success every time, because the upload DID succeed.
+   * Only the serving failed, silently. `next dev` serves `public/` per
+   * request, so a local run cannot reproduce it at all — which is exactly why
+   * this is a source assertion and not a request test.
+   */
+  const UPLOAD = read("app/api/admin/partnerships/upload/route.ts")
+
+  it("the upload hands back a served path, not a public/ one", () => {
+    expect(UPLOAD).toContain("/uploads/partners/")
+    expect(UPLOAD).not.toMatch(/const url = `\/partners\//)
+  })
+
+  it("the route that serves them reads from disk per request", () => {
+    const SERVE = read("app/uploads/partners/[file]/route.ts")
+    expect(SERVE).toMatch(/readFile/)
+    // A filename off a URL is untrusted: basename + a strict pattern + a
+    // resolved-path check. Losing any one of the three is a traversal.
+    expect(SERVE).toContain("path.basename")
+    expect(SERVE).toMatch(/startsWith\(path\.resolve\(PARTNERS_DIR\)/)
+    expect(SERVE).toContain("nosniff")
+  })
+})
+
 describe("editing a partner refreshes what a visitor sees", () => {
   it("expires the tag, not just the path", () => {
     // The data lives in `unstable_cache` under a tag; `revalidatePath` alone
