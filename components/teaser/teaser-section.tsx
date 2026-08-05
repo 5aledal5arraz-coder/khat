@@ -94,7 +94,7 @@ export function TeaserSection({ teaser }: { teaser: ActiveTeaserView }) {
               {teaser.title}
             </h3>
             {teaser.guestName ? (
-              <span className="mt-2 block text-caption font-semibold text-accent-strong">
+              <span className="mt-2 block text-caption font-bold text-accent">
                 مع {teaser.guestName}
               </span>
             ) : null}

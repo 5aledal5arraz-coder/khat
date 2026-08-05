@@ -197,25 +197,39 @@ export function NewsletterSignup({
           disabled={loading}
           className={cn(
             "inline-flex shrink-0 items-center justify-center gap-2 rounded-xl font-semibold shadow-sm transition-all disabled:opacity-70",
-            /* On the indigo band the CTA is orange — the identity's accent doing
-               the one job it exists for. It uses BOTH of the palette's oranges,
-               because neither does the whole job alone:
-                 fill   KHAT Burnt Orange, so the Warm Ivory label reads at
-                        4.66:1. On KHAT Orange no identity colour clears 4.5:1 —
-                        the best is Signature Purple at 3.66 — and a 14px label
-                        is normal-size text, so the fill has to be the darker one.
-                 border KHAT Orange, because Burnt Orange sits only 2.31:1 off
-                        the indigo card and the shape would stop reading as a
-                        control (SC 1.4.11). The border clears it at 3.56:1.
-               Two oranges touching is the identity's own pairing, not a mix. */
+            /* ── THE CTA IS KHAT ORANGE, AND THE LABEL IS WHY IT CAN BE ────
+               Khaled looked at this on his phone and said the orange was not
+               the identity's. He was right: the fill was KHAT BURNT Orange
+               (#C83B0D), not KHAT Orange (#FD4F04). Both are in «ملف عرض
+               الشعار», but the accent the brand actually leads with is the
+               brighter one, and this is the site's primary call to action.
+
+               THE REASON IT WAS THE DARKER ONE. On #FD4F04 no identity colour
+               reaches 4.5:1 — Signature Purple is the best at 3.66, then Deep
+               Indigo 3.56, Soft Blush 3.16, Warm Ivory 3.03. That is a property
+               of the orange, not a gap in the palette, so at a 14px label the
+               fill HAD to be the darker orange.
+
+               WHAT CHANGED IS THE LABEL, NOT THE PALETTE. WCAG asks 4.5:1 of
+               normal text but only 3:1 of LARGE text — 24px, or 18.66px bold.
+               At `text-subhead` (24px) the 3.66:1 of Signature Purple on the
+               brand orange is compliant, so the button can carry the real
+               accent. Khaled chose this over keeping the darker fill.
+
+               No border any more: it existed because Burnt Orange sat 2.31:1
+               off the indigo card and the shape stopped reading as a control.
+               KHAT Orange is 3.56:1 against that card, which clears SC 1.4.11
+               on its own. */
             isInline
-              /* Hover does NOT swap to KHAT Orange — that would drop the ivory
-                 label to 3.03:1 on the one state a user is about to click. It
-                 blends the same burnt orange toward the indigo behind it, so
-                 contrast rises rather than falls. */
-              ? "border border-accent bg-accent-strong text-background hover:bg-accent-strong/90"
+              /* Hover darkens toward the indigo behind it rather than swapping
+                 colour, so contrast RISES on the state a user is about to
+                 click instead of falling. */
+              ? "bg-accent text-foreground hover:bg-accent/90"
               : "bg-primary text-primary-foreground hover:bg-primary/90",
             isHero ? "px-7 py-3 text-body" : "px-5 py-2.5 text-caption",
+            /* The inline band is the only variant on the brand orange, so it is
+               the only one that needs the large-text size to stay legible. */
+            isInline && "text-subhead font-bold py-2.5",
           )}
         >
           {loading ? (
@@ -317,7 +331,7 @@ export function NewsletterSignup({
         className="pointer-events-none absolute -top-20 start-1/2 h-56 w-56 -translate-x-1/2 rounded-full bg-primary/10 blur-3xl"
       />
       <div className="relative">
-        <span className="inline-flex items-center gap-1.5 rounded-full border border-accent/30 bg-accent/10 px-3 py-1 text-micro font-semibold text-accent-strong">
+        <span className="inline-flex items-center gap-1.5 rounded-full border border-accent/30 bg-accent/10 px-3 py-1 text-micro font-semibold text-foreground">
           <Sparkles className="h-3.5 w-3.5" />
           النشرة البريدية
         </span>

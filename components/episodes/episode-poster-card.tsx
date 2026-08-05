@@ -66,7 +66,7 @@ export function EpisodePosterCard({
       </div>
       <div className="flex flex-1 flex-col p-4">
         {ep.guest?.name ? (
-          <span className="text-micro font-semibold text-accent-strong">{ep.guest.name}</span>
+          <span className="text-caption font-bold text-accent">{ep.guest.name}</span>
         ) : null}
         {/* `text-lead`, not `text-body`: at `text-body` the card's TITLE sat at
             exactly the body step, so the only thing separating a title from

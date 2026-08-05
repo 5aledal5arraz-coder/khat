@@ -276,7 +276,7 @@ export default async function EpisodesPage({ searchParams }: EpisodesPageProps) 
       <div className="mx-auto max-w-6xl">
         {/* Header */}
         <header className="text-center">
-          <span className="text-micro font-bold uppercase text-accent-strong">
+          <span className="text-micro font-bold uppercase text-muted-foreground">
             أرشيف الحوارات
           </span>
           <h1 className="mt-3 text-title font-bold text-foreground">

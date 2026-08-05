@@ -52,8 +52,8 @@ export function BeforeYouWatch({ data }: BeforeYouWatchProps) {
           </div>
         )}
         {who_is_it_not_for && (
-          <div className="rounded-lg border border-accent-strong/25 bg-accent-strong/5 p-4">
-            <h3 className="mb-2 text-caption font-medium text-accent-strong">ليست لك إذا...</h3>
+          <div className="rounded-lg border border-accent/30 bg-accent/5 p-4">
+            <h3 className="mb-2 text-caption font-medium text-foreground">ليست لك إذا...</h3>
             <p className="max-w-measure text-caption text-muted-foreground whitespace-pre-line">{who_is_it_not_for}</p>
           </div>
         )}
