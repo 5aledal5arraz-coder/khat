@@ -59,6 +59,14 @@ scratchpad/
 # credential-bearing commands; scrubbed from history 2026-07-11. Never commit.
 .claude/settings.local.json
 
+# Admin-uploaded PARTNER LOGOS — same rule as the teasers below, and for the
+# same reason: they are runtime media written by an upload route
+# (app/api/admin/partnerships/upload/route.ts), not source. Production had one
+# logo the repo had never seen and the repo had one production had never seen;
+# committing user uploads is how that happens. They still reach the server —
+# rsync does not read .gitignore — they just stop being versioned.
+public/partners/
+
 # Admin-uploaded teaser videos — runtime media on disk (public/teasers/),
 # recreated by the upload route. Never commit uploaded/test videos.
 public/teasers/
