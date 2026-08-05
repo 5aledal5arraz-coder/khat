@@ -127,10 +127,10 @@ beforeEach(() => {
   process.env.OPENAI_API_KEY = "test-key"
 })
 
-const REAL_PLATFORMS = ["youtube_community", "instagram", "tiktok", "x", "threads", "snapchat", "whatsapp"]
+const REAL_PLATFORMS = ["youtube_community", "instagram", "tiktok", "x", "threads", "whatsapp"]
 
-describe("FIX B — social pack targets khat's real 7 platforms", () => {
-  it("prompt lists exactly the real 7 and never LinkedIn / Facebook", async () => {
+describe("FIX B — social pack targets khat's real platforms", () => {
+  it("prompt lists exactly the real platforms, and never LinkedIn / Facebook / Snapchat", async () => {
     runAiTaskMock.mockResolvedValue({ status: "succeeded", parsed: { social_posts: [], short_form_ideas: [] }, modelName: "t", runId: "r" })
     await generateSocialBundle(input())
 
@@ -140,18 +140,21 @@ describe("FIX B — social pack targets khat's real 7 platforms", () => {
     // target platform KEY.
     expect(sys).not.toContain(`"linkedin"`)
     expect(sys).not.toContain(`"facebook"`)
+    // SNAPCHAT WAS ONE OF THE SEVEN UNTIL 2026-08-05 — «شيل ايقونة سناب شات ما
+    // ابيها». The row is gone from both databases and from the seed; this stops
+    // the GENERATOR from writing a post for a platform KHAT does not publish
+    // on, which no database change could prevent on its own.
+    expect(sys).not.toContain(`"snapchat"`)
   })
 
-  it("markdown labels the new platforms (threads / snapchat / whatsapp)", () => {
+  it("markdown labels the newer platforms (threads / whatsapp)", () => {
     const pkg = emptyGrowthPackage()
     pkg.social_posts = [
       { platform: "threads", caption: "أ", hashtags: [] },
-      { platform: "snapchat", caption: "ب", hashtags: [] },
       { platform: "whatsapp", caption: "ج", hashtags: [] },
     ]
     const md = growthToMarkdown(pkg)
     expect(md).toContain("ثريدز")
-    expect(md).toContain("سناب شات")
     expect(md).toContain("واتساب")
   })
 })

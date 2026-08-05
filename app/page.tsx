@@ -80,7 +80,6 @@ const jsonLd = {
         "https://x.com/Khat_Podcast",
         "https://www.tiktok.com/@khatpodcast",
         "https://www.threads.com/@khat.podcast",
-        "https://www.snapchat.com/@khatpodcast",
         // The audio platforms, added 2026-08-05 once real URLs existed. Every
         // one is verified — see scripts/set-official-audio-platforms.ts, which
         // refuses to write a URL that does not resolve. `sameAs` is how a

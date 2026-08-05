@@ -76,9 +76,11 @@ export const SOCIAL_PLATFORMS: Platform[] = [
   { key: "tiktok", name: "تيك توك", url: "https://www.tiktok.com/@khatpodcast",
     handle: "@khatpodcast", icon: "tiktok", category: "social", order: 4,
     source: "given by Khaled — appears in no description" },
-  { key: "snapchat", name: "سناب شات", url: "https://www.snapchat.com/@khatpodcast",
-    handle: "@khatpodcast", icon: "snapchat", category: "social", order: 5,
-    source: "resolved from «بودكاست خط على سناب شات»" },
+  /* NO SNAPCHAT. Khaled, 2026-08-05: «شيل ايقونة سناب شات ما ابيها». The row
+     was deleted from both databases; leaving the entry here would have put it
+     straight back the next time anyone re-seeded, which is the whole reason a
+     seed file has to be kept honest. The guest-side snapchat icon is a
+     different thing and stays — see scripts/remove-rows-2026-08-05.ts. */
   { key: "threads", name: "ثريدز", url: "https://www.threads.com/@khat.podcast",
     handle: "@khat.podcast", icon: "threads", category: "social", order: 6,
     source: "resolved from «بودكاست خط على ثريدز»" },

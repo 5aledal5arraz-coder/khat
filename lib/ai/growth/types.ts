@@ -47,7 +47,8 @@ export interface RetentionRec {
 
 /** A per-platform social post (copy-ready caption + hashtags). */
 export interface SocialPost {
-  /** khat's real 7: youtube_community | instagram | tiktok | x | threads | snapchat | whatsapp */
+  /** khat's real 6: youtube_community | instagram | tiktok | x | threads | whatsapp
+   *  (snapchat was dropped 2026-08-05 — Khaled does not want it) */
   platform: string
   /** The full caption text, ready to paste. */
   caption: string
