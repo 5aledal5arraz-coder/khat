@@ -57,6 +57,7 @@ import {
   saveDirectorNotesAction,
   createMarkerAction,
   toggleQuestionDoneAction,
+  setCurrentQuestionAction,
 } from "./actions"
 import type { SectionKind, PrepV2Question, PrepV2Insight } from "@/lib/preparation/v2/types"
 import { RecordingClock } from "./recording-clock"
@@ -110,6 +111,34 @@ export function LiveV2Client({ initial }: { initial: LiveV2Snapshot }) {
    * host who is reading it out loud.
    */
   const [heroId, setHeroId] = useState<string | null>(null)
+
+  /**
+   * ── BROADCAST WHICH QUESTION IS ON SCREEN ────────────────────────────────
+   * Khaled: «فيصل وشاهين لازم يشوفون السؤال اللي بيطرحه المحاور … ويعرفون اي
+   * سؤال الان وماهو السؤال التالي».
+   *
+   * The host cockpit ALREADY knew this — `heroId` is the question on his
+   * screen, and `nextUp` beside it in onair-view is what follows. It was simply
+   * private to his browser. The room only ever recorded which questions were
+   * DONE, so the director and the editor were left inferring "probably the
+   * first undone one" — an inference that breaks the instant he skips a
+   * question or doubles back, which is precisely when they need to know.
+   *
+   * So nothing new is computed here; the value he already has is published.
+   * It rides on `active_card_id`, a column that already exists and already
+   * travels with every room broadcast — no migration, no new SSE payload.
+   *
+   * Fire-and-forget: this is a follow-along signal for other people's screens.
+   * If it fails the host must not see an error mid-question, and the next hero
+   * change re-sends it anyway.
+   */
+  const publishedHeroRef = useRef<string | null>(null)
+  useEffect(() => {
+    if (publishedHeroRef.current === heroId) return
+    publishedHeroRef.current = heroId
+    void setCurrentQuestionAction({ roomId: room.id, questionId: heroId }).catch(() => {})
+  }, [heroId, room.id])
+
 
   // The reducer's side effects (telling the director, moving the pin) must NOT
   // run inside a `setState` updater — React may invoke an updater more than

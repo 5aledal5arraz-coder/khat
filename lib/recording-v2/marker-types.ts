@@ -265,3 +265,40 @@ export const DIRECTOR_MARKER_TYPES: QuickMarkerType[] = [
 export function isQuickMarkerType(value: string): value is QuickMarkerType {
   return (QUICK_MARKER_TYPES as readonly string[]).includes(value)
 }
+
+/**
+ * Which question is «الآن» and which is «التالي», for the follow-along rail.
+ *
+ * ── WHY THIS IS A FUNCTION AND NOT FOUR LINES IN THE COMPONENT ─────────────
+ * It started as four lines inside participant-room-view.tsx with a test that
+ * COPIED them. That test would have passed forever while the component drifted
+ * — the exact shape of guard this codebase has been bitten by before. Extracted
+ * so the test exercises the real derivation.
+ *
+ * The failure mode it protects is silent: a wrong question highlighted on the
+ * director's screen raises no error and throws no exception. He simply follows
+ * the wrong line.
+ *
+ * `publishedNow` is `collaboration_rooms.active_card_id` — the question on the
+ * HOST's screen, published by his cockpit. It wins over inference, including
+ * when it points at an already-answered question: a host who goes back to push
+ * on an answer is still on that question, and the crew has to be with him.
+ *
+ * FALLS BACK to "first not-done" when nothing is published, or when what is
+ * published belongs to another section. That fallback is the behaviour everyone
+ * had before this existed, so the rail never shows less than it used to.
+ */
+export function resolveCurrentQuestion<T extends { id: string }>(
+  questions: T[],
+  completedIds: Set<string> | string[],
+  publishedNow: string | null,
+): { currentQuestionId: string | null; nextQuestionId: string | null } {
+  const done = completedIds instanceof Set ? completedIds : new Set(completedIds)
+  const open = questions.filter((q) => !done.has(q.id))
+  const currentQuestionId =
+    publishedNow && questions.some((q) => q.id === publishedNow)
+      ? publishedNow
+      : open[0]?.id ?? null
+  const nextQuestionId = open.filter((q) => q.id !== currentQuestionId)[0]?.id ?? null
+  return { currentQuestionId, nextQuestionId }
+}

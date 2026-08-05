@@ -30,7 +30,7 @@ import {
 import { setChecklistItem } from "@/lib/recording-v2/checklist"
 import { resolveMemberName } from "@/lib/admin/team-identity"
 import { resolveRoomRole } from "@/lib/collaboration/room-roles"
-import { getRoomById } from "@/lib/collaboration/rooms"
+import { getRoomById, updateRoom } from "@/lib/collaboration/rooms"
 import { broadcast } from "@/lib/collaboration/broadcast"
 import type { SectionKind } from "@/lib/preparation/v2/types"
 
@@ -263,6 +263,48 @@ export async function createMarkerAction(input: {
   })
   revalidate(input.roomId)
   return r
+}
+
+/**
+ * Broadcast WHICH QUESTION THE HOST IS ON RIGHT NOW.
+ *
+ * ── THE GAP THIS FILLS ─────────────────────────────────────────────────────
+ * Khaled: «فيصل وشاهين لازم يشوفون السؤال اللي بيطرحه المحاور عشان يتابعون مع
+ * المحاور ويعرفون اي سؤال الان وماهو السؤال التالي».
+ *
+ * The room tracked only `completed_question_ids` — which questions had been
+ * ASKED. From that the others could infer "he is probably on the first undone
+ * one", and that inference breaks the moment the host skips a question or
+ * doubles back, which is exactly when a director most needs to know where he
+ * is. Nothing in the room ever said "now".
+ *
+ * ── WHY `active_card_id` AND NOT A NEW COLUMN ──────────────────────────────
+ * `collaboration_rooms.active_card_id` already exists, already broadcasts with
+ * every room update, and is unused by this room — the preparation room uses it
+ * for the same idea. So this needs no migration and no new SSE payload: the
+ * participant views already receive the field, they were simply never given
+ * anything to read from it.
+ *
+ * EDITOR role is the gate, matching `toggleQuestionDoneAction` beside it — the
+ * host drives this, but a director correcting a mis-set question mid-take is a
+ * repair, not an escalation.
+ */
+export async function setCurrentQuestionAction(input: {
+  roomId: string
+  questionId: string | null
+}) {
+  const gate = await requireActionRole("EDITOR")
+  if (!gate.ok) throw new Error(gate.error)
+  const room = await updateRoom(input.roomId, { active_card_id: input.questionId })
+  revalidate(input.roomId)
+  if (room) {
+    broadcast(input.roomId, {
+      type: "room_update",
+      data: room,
+      timestamp: new Date().toISOString(),
+    })
+  }
+  return { ok: true as const }
 }
 
 export async function toggleQuestionDoneAction(input: {

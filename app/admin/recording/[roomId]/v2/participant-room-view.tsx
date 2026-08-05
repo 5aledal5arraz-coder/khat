@@ -42,6 +42,7 @@ import {
   openIntervals,
   closerFor,
   isIntervalCloser,
+  resolveCurrentQuestion,
 } from "@/lib/recording-v2/marker-types"
 
 const SECTION_LABEL_AR: Record<SectionKind, string> = {
@@ -462,6 +463,32 @@ export function ParticipantRoomView({
     room?.completed_question_ids ?? initial.room.completed_question_ids ?? [],
   )
 
+  /**
+   * ── «الآن» AND «التالي» ───────────────────────────────────────────────────
+   * Khaled: «فيصل وشاهين لازم يشوفون السؤال اللي بيطرحه المحاور … ويعرفون اي
+   * سؤال الان وماهو السؤال التالي».
+   *
+   * The list already marked which questions were DONE, and from that the two of
+   * them inferred "he is probably on the first undone one". That inference is
+   * right until the host skips a question or doubles back — the exact moments a
+   * director needs to know where he actually is.
+   *
+   * `active_card_id` now carries the question ON THE HOST'S SCREEN, published
+   * by his cockpit. «التالي» is DERIVED here rather than sent: it is the next
+   * not-done question after the current one, a fact about this list that does
+   * not need to travel over SSE.
+   *
+   * FALLS BACK to the old inference when the host has published nothing — an
+   * older take, or the seconds before his first question lands. A rail showing
+   * nothing would be worse than one showing its best guess, and the fallback is
+   * the behaviour everyone already had.
+   */
+  const { currentQuestionId, nextQuestionId } = resolveCurrentQuestion(
+    questions,
+    completedQ,
+    room?.active_card_id ?? initial.room.active_card_id ?? null,
+  )
+
   return (
     <div className="mx-auto max-w-3xl space-y-4 p-4 pb-20" dir="rtl">
       {/* Live status + section progress */}
@@ -554,6 +581,25 @@ export function ParticipantRoomView({
         />
       )}
 
+      {/* ── «الآن» AND «التالي» ─────────────────────────────────────────
+          Khaled: «فيصل وشاهين لازم يشوفون السؤال اللي بيطرحه المحاور … ويعرفون
+          اي سؤال الان وماهو السؤال التالي».
+
+          The list already showed which questions were DONE, and from that the
+          two of them inferred "he is probably on the first undone one". That
+          inference is right until the host skips a question or goes back — the
+          exact moments a director needs to know where he is.
+
+          `active_card_id` now carries the question ON THE HOST'S SCREEN,
+          published by his cockpit (live-v2-client.tsx). «التالي» is derived
+          here rather than sent: it is the next not-done question after the
+          current one, which is a fact about this list and does not need to
+          travel.
+
+          FALLS BACK to the old inference when the host has published nothing
+          yet — an older take, or the seconds before his first question lands.
+          A rail that shows nothing at all would be worse than one that shows
+          its best guess. */}
       {/* Questions of the active section */}
       <div className="space-y-2">
         {questions.length === 0 ? (
@@ -561,6 +607,8 @@ export function ParticipantRoomView({
         ) : (
           questions.map((q) => {
             const done = completedQ.has(q.id)
+            const isNow = q.id === currentQuestionId
+            const isNext = q.id === nextQuestionId
             return (
             <div
               key={q.id}
@@ -568,7 +616,14 @@ export function ParticipantRoomView({
                 "rounded-xl border p-3 transition " +
                 (done
                   ? "border-emerald-500/30 bg-emerald-500/5 opacity-70"
-                  : "border-border/50 bg-card/40")
+                  : isNow
+                    // «الآن» is a ring, not a tint: read from across a studio
+                    // while the room is dim, and distinct from the green that
+                    // already means "asked".
+                    ? "border-rose-500 bg-rose-500/5 ring-2 ring-rose-500/40"
+                    : isNext
+                      ? "border-amber-500/50 bg-amber-500/5"
+                      : "border-border/50 bg-card/40")
               }
             >
               <div className="mb-1 flex flex-wrap items-center gap-1.5">
@@ -583,6 +638,16 @@ export function ParticipantRoomView({
                 {isDirector && q.risk_level && q.risk_level !== "low" && (
                   <span className="rounded-sm bg-amber-500/10 px-1.5 py-0.5 text-[9.5px] text-amber-700">
                     حساسية: {q.risk_level}
+                  </span>
+                )}
+                {isNow && !done && (
+                  <span className="inline-flex items-center gap-1 rounded-sm bg-rose-500/15 px-1.5 py-0.5 text-[9.5px] font-bold text-rose-700">
+                    <Circle className="h-2 w-2 animate-pulse fill-rose-500 text-rose-500" /> الآن
+                  </span>
+                )}
+                {isNext && !done && (
+                  <span className="rounded-sm bg-amber-500/15 px-1.5 py-0.5 text-[9.5px] font-bold text-amber-700">
+                    التالي
                   </span>
                 )}
                 {done && (

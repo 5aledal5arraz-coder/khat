@@ -83,6 +83,14 @@ export interface LiveV2RoomSnapshot {
   current_section_key: SectionKind | null
   current_section_index: number | null
   completed_question_ids: string[]
+  /**
+   * The question ON THE HOST'S SCREEN right now, published by his cockpit so the
+   * director and the editor can follow along. Reuses the existing
+   * `collaboration_rooms.active_card_id` — no migration, and it already rides
+   * every room broadcast. Null before the host's first question lands, and the
+   * participant view falls back to "first not-done" in that window.
+   */
+  active_card_id: string | null
   preparation_id: string
   eir_id: string | null
   eir_phase: string | null
@@ -208,6 +216,7 @@ export async function loadLiveV2(roomId: string): Promise<LiveV2Snapshot | null>
       current_section_key: (room.current_section_key as SectionKind | null) ?? null,
       current_section_index: room.current_section_index ?? null,
       completed_question_ids: (room.completed_question_ids as string[] | null) ?? [],
+      active_card_id: (room.active_card_id as string | null) ?? null,
       preparation_id: room.preparation_id,
       eir_id: room.eir_id ?? null,
       eir_phase,
