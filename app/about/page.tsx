@@ -29,6 +29,9 @@ import {
 import { XIcon } from "@/components/icons/x-icon"
 import { getAboutContent } from "@/lib/content/static-content"
 import { AboutVideo } from "./about-video"
+import { YouTubeEmbed } from "@/components/episodes/youtube-embed"
+import { cn } from "@/lib/utils"
+import type { TeamMember } from "@/types/static-content"
 
 // Map icon string names to Lucide components
 const iconMap: Record<string, React.ComponentType<{ className?: string }>> = {
@@ -197,51 +200,44 @@ export default async function AboutPage() {
         </div>
       </section>
 
-      {/* Team Section */}
+      {/* ── THE TEAM ──────────────────────────────────────────────────────
+          Khaled, 2026-08-06: every member gets a photo, a name, a bio, HIS OWN
+          MESSAGE, and optionally a video — «ابي التصميم يكون متناسق جميل ويملك
+          روح بودكاست خط بكل تفاصيله».
+
+          IT WAS THREE SMALL CARDS IN A GRID: portrait, name, role badge, two
+          lines. That is the layout every site uses for a team, which is the
+          problem — it says "here are some people" and nothing more, and it
+          gives the founder the same 250px as a caption.
+
+          Each person is now a full-width ROW, alternating side. That buys room
+          for the thing that makes the page خط's: HIS LINE, set as a pull quote
+          with the KHAT rule under it. The brand's premise is «كالعبارات التي
+          تضع تحتها خطًّا» — a phrase worth underlining — so the page underlines
+          one sentence from each of the three people who make the show. The
+          identity as STRUCTURE, not as decoration, which is what "روح خط" has
+          to mean on a page about the people themselves.
+
+          Every piece degrades on its own: no photo → the shared «ط» panel; no
+          video → the portrait; no message → no quote and no orphaned rule. */}
       {content.teamMembers.length > 0 && (
-        <section className="py-16 bg-secondary/30">
+        <section className="py-20">
           <div className="container mx-auto px-4">
-            <div className="max-w-4xl mx-auto">
-              <div className="text-center mb-12">
-                <Badge variant="outline" className="mb-4">
-                  <Users className="w-3 h-3 me-1.5" />
-                  فريق العمل
-                </Badge>
-                <h2 className="text-heading font-bold mb-4">فريق بودكاست خط</h2>
-                <p className="text-muted-foreground max-w-xl mx-auto">
-                  ورا كل حلقة فريق يشتغل بشغف عشان يقدّم لك أفضل محتوى
+            <div className="mx-auto max-w-5xl">
+              <div className="flex flex-col items-center text-center">
+                <span aria-hidden="true" className="block h-[3px] w-14 rounded-full bg-accent" />
+                <h2 className="mt-5 text-heading font-bold sm:text-title">الفريق</h2>
+                <p className="mt-4 max-w-measure text-lead text-muted-foreground">
+                  ثلاثة يصنعون الحلقة — من الفكرة الأولى إلى آخر قصّة في المونتاج.
                 </p>
               </div>
 
-              <div className="grid md:grid-cols-3 gap-6">
+              <div className="mt-16 space-y-20">
                 {content.teamMembers
+                  .slice()
                   .sort((a, b) => a.order - b.order)
-                  .map((member) => (
-                    <Card
-                      key={member.id}
-                      className="group hover:shadow-xl transition-all duration-300 hover:-translate-y-1 text-center overflow-hidden"
-                    >
-                      <CardContent className="p-6">
-                        {/* Was a hand-rolled avatar: a `rounded-full` gradient
-                            box falling back to `{member.name.charAt(0)}`. Both
-                            halves broke a rule this wave settled. The circle is
-                            the shape the identity does not own, and the initial
-                            is the deleted `guestInitials` rebuilt inline — it
-                            renders «ا» for every Arabic name that opens with
-                            «ال», which is most of them. The 96px rung of the
-                            shared portrait is the same box, with the «ط» panel
-                            and the onError ladder already in it. */}
-                        <GuestPortrait
-                          name={member.name}
-                          photoUrl={member.image}
-                          variant="episode"
-                          className="mx-auto mb-4 group-hover:scale-105 transition-transform duration-300"
-                        />
-                        <h3 className="text-lead font-bold mb-1">{member.name}</h3>
-                        {member.role && <Badge variant="secondary" className="mb-3">{member.role}</Badge>}
-                        <p className="text-caption text-muted-foreground">{member.description}</p>
-                      </CardContent>
-                    </Card>
+                  .map((member, i) => (
+                    <TeamMemberRow key={member.id} member={member} flip={i % 2 === 1} />
                   ))}
               </div>
             </div>
@@ -276,6 +272,91 @@ export default async function AboutPage() {
           </div>
         </div>
       </section>
+    </div>
+  )
+}
+
+/**
+ * One member of the team, as a full-width row.
+ *
+ * ── THE SHAPE, AND WHY IT IS NOT A CARD ────────────────────────────────────
+ * Three people who make the whole show do not fit in three 250px tiles. The row
+ * alternates side so the page has a rhythm rather than a stack, and gives each
+ * person the width to carry a portrait (or a clip), a role, what he actually
+ * does, and the one line that is his.
+ *
+ * ── THE QUOTE IS THE POINT ─────────────────────────────────────────────────
+ * `message` is set as a pull quote with the KHAT rule under it — the same
+ * gesture the homepage draws under its headline. «كالعبارات التي تضع تحتها
+ * خطًّا» is the brand's premise, so the page about the people who make it
+ * underlines one sentence from each of them. That is the identity used as
+ * structure; a coloured badge would have been the identity used as paint.
+ *
+ * ── EVERY PIECE IS OPTIONAL, AND FAILS ALONE ───────────────────────────────
+ * No video → the portrait. No photo → `GuestPortrait` renders the shared «ط»
+ * panel with its own onError ladder. No message → no quote AND no rule, rather
+ * than a bar floating under nothing. Khaled fills this in himself, so every
+ * field has to look deliberate while it is still empty.
+ */
+function TeamMemberRow({ member, flip }: { member: TeamMember; flip: boolean }) {
+  return (
+    <div
+      className={cn(
+        "flex flex-col items-center gap-8 md:items-start md:gap-12",
+        flip ? "md:flex-row-reverse" : "md:flex-row",
+      )}
+    >
+      {/* Portrait, or a clip if there is one */}
+      <div className="w-full max-w-[280px] shrink-0 md:w-[200px]">
+        {member.videoUrl ? (
+          <div className="overflow-hidden rounded-2xl">
+            <YouTubeEmbed url={member.videoUrl} title={member.name} />
+          </div>
+        ) : (
+          <GuestPortrait
+            name={member.name}
+            photoUrl={member.image}
+            /* `page` is the 200px rung — the largest the shared portrait
+               offers, and the one the guest's own page uses. A team row is the
+               same weight of surface, so it takes the same size rather than
+               growing a fourth variant nobody else would use. */
+            variant="page"
+          />
+        )}
+      </div>
+
+      <div className={cn("flex-1 text-center", flip ? "md:text-end" : "md:text-start")}>
+        <h3 className="text-subhead font-bold text-foreground sm:text-heading">{member.name}</h3>
+
+        {/* The role in KHAT Orange. At `text-body` semibold this is normal-size
+            text and the brand orange only reaches 3.03:1 — so it is the ink,
+            and the orange stays on the rule below, where it is a mark and not a
+            word. Same rule the rest of the site follows. */}
+        {member.role && (
+          <p className="mt-1.5 text-body font-semibold text-primary">{member.role}</p>
+        )}
+
+        {member.description && (
+          <p className="mx-auto mt-5 max-w-measure text-pretty text-lead leading-prose text-muted-foreground md:mx-0">
+            {member.description}
+          </p>
+        )}
+
+        {member.message && (
+          <figure className="mt-8">
+            <blockquote className="text-balance text-subhead font-bold leading-title text-foreground">
+              {member.message}
+            </blockquote>
+            <span
+              aria-hidden="true"
+              className={cn(
+                "mt-4 block h-[3px] w-12 rounded-full bg-accent",
+                flip ? "mx-auto md:ms-auto md:me-0" : "mx-auto md:mx-0",
+              )}
+            />
+          </figure>
+        )}
+      </div>
     </div>
   )
 }
