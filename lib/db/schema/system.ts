@@ -84,14 +84,6 @@ export const personalizationProfiles = pgTable("personalization_profiles", {
   updated_at: timestamp("updated_at", { withTimezone: true }).defaultNow(),
 })
 
-export const watchHistory = pgTable("watch_history", {
-  id: uuid("id").primaryKey().defaultRandom(),
-  visitor_id: text("visitor_id").notNull(),
-  episode_id: text("episode_id").notNull(),
-  progress: integer("progress").default(0),
-  created_at: timestamp("created_at", { withTimezone: true }).defaultNow(),
-  updated_at: timestamp("updated_at", { withTimezone: true }).defaultNow(),
-})
 
 export const emailNotificationsLog = pgTable("email_notifications_log", {
   id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
@@ -113,18 +105,4 @@ export const platformAnalytics = pgTable("platform_analytics", {
   updated_at: timestamp("updated_at", { withTimezone: true }).defaultNow(),
 })
 
-export const visitorEvents = pgTable("visitor_events", {
-  id: uuid("id").primaryKey().defaultRandom(),
-  visitor_id: text("visitor_id").notNull(),
-  event_type: text("event_type").notNull(),
-  target_id: text("target_id").notNull(),
-  metadata: jsonb("metadata").$type<Record<string, unknown>>(),
-  created_at: timestamp("created_at", { withTimezone: true }).defaultNow(),
-})
 
-export const visitorProfiles = pgTable("visitor_profiles", {
-  visitor_id: text("visitor_id").primaryKey(),
-  interest_vector: jsonb("interest_vector").$type<Record<string, number>>().notNull(),
-  last_updated: text("last_updated"),
-  event_count_at_build: integer("event_count_at_build").default(0),
-})

@@ -3,11 +3,8 @@
 import { useState, useEffect } from "react"
 import {
   Loader2,
-  Play,
   Users,
   Eye,
-  Search,
-  TrendingUp,
   Youtube,
   Mail,
   MailOpen,
@@ -17,7 +14,6 @@ import {
   AlertTriangle,
   CheckCircle2,
   Info,
-  Clock,
   Mic2,
   Quote,
   BookOpen,
@@ -26,12 +22,9 @@ import {
   ThumbsUp,
   MessageCircle,
   BarChart3,
-  Activity,
   FileText,
   Clapperboard,
   RefreshCw,
-  Save,
-  UserCircle,
 } from "lucide-react"
 import { GlowCard } from "../components/glow-card"
 import { formatDate } from "@/lib/shared/formatters"
@@ -105,21 +98,6 @@ interface DashboardData {
     avgViewsPerVideo: number
     avgEngagementRate: number
   }
-  visitors: {
-    uniqueVisitors: number
-    totalEvents: number
-    episodeViews: number
-    engagementRate: number
-    searchCount: number
-    topEpisodes: {
-      id: string
-      title: string
-      slug: string
-      thumbnail: string | null
-      views: number
-    }[]
-    topSearches: { query: string; count: number }[]
-  }
   studio: {
     totalSessions: number
     completedSessions: number
@@ -128,12 +106,6 @@ interface DashboardData {
     type: "success" | "warning" | "info"
     title: string
     description: string
-  }[]
-  recentActivity: {
-    type: string
-    label: string
-    targetName: string
-    created_at: string | null
   }[]
 }
 
@@ -167,19 +139,6 @@ function formatDuration(seconds: number): string {
   return `${m}:${s.toString().padStart(2, "0")}`
 }
 
-const ACTIVITY_ICONS: Record<string, { icon: React.ElementType; color: string }> = {
-  episode_view: { icon: Eye, color: "text-blue-700" },
-  episode_watch: { icon: Play, color: "text-indigo-700" },
-  watch_25: { icon: TrendingUp, color: "text-lime-700" },
-  watch_50: { icon: TrendingUp, color: "text-orange-700" },
-  watch_90: { icon: TrendingUp, color: "text-red-700" },
-  guest_open: { icon: UserCircle, color: "text-emerald-700" },
-  quote_open: { icon: Quote, color: "text-amber-700" },
-  search_used: { icon: Search, color: "text-cyan-700" },
-  search: { icon: Search, color: "text-cyan-700" },
-  episode_saved: { icon: Save, color: "text-pink-700" },
-  save_item: { icon: Save, color: "text-pink-700" },
-}
 
 // ── Sub-components ──────────────────────────────────────────────────────────
 
@@ -287,7 +246,7 @@ export default function AnalyticsDashboard() {
     )
   }
 
-  const { platform, submissions, newsletter, youtube, visitors, studio, insights, recentActivity } = data
+  const { platform, submissions, newsletter, youtube, studio, insights } = data
 
   // ── Render ────────────────────────────────────────────────────────────────
   return (
@@ -349,69 +308,6 @@ export default function AnalyticsDashboard() {
           <StatCard icon={EyeOff} iconBg="bg-muted-foreground/10" iconColor="text-muted-foreground" label="حلقات مخفية" value={fmt(platform.hiddenEpisodes)} color="muted" />
           <StatCard icon={FileText} iconBg="bg-orange-500/10" iconColor="text-orange-700" label="مسودات" value={fmt(platform.draftEpisodes)} color="muted" />
           <StatCard icon={Clapperboard} iconBg="bg-cyan-500/10" iconColor="text-cyan-700" label="جلسات الاستوديو" value={fmt(studio.totalSessions)} sub={`${studio.completedSessions} مكتملة`} color="muted" />
-        </div>
-      </section>
-
-      {/* ─── Website Visitors (30 day) ───────────────────────────────────── */}
-      <section className="space-y-4">
-        <SectionHeader icon={Activity} title="زوار الموقع" badge="آخر 30 يوم" />
-        <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-          <StatCard icon={Users} iconBg="bg-primary/10" iconColor="text-primary" label="زوار فريدون" value={fmt(visitors.uniqueVisitors)} />
-          <StatCard icon={Eye} iconBg="bg-blue-500/10" iconColor="text-blue-700" label="مشاهدات الحلقات" value={fmt(visitors.episodeViews)} />
-          <StatCard icon={TrendingUp} iconBg="bg-emerald-500/10" iconColor="text-emerald-700" label="نسبة التفاعل العميق" value={`${visitors.engagementRate}%`} color="green" />
-          <StatCard icon={Search} iconBg="bg-cyan-500/10" iconColor="text-cyan-700" label="عمليات البحث" value={fmt(visitors.searchCount)} color="muted" />
-        </div>
-
-        {/* Top episodes & searches side by side */}
-        <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-          {/* Top episodes */}
-          {visitors.topEpisodes.length > 0 && (
-            <div className="rounded-xl border border-border/30 bg-card/50">
-              <div className="border-b border-border/30 px-4 py-3">
-                <h3 className="text-[13px] font-semibold">أكثر الحلقات مشاهدة</h3>
-              </div>
-              <div className="divide-y divide-border/15">
-                {visitors.topEpisodes.map((ep, i) => (
-                  <div key={ep.id} className="flex items-center gap-3 px-4 py-2.5">
-                    <span className="w-5 text-center text-[11px] font-medium text-muted-foreground">{i + 1}</span>
-                    {ep.thumbnail ? (
-                      <img src={ep.thumbnail} alt="" className="h-9 w-9 rounded-lg object-cover" />
-                    ) : (
-                      <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-muted/40">
-                        <Play className="h-3.5 w-3.5 text-muted-foreground" />
-                      </div>
-                    )}
-                    <span className="min-w-0 flex-1 truncate text-[13px]">{ep.title}</span>
-                    <span className="shrink-0 text-xs tabular-nums text-muted-foreground">{fmt(ep.views)}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Top searches */}
-          {visitors.topSearches.length > 0 && (
-            <div className="rounded-xl border border-border/30 bg-card/50">
-              <div className="border-b border-border/30 px-4 py-3">
-                <h3 className="text-[13px] font-semibold">عمليات البحث الشائعة</h3>
-              </div>
-              <div className="flex flex-wrap gap-2 p-4">
-                {visitors.topSearches.map((s) => (
-                  <span
-                    key={s.query}
-                    className="inline-flex items-center gap-1.5 rounded-lg border border-border/20 bg-muted/20 px-3 py-1.5 text-[13px]"
-                  >
-                    <Search className="h-3 w-3 text-muted-foreground" />
-                    {s.query}
-                    <span className="text-[11px] text-muted-foreground">{s.count}</span>
-                  </span>
-                ))}
-              </div>
-              {visitors.topSearches.length === 0 && (
-                <p className="px-4 py-6 text-center text-xs text-muted-foreground">لا توجد بيانات بحث بعد</p>
-              )}
-            </div>
-          )}
         </div>
       </section>
 
@@ -657,31 +553,6 @@ export default function AnalyticsDashboard() {
       </section>
 
       {/* ─── Recent Activity Feed ────────────────────────────────────────── */}
-      {recentActivity.length > 0 && (
-        <section className="space-y-4">
-          <SectionHeader icon={Clock} title="النشاط الأخير" badge={`${visitors.totalEvents} حدث`} />
-          <div className="rounded-xl border border-border/30 bg-card/50">
-            <div className="divide-y divide-border/15">
-              {recentActivity.map((activity, i) => {
-                const meta = ACTIVITY_ICONS[activity.type] || { icon: Eye, color: "text-muted-foreground" }
-                const Icon = meta.icon
-                return (
-                  <div key={i} className="flex items-center gap-3 px-4 py-2.5">
-                    <Icon className={`h-4 w-4 shrink-0 ${meta.color}`} />
-                    <span className="min-w-0 flex-1 text-[13px]">
-                      <span className="text-muted-foreground">{activity.label}</span>{" "}
-                      <span className="font-medium">{activity.targetName}</span>
-                    </span>
-                    <span className="shrink-0 text-[11px] text-muted-foreground">
-                      {timeAgo(activity.created_at)}
-                    </span>
-                  </div>
-                )
-              })}
-            </div>
-          </div>
-        </section>
-      )}
     </div>
   )
 }

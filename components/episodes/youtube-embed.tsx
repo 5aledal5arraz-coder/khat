@@ -3,7 +3,6 @@
 import { useState, useEffect, useRef, useCallback } from "react"
 import { getYouTubeId, getYouTubeWatchUrl } from "@/lib/utils"
 import { updateWatchProgress } from "@/lib/watch-history"
-import { trackEvent } from "@/lib/personalization/tracker"
 import { usePlayer } from "./episode-player-context"
 import { EpisodeThumb } from "@/components/media/episode-thumb"
 import { ExternalLink, Play } from "lucide-react"
@@ -132,15 +131,12 @@ export function YouTubeEmbed({
       // Watch milestone events — each fires once per session
       if (progress >= 25 && !milestonesRef.current.w25) {
         milestonesRef.current.w25 = true
-        trackEvent("watch_25", episodeId, meta)
       }
       if (progress >= 50 && !milestonesRef.current.w50) {
         milestonesRef.current.w50 = true
-        trackEvent("watch_50", episodeId, meta)
       }
       if (progress >= 90 && !milestonesRef.current.w90) {
         milestonesRef.current.w90 = true
-        trackEvent("watch_90", episodeId, meta)
       }
 
       if (progress >= 5) {

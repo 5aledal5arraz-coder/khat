@@ -19,7 +19,6 @@ import { TwitchIcon } from "@/components/icons/twitch-icon"
 import { DiscordIcon } from "@/components/icons/discord-icon"
 import { PinterestIcon } from "@/components/icons/pinterest-icon"
 import { getYouTubeId } from "@/lib/utils"
-import { trackEvent } from "@/lib/personalization/tracker"
 import Link from "next/link"
 
 interface GuestIntroSectionProps {
@@ -66,7 +65,6 @@ export function GuestIntroSection({ guest, testimonial, testimonialVideoUrl }: G
   const handleGuestClick = () => {
     if (!guestTracked) {
       setGuestTracked(true)
-      trackEvent("guest_open", guest.slug, { name: guest.name })
     }
   }
 

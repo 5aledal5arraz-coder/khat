@@ -26,7 +26,6 @@ import { EpisodeConnections } from "./episode-connections"
 import { AudioPlayer } from "./audio-player"
 import { EpisodePlatformLinks } from "./episode-platform-links"
 import { EpisodeSponsor } from "./episode-sponsor"
-import { trackEvent } from "@/lib/personalization/tracker"
 import { formatTimeSeconds } from "@/lib/utils"
 import { truncateOnWord } from "@/lib/shared/formatters"
 
@@ -179,9 +178,6 @@ export function EpisodePageClient({
   useEffect(() => {
     if (trackedRef.current) return
     trackedRef.current = true
-    trackEvent("episode_view", episode.id, {
-      guest_id: episode.guest_id ?? undefined,
-    })
   }, [episode.id, episode.guest_id])
 
   const summary = episode.summary || episode.description || null

@@ -12,11 +12,10 @@ import {
   sponsorshipLeads,
   newsletterSubscribers,
   newsletterCampaigns,
-  visitorEvents,
   studioSessions,
   episodeSponsors,
 } from "@/lib/db/schema"
-import { count, eq, desc, gte, sql } from "drizzle-orm"
+import { count, eq, desc, sql } from "drizzle-orm"
 import { getChannelDetails, getChannelVideos, getChannelIdFromHandle, type YouTubeChannel } from "@/lib/youtube/client"
 
 const YOUTUBE_CHANNEL_ID = env.YOUTUBE_CHANNEL_ID || ""
@@ -88,22 +87,6 @@ interface DashboardData {
     avgViewsPerVideo: number
     avgEngagementRate: number
   }
-  // Visitor analytics (last 30 days)
-  visitors: {
-    uniqueVisitors: number
-    totalEvents: number
-    episodeViews: number
-    engagementRate: number
-    searchCount: number
-    topEpisodes: {
-      id: string
-      title: string
-      slug: string
-      thumbnail: string | null
-      views: number
-    }[]
-    topSearches: { query: string; count: number }[]
-  }
   // Studio
   studio: {
     totalSessions: number
@@ -114,13 +97,6 @@ interface DashboardData {
     type: "success" | "warning" | "info"
     title: string
     description: string
-  }[]
-  // Recent activity
-  recentActivity: {
-    type: string
-    label: string
-    targetName: string
-    created_at: string | null
   }[]
 }
 
@@ -206,111 +182,8 @@ export async function GET() {
       .orderBy(desc(newsletterCampaigns.sent_at))
       .limit(5)
 
-    // ── Visitor analytics (last 30 days) ────────────────────────────────────
-    const thirtyDaysAgo = new Date()
-    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30)
 
-    const visitorData = await db!.select({
-      visitor_id: visitorEvents.visitor_id,
-      event_type: visitorEvents.event_type,
-      target_id: visitorEvents.target_id,
-      created_at: visitorEvents.created_at,
-    })
-      .from(visitorEvents)
-      .where(gte(visitorEvents.created_at, thirtyDaysAgo))
-      .orderBy(desc(visitorEvents.created_at))
-      .limit(50000)
 
-    // Aggregate visitor data
-    const visitorIds = new Set<string>()
-    const episodeViewCounts = new Map<string, number>()
-    const deepWatchVisitors = new Set<string>()
-    const searchCounts = new Map<string, number>()
-    let searchEventTotal = 0
-
-    for (const ev of visitorData) {
-      visitorIds.add(ev.visitor_id)
-      switch (ev.event_type) {
-        case "episode_view":
-          episodeViewCounts.set(ev.target_id, (episodeViewCounts.get(ev.target_id) || 0) + 1)
-          break
-        case "watch_50":
-        case "watch_90":
-          deepWatchVisitors.add(ev.visitor_id)
-          break
-        case "search_used":
-        case "search":
-          searchCounts.set(ev.target_id, (searchCounts.get(ev.target_id) || 0) + 1)
-          searchEventTotal++
-          break
-      }
-    }
-
-    // Enrich top episodes
-    const topEpisodeIds = Array.from(episodeViewCounts.entries())
-      .sort((a, b) => b[1] - a[1])
-      .slice(0, 5)
-
-    let episodeMap = new Map<string, { title: string; slug: string; thumbnail_url: string | null }>()
-    if (topEpisodeIds.length > 0) {
-      const epRows = await db!.select({
-        id: episodes.id,
-        title: episodes.title,
-        slug: episodes.slug,
-        thumbnail_url: episodes.thumbnail_url,
-      }).from(episodes)
-      episodeMap = new Map(epRows.map(e => [e.id, e]))
-    }
-
-    const topEpisodes = topEpisodeIds.map(([id, views]) => {
-      const ep = episodeMap.get(id)
-      return {
-        id,
-        title: ep?.title || id,
-        slug: ep?.slug || "",
-        thumbnail: ep?.thumbnail_url || null,
-        views,
-      }
-    })
-
-    const topSearches = Array.from(searchCounts.entries())
-      .sort((a, b) => b[1] - a[1])
-      .slice(0, 5)
-      .map(([query, cnt]) => ({ query, count: cnt }))
-
-    // Recent activity (last 15 events)
-    const ACTIVITY_LABELS: Record<string, string> = {
-      episode_view: "شاهد حلقة",
-      episode_watch: "شغّل حلقة",
-      watch_25: "وصل 25% من",
-      watch_50: "وصل 50% من",
-      watch_90: "وصل 90% من",
-      guest_open: "فتح ملف ضيف",
-      quote_open: "فتح اقتباس",
-      search_used: "بحث عن",
-      search: "بحث عن",
-      episode_saved: "حفظ حلقة",
-      save_item: "حفظ عنصر",
-    }
-
-    const guestRows = await db!.select({ id: guests.id, name: guests.name }).from(guests)
-    const guestMap = new Map(guestRows.map(g => [g.id, g.name]))
-
-    const recentActivity = visitorData.slice(0, 15).map(ev => {
-      const label = ACTIVITY_LABELS[ev.event_type] || ev.event_type
-      let targetName = ev.target_id
-      if (["episode_view", "episode_watch", "watch_25", "watch_50", "watch_90", "episode_saved"].includes(ev.event_type)) {
-        targetName = episodeMap.get(ev.target_id)?.title || ev.target_id
-      } else if (ev.event_type === "guest_open") {
-        targetName = guestMap.get(ev.target_id) || ev.target_id
-      }
-      return {
-        type: ev.event_type,
-        label,
-        targetName,
-        created_at: ev.created_at?.toISOString() || null,
-      }
-    })
 
     // ── YouTube data ────────────────────────────────────────────────────────
     let youtubeData: DashboardData["youtube"] = {
@@ -438,26 +311,6 @@ export async function GET() {
       })
     }
 
-    const uniqueVisitors = visitorIds.size
-    const episodeViews = Array.from(episodeViewCounts.values()).reduce((a, b) => a + b, 0)
-    const engagementRate = uniqueVisitors > 0
-      ? Math.round((deepWatchVisitors.size / uniqueVisitors) * 100)
-      : 0
-
-    if (engagementRate > 30) {
-      insights.push({
-        type: "success",
-        title: `نسبة تفاعل ${engagementRate}%`,
-        description: "نسبة التفاعل العميق ممتازة — الزوار يشاهدون المحتوى بعمق",
-      })
-    } else if (uniqueVisitors > 0 && engagementRate < 10) {
-      insights.push({
-        type: "warning",
-        title: `نسبة تفاعل ${engagementRate}%`,
-        description: "نسبة التفاعل منخفضة — قد تحتاج تحسين تجربة المشاهدة",
-      })
-    }
-
     if (youtubeData.available && youtubeData.channel) {
       if (youtubeData.avgEngagementRate > 5) {
         insights.push({
@@ -521,21 +374,11 @@ export async function GET() {
         })),
       },
       youtube: youtubeData,
-      visitors: {
-        uniqueVisitors,
-        totalEvents: visitorData.length,
-        episodeViews,
-        engagementRate,
-        searchCount: searchEventTotal,
-        topEpisodes,
-        topSearches,
-      },
       studio: {
         totalSessions: totalStudioResult[0].count,
         completedSessions: completedStudioResult[0].count,
       },
       insights,
-      recentActivity,
     }
 
     return NextResponse.json(data)
