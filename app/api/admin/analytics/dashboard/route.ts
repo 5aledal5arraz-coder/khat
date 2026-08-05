@@ -15,7 +15,7 @@ import {
   studioSessions,
   episodeSponsors,
 } from "@/lib/db/schema"
-import { count, eq, desc, sql } from "drizzle-orm"
+import { eq, desc, sql } from "drizzle-orm"
 import { getChannelDetails, getChannelVideos, getChannelIdFromHandle, type YouTubeChannel } from "@/lib/youtube/client"
 
 const YOUTUBE_CHANNEL_ID = env.YOUTUBE_CHANNEL_ID || ""
@@ -109,51 +109,85 @@ export async function GET() {
   }
 
   try {
-    // ── Parallel data fetching ──────────────────────────────────────────────
-    const [
-      // Episode counts
-      totalEpisodesResult,
-      publishedResult,
-      draftResult,
-      hiddenResult,
-      // Guests & content
-      totalGuestsResult,
-      totalQuotesResult,
-      totalTimestampsResult,
-      totalSponsorsResult,
-      // Submissions
-      guestAppsResult,
-      newGuestAppsResult,
-      sponsorsResult,
-      newSponsorsResult,
-      // Newsletter
-      totalSubsResult,
-      activeSubsResult,
-      totalCampaignsResult,
-      sentCampaignsResult,
-      // Studio
-      totalStudioResult,
-      completedStudioResult,
-    ] = await Promise.all([
-      db!.select({ count: count() }).from(episodes),
-      db!.select({ count: count() }).from(episodes).where(eq(episodes.status, "published")),
-      db!.select({ count: count() }).from(episodes).where(eq(episodes.status, "draft")),
-      db!.select({ count: count() }).from(hiddenEpisodes),
-      db!.select({ count: count() }).from(guests),
-      db!.select({ count: count() }).from(quotes),
-      db!.select({ count: count() }).from(timestamps),
-      db!.select({ count: count() }).from(episodeSponsors),
-      db!.select({ count: count() }).from(guestApplications),
-      db!.select({ count: count() }).from(guestApplications).where(eq(guestApplications.status, "new")),
-      db!.select({ count: count() }).from(sponsorshipLeads),
-      db!.select({ count: count() }).from(sponsorshipLeads).where(eq(sponsorshipLeads.status, "new")),
-      db!.select({ count: count() }).from(newsletterSubscribers),
-      db!.select({ count: count() }).from(newsletterSubscribers).where(eq(newsletterSubscribers.status, "active")),
-      db!.select({ count: count() }).from(newsletterCampaigns),
-      db!.select({ count: count() }).from(newsletterCampaigns).where(eq(newsletterCampaigns.status, "sent")),
-      db!.select({ count: count() }).from(studioSessions),
-      db!.select({ count: count() }).from(studioSessions).where(eq(studioSessions.status, "published")),
-    ])
+    /**
+     * ── EIGHTEEN COUNTS IN ONE QUERY, NOT EIGHTEEN QUERIES ──────────────────
+     *
+     * THIS IS THE BUG KHALED REPORTED as «صفحة التحليلات ما تشتغل», and the
+     * database said it plainly in the log:
+     *
+     *   remaining connection slots are reserved for roles with the
+     *   SUPERUSER attribute
+     *
+     * The managed Postgres allows `max_connections = 25`. This app's pool is
+     * 10 and the worker's is another 10; with pg_cron and Postgres's own
+     * superuser reserve that is essentially the whole ceiling. Every other
+     * endpoint asks for ONE connection at a time and never notices. This
+     * route asked for EIGHTEEN AT ONCE — a `Promise.all` of eighteen separate
+     * `count()` statements, each needing its own client — so it was the only
+     * page on the site that could exhaust the pool by itself, and the first
+     * thing to fail when the worker was also busy. Observed failing on
+     * 2026-08-03 and again on 2026-08-05; the counts that lost the race
+     * differed each time, which is what a race looks like and why it read as
+     * "sometimes it works".
+     *
+     * Raising the pool would have moved the ceiling, not removed the cause,
+     * and the ceiling belongs to the database plan. Counting eighteen things
+     * does not need eighteen connections: scalar sub-selects do it in ONE
+     * round trip on ONE client. Same numbers, same shape returned to the
+     * caller, 1/18th of the connection demand — and it is now the same weight
+     * as every other endpoint rather than the heaviest by an order of
+     * magnitude.
+     *
+     * Postgres plans each sub-select independently; these are unfiltered or
+     * single-equality counts over small tables, so this is one cheap plan,
+     * not a join.
+     */
+    const [c] = await db!
+      .select({
+        totalEpisodes: sql<number>`(select count(*) from ${episodes})`,
+        published: sql<number>`(select count(*) from ${episodes} where ${episodes.status} = 'published')`,
+        draft: sql<number>`(select count(*) from ${episodes} where ${episodes.status} = 'draft')`,
+        hidden: sql<number>`(select count(*) from ${hiddenEpisodes})`,
+        totalGuests: sql<number>`(select count(*) from ${guests})`,
+        totalQuotes: sql<number>`(select count(*) from ${quotes})`,
+        totalTimestamps: sql<number>`(select count(*) from ${timestamps})`,
+        totalSponsors: sql<number>`(select count(*) from ${episodeSponsors})`,
+        guestApps: sql<number>`(select count(*) from ${guestApplications})`,
+        newGuestApps: sql<number>`(select count(*) from ${guestApplications} where ${guestApplications.status} = 'new')`,
+        sponsorLeads: sql<number>`(select count(*) from ${sponsorshipLeads})`,
+        newSponsorLeads: sql<number>`(select count(*) from ${sponsorshipLeads} where ${sponsorshipLeads.status} = 'new')`,
+        totalSubs: sql<number>`(select count(*) from ${newsletterSubscribers})`,
+        activeSubs: sql<number>`(select count(*) from ${newsletterSubscribers} where ${newsletterSubscribers.status} = 'active')`,
+        totalCampaigns: sql<number>`(select count(*) from ${newsletterCampaigns})`,
+        sentCampaigns: sql<number>`(select count(*) from ${newsletterCampaigns} where ${newsletterCampaigns.status} = 'sent')`,
+        totalStudio: sql<number>`(select count(*) from ${studioSessions})`,
+        completedStudio: sql<number>`(select count(*) from ${studioSessions} where ${studioSessions.status} = 'published')`,
+      })
+      .from(sql`(select 1) as _`)
+
+    // Postgres returns count() as bigint, which pg gives back as a STRING.
+    // The old shape (`[{ count: n }]` from Drizzle's `count()`) was already
+    // numeric; this keeps the rest of the handler unchanged by restoring both
+    // the type and the shape it expects.
+    const n = (v: unknown) => Number(v ?? 0)
+    const totalEpisodesResult = [{ count: n(c.totalEpisodes) }]
+    const publishedResult = [{ count: n(c.published) }]
+    const draftResult = [{ count: n(c.draft) }]
+    const hiddenResult = [{ count: n(c.hidden) }]
+    const totalGuestsResult = [{ count: n(c.totalGuests) }]
+    const totalQuotesResult = [{ count: n(c.totalQuotes) }]
+    const totalTimestampsResult = [{ count: n(c.totalTimestamps) }]
+    const totalSponsorsResult = [{ count: n(c.totalSponsors) }]
+    const guestAppsResult = [{ count: n(c.guestApps) }]
+    const newGuestAppsResult = [{ count: n(c.newGuestApps) }]
+    const sponsorsResult = [{ count: n(c.sponsorLeads) }]
+    const newSponsorsResult = [{ count: n(c.newSponsorLeads) }]
+    const totalSubsResult = [{ count: n(c.totalSubs) }]
+    const activeSubsResult = [{ count: n(c.activeSubs) }]
+    const totalCampaignsResult = [{ count: n(c.totalCampaigns) }]
+    const sentCampaignsResult = [{ count: n(c.sentCampaigns) }]
+    const totalStudioResult = [{ count: n(c.totalStudio) }]
+    const completedStudioResult = [{ count: n(c.completedStudio) }]
 
     // ── Newsletter aggregate stats ──────────────────────────────────────────
     const [newsletterAgg] = await db!.select({
