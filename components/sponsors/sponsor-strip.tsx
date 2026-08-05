@@ -63,79 +63,112 @@ export function SponsorStrip({
   return (
     <section className={className} aria-labelledby="sponsor-strip-heading">
       <div className="mx-auto max-w-6xl px-6">
-        <div className="rounded-2xl border border-border/70 bg-card px-6 py-10 sm:px-10">
-          {/* ── NO `uppercase`, NO `tracking-` — AND THEY WERE NOT DOING ANY
-              DAMAGE EITHER, WHICH IS THE POINT ────────────────────────────
-              This label carried `uppercase tracking-[0.2em]`: the standard
-              Latin eyebrow treatment, applied to Arabic. Measured on the live
-              page, both are dead CSS here. `text-transform: uppercase` has no
-              effect on Arabic glyphs, and the CSS Text spec forbids applying
-              letter-spacing between characters joined by a cursive script —
-              Chrome implements that, so «شركاء الموسم» rendered 48px wide with
-              the 2.4px tracking and 48px wide without it. Zero difference.
+        {/* ── THE HEADING, WITH THE BRAND'S OWN RULE OVER IT ────────────────
+            Khaled: «الخط صغير ولوقو الشريك صغير جدا، شوف طريقه افضل لابراز
+            الشركاء». Measured before this change: the heading was 14px and the
+            logo rendered 44px tall inside a 195px card — 23% of it. A partner
+            paying for the homepage was the quietest thing on it.
 
-              Removed anyway, because dead CSS that LOOKS load-bearing is how a
-              later reader concludes the spacing is intentional and copies it
-              onto something Latin, or "fixes" the Arabic to make it take.
-
-              WHAT WAS ACTUALLY WRONG was plainer: 12px in Dusty Violet is
-              4.32:1 on the Soft Blush card, just under the 4.5 AA line, and
-              small enough to read as an artefact rather than a heading. Dusty
-              Violet is the palette's only mid-tone, so there is no lighter ink
-              that clears AA — the label goes to the identity's own ink at
-              14px, which is legible and still quiet because it is small.
-              Khaled asked «شنو الخط المستخدم» about exactly this. */}
+            Prominence here is bought with SIZE, SPACE AND STRUCTURE, not with
+            colour. That is the rule Khaled set an hour earlier and it applies
+            exactly: the palette does not move, the type scale does. The short
+            KHAT Orange rule is the same gesture the hero uses under the
+            headline, so the section reads as part of the brand rather than as
+            a bolted-on ad slot. */}
+        <div className="flex flex-col items-center">
+          <span aria-hidden="true" className="block h-[3px] w-14 rounded-full bg-accent" />
           <h2
             id="sponsor-strip-heading"
-            className="text-center text-caption font-semibold text-foreground"
+            className="mt-5 text-center text-subhead font-bold text-foreground"
           >
             {heading}
           </h2>
-
-          <ul className="mt-8 flex flex-wrap items-center justify-center gap-x-10 gap-y-8 sm:gap-x-14">
-            {partners.map((p) => (
-              <li key={p.id}>
-                <SponsorLogo partner={p} />
-              </li>
-            ))}
-          </ul>
         </div>
+
+        {/* Each partner is an OBJECT, not an item in a row. A bordered tile
+            gives the logo a field of its own and a floor to sit on, which is
+            most of why the old bare row read as small — 44px of artwork adrift
+            in 195px of card had nothing to be big relative to.
+
+            `flex-wrap` + a fixed tile width rather than a grid: with one
+            partner a grid leaves a lone cell hugging the start edge, and this
+            table is empty far more often than it is full. Wrapping centres 1,
+            2, 3 or 7 equally well. */}
+        <ul className="mt-10 flex flex-wrap items-stretch justify-center gap-4 sm:gap-5">
+          {partners.map((p) => (
+            <li
+              key={p.id}
+              /* THE TILE WIDTH FOLLOWS THE COUNT, because one rule cannot serve
+                 both ends. At full width a single partner is a proper feature;
+                 at full width SIX partners are six screens of scrolling on a
+                 phone. React knows the count, so the breakpoint does not have
+                 to guess: one or two go wide, three or more pair up on mobile
+                 and sit four to a row on a desktop. */
+              className={
+                partners.length <= 2
+                  ? "w-full max-w-[320px] sm:w-[280px]"
+                  : "w-[calc(50%-0.5rem)] max-w-[320px] sm:w-[260px]"
+              }
+            >
+              <SponsorTile partner={p} />
+            </li>
+          ))}
+        </ul>
       </div>
     </section>
   )
 }
 
 /**
- * One logo. A link when there is a site to link to, a plain figure otherwise —
- * an `<a>` with no `href` is not focusable and reads as a link to a screen
- * reader that then goes nowhere.
+ * One partner, as a tile. A link when there is a site to link to, a plain
+ * figure otherwise — an `<a>` with no `href` is not focusable and reads as a
+ * link to a screen reader that then goes nowhere.
+ *
+ * The NAME is printed under the logo. It was not before, and a wordless mark
+ * asks the reader to already know the brand; the alt text carried it only for
+ * screen readers. It also keeps a partner with no artwork from looking like a
+ * different kind of row.
  */
-function SponsorLogo({ partner }: { partner: TrustedPartner }) {
-  const inner = partner.logo_url ? (
-    <Image
-      src={partner.logo_url}
-      alt={partner.name}
-      width={180}
-      height={56}
-      /* `mix-blend-mode` and the greyscale both live here so they apply to the
-         image and not to the focus ring on the wrapper. */
-      className="h-9 w-auto max-w-[150px] object-contain opacity-80 mix-blend-multiply grayscale transition duration-300 group-hover:opacity-100 group-hover:grayscale-0 group-focus-visible:opacity-100 group-focus-visible:grayscale-0 sm:h-11 sm:max-w-[180px]"
-    />
-  ) : (
-    /* No logo file — the name is the mark. Dusty Violet, lifting to the ink on
-       hover, so a partner without artwork still reads as a partner and not as a
-       broken image. */
-    <span className="text-caption font-semibold text-muted-foreground transition-colors group-hover:text-foreground group-focus-visible:text-foreground">
-      {partner.name}
-    </span>
+function SponsorTile({ partner }: { partner: TrustedPartner }) {
+  const body = (
+    <>
+      <div className="flex h-20 w-full items-center justify-center sm:h-24">
+        {partner.logo_url ? (
+          <Image
+            src={partner.logo_url}
+            alt=""
+            width={280}
+            height={112}
+            /* WAS `h-9 … sm:h-11` — 36/44px. The logo now fills the tile's
+               own band: 64px, 80px from `sm`, roughly double, and it has a
+               box to be large inside instead of floating in a wide card.
+               `alt=""` because the name is printed right below it; two copies
+               of the same word is noise for a screen reader.
+               The blend and greyscale live on the image so they cannot touch
+               the focus ring on the wrapper. */
+            className="max-h-16 w-auto max-w-full object-contain opacity-90 mix-blend-multiply grayscale transition duration-300 group-hover:opacity-100 group-hover:grayscale-0 group-focus-visible:opacity-100 group-focus-visible:grayscale-0 sm:max-h-20"
+          />
+        ) : (
+          /* No artwork — the name becomes the mark, at display size so the
+             tile does not collapse into an empty box. */
+          <span className="px-3 text-center text-subhead font-bold text-foreground">
+            {partner.name}
+          </span>
+        )}
+      </div>
+      {partner.logo_url ? (
+        <span className="mt-4 block text-center text-caption font-semibold text-foreground">
+          {partner.name}
+        </span>
+      ) : null}
+    </>
   )
 
+  const tile =
+    "group flex h-full flex-col justify-center rounded-2xl border border-border bg-card px-5 py-7 transition-shadow"
+
   if (!partner.website_url) {
-    return (
-      <span className="group inline-flex items-center" title={partner.name}>
-        {inner}
-      </span>
-    )
+    return <div className={tile}>{body}</div>
   }
 
   return (
@@ -143,10 +176,9 @@ function SponsorLogo({ partner }: { partner: TrustedPartner }) {
       href={partner.website_url}
       target="_blank"
       rel="noopener noreferrer sponsored"
-      title={partner.name}
-      className="group inline-flex items-center rounded-md outline-none ring-offset-4 ring-offset-card focus-visible:ring-2 focus-visible:ring-primary"
+      className={`${tile} outline-none hover:shadow-md focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background`}
     >
-      {inner}
+      {body}
     </a>
   )
 }
