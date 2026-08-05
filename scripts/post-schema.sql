@@ -81,10 +81,18 @@ CREATE TRIGGER trg_personalization_profiles_updated_at
   BEFORE UPDATE ON personalization_profiles
   FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
-DROP TRIGGER IF EXISTS trg_watch_history_updated_at ON watch_history;
-CREATE TRIGGER trg_watch_history_updated_at
-  BEFORE UPDATE ON watch_history
-  FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+-- `watch_history` IS GONE. Its trigger and indexes lived here until 2026-08-05,
+-- when the half-built visitor-tracking system was removed on Khaled's decision
+-- (scripts/drop-visitor-tracking-tables.ts dropped watch_history,
+-- visitor_events and visitor_profiles).
+--
+-- Leaving them cost a real outage window: this file is NOT transactional per
+-- statement in the runner, but `relation "watch_history" does not exist` aborted
+-- the run before it reached the marker-type CHECK further down — so a deploy
+-- that depended on that constraint silently applied nothing, and the failure
+-- was one line in the middle of otherwise normal output.
+--
+-- When a table is dropped, its statements here go with it in the same change.
 
 DROP TRIGGER IF EXISTS trg_platform_analytics_updated_at ON platform_analytics;
 CREATE TRIGGER trg_platform_analytics_updated_at
@@ -413,10 +421,6 @@ CREATE INDEX IF NOT EXISTS idx_home_quotes_episode_id ON home_quotes (episode_id
 
 -- Daily reflections: episode lookup
 CREATE INDEX IF NOT EXISTS idx_daily_reflections_episode_id ON daily_reflections (episode_id);
-
--- Watch history: visitor + episode lookup
-CREATE INDEX IF NOT EXISTS idx_watch_history_visitor_id ON watch_history (visitor_id);
-CREATE INDEX IF NOT EXISTS idx_watch_history_episode_id ON watch_history (episode_id);
 
 -- Sponsorship AI indexes
 CREATE INDEX IF NOT EXISTS idx_sponsorship_analysis_lead_id ON sponsorship_analysis(lead_id);
