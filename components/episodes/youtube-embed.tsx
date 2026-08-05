@@ -263,11 +263,11 @@ export function YouTubeEmbed({
               className="brightness-50"
             />
             <div className="relative flex flex-col items-center gap-3 text-center px-6">
-              <ExternalLink className="h-8 w-8 text-white/80" />
-              <p className="text-caption font-medium text-white">
+              <ExternalLink className="h-8 w-8 text-background/80" />
+              <p className="text-caption font-medium text-background">
                 التضمين غير متاح لهذا الفيديو
               </p>
-              <span className="rounded-full border border-white/30 px-5 py-2 text-caption text-white transition-colors group-hover:bg-white/10">
+              <span className="rounded-full border border-background/30 px-5 py-2 text-caption text-background transition-colors group-hover:bg-background/10">
                 شاهد على يوتيوب
               </span>
             </div>

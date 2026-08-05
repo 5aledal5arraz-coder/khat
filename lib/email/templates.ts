@@ -5,6 +5,13 @@ import {
   khatLogoGeometry,
 } from '@/components/brand/khat-logo-geometry'
 import { KHAT_INDIGO, KHAT_IVORY, KHAT_ORANGE } from '@/components/brand/khat-logo-art'
+import {
+  STANDALONE_BLUSH,
+  STANDALONE_INK,
+  STANDALONE_MIST,
+  STANDALONE_MUTED,
+  STANDALONE_STONE,
+} from '@/lib/brand/standalone-css'
 
 /**
  * Strip any AI-generated unsubscribe blocks from body content so that only the
@@ -42,24 +49,30 @@ function stripBodyUnsubscribe(html: string): string {
 export const EMAIL_PALETTE = {
   indigo: KHAT_INDIGO,
   orange: KHAT_ORANGE,
-  ink: '#1b1630',
-  body: '#403a55',
-  muted: '#6c6783',
-  faint: '#9a93b5',
-  /* 2026-08-04 — the chrome was a COOL lilac family (#f1eef8 page, #ece9f5
-     rules) that belongs to no palette. Now tints of the real indigo laid over
-     the real off-white, so an email reads as the same paper as the site. */
-  border: '#ddd7dd',
+  /* 2026-08-05 — EVERY VALUE BELOW IS NOW A NAMED IDENTITY COLOUR. The nine
+     that stood here (#1b1630 #403a55 #6c6783 #9a93b5 #ddd7dd #ece7e7 #e5dfe2
+     #d1ccd5) were described as "email chrome, not brand colours, stay local".
+     That distinction does not survive Khaled's rule: the newsletter is the
+     brand arriving in someone's inbox, and a near-black that is not the ink
+     plus four greys that are in no palette is the site's colours only at a
+     glance. «ملف عرض الشعار» carries a full set of secondaries — Warm Stone
+     for rules, Soft Blush for raised fill, Lavender Mist for chips, Dusty
+     Violet for meta — so nothing had to be invented to replace them. */
+  ink: STANDALONE_INK,
+  body: KHAT_INDIGO,
+  muted: STANDALONE_MUTED,
+  /* `faint` is Dusty Violet too, NOT a lighter tint of it. The palette has no
+     step between Dusty Violet (4.14:1) and Warm Stone (1.4:1), and Warm Stone
+     as text would be unreadable — so the two tiers merge rather than a fifth
+     violet getting invented to fill the gap. */
+  faint: STANDALONE_MUTED,
+  border: STANDALONE_STONE,
   pageBg: KHAT_IVORY,
-  soft: '#ece7e7',
-  /* Callouts and the numbered-step chips used Tailwind violet (#6d28d9 text
-     on #ede9fe, plus #faf9ff / #f5f3ff / #ddd6fe / #5b21b6) — six shades of a
-     purple that is not the brand indigo, sent to every subscriber. Named here
-     so there is one palette and no inline hexes to drift again. */
-  chipBg: '#e5dfe2',
+  soft: STANDALONE_BLUSH,
+  chipBg: STANDALONE_MIST,
   chipInk: KHAT_INDIGO,
-  calloutBg: '#ece7e7',
-  calloutBorder: '#d1ccd5',
+  calloutBg: STANDALONE_BLUSH,
+  calloutBorder: STANDALONE_MIST,
 } as const
 
 const BRAND = EMAIL_PALETTE

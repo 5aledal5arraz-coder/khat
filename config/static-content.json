@@ -39,7 +39,7 @@
         "icon": "Heart",
         "title": "الأصالة",
         "description": "حوارات حقيقية بدون تصنّع",
-        "color": "from-red-500/20 to-red-500/5",
+        "color": "from-primary/20 to-primary/5",
         "order": 1
       },
       {
@@ -47,7 +47,7 @@
         "icon": "Sparkles",
         "title": "الإلهام",
         "description": "محتوى يلهمك ويحفّزك تتغيّر",
-        "color": "from-yellow-500/20 to-yellow-500/5",
+        "color": "from-accent/20 to-accent/5",
         "order": 2
       },
       {
@@ -55,7 +55,7 @@
         "icon": "Users",
         "title": "المجتمع",
         "description": "مجتمع متفاعل ومترابط",
-        "color": "from-blue-500/20 to-blue-500/5",
+        "color": "from-muted-foreground/20 to-muted-foreground/5",
         "order": 3
       }
     ],

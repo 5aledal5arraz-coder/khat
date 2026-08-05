@@ -65,7 +65,7 @@ export function AboutVideo({ videoId, welcomeVideoUrl, welcomeVideoPosterUrl }: 
                     تعذر تشغيل الفيديو في هذا المتصفح
                   </div>
                 )}
-                <div className="absolute bottom-4 start-4 end-4 flex items-center justify-between text-white/80 text-caption">
+                <div className="absolute bottom-4 start-4 end-4 flex items-center justify-between text-background/80 text-caption">
                   <span>فيديو ترحيبي</span>
                 </div>
               </>

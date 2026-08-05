@@ -432,24 +432,31 @@
        fix for that is to stop putting the accent on small text — NOT to
        quietly re-darken this token. */
     --background: 27 39% 95.5%;
-    --foreground: 248 40% 11%;
+    /* KHAT Signature Purple #342C6B — the identity's own ink, 11.09:1 on the
+       ivory. The near-black #141127 that stood here was a deepened tint of the
+       indigo family, not a colour «ملف عرض الشعار» names, and the palette is
+       not ours to extend. */
+    --foreground: 248 42% 29.6%;
     /* KHAT Soft Blush #FFF7F5 — the identity's lighter surface. Pure white was
        a guess made before «KHAT COLOR SYSTEM 02» was read. */
     --card: 12 100% 98%;
-    --card-foreground: 248 40% 11%;
+    --card-foreground: 248 42% 29.6%;
     --popover: 12 100% 98%;
-    --popover-foreground: 248 40% 11%;
+    --popover-foreground: 248 42% 29.6%;
 
     /* KHAT DEEP INDIGO #362E6D — primary brand / CTA */
     --primary: 248 41% 30.4%;
-    --primary-foreground: 0 0% 100%;
+    /* KHAT Warm Ivory on the indigo — the identity's own reversed treatment
+       (the lockup on an indigo field is drawn in the ivory, not in white).
+       10.78:1. */
+    --primary-foreground: 27 39% 95.5%;
 
     /* KHAT Warm Stone #D9D0C8 — the identity's own neutral. These three were
        tints I mixed by hand from the cream, before page 14 of the identity
        file turned out to define a full second system. Mixed-by-eye neutrals
        beside named ones is exactly the drift this palette work was fixing. */
     --secondary: 28 18% 81.8%;
-    --secondary-foreground: 248 40% 11%;
+    --secondary-foreground: 248 42% 29.6%;
 
     --muted: 28 18% 81.8%;
     /* KHAT Dusty Violet #7570A3 — 4.14:1 on the ivory, so it clears 3:1 for UI
@@ -459,7 +466,12 @@
 
     /* KHAT ORANGE #FD4F04 — see the accent warning above. */
     --accent: 18 98.4% 50.4%;
-    --accent-foreground: 0 0% 100%;
+    /* On an orange fill NO identity colour reaches 4.5:1 — that is a property
+       of the orange, measured across all ten: Signature Purple is the highest
+       at 3.66:1. It clears 3:1, so an accent fill carries LARGE text or a
+       non-text mark, never body copy. Use --accent-strong when the accent has
+       to sit on running text instead. */
+    --accent-foreground: 248 42% 29.6%;
 
     /* KHAT Burnt Orange #C83B0D — the identity's OWN text-safe orange, 4.66:1
        on the ivory. Its existence is why the accent warning above is not a
@@ -468,8 +480,11 @@
        the colour this was all along. Use for `text-accent` on body copy. */
     --accent-strong: 14.8 88% 41.8%;
 
-    --destructive: 0 72% 51%;
-    --destructive-foreground: 0 0% 100%;
+    /* KHAT Burnt Orange. The identity carries no red, so the warning role goes
+       to the palette's darkest warm — 4.66:1 on the ivory, i.e. readable as
+       running text, which an error message has to be. */
+    --destructive: 14.8 88% 41.8%;
+    --destructive-foreground: 27 39% 95.5%;
 
     --border: 28 18% 81.8%;
     --input: 28 18% 81.8%;

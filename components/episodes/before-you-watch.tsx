@@ -36,22 +36,30 @@ export function BeforeYouWatch({ data }: BeforeYouWatchProps) {
   return (
     <div className="space-y-4">
       <h2 className="text-lead font-semibold">قبل أن تشاهد</h2>
+      {/* THE THREE CARDS ARE NOT A TRAFFIC LIGHT. They were green / orange /
+          blue-700 — a stock-Tailwind triad, and green and blue are colours the
+          KHAT identity does not contain at all. The distinction they carry is
+          editorial (who it's for / who it isn't / what you leave with), not a
+          severity, so it is drawn with the palette's own three inks:
+          Deep Indigo, Burnt Orange, Dusty Violet. All three clear AA on the
+          tinted card (10.78 / 4.66 / 4.14 on the ivory, and the tint is a 5%
+          wash of the same colour, so the ground barely moves). */}
       <div className="grid gap-4 sm:grid-cols-3">
         {who_is_it_for && (
-          <div className="rounded-lg border border-green-500/20 bg-green-500/5 p-4">
-            <h3 className="mb-2 text-caption font-medium text-green-700">لمن هذه الحلقة؟</h3>
+          <div className="rounded-lg border border-primary/20 bg-primary/5 p-4">
+            <h3 className="mb-2 text-caption font-medium text-primary">لمن هذه الحلقة؟</h3>
             <p className="max-w-measure text-caption text-muted-foreground whitespace-pre-line">{who_is_it_for}</p>
           </div>
         )}
         {who_is_it_not_for && (
-          <div className="rounded-lg border border-orange-500/20 bg-orange-500/5 p-4">
-            <h3 className="mb-2 text-caption font-medium text-orange-700">ليست لك إذا...</h3>
+          <div className="rounded-lg border border-accent-strong/25 bg-accent-strong/5 p-4">
+            <h3 className="mb-2 text-caption font-medium text-accent-strong">ليست لك إذا...</h3>
             <p className="max-w-measure text-caption text-muted-foreground whitespace-pre-line">{who_is_it_not_for}</p>
           </div>
         )}
         {what_you_gain && (
-          <div className="rounded-lg border border-blue-500/20 bg-blue-500/5 p-4">
-            <h3 className="mb-2 text-caption font-medium text-blue-700">ماذا ستخرج به؟</h3>
+          <div className="rounded-lg border border-muted-foreground/25 bg-muted-foreground/5 p-4">
+            <h3 className="mb-2 text-caption font-medium text-muted-foreground">ماذا ستخرج به؟</h3>
             <p className="max-w-measure text-caption text-muted-foreground whitespace-pre-line">{what_you_gain}</p>
           </div>
         )}

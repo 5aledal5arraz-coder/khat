@@ -32,6 +32,30 @@ export const STANDALONE_IVORY = "#f8f3ef"
 export const STANDALONE_ORANGE_TEXT = "#c83b0d"
 
 /**
+ * The rest of «ملف عرض الشعار», for documents that cannot read `globals.css`.
+ *
+ * These are the identity's own secondary colours. They are here because the
+ * three files CLAUDE.md lists as outside the token swap point — the email
+ * templates, the proposal PDF, the media kit — were each keeping a private set
+ * of invented neutrals (`#1b1630`, `#403a55`, `#ddd7dd`, `#ece7e7`…). Hand-kept
+ * copies are exactly how off-palette colours survive a cleanup, so there is now
+ * one list and the documents import from it.
+ *
+ * Contrast on the ivory, measured: Signature Purple 11.09, Deep Indigo 10.78,
+ * Burnt Orange 4.66, Dusty Violet 4.14.
+ */
+/** KHAT Signature Purple — the identity's ink, and the site's `--foreground`. */
+export const STANDALONE_INK = "#342c6b"
+/** KHAT Dusty Violet. Secondary/meta text; 4.14:1, so never for running copy. */
+export const STANDALONE_MUTED = "#7570a3"
+/** KHAT Warm Stone — rules, borders, dividers. */
+export const STANDALONE_STONE = "#d9d0c8"
+/** KHAT Soft Blush — the raised surface, the same one the site uses for cards. */
+export const STANDALONE_BLUSH = "#fff7f5"
+/** KHAT Lavender Mist — chips and callout edges. */
+export const STANDALONE_MIST = "#d9d5e8"
+
+/**
  * `@font-face` for Manifa V2, for a standalone document.
  *
  * @param origin absolute origin to resolve /fonts against. Defaults to

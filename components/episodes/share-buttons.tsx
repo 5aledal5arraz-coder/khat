@@ -60,7 +60,7 @@ export function ShareButtons({ url, title, className, size = "sm" }: ShareButton
         variant="ghost"
         size="icon"
         onClick={handleWhatsAppShare}
-        className={cn(buttonSize, "text-muted-foreground hover:text-green-500 hover:bg-green-500/10")}
+        className={cn(buttonSize, "text-muted-foreground hover:text-primary hover:bg-primary/10")}
         title="مشاركة عبر واتساب"
       >
         <MessageCircle className={iconSize} />
@@ -85,7 +85,7 @@ export function ShareButtons({ url, title, className, size = "sm" }: ShareButton
         className={cn(
           buttonSize,
           "text-muted-foreground",
-          copied ? "text-green-500" : "hover:text-primary hover:bg-primary/10"
+          copied ? "text-primary" : "hover:text-primary hover:bg-primary/10"
         )}
         title={copied ? "تم النسخ!" : "نسخ الرابط"}
       >

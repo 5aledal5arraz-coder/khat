@@ -64,12 +64,12 @@ export function AtharCard({
             </span>
           </div>
           <p
-            className="line-clamp-2 text-micro text-stone-700 dark:text-[hsl(40_30%_85%)]"
+            className="line-clamp-2 text-micro text-foreground"
             dir="auto"
           >
             {text}
           </p>
-          <p className="mt-2 text-micro text-stone-500 dark:text-[hsl(40_20%_50%)]">
+          <p className="mt-2 text-micro text-muted-foreground">
             — {guestName}
           </p>
         </div>
@@ -123,7 +123,7 @@ export function AtharCard({
         {/* Content */}
         <div className="relative px-8 pb-8 pt-10 sm:px-12 sm:pb-10 sm:pt-14">
           <blockquote
-            className="text-lead leading-[2.1] sm:leading-[2.1] text-stone-800 dark:text-[hsl(40_30%_85%)]"
+            className="text-lead leading-[2.1] sm:leading-[2.1] text-foreground"
             dir="auto"
           >
             {text}
@@ -131,7 +131,7 @@ export function AtharCard({
 
           {/* Signature */}
           <div className="mt-8 border-t border-primary/10 pt-5">
-            <p className="text-caption font-medium text-stone-600 dark:text-[hsl(40_20%_65%)]">
+            <p className="text-caption font-medium text-muted-foreground">
               — {guestName}
             </p>
             {formattedDate && (

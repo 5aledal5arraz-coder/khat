@@ -49,7 +49,7 @@ export function EpisodeHero({ episode, teaser, initialStartTime }: EpisodeHeroPr
         {episode.guest && (
           <Link
             href={`/guests/${episode.guest.slug}`}
-            className="text-caption font-semibold text-accent transition-opacity hover:opacity-80"
+            className="text-caption font-semibold text-accent-strong transition-opacity hover:opacity-80"
           >
             {episode.guest.name}
           </Link>

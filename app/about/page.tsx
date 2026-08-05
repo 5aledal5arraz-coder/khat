@@ -41,8 +41,24 @@ function getIcon(name: string) {
   return iconMap[name] || Heart
 }
 
-// Validate value color classes to prevent arbitrary class injection from config
-const ALLOWED_COLOR_PATTERN = /^from-[a-z]+-\d+\/\d+\s+to-[a-z]+-\d+\/\d+$/
+/**
+ * Validate value colour classes — this stops arbitrary class injection from
+ * config, and now also stops OFF-PALETTE colour from arriving that way.
+ *
+ * The old pattern demanded a NUMERIC Tailwind shade (`from-red-500/20`), which
+ * meant the only classes it would accept were stock-palette ones, and the only
+ * classes it rejected were the brand tokens. The three cards on this page were
+ * red / yellow / blue because of it. Now the shade is optional, so a token name
+ * passes, and the allow-list below is the identity's four inks — nothing else
+ * reaches `className` no matter what the config or the DB says.
+ *
+ * The guard reads from the DB (`static_content`), not just the committed JSON,
+ * so it has to hold at render time rather than at seed time.
+ */
+const ALLOWED_TOKENS = ["primary", "accent", "accent-strong", "muted-foreground"] as const
+const ALLOWED_COLOR_PATTERN = new RegExp(
+  `^from-(?:${ALLOWED_TOKENS.join("|")})\\/\\d+\\s+to-(?:${ALLOWED_TOKENS.join("|")})\\/\\d+$`,
+)
 function safeColor(color: string): string {
   return ALLOWED_COLOR_PATTERN.test(color) ? color : "from-primary/20 to-primary/5"
 }

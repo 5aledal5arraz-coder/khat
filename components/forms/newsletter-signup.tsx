@@ -197,14 +197,23 @@ export function NewsletterSignup({
           disabled={loading}
           className={cn(
             "inline-flex shrink-0 items-center justify-center gap-2 rounded-xl font-semibold shadow-sm transition-all disabled:opacity-70",
-            /* On the indigo band the CTA is KHAT Orange — the identity's accent
-               doing the one job it exists for. Its label is `--foreground`, the
-               palette's near-black indigo, at 5.52:1; white would have been
-               3.34:1 and indigo-on-orange 3.56:1, both failing AA for a 14px
-               label. The button itself clears SC 1.4.11 against the card at
-               3.56:1, so the shape reads as a control. */
+            /* On the indigo band the CTA is orange — the identity's accent doing
+               the one job it exists for. It uses BOTH of the palette's oranges,
+               because neither does the whole job alone:
+                 fill   KHAT Burnt Orange, so the Warm Ivory label reads at
+                        4.66:1. On KHAT Orange no identity colour clears 4.5:1 —
+                        the best is Signature Purple at 3.66 — and a 14px label
+                        is normal-size text, so the fill has to be the darker one.
+                 border KHAT Orange, because Burnt Orange sits only 2.31:1 off
+                        the indigo card and the shape would stop reading as a
+                        control (SC 1.4.11). The border clears it at 3.56:1.
+               Two oranges touching is the identity's own pairing, not a mix. */
             isInline
-              ? "bg-accent text-foreground hover:bg-accent/90"
+              /* Hover does NOT swap to KHAT Orange — that would drop the ivory
+                 label to 3.03:1 on the one state a user is about to click. It
+                 blends the same burnt orange toward the indigo behind it, so
+                 contrast rises rather than falls. */
+              ? "border border-accent bg-accent-strong text-background hover:bg-accent-strong/90"
               : "bg-primary text-primary-foreground hover:bg-primary/90",
             isHero ? "px-7 py-3 text-body" : "px-5 py-2.5 text-caption",
           )}
@@ -308,7 +317,7 @@ export function NewsletterSignup({
         className="pointer-events-none absolute -top-20 start-1/2 h-56 w-56 -translate-x-1/2 rounded-full bg-primary/10 blur-3xl"
       />
       <div className="relative">
-        <span className="inline-flex items-center gap-1.5 rounded-full border border-accent/30 bg-accent/10 px-3 py-1 text-micro font-semibold text-accent">
+        <span className="inline-flex items-center gap-1.5 rounded-full border border-accent/30 bg-accent/10 px-3 py-1 text-micro font-semibold text-accent-strong">
           <Sparkles className="h-3.5 w-3.5" />
           النشرة البريدية
         </span>

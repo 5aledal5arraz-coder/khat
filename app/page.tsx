@@ -311,7 +311,7 @@ export default async function HomePage() {
                   ) : null}
                 </div>
                 {featured.guest?.name ? (
-                  <span className="mt-3 text-caption font-semibold text-accent">{featured.guest.name}</span>
+                  <span className="mt-3 text-caption font-semibold text-accent-strong">{featured.guest.name}</span>
                 ) : null}
                 {/* `displayEpisodeTitle`, matching every card in the grid
                     below. Raw `featured.title` printed the YouTube brand stamp
@@ -462,7 +462,7 @@ function CtaCard({
     >
       <span
         className={`text-micro font-bold uppercase ${
-          accent ? "text-primary-foreground/70" : "text-accent"
+          accent ? "text-primary-foreground/70" : "text-accent-strong"
         }`}
       >
         {eyebrow}

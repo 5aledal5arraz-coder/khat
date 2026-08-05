@@ -46,7 +46,7 @@ export function GuestCard({ guest }: GuestCardProps) {
                 // that no longer belonged to any palette. Safe to retarget —
                 // zero guests currently carry a testimonial, so this branch
                 // renders for nobody today.
-                <p className="mt-1.5 line-clamp-1 text-micro italic text-accent/70">
+                <p className="mt-1.5 line-clamp-1 text-micro italic text-accent-strong">
                   &ldquo;{guest.testimonial}&rdquo;
                 </p>
               )}

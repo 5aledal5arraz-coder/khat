@@ -29,7 +29,7 @@ export function PlayBadge({ className }: { className?: string }) {
         className,
       )}
     >
-      <Play className="h-5 w-5 fill-current text-white" aria-hidden="true" />
+      <Play className="h-5 w-5 fill-current text-background" aria-hidden="true" />
     </span>
   )
 }

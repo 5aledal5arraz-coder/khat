@@ -107,7 +107,7 @@ export default async function CategoryPage({ params }: CategoryPageProps) {
     <div className="px-6 pb-24 pt-14 sm:pt-20">
       <div className="mx-auto max-w-6xl">
         <header className="text-center">
-          <span className="text-micro font-bold uppercase text-accent">
+          <span className="text-micro font-bold uppercase text-accent-strong">
             تصنيف
           </span>
           <h1 className="mt-3 text-heading font-bold text-foreground sm:text-title">
