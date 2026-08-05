@@ -59,6 +59,11 @@ const MARKER_ICON: Record<QuickMarkerType, LucideIcon> = {
   break_start: Coffee,
   break_end: Play,
   chapter: Flag,
+  // The closing halves. Both reuse `Play` — the same glyph `break_end` already
+  // uses — because from the operator's side all three mean the same thing:
+  // whatever was interrupting the take has stopped, carry on.
+  tech_issue_end: Play,
+  retake_end: Play,
 }
 
 const MARKER_COLOR: Record<QuickMarkerType, { dot: string; text: string; soft: string }> = {
@@ -71,6 +76,10 @@ const MARKER_COLOR: Record<QuickMarkerType, { dot: string; text: string; soft: s
   break_start: { dot: "bg-slate-500", text: "text-slate-700", soft: "bg-slate-500/10" },
   break_end: { dot: "bg-emerald-500", text: "text-emerald-700", soft: "bg-emerald-500/10" },
   chapter: { dot: "bg-indigo-500", text: "text-indigo-700", soft: "bg-indigo-500/10" },
+  // Emerald for both closers, matching `break_end`: on the timeline the green
+  // pin always means "the interruption ended here".
+  tech_issue_end: { dot: "bg-emerald-500", text: "text-emerald-700", soft: "bg-emerald-500/10" },
+  retake_end: { dot: "bg-emerald-500", text: "text-emerald-700", soft: "bg-emerald-500/10" },
 }
 
 /**

@@ -39,6 +39,9 @@ import {
   DIRECTOR_MARKER_TYPES,
   QUICK_MARKER_META,
   type QuickMarkerType,
+  openIntervals,
+  closerFor,
+  isIntervalCloser,
 } from "@/lib/recording-v2/marker-types"
 
 const SECTION_LABEL_AR: Record<SectionKind, string> = {
@@ -66,19 +69,79 @@ function formatClock(ms: number): string {
  * Director-only toolbar to flag a live moment; broadcasts over SSE to the room.
  * Draws from the shared quick-marker taxonomy (director-relevant subset).
  */
-function DirectorMarkerBar({ disabled }: { disabled: boolean }) {
-  const { addMarker } = useRoomMarkers()
+/**
+ * ── ONE BUTTON, BOTH ENDS ──────────────────────────────────────────────────
+ *
+ * Khaled: «بالدقيقه ٥ وضعت علامه خلل وفي الدقيقه ٦ انتهى الخلل شنو اسوي؟ اضغط
+ * خلل مره ثانيه؟» — yes, and that is now what the second press does.
+ *
+ * Before this the bar wrote one marker per press. A fault at 05:00 and its end
+ * at 06:00 produced two identical `tech_issue` rows a minute apart, and nothing
+ * downstream could say which was which. The editor was handed "a problem
+ * happened here, twice" instead of "a problem lasted one minute".
+ *
+ * SO THE BUTTON HOLDS STATE. While an interval is open it turns rose, its label
+ * becomes the closing one, and it counts up — «انتهت المشكلة · 0:47». That
+ * counter is the load-bearing part: without it a second press is indistinguish-
+ * able from a first, which is exactly the ambiguity that made the question
+ * necessary. `break_start` folds into the same mechanism, so the bar no longer
+ * carries a separate «نهاية استراحة» button for the operator to remember.
+ *
+ * Open state is derived from the MARKERS THEMSELVES (`openIntervals`), not from
+ * local component state — so the director and the editor, who now both have
+ * this bar, see the same open fault, and either can close it. Two people with
+ * private toggles would have produced two starts and one end.
+ */
+function DirectorMarkerBar({
+  disabled,
+  elapsedMsAtBaseline,
+  recordingStartedAt,
+  recordingPausedAt,
+  live,
+}: {
+  disabled: boolean
+  elapsedMsAtBaseline: number
+  recordingStartedAt: string | null
+  recordingPausedAt: string | null
+  live: boolean
+}) {
+  const { addMarker, markers } = useRoomMarkers()
   const [pending, setPending] = useState<QuickMarkerType | null>(null)
+  // Ticks only to force a re-render; the VALUE comes from `netNow()` below.
+  const [, setTick] = useState(0)
+
+  const open = openIntervals(markers)
+  const hasOpen = Object.keys(open).length > 0
+
+  // Only ticks while something is open — no timer on an idle bar.
+  useEffect(() => {
+    if (!hasOpen) return
+    const id = setInterval(() => setTick((t) => t + 1), 1000)
+    return () => clearInterval(id)
+  }, [hasOpen])
+
+  // NET recording time — the same number the clock shows and the same one
+  // every marker is stamped with. Wall-clock would drift from it across every
+  // pause, so an open fault would read longer than the footage it covers.
+  const windowStartedAt =
+    recordingStartedAt && !recordingPausedAt ? Date.parse(recordingStartedAt) : null
+  const netNow = () => computeElapsedMs(elapsedMsAtBaseline, windowStartedAt, live)
 
   const flag = async (type: QuickMarkerType) => {
     if (disabled || pending) return
+    // An open interval closes with its closer; everything else writes itself.
+    const openAt = open[type]
+    const toWrite = openAt !== undefined ? closerFor(type)! : type
     setPending(type)
     try {
-      await addMarker(type, QUICK_MARKER_META[type].defaultLabel)
+      await addMarker(toWrite, QUICK_MARKER_META[toWrite].defaultLabel)
     } finally {
       setPending(null)
     }
   }
+
+  // The closers never get their own button — they are the second press.
+  const buttons = DIRECTOR_MARKER_TYPES.filter((t) => !isIntervalCloser(t))
 
   return (
     <div className="rounded-2xl border border-violet-500/25 bg-violet-500/5 p-3">
@@ -86,19 +149,25 @@ function DirectorMarkerBar({ disabled }: { disabled: boolean }) {
         <Flag className="h-3 w-3" /> وضع علامة مباشرة
       </div>
       <div className="flex flex-wrap gap-2">
-        {DIRECTOR_MARKER_TYPES.map((type) => {
-          const st = markerStyle(type)
+        {buttons.map((type) => {
+          const openedAt = open[type]
+          const isOpen = openedAt !== undefined
+          const shown = isOpen ? closerFor(type)! : type
+          const st = markerStyle(shown)
           const Icon = st.icon
+          const heldMs = isOpen ? Math.max(0, netNow() - openedAt) : 0
           return (
             <button
               key={type}
               type="button"
               onClick={() => void flag(type)}
               disabled={disabled || pending !== null}
-              title={QUICK_MARKER_META[type].hint}
+              title={QUICK_MARKER_META[shown].hint}
               className={cn(
-                "inline-flex items-center gap-1.5 rounded-full border border-border/50 bg-card/60 px-3 py-1.5 text-[12px] font-medium transition hover:bg-card disabled:cursor-not-allowed disabled:opacity-40",
-                st.text,
+                "inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-[12px] font-medium transition disabled:cursor-not-allowed disabled:opacity-40",
+                isOpen
+                  ? "animate-pulse border-rose-500/60 bg-rose-500/10 text-rose-700"
+                  : cn("border-border/50 bg-card/60 hover:bg-card", st.text),
               )}
             >
               {pending === type ? (
@@ -106,11 +175,19 @@ function DirectorMarkerBar({ disabled }: { disabled: boolean }) {
               ) : (
                 <Icon className="h-3.5 w-3.5" />
               )}
-              {QUICK_MARKER_META[type].label}
+              {QUICK_MARKER_META[shown].label}
+              {isOpen && (
+                <span className="tabular-nums opacity-80">· {formatClock(heldMs)}</span>
+              )}
             </button>
           )
         })}
       </div>
+      {hasOpen && (
+        <p className="mt-2 text-[10.5px] font-medium text-rose-700">
+          اضغط الزر الأحمر مرة ثانية عند انتهاء الحالة.
+        </p>
+      )}
       {disabled && (
         <p className="mt-2 text-[10.5px] text-muted-foreground">
           يبدأ وضع العلامات عند بدء التسجيل.
@@ -432,7 +509,16 @@ export function ParticipantRoomView({
           person who calls "we're at forty minutes". Same net time as the host,
           same size, so the two of them are never reading different numbers at
           each other across the studio. */}
-      {isDirector && (
+      {/* THE CLOCK GOES TO THE EDITOR TOO. Khaled: «شاهين يشوف عداد الوقت
+          كامل مثلي انا وفيصل، مايختلف شي».
+      
+          It was director-only. The editor is the one who cuts the file
+          afterwards, and every marker he reads in post is stamped in NET
+          RECORDING TIME — this clock, which excludes pauses. Without it he
+          watched markers land at timestamps he could not place against
+          anything in front of him. Same component, same number, so three
+          people never call three different times at each other. */}
+      {(isDirector || isEditor) && (
         <DirectorClock
           status={status}
           elapsedMsAtBaseline={room?.recording_elapsed_ms ?? initial.room.recording_elapsed_ms}
@@ -454,8 +540,18 @@ export function ParticipantRoomView({
       )}
 
       {/* Director: flag live moments (broadcasts to the whole room over SSE) */}
-      {isDirector && (
-        <DirectorMarkerBar disabled={status === "waiting" || status === "ended"} />
+      {/* MARKERS: DIRECTOR **AND** EDITOR. The editor is the one who has to
+          find these moments again in the timeline; making him ask the director
+          to flag something he can see himself was a relay in the middle of a
+          take. Broadcasts to the whole room over SSE. */}
+      {(isDirector || isEditor) && (
+        <DirectorMarkerBar
+          disabled={status === "waiting" || status === "ended"}
+          elapsedMsAtBaseline={room?.recording_elapsed_ms ?? initial.room.recording_elapsed_ms}
+          recordingStartedAt={room?.recording_started_at ?? initial.room.recording_started_at}
+          recordingPausedAt={room?.recording_paused_at ?? initial.room.recording_paused_at}
+          live={status === "live"}
+        />
       )}
 
       {/* Questions of the active section */}
@@ -596,7 +692,13 @@ export function ParticipantRoomView({
       )}
 
       {/* Director: live feed of the moments flagged this session */}
-      {isDirector && <TeamMarkerFeed canDelete />}
+      {/* THE MARKER FEED, AND DELETION, FOR BOTH. Khaled: «الاثنين يقدرون
+          يحذفون كل العلامات». `canDelete` is unconditional — the editor may
+          remove the director's markers and the other way round. That is his
+          call and it is the right one for two people watching the same take:
+          a wrong flag is noise in the export, and making the person who spots
+          it ask the person who made it is how wrong flags survive to post. */}
+      {(isDirector || isEditor) && <TeamMarkerFeed canDelete />}
 
       {/* Reference material — episode backbone, available to every role */}
       <MaterialsPanel prep={prep} />

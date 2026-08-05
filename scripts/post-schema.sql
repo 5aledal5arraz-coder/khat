@@ -614,8 +614,20 @@ DO $$ BEGIN
       -- canonical taxonomy
       'clip', 'quote', 'highlight', 'cut', 'retake', 'tech_issue',
       'break_start', 'break_end', 'chapter',
+      -- The closing halves of the INTERVAL markers. A break already had a
+      -- start AND an end because it is a stretch of the recording; a fault
+      -- and a retake are the same shape and had only a start, so the editor
+      -- inherited "something went wrong here" with no way to know whether it
+      -- cost two seconds or two minutes. Added 2026-08-05 on Khaled's question.
+      'tech_issue_end', 'retake_end',
       -- system markers (not in the quick-tag UI)
       'energy_change',
+      -- `insight_used` WAS ALREADY MISSING while being a declared system
+      -- marker the app writes (app/admin/recording/[roomId]/v2/live-v2-client
+      -- .tsx writes it when the host deploys a support card live), so every
+      -- one of those inserts was rejected by this constraint. Found while
+      -- adding the two above; fixed rather than left for the next person.
+      'insight_used',
       -- legacy values (pre-unification rows)
       'deep_moment', 'emotional', 'revisit', 'episode_started', 'break',
       'important', 'technical_issue', 'custom'
