@@ -20,6 +20,11 @@ function revalidateAll() {
   // the partners strip never refreshed on the page that actually renders it.
   revalidatePath("/partner")
   revalidatePath("/admin/partnerships")
+  // The season pages render the same band as the homepage. `layout` re-renders
+  // EVERY /categories/* route rather than one slug — correct here, because the
+  // set of season pages is a row count in Postgres, so naming slugs would mean
+  // a new season silently stopped refreshing.
+  revalidatePath("/categories/[slug]", "layout")
 }
 
 export async function createPartnerAction(

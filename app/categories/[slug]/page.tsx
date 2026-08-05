@@ -2,8 +2,10 @@ import { Metadata } from "next"
 import { notFound } from "next/navigation"
 import { getEpisodes } from "@/lib/queries/episodes"
 import { getCategoriesForRequest } from "@/lib/queries/categories"
-import { getCachedEpisodeCounts } from "@/lib/cache"
+import { getCachedEpisodeCounts, getCachedHomepagePartners } from "@/lib/cache"
 import { resolveCategorySlug } from "@/lib/episodes/category-filter"
+import { SponsorStrip } from "@/components/sponsors/sponsor-strip"
+import type { TrustedPartner } from "@/lib/queries/partnerships"
 import { EpisodePosterCard } from "@/components/episodes/episode-poster-card"
 import { ArchiveNav } from "@/components/episodes/archive-nav"
 import {
@@ -79,9 +81,16 @@ export default async function CategoryPage({ params }: CategoryPageProps) {
   // Filtered listing goes to getEpisodes(), never the cached full-archive
   // snapshot. `getCategoriesForRequest` inside the pipeline is the SAME
   // request-scoped result already loaded above — no second SELECT.
-  const [episodes, counts] = await Promise.all([
+  const [episodes, counts, partners] = await Promise.all([
     getEpisodes({ category: category.slug }).catch(() => []),
     getCachedEpisodeCounts().catch(() => undefined),
+    // Partners only for a SEASON page. `/categories/*` also serves «مقاطع خط»
+    // and «سالفة», which are other programmes — a season's sponsors are not
+    // automatically theirs, and Khaled asked for the season. The lane check is
+    // the whole rule; widening it later is this one condition.
+    lane === "khat"
+      ? getCachedHomepagePartners().catch(() => [] as TrustedPartner[])
+      : Promise.resolve([] as TrustedPartner[]),
   ])
 
   // ── THE EXPIRY ALARM FOR THE NAVIGATION DECISION DOCUMENTED BELOW ─────────
@@ -185,6 +194,18 @@ export default async function CategoryPage({ params }: CategoryPageProps) {
             </p>
           </div>
         )}
+
+        {/* The season's partners, under the listing. `SponsorStrip` renders
+            nothing when the list is empty, which is every non-khat lane and
+            every season with no partner flagged — so this line is inert until
+            there is something to say. The heading names the season rather than
+            saying «شركاء الموسم» generically, because on this page the reader
+            is already inside one. */}
+        <SponsorStrip
+          partners={partners}
+          heading={`شركاء ${category.name}`}
+          className="mt-16 px-0"
+        />
       </div>
     </div>
   )

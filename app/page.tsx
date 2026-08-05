@@ -1,13 +1,19 @@
 import type { Metadata } from "next"
 import Link from "next/link"
 import { ArrowLeft, Play, Sparkles } from "lucide-react"
-import { getCachedPublicEpisodes, getCachedActiveTeaser } from "@/lib/cache"
+import {
+  getCachedActiveTeaser,
+  getCachedHomepagePartners,
+  getCachedPublicEpisodes,
+} from "@/lib/cache"
 import type { Episode } from "@/types/database"
+import type { TrustedPartner } from "@/lib/queries/partnerships"
 import { TeaserSection } from "@/components/teaser/teaser-section"
 import { EpisodePosterCard } from "@/components/episodes/episode-poster-card"
 import { EpisodeThumb } from "@/components/media/episode-thumb"
 import { filterLane } from "@/lib/episodes/programs"
 import { NewsletterSignup } from "@/components/forms/newsletter-signup"
+import { SponsorStrip } from "@/components/sponsors/sponsor-strip"
 import {
   displayEpisodeTitle,
   episodeBlurb,
@@ -91,9 +97,13 @@ const jsonLd = {
 }
 
 export default async function HomePage() {
-  const [episodes, activeTeaser] = await Promise.all([
+  const [episodes, activeTeaser, partners] = await Promise.all([
     getCachedPublicEpisodes().catch(() => [] as Episode[]),
     getCachedActiveTeaser().catch(() => null),
+    // Same `.catch(() => [])` as its neighbours: a partner band is the least
+    // important thing on this page, and it must never be the reason the
+    // homepage 500s.
+    getCachedHomepagePartners().catch(() => [] as TrustedPartner[]),
   ])
   // حلقات خط ONLY — the lane, not "everything that is not a clip".
   //
@@ -384,6 +394,14 @@ export default async function HomePage() {
           </p>
         </div>
       </section>
+
+      {/* ──────────────────── Season partners ────────────────────
+          Placed here on purpose: after the statement, before the two CTAs. A
+          sponsor is paying for association with the show, not for interrupting
+          it, so the band sits below every editorial section and above «كن
+          شريكاً» — the ask it gives evidence for. It renders nothing at all
+          when no partner is flagged for the homepage. */}
+      <SponsorStrip partners={partners} className="px-0 pb-4" />
 
       {/* ──────────────────── Join CTA ──────────────────── */}
       <section className="px-6 pb-24">

@@ -345,6 +345,27 @@ describe("no initials anywhere", () => {
 })
 
 describe("one saturation policy: full colour", () => {
+  /**
+   * The two files that may desaturate, and why they are not a hole in this rule.
+   *
+   * The policy is about OUR imagery: episode posters, guest photographs,
+   * thumbnails. A sponsor's logo is the opposite case — someone else's
+   * trademark in someone else's palette — and Khaled's standing rule
+   * (2026-08-05) is that no colour outside «ملف عرض الشعار» goes on this site.
+   * Four foreign palettes at full saturation would make the partner band the
+   * loudest thing on a page built on restraint.
+   *
+   * Named individually, NOT matched by a pattern like /sponsor/: a pattern
+   * would quietly widen every time someone names a new file well, and this file
+   * exists because a rule that stops seeing is worse than no rule.
+   * `tests/sponsors/sponsor-strip.test.ts` asserts the other direction — that
+   * these two DO carry the treatment, and that they carry the same one.
+   */
+  const DESATURATION_ALLOWED = [
+    "components/sponsors/sponsor-strip.tsx",
+    "components/episodes/episode-sponsor.tsx",
+  ]
+
   it("nothing on the public site desaturates a thumbnail", () => {
     // `grayscale group-hover:grayscale-0` erased the only colour the archive
     // has (the same indigo carries 35 of 41 posters) — and only on the pages
@@ -352,9 +373,24 @@ describe("one saturation policy: full colour", () => {
     // there.
     const hits = publicFiles()
       .filter(([rel]) => rel !== "tests/image-system.test.ts")
+      .filter(([rel]) => !DESATURATION_ALLOWED.includes(rel))
       .filter(([, src]) => /\bgrayscale\b/.test(src))
       .map(([rel]) => rel)
     expect(hits).toEqual([])
+  })
+
+  it("the exception list names only files that exist and still use it", () => {
+    // An allow-list entry for a deleted or changed file is how an exception
+    // becomes a permanent blind spot. This fails the day either stops being
+    // true, which is the day the entry should go.
+    const byPath = new Map(publicFiles())
+    for (const rel of DESATURATION_ALLOWED) {
+      expect(byPath.has(rel), `${rel} is allow-listed but is not a public file`).toBe(true)
+      expect(
+        /\bgrayscale\b/.test(byPath.get(rel) ?? ""),
+        `${rel} no longer desaturates — drop it from the list`,
+      ).toBe(true)
+    }
   })
 
   it("the retired gold frame is gone from the stylesheet", () => {

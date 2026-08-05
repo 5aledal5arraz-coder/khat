@@ -19,12 +19,19 @@ export function EpisodeSponsor({ sponsor }: { sponsor: EpisodeSponsorData }) {
               rel="noopener noreferrer"
               className="transition-opacity hover:opacity-80"
             >
+              {/* Same treatment as the season band (components/sponsors/
+                  sponsor-strip.tsx): greyscale so a foreign palette does not
+                  land on the page, multiply so an opaque white logo file does
+                  not sit in a white box on the tinted ground, both dropped on
+                  hover. The two sponsor surfaces have to agree — a logo that
+                  is monochrome on the homepage and full-colour on the episode
+                  page reads as a bug, not as a decision. */}
               <Image
                 src={sponsor.logoUrl}
                 alt={sponsor.name}
                 width={160}
                 height={64}
-                className="h-12 w-auto object-contain sm:h-14"
+                className="h-12 w-auto object-contain opacity-80 mix-blend-multiply grayscale transition duration-300 hover:opacity-100 hover:grayscale-0 sm:h-14"
               />
             </a>
           ) : (
