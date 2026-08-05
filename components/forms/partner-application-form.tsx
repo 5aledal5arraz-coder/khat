@@ -97,7 +97,16 @@ export function PartnerApplicationForm() {
         if (!campaignGoals.trim()) return "صف كيف يبدو النجاح بالنسبة لك"
         return null
       case 3:
-        if (!budgetRange) return "اختر نطاق الميزانية"
+        /* BUDGET IS OPTIONAL FOR A COMPANY THAT ALREADY TOLD US IT IS UNSURE.
+           «غير متأكد بعد — أرشدونا» is an option we offer, and then the next
+           step demanded a budget band from exactly the company that just said
+           it does not know one. That is a wall in front of the lead most worth
+           talking to — the one asking to be guided. Everyone else still
+           answers, because the packages now carry prices and the question has
+           become easy rather than intrusive. */
+        if (!budgetRange && !collaborationTypes.includes("not_sure")) {
+          return "اختر نطاق الميزانية"
+        }
         return null
       default:
         return null

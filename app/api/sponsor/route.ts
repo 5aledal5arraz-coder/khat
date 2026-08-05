@@ -74,12 +74,26 @@ export async function POST(request: NextRequest) {
     if (!target_audience || typeof target_audience !== "string" || target_audience.trim().length === 0) {
       return NextResponse.json({ error: "الجمهور المستهدف مطلوب" }, { status: 400 })
     }
-    if (!budget_range || typeof budget_range !== "string") {
-      return NextResponse.json({ error: "نطاق الميزانية مطلوب" }, { status: 400 })
-    }
     if (!Array.isArray(collaboration_types) || collaboration_types.length === 0) {
       return NextResponse.json({ error: "يرجى اختيار نوع تعاون واحد على الأقل" }, { status: 400 })
     }
+    /* BUDGET IS OPTIONAL FOR A COMPANY THAT SAID «غير متأكد بعد — أرشدونا».
+       The form relaxes the same rule, and BOTH must relax it or the
+       relaxation is a lie: a client rule the server still rejects produces
+       a company that fills in four steps and is refused on the last press,
+       by an error naming a field the form said it could skip.
+       `collaboration_types` is now validated BEFORE this, because this
+       check reads it. */
+    /* `stripHtml` takes a string and an undecided company now sends none, so
+       the value is normalised ONCE here instead of at the three call sites
+       below — DOMPurify.sanitize(undefined) does not quietly return "".
+       The stored text says WHY it is empty, so a lead that skipped the
+       question stays distinguishable in the admin from one never asked. */
+    const undecided = collaboration_types.includes("not_sure")
+    if (!undecided && (!budget_range || typeof budget_range !== "string")) {
+      return NextResponse.json({ error: "نطاق الميزانية مطلوب" }, { status: 400 })
+    }
+    const budgetForStorage = budget_range ? stripHtml(budget_range) : "لم يُحدَّد — طلب الإرشاد"
     if (phone.trim().length < 8) {
       return NextResponse.json({ error: "رقم الهاتف قصير جدًا" }, { status: 400 })
     }
@@ -125,7 +139,7 @@ export async function POST(request: NextRequest) {
       expectations: optText(expectations),
       previous_partnerships: optText(previous_partnerships),
       preferred_timeline: preferred_timeline ? stripHtml(preferred_timeline) : null,
-      budget_range: stripHtml(budget_range),
+      budget_range: budgetForStorage,
       additional_info: additional_info ? stripHtml(additional_info) : null,
       status: "new",
     }).returning({ id: sponsorshipLeads.id })
@@ -133,7 +147,7 @@ export async function POST(request: NextRequest) {
     const reference = partnershipRef(inserted.id)
 
     // Send branded notification emails (fire-and-forget)
-    const emailParams = { company: sanitizedCompany, contact: sanitizedContact, email: sanitizedEmail, budget: stripHtml(budget_range), reference }
+    const emailParams = { company: sanitizedCompany, contact: sanitizedContact, email: sanitizedEmail, budget: budgetForStorage, reference }
     Promise.all([
       sendSponsorApplicationAdmin(env.ADMIN_NOTIFY_EMAIL || "khatpodcast@hotmail.com", emailParams),
       sendSponsorApplicationConfirm(sanitizedEmail, sanitizedContact, reference),
@@ -144,7 +158,7 @@ export async function POST(request: NextRequest) {
       type: "lead_created",
       summary: `وصل طلب شراكة جديد من ${sanitizedCompany}`,
       actor: "public",
-      metadata: { reference, budget_range: stripHtml(budget_range) },
+      metadata: { reference, budget_range: budgetForStorage },
     })
 
     // Auto-triage: run the full AI evaluation in the background so the operator

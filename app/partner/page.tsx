@@ -28,7 +28,11 @@ import {
   type LucideIcon,
 } from "lucide-react"
 import { getActivePartners } from "@/lib/queries/partnerships"
-import { fetchAllEpisodes, fetchTotalViews } from "@/lib/youtube/queries"
+import { fetchAllEpisodes, fetchChannelInfo } from "@/lib/youtube/queries"
+import { audienceFacts, audienceMetrics } from "@/lib/partnerships/audience"
+import { getCachedPublicEpisodes } from "@/lib/cache"
+import { filterLane } from "@/lib/episodes/programs"
+import type { Episode } from "@/types/database"
 import { resolveDefaultOgImage } from "@/lib/seo/og"
 
 // A page-level `openGraph` block replaces the root layout's rather than merging
@@ -58,6 +62,21 @@ interface PartnerPackage {
   deliverables: string[]
   bestFor: string
   featured?: boolean
+  /**
+   * WHAT IT COSTS, ON THE PAGE, BEFORE THE FORM.
+   *
+   * The form makes «نطاق الميزانية» a REQUIRED field while the site named no
+   * price anywhere — it asked a company to price itself in the dark. Worse,
+   * the lowest option is «أقل من 500 د.ك», so a company thinking 300 reads
+   * itself as unqualified and leaves without ever telling us.
+   *
+   * The bands below are the SAME four Khaled already wrote into the form's
+   * budget options, so the page and the form finally agree with each other.
+   * THE NUMBERS ARE HIS TO CONFIRM — they are here to be corrected, not
+   * asserted as fact.
+   */
+  investment: string
+  investmentNote?: string
 }
 
 const PACKAGES: PartnerPackage[] = [
@@ -72,6 +91,8 @@ const PACKAGES: PartnerPackage[] = [
       "منشور تعريفي عبر منصّاتنا",
       "لقطة أداء مختصرة بعد النشر",
     ],
+    investment: "500 – 1,000 د.ك",
+    investmentNote: "للحلقة الواحدة",
     bestFor: "لحظة إطلاق محددة، أو تجربة أولى للشراكة.",
   },
   {
@@ -87,6 +108,8 @@ const PACKAGES: PartnerPackage[] = [
       "تقارير أداء دورية",
       "أولوية لمواضيع تلامس مجالك",
     ],
+    investment: "من 3,000 د.ك",
+    investmentNote: "للموسم كاملًا — سعر الحلقة أقل",
     bestFor: "بناء ارتباط ذهني مستمر بين علامتك والمحتوى.",
   },
   {
@@ -101,6 +124,8 @@ const PACKAGES: PartnerPackage[] = [
       "ترويج موسّع قبل النشر وبعده",
       "محتوى دائم القيمة تعيدون استخدامه",
     ],
+    investment: "1,000 – 3,000 د.ك",
+    investmentNote: "حسب حجم الإنتاج",
     bestFor: "الريادة الفكرية، استقطاب المواهب، أو سرد عميق للعلامة.",
   },
   {
@@ -114,6 +139,8 @@ const PACKAGES: PartnerPackage[] = [
       "خارطة محتوى طويلة المدى",
       "شريك حساب مخصّص يرافقكم خطوة بخطوة",
     ],
+    investment: "يُحدَّد بعد الجلسة",
+    investmentNote: "نبني النطاق معًا",
     bestFor: "العلامات الباحثة عن علاقة عميقة ومستمرة، لا حملة عابرة.",
     featured: true,
   },
@@ -170,34 +197,51 @@ const PROCESS: { icon: LucideIcon; title: string; body: string }[] = [
 ]
 
 export default async function PartnerPage() {
-  const [partners, episodes, totalViews] = await Promise.all([
+  const [partners, episodes, ownEpisodes, channel] = await Promise.all([
     getActivePartners(),
-    fetchAllEpisodes().catch(() => []),
-    fetchTotalViews().catch(() => 0),
+    fetchAllEpisodes().catch(() => [] as Episode[]),
+    // The DATABASE's own episodes — the only source that knows which videos are
+    // خط's and which are «سالفة» or a clip. YouTube rows carry no category.
+    //
+    // `.filter((e) => e.category)` IS NOT REDUNDANT next to `filterLane`.
+    // filterLane resolves an episode with NO category to the DEFAULT lane,
+    // which is خط — so an uncategorised row counts as an episode here. Locally
+    // that is exactly what happened: the smoke fixture pushed the tile from 19
+    // to 20 while both databases hold 19 real ones. On a page whose whole
+    // purpose is a number a company can verify, "close enough" is the failure.
+    getCachedPublicEpisodes()
+      .then((all) => filterLane(all.filter((e) => e.category), "khat"))
+      .catch(() => [] as Episode[]),
+    // Subscribers come from the channel itself. `fetchTotalViews()` is gone:
+    // it summed EVERY video on the channel, shorts included, and that total
+    // was being presented to a sponsor as the podcast's reach.
+    fetchChannelInfo().catch(() => null),
   ])
 
-  const totalEpisodes = episodes.length
-  const formatNumber = (n: number): string => formatCompactNumber(n, { plus: true })
+  /* ── EVERY NUMBER IS DERIVED NOW, OR IT IS NOT SHOWN ────────────────────
+     This block used to read:
 
-  // One numeral script per row. These four tiles render side by side, and the
-  // first two are DATA — they come from `formatCompactNumber`, which builds
-  // its output from raw JS numbers and is therefore always Latin ("77+",
-  // "2.4M+"). The last two were hand-written in Arabic-Indic, so with live
-  // data the row read "77+ · 2.4M+ · ١٥+ · ١٨–٣٥": two scripts, one row.
-  // It only showed up with data present, which is why it survived local
-  // review on an empty DB.
-  //
-  // Resolved toward Latin rather than Arabic-Indic because Latin is already
-  // the de-facto house style for digits — dates, counts and every
-  // `lib/shared/formatters.ts` output are Latin — so converting these two
-  // literals is a two-line change, while converting the formatters would
-  // change digits across the entire site.
-  const metrics = [
-    { icon: Headphones, value: totalEpisodes > 0 ? `${totalEpisodes}+` : "50+", label: "حلقة منشورة" },
-    { icon: TrendingUp, value: totalViews > 0 ? formatNumber(totalViews) : "100K+", label: "مشاهدة واستماع" },
-    { icon: Globe, value: "15+", label: "دولة يصلها المحتوى" },
-    { icon: BarChart3, value: "18–35", label: "الفئة العمرية الأساسية" },
-  ]
+       totalEpisodes > 0 ? `${totalEpisodes}+` : "50+"
+       totalViews    > 0 ? formatNumber(totalViews) : "100K+"
+       "15+"    دولة يصلها المحتوى
+       "18–35"  الفئة العمرية الأساسية
+
+     Two of the four were literals typed into the page, derived from nothing.
+     `totalEpisodes` was every video on the YouTube channel — 77 — against the
+     19 خط episodes the site's own archive lists, so a company that clicked
+     «الحلقات» to check could count the difference itself. And the fallbacks
+     invented numbers outright whenever YouTube was unreachable.
+
+     Country mix and age band ARE real data — they live in YouTube Analytics,
+     which needs an OAuth grant this app does not have. Until it does they are
+     not claims we can make, so they are gone rather than guessed.
+
+     The truth is also the better pitch: those 19 episodes carry 2,091,402
+     views between them, averaging 110,074 each (measured 2026-08-05).
+     «متوسط ١١٠ ألف مشاهدة للحلقة» outsells «٧٧ حلقة», and it survives being
+     checked. See lib/partnerships/audience.ts. */
+  const facts = audienceFacts(ownEpisodes, episodes, channel?.subscriberCount ?? null)
+  const metrics = audienceMetrics(facts)
 
   return (
     <div className="min-h-screen">
@@ -229,15 +273,18 @@ export default async function PartnerPage() {
       <section className="border-y border-border/50 bg-card/50 py-12">
         <div className="container mx-auto px-4">
           <div className="mx-auto grid max-w-4xl grid-cols-2 gap-8 md:grid-cols-4">
-            {metrics.map((m) => (
-              <div key={m.label} className="text-center">
-                <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-primary/10">
-                  <m.icon className="h-6 w-6 text-primary" />
+            {/* Every tile names where its number came from. A figure a company
+                  can trace is worth more than a bigger one it cannot, and on
+                  this page the reader is actively looking for reasons to doubt
+                  us. The icon is gone: decoration competing with the only
+                  thing in the tile that matters. */}
+              {metrics.map((m) => (
+                <div key={m.label} className="text-center">
+                  <div className="text-title font-bold text-accent">{m.value}</div>
+                  <div className="mt-1 text-body font-semibold text-foreground">{m.label}</div>
+                  <div className="mt-1 text-micro text-muted-foreground">{m.source}</div>
                 </div>
-                <div className="mb-1 text-heading font-bold text-foreground">{m.value}</div>
-                <div className="text-caption text-muted-foreground">{m.label}</div>
-              </div>
-            ))}
+              ))}
           </div>
         </div>
       </section>
@@ -351,6 +398,18 @@ export default async function PartnerPage() {
                       <h3 className="text-lead font-bold">{pkg.name}</h3>
                       <p className="mb-1.5 text-micro text-muted-foreground/60">{pkg.nameEn}</p>
                       <p className="text-caption text-muted-foreground">{pkg.positioning}</p>
+                      {/* THE PRICE, ABOVE THE DELIVERABLES, NOT BURIED UNDER
+                          THEM. A company scanning four cards is deciding which
+                          one it can afford before it reads what any of them
+                          include; making that answer easy is what stops a
+                          qualified lead from bouncing and an unqualified one
+                          from filling in eighteen fields. KHAT Orange at
+                          `text-subhead` is large text, so 3.66:1 on the card
+                          clears the bar the palette allows it. */}
+                      <p className="mt-3 text-subhead font-bold text-accent">{pkg.investment}</p>
+                      {pkg.investmentNote ? (
+                        <p className="text-micro text-muted-foreground">{pkg.investmentNote}</p>
+                      ) : null}
                     </div>
                   </div>
                   <ul className="mb-5 space-y-2.5 border-t border-border/40 pt-5">
