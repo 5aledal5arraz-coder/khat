@@ -280,10 +280,16 @@ export default async function HomePage() {
               >
                 <Play className="h-4 w-4 fill-current text-accent" />
                 {/* Same verb as the card below, which links to the SAME
-                    episode — the hero said «شاهد» and the card said «استمع»
-                    for one destination. «استمع» is the one the rest of the
-                    site uses (/listen, the featured card). */}
-                استمع للأحدث
+                    episode — the hero and the card disagreed on the verb;
+                    unified 2026-08-04, then corrected to «شاهد» on 08-05 —
+                    BOTH go to /episodes/[slug], which renders a YOUTUBE
+                      EMBED. 41 of 41 episodes carry a youtube_url and NONE
+                      carries an audio_url, so no audio player has ever
+                      rendered there: pressing «استمع» landed you on a video.
+                      «استمع» is kept where it is true — /listen, the footer,
+                      and «استمع على» beside the platform tiles, which go to
+                      Apple, Spotify and Amazon. Khaled caught this. */}
+                شاهد الأحدث
               </Link>
             ) : null}
           </div>
@@ -308,7 +314,7 @@ export default async function HomePage() {
               {/* Bare frame. The «شاهد الآن» pill that used to sit at
                   bottom-start landed on the poster's burned-in title — every
                   thumbnail in this archive has its type baked into the artwork
-                  — and it repeated the «استمع للحلقة» CTA that is already in
+                  — and it repeated the «شاهد الحلقة» CTA that is already in
                   the column beside it. */}
               <div className="relative aspect-video overflow-hidden rounded-2xl bg-secondary">
                 <EpisodeThumb
@@ -365,7 +371,7 @@ export default async function HomePage() {
                     <span>{episodeDurationLabel(featured.duration_minutes)}</span>
                   ) : null}
                   <span className="inline-flex items-center gap-1 font-semibold text-primary transition-all group-hover:gap-2">
-                    استمع للحلقة <ArrowLeft className="h-4 w-4" />
+                    شاهد الحلقة <ArrowLeft className="h-4 w-4" />
                   </span>
                 </div>
               </div>
