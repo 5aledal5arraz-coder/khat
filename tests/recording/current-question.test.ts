@@ -18,6 +18,7 @@ import { describe, expect, it } from "vitest"
  */
 
 import { resolveCurrentQuestion } from "@/lib/recording-v2/marker-types"
+import { resolveHero } from "@/lib/recording-v2/energy-handshake"
 
 type Q = { id: string }
 
@@ -87,5 +88,59 @@ describe("the fallback, which is what everyone had before", () => {
       currentQuestionId: null,
       nextQuestionId: null,
     })
+  })
+})
+
+/**
+ * ── THE BUG شاهين SAW IN A LIVE TAKE ──────────────────────────────────────
+ * Khalid, 2026-08-05: «سؤال الان لا يتغير، مايتغير فقط السؤال التالي».
+ *
+ * The host cockpit published `heroId`, and `heroId` is a PIN — null most of the
+ * time, set only to freeze the display across a re-rank. What the host actually
+ * READS is `resolveHero(open, heroId)`: the pinned question if it is still
+ * open, otherwise the top of the list.
+ *
+ * So the moment anything set the pin, «الآن» froze on that id for the rest of
+ * the take while «التالي» — derived on the receiving side from the live list —
+ * kept moving. That asymmetry is exactly what he described.
+ *
+ * It survived the earlier tests because those only ever passed an id that was
+ * already correct. These pass the PIN and assert on what the host is looking
+ * at, which is the thing that has to travel.
+ */
+describe("what travels is the question on screen, not the pin", () => {
+  const open = (all: Q[], done: string[]) => all.filter((q) => !done.includes(q.id))
+
+  it("with NO pin, the published question follows the list as answers land", () => {
+    // heroId === null is the normal state, and resolveHero falls to open[0].
+    expect(resolveHero(open(qs, []), null)?.id).toBe("q1")
+    expect(resolveHero(open(qs, ["q1"]), null)?.id).toBe("q2")
+    expect(resolveHero(open(qs, ["q1", "q2"]), null)?.id).toBe("q3")
+  })
+
+  it("a pin holds ONLY while its question is still open", () => {
+    expect(resolveHero(open(qs, []), "q3")?.id).toBe("q3")
+    // …and releases the moment that question is answered, instead of freezing
+    // the whole crew on it — which is what the old code published forever.
+    expect(resolveHero(open(qs, ["q3"]), "q3")?.id).toBe("q1")
+  })
+
+  it("publishing the PIN would have frozen «الآن» — the regression, stated", () => {
+    const pin = "q2"
+    const afterTwoAnswered = open(qs, ["q1", "q2"])
+    // What the old code sent: the pin, unchanged, forever.
+    expect(pin).toBe("q2")
+    // What the host is actually reading by then:
+    expect(resolveHero(afterTwoAnswered, pin)?.id).toBe("q3")
+    // The two disagree — and that disagreement WAS the bug.
+    expect(resolveHero(afterTwoAnswered, pin)?.id).not.toBe(pin)
+  })
+
+  it("the resolved hero and «التالي» never point at the same question", () => {
+    for (const done of [[], ["q1"], ["q1", "q2"], ["q1", "q2", "q3"]]) {
+      const nowId = resolveHero(open(qs, done), null)?.id ?? null
+      const { nextQuestionId } = resolve(qs, done, nowId)
+      if (nowId) expect(nextQuestionId).not.toBe(nowId)
+    }
   })
 })

@@ -133,11 +133,6 @@ export function LiveV2Client({ initial }: { initial: LiveV2Snapshot }) {
    * change re-sends it anyway.
    */
   const publishedHeroRef = useRef<string | null>(null)
-  useEffect(() => {
-    if (publishedHeroRef.current === heroId) return
-    publishedHeroRef.current = heroId
-    void setCurrentQuestionAction({ roomId: room.id, questionId: heroId }).catch(() => {})
-  }, [heroId, room.id])
 
 
   // The reducer's side effects (telling the director, moving the pin) must NOT
@@ -620,6 +615,37 @@ export function LiveV2Client({ initial }: { initial: LiveV2Snapshot }) {
     () => currentSectionQuestions.filter((q) => !completedQuestionIds.has(q.id)),
     [currentSectionQuestions, completedQuestionIds],
   )
+
+  /**
+   * ── PUBLISH THE QUESTION ON SCREEN, NOT THE PIN ──────────────────────────
+   * Khalid, from a live take: «سؤال الان لا يتغير، مايتغير فقط السؤال التالي».
+   *
+   * The first version published `heroId`, and `heroId` is a PIN, not a
+   * position. It is null nearly all the time and is only set to freeze the
+   * display across a re-rank; what the host actually reads is
+   * `resolveHero(openQuestions, heroId)` — the pinned question IF it is still
+   * open, otherwise the top of the list.
+   *
+   * So once anything set the pin, «الآن» froze on that id for the rest of the
+   * take while «التالي», derived from the live list on the other side, kept
+   * moving. Exactly the split he described, and it only shows up once a pin has
+   * been set — which is why it survived the tests and appeared in a real take.
+   *
+   * `resolveHero` is the same call `onair-view.tsx` renders from, so the
+   * director and the editor now read what is literally on the host's screen.
+   *
+   * Fire-and-forget: a follow-along signal for other people's screens must
+   * never surface an error to the host mid-question, and the next change
+   * re-sends it anyway.
+   */
+  const displayedHeroId = resolveHero(openQuestions, heroId)?.id ?? null
+  useEffect(() => {
+    if (publishedHeroRef.current === displayedHeroId) return
+    publishedHeroRef.current = displayedHeroId
+    void setCurrentQuestionAction({ roomId: room.id, questionId: displayedHeroId }).catch(
+      () => {},
+    )
+  }, [displayedHeroId, room.id])
 
   /**
    * Whether the dial can reorder anything HERE. Four of the six sections in the
