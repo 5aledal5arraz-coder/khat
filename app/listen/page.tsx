@@ -12,13 +12,24 @@ export const metadata: Metadata = {
   description: "استمع لبودكاست خط على منصتك المفضلة — Spotify, Apple Podcasts والمزيد",
 }
 
-const PLATFORM_COLORS: Record<string, string> = {
-  spotify: "hover:border-[#1DB954] hover:text-[#1DB954]",
-  apple_podcasts: "hover:border-[#9933CC] hover:text-[#9933CC]",
-  youtube_music: "hover:border-[#FF0000] hover:text-[#FF0000]",
-  soundcloud: "hover:border-[#FF5500] hover:text-[#FF5500]",
-  anghami: "hover:border-[#D90166] hover:text-[#D90166]",
-}
+/**
+ * ONE HOVER, IN OUR COLOUR — not five, in theirs.
+ *
+ * This was a per-platform map of each service's own brand hex: Spotify green
+ * #1DB954, Apple purple #9933CC, YouTube red #FF0000, SoundCloud #FF5500,
+ * Anghami #D90166. Five colours, none of them in «ملف عرض الشعار».
+ *
+ * A LOGO is a trademark and is not ours to repaint — that is why the sponsor
+ * strip and the YouTube play button keep their own colours. A HOVER STATE on
+ * OUR tile is not: it is our styling decision, and we had simply decided to
+ * borrow theirs. Each platform's identity is already carried by its icon
+ * (`PlatformIcon`), which is the correct place for it.
+ *
+ * It was also incomplete in a way that showed the seam: `amazon_music` had no
+ * entry, so the newest platform was the one tile that did not light up.
+ * A single rule covers every platform, including ones not added yet.
+ */
+const PLATFORM_HOVER = "hover:border-primary hover:text-primary"
 
 export default async function ListenPage() {
   // Only audio platforms on the listen page.
@@ -50,14 +61,13 @@ export default async function ListenPage() {
         <div className="mt-10 space-y-3">
           {tiles.length > 0 ? (
             tiles.map((p) => {
-              const colorClass = PLATFORM_COLORS[p.icon_name || ""] || "hover:border-primary hover:text-primary"
               return (
                 <a
                   key={p.id}
                   href={p.url}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className={`flex items-center gap-4 rounded-xl border border-border/40 bg-card/60 px-5 py-4 transition-all hover:shadow-md ${colorClass}`}
+                  className={`flex items-center gap-4 rounded-xl border border-border/40 bg-card/60 px-5 py-4 transition-all hover:shadow-md ${PLATFORM_HOVER}`}
                 >
                   <PlatformIcon iconName={p.icon_name} className="h-6 w-6 shrink-0" />
                   <span className="flex-1 text-body font-medium">{p.platform_name}</span>

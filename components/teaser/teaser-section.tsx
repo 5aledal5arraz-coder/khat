@@ -39,7 +39,7 @@ export function TeaserSection({ teaser }: { teaser: ActiveTeaserView }) {
           قريبًا على خط
         </h2>
 
-        <div className="mt-5 overflow-hidden rounded-[28px] border border-accent/25 bg-card p-4 shadow-[0_2px_8px_rgba(40,30,90,0.04),0_24px_60px_-30px_rgba(40,30,90,0.28)] sm:p-5">
+        <div className="mt-5 overflow-hidden rounded-[28px] border border-accent/25 bg-card p-4 shadow-[0_2px_8px_hsl(var(--primary)/0.04),0_24px_60px_-30px_hsl(var(--primary)/0.28)] sm:p-5">
           <div className="relative aspect-video overflow-hidden rounded-2xl bg-secondary">
             {/* Video is always mounted but hidden until activated; preload="none"
                 means no bytes load before the user clicks. */}

@@ -44,7 +44,7 @@ export function AtharCard({
   if (compact) {
     return (
       <div
-        className="relative overflow-hidden rounded-xl border border-primary/15 bg-[radial-gradient(ellipse_at_30%_20%,hsl(40_30%_96%)_0%,hsl(35_25%_95%)_50%,hsl(30_20%_93%)_100%)] dark:bg-[radial-gradient(ellipse_at_30%_20%,hsl(35_20%_12%)_0%,hsl(25_15%_10%)_50%,hsl(220_20%_9%)_100%)]"
+        className="relative overflow-hidden rounded-xl border border-primary/15 bg-[radial-gradient(ellipse_at_30%_20%,hsl(var(--card))_0%,hsl(var(--background))_50%,hsl(var(--muted))_100%)]"
       >
         {/* Top gold accent line */}
         <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-l from-transparent via-primary/25 to-transparent" />
@@ -98,7 +98,7 @@ export function AtharCard({
 
       {/* Manuscript card */}
       <div
-        className="relative overflow-hidden rounded-2xl border border-primary/15 shadow-xl shadow-black/15 bg-[radial-gradient(ellipse_at_30%_20%,hsl(40_30%_96%)_0%,hsl(35_25%_95%)_50%,hsl(30_20%_93%)_100%)] dark:bg-[radial-gradient(ellipse_at_30%_20%,hsl(35_20%_12%)_0%,hsl(25_15%_10%)_50%,hsl(220_20%_9%)_100%)]"
+        className="relative overflow-hidden rounded-2xl border border-primary/15 shadow-xl shadow-black/15 bg-[radial-gradient(ellipse_at_30%_20%,hsl(var(--card))_0%,hsl(var(--background))_50%,hsl(var(--muted))_100%)]"
       >
         {/* Subtle paper grain overlay */}
         <div

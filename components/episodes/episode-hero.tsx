@@ -33,7 +33,7 @@ export function EpisodeHero({ episode, teaser, initialStartTime }: EpisodeHeroPr
   return (
     <div>
       {/* Framed video */}
-      <div className="overflow-hidden rounded-2xl border border-border bg-card shadow-[0_2px_8px_rgba(40,30,90,0.05),0_28px_64px_-32px_rgba(40,30,90,0.3)]">
+      <div className="overflow-hidden rounded-2xl border border-border bg-card shadow-[0_2px_8px_hsl(var(--primary)/0.05),0_28px_64px_-32px_hsl(var(--primary)/0.3)]">
         <YouTubeEmbed
           url={episode.youtube_url}
           title={episode.title}

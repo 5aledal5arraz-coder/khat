@@ -147,13 +147,25 @@ export default async function HomePage() {
 
       {/* ───────────────────────── Hero ───────────────────────── */}
       <section className="relative isolate flex min-h-[88vh] items-center justify-center px-6 text-center">
-        {/* ambient brand light */}
+        {/* ── Ambient brand light ───────────────────────────────────────
+            THESE TWO GLOWS WERE THE WRONG ORANGE AND THE WRONG INDIGO, and
+            Khaled caught it by eye on 2026-08-05. They were written as literal
+            `hsl(22 90% 53%)` and `hsl(252 48% 40%)` — rendering #F36A1B and
+            #493597, neither of which is in «ملف عرض الشعار». They are the same
+            invented values the OG-image generator had already been cleaned of;
+            they survived here because MY EARLIER PALETTE SWEEP READ `color`,
+            `background-color` AND `border-color` — AND NOT `background-image`.
+            A gradient was invisible to the check that declared the page clean.
+
+            Now written as the tokens, not as hexes: the glow follows
+            `--primary` and `--accent`, so it cannot drift from the palette
+            again and a future identity change carries it automatically. */}
         <div className="pointer-events-none absolute inset-0 -z-10 overflow-hidden">
           {/* `start-1/2` is logical (right:50% in RTL) but translate is
               physical, so the negative form shifted the glow a full 42rem to
               the left instead of centering it — invisible below ~700px. */}
-          <div className="absolute start-1/2 top-[-10%] h-[42rem] w-[42rem] translate-x-1/2 rounded-full bg-[radial-gradient(closest-side,hsl(252_48%_40%/0.14),transparent)]" />
-          <div className="absolute end-[12%] top-[22%] h-72 w-72 rounded-full bg-[radial-gradient(closest-side,hsl(22_90%_53%/0.14),transparent)]" />
+          <div className="absolute start-1/2 top-[-10%] h-[42rem] w-[42rem] translate-x-1/2 rounded-full bg-[radial-gradient(closest-side,hsl(var(--primary)/0.14),transparent)]" />
+          <div className="absolute end-[12%] top-[22%] h-72 w-72 rounded-full bg-[radial-gradient(closest-side,hsl(var(--accent)/0.14),transparent)]" />
         </div>
 
         {/* NO WATERMARK HERE. The KHAT secondary mark sat behind this block at
@@ -291,7 +303,7 @@ export default async function HomePage() {
             <SectionLabel>الحلقة الأحدث</SectionLabel>
             <Link
               href={`/episodes/${featured.slug}`}
-              className="group mt-5 grid items-center gap-8 rounded-[28px] border border-border bg-card p-4 shadow-[0_2px_8px_rgba(40,30,90,0.04),0_24px_60px_-30px_rgba(40,30,90,0.28)] transition-all hover:shadow-[0_2px_8px_rgba(40,30,90,0.05),0_36px_80px_-30px_rgba(40,30,90,0.35)] sm:p-5 lg:grid-cols-[1.5fr_1fr]"
+              className="group mt-5 grid items-center gap-8 rounded-[28px] border border-border bg-card p-4 shadow-[0_2px_8px_hsl(var(--primary)/0.04),0_24px_60px_-30px_hsl(var(--primary)/0.28)] transition-all hover:shadow-[0_2px_8px_hsl(var(--primary)/0.05),0_36px_80px_-30px_hsl(var(--primary)/0.35)] sm:p-5 lg:grid-cols-[1.5fr_1fr]"
             >
               {/* Bare frame. The «شاهد الآن» pill that used to sit at
                   bottom-start landed on the poster's burned-in title — every

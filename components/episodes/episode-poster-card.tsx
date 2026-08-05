@@ -50,7 +50,7 @@ export function EpisodePosterCard({
   return (
     <Link
       href={`/episodes/${ep.slug}`}
-      className="group flex flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-sm transition-all hover:-translate-y-1 hover:shadow-[0_2px_8px_rgba(40,30,90,0.05),0_24px_50px_-26px_rgba(40,30,90,0.3)]"
+      className="group flex flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-sm transition-all hover:-translate-y-1 hover:shadow-[0_2px_8px_hsl(var(--primary)/0.05),0_24px_50px_-26px_hsl(var(--primary)/0.3)]"
     >
       {/* Nothing is rendered inside this box except the frame itself. The
           thumbnails are hand-composed 16:9 posters with the episode title
