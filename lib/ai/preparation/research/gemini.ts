@@ -555,8 +555,16 @@ export async function geminiJson<T>(
 
   // ── Attempt 2: correction retry ────────────────────────────────────────────
   // Feed the malformed output back to Gemini with a strict correction prompt.
-  // We use temperature 0 to maximize determinism and a dedicated system
-  // instruction so the model cannot pull in outside knowledge.
+  //
+  // ⚠️ THE `temperature: 0` BELOW DOES NOTHING, AND HAS NOT SINCE 2026-07-21.
+  // This comment used to claim it "maximizes determinism". Google deprecated
+  // temperature/top_p/top_k on that date and the API now ignores them
+  // silently (ai.google.dev/gemini-api/docs/latest-model, read 2026-08-07);
+  // the router's Gemini adapter no longer forwards them at all. The strictness
+  // here comes entirely from the dedicated system instruction below — which
+  // is also Google's own replacement advice. The argument is left in place
+  // only because removing it changes nothing; do not add more of them, and do
+  // not trust a number here to constrain anything.
   const correctionSystem =
     "أنت محوّل JSON صارم. ستتلقى نصاً هدفه أن يكون JSON لكنه غير صالح. " +
     "مهمتك الوحيدة: إعادة نفس المحتوى بصيغة JSON صحيحة تماماً. " +

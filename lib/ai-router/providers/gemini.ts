@@ -46,12 +46,13 @@ export const geminiAdapter: ProviderAdapter = {
       conversation.push({ role: "user", parts: [{ text: "" }] })
     }
 
-    const { temperature, maxOutputTokens, topP, ...rest } =
-      req.providerOptions as {
-        temperature?: number
-        maxOutputTokens?: number
-        topP?: number
-      }
+    // `temperature` and `topP` are deliberately NOT pulled out here: Google
+    // deprecated and now ignores them (see the config block below), so they
+    // fall into `rest` with every other option we do not forward. Naming them
+    // only to discard them would leave two unused bindings claiming to matter.
+    const { maxOutputTokens, ...rest } = req.providerOptions as {
+      maxOutputTokens?: number
+    }
     void rest
 
     // Abort (not just race) on deadline so the request is actually
@@ -70,9 +71,25 @@ export const geminiAdapter: ProviderAdapter = {
             ? { systemInstruction: systemParts.join("\n\n") }
             : {}),
           ...(req.expectJson ? { responseMimeType: "application/json" } : {}),
-          ...(temperature !== undefined ? { temperature } : {}),
+          /**
+           * ── `temperature` AND `topP` ARE DELIBERATELY NOT SENT ──────────
+           * Google, on https://ai.google.dev/gemini-api/docs/latest-model
+           * (read 2026-08-07): "temperature, top_p, and top_k are deprecated
+           * and ignored. In future model generations, supplying these
+           * parameters returns an HTTP 400 error."
+           *
+           * It applies to `gemini-3.6-flash` — which is what we run — and to
+           * every later generation. So since 2026-07-21 these have been
+           * accepted and thrown away, and one call site had a comment
+           * promising determinism it was no longer getting. Sending them now
+           * buys nothing and guarantees a 400 on the next model family.
+           *
+           * They are still DESTRUCTURED above so a caller passing them is
+           * inert rather than leaking into `rest`. Where output needs to be
+           * constrained, say so in the system instruction — Google's own
+           * replacement advice, and the only thing the model still reads.
+           */
           ...(maxOutputTokens !== undefined ? { maxOutputTokens } : {}),
-          ...(topP !== undefined ? { topP } : {}),
         },
       })
     } catch (err) {

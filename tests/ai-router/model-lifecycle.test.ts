@@ -162,19 +162,38 @@ describe("the shipped retirement table", () => {
     expect(daysUntil(entry!.retiresOn, NOW)!).toBeLessThan(0)
   })
 
-  it("the three gemini-2.5 models retire 2026-10-16 — outside the window today, so silent", () => {
+  /**
+   * The gemini-2.5 family carried 2026-10-16 (read 2026-07-24). Re-checked
+   * 2026-08-07: Google's deprecations page now says "No shutdown date
+   * announced" for all three, so the entries were REMOVED. This test is the
+   * guard against someone re-adding a withdrawn date from memory — the
+   * banner it would have fired on 2026-09-16 is exactly the false alarm this
+   * module says costs more trust than the warning is worth.
+   */
+  it("carries NO gemini-2.5 entry — Google withdrew the date", () => {
     const twoFive = MODEL_RETIREMENTS.filter((m) => m.modelName.startsWith("gemini-2.5"))
-    expect(twoFive.map((m) => m.modelName).sort()).toEqual([
-      "gemini-2.5-flash",
-      "gemini-2.5-flash-lite",
-      "gemini-2.5-pro",
-    ])
-    // Confirms the anti-noise property against the REAL table, not a fixture.
+    expect(twoFive).toEqual([])
+
+    // And an undated model must stay silent even when it IS what we run.
     const risks = findEolRisks({
-      selectedModels: twoFive.map((m) => m.modelName),
+      selectedModels: ["gemini-2.5-flash", "gemini-2.5-pro", "gemini-2.5-flash-lite"],
       recentlyUsedModels: [],
       now: NOW,
     })
     expect(risks).toEqual([])
+  })
+
+  it("carries gemini-3.1-flash-lite's real date, which the table was missing", () => {
+    const entry = MODEL_RETIREMENTS.find((m) => m.modelName === "gemini-3.1-flash-lite")
+    expect(entry).toBeDefined()
+    expect(entry!.retiresOn).toBe("2027-05-07")
+    // Far out, so it must NOT warn today — the 30-day rule, on a real date.
+    expect(
+      findEolRisks({
+        selectedModels: ["gemini-3.1-flash-lite"],
+        recentlyUsedModels: [],
+        now: NOW,
+      })
+    ).toEqual([])
   })
 })

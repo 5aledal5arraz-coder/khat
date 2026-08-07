@@ -47,23 +47,28 @@ export interface ModelRetirement {
  * alarm that costs more trust than the warning is worth.
  */
 export const MODEL_RETIREMENTS: readonly ModelRetirement[] = [
+  /**
+   * ── THE `gemini-2.5-*` ENTRIES WERE REMOVED, NOT FORGOTTEN ──────────────
+   * They carried `2026-10-16`, read 2026-07-24. Re-checked on 2026-08-07
+   * against the same publisher — https://ai.google.dev/gemini-api/docs/deprecations
+   * — and all three of `gemini-2.5-flash`, `gemini-2.5-pro` and
+   * `gemini-2.5-flash-lite` now read **"No shutdown date announced"**.
+   * Google withdrew the date.
+   *
+   * Keeping it would have fired the EOL_WARN_DAYS banner on 2026-09-16 for a
+   * retirement that is not happening — and the note at the top of this file
+   * is explicit that a false alarm costs more trust than the warning is
+   * worth. An undated model is simply absent from this list; that is the
+   * design, not a gap.
+   */
   {
+    // Read 2026-08-07: a REAL date that this list was missing, and the model
+    // is reachable today through EXTRA_PRICING + a Settings override.
     provider: "gemini",
-    modelName: "gemini-2.5-flash",
-    retiresOn: "2026-10-16",
-    source: "ai.google.dev model-lifecycle page, read 2026-07-24",
-  },
-  {
-    provider: "gemini",
-    modelName: "gemini-2.5-pro",
-    retiresOn: "2026-10-16",
-    source: "ai.google.dev model-lifecycle page, read 2026-07-24",
-  },
-  {
-    provider: "gemini",
-    modelName: "gemini-2.5-flash-lite",
-    retiresOn: "2026-10-16",
-    source: "ai.google.dev model-lifecycle page, read 2026-07-24",
+    modelName: "gemini-3.1-flash-lite",
+    retiresOn: "2027-05-07",
+    source:
+      "ai.google.dev/gemini-api/docs/deprecations, read 2026-08-07 — replacement: gemini-3.5-flash-lite",
   },
   {
     // ALREADY RETIRED, and still sitting in EXTRA_PRICING in registry.ts —
@@ -72,7 +77,7 @@ export const MODEL_RETIREMENTS: readonly ModelRetirement[] = [
     provider: "gemini",
     modelName: "gemini-2.0-flash",
     retiresOn: "2026-06-01",
-    source: "ai.google.dev model-lifecycle page, read 2026-07-24",
+    source: "ai.google.dev/gemini-api/docs/deprecations, read 2026-08-07 — replacement: gemini-3.6-flash",
   },
 ]
 

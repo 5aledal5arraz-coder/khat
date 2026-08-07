@@ -284,7 +284,26 @@ const VALUE_PROPS: { icon: LucideIcon; title: string; body: string }[] = [
   {
     icon: Globe,
     title: "وصول خليجي مؤثّر",
-    body: "جمهور أساسه السعودية والكويت والعراق والخليج — صنّاع قرار ومهنيون شباب.",
+    /**
+     * ── THIS SENTENCE NOW SITS ABOVE A TABLE THAT CAN CONTRADICT IT ────────
+     * It was written when nothing on the page was measured. The «مَن يستمع»
+     * section below now prints the real shares, and two words no longer
+     * survived the comparison:
+     *
+     *   «العراق» — 3.8%, BELOW الإمارات at 4.5%. Naming the smaller and
+     *   omitting the larger, directly above a table showing both, reads as
+     *   either carelessness or selection. الإمارات replaces it.
+     *
+     *   «شباب» — 18–24 is 10.7%. The mass is 25–44 at 72.5%. The word
+     *   undersold the audience in the one direction that costs money: a
+     *   sponsor pays more to reach people with budgets, and this page was
+     *   telling them the opposite of what the data says.
+     *
+     * The claim itself is now EVIDENCED rather than asserted — السعودية +
+     * الكويت alone are 71.1% — which is why it stays at all. I had proposed
+     * deleting it as unverifiable before the measurement existed.
+     */
+    body: "جمهور أساسه السعودية والكويت والإمارات والخليج — صنّاع قرار ومهنيون.",
   },
 ]
 

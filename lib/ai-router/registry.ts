@@ -50,13 +50,26 @@ export interface ModelChoice {
 }
 
 /**
- * Defaults — GPT-5.6 family (July 2026), all 1M-token context:
+ * Defaults — GPT-5.6 family, all 1M-token context. Prices verified against
+ * developers.openai.com/api/docs/pricing on 2026-08-07 (standard, short ctx):
  *   sol   $5.00/$30.00 — flagship; editorial + discovery, where output
  *                         quality IS the product (published Arabic text,
  *                         guest-candidate ranking).
- *   terra $2.50/$15.00 — research briefs: long-form synthesis at half
- *                         sol's price, same family.
- *   luna  $1.00/$6.00  — structural extraction, verification, analysis.
+ *   terra $2.00/$12.00 — research briefs: long-form synthesis, same family.
+ *   luna  $0.20/$1.20  — structural extraction, verification, analysis.
+ *
+ * ── THESE ARE NOT COSMETIC, AND THEY WERE 5× WRONG ────────────────────────
+ * OpenAI cut luna by 80% and terra by 20% on 2026-07-30. This file still
+ * carried the pre-cut prices ($1.00/$6.00 and $2.50/$15.00), and they are not
+ * only a reporting figure: `lib/ai-router/rate-limit.ts` enforces a DAILY
+ * SPEND CAP computed from `SUM(cost_usd)`. Overstating luna fivefold meant a
+ * luna-heavy day tripped the cap at a fifth of the real spend and stopped
+ * legitimate work — a silent, self-inflicted outage with a plausible excuse
+ * printed on it. Measured on the local `ai_runs`: 337 luna calls were booked
+ * at $2.6879 against a true $0.5376.
+ *
+ * If OpenAI moves a price again, THIS is the file, and the cap is why it
+ * matters within the day rather than at the next invoice.
  *
  * The old gpt-4o / gpt-4o-mini defaults are two generations behind and
  * their May-2024 snapshot is already on OpenAI's shutdown calendar.
@@ -68,8 +81,8 @@ export const DEFAULT_MODELS: Record<AiTaskKind, ModelChoice> = {
   structural: {
     provider: "openai",
     modelName: "gpt-5.6-luna",
-    inputCostPer1M: 1,
-    outputCostPer1M: 6,
+    inputCostPer1M: 0.2,
+    outputCostPer1M: 1.2,
     reasoningEffort: "low",
   },
   editorial: {
@@ -98,8 +111,8 @@ export const DEFAULT_MODELS: Record<AiTaskKind, ModelChoice> = {
   verification: {
     provider: "openai",
     modelName: "gpt-5.6-luna",
-    inputCostPer1M: 1,
-    outputCostPer1M: 6,
+    inputCostPer1M: 0.2,
+    outputCostPer1M: 1.2,
     reasoningEffort: "low",
     // Fast (luna). Same as the global default; set explicitly so the
     // reviewed policy is local and obvious. 120×3 ≈ 367s.
@@ -109,8 +122,8 @@ export const DEFAULT_MODELS: Record<AiTaskKind, ModelChoice> = {
   research: {
     provider: "openai",
     modelName: "gpt-5.6-terra",
-    inputCostPer1M: 2.5,
-    outputCostPer1M: 15,
+    inputCostPer1M: 2,
+    outputCostPer1M: 12,
     reasoningEffort: "medium",
     // Long-context synthesis (terra). 240×2 ≈ 486s.
     defaultTimeoutMs: 240_000,
@@ -123,8 +136,8 @@ export const DEFAULT_MODELS: Record<AiTaskKind, ModelChoice> = {
   analysis: {
     provider: "openai",
     modelName: "gpt-5.6-luna",
-    inputCostPer1M: 1,
-    outputCostPer1M: 6,
+    inputCostPer1M: 0.2,
+    outputCostPer1M: 1.2,
     reasoningEffort: "medium",
     // luna-medium. 150×3 ≈ 457s.
     defaultTimeoutMs: 150_000,

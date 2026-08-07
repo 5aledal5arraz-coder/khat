@@ -36,9 +36,19 @@ describe("Gemini pricing coverage", () => {
       inputCostPer1M: 1.5,
       outputCostPer1M: 7.5,
     })
+    // Verified against developers.openai.com/api/docs/pricing on 2026-08-07,
+    // after OpenAI's 2026-07-30 cut (terra −20%). These numbers feed the
+    // DAILY SPEND CAP in rate-limit.ts, not just the cost report, so a stale
+    // one stops real work rather than merely misreporting it.
     expect(lookupPricing("openai", "gpt-5.6-terra")).toEqual({
-      inputCostPer1M: 2.5,
-      outputCostPer1M: 15,
+      inputCostPer1M: 2,
+      outputCostPer1M: 12,
+    })
+    // luna took the bigger cut — 80% — and is the model most of our traffic
+    // runs on, so it is pinned here too.
+    expect(lookupPricing("openai", "gpt-5.6-luna")).toEqual({
+      inputCostPer1M: 0.2,
+      outputCostPer1M: 1.2,
     })
   })
 })
