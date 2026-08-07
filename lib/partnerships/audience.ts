@@ -147,3 +147,67 @@ export function audienceMetrics(f: AudienceFacts): AudienceMetric[] {
   }
   return out
 }
+
+// ── Demographics ────────────────────────────────────────────────────────────
+
+/**
+ * WHO LISTENS — the two figures this page invented and then had to delete.
+ *
+ * «١٥+ دولة» and «١٨–٣٥» were literals typed into the page, derived from
+ * nothing. They were removed on 2026-08-05 rather than guessed at, because
+ * YouTube Analytics needs an OAuth grant the app did not have.
+ *
+ * It has one now (2026-08-07, /admin/youtube-analytics), and the measurement
+ * says something better than the fabrication did:
+ *
+ *   السعودية 47.3 · الكويت 23.8 — together 71.1% of the audience
+ *   25–34 42.1 · 35–44 30.4 — together 72.5%
+ *
+ * The invented «١٨–٣٥» was not merely unsourced, it was WRONG in the direction
+ * that costs money: 18–24 is 10.7%. This audience is older, and older is what
+ * a sponsor is paying to reach.
+ *
+ * ── THE WINDOW TRAVELS WITH THE NUMBER ────────────────────────────────────
+ * A share is not a fact on its own — «47% من السعودية» over 28 days is a
+ * different claim from the same figure over three years. Every row here
+ * carries the window that produced it and the page prints it, so a company
+ * that asks "since when?" gets an answer instead of a shrug.
+ */
+export interface DemographicRow {
+  label: string
+  percent: number
+}
+
+export interface Demographics {
+  countries: DemographicRow[]
+  ages: DemographicRow[]
+  /** Inclusive, as measured. Both reports share one window in practice. */
+  periodStart: string
+  periodEnd: string
+}
+
+/**
+ * Shape the stored snapshots for the page, or return null.
+ *
+ * Null when a report has never been measured — the page then renders nothing,
+ * exactly as it does for every other missing figure. No placeholder, no "soon".
+ *
+ * `topN` because a sponsor reads the shape of an audience, not a table of
+ * fifty countries with a long tail below one percent. The dropped rows are not
+ * hidden: the page states how many countries the measurement covered.
+ */
+export function buildDemographics(
+  countries: { rows: DemographicRow[]; periodStart: string; periodEnd: string } | null,
+  ages: { rows: DemographicRow[]; periodStart: string; periodEnd: string } | null,
+  topN = 6
+): Demographics | null {
+  if (!countries?.rows.length && !ages?.rows.length) return null
+
+  const source = countries ?? ages!
+  return {
+    countries: (countries?.rows ?? []).filter((r) => r.percent > 0).slice(0, topN),
+    ages: (ages?.rows ?? []).filter((r) => r.percent > 0).slice(0, topN),
+    periodStart: source.periodStart,
+    periodEnd: source.periodEnd,
+  }
+}

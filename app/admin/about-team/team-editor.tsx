@@ -18,9 +18,8 @@ import { deleteMemberAction, reorderTeamAction, saveMemberAction } from "./actio
  *
  * ── EVERY FIELD IS OPTIONAL EXCEPT THE NAME ────────────────────────────────
  * The page is built to degrade one field at a time: no photo → the shared «ط»
- * panel, no video → the photo, no message → no quote and no orphaned rule, no
- * email → no mail link. So this form must never demand a field to let a save
- * through, or it would force placeholder content into a page designed to look
+ * panel, no video → the photo, no message → no quote and no orphaned rule. So
+ * this form must never demand a field to let a save through, or it would force placeholder content into a page designed to look
  * deliberate while half-filled.
  *
  * ── THE SOCIAL KEYS ARE A FIXED LIST, NOT FREE TEXT ────────────────────────
@@ -128,30 +127,46 @@ export function TeamEditor({ initial }: { initial: TeamMember[] }) {
 
       <div className="space-y-3">
         {members.map((m, i) => (
+          /* ── THE ROW STACKS ON A PHONE, AND HAS TO ────────────────────────
+             Khaled, on an iPhone: «ليش جذي الاسم مو كامل ولا الايميل». Every
+             name was one letter — «خ», «ف», «ش».
+
+             The text column was already `min-w-0 flex-1` and the names were
+             already `truncate`, so nothing was overflowing; the column had
+             simply been squeezed to about a character. Four `shrink-0`
+             controls (up, down, تعديل, delete) plus a 56px photo plus gaps
+             claim roughly 300px before any text exists, and a phone is 390px
+             wide. `truncate` then did exactly what it was told, on 80px.
+
+             So the fix is not on the text — it is giving the text a full-width
+             line of its own below `sm` and moving the controls under it. */
           <div
             key={m.id}
-            className="flex items-center gap-4 rounded-2xl border border-border bg-card p-4"
+            className="flex flex-col gap-3 rounded-2xl border border-border bg-card p-4 sm:flex-row sm:items-center sm:gap-4"
           >
-            <div className="relative h-14 w-14 shrink-0 overflow-hidden rounded-xl bg-muted">
-              {m.image ? (
-                <Image src={m.image} alt="" fill className="object-cover" sizes="56px" />
-              ) : (
-                <span className="flex h-full items-center justify-center text-micro text-muted-foreground">
-                  بلا صورة
-                </span>
-              )}
-            </div>
-            <div className="min-w-0 flex-1">
-              <p className="truncate font-semibold">{m.name || "—"}</p>
-              <p className="truncate text-caption text-muted-foreground">{m.role || "بلا مسمّى"}</p>
-              <div className="mt-1 flex flex-wrap gap-2 text-micro text-muted-foreground">
-                {m.email && <span>✉︎ {m.email}</span>}
-                {m.videoUrl && <span>▶ فيديو</span>}
-                {(m.socials?.length ?? 0) > 0 && <span>{m.socials!.length} حساب</span>}
-                {!m.message && <span className="text-accent-strong">بلا رسالة</span>}
+            <div className="flex min-w-0 flex-1 items-center gap-3 sm:gap-4">
+              <div className="relative h-14 w-14 shrink-0 overflow-hidden rounded-xl bg-muted">
+                {m.image ? (
+                  <Image src={m.image} alt="" fill className="object-cover" sizes="56px" />
+                ) : (
+                  <span className="flex h-full items-center justify-center text-center text-micro leading-tight text-muted-foreground">
+                    بلا صورة
+                  </span>
+                )}
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="truncate font-semibold">{m.name || "—"}</p>
+                <p className="truncate text-caption text-muted-foreground">
+                  {m.role || "بلا مسمّى"}
+                </p>
+                <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-micro text-muted-foreground">
+                  {m.videoUrl && <span>▶ فيديو</span>}
+                  {(m.socials?.length ?? 0) > 0 && <span>{m.socials!.length} حساب</span>}
+                  {!m.message && <span className="text-accent-strong">بلا رسالة</span>}
+                </div>
               </div>
             </div>
-            <div className="flex shrink-0 items-center gap-1">
+            <div className="flex shrink-0 items-center justify-end gap-1">
               <Button variant="ghost" size="icon" disabled={busy || i === 0} onClick={() => void move(m.id, -1)}>
                 <ArrowUp className="h-4 w-4" />
               </Button>
@@ -262,14 +277,16 @@ function MemberForm({
         <Textarea rows={2} value={m.message ?? ""} onChange={(e) => set("message", e.target.value)} />
       </Field>
 
-      <div className="grid gap-4 sm:grid-cols-2">
-        <Field label="البريد الإلكتروني" hint="لمن يريد مراسلته مباشرة">
-          <Input type="email" dir="ltr" value={m.email ?? ""} onChange={(e) => set("email", e.target.value)} />
-        </Field>
-        <Field label="رابط فيديو (يوتيوب)" hint="يحلّ محل الصورة على الصفحة">
-          <Input dir="ltr" value={m.videoUrl ?? ""} onChange={(e) => set("videoUrl", e.target.value)} />
-        </Field>
-      </div>
+      {/* THE PER-MEMBER EMAIL FIELD IS GONE, and its absence is the point.
+          /about no longer publishes a personal address — every member's button
+          writes to the ONE team address with his name in the subject. A field
+          that is still editable but no longer rendered anywhere is the exact
+          shape of the bug this codebase keeps shipping: the admin saves it,
+          reports success, and nothing changes on the site. Better to remove it
+          than to leave a control that lies. */}
+      <Field label="رابط فيديو (يوتيوب)" hint="يحلّ محل الصورة على الصفحة">
+        <Input dir="ltr" value={m.videoUrl ?? ""} onChange={(e) => set("videoUrl", e.target.value)} />
+      </Field>
 
       {/* Photo */}
       <div className="mt-4 space-y-2">

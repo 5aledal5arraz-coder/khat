@@ -27,6 +27,7 @@ import {
   KanbanSquare,
   Clapperboard,
   MessagesSquare,
+  Youtube,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 
@@ -102,6 +103,10 @@ const navGroups: NavGroup[] = [
       { href: "/admin/newsletter", icon: Mail, label: "النشرة البريدية" },
       { href: "/admin/community", icon: MessagesSquare, label: "مساهمات المجتمع" },
       { href: "/admin/analytics", icon: BarChart3, label: "التحليلات" },
+      // Sits beside «التحليلات» and not under «النظام»: it is where the
+      // audience's ages and countries come from, which is a content question
+      // before it is an infrastructure one.
+      { href: "/admin/youtube-analytics", icon: Youtube, label: "جمهور يوتيوب" },
       // Retained until the Phase-2.5 equivalence gate is approved:
       { href: "/admin/submissions", icon: Inbox, label: "الطلبات" },
     ],

@@ -106,6 +106,27 @@ export async function getSiteSettings(): Promise<SiteSettingsConfig> {
   }
 }
 
+/**
+ * THE address the public site tells people to write to — one resolution, used
+ * everywhere, so the site cannot disagree with itself about where mail goes.
+ *
+ * There were three copies of this line, and they had drifted: /contact fell
+ * back to `hello@khat.fm` — **a domain this site does not use** — while
+ * `lib/partnership-offers.ts` fell back to `hello@khatpodcast.com`. The
+ * configured row is `hello@khatpodcast.com`, so the wrong one never fired and
+ * nobody noticed; it would have surfaced only on the day settings failed to
+ * load, printing an unreachable address on the contact page at the exact
+ * moment the database was already unwell.
+ *
+ * Callers that already hold a settings object should pass it rather than
+ * re-query.
+ */
+export const FALLBACK_CONTACT_EMAIL = "hello@khatpodcast.com"
+
+export function resolveContactEmail(settings: SiteSettingsConfig | null): string {
+  return settings?.metadata.contactEmail?.trim() || FALLBACK_CONTACT_EMAIL
+}
+
 export async function saveSiteSettings(config: SiteSettingsConfig): Promise<void> {
   if (!db) throw new Error("Database not available")
 

@@ -49,6 +49,19 @@ export const env = {
   get YOUTUBE_EXTRA_PLAYLIST_IDS() { return process.env.YOUTUBE_EXTRA_PLAYLIST_IDS },
   get RSS_FEED_URL() { return process.env.RSS_FEED_URL },
 
+  // YouTube ANALYTICS — a different thing from the key above, and not
+  // interchangeable with it. The key reads the public Data API (views,
+  // subscribers, video metadata). Age bands, country mix and peak hours are
+  // the channel owner's own data; Google serves them only over OAuth, to a
+  // caller acting as the owner. Hence a client id/secret rather than a key.
+  // See lib/youtube/oauth.ts and /admin/youtube-analytics.
+  get GOOGLE_OAUTH_CLIENT_ID() { return process.env.GOOGLE_OAUTH_CLIENT_ID },
+  get GOOGLE_OAUTH_CLIENT_SECRET() { return process.env.GOOGLE_OAUTH_CLIENT_SECRET },
+  /** Optional. Derived from the request origin when unset — see resolveRedirectUri. */
+  get YOUTUBE_OAUTH_REDIRECT_URI() { return process.env.YOUTUBE_OAUTH_REDIRECT_URI },
+  /** 32 bytes, base64 or hex. Encrypts the stored refresh token at rest. */
+  get YOUTUBE_OAUTH_ENC_KEY() { return process.env.YOUTUBE_OAUTH_ENC_KEY },
+
   // ─── External research ───────────────────────────────────────────────────
   get LISTEN_NOTES_API_KEY() { return process.env.LISTEN_NOTES_API_KEY },
   get X_BEARER_TOKEN() { return process.env.X_BEARER_TOKEN },

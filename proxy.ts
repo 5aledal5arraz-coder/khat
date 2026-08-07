@@ -200,8 +200,31 @@ export async function proxy(request: NextRequest) {
     }
   }
 
+  /**
+   * The OAuth callback CANNOT carry the session cookie, and gating it here is
+   * the same category of exception as the login subtree above it.
+   *
+   * `__admin_session` is set `sameSite: "strict"`. Google returning the
+   * operator from accounts.google.com is a CROSS-SITE navigation, so the
+   * browser withholds the cookie by design — this gate then 401'd a perfectly
+   * correct flow, twice, before the route ever ran. Relaxing the cookie to
+   * `lax` to satisfy one endpoint would weaken CSRF protection on the entire
+   * admin, which is not a trade worth making.
+   *
+   * The endpoint is NOT unauthenticated: it requires an HMAC-signed state
+   * cookie minted by `/api/admin/youtube/oauth/start`, which IS OWNER-gated.
+   * Without a cookie whose signature verifies and whose nonce matches the one
+   * Google echoed back, it refuses and stores nothing.
+   * See lib/youtube/oauth.ts and the callback route.
+   */
+  const isOauthCallback = pathname === '/api/admin/youtube/oauth/callback'
+
   // Protect admin API routes — return 401 if no session
-  if (pathname.startsWith('/api/admin/') && !pathname.startsWith('/api/admin/auth/')) {
+  if (
+    pathname.startsWith('/api/admin/') &&
+    !pathname.startsWith('/api/admin/auth/') &&
+    !isOauthCallback
+  ) {
     if (!adminSession) {
       return NextResponse.json({ error: 'يجب تسجيل الدخول أولاً' }, { status: 401 })
     }

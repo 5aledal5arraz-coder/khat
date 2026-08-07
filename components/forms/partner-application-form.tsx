@@ -24,12 +24,20 @@ const GOAL_OPTIONS = [
  * The bands now have products behind them. «أقل من 500» used to read as
  * "probably not for you" because nothing on the site cost less than 500;
  * رعاية حلقة is 350, so the lowest band is a real door rather than a filter.
+ *
+ * ── THE ANNOTATIONS FOLLOW THE PRICES, AND THE PRICES MOVED ───────────────
+ * Repriced for a TEN-episode second season (2026-08-06). «أكثر من 3,000 د.ك
+ * — شريك الموسم» was left over from the 4,750 card and is now false on its
+ * face: شريك الموسم is 2,750, so a company that wants exactly that would tick
+ * the band BELOW the one this label points it at, on the same site that
+ * prints the number. The `value`s are untouched — they are stored in
+ * `partnership_leads.budget_range` and every existing row still reads.
  */
 const BUDGET_OPTIONS = [
   { value: "below_500", label: "أقل من 500 د.ك — رعاية حلقة" },
-  { value: "500_1000", label: "500 – 1,000 د.ك" },
-  { value: "1000_3000", label: "1,000 – 3,000 د.ك — 5 حلقات" },
-  { value: "3000_plus", label: "أكثر من 3,000 د.ك — شريك الموسم" },
+  { value: "500_1000", label: "500 – 1,000 د.ك — ثلاث حلقات" },
+  { value: "1000_3000", label: "1,000 – 3,000 د.ك — نصف الموسم أو شريك الموسم" },
+  { value: "3000_plus", label: "أكثر من 3,000 د.ك — شراكة موسم مع فيديو دعائي" },
   { value: "flexible", label: "مرن / حسب المقترح" },
 ]
 

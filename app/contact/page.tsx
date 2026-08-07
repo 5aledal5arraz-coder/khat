@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button"
 import { Mail, Mic, ArrowLeft, ExternalLink } from "lucide-react"
 import { listPlatformsForSurface } from "@/lib/queries/official-platforms"
 import { PlatformIcon } from "@/components/platforms/platform-icon"
-import { getSiteSettings } from "@/lib/site-settings"
+import { getSiteSettings, resolveContactEmail } from "@/lib/site-settings"
 import { cn } from "@/lib/utils"
 
 export const metadata: Metadata = {
@@ -13,14 +13,16 @@ export const metadata: Metadata = {
   description: "تواصل مع فريق بودكاست خط أو قدم طلباً لتكون ضيفاً",
 }
 
-const FALLBACK_CONTACT_EMAIL = "hello@khat.fm"
+// The fallback used to live here as `hello@khat.fm` — a domain this site does
+// not use. It now comes from lib/site-settings.ts, which /about reads too, so
+// the two pages cannot name different addresses.
 
 export default async function ContactPage() {
   const [contactPlatforms, settings] = await Promise.all([
     listPlatformsForSurface("contact_page").catch(() => []),
     getSiteSettings().catch(() => null),
   ])
-  const contactEmail = settings?.metadata.contactEmail?.trim() || FALLBACK_CONTACT_EMAIL
+  const contactEmail = resolveContactEmail(settings)
   const emailMethod = {
     icon: Mail,
     title: "البريد الإلكتروني",

@@ -28,6 +28,7 @@ import {
 } from "lucide-react"
 import { XIcon } from "@/components/icons/x-icon"
 import { getAboutContent } from "@/lib/content/static-content"
+import { getSiteSettings, resolveContactEmail } from "@/lib/site-settings"
 import { AboutVideo } from "./about-video"
 import { YouTubeEmbed } from "@/components/episodes/youtube-embed"
 import { cn } from "@/lib/utils"
@@ -73,7 +74,14 @@ export const metadata: Metadata = {
 }
 
 export default async function AboutPage() {
-  const content = await getAboutContent()
+  const [content, settings] = await Promise.all([
+    getAboutContent(),
+    // `.catch` because a missing settings row must not take out the whole
+    // page — the member buttons simply do not render, which is the same
+    // outcome the page had before any of them existed.
+    getSiteSettings().catch(() => null),
+  ])
+  const contactEmail = resolveContactEmail(settings)
 
   return (
     <div className="min-h-screen">
@@ -238,7 +246,12 @@ export default async function AboutPage() {
                   .slice()
                   .sort((a, b) => a.order - b.order)
                   .map((member, i) => (
-                    <TeamMemberRow key={member.id} member={member} flip={i % 2 === 1} />
+                    <TeamMemberRow
+                      key={member.id}
+                      member={member}
+                      flip={i % 2 === 1}
+                      contactEmail={contactEmail}
+                    />
                   ))}
               </div>
             </div>
@@ -299,7 +312,15 @@ export default async function AboutPage() {
  * than a bar floating under nothing. Khaled fills this in himself, so every
  * field has to look deliberate while it is still empty.
  */
-function TeamMemberRow({ member, flip }: { member: TeamMember; flip: boolean }) {
+function TeamMemberRow({
+  member,
+  flip,
+  contactEmail,
+}: {
+  member: TeamMember
+  flip: boolean
+  contactEmail: string
+}) {
   return (
     <div
       className={cn(
@@ -344,28 +365,44 @@ function TeamMemberRow({ member, flip }: { member: TeamMember; flip: boolean }) 
         )}
 
         {/* ── HOW TO REACH HIM ────────────────────────────────────────────
-            Khaled: «ضيف لي ايميل كل واحد عشان اللي حاب يراسلنا يقدر». A named
-            person with a named address beats a shared inbox — the reader knows
-            who will read it, and each of the three gets what belongs to him
-            rather than everything landing on the founder.
+            ONE ADDRESS, AND THE SUBJECT SAYS WHO IT IS FOR.
 
-            His own accounts, NOT خط's: the icons come from the same
-            `PlatformIcon` map the footer uses, so a member's X is the site's X
-            and no second set of glyphs appears on one page. */}
-        {(member.email || (member.socials?.length ?? 0) > 0) && (
+            This used to print each member's own address. Khaled filled his in
+            with a personal `@hotmail`, saw it published, and said «لا شيل
+            الايميل وخله تواصل مع فريق خط» — then asked the question that
+            actually shapes this: «شلون نعرف بالإيميل انها رساله ل خالد وليش
+            فيصل او شاهين؟»
+
+            A shared inbox with no marking loses that, so the recipient is the
+            team address and the SUBJECT carries the name: the message arrives
+            already labelled «رسالة إلى خالد», and a mail rule can file it
+            without anyone reading it first. Three men, three buttons, one
+            published address — and no personal inbox on a public page for a
+            scraper to harvest.
+
+            The address is `site_settings.metadata.contactEmail`, the same row
+            /contact reads, so the site never disagrees with itself about where
+            mail goes. `encodeURIComponent` on the subject because it is Arabic
+            and a raw one breaks the mailto in some clients.
+
+            The socials are his OWN accounts, not خط's; the icons come from the
+            same `PlatformIcon` map the footer uses. */}
+        {(contactEmail || (member.socials?.length ?? 0) > 0) && (
           <div
             className={cn(
               "mt-6 flex flex-wrap items-center gap-2",
               flip ? "justify-center md:justify-end" : "justify-center md:justify-start",
             )}
           >
-            {member.email && (
+            {contactEmail && (
               <a
-                href={`mailto:${member.email}`}
+                href={`mailto:${contactEmail}?subject=${encodeURIComponent(
+                  `رسالة إلى ${member.name} — من موقع خط`,
+                )}`}
                 className="inline-flex items-center gap-2 rounded-full border border-border bg-card px-4 py-2 text-caption font-medium text-foreground transition-colors hover:border-primary hover:text-primary"
               >
                 <Mail className="h-3.5 w-3.5" />
-                {member.email}
+                راسل {member.name}
               </a>
             )}
             {(member.socials ?? []).map((s) => (

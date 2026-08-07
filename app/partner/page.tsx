@@ -29,7 +29,8 @@ import {
 } from "lucide-react"
 import { getActivePartners } from "@/lib/queries/partnerships"
 import { fetchAllEpisodes, fetchChannelInfo } from "@/lib/youtube/queries"
-import { audienceFacts, audienceMetrics } from "@/lib/partnerships/audience"
+import { audienceFacts, audienceMetrics, buildDemographics } from "@/lib/partnerships/audience"
+import { latestSnapshot, type AgeShare, type CountryShare } from "@/lib/youtube/analytics"
 import { getCachedPublicEpisodes } from "@/lib/cache"
 import { filterLane } from "@/lib/episodes/programs"
 import type { Episode } from "@/types/database"
@@ -80,10 +81,16 @@ interface PartnerPackage {
   /**
    * How many of `deliverables` are the shared floor. Everything after this
    * index is what THIS tier adds, and the card draws it in KHAT Orange — so a
-   * company reading the season card sees what the extra 4,400 د.ك buys rather
+   * company reading the season card sees what the extra 2,400 د.ك buys rather
    * than diffing two ten-item lists in its head.
    */
   baseCount?: number
+  /**
+   * Not a tier — something bought ON TOP of one. It spans the grid so it reads
+   * as an addition rather than as a fifth thing to choose between, and so four
+   * tiers keep their 2×2 without an orphan card under them.
+   */
+  addOn?: boolean
 }
 
 /**
@@ -125,6 +132,10 @@ const SPONSORSHIP_INCLUDES = [
  * Each tier's list is the base PLUS its own additions, composed here so the
  * shared floor cannot drift between three copies.
  */
+const THREE_EPISODE_ADDS = [
+  "شعاركم على بوسترات تسويق الحلقات الثلاث — إنستقرام وتيك توك وإكس",
+]
+
 const FIVE_EPISODE_ADDS = [
   "شعاركم على بوسترات تسويق الحلقات الخمس — إنستقرام وتيك توك وإكس",
   "منشور تعريفي بالشراكة على حسابات خط",
@@ -139,6 +150,42 @@ const SEASON_ADDS = [
   "أولوية الحجز في الموسم التالي قبل طرحه",
 ]
 
+/**
+ * ── THE CARD IS PRICED FOR THE SECOND SEASON: TEN EPISODES ─────────────────
+ * Khaled, 2026-08-06: «الموسم الاول ١٩ حلقة اما الموسم الثاني القادم لم يتم
+ * تصويره الى الان سيكون ١٠ حلقات». Both halves of that matter here.
+ *
+ * The nineteen are the FIRST season — filmed, published, and unsellable: a
+ * logo cannot be planted inside an episode after it is shot. They are the
+ * evidence (110,074 average views each), not the goods. Everything on this
+ * card is a PRE-SALE of a season that does not exist yet.
+ *
+ * ── WHAT THE OLD NUMBERS GOT WRONG ────────────────────────────────────────
+ * The season tier read «19 حلقة · 250 د.ك للحلقة» at 4,750 — the archive
+ * count borrowed as if it were a season length. Divided by the real ten it
+ * came to 475 per episode, ABOVE the 350 single, so the card's own «أفضل
+ * قيمة» tier was its most expensive one and any company could see that with
+ * one division. A rate card that loses an argument to a calculator is worse
+ * than no rate card.
+ *
+ * ── THE LADDER, AND WHY IT DESCENDS ───────────────────────────────────────
+ *   350 → 320 → 300 → 275 per episode. Every larger commitment is cheaper per
+ *   episode than the one below it, which is the only shape that survives a
+ *   company doing the arithmetic — and they do.
+ *
+ * The 350 entry did NOT move. It is researched, published, and the price the
+ * first partner signed against; raising it to 400 would earn roughly 150 د.ك
+ * across a whole season, which is not what a settled price is worth.
+ *
+ * At Khaled's stated all-in cost of 100 د.ك per episode (2026-08-06) the
+ * season clears 1,750 د.ك on 1,000 of cost. The cost sets the floor; the
+ * price comes from the audience — 275/episode is ≈$8 per thousand views
+ * against a published $25–65 for video mid-roll, and the gap is the host's
+ * voice, which this deliberately does not sell.
+ *
+ * The tiers still differ in WHAT, not only in how many (Khaled: «يحتاج شرح
+ * ليش ادفع هذا المبلغ»), which is what `baseCount` draws in KHAT Orange.
+ */
 const PACKAGES: PartnerPackage[] = [
   {
     icon: Mic,
@@ -152,11 +199,22 @@ const PACKAGES: PartnerPackage[] = [
   },
   {
     icon: Layers,
-    name: "رعاية 5 حلقات",
-    nameEn: "Five Episodes",
-    positioning: "حضور متكرر يبني تذكّرًا لا تصنعه مرة واحدة.",
+    name: "رعاية ثلاث حلقات",
+    nameEn: "Three Episodes",
+    positioning: "ثلاث محادثات يتكرر فيها اسمك — أول درجة يبدأ عندها التذكّر.",
+    investment: "960 د.ك",
+    investmentNote: "320 د.ك للحلقة",
+    deliverables: [...SPONSORSHIP_INCLUDES, ...THREE_EPISODE_ADDS],
+    baseCount: SPONSORSHIP_INCLUDES.length,
+    bestFor: "تجربة أوسع من حلقة، دون التزام بنصف الموسم.",
+  },
+  {
+    icon: Layers,
+    name: "نصف الموسم",
+    nameEn: "Half a Season",
+    positioning: "خمس حلقات من عشر — حضور متكرر يبني تذكّرًا لا تصنعه مرة واحدة.",
     investment: "1,500 د.ك",
-    investmentNote: "300 د.ك للحلقة — أقل من سعر الحلقة المفردة",
+    investmentNote: "خمس حلقات · 300 د.ك للحلقة",
     deliverables: [...SPONSORSHIP_INCLUDES, ...FIVE_EPISODE_ADDS],
     baseCount: SPONSORSHIP_INCLUDES.length,
     bestFor: "علامة تريد أن تُرى أكثر من مرة قبل أن تُذكر.",
@@ -165,9 +223,9 @@ const PACKAGES: PartnerPackage[] = [
     icon: Award,
     name: "شريك الموسم",
     nameEn: "Season Partner",
-    positioning: "اسمك مع الموسم كله — لا في حلقة، بل في عمل يبقى.",
-    investment: "4,750 د.ك",
-    investmentNote: "19 حلقة · 250 د.ك للحلقة — أفضل قيمة",
+    positioning: "اسمك مع الموسم الثاني كله — لا في حلقة، بل في عمل يبقى.",
+    investment: "2,750 د.ك",
+    investmentNote: "عشر حلقات · 275 د.ك للحلقة — أفضل قيمة",
     deliverables: [...SPONSORSHIP_INCLUDES, ...SEASON_ADDS],
     baseCount: SPONSORSHIP_INCLUDES.length,
     bestFor: "شريك حقيقي في بناء موسم يترك أثرًا، لا حملة تمر.",
@@ -186,6 +244,7 @@ const PACKAGES: PartnerPackage[] = [
       "متاح لعدد محدود من الشراكات في الموسم",
     ],
     bestFor: "إطلاق يستحق أن يُرى، لا أن يُذكر فقط.",
+    addOn: true,
   },
 ]
 
@@ -286,6 +345,29 @@ export default async function PartnerPage() {
   const facts = audienceFacts(ownEpisodes, episodes, channel?.subscriberCount ?? null)
   const metrics = audienceMetrics(facts)
 
+  /* WHO listens, not just how many. Read from the STORED snapshot rather than
+     the live Analytics API: this page must not go blank because Google had a
+     bad minute, and a stored row is the only thing that can say WHEN it was
+     true. Measured in /admin/youtube-analytics; `.catch` so a missing table or
+     an unconnected grant renders nothing instead of taking out the page. */
+  const [countrySnap, ageSnap] = await Promise.all([
+    latestSnapshot<CountryShare>("countries").catch(() => null),
+    latestSnapshot<AgeShare>("age_gender").catch(() => null),
+  ])
+  const demographics = buildDemographics(
+    countrySnap && {
+      rows: countrySnap.rows.map((r) => ({ label: r.label, percent: r.percent })),
+      periodStart: countrySnap.periodStart,
+      periodEnd: countrySnap.periodEnd,
+    },
+    ageSnap && {
+      rows: ageSnap.rows.map((r) => ({ label: r.band, percent: r.percent })),
+      periodStart: ageSnap.periodStart,
+      periodEnd: ageSnap.periodEnd,
+    }
+  )
+  const countriesMeasured = countrySnap?.rows.length ?? 0
+
   return (
     <div className="min-h-screen">
       {/* ── Hero ── */}
@@ -331,6 +413,62 @@ export default async function PartnerPage() {
           </div>
         </div>
       </section>
+
+      {/* ── WHO listens ─────────────────────────────────────────────────────
+          The two figures this page had to DELETE, now measured.
+
+          «١٥+ دولة» and «١٨–٣٥» were literals derived from nothing; they were
+          removed on 2026-08-05 rather than guessed at, because YouTube
+          Analytics needs an OAuth grant the app did not have. It has one now,
+          and the measurement is a better pitch than the fabrication was:
+          18–24 is 10.7%, and 25–44 is 72.5% — an audience with budgets, not
+          the young skew the invented band implied.
+
+          Renders only when a measurement exists. No placeholder, no "قريباً" —
+          the same rule every other number on this page follows. */}
+      {demographics && (
+        <section className="py-16">
+          <div className="container mx-auto px-4">
+            <div className="mx-auto max-w-4xl">
+              <div className="flex flex-col items-center text-center">
+                <span aria-hidden="true" className="block h-[3px] w-14 rounded-full bg-accent" />
+                <h2 className="mt-5 text-heading font-bold">مَن يستمع</h2>
+                {/* The window, printed. A share without its period is not a
+                    fact, and this is the page where a reader is looking for
+                    reasons to doubt us. */}
+                <p className="mt-3 text-caption text-muted-foreground">
+                  من YouTube Analytics — قياس الفترة من {demographics.periodStart} إلى{" "}
+                  {demographics.periodEnd}
+                  {countriesMeasured > 0 ? ` · شمل ${countriesMeasured} دولة` : ""}
+                </p>
+              </div>
+
+              <div className="mt-10 grid gap-5 md:grid-cols-2">
+                {demographics.countries.length > 0 && (
+                  <div className="rounded-2xl border border-border bg-card p-7">
+                    <h3 className="text-lead font-bold">أين هم</h3>
+                    <ul className="mt-5 space-y-3.5">
+                      {demographics.countries.map((r) => (
+                        <ShareRow key={r.label} label={r.label} percent={r.percent} />
+                      ))}
+                    </ul>
+                  </div>
+                )}
+                {demographics.ages.length > 0 && (
+                  <div className="rounded-2xl border border-border bg-card p-7">
+                    <h3 className="text-lead font-bold">كم أعمارهم</h3>
+                    <ul className="mt-5 space-y-3.5">
+                      {demographics.ages.map((r) => (
+                        <ShareRow key={r.label} label={r.label} percent={r.percent} />
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </section>
+      )}
 
       {/* ── Partner, not advertiser ── */}
       <section className="py-20">
@@ -420,6 +558,17 @@ export default async function PartnerPage() {
               الأسعار معلنة، لا تُطلب. اختر مدة الحضور — أما ما تحصل عليه فواحد في كل
               الباقات: حضور كامل داخل الحلقة، وبلا أي مقاطعة لمحتواها.
             </p>
+            {/* WHICH SEASON IS ON SALE — the page never said, and the archive it
+                shows above holds nineteen episodes while the card sells ten. A
+                company that reads «الموسم» here and counts «الموسم الاول» on the
+                site would find two different seasons and no sentence connecting
+                them. The first season is the evidence; the second is the goods,
+                and it is not filmed yet — which is the reason to sign now, so it
+                is said plainly rather than buried. */}
+            <p className="mx-auto mt-4 max-w-measure text-body text-foreground">
+              الباقات أدناه للموسم الثاني — <span className="font-semibold">عشر حلقات، لم تُصوَّر بعد</span>.
+              الشركاء الذين ينضمون قبل التصوير يُذكرون في الإعلان عن الموسم وفي التيزر.
+            </p>
           </div>
           <div className="mx-auto grid max-w-5xl gap-6 md:grid-cols-2">
             {PACKAGES.map((pkg) => (
@@ -429,7 +578,7 @@ export default async function PartnerPage() {
                   pkg.featured
                     ? "border-2 border-primary ring-2 ring-primary/20"
                     : "border-border hover:border-primary/50"
-                }`}
+                } ${pkg.addOn ? "md:col-span-2" : ""}`}
               >
                 {pkg.featured && (
                   <div className="absolute inset-x-0 top-0 bg-primary py-1.5 text-center text-micro font-medium text-primary-foreground">
@@ -626,5 +775,35 @@ export default async function PartnerPage() {
         </div>
       </section>
     </div>
+  )
+}
+
+/**
+ * One share, as a labelled bar.
+ *
+ * The bar is `--accent/25` filled against the card, not KHAT Orange at full
+ * strength: six saturated bars in a column would be the loudest thing on a
+ * page whose whole argument is restraint, and the number beside it is what
+ * actually carries the information. `aria-hidden` on the bar because the
+ * figure is already read out — a screen reader does not need the decoration
+ * announced twice.
+ */
+function ShareRow({ label, percent }: { label: string; percent: number }) {
+  return (
+    <li>
+      <div className="flex items-baseline justify-between gap-4">
+        <span className="text-body font-medium text-foreground">{label}</span>
+        <span className="text-body font-bold text-accent-strong">{percent}%</span>
+      </div>
+      <div
+        aria-hidden="true"
+        className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-muted"
+      >
+        <div
+          className="h-full rounded-full bg-accent/40"
+          style={{ width: `${Math.min(100, percent)}%` }}
+        />
+      </div>
+    </li>
   )
 }

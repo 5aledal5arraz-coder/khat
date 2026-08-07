@@ -27,9 +27,19 @@ export interface TeamMember {
    */
   videoUrl?: string
   /**
-   * His email, so a reader can write to the RIGHT person instead of a shared
-   * inbox. Khalid, 2026-08-06: «ضيف لي ايميل كل واحد عشان اللي حاب يراسلنا
-   * يقدر». Optional — a member with none simply shows no mail link.
+   * ⚠️ NO LONGER RENDERED ANYWHERE. Kept only so existing stored rows keep
+   * parsing; nothing reads it and the admin form no longer offers it.
+   *
+   * It used to be published as a `mailto:` on /about. Khalid put his own
+   * `@hotmail` address in it on 2026-08-06, saw it on the live page and said
+   * «لا شيل الايميل وخله تواصل مع فريق خط» — a personal inbox printed on a
+   * public page is a spam magnet, and it makes one man the default recipient
+   * for everything.
+   *
+   * What replaced it answers the question he asked next — «شلون نعرف بالإيميل
+   * انها رساله ل خالد وليش فيصل او شاهين؟» — every member's button now writes
+   * to the ONE team address with the member's name in the SUBJECT, so the
+   * inbox sorts itself without publishing three addresses. See app/about/page.tsx.
    */
   email?: string
   /**
