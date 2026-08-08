@@ -158,7 +158,23 @@ export default async function HomePage() {
   const gridLabel = hall?.label ?? "أحدث الحلقات"
   const moreHref = hall?.moreHref ?? "/episodes"
   const hiddenCount = Math.max(0, (hall?.total ?? conversations.length) - grid.length)
-  const cells = interleaveGrid(grid, thinkers ?? [])
+  // NOBODY APPEARS TWICE ON THIS PAGE.
+  //
+  // Auto mode picks "the guests of the newest episodes", and the grid beside
+  // them renders those same newest episodes — so «معرض العقول» was structurally
+  // guaranteed to repeat itself. It shipped that way: 3 of 3 guest cards on
+  // production named someone already on screen. Three cards, zero new people,
+  // and the whole point of the section gone.
+  //
+  // The query now returns a bench of up to 12; this takes the first three who
+  // are NOT already visible as the hero or in the grid.
+  const shownGuestIds = new Set(
+    [featured, ...grid]
+      .map((e) => e?.guest?.id ?? e?.guest_id ?? null)
+      .filter((id): id is string => Boolean(id)),
+  )
+  const freshThinkers = (thinkers ?? []).filter((t) => !shownGuestIds.has(t.id)).slice(0, 3)
+  const cells = interleaveGrid(grid, freshThinkers)
 
   return (
     <div className="overflow-hidden">

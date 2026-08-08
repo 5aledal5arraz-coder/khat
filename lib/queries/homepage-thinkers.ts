@@ -98,7 +98,14 @@ export async function getLatestGuestsForHomepage(): Promise<
       if (guestId && !seen.has(guestId)) {
         seen.add(guestId)
         guestEps.push({ guest_id: guestId, youtube_url: ep.youtube_url })
-        if (guestEps.length >= 3) break
+        // GATHER A BENCH, NOT EXACTLY THREE.
+        //
+        // This used to stop at 3, and those 3 were "the guests of the newest
+        // episodes" — which is the same list the grid beside them renders. The
+        // section was structurally guaranteed to repeat itself: 3 of 3 shown on
+        // production were already on screen. The caller filters out whoever is
+        // already visible and then takes three, so it needs spares.
+        if (guestEps.length >= 12) break
       }
     }
 

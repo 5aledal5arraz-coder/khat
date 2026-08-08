@@ -1,3 +1,4 @@
+import { formatArabicCount } from "@/lib/shared/formatters"
 import { Metadata } from "next"
 import { notFound } from "next/navigation"
 import { getTopicBySlug, getEpisodesForTopic } from "@/lib/episodes/episode-graph"
@@ -44,7 +45,12 @@ export default async function TopicPage({ params }: TopicPageProps) {
           <h1 className="mt-1 text-heading font-bold">{topic.name}</h1>
           <p className="mt-2 text-muted-foreground">
             {episodes.length > 0
-              ? `${episodes.length} حلقة عن ${topic.name}`
+              ? // «9 حلقة» is broken Arabic — 3..10 takes the plural («٩ حلقات»), and 2
+                // takes the dual («حلقتان»). `formatArabicCount` already handles all
+                // four cases and is what /guests uses; this page had hand-rolled the
+                // string instead, which is also the thing CLAUDE.md says not to do —
+                // formatting lives in lib/shared/formatters.ts and nowhere else.
+                `${formatArabicCount(episodes.length, "حلقة")} عن ${topic.name}`
               : `لا توجد حلقات منشورة عن ${topic.name} بعد`}
           </p>
         </header>

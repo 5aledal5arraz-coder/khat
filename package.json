@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev",
+    "dev": "next dev -H 127.0.0.1",
     "dev:all": "concurrently -k -n next,worker -c cyan,magenta npm:dev npm:worker",
     "dev:clean": "rm -rf .next node_modules/.cache && next dev",
     "validate-env": "npx tsx scripts/validate-env.ts",

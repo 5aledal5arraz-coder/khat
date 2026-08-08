@@ -17,12 +17,6 @@
 export const HOMEPAGE_FILTER_KEY = "featured_filter"
 
 /**
- * How many episodes manual mode can pin. Was hardcoded to 3 when the tab was a
- * three-card showcase; manual mode now drives the whole grid.
- */
-export const MANUAL_SLOTS = 12
-
-/**
  * How many episodes the homepage grid shows, in EVERY mode and filter.
  *
  * Khaled's call, 2026-08-08. Removing the old hardcoded `slice(1, 7)` so a topic
@@ -36,6 +30,24 @@ export const MANUAL_SLOTS = 12
  * 3-column grid and reads as «حلقتين ثم ضيف» on a phone.
  */
 export const HOMEPAGE_EPISODE_CAP = 6
+
+/**
+ * How many episodes manual mode can pin.
+ *
+ * **DERIVED, never a second number.** It was literally `12` while the cap below
+ * was `6`, and both were added the same afternoon: the tab offered twelve slots,
+ * the save action accepted twelve, the UI said «بلغت الحد الأقصى (12 حلقة)» —
+ * and the manual branch runs through the same `finish()` that slices to the cap,
+ * so positions 7–12 saved and never appeared. The operator would have pinned an
+ * episode and watched the homepage ignore it, with the admin insisting it was
+ * saved.
+ *
+ * Khaled chose one cap for every mode. Deriving it here is what makes that true
+ * instead of merely intended.
+ */
+export const MANUAL_SLOTS = HOMEPAGE_EPISODE_CAP
+
+
 
 /**
  * Guest cards sit at every Nth cell of the merged grid. 3 → ep, ep, guest.
