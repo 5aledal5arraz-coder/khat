@@ -16,6 +16,8 @@ export interface MuseumThinker {
   title: string
   description: string
   imageUrl: string
+  /** Set for DB-backed guests so a card can link to /guests/[slug]. */
+  slug?: string
 }
 
 export const MUSEUM_EPISODES: MuseumEpisode[] = [

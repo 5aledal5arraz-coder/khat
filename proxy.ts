@@ -191,8 +191,16 @@ export async function proxy(request: NextRequest) {
 
   // --- Admin dashboard auth ---
 
-  // Protect admin pages — redirect to login if no session
-  if (pathname.startsWith('/admin') && pathname !== '/admin/login') {
+  // Protect admin pages — redirect to login if no session.
+  //
+  // `next dev` skips this entirely: Khaled asked for a local panel with no
+  // login (2026-08-08). The gate is NODE_ENV and nothing else — no env var to
+  // set, nothing to leak onto a server. `next build` stamps NODE_ENV as
+  // "production", so on the droplet this condition is always false and the
+  // redirect below always runs. Matches devNoAuthUser() in lib/admin/auth.ts;
+  // both must agree or the panel loads chrome-less against a redirecting proxy.
+  const devNoAuth = process.env.NODE_ENV === 'development'
+  if (!devNoAuth && pathname.startsWith('/admin') && pathname !== '/admin/login') {
     if (!adminSession) {
       const url = request.nextUrl.clone()
       url.pathname = '/admin/login'

@@ -4,9 +4,11 @@ import { ArrowLeft, Play, Sparkles } from "lucide-react"
 import {
   getCachedActiveTeaser,
   getCachedHomepagePartners,
+  getCachedHomepageThinkers,
   getCachedPublicEpisodes,
 } from "@/lib/cache"
 import type { Episode } from "@/types/database"
+import type { MuseumThinker } from "@/lib/content/museum-data"
 import type { TrustedPartner } from "@/lib/queries/partnerships"
 import { TeaserSection } from "@/components/teaser/teaser-section"
 import { EpisodePosterCard } from "@/components/episodes/episode-poster-card"
@@ -21,6 +23,9 @@ import {
   formatArabicDate,
 } from "@/lib/shared/formatters"
 import { resolveDefaultOgImage } from "@/lib/seo/og"
+import { cn } from "@/lib/utils"
+import { getHomepageEpisodeSelection } from "@/lib/queries/homepage-episodes"
+import { HOMEPAGE_EPISODE_CAP, GUEST_EVERY } from "@/lib/homepage/hall"
 import {
   BRAND_DESCRIPTION,
   BRAND_HEADLINE_ACCENT,
@@ -108,13 +113,16 @@ const jsonLd = {
 }
 
 export default async function HomePage() {
-  const [episodes, activeTeaser, partners] = await Promise.all([
+  const [episodes, activeTeaser, partners, thinkers] = await Promise.all([
     getCachedPublicEpisodes().catch(() => [] as Episode[]),
     getCachedActiveTeaser().catch(() => null),
     // Same `.catch(() => [])` as its neighbours: a partner band is the least
     // important thing on this page, and it must never be the reason the
     // homepage 500s.
     getCachedHomepagePartners().catch(() => [] as TrustedPartner[]),
+    // «معرض العقول». Returns null when nothing is configured AND no guest has
+    // an episode — the section then renders nothing at all, no empty frame.
+    getCachedHomepageThinkers().catch(() => null),
   ])
   // حلقات خط ONLY — the lane, not "everything that is not a clip".
   //
@@ -135,7 +143,22 @@ export default async function HomePage() {
   const featured = conversations[0] ?? null
   const season = currentKhatSeason(episodes)
   const featuredBlurb = featured ? episodeBlurb(featured) : null
-  const grid = conversations.slice(1, 7)
+
+  // «قاعة الحلقات» — the grid is no longer a hardcoded `slice(1, 7)`. It is
+  // whatever /admin/home-content has been configured to show: a filter in auto
+  // mode (newest · most-viewed · one programme · one topic) or a hand-picked
+  // list in manual mode. The heading travels with it, so the page cannot label
+  // a list of invasion episodes «أحدث الحلقات». The hero is passed in to be
+  // excluded — it is printed full-width directly above.
+  const hall = await getHomepageEpisodeSelection({
+    exclude: featured?.id ?? null,
+    episodes,
+  }).catch(() => null)
+  const grid = hall?.episodes ?? conversations.slice(1, 1 + HOMEPAGE_EPISODE_CAP)
+  const gridLabel = hall?.label ?? "أحدث الحلقات"
+  const moreHref = hall?.moreHref ?? "/episodes"
+  const hiddenCount = Math.max(0, (hall?.total ?? conversations.length) - grid.length)
+  const cells = interleaveGrid(grid, thinkers ?? [])
 
   return (
     <div className="overflow-hidden">
@@ -391,23 +414,46 @@ export default async function HomePage() {
         </div>
       </section>
 
-      {/* ──────────────────── Episodes grid ──────────────────── */}
-      {grid.length > 0 ? (
+      {/* ─────────── قاعة الحلقات + معرض العقول, interleaved ───────────
+          ONE section, not two. Khaled asked for the minds mixed in among the
+          episodes rather than parked in their own strip below them — «حلقتين
+          وبعدها ضيف». A guest lands on every GUEST_EVERY-th cell, so with the
+          six-episode cap and three guests the grid is exactly nine cards: three
+          full rows of the 3-column layout, and on a phone it reads literally as
+          two episodes, a guest, two episodes, a guest.
+
+          The heading is the filter's own label, and «الكل» points wherever the
+          rest of that filter actually lives — the topic's page for a topic,
+          /episodes otherwise. */}
+      {cells.length > 0 ? (
         <section className="px-6 py-12">
           <div className="mx-auto max-w-6xl">
-            <div className="flex items-end justify-between">
-              <SectionLabel>أحدث الحلقات</SectionLabel>
-              <Link
-                href="/episodes"
-                className="inline-flex items-center gap-1 text-caption font-semibold text-primary transition-all hover:gap-2"
-              >
-                كل الحلقات <ArrowLeft className="h-4 w-4" />
-              </Link>
+            <div className="flex items-end justify-between gap-4">
+              <SectionLabel>{gridLabel}</SectionLabel>
+              <div className="flex shrink-0 items-center gap-4">
+                <Link
+                  href="/guests"
+                  className="text-caption font-semibold text-muted-foreground transition-colors hover:text-foreground"
+                >
+                  الضيوف
+                </Link>
+                <Link
+                  href={moreHref}
+                  className="inline-flex items-center gap-1 text-caption font-semibold text-primary transition-all hover:gap-2"
+                >
+                  {hiddenCount > 0 ? `كل الحلقات (${hiddenCount}+)` : "كل الحلقات"}
+                  <ArrowLeft className="h-4 w-4" />
+                </Link>
+              </div>
             </div>
             <div className="mt-6 grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
-              {grid.map((ep) => (
-                <EpisodePosterCard key={ep.id} ep={ep} />
-              ))}
+              {cells.map((cell) =>
+                cell.kind === "episode" ? (
+                  <EpisodePosterCard key={`e-${cell.episode.id}`} ep={cell.episode} />
+                ) : (
+                  <ThinkerCard key={`t-${cell.thinker.id}`} thinker={cell.thinker} />
+                ),
+              )}
             </div>
           </div>
         </section>
@@ -476,6 +522,40 @@ function currentKhatSeason(episodes: Episode[]): string | null {
   return newest.category?.name ?? null
 }
 
+
+type GridCell =
+  | { kind: "episode"; episode: Episode }
+  | { kind: "thinker"; thinker: MuseumThinker }
+
+/**
+ * Lay episodes and guests out as one grid: «حلقتين وبعدها ضيف».
+ *
+ * A guest takes every GUEST_EVERY-th cell — 1-indexed, so with GUEST_EVERY = 3
+ * the guests land at 3, 6 and 9. With the six-episode cap and three guests that
+ * fills exactly three rows of the 3-column layout.
+ *
+ * Two rules keep it from degrading into something that looks broken:
+ *  · Run out of guests and the remaining cells are simply episodes — no gap, no
+ *    placeholder. The site launched with 0 guest photos and 3 guest rows; it has
+ *    to look deliberate at any count.
+ *  · Run out of episodes with guests left over and they are appended rather than
+ *    dropped, so a topic filter matching one episode still shows the minds.
+ */
+function interleaveGrid(episodes: Episode[], thinkers: MuseumThinker[]): GridCell[] {
+  const cells: GridCell[] = []
+  let ei = 0
+  let gi = 0
+  while (ei < episodes.length || gi < thinkers.length) {
+    const slot = cells.length + 1
+    const guestTurn = slot % GUEST_EVERY === 0
+    if (guestTurn && gi < thinkers.length) cells.push({ kind: "thinker", thinker: thinkers[gi++] })
+    else if (ei < episodes.length) cells.push({ kind: "episode", episode: episodes[ei++] })
+    else if (gi < thinkers.length) cells.push({ kind: "thinker", thinker: thinkers[gi++] })
+    else break
+  }
+  return cells
+}
+
 // ─── pieces ──────────────────────────────────────────────────────────────────
 
 function SectionLabel({ children }: { children: React.ReactNode }) {
@@ -483,6 +563,65 @@ function SectionLabel({ children }: { children: React.ReactNode }) {
     <h2 className="text-caption font-bold uppercase text-muted-foreground">
       {children}
     </h2>
+  )
+}
+
+/**
+ * One guest in «معرض العقول».
+ *
+ * The card carries a name, an identity line, and — only if someone uploaded a
+ * real portrait — a picture. It must read as finished without one, because
+ * today none of the 20 guests has a photo; see the note in
+ * `lib/queries/homepage-thinkers.ts` for why an episode thumbnail is not an
+ * acceptable stand-in. So the typographic form is the primary design and the
+ * portrait is the enhancement, not the other way round.
+ *
+ * `title` is the line that does the persuading — «شاهد عيان على الغزو العراقي»
+ * says more than any headshot. In auto mode it comes from `guests.bio`, which
+ * on this data is already written as a short identity line, and the admin can
+ * override it per guest with `custom_title`.
+ */
+function ThinkerCard({ thinker }: { thinker: MuseumThinker }) {
+  const identity = thinker.title || thinker.description
+  const body = (
+    <>
+      {thinker.imageUrl ? (
+        <div className="relative mb-4 aspect-[4/3] overflow-hidden rounded-2xl bg-secondary">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={thinker.imageUrl}
+            alt={thinker.name}
+            loading="lazy"
+            className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-[1.03]"
+          />
+        </div>
+      ) : (
+        // The rule under the name, the same orange rule the wordmark draws —
+        // it gives the card a top edge so a picture-less row still reads as
+        // composed rather than as three paragraphs that failed to load.
+        <span aria-hidden="true" className="mb-4 block h-1 w-10 rounded-full bg-accent" />
+      )}
+      <span className="text-lead font-bold text-accent">{thinker.name}</span>
+      {identity ? (
+        <p className="mt-2 text-pretty text-body leading-prose text-foreground">{identity}</p>
+      ) : null}
+    </>
+  )
+
+  const shell =
+    "group flex h-full flex-col rounded-[28px] border border-border bg-card p-5 shadow-[0_2px_8px_hsl(var(--primary)/0.04)] transition-all"
+
+  // Not every guest row has a slug; an un-linked card is better than a link
+  // to /guests/undefined.
+  return thinker.slug ? (
+    <Link
+      href={`/guests/${thinker.slug}`}
+      className={cn(shell, "hover:shadow-[0_2px_8px_hsl(var(--primary)/0.06),0_24px_60px_-34px_hsl(var(--primary)/0.3)]")}
+    >
+      {body}
+    </Link>
+  ) : (
+    <div className={shell}>{body}</div>
   )
 }
 

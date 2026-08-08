@@ -38,6 +38,45 @@ export interface AdminUser {
 export const SESSION_EXPIRY_MS = 12 * 60 * 60 * 1000 // 12 hours
 export const BCRYPT_ROUNDS = 12
 
+// ---------------------------------------------------------------------------
+// Local development — no login
+// ---------------------------------------------------------------------------
+
+/**
+ * NO ADMIN LOGIN UNDER `next dev`. Khaled asked for this on 2026-08-08 after I
+ * raised the risk; it is his call and this is the narrowest way to honour it.
+ *
+ * **The gate is `NODE_ENV === "development"` and nothing else — deliberately.**
+ * The pattern this replaces was `ADMIN_AUTH_BYPASS`, an env var, and CLAUDE.md
+ * still says do not re-add it. That warning is about the failure mode: an env
+ * var is a value someone can set on a server, in a PM2 block, in a CI secret —
+ * and if it ever lands in production the whole panel opens to the world. There
+ * is no env var here and no way to switch this on. `NODE_ENV` is set to
+ * "production" by `next build`, so on the droplet — which runs the built app
+ * under PM2 — this function cannot return a user; the branch is dead code that
+ * the bundler drops.
+ *
+ * It is also loud: every bypassed request prints a warning, so this can never
+ * become the quiet default that nobody remembers is on.
+ *
+ * Returns OWNER because the point is to inspect every screen, including the
+ * OWNER-gated ones. Not a real row — it is never written anywhere.
+ */
+export function devNoAuthUser(): AdminUser | null {
+  if (process.env.NODE_ENV !== "development") return null
+  console.warn("[admin-auth] DEV MODE — request served with NO LOGIN. Never possible in a production build.")
+  return {
+    id: "00000000-0000-0000-0000-000000000000",
+    email: "dev@localhost",
+    display_name: "وضع التطوير",
+    job_title: null,
+    role: "OWNER",
+    is_active: true,
+    last_login_at: null,
+    created_at: new Date(0),
+  }
+}
+
 export const ADMIN_ROLES = ["OWNER", "ADMIN", "EDITOR", "VIEWER"] as const
 
 export const ROLE_LEVELS: Record<AdminRole, number> = {

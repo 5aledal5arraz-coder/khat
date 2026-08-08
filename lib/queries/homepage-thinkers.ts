@@ -1,10 +1,11 @@
 import { db } from "@/lib/db"
 import { homepageThinkers } from "@/lib/db/schema/content"
-import { episodes, guests } from "@/lib/db/schema"
-import { eq, asc, desc } from "drizzle-orm"
+import { guests } from "@/lib/db/schema"
+import { eq, asc } from "drizzle-orm"
 import { getHomepageMode } from "./homepage-settings"
 import type { MuseumThinker } from "@/lib/content/museum-data"
-import { youTubeThumbUrl } from "@/lib/episodes/thumbnail"
+import { getEpisodes } from "./episodes"
+import { filterLane } from "@/lib/episodes/programs"
 
 export interface HomepageThinkerRow {
   id: string
@@ -58,30 +59,45 @@ export async function saveHomepageThinkers(
 
 /** Get latest 3 guests who have episodes (for auto mode), ordered by most recent episode */
 export async function getLatestGuestsForHomepage(): Promise<
-  { id: string; name: string; bio: string | null; photo_url: string | null; episode_youtube_url: string | null }[]
+  { id: string; name: string; slug: string | null; bio: string | null; photo_url: string | null; episode_youtube_url: string | null }[]
 > {
   // A3 — DB-null guard.
   if (!db) return []
   try {
-    // Get latest episodes that have guests, one per guest
-    const latestEps = await db
-      .select({
-        guest_id: episodes.guest_id,
-        release_date: episodes.release_date,
-        youtube_url: episodes.youtube_url,
-      })
-      .from(episodes)
-      .where(eq(episodes.status, "published"))
-      .orderBy(desc(episodes.release_date))
-      .limit(50)
+    // CONVERSATIONS ONLY — not «مقاطع خط».
+    //
+    // This used to read `episodes` straight, newest-first by release_date. On
+    // today's data that hands the gallery three CLIP thumbnails: the six clips
+    // are the most recent rows on the table AND they carry `guest_id`, so they
+    // win the dedupe before a single real episode is reached. The face shown
+    // for a guest would be a cut-down's cover art, not their conversation.
+    //
+    // `filterLane(list, "khat")` is the same rule the homepage grid uses, so
+    // the gallery and the grid can never disagree about what counts as an
+    // episode. It needs resolved categories — hence `withCategories: true`;
+    // without it filterLane warns and passes everything through, and the clips
+    // come straight back.
+    const all = await getEpisodes({ withCategories: true })
+    const conversations = filterLane(all, "khat")
 
-    // Deduplicate by guest_id, keeping the first (most recent) occurrence
+    // Deduplicate by guest, keeping the first (most recent) occurrence.
+    //
+    // READ BOTH `guest.id` AND `guest_id`. A listed episode is a MERGE of the
+    // DB row and the YouTube snapshot in `config/episode-cache.json`, and that
+    // snapshot has no idea who the guests are — all 77 of its rows carry a null
+    // `guest_id`. Depending on which side wins a given field, an episode can
+    // arrive with a fully populated `guest` object and a null `guest_id`.
+    // Filtering on the scalar alone silently found ONE guest on a database
+    // holding twenty, and the section rendered a single card while the grid
+    // directly above it printed seven guest names — because the grid reads
+    // `ep.guest?.name`. Same data, two shapes; take whichever is there.
     const seen = new Set<string>()
     const guestEps: { guest_id: string; youtube_url: string }[] = []
-    for (const ep of latestEps) {
-      if (ep.guest_id && !seen.has(ep.guest_id)) {
-        seen.add(ep.guest_id)
-        guestEps.push({ guest_id: ep.guest_id, youtube_url: ep.youtube_url })
+    for (const ep of conversations) {
+      const guestId = ep.guest?.id ?? ep.guest_id ?? null
+      if (guestId && !seen.has(guestId)) {
+        seen.add(guestId)
+        guestEps.push({ guest_id: guestId, youtube_url: ep.youtube_url })
         if (guestEps.length >= 3) break
       }
     }
@@ -89,12 +105,13 @@ export async function getLatestGuestsForHomepage(): Promise<
     if (guestEps.length === 0) return []
 
     // Fetch guest details maintaining order
-    const result: { id: string; name: string; bio: string | null; photo_url: string | null; episode_youtube_url: string | null }[] = []
+    const result: { id: string; name: string; slug: string | null; bio: string | null; photo_url: string | null; episode_youtube_url: string | null }[] = []
     for (const ge of guestEps) {
       const [guest] = await db
         .select({
           id: guests.id,
           name: guests.name,
+          slug: guests.slug,
           bio: guests.bio,
           photo_url: guests.photo_url,
         })
@@ -127,15 +144,30 @@ export async function getHomepageThinkersForDisplay(): Promise<MuseumThinker[] |
       const thinkers = await getHomepageThinkers()
       const thinkerByGuestId = new Map(thinkers.map((t) => [t.guest_id, t]))
 
+      // NO YOUTUBE-THUMBNAIL FALLBACK FOR A FACE.
+      //
+      // It used to end `|| youTubeThumbUrl(videoId)`, which looks like a free
+      // portrait and is not one. Our 41 thumbnails are hand-composed 16:9
+      // posters with the episode title BURNED INTO the artwork — roughly a
+      // third of the frame is the guest and two thirds is type (see the rules
+      // in components/media/episode-thumb.tsx). Dropped into a gallery of
+      // people that renders as the episode's cover art, so «معرض العقول» would
+      // have been a second copy of the episode grid sitting directly above it,
+      // and any square crop lands on the burned-in headline instead of a face.
+      //
+      // Empty string is the honest answer, and the section reads it as "render
+      // this one typographically". The moment a real portrait exists — an
+      // uploaded `custom_image` or `guests.photo_url` — the card shows it. No
+      // guest has a photo today (0 of 20 on production).
       const results: MuseumThinker[] = latestGuests.map((guest) => {
         const t = thinkerByGuestId.get(guest.id)
-        const videoId = guest.episode_youtube_url?.match(/(?:v=|youtu\.be\/)([^&\s]+)/)?.[1] || ""
         return {
           id: guest.id,
           name: guest.name,
           title: t?.custom_title || "",
           description: t?.custom_description || guest.bio || "",
-          imageUrl: t?.custom_image || guest.photo_url || (videoId ? youTubeThumbUrl(videoId) : ""),
+          imageUrl: t?.custom_image || guest.photo_url || "",
+          slug: guest.slug ?? undefined,
         }
       })
 
@@ -156,24 +188,17 @@ export async function getHomepageThinkersForDisplay(): Promise<MuseumThinker[] |
       // would put admin-only phone/email into the awaited raw pg Result, which
       // React's dev-mode async-debug channel serializes into the flight payload.
       const [guest] = await db
-        .select({ id: guests.id, name: guests.name, bio: guests.bio, photo_url: guests.photo_url })
+        .select({ id: guests.id, name: guests.name, slug: guests.slug, bio: guests.bio, photo_url: guests.photo_url })
         .from(guests)
         .where(eq(guests.id, row.guest_id))
         .limit(1)
       if (!guest) continue
 
-      // Fallback: use guest's latest episode thumbnail if no photo
-      let imageUrl = guest.photo_url || ""
-      if (!imageUrl) {
-        const [ep] = await db
-          .select({ youtube_url: episodes.youtube_url })
-          .from(episodes)
-          .where(eq(episodes.guest_id, row.guest_id))
-          .orderBy(desc(episodes.release_date))
-          .limit(1)
-        const videoId = ep?.youtube_url?.match(/(?:v=|youtu\.be\/)([^&\s]+)/)?.[1] || ""
-        if (videoId) imageUrl = youTubeThumbUrl(videoId)
-      }
+      // Same rule as auto mode above: a real portrait or nothing. An episode
+      // poster is not a face, and letting manual mode fall back to one while
+      // auto mode does not would make the two modes render differently from
+      // the same guest.
+      const imageUrl = guest.photo_url || ""
 
       results.push({
         id: guest.id,
@@ -181,6 +206,7 @@ export async function getHomepageThinkersForDisplay(): Promise<MuseumThinker[] |
         title: row.custom_title || "",
         description: row.custom_description || guest.bio || "",
         imageUrl: row.custom_image || imageUrl,
+        slug: guest.slug ?? undefined,
       })
     }
 

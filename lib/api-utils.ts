@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { cookies, headers } from 'next/headers'
-import { verifyAdminSession, type AdminRole, type AdminUser, ROLE_LEVELS as ADMIN_ROLE_LEVELS } from '@/lib/admin/auth'
+import { verifyAdminSession, devNoAuthUser, type AdminRole, type AdminUser, ROLE_LEVELS as ADMIN_ROLE_LEVELS } from '@/lib/admin/auth'
 
 /**
  * Validate request origin (same-origin check)
@@ -37,9 +37,10 @@ export async function getAdminAuthUser(): Promise<AdminUser | null> {
   try {
     const cookieStore = await cookies()
     const token = cookieStore.get('__admin_session')?.value
-    if (!token) return null
+    // `next dev` only — see devNoAuthUser(). Returns null in any built app.
+    if (!token) return devNoAuthUser()
 
-    return await verifyAdminSession(token)
+    return (await verifyAdminSession(token)) ?? devNoAuthUser()
   } catch {
     return null
   }

@@ -36,6 +36,37 @@ export async function setHomepageMode(section: HomepageSection, mode: HomepageMo
     })
 }
 
+/**
+ * Read any homepage setting by key.
+ *
+ * `homepage_settings` is key/value, which is why the episode-hall filter needed
+ * no migration: it is just another row.
+ */
+export async function getHomepageSetting(key: string): Promise<string | null> {
+  if (!db) return null
+  try {
+    const [row] = await db
+      .select({ value: homepageSettings.value })
+      .from(homepageSettings)
+      .where(eq(homepageSettings.key, key))
+      .limit(1)
+    return row?.value ?? null
+  } catch {
+    return null
+  }
+}
+
+/** Write any homepage setting by key. */
+export async function setHomepageSetting(key: string, value: string): Promise<void> {
+  await db!
+    .insert(homepageSettings)
+    .values({ key, value, updated_at: new Date() })
+    .onConflictDoUpdate({
+      target: homepageSettings.key,
+      set: { value, updated_at: new Date() },
+    })
+}
+
 /** Get all homepage settings as a map */
 export async function getAllHomepageSettings(): Promise<Record<string, string>> {
   // A3 — DB-null guard. Empty-map default matches the catch-fallback.

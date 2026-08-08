@@ -17,6 +17,7 @@
     "db:adopt": "tsx scripts/adopt-migrations.ts",
     "db:push": "drizzle-kit push",
     "db:studio": "drizzle-kit studio",
+    "db:tunnel": "ssh -N -o ExitOnForwardFailure=yes -o ServerAliveInterval=30 -o ServerAliveCountMax=3 -L 25060:khat-db-do-user-32538860-0.d.db.ondigitalocean.com:25060 root@khatpodcast.com",
     "test": "vitest run",
     "test:watch": "vitest",
     "qa:admin": "node scripts/qa-admin-page.mjs",

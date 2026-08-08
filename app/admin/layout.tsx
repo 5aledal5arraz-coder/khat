@@ -1,7 +1,7 @@
 import type { Metadata } from "next"
 import { cookies, headers } from "next/headers"
 import { redirect } from "next/navigation"
-import { verifyAdminSession } from "@/lib/admin/auth"
+import { verifyAdminSession, devNoAuthUser } from "@/lib/admin/auth"
 import { getAiDegradedState } from "@/lib/ops/ai-degraded"
 import AdminLayoutClient from "./admin-layout-client"
 import { VersionWatcher } from "./components/version-watcher"
@@ -39,14 +39,18 @@ export default async function AdminLayout({
   const cookieStore = await cookies()
   const token = cookieStore.get("__admin_session")?.value
 
+  // `next dev` only — the panel opens with no login at all. Null in any built
+  // app, so the two branches below are exactly what production still does.
+  const devUser = devNoAuthUser()
+
   // No token: this is the login page (middleware redirects other admin pages
   // to /admin/login when no cookie exists), so render without dashboard chrome.
-  if (!token) {
+  if (!token && !devUser) {
     return <>{children}</>
   }
 
   // Token exists: verify it's valid
-  const user = await verifyAdminSession(token)
+  const user = devUser ?? (await verifyAdminSession(token!))
   if (!user) {
     // Invalid/expired session — bounce through clear-session so the
     // stale cookie gets cleared. Redirecting straight to /admin/login
