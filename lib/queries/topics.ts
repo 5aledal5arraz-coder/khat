@@ -108,7 +108,8 @@ export async function getEpisodeTopicIds(episodeId: string): Promise<string[]> {
       .from(episodeTopics)
       .where(eq(episodeTopics.episode_id, episodeId))
     return rows.map((r) => r.topic_id)
-  } catch {
+  } catch (e) {
+    console.error("[topics] getEpisodeTopicIds failed:", e)
     return []
   }
 }
@@ -136,7 +137,8 @@ export async function episodeIdsForTopicSlug(slug: string): Promise<string[]> {
       .from(episodeTopics)
       .where(eq(episodeTopics.topic_id, topic.id))
     return rows.map((r) => r.episode_id)
-  } catch {
+  } catch (e) {
+    console.error("[topics] episodeIdsForTopicSlug failed:", e)
     return []
   }
 }
@@ -154,7 +156,20 @@ export async function getTopicsForEpisodes(
       .where(inArray(episodeTopics.episode_id, episodeIds))
     for (const r of rows) (out[r.episode_id] ??= []).push(r.topic_id)
     return out
-  } catch {
+  } catch (e) {
+    // 🔴 THE MOST DANGEROUS SILENT READ IN THIS FILE.
+    //
+    // This feeds the «المواضيع» tagging screen, and `setEpisodeTopics` below
+    // REPLACES an episode's tags (delete-then-insert). If this read fails
+    // quietly the screen renders every episode as untagged; the operator then
+    // clicks one topic, the handler computes `[] + clicked`, and the save wipes
+    // every other tag that episode really had. A failed READ turning into a
+    // destructive WRITE is the worst shape a swallowed error can take.
+    //
+    // Logging does not prevent it — it makes it findable. The real fix is for
+    // the screen to refuse to save when its initial load failed; that is a UI
+    // change and is noted for the polish round.
+    console.error("[topics] getTopicsForEpisodes failed — the tagging screen will show every episode as untagged, and saving from that state DELETES real tags:", e)
     return out
   }
 }

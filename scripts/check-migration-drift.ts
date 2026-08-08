@@ -10,6 +10,20 @@
  * moment someone is already looking at the terminal, not to block them.
  *
  * Always exits 0. Deliberately. Do not "harden" this into a failure.
+ *
+ * ORDER MATTERS IN `prebuild`, AND IT WAS WRONG. The chain read
+ * `validate-env --strict && check-migration-drift`, so a missing *recommended*
+ * env var — one that is not even required — short-circuited the `&&` and this
+ * check never ran. That is exactly what happened: `RESEND_WEBHOOK_SECRET` was
+ * unset locally, so nobody saw a single warning while the local database fell
+ * SIX migrations behind, and `/episodes/[slug]` quietly served pages with the
+ * enrichment stripped out.
+ *
+ * The chain is now `check-migration-drift; validate-env --strict` — semicolon,
+ * not `&&`, and this one first. The warning is always printed, and the build's
+ * exit code is still validate-env's, so nothing that used to block a build
+ * stopped blocking it. A guard that can be skipped by an unrelated failure is
+ * not a guard.
  */
 
 // MUST be first — bare tsx process, no automatic .env.local. See lib/env-file.ts.

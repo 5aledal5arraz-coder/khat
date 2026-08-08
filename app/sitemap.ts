@@ -2,6 +2,7 @@ import type { MetadataRoute } from "next"
 import { getCachedPublicEpisodes } from "@/lib/cache"
 import { getGuests } from "@/lib/queries/episodes"
 import { getCategories } from "@/lib/queries/categories"
+import { listTopics } from "@/lib/queries/topics"
 
 /**
  * The sitemap must advertise the pages this site actually serves — nothing more.
@@ -19,10 +20,11 @@ import { getCategories } from "@/lib/queries/categories"
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const baseUrl = "https://khatpodcast.com"
 
-  const [episodes, guests, categories] = await Promise.all([
+  const [episodes, guests, categories, topics] = await Promise.all([
     getCachedPublicEpisodes().catch(() => []),
     getGuests().catch(() => []),
     getCategories().catch(() => []),
+    listTopics().catch(() => []),
   ])
 
   const staticRoutes: MetadataRoute.Sitemap = [
@@ -63,5 +65,18 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     priority: 0.7,
   }))
 
-  return [...staticRoutes, ...episodeRoutes, ...guestRoutes, ...categoryRoutes]
+  // `/topics/[slug]` went live on 2026-08-08 when the archive was tagged — 16
+  // real pages that nothing pointed a crawler at. A topic with no published
+  // episodes is skipped: its page renders an empty state, and submitting those
+  // to Google is asking to be judged on thin content.
+  const topicRoutes: MetadataRoute.Sitemap = topics
+    .filter((t) => t.episodeCount > 0)
+    .map((t) => ({
+      url: `${baseUrl}/topics/${encodeURIComponent(t.slug)}`,
+      lastModified: new Date(),
+      changeFrequency: "weekly" as const,
+      priority: 0.7,
+    }))
+
+  return [...staticRoutes, ...episodeRoutes, ...guestRoutes, ...categoryRoutes, ...topicRoutes]
 }

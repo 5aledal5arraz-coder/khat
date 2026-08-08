@@ -7,7 +7,7 @@
     "dev:all": "concurrently -k -n next,worker -c cyan,magenta npm:dev npm:worker",
     "dev:clean": "rm -rf .next node_modules/.cache && next dev",
     "validate-env": "npx tsx scripts/validate-env.ts",
-    "prebuild": "npx tsx scripts/validate-env.ts --strict && npx tsx scripts/check-migration-drift.ts",
+    "prebuild": "npx tsx scripts/check-migration-drift.ts; npx tsx scripts/validate-env.ts --strict",
     "db:check-drift": "npx tsx scripts/check-migration-drift.ts",
     "build": "next build",
     "start": "next start",
