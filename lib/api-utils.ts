@@ -38,9 +38,9 @@ export async function getAdminAuthUser(): Promise<AdminUser | null> {
     const cookieStore = await cookies()
     const token = cookieStore.get('__admin_session')?.value
     // `next dev` only — see devNoAuthUser(). Returns null in any built app.
-    if (!token) return devNoAuthUser()
+    if (!token) return await devNoAuthUser()
 
-    return (await verifyAdminSession(token)) ?? devNoAuthUser()
+    return (await verifyAdminSession(token)) ?? (await devNoAuthUser())
   } catch {
     return null
   }

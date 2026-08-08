@@ -193,13 +193,29 @@ export async function proxy(request: NextRequest) {
 
   // Protect admin pages — redirect to login if no session.
   //
-  // `next dev` skips this entirely: Khaled asked for a local panel with no
-  // login (2026-08-08). The gate is NODE_ENV and nothing else — no env var to
-  // set, nothing to leak onto a server. `next build` stamps NODE_ENV as
-  // "production", so on the droplet this condition is always false and the
-  // redirect below always runs. Matches devNoAuthUser() in lib/admin/auth.ts;
-  // both must agree or the panel loads chrome-less against a redirecting proxy.
-  const devNoAuth = process.env.NODE_ENV === 'development'
+  /**
+   * Local panel with no login — Khaled's call, 2026-08-08.
+   *
+   * TWO CONDITIONS, NOT ONE. `NODE_ENV === 'development'` alone was not enough:
+   * `next dev` binds 0.0.0.0 by default, so with the login gone the panel was
+   * served as OWNER to every device on the Wi-Fi. That was proven live, not
+   * theorised. The dev script now passes `-H 127.0.0.1`, but a flag is one
+   * edit away from being changed, so the gate itself checks that the request
+   * arrived at loopback. A request from another machine carries that machine's
+   * address in `Host` and fails this, whatever the server is bound to.
+   *
+   * There is deliberately NO env var: `ADMIN_AUTH_BYPASS` was one, and an env
+   * var is the thing that leaks onto a server. `next build` stamps NODE_ENV as
+   * "production", so on the droplet this is a compile-time false and the
+   * redirect below always runs.
+   *
+   * Must agree with devNoAuthUser() in lib/admin/auth.ts — if the two disagree
+   * the panel loads against a refusing API, which is exactly the half-applied
+   * state this replaces.
+   */
+  const devNoAuth =
+    process.env.NODE_ENV === 'development' && isLoopbackHost(request.headers.get('host'))
+
   if (!devNoAuth && pathname.startsWith('/admin') && pathname !== '/admin/login') {
     if (!adminSession) {
       const url = request.nextUrl.clone()
@@ -233,7 +249,16 @@ export async function proxy(request: NextRequest) {
     !pathname.startsWith('/api/admin/auth/') &&
     !isOauthCallback
   ) {
-    if (!adminSession) {
+    // The same `devNoAuth` the page gate uses, and it was missing here. Pages
+    // opened locally while every /api/admin call 401'd, so admin screens
+    // rendered empty and looked broken — and the obvious "fix" next time would
+    // have been to relax this check for everyone. Applying the identical
+    // loopback-and-development guard keeps the two halves in step without
+    // widening anything: in a production build this is a compile-time false.
+    //
+    // Only the session check is skipped. The CSRF origin check below still
+    // runs, on every request, in every environment.
+    if (!devNoAuth && !adminSession) {
       return NextResponse.json({ error: 'يجب تسجيل الدخول أولاً' }, { status: 401 })
     }
 
@@ -327,4 +352,18 @@ export const config = {
     '/((?!_next/static|_next/image|favicon.ico|.*\\.[^/]+$).*)',
     '/api/:path*',
   ],
+}
+
+/**
+ * Did this request arrive at the machine itself?
+ *
+ * `Host` is what the client asked for. A browser on another device asks for
+ * `192.168.x.x:3000` or a hostname; only a client on this machine asks for
+ * localhost or 127.0.0.1. Used to keep the no-login dev panel from being
+ * reachable across a network — see the note at the admin gate.
+ */
+function isLoopbackHost(host: string | null): boolean {
+  if (!host) return false
+  const name = host.replace(/:\d+$/, '').replace(/^\[|\]$/g, '').toLowerCase()
+  return name === 'localhost' || name === '127.0.0.1' || name === '::1'
 }

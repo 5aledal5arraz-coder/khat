@@ -1,4 +1,5 @@
 import crypto from "crypto"
+import { headers } from "next/headers"
 import bcrypt from "bcryptjs"
 import { db } from "@/lib/db"
 import { adminUsers, adminSessions, adminAuditLogs } from "@/lib/db/schema"
@@ -46,7 +47,8 @@ export const BCRYPT_ROUNDS = 12
  * NO ADMIN LOGIN UNDER `next dev`. Khaled asked for this on 2026-08-08 after I
  * raised the risk; it is his call and this is the narrowest way to honour it.
  *
- * **The gate is `NODE_ENV === "development"` and nothing else — deliberately.**
+ * **The gate is `NODE_ENV === "development"` PLUS a loopback Host — and no env
+ * var, deliberately.**
  * The pattern this replaces was `ADMIN_AUTH_BYPASS`, an env var, and CLAUDE.md
  * still says do not re-add it. That warning is about the failure mode: an env
  * var is a value someone can set on a server, in a PM2 block, in a CI secret —
@@ -62,8 +64,18 @@ export const BCRYPT_ROUNDS = 12
  * Returns OWNER because the point is to inspect every screen, including the
  * OWNER-gated ones. Not a real row — it is never written anywhere.
  */
-export function devNoAuthUser(): AdminUser | null {
+export async function devNoAuthUser(): Promise<AdminUser | null> {
   if (process.env.NODE_ENV !== "development") return null
+
+  // Second condition, added after the first one proved insufficient: `next dev`
+  // binds 0.0.0.0, so with the login gone the panel answered every device on
+  // the Wi-Fi as OWNER. `Host` is what the client asked for — only a client on
+  // this machine asks for localhost. Must stay in step with `isLoopbackHost` in
+  // proxy.ts; if these two disagree the panel loads against a refusing API.
+  const host = (await headers()).get("host")
+  const name = (host ?? "").replace(/:\d+$/, "").replace(/^\[|\]$/g, "").toLowerCase()
+  if (name !== "localhost" && name !== "127.0.0.1" && name !== "::1") return null
+
   console.warn("[admin-auth] DEV MODE — request served with NO LOGIN. Never possible in a production build.")
   return {
     id: "00000000-0000-0000-0000-000000000000",

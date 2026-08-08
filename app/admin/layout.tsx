@@ -41,7 +41,7 @@ export default async function AdminLayout({
 
   // `next dev` only — the panel opens with no login at all. Null in any built
   // app, so the two branches below are exactly what production still does.
-  const devUser = devNoAuthUser()
+  const devUser = await devNoAuthUser()
 
   // No token: this is the login page (middleware redirects other admin pages
   // to /admin/login when no cookie exists), so render without dashboard chrome.

@@ -173,7 +173,7 @@ export function CommunityContributeForm() {
               onChange={(e) => setTitle(e.target.value)}
               placeholder={cfg.titlePlaceholder}
               disabled={loading}
-              className="mt-1.5 w-full rounded-xl border border-border bg-background px-3.5 py-2.5 text-field text-foreground placeholder:text-muted-foreground/50 focus:border-primary focus:outline-none md:text-control"
+              className="mt-1.5 h-11 w-full rounded-xl border border-border bg-background px-3.5 py-2.5 text-field text-foreground placeholder:text-muted-foreground/50 focus:border-primary focus:outline-none md:text-control"
             />
           </div>
           <div>
@@ -196,7 +196,7 @@ export function CommunityContributeForm() {
                 placeholder={cfg.detail.placeholder}
                 disabled={loading}
                 dir="auto"
-                className="mt-1.5 w-full rounded-xl border border-border bg-background px-3.5 py-2.5 text-field text-foreground placeholder:text-muted-foreground/50 focus:border-primary focus:outline-none md:text-control"
+                className="mt-1.5 h-11 w-full rounded-xl border border-border bg-background px-3.5 py-2.5 text-field text-foreground placeholder:text-muted-foreground/50 focus:border-primary focus:outline-none md:text-control"
               />
             </div>
           )}
@@ -206,7 +206,7 @@ export function CommunityContributeForm() {
               onChange={(e) => setName(e.target.value)}
               placeholder="اسمك (اختياري)"
               disabled={loading}
-              className="w-full rounded-xl border border-border bg-background px-3.5 py-2.5 text-field text-foreground placeholder:text-muted-foreground/50 focus:border-primary focus:outline-none md:text-control"
+              className="h-11 w-full rounded-xl border border-border bg-background px-3.5 py-2.5 text-field text-foreground placeholder:text-muted-foreground/50 focus:border-primary focus:outline-none md:text-control"
             />
             <input
               type="email"
@@ -215,7 +215,7 @@ export function CommunityContributeForm() {
               placeholder="بريدك لنعود إليك (اختياري)"
               disabled={loading}
               dir="ltr"
-              className="w-full rounded-xl border border-border bg-background px-3.5 py-2.5 text-field text-foreground placeholder:text-muted-foreground/50 focus:border-primary focus:outline-none md:text-control"
+              className="h-11 w-full rounded-xl border border-border bg-background px-3.5 py-2.5 text-field text-foreground placeholder:text-muted-foreground/50 focus:border-primary focus:outline-none md:text-control"
             />
           </div>
 
