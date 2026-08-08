@@ -28,7 +28,7 @@ import { HOMEPAGE_FILTER_KEY, HOMEPAGE_EPISODE_CAP, parseHomepageFilter } from "
 
 // Re-exported so existing server-side importers keep working. Client code must
 // import from `@/lib/homepage/hall` directly — see the note in that file.
-export { HOMEPAGE_FILTER_KEY, MANUAL_SLOTS, HOMEPAGE_EPISODE_CAP, GUEST_EVERY, parseHomepageFilter, serializeHomepageFilter } from "@/lib/homepage/hall"
+export { HOMEPAGE_FILTER_KEY, MANUAL_SLOTS, HOMEPAGE_EPISODE_CAP, GUEST_FIRST_SLOT, GUEST_STEP, parseHomepageFilter, serializeHomepageFilter } from "@/lib/homepage/hall"
 export type { HomepageEpisodeFilter } from "@/lib/homepage/hall"
 
 export interface HomepageEpisodeSelection {

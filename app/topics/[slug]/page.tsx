@@ -37,12 +37,19 @@ export default async function TopicPage({ params }: TopicPageProps) {
   const idSet = new Set(episodeIds)
   const episodes = allEpisodes.filter((e) => idSet.has(e.id))
 
+  // MEASUREMENTS MATCH /episodes AND /guests. This page shipped with four of
+  // its own — `container px-4` + `max-w-5xl` (1024px against their 1152px),
+  // `gap-6` against their `gap-5`, and a 32px h1 where they use 44px — so the
+  // SAME EpisodePosterCard rendered 325px wide here and 370px there, decided
+  // only by which page you arrived from. /guests carries a comment recording
+  // that the 32-vs-44 h1 gap was found and fixed once already between those
+  // two; this page reintroduced it.
   return (
-    <div className="container mx-auto px-4 py-8">
-      <div className="mx-auto max-w-5xl">
+    <div className="px-6 py-8">
+      <div className="mx-auto max-w-6xl">
         <header className="mb-8">
           <p className="text-caption text-muted-foreground">موضوع</p>
-          <h1 className="mt-1 text-heading font-bold">{topic.name}</h1>
+          <h1 className="mt-1 text-heading font-bold sm:text-title">{topic.name}</h1>
           <p className="mt-2 text-muted-foreground">
             {episodes.length > 0
               ? // «9 حلقة» is broken Arabic — 3..10 takes the plural («٩ حلقات»), and 2
@@ -56,7 +63,7 @@ export default async function TopicPage({ params }: TopicPageProps) {
         </header>
 
         {episodes.length > 0 && (
-          <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
             {episodes.map((episode) => (
               <EpisodePosterCard key={episode.id} ep={episode} showDate />
             ))}

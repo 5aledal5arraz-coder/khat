@@ -50,9 +50,21 @@ export const MANUAL_SLOTS = HOMEPAGE_EPISODE_CAP
 
 
 /**
- * Guest cards sit at every Nth cell of the merged grid. 3 → ep, ep, guest.
+ * Where guest cards sit in the merged grid: cells 3, 5, 7 (1-indexed).
+ *
+ * IT WAS "every 3rd cell", AND THAT PUT THEM ALL IN ONE COLUMN. On `lg` the
+ * grid is 3 columns, so cells 3, 6 and 9 are the third column every time — the
+ * page rendered as two columns of episodes and one column of guests. That is
+ * the two-separate-strips layout the merge existed to get rid of, rotated 90°.
+ *
+ * The fix is arithmetic, not taste: any step that is a multiple of the column
+ * count lands on the same column forever. A step of 2 starting at 3 gives
+ * 3 → 5 → 7, i.e. columns 3 → 2 → 1 — a clean diagonal across the three rows,
+ * unmistakably mixed. On a phone (one column) it reads «حلقتين ثم ضيف» and then
+ * «حلقة ثم ضيف», which are the two rhythms Khaled asked for.
  */
-export const GUEST_EVERY = 3
+export const GUEST_FIRST_SLOT = 3
+export const GUEST_STEP = 2
 
 export type HomepageEpisodeFilter =
   | { kind: "newest" }

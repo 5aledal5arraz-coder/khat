@@ -1,7 +1,7 @@
 import { Metadata } from "next"
 import Link from "next/link"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
+import { buttonVariants } from "@/components/ui/button"
 import { Mail, Mic, ArrowLeft, ExternalLink } from "lucide-react"
 import { listPlatformsForSurface } from "@/lib/queries/official-platforms"
 import { PlatformIcon } from "@/components/platforms/platform-icon"
@@ -72,11 +72,13 @@ export default async function ContactPage() {
                   <li>يضيفون قيمة لجمهورنا</li>
                 </ul>
               </div>
-              <Link href="/guest">
-                <Button className="w-full gap-2 sm:w-auto">
-                  قدّم طلب ضيافة
-                  <ArrowLeft className="h-4 w-4" />
-                </Button>
+              {/* A styled <a>, not a <button> inside an <a>. The nesting was
+                  invalid HTML: it produced two tab stops, and Enter on the
+                  inner one did nothing because a button is not a link. This
+                  Button has no `asChild`, so the link wears `buttonVariants`. */}
+              <Link href="/guest" className={cn(buttonVariants(), "w-full gap-2 sm:w-auto")}>
+                قدّم طلب ضيافة
+                <ArrowLeft className="h-4 w-4" />
               </Link>
             </CardContent>
           </Card>

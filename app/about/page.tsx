@@ -3,7 +3,7 @@ import Image from "next/image"
 import Link from "next/link"
 import { KhatLogo } from "@/components/brand/khat-logo"
 import { GuestPortrait } from "@/components/media/guest-portrait"
-import { Button } from "@/components/ui/button"
+import { Button, buttonVariants } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import {
@@ -111,7 +111,7 @@ export default async function AboutPage() {
               <div className="absolute -bottom-2 inset-x-0 flex justify-center">
                 <Badge className="bg-primary text-primary-foreground px-4 py-1.5 text-caption font-medium shadow-lg">
                   <Mic className="w-3.5 h-3.5 me-1.5" />
-                  Podcast Host
+                  مقدّم البودكاست
                 </Badge>
               </div>
             </div>
@@ -276,11 +276,11 @@ export default async function AboutPage() {
             </p>
 
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
-              <Link href="/episodes">
-                <Button size="lg" className="gap-2 w-full sm:w-auto">
-                  <Play className="w-4 h-4" />
-                  تصفّح الحلقات
-                </Button>
+              {/* See the note on /contact — a <button> inside an <a> is invalid
+                  and creates a dead second tab stop. */}
+              <Link href="/episodes" className={cn(buttonVariants({ size: "lg" }), "gap-2 w-full sm:w-auto")}>
+                <Play className="w-4 h-4" />
+                تصفّح الحلقات
               </Link>
             </div>
           </div>

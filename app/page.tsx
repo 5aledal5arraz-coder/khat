@@ -25,7 +25,7 @@ import {
 import { resolveDefaultOgImage } from "@/lib/seo/og"
 import { cn } from "@/lib/utils"
 import { getHomepageEpisodeSelection } from "@/lib/queries/homepage-episodes"
-import { HOMEPAGE_EPISODE_CAP, GUEST_EVERY } from "@/lib/homepage/hall"
+import { HOMEPAGE_EPISODE_CAP, GUEST_FIRST_SLOT, GUEST_STEP } from "@/lib/homepage/hall"
 import {
   BRAND_DESCRIPTION,
   BRAND_HEADLINE_ACCENT,
@@ -546,9 +546,9 @@ type GridCell =
 /**
  * Lay episodes and guests out as one grid: «حلقتين وبعدها ضيف».
  *
- * A guest takes every GUEST_EVERY-th cell — 1-indexed, so with GUEST_EVERY = 3
- * the guests land at 3, 6 and 9. With the six-episode cap and three guests that
- * fills exactly three rows of the 3-column layout.
+ * Guests take cells 3, 5 and 7 (1-indexed) — a diagonal across the three rows
+ * of the `lg` grid rather than a single column. See GUEST_FIRST_SLOT for why a
+ * regular "every 3rd" was wrong in a 3-column layout.
  *
  * Two rules keep it from degrading into something that looks broken:
  *  · Run out of guests and the remaining cells are simply episodes — no gap, no
@@ -563,7 +563,7 @@ function interleaveGrid(episodes: Episode[], thinkers: MuseumThinker[]): GridCel
   let gi = 0
   while (ei < episodes.length || gi < thinkers.length) {
     const slot = cells.length + 1
-    const guestTurn = slot % GUEST_EVERY === 0
+    const guestTurn = slot >= GUEST_FIRST_SLOT && (slot - GUEST_FIRST_SLOT) % GUEST_STEP === 0
     if (guestTurn && gi < thinkers.length) cells.push({ kind: "thinker", thinker: thinkers[gi++] })
     else if (ei < episodes.length) cells.push({ kind: "episode", episode: episodes[ei++] })
     else if (gi < thinkers.length) cells.push({ kind: "thinker", thinker: thinkers[gi++] })
@@ -617,22 +617,35 @@ function ThinkerCard({ thinker }: { thinker: MuseumThinker }) {
         // composed rather than as three paragraphs that failed to load.
         <span aria-hidden="true" className="mb-4 block h-1 w-10 rounded-full bg-accent" />
       )}
-      <span className="text-lead font-bold text-accent">{thinker.name}</span>
+      {/* An <h3>, matching the episode card's title. As a <span> the guests were
+          invisible to heading navigation: a screen-reader user tabbing by
+          heading found 6 items in a section holding 9 cards. */}
+      <h3 className="text-subhead font-bold text-accent">{thinker.name}</h3>
       {identity ? (
         <p className="mt-2 text-pretty text-body leading-prose text-foreground">{identity}</p>
       ) : null}
     </>
   )
 
+  // MATCHES `EpisodePosterCard`, DELIBERATELY — `rounded-2xl` + `p-4` + the same
+  // border, background, shadow and hover lift. It used to be `rounded-[28px]`
+  // and `p-5`, copied from the HERO card above; inside a grid whose every other
+  // tile is 16px that read as a foreign object, not as a sibling. The right
+  // donor is the card standing next to it, not the one above it.
+  //
+  // `justify-center` is what fixes the emptiness: a card holding a name and one
+  // line was stretched to an episode card's height, leaving 223px of blank
+  // below the text (67% of the card). Centring turns that into balanced space
+  // above and below instead of a hole under the content.
   const shell =
-    "group flex h-full flex-col rounded-[28px] border border-border bg-card p-5 shadow-[0_2px_8px_hsl(var(--primary)/0.04)] transition-all"
+    "group flex h-full flex-col justify-center rounded-2xl border border-border bg-card p-4 shadow-sm transition-all"
 
   // Not every guest row has a slug; an un-linked card is better than a link
   // to /guests/undefined.
   return thinker.slug ? (
     <Link
       href={`/guests/${thinker.slug}`}
-      className={cn(shell, "hover:shadow-[0_2px_8px_hsl(var(--primary)/0.06),0_24px_60px_-34px_hsl(var(--primary)/0.3)]")}
+      className={cn(shell, "hover:-translate-y-1 hover:shadow-[0_2px_8px_hsl(var(--primary)/0.05),0_24px_50px_-26px_hsl(var(--primary)/0.3)]")}
     >
       {body}
     </Link>
