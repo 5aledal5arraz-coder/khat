@@ -14,6 +14,8 @@ export interface HomepageThinkerRow {
   custom_title: string | null
   custom_description: string | null
   custom_image: string | null
+  /** «قريباً» — teased before their episode airs. See the schema comment. */
+  is_upcoming: boolean
   updated_at: Date | null
 }
 
@@ -41,6 +43,7 @@ export async function saveHomepageThinkers(
     custom_title?: string
     custom_description?: string
     custom_image?: string
+    is_upcoming?: boolean
   }[]
 ): Promise<void> {
   await db!.delete(homepageThinkers)
@@ -53,6 +56,7 @@ export async function saveHomepageThinkers(
       custom_title: item.custom_title || null,
       custom_description: item.custom_description || null,
       custom_image: item.custom_image || null,
+      is_upcoming: item.is_upcoming ?? false,
     }))
   )
 }
@@ -134,6 +138,47 @@ export async function getLatestGuestsForHomepage(): Promise<
   }
 }
 
+/**
+ * The «قريباً» rows, resolved to their guest records and ordered by `position`.
+ *
+ * These are the only thinkers that may exist without an episode, so nothing
+ * here filters on one. They carry `isUpcoming` so the strip can render them
+ * differently and withhold the link — a guest with no episode has a blank guest
+ * page, and a teaser that leads somewhere empty is worse than no teaser.
+ */
+async function upcomingThinkers(): Promise<MuseumThinker[]> {
+  if (!db) return []
+  try {
+    const rows = await db
+      .select()
+      .from(homepageThinkers)
+      .where(eq(homepageThinkers.is_upcoming, true))
+      .orderBy(asc(homepageThinkers.position))
+
+    const out: MuseumThinker[] = []
+    for (const row of rows) {
+      const [guest] = await db
+        .select({ id: guests.id, name: guests.name, slug: guests.slug, bio: guests.bio, photo_url: guests.photo_url })
+        .from(guests)
+        .where(eq(guests.id, row.guest_id))
+        .limit(1)
+      if (!guest) continue
+      out.push({
+        id: guest.id,
+        name: guest.name,
+        title: row.custom_title || "",
+        description: row.custom_description || guest.bio || "",
+        imageUrl: row.custom_image || guest.photo_url || "",
+        slug: guest.slug ?? undefined,
+        isUpcoming: true,
+      })
+    }
+    return out
+  } catch {
+    return []
+  }
+}
+
 /** Get thinkers as MuseumThinker[] for the homepage. Returns null if none configured. */
 export async function getHomepageThinkersForDisplay(): Promise<MuseumThinker[] | null> {
   // A3 — DB-null guard. Returning null signals "nothing to render"
@@ -178,7 +223,23 @@ export async function getHomepageThinkersForDisplay(): Promise<MuseumThinker[] |
         }
       })
 
-      return results.length > 0 ? results : null
+      // «قريباً» GUESTS SURVIVE AUTO MODE.
+      //
+      // Auto mode means "the guests of the newest episodes", which by
+      // definition can never include someone whose episode has not aired — so
+      // before a season starts there is nothing to tease with, and Khaled would
+      // have had to abandon auto mode entirely just to add one upcoming name.
+      // The flagged rows are appended instead: auto keeps choosing the recent
+      // guests, and the people he marks are added ahead of them.
+      // THE FLAG WINS. Dedup has to drop the AUTO copy, not the flagged one:
+      // filtering the other way round silently discarded every «قريباً» mark on
+      // a guest who also happened to be in the recent list, which is precisely
+      // the case where Khaled is saying "this person has something coming".
+      const upcoming = await upcomingThinkers()
+      const flagged = new Set(upcoming.map((u) => u.id))
+
+      const merged = [...upcoming, ...results.filter((r) => !flagged.has(r.id))]
+      return merged.length > 0 ? merged : null
     }
 
     // Manual mode: use saved selections
@@ -214,6 +275,7 @@ export async function getHomepageThinkersForDisplay(): Promise<MuseumThinker[] |
         description: row.custom_description || guest.bio || "",
         imageUrl: row.custom_image || imageUrl,
         slug: guest.slug ?? undefined,
+        isUpcoming: row.is_upcoming || undefined,
       })
     }
 

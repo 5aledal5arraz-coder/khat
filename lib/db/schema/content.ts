@@ -74,6 +74,16 @@ export const homepageThinkers = pgTable("homepage_thinkers", {
   custom_title: text("custom_title"),
   custom_description: text("custom_description"),
   custom_image: text("custom_image"),
+  /**
+   * A guest whose episode has not aired yet — «قريباً».
+   *
+   * The strip is otherwise built from people who already have episodes, so
+   * before a season starts there is nothing to tease with. This flag is what
+   * lets Khaled put a Season-2 guest on the homepage ahead of their episode.
+   * The row still points at a real `guests` record; it just does not require
+   * that guest to have an episode — which the manual path never checked anyway.
+   */
+  is_upcoming: boolean("is_upcoming").notNull().default(false),
   updated_at: timestamp("updated_at", { withTimezone: true }).defaultNow(),
 })
 

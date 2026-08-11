@@ -18,6 +18,12 @@ export interface MuseumThinker {
   imageUrl: string
   /** Set for DB-backed guests so a card can link to /guests/[slug]. */
   slug?: string
+  /**
+   * «قريباً» — the guest's episode has not aired. The strip renders these
+   * differently and does NOT link them: a guest with no episode has an empty
+   * guest page, so a link would promise something and deliver a blank.
+   */
+  isUpcoming?: boolean
 }
 
 export const MUSEUM_EPISODES: MuseumEpisode[] = [

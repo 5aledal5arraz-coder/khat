@@ -28,6 +28,7 @@ export async function saveThinkersAction(
     custom_title: string
     custom_description: string
     custom_image: string
+    is_upcoming?: boolean
   }[]
 ) {
   const gate = await requireActionRole("EDITOR")
@@ -41,6 +42,10 @@ export async function saveThinkersAction(
       custom_title: item.custom_title || undefined,
       custom_description: item.custom_description || undefined,
       custom_image: item.custom_image || undefined,
+      // «قريباً» — the one field that lets a Season-2 guest appear before their
+      // episode exists. It is the whole point of the manual list now, so it is
+      // carried explicitly rather than left to a default.
+      is_upcoming: item.is_upcoming === true,
     }))
 
   await saveHomepageThinkers(valid)

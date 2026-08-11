@@ -719,6 +719,8 @@ interface ThinkerSlot {
   custom_title: string
   custom_description: string
   custom_image: string
+  /** «قريباً» — show this guest before their episode airs. */
+  is_upcoming: boolean
 }
 
 function ThinkersTab({
@@ -745,6 +747,7 @@ function ThinkersTab({
         custom_title: r.custom_title || "",
         custom_description: r.custom_description || "",
         custom_image: r.custom_image || "",
+        is_upcoming: r.is_upcoming === true,
       }))
     }
     return latestGuests.slice(0, 3).map((g) => {
@@ -754,6 +757,7 @@ function ThinkersTab({
         custom_title: existing?.custom_title || "",
         custom_description: existing?.custom_description || "",
         custom_image: existing?.custom_image || "",
+        is_upcoming: existing?.is_upcoming === true,
       }
     })
   }
@@ -780,6 +784,7 @@ function ThinkersTab({
               custom_title: existing?.custom_title || "",
               custom_description: existing?.custom_description || "",
               custom_image: existing?.custom_image || "",
+              is_upcoming: existing?.is_upcoming === true,
             }
           })
         )
@@ -790,7 +795,15 @@ function ThinkersTab({
   function handleGuestChange(idx: number, guestId: string) {
     setSlots((prev) => {
       const next = [...prev]
-      next[idx] = { guest_id: guestId, custom_title: "", custom_description: "", custom_image: "" }
+      next[idx] = { guest_id: guestId, custom_title: "", custom_description: "", custom_image: "", is_upcoming: false }
+      return next
+    })
+  }
+
+  function handleUpcomingChange(idx: number, checked: boolean) {
+    setSlots((prev) => {
+      const next = [...prev]
+      next[idx] = { ...next[idx], is_upcoming: checked }
       return next
     })
   }
@@ -816,6 +829,7 @@ function ThinkersTab({
               custom_title: s.custom_title,
               custom_description: s.custom_description,
               custom_image: s.custom_image,
+              is_upcoming: s.is_upcoming,
             }))
         )
       )
@@ -826,7 +840,7 @@ function ThinkersTab({
   }
 
   while (slots.length < 3) {
-    slots.push({ guest_id: "", custom_title: "", custom_description: "", custom_image: "" })
+    slots.push({ guest_id: "", custom_title: "", custom_description: "", custom_image: "", is_upcoming: false })
   }
 
   return (
@@ -938,6 +952,29 @@ function ThinkersTab({
                         dir="auto"
                       />
                     </div>
+
+                    {/* «قريباً» — the only field that lets a guest appear before
+                        their episode exists, which is the whole point of adding
+                        a Season-2 name here ahead of the season. The note under
+                        it states the consequence out loud: the card stops being
+                        a link, because a guest with no episode has a blank
+                        guest page and a teaser that leads nowhere is worse than
+                        one that stays put. */}
+                    <label className="flex cursor-pointer items-start gap-2.5 rounded-lg border border-border/40 bg-background/60 p-3">
+                      <input
+                        type="checkbox"
+                        checked={slot.is_upcoming}
+                        onChange={(e) => handleUpcomingChange(idx, e.target.checked)}
+                        className="mt-0.5 h-4 w-4 cursor-pointer accent-primary"
+                      />
+                      <span>
+                        <span className="block text-xs font-semibold">ضيف قادم — «قريباً»</span>
+                        <span className="mt-0.5 block text-[11px] text-muted-foreground">
+                          يظهر في مقدمة شريط الضيوف بإطار متقطّع وشارة «قريباً»، وبدون رابط
+                          حتى تنزل حلقته.
+                        </span>
+                      </span>
+                    </label>
                   </div>
                 )}
               </CardContent>
