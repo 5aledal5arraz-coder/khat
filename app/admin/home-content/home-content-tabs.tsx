@@ -9,9 +9,9 @@ import { Button } from "@/components/ui/button"
 import { runAction } from "@/app/admin/components/run-action"
 import { saveFeaturedEpisodesAction, setFeaturedModeAction, setFeaturedFilterAction } from "./featured-actions"
 import { createTopicAction, deleteTopicAction, setEpisodeTopicsAction } from "./topics-actions"
-import { MANUAL_SLOTS } from "@/lib/homepage/hall"
+import { MANUAL_SLOTS, GUEST_STRIP_LIMIT_MIN, GUEST_STRIP_LIMIT_MAX } from "@/lib/homepage/hall"
 import type { Topic } from "@/lib/queries/topics"
-import { saveThinkersAction, setThinkersModeAction, setThinkersHiddenAction } from "./thinkers-actions"
+import { saveThinkersAction, setThinkersModeAction, setThinkersHiddenAction, setThinkersLimitAction } from "./thinkers-actions"
 import { TeaserTab } from "./teaser-tab"
 import type { HomepageFeaturedRow } from "@/lib/queries/homepage-featured"
 import type { HomepageThinkerRow } from "@/lib/queries/homepage-thinkers"
@@ -51,6 +51,8 @@ interface Props {
   thinkersMode: "auto" | "manual"
   /** Whether the guest strip is hidden from the homepage entirely. */
   thinkersHidden: boolean
+  /** How many faces the guest strip shows. */
+  thinkersLimit: number
   /** Serialized «قاعة الحلقات» auto filter, e.g. "topic:الغزو". */
   featuredFilter: string
   /** Programme lanes an auto filter can point at. */
@@ -731,6 +733,7 @@ function ThinkersTab({
   latestGuests,
   initialMode,
   initialHidden,
+  initialLimit,
 }: {
   allGuests: Guest[]
   thinkerRows: HomepageThinkerRow[]
@@ -738,9 +741,12 @@ function ThinkersTab({
   initialMode: "auto" | "manual"
   /** Whether the whole strip is currently hidden from the homepage. */
   initialHidden: boolean
+  /** How many faces the strip shows. */
+  initialLimit: number
 }) {
   const [mode, setMode] = useState(initialMode)
   const [hidden, setHidden] = useState(initialHidden)
+  const [limit, setLimit] = useState(initialLimit)
   const [pending, startTransition] = useTransition()
   const [saved, setSaved] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -781,6 +787,23 @@ function ThinkersTab({
       const outcome = await runAction(() => setThinkersHiddenAction(next))
       if (!outcome.ok) return setError(outcome.message)
       setHidden(next)
+    })
+  }
+
+  function handleLimitChange(next: number) {
+    // Clamped here as well as on the server. The stepper cannot produce an out
+    // of range value, but a saved 0 would empty the strip with no explanation
+    // and this is the control that would be blamed for it.
+    const clamped = Math.min(GUEST_STRIP_LIMIT_MAX, Math.max(GUEST_STRIP_LIMIT_MIN, next))
+    if (clamped === limit) return
+    setError(null)
+    setLimit(clamped)
+    startTransition(async () => {
+      const outcome = await runAction(() => setThinkersLimitAction(clamped))
+      if (!outcome.ok) {
+        setLimit(limit)
+        setError(outcome.message)
+      }
     })
   }
 
@@ -855,7 +878,10 @@ function ThinkersTab({
     })
   }
 
-  while (slots.length < 3) {
+  // The editor offers as many slots as the strip is configured to show. It was
+  // a hardcoded 3 — so manual mode could never hold more than three guests, no
+  // matter what the strip was meant to display.
+  while (slots.length < limit) {
     slots.push({ guest_id: "", custom_title: "", custom_description: "", custom_image: "", is_upcoming: false })
   }
 
@@ -885,6 +911,29 @@ function ThinkersTab({
               </>
             )}
           </button>
+
+          {/* The count. A stepper rather than a free text field: the value has a
+              real range (1–40) and typing is how a 0 or a 500 gets in. */}
+          <div className="flex items-center gap-1 rounded-lg border border-border/50 px-2 py-1">
+            <span className="px-1 text-xs text-muted-foreground">عدد الضيوف</span>
+            <button
+              onClick={() => handleLimitChange(limit - 1)}
+              disabled={pending || limit <= GUEST_STRIP_LIMIT_MIN}
+              className="flex h-6 w-6 items-center justify-center rounded-md text-caption font-bold transition-colors hover:bg-muted disabled:opacity-30"
+              aria-label="أقل"
+            >
+              −
+            </button>
+            <span className="w-6 text-center text-xs font-bold tabular-nums">{limit}</span>
+            <button
+              onClick={() => handleLimitChange(limit + 1)}
+              disabled={pending || limit >= GUEST_STRIP_LIMIT_MAX}
+              className="flex h-6 w-6 items-center justify-center rounded-md text-caption font-bold transition-colors hover:bg-muted disabled:opacity-30"
+              aria-label="أكثر"
+            >
+              +
+            </button>
+          </div>
         </div>
         <Button onClick={handleSave} disabled={pending} size="sm" className="gap-2">
           {saved ? <Check className="h-4 w-4" /> : pending ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
@@ -1040,6 +1089,7 @@ export function HomeContentTabs({
   featuredMode,
   thinkersMode,
   thinkersHidden,
+  thinkersLimit,
   featuredFilter,
   programs,
   topics,
@@ -1090,6 +1140,7 @@ export function HomeContentTabs({
           latestGuests={latestGuests}
           initialMode={thinkersMode}
           initialHidden={thinkersHidden}
+          initialLimit={thinkersLimit}
         />
       </TabsContent>
 

@@ -2,7 +2,21 @@ import { db } from "@/lib/db"
 import { homepageThinkers } from "@/lib/db/schema/content"
 import { guests } from "@/lib/db/schema"
 import { eq, asc } from "drizzle-orm"
-import { getHomepageMode, isGuestStripHidden } from "./homepage-settings"
+import {
+  getHomepageMode,
+  isGuestStripHidden,
+  getGuestStripLimit,
+  GUEST_STRIP_LIMIT_DEFAULT,
+} from "./homepage-settings"
+
+/**
+ * How many extra guests the auto bench gathers beyond the target.
+ *
+ * The homepage drops anyone already visible as the hero or in the episode grid,
+ * and that grid holds up to six episodes — so without spares a strip asking for
+ * six could come back with one.
+ */
+const BENCH_SPARES = 12
 import type { MuseumThinker } from "@/lib/content/museum-data"
 import { getEpisodes } from "./episodes"
 import { filterLane } from "@/lib/episodes/programs"
@@ -62,7 +76,13 @@ export async function saveHomepageThinkers(
 }
 
 /** Get latest 3 guests who have episodes (for auto mode), ordered by most recent episode */
-export async function getLatestGuestsForHomepage(): Promise<
+export async function getLatestGuestsForHomepage(
+  /**
+   * How many faces the strip is meant to end up with. The gather runs past it
+   * — see the SPARES note below — so this is the target, not the ceiling.
+   */
+  limit: number = GUEST_STRIP_LIMIT_DEFAULT,
+): Promise<
   { id: string; name: string; slug: string | null; bio: string | null; photo_url: string | null; episode_youtube_url: string | null }[]
 > {
   // A3 — DB-null guard.
@@ -102,14 +122,19 @@ export async function getLatestGuestsForHomepage(): Promise<
       if (guestId && !seen.has(guestId)) {
         seen.add(guestId)
         guestEps.push({ guest_id: guestId, youtube_url: ep.youtube_url })
-        // GATHER A BENCH, NOT EXACTLY THREE.
+        // GATHER A BENCH, NOT EXACTLY THE TARGET.
         //
         // This used to stop at 3, and those 3 were "the guests of the newest
         // episodes" — which is the same list the grid beside them renders. The
         // section was structurally guaranteed to repeat itself: 3 of 3 shown on
         // production were already on screen. The caller filters out whoever is
-        // already visible and then takes three, so it needs spares.
-        if (guestEps.length >= 12) break
+        // already visible and then takes `limit`, so it needs SPARES.
+        //
+        // The bench was then hardcoded at 12, which quietly became the real
+        // ceiling on the strip: a show with 20 guests could never display more
+        // than 12 minus whoever was already on the page. It scales with the
+        // configured count now, and `+ SPARES` is what survives the dedup.
+        if (guestEps.length >= limit + BENCH_SPARES) break
       }
     }
 
@@ -195,9 +220,10 @@ export async function getHomepageThinkersForDisplay(): Promise<MuseumThinker[] |
     if (await isGuestStripHidden()) return null
 
     const mode = await getHomepageMode("thinkers")
+    const limit = await getGuestStripLimit()
 
     if (mode === "auto") {
-      const latestGuests = await getLatestGuestsForHomepage()
+      const latestGuests = await getLatestGuestsForHomepage(limit)
       if (latestGuests.length === 0) return null
 
       // Check for existing custom content
@@ -246,8 +272,12 @@ export async function getHomepageThinkersForDisplay(): Promise<MuseumThinker[] |
       const upcoming = await upcomingThinkers()
       const flagged = new Set(upcoming.map((u) => u.id))
 
+      // The bench is deliberately longer than the target; the homepage drops
+      // whoever is already on screen and the strip renders what survives. The
+      // slice is the ceiling, applied AFTER «قريباً» has taken its place at the
+      // front so a full strip can never push a teased guest off the end.
       const merged = [...upcoming, ...results.filter((r) => !flagged.has(r.id))]
-      return merged.length > 0 ? merged : null
+      return merged.length > 0 ? merged.slice(0, limit + BENCH_SPARES) : null
     }
 
     // Manual mode: use saved selections

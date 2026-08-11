@@ -95,3 +95,23 @@ export function serializeHomepageFilter(f: HomepageEpisodeFilter): string {
     default: return "newest"
   }
 }
+
+/**
+ * How many faces the homepage guest strip shows.
+ *
+ * These live HERE, not beside the setting that stores them: the admin's stepper
+ * is a client component, and `lib/queries/homepage-settings.ts` imports
+ * `lib/db`. Importing the constants from there pulled the database driver into
+ * the browser bundle — a build failure `tsc` cannot see, because the types are
+ * perfectly valid either way. This module is already the client-safe home for
+ * `MANUAL_SLOTS` and `HOMEPAGE_EPISODE_CAP`.
+ */
+export const GUEST_STRIP_LIMIT_DEFAULT = 12
+export const GUEST_STRIP_LIMIT_MIN = 1
+export const GUEST_STRIP_LIMIT_MAX = 40
+
+/** Clamp a stored or typed count into range. Pure — safe on both sides. */
+export function clampGuestStripLimit(n: number): number {
+  if (!Number.isFinite(n)) return GUEST_STRIP_LIMIT_DEFAULT
+  return Math.min(GUEST_STRIP_LIMIT_MAX, Math.max(GUEST_STRIP_LIMIT_MIN, Math.floor(n)))
+}

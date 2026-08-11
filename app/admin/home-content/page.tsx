@@ -2,7 +2,7 @@ import { getEpisodes } from "@/lib/queries/episodes"
 import { getHomepageFeatured, getLatestEpisodesForHomepage } from "@/lib/queries/homepage-featured"
 import { getHomepageThinkers, getLatestGuestsForHomepage } from "@/lib/queries/homepage-thinkers"
 import { getAllGuests } from "@/lib/admin/queries"
-import { getAllHomepageSettings } from "@/lib/queries/homepage-settings"
+import { getAllHomepageSettings, clampGuestStripLimit, GUEST_STRIP_LIMIT_DEFAULT } from "@/lib/queries/homepage-settings"
 import { listTopics, getTopicsForEpisodes } from "@/lib/queries/topics"
 import { HOMEPAGE_FILTER_KEY } from "@/lib/homepage/hall"
 import {
@@ -46,6 +46,7 @@ export default async function HomeContentPage() {
   const thinkersMode = (settings.thinkers_mode === "manual" ? "manual" : "auto") as "auto" | "manual"
   // Absent row ⇒ visible. See isGuestStripHidden() for why the key is `_hidden`.
   const thinkersHidden = settings.thinkers_hidden === "true"
+  const thinkersLimit = clampGuestStripLimit(Number(settings.thinkers_limit ?? GUEST_STRIP_LIMIT_DEFAULT))
   const featuredFilter = settings[HOMEPAGE_FILTER_KEY] || "newest"
 
   // The programme lanes an auto filter can point at, with live counts. Built
@@ -86,6 +87,7 @@ export default async function HomeContentPage() {
         featuredMode={featuredMode}
         thinkersMode={thinkersMode}
         thinkersHidden={thinkersHidden}
+        thinkersLimit={thinkersLimit}
         featuredFilter={featuredFilter}
         programs={programs}
         topics={topics}

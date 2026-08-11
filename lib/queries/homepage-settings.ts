@@ -1,6 +1,12 @@
 import { db } from "@/lib/db"
 import { homepageSettings } from "@/lib/db/schema/content"
 import { eq } from "drizzle-orm"
+import {
+  GUEST_STRIP_LIMIT_DEFAULT,
+  clampGuestStripLimit,
+} from "@/lib/homepage/hall"
+
+export { GUEST_STRIP_LIMIT_DEFAULT, clampGuestStripLimit } from "@/lib/homepage/hall"
 
 export type HomepageMode = "auto" | "manual"
 export type HomepageSection = "featured" | "thinkers"
@@ -87,6 +93,27 @@ export async function isGuestStripHidden(): Promise<boolean> {
 /** Show or hide the whole guest strip. */
 export async function setGuestStripHidden(hidden: boolean): Promise<void> {
   await setHomepageSetting("thinkers_hidden", hidden ? "true" : "false")
+}
+
+/**
+ * How many faces the guest strip shows.
+ *
+ * THREE HARDCODED NUMBERS USED TO DECIDE THIS and none of them was reachable:
+ * the auto query stopped gathering at 12, the manual editor offered exactly 3
+ * slots, and the dedup against the hero and the grid ate whatever was left —
+ * which is how a show with 20 guests ended up showing 5.
+ *
+ * Clamped, not trusted: the value is written by an admin control, but a stray
+ * 0 would empty the strip and a stray 500 would issue 500 per-guest queries.
+ */
+export async function getGuestStripLimit(): Promise<number> {
+  const raw = await getHomepageSetting("thinkers_limit")
+  if (raw === null) return GUEST_STRIP_LIMIT_DEFAULT
+  return clampGuestStripLimit(Number(raw))
+}
+
+export async function setGuestStripLimit(n: number): Promise<void> {
+  await setHomepageSetting("thinkers_limit", String(clampGuestStripLimit(n)))
 }
 
 /** Get all homepage settings as a map */

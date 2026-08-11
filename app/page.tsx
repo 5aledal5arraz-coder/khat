@@ -25,6 +25,7 @@ import {
 import { resolveDefaultOgImage } from "@/lib/seo/og"
 import { getHomepageEpisodeSelection } from "@/lib/queries/homepage-episodes"
 import { HOMEPAGE_EPISODE_CAP } from "@/lib/homepage/hall"
+import { getGuestStripLimit, GUEST_STRIP_LIMIT_DEFAULT } from "@/lib/queries/homepage-settings"
 import {
   BRAND_DESCRIPTION,
   BRAND_HEADLINE_ACCENT,
@@ -177,7 +178,14 @@ export default async function HomePage() {
   // had exactly three guest cells to fill. What stays is the de-duplication
   // above: a «قريباً» guest is always shown (they have no episode to repeat),
   // and the rest drop out when their face is already the hero or in the grid.
-  const stripGuests = (thinkers ?? []).filter((t) => t.isUpcoming || !shownGuestIds.has(t.id))
+  //
+  // The COUNT is applied here, not in the query, because this is the only place
+  // that knows who survived the dedup — the query hands over a longer bench
+  // precisely so this slice has something to take from.
+  const stripLimit = await getGuestStripLimit().catch(() => GUEST_STRIP_LIMIT_DEFAULT)
+  const stripGuests = (thinkers ?? [])
+    .filter((t) => t.isUpcoming || !shownGuestIds.has(t.id))
+    .slice(0, stripLimit)
 
   return (
     <div className="overflow-hidden">
