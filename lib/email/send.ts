@@ -1,3 +1,17 @@
+/**
+ * REPLY_TO IS ON EVERY SEND, and for a while it was on four of eleven.
+ *
+ * A message without it takes its reply address from the FROM header — which is
+ * `noreply@khatpodcast.com`, an address that receives nothing. So a guest who
+ * submitted an application, got the confirmation, and hit Reply to ask a
+ * question was writing into a void: it never reached Khaled and it never
+ * bounced back to them in a way either of them would notice. The seven silent
+ * ones included both confirmations (guest and sponsor) and all three of
+ * Khaled's own new-submission notifications.
+ *
+ * `REPLY_TO` itself must be an address that actually receives — see
+ * lib/email/resend.ts.
+ */
 import { getResend, FROM_DISPLAY, REPLY_TO } from './resend'
 import {
   newsletterWelcomeHtml,
@@ -40,6 +54,7 @@ export async function sendDirectEmail(
   return getResend().emails.send({
     from: FROM_DISPLAY,
     to: email,
+    replyTo: REPLY_TO,
     subject,
     html: directEmailHtml(recipientName, subject, body, senderName),
   })
@@ -52,6 +67,7 @@ export async function sendGuestApplicationAdmin(
   return getResend().emails.send({
     from: FROM_DISPLAY,
     to: adminEmail,
+    replyTo: REPLY_TO,
     subject: `طلب ضيف جديد — ${params.name}`,
     html: guestApplicationAdminHtml(params),
   })
@@ -65,6 +81,7 @@ export async function sendGuestApplicationConfirm(
   return getResend().emails.send({
     from: FROM_DISPLAY,
     to: applicantEmail,
+    replyTo: REPLY_TO,
     subject: 'وصلتنا قصتك — بودكاست خط',
     html: guestApplicationConfirmHtml(name, reference),
   })
@@ -108,6 +125,7 @@ export async function sendGuestPrepConfirm(
   return getResend().emails.send({
     from: FROM_DISPLAY,
     to: applicantEmail,
+    replyTo: REPLY_TO,
     subject: 'استلمنا إجاباتك — بودكاست خط',
     html: guestPrepConfirmHtml(name),
   })
@@ -120,6 +138,7 @@ export async function sendSponsorApplicationAdmin(
   return getResend().emails.send({
     from: FROM_DISPLAY,
     to: adminEmail,
+    replyTo: REPLY_TO,
     subject: `طلب شراكة جديد — ${params.company}`,
     html: sponsorApplicationAdminHtml(params),
   })
@@ -151,6 +170,7 @@ export async function sendPrepSubmittedAdmin(
   return getResend().emails.send({
     from: FROM_DISPLAY,
     to: adminEmail,
+    replyTo: REPLY_TO,
     subject: `نموذج تحضير جديد — ${params.candidateName}`,
     html: prepSubmittedAdminHtml(params),
   })
@@ -164,6 +184,7 @@ export async function sendSponsorApplicationConfirm(
   return getResend().emails.send({
     from: FROM_DISPLAY,
     to: applicantEmail,
+    replyTo: REPLY_TO,
     subject: 'تمّ استلام طلب الشراكة — بودكاست خط',
     html: sponsorApplicationConfirmHtml(contactName, reference),
   })
