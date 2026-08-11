@@ -11,21 +11,24 @@
  * ensurePartnerTaskReminderSchedule().
  */
 
-import { env } from "@/lib/env"
 import { and, asc, eq, isNotNull, lte } from "drizzle-orm"
 import { db } from "@/lib/db"
 import { crmTasks } from "@/lib/db/schema/crm"
 import { sponsorshipLeads } from "@/lib/db/schema/system"
 import { sendPartnerTaskReminder } from "@/lib/email/send"
+import { adminNotifyRecipients, NO_RECIPIENTS_ERROR } from "@/lib/email/recipients"
 import type { PartnerReminderItem } from "@/lib/email/templates"
 import { registerHandler } from "../registry"
 import { enqueueRecurringTick } from "../queue"
 
 const DAY_MS = 24 * 60 * 60 * 1000
 
-function adminFallback(): string {
-  return env.ADMIN_NOTIFY_EMAIL || "khatpodcast@hotmail.com"
-}
+/**
+ * Grouping key for tasks nobody owns. A sentinel rather than an address,
+ * because the admin bucket is a LIST now and the map is keyed by string —
+ * resolving it at send time keeps one bucket instead of one per admin.
+ */
+const UNOWNED_KEY = "__admin_notify__"
 
 export function reminderIntervalMs(): number {
   const v = Number(process.env.KHAT_PARTNER_REMINDER_INTERVAL_MS)
@@ -108,7 +111,7 @@ export async function runPartnerTaskReminderSweep(opts?: {
     if (!r.due_at) continue
     const { label, overdue } = dueLabel(r.due_at, now)
     if (overdue) overdueTotal++
-    const recipient = r.owner ? r.owner.replace(/^admin:/, "") : adminFallback()
+    const recipient = r.owner ? r.owner.replace(/^admin:/, "") : UNOWNED_KEY
     const item: PartnerReminderItem = {
       company: r.company,
       title: r.title,
@@ -127,7 +130,11 @@ export async function runPartnerTaskReminderSweep(opts?: {
   if (!dryRun) {
     for (const [recipient, items] of byRecipient) {
       try {
-        await sendPartnerTaskReminder(recipient, items)
+        const to = recipient === UNOWNED_KEY ? adminNotifyRecipients() : recipient
+        // An unset ADMIN_NOTIFY_EMAIL used to mean "mail a hotmail address
+        // nobody reads". Now it counts as a failure the job result reports.
+        if (Array.isArray(to) && to.length === 0) throw new Error(NO_RECIPIENTS_ERROR)
+        await sendPartnerTaskReminder(to, items)
         sent++
       } catch (err) {
         failed++
@@ -143,7 +150,10 @@ export async function runPartnerTaskReminderSweep(opts?: {
     emails_sent: sent,
     emails_failed: failed,
     dry_run: dryRun,
-    groups: [...byRecipient].map(([recipient, items]) => ({ recipient, count: items.length })),
+    groups: [...byRecipient].map(([recipient, items]) => ({
+      recipient: recipient === UNOWNED_KEY ? adminNotifyRecipients().join(", ") : recipient,
+      count: items.length,
+    })),
   }
 }
 

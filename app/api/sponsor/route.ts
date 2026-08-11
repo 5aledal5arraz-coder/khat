@@ -1,4 +1,3 @@
-import { env } from "@/lib/env"
 import { UNDECIDED } from "@/lib/partnerships/collaboration"
 import { NextRequest, NextResponse } from "next/server"
 import { db } from "@/lib/db"
@@ -7,7 +6,11 @@ import { stripHtml } from "@/lib/sanitize"
 import { validateEmail } from "@/lib/validation/forms"
 import { checkIpRateLimit } from "@/lib/rate-limit"
 import { validateMutation } from "@/lib/api-utils"
-import { sendSponsorApplicationAdmin, sendSponsorApplicationConfirm } from "@/lib/email/send"
+import { enqueueJob } from "@/lib/jobs/queue"
+import {
+  SUBMISSION_NOTIFY_JOB,
+  type SponsorSubmissionPayload,
+} from "@/lib/jobs/submission-notify-jobs"
 import { autoTriageLead } from "@/lib/partnership-triage"
 import { partnershipRef } from "@/lib/partnership-ref"
 import { logActivity } from "@/lib/partnership-crm"
@@ -147,12 +150,20 @@ export async function POST(request: NextRequest) {
 
     const reference = partnershipRef(inserted.id)
 
-    // Send branded notification emails (fire-and-forget)
-    const emailParams = { company: sanitizedCompany, contact: sanitizedContact, email: sanitizedEmail, budget: budgetForStorage, reference }
-    Promise.all([
-      sendSponsorApplicationAdmin(env.ADMIN_NOTIFY_EMAIL || "khatpodcast@hotmail.com", emailParams),
-      sendSponsorApplicationConfirm(sanitizedEmail, sanitizedContact, reference),
-    ]).catch(e => console.error("Sponsor notification email failed:", e))
+    // Notification mail goes on the job queue — durable, retried with backoff,
+    // and visible as a failed `jobs` row carrying `last_error`. See the guest
+    // route for the full account of what the swallowed catch here used to cost.
+    // The enqueue must not fail the submission: the lead is already committed.
+    void enqueueJob(SUBMISSION_NOTIFY_JOB, {
+      kind: "sponsor_application",
+      reference,
+      company: sanitizedCompany,
+      contact: sanitizedContact,
+      email: sanitizedEmail,
+      budget: budgetForStorage,
+    } satisfies SponsorSubmissionPayload).catch((e) =>
+      console.error("[sponsor] could not enqueue the notification job:", e),
+    )
 
     // Open the relationship timeline with the inbound application.
     void logActivity(inserted.id, {

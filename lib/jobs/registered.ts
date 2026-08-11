@@ -33,3 +33,6 @@ import "./handlers/candidate-outreach"
 // Episode conversation sections — transcript-length AI generation (~132s
 // measured), likewise moved off the nginx 120s request path.
 import "./handlers/episode-conversation"
+// Public submissions (guest / sponsor) — notification mail off the request path,
+// so a Resend outage leaves a retryable job instead of a swallowed catch.
+import "./handlers/submission-notify"

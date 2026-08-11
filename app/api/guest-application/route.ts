@@ -1,4 +1,3 @@
-import { env } from "@/lib/env"
 import { NextRequest, NextResponse } from "next/server"
 import { db } from "@/lib/db"
 import { guestApplications } from "@/lib/db/schema"
@@ -6,7 +5,11 @@ import { stripHtml } from "@/lib/sanitize"
 import { validateEmail } from "@/lib/validation/forms"
 import { validateMutation, rateLimitResponse } from "@/lib/api-utils"
 import { checkIpRateLimit } from "@/lib/rate-limit"
-import { sendGuestApplicationAdmin, sendGuestApplicationConfirm } from "@/lib/email/send"
+import { enqueueJob } from "@/lib/jobs/queue"
+import {
+  SUBMISSION_NOTIFY_JOB,
+  type GuestSubmissionPayload,
+} from "@/lib/jobs/submission-notify-jobs"
 import { getSiteSettings } from "@/lib/site-settings"
 import { autoTriageGuestApplication } from "@/lib/guest-triage"
 import { logActivity } from "@/lib/crm"
@@ -208,12 +211,26 @@ export async function POST(request: NextRequest) {
 
     const reference = guestRef(inserted.id)
 
-    // Send branded notification emails (fire-and-forget)
-    const emailParams = { name: sanitizedName, email: sanitizedEmail, phone: stripHtml(phone), country: stripHtml(country) }
-    Promise.all([
-      sendGuestApplicationAdmin(env.ADMIN_NOTIFY_EMAIL || "khatpodcast@hotmail.com", emailParams),
-      sendGuestApplicationConfirm(sanitizedEmail, sanitizedName, reference),
-    ]).catch(e => console.error("Guest notification email failed:", e))
+    // Notification mail goes on the job queue — durable, retried with backoff,
+    // and visible as a failed `jobs` row carrying `last_error` when it doesn't
+    // work. It used to be `Promise.all([...]).catch(console.error)`: the visitor
+    // saw success, the row was saved, and if Resend was down or over its
+    // 100/day cap nobody was ever told the application existed.
+    //
+    // The enqueue itself must not fail the submission — the application is
+    // already committed, and an applicant should never be asked to resubmit
+    // because a queue insert blipped. This console.error is the last resort,
+    // not the design.
+    void enqueueJob(SUBMISSION_NOTIFY_JOB, {
+      kind: "guest_application",
+      reference,
+      name: sanitizedName,
+      email: sanitizedEmail,
+      phone: stripHtml(phone),
+      country: stripHtml(country),
+    } satisfies GuestSubmissionPayload).catch((e) =>
+      console.error("[guest-application] could not enqueue the notification job:", e),
+    )
 
     // Open the casting timeline + run the AI read in the background so the
     // operator opens a PRE-EVALUATED story. Fire-and-forget — never blocks.

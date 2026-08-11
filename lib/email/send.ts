@@ -13,6 +13,19 @@
  * lib/email/resend.ts.
  */
 import { getResend, FROM_DISPLAY, REPLY_TO } from './resend'
+
+/**
+ * Retrying a notification must not mail the applicant twice.
+ *
+ * The public submissions are queued now, and the queue retries with backoff —
+ * so a run that sent the confirmation and then failed on the admin copy would,
+ * without this, re-send the confirmation on every attempt. Resend deduplicates
+ * on the key, so the caller passes one derived from the submission reference
+ * and the retry becomes a no-op for whatever already went out.
+ */
+function idem(key?: string) {
+  return key ? { idempotencyKey: key } : undefined
+}
 import {
   newsletterWelcomeHtml,
   directEmailHtml,
@@ -61,8 +74,9 @@ export async function sendDirectEmail(
 }
 
 export async function sendGuestApplicationAdmin(
-  adminEmail: string,
-  params: { name: string; email: string; phone: string; country: string }
+  adminEmail: string | string[],
+  params: { name: string; email: string; phone: string; country: string },
+  idempotencyKey?: string
 ) {
   return getResend().emails.send({
     from: FROM_DISPLAY,
@@ -70,13 +84,14 @@ export async function sendGuestApplicationAdmin(
     replyTo: REPLY_TO,
     subject: `طلب ضيف جديد — ${params.name}`,
     html: guestApplicationAdminHtml(params),
-  })
+  }, idem(idempotencyKey))
 }
 
 export async function sendGuestApplicationConfirm(
   applicantEmail: string,
   name: string,
-  reference?: string
+  reference?: string,
+  idempotencyKey?: string
 ) {
   return getResend().emails.send({
     from: FROM_DISPLAY,
@@ -84,7 +99,7 @@ export async function sendGuestApplicationConfirm(
     replyTo: REPLY_TO,
     subject: 'وصلتنا قصتك — بودكاست خط',
     html: guestApplicationConfirmHtml(name, reference),
-  })
+  }, idem(idempotencyKey))
 }
 
 export async function sendCommunityContributionConfirm(
@@ -132,8 +147,9 @@ export async function sendGuestPrepConfirm(
 }
 
 export async function sendSponsorApplicationAdmin(
-  adminEmail: string,
-  params: { company: string; contact: string; email: string; budget: string; reference?: string }
+  adminEmail: string | string[],
+  params: { company: string; contact: string; email: string; budget: string; reference?: string },
+  idempotencyKey?: string
 ) {
   return getResend().emails.send({
     from: FROM_DISPLAY,
@@ -141,11 +157,11 @@ export async function sendSponsorApplicationAdmin(
     replyTo: REPLY_TO,
     subject: `طلب شراكة جديد — ${params.company}`,
     html: sponsorApplicationAdminHtml(params),
-  })
+  }, idem(idempotencyKey))
 }
 
 export async function sendPartnerTaskReminder(
-  recipientEmail: string,
+  recipientEmail: string | string[],
   items: PartnerReminderItem[]
 ) {
   const overdue = items.filter((i) => i.overdue).length
@@ -159,7 +175,7 @@ export async function sendPartnerTaskReminder(
 }
 
 export async function sendPrepSubmittedAdmin(
-  adminEmail: string,
+  adminEmail: string | string[],
   params: {
     candidateName: string
     category: string | null
@@ -179,7 +195,8 @@ export async function sendPrepSubmittedAdmin(
 export async function sendSponsorApplicationConfirm(
   applicantEmail: string,
   contactName: string,
-  reference?: string
+  reference?: string,
+  idempotencyKey?: string
 ) {
   return getResend().emails.send({
     from: FROM_DISPLAY,
@@ -187,5 +204,5 @@ export async function sendSponsorApplicationConfirm(
     replyTo: REPLY_TO,
     subject: 'تمّ استلام طلب الشراكة — بودكاست خط',
     html: sponsorApplicationConfirmHtml(contactName, reference),
-  })
+  }, idem(idempotencyKey))
 }

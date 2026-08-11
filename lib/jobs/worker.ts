@@ -159,6 +159,10 @@ const HANDLER_TIMEOUT_MS: Record<string, number> = {
   // editorial call. Measured end-to-end at ~132s cold; 15 min leaves room for
   // a cold cache plus the router's retry ladder without a spurious timeout.
   "episode.conversation_generate": 15 * 60_000,
+  // email.notify_submission: two Resend calls, no AI, no transcript. A tight
+  // ceiling is the point — if Resend is hanging we want the retry ladder, not
+  // a worker slot held for five minutes per submission.
+  "email.notify_submission": 60_000,
 }
 
 function timeoutFor(jobType: string): number {

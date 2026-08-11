@@ -9,7 +9,6 @@
  * infrastructure. No FK to guests / episodes / studio.
  */
 
-import { env } from "@/lib/env"
 import { db } from "@/lib/db"
 import {
   guestCandidateNotifications,
@@ -19,16 +18,13 @@ import {
 import { desc, eq } from "drizzle-orm"
 import type { GuestCandidateNotification } from "@/types/database"
 import { sendPrepSubmittedAdmin } from "@/lib/email/send"
+import { candidateNotifyRecipients, NO_RECIPIENTS_ERROR } from "@/lib/email/recipients"
 
 function requireDb() {
   if (!db) throw new Error("Database not configured")
   return db
 }
 
-export const CANDIDATE_NOTIFY_EMAIL =
-  env.CANDIDATE_NOTIFY_EMAIL ||
-  env.ADMIN_NOTIFY_EMAIL ||
-  "khatpodcast@hotmail.com"
 
 // ---------------------------------------------------------------------------
 // Low-level logging helper
@@ -146,12 +142,16 @@ export async function notifyPrepSubmitted(input: NotifyPrepSubmittedInput): Prom
     return
   }
 
-  // Final — send admin email (non-throwing).
-  const recipient = CANDIDATE_NOTIFY_EMAIL
+  // Final — send admin email (non-throwing; the outcome is recorded either way
+  // by logNotification below, which is why this path was never one of the
+  // silent ones).
+  const recipients = candidateNotifyRecipients()
+  const recipient = recipients.join(", ")
   let deliveryError: string | null = null
   let deliveredAt: Date | null = null
   try {
-    await sendPrepSubmittedAdmin(recipient, {
+    if (recipients.length === 0) throw new Error(NO_RECIPIENTS_ERROR)
+    await sendPrepSubmittedAdmin(recipients, {
       candidateName: payload.candidate_name,
       category: payload.category,
       completionPercent: input.completionPercent,
