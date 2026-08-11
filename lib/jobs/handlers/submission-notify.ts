@@ -27,6 +27,9 @@ import {
   sendGuestApplicationConfirm,
   sendSponsorApplicationAdmin,
   sendSponsorApplicationConfirm,
+  sendCommunityContributionConfirm,
+  sendGuestPrepConfirm,
+  sendNewsletterWelcome,
 } from "@/lib/email/send"
 import { adminNotifyRecipients, NO_RECIPIENTS_ERROR } from "@/lib/email/recipients"
 import { SUBMISSION_NOTIFY_JOB, type SubmissionNotifyPayload } from "../submission-notify-jobs"
@@ -45,12 +48,18 @@ registerHandler<SubmissionNotifyPayload, SubmissionNotifyResult>(
       throw new Error(`${SUBMISSION_NOTIFY_JOB}: payload requires kind and reference`)
     }
 
+    const ref = payload.reference
+
+    // Only the two APPLICATION kinds notify Khaled; the rest are confirmations
+    // addressed to the person who submitted, and an unset ADMIN_NOTIFY_EMAIL
+    // must not stop those from reaching them.
+    const needsAdmins =
+      payload.kind === "guest_application" || payload.kind === "sponsor_application"
+
     // Fail the job rather than mail nobody. An unset ADMIN_NOTIFY_EMAIL is a
     // deployment mistake and this is the only place it becomes visible.
-    const admins = adminNotifyRecipients()
-    if (admins.length === 0) throw new Error(NO_RECIPIENTS_ERROR)
-
-    const ref = payload.reference
+    const admins = needsAdmins ? adminNotifyRecipients() : []
+    if (needsAdmins && admins.length === 0) throw new Error(NO_RECIPIENTS_ERROR)
 
     if (payload.kind === "guest_application") {
       await sendGuestApplicationAdmin(
@@ -81,6 +90,22 @@ registerHandler<SubmissionNotifyPayload, SubmissionNotifyResult>(
         payload.contact,
         ref,
         `sponsor-confirm-${ref}`,
+      )
+    } else if (payload.kind === "community_contribution") {
+      await sendCommunityContributionConfirm(
+        payload.email,
+        payload.name,
+        payload.typeLabel,
+        ref,
+        `community-confirm-${ref}`,
+      )
+    } else if (payload.kind === "guest_prep_confirm") {
+      await sendGuestPrepConfirm(payload.email, payload.name, `prep-confirm-${ref}`)
+    } else if (payload.kind === "newsletter_welcome") {
+      await sendNewsletterWelcome(
+        payload.email,
+        payload.unsubscribeUrl,
+        `newsletter-welcome-${ref}`,
       )
     } else {
       throw new Error(

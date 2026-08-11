@@ -5,7 +5,12 @@ import { eq } from "drizzle-orm"
 import { validateEmail } from "@/lib/validation/forms"
 import { validateMutation } from "@/lib/api-utils"
 import { checkIpRateLimit } from "@/lib/rate-limit"
-import { sendNewsletterWelcome } from "@/lib/email/send"
+import { enqueueJob } from "@/lib/jobs/queue"
+import {
+  SUBMISSION_NOTIFY_JOB,
+  NOTIFY_ENQUEUE_OPTIONS,
+  type NewsletterWelcomePayload,
+} from "@/lib/jobs/submission-notify-jobs"
 import { APP_URL } from "@/lib/email/resend"
 import crypto from "crypto"
 
@@ -105,11 +110,18 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Send welcome email (fire-and-forget — don't block the response)
+    // Queued, so a failed welcome is a retryable job row rather than a log line
+    // nobody reads. The unsubscribe token is unique per subscriber, which makes
+    // it a safe idempotency seed for the retry.
     const unsubscribeUrl = `${APP_URL}/api/unsubscribe/newsletter?token=${unsubToken}`
-    sendNewsletterWelcome(normalizedEmail, unsubscribeUrl).catch((err) => {
-      console.error("Failed to send newsletter welcome email:", err)
-    })
+    void enqueueJob(SUBMISSION_NOTIFY_JOB, {
+      kind: "newsletter_welcome",
+      reference: unsubToken,
+      email: normalizedEmail,
+      unsubscribeUrl,
+    } satisfies NewsletterWelcomePayload, NOTIFY_ENQUEUE_OPTIONS).catch((err) =>
+      console.error("[newsletter] could not enqueue the welcome job:", err),
+    )
 
     return NextResponse.json({ success: true })
   } catch {

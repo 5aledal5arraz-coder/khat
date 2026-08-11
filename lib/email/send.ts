@@ -41,7 +41,11 @@ import {
   type PartnerReminderItem,
 } from './templates'
 
-export async function sendNewsletterWelcome(email: string, unsubscribeUrl: string) {
+export async function sendNewsletterWelcome(
+  email: string,
+  unsubscribeUrl: string,
+  idempotencyKey?: string
+) {
   return getResend().emails.send({
     from: FROM_DISPLAY,
     to: email,
@@ -54,7 +58,7 @@ export async function sendNewsletterWelcome(email: string, unsubscribeUrl: strin
       'List-Unsubscribe': `<${unsubscribeUrl}>`,
       'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click',
     },
-  })
+  }, idem(idempotencyKey))
 }
 
 export async function sendDirectEmail(
@@ -106,7 +110,8 @@ export async function sendCommunityContributionConfirm(
   contributorEmail: string,
   name: string,
   typeLabel: string,
-  reference?: string
+  reference?: string,
+  idempotencyKey?: string
 ) {
   return getResend().emails.send({
     from: FROM_DISPLAY,
@@ -114,7 +119,7 @@ export async function sendCommunityContributionConfirm(
     replyTo: REPLY_TO,
     subject: 'وصلتنا مساهمتك — بودكاست خط',
     html: communityContributionConfirmHtml(name, typeLabel, reference),
-  })
+  }, idem(idempotencyKey))
 }
 
 export async function sendCommunityOutcome(
@@ -135,7 +140,8 @@ export async function sendCommunityOutcome(
 
 export async function sendGuestPrepConfirm(
   applicantEmail: string,
-  name: string
+  name: string,
+  idempotencyKey?: string
 ) {
   return getResend().emails.send({
     from: FROM_DISPLAY,
@@ -143,7 +149,7 @@ export async function sendGuestPrepConfirm(
     replyTo: REPLY_TO,
     subject: 'استلمنا إجاباتك — بودكاست خط',
     html: guestPrepConfirmHtml(name),
-  })
+  }, idem(idempotencyKey))
 }
 
 export async function sendSponsorApplicationAdmin(

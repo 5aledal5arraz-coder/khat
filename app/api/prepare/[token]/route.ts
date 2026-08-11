@@ -6,7 +6,12 @@ import {
   validatePrepToken,
   submitPrepResponse,
 } from "@/lib/guest-prep"
-import { sendGuestPrepConfirm } from "@/lib/email/send"
+import { enqueueJob } from "@/lib/jobs/queue"
+import {
+  SUBMISSION_NOTIFY_JOB,
+  NOTIFY_ENQUEUE_OPTIONS,
+  type GuestPrepConfirmPayload,
+} from "@/lib/jobs/submission-notify-jobs"
 import { logActivity } from "@/lib/crm"
 import type { GuestPrepResponse } from "@/types/database"
 
@@ -127,7 +132,20 @@ export async function POST(
   try {
     const form = await getPrepFormByToken(token)
     if (form) {
-      if (form.guest_email) void sendGuestPrepConfirm(form.guest_email, form.guest_name).catch(() => {})
+      // This was `.catch(() => {})` — not even a log line. A guest who filled
+      // the whole prep questionnaire could be told nothing at all, and no
+      // record of the miss existed anywhere. Queued now, like every other
+      // transactional message.
+      if (form.guest_email) {
+        void enqueueJob(SUBMISSION_NOTIFY_JOB, {
+          kind: "guest_prep_confirm",
+          reference: form.application_id,
+          email: form.guest_email,
+          name: form.guest_name,
+        } satisfies GuestPrepConfirmPayload, NOTIFY_ENQUEUE_OPTIONS).catch((e) =>
+          console.error("[prepare] could not enqueue the confirmation job:", e),
+        )
+      }
       void logActivity("guest", form.application_id, {
         type: "prep_submitted",
         summary: "أكمل الضيف استبيان التحضير",

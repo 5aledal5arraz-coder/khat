@@ -53,6 +53,43 @@ function sendCallArgs(src: string): { index: number; body: string }[] {
   return calls
 }
 
+/**
+ * The second half of the same lesson: a send that a public route fires and
+ * forgets is a send that can vanish.
+ *
+ * Four routes did it — guest application, sponsor application, contribute, and
+ * the prep questionnaire (that one with a bare `.catch(() => {})`, not even a
+ * log line). The first sweep caught two of the four, which is exactly why this
+ * is a rule a test enforces rather than a habit.
+ *
+ * Admin routes are exempt on purpose: an operator pressing «إرسال» is watching
+ * the response, so a synchronous send there reports its own failure.
+ */
+describe("public API routes queue their mail instead of firing it", () => {
+  function walkApi(dir: string, out: string[] = []): string[] {
+    for (const entry of readdirSync(dir)) {
+      const full = join(dir, entry)
+      if (statSync(full).isDirectory()) walkApi(full, out)
+      else if (/route\.tsx?$/.test(entry)) out.push(full)
+    }
+    return out
+  }
+
+  it("no route outside app/api/admin imports @/lib/email/send", () => {
+    const routes = walkApi(join("app", "api")).filter(
+      (f) => !f.startsWith(join("app", "api", "admin")),
+    )
+    // Guard the guard: if the walk finds nothing, the assertion below is empty.
+    expect(routes.length).toBeGreaterThan(5)
+
+    const offenders = routes.filter((f) => readFileSync(f, "utf8").includes("@/lib/email/send"))
+    expect(
+      offenders,
+      `these public routes send mail inline instead of enqueuing: ${offenders.join(", ")}`,
+    ).toEqual([])
+  })
+})
+
 describe("every Resend send carries replyTo", () => {
   const files = ROOTS.flatMap((r) => walk(r)).filter((f) =>
     readFileSync(f, "utf8").includes("emails.send("),

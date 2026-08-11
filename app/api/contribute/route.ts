@@ -7,7 +7,12 @@ import { createCommunityContribution } from "@/lib/community/queries"
 import { autoTriageCommunityContribution } from "@/lib/community/triage"
 import { communityRef } from "@/lib/community-ref"
 import { logActivity } from "@/lib/crm"
-import { sendCommunityContributionConfirm } from "@/lib/email/send"
+import { enqueueJob } from "@/lib/jobs/queue"
+import {
+  SUBMISSION_NOTIFY_JOB,
+  NOTIFY_ENQUEUE_OPTIONS,
+  type CommunityContributionPayload,
+} from "@/lib/jobs/submission-notify-jobs"
 import type { CommunityContributionType } from "@/types/database"
 
 const TYPES: CommunityContributionType[] = ["guest", "topic", "question", "concept", "improvement"]
@@ -78,9 +83,19 @@ export async function POST(request: NextRequest) {
       actor: "public",
       metadata: { type, reference },
     })
+    // Queued, not fire-and-forget: the contributor's confirmation used to be a
+    // `.catch(console.error)`, so a Resend blip meant they were told «وصلتنا
+    // مساهمتك» on screen and then heard nothing, with no record and no retry.
     if (email) {
-      void sendCommunityContributionConfirm(email, contributor_name ? stripHtml(contributor_name) : "", TYPE_LABEL[type], reference)
-        .catch((e) => console.error("Community confirm email failed:", e))
+      void enqueueJob(SUBMISSION_NOTIFY_JOB, {
+        kind: "community_contribution",
+        reference,
+        email,
+        name: contributor_name ? stripHtml(contributor_name) : "",
+        typeLabel: TYPE_LABEL[type],
+      } satisfies CommunityContributionPayload, NOTIFY_ENQUEUE_OPTIONS).catch((e) =>
+        console.error("[contribute] could not enqueue the confirmation job:", e),
+      )
     }
 
     // Persist the reference, then AI-triage in the background.

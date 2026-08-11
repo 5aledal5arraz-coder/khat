@@ -8,6 +8,7 @@ import { checkIpRateLimit } from "@/lib/rate-limit"
 import { enqueueJob } from "@/lib/jobs/queue"
 import {
   SUBMISSION_NOTIFY_JOB,
+  NOTIFY_ENQUEUE_OPTIONS,
   type GuestSubmissionPayload,
 } from "@/lib/jobs/submission-notify-jobs"
 import { getSiteSettings } from "@/lib/site-settings"
@@ -228,7 +229,7 @@ export async function POST(request: NextRequest) {
       email: sanitizedEmail,
       phone: stripHtml(phone),
       country: stripHtml(country),
-    } satisfies GuestSubmissionPayload).catch((e) =>
+    } satisfies GuestSubmissionPayload, NOTIFY_ENQUEUE_OPTIONS).catch((e) =>
       console.error("[guest-application] could not enqueue the notification job:", e),
     )
 

@@ -9,6 +9,7 @@ import { validateMutation } from "@/lib/api-utils"
 import { enqueueJob } from "@/lib/jobs/queue"
 import {
   SUBMISSION_NOTIFY_JOB,
+  NOTIFY_ENQUEUE_OPTIONS,
   type SponsorSubmissionPayload,
 } from "@/lib/jobs/submission-notify-jobs"
 import { autoTriageLead } from "@/lib/partnership-triage"
@@ -161,7 +162,7 @@ export async function POST(request: NextRequest) {
       contact: sanitizedContact,
       email: sanitizedEmail,
       budget: budgetForStorage,
-    } satisfies SponsorSubmissionPayload).catch((e) =>
+    } satisfies SponsorSubmissionPayload, NOTIFY_ENQUEUE_OPTIONS).catch((e) =>
       console.error("[sponsor] could not enqueue the notification job:", e),
     )
 
