@@ -68,7 +68,7 @@ import type { TimedSegment } from "@/lib/studio/segments"
 
 // ─── Calibration constants ───────────────────────────────────────────────────
 // Every threshold below is a JUDGMENT CALL that NEEDS CALIBRATION against a corpus
-// of real خط بودكاست raw uploads (like Step 3's constants), NOT a proven number.
+// of real بودكاست خط raw uploads (like Step 3's constants), NOT a proven number.
 // They are deliberately CONSERVATIVE per Khaled's bar: it is better to occasionally
 // pass a slightly-degenerate transcript than to REJECT a good one and fail a real
 // job — BUT a clear loop (dozens of identical consecutive segments) MUST be caught.
@@ -121,7 +121,7 @@ export const MIN_SEGMENTS_FOR_RATIO = 20
 // signal above. These catch it from the segment's own TEXT. Same conservative
 // bar: never reject a good transcript, but the proven "209-char / 26s garbled
 // segment" MUST be caught. All named + documented; NEEDS CALIBRATION on a corpus
-// of real خط بودكاست raw uploads. Flagged for calibration like Step 3's constants.
+// of real بودكاست خط raw uploads. Flagged for calibration like Step 3's constants.
 
 /**
  * Longest run of a single IDENTICAL character inside one segment that is treated
@@ -189,7 +189,7 @@ export const COMPRESSION_SIGNAL_MIN_CHARS = 20
 // transcript is fine, but a real 86-min recording that is ~80% clean MUST still
 // produce a map). These two gates decide when so much was dropped that the clean
 // remainder can no longer be trusted to build a map. Same conservative bar; both
-// NEEDS CALIBRATION on a corpus of real خط بودكاست raw uploads.
+// NEEDS CALIBRATION on a corpus of real بودكاست خط raw uploads.
 
 /**
  * Maximum fraction of a transcript's segments that may be filtered as degenerate

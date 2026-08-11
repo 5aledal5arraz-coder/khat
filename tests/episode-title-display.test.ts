@@ -234,7 +234,7 @@ describe("isBrandStampName — the guest badge that was never a guest", () => {
       "جاسم العبوة",
       "حسام مطر",
       "محمد 2",       // a digit inside a name is not a stamp
-      "خط بودكاست الثاني",
+      "بودكاست خط الثاني",
     ]) {
       expect(isBrandStampName(person), person).toBe(false)
     }

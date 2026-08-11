@@ -33,7 +33,7 @@ export interface EpisodeJsonLdInput {
 }
 
 const SITE = "https://khatpodcast.com"
-const SERIES_NAME = "خط بودكاست"
+const SERIES_NAME = "بودكاست خط"
 
 function iso8601Duration(seconds: number): string {
   const m = Math.floor(seconds / 60)

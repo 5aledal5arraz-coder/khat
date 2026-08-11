@@ -55,7 +55,7 @@ export function buildGrowthContextBlock(input: GrowthGenInput): string {
 
   parts.push(`## حقائق الحلقة:
 - العنوان: ${input.videoTitle}${input.existingTitle && input.existingTitle !== input.videoTitle ? `\n- العنوان المختار للنشر: ${input.existingTitle}` : ""}
-- القناة: ${input.channelTitle || "خط بودكاست"}
+- القناة: ${input.channelTitle || "بودكاست خط"}
 - المدة: ${fmtDuration(input.durationSeconds)}`)
 
   parts.push(formatIntelligenceContext(input.intelligence))

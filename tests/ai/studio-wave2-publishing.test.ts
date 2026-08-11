@@ -40,7 +40,7 @@ const EPISODE_URL = "https://youtu.be/abc123"
 describe("FIX A — studio-package description links back to the full episode", () => {
   it("instructs the model to include the full-episode link + CTA", () => {
     const built = buildStudioPackagePrompt({
-      videoTitle: "عنوان", channelTitle: "خط بودكاست", intelligenceBlock: "", preparedText: "نص",
+      videoTitle: "عنوان", channelTitle: "بودكاست خط", intelligenceBlock: "", preparedText: "نص",
     })
     expect(built.system).toContain("رابط الحلقة الكاملة")
     expect(built.system).toContain("دعوة صريحة لمشاهدة الحلقة كاملة")
@@ -48,7 +48,7 @@ describe("FIX A — studio-package description links back to the full episode", 
 
   it("falls back to a visible placeholder when no URL is supplied", () => {
     const built = buildStudioPackagePrompt({
-      videoTitle: "عنوان", channelTitle: "خط بودكاست", intelligenceBlock: "", preparedText: "نص",
+      videoTitle: "عنوان", channelTitle: "بودكاست خط", intelligenceBlock: "", preparedText: "نص",
     })
     expect(built.user).toContain(`رابط الحلقة الكاملة: ${STUDIO_PLACEHOLDER}`)
     expect(STUDIO_PLACEHOLDER).toBe("{{EPISODE_URL}}")
@@ -56,7 +56,7 @@ describe("FIX A — studio-package description links back to the full episode", 
 
   it("threads the real episode URL into the user prompt when supplied", () => {
     const built = buildStudioPackagePrompt({
-      videoTitle: "عنوان", channelTitle: "خط بودكاست", intelligenceBlock: "", preparedText: "نص",
+      videoTitle: "عنوان", channelTitle: "بودكاست خط", intelligenceBlock: "", preparedText: "نص",
       episodeUrl: EPISODE_URL,
     })
     expect(built.user).toContain(`رابط الحلقة الكاملة: ${EPISODE_URL}`)

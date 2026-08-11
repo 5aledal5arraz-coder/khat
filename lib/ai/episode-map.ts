@@ -71,7 +71,7 @@ export interface PlatformFit {
 
 /**
  * Fixed opens_with → platform-fit rule. Folds in marzouq's verified finding
- * (2026, خط بودكاست TikTok data): a hook LEADING WITH THE GUEST'S NAME died
+ * (2026, بودكاست خط TikTok data): a hook LEADING WITH THE GUEST'S NAME died
  * (838 views) while a hook leading with a STAKE (91.7K) or a DIRECT "أنت"
  * COMMAND (25.5K) won; YouTube is the opposite (name/context leads work in
  * long-form). instagram (Reels) is short-form so it mirrors TikTok — noted as

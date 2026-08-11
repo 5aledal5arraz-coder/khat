@@ -26,7 +26,7 @@ const defaultMetadata: SiteMetadata = {
 }
 
 const defaultSeo: SEODefaults = {
-  titleTemplate: "%s | خط بودكاست",
+  titleTemplate: "%s | بودكاست خط",
   defaultDescription: "",
   defaultOgImage: "",
   keywords: [],

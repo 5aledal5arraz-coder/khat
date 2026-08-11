@@ -120,7 +120,7 @@ export default function AdminLoginPage() {
 
         {/* Subtle brand footer */}
         <p className="mt-6 text-center text-[10px] text-muted-foreground/30">
-          خط بودكاست — لوحة التحكم
+          بودكاست خط — لوحة التحكم
         </p>
       </div>
     </div>

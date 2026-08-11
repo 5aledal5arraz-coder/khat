@@ -424,7 +424,7 @@ export function laneNote(lane: ProgramLane, categories: EpisodeCategory[]): stri
  * wrote its own copy, and being the one page in the archive that carries a
  * self-referencing canonical, its version is the one that gets indexed:
  *
- *   <title>          سالفة — خط بودكاست
+ *   <title>          سالفة — بودكاست خط
  *   <description>    كل حلقات بودكاست خط ضمن تصنيف سالفة
  *
  * while the body of that very page renders «سالفة» برنامج مستقل — مو من حلقات
@@ -449,9 +449,9 @@ export function categoryMetadata(
   // ── NO SITE NAME IN HERE ──────────────────────────────────────────────
   // `app/layout.tsx` sets `title.template = "%s | بودكاست خط"`, so the brand is
   // appended to every page title already. The old copy spelled it again —
-  // `${name} — خط بودكاست` — and what actually rendered was
+  // `${name} — بودكاست خط` — and what actually rendered was
   //
-  //   <title>سالفة — خط بودكاست | بودكاست خط</title>
+  //   <title>سالفة — بودكاست خط | بودكاست خط</title>
   //
   // the brand twice in one tab, in the wave that removed exactly that from five
   // other surfaces. It was not in the review notes; it is measurable in any
@@ -470,6 +470,6 @@ export function categoryMetadata(
   const tag = laneTag(lane)
   return {
     title: tag ? `${category.name} — ${tag}` : category.name,
-    description: note ?? `${category.name} على خط بودكاست.`,
+    description: note ?? `${category.name} على بودكاست خط.`,
   }
 }

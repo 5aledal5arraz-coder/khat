@@ -212,7 +212,7 @@ export const DEFAULT_TEMPLATE_SCHEMA: PrepFormSchema = {
     {
       id: "content",
       title: "المحتوى والحوار",
-      description: "خط بودكاست يحب الحوارات الصادقة والعميقة. ساعدنا نختار أفضل الزوايا معك.",
+      description: "بودكاست خط يحب الحوارات الصادقة والعميقة. ساعدنا نختار أفضل الزوايا معك.",
       fields: [
         {
           id: "topics_excited_about",

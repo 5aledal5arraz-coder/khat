@@ -430,7 +430,7 @@ exports[`buildStudioPackagePrompt > produces a stable snapshot for a fixed episo
 
 exports[`buildStudioPackagePrompt > produces a stable snapshot for a fixed episode 2`] = `
 "عنوان الفيديو الحالي: قصة الأسير السابق ناصر سالمين
-القناة: خط بودكاست
+القناة: بودكاست خط
 رابط الحلقة الكاملة: {{EPISODE_URL}}
 
 

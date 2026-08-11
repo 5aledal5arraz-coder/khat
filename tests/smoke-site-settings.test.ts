@@ -20,7 +20,7 @@ describe("Site Settings — Read", () => {
     expect(settings.metadata.name).toBe("خط")
     expect(settings.featureFlags.studioEnabled).toBe(true)
     expect(settings.socialLinks).toEqual([])
-    expect(settings.seo.titleTemplate).toContain("خط بودكاست")
+    expect(settings.seo.titleTemplate).toContain("بودكاست خط")
   })
 
   it("returns DB values when row exists", async () => {

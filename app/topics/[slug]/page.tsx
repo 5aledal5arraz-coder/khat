@@ -17,8 +17,8 @@ export async function generateMetadata({ params }: TopicPageProps): Promise<Meta
   const topic = await getTopicBySlug(decodeURIComponent(slug))
   if (!topic) notFound()
   return {
-    title: `${topic.name} — خط بودكاست`,
-    description: `كل حلقات خط بودكاست عن ${topic.name}`,
+    title: `${topic.name} — بودكاست خط`,
+    description: `كل حلقات بودكاست خط عن ${topic.name}`,
     alternates: { canonical: `https://khatpodcast.com/topics/${topic.slug}` },
   }
 }

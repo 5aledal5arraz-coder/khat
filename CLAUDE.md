@@ -3,7 +3,7 @@
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
 ## Project Overview
-Arabic podcast platform (RTL, `lang="ar"`) for **خط بودكاست** (khatpodcast.com): a public
+Arabic podcast platform (RTL, `lang="ar"`) for **بودكاست خط** (khatpodcast.com): a public
 site + a deep admin/operations panel ("Khat Brain") that plans seasons, discovers guests,
 and generates episode content with AI.
 

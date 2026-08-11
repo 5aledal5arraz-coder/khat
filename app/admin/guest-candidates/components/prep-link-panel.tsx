@@ -160,7 +160,7 @@ export function PrepLinkPanel({ candidateId, initialLinks, onChange }: Props) {
   }
 
   function mailtoUrl(link: PrepFormLink): string {
-    const subject = encodeURIComponent("نموذج تحضير — خط بودكاست")
+    const subject = encodeURIComponent("نموذج تحضير — بودكاست خط")
     const body = encodeURIComponent(
       `مرحباً،\n\nيسعدنا أن تكون ضيفاً معنا في بودكاست خط. لنتمكن من التحضير لاستضافتك بأفضل شكل، يرجى تعبئة هذا النموذج:\n\n${publicUrl(link.token)}\n\nشكراً لك،\nفريق خط`,
     )

@@ -99,7 +99,7 @@ function ErrorState({ reason }: { reason: "not_found" | "expired" | "cancelled" 
         </div>
         <h1 className="mb-3 text-subhead font-semibold text-foreground">{title}</h1>
         <p className="text-caption text-muted-foreground">{description}</p>
-        <div className="mt-8 text-micro text-muted-foreground/60">خط بودكاست</div>
+        <div className="mt-8 text-micro text-muted-foreground/60">بودكاست خط</div>
       </div>
     </div>
   )

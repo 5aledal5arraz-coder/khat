@@ -752,7 +752,7 @@ export function LiveModeClient({ token, initial }: Props) {
         )}
 
         <footer className="pb-12 pt-4 text-center text-[10px] text-neutral-600">
-          خط بودكاست — وضع التسجيل المباشر
+          بودكاست خط — وضع التسجيل المباشر
         </footer>
       </main>
     </div>

@@ -161,10 +161,10 @@ export function CandidatePrepClient({
           </div>
           <h1 className="mb-3 text-subhead font-bold">شكراً لك، {displayName}!</h1>
           <p className="mb-6 text-caption text-muted-foreground">
-            وصلتنا إجاباتك بنجاح. سيتواصل معك فريق خط بودكاست في أقرب وقت لتنسيق التفاصيل.
+            وصلتنا إجاباتك بنجاح. سيتواصل معك فريق بودكاست خط في أقرب وقت لتنسيق التفاصيل.
             نقدّر وقتك واهتمامك، ونحن متشوقون لاستضافتك.
           </p>
-          <div className="text-micro text-muted-foreground/60">— فريق خط بودكاست</div>
+          <div className="text-micro text-muted-foreground/60">— فريق بودكاست خط</div>
         </div>
       </div>
     )
@@ -263,7 +263,7 @@ export function CandidatePrepClient({
       </div>
 
       <div className="mt-12 text-center text-micro text-muted-foreground/50">
-        خط بودكاست — نموذج خاص بالضيوف
+        بودكاست خط — نموذج خاص بالضيوف
       </div>
     </div>
   )

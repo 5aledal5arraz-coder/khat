@@ -28,7 +28,7 @@ import { formatTimeSeconds } from "@/lib/shared/formatters"
  * Why no upper "corruption" bound on the overshoot: a segment whose start sits
  * past the chunk's real audio is a whisper decode artifact REGARDLESS of how far
  * past it lands (there is simply no audio there to transcribe). A fixed tolerance
- * was tried and is provably wrong — a REAL 86-min خط بودكاست episode produced a
+ * was tried and is provably wrong — a REAL 86-min بودكاست خط episode produced a
  * legitimate phantom 6.0s past a 600s chunk, beyond any band we picked, and
  * throwing on it nuked a valid map. Offset integrity is guaranteed elsewhere by
  * self-check #1 (durations reconstitute the file) + #3 (monotonic after offset),

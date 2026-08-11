@@ -249,7 +249,7 @@ describe("buildStudioPackagePrompt", () => {
   it("produces a stable snapshot for a fixed episode", () => {
     const built = buildStudioPackagePrompt({
       videoTitle: "قصة الأسير السابق ناصر سالمين",
-      channelTitle: "خط بودكاست",
+      channelTitle: "بودكاست خط",
       intelligenceBlock: "\n\n[intelligence: turning_points=4, themes=3]",
       preparedText: "بدأ الحوار بسؤال عن الهوية...",
     })

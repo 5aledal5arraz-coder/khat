@@ -121,7 +121,7 @@ export function PrepFormClient({ token, guestName, status, existingResponse, edi
     <div className="mx-auto max-w-2xl px-4 py-8 sm:py-12">
       {/* Header */}
       <div className="mb-10 text-center">
-        <div className="mb-4 text-caption font-medium text-muted-foreground">خط بودكاست</div>
+        <div className="mb-4 text-caption font-medium text-muted-foreground">بودكاست خط</div>
         <h1 className="mb-3 text-subhead font-bold text-foreground sm:text-heading">استبيان التحضير للحلقة</h1>
         <p className="text-caption text-muted-foreground">
           أهلاً <span className="font-medium text-foreground">{guestName}</span>، شكراً لقبولك دعوتنا. هذا الاستبيان يساعدنا في تحضير أفضل تجربة تسجيل ممكنة لك.
@@ -379,7 +379,7 @@ function SuccessState({ guestName, children }: { guestName: string; children?: R
           شكراً <span className="font-medium text-foreground">{guestName}</span>. سيتواصل معك فريق خط قريباً لتأكيد موعد التسجيل ومشاركة تفاصيل الاستوديو.
         </p>
         {children}
-        <div className="mt-8 text-micro text-muted-foreground/60">خط بودكاست</div>
+        <div className="mt-8 text-micro text-muted-foreground/60">بودكاست خط</div>
       </div>
     </div>
   )

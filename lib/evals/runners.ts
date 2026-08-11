@@ -123,7 +123,7 @@ async function runStudioPackage(): Promise<RunnerOutput> {
   const result = await generateStudioPackage(
     transcript,
     "حلقة تجربة التقييم",
-    "خط بودكاست",
+    "بودكاست خط",
     null,
   )
   if (!result.success || !result.data) {

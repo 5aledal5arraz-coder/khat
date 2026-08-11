@@ -269,7 +269,7 @@ function AdminSidebar({ collapsed, onNavClick, userRole }: AdminSidebarProps) {
             <div className="flex items-center gap-2">
               <Sparkles className="h-3.5 w-3.5 text-primary" />
               <span className="text-[11px] font-semibold text-foreground">
-                خط بودكاست
+                بودكاست خط
               </span>
             </div>
             <p className="mt-1 text-[11px] leading-relaxed text-muted-foreground">
