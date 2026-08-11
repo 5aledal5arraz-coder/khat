@@ -857,9 +857,22 @@ export async function getEpisodeBySlug(
 
   // Apply overrides
   const overrides = await getEpisodeOverrides()
+  const rawDescription = episode.description
   const [overridden] = applyOverrides([episode], overrides)
+  const merged = { ...episode, ...overridden }
 
-  return { ...episode, ...overridden }
+  // The YouTube path in `resolveEpisodeBySlug` derives `summary` from
+  // `description` whenever the episode has no enrichment `full_summary` — and it
+  // does that BEFORE this override step, so the derived copy froze the
+  // pre-override text. The episode page renders `summary || description`, which
+  // meant an editor's description override landed on a field nothing read: the
+  // admin saved, the page never changed. Re-derive `summary` only when it is
+  // that stale copy; a real enrichment summary still wins.
+  if (merged.description !== rawDescription && merged.summary === rawDescription) {
+    merged.summary = merged.description ?? null
+  }
+
+  return merged
 }
 
 export async function getLatestEpisode(): Promise<Episode | null> {
