@@ -69,7 +69,7 @@ import { mkdirSync, readFileSync, writeFileSync } from "node:fs"
 import path from "node:path"
 import sharp from "sharp"
 
-import { KHAT_INDIGO, MARK, MARK_REVERSED, LOCKUP_HORIZONTAL } from "../components/brand/khat-logo-art"
+import { KHAT_INDIGO, KHAT_ORANGE, MARK, MARK_REVERSED, LOCKUP_HORIZONTAL } from "../components/brand/khat-logo-art"
 import { EMAIL_LOCKUP_HEIGHT, MIN_HEIGHT } from "../components/brand/khat-logo-geometry"
 
 const ROOT = path.join(__dirname, "..")
@@ -294,6 +294,28 @@ async function main() {
     path.join(APP, "favicon.ico"),
     ico([16, 32].map((size) => ({ size, data: tile(size) }))),
   )
+
+  // ── The admin's own tile — the ONE place the treatment is not indigo ──────
+  //
+  // Khaled keeps both the site and the panel on his home screen and the two
+  // icons were pixel-identical, so he could not tell «لوحة خط» from «خط»
+  // without reading the label. An orange ground separates them at a glance and
+  // reuses an identity colour rather than inventing a third one.
+  //
+  // THE COST, MEASURED, because it contradicts this file's own opening rule:
+  // ivory on indigo is 10.78:1, ivory on orange is 3.03:1. That is why the
+  // exception is scoped to `app/admin/` — Next applies a route segment's icon
+  // files to that segment only, so every public surface keeps the tile the rest
+  // of this script builds, at the contrast the 16px favicon slot needs.
+  //
+  // The 180px home-screen icon is where the distinction is actually wanted and
+  // where 3.03:1 costs nothing legible; the admin tab icon rides along because
+  // an indigo tab beside an orange home-screen icon would be the same confusion
+  // moved somewhere else.
+  const adminTileSvg = squareMarkSvg(MARK_REVERSED.body, KHAT_ORANGE, TILE_PAD)
+  const ADMIN = path.join(APP, "admin")
+  writeFileSync(path.join(ADMIN, "icon.svg"), adminTileSvg + "\n")
+  writeFileSync(path.join(ADMIN, "apple-icon.png"), await png(adminTileSvg, 180))
 
   // Maskable icon — same treatment, wider canvas so Android's circular crop
   // cannot reach the artwork.
