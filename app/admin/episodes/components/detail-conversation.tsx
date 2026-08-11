@@ -11,6 +11,7 @@ import {
   getConversationGenerationStatus,
 } from "../conversation-actions"
 import { GlowCard } from "@/app/admin/components/glow-card"
+import { StudioOwnedFields } from "./studio-owned-fields"
 import { formatTimeSeconds } from "@/lib/shared/formatters"
 import { cn } from "@/lib/utils"
 import type { EpisodeEnrichment } from "@/types/episodes"
@@ -18,6 +19,8 @@ import type { EpisodeEnrichment } from "@/types/episodes"
 interface DetailConversationProps {
   episodeId: string
   enrichment: EpisodeEnrichment | null
+  /** Passed straight through to `StudioOwnedFields`; null when unlinked. */
+  eirId: string | null
 }
 
 /** What the generate button is currently saying. `null` = nothing to say. */
@@ -33,7 +36,7 @@ function initialApprovals(enrichment: EpisodeEnrichment | null, items: string[])
   return items.map((item) => item.trim().length > 0 && approved.has(item.trim()))
 }
 
-export function DetailConversation({ episodeId, enrichment }: DetailConversationProps) {
+export function DetailConversation({ episodeId, enrichment, eirId }: DetailConversationProps) {
   const router = useRouter()
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
@@ -558,6 +561,10 @@ export function DetailConversation({ episodeId, enrichment }: DetailConversation
           <span className="text-sm text-green-700">تم الحفظ بنجاح</span>
         )}
       </div>
+
+      {/* The other five public fields — read-only, below the save button so it
+          is clear they are not part of what this form writes. */}
+      <StudioOwnedFields enrichment={enrichment} eirId={eirId} />
     </div>
   )
 }

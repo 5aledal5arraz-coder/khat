@@ -122,6 +122,7 @@ export default async function EpisodeDetailPage({
         </div>
       )}
       <EpisodeDetail
+        eirId={eirId}
         episode={episode}
         override={override}
         isHidden={isHidden}

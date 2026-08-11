@@ -19,6 +19,8 @@ interface SponsorPartner {
 }
 
 interface EpisodeDetailProps {
+  /** The linked Khat Brain record, when there is one — the Studio lives there. */
+  eirId: string | null
   episode: AdminEpisodeView
   override: EpisodeOverride | null
   isHidden: boolean
@@ -56,6 +58,7 @@ const tabs: {
 ]
 
 export function EpisodeDetail({
+  eirId,
   episode,
   override,
   isHidden,
@@ -180,6 +183,7 @@ export function EpisodeDetail({
         <DetailConversation
           episodeId={episode.id}
           enrichment={enrichment}
+          eirId={eirId}
         />
       )}
       {activeTab === "quotes" && (
