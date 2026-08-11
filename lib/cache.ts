@@ -20,7 +20,6 @@ import {
   getEpisodes,
   getEpisodeBySlug,
   getGuestBySlug,
-  selectAdjacentEpisodes,
   selectRelatedEpisodes,
   tallyEpisodeCounts,
 } from "@/lib/queries/episodes"
@@ -114,16 +113,6 @@ export async function getCachedRelatedEpisodes(
     console.error("[cache] related-episode graph read failed, using fallback:", err)
   }
   return selectRelatedEpisodes(list, episodeId, limit)
-}
-
-/**
- * Cached prev/next neighbours for an episode detail page — derived from the
- * single cached list (was a full resolution per detail-page view).
- */
-export async function getCachedAdjacentEpisodes(
-  slug: string,
-): Promise<{ prev: Episode | null; next: Episode | null }> {
-  return selectAdjacentEpisodes(await getCachedPublicEpisodes(), slug)
 }
 
 /**

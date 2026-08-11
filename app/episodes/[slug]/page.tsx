@@ -4,10 +4,7 @@ import { notFound } from "next/navigation"
 import {
   getCachedEpisodeBySlug,
   getCachedRelatedEpisodes,
-  getCachedAdjacentEpisodes,
 } from "@/lib/cache"
-import { getQuotesByEpisodeId } from "@/lib/content/home-quotes"
-import { getReflectionsByEpisodeId } from "@/lib/content/daily-reflections"
 import { getPublicEpisodeEnrichment } from "@/lib/episodes/enrichments"
 import { episodeThumbUrl } from "@/lib/episodes/thumbnail"
 import { getEpisodeEirId } from "@/lib/queries/episodes"
@@ -106,11 +103,11 @@ export default async function EpisodePage({ params, searchParams }: EpisodePageP
     notFound()
   }
 
-  const [relatedEpisodes, { prev, next }, homeQuotes, reflections, enrichment, platformLinks, allActivePlatforms, sponsor, topics, eirId] = await Promise.all([
+  // Four fetches left with «اكتشف أكثر» and the previous/next pair: the
+  // adjacent episodes, the home quotes and the daily reflections. They were
+  // queried on every episode view to feed two sections the page no longer has.
+  const [relatedEpisodes, enrichment, platformLinks, allActivePlatforms, sponsor, topics, eirId] = await Promise.all([
     getCachedRelatedEpisodes(episode.id),
-    getCachedAdjacentEpisodes(episode.slug),
-    getQuotesByEpisodeId(episode.id),
-    getReflectionsByEpisodeId(episode.id),
     getEnrichmentForRequest(episode.id),
     listPlatformsForSurface("episode_page"),
     listActivePlatforms(),
@@ -166,10 +163,6 @@ export default async function EpisodePage({ params, searchParams }: EpisodePageP
       <EpisodePageClient
         episode={episode}
         relatedEpisodes={relatedEpisodes}
-        prev={prev}
-        next={next}
-        homeQuotes={homeQuotes}
-        reflections={reflections}
         enrichment={enrichment}
         platformLinks={platformLinks}
         sponsor={sponsor}

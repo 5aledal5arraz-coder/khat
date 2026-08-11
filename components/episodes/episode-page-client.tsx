@@ -2,7 +2,7 @@
 
 import { useEffect, useRef } from "react"
 import Link from "next/link"
-import { ChevronRight, ChevronLeft } from "lucide-react"
+import { ChevronLeft } from "lucide-react"
 import { EpisodePlayerProvider, usePlayer } from "./episode-player-context"
 import { EpisodeHero } from "./episode-hero"
 import { EpisodeSummary } from "./episode-summary"
@@ -18,11 +18,10 @@ import { ConversationMap } from "./conversation-map"
 import { ExclusiveClip } from "./exclusive-clip"
 import { TeaserInline } from "@/components/teaser/teaser-inline"
 import { UnsaidReflections } from "./unsaid-reflections"
-import type { EpisodeWithRelations, Episode, Guest, HomeQuote, DailyReflection, PodcastPlatformLink } from "@/types/database"
+import type { EpisodeWithRelations, Episode, Guest, PodcastPlatformLink } from "@/types/database"
 import type { EpisodeEnrichment } from "@/types/episodes"
 import type { EpisodeSponsorData } from "@/lib/queries/episode-sponsors"
 import type { ActiveTeaserView } from "@/lib/teaser"
-import { EpisodeConnections } from "./episode-connections"
 import { AudioPlayer } from "./audio-player"
 import { EpisodePlatformLinks } from "./episode-platform-links"
 import { EpisodeSponsor } from "./episode-sponsor"
@@ -145,10 +144,6 @@ export interface EpisodeDeepAnalysisView {
 interface EpisodePageClientProps {
   episode: EpisodeWithRelations
   relatedEpisodes: (Episode & { guest?: Guest | null })[]
-  prev: Episode | null
-  next: Episode | null
-  homeQuotes?: HomeQuote[]
-  reflections?: DailyReflection[]
   enrichment?: EpisodeEnrichment | null
   platformLinks?: PodcastPlatformLink[]
   sponsor?: EpisodeSponsorData | null
@@ -161,10 +156,6 @@ interface EpisodePageClientProps {
 export function EpisodePageClient({
   episode,
   relatedEpisodes,
-  prev,
-  next,
-  homeQuotes = [],
-  reflections = [],
   enrichment,
   platformLinks = [],
   sponsor,
@@ -350,56 +341,24 @@ export function EpisodePageClient({
           {/* 13. Unsaid Reflections */}
           <UnsaidReflections items={enrichment?.unsaid_reflections} />
 
-          {/* 14. Connected Content: quotes, reflections */}
-          <EpisodeConnections
-            homeQuotes={homeQuotes}
-            reflections={reflections}
-          />
+          {/* 14. Related Episodes.
+              «اكتشف أكثر» AND the previous/next pair used to stand here, above
+              this rail. Both are gone, on Khaled's call — and the reasons are
+              worth keeping so neither comes back by habit.
 
-          {/* 15. Next / Previous Navigation.
-              `min-w-0` on each card is load-bearing: `truncate` sets
-              white-space:nowrap, so the card's automatic minimum size became
-              the full untruncated title and `flex-1` could not shrink it. On a
-              375px viewport that pushed «الحلقة التالية» right off the page,
-              behind the container's overflow-x-hidden. */}
-          {(prev || next) && (
-            <div className="flex items-stretch gap-4 pt-8 border-t">
-              {prev ? (
-                <Link
-                  href={`/episodes/${prev.slug}`}
-                  className="group flex min-w-0 flex-1 items-center gap-3 rounded-xl border p-4 transition-colors hover:border-primary/50 hover:bg-muted/50"
-                >
-                  <ChevronRight className="h-5 w-5 shrink-0 text-muted-foreground transition-colors group-hover:text-primary" />
-                  <div className="min-w-0">
-                    <p className="text-micro text-muted-foreground">الحلقة السابقة</p>
-                    <p className="mt-0.5 truncate text-caption font-medium group-hover:text-primary transition-colors">
-                      {prev.title}
-                    </p>
-                  </div>
-                </Link>
-              ) : (
-                <div className="flex-1" />
-              )}
-              {next ? (
-                <Link
-                  href={`/episodes/${next.slug}`}
-                  className="group flex min-w-0 flex-1 items-center justify-end gap-3 rounded-xl border p-4 text-end transition-colors hover:border-primary/50 hover:bg-muted/50"
-                >
-                  <div className="min-w-0">
-                    <p className="text-micro text-muted-foreground">الحلقة التالية</p>
-                    <p className="mt-0.5 truncate text-caption font-medium group-hover:text-primary transition-colors">
-                      {next.title}
-                    </p>
-                  </div>
-                  <ChevronLeft className="h-5 w-5 shrink-0 text-muted-foreground transition-colors group-hover:text-primary" />
-                </Link>
-              ) : (
-                <div className="flex-1" />
-              )}
-            </div>
-          )}
+              «اكتشف أكثر» promised more and delivered one uneditable card:
+              `home_quotes` is empty, and `daily_reflections` has no admin screen
+              at all — 41 rows he can neither write, approve nor remove, ending
+              in a question that links nowhere. If reflections return, they
+              return WITH an editor; content on the site that nobody controls is
+              the thing to avoid, not the section.
 
-          {/* 16. Related Episodes */}
+              Previous/next WORKED — lane-scoped, correct neighbours, verified —
+              which is why it went for a design reason rather than a bug: it
+              duplicated this rail directly below it and lost the comparison.
+              Two truncated titles with no artwork, ordering an archive that is
+              not serial. Someone finishing an episode wants one about the same
+              thing, not the one that happened to air the week before. */}
           <div id="sec-related">
           <EpisodeRecommendations episodes={relatedEpisodes} />
           </div>

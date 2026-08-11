@@ -1,20 +1,24 @@
 /**
- * Navigation and the related rail stay inside the lane of the episode on
- * screen.
+ * The related rail stays inside the lane of the episode on screen.
  *
- * Both selectors used to walk the whole newest-first archive, which is ONE
- * list across every lane. Measured on production: «الحلقة التالية» from خط
- * episode 019 was a clip, and the related rail returned the same three clips
- * on all 8 episodes checked — not one خط conversation among them, because the
+ * It used to walk the whole newest-first archive, which is ONE list across
+ * every lane. Measured on production: the rail returned the same three clips on
+ * all 8 episodes checked — not one خط conversation among them, because the
  * three newest rows in the archive happen to be clips and the fallback was
  * literally `list.slice(0, 3)`.
+ *
+ * `selectAdjacentEpisodes` was tested here too and is gone: «الحلقة السابقة /
+ * التالية» was removed from the episode page on 2026-08-12, which left the
+ * selector, its cached wrapper and `getAdjacentEpisodes` with no caller at all.
+ * Dead code carrying four passing tests reads as live code — so the tests went
+ * with the function rather than outliving it.
  *
  * The lane itself is decided in exactly one place (`laneOfEpisode` /
  * `filterLane` in lib/episodes/programs.ts); these tests assert the selectors
  * READ it rather than re-deriving adjacency from dates alone.
  */
 import { describe, it, expect } from "vitest"
-import { selectAdjacentEpisodes, selectRelatedEpisodes } from "@/lib/queries/episodes"
+import { selectRelatedEpisodes } from "@/lib/queries/episodes"
 import { CLIPS_CATEGORY_SLUG } from "@/lib/episodes/clips"
 import type { Episode } from "@/types/database"
 
@@ -38,30 +42,6 @@ const LIST = [
   ep("khat-018", KHAT_SLUG),
   ep("khat-017", KHAT_SLUG),
 ]
-
-describe("selectAdjacentEpisodes — lane-scoped", () => {
-  it("does not hand a خط episode a clip as its next", () => {
-    const { prev, next } = selectAdjacentEpisodes(LIST, "khat-019")
-    expect(next).toBeNull() // newest in its OWN lane
-    expect(prev?.id).toBe("khat-018")
-  })
-
-  it("walks within the خط lane in both directions", () => {
-    const { prev, next } = selectAdjacentEpisodes(LIST, "khat-018")
-    expect(next?.id).toBe("khat-019")
-    expect(prev?.id).toBe("khat-017")
-  })
-
-  it("keeps a clip's neighbours inside the clips lane", () => {
-    const { prev, next } = selectAdjacentEpisodes(LIST, "clip-2")
-    expect(next?.id).toBe("clip-3")
-    expect(prev?.id).toBe("clip-1")
-  })
-
-  it("still returns nothing for a slug that is not in the list", () => {
-    expect(selectAdjacentEpisodes(LIST, "nope")).toEqual({ prev: null, next: null })
-  })
-})
 
 describe("selectRelatedEpisodes — lane-scoped", () => {
   it("does not fill a خط episode's rail with clips", () => {

@@ -1016,22 +1016,6 @@ function laneScope(list: Episode[], current: Episode): Episode[] {
   return scoped.some((e) => e.id === current.id) ? scoped : list
 }
 
-/** List is newest-first: "next" = newer (index − 1), "prev" = older (index + 1). */
-export function selectAdjacentEpisodes(
-  list: Episode[],
-  currentSlug: string,
-): { prev: Episode | null; next: Episode | null } {
-  const current = list.find((e) => e.slug === currentSlug)
-  if (!current) return { prev: null, next: null }
-
-  const scoped = laneScope(list, current)
-  const currentIndex = scoped.findIndex((e) => e.slug === currentSlug)
-  if (currentIndex === -1) return { prev: null, next: null }
-  const next = currentIndex > 0 ? scoped[currentIndex - 1] : null
-  const prev = currentIndex < scoped.length - 1 ? scoped[currentIndex + 1] : null
-  return { prev, next }
-}
-
 export function selectRelatedEpisodes(
   list: Episode[],
   episodeId: string,
@@ -1063,12 +1047,6 @@ export function tallyEpisodeCounts(list: Episode[]): Record<string, number> {
 // scope to the episode's lane, and `laneOfEpisode` reads `ep.category.slug`.
 // Fetched without it, `filterLane` warns and every row classifies as خط. The
 // live pages go through `getCachedPublicEpisodes()`, which already sets it.
-export async function getAdjacentEpisodes(
-  currentSlug: string
-): Promise<{ prev: Episode | null; next: Episode | null }> {
-  return selectAdjacentEpisodes(await getEpisodes({ withCategories: true }), currentSlug)
-}
-
 export async function getRelatedEpisodes(
   episodeId: string,
   limit: number = 3
