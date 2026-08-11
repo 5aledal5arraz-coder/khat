@@ -11,13 +11,13 @@ import { saveFeaturedEpisodesAction, setFeaturedModeAction, setFeaturedFilterAct
 import { createTopicAction, deleteTopicAction, setEpisodeTopicsAction } from "./topics-actions"
 import { MANUAL_SLOTS } from "@/lib/homepage/hall"
 import type { Topic } from "@/lib/queries/topics"
-import { saveThinkersAction, setThinkersModeAction } from "./thinkers-actions"
+import { saveThinkersAction, setThinkersModeAction, setThinkersHiddenAction } from "./thinkers-actions"
 import { TeaserTab } from "./teaser-tab"
 import type { HomepageFeaturedRow } from "@/lib/queries/homepage-featured"
 import type { HomepageThinkerRow } from "@/lib/queries/homepage-thinkers"
 import type { TeaserConfig } from "@/types/teaser"
 import type { UpcomingEpisodeOption } from "@/lib/teaser"
-import { Star, Brain, Clapperboard, Loader2, Check, Pencil, ToggleLeft, ToggleRight, Upload, X, ImageIcon, Tags, Plus, Trash2 } from "lucide-react"
+import { Star, Brain, Clapperboard, Loader2, Check, Pencil, ToggleLeft, ToggleRight, Upload, X, ImageIcon, Tags, Plus, Trash2, Eye, EyeOff } from "lucide-react"
 
 // ─── Types ──────────────────────────────────────────────────
 
@@ -49,6 +49,8 @@ interface Props {
   latestGuests: LatestGuest[]
   featuredMode: "auto" | "manual"
   thinkersMode: "auto" | "manual"
+  /** Whether the guest strip is hidden from the homepage entirely. */
+  thinkersHidden: boolean
   /** Serialized «قاعة الحلقات» auto filter, e.g. "topic:الغزو". */
   featuredFilter: string
   /** Programme lanes an auto filter can point at. */
@@ -728,13 +730,17 @@ function ThinkersTab({
   thinkerRows,
   latestGuests,
   initialMode,
+  initialHidden,
 }: {
   allGuests: Guest[]
   thinkerRows: HomepageThinkerRow[]
   latestGuests: LatestGuest[]
   initialMode: "auto" | "manual"
+  /** Whether the whole strip is currently hidden from the homepage. */
+  initialHidden: boolean
 }) {
   const [mode, setMode] = useState(initialMode)
+  const [hidden, setHidden] = useState(initialHidden)
   const [pending, startTransition] = useTransition()
   const [saved, setSaved] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -766,6 +772,16 @@ function ThinkersTab({
 
   function getGuestInfo(guestId: string) {
     return allGuests.find((g) => g.id === guestId)
+  }
+
+  function handleToggleHidden() {
+    const next = !hidden
+    setError(null)
+    startTransition(async () => {
+      const outcome = await runAction(() => setThinkersHiddenAction(next))
+      if (!outcome.ok) return setError(outcome.message)
+      setHidden(next)
+    })
   }
 
   function handleToggleMode() {
@@ -849,12 +865,38 @@ function ThinkersTab({
         <div className="flex items-center gap-3">
           <h2 className="text-lg font-semibold">معرض العقول</h2>
           <ModeToggle mode={mode} onToggle={handleToggleMode} disabled={pending} />
+          {/* Separate from the mode toggle beside it, and deliberately so: mode
+              answers "which guests", this answers "any guests". Hiding the rail
+              between seasons must not cost him the manual list he built. */}
+          <button
+            onClick={handleToggleHidden}
+            disabled={pending}
+            className="flex items-center gap-2 rounded-lg border border-border/50 px-3 py-1.5 text-xs font-medium transition-all hover:bg-muted disabled:opacity-50"
+          >
+            {hidden ? (
+              <>
+                <EyeOff className="h-4 w-4 text-destructive" />
+                <span className="text-destructive">الشريط مخفي</span>
+              </>
+            ) : (
+              <>
+                <Eye className="h-4 w-4 text-green-700" />
+                <span className="text-green-700">الشريط ظاهر</span>
+              </>
+            )}
+          </button>
         </div>
         <Button onClick={handleSave} disabled={pending} size="sm" className="gap-2">
           {saved ? <Check className="h-4 w-4" /> : pending ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
           {saved ? "تم الحفظ" : "حفظ"}
         </Button>
       </div>
+
+      {hidden && (
+        <div className="rounded-lg border border-destructive/30 bg-destructive/5 px-3 py-2 text-[12px] text-destructive">
+          شريط الضيوف لا يظهر على الصفحة الرئيسية الآن. الاختيارات أدناه محفوظة وتعود كما هي عند الإظهار.
+        </div>
+      )}
 
       {error && (
         <div className="rounded-lg border border-destructive/40 bg-destructive/10 px-3 py-2 text-[12px] text-destructive" data-save-error>
@@ -997,6 +1039,7 @@ export function HomeContentTabs({
   latestGuests,
   featuredMode,
   thinkersMode,
+  thinkersHidden,
   featuredFilter,
   programs,
   topics,
@@ -1046,6 +1089,7 @@ export function HomeContentTabs({
           thinkerRows={thinkerRows}
           latestGuests={latestGuests}
           initialMode={thinkersMode}
+          initialHidden={thinkersHidden}
         />
       </TabsContent>
 

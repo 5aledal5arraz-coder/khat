@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache"
 import { requireActionRole } from "@/lib/api-utils"
 import { saveHomepageThinkers } from "@/lib/queries/homepage-thinkers"
-import { setHomepageMode } from "@/lib/queries/homepage-settings"
+import { setHomepageMode, setGuestStripHidden } from "@/lib/queries/homepage-settings"
 import type { HomepageMode } from "@/lib/queries/homepage-settings"
 import { invalidate } from "@/lib/cache"
 
@@ -11,6 +11,15 @@ function revalidateAll() {
   invalidate("homepage")
   revalidatePath("/")
   revalidatePath("/admin/home-content")
+}
+
+/** Show or hide the whole guest strip on the homepage. */
+export async function setThinkersHiddenAction(hidden: boolean) {
+  const gate = await requireActionRole("EDITOR")
+  if (!gate.ok) return { success: false, error: gate.error }
+  await setGuestStripHidden(hidden)
+  revalidateAll()
+  return { success: true }
 }
 
 export async function setThinkersModeAction(mode: HomepageMode) {

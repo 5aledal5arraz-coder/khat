@@ -67,6 +67,28 @@ export async function setHomepageSetting(key: string, value: string): Promise<vo
     })
 }
 
+/**
+ * Whether the homepage guest strip is shown at all.
+ *
+ * Separate from the auto/manual mode: mode answers "which guests", this answers
+ * "any guests". Between seasons — or on a day the strip would show four faces
+ * and look thin — Khaled can take the whole rail down without clearing the
+ * manual list he has built.
+ *
+ * DEFAULTS TO VISIBLE, and the key is `_hidden` rather than `_visible` for that
+ * reason: an absent row, an unreadable database and a typo'd value all have to
+ * mean "show it", because the failure mode of the opposite default is a section
+ * that silently disappears and gives no clue why.
+ */
+export async function isGuestStripHidden(): Promise<boolean> {
+  return (await getHomepageSetting("thinkers_hidden")) === "true"
+}
+
+/** Show or hide the whole guest strip. */
+export async function setGuestStripHidden(hidden: boolean): Promise<void> {
+  await setHomepageSetting("thinkers_hidden", hidden ? "true" : "false")
+}
+
 /** Get all homepage settings as a map */
 export async function getAllHomepageSettings(): Promise<Record<string, string>> {
   // A3 — DB-null guard. Empty-map default matches the catch-fallback.

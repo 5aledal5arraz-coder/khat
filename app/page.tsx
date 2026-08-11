@@ -343,6 +343,39 @@ export default async function HomePage() {
           episode publishes (م4), driven by the cache tag. */}
       {activeTeaser ? <TeaserSection teaser={activeTeaser} /> : null}
 
+      {/* ─────────────────────── الضيوف ───────────────────────
+          A strip of faces, directly under the hero and ABOVE «الحلقة الأحدث».
+
+          Two moves, in order. First it stopped being interleaved into the
+          episode grid («حلقتين وبعدها ضيف», a guest on every third cell) — a
+          portrait in a column of posters competes with them, so the grid went
+          back to episodes only and the people got their own rail. Then Khaled
+          moved the rail up here: the faces are the first thing after the
+          headline, before any single episode. The cap of three went with the
+          interleave — the strip carries everyone, and grows by a season a year
+          rather than by a card.
+
+          It sits AFTER the teaser on purpose: «قريبًا على خط» is about one
+          upcoming episode and belongs beside the hero's promise, while this is
+          the roster. */}
+      {stripGuests.length > 0 ? (
+        <section className="px-6 pt-4 pb-10">
+          <div className="mx-auto max-w-6xl">
+            <div className="mb-6 flex items-end justify-between gap-4">
+              <SectionLabel>الضيوف</SectionLabel>
+              <Link
+                href="/guests"
+                className="inline-flex shrink-0 items-center gap-1 text-caption font-semibold text-primary transition-all hover:gap-2"
+              >
+                كل الضيوف
+                <ArrowLeft className="h-4 w-4" />
+              </Link>
+            </div>
+            <GuestStrip guests={stripGuests} />
+          </div>
+        </section>
+      ) : null}
+
       {/* ──────────────────── Featured episode ──────────────────── */}
       {featured ? (
         <section className="px-6 pb-8">
@@ -432,32 +465,6 @@ export default async function HomePage() {
           <NewsletterSignup variant="inline" />
         </div>
       </section>
-
-      {/* ─────────────────────── الضيوف ───────────────────────
-          A strip of faces, above the episodes and separate from them.
-
-          This REVERSES the earlier interleave («حلقتين وبعدها ضيف», a guest on
-          every third cell): Khaled asked for the two to split, so the grid is
-          episodes only now and the people get their own rail. The cap of three
-          went with it — the strip is meant to carry everyone, and it grows by a
-          season each year rather than by a card. */}
-      {stripGuests.length > 0 ? (
-        <section className="px-6 pt-12 pb-2">
-          <div className="mx-auto max-w-6xl">
-            <div className="mb-6 flex items-end justify-between gap-4">
-              <SectionLabel>الضيوف</SectionLabel>
-              <Link
-                href="/guests"
-                className="inline-flex shrink-0 items-center gap-1 text-caption font-semibold text-primary transition-all hover:gap-2"
-              >
-                كل الضيوف
-                <ArrowLeft className="h-4 w-4" />
-              </Link>
-            </div>
-            <GuestStrip guests={stripGuests} />
-          </div>
-        </section>
-      ) : null}
 
       {/* ─────────────────────── قاعة الحلقات ───────────────────────
           Episodes only. The heading is the filter's own label, and «الكل»

@@ -44,6 +44,8 @@ export default async function HomeContentPage() {
 
   const featuredMode = (settings.featured_mode === "manual" ? "manual" : "auto") as "auto" | "manual"
   const thinkersMode = (settings.thinkers_mode === "manual" ? "manual" : "auto") as "auto" | "manual"
+  // Absent row ⇒ visible. See isGuestStripHidden() for why the key is `_hidden`.
+  const thinkersHidden = settings.thinkers_hidden === "true"
   const featuredFilter = settings[HOMEPAGE_FILTER_KEY] || "newest"
 
   // The programme lanes an auto filter can point at, with live counts. Built
@@ -83,6 +85,7 @@ export default async function HomeContentPage() {
         latestGuests={latestGuests}
         featuredMode={featuredMode}
         thinkersMode={thinkersMode}
+        thinkersHidden={thinkersHidden}
         featuredFilter={featuredFilter}
         programs={programs}
         topics={topics}

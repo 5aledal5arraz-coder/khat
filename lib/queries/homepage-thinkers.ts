@@ -2,7 +2,7 @@ import { db } from "@/lib/db"
 import { homepageThinkers } from "@/lib/db/schema/content"
 import { guests } from "@/lib/db/schema"
 import { eq, asc } from "drizzle-orm"
-import { getHomepageMode } from "./homepage-settings"
+import { getHomepageMode, isGuestStripHidden } from "./homepage-settings"
 import type { MuseumThinker } from "@/lib/content/museum-data"
 import { getEpisodes } from "./episodes"
 import { filterLane } from "@/lib/episodes/programs"
@@ -186,6 +186,14 @@ export async function getHomepageThinkersForDisplay(): Promise<MuseumThinker[] |
   // default. Matches the catch-fallback for transient errors.
   if (!db) return null
   try {
+    // The whole-strip switch, checked before anything is resolved: returning
+    // null is the same "render nothing" signal the section already handles, so
+    // hiding costs no extra branch on the page. It sits inside the cached
+    // function on purpose — the admin's save already calls `invalidate
+    // ("homepage")`, so the toggle takes effect immediately instead of waiting
+    // out the 30-minute TTL.
+    if (await isGuestStripHidden()) return null
+
     const mode = await getHomepageMode("thinkers")
 
     if (mode === "auto") {
