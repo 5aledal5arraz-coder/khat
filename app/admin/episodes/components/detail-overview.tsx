@@ -452,11 +452,15 @@ export function DetailOverview({
           </div>
         </GlowCard>
 
-        {/* Sponsor Card */}
+        {/* Sponsor Card.
+            The heading said «شريك الحوار», which reads as a second guest — but
+            this control writes `episode_sponsors` and renders the «برعاية»
+            block on the public page. It listed commercial partners under a
+            label that promised a co-host. */}
         <GlowCard color="purple">
           <div className="p-5">
             <h3 className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-              شريك الحوار
+              راعي الحلقة
             </h3>
             <select
               value={sponsorId}
@@ -468,7 +472,7 @@ export function DetailOverview({
                   : "text-muted-foreground"
               }`}
             >
-              <option value="">بدون شريك</option>
+              <option value="">بدون راعٍ</option>
               {partners.map((p) => (
                 <option key={p.id} value={p.id}>
                   {p.name}

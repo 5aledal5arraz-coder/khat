@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireRole } from '@/lib/api-utils'
 import { getResend, FROM_DISPLAY, REPLY_TO } from '@/lib/email/resend'
+import { getEmailSocialLinks } from '@/lib/email/social'
 import { newsletterHtml } from '@/lib/email/templates'
 
 export async function POST(request: NextRequest) {
@@ -24,7 +25,7 @@ export async function POST(request: NextRequest) {
       replyTo: REPLY_TO,
       to: body.email.trim(),
       subject: `[معاينة] ${body.subject.trim()}`,
-      html: newsletterHtml(body.body.trim(), '#'),
+      html: newsletterHtml(body.body.trim(), '#', await getEmailSocialLinks()),
     })
 
     return NextResponse.json({ success: true })

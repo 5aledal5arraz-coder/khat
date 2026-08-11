@@ -291,10 +291,18 @@ export function EpisodePageClient({
             </div>
           )}
 
-          {/* 10. Takeaways */}
-          <div id="sec-takeaways">
-          <EpisodeIdeas takeaways={takeaways} />
-          </div>
+          {/* 10. Takeaways — the anchor only exists when the section does.
+              `EpisodeIdeas` returns null without takeaways, and the wrapper was
+              unconditional, so all 41 episodes shipped a bare
+              `<div id="sec-takeaways"></div>`: an anchor that scrolls a reader
+              to nothing. Exactly the shape already fixed for `sec-why` above,
+              which is why it is worth stating twice — the pattern recurs
+              whenever a nullable section gets an id. */}
+          {takeaways.length > 0 && (
+            <div id="sec-takeaways">
+              <EpisodeIdeas takeaways={takeaways} />
+            </div>
+          )}
 
           {/* 10b. Behind the conversation — surfaced deep analysis */}
           {deepAnalysis && <BehindTheConversation analysis={deepAnalysis} />}

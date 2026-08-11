@@ -13,6 +13,7 @@
  * lib/email/resend.ts.
  */
 import { getResend, FROM_DISPLAY, REPLY_TO } from './resend'
+import { getEmailSocialLinks } from './social'
 
 /**
  * Retrying a notification must not mail the applicant twice.
@@ -46,12 +47,15 @@ export async function sendNewsletterWelcome(
   unsubscribeUrl: string,
   idempotencyKey?: string
 ) {
+  // Live handles, not the hardcoded copy — see lib/email/social.ts for the
+  // drift this closes.
+  const social = await getEmailSocialLinks()
   return getResend().emails.send({
     from: FROM_DISPLAY,
     to: email,
     replyTo: REPLY_TO,
     subject: 'أهلاً بك في نشرة بودكاست خط!',
-    html: newsletterWelcomeHtml(unsubscribeUrl),
+    html: newsletterWelcomeHtml(unsubscribeUrl, social),
     // RFC 8058 one-click unsubscribe — required for marketing mail to stay
     // out of spam and to satisfy Gmail/Yahoo bulk-sender rules.
     headers: {

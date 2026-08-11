@@ -77,12 +77,86 @@ export const EMAIL_PALETTE = {
 
 const BRAND = EMAIL_PALETTE
 
-// Social icon — light circular chip for the footer.
-function socialIconCell(url: string, label: string, glyph: string): string {
+/**
+ * The type stack for every message.
+ *
+ * `Manifa V2` first — the site's own face, declared as `@font-face` below. It
+ * genuinely loads in Apple Mail on iOS and macOS; **Gmail strips `@font-face`**
+ * and Outlook's Word renderer ignores it, so the rest of this list is not
+ * decoration, it is what those readers actually get.
+ *
+ * What this replaced: `'Segoe UI', Tahoma, Arial, sans-serif`. `Segoe UI` ships
+ * with **Windows**, so on the iPhone where Khaled reads his own newsletter the
+ * first family never resolved and the Arabic was set by whatever the client
+ * chose — which is why the mail looked nothing like the site. The fallback now
+ * leads with the system Arabic face; the readers a webfont cannot reach are
+ * mostly on Apple and Android, not Windows.
+ */
+export const EMAIL_FONT_STACK =
+  `'Manifa V2', -apple-system, BlinkMacSystemFont, 'SF Arabic', 'Segoe UI', Tahoma, Arial, sans-serif`
+
+/**
+ * The `@font-face` rules, shared by BOTH layouts — the newsletter and the
+ * transactional one. Declared once so the confirmations and «طلب جديد»
+ * notifications cannot quietly keep the fallback while the newsletter alone
+ * carries the brand face.
+ */
+export const EMAIL_FONT_FACES = `
+    @font-face {
+      font-family: 'Manifa V2';
+      font-style: normal;
+      font-weight: 400;
+      src: url('${APP_URL}/fonts/manifa-v2-400.woff2') format('woff2');
+    }
+    @font-face {
+      font-family: 'Manifa V2';
+      font-style: normal;
+      font-weight: 700;
+      src: url('${APP_URL}/fonts/manifa-v2-700.woff2') format('woff2');
+    }`
+
+/**
+ * Social icon — light circular chip for the footer.
+ *
+ * THE MARK IS A HOSTED PNG, NOT A GLYPH. This used to take a Unicode character:
+ * `&#9679;` (● BLACK CIRCLE) stood for Instagram, `&#9654;` (▶) for YouTube and
+ * `&#9836;` (♬ BEAMED NOTES) for TikTok. None is the platform's mark, and a
+ * glyph is drawn by whatever font the mail client picks — so the row arrived as
+ * a circle, a play triangle and a music note, differently in every inbox. The
+ * artwork comes from `scripts/build-email-social-icons.ts`, for the same reason
+ * `khatLockup()` is a raster: Gmail strips inline `<svg>` and refuses
+ * `<img src="*.svg">`, and Outlook's Word renderer draws neither.
+ *
+ * `alt` is the platform name, so a blocked-images inbox degrades to a readable
+ * row of words rather than four broken-image icons.
+ */
+function socialIconCell(url: string, label: string, icon: string): string {
   return `<td style="padding:0 5px;">
-  <a href="${url}" title="${label}" style="text-decoration:none;display:inline-block;width:30px;height:30px;border-radius:50%;border:1px solid ${BRAND.border};text-align:center;line-height:30px;font-size:12px;color:${BRAND.muted};">${glyph}</a>
+  <a href="${url}" title="${label}" style="text-decoration:none;display:inline-block;width:30px;height:30px;border-radius:50%;border:1px solid ${BRAND.border};text-align:center;line-height:30px;">
+    <img src="${APP_URL}/brand/social/${icon}.png" width="15" height="15" alt="${label}" style="display:inline-block;border:0;outline:none;vertical-align:middle;width:15px;height:15px;color:${BRAND.muted};font-size:9px;font-family:${EMAIL_FONT_STACK};" />
+  </a>
 </td>`
 }
+
+/**
+ * The accounts the footer links to.
+ *
+ * ⚠️ THESE MUST MATCH `podcast_platform_links` — the table the site footer reads
+ * and Khaled maintains. The hardcoded set that stood here had drifted: it linked
+ * `instagram.com/khatpodcast` and `x.com/khatpodcast` while the real handles are
+ * `Khat.Podcast` and `Khat_Podcast`. Nothing caught it, because Instagram and X
+ * answer **200 behind a login wall** for a handle that does not exist — a link
+ * check sees a healthy page. Only a shared source catches this.
+ *
+ * This is the FALLBACK; `getEmailSocialLinks()` (lib/email/social.ts) reads the
+ * live rows and the send paths pass them in.
+ */
+export const EMAIL_SOCIAL_LINKS: { key: string; label: string; url: string }[] = [
+  { key: "youtube", label: "YouTube", url: "https://www.youtube.com/@KhatPodcast" },
+  { key: "instagram", label: "Instagram", url: "https://www.instagram.com/Khat.Podcast" },
+  { key: "x", label: "X", url: "https://x.com/Khat_Podcast" },
+  { key: "tiktok", label: "TikTok", url: "https://www.tiktok.com/@khatpodcast" },
+]
 
 /**
  * The Khat logo in email — the real horizontal lockup, as a hosted PNG.
@@ -127,7 +201,7 @@ function khatLockup(): string {
   // Sized through the shared geometry helper, so email is held to the same
   // MIN_HEIGHT guard as every other surface instead of hard-coding a number.
   const { width, height } = khatLogoGeometry('lockup-horizontal', EMAIL_LOCKUP_HEIGHT)
-  return `<img src="${APP_URL}/brand/email-lockup.png" width="${Math.round(width)}" height="${Math.round(height)}" alt="بودكاست خط" style="display:block;border:0;outline:none;text-decoration:none;width:${Math.round(width)}px;height:${Math.round(height)}px;color:${BRAND.indigo};font-size:17px;font-weight:800;font-family:'Segoe UI',Tahoma,Arial,sans-serif;" />`
+  return `<img src="${APP_URL}/brand/email-lockup.png" width="${Math.round(width)}" height="${Math.round(height)}" alt="بودكاست خط" style="display:block;border:0;outline:none;text-decoration:none;width:${Math.round(width)}px;height:${Math.round(height)}px;color:${BRAND.indigo};font-size:17px;font-weight:800;font-family:${EMAIL_FONT_STACK};" />`
 }
 
 /**
@@ -138,7 +212,7 @@ function khatLockup(): string {
 function newsletterLayout(
   content: string,
   unsubscribeUrl?: string,
-  opts?: { preheader?: string },
+  opts?: { preheader?: string; social?: typeof EMAIL_SOCIAL_LINKS },
 ): string {
   const cleanContent = stripBodyUnsubscribe(content)
   const preheader = opts?.preheader || 'نشرة بودكاست خط — حوارات تستحق أن تبقى.'
@@ -151,7 +225,7 @@ function newsletterLayout(
   <meta name="color-scheme" content="light only" />
   <meta name="supported-color-schemes" content="light" />
   <title>بودكاست خط</title>
-  <style>
+  <style>${EMAIL_FONT_FACES}
     body { margin:0; padding:0; }
     a { color:${BRAND.indigo}; }
     .nl-content h1, .nl-content h2, .nl-content h3 { color:${BRAND.ink}; line-height:1.35; margin:0 0 14px; font-weight:800; }
@@ -168,7 +242,7 @@ function newsletterLayout(
     }
   </style>
 </head>
-<body style="margin:0;padding:0;background-color:${BRAND.pageBg};font-family:'Segoe UI',Tahoma,Arial,sans-serif;">
+<body style="margin:0;padding:0;background-color:${BRAND.pageBg};font-family:${EMAIL_FONT_STACK};">
   <div style="display:none;max-height:0;overflow:hidden;opacity:0;mso-hide:all;">${escapeHtml(preheader)}</div>
   <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:${BRAND.pageBg};">
     <tr>
@@ -205,10 +279,7 @@ function newsletterLayout(
             <td class="nl-px" style="padding:26px 34px;background-color:${BRAND.soft};border-top:1px solid ${BRAND.border};">
               <table role="presentation" cellpadding="0" cellspacing="0" style="margin:0 auto 14px;">
                 <tr>
-                  ${socialIconCell('https://x.com/khatpodcast', 'X', '&#120143;')}
-                  ${socialIconCell('https://instagram.com/khatpodcast', 'Instagram', '&#9679;')}
-                  ${socialIconCell('https://youtube.com/@khatpodcast', 'YouTube', '&#9654;')}
-                  ${socialIconCell('https://tiktok.com/@khatpodcast', 'TikTok', '&#9836;')}
+                  ${(opts?.social ?? EMAIL_SOCIAL_LINKS).map((s) => socialIconCell(s.url, s.label, s.key)).join('\n                  ')}
                 </tr>
               </table>
               <p class="nl-footer-brand" style="margin:0 0 6px;color:${BRAND.muted};font-size:12.5px;text-align:center;font-weight:700;">بودكاست خط</p>
@@ -263,8 +334,9 @@ function legacyEmailLayout(content: string, unsubscribeUrl?: string): string {
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta name="color-scheme" content="light only" />
   <title>بودكاست خط</title>
+  <style>${EMAIL_FONT_FACES}</style>
 </head>
-<body style="margin:0;padding:0;background-color:${BRAND.pageBg};font-family:'Segoe UI',Tahoma,Arial,sans-serif;">
+<body style="margin:0;padding:0;background-color:${BRAND.pageBg};font-family:${EMAIL_FONT_STACK};">
   <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:${BRAND.pageBg};">
     <tr>
       <td align="center" style="padding:32px 16px;">
@@ -305,9 +377,12 @@ function ctaButton(text: string, url: string): string {
 
 // --- Newsletter Templates (premium light layout) ---
 
-export function newsletterWelcomeHtml(unsubscribeUrl: string): string {
+export function newsletterWelcomeHtml(
+  unsubscribeUrl: string,
+  social?: typeof EMAIL_SOCIAL_LINKS,
+): string {
   const content = `
-    <p style="margin:0 0 10px;color:${BRAND.orange};font-size:12px;font-weight:700;letter-spacing:1.5px;">نشرة خط</p>
+    <p style="margin:0 0 10px;color:${BRAND.orange};font-size:12px;font-weight:700;">نشرة خط</p>
     <h1 style="margin:0 0 16px;color:${BRAND.ink};font-size:26px;font-weight:800;line-height:1.3;">أهلاً بك في نشرة خط</h1>
     <p style="margin:0 0 18px;color:${BRAND.body};font-size:16px;line-height:1.85;">شكراً لاشتراكك — يسعدنا وجودك معنا. من الآن، راح توصلك رسائل مختارة بعناية:</p>
     <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="margin:4px 0 22px;">
@@ -320,11 +395,16 @@ export function newsletterWelcomeHtml(unsubscribeUrl: string): string {
   `
   return newsletterLayout(content, unsubscribeUrl, {
     preheader: 'أهلاً بك في نشرة خط — حوارات تستحق أن تبقى.',
+    social,
   })
 }
 
-export function newsletterHtml(body: string, unsubscribeUrl: string): string {
-  return newsletterLayout(body, unsubscribeUrl)
+export function newsletterHtml(
+  body: string,
+  unsubscribeUrl: string,
+  social?: typeof EMAIL_SOCIAL_LINKS,
+): string {
+  return newsletterLayout(body, unsubscribeUrl, { social })
 }
 
 // --- Transactional Templates ---
@@ -385,7 +465,7 @@ export function guestApplicationConfirmHtml(name: string, reference?: string): s
     </tr>`
   const refBlock = reference
     ? `<div style="margin:0 0 20px;padding:14px 16px;border-radius:12px;background:${BRAND.calloutBg};border:1px solid ${BRAND.calloutBorder};text-align:center;">
-         <div style="color:${BRAND.muted};font-size:11px;letter-spacing:.5px;">رقمك المرجعي</div>
+         <div style="color:${BRAND.muted};font-size:11px;">رقمك المرجعي</div>
          <div style="color:${BRAND.chipInk};font-weight:800;font-size:18px;letter-spacing:1px;direction:ltr;">${escapeHtml(reference)}</div>
        </div>`
     : ''
@@ -419,7 +499,7 @@ export function communityContributionConfirmHtml(
   const greeting = name ? `، ${escapeHtml(name)}` : ""
   const refBlock = reference
     ? `<div style="margin:0 0 20px;padding:14px 16px;border-radius:12px;background:${BRAND.calloutBg};border:1px solid ${BRAND.calloutBorder};text-align:center;">
-         <div style="color:${BRAND.muted};font-size:11px;letter-spacing:.5px;">رقمك المرجعي</div>
+         <div style="color:${BRAND.muted};font-size:11px;">رقمك المرجعي</div>
          <div style="color:${BRAND.chipInk};font-weight:800;font-size:18px;letter-spacing:1px;direction:ltr;">${escapeHtml(reference)}</div>
        </div>`
     : ""
@@ -456,7 +536,7 @@ export function communityOutcomeHtml(
       : `راجعنا «${escapeHtml(typeLabel)}» الذي اقترحته، وأعجبَنا فعلًا. صار الآن قيد الدراسة الجدّية ضمن خططنا القادمة، وقد نعود إليك ونحن نطوّره.`
   const refBlock = reference
     ? `<div style="margin:0 0 20px;padding:14px 16px;border-radius:12px;background:${BRAND.calloutBg};border:1px solid ${BRAND.calloutBorder};text-align:center;">
-         <div style="color:${BRAND.muted};font-size:11px;letter-spacing:.5px;">رقمك المرجعي</div>
+         <div style="color:${BRAND.muted};font-size:11px;">رقمك المرجعي</div>
          <div style="color:${BRAND.chipInk};font-weight:800;font-size:18px;letter-spacing:1px;direction:ltr;">${escapeHtml(reference)}</div>
        </div>`
     : ""
@@ -576,7 +656,7 @@ export function sponsorApplicationConfirmHtml(contactName: string, reference?: s
     </tr>`
   const refBlock = reference
     ? `<div style="margin:0 0 20px;padding:14px 16px;border-radius:12px;background:${BRAND.calloutBg};border:1px solid ${BRAND.calloutBorder};text-align:center;">
-         <div style="color:${BRAND.muted};font-size:11px;letter-spacing:.5px;">رقمك المرجعي</div>
+         <div style="color:${BRAND.muted};font-size:11px;">رقمك المرجعي</div>
          <div style="color:${BRAND.chipInk};font-weight:800;font-size:18px;letter-spacing:1px;direction:ltr;">${escapeHtml(reference)}</div>
        </div>`
     : ''

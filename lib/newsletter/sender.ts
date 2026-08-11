@@ -5,6 +5,7 @@ import { newsletterSubscribers } from "@/lib/db/schema"
 import { and, eq, sql } from "drizzle-orm"
 import { getResend, FROM_EMAIL, REPLY_TO, APP_URL } from "@/lib/email/resend"
 import { newsletterHtml } from "@/lib/email/templates"
+import { getEmailSocialLinks } from "@/lib/email/social"
 import { getPixelUrl, getClickUrl } from "./tracking"
 
 /** Max emails sent concurrently per batch */
@@ -134,7 +135,7 @@ export async function createCampaignRecord(opts: CampaignInput): Promise<CreateC
   )
 
   // 4. Click-tracking link records, extracted from a representative render.
-  const wrappedHtml = newsletterHtml(contentHtml, "#")
+  const wrappedHtml = newsletterHtml(contentHtml, "#", await getEmailSocialLinks())
   for (const url of extractUrls(wrappedHtml)) {
     const token = crypto.randomBytes(8).toString("hex")
     try {
@@ -213,6 +214,9 @@ export async function processCampaignDeliveries(campaignId: string): Promise<Sen
     .from(newsletterLinks)
     .where(eq(newsletterLinks.campaign_id, campaignId))
   const linkMap = new Map(links.map((l) => [l.url, l.token]))
+  // Fetched ONCE for the whole campaign, not per recipient — the footer is
+  // identical in every copy and this runs inside a send loop.
+  const social = await getEmailSocialLinks()
 
   for (let i = 0; i < pending.length; i += SEND_CONCURRENCY) {
     const batch = pending.slice(i, i + SEND_CONCURRENCY)
@@ -220,7 +224,7 @@ export async function processCampaignDeliveries(campaignId: string): Promise<Sen
       batch.map(async (row) => {
         try {
           const unsubscribeUrl = `${APP_URL}/api/unsubscribe/newsletter?token=${row.unsubToken}`
-          let emailHtml = newsletterHtml(contentHtml, unsubscribeUrl)
+          let emailHtml = newsletterHtml(contentHtml, unsubscribeUrl, social)
           emailHtml = replaceLinks(emailHtml, row.deliveryId, linkMap)
           const pixelUrl = getPixelUrl(APP_URL, row.deliveryId)
           emailHtml = emailHtml.replace(
