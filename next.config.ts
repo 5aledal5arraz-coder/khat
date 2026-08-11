@@ -52,6 +52,33 @@ const nextConfig: NextConfig = {
       },
     ],
   },
+  // Runtime uploads land in public/ AFTER `next start` has indexed it, so Next
+  // never serves them and the request falls through to a page route — sixteen
+  // guest photos rendered as HTML on 2026-08-08 before anyone noticed. This
+  // sends those requests to a handler that reads the disk per request; the full
+  // account is in app/api/media/[dir]/[file]/route.ts.
+  //
+  // `afterFiles` on purpose: the boot index is checked FIRST, so every file
+  // present at startup is still served statically and only genuinely-unknown
+  // files reach the handler. It is also checked BEFORE dynamic routes, which is
+  // what stops /guests/<hash>.jpg from being read as /guests/[slug] again.
+  //
+  // The extension is what separates the two: a guest page is /guests/<slug>
+  // with no dot, and never matches.
+  async rewrites() {
+    return {
+      beforeFiles: [],
+      afterFiles: [
+        {
+          source:
+            "/:dir(guests|content|home|partners|team|teasers)/:file(.+\\.(?:jpg|jpeg|png|webp|gif|avif))",
+          destination: "/api/media/:dir/:file",
+        },
+      ],
+      fallback: [],
+    }
+  },
+
   // Wave 3 — legacy Khat Map route shell deleted. These server-side
   // redirects keep email / chat / docs / bookmarks resolving to the
   // canonical Khat Brain destinations. They no longer depend on any
