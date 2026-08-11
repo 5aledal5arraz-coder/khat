@@ -144,6 +144,12 @@ export async function runStudioPushToEpisode(input: {
   const needsTitle =
     (fields.title && !!pkg.custom_title) ||
     (fields.description && !!pkg.full_summary) ||
+    // A summary push now carries the override with it (see the note beside
+    // `enrichmentFields.full_summary`), and an override write persists
+    // `original_title`. Leaving this case out of the guard would let it reach
+    // the ص-٤ hole from the other side: a null title written into the recovery
+    // reference itself.
+    (fields.full_summary && !!pkg.full_summary) ||
     (fields.quotes && pkg.quotes.length > 0)
   if (needsTitle && !episodeTitle) {
     throw new StudioPushError(
@@ -223,6 +229,33 @@ export async function runStudioPushToEpisode(input: {
     enrichmentFields.full_summary = pkg.full_summary
     hasEnrichment = true
     pushedFields.push("full_summary")
+
+    // KEEP THE TWO COPIES OF THE SUMMARY TOGETHER.
+    //
+    // `full_summary` lands in the enrichment; `description` above lands in
+    // `episode_overrides.custom_description`. Both feed the page's «ملخص
+    // الحلقة», and `getEpisodeBySlug` resolves the tie in favour of the
+    // override — because that is the field the admin's «الوصف» box writes and
+    // an editor has to be able to have the last word.
+    //
+    // Which means pushing `full_summary` ALONE, with `description` unticked,
+    // would write a new summary the page then ignores in favour of an older
+    // override: the push would report success and change nothing visible. So
+    // the summary push carries the override with it. The operator can still
+    // push a description without a summary; it is only the reverse that cannot
+    // be half-done.
+    if (!fields.description) {
+      const existing = await getEpisodeOverride(episodeId)
+      rpcOverride = {
+        ...(rpcOverride || {}),
+        original_title:
+          rpcOverride?.original_title || existing?.originalTitle || episodeTitle,
+        custom_title:
+          rpcOverride?.custom_title || existing?.customTitle || episodeTitle,
+        custom_description: pkg.full_summary,
+      }
+      if (!pushedFields.includes("description")) pushedFields.push("description")
+    }
   }
   if (fields.takeaways && pkg.takeaways.length > 0) {
     const selectedIndices = pkg.selected_takeaway_indices

@@ -855,21 +855,33 @@ export async function getEpisodeBySlug(
   // Block hidden episodes
   if (hiddenIds.has(episode.id)) return null
 
-  // Apply overrides
+  // ── The editor's override wins. One rule, both fields. ──────────────────
+  //
+  // TWO SOURCES FEED ONE SLOT. `resolveEpisodeBySlug` sets
+  // `summary = enrichment.full_summary || description`, and the page renders
+  // `summary || description` — so the page's summary can come from the
+  // enrichment OR from the description, and the admin's «الوصف» box writes only
+  // the description.
+  //
+  // The first version of this fix re-derived `summary` ONLY when it was a copy
+  // of the pre-override description. That closed the case we had (no enrichment
+  // ⇒ the edit was invisible) and left the other one open: with a pushed
+  // `full_summary`, editing «الوصف» would have gone silent again — the exact
+  // same bug, waiting for the first Studio push to arrive. It does not bite on
+  // production today only because all 41 episodes have an empty `full_summary`.
+  //
+  // So the rule is stated instead of pattern-matched: a human override beats a
+  // generated summary, always. `runStudioPushToEpisode` writes the SAME text to
+  // both fields, so a push loses nothing by this — and after it, an editor
+  // still owns the last word, which is what the admin's single «الوصف» box
+  // promises.
   const overrides = await getEpisodeOverrides()
-  const rawDescription = episode.description
   const [overridden] = applyOverrides([episode], overrides)
   const merged = { ...episode, ...overridden }
 
-  // The YouTube path in `resolveEpisodeBySlug` derives `summary` from
-  // `description` whenever the episode has no enrichment `full_summary` — and it
-  // does that BEFORE this override step, so the derived copy froze the
-  // pre-override text. The episode page renders `summary || description`, which
-  // meant an editor's description override landed on a field nothing read: the
-  // admin saved, the page never changed. Re-derive `summary` only when it is
-  // that stale copy; a real enrichment summary still wins.
-  if (merged.description !== rawDescription && merged.summary === rawDescription) {
-    merged.summary = merged.description ?? null
+  const override = overrides.find((o) => o.id === episode.id)
+  if (override?.customDescription) {
+    merged.summary = override.customDescription
   }
 
   return merged

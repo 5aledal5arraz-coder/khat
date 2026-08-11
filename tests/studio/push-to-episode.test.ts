@@ -279,3 +279,60 @@ describe("Studio push — episode title resolution", () => {
     ).rejects.toBeInstanceOf(StudioPushError)
   })
 })
+
+/**
+ * م-٥ — one summary, two rows, and which of them the page believes.
+ *
+ * `full_summary` lands in the enrichment; `description` lands in
+ * `episode_overrides.custom_description`. Both feed «ملخص الحلقة», and
+ * `getEpisodeBySlug` resolves the tie in favour of the OVERRIDE — that is the
+ * field the admin's «الوصف» box writes, and an editor has to own the last word.
+ *
+ * Which makes a summary-only push a silent no-op: it would write a new
+ * enrichment the page then ignores in favour of an older override, and report
+ * success. So the summary push carries the override with it.
+ */
+describe("Studio push — the summary cannot be half-pushed", () => {
+  const FULL = "ملخص طويل مولّد من نص الحلقة"
+
+  it("writes the override too when only full_summary is selected", async () => {
+    getWebsitePackageForSession.mockResolvedValue(pkg({ full_summary: FULL }))
+
+    const result = await runStudioPushToEpisode({
+      sessionId: "s1",
+      fields: { full_summary: true },
+    })
+
+    const { override, enrichment } = rpcPayloads()
+    expect(enrichment?.full_summary).toBe(FULL)
+    // The half that would otherwise be missing — and the page reads THIS one.
+    expect(override?.custom_description).toBe(FULL)
+    expect(result.pushedFields).toContain("description")
+  })
+
+  it("does not double-report description when both are selected", async () => {
+    getWebsitePackageForSession.mockResolvedValue(pkg({ full_summary: FULL }))
+
+    const result = await runStudioPushToEpisode({
+      sessionId: "s1",
+      fields: { description: true, full_summary: true },
+    })
+
+    expect(result.pushedFields.filter((f) => f === "description")).toHaveLength(1)
+    expect(rpcPayloads().override?.custom_description).toBe(FULL)
+  })
+
+  it("leaves the override alone when there is no summary to push", async () => {
+    // A description-only push is still legal; it is only the reverse that
+    // cannot be half-done.
+    getWebsitePackageForSession.mockResolvedValue(pkg({ full_summary: null }))
+
+    const result = await runStudioPushToEpisode({
+      sessionId: "s1",
+      fields: { full_summary: true },
+    })
+
+    expect(result.pushedFields).not.toContain("full_summary")
+    expect(result.pushedFields).not.toContain("description")
+  })
+})

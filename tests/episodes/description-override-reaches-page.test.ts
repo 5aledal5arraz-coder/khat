@@ -102,8 +102,20 @@ describe("description override on the public episode page", () => {
     expect(episode?.summary).toBe(EDITED)
   })
 
-  it("leaves summary alone when it came from an enrichment, not from description", async () => {
-    const FULL_SUMMARY = "ملخص تحريري مكتوب في الإثراء"
+  it("BEATS a pushed enrichment summary — a human edit is the last word", async () => {
+    // The rule this pins, and the trap it closes.
+    //
+    // The first fix only re-derived `summary` when it was a copy of the
+    // pre-override description, so an episode WITH a pushed `full_summary`
+    // would have gone silent again the moment Studio ran — the same bug, on a
+    // delay. It did not bite only because `full_summary` is empty on all 41
+    // production episodes, which is not a guarantee, it is a coincidence with
+    // an expiry date.
+    //
+    // `runStudioPushToEpisode` writes the same text to both fields, so a push
+    // loses nothing here; what it buys is that «الوصف» in the admin keeps the
+    // promise its single box makes.
+    const FULL_SUMMARY = "ملخص مولَّد من الاستوديو"
     mockGetPublicEnrichment.mockResolvedValue({ full_summary: FULL_SUMMARY })
     mockGetEpisodeOverrides.mockResolvedValue([
       { id: "ep-yt", originalTitle: "", customTitle: "", customDescription: EDITED },
@@ -113,7 +125,20 @@ describe("description override on the public episode page", () => {
     const episode = await getEpisodeBySlug("test-episode")
 
     expect(episode?.description).toBe(EDITED)
+    expect(episode?.summary).toBe(EDITED)
+  })
+
+  it("keeps the enrichment summary when there is NO override to beat it", async () => {
+    // The other half of the rule: nothing to override means Studio's text is
+    // the page's summary, which is the whole point of pushing one.
+    const FULL_SUMMARY = "ملخص مولَّد من الاستوديو"
+    mockGetPublicEnrichment.mockResolvedValue({ full_summary: FULL_SUMMARY })
+    primeSelects()
+
+    const episode = await getEpisodeBySlug("test-episode")
+
     expect(episode?.summary).toBe(FULL_SUMMARY)
+    expect(episode?.description).toBe(RAW)
   })
 
   it("keeps the raw description when there is no override", async () => {
