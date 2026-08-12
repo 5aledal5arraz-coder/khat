@@ -70,6 +70,11 @@ public/partners/
 # Admin-uploaded teaser videos — runtime media on disk (public/teasers/),
 # recreated by the upload route. Never commit uploaded/test videos.
 public/teasers/
+
+# Guest voice notes — runtime media written by the testimonial upload route.
+# Same category as teasers above: uploaded on the machine that serves them,
+# never part of a build, and pointless to version.
+public/testimonials/
 youtube-sync-backup-*.json
 quotes-backup-*.json
 guests-backup-*.json
