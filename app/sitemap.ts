@@ -3,6 +3,7 @@ import { getCachedPublicEpisodes } from "@/lib/cache"
 import { getGuests } from "@/lib/queries/episodes"
 import { getCategories } from "@/lib/queries/categories"
 import { listTopics } from "@/lib/queries/topics"
+import { listPublishedUpcomingForSitemap } from "@/lib/queries/upcoming-episodes"
 
 /**
  * The sitemap must advertise the pages this site actually serves — nothing more.
@@ -20,11 +21,12 @@ import { listTopics } from "@/lib/queries/topics"
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const baseUrl = "https://khatpodcast.com"
 
-  const [episodes, guests, categories, topics] = await Promise.all([
+  const [episodes, guests, categories, topics, upcoming] = await Promise.all([
     getCachedPublicEpisodes().catch(() => []),
     getGuests().catch(() => []),
     getCategories().catch(() => []),
     listTopics().catch(() => []),
+    listPublishedUpcomingForSitemap().catch(() => []),
   ])
 
   const staticRoutes: MetadataRoute.Sitemap = [
@@ -78,5 +80,37 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       priority: 0.7,
     }))
 
-  return [...staticRoutes, ...episodeRoutes, ...guestRoutes, ...categoryRoutes, ...topicRoutes]
+  // «حلقة قادمة» pages — real, permanent, crawlable URLs that simply have no
+  // video yet. They are listed here and NOWHERE else on the public site: not
+  // in /episodes, not in /api/episodes, not in the homepage grid. The sitemap
+  // is the deliberate exception, because the slug is distributed before the
+  // episode exists and the URL should be indexed under its final address from
+  // day one rather than discovered later.
+  //
+  // `listPublishedUpcomingForSitemap` excludes any row whose slug is already
+  // held by a row in `episodes` — the same precedence `/episodes/[slug]` uses
+  // to decide which page it serves. So this document lists a slug once, and
+  // lists it under whichever of the two is actually served.
+  //
+  // It deliberately does NOT test `published_episode_id`: that column is
+  // written by the transition, and a transition that failed to run would let
+  // one URL appear twice here with conflicting `lastmod` and `priority`.
+  //
+  // Lower priority and `daily`: the page is short by design and its content
+  // changes right up to the release.
+  const upcomingRoutes: MetadataRoute.Sitemap = upcoming.map((u) => ({
+    url: `${baseUrl}/episodes/${encodeURIComponent(u.slug)}`,
+    lastModified: u.updated_at ? new Date(u.updated_at) : new Date(),
+    changeFrequency: "daily" as const,
+    priority: 0.5,
+  }))
+
+  return [
+    ...staticRoutes,
+    ...episodeRoutes,
+    ...guestRoutes,
+    ...categoryRoutes,
+    ...topicRoutes,
+    ...upcomingRoutes,
+  ]
 }

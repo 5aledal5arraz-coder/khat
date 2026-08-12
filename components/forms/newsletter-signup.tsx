@@ -7,6 +7,9 @@
  *   • variant="hero"   — a centered brand CTA section for the homepage
  *   • variant="inline" — a horizontal band for in-page placement, matching
  *     the footer band's proportions (~160px tall instead of the hero's 462)
+ *   • variant="upcoming" — the ask on an unaired episode's page, where it is
+ *     the ONLY thing a visitor can do; its own copy, because "أحدث الحلقات"
+ *     is the wrong promise on a page about one specific episode
  *
  * The DOM ids are derived from the variant name (`nl-email-${variant}`), so
  * two instances on one page must use two different variant names — otherwise
@@ -31,7 +34,7 @@ export function NewsletterSignup({
   variant = "footer",
   className,
 }: {
-  variant?: "footer" | "footer-bare" | "hero" | "inline"
+  variant?: "footer" | "footer-bare" | "hero" | "inline" | "upcoming"
   className?: string
 }) {
   const [email, setEmail] = useState("")
@@ -297,6 +300,34 @@ export function NewsletterSignup({
         </div>
         <div className="w-full md:max-w-sm">{done ? successBar : form}</div>
       </div>
+    )
+  }
+
+  // ── Upcoming-episode variant ──────────────────────────────────────────
+  // A bordered card rather than the indigo band: on `/episodes/<slug>` before
+  // the episode exists this is the page's single call to action, and it has to
+  // read as part of the article, not as the footer arriving early.
+  //
+  // Its own DOM ids come free — they are derived from the variant name, which
+  // is exactly why this is a NEW variant and not a second "inline". The site
+  // footer renders on this page too, so reusing "footer" would have pointed
+  // both labels and both `aria-describedby` at whichever field parsed first.
+  if (variant === "upcoming") {
+    return (
+      <section
+        className={cn(
+          "rounded-3xl border border-border bg-card px-6 py-8 shadow-sm sm:px-8",
+          className,
+        )}
+      >
+        <h2 className="text-subhead font-bold text-foreground">
+          نعلمك أول ما تنزل
+        </h2>
+        <p className="mt-2 max-w-measure text-caption text-muted-foreground">
+          اشترك في نشرة خط، وتوصلك الحلقة أول ما تنزل — بدون إزعاج.
+        </p>
+        <div className="mt-5 max-w-md">{form}</div>
+      </section>
     )
   }
 

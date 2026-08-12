@@ -24,6 +24,17 @@ export interface MuseumThinker {
    * guest page, so a link would promise something and deliver a blank.
    */
   isUpcoming?: boolean
+  /**
+   * `/episodes/<slug>` for an upcoming guest who HAS a published «حلقة قادمة»
+   * page — the one case where a teased face leads somewhere real. It points at
+   * the EPISODE's future URL, not `/guests/[slug]`, which is still empty.
+   *
+   * Resolved on the SERVER (`getPublishedUpcomingSlugsByGuestIds`) and set only
+   * for a `published` row. The client must never decide this: it cannot see
+   * `status`, so a client-side guess would either link drafts or withhold links
+   * that work. Absent ⇒ the face stays unlinked, exactly as before.
+   */
+  upcomingHref?: string
 }
 
 export const MUSEUM_EPISODES: MuseumEpisode[] = [

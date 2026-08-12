@@ -213,13 +213,25 @@ export function GuestStrip({ guests }: { guests: MuseumThinker[] }) {
 /**
  * One face.
  *
- * An «قريباً» guest is NOT a link. Their episode has not aired, so
- * `/guests/[slug]` renders an empty page — a teaser that leads nowhere is worse
- * than a teaser that stays put. It also reads differently on purpose: a dashed
- * ring and a badge, so the row does not imply there is something to watch.
+ * An «قريباً» guest is not a link BY DEFAULT — their `/guests/[slug]` page is
+ * empty until an episode airs, and a teaser that leads nowhere is worse than a
+ * teaser that stays put.
+ *
+ * The exception is `upcomingHref`: when that guest has a PUBLISHED «حلقة
+ * قادمة» page, the face leads to `/episodes/<slug>` — the episode's permanent
+ * URL, already serving real content. The decision is made on the server
+ * (`attachUpcomingHrefs`), because only the server can see `status`; here the
+ * href is either present or it isn't.
+ *
+ * It still reads as upcoming: the dashed outline and the «قريباً» badge stay,
+ * and the hover is deliberately a DIFFERENT gesture from a published face.
+ * A published face grows (`scale-105`) — this one comes into focus, dropping
+ * the `opacity-75 saturate-50` that marks it as not-yet-aired. Same signal
+ * either way ("this responds"), but the two never look interchangeable.
  */
 function GuestFace({ guest }: { guest: MuseumThinker }) {
   const initial = guest.name.trim().charAt(0)
+  const upcomingLinked = Boolean(guest.isUpcoming && guest.upcomingHref)
 
   const portrait = (
     <>
@@ -258,7 +270,16 @@ function GuestFace({ guest }: { guest: MuseumThinker }) {
             // of kilobytes, and they sit near the top of the homepage where
             // they will almost all be seen anyway.
             loading="eager"
-            className={cn("object-cover", guest.isUpcoming && "opacity-75 saturate-50")}
+            className={cn(
+              "object-cover",
+              guest.isUpcoming && "opacity-75 saturate-50",
+              // The hover for a LINKED upcoming face: the dimming lifts instead
+              // of the portrait growing. Gated behind a real hover device for
+              // the same reason `scale-105` is — on a phone `:hover` latches
+              // after a tap and the face would stay lit through the scroll.
+              upcomingLinked &&
+                "transition-[opacity,filter] duration-300 [@media(hover:hover)]:group-hover:opacity-100 [@media(hover:hover)]:group-hover:saturate-100",
+            )}
           />
         ) : (
           // NO YOUTUBE THUMBNAIL AS A FACE — the posters carry burned-in
@@ -284,16 +305,27 @@ function GuestFace({ guest }: { guest: MuseumThinker }) {
   )
 
   const shell = "group flex snap-start flex-col items-center"
+  // Both link branches carry it: a keyboard user tabbing the strip must be able
+  // to see where they are, and an upcoming face is now tabbable too.
+  const focusRing =
+    "rounded-2xl focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:ring-offset-2"
+
+  // The server already decided this face has a live page — go straight to the
+  // episode's permanent URL, not to the still-empty guest page.
+  if (upcomingLinked) {
+    return (
+      <Link href={guest.upcomingHref as string} className={cn(shell, focusRing)}>
+        {portrait}
+      </Link>
+    )
+  }
 
   if (guest.isUpcoming || !guest.slug) {
     return <div className={shell}>{portrait}</div>
   }
 
   return (
-    <Link
-      href={`/guests/${encodeURIComponent(guest.slug)}`}
-      className={cn(shell, "rounded-2xl focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:ring-offset-2")}
-    >
+    <Link href={`/guests/${encodeURIComponent(guest.slug)}`} className={cn(shell, focusRing)}>
       {portrait}
     </Link>
   )

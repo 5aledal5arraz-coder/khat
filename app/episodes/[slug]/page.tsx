@@ -4,6 +4,7 @@ import { notFound } from "next/navigation"
 import {
   getCachedEpisodeBySlug,
   getCachedRelatedEpisodes,
+  getCachedPublicEpisodes,
 } from "@/lib/cache"
 import { getPublicEpisodeEnrichment } from "@/lib/episodes/enrichments"
 import { episodeThumbUrl } from "@/lib/episodes/thumbnail"
@@ -17,7 +18,10 @@ import { listPlatformsForSurface, listActivePlatforms } from "@/lib/queries/offi
 import { getEpisodeSponsor } from "@/lib/queries/episode-sponsors"
 import { getYouTubeId } from "@/lib/utils"
 import { displayEpisodeTitle } from "@/lib/shared/formatters"
+import { resolveEpisodeSlug } from "@/lib/queries/upcoming-episodes"
+import { filterLane } from "@/lib/episodes/programs"
 import { EpisodePageClient } from "@/components/episodes/episode-page-client"
+import { UpcomingEpisodePage } from "@/components/episodes/upcoming-episode-page"
 import { ReadingProgress } from "@/components/ui/reading-progress"
 
 // Note: searchParams (t= timestamp) forces dynamic rendering in Next.js 15+
@@ -34,6 +38,16 @@ const getEnrichmentForRequest = cache((episodeId: string) =>
   getPublicEpisodeEnrichment(episodeId),
 )
 
+/**
+ * ONE slug, TWO eras, resolved published-first — see `resolveEpisodeSlug`.
+ *
+ * `cache()` for the same reason as the enrichment above: `generateMetadata` and
+ * the page body run separately and both need the answer.
+ */
+const resolveForRequest = cache((slug: string) =>
+  resolveEpisodeSlug(slug, getCachedEpisodeBySlug),
+)
+
 interface EpisodePageProps {
   params: Promise<{ slug: string }>
   searchParams: Promise<{ t?: string }>
@@ -42,12 +56,46 @@ interface EpisodePageProps {
 export async function generateMetadata({ params }: EpisodePageProps): Promise<Metadata> {
   const { slug } = await params
   const decodedSlug = decodeURIComponent(slug)
-  const episode = await getCachedEpisodeBySlug(decodedSlug)
+  const resolved = await resolveForRequest(decodedSlug)
 
-  if (!episode) {
-    // Trigger a real 404 response (not a soft-404 body with HTTP 200).
-    notFound()
+  // Render the not-found UI for a slug neither table answers.
+  //
+  // THIS COMMENT USED TO CLAIM «a real 404 response (not a soft-404 body with
+  // HTTP 200)». It is not true and was not true before this route learned about
+  // upcoming pages: measured against a production build on 2026-08-12, an
+  // unknown slug here returns **HTTP 200** with the not-found body, and the
+  // same holds across `/guests`, `/categories` and `/topics`. Fixing that is a
+  // separate, site-wide decision and Khaled's call — but the comment is
+  // corrected now, because a false claim in the code is worse than the bug it
+  // describes: it stops anyone from looking.
+  if (!resolved) notFound()
+
+  if (resolved.kind === "upcoming") {
+    const upcoming = resolved.upcoming
+
+    // «قريباً — » LEADS both titles. A share card for a page with no video has
+    // to say so in its first two words, before the truncation that every
+    // surface applies: the title is the only part guaranteed to survive.
+    const upcomingTitle = `قريباً — ${upcoming.title}`
+    return {
+      title: upcomingTitle,
+      description:
+        upcoming.summary?.trim() ||
+        `حلقة قادمة من بودكاست خط${upcoming.guest ? ` مع ${upcoming.guest.name}` : ""} — الحلقة ما نزلت بعد.`,
+      alternates: { canonical: `https://khatpodcast.com/episodes/${upcoming.slug}` },
+      openGraph: {
+        title: upcomingTitle,
+        description: upcoming.summary?.trim() || undefined,
+        type: "article",
+        // No episode thumbnail exists yet, so the site card is the honest
+        // choice. `undefined` would be wrong here for the same reason it is
+        // below: declaring `openGraph` REPLACES the layout's block entirely.
+        images: [await resolveDefaultOgImage()],
+      },
+    }
   }
+
+  const episode = resolved.episode
 
   // Through the shared resolver, so the card honours `episodes.thumbnail_url`
   // — an editor's override used to be ignored here while the homepage queries
@@ -97,11 +145,36 @@ export default async function EpisodePage({ params, searchParams }: EpisodePageP
   const { t } = await searchParams
   const startTime = t ? parseInt(t, 10) : undefined
   const decodedSlug = decodeURIComponent(slug)
-  const episode = await getCachedEpisodeBySlug(decodedSlug)
+  const resolved = await resolveForRequest(decodedSlug)
 
-  if (!episode) {
-    notFound()
+  if (!resolved) notFound()
+
+  if (resolved.kind === "upcoming") {
+    const upcoming = resolved.upcoming
+
+    // The archive's newest conversations, as the way out of a page with
+    // nothing to play. `filterLane(…, "khat")` is the same rule the homepage
+    // grid uses, so «مقاطع خط» cut-downs can't turn up as "related".
+    const [allEpisodes, videoPlatforms] = await Promise.all([
+      getCachedPublicEpisodes().catch(() => []),
+      listActivePlatforms({ category: "video" }).catch(() => []),
+    ])
+    const recommendations = filterLane(allEpisodes, "khat").slice(0, 3)
+    const youtube = videoPlatforms.find((p) => p.platform_key === "youtube") ?? null
+
+    // NO `PodcastEpisode` JSON-LD. The type requires a `datePublished` and an
+    // `associatedMedia` that do not exist yet; emitting it would tell Google
+    // an episode aired that did not.
+    return (
+      <UpcomingEpisodePage
+        upcoming={upcoming}
+        youtubeUrl={youtube?.url ?? null}
+        recommendations={recommendations}
+      />
+    )
   }
+
+  const episode = resolved.episode
 
   // Four fetches left with «اكتشف أكثر» and the previous/next pair: the
   // adjacent episodes, the home quotes and the daily reflections. They were

@@ -28,6 +28,7 @@ import {
   Clapperboard,
   MessagesSquare,
   Youtube,
+  CalendarClock,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 
@@ -98,6 +99,10 @@ const navGroups: NavGroup[] = [
     title: "الموقع والجمهور",
     items: [
       { href: "/admin/episodes", icon: PlayCircle, label: "الحلقات" },
+      // Directly under «الحلقات» because it is the same object one phase
+      // earlier — the page for an episode that has not aired, on the URL the
+      // episode itself will inherit.
+      { href: "/admin/upcoming", icon: CalendarClock, label: "الحلقات القادمة" },
       { href: "/admin/home-content", icon: Home, label: "واجهة الموقع" },
       { href: "/admin/about-team", icon: Users, label: "فريق «من نحن»" },
       { href: "/admin/newsletter", icon: Mail, label: "النشرة البريدية" },

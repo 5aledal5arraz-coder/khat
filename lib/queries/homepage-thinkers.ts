@@ -19,6 +19,7 @@ import {
 const BENCH_SPARES = 12
 import type { MuseumThinker } from "@/lib/content/museum-data"
 import { getEpisodes } from "./episodes"
+import { getPublishedUpcomingSlugsByGuestIds } from "./upcoming-episodes"
 import { filterLane } from "@/lib/episodes/programs"
 
 export interface HomepageThinkerRow {
@@ -204,6 +205,31 @@ async function upcomingThinkers(): Promise<MuseumThinker[]> {
   }
 }
 
+/**
+ * Give every «قريباً» face its link — if, and only if, it has one.
+ *
+ * ONE query for the whole strip, and it runs on the server: the client
+ * receives a resolved `upcomingHref` or nothing, never the `status` it would
+ * need to make this call itself. A guest with a `draft` or `withdrawn` page
+ * comes back with no href and stays unlinked, which is the pre-existing
+ * behaviour — the link is strictly an addition, never a downgrade.
+ *
+ * Published guests are untouched: their link is `/guests/[slug]` and always was.
+ */
+async function attachUpcomingHrefs(list: MuseumThinker[]): Promise<MuseumThinker[]> {
+  const upcomingIds = list.filter((t) => t.isUpcoming).map((t) => t.id)
+  if (upcomingIds.length === 0) return list
+
+  const slugByGuest = await getPublishedUpcomingSlugsByGuestIds(upcomingIds)
+  if (slugByGuest.size === 0) return list
+
+  return list.map((t) => {
+    if (!t.isUpcoming) return t
+    const slug = slugByGuest.get(t.id)
+    return slug ? { ...t, upcomingHref: `/episodes/${encodeURIComponent(slug)}` } : t
+  })
+}
+
 /** Get thinkers as MuseumThinker[] for the homepage. Returns null if none configured. */
 export async function getHomepageThinkersForDisplay(): Promise<MuseumThinker[] | null> {
   // A3 — DB-null guard. Returning null signals "nothing to render"
@@ -277,7 +303,8 @@ export async function getHomepageThinkersForDisplay(): Promise<MuseumThinker[] |
       // slice is the ceiling, applied AFTER «قريباً» has taken its place at the
       // front so a full strip can never push a teased guest off the end.
       const merged = [...upcoming, ...results.filter((r) => !flagged.has(r.id))]
-      return merged.length > 0 ? merged.slice(0, limit + BENCH_SPARES) : null
+      if (merged.length === 0) return null
+      return attachUpcomingHrefs(merged.slice(0, limit + BENCH_SPARES))
     }
 
     // Manual mode: use saved selections
@@ -317,7 +344,7 @@ export async function getHomepageThinkersForDisplay(): Promise<MuseumThinker[] |
       })
     }
 
-    return results.length > 0 ? results : null
+    return results.length > 0 ? attachUpcomingHrefs(results) : null
   } catch {
     return null
   }
