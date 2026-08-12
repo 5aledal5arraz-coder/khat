@@ -42,6 +42,11 @@ export default async function EpisodesAdminPage() {
     category_id: ep.category_id || null,
     guest_id: ep.guest?.id || null,
     guest_name: ep.guest?.name || null,
+    // The listing does not render these; they are carried because
+    // `AdminEpisodeView` is one shape for both screens and a second,
+    // list-only variant is how the two drift.
+    guest_testimonial: ep.guest_testimonial ?? null,
+    guest_video_url: ep.guest_video_url ?? null,
   }))
 
   const guestsData = guests.map((g) => ({

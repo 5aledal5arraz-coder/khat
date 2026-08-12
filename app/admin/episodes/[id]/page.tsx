@@ -81,6 +81,8 @@ export default async function EpisodeDetailPage({
     guest_id: rawEpisode.guest?.id || null,
     guest_name: rawEpisode.guest?.name || null,
     category_id: rawEpisode.category_id || null,
+    guest_testimonial: rawEpisode.guest_testimonial ?? null,
+    guest_video_url: rawEpisode.guest_video_url ?? null,
   }
 
   const override = overrides.find((o) => o.id === id) || null

@@ -69,4 +69,10 @@ export const ADMIN_LIMITS = {
   TITLE_LENGTH: 300,
   DESCRIPTION_LENGTH: 5000,
   LABEL_LENGTH: 100,
+  /**
+   * The guest's word about the recording, printed under their name on the
+   * episode page. Short on purpose — it renders as a pull quote beside the
+   * portrait, and a paragraph there stops reading as a quote.
+   */
+  TESTIMONIAL_LENGTH: 400,
 } as const

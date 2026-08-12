@@ -13,6 +13,7 @@ import type { EpisodeVersion, EpisodeVersionChangeType } from "@/types/database"
 const CHANGE_TYPE_LABELS: Record<EpisodeVersionChangeType, string> = {
   title_override: "تعديل العنوان",
   description_override: "تعديل الوصف",
+  guest_testimonial: "تعديل شهادة الضيف",
   enrichment: "إثراء المحتوى",
   quotes: "اقتباسات",
   section_assignment: "تصنيف",

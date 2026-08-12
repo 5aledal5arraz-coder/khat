@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useRef, useEffect } from "react"
+import { useRouter } from "next/navigation"
 import {
   Pencil,
   Check,
@@ -22,11 +23,13 @@ import {
   assignEpisodeGuest,
   toggleEpisodeVisibility,
   assignEpisodeSponsorAction,
+  updateGuestTestimonial,
 } from "../actions"
 import { GlowCard } from "@/app/admin/components/glow-card"
 import { formatDuration, formatDate } from "./shared"
 import type { AdminEpisodeView, AdminGuestView } from "./shared"
 import type { EpisodeOverride } from "@/types/episodes"
+import { ADMIN_LIMITS } from "@/lib/validation/forms"
 
 interface SponsorPartner {
   id: string
@@ -54,6 +57,7 @@ export function DetailOverview({
   currentSponsorId,
   currentBrandLine,
 }: DetailOverviewProps) {
+  const router = useRouter()
   const [editingTitle, setEditingTitle] = useState(false)
   const [editingDesc, setEditingDesc] = useState(false)
   const [title, setTitle] = useState(override?.customTitle || episode.title)
@@ -127,6 +131,36 @@ export function DetailOverview({
       return
     }
     setEditingDesc(false)
+  }
+
+  // ── Guest testimonial ────────────────────────────────────────────────
+  const [editingTestimonial, setEditingTestimonial] = useState(false)
+  const [savingTestimonial, setSavingTestimonial] = useState(false)
+  const [testimonialError, setTestimonialError] = useState<string | null>(null)
+  const [testimonial, setTestimonial] = useState(episode.guest_testimonial || "")
+  const [testimonialVideo, setTestimonialVideo] = useState(episode.guest_video_url || "")
+
+  const handleSaveTestimonial = async () => {
+    setSavingTestimonial(true)
+    setTestimonialError(null)
+    const result = await updateGuestTestimonial(episode.id, testimonial, testimonialVideo)
+    setSavingTestimonial(false)
+    if (!result.success) {
+      // Same rule as the description editor: show WHY and keep the form open.
+      // A rejected YouTube link arrives here, and silently closing would look
+      // like a save.
+      setTestimonialError(result.error ?? "فشل حفظ الشهادة")
+      return
+    }
+    setEditingTestimonial(false)
+    router.refresh()
+  }
+
+  const handleCancelTestimonial = () => {
+    setTestimonial(episode.guest_testimonial || "")
+    setTestimonialVideo(episode.guest_video_url || "")
+    setTestimonialError(null)
+    setEditingTestimonial(false)
   }
 
   const handleCancelDesc = () => {
@@ -373,6 +407,101 @@ export function DetailOverview({
           ) : (
             <p className="text-sm italic text-muted-foreground">
               لا يوجد وصف لهذه الحلقة
+            </p>
+          )}
+        </div>
+
+        {/* Guest testimonial.
+            The public card that prints this — a pull quote signed «— اسم
+            الضيف، بعد تسجيل الحلقة», with an optional video beside it — has
+            existed on the episode page all along. The two columns simply had
+            no writer anywhere in the codebase, so 0 of 41 episodes could ever
+            show it. This is that writer.
+
+            It sits under «الوصف» rather than in its own tab because it is
+            collected in the same moment: right after the recording, in one
+            sitting, not as a monthly obligation. */}
+        <div className="rounded-2xl border border-border/30 bg-card/50 p-5 backdrop-blur-sm">
+          <div className="mb-2 flex items-center justify-between">
+            <label className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+              شهادة الضيف
+            </label>
+            {!editingTestimonial && (
+              <button
+                onClick={() => {
+                  setTestimonialError(null)
+                  setEditingTestimonial(true)
+                }}
+                className="flex h-7 w-7 items-center justify-center rounded-lg text-muted-foreground transition-all hover:bg-muted/60 hover:text-foreground"
+              >
+                <Pencil className="h-3.5 w-3.5" />
+              </button>
+            )}
+          </div>
+
+          {editingTestimonial ? (
+            <div className="space-y-3">
+              <div>
+                <p className="mb-1.5 text-[11px] text-muted-foreground">
+                  كلام الضيف عن تجربة التسجيل — يظهر أعلى صفحة الحلقة موقّعاً باسمه.
+                </p>
+                <textarea
+                  value={testimonial}
+                  onChange={(e) => setTestimonial(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === "Escape") handleCancelTestimonial() }}
+                  maxLength={ADMIN_LIMITS.TESTIMONIAL_LENGTH}
+                  placeholder="مثال: من أفضل الحوارات اللي سويتها — حسّيت إني أتكلم مع صديق لا مع مذيع."
+                  dir="auto"
+                  className="min-h-[90px] w-full resize-none rounded-xl border border-primary/30 bg-primary/5 px-4 py-3 text-sm leading-relaxed text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary/30"
+                />
+                <p className="mt-1 text-end text-[11px] text-muted-foreground tabular-nums">
+                  {testimonial.length} / {ADMIN_LIMITS.TESTIMONIAL_LENGTH}
+                </p>
+              </div>
+
+              <div>
+                <p className="mb-1.5 text-[11px] text-muted-foreground">
+                  رابط مقطع يوتيوب للشهادة (اختياري)
+                </p>
+                <input
+                  type="text"
+                  value={testimonialVideo}
+                  onChange={(e) => setTestimonialVideo(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === "Escape") handleCancelTestimonial() }}
+                  placeholder="https://www.youtube.com/watch?v=..."
+                  dir="ltr"
+                  className="h-10 w-full rounded-xl border border-primary/30 bg-primary/5 px-3 text-sm text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary/30"
+                />
+              </div>
+
+              {testimonialError && (
+                <p className="text-xs text-destructive" data-testimonial-error>
+                  {testimonialError}
+                </p>
+              )}
+
+              <div className="flex items-center gap-2">
+                <Button size="sm" onClick={handleSaveTestimonial} disabled={savingTestimonial} className="gap-2 rounded-xl">
+                  {savingTestimonial ? "جارٍ الحفظ..." : "حفظ الشهادة"}
+                </Button>
+                <Button size="sm" variant="ghost" onClick={handleCancelTestimonial} disabled={savingTestimonial} className="rounded-xl">
+                  إلغاء
+                </Button>
+              </div>
+            </div>
+          ) : episode.guest_testimonial ? (
+            <div className="space-y-2">
+              <p className="whitespace-pre-line text-sm italic leading-relaxed text-foreground/90" dir="auto">
+                ❝ {episode.guest_testimonial}
+              </p>
+              <p className="text-[11px] text-muted-foreground">
+                — {episode.guest_name || "الضيف"}، بعد تسجيل الحلقة
+                {episode.guest_video_url ? " · ومعها مقطع فيديو" : ""}
+              </p>
+            </div>
+          ) : (
+            <p className="text-sm italic text-muted-foreground">
+              لا توجد شهادة — القسم لا يظهر في صفحة الحلقة حتى تُضاف.
             </p>
           )}
         </div>

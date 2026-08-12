@@ -19,6 +19,7 @@ import {
   restoreDeletedEpisodes,
 } from "@/lib/episodes/deleted"
 import { ensureEpisodeInDb } from "@/lib/episodes/ensure-row"
+import { getYouTubeId } from "@/lib/utils"
 import { fetchAllEpisodes as ytFetchAll } from "@/lib/youtube/queries"
 import { db } from "@/lib/db"
 import {
@@ -170,6 +171,74 @@ export async function updateEpisodeDescription(
   revalidatePath("/episodes")
   revalidatePath("/episodes/[slug]", "page")
   revalidatePath("/admin/episodes")
+  revalidatePath(`/admin/episodes/${episodeId}`)
+
+  return { success: true }
+}
+
+/**
+ * The guest's word about the recording — «— اسم الضيف، بعد تسجيل الحلقة».
+ *
+ * The public card that prints this, and the video button beside it, have been
+ * built since before the audit; what was missing was any way to fill them. The
+ * two columns had **no writer anywhere in the codebase**, so 0 of 41 episodes
+ * could ever show the section. This is that writer.
+ *
+ * They live on `episodes`, not on `episode_overrides`: the testimonial belongs
+ * to a RECORDING, not to a person. A guest invited twice says something
+ * different each time, and the guest's own page never renders this at all.
+ */
+export async function updateGuestTestimonial(
+  episodeId: string,
+  testimonial: string,
+  videoUrl: string,
+): Promise<{ success: boolean; error?: string }> {
+  const gate = await requireActionRole("EDITOR")
+  if (!gate.ok) return { success: false, error: gate.error }
+  if (!episodeId) return { success: false, error: "بيانات غير صالحة" }
+
+  const text = testimonial.trim().slice(0, ADMIN_LIMITS.TESTIMONIAL_LENGTH)
+  const url = videoUrl.trim()
+
+  // A link that yields no video id renders a play button over nothing. Refuse
+  // it here rather than let the card ship a dead control.
+  if (url && !getYouTubeId(url)) {
+    return { success: false, error: "رابط يوتيوب غير صالح — تأكّد أنه رابط فيديو" }
+  }
+
+  // CRITICAL, same as `assignEpisodeCategory`: an episode that exists only on
+  // YouTube has no row here, and the UPDATE below would be a silent no-op —
+  // the admin would report success and nothing would change.
+  const status = await ensureEpisodeInDb(episodeId)
+  if (status === "not-found") {
+    return { success: false, error: "تعذّر العثور على الحلقة في قاعدة البيانات أو في يوتيوب" }
+  }
+
+  try {
+    await saveVersion(episodeId, "guest_testimonial", { testimonial: text, videoUrl: url }, "تعديل شهادة الضيف")
+    const rows = await db!
+      .update(episodesTable)
+      .set({
+        guest_testimonial: text || null,
+        guest_video_url: url || null,
+      })
+      .where(eq(episodesTable.id, episodeId))
+      .returning({ id: episodesTable.id })
+
+    if (rows.length === 0) {
+      console.error(`[updateGuestTestimonial] UPDATE affected 0 rows for ${episodeId}`)
+      return { success: false, error: "لم يتم حفظ التعديل — لم يتغيّر أي صف" }
+    }
+  } catch (err) {
+    console.error(`[updateGuestTestimonial] Failed for ${episodeId}:`, err)
+    return { success: false, error: "تعذّر حفظ الشهادة" }
+  }
+
+  await invalidateEpisodeCache()
+  invalidate("episodes")
+  revalidatePath("/")
+  revalidatePath("/episodes")
+  revalidatePath("/episodes/[slug]", "page")
   revalidatePath(`/admin/episodes/${episodeId}`)
 
   return { success: true }

@@ -113,6 +113,8 @@ export type EpisodeVersionChangeType =
   | "section_assignment"
   | "visibility"
   | "guest_assignment"
+  /** The guest's word about the recording, printed on the episode page. */
+  | "guest_testimonial"
   | "category_assignment"
   | "youtube_pack"
   | "conversation"
@@ -710,6 +712,10 @@ export interface AdminEpisodeView {
   category_id: string | null
   guest_id: string | null
   guest_name: string | null
+  /** The guest's word about the recording — printed on the episode page. */
+  guest_testimonial: string | null
+  /** A short YouTube clip of that testimonial, shown beside it. */
+  guest_video_url: string | null
 }
 
 /** Lightweight guest projection used by admin episodes components */
