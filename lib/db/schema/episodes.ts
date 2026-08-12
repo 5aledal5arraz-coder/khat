@@ -30,6 +30,18 @@ export const episodes = pgTable("episodes", {
   guest_id: text("guest_id").references(() => guests.id, { onDelete: "set null" }),
   guest_testimonial: text("guest_testimonial"),
   guest_video_url: text("guest_video_url"),
+  /**
+   * A VOICE note from the guest — the third form the testimonial can take,
+   * alongside the written text and the YouTube clip above. Stored as a path
+   * under `/testimonials/`, served by `app/api/media/[dir]/[file]`.
+   *
+   * Always `.m4a`: the upload route transcodes whatever arrives. A WhatsApp
+   * voice note is Opus-in-Ogg, which iPhone Safari will not play — and this
+   * audience is overwhelmingly iPhone.
+   */
+  guest_audio_url: text("guest_audio_url"),
+  /** Seconds, measured by ffprobe after transcode — never trusted from the client. */
+  guest_audio_duration: integer("guest_audio_duration"),
   audio_url: text("audio_url"),
   audio_type: text("audio_type"),
   rss_guid: text("rss_guid").unique(),

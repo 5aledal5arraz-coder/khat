@@ -123,6 +123,8 @@ function dbEpisodeToEpisode(e: typeof episodes.$inferSelect): Episode {
     guest_id: e.guest_id || null,
     guest_testimonial: e.guest_testimonial || null,
     guest_video_url: e.guest_video_url || null,
+    guest_audio_url: e.guest_audio_url || null,
+    guest_audio_duration: e.guest_audio_duration ?? null,
     created_at: e.created_at ? e.created_at.toISOString() : new Date().toISOString(),
     updated_at: e.updated_at ? e.updated_at.toISOString() : undefined,
   } as Episode

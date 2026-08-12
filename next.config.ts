@@ -74,6 +74,13 @@ const nextConfig: NextConfig = {
             "/:dir(guests|content|home|partners|team|teasers)/:file(.+\\.(?:jpg|jpeg|png|webp|gif|avif))",
           destination: "/api/media/:dir/:file",
         },
+        // Guest voice notes. Separate entry rather than another alternative in
+        // the pattern above: audio lives in exactly one directory, and folding
+        // it in would also route `/guests/x.m4a` — a path nothing writes.
+        {
+          source: "/testimonials/:file(.+\\.m4a)",
+          destination: "/api/media/testimonials/:file",
+        },
       ],
       fallback: [],
     }

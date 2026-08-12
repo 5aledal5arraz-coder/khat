@@ -192,6 +192,8 @@ export async function updateGuestTestimonial(
   episodeId: string,
   testimonial: string,
   videoUrl: string,
+  audioUrl?: string | null,
+  audioDuration?: number | null,
 ): Promise<{ success: boolean; error?: string }> {
   const gate = await requireActionRole("EDITOR")
   if (!gate.ok) return { success: false, error: gate.error }
@@ -199,6 +201,19 @@ export async function updateGuestTestimonial(
 
   const text = testimonial.trim().slice(0, ADMIN_LIMITS.TESTIMONIAL_LENGTH)
   const url = videoUrl.trim()
+
+  // The voice note is written by the upload route, which mints its own name;
+  // anything else arriving here is not a file we produced. Refusing an
+  // unrecognised path stops this field from becoming a way to point the public
+  // player at an arbitrary URL.
+  const audio = (audioUrl ?? "").trim()
+  if (audio && !/^\/testimonials\/[a-f0-9]{16}\.m4a$/.test(audio)) {
+    return { success: false, error: "مسار الملف الصوتي غير صالح" }
+  }
+  const audioSeconds =
+    audio && typeof audioDuration === "number" && Number.isFinite(audioDuration) && audioDuration > 0
+      ? Math.round(audioDuration)
+      : null
 
   // A link that yields no video id renders a play button over nothing. Refuse
   // it here rather than let the card ship a dead control.
@@ -215,12 +230,19 @@ export async function updateGuestTestimonial(
   }
 
   try {
-    await saveVersion(episodeId, "guest_testimonial", { testimonial: text, videoUrl: url }, "تعديل شهادة الضيف")
+    await saveVersion(
+      episodeId,
+      "guest_testimonial",
+      { testimonial: text, videoUrl: url, audioUrl: audio, audioDuration: audioSeconds },
+      "تعديل شهادة الضيف",
+    )
     const rows = await db!
       .update(episodesTable)
       .set({
         guest_testimonial: text || null,
         guest_video_url: url || null,
+        guest_audio_url: audio || null,
+        guest_audio_duration: audioSeconds,
       })
       .where(eq(episodesTable.id, episodeId))
       .returning({ id: episodesTable.id })

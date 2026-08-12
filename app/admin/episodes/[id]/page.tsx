@@ -88,6 +88,8 @@ export default async function EpisodeDetailPage({
     category_id: rawEpisode.category_id || null,
     guest_testimonial: rawEpisode.guest_testimonial ?? null,
     guest_video_url: rawEpisode.guest_video_url ?? null,
+    guest_audio_url: rawEpisode.guest_audio_url ?? null,
+    guest_audio_duration: rawEpisode.guest_audio_duration ?? null,
   }
 
   const override = overrides.find((o) => o.id === id) || null

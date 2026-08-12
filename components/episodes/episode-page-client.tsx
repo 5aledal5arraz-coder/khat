@@ -199,6 +199,8 @@ export function EpisodePageClient({
               guest={episode.guest}
               testimonial={episode.guest_testimonial}
               testimonialVideoUrl={episode.guest_video_url}
+              testimonialAudioUrl={episode.guest_audio_url}
+              testimonialAudioDuration={episode.guest_audio_duration}
             />
           )}
 

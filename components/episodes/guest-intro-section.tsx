@@ -19,6 +19,7 @@ import { TwitchIcon } from "@/components/icons/twitch-icon"
 import { DiscordIcon } from "@/components/icons/discord-icon"
 import { PinterestIcon } from "@/components/icons/pinterest-icon"
 import { getYouTubeId } from "@/lib/utils"
+import { VoiceNote } from "./voice-note"
 import Link from "next/link"
 
 interface GuestIntroSectionProps {
@@ -31,6 +32,8 @@ interface GuestIntroSectionProps {
   }
   testimonial?: string | null
   testimonialVideoUrl?: string | null
+  testimonialAudioUrl?: string | null
+  testimonialAudioDuration?: number | null
 }
 
 type IconComponent = React.ComponentType<{ className?: string }>
@@ -56,7 +59,13 @@ const socialIcons: Record<string, IconComponent> = {
   website: Globe,
 }
 
-export function GuestIntroSection({ guest, testimonial, testimonialVideoUrl }: GuestIntroSectionProps) {
+export function GuestIntroSection({
+  guest,
+  testimonial,
+  testimonialVideoUrl,
+  testimonialAudioUrl,
+  testimonialAudioDuration,
+}: GuestIntroSectionProps) {
   const [showVideo, setShowVideo] = useState(false)
   const [guestTracked, setGuestTracked] = useState(false)
   const externalLinks = guest.external_links || {}
@@ -125,13 +134,32 @@ export function GuestIntroSection({ guest, testimonial, testimonialVideoUrl }: G
               </p>
             )}
 
-            {/* Testimonial Message */}
-            {testimonial && (
-              <div className="mt-4 rounded-lg bg-muted/50 p-4 relative">
-                <div className="absolute -top-2 start-4 text-heading text-primary/30">&ldquo;</div>
-                <p className="text-caption italic text-foreground/90 ps-4">
-                  {testimonial}
-                </p>
+            {/* Testimonial — written, spoken, or both.
+                The three forms are independent: a guest who sends a voice note
+                and never writes anything still gets a card, which is the whole
+                point of adding audio. The opening quote mark and the italic
+                belong to the WRITTEN form only — set over a player they would
+                be decorating a control. */}
+            {(testimonial || testimonialAudioUrl) && (
+              <div className="relative mt-4 rounded-lg bg-muted/50 p-4">
+                {testimonial && (
+                  <>
+                    <div className="absolute -top-2 start-4 text-heading text-primary/30">&ldquo;</div>
+                    <p className="text-caption italic text-foreground/90 ps-4">
+                      {testimonial}
+                    </p>
+                  </>
+                )}
+
+                {testimonialAudioUrl && (
+                  <VoiceNote
+                    src={testimonialAudioUrl}
+                    durationSeconds={testimonialAudioDuration}
+                    label={`صوت ${guest.name}`}
+                    className={testimonial ? "mt-3" : undefined}
+                  />
+                )}
+
                 <p className="mt-2 text-micro text-muted-foreground ps-4">
                   — {guest.name}، بعد تسجيل الحلقة
                 </p>

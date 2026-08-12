@@ -47,6 +47,8 @@ export default async function EpisodesAdminPage() {
     // list-only variant is how the two drift.
     guest_testimonial: ep.guest_testimonial ?? null,
     guest_video_url: ep.guest_video_url ?? null,
+    guest_audio_url: ep.guest_audio_url ?? null,
+    guest_audio_duration: ep.guest_audio_duration ?? null,
   }))
 
   const guestsData = guests.map((g) => ({

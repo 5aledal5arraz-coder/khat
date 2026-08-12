@@ -40,6 +40,8 @@ export interface Episode {
   guest?: Guest | null
   guest_testimonial?: string | null
   guest_video_url?: string | null
+  guest_audio_url?: string | null
+  guest_audio_duration?: number | null
   audio_url?: string | null
   audio_type?: string | null
   rss_guid?: string | null
@@ -716,6 +718,10 @@ export interface AdminEpisodeView {
   guest_testimonial: string | null
   /** A short YouTube clip of that testimonial, shown beside it. */
   guest_video_url: string | null
+  /** A voice note from the guest — `/testimonials/<hash>.m4a`, always transcoded. */
+  guest_audio_url: string | null
+  /** Length of that voice note in whole seconds; null when ffprobe could not measure it. */
+  guest_audio_duration: number | null
 }
 
 /** Lightweight guest projection used by admin episodes components */

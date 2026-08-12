@@ -15,7 +15,7 @@ import {
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { getYouTubeEmbedUrl, getYouTubeId } from "@/lib/utils"
+import { getYouTubeEmbedUrl, getYouTubeId, formatTimeSeconds } from "@/lib/utils"
 import { displayEpisodeTitle } from "@/lib/shared/formatters"
 import {
   updateEpisodeTitle,
@@ -140,11 +140,49 @@ export function DetailOverview({
   const [testimonialError, setTestimonialError] = useState<string | null>(null)
   const [testimonial, setTestimonial] = useState(episode.guest_testimonial || "")
   const [testimonialVideo, setTestimonialVideo] = useState(episode.guest_video_url || "")
+  const [audioUrl, setAudioUrl] = useState<string | null>(episode.guest_audio_url ?? null)
+  const [audioDuration, setAudioDuration] = useState<number | null>(episode.guest_audio_duration ?? null)
+  const [uploadingAudio, setUploadingAudio] = useState(false)
+  const audioInputRef = useRef<HTMLInputElement>(null)
+
+  // Upload is its own step: the file is transcoded and stored the moment it is
+  // chosen, and only the resulting path is saved with the rest of the form.
+  // Deferring the upload to "حفظ" would mean a 20 MB body inside a server
+  // action and no way to hear the note before committing to it.
+  const handlePickAudio = async (file: File | null) => {
+    if (!file) return
+    setUploadingAudio(true)
+    setTestimonialError(null)
+    try {
+      const body = new FormData()
+      body.append("file", file)
+      const res = await fetch("/api/admin/episodes/testimonial-audio", { method: "POST", body })
+      const data = await res.json()
+      if (!res.ok || !data.success) {
+        setTestimonialError(data.error ?? "تعذّر رفع الملف الصوتي")
+        return
+      }
+      setAudioUrl(data.url)
+      setAudioDuration(data.durationSeconds ?? null)
+    } catch {
+      setTestimonialError("تعذّر الاتصال بالخادم أثناء الرفع")
+    } finally {
+      setUploadingAudio(false)
+      // Without this, re-picking the SAME file after an error fires no change event.
+      if (audioInputRef.current) audioInputRef.current.value = ""
+    }
+  }
 
   const handleSaveTestimonial = async () => {
     setSavingTestimonial(true)
     setTestimonialError(null)
-    const result = await updateGuestTestimonial(episode.id, testimonial, testimonialVideo)
+    const result = await updateGuestTestimonial(
+      episode.id,
+      testimonial,
+      testimonialVideo,
+      audioUrl,
+      audioDuration,
+    )
     setSavingTestimonial(false)
     if (!result.success) {
       // Same rule as the description editor: show WHY and keep the form open.
@@ -160,6 +198,8 @@ export function DetailOverview({
   const handleCancelTestimonial = () => {
     setTestimonial(episode.guest_testimonial || "")
     setTestimonialVideo(episode.guest_video_url || "")
+    setAudioUrl(episode.guest_audio_url ?? null)
+    setAudioDuration(episode.guest_audio_duration ?? null)
     setTestimonialError(null)
     setEditingTestimonial(false)
   }
@@ -476,6 +516,42 @@ export function DetailOverview({
 
               <div>
                 <p className="mb-1.5 text-[11px] text-muted-foreground">
+                  رسالة صوتية من الضيف (اختياري) — تُحوَّل تلقائياً لصيغة تعمل على الآيفون
+                </p>
+                {audioUrl ? (
+                  <div className="flex items-center gap-2 rounded-xl border border-primary/30 bg-primary/5 px-3 py-2">
+                    {/* The raw element, not the public player: this is a check
+                        that the right file landed, so scrubbing matters more
+                        than matching the site's styling. */}
+                    <audio src={audioUrl} controls preload="metadata" className="h-9 flex-1" />
+                    <span className="shrink-0 text-[11px] tabular-nums text-muted-foreground">
+                      {audioDuration ? formatTimeSeconds(audioDuration) : "—"}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => { setAudioUrl(null); setAudioDuration(null) }}
+                      className="shrink-0 rounded-lg px-2 py-1 text-[11px] text-destructive hover:bg-destructive/10"
+                    >
+                      إزالة
+                    </button>
+                  </div>
+                ) : (
+                  <input
+                    ref={audioInputRef}
+                    type="file"
+                    accept="audio/*,.m4a,.ogg,.opus,.mp3,.wav"
+                    disabled={uploadingAudio}
+                    onChange={(e) => handlePickAudio(e.target.files?.[0] ?? null)}
+                    className="w-full rounded-xl border border-primary/30 bg-primary/5 px-3 py-2 text-sm file:me-3 file:rounded-lg file:border-0 file:bg-primary file:px-3 file:py-1.5 file:text-xs file:text-primary-foreground disabled:opacity-50"
+                  />
+                )}
+                {uploadingAudio && (
+                  <p className="mt-1 text-[11px] text-muted-foreground">جارٍ الرفع والتحويل...</p>
+                )}
+              </div>
+
+              <div>
+                <p className="mb-1.5 text-[11px] text-muted-foreground">
                   رابط مقطع يوتيوب للشهادة (اختياري)
                 </p>
                 <input
@@ -504,13 +580,19 @@ export function DetailOverview({
                 </Button>
               </div>
             </div>
-          ) : episode.guest_testimonial ? (
+          ) : episode.guest_testimonial || episode.guest_audio_url ? (
             <div className="space-y-2">
-              <p className="whitespace-pre-line text-sm italic leading-relaxed text-foreground/90" dir="auto">
-                ❝ {episode.guest_testimonial}
-              </p>
+              {episode.guest_testimonial && (
+                <p className="whitespace-pre-line text-sm italic leading-relaxed text-foreground/90" dir="auto">
+                  ❝ {episode.guest_testimonial}
+                </p>
+              )}
+              {episode.guest_audio_url && (
+                <audio src={episode.guest_audio_url} controls preload="none" className="h-9 w-full max-w-sm" />
+              )}
               <p className="text-[11px] text-muted-foreground">
                 — {episode.guest_name || "الضيف"}، بعد تسجيل الحلقة
+                {episode.guest_audio_url ? " · ومعها رسالة صوتية" : ""}
                 {episode.guest_video_url ? " · ومعها مقطع فيديو" : ""}
               </p>
             </div>
