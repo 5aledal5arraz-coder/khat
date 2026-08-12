@@ -252,9 +252,35 @@ export function EpisodePageClient({
 
           {/* 8. Timestamps */}
           {hasDbTimestamps && (
-            <div id="sec-timestamps" className="space-y-4">
-              <h2 className="text-lead font-semibold">فهرس الحلقة</h2>
-              <div className="space-y-1">
+            <details id="sec-timestamps" className="group rounded-xl border bg-card/40">
+              {/* CLOSED BY DEFAULT, and the closed state has to ANNOUNCE
+                  itself. A bare chevron does not: on a long episode this list
+                  is 16 rows, and collapsing it silently would just look like
+                  the index disappeared. So the summary carries three signals —
+                  the count, an explicit «اضغط للعرض», and a chevron that turns
+                  — and the whole bar is the hit area, not the arrow alone.
+
+                  `<details>` rather than React state on purpose: it opens
+                  without JavaScript, it is a real disclosure widget for screen
+                  readers, and Ctrl+F inside the page still finds a closed
+                  chapter in browsers that search collapsed content. */}
+              <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-3 rounded-xl px-4 py-3 transition-colors marker:content-none hover:bg-muted/50 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:ring-offset-2">
+                <span className="flex items-center gap-2">
+                  <ChevronLeft className="h-4 w-4 shrink-0 text-primary transition-transform group-open:-rotate-90" />
+                  <span className="text-lead font-semibold">فهرس الحلقة</span>
+                  <span className="rounded-full bg-primary/10 px-2 py-0.5 text-micro font-semibold text-primary tabular-nums">
+                    {episode.timestamps.length}
+                  </span>
+                </span>
+                {/* Swaps on open so the bar never tells the reader to press
+                    something that is already pressed. */}
+                <span className="shrink-0 text-caption text-muted-foreground">
+                  <span className="group-open:hidden">اضغط للعرض</span>
+                  <span className="hidden group-open:inline">إخفاء</span>
+                </span>
+              </summary>
+
+              <div className="space-y-1 px-2 pb-3">
                 {episode.timestamps.map((ts) => (
                   <TimestampLink
                     key={ts.id}
@@ -263,7 +289,7 @@ export function EpisodePageClient({
                   />
                 ))}
               </div>
-            </div>
+            </details>
           )}
 
           {/* 9. Quotes */}

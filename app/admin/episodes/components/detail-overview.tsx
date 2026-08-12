@@ -16,6 +16,7 @@ import {
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { getYouTubeEmbedUrl, getYouTubeId } from "@/lib/utils"
+import { displayEpisodeTitle } from "@/lib/shared/formatters"
 import {
   updateEpisodeTitle,
   updateEpisodeDescription,
@@ -326,9 +327,23 @@ export function DetailOverview({
             </div>
           ) : (
             <div>
+              {/* WHAT THE VISITOR SEES, not what is stored.
+                  The public page runs every title through
+                  `displayEpisodeTitle`, which peels the brand stamp YouTube
+                  titles carry («… | 018 بودكاست خط») — the layout appends the
+                  brand to the tab already, so 12 episodes shipped it twice.
+                  This screen printed the RAW value, so the admin and the site
+                  showed two different titles for the same episode and the
+                  difference looked like a data fault. */}
               <h2 className="text-lg font-semibold leading-relaxed" dir="auto">
-                {displayTitle}
+                {displayEpisodeTitle(displayTitle)}
               </h2>
+              {displayEpisodeTitle(displayTitle) !== displayTitle && (
+                <p className="mt-1 text-xs text-muted-foreground" dir="auto">
+                  المخزَّن: {displayTitle}
+                  <span className="text-muted-foreground/70"> — اللاحقة تُقشَّر عند العرض</span>
+                </p>
+              )}
               {hasOverride && (
                 <p className="mt-1 text-xs text-muted-foreground">
                   الأصلي: {originalTitle}
