@@ -59,9 +59,15 @@ export async function generateMetadata({ params }: GuestPageProps): Promise<Meta
   const guest = await getGuestBySlug(decodedSlug)
 
   if (!guest) {
-    // Trigger a real 404 response (not a soft-404 body with HTTP 200).
-    // Without this, the body's notFound() does not propagate a 404 status
-    // because metadata already committed a successful response.
+    // Stops metadata generation for a slug that has no guest, so the page never
+    // advertises a title/canonical for something that doesn't exist.
+    //
+    // It is NOT what produces the 404 status — that claim used to be written
+    // here and it was wrong. Measured on a production build: a page whose ONLY
+    // notFound() is in `generateMetadata` still answers 200. The status comes
+    // from the body's notFound() escaping to the top-level render, which is why
+    // the fix was moving the `loading.tsx` Suspense boundary out of the way
+    // (see app/(home)/loading.tsx).
     notFound()
   }
 

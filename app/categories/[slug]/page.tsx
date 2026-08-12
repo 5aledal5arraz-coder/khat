@@ -40,11 +40,12 @@ export async function generateMetadata({ params }: CategoryPageProps): Promise<M
     // Stops metadata generation for a slug that has no category, so the page
     // never advertises a title/canonical for something that doesn't exist.
     //
-    // It does NOT currently produce a 404 status: measured, an unknown slug
-    // still responds 200 here — and so does app/guests/[slug], which carries
-    // the same guard and the same claim. Harmless as-is (the body's
-    // notFound() still renders the not-found UI), but the status code is a
-    // separate, unsolved problem — don't read this as "404 handled".
+    // It does NOT produce the 404 status — that was measured and the note has
+    // been kept. The status is set only when notFound() escapes to the
+    // top-level render, and a `loading.tsx` Suspense boundary above the page
+    // was catching it first and flushing a 200 shell. Fixed at the source by
+    // scoping those boundaries into route groups (see app/(home)/loading.tsx);
+    // this call remains for its metadata-suppressing job only.
     notFound()
   }
 

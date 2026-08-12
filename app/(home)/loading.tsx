@@ -1,3 +1,21 @@
+/**
+ * Inside `(home)` — a route group — on purpose, and it must stay there.
+ *
+ * A `loading.tsx` is a Suspense boundary around everything BELOW it. While this
+ * file sat at `app/loading.tsx` that meant every route in the app: the shell was
+ * flushed with the homepage skeleton before any page function ran, so the
+ * response status was already committed as 200 by the time a page called
+ * `notFound()`. Next only sets 404 when the error escapes to the top-level
+ * render (see `isHTTPAccessFallbackError` in next/dist/server/app-render) — a
+ * boundary in the way catches it first and streams the not-found UI into a page
+ * that already said "OK". Measured: `/episodes/<bad>`, `/guests/<bad>`,
+ * `/topics/<bad>`, `/categories/<bad>` all answered 200 with a «الصفحة غير
+ * موجودة» body — a soft 404, which search engines index as a real page.
+ *
+ * The route group scopes the boundary to `/` alone without changing the URL.
+ * It also stops a homepage-shaped skeleton (hero + paths + episode cards) from
+ * flashing over /about, /contact, /partner and the admin panel.
+ */
 export default function HomeLoading() {
   return (
     <div>

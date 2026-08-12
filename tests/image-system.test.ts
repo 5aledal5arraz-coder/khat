@@ -466,7 +466,7 @@ describe("one corner on every 16:9 frame", () => {
     ["components/episodes/guest-intro-section.tsx", "relative aspect-video max-w-md"],
     ["components/teaser/teaser-inline.tsx", "relative aspect-video w-28"],
     ["components/teaser/teaser-section.tsx", "relative aspect-video overflow-hidden"],
-    ["app/page.tsx", "relative aspect-video overflow-hidden"],
+    ["app/(home)/page.tsx", "relative aspect-video overflow-hidden"],
   ]
 
   it.each(FRAME_BOXES)("%s clips its frame at rounded-2xl", (file, needle) => {
@@ -483,7 +483,7 @@ describe("one corner on every 16:9 frame", () => {
     // were `rounded-xl` against a `rounded-2xl` card, so every frame on the
     // site changed corner 4px the moment the data landed — the same fault as
     // the 64px circle that settled into an 80px rounded square on /guests.
-    for (const file of ["app/loading.tsx", "app/episodes/loading.tsx"]) {
+    for (const file of ["app/(home)/loading.tsx", "app/episodes/(list)/loading.tsx"]) {
       const src = readFileSync(path.join(ROOT, file), "utf8")
       for (const cls of src.match(/class(?:Name)?="[^"]*aspect-video[^"]*"/g) ?? []) {
         expect(cls, file).not.toMatch(/rounded-(?:sm|md|lg|xl|3xl|full)\b/)

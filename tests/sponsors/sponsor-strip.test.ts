@@ -20,7 +20,7 @@ import { describe, expect, it } from "vitest"
 const root = process.cwd()
 const read = (p: string) => readFileSync(path.join(root, p), "utf8")
 
-const HOME = read("app/page.tsx")
+const HOME = read("app/(home)/page.tsx")
 const SEASON = read("app/categories/[slug]/page.tsx")
 const STRIP = read("components/sponsors/sponsor-strip.tsx")
 const EPISODE_SPONSOR = read("components/episodes/episode-sponsor.tsx")

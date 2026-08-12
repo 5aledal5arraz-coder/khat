@@ -629,7 +629,7 @@ const TYPESET_NAME_EXEMPTIONS: { surface: string; anchor: RegExp; why: string }[
       "the message as artwork, and this is the sign-off line beside the URL.",
   },
   {
-    surface: "app/page.tsx",
+    surface: "app/(home)/page.tsx",
     anchor: /className="inline-flex[^"]*rounded-full[^"]*text-micro/,
     why:
       "The hero eyebrow pill, anchored to the <span> that actually carries its " +
@@ -949,7 +949,7 @@ const OUTWARD_SURFACES = [
   "components/media-kit/media-kit-view.tsx",
   "app/admin/media-kit/page.tsx",
   "app/media-kit/[slug]/page.tsx",
-  "app/page.tsx",
+  "app/(home)/page.tsx",
   "app/manifest.ts",
   "scripts/generate-og-image.ts",
   "scripts/build-brand-icons.ts",

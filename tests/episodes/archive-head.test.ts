@@ -37,7 +37,10 @@ vi.mock("@/lib/queries/categories", () => ({
   getCategoriesForRequest: vi.fn().mockResolvedValue(ALL),
 }))
 
-const { generateMetadata } = await import("@/app/episodes/page")
+// `(list)` is a route group, so the URL is still /episodes. The page moved in
+// there so that app/episodes/loading.tsx stops suspending [slug] and turning
+// its notFound() into an HTTP 200 — see tests/http/loading-boundary-scope.test.ts.
+const { generateMetadata } = await import("@/app/episodes/(list)/page")
 const { generateMetadata: categoryMetadataRoute } = await import("@/app/categories/[slug]/page")
 const { categoryMetadata, laneNote } = await import("@/lib/episodes/programs")
 

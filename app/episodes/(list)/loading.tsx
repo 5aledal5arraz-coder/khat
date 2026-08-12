@@ -1,5 +1,12 @@
 import { Skeleton } from "@/components/ui/skeleton"
 
+/**
+ * Inside `(list)` — a route group — so this skeleton covers `/episodes` and
+ * nothing else. At `app/episodes/loading.tsx` its Suspense boundary also wrapped
+ * `[slug]`, which flushed a 200 before the episode page could call `notFound()`;
+ * see the note in app/(home)/loading.tsx for the full mechanism. The URL is
+ * unchanged — route groups are not path segments.
+ */
 export default function EpisodesLoading() {
   return (
     <div className="container mx-auto px-4 py-8">
