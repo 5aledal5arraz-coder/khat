@@ -79,6 +79,26 @@ export async function saveUpcomingEpisodeAction(
     return { success: false, error: "التاريخ غير صالح" }
   }
 
+  // A WORD FROM THE GUEST NEEDS A GUEST — and refusing here is the whole point.
+  //
+  // The message renders inside the guest card, because its attribution line is
+  // «— {الاسم}، قبل نزول الحلقة» and there is no honest way to sign it without
+  // one. Found on the demo page: a message was written, saved, stored, and
+  // simply never appeared — the operator had typed real words into a field that
+  // silently discarded them. Nothing failed, which is exactly the shape of
+  // failure this project keeps paying for.
+  //
+  // Refused rather than rendered unsigned: an unattributed testimonial is worse
+  // than a missing one, and the operator is one dropdown away from fixing it.
+  const hasMessage =
+    Boolean(input.guest_message?.trim()) || Boolean(input.guest_message_audio_url?.trim())
+  if (hasMessage && !input.guest_id?.trim()) {
+    return {
+      success: false,
+      error: "كتبتَ كلمة من الضيف بدون اختيار الضيف — اختر الضيف أولاً، وإلا لن تظهر الكلمة في الصفحة",
+    }
+  }
+
   const payload = {
     eir_id: input.eir_id,
     slug: input.slug,

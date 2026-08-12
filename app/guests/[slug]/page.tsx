@@ -9,6 +9,8 @@ import { EpisodePosterCard } from "@/components/episodes/episode-poster-card"
 import { QuoteCard } from "@/components/quotes/quote-card"
 import { GuestPortrait } from "@/components/media/guest-portrait"
 import { AtharCard } from "@/components/guests/athar-card"
+import { UpcomingEpisodeGuestCard } from "@/components/guests/upcoming-episode-card"
+import { listPublishedUpcomingForGuest } from "@/lib/queries/upcoming-episodes"
 import { Linkedin, Globe, Instagram, Youtube, Mail } from "lucide-react"
 import { XIcon } from "@/components/icons/x-icon"
 import { TikTokIcon } from "@/components/icons/tiktok-icon"
@@ -100,6 +102,11 @@ export default async function GuestPage({ params }: GuestPageProps) {
   // the page degrades to the plain bio when no knowledge has been generated.
   const knowledge = await getGuestPublicKnowledge(guest.id).catch(() => null)
   const teaser = await getTeaserForGuest(guest.id).catch(() => null)
+  // The one thing on this page that is NEWS. `upcoming_episodes` is an
+  // ALLOW-list table (see its schema comment) — nothing surfaces a row until a
+  // reader is written on purpose, and this is that reader for the guest page.
+  // The `published` filter lives in the SQL inside the query, not here.
+  const upcomingEpisodes = await listPublishedUpcomingForGuest(guest.id).catch(() => [])
   const displayBio = knowledge?.bio || guest.bio
   const signatureTopics = knowledge?.signature_topics?.filter(Boolean) ?? []
   const themes = knowledge?.themes?.filter(Boolean) ?? []
@@ -173,6 +180,19 @@ export default async function GuestPage({ params }: GuestPageProps) {
             )}
           </div>
         </div>
+
+        {/* حلقة قادمة — ABOVE the archive, on purpose.
+            The upcoming episode is the news; the published ones are the
+            record. Nothing renders when there is no published page: no
+            heading, no empty frame — the same rule every other block on this
+            page follows. */}
+        {upcomingEpisodes.length > 0 && (
+          <div className="mt-10 grid gap-4">
+            {upcomingEpisodes.map((upcoming) => (
+              <UpcomingEpisodeGuestCard key={upcoming.id} upcoming={upcoming} />
+            ))}
+          </div>
+        )}
 
         {/* Teaser — the guest's upcoming/aired episode teaser (compact block,
             Sara note 4/5). */}

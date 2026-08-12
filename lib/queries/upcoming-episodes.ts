@@ -3,11 +3,11 @@
  *
  * The table is an ALLOW-list (see the schema comment in
  * `lib/db/schema/upcoming-episodes.ts`): nothing surfaces a row until a reader
- * here is written on purpose. There are exactly three public readers today —
- * `/episodes/[slug]`, `app/sitemap.ts`, and the homepage guest strip — and each
- * one goes through a function that hard-filters `status = 'published'` in SQL,
- * not in memory. A draft can therefore only leak if someone adds a reader that
- * skips this module.
+ * here is written on purpose. There are exactly four public readers today —
+ * `/episodes/[slug]`, `app/sitemap.ts`, the homepage guest strip, and the card
+ * on `/guests/[slug]` — and each one goes through a function that hard-filters
+ * `status = 'published'` in SQL, not in memory. A draft can therefore only leak
+ * if someone adds a reader that skips this module.
  *
  * Every select projects its columns explicitly. A bare `select()` on a joined
  * guest pulls admin-only contact columns into the awaited pg Result, which
@@ -267,6 +267,78 @@ export async function getPublishedUpcomingSlugsByGuestIds(
     return out
   } catch {
     return out
+  }
+}
+
+/** One card on the guest page. Deliberately narrower than `UpcomingEpisode`. */
+export interface UpcomingEpisodeCard {
+  id: string
+  slug: string
+  title: string
+  summary: string | null
+  /** Bare `YYYY-MM-DD`, or null for «قريباً». */
+  expected_date: string | null
+}
+
+/**
+ * The published «حلقة قادمة» pages belonging to ONE guest — the guest page's
+ * card, and the fourth public reader of this table.
+ *
+ * Returns a list, not one row: a guest can have more than one planned episode
+ * and silently showing only the first would hide a page whose URL Khaled has
+ * already distributed.
+ *
+ * TWO FILTERS, BOTH IN SQL:
+ *  · `status = 'published'` — the ALLOW-list rule this whole module exists for.
+ *    A draft is Khaled's private working copy; a withdrawn page still answers
+ *    at its URL for anyone holding the old link, but it is not news and must
+ *    not be advertised on a guest's page.
+ *  · `NOT EXISTS (episode at this slug)` — the SAME rule as `resolveEpisodeSlug`
+ *    and `listPublishedUpcomingForSitemap`, for the same reason: once an
+ *    episode holds the slug, that URL IS the episode, and the transition can
+ *    fail to run (that is what `needs_attention` records). Without this the
+ *    card would badge an aired episode as «حلقة قادمة» and link to it, while
+ *    the very same episode sits in the «الحلقات» list further down the page.
+ *    Asking whether the episode exists — not whether `published_episode_id` was
+ *    written — is what keeps the two answers from disagreeing.
+ *
+ * Order: nearest announced date first, undated («قريباً») last, newest first
+ * within the undated tail. An undated page makes no claim about when, so it
+ * cannot be ranked against one that does.
+ */
+export async function listPublishedUpcomingForGuest(
+  guestId: string,
+): Promise<UpcomingEpisodeCard[]> {
+  const database = db
+  if (!database || !guestId) return []
+  try {
+    return await database
+      .select({
+        id: upcomingEpisodes.id,
+        slug: upcomingEpisodes.slug,
+        title: upcomingEpisodes.title,
+        summary: upcomingEpisodes.summary,
+        expected_date: upcomingEpisodes.expected_date,
+      })
+      .from(upcomingEpisodes)
+      .where(
+        and(
+          eq(upcomingEpisodes.guest_id, guestId),
+          eq(upcomingEpisodes.status, "published"),
+          notExists(
+            database
+              .select({ one: sql`1` })
+              .from(episodes)
+              .where(eq(episodes.slug, upcomingEpisodes.slug)),
+          ),
+        ),
+      )
+      .orderBy(
+        sql`${upcomingEpisodes.expected_date} asc nulls last`,
+        desc(upcomingEpisodes.created_at),
+      )
+  } catch {
+    return []
   }
 }
 

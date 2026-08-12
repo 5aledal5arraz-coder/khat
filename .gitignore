@@ -75,6 +75,14 @@ public/teasers/
 # Same category as teasers above: uploaded on the machine that serves them,
 # never part of a build, and pointless to version.
 public/testimonials/
+
+# Commercial documents — NEVER committed. This repository is PUBLIC, so a
+# partnership draft here would publish KHAT's prices, margins, cancellation
+# policy and negotiating position to anyone who clones it. Caught once by
+# `git add -A` sweeping the file in; the ignore is what stops the next sweep.
+docs/partnership-terms-draft.md
+docs/*-terms-*.md
+docs/*-contract-*.md
 youtube-sync-backup-*.json
 quotes-backup-*.json
 guests-backup-*.json

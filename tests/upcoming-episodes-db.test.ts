@@ -30,6 +30,11 @@ const SLUG = {
   withdrawn: `${TAG}-withdrawn`,
   free: `${TAG}-free`,
 }
+/** The guest-card fixture: two published pages on ONE guest, one dated one not. */
+const MULTI = {
+  dated: `${TAG}-multi-dated`,
+  undated: `${TAG}-multi-undated`,
+}
 
 let q: QueryModule
 let pool: Pool
@@ -37,8 +42,11 @@ let hasDb = false
 /** ids we created, for teardown. */
 const eirIds: string[] = []
 const upcomingIds: Record<string, string> = {}
-/** An episode that already exists — read-only. */
+/** Episodes that already exist — read-only. Two, because two suites each need
+ * their own "an episode already holds this slug" collision and the slug column
+ * is UNIQUE, so they cannot share one. */
 let existingEpisodeSlug = ""
+let secondEpisodeSlug = ""
 /**
  * THREE DIFFERENT existing guests, one per status — read-only.
  *
@@ -58,6 +66,17 @@ let existingEpisodeSlug = ""
 let guestPublished: string | null = null
 let guestDraft: string | null = null
 let guestWithdrawn: string | null = null
+/**
+ * Two MORE distinct guests, for `listPublishedUpcomingForGuest`. The same
+ * reasoning: that query filters by `guest_id` AND `status`, so a guest shared
+ * with the rows above would let a lost `status` filter still return the right
+ * slug by accident.
+ *  · `guestMulti`  — owns TWO published pages, one dated, one not.
+ *  · `guestCollide` — owns one published page whose slug an EPISODE already
+ *    holds, with `published_episode_id` still NULL.
+ */
+let guestMulti: string | null = null
+let guestCollide: string | null = null
 
 beforeAll(async () => {
   loadEnvFiles()
@@ -72,13 +91,18 @@ beforeAll(async () => {
   q = await import("@/lib/queries/upcoming-episodes")
   pool = new Pool({ connectionString: process.env.DATABASE_URL })
 
-  const ep = await pool.query("select slug from episodes where slug is not null limit 1")
+  const ep = await pool.query(
+    "select slug from episodes where slug is not null order by slug limit 2",
+  )
   existingEpisodeSlug = ep.rows[0]?.slug ?? ""
+  secondEpisodeSlug = ep.rows[1]?.slug ?? ""
 
-  const g = await pool.query("select id from guests order by id limit 3")
+  const g = await pool.query("select id from guests order by id limit 5")
   guestPublished = g.rows[0]?.id ?? null
   guestDraft = g.rows[1]?.id ?? null
   guestWithdrawn = g.rows[2]?.id ?? null
+  guestMulti = g.rows[3]?.id ?? null
+  guestCollide = g.rows[4]?.id ?? null
 
   for (const [key, slug] of Object.entries(SLUG)) {
     if (key === "free") continue
@@ -105,6 +129,50 @@ beforeAll(async () => {
       ],
     )
     upcomingIds[key] = row.rows[0].id
+  }
+
+  // ── The guest-card fixture ────────────────────────────────────────────────
+  // Seeded here rather than inside the suite so the rows are torn down by the
+  // one `afterAll` that already knows how to do it in FK order.
+  const seedUpcoming = async (
+    key: string,
+    slug: string,
+    guestId: string | null,
+    status: string,
+    fields: { summary?: string | null; expected_date?: string | null } = {},
+  ) => {
+    const eir = await pool.query(
+      "insert into episode_intelligence_records (id, working_title) values (gen_random_uuid(), $1) returning id",
+      [`${TAG}-${key}`],
+    )
+    eirIds.push(eir.rows[0].id)
+    const row = await pool.query(
+      `insert into upcoming_episodes (id, eir_id, slug, title, status, guest_id, summary, expected_date)
+       values (gen_random_uuid(), $1, $2, $3, $4, $5, $6, $7::date) returning id`,
+      [
+        eir.rows[0].id,
+        slug,
+        `عنوان ${key}`,
+        status,
+        guestId,
+        fields.summary ?? null,
+        fields.expected_date ?? null,
+      ],
+    )
+    upcomingIds[key] = row.rows[0].id
+  }
+
+  await seedUpcoming("multiDated", MULTI.dated, guestMulti, "published", {
+    summary: "موضوع الحلقة المؤرّخة",
+    expected_date: "2026-09-15",
+  })
+  await seedUpcoming("multiUndated", MULTI.undated, guestMulti, "published")
+
+  // An episode ALREADY holds this slug while `published_episode_id` is still
+  // NULL — the drift `needs_attention` exists to record. Inserted directly:
+  // the reservation is exactly what refuses this in normal use.
+  if (secondEpisodeSlug) {
+    await seedUpcoming("guestCollide", secondEpisodeSlug, guestCollide, "published")
   }
 })
 
@@ -226,6 +294,75 @@ describe("getPublishedUpcomingSlugsByGuestIds — the guest strip's link decisio
     if (!hasDb) return
     const map = await q.getPublishedUpcomingSlugsByGuestIds(["no-such-guest-id"])
     expect(map.size).toBe(0)
+  })
+})
+
+describe("listPublishedUpcomingForGuest — the card on /guests/[slug]", () => {
+  it("returns the guest's PUBLISHED page", async () => {
+    if (!hasDb || !guestPublished) return
+    const rows = await q.listPublishedUpcomingForGuest(guestPublished)
+    expect(rows.map((r) => r.slug)).toContain(SLUG.published)
+  })
+
+  it("returns NOTHING for a guest whose only page is a draft, and nothing for withdrawn", async () => {
+    if (!hasDb || !guestDraft || !guestWithdrawn) return
+
+    // The rows exist and they carry THESE guests — proven against the table,
+    // so the only thing that can withhold them is the `status` filter. Delete
+    // `eq(status,'published')` from the query and both of these come back.
+    const seeded = await pool.query(
+      "select status, guest_id from upcoming_episodes where slug = any($1::text[]) order by status",
+      [[SLUG.draft, SLUG.withdrawn]],
+    )
+    expect(seeded.rows.map((r) => r.status)).toEqual(["draft", "withdrawn"])
+    expect(seeded.rows.map((r) => r.guest_id)).toEqual([guestDraft, guestWithdrawn])
+
+    const draftRows = await q.listPublishedUpcomingForGuest(guestDraft)
+    const withdrawnRows = await q.listPublishedUpcomingForGuest(guestWithdrawn)
+
+    // TOTAL, not "does not contain": these guests are distinct and each owns
+    // exactly one seeded row, so an empty list is the whole assertion.
+    expect(draftRows).toEqual([])
+    expect(withdrawnRows).toEqual([])
+  })
+
+  it("returns ALL of a guest's published pages — dated first, «قريباً» last", async () => {
+    if (!hasDb || !guestMulti) return
+    const rows = await q.listPublishedUpcomingForGuest(guestMulti)
+
+    // Both, not just the first: hiding the second would hide a URL already
+    // distributed.
+    expect(rows.map((r) => r.slug)).toEqual([MULTI.dated, MULTI.undated])
+    // A `date` column must come back as the bare day — a Date here would shift
+    // the day backwards in any timezone behind UTC, which `formatArabicDate`
+    // would then print as the wrong day.
+    expect(rows[0].expected_date).toBe("2026-09-15")
+    expect(rows[0].summary).toBe("موضوع الحلقة المؤرّخة")
+    expect(rows[1].expected_date).toBeNull()
+  })
+
+  it("never advertises a page whose slug an EPISODE already holds", async () => {
+    if (!hasDb || !guestCollide || !secondEpisodeSlug) return
+
+    // Published, guest-linked, and `published_episode_id` still NULL — so the
+    // only thing that can withhold it is the NOT EXISTS. Without it this card
+    // badges an aired episode «حلقة قادمة» and links to it, while that same
+    // episode sits in the «الحلقات» list further down the same page.
+    const seeded = await pool.query(
+      "select status, guest_id, published_episode_id from upcoming_episodes where slug = $1",
+      [secondEpisodeSlug],
+    )
+    expect(seeded.rows[0]?.status).toBe("published")
+    expect(seeded.rows[0]?.guest_id).toBe(guestCollide)
+    expect(seeded.rows[0]?.published_episode_id).toBeNull()
+
+    expect(await q.listPublishedUpcomingForGuest(guestCollide)).toEqual([])
+  })
+
+  it("returns an empty list for an unknown guest and for an empty id", async () => {
+    if (!hasDb) return
+    expect(await q.listPublishedUpcomingForGuest("no-such-guest-id")).toEqual([])
+    expect(await q.listPublishedUpcomingForGuest("")).toEqual([])
   })
 })
 
