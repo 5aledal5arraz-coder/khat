@@ -367,20 +367,27 @@ export default async function HomePage() {
           upcoming episode and belongs beside the hero's promise, while this is
           the roster. */}
       {stripGuests.length > 0 ? (
-        <section className="px-6 pt-4 pb-10">
-          <div className="mx-auto max-w-6xl">
-            <div className="mb-6 flex items-end justify-between gap-4">
-              <SectionLabel>الضيوف</SectionLabel>
-              <Link
-                href="/guests"
-                className="inline-flex shrink-0 items-center gap-1 text-caption font-semibold text-primary transition-all hover:gap-2"
-              >
-                كل الضيوف
-                <ArrowLeft className="h-4 w-4" />
-              </Link>
-            </div>
-            <GuestStrip guests={stripGuests} />
+        // FULL-BLEED, on Khaled's call: the faces run to the edges of the page
+        // instead of stopping at the container gutter, so the row reads as
+        // continuing past the screen rather than ending in whitespace.
+        //
+        // The HEADING stays in the container — it has to line up with «الحلقة
+        // الأحدث» below it — so the strip is its SIBLING, not its child. That
+        // is the whole reason for the split: a full-bleed child inside a
+        // centred `max-w` box needs the 100vw/negative-margin trick, which
+        // overflows the moment a scrollbar exists.
+        <section className="pt-4 pb-10">
+          <div className="mx-auto mb-6 flex max-w-6xl items-end justify-between gap-4 px-6">
+            <SectionLabel>الضيوف</SectionLabel>
+            <Link
+              href="/guests"
+              className="inline-flex shrink-0 items-center gap-1 text-caption font-semibold text-primary transition-all hover:gap-2"
+            >
+              كل الضيوف
+              <ArrowLeft className="h-4 w-4" />
+            </Link>
           </div>
+          <GuestStrip guests={stripGuests} />
         </section>
       ) : null}
 
