@@ -149,7 +149,15 @@ export default async function EpisodePage({ params, searchParams }: EpisodePageP
     guestName: episode.guest?.name ?? null,
     guestSameAs,
     topics: topics.map((t) => t.name),
-    faq: deepAnalysis?.open_questions ?? [],
+    // The LESSONS, not the open questions. Both are rendered inside «خلف
+    // المحادثة» on this page, but a lesson carries a title AND an explanation —
+    // a real pair, visible where Google requires it. `open_questions` are open
+    // by construction, which is why feeding them here produced a canned
+    // non-answer on every entry.
+    faq: (deepAnalysis?.lessons ?? []).map((l) => ({
+      question: l.title,
+      answer: l.explanation,
+    })),
     publisherSameAs: sameAs,
   })
 

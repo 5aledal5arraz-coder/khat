@@ -12,6 +12,7 @@ import { getYoutubePackConfig } from "@/lib/youtube-pack"
 import { getEpisodeEnrichment } from "@/lib/episodes/enrichments"
 import { getActivePartners } from "@/lib/queries/partnerships"
 import { getEpisodeSponsor } from "@/lib/queries/episode-sponsors"
+import { listTopics, getTopicsForEpisodes } from "@/lib/queries/topics"
 import { getHiddenEpisodeIds } from "../actions"
 import { EpisodeDetail } from "./episode-detail"
 
@@ -55,6 +56,8 @@ export default async function EpisodeDetailPage({
     enrichment,
     partners,
     sponsor,
+    allTopics,
+    topicsByEpisode,
   ] = await Promise.all([
     getEpisodes({ limit: 200, includeHidden: true }),
     getEpisodeOverrides(),
@@ -65,6 +68,8 @@ export default async function EpisodeDetailPage({
     getEpisodeEnrichment(id),
     getActivePartners(),
     getEpisodeSponsor(id),
+    listTopics(),
+    getTopicsForEpisodes([id]),
   ])
 
   const rawEpisode = episodes.find((ep) => ep.id === id)
@@ -124,6 +129,8 @@ export default async function EpisodeDetailPage({
         </div>
       )}
       <EpisodeDetail
+        allTopics={allTopics}
+        episodeTopicIds={topicsByEpisode[id] ?? []}
         eirId={eirId}
         episode={episode}
         override={override}

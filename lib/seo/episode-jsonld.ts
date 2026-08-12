@@ -27,7 +27,16 @@ export interface EpisodeJsonLdInput {
   /** Topic names — become `about`/`keywords`. */
   topics?: string[]
   /** Open questions → FAQPage. */
-  faq?: string[]
+  /**
+   * Question/answer pairs that are VISIBLE on the page — Google's own
+   * requirement for `FAQPage`, and the reason this is no longer `string[]`.
+   *
+   * It used to take `open_questions`, which are open BY CONSTRUCTION: the
+   * episode raises them and does not answer them. So every answer shipped as
+   * the same canned line, «استمع إلى الحلقة لمعرفة الإجابة» — structured data
+   * telling Google "this page answers questions" over a page that answers none.
+   */
+  faq?: { question: string; answer: string }[]
   /** Org-level social/video/audio accounts for the publisher. */
   publisherSameAs?: string[]
 }
@@ -132,14 +141,19 @@ export function buildEpisodeJsonLd(input: EpisodeJsonLdInput): Record<string, un
   })
 
   // ── FAQPage (from open questions) ────────────────────────────────
-  const faq = (input.faq ?? []).filter((q) => q && q.trim().length > 0)
+  // BOTH halves must be real. A pair missing either one is dropped rather than
+  // padded — an entry with an invented answer is the defect this replaced, and
+  // an empty `FAQPage` is worse than none at all.
+  const faq = (input.faq ?? []).filter(
+    (p) => p?.question?.trim().length > 0 && p?.answer?.trim().length > 0,
+  )
   if (faq.length > 0) {
     graph.push({
       "@type": "FAQPage",
-      mainEntity: faq.map((q) => ({
+      mainEntity: faq.map((p) => ({
         "@type": "Question",
-        name: q,
-        acceptedAnswer: { "@type": "Answer", text: `استمع إلى الحلقة لمعرفة الإجابة: ${input.title}` },
+        name: p.question.trim(),
+        acceptedAnswer: { "@type": "Answer", text: p.answer.trim() },
       })),
     })
   }

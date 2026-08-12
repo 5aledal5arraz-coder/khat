@@ -9,6 +9,8 @@ import { DetailConversation } from "../components/detail-conversation"
 import { DetailVersions } from "../components/detail-versions"
 import type { AdminEpisodeView, AdminGuestView } from "../components/shared"
 import type { EpisodeOverride, EpisodeQuotesEntry, EpisodeEnrichment } from "@/types/episodes"
+import type { Topic } from "@/lib/queries/topics"
+import { DetailTopics } from "../components/detail-topics"
 import type { YouTubePackEntry } from "@/types/youtube-pack"
 
 type Tab = "overview" | "quotes" | "youtube-pack" | "conversation" | "versions"
@@ -19,6 +21,10 @@ interface SponsorPartner {
 }
 
 interface EpisodeDetailProps {
+  /** Every topic, for the tagger on the overview tab. */
+  allTopics: Topic[]
+  /** The topics this episode already carries. */
+  episodeTopicIds: string[]
   /** The linked Khat Brain record, when there is one — the Studio lives there. */
   eirId: string | null
   episode: AdminEpisodeView
@@ -58,6 +64,8 @@ const tabs: {
 ]
 
 export function EpisodeDetail({
+  allTopics,
+  episodeTopicIds,
   eirId,
   episode,
   override,
@@ -178,6 +186,18 @@ export function EpisodeDetail({
           currentSponsorId={currentSponsorId}
           currentBrandLine={currentBrandLine}
         />
+      )}
+      {/* Tagging lives beside the episode it describes now, not three clicks
+          away on a homepage screen. See DetailTopics for why the action is the
+          existing one rather than a second writer. */}
+      {activeTab === "overview" && (
+        <div className="mt-6">
+          <DetailTopics
+            episodeId={episode.id}
+            allTopics={allTopics}
+            initialTopicIds={episodeTopicIds}
+          />
+        </div>
       )}
       {activeTab === "conversation" && (
         <DetailConversation

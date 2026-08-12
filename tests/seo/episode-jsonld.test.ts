@@ -40,7 +40,7 @@ describe("buildEpisodeJsonLd", () => {
       guestName: "ضيف",
       guestSameAs: ["https://x.com/guest"],
       topics: ["الذكاء الاصطناعي", "الفلسفة"],
-      faq: ["ما معنى الوعي؟"],
+      faq: [{ question: "ما معنى الوعي؟", answer: "الوعي هو ما يجعل التجربة تجربةً لأحد." }],
     })
     const t = types(g)
     expect(t).toContain("VideoObject")
@@ -62,7 +62,49 @@ describe("buildEpisodeJsonLd", () => {
   })
 
   it("filters empty FAQ entries (no FAQPage when all blank)", () => {
-    const g = buildEpisodeJsonLd({ ...base, faq: ["", "  "] })
+    const g = buildEpisodeJsonLd({
+      ...base,
+      faq: [
+        { question: "", answer: "" },
+        { question: "  ", answer: "  " },
+      ],
+    })
     expect(types(g)).not.toContain("FAQPage")
+  })
+
+  /**
+   * The defect this replaced: every answer shipped as the same canned line,
+   * «استمع إلى الحلقة لمعرفة الإجابة: {title}», because the input was
+   * `open_questions` — open BY CONSTRUCTION. That is structured data telling
+   * Google the page answers questions over a page that answers none, and it is
+   * the kind of mismatch that earns a manual action.
+   */
+  it("never ships a canned non-answer", () => {
+    const g = buildEpisodeJsonLd({
+      ...base,
+      faq: [{ question: "ما معنى الوعي؟", answer: "الوعي هو ما يجعل التجربة تجربةً لأحد." }],
+    })
+    const faq = (g["@graph"] as Array<Record<string, unknown>>).find((n) => n["@type"] === "FAQPage")!
+    const answers = (faq.mainEntity as Array<{ acceptedAnswer: { text: string } }>).map(
+      (q) => q.acceptedAnswer.text,
+    )
+    for (const a of answers) {
+      expect(a).not.toContain("استمع إلى الحلقة لمعرفة الإجابة")
+      expect(a).not.toContain(base.title)
+    }
+    expect(answers[0]).toBe("الوعي هو ما يجعل التجربة تجربةً لأحد.")
+  })
+
+  it("drops a pair that has a question but no answer", () => {
+    // Half a pair is the same lie in a smaller package.
+    const g = buildEpisodeJsonLd({
+      ...base,
+      faq: [
+        { question: "سؤال بلا جواب؟", answer: "" },
+        { question: "سؤال له جواب؟", answer: "نعم." },
+      ],
+    })
+    const faq = (g["@graph"] as Array<Record<string, unknown>>).find((n) => n["@type"] === "FAQPage")!
+    expect((faq.mainEntity as unknown[]).length).toBe(1)
   })
 })
