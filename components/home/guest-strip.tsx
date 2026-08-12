@@ -27,13 +27,17 @@ import type { MuseumThinker } from "@/lib/content/museum-data"
  * direction and the browser resolves it. Reading `Math.abs()` is what makes the
  * end-detection work across engines.
  *
- * SMOOTHNESS — three things were fighting each other, and the fix is all three.
+ * SMOOTHNESS. Several things were fighting each other; the fix is all of them.
  *
- * 1. `snap-mandatory` yanks. Mandatory snapping overrides the browser's own
- *    momentum: a trackpad flick gets grabbed mid-glide and dragged to the
- *    nearest face, which reads as stutter rather than as alignment. `proximity`
- *    only engages when the scroll already ends near a snap point, so a flick
- *    coasts and a small nudge still lands clean.
+ * 1. SNAPPING IS OFF ON TOUCH — `snap-none`, with `sm:snap-x sm:snap-proximity`
+ *    restoring it only where the arrows exist. Mandatory snapping was the first
+ *    culprit (it overrides the browser's momentum outright, grabbing a flick
+ *    mid-glide), and proximity fixed the pointer case. But on a phone even
+ *    proximity fights the finger: a native list scrolls exactly as far as it was
+ *    thrown and decelerates on its own curve, and any snapping re-times the tail
+ *    of that gesture. Snapping earns its place on a mouse, where the arrows move
+ *    in whole cards and alignment is the point; a thumb wants the row to behave
+ *    like every other row on the phone.
  * 2. The arrow step was a hardcoded 320px against a card that measures ~136px
  *    (a 112px portrait plus a 24px gap). Every click landed 2.35 cards along —
  *    mid-face — and mandatory snapping then hauled it the rest of the way. The
@@ -50,6 +54,12 @@ export function GuestStrip({ guests }: { guests: MuseumThinker[] }) {
   const frameRef = useRef<number | null>(null)
   const [atStart, setAtStart] = useState(true)
   const [atEnd, setAtEnd] = useState(false)
+  // The arrows are `hidden sm:flex`. Below that breakpoint they do not exist,
+  // so every scroll measurement taken to fade them in and out is work done for
+  // a control nobody can see — and it is done DURING a touch scroll, on the
+  // slowest device that will ever run this. The listener is now attached only
+  // at the width where the arrows are real.
+  const [showArrows, setShowArrows] = useState(false)
 
   const measure = useCallback(() => {
     const el = trackRef.current
@@ -72,7 +82,19 @@ export function GuestStrip({ guests }: { guests: MuseumThinker[] }) {
     })
   }, [measure])
 
+  // Matches the `sm:` breakpoint the arrows are gated on. `matchMedia` rather
+  // than a resize listener reading `innerWidth`: it fires only when the answer
+  // actually changes, instead of on every pixel of a drag.
   useEffect(() => {
+    const mq = window.matchMedia("(min-width: 640px)")
+    const apply = () => setShowArrows(mq.matches)
+    apply()
+    mq.addEventListener("change", apply)
+    return () => mq.removeEventListener("change", apply)
+  }, [])
+
+  useEffect(() => {
+    if (!showArrows) return
     measure()
     const el = trackRef.current
     if (!el) return
@@ -83,7 +105,7 @@ export function GuestStrip({ guests }: { guests: MuseumThinker[] }) {
       window.removeEventListener("resize", sync)
       if (frameRef.current !== null) cancelAnimationFrame(frameRef.current)
     }
-  }, [measure, sync])
+  }, [measure, sync, showArrows])
 
   /**
    * How far one arrow press travels: as many whole cards as the viewport shows,
@@ -125,7 +147,8 @@ export function GuestStrip({ guests }: { guests: MuseumThinker[] }) {
         // covers both `scrollbar-width` and the WebKit pseudo-element. Tailwind
         // ships no `scrollbar-none`, so naming it that hid the bar in Firefox
         // and left it drawn in Safari and Chrome.
-        // `snap-proximity`, NOT `snap-mandatory` — see the note above.
+        // `snap-none` by default and snapping only from `sm:` up — see the
+        // note above; a thumb wants the browser's own momentum, untouched.
         // `overscroll-x-contain` keeps a flick that reaches the last face from
         // continuing into the page's own scroll, and on a trackpad stops it
         // triggering the browser's horizontal back-swipe.
@@ -143,7 +166,7 @@ export function GuestStrip({ guests }: { guests: MuseumThinker[] }) {
         // under. A percentage resolves against this element's own full-width
         // box — the viewport MINUS the scrollbar, which is the number the
         // centred container above is already working from.
-        className="scrollbar-hide flex snap-x snap-proximity gap-6 overflow-x-auto overscroll-x-contain px-[calc(max(0px,(100%-72rem)/2)+1.5rem)] pb-2 scroll-p-[calc(max(0px,(100%-72rem)/2)+1.5rem)]"
+        className="scrollbar-hide flex snap-none gap-6 overflow-x-auto overscroll-x-contain px-[calc(max(0px,(100%-72rem)/2)+1.5rem)] pb-2 sm:snap-x sm:snap-proximity sm:scroll-p-[calc(max(0px,(100%-72rem)/2)+1.5rem)]"
       >
         {guests.map((g) => (
           <GuestFace key={g.id} guest={g} />
@@ -209,7 +232,11 @@ function GuestFace({ guest }: { guest: MuseumThinker }) {
           // carries a real style axis.
           guest.isUpcoming
             ? "outline outline-2 outline-dashed outline-primary/50 outline-offset-2"
-            : "ring-1 ring-border group-hover:scale-105 group-hover:ring-primary/50",
+            // The hover grow is gated behind a real hover device. On a phone
+            // `:hover` latches after a tap and stays, so the transform ran
+            // during the scroll that followed — animating a face while the row
+            // it sits in is moving.
+            : "ring-1 ring-border [@media(hover:hover)]:group-hover:scale-105 [@media(hover:hover)]:group-hover:ring-primary/50",
         )}
       >
         {guest.imageUrl ? (
@@ -218,6 +245,19 @@ function GuestFace({ guest }: { guest: MuseumThinker }) {
             alt={guest.name}
             fill
             sizes="112px"
+            // EAGER, on purpose, against the usual advice.
+            //
+            // `next/image` lazy-loads by default, so a face entered the
+            // viewport as the thumb dragged it in and only THEN started
+            // fetching and decoding. Decoding on the same thread that is
+            // animating the scroll is the classic phone stutter, and it fires
+            // once per face — the row stuttered exactly as often as it moved.
+            //
+            // Lazy loading is the right default when the cost is real. Here it
+            // is not: these are 112px circles, the whole roster is a few tens
+            // of kilobytes, and they sit near the top of the homepage where
+            // they will almost all be seen anyway.
+            loading="eager"
             className={cn("object-cover", guest.isUpcoming && "opacity-75 saturate-50")}
           />
         ) : (
