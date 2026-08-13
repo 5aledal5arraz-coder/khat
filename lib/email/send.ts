@@ -35,6 +35,7 @@ import {
   sponsorApplicationAdminHtml,
   sponsorApplicationConfirmHtml,
   prepSubmittedAdminHtml,
+  partnershipOfferHtml,
   partnerTaskReminderHtml,
   guestPrepConfirmHtml,
   communityContributionConfirmHtml,
@@ -168,6 +169,40 @@ export async function sendSponsorApplicationAdmin(
     subject: `طلب شراكة جديد — ${params.company}`,
     html: sponsorApplicationAdminHtml(params),
   }, idem(idempotencyKey))
+}
+
+/**
+ * Send the offer link to ONE company contact.
+ *
+ * THIS ONE THROWS WHEN RESEND REFUSES, and that is the whole point. The SDK's
+ * send method does NOT reject on an API error — it RESOLVES with
+ * `{ data: null, error: {...} }`. So a caller that only wraps it in try/catch
+ * sees a clean success for a message the provider never accepted, and the
+ * operator gets a green «تم أُرسل» for mail that does not exist. That is worse
+ * than a button that fails, because it stops him from resending.
+ *
+ * The offer send is also the one place where the caller writes a fact to the
+ * database off the back of the result (`sent_at`), so a false success would be
+ * recorded and outlive the session. The other sends in this file still ignore
+ * `error`; fixing them is a separate sweep, not a drive-by here.
+ *
+ * The password is NOT a parameter — see `partnershipOfferHtml`.
+ */
+export async function sendPartnershipOffer(
+  recipientEmail: string,
+  params: { companyName: string; contactName: string; offerUrl: string; passwordProtected: boolean },
+) {
+  const result = await getResend().emails.send({
+    from: FROM_DISPLAY,
+    to: recipientEmail,
+    replyTo: REPLY_TO,
+    subject: `عرض شراكة — بودكاست خط × ${params.companyName}`,
+    html: partnershipOfferHtml(params),
+  })
+  if (result.error) {
+    throw new Error(result.error.message || 'رفض مزوّد البريد الرسالة')
+  }
+  return result
 }
 
 export async function sendPartnerTaskReminder(

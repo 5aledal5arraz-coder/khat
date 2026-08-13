@@ -17,15 +17,23 @@ import {
   Plus,
   Trash2,
   Eye,
+  Send,
+  AlertCircle,
 } from "lucide-react"
+import { formatRelativeTime } from "@/lib/shared/formatters"
 import type { PartnershipOffer, ProposedPackage } from "@/types/database"
 
 export function OfferEditor({
   offer: initial,
   companyName,
+  leadEmail,
+  contactName,
 }: {
   offer: PartnershipOffer
   companyName: string
+  /** `sponsorship_leads.email` — the only address this offer can be sent to. */
+  leadEmail: string
+  contactName: string
 }) {
   const [offer, setOffer] = useState<PartnershipOffer>(initial)
   const [title, setTitle] = useState(initial.title ?? "")
@@ -41,6 +49,8 @@ export function OfferEditor({
   const [pwBusy, setPwBusy] = useState(false)
   const [copied, setCopied] = useState(false)
   const [tokenBusy, setTokenBusy] = useState(false)
+  const [sendBusy, setSendBusy] = useState(false)
+  const [sendError, setSendError] = useState<string | null>(null)
 
   const link = typeof window !== "undefined" ? `${window.location.origin}/offer/${offer.token}` : `/offer/${offer.token}`
 
@@ -83,6 +93,42 @@ export function OfferEditor({
     const updated = await patch({ regenerateToken: true })
     if (updated) setOffer(updated)
     setTokenBusy(false)
+  }
+
+  /**
+   * Mail the link to the lead's registered contact.
+   *
+   * Two confirmations, not one, when it has gone out before: a duplicate offer
+   * landing in a partner's inbox reads as disorganised, and unlike a saved draft
+   * it cannot be taken back. The server re-checks both the publish state and the
+   * resend acknowledgement — this dialog is a courtesy, not the gate.
+   */
+  async function sendOffer() {
+    if (!offer.published) return
+    const already = offer.sent_at
+    if (!confirm(`سيُرسل العرض إلى ${contactName} على ${leadEmail}. متابعة؟`)) return
+    if (already && !confirm(`تنبيه: سبق إرسال هذا العرض ${formatRelativeTime(already)}. إرساله مرة أخرى؟`)) return
+
+    setSendBusy(true)
+    setSendError(null)
+    try {
+      const res = await fetch(`/api/admin/offers/${offer.id}/send`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ confirm_resend: Boolean(already) }),
+      })
+      const data = (await res.json().catch(() => ({}))) as { error?: string; sent_at?: string }
+      // A failed send must never look like a sent one — no optimistic stamp.
+      if (!res.ok) {
+        setSendError(data.error || "فشل الإرسال — لم يُرسل شيء.")
+        return
+      }
+      setOffer((prev) => ({ ...prev, sent_at: data.sent_at ?? new Date().toISOString() }))
+    } catch {
+      setSendError("تعذّر الاتصال بالخادم — لم يُرسل شيء.")
+    } finally {
+      setSendBusy(false)
+    }
   }
 
   function copyLink() {
@@ -186,6 +232,41 @@ export function OfferEditor({
             </div>
             <Switch checked={offer.published} onCheckedChange={togglePublish} />
           </div>
+        </div>
+
+        {/* Send to the company */}
+        <div className="rounded-2xl border border-border/60 bg-card p-5">
+          <p className="mb-1 flex items-center gap-1.5 text-[13px] font-semibold">
+            <Send className="h-3.5 w-3.5 text-primary" />
+            إرسال العرض للشركة
+          </p>
+          <p className="mb-3 text-[11px] leading-relaxed text-muted-foreground">
+            يذهب إلى جهة الاتصال المسجّلة في الطلب:{" "}
+            <span className="font-medium text-foreground">{contactName}</span>
+            {" — "}
+            <span dir="ltr" className="inline-block font-medium text-foreground">{leadEmail}</span>
+          </p>
+          <Button onClick={sendOffer} disabled={!offer.published || sendBusy} className="w-full">
+            {sendBusy ? <Loader2 className="me-2 h-4 w-4 animate-spin" /> : <Send className="me-2 h-4 w-4" />}
+            {offer.sent_at ? "إرسال مرة أخرى" : "أرسل العرض"}
+          </Button>
+          {!offer.published && (
+            <p className="mt-2 text-[11px] leading-relaxed text-muted-foreground">
+              انشر العرض أولاً — الرابط غير المنشور يفتح صفحة «غير موجود» عند الشركة.
+            </p>
+          )}
+          {offer.sent_at && (
+            <p className="mt-2 flex items-center gap-1.5 text-[11px] text-muted-foreground">
+              <Check className="h-3 w-3 text-green-700" />
+              أُرسل {formatRelativeTime(offer.sent_at)}
+            </p>
+          )}
+          {sendError && (
+            <p role="alert" className="mt-2 rounded-lg bg-red-50 px-2.5 py-2 text-[11px] leading-relaxed text-red-700">
+              <AlertCircle className="me-1 inline-block h-3 w-3 align-[-1px]" />
+              {sendError}
+            </p>
+          )}
         </div>
 
         {/* Secret link */}

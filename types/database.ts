@@ -321,6 +321,8 @@ export interface PartnershipOffer {
   published: boolean
   view_count: number
   last_viewed_at: string | null
+  /** ISO time the link was emailed to the lead's contact; null = never sent. */
+  sent_at: string | null
   created_at: string
   updated_at: string
 }
@@ -382,6 +384,7 @@ export type PartnerActivityType =
   | "meeting_logged"
   | "email_sent"
   | "offer_published"
+  | "offer_sent"
   | "offer_viewed"
   | "offer_responded"
   | "proposal_generated"

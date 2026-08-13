@@ -46,6 +46,7 @@ function mapOffer(row: typeof partnershipOffers.$inferSelect): PartnershipOffer 
     published: row.published,
     view_count: row.view_count,
     last_viewed_at: row.last_viewed_at ? row.last_viewed_at.toISOString() : null,
+    sent_at: row.sent_at ? row.sent_at.toISOString() : null,
     created_at: (row.created_at ?? new Date()).toISOString(),
     updated_at: (row.updated_at ?? new Date()).toISOString(),
   }
@@ -151,6 +152,23 @@ export async function regenerateOfferToken(id: string): Promise<string | null> {
     .where(eq(partnershipOffers.id, id))
     .returning({ token: partnershipOffers.token })
   return row?.token ?? null
+}
+
+/**
+ * Stamp the moment the offer was emailed to the company.
+ *
+ * Deliberately NOT part of `updateOffer`: this is written by the send route
+ * only, and only after the provider accepted the message. `updated_at` is left
+ * alone — the content did not change, the delivery did.
+ */
+export async function markOfferSent(id: string, at = new Date()): Promise<string | null> {
+  if (!db) return null
+  const [row] = await db
+    .update(partnershipOffers)
+    .set({ sent_at: at })
+    .where(eq(partnershipOffers.id, id))
+    .returning({ sent_at: partnershipOffers.sent_at })
+  return row?.sent_at ? row.sent_at.toISOString() : null
 }
 
 export async function recordOfferView(token: string): Promise<void> {

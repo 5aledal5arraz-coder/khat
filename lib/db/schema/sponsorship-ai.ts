@@ -91,6 +91,13 @@ export const partnershipOffers = pgTable("partnership_offers", {
   published: boolean("published").notNull().default(false),
   view_count: integer("view_count").notNull().default(0),
   last_viewed_at: timestamp("last_viewed_at", { withTimezone: true }),
+  /**
+   * When the offer link was emailed to the lead's registered contact. Null means
+   * it has never been sent — the state that used to be invisible, because the
+   * only path from "published" to "the company has it" was Khaled copying the
+   * link by hand. Written ONLY after Resend accepts the message.
+   */
+  sent_at: timestamp("sent_at", { withTimezone: true }),
   created_at: timestamp("created_at", { withTimezone: true }).defaultNow(),
   updated_at: timestamp("updated_at", { withTimezone: true }).defaultNow(),
 })

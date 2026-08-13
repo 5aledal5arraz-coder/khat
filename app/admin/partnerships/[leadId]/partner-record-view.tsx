@@ -34,6 +34,7 @@ import {
   CheckCheck,
   CircleDot,
   Download,
+  Send,
 } from "lucide-react"
 import type {
   PartnerRecord,
@@ -1237,6 +1238,7 @@ const ACTIVITY_ICON: Record<string, React.ElementType> = {
   meeting_logged: Phone,
   email_sent: Mail,
   offer_published: ExternalLink,
+  offer_sent: Send,
   offer_viewed: ExternalLink,
   offer_responded: Coins,
   proposal_generated: ScrollText,

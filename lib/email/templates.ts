@@ -643,6 +643,46 @@ export function prepSubmittedAdminHtml(params: {
   return legacyEmailLayout(content)
 }
 
+/**
+ * The offer link, sent to the company's registered contact.
+ *
+ * ⚠️ THIS TEMPLATE CANNOT BE GIVEN THE PASSWORD, BY SIGNATURE. It takes
+ * `passwordProtected: boolean` — never the password, never its hash. One message
+ * carrying both the lock and its key is not a lock: anyone who reaches that
+ * inbox (a forward, a shared mailbox, a breach) gets the gate and the way
+ * through it in the same scroll. The password travels on another channel, and
+ * the mail only says so. A guard test asserts the absence, but the parameter
+ * list is what makes the mistake unwritable in the first place.
+ *
+ * Short on purpose: the offer is the page, not the email.
+ */
+export function partnershipOfferHtml(params: {
+  companyName: string
+  contactName: string
+  offerUrl: string
+  passwordProtected: boolean
+}): string {
+  const passwordNote = params.passwordProtected
+    ? `<div style="margin:20px 0 0;padding:14px 16px;border-radius:12px;background:${BRAND.calloutBg};border:1px solid ${BRAND.calloutBorder};">
+         <div style="color:${BRAND.ink};font-size:13px;font-weight:700;">الصفحة محميّة بكلمة مرور</div>
+         <div style="color:${BRAND.muted};font-size:13px;line-height:1.7;">تصلكم كلمة المرور في رسالة منفصلة عبر قناة أخرى — لا ترد في هذا البريد.</div>
+       </div>`
+    : ''
+  const content = `
+    <h2 style="margin:0 0 12px;color:${BRAND.ink};font-size:20px;">عرض شراكة — خط × ${escapeHtml(params.companyName)}</h2>
+    <p style="margin:0 0 8px;color:${BRAND.body};font-size:15px;line-height:1.8;">
+      أهلاً ${escapeHtml(params.contactName)}، أعددنا لكم عرض شراكة خاصاً بـ${escapeHtml(params.companyName)}.
+    </p>
+    <p style="margin:0 0 4px;color:${BRAND.muted};font-size:14px;line-height:1.8;">
+      العرض في صفحة خاصة بكم — تفتحونها متى شئتم، وتردّون علينا منها مباشرة.
+    </p>
+    ${ctaButton('افتح العرض', params.offerUrl)}
+    ${passwordNote}
+    <p style="margin:20px 0 0;color:${BRAND.muted};font-size:13px;">— فريق بودكاست خط</p>
+  `
+  return legacyEmailLayout(content)
+}
+
 export function sponsorApplicationConfirmHtml(contactName: string, reference?: string): string {
   const step = (n: string, title: string, body: string) => `
     <tr>

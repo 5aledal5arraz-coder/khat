@@ -48,7 +48,12 @@ export default async function OfferEditorPage({
 
       {offer ? (
         <>
-          <OfferEditor offer={offer} companyName={lead.company_name} />
+          <OfferEditor
+            offer={offer}
+            companyName={lead.company_name}
+            leadEmail={lead.email}
+            contactName={lead.contact_name}
+          />
           <OfferResponsesPanel offerId={offer.id} responses={responses} />
         </>
       ) : (

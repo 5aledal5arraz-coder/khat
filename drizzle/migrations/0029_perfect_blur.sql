@@ -1,0 +1,13 @@
+-- When the offer was actually handed to the company.
+--
+-- Nullable and never back-filled: NULL means "not sent", and that is a real,
+-- useful state. Until now a published offer with a zero view count was
+-- indistinguishable from one that had been sent and ignored — the first needs a
+-- send, the second needs a follow-up, and the system could not tell them apart.
+--
+-- Deliberately NOT `updated_at`: delivery is not an edit. A send must not make
+-- the offer look freshly modified in any screen ordering by it.
+--
+-- `IF NOT EXISTS` because our migrator compares a high-water mark rather than
+-- checking membership, so a replay must not abort the run.
+ALTER TABLE "partnership_offers" ADD COLUMN IF NOT EXISTS "sent_at" timestamp with time zone;
