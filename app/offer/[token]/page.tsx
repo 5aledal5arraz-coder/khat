@@ -1,6 +1,5 @@
 import { notFound } from "next/navigation"
-import { getOfferByToken, recordOfferView, getOfferCompanyName } from "@/lib/partnership-offers"
-import type { PublicPartnershipOffer } from "@/types/database"
+import { getOfferByToken, recordOfferView, buildPublicOffer } from "@/lib/partnership-offers"
 import { OfferClient } from "./offer-client"
 
 export const dynamic = "force-dynamic"
@@ -23,15 +22,8 @@ export default async function OfferPage({
 
   // Open link: record the view and render directly.
   await recordOfferView(token).catch(() => {})
-  const company_name = await getOfferCompanyName(offer.lead_id)
-  const publicOffer: PublicPartnershipOffer = {
-    title: offer.title,
-    intro: offer.intro,
-    body: offer.body,
-    packages: offer.packages,
-    validity_note: offer.validity_note,
-    contact_email: offer.contact_email,
-    company_name,
-  }
+  // Whitelisted in ONE place — see `buildPublicOffer`. The private columns
+  // (status, internal_note) are absent by construction, not by subtraction.
+  const publicOffer = await buildPublicOffer(offer)
   return <OfferClient token={token} requiresPassword={false} initialOffer={publicOffer} />
 }

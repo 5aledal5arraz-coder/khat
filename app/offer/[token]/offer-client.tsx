@@ -5,6 +5,7 @@ import { Lock, Loader2, Check, Mail, Handshake, Clock } from "lucide-react"
 import { CONFIDENTIALITY_LEAD, confidentialityBody } from "@/lib/partnerships/confidentiality"
 import type { PublicPartnershipOffer } from "@/types/database"
 import { OfferResponseForm } from "./offer-response-form"
+import { OfferConversation } from "./offer-conversation"
 
 export function OfferClient({
   token,
@@ -162,6 +163,12 @@ export function OfferClient({
                 <p className="text-caption text-foreground/85">{offer.validity_note}</p>
               </div>
             )}
+
+            {/* The negotiation so far. Sits ABOVE the form: a returning
+                partner needs to read what we answered before deciding what to
+                send next, and a reply box above the reply it answers reads
+                backwards. */}
+            <OfferConversation exchanges={offer.exchanges} />
 
             {/* Reply — only where there is something to choose. With no
                 packages there is no selection to make, and an invented package

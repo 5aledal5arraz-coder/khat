@@ -14,7 +14,15 @@ import { db } from "@/lib/db"
 import { partnershipOffers, sponsorshipProposals } from "@/lib/db/schema/sponsorship-ai"
 import { sponsorshipLeads } from "@/lib/db/schema/system"
 import { getSiteSettings } from "@/lib/site-settings"
-import type { PartnershipOffer, ProposedPackage } from "@/types/database"
+import { listOfferResponses } from "@/lib/offer-responses"
+import { listOfferCountersByResponse } from "@/lib/offer-counters"
+import type {
+  OfferResponse,
+  PartnershipOffer,
+  ProposedPackage,
+  PublicOfferExchange,
+  PublicPartnershipOffer,
+} from "@/types/database"
 
 const BCRYPT_ROUNDS = 12
 
@@ -188,6 +196,75 @@ export async function recordOfferView(token: string): Promise<void> {
       actor: "public",
       metadata: { token, view_count: row.view_count },
     })
+  }
+}
+
+/**
+ * ── THE ONE PLACE AN OFFER BECOMES PUBLIC ──────────────────────────────────
+ *
+ * Two surfaces serve `/offer/<token>`: the page itself for an open link, and
+ * the verify route once a password has been accepted. Both used to assemble the
+ * public shape by hand, field by field, in two places — which meant the answer
+ * to «ماذا ترى الشركة؟» lived in two files that were free to disagree, and
+ * adding the negotiation to one of them would have shipped a page where the
+ * conversation appears only for offers with no password.
+ *
+ * So there is one builder, and it is a WHITELIST. Not `{...offer}` minus a few
+ * keys: a spread means every column added to `partnership_offers` from now on
+ * is public by default and private only if someone remembers to subtract it.
+ * That is the wrong default for a table holding a bcrypt hash.
+ *
+ * What is deliberately absent from `PublicOfferExchange`:
+ *   `status`         — Khaled's read on the reply. «مرفوض» is not a thing to
+ *                      show the company that sent it.
+ *   `internal_note`  — his private note. Lives in a different column from our
+ *                      public answer for exactly this reason; see
+ *                      `lib/db/schema/offer-counters.ts`.
+ *   `responder_email`— a colleague's address the page has no reason to reprint.
+ */
+function toPublicExchange(
+  response: OfferResponse,
+  counters: PublicOfferExchange["counters"],
+): PublicOfferExchange {
+  return {
+    id: response.id,
+    selected_package: response.selected_package,
+    proposed_amount: response.proposed_amount,
+    proposed_currency: response.proposed_currency,
+    notes: response.notes,
+    responder_name: response.responder_name,
+    created_at: response.created_at,
+    counters,
+  }
+}
+
+export async function buildPublicOffer(offer: PartnershipOffer): Promise<PublicPartnershipOffer> {
+  const company_name = await getOfferCompanyName(offer.lead_id)
+  const responses = await listOfferResponses(offer.id)
+  const countersByResponse = await listOfferCountersByResponse(responses.map((r) => r.id))
+
+  return {
+    title: offer.title,
+    intro: offer.intro,
+    body: offer.body,
+    packages: offer.packages,
+    validity_note: offer.validity_note,
+    contact_email: offer.contact_email,
+    company_name,
+    // Newest round first, matching `listOfferResponses`. Our replies inside a
+    // round stay oldest-first — a conversation reads forwards.
+    exchanges: responses.map((r) =>
+      toPublicExchange(
+        r,
+        (countersByResponse.get(r.id) ?? []).map((c) => ({
+          id: c.id,
+          message: c.message,
+          counter_amount: c.counter_amount,
+          counter_currency: c.counter_currency,
+          created_at: c.created_at,
+        })),
+      ),
+    ),
   }
 }
 

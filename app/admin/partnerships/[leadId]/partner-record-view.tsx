@@ -1241,6 +1241,7 @@ const ACTIVITY_ICON: Record<string, React.ElementType> = {
   offer_sent: Send,
   offer_viewed: ExternalLink,
   offer_responded: Coins,
+  offer_countered: Handshake,
   proposal_generated: ScrollText,
   contract_updated: FileText,
   campaign_updated: Megaphone,

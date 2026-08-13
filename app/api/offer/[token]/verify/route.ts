@@ -4,9 +4,8 @@ import {
   getOfferByToken,
   verifyOfferPassword,
   recordOfferView,
-  getOfferCompanyName,
+  buildPublicOffer,
 } from "@/lib/partnership-offers"
-import type { PublicPartnershipOffer } from "@/types/database"
 
 const MAX_ATTEMPTS = 8
 const WINDOW_MS = 15 * 60 * 1000
@@ -39,15 +38,6 @@ export async function POST(
   }
 
   await recordOfferView(token)
-  const company_name = await getOfferCompanyName(offer.lead_id)
-  const publicOffer: PublicPartnershipOffer = {
-    title: offer.title,
-    intro: offer.intro,
-    body: offer.body,
-    packages: offer.packages,
-    validity_note: offer.validity_note,
-    contact_email: offer.contact_email,
-    company_name,
-  }
-  return NextResponse.json({ offer: publicOffer })
+  // Same builder as the un-gated page — one answer to «ماذا ترى الشركة؟».
+  return NextResponse.json({ offer: await buildPublicOffer(offer) })
 }

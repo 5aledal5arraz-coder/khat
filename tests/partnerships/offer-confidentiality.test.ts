@@ -47,6 +47,7 @@ const EMPTY_OFFER: PublicPartnershipOffer = {
   validity_note: null,
   contact_email: null,
   company_name: COMPANY,
+  exchanges: [],
 }
 
 const publicHtml = (offer: PublicPartnershipOffer): string =>

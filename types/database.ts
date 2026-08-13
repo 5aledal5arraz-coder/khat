@@ -355,6 +355,56 @@ export interface OfferResponse {
   updated_at: string
 }
 
+/**
+ * Our reply to one company reply — «ردّ خط». Append-only, like theirs.
+ *
+ * This is the PUBLIC half of the negotiation and the exact counterpart of
+ * `OfferResponse.internal_note`, which is the private half. They are separate
+ * tables so that "which one is the company allowed to see" is answered by the
+ * schema rather than by remembering. See `lib/db/schema/offer-counters.ts`.
+ */
+export interface OfferCounter {
+  id: string
+  offer_id: string
+  /** The reply this answers — the public page nests it directly underneath. */
+  response_id: string
+  /** Shown to the company verbatim. */
+  message: string
+  /** Our counter figure. `null` = we replied without naming one. */
+  counter_amount: number | null
+  counter_currency: string
+  author_admin_id: string | null
+  /** Snapshot of the sender's name at the time — see the schema comment. */
+  author_name: string | null
+  created_at: string
+}
+
+/**
+ * One round of the negotiation as the COMPANY sees it.
+ *
+ * Built by whitelist in `toPublicExchange()`, never by spreading an
+ * `OfferResponse`. `status` and `internal_note` are Khaled's and have no
+ * business on a page the partner can open; `responder_email` is a colleague's
+ * address that the page has no reason to reprint.
+ */
+export interface PublicOfferExchange {
+  id: string
+  selected_package: string
+  proposed_amount: number | null
+  proposed_currency: string
+  notes: string | null
+  responder_name: string
+  created_at: string
+  /** Our replies to this round, oldest first. */
+  counters: {
+    id: string
+    message: string
+    counter_amount: number | null
+    counter_currency: string
+    created_at: string
+  }[]
+}
+
 /** Public-safe offer shape (no password hash) returned to the secret-link page. */
 export interface PublicPartnershipOffer {
   title: string | null
@@ -364,6 +414,8 @@ export interface PublicPartnershipOffer {
   validity_note: string | null
   contact_email: string | null
   company_name: string
+  /** The negotiation so far, newest round first. Empty until they reply. */
+  exchanges: PublicOfferExchange[]
 }
 
 // --- Partnership CRM (relationship spine) ---
@@ -387,6 +439,8 @@ export type PartnerActivityType =
   | "offer_sent"
   | "offer_viewed"
   | "offer_responded"
+  /** We answered their counter-offer on the offer page — «ردّ خط». */
+  | "offer_countered"
   | "proposal_generated"
   | "contract_updated"
   | "campaign_updated"

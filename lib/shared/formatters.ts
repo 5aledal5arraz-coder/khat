@@ -178,6 +178,35 @@ export function ltrIsolate(text: string | null | undefined): string {
   return s === "" ? "" : `\u2066${s}\u2069`
 }
 
+// ─── Money ───────────────────────────────────────────────────────────────────
+
+/**
+ * A dinar figure with its unit — «2,750 د.ك», «1,500.750 د.ك».
+ *
+ * Three decimals is the dinar's precision and `numeric(10,3)`'s, but trailing
+ * zeros are dropped: a negotiation screen printing «2,750.000 د.ك» beside
+ * «2,000.000 د.ك» is three digits of noise on the two numbers the whole page
+ * exists to compare.
+ *
+ * Pass `{ signed: true }` for a difference, where «+250» and «−250» mean
+ * opposite things and an unsigned 250 means neither. The minus is U+2212, not
+ * a hyphen — a hyphen is a neutral character that UAX#9 resolves against the
+ * surrounding RTL run and paints on the wrong end of the number.
+ *
+ * Any non-KWD code is printed as-is rather than translated: inventing an
+ * Arabic abbreviation for a currency we do not price in would be a guess.
+ */
+export function formatKwd(
+  amount: number,
+  currency = "KWD",
+  opts?: { signed?: boolean },
+): string {
+  const sign = opts?.signed ? (amount < 0 ? "−" : "+") : ""
+  const digits = Math.abs(amount)
+    .toLocaleString("en-US", { minimumFractionDigits: 0, maximumFractionDigits: 3 })
+  return `${sign}${digits} ${currency === "KWD" ? "د.ك" : currency}`
+}
+
 // ─── Date Formatting ─────────────────────────────────────────────────────────
 
 /** Format a date as DD/MM/YYYY (local timezone). */
