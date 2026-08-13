@@ -13,6 +13,7 @@
 
 import { khatLogoMarkup } from "@/components/brand/khat-logo-geometry"
 import { manifaFontFace } from "@/lib/brand/standalone-css"
+import { CONFIDENTIALITY_LEAD, confidentialityBody } from "@/lib/partnerships/confidentiality"
 import type {
   SponsorshipLead,
   SponsorshipProposal,
@@ -79,7 +80,13 @@ export function buildProposalHtml(input: ProposalPdfInput): string {
   const packages = (offer?.packages?.length ? offer.packages : proposal?.proposed_packages) || []
   const validity = offer?.validity_note || proposal?.next_steps || ""
   const closing = proposal?.closing || ""
-  const contactEmail = offer?.contact_email || "partners@khatpodcast.com"
+  // The fallback is the address that ANSWERS. `partners@khatpodcast.com` was
+  // never a mailbox — Zoho replies `550 User does not exist` to it (measured
+  // 2026-08-12) — so every PDF built before an operator typed a contact email
+  // printed a dead address on the one line a partner is meant to reply to.
+  // `hello@` is the system's real reply-to and the same default
+  // `getOrCreateOfferForLead()` seeds an offer with.
+  const contactEmail = offer?.contact_email || "hello@khatpodcast.com"
 
   const packagesBlock = packages.length
     ? `<section class="section">
@@ -145,6 +152,8 @@ export function buildProposalHtml(input: ProposalPdfInput): string {
   .pkg-list li{margin-bottom:4px;}
 
   .callout{background:var(--indigo-soft);border-radius:14px;padding:15px 18px;font-size:13px;}
+  .confidential{border:1px solid var(--line);border-radius:12px;padding:11px 14px;margin-top:18px;color:var(--muted);font-size:11px;line-height:1.75;}
+  .confidential strong{color:var(--ink);font-weight:700;}
   .about{border:1px solid var(--line);border-radius:14px;padding:15px 18px;color:var(--muted);font-size:12.5px;}
   .footer{margin-top:26px;border-top:1px solid var(--line);padding-top:14px;display:flex;justify-content:space-between;align-items:center;color:var(--muted);font-size:12px;}
   .footer .em{color:var(--indigo);font-weight:600;}
@@ -185,6 +194,9 @@ export function buildProposalHtml(input: ProposalPdfInput): string {
     ${validity ? `<section class="section"><h2 class="h2"><span class="bar"></span>الخطوات التالية</h2><div class="callout">${paragraphs(validity)}</div></section>` : ""}
 
     ${closing ? `<p class="para">${esc(closing)}</p>` : ""}
+
+    <!-- Confidentiality — unconditional, no field behind it. -->
+    <div class="confidential"><strong>${esc(CONFIDENTIALITY_LEAD)}</strong> ${esc(confidentialityBody(lead.company_name))}</div>
 
     <div class="footer">
       <div class="footer-brand">بودكاست <span class="em">خط</span> · ${esc(reference)}</div>

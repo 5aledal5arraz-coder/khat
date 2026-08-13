@@ -2,7 +2,9 @@
 
 import { useState } from "react"
 import { Lock, Loader2, Check, Mail, Handshake, Clock } from "lucide-react"
+import { CONFIDENTIALITY_LEAD, confidentialityBody } from "@/lib/partnerships/confidentiality"
 import type { PublicPartnershipOffer } from "@/types/database"
+import { OfferResponseForm } from "./offer-response-form"
 
 export function OfferClient({
   token,
@@ -92,7 +94,14 @@ export function OfferClient({
               عرض شراكة من خط
             </div>
             <h1 className="text-subhead font-bold sm:text-heading">
-              {offer.title || `عرض شراكة — خط × ${offer.company_name}`}
+              {offer.title ||
+                (offer.company_name
+                  ? `عرض شراكة — خط × ${offer.company_name}`
+                  : // Same empty-name case the confidentiality block handles, and
+                    // it was left dangling one element above it: with no company
+                    // stored, the fallback title rendered «عرض شراكة — خط ×» with
+                    // a multiplication sign pointing at nothing.
+                    "عرض شراكة من بودكاست خط")}
             </h1>
             {offer.company_name && (
               <p className="mt-2 text-caption text-muted-foreground">
@@ -154,6 +163,13 @@ export function OfferClient({
               </div>
             )}
 
+            {/* Reply — only where there is something to choose. With no
+                packages there is no selection to make, and an invented package
+                is exactly what this form must not accept. */}
+            {offer.packages.length > 0 && (
+              <OfferResponseForm token={token} packages={offer.packages} password={password} />
+            )}
+
             {/* Contact CTA */}
             <div className="rounded-2xl bg-primary/[0.04] p-6 text-center ring-1 ring-primary/15">
               <h2 className="text-lead font-bold">جاهزون لبدء المحادثة</h2>
@@ -169,6 +185,13 @@ export function OfferClient({
                   تواصلوا معنا
                 </a>
               )}
+            </div>
+
+            {/* Confidentiality — unconditional. No field to leave empty, no
+                toggle to forget; see lib/partnerships/confidentiality.ts. */}
+            <div className="rounded-xl border border-border/50 bg-muted/20 px-4 py-3 text-micro leading-relaxed text-muted-foreground">
+              <strong className="font-semibold text-foreground/75">{CONFIDENTIALITY_LEAD}</strong>{" "}
+              {confidentialityBody(offer.company_name)}
             </div>
           </div>
 

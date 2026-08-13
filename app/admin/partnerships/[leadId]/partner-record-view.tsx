@@ -1238,6 +1238,7 @@ const ACTIVITY_ICON: Record<string, React.ElementType> = {
   email_sent: Mail,
   offer_published: ExternalLink,
   offer_viewed: ExternalLink,
+  offer_responded: Coins,
   proposal_generated: ScrollText,
   contract_updated: FileText,
   campaign_updated: Megaphone,

@@ -325,6 +325,34 @@ export interface PartnershipOffer {
   updated_at: string
 }
 
+/**
+ * The company's reply to an offer — a counter-offer, never an edit.
+ *
+ * Our price is never overwritten by this; `proposed_amount` sits BESIDE it. See
+ * `lib/db/schema/offer-responses.ts` for why that framing is the whole point,
+ * and why every submission is a new row rather than an update.
+ */
+export type OfferResponseStatus = "new" | "reviewed" | "accepted" | "declined"
+
+export interface OfferResponse {
+  id: string
+  offer_id: string
+  /** The package NAME as it was shown to them — not an index into a list that gets reordered. */
+  selected_package: string
+  /** Their figure. `null` means they replied without naming a price. */
+  proposed_amount: number | null
+  proposed_currency: string
+  notes: string | null
+  responder_name: string
+  responder_email: string
+  responder_job_title: string | null
+  /** Moved from the admin only — the company can never write this. */
+  status: OfferResponseStatus
+  internal_note: string | null
+  created_at: string
+  updated_at: string
+}
+
 /** Public-safe offer shape (no password hash) returned to the secret-link page. */
 export interface PublicPartnershipOffer {
   title: string | null
@@ -355,6 +383,7 @@ export type PartnerActivityType =
   | "email_sent"
   | "offer_published"
   | "offer_viewed"
+  | "offer_responded"
   | "proposal_generated"
   | "contract_updated"
   | "campaign_updated"

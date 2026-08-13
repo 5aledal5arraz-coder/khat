@@ -4,7 +4,9 @@ import { ArrowRight } from "lucide-react"
 import { requireAdmin } from "@/lib/api-utils"
 import { getSponsorshipLeadById } from "@/lib/admin/queries"
 import { getOfferByLead } from "@/lib/partnership-offers"
+import { listOfferResponses } from "@/lib/offer-responses"
 import { OfferEditor } from "./offer-editor"
+import { OfferResponsesPanel } from "./offer-responses-panel"
 import { CreateOfferCTA } from "./create-offer-cta"
 
 export const dynamic = "force-dynamic"
@@ -24,6 +26,7 @@ export default async function OfferEditorPage({
   // offer from the AI proposal is an explicit, role-gated action (the CTA
   // below) so a read-only VIEWER opening the page can't mint an offer + token.
   const offer = await getOfferByLead(leadId)
+  const responses = offer ? await listOfferResponses(offer.id) : []
 
   return (
     <div className="space-y-6" dir="rtl" lang="ar">
@@ -44,7 +47,10 @@ export default async function OfferEditorPage({
       </div>
 
       {offer ? (
-        <OfferEditor offer={offer} companyName={lead.company_name} />
+        <>
+          <OfferEditor offer={offer} companyName={lead.company_name} />
+          <OfferResponsesPanel offerId={offer.id} responses={responses} />
+        </>
       ) : (
         <CreateOfferCTA leadId={leadId} />
       )}

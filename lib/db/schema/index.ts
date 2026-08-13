@@ -24,6 +24,7 @@ export * from "./khat-map"
 // ─── Khat Brain core ────────────────────────────────────────────────────
 export * from "./eir"
 export * from "./upcoming-episodes"
+export * from "./offer-responses"
 export * from "./ai-runs"
 export * from "./jobs"
 export * from "./studio-analysis"
