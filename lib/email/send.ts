@@ -12,8 +12,46 @@
  * `REPLY_TO` itself must be an address that actually receives — see
  * lib/email/resend.ts.
  */
+import type { CreateEmailOptions, CreateEmailRequestOptions } from 'resend'
 import { getResend, FROM_DISPLAY, REPLY_TO } from './resend'
 import { getEmailSocialLinks } from './social'
+
+/**
+ * A REFUSAL FROM RESEND IS NOT AN EXCEPTION — it is a resolved promise.
+ *
+ * `emails.send()` does NOT reject when the API says no. It RESOLVES with
+ * `{ data: null, error: {...} }`. So `await getResend().emails.send(...)` reads
+ * a rejected message as a success, and every caller in this file used to do
+ * exactly that: eleven of twelve sends returned the response object untouched
+ * and nobody looked at `error`. A message the provider never accepted came back
+ * indistinguishable from one it did — the operator saw «تم الإرسال», the job
+ * went green, `sent_at` and `outcome_emailed_at` got stamped for deliveries
+ * that do not exist. That is worse than a visible failure, because a visible
+ * failure can be retried and this one stops anyone from knowing to retry.
+ *
+ * Every send goes through here so the check cannot be forgotten by the next
+ * one added. `tests/email/send-failures-are-visible.test.ts` scans the source
+ * to keep it that way.
+ *
+ * THROWING IS THE POINT, and the callers are what make it safe: each one
+ * already sits inside a handler that turns the throw into something readable —
+ * a failed `jobs` row with `last_error`, a `delivery_error` column, an
+ * `emails_failed` count, or a 5xx the operator sees. Nothing here is
+ * fire-and-forget, so nothing becomes an unhandled rejection. Before adding a
+ * caller, give it one of those; do not add a bare `void send…()`.
+ */
+async function sendOrThrow(
+  what: string,
+  payload: CreateEmailOptions,
+  options?: CreateEmailRequestOptions,
+) {
+  const result = await getResend().emails.send(payload, options)
+  if (result.error) {
+    const reason = result.error.message || result.error.name || 'رفض مزوّد البريد الرسالة'
+    throw new Error(`[email:${what}] ${reason}`)
+  }
+  return result
+}
 
 /**
  * Retrying a notification must not mail the applicant twice.
@@ -51,7 +89,7 @@ export async function sendNewsletterWelcome(
   // Live handles, not the hardcoded copy — see lib/email/social.ts for the
   // drift this closes.
   const social = await getEmailSocialLinks()
-  return getResend().emails.send({
+  return sendOrThrow('newsletter-welcome', {
     from: FROM_DISPLAY,
     to: email,
     replyTo: REPLY_TO,
@@ -73,7 +111,7 @@ export async function sendDirectEmail(
   body: string,
   senderName: string
 ) {
-  return getResend().emails.send({
+  return sendOrThrow('direct', {
     from: FROM_DISPLAY,
     to: email,
     replyTo: REPLY_TO,
@@ -87,7 +125,7 @@ export async function sendGuestApplicationAdmin(
   params: { name: string; email: string; phone: string; country: string },
   idempotencyKey?: string
 ) {
-  return getResend().emails.send({
+  return sendOrThrow('guest-application-admin', {
     from: FROM_DISPLAY,
     to: adminEmail,
     replyTo: REPLY_TO,
@@ -102,7 +140,7 @@ export async function sendGuestApplicationConfirm(
   reference?: string,
   idempotencyKey?: string
 ) {
-  return getResend().emails.send({
+  return sendOrThrow('guest-application-confirm', {
     from: FROM_DISPLAY,
     to: applicantEmail,
     replyTo: REPLY_TO,
@@ -118,7 +156,7 @@ export async function sendCommunityContributionConfirm(
   reference?: string,
   idempotencyKey?: string
 ) {
-  return getResend().emails.send({
+  return sendOrThrow('community-contribution-confirm', {
     from: FROM_DISPLAY,
     to: contributorEmail,
     replyTo: REPLY_TO,
@@ -134,7 +172,7 @@ export async function sendCommunityOutcome(
   outcome: "accepted" | "routed",
   reference?: string,
 ) {
-  return getResend().emails.send({
+  return sendOrThrow('community-outcome', {
     from: FROM_DISPLAY,
     to: contributorEmail,
     replyTo: REPLY_TO,
@@ -148,7 +186,7 @@ export async function sendGuestPrepConfirm(
   name: string,
   idempotencyKey?: string
 ) {
-  return getResend().emails.send({
+  return sendOrThrow('guest-prep-confirm', {
     from: FROM_DISPLAY,
     to: applicantEmail,
     replyTo: REPLY_TO,
@@ -162,7 +200,7 @@ export async function sendSponsorApplicationAdmin(
   params: { company: string; contact: string; email: string; budget: string; reference?: string },
   idempotencyKey?: string
 ) {
-  return getResend().emails.send({
+  return sendOrThrow('sponsor-application-admin', {
     from: FROM_DISPLAY,
     to: adminEmail,
     replyTo: REPLY_TO,
@@ -174,17 +212,11 @@ export async function sendSponsorApplicationAdmin(
 /**
  * Send the offer link to ONE company contact.
  *
- * THIS ONE THROWS WHEN RESEND REFUSES, and that is the whole point. The SDK's
- * send method does NOT reject on an API error — it RESOLVES with
- * `{ data: null, error: {...} }`. So a caller that only wraps it in try/catch
- * sees a clean success for a message the provider never accepted, and the
- * operator gets a green «تم أُرسل» for mail that does not exist. That is worse
- * than a button that fails, because it stops him from resending.
- *
- * The offer send is also the one place where the caller writes a fact to the
- * database off the back of the result (`sent_at`), so a false success would be
- * recorded and outlive the session. The other sends in this file still ignore
- * `error`; fixing them is a separate sweep, not a drive-by here.
+ * This was the FIRST send to check `result.error`, and the reasoning behind it
+ * now lives on `sendOrThrow` above and covers all twelve. It is called out here
+ * because the offer is the place where the caller writes a fact to the database
+ * off the back of the result (`sent_at`), so a false success would be recorded
+ * and outlive the session — Khaled would see «أُرسل» and never resend.
  *
  * The password is NOT a parameter — see `partnershipOfferHtml`.
  */
@@ -192,17 +224,13 @@ export async function sendPartnershipOffer(
   recipientEmail: string,
   params: { companyName: string; contactName: string; offerUrl: string; passwordProtected: boolean },
 ) {
-  const result = await getResend().emails.send({
+  return sendOrThrow('partnership-offer', {
     from: FROM_DISPLAY,
     to: recipientEmail,
     replyTo: REPLY_TO,
     subject: `عرض شراكة — بودكاست خط × ${params.companyName}`,
     html: partnershipOfferHtml(params),
   })
-  if (result.error) {
-    throw new Error(result.error.message || 'رفض مزوّد البريد الرسالة')
-  }
-  return result
 }
 
 export async function sendPartnerTaskReminder(
@@ -210,7 +238,7 @@ export async function sendPartnerTaskReminder(
   items: PartnerReminderItem[]
 ) {
   const overdue = items.filter((i) => i.overdue).length
-  return getResend().emails.send({
+  return sendOrThrow('partner-task-reminder', {
     from: FROM_DISPLAY,
     to: recipientEmail,
     replyTo: REPLY_TO,
@@ -228,7 +256,7 @@ export async function sendPrepSubmittedAdmin(
     candidateId: string
   }
 ) {
-  return getResend().emails.send({
+  return sendOrThrow('prep-submitted-admin', {
     from: FROM_DISPLAY,
     to: adminEmail,
     replyTo: REPLY_TO,
@@ -243,7 +271,7 @@ export async function sendSponsorApplicationConfirm(
   reference?: string,
   idempotencyKey?: string
 ) {
-  return getResend().emails.send({
+  return sendOrThrow('sponsor-application-confirm', {
     from: FROM_DISPLAY,
     to: applicantEmail,
     replyTo: REPLY_TO,

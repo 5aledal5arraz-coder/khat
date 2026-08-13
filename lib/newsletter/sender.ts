@@ -249,6 +249,31 @@ export async function processCampaignDeliveries(campaignId: string): Promise<Sen
             idempotencyKey: `nl-delivery-${row.deliveryId}`,
           })
 
+          /**
+           * A REFUSAL HERE USED TO BE FILED AS A DELIVERY.
+           *
+           * `emails.send()` resolves — it does not reject — when the API says
+           * no: `{ data: null, error }`. Without this check the write below ran
+           * anyway and stamped `status: "sent"` with `sent_at: now()` and a
+           * NULL `resend_message_id`. That is not a swallowed error, it is a
+           * false record: the campaign report counted the subscriber as
+           * reached (`finalizeCampaign` counts everything not queued/failed),
+           * and nobody would resend to them.
+           *
+           * It was also PERMANENT. The Resend webhook finds a delivery by
+           * `resend_message_id` (lib/newsletter/webhook.ts), so a row with a
+           * NULL id can never be matched and can never be corrected to
+           * delivered or bounced — it stays "sent" forever.
+           *
+           * Throwing hands the row to the catch below, which files it as
+           * `failed` with the provider's reason. `status='sent' AND
+           * resend_message_id IS NULL` is the fingerprint of a row written
+           * before this check existed.
+           */
+          if (result.error) {
+            throw new Error(result.error.message || result.error.name || "رفض مزوّد البريد الرسالة")
+          }
+
           await db!.update(newsletterDeliveries)
             .set({ status: "sent", resend_message_id: result.data?.id || null, sent_at: sql`now()` })
             .where(eq(newsletterDeliveries.id, row.deliveryId))

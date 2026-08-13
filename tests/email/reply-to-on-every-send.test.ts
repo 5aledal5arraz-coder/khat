@@ -29,28 +29,52 @@ function walk(dir: string, out: string[] = []): string[] {
   return out
 }
 
-/** Text of the object literal passed to each `emails.send(` in `src`. */
+/**
+ * Comments quote the calls they describe, and this scan would read the quote as
+ * a call site. Blank them out while KEEPING line offsets, so the failure
+ * message still points at a real line number.
+ */
+function blankComments(src: string): string {
+  return src
+    .replace(/\/\*[\s\S]*?\*\//g, (m) => m.replace(/[^\n]/g, " "))
+    .replace(/^[ \t]*\/\/.*$/gm, (m) => m.replace(/[^\n]/g, " "))
+}
+
+/**
+ * Text of the message literal passed to each send in `src`.
+ *
+ * TWO markers, because the sends in lib/email/send.ts no longer call the SDK
+ * directly — they go through the `sendOrThrow` chokepoint that checks Resend's
+ * `error` (a refusal RESOLVES, it does not reject). When that refactor landed
+ * this scan saw 13 sites drop to 6 and went quiet without failing: every
+ * payload it used to police had moved behind the new call shape. Scanning both
+ * keeps it looking at the same twelve messages.
+ */
 function sendCallArgs(src: string): { index: number; body: string }[] {
   const calls: { index: number; body: string }[] = []
-  const marker = "emails.send("
-  let from = 0
-  for (;;) {
-    const at = src.indexOf(marker, from)
-    if (at === -1) break
-    from = at + marker.length
-    let depth = 0
-    let i = from
-    for (; i < src.length; i++) {
-      const ch = src[i]
-      if (ch === "(" || ch === "{" || ch === "[") depth++
-      else if (ch === ")" || ch === "}" || ch === "]") {
-        depth--
-        if (depth === 0) break
+  for (const marker of ["emails.send(", "sendOrThrow("]) {
+    let from = 0
+    for (;;) {
+      const at = src.indexOf(marker, from)
+      if (at === -1) break
+      from = at + marker.length
+      let depth = 0
+      let i = from
+      for (; i < src.length; i++) {
+        const ch = src[i]
+        if (ch === "(" || ch === "{" || ch === "[") depth++
+        else if (ch === ")" || ch === "}" || ch === "]") {
+          depth--
+          if (depth === 0) break
+        }
       }
+      calls.push({ index: at, body: src.slice(from, i + 1) })
     }
-    calls.push({ index: at, body: src.slice(from, i + 1) })
   }
-  return calls
+  // Only sites that build a message literal. `sendOrThrow`'s own body forwards
+  // an already-built `payload` variable, so it has no `from:` and is exempt —
+  // the literal it forwards is checked at each of the twelve call sites.
+  return calls.filter((c) => /\bfrom:/.test(c.body))
 }
 
 /**
@@ -91,22 +115,26 @@ describe("public API routes queue their mail instead of firing it", () => {
 })
 
 describe("every Resend send carries replyTo", () => {
-  const files = ROOTS.flatMap((r) => walk(r)).filter((f) =>
-    readFileSync(f, "utf8").includes("emails.send("),
+  const files = ROOTS.flatMap((r) => walk(r)).filter(
+    (f) => sendCallArgs(blankComments(readFileSync(f, "utf8"))).length > 0,
   )
 
   it("finds the known send sites (the scan itself is not blind)", () => {
     // If this drops to zero the guard below passes vacuously — which is exactly
     // how a guard goes quiet without failing.
     expect(files.length).toBeGreaterThanOrEqual(3)
-    const total = files.reduce((n, f) => n + sendCallArgs(readFileSync(f, "utf8")).length, 0)
+    const total = files.reduce(
+      (n, f) => n + sendCallArgs(blankComments(readFileSync(f, "utf8"))).length,
+      0,
+    )
+    // Twelve in lib/email/send.ts, plus the campaign sender and the preview
+    // route. A drop here means the scan lost sight of a payload, not that a
+    // message stopped existing.
     expect(total).toBeGreaterThanOrEqual(13)
   })
 
-  it.each(ROOTS.flatMap((r) => walk(r)).filter((f) =>
-    readFileSync(f, "utf8").includes("emails.send("),
-  ))("%s", (file) => {
-    const src = readFileSync(file, "utf8")
+  it.each(files.map((f) => [f]))("%s", (file) => {
+    const src = blankComments(readFileSync(file, "utf8"))
     const missing = sendCallArgs(src)
       .filter((c) => !/\breplyTo\b/.test(c.body))
       .map((c) => `line ${src.slice(0, c.index).split("\n").length}`)

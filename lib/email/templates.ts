@@ -656,22 +656,48 @@ export function prepSubmittedAdminHtml(params: {
  *
  * Short on purpose: the offer is the page, not the email.
  */
+/**
+ * Attach a one-letter Arabic clitic («ب», «ل», «ك») to a name.
+ *
+ * The tatweel in `بـ` exists for ONE reason: an Arabic letter cannot join to a
+ * Latin character or a digit, so `بFlash` renders as a broken ligature and
+ * needs `بـFlash`. Before an ARABIC word it is simply wrong — the letters join
+ * on their own, and the dash reads as a stutter. The offer email shipped
+ * «خاصاً بـشركة أفق الخليج» to a real company before this was noticed.
+ *
+ * So the tatweel is added only when the name does not begin with an Arabic
+ * letter, which is exactly the case it was invented for.
+ */
+function arabicPrefix(letter: string, name: string): string {
+  const first = name.trim().charAt(0)
+  const isArabic = /[\u0600-\u06FF]/.test(first)
+  return isArabic ? `${letter}${escapeHtml(name)}` : `${letter}\u0640${escapeHtml(name)}`
+}
+
 export function partnershipOfferHtml(params: {
   companyName: string
   contactName: string
   offerUrl: string
   passwordProtected: boolean
 }): string {
+  // Trimmed ONCE, at the door. The name reaches three places in this message —
+  // the subject line, the heading and the greeting — and a stray space in the
+  // admin field printed «خط ×   شركة أفق  » in the heading while the greeting
+  // read «ب  شركة أفق». Normalising per-use is how two of the three get fixed
+  // and the third is found by a partner.
+  const companyName = params.companyName.trim()
+  const contactName = params.contactName.trim()
+
   const passwordNote = params.passwordProtected
     ? `<div style="margin:20px 0 0;padding:14px 16px;border-radius:12px;background:${BRAND.calloutBg};border:1px solid ${BRAND.calloutBorder};">
          <div style="color:${BRAND.ink};font-size:13px;font-weight:700;">الصفحة محميّة بكلمة مرور</div>
-         <div style="color:${BRAND.muted};font-size:13px;line-height:1.7;">تصلكم كلمة المرور في رسالة منفصلة عبر قناة أخرى — لا ترد في هذا البريد.</div>
+         <div style="color:${BRAND.muted};font-size:13px;line-height:1.7;">تصلكم كلمة المرور في رسالة منفصلة عبر قناة أخرى، ولن تجدوها في هذه الرسالة.</div>
        </div>`
     : ''
   const content = `
-    <h2 style="margin:0 0 12px;color:${BRAND.ink};font-size:20px;">عرض شراكة — خط × ${escapeHtml(params.companyName)}</h2>
+    <h2 style="margin:0 0 12px;color:${BRAND.ink};font-size:20px;">عرض شراكة — خط × ${escapeHtml(companyName)}</h2>
     <p style="margin:0 0 8px;color:${BRAND.body};font-size:15px;line-height:1.8;">
-      أهلاً ${escapeHtml(params.contactName)}، أعددنا لكم عرض شراكة خاصاً بـ${escapeHtml(params.companyName)}.
+      أهلاً ${escapeHtml(contactName)}، أعددنا لكم عرض شراكة خاصاً ${arabicPrefix("ب", companyName)}.
     </p>
     <p style="margin:0 0 4px;color:${BRAND.muted};font-size:14px;line-height:1.8;">
       العرض في صفحة خاصة بكم — تفتحونها متى شئتم، وتردّون علينا منها مباشرة.
