@@ -54,8 +54,26 @@ export const BRAND_HEADLINE_REST_BEFORE = "التي تضع تحتها"
 /** Underlined in the accent on the page — the sentence performing itself. */
 export const BRAND_HEADLINE_ACCENT = "خطًّا"
 
-/** Under the headline. Concrete, and free of the four adjectives that were there. */
-export const BRAND_SUBHEAD = "حوارات عربية تبقى معك بعد أن تنتهي."
+/**
+ * Under the headline.
+ *
+ * IT SAYS WHAT THE SHOW DOES, NOT WHAT IT IS. This line was
+ * «حوارات عربية تبقى معك بعد أن تنتهي» — true, and a description any podcast
+ * could print. Khaled rejected it on 2026-08-15 and asked for something with a
+ * deeper meaning that leaves a mark. The replacement he chose names the show's
+ * actual editorial rule: KHAT is not after the answer that settles a question,
+ * it is after the question that survives the episode.
+ *
+ * It also earns the headline instead of repeating it. «يبقى» is the same idea
+ * as «تضع تحتها خطًّا» — you underline what stays — so the two lines are one
+ * thought, one told as an image and one as a position. The old subhead restated
+ * the description word for word and the pair read as a stutter.
+ *
+ * THE DESIGNER HAS HIS OWN LINE and it is deliberately not used here:
+ * «حوارات بعمق وتأثُّر» is on the YouTube banner (youtube cover/cover.ai), where
+ * a channel needs a descriptor. A homepage under a headline needs a claim.
+ */
+export const BRAND_SUBHEAD = "لا نبحث عن إجابةٍ تُرضي، بل عن سؤالٍ يبقى."
 
 /**
  * The one-line description for metadata, the footer, the manifest and the
@@ -63,4 +81,4 @@ export const BRAND_SUBHEAD = "حوارات عربية تبقى معك بعد أ�
  * so a search result reads as a sentence and not as a keyword list.
  */
 export const BRAND_DESCRIPTION =
-  "بودكاست عربي: حوارات تبقى معك بعد أن تنتهي — كالعبارات التي تضع تحتها خطًّا."
+  "بودكاست عربي: لا نبحث عن إجابةٍ تُرضي، بل عن سؤالٍ يبقى — كالعبارات التي تضع تحتها خطًّا."
