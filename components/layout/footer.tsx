@@ -70,7 +70,7 @@ export async function Footer() {
                     href={item.url}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="text-muted-foreground transition-colors hover:text-foreground"
+                    className="inline-flex min-h-[24px] items-center text-muted-foreground transition-colors hover:text-foreground"
                   >
                     <span className="sr-only">{item.platform_name}</span>
                     <PlatformIcon iconName={item.icon_name} className="h-5 w-5" />
@@ -89,7 +89,7 @@ export async function Footer() {
                   <Link
                     href={item.href}
                     prefetch={item.href === "/episodes" || item.href === "/guests"}
-                    className="text-caption text-muted-foreground transition-colors hover:text-foreground"
+                    className="inline-flex min-h-[24px] items-center text-caption text-muted-foreground transition-colors hover:text-foreground"
                   >
                     {item.name}
                   </Link>
@@ -106,7 +106,7 @@ export async function Footer() {
                 <li key={item.name}>
                   <Link
                     href={item.href}
-                    className="text-caption text-muted-foreground transition-colors hover:text-foreground"
+                    className="inline-flex min-h-[24px] items-center text-caption text-muted-foreground transition-colors hover:text-foreground"
                   >
                     {item.name}
                   </Link>
@@ -126,7 +126,7 @@ export async function Footer() {
                       href={item.url}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="text-caption text-muted-foreground transition-colors hover:text-foreground"
+                      className="inline-flex min-h-[24px] items-center text-caption text-muted-foreground transition-colors hover:text-foreground"
                     >
                       {item.platform_name}
                     </a>

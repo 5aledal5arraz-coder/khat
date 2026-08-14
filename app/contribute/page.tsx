@@ -1,5 +1,5 @@
 import type { Metadata } from "next"
-import { Sparkles } from "lucide-react"
+import { KhatDiamond } from "@/components/brand/khat-icon"
 import { CommunityContributeForm } from "@/components/forms/community-contribute-form"
 import { CommunityWall } from "@/components/community/community-wall"
 
@@ -17,7 +17,7 @@ export default function ContributePage() {
     <div className="mx-auto max-w-3xl px-5 py-16 sm:py-24">
       <div className="text-center">
         <span className="inline-flex items-center gap-1.5 rounded-full border border-primary/20 bg-primary/5 px-3 py-1 text-micro font-medium text-primary">
-          <Sparkles className="h-3.5 w-3.5" />
+          <KhatDiamond size={11} />
           مجتمع خط
         </span>
         <h1 className="mt-4 text-heading font-bold text-foreground">خط يُصنع معكم</h1>

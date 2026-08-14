@@ -1,15 +1,27 @@
 "use client"
 
 import { useState } from "react"
-import { Check, Loader2, ArrowRight, UserPlus, Lightbulb, MessageCircleQuestion, Sparkles, Wand2 } from "lucide-react"
+import { Check, Loader2, ArrowRight, Sparkles, Wand2 } from "lucide-react"
+import { KhatIcon, type KhatIconName } from "@/components/brand/khat-icon"
 
 type ContribType = "guest" | "topic" | "question" | "concept" | "improvement"
 
+// THREE OF THE FIVE ARE THE IDENTITY'S OWN DRAWINGS. «اقترح ضيفًا», «فكرة حلقة»
+// and «سؤال للنقاش» are literally three of the six glyphs the identity file
+// ships — guest, idea, conversation — so they are drawn, not borrowed.
+//
+// «فكرة محتوى» and «تحسين لخط» keep their lucide glyphs. There is no KHAT glyph
+// for either, and the two candidates (`card`, `archive`) mean a profile and a
+// box; bending one of them onto "a new format" would be picking a shape for the
+// sake of matching rather than for what it says. A mixed row is the honest
+// state of a six-glyph set meeting a five-way choice.
 const TYPES: {
   id: ContribType
   label: string
   blurb: string
-  icon: React.ElementType
+  /** One of the six. Mutually exclusive with `icon`. */
+  khat?: KhatIconName
+  icon?: React.ElementType
   titleLabel: string
   titlePlaceholder: string
   bodyLabel: string
@@ -20,7 +32,7 @@ const TYPES: {
     id: "guest",
     label: "اقترح ضيفًا",
     blurb: "شخص له قصة أو فكرة تستحق حلقة",
-    icon: UserPlus,
+    khat: "guest",
     titleLabel: "اسم الشخص",
     titlePlaceholder: "مثال: د. سارة المنصور",
     bodyLabel: "لماذا هو ضيف مثالي لخط؟",
@@ -31,7 +43,7 @@ const TYPES: {
     id: "topic",
     label: "فكرة حلقة",
     blurb: "موضوع تتمنّى أن يتناوله خط",
-    icon: Lightbulb,
+    khat: "idea",
     titleLabel: "عنوان الفكرة",
     titlePlaceholder: "مثال: لماذا نخاف من الصمت؟",
     bodyLabel: "اشرح الفكرة وزاويتها",
@@ -42,7 +54,7 @@ const TYPES: {
     id: "question",
     label: "سؤال للنقاش",
     blurb: "سؤال عميق يستحق أن يُطرح",
-    icon: MessageCircleQuestion,
+    khat: "conversation",
     titleLabel: "السؤال",
     titlePlaceholder: "اكتب السؤال كما تتمنّى أن يُطرح",
     bodyLabel: "لماذا يستحق هذا السؤال؟",
@@ -152,7 +164,11 @@ export function CommunityContributeForm() {
               }`}
             >
               <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${active ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"}`}>
-                <Icon className="h-[18px] w-[18px]" />
+                {t.khat ? (
+                  <KhatIcon name={t.khat} size={18} />
+                ) : (
+                  Icon && <Icon className="h-[18px] w-[18px]" />
+                )}
               </span>
               <span className="min-w-0">
                 <span className="block text-caption font-semibold text-foreground">{t.label}</span>

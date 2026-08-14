@@ -459,10 +459,39 @@
     --secondary-foreground: 248 42% 29.6%;
 
     --muted: 28 18% 81.8%;
-    /* KHAT Dusty Violet #7570A3 — 4.14:1 on the ivory, so it clears 3:1 for UI
-       and misses 4.5:1 for body copy. Muted copy that must be READ should use
-       --foreground; this is for labels and chrome. */
-    --muted-foreground: 246 22% 53.9%;
+    /* SECONDARY TEXT — a 70% tint of --foreground, not a colour of its own.
+       2026-08-14.
+
+       This was KHAT Dusty Violet #7570A3, with the comment "4.14:1 on the
+       ivory, so it clears 3:1 for UI and misses 4.5:1 for body copy. Muted copy
+       that must be READ should use --foreground; this is for labels and
+       chrome." The rule was right and it was not kept: measured on the rendered
+       pages at 375px, `text-muted-foreground` was carrying real body copy at
+       12-14px in 15 places on the homepage, 23 on /about and 57 on /partner —
+       every one of them below AA.
+
+       There is no colour in the identity that fixes this. Measured on Warm
+       Ivory: Dusty Violet 4.14, Burnt Orange 4.66 (an orange, wrong meaning),
+       then a jump straight to Deep Indigo 10.78 and Signature Purple 11.09.
+       Nothing sits in between, so any hex that did would be a twelfth colour.
+
+       A TINT IS NOT A NEW COLOUR. `--foreground` IS Signature Purple, and this
+       is that same ink at 70% over the identity's own grounds — the way
+       `bg-primary/10` and `border-border/40` are used everywhere else on this
+       site. Measured: 4.67:1 on Warm Ivory, 4.87:1 on Soft Blush. Both clear AA
+       with margin, and the hierarchy against full-strength body text survives.
+
+       Dusty Violet is not retired — it still clears 3:1 and remains correct for
+       large text and non-text UI. It is simply no longer the default for copy
+       that has to be read.
+
+       WHY THE VALUE AND NOT `hsl(var(--foreground)/.7)` IN @theme: the admin
+       block below sets its own --muted-foreground (250 14% 38%, ~6.7:1 on its
+       near-white ground) and does NOT set its own --foreground. Deriving the
+       colour in @theme would have stopped anything reading --muted-foreground
+       at all, turning that deliberate override into dead code without a word.
+       One mechanism, both surfaces. */
+    --muted-foreground: 250 17% 49%;
 
     /* KHAT ORANGE #FD4F04 — see the accent warning above. */
     --accent: 18 98.4% 50.4%;

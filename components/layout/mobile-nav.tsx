@@ -2,7 +2,8 @@
 
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { Home, Headphones, Users, MessageSquarePlus } from "lucide-react"
+import { Home } from "lucide-react"
+import { KhatIcon, type KhatIconName } from "@/components/brand/khat-icon"
 import { cn } from "@/lib/utils"
 
 // Four equal items. "ساهم معنا" replaced "شراكة" here because contribute is an
@@ -11,11 +12,26 @@ import { cn } from "@/lib/utils"
 // button in the sticky header plus a footer link, so it is not lost.
 // No `highlight`: it renders in the same primary colour as the active item, so a
 // permanently-highlighted tab makes "you are here" unreadable.
-const navItems = [
+//
+// THREE OF THE FOUR ARE THE IDENTITY'S OWN DRAWINGS, and they are drawn in the
+// `mono` tone on purpose: this bar dims whatever tab you are not on, and the
+// two-ink glyph keeps a full-strength orange accent no matter what colour it
+// inherits, which would make every tab look active at once.
+//
+// "الرئيسية" stays on lucide's `Home`. The identity file ships six glyphs and a
+// house is not among them, so the choice is a borrowed house or an invented one,
+// and inventing a seventh glyph in someone else's drawing style is the worse of
+// the two. The seam is real and visible; it is also honest.
+type NavItem = { href: string; label: string } & (
+  | { khat: KhatIconName; icon?: never }
+  | { icon: typeof Home; khat?: never }
+)
+
+const navItems: NavItem[] = [
   { href: "/", icon: Home, label: "الرئيسية" },
-  { href: "/episodes", icon: Headphones, label: "الحلقات" },
-  { href: "/guests", icon: Users, label: "الضيوف" },
-  { href: "/contribute", icon: MessageSquarePlus, label: "ساهم معنا" },
+  { href: "/episodes", khat: "archive", label: "الحلقات" },
+  { href: "/guests", khat: "guest", label: "الضيوف" },
+  { href: "/contribute", khat: "conversation", label: "ساهم معنا" },
 ]
 
 export function MobileNav({ hasNewEpisode = false }: { hasNewEpisode?: boolean }) {
@@ -48,7 +64,15 @@ export function MobileNav({ hasNewEpisode = false }: { hasNewEpisode?: boolean }
               )}
             >
               <span className="relative">
-                <item.icon className={cn("h-5 w-5", isActive && "text-primary")} />
+                {item.khat ? (
+                  <KhatIcon
+                    name={item.khat}
+                    size={20}
+                    className={cn(isActive && "text-primary")}
+                  />
+                ) : (
+                  <item.icon className={cn("h-5 w-5", isActive && "text-primary")} />
+                )}
                 {hasNewEpisode && item.href === "/episodes" && (
                   <span className="absolute -top-0.5 -end-1 h-1.5 w-1.5 rounded-full bg-primary animate-pulse" />
                 )}

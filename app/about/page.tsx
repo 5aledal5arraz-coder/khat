@@ -10,7 +10,6 @@ import {
   Youtube,
   Instagram,
   Mail,
-  Play,
   Mic,
   Heart,
   Sparkles,
@@ -26,6 +25,7 @@ import {
   Flame,
   Award,
 } from "lucide-react"
+import { KhatIcon } from "@/components/brand/khat-icon"
 import { XIcon } from "@/components/icons/x-icon"
 import { getAboutContent } from "@/lib/content/static-content"
 import { getSiteSettings, resolveContactEmail } from "@/lib/site-settings"
@@ -279,7 +279,7 @@ export default async function AboutPage() {
               {/* See the note on /contact — a <button> inside an <a> is invalid
                   and creates a dead second tab stop. */}
               <Link href="/episodes" className={cn(buttonVariants({ size: "lg" }), "gap-2 w-full sm:w-auto")}>
-                <Play className="w-4 h-4" />
+                <KhatIcon name="play" size={18} />
                 تصفّح الحلقات
               </Link>
             </div>

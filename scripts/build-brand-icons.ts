@@ -67,6 +67,10 @@
  */
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs"
 import path from "node:path"
+// The email lockup is flattened onto the SAME colour as the card it sits on.
+// Importing it means the two cannot drift — see the note at the flatten below.
+import { STANDALONE_BLUSH } from "../lib/brand/standalone-css"
+import { KHAT_IVORY } from "../components/brand/khat-logo-art"
 import sharp from "sharp"
 
 import { KHAT_INDIGO, KHAT_ORANGE, MARK, MARK_REVERSED, LOCKUP_HORIZONTAL } from "../components/brand/khat-logo-art"
@@ -338,10 +342,17 @@ async function main() {
     path.join(BRAND, "email-lockup.png"),
     await sharp(readFileSync(path.join(BRAND, "khat-lockup-horizontal.svg")))
       .resize({ height: emailLockupHeight })
-      // Email bodies composite on the client's own surface; the newsletter card
-      // is white, and a transparent PNG turns the indigo artwork invisible in
-      // clients that force a dark background.
-      .flatten({ background: "#ffffff" })
+      // Email bodies composite on the client's own surface, and a transparent
+      // PNG turns the indigo artwork invisible in clients that force a dark
+      // background — so it is flattened, not left with alpha.
+      //
+      // IT MUST BE FLATTENED ONTO THE CARD COLOUR. This said `#ffffff` with the
+      // comment "the newsletter card is white", which was true until the card
+      // moved to Soft Blush on 2026-08-14 — and the plate stayed white, so the
+      // lockup arrived as a visible white rectangle inside every message. The
+      // value is imported rather than typed so the two cannot separate again;
+      // `EMAIL_PALETTE.card` is this same constant.
+      .flatten({ background: STANDALONE_BLUSH })
       .png({ compressionLevel: 9 })
       .toBuffer(),
   )
@@ -353,7 +364,10 @@ async function main() {
     path.join(BRAND, "khat-lockup-horizontal.png"),
     await sharp(lockupSvg)
       .resize({ width: lockupWidth })
-      .flatten({ background: "#ffffff" }) // JSON-LD consumers composite on unknown surfaces
+      // JSON-LD consumers composite on unknown surfaces, so this one stays
+      // opaque — but on Warm Ivory rather than a pure white that is in no
+      // palette. Visually indistinguishable in a knowledge panel.
+      .flatten({ background: KHAT_IVORY })
       .png({ compressionLevel: 9 })
       .toBuffer(),
   )

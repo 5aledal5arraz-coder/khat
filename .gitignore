@@ -88,3 +88,6 @@ quotes-backup-*.json
 guests-backup-*.json
 guest-honorifics-backup-*.json
 visitor-tracking-backup-*.json
+
+# Rendered output from scripts/audit-email-identity.ts — regenerated on every build.
+outputs/

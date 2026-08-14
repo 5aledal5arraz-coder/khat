@@ -27,6 +27,7 @@ import {
   Award,
   type LucideIcon,
 } from "lucide-react"
+import { KhatDiamond } from "@/components/brand/khat-icon"
 import { getActivePartners } from "@/lib/queries/partnerships"
 import { fetchAllEpisodes, fetchChannelInfo } from "@/lib/youtube/queries"
 import { audienceFacts, audienceMetrics, buildDemographics } from "@/lib/partnerships/audience"
@@ -601,7 +602,7 @@ export default async function PartnerPage() {
               >
                 {pkg.featured && (
                   <div className="absolute inset-x-0 top-0 bg-primary py-1.5 text-center text-micro font-medium text-primary-foreground">
-                    <Sparkles className="me-1 inline h-3 w-3" />
+                    <KhatDiamond size={10} className="me-1 inline-block align-middle" />
                     الأكثر تكاملًا ومرونة
                   </div>
                 )}
