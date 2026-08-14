@@ -9,10 +9,11 @@
  * handle that does not exist, so a link checker sees a healthy page. A shared
  * source is the only thing that can catch this class of drift.
  *
- * Only the four platforms with icon artwork are returned
- * (`scripts/build-email-social-icons.ts`). A row added to the table for a fifth
- * platform is skipped rather than rendered as a broken image — the fix is to
- * draw the icon, and that is a deliberate decision, not a silent default.
+ * Only platforms the identity actually draws are returned
+ * (`scripts/build-email-social-icons.ts`). A row added to the table for a
+ * seventh platform is skipped rather than rendered as a broken image — the fix
+ * is to have the icon drawn, and that is a deliberate decision, not a silent
+ * default.
  */
 import { db } from "@/lib/db"
 import { podcastPlatformLinks } from "@/lib/db/schema"
@@ -20,15 +21,24 @@ import { eq } from "drizzle-orm"
 
 import { EMAIL_SOCIAL_LINKS } from "./templates"
 
-/** Platform keys we have icon artwork for, in the order the footer shows them. */
-const ICON_ORDER = ["youtube", "instagram", "x", "tiktok"] as const
-
-const LABELS: Record<string, string> = {
-  youtube: "YouTube",
-  instagram: "Instagram",
-  x: "X",
-  tiktok: "TikTok",
-}
+/**
+ * Platform keys we have identity artwork for, in the order the footer shows
+ * them — the designer's own left-to-right order on the icon artboard.
+ *
+ * `icon` is the artwork file, which is not always the platform key: the
+ * designer drew one generic podcast mark, and the table's key for it is
+ * `apple_podcasts`. The template builds `/brand/social/{icon}.png`, so this is
+ * where the two names are reconciled; getting it wrong renders a broken image
+ * in every inbox, which is exactly the failure this indirection prevents.
+ */
+const ICON_ORDER = [
+  { key: "tiktok", icon: "tiktok", label: "TikTok" },
+  { key: "spotify", icon: "spotify", label: "Spotify" },
+  { key: "instagram", icon: "instagram", label: "Instagram" },
+  { key: "youtube", icon: "youtube", label: "YouTube" },
+  { key: "apple_podcasts", icon: "podcast", label: "Apple Podcasts" },
+  { key: "x", icon: "x", label: "X" },
+] as const
 
 /**
  * Live rows, falling back to `EMAIL_SOCIAL_LINKS` when the database is
@@ -45,10 +55,10 @@ export async function getEmailSocialLinks(): Promise<typeof EMAIL_SOCIAL_LINKS> 
       .where(eq(podcastPlatformLinks.is_active, true))
 
     const byKey = new Map(rows.map((r) => [r.key, r.url]))
-    const resolved = ICON_ORDER.filter((k) => byKey.get(k)).map((k) => ({
-      key: k as string,
-      label: LABELS[k],
-      url: byKey.get(k)!,
+    const resolved = ICON_ORDER.filter((p) => byKey.get(p.key)).map((p) => ({
+      key: p.icon,
+      label: p.label,
+      url: byKey.get(p.key)!,
     }))
 
     return resolved.length > 0 ? resolved : EMAIL_SOCIAL_LINKS
