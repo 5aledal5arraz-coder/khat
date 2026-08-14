@@ -1,6 +1,7 @@
 import type { Metadata } from "next"
 import Link from "next/link"
-import { ArrowLeft, Play, Sparkles } from "lucide-react"
+import { ArrowLeft } from "lucide-react"
+import { KhatDiamond, KhatIcon } from "@/components/brand/khat-icon"
 import {
   getCachedActiveTeaser,
   getCachedHomepagePartners,
@@ -251,7 +252,7 @@ export default async function HomePage() {
               with nothing to replace it would leave a bordered pill containing
               one decorative icon — a control-shaped object that says nothing. */}
           <span className="inline-flex items-center gap-2 rounded-full border border-border bg-card px-3.5 py-1.5 text-micro font-semibold text-muted-foreground shadow-sm">
-            <Sparkles className="h-3.5 w-3.5 text-accent" />
+            <KhatDiamond size={11} className="text-accent" />
             <span className={season ? "lg:hidden" : undefined}>بودكاست خط</span>
             {season ? (
               <>
@@ -315,6 +316,11 @@ export default async function HomePage() {
           </p>
 
           <div className="mt-9 flex flex-wrap items-center justify-center gap-3">
+            {/* THE 45° CUT WAS TRIED HERE AND REJECTED — Khalid, 2026-08-13,
+                after seeing it on the running site: «لا مو حلوه». The mark's
+                construction really is a band cut at exactly 45°, and that angle
+                really is absent from the whole UI — but a sheared button is not
+                where it belongs. Do not re-propose it for these buttons. */}
             <Link
               href="/episodes"
               className="inline-flex h-12 items-center gap-2 rounded-full bg-primary px-7 text-body font-semibold text-primary-foreground shadow-lg shadow-primary/25 transition-all hover:scale-[1.02] hover:shadow-xl hover:shadow-primary/30"
@@ -327,7 +333,7 @@ export default async function HomePage() {
                 href={`/episodes/${featured.slug}`}
                 className="inline-flex h-12 items-center gap-2 rounded-full border border-border bg-card px-7 text-body font-semibold text-foreground transition-colors hover:bg-secondary"
               >
-                <Play className="h-4 w-4 fill-current text-accent" />
+                <KhatIcon name="play" size={18} className="text-accent" />
                 {/* Same verb as the card below, which links to the SAME
                     episode — the hero and the card disagreed on the verb;
                     unified 2026-08-04, then corrected to «شاهد» on 08-05 —
@@ -515,7 +521,17 @@ export default async function HomePage() {
         </section>
       ) : null}
 
-      {/* ──────────────────── Statement ──────────────────── */}
+      {/* ──────────────────── Statement ────────────────────
+          NO PATTERN GROUND HERE. The identity's pattern was laid behind this
+          band on 2026-08-15 — his artwork, at his own measured opacity and
+          scale — and Khaled removed it the moment he saw it: «الخلفيه ما
+          اعجبتني النقشه اترك الخلفيه مثل ماكانت». The band stays plain ivory.
+
+          This is the second background asked for and rejected on this page; the
+          hero watermark was the first (see the note up there). Do not put a
+          third one anywhere on the homepage without asking him first. The
+          extractor still exists (scripts/extract-brand-pattern.ts) if the
+          pattern is ever wanted somewhere else. */}
       <section className="px-6 py-24 sm:py-32">
         <div className="mx-auto max-w-4xl text-center">
           <p className="text-balance text-heading font-bold leading-prose text-foreground lg:text-title">
