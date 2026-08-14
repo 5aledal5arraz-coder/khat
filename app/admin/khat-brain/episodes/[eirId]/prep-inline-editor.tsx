@@ -114,10 +114,10 @@ export function PrepV2InlineEditor({
 }) {
   return (
     <div
-      className="rounded-2xl border border-violet-500/20 bg-violet-500/5 p-4"
+      className="rounded-2xl border border-primary/20 bg-primary/5 p-4"
       data-prep-inline-editor
     >
-      <div className="mb-3 inline-flex items-center gap-1.5 text-[11px] font-semibold text-violet-700">
+      <div className="mb-3 inline-flex items-center gap-1.5 text-[11px] font-semibold text-primary">
         <Pencil className="h-3 w-3" /> تعديل سريع للحقول الأساسية
       </div>
       <div className="space-y-3">
@@ -220,7 +220,7 @@ function PrepFieldRow({
       {editing ? (
         <>
           <textarea
-            className="w-full resize-y rounded-lg border border-border/40 bg-background/60 p-2 text-[12px] leading-relaxed text-foreground/90 focus:border-violet-500/60 focus:outline-none"
+            className="w-full resize-y rounded-lg border border-border/40 bg-background/60 p-2 text-[12px] leading-relaxed text-foreground/90 focus:border-primary/60 focus:outline-none"
             rows={def.rows}
             value={draft}
             onChange={(e) => setDraft(e.target.value)}
@@ -245,7 +245,7 @@ function PrepFieldRow({
                 type="button"
                 onClick={onSave}
                 disabled={pending || !dirty}
-                className="inline-flex items-center gap-1 rounded-lg border border-violet-500/40 bg-violet-500/10 px-2.5 py-1 text-[11px] font-medium text-violet-700 hover:bg-violet-500/20 disabled:opacity-50"
+                className="inline-flex items-center gap-1 rounded-lg border border-primary/40 bg-primary/10 px-2.5 py-1 text-[11px] font-medium text-primary hover:bg-primary/20 disabled:opacity-50"
                 data-prep-save
               >
                 {pending ? (

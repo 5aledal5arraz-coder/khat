@@ -141,7 +141,7 @@ export function ManualSignalForm({
             setError(null)
             setSuccess(null)
           }}
-          className="inline-flex items-center gap-1.5 rounded-xl border border-violet-500/30 bg-violet-500/10 px-3 py-1.5 text-[11.5px] font-medium text-violet-700 hover:bg-violet-500/20"
+          className="inline-flex items-center gap-1.5 rounded-xl border border-primary/30 bg-primary/10 px-3 py-1.5 text-[11.5px] font-medium text-primary hover:bg-primary/20"
           data-manual-toggle="open"
         >
           <Plus className="h-3 w-3" />
@@ -153,12 +153,12 @@ export function ManualSignalForm({
 
   return (
     <div
-      className="rounded-2xl border border-violet-500/30 bg-violet-500/5 p-4"
+      className="rounded-2xl border border-primary/30 bg-primary/5 p-4"
       data-manual-form
     >
       <div className="mb-3 flex items-start justify-between gap-2">
         <div>
-          <div className="mb-1 inline-flex items-center gap-1.5 rounded-full border border-violet-500/40 bg-violet-500/10 px-2 py-0.5 text-[10.5px] font-medium text-violet-700">
+          <div className="mb-1 inline-flex items-center gap-1.5 rounded-full border border-primary/40 bg-primary/10 px-2 py-0.5 text-[10.5px] font-medium text-primary">
             <Sparkles className="h-3 w-3" /> {MANUAL_FORM_COPY.panelTitle}
           </div>
           <p className="max-w-2xl text-[11.5px] leading-relaxed text-foreground/85">
@@ -305,7 +305,7 @@ export function ManualSignalForm({
               onChange={(e) =>
                 set("controversy_score", Number(e.target.value))
               }
-              className="flex-1 accent-violet-500"
+              className="flex-1 accent-primary"
               data-manual-controversy
             />
             <span className="w-10 text-end font-mono text-[11.5px] text-foreground/80" dir="ltr">
@@ -327,8 +327,8 @@ export function ManualSignalForm({
                   className={
                     "rounded-full border px-2 py-0.5 text-[11px] transition-colors " +
                     (selected
-                      ? "border-violet-500/40 bg-violet-500/15 text-violet-700"
-                      : "border-border/40 bg-background/40 text-muted-foreground hover:border-violet-500/30 hover:text-foreground")
+                      ? "border-primary/40 bg-primary/15 text-primary"
+                      : "border-border/40 bg-background/40 text-muted-foreground hover:border-primary/30 hover:text-foreground")
                   }
                 >
                   {TAG_LABEL[t]}

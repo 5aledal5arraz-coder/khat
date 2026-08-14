@@ -28,7 +28,7 @@ export function TeamDrawer({
     <div className="rounded-2xl border border-border/40 bg-background/40 p-3.5">
       <div className="mb-2.5 flex items-center justify-between">
         <span className="inline-flex items-center gap-1.5 text-[12.5px] font-semibold text-foreground/85">
-          <Users className="h-4 w-4 text-violet-600" /> الفريق
+          <Users className="h-4 w-4 text-primary" /> الفريق
         </span>
         <button
           type="button"

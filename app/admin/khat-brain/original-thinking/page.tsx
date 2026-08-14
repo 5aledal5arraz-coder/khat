@@ -31,8 +31,8 @@ export default async function OriginalThinkingPage() {
   return (
     <div className="mx-auto max-w-6xl space-y-8 p-6">
       {/* ── Hero ─────────────────────────────────────────────────── */}
-      <div className="rounded-3xl border border-violet-500/20 bg-gradient-to-br from-violet-500/5 via-primary/5 to-transparent p-6">
-        <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-violet-500/30 bg-violet-500/5 px-3 py-1 text-[11px] font-medium text-violet-700">
+      <div className="rounded-3xl border border-primary/20 bg-gradient-to-br from-primary/5 via-primary/5 to-transparent p-6">
+        <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-primary/30 bg-primary/5 px-3 py-1 text-[11px] font-medium text-primary">
           <Sparkles className="h-3 w-3" />
           ضمير التحرير — Khat Brain
         </div>
@@ -139,7 +139,7 @@ function TopicCard({
       <div className="flex items-start justify-between gap-3">
         <div className="flex-1">
           <div className="mb-1 flex flex-wrap items-center gap-2">
-            <span className="text-[10px] font-medium tracking-wide text-violet-700/70">
+            <span className="text-[10px] font-medium tracking-wide text-primary/70">
               {lensName}
             </span>
             <span className="text-[10px] text-muted-foreground">

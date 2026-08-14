@@ -634,7 +634,7 @@ function ConflictBanner({
           <button
             type="button"
             onClick={onReload}
-            className="rounded-xl border border-violet-500/40 bg-violet-500/10 px-2.5 py-1 text-[11.5px] text-violet-700 hover:bg-violet-500/20"
+            className="rounded-xl border border-primary/40 bg-primary/10 px-2.5 py-1 text-[11.5px] text-primary hover:bg-primary/20"
           >
             استرجاع نسخة الخادم
           </button>
@@ -695,7 +695,7 @@ function QueueModeTabs({
             className={
               "inline-flex items-center gap-1 rounded-t-lg border-b-2 px-2.5 py-1 text-[11.5px] transition-colors " +
               (active
-                ? "border-violet-400 text-violet-700"
+                ? "border-primary/50 text-primary"
                 : "border-transparent text-muted-foreground hover:text-foreground")
             }
           >
@@ -704,7 +704,7 @@ function QueueModeTabs({
               className={
                 "rounded-full px-1.5 py-0 text-[10px] tabular-nums " +
                 (active
-                  ? "bg-violet-500/20 text-violet-700"
+                  ? "bg-primary/20 text-primary"
                   : "bg-background/40 text-muted-foreground")
               }
               dir="ltr"
@@ -877,7 +877,7 @@ function blockClasses(
     case "approved":
       return "bg-emerald-400/35 hover:bg-emerald-400/55"
     case "reviewed":
-      return "bg-violet-500/40 hover:bg-violet-500/60"
+      return "bg-primary/40 hover:bg-primary/60"
     default:
       return "bg-slate-500/35 hover:bg-slate-500/55"
   }
@@ -941,7 +941,7 @@ function ClipCard({
     : isHigh
       ? "border-amber-500/40 bg-amber-500/5"
       : clip.mark === "priority"
-        ? "border-violet-500/40 bg-violet-500/5"
+        ? "border-primary/40 bg-primary/5"
         : "border-border/40 bg-card/30"
 
   return (
@@ -950,7 +950,7 @@ function ClipCard({
       className={
         "rounded-2xl border p-3 transition-shadow " +
         cardCls +
-        (isFocused ? " shadow-md ring-1 ring-violet-400/30" : "") +
+        (isFocused ? " shadow-md ring-1 ring-primary/30" : "") +
         (blockers.length > 0 ? " border-rose-500/50" : "")
       }
     >
@@ -968,7 +968,7 @@ function ClipCard({
             if (!Number.isFinite(v) || v < 0) return
             onChange({ start_seconds: v })
           }}
-          className="w-16 rounded-md border border-border/30 bg-background/40 px-1.5 py-0.5 text-[10.5px] tabular-nums outline-none focus:border-violet-500/40"
+          className="w-16 rounded-md border border-border/30 bg-background/40 px-1.5 py-0.5 text-[10.5px] tabular-nums outline-none focus:border-primary/40"
           dir="ltr"
           aria-label="بداية بالثواني"
         />
@@ -982,7 +982,7 @@ function ClipCard({
             if (!Number.isFinite(v) || v <= clip.start_seconds) return
             onChange({ end_seconds: v })
           }}
-          className="w-16 rounded-md border border-border/30 bg-background/40 px-1.5 py-0.5 text-[10.5px] tabular-nums outline-none focus:border-violet-500/40"
+          className="w-16 rounded-md border border-border/30 bg-background/40 px-1.5 py-0.5 text-[10.5px] tabular-nums outline-none focus:border-primary/40"
           dir="ltr"
           aria-label="نهاية بالثواني"
         />
@@ -991,7 +991,7 @@ function ClipCard({
           {formatTime(clip.end_seconds - clip.start_seconds)})
         </span>
         {clip.source === "ai_generated" && (
-          <span className="rounded-full border border-violet-500/30 bg-violet-500/10 px-1.5 py-0.5 text-[9.5px] text-violet-700">
+          <span className="rounded-full border border-primary/30 bg-primary/10 px-1.5 py-0.5 text-[9.5px] text-primary">
             AI
           </span>
         )}
@@ -1009,7 +1009,7 @@ function ClipCard({
         {clip.transcript_segment_ids[0] && (
           <a
             href={`/admin/khat-brain/episodes/${eirId}?tab=transcript&seg=${clip.transcript_segment_ids[0]}`}
-            className="text-[10.5px] text-violet-700 hover:underline"
+            className="text-[10.5px] text-primary hover:underline"
           >
             انتقال إلى النصّ ↗
           </a>
@@ -1072,7 +1072,7 @@ function ClipCard({
         value={clip.title}
         onChange={(e) => onChange({ title: e.target.value })}
         placeholder="عنوان المقطع"
-        className="mb-2 w-full rounded-xl border border-border/40 bg-background/40 px-3 py-2 text-[13px] font-medium outline-none focus:border-violet-500/40"
+        className="mb-2 w-full rounded-xl border border-border/40 bg-background/40 px-3 py-2 text-[13px] font-medium outline-none focus:border-primary/40"
         dir="auto"
       />
       <textarea
@@ -1080,7 +1080,7 @@ function ClipCard({
         onChange={(e) => onChange({ hook: e.target.value })}
         rows={2}
         placeholder="الخطّاف — جملة تشدّ المشاهد في أوّل ثانيتين"
-        className="mb-2 w-full resize-y rounded-xl border border-violet-500/30 bg-violet-500/5 px-3 py-2 text-[12.5px] leading-relaxed outline-none focus:border-violet-500/50"
+        className="mb-2 w-full resize-y rounded-xl border border-primary/30 bg-primary/5 px-3 py-2 text-[12.5px] leading-relaxed outline-none focus:border-primary/50"
         dir="auto"
       />
       {clip.summary !== null && (
@@ -1089,7 +1089,7 @@ function ClipCard({
           onChange={(e) => onChange({ summary: e.target.value })}
           rows={2}
           placeholder="ملخّص داخلي"
-          className="mb-2 w-full resize-y rounded-xl border border-border/40 bg-background/40 px-3 py-2 text-[11.5px] leading-relaxed outline-none focus:border-violet-500/40"
+          className="mb-2 w-full resize-y rounded-xl border border-border/40 bg-background/40 px-3 py-2 text-[11.5px] leading-relaxed outline-none focus:border-primary/40"
           dir="auto"
         />
       )}
@@ -1098,7 +1098,7 @@ function ClipCard({
       {(anchoredText || anchoredChapter) && (
         <div className="mb-2 rounded-xl border border-dashed border-border/40 bg-background/20 px-3 py-1.5 text-[10.5px] leading-relaxed text-muted-foreground">
           {anchoredChapter && (
-            <span className="me-2 inline-flex items-center gap-1 text-violet-700">
+            <span className="me-2 inline-flex items-center gap-1 text-primary">
               <Star className="h-2.5 w-2.5" /> {anchoredChapter.title}
             </span>
           )}
@@ -1168,7 +1168,7 @@ function ClipCard({
             onChange({ thumbnail_text: e.target.value || null })
           }
           placeholder="نصّ المصغّرة (≤ 6 كلمات)"
-          className="flex-1 rounded-lg border border-border/40 bg-background/40 px-2 py-1 text-[11px] outline-none focus:border-violet-500/40"
+          className="flex-1 rounded-lg border border-border/40 bg-background/40 px-2 py-1 text-[11px] outline-none focus:border-primary/40"
           dir="auto"
         />
       </div>
@@ -1189,7 +1189,7 @@ function ClipCard({
             }
             rows={2}
             placeholder="ملاحظات تحريرية (داخلية)"
-            className="w-full resize-y rounded-xl border border-dashed border-border/30 bg-background/20 px-2 py-1.5 text-[11px] outline-none focus:border-violet-500/40"
+            className="w-full resize-y rounded-xl border border-dashed border-border/30 bg-background/20 px-2 py-1.5 text-[11px] outline-none focus:border-primary/40"
             dir="auto"
           />
           <textarea
@@ -1199,7 +1199,7 @@ function ClipCard({
             }
             rows={2}
             placeholder="تعليمات للتصدير (cuts, color, …)"
-            className="w-full resize-y rounded-xl border border-dashed border-border/30 bg-background/20 px-2 py-1.5 text-[11px] outline-none focus:border-violet-500/40"
+            className="w-full resize-y rounded-xl border border-dashed border-border/30 bg-background/20 px-2 py-1.5 text-[11px] outline-none focus:border-primary/40"
             dir="auto"
           />
         </div>
@@ -1214,7 +1214,7 @@ function ClipCard({
           }
           rows={2}
           placeholder="نصّ النشر المُقترح (caption)"
-          className="mt-2 w-full resize-y rounded-xl border border-border/40 bg-background/40 px-2 py-1.5 text-[11px] outline-none focus:border-violet-500/40"
+          className="mt-2 w-full resize-y rounded-xl border border-border/40 bg-background/40 px-2 py-1.5 text-[11px] outline-none focus:border-primary/40"
           dir="auto"
         />
       )}
@@ -1257,7 +1257,7 @@ function ScoreSlider({
   const accentCls = {
     amber: "accent-amber-400",
     rose: "accent-rose-400",
-    violet: "accent-violet-400",
+    violet: "accent-primary",
     emerald: "accent-emerald-400",
     slate: "accent-slate-400",
   }[accent]
@@ -1313,7 +1313,7 @@ function PlatformPicker({
             className={
               "rounded-full border px-2 py-0.5 text-[10px] transition-colors " +
               (active
-                ? "border-violet-500/40 bg-violet-500/15 text-violet-700"
+                ? "border-primary/40 bg-primary/15 text-primary"
                 : "border-border/40 bg-background/30 text-muted-foreground hover:bg-background/50")
             }
           >
@@ -1348,14 +1348,14 @@ function HashtagsEditor({
       {value.map((h, i) => (
         <span
           key={i}
-          className="inline-flex items-center gap-1 rounded-full border border-violet-500/30 bg-violet-500/5 px-2 py-0.5 text-[10px] text-violet-700"
+          className="inline-flex items-center gap-1 rounded-full border border-primary/30 bg-primary/5 px-2 py-0.5 text-[10px] text-primary"
           dir="auto"
         >
           #{h}
           <button
             type="button"
             onClick={() => onChange(value.filter((_, k) => k !== i))}
-            className="text-violet-700/70 hover:text-rose-700"
+            className="text-primary/70 hover:text-rose-700"
             aria-label={`remove ${h}`}
           >
             <X className="h-2.5 w-2.5" />
@@ -1373,7 +1373,7 @@ function HashtagsEditor({
           }
         }}
         placeholder="هاشتاغ + Enter"
-        className="rounded-full border border-dashed border-border/40 bg-background/30 px-2 py-0.5 text-[10px] outline-none focus:border-violet-500/40"
+        className="rounded-full border border-dashed border-border/40 bg-background/30 px-2 py-0.5 text-[10px] outline-none focus:border-primary/40"
         dir="auto"
         aria-label="إضافة هاشتاغ"
       />
@@ -1405,9 +1405,9 @@ function SuggestionsPanel({
 }) {
   const byId = new Map(clips.map((c) => [c.id, c]))
   return (
-    <div className="rounded-2xl border border-violet-500/30 bg-violet-500/5 p-3">
+    <div className="rounded-2xl border border-primary/30 bg-primary/5 p-3">
       <div className="mb-2 flex items-center justify-between gap-2">
-        <h3 className="inline-flex items-center gap-1.5 text-[12.5px] font-semibold text-violet-700">
+        <h3 className="inline-flex items-center gap-1.5 text-[12.5px] font-semibold text-primary">
           <Sparkles className="h-3.5 w-3.5" /> غرفة العمليات الذكية ·{" "}
           {suggestions.length}
         </h3>
@@ -1426,7 +1426,7 @@ function SuggestionsPanel({
             className="flex items-start gap-2 rounded-xl border border-border/40 bg-background/30 p-2"
           >
             <div className="min-w-0 flex-1">
-              <div className="text-[11px] font-semibold text-violet-700">
+              <div className="text-[11px] font-semibold text-primary">
                 {SUGGESTION_LABEL[s.kind]}
                 {s.clip_id && byId.has(s.clip_id) && (
                   <span className="ms-2 text-muted-foreground">
@@ -1468,7 +1468,7 @@ function SuggestionsPanel({
               <button
                 type="button"
                 onClick={() => onApply(s)}
-                className="inline-flex items-center gap-1 rounded-lg border border-violet-500/40 bg-violet-500/10 px-2 py-0.5 text-[11px] text-violet-700 hover:bg-violet-500/20"
+                className="inline-flex items-center gap-1 rounded-lg border border-primary/40 bg-primary/10 px-2 py-0.5 text-[11px] text-primary hover:bg-primary/20"
               >
                 <Check className="h-3 w-3" /> تطبيق
               </button>
@@ -1508,7 +1508,7 @@ function EmptyState({
         <button
           type="button"
           onClick={onAdd}
-          className="inline-flex items-center gap-1.5 rounded-xl border border-violet-500/40 bg-violet-500/10 px-3 py-1.5 text-[12px] text-violet-700 hover:bg-violet-500/20"
+          className="inline-flex items-center gap-1.5 rounded-xl border border-primary/40 bg-primary/10 px-3 py-1.5 text-[12px] text-primary hover:bg-primary/20"
         >
           <ListPlus className="h-3.5 w-3.5" />
           إضافة مقطع

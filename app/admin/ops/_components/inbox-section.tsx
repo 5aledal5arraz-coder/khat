@@ -29,9 +29,9 @@ export function InboxSection({
   return (
     <section className="mb-8">
       <h2 className="mb-3 flex items-center gap-2 text-[15px] font-semibold text-foreground">
-        <Inbox className="h-4 w-4 text-violet-700" />
+        <Inbox className="h-4 w-4 text-primary" />
         الوارد
-        <span className="rounded-md bg-violet-500/10 px-1.5 py-0.5 text-[11px] font-semibold tabular-nums text-violet-700">
+        <span className="rounded-md bg-primary/10 px-1.5 py-0.5 text-[11px] font-semibold tabular-nums text-primary">
           {total ?? "—"}
         </span>
       </h2>
@@ -53,7 +53,7 @@ export function InboxSection({
               className={
                 "group flex items-center justify-between gap-3 rounded-2xl border p-4 shadow-[0_1px_2px_rgba(15,23,42,0.04)] transition-colors " +
                 (waiting
-                  ? "border-violet-500/25 bg-violet-500/[0.04] hover:border-violet-500/40"
+                  ? "border-primary/25 bg-primary/[0.04] hover:border-primary/40"
                   : "border-border/80 bg-card hover:border-muted-foreground/30 hover:bg-muted/50")
               }
             >
@@ -66,7 +66,7 @@ export function InboxSection({
                     <span
                       data-attention-dot
                       aria-hidden="true"
-                      className="h-1.5 w-1.5 shrink-0 rounded-full bg-violet-600"
+                      className="h-1.5 w-1.5 shrink-0 rounded-full bg-primary"
                     />
                   ) : null}
                 </span>

@@ -149,7 +149,7 @@ export default async function EpisodeWorkspacePage({
       </div>
 
       {/* ── Header ────────────────────────────────────────── */}
-      <header className="rounded-3xl border border-primary/15 bg-gradient-to-br from-primary/5 via-violet-500/5 to-transparent p-5">
+      <header className="rounded-3xl border border-primary/15 bg-gradient-to-br from-primary/5 via-primary/5 to-transparent p-5">
         <div className="mb-2 inline-flex items-center gap-2 rounded-full border border-primary/20 bg-primary/5 px-2.5 py-0.5 text-[10.5px] font-medium text-primary">
           <Brain className="h-3 w-3" /> مساحة عمل الحلقة
         </div>
@@ -390,7 +390,7 @@ function TabLink({
     "inline-flex items-center gap-1.5 rounded-t-xl border-b-2 px-3 py-1.5 text-[12px] transition-colors "
   const stateClass =
     status === "current"
-      ? "border-violet-400 text-violet-700"
+      ? "border-primary/50 text-primary"
       : status === "unavailable"
         ? "border-transparent text-muted-foreground cursor-not-allowed"
         : "border-transparent text-muted-foreground hover:text-foreground"
@@ -478,7 +478,7 @@ function PhaseTimeline({
               <span
                 className={
                   isLast && t.to_phase === currentPhase
-                    ? "font-medium text-violet-700"
+                    ? "font-medium text-primary"
                     : "font-medium text-foreground/85"
                 }
               >
@@ -519,7 +519,7 @@ function OverviewTab({
             ? "border-rose-500/30 bg-rose-500/5"
             : action.tone === "warning"
               ? "border-amber-500/30 bg-amber-500/5"
-              : "border-violet-500/25 bg-violet-500/5")
+              : "border-primary/25 bg-primary/5")
         }
       >
         <div className="mb-1 inline-flex items-center gap-1.5 text-[10.5px] uppercase tracking-wider text-muted-foreground">
@@ -746,8 +746,8 @@ function TopicTab({
 
       {/* Hybrid provenance card */}
       {hybridProvenance && (
-        <div className="rounded-2xl border border-violet-500/25 bg-violet-500/5 p-4">
-          <div className="mb-1 inline-flex items-center gap-1.5 text-[11px] font-semibold text-violet-700">
+        <div className="rounded-2xl border border-primary/25 bg-primary/5 p-4">
+          <div className="mb-1 inline-flex items-center gap-1.5 text-[11px] font-semibold text-primary">
             <Compass className="h-3 w-3" /> أصل المولّد الهجين
           </div>
           <dl className="grid grid-cols-1 gap-x-4 gap-y-2 sm:grid-cols-2 text-[12px]">
@@ -826,7 +826,7 @@ function GuestTab({
             </div>
             <Link
               href={`/admin/guests/${snap.guest.id}`}
-              className="mt-1 inline-flex items-center gap-1 text-[11.5px] text-violet-700 hover:underline"
+              className="mt-1 inline-flex items-center gap-1 text-[11.5px] text-primary hover:underline"
             >
               فتح ملف الضيف <ExternalLink className="h-3 w-3" />
             </Link>
@@ -999,7 +999,7 @@ function PlaceholderTab({
       {fallbackHref ? (
         <Link
           href={fallbackHref}
-          className="mt-4 inline-flex items-center gap-1.5 rounded-xl border border-violet-500/40 bg-violet-500/10 px-3 py-1.5 text-[12px] text-violet-700 hover:bg-violet-500/20"
+          className="mt-4 inline-flex items-center gap-1.5 rounded-xl border border-primary/40 bg-primary/10 px-3 py-1.5 text-[12px] text-primary hover:bg-primary/20"
         >
           فتح الصفحة الكاملة <ExternalLink className="h-3 w-3" />
         </Link>
@@ -1134,7 +1134,7 @@ function toneClasses(tone: NextActionTone): string {
     case "warning":
       return "border-amber-500/40 bg-amber-500/10 text-amber-700 hover:bg-amber-500/20"
     default:
-      return "border-violet-500/40 bg-violet-500/10 text-violet-700 hover:bg-violet-500/20"
+      return "border-primary/40 bg-primary/10 text-primary hover:bg-primary/20"
   }
 }
 

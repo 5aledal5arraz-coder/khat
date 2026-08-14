@@ -68,7 +68,7 @@ export default async function V2RunPage({
         </div>
         {stats.v2_error && <p className="mt-2 text-[11.5px] text-rose-700">{String(stats.v2_error)}</p>}
         {running && (
-          <div className="mt-3 inline-flex items-center gap-2 rounded-lg border border-violet-500/30 bg-violet-500/5 px-3 py-1.5 text-[11.5px] text-violet-700">
+          <div className="mt-3 inline-flex items-center gap-2 rounded-lg border border-primary/30 bg-primary/5 px-3 py-1.5 text-[11.5px] text-primary">
             <Loader2 className="h-3.5 w-3.5 animate-spin" /> جارٍ الاقتراح والتحقّق والإثراء… يتحدّث تلقائياً
           </div>
         )}

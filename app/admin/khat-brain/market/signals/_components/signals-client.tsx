@@ -186,7 +186,7 @@ export function SignalsList({
             type="button"
             disabled={pending || ids.length === 0}
             onClick={() => setBulkTagOpen((v) => !v)}
-            className="inline-flex items-center gap-1 rounded-lg border border-violet-500/30 bg-violet-500/10 px-2.5 py-1 text-[11.5px] font-medium text-violet-700 hover:bg-violet-500/20 disabled:opacity-40"
+            className="inline-flex items-center gap-1 rounded-lg border border-primary/30 bg-primary/10 px-2.5 py-1 text-[11.5px] font-medium text-primary hover:bg-primary/20 disabled:opacity-40"
             data-bulk-tag
           >
             <TagIcon className="h-3 w-3" /> {PAGE_COPY.bulkTag}
@@ -293,7 +293,7 @@ function SignalCard({
           type="checkbox"
           checked={checked}
           onChange={onToggle}
-          className="mt-1 h-3.5 w-3.5 accent-violet-500"
+          className="mt-1 h-3.5 w-3.5 accent-primary"
           aria-label="تحديد الإشارة"
           data-signal-checkbox
         />
@@ -308,7 +308,7 @@ function SignalCard({
               {statusInfo.label}
             </span>
             {signal.operator_created && (
-              <span className="inline-flex items-center gap-1 rounded-full border border-violet-500/30 bg-violet-500/10 px-2 py-0.5 text-violet-700">
+              <span className="inline-flex items-center gap-1 rounded-full border border-primary/30 bg-primary/10 px-2 py-0.5 text-primary">
                 يدوية
               </span>
             )}
@@ -391,7 +391,7 @@ function SignalCard({
                     onClick={() =>
                       run(() => removeTagAction({ signalId: signal.id, tag: t }))
                     }
-                    className="group inline-flex items-center gap-1 rounded-full border border-violet-500/30 bg-violet-500/5 px-2 py-0.5 text-[10.5px] text-violet-700 hover:border-rose-500/40 hover:bg-rose-500/10 hover:text-rose-700"
+                    className="group inline-flex items-center gap-1 rounded-full border border-primary/30 bg-primary/5 px-2 py-0.5 text-[10.5px] text-primary hover:border-rose-500/40 hover:bg-rose-500/10 hover:text-rose-700"
                     title="إزالة الوسم"
                   >
                     {label}
@@ -438,7 +438,7 @@ function SignalCard({
                       setNoteOpen(false)
                     })
                   }
-                  className="rounded-md border border-violet-500/30 bg-violet-500/10 px-2 py-0.5 text-[11px] text-violet-700 hover:bg-violet-500/20 disabled:opacity-40"
+                  className="rounded-md border border-primary/30 bg-primary/10 px-2 py-0.5 text-[11px] text-primary hover:bg-primary/20 disabled:opacity-40"
                   data-note-save
                 >
                   {PAGE_COPY.perCard.saveNote}
@@ -513,7 +513,7 @@ function SignalCard({
                 type="button"
                 disabled={busy || pending}
                 onClick={() => setTagMenuOpen((v) => !v)}
-                className="inline-flex items-center gap-1 rounded-md border border-violet-500/30 bg-violet-500/5 px-2 py-0.5 text-[11px] text-violet-700 hover:bg-violet-500/15 disabled:opacity-40"
+                className="inline-flex items-center gap-1 rounded-md border border-primary/30 bg-primary/5 px-2 py-0.5 text-[11px] text-primary hover:bg-primary/15 disabled:opacity-40"
                 data-action="add-tag"
               >
                 <TagIcon className="h-3 w-3" /> {PAGE_COPY.perCard.addTag}

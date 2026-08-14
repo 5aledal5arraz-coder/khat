@@ -97,7 +97,7 @@ export function ResponseViewer({ responses, prepLinks, templates }: Props) {
                   ))
                 )}
                 {link?.admin_message && (
-                  <div className="mt-2 rounded-sm border border-violet-500/20 bg-violet-500/5 p-2 text-[10px] text-muted-foreground">
+                  <div className="mt-2 rounded-sm border border-primary/20 bg-primary/5 p-2 text-[10px] text-muted-foreground">
                     <FileText className="me-1 inline h-3 w-3" />
                     رسالة مرافقة للرابط: {link.admin_message}
                   </div>

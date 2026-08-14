@@ -9,7 +9,7 @@ export const dynamic = "force-dynamic"
 
 const STAGES: { id: CommunityContributionStatus; label: string; accent: string }[] = [
   { id: "new", label: "جديدة", accent: "text-sky-700 bg-sky-50 border-sky-200" },
-  { id: "reviewing", label: "قيد المراجعة", accent: "text-violet-700 bg-violet-50 border-violet-200" },
+  { id: "reviewing", label: "قيد المراجعة", accent: "text-primary bg-primary/5 border-primary/20" },
   { id: "accepted", label: "مقبولة", accent: "text-emerald-700 bg-emerald-50 border-emerald-200" },
   { id: "routed", label: "مُوجّهة لخط برين", accent: "text-indigo-700 bg-indigo-50 border-indigo-200" },
   { id: "declined", label: "مرفوضة", accent: "text-rose-700 bg-rose-50 border-rose-200" },
@@ -59,7 +59,7 @@ function Card({ c }: { c: CommunityContribution }) {
         {c.quality_score != null ? (
           <span className={`shrink-0 rounded-md px-1.5 py-0.5 text-[11px] font-bold tabular-nums ${qualityColor(c.quality_score)}`}>{c.quality_score}</span>
         ) : c.triage_status === "generating" ? (
-          <span className="shrink-0 rounded-md bg-violet-50 px-1.5 py-0.5 text-[10px] text-violet-600">يُفرز…</span>
+          <span className="shrink-0 rounded-md bg-primary/5 px-1.5 py-0.5 text-[10px] text-primary">يُفرز…</span>
         ) : null}
       </div>
       {c.ai_summary && <p className="mt-1.5 line-clamp-2 text-[11.5px] leading-relaxed text-muted-foreground">{c.ai_summary}</p>}

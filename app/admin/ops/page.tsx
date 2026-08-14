@@ -129,7 +129,7 @@ type StatTone = "neutral" | "accent" | "gold"
 // `-600` on a `-50` tint lands under 4.5:1 at these sizes.
 const STAT_ICON: Record<StatTone, string> = {
   neutral: "bg-muted text-muted-foreground",
-  accent: "bg-violet-50 text-violet-700",
+  accent: "bg-primary/5 text-primary",
   gold: "bg-amber-50 text-amber-700",
 }
 
@@ -560,7 +560,7 @@ export default async function OpsDashboardPage() {
           track count follows the tile count so the row never ends ragged. */}
       <section className="mb-8">
         <h2 className="mb-3 flex items-center gap-2 text-[15px] font-semibold text-foreground">
-          <Activity className="h-4 w-4 text-violet-700" />
+          <Activity className="h-4 w-4 text-primary" />
           نبض التشغيل
         </h2>
         <div

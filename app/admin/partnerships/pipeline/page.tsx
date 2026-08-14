@@ -8,7 +8,7 @@ export const dynamic = "force-dynamic"
 
 const STAGES: { id: SponsorshipStatus; label: string; accent: string }[] = [
   { id: "new", label: "جديدة", accent: "text-sky-700 bg-sky-50 border-sky-200" },
-  { id: "reviewing", label: "قيد المراجعة", accent: "text-violet-700 bg-violet-50 border-violet-200" },
+  { id: "reviewing", label: "قيد المراجعة", accent: "text-primary bg-primary/5 border-primary/20" },
   { id: "proposal_sent", label: "أُرسل العرض", accent: "text-amber-700 bg-amber-50 border-amber-200" },
   { id: "negotiation", label: "تفاوض", accent: "text-orange-700 bg-orange-50 border-orange-200" },
   { id: "confirmed", label: "مؤكّدة", accent: "text-emerald-700 bg-emerald-50 border-emerald-200" },
@@ -70,7 +70,7 @@ function LeadCard({ lead }: { lead: PipelineLead }) {
             {lead.fit_score}
           </span>
         ) : lead.analysis_status === "generating" ? (
-          <span className="shrink-0 rounded-md bg-violet-50 px-1.5 py-0.5 text-[10px] text-violet-600">يُقيّم…</span>
+          <span className="shrink-0 rounded-md bg-primary/5 px-1.5 py-0.5 text-[10px] text-primary">يُقيّم…</span>
         ) : null}
       </div>
       <div className="mt-2 flex flex-wrap items-center gap-1.5">

@@ -23,7 +23,7 @@ export default async function DiscoveryV2Page() {
   return (
     <div className="mx-auto max-w-4xl space-y-5 p-4 pb-16" dir="rtl">
       <div>
-        <div className="mb-1 inline-flex items-center gap-1.5 rounded-full border border-violet-500/40 bg-violet-500/10 px-2 py-0.5 text-[11px] font-medium text-violet-700">
+        <div className="mb-1 inline-flex items-center gap-1.5 rounded-full border border-primary/40 bg-primary/10 px-2 py-0.5 text-[11px] font-medium text-primary">
           <Compass className="h-3 w-3" /> اكتشاف الضيوف
         </div>
         <h1 className="text-2xl font-bold">اكتشاف مرجعيّ موثوق</h1>

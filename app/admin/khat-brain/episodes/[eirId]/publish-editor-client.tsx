@@ -682,7 +682,7 @@ export function PublishPackageEditor({
       <Section
         id="narrative"
         title="القصّ التحريري"
-        icon={<Compass className="h-3.5 w-3.5 text-violet-700" />}
+        icon={<Compass className="h-3.5 w-3.5 text-primary" />}
         open={openSections.narrative}
         onToggle={() => toggle("narrative")}
       >
@@ -697,7 +697,7 @@ export function PublishPackageEditor({
             value={w.final_title}
             onChange={(e) => patchWebsite({ final_title: e.target.value })}
             placeholder="عنوان تحريري ـ ٥ إلى ١٢ كلمة"
-            className="w-full rounded-xl border border-border/40 bg-background/40 px-3 py-2 text-[13.5px] font-medium outline-none focus:border-violet-500/40"
+            className="w-full rounded-xl border border-border/40 bg-background/40 px-3 py-2 text-[13.5px] font-medium outline-none focus:border-primary/40"
             dir="auto"
           />
         </Field>
@@ -710,7 +710,7 @@ export function PublishPackageEditor({
             value={w.subtitle}
             onChange={(e) => patchWebsite({ subtitle: e.target.value })}
             placeholder="جملة تكمّل الصورة"
-            className="w-full rounded-xl border border-border/40 bg-background/40 px-3 py-2 text-[12px] outline-none focus:border-violet-500/40"
+            className="w-full rounded-xl border border-border/40 bg-background/40 px-3 py-2 text-[12px] outline-none focus:border-primary/40"
             dir="auto"
           />
         </Field>
@@ -725,7 +725,7 @@ export function PublishPackageEditor({
               value={w.slug}
               onChange={(e) => patchWebsite({ slug: e.target.value.trim() })}
               placeholder="kuwait-podcast-episode-title"
-              className="flex-1 rounded-xl border border-border/40 bg-background/40 px-3 py-2 text-[12px] outline-none focus:border-violet-500/40"
+              className="flex-1 rounded-xl border border-border/40 bg-background/40 px-3 py-2 text-[12px] outline-none focus:border-primary/40"
               dir="ltr"
             />
             <button
@@ -756,7 +756,7 @@ export function PublishPackageEditor({
             }
             rows={3}
             placeholder="فقرة تشرح ما تطرحه هذه الحلقة على القارئ"
-            className="w-full resize-y rounded-xl border border-border/40 bg-background/40 px-3 py-2 text-[12.5px] leading-relaxed outline-none focus:border-violet-500/40"
+            className="w-full resize-y rounded-xl border border-border/40 bg-background/40 px-3 py-2 text-[12.5px] leading-relaxed outline-none focus:border-primary/40"
             dir="auto"
           />
         </Field>
@@ -766,7 +766,7 @@ export function PublishPackageEditor({
             onChange={(e) => patchWebsite({ episode_summary: e.target.value })}
             rows={3}
             placeholder="ملخّص أطول للقراء الذين يفتحون الصفحة"
-            className="w-full resize-y rounded-xl border border-border/40 bg-background/40 px-3 py-2 text-[12px] leading-relaxed outline-none focus:border-violet-500/40"
+            className="w-full resize-y rounded-xl border border-border/40 bg-background/40 px-3 py-2 text-[12px] leading-relaxed outline-none focus:border-primary/40"
             dir="auto"
           />
         </Field>
@@ -824,7 +824,7 @@ export function PublishPackageEditor({
             type="text"
             value={seo.meta_title}
             onChange={(e) => patchSeo({ meta_title: e.target.value })}
-            className="w-full rounded-xl border border-border/40 bg-background/40 px-3 py-2 text-[12px] outline-none focus:border-violet-500/40"
+            className="w-full rounded-xl border border-border/40 bg-background/40 px-3 py-2 text-[12px] outline-none focus:border-primary/40"
             dir="auto"
           />
         </Field>
@@ -836,7 +836,7 @@ export function PublishPackageEditor({
             value={seo.meta_description}
             onChange={(e) => patchSeo({ meta_description: e.target.value })}
             rows={2}
-            className="w-full resize-y rounded-xl border border-border/40 bg-background/40 px-3 py-2 text-[12px] leading-relaxed outline-none focus:border-violet-500/40"
+            className="w-full resize-y rounded-xl border border-border/40 bg-background/40 px-3 py-2 text-[12px] leading-relaxed outline-none focus:border-primary/40"
             dir="auto"
           />
         </Field>
@@ -846,7 +846,7 @@ export function PublishPackageEditor({
               type="text"
               value={seo.og_title}
               onChange={(e) => patchSeo({ og_title: e.target.value })}
-              className="w-full rounded-xl border border-border/40 bg-background/40 px-3 py-2 text-[12px] outline-none focus:border-violet-500/40"
+              className="w-full rounded-xl border border-border/40 bg-background/40 px-3 py-2 text-[12px] outline-none focus:border-primary/40"
               dir="auto"
             />
           </Field>
@@ -855,7 +855,7 @@ export function PublishPackageEditor({
               type="text"
               value={seo.og_description}
               onChange={(e) => patchSeo({ og_description: e.target.value })}
-              className="w-full rounded-xl border border-border/40 bg-background/40 px-3 py-2 text-[12px] outline-none focus:border-violet-500/40"
+              className="w-full rounded-xl border border-border/40 bg-background/40 px-3 py-2 text-[12px] outline-none focus:border-primary/40"
               dir="auto"
             />
           </Field>
@@ -882,7 +882,7 @@ export function PublishPackageEditor({
               value={seo.ranking_angle}
               onChange={(e) => patchSeo({ ranking_angle: e.target.value })}
               placeholder="الزاوية التي تتفوّق فيها على البقية"
-              className="w-full rounded-xl border border-border/40 bg-background/40 px-3 py-2 text-[12px] outline-none focus:border-violet-500/40"
+              className="w-full rounded-xl border border-border/40 bg-background/40 px-3 py-2 text-[12px] outline-none focus:border-primary/40"
               dir="auto"
             />
           </Field>
@@ -905,7 +905,7 @@ export function PublishPackageEditor({
             type="text"
             value={y.youtube_title}
             onChange={(e) => patchYoutube({ youtube_title: e.target.value })}
-            className="w-full rounded-xl border border-border/40 bg-background/40 px-3 py-2 text-[12.5px] outline-none focus:border-violet-500/40"
+            className="w-full rounded-xl border border-border/40 bg-background/40 px-3 py-2 text-[12.5px] outline-none focus:border-primary/40"
             dir="auto"
           />
         </Field>
@@ -916,7 +916,7 @@ export function PublishPackageEditor({
               patchYoutube({ youtube_description: e.target.value })
             }
             rows={3}
-            className="w-full resize-y rounded-xl border border-border/40 bg-background/40 px-3 py-2 text-[12px] leading-relaxed outline-none focus:border-violet-500/40"
+            className="w-full resize-y rounded-xl border border-border/40 bg-background/40 px-3 py-2 text-[12px] leading-relaxed outline-none focus:border-primary/40"
             dir="auto"
           />
         </Field>
@@ -926,7 +926,7 @@ export function PublishPackageEditor({
               type="text"
               value={y.hook_opening_line}
               onChange={(e) => patchYoutube({ hook_opening_line: e.target.value })}
-              className="w-full rounded-xl border border-border/40 bg-background/40 px-3 py-2 text-[12px] outline-none focus:border-violet-500/40"
+              className="w-full rounded-xl border border-border/40 bg-background/40 px-3 py-2 text-[12px] outline-none focus:border-primary/40"
               dir="auto"
             />
           </Field>
@@ -936,7 +936,7 @@ export function PublishPackageEditor({
               value={y.thumbnail_direction}
               onChange={(e) => patchYoutube({ thumbnail_direction: e.target.value })}
               placeholder="وصف بصري للمصمّم"
-              className="w-full rounded-xl border border-border/40 bg-background/40 px-3 py-2 text-[12px] outline-none focus:border-violet-500/40"
+              className="w-full rounded-xl border border-border/40 bg-background/40 px-3 py-2 text-[12px] outline-none focus:border-primary/40"
               dir="auto"
             />
           </Field>
@@ -958,7 +958,7 @@ export function PublishPackageEditor({
             value={y.pinned_comment}
             onChange={(e) => patchYoutube({ pinned_comment: e.target.value })}
             rows={2}
-            className="w-full resize-y rounded-xl border border-border/40 bg-background/40 px-3 py-2 text-[12px] outline-none focus:border-violet-500/40"
+            className="w-full resize-y rounded-xl border border-border/40 bg-background/40 px-3 py-2 text-[12px] outline-none focus:border-primary/40"
             dir="auto"
           />
         </Field>
@@ -985,7 +985,7 @@ export function PublishPackageEditor({
             onChange={(e) =>
               patchNewsletter({ newsletter_subject: e.target.value })
             }
-            className="w-full rounded-xl border border-border/40 bg-background/40 px-3 py-2 text-[12.5px] outline-none focus:border-violet-500/40"
+            className="w-full rounded-xl border border-border/40 bg-background/40 px-3 py-2 text-[12.5px] outline-none focus:border-primary/40"
             dir="auto"
           />
         </Field>
@@ -996,7 +996,7 @@ export function PublishPackageEditor({
             onChange={(e) =>
               patchNewsletter({ newsletter_preview: e.target.value })
             }
-            className="w-full rounded-xl border border-border/40 bg-background/40 px-3 py-2 text-[12px] outline-none focus:border-violet-500/40"
+            className="w-full rounded-xl border border-border/40 bg-background/40 px-3 py-2 text-[12px] outline-none focus:border-primary/40"
             dir="auto"
           />
         </Field>
@@ -1007,7 +1007,7 @@ export function PublishPackageEditor({
               patchNewsletter({ newsletter_body: e.target.value })
             }
             rows={6}
-            className="w-full resize-y rounded-xl border border-border/40 bg-background/40 px-3 py-2 text-[12px] leading-relaxed outline-none focus:border-violet-500/40"
+            className="w-full resize-y rounded-xl border border-border/40 bg-background/40 px-3 py-2 text-[12px] leading-relaxed outline-none focus:border-primary/40"
             dir="auto"
           />
         </Field>
@@ -1019,7 +1019,7 @@ export function PublishPackageEditor({
               onChange={(e) =>
                 patchNewsletter({ featured_quote: e.target.value })
               }
-              className="w-full rounded-xl border border-border/40 bg-background/40 px-3 py-2 text-[12px] outline-none focus:border-violet-500/40"
+              className="w-full rounded-xl border border-border/40 bg-background/40 px-3 py-2 text-[12px] outline-none focus:border-primary/40"
               dir="auto"
             />
           </Field>
@@ -1030,7 +1030,7 @@ export function PublishPackageEditor({
               onChange={(e) =>
                 patchNewsletter({ emotional_angle: e.target.value })
               }
-              className="w-full rounded-xl border border-border/40 bg-background/40 px-3 py-2 text-[12px] outline-none focus:border-violet-500/40"
+              className="w-full rounded-xl border border-border/40 bg-background/40 px-3 py-2 text-[12px] outline-none focus:border-primary/40"
               dir="auto"
             />
           </Field>
@@ -1041,7 +1041,7 @@ export function PublishPackageEditor({
       <Section
         id="social"
         title="حزم التواصل الاجتماعي"
-        icon={<Megaphone className="h-3.5 w-3.5 text-violet-700" />}
+        icon={<Megaphone className="h-3.5 w-3.5 text-primary" />}
         open={openSections.social}
         onToggle={() => toggle("social")}
       >
@@ -1053,7 +1053,7 @@ export function PublishPackageEditor({
                 patchSocial({ instagram_caption: e.target.value })
               }
               rows={3}
-              className="w-full resize-y rounded-xl border border-border/40 bg-background/40 px-3 py-2 text-[12px] outline-none focus:border-violet-500/40"
+              className="w-full resize-y rounded-xl border border-border/40 bg-background/40 px-3 py-2 text-[12px] outline-none focus:border-primary/40"
               dir="auto"
             />
           </Field>
@@ -1062,7 +1062,7 @@ export function PublishPackageEditor({
               value={so.linkedin_post}
               onChange={(e) => patchSocial({ linkedin_post: e.target.value })}
               rows={3}
-              className="w-full resize-y rounded-xl border border-border/40 bg-background/40 px-3 py-2 text-[12px] outline-none focus:border-violet-500/40"
+              className="w-full resize-y rounded-xl border border-border/40 bg-background/40 px-3 py-2 text-[12px] outline-none focus:border-primary/40"
               dir="auto"
             />
           </Field>
@@ -1071,7 +1071,7 @@ export function PublishPackageEditor({
               value={so.tiktok_caption}
               onChange={(e) => patchSocial({ tiktok_caption: e.target.value })}
               rows={2}
-              className="w-full resize-y rounded-xl border border-border/40 bg-background/40 px-3 py-2 text-[12px] outline-none focus:border-violet-500/40"
+              className="w-full resize-y rounded-xl border border-border/40 bg-background/40 px-3 py-2 text-[12px] outline-none focus:border-primary/40"
               dir="auto"
             />
           </Field>
@@ -1128,7 +1128,7 @@ export function PublishPackageEditor({
             value={sp.compliance_notes}
             onChange={(e) => patchSponsor({ compliance_notes: e.target.value })}
             rows={2}
-            className="w-full resize-y rounded-xl border border-border/40 bg-background/40 px-3 py-2 text-[12px] outline-none focus:border-violet-500/40"
+            className="w-full resize-y rounded-xl border border-border/40 bg-background/40 px-3 py-2 text-[12px] outline-none focus:border-primary/40"
             dir="auto"
           />
         </Field>
@@ -1166,7 +1166,7 @@ export function PublishPackageEditor({
                 patchRelease({ release_window: e.target.value || null })
               }
               placeholder="2026-05-30"
-              className="w-full rounded-xl border border-border/40 bg-background/40 px-3 py-2 text-[12px] outline-none focus:border-violet-500/40"
+              className="w-full rounded-xl border border-border/40 bg-background/40 px-3 py-2 text-[12px] outline-none focus:border-primary/40"
               dir="ltr"
             />
           </Field>
@@ -1191,7 +1191,7 @@ export function PublishPackageEditor({
             value={rs.release_reason}
             onChange={(e) => patchRelease({ release_reason: e.target.value })}
             rows={2}
-            className="w-full resize-y rounded-xl border border-border/40 bg-background/40 px-3 py-2 text-[12px] outline-none focus:border-violet-500/40"
+            className="w-full resize-y rounded-xl border border-border/40 bg-background/40 px-3 py-2 text-[12px] outline-none focus:border-primary/40"
             dir="auto"
           />
         </Field>
@@ -1200,7 +1200,7 @@ export function PublishPackageEditor({
             type="text"
             value={rs.audience_target}
             onChange={(e) => patchRelease({ audience_target: e.target.value })}
-            className="w-full rounded-xl border border-border/40 bg-background/40 px-3 py-2 text-[12px] outline-none focus:border-violet-500/40"
+            className="w-full rounded-xl border border-border/40 bg-background/40 px-3 py-2 text-[12px] outline-none focus:border-primary/40"
             dir="auto"
           />
         </Field>
@@ -1209,7 +1209,7 @@ export function PublishPackageEditor({
             value={rs.strategic_notes}
             onChange={(e) => patchRelease({ strategic_notes: e.target.value })}
             rows={2}
-            className="w-full resize-y rounded-xl border border-border/40 bg-background/40 px-3 py-2 text-[12px] outline-none focus:border-violet-500/40"
+            className="w-full resize-y rounded-xl border border-border/40 bg-background/40 px-3 py-2 text-[12px] outline-none focus:border-primary/40"
             dir="auto"
           />
         </Field>
@@ -1253,7 +1253,7 @@ export function PublishPackageEditor({
       <Section
         id="preview"
         title="معاينة الموقع + الـ SEO snippet"
-        icon={<Globe className="h-3.5 w-3.5 text-violet-700" />}
+        icon={<Globe className="h-3.5 w-3.5 text-primary" />}
         open={openSections.preview}
         onToggle={() => toggle("preview")}
       >
@@ -1294,7 +1294,7 @@ function ConflictBanner({
           <button
             type="button"
             onClick={onReload}
-            className="rounded-xl border border-violet-500/40 bg-violet-500/10 px-2.5 py-1 text-[11.5px] text-violet-700 hover:bg-violet-500/20"
+            className="rounded-xl border border-primary/40 bg-primary/10 px-2.5 py-1 text-[11.5px] text-primary hover:bg-primary/20"
           >
             استرجاع نسخة الخادم
           </button>
@@ -1325,18 +1325,18 @@ function ReadinessDashboard({
     readiness.score >= 85
       ? "text-emerald-700"
       : readiness.score >= 65
-        ? "text-violet-700"
+        ? "text-primary"
         : readiness.score >= 40
           ? "text-amber-700"
           : "text-rose-700"
   return (
-    <div className="rounded-2xl border border-violet-500/25 bg-gradient-to-br from-violet-500/5 via-rose-500/5 to-transparent p-4">
+    <div className="rounded-2xl border border-primary/25 bg-gradient-to-br from-primary/5 via-rose-500/5 to-transparent p-4">
       <div className="flex flex-wrap items-start gap-4">
         <div className="flex shrink-0 flex-col items-center justify-center">
           <div
             className={
               "rounded-full border-4 px-5 py-3 text-center font-bold tabular-nums " +
-              "border-violet-500/30 " +
+              "border-primary/30 " +
               ringColor
             }
             dir="ltr"
@@ -1423,7 +1423,7 @@ function ReadinessDashboard({
                 v >= 80
                   ? "bg-emerald-400"
                   : v >= 55
-                    ? "bg-violet-400"
+                    ? "bg-primary/70"
                     : v >= 30
                       ? "bg-amber-400"
                       : "bg-rose-400"
@@ -1473,9 +1473,9 @@ function SuggestionsPanel({
   onClear: () => void
 }) {
   return (
-    <div className="rounded-2xl border border-violet-500/30 bg-violet-500/5 p-3">
+    <div className="rounded-2xl border border-primary/30 bg-primary/5 p-3">
       <div className="mb-2 flex items-center justify-between gap-2">
-        <h3 className="inline-flex items-center gap-1.5 text-[12.5px] font-semibold text-violet-700">
+        <h3 className="inline-flex items-center gap-1.5 text-[12.5px] font-semibold text-primary">
           <Sparkles className="h-3.5 w-3.5" /> غرفة العمليات التحريرية ·{" "}
           {suggestions.length}
         </h3>
@@ -1494,7 +1494,7 @@ function SuggestionsPanel({
             className="flex items-start gap-2 rounded-xl border border-border/40 bg-background/30 p-2"
           >
             <div className="min-w-0 flex-1">
-              <div className="text-[11px] font-semibold text-violet-700">
+              <div className="text-[11px] font-semibold text-primary">
                 {SUGGESTION_LABEL[s.kind]}
                 <span className="ms-2 font-normal text-muted-foreground" dir="ltr">
                   → {s.field}
@@ -1522,7 +1522,7 @@ function SuggestionsPanel({
               <button
                 type="button"
                 onClick={() => onApply(s)}
-                className="inline-flex items-center gap-1 rounded-lg border border-violet-500/40 bg-violet-500/10 px-2 py-0.5 text-[11px] text-violet-700 hover:bg-violet-500/20"
+                className="inline-flex items-center gap-1 rounded-lg border border-primary/40 bg-primary/10 px-2 py-0.5 text-[11px] text-primary hover:bg-primary/20"
               >
                 <Check className="h-3 w-3" /> تطبيق
               </button>
@@ -1671,7 +1671,7 @@ function ListField({
                 onChange(next)
               }}
               rows={1}
-              className="flex-1 resize-none rounded-xl border border-border/40 bg-background/40 px-3 py-1.5 text-[12px] outline-none focus:border-violet-500/40"
+              className="flex-1 resize-none rounded-xl border border-border/40 bg-background/40 px-3 py-1.5 text-[12px] outline-none focus:border-primary/40"
               dir="auto"
             />
             <button
@@ -1696,14 +1696,14 @@ function ListField({
               }
             }}
             placeholder={placeholder}
-            className="flex-1 rounded-xl border border-dashed border-border/40 bg-background/30 px-3 py-1.5 text-[11.5px] outline-none focus:border-violet-500/40"
+            className="flex-1 rounded-xl border border-dashed border-border/40 bg-background/30 px-3 py-1.5 text-[11.5px] outline-none focus:border-primary/40"
             dir="auto"
           />
           <button
             type="button"
             onClick={add}
             disabled={!draft.trim()}
-            className="rounded-xl border border-violet-500/40 bg-violet-500/10 px-2.5 py-1 text-[11px] text-violet-700 hover:bg-violet-500/20 disabled:opacity-40"
+            className="rounded-xl border border-primary/40 bg-primary/10 px-2.5 py-1 text-[11px] text-primary hover:bg-primary/20 disabled:opacity-40"
             aria-label="إضافة"
           >
             <Plus className="h-3 w-3" />
@@ -1758,7 +1758,7 @@ function ScoreSlider({
         step={5}
         value={value}
         onChange={(e) => onChange(Number(e.target.value))}
-        className="mt-0.5 w-full cursor-pointer accent-violet-400"
+        className="mt-0.5 w-full cursor-pointer accent-primary"
         dir="ltr"
       />
     </label>

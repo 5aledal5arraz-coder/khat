@@ -164,7 +164,7 @@ export function EpisodeDetail({
               className={`inline-flex shrink-0 items-center gap-1 rounded-md px-1.5 py-0.5 text-[10.5px] font-semibold ${
                 t.source === "manual"
                   ? "bg-sky-500/10 text-sky-700"
-                  : "bg-violet-500/10 text-violet-700"
+                  : "bg-primary/10 text-primary"
               }`}
             >
               {t.source === "manual" ? "يدوي" : "مولّد من الاستوديو"}

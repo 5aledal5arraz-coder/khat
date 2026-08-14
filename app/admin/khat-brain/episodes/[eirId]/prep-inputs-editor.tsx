@@ -210,7 +210,7 @@ export function PrepInputsEditor({
           type="text"
           value={state.title}
           onChange={(e) => updateField("title", e.target.value)}
-          className="w-full rounded-xl border border-border/40 bg-background/40 px-3 py-2 text-[12.5px] outline-none focus:border-violet-500/40"
+          className="w-full rounded-xl border border-border/40 bg-background/40 px-3 py-2 text-[12.5px] outline-none focus:border-primary/40"
           dir="auto"
           maxLength={200}
         />
@@ -225,7 +225,7 @@ export function PrepInputsEditor({
           type="text"
           value={state.guest_name}
           onChange={(e) => updateField("guest_name", e.target.value)}
-          className="w-full rounded-xl border border-border/40 bg-background/40 px-3 py-2 text-[12.5px] outline-none focus:border-violet-500/40"
+          className="w-full rounded-xl border border-border/40 bg-background/40 px-3 py-2 text-[12.5px] outline-none focus:border-primary/40"
           dir="auto"
           placeholder="—"
         />
@@ -240,7 +240,7 @@ export function PrepInputsEditor({
           value={state.short_description}
           onChange={(e) => updateField("short_description", e.target.value)}
           rows={3}
-          className="w-full resize-y rounded-xl border border-border/40 bg-background/40 px-3 py-2 text-[12.5px] leading-relaxed outline-none focus:border-violet-500/40"
+          className="w-full resize-y rounded-xl border border-border/40 bg-background/40 px-3 py-2 text-[12.5px] leading-relaxed outline-none focus:border-primary/40"
           dir="auto"
           placeholder="جملة أو اثنتان عن الحلقة"
         />
@@ -255,7 +255,7 @@ export function PrepInputsEditor({
           value={state.episode_goal}
           onChange={(e) => updateField("episode_goal", e.target.value)}
           rows={3}
-          className="w-full resize-y rounded-xl border border-border/40 bg-background/40 px-3 py-2 text-[12.5px] leading-relaxed outline-none focus:border-violet-500/40"
+          className="w-full resize-y rounded-xl border border-border/40 bg-background/40 px-3 py-2 text-[12.5px] leading-relaxed outline-none focus:border-primary/40"
           dir="auto"
         />
       </FieldRow>
@@ -351,7 +351,7 @@ function KeyQuestionsList({
               onChange(next)
             }}
             rows={1}
-            className="flex-1 resize-none rounded-xl border border-border/40 bg-background/40 px-3 py-1.5 text-[12px] outline-none focus:border-violet-500/40"
+            className="flex-1 resize-none rounded-xl border border-border/40 bg-background/40 px-3 py-1.5 text-[12px] outline-none focus:border-primary/40"
             dir="auto"
           />
           <button
@@ -367,7 +367,7 @@ function KeyQuestionsList({
       <button
         type="button"
         onClick={() => onChange([...value, ""])}
-        className="inline-flex items-center gap-1.5 rounded-xl border border-violet-500/40 bg-violet-500/10 px-2.5 py-1 text-[11.5px] text-violet-700 hover:bg-violet-500/20"
+        className="inline-flex items-center gap-1.5 rounded-xl border border-primary/40 bg-primary/10 px-2.5 py-1 text-[11.5px] text-primary hover:bg-primary/20"
       >
         <Plus className="h-3 w-3" />
         إضافة سؤال

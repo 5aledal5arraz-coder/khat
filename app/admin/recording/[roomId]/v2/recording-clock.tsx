@@ -210,7 +210,7 @@ export function Timeline(props: {
               // Timeline is intentionally dir="ltr" (time flows left→right), so
               // all positioned children use physical left for consistency.
               "absolute inset-y-0 border-r border-border/30 " +
-              (b.i === props.currentSectionIndex ? "bg-violet-500/15" : b.i % 2 === 0 ? "bg-muted/10" : "bg-transparent")
+              (b.i === props.currentSectionIndex ? "bg-primary/15" : b.i % 2 === 0 ? "bg-muted/10" : "bg-transparent")
             }
             style={{ left: `${b.startPct}%`, width: `${b.widthPct}%` }}
           />
@@ -336,7 +336,7 @@ function CtrlButton(props: {
       ? "border border-rose-500/30 bg-rose-500/10 text-rose-700 hover:bg-rose-500/20"
       : props.variant === "ghost"
         ? "text-muted-foreground hover:text-foreground"
-        : "border border-violet-500/30 bg-violet-500/10 text-violet-700 hover:bg-violet-500/20"
+        : "border border-primary/30 bg-primary/10 text-primary hover:bg-primary/20"
   return (
     <button type="button" onClick={props.onClick} disabled={props.disabled} className={`${base} ${variant}`}>
       {props.icon && <span className="h-4 w-4">{props.icon}</span>}

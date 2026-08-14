@@ -76,10 +76,10 @@ export function BulkConvertButton({
   if (approvedCount === 0) return null
 
   return (
-    <div className="rounded-2xl border border-violet-500/20 bg-violet-500/5 p-3">
+    <div className="rounded-2xl border border-primary/20 bg-primary/5 p-3">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="min-w-0 flex-1">
-          <div className="mb-0.5 text-[12px] font-semibold text-violet-700">
+          <div className="mb-0.5 text-[12px] font-semibold text-primary">
             تحويل الحلقات المعتمدة إلى الإعداد
           </div>
           <p className="text-[11px] leading-relaxed text-foreground/80">
@@ -101,7 +101,7 @@ export function BulkConvertButton({
               ? "لا توجد حلقات قابلة للتحويل — جميع الحلقات بدون ضيف مرتبط."
               : undefined
           }
-          className="inline-flex items-center gap-1.5 rounded-xl border border-violet-500/40 bg-violet-500/10 px-3 py-1.5 text-[12px] font-medium text-violet-700 hover:bg-violet-500/20 disabled:cursor-not-allowed disabled:opacity-50"
+          className="inline-flex items-center gap-1.5 rounded-xl border border-primary/40 bg-primary/10 px-3 py-1.5 text-[12px] font-medium text-primary hover:bg-primary/20 disabled:cursor-not-allowed disabled:opacity-50"
         >
           {pending ? (
             <>

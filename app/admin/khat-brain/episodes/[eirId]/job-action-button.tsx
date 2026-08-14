@@ -71,7 +71,7 @@ export function JobActionButton({
   // panel is — but identical styling is what made the danger invisible.
   const toneClasses = confirm
     ? "border-amber-500/50 bg-amber-500/10 text-amber-800 hover:bg-amber-500/20"
-    : "border-violet-500/40 bg-violet-500/10 text-violet-700 hover:bg-violet-500/20"
+    : "border-primary/40 bg-primary/10 text-primary hover:bg-primary/20"
 
   const run = () => {
     setResult(null)

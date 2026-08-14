@@ -69,7 +69,7 @@ export function GenerateTopicsButton() {
         type="button"
         onClick={onClick}
         disabled={pending}
-        className="inline-flex items-center gap-2 rounded-xl border border-violet-500/30 bg-violet-500/10 px-4 py-2 text-[12px] font-medium text-violet-700 hover:bg-violet-500/20 disabled:cursor-not-allowed disabled:opacity-50"
+        className="inline-flex items-center gap-2 rounded-xl border border-primary/30 bg-primary/10 px-4 py-2 text-[12px] font-medium text-primary hover:bg-primary/20 disabled:cursor-not-allowed disabled:opacity-50"
       >
         {pending ? (
           <RefreshCw className="h-3.5 w-3.5 animate-spin" />

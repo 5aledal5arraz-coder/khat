@@ -68,7 +68,7 @@ export function StagePrepare() {
 
         <AccordionSection
           icon={Wand2}
-          iconColor="text-violet-700"
+          iconColor="text-primary"
           title="معالجة النص بالذكاء الاصطناعي"
           status={processingTabStatus}
           defaultOpen={transcriptTabStatus === "ready" && processingTabStatus !== "ready"}

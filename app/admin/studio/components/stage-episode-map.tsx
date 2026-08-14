@@ -385,7 +385,7 @@ export function EpisodeMapView({
       {/* ── Hook candidates ────────────────────────────────────────────────── */}
       <section className="space-y-2">
         <div className="flex items-center gap-2 px-1 text-[12px] font-semibold text-foreground">
-          <Sparkles className="h-4 w-4 text-violet-700" />
+          <Sparkles className="h-4 w-4 text-primary" />
           مقاطع الهوك المرشّحة
           <span className="rounded-md bg-muted px-1.5 py-0.5 text-[10.5px] font-medium text-muted-foreground">
             {map.hook_candidates.length}
@@ -402,17 +402,17 @@ export function EpisodeMapView({
               return (
                 <li
                   key={key}
-                  className="rounded-xl border border-violet-500/20 bg-violet-500/5 p-3"
+                  className="rounded-xl border border-primary/20 bg-primary/5 p-3"
                 >
                   <div className="flex flex-wrap items-center justify-between gap-2">
                     <div className="inline-flex items-center gap-2">
-                      <span className="flex h-5 w-5 items-center justify-center rounded-md bg-violet-600 text-[10.5px] font-bold text-white tabular-nums">
+                      <span className="flex h-5 w-5 items-center justify-center rounded-md bg-primary text-[10.5px] font-bold text-white tabular-nums">
                         {h.rank}
                       </span>
                       <span className="text-[12.5px] font-medium tabular-nums" dir="ltr">
                         {formatTimeSeconds(h.start_seconds)} – {formatTimeSeconds(h.end_seconds)}
                       </span>
-                      <span className="rounded-md bg-violet-500/10 px-2 py-0.5 text-[10.5px] font-medium text-violet-700">
+                      <span className="rounded-md bg-primary/10 px-2 py-0.5 text-[10.5px] font-medium text-primary">
                         {OPENS_WITH_AR[h.opens_with]}
                       </span>
                     </div>

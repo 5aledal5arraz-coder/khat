@@ -68,7 +68,7 @@ function Bar({ label, v }: { label: string; v: number }) {
     <div className="flex items-center gap-1.5">
       <span className="w-16 shrink-0 text-[9.5px] text-muted-foreground">{label}</span>
       <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-background/60">
-        <div className="h-full rounded-full bg-violet-400/70" style={{ width: `${pct}%` }} />
+        <div className="h-full rounded-full bg-primary/70/70" style={{ width: `${pct}%` }} />
       </div>
       <span className="w-7 text-end text-[9.5px] tabular-nums text-muted-foreground">{pct}</span>
     </div>
@@ -106,7 +106,7 @@ export function CandidateCard({ c }: { c: V2CardData }) {
           // eslint-disable-next-line @next/next/no-img-element
           <img src={c.image} alt={c.name} className="h-14 w-14 shrink-0 rounded-xl object-cover" />
         ) : (
-          <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-xl bg-violet-500/15 text-sm font-bold text-violet-700">{initials}</div>
+          <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-xl bg-primary/15 text-sm font-bold text-primary">{initials}</div>
         )}
         <div className="min-w-0 flex-1">
           <div className="flex items-center justify-between gap-2">
@@ -169,7 +169,7 @@ export function CandidateCard({ c }: { c: V2CardData }) {
           {c.links.slice(0, 6).map((l, i) => {
             const Icon = LINK_ICON[l.platform] ?? ExternalLink
             return (
-              <a key={i} href={l.url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 rounded-md border border-border/40 bg-background/40 px-1.5 py-0.5 text-[10px] text-foreground/80 hover:border-violet-500/40 hover:text-foreground">
+              <a key={i} href={l.url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 rounded-md border border-border/40 bg-background/40 px-1.5 py-0.5 text-[10px] text-foreground/80 hover:border-primary/40 hover:text-foreground">
                 <Icon className="h-2.5 w-2.5" /> {l.title ?? l.platform}
               </a>
             )
@@ -178,7 +178,7 @@ export function CandidateCard({ c }: { c: V2CardData }) {
       )}
 
       <div className="mt-3 flex flex-wrap gap-2">
-        <button type="button" title="يضيف الشخص إلى قائمة التواصل (CRM) للمتابعة — لا يربطه بهذه الحلقة" disabled={pending || done === "promoted"} onClick={() => start(async () => { const o = await runAction(() => promoteV2CandidateAction(c.id)); if (o.ok && o.data.success) setDone("promoted") })} className="inline-flex items-center gap-1 rounded-lg border border-violet-500/30 bg-violet-500/10 px-2.5 py-1 text-[11.5px] text-violet-700 hover:bg-violet-500/20 disabled:opacity-40">
+        <button type="button" title="يضيف الشخص إلى قائمة التواصل (CRM) للمتابعة — لا يربطه بهذه الحلقة" disabled={pending || done === "promoted"} onClick={() => start(async () => { const o = await runAction(() => promoteV2CandidateAction(c.id)); if (o.ok && o.data.success) setDone("promoted") })} className="inline-flex items-center gap-1 rounded-lg border border-primary/30 bg-primary/10 px-2.5 py-1 text-[11.5px] text-primary hover:bg-primary/20 disabled:opacity-40">
           <UserPlus className="h-3 w-3" /> {done === "promoted" ? "في قائمة التواصل" : "أضِف لقائمة التواصل"}
         </button>
         <button type="button" title="احفظ المرشّح لمراجعته لاحقاً" disabled={pending || done === "saved"} onClick={() => start(async () => { const o = await runAction(() => saveV2CandidateAction(c.id)); if (o.ok && o.data.success) setDone("saved") })} className="inline-flex items-center gap-1 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-2.5 py-1 text-[11.5px] text-emerald-700 hover:bg-emerald-500/20 disabled:opacity-40">

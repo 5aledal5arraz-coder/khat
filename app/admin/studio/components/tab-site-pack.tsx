@@ -90,7 +90,7 @@ export function TabSitePack() {
             {/* Title Selector */}
             <div className="space-y-3">
               <div className="flex items-center gap-2">
-                <Type className="h-4 w-4 text-violet-700" />
+                <Type className="h-4 w-4 text-primary" />
                 <span className="text-sm font-medium">عنوان الحلقة</span>
               </div>
 
@@ -127,14 +127,14 @@ export function TabSitePack() {
                         className={cn(
                           "w-full flex items-start gap-3 rounded-lg border p-3 text-right transition-colors",
                           selectedTitle === opt.value
-                            ? "border-violet-400 bg-violet-50 dark:border-violet-700 dark:bg-violet-950/30"
+                            ? "border-primary/50 bg-primary/5 dark:border-primary dark:bg-primary/30"
                             : "border-border hover:bg-muted/50"
                         )}
                       >
                         <div className={cn(
                           "mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 transition-colors",
                           selectedTitle === opt.value
-                            ? "border-violet-500 bg-violet-500"
+                            ? "border-primary bg-primary"
                             : "border-muted-foreground/30"
                         )}>
                           {selectedTitle === opt.value && <Check className="h-3 w-3 text-white" />}
@@ -152,14 +152,14 @@ export function TabSitePack() {
                       className={cn(
                         "w-full flex items-start gap-3 rounded-lg border p-3 text-right transition-colors",
                         isCustom && !showCustomInput
-                          ? "border-violet-400 bg-violet-50 dark:border-violet-700 dark:bg-violet-950/30"
+                          ? "border-primary/50 bg-primary/5 dark:border-primary dark:bg-primary/30"
                           : "border-dashed border-border hover:bg-muted/50"
                       )}
                     >
                       <div className={cn(
                         "mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 transition-colors",
                         isCustom
-                          ? "border-violet-500 bg-violet-500"
+                          ? "border-primary bg-primary"
                           : "border-muted-foreground/30"
                       )}>
                         {isCustom ? <Check className="h-3 w-3 text-white" /> : <Pencil className="h-3 w-3 text-muted-foreground" />}
@@ -180,7 +180,7 @@ export function TabSitePack() {
                           onChange={(e) => setCustomTitleInput(e.target.value)}
                           placeholder="اكتب عنوان مخصص..."
                           dir="rtl"
-                          className="flex-1 rounded-lg border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-violet-500/20"
+                          className="flex-1 rounded-lg border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary/20"
                           autoFocus
                           onKeyDown={(e) => {
                             if (e.key === "Enter" && customTitleInput.trim()) {
@@ -205,7 +205,7 @@ export function TabSitePack() {
                     )}
 
                     {selectedTitle && selectedTitle !== originalTitle && (
-                      <p className="text-xs text-violet-700 dark:text-violet-400">
+                      <p className="text-xs text-primary dark:text-primary-foreground">
                         سيتم استخدام هذا العنوان عند النشر إلى صفحة الحلقة
                       </p>
                     )}

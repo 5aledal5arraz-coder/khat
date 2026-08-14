@@ -193,7 +193,7 @@ function CandidateRow({ candidate }: { candidate: GuestCandidateView }) {
             </span>
           )}
           {aiScore !== null && aiScore !== undefined && (
-            <span className="inline-flex shrink-0 items-center gap-0.5 rounded-sm bg-violet-500/10 px-1.5 py-0.5 text-[9px] font-semibold text-violet-700 dark:text-violet-400">
+            <span className="inline-flex shrink-0 items-center gap-0.5 rounded-sm bg-primary/10 px-1.5 py-0.5 text-[9px] font-semibold text-primary dark:text-primary-foreground">
               <Sparkles className="h-2.5 w-2.5" />
               {aiScore.toFixed(1)}
             </span>

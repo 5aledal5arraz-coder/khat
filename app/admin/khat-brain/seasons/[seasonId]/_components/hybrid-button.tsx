@@ -112,10 +112,10 @@ export function HybridGenerateButton({
   }, [result])
 
   return (
-    <div className="rounded-2xl border border-violet-500/20 bg-gradient-to-br from-violet-500/5 to-primary/5 p-4">
+    <div className="rounded-2xl border border-primary/20 bg-gradient-to-br from-primary/5 to-primary/5 p-4">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <div className="mb-1 inline-flex items-center gap-1.5 text-[11px] font-medium text-violet-700">
+          <div className="mb-1 inline-flex items-center gap-1.5 text-[11px] font-medium text-primary">
             <Sparkles className="h-3 w-3" /> المولّد الهجين
           </div>
           <p className="text-[12px] leading-relaxed text-foreground/85">
@@ -173,7 +173,7 @@ export function HybridGenerateButton({
               )
             })
           }
-          className="inline-flex items-center gap-2 rounded-xl border border-violet-500/30 bg-violet-500/10 px-4 py-2 text-[12px] font-medium text-violet-700 hover:bg-violet-500/20 disabled:opacity-50"
+          className="inline-flex items-center gap-2 rounded-xl border border-primary/30 bg-primary/10 px-4 py-2 text-[12px] font-medium text-primary hover:bg-primary/20 disabled:opacity-50"
         >
           {isPending ? (
             <>
@@ -181,7 +181,7 @@ export function HybridGenerateButton({
               <span>جارٍ التوليد…</span>
               {/* The proof of life: a real, ticking wall-clock elapsed time. */}
               <span
-                className="tabular-nums text-violet-700/80"
+                className="tabular-nums text-primary/80"
                 dir="ltr"
                 data-hybrid-elapsed
               >
@@ -200,7 +200,7 @@ export function HybridGenerateButton({
           Action call gives the client nothing to report but elapsed time. */}
       {isPending && (
         <div
-          className="mt-3 rounded-xl border border-violet-500/25 bg-violet-500/5 p-3 text-[11.5px] leading-relaxed text-violet-700"
+          className="mt-3 rounded-xl border border-primary/25 bg-primary/5 p-3 text-[11.5px] leading-relaxed text-primary"
           data-hybrid-inflight
         >
           {elapsedSeconds < OVERRUN_AFTER_SECONDS ? (
@@ -336,7 +336,7 @@ export function HybridGenerateButton({
           <button
             type="button"
             onClick={() => router.refresh()}
-            className="inline-flex items-center gap-1.5 rounded-xl border border-violet-500/30 bg-violet-500/10 px-3 py-1.5 text-[11.5px] font-medium text-violet-700 hover:bg-violet-500/20"
+            className="inline-flex items-center gap-1.5 rounded-xl border border-primary/30 bg-primary/10 px-3 py-1.5 text-[11.5px] font-medium text-primary hover:bg-primary/20"
             data-hybrid-show-new
           >
             <RefreshCw className="h-3 w-3" />

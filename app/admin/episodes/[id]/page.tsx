@@ -113,17 +113,17 @@ export default async function EpisodeDetailPage({
           back into the workspace; the redirect above handles new arrivals. */}
       {eirId && (
         <div
-          className="border-b border-violet-500/20 bg-violet-500/5 px-4 py-2 text-[12px]"
+          className="border-b border-primary/20 bg-primary/5 px-4 py-2 text-[12px]"
           data-legacy-banner
         >
           <div className="mx-auto flex max-w-7xl items-center justify-between gap-3">
-            <span className="inline-flex items-center gap-1.5 text-violet-700">
+            <span className="inline-flex items-center gap-1.5 text-primary">
               <Brain className="h-3 w-3" />
               أنت داخل العرض القديم — مساحة عمل الحلقة الموحّدة في Khat Brain.
             </span>
             <Link
               href={`/admin/khat-brain/episodes/${eirId}?tab=publish`}
-              className="rounded-lg border border-violet-500/30 bg-violet-500/10 px-3 py-1 text-[11px] font-medium text-violet-700 hover:bg-violet-500/20"
+              className="rounded-lg border border-primary/30 bg-primary/10 px-3 py-1 text-[11px] font-medium text-primary hover:bg-primary/20"
             >
               العودة إلى مساحة العمل
             </Link>

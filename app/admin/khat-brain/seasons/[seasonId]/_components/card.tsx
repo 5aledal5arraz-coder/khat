@@ -279,7 +279,7 @@ export function WizardCard({
                 {intel.lens_labels.map((l, i) => (
                   <span
                     key={i}
-                    className="rounded-md border border-violet-500/25 bg-violet-500/5 px-1.5 py-0.5 text-[10px] text-violet-700"
+                    className="rounded-md border border-primary/25 bg-primary/5 px-1.5 py-0.5 text-[10px] text-primary"
                   >
                     {l}
                   </span>
@@ -579,7 +579,7 @@ function MiniNote({
 const CHIP_TONES: Record<string, string> = {
   rose: "border-rose-500/30 bg-rose-500/10 text-rose-700",
   indigo: "border-indigo-500/30 bg-indigo-500/10 text-indigo-700",
-  violet: "border-violet-500/30 bg-violet-500/10 text-violet-700",
+  violet: "border-primary/30 bg-primary/10 text-primary",
   slate: "border-border/50 bg-muted/30 text-muted-foreground",
 }
 

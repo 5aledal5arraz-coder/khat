@@ -62,7 +62,7 @@ export async function TranscriptTab({
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <h2 className="inline-flex items-center gap-1.5 text-[14px] font-semibold">
-            <Mic className="h-3.5 w-3.5 text-violet-700" />
+            <Mic className="h-3.5 w-3.5 text-primary" />
             النصّ
           </h2>
           <p className="mt-0.5 text-[11.5px] text-muted-foreground">

@@ -83,7 +83,7 @@ export function AssignGuestForm({
       <button
         type="submit"
         disabled={pending || !selected || selected === currentGuestId}
-        className="inline-flex items-center gap-1.5 rounded-xl border border-violet-500/40 bg-violet-500/10 px-3 py-1.5 text-[12px] text-violet-700 hover:bg-violet-500/20 disabled:opacity-50"
+        className="inline-flex items-center gap-1.5 rounded-xl border border-primary/40 bg-primary/10 px-3 py-1.5 text-[12px] text-primary hover:bg-primary/20 disabled:opacity-50"
       >
         {pending ? (
           <>

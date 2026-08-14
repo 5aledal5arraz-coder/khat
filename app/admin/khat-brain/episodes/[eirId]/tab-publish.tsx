@@ -204,8 +204,8 @@ export async function PublishTab({
   // No episode row yet, but a studio session exists — guide the operator.
   if (studio.session) {
     return (
-      <div className="rounded-2xl border border-violet-500/30 bg-violet-500/5 p-6 text-center">
-        <Send className="mx-auto h-6 w-6 text-violet-700" />
+      <div className="rounded-2xl border border-primary/30 bg-primary/5 p-6 text-center">
+        <Send className="mx-auto h-6 w-6 text-primary" />
         <h3 className="mt-2 text-[13px] font-semibold">جلسة استديو موجودة بدون حلقة</h3>
         <p className="mx-auto mt-1 max-w-md text-[12px] leading-relaxed text-foreground/85">
           الحزمة جاهزة في الاستديو، لكن لا يوجد سجلّ حلقة مربوط بهذا EIR.
@@ -213,7 +213,7 @@ export async function PublishTab({
         </p>
         <Link
           href={studioDeepLink(studio.session.video_id)}
-          className="mt-4 inline-flex items-center gap-1.5 rounded-xl border border-violet-500/40 bg-violet-500/10 px-3 py-1.5 text-[12px] text-violet-700 hover:bg-violet-500/20"
+          className="mt-4 inline-flex items-center gap-1.5 rounded-xl border border-primary/40 bg-primary/10 px-3 py-1.5 text-[12px] text-primary hover:bg-primary/20"
         >
           فتح الاستوديو <ExternalLink className="h-3 w-3" />
         </Link>

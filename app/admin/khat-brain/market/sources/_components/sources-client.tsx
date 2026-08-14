@@ -299,7 +299,7 @@ export function SourcesClient({
             setAddDraft(emptyDraft())
             setFormError(null)
           }}
-          className="inline-flex items-center gap-1 rounded-xl border border-violet-500/30 bg-violet-500/10 px-3 py-1 text-[11.5px] font-medium text-violet-700 hover:bg-violet-500/20"
+          className="inline-flex items-center gap-1 rounded-xl border border-primary/30 bg-primary/10 px-3 py-1 text-[11.5px] font-medium text-primary hover:bg-primary/20"
           data-add-source
         >
           <Plus className="h-3 w-3" />
@@ -310,10 +310,10 @@ export function SourcesClient({
       {/* ── Add form ────────────────────────────────────────────── */}
       {adding && (
         <div
-          className="rounded-2xl border border-violet-500/30 bg-violet-500/5 p-4"
+          className="rounded-2xl border border-primary/30 bg-primary/5 p-4"
           data-add-form
         >
-          <h3 className="mb-3 text-[13px] font-semibold text-violet-700">
+          <h3 className="mb-3 text-[13px] font-semibold text-primary">
             {PAGE_COPY.newSource}
           </h3>
           <SourceForm
@@ -606,7 +606,7 @@ function SourceCard({
                   setNotesOpen(false)
                 })
               }
-              className="rounded-md border border-violet-500/30 bg-violet-500/10 px-2 py-0.5 text-[11px] text-violet-700 hover:bg-violet-500/20 disabled:opacity-40"
+              className="rounded-md border border-primary/30 bg-primary/10 px-2 py-0.5 text-[11px] text-primary hover:bg-primary/20 disabled:opacity-40"
             >
               {PAGE_COPY.actions.saveNotes}
             </button>
@@ -690,7 +690,7 @@ function SourceCard({
 
       {/* ── Edit form ──────────────────────────────────────────── */}
       {isEditing && editDraft && (
-        <div className="mt-3 rounded-xl border border-violet-500/30 bg-violet-500/5 p-3" data-edit-form>
+        <div className="mt-3 rounded-xl border border-primary/30 bg-primary/5 p-3" data-edit-form>
           <SourceForm draft={editDraft} onChange={updateEditDraft} />
           {formError && (
             <p className="mt-2 text-[11.5px] text-rose-700">{formError}</p>
@@ -846,7 +846,7 @@ function SourceForm({
               type="checkbox"
               checked={draft.active}
               onChange={(e) => set("active", e.target.checked)}
-              className="h-3.5 w-3.5 accent-violet-500"
+              className="h-3.5 w-3.5 accent-primary"
               data-form-active
             />
             {PAGE_COPY.stats.statusActive}
@@ -935,7 +935,7 @@ function Slider({
         value={value}
         disabled={disabled}
         onChange={(e) => onChange(Number(e.target.value))}
-        className="flex-1 accent-violet-500"
+        className="flex-1 accent-primary"
         data-slider-input={testId}
       />
       <span className="w-10 shrink-0 text-end font-mono text-foreground/80" dir="ltr">

@@ -77,9 +77,9 @@ const SECTION_LABEL_AR: Record<SectionKind, string> = {
 const INSIGHT_META: Record<InsightType, { label: string; Icon: LucideIcon; chip: string }> = {
   fact: { label: "معلومة", Icon: Info, chip: "bg-sky-500/10 text-sky-700" },
   stat: { label: "إحصائية", Icon: BarChart3, chip: "bg-sky-500/10 text-sky-700" },
-  research: { label: "دراسة", Icon: FlaskConical, chip: "bg-violet-500/10 text-violet-700" },
+  research: { label: "دراسة", Icon: FlaskConical, chip: "bg-primary/10 text-primary" },
   date: { label: "تاريخ", Icon: Calendar, chip: "bg-indigo-500/10 text-indigo-700" },
-  reference: { label: "مرجع", Icon: BookOpen, chip: "bg-violet-500/10 text-violet-700" },
+  reference: { label: "مرجع", Icon: BookOpen, chip: "bg-primary/10 text-primary" },
   correction: { label: "تصحيح", Icon: AlertTriangle, chip: "bg-amber-500/15 text-amber-700" },
   levity: { label: "طرافة", Icon: Smile, chip: "bg-orange-500/10 text-orange-700" },
 }

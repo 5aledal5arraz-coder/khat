@@ -32,9 +32,9 @@ export function HomeAttention({ queue }: { queue: QueueItem[] }) {
       {/* ── ما الذي يحتاج انتباهك الآن؟ ── */}
       <section>
         <h2 className="mb-3 flex items-center gap-2 text-[15px] font-semibold text-foreground">
-          <ListChecks className="h-4 w-4 text-violet-700" />
+          <ListChecks className="h-4 w-4 text-primary" />
           ما الذي يحتاج انتباهك الآن؟
-          <span className="rounded-md bg-violet-500/10 px-1.5 py-0.5 text-[11px] font-semibold tabular-nums text-violet-700">
+          <span className="rounded-md bg-primary/10 px-1.5 py-0.5 text-[11px] font-semibold tabular-nums text-primary">
             {queue.length}
           </span>
         </h2>
@@ -84,7 +84,7 @@ export function HomeAttention({ queue }: { queue: QueueItem[] }) {
                           ? "rounded-full bg-rose-500/10 px-2 py-0.5 text-rose-700"
                           : g.tone === "warning"
                             ? "rounded-full bg-amber-500/10 px-2 py-0.5 text-amber-700"
-                            : "rounded-full bg-violet-500/10 px-2 py-0.5 text-violet-700"
+                            : "rounded-full bg-primary/10 px-2 py-0.5 text-primary"
                       }
                     >
                       {/* Was «{count} {label}» → «3 اختيار موضوع». The action
@@ -152,13 +152,13 @@ function NextActionRow({
       ? "border-rose-500/30 bg-rose-500/5"
       : ring === "warning"
         ? "border-amber-500/30 bg-amber-500/5"
-        : "border-violet-500/20 bg-card"
+        : "border-primary/20 bg-card"
   const toneCta =
     tone === "urgent"
       ? "border-rose-500/40 bg-rose-500/10 text-rose-700 hover:bg-rose-500/20"
       : tone === "warning"
         ? "border-amber-500/40 bg-amber-500/10 text-amber-700 hover:bg-amber-500/20"
-        : "border-violet-500/40 bg-violet-500/10 text-violet-700 hover:bg-violet-500/20"
+        : "border-primary/40 bg-primary/10 text-primary hover:bg-primary/20"
   return (
     <Link
       href={href}

@@ -309,7 +309,7 @@ function SelectAll({
         type="checkbox"
         checked={allSelected}
         onChange={(e) => onToggleMany(ids, e.target.checked)}
-        className="h-3.5 w-3.5 cursor-pointer accent-violet-500"
+        className="h-3.5 w-3.5 cursor-pointer accent-primary"
       />
       تحديد الكل
     </label>
@@ -332,8 +332,8 @@ function SeasonRow({
       className={
         "rounded-2xl border p-4 transition-colors " +
         (checked
-          ? "border-violet-500/60 bg-violet-500/5 "
-          : "border-border/40 bg-card/30 hover:border-violet-500/40 ") +
+          ? "border-primary/60 bg-primary/5 "
+          : "border-border/40 bg-card/30 hover:border-primary/40 ") +
         (muted ? "opacity-80" : "")
       }
     >
@@ -343,7 +343,7 @@ function SeasonRow({
           checked={checked}
           onChange={onToggle}
           aria-label={`تحديد الموسم: ${season.name}`}
-          className="mt-1 h-4 w-4 shrink-0 cursor-pointer accent-violet-500"
+          className="mt-1 h-4 w-4 shrink-0 cursor-pointer accent-primary"
         />
 
         {/* Clicking the body toggles selection; the workspace link is separate. */}
@@ -392,7 +392,7 @@ function SeasonRow({
 
         <Link
           href={`/admin/khat-brain/seasons/${season.id}`}
-          className="inline-flex shrink-0 items-center justify-center gap-1.5 rounded-xl border border-violet-500/40 bg-violet-500/10 px-4 py-2 text-[12px] font-medium text-violet-700 transition-colors hover:bg-violet-500/20"
+          className="inline-flex shrink-0 items-center justify-center gap-1.5 rounded-xl border border-primary/40 bg-primary/10 px-4 py-2 text-[12px] font-medium text-primary transition-colors hover:bg-primary/20"
         >
           فتح مساحة العمل ←
         </Link>

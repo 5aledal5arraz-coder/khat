@@ -171,7 +171,7 @@ export function PrepLinkPanel({ candidateId, initialLinks, onChange }: Props) {
     <div className="space-y-3">
       {/* Create form */}
       {showCreate ? (
-        <div className="rounded-lg border border-violet-500/30 bg-violet-500/5 p-3 space-y-3">
+        <div className="rounded-lg border border-primary/30 bg-primary/5 p-3 space-y-3">
           <div>
             <label className="mb-1 block text-[10px] font-semibold text-muted-foreground">القالب</label>
             <select

@@ -23,13 +23,13 @@ import { MessageSquare, Send, Check, CheckCheck, Loader2 } from "lucide-react"
 
 const NOTE_TYPES: { type: CardNoteType; label: string; tone: string }[] = [
   { type: "normal", label: "عادية", tone: "border-border/60 text-muted-foreground" },
-  { type: "tactical", label: "تكتيكية", tone: "border-violet-500/40 text-violet-700" },
+  { type: "tactical", label: "تكتيكية", tone: "border-primary/40 text-primary" },
   { type: "urgent", label: "عاجلة", tone: "border-rose-500/40 text-rose-700" },
 ]
 
 const NOTE_BADGE: Record<CardNoteType, { label: string; cls: string }> = {
   normal: { label: "عادية", cls: "bg-muted/40 text-muted-foreground" },
-  tactical: { label: "تكتيكية", cls: "bg-violet-500/10 text-violet-700" },
+  tactical: { label: "تكتيكية", cls: "bg-primary/10 text-primary" },
   urgent: { label: "عاجلة", cls: "bg-rose-500/10 text-rose-700" },
 }
 
@@ -132,7 +132,7 @@ export function RoomNotesPanel({
             className="flex w-full items-center justify-between px-3 py-2 text-[11px] font-semibold"
           >
             <span className="inline-flex items-center gap-1.5">
-              <MessageSquare className="h-3 w-3 text-violet-600" /> ملاحظات الفريق
+              <MessageSquare className="h-3 w-3 text-primary" /> ملاحظات الفريق
             </span>
             {unseenNotesCount > 0 && (
               <span className="rounded-full bg-amber-500/15 px-1.5 text-[10.5px] font-bold text-amber-700">

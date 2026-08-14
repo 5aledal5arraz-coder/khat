@@ -91,7 +91,7 @@ export default async function TeaserQuestionsPage({
           count, not the count of the current slice, so switching to «مقبولة»
           never hides how much work is still waiting. */}
       <div className="flex flex-wrap items-center gap-3 rounded-2xl border border-border/80 bg-card p-4">
-        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-violet-500/10 text-violet-700">
+        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
           <MessageCircleQuestion className="h-5 w-5" />
         </span>
         <div>
@@ -124,7 +124,7 @@ export default async function TeaserQuestionsPage({
                 // min-h-11 = the 44px touch target the whole admin uses.
                 "inline-flex min-h-11 items-center rounded-full border px-4 text-[12.5px] font-semibold transition-colors " +
                 (active
-                  ? "border-violet-500/40 bg-violet-500/10 text-violet-700"
+                  ? "border-primary/40 bg-primary/10 text-primary"
                   : "border-border bg-card text-muted-foreground hover:text-foreground")
               }
             >

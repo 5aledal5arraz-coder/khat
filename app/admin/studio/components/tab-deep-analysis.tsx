@@ -251,14 +251,14 @@ export function TabDeepAnalysis() {
 
       {/* Dialogue Map */}
       {d.dialogue_map && (
-        <SubSection icon={BookOpen} iconColor="text-violet-700" title="خريطة الحوار">
+        <SubSection icon={BookOpen} iconColor="text-primary" title="خريطة الحوار">
           <div className="space-y-2">
             {d.dialogue_map.speakers?.length > 0 && (
               <div>
                 <p className="text-xs font-medium text-muted-foreground mb-1">المتحدثون</p>
                 <div className="flex flex-wrap gap-1.5">
                   {d.dialogue_map.speakers.map((s, i) => (
-                    <span key={i} className="rounded-full bg-violet-100 px-2.5 py-0.5 text-xs font-medium text-violet-700 dark:bg-violet-950/40 dark:text-violet-400">
+                    <span key={i} className="rounded-full bg-primary/10 px-2.5 py-0.5 text-xs font-medium text-primary dark:bg-primary/40 dark:text-primary-foreground">
                       {s}
                     </span>
                   ))}

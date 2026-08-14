@@ -15,10 +15,25 @@ import {
 
 const execFileAsync = promisify(execFile)
 
-/** ffmpeg presence — the integration checks are skipped where it's absent. */
+/**
+ * ffmpeg presence — the integration checks are skipped where it's absent.
+ *
+ * THE TIMEOUT WAS 5s AND THAT MADE THE SUITE FLAKY. `ffmpeg -version` returns
+ * in milliseconds on an idle machine, but this file and `tests/studio/
+ * segments.test.ts` each probe INDEPENDENTLY, in separate workers. Run the
+ * suite beside a production build and the two can disagree: one probe times
+ * out and skips its seven checks, the other succeeds and then fails on the real
+ * ffmpeg call. Observed 2026-08-14 as exactly that — `3267 passed | 7 skipped`
+ * with one file red, and three clean runs before and after with nothing
+ * changed.
+ *
+ * A guard that answers differently under load does not guard; it teaches you to
+ * ignore red. 30s costs nothing when ffmpeg is present and still returns fast
+ * when it is genuinely missing.
+ */
 function hasFfmpeg(): boolean {
   try {
-    execFileSync("ffmpeg", ["-version"], { timeout: 5_000, stdio: "ignore" })
+    execFileSync("ffmpeg", ["-version"], { timeout: 30_000, stdio: "ignore" })
     return true
   } catch {
     return false

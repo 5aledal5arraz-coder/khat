@@ -580,7 +580,7 @@ function ChapterCard({
     chapter.status === "approved"
       ? "border-emerald-500/30 bg-emerald-500/5"
       : chapter.status === "reviewed"
-        ? "border-violet-500/30 bg-violet-500/5"
+        ? "border-primary/30 bg-primary/5"
         : "border-border/40 bg-card/30"
 
   return (
@@ -589,7 +589,7 @@ function ChapterCard({
       className={
         "rounded-2xl border p-3 transition-shadow " +
         statusCls +
-        (isFocused ? " shadow-md ring-1 ring-violet-400/30" : "") +
+        (isFocused ? " shadow-md ring-1 ring-primary/30" : "") +
         (blockers.length > 0 ? " border-rose-500/40" : "")
       }
     >
@@ -605,7 +605,7 @@ function ChapterCard({
             if (!Number.isFinite(v) || v < 0) return
             onChangeStart(v)
           }}
-          className="w-16 rounded-md border border-border/30 bg-background/40 px-1.5 py-0.5 text-[10.5px] tabular-nums outline-none focus:border-violet-500/40"
+          className="w-16 rounded-md border border-border/30 bg-background/40 px-1.5 py-0.5 text-[10.5px] tabular-nums outline-none focus:border-primary/40"
           dir="ltr"
           aria-label="بداية الفصل بالثواني"
         />
@@ -616,7 +616,7 @@ function ChapterCard({
             ` (${formatTime(chapter.end_seconds - chapter.start_seconds)})`}
         </span>
         {chapter.source === "ai_generated" && (
-          <span className="rounded-full border border-violet-500/30 bg-violet-500/10 px-1.5 py-0.5 text-[9.5px] text-violet-700">
+          <span className="rounded-full border border-primary/30 bg-primary/10 px-1.5 py-0.5 text-[9.5px] text-primary">
             AI
           </span>
         )}
@@ -629,7 +629,7 @@ function ChapterCard({
         {chapter.transcript_segment_id && (
           <a
             href={`/admin/khat-brain/episodes/${eirId}?tab=transcript&seg=${chapter.transcript_segment_id}`}
-            className="text-[10.5px] text-violet-700 hover:underline"
+            className="text-[10.5px] text-primary hover:underline"
           >
             انتقال إلى النصّ ↗
           </a>
@@ -690,7 +690,7 @@ function ChapterCard({
         value={chapter.title}
         onChange={(e) => onChangeTitle(e.target.value)}
         placeholder="عنوان الفصل"
-        className="mb-2 w-full rounded-xl border border-border/40 bg-background/40 px-3 py-2 text-[13px] font-medium outline-none focus:border-violet-500/40"
+        className="mb-2 w-full rounded-xl border border-border/40 bg-background/40 px-3 py-2 text-[13px] font-medium outline-none focus:border-primary/40"
         dir="auto"
       />
       <textarea
@@ -698,7 +698,7 @@ function ChapterCard({
         onChange={(e) => onChangeSummary(e.target.value)}
         rows={2}
         placeholder="ملخّص قصير للفصل"
-        className="w-full resize-y rounded-xl border border-border/40 bg-background/40 px-3 py-2 text-[12px] leading-relaxed outline-none focus:border-violet-500/40"
+        className="w-full resize-y rounded-xl border border-border/40 bg-background/40 px-3 py-2 text-[12px] leading-relaxed outline-none focus:border-primary/40"
         dir="auto"
       />
 
@@ -708,7 +708,7 @@ function ChapterCard({
           onChange={(e) => onChangeNotes(e.target.value)}
           rows={1}
           placeholder="ملاحظات داخلية (لا تُنشر)"
-          className="mt-2 w-full resize-y rounded-xl border border-dashed border-border/30 bg-background/20 px-3 py-1.5 text-[11.5px] text-muted-foreground outline-none focus:border-violet-500/40"
+          className="mt-2 w-full resize-y rounded-xl border border-dashed border-border/30 bg-background/20 px-3 py-1.5 text-[11.5px] text-muted-foreground outline-none focus:border-primary/40"
           dir="auto"
         />
       )}
@@ -767,7 +767,7 @@ function ConflictBanner({
           <button
             type="button"
             onClick={onReload}
-            className="rounded-xl border border-violet-500/40 bg-violet-500/10 px-2.5 py-1 text-[11.5px] text-violet-700 hover:bg-violet-500/20"
+            className="rounded-xl border border-primary/40 bg-primary/10 px-2.5 py-1 text-[11.5px] text-primary hover:bg-primary/20"
           >
             استرجاع نسخة الخادم
           </button>
@@ -838,7 +838,7 @@ function ChapterTimeline({ doc, focusedId, onFocus }: ChapterTimelineProps) {
             c.status === "approved"
               ? "bg-emerald-500/40 hover:bg-emerald-500/60"
               : c.status === "reviewed"
-                ? "bg-violet-500/40 hover:bg-violet-500/60"
+                ? "bg-primary/40 hover:bg-primary/60"
                 : "bg-amber-500/30 hover:bg-amber-500/50"
           return (
             <button
@@ -877,9 +877,9 @@ function SuggestionsPanel({
 }) {
   const byId = new Map(chapters.map((c) => [c.id, c]))
   return (
-    <div className="rounded-2xl border border-violet-500/30 bg-violet-500/5 p-3">
+    <div className="rounded-2xl border border-primary/30 bg-primary/5 p-3">
       <div className="mb-2 flex items-center justify-between gap-2">
-        <h3 className="inline-flex items-center gap-1.5 text-[12.5px] font-semibold text-violet-700">
+        <h3 className="inline-flex items-center gap-1.5 text-[12.5px] font-semibold text-primary">
           <Sparkles className="h-3.5 w-3.5" /> اقتراحات الذكاء الاصطناعي ·{" "}
           {suggestions.length}
         </h3>
@@ -898,7 +898,7 @@ function SuggestionsPanel({
             className="flex items-start gap-2 rounded-xl border border-border/40 bg-background/30 p-2"
           >
             <div className="min-w-0 flex-1">
-              <div className="text-[11px] font-semibold text-violet-700">
+              <div className="text-[11px] font-semibold text-primary">
                 {SUGGESTION_LABEL[s.kind]}
                 {s.chapter_id && byId.has(s.chapter_id) && (
                   <span className="ms-2 text-muted-foreground">
@@ -932,7 +932,7 @@ function SuggestionsPanel({
                 <button
                   type="button"
                   onClick={() => onApply(s)}
-                  className="inline-flex items-center gap-1 rounded-lg border border-violet-500/40 bg-violet-500/10 px-2 py-0.5 text-[11px] text-violet-700 hover:bg-violet-500/20"
+                  className="inline-flex items-center gap-1 rounded-lg border border-primary/40 bg-primary/10 px-2 py-0.5 text-[11px] text-primary hover:bg-primary/20"
                 >
                   <Check className="h-3 w-3" /> تطبيق
                 </button>
@@ -978,7 +978,7 @@ function EmptyState({
         <button
           type="button"
           onClick={onAdd}
-          className="inline-flex items-center gap-1.5 rounded-xl border border-violet-500/40 bg-violet-500/10 px-3 py-1.5 text-[12px] text-violet-700 hover:bg-violet-500/20"
+          className="inline-flex items-center gap-1.5 rounded-xl border border-primary/40 bg-primary/10 px-3 py-1.5 text-[12px] text-primary hover:bg-primary/20"
         >
           <ListPlus className="h-3.5 w-3.5" />
           إضافة فصل

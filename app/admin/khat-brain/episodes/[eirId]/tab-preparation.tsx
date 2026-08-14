@@ -96,7 +96,7 @@ export function PreparationTab({
           {seasonId && (
             <Link
               href={`/admin/khat-brain/seasons/${seasonId}`}
-              className="mt-4 inline-flex items-center gap-1.5 rounded-xl border border-violet-500/40 bg-violet-500/10 px-3 py-1.5 text-[12px] text-violet-700 hover:bg-violet-500/20"
+              className="mt-4 inline-flex items-center gap-1.5 rounded-xl border border-primary/40 bg-primary/10 px-3 py-1.5 text-[12px] text-primary hover:bg-primary/20"
             >
               فتح مساحة الموسم <ExternalLink className="h-3 w-3" />
             </Link>
@@ -126,7 +126,7 @@ export function PreparationTab({
                 ? `/admin/khat-brain/episodes/${eirId}?tab=recording`
                 : `/admin/khat-brain/episodes/${eirId}?tab=recording`
             }
-            className="inline-flex items-center gap-1.5 rounded-lg border border-violet-500/40 bg-violet-500/10 px-2.5 py-1 text-[11.5px] font-medium text-violet-700 hover:bg-violet-500/20"
+            className="inline-flex items-center gap-1.5 rounded-lg border border-primary/40 bg-primary/10 px-2.5 py-1 text-[11.5px] font-medium text-primary hover:bg-primary/20"
           >
             <Radio className="h-3 w-3" />
             {room ? "فتح غرفة التسجيل" : "إنشاء غرفة تسجيل"}
@@ -186,7 +186,7 @@ export function PreparationTab({
           >
             <div className="flex flex-col gap-0.5">
               <span className="text-muted-foreground">
-                <Sparkles className="me-1 inline h-3 w-3 text-violet-700" />
+                <Sparkles className="me-1 inline h-3 w-3 text-primary" />
                 يمكنك تعديل الحقول أدناه مباشرة، أو إعادة توليد الإعداد
                 بالكامل.
               </span>

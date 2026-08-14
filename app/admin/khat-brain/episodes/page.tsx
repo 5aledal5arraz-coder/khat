@@ -93,7 +93,7 @@ export default async function EpisodesIndexPage({
             <ArrowRight className="h-3 w-3" /> رجوع إلى الرئيسية
           </Link>
           <h1 className="flex items-center gap-2 text-xl font-bold tracking-tight">
-            <PlayCircle className="h-5 w-5 text-violet-700" /> خط الإنتاج
+            <PlayCircle className="h-5 w-5 text-primary" /> خط الإنتاج
           </h1>
           <p className="mt-1 text-[12px] text-muted-foreground">
             كل الحلقات النشطة مع الإجراء التالي المقترح لكل واحدة.
@@ -173,7 +173,7 @@ export default async function EpisodesIndexPage({
         </FilterField>
         <button
           type="submit"
-          className="ms-auto inline-flex items-center gap-1.5 rounded-xl border border-violet-500/40 bg-violet-500/10 px-3 py-1.5 text-[12px] font-medium text-violet-700 hover:bg-violet-500/20"
+          className="ms-auto inline-flex items-center gap-1.5 rounded-xl border border-primary/40 bg-primary/10 px-3 py-1.5 text-[12px] font-medium text-primary hover:bg-primary/20"
         >
           <Filter className="h-3 w-3" /> تطبيق
         </button>
@@ -184,7 +184,7 @@ export default async function EpisodesIndexPage({
       {stage ? (
         <div className="flex flex-wrap items-center gap-2 text-[12px]" data-active-stage={stage.key}>
           <span className="text-muted-foreground">المرحلة المعروضة:</span>
-          <span className="rounded-full border border-violet-500/40 bg-violet-500/10 px-2.5 py-1 font-medium text-violet-700">
+          <span className="rounded-full border border-primary/40 bg-primary/10 px-2.5 py-1 font-medium text-primary">
             {stage.label}
           </span>
           <Link
@@ -241,7 +241,7 @@ function EpisodeRow({
     row.guest_fallback_name,
   )
   return (
-    <li className="rounded-2xl border border-border/40 bg-card/30 p-4 transition-colors hover:border-violet-500/40">
+    <li className="rounded-2xl border border-border/40 bg-card/30 p-4 transition-colors hover:border-primary/40">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="min-w-0 flex-1">
           <div className="mb-1.5 flex flex-wrap items-center gap-2">
@@ -346,7 +346,7 @@ function toneClasses(tone: NextActionTone): string {
     case "warning":
       return "border-amber-500/40 bg-amber-500/10 text-amber-700 hover:bg-amber-500/20"
     default:
-      return "border-violet-500/40 bg-violet-500/10 text-violet-700 hover:bg-violet-500/20"
+      return "border-primary/40 bg-primary/10 text-primary hover:bg-primary/20"
   }
 }
 

@@ -311,14 +311,14 @@ export function TabGrowth() {
 
       {/* Thumbnail concepts */}
       {g.thumbnail_concepts.length > 0 && (
-        <SubSection icon={ImageIcon} iconColor="text-violet-700" title="مفاهيم الصورة المصغّرة" count={g.thumbnail_concepts.length} defaultOpen>
+        <SubSection icon={ImageIcon} iconColor="text-primary" title="مفاهيم الصورة المصغّرة" count={g.thumbnail_concepts.length} defaultOpen>
           <div className="space-y-3">
             {g.thumbnail_concepts.map((t, i) => (
               <div key={i} className="rounded-lg border p-3 space-y-1.5">
                 <div className="flex items-center justify-between">
-                  <p className="text-sm font-semibold text-violet-700 dark:text-violet-400">{t.concept}</p>
+                  <p className="text-sm font-semibold text-primary dark:text-primary-foreground">{t.concept}</p>
                   {t.focal_text && (
-                    <span className="rounded-sm bg-violet-100 px-2 py-0.5 text-xs font-bold text-violet-800 dark:bg-violet-950/40 dark:text-violet-300">{t.focal_text}</span>
+                    <span className="rounded-sm bg-primary/10 px-2 py-0.5 text-xs font-bold text-primary dark:bg-primary/40 dark:text-primary-foreground">{t.focal_text}</span>
                   )}
                 </div>
                 {t.mood && <p className="text-xs text-muted-foreground"><span className="font-medium">المزاج:</span> {t.mood}</p>}

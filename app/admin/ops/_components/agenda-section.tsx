@@ -27,7 +27,7 @@ export function AgendaSection({ agenda }: { agenda: Agenda | null }) {
   return (
     <section className="mb-8" data-agenda-section>
       <h2 className="mb-3 flex items-center gap-2 text-[15px] font-semibold text-foreground">
-        <CalendarClock className="h-4 w-4 text-violet-700" />
+        <CalendarClock className="h-4 w-4 text-primary" />
         الأيام الجاية
         {overdueCount > 0 ? (
           <span className="rounded-md bg-amber-500/10 px-1.5 py-0.5 text-[11px] font-semibold tabular-nums text-amber-700">

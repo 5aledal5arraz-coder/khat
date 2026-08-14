@@ -269,9 +269,9 @@ export function OutreachPanel({ candidateId, initialMessages, onChange }: Props)
 
       {/* Draft editor */}
       {hasDraft && (
-        <div className="rounded-lg border border-violet-500/30 bg-violet-500/5 p-3 space-y-3">
+        <div className="rounded-lg border border-primary/30 bg-primary/5 p-3 space-y-3">
           <div className="flex items-center justify-between">
-            <span className="text-[11px] font-semibold text-violet-700 dark:text-violet-300">
+            <span className="text-[11px] font-semibold text-primary dark:text-primary-foreground">
               مسودة جديدة (محفوظة تلقائياً) {draftEdited && "— تم التعديل"}
             </span>
           </div>

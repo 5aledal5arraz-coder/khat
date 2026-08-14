@@ -53,7 +53,7 @@ export function RecordingShareStrip({
   return (
     <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-border/40 bg-card/30 p-3 text-[11.5px]">
       <span className="inline-flex items-center gap-1.5 text-muted-foreground">
-        <Radio className="h-3 w-3 text-violet-700" />
+        <Radio className="h-3 w-3 text-primary" />
         غرفة:
         <span className="text-foreground" dir="ltr">
           {roomName}
@@ -92,7 +92,7 @@ export function RecordingShareStrip({
         href={path}
         target="_blank"
         rel="noreferrer"
-        className="inline-flex items-center gap-1.5 rounded-lg border border-violet-500/40 bg-violet-500/10 px-2.5 py-1 text-[11px] text-violet-700 hover:bg-violet-500/20"
+        className="inline-flex items-center gap-1.5 rounded-lg border border-primary/40 bg-primary/10 px-2.5 py-1 text-[11px] text-primary hover:bg-primary/20"
       >
         <Maximize2 className="h-3 w-3" />
         فتح بملء الشاشة

@@ -89,7 +89,7 @@ export function StudioTab({
         </p>
         <Link
           href={`/admin/khat-brain/episodes/${eirId}?tab=recording`}
-          className="mt-4 inline-flex items-center gap-1.5 rounded-xl border border-violet-500/40 bg-violet-500/10 px-3 py-1.5 text-[12px] text-violet-700 hover:bg-violet-500/20"
+          className="mt-4 inline-flex items-center gap-1.5 rounded-xl border border-primary/40 bg-primary/10 px-3 py-1.5 text-[12px] text-primary hover:bg-primary/20"
         >
           الانتقال إلى التسجيل <ExternalLink className="h-3 w-3" />
         </Link>
@@ -100,8 +100,8 @@ export function StudioTab({
   // No session row yet — surface a CTA.
   if (!studio.session) {
     return (
-      <div className="rounded-2xl border border-violet-500/30 bg-violet-500/5 p-6 text-center">
-        <Mic className="mx-auto h-6 w-6 text-violet-700" />
+      <div className="rounded-2xl border border-primary/30 bg-primary/5 p-6 text-center">
+        <Mic className="mx-auto h-6 w-6 text-primary" />
         <h3 className="mt-2 text-[13px] font-semibold">لا توجد جلسة استديو بعد</h3>
         <p className="mx-auto mt-1 max-w-md text-[12px] leading-relaxed text-foreground/85">
           أنشئ جلسة من صفحة الاستديو لربط النصّ والفصول والمقاطع بهذه
@@ -109,7 +109,7 @@ export function StudioTab({
         </p>
         <Link
           href="/admin/studio"
-          className="mt-4 inline-flex items-center gap-1.5 rounded-xl border border-violet-500/40 bg-violet-500/10 px-3 py-1.5 text-[12px] text-violet-700 hover:bg-violet-500/20"
+          className="mt-4 inline-flex items-center gap-1.5 rounded-xl border border-primary/40 bg-primary/10 px-3 py-1.5 text-[12px] text-primary hover:bg-primary/20"
         >
           فتح صفحة الاستديو <ExternalLink className="h-3 w-3" />
         </Link>
@@ -229,7 +229,7 @@ function OutputCard({
       )}
       <Link
         href={studioHref}
-        className="mt-2 inline-flex items-center gap-1 text-[10.5px] text-violet-700 hover:underline"
+        className="mt-2 inline-flex items-center gap-1 text-[10.5px] text-primary hover:underline"
       >
         فتح في الاستديو <ExternalLink className="h-2.5 w-2.5" />
       </Link>

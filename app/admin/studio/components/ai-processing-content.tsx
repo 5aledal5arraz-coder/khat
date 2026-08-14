@@ -149,7 +149,7 @@ export function AiProcessingContent() {
           <p className="text-sm text-muted-foreground">
             حوّل النص الخام إلى مقال مقروء، ملخص مُهيكل، واقتباسات مستخرجة
           </p>
-          <Button onClick={() => processTranscript()} className="gap-2 bg-violet-600 hover:bg-violet-700">
+          <Button onClick={() => processTranscript()} className="gap-2 bg-primary hover:bg-primary">
             <Wand2 className="h-4 w-4" />
             معالجة النص
           </Button>
@@ -158,7 +158,7 @@ export function AiProcessingContent() {
 
       {processingStatus === "generating" && (
         <div className="flex flex-col items-center gap-3 py-8">
-          <Loader2 className="h-5 w-5 animate-spin text-violet-700" />
+          <Loader2 className="h-5 w-5 animate-spin text-primary" />
           <span className="text-sm text-muted-foreground">جارٍ معالجة النص بالذكاء الاصطناعي...</span>
           <span className="text-xs text-muted-foreground">قد تستغرق هذه العملية دقيقة أو أكثر</span>
         </div>
@@ -193,7 +193,7 @@ export function AiProcessingContent() {
               className="flex w-full items-center justify-between p-4 text-right hover:bg-muted/40 transition-colors"
             >
               <div className="flex items-center gap-2">
-                <BookOpen className="h-4 w-4 text-violet-700" />
+                <BookOpen className="h-4 w-4 text-primary" />
                 <span className="text-[13px] font-semibold">المقال المقروء</span>
               </div>
               {showArticle ? <ChevronUp className="h-4 w-4 text-muted-foreground" /> : <ChevronDown className="h-4 w-4 text-muted-foreground" />}

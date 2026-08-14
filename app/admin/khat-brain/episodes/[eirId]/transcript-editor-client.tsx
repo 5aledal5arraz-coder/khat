@@ -755,7 +755,7 @@ function SegmentRow({
       case "highlight":
         return "border-amber-500/30 bg-amber-500/5"
       case "quote":
-        return "border-violet-500/30 bg-violet-500/5"
+        return "border-primary/30 bg-primary/5"
       case "cut":
         return "border-rose-500/25 bg-rose-500/5 opacity-70"
       case "redo":
@@ -773,7 +773,7 @@ function SegmentRow({
       className={
         "group/row mx-2 my-1 rounded-xl border px-2.5 py-2 transition-shadow " +
         markCls +
-        (isActiveMatch ? " ring-2 ring-violet-400/50" : "") +
+        (isActiveMatch ? " ring-2 ring-primary/50" : "") +
         (isFocused ? " shadow-md" : "")
       }
     >
@@ -787,7 +787,7 @@ function SegmentRow({
           value={seg.speaker ?? ""}
           onChange={(e) => onChangeSpeaker(e.target.value)}
           placeholder="المتحدّث"
-          className="rounded-full border border-border/30 bg-background/40 px-2 py-0.5 text-[10.5px] outline-none focus:border-violet-500/40"
+          className="rounded-full border border-border/30 bg-background/40 px-2 py-0.5 text-[10.5px] outline-none focus:border-primary/40"
           dir="auto"
           aria-label={`متحدّث المقطع ${segIdx + 1}`}
         />
@@ -805,7 +805,7 @@ function SegmentRow({
             type="button"
             onClick={onCreateChapter}
             title="إنشاء فصل من هذا المقطع"
-            className="rounded-sm p-0.5 text-muted-foreground hover:bg-violet-500/10 hover:text-violet-700"
+            className="rounded-sm p-0.5 text-muted-foreground hover:bg-primary/10 hover:text-primary"
             aria-label="إنشاء فصل من هذا المقطع"
           >
             <BookmarkPlus className="h-3 w-3" />
@@ -855,7 +855,7 @@ function SegmentRow({
 
       {/* Search match highlight (visual only — we keep textarea for editing) */}
       {searchQuery && seg.text.toLowerCase().includes(searchQuery) && (
-        <div className="mt-1 text-[10.5px] text-violet-700/70" dir="auto">
+        <div className="mt-1 text-[10.5px] text-primary/70" dir="auto">
           مطابقة في هذا المقطع
         </div>
       )}
@@ -882,7 +882,7 @@ function MarkBtn({
       className={
         "rounded-sm p-0.5 transition-colors " +
         (active
-          ? "bg-violet-500/20 text-violet-700"
+          ? "bg-primary/20 text-primary"
           : "text-muted-foreground hover:bg-background/40 hover:text-foreground")
       }
       aria-pressed={active}
@@ -916,7 +916,7 @@ function ConflictBanner({
           <button
             type="button"
             onClick={onReload}
-            className="rounded-xl border border-violet-500/40 bg-violet-500/10 px-2.5 py-1 text-[11.5px] text-violet-700 hover:bg-violet-500/20"
+            className="rounded-xl border border-primary/40 bg-primary/10 px-2.5 py-1 text-[11.5px] text-primary hover:bg-primary/20"
           >
             استرجاع نسخة الخادم
           </button>
@@ -954,7 +954,7 @@ function EmptyState({
       <button
         type="button"
         onClick={onAddSegment}
-        className="mt-4 inline-flex items-center gap-1.5 rounded-xl border border-violet-500/40 bg-violet-500/10 px-3 py-1.5 text-[12px] text-violet-700 hover:bg-violet-500/20"
+        className="mt-4 inline-flex items-center gap-1.5 rounded-xl border border-primary/40 bg-primary/10 px-3 py-1.5 text-[12px] text-primary hover:bg-primary/20"
       >
         <ListPlus className="h-3.5 w-3.5" />
         إضافة مقطع جديد

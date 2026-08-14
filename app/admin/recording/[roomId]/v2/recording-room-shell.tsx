@@ -259,7 +259,7 @@ function PresenceStrip({
           <Users className="h-3 w-3" />
           {joinFailed ? "تعذّر تسجيل حضورك" : `${online} متصل الآن`}
           {joinedAs && (
-            <span className="rounded-full bg-violet-500/10 px-1.5 py-0.5 text-violet-700">
+            <span className="rounded-full bg-primary/10 px-1.5 py-0.5 text-primary">
               أنت: {roomRoleLabel(joinedAs)}
             </span>
           )}

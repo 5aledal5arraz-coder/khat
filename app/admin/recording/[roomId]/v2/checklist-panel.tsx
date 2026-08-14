@@ -103,7 +103,7 @@ export function ChecklistPanel({
   return (
     <div className="mx-auto max-w-2xl space-y-3 p-4 pb-28" dir="rtl">
       <header>
-        <div className="mb-1 inline-flex items-center gap-1.5 text-[11px] font-medium text-violet-700">
+        <div className="mb-1 inline-flex items-center gap-1.5 text-[11px] font-medium text-primary">
           <ClipboardCheck className="h-3.5 w-3.5" /> جاهزية الاستوديو
         </div>
         <h2 className="text-[17px] font-semibold leading-tight text-foreground">
@@ -259,7 +259,7 @@ function GroupBlock({
           ? "border-emerald-500/30 bg-emerald-500/5"
           : upcoming
             ? "border-border/40 bg-background/30"
-            : "border-violet-500/30 bg-violet-500/5",
+            : "border-primary/30 bg-primary/5",
       )}
     >
       <button

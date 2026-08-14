@@ -259,7 +259,7 @@ export function OnAirView(props: {
             value={props.notes}
             onChange={(e) => props.onNotesChange(e.target.value)}
             placeholder="اكتب ملاحظاتك هنا. يحفظ تلقائياً."
-            className="min-h-[100px] w-full resize-y rounded-xl border border-border/40 bg-background/40 p-3 text-[13px] leading-relaxed text-foreground placeholder:text-muted-foreground focus:border-violet-500/40 focus:outline-none"
+            className="min-h-[100px] w-full resize-y rounded-xl border border-border/40 bg-background/40 p-3 text-[13px] leading-relaxed text-foreground placeholder:text-muted-foreground focus:border-primary/40 focus:outline-none"
           />
         </Drawer>
       </div>
@@ -292,21 +292,21 @@ function EnergyCueBanner({
   return (
     <div
       className={
-        "flex flex-wrap items-center justify-between gap-2 rounded-xl border border-violet-500/40 bg-violet-500/10 px-3 py-2 " +
+        "flex flex-wrap items-center justify-between gap-2 rounded-xl border border-primary/40 bg-primary/10 px-3 py-2 " +
         // One pulse per window at most — a second cue inside the same 90s
         // replaces this one in place, silently.
         (suggestion.pulse ? "animate-pulse" : "")
       }
       dir="rtl"
     >
-      <span className="inline-flex items-center gap-2 text-[12.5px] font-medium text-violet-700">
-        <Zap className="h-3.5 w-3.5 shrink-0 text-violet-600" />
+      <span className="inline-flex items-center gap-2 text-[12.5px] font-medium text-primary">
+        <Zap className="h-3.5 w-3.5 shrink-0 text-primary" />
         المخرج يقترح: {proposed} · ترتيبك الآن على {current}
       </span>
       <button
         type="button"
         onClick={onApprove}
-        className="inline-flex min-h-[36px] items-center gap-1.5 rounded-xl border border-violet-500/50 bg-violet-500/15 px-3.5 py-1.5 text-[12.5px] font-semibold text-violet-800 transition hover:bg-violet-500/25"
+        className="inline-flex min-h-[36px] items-center gap-1.5 rounded-xl border border-primary/50 bg-primary/15 px-3.5 py-1.5 text-[12.5px] font-semibold text-primary transition hover:bg-primary/25"
       >
         <Check className="h-3.5 w-3.5" /> اعتمد
       </button>
@@ -430,7 +430,7 @@ function SectionCleared({ atLast, onNext }: { atLast: boolean; onNext: () => voi
         <button
           type="button"
           onClick={onNext}
-          className="mt-3 inline-flex items-center gap-1.5 rounded-xl border border-violet-500/40 bg-violet-500/10 px-4 py-1.5 text-[12.5px] font-medium text-violet-700 transition hover:bg-violet-500/20"
+          className="mt-3 inline-flex items-center gap-1.5 rounded-xl border border-primary/40 bg-primary/10 px-4 py-1.5 text-[12.5px] font-medium text-primary transition hover:bg-primary/20"
         >
           القسم التالي <ChevronLeft className="h-4 w-4" />
         </button>
@@ -497,7 +497,7 @@ function SectionSwitcher({
               className={
                 "rounded-lg px-2 py-1.5 text-[11.5px] font-medium transition " +
                 (i === currentIndex
-                  ? "bg-violet-500/15 text-violet-700"
+                  ? "bg-primary/15 text-primary"
                   : "text-foreground/80 hover:bg-background/70")
               }
             >

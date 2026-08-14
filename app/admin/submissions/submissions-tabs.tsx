@@ -151,9 +151,9 @@ const SPONSOR_STATUS_CONFIG: Record<
   },
   renewal: {
     label: "تجديد",
-    color: "text-violet-700",
-    bg: "bg-violet-500/10",
-    ring: "ring-violet-500/20",
+    color: "text-primary",
+    bg: "bg-primary/10",
+    ring: "ring-primary/20",
   },
   declined: {
     label: "معتذر",
@@ -1772,7 +1772,7 @@ export function SubmissionsTabs({
               <div>
                 <div className="mb-4 flex items-center justify-between">
                   <div className="flex items-center gap-2.5">
-                    <div className="flex h-7 w-7 items-center justify-center rounded-full bg-violet-500/10 text-xs font-bold text-violet-700">
+                    <div className="flex h-7 w-7 items-center justify-center rounded-full bg-primary/10 text-xs font-bold text-primary">
                       <Brain className="h-3.5 w-3.5" />
                     </div>
                     <h4 className="text-sm font-semibold">تحليل الذكاء الاصطناعي</h4>
@@ -1780,7 +1780,7 @@ export function SubmissionsTabs({
                   <button
                     onClick={handleAnalyzeGuest}
                     disabled={analyzingGuest}
-                    className="flex items-center gap-1.5 rounded-lg bg-violet-500/10 px-3 py-1.5 text-[11px] font-medium text-violet-700 ring-1 ring-violet-500/20 transition-all hover:bg-violet-500/20 disabled:opacity-50"
+                    className="flex items-center gap-1.5 rounded-lg bg-primary/10 px-3 py-1.5 text-[11px] font-medium text-primary ring-1 ring-primary/20 transition-all hover:bg-primary/20 disabled:opacity-50"
                   >
                     {analyzingGuest ? (
                       <><Loader2 className="h-3 w-3 animate-spin" />{guestAiAnalysis ? "إعادة التحليل..." : "جارٍ التحليل..."}</>
@@ -1791,7 +1791,7 @@ export function SubmissionsTabs({
                 </div>
 
                 {guestAiAnalysis && guestAiAnalysis.status === "ready" && (
-                  <div className="space-y-4 rounded-2xl bg-violet-500/[0.03] p-5 ring-1 ring-violet-500/15">
+                  <div className="space-y-4 rounded-2xl bg-primary/[0.03] p-5 ring-1 ring-primary/15">
                     {/* Score + Recommendation + Risk */}
                     <div className="flex items-center gap-4">
                       <div className="text-center">
@@ -2538,7 +2538,7 @@ export function SubmissionsTabs({
               <div>
                 <div className="mb-4 flex items-center justify-between">
                   <div className="flex items-center gap-2.5">
-                    <div className="flex h-7 w-7 items-center justify-center rounded-full bg-violet-500/10 text-xs font-bold text-violet-700">
+                    <div className="flex h-7 w-7 items-center justify-center rounded-full bg-primary/10 text-xs font-bold text-primary">
                       <Brain className="h-3.5 w-3.5" />
                     </div>
                     <h4 className="text-sm font-semibold">تقييم الذكاء الاصطناعي</h4>
@@ -2546,7 +2546,7 @@ export function SubmissionsTabs({
                   <button
                     onClick={handleAnalyzeLead}
                     disabled={analyzingLead}
-                    className="flex items-center gap-1.5 rounded-lg bg-violet-500/10 px-3 py-1.5 text-[11px] font-medium text-violet-700 ring-1 ring-violet-500/20 transition-all hover:bg-violet-500/20 disabled:opacity-50"
+                    className="flex items-center gap-1.5 rounded-lg bg-primary/10 px-3 py-1.5 text-[11px] font-medium text-primary ring-1 ring-primary/20 transition-all hover:bg-primary/20 disabled:opacity-50"
                   >
                     {analyzingLead ? (
                       <><Loader2 className="h-3 w-3 animate-spin" />{aiAnalysis ? "إعادة التقييم..." : "جارٍ البحث والتقييم..."}</>
@@ -2557,7 +2557,7 @@ export function SubmissionsTabs({
                 </div>
 
                 {aiAnalysis && aiAnalysis.status === "ready" && (
-                  <div className="space-y-4 rounded-2xl bg-violet-500/[0.03] p-5 ring-1 ring-violet-500/15">
+                  <div className="space-y-4 rounded-2xl bg-primary/[0.03] p-5 ring-1 ring-primary/15">
                     {/* Recommended next action — the operator's headline guidance */}
                     {aiAnalysis.recommended_action && (
                       <div className={`flex items-start gap-3 rounded-xl px-4 py-3 ring-1 ${

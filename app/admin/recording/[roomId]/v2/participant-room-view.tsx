@@ -145,8 +145,8 @@ function DirectorMarkerBar({
   const buttons = DIRECTOR_MARKER_TYPES.filter((t) => !isIntervalCloser(t))
 
   return (
-    <div className="rounded-2xl border border-violet-500/25 bg-violet-500/5 p-3">
-      <div className="mb-2 inline-flex items-center gap-1.5 text-[11px] font-semibold text-violet-700">
+    <div className="rounded-2xl border border-primary/25 bg-primary/5 p-3">
+      <div className="mb-2 inline-flex items-center gap-1.5 text-[11px] font-semibold text-primary">
         <Flag className="h-3 w-3" /> وضع علامة مباشرة
       </div>
       <div className="flex flex-wrap gap-2">
@@ -262,9 +262,9 @@ export function TeamMarkerFeed({
             className="flex w-full items-center justify-between px-3 py-2 text-[11px] font-semibold"
           >
             <span className="inline-flex items-center gap-1.5">
-              <Flag className="h-3 w-3 text-violet-600" /> ملاحظات الفريق
+              <Flag className="h-3 w-3 text-primary" /> ملاحظات الفريق
             </span>
-            <span className="rounded-full bg-violet-500/10 px-1.5 text-[10.5px] text-violet-700">
+            <span className="rounded-full bg-primary/10 px-1.5 text-[10.5px] text-primary">
               {ops.length}
             </span>
           </button>
@@ -677,8 +677,8 @@ export function ParticipantRoomView({
 
       {/* Director-only guidance for this recording */}
       {isDirector && prep.director_guidance && (
-        <div className="rounded-2xl border border-violet-500/25 bg-violet-500/5 p-4">
-          <div className="mb-2 inline-flex items-center gap-1.5 text-[11px] font-semibold text-violet-700">
+        <div className="rounded-2xl border border-primary/25 bg-primary/5 p-4">
+          <div className="mb-2 inline-flex items-center gap-1.5 text-[11px] font-semibold text-primary">
             <Film className="h-3 w-3" /> توجيهات الإخراج
           </div>
           <GuidanceList
@@ -734,8 +734,8 @@ export function ParticipantRoomView({
 
       {/* Editor: post-production / clip focus */}
       {isEditor && (
-        <div className="rounded-2xl border border-fuchsia-500/25 bg-fuchsia-500/5 p-4">
-          <div className="mb-2 inline-flex items-center gap-1.5 text-[11px] font-semibold text-fuchsia-700">
+        <div className="rounded-2xl border border-accent/25 bg-accent/5 p-4">
+          <div className="mb-2 inline-flex items-center gap-1.5 text-[11px] font-semibold text-accent">
             <Clapperboard className="h-3 w-3" /> دليل المونتاج
           </div>
           {prep.director_guidance && (

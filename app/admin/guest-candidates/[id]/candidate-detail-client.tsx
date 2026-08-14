@@ -562,7 +562,7 @@ export function CandidateDetailClient({ candidate, statusHistory, outreachMessag
             {/* AI analysis */}
             <SubSection
               title="التحليل بالذكاء الاصطناعي"
-              icon={<Sparkles className="h-3.5 w-3.5 text-violet-700" />}
+              icon={<Sparkles className="h-3.5 w-3.5 text-primary" />}
               action={
                 <Button size="sm" variant="ghost" onClick={handleAnalyze} disabled={analyzeBusy} className="h-7 text-xs">
                   {analyzeBusy ? <Loader2 className="ms-1 h-3 w-3 animate-spin" /> : <Sparkles className="ms-1 h-3 w-3" />}
@@ -602,10 +602,10 @@ export function CandidateDetailClient({ candidate, statusHistory, outreachMessag
                       )}
                     </div>
                   )}
-                  <div className="rounded-lg bg-violet-500/5 p-3">
+                  <div className="rounded-lg bg-primary/5 p-3">
                     <p className="text-sm leading-relaxed text-foreground/85">{candidate.ai_summary}</p>
                     {candidate.ai_reason_to_invite && (
-                      <p className="mt-2 border-t border-violet-500/20 pt-2 text-xs italic text-violet-700">
+                      <p className="mt-2 border-t border-primary/20 pt-2 text-xs italic text-primary">
                         <strong>سبب الدعوة:</strong> {candidate.ai_reason_to_invite}
                       </p>
                     )}
@@ -712,8 +712,8 @@ export function CandidateDetailClient({ candidate, statusHistory, outreachMessag
                   </div>
                 </div>
               ) : (
-                <div className="rounded-lg border border-dashed border-violet-500/20 bg-violet-500/5 p-5 text-center">
-                  <Sparkles className="mx-auto mb-2 h-6 w-6 text-violet-700/70" />
+                <div className="rounded-lg border border-dashed border-primary/20 bg-primary/5 p-5 text-center">
+                  <Sparkles className="mx-auto mb-2 h-6 w-6 text-primary/70" />
                   <p className="mb-3 text-xs text-muted-foreground">لم يتم توليد تحليل بعد. اضغط «تحليل الآن» لتقييم المرشح بناءً على ملفه وروابطه.</p>
                   <Button size="sm" onClick={handleAnalyze} disabled={analyzeBusy}>
                     {analyzeBusy && <Loader2 className="ms-1 h-3.5 w-3.5 animate-spin" />}
@@ -791,7 +791,7 @@ export function CandidateDetailClient({ candidate, statusHistory, outreachMessag
               <SubSection title="اللقاءات التحضيرية" icon={<CalendarClock className="h-3.5 w-3.5 text-sky-700" />}>
                 <PrepMeetingsPanel candidateId={candidate.id} initialMeetings={prepMeetings} />
               </SubSection>
-              <SubSection title="نموذج التحضير" icon={<ClipboardList className="h-3.5 w-3.5 text-violet-700" />}>
+              <SubSection title="نموذج التحضير" icon={<ClipboardList className="h-3.5 w-3.5 text-primary" />}>
                 <PrepLinkPanel candidateId={candidate.id} initialLinks={prepLinks} onChange={() => router.refresh()} />
               </SubSection>
               {prepResponses.length > 0 && (
@@ -1218,7 +1218,7 @@ function ScorePill({
   inverted?: boolean
 }) {
   const accentClasses = {
-    violet: "bg-violet-500/10 text-violet-700 ring-violet-500/20",
+    violet: "bg-primary/10 text-primary ring-primary/20",
     emerald: "bg-emerald-500/10 text-emerald-700 ring-emerald-500/20",
     blue: "bg-blue-500/10 text-blue-700 ring-blue-500/20",
     amber: "bg-amber-500/10 text-amber-700 ring-amber-500/20",
@@ -1241,7 +1241,7 @@ function QuestionGroup({ label, questions }: { label: string; questions?: string
       <h5 className="mb-1 text-[10px] font-semibold text-muted-foreground/80">{label}</h5>
       <ul className="space-y-1 text-[11px] text-foreground/80">
         {questions.map((q, i) => (
-          <li key={i} className="border-s-2 border-violet-500/30 ps-2">{q}</li>
+          <li key={i} className="border-s-2 border-primary/30 ps-2">{q}</li>
         ))}
       </ul>
     </div>

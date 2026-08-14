@@ -105,7 +105,7 @@ export function TabGuestIntelligence() {
       {g.speaking_style && (
         <div className="rounded-lg border border-border/30 p-4">
           <div className="flex items-center gap-2 mb-2">
-            <Mic2 className="h-4 w-4 text-violet-700" />
+            <Mic2 className="h-4 w-4 text-primary" />
             <p className="text-xs font-medium">أسلوب الحديث</p>
           </div>
           <p className="text-sm text-muted-foreground leading-relaxed">{g.speaking_style}</p>

@@ -30,7 +30,7 @@ export default async function SeasonsListPage() {
   return (
     <div className="mx-auto max-w-6xl space-y-8 p-6">
       {/* ── Hero ───────────────────────────────────────────────── */}
-      <div className="relative overflow-hidden rounded-3xl border border-primary/15 bg-gradient-to-br from-primary/5 via-violet-500/5 to-transparent p-6">
+      <div className="relative overflow-hidden rounded-3xl border border-primary/15 bg-gradient-to-br from-primary/5 via-primary/5 to-transparent p-6">
         <div className="absolute -top-8 -end-8 h-40 w-40 rounded-full bg-primary/10 blur-3xl" />
         <div className="relative flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div>
@@ -46,7 +46,7 @@ export default async function SeasonsListPage() {
           <div className="flex flex-col gap-2 sm:flex-row">
             <Link
               href="/admin/khat-brain/seasons/new"
-              className="inline-flex items-center justify-center gap-2 rounded-xl border border-violet-500/40 bg-violet-500/10 px-4 py-2 text-[12.5px] font-medium text-violet-700 transition-colors hover:bg-violet-500/20"
+              className="inline-flex items-center justify-center gap-2 rounded-xl border border-primary/40 bg-primary/10 px-4 py-2 text-[12.5px] font-medium text-primary transition-colors hover:bg-primary/20"
             >
               <Plus className="h-3.5 w-3.5" /> موسم جديد
             </Link>

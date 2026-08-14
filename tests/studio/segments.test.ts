@@ -16,10 +16,15 @@ import { splitIntoChunks, probeAudioDurationPrecise } from "@/lib/whisper"
 
 const execFileAsync = promisify(execFile)
 
+/**
+ * See the long note in `tests/audio/silence.test.ts`: these two files probe for
+ * ffmpeg independently, and a 5s timeout let them disagree under load — one
+ * skipping while the other ran and failed. Both binaries now get 30s.
+ */
 function hasFfmpeg(): boolean {
   try {
-    execFileSync("ffmpeg", ["-version"], { timeout: 5_000, stdio: "ignore" })
-    execFileSync("ffprobe", ["-version"], { timeout: 5_000, stdio: "ignore" })
+    execFileSync("ffmpeg", ["-version"], { timeout: 30_000, stdio: "ignore" })
+    execFileSync("ffprobe", ["-version"], { timeout: 30_000, stdio: "ignore" })
     return true
   } catch {
     return false

@@ -984,7 +984,7 @@ function DirectorNotesPanel(props: { value: string; onChange: (s: string) => voi
         value={props.value}
         onChange={(e) => props.onChange(e.target.value)}
         placeholder="اكتب ملاحظاتك هنا. يحفظ تلقائياً."
-        className="min-h-[120px] w-full resize-y rounded-xl border border-border/40 bg-background/40 p-3 text-[13px] leading-relaxed text-foreground placeholder:text-muted-foreground focus:border-violet-500/40 focus:outline-none"
+        className="min-h-[120px] w-full resize-y rounded-xl border border-border/40 bg-background/40 p-3 text-[13px] leading-relaxed text-foreground placeholder:text-muted-foreground focus:border-primary/40 focus:outline-none"
       />
     </div>
   )

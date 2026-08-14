@@ -84,7 +84,7 @@ export function PreflightView({
     >
       {/* Header */}
       <div>
-        <div className="mb-1 inline-flex items-center gap-1.5 text-[11px] font-medium text-violet-700">
+        <div className="mb-1 inline-flex items-center gap-1.5 text-[11px] font-medium text-primary">
           <Radio className="h-3.5 w-3.5" /> قبل البدء
         </div>
         <h2 className="text-[17px] font-semibold leading-tight text-foreground">{title}</h2>

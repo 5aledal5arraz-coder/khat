@@ -326,7 +326,7 @@ export default async function SeasonWorkspacePage({
           >
             <summary className="flex cursor-pointer select-none items-center justify-between gap-2 rounded-2xl px-4 py-3 text-[13px] font-semibold text-foreground/85 hover:bg-muted/20">
               <span className="inline-flex items-center gap-2">
-                <Sparkles className="h-3.5 w-3.5 text-violet-700" />
+                <Sparkles className="h-3.5 w-3.5 text-primary" />
                 مراجعة المرشحين الجدد
               </span>
               <span className="text-[10.5px] font-normal text-muted-foreground group-open:hidden">
@@ -393,8 +393,8 @@ function HybridPanel({
   aiBlockReason: string | null
 }) {
   return (
-    <div className="rounded-3xl border border-violet-500/25 bg-gradient-to-br from-violet-500/5 to-primary/5 p-5">
-      <div className="mb-2 inline-flex items-center gap-2 rounded-full border border-violet-500/30 bg-violet-500/5 px-3 py-1 text-[11px] font-medium text-violet-700">
+    <div className="rounded-3xl border border-primary/25 bg-gradient-to-br from-primary/5 to-primary/5 p-5">
+      <div className="mb-2 inline-flex items-center gap-2 rounded-full border border-primary/30 bg-primary/5 px-3 py-1 text-[11px] font-medium text-primary">
         <Sparkles className="h-3 w-3" /> المسار الافتراضي
       </div>
       <h2 className="mb-2 text-base font-semibold">توليد المواضيع الهجينة</h2>
@@ -482,7 +482,7 @@ function AcceptedEpisodes({
                   </span>
                   <Link
                     href={action.href(phaseInfo.eir_id)}
-                    className="inline-flex shrink-0 items-center gap-1 rounded-lg border border-violet-500/30 bg-violet-500/10 px-2.5 py-1 text-[11px] font-medium text-violet-700 hover:bg-violet-500/20"
+                    className="inline-flex shrink-0 items-center gap-1 rounded-lg border border-primary/30 bg-primary/10 px-2.5 py-1 text-[11px] font-medium text-primary hover:bg-primary/20"
                   >
                     {action.label} ←
                   </Link>

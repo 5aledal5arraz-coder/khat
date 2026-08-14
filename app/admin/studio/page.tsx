@@ -75,18 +75,18 @@ export default async function StudioPage() {
           workspace tab. The full studio surface stays for transcript /
           chapter / clip editing. */}
       <div
-        className="rounded-2xl border border-violet-500/20 bg-violet-500/5 p-3 text-[12px]"
+        className="rounded-2xl border border-primary/20 bg-primary/5 p-3 text-[12px]"
         data-studio-discoverability-banner
       >
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <span className="inline-flex items-center gap-1.5 text-violet-700">
+          <span className="inline-flex items-center gap-1.5 text-primary">
             <Brain className="h-3 w-3" />
             كل جلسة مرتبطة بحلقة لها مساحة عمل موحّدة — التعديل السريع للحقول
             الأساسية متاح هناك.
           </span>
           <Link
             href="/admin/khat-brain/episodes"
-            className="rounded-lg border border-violet-500/30 bg-violet-500/10 px-3 py-1 text-[11px] font-medium text-violet-700 hover:bg-violet-500/20"
+            className="rounded-lg border border-primary/30 bg-primary/10 px-3 py-1 text-[11px] font-medium text-primary hover:bg-primary/20"
           >
             فتح قائمة الحلقات
           </Link>
