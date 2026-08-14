@@ -124,6 +124,33 @@ export type PreparationSectionKey =
   | "quotes_references"
   | "viral_moments"
 
+/**
+ * The NINE generated sections — `research` is deliberately not one of them.
+ *
+ * It matters that this is one list and not two. `sections_status` is keyed by
+ * `PreparationSectionKey`, which includes `research`, so it holds TEN entries;
+ * the studio badge reads "X/9". Counting every `ready` across the object and
+ * printing it over 9 is how a preparation with a failed section came to show
+ * «9/9 قسم جاهز» on 2026-08-13: research was ready, so the extra success
+ * cancelled the missing one exactly, and the host was told the prep was
+ * complete while «الأسئلة» was empty.
+ *
+ * Read it through `lib/preparation/sections.ts`, never by hand.
+ */
+export const EDITORIAL_SECTION_KEYS = [
+  "executive_summary",
+  "knowledge_bank",
+  "guest_intelligence",
+  "conversation_axes",
+  "episode_flow",
+  "question_system",
+  "host_instructions",
+  "quotes_references",
+  "viral_moments",
+] as const satisfies readonly PreparationSectionKey[]
+
+export type EditorialSectionKey = (typeof EDITORIAL_SECTION_KEYS)[number]
+
 export type PreparationSectionsStatus = Partial<
   Record<PreparationSectionKey, { status: PreparationSectionStatus; error?: string; updated_at?: string }>
 >

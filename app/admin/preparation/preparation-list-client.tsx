@@ -34,7 +34,7 @@ import { runAction } from "@/app/admin/components/run-action"
 const STATUS_LABELS: Record<PreparationStatus, { label: string; bg: string; text: string }> = {
   draft: { label: "مسودة", bg: "bg-neutral-500/10", text: "text-neutral-700" },
   researched: { label: "تم البحث", bg: "bg-sky-500/10", text: "text-sky-700" },
-  prepared: { label: "جاهز للمراجعة", bg: "bg-violet-500/10", text: "text-violet-700" },
+  prepared: { label: "جاهز للمراجعة", bg: "bg-primary/10", text: "text-primary" },
   reviewed: { label: "تمت المراجعة", bg: "bg-amber-500/10", text: "text-amber-700" },
   approved: { label: "معتمدة", bg: "bg-emerald-500/10", text: "text-emerald-700" },
 }
@@ -270,7 +270,7 @@ export function PreparationListClient({ initialItems }: Props) {
       {/* Header */}
       <div className="flex items-start justify-between gap-4">
         <div>
-          <div className="mb-2 inline-flex items-center gap-2 rounded-full border border-violet-500/20 bg-violet-500/5 px-3 py-1 text-[11px] font-medium text-violet-700">
+          <div className="mb-2 inline-flex items-center gap-2 rounded-full border border-primary/20 bg-primary/5 px-3 py-1 text-[11px] font-medium text-primary">
             <Sparkles className="h-3 w-3" />
             استوديو إعداد الحلقات
           </div>
@@ -329,7 +329,7 @@ export function PreparationListClient({ initialItems }: Props) {
               <Link
                 key={item.id}
                 href={`/admin/preparation/${item.id}`}
-                className="group rounded-2xl border border-border/40 bg-card/50 p-5 transition-all hover:border-violet-500/30 hover:bg-card"
+                className="group rounded-2xl border border-border/40 bg-card/50 p-5 transition-all hover:border-primary/30 hover:bg-card"
               >
                 <div className="mb-3 flex items-start justify-between gap-2">
                   <div className="min-w-0 flex-1">
@@ -370,7 +370,7 @@ export function PreparationListClient({ initialItems }: Props) {
                 </div>
 
                 <div className="mt-4 flex items-center justify-between">
-                  <div className="inline-flex items-center gap-1 text-[11px] text-violet-700 opacity-0 transition-opacity group-hover:opacity-100">
+                  <div className="inline-flex items-center gap-1 text-[11px] text-primary opacity-0 transition-opacity group-hover:opacity-100">
                     فتح الجلسة
                     <ArrowLeft className="h-3 w-3" />
                   </div>
@@ -507,7 +507,7 @@ export function PreparationListClient({ initialItems }: Props) {
                   <div
                     key={s}
                     className={`h-1 flex-1 rounded-full transition-colors ${
-                      active ? "bg-violet-500" : "bg-border/40"
+                      active ? "bg-primary" : "bg-border/40"
                     }`}
                   />
                 )
@@ -527,7 +527,7 @@ export function PreparationListClient({ initialItems }: Props) {
                       value={title}
                       onChange={(e) => setTitle(e.target.value)}
                       placeholder="مثال: محادثة حول الفقد والكتابة"
-                      className="h-11 w-full rounded-lg border border-input bg-background px-3 text-sm focus:border-violet-500 focus:outline-none focus:ring-2 focus:ring-violet-500/20"
+                      className="h-11 w-full rounded-lg border border-input bg-background px-3 text-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
                       autoFocus
                     />
                   </div>
@@ -541,7 +541,7 @@ export function PreparationListClient({ initialItems }: Props) {
                       value={guestName}
                       onChange={(e) => setGuestName(e.target.value)}
                       placeholder="مثال: أحمد الشقيري"
-                      className="h-11 w-full rounded-lg border border-input bg-background px-3 text-sm focus:border-violet-500 focus:outline-none focus:ring-2 focus:ring-violet-500/20"
+                      className="h-11 w-full rounded-lg border border-input bg-background px-3 text-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
                     />
                   </div>
 
@@ -554,7 +554,7 @@ export function PreparationListClient({ initialItems }: Props) {
                       onChange={(e) => setGuestDescription(e.target.value)}
                       placeholder="مثال: كاتب ومقدم برامج سعودي، عُرف ببرنامج خواطر"
                       rows={5}
-                      className="min-h-[7rem] w-full resize-y rounded-lg border border-input bg-background p-3 text-sm focus:border-violet-500 focus:outline-none focus:ring-2 focus:ring-violet-500/20"
+                      className="min-h-[7rem] w-full resize-y rounded-lg border border-input bg-background p-3 text-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
                     />
                     <p className="mt-1 text-[10px] text-muted-foreground">
                       سيتم استخدام هذا الوصف لتمييز الشخص الصحيح إذا كان هناك أكثر من شخص بنفس الاسم.
@@ -570,7 +570,7 @@ export function PreparationListClient({ initialItems }: Props) {
                       value={guestProfileLink}
                       onChange={(e) => setGuestProfileLink(e.target.value)}
                       placeholder="https://... (موقع، يوتيوب، أو حساب رسمي)"
-                      className="h-11 w-full rounded-lg border border-input bg-background px-3 text-sm focus:border-violet-500 focus:outline-none focus:ring-2 focus:ring-violet-500/20"
+                      className="h-11 w-full rounded-lg border border-input bg-background px-3 text-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
                       dir="ltr"
                     />
                   </div>
@@ -611,7 +611,7 @@ export function PreparationListClient({ initialItems }: Props) {
               {/* ─── Step 2: Candidates ──────────────────────────────── */}
               {step === "candidates" && (
                 <>
-                  <div className="rounded-lg border border-violet-500/20 bg-violet-500/5 p-3 text-xs text-violet-700">
+                  <div className="rounded-lg border border-primary/20 bg-primary/5 p-3 text-xs text-primary">
                     تم العثور على {candidates.length} مرشح{candidates.length === 1 ? "" : "ين"}.
                     اختر الشخص الصحيح من القائمة أدناه. إذا لم يكن أي منهم صحيحاً، ارجع لتعديل الوصف.
                   </div>
@@ -635,8 +635,8 @@ export function PreparationListClient({ initialItems }: Props) {
                           onClick={() => setSelectedCandidateId(c.id)}
                           className={`w-full rounded-xl border p-4 text-start transition-all ${
                             selected
-                              ? "border-violet-500 bg-violet-500/10"
-                              : "border-border/40 bg-card/30 hover:border-violet-500/30 hover:bg-card/60"
+                              ? "border-primary bg-primary/10"
+                              : "border-border/40 bg-card/30 hover:border-primary/30 hover:bg-card/60"
                           }`}
                         >
                           <div className="flex items-start gap-3">
@@ -656,7 +656,7 @@ export function PreparationListClient({ initialItems }: Props) {
                               <div className="flex items-center gap-2">
                                 <h3 className="truncate text-sm font-bold">{c.name}</h3>
                                 {selected && (
-                                  <Check className="h-4 w-4 shrink-0 text-violet-700" />
+                                  <Check className="h-4 w-4 shrink-0 text-primary" />
                                 )}
                               </div>
                               <p className="mt-1 line-clamp-2 text-[11px] text-muted-foreground">
@@ -673,7 +673,7 @@ export function PreparationListClient({ initialItems }: Props) {
                                   target="_blank"
                                   rel="noreferrer"
                                   onClick={(e) => e.stopPropagation()}
-                                  className="inline-flex items-center gap-0.5 text-violet-700 hover:underline"
+                                  className="inline-flex items-center gap-0.5 text-primary hover:underline"
                                 >
                                   <ExternalLink className="h-3 w-3" />
                                 </a>
@@ -726,8 +726,8 @@ export function PreparationListClient({ initialItems }: Props) {
                       picked.source_provider === "youtube" ? Youtube : Globe
                     return (
                       <>
-                        <div className="rounded-2xl border border-violet-500/30 bg-violet-500/5 p-5">
-                          <div className="mb-3 text-center text-sm font-semibold text-violet-700">
+                        <div className="rounded-2xl border border-primary/30 bg-primary/5 p-5">
+                          <div className="mb-3 text-center text-sm font-semibold text-primary">
                             هل هذا هو الشخص الصحيح؟
                           </div>
                           <div className="flex items-start gap-4">
@@ -752,7 +752,7 @@ export function PreparationListClient({ initialItems }: Props) {
                                 href={picked.source_url}
                                 target="_blank"
                                 rel="noreferrer"
-                                className="mt-3 inline-flex items-center gap-1.5 rounded-md border border-border/60 px-2 py-1 text-[11px] text-violet-700 hover:bg-muted/20"
+                                className="mt-3 inline-flex items-center gap-1.5 rounded-md border border-border/60 px-2 py-1 text-[11px] text-primary hover:bg-muted/20"
                                 dir="ltr"
                               >
                                 <ProviderIcon className="h-3 w-3" />

@@ -57,10 +57,10 @@ export function PrepV2View({ payload }: { payload: PrepV2Payload }) {
   const total = payload.total_estimated_minutes
 
   return (
-    <div className="mb-6 space-y-6 rounded-3xl border border-violet-500/20 bg-gradient-to-br from-violet-500/5 to-primary/5 p-6">
+    <div className="mb-6 space-y-6 rounded-3xl border border-primary/20 bg-gradient-to-br from-primary/5 to-primary/5 p-6">
       {/* ── Hero ────────────────────────────────────────────────────── */}
       <div>
-        <div className="mb-2 inline-flex items-center gap-1.5 text-[13px] font-medium text-violet-800">
+        <div className="mb-2 inline-flex items-center gap-1.5 text-[13px] font-medium text-primary">
           <Sparkles className="h-3.5 w-3.5" />
           إعداد V2 — ضمير التحرير
         </div>

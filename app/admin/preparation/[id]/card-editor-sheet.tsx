@@ -34,7 +34,7 @@ const BUCKET_META: Record<InterviewCardBucket, { label: string; color: string }>
   opening: { label: "افتتاح", color: "bg-sky-500/10 text-sky-700 border-sky-500/20" },
   deep: { label: "عميق", color: "bg-indigo-500/10 text-indigo-700 border-indigo-500/20" },
   escalation: { label: "تصعيد", color: "bg-rose-500/10 text-rose-700 border-rose-500/20" },
-  surprise: { label: "مفاجأة", color: "bg-fuchsia-500/10 text-fuchsia-700 border-fuchsia-500/20" },
+  surprise: { label: "مفاجأة", color: "bg-accent/10 text-accent border-accent/20" },
   backup: { label: "احتياطي", color: "bg-neutral-500/10 text-neutral-700 border-neutral-500/20" },
   recovery: { label: "إنقاذ", color: "bg-amber-500/10 text-amber-700 border-amber-500/20" },
 }
@@ -270,7 +270,7 @@ export function CardEditorSheet({
               type="button"
               onClick={enrichThisCard}
               disabled={enriching || saving}
-              className="inline-flex items-center gap-1 rounded-lg border border-border/60 px-2 py-1 text-[10px] hover:bg-violet-500/10 hover:text-violet-700 disabled:opacity-40"
+              className="inline-flex items-center gap-1 rounded-lg border border-border/60 px-2 py-1 text-[10px] hover:bg-primary/10 hover:text-primary disabled:opacity-40"
               title="إثراء هذه البطاقة"
             >
               {enriching ? <Loader2 className="h-3 w-3 animate-spin" /> : <Wand2 className="h-3 w-3" />}
@@ -531,7 +531,7 @@ export function CardEditorSheet({
                 icon={Film}
                 label="إمكانية كليب"
                 value={card.clip_potential}
-                color="text-fuchsia-700"
+                color="text-accent"
                 onToggle={(v) => saveField({ clip_potential: v })}
               />
               <FlagToggle
@@ -706,7 +706,7 @@ function EditableField({
             onChange={(e) => setDraft(e.target.value)}
             rows={3}
             autoFocus
-            className="w-full rounded-lg border border-violet-500/40 bg-background px-3 py-2 text-[12px] leading-relaxed focus:outline-none focus:ring-1 focus:ring-violet-500/50"
+            className="w-full rounded-lg border border-primary/40 bg-background px-3 py-2 text-[12px] leading-relaxed focus:outline-none focus:ring-1 focus:ring-primary/50"
           />
         ) : (
           <input
@@ -714,14 +714,14 @@ function EditableField({
             value={draft}
             onChange={(e) => setDraft(e.target.value)}
             autoFocus
-            className="w-full rounded-lg border border-violet-500/40 bg-background px-3 py-2 text-[12px] focus:outline-none focus:ring-1 focus:ring-violet-500/50"
+            className="w-full rounded-lg border border-primary/40 bg-background px-3 py-2 text-[12px] focus:outline-none focus:ring-1 focus:ring-primary/50"
           />
         )}
         <div className="mt-1 flex items-center gap-1">
           <button
             type="button"
             onClick={save}
-            className="inline-flex items-center gap-1 rounded-sm px-2 py-0.5 text-[10px] text-violet-700 hover:bg-violet-500/10"
+            className="inline-flex items-center gap-1 rounded-sm px-2 py-0.5 text-[10px] text-primary hover:bg-primary/10"
           >
             <Save className="h-2.5 w-2.5" /> حفظ
           </button>
@@ -818,7 +818,7 @@ function FollowUpsEditor({
                 onChange={(e) => setEditText(e.target.value)}
                 rows={2}
                 autoFocus
-                className="w-full rounded-sm border border-violet-500/40 bg-background px-2 py-1.5 text-[11px]"
+                className="w-full rounded-sm border border-primary/40 bg-background px-2 py-1.5 text-[11px]"
               />
               <input
                 type="text"
@@ -831,7 +831,7 @@ function FollowUpsEditor({
                 <button
                   type="button"
                   onClick={saveEdit}
-                  className="rounded-sm px-2 py-0.5 text-[10px] text-violet-700 hover:bg-violet-500/10"
+                  className="rounded-sm px-2 py-0.5 text-[10px] text-primary hover:bg-primary/10"
                 >
                   حفظ
                 </button>
@@ -871,7 +871,7 @@ function FollowUpsEditor({
       ))}
 
       {adding ? (
-        <div className="space-y-1.5 rounded-lg border border-violet-500/20 bg-violet-500/5 p-2.5">
+        <div className="space-y-1.5 rounded-lg border border-primary/20 bg-primary/5 p-2.5">
           <textarea
             value={newText}
             onChange={(e) => setNewText(e.target.value)}
@@ -892,7 +892,7 @@ function FollowUpsEditor({
               type="button"
               onClick={addFollowUp}
               disabled={!newText.trim()}
-              className="rounded-sm px-2 py-0.5 text-[10px] text-violet-700 hover:bg-violet-500/10 disabled:opacity-40"
+              className="rounded-sm px-2 py-0.5 text-[10px] text-primary hover:bg-primary/10 disabled:opacity-40"
             >
               إضافة
             </button>
@@ -909,7 +909,7 @@ function FollowUpsEditor({
         <button
           type="button"
           onClick={() => setAdding(true)}
-          className="inline-flex items-center gap-1 rounded-lg border border-dashed border-border/40 px-2.5 py-1.5 text-[10px] text-muted-foreground hover:border-violet-500/40 hover:text-violet-700"
+          className="inline-flex items-center gap-1 rounded-lg border border-dashed border-border/40 px-2.5 py-1.5 text-[10px] text-muted-foreground hover:border-primary/40 hover:text-primary"
         >
           <Plus className="h-3 w-3" /> إضافة متابعة
         </button>
@@ -968,7 +968,7 @@ function MaterialsEditor({
       {/* Manual materials */}
       {manualMaterials.length > 0 && (
         <div>
-          <div className="mb-1.5 text-[9px] font-semibold uppercase text-violet-700/60">
+          <div className="mb-1.5 text-[9px] font-semibold uppercase text-primary/60">
             يدوية
           </div>
           {manualMaterials.map((m) => (
@@ -995,7 +995,7 @@ function MaterialsEditor({
 
       {/* Add form */}
       {adding ? (
-        <div className="space-y-2 rounded-lg border border-violet-500/20 bg-violet-500/5 p-3">
+        <div className="space-y-2 rounded-lg border border-primary/20 bg-primary/5 p-3">
           <div className="text-[11px] font-semibold">إضافة مادة يدوية</div>
 
           {/* Type */}
@@ -1084,7 +1084,7 @@ function MaterialsEditor({
               type="button"
               onClick={handleAdd}
               disabled={!newTitle.trim() || !newContent.trim() || savingNew}
-              className="inline-flex items-center gap-1 rounded-sm px-2.5 py-1 text-[10px] font-medium text-violet-700 hover:bg-violet-500/10 disabled:opacity-40"
+              className="inline-flex items-center gap-1 rounded-sm px-2.5 py-1 text-[10px] font-medium text-primary hover:bg-primary/10 disabled:opacity-40"
             >
               {savingNew ? <Loader2 className="h-2.5 w-2.5 animate-spin" /> : <Plus className="h-2.5 w-2.5" />}
               إضافة
@@ -1102,7 +1102,7 @@ function MaterialsEditor({
         <button
           type="button"
           onClick={() => setAdding(true)}
-          className="inline-flex items-center gap-1 rounded-lg border border-dashed border-border/40 px-2.5 py-1.5 text-[10px] text-muted-foreground hover:border-violet-500/40 hover:text-violet-700"
+          className="inline-flex items-center gap-1 rounded-lg border border-dashed border-border/40 px-2.5 py-1.5 text-[10px] text-muted-foreground hover:border-primary/40 hover:text-primary"
         >
           <Plus className="h-3 w-3" /> إضافة مادة يدوية
         </button>
@@ -1154,7 +1154,7 @@ function MaterialItem({
 
   if (editing) {
     return (
-      <div className="mb-1.5 rounded-lg border border-violet-500/20 bg-violet-500/5 p-2.5">
+      <div className="mb-1.5 rounded-lg border border-primary/20 bg-primary/5 p-2.5">
         <div className="mb-1 flex flex-wrap items-center gap-1.5">
           <span className="rounded-sm bg-muted/40 px-1.5 py-0.5 text-[9px] text-muted-foreground">
             {typeLabel}
@@ -1178,7 +1178,7 @@ function MaterialItem({
             type="button"
             onClick={handleSaveEdit}
             disabled={!editTitle.trim() || !editContent.trim() || savingEdit}
-            className="inline-flex items-center gap-1 rounded-sm px-2 py-0.5 text-[10px] text-violet-700 hover:bg-violet-500/10 disabled:opacity-40"
+            className="inline-flex items-center gap-1 rounded-sm px-2 py-0.5 text-[10px] text-primary hover:bg-primary/10 disabled:opacity-40"
           >
             {savingEdit ? <Loader2 className="h-2.5 w-2.5 animate-spin" /> : <Save className="h-2.5 w-2.5" />}
             حفظ
@@ -1222,7 +1222,7 @@ function MaterialItem({
                   href={material.source_url}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="text-violet-700/60 underline"
+                  className="text-primary/60 underline"
                   onClick={(e) => e.stopPropagation()}
                 >
                   رابط
@@ -1288,7 +1288,7 @@ function FlagToggle({
       onClick={() => onToggle(!value)}
       className={`flex w-full items-center gap-2.5 rounded-lg border p-2.5 transition-colors ${
         value
-          ? "border-violet-500/30 bg-violet-500/5"
+          ? "border-primary/30 bg-primary/5"
           : "border-border/20 bg-transparent hover:border-border/40"
       }`}
     >
@@ -1299,7 +1299,7 @@ function FlagToggle({
       <div className="mr-auto" />
       <div
         className={`h-4 w-7 rounded-full transition-colors ${
-          value ? "bg-violet-500" : "bg-muted/40"
+          value ? "bg-primary" : "bg-muted/40"
         }`}
       >
         <div

@@ -171,6 +171,38 @@ ${describeResearch(prep)}`
 }
 
 /**
+ * Per-section budget overrides. Empty means "take the `editorial` defaults".
+ *
+ * WHY `question_system` HAS ITS OWN. Measured on a real production run
+ * (2026-08-13, prep b1c03ea8, from `ai_runs`): eight of the nine sections
+ * finished in **15–65s**. `question_system` blew past the 280s `editorial`
+ * timeout **twice** — 560,575ms of wall clock — and was written to the row as
+ * `error` with the section left empty. It is not a flaky outlier; it is the
+ * largest generation in the prep, and two attempts at 280s never gave it the
+ * one long run it needs.
+ *
+ * So: ONE attempt with more than double the time, instead of two short ones.
+ * 600s × 1 = 600s, which still clears the 660s `proxy_read_timeout` that
+ * `/admin` and `/api/admin` carry on the droplet — the same wall the 280×2
+ * pairing was sized against (see registry.ts and
+ * [[nginx-120s-timeout-hangs-buttons]]). Worst case grows 560s → 600s.
+ *
+ * The trade is deliberate: this section loses its retry. A transient 5xx now
+ * fails it outright rather than costing another 280s — and a failed section is
+ * both visible and one click from regenerating, which a silent 9-minute stall
+ * was not.
+ *
+ * `maxDuration` on the route files is NOT a second wall: it is a Vercel
+ * construct and inert on this self-hosted droplet. Proof from the same run —
+ * the request lived 560s through a route that declares `maxDuration = 300`.
+ */
+const SECTION_BUDGET: Partial<
+  Record<string, { timeoutMs: number; maxRetries: number }>
+> = {
+  question_system: { timeoutMs: 600_000, maxRetries: 0 },
+}
+
+/**
  * Phase 2.0 Batch 2 — Router-mediated JSON call shared by every prep
  * section generator. Concatenates PREP_SYSTEM_BASE with the section's
  * own system prompt to preserve byte-equivalent behavior with the
@@ -200,6 +232,9 @@ async function jsonCall<T>(args: {
     ],
     expectJson: true,
     providerOptions: { temperature: args.temperature ?? 0.6 },
+    // Router precedence is per-call → registry → global, so an absent entry
+    // here leaves the section on the `editorial` defaults untouched.
+    ...SECTION_BUDGET[args.label],
   })
   if (result.status !== "succeeded") {
     throw new Error(result.errorMessage || `${args.label} generation failed`)

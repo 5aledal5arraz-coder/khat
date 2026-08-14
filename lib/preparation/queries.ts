@@ -19,21 +19,13 @@ import type {
   PreparationLiveState,
   PreparationGuestIdentity,
 } from "@/types/preparation"
-import { PREPARATION_STATUS_RANK } from "@/types/preparation"
+import { EDITORIAL_SECTION_KEYS, PREPARATION_STATUS_RANK } from "@/types/preparation"
 import { hashLiveToken } from "./token"
 
 /** The 9 editorial sections (research excluded). */
-const EDITORIAL_SECTIONS: PreparationSectionKey[] = [
-  "executive_summary",
-  "knowledge_bank",
-  "guest_intelligence",
-  "conversation_axes",
-  "episode_flow",
-  "question_system",
-  "host_instructions",
-  "quotes_references",
-  "viral_moments",
-]
+// One list, shared with the client — see EDITORIAL_SECTION_KEYS in
+// types/preparation.ts for why a second copy is a defect and not a convenience.
+const EDITORIAL_SECTIONS: PreparationSectionKey[] = [...EDITORIAL_SECTION_KEYS]
 
 /**
  * Research readiness — a preparation's research corpus is only considered

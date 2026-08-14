@@ -47,6 +47,8 @@ import type {
   PreparationQuestionBucket,
   PreparationCandidate,
 } from "@/types/preparation"
+import type { EditorialSectionKey } from "@/types/preparation"
+import { countReadySections, failedSectionKeys } from "@/lib/preparation/sections"
 import { runAction } from "@/app/admin/components/run-action"
 
 // ─── Constants ──────────────────────────────────────────────────────────────
@@ -93,9 +95,9 @@ const STATUS_META: Record<
   },
   prepared: {
     label: "جاهز للمراجعة",
-    bg: "bg-violet-500/10",
-    text: "text-violet-700",
-    border: "border-violet-500/20",
+    bg: "bg-primary/10",
+    text: "text-primary",
+    border: "border-primary/20",
   },
   reviewed: {
     label: "تمت المراجعة",
@@ -132,7 +134,7 @@ const BUCKET_META: Record<PreparationQuestionBucket, { label: string; color: str
   opening: { label: "افتتاح", color: "bg-sky-500/10 text-sky-700 border-sky-500/20" },
   deep: { label: "عميق", color: "bg-indigo-500/10 text-indigo-700 border-indigo-500/20" },
   escalation: { label: "تصعيد", color: "bg-rose-500/10 text-rose-700 border-rose-500/20" },
-  surprise: { label: "مفاجأة", color: "bg-fuchsia-500/10 text-fuchsia-700 border-fuchsia-500/20" },
+  surprise: { label: "مفاجأة", color: "bg-accent/10 text-accent border-accent/20" },
   backup: { label: "احتياطي", color: "bg-neutral-500/10 text-neutral-700 border-neutral-500/20" },
   recovery: { label: "إنقاذ", color: "bg-amber-500/10 text-amber-700 border-amber-500/20" },
 }
@@ -148,6 +150,26 @@ const TABS: { key: TabKey; label: string; icon: React.ElementType }[] = [
   { key: "cards", label: "البطاقات", icon: Layers },
   { key: "live", label: "الوضع المباشر", icon: Radio },
 ]
+
+/**
+ * The nine section headings, in one place. They used to be nine string
+ * literals spread across the render, which is why nothing could name a
+ * failed section without a tenth copy.
+ *
+ * Typed as a total record over `EditorialSectionKey`, so adding a section to
+ * the identity list without giving it a heading fails the type-check.
+ */
+const SECTION_LABEL: Record<EditorialSectionKey, string> = {
+  executive_summary: "الملخّص التنفيذي",
+  knowledge_bank: "بنك المعرفة",
+  guest_intelligence: "تحليل الضيف",
+  conversation_axes: "محاور الحوار",
+  episode_flow: "مسار الحلقة",
+  question_system: "نظام الأسئلة",
+  host_instructions: "تعليمات المخرج",
+  quotes_references: "الاقتباسات والمراجع",
+  viral_moments: "لحظات محتملة الانتشار",
+}
 
 // ─── Main component ─────────────────────────────────────────────────────────
 
@@ -169,46 +191,76 @@ export function PreparationStudioClient({ initial }: Props) {
   const [showIdentifyDialog, setShowIdentifyDialog] = useState(false)
   const [showDeleteDialog, setShowDeleteDialog] = useState(false)
 
+  // THESE THREE HAD NO `catch` AND NO `finally`, AND THAT FROZE THE WHOLE
+  // SCREEN. Every button on this page is gated on `disabled={busy !== null}`,
+  // so `busy` is a single lock for the entire toolbar. A rejected `fetch` — a
+  // dropped connection, a proxy timeout, a restart mid-click — threw straight
+  // out of the async callback, `setBusy(null)` was never reached, and research,
+  // generate, regenerate, approve and rotate all went dead together until the
+  // page was reloaded. Nothing on screen said why.
+  //
+  // Their five siblings below (research, generate, regenerate, rotate, status)
+  // already had try/catch/finally. These three did not, and the difference was
+  // invisible in review because the happy path is identical.
   const handleArchiveToggle = useCallback(async () => {
     setBusy("lifecycle")
     setError(null)
     const action = prep.archived_at ? "restore" : "archive"
-    const res = await fetch(`/api/admin/preparation/${prep.id}/${action}`, {
-      method: "POST",
-      headers: { "x-requested-with": "khat" },
-    })
-    if (res.ok) {
-      const data = await res.json()
-      setPrep(data.preparation)
-    } else {
-      const data = await res.json().catch(() => ({}))
-      setError(data.error || `فشل ${action === "archive" ? "الأرشفة" : "الاسترجاع"}`)
+    try {
+      const res = await fetch(`/api/admin/preparation/${prep.id}/${action}`, {
+        method: "POST",
+        headers: { "x-requested-with": "khat" },
+      })
+      if (res.ok) {
+        const data = await res.json()
+        setPrep(data.preparation)
+      } else {
+        const data = await res.json().catch(() => ({}))
+        setError(data.error || `فشل ${action === "archive" ? "الأرشفة" : "الاسترجاع"}`)
+      }
+    } catch {
+      setError(`تعذّر الاتصال بالخادم — لم تتم ${action === "archive" ? "الأرشفة" : "الاسترجاع"}. حاول مرة أخرى.`)
+    } finally {
+      setBusy(null)
     }
-    setBusy(null)
   }, [prep.id, prep.archived_at])
 
   const handleDelete = useCallback(async () => {
     setBusy("lifecycle")
     setError(null)
-    const res = await fetch(`/api/admin/preparation/${prep.id}`, {
-      method: "DELETE",
-      headers: { "x-requested-with": "khat" },
-    })
-    if (res.ok) {
-      window.location.href = "/admin/preparation"
-    } else {
+    try {
+      const res = await fetch(`/api/admin/preparation/${prep.id}`, {
+        method: "DELETE",
+        headers: { "x-requested-with": "khat" },
+      })
+      if (res.ok) {
+        // Navigating away — deliberately leaves `busy` set so the toolbar stays
+        // locked for the moment the browser takes to leave the page.
+        window.location.href = "/admin/preparation"
+        return
+      }
       const data = await res.json().catch(() => ({}))
       setError(data.error || "فشل الحذف")
+    } catch {
+      setError("تعذّر الاتصال بالخادم — لم يُحذف الإعداد. حاول مرة أخرى.")
+    } finally {
       setShowDeleteDialog(false)
       setBusy(null)
     }
   }, [prep.id])
 
   const refresh = useCallback(async () => {
-    const res = await fetch(`/api/admin/preparation/${prep.id}`, { cache: "no-store" })
-    if (res.ok) {
-      const data = await res.json()
-      setPrep(data.preparation)
+    // Silent on failure by design — this is a background re-read, not a click.
+    // It must still not reject: an unhandled rejection here surfaces as a
+    // console error on a screen the host is using live.
+    try {
+      const res = await fetch(`/api/admin/preparation/${prep.id}`, { cache: "no-store" })
+      if (res.ok) {
+        const data = await res.json()
+        setPrep(data.preparation)
+      }
+    } catch {
+      /* keep the last good state */
     }
   }, [prep.id])
 
@@ -362,8 +414,24 @@ export function PreparationStudioClient({ initial }: Props) {
   )
 
   const statusMeta = STATUS_META[prep.status]
+  // THIS BADGE LIED, AND IT LIED BY EXACTLY ONE.
+  //
+  // It used to count every `ready` in `sections_status` and print it over 9.
+  // But `sections_status` is keyed by `PreparationSectionKey`, which includes
+  // `research` — so the object holds TEN entries against a denominator of nine.
+  // On 2026-08-13 a real prep had research ready, eight sections ready and
+  // `question_system` in `error`: nine readies over nine, «9/9 قسم جاهز», while
+  // «الأسئلة» was empty in the database. The surplus cancelled the failure.
+  //
+  // Counting only the nine also makes the number honest in the other direction:
+  // a fully generated prep used to read «10/9».
   const sectionsReady = useMemo(
-    () => Object.values(prep.sections_status).filter((s) => s?.status === "ready").length,
+    () => countReadySections(prep.sections_status),
+    [prep.sections_status],
+  )
+  /** Named so the host is told WHICH section is missing, not just that one is. */
+  const failedSections = useMemo(
+    () => failedSectionKeys(prep.sections_status),
     [prep.sections_status],
   )
   const researchUsable = useMemo(() => isResearchUsableClient(prep), [prep])
@@ -407,6 +475,14 @@ export function PreparationStudioClient({ initial }: Props) {
             <span className="text-[10px] text-muted-foreground">
               {sectionsReady}/9 قسم جاهز
             </span>
+            {/* The count alone still makes the host hunt for the gap: nine
+                section cards, one of them carrying a «خطأ» chip somewhere down
+                the page. Name it here, where the count is. */}
+            {failedSections.length > 0 && (
+              <span className="rounded-full bg-rose-500/10 px-2 py-0.5 text-[10px] text-rose-700">
+                فشل: {failedSections.map((k) => SECTION_LABEL[k]).join("، ")}
+              </span>
+            )}
             <span className="text-[10px] text-muted-foreground">
               آخر تحديث: {formatDateTime(prep.updated_at)}
             </span>
@@ -445,7 +521,7 @@ export function PreparationStudioClient({ initial }: Props) {
                 ? "يجب تشغيل بحث قابل للاستخدام (مصادر وادعاءات غير فارغة) قبل التوليد"
                 : undefined
             }
-            className="inline-flex items-center gap-2 rounded-lg bg-gradient-to-br from-violet-600 to-fuchsia-600 px-3 py-2 text-[13px] font-semibold text-white shadow-sm transition-opacity hover:opacity-90 disabled:opacity-40"
+            className="inline-flex items-center gap-2 rounded-lg bg-gradient-to-br from-primary to-accent px-3 py-2 text-[13px] font-semibold text-white shadow-sm transition-opacity hover:opacity-90 disabled:opacity-40"
           >
             {busy === "generate" ? (
               <Loader2 className="h-4 w-4 animate-spin" />
@@ -547,7 +623,20 @@ export function PreparationStudioClient({ initial }: Props) {
         </div>
       )}
 
-      {/* Tabs */}
+      {/* Tabs
+          `flex-1 min-w-0` + `truncate` used to be on every button, and on a
+          phone it erased all seven labels. Measured at 375px before the fix:
+          the strip is 359px, `flex-1` gives each button an equal 46.4px, and
+          after 24px of padding, a 14px icon and a 6px gap the label is left
+          with 10.9-13.7px while it needs 28-69px — so 7 of 7 clipped to a
+          single letter. `flex-wrap` could never rescue it, because `min-w-0`
+          lets a button shrink forever instead of overflowing.
+
+          So the equal-width behaviour is kept only where there is room for it.
+          The seven size to their content and wrap; from `sm` they take equal
+          widths again, which is what the wide screen has always shown. Safe by
+          measurement, not by eye: content-sized they need 538px on one row and
+          `sm` starts at 640px. */}
       <div className="flex flex-wrap gap-1 rounded-xl border border-border/40 bg-card/30 p-1">
         {TABS.map((tab) => {
           const Icon = tab.icon
@@ -557,14 +646,14 @@ export function PreparationStudioClient({ initial }: Props) {
               key={tab.key}
               type="button"
               onClick={() => setActiveTab(tab.key)}
-              className={`inline-flex flex-1 min-w-0 items-center justify-center gap-1.5 rounded-lg px-3 py-2 text-[12px] font-medium transition-colors ${
+              className={`inline-flex items-center justify-center gap-1.5 rounded-lg px-3 py-2 text-[12px] font-medium transition-colors sm:flex-1 ${
                 active
-                  ? "bg-violet-500/15 text-violet-700"
+                  ? "bg-primary/15 text-primary"
                   : "text-muted-foreground hover:bg-muted/30 hover:text-foreground"
               }`}
             >
-              <Icon className="h-3.5 w-3.5" />
-              <span className="truncate">{tab.label}</span>
+              <Icon className="h-3.5 w-3.5 shrink-0" />
+              <span>{tab.label}</span>
             </button>
           )
         })}
@@ -775,7 +864,7 @@ function ReIdentifyDialog({
                 type="text"
                 value={guestName}
                 onChange={(e) => setGuestName(e.target.value)}
-                className="h-10 w-full rounded-lg border border-input bg-background px-3 text-sm focus:border-violet-500 focus:outline-none"
+                className="h-10 w-full rounded-lg border border-input bg-background px-3 text-sm focus:border-primary focus:outline-none"
               />
             </div>
             <div>
@@ -784,7 +873,7 @@ function ReIdentifyDialog({
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
                 rows={5}
-                className="min-h-[7rem] w-full resize-y rounded-lg border border-input bg-background p-3 text-sm focus:border-violet-500 focus:outline-none focus:ring-2 focus:ring-violet-500/20"
+                className="min-h-[7rem] w-full resize-y rounded-lg border border-input bg-background p-3 text-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
               />
             </div>
             <div>
@@ -793,7 +882,7 @@ function ReIdentifyDialog({
                 type="url"
                 value={profileLink}
                 onChange={(e) => setProfileLink(e.target.value)}
-                className="h-10 w-full rounded-lg border border-input bg-background px-3 text-sm focus:border-violet-500 focus:outline-none"
+                className="h-10 w-full rounded-lg border border-input bg-background px-3 text-sm focus:border-primary focus:outline-none"
                 dir="ltr"
               />
             </div>
@@ -835,8 +924,8 @@ function ReIdentifyDialog({
                   onClick={() => setSelectedId(c.id)}
                   className={`w-full rounded-xl border p-3 text-start transition-colors ${
                     selected
-                      ? "border-violet-500 bg-violet-500/10"
-                      : "border-border/40 bg-card/30 hover:border-violet-500/30"
+                      ? "border-primary bg-primary/10"
+                      : "border-border/40 bg-card/30 hover:border-primary/30"
                   }`}
                 >
                   <h3 className="text-sm font-bold">{c.name}</h3>
@@ -848,7 +937,7 @@ function ReIdentifyDialog({
                     target="_blank"
                     rel="noreferrer"
                     onClick={(e) => e.stopPropagation()}
-                    className="mt-1.5 inline-block text-[10px] text-violet-700 hover:underline"
+                    className="mt-1.5 inline-block text-[10px] text-primary hover:underline"
                     dir="ltr"
                   >
                     {c.source_title}
@@ -1024,7 +1113,7 @@ function InputsPanel({
         <div className="space-y-2">
           {draft.key_questions.map((q, i) => (
             <div key={i} className="flex items-center gap-2">
-              <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-violet-500/15 text-[10px] font-semibold text-violet-700">
+              <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary/15 text-[10px] font-semibold text-primary">
                 {i + 1}
               </span>
               <div className="flex-1 rounded-lg border border-border/40 bg-background px-3 py-2 text-sm">
@@ -1131,8 +1220,8 @@ function InputsPanel({
                 onClick={() => toggleFocus(opt.value)}
                 className={`rounded-full border px-3 py-1.5 text-[12px] transition-colors ${
                   active
-                    ? "border-violet-500 bg-violet-500/15 text-violet-700"
-                    : "border-border/60 bg-background text-muted-foreground hover:border-violet-500/40"
+                    ? "border-primary bg-primary/15 text-primary"
+                    : "border-border/60 bg-background text-muted-foreground hover:border-primary/40"
                 }`}
               >
                 {opt.label}
@@ -1191,7 +1280,7 @@ function Slider({
         step={1}
         value={value}
         onChange={(e) => onChange(Number(e.target.value))}
-        className="w-full accent-violet-500"
+        className="w-full accent-primary"
       />
       <div className="mt-1 flex justify-between text-[10px] text-muted-foreground">
         {[1, 2, 3, 4, 5].map((n) => (
@@ -1221,7 +1310,7 @@ function OverviewPanel({
     <div className="space-y-5">
       {/* Executive summary */}
       <Section
-        title="الملخّص التنفيذي"
+        title={SECTION_LABEL.executive_summary}
         icon={Target}
         section="executive_summary"
         prep={prep}
@@ -1246,7 +1335,7 @@ function OverviewPanel({
 
       {/* Knowledge bank */}
       <Section
-        title="بنك المعرفة"
+        title={SECTION_LABEL.knowledge_bank}
         icon={FileText}
         section="knowledge_bank"
         prep={prep}
@@ -1267,7 +1356,7 @@ function OverviewPanel({
 
       {/* Guest intelligence */}
       <Section
-        title="تحليل الضيف"
+        title={SECTION_LABEL.guest_intelligence}
         icon={UsersIcon}
         section="guest_intelligence"
         prep={prep}
@@ -1297,7 +1386,7 @@ function OverviewPanel({
 
       {/* Conversation axes */}
       <Section
-        title="محاور الحوار"
+        title={SECTION_LABEL.conversation_axes}
         icon={Compass}
         section="conversation_axes"
         prep={prep}
@@ -1306,9 +1395,9 @@ function OverviewPanel({
       >
         {prep.conversation_axes ? (
           <div className="space-y-3">
-            {prep.conversation_axes.main_themes.map((m, i) => (
+            {(prep.conversation_axes.main_themes ?? []).map((m, i) => (
               <div key={i} className="rounded-xl border border-border/40 bg-background/40 p-4">
-                <h4 className="mb-1 text-sm font-semibold text-violet-700">{m.title}</h4>
+                <h4 className="mb-1 text-sm font-semibold text-primary">{m.title}</h4>
                 <p className="text-sm text-muted-foreground">{m.description}</p>
                 <div className="mt-3 space-y-1.5">
                   {prep.conversation_axes!.sub_themes
@@ -1318,7 +1407,7 @@ function OverviewPanel({
                         key={j}
                         className="flex items-start gap-2 text-xs text-muted-foreground"
                       >
-                        <span className="mt-1 h-1 w-1 shrink-0 rounded-full bg-violet-400" />
+                        <span className="mt-1 h-1 w-1 shrink-0 rounded-full bg-primary/70" />
                         <span>
                           <strong className="text-foreground">{s.title}</strong> — {s.description}
                         </span>
@@ -1335,7 +1424,7 @@ function OverviewPanel({
 
       {/* Host instructions */}
       <Section
-        title="تعليمات المخرج"
+        title={SECTION_LABEL.host_instructions}
         icon={ShieldCheck}
         section="host_instructions"
         prep={prep}
@@ -1361,7 +1450,7 @@ function OverviewPanel({
 
       {/* Quotes */}
       <Section
-        title="الاقتباسات والمراجع"
+        title={SECTION_LABEL.quotes_references}
         icon={Quote}
         section="quotes_references"
         prep={prep}
@@ -1370,10 +1459,10 @@ function OverviewPanel({
       >
         {prep.quotes_references ? (
           <div className="space-y-3">
-            {prep.quotes_references.quotes.map((q, i) => (
+            {(prep.quotes_references.quotes ?? []).map((q, i) => (
               <div key={i} className="rounded-xl border border-border/40 bg-background/40 p-4">
                 <p className="text-sm italic leading-relaxed">&ldquo;{q.quote}&rdquo;</p>
-                <p className="mt-2 text-xs text-violet-700">— {q.attribution}</p>
+                <p className="mt-2 text-xs text-primary">— {q.attribution}</p>
                 {q.context && (
                   <p className="mt-1 text-[11px] text-muted-foreground">{q.context}</p>
                 )}
@@ -1390,7 +1479,7 @@ function OverviewPanel({
 
       {/* Viral moments */}
       <Section
-        title="لحظات محتملة الانتشار"
+        title={SECTION_LABEL.viral_moments}
         icon={Flame}
         section="viral_moments"
         prep={prep}
@@ -1399,14 +1488,14 @@ function OverviewPanel({
       >
         {prep.viral_moments ? (
           <div className="space-y-3">
-            {prep.viral_moments.moments.map((m) => (
+            {(prep.viral_moments.moments ?? []).map((m) => (
               <div
                 key={m.id}
-                className="rounded-xl border border-border/40 bg-gradient-to-br from-fuchsia-500/5 to-transparent p-4"
+                className="rounded-xl border border-border/40 bg-gradient-to-br from-accent/5 to-transparent p-4"
               >
                 <div className="mb-1 flex items-center justify-between">
                   <h4 className="text-sm font-semibold">{m.label}</h4>
-                  <span className="rounded-full bg-fuchsia-500/10 px-2 py-0.5 text-[10px] text-fuchsia-700">
+                  <span className="rounded-full bg-accent/10 px-2 py-0.5 text-[10px] text-accent">
                     {m.expected_timing}
                   </span>
                 </div>
@@ -1416,7 +1505,7 @@ function OverviewPanel({
                 <p className="mt-1 text-xs text-muted-foreground">
                   <strong>الذروة:</strong> {m.payoff}
                 </p>
-                <p className="mt-2 text-[11px] text-fuchsia-700/70">
+                <p className="mt-2 text-[11px] text-accent/70">
                   لماذا ستنتشر: {m.why_it_spreads}
                 </p>
               </div>
@@ -1588,7 +1677,7 @@ function ResearchPanel({
                       </span>
                       {c.cross_source_verified && (
                         <span
-                          className="mt-0.5 shrink-0 rounded-md bg-violet-500/10 px-1.5 py-0.5 text-[9px] font-semibold text-violet-700"
+                          className="mt-0.5 shrink-0 rounded-md bg-primary/10 px-1.5 py-0.5 text-[9px] font-semibold text-primary"
                           title={`مصادر متقاطعة: ${c.provider_types.join(" + ")}`}
                         >
                           تحقّق متقاطع
@@ -1606,7 +1695,7 @@ function ResearchPanel({
                             href={s.url}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="me-1.5 inline-block text-violet-700 hover:underline"
+                            className="me-1.5 inline-block text-primary hover:underline"
                           >
                             [#{id} {s.publisher || s.provider}]
                           </a>
@@ -1627,7 +1716,7 @@ function ResearchPanel({
           <h3 className="mb-3 text-sm font-bold">اقتباسات موثّقة</h3>
           <div className="space-y-3">
             {r.quotes.map((q, i) => (
-              <div key={i} className="rounded-lg border-s-2 border-violet-500/50 bg-background/40 p-3">
+              <div key={i} className="rounded-lg border-s-2 border-primary/50 bg-background/40 p-3">
                 <p className="text-sm italic">“{q.text}”</p>
                 <p className="mt-1 text-[11px] text-muted-foreground">
                   — {q.attributed_to}
@@ -1642,7 +1731,7 @@ function ResearchPanel({
                         href={s.url}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="me-1.5 inline-block text-violet-700 hover:underline"
+                        className="me-1.5 inline-block text-primary hover:underline"
                       >
                         [#{id}]
                       </a>
@@ -1665,10 +1754,10 @@ function ResearchPanel({
               href={s.url}
               target="_blank"
               rel="noopener noreferrer"
-              className="block rounded-lg border border-border/40 bg-background/40 p-3 text-xs transition-colors hover:border-violet-500/40"
+              className="block rounded-lg border border-border/40 bg-background/40 p-3 text-xs transition-colors hover:border-primary/40"
             >
               <div className="flex items-center gap-2">
-                <span className="shrink-0 rounded-md bg-violet-500/10 px-1.5 py-0.5 text-[9px] font-semibold text-violet-700">
+                <span className="shrink-0 rounded-md bg-primary/10 px-1.5 py-0.5 text-[9px] font-semibold text-primary">
                   #{s.id}
                 </span>
                 <span className="shrink-0 rounded-md bg-neutral-500/10 px-1.5 py-0.5 text-[9px] text-neutral-700">
@@ -1709,7 +1798,7 @@ function ResearchPanel({
                     href={p.url}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="mt-1 inline-block text-[11px] text-violet-700 hover:underline"
+                    className="mt-1 inline-block text-[11px] text-primary hover:underline"
                   >
                     فتح المصدر
                   </a>
@@ -1736,7 +1825,7 @@ function FlowPanel({
 }) {
   return (
     <Section
-      title="مسار الحلقة"
+      title={SECTION_LABEL.episode_flow}
       icon={GitBranch}
       section="episode_flow"
       prep={prep}
@@ -1748,14 +1837,14 @@ function FlowPanel({
           <div>
             <h3 className="mb-2 text-xs font-semibold text-muted-foreground">الخط الزمني</h3>
             <div className="space-y-2">
-              {prep.episode_flow.timeline.map((b) => (
+              {(prep.episode_flow.timeline ?? []).map((b) => (
                 <div
                   key={b.id}
                   className="flex items-stretch gap-3 rounded-xl border border-border/40 bg-background/40 p-3"
                 >
-                  <div className="flex min-w-[70px] flex-col items-center justify-center rounded-lg bg-violet-500/10 px-3 py-2 text-[11px] font-mono text-violet-700">
+                  <div className="flex min-w-[70px] flex-col items-center justify-center rounded-lg bg-primary/10 px-3 py-2 text-[11px] font-mono text-primary">
                     {b.from_min}–{b.to_min}
-                    <span className="text-[9px] text-violet-700/60">دقيقة</span>
+                    <span className="text-[9px] text-primary/60">دقيقة</span>
                   </div>
                   <div className="min-w-0 flex-1">
                     <div className="text-[13px] font-semibold">{b.label}</div>
@@ -1769,10 +1858,10 @@ function FlowPanel({
           <div>
             <h3 className="mb-2 text-xs font-semibold text-muted-foreground">المراحل الدرامية</h3>
             <div className="grid gap-2 md:grid-cols-2">
-              {prep.episode_flow.phases.map((p) => (
+              {(prep.episode_flow.phases ?? []).map((p) => (
                 <div
                   key={p.key}
-                  className="rounded-xl border border-border/40 bg-gradient-to-br from-violet-500/5 to-transparent p-4"
+                  className="rounded-xl border border-border/40 bg-gradient-to-br from-primary/5 to-transparent p-4"
                 >
                   <div className="mb-1 flex items-center justify-between">
                     <h4 className="text-sm font-semibold">{p.label}</h4>
@@ -1785,7 +1874,7 @@ function FlowPanel({
                     <ul className="mt-2 space-y-1">
                       {p.goals.map((g, i) => (
                         <li key={i} className="flex items-start gap-1.5 text-[11px]">
-                          <span className="mt-1 h-1 w-1 shrink-0 rounded-full bg-violet-400" />
+                          <span className="mt-1 h-1 w-1 shrink-0 rounded-full bg-primary/70" />
                           <span>{g}</span>
                         </li>
                       ))}
@@ -1824,7 +1913,7 @@ function QuestionsPanel({
 
   return (
     <Section
-      title="نظام الأسئلة"
+      title={SECTION_LABEL.question_system}
       icon={MessageCircleQuestion}
       section="question_system"
       prep={prep}
@@ -1845,7 +1934,7 @@ function QuestionsPanel({
             ))}
           </div>
 
-          {prep.question_system.sections.map((sec) => {
+          {(prep.question_system.sections ?? []).map((sec) => {
             const open = expanded === sec.section_id
             const filteredQuestions =
               filter === "all" ? sec.questions : sec.questions.filter((q) => q.bucket === filter)
@@ -1906,7 +1995,7 @@ function QuestionsPanel({
                                   key={i}
                                   className="flex items-start gap-1.5 text-[11px] text-muted-foreground"
                                 >
-                                  <span className="mt-1.5 h-1 w-1 shrink-0 rounded-full bg-violet-400" />
+                                  <span className="mt-1.5 h-1 w-1 shrink-0 rounded-full bg-primary/70" />
                                   <span>{f}</span>
                                 </li>
                               ))}
@@ -1946,7 +2035,7 @@ function QuestionsPanel({
                                   <SupportBullets
                                     label="نقاط الحوار"
                                     items={q.support.talking_points}
-                                    dot="bg-violet-400"
+                                    dot="bg-primary/70"
                                   />
                                 )}
                               {q.support.follow_up_angles &&
@@ -1970,7 +2059,7 @@ function QuestionsPanel({
                                   <SupportBullets
                                     label="محفزات الذاكرة"
                                     items={q.support.memory_triggers}
-                                    dot="bg-fuchsia-400"
+                                    dot="bg-accent"
                                   />
                                 )}
                             </div>
@@ -2026,8 +2115,8 @@ function FilterChip({
       onClick={onClick}
       className={`rounded-full border px-3 py-1 text-[11px] transition-colors ${
         active
-          ? "border-violet-500 bg-violet-500/15 text-violet-700"
-          : "border-border/60 bg-background text-muted-foreground hover:border-violet-500/40"
+          ? "border-primary bg-primary/15 text-primary"
+          : "border-border/60 bg-background text-muted-foreground hover:border-primary/40"
       }`}
     >
       {children}
@@ -2234,7 +2323,7 @@ function Section({
     <div className="rounded-2xl border border-border/40 bg-card/40 p-5">
       <div className="mb-4 flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <Icon className="h-4 w-4 text-violet-700" />
+          <Icon className="h-4 w-4 text-primary" />
           <h2 className="text-sm font-bold">{title}</h2>
           {status === "error" && (
             <span className="rounded-full bg-rose-500/10 px-2 py-0.5 text-[10px] text-rose-700">
@@ -2282,7 +2371,7 @@ function BulletList({ label, items }: { label: string; items: string[] }) {
       <ul className="space-y-1">
         {items.map((it, i) => (
           <li key={i} className="flex items-start gap-1.5 text-[12px] text-muted-foreground">
-            <span className="mt-1.5 h-1 w-1 shrink-0 rounded-full bg-violet-400" />
+            <span className="mt-1.5 h-1 w-1 shrink-0 rounded-full bg-primary/70" />
             <span>{it}</span>
           </li>
         ))}
@@ -2291,6 +2380,23 @@ function BulletList({ label, items }: { label: string; items: string[] }) {
   )
 }
 
+/**
+ * A knowledge-bank column.
+ *
+ * THE GUARD BELOW IS LOAD-BEARING, and its absence used to take the whole
+ * screen down. Every section is rendered behind a check like
+ * `prep.knowledge_bank ? … : …`, which proves only that the OBJECT arrived —
+ * nothing about its arrays. These objects come from a model, so a truncated or
+ * partially-valid generation hands back `{}` where `{ key_facts: [...] }` was
+ * expected, one `undefined.map` throws inside render, and the error boundary
+ * replaces the ENTIRE studio with «حدث خطأ غير متوقع» — on the very screen
+ * whose job is to survive a section that failed.
+ *
+ * Its sibling `BulletList` had this guard from the start; this one never did.
+ * The six direct `.map()` calls over nested prep arrays now carry `?? []` for
+ * the same reason. Reproduced 2026-08-14 with
+ * `scripts/seed-local-prep-fixture.ts`.
+ */
 function KbColumn({
   label,
   items,
@@ -2298,15 +2404,19 @@ function KbColumn({
   label: string
   items: { label: string; detail: string; why_it_matters: string }[]
 }) {
+  // Same guard `BulletList` has carried all along. Without it a knowledge bank
+  // that exists but is missing one of its four arrays took the whole overview
+  // down — see the note on the `?? []` calls below.
+  if (!items || items.length === 0) return null
   return (
     <div className="rounded-xl border border-border/40 bg-background/40 p-3">
-      <h4 className="mb-2 text-xs font-bold text-violet-700">{label}</h4>
+      <h4 className="mb-2 text-xs font-bold text-primary">{label}</h4>
       <div className="space-y-2">
         {items.map((it, i) => (
           <div key={i} className="rounded-lg border border-border/30 p-2.5">
             <div className="text-[12px] font-semibold">{it.label}</div>
             <div className="mt-0.5 text-[11px] text-muted-foreground">{it.detail}</div>
-            <div className="mt-1 text-[10px] text-violet-700/70">{it.why_it_matters}</div>
+            <div className="mt-1 text-[10px] text-primary/70">{it.why_it_matters}</div>
           </div>
         ))}
       </div>
@@ -2347,7 +2457,7 @@ function ApprovalFooter({
   }
 
   return (
-    <div className="rounded-2xl border border-border/40 bg-gradient-to-br from-violet-500/5 to-transparent p-5">
+    <div className="rounded-2xl border border-border/40 bg-gradient-to-br from-primary/5 to-transparent p-5">
       <h3 className="mb-2 text-sm font-bold">حالة الجلسة</h3>
       <p className="mb-3 text-[11px] text-muted-foreground">
         التحويلات مسودة → تم البحث → جاهز للمراجعة تلقائية. أما المراجعة والاعتماد

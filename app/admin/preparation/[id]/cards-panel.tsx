@@ -36,7 +36,7 @@ const BUCKET_META: Record<InterviewCardBucket, { label: string; color: string }>
   opening: { label: "افتتاح", color: "bg-sky-500/10 text-sky-700 border-sky-500/20" },
   deep: { label: "عميق", color: "bg-indigo-500/10 text-indigo-700 border-indigo-500/20" },
   escalation: { label: "تصعيد", color: "bg-rose-500/10 text-rose-700 border-rose-500/20" },
-  surprise: { label: "مفاجأة", color: "bg-fuchsia-500/10 text-fuchsia-700 border-fuchsia-500/20" },
+  surprise: { label: "مفاجأة", color: "bg-accent/10 text-accent border-accent/20" },
   backup: { label: "احتياطي", color: "bg-neutral-500/10 text-neutral-700 border-neutral-500/20" },
   recovery: { label: "إنقاذ", color: "bg-amber-500/10 text-amber-700 border-amber-500/20" },
 }
@@ -263,10 +263,10 @@ export function CardsPanel({ prep }: CardsPanelProps) {
       <div className="rounded-2xl border border-border/40 bg-card/40 p-4">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-2">
-            <Layers className="h-4 w-4 text-violet-700" />
+            <Layers className="h-4 w-4 text-primary" />
             <h2 className="text-sm font-bold">بطاقات المقابلة</h2>
             {totalCards > 0 && (
-              <span className="rounded-full bg-violet-500/10 px-2 py-0.5 text-[10px] text-violet-700">
+              <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] text-primary">
                 {totalCards} بطاقة
               </span>
             )}
@@ -296,7 +296,7 @@ export function CardsPanel({ prep }: CardsPanelProps) {
                 type="button"
                 onClick={generateCards}
                 disabled={!hasQuestionSource || actionState.status === "loading"}
-                className="inline-flex items-center gap-1.5 rounded-lg bg-violet-600 px-3 py-1.5 text-[11px] font-semibold text-white hover:bg-violet-500 disabled:opacity-40"
+                className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-[11px] font-semibold text-white hover:bg-primary disabled:opacity-40"
               >
                 {actionState.action === "generate" && actionState.status === "loading" ? (
                   <Loader2 className="h-3 w-3 animate-spin" />
@@ -354,7 +354,7 @@ export function CardsPanel({ prep }: CardsPanelProps) {
                   type="button"
                   onClick={runFullPipeline}
                   disabled={!hasQuestionSource || actionState.status === "loading"}
-                  className="inline-flex items-center gap-1.5 rounded-lg bg-violet-600 px-3 py-1.5 text-[11px] font-semibold text-white hover:bg-violet-500 disabled:opacity-40"
+                  className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-[11px] font-semibold text-white hover:bg-primary disabled:opacity-40"
                 >
                   {actionState.action === "full" && actionState.status === "loading" ? (
                     <Loader2 className="h-3 w-3 animate-spin" />
@@ -540,7 +540,7 @@ function CardRow({
   const materialsCount = card.materials.length
 
   return (
-    <div className="group flex items-start gap-2 rounded-lg border border-border/30 bg-card/50 p-3 hover:border-violet-500/30">
+    <div className="group flex items-start gap-2 rounded-lg border border-border/30 bg-card/50 p-3 hover:border-primary/30">
       {/* Reorder controls */}
       <div className="flex shrink-0 flex-col items-center gap-0.5 pt-0.5">
         <button
@@ -585,7 +585,7 @@ function CardRow({
         {/* Bottom row: flags + counts */}
         <div className="mt-2 flex flex-wrap items-center gap-2">
           {card.clip_potential && (
-            <span className="inline-flex items-center gap-0.5 text-[9px] text-fuchsia-700">
+            <span className="inline-flex items-center gap-0.5 text-[9px] text-accent">
               <Film className="h-2.5 w-2.5" /> كليب
             </span>
           )}
@@ -635,8 +635,8 @@ function FilterChip({
       onClick={onClick}
       className={`rounded-full border px-3 py-1 text-[11px] transition-colors ${
         active
-          ? "border-violet-500 bg-violet-500/15 text-violet-700"
-          : "border-border/60 bg-background text-muted-foreground hover:border-violet-500/40"
+          ? "border-primary bg-primary/15 text-primary"
+          : "border-border/60 bg-background text-muted-foreground hover:border-primary/40"
       }`}
     >
       {children}
@@ -784,7 +784,7 @@ function CreateCardDialog({
             type="button"
             onClick={handleSubmit}
             disabled={!shortTitle.trim() || !spokenKuwaiti.trim() || saving}
-            className="inline-flex items-center gap-1.5 rounded-lg bg-violet-600 px-3 py-1.5 text-[11px] font-semibold text-white hover:bg-violet-500 disabled:opacity-40"
+            className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-[11px] font-semibold text-white hover:bg-primary disabled:opacity-40"
           >
             {saving && <Loader2 className="h-3 w-3 animate-spin" />}
             إضافة
