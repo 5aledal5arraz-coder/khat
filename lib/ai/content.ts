@@ -4,7 +4,7 @@ import { runAiTask } from "@/lib/ai-router"
 // typed out here by hand — including the two the CSS lookalike invented — which
 // meant the AI was instructed to paint every campaign in colours that are in no
 // KHAT palette. Importing them keeps the body and its wrapper in one system.
-import { EMAIL_PALETTE } from "@/lib/email/templates"
+import { EMAIL_FONT_STACK, EMAIL_PALETTE } from "@/lib/email/templates"
 
 // ---------------------------------------------------------------------------
 // Newsletter: AI-generated monthly newsletter content
@@ -52,10 +52,10 @@ export async function generateNewsletterContent(params: {
 - لا تستخدم <style> tags أو CSS خارجي
 - الاتجاه RTL: dir="rtl" على الجدول الرئيسي
 - أقصى عرض: 600px للجدول الرئيسي مع margin: 0 auto
-- الخطوط: font-family: 'Segoe UI', Tahoma, Arial, sans-serif
+- الخطوط: font-family: ${EMAIL_FONT_STACK}
 
 ## ألوان العلامة (ثيم فاتح — لا تستخدم خلفيات داكنة إطلاقاً):
-- خلفية البطاقات: ${EMAIL_PALETTE.soft} (أو أبيض #ffffff مع حد)
+- خلفية البطاقات: ${EMAIL_PALETTE.card} مع حد بلون ${EMAIL_PALETTE.border} — لا تستخدم الأبيض النقي إطلاقاً
 - نص رئيسي/عناوين: ${EMAIL_PALETTE.ink}
 - نص الفقرات: ${EMAIL_PALETTE.body}
 - نص ثانوي/باهت: ${EMAIL_PALETTE.muted}
@@ -78,7 +78,7 @@ export async function generateNewsletterContent(params: {
 ## تعليمات:
 - اجعل النشرة مختصرة وجذابة — لا تكتب فقرات طويلة
 - أضف personality عربية دافئة
-- أزرار CTA: خلفية إنديغو (${EMAIL_PALETTE.indigo}) مع نص أبيض (#ffffff)، padding مناسب (مثل 14px 36px)، border-radius: 10px، خط عريض
+- أزرار CTA: خلفية إنديغو (${EMAIL_PALETTE.indigo}) مع نص بلون ${EMAIL_PALETTE.onIndigo}، padding مناسب (مثل 14px 36px)، border-radius: 10px، خط عريض
 - الصور تظهر فقط إذا كان الرابط موجوداً (ليس null)
 - لا تضف صور من عندك — استخدم فقط الروابط المقدمة
 

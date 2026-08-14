@@ -73,9 +73,48 @@ export const EMAIL_PALETTE = {
   chipInk: KHAT_INDIGO,
   calloutBg: STANDALONE_BLUSH,
   calloutBorder: STANDALONE_MIST,
+  /* 2026-08-14 — the last two literals a mail client actually painted.
+     The 2026-08-05 pass moved every NAMED value onto the palette and said so
+     in the comment above, but two kinds of colour are invisible to a scan of
+     the constants: a hex written inline in a style attribute, and a colour
+     spelled `rgba()`. Both survived here, in EVERY template:
+
+       · `card` — the card sat on `#ffffff`. Pure white is not one of the
+         eleven; the site's own card is Soft Blush, and an email is the brand
+         arriving in an inbox, so it takes the same fill.
+       · `onIndigo` — every CTA button drew its label in `#ffffff` on Deep
+         Indigo. The identity's reversed ink is Warm Ivory: it is what the
+         reversed lockup, the dark icon set and `--primary-foreground` all
+         use. Contrast is unaffected (10.78:1, well past AA).
+
+     And `shadow` replaces `rgba(58,45,112,.35)` — which is `#3a2d70`, one of
+     the two invented colours the comment at the top of this file says were
+     deleted. It was deleted everywhere it was written as a hex, and lived on
+     for months inside a box-shadow. */
+  card: STANDALONE_BLUSH,
+  onIndigo: KHAT_IVORY,
+  shadow: "rgba(54,46,109,0.35)",
 } as const
 
 const BRAND = EMAIL_PALETTE
+
+/**
+ * The corner radius of a KHAT tile, in px, for the small chips in these
+ * messages.
+ *
+ * MEASURED, NOT CHOSEN: the icon tiles on p.13 of the identity file are squares
+ * whose corner arc spans 5.41 units on a 196.4-unit side — **2.76%**. The
+ * designer draws no circles anywhere in the file.
+ *
+ * These chips were `border-radius:50%` and `999px`: perfect circles, on the
+ * social row and on the numbered steps. That was our shape, not his. At 24-30px
+ * the identity's 2.76% is well under a pixel, so it is rounded up to 2px —
+ * enough to read as "softened square" rather than "hard square", and nowhere
+ * near a circle. Khalid spotted the circles in a screenshot on 2026-08-14;
+ * `scripts/audit-email-identity.ts` now fails on any 50%/999px radius so the
+ * next one is caught by a command instead of by him.
+ */
+const CHIP_RADIUS = "2px"
 
 /**
  * The type stack for every message.
@@ -132,7 +171,7 @@ export const EMAIL_FONT_FACES = `
  */
 function socialIconCell(url: string, label: string, icon: string): string {
   return `<td style="padding:0 5px;">
-  <a href="${url}" title="${label}" style="text-decoration:none;display:inline-block;width:30px;height:30px;border-radius:50%;border:1px solid ${BRAND.border};text-align:center;line-height:30px;">
+  <a href="${url}" title="${label}" style="text-decoration:none;display:inline-block;width:30px;height:30px;border-radius:${CHIP_RADIUS};border:1px solid ${BRAND.border};text-align:center;line-height:30px;">
     <img src="${APP_URL}/brand/social/${icon}.png" width="15" height="15" alt="${label}" style="display:inline-block;border:0;outline:none;vertical-align:middle;width:15px;height:15px;color:${BRAND.muted};font-size:9px;font-family:${EMAIL_FONT_STACK};" />
   </a>
 </td>`
@@ -247,7 +286,7 @@ function newsletterLayout(
   <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:${BRAND.pageBg};">
     <tr>
       <td align="center" style="padding:32px 16px;">
-        <table role="presentation" width="600" class="nl-card" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;background-color:#ffffff;border-radius:18px;overflow:hidden;border:1px solid ${BRAND.border};box-shadow:0 18px 48px -28px rgba(58,45,112,0.35);">
+        <table role="presentation" width="600" class="nl-card" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;background-color:${BRAND.card};border-radius:18px;overflow:hidden;border:1px solid ${BRAND.border};box-shadow:0 18px 48px -28px ${BRAND.shadow};">
           <!-- Header -->
           <tr>
             <td class="nl-px" style="padding:26px 34px 22px;">
@@ -305,7 +344,7 @@ function ctaButtonLight(text: string, url: string): string {
   return `<table role="presentation" cellpadding="0" cellspacing="0" style="margin:28px auto 6px;">
     <tr>
       <td align="center" bgcolor="${BRAND.indigo}" style="border-radius:10px;background-color:${BRAND.indigo};">
-        <a href="${url}" style="display:inline-block;padding:14px 38px;color:#ffffff;font-size:15px;font-weight:700;text-decoration:none;border-radius:10px;">${text} &#8592;</a>
+        <a href="${url}" style="display:inline-block;padding:14px 38px;color:${BRAND.onIndigo};font-size:15px;font-weight:700;text-decoration:none;border-radius:10px;">${text} &#8592;</a>
       </td>
     </tr>
   </table>`
@@ -340,7 +379,7 @@ function legacyEmailLayout(content: string, unsubscribeUrl?: string): string {
   <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:${BRAND.pageBg};">
     <tr>
       <td align="center" style="padding:32px 16px;">
-        <table role="presentation" width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;background-color:#ffffff;border-radius:16px;overflow:hidden;border:1px solid ${BRAND.border};">
+        <table role="presentation" width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;background-color:${BRAND.card};border-radius:16px;overflow:hidden;border:1px solid ${BRAND.border};">
           <tr>
             <td style="padding:24px 32px 20px;border-bottom:1px solid ${BRAND.border};">
               ${khatLockup()}
@@ -369,7 +408,7 @@ function ctaButton(text: string, url: string): string {
   return `<table role="presentation" cellpadding="0" cellspacing="0" style="margin:24px auto;">
     <tr>
       <td align="center" bgcolor="${BRAND.indigo}" style="border-radius:8px;">
-        <a href="${url}" style="display:inline-block;padding:12px 32px;color:#ffffff;font-size:14px;font-weight:600;text-decoration:none;border-radius:8px;">${text}</a>
+        <a href="${url}" style="display:inline-block;padding:12px 32px;color:${BRAND.onIndigo};font-size:14px;font-weight:600;text-decoration:none;border-radius:8px;">${text}</a>
       </td>
     </tr>
   </table>`
@@ -456,7 +495,7 @@ export function guestApplicationConfirmHtml(name: string, reference?: string): s
   const step = (n: string, title: string, body: string) => `
     <tr>
       <td valign="top" style="width:30px;padding:0 0 14px;">
-        <div style="width:24px;height:24px;border-radius:999px;background:${BRAND.chipBg};color:${BRAND.chipInk};font-weight:700;font-size:12px;text-align:center;line-height:24px;">${n}</div>
+        <div style="width:24px;height:24px;border-radius:${CHIP_RADIUS};background:${BRAND.chipBg};color:${BRAND.chipInk};font-weight:700;font-size:12px;text-align:center;line-height:24px;">${n}</div>
       </td>
       <td valign="top" style="padding:0 0 14px 10px;">
         <div style="font-weight:700;color:${BRAND.ink};font-size:14px;">${title}</div>
@@ -713,7 +752,7 @@ export function sponsorApplicationConfirmHtml(contactName: string, reference?: s
   const step = (n: string, title: string, body: string) => `
     <tr>
       <td valign="top" style="width:30px;padding:0 0 14px;">
-        <div style="width:24px;height:24px;border-radius:999px;background:${BRAND.chipBg};color:${BRAND.chipInk};font-weight:700;font-size:12px;text-align:center;line-height:24px;">${n}</div>
+        <div style="width:24px;height:24px;border-radius:${CHIP_RADIUS};background:${BRAND.chipBg};color:${BRAND.chipInk};font-weight:700;font-size:12px;text-align:center;line-height:24px;">${n}</div>
       </td>
       <td valign="top" style="padding:0 0 14px 10px;">
         <div style="font-weight:700;color:${BRAND.ink};font-size:14px;">${title}</div>
