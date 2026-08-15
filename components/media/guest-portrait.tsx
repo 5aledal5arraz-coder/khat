@@ -33,13 +33,23 @@ import { KhatMarkPanel } from "./khat-mark-panel"
  * (3x = 24px) and 96px takes `rounded-2xl` (2x = 16px), which is also what the
  * 80px `card` already used.
  */
+/**
+ * ONE VARIANT, AND IT IS NO LONGER A GUEST'S.
+ *
+ * There were three — `card` (the guests list), `page` (a guest's own header)
+ * and `episode` (the guest block). All three guest surfaces now draw
+ * `<GuestCard>`, the episode-cover composition, so the only caller left is the
+ * team on `/about`, which asks for `page`. `card` and `episode` are deleted
+ * rather than kept "in case": an unused variant is a second answer to a
+ * question that now has one.
+ *
+ * The component keeps its name and its rules — no initials, no derived colour,
+ * a rounded square and not a circle — because those are about faces, and
+ * `/about` still has faces.
+ */
 const VARIANTS = {
-  /** `/guests` list card. */
-  card: { box: "h-20 w-20 rounded-2xl", sizes: "80px", mark: "text-subhead" },
-  /** The guest's own page header. */
+  /** The team card on `/about`. */
   page: { box: "h-[200px] w-[200px] rounded-3xl", sizes: "200px", mark: "text-title" },
-  /** The guest block on an episode page — and the team card on `/about`. */
-  episode: { box: "h-24 w-24 rounded-2xl", sizes: "96px", mark: "text-heading" },
 } as const
 
 export type GuestPortraitVariant = keyof typeof VARIANTS

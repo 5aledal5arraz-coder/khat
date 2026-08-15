@@ -7,7 +7,7 @@ import { getTeaserForGuest } from "@/lib/teaser"
 import { TeaserInline } from "@/components/teaser/teaser-inline"
 import { EpisodePosterCard } from "@/components/episodes/episode-poster-card"
 import { QuoteCard } from "@/components/quotes/quote-card"
-import { GuestPortrait } from "@/components/media/guest-portrait"
+import { GuestCard } from "@/components/guests/guest-card"
 import { AtharCard } from "@/components/guests/athar-card"
 import { UpcomingEpisodeGuestCard } from "@/components/guests/upcoming-episode-card"
 import { listPublishedUpcomingForGuest } from "@/lib/queries/upcoming-episodes"
@@ -135,39 +135,33 @@ export default async function GuestPage({ params }: GuestPageProps) {
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
       />
       <div className="mx-auto max-w-4xl">
-        {/* Guest Header */}
-        <div className="flex flex-col items-center gap-6 text-center sm:flex-row sm:text-start">
-          {/* NO PLACEHOLDER HERE — the name is the hero when there is no photo.
-              What stood here was a 144px circle (about 265px on a phone, ~40%
-              of the viewport) printing two initials that were wrong for most
-              Arabic names — «الدكتور الحارث المزيدي» rendered «اا» live. An
-              empty box that size does not "hold the layout", it dominates the
-              page to say nothing. All three guests in the database have
-              `photo_url = NULL` today, so this is the branch that renders. */}
-          {guest.photo_url ? (
-            <GuestPortrait
-              name={guest.name}
-              photoUrl={guest.photo_url}
-              variant="page"
-            />
-          ) : null}
-          <div className="flex-1">
-            {/* `sm:text-title` matches the episode title (episode-hero.tsx).
-                Without it this h1 was a flat 32px while an episode title
-                reached 44px — so a guest's own page ranked their name BELOW
-                the title of an episode, on the one page most likely to be
-                sent to that guest. */}
-            <h1 className="text-heading font-bold sm:text-title">{guest.name}</h1>
+        {/* GUEST HEADER — the same card the episode page and the guests list
+            use, so a guest looks like the same person wherever they appear.
+            What stood here was a 200px rounded square beside a heading; before
+            that, a 144px circle printing two Arabic initials that were wrong
+            for most of our names («الدكتور الحارث المزيدي» rendered «اا» live).
+
+            Three things are different from every other placement, and each is a
+            prop rather than a second component:
+             · `as="h1"` — this is the page's own heading, not an item in a list
+             · `action={null}` — «شوف الملف الكامل» would link to this page from
+               this page
+             · no `href`, because `slug` is not passed through: a card that
+               links to where you already are is a dead control */}
+        <GuestCard
+          guest={{ name: guest.name, bio: displayBio, photo_url: guest.photo_url }}
+          eyebrow="ضيف خط"
+          as="h1"
+          action={null}
+        />
+
+        {(knowledge?.headline || signatureTopics.length > 0) && (
+          <div className="mt-6">
             {knowledge?.headline && (
-              <p className="mt-1.5 text-body font-medium text-primary">{knowledge.headline}</p>
-            )}
-            {displayBio && (
-              <p className="mt-3 max-w-measure text-muted-foreground">
-                {displayBio}
-              </p>
+              <p className="text-body font-medium text-primary">{knowledge.headline}</p>
             )}
             {signatureTopics.length > 0 && (
-              <div className="mt-4 flex flex-wrap justify-center gap-2 sm:justify-start">
+              <div className="mt-4 flex flex-wrap gap-2">
                 {signatureTopics.map((topic) => (
                   <span
                     key={topic}
@@ -179,7 +173,7 @@ export default async function GuestPage({ params }: GuestPageProps) {
               </div>
             )}
           </div>
-        </div>
+        )}
 
         {/* حلقة قادمة — ABOVE the archive, on purpose.
             The upcoming episode is the news; the published ones are the

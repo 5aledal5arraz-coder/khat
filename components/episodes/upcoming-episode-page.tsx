@@ -4,7 +4,7 @@ import { CalendarClock, Youtube } from "lucide-react"
 import { formatArabicDate } from "@/lib/shared/formatters"
 import type { UpcomingEpisodeWithGuest } from "@/lib/queries/upcoming-episodes"
 import type { Episode, Guest } from "@/types/database"
-import { GuestPortrait } from "@/components/media/guest-portrait"
+import { GuestCard } from "@/components/guests/guest-card"
 import { NewsletterSignup } from "@/components/forms/newsletter-signup"
 import { EpisodeRecommendations } from "./episode-recommendations"
 import { VoiceNote } from "./voice-note"
@@ -76,15 +76,10 @@ export function UpcomingEpisodePage({
           </p>
         </header>
 
-        {/* ── 3. The portrait ──────────────────────────────────────────────
-            Gated on a real photo, the same rule the guest page and the episode
-            page already follow: no photo means no box, never the empty panel
-            dressed up as a portrait. */}
-        {guest?.photo_url ? (
-          <div className="flex justify-center sm:justify-start">
-            <GuestPortrait name={guest.name} photoUrl={guest.photo_url} variant="page" />
-          </div>
-        ) : null}
+        {/* ── 3. NO SEPARATE PORTRAIT ANY MORE ────────────────────────────
+            A 200px rounded square stood here, and the guest block further down
+            showed the same face a second time. The guest card in §7 carries the
+            portrait now, so this page shows a person once. */}
 
         {/* ── 4. What the episode is about ───────────────────────────────── */}
         {upcoming.summary ? (
@@ -137,33 +132,14 @@ export function UpcomingEpisodePage({
             shape, different speech act; the signature is what tells them
             apart, so it is not shared with the other card. */}
         {guest ? (
-          <section className="space-y-4 rounded-3xl border border-border bg-card p-6">
-            <div className="flex flex-col gap-4 sm:flex-row sm:items-start">
-              {guest.photo_url ? (
-                <GuestPortrait name={guest.name} photoUrl={guest.photo_url} variant="episode" />
-              ) : null}
-              <div className="min-w-0 flex-1">
-                <p className="text-caption text-muted-foreground">ضيف الحلقة</p>
-                {guest.slug ? (
-                  <Link
-                    href={`/guests/${encodeURIComponent(guest.slug)}`}
-                    className="mt-1 inline-block text-subhead font-bold text-foreground transition-colors hover:text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:ring-offset-2"
-                  >
-                    {guest.name}
-                  </Link>
-                ) : (
-                  <h2 className="mt-1 text-subhead font-bold text-foreground">{guest.name}</h2>
-                )}
-                {guest.bio ? (
-                  <p className="mt-3 max-w-measure text-caption text-muted-foreground">
-                    {guest.bio}
-                  </p>
-                ) : null}
-              </div>
-            </div>
+          <section className="space-y-4">
+            {/* The same card as everywhere else. It already handles the case
+                this page has and the episode page does not — a guest with no
+                `slug` yet, who becomes a plain box instead of a link. */}
+            <GuestCard guest={guest} />
 
             {upcoming.guest_message || upcoming.guest_message_audio_url ? (
-              <div className="relative rounded-2xl bg-muted/50 p-4">
+              <div className="relative rounded-3xl border border-border bg-card p-6">
                 <h3 className="text-caption font-semibold text-foreground">
                   كلمة من الضيف قبل النزول
                 </h3>

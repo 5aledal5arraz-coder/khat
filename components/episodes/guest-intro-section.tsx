@@ -2,7 +2,7 @@
 
 import { useState } from "react"
 import { Card, CardContent } from "@/components/ui/card"
-import { GuestPortrait } from "@/components/media/guest-portrait"
+import { GuestCard } from "@/components/guests/guest-card"
 import { Instagram, Linkedin, Globe, Youtube, Mail } from "lucide-react"
 import { EpisodeThumb } from "@/components/media/episode-thumb"
 import { PlayBadge } from "@/components/media/play-badge"
@@ -20,7 +20,6 @@ import { DiscordIcon } from "@/components/icons/discord-icon"
 import { PinterestIcon } from "@/components/icons/pinterest-icon"
 import { getYouTubeId } from "@/lib/utils"
 import { VoiceNote } from "./voice-note"
-import Link from "next/link"
 
 interface GuestIntroSectionProps {
   guest: {
@@ -78,28 +77,25 @@ export function GuestIntroSection({
   }
 
   return (
-    <Card className="overflow-hidden border-primary/20 bg-gradient-to-br from-card via-card to-primary/5">
-      <CardContent className="p-6">
-        <div className="flex flex-col gap-6 sm:flex-row">
-          {/* Guest Photo & Basic Info */}
-          <div className="flex flex-col items-center gap-4 sm:items-start">
-            {/* Same rule as the guest's own page: no photo, no box. The
-                144px initials circle that stood here said «اا» for
-                «الدكتور الحارث المزيدي» — see `lib/shared/formatters.ts`. */}
-            {guest.photo_url ? (
-              <Link href={`/guests/${guest.slug}`} onClick={handleGuestClick}>
-                <GuestPortrait
-                  name={guest.name}
-                  photoUrl={guest.photo_url}
-                  variant="episode"
-                  className="transition-transform hover:scale-105"
-                />
-              </Link>
-            ) : null}
+    <div className="space-y-4">
+      {/* THE CARD IS THE COVER COMPOSITION NOW, not a profile box.
+          It carries the photo, the name and the role on its own, so the three
+          stacked elements that used to sit here are gone with it — including
+          the bio paragraph, which is the same string the card prints as the
+          role line. What stays below is what the card has no place for: where
+          to find the guest, and what the guest said after recording. */}
+      <div onClick={handleGuestClick}>
+        <GuestCard guest={guest} />
+      </div>
 
-            {/* Social Links */}
+      {(Object.keys(externalLinks).length > 0 ||
+        testimonial ||
+        testimonialAudioUrl ||
+        videoId) && (
+        <Card className="overflow-hidden">
+          <CardContent className="p-6">
             {Object.keys(externalLinks).length > 0 && (
-              <div className="flex gap-2">
+              <div className="flex flex-wrap gap-2">
                 {Object.entries(externalLinks).map(([platform, url]) => {
                   const Icon = socialIcons[platform.toLowerCase()] || Globe
                   return (
@@ -116,22 +112,6 @@ export function GuestIntroSection({
                   )
                 })}
               </div>
-            )}
-          </div>
-
-          {/* Guest Details */}
-          <div className="flex-1 text-center sm:text-start">
-            <p className="text-caption text-muted-foreground">ضيف الحلقة</p>
-            <Link href={`/guests/${guest.slug}`}>
-              <h2 className="mt-1 text-subhead font-bold hover:text-primary transition-colors">
-                {guest.name}
-              </h2>
-            </Link>
-
-            {guest.bio && (
-              <p className="mt-3 text-muted-foreground line-clamp-3">
-                {guest.bio}
-              </p>
             )}
 
             {/* Testimonial — written, spoken, or both.
@@ -166,19 +146,13 @@ export function GuestIntroSection({
               </div>
             )}
 
-            {/* View Full Profile Link */}
-            <Link
-              href={`/guests/${guest.slug}`}
-              className="mt-4 inline-block text-caption text-primary hover:underline"
-            >
-              شوف الملف الكامل →
-            </Link>
-          </div>
-        </div>
+            {/* No «شوف الملف الكامل» here any more — the card above IS the link
+                to the profile, and printing it twice on one screen made the
+                second one look like it went somewhere else. */}
 
-        {/* Testimonial Video */}
-        {videoId && (
-          <div className="mt-6 border-t pt-6">
+            {/* Testimonial Video */}
+            {videoId && (
+              <div className="mt-6 border-t pt-6">
             <h3 className="mb-3 text-caption font-medium text-muted-foreground">
               كلمة من الضيف
             </h3>
@@ -216,10 +190,12 @@ export function GuestIntroSection({
                   <PlayBadge className="relative group-hover:scale-105" />
                 </button>
               )}
-            </div>
-          </div>
-        )}
-      </CardContent>
-    </Card>
+                </div>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
+    </div>
   )
 }

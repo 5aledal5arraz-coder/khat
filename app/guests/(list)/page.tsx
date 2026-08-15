@@ -47,9 +47,18 @@ async function GuestsContent({ searchParams }: { searchParams: Awaited<GuestsPag
   }
 
   return (
-    <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+    // TWO COLUMNS, NOT THREE. The card is the episode-cover composition and it
+    // holds its 16:9 at every width, so a third column shrinks it to ~355px —
+    // the name drops onto its pixel floor and the panel, the rule and the
+    // diamond crowd each other. At two the card is ~560px and reads as the
+    // drawing it is.
+    //
+    // NO EPISODE COUNT. The card this replaced printed one behind
+    // `guest.episode_count !== undefined` — and `getGuests()` has never
+    // selected that column, so the line rendered for nobody. Not carried over.
+    <div className="grid gap-6 sm:grid-cols-2">
       {guests.map((guest) => (
-        <GuestCard key={guest.id} guest={guest} />
+        <GuestCard key={guest.id} guest={guest} eyebrow="ضيف خط" as="h2" action={null} />
       ))}
     </div>
   )
@@ -57,19 +66,13 @@ async function GuestsContent({ searchParams }: { searchParams: Awaited<GuestsPag
 
 function GuestsGridSkeleton() {
   return (
-    <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-      {Array.from({ length: 6 }).map((_, i) => (
-        <div key={i} className="flex items-start gap-4 rounded-lg border p-6">
-          {/* 80px rounded square — the exact box `GuestPortrait variant="card"`
-              settles into. It was `h-16 w-16 rounded-full`: 64px against an
-              80px avatar, so every card jumped 16px sideways and changed shape
-              the moment the data landed. */}
-          <Skeleton className="h-20 w-20 rounded-2xl" />
-          <div className="flex-1 space-y-2">
-            <Skeleton className="h-5 w-3/4" />
-            <Skeleton className="h-4 w-full" />
-          </div>
-        </div>
+    // THE SKELETON IS THE CARD'S OWN BOX, and it has to keep being that. The
+    // version this replaced was an 80px square beside two text bars, matching
+    // the old list card; against a 16:9 card it would have collapsed the whole
+    // grid the moment the data landed. Same columns, same gap, same aspect.
+    <div className="grid gap-6 sm:grid-cols-2">
+      {Array.from({ length: 4 }).map((_, i) => (
+        <Skeleton key={i} className="aspect-[16/9] w-full rounded-2xl" />
       ))}
     </div>
   )

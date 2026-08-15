@@ -625,18 +625,15 @@ describe("the fallback ladder is wired, not merely computed", () => {
   })
 })
 
-describe("the guest portrait renders at all three sizes", () => {
-  // Not one guest row in the local DB has a photo, so `page` (200px) and
-  // `episode` (96px) had never been drawn — by anyone, in a browser or in a
-  // test. They shipped unseen. These render each variant directly, which is
-  // the only way to see them without writing to the database.
+describe("the guest portrait renders at its one remaining size", () => {
+  // It had three variants. `card` and `episode` went with the surfaces that
+  // used them — every guest surface now draws `<GuestCard>` — and `page` is
+  // left for the team on `/about`, which is the only caller.
   it.each([
-    ["card", "h-20 w-20", "rounded-2xl", "80px"],
-    // Both were `rounded-[20px]` — an arbitrary corner outside `--radius`, so
-    // the switch point could not move them. Now two rungs of the ladder, chosen
-    // by box size: 3x on the 200px header, 2x on the 96px block.
+    // It was `rounded-[20px]` — an arbitrary corner outside `--radius`, so the
+    // switch point could not move it. Now a rung of the ladder: 3x on a 200px
+    // box.
     ["page", "h-[200px] w-[200px]", "rounded-3xl", "200px"],
-    ["episode", "h-24 w-24", "rounded-2xl", "96px"],
   ] as const)("%s is a %s rounded square asking for %s", (variant, box, corner, sizes) => {
     const html = renderToStaticMarkup(
       createElement(GuestPortrait, {

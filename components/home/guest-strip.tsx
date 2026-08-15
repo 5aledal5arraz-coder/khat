@@ -6,6 +6,8 @@ import Link from "next/link"
 import { ChevronLeft, ChevronRight } from "lucide-react"
 
 import { cn } from "@/lib/utils"
+import { guestCutoutUrl } from "@/lib/media/guest-cutouts"
+import { KhatMarkPanel } from "@/components/media/khat-mark-panel"
 import type { MuseumThinker } from "@/lib/content/museum-data"
 
 /**
@@ -230,14 +232,27 @@ export function GuestStrip({ guests }: { guests: MuseumThinker[] }) {
  * either way ("this responds"), but the two never look interchangeable.
  */
 function GuestFace({ guest }: { guest: MuseumThinker }) {
-  const initial = guest.name.trim().charAt(0)
   const upcomingLinked = Boolean(guest.isUpcoming && guest.upcomingHref)
+  // The background-free portrait when one exists — the same file the guest card
+  // uses. `imageUrl` can also be an admin-set `custom_image`, which has no
+  // cut-out and falls through to being cropped as before.
+  const cutout = guestCutoutUrl(guest.imageUrl)
 
   const portrait = (
     <>
       <div
         className={cn(
-          "relative h-24 w-24 shrink-0 overflow-hidden rounded-full bg-muted transition-transform duration-300 sm:h-28 sm:w-28",
+          // A ROUNDED SQUARE ON INDIGO, NOT A CIRCLE ON GREY — the same tile the
+          // guest card draws, so a face is the same object here as it is on the
+          // list, the episode page and the guest's own page.
+          //
+          // The circle was the odd one out twice over. `GuestPortrait` states
+          // the rule in its own header — the wordmark is built from
+          // parallelograms, so a circle contradicts the one shape the identity
+          // owns — and this strip was the only place still drawing one. The
+          // ground is Deep Indigo because the portrait is now a cut-out with no
+          // background of its own.
+          "relative h-24 w-24 shrink-0 overflow-hidden rounded-2xl bg-primary transition-transform duration-300 sm:h-28 sm:w-28",
           // A DASHED OUTLINE, NOT A DASHED RING: Tailwind has no `ring-dashed`,
           // so the first version of this rendered a plain solid ring and the
           // «قريباً» face was distinguished by the badge alone. `outline-*`
@@ -253,7 +268,7 @@ function GuestFace({ guest }: { guest: MuseumThinker }) {
       >
         {guest.imageUrl ? (
           <Image
-            src={guest.imageUrl}
+            src={cutout ?? guest.imageUrl}
             alt={guest.name}
             fill
             sizes="112px"
@@ -271,7 +286,10 @@ function GuestFace({ guest }: { guest: MuseumThinker }) {
             // they will almost all be seen anyway.
             loading="eager"
             className={cn(
-              "object-cover",
+              // A cut-out has to STAND on the tile, not fill it: cropping one
+              // to cover would cut the head off at the top, which is the whole
+              // reason the original photo was cropped square in the first place.
+              cutout ? "object-contain object-bottom" : "object-cover",
               guest.isUpcoming && "opacity-75 saturate-50",
               // The hover for a LINKED upcoming face: the dimming lifts instead
               // of the portrait growing. Gated behind a real hover device for
@@ -283,11 +301,24 @@ function GuestFace({ guest }: { guest: MuseumThinker }) {
           />
         ) : (
           // NO YOUTUBE THUMBNAIL AS A FACE — the posters carry burned-in
-          // headlines, so a square crop lands on type, not a person. The
-          // typographic fallback is the honest answer.
-          <div className="flex h-full w-full items-center justify-center bg-primary/10 text-3xl font-bold text-primary">
-            {initial}
-          </div>
+          // headlines, so a square crop lands on type, not a person.
+          //
+          // AND NO INITIAL EITHER. This drew `{name.charAt(0)}` in
+          // `text-primary` on `bg-primary/10`; the moment the tile became Deep
+          // Indigo that was indigo on indigo — measured at rgb(54,46,109) on
+          // rgb(54,46,109), a contrast ratio of 1. It was also the exact
+          // mechanism `GuestPortrait` documents as broken for Arabic: three of
+          // the faces in this strip rendered «ا», because family names begin
+          // with «ال». The shared empty panel is the site's one answer for an
+          // image that has not arrived, and it says nothing about who the
+          // person is — which is the truth.
+          //
+          // IT KEEPS ITS OWN `bg-secondary`. The first version passed
+          // `bg-transparent` so the indigo tile showed through — and «ط» is
+          // `text-primary/25`, i.e. Deep Indigo at a quarter on Deep Indigo.
+          // Same invisibility as the initial it replaced, one step later. The
+          // panel is a tested pairing; let it bring its own ground.
+          <KhatMarkPanel markClassName="text-subhead" />
         )}
       </div>
 
