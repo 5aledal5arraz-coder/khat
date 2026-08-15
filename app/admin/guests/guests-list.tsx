@@ -41,6 +41,7 @@ import { TwitchIcon } from "@/components/icons/twitch-icon"
 import { DiscordIcon } from "@/components/icons/discord-icon"
 import { SoundCloudIcon } from "@/components/icons/soundcloud-icon"
 import { ImageCropModal } from "@/components/ui/image-crop-modal"
+import { guestCutoutUrl } from "@/lib/media/guest-cutouts"
 import type { Guest } from "@/types/database"
 import { normalizeArabic } from "@/lib/search"
 import { formatArabicCount, cn } from "@/lib/utils"
@@ -260,11 +261,19 @@ function PhotoPicker({ previewUrl, name, onFileReady }: {
       {error && <p className="text-xs text-destructive">{error}</p>}
       <p className="text-[10px] text-muted-foreground">JPG, PNG, WebP — حتى 5 ميجابايت</p>
 
+      {/* A SQUARE CROP WINDOW, NOT A CIRCLE. Khaled: «تظهر الصوره في التعديل
+          قبل الحفظ بعدسة دائريه اي لازم اقص الصوره بشكل دائري». The circle was
+          never what the site draws — every surface that shows a face uses a
+          rounded square (see `GuestPortrait`'s note: the wordmark is built from
+          parallelograms, so a circle contradicts the one shape the identity
+          owns), and the guest card fits the portrait into a rectangle. Cropping
+          to a circle meant framing for a shape nothing renders, and losing the
+          corners of every photo to it. */}
       {cropFile && (
         <ImageCropModal
           file={cropFile}
           aspect={1}
-          cropShape="round"
+          cropShape="rect"
           outputSize={800}
           outputQuality={0.88}
           onConfirm={handleCropConfirm}
@@ -463,8 +472,30 @@ function GuestFormDialog({ isNew, formData, setFormData, onSave, onClose, saving
 
         {/* Body */}
         <div className="space-y-6 px-8 py-6">
-          <div className="flex justify-center">
+          <div className="flex flex-col items-center gap-3">
             <PhotoPicker previewUrl={previewUrl} name={formData.name} onFileReady={onPendingImageChange} />
+
+            {/* SAYS SO THE MOMENT IT IS TRUE, instead of leaving it to be found
+                on the live site. A guest's card draws the portrait cut out and
+                standing on Deep Indigo; a photo with no cut-out falls back to
+                the plain rectangle, which is correct behaviour and looks
+                nothing like the others. That is exactly what happened to فيصل
+                الغضوري, and Khaled found it by eye.
+
+                Background removal cannot run on the droplet — 1 core, 1.9 GB,
+                and a build that already needs more heap than the box has — so
+                it stays one command on a Mac. This is what makes forgetting it
+                visible here, and `npm run audit:cutouts` is what stops it
+                shipping. */}
+            {formData.photo_url && !blobUrl && !guestCutoutUrl(formData.photo_url) ? (
+              <p className="max-w-xs text-center text-[11px] leading-relaxed text-amber-700">
+                هالصورة ما لها نسخة مفرّغة من الخلفية بعد، فبطاقة الضيف بتعرضها
+                كما هي. شغّل على الماك:{" "}
+                <code className="rounded-md bg-secondary px-1">
+                  npx tsx scripts/cut-out-guest-photos.ts
+                </code>
+              </p>
+            ) : null}
           </div>
 
           <div className="space-y-2">

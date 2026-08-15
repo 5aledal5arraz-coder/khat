@@ -36,6 +36,7 @@ const CUTOUTS = new Set([
   "85e5f2a23c3e95d9",
   "8ba6beae48752302",
   "b7707c4d7792db5f",
+  "b97d8b9f015f0897",
   "ba19a08dd0c66eeb",
   "c99f0b7bbc9d861b",
   "d8756da52be15b30",

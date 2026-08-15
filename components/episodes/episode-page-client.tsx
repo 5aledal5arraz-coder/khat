@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useRef } from "react"
+import { useSearchParams } from "next/navigation"
 import Link from "next/link"
 import { ChevronLeft } from "lucide-react"
 import { EpisodePlayerProvider, usePlayer } from "./episode-player-context"
@@ -164,6 +165,10 @@ export function EpisodePageClient({
   episodeTeaser = null,
   initialStartTime,
 }: EpisodePageClientProps) {
+  // `?frame=khat` — the trial of the identity's video frame, on whichever
+  // episode it is appended to. See the note where EpisodeHero renders it.
+  const khatFrame = useSearchParams().get("frame") === "khat"
+
   // Track episode view
   const trackedRef = useRef(false)
   useEffect(() => {
@@ -210,6 +215,7 @@ export function EpisodePageClient({
             episode={episode}
             teaser={teaser}
             initialStartTime={initialStartTime}
+            khatFrame={khatFrame}
           />
 
           </div>

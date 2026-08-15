@@ -76,41 +76,61 @@ export function GuestIntroSection({
     }
   }
 
+  const hasExtras =
+    Object.keys(externalLinks).length > 0 ||
+    Boolean(testimonial) ||
+    Boolean(testimonialAudioUrl) ||
+    Boolean(videoId)
+
   return (
-    <div className="space-y-4">
-      {/* THE CARD IS THE COVER COMPOSITION NOW, not a profile box.
-          It carries the photo, the name and the role on its own, so the three
-          stacked elements that used to sit here are gone with it — including
-          the bio paragraph, which is the same string the card prints as the
-          role line. What stays below is what the card has no place for: where
-          to find the guest, and what the guest said after recording. */}
+    // ONE OBJECT, NOT TWO STACKED ONES.
+    //
+    // Khaled: «كرت تعريف الضيف يفصل اسم وصورة الضيف عن حساباته ورسالته». It did
+    // — the cover card sat in its own rounded box and everything else in a
+    // second bordered card under a 16px gap, so a guest read as two unrelated
+    // widgets that happened to be about the same person.
+    //
+    // They are now one surface: the gap is gone, the card's bottom corners are
+    // squared off and the panel below carries the rounded bottom, so the seam
+    // between them is a fold in one card rather than the edge of another. When
+    // there are no extras the card keeps its own four corners.
+    <div className="overflow-hidden rounded-2xl">
       <div onClick={handleGuestClick}>
-        <GuestCard guest={guest} />
+        <GuestCard guest={guest} className={hasExtras ? "rounded-b-none" : undefined} />
       </div>
 
-      {(Object.keys(externalLinks).length > 0 ||
-        testimonial ||
-        testimonialAudioUrl ||
-        videoId) && (
-        <Card className="overflow-hidden">
+      {hasExtras && (
+        <Card className="rounded-none border-t-0 shadow-none">
           <CardContent className="p-6">
             {Object.keys(externalLinks).length > 0 && (
-              <div className="flex flex-wrap gap-2">
-                {Object.entries(externalLinks).map(([platform, url]) => {
-                  const Icon = socialIcons[platform.toLowerCase()] || Globe
-                  return (
-                    <a
-                      key={platform}
-                      href={url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="flex h-9 w-9 items-center justify-center rounded-full bg-secondary text-muted-foreground transition-colors hover:bg-primary hover:text-primary-foreground"
-                      title={platform}
-                    >
-                      <Icon className="h-4 w-4" />
-                    </a>
-                  )
-                })}
+              // «حسابات الضيف» — labelled, because a bare row of marks under a
+              // portrait reads as OUR platforms, which is what the footer's row
+              // is. These are his.
+              <div>
+                <p className="text-micro font-semibold text-muted-foreground">
+                  تلقاه على
+                </p>
+                <div className="mt-2 flex flex-wrap gap-2">
+                  {Object.entries(externalLinks).map(([platform, url]) => {
+                    const Icon = socialIcons[platform.toLowerCase()] || Globe
+                    return (
+                      <a
+                        key={platform}
+                        href={url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        // A ROUNDED SQUARE, like every other tile on this page.
+                        // These were circles — the one shape the identity does
+                        // not own, sitting directly under a card built from
+                        // straight edges.
+                        className="flex h-9 w-9 items-center justify-center rounded-lg bg-secondary text-muted-foreground transition-colors hover:bg-primary hover:text-primary-foreground"
+                        title={platform}
+                      >
+                        <Icon className="h-4 w-4" />
+                      </a>
+                    )
+                  })}
+                </div>
               </div>
             )}
 
@@ -121,7 +141,10 @@ export function GuestIntroSection({
                 belong to the WRITTEN form only — set over a player they would
                 be decorating a control. */}
             {(testimonial || testimonialAudioUrl) && (
-              <div className="relative mt-4 rounded-lg bg-muted/50 p-4">
+              // The orange rule from the card, repeated: the same device marks
+              // the guest's name above and the guest's words here, which is
+              // what ties the two halves of the object together.
+              <div className="relative mt-6 border-s-[3px] border-accent bg-secondary/40 p-4 ps-5">
                 {testimonial && (
                   <>
                     <div className="absolute -top-2 start-4 text-heading text-primary/30">&ldquo;</div>

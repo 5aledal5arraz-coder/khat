@@ -2,6 +2,7 @@
 
 import Link from "next/link"
 import { YouTubeEmbed } from "./youtube-embed"
+import { KhatFrame } from "@/components/brand/khat-frame"
 import { ShareButtons } from "./share-buttons"
 import { Calendar, Clock } from "lucide-react"
 import { formatDate, formatDuration } from "@/lib/utils"
@@ -27,22 +28,42 @@ interface EpisodeHeroProps {
   }
   teaser?: string
   initialStartTime?: number
+  /** Trial flag — see the note at the render. */
+  khatFrame?: boolean
 }
 
-export function EpisodeHero({ episode, teaser, initialStartTime }: EpisodeHeroProps) {
+export function EpisodeHero({
+  episode,
+  teaser,
+  initialStartTime,
+  khatFrame = false,
+}: EpisodeHeroProps) {
+  const player = (
+    <YouTubeEmbed
+      url={episode.youtube_url}
+      title={episode.title}
+      startTime={initialStartTime}
+      episodeId={episode.id}
+      episodeSlug={episode.slug}
+      durationMinutes={episode.duration_minutes}
+    />
+  )
+
   return (
     <div>
-      {/* Framed video */}
-      <div className="overflow-hidden rounded-2xl border border-border bg-card shadow-[0_2px_8px_hsl(var(--primary)/0.05),0_28px_64px_-32px_hsl(var(--primary)/0.3)]">
-        <YouTubeEmbed
-          url={episode.youtube_url}
-          title={episode.title}
-          startTime={initialStartTime}
-          episodeId={episode.id}
-          episodeSlug={episode.slug}
-          durationMinutes={episode.duration_minutes}
-        />
-      </div>
+      {/* THE KHAT FRAME IS A TRIAL, ON ONE EPISODE, BEHIND `?frame=khat`.
+          Khaled asked to see the identity's frame around a video before it goes
+          on all of them — «اريد تجربة على حلقه وحده». A query flag rather than a
+          column: nothing is written to the database for an experiment that may
+          be reverted, and every other episode is untouched while it runs.
+          Remove the flag and this branch together when the answer is known. */}
+      {khatFrame ? (
+        <KhatFrame>{player}</KhatFrame>
+      ) : (
+        <div className="overflow-hidden rounded-2xl border border-border bg-card shadow-[0_2px_8px_hsl(var(--primary)/0.05),0_28px_64px_-32px_hsl(var(--primary)/0.3)]">
+          {player}
+        </div>
+      )}
 
       {/* Title block */}
       <div className="mt-7">
