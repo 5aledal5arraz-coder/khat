@@ -4,46 +4,46 @@ import { KhatDiamond } from "@/components/brand/khat-icon"
 /**
  * The identity's frame, around whatever is put inside it.
  *
- * The designer draws this in `youtube break ADS REELS STORY ADS TRANDS.pdf` p.1
- * — a thick Deep Indigo surround with the top-right corner replaced by a 45°
- * diagonal, holding the episode's video. Measured off that vector on its own
- * 1920x1080 artboard:
+ * WHAT THIS REPLACED — AND WHY IT WAS WRONG. The first version copied the
+ * designer's frame from `youtube break ADS REELS STORY ADS TRANDS.pdf` p.1
+ * literally: a Deep Indigo surround 8.49% of the frame's width, measured
+ * 62px on a 736px player, on all four sides. Khaled: «ما اعجبتني ابيك تفكر في
+ * اطار بسيط». He was right, and the reason is a category error on my side.
+ * On his artboard that surround is the SUBJECT — a poster whose content is
+ * the frame, with a video inset in it as a detail. On an episode page the
+ * video is the subject and the frame is punctuation. Copying the proportion
+ * out of one context into the other reproduced the drawing and lost the point
+ * of it.
  *
- *   outer      1089.98 x 647.21, from (0, 102.37)
- *   window     inset 92.50 on every side — measured on all four, not assumed
- *   corners    r = 87.39, 13.5% of the frame's height
- *   the cut    (787.21, 127.96) → (1073.32, 414.07): Δx = Δy = 286.11, so
- *              EXACTLY 45°, and 26.25% of the frame's width. Unlike the guest
- *              card's panel, which is 51.5°. Two different shapes in one
- *              identity; neither is the other.
+ * WHAT IS KEPT FROM HIM, EXACTLY:
+ *  · **the 45° cut on the top-right corner.** Measured on his vector:
+ *    (787.21, 127.96) → (1073.32, 414.07), Δx = Δy = 286.11. Exactly 45°, and
+ *    not the same as the guest card's panel, which is 51.5°. Two distinct
+ *    shapes in one identity; this is the frame's.
+ *  · **the diamond on the ground beside the cut** — the dot of the خ, the same
+ *    relationship it has on every other piece.
+ *  · **Deep Indigo for the line, KHAT Orange for the diamond.**
  *
- * ONE NUMBER IS NOT HIS: THE SURROUND'S WIDTH. On his artboard it is 92.5
- * against a 462-tall window — 20% of the picture — because there it is a
- * graphic on a poster and the video is an inset detail. On an episode page the
- * video IS the page, so it is taken as a share of the frame's WIDTH (his own
- * 92.5/1089.98 = 8.49%), which keeps the proportion recognisable at a size a
- * reader can still watch inside.
+ * WHAT IS MINE, AND SAID PLAINLY: the line's WEIGHT and the cut's SIZE. His
+ * surround is 8.49% of the width and his cut 26.25% — a cut that size takes a
+ * real triangle out of the picture, which is free on a poster he composed for
+ * it and not free on someone's episode. The line is 2px, and the cut is 10% of
+ * the width. Those two numbers are the whole difference between his frame and
+ * this one.
  *
- * WHY `clip-path` AND `cqw`, NOT AN SVG. The first build drew the frame as an
- * SVG path with `preserveAspectRatio="none"`. That stretches the geometry to
- * the box: on a 736x468 frame the 45° cut came out at 32°, and the border was
- * 62px across but 43px down while the CSS padding was 62px on all four sides —
- * a percentage padding resolves against WIDTH on every side. The drawn window
- * and the actual content stopped agreeing. Container units fix both: `cqw` is
- * a share of the wrapper's width whichever axis it is used on, so a cut that is
- * `26.25cqw` in x and `26.25cqw` in y is a true 45° at any size.
+ * `cqw` ON BOTH AXES IS WHAT MAKES THE CUT 45°. Container units resolve
+ * against the container's WIDTH whichever axis they are used on, so `10cqw`
+ * across and `10cqw` down is a true diagonal at any size. The first build drew
+ * this as an SVG with `preserveAspectRatio="none"` and the 45° came out at 32°.
  */
 
-/** 92.5/1089.98 — the surround, as a share of the frame's width. */
-const BORDER = "8.49cqw"
-/** 286.11/1089.98 — the 45° cut, as a share of the frame's width. */
-const CUT = "26.25cqw"
-/** The same cut, one border in from the outer edge, for the window. */
-const INNER_CUT = "17.76cqw"
+/** The cut, as a share of the frame's width — mine, not his 26.25%. */
+const CUT = 10
+/** The hairline. */
+const STROKE = 2
 
 /** Rounded rect with the top-right corner replaced by a 45° diagonal. */
-const clipWith = (cut: string) =>
-  `polygon(0 0, calc(100% - ${cut}) 0, 100% ${cut}, 100% 100%, 0 100%)`
+const CLIP = `polygon(0 0, calc(100% - ${CUT}cqw) 0, 100% ${CUT}cqw, 100% 100%, 0 100%)`
 
 export function KhatFrame({
   children,
@@ -53,37 +53,46 @@ export function KhatFrame({
   className?: string
 }) {
   return (
-    // THE CONTAINER IS THE WRAPPER, NOT THE FRAME ITSELF. An element does not
-    // establish a container for its own properties — with `container-type` on
-    // the frame, its own `padding: 8.49cqw` resolved against the viewport
-    // instead and measured 71px on an 835px window rather than the 62px its
-    // 736px box calls for. One level out, and every `cqw` below is a share of
-    // the frame's real width.
+    // The container is the WRAPPER, never the frame itself: an element does not
+    // establish a container for its own properties, and with `container-type`
+    // on the frame its own `cqw` resolved against the viewport instead.
     <div className={cn("relative", className)} style={{ containerType: "inline-size" }}>
+      {/* THE LINE IS TWO CLIPPED BOXES, NOT A STROKE.
+          Drawing it as an SVG path needed a viewBox matching the frame's real
+          aspect to keep the diagonal at 45° — and the frame is NOT 16:9. It
+          measured 896x545 (1.645), because the player's box carries more than
+          the video. So the outline is an indigo plate with the cut, and the
+          picture is the same cut inset by the line's width: the ring that shows
+          between them IS the line, and it cannot disagree with the corner
+          because both are cut by the same formula. */}
       <div
-        className="relative rounded-3xl bg-primary"
-        style={{ clipPath: clipWith(CUT), padding: BORDER }}
+        className="rounded-2xl bg-primary"
+        style={{ clipPath: CLIP, padding: STROKE }}
       >
-        {/* The window. It carries the same cut so the diagonal runs through
-            both edges of the surround as one line, which is what makes it read
-            as a frame rather than a box with a notch. */}
+        {/* `bg-card` IS THE FIX FOR A 40px INDIGO BAND. Without a background of
+            its own, the plate showed through wherever the content is
+            transparent — and `<YouTubeEmbed>` is not just a player, it is a
+            `space-y-2` stack of the 16:9 frame (892x502) and a «شاهد على
+            يوتيوب» link (90x25). The gap and the space beside that link were
+            painting indigo, and the link's muted grey landed on it unreadable.
+            With a surface here, only the 2px ring is the line. */}
         <div
-          className="overflow-hidden rounded-xl"
-          style={{ clipPath: clipWith(INNER_CUT) }}
+          className="overflow-hidden rounded-[14px] bg-card"
+          style={{ clipPath: CLIP }}
         >
           {children}
         </div>
       </div>
 
-      {/* The diamond on the surround beside the cut — the same relationship it
-          has on every other piece of this identity. Outside the clipped frame,
-          because a clip-path would cut it in half. */}
+      {/* In the notch the cut opens, on the page's own ground. Half of it sits
+          over the corner and half outside — the same way it sits half on the
+          panel's edge in the guest card. */}
       <span
         aria-hidden
         className="pointer-events-none absolute"
-        style={{ insetInlineStart: "13cqw", top: "2.2cqw" }}
+        style={{ insetInlineStart: `${CUT * 0.34}cqw`, top: `${CUT * 0.34}cqw` }}
       >
-        <KhatDiamond tone="accent" className="h-[3.4cqw] w-[3.4cqw] min-h-3 min-w-3" />
+        <KhatDiamond tone="accent" className="h-[2.4cqw] w-[2.4cqw] min-h-2.5 min-w-2.5" />
       </span>
     </div>
   )
