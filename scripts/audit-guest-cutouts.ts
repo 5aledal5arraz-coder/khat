@@ -34,7 +34,23 @@ function main() {
     return
   }
 
-  const photos = readdirSync(PHOTOS).filter((f) => /\.(jpe?g|png|webp)$/i.test(f))
+  // `!f.startsWith(".")` IS LOAD-BEARING, and it was missing.
+  //
+  // The first production run of this audit reported «50/50» against 32 real
+  // portraits — and `public/guests/cutout` held 64 files where 32 exist. The
+  // extras were AppleDouble sidecars, `._name.jpg`: macOS metadata companions
+  // that `ls` hides because they are dotfiles. The audit was pairing `._x.jpg`
+  // with `._x.png` and counting both as a pass, so its own number was
+  // meaningless in exactly the direction that matters.
+  //
+  // 215 of them existed on the droplet, 79 under `public/` and therefore
+  // publicly served. They are deleted. I do not know when they arrived — the
+  // archive from today's deploy contains zero `._` entries, checked — so this
+  // is not a claim about their origin, only about what was there and what the
+  // guard did with it. A guard that counts phantoms is worse than no guard.
+  const photos = readdirSync(PHOTOS).filter(
+    (f) => !f.startsWith(".") && /\.(jpe?g|png|webp)$/i.test(f),
+  )
   const missing = photos.filter(
     (f) => !existsSync(path.join(CUTOUTS, f.replace(/\.[^.]+$/, ".png"))),
   )
