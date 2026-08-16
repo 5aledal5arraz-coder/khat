@@ -616,6 +616,171 @@ export function displayEpisodeTitle(title: string | null | undefined): string {
  * not "" — when nothing readable survives, so the caller omits the paragraph
  * instead of rendering an empty one that still takes vertical space.
  */
+/**
+ * The episode's PROSE, with the YouTube channel boilerplate taken out.
+ *
+ * `episodeBlurb` below keeps only the first paragraph, which is right for a
+ * card and wrong for the episode page — that page wants the whole write-up.
+ * But `description` is pasted straight from YouTube, so the whole write-up
+ * arrives with a tail nobody wrote for a website. Measured on صلاح الغزالي's
+ * live page, under «ملخص الحلقة»:
+ *
+ *   · «الجزء الرابع: https://bit.ly/3LQXvNK» and seven more bit.ly lines
+ *   · «بودكاست خط على سناب شات: …» — a channel roster
+ *   · a «الهاشتاقات» heading followed by eleven #tags on their own lines
+ *   · on other episodes, a «الفقرات الزمنية:» block — the chapter list, in
+ *     plain text, directly above the interactive index that already renders it
+ *
+ * Khaled asked for it cleaned. The rule is deliberately conservative: a line
+ * goes ONLY if it is unambiguously furniture — a URL, a hashtag run, a
+ * timestamp row, or a labelled heading for one of those blocks. Prose is never
+ * summarised or rewritten here; shortening the text is an editorial act and
+ * belongs to `hero_summary`, not to a formatter.
+ */
+/*
+ * Two episodes label the same block differently and put the clock on opposite
+ * ends of the line — «الفقرات الزمنية:» + `00:00 المقدمة` on حسام مطر,
+ * «محاور الحلقة:» + `المقدمة 00:00` on صلاح الغزالي. A rule built from one of
+ * them silently does nothing on the other, which is exactly what shipped.
+ */
+const BOILERPLATE_HEADING =
+  /^(الهاشتاقات|هاشتاقات|الفقرات الزمنية|الفواصل الزمنية|محاور الحلقة|التوقيتات|روابط|برعاية|حساب(ات)? |شكرا)/
+/** A chapter row — the clock leads («00:00 المقدمة») or trails («المقدمة 00:00»). */
+const TIMESTAMP_ROW = /(^[•\-*\s]*\d{1,2}:\d{2}(:\d{2})?\s)|(\d{1,2}:\d{2}(:\d{2})?\s*$)/
+/** «… الإلكترونية :» — a lead-in whose payload is the link block beneath it. */
+const DANGLING_LEAD_IN = /[:：]\s*$/
+
+/**
+ * The chapters THE PRODUCER WROTE, read back out of the YouTube description.
+ *
+ * WHY THIS EXISTS — and it is the sharpest thing found in this whole pass.
+ * `episode_enrichments.timestamps` is AI-generated, and on صلاح الغزالي it is
+ * fiction: ten rows at 0, 2, 5, 10, 15, 20, 25, 30, 35 and 40 minutes — every
+ * one a round multiple of five — ending on «الخاتمة» at 40:00. **The episode is
+ * 3 hours 18 minutes.** The index was telling a reader the conversation ends
+ * four fifths of an hour in, and every click landed in the wrong place.
+ *
+ * The real chapters were sitting in the description the whole time, written by
+ * hand with real times: «المقدمة 00:00 … أول يوم من الحرية 2:56:35 … الخاتمة
+ * 3:16:24». Fourteen of them, spanning the episode.
+ *
+ * Two shapes on this channel, both handled: the clock LEADS on حسام مطر
+ * («00:00 حوار جانبي») and TRAILS on صلاح الغزالي («المقدمة 00:00»).
+ *
+ * Returns [] rather than a guess when nothing parses — a wrong index is worse
+ * than none, which is the entire point of this function.
+ */
+export function parseDescriptionChapters(
+  description: string | null | undefined,
+): { title: string; seconds: number }[] {
+  if (!description) return []
+  const out: { title: string; seconds: number }[] = []
+
+  for (const raw of description.split("\n")) {
+    const line = raw.trim()
+    if (!line || /https?:\/\//i.test(line)) continue
+
+    // `H:MM:SS` or `M:SS`, at either end of the line.
+    // «• 00:00 المقدمة» — 017 bullets its list; «…التسويق34:00» — 005 glues the
+    // clock to the title with no space. Both are chapter rows.
+    const bare = line.replace(/^[•\-*\u2022]\s*/, "").trim()
+    const lead = bare.match(/^(\d{1,2}:\d{2}(?::\d{2})?)\s+(.+)$/)
+    const trail = bare.match(/^(.+?)\s*(\d{1,2}:\d{2}(?::\d{2})?)$/)
+    const [clock, title] = lead
+      ? [lead[1], lead[2]]
+      : trail
+        ? [trail[2], trail[1]]
+        : [null, null]
+    if (!clock || !title) continue
+
+    const parts = clock.split(":").map(Number)
+    if (parts.some((n) => !Number.isFinite(n))) continue
+    const seconds =
+      parts.length === 3 ? parts[0] * 3600 + parts[1] * 60 + parts[2] : parts[0] * 60 + parts[1]
+
+    const clean = title.replace(/[:：]\s*$/, "").trim()
+    if (!clean || clean.startsWith("#")) continue
+    out.push({ title: clean, seconds })
+  }
+
+  // A single stray «2:30» inside a sentence is not a chapter list. Three rows
+  // is the floor for believing the block was one.
+  if (out.length < 3) return []
+
+  // Must run forward. A list that jumps backwards was mis-parsed, and shipping
+  // it would repeat the fault this function exists to fix.
+  for (let i = 1; i < out.length; i++) {
+    if (out[i].seconds < out[i - 1].seconds) return []
+  }
+  return out
+}
+
+export function episodeDescriptionProse(episode: {
+  summary?: string | null
+  description?: string | null
+}): string | null {
+  /*
+   * CLEAN WHATEVER WE END UP SHOWING — the first version returned `summary`
+   * untouched and only scrubbed `description`, which passed locally and failed
+   * in production within minutes of deploying. Locally `summary` holds the
+   * enrichment's written prose; in production it is a PRE-OVERRIDE COPY OF
+   * `description` (see the note on `episodes.summary`), so the raw YouTube tail
+   * came straight back through the early return. Same code, same episode, two
+   * databases, opposite results.
+   *
+   * The source decides precedence, never whether the scrub runs.
+   */
+  const source = episode.summary?.trim() || episode.description?.trim()
+  if (!source) return null
+  const description = source
+
+  // Blocks, so a whole boilerplate section disappears with its heading rather
+  // than leaving «الهاشتاقات» sitting alone above nothing.
+  const blocks = description.split(/\n\s*\n/)
+  const kept: string[] = []
+
+  for (const block of blocks) {
+    const lines = block
+      .split("\n")
+      .map((l) => l.trim())
+      .filter(Boolean)
+    if (lines.length === 0) continue
+    // A block whose FIRST line announces a boilerplate section is furniture
+    // entire — links, tags and timestamps all arrive under a label.
+    if (BOILERPLATE_HEADING.test(lines[0])) continue
+
+    const prose = lines.filter(
+      (l) =>
+        !l.startsWith("#") &&
+        !/https?:\/\//i.test(l) &&
+        !TIMESTAMP_ROW.test(l) &&
+        // ALSO drop a label wherever it sits, not only when it opens a block.
+        // On 001 «الفواصل الزمنية» is the last line of the prose block — no
+        // blank line before its rows — so the block-level check never saw it
+        // and the bare heading shipped under «ملخص الحلقة».
+        !BOILERPLATE_HEADING.test(l),
+    )
+    // Every line was furniture ⇒ drop the block, don't leave a gap.
+    if (prose.length === 0) continue
+
+    // A block that ENDS on a colon is introducing whatever came next, and what
+    // came next was furniture — «من موسوعته سور الكويت الرابع :» sits directly
+    // above four bit.ly lines. Keeping it leaves a sentence pointing at nothing.
+    if (DANGLING_LEAD_IN.test(prose[prose.length - 1])) {
+      prose.pop()
+      // Drop the whole lead-in, however many lines it ran to: «شكراً للأستاذ …»
+      // is only there to introduce the links.
+      while (prose.length > 0 && !/[.!؟]\s*$/.test(prose[prose.length - 1])) prose.pop()
+      if (prose.length === 0) continue
+    }
+
+    kept.push(prose.join("\n"))
+  }
+
+  const out = kept.join("\n\n").trim()
+  return out || null
+}
+
 export function episodeBlurb(episode: {
   summary?: string | null
   description?: string | null

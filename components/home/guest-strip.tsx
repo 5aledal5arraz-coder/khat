@@ -7,6 +7,7 @@ import { ChevronLeft, ChevronRight } from "lucide-react"
 
 import { cn } from "@/lib/utils"
 import { guestCutoutUrl } from "@/lib/media/guest-cutouts"
+import { khatCut } from "@/components/brand/khat-frame"
 import { KhatMarkPanel } from "@/components/media/khat-mark-panel"
 import type { MuseumThinker } from "@/lib/content/museum-data"
 
@@ -240,6 +241,24 @@ function GuestFace({ guest }: { guest: MuseumThinker }) {
 
   const portrait = (
     <>
+      {/* THE CUT, at the smallest size the page uses it.
+          It is the same rule as the episode frame and the episode cards —
+          `KHAT_CUT` — so a face here and an episode below are the same object
+          seen at two scales. No tail and no diamond: on a 96px tile a tail is
+          three pixels of noise, and the diamond belongs to the surfaces where
+          it has ground to sit on.
+
+          The container has to be OUTSIDE the tile: an element does not
+          establish a container for its own properties, so `cqw` on the tile
+          itself would resolve against the viewport. */}
+      {/* THE WRAPPER CARRIES THE TILE'S WIDTH, and it has to.
+          `container-type: inline-size` means the element's inline size may not
+          depend on its contents — so a shrink-wrapping wrapper in this flex row
+          collapsed to 0x0 and took the tile with it, and `10cqw` fell back to
+          10% of the VIEWPORT (measured: 84.1px on an 841px window, against a
+          112px tile). Stating the width here is what makes the container legal
+          and the cut 11px instead of 84. */}
+      <div style={{ containerType: "inline-size" }} className="w-24 shrink-0 sm:w-28">
       <div
         className={cn(
           // A ROUNDED SQUARE ON INDIGO, NOT A CIRCLE ON GREY — the same tile the
@@ -252,7 +271,7 @@ function GuestFace({ guest }: { guest: MuseumThinker }) {
           // owns — and this strip was the only place still drawing one. The
           // ground is Deep Indigo because the portrait is now a cut-out with no
           // background of its own.
-          "relative h-24 w-24 shrink-0 overflow-hidden rounded-2xl bg-primary transition-transform duration-300 sm:h-28 sm:w-28",
+          "relative h-24 w-24 overflow-hidden rounded-2xl bg-primary transition-transform duration-300 sm:h-28 sm:w-28",
           // A DASHED OUTLINE, NOT A DASHED RING: Tailwind has no `ring-dashed`,
           // so the first version of this rendered a plain solid ring and the
           // «قريباً» face was distinguished by the badge alone. `outline-*`
@@ -263,8 +282,12 @@ function GuestFace({ guest }: { guest: MuseumThinker }) {
             // `:hover` latches after a tap and stays, so the transform ran
             // during the scroll that followed — animating a face while the row
             // it sits in is moving.
-            : "ring-1 ring-border [@media(hover:hover)]:group-hover:scale-105 [@media(hover:hover)]:group-hover:ring-primary/50",
+            // NO RING. A 1px border cannot survive the clip — the diagonal edge
+            // would be unstroked while the other three are outlined, which
+            // reads as a rendering fault. The indigo tile is its own edge.
+            : "[@media(hover:hover)]:group-hover:scale-105",
         )}
+        style={{ clipPath: khatCut() }}
       >
         {guest.imageUrl ? (
           <Image
@@ -320,6 +343,7 @@ function GuestFace({ guest }: { guest: MuseumThinker }) {
           // panel is a tested pairing; let it bring its own ground.
           <KhatMarkPanel markClassName="text-subhead" />
         )}
+      </div>
       </div>
 
       <div className="mt-3 w-28 text-center">

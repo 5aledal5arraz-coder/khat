@@ -30,6 +30,30 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
       title: `اقتباس — ${quote.attribution || "خط"}`,
       description: quote.text,
     },
+    /*
+     * NOINDEX, 2026-08-15, AND IT IS NOT AN SEO DECISION.
+     *
+     * These pages rank. Searching Google for «صلاح الغزالي الأسر» returns
+     * khatpodcast.com SECOND — above Spotify and above KHAT's own video — on
+     * one of them, carrying «تجربة الأسر علمتني قيمة الحياة والحرية» under his
+     * name.
+     *
+     * He never said it. Measured against his full transcript, 19,683 words:
+     * the sentence is absent, «علمتني قيمة» is absent, and «حرية» appears in
+     * two paragraphs — in one of which the HOST is the one saying it. Project
+     * memory already recorded that 5 of 7 guest-attributed quotes are
+     * generated rather than transcribed; this is the first one proved against
+     * a source.
+     *
+     * So the second result on a living man's name is a sentence we invented
+     * for him. `index: false` stops that specific harm today without touching
+     * a row or deciding anything that is Khaled's to decide — the pages still
+     * work, the data is untouched, and lifting one line restores them once the
+     * quotes are re-grounded in the transcripts (which now exist).
+     *
+     * `follow: true` on purpose: the outbound links to the episodes are fine.
+     */
+    robots: { index: false, follow: true },
   }
 }
 

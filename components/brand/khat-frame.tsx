@@ -37,13 +37,59 @@ import { KhatDiamond } from "@/components/brand/khat-icon"
  * this as an SVG with `preserveAspectRatio="none"` and the 45° came out at 32°.
  */
 
-/** The cut, as a share of the frame's width — mine, not his 26.25%. */
-const CUT = 10
+/**
+ * The cut, as a share of the width — mine, not his 26.25%.
+ *
+ * IT IS THE PAGE'S RULE NOW, NOT JUST THIS FRAME'S. Khaled asked for the
+ * homepage to be read as a whole before anything was drawn on it, and what the
+ * reading found was that every block there is a rounded rectangle at one of
+ * four radii — tidy, and saying nothing. So the cut becomes a SIGNAL rather
+ * than a texture: it marks a person or an episode, and everything else (the
+ * newsletter, the partners, the two CTAs) stays a plain rectangle. One number
+ * across every size is what makes that legible, and this is the number he has
+ * already seen and approved on the episode frame.
+ */
+export const KHAT_CUT = 10
 /** The hairline. */
 const STROKE = 2
 
-/** Rounded rect with the top-right corner replaced by a 45° diagonal. */
-const CLIP = `polygon(0 0, calc(100% - ${CUT}cqw) 0, 100% ${CUT}cqw, 100% 100%, 0 100%)`
+/**
+ * A rounded rect with the top-right corner replaced by a 45° diagonal.
+ *
+ * `cqw` ON BOTH AXES IS WHAT MAKES IT 45°: container units resolve against the
+ * container's WIDTH whichever axis they are used on, so the same value across
+ * and down is a true diagonal at any aspect ratio. A percentage would not be —
+ * `10%` in a polygon is 10% of the width in x and 10% of the HEIGHT in y, which
+ * is only the same angle on a square.
+ */
+export const khatCut = (cut: number = KHAT_CUT) =>
+  `polygon(0 0, calc(100% - ${cut}cqw) 0, 100% ${cut}cqw, 100% 100%, 0 100%)`
+
+const CLIP = khatCut()
+
+/**
+ * The cut applied to whatever is inside, with the container it needs.
+ *
+ * Every caller needs the same two things — `container-type: inline-size` on a
+ * wrapper (an element does not establish a container for its own properties)
+ * and the clip on the box being cut. Repeating that at four call sites is how
+ * one of them ends up with the container in the wrong place and a 32° corner.
+ */
+export function KhatCut({
+  children,
+  className,
+  cut,
+}: {
+  children: React.ReactNode
+  className?: string
+  cut?: number
+}) {
+  return (
+    <div style={{ containerType: "inline-size" }} className={className}>
+      <div style={{ clipPath: khatCut(cut) }}>{children}</div>
+    </div>
+  )
+}
 
 export function KhatFrame({
   children,
@@ -90,7 +136,7 @@ export function KhatFrame({
       <span
         aria-hidden
         className="pointer-events-none absolute"
-        style={{ insetInlineStart: `${CUT * 0.34}cqw`, top: `${CUT * 0.34}cqw` }}
+        style={{ insetInlineStart: `${KHAT_CUT * 0.34}cqw`, top: `${KHAT_CUT * 0.34}cqw` }}
       >
         <KhatDiamond tone="accent" className="h-[2.4cqw] w-[2.4cqw] min-h-2.5 min-w-2.5" />
       </span>

@@ -2,6 +2,7 @@ import type { Metadata } from "next"
 import Link from "next/link"
 import { ArrowLeft } from "lucide-react"
 import { KhatDiamond, KhatIcon } from "@/components/brand/khat-icon"
+import { khatCut } from "@/components/brand/khat-frame"
 import {
   getCachedActiveTeaser,
   getCachedHomepagePartners,
@@ -411,13 +412,23 @@ export default async function HomePage() {
                   thumbnail in this archive has its type baked into the artwork
                   — and it repeated the «شاهد الحلقة» CTA that is already in
                   the column beside it. */}
-              <div className="relative aspect-video overflow-hidden rounded-2xl bg-secondary">
-                <EpisodeThumb
-                  ep={featured}
-                  priority
-                  sizes="(max-width: 1024px) 100vw, 700px"
-                  className="transition-transform duration-700 group-hover:scale-[1.03]"
-                />
+              {/* THE CUT, at the largest size the page uses it — same
+                  `KHAT_CUT` as the grid below and the strip above, so the
+                  newest episode and the nine under it are the same object.
+                  Container outside the clipped box: `cqw` inside an element
+                  resolves against the viewport, not itself. */}
+              <div style={{ containerType: "inline-size" }}>
+                <div
+                  className="relative aspect-video overflow-hidden rounded-2xl bg-secondary"
+                  style={{ clipPath: khatCut() }}
+                >
+                  <EpisodeThumb
+                    ep={featured}
+                    priority
+                    sizes="(max-width: 1024px) 100vw, 700px"
+                    className="transition-transform duration-700 group-hover:scale-[1.03]"
+                  />
+                </div>
               </div>
               {/* The card's empty half was two separate faults, not one.
                   HORIZONTAL: nothing capped or filled the text column.

@@ -1,5 +1,6 @@
 import Link from "next/link"
 import { EpisodeThumb } from "@/components/media/episode-thumb"
+import { khatCut } from "@/components/brand/khat-frame"
 import {
   displayEpisodeTitle,
   episodeDurationLabel,
@@ -57,12 +58,29 @@ export function EpisodePosterCard({
           burned into the artwork — a badge, a gradient or a duration chip lands
           on type we do not control. The hover play button that used to sit here
           is gone for the same reason (and it only ever appeared on a mouse). */}
-      <div className="relative aspect-video overflow-hidden bg-secondary">
-        <EpisodeThumb
-          ep={ep}
-          sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
-          className="transition-transform duration-500 group-hover:scale-105"
-        />
+      {/* THE CUT — the page's one shape, at the middle of its three sizes.
+          Same `KHAT_CUT` as the episode frame and the guest tiles, so a poster
+          here, a face above it and a video on the episode page are one object
+          seen at three scales. It is on the PICTURE and not on the card,
+          because the card's body is text on a surface: cutting that corner
+          would notch a paragraph, and the signal is meant to mark the content,
+          not decorate the box.
+
+          The container has to sit outside the clipped box — an element does not
+          establish a container for its own properties, so `cqw` on the picture
+          itself would resolve against the viewport and the 45° would come out
+          at whatever the page happened to be wide. */}
+      <div style={{ containerType: "inline-size" }}>
+        <div
+          className="relative aspect-video overflow-hidden bg-secondary"
+          style={{ clipPath: khatCut() }}
+        >
+          <EpisodeThumb
+            ep={ep}
+            sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
+            className="transition-transform duration-500 group-hover:scale-105"
+          />
+        </div>
       </div>
       <div className="flex flex-1 flex-col p-4">
         {ep.guest?.name ? (

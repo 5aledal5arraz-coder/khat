@@ -115,8 +115,10 @@ export function YouTubeEmbed({
   const progressIntervalRef = useRef<NodeJS.Timeout | null>(null)
   const milestonesRef = useRef({ w25: false, w50: false, w90: false })
   const playerInstanceRef = useRef<YT.Player | null>(null)
-  const { registerPlayer } = usePlayer()
+  const { registerPlayer, pendingStart, clearPendingStart } = usePlayer()
   const [playerState, setPlayerState] = useState<"thumbnail" | "player" | "blocked">("thumbnail")
+  /** A seek asked for before the player existed — see the provider's note. */
+  const [requestedStart, setRequestedStart] = useState<number | null>(null)
 
   const trackProgress = useCallback(() => {
     if (!episodeId || !episodeSlug || !durationMinutes) return
@@ -187,12 +189,33 @@ export function YouTubeEmbed({
         modestbranding: 1,
         playsinline: 1,
         enablejsapi: 1,
-        start: startTime || undefined,
+        start: requestedStart ?? startTime ?? undefined,
       },
       events: {
         onReady: (event) => {
           playerInstanceRef.current = event.target
           registerPlayer(event.target)
+          /*
+           * PLAY EXPLICITLY — Khaled: «لابد ان اضغط مره وبعدها اضغط مره ثانيه».
+           *
+           * `autoplay: 1` alone is not enough here. The player is not built
+           * during the click: the handler only flips state, then an effect
+           * awaits `loadYTApi()` (a network fetch of iframe_api) before
+           * constructing it. By the time the iframe exists the browser no
+           * longer counts the tap as the gesture that caused playback, so it
+           * blocks autoplay — and the visitor has to press the red button
+           * inside the iframe, which is the second click.
+           *
+           * Calling `playVideo()` from `onReady` re-asserts the intent on a
+           * player the user demonstrably asked for. It is wrapped because a
+           * browser is still free to refuse; if it does, the visitor sees a
+           * normal paused YouTube player rather than a thrown error.
+           */
+          try {
+            event.target.playVideo()
+          } catch {
+            /* autoplay refused — the player is there and playable by hand */
+          }
           trackProgress()
         },
         onError: (event) => {
@@ -205,7 +228,20 @@ export function YouTubeEmbed({
     })
 
     playerInstanceRef.current = player
-  }, [videoId, startTime, registerPlayer, trackProgress])
+  }, [videoId, startTime, requestedStart, registerPlayer, trackProgress])
+
+  /**
+   * A timestamp was clicked while this was still a thumbnail. Mount the real
+   * player at that second instead of leaving the click with no effect — the
+   * transcript below this embed is 288 timestamps long, and a reader reaches
+   * one of them long before they reach the picture.
+   */
+  useEffect(() => {
+    if (pendingStart === null) return
+    setRequestedStart(pendingStart)
+    setPlayerState("player")
+    clearPendingStart()
+  }, [pendingStart, clearPendingStart])
 
   const handlePlay = useCallback(() => {
     setPlayerState("player")

@@ -793,6 +793,22 @@
     @apply border-border;
   }
 
+  /* The horizontal clip lives on <html> ALONE. It used to be on both, and the
+     copy on <body> silently disabled `position: sticky` across the whole site.
+
+     `overflow-x: hidden` makes an element a SCROLL CONTAINER on both axes. When
+     that element is <body>, sticky descendants resolve against body's
+     scrollport — which never scrolls, because the viewport scrolls <html>. So
+     they never stick. Measured on the story page before this change: the player
+     carried `sticky top-14`, computed `position: sticky`, and sat at −896px at
+     a scroll of 1250.
+
+     On <html> the same rule is harmless, because <html> IS the thing that
+     scrolls. `overflow-x: clip` would have been the tidier fix on both, but
+     Lightning CSS downlevels `clip` to `hidden` with no browserslist target —
+     verified in the served chunk — so it changes nothing.
+
+     RTL overflow protection is unaffected: <html> still clips. */
   html {
     overflow-x: hidden;
     -webkit-text-size-adjust: 100%;
@@ -803,7 +819,6 @@
 
   body {
     @apply bg-background text-foreground;
-    overflow-x: hidden;
     overscroll-behavior-x: none;
   }
 

@@ -9,6 +9,9 @@ import { EpisodeSummary } from "./episode-summary"
 import { EpisodeIdeas } from "./episode-ideas"
 import { EpisodeRecommendations } from "./episode-recommendations"
 import { GuestIntroSection } from "./guest-intro-section"
+import { EpisodeTranscriptSection } from "./episode-transcript-section"
+import { EpisodeStoryQuotes, type QuoteItem } from "./episode-story-quotes"
+import type { StoryChapter, StoryParagraph } from "@/lib/stories/story"
 import { ResourcesList } from "./resources-list"
 import { QuoteCard } from "@/components/quotes/quote-card"
 import { WhyThisConversation } from "./why-this-conversation"
@@ -26,7 +29,7 @@ import { AudioPlayer } from "./audio-player"
 import { EpisodePlatformLinks } from "./episode-platform-links"
 import { EpisodeSponsor } from "./episode-sponsor"
 import { formatTimeSeconds } from "@/lib/utils"
-import { truncateOnWord } from "@/lib/shared/formatters"
+import { truncateOnWord, episodeDescriptionProse, parseDescriptionChapters } from "@/lib/shared/formatters"
 
 function TimestampLink({ seconds, title }: { seconds: number; title: string }) {
   const { seekTo } = usePlayer()
@@ -142,6 +145,18 @@ export interface EpisodeDeepAnalysisView {
 }
 
 interface EpisodePageClientProps {
+  /**
+   * The conversation as words — null for the episodes that have no transcript
+   * built yet, which is most of them. Absent means the section does not render,
+   * never an empty «نص الحلقة» heading.
+   */
+  transcript: {
+    paragraphs: StoryParagraph[]
+    chapters: StoryChapter[]
+    wordCount: number
+  } | null
+  /** Verbatim pull-quotes, proved against the transcript. Null when none. */
+  storyQuotes: QuoteItem[] | null
   episode: EpisodeWithRelations
   relatedEpisodes: (Episode & { guest?: Guest | null })[]
   enrichment?: EpisodeEnrichment | null
@@ -155,6 +170,8 @@ interface EpisodePageClientProps {
 
 export function EpisodePageClient({
   episode,
+  transcript,
+  storyQuotes,
   relatedEpisodes,
   enrichment,
   platformLinks = [],
@@ -171,9 +188,42 @@ export function EpisodePageClient({
     trackedRef.current = true
   }, [episode.id, episode.guest_id])
 
-  const summary = episode.summary || episode.description || null
+  // THE PROSE, NOT THE PASTE. `description` is the raw YouTube text and it
+  // carries eight bit.ly lines, a channel roster and eleven hashtags after the
+  // write-up — visible under «ملخص الحلقة» on the live page until Khaled
+  // pointed at it. `episodeDescriptionProse` drops those blocks and nothing
+  // else; it never shortens or rewrites what a human wrote.
+  const summary = episodeDescriptionProse(episode)
   const takeaways = episode.key_takeaways ?? []
-  const hasDbTimestamps = episode.timestamps.length > 0
+  /*
+   * THE INDEX WAS MISSING ON EVERY EPISODE THAT HAS ONE — Khaled: «وين شريط
+   * توقيت الحلقة؟ موموجود».
+   *
+   * This reads the `timestamps` TABLE, which is empty in production. The
+   * chapters live in `episode_enrichments.timestamps` instead, and the
+   * transcript file carries the same ten. So the page had an index it refused
+   * to draw. Fall back to the transcript's chapters when the table has none;
+   * the table still wins when an editor has curated it there.
+   */
+  //
+  // PRECEDENCE, AND THE MIDDLE ONE IS THE POINT. `episode_enrichments` is
+  // AI-written and on صلاح الغزالي it invented ten chapters at 0/2/5/10/…/40
+  // minutes — round numbers ending on «الخاتمة» at 40:00 for an episode that
+  // runs 3:18:00. The producer's real fourteen were in the description all
+  // along. An editor's curated table still wins; the model comes last, and
+  // only because a rough index beats none.
+  const producerChapters = parseDescriptionChapters(episode.description)
+  const chapterRows =
+    episode.timestamps.length > 0
+      ? episode.timestamps.map((t) => ({ id: t.id, seconds: t.time_seconds, title: t.title }))
+      : producerChapters.length > 0
+        ? producerChapters.map((c) => ({ id: `d-${c.seconds}`, seconds: c.seconds, title: c.title }))
+        : (transcript?.chapters ?? []).map((c) => ({
+            id: `ch-${c.start}`,
+            seconds: c.start,
+            title: c.title,
+          }))
+  const hasDbTimestamps = chapterRows.length > 0
   const hasDbQuotes = episode.quotes.length > 0
 
   // ص-٨ — the hero teaser.
@@ -271,7 +321,7 @@ export function EpisodePageClient({
                   <ChevronLeft className="h-4 w-4 shrink-0 text-primary transition-transform group-open:-rotate-90" />
                   <span className="text-lead font-semibold">فهرس الحلقة</span>
                   <span className="rounded-full bg-primary/10 px-2 py-0.5 text-micro font-semibold text-primary tabular-nums">
-                    {episode.timestamps.length}
+                    {chapterRows.length}
                   </span>
                 </span>
                 {/* Swaps on open so the bar never tells the reader to press
@@ -283,15 +333,33 @@ export function EpisodePageClient({
               </summary>
 
               <div className="space-y-1 px-2 pb-3">
-                {episode.timestamps.map((ts) => (
-                  <TimestampLink
-                    key={ts.id}
-                    seconds={ts.time_seconds}
-                    title={ts.title}
-                  />
+                {chapterRows.map((ts) => (
+                  <TimestampLink key={ts.id} seconds={ts.seconds} title={ts.title} />
                 ))}
               </div>
             </details>
+          )}
+
+          {/* 8a. THE EPISODE IN ITS OWN WORDS — six playable lines, placed
+              between the index and the text because they are what makes the
+              text worth opening. See the component for why verbatim matters. */}
+          {storyQuotes && storyQuotes.length > 0 && (
+            <EpisodeStoryQuotes quotes={storyQuotes} />
+          )}
+
+          {/* 8b. THE FULL TEXT — merged in from the /stories pilot on
+              Khaled's call. It sits directly under the chapter index because
+              the two are the same tool at two resolutions: the index is ten
+              doors into the episode, the transcript is 288. Collapsed by
+              default — it is 19,683 words on this episode — but the markup is
+              rendered either way, so Google reads it and Ctrl+F finds it. */}
+          {transcript && (
+            <EpisodeTranscriptSection
+              paragraphs={transcript.paragraphs}
+              chapters={transcript.chapters}
+              hostName="خالد"
+              wordCount={transcript.wordCount}
+            />
           )}
 
           {/* 9. Quotes */}

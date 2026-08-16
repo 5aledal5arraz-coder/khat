@@ -23,6 +23,7 @@ import { filterLane } from "@/lib/episodes/programs"
 import { EpisodePageClient } from "@/components/episodes/episode-page-client"
 import { UpcomingEpisodePage } from "@/components/episodes/upcoming-episode-page"
 import { ReadingProgress } from "@/components/ui/reading-progress"
+import { getStoryTranscript, getStoryQuotes } from "@/lib/stories/transcripts"
 
 // Note: searchParams (t= timestamp) forces dynamic rendering in Next.js 15+
 // ISR would require moving timestamp param to client-side parsing
@@ -197,6 +198,19 @@ export default async function EpisodePage({ params, searchParams }: EpisodePageP
   // EIR; null when the episode had no teaser.
   const teaser = await getTeaserForEpisode(eirId)
 
+  // THE CONVERSATION AS WORDS. Built by `scripts/build-story-transcript.ts` and
+  // read from `content/stories/<videoId>.json`; null for every episode that has
+  // not been through it yet, which the client renders as nothing at all.
+  //
+  // Keyed by YouTube id rather than slug on purpose: the slug is editorial and
+  // can change, the video id is the thing the captions actually came from.
+  const transcriptVideoId = getYouTubeId(episode.youtube_url)
+  const story = transcriptVideoId ? await getStoryTranscript(transcriptVideoId) : null
+  const transcript = story
+    ? { paragraphs: story.paragraphs, chapters: story.chapters, wordCount: story.wordCount }
+    : null
+  const storyQuotes = transcriptVideoId ? await getStoryQuotes(transcriptVideoId) : null
+
   // `sameAs` advertises our canonical social/video/audio accounts to search engines.
   const sameAs = allActivePlatforms
     .filter((p) => p.category !== "other" && p.platform_key !== "rss")
@@ -242,6 +256,8 @@ export default async function EpisodePage({ params, searchParams }: EpisodePageP
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
       />
       <EpisodePageClient
+        transcript={transcript}
+        storyQuotes={storyQuotes}
         episode={episode}
         relatedEpisodes={relatedEpisodes}
         enrichment={enrichment}

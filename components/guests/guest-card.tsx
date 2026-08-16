@@ -136,23 +136,44 @@ export function GuestCard({
       ) : null}
 
       {cutout ? (
-        // Standing on the ground, meeting the bottom edge — his framing. No
-        // crop and no fade: the file has no background to hide.
+        // THE PHOTO IS THE RIGHT SIDE OF THE CARD, bleeding to the top, the
+        // outer edge and the bottom — his drawing, sent 2026-08-16.
         //
-        // 44%, NOT THE 58% THIS STARTED AT. Our sources are square portraits
-        // cropped tight to head-and-shoulders; his is a half-body shot with
-        // room around it. `object-contain` in a 58%-wide box fitted the square
-        // to the card's HEIGHT, and the head came out ~250px on a 414px card
-        // against his ~186px — a third too big, and it read as a face pressed
-        // against the glass. At 44% the box is narrower than it is tall, so the
-        // image fits to width and lands at his proportion.
-        <div className="absolute inset-y-0 start-0 w-[44%]">
+        // It was a 44%-wide box holding a `contain` image, so the cut-out
+        // floated with indigo on three sides: measured, a 343px panel around a
+        // 151px picture, 192px of it bare. Khaled circled that gap four times.
+        // The panel was never meant to show AROUND the guest — in his card the
+        // guest fills it and the ivory shape with the 45° cut lies OVER the
+        // picture from the left.
+        //
+        // `cover`, not `contain`: the box must be FULL, and the crop it costs
+        // comes off the sides and the headroom, never off the shoulders —
+        // `object-bottom` pins the feet of the image to the card's floor.
+        // `-bottom-px`: a sub-pixel row of the indigo panel was showing under the
+        // photo at some widths — the card rounds its corners and the image box
+        // landed exactly on the boundary. Overrunning by one pixel removes the
+        // line without moving the picture, and `overflow-hidden` on the card
+        // clips the overrun.
+        <div className="absolute -bottom-px top-0 start-0 w-[58%]">
           <Image
             src={cutout}
             alt=""
             fill
             sizes="(max-width: 768px) 44vw, 330px"
-            className="object-contain object-bottom transition-transform duration-500 group-hover:scale-[1.03]"
+            // `object-contain object-bottom`, and the fix that made it work is
+            // in the FILE, not here.
+            //
+            // Khaled circled the indigo showing under and beside the guest and
+            // said: only the bottom, never the head. `cover` fills the panel but
+            // pays for it by cropping the top of the head — he rejected that on
+            // sight. The gap was never really about the fit: every cut-out
+            // carried a 32px transparent margin from Vision, so `object-bottom`
+            // was anchoring the guest to the bottom of his OWN PADDING, which
+            // sat 32px above the frame. `scripts/trim-guest-cutouts.ts` removes
+            // that margin on the left, right and bottom — the top is untouched,
+            // so the head is exactly as it was — and the clothing now lands on
+            // the frame's edge because it IS the edge of the image.
+            className="object-cover object-[50%_82%] transition-transform duration-500 group-hover:scale-[1.03]"
           />
         </div>
       ) : guest.photo_url ? (

@@ -46,15 +46,17 @@ export async function Footer() {
           </div>
         </div>
 
-        {/* TWO COLUMNS ON A PHONE, NOT ONE. This was `grid` with no column
-            count until md, so «تصفّح» and «انضم إلينا» — four and three short
-            links — stacked into two full-width blocks and pushed the legal line
-            most of a screen further down. They are narrow lists; they fit side
-            by side at 375 with room. The brand block keeps the full width
-            above them, because the lockup and the description need it. */}
-        <div className="grid grid-cols-2 gap-8 md:grid-cols-5">
+        {/* THREE COLUMNS ON A PHONE — one per list, so the three lists are one
+            row at every width.
+            It was `grid-cols-2`, which fit «تصفّح» and «انضم إلينا» side by side
+            and dropped «استمع عبر» onto a row of its own: measured, the first
+            two headings sat at y=6089 and the third at y=6342, 253px below
+            them. Khaled: «ليش استمع عبر تحتهم؟ خلهم كلهم بنفس الخط». The brand
+            block spans all three above them, because the lockup and the
+            description need the full width. */}
+        <div className="grid grid-cols-3 gap-x-4 gap-y-8 sm:gap-8 md:grid-cols-5">
           {/* Brand */}
-          <div className="col-span-2">
+          <div className="col-span-3 md:col-span-2">
             <Link href="/" className="inline-flex" aria-label="خط — الرئيسية">
               <KhatLogo variant="lockup-vertical" height={96} label={null} />
             </Link>
