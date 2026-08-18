@@ -1,0 +1,257 @@
+{
+  "takenAt": "2026-08-18T10:01:58.785Z",
+  "methodology": "PRE-CHANGE — YouTube's old view counting (minimum watch time). From 2026-08-24 a view counts on play start with no minimum.",
+  "source": "YouTube Data API v3, statistics.viewCount, API key auth",
+  "episodeCount": 41,
+  "resolvedByApi": 41,
+  "totalApiViews": 2268310,
+  "dbDisagreesWithApi": 40,
+  "episodes": [
+    {
+      "videoId": "ZPeBeS87EeI",
+      "slug": "الرجل-الذي-صنع-النصر-قبل-صلاح-الدين-الايوبي-،-قصة-نور-الدين-",
+      "storedInDb": 180402,
+      "apiViewCount": 181130
+    },
+    {
+      "videoId": "0_mxyqK3sDk",
+      "slug": "المفاتيح-العشرين-للتفوق-دراسة-في-أسباب-تقدم-الغرب-الحضاري-مع",
+      "storedInDb": 3492,
+      "apiViewCount": 3503
+    },
+    {
+      "videoId": "rKasyK7sdOE",
+      "slug": "الدكتور-الحارث-المزيدي-يتحدث-عن-أسرار-الزواج-الذكي-004-بودكا",
+      "storedInDb": 114736,
+      "apiViewCount": 115581
+    },
+    {
+      "videoId": "VrP9i5gRFmM",
+      "slug": "طياره-خاصه-لافتتاح-كافيه-مقاطع-من-بودكاست-خط",
+      "storedInDb": 397,
+      "apiViewCount": 422
+    },
+    {
+      "videoId": "oISdxagKMBI",
+      "slug": "الايقاف-الذي-غير-المسار-الرياضه-في-الكويت-013-بودكاست-خط",
+      "storedInDb": 10373,
+      "apiViewCount": 10426
+    },
+    {
+      "videoId": "Vn0A4aUTSbY",
+      "slug": "سالفة-الشيخ-صباح-الأحمد-وغلاء-المهور-01",
+      "storedInDb": 3048,
+      "apiViewCount": 3055
+    },
+    {
+      "videoId": "irSIienUQd4",
+      "slug": "من-فكرة-صغيرة-إلى-صفقة-بـ-٣٢-مليون-دولار-قصه-حلويات-الفيصل-0",
+      "storedInDb": 129045,
+      "apiViewCount": 129961
+    },
+    {
+      "videoId": "oNyFz82BVzY",
+      "slug": "قصة-لجوء-الخطاط-السوري-حسام-مطر-019-بودكاست-خط",
+      "storedInDb": 4681,
+      "apiViewCount": 4799
+    },
+    {
+      "videoId": "6F93shePog0",
+      "slug": "سالفة-القبور-الكويتية-في-الأراضي-السعودية-معركة-الصريف-02",
+      "storedInDb": 4291,
+      "apiViewCount": 4315
+    },
+    {
+      "videoId": "rWmx74av4x4",
+      "slug": "اكتشف-التاريخ-الإسلامي-في-الحضارة-الحبشيه-قراءات-في-الأدب-ال",
+      "storedInDb": 254041,
+      "apiViewCount": 254853
+    },
+    {
+      "videoId": "s7Ajz6YL2ZE",
+      "slug": "رجل-الظل-المؤرخ-السري-لأحداث-الغزو-والأسرقصة-صلاح-الغزالي-01",
+      "storedInDb": 220197,
+      "apiViewCount": 226725
+    },
+    {
+      "videoId": "VFlYnIQiIUo",
+      "slug": "سالفة-عنترة-بن-شداد-وعبلة-في-السعوديه-05",
+      "storedInDb": 344,
+      "apiViewCount": 346
+    },
+    {
+      "videoId": "0pMIwYMKE9w",
+      "slug": "إداري-كشخه-في-حملة-حج-سالفة-03",
+      "storedInDb": 1143,
+      "apiViewCount": 1145
+    },
+    {
+      "videoId": "xQtI8cE7Igc",
+      "slug": "سالفة-مبارك-الكبير-وتأجير-ميناء-الشويخ-على-الانجليز-04",
+      "storedInDb": 370,
+      "apiViewCount": 370
+    },
+    {
+      "videoId": "agDEZAVDYAU",
+      "slug": "كلنا-نخطئ-فـ-نحن-بشر-سالفة-الخـطّـاؤون-02",
+      "storedInDb": 350,
+      "apiViewCount": 352
+    },
+    {
+      "videoId": "uNFmnch6DkU",
+      "slug": "الدعاء-يكسر-قوانين-الطبيعة-سالفة-03",
+      "storedInDb": 330,
+      "apiViewCount": 333
+    },
+    {
+      "videoId": "H2FK-9N7O4Q",
+      "slug": "الشعب-المنبوذ-الذي-سيطر-على-اقتصاد-العالم-006-بودكاست-خط",
+      "storedInDb": 9861,
+      "apiViewCount": 9896
+    },
+    {
+      "videoId": "J_A5Hovna5M",
+      "slug": "هل-التداول-الإلكتروني-نصب-و-إحتيال-أم-حقيقة-؟-طلال-العجمي-00",
+      "storedInDb": 22276,
+      "apiViewCount": 22371
+    },
+    {
+      "videoId": "5ZYWspIqYLw",
+      "slug": "سالفة-فيصل-مع-العملاء-في-البنك-02",
+      "storedInDb": 1423,
+      "apiViewCount": 1428
+    },
+    {
+      "videoId": "cDH4cPa7XJM",
+      "slug": "سالفة-النبي-سليمان-وابنه-من-بلقيس-الرواية-الأثيوبية-03",
+      "storedInDb": 642,
+      "apiViewCount": 657
+    },
+    {
+      "videoId": "I-sJTe9u0j4",
+      "slug": "طل-العمر-وعرضه-سالفة-01",
+      "storedInDb": 344,
+      "apiViewCount": 348
+    },
+    {
+      "videoId": "dFcdYCKkc3Q",
+      "slug": "الوصول-للهدف-ليس-هو-النجاح-سالفة-05",
+      "storedInDb": 234,
+      "apiViewCount": 237
+    },
+    {
+      "videoId": "RVo_ar7OSDk",
+      "slug": "كيف-تصبح-مليونيراً-سالفة-06",
+      "storedInDb": 302,
+      "apiViewCount": 307
+    },
+    {
+      "videoId": "tqH-9fmPdI0",
+      "slug": "رحلة-تاجر-العود-علي-آل-دريع-من-الهند-إلى-أمراء-الخليج-010-بو",
+      "storedInDb": 228794,
+      "apiViewCount": 229741
+    },
+    {
+      "videoId": "C_hN-U1qgUo",
+      "slug": "رحلة-النجاة-قصة-الملازم-عبدالله-البطي-في-حرب-تحرير-الكويت-01",
+      "storedInDb": 196941,
+      "apiViewCount": 200662
+    },
+    {
+      "videoId": "tEEfMkbYfUY",
+      "slug": "كيف-تستعد-لوظيفة-المستقبل؟-خطوات-عملية-لتحقيق-النجاح-012-بود",
+      "storedInDb": 7743,
+      "apiViewCount": 7795
+    },
+    {
+      "videoId": "SmsIBiQ8uEA",
+      "slug": "تعرّف-على-أساسيات-واستراتيجيات-التسويق-الناجح-005-بودكاست-خط",
+      "storedInDb": 2719,
+      "apiViewCount": 2723
+    },
+    {
+      "videoId": "bSRHYQVtK2Y",
+      "slug": "كيف-تطور-شخصيتك-القيادية-في-حياتك-وعملك-007-بودكاست-خط",
+      "storedInDb": 4995,
+      "apiViewCount": 5048
+    },
+    {
+      "videoId": "qhNxSY35WZU",
+      "slug": "حكاية-من-الساعات-الاولى-للغزو-العراقي-للكويت-مقاطع-من-بودكاس",
+      "storedInDb": 64338,
+      "apiViewCount": 64537
+    },
+    {
+      "videoId": "WEoJyqjOLDs",
+      "slug": "مشاهد-من-داخل-العراق-مقاطع-من-بودكاست-خط",
+      "storedInDb": 7545,
+      "apiViewCount": 7588
+    },
+    {
+      "videoId": "V3MNyEwmqr8",
+      "slug": "لماذا-يبقى-الرجال-في-القمه-وتسقط-المرأة-قبل-الوصول-مقاطع-من-",
+      "storedInDb": 206,
+      "apiViewCount": 216
+    },
+    {
+      "videoId": "SrT5ZBalYpM",
+      "slug": "قصة-كافيه-دوز-ورحلتها-من-15-ألف-إلى-12-مليون-دولار-جاسم-العب",
+      "storedInDb": 198574,
+      "apiViewCount": 200253
+    },
+    {
+      "videoId": "Oc7CimUr4dQ",
+      "slug": "السفر-بشكل-مختلف-جاسم-عباس-003-بودكاست-خط",
+      "storedInDb": 24086,
+      "apiViewCount": 24585
+    },
+    {
+      "videoId": "gIgjLe_1_fA",
+      "slug": "قصة-الأسير-السابق-ناصر-سالمين-و-أحداث-الإعتقالات-في-العراق-0",
+      "storedInDb": 298759,
+      "apiViewCount": 300892
+    },
+    {
+      "videoId": "rkb-6qjO3YM",
+      "slug": "الزواج-مو-بس-حب-كيف-تختار-شريك-العمر-مقاطع-بودكاست-خط",
+      "storedInDb": 26777,
+      "apiViewCount": 27146
+    },
+    {
+      "videoId": "r_NzVN4OmIs",
+      "slug": "ماتوقع-يلقاه-ولقاه-بالمعتقل-صدفه-مقاطع-بودكاست-خط",
+      "storedInDb": 51645,
+      "apiViewCount": 51819
+    },
+    {
+      "videoId": "qGe25_jFNQ0",
+      "slug": "تزاحم-الحجاج-في-رمي-الجمرات-04",
+      "storedInDb": 635,
+      "apiViewCount": 636
+    },
+    {
+      "videoId": "jJmOjPGDdHQ",
+      "slug": "كيف-نتدرب-على-الموت-سالفة-04",
+      "storedInDb": 426,
+      "apiViewCount": 431
+    },
+    {
+      "videoId": "vHH0LheJQFs",
+      "slug": "عدت-الى-الحياة-بعد-ان-تم-اعلان-وفاتي-01",
+      "storedInDb": 2197,
+      "apiViewCount": 2206
+    },
+    {
+      "videoId": "v8e_tW3NX0Y",
+      "slug": "سالفة-التاجر-وقصة-حياة-فيصل-05",
+      "storedInDb": 697,
+      "apiViewCount": 701
+    },
+    {
+      "videoId": "knyKlUZIwYQ",
+      "slug": "نظرة-على-عقلية-رائد-الأعمال-جاسم-الزراعي-يحكي-القصة-018-بودك",
+      "storedInDb": 166319,
+      "apiViewCount": 168771
+    }
+  ]
+}
