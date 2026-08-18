@@ -124,7 +124,6 @@ export function YouTubeEmbed({
     if (!episodeId || !episodeSlug || !durationMinutes) return
 
     const trackingStartTime = Date.now()
-    const meta = { duration_minutes: durationMinutes }
 
     progressIntervalRef.current = setInterval(() => {
       const elapsedMinutes = (Date.now() - trackingStartTime) / 1000 / 60

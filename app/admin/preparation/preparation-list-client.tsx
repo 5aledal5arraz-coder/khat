@@ -498,7 +498,7 @@ export function PreparationListClient({ initialItems }: Props) {
 
             {/* Progress indicator */}
             <div className="flex items-center gap-2 px-6 pt-4">
-              {(["inputs", "candidates", "confirm"] as WizardStep[]).map((s, i) => {
+              {(["inputs", "candidates", "confirm"] as WizardStep[]).map((s) => {
                 const active =
                   step === s ||
                   (s === "inputs" && step !== "inputs") ||

@@ -49,7 +49,7 @@ import {
   InvalidPhaseTransitionError,
 } from "@/lib/eir"
 import { getHandler } from "@/lib/jobs/registry"
-import "@/lib/jobs/registered" // eslint-disable-line import/no-unassigned-import
+import "@/lib/jobs/registered"
 import { generateGlobalEpisodeIntelligence } from "@/lib/ai/episode-intelligence"
 import { processTranscript, regenerateKeyIdeas, regenerateLessons } from "@/lib/ai/transcript"
 import { generateWebsitePackage } from "@/lib/ai/website"

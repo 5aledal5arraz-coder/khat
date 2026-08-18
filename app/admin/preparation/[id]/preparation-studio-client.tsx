@@ -249,21 +249,6 @@ export function PreparationStudioClient({ initial }: Props) {
     }
   }, [prep.id])
 
-  const refresh = useCallback(async () => {
-    // Silent on failure by design — this is a background re-read, not a click.
-    // It must still not reject: an unhandled rejection here surfaces as a
-    // console error on a screen the host is using live.
-    try {
-      const res = await fetch(`/api/admin/preparation/${prep.id}`, { cache: "no-store" })
-      if (res.ok) {
-        const data = await res.json()
-        setPrep(data.preparation)
-      }
-    } catch {
-      /* keep the last good state */
-    }
-  }, [prep.id])
-
   const runResearch = useCallback(async () => {
     setError(null)
     setNotice(null)

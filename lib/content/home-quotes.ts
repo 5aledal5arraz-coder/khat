@@ -3,11 +3,6 @@ import { homeQuotes } from "@/lib/db/schema"
 import { eq, and, desc } from "drizzle-orm"
 import type { HomeQuote } from "@/types/database"
 
-interface HomeQuotesConfig {
-  quotes: HomeQuote[]
-}
-
-
 
 export async function getPublishedHomeQuotes(): Promise<HomeQuote[]> {
   if (!db) return []

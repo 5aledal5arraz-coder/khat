@@ -91,3 +91,8 @@ visitor-tracking-backup-*.json
 
 # Rendered output from scripts/audit-email-identity.ts — regenerated on every build.
 outputs/
+
+# Compiled on demand by scripts/guest-portrait-from-video.ts (buildCutoutBinary).
+# It was tracked, so every run left git dirty with a 67KB binary diff that says
+# nothing about the source. The source is scripts/native/subject-cutout.swift.
+.cache/

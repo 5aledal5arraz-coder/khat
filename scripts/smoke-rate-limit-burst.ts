@@ -266,7 +266,7 @@ async function scenarioEnforceBypassCall(c: Client): Promise<ScenarioResult> {
   }
 }
 
-async function scenarioSubjectLock(c: Client): Promise<ScenarioResult> {
+async function scenarioSubjectLock(_c: Client): Promise<ScenarioResult> {
   process.env.KHAT_RATE_LIMIT_MODE = "enforce"
   const subjectId = `${SMOKE_SUBJECT_ID_PREFIX}${Date.now()}`
   // First acquire — should succeed.

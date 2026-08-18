@@ -1,4 +1,3 @@
-import Link from "next/link"
 import { CalendarClock, Youtube } from "lucide-react"
 
 import { formatArabicDate } from "@/lib/shared/formatters"

@@ -1,14 +1,7 @@
 import { db } from "@/lib/db"
 import { dailyReflections } from "@/lib/db/schema"
-import { eq, and, desc } from "drizzle-orm"
+import { eq, and } from "drizzle-orm"
 import type { DailyReflection } from "@/types/database"
-
-interface DailyReflectionsConfig {
-  reflections: DailyReflection[]
-}
-
-
-
 
 
 

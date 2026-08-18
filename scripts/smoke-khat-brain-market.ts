@@ -76,14 +76,6 @@ async function seedRawSignal(seq: number, language = "ar", theme: string | null 
   }
 }
 
-async function ourSignalIds(): Promise<string[]> {
-  const rows = await db!
-    .select({ id: marketTopicSignals.id })
-    .from(marketTopicSignals)
-    .where(like(marketTopicSignals.external_id, `${TAG}%`))
-  return rows.map((r) => r.id)
-}
-
 // ─── Cases ────────────────────────────────────────────────────────────
 
 async function caseInsertSelect() {
@@ -189,7 +181,6 @@ async function caseExtraction(): Promise<{ aiRunWritten: boolean; mocked: boolea
   // the seeded pre-clustered rows.
   await seedRawSignal(101, "en")
   await seedRawSignal(102, "en")
-  const ids = (await ourSignalIds()).filter((id) => true)
   // Identify the rows that have NULL theme.
   const pending = await db!
     .select({ id: marketTopicSignals.id })

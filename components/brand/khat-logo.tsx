@@ -165,9 +165,11 @@ export function KhatLogoSwap({
         width={fullGeo.width}
         height={fullGeo.height}
       />
-      {/* eslint-disable-next-line @next/next/no-img-element -- <picture> media
-          selection is the point; next/image has no equivalent, and these are
-          already-optimal hand-cropped SVGs. */}
+      {/* <picture> media selection is the point; next/image has no equivalent,
+          and these are already-optimal hand-cropped SVGs. (The
+          `@next/next/no-img-element` disable this comment used to carry was
+          reported as unused — the rule does not fire on an <img> inside a
+          <picture> — so only the reason is kept.) */}
       <img
         src={ART_SRC[compact.variant]}
         // Intrinsic box of the DEFAULT source. It describes this candidate only

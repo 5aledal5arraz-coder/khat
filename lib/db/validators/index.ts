@@ -87,7 +87,7 @@ export function validateJsonbWrite<T>(
 
   // Best-effort console signal (never throws).
   try {
-    // eslint-disable-next-line no-console
+
     console.warn("[jsonb-validator] DRIFT", {
       table: spec.table,
       column: spec.column,
@@ -156,7 +156,7 @@ export function recordDriftFireAndForget(args: {
       raw_value_hash: args.rawValueHash,
     })
     .catch((err: unknown) => {
-      // eslint-disable-next-line no-console
+
       console.warn(
         "[jsonb-validator] audit insert failed (non-fatal):",
         err instanceof Error ? err.message : err,

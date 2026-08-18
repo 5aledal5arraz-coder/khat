@@ -4,16 +4,13 @@ import { PartnerApplicationForm } from "@/components/forms/partner-application-f
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { PartnerHeroCTA } from "./partner-hero-cta"
-import { formatCompactNumber } from "@/lib/shared/formatters"
 import {
   Mic,
   Layers,
   Sparkles,
   Users,
-  TrendingUp,
   Headphones,
   Globe,
-  BarChart3,
   Shield,
   Handshake,
   Star,

@@ -89,7 +89,7 @@ async function proofreadFile(file: string, dry: boolean) {
 
   const indexed = doc.quotes.map((q, i) => ({ id: i, text: q.text }))
   const fixes = new Map<number, string>()
-  let rejected: { text: string; proposed: string }[] = []
+  const rejected: { text: string; proposed: string }[] = []
 
   for (let i = 0; i < indexed.length; i += BATCH) {
     const batch = indexed.slice(i, i + BATCH)

@@ -30,10 +30,6 @@ import {
   guestIdentityProfiles,
 } from "@/lib/db/schema/guest-identity"
 import {
-  discoveryRuns,
-  guestDiscoveryCandidates,
-} from "@/lib/db/schema/discovery"
-import {
   ensureGuest,
   findGuestMatch,
   updateGuestIdentityProfile,

@@ -185,7 +185,7 @@ async function caseRollingWindows(adminId: string) {
   return { seasonId, eirId }
 }
 
-async function caseMissingWindowsRenormalize(adminId: string) {
+async function caseMissingWindowsRenormalize(_adminId: string) {
   console.log("\nCase 2 — handles missing 14d/28d via component renormalization:")
   const eirId = await seedEir({
     seasonId: null,

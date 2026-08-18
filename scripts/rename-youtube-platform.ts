@@ -10,7 +10,7 @@
  * It is a DATABASE value, not a string in the page, so it changes on both
  * sides or the two drift.
  */
-import { Pool } from "pg"; import { readFileSync } from "fs"; import path from "path"
+import { Pool } from "pg"; import { readFileSync } from "fs"
 const argv=process.argv.slice(2), APPLY=argv.includes("--apply"), LIVE=argv.includes("--live")
 const key = LIVE ? "LIVE_DATABASE_URL" : "DATABASE_URL"
 const url=(process.env[key] ?? (readFileSync(".env.local","utf8").match(new RegExp(`^${key}=(.*)$`,"m"))?.[1] ?? "")).trim().replace(/^["']|["']$/g,"")

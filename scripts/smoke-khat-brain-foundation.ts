@@ -31,7 +31,7 @@ import {
 import { runAiTask } from "@/lib/ai-router"
 import { enqueueJob, claimNextJob, completeJob } from "@/lib/jobs"
 import { getHandler } from "@/lib/jobs/registry"
-import "@/lib/jobs/registered" // eslint-disable-line import/no-unassigned-import
+import "@/lib/jobs/registered"
 
 const TEST_PREFIX = "smoke-khat-brain-"
 
