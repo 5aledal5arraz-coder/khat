@@ -159,7 +159,8 @@ export default async function HomePage() {
   const grid = hall?.episodes ?? conversations.slice(1, 1 + HOMEPAGE_EPISODE_CAP)
   const gridLabel = hall?.label ?? "أحدث الحلقات"
   const moreHref = hall?.moreHref ?? "/episodes"
-  const hiddenCount = Math.max(0, (hall?.total ?? conversations.length) - grid.length)
+  /** Everything the archive link actually leads to — see its label below. */
+  const archiveTotal = hall?.total ?? conversations.length
   // NOBODY APPEARS TWICE ON THIS PAGE.
   //
   // Auto mode picks "the guests of the newest episodes", and the grid beside
@@ -402,7 +403,14 @@ export default async function HomePage() {
       {featured ? (
         <section className="px-6 pb-8">
           <div className="mx-auto max-w-6xl">
-            <SectionLabel>الحلقة الأحدث</SectionLabel>
+            {/* NOT «الحلقة الأحدث». It was true and it was the worst sentence
+                on the site: the largest content block invited every visitor to
+                compare a date — 20 ديسمبر 2024 — against today, and answer
+                "this podcast is dead". خط is an archive; the label now says
+                what the block is instead of when it happened. The episode and
+                its date are unchanged, because the date is a fact about the
+                conversation and not a claim about the site. */}
+            <SectionLabel>من الأرشيف</SectionLabel>
             <Link
               href={`/episodes/${featured.slug}`}
               className="group mt-5 grid items-center gap-8 rounded-[28px] border border-border bg-card p-4 shadow-[0_2px_8px_hsl(var(--primary)/0.04),0_24px_60px_-30px_hsl(var(--primary)/0.28)] transition-all hover:shadow-[0_2px_8px_hsl(var(--primary)/0.05),0_36px_80px_-30px_hsl(var(--primary)/0.35)] sm:p-5 lg:grid-cols-[1.5fr_1fr]"
@@ -518,7 +526,13 @@ export default async function HomePage() {
                   href={moreHref}
                   className="inline-flex items-center gap-1 text-caption font-semibold text-primary transition-all hover:gap-2"
                 >
-                  {hiddenCount > 0 ? `كل الحلقات (${hiddenCount}+)` : "كل الحلقات"}
+                  {/* THE NUMBER WAS A REMAINDER, NOT A TOTAL. `hiddenCount` is
+                      "how many this grid left out", so the link read «كل الحلقات
+                      (12+)» over an archive of 41 — a smaller number than the
+                      truth, with a «+» that reads as a placeholder, on the one
+                      control whose whole job is to say how much more there is.
+                      The destination holds everything, so the label says so. */}
+                  {archiveTotal > 0 ? `كل الحلقات (${archiveTotal})` : "كل الحلقات"}
                   <ArrowLeft className="h-4 w-4" />
                 </Link>
               </div>
