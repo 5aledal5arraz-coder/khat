@@ -112,53 +112,89 @@ export function EpisodeTranscriptSection({ paragraphs, chapters, hostName, wordC
         </p>
       )}
 
-      {!showing && (
+      {/*
+        THE TEXT IS ALWAYS IN THE DOM. THIS IS THE WHOLE POINT OF THE SECTION.
+
+        It used to be `{showing && (…)}` — the paragraphs were not merely hidden,
+        they were never mounted until someone clicked. Measured on the live page
+        for صلاح الغزالي on 2026-08-18, in a real browser with JavaScript run:
+
+            body text before the click ……………………    399 words
+            body text after  the click ……………… 20,940 words
+            <p> nodes inside #sec-transcript ……………      0
+
+        …while the heading beside it advertised «19,683 كلمة». Googlebot runs
+        JavaScript; it does not press buttons. So every episode page offered
+        Google a few hundred words of chrome, and Search Console answered
+        exactly as it should have: six episodes and two guest pages sitting in
+        "Crawled — currently not indexed". 242,857 words of Arabic on this site
+        and not one of them was ever eligible to rank.
+
+        (The words WERE in the HTML — inside the RSC payload, inside <script>.
+        That is data for building the page, not content of the page, and
+        finding them there is what made me believe for half a day that the
+        transcripts were fine. See [[is-it-live-ask-the-page]].)
+
+        The collapse is now CSS: the paragraphs render, and `max-height` +
+        `overflow-hidden` clip them. Clipped is not `display: none` and is not
+        unmounted — the text is present, laid out, and indexable, and the reader
+        still gets a page that opens on a video rather than on 288 paragraphs.
+      */}
+      <p className="mt-4 rounded-xl border border-border bg-secondary/60 px-4 py-3 text-micro leading-relaxed text-muted-foreground">
+        هذا النص مُفرَّغ آلياً من صوت الحلقة ومُرقَّم بمساعدة الذكاء الاصطناعي — الكلام كما
+        قيل، دون إعادة صياغة. قد تجد أخطاء في التعرّف على بعض الكلمات، والفيديو هو
+        المرجع. اضغط أي توقيت لتسمع الكلام بصوت صاحبه.
+      </p>
+
+      {/* A FIXED HEIGHT, NOT `60vh`. Viewport units are the obvious choice and
+          the wrong one here: mobile browsers change the viewport as the toolbar
+          hides, so the clip would resize while the reader scrolls through it,
+          and any context that reports a zero viewport collapses the teaser to
+          nothing at all. 30rem is about five paragraphs on a phone and the same
+          five on a desktop, which is what a teaser is for. */}
+      <div className={cn("relative mt-6", !showing && "max-h-[30rem] overflow-hidden")}>
+        {matches !== null
+          ? matches.map((p, i) => (
+              <Line key={`m-${p.start}-${i}`} p={p} isHost={p.speaker === hostName} onSeek={seekTo} needle={q} />
+            ))
+          : groups.map((g, gi) => (
+              <div key={g.chapter ? g.chapter.start : `open-${gi}`} className="mb-8">
+                {g.chapter && (
+                  <h3 className="mb-4 border-b border-border pb-2 text-body font-bold text-foreground">
+                    {g.chapter.title}
+                  </h3>
+                )}
+                {g.items.map((p, i) => (
+                  <Line key={`${p.start}-${i}`} p={p} isHost={p.speaker === hostName} onSeek={seekTo} needle="" />
+                ))}
+              </div>
+            ))}
+
+        {/* The clip has to read as "there is more", not as "the text ends
+            oddly here". Decorative only, so it is hidden from assistive tech
+            and never intercepts a tap on the timestamp underneath it. */}
+        {!showing && (
+          <div
+            aria-hidden
+            className="pointer-events-none absolute inset-x-0 bottom-0 h-32 bg-gradient-to-t from-background to-transparent"
+          />
+        )}
+      </div>
+
+      {/* One button, two labels. A search reveals the text on its own
+          (`showing`), and while a query is live neither label is meaningful —
+          the reader is looking at results, not at the whole transcript. */}
+      {matches === null && (
         <button
           type="button"
-          onClick={() => setOpen(true)}
-          className="mt-4 w-full rounded-xl border border-border bg-card/40 px-4 py-3 text-caption font-semibold text-primary transition-colors hover:bg-secondary"
-        >
-          اعرض النص كاملاً
-        </button>
-      )}
-
-      {showing && (
-        <>
-          <p className="mt-4 rounded-xl border border-border bg-secondary/60 px-4 py-3 text-micro leading-relaxed text-muted-foreground">
-            هذا النص مُفرَّغ آلياً من صوت الحلقة ومُرقَّم بمساعدة الذكاء الاصطناعي — الكلام كما
-            قيل، دون إعادة صياغة. قد تجد أخطاء في التعرّف على بعض الكلمات، والفيديو هو
-            المرجع. اضغط أي توقيت لتسمع الكلام بصوت صاحبه.
-          </p>
-
-          <div className="mt-6">
-            {matches !== null
-              ? matches.map((p, i) => (
-                  <Line key={`m-${p.start}-${i}`} p={p} isHost={p.speaker === hostName} onSeek={seekTo} needle={q} />
-                ))
-              : groups.map((g, gi) => (
-                  <div key={g.chapter ? g.chapter.start : `open-${gi}`} className="mb-8">
-                    {g.chapter && (
-                      <h3 className="mb-4 border-b border-border pb-2 text-body font-bold text-foreground">
-                        {g.chapter.title}
-                      </h3>
-                    )}
-                    {g.items.map((p, i) => (
-                      <Line key={`${p.start}-${i}`} p={p} isHost={p.speaker === hostName} onSeek={seekTo} needle="" />
-                    ))}
-                  </div>
-                ))}
-          </div>
-
-          {matches === null && (
-            <button
-              type="button"
-              onClick={() => setOpen(false)}
-              className="w-full rounded-xl border border-border bg-card/40 px-4 py-3 text-caption font-semibold text-muted-foreground transition-colors hover:bg-secondary"
-            >
-              أخفِ النص
-            </button>
+          onClick={() => setOpen(!open)}
+          className={cn(
+            "mt-4 w-full rounded-xl border border-border bg-card/40 px-4 py-3 text-caption font-semibold transition-colors hover:bg-secondary",
+            open ? "text-muted-foreground" : "text-primary",
           )}
-        </>
+        >
+          {open ? "أخفِ النص" : "اعرض النص كاملاً"}
+        </button>
       )}
     </section>
   )
