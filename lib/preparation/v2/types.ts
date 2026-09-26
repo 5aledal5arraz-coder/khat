@@ -132,6 +132,18 @@ export interface PrepV2Section {
   target_emotion: string
   estimated_minutes: number
   transition_goal: string
+  // ── Course format only (see format.ts). Absent on story sections, so a
+  // story payload is byte-identical to what it was before formats existed.
+  /** The module's own title, e.g. «أول 100 يوم». Overrides the arc label. */
+  title?: string
+  /** What the listener can DO after this module. */
+  learning_objective?: string
+  /** Frameworks / concepts the module teaches. */
+  key_concepts?: string[]
+  /** The practical tool the listener leaves the module with. */
+  takeaway_tool?: string
+  /** Where the guest's own experience enters as a worked example. */
+  guest_experience_fit?: string
 }
 
 export interface PrepV2Pass2Output {
@@ -199,6 +211,13 @@ export interface PrepV2Pass4Output {
 // ─── Final stored payload ─────────────────────────────────────────────
 
 export interface PrepV2Payload {
+  /**
+   * Episode format (lib/preparation/v2/format.ts). Written ONLY for `course`;
+   * absent ⇒ story, which keeps every pre-existing and story payload as-is.
+   */
+  format?: "course"
+  /** Course only — the total length the course was planned for (minutes). */
+  target_minutes?: number
   thesis: string
   axes_of_tension: string[]
   guest_extraction_strategy: string

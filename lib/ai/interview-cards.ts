@@ -50,6 +50,7 @@ import type {
   SectionKind,
 } from "@/lib/preparation/v2/types"
 import { hasCardQuestionSource } from "@/lib/preparation/question-source"
+import { prepFormatOf, sectionLabelAr } from "@/lib/preparation/v2/format"
 
 // ─── Text quality validation ────────────────────────────────────────
 
@@ -255,17 +256,31 @@ const V2_SECTION_BUCKET: Record<SectionKind, InterviewCardBucket> = {
 export function cardInputsFromPrepV2(
   prepId: string,
   questions: PrepV2Question[],
+  /**
+   * The prep the questions came from. Only a COURSE changes the output: its
+   * modules have their own titles, and its middle slots are lessons, not the
+   * arc's escalation beats. Omitted / story ⇒ exactly the previous output.
+   */
+  prep?: Pick<PrepV2Payload, "episode_sections" | "format"> | null,
 ): CreateInterviewCardInput[] {
+  const isCourse = prepFormatOf(prep) === "course"
   return questions.map((q, i) => {
     // `if_time` questions are exactly what the "احتياطي" bucket is for — the
     // host reaches for them only when the conversation leaves room.
+    const sectionBucket: InterviewCardBucket = isCourse
+      ? q.section === "opening"
+        ? "opening"
+        : "deep"
+      : V2_SECTION_BUCKET[q.section] ?? "deep"
     const bucket: InterviewCardBucket =
-      q.priority === "if_time" ? "backup" : V2_SECTION_BUCKET[q.section] ?? "deep"
+      q.priority === "if_time" ? "backup" : sectionBucket
     const followUp = q.follow_up_prompt?.trim()
     return {
       preparation_id: prepId,
       section_id: `v2-${q.section}`,
-      section_label: V2_SECTION_LABEL_AR[q.section] ?? q.section,
+      section_label: isCourse
+        ? sectionLabelAr(q.section, prep?.episode_sections)
+        : V2_SECTION_LABEL_AR[q.section] ?? q.section,
       bucket,
       short_title: q.text.slice(0, 80),
       spoken_kuwaiti: q.text, // Initial: raw text. Enrichment replaces this.
@@ -342,7 +357,7 @@ export async function generateInterviewCards(
   // Transform the question source → card inputs
   const inputs: CreateInterviewCardInput[] = qs?.sections?.length
     ? []
-    : cardInputsFromPrepV2(prepId, v2Questions)
+    : cardInputsFromPrepV2(prepId, v2Questions, v2)
   let globalOrder = 0
 
   for (const section of qs?.sections ?? []) {

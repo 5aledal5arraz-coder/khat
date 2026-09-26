@@ -55,8 +55,8 @@ import {
   type PrepV2InsightSource,
   type PrepV2Payload,
   type PrepV2Question,
-  type SectionKind,
 } from "@/lib/preparation/v2/types"
+import { sectionLabelAr } from "@/lib/preparation/v2/format"
 import {
   setInsightStatusAction,
   editInsightAction,
@@ -65,14 +65,6 @@ import {
   approveAllVerifiedInsightsAction,
 } from "./prep-actions"
 
-const SECTION_LABEL_AR: Record<SectionKind, string> = {
-  opening: "افتتاحية",
-  build_up: "بناء التوتر",
-  conflict: "المواجهة",
-  deep_dive: "الغوص العميق",
-  emotional_peak: "الذروة العاطفية",
-  resolution: "الخاتمة",
-}
 
 const INSIGHT_META: Record<InsightType, { label: string; Icon: LucideIcon; chip: string }> = {
   fact: { label: "معلومة", Icon: Info, chip: "bg-sky-500/10 text-sky-700" },
@@ -130,7 +122,8 @@ export function PrepInsightReview({
   ).length
 
   const withInsights = bank.filter((q) => (q.insights?.length ?? 0) > 0)
-  const sectionOf = (q: PrepV2Question) => SECTION_LABEL_AR[q.section] ?? q.section
+  const sectionOf = (q: PrepV2Question) =>
+    sectionLabelAr(q.section, payload.episode_sections)
 
   /** Optimistically apply a pure transition, then persist via the action. */
   function run(

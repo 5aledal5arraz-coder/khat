@@ -21,6 +21,15 @@ import {
   type PrepV2Question,
   type PrepV2Section,
 } from "./types"
+import {
+  COURSE_MODULE_MAX_MINUTES,
+  COURSE_MODULE_MIN_MINUTES,
+  courseDurationWindow,
+  COURSE_PROMPT_VERSION,
+  courseSafeTypes,
+  effectiveCourseTarget,
+  type PrepFormat,
+} from "./format"
 
 const TARGET_MIN = 60
 const TARGET_MAX = 90
@@ -42,6 +51,10 @@ export interface Pass4Input {
   pass3: {
     questions: PrepV2Question[]
   }
+  /** Episode format. Absent/"story" ⇒ the original critic, unchanged. */
+  format?: PrepFormat
+  /** Course only — total minutes the modules must add up to. */
+  target_minutes?: number
 }
 
 export interface Pass4Result {
@@ -56,8 +69,14 @@ export interface Pass4Result {
 
 export async function runCritiquePass(input: Pass4Input): Promise<Pass4Result> {
   const langLabel = input.language === "ar" ? "Arabic" : "English"
+  const isCourse = input.format === "course"
+  // What the modules can actually reach under the per-module caps.
+  const courseTarget = effectiveCourseTarget(
+    input.target_minutes ?? 120,
+    input.pass2.sections.length,
+  )
 
-  const system = [
+  const system = isCourse ? courseCritiqueSystem(langLabel, courseTarget) : [
     `You are the critic for a ${langLabel}-language podcast preparation. You receive a draft (sections + questions). You decide what survives, what gets re-priorities, and what gets cut.`,
     "",
     "Output JSON only. Shape:",
@@ -104,17 +123,19 @@ export async function runCritiquePass(input: Pass4Input): Promise<Pass4Result> {
     "9. Do NOT invent a thesis or new axes of tension. Those are fixed.",
   ].join("\n")
 
-  const draftBlock = JSON.stringify(
-    {
-      thesis: input.pass1.thesis,
-      axes_of_tension: input.pass1.axes_of_tension,
-      sensitive_zones: input.pass1.sensitive_zones,
-      sections: input.pass2.sections,
-      questions: input.pass3.questions,
-    },
-    null,
-    2,
-  ).slice(0, 14_000) // hard cap to stay inside prompt budget
+  const draftBlock = isCourse
+    ? courseDraftBlock(input)
+    : JSON.stringify(
+        {
+          thesis: input.pass1.thesis,
+          axes_of_tension: input.pass1.axes_of_tension,
+          sensitive_zones: input.pass1.sensitive_zones,
+          sections: input.pass2.sections,
+          questions: input.pass3.questions,
+        },
+        null,
+        2,
+      ).slice(0, 14_000) // hard cap to stay inside prompt budget
 
   const user = [
     "Critique and finalize this preparation draft.",
@@ -142,7 +163,9 @@ export async function runCritiquePass(input: Pass4Input): Promise<Pass4Result> {
       preparation_id: input.preparation_id,
       language: input.language,
       input_question_count: input.pass3.questions.length,
+      ...(isCourse ? { format: "course", target_minutes: courseTarget } : {}),
     },
+    ...(isCourse ? { promptVersion: COURSE_PROMPT_VERSION } : {}),
     prompt: [
       { role: "system", content: system },
       { role: "user", content: user },
@@ -164,19 +187,10 @@ export async function runCritiquePass(input: Pass4Input): Promise<Pass4Result> {
 
   // Sections — pin canonical kind order; rebalance minutes if total drifts.
   const incomingSections = (r.parsed.sections ?? []) as PrepV2Section[]
-  const revisedSections: PrepV2Section[] = SECTION_KINDS.map((kind, i) => {
-    const fallback = input.pass2.sections[i]
-    const found =
-      incomingSections.find((s) => s.kind === kind) ?? incomingSections[i] ?? fallback
-    return {
-      kind,
-      intent: String(found?.intent ?? fallback.intent ?? "").trim(),
-      target_emotion: String(found?.target_emotion ?? fallback.target_emotion ?? "").trim(),
-      estimated_minutes: clampInt(found?.estimated_minutes ?? fallback?.estimated_minutes ?? 12, 3, 30),
-      transition_goal: String(found?.transition_goal ?? fallback?.transition_goal ?? "").trim(),
-    }
-  })
-  rebalanceMinutes(revisedSections)
+  const revisedSections: PrepV2Section[] = isCourse
+    ? reviseCourseSections(input.pass2.sections, incomingSections, courseTarget)
+    : reviseStorySections(input.pass2.sections, incomingSections)
+  const allowedKinds = new Set<string>(revisedSections.map((s) => s.kind))
 
   // Questions — preserve ids from Pass 3 when matched; otherwise mint new.
   const seenIds = new Set<string>()
@@ -195,13 +209,15 @@ export async function runCritiquePass(input: Pass4Input): Promise<Pass4Result> {
     if (text.length < 10) continue
     const section = String(raw["section"] ?? fromBank?.section ?? "").trim() as PrepV2Question["section"]
     if (!(SECTION_KINDS as readonly string[]).includes(section)) continue
-    const types = Array.isArray(raw["types"])
+    if (isCourse && !allowedKinds.has(section)) continue
+    const rawTypes = Array.isArray(raw["types"])
       ? (raw["types"] as unknown[])
           .map((t) => String(t ?? "").trim().toLowerCase())
           .filter((t) =>
             ["emotional", "philosophical", "personal", "confrontational", "reflective", "factual"].includes(t),
           )
       : fromBank?.types ?? []
+    const types = isCourse ? courseSafeTypes(rawTypes) : rawTypes
     if (types.length === 0) continue
     const priorityRaw = String(raw["priority"] ?? fromBank?.priority ?? "if_time").trim().toLowerCase()
     const priority = priorityRaw === "must_ask" ? "must_ask" : "if_time"
@@ -226,8 +242,11 @@ export async function runCritiquePass(input: Pass4Input): Promise<Pass4Result> {
   // Backfill must_ask if we are short — promote the highest-text-length ones.
   ensureMustAskFloor(finalQuestions, 12)
 
-  // Backfill section question floor if a section is starved.
-  ensurePerSectionFloor(finalQuestions, revisedSections, 3)
+  // Backfill section question floor if a section is starved. Not in a course:
+  // moving a question into another module files it under the wrong topic —
+  // there `section_low_question_count` fails validation and the retry critic
+  // authors the missing questions instead.
+  if (!isCourse) ensurePerSectionFloor(finalQuestions, revisedSections, 3)
 
   const out: PrepV2Pass4Output = {
     host_guidance: normalizeHost(r.parsed.host_guidance),
@@ -245,6 +264,206 @@ export async function runCritiquePass(input: Pass4Input): Promise<Pass4Result> {
     revised_sections: revisedSections,
     revised_questions: finalQuestions,
   }
+}
+
+// ─── Story sections (unchanged behaviour, extracted) ──────────────────
+
+function reviseStorySections(
+  pass2: PrepV2Section[],
+  incomingSections: PrepV2Section[],
+): PrepV2Section[] {
+  const revisedSections: PrepV2Section[] = SECTION_KINDS.map((kind, i) => {
+    const fallback = pass2[i]
+    const found =
+      incomingSections.find((s) => s.kind === kind) ?? incomingSections[i] ?? fallback
+    return {
+      kind,
+      intent: String(found?.intent ?? fallback.intent ?? "").trim(),
+      target_emotion: String(found?.target_emotion ?? fallback.target_emotion ?? "").trim(),
+      estimated_minutes: clampInt(found?.estimated_minutes ?? fallback?.estimated_minutes ?? 12, 3, 30),
+      transition_goal: String(found?.transition_goal ?? fallback?.transition_goal ?? "").trim(),
+    }
+  })
+  rebalanceMinutes(revisedSections)
+  return revisedSections
+}
+
+// ─── Course format ────────────────────────────────────────────────────
+
+function courseCritiqueSystem(langLabel: string, target: number): string {
+  const [lo, hi] = courseDurationWindow(target)
+  return [
+    `You are the critic for a ${langLabel}-language podcast preparation run as a MINI-COURSE / TRAINING SESSION with an expert guest. You receive a draft (modules as sections + questions). You decide what survives, what gets re-prioritised, and what gets cut.`,
+    "",
+    "Output JSON only. Shape:",
+    "{",
+    "  \"sections\": [ { \"kind\": string, \"estimated_minutes\": number } ],   // same kinds as input, same order — ONLY minutes may change",
+    "  \"questions\": [",
+    "    { \"id\": string, // SAME id from input",
+    "      \"section\": one of the input section kinds,",
+    "      \"text\": string,",
+    "      \"types\": string[],   // factual | reflective | philosophical | personal",
+    "      \"priority\": \"must_ask\" | \"if_time\",",
+    "      \"purpose\": string,",
+    "      \"follow_up_prompt\": string,",
+    "      \"risk_level\": \"low\" | \"medium\" | \"high\"",
+    "    }",
+    "  ],",
+    "  \"host_guidance\": {",
+    "    \"overall_tone\": string,     // the host as a curious facilitator drawing a method out of an expert",
+    "    \"do_list\": string[],       // ≥3",
+    "    \"dont_list\": string[],     // ≥3",
+    "    \"energy_curve\": string     // how understanding builds module by module",
+    "  },",
+    "  \"director_guidance\": {",
+    "    \"shot_priorities\": string[],   // ≥3 — e.g. the moment a framework is stated, a worked example lands",
+    "    \"silence_moments\": string[],   // ≥2 — pauses that let a key concept sink in",
+    "    \"cut_warnings\": string[]",
+    "  },",
+    "  \"opening_options\": [ { \"approach\": string, \"text\": string } ],   // ≥2 — frame the course: what the listener will leave with",
+    "  \"closing_options\": [ { \"approach\": string, \"text\": string } ],   // ≥2 — the listener's toolkit / first step",
+    "  \"critic_notes\": string[]",
+    "}",
+    "",
+    "RULES:",
+    "1. CRITICAL — the `questions` array MUST contain between 28 and 38 items. Never drop more than 3 input questions; AUTHOR new ones (id='crit-N') for any thin module until count >= 28.",
+    "2. Ensure ≥12 must_ask questions, and every topic module keeps ≥2 must_ask. The modules follow the episode goal's order — a later module must not be starved in favour of the guest's personal story.",
+    "3. Every module needs ≥3 questions.",
+    "4. Replace any question that seeks confession, regret, pain or confrontation with one that extracts a method, a step, a sign to watch for, or a tool — keep the guest's experience as the worked example. Exception: failures, regrets or doors the EPISODE GOAL explicitly names are IN scope for module 0. Ask each once, gently, as an open door the guest may decline (risk_level medium; state 'only if he wishes' in follow_up_prompt when the goal says so), and turn the answer toward the lesson it taught.",
+    "5. Do NOT rename, reorder, add or remove modules. Keep each module's title and learning objective as given.",
+    `6. The SUM of estimated_minutes must be between ${lo} and ${hi} (aim near ${target}).`,
+    "7. host_guidance and director_guidance must be specific to THESE modules. Generic advice is rejected.",
+    "8. opening_options and closing_options are CONCRETE lines, written out, two distinct approaches each.",
+    "9. Do NOT invent a thesis or new learning threads. Those are fixed.",
+    "10. Section ids are opaque slot labels — ignore their literal meaning; the module title defines the content.",
+  ].join("\n")
+}
+
+/**
+ * The course draft for the critic. Compact JSON and a larger cap than the
+ * story's pretty-printed 14k slice: that slice cuts from the END, i.e. the
+ * LAST modules' questions — the very modules a course must not starve. The
+ * module fields the critic may not change are reduced to what it needs to
+ * judge the questions.
+ */
+export const COURSE_DRAFT_MAX_CHARS = 28_000
+
+export function courseDraftBlock(input: Pass4Input): string {
+  const build = (questions: unknown[]) =>
+    JSON.stringify({
+      thesis: input.pass1.thesis,
+      learning_threads: input.pass1.axes_of_tension,
+      sensitive_zones: input.pass1.sensitive_zones,
+      sections: input.pass2.sections.map((s) => ({
+        kind: s.kind,
+        title: s.title,
+        estimated_minutes: s.estimated_minutes,
+        learning_objective: s.learning_objective,
+        takeaway_tool: s.takeaway_tool,
+      })),
+      questions,
+    })
+  const full = build(input.pass3.questions)
+  if (full.length <= COURSE_DRAFT_MAX_CHARS) return full
+  // Too long: shed the fields the critic can re-author (purpose, follow-up)
+  // BEFORE any character slice, so the cut never lands mid-module and the
+  // last modules' questions still reach the critic intact.
+  const lean = build(
+    input.pass3.questions.map(({ id, section, text, types, priority, risk_level }) => ({
+      id,
+      section,
+      text,
+      types,
+      priority,
+      risk_level,
+    })),
+  )
+  return lean.slice(0, COURSE_DRAFT_MAX_CHARS) // last resort only
+}
+
+/**
+ * Course modules are fixed by Pass 2 (goal order, titles, course fields) —
+ * the critic may only move minutes. Then rebalance to the course target.
+ */
+function reviseCourseSections(
+  pass2: PrepV2Section[],
+  incoming: PrepV2Section[],
+  target: number,
+): PrepV2Section[] {
+  const out = pass2.map((s) => {
+    const found = incoming.find((x) => x?.kind === s.kind)
+    return {
+      ...s,
+      estimated_minutes: clampInt(
+        found?.estimated_minutes ?? s.estimated_minutes,
+        COURSE_MODULE_MIN_MINUTES,
+        COURSE_MODULE_MAX_MINUTES,
+      ),
+    }
+  })
+  rebalanceCourseMinutes(out, target)
+  return out
+}
+
+/**
+ * Proportional rescale into the course window around `target`. Exported for
+ * tests. The story rebalance (below) is untouched: its [60, 90] window and
+ * 30-minute section cap are exactly what squeezed a two-hour course to 75.
+ */
+export function rebalanceCourseMinutes(sections: PrepV2Section[], requestedTarget: number) {
+  const n = sections.length
+  if (n === 0) return
+  // Never aim past what n modules can hold under the per-module caps.
+  const target = effectiveCourseTarget(requestedTarget, n)
+  const [lo, hi] = courseDurationWindow(target)
+  const sum = sections.reduce((a, s) => a + (s.estimated_minutes || 0), 0)
+  if (sum >= lo && sum <= hi) return
+
+  // Water-fill: proportional to the current weights, but a module that hits a
+  // cap is pinned there and its excess (or deficit) is redistributed over the
+  // modules still free. The old one-shot clamp simply LOST the clamped
+  // minutes, so a short course could never reach its own window.
+  const weights = sections.map((s) => (sum > 0 ? Math.max(0, s.estimated_minutes || 0) : 1))
+  const alloc: number[] = new Array(n).fill(0)
+  const pinned: boolean[] = new Array(n).fill(false)
+  for (let round = 0; round <= n; round++) {
+    const remaining = target - alloc.reduce((a, v, i) => a + (pinned[i] ? v : 0), 0)
+    const freeWeight = weights.reduce((a, w, i) => a + (pinned[i] ? 0 : w), 0)
+    if (freeWeight <= 0) break
+    let pinnedNow = false
+    for (let i = 0; i < n; i++) {
+      if (pinned[i]) continue
+      const v = (remaining * weights[i]) / freeWeight
+      if (v > COURSE_MODULE_MAX_MINUTES) {
+        alloc[i] = COURSE_MODULE_MAX_MINUTES
+        pinned[i] = pinnedNow = true
+      } else if (v < COURSE_MODULE_MIN_MINUTES) {
+        alloc[i] = COURSE_MODULE_MIN_MINUTES
+        pinned[i] = pinnedNow = true
+      } else {
+        alloc[i] = v
+      }
+    }
+    if (!pinnedNow) break
+  }
+  // Round, then settle the rounding drift on the largest module that has room
+  // — never on the wrap-up by position.
+  const rounded = alloc.map((v) =>
+    clampInt(v, COURSE_MODULE_MIN_MINUTES, COURSE_MODULE_MAX_MINUTES),
+  )
+  let drift = target - rounded.reduce((a, v) => a + v, 0)
+  const order = rounded.map((v, i) => i).sort((a, b) => rounded[b] - rounded[a])
+  for (const i of order) {
+    if (drift === 0) break
+    const room =
+      drift > 0
+        ? COURSE_MODULE_MAX_MINUTES - rounded[i]
+        : COURSE_MODULE_MIN_MINUTES - rounded[i]
+    const step = drift > 0 ? Math.min(drift, room) : Math.max(drift, room)
+    rounded[i] += step
+    drift -= step
+  }
+  sections.forEach((s, i) => (s.estimated_minutes = rounded[i]))
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────

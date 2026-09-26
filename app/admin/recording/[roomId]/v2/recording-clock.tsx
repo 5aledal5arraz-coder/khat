@@ -18,8 +18,8 @@
 import { useEffect, useMemo, useState } from "react"
 import { Play, Pause, Square, RotateCcw } from "lucide-react"
 import type { LiveV2Marker, LiveV2Snapshot } from "@/lib/recording-v2/load"
+import { sectionLabelAr } from "@/lib/preparation/v2/format"
 import {
-  SECTION_LABEL_AR,
   markerStyle,
   clockParts,
   formatPrecise,
@@ -205,7 +205,7 @@ export function Timeline(props: {
         {bands.map((b) => (
           <div
             key={b.kind}
-            title={SECTION_LABEL_AR[b.kind] ?? b.kind}
+            title={sectionLabelAr(b.kind, sections)}
             className={
               // Timeline is intentionally dir="ltr" (time flows left→right), so
               // all positioned children use physical left for consistency.

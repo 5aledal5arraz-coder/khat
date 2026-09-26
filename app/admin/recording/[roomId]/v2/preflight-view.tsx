@@ -14,8 +14,8 @@ import type {
   PrepV2OpeningOption,
   PrepV2Section,
 } from "@/lib/preparation/v2/types"
-import { SECTION_TARGET_LEVEL } from "@/lib/recording-v2/energy"
-import { SECTION_LABEL_AR } from "./recording-shared"
+import { sectionTargetLevel } from "@/lib/recording-v2/energy"
+import { sectionLabelAr, type PrepFormat } from "@/lib/preparation/v2/format"
 import { GuidanceList, OptionList, CompactEnergyControl } from "./cockpit-bits"
 
 export function PreflightView({
@@ -27,6 +27,7 @@ export function PreflightView({
   openingOptions,
   sensitiveZones,
   sections,
+  format = "story",
   energy,
   canSetEnergy,
   onSetEnergy,
@@ -42,6 +43,8 @@ export function PreflightView({
   openingOptions: PrepV2OpeningOption[]
   sensitiveZones: string[]
   sections: PrepV2Section[] | null
+  /** Episode format — planned energy per section depends on it. */
+  format?: PrepFormat
   energy: number
   canSetEnergy: boolean
   onSetEnergy: (level: number) => void
@@ -155,13 +158,13 @@ export function PreflightView({
                   {i + 1}
                 </span>
                 <span className="text-[12.5px] font-medium text-foreground">
-                  {SECTION_LABEL_AR[s.kind] ?? s.kind}
+                  {sectionLabelAr(s.kind, sections)}
                 </span>
                 <span className="text-[11px] text-muted-foreground/85 truncate">
                   {s.target_emotion}
                 </span>
                 <span className="ms-auto inline-flex items-center gap-2 text-[10.5px] text-muted-foreground" dir="ltr">
-                  <TargetDots level={SECTION_TARGET_LEVEL[s.kind] ?? 3} />
+                  <TargetDots level={sectionTargetLevel(s.kind, format) ?? 3} />
                   {s.estimated_minutes}m
                 </span>
               </li>

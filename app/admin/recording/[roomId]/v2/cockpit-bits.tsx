@@ -32,9 +32,10 @@ import {
 } from "lucide-react"
 import {
   ENERGY_BAND_LABEL_AR,
-  SECTION_TARGET_LEVEL,
+  sectionTargetLevel,
   energyBand,
 } from "@/lib/recording-v2/energy"
+import type { PrepFormat } from "@/lib/preparation/v2/format"
 import type {
   SectionKind,
   PrepV2Insight,
@@ -102,12 +103,14 @@ export function CoachHintBanner({
   hint,
   energy,
   section,
+  format = "story",
 }: {
   hint: string
   energy: number
   section: SectionKind | null
+  format?: PrepFormat
 }) {
-  const target = section ? SECTION_TARGET_LEVEL[section] : null
+  const target = section ? sectionTargetLevel(section, format) : null
   return (
     <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-amber-500/30 bg-amber-500/5 px-3 py-2">
       <span className="inline-flex items-center gap-2 text-[12.5px] font-medium text-amber-700">

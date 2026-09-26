@@ -16,10 +16,23 @@ import {
   type PrepV2Section,
   type SectionKind,
 } from "./types"
+import {
+  courseDurationWindow,
+  COURSE_DEFAULT_MINUTES,
+  effectiveCourseTarget,
+  isCourseSlotSequence,
+  prepFormatOf,
+} from "./format"
 
 export interface ValidationFailure {
   code: ValidationCode
   message: string
+  /**
+   * Operator-facing Arabic text when it differs from the static label —
+   * set only where the rule's numbers depend on the payload (the course
+   * duration window). Absent ⇒ PREP_V2_VALIDATION_LABELS_AR[code].
+   */
+  label_ar?: string
 }
 
 export type ValidationCode =
@@ -43,6 +56,8 @@ export type ValidationCode =
   // Production-readiness fix sprint additions:
   | "missing_sensitive_zones_for_risky_topic"
   | "unverified_guest_reference"
+  // Course format:
+  | "course_module_incomplete"
 
 export interface ValidationResult {
   ok: boolean
@@ -86,6 +101,8 @@ export const PREP_V2_VALIDATION_RULES: Record<ValidationCode, string> = {
     "topic falls in a risk-prone domain (religion, identity_masculinity, social_issues, kuwait_gulf, family, trauma) but sensitive_zones is empty.",
   unverified_guest_reference:
     "prep_v2 mentions a guest name that is not present in the linked guest_candidate or canonical guests table — refusing to ship a hallucinated name.",
+  course_module_incomplete:
+    "course format: every module needs a title and a learning_objective, and every topic module (not the intro or the wrap-up) needs a takeaway_tool.",
 }
 
 /**
@@ -120,6 +137,7 @@ export const PREP_V2_VALIDATION_LABELS_AR: Record<ValidationCode, string> = {
   missing_sensitive_zones_for_risky_topic:
     "الموضوع حسّاس والمناطق الحسّاسة فارغة",
   unverified_guest_reference: "النص يذكر اسم ضيف غير موثّق",
+  course_module_incomplete: "وحدة من وحدات الدورة بلا عنوان أو هدف تعلّم أو أداة عملية",
 }
 
 /**
@@ -136,7 +154,7 @@ export function describeValidationFailuresAr(
   if (failures.length === 0) return ""
   const shown = failures
     .slice(0, max)
-    .map((f) => PREP_V2_VALIDATION_LABELS_AR[f.code] ?? f.code)
+    .map((f) => f.label_ar ?? PREP_V2_VALIDATION_LABELS_AR[f.code] ?? f.code)
   const rest = failures.length - shown.length
   return rest > 0 ? `${shown.join("، ")} (+${rest} أخرى)` : shown.join("، ")
 }
@@ -244,6 +262,7 @@ export function validatePrepV2Payload(
   ctx: ValidationContext = {},
 ): ValidationResult {
   const failures: ValidationFailure[] = []
+  const isCourse = prepFormatOf(p) === "course"
 
   // Thesis
   const thesis = (p.thesis ?? "").trim()
@@ -266,16 +285,23 @@ export function validatePrepV2Payload(
   if (sections.length === 0) {
     failures.push(fail("missing_sections"))
   } else {
-    if (sections.length !== SECTION_KINDS.length) {
-      failures.push(fail("wrong_section_count"))
-    }
-    const kinds = sections.map((s) => s.kind)
-    const expected = [...SECTION_KINDS]
-    if (
-      kinds.length !== expected.length ||
-      kinds.some((k, i) => k !== expected[i])
-    ) {
-      failures.push(fail("wrong_section_order"))
+    if (isCourse) {
+      // A course uses 3–6 slots: opening, the first N middle slots, resolution.
+      if (!isCourseSlotSequence(sections.map((s) => s.kind))) {
+        failures.push(fail("wrong_section_order"))
+      }
+    } else {
+      if (sections.length !== SECTION_KINDS.length) {
+        failures.push(fail("wrong_section_count"))
+      }
+      const kinds = sections.map((s) => s.kind)
+      const expected = [...SECTION_KINDS]
+      if (
+        kinds.length !== expected.length ||
+        kinds.some((k, i) => k !== expected[i])
+      ) {
+        failures.push(fail("wrong_section_order"))
+      }
     }
   }
 
@@ -289,7 +315,9 @@ export function validatePrepV2Payload(
 
   // Per-section depth.
   const bySection = new Map<SectionKind, PrepV2Question[]>()
-  for (const k of SECTION_KINDS) bySection.set(k, [])
+  // A course only owns the slots it uses; an unused slot is not "starved".
+  const sectionKindsInPlay = isCourse ? sections.map((s) => s.kind) : SECTION_KINDS
+  for (const k of sectionKindsInPlay) bySection.set(k, [])
   for (const q of questions) {
     if (bySection.has(q.section)) bySection.get(q.section)!.push(q)
   }
@@ -310,17 +338,47 @@ export function validatePrepV2Payload(
   // emotional-typed questions and a substantive intent. The rest of the
   // sections can use other question types appropriate to their role
   // (philosophical, confrontational, factual, etc.).
-  const peak = sections.find((s) => s.kind === "emotional_peak")
-  const peakQuestions = questions.filter((q) => q.section === "emotional_peak")
-  const peakHasEmotional = peakQuestions.some((q) => q.types?.includes("emotional"))
-  const peakIntentLen = (peak?.intent ?? "").trim().length
-  if (!peak || !peakHasEmotional || peakIntentLen < 25) {
-    failures.push(fail("vague_emotional_hook"))
+  //
+  // A course has no emotional peak by design — the `emotional_peak` slot, when
+  // used, holds a topic module. Its equivalent check is module completeness.
+  if (isCourse) {
+    const lastIdx = sections.length - 1
+    const incomplete = sections.some((s, i) => {
+      if ((s.title ?? "").trim().length < 2) return true
+      if ((s.learning_objective ?? "").trim().length < 10) return true
+      const isTopicModule = i > 0 && i < lastIdx
+      return isTopicModule && (s.takeaway_tool ?? "").trim().length < 5
+    })
+    if (incomplete) failures.push(fail("course_module_incomplete"))
+  } else {
+    const peak = sections.find((s) => s.kind === "emotional_peak")
+    const peakQuestions = questions.filter((q) => q.section === "emotional_peak")
+    const peakHasEmotional = peakQuestions.some((q) => q.types?.includes("emotional"))
+    const peakIntentLen = (peak?.intent ?? "").trim().length
+    if (!peak || !peakHasEmotional || peakIntentLen < 25) {
+      failures.push(fail("vague_emotional_hook"))
+    }
   }
 
-  // Duration
+  // Duration — a course is judged against its own target (±20%), not the
+  // story's fixed [60, 90].
+  // The course target is capped by what its modules can hold (n × 45), so a
+  // short course is not failed forever for a length it cannot reach.
   const dur = Number(p.total_estimated_minutes ?? 0)
-  if (dur < MIN_DURATION || dur > MAX_DURATION) {
+  if (isCourse) {
+    const [minDur, maxDur] = courseDurationWindow(
+      effectiveCourseTarget(p.target_minutes ?? COURSE_DEFAULT_MINUTES, sections.length),
+    )
+    if (dur < minDur || dur > maxDur) {
+      // The message feeds the Pass-4 retry hint and the label the operator
+      // reads — both must name THIS course's window, not the story's [60, 90].
+      failures.push({
+        code: "duration_out_of_range",
+        message: `total_estimated_minutes must be in [${minDur}, ${maxDur}] (course target).`,
+        label_ar: `مجموع دقائق الدورة خارج النطاق [${minDur}, ${maxDur}]`,
+      })
+    }
+  } else if (dur < MIN_DURATION || dur > MAX_DURATION) {
     failures.push(fail("duration_out_of_range"))
   }
 

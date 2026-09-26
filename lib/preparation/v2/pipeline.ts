@@ -41,12 +41,24 @@ import {
   type PrepV2Payload,
   type PrepV2Question,
 } from "./types"
+import { courseTargetMinutes, effectiveCourseTarget, type PrepFormat } from "./format"
 
 export interface RunPrepV2Input {
   preparationId: string
   language?: "ar" | "en"
   /** Force-run even if PREP_V2_ENABLED=false (for the npm script). */
   force?: boolean
+  /**
+   * Episode format (lib/preparation/v2/format.ts). Omitted ⇒ "story", the
+   * original arc — every existing caller keeps its exact behaviour.
+   */
+  format?: PrepFormat
+  /**
+   * Course only — the operator's explicit length choice (minutes). Outranks
+   * `expected_duration_min` and the goal parser; a value outside
+   * COURSE_TARGET_CHOICES is ignored.
+   */
+  targetMinutes?: number | null
 }
 
 export interface RunPrepV2Result {
@@ -101,6 +113,20 @@ export async function runPrepV2Pipeline(
     }
   }
 
+  const isCourse = input.format === "course"
+  // Course only: the syllabus + its target length, both read from the goal.
+  const course = isCourse
+    ? {
+        format: "course" as const,
+        episode_goal: ctx.episode_goal,
+        target_minutes: courseTargetMinutes(
+          ctx.episode_goal,
+          ctx.expected_duration_min,
+          input.targetMinutes,
+        ),
+      }
+    : null
+
   const pass1Input: Pass1Input = {
     episode_title: ctx.title,
     episode_goal: ctx.episode_goal,
@@ -112,6 +138,7 @@ export async function runPrepV2Pipeline(
     guest_identity: ctx.guest_identity,
     eir_id: ctx.eir_id,
     preparation_id: input.preparationId,
+    ...(course ? { format: course.format } : {}),
   }
 
   // ── Pass 1 ────────────────────────────────────────────────────────
@@ -134,6 +161,7 @@ export async function runPrepV2Pipeline(
     preparation_id: input.preparationId,
     eir_id: ctx.eir_id,
     pass1: p1.output,
+    ...(course ?? {}),
   })
   ai_run_ids.pass2_structure = p2.ai_run_id
   if (!p2.ok || !p2.output) {
@@ -154,6 +182,7 @@ export async function runPrepV2Pipeline(
     eir_id: ctx.eir_id,
     pass1: p1.output,
     pass2: p2.output,
+    ...(course ? { format: course.format, episode_goal: course.episode_goal } : {}),
   })
   ai_run_ids.pass3_questions = p3.ai_run_id
   if (!p3.ok || !p3.output) {
@@ -175,6 +204,7 @@ export async function runPrepV2Pipeline(
     pass1: p1.output,
     pass2: p2.output,
     pass3: p3.output,
+    ...(course ? { format: course.format, target_minutes: course.target_minutes } : {}),
   })
   ai_run_ids.pass4_critique = p4.ai_run_id
   if (!p4.ok || !p4.output) {
@@ -196,6 +226,7 @@ export async function runPrepV2Pipeline(
     p4.revised_questions,
     p4.revised_sections,
     p1.output,
+    isCourse,
   )
 
   let payload = assemblePayload({
@@ -204,6 +235,7 @@ export async function runPrepV2Pipeline(
     pass3Questions: backfilledQuestions,
     pass4: p4.output,
     ai_run_ids,
+    course,
   })
 
   // Production-readiness fix sprint — context-aware validation.
@@ -226,6 +258,7 @@ export async function runPrepV2Pipeline(
       pass1: { ...p1.output, sensitive_zones: [...p1.output.sensitive_zones, retryHint] },
       pass2: { sections: p4.revised_sections },
       pass3: { questions: backfilledQuestions },
+      ...(course ? { format: course.format, target_minutes: course.target_minutes } : {}),
     })
     if (retry.ok && retry.output) {
       ai_run_ids.pass4_critique = retry.ai_run_id // overwrite with successful retry
@@ -234,6 +267,7 @@ export async function runPrepV2Pipeline(
         retry.revised_questions,
         retry.revised_sections,
         p1.output,
+        isCourse,
       )
       payload = assemblePayload({
         pass1: p1.output,
@@ -241,6 +275,7 @@ export async function runPrepV2Pipeline(
         pass3Questions: backfilledRetry,
         pass4: retry.output,
         ai_run_ids,
+        course,
       })
       validation = validatePrepV2Payload(payload, validationCtx)
     }
@@ -415,6 +450,8 @@ interface PrepContext {
   preparation_id: string
   title: string
   episode_goal: string | null
+  /** Editor-set planned length (studio). Wins over the goal for a course. */
+  expected_duration_min: number | null
   guest_identity: Record<string, unknown> | null
   /**
    * Production-readiness fix sprint — the linked guest's actual name
@@ -444,6 +481,7 @@ async function loadContext(preparationId: string): Promise<PrepContext | null> {
       guest_identity: episodePreparations.guest_identity,
       guest_name: episodePreparations.guest_name,
       eir_id: episodePreparations.eir_id,
+      expected_duration_min: episodePreparations.expected_duration_min,
     })
     .from(episodePreparations)
     .where(eq(episodePreparations.id, preparationId))
@@ -525,6 +563,7 @@ async function loadContext(preparationId: string): Promise<PrepContext | null> {
     preparation_id: prep.id,
     title: prep.title,
     episode_goal: prep.episode_goal,
+    expected_duration_min: prep.expected_duration_min ?? null,
     guest_identity: (prep.guest_identity ?? null) as Record<string, unknown> | null,
     linked_guest_name,
     eir_id: prep.eir_id ?? null,
@@ -554,6 +593,8 @@ function assemblePayload(args: {
     critic_notes: string[]
   }
   ai_run_ids: PrepV2Payload["ai_run_ids"]
+  /** Course runs stamp `format` + `target_minutes`; story payloads stay as they were. */
+  course?: { target_minutes: number } | null
 }): PrepV2Payload {
   // Strip sensitive_zones retry-hint marker if it leaked in.
   const sensitive_zones = args.pass1.sensitive_zones.filter(
@@ -564,6 +605,16 @@ function assemblePayload(args: {
     0,
   )
   return {
+    ...(args.course
+      ? {
+          format: "course" as const,
+          // Stored as the REACHABLE target, the one validation judges against.
+          target_minutes: effectiveCourseTarget(
+            args.course.target_minutes,
+            args.pass2Sections.length,
+          ),
+        }
+      : {}),
     thesis: args.pass1.thesis,
     axes_of_tension: args.pass1.axes_of_tension,
     guest_extraction_strategy: args.pass1.guest_extraction_strategy,
@@ -590,10 +641,11 @@ function assemblePayload(args: {
 const MAX_FILL = 4
 const FLOOR = 24
 
-function backfillQuestionFloor(
+export function backfillQuestionFloor(
   questions: PrepV2Question[],
   sections: ReturnType<typeof Object>[] | unknown,
   pass1: { axes_of_tension: string[] },
+  isCourse = false,
 ): PrepV2Question[] {
   if (questions.length >= FLOOR) return questions
   const need = FLOOR - questions.length
@@ -604,10 +656,28 @@ function backfillQuestionFloor(
   for (const q of questions) {
     counts.set(q.section, (counts.get(q.section) ?? 0) + 1)
   }
-  const sectionList = (sections as Array<{ kind: string; intent: string }>) ?? []
+  const sectionList =
+    (sections as Array<{ kind: string; intent: string; title?: string }>) ?? []
   const starved = [...sectionList]
     .sort((a, b) => (counts.get(a.kind) ?? 0) - (counts.get(b.kind) ?? 0))
     .slice(0, need)
+
+  // Course: the story filler («بأي قدر تشعر أن … حاضرة في حياتك») is a
+  // confession prompt — exactly what a course must not contain. Its filler
+  // asks for the module's practical tool instead.
+  if (isCourse) {
+    const courseFillers: PrepV2Question[] = starved.map((s, i) => ({
+      id: `fill-${i}-${Math.random().toString(36).slice(2, 8)}`,
+      section: s.kind as PrepV2Question["section"],
+      text: `ما الخطوة العملية الأولى التي تنصح بها المستمع في «${s.title ?? s.intent}»، وكيف يعرف أنه طبّقها صح؟`,
+      types: ["factual", "reflective"],
+      priority: "if_time",
+      purpose: "deterministic backfill — closes question-count floor with the module's practical step",
+      follow_up_prompt: "أعطنا مثالاً من تجربتك طبّقت فيه هذه الخطوة.",
+      risk_level: "low",
+    }))
+    return [...questions, ...courseFillers]
+  }
 
   const fillers: PrepV2Question[] = starved.map((s, i) => ({
     id: `fill-${i}-${Math.random().toString(36).slice(2, 8)}`,

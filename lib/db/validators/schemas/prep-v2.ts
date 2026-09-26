@@ -39,6 +39,12 @@ const sectionSchema = z.object({
   target_emotion: z.string(),
   estimated_minutes: z.number(),
   transition_goal: z.string(),
+  // Course-format module fields — optional; story sections omit them.
+  title: z.string().optional(),
+  learning_objective: z.string().optional(),
+  key_concepts: z.array(z.string()).optional(),
+  takeaway_tool: z.string().optional(),
+  guest_experience_fit: z.string().optional(),
 })
 
 const INSIGHT_TYPE = z.enum([
@@ -146,6 +152,9 @@ const insightStatsSchema = z.object({
 
 export const prepV2Schema = z
   .object({
+    // Episode format — written only for "course"; absent ⇒ story.
+    format: z.literal("course").optional(),
+    target_minutes: z.number().optional(),
     thesis: z.string(),
     axes_of_tension: z.array(z.string()),
     guest_extraction_strategy: z.string(),

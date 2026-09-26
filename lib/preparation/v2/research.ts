@@ -16,6 +16,7 @@
 
 import { runAiTask } from "@/lib/ai-router"
 import type { PrepV2Pass1Output } from "./types"
+import { COURSE_PROMPT_VERSION, type PrepFormat } from "./format"
 
 export interface Pass1Input {
   episode_title: string
@@ -36,6 +37,8 @@ export interface Pass1Input {
   /** EIR id — for ai_runs subject scope. */
   eir_id: string | null
   preparation_id: string
+  /** Episode format. Absent/"story" ⇒ the original prompt, unchanged. */
+  format?: PrepFormat
 }
 
 export interface Pass1Result {
@@ -64,7 +67,8 @@ Conflict angle: ${provenance.conflict_angle ?? "—"}`
   const intent = input.editorial_intent ?? {}
   const intentBlob = JSON.stringify(intent).slice(0, 1200)
 
-  const system = [
+  const isCourse = input.format === "course"
+  const system = isCourse ? courseResearchSystem(langLabel) : [
     `You are a senior editorial researcher for a serious ${langLabel}-language podcast.`,
     "You are about to set up a 60–90 minute conversation. Your job in this pass is to extract the BACKBONE of the conversation, not to write questions.",
     "",
@@ -110,7 +114,9 @@ Conflict angle: ${provenance.conflict_angle ?? "—"}`
       pass: "prep_v2.research_synthesis",
       preparation_id: input.preparation_id,
       language: input.language,
+      ...(isCourse ? { format: "course" } : {}),
     },
+    ...(isCourse ? { promptVersion: COURSE_PROMPT_VERSION } : {}),
     prompt: [
       { role: "system", content: system },
       { role: "user", content: user },
@@ -141,4 +147,33 @@ Conflict angle: ${provenance.conflict_angle ?? "—"}`
       : [],
   }
   return { ok: true, output: out, ai_run_id: r.runId }
+}
+
+/**
+ * Course format — same output shape, different backbone. The story prompt asks
+ * for a thesis + six axes of TENSION, which is exactly what bent an expert
+ * episode into a personal story: every later pass is built on those tensions.
+ * Here the same fields carry the course's promise and its learning threads.
+ */
+function courseResearchSystem(langLabel: string): string {
+  return [
+    `You are a senior editorial researcher for a serious ${langLabel}-language podcast.`,
+    "This episode is a MINI-COURSE / TRAINING SESSION with an expert guest — a reference the listener returns to, not a personal story. Your job in this pass is to extract the BACKBONE of the course, not to write questions.",
+    "",
+    "Output JSON only. Shape:",
+    "{",
+    `  "thesis": string,                       // one sentence: what the listener will be able to DO after the course`,
+    `  "axes_of_tension": string[6],           // exactly 6 core learning threads — the practical questions the course answers`,
+    `  "guest_extraction_strategy": string,    // a paragraph (≥80 chars): how to draw METHOD, frameworks and tools out of THIS expert, and where his own experience serves as worked examples`,
+    `  "sensitive_zones": string[]             // topics to handle with care (legal, contractual, named organisations, personal)`,
+    "}",
+    "",
+    "RULES:",
+    "1. The episode goal is the syllabus. If it lists topics in an order, that order is binding — do not reorder or merge them.",
+    "2. The thesis names a concrete capability the listener gains, not a mood.",
+    "3. Each learning thread is a SHORT practical question or skill taken from the goal's topics. Not an emotional tension, not a regret.",
+    "4. The guest's successes and failures are material for lessons, never for confession or confrontation.",
+    "5. sensitive_zones are real risks. Respect any 'avoid' / 'only if he wants' instruction in the goal by listing it here. Empty array is fine if there are none.",
+    "6. Do not write questions in this pass.",
+  ].join("\n")
 }

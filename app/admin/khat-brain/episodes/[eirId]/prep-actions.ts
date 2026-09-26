@@ -108,7 +108,11 @@ export async function updatePrepFieldAction(
         }
         break
       case "must_ask_questions":
-        next.question_bank = mergeMustAskQuestions(next.question_bank, lines)
+        next.question_bank = mergeMustAskQuestions(
+          next.question_bank,
+          lines,
+          next.episode_sections,
+        )
         break
       default:
         supported = false
@@ -301,7 +305,17 @@ function parseLines(value: string): string[] {
 function mergeMustAskQuestions(
   existing: PrepV2Question[],
   newTexts: string[],
+  sections: { kind: SectionKind }[] = [],
 ): PrepV2Question[] {
+  // New must-ask questions go to deep_dive — a slot every story prep has. A
+  // course prep uses 3–6 slots and may not have deep_dive; a question filed
+  // under a missing slot renders under no section at all, so fall back to the
+  // last module before the wrap-up.
+  const kinds = sections.map((s) => s.kind)
+  const newSection: SectionKind =
+    kinds.length === 0 || kinds.includes("deep_dive")
+      ? "deep_dive"
+      : kinds[Math.max(0, kinds.length - 2)]
   const mustAsk = existing.filter((q) => q.priority === "must_ask")
   const ifTime = existing.filter((q) => q.priority !== "must_ask")
 
@@ -312,7 +326,7 @@ function mergeMustAskQuestions(
     }
     return {
       id: `inline-${cryptoId()}`,
-      section: ("deep_dive" as SectionKind),
+      section: newSection,
       text,
       types: ["reflective"],
       priority: "must_ask",

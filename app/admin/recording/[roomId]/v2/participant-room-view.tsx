@@ -19,8 +19,9 @@ import {
   useRoomConnection,
 } from "@/app/admin/preparation/[id]/room/contexts"
 import { cn } from "@/lib/utils"
+import { sectionLabelAr } from "@/lib/preparation/v2/format"
 import type { LiveV2Snapshot } from "@/lib/recording-v2/load"
-import type { PrepV2Question, PrepV2Payload, SectionKind } from "@/lib/preparation/v2/types"
+import type { PrepV2Question, PrepV2Payload } from "@/lib/preparation/v2/types"
 import {
   Circle, Film, Quote, Volume2, Scissors, AlertTriangle,
   Flag, Loader2, Trash2,
@@ -44,15 +45,6 @@ import {
   isIntervalCloser,
   resolveCurrentQuestion,
 } from "@/lib/recording-v2/marker-types"
-
-const SECTION_LABEL_AR: Record<SectionKind, string> = {
-  opening: "افتتاحية",
-  build_up: "بناء التوتر",
-  conflict: "المواجهة",
-  deep_dive: "الغوص العميق",
-  emotional_peak: "الذروة العاطفية",
-  resolution: "الخاتمة",
-}
 
 const STATUS_AR: Record<string, string> = {
   waiting: "بانتظار البدء",
@@ -515,7 +507,7 @@ export function ParticipantRoomView({
       {/* Active section */}
       <div className="rounded-2xl border border-primary/30 bg-primary/5 p-4">
         <div className="text-[11px] font-semibold uppercase tracking-[0.15em] text-primary/80">
-          {SECTION_LABEL_AR[section.kind] ?? section.kind}
+          {sectionLabelAr(section.kind, sections)}
         </div>
         <p className="mt-1 text-[13px] leading-relaxed text-foreground/90">
           {section.intent}
@@ -552,7 +544,7 @@ export function ParticipantRoomView({
           recordingStartedAt={room?.recording_started_at ?? initial.room.recording_started_at}
           recordingPausedAt={room?.recording_paused_at ?? initial.room.recording_paused_at}
           sectionIndex={idx}
-          sectionLabel={SECTION_LABEL_AR[section.kind] ?? section.kind}
+          sectionLabel={sectionLabelAr(section.kind, sections)}
         />
       )}
 

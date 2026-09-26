@@ -22,6 +22,7 @@ import {
   type QuestionPriority,
   type QuestionRiskLevel,
 } from "./types"
+import { COURSE_PROMPT_VERSION, courseSafeTypes, type PrepFormat } from "./format"
 
 export interface Pass3Input {
   language: "ar" | "en"
@@ -36,6 +37,10 @@ export interface Pass3Input {
   pass2: {
     sections: PrepV2Section[]
   }
+  /** Episode format. Absent/"story" ⇒ the original arc prompt, unchanged. */
+  format?: PrepFormat
+  /** Course only — the goal text, verbatim. */
+  episode_goal?: string | null
 }
 
 export interface Pass3Result {
@@ -49,8 +54,9 @@ export async function runQuestionBankGeneration(
   input: Pass3Input,
 ): Promise<Pass3Result> {
   const langLabel = input.language === "ar" ? "Arabic" : "English"
+  const isCourse = input.format === "course"
 
-  const system = [
+  const system = isCourse ? courseQuestionSystem(langLabel, input.pass2.sections) : [
     `You write questions for a serious ${langLabel}-language podcast. The host needs a question bank that is usable LIVE during a 60–90 minute conversation.`,
     "",
     "Output JSON only. Shape:",
@@ -77,7 +83,7 @@ export async function runQuestionBankGeneration(
     "10. The conflict section MUST contain at least 2 questions tagged 'confrontational' OR 'philosophical'.",
   ].join("\n")
 
-  const sectionsBlock = input.pass2.sections
+  const sectionsBlock = isCourse ? courseModulesBlock(input.pass2.sections) : input.pass2.sections
     .map(
       (s) =>
         `- ${s.kind} (${s.estimated_minutes}m, target: ${s.target_emotion}): ${s.intent}\n  transition_goal: ${s.transition_goal}`,
@@ -85,6 +91,13 @@ export async function runQuestionBankGeneration(
     .join("\n")
 
   const user = [
+    ...(isCourse
+      ? [
+          "EPISODE GOAL (the syllabus):",
+          input.episode_goal?.trim() || "(none)",
+          "",
+        ]
+      : []),
     `Thesis: ${input.pass1.thesis}`,
     `Axes of tension:`,
     ...input.pass1.axes_of_tension.map((a, i) => `  ${i + 1}. ${a}`),
@@ -95,7 +108,7 @@ export async function runQuestionBankGeneration(
       ? `Sensitive zones: ${input.pass1.sensitive_zones.join(" | ")}`
       : "(no sensitive zones)",
     "",
-    "Episode sections:",
+    isCourse ? "Course modules (section id = the slot to put the question in):" : "Episode sections:",
     sectionsBlock,
     "",
     `Return JSON only. Language of output values: ${langLabel}.`,
@@ -110,8 +123,10 @@ export async function runQuestionBankGeneration(
       pass: "prep_v2.question_banks",
       preparation_id: input.preparation_id,
       language: input.language,
-      target_section_count: SECTION_KINDS.length,
+      target_section_count: isCourse ? input.pass2.sections.length : SECTION_KINDS.length,
+      ...(isCourse ? { format: "course" } : {}),
     },
+    ...(isCourse ? { promptVersion: COURSE_PROMPT_VERSION } : {}),
     prompt: [
       { role: "system", content: system },
       { role: "user", content: user },
@@ -129,6 +144,10 @@ export async function runQuestionBankGeneration(
     }
   }
 
+  // Course: a question may only land in a slot this course actually uses.
+  const allowedSections = isCourse
+    ? new Set<string>(input.pass2.sections.map((s) => s.kind))
+    : null
   const questions: PrepV2Question[] = []
   // `r.parsed.questions` is typed as `PrepV2Question[]` from the AI
   // schema but the loop body treats each entry as a free-form record
@@ -139,7 +158,8 @@ export async function runQuestionBankGeneration(
   >) {
     const section = coerceSection(raw["section"])
     if (!section) continue
-    const types = coerceTypes(raw["types"])
+    if (allowedSections && !allowedSections.has(section)) continue
+    const types = isCourse ? courseSafeTypes(coerceTypes(raw["types"])) : coerceTypes(raw["types"])
     if (types.length === 0) continue
     const text = String(raw["text"] ?? "").trim()
     if (text.length < 10) continue
@@ -155,6 +175,66 @@ export async function runQuestionBankGeneration(
     })
   }
   return { ok: true, output: { questions }, ai_run_id: r.runId }
+}
+
+// ─── Course format ────────────────────────────────────────────────────
+
+function courseModulesBlock(sections: PrepV2Section[]): string {
+  return sections
+    .map((s, i) =>
+      [
+        `- section id "${s.kind}" = MODULE ${i}: «${s.title ?? s.kind}» (${s.estimated_minutes}m)`,
+        `  teaches: ${s.intent}`,
+        `  learning objective: ${s.learning_objective ?? ""}`,
+        `  key concepts: ${(s.key_concepts ?? []).join(" | ")}`,
+        `  takeaway tool: ${s.takeaway_tool ?? ""}`,
+        `  guest experience as example: ${s.guest_experience_fit ?? ""}`,
+      ].join("\n"),
+    )
+    .join("\n")
+}
+
+/**
+ * The story prompt demands ≥2 emotional questions at the peak and ≥2
+ * confrontational ones in the conflict — quotas that turn an expert into a
+ * confession. The course prompt replaces them with method quotas: every
+ * module must yield concepts, steps and a tool, with the guest's experience
+ * as the worked example.
+ */
+function courseQuestionSystem(langLabel: string, sections: PrepV2Section[]): string {
+  const ids = sections.map((s) => s.kind).join("|")
+  const perModule = sections
+    .map((s) => `${s.kind}: ${Math.max(3, Math.round(s.estimated_minutes / 3.5))}`)
+    .join(", ")
+  return [
+    `You write questions for a serious ${langLabel}-language podcast episode run as a MINI-COURSE / TRAINING SESSION with an expert guest. The host needs a question bank usable LIVE that walks the listener through the modules IN ORDER and leaves them with method and tools.`,
+    "",
+    "Output JSON only. Shape:",
+    "{ \"questions\": [ {",
+    `  \"section\": one of ${ids},`,
+    "  \"text\": string,",
+    "  \"types\": string[],                           // ≥1 of: factual, reflective, philosophical, personal",
+    "  \"priority\": \"must_ask\" | \"if_time\",",
+    "  \"purpose\": string,                           // one sentence: which concept / step / tool this extracts",
+    "  \"follow_up_prompt\": string,                  // a single prompt asking for a concrete example, step or number",
+    "  \"risk_level\": \"low\" | \"medium\" | \"high\"",
+    "} ] }",
+    "",
+    "RULES:",
+    "1. CRITICAL — the `questions` array MUST have between 30 and 38 items. Count before returning.",
+    `2. Distribution follows each module's minutes (about one question per 3–4 minutes): ${perModule}. Every module gets at least 3. A topic module is NEVER reduced to one or two questions.`,
+    "3. At least 14 questions must be priority=must_ask, spread across ALL modules — each topic module needs ≥2 must_ask.",
+    "4. Anchor, then extract: each question opens on a concrete situation (a case he lived, or a scene the listener will face — 'you walk into an organisation where…') and asks how he reads or acts in it. The step list or checklist belongs in follow_up_prompt, never as the question itself.",
+    "5. The guest's experience is the worked example INSIDE each module: at least one question per topic module asks for a real case that illustrates the concept.",
+    "6. Module 0 covers who the guest is + successes and failures. Ask about failures as LESSONS ('what did it teach you, what would you do differently'), never as confession.",
+    "7. BANNED: confrontational or 'gotcha' questions, questions whose purpose is regret, pain or emotional exposure, and report-style questions that only ask for a list. Do not use the types 'confrontational' or 'emotional'. Exception: failures, regrets or doors the EPISODE GOAL explicitly names are IN scope for module 0. Ask each once, gently, as an open door the guest may decline (risk_level medium; state 'only if he wishes' in follow_up_prompt when the goal says so), and turn the answer toward the lesson it taught.",
+    "8. Types: factual (concepts, steps, data), reflective (lessons, judgement), philosophical (principles, what stays human), personal (only for the guest's own example).",
+    "9. Each question must serve its module's learning objective, key concepts or takeaway tool — name which one in the purpose.",
+    "10. Respect every instruction in the goal about topics to avoid or to raise only if the guest wishes — including topics the goal says a previous episode already covered.",
+    "11. Banned filler: 'tell me about yourself', 'any final thoughts', anything you would ask any guest.",
+    "12. The last module's questions consolidate: the toolkit, the first step, the one mistake to avoid.",
+    "13. Section ids are opaque slot labels — ignore their literal meaning; the module title defines the content.",
+  ].join("\n")
 }
 
 // ─── Coercion helpers ─────────────────────────────────────────────────

@@ -22,6 +22,10 @@ import { episodes as episodesTable } from "@/lib/db/schema/episodes"
 import { requireActionRole } from "@/lib/api-utils"
 import { runPrepV2Pipeline } from "@/lib/preparation/v2/pipeline"
 import { describeValidationFailuresAr } from "@/lib/preparation/v2/validation"
+import {
+  coerceCourseTargetChoice,
+  coercePrepFormat,
+} from "@/lib/preparation/v2/format"
 import { analyzeEirPerformance } from "@/lib/khat-brain/performance-learning"
 import { enqueueJob } from "@/lib/jobs"
 
@@ -54,6 +58,13 @@ export interface JobActionResult {
 
 export async function regeneratePrepV2Action(
   eirId: string,
+  /** "story" (default) | "course". Untrusted client input — coerced. */
+  format?: string,
+  /**
+   * Course only — explicit length in minutes. Untrusted: only a value in
+   * COURSE_TARGET_CHOICES survives; anything else means "auto from the goal".
+   */
+  targetMinutes?: unknown,
 ): Promise<JobActionResult> {
   const gate = await requireActionRole("EDITOR")
   if (!gate.ok) return { ok: false, message: gate.error }
@@ -77,6 +88,8 @@ export async function regeneratePrepV2Action(
       preparationId: prep.id,
       language: "ar",
       force: true,
+      format: coercePrepFormat(format),
+      targetMinutes: coerceCourseTargetChoice(targetMinutes),
     })
     revalidatePath(`/admin/khat-brain/episodes/${eirId}`)
     if (!r.ok) {

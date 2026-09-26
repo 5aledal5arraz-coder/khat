@@ -9,16 +9,18 @@
  * UX-5.1 added inline editing for the high-traffic prep_v2 fields
  * (thesis, axes, questions, sensitive zones, host/director guidance).
  * UX-5.4 replaced the CLI regen hint with `regeneratePrepV2Action`.
+ * The regen control now carries a format choice (story | course) —
+ * see `prep-format-regenerate.tsx`.
  */
 
 import Link from "next/link"
-import { Sparkles, AlertTriangle, ExternalLink, Radio, Brain, RefreshCw, Clock } from "lucide-react"
+import { Sparkles, AlertTriangle, ExternalLink, Radio, Brain, Clock } from "lucide-react"
 import { PrepV2View } from "@/app/admin/preparation/[id]/prep-v2-view"
 import type { WorkspacePrepSummary, WorkspaceRoomSummary } from "@/lib/khat-brain/workspace-tabs"
 import { formatDateTime } from "@/lib/shared/formatters"
 import { prepStatusLabel } from "@/lib/operator-language"
-import { regeneratePrepV2Action } from "./job-actions"
-import { JobActionButton } from "./job-action-button"
+import { autoCourseTargetMinutes, prepFormatOf } from "@/lib/preparation/v2/format"
+import { PrepFormatRegenerate } from "./prep-format-regenerate"
 import { PrepV2InlineEditor } from "./prep-inline-editor"
 import { PrepInsightReview } from "./prep-insight-review"
 import { PrepInputsEditor } from "./prep-inputs-editor"
@@ -106,6 +108,10 @@ export function PreparationTab({
     )
   }
 
+  // What the course picker's «تلقائي» will resolve to, from the same inputs
+  // the pipeline reads (goal + expected_duration_min). null ⇒ default 120.
+  const autoTarget = autoCourseTargetMinutes(prep.episode_goal, prep.expected_duration_min)
+
   return (
     <div className="space-y-4">
       {/* Action row */}
@@ -166,12 +172,10 @@ export function PreparationTab({
             هذا الإعداد ليس لديه بنية Prep V2 (التحضير العميق ٤-تمريرات).
             اضغط الزر أدناه لتوليده — العملية تستغرق دقيقتين تقريباً.
           </p>
-          <JobActionButton
-            label="إعادة توليد الإعداد"
-            pendingLabel="جارٍ التوليد…"
-            icon={<RefreshCw className="h-3 w-3" />}
-            successTitle="تم تحديث الإعداد"
-            action={regeneratePrepV2Action.bind(null, eirId)}
+          <PrepFormatRegenerate
+            eirId={eirId}
+            initialFormat="story"
+            autoTargetMinutes={autoTarget}
             size="md"
           />
         </div>
@@ -201,12 +205,10 @@ export function PreparationTab({
                 <span dir="ltr">{formatDateTime(prep.updated_at)}</span>
               </span>
             </div>
-            <JobActionButton
-              label="إعادة توليد الإعداد"
-              pendingLabel="جارٍ التوليد…"
-              icon={<RefreshCw className="h-3 w-3" />}
-              successTitle="تم تحديث الإعداد"
-              action={regeneratePrepV2Action.bind(null, eirId)}
+            <PrepFormatRegenerate
+              eirId={eirId}
+              initialFormat={prepFormatOf(prep.prep_v2)}
+              autoTargetMinutes={autoTarget}
               confirm={REGENERATE_PREP_CONFIRM}
             />
           </div>

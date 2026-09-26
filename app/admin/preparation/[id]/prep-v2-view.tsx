@@ -6,7 +6,12 @@
  */
 
 import { Sparkles, Mic, Compass, Eye, AlertTriangle } from "lucide-react"
-import type { PrepV2Payload, PrepV2Question, SectionKind } from "@/lib/preparation/v2/types"
+import type { PrepV2Payload, PrepV2Question } from "@/lib/preparation/v2/types"
+import {
+  PREP_FORMAT_LABEL_AR,
+  prepFormatOf,
+  sectionLabelAr,
+} from "@/lib/preparation/v2/format"
 import { formatArabicCount } from "@/lib/shared/formatters"
 import { Empty } from "../../components/ui-kit"
 
@@ -17,15 +22,6 @@ import { Empty } from "../../components/ui-kit"
  * purpose: it is the one string a human reads OUT LOUD, off a screen, while
  * a guest is sitting opposite him.
  */
-
-const SECTION_LABEL_AR: Record<SectionKind, string> = {
-  opening: "افتتاحية",
-  build_up: "بناء التوتر",
-  conflict: "المواجهة",
-  deep_dive: "الغوص العميق",
-  emotional_peak: "الذروة العاطفية",
-  resolution: "الخاتمة",
-}
 
 /**
  * Display-only Arabic for the stored enums. The VALUES in the database stay
@@ -52,9 +48,16 @@ const TYPE_LABEL_AR: Record<string, string> = {
 }
 
 export function PrepV2View({ payload }: { payload: PrepV2Payload }) {
-  const totalQ = payload.question_bank.length
-  const mustAsk = payload.question_bank.filter((q) => q.priority === "must_ask").length
+  // Count what the section list below actually renders: a question filed under
+  // a slot the prep has no section for is not shown, so it must not be counted.
+  const shownKinds = new Set<string>(payload.episode_sections.map((s) => s.kind))
+  const shownQuestions = payload.question_bank.filter((q) => shownKinds.has(q.section))
+  const totalQ = shownQuestions.length
+  const mustAsk = shownQuestions.filter((q) => q.priority === "must_ask").length
   const total = payload.total_estimated_minutes
+  // A course reuses the story fields with course meaning (see format.ts):
+  // axes_of_tension are its learning threads, sections are its modules.
+  const isCourse = prepFormatOf(payload) === "course"
 
   return (
     <div className="mb-6 space-y-6 rounded-3xl border border-primary/20 bg-gradient-to-br from-primary/5 to-primary/5 p-6">
@@ -63,6 +66,9 @@ export function PrepV2View({ payload }: { payload: PrepV2Payload }) {
         <div className="mb-2 inline-flex items-center gap-1.5 text-[13px] font-medium text-primary">
           <Sparkles className="h-3.5 w-3.5" />
           إعداد V2 — ضمير التحرير
+          <span className="ms-1 rounded-full border border-primary/30 px-2 py-0.5 text-[11px]">
+            {PREP_FORMAT_LABEL_AR[prepFormatOf(payload)]}
+          </span>
         </div>
         <h2 className="text-[20px] font-semibold leading-snug text-foreground">
           {payload.thesis}
@@ -78,7 +84,7 @@ export function PrepV2View({ payload }: { payload: PrepV2Payload }) {
       </div>
 
       {/* ── Axes of tension ─────────────────────────────────────────── */}
-      <Section title="محاور التوتر" icon={<Compass className="h-3.5 w-3.5" />}>
+      <Section title={isCourse ? "محاور التعلّم" : "محاور التوتر"} icon={<Compass className="h-3.5 w-3.5" />}>
         <ul className="grid grid-cols-1 gap-1.5 text-[13px] text-foreground/85 sm:grid-cols-2">
           {payload.axes_of_tension.map((a, i) => (
             <li
@@ -102,9 +108,9 @@ export function PrepV2View({ payload }: { payload: PrepV2Payload }) {
       </Section>
 
       {/* ── Sections + per-section questions ────────────────────────── */}
-      <Section title="هيكل الحلقة + بنك الأسئلة">
+      <Section title={isCourse ? "وحدات الدورة + بنك الأسئلة" : "هيكل الحلقة + بنك الأسئلة"}>
         <div className="space-y-4">
-          {payload.episode_sections.map((s) => {
+          {payload.episode_sections.map((s, idx) => {
             const qs = payload.question_bank.filter((q) => q.section === s.kind)
             return (
               <div
@@ -113,7 +119,12 @@ export function PrepV2View({ payload }: { payload: PrepV2Payload }) {
               >
                 <div className="mb-2 flex flex-wrap items-baseline justify-between gap-2">
                   <h3 className="text-[17px] font-semibold text-foreground">
-                    {SECTION_LABEL_AR[s.kind]}
+                    {isCourse && (
+                      <span className="me-1.5 text-muted-foreground">
+                        الوحدة {idx + 1}:
+                      </span>
+                    )}
+                    {sectionLabelAr(s.kind, payload.episode_sections)}
                   </h3>
                   {/* Was `6 min · فضول · 4 q` forced to dir="ltr" — two English
                       units and an LTR override on a line that is mostly Arabic. */}
@@ -128,6 +139,7 @@ export function PrepV2View({ payload }: { payload: PrepV2Payload }) {
                 <p className="mb-2 text-[13px] leading-relaxed text-foreground/80">
                   {s.intent}
                 </p>
+                {isCourse && <CourseModuleDetails section={s} />}
                 <p className="mb-3 text-[13px] italic text-muted-foreground/80">
                   <span aria-hidden="true">←</span> {s.transition_goal}
                 </p>
@@ -367,6 +379,44 @@ function Stat({
       >
         {value}
       </div>
+    </div>
+  )
+}
+
+/** Course-format module fields — rendered only when present. */
+function CourseModuleDetails({
+  section,
+}: {
+  section: PrepV2Payload["episode_sections"][number]
+}) {
+  const rows: { label: string; value: string }[] = [
+    { label: "هدف التعلّم", value: section.learning_objective ?? "" },
+    { label: "الأداة العملية", value: section.takeaway_tool ?? "" },
+    { label: "مكان تجربة الضيف", value: section.guest_experience_fit ?? "" },
+  ].filter((r) => r.value.trim().length > 0)
+  const concepts = section.key_concepts ?? []
+  if (rows.length === 0 && concepts.length === 0) return null
+  return (
+    <div className="mb-3 space-y-1.5 rounded-xl border border-border/40 bg-card/60 p-3 text-[13px]">
+      {rows.map((r) => (
+        <p key={r.label} className="leading-relaxed text-foreground/85">
+          <strong className="me-1 text-foreground">{r.label}:</strong>
+          {r.value}
+        </p>
+      ))}
+      {concepts.length > 0 && (
+        <div className="flex flex-wrap items-center gap-1.5">
+          <strong className="text-foreground">مفاهيم وأطر:</strong>
+          {concepts.map((c, i) => (
+            <span
+              key={i}
+              className="rounded-full border border-border/60 bg-background px-2 py-0.5 text-[12px] text-foreground/85"
+            >
+              {c}
+            </span>
+          ))}
+        </div>
+      )}
     </div>
   )
 }

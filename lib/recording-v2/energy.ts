@@ -18,6 +18,7 @@ import type {
   QuestionType,
   SectionKind,
 } from "@/lib/preparation/v2/types"
+import type { PrepFormat } from "@/lib/preparation/v2/format"
 
 export type EnergyBand = "low" | "medium" | "high"
 
@@ -67,6 +68,38 @@ export const SECTION_TARGET_LEVEL: Record<SectionKind, number> = {
   deep_dive: 4,
   emotional_peak: 5,
   resolution: 2,
+}
+
+/**
+ * Course format (lib/preparation/v2/format.ts): the slots hold LESSONS, not
+ * an arc — `conflict` / `emotional_peak` are just the 2nd/4th topic module.
+ * A training session wants a steady, engaged middle and calm edges; pushing
+ * "high" there is exactly the confrontation the course format removes.
+ */
+export const COURSE_SECTION_TARGET_BAND: Record<SectionKind, EnergyBand> = {
+  opening: "low",
+  build_up: "medium",
+  conflict: "medium",
+  deep_dive: "medium",
+  emotional_peak: "medium",
+  resolution: "low",
+}
+
+export const COURSE_SECTION_TARGET_LEVEL: Record<SectionKind, number> = {
+  opening: 2,
+  build_up: 3,
+  conflict: 3,
+  deep_dive: 3,
+  emotional_peak: 3,
+  resolution: 2,
+}
+
+/** Planned level for a section, by format. Story ⇒ SECTION_TARGET_LEVEL. */
+export function sectionTargetLevel(
+  section: SectionKind,
+  format: PrepFormat = "story",
+): number {
+  return (format === "course" ? COURSE_SECTION_TARGET_LEVEL : SECTION_TARGET_LEVEL)[section]
 }
 
 // Which question types lean which way on the intensity spectrum.
@@ -201,13 +234,18 @@ export function sectionRespondsToEnergy(
  * an aligned moment). Returns null when there's nothing useful to say, so it
  * never nags. This is what makes the dial feel like a co-host.
  */
-export function coachHint(section: SectionKind | null, energy: number): string | null {
+export function coachHint(
+  section: SectionKind | null,
+  energy: number,
+  format: PrepFormat = "story",
+): string | null {
   const band = energyBand(energy)
   if (!section) {
     if (band === "low") return "ارفع الحدّة قليلاً — الطاقة منخفضة"
     if (band === "high") return "لحظة جيدة لسؤال قوي"
     return null
   }
+  if (format === "course") return courseCoachHint(section, band)
   const target = SECTION_TARGET_BAND[section]
 
   // Tension: the section wants intensity but the room is flat.
@@ -229,6 +267,24 @@ export function coachHint(section: SectionKind | null, energy: number): string |
     (section === "conflict" || section === "emotional_peak")
   ) {
     return "لحظة مثالية — اضغط الآن"
+  }
+  return null
+}
+
+/**
+ * Course whisper — never "push" or "confront": the lever in a training
+ * session is a concrete example when the room is flat, and slowing down so
+ * the method lands when it runs hot.
+ */
+function courseCoachHint(section: SectionKind, band: EnergyBand): string | null {
+  const target = COURSE_SECTION_TARGET_BAND[section]
+  if (target === "medium" && band === "low") {
+    return "اطلب مثالاً عملياً من تجربته — الإيقاع هابط"
+  }
+  if (band === "high") {
+    if (section === "opening") return "ابدأ بهدوء — عرّف بالضيف أولاً"
+    if (section === "resolution") return "اهدأ — نلخّص الأدوات ونختم"
+    return "هدّئ الإيقاع — الهدف أن يُفهم المنهج"
   }
   return null
 }

@@ -106,6 +106,8 @@ export interface WorkspacePrepSummary {
   /** UX-7 Phase B — workspace-native inputs editor reads these fields. */
   short_description: string | null
   episode_goal: string | null
+  /** Studio-set planned length — feeds the course picker's «تلقائي» preview. */
+  expected_duration_min: number | null
   key_questions: string[]
   status: string
   prep_v2: PrepV2Payload | null
@@ -122,6 +124,7 @@ export async function getPreparationForEir(
       guest_name: episodePreparations.guest_name,
       short_description: episodePreparations.short_description,
       episode_goal: episodePreparations.episode_goal,
+      expected_duration_min: episodePreparations.expected_duration_min,
       key_questions: episodePreparations.key_questions,
       status: episodePreparations.status,
       prep_v2: episodePreparations.prep_v2,
@@ -138,6 +141,7 @@ export async function getPreparationForEir(
     guest_name: row.guest_name,
     short_description: row.short_description ?? null,
     episode_goal: row.episode_goal ?? null,
+    expected_duration_min: row.expected_duration_min ?? null,
     key_questions: Array.isArray(row.key_questions) ? row.key_questions : [],
     status: row.status,
     prep_v2: (row.prep_v2 as PrepV2Payload | null) ?? null,

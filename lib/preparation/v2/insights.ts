@@ -244,6 +244,9 @@ export async function runInsightGeneration(
         thesis: input.payload.thesis,
         axes_of_tension: input.payload.axes_of_tension,
         section: s.kind,
+        // A course module's slot id («conflict») says nothing true about it;
+        // its title does. Story sections have no title ⇒ prompt unchanged.
+        sectionTitle: input.payload.episode_sections.find((x) => x.kind === s.kind)?.title,
         questions: s.questions,
       }).catch((err) => {
         console.warn(
@@ -379,6 +382,8 @@ interface SectionDraftInput {
   thesis: string
   axes_of_tension: string[]
   section: SectionKind
+  /** Course-format module title; absent on story sections. */
+  sectionTitle?: string
   questions: PrepV2Question[]
 }
 
@@ -433,7 +438,9 @@ async function draftSectionInsights(
     `Episode thesis: ${input.thesis}`,
     `Axes of tension: ${input.axes_of_tension.join(" | ")}`,
     input.guestName ? `Guest: ${input.guestName}` : "Guest: (not yet assigned)",
-    `Section: ${input.section}`,
+    input.sectionTitle
+      ? `Section: ${input.section} — course module «${input.sectionTitle}»`
+      : `Section: ${input.section}`,
     "",
     "Questions (propose cards for these, by id):",
     questionBlock,

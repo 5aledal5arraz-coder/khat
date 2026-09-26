@@ -19,21 +19,15 @@ import {
   Lightbulb,
   type LucideIcon,
 } from "lucide-react"
-import type { SectionKind } from "@/lib/preparation/v2/types"
 import {
   QUICK_MARKER_TYPES,
   QUICK_MARKER_META,
   type QuickMarkerType,
 } from "@/lib/recording-v2/marker-types"
 
-export const SECTION_LABEL_AR: Record<SectionKind, string> = {
-  opening: "افتتاحية",
-  build_up: "بناء التوتر",
-  conflict: "المواجهة",
-  deep_dive: "الغوص العميق",
-  emotional_peak: "الذروة العاطفية",
-  resolution: "الخاتمة",
-}
+// Section labels moved to `sectionLabelAr` (lib/preparation/v2/format.ts):
+// a course-format module carries its own title, which a kind→label map
+// cannot express.
 
 export interface MarkerStyle {
   label: string

@@ -29,6 +29,7 @@ import {
   useRoomConnection,
 } from "@/app/admin/preparation/[id]/room/contexts"
 import type { LiveV2Marker, LiveV2Snapshot } from "@/lib/recording-v2/load"
+import { prepFormatOf } from "@/lib/preparation/v2/format"
 import {
   energyBand,
   rankQuestionsByEnergy,
@@ -662,7 +663,11 @@ export function LiveV2Client({ initial }: { initial: LiveV2Snapshot }) {
   // ranking must say the same thing, which is the contradiction this whole
   // change exists to end. And while a cue is on screen the whisper goes quiet:
   // two amber banners competing for the same glance is one too many.
-  const hint = handshake.pending ? null : coachHint(currentSection, handshake.approved)
+  // A course prep coaches toward examples and clarity, never confrontation.
+  const prepFormat = prepFormatOf(prep.prep_v2)
+  const hint = handshake.pending
+    ? null
+    : coachHint(currentSection, handshake.approved, prepFormat)
   // Energy markers drive the ribbon, not the content pins / count / list.
   const contentMarkers = markers.filter((m) => m.marker_type !== "energy_change")
 
@@ -782,6 +787,7 @@ export function LiveV2Client({ initial }: { initial: LiveV2Snapshot }) {
         openingOptions={pv.opening_options}
         sensitiveZones={pv.sensitive_zones}
         sections={pv.episode_sections}
+        format={prepFormat}
         energy={displayedEnergy}
         canSetEnergy
         onSetEnergy={onSetEnergy}
@@ -843,6 +849,7 @@ export function LiveV2Client({ initial }: { initial: LiveV2Snapshot }) {
       contentMarkers={contentMarkers}
       energyHistory={energyHistory}
       hint={hint}
+      format={prepFormat}
       notes={notes}
       onNotesChange={onNotesChange}
       onTag={tag}

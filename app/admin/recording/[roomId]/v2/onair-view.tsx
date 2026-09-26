@@ -37,7 +37,8 @@ import {
 } from "@/lib/recording-v2/energy"
 import { resolveHero, type EnergySuggestion } from "@/lib/recording-v2/energy-handshake"
 import { Zap } from "lucide-react"
-import { SECTION_LABEL_AR, computeElapsedMs } from "./recording-shared"
+import { computeElapsedMs } from "./recording-shared"
+import { sectionLabelAr, type PrepFormat } from "@/lib/preparation/v2/format"
 import { Timeline, type EnergyPoint } from "./recording-clock"
 import { StatusRail } from "./status-rail"
 import { FlagControl } from "./flag-control"
@@ -98,6 +99,8 @@ export function OnAirView(props: {
   contentMarkers: LiveV2Marker[]
   energyHistory: EnergyPoint[]
   hint: string | null
+  /** Episode format — the coaching banner's planned level depends on it. */
+  format: PrepFormat
   notes: string
   onNotesChange: (s: string) => void
   onTag: (type: QuickMarkerType, label: string) => void
@@ -125,7 +128,7 @@ export function OnAirView(props: {
   const nextUp = open.filter((q) => q.id !== hero?.id).slice(0, 2)
 
   const sectionLabel = props.currentSection
-    ? SECTION_LABEL_AR[props.currentSection] ?? props.currentSection
+    ? sectionLabelAr(props.currentSection, props.sections)
     : null
   const sectionTotal = props.sections?.length ?? 0
 
@@ -177,6 +180,7 @@ export function OnAirView(props: {
             hint={props.hint}
             energy={props.approvedEnergy}
             section={props.currentSection}
+            format={props.format}
           />
         ) : null}
       </div>
@@ -469,7 +473,7 @@ function SectionSwitcher({
           className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-border/40 bg-background/40 px-3 py-1.5 text-[12.5px] font-medium text-foreground/85 transition hover:bg-background/70"
         >
           <LayoutGrid className="h-3.5 w-3.5 text-muted-foreground" />
-          {SECTION_LABEL_AR[sections[currentIndex]?.kind] ?? "—"}
+          {sections[currentIndex] ? sectionLabelAr(sections[currentIndex].kind, sections) : "—"}
           <span className="text-[10.5px] text-muted-foreground" dir="ltr">
             {currentIndex + 1}/{sections.length}
           </span>
@@ -501,7 +505,7 @@ function SectionSwitcher({
                   : "text-foreground/80 hover:bg-background/70")
               }
             >
-              {SECTION_LABEL_AR[s.kind] ?? s.kind}
+              {sectionLabelAr(s.kind, sections)}
             </button>
           ))}
         </div>
