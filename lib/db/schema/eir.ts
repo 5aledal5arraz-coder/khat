@@ -125,6 +125,14 @@ export const episodeIntelligenceRecords = pgTable(
      * RECORDING date, NOT publish (publish lives on episodes.release_date /
      * episodes.scheduled_for). MUST NOT appear on any public surface; the
      * public teaser reads select `phase` only and never this column.
+     *
+     * ONE deliberate exception: «نسخة الضيف». The guest's private link shows
+     * the recording time, but ONLY as copied into the admin-PUBLISHED snapshot
+     * (`guest_episode_links.published_view`, built by `toGuestPrepView()` in
+     * lib/guest-link/view.ts, gated by `show_schedule`). No guest route reads
+     * this column directly for display; a change here only raises the admin's
+     * stale badge until someone republishes. (Link expiry is also derived from
+     * it, server-side — the value is never sent.)
      */
     recording_scheduled_at: timestamp("recording_scheduled_at", {
       withTimezone: true,

@@ -35,7 +35,14 @@ function cleanupExpired() {
  * Checks x-forwarded-for (set by reverse proxies) first,
  * then falls back to x-real-ip, then to a generic key.
  */
-function getClientIp(request: NextRequest): string {
+/**
+ * Anything with request headers. A route handler passes its `NextRequest`; a
+ * server component (e.g. /prepare/[token], which must rate-limit its own GET)
+ * passes `{ headers: await headers() }` — the IP logic is the same either way.
+ */
+export type RateLimitSource = Pick<NextRequest, 'headers'> | { headers: { get(name: string): string | null } }
+
+function getClientIp(request: RateLimitSource): string {
   const forwarded = request.headers.get('x-forwarded-for')
   if (forwarded) {
     return forwarded.split(',')[0].trim()
@@ -58,7 +65,7 @@ export interface IpRateLimitResult {
  * @param windowMs - Time window in milliseconds
  */
 export function checkIpRateLimit(
-  request: NextRequest,
+  request: RateLimitSource,
   action: string,
   maxRequests: number,
   windowMs: number,

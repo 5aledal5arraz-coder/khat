@@ -323,6 +323,15 @@ export async function proxy(request: NextRequest) {
     response.headers.set('Strict-Transport-Security', 'max-age=31536000; includeSubDomains')
   }
 
+  // «نسخة الضيف» — the private guest page carries a secret in its path. Never
+  // cache it anywhere shared, never index it, and never leak the path (with
+  // the token) as a Referer when the guest taps the map link.
+  if (pathname.startsWith('/prepare/') || pathname.startsWith('/api/prepare/')) {
+    response.headers.set('Cache-Control', 'private, no-store')
+    response.headers.set('X-Robots-Tag', 'noindex, nofollow')
+    response.headers.set('Referrer-Policy', 'no-referrer')
+  }
+
   // A6 — Content-Security-Policy. String computed once at module
   // init (see CSP_HEADER_VALUE above); `.set()` overwrites any
   // existing header so a downstream that previously set CSP would

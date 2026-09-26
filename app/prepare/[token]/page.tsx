@@ -1,19 +1,91 @@
 import type { Metadata } from "next"
+import { headers } from "next/headers"
 import { getPrepFormByToken, validatePrepToken } from "@/lib/guest-prep"
+import { checkIpRateLimit } from "@/lib/rate-limit"
+import { linkAccess } from "@/lib/guest-link/access"
+import {
+  findGuestLinkByToken,
+  listOwnSuggestions,
+  markSuggestionsNotified,
+  recordGuestOpen,
+} from "@/lib/guest-link/service"
+import { buildGuestPageProps } from "@/lib/guest-link/page-props"
+import { GUEST_RATE_LIMITS } from "@/lib/guest-link/route-helpers"
 import { PrepFormClient } from "./prep-form-client"
+import { GuestLinkClient } from "./guest-link-client"
+
+/**
+ * Neutral on purpose — this title is what WhatsApp shows in the link preview
+ * and what sits in the guest's browser tab. It never names the episode.
+ */
+const GUEST_PAGE_TITLE = "بودكاست خط — تحضير حلقتك"
 
 export const metadata: Metadata = {
-  title: "نموذج التحضير",
-  robots: { index: false, follow: false },
+  title: { absolute: GUEST_PAGE_TITLE },
+  description: "صفحة خاصة بضيف بودكاست خط.",
+  robots: { index: false, follow: false, nocache: true },
+  openGraph: {
+    title: GUEST_PAGE_TITLE,
+    description: "صفحة خاصة بضيف بودكاست خط.",
+  },
+  twitter: { card: "summary", title: GUEST_PAGE_TITLE },
 }
 
 interface PreparePageProps {
   params: Promise<{ token: string }>
 }
 
+/**
+ * /prepare/[token] serves TWO kinds of link:
+ *   1. «نسخة الضيف» (guest_episode_links) — resolved FIRST.
+ *   2. The legacy guest_prep_forms questionnaire — every link already sent
+ *      keeps working exactly as before.
+ * /prepare/live/[token] is a separate static segment and never reaches here.
+ */
 export default async function PreparePage({ params }: PreparePageProps) {
   const { token } = await params
 
+  const rate = checkIpRateLimit(
+    { headers: await headers() },
+    "guest_link_page",
+    GUEST_RATE_LIMITS.read.max,
+    GUEST_RATE_LIMITS.read.windowMs,
+  )
+  if (!rate.allowed) {
+    return (
+      <StatusCard
+        title="لحظة من فضلك"
+        description="فتحت الصفحة مرات كثيرة خلال وقت قصير. جرّب مرة ثانية بعد دقيقة."
+      />
+    )
+  }
+
+  const link = await findGuestLinkByToken(token)
+  if (link) {
+    const access = linkAccess(link.row, link.recordingAt)
+    if (access === "expired") return <ExpiredState name={link.row.guest_display_name} />
+    if (access === "revoked") {
+      return (
+        <StatusCard
+          title="الرابط غير متاح"
+          description="هذا الرابط لم يعد مستخدماً. لأي استفسار تواصل مع فريق خط."
+        />
+      )
+    }
+
+    const own = link.row.questionnaire_submitted_at
+      ? await listOwnSuggestions(link.row.id)
+      : { items: [], toNotify: [] }
+    const props = buildGuestPageProps({ token, row: link.row, suggestions: own.items })
+    // Side effects after the props are fixed: the open is counted, and an
+    // accepted suggestion's «تم الأخذ باقتراحك» is shown exactly once.
+    await recordGuestOpen(link.row.id)
+    if (props.view) await markSuggestionsNotified(own.toNotify)
+
+    return <GuestLinkClient {...props} />
+  }
+
+  // ── Legacy guest_prep_forms link ─────────────────────────────────────
   const form = await getPrepFormByToken(token)
   const validation = validatePrepToken(form)
 
@@ -31,6 +103,49 @@ export default async function PreparePage({ params }: PreparePageProps) {
       existingResponse={validForm.response}
       editable={validForm.status === "pending" || validForm.status === "submitted"}
     />
+  )
+}
+
+/** wa.me link to the team, prefilled. KHAT_TEAM_WHATSAPP = digits only. */
+function teamWhatsappHref(text: string): string {
+  const number = (process.env.KHAT_TEAM_WHATSAPP ?? "").replace(/[^\d]/g, "")
+  const q = `text=${encodeURIComponent(text)}`
+  return number ? `https://wa.me/${number}?${q}` : `https://wa.me/?${q}`
+}
+
+function ExpiredState({ name }: { name: string }) {
+  const href = teamWhatsappHref(`السلام عليكم، معكم ${name}. حاب أتواصل معكم بخصوص حلقتي في بودكاست خط.`)
+  return (
+    <div className="flex min-h-screen items-center justify-center px-4">
+      <div className="w-full max-w-md text-center">
+        <h1 className="mb-3 text-subhead font-semibold text-foreground">شكراً لك من القلب</h1>
+        <p className="text-body leading-relaxed text-foreground/80">
+          سعدنا بوجودك معنا في بودكاست خط. انتهت مدة هذه الصفحة، وإذا حاب تتواصل معنا فإحنا
+          موجودين.
+        </p>
+        <a
+          href={href}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="mt-8 inline-flex min-h-11 items-center justify-center rounded-xl bg-primary px-6 text-caption font-medium text-primary-foreground transition-colors hover:bg-primary/90"
+        >
+          تواصل معنا عبر واتساب
+        </a>
+        <div className="mt-8 text-micro text-muted-foreground">بودكاست خط</div>
+      </div>
+    </div>
+  )
+}
+
+function StatusCard({ title, description }: { title: string; description: string }) {
+  return (
+    <div className="flex min-h-screen items-center justify-center px-4">
+      <div className="w-full max-w-md text-center">
+        <h1 className="mb-3 text-subhead font-semibold text-foreground">{title}</h1>
+        <p className="text-caption text-muted-foreground">{description}</p>
+        <div className="mt-8 text-micro text-muted-foreground">بودكاست خط</div>
+      </div>
+    </div>
   )
 }
 

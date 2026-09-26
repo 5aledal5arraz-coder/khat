@@ -1,7 +1,7 @@
 import crypto from "crypto"
 import { db } from "@/lib/db"
 import { guestPrepForms } from "@/lib/db/schema"
-import { eq } from "drizzle-orm"
+import { and, eq, gt, inArray, isNull, ne, or } from "drizzle-orm"
 import type { GuestPrepForm, GuestPrepResponse, GuestPrepFormStatus } from "@/types/database"
 
 // ---------------------------------------------------------------------------
@@ -140,14 +140,23 @@ export async function submitPrepResponse(
   }
 
   const tokenHash = hashPrepToken(rawToken)
-  await db.update(guestPrepForms)
+  // The WHERE repeats the checks above. Without it, a form locked or revoked
+  // between the read and this write was still overwritten (and flipped back
+  // to "submitted") — the status check only guarded the read.
+  const updated = await db.update(guestPrepForms)
     .set({
       response: response as unknown as Record<string, unknown>,
       status: "submitted",
       submitted_at: new Date(),
     })
-    .where(eq(guestPrepForms.token_hash, tokenHash))
+    .where(and(
+      eq(guestPrepForms.token_hash, tokenHash),
+      inArray(guestPrepForms.status, ["pending", "submitted"]),
+      or(isNull(guestPrepForms.expires_at), gt(guestPrepForms.expires_at, new Date())),
+    ))
+    .returning({ id: guestPrepForms.id })
 
+  if (updated.length === 0) return { success: false, error: "locked" }
   return { success: true }
 }
 
@@ -195,13 +204,18 @@ export async function regeneratePrepToken(applicationId: string): Promise<{ form
   const tokenHash = hashPrepToken(rawToken)
   const expiresAt = new Date(Date.now() + PREP_FORM_EXPIRY_MS)
 
+  // Rotating the token must NOT reset the status: resetting to "pending" used
+  // to silently unlock a locked form and re-open a revoked one. A revoked form
+  // is not rotatable at all (the admin UI never offers it; this enforces it).
   const rows = await db.update(guestPrepForms)
     .set({
       token_hash: tokenHash,
       expires_at: expiresAt,
-      status: "pending",
     })
-    .where(eq(guestPrepForms.application_id, applicationId))
+    .where(and(
+      eq(guestPrepForms.application_id, applicationId),
+      ne(guestPrepForms.status, "revoked"),
+    ))
     .returning()
 
   if (!rows[0]) return null

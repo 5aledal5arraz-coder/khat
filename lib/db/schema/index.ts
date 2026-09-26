@@ -16,6 +16,8 @@ export * from "./community"
 export * from "./corpus"
 export * from "./guest-ai"
 export * from "./guest-prep"
+// «نسخة الضيف» — per-episode guest link + suggestions
+export * from "./guest-episode-links"
 export * from "./guest-candidates"
 export * from "./preparation"
 export * from "./collaboration"

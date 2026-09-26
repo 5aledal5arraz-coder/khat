@@ -94,7 +94,14 @@ export default async function RootLayout({
    * reason for the outage in the first place.
    */
   const isMaintenance = pathname === "/maintenance"
-  const isBareRoute = isAdminRoute || isMaintenance
+  /**
+   * The guest's private preparation page (/prepare/[token], incl. «نسخة
+   * الضيف») — app/prepare/layout.tsx says "no header/footer", but that layout
+   * NESTS inside this one, so the public nav was still mounted around a
+   * private page. A guest reading their prep does not need the site menu.
+   */
+  const isGuestPrivate = pathname.startsWith("/prepare/")
+  const isBareRoute = isAdminRoute || isMaintenance || isGuestPrivate
 
   // Theme is a single light surface platform-wide. The palette lives in one
   // place — the :root block in globals.css — so it reaches <body> and any

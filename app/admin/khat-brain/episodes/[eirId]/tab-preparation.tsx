@@ -25,6 +25,7 @@ import { PrepV2InlineEditor } from "./prep-inline-editor"
 import { PrepInsightReview } from "./prep-insight-review"
 import { PrepInputsEditor } from "./prep-inputs-editor"
 import { AssignGuestForm } from "./assign-guest-form"
+import { GuestLinkSection } from "./guest-link-section"
 
 /**
  * Regeneration REPLACES `episode_preparations.prep_v2` wholesale
@@ -161,6 +162,10 @@ export function PreparationTab({
           key_questions: prep.key_questions,
         }}
       />
+
+      {/* «نسخة الضيف» — the guest's private link, questionnaire, published
+          snapshot and suggestions inbox. Loads its own read model. */}
+      <GuestLinkSection eirId={eirId} />
 
       {/* prep_v2 missing → clear warning + workspace-native regen button */}
       {!prep.prep_v2 && (

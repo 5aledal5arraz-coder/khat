@@ -42,6 +42,11 @@ import {
   type PrepV2Question,
 } from "./types"
 import { courseTargetMinutes, effectiveCourseTarget, type PrepFormat } from "./format"
+import {
+  loadGuestPreferences,
+  withGuestAvoidZone,
+  type GuestPreferences,
+} from "./guest-preferences"
 
 export interface RunPrepV2Input {
   preparationId: string
@@ -139,7 +144,13 @@ export async function runPrepV2Pipeline(
     eir_id: ctx.eir_id,
     preparation_id: input.preparationId,
     ...(course ? { format: course.format } : {}),
+    // «نسخة الضيف» — only when the guest actually submitted answers, so a
+    // prep without a questionnaire sends exactly the prompts it always did.
+    ...(ctx.guest_preferences ? { guest_preferences: ctx.guest_preferences } : {}),
   }
+  const prefs = ctx.guest_preferences
+    ? { guest_preferences: ctx.guest_preferences }
+    : {}
 
   // ── Pass 1 ────────────────────────────────────────────────────────
   const p1 = await runResearchSynthesis(pass1Input)
@@ -153,6 +164,13 @@ export async function runPrepV2Pipeline(
       ai_run_ids,
       reason: "pass1_failed",
     }
+  }
+
+  // The guest's "avoid" is a sensitive zone deterministically — never left to
+  // the model. No-op without a questionnaire.
+  p1.output = {
+    ...p1.output,
+    sensitive_zones: withGuestAvoidZone(p1.output.sensitive_zones, ctx.guest_preferences),
   }
 
   // ── Pass 2 ────────────────────────────────────────────────────────
@@ -205,6 +223,7 @@ export async function runPrepV2Pipeline(
     pass2: p2.output,
     pass3: p3.output,
     ...(course ? { format: course.format, target_minutes: course.target_minutes } : {}),
+    ...prefs,
   })
   ai_run_ids.pass4_critique = p4.ai_run_id
   if (!p4.ok || !p4.output) {
@@ -259,6 +278,7 @@ export async function runPrepV2Pipeline(
       pass2: { sections: p4.revised_sections },
       pass3: { questions: backfilledQuestions },
       ...(course ? { format: course.format, target_minutes: course.target_minutes } : {}),
+      ...prefs,
     })
     if (retry.ok && retry.output) {
       ai_run_ids.pass4_critique = retry.ai_run_id // overwrite with successful retry
@@ -470,6 +490,8 @@ interface PrepContext {
     original_lens?: string | null
     conflict_angle?: string | null
   } | null
+  /** «نسخة الضيف» — the guest's submitted answers, or null (the common case). */
+  guest_preferences: GuestPreferences | null
 }
 
 async function loadContext(preparationId: string): Promise<PrepContext | null> {
@@ -571,6 +593,7 @@ async function loadContext(preparationId: string): Promise<PrepContext | null> {
     topic_domain,
     episode_type,
     hybrid_provenance,
+    guest_preferences: await loadGuestPreferences(prep.eir_id ?? null),
   }
 }
 

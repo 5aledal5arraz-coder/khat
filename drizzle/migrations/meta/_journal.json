@@ -218,6 +218,13 @@
       "when": 1786619318337,
       "tag": "0030_acoustic_mikhail_rasputin",
       "breakpoints": true
+    },
+    {
+      "idx": 31,
+      "version": "7",
+      "when": 1790453278779,
+      "tag": "0031_acoustic_giant_man",
+      "breakpoints": true
     }
   ]
 }

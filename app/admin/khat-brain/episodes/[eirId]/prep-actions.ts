@@ -293,6 +293,45 @@ export async function approveAllVerifiedInsightsAction(
   return { ok: true, message: `اعتُمدت ${approved} بطاقة موثوقة للبث.` }
 }
 
+// ─── «نسخة الضيف» — apply an accepted guest suggestion ───────────────
+//
+// Never automatic: the admin accepts a suggestion in the inbox, then chooses
+// to add it here as an `if_time` question in a section they pick. Goes through
+// the same locked mutatePrepV2 path as every other prep_v2 edit.
+
+export async function addGuestQuestionToPrepAction(
+  prepId: string,
+  section: SectionKind,
+  text: string,
+): Promise<PrepEditResult> {
+  const gate = await requireActionRole("EDITOR")
+  if (!gate.ok) return { ok: false, message: gate.error }
+  const clean = String(text ?? "").normalize("NFC").trim().slice(0, 500)
+  if (!clean) return { ok: false, message: "النص فارغ." }
+  let validSection = true
+  const r = await mutatePrepV2(prepId, (cur) => {
+    if (!cur.episode_sections.some((s) => s.kind === section)) {
+      validSection = false
+      return { next: cur, changed: false }
+    }
+    const q: PrepV2Question = {
+      id: `guest-${cryptoId()}`,
+      section,
+      text: clean,
+      types: ["reflective"],
+      priority: "if_time",
+      purpose: "اقتراح من الضيف (نسخة الضيف)",
+      follow_up_prompt: "",
+      risk_level: "low",
+    }
+    return { next: { ...cur, question_bank: [...cur.question_bank, q] }, changed: true }
+  })
+  if (!validSection) return { ok: false, message: "القسم غير موجود في الإعداد." }
+  if (!r.ok) return { ok: false, message: r.message }
+  revalidateEir(r.eirId)
+  return { ok: true, message: "أُضيف السؤال للإعداد." }
+}
+
 // ─── Helpers ─────────────────────────────────────────────────────────
 
 function parseLines(value: string): string[] {

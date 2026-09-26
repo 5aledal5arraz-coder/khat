@@ -182,7 +182,7 @@ export function PrepFormClient({ token, guestName, status, existingResponse, edi
               value={phoneWhatsapp}
               onChange={(e) => setPhoneWhatsapp(e.target.value)}
               placeholder="+965 XXXX XXXX"
-              className="form-input text-left"
+              className="form-input text-start"
             />
           </FormField>
         </FormSection>
@@ -206,7 +206,7 @@ export function PrepFormClient({ token, guestName, status, existingResponse, edi
                   value={(socialAccounts as Record<string, string>)[key] || ""}
                   onChange={(e) => updateSocial(key, e.target.value)}
                   placeholder={placeholder}
-                  className="form-input text-left"
+                  className="form-input text-start"
                 />
               </div>
             ))}
@@ -402,7 +402,7 @@ function FormField({ label, hint, required, children }: { label: string; hint?: 
     <div>
       <label className="mb-1.5 block text-caption font-medium text-foreground">
         {label}
-        {required && <span className="mr-1 text-red-400">*</span>}
+        {required && <span className="ms-1 text-destructive">*</span>}
       </label>
       {hint && <p className="mb-2 text-micro text-muted-foreground">{hint}</p>}
       {children}
@@ -421,7 +421,7 @@ function Checkbox({ checked, onChange, label, required }: { checked: boolean; on
       />
       <span className="text-caption text-foreground">
         {label}
-        {required && <span className="mr-1 text-red-400">*</span>}
+        {required && <span className="ms-1 text-destructive">*</span>}
       </span>
     </label>
   )

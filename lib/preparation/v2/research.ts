@@ -17,6 +17,11 @@
 import { runAiTask } from "@/lib/ai-router"
 import type { PrepV2Pass1Output } from "./types"
 import { COURSE_PROMPT_VERSION, type PrepFormat } from "./format"
+import {
+  guestPreferencesResearchBlock,
+  hasGuestPreferences,
+  type GuestPreferences,
+} from "./guest-preferences"
 
 export interface Pass1Input {
   episode_title: string
@@ -39,6 +44,11 @@ export interface Pass1Input {
   preparation_id: string
   /** Episode format. Absent/"story" ⇒ the original prompt, unchanged. */
   format?: PrepFormat
+  /**
+   * «نسخة الضيف» questionnaire answers. Absent/empty ⇒ the prompt is
+   * byte-identical to before this input existed.
+   */
+  guest_preferences?: GuestPreferences | null
 }
 
 export interface Pass1Result {
@@ -68,6 +78,7 @@ Conflict angle: ${provenance.conflict_angle ?? "—"}`
   const intentBlob = JSON.stringify(intent).slice(0, 1200)
 
   const isCourse = input.format === "course"
+  const hasPrefs = hasGuestPreferences(input.guest_preferences)
   const system = isCourse ? courseResearchSystem(langLabel) : [
     `You are a senior editorial researcher for a serious ${langLabel}-language podcast.`,
     "You are about to set up a 60–90 minute conversation. Your job in this pass is to extract the BACKBONE of the conversation, not to write questions.",
@@ -101,6 +112,7 @@ Conflict angle: ${provenance.conflict_angle ?? "—"}`
     "",
     "Guest identity (raw):",
     guestBlob,
+    ...(hasPrefs ? guestPreferencesResearchBlock(input.guest_preferences!) : []),
     "",
     `Return JSON only. No prose, no preamble. Language of output values: ${langLabel}.`,
   ].join("\n")
@@ -115,6 +127,7 @@ Conflict angle: ${provenance.conflict_angle ?? "—"}`
       preparation_id: input.preparation_id,
       language: input.language,
       ...(isCourse ? { format: "course" } : {}),
+      ...(hasPrefs ? { guest_preferences: true } : {}),
     },
     ...(isCourse ? { promptVersion: COURSE_PROMPT_VERSION } : {}),
     prompt: [

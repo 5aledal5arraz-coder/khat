@@ -37,6 +37,9 @@ const ARABIC_PLURALS: Record<string, [string, string, string]> = {
   "دقيقة": ["دقيقة", "دقيقتين", "دقائق"],
   "ساعة": ["ساعة", "ساعتين", "ساعات"],
   "يوم": ["يوم", "يومين", "أيام"],
+  // «نسخة الضيف» admin card: «فُتح مرتين». Adverbial, so the dual is «مرتين»
+  // (same reasoning as «دقيقتين» above).
+  "مرة": ["مرة", "مرتين", "مرات"],
   "تعليق": ["تعليق", "تعليقان", "تعليقات"],
   "رد": ["رد", "ردّان", "ردود"],
   "اقتباس": ["اقتباس", "اقتباسان", "اقتباسات"],
@@ -498,6 +501,46 @@ export function formatArabicDateTime(date: string | Date): string {
   const hh = String(d.getHours()).padStart(2, "0")
   const mm = String(d.getMinutes()).padStart(2, "0")
   return `${day} ${month} · ${hh}:${mm}`
+}
+
+const AR_WEEKDAYS = ["الأحد", "الاثنين", "الثلاثاء", "الأربعاء", "الخميس", "الجمعة", "السبت"] as const
+
+const kuwaitPartsFmt = new Intl.DateTimeFormat("en-US", {
+  timeZone: "Asia/Kuwait",
+  calendar: "gregory",
+  year: "numeric",
+  month: "numeric",
+  day: "numeric",
+  weekday: "short",
+  hour: "numeric",
+  minute: "2-digit",
+  hour12: false,
+})
+
+const EN_WEEKDAY_INDEX: Record<string, number> = { Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6 }
+
+/**
+ * A recording appointment as the GUEST reads it — always Kuwait time, whatever
+ * the server's or the phone's zone: { day: «الخميس», date: «2 أكتوبر 2026»,
+ * time: «7:30 مساءً» }. Western digits, like the rest of the site.
+ * Null for missing/invalid input.
+ */
+export function formatKuwaitAppointment(
+  date: string | Date | null | undefined,
+): { day: string; date: string; time: string } | null {
+  if (!date) return null
+  const d = typeof date === "string" ? new Date(date) : date
+  if (!(d instanceof Date) || isNaN(d.getTime())) return null
+  const parts: Record<string, string> = {}
+  for (const p of kuwaitPartsFmt.formatToParts(d)) parts[p.type] = p.value
+  const hour24 = Number(parts.hour) % 24
+  const hour12 = hour24 % 12 === 0 ? 12 : hour24 % 12
+  const period = hour24 < 12 ? "صباحاً" : "مساءً"
+  return {
+    day: AR_WEEKDAYS[EN_WEEKDAY_INDEX[parts.weekday] ?? 0],
+    date: `${Number(parts.day)} ${AR_MONTHS[Number(parts.month) - 1]} ${parts.year}`,
+    time: `${hour12}:${parts.minute} ${period}`,
+  }
 }
 
 // ─── Episode titles ──────────────────────────────────────────────────────────

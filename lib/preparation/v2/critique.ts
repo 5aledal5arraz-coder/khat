@@ -30,6 +30,11 @@ import {
   effectiveCourseTarget,
   type PrepFormat,
 } from "./format"
+import {
+  guestPreferencesCritiqueBlock,
+  hasGuestPreferences,
+  type GuestPreferences,
+} from "./guest-preferences"
 
 const TARGET_MIN = 60
 const TARGET_MAX = 90
@@ -55,6 +60,8 @@ export interface Pass4Input {
   format?: PrepFormat
   /** Course only — total minutes the modules must add up to. */
   target_minutes?: number
+  /** «نسخة الضيف» answers. Absent/empty ⇒ the prompt is byte-identical. */
+  guest_preferences?: GuestPreferences | null
 }
 
 export interface Pass4Result {
@@ -137,10 +144,12 @@ export async function runCritiquePass(input: Pass4Input): Promise<Pass4Result> {
         2,
       ).slice(0, 14_000) // hard cap to stay inside prompt budget
 
+  const hasPrefs = hasGuestPreferences(input.guest_preferences)
   const user = [
     "Critique and finalize this preparation draft.",
     "",
     draftBlock,
+    ...(hasPrefs ? guestPreferencesCritiqueBlock(input.guest_preferences!) : []),
     "",
     `Return JSON only. Language of output values: ${langLabel}.`,
   ].join("\n")
@@ -164,6 +173,7 @@ export async function runCritiquePass(input: Pass4Input): Promise<Pass4Result> {
       language: input.language,
       input_question_count: input.pass3.questions.length,
       ...(isCourse ? { format: "course", target_minutes: courseTarget } : {}),
+      ...(hasPrefs ? { guest_preferences: true } : {}),
     },
     ...(isCourse ? { promptVersion: COURSE_PROMPT_VERSION } : {}),
     prompt: [

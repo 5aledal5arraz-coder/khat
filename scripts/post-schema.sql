@@ -1023,3 +1023,38 @@ CREATE INDEX IF NOT EXISTS idx_eir_updated_at
 -- query aggregates every non-archived row and a full scan beats an index for
 -- a whole-table aggregate. One row per episode means this table is measured
 -- in hundreds, so the index would be permanent write cost for zero reads.
+
+-- ============================================================
+-- «نسخة الضيف» — guest_episode_links / guest_episode_suggestions
+-- (also created by migration 0031; repeated here as the canonical,
+-- re-appliable copy — every block is idempotent)
+-- ============================================================
+DO $$ BEGIN
+  ALTER TABLE guest_episode_links ADD CONSTRAINT chk_guest_episode_links_status
+    CHECK (status IN ('active', 'revoked'));
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
+
+DO $$ BEGIN
+  ALTER TABLE guest_episode_suggestions ADD CONSTRAINT chk_guest_episode_suggestions_target_kind
+    CHECK (target_kind IN ('axis', 'question', 'general'));
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
+
+DO $$ BEGIN
+  ALTER TABLE guest_episode_suggestions ADD CONSTRAINT chk_guest_episode_suggestions_type
+    CHECK (suggestion_type IN ('edit', 'comment', 'new_question'));
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
+
+DO $$ BEGIN
+  ALTER TABLE guest_episode_suggestions ADD CONSTRAINT chk_guest_episode_suggestions_status
+    CHECK (status IN ('new', 'accepted', 'rejected'));
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
+
+DO $$ BEGIN
+  ALTER TABLE guest_episode_suggestions ADD CONSTRAINT chk_guest_episode_suggestions_body_len
+    CHECK (char_length(body) BETWEEN 1 AND 1000);
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;

@@ -1235,6 +1235,104 @@ export interface GuestPrepForm {
 }
 
 // ============================================================
+// «نسخة الضيف» — per-episode guest link (lib/guest-link/)
+// ============================================================
+
+/**
+ * What the guest answers on /prepare/[token] (new links only — the legacy
+ * `guest_prep_forms` flow keeps `GuestPrepResponse`). Field shape and limits
+ * are enforced by `guestQuestionnaireSubmitSchema` in lib/validation/guest-link.ts.
+ */
+export interface GuestLinkQuestionnaire {
+  full_name: string
+  /** المسمى — د. / م. / أستاذ … free text. */
+  honorific: string | null
+  /** الكنية — «بو فلان», used by the host in conversation. */
+  kunya: string | null
+  pronunciation_notes: string | null
+  phone_whatsapp: string
+  preferred_drink: string
+  preferred_filming_days: string[]
+  preferred_filming_time: string
+  scheduling_restrictions: string | null
+  technical_needs: string | null
+  topics_excited_about: string
+  sensitivities_to_avoid: string | null
+  social_accounts: GuestPrepResponse["social_accounts"]
+  team_notes: string | null
+  arrival_confirmation: boolean
+  clothing_acknowledgment: boolean
+}
+
+/** Autosaved, half-typed answers — any field may be missing or cleared. */
+export type GuestLinkQuestionnaireDraft = {
+  [K in keyof GuestLinkQuestionnaire]?: GuestLinkQuestionnaire[K] | null
+}
+
+export type GuestLinkStatus = "active" | "revoked"
+export type GuestSuggestionTargetKind = "axis" | "question" | "general"
+export type GuestSuggestionType = "edit" | "comment" | "new_question"
+export type GuestSuggestionStatus = "new" | "accepted" | "rejected"
+
+/**
+ * The published snapshot the guest reads — produced ONLY by
+ * `toGuestPrepView()` (lib/guest-link/view.ts), an allowlist projection.
+ * Adding a field here is a security decision: the canary test pins the key set.
+ */
+export interface GuestPrepViewSample {
+  /** Opaque ref (s1…s12) — never a question id. */
+  ref: string
+  text: string
+}
+
+export interface GuestPrepViewAxis {
+  /** Opaque ref (a1…a6) — never a section kind. */
+  ref: string
+  label: string
+  samples: GuestPrepViewSample[]
+}
+
+export interface GuestPrepViewLocation {
+  label: string | null
+  address: string | null
+  map_url: string | null
+  has_photo: boolean
+}
+
+export interface GuestPrepView {
+  v: 1
+  /** ISO recording time, or null when not set / hidden by the admin. */
+  schedule_at: string | null
+  location: GuestPrepViewLocation | null
+  axes: GuestPrepViewAxis[]
+}
+
+/** A guest's own suggestion as the guest sees it (no status words). */
+export interface GuestOwnSuggestion {
+  id: string
+  target_label: string | null
+  body: string
+  /** "received" while new; "taken" once, after acceptance; null otherwise. */
+  tag: "received" | "taken" | null
+}
+
+/** Admin-side row of the suggestions inbox. */
+export interface GuestEpisodeSuggestion {
+  id: string
+  link_id: string
+  eir_id: string
+  target_kind: GuestSuggestionTargetKind
+  target_ref: string | null
+  original_text: string | null
+  suggestion_type: GuestSuggestionType
+  body: string
+  status: GuestSuggestionStatus
+  decided_by: string | null
+  decided_at: string | null
+  created_at: string
+}
+
+// ============================================================
 // Guest Candidates module (independent — see lib/db/schema/guest-candidates.ts)
 // ============================================================
 
