@@ -3,6 +3,7 @@ import { env } from "@/lib/env"
 import { prepareTranscript, prepareTranscriptWithPositions } from "./client"
 import { runAiTask } from "@/lib/ai-router"
 import { normalizeDurationSeconds, stripChunkScaffold } from "@/lib/studio/utils"
+import { filterVerbatimQuotes } from "@/lib/studio/verbatim"
 import { mergeIntoWindows, renderWithIds, type TimedSegment } from "@/lib/studio/segments"
 import {
   buildTimedTimestampsPrompt,
@@ -193,12 +194,15 @@ ${episodeIntelligence ? "⚠️ لديك فهم شامل مسبق للحلقة (
 ### 4. اقتباسات (quotes)
 - ${quoteTarget} اقتباس يستحق أن يُعلّق على حائط أو يُشارك كصورة
 - كل اقتباس: text، theme (كلمة أو كلمتين)، speaker ("guest"/"host"/null)
+- ⚠️ text يجب أن يكون مقطعاً منسوخاً حرفياً من نص الحلقة — نفس الكلمات بنفس الترتيب كما قالها المتحدث، دون إعادة صياغة أو تلخيص أو تحسين أو تصحيح أو دمج جملتين
+- مسموح فقط: أن تبدأ وتنتهي عند حدود الجملة المناسبة. أي اقتباس لا يوجد حرفياً في النص سيُحذف تلقائياً
+- لا تأخذ الاقتباس من الفهم الشامل أو من الملخصات — من كلام المتحدث في النص فقط
 
 اختبار الاقتباس الجيد — اسأل نفسك: "هل سأتوقف عن التمرير لو رأيت هذا؟"
 - ✅ يصلح: جملة تتحدى فكرة شائعة، تكشف حقيقة مؤلمة، تلخص تجربة إنسانية بعمق، أو تُعيد تعريف مفهوم
 - ❌ لا يصلح: جملة وصفية ("تحدثنا عن كذا")، حكمة مبتذلة ("الحياة صعبة")، جملة تحتاج سياقاً لتُفهم
 - وزّع الاقتباسات على كامل الحلقة — لا تأخذها كلها من الربع الأول
-${episodeIntelligence ? "- ⚠️ استخدم 'أقوى اللحظات' من الفهم الشامل كمرجع أساسي للاقتباسات" : ""}
+${episodeIntelligence ? "- استعن بـ'أقوى اللحظات' من الفهم الشامل لتعرف أين تبحث — لكن انسخ الاقتباس من النص نفسه حرفياً" : ""}
 
 ### 5. المصادر (resources)
 - كتب، شخصيات، أدوات مذكورة في النص فقط
@@ -265,6 +269,22 @@ ${editorialText}`
       return { success: false, error: "استجابة OpenAI غير مكتملة", runId: edResult.runId }
     }
 
+    // The verbatim guard. A quote is shown on the public page under the
+    // guest's name and photo, so it must be his words — checked against the
+    // FULL transcript (`transcript`), never `editorialText`, which for a long
+    // episode is the chunk summary the model read. Dropped quotes are logged
+    // and recorded in `raw` (→ raw_openai_response), never silently lost.
+    const { kept: verbatimQuotes, dropped: droppedQuotes } = filterVerbatimQuotes(
+      Array.isArray(parsed.quotes) ? parsed.quotes : [],
+      transcript,
+    )
+    if (droppedQuotes.length > 0) {
+      console.warn(
+        `[website-package] dropped ${droppedQuotes.length} quote(s) not found verbatim in the transcript ` +
+          `(kept ${verbatimQuotes.length}) — run ${edResult.runId ?? "?"}`,
+      )
+    }
+
     return {
       success: true,
       runId: edResult.runId,
@@ -276,7 +296,7 @@ ${editorialText}`
         takeaways: Array.isArray(parsed.takeaways)
           ? parsed.takeaways.map((t) => stripChunkScaffold(String(t)))
           : [],
-        quotes: Array.isArray(parsed.quotes) ? parsed.quotes : [],
+        quotes: verbatimQuotes,
         resources: Array.isArray(parsed.resources) ? parsed.resources : [],
         timestamps,
         guest_name:
@@ -297,6 +317,8 @@ ${editorialText}`
         editorial_run_id: edResult.runId,
         structure_model: tsModelName,
         editorial_model: edResult.modelName,
+        quotes_dropped_not_verbatim: droppedQuotes.length,
+        quotes_dropped_texts: droppedQuotes.map((q) => String(q?.text ?? "")),
         ...tsMeta,
       },
     }

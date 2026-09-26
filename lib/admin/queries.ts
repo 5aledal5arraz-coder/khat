@@ -1,6 +1,6 @@
 import { db, USE_DB } from "@/lib/db"
-import { eq, desc, count } from 'drizzle-orm'
-import { guests, guestApplications, sponsorshipLeads, newsletterSubscribers, sponsorshipAnalysis, sponsorshipProposals, guestApplicationAnalysis, guestApplicationConcepts, guestApplicationResponses } from '@/lib/db/schema'
+import { eq, desc, count, and, inArray, notExists, sql } from 'drizzle-orm'
+import { episodes, episodeGuests, episodeIntelligenceRecords, guests, guestApplications, sponsorshipLeads, newsletterSubscribers, sponsorshipAnalysis, sponsorshipProposals, guestApplicationAnalysis, guestApplicationConcepts, guestApplicationResponses } from '@/lib/db/schema'
 import type {
   Guest,
   GuestApplication,
@@ -436,15 +436,105 @@ export async function updateGuest(
   }
 }
 
+/** What still points at a guest — a guest with any of these is not deletable. */
+export interface GuestLinks {
+  /** `episodes.guest_id` (primary guest) and `episode_guests` (multi-guest). */
+  episodeIds: string[]
+  /** `episode_intelligence_records.guest_id`. */
+  eirIds: string[]
+}
+
+/**
+ * The episodes and EIRs that reference each guest. Only linked guests appear
+ * in the map. Used to REFUSE a delete: every one of these FKs is
+ * `ON DELETE SET NULL` / `CASCADE`, so the database would silently unhook the
+ * guest from a published episode or an in-flight EIR rather than stop.
+ */
+export async function findGuestLinks(ids: string[]): Promise<Map<string, GuestLinks>> {
+  const links = new Map<string, GuestLinks>()
+  if (!USE_DB || ids.length === 0) return links
+
+  const entry = (id: string) => {
+    let e = links.get(id)
+    if (!e) {
+      e = { episodeIds: [], eirIds: [] }
+      links.set(id, e)
+    }
+    return e
+  }
+
+  const [primary, junction, eirs] = await Promise.all([
+    db!
+      .select({ guestId: episodes.guest_id, id: episodes.id })
+      .from(episodes)
+      .where(inArray(episodes.guest_id, ids)),
+    db!
+      .select({ guestId: episodeGuests.guest_id, id: episodeGuests.episode_id })
+      .from(episodeGuests)
+      .where(inArray(episodeGuests.guest_id, ids)),
+    db!
+      .select({ guestId: episodeIntelligenceRecords.guest_id, id: episodeIntelligenceRecords.id })
+      .from(episodeIntelligenceRecords)
+      .where(inArray(episodeIntelligenceRecords.guest_id, ids)),
+  ])
+
+  for (const r of [...primary, ...junction]) {
+    if (!r.guestId) continue
+    const e = entry(r.guestId)
+    if (!e.episodeIds.includes(r.id)) e.episodeIds.push(r.id)
+  }
+  for (const r of eirs) {
+    if (!r.guestId) continue
+    entry(r.guestId).eirIds.push(r.id)
+  }
+  return links
+}
+
+/**
+ * Hard-delete a guest — but only one nothing points at.
+ *
+ * The "not linked" condition is part of the DELETE itself (NOT EXISTS), not a
+ * read before it, so an episode or EIR assigned to the guest between a check
+ * and the delete cannot be unhooked by the cascade. A refused delete is
+ * explained with `links`.
+ */
 export async function deleteGuest(
   id: string
-): Promise<{ success: boolean; error?: string }> {
+): Promise<{ success: boolean; error?: string; linked?: GuestLinks }> {
   if (!USE_DB) {
     return { success: true }
   }
 
   try {
-    await db!.delete(guests).where(eq(guests.id, id))
+    const result = await db!.delete(guests).where(
+      and(
+        eq(guests.id, id),
+        notExists(
+          db!.select({ one: sql`1` }).from(episodes).where(eq(episodes.guest_id, id)),
+        ),
+        notExists(
+          db!.select({ one: sql`1` }).from(episodeGuests).where(eq(episodeGuests.guest_id, id)),
+        ),
+        notExists(
+          db!
+            .select({ one: sql`1` })
+            .from(episodeIntelligenceRecords)
+            .where(eq(episodeIntelligenceRecords.guest_id, id)),
+        ),
+      ),
+    )
+
+    if ((result.rowCount ?? 0) === 0) {
+      const linked = (await findGuestLinks([id])).get(id)
+      if (linked) {
+        return {
+          success: false,
+          error: "لا يمكن حذف ضيف مرتبط بحلقة أو بسجل حلقة — فكّ الارتباط أولاً",
+          linked,
+        }
+      }
+      // Not linked and nothing deleted → the guest was already gone.
+    }
     return { success: true }
   } catch (err: unknown) {
     return { success: false, error: err instanceof Error ? err.message : String(err) }

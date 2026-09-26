@@ -4,10 +4,10 @@
  * Market Signals status card.
  *
  * Operator-facing read of `getMarketFreshness()` + a "تحديث الآن"
- * button that fires the same job pipeline the daily scheduler uses.
- * Never surfaces npm commands, script names, or env-var hints. When
- * the data is empty, surfaces a reassuring "auto-refresh in progress"
- * line + the manual button as a power option.
+ * button that enqueues one market run (lib/market-intelligence/run-now).
+ * Never surfaces npm commands, script names, or env-var hints. The daily
+ * automatic refresh is off since 2026-09-26, so the copy no longer
+ * promises one — the button is the way data gets refreshed.
  */
 
 import { useState, useTransition } from "react"
@@ -40,14 +40,14 @@ const STATUS_COPY: Record<
   },
   stale: {
     label: "تحتاج تحديث",
-    detail: "مرّ أكثر من أسبوع منذ آخر تحديث — سيُحدَّث تلقائياً قريباً.",
+    detail: "مرّ أكثر من أسبوع منذ آخر تحديث — اضغط «تحديث الآن» عند الحاجة.",
     badgeCls: "border-amber-500/30 bg-amber-500/10 text-amber-700",
     icon: AlertTriangle,
   },
   empty: {
     label: "غير متوفرة",
     detail:
-      "لا توجد إشارات سوق بعد. سيتم تحديث إشارات السوق تلقائياً، أو اضغط «تحديث الآن».",
+      "لا توجد إشارات سوق بعد. اضغط «تحديث الآن» لجمعها.",
     badgeCls: "border-slate-500/30 bg-slate-500/10 text-slate-700",
     icon: Activity,
   },
@@ -174,7 +174,7 @@ export function MarketSignalsCard({ seasonId, freshness }: MarketSignalsCardProp
       </div>
 
       <p className="mt-2 text-[10.5px] text-muted-foreground">
-        يتم تحديث إشارات السوق تلقائياً يومياً وتُعاد عنقدتها أسبوعياً.
+        التحديث التلقائي متوقف — تُحدَّث إشارات السوق عند الضغط على «تحديث الآن».
       </p>
     </div>
   )

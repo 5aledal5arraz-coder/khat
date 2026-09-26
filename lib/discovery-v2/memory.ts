@@ -8,9 +8,10 @@
  *   - candidates already promoted to guests
  *   - names surfaced recently for the SAME season (soft "avoid repeating")
  *
- * Names feed the propose prompt as exclusions; QIDs are a hard
- * post-resolution filter (the LLM can spell a name differently, but the
- * Wikidata QID is stable).
+ * Names feed the propose prompt as exclusions. After resolution two hard
+ * filters apply: the Wikidata QID (stable across spellings) and a folded
+ * name key (for the people Wikidata can't resolve — without it a
+ * non-Wikidata ex-guest, respelled by the LLM, came straight back).
  *
  * All queries degrade gracefully — discovery must keep working even if
  * one source errors.
@@ -20,18 +21,36 @@ import { and, desc, gte, isNotNull, sql } from "drizzle-orm"
 import { db } from "@/lib/db"
 import { guests } from "@/lib/db/schema/guests"
 import { guestDiscoveryCandidates } from "@/lib/db/schema/discovery"
+import { foldVerbatim } from "@/lib/studio/verbatim"
 
 export interface DiscoveryMemory {
   /** Hard exclusions: already a guest, promoted, or operator-rejected. */
   excludeNames: string[]
   /** Same set keyed by Wikidata QID — post-resolution hard filter. */
   excludeQids: Set<string>
+  /**
+   * Same set keyed by `discoveryNameKey()` — the hard filter for people
+   * Wikidata can't resolve (most story guests). Uncapped, unlike
+   * `excludeNames`, which is trimmed to fit the prompt.
+   */
+  excludeNameKeys: Set<string>
   /** Soft: surfaced in this season's recent runs — avoid unless uniquely strong. */
   recentlySurfacedNames: string[]
 }
 
 /** Operator rejections carry this reason (set by the v2 reject action). */
 const OPERATOR_REJECTION_REASON = "رفض المشغّل"
+
+/**
+ * Spelling-proof identity key for a name: the verbatim fold (hamza-alef,
+ * taa-marbuta, alef-maqsura, tashkeel, punctuation) with every space
+ * removed, so «ناصر سالمين», «ناصر  سالمين » and «ناصرسالمين» — and
+ * «عبد الله» / «عبدالله» — collapse to one key. Exact-key only: no fuzzy
+ * distance, so two different people never merge on a near-miss.
+ */
+export function discoveryNameKey(name: string | null | undefined): string {
+  return foldVerbatim(name ?? "").replace(/ /g, "")
+}
 
 const RECENT_WINDOW_DAYS = 45
 const NAME_CAP = 80
@@ -48,6 +67,7 @@ export async function loadDiscoveryMemory(opts: {
   const empty: DiscoveryMemory = {
     excludeNames: [],
     excludeQids: new Set(),
+    excludeNameKeys: new Set(),
     recentlySurfacedNames: [],
   }
   if (!db) return empty
@@ -124,9 +144,16 @@ export async function loadDiscoveryMemory(opts: {
     if (n && !hardNames.has(n)) soft.add(n)
   }
 
+  const nameKeys = new Set<string>()
+  for (const n of hardNames) {
+    const k = discoveryNameKey(n)
+    if (k) nameKeys.add(k)
+  }
+
   return {
     excludeNames: [...hardNames].slice(0, NAME_CAP),
     excludeQids: qids,
+    excludeNameKeys: nameKeys,
     recentlySurfacedNames: [...soft].slice(0, SOFT_CAP),
   }
 }

@@ -16,7 +16,8 @@
 
 import Link from "next/link"
 import { Activity, ArrowRight, Inbox } from "lucide-react"
-import { requireAdmin } from "@/lib/api-utils"
+import { getAdminAuthUser, hasRole, requireAdmin } from "@/lib/api-utils"
+import { getMarketFreshness } from "@/lib/market-intelligence/freshness"
 import {
   getReviewQueueCounts,
   listSignalsForReview,
@@ -29,6 +30,7 @@ import { PAGE_COPY, REVIEW_TAB_LABEL } from "./_components/copy"
 import { SignalsList } from "./_components/signals-client"
 import { ManualSignalForm } from "./_components/manual-signal-form"
 import { RefreshScoringButton } from "./_components/refresh-scoring-button"
+import { RunMarketButton } from "./_components/run-market-button"
 import { MarketSubnav } from "../_components/market-subnav"
 
 export const dynamic = "force-dynamic"
@@ -55,11 +57,15 @@ export default async function MarketSignalsReviewPage({
   const tab = coerceTab(sp.tab)
   const page = coercePage(sp.page)
 
-  const [counts, listed, trustedSources] = await Promise.all([
+  const [counts, listed, trustedSources, freshness, user] = await Promise.all([
     getReviewQueueCounts(),
     listSignalsForReview({ tab, page }),
     listTrustedSources({ filter: "active" }),
+    getMarketFreshness(),
+    getAdminAuthUser(),
   ])
+  // The on-demand run is OWNER/ADMIN (the action enforces it too).
+  const canRunMarket = hasRole(user?.role, "ADMIN")
 
   const totalAcrossAllTabs = counts.total
 
@@ -82,7 +88,15 @@ export default async function MarketSignalsReviewPage({
               {PAGE_COPY.subtitle}
             </p>
           </div>
-          <RefreshScoringButton />
+          <div className="flex flex-col items-end gap-2">
+            {canRunMarket && (
+              <RunMarketButton
+                lastRunAt={freshness.lastSuccessfulCollectAt}
+                inFlight={freshness.refreshInFlight}
+              />
+            )}
+            <RefreshScoringButton />
+          </div>
         </div>
       </div>
 

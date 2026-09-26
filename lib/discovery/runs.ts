@@ -174,3 +174,14 @@ export async function bumpCandidateCount(runId: string, delta: number): Promise<
     })
     .where(eq(discoveryRuns.id, runId))
 }
+
+/** Replace a run's source_config (v2 records its stats/error there). */
+export async function setDiscoveryRunSourceConfig(
+  runId: string,
+  sourceConfig: DiscoverySourceConfig,
+): Promise<void> {
+  await db!
+    .update(discoveryRuns)
+    .set({ source_config: sourceConfig, updated_at: new Date() })
+    .where(eq(discoveryRuns.id, runId))
+}

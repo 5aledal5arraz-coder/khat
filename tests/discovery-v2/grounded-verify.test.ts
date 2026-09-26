@@ -58,7 +58,7 @@ const candidate = (over: Partial<V2Candidate> = {}): V2Candidate => ({
   why: null,
   wiki: { resolved: true, qid: "Q1" },
   signals: {},
-  scores: { notability: 0.7, topic_fit: 0.7, guestability: 0.6, recency: 0.6, filter_match: 1, overall: 0.66 },
+  scores: { story: 0, topic_fit: 0.7, gulf_hook: 0, searchability: 0, guestability: 0.6, notability: 0.7, recency: 0.6, filter_match: 1, penalty: 0, overall: 0.66 },
   decision: "accepted",
   reasons: [],
   ...over,

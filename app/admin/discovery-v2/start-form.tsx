@@ -5,6 +5,15 @@ import { useRouter } from "next/navigation"
 import { Sparkles, Loader2 } from "lucide-react"
 import { startV2DiscoveryAction } from "./actions"
 import { runAction } from "@/app/admin/components/run-action"
+import type { V2Geography } from "@/lib/discovery-v2/types"
+
+// Kuwait only by default (Khaled, 2026-09-26); Saudi and the rest of the
+// Gulf are opt-in. At least one stays selected.
+const GEOS: { id: V2Geography; label: string }[] = [
+  { id: "kuwait", label: "الكويت" },
+  { id: "saudi", label: "السعودية" },
+  { id: "gulf", label: "الخليج" },
+]
 
 const TASTES: { id: "famous" | "balanced" | "hidden_gems"; label: string }[] = [
   { id: "famous", label: "مشاهير" },
@@ -16,7 +25,11 @@ export function StartV2Form() {
   const router = useRouter()
   const [topic, setTopic] = useState("")
   const [gender, setGender] = useState<"" | "male" | "female">("")
-  const [nationality, setNationality] = useState<"" | "kuwaiti" | "non_kuwaiti">("")
+  const [geography, setGeography] = useState<V2Geography[]>(["kuwait"])
+  const toggleGeo = (g: V2Geography) =>
+    setGeography((cur) =>
+      cur.includes(g) ? (cur.length > 1 ? cur.filter((x) => x !== g) : cur) : [...cur, g],
+    )
   const [taste, setTaste] = useState<"famous" | "balanced" | "hidden_gems">("balanced")
   const [limit, setLimit] = useState(12)
   const [pending, start] = useTransition()
@@ -29,7 +42,7 @@ export function StartV2Form() {
         startV2DiscoveryAction({
           topic,
           gender: gender || null,
-          nationality: nationality || null,
+          geography,
           taste,
           limit,
         }),
@@ -44,7 +57,7 @@ export function StartV2Form() {
   return (
     <div className="rounded-2xl border border-primary/30 bg-primary/5 p-4">
       <div className="mb-3 inline-flex items-center gap-1.5 rounded-full border border-primary/40 bg-primary/10 px-2 py-0.5 text-[11px] font-medium text-primary">
-        <Sparkles className="h-3 w-3" /> اكتشاف v2 — مرجعيّ وموثوق
+        <Sparkles className="h-3 w-3" /> اكتشاف v2 — القصة أولاً
       </div>
       <label className="mb-1 block text-[11px] text-muted-foreground">موضوع الحلقة / المجال</label>
       <textarea
@@ -65,12 +78,14 @@ export function StartV2Form() {
           </select>
         </div>
         <div>
-          <label className="mb-1 block text-[10.5px] text-muted-foreground">الجنسية</label>
-          <select value={nationality} onChange={(e) => setNationality(e.target.value as never)} className="w-full rounded-lg border border-border/40 bg-background/40 p-2 text-[12px]">
-            <option value="">أيّ</option>
-            <option value="kuwaiti">كويتي</option>
-            <option value="non_kuwaiti">غير كويتي</option>
-          </select>
+          <label className="mb-1 block text-[10.5px] text-muted-foreground">من أين</label>
+          <div className="flex gap-1" role="group" aria-label="النطاق الجغرافي">
+            {GEOS.map((g) => (
+              <button key={g.id} type="button" aria-pressed={geography.includes(g.id)} onClick={() => toggleGeo(g.id)} className={"flex-1 rounded-lg border px-1.5 py-2 text-[10.5px] " + (geography.includes(g.id) ? "border-primary/50 bg-primary/15 text-primary" : "border-border/40 bg-background/40 text-muted-foreground")}>
+                {g.label}
+              </button>
+            ))}
+          </div>
         </div>
         <div>
           <label className="mb-1 block text-[10.5px] text-muted-foreground">العدد</label>

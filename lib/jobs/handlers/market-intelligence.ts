@@ -12,6 +12,8 @@
 
 import { registerHandler } from "../registry"
 import { enqueueJob, enqueueRecurringTick } from "../queue"
+import { isMarketSchedulerEnabled } from "../scheduler-bootstrap"
+import { enqueueTasteDecayIfDue } from "@/lib/market-intelligence/run-now"
 import { runPresetCollection } from "@/lib/market-intelligence/ingestion"
 import { extractPendingSignals } from "@/lib/market-intelligence/extraction"
 import { recomputeClusters } from "@/lib/market-intelligence/clustering"
@@ -25,6 +27,10 @@ import type { MarketSource } from "@/lib/market-intelligence/adapters"
 // handler also re-enqueues its NEXT occurrence on success — so the
 // cadence keeps rolling as long as the worker is alive, with zero
 // operator action.
+//
+// 2026-09-26: that cadence is now OFF by default (KHAT_MARKET_SCHEDULER_ENABLED);
+// a run starts from the «تشغيل الآن» button. The collect → extract →
+// cluster/score chain below is unchanged — a manual run still drives it.
 
 const DAILY_MS = 24 * 60 * 60 * 1000
 const WEEKLY_MS = 7 * DAILY_MS
@@ -300,12 +306,28 @@ interface SchedulerResult extends Record<string, unknown> {
   enqueued_collect: boolean
   enqueued_cluster: boolean
   enqueued_decay: boolean
-  next_tick_at: string
+  /** null when the schedule is disabled — no next tick was enqueued. */
+  next_tick_at: string | null
+  disabled?: boolean
 }
 
 registerHandler<SchedulerPayload, SchedulerResult>(
   "market.scheduler",
   async (payload) => {
+    // Schedule switched off (see isMarketSchedulerEnabled): a tick that was
+    // already sitting in the queue fires once, enqueues NOTHING — no
+    // collect, no decay, and no next tick — so the self-re-enqueuing chain
+    // ends here instead of rolling on forever.
+    if (!isMarketSchedulerEnabled()) {
+      return {
+        enqueued_collect: false,
+        enqueued_cluster: false,
+        enqueued_decay: false,
+        next_tick_at: null,
+        disabled: true,
+      }
+    }
+
     const { sql } = await import("drizzle-orm")
     const { db } = await import("@/lib/db")
     let enqueuedCollect = false
@@ -364,27 +386,9 @@ registerHandler<SchedulerPayload, SchedulerResult>(
       }
 
       // Daily taste-decay tick — nightly soft fade on the learning
-      // weights so old preferences slowly fade unless reinforced.
-      const recentDecay = await db.execute(sql`
-        SELECT
-          (SELECT max(completed_at) FROM jobs WHERE type='market.taste_decay' AND status='succeeded') AS last_ok,
-          (SELECT count(*)::int FROM jobs WHERE type='market.taste_decay' AND status IN ('pending','running')) AS inflight
-      `)
-      const lastDecayOk =
-        (recentDecay.rows[0] as { last_ok?: string | null }).last_ok ?? null
-      const decayInflight = Number(
-        (recentDecay.rows[0] as { inflight?: number }).inflight ?? 0,
-      )
-      const decayStale =
-        !lastDecayOk || Date.now() - new Date(lastDecayOk).getTime() >= DAILY_MS
-      if (decayStale && decayInflight === 0) {
-        await enqueueJob(
-          "market.taste_decay",
-          { scheduled: true },
-          { priority: 2, maxAttempts: 1 },
-        )
-        enqueuedDecay = true
-      }
+      // weights so old preferences slowly fade unless reinforced. The gate
+      // (once per 24h, never stacked) is shared with the manual run-now.
+      enqueuedDecay = await enqueueTasteDecayIfDue()
     }
 
     // Re-enqueue the next tick. 24h delay. Idempotent — a reclaim/restart

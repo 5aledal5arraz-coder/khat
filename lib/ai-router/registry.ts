@@ -114,10 +114,22 @@ export const DEFAULT_MODELS: Record<AiTaskKind, ModelChoice> = {
     modelName: "gpt-5.6-sol",
     inputCostPer1M: 4,
     outputCostPer1M: 20,
-    reasoningEffort: "high",
-    // Worker-only. maxRetries 0 — the job queue's lease-reclaim provides
-    // the retry, so a router-level retry would only double the wall time.
-    defaultTimeoutMs: 240_000,
+    // "medium", not "high" (2026-09-26). The only caller is discovery-v2's
+    // propose step (a 24–30-name JSON list): at "high" it took 186s /
+    // 12,152 output tokens (v2-propose-3, ~5k of them the visible list),
+    // and the stricter v2-propose-4 crossed 240s and timed out. The names
+    // are hypotheses verified downstream (Wikidata + live sources), so the
+    // extra reasoning buys little. Set here — not per call — so Settings →
+    // الذكاء الاصطناعي can still raise it (a per-call providerOptions
+    // effort would silently beat the Settings override in the adapter).
+    reasoningEffort: "medium",
+    // Worker-only (discovery_v2.run, 10-min HANDLER_TIMEOUT_MS). 180s is
+    // ~1.4× the expected medium-effort propose (~110–130s) and leaves the
+    // rest of the run (~210s of Wikidata/story fan-out in trial 1) well
+    // inside the job limit. NOTE: raising effort in Settings without
+    // raising this re-creates the 2026-09-26 timeout. maxRetries 0 — a
+    // failed propose fails the run, so the worst case is exactly 180s.
+    defaultTimeoutMs: 180_000,
     defaultMaxRetries: 0,
   },
   verification: {

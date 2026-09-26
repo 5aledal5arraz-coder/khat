@@ -3,14 +3,15 @@
  * datavalue → value → …). Precise typing of the full entity shape isn't worth
  * the churn for a read-only external adapter that already guards every access. */
 /**
- * Wikidata + Wikipedia resolver — the v2 truth anchor.
+ * Wikidata + Wikipedia resolver — v2's identity-confidence source.
  *
  * Given a proposed name, finds the matching real human on Wikidata and
  * returns structured, authoritative facts (occupation, nationality,
  * gender, birth year, photo, official + social links, a notability
  * proxy), plus a Wikipedia summary. No API key. If the name does not
- * resolve to a real human, `resolved` is false and the caller drops it —
- * this is what makes v2 high-precision.
+ * resolve, `resolved` is false — a confidence penalty downstream, NOT a
+ * rejection: most real story guests are not on Wikidata (6 of 6 real
+ * candidates checked on 2026-08-07 were missing).
  *
  * Endpoints (all public, no key):
  *   - wbsearchentities  — name → candidate QIDs
@@ -226,12 +227,52 @@ function scoreEntityAgainstHint(
   return score
 }
 
+/** «الكويت» → «كويت», «السعودية» → «سعودي»: lets a country hint match the
+ *  nationality adjective descriptions actually use («كاتب كويتي»). */
+function countryStem(c: string): string {
+  return c
+    .toLowerCase()
+    .trim()
+    .replace(/^ال/, "")
+    .replace(/(ية|يه|ة)$/, "ي")
+}
+
+/**
+ * True when the proposal gave a role and/or country hint and the entity's
+ * description matches NONE of it (an empty description matches nothing).
+ * Used only for the single-hit case; the multi-hit case ranks by
+ * `scoreEntityAgainstHint` instead.
+ */
+function hintContradicts(ent: any, hint: ResolveHint | undefined): boolean {
+  if (!hint || (!hint.role && !hint.country)) return false
+  const descr = [ent?.descriptions?.ar?.value ?? "", ent?.descriptions?.en?.value ?? ""]
+    .join(" ")
+    .toLowerCase()
+  if (hint.role) {
+    const toks = hint.role
+      .toLowerCase()
+      .replace(/[.,؛،"'()\-_/]/g, " ")
+      .split(/\s+/)
+      .filter((t) => t.length >= 3)
+    if (toks.some((t) => descr.includes(t))) return false
+  }
+  if (hint.country) {
+    // Per word too: "Saudi Arabia" must match a "Saudi writer" description.
+    const stems = [hint.country, ...hint.country.split(/\s+/)]
+      .map(countryStem)
+      .filter((t) => t.length >= 3)
+    if (stems.some((t) => descr.includes(t))) return false
+  }
+  return true
+}
+
 /**
  * Resolve a proposed name to authoritative facts. Tries Arabic then
  * English search; scores every confirmed human (P31=Q5) against the
  * proposal hint and picks the best match. When the top two humans score
- * within 0.75 of each other the identity is flagged uncertain so scoring
- * can cap the candidate at shortlist instead of trusting a guess.
+ * within 0.75 of each other — or a single hit matches none of the hint —
+ * the identity is flagged uncertain so scoring neither auto-accepts the
+ * candidate nor trusts that entry's death year / gender / nationality.
  *
  * Latency shape: the independent network calls run concurrently —
  * (ar + en search) in parallel, then ONE batched entity fetch, then
@@ -264,7 +305,14 @@ export async function resolvePerson(
 
   let qid = humans[0]
   let identityUncertain = false
-  if (humans.length > 1) {
+  if (humans.length === 1) {
+    // A lone hit is not proof it is the SAME person — an unknown Kuwaiti
+    // sharing a name with one Wikidata stranger used to inherit the
+    // stranger's death year / gender / nationality. When the proposal's
+    // own role/country hint matches nothing in the entry, flag it so
+    // scoring stops trusting those facts.
+    identityUncertain = hintContradicts(entities[qid], hint)
+  } else if (humans.length > 1) {
     const ranked = humans
       .map((id) => ({
         id,

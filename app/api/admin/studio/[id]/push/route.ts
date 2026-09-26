@@ -43,6 +43,7 @@ export async function POST(
       episodeId: result.episodeId,
       pushedFields: result.pushedFields,
       guestLink: result.guestLink,
+      quotesDroppedNotVerbatim: result.quotesDroppedNotVerbatim,
     })
   } catch (err) {
     if (err instanceof StudioPushError) {

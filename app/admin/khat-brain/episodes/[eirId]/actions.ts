@@ -245,7 +245,11 @@ export async function pushPackageToEpisodeAction(input: {
     return {
       ok: true,
       ...result,
-      message: `تم الدفع — ${result.pushedFields.length} حقل.`,
+      message:
+        `تم الدفع — ${result.pushedFields.length} حقل.` +
+        ((result.quotesDroppedNotVerbatim ?? 0) > 0
+          ? ` استُبعد ${result.quotesDroppedNotVerbatim} اقتباس لأنه غير موجود حرفياً في نص الحلقة.`
+          : ""),
     }
   } catch (err) {
     const reason = err instanceof Error && err.message.includes("package")

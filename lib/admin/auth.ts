@@ -329,6 +329,9 @@ export type AuditAction =
   | "USER_PROFILE_UPDATED"
   | "USER_DELETED"
   | "FORCE_LOGOUT"
+  /** Guest hard-deletes — the guest ids live in `metadata` (target is an admin FK). */
+  | "GUEST_DELETED"
+  | "GUESTS_BULK_DELETED"
 
 export async function logAuditEvent(params: {
   actorId?: string | null

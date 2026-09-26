@@ -1,6 +1,9 @@
 /**
- * v2 step 2 — enrich a Wikidata-resolved person with independent signals,
- * all in parallel. Failures degrade gracefully (null), never throw.
+ * v2 step 2 — enrich a person with independent signals, all in parallel.
+ * Runs for EVERY proposed person, resolved or not: an unresolved person is
+ * passed as a synthetic `{ resolved: false, label, label_ar }` so the
+ * name-based sources still search (X/Instagram need a Wikidata handle and
+ * correctly return null). Failures degrade gracefully (null), never throw.
  */
 
 import type { EnrichmentSignals, WikiFacts } from "./types"
@@ -43,6 +46,8 @@ export async function enrich(
         channel_url: wiki.social.youtube_channel,
         channel_title: yt?.channel_title ?? wiki.label ?? name,
         talk_url: yt?.talk_url ?? null,
+        talk_title: yt?.talk_title ?? null,
+        talk_description: yt?.talk_description ?? null,
         subscriber_hint: yt?.subscriber_hint ?? null,
       },
     }

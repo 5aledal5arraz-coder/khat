@@ -3,7 +3,8 @@ import { revalidatePath } from "next/cache"
 import { unlink } from "fs/promises"
 import path from "path"
 import { updateGuest, deleteGuest, getGuestById } from "@/lib/admin/queries"
-import { requireAdminAPI } from "@/lib/api-utils"
+import { getAdminAuthUser, requireAdminAPI } from "@/lib/api-utils"
+import { logAuditEvent } from "@/lib/admin/auth"
 import { invalidate } from "@/lib/cache"
 
 function validateExternalLinks(links: unknown): Record<string, string> | null {
@@ -109,8 +110,21 @@ export async function DELETE(
     const result = await deleteGuest(id)
 
     if (!result.success) {
-      return NextResponse.json({ error: result.error }, { status: 400 })
+      // A guest still linked to an episode or EIR is refused (409), with the
+      // links, instead of letting the SET NULL FKs unhook it silently.
+      return NextResponse.json(
+        { error: result.error, linked: result.linked ?? null },
+        { status: result.linked ? 409 : 400 },
+      )
     }
+
+    const actor = await getAdminAuthUser()
+    await logAuditEvent({
+      actorId: actor?.id ?? null,
+      action: "GUEST_DELETED",
+      ip: request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || null,
+      metadata: { guest_id: id, guest_name: existing?.name ?? null },
+    })
 
     invalidate("guests")
     invalidate("episodes")

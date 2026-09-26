@@ -14,9 +14,11 @@ vi.mock("@/lib/db", () => ({ db: mockDb, pool: {}, USE_DB: true }))
 
 const getWebsitePackageForSession = vi.fn()
 const getStudioSession = vi.fn()
+const getTranscriptForSession = vi.fn()
 vi.mock("@/lib/studio", () => ({
   getWebsitePackageForSession: (id: string) => getWebsitePackageForSession(id),
   getStudioSession: (id: string) => getStudioSession(id),
+  getTranscriptForSession: (id: string) => getTranscriptForSession(id),
 }))
 
 vi.mock("@/lib/episodes/overrides", () => ({
@@ -107,6 +109,9 @@ beforeEach(() => {
     { id: "ZPeBeS87EeI", title: "نور الدين زنكي" },
   ])
   getStudioSession.mockResolvedValue({ duration_seconds: 5178 })
+  getTranscriptForSession.mockResolvedValue({
+    transcript_clean: "قال الضيف: هذا اقتباس منسوب للضيف، ثم أكمل الحديث.",
+  })
 })
 
 /**
@@ -225,6 +230,38 @@ describe("Studio push — quote publish gate", () => {
     const { quotes } = rpcPayloads()
     expect((quotes!.quotes as unknown[])).toHaveLength(1)
     expect(result.pushedFields).toContain("quotes")
+  })
+})
+
+describe("Studio push — verbatim quote gate", () => {
+  it("drops a quote that is not in the transcript and reports the count", async () => {
+    getWebsitePackageForSession.mockResolvedValue(
+      pkg({
+        quotes: [
+          { text: "اقتباس منسوب للضيف", theme: "تاريخ", speaker: "guest" },
+          { text: "تجربة الأسر علمتني قيمة الحياة والحرية", theme: "حرية", speaker: "guest" },
+        ],
+      }),
+    )
+
+    const result = await runStudioPushToEpisode({ sessionId: "s-1", fields: { quotes: true } })
+
+    const { quotes } = rpcPayloads()
+    expect((quotes!.quotes as { text: string }[]).map((q) => q.text)).toEqual([
+      "اقتباس منسوب للضيف",
+    ])
+    expect(result.quotesDroppedNotVerbatim).toBe(1)
+  })
+
+  it("fails closed when there is no transcript to prove the quotes against", async () => {
+    getWebsitePackageForSession.mockResolvedValue(pkg())
+    getTranscriptForSession.mockResolvedValue(null)
+
+    const result = await runStudioPushToEpisode({ sessionId: "s-1", fields: { quotes: true } })
+
+    expect(rpcPayloads().quotes).toBeNull()
+    expect(result.pushedFields).not.toContain("quotes")
+    expect(result.quotesDroppedNotVerbatim).toBe(1)
   })
 })
 

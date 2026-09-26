@@ -12,11 +12,14 @@ import { getCandidate, setCandidateStatus } from "@/lib/discovery/candidates"
 import { createCandidate as createGuestCandidate } from "@/lib/guest-candidates/queries"
 import { enqueueJob } from "@/lib/jobs"
 import type { DiscoverySourceConfig } from "@/lib/db/schema/discovery"
+import type { V2Geography } from "@/lib/discovery-v2/types"
 
 export interface StartV2Input {
   topic: string
   gender?: "male" | "female" | null
   nationality?: "kuwaiti" | "non_kuwaiti" | null
+  /** Where guests come from. Absent/empty → Kuwait only (the default). */
+  geography?: V2Geography[] | null
   taste?: "famous" | "balanced" | "hidden_gems"
   limit?: number
   seasonId?: string | null
@@ -45,6 +48,10 @@ export async function startV2DiscoveryAction(
       gender: input.gender ?? null,
       nationality: input.nationality ?? null,
     },
+    // Only known keys survive; empty means "use the default" downstream.
+    geography: (input.geography ?? []).filter(
+      (g): g is V2Geography => g === "kuwait" || g === "saudi" || g === "gulf",
+    ),
     taste: input.taste ?? "balanced",
     limit: Math.max(3, Math.min(input.limit ?? 12, 24)),
     episodeCandidateId: input.episodeCandidateId ?? null,

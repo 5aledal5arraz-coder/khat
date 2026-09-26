@@ -179,7 +179,9 @@ export const PAGE_COPY = {
     "هذه القائمة هي ذاكرة خط التحريرية. كل اعتماد أو رفض يُعلّم النظام ما يهمّك، وكل وسم يصقل التوليد القادم.",
   emptyTab: "لا توجد إشارات في هذا التصنيف حالياً.",
   noSignalsTotal:
-    "لم تصل أي إشارات بعد. سيتم تحديث إشارات السوق تلقائياً عند توفّرها.",
+    // The daily auto-run is off (2026-09-26); the run-now button is ADMIN+
+    // only, so the copy names the manual run without promising the button.
+    "لم تصل أي إشارات بعد. التحديث التلقائي متوقف — تُجمع إشارات السوق عند تشغيل «تحليل السوق» يدوياً (صلاحية مدير).",
   selectionPrefix: "محدَّد:",
   selectAll: "تحديد الكل",
   clearSelection: "إلغاء التحديد",

@@ -9,6 +9,7 @@ import { ArrowRight, Loader2 } from "lucide-react"
 import { getDiscoveryRun, listCandidates } from "@/lib/discovery"
 import { runStatusLabel } from "@/lib/operator-language"
 import { formatDateTime } from "@/lib/shared/formatters"
+import { STORY_REVIEW_FLAGS } from "@/lib/discovery-v2/types"
 import { CandidateCard, type V2CardData } from "../candidate-card"
 import { AutoRefresh } from "../auto-refresh"
 
@@ -44,11 +45,22 @@ export default async function V2RunPage({
       sitelinks: (v2.sitelinks as number) ?? null,
       signals: v2.signals as V2CardData["signals"],
       grounded: (v2.grounded as V2CardData["grounded"]) ?? null,
+      story: (v2.story as V2CardData["story"]) ?? null,
+      flags: (v2.flags as V2CardData["flags"]) ?? [],
       links: (r.evidence_urls ?? []).map((e) => ({ platform: e.platform, url: e.url, title: e.title })),
     }
   })
 
-  const strong = cards.filter((c) => c.decision === "accepted")
+  // needs_review = a verified strong story awaiting an identity check — it
+  // belongs with the strong list, badged differently on the card. A story
+  // Khaled reviews by hand (unpublished / told by others) is listed apart:
+  // it is not a verified strong story.
+  const storyReview = (c: V2CardData) =>
+    c.decision === "needs_review" && !!c.flags?.some((f) => STORY_REVIEW_FLAGS.includes(f))
+  const review = cards.filter(storyReview)
+  const strong = cards.filter(
+    (c) => (c.decision === "accepted" || c.decision === "needs_review") && !storyReview(c),
+  )
   const shortlist = cards.filter((c) => c.decision === "shortlist")
   const rejected = cards.filter((c) => c.decision === "rejected")
   const stats = (run.source_config as { v2_stats?: Record<string, number>; v2_error?: string } | null) ?? {}
@@ -64,7 +76,7 @@ export default async function V2RunPage({
         <h1 className="text-xl font-bold">{run.seed_prompt ?? "اكتشاف"}</h1>
         <div className="mt-1 text-[11.5px] text-muted-foreground">
           {runStatusLabel(run.status)} · {formatDateTime(run.created_at)}
-          {stats.v2_stats ? ` · ${stats.v2_stats.proposed ?? 0} مقترح → ${stats.v2_stats.resolved ?? 0} محقّق → ${strong.length} قويّ + ${shortlist.length} مختصرة` : ""}
+          {stats.v2_stats ? ` · ${stats.v2_stats.proposed ?? 0} مقترح → ${stats.v2_stats.resolved ?? 0} محقّق → ${strong.length} قويّ + ${review.length} للمراجعة + ${shortlist.length} مختصرة` : ""}
         </div>
         {stats.v2_error && <p className="mt-2 text-[11.5px] text-rose-700">{String(stats.v2_error)}</p>}
         {running && (
@@ -81,6 +93,16 @@ export default async function V2RunPage({
         </section>
       )}
 
+      {review.length > 0 && (
+        <section>
+          <h2 className="mb-2 text-sm font-semibold text-sky-700">قصص تحتاج مراجعتك ({review.length})</h2>
+          <p className="mb-2 text-[11px] text-muted-foreground">
+            قصص لم تُنشر علناً أو يرويها غير صاحبها — لم تُحتسب في التقييم، تحقّق منها بنفسك قبل التواصل.
+          </p>
+          <div className="grid grid-cols-1 gap-3">{review.map((c) => <CandidateCard key={c.id} c={c} />)}</div>
+        </section>
+      )}
+
       {shortlist.length > 0 && (
         <section>
           <h2 className="mb-2 text-sm font-semibold text-amber-700/90">قائمة مختصرة ({shortlist.length})</h2>
@@ -88,7 +110,7 @@ export default async function V2RunPage({
         </section>
       )}
 
-      {!running && strong.length === 0 && shortlist.length === 0 && (
+      {!running && strong.length === 0 && review.length === 0 && shortlist.length === 0 && (
         <div className="rounded-xl border border-border/30 bg-card/40 p-6 text-center text-[12.5px] text-muted-foreground">
           لم يصل أيّ مرشّح إلى المعيار في هذا التشغيل. جرّب موضوعاً أوسع أو خفّف الفلاتر.
         </div>

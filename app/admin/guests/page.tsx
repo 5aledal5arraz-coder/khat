@@ -1,4 +1,5 @@
 import { getAllGuests } from "@/lib/admin/queries"
+import { getAdminAuthUser, hasRole } from "@/lib/api-utils"
 import { getEpisodes } from "@/lib/queries/episodes"
 import { GuestsList } from "./guests-list"
 
@@ -7,9 +8,10 @@ export const dynamic = "force-dynamic"
 export default async function GuestsAdminPage() {
   // Load ALL episodes (no limit) so the link picker in the guest editor
   // can show every episode in the database, not just a partial subset.
-  const [guests, episodes] = await Promise.all([
+  const [guests, episodes, user] = await Promise.all([
     getAllGuests(),
     getEpisodes({ includeHidden: true }),
+    getAdminAuthUser(),
   ])
 
   const guestEpisodeCounts = new Map<string, number>()
@@ -33,5 +35,12 @@ export default async function GuestsAdminPage() {
     release_date: ep.release_date,
   }))
 
-  return <GuestsList guests={guestsWithCounts} episodes={episodeSummaries} />
+  // Bulk delete is OWNER-only (the route enforces it; this hides the UI).
+  return (
+    <GuestsList
+      guests={guestsWithCounts}
+      episodes={episodeSummaries}
+      canBulkDelete={hasRole(user?.role, "OWNER")}
+    />
+  )
 }

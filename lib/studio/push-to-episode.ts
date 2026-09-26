@@ -57,7 +57,12 @@ import {
   syncEirOnStudioPushed,
   syncEirOnEpisodePublish,
 } from "@/lib/khat-brain"
-import { getWebsitePackageForSession, getStudioSession } from "@/lib/studio"
+import {
+  getWebsitePackageForSession,
+  getStudioSession,
+  getTranscriptForSession,
+} from "@/lib/studio"
+import { filterVerbatimQuotes } from "@/lib/studio/verbatim"
 import { normalizeDurationSeconds, stripChunkScaffold } from "@/lib/studio/utils"
 
 export interface StudioPushFields {
@@ -81,6 +86,13 @@ export interface StudioPushResult {
     guestSlug?: string
     created?: boolean
   } | null
+  /**
+   * Quotes the verbatim guard refused to push because their text is not in
+   * the session transcript (or no transcript was available to prove it).
+   * 0 when quotes were not requested. Optional only so the failure shapes
+   * that extend this interface need not carry it; the helper always sets it.
+   */
+  quotesDroppedNotVerbatim?: number
 }
 
 export type StudioPushErrorCode =
@@ -186,13 +198,31 @@ export async function runStudioPushToEpisode(input: {
     pushedFields.push("description")
   }
 
+  let quotesDroppedNotVerbatim = 0
   if (fields.quotes && pkg.quotes.length > 0) {
     const selectedIndices = pkg.selected_quote_indices
       ? new Set(pkg.selected_quote_indices)
       : null
-    const quotesToPush = selectedIndices
+    const selectedQuotes = selectedIndices
       ? pkg.quotes.filter((_, i) => selectedIndices.has(i))
       : pkg.quotes
+    // The verbatim guard, again, at the last gate. The generator already
+    // filters, but a package generated before that guard existed — or a
+    // quote hand-edited in the admin — reaches here unchecked. No
+    // transcript means the quote cannot be proved, so it is not pushed
+    // (fail closed): these lines go out under the guest's name and photo.
+    const transcript = await getTranscriptForSession(sessionId)
+    const transcriptText = transcript?.transcript_clean || ""
+    const { kept: quotesToPush, dropped } = transcriptText
+      ? filterVerbatimQuotes(selectedQuotes, transcriptText)
+      : { kept: [] as typeof selectedQuotes, dropped: selectedQuotes }
+    quotesDroppedNotVerbatim = dropped.length
+    if (dropped.length > 0) {
+      console.warn(
+        `[studio push] dropped ${dropped.length} quote(s) not found verbatim in the transcript for ${episodeId}` +
+          (transcriptText ? "" : " (no transcript available to verify against)"),
+      )
+    }
     if (quotesToPush.length > 0) {
       rpcQuotes = {
         episode_title: episodeTitle,
@@ -344,6 +374,7 @@ export async function runStudioPushToEpisode(input: {
     session_id: sessionId,
     episode_title: episodeTitle,
     pushed_fields: pushedFields,
+    quotes_dropped_not_verbatim: quotesDroppedNotVerbatim,
     pushed_at: new Date().toISOString(),
   })
 
@@ -518,6 +549,7 @@ export async function runStudioPushToEpisode(input: {
     episodeId,
     pushedFields,
     guestLink,
+    quotesDroppedNotVerbatim,
   }
 }
 

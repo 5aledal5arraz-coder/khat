@@ -295,9 +295,11 @@ async function main() {
         src.includes('enqueueJob(\n      "market.score_signals",'),
       "market.extract must auto-enqueue market.score_signals",
     )
-    // scheduler must enqueue daily taste decay.
+    // scheduler must enqueue daily taste decay — through the gate it shares
+    // with the manual run-now (lib/market-intelligence/run-now.ts).
+    const runNow = await readRel("lib/market-intelligence/run-now.ts")
     assert(
-      src.includes('"market.taste_decay"'),
+      src.includes("enqueueTasteDecayIfDue()") && runNow.includes('"market.taste_decay"'),
       "market.scheduler must wire daily taste_decay enqueue",
     )
   })

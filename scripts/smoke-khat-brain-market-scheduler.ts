@@ -129,8 +129,12 @@ async function main() {
       src.includes("refreshMarketIntelligenceAction"),
       "action exported",
     )
+    // 2026-09-26: the action delegates to the single run-now entry point,
+    // which is what enqueues market.collect through the internal queue.
+    const runNow = await readRel("lib/market-intelligence/run-now.ts")
     assert(
-      src.includes('enqueueJob(\n      "market.collect"'),
+      src.includes("enqueueMarketRunNow") &&
+        runNow.includes('enqueueJob(\n    "market.collect"'),
       "action enqueues market.collect via internal queue",
     )
     assert(
@@ -164,7 +168,9 @@ async function main() {
       "عدد الإشارات",
       "عدد العناقيد",
       "آخر تحديث",
-      "سيتم تحديث إشارات السوق تلقائياً",
+      // The daily automatic refresh is off since 2026-09-26 — the card must
+      // say so instead of promising one.
+      "التحديث التلقائي متوقف",
     ]) {
       assert(src.includes(required), `card missing copy "${required}"`)
     }

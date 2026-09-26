@@ -8,6 +8,7 @@ import { env } from "@/lib/env"
 import { isInstagramConfigured } from "@/lib/instagram/client"
 import { isGroundedEvidenceConfigured } from "@/lib/ai/grounded-evidence"
 import { isDiscoveryGroundingEnabled } from "./grounded-verify"
+import { isStoryGroundingEnabled, storyMaxCandidates } from "./story-evidence"
 export interface V2SourceStatus {
   id: string
   label: string
@@ -19,8 +20,22 @@ export interface V2SourceStatus {
 }
 
 export function v2Sources(): V2SourceStatus[] {
+  const storyOn = isStoryGroundingEnabled()
   return [
-    { id: "wikidata", label: "ويكي‌داتا + ويكيبيديا (مرجع التحقّق)", configured: true, keyless: true },
+    {
+      // The approved story-first criterion runs on this — when it is off,
+      // every candidate is "not checked" and the page must say so.
+      id: "story_evidence",
+      label: `فحص القصة الشخصية (Gemini + بحث Google، حتى ${storyMaxCandidates()} مرشّحاً للتشغيل)`,
+      configured: storyOn,
+      keyless: false,
+      note: storyOn
+        ? undefined
+        : !isGroundedEvidenceConfigured()
+          ? "GEMINI_API_KEY غير مضبوط — لن تُفحص القصص وسيبقى غير الموجودين في ويكي‌داتا في القائمة المختصرة"
+          : "مطفأ عبر DISCOVERY_STORY_GROUNDING=off — لن تُفحص القصص",
+    },
+    { id: "wikidata", label: "ويكي‌داتا + ويكيبيديا (ثقة الهوية — ليست شرطاً)", configured: true, keyless: true },
     { id: "openalex", label: "OpenAlex (الحضور الأكاديمي)", configured: true, keyless: true },
     { id: "google_books", label: "Google Books (المؤلَّفات)", configured: true, keyless: true },
     { id: "gdelt", label: "GDELT (الحضور الإعلامي الحديث)", configured: true, keyless: true },

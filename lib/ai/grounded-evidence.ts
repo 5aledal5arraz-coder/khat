@@ -122,6 +122,14 @@ export interface GatherGroundedEvidenceOptions {
   subjectTable?: string | null
   subjectId?: string | null
   actorId?: string | null
+  /**
+   * Wall-clock budget for the WHOLE gather — every attempt, transient retry
+   * and empty re-roll. Each Gemini call is aborted at what is left, and no
+   * retry/re-roll starts with less than `MIN_ATTEMPT_MS` left. Unset = no
+   * deadline (the previous behaviour). Redirect resolution after the call
+   * is bounded separately (4s per source, in parallel).
+   */
+  timeoutMs?: number
 }
 
 // ─── Grounding metadata (subset we read) ─────────────────────────────────────
@@ -425,6 +433,20 @@ function extractGroundingMetadata(
 export const EMPTY_GROUNDING_RETRIES = 1
 
 /**
+ * Under a `timeoutMs` budget, a retry or re-roll is not started with less
+ * than this left — a grounded call that can't finish only bills.
+ */
+export const MIN_ATTEMPT_MS = 10_000
+
+/** A gather ran out of its `timeoutMs` budget before an answer landed. */
+export class GroundedEvidenceDeadlineError extends Error {
+  constructor(timeoutMs: number) {
+    super(`grounded evidence: ${Math.round(timeoutMs / 1000)}s deadline reached before an answer`)
+    this.name = "GroundedEvidenceDeadlineError"
+  }
+}
+
+/**
  * Re-roll ONLY on zero sources — never on "few" sources.
  *
  * The tempting threshold is "fewer than N sources", because the ugliest
@@ -506,6 +528,8 @@ export async function gatherGroundedEvidence(
 
   const maxResults = options.maxResults ?? 8
   const genAI = getGeminiClient()
+  const deadline = options.timeoutMs != null ? Date.now() + options.timeoutMs : null
+  const remainingMs = () => (deadline === null ? Infinity : deadline - Date.now())
 
   const prompt = buildRetrievalPrompt(
     "lib/ai/grounded-evidence.ts",
@@ -527,6 +551,8 @@ export async function gatherGroundedEvidence(
     let discardedCostUsd = 0
     let emptyRetriesLeft = EMPTY_GROUNDING_RETRIES
     for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+      const left = remainingMs()
+      if (left <= 0) throw new GroundedEvidenceDeadlineError(options.timeoutMs ?? 0)
       try {
         // Decided ONCE per attempt and read from two places (the ai_runs
         // telemetry callback and the loop below). Computing it twice is how
@@ -552,16 +578,16 @@ export async function gatherGroundedEvidence(
             genAI.models.generateContent({
               model: GEMINI_RETRIEVAL_MODEL,
               contents: prompt,
-              config: buildConfig(toolShape),
+              config:
+                deadline === null
+                  ? buildConfig(toolShape)
+                  : { ...buildConfig(toolShape), abortSignal: AbortSignal.timeout(left) },
             }),
           (r) => {
             const counts = deriveRetrievalCounts(extractGroundingMetadata(r))
-            willRerollEmpty = shouldRerollEmptyGrounding(
-              counts,
-              emptyRetriesLeft,
-              attempt,
-              maxAttempts,
-            )
+            willRerollEmpty =
+              shouldRerollEmptyGrounding(counts, emptyRetriesLeft, attempt, maxAttempts) &&
+              remainingMs() >= MIN_ATTEMPT_MS
             const token = deriveGeminiTelemetry(
               r.usageMetadata,
               GEMINI_RETRIEVAL_MODEL,
@@ -633,7 +659,13 @@ export async function gatherGroundedEvidence(
         // Same central predicate as the research path — these two loops had
         // identical copies of a regex that treated a spend-cap 429 as
         // transient.
-        if (!isRetriableProviderError(err) || attempt === maxAttempts) throw err
+        if (
+          !isRetriableProviderError(err) ||
+          attempt === maxAttempts ||
+          remainingMs() < 1500 * attempt + MIN_ATTEMPT_MS
+        ) {
+          throw err
+        }
         await new Promise((r) => setTimeout(r, 1500 * attempt))
       }
     }

@@ -12,10 +12,28 @@ import { sql } from "drizzle-orm"
 import { db } from "@/lib/db"
 import { enqueueJob } from "./queue"
 
+/**
+ * The market-intelligence daily cadence is OFF unless explicitly enabled.
+ *
+ * Khaled, 2026-09-26: stop the automatic schedule; market intelligence runs
+ * when he presses «تشغيل الآن» on /admin/khat-brain/market/signals. The code
+ * stays — set KHAT_MARKET_SCHEDULER_ENABLED=true (and restart the worker) to
+ * bring the daily tick back. Read at use, so the handler of an already-queued
+ * tick sees the same answer as the boot bootstrap.
+ *
+ * Scope: only `market.scheduler` (daily collect → extract → cluster/score,
+ * weekly cluster, daily taste-decay). `ai-runs-sweeper`, the partner reminder
+ * and `market.source_feedback` (no collection, no AI) are untouched.
+ */
+export function isMarketSchedulerEnabled(): boolean {
+  return process.env.KHAT_MARKET_SCHEDULER_ENABLED === "true"
+}
+
 export async function ensureMarketScheduler(): Promise<{
-  status: "already_scheduled" | "bootstrapped"
+  status: "already_scheduled" | "bootstrapped" | "disabled"
   jobId: string | null
 }> {
+  if (!isMarketSchedulerEnabled()) return { status: "disabled", jobId: null }
   if (!db) return { status: "already_scheduled", jobId: null }
   const existing = await db.execute(sql`
     SELECT id FROM jobs

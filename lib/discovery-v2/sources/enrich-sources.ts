@@ -14,6 +14,7 @@
  */
 
 import { env } from "@/lib/env"
+import { foldVerbatim } from "@/lib/studio/verbatim"
 import type { EnrichmentSignals } from "../types"
 
 const UA = "KhatPodcast-GuestDiscovery/1.0 (https://khatpodcast.com)"
@@ -77,19 +78,24 @@ export async function gdeltNews(name: string, nameEn: string | null): Promise<En
 }
 
 // ─── YouTube — the person's OWN channel + a talk ─────────────────────
+// Quota: each `search.list` is its own call against the key's daily search
+// budget, so this stays at TWO per candidate (maxResults costs nothing
+// extra — it only lets us skip a wrong-person top hit).
 export async function youtubePerson(name: string, nameEn: string | null): Promise<EnrichmentSignals["youtube"]> {
   const key = env.YOUTUBE_API_KEY
   if (!key) return null
   const q = nameEn || name
   const tokens = nameTokens(q)
   // (1) channel that looks like this person + (2) a talk/interview
-  // featuring them — independent searches, fetched concurrently.
+  // featuring them — independent searches, fetched concurrently. The talk
+  // search uses the name as proposed (usually Arabic): that is the form an
+  // Arabic interview title carries, and the name check below needs it.
   const [ch, vid] = await Promise.all([
     getJson(
       `https://www.googleapis.com/youtube/v3/search?part=snippet&type=channel&maxResults=3&q=${encodeURIComponent(q)}&key=${key}`,
     ),
     getJson(
-      `https://www.googleapis.com/youtube/v3/search?part=snippet&type=video&maxResults=1&q=${encodeURIComponent(`${q} مقابلة`)}&key=${key}`,
+      `https://www.googleapis.com/youtube/v3/search?part=snippet&type=video&maxResults=3&q=${encodeURIComponent(`${name} مقابلة`)}&key=${key}`,
     ),
   ])
   let channel_url: string | null = null
@@ -103,11 +109,26 @@ export async function youtubePerson(name: string, nameEn: string | null): Promis
       break
     }
   }
-  const v = vid?.items?.[0]
+  // The talk must NAME the person — the old code took the top hit blindly,
+  // which linked strangers' videos to candidates with common names.
+  const nameKeys = [name, nameEn].filter((n): n is string => !!n).map(foldedTokens)
+  const v = (vid?.items ?? []).find((it: any) => {
+    const hay = ` ${foldVerbatim(`${it?.snippet?.title ?? ""} ${it?.snippet?.description ?? ""}`)} `
+    return nameKeys.some((toks) => toks.length > 0 && toks.every((t) => hay.includes(` ${t} `)))
+  })
   const talk_url = v?.id?.videoId ? `https://www.youtube.com/watch?v=${v.id.videoId}` : null
   if (!channel_url && !talk_url) return null
-  return { channel_url, channel_title, talk_url, subscriber_hint: null }
+  return {
+    channel_url,
+    channel_title,
+    talk_url,
+    talk_title: talk_url ? (v?.snippet?.title ?? null) : null,
+    talk_description: talk_url ? (v?.snippet?.description ?? null) : null,
+    subscriber_hint: null,
+  }
 }
+
+const foldedTokens = (s: string) => foldVerbatim(s).split(" ").filter((t) => t.length >= 2)
 
 // ─── Listen Notes — prior podcast appearances (guestability) ─────────
 // Uses the production API when LISTEN_NOTES_API_KEY is set; otherwise

@@ -29,6 +29,7 @@ import {
   AlertTriangle,
 } from "lucide-react"
 import { XIcon } from "@/components/icons/x-icon"
+import { bulkDeleteSummary } from "./bulk-delete-message"
 import { TikTokIcon } from "@/components/icons/tiktok-icon"
 import { WhatsAppIcon } from "@/components/icons/whatsapp-icon"
 import { SnapchatIcon } from "@/components/icons/snapchat-icon"
@@ -63,6 +64,11 @@ interface EpisodeSummary {
 interface GuestsListProps {
   guests: GuestWithCount[]
   episodes: EpisodeSummary[]
+  /**
+   * OWNER only — the bulk-delete route refuses everyone else, so selection
+   * (whose only action is bulk delete) is not offered to them at all.
+   */
+  canBulkDelete: boolean
 }
 
 /* ─── Social Platform Helpers ─── */
@@ -610,7 +616,7 @@ function GuestFormDialog({ isNew, formData, setFormData, onSave, onClose, saving
 
 /* ─── Guest List Row ─── */
 
-function GuestListRow({ guest, selected, onToggleSelect, onEdit, onDelete }: { guest: GuestWithCount; selected: boolean; onToggleSelect: () => void; onEdit: () => void; onDelete: () => Promise<void> }) {
+function GuestListRow({ guest, selectable, selected, onToggleSelect, onEdit, onDelete }: { guest: GuestWithCount; selectable: boolean; selected: boolean; onToggleSelect: () => void; onEdit: () => void; onDelete: () => Promise<void> }) {
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [deleting, setDeleting] = useState(false)
   const initials = guest.name.split(" ").map((w) => w[0]).slice(0, 2).join("")
@@ -618,14 +624,16 @@ function GuestListRow({ guest, selected, onToggleSelect, onEdit, onDelete }: { g
 
   return (
     <div className={cn("group relative flex items-center gap-3 px-4 py-3 transition-all duration-200 hover:bg-muted/30", selected && "bg-primary/5")}>
-      {/* Select checkbox */}
-      <input
-        type="checkbox"
-        checked={selected}
-        onChange={onToggleSelect}
-        aria-label={`تحديد ${guest.name}`}
-        className="h-4 w-4 shrink-0 cursor-pointer rounded-sm border-border/60 accent-primary"
-      />
+      {/* Select checkbox (bulk delete is OWNER-only) */}
+      {selectable && (
+        <input
+          type="checkbox"
+          checked={selected}
+          onChange={onToggleSelect}
+          aria-label={`تحديد ${guest.name}`}
+          className="h-4 w-4 shrink-0 cursor-pointer rounded-sm border-border/60 accent-primary"
+        />
+      )}
 
       {/* Avatar */}
       <div className="relative h-9 w-9 shrink-0 overflow-hidden rounded-xl">
@@ -690,7 +698,7 @@ function GuestListRow({ guest, selected, onToggleSelect, onEdit, onDelete }: { g
 
 /* ─── Main GuestsList ─── */
 
-export function GuestsList({ guests: initialGuests, episodes: initialEpisodes }: GuestsListProps) {
+export function GuestsList({ guests: initialGuests, episodes: initialEpisodes, canBulkDelete }: GuestsListProps) {
   const router = useRouter()
   const [guests, setGuests] = useState(initialGuests)
   const [episodes, setEpisodes] = useState(initialEpisodes)
@@ -824,11 +832,9 @@ export function GuestsList({ guests: initialGuests, episodes: initialEpisodes }:
       setGuests((prev) => prev.filter((g) => !deletedSet.has(g.id)))
       setSelectedIds(new Set())
       setConfirmBulkDelete(false)
-      if (data.failed > 0) {
-        setListError(`تم حذف ${data.deleted} ضيف، وتعذّر حذف ${data.failed}`)
-      } else {
-        setListSuccess(`تم حذف ${data.deleted} ${data.deleted === 1 ? "ضيف" : "ضيوف"}`)
-      }
+      const summary = bulkDeleteSummary({ deleted: data.deleted ?? 0, skipped: data.skipped ?? 0, failed: data.failed ?? 0 })
+      if (summary.tone === "error") setListError(summary.text)
+      else setListSuccess(summary.text)
     } catch {
       setListError("حدث خطأ في الاتصال. حاول مرة أخرى.")
     } finally {
@@ -1019,7 +1025,7 @@ export function GuestsList({ guests: initialGuests, episodes: initialEpisodes }:
       )}
 
       {/* Bulk selection action bar — visible only while rows are selected */}
-      {selectedVisibleCount > 0 && (
+      {canBulkDelete && selectedVisibleCount > 0 && (
         <div className="flex flex-wrap items-center gap-3 rounded-lg border border-primary/25 bg-primary/5 px-4 py-2.5">
           <span className="text-[12px] font-medium text-foreground">
             {formatArabicCount(selectedVisibleCount, "ضيف")} محدّد
@@ -1046,24 +1052,27 @@ export function GuestsList({ guests: initialGuests, episodes: initialEpisodes }:
       {filteredGuests.length > 0 ? (
         <div className="overflow-hidden rounded-xl border border-border/30 bg-card/50 admin-glow">
           {/* Select-all header */}
-          <div className="flex items-center gap-3 border-b border-border/15 bg-muted/20 px-4 py-2">
-            <input
-              type="checkbox"
-              checked={allVisibleSelected}
-              ref={(el) => { if (el) el.indeterminate = selectedVisibleCount > 0 && !allVisibleSelected }}
-              onChange={toggleSelectAllVisible}
-              aria-label="تحديد كل الضيوف"
-              className="h-4 w-4 shrink-0 cursor-pointer rounded-sm border-border/60 accent-primary"
-            />
-            <span className="text-[11px] text-muted-foreground">
-              {selectedVisibleCount > 0 ? `${selectedVisibleCount} / ${filteredGuests.length}` : "تحديد الكل"}
-            </span>
-          </div>
+          {canBulkDelete && (
+            <div className="flex items-center gap-3 border-b border-border/15 bg-muted/20 px-4 py-2">
+              <input
+                type="checkbox"
+                checked={allVisibleSelected}
+                ref={(el) => { if (el) el.indeterminate = selectedVisibleCount > 0 && !allVisibleSelected }}
+                onChange={toggleSelectAllVisible}
+                aria-label="تحديد كل الضيوف"
+                className="h-4 w-4 shrink-0 cursor-pointer rounded-sm border-border/60 accent-primary"
+              />
+              <span className="text-[11px] text-muted-foreground">
+                {selectedVisibleCount > 0 ? `${selectedVisibleCount} / ${filteredGuests.length}` : "تحديد الكل"}
+              </span>
+            </div>
+          )}
           <div className="divide-y divide-border/15">
             {filteredGuests.map((guest) => (
               <GuestListRow
                 key={guest.id}
                 guest={guest}
+                selectable={canBulkDelete}
                 selected={selectedIds.has(guest.id)}
                 onToggleSelect={() => toggleSelected(guest.id)}
                 onEdit={() => openEditDialog(guest)}

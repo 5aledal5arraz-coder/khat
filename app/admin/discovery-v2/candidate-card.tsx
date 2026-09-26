@@ -24,6 +24,7 @@ import {
 // makes the transition always settle. Surfacing WHY (an else + toast) is
 // deliberately deferred — this card has no error slot yet.
 import { runAction } from "@/app/admin/components/run-action"
+import { STORY_REVIEW_FLAGS, type StoryAssessment, type V2Flag } from "@/lib/discovery-v2/types"
 
 export interface V2CardData {
   id: string
@@ -33,9 +34,21 @@ export interface V2CardData {
   country?: string | null
   image?: string | null
   why?: string | null
-  decision: "accepted" | "shortlist" | "rejected"
+  decision: "accepted" | "needs_review" | "shortlist" | "rejected"
   status: string
-  scores?: { notability: number; topic_fit: number; guestability: number; recency: number; overall: number }
+  /** story/searchability/gulf_hook are absent on rows scored before story-first. */
+  scores?: {
+    notability: number
+    topic_fit: number
+    guestability: number
+    recency: number
+    overall: number
+    story?: number
+    searchability?: number
+    gulf_hook?: number
+  }
+  story?: Pick<StoryAssessment, "status" | "evidence" | "gulf_event" | "claim_from_propose"> | null
+  flags?: V2Flag[]
   reasons?: string[]
   birth_year?: number | null
   sitelinks?: number | null
@@ -58,9 +71,14 @@ export interface V2CardData {
 
 const DECISION = {
   accepted: { label: "مرشّح قويّ", cls: "border-emerald-500/40 bg-emerald-500/10 text-emerald-700" },
+  needs_review: { label: "قصة قوية — راجِع الهوية", cls: "border-amber-500/40 bg-amber-500/10 text-amber-700" },
   shortlist: { label: "قائمة مختصرة", cls: "border-amber-500/40 bg-amber-500/10 text-amber-700" },
   rejected: { label: "مستبعد", cls: "border-rose-500/30 bg-rose-500/5 text-rose-700/80" },
 }
+
+// needs_review for the STORY (unpublished / told by others), not the
+// identity — «قصة قوية» would claim a story nobody has verified.
+const STORY_REVIEW = { label: "تحتاج مراجعتك", cls: "border-sky-500/40 bg-sky-500/10 text-sky-700" }
 
 function Bar({ label, v }: { label: string; v: number }) {
   const pct = Math.round((v ?? 0) * 100)
@@ -75,6 +93,18 @@ function Bar({ label, v }: { label: string; v: number }) {
   )
 }
 
+const FLAG_LABEL: Record<V2Flag, string> = {
+  identity_unverified: "ليس في ويكي‌داتا",
+  identity_uncertain: "هوية غير مؤكّدة",
+  gender_unverified: "الجنس غير متحقّق",
+  nationality_unverified: "الجنسية غير متحقّقة",
+  // Rows stored before the per-attribute split: the attribute is unknown.
+  filter_unverified: "فلتر غير متحقّق",
+  story_unpublished: "قصة غير منشورة — تحتاج مراجعتك",
+  story_second_hand: "قصته يرويها غيره",
+  no_web_footprint: "لا أثر رقمي",
+}
+
 const LINK_ICON: Record<string, typeof ExternalLink> = {
   wikipedia: ExternalLink,
   wikipedia_ar: ExternalLink,
@@ -83,6 +113,30 @@ const LINK_ICON: Record<string, typeof ExternalLink> = {
   youtube_talk: Mic,
   podcast: Mic,
   news: Newspaper,
+}
+
+/** The one line that says WHY they scored: a verified quote, or why not. */
+function StoryLine({ story }: { story: NonNullable<V2CardData["story"]> }) {
+  const first = story.evidence[0]
+  if (story.status === "verified" && first) {
+    return (
+      <p className="mt-1 text-[11px] leading-relaxed text-foreground/85">
+        «{first.quote}»{" "}
+        <a href={first.url} target="_blank" rel="noreferrer" className="text-primary underline-offset-2 hover:underline">
+          {first.domain ?? "المصدر"}
+        </a>
+      </p>
+    )
+  }
+  if (story.status === "unverified") {
+    return (
+      <p className="mt-1 text-[11px] leading-relaxed text-muted-foreground">
+        القصة المقترحة لم تُثبت بمصدر
+        {story.claim_from_propose && <> · <span className="font-medium">فرضية:</span> {story.claim_from_propose}</>}
+      </p>
+    )
+  }
+  return <p className="mt-1 text-[11px] text-muted-foreground">لم تُفحص القصة</p>
 }
 
 export function CandidateCard({ c }: { c: V2CardData }) {
@@ -96,7 +150,8 @@ export function CandidateCard({ c }: { c: V2CardData }) {
           ? "rejected"
           : null,
   )
-  const d = DECISION[c.decision]
+  const storyReview = c.decision === "needs_review" && !!c.flags?.some((f) => STORY_REVIEW_FLAGS.includes(f))
+  const d = storyReview ? STORY_REVIEW : DECISION[c.decision]
   const initials = c.name.trim().slice(0, 2)
 
   return (
@@ -119,15 +174,38 @@ export function CandidateCard({ c }: { c: V2CardData }) {
             <span className={"shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-medium " + d.cls}>{d.label}</span>
           </div>
           {c.why && <p className="mt-1 line-clamp-2 text-[11.5px] leading-relaxed text-foreground/80">{c.why}</p>}
+          {c.story && <StoryLine story={c.story} />}
         </div>
       </div>
 
+      {(c.flags?.length || (c.scores?.gulf_hook === 1 && c.story?.gulf_event)) ? (
+        <div className="mt-2 flex flex-wrap gap-1.5 text-[10px]">
+          {c.scores?.gulf_hook === 1 && c.story?.gulf_event && (
+            <span className="rounded-md bg-primary/10 px-1.5 py-0.5 font-medium text-primary">{c.story.gulf_event.event}</span>
+          )}
+          {c.flags?.map((f) => (
+            <span key={f} className={"rounded-md border px-1.5 py-0.5 " + (STORY_REVIEW_FLAGS.includes(f) ? "border-sky-500/30 bg-sky-500/5 font-medium text-sky-700" : "border-amber-500/30 bg-amber-500/5 text-amber-700")}>{FLAG_LABEL[f] ?? f}</span>
+          ))}
+        </div>
+      ) : null}
+
       {c.scores && (
         <div className="mt-2 grid grid-cols-1 gap-1 sm:grid-cols-2">
-          <Bar label="الشهرة" v={c.scores.notability} />
-          <Bar label="الملاءمة" v={c.scores.topic_fit} />
-          <Bar label="قابلية الاستضافة" v={c.scores.guestability} />
-          <Bar label="الحضور الحالي" v={c.scores.recency} />
+          {c.scores.story !== undefined ? (
+            <>
+              <Bar label="القصة" v={c.scores.story} />
+              <Bar label="الملاءمة" v={c.scores.topic_fit} />
+              <Bar label="يُبحث عنه" v={c.scores.searchability ?? 0} />
+              <Bar label="قابلية الاستضافة" v={c.scores.guestability} />
+            </>
+          ) : (
+            <>
+              <Bar label="الشهرة" v={c.scores.notability} />
+              <Bar label="الملاءمة" v={c.scores.topic_fit} />
+              <Bar label="قابلية الاستضافة" v={c.scores.guestability} />
+              <Bar label="الحضور الحالي" v={c.scores.recency} />
+            </>
+          )}
         </div>
       )}
 

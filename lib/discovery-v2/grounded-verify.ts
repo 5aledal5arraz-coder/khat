@@ -165,11 +165,13 @@ export async function attachGroundedVerification(
   const cap = discoveryGroundingMaxCandidates()
   if (cap === 0) return candidates
 
-  // Advanced = accepted/shortlist. The list is already ranked (accepted first,
-  // then by overall), so the first `cap` non-rejected rows are the top ones.
+  // Advanced = not rejected. The list is already ranked (strong first, then
+  // by overall), so the first `cap` non-rejected rows are the top ones. A
+  // candidate the story check already grounded is skipped — its stamp was
+  // derived from that same paid search, so grounding it again pays twice.
   const targets = new Set<V2Candidate>()
   for (const c of candidates) {
-    if (c.decision === "rejected") continue
+    if (c.decision === "rejected" || c.grounded) continue
     targets.add(c)
     if (targets.size >= cap) break
   }

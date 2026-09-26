@@ -5,7 +5,8 @@
  *      link (identity safety: discovery NEVER fuzzy-searches Instagram by
  *      name — same rule as the X source).
  *   2. scoreCandidate — an active Instagram presence lifts guestability/
- *      recency/notability and adds Arabic evidence; absence of the slice
+ *      recency (never notability — follower counts are not a signal);
+ *      absence of the slice
  *      changes nothing (graceful degradation).
  *   3. key-gating — without IG_GRAPH_TOKEN + IG_BUSINESS_ACCOUNT_ID the
  *      client resolves null/[] (no network attempted).
@@ -19,7 +20,7 @@ import {
   isInstagramConfigured,
   searchHashtagTopMedia,
 } from "@/lib/instagram/client"
-import type { EnrichmentSignals, WikiFacts, ProposedName } from "@/lib/discovery-v2/types"
+import type { EnrichmentSignals, WikiFacts, ProposedName, StoryCheck } from "@/lib/discovery-v2/types"
 
 describe("igUsernameFromWiki", () => {
   const wiki = (instagram: string | null): WikiFacts => ({ resolved: true, social: { instagram } })
@@ -36,6 +37,24 @@ describe("igUsernameFromWiki", () => {
 // ─── Ranking impact ───────────────────────────────────────────────────────────
 
 const proposed: ProposedName = { name: "ضيف تجريبي", why: "خبير في الموضوع" } as ProposedName
+
+/** A verified two-domain first-hand story (fictional) — clears the bar. */
+const verifiedStory: StoryCheck = {
+  assessment: {
+    status: "verified",
+    not_checked_reason: null,
+    story_type: "first_hand",
+    summary: "تجربة شخصية موثّقة",
+    evidence: [
+      { url: "https://alanba.com.kw/t1", domain: "alanba.com.kw", quote: "روى ضيف تجريبي قصته في مقابلة مطوّلة عن سنوات البحث الأولى" },
+      { url: "https://alqabas.com/t2", domain: "alqabas.com", quote: "قال ضيف تجريبي إنه عاش التجربة بنفسه قبل أن يكتب عنها" },
+    ],
+    gulf_event: null,
+    claim_from_propose: null,
+  },
+  sources: [],
+  attrs: { deceased: false, not_individual: false, same_person: true, gender: "male", nationality: "Kuwait" },
+}
 
 const baseWiki: WikiFacts = {
   resolved: true,
@@ -65,11 +84,21 @@ describe("scoreCandidate with Instagram signals", () => {
     const withIg = scoreCandidate(proposed, baseWiki, { instagram: activeIg }, { topic: "بحث علمي" })
     expect(withIg.scores.guestability).toBeGreaterThan(without.scores.guestability)
     expect(withIg.scores.recency).toBeGreaterThan(without.scores.recency)
-    expect(withIg.scores.notability).toBeGreaterThan(without.scores.notability)
+    // Story-first (Khaled, 2026-09-26): follower counts are not a signal —
+    // activity lifts guestability/recency, audience size lifts nothing.
+    expect(withIg.scores.notability).toBe(without.scores.notability)
     expect(withIg.scores.overall).toBeGreaterThan(without.scores.overall)
-    if (withIg.decision !== "rejected") {
-      expect(withIg.reasons.join(" ")).toContain("نشط على إنستغرام")
-    }
+  })
+
+  it("a candidate who clears the bar is told the ACTIVITY, never the follower count", () => {
+    // The reasons branch only runs for a non-rejected candidate, so this one
+    // carries a verified story (a bare expert with no story is rejected and
+    // would make any assertion on its reasons blind).
+    const c = scoreCandidate(proposed, baseWiki, { instagram: activeIg }, { topic: "بحث علمي" }, verifiedStory)
+    expect(c.decision).not.toBe("rejected") // sight: the reasons branch ran
+    const reasons = c.reasons.join(" ")
+    expect(reasons).toContain("نشط على إنستغرام حالياً")
+    expect(reasons).not.toMatch(/متابع|120|\d+K|\d+(\.\d)?M/)
   })
 
   it("a dormant account adds no activity boost", () => {
