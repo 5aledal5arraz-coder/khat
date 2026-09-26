@@ -138,10 +138,9 @@ export function GuestPrepViewPanel(props: GuestPrepViewPanelProps) {
         <section aria-labelledby="gl-me" className="space-y-4">
           <h2 id="gl-me" className="text-lead font-semibold text-foreground">بياناتك</h2>
           <dl className="space-y-3 rounded-2xl border border-border bg-card p-5 text-caption">
-            <Row
-              label="اسمك مثل ما بنقوله"
-              value={[identity.honorific, identity.full_name].filter(Boolean).join(" ") || null}
-            />
+            <Row label="اسمك" value={identity.name} />
+            {/* Its own row — the title is never glued in front of the name. */}
+            <Row label="اللقب / المسمى" value={identity.honorific} />
             <Row label="الكنية" value={identity.kunya} />
             <Row label="طريقة النطق" value={identity.pronunciation_notes} />
           </dl>

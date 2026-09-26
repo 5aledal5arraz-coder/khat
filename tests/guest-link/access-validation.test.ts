@@ -17,8 +17,11 @@ import {
   linkAccess,
 } from "@/lib/guest-link/access"
 import {
+  GUEST_FIELD_MAX,
   guestQuestionnaireDraftSchema,
   guestQuestionnaireSubmitSchema,
+  LEGACY_QUESTIONNAIRE_KEYS,
+  QUESTIONNAIRE_STEPS,
   guestSuggestionSchema,
   sanitizeGuestText,
   validateMapUrl,
@@ -71,60 +74,79 @@ describe("expiry", () => {
 })
 
 const VALID = {
-  full_name: "بدر الطريجي",
-  honorific: "د.",
+  honorific: "خبير إداري",
   kunya: "بو فهد",
   pronunciation_notes: "",
   phone_whatsapp: "+965 9999 0000",
   preferred_drink: "قهوة",
-  preferred_filming_days: ["sunday", "sunday", "monday"],
-  preferred_filming_time: "evening",
-  scheduling_restrictions: "",
   technical_needs: null,
-  topics_excited_about: "القيادة",
-  sensitivities_to_avoid: "",
   social_accounts: { instagram: "@x" },
   team_notes: "",
   arrival_confirmation: true,
   clothing_acknowledgment: false,
 }
 
-describe("questionnaire parser (new fields)", () => {
-  it("accepts full name, المسمى and الكنية; empties → null; days de-duplicated", () => {
+describe("questionnaire parser", () => {
+  it("accepts اللقب أو المسمى and الكنية; optional empties → null", () => {
     const r = guestQuestionnaireSubmitSchema.safeParse(VALID)
     expect(r.success).toBe(true)
     if (!r.success) return
-    expect(r.data.full_name).toBe("بدر الطريجي")
-    expect(r.data.honorific).toBe("د.")
+    expect(r.data.honorific).toBe("خبير إداري")
     expect(r.data.kunya).toBe("بو فهد")
     expect(r.data.pronunciation_notes).toBeNull()
-    expect(r.data.preferred_filming_days).toEqual(["sunday", "monday"])
+    expect(r.data.team_notes).toBeNull()
   })
-  it("kunya and honorific are optional", () => {
-    const r = guestQuestionnaireSubmitSchema.safeParse({ ...VALID, kunya: null, honorific: undefined })
-    expect(r.success && r.data.kunya === null && r.data.honorific === null).toBe(true)
+  it("اللقب أو المسمى and الكنية are required", () => {
+    for (const bad of [null, undefined, "", " "]) {
+      const r = guestQuestionnaireSubmitSchema.safeParse({ ...VALID, kunya: bad, honorific: bad })
+      expect(r.success).toBe(false)
+      const paths = r.success ? [] : r.error.issues.map((i) => String(i.path[0]))
+      expect(paths).toEqual(expect.arrayContaining(["honorific", "kunya"]))
+    }
   })
   it("required fields report per field", () => {
     const r = guestQuestionnaireSubmitSchema.safeParse({
       ...VALID,
-      full_name: " ",
+      honorific: " ",
       phone_whatsapp: "abc",
       arrival_confirmation: false,
     })
     expect(r.success).toBe(false)
     const paths = r.success ? [] : r.error.issues.map((i) => String(i.path[0]))
-    expect(paths).toEqual(expect.arrayContaining(["full_name", "phone_whatsapp", "arrival_confirmation"]))
+    expect(paths).toEqual(expect.arrayContaining(["honorific", "phone_whatsapp", "arrival_confirmation"]))
+  })
+  it("removed fields are neither required nor kept: absent is fine, present is dropped", () => {
+    const r = guestQuestionnaireSubmitSchema.safeParse({
+      ...VALID,
+      full_name: "بدر الطريجي",
+      preferred_filming_days: ["sunday"],
+      preferred_filming_time: "evening",
+      scheduling_restrictions: "سفر",
+      topics_excited_about: "القيادة",
+      sensitivities_to_avoid: "موضوع",
+    })
+    expect(r.success).toBe(true)
+    if (!r.success) return
+    for (const k of LEGACY_QUESTIONNAIRE_KEYS) expect(r.data).not.toHaveProperty(k)
+    const d = guestQuestionnaireDraftSchema.safeParse({ step: 0, draft: { full_name: "ب", kunya: "بو" } })
+    expect(d.success).toBe(true)
+    if (!d.success) return
+    expect(d.data.draft.kunya).toBe("بو")
+    expect(d.data.draft).not.toHaveProperty("full_name")
   })
   it("strict: unknown keys and over-long values are rejected", () => {
     expect(guestQuestionnaireSubmitSchema.safeParse({ ...VALID, is_admin: true }).success).toBe(false)
     expect(guestQuestionnaireSubmitSchema.safeParse({ ...VALID, kunya: "ب".repeat(61) }).success).toBe(false)
     expect(
+      guestQuestionnaireSubmitSchema.safeParse({ ...VALID, honorific: "ب".repeat(GUEST_FIELD_MAX.honorific + 1) }).success,
+    ).toBe(false)
+    expect(
       guestQuestionnaireSubmitSchema.safeParse({ ...VALID, social_accounts: { myspace: "x" } }).success,
     ).toBe(false)
   })
   it("draft accepts partial input but still caps and is strict", () => {
-    expect(guestQuestionnaireDraftSchema.safeParse({ step: 1, draft: { full_name: "ب" } }).success).toBe(true)
-    expect(guestQuestionnaireDraftSchema.safeParse({ step: 9, draft: {} }).success).toBe(false)
+    expect(guestQuestionnaireDraftSchema.safeParse({ step: 1, draft: { honorific: "خ" } }).success).toBe(true)
+    expect(guestQuestionnaireDraftSchema.safeParse({ step: QUESTIONNAIRE_STEPS, draft: {} }).success).toBe(false)
     expect(guestQuestionnaireDraftSchema.safeParse({ step: 0, draft: { x: 1 } }).success).toBe(false)
   })
 })

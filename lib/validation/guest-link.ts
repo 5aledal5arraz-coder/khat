@@ -20,33 +20,45 @@ export const GUEST_SUGGESTION_LIMITS = {
 } as const
 
 export const GUEST_FIELD_MAX = {
-  full_name: 120,
-  honorific: 40,
+  /** «اللقب أو المسمى» — a job title («خبير إداري»), not a «د.» prefix. */
+  honorific: 120,
   kunya: 60,
   pronunciation_notes: 200,
   phone_whatsapp: 32,
   preferred_drink: 120,
-  scheduling_restrictions: 1000,
   technical_needs: 1000,
-  topics_excited_about: 2000,
-  sensitivities_to_avoid: 2000,
   team_notes: 2000,
   social: 200,
 } as const
 
-export const FILMING_DAYS = [
-  "sunday",
-  "monday",
-  "tuesday",
-  "wednesday",
-  "thursday",
-  "friday",
-  "saturday",
+export const QUESTIONNAIRE_STEPS = 2
+
+/**
+ * Keys the first version of the questionnaire asked (commit f1ad291) and the
+ * current one no longer does: the name is the admin's `guest_display_name`,
+ * Khaled sets the date himself, and topics/avoid belong to the prep. Answers
+ * already stored with them still load (they are jsonb), and a tab opened
+ * before the change may still POST them — so they are ACCEPTED AND DROPPED
+ * rather than rejected as unknown. Nothing new is ever stored under them.
+ */
+export const LEGACY_QUESTIONNAIRE_KEYS = [
+  "full_name",
+  "preferred_filming_days",
+  "preferred_filming_time",
+  "scheduling_restrictions",
+  "topics_excited_about",
+  "sensitivities_to_avoid",
 ] as const
 
-export const FILMING_TIMES = ["morning", "afternoon", "evening"] as const
+const legacyShape = Object.fromEntries(
+  LEGACY_QUESTIONNAIRE_KEYS.map((k) => [k, z.unknown().optional()]),
+) as Record<(typeof LEGACY_QUESTIONNAIRE_KEYS)[number], z.ZodOptional<z.ZodUnknown>>
 
-export const QUESTIONNAIRE_STEPS = 4
+function dropLegacy<T extends Record<string, unknown>>(v: T): Omit<T, (typeof LEGACY_QUESTIONNAIRE_KEYS)[number]> {
+  const out: Record<string, unknown> = { ...v }
+  for (const k of LEGACY_QUESTIONNAIRE_KEYS) delete out[k]
+  return out as Omit<T, (typeof LEGACY_QUESTIONNAIRE_KEYS)[number]>
+}
 
 // Bidi overrides/embeddings/isolates (U+202A–202E, U+2066–2069): they let a
 // string render in a different order than it is stored — the classic way to
@@ -104,11 +116,12 @@ const socialSchema = z
 /** Full submission — required fields enforced, messages next to the field. */
 export const guestQuestionnaireSubmitSchema = z
   .object({
-    full_name: text(GUEST_FIELD_MAX.full_name).pipe(
-      z.string().min(2, { message: "اكتب اسمك الكامل" }),
+    honorific: text(GUEST_FIELD_MAX.honorific).pipe(
+      z.string().min(2, { message: "اكتب لقبك أو مسماك" }),
     ),
-    honorific: optionalText(GUEST_FIELD_MAX.honorific),
-    kunya: optionalText(GUEST_FIELD_MAX.kunya),
+    kunya: text(GUEST_FIELD_MAX.kunya).pipe(
+      z.string().min(2, { message: "اكتب الاسم اللي تحب نناديك فيه" }),
+    ),
     pronunciation_notes: optionalText(GUEST_FIELD_MAX.pronunciation_notes),
     phone_whatsapp: text(GUEST_FIELD_MAX.phone_whatsapp).pipe(
       z.string().regex(PHONE, { message: "اكتب رقم واتساب صحيح" }),
@@ -116,24 +129,15 @@ export const guestQuestionnaireSubmitSchema = z
     preferred_drink: text(GUEST_FIELD_MAX.preferred_drink).pipe(
       z.string().min(1, { message: "قول لنا شنو تحب تشرب" }),
     ),
-    preferred_filming_days: z
-      .array(z.enum(FILMING_DAYS))
-      .min(1, { message: "اختر يوماً واحداً على الأقل" })
-      .max(FILMING_DAYS.length)
-      .transform((d) => Array.from(new Set(d))),
-    preferred_filming_time: z.enum(FILMING_TIMES, { message: "اختر الوقت اللي يناسبك" }),
-    scheduling_restrictions: optionalText(GUEST_FIELD_MAX.scheduling_restrictions),
     technical_needs: optionalText(GUEST_FIELD_MAX.technical_needs),
-    topics_excited_about: text(GUEST_FIELD_MAX.topics_excited_about).pipe(
-      z.string().min(2, { message: "قول لنا شنو يحمّسك نتكلم فيه" }),
-    ),
-    sensitivities_to_avoid: optionalText(GUEST_FIELD_MAX.sensitivities_to_avoid),
     social_accounts: socialSchema.default({}),
     team_notes: optionalText(GUEST_FIELD_MAX.team_notes),
     arrival_confirmation: z.literal(true, { message: "أكّد لنا الحضور قبل الموعد" }),
     clothing_acknowledgment: z.boolean().default(false),
+    ...legacyShape,
   })
   .strict()
+  .transform(dropLegacy)
 
 export type GuestQuestionnaireSubmitInput = z.input<typeof guestQuestionnaireSubmitSchema>
 
@@ -146,24 +150,20 @@ export const guestQuestionnaireDraftSchema = z
     step: z.number().int().min(0).max(QUESTIONNAIRE_STEPS - 1),
     draft: z
       .object({
-        full_name: optionalText(GUEST_FIELD_MAX.full_name),
         honorific: optionalText(GUEST_FIELD_MAX.honorific),
         kunya: optionalText(GUEST_FIELD_MAX.kunya),
         pronunciation_notes: optionalText(GUEST_FIELD_MAX.pronunciation_notes),
         phone_whatsapp: optionalText(GUEST_FIELD_MAX.phone_whatsapp),
         preferred_drink: optionalText(GUEST_FIELD_MAX.preferred_drink),
-        preferred_filming_days: z.array(z.enum(FILMING_DAYS)).max(FILMING_DAYS.length).optional(),
-        preferred_filming_time: z.enum(FILMING_TIMES).nullable().optional(),
-        scheduling_restrictions: optionalText(GUEST_FIELD_MAX.scheduling_restrictions),
         technical_needs: optionalText(GUEST_FIELD_MAX.technical_needs),
-        topics_excited_about: optionalText(GUEST_FIELD_MAX.topics_excited_about),
-        sensitivities_to_avoid: optionalText(GUEST_FIELD_MAX.sensitivities_to_avoid),
         social_accounts: socialSchema.optional(),
         team_notes: optionalText(GUEST_FIELD_MAX.team_notes),
         arrival_confirmation: z.boolean().optional(),
         clothing_acknowledgment: z.boolean().optional(),
+        ...legacyShape,
       })
-      .strict(),
+      .strict()
+      .transform(dropLegacy),
   })
   .strict()
 

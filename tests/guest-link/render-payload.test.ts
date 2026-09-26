@@ -99,6 +99,34 @@ describe("guest page payload + HTML carry no forbidden data", () => {
     expect(html).toContain("البداية والتعارف")
   })
 
+  it("بياناتك: the admin's name, and the title on its own row — never glued to the name", () => {
+    const props = buildGuestPageProps({
+      token: TOKEN,
+      row: row({
+        guest_display_name: "د. بدر الطريجي",
+        questionnaire: { honorific: "خبير إداري", kunya: "بو محمد" },
+      }),
+      suggestions: [],
+    })
+    expect(props.identity).toMatchObject({ name: "د. بدر الطريجي", honorific: "خبير إداري" })
+    const html = renderToStaticMarkup(createElement(GuestLinkClient, props))
+    expect(html).toContain("د. بدر الطريجي")
+    expect(html).toContain("اللقب / المسمى")
+    expect(html).toContain("خبير إداري")
+    expect(html).not.toContain("خبير إداري د. بدر")
+    expect(html).not.toContain("خبير إداري بدر")
+  })
+
+  it("answers stored before the fields were removed still load — legacy keys never reach the browser", () => {
+    // row() carries the old shape: full_name, a «د.» honorific, topics, avoid.
+    const props = buildGuestPageProps({ token: TOKEN, row: row(), suggestions: [] })
+    const json = JSON.stringify(props)
+    expect(json).not.toContain("بدر الطريجي")
+    expect(json).not.toContain("القيادة")
+    expect(json).not.toContain("موضوع خاص")
+    expect(props.identity?.name).toBe("د. بدر")
+  })
+
   it("the avoid answer is the guest's own and never appears in the prep view", () => {
     const props = buildGuestPageProps({ token: TOKEN, row: row(), suggestions: [] })
     const html = renderToStaticMarkup(createElement(GuestLinkClient, props))
@@ -136,14 +164,16 @@ describe("gate — the prep is unreachable before the questionnaire", () => {
         questionnaire: null,
         questionnaire_submitted_at: null,
         welcome_seen_at: null,
-        questionnaire_draft: { full_name: "بدر" },
-        questionnaire_draft_step: 2,
+        // A draft saved by the 4-step form: step clamps, the legacy key is dropped.
+        questionnaire_draft: { full_name: "بدر", honorific: "خبير" },
+        questionnaire_draft_step: 3,
       }),
       suggestions: [],
     })
     expect(before.greetingName).toBe("د. بدر")
-    expect(before.initialStep).toBe(2)
-    expect(before.initialAnswers.full_name).toBe("بدر")
+    expect(before.initialStep).toBe(1)
+    expect(before.initialAnswers.honorific).toBe("خبير")
+    expect(before.initialAnswers).not.toHaveProperty("full_name")
     const after = buildGuestPageProps({ token: TOKEN, row: row(), suggestions: [] })
     expect(after.greetingName).toBe("بو فهد")
     expect(JSON.stringify(after)).not.toContain("internal_note")

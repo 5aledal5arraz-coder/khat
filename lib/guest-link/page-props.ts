@@ -15,23 +15,22 @@ import type {
   GuestOwnSuggestion,
   GuestPrepView,
 } from "@/types/database"
+import { QUESTIONNAIRE_STEPS } from "@/lib/validation/guest-link"
 import { guestStage, type GuestStage } from "./access"
 import { parseGuestPrepView } from "./view"
 
-/** Keys a questionnaire (or draft) may carry back to the guest's own form. */
+/**
+ * Keys a questionnaire (or draft) may carry back to the guest's own form.
+ * The legacy keys (full name, filming days/time, topics, avoid) are NOT here:
+ * the form no longer asks them, so they never cross to the browser.
+ */
 const QUESTIONNAIRE_KEYS = [
-  "full_name",
   "honorific",
   "kunya",
   "pronunciation_notes",
   "phone_whatsapp",
   "preferred_drink",
-  "preferred_filming_days",
-  "preferred_filming_time",
-  "scheduling_restrictions",
   "technical_needs",
-  "topics_excited_about",
-  "sensitivities_to_avoid",
   "social_accounts",
   "team_notes",
   "arrival_confirmation",
@@ -39,7 +38,9 @@ const QUESTIONNAIRE_KEYS = [
 ] as const satisfies readonly (keyof GuestLinkQuestionnaire)[]
 
 export interface GuestIdentity {
-  full_name: string | null
+  /** The admin's name for the guest («د. بدر الطريجي») — never typed by the guest. */
+  name: string | null
+  /** «اللقب أو المسمى» — its own line, never prefixed to the name. */
   honorific: string | null
   kunya: string | null
   pronunciation_notes: string | null
@@ -115,12 +116,12 @@ export function buildGuestPageProps(params: {
     stage,
     greetingName: kunya ?? row.guest_display_name,
     initialAnswers: hasDraft ? { ...answers, ...draft } : answers,
-    initialStep: hasDraft ? Math.min(3, Math.max(0, row.questionnaire_draft_step ?? 0)) : 0,
+    initialStep: hasDraft ? Math.min(QUESTIONNAIRE_STEPS - 1, Math.max(0, row.questionnaire_draft_step ?? 0)) : 0,
     submitted,
     view,
     identity: submitted
       ? {
-          full_name: s(answers.full_name),
+          name: s(row.guest_display_name),
           honorific: s(answers.honorific),
           kunya: s(answers.kunya),
           pronunciation_notes: s(answers.pronunciation_notes),

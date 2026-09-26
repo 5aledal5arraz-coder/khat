@@ -2,13 +2,13 @@
 
 /**
  * «نسخة الضيف» — the guest's journey on one page:
- *   thank-you → 4-screen questionnaire → «وصلتنا» → welcome cards → prep view.
+ *   thank-you → 2-screen questionnaire → «وصلتنا» → welcome cards → prep view.
  *
  * Every prop comes from `buildGuestPageProps()` (lib/guest-link/page-props.ts);
  * the prep reaches this file only as the projected `GuestPrepView`.
  */
 
-import { useCallback, useId, useMemo, useRef, useState } from "react"
+import { useCallback, useId, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
 import { ChevronDown } from "lucide-react"
 import { cn } from "@/lib/utils"
@@ -19,21 +19,6 @@ import type { GuestLinkQuestionnaireDraft } from "@/types/database"
 import { GUEST_FIELD_MAX } from "@/lib/validation/guest-link"
 
 type Screen = "thanks" | "q" | "sent" | "welcome" | "prep"
-
-const DAYS = [
-  { value: "sunday", label: "الأحد" },
-  { value: "monday", label: "الاثنين" },
-  { value: "tuesday", label: "الثلاثاء" },
-  { value: "wednesday", label: "الأربعاء" },
-  { value: "thursday", label: "الخميس" },
-  { value: "saturday", label: "السبت" },
-] as const
-
-const TIMES = [
-  { value: "morning", label: "الصبح (9–12)" },
-  { value: "afternoon", label: "الظهر (12–4)" },
-  { value: "evening", label: "العصر والمغرب (4–8)" },
-] as const
 
 const SOCIALS = [
   { key: "instagram", label: "Instagram", placeholder: "@username" },
@@ -47,63 +32,67 @@ const SOCIALS = [
 const STEPS = [
   { title: "عرّفنا عليك" },
   { title: "راحتك يوم التصوير" },
-  { title: "عن الحوار" },
-  { title: "لمسات أخيرة" },
 ] as const
 
 /** Which screen each field lives on — to jump to the first server error. */
 const FIELD_STEP: Record<string, number> = {
-  full_name: 0,
   honorific: 0,
   kunya: 0,
   pronunciation_notes: 0,
   phone_whatsapp: 0,
+  social_accounts: 0,
   preferred_drink: 1,
-  preferred_filming_days: 1,
-  preferred_filming_time: 1,
-  scheduling_restrictions: 1,
   technical_needs: 1,
-  topics_excited_about: 2,
-  sensitivities_to_avoid: 2,
-  social_accounts: 3,
-  team_notes: 3,
-  arrival_confirmation: 3,
-  clothing_acknowledgment: 3,
+  team_notes: 1,
+  arrival_confirmation: 1,
+  clothing_acknowledgment: 1,
 }
+
+/** Khaled's copy (2026-09-27) — two short paragraphs per card. */
+const THANKS_PARAGRAPHS = [
+  "يسعدنا ويشرّفنا أن تكون ضيفنا في بودكاست خط. اختيارك لم يكن صدفة؛ فنحن نختار ضيوفنا بعناية، لأن لديهم ما يستحق أن يُروى ويبقى.",
+  "قبل أن نلتقي، جهّزنا لك هذه المساحة الخاصة: أسئلة قصيرة تساعدنا نستعد لك كما يليق، ثم ملامح حلقتك.",
+] as const
 
 const WELCOME_CARDS = [
   {
-    title: "عن خط",
-    body: "في خط نختار ضيوفنا بعناية، ونهتم بأدق التفاصيل، لأن كل حلقة عندنا تُصنع لتبقى.",
+    title: "مكتبة، لا مجرد حلقات",
+    body: [
+      "في خط لا نصنع حلقات تُشاهَد وتُنسى، بل نبني مكتبة؛ كل حلقة فيها كتاب مرئي يوثّق تجربة وفكرة، وتزيد قيمته مع الوقت.",
+      "لذلك تمرّ كل حلقة بأسابيع من البحث والإعداد والتصوير والمونتاج، ويعمل عليها فريق كامل حتى تخرج بما يليق بضيفها، وبمن سيشاهدها بعد سنوات.",
+    ],
   },
   {
-    title: "ليش أرسلنا لك الإعداد",
-    body: "أرسلنا لك ملامح الحلقة للاطلاع فقط. الحوار في خط عفوي وبسيط بروح احترافية، ولا يحتاج منك تحضير إجابات.",
+    title: "ليش أرسلنا لك الإعداد؟",
+    body: [
+      "بين يديك ملامح الحلقة وبعض محاورها، أرسلناها لتكون على اطلاع وتطمئن لمسار الحديث، لا لتحضّر إجابات.",
+      "الحوار في خط عفوي ومريح، أقرب إلى جلسة بين أصدقاء، لكن خلفه إعداد احترافي دقيق. تعال كما أنت، والباقي علينا.",
+    ],
   },
   {
-    title: "جلسة بورتريه",
-    body: "على هامش التصوير، نخصّك بجلسة تصوير بورتريه احترافية.",
+    title: "جلسة تصوير بورتريه",
+    body: [
+      "على هامش التصوير نخصّك بجلسة «بورتريه»: صور شخصية احترافية بإضاءة وتكوين خاص، تُستخدم في غلاف حلقتك وظهورك على منصات خط.",
+      "وإن رغبت أن تظهر في صور البورتريه بالغترة أو الشماغ، أحضرها معك؛ فهي للصور فقط، لا للحلقة.",
+    ],
   },
   {
-    title: "عن الغترة",
-    body: "نفضّل الحضور دون غترة أو شماغ. هذا اختيار مقصود يعكس روح خط: عفوية بلا تكلّف.",
+    title: "ليش بدون غترة أو شماغ؟",
+    body: [
+      "طلبنا مقصود ومن مصلحتك: البودكاست ليس مقابلة تلفزيونية رسمية. جمهور يوتيوب والبودكاست يبحث عن الإنسان قبل المنصب، والحضور البسيط يكسر الحاجز ويجعل الحديث أقرب وأصدق.",
+      "والعفوية من أهم أسباب انتشار الحلقات على يوتيوب؛ فظهورك بلا رسمية يساعد حلقتك أن تصل لجمهور أوسع، ويبقى أثرها أطول.",
+    ],
   },
 ] as const
 
 /** Form state: every field present, strings never null. */
 interface Answers {
-  full_name: string
   honorific: string
   kunya: string
   pronunciation_notes: string
   phone_whatsapp: string
   preferred_drink: string
-  preferred_filming_days: string[]
-  preferred_filming_time: string
-  scheduling_restrictions: string
   technical_needs: string
-  topics_excited_about: string
-  sensitivities_to_avoid: string
   social_accounts: Record<string, string | undefined>
   team_notes: string
   arrival_confirmation: boolean
@@ -112,18 +101,12 @@ interface Answers {
 
 function toFormState(a: GuestLinkQuestionnaireDraft): Answers {
   return {
-    full_name: a.full_name ?? "",
     honorific: a.honorific ?? "",
     kunya: a.kunya ?? "",
     pronunciation_notes: a.pronunciation_notes ?? "",
     phone_whatsapp: a.phone_whatsapp ?? "",
     preferred_drink: a.preferred_drink ?? "",
-    preferred_filming_days: a.preferred_filming_days ?? [],
-    preferred_filming_time: a.preferred_filming_time ?? "",
-    scheduling_restrictions: a.scheduling_restrictions ?? "",
     technical_needs: a.technical_needs ?? "",
-    topics_excited_about: a.topics_excited_about ?? "",
-    sensitivities_to_avoid: a.sensitivities_to_avoid ?? "",
     social_accounts: a.social_accounts ?? {},
     team_notes: a.team_notes ?? "",
     arrival_confirmation: a.arrival_confirmation ?? false,
@@ -135,23 +118,16 @@ function toFormState(a: GuestLinkQuestionnaireDraft): Answers {
 function stepErrors(step: number, a: Answers): Record<string, string> {
   const e: Record<string, string> = {}
   if (step === 0) {
-    if (a.full_name.trim().length < 2) e.full_name = "اكتب اسمك الكامل"
+    if (a.honorific.trim().length < 2) e.honorific = "اكتب لقبك أو مسماك"
+    if (a.kunya.trim().length < 2) e.kunya = "اكتب الاسم اللي تحب نناديك فيه"
     if (!/^[+\d][\d\s()-]{5,30}$/.test(a.phone_whatsapp.trim())) e.phone_whatsapp = "اكتب رقم واتساب صحيح"
   }
   if (step === 1) {
     if (!a.preferred_drink.trim()) e.preferred_drink = "قول لنا شنو تحب تشرب"
-    if (a.preferred_filming_days.length === 0) e.preferred_filming_days = "اختر يوماً واحداً على الأقل"
-    if (!a.preferred_filming_time) e.preferred_filming_time = "اختر الوقت اللي يناسبك"
-  }
-  if (step === 2) {
-    if (a.topics_excited_about.trim().length < 2) e.topics_excited_about = "قول لنا شنو يحمّسك نتكلم فيه"
-  }
-  if (step === 3) {
     if (!a.arrival_confirmation) e.arrival_confirmation = "أكّد لنا الحضور قبل الموعد"
   }
   return e
 }
-
 function hasAnyAnswer(a: GuestLinkQuestionnaireDraft): boolean {
   return Object.values(a).some((v) =>
     Array.isArray(v) ? v.length > 0 : typeof v === "string" ? v.trim() !== "" : Boolean(v),
@@ -192,21 +168,13 @@ export function GuestLinkClient(props: GuestLinkClientProps) {
 
   const scrollTop = () => topRef.current?.scrollIntoView({ block: "start" })
 
-  const payload = useMemo(
-    () => ({
-      ...answers,
-      preferred_filming_time: answers.preferred_filming_time || null,
-    }),
-    [answers],
-  )
-
   async function saveDraft(nextStep: number) {
     if (props.submitted) return
     try {
       await fetch(`/api/prepare/${props.token}/draft`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ step: nextStep, draft: payload }),
+        body: JSON.stringify({ step: nextStep, draft: answers }),
       })
     } catch {
       // Autosave is best-effort; the submit carries everything anyway.
@@ -236,17 +204,13 @@ export function GuestLinkClient(props: GuestLinkClientProps) {
       const res = await fetch(`/api/prepare/${props.token}/submit`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          ...payload,
-          honorific: answers.honorific || null,
-          kunya: answers.kunya || null,
-        }),
+        body: JSON.stringify(answers),
       })
       const data = (await res.json().catch(() => ({}))) as { error?: string; fields?: Record<string, string> }
       if (!res.ok) {
         if (data.fields && Object.keys(data.fields).length) {
           setErrors(data.fields)
-          const first = Math.min(...Object.keys(data.fields).map((k) => FIELD_STEP[k] ?? 3))
+          const first = Math.min(...Object.keys(data.fields).map((k) => FIELD_STEP[k] ?? STEPS.length - 1))
           setStep(first)
           scrollTop()
         }
@@ -294,14 +258,16 @@ export function GuestLinkClient(props: GuestLinkClientProps) {
       </header>
 
       {screen === "thanks" && (
-        <div className="space-y-8 text-center">
-          <p className="text-lead leading-relaxed text-foreground">
-            حيّاك الله {props.greetingName}. شكراً لتلبيتك دعوة بودكاست خط، وحضورك يشرّفنا.
-          </p>
-          <p className="text-caption text-muted-foreground">
-            عندنا لك أسئلة قصيرة على أربع صفحات، تساعدنا نجهّز كل شي على راحتك.
-          </p>
-          <PrimaryButton onClick={() => { setScreen("q"); scrollTop() }}>يلا نبدأ</PrimaryButton>
+        <div className="space-y-8">
+          <div className="space-y-5 rounded-2xl border border-border bg-card p-6 sm:p-8">
+            <h1 className="text-subhead font-semibold text-foreground">حيّاك الله {props.greetingName}،</h1>
+            {THANKS_PARAGRAPHS.map((p) => (
+              <p key={p} className="text-body leading-[1.8] text-foreground/90">{p}</p>
+            ))}
+          </div>
+          <div className="flex justify-center">
+            <PrimaryButton onClick={() => { setScreen("q"); scrollTop() }}>يلا نبدأ</PrimaryButton>
+          </div>
         </div>
       )}
 
@@ -313,28 +279,24 @@ export function GuestLinkClient(props: GuestLinkClientProps) {
           <div className="space-y-6">
             {step === 0 && (
               <>
-                <Field id="full_name" label="اسمك الكامل" required error={errors.full_name}>
+                <Field id="honorific" label="اللقب أو المسمى" required
+                  hint="نكتبه تحت اسمك في الحلقة وفي وصفها، مثل: خبير إداري، مدرب معتمد، رئيس تنفيذي" error={errors.honorific}>
                   {(a) => (
-                    <input {...a} type="text" autoComplete="name" maxLength={GUEST_FIELD_MAX.full_name}
-                      value={answers.full_name} onChange={(e) => set("full_name", e.target.value)} className="form-input" />
+                    <input {...a} type="text" autoComplete="organization-title" maxLength={GUEST_FIELD_MAX.honorific}
+                      value={answers.honorific} onChange={(e) => set("honorific", e.target.value)} className="form-input" />
                   )}
                 </Field>
-                <Field id="honorific" label="المسمى" hint="مثل: د. أو م. أو أستاذ — اختياري" error={errors.honorific}>
-                  {(a) => (
-                    <input {...a} type="text" maxLength={GUEST_FIELD_MAX.honorific}
-                      value={answers.honorific ?? ""} onChange={(e) => set("honorific", e.target.value)} className="form-input" />
-                  )}
-                </Field>
-                <Field id="kunya" label="الكنية" hint="مثل: بو محمد — نستخدمها بالحوار" error={errors.kunya}>
+                <Field id="kunya" label="الكنية" required
+                  hint="هذا الاسم اللي بنناديك فيه أغلب الحوار، مثل: بو محمد" error={errors.kunya}>
                   {(a) => (
                     <input {...a} type="text" maxLength={GUEST_FIELD_MAX.kunya}
-                      value={answers.kunya ?? ""} onChange={(e) => set("kunya", e.target.value)} className="form-input" />
+                      value={answers.kunya} onChange={(e) => set("kunya", e.target.value)} className="form-input" />
                   )}
                 </Field>
                 <Field id="pronunciation_notes" label="فيه طريقة معيّنة ننطق فيها اسمك؟" hint="اختياري" error={errors.pronunciation_notes}>
                   {(a) => (
                     <input {...a} type="text" maxLength={GUEST_FIELD_MAX.pronunciation_notes}
-                      value={answers.pronunciation_notes ?? ""} onChange={(e) => set("pronunciation_notes", e.target.value)} className="form-input" />
+                      value={answers.pronunciation_notes} onChange={(e) => set("pronunciation_notes", e.target.value)} className="form-input" />
                   )}
                 </Field>
                 <Field id="phone_whatsapp" label="رقم الواتساب" required error={errors.phone_whatsapp}>
@@ -344,6 +306,7 @@ export function GuestLinkClient(props: GuestLinkClientProps) {
                       value={answers.phone_whatsapp} onChange={(e) => set("phone_whatsapp", e.target.value)} className="form-input text-start" />
                   )}
                 </Field>
+                <SocialsBlock value={answers.social_accounts} onChange={(v) => set("social_accounts", v)} />
               </>
             )}
 
@@ -355,71 +318,16 @@ export function GuestLinkClient(props: GuestLinkClientProps) {
                       value={answers.preferred_drink} onChange={(e) => set("preferred_drink", e.target.value)} className="form-input" />
                   )}
                 </Field>
-                <ChipGroup
-                  id="preferred_filming_days"
-                  label="الأيام اللي تناسبك"
-                  multi
-                  options={DAYS}
-                  selected={answers.preferred_filming_days}
-                  onToggle={(v) =>
-                    set(
-                      "preferred_filming_days",
-                      answers.preferred_filming_days.includes(v)
-                        ? answers.preferred_filming_days.filter((d) => d !== v)
-                        : [...answers.preferred_filming_days, v],
-                    )
-                  }
-                  error={errors.preferred_filming_days}
-                />
-                <ChipGroup
-                  id="preferred_filming_time"
-                  label="الوقت اللي يناسبك"
-                  options={TIMES}
-                  selected={answers.preferred_filming_time ? [answers.preferred_filming_time] : []}
-                  onToggle={(v) => set("preferred_filming_time", v)}
-                  error={errors.preferred_filming_time}
-                />
-                <Field id="scheduling_restrictions" label="فيه مواعيد ما تناسبك؟" hint="سفر أو التزامات — اختياري" error={errors.scheduling_restrictions}>
-                  {(a) => (
-                    <textarea {...a} rows={2} maxLength={GUEST_FIELD_MAX.scheduling_restrictions}
-                      value={answers.scheduling_restrictions ?? ""} onChange={(e) => set("scheduling_restrictions", e.target.value)} className="form-input resize-none" />
-                  )}
-                </Field>
                 <Field id="technical_needs" label="تحتاج شي معيّن يوم التصوير؟" hint="اختياري" error={errors.technical_needs}>
                   {(a) => (
                     <textarea {...a} rows={2} maxLength={GUEST_FIELD_MAX.technical_needs}
-                      value={answers.technical_needs ?? ""} onChange={(e) => set("technical_needs", e.target.value)} className="form-input resize-none" />
+                      value={answers.technical_needs} onChange={(e) => set("technical_needs", e.target.value)} className="form-input resize-none" />
                   )}
                 </Field>
-              </>
-            )}
-
-            {step === 2 && (
-              <>
-                <Field id="topics_excited_about" label="شنو الأشياء اللي تتحمس تتكلم عنها؟" required
-                  hint="أفكار، تجارب، أو زوايا تهمك — مو لازم مواضيع محددة" error={errors.topics_excited_about}>
-                  {(a) => (
-                    <textarea {...a} rows={4} maxLength={GUEST_FIELD_MAX.topics_excited_about}
-                      value={answers.topics_excited_about} onChange={(e) => set("topics_excited_about", e.target.value)} className="form-input resize-none" />
-                  )}
-                </Field>
-                <Field id="sensitivities_to_avoid" label="فيه أمور تفضّل ما نتطرق لها؟"
-                  hint="تبقى عند الفريق فقط، وما بنسأل عنها — اختياري" error={errors.sensitivities_to_avoid}>
-                  {(a) => (
-                    <textarea {...a} rows={3} maxLength={GUEST_FIELD_MAX.sensitivities_to_avoid}
-                      value={answers.sensitivities_to_avoid ?? ""} onChange={(e) => set("sensitivities_to_avoid", e.target.value)} className="form-input resize-none" />
-                  )}
-                </Field>
-              </>
-            )}
-
-            {step === 3 && (
-              <>
-                <SocialsBlock value={answers.social_accounts} onChange={(v) => set("social_accounts", v)} />
                 <Field id="team_notes" label="كلمة للفريق" hint="أي شي تحب نعرفه — اختياري" error={errors.team_notes}>
                   {(a) => (
                     <textarea {...a} rows={3} maxLength={GUEST_FIELD_MAX.team_notes}
-                      value={answers.team_notes ?? ""} onChange={(e) => set("team_notes", e.target.value)} className="form-input resize-none" />
+                      value={answers.team_notes} onChange={(e) => set("team_notes", e.target.value)} className="form-input resize-none" />
                   )}
                 </Field>
                 <CheckRow
@@ -470,16 +378,31 @@ export function GuestLinkClient(props: GuestLinkClientProps) {
 
       {screen === "sent" && (
         <div className="space-y-8 text-center">
-          <h1 className="text-subhead font-semibold text-foreground">وصلتنا، شكراً ✓</h1>
+          <h1 className="text-subhead font-semibold text-foreground">وصلتنا إجاباتك، شكراً لك ✓</h1>
           <PrimaryButton onClick={() => { setScreen("welcome"); setCard(0); scrollTop() }}>التالي</PrimaryButton>
         </div>
       )}
 
       {screen === "welcome" && (
         <div className="space-y-8">
-          <div className="min-h-48 rounded-2xl border border-border bg-card p-6">
-            <h2 className="mb-3 text-lead font-semibold text-foreground">{WELCOME_CARDS[card].title}</h2>
-            <p className="text-body leading-relaxed text-foreground/90">{WELCOME_CARDS[card].body}</p>
+          {/* Every card sits in the same grid cell, so the box is as tall as the
+              longest one and the buttons below never jump between cards. */}
+          <div className="grid">
+            {WELCOME_CARDS.map((c, i) => (
+              <div
+                key={c.title}
+                aria-hidden={i !== card || undefined}
+                className={cn(
+                  "col-start-1 row-start-1 space-y-4 rounded-2xl border border-border bg-card p-6 sm:p-8",
+                  i !== card && "invisible",
+                )}
+              >
+                <h2 className="text-lead font-semibold text-foreground">{c.title}</h2>
+                {c.body.map((p) => (
+                  <p key={p} className="text-body leading-[1.8] text-foreground/90">{p}</p>
+                ))}
+              </div>
+            ))}
           </div>
           <div className="flex justify-center gap-2" role="img" aria-label={`البطاقة ${card + 1} من ${WELCOME_CARDS.length}`}>
             {WELCOME_CARDS.map((_, i) => (
@@ -608,66 +531,6 @@ function Field({
       {children({ id: fieldId, "aria-invalid": Boolean(error), "aria-describedby": describedBy, "aria-required": required || undefined })}
       {error && (
         <p id={errId!} className="mt-1.5 text-caption text-destructive">
-          {error}
-        </p>
-      )}
-    </div>
-  )
-}
-
-function ChipGroup({
-  id,
-  label,
-  options,
-  selected,
-  onToggle,
-  multi,
-  error,
-}: {
-  id: string
-  label: string
-  options: ReadonlyArray<{ value: string; label: string }>
-  selected: readonly string[]
-  onToggle: (v: string) => void
-  multi?: boolean
-  error?: string
-}) {
-  const base = useId()
-  const labelId = `${base}-${id}`
-  const errId = error ? `${labelId}-err` : undefined
-  return (
-    <div>
-      <p id={labelId} className="mb-2 text-caption font-medium text-foreground">
-        {label}
-        <span className="ms-1 text-destructive" aria-hidden>*</span>
-      </p>
-      <div
-        role={multi ? "group" : "radiogroup"}
-        aria-labelledby={labelId}
-        aria-describedby={errId}
-        className="flex flex-wrap gap-2"
-      >
-        {options.map((o) => {
-          const on = selected.includes(o.value)
-          return (
-            <button
-              key={o.value}
-              type="button"
-              role={multi ? "checkbox" : "radio"}
-              aria-checked={on}
-              onClick={() => onToggle(o.value)}
-              className={cn(
-                "min-h-11 rounded-xl border px-4 text-caption transition-colors",
-                on ? "border-primary bg-primary/10 text-primary" : "border-border text-foreground hover:bg-muted",
-              )}
-            >
-              {o.label}
-            </button>
-          )
-        })}
-      </div>
-      {error && (
-        <p id={errId} className="mt-1.5 text-caption text-destructive">
           {error}
         </p>
       )}

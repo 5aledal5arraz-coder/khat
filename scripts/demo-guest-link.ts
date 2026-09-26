@@ -104,7 +104,7 @@ async function main() {
   await db.insert(guestEpisodeLinks).values({
     eir_id: eir.id,
     guest_id: guest.id,
-    guest_display_name: "د. بدر",
+    guest_display_name: "د. بدر التجريبي",
     token_hash: hash,
     status: "active",
     expires_at: fallbackExpiry(now),
@@ -121,18 +121,12 @@ async function main() {
     ...(submitted
       ? {
           questionnaire: {
-            full_name: "بدر التجريبي",
-            honorific: "د.",
+            honorific: "خبير إداري",
             kunya: "بو فهد",
             pronunciation_notes: null,
             phone_whatsapp: "+965 0000 0000",
             preferred_drink: "قهوة عربية",
-            preferred_filming_days: ["sunday", "wednesday"],
-            preferred_filming_time: "evening",
-            scheduling_restrictions: null,
             technical_needs: null,
-            topics_excited_about: "بناء الفرق وأول 100 يوم",
-            sensitivities_to_avoid: "أسماء شركات سابقة",
             social_accounts: {},
             team_notes: null,
             arrival_confirmation: true,

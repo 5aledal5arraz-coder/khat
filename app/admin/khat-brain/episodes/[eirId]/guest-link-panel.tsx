@@ -448,14 +448,19 @@ function QuestionnaireBlock({ state }: { state: GuestLinkAdminState }) {
       </p>
     )
   }
-  const rows: [string, string | null][] = [
-    ["الاسم", [q.honorific, q.full_name].filter(Boolean).join(" ")],
+  // Only what the answers actually hold: the current questionnaire, plus the
+  // legacy keys (full name, days/time, topics/avoid) on answers stored before
+  // they were removed. Empty rows are filtered below.
+  const time = q.preferred_filming_time ?? null
+  const rows: [string, string | null | undefined][] = [
+    ["الاسم", q.full_name],
+    ["اللقب / المسمى", q.honorific],
     ["الكنية", q.kunya],
     ["النطق", q.pronunciation_notes],
     ["واتساب", q.phone_whatsapp],
     ["المشروب", q.preferred_drink],
     ["الأيام", (q.preferred_filming_days ?? []).map((d) => DAY_LABEL[d] ?? d).join("، ")],
-    ["الوقت", TIME_LABEL[q.preferred_filming_time] ?? q.preferred_filming_time],
+    ["الوقت", time ? (TIME_LABEL[time] ?? time) : null],
     ["قيود المواعيد", q.scheduling_restrictions],
     ["احتياجات تقنية", q.technical_needs],
     ["يتحمس للحديث عن", q.topics_excited_about],
@@ -469,7 +474,7 @@ function QuestionnaireBlock({ state }: { state: GuestLinkAdminState }) {
       </h3>
       {state.answersAfterPrep && (
         <p className="rounded-lg border border-amber-500/30 bg-amber-500/5 p-2 text-amber-800">
-          إجابات الضيف وصلت بعد توليد الإعداد الحالي — فكّر تعيد التوليد عشان تدخل «يتحمس له» و«يفضّل تجنّبه».
+          إجابات الضيف وصلت بعد توليد الإعداد الحالي — فكّر تعيد التوليد عشان تدخل «الكنية» في توجيهات المحاور.
         </p>
       )}
       <dl className="grid gap-x-4 gap-y-1.5 sm:grid-cols-[max-content_1fr]">
@@ -573,7 +578,7 @@ function PreviewBlock({ state, disabled, run }: { state: GuestLinkAdminState; di
           identity={
             link.questionnaire
               ? {
-                  full_name: link.questionnaire.full_name ?? null,
+                  name: link.guest_display_name,
                   honorific: link.questionnaire.honorific ?? null,
                   kunya: link.questionnaire.kunya ?? null,
                   pronunciation_notes: link.questionnaire.pronunciation_notes ?? null,

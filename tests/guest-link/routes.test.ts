@@ -29,7 +29,7 @@ import { POST as submitPOST } from "@/app/api/prepare/[token]/submit/route"
 import { POST as suggestPOST } from "@/app/api/prepare/[token]/suggestions/route"
 import { GET as calendarGET } from "@/app/api/prepare/[token]/calendar/route"
 import { GUEST_RATE_LIMITS } from "@/lib/guest-link/route-helpers"
-import { GUEST_LINK_MAX_BODY_BYTES } from "@/lib/validation/guest-link"
+import { GUEST_LINK_MAX_BODY_BYTES, LEGACY_QUESTIONNAIRE_KEYS } from "@/lib/validation/guest-link"
 
 const TOKEN = "A".repeat(43)
 let ipN = 0
@@ -51,12 +51,10 @@ function req(path: string, body?: unknown, headers: Record<string, string> = {})
 const params = { params: Promise.resolve({ token: TOKEN }) }
 
 const ANSWERS = {
-  full_name: "بدر الطريجي",
+  honorific: "خبير إداري",
+  kunya: "بو محمد",
   phone_whatsapp: "+96599990000",
   preferred_drink: "قهوة",
-  preferred_filming_days: ["sunday"],
-  preferred_filming_time: "evening",
-  topics_excited_about: "القيادة",
   arrival_confirmation: true,
 }
 
@@ -92,10 +90,30 @@ describe("submit", () => {
   })
 
   it("field errors come back keyed by field", async () => {
-    const res = await submitPOST(req("submit", { ...ANSWERS, full_name: "" }), params)
+    const res = await submitPOST(req("submit", { ...ANSWERS, honorific: "", kunya: " " }), params)
     expect(res.status).toBe(422)
     const body = await res.json()
-    expect(body.fields.full_name).toBeTruthy()
+    expect(body.fields.honorific).toBeTruthy()
+    expect(body.fields.kunya).toBeTruthy()
+  })
+
+  it("a tab opened before the fields were removed still submits — legacy keys are dropped", async () => {
+    const res = await submitPOST(
+      req("submit", {
+        ...ANSWERS,
+        full_name: "بدر الطريجي",
+        preferred_filming_days: ["sunday"],
+        preferred_filming_time: "evening",
+        scheduling_restrictions: "",
+        topics_excited_about: "القيادة",
+        sensitivities_to_avoid: "",
+      }),
+      params,
+    )
+    expect(res.status).toBe(200)
+    expect(svc.submitted).toHaveLength(1)
+    for (const k of LEGACY_QUESTIONNAIRE_KEYS) expect(svc.submitted[0]).not.toHaveProperty(k)
+    expect(svc.submitted[0]).toMatchObject({ honorific: "خبير إداري", kunya: "بو محمد" })
   })
 
   it(`rate limit: ${GUEST_RATE_LIMITS.submit.max}/hour/IP, then 429`, async () => {

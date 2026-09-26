@@ -130,6 +130,24 @@ describe("guest_preferences → prep prompts (gated)", () => {
     expect(withGuestAvoidZone(["موجود"], null)).toEqual(["موجود"])
   })
 
+  it("current questionnaire (no excited/avoid) ⇒ kunya only; no topic or avoid lines", async () => {
+    const current = guestPreferencesFromQuestionnaire({
+      honorific: "خبير إداري",
+      kunya: "بو محمد",
+      phone_whatsapp: "+96599990000",
+      preferred_drink: "قهوة",
+    })
+    expect(current).toEqual({ excited_about: null, avoid: null, kunya: "بو محمد" })
+    await runResearchSynthesis({ ...pass1Base, guest_preferences: current })
+    const user = aiCalls[0].prompt.find((m) => m.role === "user")!.content
+    expect(user).toContain("بو محمد")
+    expect(user).not.toContain("Excited to talk about")
+    expect(user).not.toContain("Asked us to avoid")
+    expect(withGuestAvoidZone(["موجود"], current)).toEqual(["موجود"])
+    // Neither the title nor anything else the guest typed becomes a preference.
+    expect(user).not.toContain("خبير إداري")
+  })
+
   it("empty questionnaire ⇒ no preferences", () => {
     expect(guestPreferencesFromQuestionnaire({ topics_excited_about: " " })).toBeNull()
     expect(guestPreferencesFromQuestionnaire(null)).toBeNull()

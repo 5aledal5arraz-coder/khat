@@ -1244,24 +1244,31 @@ export interface GuestPrepForm {
  * are enforced by `guestQuestionnaireSubmitSchema` in lib/validation/guest-link.ts.
  */
 export interface GuestLinkQuestionnaire {
-  full_name: string
-  /** المسمى — د. / م. / أستاذ … free text. */
+  /**
+   * «اللقب أو المسمى» — a title shown on its own line under the name
+   * («خبير إداري»), never glued in front of it. Required since 2026-09-27;
+   * answers stored before that may hold null or a «د.» prefix.
+   */
   honorific: string | null
-  /** الكنية — «بو فلان», used by the host in conversation. */
+  /** الكنية — «بو فلان», how the host addresses the guest. Required since 2026-09-27. */
   kunya: string | null
   pronunciation_notes: string | null
   phone_whatsapp: string
   preferred_drink: string
-  preferred_filming_days: string[]
-  preferred_filming_time: string
-  scheduling_restrictions: string | null
   technical_needs: string | null
-  topics_excited_about: string
-  sensitivities_to_avoid: string | null
   social_accounts: GuestPrepResponse["social_accounts"]
   team_notes: string | null
   arrival_confirmation: boolean
   clothing_acknowledgment: boolean
+  // ── Legacy — asked by the first version only (see LEGACY_QUESTIONNAIRE_KEYS).
+  // Never written any more; present on answers stored before 2026-09-27.
+  /** The name is the admin's `guest_display_name`, not something the guest types. */
+  full_name?: string | null
+  preferred_filming_days?: string[] | null
+  preferred_filming_time?: string | null
+  scheduling_restrictions?: string | null
+  topics_excited_about?: string | null
+  sensitivities_to_avoid?: string | null
 }
 
 /** Autosaved, half-typed answers — any field may be missing or cleared. */

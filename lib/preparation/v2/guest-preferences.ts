@@ -9,6 +9,12 @@
  *                       projection),
  *   - kunya           → how the host addresses the guest, for host guidance.
  *
+ * Since 2026-09-27 the questionnaire no longer asks "excited about" / "avoid"
+ * (they belong to the prep, not the guest), so a new submission carries only
+ * the kunya: both lines are simply absent. Answers stored before that still
+ * carry them and are still honoured — an "avoid" the guest already gave us
+ * must keep reaching sensitive_zones.
+ *
  * GATED: every prompt change is conditional on `hasGuestPreferences()`. A prep
  * with no submitted questionnaire sends byte-identical prompts — pinned by the
  * story SHA test in tests/preparation/prep-v2-course-format.test.ts.
