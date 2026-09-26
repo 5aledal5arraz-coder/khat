@@ -63,6 +63,10 @@ async function main() {
   }
 
   const takenAt = new Date().toISOString()
+  // Before 2026-08-24 a snapshot records the old view definition; from that day
+  // on it records the new one. The label follows the date so a later run can
+  // never be mistaken for the "before" reference.
+  const post = takenAt.slice(0, 10) >= "2026-08-24"
   const episodesOut = rows.map((r) => ({
     videoId: r.id,
     slug: r.slug,
@@ -76,8 +80,10 @@ async function main() {
 
   const doc = {
     takenAt,
-    methodology: "PRE-CHANGE — YouTube's old view counting (minimum watch time). " +
-      "From 2026-08-24 a view counts on play start with no minimum.",
+    methodology: post
+      ? "POST-CHANGE — since 2026-08-24 a view counts on play start with no minimum watch time."
+      : "PRE-CHANGE — YouTube's old view counting (minimum watch time). " +
+        "From 2026-08-24 a view counts on play start with no minimum.",
     source: "YouTube Data API v3, statistics.viewCount, API key auth",
     episodeCount: rows.length,
     resolvedByApi: withApi.length,
@@ -87,12 +93,12 @@ async function main() {
   }
 
   mkdirSync(OUT, { recursive: true })
-  const file = join(OUT, `${takenAt.slice(0, 10)}-pre-change.json`)
+  const file = join(OUT, `${takenAt.slice(0, 10)}-${post ? "post" : "pre"}-change.json`)
   writeFileSync(file, JSON.stringify(doc, null, 2) + "\n", "utf8")
 
   console.log(`\nwritten: ${file.replace(process.cwd() + "/", "")}`)
   console.log(`resolved by API: ${withApi.length}/${rows.length}`)
-  console.log(`total views (old methodology): ${total.toLocaleString("en-US")}`)
+  console.log(`total views (${post ? "new" : "old"} methodology): ${total.toLocaleString("en-US")}`)
   console.log(`rows where the DB already disagrees with the API: ${disagree.length}`)
   process.exit(0)
 }
