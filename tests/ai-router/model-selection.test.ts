@@ -202,6 +202,6 @@ describe("runtime pricing registration", () => {
       outputCostPer1M: 42,
     })
     // Static entries are untouched.
-    expect(lookupPricing("openai", "gpt-5.6-sol")?.inputCostPer1M).toBe(5)
+    expect(lookupPricing("openai", "gpt-5.6-sol")?.inputCostPer1M).toBe(4)
   })
 })

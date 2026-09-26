@@ -99,6 +99,52 @@ describe("previously unpriced but reachable models", () => {
   })
 })
 
+/**
+ * Rates read 2026-09-26. developers.openai.com/api/docs/pricing publishes no
+ * date; ai.google.dev/gemini-api/docs/pricing was last updated 2026-09-24.
+ * Standard tier, short context. Every one of these feeds the daily spend cap.
+ */
+describe("2026-09-26 price corrections", () => {
+  it("prices gpt-5.6-sol at the post-2026-08-24 rate, not the old $5/$30", () => {
+    // Both editorial and discovery default to sol; the stale rate booked every
+    // one of those calls 25%/50% high against the cap.
+    expect(lookupPricing("openai", "gpt-5.6-sol")).toEqual({
+      inputCostPer1M: 4,
+      outputCostPer1M: 20,
+    })
+  })
+
+  it("prices the GPT-6 family", () => {
+    expect(lookupPricing("openai", "gpt-6-astra")).toEqual({
+      inputCostPer1M: 10,
+      outputCostPer1M: 50,
+    })
+    expect(lookupPricing("openai", "gpt-6-sol")).toEqual({
+      inputCostPer1M: 2,
+      outputCostPer1M: 10,
+    })
+    expect(lookupPricing("openai", "gpt-6-luna")).toEqual({
+      inputCostPer1M: 0.1,
+      outputCostPer1M: 0.5,
+    })
+  })
+
+  it("prices gemini-3.8-flash at its rate through 2026-12-31", () => {
+    // Google doubles this to $1.50/$7.50 on 2027-01-01 — see registry.ts.
+    expect(lookupPricing("gemini", "gemini-3.8-flash")).toEqual({
+      inputCostPer1M: 0.75,
+      outputCostPer1M: 3.75,
+    })
+  })
+
+  it("leaves the cross-checked rates as they were", () => {
+    expect(lookupPricing("openai", "gpt-5.4-mini")).toEqual({
+      inputCostPer1M: 0.75,
+      outputCostPer1M: 4.5,
+    })
+  })
+})
+
 describe("unpriced-model guard", () => {
   let warn: ReturnType<typeof vi.spyOn>
 

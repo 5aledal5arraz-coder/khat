@@ -51,8 +51,8 @@ export interface ModelChoice {
 
 /**
  * Defaults — GPT-5.6 family, all 1M-token context. Prices verified against
- * developers.openai.com/api/docs/pricing on 2026-08-07 (standard, short ctx):
- *   sol   $5.00/$30.00 — flagship; editorial + discovery, where output
+ * developers.openai.com/api/docs/pricing on 2026-09-26 (standard, short ctx):
+ *   sol   $4.00/$20.00 — flagship; editorial + discovery, where output
  *                         quality IS the product (published Arabic text,
  *                         guest-candidate ranking).
  *   terra $2.00/$12.00 — research briefs: long-form synthesis, same family.
@@ -67,6 +67,18 @@ export interface ModelChoice {
  * legitimate work — a silent, self-inflicted outage with a plausible excuse
  * printed on it. Measured on the local `ai_runs`: 337 luna calls were booked
  * at $2.6879 against a true $0.5376.
+ *
+ * It happened again: sol dropped from $5.00/$30.00 to $4.00/$20.00 (the
+ * 2026-08-24 start date comes from OpenAI's announcement email, NOT the
+ * pricing page, which does not show it), and this file kept the old rate
+ * until 2026-09-26 — every sol call (editorial + discovery) was booked 25%
+ * high on input and 50% high on output against the same spend cap.
+ *
+ * ⚠ SOL'S $4.00/$20.00 IS A PROMOTION, NOT A PERMANENT CUT: the pricing page
+ * (read 2026-09-26) says it is available "at least through" 2026-11-21, and
+ * does not say what follows. If it ends and sol returns to its previous
+ * $5.00/$30.00, this entry UNDER-reports by 20%/33% and the spend cap lets
+ * real spend through unseen — someone must re-check the page on 2026-11-21.
  *
  * If OpenAI moves a price again, THIS is the file, and the cap is why it
  * matters within the day rather than at the next invoice.
@@ -88,8 +100,8 @@ export const DEFAULT_MODELS: Record<AiTaskKind, ModelChoice> = {
   editorial: {
     provider: "openai",
     modelName: "gpt-5.6-sol",
-    inputCostPer1M: 5,
-    outputCostPer1M: 30,
+    inputCostPer1M: 4,
+    outputCostPer1M: 20,
     reasoningEffort: "medium",
     // Core long-running kind: published Arabic text, many rich candidates.
     // Measured ~230s; +22% headroom → 280s. maxRetries 1 keeps the worst
@@ -100,8 +112,8 @@ export const DEFAULT_MODELS: Record<AiTaskKind, ModelChoice> = {
   discovery: {
     provider: "openai",
     modelName: "gpt-5.6-sol",
-    inputCostPer1M: 5,
-    outputCostPer1M: 30,
+    inputCostPer1M: 4,
+    outputCostPer1M: 20,
     reasoningEffort: "high",
     // Worker-only. maxRetries 0 — the job queue's lease-reclaim provides
     // the retry, so a router-level retry would only double the wall time.
@@ -173,6 +185,14 @@ const EXTRA_PRICING: Array<{
   { provider: "openai", modelName: "gpt-5.4", inputCostPer1M: 2.5, outputCostPer1M: 15 },
   { provider: "openai", modelName: "gpt-5.4-mini", inputCostPer1M: 0.75, outputCostPer1M: 4.5 },
   { provider: "openai", modelName: "gpt-5.4-nano", inputCostPer1M: 0.2, outputCostPer1M: 1.25 },
+  // GPT-6 family — developers.openai.com/api/docs/pricing (standard, short
+  // context; page publishes no date, read 2026-09-26). Reachable through a
+  // Settings/env override or the model catalog before any default moves to
+  // them; unpriced, they wrote cost_usd NULL — the spend cap stopped seeing
+  // their spend and a benchmark row's cost_delta_pct stayed null.
+  { provider: "openai", modelName: "gpt-6-astra", inputCostPer1M: 10, outputCostPer1M: 50 },
+  { provider: "openai", modelName: "gpt-6-sol", inputCostPer1M: 2, outputCostPer1M: 10 },
+  { provider: "openai", modelName: "gpt-6-luna", inputCostPer1M: 0.1, outputCostPer1M: 0.5 },
   // Legacy OpenAI (pre-upgrade defaults — keeps old overrides costed)
   { provider: "openai", modelName: "gpt-4o", inputCostPer1M: 2.5, outputCostPer1M: 10 },
   { provider: "openai", modelName: "gpt-4o-mini", inputCostPer1M: 0.15, outputCostPer1M: 0.6 },
@@ -196,6 +216,13 @@ const EXTRA_PRICING: Array<{
   // cost_delta_pct = null — the cost gate did not fail, it never ran.
   { provider: "gemini", modelName: "gemini-3.5-flash-lite", inputCostPer1M: 0.3, outputCostPer1M: 2.5 },
   { provider: "gemini", modelName: "gemini-3.1-flash-lite", inputCostPer1M: 0.25, outputCostPer1M: 1.5 },
+  // gemini-3.8-flash — same source (page last updated 2026-09-24, read
+  // 2026-09-26), Standard/Paid tier; one rate for every modality and context
+  // length, thinking tokens billed as output. ⚠ PROMOTIONAL RATE WITH AN END
+  // DATE: Google doubles it to $1.50/$7.50 on 2027-01-01. This static table
+  // holds one number, so from that day this entry UNDER-reports by half and
+  // the spend cap lets through twice the real spend — change it then.
+  { provider: "gemini", modelName: "gemini-3.8-flash", inputCostPer1M: 0.75, outputCostPer1M: 3.75 },
 ]
 
 /**
