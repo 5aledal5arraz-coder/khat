@@ -9,6 +9,7 @@ export {
   transitionEpisodePhase,
   setEpisodeIntelligenceGuest,
   setEpisodeRecordingSchedule,
+  patchEpisodeIntelligenceEditorial,
   countByPhase,
   getEpisodePhaseHistory,
   type EpisodeIntelligenceRecord,
@@ -17,6 +18,7 @@ export {
   type TransitionInput,
   type SetEirGuestInput,
   type SetRecordingScheduleInput,
+  type PatchEirEditorialInput,
   type PhaseTransitionEntry,
 } from "./service"
 

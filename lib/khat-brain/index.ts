@@ -8,6 +8,7 @@
 export {
   ensureEirForCandidate,
   walkEirToPhase,
+  syncEirEditorialFromCandidate,
   type EnsureEirInput,
   type EnsureEirResult,
   type WalkEirInput,

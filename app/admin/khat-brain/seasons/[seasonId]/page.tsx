@@ -59,9 +59,13 @@ import { getAiHealth } from "@/lib/ai-router/health"
 import { getDomainBalanceReport } from "@/lib/khat-brain/season-rhythm"
 import { AiHealthBanner } from "../../components/ai-health-banner"
 import { BulkConvertButton } from "./bulk-convert-button"
+import { TopicCardActions, type GuestOption } from "./_components/topic-card-actions"
+import { getAllGuests } from "@/lib/admin/queries"
 import {
   KHAT_SEASON_STATUS_LABEL,
   KHAT_TOPIC_DOMAIN_LABEL,
+  type KhatMapEpisodeCandidate,
+  type KhatMapGuestCandidate,
 } from "@/types/khat-map"
 import type { EpisodePhase } from "@/lib/db/schema/eir"
 
@@ -110,6 +114,7 @@ export default async function SeasonWorkspacePage({
     rhythm,
     hybridReadiness,
     workedReport,
+    allGuests,
   ] = await Promise.all([
     getSeasonProgressAction(seasonId),
     listPendingCardsAction(seasonId),
@@ -122,7 +127,10 @@ export default async function SeasonWorkspacePage({
     getDomainBalanceReport(seasonId),
     getHybridReadiness(),
     buildWorkedReport(),
+    getAllGuests(),
   ])
+  // Options for «عيّن ضيفاً معروفاً» on each approved-topic card.
+  const guestOptions: GuestOption[] = allGuests.map((g) => ({ id: g.id, name: g.name }))
   // Dev-only readiness panel. Hidden by default even in dev — needs
   // an explicit opt-in to avoid leaking internal tables to operators.
   // Either set KHAT_SHOW_DEV_DIAGNOSTICS=true in env, or visit the
@@ -254,13 +262,16 @@ export default async function SeasonWorkspacePage({
                 title: a.topic.working_title,
               }))}
           />
-          {/* Manual mode lists its topics in the authoring surface below. */}
-          {season.v2_mode !== "manual" && (
-            <AcceptedEpisodes
-              accepted={accepted}
-              phasesByCandidate={phasesByCandidate}
-            />
-          )}
+          {/* Every mode — manual included. The wizard's authoring list
+              below only exists while topics are being authored (and
+              collapses once the target is met), so this panel is where a
+              topic's edit / known-guest / convert actions stay reachable. */}
+          <AcceptedEpisodes
+            seasonId={seasonId}
+            accepted={accepted}
+            phasesByCandidate={phasesByCandidate}
+            guestOptions={guestOptions}
+          />
         </div>
       )}
 
@@ -296,8 +307,10 @@ export default async function SeasonWorkspacePage({
       {accepted.length === 0 && season.v2_mode !== "manual" && (
         <div className="mx-auto max-w-7xl px-4">
           <AcceptedEpisodes
+            seasonId={seasonId}
             accepted={accepted}
             phasesByCandidate={phasesByCandidate}
+            guestOptions={guestOptions}
           />
         </div>
       )}
@@ -418,11 +431,15 @@ function HybridPanel({
 // ─── AcceptedEpisodes panel ──────────────────────────────────────────
 
 function AcceptedEpisodes({
+  seasonId,
   accepted,
   phasesByCandidate,
+  guestOptions,
 }: {
-  accepted: Array<{ topic: { id: string; working_title: string; topic_domain: string | null; eir_id: string | null }; guest: { full_name: string } | null }>
+  seasonId: string
+  accepted: Array<{ topic: KhatMapEpisodeCandidate; guest: KhatMapGuestCandidate | null }>
   phasesByCandidate: Awaited<ReturnType<typeof loadEirPhasesForCandidates>>
+  guestOptions: GuestOption[]
 }) {
   if (accepted.length === 0) return null
   // Footer copy now reflects the shipped state — every per-episode tab
@@ -493,21 +510,19 @@ function AcceptedEpisodes({
                   <Activity className="h-3 w-3" /> لم يتم ربطه بـ EIR بعد
                 </div>
               )}
-              {!card.guest && phaseInfo && (
-                <div className="mt-2 flex items-center justify-between gap-2 rounded-md border border-amber-500/30 bg-amber-500/5 px-2 py-1">
-                  <span className="inline-flex items-center gap-1 text-[10.5px] text-amber-700">
-                    <Activity className="h-3 w-3" /> لا ضيف مرتبط — التحويل
-                    إلى الإعداد محجوب حتى يُربط ضيف
-                  </span>
-                  <Link
-                    href={`/admin/khat-brain/episodes/${phaseInfo.eir_id}?tab=guest`}
-                    data-assign-guest-link
-                    className="inline-flex shrink-0 items-center gap-1 rounded-lg border border-amber-500/40 bg-amber-500/10 px-2 py-0.5 text-[10.5px] font-medium text-amber-700 hover:bg-amber-500/20"
-                  >
-                    اربط ضيفاً ←
-                  </Link>
+              {!card.guest && (
+                <div className="mt-2 inline-flex items-center gap-1 rounded-md border border-amber-500/30 bg-amber-500/5 px-2 py-1 text-[10.5px] text-amber-700">
+                  <Activity className="h-3 w-3" /> لا ضيف مرتبط — التحويل
+                  إلى الإعداد محجوب حتى يُعيَّن ضيف
                 </div>
               )}
+              <TopicCardActions
+                seasonId={seasonId}
+                topic={card.topic}
+                hasGuest={Boolean(card.guest)}
+                currentGuestId={card.guest?.linked_guest_id ?? null}
+                guests={guestOptions}
+              />
             </li>
           )
         })}

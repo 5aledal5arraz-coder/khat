@@ -38,7 +38,7 @@ import {
   jaccardSimilarity,
   TITLE_DEDUP_JACCARD_THRESHOLD,
 } from "@/lib/khat-map/v2/title-similarity"
-import { ensureEirForCandidate } from "@/lib/khat-brain"
+import { ensureEirForCandidate, syncEirEditorialFromCandidate } from "@/lib/khat-brain"
 import { getEpisodeCandidateById } from "@/lib/khat-map/core/queries"
 import { AngleBankExhaustedError } from "@/lib/khat-map/v2/strict"
 import {
@@ -615,6 +615,91 @@ export async function assignDiscoveredGuestToEpisodeAction(input: {
 
     revalidatePath(`/admin/khat-brain/seasons/${input.seasonId}`)
     return { success: true, data: { ok: true, seasonComplete } }
+  } catch (e) {
+    return { success: false, error: errorOf(e) }
+  }
+}
+
+/**
+ * Assign an EXISTING canonical guest (`guests`) to one approved topic,
+ * straight from the season workspace.
+ *
+ * The gap it closes: a topic whose guest is already known (typical for a
+ * manual topic) had no path to preparation. Manual topics get no EIR at
+ * creation, the EIR page's "assign guest" needs one, and Phase-B discovery
+ * deliberately excludes guests we already know. So conversion failed with
+ * `missing_linked_guest` and nothing in the UI could fix it.
+ *
+ * Composition — no new logic, only the existing primitives in order:
+ *   1. ensureEirForCandidate  → the topic gets its EIR (idempotent). A
+ *      fresh EIR copies the topic's CURRENT goal/description, so edits
+ *      made before this call are carried.
+ *   2. assignEirGuestAction   → sets EIR.guest_id, walks idea /
+ *      guest_discovery → guest_assigned, and bridges into Khat Map
+ *      (`suggested_guest_candidate_id`) so conversion unblocks.
+ *
+ * Replacing a guest is an explicit operator choice here, so a stale link
+ * to a DIFFERENT guest is cleared first — the bridge refuses to overwrite
+ * one silently, which would leave the EIR and the topic naming different
+ * people. Idempotent: re-assigning the same guest changes nothing.
+ */
+export async function assignKnownGuestToTopicAction(input: {
+  seasonId: string
+  topicCandidateId: string
+  guestId: string
+}): Promise<Result<{ eirId: string; eirCreated: boolean }>> {
+  const gate = await requireActionRole("EDITOR")
+  if (!gate.ok) return { success: false, error: gate.error }
+  const user = gate.user
+  if (!input.guestId) return { success: false, error: "اختر ضيفاً أولاً" }
+  try {
+    const candidate = await getEpisodeCandidateById(input.topicCandidateId)
+    if (!candidate || candidate.season_id !== input.seasonId) {
+      return { success: false, error: "الحلقة غير موجودة في هذا الموسم" }
+    }
+    if (candidate.status !== "approved") {
+      return {
+        success: false,
+        error:
+          candidate.status === "converted_to_preparation"
+            ? "الحلقة حُوّلت للإعداد — غيّر الضيف من صفحة الحلقة"
+            : "اعتمد الموضوع أولاً قبل تعيين ضيف",
+      }
+    }
+
+    // A different guest is already linked → the operator is replacing it.
+    if (candidate.suggested_guest_candidate_id) {
+      const current = await loadGuest(candidate.suggested_guest_candidate_id)
+      if (current?.linked_guest_id !== input.guestId) {
+        await db!
+          .update(khatMapEpisodeCandidates)
+          .set({ suggested_guest_candidate_id: null, updated_at: new Date() })
+          .where(eq(khatMapEpisodeCandidates.id, candidate.id))
+        candidate.suggested_guest_candidate_id = null
+      }
+    }
+
+    const { eir, created } = await ensureEirForCandidate({
+      candidate,
+      adminId: user.id,
+    })
+
+    const { assignEirGuestAction } = await import(
+      "@/app/admin/khat-brain/episodes/[eirId]/actions"
+    )
+    const assigned = await assignEirGuestAction(eir.id, input.guestId)
+    if (!assigned.ok) return { success: false, error: assigned.message }
+    // The bridge is what conversion reads. If it didn't attach, the EIR
+    // has a guest but "تحويل لإعداد" would still refuse — say so now.
+    if (!assigned.bridge?.attached_to_episode) {
+      return {
+        success: false,
+        error: "عُيّن الضيف في سجل الحلقة لكن تعذّر ربطه بالموضوع — التحويل للإعداد سيبقى محجوباً.",
+      }
+    }
+
+    revalidatePath(`/admin/khat-brain/seasons/${input.seasonId}`)
+    return { success: true, data: { eirId: eir.id, eirCreated: created } }
   } catch (e) {
     return { success: false, error: errorOf(e) }
   }
@@ -1429,7 +1514,17 @@ export async function editEpisodeAction(input: {
       .update(khatMapEpisodeCandidates)
       .set(updates)
       .where(eq(khatMapEpisodeCandidates.id, input.topicCandidateId))
+
+    // The EIR copies these fields only when it is created. Once it exists,
+    // re-copy them so the edit reaches the record preparation reads —
+    // otherwise a goal changed after the guest was assigned is silently
+    // ignored downstream. No-op when the topic has no EIR yet (the fresh
+    // values are copied at creation).
+    const edited = await getEpisodeCandidateById(input.topicCandidateId)
+    if (edited) await syncEirEditorialFromCandidate(edited)
+
     revalidatePath(`/admin/khat-brain/seasons/${input.seasonId}`)
+    if (edited?.eir_id) revalidatePath(`/admin/khat-brain/episodes/${edited.eir_id}`)
     return { success: true, data: { ok: true } }
   } catch (e) {
     return { success: false, error: errorOf(e) }

@@ -267,6 +267,55 @@ export async function setEpisodeIntelligenceGuest(
   return next
 }
 
+// ─── Patch editorial intent ────────────────────────────────────────────
+
+export interface PatchEirEditorialInput {
+  eir_id: string
+  /** When provided, replaces the EIR's working_title. */
+  working_title?: string
+  /**
+   * Keys merged INTO the existing editorial_intent. Keys not named here
+   * (source, source_id, primary_theme, main_axes, …) are preserved.
+   */
+  intent_patch: Partial<EditorialIntent>
+}
+
+/**
+ * Merge editorial fields into an existing EIR. `editorial_intent` is
+ * seeded once at EIR creation; this is how a later topic edit reaches
+ * the record the preparation pipeline reads. Does not change phase.
+ */
+export async function patchEpisodeIntelligenceEditorial(
+  input: PatchEirEditorialInput,
+): Promise<EpisodeIntelligenceRecord> {
+  const current = await getEpisodeIntelligenceRecord(input.eir_id)
+  if (!current) {
+    throw new Error(`EIR not found: ${input.eir_id}`)
+  }
+  const merged = {
+    ...current.editorial_intent,
+    ...input.intent_patch,
+  } as EditorialIntent
+  validateJsonbWrite(
+    { table: EDITORIAL_INTENT_TABLE, column: EDITORIAL_INTENT_COLUMN, rowId: input.eir_id },
+    merged,
+    editorialIntentSchema,
+  )
+  await db!
+    .update(episodeIntelligenceRecords)
+    .set({
+      editorial_intent: merged,
+      ...(input.working_title !== undefined
+        ? { working_title: input.working_title }
+        : {}),
+      updated_at: new Date(),
+    })
+    .where(eq(episodeIntelligenceRecords.id, input.eir_id))
+  const next = await getEpisodeIntelligenceRecord(input.eir_id)
+  if (!next) throw new Error("EIR vanished after editorial patch")
+  return next
+}
+
 // ─── Set recording schedule ────────────────────────────────────────────
 
 export interface SetRecordingScheduleInput {

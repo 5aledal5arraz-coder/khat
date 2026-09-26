@@ -1,7 +1,7 @@
 /**
  * Khat Brain — bridge between Khat Map v2 and the EIR spine.
  *
- * Two responsibilities:
+ * Responsibilities:
  *
  *   1. ensureEirForCandidate — idempotent "if this candidate has no
  *      EIR yet, create one and link both sides; otherwise return the
@@ -12,7 +12,10 @@
  *      enforces single-step transitions; this helper composes them so
  *      callers can request the *target* phase without knowing the path.
  *
- * Both helpers stay strictly above lib/eir — they never touch the EIR
+ *   3. syncEirEditorialFromCandidate — re-copy the operator-editable
+ *      topic fields onto an existing EIR after an edit.
+ *
+ * All helpers stay strictly above lib/eir — they never touch the EIR
  * table directly. That keeps the audit trail honest: every transition
  * still flows through transitionEpisodePhase and lands in
  * eir_phase_transitions.
@@ -24,6 +27,7 @@ import { khatMapEpisodeCandidates } from "@/lib/db/schema/khat-map"
 import {
   createEpisodeIntelligenceRecord,
   getEpisodeIntelligenceRecord,
+  patchEpisodeIntelligenceEditorial,
   transitionEpisodePhase,
   type EpisodePhase,
   type EpisodeIntelligenceRecord,
@@ -97,11 +101,7 @@ export async function ensureEirForCandidate(
   }
 
   const editorialIntent: EditorialIntent = {
-    hook: candidate.hook ?? null,
-    why_matters: candidate.why_matters ?? null,
-    why_now: candidate.why_now ?? null,
-    goal: candidate.goal ?? null,
-    description: candidate.description ?? null,
+    ...editableIntentFromCandidate(candidate),
     main_axes: candidate.main_axes ?? [],
     suggested_questions: candidate.suggested_questions ?? [],
     production_notes: candidate.production_notes ?? null,
@@ -152,6 +152,51 @@ export async function ensureEirForCandidate(
   }
 
   return { eir, created: true }
+}
+
+// ─── syncEirEditorialFromCandidate ─────────────────────────────────────
+
+/**
+ * The candidate fields an operator can edit on the season workspace
+ * (`editEpisodeAction`). They are copied into the EIR at creation AND
+ * re-copied on every later edit — one mapping, so the two can't drift.
+ */
+function editableIntentFromCandidate(
+  candidate: Pick<
+    KhatMapEpisodeCandidate,
+    "hook" | "why_matters" | "why_now" | "goal" | "description"
+  >,
+): Pick<EditorialIntent, "hook" | "why_matters" | "why_now" | "goal" | "description"> {
+  return {
+    hook: candidate.hook ?? null,
+    why_matters: candidate.why_matters ?? null,
+    why_now: candidate.why_now ?? null,
+    goal: candidate.goal ?? null,
+    description: candidate.description ?? null,
+  }
+}
+
+/**
+ * `editorial_intent` is seeded from the candidate only when the EIR is
+ * created. Without this, a goal/description edit made AFTER the EIR
+ * exists never reaches it — and the preparation pipeline reads the EIR's
+ * intent, not the candidate. Merges only the editable fields; provenance
+ * keys (source, source_id, primary_theme, …) are left untouched.
+ *
+ * No-op (returns null) when the candidate has no EIR yet — the fields
+ * will be copied fresh when ensureEirForCandidate creates it.
+ */
+export async function syncEirEditorialFromCandidate(
+  candidate: KhatMapEpisodeCandidate,
+): Promise<EpisodeIntelligenceRecord | null> {
+  if (!candidate.eir_id) return null
+  const existing = await getEpisodeIntelligenceRecord(candidate.eir_id)
+  if (!existing) return null
+  return patchEpisodeIntelligenceEditorial({
+    eir_id: candidate.eir_id,
+    working_title: candidate.working_title,
+    intent_patch: editableIntentFromCandidate(candidate),
+  })
 }
 
 // ─── walkEirToPhase ────────────────────────────────────────────────────
