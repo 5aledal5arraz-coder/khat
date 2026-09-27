@@ -1,8 +1,8 @@
 import { NextResponse, type NextRequest } from "next/server"
 import { requireAdminAPI } from "@/lib/api-utils"
 import { validateImageUpload } from "@/lib/validation/upload"
-import { getActiveLinkForEir, updateGuestLinkFields } from "@/lib/guest-link/service"
-import { readHousePhoto, saveHousePhoto } from "@/lib/guest-link/house-photo"
+import { getActiveLinkForEir, setHousePhoto } from "@/lib/guest-link/service"
+import { deleteHousePhoto, readHousePhoto, saveHousePhoto } from "@/lib/guest-link/house-photo"
 
 /**
  * «نسخة الضيف» — the filming-house photo, admin side.
@@ -44,7 +44,13 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       return NextResponse.json({ error: validation.error ?? "ملف غير صالح" }, { status: 400 })
     }
     const name = await saveHousePhoto(buffer, validation.ext)
-    await updateGuestLinkFields(link.id, { house_photo: name, location_updated_at: new Date() })
+    // setHousePhoto deletes the replaced file unless the published snapshot
+    // still shows it. If the row write fails, the new file is ours to drop.
+    const ok = await setHousePhoto(link.id, name)
+    if (!ok) {
+      await deleteHousePhoto(name)
+      return NextResponse.json({ error: "ما فيه رابط فعّال" }, { status: 404 })
+    }
     return NextResponse.json({ success: true })
   } catch (error) {
     console.error("[guest-link] house photo upload failed:", error)

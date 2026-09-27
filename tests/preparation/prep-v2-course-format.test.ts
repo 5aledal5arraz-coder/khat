@@ -40,6 +40,8 @@ const dbState = vi.hoisted(() => {
   const state = {
     selectQueue: [] as Record<string, unknown>[][],
     persisted: null as Record<string, unknown> | null,
+    /** What the persist transaction's locked SELECT sees (the prep being replaced). */
+    lockedRow: [] as Record<string, unknown>[],
     fakeDb: null as unknown,
   }
   function chain(resolveRows: () => unknown[]): unknown {
@@ -55,7 +57,7 @@ const dbState = vi.hoisted(() => {
     select: () => chain(() => state.selectQueue.shift() ?? []),
     transaction: async (fn: (tx: unknown) => Promise<unknown>) =>
       fn({
-        select: () => chain(() => []),
+        select: () => chain(() => state.lockedRow),
         update: () => ({
           set: (v: Record<string, unknown>) => {
             state.persisted = v
@@ -265,6 +267,7 @@ beforeEach(() => {
   aiResponder = () => null
   dbState.selectQueue.length = 0
   dbState.persisted = null
+  dbState.lockedRow = []
 })
 
 // ─── Story mode is byte-identical ─────────────────────────────────────
@@ -615,6 +618,73 @@ describe("runPrepV2Pipeline — format: course", () => {
     for (const c of aiCalls) expect(c.input.format).toBe("course")
     expect(dbState.persisted).not.toBeNull()
     expect((dbState.persisted!.prep_v2 as PrepV2Payload).format).toBe("course")
+  })
+
+  it("regeneration keeps questions a person added (manual / guest) whose module still exists", async () => {
+    process.env.KHAT_JSONB_VALIDATORS_MODE = "enforce"
+    dbState.selectQueue.push(
+      [
+        {
+          id: "prep-1",
+          title: "القيادة بعين الطبيب",
+          episode_goal: BADER_GOAL,
+          guest_identity: null,
+          guest_name: "بدر الطريجي",
+          eir_id: "eir-1",
+        },
+      ],
+      [{ editorial_intent: {}, topic_domain: "leadership", episode_type: "expert" }],
+    )
+    const authored = (id: string, section: string, origin: "manual" | "guest") => ({
+      id,
+      section,
+      text: `سؤال أضافه الفريق ${id}`,
+      types: ["reflective"],
+      priority: "must_ask",
+      purpose: "",
+      follow_up_prompt: "",
+      risk_level: "low",
+      origin,
+    })
+    dbState.lockedRow = [
+      {
+        id: "prep-1",
+        prep_v2: {
+          question_bank: [
+            { ...authored("gen-old", "conflict", "manual"), origin: undefined },
+            authored("manual-keep", "conflict", "manual"),
+            authored("guest-keep", "opening", "guest"),
+            authored("manual-gone", "emotional_peak", "manual"),
+          ],
+        },
+      },
+    ]
+    aiResponder = (req) => {
+      switch (req.input.pass) {
+        case "prep_v2.research_synthesis":
+          return PASS1
+        case "prep_v2.structure_build":
+          return { modules: MODULE_TITLES.map((t, i) => mod(t, [18, 30, 30, 30, 8][i])) }
+        case "prep_v2.question_banks":
+          return { questions: courseQuestions() }
+        case "prep_v2.critique":
+          return { questions: courseQuestions(), ...guidance() }
+        default:
+          return null
+      }
+    }
+    const r = await runPrepV2Pipeline({ preparationId: "prep-1", force: true, format: "course" })
+    delete process.env.KHAT_JSONB_VALIDATORS_MODE
+
+    const stored = (dbState.persisted!.prep_v2 as PrepV2Payload).question_bank
+    const ids = stored.map((q) => q.id)
+    expect(ids).toContain("manual-keep")
+    expect(ids).toContain("guest-keep")
+    expect(ids).not.toContain("gen-old") // generated: replaced, as before
+    expect(ids).not.toContain("manual-gone") // its section is not in this course
+    const conflict = stored.filter((q) => q.section === "conflict").map((q) => q.id)
+    expect(conflict[conflict.length - 1]).toBe("manual-keep") // appended to its module
+    expect(r.payload!.question_bank.map((q) => q.id)).toEqual(ids) // result = what was stored
   })
 
   it("omitting format stays story (no format key persisted)", async () => {

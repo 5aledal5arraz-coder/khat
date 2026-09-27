@@ -34,6 +34,16 @@ export type QuestionPriority = (typeof QUESTION_PRIORITIES)[number]
 export const QUESTION_RISK_LEVELS = ["low", "medium", "high"] as const
 export type QuestionRiskLevel = (typeof QUESTION_RISK_LEVELS)[number]
 
+/**
+ * Who wrote a question. Absent ⇒ `generated` (every question the pipeline
+ * writes, and every question stored before this field existed — so generated
+ * payloads stay byte-identical). `manual` = added in the question editor,
+ * `guest` = an accepted «نسخة الضيف» suggestion. Authored questions survive
+ * regeneration (`carryOverAuthoredQuestions` in question-edit.ts).
+ */
+export const QUESTION_ORIGINS = ["generated", "manual", "guest"] as const
+export type QuestionOrigin = (typeof QUESTION_ORIGINS)[number]
+
 // ─── Insight Cards (Pass 5) ───────────────────────────────────────────
 //
 // Each question can carry 1–3 short "support cards" the host uses live: a
@@ -168,6 +178,8 @@ export interface PrepV2Question {
    * insights pass (or when Gemini is unconfigured) simply omit it.
    */
   insights?: PrepV2Insight[]
+  /** Absent ⇒ generated. See QUESTION_ORIGINS. */
+  origin?: QuestionOrigin
 }
 
 export interface PrepV2Pass3Output {

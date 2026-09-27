@@ -26,8 +26,13 @@ import {
   hashGuestLinkToken,
   isPlausibleToken,
 } from "./access"
-import { parseGuestRefMap } from "./view"
-import { GUEST_SUGGESTION_LIMITS, type GuestSuggestionInput } from "@/lib/validation/guest-link"
+import { parseGuestRefMap, publishedHousePhoto, unreferencedHousePhotos } from "./view"
+import { deleteHousePhoto } from "./house-photo"
+import {
+  GUEST_SUGGESTION_LIMITS,
+  mergeQuestionnaireEdit,
+  type GuestSuggestionInput,
+} from "@/lib/validation/guest-link"
 
 export type GuestLinkRow = typeof guestEpisodeLinks.$inferSelect
 
@@ -71,12 +76,30 @@ export async function findGuestLinkByToken(raw: string): Promise<ResolvedGuestLi
   return { row: r.link, recordingAt: r.recording_scheduled_at ?? null }
 }
 
-/** Counts an open. The caller reads the previous `last_opened_at` off the row it already has. */
-export async function recordGuestOpen(linkId: string): Promise<void> {
+/**
+ * An "open" is a visit, not a render. The page re-renders on every
+ * `router.refresh()` (after submit, welcome, each suggestion), which counted
+ * one guest reading once as five opens. A new open is counted only when the
+ * previous activity is older than this window — the usual analytics session.
+ */
+export const GUEST_OPEN_SESSION_MS = 30 * 60 * 1000
+
+export function isNewGuestVisit(lastOpenedAt: Date | null, now: Date = new Date()): boolean {
+  return !lastOpenedAt || now.getTime() - lastOpenedAt.getTime() >= GUEST_OPEN_SESSION_MS
+}
+
+/**
+ * Records activity. `last_opened_at` always moves (it is the sliding session
+ * edge, and "updated since your last visit" compares against it); the counter
+ * moves only on a new visit. The caller reads the previous `last_opened_at`
+ * off the row it already has.
+ */
+export async function recordGuestOpen(linkId: string, previousOpenedAt: Date | null): Promise<void> {
+  const countIt = isNewGuestVisit(previousOpenedAt)
   await requireDb()
     .update(guestEpisodeLinks)
     .set({
-      open_count: sql`${guestEpisodeLinks.open_count} + 1`,
+      ...(countIt ? { open_count: sql`${guestEpisodeLinks.open_count} + 1` } : {}),
       first_opened_at: sql`COALESCE(${guestEpisodeLinks.first_opened_at}, now())`,
       last_opened_at: new Date(),
     })
@@ -97,27 +120,46 @@ export async function saveGuestDraft(
       questionnaire_draft_step: step,
       updated_at: new Date(),
     })
-    .where(usable(linkId))
+    // Drafts belong to the FIRST fill only (the edit form never autosaves): a
+    // late autosave/keepalive flush landing after submit must not resurrect a
+    // draft that would then override the submitted answers in the edit form.
+    .where(and(usable(linkId), isNull(guestEpisodeLinks.questionnaire_submitted_at)))
     .returning({ id: guestEpisodeLinks.id })
   return rows.length > 0
 }
 
+/**
+ * Submit, or re-submit («تعديل إجاباتي»). The stored answers are read under a
+ * row lock and merged with `mergeQuestionnaireEdit`, so legacy answers the
+ * current form no longer asks (still read by the prep generator) survive an
+ * edit instead of being overwritten by a questionnaire that lacks them.
+ */
 export async function submitGuestQuestionnaire(
   linkId: string,
   q: GuestLinkQuestionnaire,
 ): Promise<boolean> {
-  const rows = await requireDb()
-    .update(guestEpisodeLinks)
-    .set({
-      questionnaire: q as unknown as Record<string, unknown>,
-      questionnaire_submitted_at: new Date(),
-      questionnaire_draft: null,
-      questionnaire_draft_step: null,
-      updated_at: new Date(),
-    })
-    .where(usable(linkId))
-    .returning({ id: guestEpisodeLinks.id })
-  return rows.length > 0
+  return requireDb().transaction(async (tx) => {
+    const cur = await tx
+      .select({ questionnaire: guestEpisodeLinks.questionnaire })
+      .from(guestEpisodeLinks)
+      .where(usable(linkId))
+      .for("update")
+      .limit(1)
+    if (!cur[0]) return false
+    const merged = mergeQuestionnaireEdit(cur[0].questionnaire, q as unknown as Record<string, unknown>)
+    const rows = await tx
+      .update(guestEpisodeLinks)
+      .set({
+        questionnaire: merged,
+        questionnaire_submitted_at: new Date(),
+        questionnaire_draft: null,
+        questionnaire_draft_step: null,
+        updated_at: new Date(),
+      })
+      .where(usable(linkId))
+      .returning({ id: guestEpisodeLinks.id })
+    return rows.length > 0
+  })
 }
 
 export async function markGuestWelcomeSeen(linkId: string): Promise<boolean> {
@@ -304,7 +346,6 @@ export async function updateGuestLinkFields(
       | "location_label"
       | "address"
       | "map_url"
-      | "house_photo"
       | "show_schedule"
       | "sample_overrides"
       | "location_updated_at"
@@ -319,6 +360,51 @@ export async function updateGuestLinkFields(
   return rows.length > 0
 }
 
+/**
+ * Replace (`name`) or remove (`null`) the filming-house photo.
+ *
+ * The published snapshot keeps showing the photo it was published with, so
+ * the old file is deleted only if the snapshot does not reference it. A
+ * snapshot from before the file was recorded in `published_ref_map` has the
+ * live file frozen into it here first — that is the file its guest was seeing.
+ */
+export async function setHousePhoto(linkId: string, name: string | null): Promise<boolean> {
+  const orphans = await requireDb().transaction(async (tx) => {
+    const cur = await tx
+      .select({
+        house_photo: guestEpisodeLinks.house_photo,
+        published_view: guestEpisodeLinks.published_view,
+        published_ref_map: guestEpisodeLinks.published_ref_map,
+      })
+      .from(guestEpisodeLinks)
+      .where(usable(linkId))
+      .for("update")
+      .limit(1)
+    const row = cur[0]
+    if (!row) return null
+    const published = publishedHousePhoto(row)
+    const patch: Partial<GuestLinkRow> = {
+      house_photo: name,
+      location_updated_at: new Date(),
+      updated_at: new Date(),
+    }
+    if (row.published_view && parseGuestRefMap(row.published_ref_map).house_photo === undefined) {
+      patch.published_ref_map = { ...(row.published_ref_map ?? {}), house_photo: published }
+    }
+    const done = await tx
+      .update(guestEpisodeLinks)
+      .set(patch)
+      .where(usable(linkId))
+      .returning({ id: guestEpisodeLinks.id })
+    if (!done.length) return null
+    return unreferencedHousePhotos([row.house_photo], [name, published])
+  })
+  if (!orphans) return false
+  // After commit: a rolled-back write must never have deleted a file.
+  await Promise.all(orphans.map(deleteHousePhoto))
+  return true
+}
+
 export async function writePublishedSnapshot(
   linkId: string,
   snap: {
@@ -330,21 +416,44 @@ export async function writePublishedSnapshot(
     scheduleAt: Date | null
   },
 ): Promise<boolean> {
-  const rows = await requireDb()
-    .update(guestEpisodeLinks)
-    .set({
-      published_view: snap.view as unknown as Record<string, unknown>,
-      published_ref_map: snap.refs as Record<string, unknown>,
-      published_at: new Date(),
-      published_by: snap.by,
-      published_source_prep_id: snap.prepId,
-      published_source_prep_updated_at: snap.prepUpdatedAt,
-      published_schedule_at: snap.scheduleAt,
-      updated_at: new Date(),
-    })
-    .where(usable(linkId))
-    .returning({ id: guestEpisodeLinks.id })
-  return rows.length > 0
+  const orphans = await requireDb().transaction(async (tx) => {
+    const cur = await tx
+      .select({
+        house_photo: guestEpisodeLinks.house_photo,
+        published_view: guestEpisodeLinks.published_view,
+        published_ref_map: guestEpisodeLinks.published_ref_map,
+      })
+      .from(guestEpisodeLinks)
+      .where(usable(linkId))
+      .for("update")
+      .limit(1)
+    const row = cur[0]
+    if (!row) return null
+    const rows = await tx
+      .update(guestEpisodeLinks)
+      .set({
+        published_view: snap.view as unknown as Record<string, unknown>,
+        published_ref_map: snap.refs as Record<string, unknown>,
+        published_at: new Date(),
+        published_by: snap.by,
+        published_source_prep_id: snap.prepId,
+        published_source_prep_updated_at: snap.prepUpdatedAt,
+        published_schedule_at: snap.scheduleAt,
+        updated_at: new Date(),
+      })
+      .where(usable(linkId))
+      .returning({ id: guestEpisodeLinks.id })
+    if (!rows.length) return null
+    // The previously published photo may have been kept alive only by the old
+    // snapshot (replaced or removed since) — free it once nothing names it.
+    return unreferencedHousePhotos(
+      [publishedHousePhoto(row)],
+      [row.house_photo, parseGuestRefMap(snap.refs).house_photo],
+    )
+  })
+  if (!orphans) return false
+  await Promise.all(orphans.map(deleteHousePhoto))
+  return true
 }
 
 export async function decideGuestSuggestion(

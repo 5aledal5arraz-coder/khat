@@ -79,7 +79,8 @@ export default async function PreparePage({ params }: PreparePageProps) {
     const props = buildGuestPageProps({ token, row: link.row, suggestions: own.items })
     // Side effects after the props are fixed: the open is counted, and an
     // accepted suggestion's «تم الأخذ باقتراحك» is shown exactly once.
-    await recordGuestOpen(link.row.id)
+    // Counted once per visit (30-min sliding window), not per router.refresh().
+    await recordGuestOpen(link.row.id, link.row.last_opened_at)
     if (props.view) await markSuggestionsNotified(own.toNotify)
 
     return <GuestLinkClient {...props} />

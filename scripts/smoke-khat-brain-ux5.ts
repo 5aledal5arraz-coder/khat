@@ -1,11 +1,13 @@
 /**
  * UX-5 — Workspace Completion + IA Consolidation smoke (14 cases).
  *
- *   1. Sidebar Khat Brain group narrows to 5 workflow items.
- *   2. New "أدوات متقدمة" group hosts the demoted destinations.
+ *   1. Sidebar «الإنتاج» group carries the pipeline (the «Khat Brain»
+ *      group was replaced in 1418c95); /admin/ops is the pinned home.
+ *   2. The destinations once demoted to «أدوات متقدمة» are each linked once.
  *   3. Push preview confirm panel groups "حقول جديدة" vs "حقول سيتم استبدالها".
  *   4. Preparation inline editor exists + carries the rows the operator
- *      uses daily (thesis, axes, opening, sensitive, must-ask, host).
+ *      uses daily (thesis, axes, opening, sensitive, host); questions are
+ *      in the per-question editor, never textarea lines.
  *   5. updatePrepFieldAction persists a thesis edit end-to-end (DB
  *      round-trip — fixture-based).
  *   6. Studio quick-edit mounts inside the Studio tab + names the five
@@ -46,6 +48,14 @@ function assert(cond: unknown, msg: string): asserts cond {
     console.error(`\n❌ ${msg}`)
     process.exit(1)
   }
+}
+
+/**
+ * Server actions gate on `requireActionRole(...)` today (they used to call
+ * `requireAdmin`, which redirects). Either counts as the auth gate.
+ */
+function hasAdminGate(src: string): boolean {
+  return src.includes("requireActionRole(") || src.includes("requireAdmin")
 }
 
 async function readFile(rel: string): Promise<string> {
@@ -205,75 +215,59 @@ async function fixtureStudioPackage(): Promise<{
 async function main() {
   console.log(`🧪 ${TAG} — starting\n`)
   let passed = 0
+  // A skipped case is NOT a pass — counted apart so the summary cannot say 14/14 when it ran 11.
+  let skipped = 0
 
   await cleanup()
 
-  // ── 1. Sidebar Khat Brain narrows to 5 workflow items ─────────────
+  // ── 1. Sidebar: the production group carries the pipeline ────────
+  // The «Khat Brain» group (and «أدوات متقدمة») were replaced in 1418c95
+  // (2026-07-20) by task-named groups; /admin/ops is the pinned home. This
+  // step checks THAT structure, so the script runs through to its later steps.
   {
     const src = await readFile("app/admin/components/admin-sidebar.tsx")
-    // The Khat Brain group block runs from `title: "Khat Brain"` to the
-    // next `title:` line. Extract just that slice and count items.
-    const m = src.match(
-      /title:\s*"Khat Brain"[\s\S]*?items:\s*\[([\s\S]*?)\][\s\S]*?\}/,
-    )
-    assert(m, "Khat Brain group must exist in sidebar source.")
-    const itemsBlock = m![1]
-    const itemCount = (itemsBlock.match(/href:\s*"/g) ?? []).length
-    assert(
-      itemCount === 5,
-      `Khat Brain group must declare 5 items (got ${itemCount}).`,
-    )
-    // Specific items we expect in the workflow group.
-    for (const expectedHref of [
-      "/admin/khat-brain",
+    const group = (title: string): string | null => {
+      const m = src.match(
+        new RegExp(`title:\\s*"${title}"[\\s\\S]*?items:\\s*\\[([\\s\\S]*?)\\n\\s*\\]`),
+      )
+      return m ? m[1] : null
+    }
+    const home = group("__home__")
+    assert(home && home.includes('"/admin/ops"'), "Sidebar must pin /admin/ops as the home item.")
+    const production = group("الإنتاج")
+    assert(production, "Sidebar must declare a 'الإنتاج' group.")
+    for (const href of [
       "/admin/khat-brain/seasons",
       "/admin/khat-brain/episodes",
-      "/admin/discovery",
-      "/admin/analytics",
+      "/admin/preparation",
+      "/admin/studio",
     ]) {
-      assert(
-        itemsBlock.includes(`"${expectedHref}"`),
-        `Khat Brain group must include ${expectedHref}.`,
-      )
+      assert(production!.includes(`"${href}"`), `'الإنتاج' group must include ${href}.`)
     }
-    // Things that MUST have moved out of the workflow group.
-    for (const banned of ["/admin/preparation", "/admin/studio", "/admin/guest-candidates"]) {
-      assert(
-        !itemsBlock.includes(`"${banned}"`),
-        `Khat Brain group must no longer include ${banned}.`,
-      )
+    const guestsGroup = group("الضيوف")
+    assert(guestsGroup, "Sidebar must declare a 'الضيوف' group.")
+    for (const href of ["/admin/discovery-v2", "/admin/guest-candidates"]) {
+      assert(guestsGroup!.includes(`"${href}"`), `'الضيوف' group must include ${href}.`)
     }
-    console.log(
-      "✅ 1/14 Sidebar Khat Brain group narrows to 5 workflow items.",
+    // Guest work lives with the guests, not in the production pipeline.
+    assert(
+      !production!.includes('"/admin/guest-candidates"'),
+      "'الإنتاج' group must not include /admin/guest-candidates.",
     )
+    console.log("✅ 1/14 Sidebar production group carries the pipeline; guests grouped apart.")
     passed++
   }
 
-  // ── 2. New "أدوات متقدمة" group hosts demoted destinations ────────
+  // ── 2. Destinations once demoted to «أدوات متقدمة» stay reachable ──
+  // That group is gone (1418c95); its destinations now live in task groups.
+  // Each must still be linked from the sidebar, exactly once.
   {
     const src = await readFile("app/admin/components/admin-sidebar.tsx")
-    assert(
-      src.includes(`title: "أدوات متقدمة"`),
-      "Sidebar must declare an 'أدوات متقدمة' group.",
-    )
-    const m = src.match(
-      /title:\s*"أدوات متقدمة"[\s\S]*?items:\s*\[([\s\S]*?)\][\s\S]*?\}/,
-    )
-    assert(m, "'أدوات متقدمة' group items must be declared.")
-    const itemsBlock = m![1]
-    for (const href of [
-      "/admin/preparation",
-      "/admin/studio",
-      "/admin/guest-candidates",
-    ]) {
-      assert(
-        itemsBlock.includes(`"${href}"`),
-        `'أدوات متقدمة' must include ${href}.`,
-      )
+    for (const href of ["/admin/preparation", "/admin/studio", "/admin/guest-candidates"]) {
+      const n = src.split(`href: "${href}"`).length - 1
+      assert(n === 1, `Sidebar must link ${href} exactly once (found ${n}).`)
     }
-    console.log(
-      "✅ 2/14 'أدوات متقدمة' group hosts the demoted destinations.",
-    )
+    console.log("✅ 2/14 Formerly demoted destinations are each linked once.")
     passed++
   }
 
@@ -308,7 +302,6 @@ async function main() {
       "axes_of_tension",
       "opening_options.0.text",
       "sensitive_zones",
-      "must_ask_questions",
       "host_guidance.overall_tone",
       "host_guidance.do_list",
       "director_guidance.shot_priorities",
@@ -324,6 +317,16 @@ async function main() {
     assert(
       tab.includes("PrepV2InlineEditor"),
       "Preparation tab must mount PrepV2InlineEditor.",
+    )
+    // The questions moved out of the textarea editor into a per-question,
+    // id-based editor (the old line merge moved cards onto the wrong text).
+    assert(
+      tab.includes("PrepQuestionBankEditor"),
+      "Preparation tab must mount PrepQuestionBankEditor.",
+    )
+    assert(
+      !src.includes("must_ask_questions"),
+      "Questions must not be edited as textarea lines any more.",
     )
     console.log(
       "✅ 4/14 Preparation inline editor mounts with daily-edit rows.",
@@ -342,7 +345,7 @@ async function main() {
   {
     if (!db) {
       console.log("⏭  5/14 skipped — DB unavailable.")
-      passed++
+      skipped++
     } else {
       const { prepId } = await fixturePrepWithPayload()
       const [before] = await db
@@ -382,11 +385,11 @@ async function main() {
         "app/admin/khat-brain/episodes/[eirId]/prep-actions.ts",
       )
       assert(
-        actionSrc.includes("requireAdmin") &&
+        hasAdminGate(actionSrc) &&
           actionSrc.includes("episodePreparations") &&
           actionSrc.includes("prep_v2") &&
           actionSrc.includes("JSON.parse(JSON.stringify"),
-        "prep-actions.ts must wire requireAdmin + partial JSONB merge.",
+        "prep-actions.ts must wire an admin role gate + partial JSONB merge.",
       )
       console.log(
         "✅ 5/14 Prep V2 partial-merge persists (DB round-trip + action wiring).",
@@ -435,7 +438,7 @@ async function main() {
   {
     if (!db) {
       console.log("⏭  7/14 skipped — DB unavailable.")
-      passed++
+      skipped++
     } else {
       const { sessionId, packageId } = await fixtureStudioPackage()
       const { updateWebsitePackage, getWebsitePackageForSession } =
@@ -459,9 +462,9 @@ async function main() {
         "app/admin/khat-brain/episodes/[eirId]/studio-actions.ts",
       )
       assert(
-        actionSrc.includes("requireAdmin") &&
+        hasAdminGate(actionSrc) &&
           actionSrc.includes("updateWebsitePackage"),
-        "studio-actions.ts must wire requireAdmin + updateWebsitePackage.",
+        "studio-actions.ts must wire an admin role gate + updateWebsitePackage.",
       )
       console.log(
         "✅ 7/14 Studio website-package partial-merge persists.",
@@ -481,7 +484,7 @@ async function main() {
     )
     assert(
       actionSrc.includes("runPrepV2Pipeline") &&
-        actionSrc.includes("requireAdmin") &&
+        hasAdminGate(actionSrc) &&
         actionSrc.includes("لا يوجد سجلّ إعداد"),
       "regeneratePrepV2Action must wrap runPrepV2Pipeline with auth + a clear no-prep message.",
     )
@@ -495,7 +498,7 @@ async function main() {
   {
     if (!db) {
       console.log("⏭  9/14 skipped — DB unavailable.")
-      passed++
+      skipped++
     } else {
       const [eir] = await db
         .insert(episodeIntelligenceRecords)
@@ -671,7 +674,10 @@ async function main() {
   }
 
   await cleanup()
-  console.log(`\n🎉 ${TAG} — ${passed}/14 cases passed.\n`)
+  console.log(
+    `\n🎉 ${TAG} — ${passed}/14 cases passed` +
+      (skipped ? `, ${skipped} skipped (DB unavailable — nothing failed, but those were not checked).\n` : ".\n"),
+  )
 }
 
 main().catch(async (err) => {

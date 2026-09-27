@@ -630,6 +630,7 @@ function SuggestionsInbox({ state, disabled, run }: { state: GuestLinkAdminState
             {s.status === "accepted" && state.prepId && state.hasPrepV2 && (
               <ApplyToPrep
                 prepId={state.prepId}
+                suggestionId={s.id}
                 sections={state.sections}
                 defaultSection={s.target_section}
                 defaultText={s.body}
@@ -646,6 +647,7 @@ function SuggestionsInbox({ state, disabled, run }: { state: GuestLinkAdminState
 
 function ApplyToPrep({
   prepId,
+  suggestionId,
   sections,
   defaultSection,
   defaultText,
@@ -653,6 +655,8 @@ function ApplyToPrep({
   run,
 }: {
   prepId: string
+  /** Makes the add idempotent: the question id is derived from it. */
+  suggestionId: string
   sections: { kind: SectionKind; label: string }[]
   defaultSection: SectionKind | null
   defaultText: string
@@ -664,7 +668,7 @@ function ApplyToPrep({
   const [text, setText] = useState(defaultText)
   if (!open) {
     return (
-      <button type="button" onClick={() => setOpen(true)} className="mt-1.5 text-[11px] text-primary underline-offset-2 hover:underline">
+      <button type="button" onClick={() => setOpen(true)} className="mt-1.5 inline-flex min-h-[44px] items-center text-[11px] text-primary underline-offset-2 hover:underline">
         أضف كسؤال في الإعداد…
       </button>
     )
@@ -675,7 +679,7 @@ function ApplyToPrep({
         className="w-full rounded-lg border border-border bg-background px-2 py-1.5 text-[12.5px]" />
       <div className="flex flex-wrap items-center gap-2 text-[11px]">
         <select value={section} onChange={(e) => setSection(e.target.value as SectionKind)}
-          className="rounded-md border border-border bg-background px-1.5 py-1">
+          className="min-h-[44px] rounded-md border border-border bg-background px-1.5">
           {sections.map((s) => (
             <option key={s.kind} value={s.kind}>{s.label}</option>
           ))}
@@ -683,12 +687,12 @@ function ApplyToPrep({
         <button type="button" disabled={disabled}
           onClick={() =>
             run(async () => {
-              const r = await addGuestQuestionToPrepAction(prepId, section, text)
+              const r = await addGuestQuestionToPrepAction(prepId, suggestionId, section, text)
               return r.ok ? { ok: true, message: r.message } : { ok: false, message: r.message }
             }, () => setOpen(false))
           }
-          className="rounded-md bg-primary px-2 py-1 text-primary-foreground">أضف للإعداد</button>
-        <button type="button" onClick={() => setOpen(false)} className="rounded-md border border-border px-2 py-1">إلغاء</button>
+          className="min-h-[44px] rounded-md bg-primary px-3 text-primary-foreground">أضف للإعداد</button>
+        <button type="button" onClick={() => setOpen(false)} className="min-h-[44px] rounded-md border border-border px-3">إلغاء</button>
       </div>
     </div>
   )

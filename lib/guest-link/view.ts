@@ -78,6 +78,15 @@ export interface ToGuestPrepViewInput {
 export interface GuestRefMap {
   axes: Record<string, { section: SectionKind; label: string }>
   samples: Record<string, { question_id: string; axis_ref: string; text: string }>
+  /**
+   * The house-photo FILE the published snapshot shows (server-only — the view
+   * carries just `has_photo`). The guest route serves this, never the live
+   * `house_photo` column: otherwise removing a photo broke the guest's image
+   * and uploading a new one showed it before anyone published. `undefined`
+   * only on snapshots written before this key existed — see
+   * `publishedHousePhoto()`.
+   */
+  house_photo?: string | null
 }
 
 export interface ToGuestPrepViewResult {
@@ -186,10 +195,12 @@ export function toGuestPrepView(input: ToGuestPrepViewInput): ToGuestPrepViewRes
     }
   }
 
+  const location = projectLocation(input.location)
+  refs.house_photo = location?.has_photo ? (input.location?.house_photo ?? null) : null
   const view: GuestPrepView = {
     v: 1,
     schedule_at: input.show_schedule ? isoOrNull(input.schedule_at) : null,
-    location: projectLocation(input.location),
+    location,
     axes,
   }
   return { view, refs }
@@ -270,7 +281,42 @@ export function parseGuestRefMap(raw: unknown): GuestRefMap {
       }
     }
   }
+  if ("house_photo" in r) {
+    out.house_photo = typeof r.house_photo === "string" && r.house_photo ? r.house_photo : null
+  }
   return out
+}
+
+/**
+ * The house-photo file the guest may be served: the one frozen into the
+ * published snapshot. A snapshot published before the file was recorded in
+ * it (no `house_photo` key) falls back to the live column while the view says
+ * there is a photo — exactly what that guest was being shown; the first
+ * photo change or republish freezes it properly (lib/guest-link/service.ts).
+ */
+export function publishedHousePhoto(row: {
+  published_view: unknown
+  published_ref_map: unknown
+  house_photo: string | null
+}): string | null {
+  const view = parseGuestPrepView(row.published_view)
+  if (!view?.location?.has_photo) return null
+  const refs = parseGuestRefMap(row.published_ref_map)
+  if (refs.house_photo !== undefined) return refs.house_photo
+  return row.house_photo ?? null
+}
+
+/**
+ * Files that are no longer referenced by anything — safe to delete from
+ * data/guest-homes/. A file stays while EITHER the live column (the admin's
+ * current choice) or the published snapshot (what the guest sees) names it.
+ */
+export function unreferencedHousePhotos(
+  candidates: ReadonlyArray<string | null | undefined>,
+  stillReferenced: ReadonlyArray<string | null | undefined>,
+): string[] {
+  const keep = new Set(stillReferenced.filter((n): n is string => Boolean(n)))
+  return [...new Set(candidates.filter((n): n is string => Boolean(n) && !keep.has(n as string)))]
 }
 
 /** Read stored overrides defensively. */

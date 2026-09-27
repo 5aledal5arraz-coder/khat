@@ -31,23 +31,33 @@ function cleanupExpired() {
 }
 
 /**
- * Extract client IP from a Next.js request.
- * Checks x-forwarded-for (set by reverse proxies) first,
- * then falls back to x-real-ip, then to a generic key.
- */
-/**
  * Anything with request headers. A route handler passes its `NextRequest`; a
  * server component (e.g. /prepare/[token], which must rate-limit its own GET)
  * passes `{ headers: await headers() }` — the IP logic is the same either way.
  */
 export type RateLimitSource = Pick<NextRequest, 'headers'> | { headers: { get(name: string): string | null } }
 
-function getClientIp(request: RateLimitSource): string {
+/**
+ * The client IP as OUR proxy saw it — never as the client claims it.
+ *
+ * Production nginx sets `X-Real-IP $remote_addr` (overwritten, so the client
+ * cannot supply it) and `X-Forwarded-For $proxy_add_x_forwarded_for`, which
+ * APPENDS the real address to whatever the client sent. The FIRST XFF entry
+ * is therefore attacker-controlled: keying on it let one client rotate a fake
+ * value per request and walk past every per-IP limit. Order of trust:
+ *   1. `x-real-ip` — set by nginx, not forwardable by the client.
+ *   2. the LAST `x-forwarded-for` entry — the hop our proxy appended.
+ *   3. "unknown".
+ */
+export function getClientIp(request: RateLimitSource): string {
+  const real = request.headers.get('x-real-ip')?.trim()
+  if (real) return real
   const forwarded = request.headers.get('x-forwarded-for')
   if (forwarded) {
-    return forwarded.split(',')[0].trim()
+    const hops = forwarded.split(',').map((h) => h.trim()).filter(Boolean)
+    if (hops.length) return hops[hops.length - 1]
   }
-  return request.headers.get('x-real-ip') || 'unknown'
+  return 'unknown'
 }
 
 export interface IpRateLimitResult {

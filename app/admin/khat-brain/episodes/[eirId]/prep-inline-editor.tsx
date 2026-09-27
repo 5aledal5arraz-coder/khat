@@ -2,7 +2,9 @@
 
 /**
  * UX-5.1 — Lightweight inline editor for the high-traffic prep_v2
- * fields. Each row is a textarea + Save/Cancel pair; saves go through
+ * fields. The questions are NOT here: they have their own per-question editor
+ * (`prep-question-bank-editor.tsx`) because a question carries an id, a
+ * section and fact cards that a line of text cannot. Each row is a textarea + Save/Cancel pair; saves go through
  * `updatePrepFieldAction`, which performs a partial JSONB merge.
  *
  * This editor intentionally does NOT rebuild the legacy preparation
@@ -62,19 +64,6 @@ const FIELDS: FieldDef[] = [
     helper: "موضوع لكل سطر — يحذر منه أو يتعامل معه بحذر.",
     rows: 4,
     read: (p) => (p.sensitive_zones ?? []).join("\n"),
-  },
-  {
-    field: "must_ask_questions",
-    label: "أسئلة لا بد منها",
-    // The stored enum stays `must_ask`; only the rendering is Arabic — same
-    // rule as PRIORITY_LABEL_AR in prep-v2-view.tsx, which reads "أساسي".
-    helper: "سؤال لكل سطر — الأسئلة الأساسية فقط، دون «إن سمح الوقت».",
-    rows: 6,
-    read: (p) =>
-      (p.question_bank ?? [])
-        .filter((q) => q.priority === "must_ask")
-        .map((q) => q.text)
-        .join("\n"),
   },
   {
     field: "host_guidance.overall_tone",

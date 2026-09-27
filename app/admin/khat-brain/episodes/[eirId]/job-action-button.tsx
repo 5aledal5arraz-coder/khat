@@ -10,7 +10,7 @@
  * recompute / refresh actions.
  */
 
-import { useState, useTransition } from "react"
+import { useEffect, useState, useTransition } from "react"
 import { useRouter } from "next/navigation"
 import { Loader2, CheckCircle2, XCircle, AlertTriangle } from "lucide-react"
 import { toast } from "@/lib/use-toast"
@@ -35,6 +35,7 @@ export function JobActionButton({
   action,
   size = "sm",
   confirm,
+  onPendingChange,
 }: {
   label: string
   pendingLabel: string
@@ -52,11 +53,17 @@ export function JobActionButton({
    * Panel shape copied from `push-button.tsx`, the existing precedent.
    */
   confirm?: JobActionConfirm
+  /** Told when the action starts and settles (e.g. to lock an editor it would overwrite). */
+  onPendingChange?: (pending: boolean) => void
 }) {
   const router = useRouter()
   const [pending, startTransition] = useTransition()
   const [result, setResult] = useState<JobActionResult | null>(null)
   const [confirming, setConfirming] = useState(false)
+
+  useEffect(() => {
+    onPendingChange?.(pending)
+  }, [pending, onPendingChange])
 
   // «إعادة توليد الإعداد» measured 27.3px tall at 375px. `min-h-[44px]` is the
   // preflight screens' touch size; it is dropped from `sm:` up so desktop rows

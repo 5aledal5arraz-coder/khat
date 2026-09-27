@@ -11,7 +11,7 @@
  * projection. This component must never receive a prep payload.
  */
 
-import { useId, useState } from "react"
+import { useEffect, useId, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
 import { CalendarPlus, ChevronDown, MapPin } from "lucide-react"
 import { cn } from "@/lib/utils"
@@ -255,6 +255,9 @@ function AxisCard({ axis, token }: { axis: GuestPrepView["axes"][number]; token:
   )
 }
 
+/** How long «وصلنا، شكراً ✓» stays up before a per-axis form closes itself. */
+const SENT_CONFIRMATION_MS = 2000
+
 function SuggestionForm({
   token,
   targetRef,
@@ -270,6 +273,10 @@ function SuggestionForm({
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [sent, setSent] = useState(false)
+  const doneTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  useEffect(() => () => {
+    if (doneTimer.current) clearTimeout(doneTimer.current)
+  }, [])
   const fieldId = useId()
   const errId = `${fieldId}-err`
   const preview = token === null
@@ -302,7 +309,9 @@ function SuggestionForm({
       setBody("")
       setSent(true)
       router.refresh()
-      onDone?.()
+      // Closing the per-axis form at once unmounted «وصلنا، شكراً ✓» before it
+      // ever painted — the guest never learned the suggestion arrived.
+      if (onDone) doneTimer.current = setTimeout(onDone, SENT_CONFIRMATION_MS)
     } catch {
       setError("ما قدرنا نرسل، تأكد من الاتصال وجرّب مرة ثانية")
     } finally {
@@ -369,7 +378,7 @@ function SuggestionForm({
       <button
         type="button"
         onClick={send}
-        disabled={busy || preview}
+        disabled={busy || preview || (sent && Boolean(onDone))}
         className="min-h-11 rounded-xl bg-primary px-5 text-caption font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-60"
       >
         {busy ? "جاري الإرسال…" : "أرسل"}

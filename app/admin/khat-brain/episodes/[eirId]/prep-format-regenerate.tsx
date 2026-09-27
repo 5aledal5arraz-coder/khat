@@ -10,7 +10,7 @@
  * payload without the field is a story — exactly like every prep before this.
  */
 
-import { useState } from "react"
+import { useCallback, useState } from "react"
 import { RefreshCw } from "lucide-react"
 import { cn } from "@/lib/utils"
 import {
@@ -23,6 +23,7 @@ import {
 } from "@/lib/preparation/v2/format"
 import { regeneratePrepV2Action } from "./job-actions"
 import { JobActionButton, type JobActionConfirm } from "./job-action-button"
+import { setPrepRegenerating } from "./prep-regen-signal"
 
 export function PrepFormatRegenerate({
   eirId,
@@ -45,6 +46,8 @@ export function PrepFormatRegenerate({
   // Course length: "auto" reads it from the goal (after expected_duration_min).
   // Free-text parsing can't be airtight, so the operator can simply say it.
   const [targetMinutes, setTargetMinutes] = useState<"auto" | number>("auto")
+  // Locks the question editor for the duration (prep-regen-signal.ts).
+  const onPendingChange = useCallback((p: boolean) => setPrepRegenerating(eirId, p), [eirId])
 
   return (
     <div className="flex flex-col gap-2" data-prep-format-regenerate>
@@ -115,6 +118,7 @@ export function PrepFormatRegenerate({
           }
           size={size}
           confirm={confirm}
+          onPendingChange={onPendingChange}
         />
       </div>
     </div>

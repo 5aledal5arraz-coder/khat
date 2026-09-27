@@ -32,6 +32,7 @@ import { runStructureBuild } from "./structure"
 import { runQuestionBankGeneration } from "./question-banks"
 import { runCritiquePass } from "./critique"
 import { runInsightGeneration } from "./insights"
+import { carryOverAuthoredQuestions } from "./question-edit"
 import {
   validatePrepV2Payload,
   type ValidationResult,
@@ -380,7 +381,9 @@ export async function runPrepV2Pipeline(
   // Persist — even if validation failed, we still save the payload so
   // the editor can see what the model produced, but we mark the result
   // unsuccessful so the conversion flow knows.
-  await persistPrepV2(input.preparationId, payload)
+  // The persisted payload may carry authored questions over from the prep it
+  // replaces (see persistPrepV2) — report what was actually stored.
+  payload = await persistPrepV2(input.preparationId, payload)
 
   if (!validation.ok) {
     return {
@@ -406,18 +409,8 @@ export async function runPrepV2Pipeline(
 
 async function persistPrepV2(
   preparationId: string,
-  payload: PrepV2Payload,
-): Promise<void> {
-  // Phase 1.3 — strict JSONB validation of the assembled payload before
-  // the UPDATE lands. REPORT mode logs drift and proceeds; ENFORCE mode
-  // throws a typed JsonbValidationError that the pipeline orchestrator's
-  // try/catch handles upstream.
-  validateJsonbWrite(
-    { table: PREP_V2_TABLE, column: PREP_V2_COLUMN, rowId: preparationId },
-    payload,
-    prepV2Schema,
-  )
-
+  generated: PrepV2Payload,
+): Promise<PrepV2Payload> {
   // Take the SAME row lock the inline-edit path takes (`mutatePrepV2` in
   // app/admin/khat-brain/episodes/[eirId]/prep-actions.ts): SELECT … FOR UPDATE
   // inside a transaction. This write was the only prep_v2 writer doing a bare,
@@ -432,21 +425,47 @@ async function persistPrepV2(
   //
   // The broadcast below stays OUTSIDE the transaction: it is network I/O and
   // must not hold a row lock open, and it must only announce a committed write.
-  await db!.transaction(async (tx) => {
-    await tx
-      .select({ id: episodePreparations.id })
+  const payload = await db!.transaction(async (tx) => {
+    const [current] = await tx
+      .select({ id: episodePreparations.id, prep_v2: episodePreparations.prep_v2 })
       .from(episodePreparations)
       .where(eq(episodePreparations.id, preparationId))
       .for("update")
       .limit(1)
 
+    // Questions a person added (question editor, or an accepted guest
+    // suggestion) are not the model's to discard: carry them into the new
+    // structure. Read UNDER the lock, so one added while this run was
+    // generating is carried too. Generated questions are replaced as before.
+    const { payload: merged, carried, dropped } = carryOverAuthoredQuestions(
+      (current?.prep_v2 as PrepV2Payload | null | undefined) ?? null,
+      generated,
+    )
+    if (carried || dropped) {
+      console.info(
+        `[prep-v2] prep ${preparationId}: carried ${carried} authored question(s) over the regeneration` +
+          (dropped ? `, ${dropped} dropped (section no longer exists)` : ""),
+      )
+    }
+
+    // Phase 1.3 — strict JSONB validation of the assembled payload before
+    // the UPDATE lands. REPORT mode logs drift and proceeds; ENFORCE mode
+    // throws a typed JsonbValidationError that the pipeline orchestrator's
+    // try/catch handles upstream.
+    validateJsonbWrite(
+      { table: PREP_V2_TABLE, column: PREP_V2_COLUMN, rowId: preparationId },
+      merged,
+      prepV2Schema,
+    )
+
     await tx
       .update(episodePreparations)
       .set({
-        prep_v2: payload as never,
+        prep_v2: merged as never,
         updated_at: new Date(),
       })
       .where(eq(episodePreparations.id, preparationId))
+    return merged
   })
 
   // Tell any live recording room on this preparation that the structure
@@ -462,6 +481,7 @@ async function persistPrepV2(
       err instanceof Error ? err.message : err,
     )
   }
+  return payload
 }
 
 // ─── Context loader ───────────────────────────────────────────────────

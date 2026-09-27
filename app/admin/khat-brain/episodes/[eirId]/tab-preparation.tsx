@@ -23,21 +23,23 @@ import { autoCourseTargetMinutes, prepFormatOf } from "@/lib/preparation/v2/form
 import { PrepFormatRegenerate } from "./prep-format-regenerate"
 import { PrepV2InlineEditor } from "./prep-inline-editor"
 import { PrepInsightReview } from "./prep-insight-review"
+import { PrepQuestionBankEditor } from "./prep-question-bank-editor"
 import { PrepInputsEditor } from "./prep-inputs-editor"
 import { AssignGuestForm } from "./assign-guest-form"
 import { GuestLinkSection } from "./guest-link-section"
 
 /**
- * Regeneration REPLACES `episode_preparations.prep_v2` wholesale
- * (`persistPayload` in lib/preparation/v2/pipeline.ts does a plain
- * `set({ prep_v2: payload })`, not a merge). Everything the operator layered
- * onto that JSONB therefore disappears: inline field edits and the review
- * state of every insight card, approvals included.
+ * Regeneration REPLACES `episode_preparations.prep_v2` (`persistPrepV2` in
+ * lib/preparation/v2/pipeline.ts). What goes: inline field edits, edits to
+ * GENERATED questions, and the review state of every generated card. What
+ * stays: questions a person added — in the question editor or from an
+ * accepted guest suggestion — carried into the new prep under the row lock
+ * (`carryOverAuthoredQuestions`), as long as their section still exists.
  *
- * The copy states those two consequences literally. It is only attached to
- * the call site BELOW — the one where a prep_v2 already exists. The other
- * button (rendered when `!prep.prep_v2`) destroys nothing, so gating it would
- * be friction with a false warning attached.
+ * The copy states those consequences literally. It is only attached to the
+ * call site BELOW — the one where a prep_v2 already exists. The other button
+ * (rendered when `!prep.prep_v2`) destroys nothing, so gating it would be
+ * friction with a false warning attached.
  */
 const REGENERATE_PREP_CONFIRM = {
   title: "تأكيد إعادة توليد الإعداد",
@@ -45,9 +47,13 @@ const REGENERATE_PREP_CONFIRM = {
     <>
       إعادة التوليد تكتب إعداداً جديداً كاملاً فوق الحالي، ويروح معاه:
       <ul className="mt-1 list-inside list-disc space-y-0.5">
-        <li>كل تعديل يدوي سويته على حقول الإعداد.</li>
-        <li>حالة مراجعة بطاقات الإسناد كلها، وفيها المعتمدة.</li>
+        <li>كل تعديل يدوي سويته على حقول الإعداد وعلى الأسئلة المولّدة.</li>
+        <li>حالة مراجعة بطاقات الإسناد المولّدة كلها، وفيها المعتمدة.</li>
       </ul>
+      <span className="mt-1 block">
+        الأسئلة اللي أضفتوها بأنفسكم أو من اقتراحات الضيف تبقى وتنتقل لنفس القسم في
+        الإعداد الجديد — إلا إذا القسم نفسه ما عاد موجود.
+      </span>
       <span className="mt-1 block">ما فيه تراجع بعد التأكيد.</span>
     </>
   ),
@@ -218,6 +224,7 @@ export function PreparationTab({
             />
           </div>
           <PrepV2InlineEditor prepId={prep.id} payload={prep.prep_v2} />
+          <PrepQuestionBankEditor prepId={prep.id} eirId={eirId} payload={prep.prep_v2} />
           <PrepInsightReview prepId={prep.id} payload={prep.prep_v2} />
           <PrepV2View payload={prep.prep_v2} />
         </>

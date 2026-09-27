@@ -19,6 +19,7 @@ import {
   getActiveLinkForEir,
   revokeGuestLink,
   rotateGuestLink,
+  setHousePhoto,
   updateGuestLinkFields,
   writePublishedSnapshot,
 } from "@/lib/guest-link/service"
@@ -129,7 +130,8 @@ export async function removeHousePhotoAction(eirId: string): Promise<GuestLinkAc
   if (!gate.ok) return { ok: false, message: gate.error }
   const link = await getActiveLinkForEir(eirId)
   if (!link) return { ok: false, message: "ما فيه رابط فعّال." }
-  const ok = await updateGuestLinkFields(link.id, { house_photo: null, location_updated_at: new Date() })
+  // The file is deleted only once the published snapshot no longer shows it.
+  const ok = await setHousePhoto(link.id, null)
   revalidate(eirId)
   return ok ? { ok: true, message: "أُزيلت الصورة." } : { ok: false, message: "تعذّر الحذف." }
 }

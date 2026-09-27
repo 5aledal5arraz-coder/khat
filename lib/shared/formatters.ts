@@ -44,6 +44,15 @@ const ARABIC_PLURALS: Record<string, [string, string, string]> = {
   "رد": ["رد", "ردّان", "ردود"],
   "اقتباس": ["اقتباس", "اقتباسان", "اقتباسات"],
   "سؤال": ["سؤال", "سؤالان", "أسئلة"],
+  // The prep question editor's card badge («بطاقتان» as a standalone label).
+  "بطاقة": ["بطاقة", "بطاقتان", "بطاقات"],
+  // The same editor, where the phrase is always an OBJECT or follows «مع»
+  // («يحذف معه بطاقتَي إسناد», «حُذف السؤال مع بطاقتَي إسناد»): iḍāfa dual in
+  // the accusative/genitive, nūn dropped — not «بطاقتان إسناد». Nominative
+  // callers need their own entry.
+  "بطاقة إسناد": ["بطاقة إسناد", "بطاقتَي إسناد", "بطاقات إسناد"],
+  // Also object position only: «يرجّع بطاقتَين معتمدتَين للمراجعة».
+  "بطاقة معتمدة": ["بطاقة معتمدة", "بطاقتَين معتمدتَين", "بطاقات معتمدة"],
   // Used by the admin home's computed day summary («3 طلبات بانتظارك»). Added
   // here rather than as a local table in `lib/ops/day-summary.ts` — a second
   // plural implementation is exactly what this map exists to prevent.
@@ -101,7 +110,9 @@ export function formatArabicCount(count: number, singular: string): string {
   if (!forms) return `${count} ${singular}`
 
   const [sing, dual, plural] = forms
-  const isFeminine = sing.endsWith("ة")
+  // Gender comes from the HEAD noun: «عملية استرجاع» is feminine though its
+  // last word is not («عملية استرجاع واحدة», not «… واحد»).
+  const isFeminine = sing.split(" ")[0].endsWith("ة")
 
   if (count === 0) return `لا ${plural}`
   if (count === 1) return `${sing} واحد${isFeminine ? "ة" : ""}`
@@ -179,6 +190,19 @@ export function arabicPluralNoun(count: number, singular: string): string {
 export function ltrIsolate(text: string | null | undefined): string {
   const s = (text ?? "").toString()
   return s === "" ? "" : `\u2066${s}\u2069`
+}
+
+/**
+ * Arabic-Indic ٠-٩ (U+0660) and Extended/Persian ۰-۹ (U+06F0) → ASCII 0-9.
+ * An Arabic keyboard types the first, a Persian/Urdu layout the second, and a
+ * guest cannot see the difference — a validator that only knows [0-9] rejects
+ * a perfectly correct number. Only digits change; everything else is kept.
+ */
+export function toLatinDigits(input: string): string {
+  return input.replace(/[\u0660-\u0669\u06F0-\u06F9]/g, (d) => {
+    const code = d.charCodeAt(0)
+    return String(code - (code >= 0x06f0 ? 0x06f0 : 0x0660))
+  })
 }
 
 // ─── Money ───────────────────────────────────────────────────────────────────

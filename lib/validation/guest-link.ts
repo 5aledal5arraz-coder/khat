@@ -7,6 +7,7 @@
  */
 
 import { z } from "zod"
+import { toLatinDigits } from "@/lib/shared/formatters"
 
 /** Hard cap on any guest POST body, checked before JSON.parse. */
 export const GUEST_LINK_MAX_BODY_BYTES = 16 * 1024
@@ -60,6 +61,30 @@ function dropLegacy<T extends Record<string, unknown>>(v: T): Omit<T, (typeof LE
   return out as Omit<T, (typeof LEGACY_QUESTIONNAIRE_KEYS)[number]>
 }
 
+/**
+ * «تعديل إجاباتي» — the stored answers after an edit.
+ *
+ * The edit is validated by the current schema, which DROPS the legacy keys
+ * (above) — so writing it wholesale erased answers the guest gave the first
+ * version: `topics_excited_about` / `sensitivities_to_avoid` are still read by
+ * the prep generator (lib/preparation/v2/guest-preferences.ts). The edit wins
+ * for every key it carries; a legacy key survives only from what was STORED,
+ * never from the request (the schema already discarded those).
+ */
+export function mergeQuestionnaireEdit<T extends Record<string, unknown>>(
+  stored: unknown,
+  next: T,
+): T & Partial<Record<(typeof LEGACY_QUESTIONNAIRE_KEYS)[number], unknown>> {
+  const kept: Record<string, unknown> = {}
+  if (stored && typeof stored === "object" && !Array.isArray(stored)) {
+    const prev = stored as Record<string, unknown>
+    for (const k of LEGACY_QUESTIONNAIRE_KEYS) {
+      if (k in prev && prev[k] !== undefined && !(k in next)) kept[k] = prev[k]
+    }
+  }
+  return { ...kept, ...next } as T & Partial<Record<(typeof LEGACY_QUESTIONNAIRE_KEYS)[number], unknown>>
+}
+
 // Bidi overrides/embeddings/isolates (U+202A–202E, U+2066–2069): they let a
 // string render in a different order than it is stored — the classic way to
 // make a filename or a sentence read as something else. Arabic text never
@@ -100,7 +125,29 @@ function optionalText(max: number) {
     .transform((v) => (v ? v : null))
 }
 
-const PHONE = /^[+\d][\d\s()-]{5,30}$/
+/**
+ * A WhatsApp number as the guest typed it → the one form we store and check.
+ *
+ * An Arabic phone keyboard types ٩٦٥…, a Persian layout ۹۶۵…; both are the
+ * same number, and the old ASCII-only pattern rejected them with «اكتب رقم
+ * واتساب صحيح» — to a guest who had typed it correctly. Digits become ASCII,
+ * and the grouping people add (spaces incl. NBSP, hyphens/dashes, dots,
+ * parentheses) is dropped. A leading "+" (or the full-width «＋») is kept.
+ * Shared by the form and the server, so both judge the same string.
+ */
+export function normalizeWhatsappNumber(raw: string): string {
+  return toLatinDigits(raw.normalize("NFC"))
+    .replace(/\uFF0B/g, "+")
+    .replace(/[\s\u00A0\u200E\u200F().\-\u2010-\u2015\u2212]/g, "")
+    .trim()
+}
+
+/** 6–20 digits, optionally led by "+". Checked on the NORMALISED value. */
+export const WHATSAPP_PATTERN = /^\+?\d{6,20}$/
+
+export function isValidWhatsappNumber(raw: string): boolean {
+  return WHATSAPP_PATTERN.test(normalizeWhatsappNumber(raw))
+}
 
 const socialSchema = z
   .object({
@@ -123,9 +170,9 @@ export const guestQuestionnaireSubmitSchema = z
       z.string().min(2, { message: "اكتب الاسم اللي تحب نناديك فيه" }),
     ),
     pronunciation_notes: optionalText(GUEST_FIELD_MAX.pronunciation_notes),
-    phone_whatsapp: text(GUEST_FIELD_MAX.phone_whatsapp).pipe(
-      z.string().regex(PHONE, { message: "اكتب رقم واتساب صحيح" }),
-    ),
+    phone_whatsapp: text(GUEST_FIELD_MAX.phone_whatsapp)
+      .transform(normalizeWhatsappNumber)
+      .pipe(z.string().regex(WHATSAPP_PATTERN, { message: "اكتب رقم واتساب صحيح" })),
     preferred_drink: text(GUEST_FIELD_MAX.preferred_drink).pipe(
       z.string().min(1, { message: "قول لنا شنو تحب تشرب" }),
     ),
@@ -153,7 +200,10 @@ export const guestQuestionnaireDraftSchema = z
         honorific: optionalText(GUEST_FIELD_MAX.honorific),
         kunya: optionalText(GUEST_FIELD_MAX.kunya),
         pronunciation_notes: optionalText(GUEST_FIELD_MAX.pronunciation_notes),
-        phone_whatsapp: optionalText(GUEST_FIELD_MAX.phone_whatsapp),
+        // Normalised like the submit, but never rejected: a half-typed number is kept.
+        phone_whatsapp: optionalText(GUEST_FIELD_MAX.phone_whatsapp).transform((v) =>
+          v ? normalizeWhatsappNumber(v) || null : null,
+        ),
         preferred_drink: optionalText(GUEST_FIELD_MAX.preferred_drink),
         technical_needs: optionalText(GUEST_FIELD_MAX.technical_needs),
         social_accounts: socialSchema.optional(),

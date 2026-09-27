@@ -13,7 +13,7 @@
 
 import path from "path"
 import crypto from "crypto"
-import { mkdir, readFile, writeFile } from "fs/promises"
+import { mkdir, readFile, unlink, writeFile } from "fs/promises"
 
 export const HOUSE_PHOTO_DIR = path.join(process.cwd(), "data", "guest-homes")
 
@@ -49,5 +49,22 @@ export async function readHousePhoto(
     return { bytes, contentType: CONTENT_TYPES[ext] }
   } catch {
     return null
+  }
+}
+
+/**
+ * Delete a photo that nothing references any more (see
+ * `unreferencedHousePhotos` in view.ts — the caller decides, this only acts).
+ * A photo of someone's home must not linger on disk after it was replaced or
+ * removed. Missing file = already gone = fine; any other error is logged.
+ */
+export async function deleteHousePhoto(name: string | null | undefined): Promise<void> {
+  if (!isSafeHousePhotoName(name)) return
+  try {
+    await unlink(path.join(HOUSE_PHOTO_DIR, name))
+  } catch (err) {
+    if ((err as NodeJS.ErrnoException)?.code !== "ENOENT") {
+      console.error("[guest-link] could not delete house photo:", name, err)
+    }
   }
 }

@@ -21,6 +21,9 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   if (!parsed.success) return guestJson({ error: "بيانات غير صالحة" }, 422)
 
   const ok = await saveGuestDraft(resolved.link.row.id, parsed.data.step, parsed.data.draft)
-  if (!ok) return guestJson({ error: "الرابط لم يعد متاحاً" }, 410)
+  // The link was usable a moment ago (resolveUsable), so a refused draft means
+  // the answers are already submitted — a late autosave/keepalive flush. Not
+  // an error the guest should ever read.
+  if (!ok) return guestJson({ ok: false, error: "تم إرسال الإجابات" }, 409)
   return guestJson({ ok: true })
 }

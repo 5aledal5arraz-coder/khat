@@ -9,12 +9,15 @@
  * `generator_version` / `ai_run_ids`) untouched.
  *
  * No new pipeline, no new validation: the existing shape contract in
- * `lib/preparation/v2/types.ts` is preserved. Arrays are normalized
- * line-by-line; structured fields (questions) preserve their metadata
- * when count/order matches.
+ * `lib/preparation/v2/types.ts` is preserved. Plain string lists are
+ * normalized line-by-line. Questions are NOT edited as lines: each one is
+ * addressed by its id through the pure transforms in
+ * `lib/preparation/v2/question-edit.ts` (the old textarea merge re-attached
+ * metadata and fact cards by POSITION and put them under the wrong text).
  */
 
 import { revalidatePath } from "next/cache"
+import { formatArabicCount } from "@/lib/shared/formatters"
 import { eq } from "drizzle-orm"
 import { db } from "@/lib/db"
 import { episodePreparations } from "@/lib/db/schema/preparation"
@@ -35,12 +38,27 @@ import {
   type ManualInsightInput,
   type ReviewStamp,
 } from "@/lib/preparation/v2/insight-review"
-import type {
-  InsightLiveStatus,
-  PrepV2Payload,
-  PrepV2Question,
-  SectionKind,
+import {
+  addQuestion,
+  deleteQuestion,
+  editQuestion,
+  moveQuestion,
+  questionEditContext,
+  reorderQuestion,
+  MANUAL_QUESTION_ID,
+  type QuestionEditPatch,
+  type QuestionEditReason,
+} from "@/lib/preparation/v2/question-edit"
+import {
+  QUESTION_PRIORITIES,
+  SECTION_KINDS,
+  type InsightLiveStatus,
+  type PrepV2Payload,
+  type QuestionPriority,
+  type SectionKind,
 } from "@/lib/preparation/v2/types"
+import { getActiveLinkForEir, updateGuestLinkFields } from "@/lib/guest-link/service"
+import { parseSampleOverrides } from "@/lib/guest-link/view"
 
 export interface PrepEditField {
   /** Field key the operator edited. */
@@ -53,7 +71,6 @@ export interface PrepEditField {
     | "host_guidance.dont_list"
     | "director_guidance.shot_priorities"
     | "opening_options.0.text"
-    | "must_ask_questions"
   /** Raw textarea value as the operator typed it. */
   value: string
 }
@@ -61,6 +78,11 @@ export interface PrepEditField {
 export interface PrepEditResult {
   ok: boolean
   message: string
+  /**
+   * Question edits only: set when the edit was refused because someone else
+   * changed the question first — the text now stored, for the editor to show.
+   */
+  current?: string
 }
 
 export async function updatePrepFieldAction(
@@ -107,13 +129,6 @@ export async function updatePrepFieldAction(
           next.opening_options[0].text = edit.value.trim()
         }
         break
-      case "must_ask_questions":
-        next.question_bank = mergeMustAskQuestions(
-          next.question_bank,
-          lines,
-          next.episode_sections,
-        )
-        break
       default:
         supported = false
     }
@@ -147,7 +162,34 @@ async function mutatePrepV2(
   fn: (current: PrepV2Payload) => { next: PrepV2Payload; changed: boolean },
 ): Promise<MutateResult> {
   if (!db) return { ok: false, message: "قاعدة البيانات غير متوفرة." }
-  return db.transaction(async (tx) => {
+  let written: PrepV2Payload | null = null
+  const r = await lockedMutate(prepId, fn, (next) => {
+    written = next
+  })
+  // Same push the pipeline does after a regeneration (pipeline.ts): a live
+  // recording room already open on this prep otherwise keeps the questions
+  // and approved cards it was rendered with. After commit, outside the lock,
+  // and never allowed to fail an edit that already persisted.
+  if (r.ok && r.changed && written) {
+    try {
+      const { broadcastPrepV2Update } = await import("@/lib/collaboration/prep-live")
+      await broadcastPrepV2Update(prepId, written)
+    } catch (err) {
+      console.warn(
+        `[prep-v2] live room broadcast failed for prep ${prepId} (non-fatal):`,
+        err instanceof Error ? err.message : err,
+      )
+    }
+  }
+  return r
+}
+
+async function lockedMutate(
+  prepId: string,
+  fn: (current: PrepV2Payload) => { next: PrepV2Payload; changed: boolean },
+  onWrite: (next: PrepV2Payload) => void,
+): Promise<MutateResult> {
+  return db!.transaction(async (tx) => {
     const [row] = await tx
       .select({
         id: episodePreparations.id,
@@ -183,6 +225,7 @@ async function mutatePrepV2(
         updated_at: new Date(),
       })
       .where(eq(episodePreparations.id, prepId))
+    onWrite(next)
     return { ok: true as const, eirId: row.eir_id ?? null, changed: true }
   })
 }
@@ -293,41 +336,261 @@ export async function approveAllVerifiedInsightsAction(
   return { ok: true, message: `اعتُمدت ${approved} بطاقة موثوقة للبث.` }
 }
 
+// ─── Question bank — one question at a time, by id ──────────────────
+//
+// Each action runs one pure transform from question-edit.ts inside the locked
+// mutatePrepV2. An id that no longer exists (deleted, or the prep was
+// regenerated) is refused, never guessed; an edit made against text someone
+// else has since changed is refused with the current text.
+
+const QUESTION_GONE = "السؤال تغيّر أو حُذف — حدّث الصفحة."
+
+function questionFailure(reason: QuestionEditReason | undefined, current?: string): PrepEditResult {
+  switch (reason) {
+    case "stale":
+      return { ok: false, message: "عدّل أحد هذا السؤال قبلك — راجع النص الحالي.", current }
+    case "bad_section":
+      return { ok: false, message: "القسم غير موجود في الإعداد." }
+    case "empty":
+      return { ok: false, message: "نص السؤال فارغ." }
+    default:
+      return { ok: false, message: QUESTION_GONE }
+  }
+}
+
+function isSectionKind(v: unknown): v is SectionKind {
+  return typeof v === "string" && (SECTION_KINDS as readonly string[]).includes(v)
+}
+
+function isQuestionId(v: unknown): v is string {
+  return typeof v === "string" && v.length > 0 && v.length <= 200
+}
+
+function optionalText(v: unknown): string | undefined {
+  return typeof v === "string" ? v : undefined
+}
+
+function cleanPatch(patch: QuestionEditPatch): QuestionEditPatch {
+  const out: QuestionEditPatch = {}
+  if (typeof patch?.text === "string") out.text = patch.text
+  if (typeof patch?.purpose === "string") out.purpose = patch.purpose
+  if (typeof patch?.follow_up_prompt === "string") out.follow_up_prompt = patch.follow_up_prompt
+  if ((QUESTION_PRIORITIES as readonly unknown[]).includes(patch?.priority)) {
+    out.priority = patch.priority as QuestionPriority
+  }
+  return out
+}
+
+/** Text / purpose / follow-up / «أساسي ↔ إن سمح الوقت» of one question. */
+export async function editPrepQuestionAction(
+  prepId: string,
+  questionId: string,
+  patch: QuestionEditPatch,
+  /** The text the editor was showing — the stale-edit check. */
+  expectedText: string,
+): Promise<PrepEditResult> {
+  const gate = await requireActionRole("EDITOR")
+  if (!gate.ok) return { ok: false, message: gate.error }
+  if (!isQuestionId(questionId)) return { ok: false, message: QUESTION_GONE }
+  const clean = cleanPatch(patch)
+  let res: ReturnType<typeof editQuestion> | null = null
+  const r = await mutatePrepV2(prepId, (cur) => {
+    res = editQuestion(cur.question_bank, questionId, clean, optionalText(expectedText))
+    return { next: { ...cur, question_bank: res.bank }, changed: res.changed }
+  })
+  if (!r.ok) return { ok: false, message: r.message }
+  const out = res as ReturnType<typeof editQuestion> | null
+  if (!r.changed) {
+    if (out?.reason === "noop") return { ok: true, message: "بدون تغيير." }
+    return questionFailure(out?.reason, out?.current)
+  }
+  revalidateEir(r.eirId)
+  return { ok: true, message: "تم حفظ السؤال." }
+}
+
+/** Move a question to another section (to its end, or before `beforeId`). */
+export async function movePrepQuestionAction(
+  prepId: string,
+  questionId: string,
+  toSection: SectionKind,
+  beforeId: string | null,
+): Promise<PrepEditResult> {
+  const gate = await requireActionRole("EDITOR")
+  if (!gate.ok) return { ok: false, message: gate.error }
+  if (!isQuestionId(questionId)) return { ok: false, message: QUESTION_GONE }
+  if (!isSectionKind(toSection)) return questionFailure("bad_section")
+  const before = isQuestionId(beforeId) ? beforeId : null
+  let reason: QuestionEditReason | undefined
+  const r = await mutatePrepV2(prepId, (cur) => {
+    const res = moveQuestion(cur.question_bank, questionId, toSection, before, questionEditContext(cur))
+    reason = res.reason
+    return { next: { ...cur, question_bank: res.bank }, changed: res.changed }
+  })
+  if (!r.ok) return { ok: false, message: r.message }
+  if (!r.changed) return reason === "noop" ? { ok: true, message: "بدون تغيير." } : questionFailure(reason)
+  revalidateEir(r.eirId)
+  return { ok: true, message: "نُقل السؤال." }
+}
+
+/** ↑ / ↓ within its section. */
+export async function reorderPrepQuestionAction(
+  prepId: string,
+  questionId: string,
+  dir: "up" | "down",
+): Promise<PrepEditResult> {
+  const gate = await requireActionRole("EDITOR")
+  if (!gate.ok) return { ok: false, message: gate.error }
+  if (!isQuestionId(questionId) || (dir !== "up" && dir !== "down")) {
+    return { ok: false, message: QUESTION_GONE }
+  }
+  let reason: QuestionEditReason | undefined
+  const r = await mutatePrepV2(prepId, (cur) => {
+    const res = reorderQuestion(cur.question_bank, questionId, dir)
+    reason = res.reason
+    return { next: { ...cur, question_bank: res.bank }, changed: res.changed }
+  })
+  if (!r.ok) return { ok: false, message: r.message }
+  if (!r.changed) return reason === "noop" ? { ok: true, message: "بدون تغيير." } : questionFailure(reason)
+  revalidateEir(r.eirId)
+  return { ok: true, message: "تم الترتيب." }
+}
+
+/**
+ * «+ سؤال في هذا القسم». The editor generates `id` (`manual-<uuid>`) so its
+ * optimistic row and the stored one are the same question, and a double
+ * click is one add, not two.
+ */
+export async function addPrepQuestionAction(
+  prepId: string,
+  section: SectionKind,
+  afterId: string | null,
+  input: { id: string; text: string; priority?: QuestionPriority },
+): Promise<PrepEditResult> {
+  const gate = await requireActionRole("EDITOR")
+  if (!gate.ok) return { ok: false, message: gate.error }
+  if (!isSectionKind(section)) return questionFailure("bad_section")
+  if (typeof input?.id !== "string" || !MANUAL_QUESTION_ID.test(input.id)) {
+    return { ok: false, message: "معرّف السؤال غير صالح." }
+  }
+  const after = isQuestionId(afterId) ? afterId : null
+  let reason: QuestionEditReason | undefined
+  const r = await mutatePrepV2(prepId, (cur) => {
+    const res = addQuestion(
+      cur.question_bank,
+      section,
+      after,
+      {
+        id: input.id,
+        text: String(input.text ?? ""),
+        priority: (QUESTION_PRIORITIES as readonly unknown[]).includes(input.priority)
+          ? input.priority
+          : "must_ask",
+        origin: "manual",
+      },
+      questionEditContext(cur),
+    )
+    reason = res.reason
+    return { next: { ...cur, question_bank: res.bank }, changed: res.changed }
+  })
+  if (!r.ok) return { ok: false, message: r.message }
+  if (!r.changed) {
+    return reason === "exists" ? { ok: true, message: "السؤال مضاف." } : questionFailure(reason)
+  }
+  revalidateEir(r.eirId)
+  return { ok: true, message: "أُضيف السؤال." }
+}
+
+/**
+ * Delete one question and its support cards. If the guest link curates this
+ * question as a sample (hide / pin / reworded text), that override goes too.
+ */
+export async function deletePrepQuestionAction(
+  prepId: string,
+  questionId: string,
+  expectedText: string,
+): Promise<PrepEditResult> {
+  const gate = await requireActionRole("EDITOR")
+  if (!gate.ok) return { ok: false, message: gate.error }
+  if (!isQuestionId(questionId)) return { ok: false, message: QUESTION_GONE }
+  let res: ReturnType<typeof deleteQuestion> | null = null
+  const r = await mutatePrepV2(prepId, (cur) => {
+    res = deleteQuestion(cur.question_bank, questionId, optionalText(expectedText))
+    return { next: { ...cur, question_bank: res.bank }, changed: res.changed }
+  })
+  if (!r.ok) return { ok: false, message: r.message }
+  const out = res as ReturnType<typeof deleteQuestion> | null
+  if (!r.changed) return questionFailure(out?.reason, out?.current)
+
+  if (r.eirId) {
+    try {
+      const link = await getActiveLinkForEir(r.eirId)
+      const overrides = link ? parseSampleOverrides(link.sample_overrides) : {}
+      if (link && overrides[questionId]) {
+        delete overrides[questionId]
+        await updateGuestLinkFields(link.id, { sample_overrides: overrides as Record<string, unknown> })
+      }
+    } catch (err) {
+      // The question is already gone; a leftover override for a missing id
+      // is inert (the projection only reads overrides of existing questions).
+      console.warn("[prep-v2] could not clear guest-link override:", err instanceof Error ? err.message : err)
+    }
+  }
+  revalidateEir(r.eirId)
+  const cards = out?.removed?.insights?.length ?? 0
+  return {
+    ok: true,
+    message: cards ? `حُذف السؤال مع ${formatArabicCount(cards, "بطاقة إسناد")}.` : "حُذف السؤال.",
+  }
+}
+
 // ─── «نسخة الضيف» — apply an accepted guest suggestion ───────────────
 //
 // Never automatic: the admin accepts a suggestion in the inbox, then chooses
-// to add it here as an `if_time` question in a section they pick. Goes through
-// the same locked mutatePrepV2 path as every other prep_v2 edit.
+// to add it here as an `if_time` question in a section they pick. It is an
+// ordinary `addQuestion` with origin `guest` and an id derived from the
+// suggestion — so pressing «أضف للإعداد» twice adds it once, and the question
+// survives a regeneration like any authored question.
+
+const SUGGESTION_ID = /^[A-Za-z0-9-]{1,64}$/
 
 export async function addGuestQuestionToPrepAction(
   prepId: string,
+  suggestionId: string,
   section: SectionKind,
   text: string,
 ): Promise<PrepEditResult> {
   const gate = await requireActionRole("EDITOR")
   if (!gate.ok) return { ok: false, message: gate.error }
+  if (typeof suggestionId !== "string" || !SUGGESTION_ID.test(suggestionId)) {
+    return { ok: false, message: "اقتراح غير صالح." }
+  }
+  if (!isSectionKind(section)) return questionFailure("bad_section")
   const clean = String(text ?? "").normalize("NFC").trim().slice(0, 500)
   if (!clean) return { ok: false, message: "النص فارغ." }
-  let validSection = true
+  let reason: QuestionEditReason | undefined
   const r = await mutatePrepV2(prepId, (cur) => {
-    if (!cur.episode_sections.some((s) => s.kind === section)) {
-      validSection = false
-      return { next: cur, changed: false }
-    }
-    const q: PrepV2Question = {
-      id: `guest-${cryptoId()}`,
+    const res = addQuestion(
+      cur.question_bank,
       section,
-      text: clean,
-      types: ["reflective"],
-      priority: "if_time",
-      purpose: "اقتراح من الضيف (نسخة الضيف)",
-      follow_up_prompt: "",
-      risk_level: "low",
-    }
-    return { next: { ...cur, question_bank: [...cur.question_bank, q] }, changed: true }
+      null,
+      {
+        id: `guest-${suggestionId}`,
+        text: clean,
+        priority: "if_time",
+        purpose: "اقتراح من الضيف (نسخة الضيف)",
+        origin: "guest",
+      },
+      questionEditContext(cur),
+    )
+    reason = res.reason
+    return { next: { ...cur, question_bank: res.bank }, changed: res.changed }
   })
-  if (!validSection) return { ok: false, message: "القسم غير موجود في الإعداد." }
   if (!r.ok) return { ok: false, message: r.message }
+  if (!r.changed) {
+    return reason === "exists"
+      ? { ok: true, message: "السؤال مضاف للإعداد مسبقاً." }
+      : questionFailure(reason)
+  }
   revalidateEir(r.eirId)
   return { ok: true, message: "أُضيف السؤال للإعداد." }
 }
@@ -339,48 +602,4 @@ function parseLines(value: string): string[] {
     .split("\n")
     .map((line) => line.trim())
     .filter((line) => line.length > 0)
-}
-
-function mergeMustAskQuestions(
-  existing: PrepV2Question[],
-  newTexts: string[],
-  sections: { kind: SectionKind }[] = [],
-): PrepV2Question[] {
-  // New must-ask questions go to deep_dive — a slot every story prep has. A
-  // course prep uses 3–6 slots and may not have deep_dive; a question filed
-  // under a missing slot renders under no section at all, so fall back to the
-  // last module before the wrap-up.
-  const kinds = sections.map((s) => s.kind)
-  const newSection: SectionKind =
-    kinds.length === 0 || kinds.includes("deep_dive")
-      ? "deep_dive"
-      : kinds[Math.max(0, kinds.length - 2)]
-  const mustAsk = existing.filter((q) => q.priority === "must_ask")
-  const ifTime = existing.filter((q) => q.priority !== "must_ask")
-
-  const merged: PrepV2Question[] = newTexts.map((text, i) => {
-    const carry = mustAsk[i]
-    if (carry) {
-      return { ...carry, text }
-    }
-    return {
-      id: `inline-${cryptoId()}`,
-      section: newSection,
-      text,
-      types: ["reflective"],
-      priority: "must_ask",
-      purpose: "",
-      follow_up_prompt: "",
-      risk_level: "low",
-    }
-  })
-
-  return [...merged, ...ifTime]
-}
-
-function cryptoId(): string {
-  if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
-    return crypto.randomUUID().slice(0, 8)
-  }
-  return Math.random().toString(36).slice(2, 10)
 }

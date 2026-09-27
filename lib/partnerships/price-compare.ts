@@ -24,14 +24,7 @@
  *    text either says «للحلقة» or names a count we can divide by.
  */
 
-/** Arabic-Indic ٠-٩ (U+0660) and Extended/Persian ۰-۹ (U+06F0) → ASCII. */
-function toLatinDigits(input: string): string {
-  return input.replace(/[٠-٩۰-۹]/g, (d) => {
-    const code = d.charCodeAt(0)
-    const base = code >= 0x06f0 ? 0x06f0 : 0x0660
-    return String(code - base)
-  })
-}
+import { toLatinDigits } from "@/lib/shared/formatters"
 
 /**
  * Normalise the separators before any number is read.

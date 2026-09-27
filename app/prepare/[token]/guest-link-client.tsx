@@ -8,7 +8,7 @@
  * the prep reaches this file only as the projected `GuestPrepView`.
  */
 
-import { useCallback, useId, useRef, useState } from "react"
+import { useCallback, useEffect, useId, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
 import { ChevronDown } from "lucide-react"
 import { cn } from "@/lib/utils"
@@ -16,7 +16,7 @@ import { KhatLogo } from "@/components/brand/khat-logo"
 import { GuestPrepViewPanel } from "@/components/guest-link/guest-prep-view"
 import type { GuestLinkClientProps } from "@/lib/guest-link/page-props"
 import type { GuestLinkQuestionnaireDraft } from "@/types/database"
-import { GUEST_FIELD_MAX } from "@/lib/validation/guest-link"
+import { GUEST_FIELD_MAX, isValidWhatsappNumber } from "@/lib/validation/guest-link"
 
 type Screen = "thanks" | "q" | "sent" | "welcome" | "prep"
 
@@ -85,6 +85,17 @@ const WELCOME_CARDS = [
   },
 ] as const
 
+/**
+ * Draft autosave. Typing pauses save after AUTOSAVE_DEBOUNCE_MS, and a closing
+ * tab flushes what is left — before this, the draft was saved only on a step
+ * change, so step-2 text vanished with the tab. The server allows 60 draft
+ * writes/hour/IP (GUEST_RATE_LIMITS.draft, shared with step changes and the
+ * welcome POST), so autosaves are also spaced AUTOSAVE_MIN_GAP_MS apart and an
+ * unchanged draft is never re-sent.
+ */
+const AUTOSAVE_DEBOUNCE_MS = 1500
+const AUTOSAVE_MIN_GAP_MS = 30_000
+
 /** Form state: every field present, strings never null. */
 interface Answers {
   honorific: string
@@ -120,7 +131,8 @@ function stepErrors(step: number, a: Answers): Record<string, string> {
   if (step === 0) {
     if (a.honorific.trim().length < 2) e.honorific = "اكتب لقبك أو مسماك"
     if (a.kunya.trim().length < 2) e.kunya = "اكتب الاسم اللي تحب نناديك فيه"
-    if (!/^[+\d][\d\s()-]{5,30}$/.test(a.phone_whatsapp.trim())) e.phone_whatsapp = "اكتب رقم واتساب صحيح"
+    // Same normaliser as the server: ٩٦٥ / ۹۶۵ / spaces / dashes are all fine.
+    if (!isValidWhatsappNumber(a.phone_whatsapp)) e.phone_whatsapp = "اكتب رقم واتساب صحيح"
   }
   if (step === 1) {
     if (!a.preferred_drink.trim()) e.preferred_drink = "قول لنا شنو تحب تشرب"
@@ -168,22 +180,63 @@ export function GuestLinkClient(props: GuestLinkClientProps) {
 
   const scrollTop = () => topRef.current?.scrollIntoView({ block: "start" })
 
-  async function saveDraft(nextStep: number) {
-    if (props.submitted) return
-    try {
-      await fetch(`/api/prepare/${props.token}/draft`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ step: nextStep, draft: answers }),
-      })
-    } catch {
-      // Autosave is best-effort; the submit carries everything anyway.
+  // What the server last received, so an unchanged draft is never re-sent.
+  const lastSavedBody = useRef<string>(
+    JSON.stringify({ step: props.initialStep, draft: toFormState(props.initialAnswers) }),
+  )
+  const lastSavedAt = useRef(0)
+  /** Set once a submit starts — no autosave may race it. */
+  const submitting = useRef(false)
+  const latest = useRef({ step, answers })
+  latest.current = { step, answers }
+
+  const saveDraft = useCallback(
+    async (nextStep: number, draft: Answers, opts: { keepalive?: boolean } = {}) => {
+      if (props.submitted || submitting.current) return
+      const body = JSON.stringify({ step: nextStep, draft })
+      if (body === lastSavedBody.current) return
+      lastSavedBody.current = body
+      lastSavedAt.current = Date.now()
+      try {
+        await fetch(`/api/prepare/${props.token}/draft`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body,
+          keepalive: opts.keepalive,
+        })
+      } catch {
+        // Autosave is best-effort; the submit carries everything anyway.
+      }
+    },
+    [props.submitted, props.token],
+  )
+
+  // Debounced autosave while the questionnaire is on screen.
+  useEffect(() => {
+    if (props.submitted || screen !== "q") return
+    const wait = Math.max(AUTOSAVE_DEBOUNCE_MS, lastSavedAt.current + AUTOSAVE_MIN_GAP_MS - Date.now())
+    const t = setTimeout(() => void saveDraft(step, answers), wait)
+    return () => clearTimeout(t)
+  }, [answers, step, screen, props.submitted, saveDraft])
+
+  // A closing/backgrounded tab flushes the pending text (keepalive survives unload).
+  useEffect(() => {
+    if (props.submitted || screen !== "q") return
+    const flush = () => void saveDraft(latest.current.step, latest.current.answers, { keepalive: true })
+    const onVisibility = () => {
+      if (document.visibilityState === "hidden") flush()
     }
-  }
+    window.addEventListener("pagehide", flush)
+    document.addEventListener("visibilitychange", onVisibility)
+    return () => {
+      window.removeEventListener("pagehide", flush)
+      document.removeEventListener("visibilitychange", onVisibility)
+    }
+  }, [props.submitted, screen, saveDraft])
 
   function goTo(nextStep: number) {
     setStep(nextStep)
-    void saveDraft(nextStep)
+    void saveDraft(nextStep, answers)
     scrollTop()
   }
 
@@ -200,6 +253,8 @@ export function GuestLinkClient(props: GuestLinkClientProps) {
     if (Object.keys(e).length) return
     setBusy(true)
     setFormError(null)
+    submitting.current = true
+    let submitted = false
     try {
       const res = await fetch(`/api/prepare/${props.token}/submit`, {
         method: "POST",
@@ -217,6 +272,7 @@ export function GuestLinkClient(props: GuestLinkClientProps) {
         setFormError(data.error ?? "ما قدرنا نرسل، جرّب مرة ثانية")
         return
       }
+      submitted = true
       if (editing) {
         setEditing(false)
         setScreen("prep")
@@ -228,6 +284,7 @@ export function GuestLinkClient(props: GuestLinkClientProps) {
     } catch {
       setFormError("ما قدرنا نرسل، تأكد من الاتصال وجرّب مرة ثانية")
     } finally {
+      if (!submitted) submitting.current = false
       setBusy(false)
     }
   }
@@ -254,7 +311,7 @@ export function GuestLinkClient(props: GuestLinkClientProps) {
   return (
     <div ref={topRef} className="mx-auto min-h-screen w-full max-w-xl px-4 py-8 sm:py-12">
       <header className="mb-8 flex justify-center">
-        <KhatLogo height={28} />
+        <KhatLogo height={40} />
       </header>
 
       {screen === "thanks" && (

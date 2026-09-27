@@ -235,7 +235,9 @@ export function PrepInsightReview({
         {withInsights.map((q) => (
           <div
             key={q.id}
-            className="rounded-2xl border border-border/40 bg-background/50 p-3.5"
+            // Target of the question editor's «N بطاقة» badge.
+            id={`insight-q-${q.id}`}
+            className="scroll-mt-4 rounded-2xl border border-border/40 bg-background/50 p-3.5"
           >
             <div className="mb-2 flex items-start gap-2">
               <span className="mt-0.5 shrink-0 rounded-full bg-muted/40 px-1.5 py-0.5 text-[9.5px] text-muted-foreground">

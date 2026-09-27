@@ -99,6 +99,8 @@ const questionSchema = z.object({
   risk_level: QUESTION_RISK_LEVEL,
   // Pass-5 support cards. Optional + additive (older preps omit it).
   insights: z.array(insightSchema).optional(),
+  // Who wrote it. Optional + additive: absent ⇒ generated (question-edit.ts).
+  origin: z.enum(["generated", "manual", "guest"]).optional(),
 })
 
 const hostGuidanceSchema = z.object({
