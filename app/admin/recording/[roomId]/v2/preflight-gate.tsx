@@ -29,7 +29,9 @@ import {
   RefreshCw,
   ShieldAlert,
   WifiOff,
+  ChevronLeft,
 } from "lucide-react"
+import { Sheet } from "./cockpit-bits"
 import { cn } from "@/lib/utils"
 import {
   OVERRIDE_REASONS,
@@ -50,6 +52,7 @@ export function PreflightGate({
   onReconnect,
   busy,
   children,
+  escapesInitiallyOpen = false,
 }: {
   gateState: HostGateState
   model: ChecklistModel
@@ -65,7 +68,10 @@ export function PreflightGate({
   busy: boolean
   /** The energy control that already lived beside the CTA. */
   children?: React.ReactNode
+  /** Render with the escape sheet already open (tests / deep links). */
+  escapesInitiallyOpen?: boolean
 }) {
+  const [escapesOpen, setEscapesOpen] = useState(escapesInitiallyOpen)
   const unlocked = overridden || isRecordingUnlocked(gateState)
 
   // Flash the reason line when the locked button is pressed, so the tap gets an
@@ -162,14 +168,31 @@ export function PreflightGate({
 
         {/* Escape hatches ONLY where the normal path is genuinely unavailable —
             never in `blocked` (a director is right there) and never in
-            `connecting` (that is every page load). */}
+            `connecting` (that is every page load). They live in a SHEET now:
+            inline they made the locked bar ~300px tall over the read-in. The
+            hard lock and both exits are unchanged; only where they sit moved. */}
         {allowsOverride(gateState) && (
-          <EscapeHatches
-            model={model}
-            onSelfComplete={onSelfComplete}
-            onOverride={onOverride}
-            busy={busy}
-          />
+          <>
+            <button
+              type="button"
+              onClick={() => setEscapesOpen(true)}
+              className="mt-2 inline-flex min-h-[44px] w-full items-center justify-between gap-2 rounded-xl border border-amber-500/40 bg-background/60 px-3.5 text-[13px] font-semibold text-amber-800"
+            >
+              ما فيه مخرج؟ طرق البدء
+              <ChevronLeft className="h-4 w-4" />
+            </button>
+            <Sheet open={escapesOpen} onClose={() => setEscapesOpen(false)} title="البدء بدون مخرج">
+              <EscapeHatches
+                model={model}
+                onSelfComplete={() => {
+                  setEscapesOpen(false)
+                  onSelfComplete()
+                }}
+                onOverride={onOverride}
+                busy={busy}
+              />
+            </Sheet>
+          </>
         )}
       </div>
     </div>
@@ -203,17 +226,22 @@ function LockedBody({
 }) {
   return (
     <div id="khat-gate-reason">
-      <div className="inline-flex items-center gap-1.5 text-[12.5px] font-semibold text-amber-800">
-        <ClipboardCheck className="h-3.5 w-3.5" />
-        جاهزية الاستوديو {model.resolvedCount} من {model.total}
-      </div>
+      {/* ONE line: the count and what is missing. The host is reading the
+          thesis with a guest sitting down; the 17 rows are the director's. */}
       <p
         className={cn(
-          "mt-0.5 text-[12px] transition-colors duration-200",
-          nudge ? "font-semibold text-amber-900" : "text-foreground/80",
+          "inline-flex flex-wrap items-center gap-x-1.5 text-[13px] transition-colors duration-200",
+          nudge ? "font-semibold text-amber-900" : "text-amber-800",
         )}
       >
-        الناقص: <strong className="font-semibold">{model.blockingGroupLabel}</strong>
+        <ClipboardCheck className="h-4 w-4 shrink-0" />
+        <span className="font-semibold">
+          جاهزية <span dir="ltr">{model.resolvedCount}/{model.total}</span>
+        </span>
+        <span aria-hidden>·</span>
+        <span>
+          الناقص: <strong className="font-semibold">{model.blockingGroupLabel}</strong>
+        </span>
       </p>
       {noDirector ? (
         <p className="mt-1 inline-flex items-center gap-1.5 text-[11.5px] text-amber-800">

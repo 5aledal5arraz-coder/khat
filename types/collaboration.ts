@@ -145,6 +145,14 @@ export interface CollaborationRoom {
    * see the completed treatment too.
    */
   completed_question_ids: string[]
+  /**
+   * The prep_v2 question on the host's screen («الآن»). Its own column — see
+   * the schema note: `active_card_id` is an FK to interview_cards and rejected
+   * every prep_v2 id. Optional only because older snapshots predate it.
+   */
+  current_question_id?: string | null
+  /** NET ms at which the current section began, stamped server-side. */
+  current_section_started_ms?: number | null
   recording_started_at: string | null
   recording_ended_at: string | null
   recording_paused_at: string | null

@@ -99,7 +99,16 @@ export async function PATCH(
     const body = await req.json()
     if (!body.participant_id) return validationErrorResponse("participant_id مطلوب")
 
-    await heartbeat(body.participant_id)
+    // Back online after being marked offline (sweep, or another tab's leave on
+    // the same row)? Tell the room — silence here is what froze the count.
+    const revived = await heartbeat(body.participant_id)
+    if (revived) {
+      broadcast(roomId, {
+        type: "participant_update",
+        data: revived,
+        timestamp: new Date().toISOString(),
+      })
+    }
 
     // Piggyback: sweep stale participants (>90s since last heartbeat)
     const staleIds = await sweepStaleParticipants(roomId)

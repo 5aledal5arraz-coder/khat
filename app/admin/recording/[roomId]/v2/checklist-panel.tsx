@@ -368,6 +368,12 @@ function ItemRow({
         onClick={primaryTap}
         disabled={busy}
         aria-pressed={done}
+        // A name that carries the STATE and the action: the icon alone said
+        // "done" / "n/a" only to sighted users, and the button's text content
+        // read out the hint as if it were part of the item.
+        aria-label={`${item.label} — ${
+          done ? "مؤكّد، اضغط للتراجع" : na ? "غير منطبق، اضغط للتراجع" : "اضغط للتأكيد"
+        }`}
         title={item.tooltip}
         className="flex min-h-[56px] w-full items-start gap-3 px-3 py-3 text-start disabled:opacity-60"
       >

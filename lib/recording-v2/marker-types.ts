@@ -60,7 +60,18 @@ export const SYSTEM_MARKER_TYPES = [
   "energy_change",
   "insight_used",
   "episode_started",
+  // The pre-shoot checklist was overridden for this take. Its own type because
+  // it used to ride on `tech_issue` — an interval opener — and the director's
+  // bar showed it as a fault that never ended.
+  "checklist_override",
 ] as const
+
+/**
+ * Label every override marker carries, whatever its type. Rows written before
+ * `checklist_override` existed are `tech_issue` + this label, and they must not
+ * count as an open fault either.
+ */
+export const CHECKLIST_OVERRIDE_LABEL = "checklist_override"
 export type SystemMarkerType = (typeof SYSTEM_MARKER_TYPES)[number]
 
 /** Any value the marker_type column may hold (quick + system). */
@@ -220,11 +231,14 @@ export function closerFor(t: string): QuickMarkerType | null {
  * as "still the same problem" and ignored by the pairing.
  */
 export function openIntervals(
-  markers: { marker_type: string; net_recording_ms: number }[],
+  markers: { marker_type: string; net_recording_ms: number; label?: string | null }[],
 ): Record<string, number> {
   const open: Record<string, number> = {}
   const ordered = [...markers].sort((a, b) => a.net_recording_ms - b.net_recording_ms)
   for (const m of ordered) {
+    // A legacy checklist override (`tech_issue` + this label) is a session
+    // fact, not a fault — it must never open an interval.
+    if (m.label === CHECKLIST_OVERRIDE_LABEL) continue
     if (isIntervalOpener(m.marker_type)) {
       if (!(m.marker_type in open)) open[m.marker_type] = m.net_recording_ms
       continue

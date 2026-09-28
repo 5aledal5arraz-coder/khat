@@ -135,6 +135,9 @@ const MARKER_TYPE_COLOR: Record<string, ResolveMarkerColor> = {
   energy_change: "Lavender",
   insight_used: "Cyan",
   episode_started: "Mint",
+  // A pre-take session fact (no camera time, so it never reaches the EDL);
+  // Pink is otherwise unused, so it cannot be mistaken for a content flag.
+  checklist_override: "Pink",
 }
 
 /**
@@ -307,6 +310,7 @@ export function markerTypeLabelAr(markerType: string): string {
   if (markerType === "energy_change") return "تغيّر الطاقة"
   if (markerType === "insight_used") return "إسناد مُستخدم"
   if (markerType === "episode_started") return "بدء التسجيل"
+  if (markerType === "checklist_override") return "تجاوز التشك-ليست"
   const meta = QUICK_MARKER_META[markerType as keyof typeof QUICK_MARKER_META] as
     | (typeof QUICK_MARKER_META)[keyof typeof QUICK_MARKER_META]
     | undefined

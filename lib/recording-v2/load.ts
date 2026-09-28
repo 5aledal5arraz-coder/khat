@@ -91,6 +91,15 @@ export interface LiveV2RoomSnapshot {
    * participant view falls back to "first not-done" in that window.
    */
   active_card_id: string | null
+  /**
+   * The prep_v2 question on the host's screen («الآن»). Replaces the attempt to
+   * carry it on `active_card_id`, which is an FK to interview_cards and rejected
+   * every prep_v2 id with 23503 — so it was always null. Null before the host's
+   * first question lands; the participant view falls back to "first not-done".
+   */
+  current_question_id: string | null
+  /** NET ms at which the current section began (server-stamped), or null. */
+  current_section_started_ms: number | null
   preparation_id: string
   eir_id: string | null
   eir_phase: string | null
@@ -217,6 +226,8 @@ export async function loadLiveV2(roomId: string): Promise<LiveV2Snapshot | null>
       current_section_index: room.current_section_index ?? null,
       completed_question_ids: (room.completed_question_ids as string[] | null) ?? [],
       active_card_id: (room.active_card_id as string | null) ?? null,
+      current_question_id: room.current_question_id ?? null,
+      current_section_started_ms: room.current_section_started_ms ?? null,
       preparation_id: room.preparation_id,
       eir_id: room.eir_id ?? null,
       eir_phase,

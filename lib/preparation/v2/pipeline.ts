@@ -15,9 +15,11 @@
  * this gate to keep legacy behavior intact.
  */
 
-import { eq } from "drizzle-orm"
+import { hasActiveRecordingForPreparation } from "@/lib/recording-v2/live-guard"
+import { and, eq, sql } from "drizzle-orm"
 import { db } from "@/lib/db"
 import { episodePreparations } from "@/lib/db/schema/preparation"
+import { collaborationRooms } from "@/lib/db/schema/collaboration"
 import { episodeIntelligenceRecords } from "@/lib/db/schema/eir"
 import { khatMapEpisodeCandidates } from "@/lib/db/schema/khat-map"
 // Phase 1.3 — JSONB validation wrapper.
@@ -81,6 +83,7 @@ export interface RunPrepV2Result {
     | "pass3_failed"
     | "pass4_failed"
     | "validation_failed_after_retry"
+    | "room_live"
 }
 
 export async function runPrepV2Pipeline(
@@ -103,6 +106,20 @@ export async function runPrepV2Pipeline(
       validation: { ok: false, failures: [] },
       ai_run_ids,
       reason: "feature_disabled",
+    }
+  }
+
+  // Never while a take is running on this prep: a regeneration replaces the
+  // whole bank (new ids, new sections) under a host reading from it live.
+  // Checked BEFORE any AI pass, so a refused run costs nothing.
+  if (await hasActiveRecordingForPreparation(input.preparationId)) {
+    return {
+      ok: false,
+      preparation_id: input.preparationId,
+      payload: null,
+      validation: { ok: false, failures: [] },
+      ai_run_ids,
+      reason: "room_live",
     }
   }
 
@@ -383,7 +400,20 @@ export async function runPrepV2Pipeline(
   // unsuccessful so the conversion flow knows.
   // The persisted payload may carry authored questions over from the prep it
   // replaces (see persistPrepV2) — report what was actually stored.
-  payload = await persistPrepV2(input.preparationId, payload)
+  const persisted = await persistPrepV2(input.preparationId, payload)
+  if (!persisted) {
+    // A take started on this prep WHILE the passes ran (they take minutes).
+    // Nothing was written — the host keeps the bank he is reading from.
+    return {
+      ok: false,
+      preparation_id: input.preparationId,
+      payload: null,
+      validation,
+      ai_run_ids,
+      reason: "room_live",
+    }
+  }
+  payload = persisted
 
   if (!validation.ok) {
     return {
@@ -407,10 +437,14 @@ export async function runPrepV2Pipeline(
 
 // ─── Persist ───────────────────────────────────────────────────────────
 
+/**
+ * Returns the stored payload, or `null` when the write was REFUSED because a
+ * recording room on this prep is live or paused at write time.
+ */
 async function persistPrepV2(
   preparationId: string,
   generated: PrepV2Payload,
-): Promise<PrepV2Payload> {
+): Promise<PrepV2Payload | null> {
   // Take the SAME row lock the inline-edit path takes (`mutatePrepV2` in
   // app/admin/khat-brain/episodes/[eirId]/prep-actions.ts): SELECT … FOR UPDATE
   // inside a transaction. This write was the only prep_v2 writer doing a bare,
@@ -458,15 +492,30 @@ async function persistPrepV2(
       prepV2Schema,
     )
 
-    await tx
+    // The live-room check at the pipeline's entry runs BEFORE passes that take
+    // minutes, so a take can start in between. Re-checked here, inside the
+    // write itself: the UPDATE only lands if no room on this prep is live or
+    // paused at that moment. 0 rows ⇒ refused, and the old payload stays.
+    const written = await tx
       .update(episodePreparations)
       .set({
         prep_v2: merged as never,
         updated_at: new Date(),
       })
-      .where(eq(episodePreparations.id, preparationId))
-    return merged
+      .where(
+        and(
+          eq(episodePreparations.id, preparationId),
+          sql`not exists (
+            select 1 from ${collaborationRooms}
+            where ${collaborationRooms.preparation_id} = ${preparationId}
+              and ${collaborationRooms.status} in ('live', 'paused')
+          )`,
+        ),
+      )
+      .returning({ id: episodePreparations.id })
+    return written.length > 0 ? merged : null
   })
+  if (!payload) return null
 
   // Tell any live recording room on this preparation that the structure
   // exists now. Rooms are opened before generation finishes, so without

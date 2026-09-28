@@ -43,6 +43,7 @@ const dbState = vi.hoisted(() => {
     /** What the persist transaction's locked SELECT sees (the prep being replaced). */
     lockedRow: [] as Record<string, unknown>[],
     fakeDb: null as unknown,
+    writeRefused: false,
   }
   function chain(resolveRows: () => unknown[]): unknown {
     const then = (ok: (v: unknown) => unknown, bad?: (e: unknown) => unknown) =>
@@ -61,7 +62,10 @@ const dbState = vi.hoisted(() => {
         update: () => ({
           set: (v: Record<string, unknown>) => {
             state.persisted = v
-            return chain(() => [])
+            // The write is conditional (no live room) and RETURNING — one row
+            // back means it landed. `writeRefused` simulates a take starting
+            // while the passes ran.
+            return chain(() => (state.writeRefused ? [] : [{ id: "prep" }]))
           },
         }),
       }),
@@ -69,6 +73,13 @@ const dbState = vi.hoisted(() => {
   return state
 })
 vi.mock("@/lib/db", () => ({ db: dbState.fakeDb }))
+// The pipeline now refuses to run while a take is live on the prep (one extra
+// SELECT at its entry). This stand-in DB is POSITIONAL — every select takes the
+// next queued row set — so that read is answered here, not from the queue.
+vi.mock("@/lib/recording-v2/live-guard", () => ({
+  hasActiveRecordingForPreparation: vi.fn(async () => false),
+  ROOM_LIVE_REGENERATION_MESSAGE: "",
+}))
 vi.mock("@/lib/collaboration/prep-live", () => ({
   broadcastPrepV2Update: vi.fn(async () => undefined),
 }))
@@ -268,6 +279,7 @@ beforeEach(() => {
   dbState.selectQueue.length = 0
   dbState.persisted = null
   dbState.lockedRow = []
+  dbState.writeRefused = false
 })
 
 // ─── Story mode is byte-identical ─────────────────────────────────────
@@ -618,6 +630,46 @@ describe("runPrepV2Pipeline — format: course", () => {
     for (const c of aiCalls) expect(c.input.format).toBe("course")
     expect(dbState.persisted).not.toBeNull()
     expect((dbState.persisted!.prep_v2 as PrepV2Payload).format).toBe("course")
+  })
+
+  it("REFUSES the write when a take started while the passes ran (live-guard TOCTOU)", async () => {
+    // The entry check passed (no live room then); the passes take minutes; a
+    // take starts; the conditional UPDATE matches 0 rows. The host must keep
+    // the bank he is reading from, and the operator gets the same refusal.
+    dbState.selectQueue.push(
+      [
+        {
+          id: "prep-1",
+          title: "القيادة بعين الطبيب",
+          episode_goal: BADER_GOAL,
+          guest_identity: null,
+          guest_name: "بدر الطريجي",
+          eir_id: "eir-1",
+        },
+      ],
+      [{ editorial_intent: {}, topic_domain: "leadership", episode_type: "expert" }],
+    )
+    aiResponder = (req) => {
+      switch (req.input.pass) {
+        case "prep_v2.research_synthesis":
+          return PASS1
+        case "prep_v2.structure_build":
+          return { modules: MODULE_TITLES.map((t, i) => mod(t, [18, 30, 30, 30, 8][i])) }
+        case "prep_v2.question_banks":
+          return { questions: courseQuestions() }
+        case "prep_v2.critique":
+          return { questions: courseQuestions(), ...guidance() }
+        default:
+          return null
+      }
+    }
+    dbState.writeRefused = true
+
+    const r = await runPrepV2Pipeline({ preparationId: "prep-1", force: true, format: "course" })
+
+    expect(r.ok).toBe(false)
+    expect(r.reason).toBe("room_live")
+    expect(r.payload).toBeNull()
   })
 
   it("regeneration keeps questions a person added (manual / guest) whose module still exists", async () => {

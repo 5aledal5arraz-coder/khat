@@ -24,18 +24,40 @@ import {
   setTakeCameraOffset,
   recordChecklistOverride,
   recordTakeStartMarker,
+  setCurrentQuestion,
   ALLOWED_MARKER_TYPES,
   type LiveV2MarkerType,
 } from "@/lib/recording-v2/actions-impl"
 import { setChecklistItem } from "@/lib/recording-v2/checklist"
 import { resolveMemberName } from "@/lib/admin/team-identity"
 import { resolveRoomRole } from "@/lib/collaboration/room-roles"
-import { getRoomById, updateRoom } from "@/lib/collaboration/rooms"
+import { getRoomById } from "@/lib/collaboration/rooms"
 import { broadcast } from "@/lib/collaboration/broadcast"
 import type { SectionKind } from "@/lib/preparation/v2/types"
 
 function revalidate(roomId: string) {
   revalidatePath(`/admin/recording/${roomId}/v2`)
+}
+
+/**
+ * The gate every action in this file passes, as a VALUE instead of a throw.
+ *
+ * These actions used to `throw new Error(gate.error)`. In a production build
+ * Next strips a thrown server-action error down to a generic digest, so the
+ * client could never tell "your session expired" from any other failure — the
+ * host saw «فشلت العملية لسبب غير متوقع» mid-take and kept pressing. Returned
+ * as `{ ok: false, error: "unauthorized" | "forbidden" }` it survives the wire
+ * and the cockpit can say «انتهت الجلسة — سجّل الدخول من جديد».
+ *
+ * The permission itself is unchanged: still `requireActionRole("EDITOR")`
+ * against `admin_users.role`.
+ */
+type GateFailure = { ok: false; error: "unauthorized" | "forbidden" }
+async function gateEditor(): Promise<GateFailure | null> {
+  const gate = await requireActionRole("EDITOR")
+  if (gate.ok) return null
+  const user = await getAdminAuthUser()
+  return { ok: false, error: user && user.is_active ? "forbidden" : "unauthorized" }
 }
 
 /**
@@ -51,12 +73,16 @@ function revalidate(roomId: string) {
  */
 async function broadcastRoom(roomId: string) {
   const room = await getRoomById(roomId)
-  if (!room) return
+  if (!room) return null
   broadcast(roomId, {
     type: "room_update",
     data: room,
     timestamp: new Date().toISOString(),
   })
+  // Returned so the caller can reconcile to the SAME row everyone else just
+  // received, instead of a locally guessed baseline (the host used to set his
+  // clock to 0 on an `already_started` reply while the take had been running).
+  return room
 }
 
 /**
@@ -71,8 +97,8 @@ async function broadcastRoom(roomId: string) {
  * completed checklist the host's is.
  */
 export async function startTimerAction(roomId: string) {
-  const gate = await requireActionRole("EDITOR")
-  if (!gate.ok) throw new Error(gate.error)
+  const denied = await gateEditor()
+  if (denied) return denied
   const r = await startTimer(roomId)
   // Attribution: who pressed it. Only on the press that actually started the
   // take — the losing half of a two-press race must not log a second start.
@@ -87,45 +113,45 @@ export async function startTimerAction(roomId: string) {
       })
     }
   }
-  await broadcastRoom(roomId)
+  const room = await broadcastRoom(roomId)
   revalidate(roomId)
-  return r
+  return { ...r, room }
 }
 
 export async function pauseTimerAction(roomId: string) {
-  const gate = await requireActionRole("EDITOR")
-  if (!gate.ok) throw new Error(gate.error)
+  const denied = await gateEditor()
+  if (denied) return denied
   const r = await pauseTimer(roomId)
-  await broadcastRoom(roomId)
+  const room = await broadcastRoom(roomId)
   revalidate(roomId)
-  return r
+  return { ...r, room }
 }
 
 export async function resumeTimerAction(roomId: string) {
-  const gate = await requireActionRole("EDITOR")
-  if (!gate.ok) throw new Error(gate.error)
+  const denied = await gateEditor()
+  if (denied) return denied
   const r = await resumeTimer(roomId)
-  await broadcastRoom(roomId)
+  const room = await broadcastRoom(roomId)
   revalidate(roomId)
-  return r
+  return { ...r, room }
 }
 
 export async function resetTimerAction(roomId: string) {
-  const gate = await requireActionRole("EDITOR")
-  if (!gate.ok) throw new Error(gate.error)
+  const denied = await gateEditor()
+  if (denied) return denied
   const r = await resetTimer(roomId)
-  await broadcastRoom(roomId)
+  const room = await broadcastRoom(roomId)
   revalidate(roomId)
-  return r
+  return { ...r, room }
 }
 
 export async function endTimerAction(roomId: string) {
-  const gate = await requireActionRole("EDITOR")
-  if (!gate.ok) throw new Error(gate.error)
+  const denied = await gateEditor()
+  if (denied) return denied
   const r = await endTimer(roomId)
-  await broadcastRoom(roomId)
+  const room = await broadcastRoom(roomId)
   revalidate(roomId)
-  return r
+  return { ...r, room }
 }
 
 /**
@@ -146,8 +172,8 @@ export async function setChecklistItemAction(input: {
   state: "done" | "not_applicable" | "pending"
   notApplicableReason?: string | null
 }) {
-  const gate = await requireActionRole("EDITOR")
-  if (!gate.ok) throw new Error(gate.error)
+  const denied = await gateEditor()
+  if (denied) return denied
   const user = await getAdminAuthUser()
   const r = await setChecklistItem({
     roomId: input.roomId,
@@ -184,8 +210,8 @@ export async function overrideChecklistGateAction(input: {
   resolvedCount: number
   total: number
 }) {
-  const gate = await requireActionRole("EDITOR")
-  if (!gate.ok) throw new Error(gate.error)
+  const denied = await gateEditor()
+  if (denied) return denied
   const user = await getAdminAuthUser()
   if (!user) return { ok: false as const, error: "no_user" }
   const reason = input.reason.trim().slice(0, 200)
@@ -209,8 +235,8 @@ export async function setTakeCameraOffsetAction(input: {
   takeNumber: number
   offsetMs: number
 }) {
-  const gate = await requireActionRole("EDITOR")
-  if (!gate.ok) throw new Error(gate.error)
+  const denied = await gateEditor()
+  if (denied) return denied
   const r = await setTakeCameraOffset(input)
   revalidate(input.roomId)
   return r
@@ -221,23 +247,23 @@ export async function setCurrentSectionAction(input: {
   index: number
   key: SectionKind
 }) {
-  const gate = await requireActionRole("EDITOR")
-  if (!gate.ok) throw new Error(gate.error)
+  const denied = await gateEditor()
+  if (denied) return denied
   const r = await setCurrentSection(input)
-  // The director's screen follows `current_section_index`, and his section
-  // clock is stamped from the moment this lands. Without the broadcast both sat
-  // still.
-  await broadcastRoom(input.roomId)
+  // The director's screen follows `current_section_index`, and the section
+  // clock now reads the server-stamped `current_section_started_ms`. Without
+  // the broadcast both sat still.
+  const room = await broadcastRoom(input.roomId)
   revalidate(input.roomId)
-  return r
+  return { ...r, room }
 }
 
 export async function saveDirectorNotesAction(input: {
   roomId: string
   notes: string
 }) {
-  const gate = await requireActionRole("EDITOR")
-  if (!gate.ok) throw new Error(gate.error)
+  const denied = await gateEditor()
+  if (denied) return denied
   return await saveDirectorNotes(input)
 }
 
@@ -248,8 +274,8 @@ export async function createMarkerAction(input: {
   note?: string | null
   sectionKey?: SectionKind | null
 }) {
-  const gate = await requireActionRole("EDITOR")
-  if (!gate.ok) throw new Error(gate.error)
+  const denied = await gateEditor()
+  if (denied) return denied
   if (!ALLOWED_MARKER_TYPES.includes(input.markerType)) {
     return { ok: false as const, error: "invalid_marker_type" }
   }
@@ -261,49 +287,53 @@ export async function createMarkerAction(input: {
     authorDisplayName: resolveMemberName(user),
     authorRoomRole: resolveRoomRole({ jobTitle: user.job_title, adminRole: user.role }),
   })
+  /**
+   * Tell the room. The director's POST route always broadcast `marker_added`;
+   * this action — the host's path — wrote the row and stopped, so every flag
+   * the host raised was invisible to the director and the editor until someone
+   * reloaded. Same event, same payload shape, so the markers context needs no
+   * special case.
+   */
+  if (r.ok) {
+    broadcast(input.roomId, {
+      type: "marker_added",
+      data: r.marker,
+      timestamp: new Date().toISOString(),
+    })
+  }
   revalidate(input.roomId)
   return r
 }
 
 /**
- * Broadcast WHICH QUESTION THE HOST IS ON RIGHT NOW.
+ * Broadcast WHICH QUESTION THE HOST IS ON RIGHT NOW («الآن»).
  *
- * ── THE GAP THIS FILLS ─────────────────────────────────────────────────────
  * Khaled: «فيصل وشاهين لازم يشوفون السؤال اللي بيطرحه المحاور عشان يتابعون مع
  * المحاور ويعرفون اي سؤال الان وماهو السؤال التالي».
  *
- * The room tracked only `completed_question_ids` — which questions had been
- * ASKED. From that the others could infer "he is probably on the first undone
- * one", and that inference breaks the moment the host skips a question or
- * doubles back, which is exactly when a director most needs to know where he
- * is. Nothing in the room ever said "now".
+ * ── WHY IT NEVER WORKED ────────────────────────────────────────────────────
+ * The first version wrote the prep_v2 question id into `active_card_id` "to
+ * avoid a migration". That column is a foreign key to `interview_cards(id)`
+ * (ON DELETE SET NULL), and a prep_v2 id is not an interview card — so every
+ * write failed with 23503, the client's fire-and-forget `.catch(() => {})`
+ * swallowed it, and the director's «الآن» fell back to "first not-done" for
+ * every take. Same FK on production. It now has its own column,
+ * `current_question_id` (migration 0032), and failures are RETURNED so the
+ * cockpit can say so.
  *
- * ── WHY `active_card_id` AND NOT A NEW COLUMN ──────────────────────────────
- * `collaboration_rooms.active_card_id` already exists, already broadcasts with
- * every room update, and is unused by this room — the preparation room uses it
- * for the same idea. So this needs no migration and no new SSE payload: the
- * participant views already receive the field, they were simply never given
- * anything to read from it.
- *
- * EDITOR role is the gate, matching `toggleQuestionDoneAction` beside it — the
- * host drives this, but a director correcting a mis-set question mid-take is a
- * repair, not an escalation.
+ * EDITOR role is the gate, matching `toggleQuestionDoneAction` beside it.
  */
 export async function setCurrentQuestionAction(input: {
   roomId: string
   questionId: string | null
 }) {
-  const gate = await requireActionRole("EDITOR")
-  if (!gate.ok) throw new Error(gate.error)
-  const room = await updateRoom(input.roomId, { active_card_id: input.questionId })
-  revalidate(input.roomId)
-  if (room) {
-    broadcast(input.roomId, {
-      type: "room_update",
-      data: room,
-      timestamp: new Date().toISOString(),
-    })
-  }
+  const denied = await gateEditor()
+  if (denied) return denied
+  const r = await setCurrentQuestion(input)
+  if (!r.ok) return r
+  // No revalidatePath: this fires on every hero change and only other people's
+  // screens care, which the broadcast reaches.
+  await broadcastRoom(input.roomId)
   return { ok: true as const }
 }
 
@@ -311,8 +341,8 @@ export async function toggleQuestionDoneAction(input: {
   roomId: string
   questionId: string
 }) {
-  const gate = await requireActionRole("EDITOR")
-  if (!gate.ok) throw new Error(gate.error)
+  const denied = await gateEditor()
+  if (denied) return denied
   const r = await toggleQuestionDone(input)
   revalidate(input.roomId)
   // Broadcast the updated room so participant views reflect coverage live.

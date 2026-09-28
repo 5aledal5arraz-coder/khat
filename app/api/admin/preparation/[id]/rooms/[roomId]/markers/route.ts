@@ -82,7 +82,9 @@ export async function DELETE(
     const body = await req.json()
     if (!body.marker_id) return errorResponse("معرّف العلامة مطلوب", 422)
 
-    await deleteMarker(body.marker_id)
+    // Scoped to THIS room: an id from another room deletes nothing.
+    const removed = await deleteMarker(roomId, String(body.marker_id))
+    if (!removed) return errorResponse("العلامة غير موجودة في هذه الغرفة", 404)
 
     broadcast(roomId, {
       type: "marker_deleted",

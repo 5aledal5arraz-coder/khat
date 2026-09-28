@@ -10,7 +10,7 @@
  * orchestrator (live-v2-client) stays the single owner of state + actions.
  */
 
-import { useState, type ReactNode } from "react"
+import { useEffect, useState, type ReactNode, type RefObject } from "react"
 import {
   Check,
   Copy,
@@ -28,6 +28,7 @@ import {
   ShieldCheck,
   Clock,
   AlertTriangle,
+  X,
   type LucideIcon,
 } from "lucide-react"
 import {
@@ -59,13 +60,13 @@ export const TYPE_LABEL_AR: Record<string, string> = {
 export function PriorityChip({ priority }: { priority: "must_ask" | "if_time" }) {
   if (priority === "must_ask") {
     return (
-      <span className="rounded-full bg-emerald-500/15 px-1.5 py-0.5 text-[10px] font-medium text-emerald-700">
+      <span className="rounded-full bg-emerald-500/15 px-2 py-0.5 text-[12px] font-medium text-emerald-700">
         أساسي
       </span>
     )
   }
   return (
-    <span className="rounded-full bg-muted/30 px-1.5 py-0.5 text-[10px] text-muted-foreground">
+    <span className="rounded-full bg-muted/30 px-2 py-0.5 text-[12px] text-muted-foreground">
       إن سمح الوقت
     </span>
   )
@@ -76,8 +77,8 @@ export function RiskChip({ risk }: { risk: "low" | "medium" | "high" }) {
   const cls = risk === "high" ? "bg-rose-500/10 text-rose-700" : "bg-amber-500/10 text-amber-700"
   const label = risk === "high" ? "حسّاس" : "انتبه"
   return (
-    <span className={`inline-flex items-center gap-0.5 rounded-full px-1.5 py-0.5 text-[10px] ${cls}`}>
-      <AlertTriangle className="h-2.5 w-2.5" /> {label}
+    <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[12px] ${cls}`}>
+      <AlertTriangle className="h-3 w-3" /> {label}
     </span>
   )
 }
@@ -88,7 +89,7 @@ export function TypeChips({ types }: { types: string[] }) {
       {types.map((t) => (
         <span
           key={t}
-          className="rounded-full border border-border/40 px-1.5 py-0.5 text-[10px] text-muted-foreground"
+          className="rounded-full border border-border/40 px-2 py-0.5 text-[12px] text-muted-foreground"
         >
           {TYPE_LABEL_AR[t] ?? t}
         </span>
@@ -166,22 +167,57 @@ export function GuidanceList({
   )
 }
 
-/** A pre-written option (opening/closing) with one-tap copy. */
+/**
+ * A pre-written option (opening/closing) with one-tap copy.
+ *
+ * With `onChoose`, the host can also mark ONE option as his — the chosen
+ * opening is what the on-air screen shows above the first question of the
+ * first section, so the line he rehearsed is in front of him when the camera
+ * rolls instead of one screen back.
+ */
 export function OptionList({
   items,
+  chosenIndex,
+  onChoose,
 }: {
   items: Array<{ approach: string; text: string }>
+  chosenIndex?: number | null
+  onChoose?: (index: number) => void
 }) {
   const [copied, setCopied] = useState<number | null>(null)
   if (!items || items.length === 0) return null
   return (
     <ul className="space-y-2">
       {items.map((o, i) => (
-        <li key={i} className="rounded-xl border border-border/40 bg-background/40 p-3">
+        <li
+          key={i}
+          className={
+            "rounded-xl border p-3 " +
+            (onChoose && chosenIndex === i
+              ? "border-primary/50 bg-primary/5"
+              : "border-border/40 bg-background/40")
+          }
+        >
           <div className="mb-1 flex items-center justify-between gap-2">
-            <span className="text-[10.5px] uppercase tracking-wider text-muted-foreground">
+            <span className="text-[12px] text-muted-foreground">
               {o.approach}
             </span>
+            <span className="inline-flex items-center gap-1.5">
+            {onChoose && (
+              <button
+                type="button"
+                onClick={() => onChoose(i)}
+                aria-pressed={chosenIndex === i}
+                className={
+                  "inline-flex min-h-[36px] items-center gap-1 rounded-lg border px-2.5 text-[12px] font-medium transition " +
+                  (chosenIndex === i
+                    ? "border-primary/50 bg-primary/10 text-primary"
+                    : "border-border/50 text-muted-foreground hover:bg-background/70")
+                }
+              >
+                <Check className="h-3 w-3" /> {chosenIndex === i ? "افتتاحيتك" : "اخترها"}
+              </button>
+            )}
             <button
               type="button"
               onClick={() => {
@@ -201,6 +237,7 @@ export function OptionList({
                 </>
               )}
             </button>
+            </span>
           </div>
           <div className="text-[13px] leading-relaxed text-foreground/90">{o.text}</div>
         </li>
@@ -235,7 +272,7 @@ export function Drawer({
         onClick={() => setOpen((o) => !o)}
         aria-expanded={open}
         className={
-          "flex w-full items-center justify-between gap-2 px-3.5 py-2.5 text-[12.5px] font-medium transition hover:bg-background/60 " +
+          "flex min-h-[44px] w-full items-center justify-between gap-2 px-3.5 py-2.5 text-[13px] font-medium transition hover:bg-background/60 " +
           (accent === "amber" ? "text-amber-700" : "text-foreground/85")
         }
       >
@@ -284,12 +321,12 @@ export function CompactEnergyControl({
           stays 0–5 — five dots, one name — because every historical
           `energy_change` marker holds a 0–5 number and re-scaling would rewrite
           what those rows mean. */}
-      <span className="text-[11px] font-medium text-amber-700">
+      <span className="text-[14px] font-medium text-amber-700">
         {ENERGY_BAND_LABEL_AR[energyBand(n)]}
       </span>
       {diverged && (
         <span
-          className="rounded-full bg-muted/40 px-1.5 py-0.5 text-[10.5px] font-medium text-muted-foreground"
+          className="rounded-full bg-muted/40 px-2 py-0.5 text-[12px] font-medium text-muted-foreground"
           title="اضغط على النقاط لاعتماد الطاقة المعروضة لترتيب أسئلتك"
         >
           ترتيبك على {ENERGY_BAND_LABEL_AR[energyBand(approved)]}
@@ -329,7 +366,10 @@ export function CompactEnergyControl({
                */
               onClick={() => onSet(i + 1)}
               aria-label={`ضبط الطاقة على ${i + 1}`}
-              className="group flex h-10 w-3.5 items-center justify-center rounded-md [touch-action:manipulation]"
+              // 44px tall — height is what decides whether a thumb lands. The
+              // width is 44px from `sm` up and 28px on a phone, where five
+              // 44px steps would not share a line with anything.
+              className="group flex h-11 w-7 items-center justify-center rounded-md sm:w-11 [touch-action:manipulation]"
             >
               <span
                 className={
@@ -341,7 +381,7 @@ export function CompactEnergyControl({
               />
             </button>
           ) : (
-            <span key={i} className="flex h-10 w-3.5 items-center justify-center">
+            <span key={i} className="flex h-11 w-7 items-center justify-center sm:w-11">
               <span
                 className={
                   "h-2 w-2 rounded-full " +
@@ -390,14 +430,14 @@ export function InsightStrip(props: {
   const [open, setOpen] = useState(props.defaultOpen ?? false)
   const hasCorrection = props.insights.some((i) => i.type === "correction")
   return (
-    <div className="mt-2">
+    <div className="mt-2 w-full">
       <button
         type="button"
         onClick={() => setOpen((o) => !o)}
         aria-expanded={open}
-        className="inline-flex items-center gap-1.5 rounded-full border border-teal-500/30 bg-teal-500/5 px-2.5 py-1 text-[11px] font-medium text-teal-700 transition hover:bg-teal-500/10"
+        className="inline-flex min-h-[44px] items-center gap-1.5 rounded-full border border-teal-500/30 bg-teal-500/5 px-3.5 py-1.5 text-[13px] font-medium text-teal-700 transition hover:bg-teal-500/10"
       >
-        <Lightbulb className="h-3 w-3" />
+        <Lightbulb className="h-3.5 w-3.5" />
         إسناد {props.insights.length}
         {hasCorrection && (
           <span className="inline-flex items-center gap-0.5 text-amber-700">
@@ -542,4 +582,99 @@ function sourceYear(publishedAt?: string): string | null {
   if (!publishedAt) return null
   const m = publishedAt.match(/\b(19|20)\d{2}\b/)
   return m ? m[0] : null
+}
+
+// ─── Sheet (overlay panel) ────────────────────────────────────────────
+
+/**
+ * A panel the host OPENS — team, section jump, reference, shortcuts.
+ *
+ * These used to open inline, in normal flow, above the question: the team
+ * panel and the section grid pushed the question and the status rail (with
+ * pause and end on it) off the top of the screen — measured at −56px on an
+ * iPad. As an overlay nothing underneath moves. A bottom sheet on phones and
+ * portrait tablets; a side sheet (the inline-end edge) from `lg` up, i.e. iPad
+ * landscape, where the question stays readable beside it.
+ *
+ * `role="dialog"` is load-bearing: the recording surface forbids top-pinned
+ * viewport overlays (tests/recording/error-banner-layout.test.ts) except
+ * dialogs the host opened himself and can dismiss.
+ */
+export function Sheet({
+  open,
+  onClose,
+  title,
+  children,
+}: {
+  open: boolean
+  onClose: () => void
+  title: string
+  children: ReactNode
+}) {
+  useEffect(() => {
+    if (!open) return
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose()
+    }
+    window.addEventListener("keydown", onKey)
+    return () => window.removeEventListener("keydown", onKey)
+  }, [open, onClose])
+  if (!open) return null
+  return (
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-label={title}
+      className="fixed inset-0 z-50 flex items-end lg:items-stretch lg:justify-end"
+      dir="rtl"
+    >
+      <button
+        type="button"
+        aria-label="إغلاق"
+        tabIndex={-1}
+        onClick={onClose}
+        className="absolute inset-0 cursor-default bg-foreground/20"
+      />
+      <div className="relative max-h-[85vh] w-full overflow-y-auto rounded-t-2xl border-t border-border bg-card p-4 pb-[max(1rem,env(safe-area-inset-bottom))] shadow-xl lg:h-full lg:max-h-none lg:w-[440px] lg:rounded-none lg:border-s lg:border-t-0">
+        <div className="mb-3 flex items-center justify-between gap-2">
+          <span className="text-[15px] font-semibold text-foreground">{title}</span>
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="إغلاق"
+            className="inline-flex h-11 w-11 items-center justify-center rounded-xl border border-border/60 text-muted-foreground transition hover:bg-background/70"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+        {children}
+      </div>
+    </div>
+  )
+}
+
+/**
+ * Publish a fixed bottom bar's measured height as `--khat-bottom-bar`, so
+ * overlays that float above it (the error banner, the undo toast) clear it at
+ * any height, and so the page can reserve the same space at its end.
+ */
+export function useBottomBarHeight(ref: RefObject<HTMLElement | null>): number {
+  const [h, setH] = useState(0)
+  useEffect(() => {
+    const el = ref.current
+    if (!el) return
+    const apply = () => {
+      const next = Math.ceil(el.getBoundingClientRect().height)
+      setH(next)
+      document.documentElement.style.setProperty("--khat-bottom-bar", `${next}px`)
+    }
+    const ro = new ResizeObserver(apply)
+    ro.observe(el)
+    apply()
+    return () => {
+      ro.disconnect()
+      document.documentElement.style.removeProperty("--khat-bottom-bar")
+    }
+  }, [ref])
+  return h
 }

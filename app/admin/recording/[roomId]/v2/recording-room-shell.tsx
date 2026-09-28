@@ -142,9 +142,14 @@ function RoomShellInner({
       // the leaver as freshly online.
       void leaveRoom()
     }
-    window.addEventListener("beforeunload", onUnload)
+    // `pagehide`, not `beforeunload`. The host's cockpit now asks «تبي تطلع؟»
+    // on `beforeunload` while a take is running (live-v2-client), and that
+    // event fires BEFORE the answer: leaving from it signed the host out of the
+    // room even when he chose to stay. `pagehide` fires only when the page is
+    // really going — and, unlike `beforeunload`, it also fires on iOS Safari.
+    window.addEventListener("pagehide", onUnload)
     return () => {
-      window.removeEventListener("beforeunload", onUnload)
+      window.removeEventListener("pagehide", onUnload)
       void leaveRoom()
     }
   }, [leaveRoom, prepId, roomId])
@@ -257,7 +262,13 @@ function PresenceStrip({
       <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-2 text-[11px]">
         <span className="inline-flex items-center gap-1.5 text-muted-foreground">
           <Users className="h-3 w-3" />
-          {joinFailed ? "تعذّر تسجيل حضورك" : `${online} متصل الآن`}
+          {/* Before the stream is up the list is empty, and «0 متصل الآن» read
+              as "nobody is here" — say it is still connecting instead. */}
+          {joinFailed
+            ? "تعذّر تسجيل حضورك"
+            : connected
+              ? `${online} متصل الآن`
+              : "الحضور: يتّصل…"}
           {joinedAs && (
             <span className="rounded-full bg-primary/10 px-1.5 py-0.5 text-primary">
               أنت: {roomRoleLabel(joinedAs)}

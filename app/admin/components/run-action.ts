@@ -36,6 +36,8 @@ export type ActionFailureKind =
   | "offline"
   /** The server refused because we asked too often. */
   | "rate_limited"
+  /** The admin session is gone (expired / signed out) — only a new login helps. */
+  | "unauthorized"
   /** Anything we cannot confidently classify. */
   | "unknown"
 
@@ -59,6 +61,8 @@ export const ACTION_FAILURE_MESSAGES: Record<ActionFailureKind, string> = {
     "تعذّر الوصول إلى الخادم. تحقّق من الاتصال ثم أعد المحاولة.",
   rate_limited:
     "تم تجاوز الحد المسموح من الطلبات. انتظر قليلاً ثم أعد المحاولة.",
+  // Retrying cannot fix this one, so the message must not suggest it.
+  unauthorized: "انتهت الجلسة — سجّل الدخول من جديد.",
   unknown:
     "فشلت العملية لسبب غير متوقع. أعد المحاولة، وإذا تكرر الخطأ شارك التفاصيل مع الفريق التقني.",
 }
@@ -116,6 +120,10 @@ function detectKind(error: unknown): ActionFailureKind {
     return "offline"
   }
 
+  // `requireActionRole`'s own sentence (it survives in dev; production strips
+  // thrown messages, which is why the recording actions RETURN it instead —
+  // see `failureMessageForResult`), or an HTTP-shaped 401.
+  if (/يجب تسجيل الدخول أولاً|\b401\b|unauthori[sz]ed/i.test(text)) return "unauthorized"
   if (/\b429\b|too many requests|rate.?limit/i.test(text)) return "rate_limited"
   if (/\b(504|502)\b|gateway time-?out|bad gateway/i.test(text)) return "gateway"
 
@@ -146,4 +154,16 @@ export async function runAction<T>(
     console.error(`[admin] Server Action failed (${kind}):`, error)
     return { ok: false, kind, message, cause: error }
   }
+}
+
+/**
+ * Operator copy for a server action that RETURNED a failure rather than
+ * throwing one. Actions that must survive production error-stripping return
+ * `{ ok: false, error: "unauthorized" | "forbidden" }`; anything else falls back
+ * to the generic message, never to a raw error code.
+ */
+export function failureMessageForResult(error: string | undefined | null): string {
+  if (error === "unauthorized") return ACTION_FAILURE_MESSAGES.unauthorized
+  if (error === "forbidden") return "ليس لديك صلاحية لهذا الإجراء."
+  return ACTION_FAILURE_MESSAGES.unknown
 }

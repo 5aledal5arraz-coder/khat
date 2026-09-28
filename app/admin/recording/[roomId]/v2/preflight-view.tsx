@@ -7,7 +7,7 @@
  * which the prep generated but the room never showed. Ends in a big GO-LIVE.
  */
 
-import { forwardRef, useEffect, useRef, useState } from "react"
+import { forwardRef, useRef } from "react"
 import { Sparkles, Mic, Compass, AlertTriangle, Radio, PlayCircle } from "lucide-react"
 import type {
   PrepV2HostGuidance,
@@ -16,7 +16,7 @@ import type {
 } from "@/lib/preparation/v2/types"
 import { sectionTargetLevel } from "@/lib/recording-v2/energy"
 import { sectionLabelAr, type PrepFormat } from "@/lib/preparation/v2/format"
-import { GuidanceList, OptionList, CompactEnergyControl } from "./cockpit-bits"
+import { GuidanceList, OptionList, CompactEnergyControl, useBottomBarHeight } from "./cockpit-bits"
 
 export function PreflightView({
   title,
@@ -25,6 +25,8 @@ export function PreflightView({
   axes,
   hostGuidance,
   openingOptions,
+  chosenOpening = null,
+  onChooseOpening,
   sensitiveZones,
   sections,
   format = "story",
@@ -41,6 +43,9 @@ export function PreflightView({
   axes: string[]
   hostGuidance: PrepV2HostGuidance | null
   openingOptions: PrepV2OpeningOption[]
+  /** Which opening the host picked — shown above his first question on air. */
+  chosenOpening?: number | null
+  onChooseOpening?: (index: number) => void
   sensitiveZones: string[]
   sections: PrepV2Section[] | null
   /** Episode format — planned energy per section depends on it. */
@@ -68,16 +73,9 @@ export function PreflightView({
   // varies a lot by state: 84px when ready, 298px when locked with both escape
   // hatches showing. A static pb-32 (128px) left 154px of the last panel
   // permanently hidden behind the bar even at full scroll.
-  const [barH, setBarH] = useState(0)
+  // Also publishes `--khat-bottom-bar`, so the error overlay floats above it.
   const barRef = useRef<HTMLDivElement | null>(null)
-  useEffect(() => {
-    const el = barRef.current
-    if (!el) return
-    const ro = new ResizeObserver(() => setBarH(el.getBoundingClientRect().height))
-    ro.observe(el)
-    setBarH(el.getBoundingClientRect().height)
-    return () => ro.disconnect()
-  }, [])
+  const barH = useBottomBarHeight(barRef)
 
   return (
     <div
@@ -105,12 +103,15 @@ export function PreflightView({
               {axes.slice(0, 6).map((a, i) => (
                 <li
                   key={i}
-                  className="rounded-lg border border-border/40 bg-background/40 px-2.5 py-1.5 text-[12px] text-foreground/85"
+                  // The gap is a flex gap, not a margin on the number: `me-1` on
+                  // a `dir="ltr"` span resolves against ITS direction (right),
+                  // i.e. away from the Arabic text it was meant to separate.
+                  className="flex items-baseline gap-1.5 rounded-lg border border-border/40 bg-background/40 px-2.5 py-1.5 text-[12px] text-foreground/85"
                 >
-                  <span className="me-1 text-muted-foreground" dir="ltr">
+                  <span className="shrink-0 text-muted-foreground" dir="ltr">
                     {i + 1}.
                   </span>
-                  {a}
+                  <span>{a}</span>
                 </li>
               ))}
             </ul>
@@ -141,7 +142,7 @@ export function PreflightView({
       {/* Opening options */}
       {openingOptions.length > 0 && (
         <Panel title="افتتاحيات جاهزة" icon={<PlayCircle className="h-3.5 w-3.5" />}>
-          <OptionList items={openingOptions} />
+          <OptionList items={openingOptions} chosenIndex={chosenOpening ?? 0} onChoose={onChooseOpening} />
         </Panel>
       )}
 
@@ -163,9 +164,10 @@ export function PreflightView({
                 <span className="text-[11px] text-muted-foreground/85 truncate">
                   {s.target_emotion}
                 </span>
-                <span className="ms-auto inline-flex items-center gap-2 text-[10.5px] text-muted-foreground" dir="ltr">
+                <span className="ms-auto inline-flex items-center gap-2 text-[10.5px] text-muted-foreground">
                   <TargetDots level={sectionTargetLevel(s.kind, format) ?? 3} />
-                  {s.estimated_minutes}m
+                  {/* One minutes format across the room: «~15 د» (was "15m"). */}
+                  ~{s.estimated_minutes} د
                 </span>
               </li>
             ))}

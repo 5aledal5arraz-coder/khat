@@ -5,19 +5,28 @@
  *
  * Owns all cockpit state + the server-action handlers (timer transport,
  * section nav, question-done, marker tagging, insight mark-used, debounced
- * notes autosave) and routes them into a PHASE-AWARE view driven by the local
- * optimistic `status`:
+ * notes autosave) and routes them into a PHASE-AWARE view:
  *
  *   waiting        → <PreflightView>   (read the prep, then go live)
  *   live | paused  → <OnAirView>       (the focus deck — the centerpiece)
  *   ended          → <WrapView>        (recap + export)
  *
- * The mode reads the LOCAL `status` the transport mutates (not SSE) so the view
- * flips instantly with the optimistic timer. The high-frequency clock self-ticks
- * inside <CompactClock>/<RecordingClock> via rAF, so a phase view never
- * re-renders per frame. Rooms without a prep_v2 fall back to <LegacyCockpit>.
+ * ── WHERE THE TRUTH LIVES ──────────────────────────────────────────────────
+ * The transport (status + clock baseline), the section and the asked set used
+ * to be PRIVATE to this component: set optimistically by the host's own
+ * buttons and never read back from the room. So a take the director started
+ * never reached the host's screen, a host who then pressed start got
+ * `already_started` and a clock set to 0, and a second device drifted forever.
  *
- * All persistence flows through the server actions in actions.ts.
+ * Now the shared room row is the truth. Local state is optimistic only while
+ * one of the host's own requests is in flight (`pendingOps`); each action
+ * returns the row it broadcast and the cockpit adopts it; every later
+ * `room_update` is applied as it arrives. A failed action ROLLS BACK instead of
+ * leaving the screen claiming a pause the server never recorded.
+ *
+ * The high-frequency clocks tick inside their own leaves (<CompactClock>,
+ * the rail's section timer), so a phase view never re-renders per tick. Rooms
+ * without a prep_v2 fall back to <LegacyCockpit>.
  */
 
 import { useEffect, useMemo, useRef, useState, useTransition, type ReactNode } from "react"
@@ -29,7 +38,8 @@ import {
   useRoomConnection,
 } from "@/app/admin/preparation/[id]/room/contexts"
 import type { LiveV2Marker, LiveV2Snapshot } from "@/lib/recording-v2/load"
-import { prepFormatOf } from "@/lib/preparation/v2/format"
+import type { CollaborationRoom } from "@/types/collaboration"
+import { prepFormatOf, sectionLabelAr } from "@/lib/preparation/v2/format"
 import {
   energyBand,
   rankQuestionsByEnergy,
@@ -44,6 +54,17 @@ import {
   type EnergyHandshakeEvent,
   type EnergyHandshakeState,
 } from "@/lib/recording-v2/energy-handshake"
+import {
+  isTypingTarget,
+  pinnedQuestionEdited,
+  sectionIndexFor,
+  shortcutFor,
+  shouldApplyRoomRow,
+  transportAfterAction,
+  transportFromRoom,
+  unaskedMustAsk,
+  type TransportState,
+} from "@/lib/recording-v2/live-sync"
 import { QUICK_MARKER_GROUPS, QUICK_MARKER_META, type QuickMarkerType } from "@/lib/recording-v2/marker-types"
 import {
   startTimerAction,
@@ -69,12 +90,19 @@ import { OnAirView } from "./onair-view"
 import { WrapView } from "./wrap-view"
 import { ChecklistPanel } from "./checklist-panel"
 import { PreflightGate } from "./preflight-gate"
+import type { TagResult } from "./flag-control"
 import {
   deriveChecklistModel,
   deriveHostGateState,
 } from "@/lib/recording-v2/preflight-checklist"
-import { runAction } from "@/app/admin/components/run-action"
-import { AlertTriangle } from "lucide-react"
+import { runAction, failureMessageForResult } from "@/app/admin/components/run-action"
+import { AlertTriangle, Info, X } from "lucide-react"
+
+/** How long an «تراجع» stays offered. */
+export const UNDO_WINDOW_MS = 5_000
+
+/** The shape every room action in actions.ts resolves to, loosely. */
+type ActionResult = { ok: boolean; error?: string; room?: CollaborationRoom | null }
 
 export function LiveV2Client({ initial }: { initial: LiveV2Snapshot }) {
   const room = initial.room
@@ -88,9 +116,6 @@ export function LiveV2Client({ initial }: { initial: LiveV2Snapshot }) {
   //                    markers. Reaches the host instantly, as asked.
   //  approved        : what the QUESTION RANKING reads. Moves only by the
   //                    host's hand (his dial, or his approval of a cue).
-  //
-  // One number could not satisfy both requirements at once: with one, the
-  // director's tap re-sorted the host's list under his eyes, mid-question.
   const { room: liveRoom, updateEnergy, sendEnergyDecision, participants } = useRoomState()
   const { status: connStatus, reconnect } = useRoomConnection()
   const displayedEnergy = liveRoom?.energy_level ?? room.energy_level ?? 3
@@ -100,41 +125,43 @@ export function LiveV2Client({ initial }: { initial: LiveV2Snapshot }) {
   )
   const band = energyBand(handshake.approved)
 
-  /**
-   * The on-air hero PIN — which question is on screen.
-   *
-   * It lives here, not in the view, because both moves that touch it have to
-   * happen in the SAME synchronous handler that changes the ranking:
-   *   • the host crosses a band with his own dial → release the pin, re-deal;
-   *   • he approves a director's cue            → pin what is on screen FIRST,
-   *     so the re-rank can only change the "next up" row.
-   * Done from an effect instead, the question would move for a frame under a
-   * host who is reading it out loud.
-   */
-  const [heroId, setHeroId] = useState<string | null>(null)
+  // ── Errors + notices (overlay, deduplicated) ───────────────────────
+  //
+  // A list, not a string, so two different failures are both visible — and
+  // DEDUPLICATED, so the same failure repeating (a dead stream fails every
+  // hero change) is one line, not a growing stack.
+  const [errors, setErrors] = useState<string[]>([])
+  const pushError = (message: string) =>
+    setErrors((prev) => (prev.includes(message) ? prev : [...prev, message]))
+  const [notice, setNotice] = useState<string | null>(null)
+  useEffect(() => {
+    if (!notice) return
+    const t = window.setTimeout(() => setNotice(null), 6_000)
+    return () => window.clearTimeout(t)
+  }, [notice])
+
+  // ── Undo (5s) for «طُرِح» ─────────────────────────────────────────
+  const [undo, setUndo] = useState<{ key: number; label: string; run: () => void } | null>(null)
+  useEffect(() => {
+    if (!undo) return
+    const t = window.setTimeout(() => setUndo(null), UNDO_WINDOW_MS)
+    return () => window.clearTimeout(t)
+  }, [undo])
 
   /**
-   * ── BROADCAST WHICH QUESTION IS ON SCREEN ────────────────────────────────
-   * Khaled: «فيصل وشاهين لازم يشوفون السؤال اللي بيطرحه المحاور … ويعرفون اي
-   * سؤال الان وماهو السؤال التالي».
+   * The on-air hero PIN — which question is on screen, and its wording at the
+   * moment it was pinned.
    *
-   * The host cockpit ALREADY knew this — `heroId` is the question on his
-   * screen, and `nextUp` beside it in onair-view is what follows. It was simply
-   * private to his browser. The room only ever recorded which questions were
-   * DONE, so the director and the editor were left inferring "probably the
-   * first undone one" — an inference that breaks the instant he skips a
-   * question or doubles back, which is precisely when they need to know.
-   *
-   * So nothing new is computed here; the value he already has is published.
-   * It rides on `active_card_id`, a column that already exists and already
-   * travels with every room broadcast — no migration, no new SSE payload.
-   *
-   * Fire-and-forget: this is a follow-along signal for other people's screens.
-   * If it fails the host must not see an error mid-question, and the next hero
-   * change re-sends it anyway.
+   * It pins what is DISPLAYED. Unpinned, the hero was "whatever tops the
+   * ranking", so anything that re-ranked (a question asked on another device,
+   * a live prep edit) could swap the question under a host reading it aloud.
+   * The pin moves only by the host's hand: «طُرِح», picking a question, a new
+   * section — and his OWN dial crossing a band (`hero: "reset"`, the locked
+   * rule that keeps the dial from being dead). Approving a director cue keeps
+   * the question and re-ranks only what follows.
    */
-  const publishedHeroRef = useRef<string | null>(null)
-
+  const [pin, setPin] = useState<{ id: string; text: string } | null>(null)
+  const heroId = pin?.id ?? null
 
   // The reducer's side effects (telling the director, moving the pin) must NOT
   // run inside a `setState` updater — React may invoke an updater more than
@@ -146,13 +173,8 @@ export function LiveV2Client({ initial }: { initial: LiveV2Snapshot }) {
   function dispatchEnergy(event: EnergyHandshakeEvent) {
     const r = energyHandshake(handshakeRef.current, event)
     if (r.state === handshakeRef.current && !r.decision && !r.hero) return
-    // Freeze the displayed question BEFORE the approval's re-rank lands.
-    // `openQuestions` below still holds the PRE-approval ranking here — this
-    // function only ever runs after the render body, from a handler or an
-    // effect — which is exactly the order this depends on.
-    if (r.decision?.kind === "approved") {
-      setHeroId((prev) => resolveHero(openQuestions, prev)?.id ?? null)
-    }
+    // Approval: the pin already holds what is on screen (it always does now),
+    // so the re-rank below can only change the "next up" rows.
     handshakeRef.current = r.state
     setHandshake(r.state)
     if (r.decision) {
@@ -163,14 +185,26 @@ export function LiveV2Client({ initial }: { initial: LiveV2Snapshot }) {
         r.decision.muted === true,
       )
     }
-    if (r.hero === "reset") setHeroId(null)
+    if (r.hero === "reset") setPin(null)
+  }
+
+  // ── Transport — derived from the room, optimistic only in flight ───
+  const [transport, setTransport] = useState<TransportState>(() => transportFromRoom(room))
+  const transportRef = useRef(transport)
+  transportRef.current = transport
+  const { status, elapsedMsAtBaseline, windowStartedAt } = transport
+  /** Host requests still in flight; while > 0 the room broadcast is not applied. */
+  const pendingOps = useRef(0)
+  const lastAppliedAt = useRef<string | null>(null)
+
+  /** Current elapsed ms, derived on demand (no per-frame state here). */
+  function nowElapsed(): number {
+    return computeElapsedMs(elapsedMsAtBaseline, windowStartedAt, status === "live")
   }
 
   // The shared value moved. If it is not what the host ranks on, it is a cue —
   // but only once a take is running. Before "ابدأ التسجيل" the dial is just a
-  // setting being agreed on, so it is ADOPTED silently: turning it into a cue
-  // there would let two pre-roll taps burn the two-strike mute and leave the
-  // director unable to signal for the whole take he had not started yet.
+  // setting being agreed on, so it is ADOPTED silently.
   useEffect(() => {
     if (status === "live" || status === "paused") {
       dispatchEnergy({ kind: "displayed", level: displayedEnergy, now: Date.now() })
@@ -202,26 +236,29 @@ export function LiveV2Client({ initial }: { initial: LiveV2Snapshot }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [handshake.lapsed])
 
+  /** The host has moved his dial this take — gates the "flat section" line. */
+  const [dialTouched, setDialTouched] = useState(false)
+
   /**
    * The host's own dial — an OWNER ACTION, applied to BOTH numbers.
    *
    * `host_set` moves the ranking energy and cancels any pending cue; the PATCH
    * moves the shared displayed value. The PATCH is skipped only when the shared
    * value is ALREADY what he tapped — re-sending it would write a second
-   * identical `energy_change` marker and put a duplicate point on the ribbon.
-   * The local half always runs, which is what makes re-asserting a diverged
-   * value work instead of being silently swallowed.
+   * identical `energy_change` marker.
    */
   const onSetEnergy = (level: number) => {
+    if (status === "live" || status === "paused") setDialTouched(true)
     dispatchEnergy({ kind: "host_set", level, now: Date.now() })
     if (level !== displayedEnergy) void updateEnergy(level)
   }
 
   const onApproveEnergy = () => dispatchEnergy({ kind: "approve", now: Date.now() })
 
-  // Which recording attempt is loaded. Bumped by onReset so the ribbon below
-  // drops the scrapped take's points without waiting for a reload.
+  // Which recording attempt is loaded.
   const [takeNumber, setTakeNumber] = useState<number>(room.take_number)
+  const takeRef = useRef(takeNumber)
+  takeRef.current = takeNumber
 
   // Camera-sync correction for the current take. Local so the wrap screen shows
   // the saved value immediately; a new take starts uncorrected.
@@ -230,28 +267,12 @@ export function LiveV2Client({ initial }: { initial: LiveV2Snapshot }) {
   )
   // ── Pre-shoot checklist ───────────────────────────────────────────
   //
-  // The server-rendered rows are the first paint; the SSE slice takes over the
-  // moment it arrives (same contract as prepV2), so the host's gate reacts to the
-  // director's taps live. `takeNumber` guards against showing a scrapped take's
-  // confirmations after a re-shoot.
+  // Both sources are take-matched, and an unmatched source yields an EMPTY list
+  // — never the other source (a re-shoot starts locked until the SSE slice
+  // reports rows for the new take).
   const { checklist: liveChecklist, takeNumber: liveChecklistTake } = useRoomChecklist()
-  /**
-   * Rows for the take being set up NOW.
-   *
-   * BOTH sources must be take-matched, and an unmatched source yields an EMPTY
-   * list — never the other source. `room.checklist` is a prop from the initial
-   * server render: it never updates, so after a reset it still holds the previous
-   * take's 17 confirmations. Falling back to it on a take mismatch made the gate
-   * open itself for a take whose checklist had not been touched — the exact
-   * failure this whole phase exists to prevent.
-   *
-   * A re-shoot therefore starts locked, and stays locked until the SSE slice
-   * reports rows for the new take.
-   */
   const checklistEntries = useMemo(() => {
     if (liveChecklist && liveChecklistTake === takeNumber) return liveChecklist
-    // Server-render copy is only valid while we are still on the take it was
-    // rendered for.
     if (room.take_number === takeNumber) return room.checklist
     return []
   }, [liveChecklist, liveChecklistTake, takeNumber, room.checklist, room.take_number])
@@ -265,19 +286,9 @@ export function LiveV2Client({ initial }: { initial: LiveV2Snapshot }) {
 
   const gateState = deriveHostGateState({
     model: checklistModel,
-    // Presence only — and now actually truthful. Both write paths
-    // (`joinRoom` from the join route and `ensureParticipant` when someone
-    // tags a moment) stamp the role `resolveRoomRole()` derived from the
-    // member's صفحة; `ensureParticipant` used to hardcode "director", which
-    // meant the first person to tag anything satisfied this check whatever his
-    // job was. Participant rows written before that fix can still carry a
-    // wrong "director" — they age out as rooms end.
-    //
-    // It is still NOT a permission input: every action is gated by
-    // requireActionRole against admin_users.role. Here it selects which help
-    // text and which escape hatches appear, so its accuracy still matters: see
-    // the presence fixes in recording-room-shell (tab close was re-joining via
-    // sendBeacon) and the immediate first heartbeat in room-state-context.
+    // Presence only — never a permission input (every action is gated by
+    // requireActionRole against admin_users.role). It selects which help text
+    // and which escape hatches appear.
     directorOnline: participants.some((p) => p.is_online && p.role === "director"),
     connected: connStatus === "connected",
     connecting: connStatus === "connecting" || connStatus === "reconnecting",
@@ -298,41 +309,51 @@ export function LiveV2Client({ initial }: { initial: LiveV2Snapshot }) {
     state: "done" | "not_applicable" | "pending",
     reason?: string,
   ) {
-    await setChecklistItemAction({
-      roomId: room.id,
-      itemKey,
-      state,
-      notApplicableReason: reason ?? null,
-    })
+    const outcome = await runAction(() =>
+      setChecklistItemAction({
+        roomId: room.id,
+        itemKey,
+        state,
+        notApplicableReason: reason ?? null,
+      }),
+    )
+    if (!outcome.ok) pushError(outcome.message)
+    else if (!outcome.data.ok) pushError(failureMessageForResult((outcome.data as ActionResult).error))
   }
 
   async function onOverride(reason: string): Promise<boolean> {
-    const r = await overrideChecklistGateAction({
-      roomId: room.id,
-      reason,
-      resolvedCount: checklistModel.resolvedCount,
-      total: checklistModel.total,
-    })
-    if (r.ok) setOverridden(true)
-    return r.ok
+    const outcome = await runAction(() =>
+      overrideChecklistGateAction({
+        roomId: room.id,
+        reason,
+        resolvedCount: checklistModel.resolvedCount,
+        total: checklistModel.total,
+      }),
+    )
+    if (!outcome.ok) {
+      pushError(outcome.message)
+      return false
+    }
+    if (!outcome.data.ok) {
+      pushError(failureMessageForResult((outcome.data as ActionResult).error))
+      return false
+    }
+    setOverridden(true)
+    return true
   }
 
   async function onSetCameraOffset(ms: number): Promise<boolean> {
-    const r = await setTakeCameraOffsetAction({
-      roomId: room.id,
-      takeNumber,
-      offsetMs: ms,
-    })
-    if (r.ok) setCameraOffsetMs(r.camera_offset_ms)
-    return r.ok
+    const outcome = await runAction(() =>
+      setTakeCameraOffsetAction({ roomId: room.id, takeNumber, offsetMs: ms }),
+    )
+    if (!outcome.ok || !outcome.data.ok) return false
+    const r = outcome.data as { camera_offset_ms?: number | null }
+    setCameraOffsetMs(r.camera_offset_ms ?? ms)
+    return true
   }
 
-  // Energy ribbon — built from the room's energy_change markers (recorded
-  // server-side on every change, delivered live over SSE).
-  //
-  // Scoped to the current take: the SSE snapshot carries every marker in the
-  // room, and after a re-shoot the old take's points would be plotted against
-  // the new take's timeline (its offsets restart at zero).
+  // Energy ribbon — built from the room's energy_change markers, scoped to the
+  // current take (offsets restart at zero on a re-shoot).
   const { markers: sessionMarkers } = useRoomMarkers()
   const energyHistory = useMemo(() => {
     const pts = sessionMarkers
@@ -347,23 +368,20 @@ export function LiveV2Client({ initial }: { initial: LiveV2Snapshot }) {
     return [...byMs.entries()].map(([net_recording_ms, level]) => ({ net_recording_ms, level }))
   }, [sessionMarkers, takeNumber])
 
-  // ── Timer baseline (changes only on start/pause/resume/reset/end) ──
-  const [status, setStatus] = useState<typeof room.status>(room.status)
-  const [elapsedMsAtBaseline, setElapsedMsAtBaseline] = useState<number>(room.recording_elapsed_ms)
-  const [windowStartedAt, setWindowStartedAt] = useState<number | null>(
-    room.recording_started_at && !room.recording_paused_at
-      ? Date.parse(room.recording_started_at)
-      : null,
+  // ── Section — tracked by KEY, the index is derived ────────────────
+  //
+  // By index alone, a live prep edit that reordered sections silently moved
+  // the host into a different one.
+  const [sectionKey, setSectionKey] = useState<SectionKind | null>(
+    (room.current_section_key as SectionKind | null) ??
+      sections?.[room.current_section_index ?? 0]?.kind ??
+      null,
   )
-
-  /** Current elapsed ms, derived on demand (no per-frame state here). */
-  function nowElapsed(): number {
-    return computeElapsedMs(elapsedMsAtBaseline, windowStartedAt, status === "live")
-  }
-
-  // ── Section index ─────────────────────────────────────────────────
-  const [sectionIndex, setSectionIndex] = useState<number>(room.current_section_index ?? 0)
+  const sectionIndex = sectionIndexFor(sections, sectionKey, room.current_section_index ?? 0)
   const currentSection: SectionKind | null = sections ? (sections[sectionIndex]?.kind ?? null) : null
+  const [sectionStartedMs, setSectionStartedMs] = useState<number | null>(
+    room.current_section_started_ms,
+  )
   const [completedSections, setCompletedSections] = useState<Set<number>>(
     new Set(Array.from({ length: sectionIndex }, (_, i) => i)),
   )
@@ -372,26 +390,6 @@ export function LiveV2Client({ initial }: { initial: LiveV2Snapshot }) {
   const [completedQuestionIds, setCompletedQuestionIds] = useState<Set<string>>(
     new Set(room.completed_question_ids ?? []),
   )
-  async function toggleQuestionDone(questionId: string) {
-    const flip = (s: Set<string>) => {
-      const next = new Set(s)
-      if (next.has(questionId)) next.delete(questionId)
-      else next.add(questionId)
-      return next
-    }
-    setCompletedQuestionIds(flip) // optimistic
-    try {
-      const r = await toggleQuestionDoneAction({ roomId: room.id, questionId })
-      if (r.ok) setCompletedQuestionIds(new Set(r.completed)) // reconcile to server truth
-      else setCompletedQuestionIds(flip) // server rejected → revert
-    } catch {
-      setCompletedQuestionIds(flip) // network/error → revert
-    }
-  }
-
-  // Surfaced by the banner below; shared by the notes autosave and every timer
-  // control, since both go through `runAction` now.
-  const [actionError, setActionError] = useState<string | null>(null)
 
   // ── Notes (debounced autosave) ────────────────────────────────────
   const [notes, setNotes] = useState(room.director_notes)
@@ -402,12 +400,13 @@ export function LiveV2Client({ initial }: { initial: LiveV2Snapshot }) {
     if (noteSaveTimer.current) clearTimeout(noteSaveTimer.current)
     noteSaveTimer.current = setTimeout(() => {
       startNotesTransition(async () => {
-        // Debounced autosave: a failure here must be visible, because the
-        // director keeps typing into a box that looks saved.
+        // A failure here must be visible, because the host keeps typing into a
+        // box that looks saved.
         const outcome = await runAction(() =>
           saveDirectorNotesAction({ roomId: room.id, notes: value }),
         )
-        if (!outcome.ok) setActionError(outcome.message)
+        if (!outcome.ok) pushError(outcome.message)
+        else if (!outcome.data.ok) pushError(failureMessageForResult((outcome.data as ActionResult).error))
       })
     }, 750)
   }
@@ -415,60 +414,138 @@ export function LiveV2Client({ initial }: { initial: LiveV2Snapshot }) {
   // ── Markers (latest-first) ────────────────────────────────────────
   const [markers, setMarkers] = useState<LiveV2Marker[]>(initial.markers)
 
-  // ── Timer actions ─────────────────────────────────────────────────
-  const [busy, startTransition] = useTransition()
-  /**
-   * Every timer control (start / pause / resume / reset / end) is routed
-   * through here, so this is the single place where their failure behaviour
-   * lives — and it used to be `startTransition(fn)` with no catch.
-   *
-   * Mid-recording that is the worst version of the stranded-transition bug in
-   * the admin: one rejected call left `busy` true forever, and `busy` disables
-   * the whole timer row, so the director lost start/pause/end on a take that
-   * was still rolling, with nothing on screen saying why. `runAction` never
-   * rejects, so the transition always settles and the row comes back.
-   */
-  function withBusy(fn: () => Promise<void>) {
-    return () =>
-      startTransition(async () => {
-        const outcome = await runAction(fn)
-        setActionError(outcome.ok ? null : outcome.message)
-      })
+  /** Everything a take accumulated, cleared for take N+1 (mirrors `resetTimer`). */
+  function clearTakeLocalState() {
+    setCompletedQuestionIds(new Set())
+    setCompletedSections(new Set())
+    setSectionKey(sections?.[0]?.kind ?? null)
+    setSectionStartedMs(null)
+    setPin(null)
+    setNotes("")
+    setMarkers([])
+    // The new take has no anchor row until it starts.
+    setCameraOffsetMs(null)
+    // RE-ARM THE GATE: the override and "who confirms" are per-take.
+    setOverridden(false)
+    setSelfCompleting(false)
+    setDialTouched(false)
+    // The energy handshake is per-take too, mute included.
+    dispatchEnergy({ kind: "reset", level: displayedEnergy })
   }
 
-  const onStart = withBusy(async () => {
-    await startTimerAction(room.id)
-    setElapsedMsAtBaseline(0)
-    setWindowStartedAt(nowMs())
-    setStatus("live")
-    // startTimer just created this take's anchor row, so an offset can now be
-    // recorded against it — 0 until someone measures the real gap.
-    setCameraOffsetMs((prev) => prev ?? 0)
-  })
-  const onPause = withBusy(async () => {
-    setElapsedMsAtBaseline(nowElapsed())
-    setWindowStartedAt(null)
-    setStatus("paused")
-    const r = await pauseTimerAction(room.id)
-    if (r.ok && typeof r.elapsed_ms === "number") setElapsedMsAtBaseline(r.elapsed_ms)
-  })
-  const onResume = withBusy(async () => {
-    await resumeTimerAction(room.id)
-    setWindowStartedAt(nowMs())
-    setStatus("live")
-  })
   /**
-   * Open a new take. Destructive enough to confirm: the reset control is
-   * reachable mid-recording (RecordingClock), so a stray click used to wipe the
-   * running timer with no warning — and now also burns a take number.
-   *
-   * Everything the previous take accumulated is cleared here to match what
-   * `resetTimer` clears server-side; leaving it meant take 2 opened with every
-   * question already ticked "asked" and take 1's notes still in the box. The
-   * markers themselves are NOT cleared — they stay in the DB tagged with their
-   * own take number.
+   * Adopt a room row as the truth — from an action's reply or from SSE.
+   * Skips rows older than the last one applied.
    */
-  const onReset = withBusy(async () => {
+  function applyRoomRow(row: CollaborationRoom) {
+    if (
+      lastAppliedAt.current &&
+      row.updated_at &&
+      Date.parse(row.updated_at) < Date.parse(lastAppliedAt.current)
+    ) {
+      return
+    }
+    lastAppliedAt.current = row.updated_at ?? lastAppliedAt.current
+    if (typeof row.take_number === "number" && row.take_number !== takeRef.current) {
+      setTakeNumber(row.take_number)
+      if (row.take_number > takeRef.current) clearTakeLocalState()
+    }
+    const next = transportFromRoom(row)
+    const cur = transportRef.current
+    if (
+      next.status !== cur.status ||
+      next.elapsedMsAtBaseline !== cur.elapsedMsAtBaseline ||
+      next.windowStartedAt !== cur.windowStartedAt
+    ) {
+      setTransport(next)
+      if (next.status === "live" || next.status === "paused") {
+        // The take has an anchor row once it has started.
+        setCameraOffsetMs((prev) => prev ?? 0)
+      }
+    }
+    if (row.current_section_key) setSectionKey(row.current_section_key as SectionKind)
+    if (row.current_section_started_ms !== undefined) {
+      setSectionStartedMs(row.current_section_started_ms ?? null)
+    }
+    if (Array.isArray(row.completed_question_ids)) {
+      const ids = row.completed_question_ids
+      setCompletedQuestionIds((prev) =>
+        prev.size === ids.length && ids.every((id) => prev.has(id)) ? prev : new Set(ids),
+      )
+    }
+  }
+
+  // The room broadcast — applied whenever none of the host's own requests is
+  // in flight (those reconcile from their own reply).
+  useEffect(() => {
+    if (!liveRoom) return
+    if (
+      !shouldApplyRoomRow({
+        pendingOps: pendingOps.current,
+        incomingUpdatedAt: liveRoom.updated_at,
+        lastAppliedUpdatedAt: lastAppliedAt.current,
+      })
+    ) {
+      return
+    }
+    applyRoomRow(liveRoom)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [liveRoom])
+
+  // ── Timer actions ─────────────────────────────────────────────────
+  const [busy, startTransition] = useTransition()
+
+  /**
+   * Every transport move goes through here: apply the optimistic state, call
+   * the action, then either adopt the row the server broadcast or ROLL BACK.
+   *
+   * Pause and end used to flip the screen first and never look back: a pause
+   * the server rejected left the host's clock frozen on a take that was still
+   * running. `runAction` never rejects, so the transition always settles and
+   * `busy` always clears.
+   */
+  function transportOp(optimistic: TransportState | null, call: () => Promise<unknown>, after?: () => void) {
+    startTransition(async () => {
+      const before = transportRef.current
+      pendingOps.current++
+      if (optimistic) setTransport(optimistic)
+      const outcome = await runAction(call)
+      pendingOps.current--
+      const r = outcome.ok ? (outcome.data as ActionResult) : null
+      const next = transportAfterAction(before, r)
+      if (next.failed) {
+        if (next.state) setTransport(next.state) // roll back
+        pushError(outcome.ok ? failureMessageForResult(r?.error) : outcome.message)
+        return
+      }
+      after?.()
+      if (r?.room) applyRoomRow(r.room)
+    })
+  }
+
+  const onStart = () =>
+    transportOp(
+      { status: "live", elapsedMsAtBaseline: 0, windowStartedAt: nowMs() },
+      () => startTimerAction(room.id),
+      // startTimer created this take's anchor row, so an offset can be recorded.
+      () => setCameraOffsetMs((prev) => prev ?? 0),
+    )
+  const onPause = () =>
+    transportOp(
+      { status: "paused", elapsedMsAtBaseline: nowElapsed(), windowStartedAt: null },
+      () => pauseTimerAction(room.id),
+    )
+  const onResume = () =>
+    transportOp(
+      { status: "live", elapsedMsAtBaseline: elapsedMsAtBaseline, windowStartedAt: nowMs() },
+      () => resumeTimerAction(room.id),
+    )
+  /**
+   * Open a new take. Destructive enough to confirm. Everything the previous
+   * take accumulated is cleared to match what `resetTimer` clears server-side;
+   * the markers themselves stay in the DB tagged with their own take number.
+   */
+  const onReset = () => {
     if (
       !window.confirm(
         "إعادة الضبط تبدأ تسجيلاً جديداً (تيك جديد): يصفّر المؤقّت، والأسئلة المطروحة، وملاحظات المخرج. العلامات المسجّلة تُحفظ باسم التيك الحالي. تكمل؟",
@@ -476,85 +553,143 @@ export function LiveV2Client({ initial }: { initial: LiveV2Snapshot }) {
     ) {
       return
     }
-    const r = await resetTimerAction(room.id)
-    if (r.ok && typeof r.take_number === "number") setTakeNumber(r.take_number)
-    setElapsedMsAtBaseline(0)
-    setWindowStartedAt(null)
-    setStatus("waiting")
-    setCompletedQuestionIds(new Set())
-    setCompletedSections(new Set())
-    setSectionIndex(0)
-    setHeroId(null)
-    setNotes("")
-    setMarkers([])
-    // The new take has no anchor row until it starts, so there is nothing to
-    // correct yet — and the previous take's offset must not be shown as if it
-    // applied to this one.
-    setCameraOffsetMs(null)
-    // RE-ARM THE GATE. The override is per-take on the server, but this local
-    // flag would have carried it into take 2 inside the same tab — the host
-    // would never see the checklist again for the rest of the session. Same for
-    // `selfCompleting`: a new take needs a fresh decision about who confirms it.
-    setOverridden(false)
-    setSelfCompleting(false)
-    // The energy handshake is per-take too: a new take re-adopts whatever the
-    // room currently shows, and the "quiet for the rest of the take" mute is
-    // lifted — it was a judgement about THAT take, not about the director.
-    dispatchEnergy({ kind: "reset", level: displayedEnergy })
-  })
-  const onEnd = withBusy(async () => {
-    setElapsedMsAtBaseline(nowElapsed())
-    setWindowStartedAt(null)
-    setStatus("ended")
-    const r = await endTimerAction(room.id)
-    if (r.ok && typeof r.elapsed_ms === "number") setElapsedMsAtBaseline(r.elapsed_ms)
-  })
+    startTransition(async () => {
+      pendingOps.current++
+      const outcome = await runAction(() => resetTimerAction(room.id))
+      pendingOps.current--
+      const r = outcome.ok ? (outcome.data as ActionResult & { take_number?: number }) : null
+      if (!r || !r.ok) {
+        pushError(outcome.ok ? failureMessageForResult(r?.error) : outcome.message)
+        return
+      }
+      if (typeof r.take_number === "number") setTakeNumber(r.take_number)
+      setTransport({ status: "waiting", elapsedMsAtBaseline: 0, windowStartedAt: null })
+      clearTakeLocalState()
+      if (r.room) applyRoomRow(r.room)
+    })
+  }
+  const onEnd = () =>
+    transportOp(
+      { status: "ended", elapsedMsAtBaseline: nowElapsed(), windowStartedAt: null },
+      () => endTimerAction(room.id),
+    )
+
+  // ── Question completion ───────────────────────────────────────────
+  async function toggleQuestionDone(questionId: string) {
+    const flip = (s: Set<string>) => {
+      const next = new Set(s)
+      if (next.has(questionId)) next.delete(questionId)
+      else next.add(questionId)
+      return next
+    }
+    setCompletedQuestionIds(flip) // optimistic
+    pendingOps.current++
+    const outcome = await runAction(() => toggleQuestionDoneAction({ roomId: room.id, questionId }))
+    pendingOps.current--
+    const r = outcome.ok ? (outcome.data as ActionResult & { completed?: string[] }) : null
+    if (r?.ok && Array.isArray(r.completed)) {
+      setCompletedQuestionIds(new Set(r.completed)) // reconcile to server truth
+    } else {
+      setCompletedQuestionIds(flip) // rejected / failed → revert
+      pushError(outcome.ok ? failureMessageForResult(r?.error) : outcome.message)
+    }
+  }
 
   // ── Flow actions ─────────────────────────────────────────────────
   async function moveTo(idx: number) {
     if (!sections) return
     const clamped = Math.max(0, Math.min(sections.length - 1, idx))
-    // Mark the section we're leaving as covered as the host advances forward.
+    const key = sections[clamped].kind
+    if (key === currentSection) return
+
+    // Leaving with a «أساسي» unasked is allowed — the host decides — but never
+    // silent: a quiet line says what was left behind. The wrap screen lists
+    // every skipped must-ask again.
+    const left = unaskedMustAsk(prep.prep_v2?.question_bank ?? [], currentSection, completedQuestionIds)
+    if (left.length > 0 && clamped > sectionIndex) {
+      const where = currentSection ? sectionLabelAr(currentSection, sections) : ""
+      setNotice(
+        left.length === 1
+          ? `بقي سؤال أساسي في «${where}»`
+          : `بقي ${left.length} أسئلة أساسية في «${where}»`,
+      )
+    }
+
+    const before = { key: sectionKey, started: sectionStartedMs }
     setCompletedSections((prev) => {
       if (clamped <= sectionIndex) return prev
       const next = new Set(prev)
       for (let i = 0; i < clamped; i++) next.add(i)
       return next
     })
-    setSectionIndex(clamped)
+    setSectionKey(key)
+    // Optimistic section start; the server stamps its own and we adopt it.
+    setSectionStartedMs(nowElapsed())
     // A pin belongs to the section it was made in.
-    setHeroId(null)
-    await setCurrentSectionAction({ roomId: room.id, index: clamped, key: sections[clamped].kind })
+    setPin(null)
+    pendingOps.current++
+    const outcome = await runAction(() =>
+      setCurrentSectionAction({ roomId: room.id, index: clamped, key }),
+    )
+    pendingOps.current--
+    const r = outcome.ok ? (outcome.data as ActionResult) : null
+    if (!r || !r.ok) {
+      setSectionKey(before.key)
+      setSectionStartedMs(before.started)
+      pushError(
+        outcome.ok
+          ? failureMessageForResult(r?.error)
+          : `ما انتقل القسم عند الفريق — ${outcome.message}`,
+      )
+      return
+    }
+    if (r.room) applyRoomRow(r.room)
   }
 
   // ── Marker dispatch ──────────────────────────────────────────────
-  async function tag(type: QuickMarkerType, label: string) {
+  /**
+   * Returns what happened so the tapped button can say it: «✓ عُلّمت …» or
+   * that it did not land. It used to swallow every failure ("a transient
+   * failure shouldn't surface mid-take") — so a host whose session had expired
+   * flagged a whole episode into nothing.
+   */
+  async function tag(type: QuickMarkerType, label: string): Promise<TagResult> {
     const fallbackMs = nowElapsed()
-    try {
-      const r = await createMarkerAction({ roomId: room.id, markerType: type, label, sectionKey: currentSection })
-      if (r.ok) {
-        setMarkers((prev) => [
-          {
-            id: r.marker_id ?? crypto.randomUUID(),
-            marker_type: type,
-            label,
-            note: null,
-            net_recording_ms: r.net_recording_ms ?? fallbackMs,
-            take_number: takeNumber,
-            // Camera time is derived server-side from the take anchor; an
-            // optimistic row cannot know it. `null` = "not yet resolved", which
-            // the recap renders honestly instead of inventing a timecode.
-            camera_ms: null,
-            section_key: currentSection,
-            created_at: new Date().toISOString(),
-            author_name: "you",
-          },
-          ...prev,
-        ])
-      }
-    } catch {
-      // Best-effort marker — a transient failure shouldn't surface mid-take.
+    const outcome = await runAction(() =>
+      createMarkerAction({ roomId: room.id, markerType: type, label, sectionKey: currentSection }),
+    )
+    if (!outcome.ok) {
+      pushError(outcome.message)
+      return { ok: false, message: "ما وصلت — أعد" }
     }
+    const r = outcome.data as ActionResult & { marker_id?: string; net_recording_ms?: number }
+    if (!r.ok) {
+      const message =
+        r.error === "recording_not_started"
+          ? "التسجيل ما بدأ بعد"
+          : failureMessageForResult(r.error)
+      pushError(message)
+      return { ok: false, message: r.error === "unauthorized" ? "انتهت الجلسة" : "ما وصلت — أعد" }
+    }
+    const ms = r.net_recording_ms ?? fallbackMs
+    setMarkers((prev) => [
+      {
+        id: r.marker_id ?? crypto.randomUUID(),
+        marker_type: type,
+        label,
+        note: null,
+        net_recording_ms: ms,
+        take_number: takeNumber,
+        // Camera time is derived server-side from the take anchor; `null` =
+        // "not yet resolved", which the recap renders honestly.
+        camera_ms: null,
+        section_key: currentSection,
+        created_at: new Date().toISOString(),
+        author_name: "you",
+      },
+      ...prev,
+    ])
+    return { ok: true, ms }
   }
 
   // ── Insight "used" dispatch → an `insight_used` marker + optimistic flag ──
@@ -570,39 +705,36 @@ export function LiveV2Client({ initial }: { initial: LiveV2Snapshot }) {
       })
     const fallbackMs = nowElapsed()
     const note = `${INSIGHT_META[insight.type].label} · ${insight.text}`.slice(0, 180)
-    try {
-      const r = await createMarkerAction({
+    const outcome = await runAction(() =>
+      createMarkerAction({
         roomId: room.id,
         markerType: "insight_used",
         label: "إسناد",
         note,
         sectionKey: currentSection,
-      })
-      if (r.ok) {
-        setMarkers((prev) => [
-          {
-            id: r.marker_id ?? crypto.randomUUID(),
-            marker_type: "insight_used",
-            label: "إسناد",
-            note,
-            net_recording_ms: r.net_recording_ms ?? fallbackMs,
-            take_number: takeNumber,
-            // Camera time is derived server-side from the take anchor; an
-            // optimistic row cannot know it. `null` = "not yet resolved", which
-            // the recap renders honestly instead of inventing a timecode.
-            camera_ms: null,
-            section_key: currentSection,
-            created_at: new Date().toISOString(),
-            author_name: "you",
-          },
-          ...prev,
-        ])
-      } else {
-        revert()
-      }
-    } catch {
+      }),
+    )
+    const r = outcome.ok ? (outcome.data as ActionResult & { marker_id?: string; net_recording_ms?: number }) : null
+    if (!r || !r.ok) {
       revert()
+      pushError(outcome.ok ? failureMessageForResult(r?.error) : outcome.message)
+      return
     }
+    setMarkers((prev) => [
+      {
+        id: r.marker_id ?? crypto.randomUUID(),
+        marker_type: "insight_used",
+        label: "إسناد",
+        note,
+        net_recording_ms: r.net_recording_ms ?? fallbackMs,
+        take_number: takeNumber,
+        camera_ms: null,
+        section_key: currentSection,
+        created_at: new Date().toISOString(),
+        author_name: "you",
+      },
+      ...prev,
+    ])
   }
 
   // ── Section question list — ranked by energy fit ──────────────────
@@ -617,42 +749,51 @@ export function LiveV2Client({ initial }: { initial: LiveV2Snapshot }) {
     [currentSectionQuestions, completedQuestionIds],
   )
 
+  // The question on screen — the SAME call onair-view renders from.
+  const displayedHero = resolveHero(openQuestions, heroId)
+  const displayedHeroId = displayedHero?.id ?? null
   /**
-   * ── PUBLISH THE QUESTION ON SCREEN, NOT THE PIN ──────────────────────────
-   * Khalid, from a live take: «سؤال الان لا يتغير، مايتغير فقط السؤال التالي».
-   *
-   * The first version published `heroId`, and `heroId` is a PIN, not a
-   * position. It is null nearly all the time and is only set to freeze the
-   * display across a re-rank; what the host actually reads is
-   * `resolveHero(openQuestions, heroId)` — the pinned question IF it is still
-   * open, otherwise the top of the list.
-   *
-   * So once anything set the pin, «الآن» froze on that id for the rest of the
-   * take while «التالي», derived from the live list on the other side, kept
-   * moving. Exactly the split he described, and it only shows up once a pin has
-   * been set — which is why it survived the tests and appeared in a real take.
-   *
-   * `resolveHero` is the same call `onair-view.tsx` renders from, so the
-   * director and the editor now read what is literally on the host's screen.
-   *
-   * Fire-and-forget: a follow-along signal for other people's screens must
-   * never surface an error to the host mid-question, and the next change
-   * re-sends it anyway.
+   * PIN WHAT IS DISPLAYED. Adjusted during render (React's "store information
+   * from previous renders" pattern), not in an effect — from an effect the
+   * question would move for a frame before the pin caught it.
    */
-  const displayedHeroId = resolveHero(openQuestions, heroId)?.id ?? null
+  if (displayedHero && pin?.id !== displayedHero.id) {
+    setPin({ id: displayedHero.id, text: displayedHero.text })
+  }
+  const heroEdited = pinnedQuestionEdited(pin, displayedHero)
+
+  /**
+   * ── PUBLISH «الآن» ─────────────────────────────────────────────────────────
+   * What is literally on the host's screen goes to `current_question_id`, so
+   * the director and the editor read the same line. It used to be written to
+   * `active_card_id` — an FK to interview_cards that rejected every prep_v2 id
+   * — by a fire-and-forget call that swallowed the 23503. A failure is now
+   * reported (once — the list deduplicates) and retried on the next change.
+   */
+  const publishedHeroRef = useRef<string | null | undefined>(undefined)
   useEffect(() => {
+    if (!prep.prep_v2) return
     if (publishedHeroRef.current === displayedHeroId) return
     publishedHeroRef.current = displayedHeroId
-    void setCurrentQuestionAction({ roomId: room.id, questionId: displayedHeroId }).catch(
-      () => {},
-    )
-  }, [displayedHeroId, room.id])
+    void (async () => {
+      const outcome = await runAction(() =>
+        setCurrentQuestionAction({ roomId: room.id, questionId: displayedHeroId }),
+      )
+      const r = outcome.ok ? (outcome.data as ActionResult) : null
+      if (!r || !r.ok) {
+        publishedHeroRef.current = undefined // retry on the next change
+        pushError(
+          r?.error === "unauthorized"
+            ? failureMessageForResult("unauthorized")
+            : "الفريق ما يشوف السؤال الحالي عندك — تأكّد من الاتصال.",
+        )
+      }
+    })()
+  }, [displayedHeroId, room.id, prep.prep_v2])
 
   /**
    * Whether the dial can reorder anything HERE. Four of the six sections in the
-   * real prep hold no sharp question at all — by editorial choice — so in those
-   * the indicator genuinely cannot move the list, and the view says so instead
-   * of leaving the host to discover it by moving the dial and seeing nothing.
+   * real prep hold no sharp question at all — by editorial choice.
    */
   const energyReordersSection = useMemo(
     () => sectionRespondsToEnergy(currentSectionQuestions, (id) => completedQuestionIds.has(id)),
@@ -660,10 +801,7 @@ export function LiveV2Client({ initial }: { initial: LiveV2Snapshot }) {
   )
 
   // The whisper follows the APPROVED energy, not the displayed one — it and the
-  // ranking must say the same thing, which is the contradiction this whole
-  // change exists to end. And while a cue is on screen the whisper goes quiet:
-  // two amber banners competing for the same glance is one too many.
-  // A course prep coaches toward examples and clarity, never confrontation.
+  // ranking must say the same thing. While a cue is on screen it goes quiet.
   const prepFormat = prepFormatOf(prep.prep_v2)
   const hint = handshake.pending
     ? null
@@ -671,44 +809,221 @@ export function LiveV2Client({ initial }: { initial: LiveV2Snapshot }) {
   // Energy markers drive the ribbon, not the content pins / count / list.
   const contentMarkers = markers.filter((m) => m.marker_type !== "energy_change")
 
+  // ── Host actions on the hero ─────────────────────────────────────
+  function pickHero(id: string) {
+    const q = currentSectionQuestions.find((x) => x.id === id)
+    if (q) setPin({ id: q.id, text: q.text })
+  }
+
+  /** «طُرِح» on the question on screen — with a 5s «تراجع». */
+  function markAsked(id: string) {
+    const q = currentSectionQuestions.find((x) => x.id === id)
+    if (!q || completedQuestionIds.has(id)) return
+    void toggleQuestionDone(id)
+    setUndo({
+      key: Date.now(),
+      label: "طُرِح",
+      run: () => {
+        void toggleQuestionDone(id)
+        // Bring the same question back on screen, not whatever tops the list.
+        setPin({ id: q.id, text: q.text })
+      },
+    })
+  }
+
+  /** N / B — step through the OPEN questions of this section, in list order. */
+  function stepHero(delta: 1 | -1) {
+    if (openQuestions.length < 2) return
+    const i = Math.max(0, openQuestions.findIndex((q) => q.id === displayedHeroId))
+    const next = openQuestions[(i + delta + openQuestions.length) % openQuestions.length]
+    setPin({ id: next.id, text: next.text })
+  }
+
+  // ── Chosen opening (read-in → first question) ─────────────────────
+  const openingKey = `khat:recording:${room.id}:opening`
+  const [chosenOpening, setChosenOpening] = useState<number | null>(null)
+  useEffect(() => {
+    try {
+      const v = window.localStorage.getItem(openingKey)
+      if (v != null && Number.isInteger(Number(v))) setChosenOpening(Number(v))
+    } catch {
+      // storage unavailable (private window) — the first option is the default
+    }
+  }, [openingKey])
+  function chooseOpening(i: number) {
+    setChosenOpening(i)
+    try {
+      window.localStorage.setItem(openingKey, String(i))
+    } catch {
+      // per-viewer convenience only
+    }
+  }
+  const openingOptions = prep.prep_v2?.opening_options ?? []
+  const openingLine = openingOptions[chosenOpening ?? 0] ?? openingOptions[0] ?? null
+
+  // ── On air: keep the screen awake, guard the tab, keyboard ─────────
+  const onAir = status === "live" || status === "paused"
+
   /**
-   * IN NORMAL FLOW — deliberately NOT a positioned overlay.
-   *
-   * What gets this in front of the director from all four phase branches is
-   * `withBanner` below; the positioning never contributed to that. As
-   * `fixed inset-x-0 top-0 z-50` it left the flow, so nothing reserved its
-   * ~44px and it painted on top of the first rows of whatever branch was
-   * mounted. In <OnAirView> those rows are the <StatusRail> — pause / resume /
-   * end. So the one moment the director needs to stop the take was the one
-   * moment the stop button sat underneath a banner.
-   *
-   * A block in normal flow cannot overlap a later sibling — at any scroll
-   * offset, any viewport width. The rail is pushed down instead of covered and
-   * the guarantee is structural, not a padding constant that would have to
-   * track the banner's wrapped height (which varies with the message).
-   *
-   * Trade-off taken knowingly: it scrolls with the page instead of staying
-   * pinned. `sticky`/`fixed` both re-create the overlap the instant the rail
-   * scrolls under them, and a covered stop button is the worse failure.
-   * `role="alert"` still announces it regardless of scroll position.
-   * Dismissible: mid-take, a banner they cannot clear is its own distraction.
+   * Wake lock while a take runs. An iPad on a stand dims and locks after its
+   * idle timeout — mid-answer, with the host's hands in his lap. Re-acquired on
+   * return to the tab (the OS drops it whenever the page is hidden).
    */
-  const actionErrorBanner = actionError ? (
-    <div
-      role="alert"
-      className="flex items-start gap-3 border-b border-red-500/30 bg-card px-4 py-3 text-[13px] text-red-700 shadow-sm"
-    >
-      <AlertTriangle className="mt-0.5 size-4 shrink-0" />
-      <span className="flex-1">{actionError}</span>
-      <button
-        type="button"
-        onClick={() => setActionError(null)}
-        className="shrink-0 rounded-sm px-2 py-0.5 text-[11px] text-muted-foreground hover:bg-muted"
+  useEffect(() => {
+    if (!onAir) return
+    let lock: WakeLockSentinel | null = null
+    let disposed = false
+    const acquire = async () => {
+      try {
+        if (!("wakeLock" in navigator) || document.visibilityState !== "visible") return
+        const l = await navigator.wakeLock.request("screen")
+        if (disposed) void l.release().catch(() => {})
+        else lock = l
+      } catch {
+        // Not supported / denied (battery saver). Nothing to show mid-take.
+      }
+    }
+    void acquire()
+    const onVisible = () => {
+      if (document.visibilityState === "visible") void acquire()
+    }
+    document.addEventListener("visibilitychange", onVisible)
+    return () => {
+      disposed = true
+      document.removeEventListener("visibilitychange", onVisible)
+      void lock?.release().catch(() => {})
+    }
+  }, [onAir])
+
+  /**
+   * Leaving the page mid-take asks first. Presence is no longer torn down on
+   * `beforeunload` (see recording-room-shell): a cancelled leave must not have
+   * already signed the host out of the room.
+   */
+  useEffect(() => {
+    if (!onAir) return
+    const onBeforeUnload = (e: BeforeUnloadEvent) => {
+      e.preventDefault()
+      e.returnValue = ""
+    }
+    window.addEventListener("beforeunload", onBeforeUnload)
+    return () => window.removeEventListener("beforeunload", onBeforeUnload)
+  }, [onAir])
+
+  // Keyboard shortcuts (Bluetooth keyboard / clicker). Optional by nature: every
+  // action is also a touch target. No key ends a take.
+  const [legendOpen, setLegendOpen] = useState(false)
+  const keyActions = useRef({
+    asked: () => {},
+    flag: () => {},
+    transport: () => {},
+    next: () => {},
+    prev: () => {},
+  })
+  keyActions.current = {
+    asked: () => displayedHeroId && markAsked(displayedHeroId),
+    flag: () => void tag("highlight", QUICK_MARKER_META.highlight.defaultLabel),
+    transport: () => (status === "live" ? onPause() : status === "paused" ? onResume() : undefined),
+    next: () => stepHero(1),
+    prev: () => stepHero(-1),
+  }
+  useEffect(() => {
+    if (!onAir) return
+    const onKey = (e: KeyboardEvent) => {
+      if (e.metaKey || e.ctrlKey || e.altKey || e.repeat) return
+      if (isTypingTarget(e.target)) return
+      const action = shortcutFor(e.key)
+      if (!action) return
+      if (action === "legend") {
+        e.preventDefault()
+        setLegendOpen((o) => !o)
+        return
+      }
+      // While a sheet is open the keys belong to it.
+      if (document.querySelector('[role="dialog"][aria-modal="true"]')) return
+      e.preventDefault()
+      keyActions.current[action]()
+    }
+    window.addEventListener("keydown", onKey)
+    return () => window.removeEventListener("keydown", onKey)
+  }, [onAir])
+
+  /**
+   * ERRORS + NOTICES — an OVERLAY above the bottom bar.
+   *
+   * The error banner used to sit in normal flow above the view (it once was a
+   * `fixed top-0` overlay that covered pause/end, so it was moved into flow).
+   * In flow, every failure shoved the whole cockpit down mid-take. Now the rail
+   * is sticky at the top, so the top edge stays spoken for, and this floats at
+   * the BOTTOM, clear of the thumb bar (`--khat-bottom-bar`), covering neither.
+   * `role="alert"` still announces it. Each line is dismissible; identical
+   * failures collapse into one line.
+   */
+  const actionErrorBanner =
+    errors.length > 0 || notice || undo ? (
+      <div
+        className="pointer-events-none fixed inset-x-0 bottom-[calc(var(--khat-bottom-bar,0px)+0.5rem)] z-40 px-3"
+        dir="rtl"
       >
-        إخفاء
-      </button>
-    </div>
-  ) : null
+        <div className="mx-auto flex max-w-3xl flex-col gap-2 lg:max-w-5xl">
+          {undo && (
+            <div
+              role="status"
+              className="pointer-events-auto flex items-center justify-between gap-3 rounded-xl border border-border bg-card px-4 py-2 text-[14px] text-foreground shadow-lg"
+            >
+              <span>{undo.label}</span>
+              <button
+                type="button"
+                onClick={() => {
+                  undo.run()
+                  setUndo(null)
+                }}
+                className="inline-flex min-h-[44px] items-center rounded-lg border border-border px-4 font-semibold text-primary"
+              >
+                تراجع
+              </button>
+            </div>
+          )}
+          {notice && (
+            <div
+              role="status"
+              className="pointer-events-auto flex items-center gap-2 rounded-xl border border-amber-500/40 bg-card px-4 py-2 text-[14px] font-medium text-amber-800 shadow-lg"
+            >
+              <Info className="h-4 w-4 shrink-0" />
+              <span className="flex-1">{notice}</span>
+              <button
+                type="button"
+                onClick={() => setNotice(null)}
+                aria-label="إخفاء"
+                className="inline-flex h-9 w-9 items-center justify-center rounded-lg text-muted-foreground hover:bg-muted"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+          )}
+          {errors.length > 0 && (
+            <div role="alert" className="pointer-events-auto flex flex-col gap-1.5">
+              {errors.map((message) => (
+                <div
+                  key={message}
+                  className="flex items-start gap-3 rounded-xl border border-red-500/30 bg-card px-4 py-2 text-[14px] text-red-700 shadow-lg"
+                >
+                  <AlertTriangle className="mt-0.5 size-4 shrink-0" />
+                  <span className="flex-1">{message}</span>
+                  <button
+                    type="button"
+                    onClick={() => setErrors((prev) => prev.filter((m) => m !== message))}
+                    className="inline-flex min-h-[36px] shrink-0 items-center rounded-lg px-2 text-[13px] text-muted-foreground hover:bg-muted"
+                  >
+                    إخفاء
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+    ) : null
   const withBanner = (node: ReactNode) => (
     <>
       {actionErrorBanner}
@@ -744,8 +1059,7 @@ export function LiveV2Client({ initial }: { initial: LiveV2Snapshot }) {
 
   if (status === "waiting") {
     // The host either sees the gate bar, or — after choosing "أكمل التشك-ليست
-    // بنفسي" — the director's own checklist on their screen. Same component, same
-    // unlock condition; only the confirming person differs.
+    // بنفسي" — the director's own checklist on their screen.
     if (selfCompleting) {
       return withBanner(
         <ChecklistPanel
@@ -754,8 +1068,6 @@ export function LiveV2Client({ initial }: { initial: LiveV2Snapshot }) {
           busy={busy}
           previousTakeWasComplete={room.checklist_previous_take_complete}
           takeNumber={takeNumber}
-          // Self mode: this panel stands in for the gate, so it must carry both
-          // ways out — start the take, or go back to the read-in.
           selfMode
           onStart={onStart}
           onBack={() => setSelfCompleting(false)}
@@ -785,6 +1097,8 @@ export function LiveV2Client({ initial }: { initial: LiveV2Snapshot }) {
         axes={pv.axes_of_tension}
         hostGuidance={pv.host_guidance}
         openingOptions={pv.opening_options}
+        chosenOpening={chosenOpening}
+        onChooseOpening={chooseOpening}
         sensitiveZones={pv.sensitive_zones}
         sections={pv.episode_sections}
         format={prepFormat}
@@ -806,6 +1120,10 @@ export function LiveV2Client({ initial }: { initial: LiveV2Snapshot }) {
         sectionsDone={completedSections.size}
         questionsAsked={completedQuestionIds.size}
         questionsTotal={pv.question_bank.length}
+        skippedMustAsk={pv.question_bank.filter(
+          (q) => q.priority === "must_ask" && !completedQuestionIds.has(q.id),
+        )}
+        sections={pv.episode_sections}
         markers={contentMarkers}
         closingOptions={pv.closing_options}
         takeNumber={takeNumber}
@@ -826,13 +1144,16 @@ export function LiveV2Client({ initial }: { initial: LiveV2Snapshot }) {
       onPause={onPause}
       onResume={onResume}
       onEnd={onEnd}
+      prep={pv}
       sections={pv.episode_sections}
       sectionIndex={sectionIndex}
       currentSection={currentSection}
+      sectionStartedMs={sectionStartedMs}
       moveTo={moveTo}
       questions={currentSectionQuestions}
       completedIds={completedQuestionIds}
       onToggleDone={toggleQuestionDone}
+      onAsked={markAsked}
       band={band}
       usedInsightIds={usedInsightIds}
       onUseInsight={tagInsight}
@@ -842,17 +1163,22 @@ export function LiveV2Client({ initial }: { initial: LiveV2Snapshot }) {
       lapsedSuggestion={handshake.lapsed}
       onApproveEnergy={onApproveEnergy}
       heroId={heroId}
-      onPickHero={setHeroId}
+      onPickHero={pickHero}
+      heroEdited={heroEdited}
       energyReordersSection={energyReordersSection}
+      dialTouched={dialTouched}
       canSetEnergy
       onSetEnergy={onSetEnergy}
       contentMarkers={contentMarkers}
       energyHistory={energyHistory}
       hint={hint}
       format={prepFormat}
+      openingLine={openingLine}
       notes={notes}
       onNotesChange={onNotesChange}
       onTag={tag}
+      legendOpen={legendOpen}
+      onCloseLegend={() => setLegendOpen(false)}
     />
   )
 }

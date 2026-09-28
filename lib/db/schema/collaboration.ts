@@ -169,6 +169,25 @@ export const collaborationRooms = pgTable("collaboration_rooms", {
     .default([]),
 
   /**
+   * The prep_v2 question ON THE HOST'S SCREEN right now («الآن»), published by
+   * his cockpit so the director and the editor follow the same line.
+   *
+   * Its own column because `active_card_id` cannot hold it: that column is a
+   * foreign key to `interview_cards(id)`, and a prep_v2 question id is not an
+   * interview card — every write was rejected with 23503 and swallowed by a
+   * fire-and-forget caller, so «الآن» never left the host's browser. Plain
+   * text, no FK: prep_v2 questions live inside a jsonb payload.
+   */
+  current_question_id: text("current_question_id"),
+
+  /**
+   * NET recording ms at which the current section began (stamped server-side
+   * by setCurrentSection / startTimer). Lets every screen show time-in-section
+   * across reloads instead of guessing from the moment it happened to connect.
+   */
+  current_section_started_ms: integer("current_section_started_ms"),
+
+  /**
    * Khat Brain — link to the master EIR. Inherited from the linked
    * preparation on room creation. Phase transitions (waiting→ready_to_record,
    * live→recording, ended→recorded) flow through the EIR service.

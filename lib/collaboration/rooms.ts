@@ -335,11 +335,30 @@ export async function leaveRoom(participantId: string): Promise<void> {
     .where(eq(roomParticipants.id, participantId))
 }
 
-export async function heartbeat(participantId: string): Promise<void> {
+/**
+ * Record a heartbeat. Returns the participant row ONLY when this heartbeat
+ * brought it back online — the caller must broadcast that.
+ *
+ * It used to flip `is_online` back to true in silence. A row goes offline while
+ * its tab is still alive more often than it sounds: the sweep catches a tab the
+ * OS throttled past 90s, and — because the row is keyed by (room, user) — a
+ * second tab or a reload's late `keepalive` DELETE marks the SAME row offline
+ * after the live tab joined. Every other screen was told "offline" and never
+ * told "online" again, so «N متصل الآن» stayed low while the DB said otherwise.
+ */
+export async function heartbeat(participantId: string): Promise<RoomParticipant | null> {
+  const now = new Date()
+  const [revived] = await db!
+    .update(roomParticipants)
+    .set({ last_heartbeat: now, is_online: true, left_at: null })
+    .where(and(eq(roomParticipants.id, participantId), eq(roomParticipants.is_online, false)))
+    .returning()
+  if (revived) return rowToParticipant(revived)
   await db!
     .update(roomParticipants)
-    .set({ last_heartbeat: new Date(), is_online: true })
+    .set({ last_heartbeat: now })
     .where(eq(roomParticipants.id, participantId))
+  return null
 }
 
 /**
@@ -626,10 +645,21 @@ export async function getMarkersByRoom(roomId: string): Promise<RoomSessionMarke
   return rows.map(rowToMarker)
 }
 
-export async function deleteMarker(markerId: string): Promise<void> {
-  await db!
+/**
+ * Delete a marker — ONLY from the room it belongs to.
+ *
+ * It used to delete by id alone, so a caller authorized for room A (the route
+ * checks the room role against the URL's room) could remove a marker from any
+ * other room by sending its id. Scoped by `room_id`; returns whether a row was
+ * actually removed so the caller does not broadcast a deletion that did not
+ * happen.
+ */
+export async function deleteMarker(roomId: string, markerId: string): Promise<boolean> {
+  const rows = await db!
     .delete(roomSessionMarkers)
-    .where(eq(roomSessionMarkers.id, markerId))
+    .where(and(eq(roomSessionMarkers.id, markerId), eq(roomSessionMarkers.room_id, roomId)))
+    .returning({ id: roomSessionMarkers.id })
+  return rows.length > 0
 }
 
 // ─── Row → Type helpers ─────────────────────────────────────────────

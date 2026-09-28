@@ -51,8 +51,10 @@ export default async function RecordingV2Page({
   // inside a live session.
   return (
     <div className="min-h-screen bg-background">
-      <header className="sticky top-0 z-30 border-b border-border/40 bg-background/95 px-4 py-2 backdrop-blur">
-        <div className="mx-auto flex max-w-7xl items-center justify-center">
+      {/* Fixed height (h-9): the on-air status rail sticks at `top-9`, directly
+          beneath this header, so the two must agree on the number. */}
+      <header className="sticky top-0 z-30 flex h-9 items-center border-b border-border/40 bg-background/95 px-4 backdrop-blur">
+        <div className="mx-auto flex w-full max-w-7xl items-center justify-center">
           <span className="truncate text-[12px] font-semibold">{snapshot.room.name}</span>
         </div>
       </header>

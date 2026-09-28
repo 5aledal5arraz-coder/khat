@@ -19,7 +19,11 @@ import {
 import { syncEirFromRoomStatus, syncEirOnRetake } from "@/lib/khat-brain"
 import type { SectionKind } from "@/lib/preparation/v2/types"
 import type { ParticipantRole } from "@/types/collaboration"
-import { QUICK_MARKER_TYPES, type QuickMarkerType } from "./marker-types"
+import {
+  CHECKLIST_OVERRIDE_LABEL,
+  QUICK_MARKER_TYPES,
+  type QuickMarkerType,
+} from "./marker-types"
 
 /**
  * Marker types the cockpit may create via the server action. The quick-tag set
@@ -87,6 +91,21 @@ async function loadRoom(roomId: string) {
 }
 
 /**
+ * NET recording ms "now" for a room row — the same number the clock shows and
+ * every marker is stamped with (pauses excluded).
+ */
+function netRecordingMsAt(
+  room: { recording_elapsed_ms: number; recording_started_at: Date | null; recording_paused_at: Date | null; status: string },
+  now: Date,
+): number {
+  const live =
+    room.status === "live" && room.recording_started_at && !room.recording_paused_at
+      ? Math.max(0, now.getTime() - room.recording_started_at.getTime())
+      : 0
+  return room.recording_elapsed_ms + live
+}
+
+/**
  * Ensure the current take has an anchor row, and NEVER move an existing one.
  *
  * `anchor_at` is the single wall-clock zero point every editor-facing timestamp
@@ -147,6 +166,9 @@ export async function startTimer(roomId: string) {
       recording_started_at: now,
       recording_paused_at: null,
       recording_ended_at: null,
+      // The first section starts with the take. Kept if already stamped (a
+      // start from `paused` must not re-date the section the host is in).
+      current_section_started_ms: sql`coalesce(${collaborationRooms.current_section_started_ms}, 0)`,
       updated_at: now,
     })
     .where(and(eq(collaborationRooms.id, roomId), sql`${collaborationRooms.status} <> 'live'`))
@@ -243,6 +265,8 @@ export async function resetTimer(roomId: string) {
       completed_question_ids: [],
       current_section_key: null,
       current_section_index: null,
+      current_section_started_ms: null,
+      current_question_id: null,
       director_notes: null,
       updated_at: now,
     })
@@ -297,14 +321,40 @@ export async function endTimer(roomId: string) {
  * the override is derived from the audit record rather than held in component
  * state, so it survives a refresh and cannot be silently forgotten.
  */
-export const CHECKLIST_OVERRIDE_LABEL = "checklist_override"
+export { CHECKLIST_OVERRIDE_LABEL }
+
+/**
+ * The marker type an override is recorded under.
+ *
+ * It used to be `tech_issue` — and `tech_issue` is an INTERVAL opener
+ * (marker-types.ts), so the director's flag bar read every override as a fault
+ * that had started and never ended: a red, counting «انتهت المشكلة · 12:40»
+ * button for a problem that did not exist. An override is a session fact, not
+ * a fault, so it gets its own system type.
+ */
+export const CHECKLIST_OVERRIDE_MARKER_TYPE = "checklist_override"
+
+/**
+ * Legacy value the DB CHECK has always accepted. Used ONLY if the insert under
+ * the new type is rejected by `chk_room_session_markers_type` — i.e. the
+ * database has not had `scripts/post-schema.sql` re-applied since this type was
+ * added. The override is the host's escape from a HARD lock; a constraint that
+ * lags a deploy must not be able to trap him behind it. `custom` is not an
+ * interval opener, so the director still sees no phantom fault.
+ */
+const CHECKLIST_OVERRIDE_FALLBACK_TYPE = "custom"
+
+function isCheckViolation(err: unknown): boolean {
+  const e = err as { code?: string; cause?: { code?: string } } | null
+  return e?.code === "23514" || e?.cause?.code === "23514"
+}
 
 /**
  * Record that the host started recording without a completed pre-shoot
  * checklist.
  *
- * Written as a `tech_issue` marker rather than into a bespoke audit table so it
- * flows into the CSV export and the wrap screen for free: the decision to shoot
+ * Written as a marker rather than into a bespoke audit table so it flows into
+ * the CSV export and the wrap screen for free: the decision to shoot
  * unverified appears beside the footage it affected, where post will see it.
  *
  * Deliberately bypasses `createMarker`'s `status === "waiting"` guard — an
@@ -332,22 +382,31 @@ export async function recordChecklistOverride(input: {
     input.actorRoomRole,
   )
   const now = new Date()
-  const [row] = await db!
-    .insert(roomSessionMarkers)
-    .values({
-      room_id: input.roomId,
-      author_id: participantId,
-      marker_type: "tech_issue",
-      label: CHECKLIST_OVERRIDE_LABEL,
-      note: `تجاوز التشك-ليست: ${input.reason} — ${input.resolvedCount} من ${input.total} بند مؤكّد`,
-      net_recording_ms: room.recording_elapsed_ms,
-      take_number: room.take_number,
-      wall_time: now,
-      section_key: null,
-    } as never)
-    .returning({ id: roomSessionMarkers.id })
+  const insertAs = (markerType: string) =>
+    db!
+      .insert(roomSessionMarkers)
+      .values({
+        room_id: input.roomId,
+        author_id: participantId,
+        marker_type: markerType,
+        label: CHECKLIST_OVERRIDE_LABEL,
+        note: `تجاوز التشك-ليست: ${input.reason} — ${input.resolvedCount} من ${input.total} بند مؤكّد`,
+        net_recording_ms: room.recording_elapsed_ms,
+        take_number: room.take_number,
+        wall_time: now,
+        section_key: null,
+      } as never)
+      .returning({ id: roomSessionMarkers.id })
 
-  return { ok: true as const, marker_id: row.id }
+  let rows: { id: string }[]
+  try {
+    rows = await insertAs(CHECKLIST_OVERRIDE_MARKER_TYPE)
+  } catch (err) {
+    if (!isCheckViolation(err)) throw err
+    rows = await insertAs(CHECKLIST_OVERRIDE_FALLBACK_TYPE)
+  }
+
+  return { ok: true as const, marker_id: rows[0].id }
 }
 
 /**
@@ -468,14 +527,52 @@ export async function setCurrentSection(input: {
   index: number
   key: SectionKind
 }) {
+  const now = new Date()
+  const room = await loadRoom(input.roomId)
+  if (!room) return { ok: false as const, error: "room_not_found" }
+  // Stamp when the section began, in NET recording time, so time-in-section
+  // survives reloads and reaches every screen. Re-selecting the section the
+  // host is already in must not restart its clock, hence the CASE.
+  const startedMs = room.status === "waiting" ? 0 : netRecordingMsAt(room, now)
   await db!
     .update(collaborationRooms)
     .set({
       current_section_key: input.key,
       current_section_index: input.index,
-      updated_at: new Date(),
+      current_section_started_ms: sql`(case
+        when ${collaborationRooms.current_section_key} is not distinct from ${input.key}
+          and ${collaborationRooms.current_section_started_ms} is not null
+          then ${collaborationRooms.current_section_started_ms}
+        else ${startedMs}
+      end)`,
+      updated_at: now,
     })
     .where(eq(collaborationRooms.id, input.roomId))
+  return { ok: true as const }
+}
+
+/**
+ * Publish which prep_v2 question is on the host's screen («الآن»).
+ *
+ * Writes `current_question_id`, NOT `active_card_id`: the latter is a foreign
+ * key to `interview_cards(id)`, so every prep_v2 id was rejected with 23503 —
+ * and the fire-and-forget caller swallowed it, so the director's «الآن» was
+ * never the host's question. Bounded length: this is an id, not free text.
+ */
+export async function setCurrentQuestion(input: {
+  roomId: string
+  questionId: string | null
+}) {
+  const id = input.questionId
+  if (id !== null && (typeof id !== "string" || id.length === 0 || id.length > 200)) {
+    return { ok: false as const, error: "invalid_question_id" }
+  }
+  const [row] = await db!
+    .update(collaborationRooms)
+    .set({ current_question_id: id, updated_at: new Date() })
+    .where(eq(collaborationRooms.id, input.roomId))
+    .returning({ id: collaborationRooms.id })
+  if (!row) return { ok: false as const, error: "room_not_found" }
   return { ok: true as const }
 }
 
@@ -585,7 +682,27 @@ export async function createMarker(input: {
       wall_time: now,
       section_key: input.sectionKey ?? room.current_section_key ?? null,
     } as never)
-    .returning({ id: roomSessionMarkers.id })
+    .returning()
 
-  return { ok: true as const, marker_id: row.id, net_recording_ms }
+  /**
+   * The row in the shape the room's SSE `marker_added` carries (the same one
+   * the director's POST route broadcasts), so the caller can tell every other
+   * screen. Returning only the id is why the host's flags never reached the
+   * director: the action wrote the row and nobody else heard about it.
+   */
+  const broadcastable = {
+    id: row.id,
+    room_id: row.room_id,
+    author_id: row.author_id,
+    take_number: row.take_number,
+    marker_type: row.marker_type,
+    label: row.label,
+    note: row.note,
+    net_recording_ms: row.net_recording_ms,
+    section_key: row.section_key ?? null,
+    wall_time: row.wall_time instanceof Date ? row.wall_time.toISOString() : String(row.wall_time),
+    created_at: row.created_at instanceof Date ? row.created_at.toISOString() : String(row.created_at),
+  }
+
+  return { ok: true as const, marker_id: row.id, net_recording_ms, marker: broadcastable }
 }

@@ -17,7 +17,10 @@ import {
   useRoomMarkers,
   useRoomChecklist,
   useRoomConnection,
+  markerErrorMessage,
 } from "@/app/admin/preparation/[id]/room/contexts"
+import type { RoomSessionMarker } from "@/types/collaboration"
+import { TYPE_LABEL_AR } from "./cockpit-bits"
 import { cn } from "@/lib/utils"
 import { sectionLabelAr } from "@/lib/preparation/v2/format"
 import type { LiveV2Snapshot } from "@/lib/recording-v2/load"
@@ -30,7 +33,7 @@ import {
 } from "lucide-react"
 import { Empty } from "../../../components/ui-kit"
 import { RoomNotesPanel } from "./room-notes-panel"
-import { markerStyle, computeElapsedMs } from "./recording-shared"
+import { markerStyle, markerStyleForRow, computeElapsedMs } from "./recording-shared"
 import { ChecklistPanel } from "./checklist-panel"
 import { setChecklistItemAction, startTimerAction } from "./actions"
 import { deriveChecklistModel } from "@/lib/recording-v2/preflight-checklist"
@@ -100,6 +103,9 @@ function DirectorMarkerBar({
 }) {
   const { addMarker, markers } = useRoomMarkers()
   const [pending, setPending] = useState<QuickMarkerType | null>(null)
+  // A flag that did not land must SAY so — the request used to ignore its
+  // response, so a 401/403 looked exactly like success.
+  const [flagError, setFlagError] = useState<string | null>(null)
   // Ticks only to force a re-render; the VALUE comes from `netNow()` below.
   const [, setTick] = useState(0)
 
@@ -126,8 +132,11 @@ function DirectorMarkerBar({
     const openAt = open[type]
     const toWrite = openAt !== undefined ? closerFor(type)! : type
     setPending(type)
+    setFlagError(null)
     try {
       await addMarker(toWrite, QUICK_MARKER_META[toWrite].defaultLabel)
+    } catch (err) {
+      setFlagError(markerErrorMessage(err))
     } finally {
       setPending(null)
     }
@@ -176,6 +185,11 @@ function DirectorMarkerBar({
           )
         })}
       </div>
+      {flagError && (
+        <p role="status" className="mt-2 text-[12px] font-medium text-rose-700">
+          {flagError}
+        </p>
+      )}
       {hasOpen && (
         <p className="mt-2 text-[10.5px] font-medium text-rose-700">
           اضغط الزر الأحمر مرة ثانية عند انتهاء الحالة.
@@ -190,30 +204,83 @@ function DirectorMarkerBar({
   )
 }
 
+/** How long a deleted marker can be restored before the DELETE is sent. */
+export const MARKER_UNDO_MS = 5_000
+
 /**
- * Live feed of session markers, shared by the director view (inline, deletable)
- * and the host cockpit (floating overlay). Shows every room-broadcast marker on
- * the shared taxonomy so the whole team sees flagged moments as they happen.
+ * Live feed of session markers, shared by the director view (inline) and the
+ * host's team sheet. Shows every room-broadcast marker on the shared taxonomy
+ * so the whole team sees flagged moments as they happen.
+ *
+ * `canDelete` is either a blanket flag (director / editor: every marker) or a
+ * per-marker rule (the host: only his own).
+ *
+ * DELETE IS UNDOABLE FOR 5s. The row disappears at once and a «تراجع» line
+ * takes its place; only when that lapses is the DELETE sent. A trash icon a
+ * few pixels from a timestamp, tapped mid-take, used to be final.
  */
 export function TeamMarkerFeed({
   floating = false,
   canDelete = false,
 }: {
   floating?: boolean
-  canDelete?: boolean
+  canDelete?: boolean | ((m: RoomSessionMarker) => boolean)
 }) {
   const { markers, deleteMarker } = useRoomMarkers()
   const [open, setOpen] = useState(true)
+  const [pendingDelete, setPendingDelete] = useState<{ id: string; label: string } | null>(null)
+  const [error, setError] = useState<string | null>(null)
+  const timer = useRef<number | null>(null)
 
   // energy_change is a system marker (drives the timeline ribbon) — not shown
   // in the team feed. Memoized so the open/close toggle doesn't re-filter.
   const ops = useMemo(
-    () => markers.filter((m) => m.marker_type !== "energy_change").reverse(),
-    [markers],
+    () =>
+      markers
+        .filter((m) => m.marker_type !== "energy_change" && m.id !== pendingDelete?.id)
+        .reverse(),
+    [markers, pendingDelete],
   )
 
+  const commit = async (id: string) => {
+    try {
+      await deleteMarker(id)
+    } catch (err) {
+      setError(markerErrorMessage(err))
+    } finally {
+      setPendingDelete((p) => (p?.id === id ? null : p))
+    }
+  }
+
+  useEffect(
+    () => () => {
+      if (timer.current) window.clearTimeout(timer.current)
+    },
+    [],
+  )
+
+  const requestDelete = (m: RoomSessionMarker) => {
+    // A second delete while one is pending sends the first one now.
+    if (pendingDelete) {
+      if (timer.current) window.clearTimeout(timer.current)
+      void commit(pendingDelete.id)
+    }
+    setError(null)
+    setPendingDelete({ id: m.id, label: markerStyleForRow(m).label })
+    timer.current = window.setTimeout(() => void commit(m.id), MARKER_UNDO_MS)
+  }
+
+  const undo = () => {
+    if (timer.current) window.clearTimeout(timer.current)
+    timer.current = null
+    setPendingDelete(null)
+  }
+
+  const allowed = (m: RoomSessionMarker) =>
+    typeof canDelete === "function" ? canDelete(m) : canDelete
+
   const renderItem = (m: (typeof ops)[number]) => {
-    const st = markerStyle(m.marker_type)
+    const st = markerStyleForRow(m)
     const Icon = st.icon
     return (
       <li
@@ -228,14 +295,14 @@ export function TeamMarkerFeed({
           <time className="tabular-nums text-[10.5px] text-muted-foreground" dir="ltr">
             {formatClock(m.net_recording_ms)}
           </time>
-          {canDelete && (
+          {allowed(m) && (
             <button
               type="button"
-              onClick={() => void deleteMarker(m.id)}
-              className="text-muted-foreground/60 transition hover:text-rose-600"
+              onClick={() => requestDelete(m)}
+              className="inline-flex h-9 w-9 items-center justify-center rounded-lg text-muted-foreground transition hover:text-rose-600"
               aria-label="حذف العلامة"
             >
-              <Trash2 className="h-3 w-3" />
+              <Trash2 className="h-3.5 w-3.5" />
             </button>
           )}
         </span>
@@ -243,8 +310,29 @@ export function TeamMarkerFeed({
     )
   }
 
+  const undoLine = pendingDelete && (
+    <li
+      role="status"
+      className="flex items-center justify-between gap-2 rounded-lg border border-amber-500/40 bg-amber-500/10 px-2.5 py-1 text-[12px] text-amber-800"
+    >
+      <span>حُذفت «{pendingDelete.label}»</span>
+      <button
+        type="button"
+        onClick={undo}
+        className="inline-flex min-h-[36px] items-center rounded-lg border border-amber-500/50 px-3 font-semibold"
+      >
+        تراجع
+      </button>
+    </li>
+  )
+  const errorLine = error && (
+    <li role="status" className="px-1 text-[12px] font-medium text-rose-700">
+      {error}
+    </li>
+  )
+
   if (floating) {
-    if (ops.length === 0) return null
+    if (ops.length === 0 && !pendingDelete) return null
     return (
       <div className="fixed bottom-3 start-3 z-40 w-64 max-w-[80vw]" dir="rtl">
         <div className="overflow-hidden rounded-2xl border border-border/50 bg-card/95 shadow-lg backdrop-blur">
@@ -262,6 +350,8 @@ export function TeamMarkerFeed({
           </button>
           {open && (
             <ul className="max-h-56 space-y-1 overflow-auto px-3 pb-3">
+              {undoLine}
+              {errorLine}
               {ops.slice(0, 8).map(renderItem)}
             </ul>
           )}
@@ -275,10 +365,14 @@ export function TeamMarkerFeed({
       <div className="mb-2 inline-flex items-center gap-1.5 text-[11px] font-semibold text-muted-foreground">
         <Flag className="h-3 w-3" /> العلامات المسجّلة
       </div>
-      {ops.length === 0 ? (
+      {ops.length === 0 && !pendingDelete && !error ? (
         <p className="text-[11px] text-muted-foreground">لا علامات بعد.</p>
       ) : (
-        <ul className="space-y-1">{ops.map(renderItem)}</ul>
+        <ul className="space-y-1">
+          {undoLine}
+          {errorLine}
+          {ops.map(renderItem)}
+        </ul>
       )}
     </div>
   )
@@ -478,7 +572,9 @@ export function ParticipantRoomView({
   const { currentQuestionId, nextQuestionId } = resolveCurrentQuestion(
     questions,
     completedQ,
-    room?.active_card_id ?? initial.room.active_card_id ?? null,
+    // `current_question_id`, not `active_card_id`: the latter is an FK to
+    // interview_cards and never held a prep_v2 id (every write was 23503).
+    room?.current_question_id ?? initial.room.current_question_id ?? null,
   )
 
   return (
@@ -545,6 +641,11 @@ export function ParticipantRoomView({
           recordingPausedAt={room?.recording_paused_at ?? initial.room.recording_paused_at}
           sectionIndex={idx}
           sectionLabel={sectionLabelAr(section.kind, sections)}
+          sectionStartedMs={
+            room
+              ? (room.current_section_started_ms ?? null)
+              : initial.room.current_section_started_ms
+          }
         />
       )}
 
@@ -625,11 +726,11 @@ export function ParticipantRoomView({
                   </span>
                 )}
                 <span className="rounded-sm bg-muted/40 px-1.5 py-0.5 text-[9.5px] text-muted-foreground">
-                  {q.types.join(" · ")}
+                  {q.types.map((t) => TYPE_LABEL_AR[t] ?? t).join(" · ")}
                 </span>
                 {isDirector && q.risk_level && q.risk_level !== "low" && (
                   <span className="rounded-sm bg-amber-500/10 px-1.5 py-0.5 text-[9.5px] text-amber-700">
-                    حساسية: {q.risk_level}
+                    حساسية: {q.risk_level === "high" ? "عالية" : "متوسطة"}
                   </span>
                 )}
                 {isNow && !done && (
@@ -815,6 +916,7 @@ function DirectorClock({
   recordingPausedAt,
   sectionIndex,
   sectionLabel,
+  sectionStartedMs,
 }: {
   status: string
   elapsedMsAtBaseline: number
@@ -822,6 +924,8 @@ function DirectorClock({
   recordingPausedAt: string | null
   sectionIndex: number
   sectionLabel: string
+  /** Server-stamped NET ms the section began at; null on older rooms. */
+  sectionStartedMs: number | null
 }) {
   const live = status === "live"
   const windowStartedAt =
@@ -840,7 +944,12 @@ function DirectorClock({
           windowStartedAt={windowStartedAt}
         />
       </div>
-      <SectionClock sectionIndex={sectionIndex} sectionLabel={sectionLabel} netNow={netNow} />
+      <SectionClock
+        sectionIndex={sectionIndex}
+        sectionLabel={sectionLabel}
+        netNow={netNow}
+        startedMs={sectionStartedMs}
+      />
     </div>
   )
 }
@@ -863,10 +972,18 @@ function SectionClock({
   sectionIndex,
   sectionLabel,
   netNow,
+  startedMs,
 }: {
   sectionIndex: number
   sectionLabel: string
   netNow: () => number
+  /**
+   * The server now stamps when the section began (`current_section_started_ms`,
+   * migration 0032). When present it is the truth, including for a director
+   * who joined mid-section; the observed-start logic below stays only for
+   * rooms whose row predates the column.
+   */
+  startedMs: number | null
 }) {
   const [elapsed, setElapsed] = useState<number | null>(null)
   const startRef = useRef<{ index: number; net: number; observed: boolean } | null>(null)
@@ -874,6 +991,10 @@ function SectionClock({
   useEffect(() => {
     const id = setInterval(() => {
       const now = netNow()
+      if (startedMs != null) {
+        setElapsed(Math.max(0, now - startedMs))
+        return
+      }
       const s = startRef.current
       if (!s) {
         // First sighting. The section was already running when we arrived and
@@ -894,7 +1015,7 @@ function SectionClock({
       setElapsed(s.observed ? Math.max(0, now - s.net) : null)
     }, 500)
     return () => clearInterval(id)
-  }, [sectionIndex, netNow])
+  }, [sectionIndex, netNow, startedMs])
 
   return (
     <div className="mt-1 flex items-baseline justify-between gap-2">
@@ -963,7 +1084,8 @@ function DirectorEnergyControl({
   const silenced = decision?.muted === true
 
   return (
-    <div className="sticky top-2 z-30 rounded-2xl border border-amber-500/25 bg-card/95 p-3 shadow-sm backdrop-blur">
+    // top-11: clears the page header (fixed h-9) instead of sliding under it.
+    <div className="sticky top-11 z-20 rounded-2xl border border-amber-500/25 bg-card/95 p-3 shadow-sm backdrop-blur">
       <div className="mb-2 flex items-center justify-between">
         <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-amber-700">
           <Zap className="h-3 w-3" /> طاقة الغرفة · {ENERGY_BAND_LABEL_AR[energyBand(energy)]}

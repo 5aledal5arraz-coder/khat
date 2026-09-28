@@ -180,7 +180,10 @@ describe("PreflightGate — locked", () => {
     // 12 resolved = media_power(3) + light_set(3) + cameras(5) + matching(1),
     // so the first unresolved group is «الصوت».
     const html = gate("blocked")
-    expect(html).toContain("جاهزية الاستوديو 12 من 17")
+    // One line since 2026-09-28: «جاهزية 12/17 · الناقص: …».
+    expect(html).toContain("جاهزية")
+    expect(html).toMatch(/12\/17/)
+    expect(html).toContain("الناقص:")
     expect(html).toContain("الصوت")
     expect(html).not.toContain("تفريغ كروت الذاكرة من التصوير السابق ثم الفورمات")
     expect(html).not.toContain("التكييف مضبوط ومو مسموع في التسجيل")
@@ -192,20 +195,32 @@ describe("PreflightGate — locked", () => {
   })
 
   it("hides the emergency override while a director is reachable", () => {
-    // An override must never be a general shortcut past the checklist.
+    // An override must never be a general shortcut past the checklist — not
+    // even the trigger to the sheet that holds it, and not when opened.
     expect(gate("blocked")).not.toContain("تجاوز وابدأ")
+    expect(gate("blocked")).not.toContain("طرق البدء")
+    expect(gate("blocked", { escapesInitiallyOpen: true })).not.toContain("تجاوز وابدأ")
   })
 })
 
 describe("PreflightGate — no director", () => {
-  it("prefers «أكمل التشك-ليست بنفسي» over the override", () => {
+  // The escape hatches moved into a sheet (2026-09-28): the locked bar carries
+  // one trigger, the sheet carries BOTH exits, unchanged.
+  it("offers the escape trigger, not the exits themselves, while the sheet is closed", () => {
     const html = gate("no_director")
-    expect(html).toContain("أكمل التشك-ليست بنفسي")
+    expect(html).toContain("ما فيه مخرج؟ طرق البدء")
     expect(html).toContain("ما فيه مخرج متصل الآن")
+    expect(html).not.toContain("تجاوز وابدأ")
+  })
+
+  it("prefers «أكمل التشك-ليست بنفسي» over the override", () => {
+    const html = gate("no_director", { escapesInitiallyOpen: true })
+    expect(html).toContain("أكمل التشك-ليست بنفسي")
+    expect(html.indexOf("أكمل التشك-ليست بنفسي")).toBeLessThan(html.indexOf("تجاوز وابدأ"))
   })
 
   it("exposes the override only in this state", () => {
-    expect(gate("no_director")).toContain("تجاوز وابدأ")
+    expect(gate("no_director", { escapesInitiallyOpen: true })).toContain("تجاوز وابدأ")
   })
 })
 
@@ -222,7 +237,8 @@ describe("PreflightGate — offline", () => {
   })
 
   it("still offers the escape hatches", () => {
-    const html = gate("offline")
+    expect(gate("offline")).toContain("ما فيه مخرج؟ طرق البدء")
+    const html = gate("offline", { escapesInitiallyOpen: true })
     expect(html).toContain("أكمل التشك-ليست بنفسي")
     expect(html).toContain("تجاوز وابدأ")
   })

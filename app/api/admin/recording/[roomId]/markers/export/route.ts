@@ -176,13 +176,22 @@ export async function GET(
   // Editors read a cut list in timeline order, so sort by the clock they will
   // actually be looking at. Unanchored rows (camera_ms null) sink to the end
   // rather than being dropped — the CSV still has to account for them.
+  //
+  // A NEGATIVE camera time is unanchored too, for this purpose: it lies before
+  // the camera's first frame (a pre-take checklist override stamped at net 0,
+  // or a negative `camera_offset_ms`). `formatTimestamp` clamped it to
+  // 00:00:00.00 — which reads as "the very start of the take", a false cut at
+  // the head — and it sorted FIRST. Both are wrong; it is placed like null.
+  const placeable = (m: { camera_ms: number | null }) => m.camera_ms != null && m.camera_ms >= 0
   const rows = [...withCamera]
     .map((m, i) => ({ ...m, index: i + 1 }))
     .sort((a, b) => {
-      if (a.camera_ms == null && b.camera_ms == null) return a.index - b.index
-      if (a.camera_ms == null) return 1
-      if (b.camera_ms == null) return -1
-      return a.camera_ms - b.camera_ms
+      const pa = placeable(a)
+      const pb = placeable(b)
+      if (!pa && !pb) return a.index - b.index
+      if (!pa) return 1
+      if (!pb) return -1
+      return a.camera_ms! - b.camera_ms!
     })
     // Re-index AFTER sorting so «رقم العلامة» matches the exported order and the
     // EDL's `|M:quote 7` points at CSV row 7.
@@ -229,9 +238,9 @@ export async function GET(
     const cells = [
       m.index,
       m.take_number,
-      m.camera_ms == null ? NO_CAMERA_TIME : formatTimestamp(m.camera_ms),
+      placeable(m) ? formatTimestamp(m.camera_ms!) : NO_CAMERA_TIME,
       formatTimestamp(m.net_recording_ms),
-      m.camera_ms == null ? "" : m.camera_ms,
+      placeable(m) ? m.camera_ms : "",
       m.net_recording_ms,
       typeLabel,
       m.marker_type,

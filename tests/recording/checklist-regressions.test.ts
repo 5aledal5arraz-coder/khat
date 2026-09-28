@@ -233,7 +233,9 @@ describe("BUG 3 — the override appears only where the normal path is unavailab
     expect(
       deriveHostGateState({ model, directorOnline: false, connected: false, connecting: false }),
     ).toBe("offline")
-    expect(gate("offline")).toContain("تجاوز وابدأ")
+    // The exits live in a sheet behind this trigger since 2026-09-28.
+    expect(gate("offline")).toContain("ما فيه مخرج؟ طرق البدء")
+    expect(gate("offline", { escapesInitiallyOpen: true })).toContain("تجاوز وابدأ")
   })
 
   it("locks with a Lock affordance, not the live CTA's Radio glyph", () => {

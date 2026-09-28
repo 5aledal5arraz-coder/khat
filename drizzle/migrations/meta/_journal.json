@@ -225,6 +225,13 @@
       "when": 1790453278779,
       "tag": "0031_acoustic_giant_man",
       "breakpoints": true
+    },
+    {
+      "idx": 32,
+      "version": "7",
+      "when": 1790543612784,
+      "tag": "0032_majestic_baron_zemo",
+      "breakpoints": true
     }
   ]
 }

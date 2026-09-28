@@ -33,6 +33,25 @@ interface RoomMarkersContextValue {
   deleteMarker: (id: string) => Promise<void>
 }
 
+/** A marker request the server refused. `status` 401 = the session is gone. */
+export class MarkerRequestError extends Error {
+  constructor(public status: number) {
+    super(`marker request failed: ${status}`)
+    this.name = "MarkerRequestError"
+  }
+}
+
+/** Arabic copy for a failed marker request — what to DO, not the status code. */
+export function markerErrorMessage(err: unknown): string {
+  if (err instanceof MarkerRequestError && err.status === 401) {
+    return "انتهت الجلسة — سجّل الدخول من جديد."
+  }
+  if (err instanceof MarkerRequestError && err.status === 403) {
+    return "ما عندك صلاحية لهذا في الغرفة."
+  }
+  return "ما وصلت — تأكّد من الاتصال وأعد المحاولة."
+}
+
 // ─── Context ────────────────────────────────────────────────────────
 
 const RoomMarkersContext = createContext<RoomMarkersContextValue | null>(null)
@@ -89,24 +108,32 @@ export function RoomMarkersProvider({
 
   const apiBase = `/api/admin/preparation/${prepId}/rooms/${roomId}/markers`
 
+  /**
+   * Both calls THROW on a non-2xx now. They used to ignore the response, so a
+   * 403 (no room permission) or a 401 (session expired) looked exactly like
+   * success: the button settled, nothing appeared, nothing said why. The error
+   * carries the status so a caller can tell "sign in again" from "try again".
+   */
   const addMarkerAction = useCallback(
     async (type: SessionMarkerType, label: string, note?: string) => {
-      await fetch(apiBase, {
+      const res = await fetch(apiBase, {
         method: "POST",
         headers: { "Content-Type": "application/json", "x-requested-with": "khat" },
         body: JSON.stringify({ marker_type: type, label, note }),
       })
+      if (!res.ok) throw new MarkerRequestError(res.status)
     },
     [apiBase],
   )
 
   const deleteMarkerAction = useCallback(
     async (id: string) => {
-      await fetch(apiBase, {
+      const res = await fetch(apiBase, {
         method: "DELETE",
         headers: { "Content-Type": "application/json", "x-requested-with": "khat" },
         body: JSON.stringify({ marker_id: id }),
       })
+      if (!res.ok) throw new MarkerRequestError(res.status)
     },
     [apiBase],
   )

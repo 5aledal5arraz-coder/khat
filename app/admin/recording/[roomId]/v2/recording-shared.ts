@@ -17,9 +17,12 @@ import {
   Play,
   Flag,
   Lightbulb,
+  Radio,
+  ShieldAlert,
   type LucideIcon,
 } from "lucide-react"
 import {
+  CHECKLIST_OVERRIDE_LABEL,
   QUICK_MARKER_TYPES,
   QUICK_MARKER_META,
   type QuickMarkerType,
@@ -105,6 +108,22 @@ export const MARKER_STYLE: Record<string, MarkerStyle> = {
     text: "text-teal-700",
     soft: "bg-teal-500/10",
   },
+  // System markers that reach the team feed. Without entries here the feed
+  // fell back to the raw key and the director read "episode_started".
+  episode_started: {
+    label: "بدء التسجيل",
+    icon: Radio,
+    dot: "bg-emerald-500",
+    text: "text-emerald-700",
+    soft: "bg-emerald-500/10",
+  },
+  checklist_override: {
+    label: "تجاوز التشك-ليست",
+    icon: ShieldAlert,
+    dot: "bg-amber-500",
+    text: "text-amber-700",
+    soft: "bg-amber-500/10",
+  },
 }
 
 export function markerStyle(type: string): MarkerStyle {
@@ -117,6 +136,17 @@ export function markerStyle(type: string): MarkerStyle {
       soft: "bg-muted/30",
     }
   )
+}
+
+/**
+ * Style for a stored marker ROW. An override is identified by its label, not
+ * only its type: rows written before `checklist_override` existed are
+ * `tech_issue`, and on a database whose CHECK has not been refreshed the app
+ * falls back to `custom` (actions-impl.ts). All three read the same.
+ */
+export function markerStyleForRow(m: { marker_type: string; label?: string | null }): MarkerStyle {
+  if (m.label === CHECKLIST_OVERRIDE_LABEL) return MARKER_STYLE.checklist_override
+  return markerStyle(m.marker_type)
 }
 
 /**

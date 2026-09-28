@@ -7,9 +7,10 @@
  */
 
 import { useState } from "react"
-import { CheckCircle2, Download, Flag, RotateCcw, Mic, Clapperboard, Check } from "lucide-react"
+import { CheckCircle2, Download, Flag, RotateCcw, Mic, Clapperboard, Check, AlertTriangle } from "lucide-react"
 import type { LiveV2Marker } from "@/lib/recording-v2/load"
-import type { PrepV2ClosingOption } from "@/lib/preparation/v2/types"
+import type { PrepV2ClosingOption, PrepV2Question, PrepV2Section } from "@/lib/preparation/v2/types"
+import { sectionLabelAr } from "@/lib/preparation/v2/format"
 import { markerStyle, formatHms, formatPrecise } from "./recording-shared"
 import { OptionList } from "./cockpit-bits"
 
@@ -20,6 +21,8 @@ export function WrapView({
   sectionsDone,
   questionsAsked,
   questionsTotal,
+  skippedMustAsk = [],
+  sections = null,
   markers,
   closingOptions,
   takeNumber,
@@ -34,6 +37,10 @@ export function WrapView({
   sectionsDone: number
   questionsAsked: number
   questionsTotal: number
+  /** «أساسي» questions never marked asked this take. */
+  skippedMustAsk?: PrepV2Question[]
+  /** For naming the section each skipped question belongs to. */
+  sections?: PrepV2Section[] | null
   markers: LiveV2Marker[]
   closingOptions: PrepV2ClosingOption[]
   takeNumber: number
@@ -59,6 +66,31 @@ export function WrapView({
         <Metric label="الأسئلة المطروحة" value={`${questionsAsked}/${questionsTotal}`} />
         <Metric label="العلامات" value={String(markers.length)} />
       </div>
+
+      {/* What the take left out. Leaving a section with a «أساسي» unasked was
+          allowed and only quietly noted at the time; here it is listed, so a
+          pickup or a re-shoot can be decided while the guest is still in the
+          room. */}
+      {skippedMustAsk.length > 0 && (
+        <Panel
+          title={`أسئلة أساسية ما انطرحت (${skippedMustAsk.length})`}
+          icon={<AlertTriangle className="h-3.5 w-3.5 text-amber-600" />}
+        >
+          <ul className="space-y-1.5">
+            {skippedMustAsk.map((q) => (
+              <li
+                key={q.id}
+                className="rounded-lg border border-amber-500/30 bg-amber-500/5 px-3 py-2 text-[13px] leading-relaxed text-foreground"
+              >
+                <span className="me-1.5 text-[12px] font-medium text-amber-800">
+                  {sectionLabelAr(q.section, sections)}:
+                </span>
+                {q.text}
+              </li>
+            ))}
+          </ul>
+        </Panel>
+      )}
 
       <CameraOffsetField
         offsetMs={cameraOffsetMs}

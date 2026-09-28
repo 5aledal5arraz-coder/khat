@@ -21,7 +21,7 @@ export { useRoomConnection, type ConnectionStatus } from "./room-connection-cont
 export { useRoomState } from "./room-state-context"
 export { useRoomCards } from "./room-cards-context"
 export { useRoomTimer, type TimerStatus } from "./room-timer-context"
-export { useRoomMarkers } from "./room-markers-context"
+export { useRoomMarkers, markerErrorMessage, MarkerRequestError } from "./room-markers-context"
 export { useRoomChecklist } from "./room-checklist-context"
 
 // ─── Composed Provider ──────────────────────────────────────────────

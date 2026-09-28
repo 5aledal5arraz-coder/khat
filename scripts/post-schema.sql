@@ -632,6 +632,12 @@ DO $$ BEGIN
       -- one of those inserts was rejected by this constraint. Found while
       -- adding the two above; fixed rather than left for the next person.
       'insight_used',
+      -- The checklist-gate override (lib/recording-v2/actions-impl.ts). It was
+      -- written as `tech_issue`, an INTERVAL opener, so the director's flag bar
+      -- showed every override as a fault that never ended. Added 2026-09-28.
+      -- Until this file is re-applied the app falls back to 'custom' (below),
+      -- so a lagging constraint can never trap the host behind the hard lock.
+      'checklist_override',
       -- legacy values (pre-unification rows)
       'deep_moment', 'emotional', 'revisit', 'episode_started', 'break',
       'important', 'technical_issue', 'custom'

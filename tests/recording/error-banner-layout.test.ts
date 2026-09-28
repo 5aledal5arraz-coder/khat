@@ -1,28 +1,27 @@
 /**
- * The action-error banner must never cover the transport controls.
+ * The action-error overlay must never cover the transport controls.
  *
- * The defect: the banner in `live-v2-client.tsx` was
- * `fixed inset-x-0 top-0 z-50`, ~44px tall. `position: fixed` takes an element
- * out of normal flow, so nothing below reserves its height and it paints on top
- * of the first rows of whichever phase branch is mounted. In <OnAirView> the
- * first row is the <StatusRail>, which carries pause / resume / end. Net
- * effect: the instant an action failed mid-take, the banner landed exactly on
- * the buttons that stop the take. There is a "إخفاء" button, so it was
- * recoverable — but only if the director noticed it while the camera rolled.
+ * History, because the rule changed shape twice:
+ *   1. The banner in `live-v2-client.tsx` was `fixed inset-x-0 top-0 z-50`.
+ *      Out of flow, pinned to the TOP — exactly where <StatusRail> carries
+ *      pause / resume / end. The instant an action failed mid-take, the banner
+ *      landed on the stop button.
+ *   2. It was moved into NORMAL FLOW above the view. That fixed the overlap but
+ *      made every failure shove the whole cockpit down mid-take, and it
+ *      scrolled away.
+ *   3. (2026-09-28, Khaled-approved host plan) The rail is now STICKY at the
+ *      top, and the overlay floats at the BOTTOM, above the fixed thumb bar
+ *      (`--khat-bottom-bar`). The top edge stays spoken for by the rail; the
+ *      overlay can cover neither.
  *
- * Why a SOURCE-level guard instead of a render test: the failure is geometric
- * (two boxes sharing pixels), and this suite runs in `environment: "node"` with
- * `renderToStaticMarkup` — no layout engine, no jsdom, so no rendered assertion
- * can measure an overlap. What CAN be pinned is the property the CSS box model
- * derives the guarantee from: a block-level element in NORMAL FLOW cannot
- * overlap a later sibling, at any scroll offset or viewport width. So this file
- * asserts (1) the banner stays in normal flow, (2) it stays a preceding sibling
- * of the phase view, (3) the rail is still the first thing in the on-air view,
- * and (4) nothing else on this surface is a top-pinned viewport overlay.
- *
- * (4) is the general form of the bug. Bottom-pinned `fixed` bars are fine and
- * several exist deliberately (the checklist action bar, the preflight go-live
- * bar, the notes panel); the top edge is the one that is spoken for.
+ * Why a SOURCE-level guard: the failure is geometric and this suite runs in
+ * `environment: "node"` with no layout engine. What CAN be pinned are the class
+ * properties the guarantee derives from: (1) anything out of flow in the
+ * overlay is bottom-anchored and never top-pinned, (2) the overlay is still
+ * rendered as a sibling BEFORE the phase view (not inside the rail), (3) the
+ * rail is the first row of the on-air view and is sticky under the fixed-height
+ * header, and (4) nothing on this surface is a top-pinned viewport overlay —
+ * except a `role="dialog"` sheet the host opened himself and can dismiss.
  */
 
 import { describe, expect, it } from "vitest"
@@ -82,22 +81,38 @@ function bannerClassName(): string {
   return found[0]
 }
 
+/** Every className string inside the `actionErrorBanner` initializer. */
+function overlayClassNames(): string[] {
+  const sf = parse(`${V2_DIR}/live-v2-client.tsx`)
+  const found: string[] = []
+  walk(sf, (n) => {
+    if (!ts.isVariableDeclaration(n) || n.name.getText() !== "actionErrorBanner") return
+    walk(n, (m) => {
+      if (!ts.isJsxAttribute(m) || m.name.getText() !== "className") return
+      found.push(classText(m.initializer))
+    })
+  })
+  return found
+}
+
 describe("action-error banner vs. the transport rail", () => {
-  it("stays in normal flow — it can never paint over the rail", () => {
-    const cls = tokens(bannerClassName())
-
-    const offending = cls.filter((t) => OUT_OF_FLOW.has(t))
-    expect(
-      offending,
-      `the banner sits above <StatusRail> (pause / resume / end). Positioning it ` +
-        `[${offending.join(", ")}] removes it from flow, so nothing reserves its height ` +
-        `and it lands on the stop button the moment an action fails mid-take.`,
-    ).toEqual([])
-
-    // Belt and braces: no top pin, and no negative top margin pulling it back
-    // over whatever precedes it.
-    expect(cls.filter(pinsToTop)).toEqual([])
-    expect(cls.filter((t) => /^-mt-/.test(t))).toEqual([])
+  it("floats at the BOTTOM, above the thumb bar — never pinned to the top", () => {
+    // Exactly one alert region still exists (announced regardless of scroll).
+    bannerClassName()
+    const classes = overlayClassNames()
+    expect(classes.length, "actionErrorBanner should render elements").toBeGreaterThan(0)
+    for (const cls of classes.map(tokens)) {
+      expect(cls.filter(pinsToTop), "the top edge belongs to the sticky rail").toEqual([])
+      expect(cls.filter((t) => /^-mt-/.test(t))).toEqual([])
+      if (cls.some((t) => OUT_OF_FLOW.has(t))) {
+        expect(
+          cls.some((t) => /^bottom-/.test(t)),
+          `an out-of-flow overlay must be bottom-anchored: [${cls.join(" ")}]`,
+        ).toBe(true)
+        // …and clear the fixed thumb bar, whatever its height.
+        expect(cls.join(" ")).toContain("--khat-bottom-bar")
+      }
+    }
   })
 
   it("is still rendered BEFORE the phase view, not inside it", () => {
@@ -142,14 +157,29 @@ describe("action-error banner vs. the transport rail", () => {
     expect(firsts[0]).toBe("StatusRail")
   })
 
+  it("keeps the rail STICKY directly under the fixed-height page header", () => {
+    // If either number moves alone, the rail slides under the header (or
+    // leaves a gap the question scrolls through).
+    const rail = read(`${V2_DIR}/status-rail.tsx`)
+    expect(rail).toMatch(/className="sticky top-9 /)
+    const page = read(`${V2_DIR}/page.tsx`)
+    expect(page).toMatch(/<header className="sticky top-0[^"]*\bh-9\b/)
+  })
+
   it("has no top-pinned viewport overlay anywhere on the recording surface", () => {
     const offenders: string[] = []
     for (const file of readdirSync(resolve(ROOT, V2_DIR)).filter((f) => f.endsWith(".tsx"))) {
       const sf = parse(`${V2_DIR}/${file}`)
       walk(sf, (n) => {
-        if (!ts.isJsxAttribute(n) || n.name.getText() !== "className") return
-        const t = tokens(classText(n.initializer))
+        if (!ts.isJsxOpeningLikeElement(n)) return
+        const attrs = n.attributes.properties.filter(ts.isJsxAttribute)
+        const cls = attrs.find((a) => a.name.getText() === "className")
+        if (!cls) return
+        const t = tokens(classText(cls.initializer))
         if (!t.includes("fixed")) return
+        // A dialog the host opened and can dismiss (Sheet) may cover the page.
+        const role = attrs.find((a) => a.name.getText() === "role")
+        if (role && classText(role.initializer) === "dialog") return
         const pins = t.filter(pinsToTop)
         if (pins.length) offenders.push(`${file}: fixed + ${pins.join(" ")}`)
       })

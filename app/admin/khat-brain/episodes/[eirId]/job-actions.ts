@@ -21,6 +21,7 @@ import { episodePreparations } from "@/lib/db/schema/preparation"
 import { episodes as episodesTable } from "@/lib/db/schema/episodes"
 import { requireActionRole } from "@/lib/api-utils"
 import { runPrepV2Pipeline } from "@/lib/preparation/v2/pipeline"
+import { ROOM_LIVE_REGENERATION_MESSAGE } from "@/lib/recording-v2/live-guard"
 import { describeValidationFailuresAr } from "@/lib/preparation/v2/validation"
 import {
   coerceCourseTargetChoice,
@@ -97,6 +98,9 @@ export async function regeneratePrepV2Action(
       // populated here; the message just never read it, so the operator was
       // told "validation failed" with no way to learn what to fix.
       const why = describeValidationFailuresAr(r.validation.failures)
+      if (r.reason === "room_live") {
+        return { ok: false, message: ROOM_LIVE_REGENERATION_MESSAGE }
+      }
       return {
         ok: false,
         message:

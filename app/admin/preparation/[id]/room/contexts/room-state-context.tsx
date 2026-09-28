@@ -297,6 +297,15 @@ export function RoomStateProvider({
         if (res.ok) {
           const p: RoomParticipant = await res.json()
           setMyParticipantId(p.id)
+          // Count ourselves from the join REPLY, not only from our own
+          // `participant_update` echo: the snapshot that arrives on connect was
+          // built before this join, and if it lands after the echo it replaces
+          // the list without us in it.
+          setParticipants((prev) =>
+            prev.some((x) => x.id === p.id)
+              ? prev.map((x) => (x.id === p.id ? { ...x, ...p } : x))
+              : [...prev, p],
+          )
           return p
         }
       } catch {
