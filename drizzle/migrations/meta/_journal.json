@@ -232,6 +232,13 @@
       "when": 1790543612784,
       "tag": "0032_majestic_baron_zemo",
       "breakpoints": true
+    },
+    {
+      "idx": 33,
+      "version": "7",
+      "when": 1790576614157,
+      "tag": "0033_secret_sentinels",
+      "breakpoints": true
     }
   ]
 }

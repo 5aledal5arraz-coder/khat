@@ -107,7 +107,11 @@ function isBillable(src: string): boolean {
     /@\/lib\/ai-router(?:\/|["'])/.test(src) || // a direct router call
     /transcribeAudioFile/.test(src) ||
     /runAiTask/.test(src) ||
-    /runGrowthPackageForSession/.test(src) // lib/studio runner over generators
+    /runGrowthPackageForSession/.test(src) || // lib/studio runner over generators
+    // Whisper moved to the worker (studio.transcribe): these routes no longer
+    // import it, but a POST still starts paid work — so it still needs the
+    // force/cached guard in front of the enqueue.
+    /enqueueStudioTranscription/.test(src)
   )
 }
 

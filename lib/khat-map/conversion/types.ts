@@ -51,6 +51,13 @@ export type ConversionResult =
        * a bulk run that marks a converted card "failed".
        */
       warning?: string
+      /**
+       * The background `prep.generate_v2` job generating this preparation's
+       * structure (enqueued now, or already in flight from an earlier click).
+       * null/absent = nothing was scheduled (already generated, feature off,
+       * or the caller asked not to).
+       */
+      job?: { id: string; already_running: boolean } | null
     }
   | {
       ok: false

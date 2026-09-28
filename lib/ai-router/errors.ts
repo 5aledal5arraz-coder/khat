@@ -31,6 +31,12 @@
  */
 const TERMINAL_BILLING_SIGNALS = [
   "exceeded your current quota", // OpenAI: out of credit
+  // OpenAI's prepaid-credit wording (2026): "You have no credits remaining.
+  // Add credits to continue." It arrives as a 429 and never says "quota", so
+  // without these it was classified `rate_limited` and retried forever —
+  // measured blocking 11 of 19 season-one transcripts behind a spinner.
+  "no credits remaining",
+  "add credits to continue",
   "insufficient_quota", // OpenAI: error code
   "quota_exceeded", // our own class name, echoed back through a wrapper
   "spending cap", // Gemini: project monthly spend cap

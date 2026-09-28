@@ -19,6 +19,7 @@ import {
   type ProductionStatusRow,
 } from "../../actions"
 import { runAction } from "@/app/admin/components/run-action"
+import { JobStatusCard } from "@/app/admin/components/job-status-card"
 
 /**
  * "Closing the loop" panel for the v2 Overview.
@@ -104,7 +105,9 @@ export function ProductionStatusPanel({
       // being dropped, which is what used to happen.
       const base = res.data.was_existing
         ? "موجود مسبقاً — افتح الإعداد"
-        : "تم الإنشاء"
+        : res.data.job
+          ? "تم الإنشاء — توليد الإعداد العميق يعمل في الخلفية"
+          : "تم الإنشاء"
       setFlash({
         candidateId,
         kind: "ok",
@@ -126,6 +129,26 @@ export function ProductionStatusPanel({
                   href: res.data.href,
                   created_at: res.data.converted_at,
                 },
+                // Start watching the generation job right away; the server
+                // re-sync below replaces this with the real snapshot.
+                prep_job:
+                  res.data.job && r.prep_job?.id !== res.data.job.id
+                    ? {
+                        id: res.data.job.id,
+                        type: "prep.generate_v2",
+                        status: "pending",
+                        progress: null,
+                        result: null,
+                        error_message: null,
+                        attempts: 0,
+                        max_attempts: 1,
+                        created_at: new Date().toISOString(),
+                        started_at: null,
+                        completed_at: null,
+                        locked_by: null,
+                        lease_age_s: null,
+                      }
+                    : r.prep_job,
               }
             : r,
         ),
@@ -291,6 +314,17 @@ function ProductionRow({
           )}
         </div>
       </div>
+
+      {/* Background prep_v2 generation for this row's preparation. */}
+      {row.prep_job && (
+        <JobStatusCard
+          compact
+          className="mt-2"
+          title="توليد الإعداد العميق"
+          jobId={row.prep_job.id}
+          initialJob={row.prep_job}
+        />
+      )}
 
       {/* Per-row inline flash (success / error) */}
       {flash && (

@@ -1,6 +1,6 @@
 "use client"
 
-import { createContext, useContext, useState, useCallback, useEffect, type ReactNode } from "react"
+import { createContext, useContext, useState, useCallback, useEffect, useRef, type ReactNode } from "react"
 import type {
   StudioTranscript,
   StudioTranscriptSummary, StudioTranscriptQuote,
@@ -10,6 +10,17 @@ import { postGeneration, type GenerationOptions } from "./generation-request"
 import { usePreloadedData } from "./preload-context"
 import type { StudioStageStatus } from "./stage-status"
 import { normalizeStageStatus } from "./stage-status"
+import { useJobStatus } from "@/app/admin/components/use-job-status"
+import type { JobSnapshot, WorkerSnapshot } from "@/lib/jobs/status-view"
+import { studioTranscribeDedupeKey } from "@/lib/jobs/studio-transcribe-jobs"
+
+/** The background `studio.transcribe` job this session is watching, if any. */
+export interface TranscriptJobState {
+  jobId: string | null
+  job: JobSnapshot | null
+  worker: WorkerSnapshot | null
+  pollError: string | null
+}
 
 interface TranscriptContextValue {
   transcript: StudioTranscript | null
@@ -35,6 +46,11 @@ interface TranscriptContextValue {
   saveTranscriptEdits: () => Promise<void>
   pasteTranscript: (text: string) => Promise<void>
   transcriptPasting: boolean
+
+  // Background transcription (studio.transcribe) — see TranscriptJobState.
+  transcriptJob: TranscriptJobState
+  /** Start watching a transcription job (e.g. one «توليد الكل» just enqueued). */
+  watchTranscriptJob: (jobId: string) => void
 
   // For publish context
   setTranscriptStatus: (status: StudioStageStatus) => void
@@ -66,6 +82,14 @@ export function TranscriptProvider({ children }: { children: ReactNode }) {
   const [transcriptQuotes, setTranscriptQuotes] = useState<StudioTranscriptQuote[] | null>(null)
   const [regeneratingSection, setRegeneratingSection] = useState<string | null>(null)
   const [regenerateSectionError, setRegenerateSectionError] = useState("")
+  const [transcriptJobId, setTranscriptJobId] = useState<string | null>(null)
+  // Only a job we are WATCHING may flip the transcript status when it settles
+  // — a failed run from 20 minutes ago found by key must not paint a
+  // transcript that was uploaded since as "error".
+  const watchingRef = useRef<string | null>(null)
+  useEffect(() => {
+    watchingRef.current = transcriptJobId
+  }, [transcriptJobId])
 
   const loadTranscript = useCallback(async () => {
     try {
@@ -87,6 +111,39 @@ export function TranscriptProvider({ children }: { children: ReactNode }) {
     }
   }, [sessionId])
 
+  // Whisper runs in the worker (`studio.transcribe`). Before any click we look
+  // the session's in-flight job up by its dedupe key (server-side, via the
+  // status route), so a reload mid-transcription re-attaches instead of
+  // showing an idle button that would pay for a second run.
+  const transcriptJobStatus = useJobStatus({
+    jobId: transcriptJobId,
+    dedupeKey: transcriptJobId ? null : studioTranscribeDedupeKey(sessionId),
+    onSettled: (job) => {
+      if (watchingRef.current !== job.id) return
+      if (job.status === "succeeded") {
+        void loadTranscript()
+        return
+      }
+      setTranscriptStatus("error")
+      setTranscriptError(job.error_message || "فشل تحويل الصوت إلى نص")
+    },
+  })
+  const watchedJob = transcriptJobStatus.job
+  // A job found by key while nothing is shown yet: adopt it.
+  const activeJobId = transcriptJobId ?? (watchedJob && transcriptJobStatus.inFlight ? watchedJob.id : null)
+  useEffect(() => {
+    if (!transcriptJobId && watchedJob && transcriptJobStatus.inFlight) {
+      setTranscriptJobId(watchedJob.id)
+      setTranscriptStatus("generating")
+    }
+  }, [transcriptJobId, watchedJob, transcriptJobStatus.inFlight])
+
+  const watchTranscriptJob = useCallback((jobId: string) => {
+    setTranscriptJobId(jobId)
+    setTranscriptStatus("generating")
+    setTranscriptError("")
+  }, [])
+
   const { data: preloaded, loaded: preloadReady } = usePreloadedData()
 
   useEffect(() => {
@@ -104,7 +161,7 @@ export function TranscriptProvider({ children }: { children: ReactNode }) {
   }, [preloaded, preloadReady])
 
   // --- Extract transcript from YouTube with fallback cascade ---
-  const extractAndSaveTranscript = useCallback(async (): Promise<StudioTranscript> => {
+  const extractAndSaveTranscript = useCallback(async (): Promise<StudioTranscript | { jobId: string }> => {
     if (!session.video_id) {
       throw new Error("لا يوجد معرّف فيديو لهذه الجلسة")
     }
@@ -120,7 +177,8 @@ export function TranscriptProvider({ children }: { children: ReactNode }) {
       if (capData?.transcript) return capData.transcript as StudioTranscript
     }
 
-    // Step 2: No captions — fallback to YouTube audio → Whisper
+    // Step 2: No captions — fallback to YouTube audio → Whisper, which runs in
+    // the worker: the route answers with a jobId (or a cached transcript).
     const res = await fetch(`/api/admin/studio/${sessionId}/transcript/youtube-audio`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -128,6 +186,7 @@ export function TranscriptProvider({ children }: { children: ReactNode }) {
     })
     const data = await res.json()
     if (!res.ok) throw new Error(data.error || "فشل في تحويل صوت يوتيوب إلى نص")
+    if (data.jobId) return { jobId: data.jobId as string }
     return data.transcript as StudioTranscript
   }, [sessionId, session.video_id])
 
@@ -136,13 +195,17 @@ export function TranscriptProvider({ children }: { children: ReactNode }) {
     setTranscriptError("")
     try {
       const saved = await extractAndSaveTranscript()
+      if ("jobId" in saved) {
+        watchTranscriptJob(saved.jobId)
+        return
+      }
       setTranscript(saved)
       setTranscriptStatus("ready")
     } catch (err) {
       setTranscriptStatus("error")
       setTranscriptError(err instanceof Error ? err.message : "حدث خطأ في الاتصال")
     }
-  }, [extractAndSaveTranscript])
+  }, [extractAndSaveTranscript, watchTranscriptJob])
 
   const transcribeAudio = useCallback(async (options?: GenerationOptions) => {
     setTranscriptStatus("generating")
@@ -155,13 +218,18 @@ export function TranscriptProvider({ children }: { children: ReactNode }) {
         setTranscriptError(data.error || "فشل في تحويل الصوت إلى نص")
         return
       }
+      // 202/200 + jobId: Whisper runs in the worker — watch the job.
+      if (data.jobId) {
+        watchTranscriptJob(data.jobId)
+        return
+      }
       setTranscript(data.transcript)
       setTranscriptStatus("ready")
     } catch {
       setTranscriptStatus("error")
       setTranscriptError("حدث خطأ في الاتصال")
     }
-  }, [sessionId])
+  }, [sessionId, watchTranscriptJob])
 
   const uploadTranscript = useCallback(async (file: File) => {
     setTranscriptUploading(true)
@@ -294,6 +362,13 @@ export function TranscriptProvider({ children }: { children: ReactNode }) {
       pasteTranscript, transcriptPasting,
       setTranscriptStatus, setTranscriptError,
       reloadTranscript: loadTranscript,
+      transcriptJob: {
+        jobId: activeJobId,
+        job: activeJobId ? watchedJob : null,
+        worker: transcriptJobStatus.worker,
+        pollError: transcriptJobStatus.pollError,
+      },
+      watchTranscriptJob,
     }}>
       {children}
     </TranscriptContext.Provider>

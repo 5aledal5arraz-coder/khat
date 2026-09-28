@@ -6,10 +6,16 @@
  * they need to.
  */
 
-import { eq, and, sql, desc, inArray } from "drizzle-orm"
+import { eq, and, sql, desc, inArray, gte } from "drizzle-orm"
 import { db } from "@/lib/db"
 import { jobs } from "@/lib/db/schema/jobs"
 import type { EnqueueOptions, JobRow, JobStatus } from "./types"
+import {
+  HEAVY_TYPE_PREFIXES,
+  HEAVY_TYPES,
+  type WorkerLane,
+} from "./lanes"
+import { REQUEUED_MESSAGE, REQUEUE_EXHAUSTED_MESSAGE } from "./lease"
 
 function mapRow(r: typeof jobs.$inferSelect): JobRow {
   return {
@@ -20,6 +26,7 @@ function mapRow(r: typeof jobs.$inferSelect): JobRow {
     result: (r.result ?? null) as Record<string, unknown> | null,
     progress: (r.progress ?? null) as Record<string, unknown> | null,
     error_message: r.error_message,
+    dedupe_key: r.dedupe_key ?? null,
     priority: r.priority,
     attempts: r.attempts,
     max_attempts: r.max_attempts,
@@ -49,6 +56,158 @@ export async function enqueueJob(
     })
     .returning()
   return mapRow(row)
+}
+
+export interface EnqueueOnceOptions extends EnqueueOptions {
+  /** See `jobs.dedupe_key`. Required — this is the whole point of the call. */
+  dedupeKey: string
+}
+
+export interface EnqueueOnceResult {
+  job: JobRow
+  /** True when a pending/running job with this key already existed and was returned instead. */
+  alreadyRunning: boolean
+}
+
+/**
+ * Enqueue `type` unless a pending/running job with the same `dedupeKey`
+ * already exists — in which case that job is returned with
+ * `alreadyRunning: true`.
+ *
+ * Race-free by construction: the partial unique index `jobs_dedupe_inflight`
+ * (dedupe_key WHERE status IN ('pending','running')) makes the INSERT itself
+ * the arbiter, so two concurrent callers (a double-click, two tabs) produce ONE
+ * row — no read-then-write window like `findInFlightJobByPayload` + `enqueueJob`
+ * had. The loser's INSERT hits ON CONFLICT DO NOTHING and reads the winner.
+ *
+ * The loop covers one real interleaving: the in-flight job finishes between our
+ * conflicting INSERT and the read-back, so there is nothing to read — the next
+ * INSERT then simply succeeds. Bounded so a pathological flap can't spin.
+ */
+export async function enqueueJobOnce(
+  type: string,
+  payload: Record<string, unknown>,
+  options: EnqueueOnceOptions,
+): Promise<EnqueueOnceResult> {
+  for (let i = 0; i < 3; i++) {
+    const inserted = await db!
+      .insert(jobs)
+      .values({
+        type,
+        payload,
+        dedupe_key: options.dedupeKey,
+        priority: options.priority ?? 0,
+        run_after: options.runAfter ?? new Date(),
+        max_attempts: options.maxAttempts ?? 3,
+      })
+      .onConflictDoNothing({
+        target: jobs.dedupe_key,
+        where: sql`status IN ('pending', 'running')`,
+      })
+      .returning()
+    if (inserted[0]) return { job: mapRow(inserted[0]), alreadyRunning: false }
+
+    const existing = await findInFlightJobByDedupeKey(options.dedupeKey)
+    if (existing) return { job: existing, alreadyRunning: true }
+  }
+  throw new Error(`enqueueJobOnce: could not enqueue or attach for "${options.dedupeKey}"`)
+}
+
+/** The pending/running job carrying `dedupeKey`, or null. At most one exists (unique index). */
+export async function findInFlightJobByDedupeKey(dedupeKey: string): Promise<JobRow | null> {
+  const rows = await db!
+    .select()
+    .from(jobs)
+    .where(
+      and(
+        eq(jobs.dedupe_key, dedupeKey),
+        inArray(jobs.status, ["pending", "running"]),
+      ),
+    )
+    .limit(1)
+  return rows[0] ? mapRow(rows[0]) : null
+}
+
+/**
+ * The job a page should RE-ATTACH its status card to after a reload: the
+ * in-flight job for `dedupeKey` if there is one, otherwise the most recent job
+ * with that key that finished within `recentMs` (so a failure or a warning the
+ * operator hasn't read yet survives a reload instead of vanishing). Older
+ * history is ignored — the persisted data is the source of truth for "done".
+ */
+export async function findAttachableJobByDedupeKey(
+  dedupeKey: string,
+  recentMs = 30 * 60_000,
+): Promise<JobRow | null> {
+  const inflight = await findInFlightJobByDedupeKey(dedupeKey)
+  if (inflight) return inflight
+  const cutoff = new Date(Date.now() - recentMs)
+  const rows = await db!
+    .select()
+    .from(jobs)
+    .where(and(eq(jobs.dedupe_key, dedupeKey), gte(jobs.updated_at, cutoff)))
+    .orderBy(desc(jobs.created_at))
+    .limit(1)
+  return rows[0] ? mapRow(rows[0]) : null
+}
+
+/**
+ * Attachable jobs (see above) for every key starting with `prefix` — e.g. every
+ * `season_batch:<seasonId>:` run. One row per key: the newest.
+ */
+export async function listAttachableJobsByDedupePrefix(
+  prefix: string,
+  recentMs = 30 * 60_000,
+): Promise<JobRow[]> {
+  const cutoff = new Date(Date.now() - recentMs)
+  const rows = await db!
+    .select()
+    .from(jobs)
+    .where(
+      and(
+        sql`${jobs.dedupe_key} LIKE ${escapeLike(prefix) + "%"}`,
+        sql`(${jobs.status} IN ('pending', 'running') OR ${jobs.updated_at} >= ${cutoff.toISOString()})`,
+      ),
+    )
+    .orderBy(desc(jobs.created_at))
+    .limit(50)
+  const seen = new Set<string>()
+  const out: JobRow[] = []
+  for (const r of rows) {
+    const key = r.dedupe_key ?? r.id
+    if (seen.has(key)) continue
+    seen.add(key)
+    out.push(mapRow(r))
+  }
+  return out
+}
+
+/** Attachable jobs (see findAttachableJobByDedupeKey) for a set of exact keys, newest per key. */
+export async function listAttachableJobsByDedupeKeys(
+  keys: string[],
+  recentMs = 30 * 60_000,
+): Promise<Map<string, JobRow>> {
+  const out = new Map<string, JobRow>()
+  if (keys.length === 0) return out
+  const cutoff = new Date(Date.now() - recentMs)
+  const rows = await db!
+    .select()
+    .from(jobs)
+    .where(
+      and(
+        inArray(jobs.dedupe_key, keys),
+        sql`(${jobs.status} IN ('pending', 'running') OR ${jobs.updated_at} >= ${cutoff.toISOString()})`,
+      ),
+    )
+    .orderBy(desc(jobs.created_at))
+  for (const r of rows) {
+    if (r.dedupe_key && !out.has(r.dedupe_key)) out.set(r.dedupe_key, mapRow(r))
+  }
+  return out
+}
+
+function escapeLike(s: string): string {
+  return s.replace(/[\\%_]/g, (c) => `\\${c}`)
 }
 
 /**
@@ -143,15 +302,23 @@ export async function listJobs(opts: ListJobsOptions = {}): Promise<JobRow[]> {
  * ready. Uses `FOR UPDATE SKIP LOCKED` so multiple worker processes can
  * run in parallel without racing.
  */
-export async function claimNextJob(workerId: string): Promise<JobRow | null> {
+export async function claimNextJob(
+  workerId: string,
+  lane?: WorkerLane,
+): Promise<JobRow | null> {
   // Two-step: select the candidate id under a row lock, then update it
   // by id. Drizzle's pg adapter doesn't expose `RETURNING ... FOR UPDATE`
   // on UPDATE, so we use raw SQL for the select.
+  //
+  // `lane` restricts the claim to that lane's job types (lib/jobs/lanes.ts);
+  // omitted = any type (the single-loop behaviour, kept for callers/tests).
+  const laneFilter = lane ? laneCondition(lane) : sql`TRUE`
   return await db!.transaction(async (tx) => {
     const rows = (await tx.execute(sql`
       SELECT id FROM jobs
       WHERE status = 'pending'
         AND run_after <= NOW()
+        AND ${laneFilter}
       ORDER BY priority DESC, run_after ASC
       LIMIT 1
       FOR UPDATE SKIP LOCKED
@@ -173,6 +340,18 @@ export async function claimNextJob(workerId: string): Promise<JobRow | null> {
       .returning()
     return mapRow(claimed)
   })
+}
+
+/** SQL predicate: this row's `type` belongs to `lane`. Mirrors laneForJobType. */
+function laneCondition(lane: WorkerLane) {
+  const prefixConds = HEAVY_TYPE_PREFIXES.map(
+    (p) => sql`type LIKE ${escapeLike(p) + "%"}`,
+  )
+  const heavy = sql`(${sql.join(
+    [...prefixConds, sql`type IN (${sql.join(HEAVY_TYPES.map((t) => sql`${t}`), sql`, `)})`],
+    sql` OR `,
+  )})`
+  return lane === "heavy" ? heavy : sql`NOT ${heavy}`
 }
 
 /**
@@ -297,43 +476,96 @@ export async function failJob(
 }
 
 /**
+ * Renew the lease of a job THIS worker is running (`locked_at = NOW()`).
+ * Called from the worker's renewal timer for each busy lane — independent of
+ * the handler, so a quiet handler never looks orphaned (lib/jobs/lease.ts).
+ * Fenced on owner + attempt: a stale timer can never revive a lease on a row
+ * that was reclaimed and re-claimed by someone else.
+ */
+export async function renewJobLease(
+  id: string,
+  attempts: number,
+  workerId: string,
+): Promise<void> {
+  await db!
+    .update(jobs)
+    .set({ locked_at: new Date() })
+    .where(
+      and(
+        eq(jobs.id, id),
+        eq(jobs.status, "running"),
+        eq(jobs.attempts, attempts),
+        eq(jobs.locked_by, workerId),
+      ),
+    )
+}
+
+export interface ReclaimedJob {
+  id: string
+  type: string
+  previous_locked_by: string | null
+  /** "pending" = back in the queue; "dead" = its one automatic re-run was spent. */
+  outcome?: "pending" | "dead"
+}
+
+/**
  * Reclaim jobs whose worker died mid-execution.
  *
- * Returns one entry per reclaimed row so callers can emit per-row
- * `jobs.reclaimed` events (P2.3.c). The `previous_locked_by` field
- * carries the worker-id that was holding the stale lease — handy for
- * the dashboard when correlating crash recovery to specific workers.
+ * Default: every `running` job whose lease was not renewed for `staleAfterMs`.
+ * With `lockedBy`: every running job held by that worker id, regardless of age
+ * — for the boot path, when the previous worker is PROVEN dead (same host, its
+ * pid is gone), so its jobs need not wait out the window.
  *
- * Uses a CTE to capture the pre-UPDATE `locked_by` value (UPDATE …
- * RETURNING in Postgres always returns post-update values, which
- * would be NULL since we null out `locked_by` as part of the reclaim).
+ * RE-RUN CAP (lib/jobs/lease.ts): a job gets back to `pending` only while
+ * `attempts <= max_attempts` — i.e. one run beyond its budget. Past that it is
+ * dead-lettered with REQUEUE_EXHAUSTED_MESSAGE, which frees its dedupe key so
+ * the operator can press «أعد المحاولة».
+ *
+ * One entry per row so callers can emit per-row events; `previous_locked_by`
+ * is captured by the CTE (RETURNING only sees post-update values).
  */
-export async function reclaimStaleJobs(staleAfterMs: number): Promise<
-  Array<{ id: string; type: string; previous_locked_by: string | null }>
-> {
+export async function reclaimStaleJobs(
+  staleAfterMs: number,
+  opts: { lockedBy?: string } = {},
+): Promise<ReclaimedJob[]> {
   const cutoff = new Date(Date.now() - staleAfterMs)
+  const ownerFilter = opts.lockedBy ? sql`AND locked_by = ${opts.lockedBy}` : sql``
   const result = (await db!.execute(sql`
     WITH stale AS (
-      SELECT id, type, locked_by
+      SELECT id, type, locked_by, attempts, max_attempts
         FROM jobs
        WHERE status = 'running'
          AND locked_at IS NOT NULL
          AND locked_at < ${cutoff.toISOString()}
+         ${ownerFilter}
     ),
-    updated AS (
+    requeued AS (
       UPDATE jobs
          SET status = 'pending',
              locked_by = NULL,
              locked_at = NULL,
+             error_message = ${REQUEUED_MESSAGE},
              updated_at = NOW()
-       WHERE id IN (SELECT id FROM stale)
+       WHERE id IN (SELECT id FROM stale WHERE attempts <= max_attempts)
+       RETURNING id
+    ),
+    exhausted AS (
+      UPDATE jobs
+         SET status = 'dead',
+             locked_by = NULL,
+             locked_at = NULL,
+             error_message = ${REQUEUE_EXHAUSTED_MESSAGE},
+             completed_at = NOW(),
+             updated_at = NOW()
+       WHERE id IN (SELECT id FROM stale WHERE attempts > max_attempts)
        RETURNING id
     )
-    SELECT s.id, s.type, s.locked_by AS previous_locked_by
+    SELECT s.id, s.type, s.locked_by AS previous_locked_by,
+           CASE WHEN e.id IS NOT NULL THEN 'dead' ELSE 'pending' END AS outcome
       FROM stale s
-      JOIN updated u ON u.id = s.id
-  `)) as unknown as {
-    rows: Array<{ id: string; type: string; previous_locked_by: string | null }>
-  }
+      LEFT JOIN requeued r ON r.id = s.id
+      LEFT JOIN exhausted e ON e.id = s.id
+     WHERE r.id IS NOT NULL OR e.id IS NOT NULL
+  `)) as unknown as { rows: ReclaimedJob[] }
   return result.rows ?? []
 }

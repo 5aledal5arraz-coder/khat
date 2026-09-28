@@ -15,30 +15,27 @@
  *   • An explicit "عرض المرشحات الجديدة" button refreshes the page so
  *     the wizard below picks up the new pending candidates.
  *
- * Liveness (2026-07-23):
- *   The measured run took 4m37s during which the screen at t+145s was
- *   pixel-identical to t+5s — the operator could not tell "working" from
- *   "dead". So the panel now states the expected duration BEFORE the click
- *   and ticks a live elapsed counter during it.
- *
- *   There is deliberately NO progress bar and NO stage indicator. The work
- *   runs inside ONE Server Action call (`generateHybridTopicsAction`), which
- *   returns exactly once — the client has no intermediate signal for
- *   "توليد → تضمين → إثراء", and inventing one would be a lie dressed as
- *   feedback. The elapsed counter is real data; that is the whole point.
- *   Real stage reporting needs the action moved behind the job queue or an
- *   SSE route, which is a separate change.
+ * Liveness:
+ *   The generation runs in the worker (`season.hybrid_generate`). The click
+ *   only enqueues it and returns a jobId; <JobStatusCard> then reports the
+ *   real state — queued, «عامل المهام لا يعمل», stage n/2, a failure with its
+ *   reason — and survives a reload (the season page looks the job up by its
+ *   dedupe key and passes `initialJob`). When it finishes the page refreshes
+ *   so the wizard below shows the new pending candidates.
  */
 
-import { useEffect, useRef, useState, useTransition } from "react"
+import { useState, useTransition } from "react"
 import { useRouter } from "next/navigation"
-import { Sparkles, Activity, RefreshCw, AlertTriangle, Timer } from "lucide-react"
+import { Sparkles, Activity, RefreshCw, AlertTriangle, Timer, Loader2 } from "lucide-react"
 import {
   generateHybridTopicsAction,
   type HybridActionResult,
 } from "./hybrid-actions"
 import { runAction } from "@/app/admin/components/run-action"
-import { formatTimeSeconds } from "@/lib/shared/formatters"
+import { useJobStatus } from "@/app/admin/components/use-job-status"
+import { JobStatusView, useJobRetry } from "@/app/admin/components/job-status-card"
+import type { JobSnapshot } from "@/lib/jobs/status-view"
+import type { HybridJobResult } from "@/lib/jobs/season-jobs"
 
 /**
  * Honest expectation, derived from measurement — not a promise.
@@ -54,62 +51,44 @@ import { formatTimeSeconds } from "@/lib/shared/formatters"
 const EXPECTED_COPY =
   "تستغرق عادةً من دقيقتين إلى ٤ دقائق. إذا تعثّرت أول محاولة وأعادها النظام تلقائياً قد تصل إلى ٨–٩ دقائق."
 
-/** Past this many seconds we stop implying the usual band still applies. */
-const OVERRUN_AFTER_SECONDS = 4 * 60
-
 export function HybridGenerateButton({
   seasonId,
   language = "ar",
   count = 10,
   aiBlocked = false,
   aiBlockReason,
+  initialJob = null,
 }: {
   seasonId: string
   language?: "ar" | "en"
   count?: number
   aiBlocked?: boolean
   aiBlockReason?: string | null
+  /** This season's in-flight / just-finished hybrid job, looked up server-side. */
+  initialJob?: JobSnapshot | null
 }) {
   const [isPending, startTransition] = useTransition()
+  // Only a failure to ENQUEUE lands here; the generation's own outcome is the job's result.
   const [result, setResult] = useState<HybridActionResult | null>(null)
-  const [elapsedSeconds, setElapsedSeconds] = useState(0)
-  const startedAtRef = useRef<number | null>(null)
+  const [jobId, setJobId] = useState<string | null>(initialJob?.id ?? null)
+  const [dismissed, setDismissed] = useState(false)
   const router = useRouter()
-  const disabled = isPending || aiBlocked
-
-  // Live elapsed counter — the only honest "it is alive" signal we have while
-  // the Server Action is in flight. Driven off a wall-clock start time rather
-  // than an incrementing counter so a throttled background tab still shows the
-  // true elapsed time when it comes back.
-  useEffect(() => {
-    if (!isPending) {
-      startedAtRef.current = null
-      return
-    }
-    startedAtRef.current = Date.now()
-    setElapsedSeconds(0)
-    const id = setInterval(() => {
-      const startedAt = startedAtRef.current
-      if (startedAt != null) {
-        setElapsedSeconds(Math.floor((Date.now() - startedAt) / 1000))
-      }
-    }, 1000)
-    return () => clearInterval(id)
-  }, [isPending])
-
-  // Auto-refresh the server tree as soon as the hybrid action returns
-  // ok. revalidatePath happens server-side but doesn't push fresh data
-  // into already-mounted client components — `router.refresh()` re-runs
-  // the layout + page server components, which re-renders the wizard
-  // with the new pending candidates included in `initialPending`.
-  useEffect(() => {
-    if (result?.ok) {
-      router.refresh()
-    }
-    // We intentionally watch only `result` — the router instance is
-    // stable across renders so listing it as a dep is noise.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [result])
+  const status = useJobStatus({
+    jobId,
+    initialJob,
+    // Candidates were persisted by the worker — re-render the wizard below.
+    onSettled: () => router.refresh(),
+  })
+  const jobRunning = jobId !== null && status.inFlight
+  const jobRetry = useJobRetry((newId) => {
+    setJobId(newId)
+    setDismissed(false)
+  })
+  const disabled = isPending || aiBlocked || jobRunning
+  const jobResult =
+    status.job?.status === "succeeded"
+      ? (status.job.result as HybridJobResult | null)
+      : null
 
   return (
     <div className="rounded-2xl border border-primary/20 bg-gradient-to-br from-primary/5 to-primary/5 p-4">
@@ -154,9 +133,15 @@ export function HybridGenerateButton({
               // returns. runAction turns that into a normal failure result
               // rendered by the panel below, instead of a rejected transition
               // that leaves the button spinning with nothing explained.
+              setResult(null)
               const outcome = await runAction(() =>
                 generateHybridTopicsAction({ seasonId, language, count }),
               )
+              if (outcome.ok && outcome.data.ok && outcome.data.jobId) {
+                setJobId(outcome.data.jobId)
+                setDismissed(false)
+                return
+              }
               setResult(
                 outcome.ok
                   ? outcome.data
@@ -177,16 +162,13 @@ export function HybridGenerateButton({
         >
           {isPending ? (
             <>
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              <span>جارٍ الجدولة…</span>
+            </>
+          ) : jobRunning ? (
+            <>
               <Activity className="h-3.5 w-3.5 animate-pulse" />
-              <span>جارٍ التوليد…</span>
-              {/* The proof of life: a real, ticking wall-clock elapsed time. */}
-              <span
-                className="tabular-nums text-primary/80"
-                dir="ltr"
-                data-hybrid-elapsed
-              >
-                {formatTimeSeconds(elapsedSeconds)}
-              </span>
+              <span>بانتظار اكتمال المهمة…</span>
             </>
           ) : aiBlocked ? (
             "التوليد متوقف — تحقق من حالة AI"
@@ -196,32 +178,18 @@ export function HybridGenerateButton({
         </button>
       </div>
 
-      {/* In-flight status. No progress bar and no stage name — one Server
-          Action call gives the client nothing to report but elapsed time. */}
-      {isPending && (
-        <div
-          className="mt-3 rounded-xl border border-primary/25 bg-primary/5 p-3 text-[11.5px] leading-relaxed text-primary"
-          data-hybrid-inflight
-        >
-          {elapsedSeconds < OVERRUN_AFTER_SECONDS ? (
-            <>
-              التوليد شغّال منذ{" "}
-              <span className="font-semibold tabular-nums" dir="ltr">
-                {formatTimeSeconds(elapsedSeconds)}
-              </span>
-              . {EXPECTED_COPY} لا تغلق الصفحة ولا تضغط الزر مرة ثانية.
-            </>
-          ) : (
-            <>
-              مضى{" "}
-              <span className="font-semibold tabular-nums" dir="ltr">
-                {formatTimeSeconds(elapsedSeconds)}
-              </span>{" "}
-              — تجاوزت المدة المعتادة. العملية ما زالت جارية؛ لا تغلق الصفحة ولا
-              تضغط الزر مرة ثانية.
-            </>
-          )}
-        </div>
+      {/* The job's real state — queued / worker down / stage n/2 / failed. */}
+      {jobId && !dismissed && (
+        <JobStatusView
+          className="mt-3"
+          title="التوليد الهجين"
+          jobId={jobId}
+          {...status}
+          onDismiss={() => setDismissed(true)}
+          onRetry={status.job ? () => jobRetry.retry(status.job!.id) : undefined}
+          retryPending={jobRetry.pending}
+          retryError={jobRetry.error}
+        />
       )}
 
       {result && !result.ok && (
@@ -237,13 +205,13 @@ export function HybridGenerateButton({
         </div>
       )}
 
-      {result && result.ok && (
+      {jobResult && jobResult.ok && !dismissed && (
         <div
           className="mt-3 space-y-2"
           data-hybrid-success
         >
           {/* Path badge — clusters vs foundational. */}
-          {result.fallback_path === "foundational" && (
+          {jobResult.fallback_path === "foundational" && (
             <div
               className="inline-flex items-center gap-1.5 rounded-xl border border-amber-500/30 bg-amber-500/5 px-3 py-1 text-[11px] text-amber-700"
               data-hybrid-path="foundational"
@@ -252,7 +220,7 @@ export function HybridGenerateButton({
               <span>المسار التأسيسي · بُنيت من ذاكرة خط (إشارات السوق غير جاهزة بعد)</span>
             </div>
           )}
-          {result.fallback_path === "clusters" && (
+          {jobResult.fallback_path === "clusters" && (
             <div
               className="inline-flex items-center gap-1.5 rounded-xl border border-emerald-500/30 bg-emerald-500/5 px-3 py-1 text-[11px] text-emerald-700"
               data-hybrid-path="clusters"
@@ -266,7 +234,7 @@ export function HybridGenerateButton({
           <div className="rounded-xl border border-emerald-500/25 bg-emerald-500/5 p-3 text-[12px] text-emerald-700/90">
             تم توليد{" "}
             <span className="font-semibold tabular-nums">
-              {result.generated_for_review}
+              {jobResult.generated_for_review}
             </span>{" "}
             مرشّحاً جديداً للمراجعة. راجِعها في قسم «مراجعة المرشحين الجدد» أدناه.
           </div>
@@ -274,7 +242,7 @@ export function HybridGenerateButton({
           {/* PARTIAL ENRICHMENT — the run produced cards, but some of them
               arrived without the editorial layer. Reporting the count is the
               difference between an honest result and a false success. */}
-          {result.unenriched > 0 && (
+          {jobResult.unenriched > 0 && (
             <div
               className="rounded-xl border border-amber-500/30 bg-amber-500/5 p-3 text-[11.5px] leading-relaxed text-amber-700"
               data-hybrid-unenriched
@@ -285,11 +253,11 @@ export function HybridGenerateButton({
               </div>
               <p className="mt-1 text-foreground/85">
                 <span className="font-semibold tabular-nums">
-                  {result.unenriched}
+                  {jobResult.unenriched}
                 </span>{" "}
                 من{" "}
                 <span className="font-semibold tabular-nums">
-                  {result.generated_for_review}
+                  {jobResult.generated_for_review}
                 </span>{" "}
                 مرشّحات وصلت بدون إثراء تحريري — بلا احتمالية نجاح ولا محاور ولا
                 عدسات. تظهر في المراجعة بعلامة «بدون إثراء تحريري». أعد التوليد
@@ -299,21 +267,21 @@ export function HybridGenerateButton({
           )}
 
           {/* AI AUTO-FILTER — explicitly labelled as system-side. */}
-          {result.auto_filtered > 0 && (
+          {jobResult.auto_filtered > 0 && (
             <div
               className="rounded-xl border border-border/40 bg-background/30 p-3 text-[11.5px] text-muted-foreground"
               data-hybrid-auto-filtered
             >
               استبعد النظام{" "}
               <span className="font-semibold tabular-nums text-foreground/80">
-                {result.auto_filtered}
+                {jobResult.auto_filtered}
               </span>{" "}
               مرشّحات ضعيفة قبل المراجعة.
             </div>
           )}
 
           {/* ANALYSIS IN-FLIGHT — banner only, doesn't block candidates. */}
-          {result.analysis_pending && (
+          {jobResult.analysis_pending && (
             <div
               className="inline-flex items-center gap-1.5 rounded-xl border border-amber-500/30 bg-amber-500/5 px-3 py-1.5 text-[11.5px] text-amber-700"
               data-hybrid-analysis-pending
@@ -324,9 +292,9 @@ export function HybridGenerateButton({
           )}
 
           {/* Inline preview of newly-generated titles (read-only). */}
-          {result.preview_titles.length > 0 && (
+          {jobResult.preview_titles.length > 0 && (
             <ul className="list-inside list-disc space-y-1 rounded-xl border border-border/30 bg-background/30 p-3 text-[12px] text-foreground/85">
-              {result.preview_titles.map((t, i) => (
+              {jobResult.preview_titles.map((t, i) => (
                 <li key={i}>{t}</li>
               ))}
             </ul>

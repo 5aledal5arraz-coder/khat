@@ -345,6 +345,8 @@ describe("convertV2CardToPreparationAction — single topic, no season gate", ()
         was_existing: false,
         converted_at: "2026-09-26T00:00:00.000Z",
         warning: undefined,
+        // The mocked conversion scheduled no prep_v2 job.
+        job: null,
       },
     })
     expect(convertEpisodeToPreparation).toHaveBeenCalledWith({

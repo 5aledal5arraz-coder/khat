@@ -8,9 +8,17 @@
  * `prep_v2.format = "course"` on the payload it writes, so the selector opens
  * on whatever the current prep was generated as (`initialFormat`), and a
  * payload without the field is a story — exactly like every prep before this.
+ *
+ * Generation runs in the worker (`prep.generate_v2`): the click returns a job
+ * id in milliseconds and the card below tracks it — «المرحلة 3/5: …», a clear
+ * failure, or «عامل المهام لا يعمل». `initialJob` is the in-flight (or just
+ * finished) job the server found for this prep, so a reload re-attaches to it
+ * instead of offering a second paid run. The question editor stays locked for
+ * as long as the JOB runs, not just the click.
  */
 
-import { useCallback, useState } from "react"
+import { useCallback, useEffect, useState } from "react"
+import { useRouter } from "next/navigation"
 import { RefreshCw } from "lucide-react"
 import { cn } from "@/lib/utils"
 import {
@@ -21,9 +29,12 @@ import {
   PREP_FORMAT_LABEL_AR,
   type PrepFormat,
 } from "@/lib/preparation/v2/format"
-import { regeneratePrepV2Action } from "./job-actions"
+import { regeneratePrepV2Action, type JobActionResult } from "./job-actions"
 import { JobActionButton, type JobActionConfirm } from "./job-action-button"
 import { setPrepRegenerating } from "./prep-regen-signal"
+import { useJobStatus } from "@/app/admin/components/use-job-status"
+import { JobStatusView, useJobRetry } from "@/app/admin/components/job-status-card"
+import type { JobSnapshot } from "@/lib/jobs/status-view"
 
 export function PrepFormatRegenerate({
   eirId,
@@ -31,8 +42,11 @@ export function PrepFormatRegenerate({
   autoTargetMinutes,
   size,
   confirm,
+  initialJob = null,
 }: {
   eirId: string
+  /** The prep's in-flight / just-finished generation job, looked up server-side. */
+  initialJob?: JobSnapshot | null
   initialFormat: PrepFormat
   /**
    * What «تلقائي» resolves to (server-computed from the goal +
@@ -46,8 +60,38 @@ export function PrepFormatRegenerate({
   // Course length: "auto" reads it from the goal (after expected_duration_min).
   // Free-text parsing can't be airtight, so the operator can simply say it.
   const [targetMinutes, setTargetMinutes] = useState<"auto" | number>("auto")
-  // Locks the question editor for the duration (prep-regen-signal.ts).
-  const onPendingChange = useCallback((p: boolean) => setPrepRegenerating(eirId, p), [eirId])
+  const router = useRouter()
+  const [jobId, setJobId] = useState<string | null>(initialJob?.id ?? null)
+  const [dismissed, setDismissed] = useState(false)
+  const status = useJobStatus({
+    jobId,
+    initialJob,
+    // The new prep is in the DB — pull it into the server-rendered tab.
+    onSettled: () => router.refresh(),
+  })
+  const jobRunning = jobId !== null && status.inFlight
+
+  // Locks the question editor while the click is in flight AND while the job
+  // runs (prep-regen-signal.ts) — the job's write would overwrite any edit.
+  const [clickPending, setClickPending] = useState(false)
+  const onPendingChange = useCallback((p: boolean) => setClickPending(p), [])
+  useEffect(() => {
+    setPrepRegenerating(eirId, clickPending || jobRunning)
+  }, [eirId, clickPending, jobRunning])
+  useEffect(() => () => setPrepRegenerating(eirId, false), [eirId])
+
+  // «أعد المحاولة» re-enqueues the SAME payload (format + length included).
+  const jobRetry = useJobRetry((newId) => {
+    setJobId(newId)
+    setDismissed(false)
+  })
+
+  const onResult = useCallback((r: JobActionResult) => {
+    if (r.ok && r.jobId) {
+      setJobId(r.jobId)
+      setDismissed(false)
+    }
+  }, [])
 
   return (
     <div className="flex flex-col gap-2" data-prep-format-regenerate>
@@ -99,6 +143,17 @@ export function PrepFormatRegenerate({
           </select>
         </label>
       )}
+      {jobId && !dismissed && (
+        <JobStatusView
+          title="توليد الإعداد العميق"
+          jobId={jobId}
+          {...status}
+          onDismiss={() => setDismissed(true)}
+          onRetry={status.job ? () => jobRetry.retry(status.job!.id) : undefined}
+          retryPending={jobRetry.pending}
+          retryError={jobRetry.error}
+        />
+      )}
       <div>
         <JobActionButton
           label={
@@ -106,9 +161,9 @@ export function PrepFormatRegenerate({
               ? "إعادة توليد الإعداد كدورة مصغّرة"
               : "إعادة توليد الإعداد"
           }
-          pendingLabel="جارٍ التوليد…"
+          pendingLabel="جارٍ الجدولة…"
           icon={<RefreshCw className="h-3 w-3" />}
-          successTitle="تم تحديث الإعداد"
+          successTitle="بدأ توليد الإعداد"
           action={() =>
             regeneratePrepV2Action(
               eirId,
@@ -119,6 +174,9 @@ export function PrepFormatRegenerate({
           size={size}
           confirm={confirm}
           onPendingChange={onPendingChange}
+          onResult={onResult}
+          disabled={jobRunning}
+          disabledReason="توليد الإعداد جارٍ بالفعل — انتظر اكتماله."
         />
       </div>
     </div>

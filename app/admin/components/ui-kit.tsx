@@ -37,7 +37,7 @@ export type KitTone = "default" | "gold" | "purple" | "success" | "warning" | "d
  * the `-700` step, full stop. Any `dark:` added back here is a contrast bug
  * that only reproduces on half the machines.
  */
-const TONE_ICON: Record<KitTone, string> = {
+export const KIT_TONE_ICON: Record<KitTone, string> = {
   default: "bg-muted/70 text-muted-foreground",
   gold: "bg-primary/12 text-primary",
   purple: "bg-accent/12 text-accent",
@@ -81,7 +81,7 @@ export function StatCard({
         href && "hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-lg hover:shadow-primary/5",
       )}
     >
-      <div className={cn("flex h-10 w-10 shrink-0 items-center justify-center rounded-xl", TONE_ICON[tone])}>
+      <div className={cn("flex h-10 w-10 shrink-0 items-center justify-center rounded-xl", KIT_TONE_ICON[tone])}>
         <Icon className="h-[18px] w-[18px]" />
       </div>
       <div className="min-w-0">
@@ -121,7 +121,7 @@ export function KitCard({
       <header className="mb-4 flex items-start justify-between gap-3">
         <div className="flex items-center gap-2.5">
           {Icon ? (
-            <span className={cn("flex h-8 w-8 items-center justify-center rounded-lg", TONE_ICON[tone])}>
+            <span className={cn("flex h-8 w-8 items-center justify-center rounded-lg", KIT_TONE_ICON[tone])}>
               <Icon className="h-4 w-4" />
             </span>
           ) : null}
@@ -239,7 +239,7 @@ export function QuickLink({
       href={href}
       className="group flex items-center gap-3 rounded-2xl border border-border/60 bg-card p-3.5 transition-all hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-lg hover:shadow-primary/5"
     >
-      <span className={cn("flex h-9 w-9 shrink-0 items-center justify-center rounded-xl transition-colors", TONE_ICON[tone])}>
+      <span className={cn("flex h-9 w-9 shrink-0 items-center justify-center rounded-xl transition-colors", KIT_TONE_ICON[tone])}>
         <Icon className="h-[17px] w-[17px]" />
       </span>
       <span className="min-w-0">

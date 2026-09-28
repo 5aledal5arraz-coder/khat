@@ -4,6 +4,10 @@
 
 export {
   enqueueJob,
+  enqueueJobOnce,
+  findInFlightJobByDedupeKey,
+  findAttachableJobByDedupeKey,
+  listAttachableJobsByDedupePrefix,
   getJob,
   findInFlightJobByPayload,
   listJobs,
@@ -11,6 +15,7 @@ export {
   completeJob,
   failJob,
   reclaimStaleJobs,
+  renewJobLease,
   reportJobProgress,
 } from "./queue"
 

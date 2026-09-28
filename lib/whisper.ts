@@ -312,8 +312,22 @@ export async function splitIntoChunks(
 export async function transcribeAudioFile(
   filePath: string,
   language: string = "ar",
-  context?: TranscribeContext
+  context?: TranscribeContext,
+  /**
+   * Optional "chunk X of Y done" callback (the `studio.transcribe` job turns it
+   * into a progress bar + lease renewal). Purely observational: anything it
+   * throws is ignored, exactly like `transcribeWithTimestamps`' callback.
+   */
+  onProgress?: TranscriptionProgressFn,
 ): Promise<TranscribeResult> {
+  const tick = (currentChunk: number, totalChunks: number) => {
+    if (!onProgress) return
+    try {
+      onProgress({ currentChunk, totalChunks })
+    } catch {
+      /* observational only */
+    }
+  }
   let openai: OpenAI
   try {
     openai = getClient()
@@ -327,7 +341,9 @@ export async function transcribeAudioFile(
 
     if (stat.size <= WHISPER_MAX_SIZE) {
       // Small file — send directly
+      tick(0, 1)
       const text = await transcribeChunk(openai, filePath, language, context)
+      tick(1, 1)
       return { success: true, text }
     }
 
@@ -349,9 +365,11 @@ export async function transcribeAudioFile(
       // inside the pipeline once the tail was fed in). That channel is now removed
       // from the call path entirely (see `rawTranscribe`).
       const texts: string[] = []
+      tick(0, chunkPaths.length)
       for (const chunkPath of chunkPaths) {
         const text = await transcribeChunk(openai, chunkPath, language, context)
         texts.push(text)
+        tick(texts.length, chunkPaths.length)
       }
 
       return { success: true, text: texts.join(" ") }

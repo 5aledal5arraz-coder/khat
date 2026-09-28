@@ -21,6 +21,7 @@ import { formatDateTime } from "@/lib/shared/formatters"
 import { prepStatusLabel } from "@/lib/operator-language"
 import { autoCourseTargetMinutes, prepFormatOf } from "@/lib/preparation/v2/format"
 import { PrepFormatRegenerate } from "./prep-format-regenerate"
+import type { JobSnapshot } from "@/lib/jobs/status-view"
 import { PrepV2InlineEditor } from "./prep-inline-editor"
 import { PrepInsightReview } from "./prep-insight-review"
 import { PrepQuestionBankEditor } from "./prep-question-bank-editor"
@@ -67,8 +68,11 @@ export function PreparationTab({
   seasonId,
   guestOptions,
   currentGuestId,
+  prepJob = null,
 }: {
   prep: WorkspacePrepSummary | null
+  /** The prep_v2 generation job for this prep (in flight / just finished), if any. */
+  prepJob?: JobSnapshot | null
   room: WorkspaceRoomSummary | null
   eirId: string
   seasonId: string | null
@@ -181,13 +185,15 @@ export function PreparationTab({
           </div>
           <p className="mb-3 text-[12px] leading-relaxed text-foreground/85">
             هذا الإعداد ليس لديه بنية Prep V2 (التحضير العميق ٤-تمريرات).
-            اضغط الزر أدناه لتوليده — العملية تستغرق دقيقتين تقريباً.
+            اضغط الزر أدناه لتوليده — يعمل في الخلفية ويستغرق عادةً ٥–٧ دقائق،
+            ويمكنك مغادرة الصفحة والعودة.
           </p>
           <PrepFormatRegenerate
             eirId={eirId}
             initialFormat="story"
             autoTargetMinutes={autoTarget}
             size="md"
+            initialJob={prepJob}
           />
         </div>
       )}
@@ -221,6 +227,7 @@ export function PreparationTab({
               initialFormat={prepFormatOf(prep.prep_v2)}
               autoTargetMinutes={autoTarget}
               confirm={REGENERATE_PREP_CONFIRM}
+              initialJob={prepJob}
             />
           </div>
           <PrepV2InlineEditor prepId={prep.id} payload={prep.prep_v2} />

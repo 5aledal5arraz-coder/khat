@@ -9,8 +9,11 @@
  *   3. If signals exist but clusters don't → return analysis_pending
  *      WITHOUT calling the AI. Operator sees "جاري تحليل…".
  *   4. If truly nothing exists → return no_inputs.
- *   5. Otherwise generate. Surface clusters vs foundational path in the
- *      response so the UI can label the run accurately.
+ *   5. Otherwise ENQUEUE `season.hybrid_generate` and return its jobId in
+ *      milliseconds. The generation itself (2.5–9 min) runs in the worker
+ *      (lib/jobs/handlers/season-hybrid.ts); the button's status card watches
+ *      the job and renders its result (counts, path, preview titles). It used
+ *      to run here, behind nginx's 120s cut.
  *
  * Counts in the result NEVER mean operator decisions — only
  * AI-generation outputs. Human accept/reject lives in the wizard.
@@ -18,25 +21,16 @@
 
 import { revalidatePath } from "next/cache"
 import { requireActionRole, getAdminAuthUser } from "@/lib/api-utils"
-import {
-  generateHybridTopics,
-  type GenerateHybridResult,
-} from "@/lib/hybrid-topics/generate"
+import type { GenerateHybridResult } from "@/lib/hybrid-topics/generate"
 import { getHybridReadiness } from "@/lib/hybrid-topics/diagnostics"
-import { enqueueJob } from "@/lib/jobs/queue"
+import { enqueueJob, enqueueJobOnce } from "@/lib/jobs/queue"
 import { generationReasonLabel } from "@/lib/operator-language"
-
-/**
- * Rate-limit copy. Deliberately distinct from the generic `ai_failure`
- * label: the operator hit the AI budget/concurrency ceiling, nothing is
- * broken, and waiting genuinely fixes it.
- *
- * TODO: belongs in GENERATION_REASON_LABEL (lib/operator-language.ts)
- * next to the other generation-failure copy. Kept local for now because
- * that file has unrelated in-flight changes.
- */
-const AI_RATE_LIMITED_MESSAGE =
-  "تم بلوغ حدّ استخدام الذكاء الاصطناعي مؤقّتاً. انتظر بضع دقائق ثم أعد التوليد."
+import {
+  AI_RATE_LIMITED_MESSAGE,
+  SEASON_HYBRID_GENERATE_JOB,
+  hybridDedupeKey,
+  type HybridJobPayload,
+} from "@/lib/jobs/season-jobs"
 
 export interface HybridActionResult {
   ok: boolean
@@ -63,6 +57,10 @@ export interface HybridActionResult {
   /** Titles of just-generated cards (inline preview — full review in
    *  the wizard below). */
   preview_titles: string[]
+  /** The queued `season.hybrid_generate` job (ok=true). Its result carries the counts. */
+  jobId?: string
+  /** A generation for this season was already running — we attached to it. */
+  alreadyRunning?: boolean
 }
 
 export async function generateHybridTopicsAction(input: {
@@ -144,63 +142,42 @@ export async function generateHybridTopicsAction(input: {
       }
     }
 
-    // ─── Generate ───────────────────────────────────────────────────
-    const r = await generateHybridTopics({
+    // ─── Enqueue ────────────────────────────────────────────────────
+    const payload: HybridJobPayload = {
       seasonId: input.seasonId,
       language: input.language ?? "ar",
       count: input.count ?? 10,
       allowKuwaitBias: input.allowKuwaitBias ?? false,
       createdBy: user?.id ?? null,
+      analysisKicked: kicked,
+    }
+    const q = await enqueueJobOnce(SEASON_HYBRID_GENERATE_JOB, payload, {
+      dedupeKey: hybridDedupeKey(input.seasonId),
+      // One paid run per click. The router already retries each AI call.
+      maxAttempts: 1,
+      priority: 10,
     })
-
     if (input.seasonId) {
       revalidatePath(`/admin/khat-brain/seasons/${input.seasonId}`)
     }
-    revalidatePath("/admin/khat-brain/command")
-
-    // Failure path: operator-language message.
-    if (!r.ok) {
-      return {
-        ok: false,
-        generation_id: r.generation_id,
-        generated_for_review: 0,
-        auto_filtered: 0,
-        unenriched: 0,
-        analysis_pending:
-          r.reason === "analysis_pending" ||
-          kicked ||
-          readiness.inflight.extract ||
-          readiness.inflight.score ||
-          readiness.inflight.cluster,
-        reason: r.reason,
-        fallback_path: r.fallback_path,
-        message: generationReasonLabel(r.reason ?? "ai_failure"),
-        preview_titles: [],
-      }
-    }
-
-    // Success — counts mirror AI-judge + persistence only.
-    const generated_for_review =
-      input.seasonId === null ? r.accepted.length : r.persisted.length
-    const auto_filtered = r.rejected.length
-    const analysis_pending =
-      kicked ||
-      readiness.inflight.extract ||
-      readiness.inflight.score ||
-      readiness.inflight.cluster
 
     return {
       ok: true,
-      generation_id: r.generation_id,
-      generated_for_review,
-      auto_filtered,
-      // Honest coverage: candidates that reached the review queue without the
-      // editorial layer. Never folded into the success count.
-      unenriched: r.enrichment.unenriched,
-      analysis_pending,
-      fallback_path: r.fallback_path,
-      message: null,
-      preview_titles: r.accepted.slice(0, 3).map((t) => t.title),
+      generation_id: null,
+      generated_for_review: 0,
+      auto_filtered: 0,
+      unenriched: 0,
+      analysis_pending:
+        kicked ||
+        readiness.inflight.extract ||
+        readiness.inflight.score ||
+        readiness.inflight.cluster,
+      message: q.alreadyRunning
+        ? "التوليد الهجين جارٍ بالفعل لهذا الموسم — نعرض لك حالته."
+        : null,
+      preview_titles: [],
+      jobId: q.job.id,
+      alreadyRunning: q.alreadyRunning,
     }
   } catch (err) {
     console.error("[generateHybridTopicsAction]", err)

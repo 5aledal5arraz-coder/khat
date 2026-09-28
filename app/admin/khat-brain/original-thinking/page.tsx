@@ -14,13 +14,18 @@ import { GenerateTopicsButton } from "./_components/generate-topics-button"
 import { CleanupExpiredButton } from "./_components/cleanup-expired-button"
 import { MarkConsumedButton } from "./_components/mark-consumed-button"
 import { Empty } from "../../components/ui-kit"
+import { findAttachableJobByDedupeKey } from "@/lib/jobs/queue"
+import { originalTopicsDedupeKey } from "@/lib/jobs/original-jobs"
+import { toJobSnapshot } from "@/lib/jobs/status-view"
 
 export const dynamic = "force-dynamic"
 
 export default async function OriginalThinkingPage() {
-  const [topics, lenses] = await Promise.all([
+  const [topics, lenses, genJob] = await Promise.all([
     listOriginalThinkingTopics({ includeConsumed: true, includeExpired: true, limit: 200 }),
     loadLenses(),
+    // Re-attach the generate button to a run in flight (or just finished).
+    findAttachableJobByDedupeKey(originalTopicsDedupeKey("ar")).catch(() => null),
   ])
 
   const lensByKey = new Map(lenses.map((l) => [l.key, l]))
@@ -51,7 +56,7 @@ export default async function OriginalThinkingPage() {
         </div>
 
         <div className="mt-5 flex flex-wrap items-start gap-3">
-          <GenerateTopicsButton />
+          <GenerateTopicsButton initialJob={genJob ? toJobSnapshot(genJob) : null} />
           <CleanupExpiredButton />
         </div>
       </div>

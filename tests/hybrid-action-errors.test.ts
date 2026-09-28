@@ -34,12 +34,33 @@ vi.mock("@/lib/hybrid-topics/diagnostics", () => ({
 vi.mock("@/lib/hybrid-topics/generate", () => ({
   generateHybridTopics: vi.fn(),
 }))
-vi.mock("@/lib/jobs/queue", () => ({ enqueueJob: vi.fn() }))
+vi.mock("@/lib/jobs/queue", () => ({ enqueueJob: vi.fn(), enqueueJobOnce: vi.fn() }))
 
 import { getHybridReadiness } from "@/lib/hybrid-topics/diagnostics"
 import { generateHybridTopics } from "@/lib/hybrid-topics/generate"
-import { enqueueJob } from "@/lib/jobs/queue"
+import { enqueueJob, enqueueJobOnce } from "@/lib/jobs/queue"
 import { generateHybridTopicsAction } from "@/app/admin/khat-brain/seasons/[seasonId]/_components/hybrid-actions"
+import { runSeasonHybridGenerate } from "@/lib/jobs/handlers/season-hybrid"
+import type { HybridJobPayload } from "@/lib/jobs/season-jobs"
+
+/**
+ * The generation itself runs in the worker now (`season.hybrid_generate`);
+ * the action does the pre-flight and enqueues. Generator-failure cases are
+ * pinned on the handler, which produces the operator message; the result is
+ * adapted to the same shape so the assertions below read unchanged.
+ */
+const JOB: HybridJobPayload = {
+  seasonId: "season-1",
+  language: "ar",
+  count: 10,
+  allowKuwaitBias: false,
+  createdBy: "admin-1",
+  analysisKicked: false,
+}
+async function runJob() {
+  const r = await runSeasonHybridGenerate(JOB, async () => {})
+  return { ...r, message: r.ok ? null : r.messageAr ?? "" }
+}
 
 /** Readiness snapshot: generator ready, nothing to kick. */
 function readyState(over: Partial<HybridReadiness> = {}): HybridReadiness {
@@ -78,7 +99,13 @@ function rateLimitError(): Error {
 const INPUT = { seasonId: "season-1", language: "ar" as const, count: 10 }
 
 /** Every failure must be a well-formed, operator-readable Arabic result. */
-function expectArabicFailure(r: Awaited<ReturnType<typeof generateHybridTopicsAction>>) {
+function expectArabicFailure(r: {
+  ok: boolean
+  message: string | null
+  generated_for_review: number
+  auto_filtered: number
+  preview_titles: string[]
+}) {
   expect(r.ok).toBe(false)
   expect(typeof r.message).toBe("string")
   expect(r.message!.length).toBeGreaterThan(0)
@@ -93,6 +120,10 @@ function expectArabicFailure(r: Awaited<ReturnType<typeof generateHybridTopicsAc
 beforeEach(() => {
   vi.clearAllMocks()
   vi.mocked(enqueueJob).mockResolvedValue({} as never)
+  vi.mocked(enqueueJobOnce).mockResolvedValue({
+    job: { id: "job-1", status: "pending" },
+    alreadyRunning: false,
+  } as never)
   // Silence the intentional console.error in the action's catch.
   vi.spyOn(console, "error").mockImplementation(() => {})
 })
@@ -122,17 +153,23 @@ describe("generateHybridTopicsAction — every dependency throwing", () => {
     expect(generateHybridTopics).not.toHaveBeenCalled()
   })
 
-  it("generateHybridTopics() throws → Result, not a thrown error", async () => {
+  it("enqueueJobOnce() throws → Result, not a thrown error", async () => {
     vi.mocked(getHybridReadiness).mockResolvedValue(readyState())
-    vi.mocked(generateHybridTopics).mockRejectedValue(
-      new Error("openai request failed: 500"),
-    )
+    vi.mocked(enqueueJobOnce).mockRejectedValue(new Error("jobs table locked"))
 
     const r = await generateHybridTopicsAction(INPUT)
 
     expectArabicFailure(r)
     expect(r.reason).toBe("ai_failed")
     expect(r.analysis_pending).toBe(false)
+  })
+
+  it("a generator throw inside the job fails the job (the worker records it) — never a silent success", async () => {
+    vi.mocked(getHybridReadiness).mockResolvedValue(readyState())
+    vi.mocked(generateHybridTopics).mockRejectedValue(
+      new Error("openai request failed: 500"),
+    )
+    await expect(runSeasonHybridGenerate(JOB, async () => {})).rejects.toThrow("500")
   })
 
   it("a non-Error throw (string) still yields a clean Arabic Result", async () => {
@@ -149,11 +186,23 @@ describe("generateHybridTopicsAction — RateLimitError is its own message", () 
     vi.mocked(getHybridReadiness).mockResolvedValue(readyState())
     vi.mocked(generateHybridTopics).mockRejectedValue(rateLimitError())
 
-    const rateLimited = await generateHybridTopicsAction(INPUT)
+    const rateLimited = await runJob()
     expectArabicFailure(rateLimited)
 
-    vi.mocked(generateHybridTopics).mockRejectedValue(new Error("adapter blew up"))
-    const generic = await generateHybridTopicsAction(INPUT)
+    // A generic generator failure reports the generator's own reason label.
+    vi.mocked(generateHybridTopics).mockResolvedValue({
+      ok: false,
+      generation_id: null,
+      ai_run_id: null,
+      asked: 10,
+      accepted: [],
+      rejected: [],
+      rejection_summary: {},
+      persisted: [],
+      enrichment: { requested: 0, enriched: 0, unenriched: 0 },
+      reason: "ai_failed",
+    } as never)
+    const generic = await runJob()
     expectArabicFailure(generic)
 
     // The whole point of the branch: the operator is told to wait, not
@@ -215,7 +264,7 @@ describe("generateHybridTopicsAction — happy paths still intact", () => {
       fallback_path: "clusters",
     } as never)
 
-    const r = await generateHybridTopicsAction(INPUT)
+    const r = await runJob()
 
     expect(r.ok).toBe(true)
     expect(r.message).toBeNull()
@@ -224,5 +273,22 @@ describe("generateHybridTopicsAction — happy paths still intact", () => {
     // Coverage flows through honestly: 1 of the 2 persisted cards is unenriched.
     expect(r.unenriched).toBe(1)
     expect(r.preview_titles).toEqual(["موضوع أول", "موضوع ثانٍ"])
+    // …and the partial enrichment is a visible warning, not a clean success.
+    expect(r.warningAr).toMatch(/بدون إثراء تحريري/)
+  })
+
+  it("the action enqueues one job and never calls the generator in the request", async () => {
+    vi.mocked(getHybridReadiness).mockResolvedValue(readyState())
+
+    const r = await generateHybridTopicsAction(INPUT)
+
+    expect(r.ok).toBe(true)
+    expect(r.jobId).toBe("job-1")
+    expect(generateHybridTopics).not.toHaveBeenCalled()
+    expect(vi.mocked(enqueueJobOnce).mock.calls[0][0]).toBe("season.hybrid_generate")
+    expect(vi.mocked(enqueueJobOnce).mock.calls[0][2]).toMatchObject({
+      dedupeKey: "hybrid:season-1",
+      maxAttempts: 1,
+    })
   })
 })

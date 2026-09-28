@@ -6,9 +6,20 @@
  * as a separate Node process via the `worker` npm script. Multiple
  * workers can run in parallel — claims use FOR UPDATE SKIP LOCKED.
  *
+ * Two claim LANES run side by side, one job slot each (lib/jobs/lanes.ts):
+ * "heavy" (Studio transcription/maps, benchmarks, market batches) and
+ * "interactive" (everything an operator clicked and is waiting on). A 30-min
+ * transcription no longer holds the only slot while a prep generation waits.
+ *
  * Configuration via env:
  *   WORKER_POLL_MS          default 2000  (claim cadence when idle)
- *   WORKER_LEASE_MS         default 300000 (5min — stale-claim reaper window)
+ *   DB_POOL_MAX             set to 4 by the `worker` script / PM2 env: two
+ *                           lanes + heartbeat + progress writes. Script mode
+ *                           would otherwise default the pool to 2.
+ *   WORKER_LEASE_MS         default 120000 (2min) — no-renewal window after
+ *                           which a running job's owner is presumed dead and
+ *                           the job is reclaimed (lib/jobs/lease.ts). This
+ *                           worker renews its own jobs every 20s.
  *   WORKER_ID               default randomly generated
  */
 
@@ -16,6 +27,7 @@
 // initializes the pg pool. No-op in production. See load-env.ts.
 import "./load-env"
 import { randomUUID } from "node:crypto"
+import { hostname } from "node:os"
 import { log } from "@/lib/log"
 import { validateEnv } from "@/lib/env"
 import {
@@ -23,9 +35,15 @@ import {
   completeJob,
   failJob,
   reclaimStaleJobs,
+  renewJobLease,
+  type ReclaimedJob,
 } from "./queue"
 import { createProgressReporter } from "./progress-reporter"
-import { effectiveLeaseMs, BOOT_RECLAIM_STALE_MS } from "./lease"
+import {
+  leaseStaleMs,
+  LEASE_RENEW_INTERVAL_MS,
+  REAP_INTERVAL_MS,
+} from "./lease"
 import { getHandler, listRegisteredTypes } from "./registry"
 import {
   ensureMarketScheduler,
@@ -34,7 +52,12 @@ import {
   ensureSourceFeedbackSchedule,
 } from "./scheduler-bootstrap"
 import { HandlerTimeoutError, NonRetryableJobError, type JobRow } from "./types"
-import { startWorkerHeartbeat, type WorkerHeartbeatHandle } from "./heartbeat"
+import {
+  readWorkerHeartbeat,
+  startWorkerHeartbeat,
+  type WorkerHeartbeatHandle,
+} from "./heartbeat"
+import { WORKER_LANES, type WorkerLane } from "./lanes"
 import { checkMigrationDrift, formatDriftMessage } from "@/lib/db/migration-guard"
 import { isQuotaExceededError, QUOTA_EXCEEDED_MESSAGE } from "@/lib/ai-router/errors"
 import "./registered"
@@ -52,10 +75,9 @@ import {
 } from "@/lib/system-events/builders"
 
 const POLL_MS = Number(process.env.WORKER_POLL_MS ?? 2000)
-// Raw configured lease. The EFFECTIVE lease (LEASE_MS, computed below once
-// HANDLER_TIMEOUT_MS is known) may be widened so the reaper can't reclaim a
-// still-running long job — see the LEASE_MS definition after HANDLER_TIMEOUT_MS.
-const CONFIGURED_LEASE_MS = Number(process.env.WORKER_LEASE_MS ?? 300_000)
+// No-renewal window after which a running job is reclaimed (lib/jobs/lease.ts).
+const LEASE_MS = leaseStaleMs(Number(process.env.WORKER_LEASE_MS ?? NaN))
+const HOST = hostname()
 const WORKER_ID = process.env.WORKER_ID ?? `worker-${randomUUID().slice(0, 8)}`
 const wlog = log.child(WORKER_ID)
 
@@ -163,34 +185,27 @@ const HANDLER_TIMEOUT_MS: Record<string, number> = {
   // ceiling is the point — if Resend is hanging we want the retry ladder, not
   // a worker slot held for five minutes per submission.
   "email.notify_submission": 60_000,
+  // ── Slow AI moved off the request path (2026-09-28) ──
+  // prep.generate_v2: five sequential AI passes (research → structure →
+  // questions → critique [+ one critique retry] → grounded insight cards).
+  // ~6 min typical; each pass can ride the router's retry ladder, and Pass 5
+  // grounds each card on the web. 25 min absorbs the worst measured case.
+  "prep.generate_v2": 25 * 60_000,
+  // season.hybrid_generate: the generator enforces its own 580s wall
+  // (HYBRID_GEN_WALL_MS); 15 min leaves room for the persist + a slow DB.
+  "season.hybrid_generate": 15 * 60_000,
+  // season.batch_generate: one guided batch (oversample → judge → enrich) or
+  // a guest-first run; measured single-digit minutes.
+  "season.batch_generate": 12 * 60_000,
+  // studio.transcribe: gpt-4o-transcribe over a full episode, chunked and
+  // sequential (+ yt-dlp download for the youtube source). Same budget as the
+  // other full-episode transcription handlers.
+  "studio.transcribe": 30 * 60_000,
 }
 
 function timeoutFor(jobType: string): number {
   return HANDLER_TIMEOUT_MS[jobType] ?? DEFAULT_HANDLER_TIMEOUT_MS
 }
-
-// ─── Effective lease (stale-reaper backstop) ─────────────────────────
-// A live long job refreshes its lease on every progress heartbeat
-// (reportJobProgress stamps locked_at=NOW), so its lease never ages out while
-// it works — that is the primary protection against the reaper stealing it.
-// This is the boot-time BACKSTOP: if WORKER_LEASE_MS is shorter than the
-// longest handler budget (the default 5-min lease vs the 30-min studio.*
-// handlers) AND a handler goes quiet between two long chunks, the reaper would
-// reclaim a still-running job → double execution. effectiveLeaseMs widens the
-// lease to (longest budget + buffer) and warns loudly; it never throws. Every
-// reclaim call below uses this widened value, not CONFIGURED_LEASE_MS.
-const LEASE_MS = effectiveLeaseMs({
-  configuredLeaseMs: CONFIGURED_LEASE_MS,
-  handlerTimeouts: HANDLER_TIMEOUT_MS,
-  defaultTimeoutMs: DEFAULT_HANDLER_TIMEOUT_MS,
-  onWiden: ({ configuredLeaseMs, maxHandlerTimeoutMs, effectiveLeaseMs: eff }) =>
-    wlog.warn(
-      `WORKER_LEASE_MS (${configuredLeaseMs}ms) is shorter than the longest handler ` +
-        `timeout (${maxHandlerTimeoutMs}ms) — raising the effective lease to ${eff}ms so the ` +
-        `stale-lease reaper can't reclaim a still-running long job. ` +
-        `Set WORKER_LEASE_MS ≥ ${eff} to silence this.`,
-    ),
-})
 
 // Guard against the recurring "timeout key doesn't match a registered handler"
 // bug (it has silently dead-lettered market.*, discovery.*, youtube.* and
@@ -256,7 +271,15 @@ let stopping = false
 // the heartbeat timer (see below) so every beat carries the worker's CURRENT
 // busy/idle state — that is what lets the ops page tell "شغّال بلا مهام" apart
 // from "ما يرد" instead of calling every quiet stretch a death.
-let currentJobType: string | null = null
+// Per claim lane: the job that lane is running (for the heartbeat and the
+// lease-renewal timer), or null when idle.
+interface LaneJob {
+  id: string
+  type: string
+  attempts: number
+}
+const laneJob: Record<WorkerLane, LaneJob | null> = { heavy: null, interactive: null }
+const laneJobType = (lane: WorkerLane): string | null => laneJob[lane]?.type ?? null
 
 /** ISO boot timestamp — display context on the ops page, never a health input. */
 const BOOTED_AT = new Date().toISOString()
@@ -264,10 +287,10 @@ const BOOTED_AT = new Date().toISOString()
 /** The heartbeat timer. Assigned once at boot; see the call site below. */
 let heartbeat: WorkerHeartbeatHandle | null = null
 
-async function processOne(): Promise<boolean> {
-  const job = await claimNextJob(WORKER_ID)
+async function processOne(lane: WorkerLane): Promise<boolean> {
+  const job = await claimNextJob(WORKER_ID, lane)
   if (!job) return false
-  currentJobType = job.type
+  laneJob[lane] = { id: job.id, type: job.type, attempts: job.attempts }
   // Beat on both transitions so the reported busy/idle state is exact rather
   // than up to one interval stale — see WorkerHeartbeatHandle.beat.
   heartbeat?.beat()
@@ -276,7 +299,7 @@ async function processOne(): Promise<boolean> {
   } finally {
     // Cleared on EVERY exit path (success, failure, throw) — a stuck flag
     // would report an idle worker as permanently busy.
-    currentJobType = null
+    laneJob[lane] = null
     heartbeat?.beat()
   }
 }
@@ -482,38 +505,23 @@ async function runClaimedJob(job: JobRow): Promise<boolean> {
   return true
 }
 
-async function loop(): Promise<void> {
-  let lastReclaimAt = 0
+/**
+ * One claim loop per lane. The ai-runs-sweeper re-schedule runs on the
+ * interactive lane only. The stale-lease reaper is NOT here — it has its own
+ * timer (startLeaseTimers), because a lane can be busy for 30 minutes and an
+ * orphaned job must not wait behind it.
+ */
+async function loop(lane: WorkerLane): Promise<void> {
+  const maintenance = lane === "interactive"
   let pollCount = 0
   while (!stopping) {
     try {
-      // Periodically reap stale claims (workers that died mid-execution).
-      if (Date.now() - lastReclaimAt > LEASE_MS) {
-        const reclaimed = await reclaimStaleJobs(LEASE_MS)
-        if (reclaimed.length > 0) {
-          wlog.info(`reclaimed ${reclaimed.length} stale job(s)`)
-          // P2.3.c — emit one event per reclaimed row.
-          for (const row of reclaimed) {
-            void emitSystemEvent(
-              buildJobsReclaimedEvent({
-                job_id: row.id,
-                job_type: row.type,
-                previous_locked_by: row.previous_locked_by,
-                lease_ms: LEASE_MS,
-                actor: WORKER_ID,
-              }),
-            )
-          }
-        }
-        lastReclaimAt = Date.now()
-      }
-
       // Phase 2.1 (P2.1.f) — every 100th poll (~3 min at default cadence),
       // re-check that an `ai-runs-sweeper` tick is queued for the future.
       // Keeps the schedule alive without requiring the handler to
       // self-re-enqueue. Idempotent: no-op when a tick is already pending.
       pollCount += 1
-      if (pollCount % 100 === 0) {
+      if (maintenance && pollCount % 100 === 0) {
         ensureAiRunsSweeperSchedule()
           .then((r) => {
             if (r.status === "bootstrapped") {
@@ -544,16 +552,124 @@ async function loop(): Promise<void> {
           )
       }
 
-      const didWork = await processOne()
+      const didWork = await processOne(lane)
       if (!didWork) {
         await sleep(POLL_MS)
       }
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err)
-      wlog.error(`loop error:`, msg)
+      wlog.error(`loop error (${lane} lane):`, msg)
       await sleep(POLL_MS)
     }
   }
+}
+
+function emitReclaimed(rows: ReclaimedJob[], leaseMs: number): void {
+  for (const row of rows) {
+    if (row.outcome === "dead") {
+      void emitSystemEvent(
+        buildJobsDeadEvent({
+          job_id: row.id,
+          job_type: row.type,
+          error_message: "orphaned twice — automatic re-run spent",
+          attempts: 0,
+          actor: WORKER_ID,
+        }),
+      )
+      continue
+    }
+    void emitSystemEvent(
+      buildJobsReclaimedEvent({
+        job_id: row.id,
+        job_type: row.type,
+        previous_locked_by: row.previous_locked_by,
+        lease_ms: leaseMs,
+        actor: WORKER_ID,
+      }),
+    )
+  }
+}
+
+async function reapStale(label: string): Promise<void> {
+  try {
+    const reclaimed = await reclaimStaleJobs(LEASE_MS)
+    if (reclaimed.length > 0) {
+      wlog.info(`${label}: reclaimed ${reclaimed.length} stale job(s)`)
+      emitReclaimed(reclaimed, LEASE_MS)
+    }
+  } catch (err) {
+    wlog.error(`${label} failed:`, err instanceof Error ? err.message : String(err))
+  }
+}
+
+let leaseTimers: Array<ReturnType<typeof setInterval>> = []
+
+/**
+ * (1) Renew the lease of every job this worker is running, every
+ *     LEASE_RENEW_INTERVAL_MS — independent of the handler, so a quiet
+ *     handler is never mistaken for an orphan.
+ * (2) Reap jobs whose lease stopped being renewed, on its OWN timer.
+ */
+function startLeaseTimers(): void {
+  const renew = setInterval(() => {
+    for (const lane of WORKER_LANES) {
+      const j = laneJob[lane]
+      if (!j) continue
+      renewJobLease(j.id, j.attempts, WORKER_ID).catch((err) =>
+        wlog.warn(`lease renewal failed for ${j.id}: ${err instanceof Error ? err.message : String(err)}`),
+      )
+    }
+  }, LEASE_RENEW_INTERVAL_MS)
+  const reap = setInterval(() => void reapStale("reaper"), REAP_INTERVAL_MS)
+  renew.unref?.()
+  reap.unref?.()
+  leaseTimers = [renew, reap]
+}
+
+/** True when `pid` names a live process on this host. */
+function isPidAlive(pid: number): boolean {
+  try {
+    process.kill(pid, 0)
+    return true
+  } catch (err) {
+    // EPERM: it exists but belongs to someone else — alive.
+    return (err as NodeJS.ErrnoException).code === "EPERM"
+  }
+}
+
+/**
+ * Boot-time reclaim, before the first claim:
+ *   • the previous heartbeat was written on THIS host by a process that no
+ *     longer exists (PM2 restart, kill -9, a crash) → that worker is proven
+ *     dead; every job it holds goes back to the queue NOW;
+ *   • anything else whose lease already aged out goes back too.
+ * `previous` must be read BEFORE this worker writes its own first beat.
+ */
+async function bootReclaim(
+  previous: Awaited<ReturnType<typeof readWorkerHeartbeat>>,
+): Promise<void> {
+  const prev = previous?.value
+  if (
+    prev?.worker_id &&
+    prev.worker_id !== WORKER_ID &&
+    prev.host === HOST &&
+    typeof prev.pid === "number" &&
+    prev.pid !== process.pid &&
+    !isPidAlive(prev.pid)
+  ) {
+    try {
+      const rows = await reclaimStaleJobs(0, { lockedBy: prev.worker_id })
+      if (rows.length > 0) {
+        wlog.info(
+          `startup: previous worker ${prev.worker_id} (pid ${prev.pid}) is gone — reclaimed ${rows.length} job(s) it held`,
+        )
+        emitReclaimed(rows, 0)
+      }
+    } catch (err) {
+      wlog.error(`startup dead-owner reclaim failed:`, err instanceof Error ? err.message : String(err))
+    }
+  }
+  await reapStale("startup")
 }
 
 function sleep(ms: number): Promise<void> {
@@ -568,6 +684,7 @@ function shutdown(reason: string): void {
   // ages out and the ops page flips to "ما يرد" — the honest report for a
   // worker that was deliberately stopped.
   heartbeat?.stop()
+  for (const t of leaseTimers) clearInterval(t)
   // Give the in-flight job a moment to wrap up; we don't force-kill.
   setTimeout(() => process.exit(0), 1500)
 }
@@ -575,7 +692,10 @@ function shutdown(reason: string): void {
 process.on("SIGINT", () => shutdown("SIGINT"))
 process.on("SIGTERM", () => shutdown("SIGTERM"))
 
-wlog.info(`starting (poll=${POLL_MS}ms lease=${LEASE_MS}ms)`)
+wlog.info(
+  `starting (poll=${POLL_MS}ms lease=${LEASE_MS}ms renew=${LEASE_RENEW_INTERVAL_MS}ms lanes=${WORKER_LANES.join("+")} ` +
+    `db_pool_max=${process.env.DB_POOL_MAX ?? "default"})`,
+)
 
 // Fail hard on missing REQUIRED config (e.g. DATABASE_URL) — a worker without a
 // database is useless, so crash loudly at boot rather than on the first claim.
@@ -589,20 +709,32 @@ assertTimeoutKeysAreRegistered()
 // dies with it — correctly reported as "ما يرد", because that worker is not
 // going to process anything.
 //
-// Declared as a mutable binding rather than a const so `shutdown()` — hoisted
-// above this line — can stop it. Assigned exactly once.
-heartbeat = startWorkerHeartbeat(
-  () => ({
-    worker_id: WORKER_ID,
-    busy: currentJobType !== null,
-    job_type: currentJobType,
-    booted_at: BOOTED_AT,
-  }),
-  (err) =>
-    wlog.warn(
-      `heartbeat write failed: ${err instanceof Error ? err.message : String(err)}`,
-    ),
-)
+// `heartbeat` is a mutable binding so `shutdown()` — hoisted above this line —
+// can stop it. Assigned exactly once.
+//
+// Read the PREVIOUS worker's beat before overwriting it — bootReclaim uses it
+// to prove a dead predecessor on this host. The beat starts right after (one
+// query later), still before the migration guard and the claim loop.
+const previousBeat = readWorkerHeartbeat().then((prev) => {
+  heartbeat = startWorkerHeartbeat(
+    () => ({
+      worker_id: WORKER_ID,
+      busy: laneJob.heavy !== null || laneJob.interactive !== null,
+      // Kept for older readers (the ops page shows one type): the interactive
+      // lane's job first — it is the one an operator is waiting on.
+      job_type: laneJobType("interactive") ?? laneJobType("heavy"),
+      booted_at: BOOTED_AT,
+      lanes: { heavy: laneJobType("heavy"), interactive: laneJobType("interactive") },
+      pid: process.pid,
+      host: HOST,
+    }),
+    (err) =>
+      wlog.warn(
+        `heartbeat write failed: ${err instanceof Error ? err.message : String(err)}`,
+      ),
+  )
+  return prev
+})
 
 // Started HERE, before the scheduler bootstraps, so a drifted schema aborts the
 // process as early as possible instead of after a round of failing enqueues.
@@ -633,41 +765,9 @@ const runBenchmarkScan = () =>
 setTimeout(runBenchmarkScan, 2 * 60_000).unref?.()
 setInterval(runBenchmarkScan, BENCHMARK_SCAN_INTERVAL_MS).unref?.()
 
-// Phase 2.2 — eager startup reclaim. If a predecessor worker crashed mid-job,
-// this returns its rows to `pending` immediately instead of waiting for the
-// in-loop reaper (which fires only once every LEASE_MS ≈ 31 min after widening).
-//
-// Uses BOOT_RECLAIM_STALE_MS (5 min), NOT the widened LEASE_MS. The loop reaper
-// must stay coarse — a live long job renews its lease every chunk, so LEASE_MS
-// keeps the reaper from stealing it mid-run. But at BOOT that coarseness is
-// wrong: a job stalled seconds before this restart has a locked_at only
-// seconds/minutes old, far younger than 31 min, so a LEASE_MS-keyed boot reclaim
-// would SKIP it — leaving it recoverable only by the loop reaper up to ~31 min
-// later (worst case ~62 min), with the user watching a frozen progress counter.
-// The predecessor is dead-for-certain at boot (single PM2 worker in prod), so the
-// small window is safe; even multi-worker it's safe because a healthy handler's
-// heartbeat keeps locked_at < 5 min fresh (see BOOT_RECLAIM_STALE_MS doc).
-reclaimStaleJobs(BOOT_RECLAIM_STALE_MS)
-  .then((reclaimed) => {
-    if (reclaimed.length > 0) {
-      wlog.info(`startup: reclaimed ${reclaimed.length} stale job(s)`)
-      // P2.3.c — emit one event per reclaimed row.
-      for (const row of reclaimed) {
-        void emitSystemEvent(
-          buildJobsReclaimedEvent({
-            job_id: row.id,
-            job_type: row.type,
-            previous_locked_by: row.previous_locked_by,
-            lease_ms: BOOT_RECLAIM_STALE_MS,
-            actor: WORKER_ID,
-          }),
-        )
-      }
-    }
-  })
-  .catch((err) =>
-    wlog.error(`startup reclaim failed:`, err),
-  )
+// Eager startup reclaim (see bootReclaim): a predecessor that died on this
+// host gets its running jobs back in the queue before the first claim.
+const bootReclaimDone = previousBeat.then((prev) => bootReclaim(prev))
 
 // Bootstrap the market-intelligence scheduler so it ticks daily
 // without any external cron. Idempotent — no-op if a tick already
@@ -771,8 +871,11 @@ ensureSourceFeedbackSchedule()
 
 // Gate the claim loop on the migration guard (see above). On confirmed drift the
 // guard already exited; this only ever proceeds against a schema we trust.
-migrationGuard
-  .then(() => loop())
+Promise.all([migrationGuard, bootReclaimDone])
+  .then(() => {
+    startLeaseTimers()
+    return Promise.all(WORKER_LANES.map((lane) => loop(lane)))
+  })
   .catch((err) => {
     wlog.error(`fatal:`, err)
     process.exit(1)

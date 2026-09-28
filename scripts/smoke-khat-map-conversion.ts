@@ -113,6 +113,8 @@ async function main() {
       const res = await convertEpisodeToPreparation({
         episode_candidate_id: candidateNoGuestId,
         admin_id: adminId,
+        // Scripts keep the pre-queue behaviour: generate prep_v2 in-process.
+        generatePrepV2: "inline",
       })
       assert(!res.ok, "1. conversion fails when no linked guest")
       assert(
@@ -128,6 +130,8 @@ async function main() {
       const res = await convertEpisodeToPreparation({
         episode_candidate_id: candidateWithGuestId,
         admin_id: adminId,
+        // Scripts keep the pre-queue behaviour: generate prep_v2 in-process.
+        generatePrepV2: "inline",
       })
       assert(res.ok, `2. conversion succeeds; got error: ${(res as { ok: false; message?: string }).message ?? "n/a"}`)
       assert(res.created === true, "2. created=true on first conversion")
@@ -215,6 +219,8 @@ async function main() {
       const res = await convertEpisodeToPreparation({
         episode_candidate_id: candidateWithGuestId,
         admin_id: adminId,
+        // Scripts keep the pre-queue behaviour: generate prep_v2 in-process.
+        generatePrepV2: "inline",
       })
       assert(res.ok, "4. re-convert succeeds")
       assert(res.was_existing === true, "4. was_existing=true on second call")

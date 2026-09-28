@@ -36,6 +36,9 @@ export function JobActionButton({
   size = "sm",
   confirm,
   onPendingChange,
+  onResult,
+  disabled: externallyDisabled = false,
+  disabledReason,
 }: {
   label: string
   pendingLabel: string
@@ -55,6 +58,11 @@ export function JobActionButton({
   confirm?: JobActionConfirm
   /** Told when the action starts and settles (e.g. to lock an editor it would overwrite). */
   onPendingChange?: (pending: boolean) => void
+  /** Receives every settled result (e.g. to start watching the job it enqueued). */
+  onResult?: (result: JobActionResult) => void
+  /** Held off from outside — e.g. a background job for this action is still running. */
+  disabled?: boolean
+  disabledReason?: string
 }) {
   const router = useRouter()
   const [pending, startTransition] = useTransition()
@@ -98,8 +106,10 @@ export function JobActionButton({
         ? outcome.data
         : { ok: false, message: outcome.message }
       setResult(r)
+      onResult?.(r)
       toast({
-        title: r.ok ? successTitle : "فشلت العملية",
+        // Attached to a run already in flight — not a new start (see job-actions).
+        title: r.ok ? (r.alreadyRunning ? "لم تُبدأ عملية جديدة" : successTitle) : "فشلت العملية",
         description: r.message,
         variant: r.ok ? "success" : "error",
       })
@@ -177,7 +187,8 @@ export function JobActionButton({
       <button
         type="button"
         onClick={onClick}
-        disabled={pending}
+        disabled={pending || externallyDisabled}
+        title={externallyDisabled ? disabledReason : undefined}
         className={`inline-flex items-center gap-1.5 rounded-lg border font-medium disabled:opacity-50 ${toneClasses} ${sizeClasses}`}
         data-job-action-button
       >

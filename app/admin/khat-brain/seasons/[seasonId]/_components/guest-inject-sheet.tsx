@@ -15,15 +15,15 @@ import { TikTokIcon } from "@/components/icons/tiktok-icon"
 import { FacebookIcon } from "@/components/icons/facebook-icon"
 import { SnapchatIcon } from "@/components/icons/snapchat-icon"
 import type { KhatMapGuestSocialAccounts } from "@/types/khat-map"
-import type { BatchCard } from "@/lib/khat-map/v2/types"
 import { injectGuestAction } from "../../actions"
 import { runAction } from "@/app/admin/components/run-action"
 
 /**
- * Floating "+ ضيف" affordance + bottom sheet. On submit it fires the
- * guest-first engine (3 tailored cards) and hands them back to the
- * wizard which prepends them to the review stack — matching the PR4
- * decision that injected guests jump to the top of the current batch.
+ * Floating "+ ضيف" affordance + bottom sheet. On submit it queues the
+ * guest-first engine (3 tailored cards) as a background job and hands the
+ * jobId back to the wizard, which watches it and refreshes when the cards
+ * are persisted. The engine used to run inside this request (behind nginx's
+ * 120s cut) and hand the cards back directly.
  */
 export function GuestInjectButton({
   seasonId,
@@ -34,7 +34,7 @@ export function GuestInjectButton({
   seasonId: string
   batchIndex: number
   disabled?: boolean
-  onInjected: (cards: BatchCard[]) => void
+  onInjected: (jobId: string) => void
 }) {
   const [open, setOpen] = useState(false)
   return (
@@ -54,8 +54,8 @@ export function GuestInjectButton({
         onClose={() => setOpen(false)}
         seasonId={seasonId}
         batchIndex={batchIndex}
-        onInjected={(cards) => {
-          onInjected(cards)
+        onInjected={(jobId) => {
+          onInjected(jobId)
           setOpen(false)
         }}
       />
@@ -74,7 +74,7 @@ function GuestInjectSheet({
   onClose: () => void
   seasonId: string
   batchIndex: number
-  onInjected: (cards: BatchCard[]) => void
+  onInjected: (jobId: string) => void
 }) {
   const [name, setName] = useState("")
   const [bio, setBio] = useState("")
@@ -117,7 +117,7 @@ function GuestInjectSheet({
         setError(res.error)
         return
       }
-      onInjected(res.data.cards)
+      onInjected(res.data.jobId)
       // reset
       setName("")
       setBio("")
@@ -261,7 +261,7 @@ function GuestInjectSheet({
             {pending ? (
               <>
                 <Loader2 className="h-4 w-4 animate-spin" />
-                نحلّل الضيف…
+                نجدول التوليد…
               </>
             ) : (
               <>

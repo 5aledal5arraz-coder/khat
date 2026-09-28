@@ -68,6 +68,12 @@ import {
   type KhatMapGuestCandidate,
 } from "@/types/khat-map"
 import type { EpisodePhase } from "@/lib/db/schema/eir"
+import {
+  findAttachableJobByDedupeKey,
+  listAttachableJobsByDedupePrefix,
+} from "@/lib/jobs/queue"
+import { hybridDedupeKey, seasonBatchDedupePrefix } from "@/lib/jobs/season-jobs"
+import { toJobSnapshot, type JobSnapshot } from "@/lib/jobs/status-view"
 
 export const dynamic = "force-dynamic"
 
@@ -129,6 +135,16 @@ export default async function SeasonWorkspacePage({
     buildWorkedReport(),
     getAllGuests(),
   ])
+  // Background AI jobs for this season (in flight, or finished in the last
+  // 30 min) — so the hybrid button and the wizard re-attach their status cards
+  // after a reload instead of offering a second paid run.
+  const [hybridJobRow, seasonJobRows] = await Promise.all([
+    findAttachableJobByDedupeKey(hybridDedupeKey(seasonId)).catch(() => null),
+    listAttachableJobsByDedupePrefix(seasonBatchDedupePrefix(seasonId)).catch(() => []),
+  ])
+  const hybridJob: JobSnapshot | null = hybridJobRow ? toJobSnapshot(hybridJobRow) : null
+  const seasonJobs: JobSnapshot[] = seasonJobRows.map(toJobSnapshot)
+
   // Options for «عيّن ضيفاً معروفاً» on each approved-topic card.
   const guestOptions: GuestOption[] = allGuests.map((g) => ({ id: g.id, name: g.name }))
   // Dev-only readiness panel. Hidden by default even in dev — needs
@@ -261,6 +277,12 @@ export default async function SeasonWorkspacePage({
                 id: a.topic.id,
                 title: a.topic.working_title,
               }))}
+            // Prep generations in flight / finished in the last 30 min, looked
+            // up server-side — so they stay visible (with «أعد المحاولة») after
+            // the conversion empties the approved list and the page refreshes.
+            recentJobs={(productionRes.success ? productionRes.data.rows : [])
+              .filter((r) => r.prep_job)
+              .map((r) => ({ title: r.candidate_title, job: r.prep_job! }))}
           />
           {/* Every mode — manual included. The wizard's authoring list
               below only exists while topics are being authored (and
@@ -289,6 +311,7 @@ export default async function SeasonWorkspacePage({
                 aiBlockReason={
                   aiHealth.buttons_disabled ? aiHealth.banner_message : null
                 }
+                hybridJob={hybridJob}
               />
               {showDiagnostics && (
                 <HybridDiagnosticsPanel readiness={hybridReadiness} />
@@ -330,6 +353,7 @@ export default async function SeasonWorkspacePage({
               productionRes.success ? productionRes.data.rows : []
             }
             legacyBatchEnabled={legacyBatchEnabled}
+            initialSeasonJobs={seasonJobs}
           />
         ) : (
           <details
@@ -359,6 +383,7 @@ export default async function SeasonWorkspacePage({
                   productionRes.success ? productionRes.data.rows : []
                 }
                 legacyBatchEnabled={legacyBatchEnabled}
+                initialSeasonJobs={seasonJobs}
               />
             </div>
           </details>
@@ -394,8 +419,10 @@ function HybridPanel({
   targetEpisodes,
   aiBlocked,
   aiBlockReason,
+  hybridJob,
 }: {
   seasonId: string
+  hybridJob: JobSnapshot | null
   /**
    * CR-8 — drives the generator-button label so it says
    * "إنشاء N مرشّحات هجينة" where N = season.v2_episode_target
@@ -422,6 +449,7 @@ function HybridPanel({
         count={targetEpisodes}
         aiBlocked={aiBlocked}
         aiBlockReason={aiBlockReason}
+        initialJob={hybridJob}
       />
     </div>
   )

@@ -40,12 +40,8 @@ import {
 } from "@/lib/ai"
 import type { GlobalEpisodeIntelligence } from "@/lib/ai/episode-intelligence"
 import { fetchTranscriptServer } from "@/lib/youtube/transcript-server"
-import { transcribeAudioFile } from "@/lib/whisper"
-import { downloadYouTubeAudio } from "@/lib/youtube/download"
-import { resolveSessionAudioPath } from "@/lib/studio/audio-path"
+import { enqueueStudioTranscription } from "@/lib/studio/transcribe-enqueue"
 import { isQuotaExceededError, QUOTA_EXCEEDED_MESSAGE } from "@/lib/ai-router/errors"
-import path from "path"
-import fs from "fs/promises"
 import { cleanTranscriptText } from "@/lib/studio/utils"
 import { assessCaptionQuality } from "@/lib/studio/caption-gate"
 export const maxDuration = 300
@@ -211,7 +207,19 @@ export async function POST(
           log("episode_intelligence_hydrate_failed", { error: err instanceof Error ? err.message : String(err) })
         }
 
+        // Set when the transcript step handed off to a background job; every
+        // later step needs that transcript, so they are deferred, not run.
+        let transcriptJobId: string | null = null
+
         for (const step of steps) {
+          if (transcriptJobId) {
+            send("step_deferred", {
+              step,
+              reason: "بانتظار تحويل الصوت إلى نص",
+              jobId: transcriptJobId,
+            })
+            continue
+          }
           log("step_start", { step, provider: step === "transcript" ? "yt-dlp/whisper" : "openai" })
           send("step_start", { step })
           stepStartTimeRef = Date.now()
@@ -247,50 +255,33 @@ export async function POST(
                   break
                 }
 
-                // For audio sessions, use Whisper; for YouTube, try caption extraction first
-                if (session.source === "audio") {
-                  send("step_progress", { step, message: "تحويل الصوت إلى نص عبر Whisper..." })
-                  if (!session.audio_filename) throw new Error("لم يتم العثور على ملف صوتي لهذه الجلسة")
-                  // The uploader stores the file as audio-{id}{ext}, NOT under the
-                  // original browser filename — resolveSessionAudioPath derives the
-                  // correct on-disk path (joining audio_filename directly = ENOENT).
-                  const filePath = await resolveSessionAudioPath(id, session.audio_filename)
-                  const whisperResult = await transcribeAudioFile(filePath, "ar", {
-                    subjectTable: "studio_sessions",
-                    subjectId: id,
+                // No usable captions → paid transcription. It does NOT run
+                // here any more: Whisper over a full episode is minutes of
+                // chunked work, and inside this stream it sat behind nginx's
+                // 120s cut. It is enqueued as `studio.transcribe` (deduped per
+                // session, so a second «توليد الكل» attaches to the same run)
+                // and the client is told which job to watch. Every later step
+                // needs the transcript, so they are deferred, not failed — the
+                // operator re-runs «توليد الكل» once the job finishes.
+                if (session.source === "audio" || session.video_id) {
+                  if (session.source === "audio" && !session.audio_filename) {
+                    throw new Error("لم يتم العثور على ملف صوتي لهذه الجلسة")
+                  }
+                  const q = await enqueueStudioTranscription({
+                    sessionId: id,
+                    source: session.source === "audio" ? "audio" : "youtube",
+                    videoId: session.video_id ?? null,
+                    force: forceRegenerate,
                   })
-                  if (!whisperResult.success || !whisperResult.text) {
-                    throw new Error(whisperResult.error || "فشل في تحويل الصوت إلى نص")
-                  }
-                  const saveResult = await createTranscript(id, "whisper", whisperResult.text, "ar")
-                  if (!saveResult.success) throw new Error(saveResult.error || "فشل في حفظ النص")
-                  send("step_complete", { step, cached: false })
-                } else if (session.video_id) {
-                  {
-                    // Captions were already attempted above and did not
-                    // pass the quality gate — fall through to paid audio.
-                    // Strategy 2: Download audio + Whisper transcription
-                    send("step_progress", { step, message: "تحميل الصوت من يوتيوب وتحويله إلى نص..." })
-                    const tempDir = path.join(process.cwd(), "data", "studio-audio", id, "yt-temp")
-                    let ytCleanup: (() => Promise<void>) | null = null
-                    try {
-                      const download = await downloadYouTubeAudio(session.video_id!, tempDir)
-                      ytCleanup = download.cleanup
-                      const whisperRes = await transcribeAudioFile(download.filePath, "ar", {
-                        subjectTable: "studio_sessions",
-                        subjectId: id,
-                      })
-                      if (!whisperRes.success || !whisperRes.text) {
-                        throw new Error(whisperRes.error || "فشل في تحويل الصوت إلى نص")
-                      }
-                      const ytSaveResult = await createTranscript(id, "whisper", whisperRes.text, "ar")
-                      if (!ytSaveResult.success) throw new Error(ytSaveResult.error || "فشل في حفظ النص")
-                    } finally {
-                      if (ytCleanup) await ytCleanup()
-                      try { await fs.rm(tempDir, { recursive: true, force: true }) } catch (err) { console.debug("[Studio:generate-stream] temp dir cleanup failed:", err) }
-                    }
-                  }
-                  send("step_complete", { step, cached: false })
+                  transcriptJobId = q.job.id
+                  log("transcript_job_enqueued", { job_id: q.job.id, already_running: q.alreadyRunning })
+                  send("transcript_job", {
+                    step,
+                    jobId: q.job.id,
+                    alreadyRunning: q.alreadyRunning,
+                    message:
+                      "لا توجد ترجمة تلقائية صالحة — بدأ تحويل الصوت إلى نص في الخلفية. أعد «توليد الكل» بعد اكتماله.",
+                  })
                 } else {
                   send("step_skip", { step, reason: "لا يوجد مصدر صوت أو فيديو" })
                 }
@@ -796,6 +787,12 @@ export async function POST(
         // here, so this route only walks reviewed → finalized. Non-fatal:
         // the content is already generated and persisted, so a failure to
         // advance state is logged but does not fail the run.
+        if (transcriptJobId) {
+          // Nothing downstream ran — don't finalize the project, don't report success.
+          send("done", { success: false, deferred: true, transcriptJobId })
+          return // finally block will close the controller
+        }
+
         if (project && project.state !== "published") {
           try {
             const advanced = await transitionState(project.id, "finalized")

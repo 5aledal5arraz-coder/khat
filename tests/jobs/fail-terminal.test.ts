@@ -52,3 +52,39 @@ describe("failJob — terminal dead-letters immediately", () => {
     expect(out.status).toBe("dead")
   })
 })
+
+// ─── OpenAI's prepaid-credit wording dead-letters on attempt 1 ─────────────
+//
+// «You have no credits remaining» arrives as a 429 and never says "quota", so
+// it used to be classified as a rate limit and retried — measured blocking 11
+// of 19 season-one transcripts. The worker's decision is
+// `terminal = isQuotaExceededError(err) || err instanceof NonRetryableJobError`
+// then `failJob(id, QUOTA_EXCEEDED_MESSAGE, undefined, { terminal })`; both
+// halves are pinned here against the real message text.
+import { isQuotaExceededError, QUOTA_EXCEEDED_MESSAGE } from "@/lib/ai-router/errors"
+
+describe("«no credits remaining» is a terminal billing failure", () => {
+  const REAL =
+    "429 You have no credits remaining. Add credits to continue. " +
+    "(request id: req_abc)"
+
+  it("is recognised as quota exhaustion (not a transient rate limit)", () => {
+    expect(isQuotaExceededError(new Error(REAL))).toBe(true)
+    expect(isQuotaExceededError(new Error("Add credits to continue."))).toBe(true)
+  })
+
+  it("does not swallow a genuine per-minute rate limit", () => {
+    expect(
+      isQuotaExceededError(new Error("429 Rate limit reached for requests per minute")),
+    ).toBe(false)
+  })
+
+  it("dead-letters on the FIRST attempt with the billing message", async () => {
+    mockSelectResult([{ attempts: 1, max_attempts: 3 }])
+    const terminal = isQuotaExceededError(new Error(REAL))
+    const out = await failJob("job-1", QUOTA_EXCEEDED_MESSAGE, undefined, { terminal })
+
+    expect(out).toMatchObject({ status: "dead", attempts: 1 })
+    expect(lastSet().error_message).toBe(QUOTA_EXCEEDED_MESSAGE)
+  })
+})

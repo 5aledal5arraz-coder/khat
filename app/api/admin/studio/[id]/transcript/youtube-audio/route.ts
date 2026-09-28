@@ -1,18 +1,16 @@
 import { NextResponse } from "next/server"
-import path from "path"
-import fs from "fs/promises"
-import { getStudioSession, getTranscriptForSession, createTranscript, revalidateStudio } from "@/lib/studio"
-import { transcribeAudioFile } from "@/lib/whisper"
-import { downloadYouTubeAudio } from "@/lib/youtube/download"
+import { getStudioSession, getTranscriptForSession } from "@/lib/studio"
+import { enqueueStudioTranscription } from "@/lib/studio/transcribe-enqueue"
 import { requireAdminAPI } from "@/lib/api-utils"
-
-export const maxDuration = 600 // 10 min — download + transcription can be slow
 
 /**
  * POST /api/admin/studio/[id]/transcript/youtube-audio
  *
- * Downloads audio from YouTube via yt-dlp, transcribes it with OpenAI Whisper,
- * and saves the transcript. Used as a fallback when YouTube captions are unavailable.
+ * Fallback when YouTube captions are unavailable: download the video's audio
+ * via yt-dlp and transcribe it with Whisper. Both now run in the worker
+ * (`studio.transcribe`, source "youtube"); this answers 202 `{ jobId }` in
+ * milliseconds instead of holding the request for the whole download +
+ * transcription (maxDuration 600, cut by nginx at 120s).
  */
 export async function POST(
   request: Request,
@@ -22,11 +20,11 @@ export async function POST(
   if (authError) return authError
   const { id } = await params
 
-  // ص-٨ — download + Whisper is the second-most expensive path in the
-  // Studio and it had no cache guard: a retry after a ready transcript
-  // re-downloaded and re-transcribed the whole episode at full price.
-  let forceRegenerate = false
-  try { const b = await request.clone().json(); forceRegenerate = b?.force === true } catch (err) { console.debug("[Studio:youtube-audio] no request body (fine):", err) }
+  // ص-٨ — download + Whisper is the second-most expensive path in the Studio;
+  // a ready transcript short-circuits unless `force`.
+  let body: { force?: unknown; video_id?: unknown } = {}
+  try { body = (await request.json()) ?? {} } catch (err) { console.debug("[Studio:youtube-audio] no request body (fine):", err) }
+  const forceRegenerate = body.force === true
   if (!forceRegenerate) {
     const existing = await getTranscriptForSession(id)
     if (existing?.status === "ready" && existing.transcript_clean?.trim()) {
@@ -35,73 +33,26 @@ export async function POST(
   }
 
   const session = await getStudioSession(id)
-
   // Accept video_id from body as fallback (mock mode may not share in-memory sessions)
-  let videoId = session?.video_id
+  const videoId =
+    session?.video_id ?? (typeof body.video_id === "string" && body.video_id ? body.video_id : null)
   if (!videoId) {
-    try {
-      const body = await request.json()
-      videoId = body.video_id || null
-    } catch (err) {
-      console.debug("[Studio:youtube-audio] no request body (fine):", err)
-    }
+    return NextResponse.json({ error: "لا يوجد معرّف فيديو لهذه الجلسة" }, { status: 400 })
   }
-
-  if (!videoId) {
-    return NextResponse.json(
-      { error: "لا يوجد معرّف فيديو لهذه الجلسة" },
-      { status: 400 }
-    )
-  }
-
-  const tempDir = path.join(process.cwd(), "data", "studio-audio", id, "yt-temp")
-  let cleanup: (() => Promise<void>) | null = null
 
   try {
-    // Step 1: Download audio from YouTube
-    const download = await downloadYouTubeAudio(videoId, tempDir)
-    cleanup = download.cleanup
-
-    // Step 2: Transcribe with Whisper
-    const result = await transcribeAudioFile(download.filePath, "ar", {
-      subjectTable: "studio_sessions",
-      subjectId: id,
+    const q = await enqueueStudioTranscription({
+      sessionId: id,
+      source: "youtube",
+      videoId,
+      force: forceRegenerate,
     })
-
-    if (!result.success || !result.text) {
-      return NextResponse.json(
-        { error: result.error || "فشل في تحويل الصوت إلى نص" },
-        { status: 500 }
-      )
-    }
-
-    // Step 3: Save transcript
-    const createResult = await createTranscript(id, "whisper", result.text, "ar")
-
-    if (!createResult.success) {
-      return NextResponse.json(
-        { error: createResult.error || "فشل في حفظ النص" },
-        { status: 500 }
-      )
-    }
-
-    revalidateStudio(id)
-    return NextResponse.json({ transcript: createResult.data })
+    return NextResponse.json(
+      { jobId: q.job.id, status: q.job.status, alreadyRunning: q.alreadyRunning },
+      { status: q.alreadyRunning ? 200 : 202 },
+    )
   } catch (error) {
-    const msg = error instanceof Error ? error.message : "فشل في تحويل صوت يوتيوب إلى نص"
-    const stack = error instanceof Error ? error.stack : undefined
-    console.error("[youtube-audio] Pipeline failed:", { videoId, error: msg, stack })
-    return NextResponse.json({ error: msg }, { status: 500 })
-  } finally {
-    // Clean up temp audio file
-    if (cleanup) {
-      await cleanup()
-    }
-    // Also try to remove the temp directory
-    try {
-      await fs.rm(tempDir, { recursive: true, force: true })
-    } catch (err) {
-      console.debug("[Studio:youtube-audio] temp dir cleanup failed:", err)
-    }
+    console.error("[Studio:youtube-audio] enqueue failed:", error)
+    return NextResponse.json({ error: "تعذّر جدولة تحويل صوت يوتيوب إلى نص" }, { status: 500 })
   }
 }

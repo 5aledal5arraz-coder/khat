@@ -155,6 +155,8 @@ async function caseConversionTriggersPrepV2(adminId: string) {
   const conv = await convertEpisodeToPreparation({
     episode_candidate_id: cand.id,
     admin_id: adminId,
+    // Scripts keep the pre-queue behaviour: generate prep_v2 in-process.
+    generatePrepV2: "inline",
   })
   if (!conv.ok) bad(`conversion failed: ${conv.reason}`)
   const prepId = conv.link!.target_id

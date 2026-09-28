@@ -393,6 +393,8 @@ async function caseConversionSavesPrepV2(adminId: string) {
     const conv = await convertEpisodeToPreparation({
       episode_candidate_id: seeded.candidate.id,
       admin_id: adminId,
+      // Scripts keep the pre-queue behaviour: generate prep_v2 in-process.
+      generatePrepV2: "inline",
     })
     // ConversionResult is a discriminated union — read `reason` only
     // off the failure branch.
@@ -426,6 +428,8 @@ async function caseFlagDisabledLeavesLegacy(adminId: string) {
     const conv = await convertEpisodeToPreparation({
       episode_candidate_id: seeded.candidate.id,
       admin_id: adminId,
+      // Scripts keep the pre-queue behaviour: generate prep_v2 in-process.
+      generatePrepV2: "inline",
     })
     assert(conv.ok, "conversion failed")
     const prepId = conv.link!.target_id

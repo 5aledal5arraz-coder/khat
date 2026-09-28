@@ -86,6 +86,45 @@ export interface WorkerHeartbeatPayload {
   job_type: string | null
   /** ISO — when this worker process booted. Display context only. */
   booted_at: string
+  /**
+   * Job type in flight per claim lane (lib/jobs/lanes.ts); null = lane idle.
+   * Optional so a beat from an older single-loop build still parses. Lets the
+   * status card tell "waiting behind a transcription" from "queued, starting".
+   */
+  lanes?: { heavy: string | null; interactive: string | null }
+  /**
+   * OS process id + hostname of the writer. Optional (older builds omit them).
+   * A booting worker reads the previous beat: same host and that pid is gone
+   * ⇒ the previous worker is PROVEN dead and its running jobs are reclaimed
+   * at once instead of waiting out the lease window (see worker.ts).
+   */
+  pid?: number
+  host?: string
+}
+
+/**
+ * The last beat as written — read by a booting worker BEFORE it writes its
+ * own. Never throws: null when there is no row or it can't be read.
+ */
+export async function readWorkerHeartbeat(): Promise<{
+  value: Partial<WorkerHeartbeatPayload>
+  ageMs: number
+} | null> {
+  if (!db) return null
+  try {
+    const res = (await db.execute(sql`
+      SELECT value, EXTRACT(EPOCH FROM (NOW() - updated_at)) * 1000 AS age_ms
+        FROM config_store WHERE key = ${WORKER_HEARTBEAT_KEY}
+    `)) as unknown as { rows: Array<{ value: unknown; age_ms: string | number }> }
+    const row = res.rows[0]
+    if (!row) return null
+    return {
+      value: (row.value ?? {}) as Partial<WorkerHeartbeatPayload>,
+      ageMs: Number(row.age_ms),
+    }
+  } catch {
+    return null
+  }
 }
 
 /**

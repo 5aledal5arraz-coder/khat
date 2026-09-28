@@ -28,8 +28,6 @@ import {
   createEpisodeCandidate,
 } from "@/lib/khat-map/core/queries"
 import {
-  generateBatch,
-  generateGuestFirstCards,
   recordDecisionAndFingerprint,
   undoDecisionAndFingerprint,
 } from "@/lib/khat-map/v2"
@@ -40,13 +38,17 @@ import {
 } from "@/lib/khat-map/v2/title-similarity"
 import { ensureEirForCandidate, syncEirEditorialFromCandidate } from "@/lib/khat-brain"
 import { getEpisodeCandidateById } from "@/lib/khat-map/core/queries"
-import { AngleBankExhaustedError } from "@/lib/khat-map/v2/strict"
 import {
   detectMissingRoles,
   prioritizeMissingRoles,
   type KhatMapMustIncludeRole,
 } from "@/lib/khat-map/v2/completion"
-import type { BatchResult, BatchCard } from "@/lib/khat-map/v2/types"
+import { enqueueJobOnce } from "@/lib/jobs/queue"
+import {
+  SEASON_BATCH_GENERATE_JOB,
+  seasonBatchDedupeKey,
+  type SeasonBatchJobPayload,
+} from "@/lib/jobs/season-jobs"
 import { updateEpisodeCandidateStatus } from "@/lib/khat-map/core/queries"
 import { recordDecision } from "@/lib/khat-map/learning/decisions"
 import type {
@@ -705,12 +707,42 @@ export async function assignKnownGuestToTopicAction(input: {
   }
 }
 
+// ─── Background generation (season.batch_generate) ──────────────────────────
+//
+// Every wizard action that calls a generation engine used to await it here,
+// inside the Server Action, behind nginx's 120s cut. The engines now run in
+// the worker (lib/jobs/handlers/season-batch.ts); these actions do the cheap,
+// decision-shaped part synchronously and return a jobId in milliseconds. The
+// wizard watches the job and refreshes to pick up the persisted cards.
+
+export interface EnqueuedGeneration {
+  jobId: string
+  /** A run for the same season + mode (+ card) was already in flight. */
+  alreadyRunning: boolean
+}
+
+async function enqueueSeasonBatch(
+  payload: SeasonBatchJobPayload,
+): Promise<EnqueuedGeneration> {
+  const q = await enqueueJobOnce(SEASON_BATCH_GENERATE_JOB, payload, {
+    dedupeKey: seasonBatchDedupeKey(
+      payload.seasonId,
+      payload.mode,
+      payload.topicCandidateId ?? null,
+    ),
+    // One paid run per click; the router already retries each AI call.
+    maxAttempts: 1,
+    priority: 10,
+  })
+  return { jobId: q.job.id, alreadyRunning: q.alreadyRunning }
+}
+
 // ─── 2. Batch generation ─────────────────────────────────────────────────────
 
 export async function generateBatchAction(input: {
   seasonId: string
   size?: number
-}): Promise<Result<BatchResult>> {
+}): Promise<Result<EnqueuedGeneration>> {
   const gate = await requireActionRole("EDITOR")
   if (!gate.ok) return { success: false, error: gate.error }
   const user = gate.user
@@ -731,53 +763,17 @@ export async function generateBatchAction(input: {
       }
     }
 
-    const res = await generateBatch({
-      season_id: input.seasonId,
-      admin_id: user.id,
+    // The empty-batch diagnostics (filters too strict / all deduped / angle
+    // bank exhausted) now come back as the JOB's result — see the handler.
+    const data = await enqueueSeasonBatch({
+      seasonId: input.seasonId,
+      mode: "generate",
+      adminId: user.id,
       size: input.size ?? 4,
-      // Mode → engine knobs mapping. See PR3 design doc in the brief.
-      use_cross_season_negatives: mode !== "open_ai",
-      invasion_policy: "optional",
-      mode,
     })
     revalidatePath(`/admin/khat-brain/seasons/${input.seasonId}`)
-    // Validation: the LLM produced candidates but every one was filtered out.
-    // Explain WHICH filter so the operator can act, instead of an unexplained
-    // empty batch. Two distinct causes (Guided hybrid surfaces the second):
-    //   - editorial controls too strict (gender/geo/banned), or
-    //   - everything near-duplicated the already-chosen / seeded topics.
-    if (res.cards.length === 0 && res.stats.oversampled > 0) {
-      const editorialDropped = res.stats.editorial_dropped > 0
-      const dedupDropped = res.stats.dedup_dropped > 0
-      if (editorialDropped && !dedupDropped) {
-        return {
-          success: false,
-          error: `الفلاتر التحريرية صارمة جدًا — أُسقطت كل ${res.stats.editorial_dropped} بطاقة. خفّف الفلاتر (الجنس / الجغرافيا / المواضيع الممنوعة) ثم أعد التوليد.`,
-          code: "EDITORIAL_FILTERS_TOO_STRICT",
-        }
-      }
-      if (dedupDropped) {
-        return {
-          success: false,
-          error: `كل الاقتراحات كانت قريبة جدًا من مواضيعك المختارة (أُسقطت ${res.stats.dedup_dropped}). نوّع البذور اليدوية أو قلّلها، ثم أعد التوليد.`,
-          code: "ALL_CANDIDATES_DEDUPED",
-        }
-      }
-      return {
-        success: false,
-        error: "لم يقترح المولّد مواضيع جديدة كافية — أعد التوليد أو عدّل الإعدادات.",
-        code: "EMPTY_BATCH",
-      }
-    }
-    return { success: true, data: res }
+    return { success: true, data }
   } catch (e) {
-    if (e instanceof AngleBankExhaustedError) {
-      return {
-        success: false,
-        error: `بنك الزوايا نفد — ${e.available} زاوية متاحة، ${e.required} مطلوبة. بدّل الوضع إلى "موجّه" أو "استكشاف" لتكملة الموسم.`,
-        code: "ANGLE_BANK_EXHAUSTED",
-      }
-    }
     console.error("[generateBatchAction]", e)
     return { success: false, error: errorOf(e) }
   }
@@ -924,8 +920,11 @@ export async function alternativeAction(
 ): Promise<
   Result<{
     decisionId: string
-    /** One fresh BatchCard when the mode immediately generates a replacement. */
-    replacement_card: BatchCard | null
+    /**
+     * The background run generating the replacement topic, when the mode asks
+     * for one (keep_guest_generate_new_topic). Null for the other modes.
+     */
+    replacement_job: EnqueuedGeneration | null
   }>
 > {
   const gate = await requireActionRole("EDITOR")
@@ -964,28 +963,29 @@ export async function alternativeAction(
         .where(eq(khatMapEpisodeCandidates.id, input.topicCandidateId))
     }
 
-    // Immediate replacement for keep_guest_generate_new_topic.
-    let replacement_card: BatchCard | null = null
+    // Replacement for keep_guest_generate_new_topic — generated in the worker.
+    let replacement_job: EnqueuedGeneration | null = null
     if (input.mode === "keep_guest_generate_new_topic" && guest) {
-      const res = await generateGuestFirstCards({
-        season_id: input.seasonId,
-        admin_id: user.id,
-        batch_index: input.batchIndex,
-        angle_count: 1,
+      replacement_job = await enqueueSeasonBatch({
+        seasonId: input.seasonId,
+        mode: "alternative",
+        adminId: user.id,
+        topicCandidateId: input.topicCandidateId,
+        batchIndex: input.batchIndex,
+        angleCount: 1,
         guest: {
           full_name: guest.full_name,
-          bio: guest.bio,
-          social_accounts: guest.social_accounts,
-          official_website: guest.official_website,
+          bio: guest.bio ?? null,
+          social_accounts: guest.social_accounts ?? {},
+          official_website: guest.official_website ?? null,
         },
       })
-      replacement_card = res.cards[0] ?? null
     }
 
     revalidatePath(`/admin/khat-brain/seasons/${input.seasonId}`)
     return {
       success: true,
-      data: { decisionId: decision.id, replacement_card },
+      data: { decisionId: decision.id, replacement_job },
     }
   } catch (e) {
     return { success: false, error: errorOf(e) }
@@ -1247,7 +1247,7 @@ export async function injectGuestAction(input: {
     official_website?: string | null
   }
   batchIndex?: number
-}): Promise<Result<{ cards: BatchCard[] }>> {
+}): Promise<Result<EnqueuedGeneration>> {
   const gate = await requireActionRole("EDITOR")
   if (!gate.ok) return { success: false, error: gate.error }
   const user = gate.user
@@ -1266,11 +1266,12 @@ export async function injectGuestAction(input: {
     }
   }
   try {
-    const res = await generateGuestFirstCards({
-      season_id: input.seasonId,
-      admin_id: user.id,
-      batch_index: input.batchIndex ?? 0,
-      angle_count: 3,
+    const data = await enqueueSeasonBatch({
+      seasonId: input.seasonId,
+      mode: "inject_guest",
+      adminId: user.id,
+      batchIndex: input.batchIndex ?? 0,
+      angleCount: 3,
       guest: {
         full_name: input.guest.full_name.trim(),
         bio: input.guest.bio ?? null,
@@ -1279,7 +1280,7 @@ export async function injectGuestAction(input: {
       },
     })
     revalidatePath(`/admin/khat-brain/seasons/${input.seasonId}`)
-    return { success: true, data: { cards: res.cards } }
+    return { success: true, data }
   } catch (e) {
     return { success: false, error: errorOf(e) }
   }
@@ -1346,7 +1347,7 @@ export async function getCompletionPreviewAction(
 
 export async function autoCompleteSeasonAction(
   seasonId: string,
-): Promise<Result<{ cards: BatchCard[]; filled_roles: KhatMapMustIncludeRole[] }>> {
+): Promise<Result<EnqueuedGeneration & { filled_roles: KhatMapMustIncludeRole[] }>> {
   const gate = await requireActionRole("EDITOR")
   if (!gate.ok) return { success: false, error: gate.error }
   const user = gate.user
@@ -1361,30 +1362,19 @@ export async function autoCompleteSeasonAction(
     if (roles.length === 0) {
       return { success: false, error: "لا توجد أدوار ناقصة" }
     }
-    const season = await getSeasonById(seasonId)
-    const mode = (season?.v2_mode as typeof season extends null ? never : KhatMapV2Mode | null) ?? "guided"
-    const res = await generateBatch({
-      season_id: seasonId,
-      admin_id: user.id,
+    const data = await enqueueSeasonBatch({
+      seasonId,
+      mode: "auto_complete",
+      adminId: user.id,
       size: roles.length,
-      use_cross_season_negatives: mode !== "open_ai",
-      invasion_policy: "optional",
-      mode: (mode as KhatMapV2Mode) ?? "guided",
-      required_roles: roles,
+      requiredRoles: roles,
     })
     revalidatePath(`/admin/khat-brain/seasons/${seasonId}`)
     return {
       success: true,
-      data: { cards: res.cards, filled_roles: roles },
+      data: { ...data, filled_roles: roles },
     }
   } catch (e) {
-    if (e instanceof AngleBankExhaustedError) {
-      return {
-        success: false,
-        error: "بنك الزوايا نفد — بدّل الوضع لإكمال الموسم.",
-        code: "ANGLE_BANK_EXHAUSTED",
-      }
-    }
     return { success: false, error: errorOf(e) }
   }
 }
@@ -1394,7 +1384,7 @@ export async function autoCompleteSeasonAction(
 export async function regenerateSlotAction(input: {
   seasonId: string
   topicCandidateId: string
-}): Promise<Result<{ card: BatchCard | null }>> {
+}): Promise<Result<EnqueuedGeneration>> {
   const gate = await requireActionRole("EDITOR")
   if (!gate.ok) return { success: false, error: gate.error }
   const user = gate.user
@@ -1422,28 +1412,18 @@ export async function regenerateSlotAction(input: {
     // Move the retired candidate out of 'approved'.
     await updateEpisodeCandidateStatus(input.topicCandidateId, "rejected")
 
-    // 2. Generate one fresh candidate. It lands in the pending stack
-    //    so the admin accepts/rejects it like any other card.
-    const season = await getSeasonById(input.seasonId)
-    const mode = (season?.v2_mode as KhatMapV2Mode | null) ?? "guided"
-    const res = await generateBatch({
-      season_id: input.seasonId,
-      admin_id: user.id,
+    // 2. Generate one fresh candidate — in the worker. It lands in the
+    //    pending stack so the admin accepts/rejects it like any other card.
+    const data = await enqueueSeasonBatch({
+      seasonId: input.seasonId,
+      mode: "regenerate_slot",
+      adminId: user.id,
+      topicCandidateId: input.topicCandidateId,
       size: 1,
-      use_cross_season_negatives: mode !== "open_ai",
-      invasion_policy: "optional",
-      mode,
     })
     revalidatePath(`/admin/khat-brain/seasons/${input.seasonId}`)
-    return { success: true, data: { card: res.cards[0] ?? null } }
+    return { success: true, data }
   } catch (e) {
-    if (e instanceof AngleBankExhaustedError) {
-      return {
-        success: false,
-        error: "بنك الزوايا نفد — لا يمكن توليد بديل في الوضع الصارم.",
-        code: "ANGLE_BANK_EXHAUSTED",
-      }
-    }
     return { success: false, error: errorOf(e) }
   }
 }
@@ -1562,6 +1542,10 @@ import {
 } from "@/lib/khat-map/conversion"
 import { episodes } from "@/lib/db/schema/episodes"
 import { episodePreparations } from "@/lib/db/schema/preparation"
+import { listAttachableJobsByDedupeKeys } from "@/lib/jobs/queue"
+import type { JobRow } from "@/lib/jobs/types"
+import { prepV2DedupeKey } from "@/lib/jobs/prep-jobs"
+import { toJobSnapshot, type JobSnapshot } from "@/lib/jobs/status-view"
 
 export type ConvertCardResult =
   | {
@@ -1576,6 +1560,11 @@ export type ConvertCardResult =
          * The conversion still succeeded — see ConversionResult.warning.
          */
         warning?: string
+        /**
+         * The background prep_v2 generation (`prep.generate_v2`) — the UI
+         * watches this instead of waiting ~6 min on the request.
+         */
+        job: { id: string; already_running: boolean } | null
       }
     }
   | {
@@ -1662,6 +1651,7 @@ export async function convertV2CardToPreparationAction(input: {
       was_existing: result.was_existing,
       converted_at: result.link.converted_at,
       warning: result.warning,
+      job: result.job ?? null,
     },
   }
 }
@@ -1674,6 +1664,8 @@ export async function convertV2CardToPreparationAction(input: {
 // FKs.
 
 export interface ProductionStatusRow {
+  /** The prep_v2 generation job for this row's preparation (in flight / just finished). */
+  prep_job: JobSnapshot | null
   candidate_id: string
   candidate_title: string
   candidate_status: KhatMapEpisodeCandidate["status"]
@@ -1783,6 +1775,12 @@ export async function listSeasonProductionStatusAction(
       : []
     const guestById = new Map(guestRows.map((r) => [r.id, r]))
 
+    // 5. Background prep_v2 generation per preparation — so a bulk or single
+    //    convert keeps showing its progress on this panel across reloads.
+    const prepJobs = await listAttachableJobsByDedupeKeys(
+      prepRows.map((r) => prepV2DedupeKey(r.id)),
+    ).catch(() => new Map<string, JobRow>())
+
     const out: ProductionStatusRow[] = cands.map((c) => {
       const prep = c.converted_preparation_id
         ? prepById.get(c.converted_preparation_id) ?? null
@@ -1793,7 +1791,9 @@ export async function listSeasonProductionStatusAction(
       const guest = c.suggested_guest_candidate_id
         ? guestById.get(c.suggested_guest_candidate_id) ?? null
         : null
+      const prepJobRow = prep ? prepJobs.get(prepV2DedupeKey(prep.id)) : undefined
       return {
+        prep_job: prepJobRow ? toJobSnapshot(prepJobRow) : null,
         candidate_id: c.id,
         candidate_title: c.working_title,
         candidate_status: c.status,

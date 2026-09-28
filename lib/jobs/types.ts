@@ -100,6 +100,8 @@ export interface JobRow {
   /** Live-progress heartbeat written by the running handler; null until reported. */
   progress: Record<string, unknown> | null
   error_message: string | null
+  /** See `jobs.dedupe_key`; null for jobs enqueued without one. */
+  dedupe_key: string | null
   priority: number
   attempts: number
   max_attempts: number

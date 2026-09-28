@@ -10,7 +10,8 @@
  * lets us swap in BullMQ without rewriting callers.
  */
 
-import { pgTable, text, jsonb, timestamp, integer } from "drizzle-orm/pg-core"
+import { sql } from "drizzle-orm"
+import { pgTable, text, jsonb, timestamp, integer, uniqueIndex } from "drizzle-orm/pg-core"
 
 export const JOB_STATUSES = [
   "pending",
@@ -49,6 +50,18 @@ export const jobs = pgTable("jobs", {
    */
   progress: jsonb("progress").$type<Record<string, unknown>>(),
 
+  /**
+   * Producer-chosen identity for "the same piece of work" — e.g.
+   * `prep_v2:<preparationId>` or `studio_transcribe:<sessionId>`. At most ONE
+   * pending/running job may carry a given key (partial unique index below), so
+   * a double-click, two tabs, or a reload-and-click-again attach to the run
+   * already in flight instead of paying for a second one. Null = no dedupe
+   * (every scheduler tick and legacy producer). Terminal rows keep their key
+   * as history — the index only covers in-flight statuses. See
+   * `enqueueJobOnce` in lib/jobs/queue.ts.
+   */
+  dedupe_key: text("dedupe_key"),
+
   /** Last failure message; cleared on retry success. */
   error_message: text("error_message"),
 
@@ -78,4 +91,8 @@ export const jobs = pgTable("jobs", {
   updated_at: timestamp("updated_at", { withTimezone: true })
     .notNull()
     .defaultNow(),
-})
+}, (t) => [
+  uniqueIndex("jobs_dedupe_inflight")
+    .on(t.dedupe_key)
+    .where(sql`status IN ('pending', 'running')`),
+])

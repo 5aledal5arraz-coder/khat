@@ -247,6 +247,8 @@ async function main() {
   const conv = await convertEpisodeToPreparation({
     episode_candidate_id: candidate.id,
     admin_id: adminId,
+    // Scripts keep the pre-queue behaviour: generate prep_v2 in-process.
+    generatePrepV2: "inline",
   })
   if (!conv.ok) fail(3, "Convert to preparation", `conversion failed: ${conv.reason}`)
   const prepId = conv.link!.target_id

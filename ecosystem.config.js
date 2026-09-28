@@ -64,7 +64,14 @@ module.exports = {
       env: {
         NODE_ENV: "production",
         WORKER_POLL_MS: "2000",
-        WORKER_LEASE_MS: "300000",
+        // No-renewal window before a running job is reclaimed (lib/jobs/lease.ts);
+        // the worker renews its own jobs every 20s.
+        WORKER_LEASE_MS: "120000",
+        // Two claim lanes (heavy + interactive, lib/jobs/lanes.ts) + heartbeat +
+        // progress writes. Explicit because a tsx process is "script mode" to
+        // lib/db.ts and would get a pool of 2. Budget: prod Postgres allows 25;
+        // web 10 + worker 4 + pg_cron 1 + ~3 superuser reserve = 18.
+        DB_POOL_MAX: "4",
         // Cleanup Phase A — same defaults as the web process so
         // background prep-conversion jobs run the new pipeline.
         PREP_V2_ENABLED: "true",

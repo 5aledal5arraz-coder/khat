@@ -70,7 +70,8 @@ pm2 logs khat-worker --lines 30
 Expected first-30-lines of worker log:
 
 ```
-[<worker-id>] starting (poll=2000ms lease=300000ms)
+[<worker-id>] starting (poll=2000ms lease=120000ms renew=20000ms lanes=heavy+interactive db_pool_max=4)
+[<worker-id>] startup: previous worker <id> (pid <n>) is gone — reclaimed <n> job(s) it held   ← after a crash / kill -9
 [<worker-id>] startup: reclaimed <n> stale job(s)           ← only if any leaked
 [<worker-id>] market scheduler <status> (job=<8-char prefix>)
 [<worker-id>] ai-runs-sweeper schedule <status> (job=<8-char prefix>)
@@ -142,10 +143,28 @@ the 7-day observation snapshot into the closure doc.
 
 | Path | Semantics |
 |---|---|
-| `pm2 restart khat-worker` | Hard restart. SIGTERM → 1.5s grace → SIGKILL. In-flight job's UPDATE may or may not land. If not, the row stays `running` with `locked_at` until the next worker's lease reaper picks it up (within 5 min) and returns it to `pending` (incrementing attempts via `failJob`). |
+| `pm2 restart khat-worker` | Hard restart. SIGTERM → 1.5s grace → exit. An in-flight job stays `running`, locked by the old worker id. The new worker reads the previous heartbeat at boot: same host + that pid is gone ⇒ the old worker is proven dead and its jobs go back to `pending` **immediately**, before the first claim. |
 | `pm2 reload khat-worker` | Gentler. PM2 sends SIGTERM and waits longer. Same crash-window practically. |
 | `pm2 stop khat-worker` | Halt. Queue accumulates `pending` rows; backlog drains when restarted. Web app continues to enqueue normally. |
-| Worker process crash | PM2 detects, waits `restart_delay: 4000`, restarts. The new worker's **eager startup reclaim** (P2.2) immediately reclaims any stale-running rows the crashed predecessor left behind. |
+| Worker process crash | PM2 detects, waits `restart_delay: 4000`, restarts. Same boot reclaim as above (measured locally with `kill -9`: job back in the queue and re-running ~14s after the kill). |
+
+### Leases, the reaper, and the one automatic re-run (2026-09-28)
+
+- The owning worker renews `locked_at` of every job it runs every **20s**, from
+  its own timer (not the handler), so a quiet handler never looks orphaned.
+- The reaper runs every **30s on its own timer** (never behind a busy claim
+  loop) and returns any `running` job whose lease was not renewed for
+  `WORKER_LEASE_MS` (default **120000**, floor 60000) to `pending`. Worst case
+  without the boot path (e.g. another host): ~2.5 min.
+- **Re-run cap.** A reclaimed job runs again only while `attempts ≤
+  max_attempts` — one extra run beyond its budget (an AI job with
+  `max_attempts 1` runs at most twice). Orphaned again, it is dead-lettered
+  with «توقّف عامل المهام أثناء تنفيذ هذه المهمة مرتين…» and the admin card
+  offers «أعد المحاولة». A job that kills its worker every time can therefore
+  never loop, and a second paid re-run is always the operator's click.
+- The status card shows «العامل أُعيد تشغيله — نعيد المهمة للطابور» while a
+  running job's owner is gone (lease not renewed, or a live worker under a
+  different id not running it).
 
 **Key contract**: no job is lost short of someone manually deleting from
 the `jobs` table. Worst case: a job retries until it hits `max_attempts`

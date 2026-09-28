@@ -23,7 +23,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "qa:admin": "node scripts/qa-admin-page.mjs",
-    "worker": "npx tsx lib/jobs/worker.ts",
+    "worker": "DB_POOL_MAX=4 npx tsx lib/jobs/worker.ts",
     "migrate:khat-brain": "npx tsx scripts/migrate-khat-brain-foundation.ts",
     "migrate:khat-brain-eir": "npx tsx scripts/migrate-khat-brain-eir-links.ts",
     "migrate:khat-brain-downstream": "npx tsx scripts/migrate-khat-brain-downstream.ts",

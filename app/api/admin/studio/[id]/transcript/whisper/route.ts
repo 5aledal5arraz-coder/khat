@@ -1,13 +1,18 @@
 import { NextResponse } from "next/server"
-import { getStudioSession, getTranscriptForSession, createTranscript, createTranscriptError, revalidateStudio } from "@/lib/studio"
+import { getStudioSession, getTranscriptForSession } from "@/lib/studio"
 import { resolveSessionAudioPath } from "@/lib/studio/audio-path"
-import { transcribeAudioFile } from "@/lib/whisper"
+import { enqueueStudioTranscription } from "@/lib/studio/transcribe-enqueue"
 import { requireAdminAPI } from "@/lib/api-utils"
 
-export const maxDuration = 600
-
 /**
- * POST /api/admin/studio/[id]/transcript/whisper — transcribe audio via Whisper
+ * POST /api/admin/studio/[id]/transcript/whisper — transcribe the uploaded
+ * audio via Whisper.
+ *
+ * Returns 202 `{ jobId, alreadyRunning }` in milliseconds: the transcription
+ * runs in the worker as `studio.transcribe` (it used to run right here, with
+ * maxDuration 600, behind nginx's 120s cut). Poll GET /api/admin/jobs/status.
+ * The cheap preconditions (session, source, file on disk) still answer
+ * synchronously so a doomed job is never queued.
  */
 export async function POST(
   request: Request,
@@ -18,9 +23,8 @@ export async function POST(
   const { id } = await params
 
   // ص-٨ — Whisper is the single most expensive call in the Studio
-  // ($1.2954 for the 216-minute reference episode) and it had NO cache
-  // guard whatsoever: every click re-transcribed the whole file and
-  // re-paid in full. Re-transcribing must be a deliberate act.
+  // ($1.2954 for the 216-minute reference episode). Re-transcribing must be a
+  // deliberate act: a ready transcript short-circuits unless `force`.
   let forceRegenerate = false
   try { const b = await request.clone().json(); forceRegenerate = b?.force === true } catch (err) { console.debug("[Studio:whisper] no request body (fine):", err) }
   if (!forceRegenerate) {
@@ -31,65 +35,31 @@ export async function POST(
   }
 
   const session = await getStudioSession(id)
-
   if (!session) {
     return NextResponse.json({ error: "الجلسة غير موجودة" }, { status: 404 })
   }
-
   if (session.source !== "audio") {
-    return NextResponse.json(
-      { error: "هذه الجلسة ليست جلسة صوتية" },
-      { status: 400 }
-    )
+    return NextResponse.json({ error: "هذه الجلسة ليست جلسة صوتية" }, { status: 400 })
   }
-
   if (!session.audio_filename) {
-    return NextResponse.json(
-      { error: "لم يتم العثور على ملف صوتي لهذه الجلسة" },
-      { status: 400 }
-    )
+    return NextResponse.json({ error: "لم يتم العثور على ملف صوتي لهذه الجلسة" }, { status: 400 })
   }
-
   // The uploader stores the file as audio-{id}{ext}, NOT under the original
-  // browser filename — resolve the correct on-disk path (which also confirms the
-  // file exists). Joining audio_filename directly was an ENOENT bug.
-  let filePath: string
+  // browser filename — resolve (and so confirm) the on-disk path up front.
   try {
-    filePath = await resolveSessionAudioPath(id, session.audio_filename)
+    await resolveSessionAudioPath(id, session.audio_filename)
   } catch {
-    return NextResponse.json(
-      { error: "الملف الصوتي غير موجود على الخادم" },
-      { status: 404 }
-    )
+    return NextResponse.json({ error: "الملف الصوتي غير موجود على الخادم" }, { status: 404 })
   }
 
   try {
-    const result = await transcribeAudioFile(filePath, "ar", {
-      subjectTable: "studio_sessions",
-      subjectId: id,
-    })
-
-    if (!result.success || !result.text) {
-      const errorMsg = result.error || "فشل في تحويل الصوت إلى نص"
-      await createTranscriptError(id, errorMsg)
-      return NextResponse.json({ error: errorMsg }, { status: 500 })
-    }
-
-    const createResult = await createTranscript(id, "whisper", result.text, "ar")
-
-    if (!createResult.success) {
-      return NextResponse.json(
-        { error: createResult.error || "فشل في حفظ النص" },
-        { status: 500 }
-      )
-    }
-
-    revalidateStudio(id)
-    return NextResponse.json({ transcript: createResult.data })
+    const q = await enqueueStudioTranscription({ sessionId: id, source: "audio", force: forceRegenerate })
+    return NextResponse.json(
+      { jobId: q.job.id, status: q.job.status, alreadyRunning: q.alreadyRunning },
+      { status: q.alreadyRunning ? 200 : 202 },
+    )
   } catch (error) {
-    console.error("Whisper transcription error:", error)
-    const msg = error instanceof Error ? error.message : "حدث خطأ أثناء تحويل الصوت إلى نص"
-    await createTranscriptError(id, msg)
-    return NextResponse.json({ error: msg }, { status: 500 })
+    console.error("[Studio:whisper] enqueue failed:", error)
+    return NextResponse.json({ error: "تعذّر جدولة تحويل الصوت إلى نص" }, { status: 500 })
   }
 }

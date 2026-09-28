@@ -36,3 +36,13 @@ import "./handlers/episode-conversation"
 // Public submissions (guest / sponsor) — notification mail off the request path,
 // so a Resend outage leaves a retryable job instead of a swallowed catch.
 import "./handlers/submission-notify"
+// Slow AI off the request path (2026-09-28): Preparation V2 generation for
+// convert / bulk convert / regenerate — five AI passes, ~6 min.
+import "./handlers/prep-generate-v2"
+// Hybrid topic generation (2.5–9 min) — was a Server Action behind nginx 120s.
+import "./handlers/season-hybrid"
+// Studio full-text transcription (Whisper, chunked, minutes) — was inline in
+// transcript/whisper, transcript/youtube-audio and generate-stream.
+import "./handlers/studio-transcribe"
+// Guided season wizard engines (batch / completion / slot / guest-first).
+import "./handlers/season-batch"

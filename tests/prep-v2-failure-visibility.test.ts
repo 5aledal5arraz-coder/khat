@@ -19,7 +19,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach } from "vitest"
-import { mockDb, mockSelectResult, resetMock } from "./db-mock"
+import { mockDb, resetMock } from "./db-mock"
 
 vi.mock("@/lib/db", () => ({ db: mockDb }))
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }))
@@ -45,7 +45,27 @@ import {
   type ValidationCode,
 } from "@/lib/preparation/v2/validation"
 import { runPrepV2Pipeline } from "@/lib/preparation/v2/pipeline"
-import { regeneratePrepV2Action } from "@/app/admin/khat-brain/episodes/[eirId]/job-actions"
+import { runPrepGenerateV2 } from "@/lib/jobs/handlers/prep-generate-v2"
+
+/**
+ * «إعادة توليد الإعداد» now runs as the `prep.generate_v2` job; the sentence
+ * the operator reads is the job result's `messageAr` (the action only
+ * enqueues). Same assertions, pinned where the message is now produced.
+ */
+async function regenerate(): Promise<{ ok: boolean; message: string }> {
+  const r = await runPrepGenerateV2(
+    {
+      preparationId: "prep-1",
+      eirId: "eir-1",
+      language: "ar",
+      force: true,
+      trigger: "regenerate",
+      requestedBy: "admin-1",
+    },
+    async () => {},
+  )
+  return { ok: r.ok, message: r.messageAr ?? "" }
+}
 
 const fail = (code: ValidationCode): ValidationFailure => ({
   code,
@@ -107,14 +127,13 @@ describe("describeValidationFailuresAr", () => {
   })
 })
 
-describe("regeneratePrepV2Action — the message carries the actual reason", () => {
+describe("prep regeneration (prep.generate_v2) — the message carries the actual reason", () => {
   beforeEach(() => {
     resetMock()
     vi.clearAllMocks()
   })
 
   it("names the failed checks instead of only saying validation failed", async () => {
-    mockSelectResult([{ id: "prep-1" }])
     vi.mocked(runPrepV2Pipeline).mockResolvedValue({
       ok: false,
       preparation_id: "prep-1",
@@ -133,7 +152,7 @@ describe("regeneratePrepV2Action — the message carries the actual reason", () 
       reason: "validation_failed_after_retry",
     })
 
-    const r = await regeneratePrepV2Action("eir-1")
+    const r = await regenerate()
 
     expect(r.ok).toBe(false)
     expect(r.message).toContain("فشل التحقق من بنية الإعداد بعد محاولتين")
@@ -145,7 +164,6 @@ describe("regeneratePrepV2Action — the message carries the actual reason", () 
 
   it("falls back to the bare sentence when the failure list is empty", async () => {
     // Defensive: an empty list must not render a dangling ": ." tail.
-    mockSelectResult([{ id: "prep-1" }])
     vi.mocked(runPrepV2Pipeline).mockResolvedValue({
       ok: false,
       preparation_id: "prep-1",
@@ -161,12 +179,11 @@ describe("regeneratePrepV2Action — the message carries the actual reason", () 
       reason: "validation_failed_after_retry",
     })
 
-    const r = await regeneratePrepV2Action("eir-1")
+    const r = await regenerate()
     expect(r.message).toBe("فشل التحقق من بنية الإعداد بعد محاولتين.")
   })
 
   it("still reports a non-validation reason (e.g. an early pass dying)", async () => {
-    mockSelectResult([{ id: "prep-1" }])
     vi.mocked(runPrepV2Pipeline).mockResolvedValue({
       ok: false,
       preparation_id: "prep-1",
@@ -182,7 +199,7 @@ describe("regeneratePrepV2Action — the message carries the actual reason", () 
       reason: "pass3_failed",
     })
 
-    const r = await regeneratePrepV2Action("eir-1")
+    const r = await regenerate()
     expect(r.ok).toBe(false)
     expect(r.message).toContain("pass3_failed")
   })

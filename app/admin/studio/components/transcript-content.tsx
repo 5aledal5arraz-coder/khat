@@ -9,6 +9,8 @@ import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 import { useSession, useTranscript } from "../contexts"
 import { TRANSCRIPT_STATUS_LABELS, PREVIEW_WORD_LIMIT } from "./shared"
+import { JobStatusView } from "@/app/admin/components/job-status-card"
+import { isJobInFlight } from "@/lib/jobs/status-view"
 
 export function TranscriptContent() {
   const { session } = useSession()
@@ -16,9 +18,17 @@ export function TranscriptContent() {
     transcript, transcriptStatus, transcriptError,
     fetchTranscript, transcribeAudio, uploadTranscript, transcriptUploading,
     pasteTranscript, transcriptPasting,
+    transcriptJob,
   } = useTranscript()
 
   const isAudio = session.source === "audio"
+  // The background transcription card wins over the status-derived panels
+  // while its job is in flight (a stale error row must not hide a live run).
+  const jobInFlight = transcriptJob.job
+    ? isJobInFlight(transcriptJob.job)
+    : Boolean(transcriptJob.jobId)
+  const showJobCard =
+    Boolean(transcriptJob.jobId) && (transcriptStatus === "generating" || jobInFlight)
 
   const [copied, setCopied] = useState(false)
   const [dragActive, setDragActive] = useState(false)
@@ -55,7 +65,7 @@ export function TranscriptContent() {
         </span>
       </div>
 
-      {transcriptStatus === "idle" && (
+      {transcriptStatus === "idle" && !showJobCard && (
         <div className="space-y-4">
           <p className="text-sm text-muted-foreground">
             {isAudio
@@ -82,7 +92,19 @@ export function TranscriptContent() {
         </div>
       )}
 
-      {transcriptStatus === "generating" && (
+      {/* Whisper runs in the worker — its real state (queued / worker down /
+          chunk n/N / failed with the reason), not a bare spinner. */}
+      {showJobCard && (
+        <JobStatusView
+          title="تحويل الصوت إلى نص"
+          jobId={transcriptJob.jobId}
+          job={transcriptJob.job}
+          worker={transcriptJob.worker}
+          pollError={transcriptJob.pollError}
+        />
+      )}
+
+      {transcriptStatus === "generating" && !showJobCard && (
         <div className="flex flex-col items-center gap-3 py-8">
           <Loader2 className="h-5 w-5 animate-spin text-primary" />
           <span className="text-sm text-muted-foreground">
@@ -97,7 +119,7 @@ export function TranscriptContent() {
         </div>
       )}
 
-      {transcriptStatus === "error" && (
+      {transcriptStatus === "error" && !showJobCard && (
         <div className="space-y-4">
           <div className="flex items-start gap-2 rounded-lg border border-red-500/20 bg-red-500/5 p-3">
             <AlertCircle className="h-4 w-4 shrink-0 text-red-700 mt-0.5" />

@@ -221,6 +221,8 @@ async function caseConversionStampsEir(
   const result = await convertEpisodeToPreparation({
     episode_candidate_id: candidateId,
     admin_id: adminId,
+    // Scripts keep the pre-queue behaviour: generate prep_v2 in-process.
+    generatePrepV2: "inline",
   })
   assert(result.ok, `conversion failed: ${result.ok ? "" : result.message}`)
   if (!result.ok) throw new Error("unreachable")

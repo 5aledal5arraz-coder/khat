@@ -7,6 +7,11 @@
  * `convertEpisodeToPreparation` primitive on each, and returns a
  * per-card success/failure list so the UI can show partial progress.
  *
+ * Each conversion now only CREATES the preparation row (DB writes, ms) and
+ * enqueues one `prep.generate_v2` job; the five AI passes run in the worker.
+ * The loop used to await the pipeline per card — N × ~6 min in one request,
+ * far past nginx's 120s. `per_card[].job_id` is what the UI watches.
+ *
  * No new pipeline — this is a thin orchestrator on top of the
  * primitive that the existing `convertV2CardToPreparationAction`
  * already uses.
@@ -41,6 +46,8 @@ export interface BulkConvertResult {
      */
     warning?: string
     preparation_id?: string
+    /** The `prep.generate_v2` job generating this card's structure, if any. */
+    job_id?: string
   }>
 }
 
@@ -103,6 +110,7 @@ export async function bulkConvertApprovedAction(
       const result = await convertEpisodeToPreparation({
         episode_candidate_id: card.id,
         admin_id: user.id,
+        trigger: "bulk",
       })
       if (!result.ok) {
         per_card.push({
@@ -123,6 +131,7 @@ export async function bulkConvertApprovedAction(
         status: result.was_existing ? "skipped_existing" : "converted",
         warning: result.warning,
         preparation_id: result.link.target_id,
+        job_id: result.job?.id,
       })
       succeeded++
     } catch (err) {
@@ -136,13 +145,12 @@ export async function bulkConvertApprovedAction(
   }
 
   revalidatePath(`/admin/khat-brain/seasons/${seasonId}`)
-  revalidatePath(`/admin/khat-brain/seasons/${seasonId}`)
 
   return {
     ok: succeeded > 0,
     message:
       succeeded === cards.length
-        ? `تم تحويل ${succeeded} حلقة إلى مرحلة الإعداد.`
+        ? `تم تحويل ${succeeded} حلقة إلى مرحلة الإعداد — توليد الإعداد العميق يعمل في الخلفية.`
         : `تم تحويل ${succeeded}/${cards.length} حلقة. تحقق من الفشلات أدناه.`,
     total_attempted: cards.length,
     total_succeeded: succeeded,

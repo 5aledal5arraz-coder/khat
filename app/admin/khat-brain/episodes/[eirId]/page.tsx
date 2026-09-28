@@ -63,6 +63,9 @@ import { ClipsTab } from "./tab-clips"
 import { AssignGuestForm } from "./assign-guest-form"
 import { LaunchEpisodeDiscoveryButton } from "./launch-episode-discovery-button"
 import { getAllGuests } from "@/lib/admin/queries"
+import { findAttachableJobByDedupeKey } from "@/lib/jobs/queue"
+import { prepV2DedupeKey } from "@/lib/jobs/prep-jobs"
+import { toJobSnapshot } from "@/lib/jobs/status-view"
 
 export const dynamic = "force-dynamic"
 
@@ -114,6 +117,14 @@ export default async function EpisodeWorkspacePage({
       getAllGuests(),
     ])
   const markers = room ? await getMarkersForRoom(room.id, 30) : []
+  // The prep's generation job (in flight, or finished in the last 30 min) —
+  // so the preparation tab re-attaches its status card after a reload or a
+  // redirect from «تحويل لإعداد», instead of offering a second paid run.
+  const prepJobRow =
+    selected === "preparation" && prep
+      ? await findAttachableJobByDedupeKey(prepV2DedupeKey(prep.id)).catch(() => null)
+      : null
+  const prepJob = prepJobRow ? toJobSnapshot(prepJobRow) : null
   const guestOptions = allGuests.map((g) => ({ id: g.id, name: g.name }))
 
   // Studio deep-link (?video=) — the studio page has no per-session
@@ -307,6 +318,7 @@ export default async function EpisodeWorkspacePage({
             seasonId={snap.eir.season_id}
             guestOptions={guestOptions}
             currentGuestId={snap.guest?.id ?? null}
+            prepJob={prepJob}
           />
         )}
         {selected === "recording" && (

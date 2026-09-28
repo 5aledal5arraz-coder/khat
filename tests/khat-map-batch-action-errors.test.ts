@@ -46,12 +46,23 @@ vi.mock("@/lib/khat-map/v2", () => ({
 }))
 
 vi.mock("@/lib/khat-brain", () => ({ ensureEirForCandidate: vi.fn() }))
+// The engines run in the worker now (season.batch_generate); the action only
+// enqueues. Mocked so no test ever reaches a real queue row.
+vi.mock("@/lib/jobs/queue", () => ({
+  enqueueJobOnce: vi.fn(async () => ({
+    job: { id: "job-1", status: "pending" },
+    alreadyRunning: false,
+  })),
+  listAttachableJobsByDedupeKeys: vi.fn(async () => new Map()),
+}))
 vi.mock("@/lib/khat-map/learning/decisions", () => ({ recordDecision: vi.fn() }))
 
 import { getSeasonById } from "@/lib/khat-map/core/queries"
 import { generateBatch } from "@/lib/khat-map/v2"
 import { AngleBankExhaustedError } from "@/lib/khat-map/v2/strict"
 import { generateBatchAction } from "@/app/admin/khat-brain/seasons/actions"
+import { runSeasonBatchGenerate } from "@/lib/jobs/handlers/season-batch"
+import { enqueueJobOnce } from "@/lib/jobs/queue"
 
 const INPUT = { seasonId: "season-1", size: 4 }
 
@@ -122,24 +133,46 @@ describe("generateBatchAction — pre-existing branches still behave", () => {
     expect(generateBatch).not.toHaveBeenCalled()
   })
 
-  it("AngleBankExhaustedError keeps its dedicated code (not swallowed)", async () => {
+  it("AngleBankExhaustedError keeps its dedicated code (not swallowed) — now in the job result", async () => {
     vi.mocked(getSeasonById).mockResolvedValue({ v2_mode: "guided" } as never)
     vi.mocked(generateBatch).mockRejectedValue(new AngleBankExhaustedError(1, 4))
 
-    const r = await generateBatchAction(INPUT)
+    const r = await runSeasonBatchGenerate(
+      { seasonId: "season-1", mode: "generate", adminId: "admin-1", size: 4 },
+      async () => {},
+    )
 
-    expect(r.success).toBe(false)
-    if (r.success) throw new Error("unreachable")
+    expect(r.ok).toBe(false)
     expect(r.code).toBe("ANGLE_BANK_EXHAUSTED")
+    expect(r.messageAr).toContain("بنك الزوايا نفد")
+    expect(r.retryable).toBe(false)
   })
 
-  it("a successful batch is unaffected by moving the lookup", async () => {
+  it("a valid request enqueues one job and never runs the engine in the request", async () => {
     vi.mocked(getSeasonById).mockResolvedValue({ v2_mode: "guided" } as never)
     vi.mocked(generateBatch).mockResolvedValue(OK_BATCH as never)
 
     const r = await generateBatchAction(INPUT)
 
-    expect(r.success).toBe(true)
-    expect(generateBatch).toHaveBeenCalledOnce()
+    expect(r).toEqual({ success: true, data: { jobId: "job-1", alreadyRunning: false } })
+    expect(generateBatch).not.toHaveBeenCalled()
+    expect(enqueueJobOnce).toHaveBeenCalledOnce()
+    expect(vi.mocked(enqueueJobOnce).mock.calls[0][0]).toBe("season.batch_generate")
+  })
+
+  it("the handler reports a successful batch with its count and batch index", async () => {
+    vi.mocked(getSeasonById).mockResolvedValue({ v2_mode: "guided" } as never)
+    vi.mocked(generateBatch).mockResolvedValue({
+      ...OK_BATCH,
+      batch_index: 3,
+      cards: [{ topic_candidate: { working_title: "عنوان" } }],
+    } as never)
+
+    const r = await runSeasonBatchGenerate(
+      { seasonId: "season-1", mode: "generate", adminId: "admin-1", size: 4 },
+      async () => {},
+    )
+
+    expect(r).toMatchObject({ ok: true, cards: 1, batch_index: 3, titles: ["عنوان"] })
   })
 })

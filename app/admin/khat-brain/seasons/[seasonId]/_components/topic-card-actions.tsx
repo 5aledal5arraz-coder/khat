@@ -117,7 +117,11 @@ export function TopicCardActions({
       }
       toast({
         title: res.data.was_existing ? "الإعداد موجود مسبقاً" : "تم التحويل إلى الإعداد",
-        description: res.data.warning ?? "ننقلك إلى صفحة الإعداد…",
+        description:
+          res.data.warning ??
+          (res.data.job
+            ? "توليد الإعداد العميق يعمل في الخلفية — ننقلك إلى صفحة الإعداد لمتابعته…"
+            : "ننقلك إلى صفحة الإعداد…"),
         variant: res.data.warning ? "error" : "success",
       })
       // The topic leaves the approved list once converted, so the season

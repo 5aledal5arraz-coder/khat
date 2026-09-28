@@ -1,80 +1,62 @@
 /**
- * Effective worker-lease computation — the stale-lease reaper backstop.
+ * Worker job leases — how a dead worker's running job gets back to the queue.
  *
- * The reaper (`reclaimStaleJobs`) returns any `running` job whose `locked_at` is
- * older than the lease to `pending`, assuming its worker died. A live handler
- * refreshes `locked_at` on every progress heartbeat (`reportJobProgress`), so a
- * healthy long job keeps its lease fresh — that is the PRIMARY protection. This
- * is the BACKSTOP for the gap where a handler goes quiet BETWEEN two long chunks
- * (no heartbeat): if the configured lease is shorter than a handler's own
- * timeout budget, the reaper could reclaim a job that is still legitimately
- * running → DOUBLE execution (e.g. lease=5min vs studio.* map/review=30min).
+ * THE MODEL (2026-09-28, replaces the "widened lease" backstop)
+ * ------------------------------------------------------------
+ * A claimed job carries `locked_by` + `locked_at`. The worker that owns it
+ * RENEWS `locked_at` every LEASE_RENEW_INTERVAL_MS from a timer — independent
+ * of the handler, so a handler that goes quiet for ten minutes between two
+ * Whisper chunks still has a fresh lease. (`ctx.reportProgress` renews too.)
  *
- * The invariant: the effective lease is ALWAYS STRICTLY GREATER than the longest
- * handler budget. When the configured lease is ≤ that budget we widen to
- * (budget + buffer); a configured lease already above the budget is kept as-is.
- * Strict inequality matters — if lease == budget, a handler that hits its own
- * timeout at the edge races the reaper; keeping lease > budget guarantees the
- * worker fails (and can retry) a timed-out handler BEFORE the reaper would ever
- * treat its row as stale. Self-correcting and loud (via `onWiden`) — never a
- * throw, because a worker that refuses to boot is worse than one running on a
- * widened lease.
+ * A job whose lease has not been renewed for the stale window
+ * (`WORKER_LEASE_MS`, default DEFAULT_LEASE_STALE_MS) has an owner that is not
+ * running any more, and the reaper — on its OWN timer, never behind a claim
+ * loop that may be busy for 30 minutes — returns it to the queue.
+ *
+ * The old model widened the reap window past the longest handler budget
+ * (30 min + 1) because nothing renewed a quiet handler's lease. That is what
+ * left a job orphaned by `kill -9` stuck `running` for 31–55 minutes, with
+ * «إعادة توليد الإعداد» disabled by the dedupe index the whole time. With
+ * worker-side renewal the window no longer has to cover a handler's budget —
+ * a timed-out handler is failed by its own worker, which then stops renewing.
+ *
+ * Boot adds an immediate path on top (worker.ts): if the previous heartbeat
+ * was written from THIS host by a process that no longer exists, its running
+ * jobs are reclaimed at once, before the first claim.
+ *
+ * RE-RUN CAP: a reclaimed job gets ONE extra run beyond its attempts budget
+ * (an AI job with max_attempts 1 runs at most twice). If it is orphaned again
+ * it is dead-lettered with REQUEUE_EXHAUSTED_MESSAGE instead of looping —
+ * a job that kills its worker every time must not kill it forever, and the
+ * operator decides whether to pay for another run («أعد المحاولة»).
  */
 
-export const LEASE_SAFETY_BUFFER_MS = 60_000
+/** How often the owning worker renews the lease of each job it is running. */
+export const LEASE_RENEW_INTERVAL_MS = 20_000
+
+/** Default no-renewal window after which a running job is reclaimed. */
+export const DEFAULT_LEASE_STALE_MS = 120_000
 
 /**
- * Dedicated window for the BOOT-time stale reclaim (worker.ts), distinct from the
- * in-loop reaper's (possibly widened) lease. See worker.ts for the full rationale:
- * at boot the predecessor worker is dead-for-certain (single PM2 worker in prod),
- * and a job stalled seconds before a restart has a locked_at only seconds old —
- * far younger than the ~31-min widened lease — so keying boot reclaim on that lease
- * would SKIP it and leave the user on a frozen counter until the loop reaper fires.
- * A small fixed window recovers it promptly and stays safe even multi-worker,
- * because a live handler renews its lease every chunk (~1–3 min) so its locked_at
- * never ages past 5 min.
+ * Floor for a configured window: at least three missed renewals, so one slow
+ * write or a GC pause can never make a live job look orphaned.
  */
-export const BOOT_RECLAIM_STALE_MS = 5 * 60_000
+export const MIN_LEASE_STALE_MS = 3 * LEASE_RENEW_INTERVAL_MS
 
-export interface EffectiveLeaseInput {
-  /** Lease from WORKER_LEASE_MS (or its default). */
-  configuredLeaseMs: number
-  /** Per-type handler timeouts (worker.ts HANDLER_TIMEOUT_MS). */
-  handlerTimeouts: Record<string, number>
-  /** Fallback timeout for types without a per-type override. */
-  defaultTimeoutMs: number
-  /** Head-room added on top of the longest budget when widening. */
-  bufferMs?: number
-  /** Called ONLY when the lease is widened, so the caller can warn loudly. */
-  onWiden?: (info: {
-    configuredLeaseMs: number
-    maxHandlerTimeoutMs: number
-    effectiveLeaseMs: number
-  }) => void
+/** How often the reaper runs (its own timer). */
+export const REAP_INTERVAL_MS = 30_000
+
+/** The stale window to use for a configured value (WORKER_LEASE_MS), clamped to the floor. */
+export function leaseStaleMs(configured: number | null | undefined): number {
+  const n = Number(configured)
+  if (!Number.isFinite(n) || n <= 0) return DEFAULT_LEASE_STALE_MS
+  return Math.max(MIN_LEASE_STALE_MS, n)
 }
 
-/**
- * Returns the configured lease, or a widened lease when the configured value is
- * shorter than the longest handler budget. See module doc for the why.
- */
-export function effectiveLeaseMs(input: EffectiveLeaseInput): number {
-  const buffer = input.bufferMs ?? LEASE_SAFETY_BUFFER_MS
-  const maxHandlerTimeoutMs = Math.max(
-    input.defaultTimeoutMs,
-    ...Object.values(input.handlerTimeouts),
-  )
-  // `<=` (not `<`): when the configured lease equals the longest budget we STILL
-  // widen, so the effective lease stays strictly greater than the budget and a
-  // handler timing out at the edge is always failed by the worker before the
-  // reaper could reclaim its row.
-  if (input.configuredLeaseMs <= maxHandlerTimeoutMs) {
-    const widened = maxHandlerTimeoutMs + buffer
-    input.onWiden?.({
-      configuredLeaseMs: input.configuredLeaseMs,
-      maxHandlerTimeoutMs,
-      effectiveLeaseMs: widened,
-    })
-    return widened
-  }
-  return input.configuredLeaseMs
-}
+/** error_message on a job the reaper put back in the queue. */
+export const REQUEUED_MESSAGE =
+  "توقّف عامل المهام أثناء تنفيذ هذه المهمة (أُعيد تشغيله) — أُعيدت إلى الطابور وستُنفَّذ مرة أخرى تلقائياً."
+
+/** error_message on a job orphaned again after its one automatic re-run. */
+export const REQUEUE_EXHAUSTED_MESSAGE =
+  "توقّف عامل المهام أثناء تنفيذ هذه المهمة مرتين، فلم نُعِد تشغيلها تلقائياً مرة ثالثة. اضغط «أعد المحاولة» لتشغيلها من جديد."

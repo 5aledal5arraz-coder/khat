@@ -6,7 +6,8 @@
  * Each action wraps an existing primitive that previously was reachable
  * only from a CLI script:
  *
- *   regeneratePrepV2Action       → runPrepV2Pipeline()
+ *   regeneratePrepV2Action       → enqueue `prep.generate_v2` (the worker runs
+ *                                  runPrepV2Pipeline; this returns a jobId)
  *   recomputePerformanceAction   → analyzeEirPerformance()
  *   refreshYoutubePerformanceAction → enqueueJob("youtube.refresh_performance")
  *
@@ -20,9 +21,11 @@ import { db } from "@/lib/db"
 import { episodePreparations } from "@/lib/db/schema/preparation"
 import { episodes as episodesTable } from "@/lib/db/schema/episodes"
 import { requireActionRole } from "@/lib/api-utils"
-import { runPrepV2Pipeline } from "@/lib/preparation/v2/pipeline"
-import { ROOM_LIVE_REGENERATION_MESSAGE } from "@/lib/recording-v2/live-guard"
-import { describeValidationFailuresAr } from "@/lib/preparation/v2/validation"
+import { enqueuePrepV2Generation } from "@/lib/preparation/v2/enqueue"
+import {
+  ROOM_LIVE_REGENERATION_MESSAGE,
+  hasActiveRecordingForPreparation,
+} from "@/lib/recording-v2/live-guard"
 import {
   coerceCourseTargetChoice,
   coercePrepFormat,
@@ -53,6 +56,10 @@ function extractYoutubeId(url: string | null | undefined): string | null {
 export interface JobActionResult {
   ok: boolean
   message: string
+  /** Set when the action ENQUEUED work — the UI watches this job. */
+  jobId?: string
+  /** The job was already in flight (a second click attached to it). */
+  alreadyRunning?: boolean
 }
 
 // ─── Prep V2 regeneration ────────────────────────────────────────────
@@ -60,7 +67,7 @@ export interface JobActionResult {
 export async function regeneratePrepV2Action(
   eirId: string,
   /** "story" (default) | "course". Untrusted client input — coerced. */
-  format?: string,
+  formatInput?: string,
   /**
    * Course only — explicit length in minutes. Untrusted: only a value in
    * COURSE_TARGET_CHOICES survives; anything else means "auto from the goal".
@@ -84,41 +91,66 @@ export async function regeneratePrepV2Action(
     }
   }
 
+  // The live-recording guard, checked up front so a refusal is instant and
+  // costs nothing. The pipeline checks again when the job starts AND at write
+  // time (a take can start while it is queued) — the job then completes with
+  // this same message as its result, never as a retry.
+  if (await hasActiveRecordingForPreparation(prep.id)) {
+    return { ok: false, message: ROOM_LIVE_REGENERATION_MESSAGE }
+  }
+
   try {
-    const r = await runPrepV2Pipeline({
+    const format = coercePrepFormat(formatInput)
+    const q = await enqueuePrepV2Generation({
       preparationId: prep.id,
+      eirId,
       language: "ar",
       force: true,
-      format: coercePrepFormat(format),
+      format,
       targetMinutes: coerceCourseTargetChoice(targetMinutes),
+      trigger: "regenerate",
+      requestedBy: gate.user.id,
     })
     revalidatePath(`/admin/khat-brain/episodes/${eirId}`)
-    if (!r.ok) {
-      // Name the checks that failed. `r.validation.failures` was always
-      // populated here; the message just never read it, so the operator was
-      // told "validation failed" with no way to learn what to fix.
-      const why = describeValidationFailuresAr(r.validation.failures)
-      if (r.reason === "room_live") {
-        return { ok: false, message: ROOM_LIVE_REGENERATION_MESSAGE }
-      }
-      return {
-        ok: false,
-        message:
-          r.reason === "validation_failed_after_retry"
-            ? why
-              ? `فشل التحقق من بنية الإعداد بعد محاولتين: ${why}.`
-              : "فشل التحقق من بنية الإعداد بعد محاولتين."
-            : `تعذّر توليد الإعداد (${r.reason ?? "سبب غير معروف"}).`,
-      }
+    return {
+      ok: true,
+      message: q.alreadyRunning
+        ? attachedRunMessage(q.job.payload, format)
+        : "بدأ توليد الإعداد في الخلفية.",
+      jobId: q.job.id,
+      alreadyRunning: q.alreadyRunning,
     }
-    return { ok: true, message: "تم تحديث الإعداد." }
   } catch (err) {
     return {
       ok: false,
       message:
-        err instanceof Error ? err.message : "تعذّر توليد الإعداد.",
+        err instanceof Error
+          ? `تعذّر جدولة توليد الإعداد: ${err.message}`
+          : "تعذّر جدولة توليد الإعداد.",
     }
   }
+}
+
+/**
+ * A regeneration clicked while another generation for the same prep is in
+ * flight ATTACHES to it (one dedupe key per prep — two runs would race to
+ * overwrite each other and pay twice). The operator must not think their
+ * format/length choice is what's running: say which run it is, and what to do.
+ */
+function attachedRunMessage(
+  running: Record<string, unknown>,
+  requestedFormat: string | undefined,
+): string {
+  const runningFormat = running.format === "course" ? "course" : "story"
+  const label = (f: string) => (f === "course" ? "دورة مصغّرة" : "قصة")
+  const origin = running.trigger === "regenerate" ? "إعادة توليد سابقة" : "تحويل الحلقة إلى الإعداد"
+  const differs = (requestedFormat ?? "story") !== runningFormat
+  return (
+    `لم تُبدأ عملية جديدة: توليد جارٍ بالفعل لهذا الإعداد (من ${origin}، بصيغة «${label(runningFormat)}») — نعرض لك حالته.` +
+    (differs || running.targetMinutes
+      ? ` بعد اكتماله أعد التوليد إذا أردت صيغة «${label(requestedFormat ?? "story")}» أو مدة مختلفة.`
+      : "")
+  )
 }
 
 // ─── Performance recompute (analyzeEirPerformance) ───────────────────

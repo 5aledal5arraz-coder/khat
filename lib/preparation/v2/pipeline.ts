@@ -67,6 +67,44 @@ export interface RunPrepV2Input {
    * COURSE_TARGET_CHOICES is ignored.
    */
   targetMinutes?: number | null
+  /**
+   * Called as each pass starts, so a job can show «المرحلة 3/5: …». Optional
+   * and best-effort: a throw from it is swallowed — progress reporting must
+   * never fail a ~$2 generation.
+   */
+  onProgress?: (p: PrepV2Progress) => void | Promise<void>
+}
+
+/** Pass numbering the operator sees. Pass 5 (insight cards) is best-effort. */
+export const PREP_V2_TOTAL_PASSES = 5
+export const PREP_V2_PASS_LABEL_AR: Record<number, string> = {
+  1: "البحث وتجميع المصادر",
+  2: "بناء هيكل الحلقة",
+  3: "بنك الأسئلة",
+  4: "المراجعة والتدقيق",
+  5: "بطاقات المعلومات",
+}
+
+export interface PrepV2Progress {
+  pass: number
+  of: number
+  label: string
+}
+
+async function reportPass(input: RunPrepV2Input, pass: number): Promise<void> {
+  if (!input.onProgress) return
+  try {
+    await input.onProgress({
+      pass,
+      of: PREP_V2_TOTAL_PASSES,
+      label: PREP_V2_PASS_LABEL_AR[pass] ?? "",
+    })
+  } catch (err) {
+    console.warn(
+      `[prep-v2] progress report failed for prep ${input.preparationId} (ignored):`,
+      err instanceof Error ? err.message : err,
+    )
+  }
 }
 
 export interface RunPrepV2Result {
@@ -84,6 +122,12 @@ export interface RunPrepV2Result {
     | "pass4_failed"
     | "validation_failed_after_retry"
     | "room_live"
+  /**
+   * The failing pass's own error text (pass1..4_failed only). Carried out so
+   * the job layer can recognise a terminal provider failure (out of credit)
+   * and dead-letter with the billing message instead of a generic reason.
+   */
+  error?: string
 }
 
 export async function runPrepV2Pipeline(
@@ -171,6 +215,7 @@ export async function runPrepV2Pipeline(
     : {}
 
   // ── Pass 1 ────────────────────────────────────────────────────────
+  await reportPass(input, 1)
   const p1 = await runResearchSynthesis(pass1Input)
   ai_run_ids.pass1_research = p1.ai_run_id
   if (!p1.ok || !p1.output) {
@@ -181,6 +226,7 @@ export async function runPrepV2Pipeline(
       validation: { ok: false, failures: [] },
       ai_run_ids,
       reason: "pass1_failed",
+      error: p1.error,
     }
   }
 
@@ -192,6 +238,7 @@ export async function runPrepV2Pipeline(
   }
 
   // ── Pass 2 ────────────────────────────────────────────────────────
+  await reportPass(input, 2)
   const p2 = await runStructureBuild({
     language,
     preparation_id: input.preparationId,
@@ -208,10 +255,12 @@ export async function runPrepV2Pipeline(
       validation: { ok: false, failures: [] },
       ai_run_ids,
       reason: "pass2_failed",
+      error: p2.error,
     }
   }
 
   // ── Pass 3 ────────────────────────────────────────────────────────
+  await reportPass(input, 3)
   const p3 = await runQuestionBankGeneration({
     language,
     preparation_id: input.preparationId,
@@ -229,10 +278,12 @@ export async function runPrepV2Pipeline(
       validation: { ok: false, failures: [] },
       ai_run_ids,
       reason: "pass3_failed",
+      error: p3.error,
     }
   }
 
   // ── Pass 4 ────────────────────────────────────────────────────────
+  await reportPass(input, 4)
   let p4 = await runCritiquePass({
     language,
     preparation_id: input.preparationId,
@@ -252,6 +303,7 @@ export async function runPrepV2Pipeline(
       validation: { ok: false, failures: [] },
       ai_run_ids,
       reason: "pass4_failed",
+      error: p4.error,
     }
   }
 
@@ -347,6 +399,7 @@ export async function runPrepV2Pipeline(
   // candidate is web-grounded + verified before it attaches to a question;
   // unverifiable drafts are dropped inside runInsightGeneration.
   if (validation.ok) {
+    await reportPass(input, 5)
     try {
       const p5 = await runInsightGeneration({
         language,

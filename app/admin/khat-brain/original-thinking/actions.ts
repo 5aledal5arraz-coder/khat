@@ -1,41 +1,58 @@
 "use server"
 
 import { revalidatePath } from "next/cache"
-import { generateOriginalTopics } from "@/lib/original-thinking/generator"
 import {
   markOriginalTopicConsumed,
   expireOldOriginalTopics,
 } from "@/lib/original-thinking/bank"
 import { requireActionRole } from "@/lib/api-utils"
-import { generationReasonLabel } from "@/lib/operator-language"
+import { enqueueJobOnce } from "@/lib/jobs/queue"
+import {
+  ORIGINAL_GENERATE_TOPICS_JOB,
+  originalTopicsDedupeKey,
+} from "@/lib/jobs/original-jobs"
 
 export interface GenerateActionResult {
+  /** The job was queued (or was already running). The generation's own outcome is the job's result. */
   ok: boolean
-  accepted: number
-  rejected: number
   message: string
-  rejection_reasons?: Array<{ title: string; reasons: string[] }>
+  jobId?: string
+  alreadyRunning?: boolean
 }
 
+/**
+ * «إنشاء ١٠ مواضيع جديدة» — enqueue `original.generate_topics` and return its
+ * jobId in milliseconds. The generator (one long editorial AI call over the
+ * corpus) runs in the worker; it used to run right here, behind nginx's 120s
+ * cut. The button's status card watches the job and shows the tally.
+ */
 export async function generateOriginalTopicsAction(
   language: "ar" | "en" = "ar",
   count: number = 10,
 ): Promise<GenerateActionResult> {
   const gate = await requireActionRole("EDITOR")
-  if (!gate.ok) return { ok: false, accepted: 0, rejected: 0, message: gate.error }
-  const r = await generateOriginalTopics({ language, count })
-  revalidatePath("/admin/khat-brain/original-thinking")
-  return {
-    ok: r.ok,
-    accepted: r.accepted.length,
-    rejected: r.rejected.length,
-    message: r.ok
-      ? `أُنشئت ${r.accepted.length} موضوعًا (رُفض ${r.rejected.length}).`
-      : generationReasonLabel("ai_failure"),
-    rejection_reasons: r.rejected.slice(0, 5).map((rj) => ({
-      title: rj.candidate.title,
-      reasons: rj.reasons,
-    })),
+  if (!gate.ok) return { ok: false, message: gate.error }
+  try {
+    const q = await enqueueJobOnce(
+      ORIGINAL_GENERATE_TOPICS_JOB,
+      { language, count },
+      {
+        dedupeKey: originalTopicsDedupeKey(language),
+        maxAttempts: 1,
+        priority: 10,
+      },
+    )
+    return {
+      ok: true,
+      message: q.alreadyRunning
+        ? "توليد المواضيع جارٍ بالفعل — نعرض لك حالته."
+        : "بدأ توليد المواضيع في الخلفية.",
+      jobId: q.job.id,
+      alreadyRunning: q.alreadyRunning,
+    }
+  } catch (err) {
+    console.error("[generateOriginalTopicsAction] enqueue failed:", err)
+    return { ok: false, message: "تعذّر جدولة توليد المواضيع. أعد المحاولة بعد قليل." }
   }
 }
 

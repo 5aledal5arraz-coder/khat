@@ -7,6 +7,11 @@
  * show partial-progress per-card. Removes the "I accepted everything,
  * why is nothing in preparation?" trap (fix #2.10) by making the
  * convert step explicit and discoverable.
+ *
+ * The click now returns in seconds: preparations are created and one
+ * `prep.generate_v2` job per card is queued. Each converted row below watches
+ * its own job, and the season's production panel keeps showing them after a
+ * reload (it looks the jobs up server-side).
  */
 
 import { useState, useTransition } from "react"
@@ -24,12 +29,15 @@ import {
   type BulkConvertResult,
 } from "./bulk-convert-actions"
 import { runAction } from "@/app/admin/components/run-action"
+import { JobStatusCard } from "@/app/admin/components/job-status-card"
+import type { JobSnapshot } from "@/lib/jobs/status-view"
 
 export function BulkConvertButton({
   seasonId,
   approvedCount,
   convertableCount,
   blockedItems = [],
+  recentJobs = [],
 }: {
   seasonId: string
   approvedCount: number
@@ -40,6 +48,13 @@ export function BulkConvertButton({
   convertableCount?: number
   /** Approved candidates blocked by missing guest. Shown as a preflight list. */
   blockedItems?: Array<{ id: string; title: string }>
+  /**
+   * The season's prep_v2 generation jobs (in flight / finished in the last
+   * 30 min), from the server. Rendered even when nothing is left to convert:
+   * a successful bulk convert empties the approved list and refreshes the
+   * page, and a job that then dies must still show its reason and retry.
+   */
+  recentJobs?: Array<{ title: string; job: JobSnapshot }>
 }) {
   const router = useRouter()
   const [pending, startTransition] = useTransition()
@@ -73,7 +88,55 @@ export function BulkConvertButton({
     })
   }
 
-  if (approvedCount === 0) return null
+  // Jobs this render already shows inside the per-card result list.
+  const shownInResult = new Set(
+    (result?.per_card ?? []).map((c) => c.job_id).filter((id): id is string => !!id),
+  )
+  const standaloneJobs = recentJobs.filter((r) => !shownInResult.has(r.job.id))
+  const jobsPanel =
+    standaloneJobs.length > 0 ? (
+      <div className="mt-3 space-y-1.5" data-bulk-convert-recent-jobs>
+        <div className="text-[11px] font-semibold text-foreground/85">
+          توليد الإعداد العميق للحلقات المحوّلة
+        </div>
+        {standaloneJobs.map((r) => (
+          <JobStatusCard
+            key={r.job.id}
+            compact
+            title={r.title}
+            jobId={r.job.id}
+            initialJob={r.job}
+          />
+        ))}
+      </div>
+    ) : null
+
+  // Nothing left to convert (the normal state right after a successful bulk
+  // convert + refresh): keep ONLY the generation cards — every job the server
+  // knows about, plus any from this click it hasn't listed yet.
+  if (approvedCount === 0) {
+    const known = new Set(recentJobs.map((r) => r.job.id))
+    const fromClick = (result?.per_card ?? []).filter((c) => c.job_id && !known.has(c.job_id))
+    if (recentJobs.length === 0 && fromClick.length === 0 && !result) return null
+    return (
+      <div className="rounded-2xl border border-primary/20 bg-primary/5 p-3" data-bulk-convert-jobs-only>
+        {result && (
+          <div className="text-[11px] text-foreground/85">{result.message}</div>
+        )}
+        <div className="mt-2 space-y-1.5">
+          <div className="text-[11px] font-semibold text-foreground/85">
+            توليد الإعداد العميق للحلقات المحوّلة
+          </div>
+          {recentJobs.map((r) => (
+            <JobStatusCard key={r.job.id} compact title={r.title} jobId={r.job.id} initialJob={r.job} />
+          ))}
+          {fromClick.map((c) => (
+            <JobStatusCard key={c.job_id} compact title={c.title} jobId={c.job_id} />
+          ))}
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="rounded-2xl border border-primary/20 bg-primary/5 p-3">
@@ -144,6 +207,8 @@ export function BulkConvertButton({
         </div>
       )}
 
+      {jobsPanel}
+
       {result && (
         <div className="mt-3 space-y-1.5">
           <div className="text-[11px] text-foreground/85">
@@ -181,6 +246,14 @@ export function BulkConvertButton({
                       truncates, so sharing the row would swallow it), amber
                       not rose, and RTL — it is Arabic prose, and `dir="ltr"`
                       here was pushing its punctuation to the wrong end. */}
+                  {c.job_id && (
+                    <JobStatusCard
+                      compact
+                      className="mt-1"
+                      title="توليد الإعداد العميق"
+                      jobId={c.job_id}
+                    />
+                  )}
                   {c.warning && (
                     <div
                       className="mt-1 flex items-start gap-1.5 rounded-md bg-amber-500/10 px-1.5 py-1 text-[10px] leading-relaxed text-amber-800"

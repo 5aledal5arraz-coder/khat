@@ -58,6 +58,7 @@ export function PublishProvider({ children }: { children: ReactNode }) {
   // Read statuses from domain contexts
   const {
     transcriptStatus, setTranscriptStatus, setTranscriptError, reloadTranscript,
+    watchTranscriptJob,
   } = useTranscript()
   const {
     aiStatus, setAiStatus, setAiError, reloadContent,
@@ -260,6 +261,28 @@ export function PublishProvider({ children }: { children: ReactNode }) {
                   break
                 }
 
+                case "transcript_job": {
+                  // No usable captions: Whisper was queued in the worker. The
+                  // transcript panel watches that job; later steps are deferred.
+                  if (typeof data.jobId === "string") watchTranscriptJob(data.jobId)
+                  setGenerateAllError(typeof data.message === "string" ? data.message : "")
+                  break
+                }
+
+                case "step_deferred": {
+                  const step = data.step as GenerateAllStep
+                  switch (step) {
+                    case "ai_output": setAiStatus("idle"); break
+                    case "chapters": setChaptersStatus("idle"); break
+                    case "clips": setClipsStatus("idle"); break
+                    case "website_package": setWebsitePkgStatus("idle"); break
+                    case "deep_analysis": setDeepAnalysisStatus("idle"); break
+                    case "guest_intelligence": setGuestIntelligenceStatus("idle"); break
+                    case "growth_package": setGrowthStatus("idle"); break
+                  }
+                  break
+                }
+
                 case "step_skip": {
                   const step = data.step as GenerateAllStep
                   setGenerateAllCompleted(prev => prev.includes(step) ? prev : [...prev, step])
@@ -304,7 +327,7 @@ export function PublishProvider({ children }: { children: ReactNode }) {
     setChaptersStatus, setChaptersError, setClipsStatus, setClipsError,
     setWebsitePkgStatus, setWebsitePkgError,
     setDeepAnalysisStatus, setGuestIntelligenceStatus, setGrowthStatus,
-    reloadAllData,
+    reloadAllData, watchTranscriptJob,
   ])
 
   // --- Derive tab statuses ---

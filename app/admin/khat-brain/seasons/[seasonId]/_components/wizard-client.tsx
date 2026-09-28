@@ -50,8 +50,17 @@ import {
   detectMissingRoles,
   type KhatMapMustIncludeRole,
 } from "@/lib/khat-map/v2/completion"
-import type { BatchCard } from "@/lib/khat-map/v2/types"
 import type { ProductionStatusRow } from "../../actions"
+import { JobStatusCard } from "@/app/admin/components/job-status-card"
+import type { JobSnapshot } from "@/lib/jobs/status-view"
+import type { SeasonBatchJobResult } from "@/lib/jobs/season-jobs"
+
+/** A background `season.batch_generate` run the wizard is watching. */
+interface TrackedJob {
+  id: string
+  title: string
+  initial: JobSnapshot | null
+}
 
 /** Keep the first card per topic.id — guarantees unique React keys. */
 function dedupeByTopicId(cards: PendingCard[]): PendingCard[] {
@@ -72,6 +81,7 @@ export function WizardClient({
   initialAccepted,
   initialProduction,
   legacyBatchEnabled = false,
+  initialSeasonJobs = [],
 }: {
   season: KhatMapSeason
   progress: SeasonProgress | null
@@ -91,8 +101,23 @@ export function WizardClient({
    * re-expose the legacy quick-batch button (no market intelligence).
    */
   legacyBatchEnabled?: boolean
+  /**
+   * This season's generation jobs (in flight / finished in the last 30 min),
+   * looked up server-side so a reload re-attaches their status cards.
+   */
+  initialSeasonJobs?: JobSnapshot[]
 }) {
   const router = useRouter()
+  // Every engine call runs in the worker now (`season.batch_generate`). Each
+  // click adds the job it queued here; the cards say queued / running /
+  // failed-and-why, and a finished run refreshes the page so its persisted
+  // cards arrive through `initialPending` (synced below).
+  const [jobs, setJobs] = useState<TrackedJob[]>(() =>
+    initialSeasonJobs.map((j) => ({ id: j.id, title: "توليد بطاقات الموسم", initial: j })),
+  )
+  const trackJob = (id: string, title: string) =>
+    setJobs((prev) => (prev.some((j) => j.id === id) ? prev : [{ id, title, initial: null }, ...prev]))
+  const dismissJob = (id: string) => setJobs((prev) => prev.filter((j) => j.id !== id))
   const [pending, setPending] = useState<PendingCard[]>(
     initialPending.map((p) => ({ topic: p.topic, guest: p.guest })),
   )
@@ -266,33 +291,28 @@ export function WizardClient({
         setError(res.error)
         return
       }
-      const next: PendingCard[] = res.data.cards.map((c) => ({
-        topic: c.topic_candidate,
-        guest: c.guest_candidate,
-        why_now: c.why_now,
-        why_fit_you: c.why_fit_you,
-        editorial_score: c.editorial_score,
-        taste_alignment: c.taste_alignment,
-        explainability: c.explainability ?? null,
-      }))
-      setPending((prev) => [...prev, ...next])
-      setBatchIndex(res.data.batch_index + 1)
+      trackJob(res.data.jobId, "توليد دفعة جديدة")
     })
   }, [season.id])
 
-  const batchCardToPending = (c: BatchCard): PendingCard => ({
-    topic: c.topic_candidate,
-    guest: c.guest_candidate,
-    why_now: c.why_now,
-    why_fit_you: c.why_fit_you,
-    editorial_score: c.editorial_score,
-    taste_alignment: c.taste_alignment,
-    explainability: c.explainability ?? null,
-  })
 
-  // Guest injection — returned 3 cards jump to TOP of stack (PR4 decision).
-  const handleGuestInjected = (cards: BatchCard[]) => {
-    setPending((prev) => [...cards.map(batchCardToPending), ...prev])
+  // Guest injection — the 3 tailored cards are generated in the worker and
+  // arrive with the refresh when the job finishes.
+  const handleGuestInjected = (jobId: string) => {
+    trackJob(jobId, "مواضيع مخصّصة للضيف")
+  }
+
+  // A tracked job finished: pull the persisted cards in, or surface why not.
+  const onJobSettled = (job: JobSnapshot) => {
+    const r = job.result as SeasonBatchJobResult | null
+    if (job.status === "succeeded" && r?.code === "ANGLE_BANK_EXHAUSTED" && r.messageAr) {
+      setStrictExhausted(r.messageAr)
+      return
+    }
+    if (job.status === "succeeded" && r?.ok) {
+      if (typeof r.batch_index === "number") setBatchIndex(r.batch_index + 1)
+      router.refresh()
+    }
   }
 
   // Intelligent completion — generate one card per missing role, prepend.
@@ -314,7 +334,7 @@ export function WizardClient({
         setError(res.error)
         return
       }
-      setPending((prev) => [...res.data.cards.map(batchCardToPending), ...prev])
+      trackJob(res.data.jobId, "إكمال الأدوار الناقصة")
     })
   }
 
@@ -366,9 +386,7 @@ export function WizardClient({
       // and decrement the counter so the admin must accept its replacement.
       setAccepted((a) => a.filter((p) => p.topic.id !== topicId))
       setAcceptedCount((n) => Math.max(0, n - 1))
-      if (res.data.card) {
-        setPending((prev) => [batchCardToPending(res.data.card!), ...prev])
-      }
+      trackJob(res.data.jobId, "توليد بديل للحلقة")
     })
   }
 
@@ -498,8 +516,7 @@ export function WizardClient({
         setError(res.error)
         return
       }
-      setPending((prev) => [...res.data.cards.map(batchCardToPending), ...prev])
-      setBatchIndex(res.data.batch_index + 1)
+      trackJob(res.data.jobId, "استبدال البطاقات الضعيفة")
     })
   }
 
@@ -530,21 +547,10 @@ export function WizardClient({
         return
       }
       const removed = removeFromPending(card.topic.id)
-      // If the action produced a replacement card, inject it at the top.
-      if (res.data.replacement_card) {
-        const rc = res.data.replacement_card
-        setPending((prev) => [
-          {
-            topic: rc.topic_candidate,
-            guest: rc.guest_candidate,
-            why_now: rc.why_now,
-            why_fit_you: rc.why_fit_you,
-            editorial_score: rc.editorial_score,
-            taste_alignment: rc.taste_alignment,
-            explainability: rc.explainability ?? null,
-          },
-          ...prev,
-        ])
+      // The replacement topic (when the mode asks for one) is generated in
+      // the worker and arrives with the refresh when its job finishes.
+      if (res.data.replacement_job) {
+        trackJob(res.data.replacement_job.jobId, "موضوع جديد لنفس الضيف")
       }
       if (removed) {
         setUndoState({
@@ -622,9 +628,25 @@ export function WizardClient({
           </div>
           {regenPendingFor && (
             <div className="mt-4 rounded-xl border border-primary/30 bg-primary/5 p-3 text-center text-[12px] text-primary">
-              نولّد بديلاً… سيظهر في قائمة الدُفعات.
+              نجدول توليد البديل…
             </div>
           )}
+          {jobs.length > 0 && (
+            <div className="mt-4 space-y-2" data-season-jobs>
+              {jobs.map((j) => (
+                <JobStatusCard
+                    key={j.id}
+                    title={j.title}
+                    jobId={j.id}
+                    initialJob={j.initial}
+                    onSettled={onJobSettled}
+                    onDismiss={() => dismissJob(j.id)}
+                    renderResult={(job) => <JobTitles result={job.result as SeasonBatchJobResult | null} />}
+                />
+              ))}
+            </div>
+          )}
+
           {editTarget && (
             <EpisodeEditModal
               open={true}
@@ -697,6 +719,23 @@ export function WizardClient({
             {error}
           </div>
         )}
+
+        {jobs.length > 0 && (
+          <div className="mt-4 space-y-2" data-season-jobs>
+            {jobs.map((j) => (
+              <JobStatusCard
+                key={j.id}
+                title={j.title}
+                jobId={j.id}
+                initialJob={j.initial}
+                onSettled={onJobSettled}
+                onDismiss={() => dismissJob(j.id)}
+                renderResult={(job) => <JobTitles result={job.result as SeasonBatchJobResult | null} />}
+              />
+            ))}
+          </div>
+        )}
+
 
         {strictExhausted && (
           <div className="mt-4 rounded-2xl border border-amber-500/30 bg-amber-500/10 p-4">
@@ -1048,5 +1087,17 @@ function TopBar({
         />
       </div>
     </div>
+  )
+}
+
+/** Titles of the cards a finished run added (read-only preview). */
+function JobTitles({ result }: { result: SeasonBatchJobResult | null }) {
+  if (!result?.ok || !result.titles?.length) return null
+  return (
+    <ul className="mt-1.5 list-inside list-disc space-y-0.5 text-[11.5px] text-foreground/80">
+      {result.titles.map((t, i) => (
+        <li key={i}>{t}</li>
+      ))}
+    </ul>
   )
 }
