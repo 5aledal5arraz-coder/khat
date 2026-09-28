@@ -10,6 +10,7 @@ import { runStatusLabel } from "@/lib/operator-language"
 import { formatDateTime } from "@/lib/shared/formatters"
 import { v2Sources } from "@/lib/discovery-v2/config"
 import { StartV2Form } from "./start-form"
+import { displayDiscoveryTopic } from "@/lib/discovery-v2/topic"
 
 export const dynamic = "force-dynamic"
 
@@ -66,7 +67,7 @@ export default async function DiscoveryV2Page() {
               return (
                 <Link key={r.id} href={`/admin/discovery-v2/${r.id}`} className="flex items-center justify-between gap-3 p-3 hover:bg-muted/20">
                   <div className="min-w-0">
-                    <div className="truncate text-[13px] font-medium text-foreground">{r.seed_prompt ?? "—"}</div>
+                    <div className="truncate text-[13px] font-medium text-foreground">{r.seed_prompt ? displayDiscoveryTopic(r.seed_prompt) : "—"}</div>
                     <div className="text-[10.5px] text-muted-foreground">
                       {runStatusLabel(r.status)} · {formatDateTime(r.created_at)}
                       {stats ? ` · ${stats.accepted ?? 0} مرشّح قويّ · ${stats.shortlist ?? 0} مختصرة` : ""}

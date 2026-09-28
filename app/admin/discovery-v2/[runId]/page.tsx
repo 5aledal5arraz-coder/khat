@@ -12,6 +12,9 @@ import { formatDateTime } from "@/lib/shared/formatters"
 import { STORY_REVIEW_FLAGS } from "@/lib/discovery-v2/types"
 import { CandidateCard, type V2CardData } from "../candidate-card"
 import { AutoRefresh } from "../auto-refresh"
+import { RetryRunButton } from "../retry-run-button"
+import { displayDiscoveryTopic } from "@/lib/discovery-v2/topic"
+import { resolveV2RunErrorKind, v2RunFailureMessage } from "@/lib/discovery-v2/run-failure"
 
 export const dynamic = "force-dynamic"
 
@@ -63,7 +66,19 @@ export default async function V2RunPage({
   )
   const shortlist = cards.filter((c) => c.decision === "shortlist")
   const rejected = cards.filter((c) => c.decision === "rejected")
-  const stats = (run.source_config as { v2_stats?: Record<string, number>; v2_error?: string } | null) ?? {}
+  const stats =
+    (run.source_config as {
+      v2_stats?: Record<string, number>
+      v2_error?: string
+      v2_error_kind?: string
+    } | null) ?? {}
+  const failed = run.status === "failed"
+  // A failed run says WHY in the operator's words (a timeout is not "try a
+  // broader topic"); the raw provider error stays underneath for diagnosis.
+  const rawError = stats.v2_error ?? run.error_message ?? null
+  const failureMessage = failed
+    ? v2RunFailureMessage(resolveV2RunErrorKind(stats.v2_error_kind, rawError))
+    : null
 
   return (
     <div className="mx-auto max-w-4xl space-y-5 p-4 pb-16" dir="rtl">
@@ -73,12 +88,22 @@ export default async function V2RunPage({
       </Link>
 
       <div className="rounded-2xl border border-border/40 bg-card/40 p-4">
-        <h1 className="text-xl font-bold">{run.seed_prompt ?? "اكتشاف"}</h1>
+        <h1 className="text-xl font-bold">{run.seed_prompt ? displayDiscoveryTopic(run.seed_prompt) : "اكتشاف"}</h1>
         <div className="mt-1 text-[11.5px] text-muted-foreground">
           {runStatusLabel(run.status)} · {formatDateTime(run.created_at)}
           {stats.v2_stats ? ` · ${stats.v2_stats.proposed ?? 0} مقترح → ${stats.v2_stats.resolved ?? 0} محقّق → ${strong.length} قويّ + ${review.length} للمراجعة + ${shortlist.length} مختصرة` : ""}
         </div>
-        {stats.v2_error && <p className="mt-2 text-[11.5px] text-rose-700">{String(stats.v2_error)}</p>}
+        {failed && (
+          <div className="mt-3 rounded-xl border border-rose-500/30 bg-rose-500/5 p-3">
+            <p className="text-[12.5px] font-semibold text-rose-700">{failureMessage}</p>
+            {rawError && (
+              <p className="mt-1 text-[10.5px] text-muted-foreground" dir="ltr">
+                {String(rawError)}
+              </p>
+            )}
+            <RetryRunButton runId={run.id} />
+          </div>
+        )}
         {running && (
           <div className="mt-3 inline-flex items-center gap-2 rounded-lg border border-primary/30 bg-primary/5 px-3 py-1.5 text-[11.5px] text-primary">
             <Loader2 className="h-3.5 w-3.5 animate-spin" /> جارٍ الاقتراح والتحقّق والإثراء… يتحدّث تلقائياً
@@ -110,7 +135,7 @@ export default async function V2RunPage({
         </section>
       )}
 
-      {!running && strong.length === 0 && review.length === 0 && shortlist.length === 0 && (
+      {!running && !failed && strong.length === 0 && review.length === 0 && shortlist.length === 0 && (
         <div className="rounded-xl border border-border/30 bg-card/40 p-6 text-center text-[12.5px] text-muted-foreground">
           لم يصل أيّ مرشّح إلى المعيار في هذا التشغيل. جرّب موضوعاً أوسع أو خفّف الفلاتر.
         </div>

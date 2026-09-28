@@ -41,6 +41,13 @@ export interface ModelChoice {
    */
   defaultMaxRetries?: number
   /**
+   * Narrows which transient error classes the router retries for this kind
+   * (a subset of rate_limited / timeout / server_error). Absent = all of
+   * them. Set where only one class is worth a second attempt and the retry
+   * budget was sized for it (discovery: a timeout only).
+   */
+  retryOn?: readonly ("rate_limited" | "timeout" | "server_error")[]
+  /**
    * When true, every call of this kind MUST declare a grounding contract
    * (`req.grounding`) and its output is verified against the cited corpus.
    * Set for kinds whose model is not trustworthy from memory — see
@@ -123,14 +130,21 @@ export const DEFAULT_MODELS: Record<AiTaskKind, ModelChoice> = {
     // الذكاء الاصطناعي can still raise it (a per-call providerOptions
     // effort would silently beat the Settings override in the adapter).
     reasoningEffort: "medium",
-    // Worker-only (discovery_v2.run, 10-min HANDLER_TIMEOUT_MS). 180s is
-    // ~1.4× the expected medium-effort propose (~110–130s) and leaves the
-    // rest of the run (~210s of Wikidata/story fan-out in trial 1) well
-    // inside the job limit. NOTE: raising effort in Settings without
-    // raising this re-creates the 2026-09-26 timeout. maxRetries 0 — a
-    // failed propose fails the run, so the worst case is exactly 180s.
-    defaultTimeoutMs: 180_000,
-    defaultMaxRetries: 0,
+    // Worker-only (discovery_v2.run). The 180s wall this replaced was set
+    // against an assumed ~110–130s; the measured v2-propose-5/6 calls took
+    // 118–151s for 6.6–7.9k output tokens (≈45 tok/s end-to-end, most of
+    // it reasoning — the visible 24-name list is ~2.5k by its length), and on prod
+    // (2026-09-28, episode 93c83176) the call hit 180s twice in a row and
+    // failed the run with 0 retries. 300s is ~2× the measured median, and
+    // it lets the 12k PROPOSE_MAX_OUTPUT_TOKENS cap actually land
+    // (12k ÷ 45 tok/s ≈ 267s). One retry, on a TIMEOUT only (retryOn) —
+    // worst case 300 + backoff + 300 ≈ 610s, which DISCOVERY_JOB_BUDGET_MS
+    // (lib/discovery-v2/pipeline.ts, = the worker's HANDLER_TIMEOUT_MS)
+    // is sized around. NOTE: raising effort in Settings without raising
+    // this re-creates the timeout.
+    defaultTimeoutMs: 300_000,
+    defaultMaxRetries: 1,
+    retryOn: ["timeout"],
   },
   verification: {
     provider: "openai",

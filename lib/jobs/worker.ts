@@ -147,9 +147,12 @@ const HANDLER_TIMEOUT_MS: Record<string, number> = {
   "market.cluster_signals": 10 * 60_000,
   // youtube.refresh_performance: YouTube Data API + DB updates per channel.
   "youtube.refresh_performance": 5 * 60_000,
-  // discovery_v2.run: one job does propose + many Wikidata/enrichment HTTP
-  // calls for up to ~30 names; generous budget for the network fan-out.
-  "discovery_v2.run": 10 * 60_000,
+  // discovery_v2.run: one job does propose (300s + one timeout retry,
+  // worst ≈ 608s) + Wikidata/enrichment/story fan-out for up to ~30 names.
+  // MUST equal DISCOVERY_JOB_BUDGET_MS in lib/discovery-v2/pipeline.ts —
+  // the pipeline's top-up and story deadlines are computed from it
+  // (tests/ai-router/discovery-propose-budget.test.ts pins the two).
+  "discovery_v2.run": 15 * 60_000,
   // original.generate_topics: AI-bound on full transcripts; allow generous budget.
   "original.generate_topics": 15 * 60_000,
   // newsletter.send_campaign: batched Resend sends; resumable across retries,

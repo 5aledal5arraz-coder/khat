@@ -1565,7 +1565,7 @@ describe("accept gate — a strong verified story on trusted Wikidata is accepte
   })
 })
 
-// ─── Story-phase deadline (the 10-minute job budget) ─────────────────────────
+// ─── Story-phase deadline (the job budget) ─────────────────────────────────
 
 describe("story-phase deadline — the checks never outrun the job budget", () => {
   const witnesses = (n: number) =>
@@ -1680,7 +1680,10 @@ describe("propose top-up — one follow-up call when the reply is short", () => 
     // the top-up alone carries a budget-derived timeout; the first keeps the registry's
     expect(a.timeoutMs).toBeUndefined()
     expect(b.timeoutMs).toBeGreaterThanOrEqual(TOPUP_MIN_MS)
-    expect(b.timeoutMs).toBeLessThanOrEqual(180_000)
+    expect(b.timeoutMs).toBeLessThanOrEqual(300_000)
+    // …as ONE attempt: the registry's timeout retry would double it past `spare`.
+    expect(a.maxRetries).toBeUndefined()
+    expect(b.maxRetries).toBe(0)
     expect(r.stats.proposed).toBe(8)
     expect(r.stats.proposed_top_up).toBe(1)
   })
@@ -1741,7 +1744,7 @@ describe("propose top-up — one follow-up call when the reply is short", () => 
 
   it("with some budget left, the top-up gets only what the budget can spare", async () => {
     vi.useFakeTimers({ toFake: ["Date"] })
-    h.proposeDelayMs = 200_000 // first call took 200s → 600 − 200 − 240 = 160s spare
+    h.proposeDelayMs = 500_000 // first call took 500s → 900 − 500 − 240 = 160s spare
     h.proposals = [names("شاهد", 7), []]
     await runV2Discovery(input())
     expect(proposeCalls()).toHaveLength(2)
@@ -1758,10 +1761,19 @@ describe("propose top-up — one follow-up call when the reply is short", () => 
     expect(r.stats.proposed_top_up).toBe(0)
   })
 
-  it("a failed FIRST propose is not retried by the top-up (maxRetries 0 stays the contract)", async () => {
+  it("a failed FIRST propose is not retried by the top-up (the router owns the one timeout retry)", async () => {
     h.proposeFail.add(0)
     const r = await runV2Discovery(input())
     expect(proposeCalls()).toHaveLength(1)
     expect(r.error).toBeTruthy()
+    // the failure is typed for the run page: a timeout is not "no names"
+    expect(r.errorKind).toBe("propose_timeout")
+  })
+
+  it("a reply with no names at all is the genuine zero case — errorKind no_names", async () => {
+    h.proposals = [[], []]
+    const r = await runV2Discovery(input())
+    expect(r.error).toBe("no names proposed")
+    expect(r.errorKind).toBe("no_names")
   })
 })

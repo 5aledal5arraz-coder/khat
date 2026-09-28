@@ -39,6 +39,7 @@ import {
   storyMaxCandidates,
 } from "./story-evidence"
 import { classifyStory } from "./story-classify"
+import { proposeErrorKind, type V2RunErrorKind } from "./run-failure"
 
 const DECISION_RANK: Record<V2Candidate["decision"], number> = {
   accepted: 0,
@@ -66,8 +67,15 @@ function rankOf(c: V2Candidate): number {
 }
 
 // ── Propose top-up budget ────────────────────────────────────────────────
-/** discovery_v2.run's HANDLER_TIMEOUT_MS in lib/jobs/worker.ts (the map is not exported). */
-export const DISCOVERY_JOB_BUDGET_MS = 10 * 60_000
+/**
+ * discovery_v2.run's HANDLER_TIMEOUT_MS in lib/jobs/worker.ts (the map is not
+ * exported; tests/ai-router/discovery-propose-budget.test.ts pins the two
+ * together). 15 min, up from 10 (2026-09-28): the first propose call now
+ * gets 300s + one timeout retry (registry `discovery`), so its worst case
+ * (proposeWorstCaseMs ≈ 608s) plus POST_PROPOSE_RESERVE_MS must still fit.
+ * A worker job — no nginx wall applies.
+ */
+export const DISCOVERY_JOB_BUDGET_MS = 15 * 60_000
 /**
  * Everything after propose (resolve/enrich + story checks, cap 12 at
  * concurrency 2) took ~140–210s in the 2026-09-26 trials; + margin.
@@ -93,6 +101,19 @@ export const STORY_CLASSIFY_RESERVE_MS = 30_000
 export const STORY_SEARCH_TIMEOUT_MS = 90_000
 /** The router's max backoff between retries (lib/ai-router/router.ts BACKOFF_CAP_MS). */
 const ROUTER_BACKOFF_CAP_MS = 8_000
+
+/**
+ * Worst-case wall time of the FIRST propose call under the registry policy:
+ * every attempt runs to its timeout, with the max backoff between them.
+ * The top-up is excluded — it runs only on what the budget can spare, as a
+ * single attempt.
+ */
+export function proposeWorstCaseMs(): number {
+  const d = DEFAULT_MODELS.discovery
+  const timeoutMs = d.defaultTimeoutMs ?? 120_000
+  const retries = d.defaultMaxRetries ?? 0
+  return timeoutMs * (1 + retries) + ROUTER_BACKOFF_CAP_MS * retries
+}
 
 /**
  * The classifier's per-attempt timeout + retries within `leftMs`: the
@@ -127,7 +148,7 @@ function usableNames(
  * Propose, and when the reply is short (< TOPUP_THRESHOLD of `want`
  * usable — the v2-propose-5 trial returned 7 for 24) make exactly ONE
  * follow-up call for the missing count, excluding every name already
- * proposed. Skipped when the 10-minute job budget cannot spare the call
+ * proposed. Skipped when the job budget (DISCOVERY_JOB_BUDGET_MS) cannot spare the call
  * plus the rest of the run; a failed top-up keeps the first list.
  */
 async function proposeWithTopUp(
@@ -135,7 +156,7 @@ async function proposeWithTopUp(
   want: number,
   memory: DiscoveryMemory,
   startedAt: number,
-): Promise<{ names: ProposedName[]; runId: string; error?: string; toppedUp: number }> {
+): Promise<{ names: ProposedName[]; runId: string; error?: string; errorStatus?: string; toppedUp: number }> {
   const first = await proposeNames(input, want, memory)
   if (first.error) return { ...first, toppedUp: 0 }
 
@@ -144,7 +165,7 @@ async function proposeWithTopUp(
   if (usable.length >= Math.ceil(want * TOPUP_THRESHOLD)) return { ...first, toppedUp: 0 }
 
   const spare = DISCOVERY_JOB_BUDGET_MS - (Date.now() - startedAt) - POST_PROPOSE_RESERVE_MS
-  const timeoutMs = Math.min(DEFAULT_MODELS.discovery.defaultTimeoutMs ?? 180_000, spare)
+  const timeoutMs = Math.min(DEFAULT_MODELS.discovery.defaultTimeoutMs ?? 300_000, spare)
   if (timeoutMs < TOPUP_MIN_MS) {
     console.warn(
       `[discovery-v2/propose] top-up skipped: ${usable.length}/${want} usable, only ${Math.round(spare / 1000)}s of job budget to spare`,
@@ -152,9 +173,12 @@ async function proposeWithTopUp(
     return { ...first, toppedUp: 0 }
   }
 
+  // One attempt: the registry's timeout retry would double the call past
+  // what `spare` was computed for.
   const more = await proposeNames(input, want - usable.length, memory, {
     alreadyProposed: first.names.map((p) => p.name),
     timeoutMs,
+    maxRetries: 0,
   })
   if (more.error) {
     console.warn("[discovery-v2/propose] top-up failed, keeping the first list:", more.error)
@@ -199,6 +223,8 @@ export interface V2RunResult {
     proposed_top_up: number
   }
   error?: string
+  /** Set with `error`: why the run produced nothing (drives the run page copy). */
+  errorKind?: V2RunErrorKind
 }
 
 const NO_ATTRS: StoryCheck["attrs"] = {
@@ -236,6 +262,7 @@ export async function runV2Discovery(input: V2RunInput): Promise<V2RunResult> {
         proposed_top_up: proposal.toppedUp,
       },
       error: proposal.error ?? "no names proposed",
+      errorKind: proposal.error ? proposeErrorKind(proposal.errorStatus, proposal.error) : "no_names",
     }
   }
 
@@ -317,7 +344,7 @@ export async function runV2Discovery(input: V2RunInput): Promise<V2RunResult> {
   const storyDeadline = startedAt + DISCOVERY_JOB_BUDGET_MS - POST_STORY_RESERVE_MS
   let cutByDeadline = 0
   // Concurrency 2: the shared daily retrieval budget still trips in
-  // (roughly) rank order, and 12 checks fit the job's 10-minute budget.
+  // (roughly) rank order, and 12 checks fit the job budget.
   await pmap(queue, 2, async (x) => {
     const claim = x.p.story_claim ?? null
     const notChecked = () =>

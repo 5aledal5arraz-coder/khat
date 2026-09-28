@@ -184,9 +184,6 @@ export default async function EpisodeWorkspacePage({
           >
             {badges.phase.text}
           </span>
-          <span className="text-[10.5px] text-muted-foreground" dir="ltr">
-            {snap.eir.phase}
-          </span>
           {snap.eir.season_name && (
             <span className="rounded-full border border-border/40 px-2 py-0.5 text-[10.5px] text-muted-foreground">
               {snap.eir.season_name}

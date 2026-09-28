@@ -64,6 +64,8 @@ const runV2Discovery = vi.hoisted(() => vi.fn())
 vi.mock("@/lib/discovery-v2/pipeline", () => ({ runV2Discovery }))
 
 import { getHandler, type JobContext } from "@/lib/jobs"
+import { NonRetryableJobError } from "@/lib/jobs/types"
+import { v2RunFailureMessage } from "@/lib/discovery-v2/run-failure"
 import { createCandidate } from "@/lib/discovery/candidates"
 import "@/lib/jobs/handlers/discovery-v2"
 
@@ -142,20 +144,47 @@ describe("discovery_v2.run — run lifecycle", () => {
     expect(store.run.candidate_count).toBe(0)
   })
 
-  it("fails through the lifecycle with error_message when the pipeline returns an error", async () => {
+  it("a zero-names run fails the run AND the job — terminal, with the Arabic reason", async () => {
     runV2Discovery.mockResolvedValue({
       candidates: [],
       proposeRunId: null,
       stats: { proposed: 0, resolved: 0, accepted: 0, shortlist: 0, rejected: 0 },
       error: "no names proposed",
+      errorKind: "no_names",
     })
 
-    await run()
+    // It used to RETURN here, so the worker stamped the job `succeeded`
+    // while the run said «فشل». Throwing NonRetryableJobError makes the
+    // worker dead-letter it at once with this message as error_message.
+    const err = await run().then(
+      () => null,
+      (e: unknown) => e,
+    )
+    expect(err).toBeInstanceOf(NonRetryableJobError)
+    const reason = `${v2RunFailureMessage("no_names")} (no names proposed)`
+    expect((err as Error).message).toBe(reason)
 
     expect(store.run.status).toBe("failed")
-    expect(store.run.error_message).toBe("no names proposed")
+    expect(store.run.error_message).toBe(reason)
     expect(store.run.completed_at).not.toBeNull()
-    expect(store.run.source_config).toMatchObject({ v2_error: "no names proposed" })
+    expect(store.run.source_config).toMatchObject({ v2_error: "no names proposed", v2_error_kind: "no_names" })
+  })
+
+  it("a propose TIMEOUT fails the job with the timeout copy, never «جرّب موضوعاً أوسع»", async () => {
+    // The prod shape (2026-09-28, episode 93c83176).
+    runV2Discovery.mockResolvedValue({
+      candidates: [],
+      proposeRunId: "ai-1",
+      stats: { proposed: 0, resolved: 0, accepted: 0, shortlist: 0, rejected: 0 },
+      error: "Provider timeout after 300000ms",
+      errorKind: "propose_timeout",
+    })
+    const err = (await run().catch((e: unknown) => e)) as Error
+    expect(err).toBeInstanceOf(NonRetryableJobError)
+    expect(err.message).toContain("انتهت مهلة اقتراح الأسماء")
+    expect(err.message).not.toContain("موضوعاً أوسع")
+    expect(store.run.status).toBe("failed")
+    expect(store.run.source_config).toMatchObject({ v2_error_kind: "propose_timeout" })
   })
 
   it("fails the run (not stuck in searching) when the pipeline throws", async () => {

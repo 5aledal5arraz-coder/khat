@@ -7,7 +7,7 @@
 
 import { revalidatePath } from "next/cache"
 import { requireActionRole } from "@/lib/api-utils"
-import { createDiscoveryRun } from "@/lib/discovery/runs"
+import { createDiscoveryRun, getDiscoveryRun } from "@/lib/discovery/runs"
 import { getCandidate, setCandidateStatus } from "@/lib/discovery/candidates"
 import { createCandidate as createGuestCandidate } from "@/lib/guest-candidates/queries"
 import { enqueueJob } from "@/lib/jobs"
@@ -73,6 +73,37 @@ export async function startV2DiscoveryAction(
 
   revalidatePath("/admin/discovery-v2")
   return { success: true, runId: run.id }
+}
+
+/**
+ * «أعد المحاولة» on a failed run: a NEW run with the failed run's exact
+ * inputs (topic, filters, geography, taste, limit, season, episode). The
+ * failed run stays as it is — its history is the record of what went wrong.
+ */
+export async function retryV2DiscoveryAction(runId: string): Promise<StartV2Result> {
+  const gate = await requireActionRole("EDITOR")
+  if (!gate.ok) return { success: false, error: gate.error }
+  const run = await getDiscoveryRun(runId)
+  if (!run) return { success: false, error: "التشغيل غير موجود" }
+  if (run.status !== "failed") return { success: false, error: "لا يُعاد إلا تشغيل فاشل" }
+  const cfg = (run.source_config ?? {}) as {
+    topic?: string
+    filters?: { gender?: StartV2Input["gender"]; nationality?: StartV2Input["nationality"] }
+    geography?: V2Geography[] | null
+    taste?: StartV2Input["taste"]
+    limit?: number
+    episodeCandidateId?: string | null
+  }
+  return startV2DiscoveryAction({
+    topic: String(cfg.topic ?? run.seed_prompt ?? ""),
+    gender: cfg.filters?.gender ?? null,
+    nationality: cfg.filters?.nationality ?? null,
+    geography: cfg.geography ?? null,
+    taste: cfg.taste,
+    limit: cfg.limit,
+    seasonId: run.season_id ?? null,
+    episodeCandidateId: cfg.episodeCandidateId ?? run.source_episode_candidate_id ?? null,
+  })
 }
 
 export async function saveV2CandidateAction(

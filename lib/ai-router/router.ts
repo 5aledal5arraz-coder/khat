@@ -221,6 +221,7 @@ async function executeWithRetry(
   resolved: ResolvedRequest,
   maxRetries: number,
   onRetry: (attemptNo: number, errorClass: string, delayMs: number) => void,
+  retryOn?: readonly string[],
 ): Promise<{ result: AdapterResult; retryCount: number }> {
   let attempt = 0
   for (;;) {
@@ -229,7 +230,8 @@ async function executeWithRetry(
       return { result, retryCount: attempt }
     } catch (err) {
       const { name } = classifyError(err)
-      if (attempt >= maxRetries || !RETRYABLE_ERROR_CLASSES.has(name)) {
+      const retryable = RETRYABLE_ERROR_CLASSES.has(name) && (!retryOn || retryOn.includes(name))
+      if (attempt >= maxRetries || !retryable) {
         throw err
       }
       const delayMs = computeBackoffMs(attempt)
@@ -449,6 +451,8 @@ export async function runAiTask<TParsed = unknown>(
               `transient ${cls} — retry ${attemptNo}/${maxRetries} in ${delayMs}ms`,
           )
         },
+        // Per-kind narrowing of the transient classes (registry `retryOn`).
+        choice.retryOn,
       )
       retryCount = exec.retryCount
       rawText = exec.result.rawText

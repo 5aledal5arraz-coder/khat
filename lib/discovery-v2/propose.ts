@@ -50,6 +50,8 @@ export interface ProposeOptions {
   alreadyProposed?: string[]
   /** Top-up call only: the time the job budget can still spare. */
   timeoutMs?: number
+  /** Top-up call only: 0 — a single attempt inside `timeoutMs`. */
+  maxRetries?: number
 }
 
 export async function proposeNames(
@@ -57,7 +59,7 @@ export async function proposeNames(
   want: number,
   memory?: DiscoveryMemory,
   opts: ProposeOptions = {},
-): Promise<{ names: ProposedName[]; runId: string; error?: string }> {
+): Promise<{ names: ProposedName[]; runId: string; error?: string; errorStatus?: string }> {
   const f = input.filters ?? {}
   const genderLine =
     f.gender === "male"
@@ -149,24 +151,27 @@ export async function proposeNames(
       { role: "user", content: user },
     ],
     // No temperature: the OpenAI adapter drops samplers unless effort is
-    // "none" — it never applied. Effort ("medium") and the 180s timeout are
-    // the discovery registry defaults (lib/ai-router/registry.ts), so
-    // Settings can still override the effort.
+    // "none" — it never applied. Effort ("medium"), the 300s timeout and
+    // the one timeout retry are the discovery registry defaults
+    // (lib/ai-router/registry.ts), so Settings can still override the effort.
     //
     // max_output_tokens counts reasoning + the visible list. v2-propose-3
     // at "high" spent 12,152 for 24 names (~5k visible, before the brevity
-    // caps above). 12k bounds a runaway to ~$0.24 and roughly matches what
-    // sol emits (~65 tok/s) inside the 180s timeout, so the cap and the
+    // caps above); v2-propose-5/6 at "medium" spent 6.6–7.9k in 118–151s
+    // (≈45 tok/s end-to-end). 12k bounds a runaway to ~$0.24 and lands in
+    // ≈267s at that rate — inside the 300s timeout, so the cap and the
     // clock agree; a truncated tail is salvaged by the router's JSON repair.
     providerOptions: { max_output_tokens: PROPOSE_MAX_OUTPUT_TOKENS },
     // Only the top-up passes a timeout (what the job budget can spare); the
     // first call keeps the registry default so Settings stays in control.
     ...(opts.timeoutMs ? { timeoutMs: opts.timeoutMs } : {}),
+    ...(opts.maxRetries !== undefined ? { maxRetries: opts.maxRetries } : {}),
     expectJson: true,
   })
 
   if (r.status !== "succeeded") {
-    return { names: [], runId: r.runId, error: r.errorMessage ?? "propose failed" }
+    // errorStatus lets the run tell a timeout from any other failure.
+    return { names: [], runId: r.runId, error: r.errorMessage ?? "propose failed", errorStatus: r.status }
   }
   const names = (r.parsed?.people ?? [])
     .filter((p): p is ProposedName => Boolean(p && typeof p.name === "string" && p.name.trim()))

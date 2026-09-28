@@ -51,6 +51,8 @@ import {
 } from "@/lib/jobs/season-jobs"
 import { updateEpisodeCandidateStatus } from "@/lib/khat-map/core/queries"
 import { recordDecision } from "@/lib/khat-map/learning/decisions"
+import { buildEpisodeDiscoveryTopic } from "@/lib/discovery-v2/topic"
+import type { V2Geography } from "@/lib/discovery-v2/types"
 import type {
   KhatMapV2Mode,
   KhatMapFeedbackReasonCategory,
@@ -377,6 +379,10 @@ export async function startGuestDiscoveryForEpisodeAction(input: {
    * episode, so discovery is valid regardless of the season's wizard stage.
    */
   bypassStageGate?: boolean
+  /** Launcher's explicit guest gender (null = any). Absent → the season filter. */
+  gender?: "male" | "female" | null
+  /** Launcher's explicit geography. Absent/empty → Kuwait only (the default). */
+  geography?: V2Geography[] | null
 }): Promise<Result<{ runId: string }>> {
   const gate = await requireActionRole("EDITOR")
   if (!gate.ok) return { success: false, error: gate.error }
@@ -411,16 +417,26 @@ export async function startGuestDiscoveryForEpisodeAction(input: {
       .where(eq(khatMapEpisodeCandidates.id, input.episodeCandidateId))
       .limit(1)
 
-    const topicParts: string[] = []
-    if (cand?.working_title) topicParts.push(cand.working_title)
-    if (cand?.topic_domain) topicParts.push(cand.topic_domain)
-    if (cand?.hook) topicParts.push(cand.hook)
-    if (cand?.why_matters) topicParts.push(cand.why_matters)
-    const topic = (topicParts.join(" — ") || season.name || "ضيف الحلقة").slice(0, 600)
+    const topic = buildEpisodeDiscoveryTopic(
+      {
+        title: cand?.working_title,
+        topicDomain: cand?.topic_domain,
+        hook: cand?.hook,
+        whyMatters: cand?.why_matters,
+      },
+      season.name || "ضيف الحلقة",
+    )
 
     const controls = season.editorial_controls as KhatMapEditorialControls | undefined
     const gf = controls?.guest_filters
-    const gender = gf?.gender === "male" || gf?.gender === "female" ? gf.gender : null
+    // An explicit choice from the launcher (the EIR CTA asks) beats the
+    // season default; `undefined` = not asked → the season's filter.
+    const gender =
+      input.gender !== undefined
+        ? input.gender
+        : gf?.gender === "male" || gf?.gender === "female"
+          ? gf.gender
+          : null
     const nationality =
       gf?.nationality === "kuwaiti" || gf?.nationality === "non_kuwaiti"
         ? gf.nationality
@@ -431,6 +447,7 @@ export async function startGuestDiscoveryForEpisodeAction(input: {
       topic,
       gender,
       nationality,
+      geography: input.geography ?? null,
       taste: "balanced",
       seasonId: input.seasonId,
       episodeCandidateId: input.episodeCandidateId,

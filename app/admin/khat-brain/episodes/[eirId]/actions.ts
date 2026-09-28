@@ -39,6 +39,8 @@ import { walkEirToPhase } from "@/lib/khat-brain"
 import { bridgeDiscoveryToKhatMap } from "@/lib/discovery"
 import { getSeasonById } from "@/lib/khat-map/core/queries"
 import type { KhatMapEditorialControls } from "@/types/khat-map"
+import { buildEpisodeDiscoveryTopic } from "@/lib/discovery-v2/topic"
+import type { V2Geography } from "@/lib/discovery-v2/types"
 
 export interface CreateRoomActionResult {
   ok: boolean
@@ -405,9 +407,24 @@ export interface StartEirDiscoveryResult {
  *      season is present. No form, so the title is never re-requested.
  *
  * The generic /admin/discovery-v2 form is left untouched as the ad-hoc surface.
+ *
+ * The topic is never re-asked, but the guest gender and geography ARE
+ * (2026-09-28): the CTA launched with the season's filter or none, and no
+ * geography at all, so a gender was never chosen — Khaled's rule is that
+ * the operator picks it, with Kuwait the default and Saudi/Gulf opt-in.
+ * `choice` carries that pick and beats the season default; without it
+ * (older callers) the season filter still applies.
  */
+export interface EirDiscoveryChoice {
+  /** The guest gender the operator picked in the CTA (null = any). */
+  gender: "male" | "female" | null
+  /** Where guests come from; Kuwait only by default, Saudi/Gulf opt-in. */
+  geography: V2Geography[]
+}
+
 export async function startGuestDiscoveryForEirAction(
   eirId: string,
+  choice?: EirDiscoveryChoice,
 ): Promise<StartEirDiscoveryResult> {
   const gate = await requireActionRole("EDITOR")
   if (!gate.ok) return { success: false, error: gate.error }
@@ -429,6 +446,7 @@ export async function startGuestDiscoveryForEirAction(
       seasonId: eir.season_id,
       episodeCandidateId: sourceCandidateId,
       bypassStageGate: true,
+      ...(choice ? { gender: choice.gender, geography: choice.geography } : {}),
     })
     if (res.success) return { success: true, runId: res.data.runId }
     // Fall through to the title-seeded path on any failure (e.g. the season or
@@ -437,13 +455,15 @@ export async function startGuestDiscoveryForEirAction(
 
   // Fallback — build the topic from the episode itself and inherit season
   // filters when a season is present.
-  const title = eir.final_title || eir.working_title
-  const topicParts: string[] = []
-  if (title) topicParts.push(title)
-  if (eir.topic_domain) topicParts.push(eir.topic_domain)
-  if (intent.hook) topicParts.push(intent.hook)
-  if (intent.why_matters) topicParts.push(intent.why_matters)
-  const topic = (topicParts.join(" — ") || title || "ضيف الحلقة").slice(0, 600)
+  const topic = buildEpisodeDiscoveryTopic(
+    {
+      title: eir.final_title || eir.working_title,
+      topicDomain: eir.topic_domain,
+      hook: intent.hook,
+      whyMatters: intent.why_matters,
+    },
+    "ضيف الحلقة",
+  )
 
   let gender: "male" | "female" | null = null
   let nationality: "kuwaiti" | "non_kuwaiti" | null = null
@@ -464,8 +484,10 @@ export async function startGuestDiscoveryForEirAction(
   )
   const v2 = await startV2DiscoveryAction({
     topic,
-    gender,
+    // The operator's explicit choice beats the season default.
+    gender: choice ? choice.gender : gender,
     nationality,
+    geography: choice?.geography ?? null,
     taste: "balanced",
     seasonId: eir.season_id ?? null,
   })

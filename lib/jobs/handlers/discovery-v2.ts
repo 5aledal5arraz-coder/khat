@@ -25,6 +25,8 @@ import {
 } from "@/lib/discovery/runs"
 import { createCandidate, setCandidateStatus } from "@/lib/discovery/candidates"
 import { runV2Discovery } from "@/lib/discovery-v2/pipeline"
+import { resolveV2RunErrorKind, v2RunFailureMessage } from "@/lib/discovery-v2/run-failure"
+import { NonRetryableJobError } from "../types"
 import type { V2Candidate, V2RunInput } from "@/lib/discovery-v2/types"
 import type {
   DiscoveryCandidateStatus,
@@ -155,10 +157,22 @@ registerHandler<V2RunPayload>("discovery_v2.run", async (payload) => {
   }
 
   if (result.error && result.candidates.length === 0) {
-    // v2_error stays in source_config — the run page reads it from there.
-    await setDiscoveryRunSourceConfig(run.id, { ...cfg, v2_error: result.error } as DiscoverySourceConfig)
-    await failRun(run.id, result.error)
-    return { error: result.error, ...result.stats }
+    // v2_error (raw) + v2_error_kind stay in source_config — the run page
+    // reads them from there and picks the operator copy.
+    const kind = resolveV2RunErrorKind(result.errorKind, result.error)
+    await setDiscoveryRunSourceConfig(run.id, {
+      ...cfg,
+      v2_error: result.error,
+      v2_error_kind: kind,
+      v2_stats: result.stats,
+    } as DiscoverySourceConfig)
+    const reason = `${v2RunFailureMessage(kind)} (${result.error})`
+    await failRun(run.id, reason)
+    // A failed run is a failed JOB. This used to `return`, so the worker
+    // stamped the job `succeeded` while the run said «فشل». Terminal: the
+    // router already spent the propose retry, and a second paid run is the
+    // operator's call («أعد المحاولة» on the run page), not the queue's.
+    throw new NonRetryableJobError(reason)
   }
 
   const targetEpisodeCandidateId = (cfg.episodeCandidateId as string) ?? null
