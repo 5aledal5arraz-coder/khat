@@ -107,6 +107,7 @@ export interface AcceptedHybridTopic {
   suggested_episode_type: string
   suggested_topic_domain: string
   estimated_strength_score: number
+  scores?: Record<string, number> | null
   consumed_original_topic_id?: string | null
 }
 
@@ -140,6 +141,7 @@ export async function persistAcceptedTopics(input: {
       original_lens: t.original_lens,
       consumed_original_topic_id: t.consumed_original_topic_id ?? null,
       strength_score: t.estimated_strength_score,
+      khat_scores: t.scores ?? null,
     })
 
     const successScore = e?.success_score ?? null
@@ -167,7 +169,7 @@ export async function persistAcceptedTopics(input: {
       composite_score: successScore != null ? successScore / 10 : null,
       composite_score_rationale:
         (successScore != null ? `success ${Math.round(successScore)}/100 · ` : "") +
-        `مولّد هجين · قوة ${t.estimated_strength_score.toFixed(2)}`,
+        `مولّد هجين · درجة ترتيب ${t.estimated_strength_score.toFixed(2)}`,
       production_notes: productionNote,
     })
 

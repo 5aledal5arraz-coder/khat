@@ -43,7 +43,9 @@ export const STORY_MIN_QUOTE_WORDS = 6
 
 // v2-story-2 (2026-09-28): the classifier now sees the episode topic and
 // returns `topic_relevance`, verified like every other claim.
-export const STORY_PROMPT_VERSION = "v2-story-2"
+// v2-story-3 (2026-09-28, D3): `self_told` — did he tell it himself, or was
+// it written about him? Verified like every other attribute.
+export const STORY_PROMPT_VERSION = "v2-story-3"
 
 const STORY_TYPES = ["first_hand", "second_hand", "expert_only", "none"] as const
 type StoryType = (typeof STORY_TYPES)[number]
@@ -61,6 +63,7 @@ export interface RawStoryClassification {
   nationality?: unknown
   same_person?: unknown
   topic_relevance?: unknown
+  self_told?: unknown
 }
 
 type Item = { source: StorySource; quote: string }
@@ -146,6 +149,15 @@ export function verifyStoryClassification(
       ? { value: relRaw!.value as TopicRelevanceValue, url: relItem.source.url, quote: relItem.quote }
       : null
 
+  // Self-told counts only with a verified quote about THIS person, and only
+  // for a story that survived — a label on nothing is a claim.
+  const selfRaw = r.self_told as { value?: unknown } | null | undefined
+  const selfItem = surviving.length > 0 ? attrItem(selfRaw) : null
+  const selfTold =
+    selfItem && typeof selfRaw?.value === "boolean"
+      ? { value: selfRaw.value, url: selfItem.source.url, quote: selfItem.quote }
+      : null
+
   return {
     assessment: {
       status: verified ? "verified" : "unverified",
@@ -156,6 +168,7 @@ export function verifyStoryClassification(
       gulf_event: gulfEvent,
       claim_from_propose: claim,
       topic_relevance: topicRelevance,
+      self_told: selfTold,
     },
     sources,
     attrs: {
@@ -187,6 +200,8 @@ const SYSTEM = [
   "  on_topic: قصته أو خبرته عن صلب هذا الموضوع نفسه. adjacent: مجال قريب منه لكن ليس هو.",
   "  off_topic: لا صلة (مثلاً قصة تأسيس شركة لحلقة موضوعها شيء آخر).",
   "  أسندها باقتباس حرفي يُظهر ما تقوله المصادر عنه — وإن لم يوجد فاجعلها null.",
+  "- self_told: هل روى القصة بنفسه (مقابلة معه، حديثه هو، منشوره أو كتابه) = true،",
+  "  أم كُتبت عنه بقلم غيره دون أن يتكلم هو = false؟ أسندها باقتباس حرفي، وإلا فاجعلها null.",
   "- اترك الحقل null إن لم يوجد له اقتباس حرفي.",
   UNTRUSTED_SOURCE_SAFETY_HEADER,
   'أعد JSON فقط بهذا الشكل: {"story_type":"first_hand|second_hand|expert_only|none",' +
@@ -197,6 +212,7 @@ const SYSTEM = [
     '"gender":{"value":"male|female","source":1,"quote":"..."} أو null,' +
     '"nationality":{"value":"Kuwait","source":1,"quote":"..."} أو null,' +
     '"topic_relevance":{"value":"on_topic|adjacent|off_topic","source":1,"quote":"..."} أو null,' +
+    '"self_told":{"value":true,"source":1,"quote":"..."} أو null,' +
     '"same_person":true}',
 ].join("\n")
 

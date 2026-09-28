@@ -158,18 +158,18 @@ describe("success score", () => {
   })
 
   it("brand_alignment acts as a quality gate", () => {
-    const ungated = computeSuccessScore(dims({ click_potential: 10, retention_potential: 10, brand_alignment: 8 }))
-    const gated = computeSuccessScore(dims({ click_potential: 10, retention_potential: 10, brand_alignment: 2 }))
+    const ungated = computeSuccessScore(dims({ worth_telling: 10, human_experience: 10, brand_alignment: 8 }))
+    const gated = computeSuccessScore(dims({ worth_telling: 10, human_experience: 10, brand_alignment: 2 }))
     expect(gated).toBeLessThan(ungated)
     // gate pulls hard toward zero (×2/6)
     expect(gated).toBeLessThan(ungated * 0.6)
   })
 
   it("clamps out-of-range model output", () => {
-    const d = clampSuccessDimensions({ click_potential: 99, retention_potential: -5, depth: "x" })
-    expect(d.click_potential).toBe(10)
-    expect(d.retention_potential).toBe(0)
-    expect(d.depth).toBe(5) // non-numeric → neutral
+    const d = clampSuccessDimensions({ worth_telling: 99, practical_value: -5, library_value: "x" })
+    expect(d.worth_telling).toBe(10)
+    expect(d.practical_value).toBe(0)
+    expect(d.library_value).toBe(5) // non-numeric → neutral
   })
 
   it("threshold + band + rank helpers behave", () => {
@@ -188,15 +188,33 @@ describe("success score", () => {
     expect(successBand(59)).toBe("weak") // just below the bar
   })
 
-  it("rewards depth/originality/timelessness over raw click (brand identity)", () => {
-    // A deep, original, timeless idea should out-score a clickbait-y shallow one.
-    const deep = computeSuccessScore(
-      dims({ depth: 9, originality: 9, timeless_value: 9, retention_potential: 8, click_potential: 5, shareability: 4 }),
+  it("worth_telling carries the most weight (the constitution's criterion)", () => {
+    const worth = computeSuccessScore(dims({ worth_telling: 10, originality: 5 }))
+    const novel = computeSuccessScore(dims({ worth_telling: 5, originality: 10 }))
+    expect(worth).toBeGreaterThan(novel)
+  })
+
+  it("popularity proxies are gone from the dimensions (not views-optimised)", () => {
+    const keys = Object.keys(neutralSuccessDimensions())
+    for (const k of ["click_potential", "shareability", "global_relevance", "retention_potential"]) {
+      expect(keys).not.toContain(k)
+    }
+    expect(keys).toEqual(
+      expect.arrayContaining([
+        "worth_telling",
+        "human_experience",
+        "practical_value",
+        "segment_fit",
+        "library_value",
+        "guest_findability",
+      ]),
     )
-    const shallow = computeSuccessScore(
-      dims({ depth: 3, originality: 3, timeless_value: 3, retention_potential: 5, click_potential: 9, shareability: 9 }),
-    )
-    expect(deep).toBeGreaterThan(shallow)
+  })
+
+  it("a row scored before the constitution still renders (old keys → neutral)", () => {
+    const d = clampSuccessDimensions({ click_potential: 9, shareability: 9 })
+    expect(d.worth_telling).toBe(5)
+    expect(computeSuccessScore(d)).toBe(50)
   })
 })
 

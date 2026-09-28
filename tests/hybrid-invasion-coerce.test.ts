@@ -38,7 +38,7 @@ describe("invasion — literal only", () => {
     ).toBe("invasion")
   })
 
-  it("the prompt glosses the enum; version bumped; the audience directive is untouched", () => {
+  it("the prompt glosses the enum; the audience rule is the constitution's (v4)", () => {
     const built = buildHybridTopicsPrompt({
       language: "ar",
       count: 5,
@@ -61,7 +61,11 @@ describe("invasion — literal only", () => {
       lenses: [],
     } as never)
     expect(built.system).toContain("`invasion` means the 1990 Iraqi invasion of Kuwait ONLY")
-    expect(HYBRID_TOPICS_PROMPT_VERSION).toBe("hybrid-topics-v3.1-exploration")
-    expect(built.system).toContain("The default audience is pan-Arab.")
+    // 2026-09-28: the pan-Arab ban on Kuwaiti references gave way to the
+    // constitution's audience rule — pan-Arab titles, Kuwaiti-rooted stories.
+    expect(HYBRID_TOPICS_PROMPT_VERSION).toBe("hybrid-topics-v4-constitution")
+    expect(built.system).toContain("every title is understood by any Arab")
+    expect(built.system).toContain("may be Kuwaiti-rooted")
+    expect(built.system).not.toContain("Do NOT use Kuwait-specific framing")
   })
 })

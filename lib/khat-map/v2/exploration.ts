@@ -7,13 +7,24 @@
  * 12 introspective lenses). Post-hoc selection can only reorder what generation
  * produced — it can never create range that was never generated.
  *
- * The fix: each batch gets an EXPLORATION MAP — one frame per slot, each frame a
- * (territory × archetype) assignment sampled by the HARNESS, not the model:
+ * The fix: each batch gets an EXPLORATION MAP — one frame per slot, each frame an
+ * assignment sampled by the HARNESS, not the model. Since the constitution
+ * (2026-09-28) a slot is (audience segment × life-stage concern × field from
+ * the constitution's 50+ list × archetype), with a Knowledge-Universe
+ * territory kept as texture + the coverage tag:
  *
- *   • territories = the 192 Knowledge-Universe subcategories + the corpus
- *     white-space themes (resonant, under-explored — weighted 3×), MINUS the
- *     territories this season's candidates already used → sampling WITHOUT
- *     replacement across batches, so every generation explores new ground.
+ *   • fields = KHAT_DOORS (lib/khat-map/core/constitution.ts). Doors are dealt
+ *     from a shuffled deck, so a batch spreads across the 7 doors; no field
+ *     repeats inside a batch.
+ *   • segments alternate (٢٠–٣٥ / ٣٥–٦٠), so both are represented whenever a
+ *     batch has ≥ 2 slots; each slot draws a concern of its segment without
+ *     repeats. No ratios beyond "varied" (Khaled: the only rule is variety).
+ *
+ *   • territories = the Knowledge-Universe subcategories the constitution
+ *     ALLOWS (FORBIDDEN_TERRITORY_IDS are never sampled) weighted by their
+ *     category's lens fit, + the corpus white-space themes (weighted 3×),
+ *     MINUS the territories this season's candidates already used → sampling
+ *     WITHOUT replacement across batches.
  *   • per-category cap (2) inside a batch, so frames spread across categories.
  *   • archetypes round-robin from a shuffled deck, so a batch spans shapes by
  *     construction.
@@ -27,8 +38,15 @@ import { db } from "@/lib/db"
 import { khatMapEpisodeCandidates } from "@/lib/db/schema/khat-map"
 import { corpusThemes } from "@/lib/db/schema/corpus"
 import { SEASON_CATEGORIES } from "./categories"
-import { KNOWLEDGE_UNIVERSE } from "./knowledge-universe"
+import { FORBIDDEN_TERRITORY_IDS, KNOWLEDGE_UNIVERSE, lensFit } from "./knowledge-universe"
+import { lexiconPolicyHits } from "@/lib/khat-map/core/policy"
 import { ARCHETYPE_IDS, type ArchetypeId } from "./creative-brief"
+import {
+  KHAT_DOORS,
+  KHAT_SEGMENTS,
+  type KhatDoorId,
+  type KhatSegmentId,
+} from "@/lib/khat-map/core/constitution"
 import type { SeasonCategoryId } from "./categories"
 
 export interface ExplorationTerritory {
@@ -45,6 +63,10 @@ export interface ExplorationTerritory {
 export interface ExplorationFrame {
   territory: ExplorationTerritory
   archetype: ArchetypeId
+  /** The constitution field this slot's lived experience lives in. */
+  field: { id: string; label_ar: string; door: KhatDoorId; door_label_ar: string }
+  /** The audience segment the slot speaks to, and one of its life-stage concerns. */
+  segment: { id: KhatSegmentId; label_ar: string; concern_ar: string }
 }
 
 export interface WhiteSpaceTheme {
@@ -65,17 +87,25 @@ function universePool(): Weighted[] {
   for (const cat of SEASON_CATEGORIES) {
     const subs = KNOWLEDGE_UNIVERSE[cat.id as SeasonCategoryId] ?? []
     for (const s of subs) {
+      // The constitution's forbidden territories are never in the pool.
+      if (FORBIDDEN_TERRITORY_IDS.has(s.id)) continue
       out.push({
         id: s.id,
         label_ar: s.label_ar,
         hint_ar: s.scope_ar,
         category: cat.id,
         kind: "universe",
-        weight: 1,
+        weight: lensFit(cat.id),
       })
     }
   }
   return out
+}
+
+/** A corpus theme the constitution allows (see buildExplorationFrames). */
+export function isAllowedWhiteSpace(w: WhiteSpaceTheme): boolean {
+  if (FORBIDDEN_TERRITORY_IDS.has(w.slug.trim().toLowerCase())) return false
+  return lexiconPolicyHits(`${w.label_ar}. ${w.description_ar ?? ""}`).length === 0
 }
 
 /** Fisher–Yates with injected rng. */
@@ -115,18 +145,27 @@ export function buildExplorationFrames(opts: BuildFramesOptions): ExplorationFra
   const count = Math.max(0, opts.count)
   if (count === 0) return []
 
-  const whiteSpace: Weighted[] = (opts.whiteSpace ?? []).map((w) => ({
+  // "3×" means three times an AVERAGE territory — universe weights now carry
+  // the lens fit (0.5–3), so a flat 3 would have sunk white space below a
+  // human-stories territory.
+  const universe = universePool()
+  const meanWeight = universe.reduce((sum, t) => sum + t.weight, 0) / Math.max(1, universe.length)
+  // Corpus white-space themes obey the same policy as the universe: a slug
+  // that IS a forbidden territory, or a label/description that hits the
+  // policy lexicon, is never sampled (QA 2026-09-28: «السياسة الكويتية ومجلس
+  // الأمة» was drawn 118 times in 200 because this path skipped the check).
+  const whiteSpace: Weighted[] = (opts.whiteSpace ?? []).filter(isAllowedWhiteSpace).map((w) => ({
     id: w.slug,
     label_ar: w.label_ar,
     hint_ar: w.description_ar ?? "",
     category: "corpus",
     kind: "white_space" as const,
-    weight: WHITE_SPACE_WEIGHT,
+    weight: WHITE_SPACE_WEIGHT * meanWeight,
   }))
 
   // Fresh territories first; if the season has explored nearly everything,
   // refill with used ones rather than under-delivering frames.
-  let pool = [...universePool(), ...whiteSpace].filter((t) => !used.has(t.id))
+  let pool = [...universe, ...whiteSpace].filter((t) => !used.has(t.id))
   if (pool.length < count) {
     const usedPool = [...universePool(), ...whiteSpace].filter((t) => used.has(t.id))
     pool = [...pool, ...usedPool]
@@ -151,10 +190,60 @@ export function buildExplorationFrames(opts: BuildFramesOptions): ExplorationFra
 
   // Archetypes: shuffled deck, round-robin — a batch spans shapes by construction.
   const deck = shuffle([...ARCHETYPE_IDS], rng)
+  const fields = assignFields(picked.length, rng)
+  const segments = assignSegments(picked.length, rng)
   return picked.map((territory, i) => ({
     territory,
     archetype: deck[i % deck.length],
+    field: fields[i],
+    segment: segments[i],
   }))
+}
+
+/**
+ * One field per slot: doors dealt from a shuffled deck (a batch of ≥ 7 slots
+ * touches every door), a random unused field of that door, and never the
+ * same field twice in a batch while any unused field exists.
+ */
+function assignFields(count: number, rng: () => number): ExplorationFrame["field"][] {
+  const doors = shuffle([...KHAT_DOORS], rng)
+  const used = new Set<string>()
+  const out: ExplorationFrame["field"][] = []
+  for (let i = 0; i < count; i++) {
+    const door = doors[i % doors.length]
+    let pool = door.fields.filter((f) => !used.has(f.id)).map((f) => ({ f, d: door }))
+    if (pool.length === 0) {
+      pool = KHAT_DOORS.flatMap((d) => d.fields.filter((f) => !used.has(f.id)).map((f) => ({ f, d })))
+    }
+    if (pool.length === 0) {
+      used.clear() // more slots than fields: start a second pass
+      pool = door.fields.map((f) => ({ f, d: door }))
+    }
+    const pick = pool[Math.floor(rng() * pool.length)]
+    used.add(pick.f.id)
+    out.push({ id: pick.f.id, label_ar: pick.f.label_ar, door: pick.d.id, door_label_ar: pick.d.label_ar })
+  }
+  return out
+}
+
+/**
+ * Segments alternate from a random start, so a batch of ≥ 2 slots always has
+ * both; each draws its concerns from a shuffled deck (no repeat until the
+ * segment's concerns run out).
+ */
+function assignSegments(count: number, rng: () => number): ExplorationFrame["segment"][] {
+  const start = Math.floor(rng() * KHAT_SEGMENTS.length)
+  const decks = new Map(KHAT_SEGMENTS.map((s) => [s.id, shuffle([...s.concerns_ar], rng)]))
+  const dealt = new Map<KhatSegmentId, number>()
+  const out: ExplorationFrame["segment"][] = []
+  for (let i = 0; i < count; i++) {
+    const seg = KHAT_SEGMENTS[(start + i) % KHAT_SEGMENTS.length]
+    const deck = decks.get(seg.id)!
+    const n = dealt.get(seg.id) ?? 0
+    dealt.set(seg.id, n + 1)
+    out.push({ id: seg.id, label_ar: seg.label_ar, concern_ar: deck[n % deck.length] })
+  }
+  return out
 }
 
 /** Render the per-slot exploration map for a generation prompt. */
@@ -163,15 +252,22 @@ export function renderExplorationBlock(frames: ExplorationFrame[]): string {
   const lines = frames.map((f, i) => {
     const hint = f.territory.hint_ar ? ` — ${f.territory.hint_ar}` : ""
     const ws = f.territory.kind === "white_space" ? " (white space — under-explored, resonant)" : ""
-    return `  slot ${i + 1}: territory «${f.territory.label_ar}»${ws}${hint}\n           archetype: ${f.archetype}`
+    return [
+      `  slot ${i + 1}: field «${f.field.label_ar}» (door: ${f.field.door_label_ar})`,
+      `           audience: ${f.segment.label_ar} — concern «${f.segment.concern_ar}»`,
+      `           territory (texture + coverage tag): «${f.territory.label_ar}»${ws}${hint}`,
+      `           archetype: ${f.archetype}`,
+    ].join("\n")
   })
   return [
     "# Exploration map for THIS batch (one topic per slot — assigned, not chosen)",
-    "Each slot names a TERRITORY (where the idea lives) and an ARCHETYPE (its shape).",
-    "Dig into the territory until you find the specific, surprising, human episode inside",
-    "it — never a generic overview of the territory itself. If a slot's territory is",
-    "genuinely infertile for a great episode, you may swap to a NEIGHBORING territory you",
-    "haven't used in this batch — but never collapse two slots into similar ideas.",
+    "Each slot names a FIELD (the lived experience at its heart), an AUDIENCE segment and",
+    "the life-stage concern it answers, a TERRITORY (texture + the coverage tag) and an",
+    "ARCHETYPE (its shape). Find the specific real person's experience inside the field",
+    "that speaks to that concern — never a generic overview of the field. If a slot is",
+    "genuinely infertile, you may swap its field for another field of the SAME door you",
+    "haven't used in this batch — but never collapse two slots into similar ideas, and",
+    "never drift into politics, religious dispute, scandal or someone else's privacy.",
     "",
     ...lines,
   ].join("\n")

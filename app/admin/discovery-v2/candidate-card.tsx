@@ -27,6 +27,7 @@ import { runAction } from "@/app/admin/components/run-action"
 import { unmeasuredScores, wikiFactsTrusted } from "@/lib/discovery-v2/display"
 import {
   STORY_REVIEW_FLAGS,
+  type ProposedOrigin,
   type StoryAssessment,
   type V2Flag,
   type V2ScoreKey,
@@ -57,6 +58,8 @@ export interface V2CardData {
   }
   story?: Pick<StoryAssessment, "status" | "evidence" | "gulf_event" | "claim_from_propose"> | null
   flags?: V2Flag[]
+  /** Where the name came from; absent/"propose" on rows before 2026-09-28. */
+  origin?: ProposedOrigin | null
   reasons?: string[]
   birth_year?: number | null
   sitelinks?: number | null
@@ -160,6 +163,13 @@ function StoryLine({ story }: { story: NonNullable<V2CardData["story"]> }) {
   return <p className="mt-1 text-[11px] text-muted-foreground">لم تُفحص القصة</p>
 }
 
+/** Where a name came from — anything but the model's memory is said out loud. */
+const ORIGIN_LABEL: Record<ProposedOrigin, string> = {
+  propose: "اقتراح النموذج",
+  harvest_web: "وُجد في الصحافة/البودكاست",
+  x_list: "من قوائم X المنسّقة",
+}
+
 export function CandidateCard({ c }: { c: V2CardData }) {
   const [pending, start] = useTransition()
   const [done, setDone] = useState<null | "saved" | "rejected" | "promoted">(
@@ -205,8 +215,13 @@ export function CandidateCard({ c }: { c: V2CardData }) {
         </div>
       </div>
 
-      {(c.flags?.length || (c.scores?.gulf_hook === 1 && c.story?.gulf_event)) ? (
+      {(c.flags?.length || (c.scores?.gulf_hook === 1 && c.story?.gulf_event) || (c.origin && c.origin !== "propose")) ? (
         <div className="mt-2 flex flex-wrap gap-1.5 text-[10px]">
+          {c.origin && c.origin !== "propose" && (
+            <span className="rounded-md border border-border bg-muted/40 px-1.5 py-0.5 font-medium text-foreground/80">
+              {ORIGIN_LABEL[c.origin]}
+            </span>
+          )}
           {c.scores?.gulf_hook === 1 && c.story?.gulf_event && (
             <span className="rounded-md bg-primary/10 px-1.5 py-0.5 font-medium text-primary">{c.story.gulf_event.event}</span>
           )}

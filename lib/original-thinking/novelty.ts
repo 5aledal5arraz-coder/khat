@@ -7,7 +7,12 @@
  *   3. Emotional hook is weak (too short / banned cliché).
  *   4. Conflict is vague (too short / vague filler words only).
  *   5. Lens does not match output (lens key absent in registry).
- *   6. Title contains Kuwait-specific framing unless explicitly requested.
+ *   6. (retired 2026-09-28) Kuwait-specific framing. The constitution's
+ *      audience rule replaced it: pan-Arab titles, but the story may be
+ *      Kuwaiti-rooted — a Kuwaiti guest's own words tripped this rule.
+ *      `kuwait_bias` stays in the type for stored rejections only.
+ *   7. The constitution's avoid list — the deterministic policy lexicon
+ *      (politics, religious/sectarian dispute, scandal) over title + hook.
  *
  * Reasons are returned so the generator can log them and decide whether
  * to retry, ask for more candidates, or shrink the batch.
@@ -16,6 +21,8 @@
  * embeddings. For now, normalized exact match is the contract.
  */
 
+import { lexiconPolicyHits } from "@/lib/khat-map/core/policy"
+
 export type RejectionReason =
   | "generic_title"
   | "duplicate_title"
@@ -23,12 +30,13 @@ export type RejectionReason =
   | "vague_conflict"
   | "lens_mismatch"
   | "kuwait_bias"
+  | "policy_avoid"
 
 export interface NoveltyContext {
   excludedTitles: string[]
   /** Set of valid lens keys from the registry. */
   validLensKeys: Set<string>
-  /** Whether Kuwait-specific framing is allowed for this run. */
+  /** Kept for callers; no rule reads it since the constitution (see rule 6). */
   allowKuwaitBias: boolean
 }
 
@@ -54,18 +62,6 @@ const GENERIC_TITLE_PATTERNS: RegExp[] = [
   /\b(?:كيف|طرق|نصائح)\s+\d+\b/, // "كيف ٥ ..."
   /^\d+\s+(?:نصيحة|سر|طريقة|درس)/, // "5 طرق ..."
   /^أسرار\s+/, // "أسرار ..."
-]
-
-const KUWAIT_MARKERS: string[] = [
-  "kuwait",
-  "kuwaiti",
-  "الكويت",
-  "كويتي",
-  "كويتية",
-  "كويتيين",
-  "kw",
-  "مديرية ",
-  "العاصمة الكويت",
 ]
 
 /** Words that signal a hook with no actual emotional content. */
@@ -159,13 +155,11 @@ export function judgeCandidate(
     reasons.push("lens_mismatch")
   }
 
-  // 6. Kuwait bias (unless explicitly allowed).
-  if (!ctx.allowKuwaitBias) {
-    const titleLower = c.title.toLowerCase()
-    const haystack = `${titleLower} ${conflictLower} ${hookLower}`
-    if (KUWAIT_MARKERS.some((m) => haystack.includes(m))) {
-      reasons.push("kuwait_bias")
-    }
+  // 6. (retired) Kuwait bias — see the header.
+
+  // 7. The constitution's avoid list.
+  if (lexiconPolicyHits(`${c.title}. ${hook}`).length > 0) {
+    reasons.push("policy_avoid")
   }
 
   return { ok: reasons.length === 0, reasons }
@@ -179,6 +173,8 @@ export const REJECTION_RULES = {
   weak_emotional_hook: `Emotional hook is shorter than ${MIN_HOOK_LENGTH} chars or contains an inert phrase like "we explore," "deep dive," "في هذه الحلقة."`,
   vague_conflict: `Conflict description is shorter than ${MIN_CONFLICT_LENGTH} chars or relies on vague filler ("modern life," "find yourself," "حياة عصرية").`,
   lens_mismatch: "Lens key is missing or not in the registry.",
+  policy_avoid:
+    "Topic text hits the constitution's avoid lexicon (politics, religious/sectarian dispute, scandal).",
   kuwait_bias:
-    "Title/conflict/hook contains Kuwait-specific framing while the run did not request it.",
+    "(retired 2026-09-28 — the constitution's audience rule replaced it) Title/conflict/hook contained Kuwait-specific framing.",
 } as const

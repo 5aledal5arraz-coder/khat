@@ -185,8 +185,18 @@ export function courseSafeTypes<T extends string>(types: readonly T[]): T[] {
   return out
 }
 
-/** ai_runs prompt_version for every course-format pass. */
+/** ai_runs prompt_version for the course-format passes 3–4 (question bank, critique). */
 export const COURSE_PROMPT_VERSION = "prep_v2.course.v1"
+
+/**
+ * Passes 1–2 (research synthesis, structure) open with «دستور خط» (compact)
+ * since 2026-09-28, so they carry their own versions — the question-bank and
+ * critique prompts did not change and keep theirs.
+ */
+export const PREP_BACKBONE_PROMPT_VERSION = {
+  story: "prep_v2.story.backbone.v2-constitution",
+  course: "prep_v2.course.backbone.v2-constitution",
+} as const
 
 // ─── Target duration ──────────────────────────────────────────────────
 

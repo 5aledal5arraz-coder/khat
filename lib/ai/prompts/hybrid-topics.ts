@@ -26,6 +26,9 @@ import {
   renderExplorationBlock,
   type ExplorationFrame,
 } from "@/lib/khat-map/v2/exploration"
+import { khatConstitutionBlock } from "@/lib/khat-map/core/constitution"
+import { SENSITIVITY_FLAGS_SPEC } from "@/lib/khat-map/core/policy"
+import { KHAT_TOPIC_SCORE_KEYS } from "@/lib/hybrid-topics/scoring"
 
 // v3 = exploration frames: the harness assigns each slot a (territory ×
 // archetype) sampled from the Knowledge Universe + corpus white-space, without
@@ -38,7 +41,26 @@ import {
 // Kuwait ONLY. Unglossed, the model read it as any "invasion" (of money,
 // tech, culture) — and to-preparation turns the type into content_focus.
 // Wording change only; the audience policy (kuwaitDirective) is untouched.
-export const HYBRID_TOPICS_PROMPT_VERSION = "hybrid-topics-v3.1-exploration"
+//
+// v4 (2026-09-28, «دستور خط»): the constitution (full) is the FIRST system
+// block. The pan-Arab ban on Kuwaiti framing is replaced by the audience rule
+// (titles any Arab understands; the story may be Kuwaiti-rooted). Market
+// clusters are a weak prior (≤ 15% of the batch, labels only — no hooks, no
+// view counts). The view-driven performance block is gone. The model self-
+// scores the constitution's six dimensions (they only ORDER the list) and
+// declares sensitivity_flags (any flag → rejected). Exploration slots now
+// carry field × segment × concern. mass_audience is no longer offered.
+export const HYBRID_TOPICS_PROMPT_VERSION = "hybrid-topics-v4-constitution"
+
+/**
+ * At most this share of a batch may draw from a market cluster (the rest
+ * set market_inspiration "none"). Never below one topic when clusters exist.
+ */
+export const HYBRID_MARKET_MAX_SHARE = 0.15
+
+export function hybridMarketCap(count: number): number {
+  return Math.max(1, Math.floor(count * HYBRID_MARKET_MAX_SHARE))
+}
 
 export interface HybridPromptInput {
   language: "ar" | "en"
@@ -84,18 +106,17 @@ export function buildHybridTopicsPrompt(
           )
           .join("\n")
 
-  // Phase 6: clusters are the ONLY legitimate market-signal path. When
-  // they're absent we explicitly tell the model — no raw-signal smuggle.
+  // Constitution: clusters are a WEAK PRIOR — labels only. No hook samples,
+  // no view counts: those turned market data into the raw material of the
+  // batch, which is exactly what "not views-optimised" rules out.
+  const marketCap = hybridMarketCap(input.count)
   const clusterSummaries =
     input.marketClusters.length > 0
       ? input.marketClusters
           .slice(0, HYBRID_INPUT_CAPS.market_clusters)
-          .map(
-            (c) =>
-              `- label: ${c.label} (${c.language})\n  signals: ${c.signal_count}\n  emotions: ${c.dominant_emotions.join(" | ") || "—"}\n  median_views: ${c.median_view_signal ?? "—"}\n  hook samples: ${(c.narrative_hooks ?? []).slice(0, 3).join(" | ")}`,
-          )
+          .map((c) => `- ${c.label} (${c.language})`)
           .join("\n")
-      : "(foundational path — market clusters unavailable; rely on the originals + worked-report + lens registry below; market_inspiration may describe the kind of signal that would justify each topic)"
+      : "(none — every topic sets market_inspiration and primary_theme to \"none\")"
 
   const tasteHintBlock = (() => {
     if (input.tasteHints.length === 0) return "(no learned preferences yet)"
@@ -106,12 +127,8 @@ export function buildHybridTopicsPrompt(
     return lines.join("\n")
   })()
 
-  const strongDomains = input.workedReport.strong_topic_domains
-    .slice(0, HYBRID_INPUT_CAPS.worked_strong_domains)
-    .map((d) => `${d.key} (mean=${d.mean_score.toFixed(2)}, n=${d.sample_size})`)
-  const weakDomains = input.workedReport.weak_topic_domains
-    .slice(0, HYBRID_INPUT_CAPS.worked_weak_domains)
-    .map((d) => `${d.key} (mean=${d.mean_score.toFixed(2)}, n=${d.sample_size})`)
+  // The worked-report (views per domain) is no longer rendered: Khat is not
+  // views-optimised. It still gates readiness in generate.ts.
 
   const exclusions =
     input.excludedTitles.length === 0
@@ -120,21 +137,25 @@ export function buildHybridTopicsPrompt(
           .slice(0, HYBRID_INPUT_CAPS.exclusion_titles)
           .join("\n  - ")
 
+  // The audience rule (constitution): pan-Arab TOPICS, a story that may be
+  // Kuwaiti-rooted. It replaced a ban on any Kuwaiti reference, which
+  // contradicted Kuwaiti guests by default.
   const kuwaitDirective = input.allowKuwaitBias
-    ? "Kuwait-specific framing IS welcome on this run."
-    : "Do NOT use Kuwait-specific framing (no city names, no dialect markers, no local references). The default audience is pan-Arab."
+    ? "AUDIENCE: the operator asked for Kuwait-specific framing on this run — it IS welcome, in the title too."
+    : "AUDIENCE: the widest Arab audience — every title is understood by any Arab. The story and the guest may be Kuwaiti-rooted (a Kuwaiti setting inside the story is welcome); only the premise must not depend on being Kuwaiti."
 
   const lensRegistry = input.lenses
     .map((l) => `${l.key}: ${l.name_en} — ${l.description}`)
     .join("\n")
 
   const system = [
+    khatConstitutionBlock("full"),
+    "",
     "You are the Hybrid Topic Generator for the Arabic-language Khat Podcast.",
-    "Your job: take REAL market signals (what audiences engage with) and",
-    "ELEVATE them through editorial lenses to produce topics that are",
-    "neither generic copies of trending content nor disconnected lens-only",
-    "philosophy. Market signals are RAW MATERIAL — shape them into diverse,",
-    "original episodes using the creative brief below.",
+    "Your job: propose diverse, original episodes, each resting on a moving human",
+    "experience a real person lived, following the exploration map and the constitution",
+    "above. Market clusters, when listed, are a WEAK prior only — a hint about what people",
+    "live with, never raw material to transform.",
     "",
     // Shared creative doctrine — identical to the editorial batch engine.
     buildOriginalityBlock(),
@@ -155,24 +176,25 @@ export function buildHybridTopicsPrompt(
     "     title, archetype, novelty_note, why_it_matters, why_now, emotional_hook,",
     "     conflict_angle, market_inspiration, primary_theme, original_lens,",
     "     suggested_episode_type, suggested_topic_domain,",
-    "     estimated_strength_score",
+    `     scores: { ${KHAT_TOPIC_SCORE_KEYS.join(", ")} }, sensitivity_flags`,
     "   } ] }.",
     `2. ALL reader-facing text — title, emotional_hook, conflict_angle, why_it_matters, why_now, novelty_note — MUST be written in ${langLabel}. Never write the hook or notes in English when the target is Arabic.`,
     "3. Every topic MUST set:",
     '   - original_lens: a registry KEY below IF one genuinely sharpens the topic, else "none". Do NOT force an introspective lens onto a topic that is not about inner life — a history, science, or hidden-world episode is allowed to just be itself.',
-    '   - market_inspiration: a sentence naming WHICH cluster/hook/emotion fed this topic, or "none" when the topic is purely original (e.g. mined from its exploration-map territory).',
-    "   - primary_theme: copy VERBATIM the `label` of the single market cluster this topic primarily drew from (from the MARKET CLUSTERS list below). Use \"none\" if the topic is purely original and drew from no cluster.",
-    "   - suggested_episode_type drawn from: intellectual, social, psychological, personal_story, national, historical, economic, controversial, inspirational, mass_audience, signature_khat, invasion. `invasion` means the 1990 Iraqi invasion of Kuwait ONLY — never a figurative \"invasion\" (of technology, money, culture, ideas); use another type for those.",
-    "   - suggested_topic_domain drawn from: philosophy, psychology, relationships, religion, identity_masculinity, money_career, technology_ai, internet_culture, crime_mystery, hidden_history, power_manipulation, parenting, kuwait_gulf, historical, social_issues, modern_society, emotions_inner_life, none.",
+    `   - market_inspiration: "none" by default. At most ${marketCap} topic(s) in this batch may instead name the ONE market cluster that hinted at it.`,
+    "   - primary_theme: copy VERBATIM the label of that market cluster (from the MARKET CLUSTERS list below), or \"none\".",
+    "   - suggested_episode_type drawn from: intellectual, social, psychological, personal_story, national, historical, economic, controversial, inspirational, signature_khat, invasion. `invasion` means the 1990 Iraqi invasion of Kuwait ONLY — never a figurative \"invasion\" (of technology, money, culture, ideas); use another type for those.",
+    "   - suggested_topic_domain drawn from: philosophy, psychology, relationships, religion, identity_masculinity, money_career, technology_ai, internet_culture, crime_mystery, hidden_history, power_manipulation, parenting, kuwait_gulf, historical, social_issues, modern_society, emotions_inner_life, none. (religion = faith as a personal experience ONLY.)",
     "4. NEVER copy a market title. Transform it. The relationship between market_inspiration and title must NOT be a paraphrase.",
     "5. Reject your own first draft if it sounds like self-help, listicle, hustle-culture, or any BANNED shape above. No \"how to,\" no \"5 secrets,\" no \"unlock your,\" no \"الخليج + macro trend\" panels.",
     "6. " + kuwaitDirective,
     "7. The conflict_angle MUST name a specific tension, not a vague theme.",
     "8. The emotional_hook MUST be a sentence that would make a thoughtful person stop scrolling — never \"in this episode we explore.\"",
-    "9. estimated_strength_score is your honest 0..1 estimate of editorial strength.",
+    "9. scores: rate each 0-10 honestly — worth_telling (is this experience worth telling? the criterion), human_experience (rests on something a real person lived), practical_value (a takeaway grounded in that experience, not generic advice), segment_fit (a real concern of the slot's audience segment), library_value (would someone come back in five years and benefit?), guest_findability (a Kuwaiti man with a first-hand account plausibly exists and is reachable). They only ORDER the list.",
     '10. Distribute across multiple lenses (no single lens > 40% of the batch; "none" is always allowed and exempt).',
-    "11. Aim to return the full requested count. Drop a topic ONLY if it would duplicate the EXCLUDED list or violate rules 1–12. Reaching for a slightly weaker but still honest angle is preferred over silently under-delivering.",
+    "11. Aim to return the full requested count. Drop a topic ONLY if it would duplicate the EXCLUDED list or violate rules 1–13. Reaching for a slightly weaker but still honest angle is preferred over silently under-delivering.",
     `12. Every topic MUST set an \`archetype\` (${ARCHETYPE_FIELD_SPEC}) and a one-line \`novelty_note\` (why this angle is fresh, not the done-to-death version). The batch MUST span at least 4 different archetypes — stacking one shape (e.g. all big_idea panels) is a failed batch.`,
+    `13. ${SENSITIVITY_FLAGS_SPEC}`,
     "",
     "EDITORIAL LENS REGISTRY (always available):",
     lensRegistry,
@@ -180,21 +202,17 @@ export function buildHybridTopicsPrompt(
 
   const framesDirective =
     input.explorationFrames && input.explorationFrames.length > 0
-      ? ` Follow the exploration map: ONE topic per slot, honoring each slot's territory and archetype. A slot assignment NEVER excuses a missing schema field — every topic still needs a valid suggested_episode_type, suggested_topic_domain, and a scroll-stopping emotional_hook.`
+      ? ` Follow the exploration map: ONE topic per slot, honoring each slot's field, audience segment + concern, territory and archetype. A slot assignment NEVER excuses a missing schema field — every topic still needs a valid suggested_episode_type, suggested_topic_domain, scores, sensitivity_flags and a scroll-stopping emotional_hook.`
       : ""
 
   const user = [
-    `Generate ${input.count} hybrid topics in ${langLabel}.${framesDirective} The button the operator pressed promises ${input.count} candidates — returning fewer than ${input.count} silently breaks that contract. Only fall short if the EXCLUDED list and rules 1–12 truly leave you no room.`,
+    `Generate ${input.count} hybrid topics in ${langLabel}.${framesDirective} The button the operator pressed promises ${input.count} candidates — returning fewer than ${input.count} silently breaks that contract. Only fall short if the EXCLUDED list and rules 1–13 truly leave you no room.`,
     "",
     "FRESH ORIGINAL TOPICS (you may transform any of these — when you do, set original_lens to that topic's lens):",
     input.originalTopics.length === 0 ? "(none)" : lensSummaries,
     "",
-    "MARKET CLUSTERS (DO NOT copy titles; pick one as inspiration; cite it in market_inspiration):",
+    `MARKET CLUSTERS (a weak prior — at most ${marketCap} topic(s) may draw from one; never copy a label into a title):`,
     clusterSummaries,
-    "",
-    "PERFORMANCE LEARNING (Phase 8 worked-report):",
-    `  Strong domains: ${strongDomains.length === 0 ? "(no data)" : strongDomains.join(" | ")}`,
-    `  Weak domains:   ${weakDomains.length === 0 ? "(no data)" : weakDomains.join(" | ")}`,
     "",
     "EDITORIAL TASTE HINTS (soft — operator's learned preferences;",
     "use these as a gentle bias, never as a hard filter):",

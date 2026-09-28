@@ -10,6 +10,11 @@
  * Raw, unreviewed market_topic_signals never bypass the editorial layer
  * — clustering is the only legitimate way market data influences the
  * AI prompt.
+ *
+ * Constitution (2026-09-28): market signals are a WEAK PRIOR. Only ar/en
+ * clusters are eligible, clusters that trip the constitution's policy
+ * lexicon (politics / religious dispute / scandal) are dropped, and only
+ * a handful reach the prompt — as labels, never as raw material.
  */
 
 import { sql, desc, isNull, and } from "drizzle-orm"
@@ -28,11 +33,15 @@ import {
   loadTasteLookup,
 } from "@/lib/market-intelligence/taste-learning"
 import type { TasteWeightLookup } from "@/lib/market-intelligence/scoring"
+import { lexiconPolicyHits } from "@/lib/khat-map/core/policy"
 
 // ─── Caps (in sync with prompt budget) ───────────────────────────────
 
 export const HYBRID_INPUT_CAPS = {
-  market_clusters: 12,
+  /** A weak prior: a few labels, not a funnel (was 12 before the constitution). */
+  market_clusters: 4,
+  /** Clusters over-fetched so each run SAMPLES a different few. */
+  market_cluster_pool: 36,
   original_topics: 18,
   worked_strong_domains: 5,
   worked_weak_domains: 5,
@@ -92,7 +101,7 @@ export async function loadHybridInputs(opts: {
     // Over-fetch 3× the cap so a rotating SAMPLE feeds each run. Always taking
     // the same deterministic top-12 was a root cause of repetitive output —
     // identical market anchors every generation.
-    getTopClusters(HYBRID_INPUT_CAPS.market_clusters * 3),
+    getTopClusters(HYBRID_INPUT_CAPS.market_cluster_pool),
     loadFreshOriginalTopics(opts.language, HYBRID_INPUT_CAPS.original_topics),
     buildWorkedReport(),
     loadCandidateTitles(),
@@ -110,10 +119,7 @@ export async function loadHybridInputs(opts: {
 
   const lens_keys = unique(originals.map((o) => o.lens))
 
-  // Filter market clusters by language. Fall back to all clusters if
-  // the requested language has zero clusters yet.
-  const clustersFiltered = clusters.filter((c) => c.language === opts.language)
-  const clusterPool = clustersFiltered.length > 0 ? clustersFiltered : clusters
+  const clusterPool = eligibleMarketClusters(clusters, opts.language)
   // Rotate: sample the cap from the wider pool so consecutive runs see a
   // different mix of market anchors instead of the same frozen list.
   const market_clusters = sampleClusters(clusterPool, HYBRID_INPUT_CAPS.market_clusters)
@@ -196,6 +202,28 @@ async function loadConsumedOriginalTitles(language: string): Promise<string[]> {
     )
     .limit(300)
   return rows.map((r) => r.title)
+}
+
+/** Languages whose market signals may reach the prompt at all. */
+const MARKET_LANGUAGES = new Set(["ar", "en"])
+
+/**
+ * The clusters that may reach the prompt: ar/en only (other languages are
+ * dropped outright, not used as a fallback), none that trip the policy
+ * lexicon on its label or hooks, and the requested language first — falling
+ * back to the other eligible language only when it has none.
+ */
+export function eligibleMarketClusters(
+  clusters: TopClusterSummary[],
+  language: string,
+): TopClusterSummary[] {
+  const allowed = clusters.filter(
+    (c) =>
+      MARKET_LANGUAGES.has(c.language) &&
+      lexiconPolicyHits([c.label, ...(c.narrative_hooks ?? [])].join(" ")).length === 0,
+  )
+  const same = allowed.filter((c) => c.language === language)
+  return same.length > 0 ? same : allowed
 }
 
 function unique<T>(xs: T[]): T[] {

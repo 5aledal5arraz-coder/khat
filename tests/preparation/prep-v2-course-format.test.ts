@@ -118,6 +118,7 @@ import {
   autoOptionLabel,
   effectiveCourseTarget,
   COURSE_PROMPT_VERSION,
+  PREP_BACKBONE_PROMPT_VERSION,
   extractTargetMinutes,
   isCourseSlotSequence,
   prepFormatOf,
@@ -125,6 +126,7 @@ import {
   type CourseModuleDraft,
 } from "@/lib/preparation/v2/format"
 import { prepV2Schema } from "@/lib/db/validators"
+import { khatConstitutionBlock } from "@/lib/khat-map/core/constitution"
 import { coachHint, sectionTargetLevel } from "@/lib/recording-v2/energy"
 import { cardInputsFromPrepV2 } from "@/lib/ai/interview-cards"
 import type {
@@ -290,14 +292,28 @@ describe("story mode — prompts unchanged", () => {
    * from the code BEFORE the course format existed, with the same fixtures.
    * Any drift in the story path — one character — changes a hash.
    */
-  const BASELINE = [
+  const PRE_CONSTITUTION = [
     "04690773f26a429b98ee8b8be6ac1db2f2014720586aaac0e7a2082e16fad8ab",
     "8d2855594bb32270836406a659b845838043012ea226a419a3309ad7de096022",
     "e451483bdc0752f7340db84244ed86edbc817acf958e3f326d8c84b32055a909",
     "437c930349d1387efaa634c31dba962bdc1d2513445dc597e06f98788d17c494",
   ]
+  /**
+   * Re-pinned deliberately on 2026-09-28 (batch 2, «دستور خط»): passes 1–2
+   * (research synthesis, structure) now open with the constitution (compact)
+   * and carry PREP_BACKBONE_PROMPT_VERSION.story. Passes 3–4 did not change
+   * and keep their pre-feature hashes. The companion test below proves the
+   * constitution block + the version tag are the ONLY difference: strip them
+   * and passes 1–2 hash back to PRE_CONSTITUTION.
+   */
+  const BASELINE = [
+    "a147326f685107c46defd5df7f0f334aeba4d84301a041840934ab07b0c36fbe",
+    "26dcd37af1586f815587c8eccac3d8e67f205a003688e716d2b25f04a1e18aeb",
+    PRE_CONSTITUTION[2],
+    PRE_CONSTITUTION[3],
+  ]
 
-  it("all four passes send exactly the pre-feature request", async () => {
+  async function runAllStoryPasses() {
     const pass1 = {
       thesis: "t".repeat(40),
       axes_of_tension: ["a1", "a2", "a3", "a4", "a5", "a6"],
@@ -353,10 +369,28 @@ describe("story mode — prompts unchanged", () => {
       pass2: { sections },
       pass3: { questions },
     })
-    const hashes = aiCalls.map((c) =>
-      createHash("sha256").update(JSON.stringify(c)).digest("hex"),
-    )
-    expect(hashes).toEqual(BASELINE)
+  }
+
+  const sha = (v: unknown) => createHash("sha256").update(JSON.stringify(v)).digest("hex")
+
+  it("all four passes send exactly the pinned request", async () => {
+    await runAllStoryPasses()
+    expect(aiCalls.map(sha)).toEqual(BASELINE)
+  })
+
+  it("the constitution block + version tag are the ONLY change to passes 1–2", async () => {
+    await runAllStoryPasses()
+    const prefix = khatConstitutionBlock("compact") + "\n\n"
+    const stripped = aiCalls.slice(0, 2).map((c) => {
+      const copy = JSON.parse(JSON.stringify(c)) as AiReq & { promptVersion?: string }
+      expect(copy.promptVersion).toBe(PREP_BACKBONE_PROMPT_VERSION.story)
+      delete copy.promptVersion
+      const sys = copy.prompt.find((m) => m.role === "system")!
+      expect(sys.content.startsWith(prefix)).toBe(true)
+      sys.content = sys.content.slice(prefix.length)
+      return copy
+    })
+    expect(stripped.map(sha)).toEqual(PRE_CONSTITUTION.slice(0, 2))
   })
 
   it("a story payload still fails without an emotional peak (rule kept)", () => {
@@ -903,10 +937,17 @@ describe("round 2 — course prompts (rashid)", () => {
     }
   })
 
-  it("every course call is tagged prep_v2.course.v1", async () => {
+  it("course passes 1–2 carry the constitution version, 3–4 stay prep_v2.course.v1", async () => {
     await allCoursePrompts()
     expect(aiCalls).toHaveLength(4)
-    for (const c of aiCalls) expect((c as unknown as { promptVersion: string }).promptVersion).toBe(COURSE_PROMPT_VERSION)
+    const versions = aiCalls.map((c) => (c as unknown as { promptVersion: string }).promptVersion)
+    expect(versions).toEqual([
+      PREP_BACKBONE_PROMPT_VERSION.course,
+      PREP_BACKBONE_PROMPT_VERSION.course,
+      COURSE_PROMPT_VERSION,
+      COURSE_PROMPT_VERSION,
+    ])
+    for (const c of aiCalls.slice(0, 2)) expect(system(c).startsWith(khatConstitutionBlock("compact"))).toBe(true)
   })
 
   it("Pass 3 anchors then extracts, opens goal-named doors, and treats slot ids as opaque", async () => {

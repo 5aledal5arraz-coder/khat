@@ -110,7 +110,12 @@ export interface HybridOutputTopic {
   original_lens: string
   suggested_episode_type: string
   suggested_topic_domain: string
+  /** The ORDERING score in [0, 1] (constitution dims when present). Not a probability. */
   estimated_strength_score: number
+  /** The constitution's six self-scored dimensions (0–10), when the model gave them. */
+  scores?: Record<string, number> | null
+  /** The model's own policy flags; any flag rejects (reject.ts). */
+  sensitivity_flags?: string[]
   /** Stamped by reject.ts when the candidate fails filters. */
   rejected: boolean
   rejection_reasons?: string[]

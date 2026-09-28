@@ -1,7 +1,8 @@
 /**
- * Khat Editorial Constitution.
+ * Khat Editorial Constitution — «دستور خط».
  *
- * This is the PRIMARY editorial source of truth for the Khat Map system.
+ * This is the PRIMARY editorial source of truth for every Khat generator
+ * (topics, guests, preparation), not just the Khat Map system.
  * Channel analysis (fingerprint) is calibration — these rules override it
  * when they conflict.
  *
@@ -25,104 +26,358 @@ import type {
   KhatMapTopicDomainWeights,
 } from "@/types/khat-map"
 
-// ─── Identity statement ──────────────────────────────────────────────────────
+// ─── دستور خط — the constitution (approved by Khaled 2026-09-28) ────────────
+//
+// ONE source of truth for what Khat is, injected as the FIRST system block of
+// every topic/guest/prep generator (hybrid topics, original thinking, the
+// season wizard, discovery propose, prep_v2). Bump KHAT_CONSTITUTION_VERSION
+// on any wording change — every generator's prompt version rides on it.
+//
+// Khaled's decisions it encodes (final, do not re-litigate): Khat is NOT
+// stories-only and NOT views-optimised; varied topics that matter to the
+// widest Arab audience; lens «تجارب إنسانية مؤثرة»; style practical + human;
+// goal «مكتبة مرجعية تبقى». Avoid politics, religious disputes, scandals and
+// privacy intrusion. Guests default to men from Kuwait; the invasion episode
+// is optional; NO fixed distribution per season — the only rule is VARIETY.
 
-export const KHAT_IDENTITY_STATEMENT_AR = `
-بودكاست خط ليس بودكاست اتجاهات سطحي.
-خط يقدّم محتوى عميقًا ذا قيمة دائمة، يرفع مستوى التفكير ويُلامس المجتمع.
-محتوى خط يبقى ذا قيمة بعد سنوات، ويُقدَّم بمصداقية، وعاطفة صادقة غير مصطنعة.
-`.trim()
+export const KHAT_CONSTITUTION_VERSION = "khat-constitution-v1"
 
-export const KHAT_IDENTITY_STATEMENT_EN = `
-Khat Podcast is NOT a shallow trend-chasing show.
-Khat delivers deep, timeless content that elevates thinking and society.
-Content must remain valuable years after publication, feel emotionally
-honest (never manipulative), and offer fresh angles missing from Arabic media.
-`.trim()
+/** The heading every generator's first system block starts with (guard tests read it). */
+export const KHAT_CONSTITUTION_MARKER = "# دستور خط"
 
-// ─── Core editorial priorities (ranked, highest first) ───────────────────────
+export const KHAT_CONSTITUTION_AR = {
+  vision: "بودكاست خط مكتبة مرجعية عربية تبقى؛ كل حلقة كتاب تزيد قيمته مع الوقت.",
+  lens: "تجارب إنسانية مؤثرة — كل موضوع يقوم على تجربة عاشها إنسان حقيقي؛ حتى الخبير يأتي بتجربته لا بمحاضرته.",
+  style: "فائدة عملية نابعة من تجربة معاشة (لا قوائم «٥ أسرار»)، وعاطفة صادقة غير مصطنعة.",
+  audience:
+    "أوسع جمهور عربي؛ العنوان يفهمه أي عربي، والقصة قد تكون كويتية الجذور.",
+  guests: "الضيوف افتراضياً: رجال من الكويت؛ الشهرة ليست معياراً — المعيار: هل تجربته تستحق أن تُروى؟",
+  avoid:
+    "نتجنب قطعياً: السياسة، الخلافات الدينية والمذهبية، الفضائح، التعدي على الخصوصية (في المواضيع الحساسة الضيف يقرر ما يقول، ولا نسمي طرفاً ثالثاً).",
+  not_our_goal:
+    "ليس هدفنا: ملاحقة المشاهدات أو الترند. المقياس: «بعد خمس سنين، أحد بيرجع للحلقة ويستفيد؟»",
+  variety: "التنوع: لا حصص ثابتة؛ الموسم يجب أن يتنوع في المجالات والشرائح والأساليب.",
+  invasion: "حلقة الغزو/الذاكرة الوطنية: اختيارية.",
+} as const
+
+/** The four areas Khat never enters. The policy lexicon (lib/khat-map/core/policy.ts) enforces them in code. */
+export const KHAT_AVOID_AR = [
+  "السياسة",
+  "الخلافات الدينية والمذهبية",
+  "الفضائح",
+  "التعدي على الخصوصية",
+] as const
+
+// ─── Audience segments ───────────────────────────────────────────────────────
+
+export type KhatSegmentId = "20_35" | "35_60"
+
+export interface KhatSegment {
+  id: KhatSegmentId
+  label_ar: string
+  /** Life-stage concerns — each exploration slot is tied to one of them. */
+  concerns_ar: readonly string[]
+}
+
+export const KHAT_SEGMENTS: readonly KhatSegment[] = [
+  {
+    id: "20_35",
+    label_ar: "٢٠–٣٥",
+    concerns_ar: [
+      "بداية المهنة",
+      "الزواج وسنواته الأولى",
+      "أول مال وأول دين",
+      "الهوية والطموح",
+      "الغربة",
+      "أول قرار كبير",
+    ],
+  },
+  {
+    id: "35_60",
+    label_ar: "٣٥–٦٠",
+    concerns_ar: [
+      "الأسرة",
+      "المراهقون",
+      "الطلاق",
+      "تغيير المسار",
+      "الصحة",
+      "الوالدان الكبيران",
+      "الثروة",
+      "الإرث",
+    ],
+  },
+]
+
+// ─── The 7 doors and their fields (50+, extensible data) ─────────────────────
+
+export type KhatDoorId =
+  | "family"
+  | "work_money"
+  | "health_mind"
+  | "loss_resilience"
+  | "identity_society"
+  | "creativity_achievement"
+  | "memory_heritage"
+
+export interface KhatField {
+  /** Stable, globally-unique snake_case id. */
+  id: string
+  label_ar: string
+}
+
+export interface KhatDoor {
+  id: KhatDoorId
+  label_ar: string
+  fields: readonly KhatField[]
+}
 
 /**
- * When the ranker faces a tradeoff, earlier priorities win. Trend-driven
- * seasons may down-weight lower priorities but cannot skip higher ones.
+ * The field list the generators pick from with variety. Pure data: adding a
+ * field is a one-line edit here (ids must stay unique across all doors — a
+ * test pins it). Order is presentation-only.
+ */
+export const KHAT_DOORS: readonly KhatDoor[] = [
+  {
+    id: "family",
+    label_ar: "العلاقات والأسرة",
+    fields: [
+      { id: "marriage", label_ar: "الزواج" },
+      { id: "divorce", label_ar: "الطلاق" },
+      { id: "fatherhood", label_ar: "الأبوة" },
+      { id: "raising_children", label_ar: "تربية الأبناء" },
+      { id: "adolescence", label_ar: "المراهقة" },
+      { id: "relationship_with_parents", label_ar: "العلاقة بالوالدين" },
+      { id: "elder_care", label_ar: "رعاية كبار السن" },
+      { id: "siblings_family_legacy", label_ar: "الأخوة والإرث العائلي" },
+      { id: "friendship", label_ar: "الصداقة" },
+      { id: "loneliness", label_ar: "الوحدة" },
+      { id: "infertility", label_ar: "العقم وتأخر الإنجاب" },
+      { id: "fostering_adoption", label_ar: "الكفالة والتبني" },
+      { id: "second_marriage", label_ar: "الزواج الثاني" },
+    ],
+  },
+  {
+    id: "work_money",
+    label_ar: "العمل والمال",
+    fields: [
+      { id: "career_path", label_ar: "المسار المهني" },
+      { id: "unemployment", label_ar: "البطالة" },
+      { id: "career_change", label_ar: "تغيير المهنة" },
+      { id: "retirement", label_ar: "التقاعد" },
+      { id: "leadership_management", label_ar: "القيادة والإدارة" },
+      { id: "entrepreneurship", label_ar: "ريادة الأعمال" },
+      { id: "small_business", label_ar: "المشاريع الصغيرة" },
+      { id: "business_failure", label_ar: "الفشل التجاري" },
+      { id: "debt_bankruptcy", label_ar: "الديون والإفلاس" },
+      { id: "saving_investing", label_ar: "الادخار والاستثمار" },
+      { id: "wealth_impact", label_ar: "الثروة وأثرها" },
+      { id: "family_business", label_ar: "الشركات العائلية" },
+      { id: "trade_crafts", label_ar: "التجارة والحرف" },
+      { id: "freelancing", label_ar: "العمل الحر" },
+    ],
+  },
+  {
+    id: "health_mind",
+    label_ar: "الصحة والنفس",
+    fields: [
+      { id: "chronic_illness", label_ar: "الأمراض المزمنة" },
+      { id: "cancer_survival", label_ar: "النجاة من السرطان" },
+      { id: "disability", label_ar: "الإعاقة" },
+      { id: "addiction_recovery", label_ar: "الإدمان والتعافي" },
+      { id: "mental_health", label_ar: "الصحة النفسية" },
+      { id: "depression_anxiety", label_ar: "الاكتئاب والقلق" },
+      { id: "body_transformation_sport", label_ar: "التحول الجسدي والرياضة" },
+      { id: "burnout", label_ar: "الإرهاق والاحتراق" },
+    ],
+  },
+  {
+    id: "loss_resilience",
+    label_ar: "الفقد والصمود",
+    fields: [
+      { id: "losing_loved_one", label_ar: "فقد عزيز" },
+      { id: "accidents", label_ar: "الحوادث" },
+      { id: "captivity_detention", label_ar: "الأسر والمعتقلات" },
+      { id: "war_refuge", label_ar: "الحروب واللجوء" },
+      { id: "disasters", label_ar: "الكوارث" },
+      { id: "trauma_recovery", label_ar: "الصدمات والتعافي" },
+    ],
+  },
+  {
+    id: "identity_society",
+    label_ar: "الهوية والمجتمع",
+    fields: [
+      { id: "expat_migration", label_ar: "الغربة والهجرة" },
+      { id: "studying_abroad", label_ar: "الدراسة في الخارج" },
+      { id: "belonging_identity", label_ar: "الانتماء والهوية" },
+      { id: "customs_traditions", label_ar: "العادات والتقاليد" },
+      { id: "generation_gap", label_ar: "صراع الأجيال" },
+      { id: "education", label_ar: "التعليم" },
+      { id: "volunteering_charity", label_ar: "التطوع والعمل الخيري" },
+      { id: "faith_personal", label_ar: "الإيمان كتجربة شخصية" },
+      { id: "prison_reentry", label_ar: "السجن والعودة للمجتمع" },
+      { id: "personal_transformation", label_ar: "التحول الشخصي" },
+    ],
+  },
+  {
+    id: "creativity_achievement",
+    label_ar: "الإبداع والإنجاز",
+    fields: [
+      { id: "art", label_ar: "الفن" },
+      { id: "writing_literature", label_ar: "الكتابة والأدب" },
+      { id: "sport_achievement", label_ar: "الرياضة والإنجاز الرياضي" },
+      { id: "invention_applied_science", label_ar: "الاختراع والعلوم التطبيقية" },
+      { id: "technology_in_life", label_ar: "التقنية وأثرها على الحياة" },
+      { id: "media_price_of_fame", label_ar: "الإعلام وثمن الشهرة" },
+    ],
+  },
+  {
+    id: "memory_heritage",
+    label_ar: "الذاكرة والتراث",
+    fields: [
+      { id: "oral_history", label_ar: "التاريخ الشفهي" },
+      { id: "old_crafts", label_ar: "الحرف القديمة" },
+      { id: "sea_diving", label_ar: "البحر والغوص" },
+      { id: "desert_badia", label_ar: "البر والبادية" },
+      { id: "travel_adventure", label_ar: "السفر والمغامرة" },
+    ],
+  },
+]
+
+/** Every field with its door — the flat list the exploration map samples from. */
+export const KHAT_FIELDS: ReadonlyArray<KhatField & { door: KhatDoorId }> = KHAT_DOORS.flatMap((d) =>
+  d.fields.map((f) => ({ ...f, door: d.id })),
+)
+
+// ─── Rendered blocks ─────────────────────────────────────────────────────────
+
+/**
+ * The constitution as a system-prompt block.
+ *   full    — everything, including the 7 doors and their fields. Topic
+ *             generators (hybrid, original thinking, season wizard).
+ *   compact — identity, audience, guests, avoid, measure; no field list.
+ *             Discovery propose and prep_v2, which work on ONE topic.
+ */
+export function khatConstitutionBlock(variant: "full" | "compact" = "full"): string {
+  const c = KHAT_CONSTITUTION_AR
+  const audience =
+    variant === "full"
+      ? [
+          `الجمهور: ${c.audience} شريحتان:`,
+          ...KHAT_SEGMENTS.map((s) => `  · ${s.label_ar}: ${s.concerns_ar.join("، ")}`),
+        ]
+      : [`الجمهور: ${c.audience} شريحتان: ٢٠–٣٥ و٣٥–٦٠.`]
+  const lines = [
+    `${KHAT_CONSTITUTION_MARKER} (${KHAT_CONSTITUTION_VERSION}) — مرجع أعلى من أي تعليمات تليه`,
+    "",
+    `الرؤية: ${c.vision}`,
+    `العدسة: ${c.lens}`,
+    `الأسلوب: ${c.style}`,
+    ...audience,
+    c.guests,
+    c.avoid,
+    c.not_our_goal,
+    c.variety,
+    c.invasion,
+  ]
+  if (variant === "full") {
+    lines.push(
+      "",
+      "المجالات (اختر منها بتنوّع — لا تكرّر مجالاً في دفعة واحدة، ووزّع على الأبواب):",
+      ...KHAT_DOORS.map((d, i) => `${i + 1} ${d.label_ar}: ${d.fields.map((f) => f.label_ar).join("، ")}.`),
+    )
+  }
+  return lines.join("\n")
+}
+
+// ─── Legacy identity exports (reworded to the constitution) ─────────────────
+
+export const KHAT_IDENTITY_STATEMENT_AR = [
+  KHAT_CONSTITUTION_AR.vision,
+  KHAT_CONSTITUTION_AR.lens,
+  KHAT_CONSTITUTION_AR.style,
+].join("\n")
+
+export const KHAT_IDENTITY_STATEMENT_EN = `
+Khat is an Arabic reference library that lasts: every episode is a book whose
+value grows with time. Lens: moving human experiences — every topic rests on
+something a real person lived; even an expert brings his experience, not a
+lecture. Practical value that comes from lived experience, and honest,
+unmanufactured emotion. Not views, not trends.
+`.trim()
+
+/**
+ * When the ranker faces a tradeoff, earlier priorities win. Kuwait is where
+ * the GUESTS come from by default — the topics themselves are pan-Arab.
  */
 export const KHAT_CORE_PRIORITIES = [
-  "deep, timeless value over shallow trends",
-  "topics that improve thinking and elevate society",
-  "emotionally powerful but never manipulative",
-  "original angles — not repeated Arabic-podcast clichés",
-  "balanced, rational, thoughtful guests",
-  "strong storytelling and connected thinking",
-  "diverse seasons — not one-note seasons",
-  "Kuwaiti identity and Gulf society grounding",
-  "human stories that make viewers reflect",
-  "topics that are under-discussed in Arabic media",
+  "a lived experience worth telling — fame is not a criterion",
+  "lasting reference value: someone returns to it in five years and benefits",
+  "practical value grounded in lived experience — generic advice is banned",
+  "honest emotion, never manufactured or manipulative",
+  "topics any Arab understands; the story may be Kuwaiti-rooted",
+  "variety across fields, audience segments and episode shapes",
+  "Kuwaiti guests by default, pan-Arab topics",
 ] as const
 
 // ─── What to avoid (hard rules) ──────────────────────────────────────────────
 
 export const KHAT_HARD_AVOID = [
-  "generic shallow trends",
+  "politics — parties, elections, governments, parliament, geopolitics",
+  "religious and sectarian disputes (faith appears only as a personal experience)",
+  "scandals",
+  "privacy intrusion — the guest decides what to say on sensitive topics; never name a third party",
+  "chasing views or trends",
+  "generic advice — every practical takeaway must come from lived experience",
+  "listicles and «5 secrets» framing",
+  "clickbait framing",
+  "a fresh angle is welcome; taboo for its own sake is not",
   "repetitive guest suggestions",
-  "celebrity-only logic",
-  "weak speakers without depth",
-  "guests with no thoughtful track record",
-  "topics already repeated often in Arabic podcasts",
-  "topics that only matter for a few days",
-  "overly clickbait framing",
-  "low-value controversy for its own sake",
-  "shallow self-help clichés",
-  "tabloid-level relationship drama",
-  "partisan political venting without substance",
 ] as const
 
-// ─── Per-season diversity requirements ───────────────────────────────────────
+// ─── Per-season diversity (no quotas) ────────────────────────────────────────
 
 /**
- * Default minimum counts per episode type for a full season. The season
- * generator must produce at least these minimums; admin can relax via
- * preferences.episode_type_balance.
- *
- * Guideline for 10-episode seasons. For smaller/larger seasons, the generator
- * scales each minimum proportionally but NEVER below the floor enforced by
- * `DEFAULT_MUST_INCLUDE_RULES`.
+ * Khaled (2026-09-28): NO fixed segment/domain distribution per season — the
+ * only rule is VARIETY. These are soft hints, not minimums; nothing fails a
+ * season for missing one. Invasion, mass-audience and controversial are 0:
+ * the invasion episode is optional and the other two are not Khat goals.
  */
 export const DEFAULT_EPISODE_TYPE_BALANCE: KhatMapEpisodeTypeBalance = {
-  intellectual: 2,
-  social: 2,
+  intellectual: 1,
+  social: 1,
   psychological: 1,
   personal_story: 1,
-  national: 1, // invasion counts toward national
-  invasion: 1, // separate floor — see below
+  national: 0,
+  invasion: 0,
   historical: 1,
   signature_khat: 1,
-  mass_audience: 1,
-  controversial: 1,
+  mass_audience: 0,
+  controversial: 0,
   inspirational: 1,
 }
 
 /**
- * Non-negotiable rules every season must satisfy. Violations block season
- * approval — they are not warnings. Defaults here match `KHAT_IDENTITY`
- * and should only be relaxed with deliberate admin override.
+ * Season rules. Invasion / national are optional (Khaled 2026-09-28);
+ * mass-audience and bold/controversial are no longer Khat goals at all.
  */
 export const DEFAULT_MUST_INCLUDE_RULES: KhatMapMustIncludeRules = {
-  invasion: true,
+  invasion: false,
   personal_story: true,
   signature_khat: true,
-  national: true,
+  national: false,
   emotional: true,
-  mass_audience: true,
-  bold: true,
+  mass_audience: false,
+  bold: false,
 }
 
 // ─── Iraqi invasion angle catalog ────────────────────────────────────────────
 
 /**
- * Stable angle codes for the invasion episode. The angle chosen for a
- * given season is recorded on the episode candidate and promotes the
+ * Stable angle codes for the (optional) invasion episode. The angle chosen
+ * for a given season is recorded on the episode candidate and promotes the
  * matching topic_bank row's freshness — so future seasons prefer fresh
- * angles automatically.
+ * angles automatically. Every angle is a lived experience; none names a
+ * third party or argues politics.
  */
 export const INVASION_ANGLES = [
   {
@@ -153,12 +408,12 @@ export const INVASION_ANGLES = [
   {
     code: "invasion.media",
     title_ar: "الإعلام في الغزو",
-    summary_ar: "المعركة على الرواية: إذاعة الكويت، التلفزيون، الإعلام الدولي.",
+    summary_ar: "من عاشوا البثّ من الداخل: إذاعة الكويت والتلفزيون تحت الاحتلال.",
   },
   {
     code: "invasion.betrayal",
-    title_ar: "الخيانة والعملاء",
-    summary_ar: "المتعاونون مع المحتل، المحاكمات، والمجتمع ما بعد التحرير.",
+    title_ar: "الثقة بعد الغزو",
+    summary_ar: "كيف أعاد الناس بناء الثقة بمن حولهم بعد التحرير — تجارب شخصية، بلا تسمية أحد.",
   },
   {
     code: "invasion.martyrs",
@@ -168,22 +423,22 @@ export const INVASION_ANGLES = [
   {
     code: "invasion.economy",
     title_ar: "الأثر الاقتصادي",
-    summary_ar: "تكاليف الاحتلال على اقتصاد الكويت وإعادة البناء بعد التحرير.",
+    summary_ar: "أسر وتجّار خسروا كل شيء في الاحتلال — وكيف بدأوا من جديد بعد التحرير.",
   },
   {
     code: "invasion.lessons",
-    title_ar: "ما تعلّمته الكويت",
-    summary_ar: "الدروس المؤسسية والسياسية التي استخلصتها الدولة من الغزو.",
+    title_ar: "ما تعلّمته الأسرة الكويتية",
+    summary_ar: "دروس الصمود التي حملتها البيوت الكويتية من الغزو إلى أبنائها.",
   },
   {
     code: "invasion.comparison_1990_today",
     title_ar: "1990 وما بعدها",
-    summary_ar: "مقارنة بين مخاوف 1990 والمخاوف الإقليمية المعاصرة.",
+    summary_ar: "من عاش 1990 شاباً: كيف غيّرت تلك الأشهر نظرته للأمان والبيت والوطن.",
   },
   {
     code: "invasion.post_invasion_kuwait",
     title_ar: "الكويت بعد الغزو",
-    summary_ar: "كيف تغيّر المجتمع الكويتي بعد التحرير — هوية، سياسة، ثقافة.",
+    summary_ar: "كيف تغيّرت الحياة اليومية في البيوت الكويتية بعد التحرير.",
   },
 ] as const
 
@@ -228,72 +483,55 @@ export const FRESHNESS_POLICY: Record<
 // ─── Guest quality gates ─────────────────────────────────────────────────────
 
 /**
- * Hard minimums for any guest the AI proposes. The Gemini discovery layer
- * must filter candidates that fail these gates before handing off to OpenAI.
+ * Guest rules. Fame is NOT a criterion (Khaled 2026-09-28): the question is
+ * whether the person's lived experience is worth telling, and whether he
+ * told it himself somewhere public.
  */
 export const GUEST_QUALITY_GATES = {
-  /** Must have demonstrable public substance — not just follower count. */
-  requires_substantive_public_record: true,
-  /** Reject generic celebrity suggestions without editorial fit. */
-  reject_celebrity_without_fit: true,
+  /** A first-hand, self-told public account of the experience. */
+  requires_self_told_account: true,
+  /** Fame and follower counts are never a reason to propose someone. */
+  fame_is_not_a_criterion: true,
   /** Reject shallow social influencers as primary suggestions. */
   reject_shallow_influencers: true,
-  /** Minimum depth_score the AI should assign (0–10). */
-  min_depth_score: 6.0,
+  /** Politicians, people in ongoing court cases, stories that expose others. */
+  reject_policy_risk: true,
   /** Prefer guests the audience can still learn from years later. */
   prefer_timeless_over_viral: true,
 } as const
 
-// ─── Prompt fragments (for AI modules in Phase 3) ────────────────────────────
+// ─── Prompt fragments ────────────────────────────────────────────────────────
 
 /**
- * Canonical system-prompt preamble. Every Khat Map generation call (season
- * structuring, scoring, reordering, guest analysis) must include this
- * preamble so the model stays aligned with Khat's editorial identity.
- *
- * When called with an `invasion_policy`, the "Season must-include" block
- * adapts so the model doesn't force an invasion episode into seasons
- * where the admin has opted for `optional` or `excluded`. For backward
- * compat, passing no arg preserves the legacy `required` wording.
+ * Season-wizard system preamble: the constitution (full) + this season's
+ * invasion policy + guest gates. The invasion episode is OPTIONAL by default
+ * (Khaled 2026-09-28); "required" survives only as an explicit admin choice
+ * on a season, and "excluded" forbids it.
  */
 export function khatConstitutionPrompt(
-  invasionPolicy: KhatMapInvasionPolicy = "required",
+  invasionPolicy: KhatMapInvasionPolicy = "optional",
 ): string {
   const invasionLine =
     invasionPolicy === "required"
-      ? "- at least one Iraqi invasion of Kuwait episode (angle must vary across seasons)"
+      ? "- the admin asked for ONE Iraqi-invasion-of-Kuwait episode this season, told as a lived experience (angle must vary across seasons)"
       : invasionPolicy === "optional"
-        ? "- an Iraqi-invasion-of-Kuwait episode is OPTIONAL — include it ONLY if a fresh angle is available in the memory, otherwise explore other themes"
+        ? "- an Iraqi-invasion-of-Kuwait episode is OPTIONAL — include it ONLY if a fresh lived-experience angle is available, otherwise explore other fields"
         : "- an Iraqi-invasion-of-Kuwait episode is EXCLUDED for this season — the admin has explicitly opted out of the theme; do NOT propose invasion episodes and do NOT mark any episode with episode_type=\"invasion\""
-  const nationalLine =
-    invasionPolicy === "excluded"
-      ? "- at least one Kuwait / national-memory episode (NOT invasion — explore another national angle)"
-      : "- at least one Kuwait / national-memory episode (invasion counts)"
   return [
-    "# Khat Editorial Constitution (authoritative)",
+    khatConstitutionBlock("full"),
     "",
-    KHAT_IDENTITY_STATEMENT_AR,
-    "",
-    "## Core priorities (highest first)",
-    ...KHAT_CORE_PRIORITIES.map((p, i) => `${i + 1}. ${p}`),
+    "## This season",
+    invasionLine,
+    "- no quotas: the only rule is VARIETY across fields, doors, audience segments and episode shapes",
     "",
     "## Hard avoids",
     ...KHAT_HARD_AVOID.map((a) => `- ${a}`),
     "",
-    "## Season must-include (every season)",
-    invasionLine,
-    "- at least one personal inspiring story",
-    "- at least one signature-depth Khat episode",
-    nationalLine,
-    "- at least one highly emotional episode",
-    "- at least one mass-audience-appeal episode",
-    "- at least one bold / controversial episode",
-    "",
     "## Guest gates",
-    "- must have demonstrable public substance (not just fame or follower count)",
-    "- reject generic celebrities without editorial fit",
+    "- the criterion is a lived experience worth telling, not fame or follower count",
+    "- default: men from Kuwait",
+    "- no politicians, no one in an ongoing court case, no story that exposes someone else",
     "- reject shallow influencers as primary suggestions",
-    "- prefer guests whose insights remain valuable for years",
   ].join("\n")
 }
 
@@ -306,8 +544,12 @@ export function khatConstitutionPrompt(
 export const DEFAULT_DOMAIN_WEIGHT: KhatMapDomainWeight = 2
 
 /**
- * 14 curated mood presets. Picking a preset seeds the per-season
- * `topic_domain_weights` with these recommended overrides; the admin can
+ * 12 curated mood presets. `controversy_heavy` and `philosophy_religion` were
+ * retired with the constitution (2026-09-28): they steered seasons into
+ * politics and religious dispute, which Khat avoids outright; no preset
+ * leans into `religion` or `power_manipulation` any more.
+ *
+ * Picking a preset seeds the per-season `topic_domain_weights` with these recommended overrides; the admin can
  * then tweak any individual domain without changing the preset label.
  *
  * Weights use the 0–3 scale (off / low / medium / high). Missing domains
@@ -315,7 +557,7 @@ export const DEFAULT_DOMAIN_WEIGHT: KhatMapDomainWeight = 2
  * a preset — it's the untagged escape hatch, not a targetable domain.
  *
  * Presets are INTENT, not a content hard-lock. The structurer still
- * honors must-include rules and the Khat identity — presets just shape
+ * honors the constitution — presets just shape
  * which domains the research + structurer lean into.
  */
 export const MOOD_PRESETS: Record<
@@ -335,7 +577,7 @@ export const MOOD_PRESETS: Record<
   classic_khat: {
     label_ar: "خط الكلاسيكي",
     description_ar:
-      "روح خط الأصلية: هوية، كويت/خليج، تاريخ، عمق فكري، مع قصص إنسانية.",
+      "روح خط: تجارب إنسانية مؤثرة، ذاكرة وتراث، عمق فكري نابع من تجربة معاشة.",
     domain_weights: {
       kuwait_gulf: 3,
       historical: 3,
@@ -364,20 +606,6 @@ export const MOOD_PRESETS: Record<
       money_career: 1,
     },
   },
-  controversy_heavy: {
-    label_ar: "قضايا جريئة",
-    description_ar:
-      "مواضيع جدلية، سلطة، تلاعب، تاريخ خفي — موسم جريء عالي النبرة.",
-    domain_weights: {
-      power_manipulation: 3,
-      hidden_history: 3,
-      social_issues: 3,
-      religion: 2,
-      modern_society: 2,
-      crime_mystery: 2,
-      technology_ai: 2,
-    },
-  },
   relationships_heavy: {
     label_ar: "علاقات",
     description_ar:
@@ -401,7 +629,6 @@ export const MOOD_PRESETS: Record<
       internet_culture: 3,
       modern_society: 3,
       social_issues: 2,
-      power_manipulation: 2,
       philosophy: 2,
       kuwait_gulf: 1,
       historical: 1,
@@ -416,7 +643,6 @@ export const MOOD_PRESETS: Record<
       modern_society: 3,
       identity_masculinity: 2,
       relationships: 2,
-      power_manipulation: 2,
       money_career: 2,
       parenting: 2,
     },
@@ -436,21 +662,6 @@ export const MOOD_PRESETS: Record<
       internet_culture: 1,
     },
   },
-  philosophy_religion: {
-    label_ar: "فلسفة ودين",
-    description_ar:
-      "الفلسفة، الدين، الأسئلة الوجودية، المعنى، التدين في العصر الحديث.",
-    domain_weights: {
-      philosophy: 3,
-      religion: 3,
-      identity_masculinity: 2,
-      emotions_inner_life: 2,
-      psychology: 2,
-      modern_society: 1,
-      technology_ai: 1,
-      internet_culture: 1,
-    },
-  },
   mystery_hidden_history: {
     label_ar: "لغز وتاريخ خفي",
     description_ar:
@@ -458,7 +669,6 @@ export const MOOD_PRESETS: Record<
     domain_weights: {
       crime_mystery: 3,
       hidden_history: 3,
-      power_manipulation: 2,
       historical: 2,
       kuwait_gulf: 2,
       social_issues: 1,
@@ -472,7 +682,6 @@ export const MOOD_PRESETS: Record<
       emotions_inner_life: 3,
       psychology: 3,
       philosophy: 2,
-      religion: 2,
       identity_masculinity: 2,
       relationships: 2,
       money_career: 1,
@@ -489,7 +698,6 @@ export const MOOD_PRESETS: Record<
       identity_masculinity: 2,
       technology_ai: 2,
       social_issues: 2,
-      power_manipulation: 2,
     },
   },
   modern_society: {
@@ -513,7 +721,6 @@ export const MOOD_PRESETS: Record<
     domain_weights: {
       internet_culture: 3,
       technology_ai: 3,
-      power_manipulation: 3,
       modern_society: 2,
       social_issues: 2,
       psychology: 2,
@@ -592,8 +799,12 @@ export function summarizeDomainWeights(
 // ─── Domain angle catalogs (Phase D) ─────────────────────────────────────────
 
 /**
- * Stable angle codes for non-invasion topic domains. Mirrors the
- * invasion angle memory model: each angle gets a stable string code
+ * Stable angle codes for non-invasion topic domains. Angles that invited
+ * politics, religious/sectarian dispute, scandal or third-party exposure
+ * were reworded (2026-09-28) into lived experiences under the SAME codes,
+ * so topic-bank memory keyed by code stays intact.
+ *
+ * Mirrors the invasion angle memory model: each angle gets a stable string code
  * (e.g. "psychology.childhood_trauma"), seeded into `khat_map_topic_bank`
  * with the matching `category` column = the topic_domain value. The
  * learning layer (freshness transitions, usage counts) works exactly
@@ -722,50 +933,50 @@ export const DOMAIN_ANGLE_CATALOG: DomainAngleCatalog = {
   religion: [
     {
       code: "religion.doubt_and_faith",
-      title_ar: "الشك والإيمان",
-      summary_ar: "رحلة المؤمن المشكّك — من الشك إلى الإيمان الناضج.",
-      episode_type: "intellectual",
+      title_ar: "الشك والإيمان — تجربة شخصية",
+      summary_ar: "رحلة شخصية من الشك إلى الإيمان الناضج، يرويها صاحبها بلا جدل عقدي.",
+      episode_type: "personal_story",
     },
     {
       code: "religion.modernity_tension",
-      title_ar: "التوتر بين الدين والحداثة",
-      summary_ar: "كيف يتعايش الإيمان مع متطلبات الحياة الحديثة؟",
-      episode_type: "intellectual",
+      title_ar: "الإيمان في الحياة اليومية",
+      summary_ar: "كيف عاش إنسانٌ إيمانه وسط ضغوط العمل والغربة والحياة الحديثة.",
+      episode_type: "personal_story",
     },
     {
       code: "religion.interpretation_debate",
-      title_ar: "جدل التفسير",
-      summary_ar: "من يمتلك حق قراءة النص الديني — ولماذا يختلف القرّاء؟",
-      episode_type: "controversial",
+      title_ar: "الإيمان في المحنة",
+      summary_ar: "كيف حمل الإيمان صاحبه عبر مرض أو فقد أو سجن — تجربة، لا جدل.",
+      episode_type: "personal_story",
     },
     {
       code: "religion.secular_drift",
-      title_ar: "الانجذاب للعلمنة",
-      summary_ar: "لماذا يبتعد بعض الشباب العرب عن الدين — والعكس أيضاً.",
-      episode_type: "social",
+      title_ar: "العودة بعد البعد",
+      summary_ar: "شاب ابتعد ثم عاد — كما يرويها هو، بلا محاكمة لأحد.",
+      episode_type: "personal_story",
     },
     {
       code: "religion.ritual_vs_meaning",
-      title_ar: "الشعائر مقابل المعنى",
-      summary_ar: "هل الممارسة الدينية اليوم شكلية أم روحية؟",
-      episode_type: "intellectual",
+      title_ar: "رحلة غيّرت صاحبها",
+      summary_ar: "حجّ أو عمرة أو خلوة غيّرت صاحبها — ما الذي عاشه فعلاً؟",
+      episode_type: "personal_story",
     },
     {
       code: "religion.women_in_religion",
-      title_ar: "المرأة في الدين",
-      summary_ar: "المرأة بين النص والموروث — مساحات الاجتهاد المعاصرة.",
-      episode_type: "controversial",
+      title_ar: "الأب والقيم في البيت",
+      summary_ar: "كيف ينقل أبٌ قيمه وإيمانه لأبنائه بلا إكراه — تجربة أب.",
+      episode_type: "social",
     },
     {
       code: "religion.tradition_vs_reform",
-      title_ar: "التقليد مقابل التجديد",
-      summary_ar: "الدعوات للتجديد الديني — شرعيتها وحدودها.",
-      episode_type: "intellectual",
+      title_ar: "العطاء عن قناعة",
+      summary_ar: "قصص تطوّع وعمل خيري بدأت من قناعة شخصية عاشها صاحبها.",
+      episode_type: "inspirational",
     },
     {
       code: "religion.conversion_stories",
-      title_ar: "قصص التحول الديني",
-      summary_ar: "الدخول في دين، تركه، أو الانتقال بين المذاهب.",
+      title_ar: "رمضان في الغربة",
+      summary_ar: "كيف يعيش المغترب شهره الأول بعيداً عن أهله وبيته.",
       episode_type: "personal_story",
     },
   ],
@@ -903,14 +1114,14 @@ export const DOMAIN_ANGLE_CATALOG: DomainAngleCatalog = {
     {
       code: "internet.arabic_memes",
       title_ar: "الميمز العربية",
-      summary_ar: "كيف تُعيد الميمز تشكيل الخطاب العام والسياسي في المنطقة.",
+      summary_ar: "كيف تُعيد الميمز تشكيل لغة الشباب وطريقة ضحكهم.",
       episode_type: "social",
     },
     {
       code: "internet.cancel_culture",
-      title_ar: "ثقافة الإلغاء",
-      summary_ar: "حدود المساءلة الرقمية بين العدالة والعقاب الجماعي.",
-      episode_type: "controversial",
+      title_ar: "بعد الهجوم الجماعي",
+      summary_ar: "من تعرّض لهجوم جماعي على الإنترنت يروي كيف عاشه وكيف تعافى.",
+      episode_type: "personal_story",
     },
     {
       code: "internet.attention_economy",
@@ -972,15 +1183,15 @@ export const DOMAIN_ANGLE_CATALOG: DomainAngleCatalog = {
   crime_mystery: [
     {
       code: "crime.unsolved_arabic",
-      title_ar: "قضايا عربية غير محلولة",
-      summary_ar: "ملفات جنائية في المنطقة لم تُغلَق — ماذا بقي مجهولاً فيها.",
-      episode_type: "controversial",
+      title_ar: "العدالة من الداخل",
+      summary_ar: "محامٍ أو شرطي أو قاضٍ متقاعد يروي قضية غيّرته — بلا أسماء.",
+      episode_type: "personal_story",
     },
     {
       code: "crime.financial_scandals",
-      title_ar: "الفضائح المالية",
-      summary_ar: "جرائم الياقات البيضاء — الاحتيال، التستّر، والنجاة من العقوبة.",
-      episode_type: "controversial",
+      title_ar: "النجاة من الاحتيال المالي",
+      summary_ar: "ضحية احتيال يروي كيف وقع وكيف نهض — بلا تسمية أحد.",
+      episode_type: "personal_story",
     },
     {
       code: "crime.digital_crime",
@@ -996,14 +1207,14 @@ export const DOMAIN_ANGLE_CATALOG: DomainAngleCatalog = {
     },
     {
       code: "crime.cults_and_sects",
-      title_ar: "الطوائف والجماعات",
-      summary_ar: "كيف يُستدرج الناس إلى جماعات مغلقة — وكيف ينجون منها.",
-      episode_type: "controversial",
+      title_ar: "الخروج من دائرة مغلقة",
+      summary_ar: "من عاش داخل جماعة مغلقة أو علاقة متحكّمة يروي كيف خرج — بلا تسمية أحد.",
+      episode_type: "personal_story",
     },
     {
       code: "crime.journalist_investigations",
-      title_ar: "تحقيقات صحفية",
-      summary_ar: "قصص صحفيين حفروا في ملفات خطرة — وثمن ما كشفوه.",
+      title_ar: "صحفي في الميدان",
+      summary_ar: "صحفي يروي ما عاشه في الميدان وثمنه عليه شخصياً.",
       episode_type: "personal_story",
     },
     {
@@ -1022,8 +1233,8 @@ export const DOMAIN_ANGLE_CATALOG: DomainAngleCatalog = {
   hidden_history: [
     {
       code: "hidden.silenced_arabic",
-      title_ar: "ذاكرة عربية مُسكَتَة",
-      summary_ar: "أحداث عربية طُويت في الإعلام الرسمي — ولماذا.",
+      title_ar: "ذاكرة لم تُكتب",
+      summary_ar: "أحداث عاشها أجدادنا ولم يوثّقها أحد — تُروى بلسان من شهدها.",
       episode_type: "historical",
     },
     {
@@ -1058,9 +1269,9 @@ export const DOMAIN_ANGLE_CATALOG: DomainAngleCatalog = {
     },
     {
       code: "hidden.regional_conspiracies",
-      title_ar: "نظريات إقليمية",
-      summary_ar: "نظريات تداولها الإقليم عن أحداث كبرى — ما حقيقتها؟",
-      episode_type: "controversial",
+      title_ar: "حكايات الديرة القديمة",
+      summary_ar: "حكايات وأماكن من الكويت القديمة يرويها من عاشها.",
+      episode_type: "historical",
     },
     {
       code: "hidden.ottoman_gulf_legacy",
@@ -1108,9 +1319,9 @@ export const DOMAIN_ANGLE_CATALOG: DomainAngleCatalog = {
     },
     {
       code: "identity.tribal_vs_national",
-      title_ar: "القبيلة مقابل الدولة",
-      summary_ar: "الولاءات المتداخلة — القبيلة، المنطقة، الدولة، الأمة.",
-      episode_type: "controversial",
+      title_ar: "بين البادية والمدينة",
+      summary_ar: "من انتقل من حياة البادية إلى المدينة — ماذا كسب وماذا خسر.",
+      episode_type: "personal_story",
     },
     {
       code: "identity.expat_arab",

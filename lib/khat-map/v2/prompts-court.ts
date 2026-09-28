@@ -4,7 +4,7 @@
  * After the editorial generator produces a pool, the Court interrogates each
  * idea BEFORE it can be accepted. It is deliberately adversarial: its job is to
  * find why an idea would fail, whether it is overdone, whether a real guest
- * could carry it, and to RE-CALIBRATE the 14 success dimensions more honestly
+ * could carry it, and to RE-CALIBRATE the constitution's success dimensions more honestly
  * than the generator (which is biased toward its own ideas). Its scores are
  * authoritative; its verdict (accept / revise / reject) gates the pool.
  *
@@ -13,15 +13,10 @@
  */
 
 import type { CourtInput } from "./types"
-import { SUCCESS_DIMENSION_LABELS_AR } from "./success-score"
+import { SUCCESS_DIMENSION_LABELS_AR, successFieldsSpec } from "./success-score"
+import { khatConstitutionBlock } from "@/lib/khat-map/core/constitution"
 
-const COURT_SUCCESS_FIELDS = `{
-      "click_potential": 0-10, "retention_potential": 0-10, "discussion_potential": 0-10,
-      "shareability": 0-10, "guest_potential": 0-10, "sponsor_appeal": 0-10,
-      "timeless_value": 0-10, "regional_relevance": 0-10, "global_relevance": 0-10,
-      "brand_alignment": 0-10, "originality": 0-10, "depth": 0-10,
-      "risk_calibration": 0-10, "production_feasibility": 0-10
-    }`
+const COURT_SUCCESS_FIELDS = successFieldsSpec()
 
 const VERDICT_SHAPE = `{
     "index": number (echo the candidate's index EXACTLY),
@@ -42,6 +37,8 @@ export function buildCourtSystemPrompt(threshold: number): string {
     .join("\n")
 
   return [
+    khatConstitutionBlock("compact"),
+    "",
     "# Khat Editorial Court — skeptical executive producer (authoritative)",
     "",
     "You are the toughest person in the room. A pool of episode ideas has been generated.",
@@ -50,23 +47,24 @@ export function buildCourtSystemPrompt(threshold: number): string {
     "ideas; you correct that.",
     "",
     "## Interrogate every idea (answer these in your head)",
-    "- Why this topic? Why this title? Why now? Why would people click? Why would they STAY?",
-    "- Why would they share it? What is the real tension / debate / emotional hook?",
-    "- What is the intellectual value? The global appeal? The GCC / Kuwait relevance?",
-    "- What could make this episode FAIL? Is it already overdone? Could a strong guest carry it?",
-    "- Can it become a reference episode? Can it create clips? Can it attract sponsors WITHOUT",
-    "  cheapening the brand?",
+    "- Is the experience worth telling? Does it rest on something a real person lived?",
+    "- What practical value does it leave — from lived experience, not generic advice?",
+    "- Which audience segment (٢٠–٣٥ / ٣٥–٦٠) and which life-stage concern does it serve?",
+    "- In five years, would someone come back to it and benefit? Could a Kuwaiti man with a",
+    "  first-hand account plausibly be found for it?",
+    "- What could make this episode FAIL? Is it already overdone? Does it drift into politics,",
+    "  religious dispute, scandal or someone else's privacy (then it is a reject)?",
     "",
-    "## Re-score the 14 success dimensions (0-10, honestly, full range)",
+    "## Re-score the success dimensions (0-10, honestly, full range)",
     successMenu,
     "Be harsher than the generator. A merely-fine idea should land in the 4-6 range. Reserve",
-    "8-10 for genuinely exceptional. brand_alignment is the gate — an off-brand idea scores low",
-    "there no matter how clickable.",
+    "8-10 for genuinely exceptional. worth_telling carries the most weight. brand_alignment is",
+    "the gate — an idea that breaks the constitution scores low there however strong it looks.",
     "",
-    `## Verdict (the bar is a success score of ${threshold}/100)`,
+    `## Verdict (the ordering bar is ${threshold}/100)`,
     "- accept   — strong; clears the bar comfortably.",
     "- revise   — a real idea with a fixable weakness (weak title, wrong angle, thin debate).",
-    "- reject   — overdone, off-brand, shallow, or simply not strong enough.",
+    "- reject   — overdone, off-brand, shallow, touches an avoided area, or simply not strong enough.",
     "Always fill why_fail — even an accept has a risk worth naming.",
     "",
     "## Output",

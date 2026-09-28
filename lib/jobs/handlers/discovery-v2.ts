@@ -110,6 +110,11 @@ function buildEvidence(c: V2Candidate): DiscoveryEvidenceUrl[] {
   }
   // Verified story evidence first: the quote passed the verbatim guard.
   for (const e of c.story?.evidence ?? []) push("story", e.url, e.domain ?? "مصدر القصة", e.quote)
+  // Where the harvest found him / his X profile (D1 / D5) — a lead, labelled
+  // as such; the verified quote above is the evidence.
+  if (c.public_account_ref && /^https?:\/\//.test(c.public_account_ref) && c.origin !== "propose") {
+    push(c.origin === "x_list" ? "x" : "harvest", c.public_account_ref, c.origin === "x_list" ? "حساب X (قائمة منسّقة)" : "وُجد فيه يروي تجربته")
+  }
   if (trusted) {
     push("wikipedia_ar", c.wiki.wikipedia_ar_url, c.name, c.wiki.summary)
     push("wikipedia", c.wiki.wikipedia_url, c.name_en ?? c.name, c.wiki.summary)
@@ -227,6 +232,10 @@ registerHandler<V2RunPayload>("discovery_v2.run", async (payload) => {
             // Story-first: verified evidence + flags (identity/filter).
             story: c.story ?? null,
             flags: c.flags ?? [],
+            // Where the name came from (propose / harvest_web / x_list) and
+            // where he told it himself — a lead unless the story verified it.
+            origin: c.origin ?? "propose",
+            public_account_ref: c.public_account_ref ?? null,
           },
         } as never,
       })

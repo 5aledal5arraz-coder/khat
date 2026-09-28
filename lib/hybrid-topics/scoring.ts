@@ -1,51 +1,88 @@
 /**
- * Phase X Step 3 — Tie-breaker scoring for hybrid candidates.
+ * Ordering score for hybrid candidates (constitution, 2026-09-28).
  *
- * The model returns its own `estimated_strength_score`. We re-score on
- * top of that to bias toward:
- *   - depth (length of conflict/why_it_matters as a proxy for thought)
- *   - originality (lens diversity inside the batch)
- *   - signal-fit (worked-report bias toward strong topic_domains)
+ * The model self-scores the constitution's six dimensions 0–10 (`scores`);
+ * this module turns them into ONE number that orders the accepted list, plus
+ * the batch-diversity penalties (a repeated lens / archetype sinks a little).
+ * It never rejects and it is not a probability — the UI calls it «درجة
+ * الترتيب».
  *
- * Used to ORDER accepted topics so the strongest land in the top slots
- * of the candidate list — never to override a rejection.
+ * Retired with the constitution:
+ *   - depthScore — "long fields = more thought" measured character count,
+ *     not thought;
+ *   - STRONG/WEAK_DOMAIN bonuses — the Phase-8 worked-report ranks domains by
+ *     VIEWS, and Khat is not views-optimised.
  */
 
 import type { HybridCandidate } from "./reject"
-import type { WorkedReport } from "@/lib/khat-brain/performance-learning"
+import { SUCCESS_WEIGHTS } from "@/lib/khat-map/v2/success-score"
+
+/** The six constitution dimensions a hybrid topic is self-scored on. */
+export const KHAT_TOPIC_SCORE_KEYS = [
+  "worth_telling",
+  "human_experience",
+  "practical_value",
+  "segment_fit",
+  "library_value",
+  "guest_findability",
+] as const
+
+export type KhatTopicScoreKey = (typeof KHAT_TOPIC_SCORE_KEYS)[number]
+export type KhatTopicScores = Record<KhatTopicScoreKey, number>
 
 export interface ScoringContext {
-  worked_report: WorkedReport
   /** Lens diversity bias — penalize the 4th, 5th… use of the same lens in one batch. */
   batchLensCounts: Map<string, number>
   /** Archetype (episode-shape) diversity bias — penalize a repeated shape. */
   batchArchetypeCounts?: Map<string, number>
 }
 
-const STRONG_DOMAIN_BONUS = 0.12
-const WEAK_DOMAIN_PENALTY = 0.08
 const LENS_REPEAT_PENALTY = 0.05
 // Archetype repeats bite sooner than lenses (fewer shapes; a repeated shape
 // hurts diversity more) — the 3rd use of a shape starts to ding.
 const ARCHETYPE_REPEAT_PENALTY = 0.06
 
+/**
+ * Coerce the model's `scores` object. Missing / non-numeric → null for the
+ * whole object when NO key is usable (the caller then falls back to the
+ * legacy self-rating), otherwise each missing key is a neutral 5.
+ */
+export function clampTopicScores(raw: unknown): KhatTopicScores | null {
+  if (!raw || typeof raw !== "object") return null
+  const o = raw as Record<string, unknown>
+  let usable = 0
+  const out = {} as KhatTopicScores
+  for (const k of KHAT_TOPIC_SCORE_KEYS) {
+    const n = Number(o[k])
+    if (o[k] !== null && o[k] !== undefined && o[k] !== "" && Number.isFinite(n)) {
+      out[k] = Math.max(0, Math.min(10, n))
+      usable++
+    } else {
+      out[k] = 5
+    }
+  }
+  return usable > 0 ? out : null
+}
+
+/** Weighted average of the six dimensions, in [0, 1]. worth_telling weighs most. */
+export function khatTopicScore(scores: KhatTopicScores): number {
+  let acc = 0
+  let sum = 0
+  for (const k of KHAT_TOPIC_SCORE_KEYS) {
+    const w = SUCCESS_WEIGHTS[k]
+    acc += w * scores[k]
+    sum += w
+  }
+  return clamp01(acc / sum / 10)
+}
+
 export function rescoreHybridCandidate(
   c: HybridCandidate,
   ctx: ScoringContext,
 ): number {
-  let score = clamp01(c.estimated_strength_score ?? 0.5)
-
-  // Depth proxy: longer-but-not-rambling fields = more thought.
-  const depthSignal = depthScore(c)
-  score = clamp01(score * 0.7 + depthSignal * 0.3)
-
-  // Strong/weak domain bias from Phase 8 learning.
-  const strong = new Set(
-    ctx.worked_report.strong_topic_domains.map((d) => d.key),
-  )
-  const weak = new Set(ctx.worked_report.weak_topic_domains.map((d) => d.key))
-  if (strong.has(c.suggested_topic_domain)) score = clamp01(score + STRONG_DOMAIN_BONUS)
-  if (weak.has(c.suggested_topic_domain)) score = clamp01(score - WEAK_DOMAIN_PENALTY)
+  // The constitution's dimensions when the model gave them; the legacy
+  // 0..1 self-rating only for a reply that carried none.
+  let score = c.scores ? khatTopicScore(c.scores) : clamp01(c.estimated_strength_score ?? 0.5)
 
   // Lens-diversity penalty (the 4th use of the same lens in one batch
   // gets dinged so the editor sees variety).
@@ -60,21 +97,6 @@ export function rescoreHybridCandidate(
   }
 
   return Number(score.toFixed(3))
-}
-
-function depthScore(c: HybridCandidate): number {
-  const sum =
-    safeLen(c.why_it_matters) +
-    safeLen(c.why_now) +
-    safeLen(c.conflict_angle) +
-    safeLen(c.emotional_hook)
-  // 600 chars across the four fields is about where "real thought" tends
-  // to live; clamp into [0,1].
-  return clamp01(sum / 600)
-}
-
-function safeLen(s: string | null | undefined): number {
-  return typeof s === "string" ? Math.min(s.length, 200) : 0
 }
 
 function clamp01(v: number): number {

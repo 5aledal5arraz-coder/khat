@@ -91,6 +91,11 @@ export function WizardCard({
   const headline = intel?.recommended_title || topic.working_title
   const altTitles = (intel?.titles ?? []).filter((t) => t.text && t.text !== headline)
   const dims = intel?.success_dimensions ?? null
+  // Rows scored before «دستور خط» (2026-09-28) carry the old 14 keys: the new
+  // breakdown shows «غير مقيّم» for them instead of a fake 0, and the notes
+  // keep their old meaning (global_note was «الصلة العالمية» then).
+  const preConstitution = !!dims && dims.worth_telling == null
+  const guestScore = dims?.guest_findability ?? dims?.guest_potential ?? null
   const successScore = topic.success_score
   const band = successScore != null ? successBand(successScore) : null
   const belowThreshold = successScore != null && successScore < SUCCESS_THRESHOLD
@@ -126,14 +131,14 @@ export function WizardCard({
             {topic.topic_angle_code}
           </span>
         )}
-        {/* Success Probability (editorial path) — falls back to RAF composite. */}
+        {/* Ordering score (editorial path) — falls back to RAF composite. It orders the list; it is not a probability. */}
         {successScore != null ? (
           <span
             className={
               "ml-auto inline-flex items-center gap-1 rounded-md border px-1.5 py-0.5 font-bold tabular-nums " +
               bandClasses(band)
             }
-            title="احتمالية النجاح (0-100، داخلي)"
+            title="درجة ترتيب داخلية (0-100) — تُرتّب القائمة فقط، وليست احتمال نجاح"
           >
             <Target className="h-3 w-3" />
             {Math.round(successScore)}
@@ -142,7 +147,7 @@ export function WizardCard({
           topic.composite_score != null && (
             <span
               className="ml-auto inline-flex items-center gap-1 rounded-md border border-indigo-500/30 bg-indigo-500/5 px-1.5 py-0.5 font-semibold text-indigo-700"
-              title="ملاءمة جمهور الخليج (داخلي)"
+              title="درجة ترتيب قديمة (داخلي) — ليست احتمال نجاح"
             >
               <Target className="h-3 w-3" />
               {topic.composite_score.toFixed(1)}
@@ -190,7 +195,7 @@ export function WizardCard({
           <AlertTriangle className="mt-0.5 h-3.5 w-3.5 flex-shrink-0 text-amber-700" />
           <div className="text-[11px] leading-relaxed text-amber-700">
             <span className="font-semibold">بدون إثراء تحريري</span> — لم يكتمل
-            التصنيف ولا احتمالية النجاح ولا المحاور لهذا المرشّح. المحتوى الأساسي
+            التصنيف ولا درجة الترتيب ولا المحاور لهذا المرشّح. المحتوى الأساسي
             فقط متاح.
           </div>
         </div>
@@ -232,13 +237,13 @@ export function WizardCard({
         </div>
       )}
 
-      {/* Regional fit note — admin-internal "why it lands in the GCC". */}
+      {/* Audience note — admin-internal: which segment + life-stage concern it serves. */}
       {topic.regional_note && (
         <div className="mx-5 mt-3 flex items-start gap-2 rounded-xl border border-indigo-500/20 bg-indigo-500/5 p-3">
           <Globe2 className="mt-0.5 h-3.5 w-3.5 flex-shrink-0 text-indigo-700" />
           <div>
             <div className="text-[9.5px] font-semibold uppercase tracking-[0.15em] text-indigo-700/80">
-              ملاءمة جمهور الخليج
+              ملاءمة الجمهور
             </div>
             <p className="mt-0.5 text-[12px] leading-relaxed text-foreground/85">
               {topic.regional_note}
@@ -298,7 +303,12 @@ export function WizardCard({
 
           {/* Global reach note (regional note is rendered above) */}
           {intel.global_note && (
-            <MiniNote icon={Globe2} tone="sky" label="الصلة العالمية" text={intel.global_note} />
+            <MiniNote
+              icon={Globe2}
+              tone="sky"
+              label={preConstitution ? "الصلة العالمية" : "قيمة مرجعية تبقى"}
+              text={intel.global_note}
+            />
           )}
 
           {/* Suggested questions */}
@@ -353,8 +363,8 @@ export function WizardCard({
             {intel.clip_potential && (
               <Chip icon={Scissors} tone="violet" label="قابلة للمقاطع" />
             )}
-            {dims?.guest_potential != null && (
-              <Chip tone="slate" label={`ضيف ${Math.round(dims.guest_potential)}/10`} />
+            {guestScore != null && (
+              <Chip tone="slate" label={`ضيف ${Math.round(guestScore)}/10`} />
             )}
             {topic.risk_level && (
               <Chip tone="slate" label={`جرأة: ${riskLabel(topic.risk_level)}`} />
@@ -367,18 +377,18 @@ export function WizardCard({
             )}
           </div>
 
-          {/* Full 14-dimension success breakdown (collapsible) */}
+          {/* Full success-dimension breakdown (collapsible) */}
           {dims && (
             <details className="group/dims rounded-xl border border-border/30 bg-muted/5">
               <summary className="flex cursor-pointer select-none items-center justify-between gap-2 px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground hover:text-foreground">
                 <span className="flex items-center gap-1">
-                  <Gauge className="h-3 w-3" /> تفاصيل التقييم · 14 معياراً
+                  <Gauge className="h-3 w-3" /> تفاصيل التقييم · {SUCCESS_DIMENSION_ORDER.length} معايير
                 </span>
                 <ChevronDown className="h-3.5 w-3.5 transition-transform group-open/dims:rotate-180" />
               </summary>
               <div className="grid grid-cols-1 gap-x-4 gap-y-1.5 px-3 pb-3 pt-1 sm:grid-cols-2">
                 {SUCCESS_DIMENSION_ORDER.map((d) => (
-                  <DimRow key={d} dim={d} value={Number(dims[d] ?? 0)} />
+                  <DimRow key={d} dim={d} value={dims[d] == null ? null : Number(dims[d])} />
                 ))}
               </div>
             </details>
@@ -601,13 +611,23 @@ function Chip({
   )
 }
 
-// The 14 dimensions in priority (weight) order — highest-weighted first.
+// The success dimensions in priority (weight) order — highest-weighted first.
 const SUCCESS_DIMENSION_ORDER = (
   Object.keys(SUCCESS_WEIGHTS) as SuccessDimension[]
 ).sort((a, b) => SUCCESS_WEIGHTS[b] - SUCCESS_WEIGHTS[a])
 
-/** One row of the 14-dimension breakdown: label · bar · value/10. */
-function DimRow({ dim, value }: { dim: SuccessDimension; value: number }) {
+/** One row of the success-dimension breakdown: label · bar · value/10. */
+function DimRow({ dim, value }: { dim: SuccessDimension; value: number | null }) {
+  if (value == null || !Number.isFinite(value)) {
+    return (
+      <div className="flex items-center gap-2" data-dim-unscored>
+        <span className="w-[88px] shrink-0 truncate text-[10.5px] text-muted-foreground">
+          {SUCCESS_DIMENSION_LABELS_AR[dim]}
+        </span>
+        <span className="flex-1 text-[10.5px] text-muted-foreground">غير مقيّم</span>
+      </div>
+    )
+  }
   const v = Math.max(0, Math.min(10, value))
   const barColor = v >= 7 ? "bg-emerald-500" : v >= 4 ? "bg-amber-500" : "bg-rose-500"
   return (

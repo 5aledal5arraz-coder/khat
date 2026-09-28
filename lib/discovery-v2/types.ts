@@ -53,7 +53,30 @@ export interface V2RunInput {
   runId?: string | null
 }
 
-/** A raw name proposal from the LLM (pre-verification). */
+/**
+ * Where a name came from. `propose` = the LLM from memory (a hypothesis);
+ * `harvest_web` = a grounded search of Kuwaiti press/podcasts/talks that
+ * found him telling it himself (D1 — arrives WITH its sources);
+ * `x_list` = a member of a curated lived-experience X list whose bio matches
+ * the topic (D5).
+ */
+export type ProposedOrigin = "propose" | "harvest_web" | "x_list"
+
+/**
+ * A witness profile (D2): the KIND of person who lived this topic and where
+ * such a person would have told it. Written by a cheap model call before
+ * propose; it steers propose + the grounded harvest, and never scores.
+ */
+export interface WitnessProfile {
+  /** «رجل كويتي خسر تجارته في الأزمة ثم بدأ من جديد» */
+  profile: string
+  /** Where such a man tells it: «مقابلة صحفية»، «بودكاست كويتي»، «TEDx Kuwait»… */
+  where_told: string[]
+  /** 2–5 short Arabic search words for this experience. */
+  search_terms: string[]
+}
+
+/** A raw name proposal (pre-verification). */
 export interface ProposedName {
   name: string
   name_en?: string | null
@@ -77,6 +100,19 @@ export interface ProposedName {
    * before any paid step; verification still reads Wikidata / sources.
    */
   gender?: "male" | "female" | null
+  /** Absent = "propose". */
+  origin?: ProposedOrigin
+  /**
+   * Where he told it himself (v2-propose-7: required from the model; a URL
+   * for harvested names). A hypothesis like story_claim until the story
+   * check verifies a quote — it never scores.
+   */
+  public_account_ref?: string | null
+  /**
+   * Harvested names only: the live sources the harvest already found him in.
+   * The story check classifies these instead of paying for a second search.
+   */
+  harvest_sources?: StorySource[]
 }
 
 /** Structured facts confirmed by Wikidata/Wikipedia. */
@@ -233,6 +269,13 @@ export interface StoryAssessment {
    * money. S counts fully only when on_topic (storyScore in score.ts).
    */
   topic_relevance?: TopicRelevance | null
+  /**
+   * D3 — did HE tell it (interview, his own post/talk/book) or was it written
+   * about him by others? Backed by a verified verbatim quote like every other
+   * attribute; absent = not established. A first-hand story that is NOT
+   * self-told counts like a story told by others (score.ts).
+   */
+  self_told?: { value: boolean; url: string; quote: string } | null
 }
 
 export type TopicRelevanceValue = "on_topic" | "adjacent" | "off_topic"
@@ -358,6 +401,10 @@ export interface V2Candidate {
   reasons: string[]
   /** Optional only for rows scored before story-first; the pipeline always sets it. */
   story?: StoryAssessment
+  /** Where the name came from (absent on rows scored before 2026-09-28). */
+  origin?: ProposedOrigin
+  /** Where he told it himself — a hypothesis unless the story check verified it. */
+  public_account_ref?: string | null
   flags?: V2Flag[]
   /**
    * Optional live-web verification — present only for top advanced candidates

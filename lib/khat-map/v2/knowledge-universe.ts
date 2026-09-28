@@ -366,3 +366,80 @@ export function subcategoryCountByCategory(): Record<SeasonCategoryId, number> {
   }
   return out
 }
+
+// ─── Constitution policy + lens fit (2026-09-28) ─────────────────────────────
+
+/**
+ * Territories the constitution forbids (politics, religious/sectarian
+ * dispute, scandal, war-as-geopolitics). They stay in the universe so stored
+ * candidates tagged with them still resolve and render, but the exploration
+ * map NEVER samples them and the generation menu never offers them. War and
+ * captivity as a LIVED experience are allowed — they live in the constitution
+ * fields («الحروب واللجوء», «الأسر والمعتقلات»), not here.
+ */
+export const FORBIDDEN_TERRITORY_IDS: ReadonlySet<string> = new Set([
+  // real_world — geopolitics, movements, narrative wars, scandal
+  "geopolitical_shifts",
+  "regional_conflicts",
+  "social_movements",
+  "media_and_narrative_wars",
+  "scandals_and_accountability",
+  // history — power, war, religion as dispute
+  "islamic_history",
+  "history_of_power",
+  "history_of_war",
+  "history_of_religion",
+  // business — named powerful families (privacy / scandal)
+  "wealth_and_power_families",
+  // controversial — the debate-for-its-own-sake territories
+  "religion_and_doubt",
+  "freedom_vs_order",
+  "gender_debates",
+  "science_vs_belief",
+  "censorship_and_speech",
+  "identity_politics",
+  // future — war
+  "future_of_war",
+])
+
+export type TerritoryPolicy = "allowed" | "forbidden"
+
+export function territoryPolicy(id: string | null | undefined): TerritoryPolicy {
+  return id && FORBIDDEN_TERRITORY_IDS.has(id.trim().toLowerCase()) ? "forbidden" : "allowed"
+}
+
+/**
+ * How well a category carries the constitution's lens «تجارب إنسانية مؤثرة»
+ * — the sampling weight of its territories in the exploration map. A human
+ * story or a life-stage concern is the lens itself; cosmology and futurism
+ * rarely rest on something a real person lived. Weights only BIAS the draw
+ * (nothing reaches 0 except forbidden territories), so variety survives.
+ */
+export const LENS_FIT_BY_CATEGORY: Record<SeasonCategoryId, number> = {
+  human_stories: 3,
+  psychology: 2,
+  social_issues: 2,
+  business: 2,
+  personal_finance: 2,
+  health: 2,
+  self_development: 1.5,
+  culture: 1.5,
+  lifestyle: 1.5,
+  history: 1,
+  technology: 1,
+  real_world: 1,
+  controversial: 0.5,
+  science: 0.5,
+  future: 0.5,
+}
+
+/** Lens-fit weight for a category id (unknown → 1). */
+export function lensFit(category: string | null | undefined): number {
+  if (!category) return 1
+  return LENS_FIT_BY_CATEGORY[category as SeasonCategoryId] ?? 1
+}
+
+/** The subcategories a generator may be offered / sampled (forbidden removed). */
+export function allowedSubcategoriesFor(category: string | null | undefined): readonly KnowledgeSubcategory[] {
+  return subcategoriesFor(category).filter((s) => !FORBIDDEN_TERRITORY_IDS.has(s.id))
+}

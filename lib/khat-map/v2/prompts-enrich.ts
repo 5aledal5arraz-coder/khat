@@ -5,7 +5,7 @@
  *
  * One gpt-4o pass classifies each topic into the Knowledge Universe (category +
  * subcategory), refracts it through Thinking Lenses, writes the full headline
- * set, AND acts as the Editorial Court — scoring the 14 success dimensions and
+ * set, AND acts as the Editorial Court — scoring the constitution's success dimensions and
  * answering the critique. This is how the live wizard's guided topics gain the
  * same world-class editorial layer as the editorial engine, without discarding
  * the market-signal reasoning that produced them.
@@ -19,7 +19,8 @@ import {
 } from "./prompts-editorial"
 import { buildHeadlinePrinciplesBlock } from "./headline-principles"
 import { buildPodcastPrinciplesBlock } from "./podcast-principles"
-import { SUCCESS_DIMENSION_LABELS_AR } from "./success-score"
+import { SUCCESS_DIMENSION_LABELS_AR, successFieldsSpec } from "./success-score"
+import { khatConstitutionBlock } from "@/lib/khat-map/core/constitution"
 
 export interface EnrichTopicInput {
   index: number
@@ -33,13 +34,7 @@ export interface EnrichTopicInput {
   topic_domain: string
 }
 
-const SUCCESS_FIELDS = `{
-      "click_potential": 0-10, "retention_potential": 0-10, "discussion_potential": 0-10,
-      "shareability": 0-10, "guest_potential": 0-10, "sponsor_appeal": 0-10,
-      "timeless_value": 0-10, "regional_relevance": 0-10, "global_relevance": 0-10,
-      "brand_alignment": 0-10, "originality": 0-10, "depth": 0-10,
-      "risk_calibration": 0-10, "production_feasibility": 0-10
-    }`
+const SUCCESS_FIELDS = successFieldsSpec()
 
 const TITLE_FIELDS = `{
       "premium": string, "curiosity": string, "controversial": string, "emotional": string,
@@ -70,6 +65,8 @@ export function buildEnrichSystemPrompt(): string {
     .map(([k, ar]) => `  · ${k} (${ar})`)
     .join("\n")
   return [
+    khatConstitutionBlock("compact"),
+    "",
     "# Khat Editorial Intelligence — enrich existing topics (authoritative)",
     "",
     "You are at once a GCC cultural editor, a newspaper headline editor, a YouTube strategist,",
@@ -90,8 +87,9 @@ export function buildEnrichSystemPrompt(): string {
     "3. Write the full title set (one per angle) and recommend the strongest with a reason.",
     "4. Add 2-4 main axes, 3-5 questions, the debate axis, the viral angle, and the regional",
     "   + global notes.",
-    "5. Act as the Editorial Court: score all 14 success dimensions HONESTLY (full range; be",
-    "   harsher than a generator — reserve 8-10 for the exceptional; brand_alignment is the gate):",
+    "5. Act as the Editorial Court: score every success dimension HONESTLY (full range; be",
+    "   harsher than a generator — reserve 8-10 for the exceptional; worth_telling weighs most;",
+    "   brand_alignment is the gate):",
     successMenu,
     "   Then answer: why it would succeed, why it would fail (never empty), is it overdone,",
     "   could it become a reference episode, does it contain a shareable clip moment.",

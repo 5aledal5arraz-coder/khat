@@ -50,6 +50,7 @@ export default async function V2RunPage({
       grounded: (v2.grounded as V2CardData["grounded"]) ?? null,
       story: (v2.story as V2CardData["story"]) ?? null,
       flags: (v2.flags as V2CardData["flags"]) ?? [],
+      origin: (v2.origin as V2CardData["origin"]) ?? null,
       links: (r.evidence_urls ?? []).map((e) => ({ platform: e.platform, url: e.url, title: e.title })),
     }
   })
@@ -68,7 +69,7 @@ export default async function V2RunPage({
   const rejected = cards.filter((c) => c.decision === "rejected")
   const stats =
     (run.source_config as {
-      v2_stats?: Record<string, number>
+      v2_stats?: Record<string, number | string | null>
       v2_error?: string
       v2_error_kind?: string
     } | null) ?? {}
@@ -93,6 +94,12 @@ export default async function V2RunPage({
           {runStatusLabel(run.status)} · {formatDateTime(run.created_at)}
           {stats.v2_stats ? ` · ${stats.v2_stats.proposed ?? 0} مقترح → ${stats.v2_stats.resolved ?? 0} محقّق → ${strong.length} قويّ + ${review.length} للمراجعة + ${shortlist.length} مختصرة` : ""}
         </div>
+        {/* D5: X refused (402 wallet / 429 rate limit) — the run went on without it. */}
+        {stats.v2_stats?.x_degraded ? (
+          <p className="mt-2 text-[11px] text-amber-700" data-x-degraded>
+            تعذّر البحث في X في هذا التشغيل ({String(stats.v2_stats.x_degraded)}) — أُكمل التشغيل بدونه.
+          </p>
+        ) : null}
         {failed && (
           <div className="mt-3 rounded-xl border border-rose-500/30 bg-rose-500/5 p-3">
             <p className="text-[12.5px] font-semibold text-rose-700">{failureMessage}</p>

@@ -259,7 +259,7 @@ export function HybridGenerateButton({
                 <span className="font-semibold tabular-nums">
                   {jobResult.generated_for_review}
                 </span>{" "}
-                مرشّحات وصلت بدون إثراء تحريري — بلا احتمالية نجاح ولا محاور ولا
+                مرشّحات وصلت بدون إثراء تحريري — بلا درجة ترتيب ولا محاور ولا
                 عدسات. تظهر في المراجعة بعلامة «بدون إثراء تحريري». أعد التوليد
                 إذا كنت تحتاج التقييم الكامل.
               </p>

@@ -30,6 +30,8 @@ import type { RawStoryClassification } from "@/lib/discovery-v2/story-classify"
 
 const h = vi.hoisted(() => ({
   proposal: [] as unknown[],
+  /** the witness-profiles reply (D2) — none by default: the harvest then skips */
+  witness: [] as unknown[],
   classify: new Map<string, unknown>(),
   web: new Map<string, unknown[]>(),
   wiki: new Map<string, unknown>(),
@@ -85,6 +87,10 @@ vi.mock("@/lib/ai-router", () => ({
       timeoutMs: req.timeoutMs,
       maxRetries: req.maxRetries,
     })
+    if (req.taskKind === "structural") {
+      // D2 witness profiles (witness.ts) — answered explicitly, never a classify.
+      return { status: "succeeded", runId: "witness-run", parsed: { profiles: h.witness } }
+    }
     if (req.taskKind === "discovery") {
       const i = h.proposeCalls++
       if (h.proposeDelayMs) vi.setSystemTime(Date.now() + h.proposeDelayMs)
@@ -113,7 +119,11 @@ vi.mock("@/lib/ai/grounded-evidence", async (importActual) => {
       h.gatherLog.push({ at: Date.now(), timeoutMs: opts?.timeoutMs })
       if (h.gatherDelayMs) vi.setSystemTime(Date.now() + h.gatherDelayMs)
       if ([...h.webFail].some((n) => q.includes(`"${n}"`))) throw new Error("daily grounded budget exhausted")
-      const hit = [...h.web.entries()].find(([name]) => q.includes(`"${name}"`))
+      // Per-person story queries quote the name; a "harvest:<words>" key
+      // answers the D1 harvest query that contains <words>.
+      const hit = [...h.web.entries()].find(([name]) =>
+        name.startsWith("harvest:") ? q.includes(name.slice(8)) : q.includes(`"${name}"`),
+      )
       return {
         sources: (hit?.[1] ?? []) as GroundedSource[],
         provenance: { provider: "gemini", model: "gemini-test" },
@@ -123,6 +133,11 @@ vi.mock("@/lib/ai/grounded-evidence", async (importActual) => {
     }),
   }
 })
+
+// D5 — X is off in these tests (no network, no token); x-lists has its own tests.
+vi.mock("@/lib/discovery-v2/sources/x-lists", () => ({
+  harvestXListNames: vi.fn(async () => ({ names: [], calls: 0, users_read: 0, degraded: null, est_cost_usd: null })),
+}))
 
 vi.mock("@/lib/discovery-v2/sources/wikidata", () => ({
   resolvePerson: vi.fn(async (name: string) => (h.wiki.get(name) as WikiFacts) ?? { resolved: false }),
@@ -159,6 +174,7 @@ import {
   runV2Discovery,
 } from "@/lib/discovery-v2/pipeline"
 import { PROPOSE_MAX_OUTPUT_TOKENS, PROPOSE_PROMPT_VERSION } from "@/lib/discovery-v2/propose"
+import { khatConstitutionBlock } from "@/lib/khat-map/core/constitution"
 import { scoreCandidate } from "@/lib/discovery-v2/score"
 import { verifyStoryClassification, STORY_MIN_QUOTE_WORDS } from "@/lib/discovery-v2/story-classify"
 import {
@@ -360,6 +376,7 @@ function setupF1F2() {
 const ENV = { ...process.env }
 beforeEach(() => {
   h.proposal = []
+  h.witness = []
   h.classify.clear()
   h.web.clear()
   h.wiki.clear()
@@ -1268,24 +1285,108 @@ describe("gender filter is strict", () => {
     expect(h.enrichCalls).toContain(FW)
   })
 
-  it("the propose prompt states the filter as a prohibition, caps public figures, and is v2-propose-6", async () => {
+  it("the propose prompt states the filter as a prohibition, drops the story quota, and is v2-propose-7", async () => {
     h.proposal = []
     await runV2Discovery(input({ filters: { gender: "female" } }))
     const call = h.aiCalls.find((c) => c.taskKind === "discovery")!
-    expect(PROPOSE_PROMPT_VERSION).toBe("v2-propose-6")
-    expect(call.promptVersion).toBe("v2-propose-6")
-    // The rules that must survive the v2-propose-5 trim.
-    expect(call.system).toContain("story_claim فرضية ستُفحص لاحقاً")
+    expect(PROPOSE_PROMPT_VERSION).toBe("v2-propose-7")
+    expect(call.promptVersion).toBe("v2-propose-7")
+    // The constitution (compact) is the first block.
+    expect(call.system.startsWith(khatConstitutionBlock("compact"))).toBe(true)
+    // The rules that must survive.
+    expect(call.system).toContain("فرضيتان ستُفحصان لاحقاً")
     expect(call.system).toContain("لا تختلق")
     expect(call.system).toContain("نساء فقط")
     expect(call.system).toContain("لا تقترح أيّ رجل")
-    expect(call.system).toContain("ثلثا القائمة على الأقل")
-    expect(call.system).toContain("ربع القائمة على الأكثر")
+    // Worth telling, not a quota (Khaled 2026-09-28): the two-thirds rule and
+    // the public-figure cap are gone; politicians / court cases / exposing
+    // others are excluded; every proposal names where he told it.
+    expect(call.system).not.toContain("ثلثا القائمة")
+    expect(call.system).not.toContain("ربع القائمة")
+    expect(call.system).toContain("تستحق أن تُروى")
+    expect(call.system).toContain("السياسيين")
+    expect(call.system).toContain("قضية منظورة أمام المحاكم")
+    expect(call.system).toContain("تفضح غيره")
+    expect(call.system).toContain("public_account_ref")
     h.aiCalls = []
     await runV2Discovery(input({ filters: { gender: "male" }, taste: "famous" }))
     const m = h.aiCalls.find((c) => c.taskKind === "discovery")!
     expect(m.system).toContain("لا تقترح أيّ امرأة")
-    expect(m.system).toContain("أقلّ من نصف القائمة")
+  })
+
+  it("witness profiles steer propose (D2) and every discovery call carries the run id", async () => {
+    h.witness = [
+      { profile: "رجل كويتي خسر تجارته ثم بدأ من جديد", where_told: ["بودكاست كويتي"], search_terms: ["إفلاس"] },
+      { profile: "أب كويتي ربّى أبناءه وحده بعد وفاة زوجته", where_told: ["مقابلة صحفية"], search_terms: ["أرمل"] },
+    ]
+    h.proposal = [FW_PROPOSED]
+    setupFW()
+    await runV2Discovery(input({ runId: "run-telemetry" }))
+    const witnessCall = h.aiCalls.find((c) => c.taskKind === "structural")!
+    expect(witnessCall.promptVersion).toBe("v2-witness-1")
+    expect(witnessCall.maxRetries).toBe(0)
+    const call = h.aiCalls.find((c) => c.taskKind === "discovery")!
+    expect(call.system).toContain("رجل كويتي خسر تجارته ثم بدأ من جديد")
+    expect(call.system).toContain("يرويها عادة في: بودكاست كويتي")
+    const { runAiTask } = await import("@/lib/ai-router")
+    const reqs = vi.mocked(runAiTask).mock.calls.map((c) => c[0] as { subjectTable?: string; subjectId?: string })
+    expect(reqs.length).toBeGreaterThan(0)
+    for (const r of reqs.slice(-h.aiCalls.length)) {
+      expect(r.subjectTable).toBe("discovery_runs")
+      expect(r.subjectId).toBe("run-telemetry")
+    }
+  })
+
+  it("a harvested name (D1) is story-checked from its own sources — no second search", async () => {
+    h.witness = [{ profile: "رجل كويتي خسر تجارته ثم بدأ من جديد", where_told: [], search_terms: ["إفلاس"] }]
+    const HARVESTED = "سالم عبدالله المطيري"
+    const quote = "أنا سالم عبدالله المطيري خسرت تجارتي كلها عام ٢٠٠٨ ثم بدأت من الصفر"
+    const src = {
+      title: "مقابلة القبس",
+      url: "https://alqabas.com/harvest-1",
+      domain: "alqabas.com",
+      snippet: quote,
+      verified: true,
+    }
+    // The harvest search: any query that is not a per-person story query.
+    h.web.set("harvest:رجال كويتيين", [src])
+    h.proposal = []
+    const { runAiTask } = await import("@/lib/ai-router")
+    const base = vi.mocked(runAiTask).getMockImplementation()!
+    vi.mocked(runAiTask).mockImplementation(async (req) => {
+      if (req.promptVersion === "v2-harvest-extract-1") {
+        return {
+          status: "succeeded",
+          runId: "harvest-extract",
+          parsed: { people: [{ name: HARVESTED, source: 1, quote, story_claim: "خسر تجارته ثم بدأ من جديد" }] },
+        } as never
+      }
+      return base(req)
+    })
+    try {
+      h.classify.set(HARVESTED, {
+        story_type: "first_hand",
+        evidence: [{ source: 1, quote }],
+        topic_relevance: { value: "on_topic", source: 1, quote },
+        self_told: { value: true, source: 1, quote },
+        same_person: true,
+      })
+      const before = h.gatherQueries.length
+      const r = await runV2Discovery(input())
+      const c = byName(r.candidates, HARVESTED)!
+      expect(c).toBeDefined()
+      expect(c.origin).toBe("harvest_web")
+      expect(c.public_account_ref).toBe(src.url)
+      expect(c.story?.status).toBe("verified")
+      // Only the ONE harvest search ran — no per-person story search for him.
+      const queries = h.gatherQueries.slice(before)
+      expect(queries).toHaveLength(1)
+      expect(queries[0]).not.toContain(`"${HARVESTED}"`)
+      expect(r.stats.harvested_web).toBe(1)
+      expect(r.stats.harvest_queries).toBe(1)
+    } finally {
+      vi.mocked(runAiTask).mockImplementation(base)
+    }
   })
 })
 
@@ -1792,10 +1893,12 @@ describe("propose top-up — one follow-up call when the reply is short", () => 
 
   it("with some budget left, the top-up gets only what the budget can spare", async () => {
     vi.useFakeTimers({ toFake: ["Date"] })
-    h.proposeDelayMs = 500_000 // first call took 500s → 900 − 500 − 240 = 160s spare
+    // first call took 560s → 960 − 560 − 240 = 160s spare (budget 960s since batch 2)
+    h.proposeDelayMs = 560_000
     h.proposals = [names("شاهد", 7), []]
     await runV2Discovery(input())
     expect(proposeCalls()).toHaveLength(2)
+    expect(proposeCalls()[1].timeoutMs).toBe(DISCOVERY_JOB_BUDGET_MS - 560_000 - POST_PROPOSE_RESERVE_MS)
     expect(proposeCalls()[1].timeoutMs).toBe(160_000)
   })
 

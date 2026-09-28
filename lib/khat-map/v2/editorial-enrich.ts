@@ -205,7 +205,7 @@ async function runSingleEnrichCall(
       // per-topic calls don't serialise against each other. The tier concurrency
       // cap (counted by task_kind) still governs the real budget.
       subjectId: null,
-      promptVersion: "khat-map-enrich-v1",
+      promptVersion: "khat-map-enrich-v2-constitution",
       input: { season_id: seasonId, index: topic.index },
       prompt: [
         { role: "system", content: buildEnrichSystemPrompt() },

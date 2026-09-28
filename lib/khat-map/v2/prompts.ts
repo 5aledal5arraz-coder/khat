@@ -1,8 +1,9 @@
 /**
  * Prompt builders for the Khat Map v2 batch + guest-first engines.
  *
- * All three prompts share the Khat editorial constitution so the
- * identity of the show stays consistent across v1 and v2. Each returns
+ * The batch + guest-anchored prompts open with «دستور خط» (the full
+ * constitution, lib/khat-map/core/constitution.ts) as their FIRST block, so
+ * the identity of the show is the same one every other generator reads. Each returns
  * a plain string — no I/O — which keeps the LLM wrappers trivial to
  * swap out in tests.
  */
@@ -27,7 +28,7 @@ const TOPIC_FIELDS = `{
     "why_now": string,
     "goal": string,
     "description": string,
-    "episode_type": one of "intellectual"|"social"|"psychological"|"personal_story"|"national"|"historical"|"economic"|"controversial"|"inspirational"|"mass_audience"|"signature_khat"|"invasion",
+    "episode_type": one of "intellectual"|"social"|"psychological"|"personal_story"|"national"|"historical"|"economic"|"controversial"|"inspirational"|"signature_khat"|"invasion",
     "topic_domain": one of "philosophy"|"psychology"|"relationships"|"religion"|"identity_masculinity"|"money_career"|"technology_ai"|"internet_culture"|"crime_mystery"|"hidden_history"|"power_manipulation"|"parenting"|"kuwait_gulf"|"historical"|"social_issues"|"modern_society"|"emotions_inner_life"|"none",
     "topic_angle_code": string | null,
     "main_axes": string[],
@@ -144,7 +145,7 @@ export function buildBatchSystemPrompt(
     "## Ironclad rules",
     "1. NEVER propose a topic that is a paraphrase, near-duplicate, or obvious variant of any title in 'Already chosen', 'Negative memory', OR 'Hard avoid'. If in doubt, pick a different angle.",
     "2. Diversify episode_type AND topic_domain across this batch — no more than 2 of either.",
-    "3. Honor the constitution's must-include rules across the SEASON (not every batch). Pull from under-represented editorial roles when possible.",
+    "3. Honor the constitution across the SEASON: no quotas, only VARIETY — spread fields, doors, both audience segments and shapes; never enter its avoid list.",
     phaseRule,
     "5. Set `editorial_score` honestly — this drives ranking. Use the full 0-10 range; don't give everything a 7.",
     "6. Respect the `Editorial controls` block above with the same weight as the constitution itself. Disabled domains MUST NOT appear; banned topics/guests MUST NOT appear; guest filters MUST be honored.",

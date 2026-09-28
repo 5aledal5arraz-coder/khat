@@ -73,6 +73,12 @@ export interface RawTopic {
   archetype?: string | null
   /** One line: why this angle is fresh / not the done-to-death version. */
   novelty_note?: string | null
+  /**
+   * The model's own constitution flags (lib/khat-map/core/policy.ts): any of
+   * politics | religious_dispute | scandal | privacy_intrusion. A flagged card
+   * is dropped by the editorial filter, like a lexicon hit.
+   */
+  sensitivity_flags?: string[]
   /** Finer classification under the category (knowledge-universe subcategory id). */
   subcategory?: string | null
   /** 2-5 thinking-lens ids the idea is refracted through. */

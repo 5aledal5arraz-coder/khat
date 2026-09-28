@@ -127,3 +127,65 @@ export async function searchRecentPosts(query: string, max = 10): Promise<XPost[
   })
   return mapPosts(j)
 }
+
+// ─── List graph (discovery D5) ───────────────────────────────────────────────
+
+export interface XListMember extends XUser {
+  /** How many X lists include this account — list density = listed / followers. */
+  listed_count: number
+}
+
+export interface XListMembersResult {
+  members: XListMember[]
+  /**
+   * HTTP status of the call (0 = network error / not configured). A 402
+   * (wallet empty) or 429 (rate limit) tells the caller to STOP spending calls
+   * this run — every other failure is just an empty page.
+   */
+  status: number
+}
+
+/**
+ * One page of an X list's members (app-only bearer; graph reads cost no post
+ * quota, measured 2026-08-07). Never throws.
+ */
+export async function getListMembers(listId: string, max = 100): Promise<XListMembersResult> {
+  const token = env.X_BEARER_TOKEN
+  if (!token || !/^\d+$/.test(listId)) return { members: [], status: 0 }
+  const url = new URL(`${API}/lists/${listId}/members`)
+  url.searchParams.set("max_results", String(Math.min(Math.max(max, 1), 100)))
+  url.searchParams.set("user.fields", "public_metrics,verified,verified_type,description,created_at,location")
+  const ctrl = new AbortController()
+  const t = setTimeout(() => ctrl.abort(), TIMEOUT_MS)
+  try {
+    const res = await fetch(url.toString(), {
+      headers: { Authorization: `Bearer ${token}` },
+      signal: ctrl.signal,
+    })
+    if (!res.ok) return { members: [], status: res.status }
+    const j = (await res.json()) as { data?: Array<Record<string, unknown>> }
+    const members = (Array.isArray(j.data) ? j.data : [])
+      .filter((d) => typeof d.id === "string")
+      .map((d) => {
+        const m = (d.public_metrics ?? {}) as Record<string, number>
+        return {
+          id: String(d.id),
+          username: String(d.username ?? ""),
+          name: String(d.name ?? ""),
+          description: typeof d.description === "string" ? d.description : null,
+          verified: Boolean(d.verified) || d.verified_type === "blue" || d.verified_type === "business",
+          followers: Number(m.followers_count) || 0,
+          following: Number(m.following_count) || 0,
+          tweet_count: Number(m.tweet_count) || 0,
+          created_at: typeof d.created_at === "string" ? d.created_at : null,
+          location: typeof d.location === "string" ? d.location : null,
+          listed_count: Number(m.listed_count) || 0,
+        }
+      })
+    return { members, status: res.status }
+  } catch {
+    return { members: [], status: 0 }
+  } finally {
+    clearTimeout(t)
+  }
+}

@@ -1,79 +1,59 @@
 /**
- * Success Probability — the evolution of Regional Audience Fit.
+ * Khat success score — the constitution's dimensions (2026-09-28).
  *
- * RAF (regional-fit.ts) scored 9 audience factors. The editorial engine scores a
- * richer FOURTEEN dimensions and returns a single 0-100 "would this be a great
- * Khat episode" probability. Each dimension is 0-10, self-scored by the
- * generator and then re-calibrated by the Editorial Court (the skeptical
- * producer). The composite is a priority-weighted average, gated by brand
- * alignment so a viral-but-off-brand idea can never top the ranking.
+ * The model self-scores each dimension 0-10 and the Editorial Court re-
+ * calibrates them; the composite is a priority-weighted average gated by
+ * brand alignment. It ORDERS the list — it is not a probability of success
+ * and the UI must not call it one.
  *
- * The 0-10 dimensions map 1:1 to the user-facing axes:
- *   click · retention · discussion · shareability · guest · sponsor · timeless ·
- *   regional · global · brand · originality · depth · risk-calibration · feasibility
+ * What changed with the constitution: Khat is not views-optimised. The old
+ * 14 dimensions led on click / retention / shareability / global relevance
+ * — popularity proxies. They are gone. What remains is what «دستور خط» asks:
  *
- * Pure math. No I/O. RAF stays available for the legacy audience-first path.
+ *   worth_telling (highest) · human_experience · practical_value ·
+ *   segment_fit · library_value · guest_findability · originality ·
+ *   brand_alignment (also the gate)
+ *
+ * Rows scored before this change carry the old keys; clampSuccessDimensions
+ * fills every missing key with a neutral 5, so they still render and rank.
+ *
+ * Pure math. No I/O.
  */
 
 export interface SuccessDimensions {
-  /** Will people click / press play? (thumbnail + title + premise pull) */
-  click_potential: number
-  /** Will they stay to the end? (depth, narrative, payoff) */
-  retention_potential: number
-  /** How much debate + conversation does it spark? */
-  discussion_potential: number
-  /** Share-ability — does it travel beyond the core audience? */
-  shareability: number
-  /** Can it land a strong, credible guest? */
-  guest_potential: number
-  /** Sponsor fit without cheapening the brand. */
-  sponsor_appeal: number
-  /** Lasting value — still worth watching in years. */
-  timeless_value: number
-  /** Relevance to KSA / Kuwait / Iraq / GCC specifically. */
-  regional_relevance: number
-  /** Appeal to an international audience. */
-  global_relevance: number
-  /** Alignment with Khat's identity + quality bar (also a gate). */
-  brand_alignment: number
+  /** «هل القصة/التجربة تستحق أن تُروى؟» — the constitution's criterion. */
+  worth_telling: number
+  /** Rests on something a real person lived (even an expert brings his experience). */
+  human_experience: number
+  /** A practical takeaway that comes from the lived experience — not generic advice. */
+  practical_value: number
+  /** Speaks to a real life-stage concern of one of the two audience segments. */
+  segment_fit: number
+  /** «بعد خمس سنين، أحد بيرجع للحلقة ويستفيد؟» — reference value that lasts. */
+  library_value: number
+  /** A Kuwaiti man with a first-hand account plausibly exists and is reachable. */
+  guest_findability: number
   /** Freshness — not the tired framing everyone uses. */
   originality: number
-  /** Intellectual + emotional depth on offer. */
-  depth: number
-  /** How well-judged the risk is — bold but responsible scores high; reckless OR bland scores low. */
-  risk_calibration: number
-  /** How feasible to produce well (guest reach, research load, sensitivity). */
-  production_feasibility: number
+  /** Fit with Khat's constitution (also a gate). */
+  brand_alignment: number
 }
 
 export type SuccessDimension = keyof SuccessDimensions
 
 /**
- * Priority-weighted for KHAT's identity, not generic virality. Retention leads
- * (watch time is the #1 podcast survival signal), then the conversation it
- * sparks. Click matters but is deliberately NOT the top weight — a premium,
- * timeless brand earns the click, it doesn't chase it. Depth, originality, and
- * brand alignment are pulled UP (Khat is "deep, original, timeless — never
- * shallow trend-chasing"), and timeless value is rewarded over raw shareability.
- * Sponsor / feasibility / risk are light modifiers. Sum need not be 1 — the
- * composite normalizes by it. Tuning history: v1 led on click+retention 1.5/1.5;
- * v2 rebalances toward depth/originality/timelessness to protect the brand.
+ * worth_telling leads — it IS the constitution's criterion. Sum need not be
+ * 1: the composite normalises by it.
  */
 export const SUCCESS_WEIGHTS: Record<SuccessDimension, number> = {
-  retention_potential: 1.5, // watch/listen time — the survival metric
-  discussion_potential: 1.35, // debate is Khat's format
-  click_potential: 1.3, // earn the click, don't let it dominate
-  depth: 1.25, // core to the brand
-  originality: 1.25, // "never overdone"
-  brand_alignment: 1.2, // identity fit (also the gate below)
-  regional_relevance: 1.15, // GCC pull
-  timeless_value: 1.1, // "timeless" is in the DNA
-  guest_potential: 1.05,
-  shareability: 0.95,
-  global_relevance: 0.9,
-  risk_calibration: 0.7,
-  sponsor_appeal: 0.55,
-  production_feasibility: 0.55,
+  worth_telling: 2,
+  human_experience: 1.4,
+  practical_value: 1.3,
+  library_value: 1.3,
+  segment_fit: 1.1,
+  guest_findability: 1.1,
+  originality: 1,
+  brand_alignment: 1,
 }
 
 const WEIGHT_SUM = Object.values(SUCCESS_WEIGHTS).reduce((a, b) => a + b, 0)
@@ -109,9 +89,9 @@ export function neutralSuccessDimensions(): SuccessDimensions {
 }
 
 /**
- * The composite success probability in [0, 100]. Brand alignment doubles as a
- * gate: an idea that betrays Khat's quality bar (brand_alignment ≤ 3) is pulled
- * down hard so a cheap-but-clickable idea can't win the ranking.
+ * The composite ordering score in [0, 100]. Brand alignment doubles as a
+ * gate: an idea that betrays the constitution (brand_alignment ≤ 3) is pulled
+ * down hard so an off-brand idea can't win the ranking.
  */
 export function computeSuccessScore(dims: SuccessDimensions): number {
   let acc = 0
@@ -152,18 +132,22 @@ export function successBreakdown(
 
 /** Arabic labels for the dimensions (UI). */
 export const SUCCESS_DIMENSION_LABELS_AR: Record<SuccessDimension, string> = {
-  click_potential: "جذب النقرة",
-  retention_potential: "بقاء المشاهد",
-  discussion_potential: "إثارة النقاش",
-  shareability: "قابلية المشاركة",
-  guest_potential: "قوة الضيف المحتمل",
-  sponsor_appeal: "جاذبية الرعاية",
-  timeless_value: "قيمة تدوم",
-  regional_relevance: "صلة خليجية",
-  global_relevance: "صلة عالمية",
-  brand_alignment: "انسجام مع خط",
+  worth_telling: "تستحق أن تُروى",
+  human_experience: "تجربة إنسانية",
+  practical_value: "فائدة عملية",
+  segment_fit: "ملاءمة الشريحة",
+  library_value: "قيمة مرجعية تبقى",
+  guest_findability: "ضيف يمكن إيجاده",
   originality: "أصالة",
-  depth: "عمق",
-  risk_calibration: "اتزان الجرأة",
-  production_feasibility: "قابلية الإنتاج",
+  brand_alignment: "انسجام مع دستور خط",
+}
+
+/** The dimension keys, in weight order — for prompt contracts and the UI. */
+export const SUCCESS_DIMENSIONS: readonly SuccessDimension[] = (
+  Object.keys(SUCCESS_WEIGHTS) as SuccessDimension[]
+).sort((a, b) => SUCCESS_WEIGHTS[b] - SUCCESS_WEIGHTS[a])
+
+/** The `success` object contract rendered for a prompt: `{ "worth_telling": 0-10, … }`. */
+export function successFieldsSpec(): string {
+  return `{ ${SUCCESS_DIMENSIONS.map((d) => `"${d}": 0-10`).join(", ")} }`
 }

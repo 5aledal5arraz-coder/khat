@@ -106,8 +106,11 @@ import {
   POST_STORY_RESERVE_MS,
   STORY_CHECK_MIN_MS,
   TOPUP_MIN_MS,
+  HARVEST_WALL_MS,
+  preProposeWorstCaseMs,
   proposeWorstCaseMs,
 } from "@/lib/discovery-v2/pipeline"
+import { WITNESS_TIMEOUT_MS } from "@/lib/discovery-v2/witness"
 import { PROPOSE_MAX_OUTPUT_TOKENS } from "@/lib/discovery-v2/propose"
 
 /** The discovery_v2.run handler budget, read from the worker source so this
@@ -156,16 +159,31 @@ describe("discovery registry budget", () => {
     expect(proposeWorstCaseMs() + POST_PROPOSE_RESERVE_MS).toBeLessThanOrEqual(DISCOVERY_JOB_BUDGET_MS)
   })
 
-  it("after a worst-case propose the top-up is skipped, not squeezed in", () => {
-    // spare = budget − worst − reserve must be under TOPUP_MIN_MS, or the
+  it("after a worst-case witness + propose the top-up is skipped, not squeezed in", () => {
+    // spare = budget − elapsed − reserve must be under TOPUP_MIN_MS, or the
     // top-up would run on top of a propose that already spent the budget.
-    const spare = DISCOVERY_JOB_BUDGET_MS - proposeWorstCaseMs() - POST_PROPOSE_RESERVE_MS
+    // (Elapsed includes the witness step since batch 2.)
+    const spare =
+      DISCOVERY_JOB_BUDGET_MS - preProposeWorstCaseMs() - proposeWorstCaseMs() - POST_PROPOSE_RESERVE_MS
     expect(spare).toBeLessThan(TOPUP_MIN_MS)
   })
 
   it("after a worst-case propose the story phase still has room to start a check", () => {
-    const storyWindow = DISCOVERY_JOB_BUDGET_MS - POST_STORY_RESERVE_MS - proposeWorstCaseMs()
+    const storyWindow =
+      DISCOVERY_JOB_BUDGET_MS - POST_STORY_RESERVE_MS - preProposeWorstCaseMs() - proposeWorstCaseMs()
     expect(storyWindow).toBeGreaterThanOrEqual(STORY_CHECK_MIN_MS)
+  })
+
+  it("batch 2: the witness step (before propose) fits with a real margin (budget 960s)", () => {
+    // 45 + 608 + 240 = 893s of 960s → 67s margin (was 7s of 900s). The witness
+    // call is one attempt, no retry.
+    expect(DISCOVERY_JOB_BUDGET_MS).toBe(960_000)
+    expect(preProposeWorstCaseMs()).toBe(WITNESS_TIMEOUT_MS)
+    const margin =
+      DISCOVERY_JOB_BUDGET_MS - preProposeWorstCaseMs() - proposeWorstCaseMs() - POST_PROPOSE_RESERVE_MS
+    expect(margin).toBeGreaterThanOrEqual(60_000)
+    // The harvest runs BESIDE propose and is bounded well inside it.
+    expect(HARVEST_WALL_MS).toBeLessThan(proposeWorstCaseMs())
   })
 
   it("a typical propose leaves a full-timeout top-up AND the post-propose reserve", () => {

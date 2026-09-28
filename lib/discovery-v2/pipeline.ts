@@ -1,7 +1,13 @@
 /**
- * v2 pipeline orchestrator — story-first.
+ * v2 pipeline orchestrator — worth telling first («دستور خط», 2026-09-28).
  *
- *   propose names (LLM, over-generate; story_claim is a hypothesis only)
+ *   witness profiles (D2 — one cheap bounded call: WHO lived this topic)
+ *   → in parallel, three name sources:
+ *       propose names (LLM, over-generate; story_claim + public_account_ref
+ *         are hypotheses only)
+ *       grounded harvest (D1 — Kuwaiti press / podcasts / TEDx, names found
+ *         telling it themselves, arriving WITH their verified sources)
+ *       X list-graph (D5 — curated lived-experience lists, capped, politics out)
  *     → ONE top-up propose for the missing count when the reply is short
  *       and the job budget can spare it (proposeWithTopUp)
  *     → resolve each against Wikidata (identity confidence, NOT a gate)
@@ -40,6 +46,12 @@ import {
 } from "./story-evidence"
 import { classifyStory } from "./story-classify"
 import { proposeErrorKind, type V2RunErrorKind } from "./run-failure"
+import { proposeWitnessProfiles, WITNESS_TIMEOUT_MS } from "./witness"
+import { harvestGroundedNames, type HarvestResult } from "./harvest"
+import { harvestXListNames, type XHarvestResult } from "./sources/x-lists"
+import { resolveGeography } from "./story-evidence"
+import { GEMINI_RETRIEVAL_MODEL } from "@/lib/ai/gemini"
+import type { WitnessProfile } from "./types"
 
 const DECISION_RANK: Record<V2Candidate["decision"], number> = {
   accepted: 0,
@@ -73,14 +85,32 @@ function rankOf(c: V2Candidate): number {
  * together). 15 min, up from 10 (2026-09-28): the first propose call now
  * gets 300s + one timeout retry (registry `discovery`), so its worst case
  * (proposeWorstCaseMs ≈ 608s) plus POST_PROPOSE_RESERVE_MS must still fit.
+ * 16 min since batch 2 (same day): the witness step (preProposeWorstCaseMs,
+ * 45s) runs first, and 45 + 608 + 240 left only 7s of the old 900s.
  * A worker job — no nginx wall applies.
  */
-export const DISCOVERY_JOB_BUDGET_MS = 15 * 60_000
+export const DISCOVERY_JOB_BUDGET_MS = 16 * 60_000
 /**
  * Everything after propose (resolve/enrich + story checks, cap 12 at
  * concurrency 2) took ~140–210s in the 2026-09-26 trials; + margin.
  */
 export const POST_PROPOSE_RESERVE_MS = 240_000
+/**
+ * The grounded harvest runs beside propose; this bounds it from its start so
+ * it can never hold the run past a fast propose by more than a little.
+ */
+export const HARVEST_WALL_MS = 180_000
+
+/**
+ * Worst-case wall time spent BEFORE the first propose call: the witness
+ * profiles step (one attempt, no retry). The job budget must fit this +
+ * proposeWorstCaseMs() + POST_PROPOSE_RESERVE_MS (pinned in
+ * tests/ai-router/discovery-propose-budget.test.ts).
+ */
+export function preProposeWorstCaseMs(): number {
+  return WITNESS_TIMEOUT_MS
+}
+
 /** Below this a medium-effort reply is unlikely to land — skip, don't burn the call. */
 export const TOPUP_MIN_MS = 90_000
 /** Top up when fewer than this share of `want` came back usable. */
@@ -156,8 +186,9 @@ async function proposeWithTopUp(
   want: number,
   memory: DiscoveryMemory,
   startedAt: number,
+  witnessProfiles: WitnessProfile[] = [],
 ): Promise<{ names: ProposedName[]; runId: string; error?: string; errorStatus?: string; toppedUp: number }> {
-  const first = await proposeNames(input, want, memory)
+  const first = await proposeNames(input, want, memory, { witnessProfiles })
   if (first.error) return { ...first, toppedUp: 0 }
 
   const wantGender = input.filters?.gender ?? null
@@ -179,6 +210,7 @@ async function proposeWithTopUp(
     alreadyProposed: first.names.map((p) => p.name),
     timeoutMs,
     maxRetries: 0,
+    witnessProfiles,
   })
   if (more.error) {
     console.warn("[discovery-v2/propose] top-up failed, keeping the first list:", more.error)
@@ -221,6 +253,16 @@ export interface V2RunResult {
     story_verified: number
     /** names the one top-up propose call added (0 = not needed / skipped / failed) */
     proposed_top_up: number
+    /** D2 — witness profiles written for this topic (0 = the step failed / off) */
+    witness_profiles?: number
+    /** D1 — grounded searches spent, names they yielded, their estimated cost */
+    harvest_queries?: number
+    harvested_web?: number
+    harvest_search_cost_usd?: number
+    /** D5 — X calls spent, names kept, and why X stopped early (402/429), if it did */
+    x_calls?: number
+    x_names?: number
+    x_degraded?: string | null
   }
   error?: string
   /** Set with `error`: why the run produced nothing (drives the run page copy). */
@@ -245,8 +287,55 @@ export async function runV2Discovery(input: V2RunInput): Promise<V2RunResult> {
   // re-checked below as a hard filter (the LLM can respell a name).
   const memory = await loadDiscoveryMemory({ seasonId: input.seasonId })
 
-  const proposal = await proposeWithTopUp(input, want, memory, startedAt)
-  if (proposal.error || proposal.names.length === 0) {
+  // D2 — who lived this topic. Bounded (WITNESS_TIMEOUT_MS, no retry) and
+  // fail-safe: without profiles propose runs as before and the harvest skips.
+  const witness = await proposeWitnessProfiles(input).catch((err: unknown) => ({
+    profiles: [] as WitnessProfile[],
+    runId: null,
+    error: err instanceof Error ? err.message : String(err),
+  }))
+  if (witness.error) console.warn("[discovery-v2/witness] skipped:", witness.error.split("\n")[0])
+  const profiles = witness.profiles
+
+  // Three name sources in parallel. The harvest and X are add-ons: a failure
+  // there costs names, never the run.
+  const emptyHarvest: HarvestResult = { names: [], queries: 0, searchCostUsd: 0, errors: [] }
+  const emptyX: XHarvestResult = { names: [], calls: 0, users_read: 0, degraded: null, est_cost_usd: null }
+  const [proposal, harvest, xh] = await Promise.all([
+    proposeWithTopUp(input, want, memory, startedAt, profiles),
+    harvestGroundedNames(input, profiles, { deadlineAt: Date.now() + HARVEST_WALL_MS }).catch(
+      (err: unknown): HarvestResult => ({ ...emptyHarvest, errors: [err instanceof Error ? err.message : String(err)] }),
+    ),
+    harvestXListNames({
+      topic: input.topic,
+      profiles,
+      geography: resolveGeography(input),
+      exclude: (name) => memory.excludeNameKeys.has(discoveryNameKey(name)),
+    }).catch((): XHarvestResult => emptyX),
+  ])
+  if (harvest.errors.length) console.warn("[discovery-v2/harvest]", harvest.errors.join(" | ").slice(0, 300))
+
+  // Harvested names first: when the same person also came from propose, the
+  // copy that carries its verified sources is the one kept.
+  const merged: ProposedName[] = []
+  const mergedKeys = new Set<string>()
+  for (const p of [...harvest.names, ...(proposal.error ? [] : proposal.names), ...xh.names]) {
+    const key = discoveryNameKey(p.name)
+    if (!key || mergedKeys.has(key)) continue
+    mergedKeys.add(key)
+    merged.push(p)
+  }
+  const sourceStats = {
+    witness_profiles: profiles.length,
+    harvest_queries: harvest.queries,
+    harvested_web: harvest.names.length,
+    harvest_search_cost_usd: Number(harvest.searchCostUsd.toFixed(4)),
+    x_calls: xh.calls,
+    x_names: xh.names.length,
+    x_degraded: xh.degraded,
+  }
+
+  if (merged.length === 0) {
     return {
       candidates: [],
       proposeRunId: proposal.runId ?? null,
@@ -260,10 +349,17 @@ export async function runV2Discovery(input: V2RunInput): Promise<V2RunResult> {
         story_checked: 0,
         story_verified: 0,
         proposed_top_up: proposal.toppedUp,
+        ...sourceStats,
       },
       error: proposal.error ?? "no names proposed",
       errorKind: proposal.error ? proposeErrorKind(proposal.errorStatus, proposal.error) : "no_names",
     }
+  }
+  if (proposal.error) {
+    // The harvest / X still found people — a propose failure costs its names only.
+    console.warn(
+      `[discovery-v2/propose] failed (${proposal.error.split("\n")[0]}) — continuing with ${merged.length} harvested name(s)`,
+    )
   }
 
   // A proposal whose OWN stated gender contradicts a strict gender filter
@@ -272,8 +368,8 @@ export async function runV2Discovery(input: V2RunInput): Promise<V2RunResult> {
   // is still verified from Wikidata / the sources in score.ts.
   const wantGender = input.filters?.gender ?? null
   const proposed = wantGender
-    ? proposal.names.filter((p) => !p.gender || p.gender === wantGender)
-    : proposal.names
+    ? merged.filter((p) => !p.gender || p.gender === wantGender)
+    : merged
 
   // 1. Resolve + memory filter + enrich, 6 at a time. Enrichment runs for
   //    EVERY person — an unresolved name is searched by the name as proposed.
@@ -369,9 +465,13 @@ export async function runV2Discovery(input: V2RunInput): Promise<V2RunResult> {
     }
     let web
     try {
-      web = await gatherStoryWebSources(x.p, input, {
-        timeoutMs: Math.min(STORY_SEARCH_TIMEOUT_MS, left - STORY_CLASSIFY_RESERVE_MS),
-      })
+      // D1: a harvested name arrives with the live sources that found him —
+      // classify those; a second paid search would find the same pages.
+      web = x.p.harvest_sources?.length
+        ? { sources: x.p.harvest_sources, model: GEMINI_RETRIEVAL_MODEL }
+        : await gatherStoryWebSources(x.p, input, {
+            timeoutMs: Math.min(STORY_SEARCH_TIMEOUT_MS, left - STORY_CLASSIFY_RESERVE_MS),
+          })
     } catch (err) {
       // Budget spent / search never ran / transient / deadline — NOT "no story".
       console.warn(
@@ -462,7 +562,7 @@ export async function runV2Discovery(input: V2RunInput): Promise<V2RunResult> {
 
   const count = (d: V2Candidate["decision"]) => verified.filter((c) => c.decision === d).length
   const stats = {
-    proposed: proposal.names.length,
+    proposed: merged.length,
     resolved: verified.filter((c) => c.wiki.resolved).length,
     accepted: count("accepted"),
     needs_review: count("needs_review"),
@@ -471,7 +571,8 @@ export async function runV2Discovery(input: V2RunInput): Promise<V2RunResult> {
     story_checked: verified.filter((c) => c.story && c.story.status !== "not_checked").length,
     story_verified: verified.filter((c) => c.story?.status === "verified").length,
     proposed_top_up: proposal.toppedUp,
+    ...sourceStats,
   }
 
-  return { candidates: verified, proposeRunId: proposal.runId, stats }
+  return { candidates: verified, proposeRunId: proposal.runId ?? null, stats }
 }

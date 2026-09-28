@@ -786,7 +786,7 @@ function TopicTab({
               dir="ltr"
             />
             <Field
-              label="درجة القوة"
+              label="درجة الترتيب"
               value={
                 hybridProvenance.strength_score !== null
                   ? hybridProvenance.strength_score.toFixed(2)

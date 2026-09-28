@@ -53,7 +53,9 @@ async function generateCandidates(
   //   legacy    → the original combined topic+guest prompt (Phase B / strict /
   //               required-role completion), gpt-4o-mini.
   const editorial = !!input.editorial
-  const promptVersion = editorial ? "khat-map-editorial-v1" : "khat-map-batch-v2"
+  // v2 / v3 (2026-09-28): «دستور خط» is the first system block; the
+  // success dimensions are the constitution's (worth_telling first).
+  const promptVersion = editorial ? "khat-map-editorial-v2-constitution" : "khat-map-batch-v3-constitution"
   const prompt = editorial
     ? [
         { role: "system" as const, content: buildEditorialSystemPrompt(input) },
@@ -128,7 +130,7 @@ async function generateGuestAnchoredTopics(
 ): Promise<RawCandidate[]> {
   const r = await runAiTask<{ candidates?: unknown } | unknown[]>({
     taskKind: "editorial",
-    promptVersion: "khat-map-guest-anchored-v2",
+    promptVersion: "khat-map-guest-anchored-v3-constitution",
     input: {
       guest: input.guest_profile.full_name,
       angle_count: input.angle_count,
@@ -256,6 +258,7 @@ function normalizeRawCandidate(v: unknown): RawCandidate | null {
       // ─── Editorial engine fields (raw; clamped where consumed) ──────────────
       archetype: asOptionalString(topic.archetype),
       novelty_note: asOptionalString(topic.novelty_note),
+      sensitivity_flags: asStringArray(topic.sensitivity_flags),
       subcategory: asOptionalString(topic.subcategory),
       lenses: asStringArray(topic.lenses),
       global_note: asOptionalString(topic.global_note),
@@ -279,7 +282,7 @@ async function critiqueCandidates(input: CourtInput): Promise<CourtVerdict[]> {
     seasonId: input.season_id,
     subjectTable: "khat_map_seasons",
     subjectId: input.season_id,
-    promptVersion: "khat-map-court-v1",
+    promptVersion: "khat-map-court-v2-constitution",
     input: { season_id: input.season_id, count: input.candidates.length, threshold: input.threshold },
     prompt: [
       { role: "system", content: buildCourtSystemPrompt(input.threshold) },

@@ -92,7 +92,7 @@ export async function runSeasonHybridGenerate(
     messageAr: `تم توليد ${generated_for_review} مرشّحاً جديداً للمراجعة.`,
     ...(unenriched > 0
       ? {
-          warningAr: `${unenriched} من ${generated_for_review} مرشّحات وصلت بدون إثراء تحريري — بلا احتمالية نجاح ولا محاور ولا عدسات.`,
+          warningAr: `${unenriched} من ${generated_for_review} مرشّحات وصلت بدون إثراء تحريري — بلا درجة ترتيب ولا محاور ولا عدسات.`,
         }
       : {}),
   }

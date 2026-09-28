@@ -151,8 +151,11 @@ describe("buildOriginalThinkingPrompt", () => {
       excludedTitles: [],
       allowKuwaitBias: true,
     })
-    expect(built.system).toContain("Kuwait-specific framing IS welcome on this run.")
-    expect(built.system).not.toContain("Do NOT use Kuwait-specific framing")
+    expect(built.system).toContain("Kuwait-specific framing on this run — it IS welcome")
+    // Off: the constitution's audience rule, never the old ban on Kuwaiti references.
+    const off = buildOriginalThinkingPrompt({ language: "ar", count: 3, lenses: [], excludedTitles: [], allowKuwaitBias: false })
+    expect(off.system).toContain("the story may be Kuwaiti-rooted")
+    expect(off.system).not.toContain("Do NOT use Kuwait-specific framing")
   })
 })
 
@@ -217,7 +220,7 @@ describe("buildHybridTopicsPrompt", () => {
     expect(built.user).toMatchSnapshot()
   })
 
-  it("renders the foundational-path message when market clusters are empty", () => {
+  it("tells every topic to set market_inspiration \"none\" when market clusters are empty", () => {
     const built = buildHybridTopicsPrompt({
       language: "ar",
       count: 3,
@@ -239,7 +242,7 @@ describe("buildHybridTopicsPrompt", () => {
       excludedTitles: [],
       lenses: [],
     })
-    expect(built.user).toContain("foundational path — market clusters unavailable")
+    expect(built.user).toContain('every topic sets market_inspiration and primary_theme to \"none\"')
   })
 })
 

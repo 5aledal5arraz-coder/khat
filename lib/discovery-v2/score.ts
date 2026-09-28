@@ -191,8 +191,13 @@ const STORY_RELEVANCE_UNKNOWN = STORY_RELEVANCE_FACTOR.adjacent
 export function storyScore(a: StoryAssessment): number {
   if (a.status !== "verified" || a.evidence.length === 0) return 0
   const domains = new Set(a.evidence.map((e) => e.domain ?? e.url))
+  // D3: a first-hand experience that only OTHERS wrote about (verified
+  // self_told = false) counts like a story told by others — Khat wants the
+  // man who told it himself.
   const base =
-    a.story_type === "first_hand"
+    a.story_type === "first_hand" && a.self_told?.value === false
+      ? 0.5
+      : a.story_type === "first_hand"
       ? domains.size >= 2
         ? 1
         : 0.8
@@ -387,7 +392,9 @@ export function scoreCandidate(
   // shortlist path below).
   const unpublishedStory =
     proposed.story_type === "first_hand" && !!proposed.story_claim?.trim() && a.status === "unverified"
-  const toldByOthers = a.status === "verified" && a.story_type === "second_hand"
+  const toldByOthers =
+    a.status === "verified" &&
+    (a.story_type === "second_hand" || (a.story_type === "first_hand" && a.self_told?.value === false))
 
   let penalty = 0
   if (!wiki.resolved) {
@@ -525,7 +532,13 @@ export function scoreCandidate(
 
   // ── Reasons (why they scored) ──
   if (a.status === "verified") {
-    reasons.push(a.story_type === "first_hand" ? "روى قصته بنفسه — موثّق بمصدر" : "يروي قصة عاشها أهله عن قرب — موثّق بمصدر")
+    reasons.push(
+      a.story_type === "first_hand" && a.self_told?.value === false
+        ? "عاش التجربة، لكن ما وُجد كتبه غيره عنه — موثّق بمصدر"
+        : a.story_type === "first_hand"
+          ? "روى قصته بنفسه — موثّق بمصدر"
+          : "يروي قصة عاشها أهله عن قرب — موثّق بمصدر",
+    )
   } else if (a.status === "unverified" && a.claim_from_propose && !unpublishedStory) {
     reasons.push("القصة المقترحة لم تُثبت بمصدر")
   } else if (a.status === "not_checked" && a.not_checked_reason) {
@@ -563,5 +576,7 @@ export function scoreCandidate(
     reasons,
     story: a,
     flags,
+    origin: proposed.origin ?? "propose",
+    public_account_ref: proposed.public_account_ref ?? null,
   }
 }

@@ -7,10 +7,16 @@
  *   - missing original_lens                      → "missing_original_lens"
  *   - too close to existing Khat Map candidates  → "near_dup_khat_map"
  *   - too close to consumed original topics      → "near_dup_consumed_original"
+ *   - the constitution's avoid list (politics, religious dispute, scandal,
+ *     privacy): the deterministic lexicon      → "policy_avoid"
+ *     or the model's own sensitivity_flags     → "policy_flagged"
+ *
+ * The self-rated score no longer rejects (constitution: scores only ORDER
+ * the list) — `weak_strength_score` is kept for stored rows only.
  *
  * All other rules are inherited from lib/original-thinking/novelty.ts
  * via judgeCandidate so we don't duplicate the generic-title /
- * weak-hook / vague-conflict / Kuwait-bias logic.
+ * weak-hook / vague-conflict logic.
  */
 
 import {
@@ -24,6 +30,8 @@ import {
 // same one the batch engine uses — instead of exact normalized-string equality,
 // so paraphrased duplicates are caught too.
 import { isNearDuplicateTitle } from "@/lib/khat-map/v2/title-similarity"
+import { judgePolicy } from "@/lib/khat-map/core/policy"
+import type { KhatTopicScores } from "./scoring"
 
 // Hybrid-specific reasons. Inherits + extends the original-thinking set.
 export type HybridRejectionReason =
@@ -36,6 +44,7 @@ export type HybridRejectionReason =
   | "weak_strength_score"
   | "missing_episode_type"
   | "missing_topic_domain"
+  | "policy_flagged"
 
 export interface HybridCandidate {
   title: string
@@ -54,6 +63,10 @@ export interface HybridCandidate {
   archetype?: string
   /** One line: why this angle is fresh / not the done-to-death version. */
   novelty_note?: string
+  /** The constitution's six self-scored dimensions (0–10). Only ORDER the list. */
+  scores?: KhatTopicScores | null
+  /** The model's own policy flags (lib/khat-map/core/policy.ts). Any flag rejects. */
+  sensitivity_flags?: string[]
 }
 
 export interface HybridJudgeContext extends NoveltyContext {
@@ -72,6 +85,7 @@ export interface HybridDecision {
   reasons: HybridRejectionReason[]
 }
 
+/** Only documents the retired rule for rows stored before the constitution. */
 const MIN_STRENGTH_SCORE = 0.4
 
 export function judgeHybridCandidate(
@@ -108,9 +122,14 @@ export function judgeHybridCandidate(
   if (!c.suggested_topic_domain || !ctx.validTopicDomains.has(c.suggested_topic_domain)) {
     reasons.push("missing_topic_domain")
   }
-  if (typeof c.estimated_strength_score !== "number" || c.estimated_strength_score < MIN_STRENGTH_SCORE) {
-    reasons.push("weak_strength_score")
-  }
+
+  // The constitution's avoid list: lexicon over the topic's own text, OR
+  // the model's own flags. Either one rejects; neither can approve.
+  // The lexicon reads the title + hook only (negations stripped); the body
+  // is the model's to flag — prose explains, and a word list misreads it.
+  const policy = judgePolicy(`${c.title}. ${c.emotional_hook}`, c.sensitivity_flags)
+  if (policy.lexicon.length > 0) reasons.push("policy_avoid")
+  if (policy.flagged.length > 0) reasons.push("policy_flagged")
 
   // Near-dup against Khat Map history (token-Jaccard, catches paraphrases).
   if (c.title && isNearDuplicateTitle(c.title, ctx.khatMapTitles)) {
@@ -140,9 +159,11 @@ export const HYBRID_REJECTION_RULES: Record<HybridRejectionReason, string> = {
     "Title is a near-duplicate (token similarity) of an original-thinking topic the editor has already consumed.",
   semantic_near_dup:
     "Topic is a near-duplicate IN MEANING (embedding similarity) of a stronger topic in the same batch — kept the stronger one.",
-  weak_strength_score: `Self-rated strength_score is below ${MIN_STRENGTH_SCORE} — the model itself flagged the topic as marginal.`,
+  weak_strength_score: `(retired 2026-09-28 — scores only order the list now) Self-rated strength_score was below ${MIN_STRENGTH_SCORE}.`,
   missing_episode_type:
     "suggested_episode_type missing or not a valid KhatMapEpisodeType.",
   missing_topic_domain:
     "suggested_topic_domain missing or not a valid KhatMapTopicDomain.",
+  policy_flagged:
+    "The model flagged the topic itself (politics / religious_dispute / scandal / privacy_intrusion).",
 }

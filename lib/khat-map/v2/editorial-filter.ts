@@ -13,6 +13,9 @@
  *   • Guest gender filter (strict — `unknown` is rejected when filter is set)
  *   • Guest nationality filter (strict — empty/unverified country is
  *     rejected when filter is set to `kuwaiti` or `non_kuwaiti`)
+ *   • The constitution's avoid list (politics, religious dispute, scandal,
+ *     privacy intrusion) — the deterministic lexicon over the card's own
+ *     text, OR the model's own `sensitivity_flags` (lib/khat-map/core/policy.ts)
  *
  * Domain weight scoring (low/high) is handled in scoring.ts, not here.
  * This layer is binary: in or out.
@@ -23,6 +26,7 @@ import type {
   KhatMapTopicDomain,
 } from "@/types/khat-map"
 import type { RawCandidate } from "./types"
+import { judgePolicy } from "@/lib/khat-map/core/policy"
 
 /**
  * Country strings that count as Kuwaiti. Includes English and Arabic
@@ -55,6 +59,7 @@ export interface FilterDropReason {
     | "repeated_topic"
     | "guest_gender"
     | "guest_nationality"
+    | "policy_avoid"
 }
 
 export interface FilterResult {
@@ -95,6 +100,16 @@ export function applyEditorialFilters(
       ""
     ).toLowerCase()
     const guestCountry = (c.guest?.country ?? "").toLowerCase().trim()
+
+    // 0. The constitution's avoid list — before anything else, whatever the
+    //    admin's controls say.
+    // Title + hook only (negations stripped in the lexicon); the body is
+    // the model's to flag.
+    const policyText = [c.topic.working_title, c.topic.hook].filter(Boolean).join(". ")
+    if (!judgePolicy(policyText, c.topic.sensitivity_flags).ok) {
+      dropped.push({ candidate: c, reason: "policy_avoid" })
+      continue
+    }
 
     // 1. Disabled domain
     if (disabledDomains.has(c.topic.topic_domain)) {

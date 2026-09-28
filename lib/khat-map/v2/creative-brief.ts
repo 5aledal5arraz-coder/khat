@@ -42,7 +42,8 @@ export function buildArchetypesBlock(): string {
     "  · contrarian     — challenges something 'everyone knows'. The counter-intuitive",
     "                     truth, argued credibly — not contrarian for its own sake.",
     "  · taboo          — عيب: what people avoid saying out loud in Gulf/Arab society, opened",
-    "                     with honesty and care (not shock). The relief of naming it.",
+    "                     through the guest's own experience, with care (not shock). Never",
+    "                     politics, religious dispute, scandal, or someone else's privacy.",
     "  · investigation  — a mystery, an unexplained pattern, a 'how did this happen': true-",
     "                     crime energy, a thread pulled until something surprising appears.",
     "  · cultural_moment— a live phenomenon reshaping how people think, love, work, or",
@@ -51,7 +52,8 @@ export function buildArchetypesBlock(): string {
     "                     sparingly and only when genuinely fresh — this is the overused one.",
     "  · reframe        — take something utterly familiar and reveal it isn't what you",
     "                     thought. The 'wait… really?' episode.",
-    "  · provocation    — a real two-sided tension people will argue about for days.",
+    "  · provocation    — a real two-sided tension from lived experience that people weigh",
+    "                     for days (a life choice, not a political or religious dispute).",
   ].join("\n")
 }
 
@@ -81,13 +83,15 @@ export function buildBannedShapesBlock(): string {
 }
 
 export function buildBoldnessDialBlock(): string {
+  // 2026-09-28 (constitution): "A safe batch is a failed batch" is gone — it
+  // pushed batches toward shock. Fresh angle, yes; taboo for its own sake, no.
   return [
-    "## The boldness dial (this batch)",
-    "Aim ≈ 70% FRESH ANGLES ON RESONANT THEMES (proven to pull Arab listeners — taboo,",
-    "psychology, true-crime/mystery, power, identity, money, faith, love — but via an angle",
-    "nobody's done) + ≈ 30% WHITE SPACE (underexplored territory, contrarian takes, hidden",
-    "worlds). Include at least ONE genuine WILDCARD: a topic no other Arabic podcast would",
-    "think to make, that you'd personally fight to record. A safe batch is a failed batch.",
+    "## The freshness dial (this batch)",
+    "Aim ≈ 70% FRESH ANGLES ON LIVED EXPERIENCES people recognise (marriage, money, loss,",
+    "work, health, belonging — told through an angle nobody's done) + ≈ 30% WHITE SPACE",
+    "(under-told fields, hidden worlds, experiences rarely heard in Arabic). Include at least",
+    "ONE genuine WILDCARD — a lived experience no other Arabic podcast would think to record.",
+    "A fresh angle, never a taboo for its own sake: nothing in the constitution's avoid list.",
   ].join("\n")
 }
 

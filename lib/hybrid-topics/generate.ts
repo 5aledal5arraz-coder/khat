@@ -10,9 +10,10 @@
  *   - cross-history exclusion list (existing khat_map candidates +
  *     consumed original-topic titles)
  *
- * Outputs hybrid topics that MUST transform a market signal through an
- * original-thinking lens. Rejection filters drop generic / dup / Kuwait-
- * biased / lens-mismatched outputs. Accepted topics flow into
+ * Since the constitution (2026-09-28) «دستور خط» is the first system block,
+ * market clusters are a weak prior, and topics are ordered by the model's
+ * own constitution scores. Rejection filters drop generic / dup / lens-
+ * mismatched outputs and anything in the constitution's avoid list. Accepted topics flow into
  * khat_map_episode_candidates via persist.ts; a hybrid_topic_generations
  * row records the full attempt for audit.
  *
@@ -38,7 +39,8 @@ import {
   HYBRID_REJECTION_RULES,
   type HybridCandidate,
 } from "./reject"
-import { rescoreHybridCandidate } from "./scoring"
+import { clampTopicScores, khatTopicScore, rescoreHybridCandidate } from "./scoring"
+import { normalizeSensitivityFlags } from "@/lib/khat-map/core/policy"
 import {
   openGenerationLog,
   completeGenerationLog,
@@ -351,7 +353,6 @@ export async function generateHybridTopics(
       continue
     }
     const finalScore = rescoreHybridCandidate(j.candidate, {
-      worked_report: inputs.worked_report,
       batchLensCounts,
       batchArchetypeCounts,
     })
@@ -598,7 +599,11 @@ export function coerceEpisodeType(rawType: string, text: string): string {
 
 export function coerceCandidate(raw: Record<string, unknown>): HybridCandidate {
   const s = (k: string) => String(raw[k] ?? "").trim()
-  const n = Number(raw["estimated_strength_score"])
+  // The constitution's six dimensions (0–10). A reply that carries them is
+  // ordered by them; the legacy 0..1 self-rating only fills in without them.
+  const scores = clampTopicScores(raw["scores"])
+  const legacy = Number(raw["estimated_strength_score"])
+  const n = scores ? khatTopicScore(scores) : legacy
   // episode_type / topic_domain are METADATA hints, not editorial quality —
   // rejecting an otherwise-strong topic because the model dropped an enum
   // wasted the batch's most diverse slots. Default instead of reject.
@@ -630,6 +635,8 @@ export function coerceCandidate(raw: Record<string, unknown>): HybridCandidate {
     estimated_strength_score: Number.isFinite(n) ? Math.max(0, Math.min(1, n)) : 0,
     archetype: s("archetype") || undefined,
     novelty_note: s("novelty_note") || undefined,
+    scores,
+    sensitivity_flags: normalizeSensitivityFlags(raw["sensitivity_flags"]),
   }
 }
 

@@ -16,7 +16,8 @@
 
 import { runAiTask } from "@/lib/ai-router"
 import type { PrepV2Pass1Output } from "./types"
-import { COURSE_PROMPT_VERSION, type PrepFormat } from "./format"
+import { PREP_BACKBONE_PROMPT_VERSION, type PrepFormat } from "./format"
+import { khatConstitutionBlock } from "@/lib/khat-map/core/constitution"
 import {
   guestPreferencesResearchBlock,
   hasGuestPreferences,
@@ -79,7 +80,10 @@ Conflict angle: ${provenance.conflict_angle ?? "—"}`
 
   const isCourse = input.format === "course"
   const hasPrefs = hasGuestPreferences(input.guest_preferences)
+  // «دستور خط» (compact) is the FIRST block of both formats (2026-09-28).
   const system = isCourse ? courseResearchSystem(langLabel) : [
+    khatConstitutionBlock("compact"),
+    "",
     `You are a senior editorial researcher for a serious ${langLabel}-language podcast.`,
     "You are about to set up a 60–90 minute conversation. Your job in this pass is to extract the BACKBONE of the conversation, not to write questions.",
     "",
@@ -129,7 +133,7 @@ Conflict angle: ${provenance.conflict_angle ?? "—"}`
       ...(isCourse ? { format: "course" } : {}),
       ...(hasPrefs ? { guest_preferences: true } : {}),
     },
-    ...(isCourse ? { promptVersion: COURSE_PROMPT_VERSION } : {}),
+    promptVersion: PREP_BACKBONE_PROMPT_VERSION[isCourse ? "course" : "story"],
     prompt: [
       { role: "system", content: system },
       { role: "user", content: user },
@@ -170,6 +174,8 @@ Conflict angle: ${provenance.conflict_angle ?? "—"}`
  */
 function courseResearchSystem(langLabel: string): string {
   return [
+    khatConstitutionBlock("compact"),
+    "",
     `You are a senior editorial researcher for a serious ${langLabel}-language podcast.`,
     "This episode is a MINI-COURSE / TRAINING SESSION with an expert guest — a reference the listener returns to, not a personal story. Your job in this pass is to extract the BACKBONE of the course, not to write questions.",
     "",

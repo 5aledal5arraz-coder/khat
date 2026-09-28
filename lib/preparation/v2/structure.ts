@@ -9,13 +9,14 @@
  */
 
 import { runAiTask } from "@/lib/ai-router"
+import { khatConstitutionBlock } from "@/lib/khat-map/core/constitution"
 import { SECTION_KINDS, type PrepV2Pass2Output, type PrepV2Section } from "./types"
 import {
   assignCourseSlots,
   COURSE_MAX_MODULES,
   COURSE_MODULE_MAX_MINUTES,
   COURSE_MODULE_MIN_MINUTES,
-  COURSE_PROMPT_VERSION,
+  PREP_BACKBONE_PROMPT_VERSION,
   type CourseModuleDraft,
   type PrepFormat,
 } from "./format"
@@ -49,7 +50,10 @@ export async function runStructureBuild(input: Pass2Input): Promise<Pass2Result>
   if (input.format === "course") return runCourseStructureBuild(input)
   const langLabel = input.language === "ar" ? "Arabic" : "English"
 
+  // «دستور خط» (compact) is the FIRST block of both formats (2026-09-28).
   const system = [
+    khatConstitutionBlock("compact"),
+    "",
     `You are designing the structure of a 60–90 minute ${langLabel}-language podcast episode.`,
     "",
     "Output JSON only. Shape:",
@@ -97,6 +101,7 @@ export async function runStructureBuild(input: Pass2Input): Promise<Pass2Result>
       preparation_id: input.preparation_id,
       language: input.language,
     },
+    promptVersion: PREP_BACKBONE_PROMPT_VERSION.story,
     prompt: [
       { role: "system", content: system },
       { role: "user", content: user },
@@ -144,6 +149,8 @@ async function runCourseStructureBuild(input: Pass2Input): Promise<Pass2Result> 
   const target = input.target_minutes ?? 120
 
   const system = [
+    khatConstitutionBlock("compact"),
+    "",
     `You are designing a ${target}-minute ${langLabel}-language podcast episode run as a MINI-COURSE / TRAINING SESSION with an expert guest.`,
     "",
     "Output JSON only. Shape:",
@@ -198,7 +205,7 @@ async function runCourseStructureBuild(input: Pass2Input): Promise<Pass2Result> 
       format: "course",
       target_minutes: target,
     },
-    promptVersion: COURSE_PROMPT_VERSION,
+    promptVersion: PREP_BACKBONE_PROMPT_VERSION.course,
     prompt: [
       { role: "system", content: system },
       { role: "user", content: user },

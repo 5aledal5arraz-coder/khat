@@ -32,6 +32,11 @@ vi.mock("@/lib/ai-router", () => ({
       : { status: "succeeded", runId: "c", parsed: { story_type: "none", evidence: [] } },
   ),
 }))
+// Batch 2: X list harvest off here (no network); the witness call falls through
+// to the non-discovery branch and yields no profiles, so the harvest skips.
+vi.mock("@/lib/discovery-v2/sources/x-lists", () => ({
+  harvestXListNames: vi.fn(async () => ({ names: [], calls: 0, users_read: 0, degraded: null, est_cost_usd: null })),
+}))
 vi.mock("@/lib/ai/grounded-evidence", async (importActual) => ({
   ...(await importActual<typeof import("@/lib/ai/grounded-evidence")>()),
   isGroundedEvidenceConfigured: () => false,

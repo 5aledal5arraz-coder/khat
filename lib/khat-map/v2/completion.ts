@@ -27,10 +27,15 @@ export type KhatMapMustIncludeRole =
   | "personal"
   | "signature"
 
+/**
+ * The roles a season is checked for. «جريئة» (controversial) and «كويتية»
+ * (national memory) were retired as REQUIRED roles with the constitution
+ * (Khaled 2026-09-28): bold/controversial is not a Khat goal and the
+ * invasion/national episode is optional. The ids stay in the type so queued
+ * jobs and stored payloads that name them still parse.
+ */
 export const ALL_ROLES: KhatMapMustIncludeRole[] = [
   "emotional",
-  "controversial",
-  "kuwait",
   "personal",
   "signature",
 ]
@@ -51,7 +56,7 @@ export const ROLE_DESCRIPTOR: Record<KhatMapMustIncludeRole, string> = {
   emotional:
     "حلقة ذات ثقل عاطفي عالي — تتناول مشاعر داخلية، علاقات، فقد، أمومة/أبوّة، أو تحولات نفسية. استخدم topic_domain من: emotions_inner_life | relationships | parenting — أو episode_type='psychological'.",
   controversial:
-    "حلقة جريئة/مثيرة للجدل — تلمس تابوهات اجتماعية أو دينية أو سياسية باحترام. risk_level يجب أن يكون 'bold' أو 'highly_sensitive' — أو episode_type='controversial'.",
+    "حلقة بزاوية جديدة جريئة على موضوع اجتماعي مسكوت عنه، تُروى من تجربة شخصية باحترام — بلا سياسة ولا خلافات دينية أو مذهبية ولا فضائح ولا تسمية طرف ثالث.",
   kuwait:
     "حلقة بصلة كويتية/خليجية واضحة — ذاكرة وطنية، شخصية كويتية، حدث محلي. استخدم topic_domain='kuwait_gulf' أو episode_type='national'.",
   personal:
@@ -111,15 +116,13 @@ export function detectMissingRoles(
 /**
  * Prioritize missing roles when we can only fill N slots. Order reflects
  * the constitution's emphasis (signature first — it's the backbone;
- * emotional + personal next because they carry the show's voice; then
- * kuwait; controversial last because it's easiest to swap in later).
+ * emotional + personal next because they carry the show's voice). Kuwait
+ * and controversial are no longer required roles (constitution 2026-09-28).
  */
 const ROLE_PRIORITY: KhatMapMustIncludeRole[] = [
   "signature",
   "emotional",
   "personal",
-  "kuwait",
-  "controversial",
 ]
 
 export function prioritizeMissingRoles(

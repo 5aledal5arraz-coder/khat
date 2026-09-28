@@ -152,7 +152,9 @@ const HANDLER_TIMEOUT_MS: Record<string, number> = {
   // MUST equal DISCOVERY_JOB_BUDGET_MS in lib/discovery-v2/pipeline.ts —
   // the pipeline's top-up and story deadlines are computed from it
   // (tests/ai-router/discovery-propose-budget.test.ts pins the two).
-  "discovery_v2.run": 15 * 60_000,
+  // 16 min since batch 2 (2026-09-28): the witness-profiles step (≤45s) runs
+  // before propose; at 15 min the worst case left 7s of margin.
+  "discovery_v2.run": 16 * 60_000,
   // original.generate_topics: AI-bound on full transcripts; allow generous budget.
   "original.generate_topics": 15 * 60_000,
   // newsletter.send_campaign: batched Resend sends; resumable across retries,
