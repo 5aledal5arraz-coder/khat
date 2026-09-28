@@ -78,6 +78,21 @@ describe("EIR discovery launch — the operator's pick reaches the run", () => {
     expect(h.started[0]).toMatchObject({ gender: "male", geography: null })
   })
 
+  it("men by default (2026-09-28): no pick and a season with no gender filter → male", async () => {
+    h.season = { id: "s1", editorial_controls: { guest_filters: { gender: "all" } } }
+    await startGuestDiscoveryForEirAction("eir-1")
+    expect(h.started[0].gender).toBe("male")
+    // …and a standalone EIR with no season at all.
+    h.eir = { ...h.eir, season_id: null }
+    await startGuestDiscoveryForEirAction("eir-1")
+    expect(h.started[1].gender).toBe("male")
+  })
+
+  it("the run is tagged with its EIR, so the EIR page can show its results", async () => {
+    await startGuestDiscoveryForEirAction("eir-1", { gender: "male", geography: ["kuwait"] })
+    expect(h.started[0].eirId).toBe("eir-1")
+  })
+
   it("the topic carries the Arabic domain label, never the enum key", async () => {
     await startGuestDiscoveryForEirAction("eir-1", { gender: "male", geography: ["kuwait"] })
     expect(h.started[0].topic).toBe("المال يتذكّر ما نسيته العائلة — مال ومسار")

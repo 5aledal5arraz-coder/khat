@@ -47,6 +47,7 @@ import {
   type IdentityHints,
 } from "@/lib/guests/canonical"
 import { emitSystemEvent } from "@/lib/system-events/emit"
+import { assignNominatedGuestToEir, type NominatedAssignment } from "@/lib/eir/attach-guest"
 import { buildGuestIdentityLinkedEvent } from "@/lib/system-events/builders"
 
 interface RouteContext {
@@ -63,6 +64,8 @@ interface CandidateRow {
   country: string | null
   phone: string | null
   email: string | null
+  /** «رشّحه لهالحلقة» — the episode this candidate was nominated for. */
+  target_eir_id: string | null
 }
 
 function candidateToHints(row: CandidateRow): IdentityHints {
@@ -91,6 +94,7 @@ async function loadCandidateRow(id: string): Promise<CandidateRow | null> {
       country: guestCandidates.country,
       phone: guestCandidates.phone,
       email: guestCandidates.email,
+      target_eir_id: guestCandidates.target_eir_id,
     })
     .from(guestCandidates)
     .where(eq(guestCandidates.id, id))
@@ -286,6 +290,25 @@ export async function POST(request: NextRequest, ctx: RouteContext) {
       }),
     )
 
+    // Nominated for an episode from its discovery results → the guest is
+    // now assigned to that EIR (never over a different guest already on it).
+    // The link above is already committed; a failure here is reported in the
+    // response, it does not undo or fail the link.
+    let eirAssignment: NominatedAssignment | { status: "failed"; eirId: string } | null = null
+    if (row.target_eir_id) {
+      try {
+        eirAssignment = await assignNominatedGuestToEir({
+          eirId: row.target_eir_id,
+          guestId: ensure.guest_id,
+          actorId: auth.user.id,
+        })
+      } catch (err) {
+        console.error("[guest-candidates/link-canonical] EIR assignment failed:", err)
+        eirAssignment = { status: "failed", eirId: row.target_eir_id }
+      }
+      revalidatePath(`/admin/khat-brain/episodes/${row.target_eir_id}`)
+    }
+
     // Cache invalidation — both the candidate page and the guests list.
     revalidatePath(`/admin/guest-candidates/${row.id}`)
     revalidatePath("/admin/guest-candidates")
@@ -299,6 +322,7 @@ export async function POST(request: NextRequest, ctx: RouteContext) {
       guest_slug: guestRow?.slug ?? null,
       confidence: ensure.confidence,
       created_guest: ensure.created,
+      eir_assignment: eirAssignment,
     })
   } catch (err) {
     console.error("[guest-candidates/link-canonical] confirm failed:", err)

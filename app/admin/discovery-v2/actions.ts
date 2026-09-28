@@ -9,7 +9,8 @@ import { revalidatePath } from "next/cache"
 import { requireActionRole } from "@/lib/api-utils"
 import { createDiscoveryRun, getDiscoveryRun } from "@/lib/discovery/runs"
 import { getCandidate, setCandidateStatus } from "@/lib/discovery/candidates"
-import { createCandidate as createGuestCandidate } from "@/lib/guest-candidates/queries"
+import { upsertCrmCandidateFromDiscovery } from "@/lib/guest-candidates/from-discovery"
+import { getEpisodeIntelligenceRecord } from "@/lib/eir"
 import { enqueueJob } from "@/lib/jobs"
 import type { DiscoverySourceConfig } from "@/lib/db/schema/discovery"
 import type { V2Geography } from "@/lib/discovery-v2/types"
@@ -24,6 +25,12 @@ export interface StartV2Input {
   limit?: number
   seasonId?: string | null
   episodeCandidateId?: string | null
+  /**
+   * The EIR this run is FOR (the EIR «تشغيل اكتشاف لهذه الحلقة» CTA). Stored
+   * in source_config so the EIR page can list this run's results inline —
+   * a standalone EIR has no episode-candidate id to find them by.
+   */
+  eirId?: string | null
 }
 
 export interface StartV2Result {
@@ -40,6 +47,10 @@ export async function startV2DiscoveryAction(
   const user = gate.user
   const topic = (input.topic ?? "").trim()
   if (!topic) return { success: false, error: "الموضوع مطلوب" }
+  // The run is shown on (and nominates into) this EIR — it must exist.
+  if (input.eirId && !(await getEpisodeIntelligenceRecord(input.eirId))) {
+    return { success: false, error: "الحلقة غير موجودة" }
+  }
 
   const source_config = {
     engine: "v2",
@@ -55,6 +66,7 @@ export async function startV2DiscoveryAction(
     taste: input.taste ?? "balanced",
     limit: Math.max(3, Math.min(input.limit ?? 12, 24)),
     episodeCandidateId: input.episodeCandidateId ?? null,
+    eirId: input.eirId ?? null,
   } as unknown as DiscoverySourceConfig
 
   const run = await createDiscoveryRun({
@@ -93,6 +105,7 @@ export async function retryV2DiscoveryAction(runId: string): Promise<StartV2Resu
     taste?: StartV2Input["taste"]
     limit?: number
     episodeCandidateId?: string | null
+    eirId?: string | null
   }
   return startV2DiscoveryAction({
     topic: String(cfg.topic ?? run.seed_prompt ?? ""),
@@ -103,6 +116,7 @@ export async function retryV2DiscoveryAction(runId: string): Promise<StartV2Resu
     limit: cfg.limit,
     seasonId: run.season_id ?? null,
     episodeCandidateId: cfg.episodeCandidateId ?? run.source_episode_candidate_id ?? null,
+    eirId: cfg.eirId ?? null,
   })
 }
 
@@ -136,50 +150,68 @@ export async function rejectV2CandidateAction(
  * Promote a discovered person into the guest-candidates funnel
  * (outreach/CRM). Carries profile, rationale, and social links over, and
  * stamps the discovery row "promoted" so cross-run memory excludes them.
+ * A person already in the CRM (same confident QID or folded name) is
+ * UPDATED, never duplicated (lib/guest-candidates/from-discovery.ts).
  */
 export async function promoteV2CandidateAction(
   id: string,
-): Promise<{ success: boolean; candidateId?: string; error?: string }> {
+): Promise<{ success: boolean; candidateId?: string; created?: boolean; error?: string }> {
   const gate = await requireActionRole("EDITOR")
   if (!gate.ok) return { success: false, error: gate.error }
-  const user = gate.user
   try {
     const rec = await getCandidate(id)
     if (!rec) return { success: false, error: "المرشّح غير موجود" }
     if (rec.status === "promoted") return { success: false, error: "تمت ترقيته مسبقاً" }
-    const name = (rec.display_name ?? rec.proposed_name ?? "").trim()
-    if (!name) return { success: false, error: "لا اسم للمرشّح" }
-
-    const v2 = (rec.platform_signals as { v2?: Record<string, unknown> } | null)?.v2 ?? {}
-    const social = (v2.social ?? {}) as Record<string, string | null>
-    const socialLinks: { platform: string; url: string; is_primary?: boolean }[] = []
-    if (social.x) socialLinks.push({ platform: "x", url: social.x, is_primary: true })
-    if (social.instagram) socialLinks.push({ platform: "instagram", url: social.instagram })
-    if (social.linkedin) socialLinks.push({ platform: "linkedin", url: social.linkedin })
-    if (social.youtube_channel) socialLinks.push({ platform: "youtube", url: social.youtube_channel })
-    for (const ev of rec.evidence_urls.slice(0, 3)) {
-      if (ev?.url) socialLinks.push({ platform: "website", url: ev.url })
-    }
-
-    const occupations = Array.isArray(v2.occupations) ? (v2.occupations as string[]) : []
-    const created = await createGuestCandidate(
-      {
-        full_name: name,
-        category: rec.proposed_role ?? occupations[0] ?? null,
-        country: (v2.nationality as string | null) ?? rec.proposed_country ?? null,
-        bio: (v2.why as string | null) ?? rec.general_rationale ?? rec.topic_fit_rationale ?? null,
-        source_type: "discovery_v2",
-        source_note: rec.topic_fit_rationale ?? rec.general_rationale ?? null,
-        status: "shortlisted",
-        social_links: socialLinks,
-      },
-      user.id,
-    )
-
+    const r = await upsertCrmCandidateFromDiscovery(rec, { actorId: gate.user.id })
     await setCandidateStatus(id, "promoted")
     revalidatePath("/admin/discovery-v2")
     revalidatePath("/admin/guest-candidates")
-    return { success: true, candidateId: created.id }
+    return { success: true, candidateId: r.candidateId, created: r.created }
+  } catch (e) {
+    return { success: false, error: e instanceof Error ? e.message : "خطأ" }
+  }
+}
+
+/**
+ * «رشّحه لهالحلقة» — the discovery result → the CRM candidate, LINKED to
+ * this episode (`target_eir_id`). Creates or updates (no duplicates). It
+ * does NOT create a guest: when the team later links the candidate to a
+ * canonical guest, that guest is assigned to this EIR
+ * (app/api/admin/guest-candidates/[id]/link-canonical). Allowed on an
+ * already-promoted row — nominating someone already in the CRM just records
+ * the episode on their existing record.
+ */
+export async function nominateV2CandidateForEirAction(
+  id: string,
+  eirId: string,
+): Promise<{
+  success: boolean
+  candidateId?: string
+  created?: boolean
+  /** Already nominated for a DIFFERENT episode — nothing was written. */
+  conflictEirId?: string
+  error?: string
+}> {
+  const gate = await requireActionRole("EDITOR")
+  if (!gate.ok) return { success: false, error: gate.error }
+  try {
+    const eir = await getEpisodeIntelligenceRecord(eirId)
+    if (!eir) return { success: false, error: "الحلقة غير موجودة" }
+    const rec = await getCandidate(id)
+    if (!rec) return { success: false, error: "المرشّح غير موجود" }
+    const r = await upsertCrmCandidateFromDiscovery(rec, { actorId: gate.user.id, eirId })
+    if (r.conflict) {
+      return {
+        success: false,
+        candidateId: r.candidateId,
+        conflictEirId: r.conflict.otherEirId,
+        error: "هالشخص مرشّح لحلقة ثانية",
+      }
+    }
+    if (rec.status !== "promoted") await setCandidateStatus(id, "promoted")
+    revalidatePath(`/admin/khat-brain/episodes/${eirId}`)
+    revalidatePath("/admin/guest-candidates")
+    return { success: true, candidateId: r.candidateId, created: r.created }
   } catch (e) {
     return { success: false, error: e instanceof Error ? e.message : "خطأ" }
   }

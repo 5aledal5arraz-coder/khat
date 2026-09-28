@@ -24,7 +24,13 @@ import {
 // makes the transition always settle. Surfacing WHY (an else + toast) is
 // deliberately deferred — this card has no error slot yet.
 import { runAction } from "@/app/admin/components/run-action"
-import { STORY_REVIEW_FLAGS, type StoryAssessment, type V2Flag } from "@/lib/discovery-v2/types"
+import { unmeasuredScores, wikiFactsTrusted } from "@/lib/discovery-v2/display"
+import {
+  STORY_REVIEW_FLAGS,
+  type StoryAssessment,
+  type V2Flag,
+  type V2ScoreKey,
+} from "@/lib/discovery-v2/types"
 
 export interface V2CardData {
   id: string
@@ -46,6 +52,8 @@ export interface V2CardData {
     story?: number
     searchability?: number
     gulf_hook?: number
+    /** Components with no real evidence behind them — shown «غير مقيّم». */
+    unmeasured?: V2ScoreKey[]
   }
   story?: Pick<StoryAssessment, "status" | "evidence" | "gulf_event" | "claim_from_propose"> | null
   flags?: V2Flag[]
@@ -54,7 +62,8 @@ export interface V2CardData {
   sitelinks?: number | null
   signals?: {
     scholar?: { works: number; cited_by: number; institution?: string | null } | null
-    podcast?: { appearances: number } | null
+    /** `test` = Listen Notes sandbox mock data — never shown as an appearance. */
+    podcast?: { appearances: number; test?: boolean } | null
     books?: { count: number } | null
     news?: { recent_mentions: number } | null
   }
@@ -80,18 +89,30 @@ const DECISION = {
 // identity — «قصة قوية» would claim a story nobody has verified.
 const STORY_REVIEW = { label: "تحتاج مراجعتك", cls: "border-sky-500/40 bg-sky-500/10 text-sky-700" }
 
-function Bar({ label, v }: { label: string; v: number }) {
+/**
+ * One score row. `unmeasured` → «غير مقيّم» and no bar: a default or a
+ * lexical guess is not a measurement, and a number next to it was read as
+ * one (the 0.62 topic-fit prior, the Listen Notes sandbox's 0.65).
+ */
+function Bar({ label, v, unmeasured = false }: { label: string; v: number; unmeasured?: boolean }) {
   const pct = Math.round((v ?? 0) * 100)
   return (
     <div className="flex items-center gap-1.5">
       <span className="w-16 shrink-0 text-[9.5px] text-muted-foreground">{label}</span>
-      <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-background/60">
-        <div className="h-full rounded-full bg-primary/70/70" style={{ width: `${pct}%` }} />
-      </div>
-      <span className="w-7 text-end text-[9.5px] tabular-nums text-muted-foreground">{pct}</span>
+      {unmeasured ? (
+        <span className="flex-1 text-[9.5px] text-muted-foreground">غير مقيّم</span>
+      ) : (
+        <>
+          <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-background/60">
+            <div className="h-full rounded-full bg-primary/70/70" style={{ width: `${pct}%` }} />
+          </div>
+          <span className="w-7 text-end text-[9.5px] tabular-nums text-muted-foreground">{pct}</span>
+        </>
+      )}
     </div>
   )
 }
+
 
 const FLAG_LABEL: Record<V2Flag, string> = {
   identity_unverified: "ليس في ويكي‌داتا",
@@ -153,13 +174,19 @@ export function CandidateCard({ c }: { c: V2CardData }) {
   const storyReview = c.decision === "needs_review" && !!c.flags?.some((f) => STORY_REVIEW_FLAGS.includes(f))
   const d = storyReview ? STORY_REVIEW : DECISION[c.decision]
   const initials = c.name.trim().slice(0, 2)
+  const unmeasured = unmeasuredScores(c)
+  // A birth year / photo from a possible namesake is not shown (older rows).
+  const factsTrusted = wikiFactsTrusted(c)
+  const image = factsTrusted ? c.image : null
+  const birthYear = factsTrusted ? c.birth_year : null
+  const podcastAppearances = c.signals?.podcast?.test ? 0 : (c.signals?.podcast?.appearances ?? 0)
 
   return (
     <div className={"rounded-2xl border bg-card/40 p-3 " + (c.decision === "rejected" ? "border-border/30 opacity-70" : "border-border/40")}>
       <div className="flex items-start gap-3">
-        {c.image ? (
+        {image ? (
           // eslint-disable-next-line @next/next/no-img-element
-          <img src={c.image} alt={c.name} className="h-14 w-14 shrink-0 rounded-xl object-cover" />
+          <img src={image} alt={c.name} className="h-14 w-14 shrink-0 rounded-xl object-cover" />
         ) : (
           <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-xl bg-primary/15 text-sm font-bold text-primary">{initials}</div>
         )}
@@ -168,7 +195,7 @@ export function CandidateCard({ c }: { c: V2CardData }) {
             <div className="min-w-0">
               <div className="truncate text-[14px] font-semibold text-foreground">{c.name}</div>
               <div className="truncate text-[11px] text-muted-foreground">
-                {[c.role, c.country, c.birth_year ? `مواليد ${c.birth_year}` : null].filter(Boolean).join(" · ")}
+                {[c.role, c.country, birthYear ? `مواليد ${birthYear}` : null].filter(Boolean).join(" · ")}
               </div>
             </div>
             <span className={"shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-medium " + d.cls}>{d.label}</span>
@@ -193,10 +220,10 @@ export function CandidateCard({ c }: { c: V2CardData }) {
         <div className="mt-2 grid grid-cols-1 gap-1 sm:grid-cols-2">
           {c.scores.story !== undefined ? (
             <>
-              <Bar label="القصة" v={c.scores.story} />
-              <Bar label="الملاءمة" v={c.scores.topic_fit} />
-              <Bar label="يُبحث عنه" v={c.scores.searchability ?? 0} />
-              <Bar label="قابلية الاستضافة" v={c.scores.guestability} />
+              <Bar label="القصة" v={c.scores.story} unmeasured={unmeasured.has("story")} />
+              <Bar label="الملاءمة" v={c.scores.topic_fit} unmeasured={unmeasured.has("topic_fit")} />
+              <Bar label="يُبحث عنه" v={c.scores.searchability ?? 0} unmeasured={unmeasured.has("searchability")} />
+              <Bar label="قابلية الاستضافة" v={c.scores.guestability} unmeasured={unmeasured.has("guestability")} />
             </>
           ) : (
             <>
@@ -213,7 +240,7 @@ export function CandidateCard({ c }: { c: V2CardData }) {
         {(c.sitelinks ?? 0) >= 3 && <span className="inline-flex items-center gap-0.5 rounded-md bg-background/60 px-1.5 py-0.5"><Star className="h-2.5 w-2.5" /> {c.sitelinks} ويكي</span>}
         {(c.signals?.scholar?.cited_by ?? 0) > 0 && <span className="inline-flex items-center gap-0.5 rounded-md bg-background/60 px-1.5 py-0.5"><GraduationCap className="h-2.5 w-2.5" /> {c.signals!.scholar!.cited_by} اقتباس</span>}
         {(c.signals?.books?.count ?? 0) > 0 && <span className="inline-flex items-center gap-0.5 rounded-md bg-background/60 px-1.5 py-0.5"><BookOpen className="h-2.5 w-2.5" /> {c.signals!.books!.count} كتاب</span>}
-        {(c.signals?.podcast?.appearances ?? 0) > 0 && <span className="inline-flex items-center gap-0.5 rounded-md bg-background/60 px-1.5 py-0.5"><Mic className="h-2.5 w-2.5" /> {c.signals!.podcast!.appearances} بودكاست</span>}
+        {podcastAppearances > 0 && <span className="inline-flex items-center gap-0.5 rounded-md bg-background/60 px-1.5 py-0.5"><Mic className="h-2.5 w-2.5" /> {podcastAppearances} بودكاست</span>}
         {(c.signals?.news?.recent_mentions ?? 0) > 0 && <span className="inline-flex items-center gap-0.5 rounded-md bg-background/60 px-1.5 py-0.5"><Newspaper className="h-2.5 w-2.5" /> {c.signals!.news!.recent_mentions} خبر</span>}
       </div>
 

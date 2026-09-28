@@ -53,16 +53,32 @@ import type {
   EnrichmentSignals,
   StoryAssessment,
   StoryCheck,
+  TopicRelevanceValue,
   V2Candidate,
   V2Filters,
   V2Flag,
   V2Geography,
+  V2ScoreKey,
   V2Scores,
   WikiFacts,
   ProposedName,
 } from "./types"
 
 const clamp = (v: number) => Math.max(0, Math.min(1, v))
+
+/** What an UNTRUSTED Wikidata match contributes: nothing. */
+const UNRESOLVED: WikiFacts = { resolved: false }
+
+/**
+ * Real podcast appearances, or 0. Without LISTEN_NOTES_API_KEY the source
+ * runs against Listen Notes' sandbox, which returns the same mock episodes
+ * for every name (`test: true`) — on production every candidate showed a
+ * podcast appearance and a 0.65 guestability. Mock data is not evidence.
+ */
+export function realPodcastAppearances(s: EnrichmentSignals): number {
+  if (!s.podcast || s.podcast.test === true) return 0
+  return s.podcast.appearances ?? 0
+}
 
 function notabilityScore(w: WikiFacts, s: EnrichmentSignals): number {
   const sl = w.sitelink_count ?? 0
@@ -78,27 +94,53 @@ function notabilityScore(w: WikiFacts, s: EnrichmentSignals): number {
   return clamp(n)
 }
 
+/** F from the classifier's VERIFIED topic relevance. */
+const RELEVANCE_FIT: Record<TopicRelevanceValue, number> = { on_topic: 1, adjacent: 0.5, off_topic: 0 }
+
+/**
+ * F — topic fit. Measured only from the story classifier's `topic_relevance`,
+ * which is backed by a verified verbatim quote. It used to START at a flat
+ * 0.62 ("the LLM proposed them for this topic → solid prior"), so every
+ * candidate read ≈0.62–0.8 whether or not anything connected them to the
+ * episode (2026-09-28 end-to-end test).
+ *
+ * Without a verified relevance the value is a LEXICAL guess — the share of
+ * topic words found in the proposal's own role/why/claim, no prior — and it
+ * is reported as unmeasured, so the run page shows «غير مقيّم» for it.
+ */
 function topicFitScore(
   topic: string,
-  w: WikiFacts,
   proposed: ProposedName,
-  storySummary: string | null,
-): number {
-  // The LLM proposed them FOR this topic → solid prior.
-  let f = 0.62
-  // Folded both sides so «الأسر» in the topic meets «الاسر» in a source.
-  const hay = ` ${foldVerbatim(`${(w.occupations ?? []).join(" ")} ${w.description ?? ""} ${w.summary ?? ""} ${proposed.role ?? ""} ${storySummary ?? ""}`)} `
+  a: StoryAssessment,
+): { value: number; measured: boolean } {
+  const rel = a.topic_relevance?.value
+  if (rel) return { value: RELEVANCE_FIT[rel], measured: true }
+  // Folded both sides so «الأسر» in the topic meets «الاسر» in a proposal.
+  const hay = ` ${foldVerbatim(`${proposed.role ?? ""} ${proposed.why ?? ""} ${proposed.story_claim ?? ""}`)} `
   const toks = foldVerbatim(topic).split(" ").filter((t) => t.length >= 3)
-  if (toks.length) {
-    const hits = toks.filter((t) => hay.includes(t)).length
-    f += Math.min(0.38, (hits / toks.length) * 0.5)
-  }
-  return clamp(f)
+  if (toks.length === 0) return { value: 0, measured: false }
+  const hits = toks.filter((t) => hay.includes(t)).length
+  return { value: clamp(hits / toks.length), measured: false }
+}
+
+/** True when at least one REAL signal feeds G (the 0.1 floor alone is not a measurement). */
+function guestabilityMeasured(w: WikiFacts, s: EnrichmentSignals): boolean {
+  return (
+    realPodcastAppearances(s) > 0 ||
+    !!s.youtube?.talk_url ||
+    !!s.youtube?.channel_url ||
+    !!w.social?.youtube_channel ||
+    !!w.official_website ||
+    !!s.x ||
+    !!s.instagram ||
+    !!w.social?.x ||
+    !!w.social?.instagram
+  )
 }
 
 function guestabilityScore(w: WikiFacts, s: EnrichmentSignals): number {
   let g = 0.1
-  const app = s.podcast?.appearances ?? 0
+  const app = realPodcastAppearances(s)
   if (app >= 3) g += 0.55
   else if (app >= 1) g += 0.35
   if (s.youtube?.talk_url) g += 0.2
@@ -126,16 +168,39 @@ function recencyScore(s: EnrichmentSignals): number {
 
 
 /**
+ * How much of a verified story counts toward S, by its VERIFIED relevance to
+ * the episode topic. Only an on-topic story counts fully. A relevance the
+ * classifier could not back with a quote counts as adjacent — not proven
+ * on-topic, not proven off it.
+ */
+export const STORY_RELEVANCE_FACTOR: Record<TopicRelevanceValue, number> = {
+  on_topic: 1,
+  adjacent: 0.4,
+  off_topic: 0,
+}
+const STORY_RELEVANCE_UNKNOWN = STORY_RELEVANCE_FACTOR.adjacent
+
+/**
  * S — from VERIFIED evidence only: first-hand told on ≥2 distinct live
  * domains 1.0, on one 0.8; a closely-witnessed family/community story 0.5;
- * anything else (expert, none, unverified, not checked) 0.
+ * anything else (expert, none, unverified, not checked) 0 — then scaled by
+ * the story's verified relevance to THE TOPIC (STORY_RELEVANCE_FACTOR). A
+ * founder's verified "founding story" on an episode about family money is
+ * a real story about something else; it used to score a full 0.8–1.0.
  */
 export function storyScore(a: StoryAssessment): number {
   if (a.status !== "verified" || a.evidence.length === 0) return 0
   const domains = new Set(a.evidence.map((e) => e.domain ?? e.url))
-  if (a.story_type === "first_hand") return domains.size >= 2 ? 1 : 0.8
-  if (a.story_type === "second_hand") return 0.5
-  return 0
+  const base =
+    a.story_type === "first_hand"
+      ? domains.size >= 2
+        ? 1
+        : 0.8
+      : a.story_type === "second_hand"
+        ? 0.5
+        : 0
+  const rel = a.topic_relevance?.value
+  return base * (rel ? STORY_RELEVANCE_FACTOR[rel] : STORY_RELEVANCE_UNKNOWN)
 }
 
 type Taste = "famous" | "balanced" | "hidden_gems"
@@ -270,9 +335,25 @@ export function scoreCandidate(
     attrs: { deceased: false, not_individual: false, same_person: true, gender: null, nationality: null },
   }
   const a = story.assessment
-  const variants = nameVariants([proposed.name, proposed.name_en, wiki.label_ar, wiki.label])
+  // An untrusted entry's labels are a stranger's name — never a variant of ours.
+  const wikiTrusted = wiki.resolved && !wiki.identity_uncertain
+  const variants = nameVariants([
+    proposed.name,
+    proposed.name_en,
+    wikiTrusted ? wiki.label_ar : null,
+    wikiTrusted ? wiki.label : null,
+  ])
   const reasons: string[] = []
   const flags: V2Flag[] = []
+
+  // ── Identity confidence ──
+  // Wikidata's facts are trusted only for a confidently-identified entry;
+  // an uncertain single hit may be a stranger with the same name. An
+  // untrusted entry contributes NOTHING — not its sitelinks to N, not its
+  // website/socials to G, not its facts to the reasons (2026-09-28: wrong-
+  // person matches born 1800/1905 were lending their fame to living people).
+  const trustWiki = wikiTrusted
+  const facts = trustWiki ? wiki : UNRESOLVED
 
   // ── Components ──
   const S = storyScore(a)
@@ -283,16 +364,18 @@ export function scoreCandidate(
       ? [...a.evidence.map((e) => e.quote), ...(a.gulf_event ? [a.gulf_event.quote] : [])]
       : []
   const H = gulfHookScore(verifiedQuotes, geo)
-  const F = topicFitScore(input.topic, wiki, proposed, a.status === "verified" ? a.summary : null)
+  const fit = topicFitScore(input.topic, proposed, a)
+  const F = fit.value
   const Q = searchabilityScore(story.sources, variants, input.topic, geo)
-  const G = guestabilityScore(wiki, signals)
-  const N = notabilityScore(wiki, signals)
+  const G = guestabilityScore(facts, signals)
+  const N = notabilityScore(facts, signals)
   const R = recencyScore(signals)
 
-  // ── Identity confidence ──
-  // Wikidata's facts are trusted only for a confidently-identified entry;
-  // an uncertain single hit may be a stranger with the same name.
-  const trustWiki = wiki.resolved && !wiki.identity_uncertain
+  // Components with no real evidence behind them — shown «غير مقيّم».
+  const unmeasured: V2ScoreKey[] = []
+  if (a.status === "not_checked") unmeasured.push("story", "searchability")
+  if (!fit.measured) unmeasured.push("topic_fit")
+  if (!guestabilityMeasured(facts, signals)) unmeasured.push("guestability")
   const gender = resolveGender(trustWiki ? (wiki.gender ?? null) : null, story, variants)
   const nationality = (trustWiki ? wiki.nationality_country : null) ?? story.attrs.nationality
   const deceasedYear = trustWiki && wiki.death_year ? wiki.death_year : null
@@ -320,6 +403,12 @@ export function scoreCandidate(
   // the right one (a gender filter on an unknown gender is not «الجنسية»).
   const unverifiedAttrs = new Set<FilterAttr>(fo.unverifiable)
   if (fo.scopeUnverified) unverifiedAttrs.add("nationality")
+  // «الجنسية غير متحقّقة» only once something actually TRIED to verify it —
+  // a trusted Wikidata entry or a story check that read sources. On a person
+  // nobody checked it was printed on every card as if a check had failed;
+  // «لم يُفحص للقصة» already says what is true for them.
+  const nationalityChecked = trustWiki || a.status !== "not_checked"
+  if (!nationalityChecked) unverifiedAttrs.delete("nationality")
   for (const attr of (["gender", "nationality"] as const)) {
     if (unverifiedAttrs.has(attr)) flags.push(FILTER_ATTR_FLAG[attr])
   }
@@ -339,6 +428,7 @@ export function scoreCandidate(
     filter_match: fo.contradiction ? 0 : 1,
     penalty,
     overall,
+    unmeasured,
   }
 
   // ── Decision ──
@@ -446,13 +536,14 @@ export function scoreCandidate(
     reasons.push("ليس في ويكي‌داتا — راجِع الهوية يدوياً")
   }
   if (flags.includes("identity_uncertain")) reasons.push("هوية غير مؤكّدة — قد يكون شخصاً آخر بنفس الاسم")
-  if (fo.unverifiable.length)
-    reasons.push(`تعذّر التحقّق من ${fo.unverifiable.map((x) => FILTER_ATTR_LABEL[x]).join(" و")} — راجِع يدوياً`)
+  const unverifiableShown = fo.unverifiable.filter((x) => x !== "nationality" || nationalityChecked)
+  if (unverifiableShown.length)
+    reasons.push(`تعذّر التحقّق من ${unverifiableShown.map((x) => FILTER_ATTR_LABEL[x]).join(" و")} — راجِع يدوياً`)
   if (decision !== "rejected") {
-    if ((signals.podcast?.appearances ?? 0) > 0) reasons.push("ظهر ضيفاً في بودكاست سابقاً")
+    if (realPodcastAppearances(signals) > 0) reasons.push("ظهر ضيفاً في بودكاست سابقاً")
     if ((signals.scholar?.cited_by ?? 0) >= 500) reasons.push("حضور أكاديمي قويّ")
     if ((signals.news?.recent_mentions ?? 0) >= 3) reasons.push("حضور إعلامي حديث")
-    if ((wiki.sitelink_count ?? 0) >= 6) reasons.push("شخصية بارزة موثّقة")
+    if ((facts.sitelink_count ?? 0) >= 6) reasons.push("شخصية بارزة موثّقة")
     // Activity, never the follower number — the number re-taught the
     // operator the wrong signal.
     if (signals.x?.posting === "active") reasons.push("نشط على X حالياً")
@@ -464,7 +555,7 @@ export function scoreCandidate(
     name_en: (trustWiki ? wiki.label : null) ?? proposed.name_en ?? null,
     role: proposed.role ?? (trustWiki ? (wiki.occupations ?? [])[0] : null) ?? null,
     country: (trustWiki ? wiki.nationality_country : null) ?? proposed.country ?? null,
-    why: proposed.why ?? wiki.summary ?? null,
+    why: proposed.why ?? facts.summary ?? null,
     wiki,
     signals,
     scores,

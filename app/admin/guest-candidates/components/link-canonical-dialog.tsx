@@ -82,6 +82,28 @@ interface ConfirmLinkedResponse {
   guest_slug: string | null
   confidence: "high" | "medium"
   created_guest: boolean
+  /** Candidates only: the episode it was nominated for, and what happened there. */
+  eir_assignment?: {
+    status: "assigned" | "already_assigned" | "eir_has_other_guest" | "eir_missing" | "failed"
+    eirId: string
+  } | null
+}
+
+/** One line on what the link did to the nominated episode, or undefined. */
+function eirAssignmentNote(a: ConfirmLinkedResponse["eir_assignment"]): string | undefined {
+  if (!a) return undefined
+  switch (a.status) {
+    case "assigned":
+      return "وعُيّن ضيفاً للحلقة المرشّح لها."
+    case "already_assigned":
+      return "وهو ضيف الحلقة المرشّح لها أصلاً."
+    case "eir_has_other_guest":
+      return "الحلقة المرشّح لها عليها ضيف آخر — لم نغيّره، عيّنه من صفحة الحلقة إن أردت."
+    case "eir_missing":
+      return "الحلقة المرشّح لها لم تعد موجودة."
+    case "failed":
+      return "تعذّر تعيينه للحلقة المرشّح لها — عيّنه من صفحة الحلقة."
+  }
 }
 
 interface ConfirmAlreadyLinkedResponse {
@@ -205,6 +227,7 @@ export function LinkCanonicalDialog({
           title: data.created_guest
             ? "تم إنشاء ضيف قانوني جديد وربطه ✓"
             : `تم ربط الهوية القانونية بـ ${displayName} ✓`,
+          description: eirAssignmentNote(data.eir_assignment),
         })
         // Refresh only on true success — operator constraint §10.
         router.refresh()

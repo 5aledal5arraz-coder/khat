@@ -1419,6 +1419,10 @@ export interface GuestCandidate {
   status: GuestCandidateStatus
   source_type: GuestCandidateSourceType | null
   source_note: string | null
+  /** Wikidata QID from a confident discovery match (dedupe key). */
+  wikidata_qid?: string | null
+  /** EIR this candidate was nominated for from discovery (soft link). */
+  target_eir_id?: string | null
   priority_level: GuestCandidatePriority | null
   ai_score_overall: number | null
   ai_fit_score: number | null

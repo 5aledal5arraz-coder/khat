@@ -35,12 +35,11 @@ import {
   getEpisodeIntelligenceRecord,
   setEpisodeIntelligenceGuest,
 } from "@/lib/eir"
-import { walkEirToPhase } from "@/lib/khat-brain"
-import { bridgeDiscoveryToKhatMap } from "@/lib/discovery"
+import { attachGuestToEir, type AttachGuestBridge } from "@/lib/eir/attach-guest"
 import { getSeasonById } from "@/lib/khat-map/core/queries"
 import type { KhatMapEditorialControls } from "@/types/khat-map"
 import { buildEpisodeDiscoveryTopic } from "@/lib/discovery-v2/topic"
-import type { V2Geography } from "@/lib/discovery-v2/types"
+import { DEFAULT_DISCOVERY_GENDER, type V2Geography } from "@/lib/discovery-v2/types"
 
 export interface CreateRoomActionResult {
   ok: boolean
@@ -328,38 +327,20 @@ export async function assignEirGuestAction(
   }
 
   try {
-    await setEpisodeIntelligenceGuest({ eir_id: eirId, guest_id: guestId })
-    // If linking and still pre-guest_assigned, walk forward so the
-    // preparation tab becomes available.
-    if (guestId && (eir.phase === "idea" || eir.phase === "guest_discovery")) {
-      await walkEirToPhase({
-        eirId,
-        toPhase: "guest_assigned",
+    // Linking: set the guest, walk a pre-guest_assigned EIR forward so the
+    // preparation tab becomes available, and bridge into Khat Map so the
+    // season-level convert-to-preparation button unblocks (idempotent). One
+    // helper, shared with the canonical-link route (lib/eir/attach-guest.ts).
+    let bridgeOut: AttachGuestBridge | undefined
+    if (guestId) {
+      bridgeOut = await attachGuestToEir({
+        eir,
+        guestId,
         actorId: user.id,
         reason: "manual_guest_assignment",
       })
-    }
-    // Bridge into Khat Map so the season-level convert-to-preparation
-    // button unblocks immediately. Idempotent — reuses an existing
-    // khat_map_guest_candidate for (season, guest) when present.
-    let bridgeOut:
-      | {
-          khat_guest_candidate_id: string | null
-          khat_guest_candidate_created: boolean
-          attached_to_episode: boolean
-        }
-      | undefined
-    if (guestId) {
-      const b = await bridgeDiscoveryToKhatMap({
-        globalGuestId: guestId,
-        eirId,
-        seasonId: eir.season_id,
-      })
-      bridgeOut = {
-        khat_guest_candidate_id: b.khat_guest_candidate_id,
-        khat_guest_candidate_created: b.khat_guest_candidate_created,
-        attached_to_episode: b.attached_to_episode,
-      }
+    } else {
+      await setEpisodeIntelligenceGuest({ eir_id: eirId, guest_id: null })
     }
     revalidatePath(`/admin/khat-brain/episodes/${eirId}`)
     if (eir.season_id) {
@@ -465,14 +446,16 @@ export async function startGuestDiscoveryForEirAction(
     "ضيف الحلقة",
   )
 
-  let gender: "male" | "female" | null = null
+  // Men by default (Khaled, 2026-09-28); a season's specific gender filter
+  // overrides it, and the operator's pick (below) overrides both.
+  let gender: "male" | "female" | null = DEFAULT_DISCOVERY_GENDER
   let nationality: "kuwaiti" | "non_kuwaiti" | null = null
   if (eir.season_id) {
     const season = await getSeasonById(eir.season_id)
     const gf = (
       season?.editorial_controls as KhatMapEditorialControls | undefined
     )?.guest_filters
-    gender = gf?.gender === "male" || gf?.gender === "female" ? gf.gender : null
+    gender = gf?.gender === "male" || gf?.gender === "female" ? gf.gender : DEFAULT_DISCOVERY_GENDER
     nationality =
       gf?.nationality === "kuwaiti" || gf?.nationality === "non_kuwaiti"
         ? gf.nationality
@@ -490,6 +473,8 @@ export async function startGuestDiscoveryForEirAction(
     geography: choice?.geography ?? null,
     taste: "balanced",
     seasonId: eir.season_id ?? null,
+    // So the EIR page can show this run's results inline.
+    eirId,
   })
   if (!v2.success || !v2.runId) {
     return { success: false, error: v2.error ?? "تعذّر بدء البحث" }

@@ -284,11 +284,17 @@ export async function runV2Discovery(input: V2RunInput): Promise<V2RunResult> {
       country: p.country,
       name_en: p.name_en,
     })
-    if (wiki.qid && memory.excludeQids.has(wiki.qid)) return null
-    if ([p.name, wiki.label_ar].some((n) => n && memory.excludeNameKeys.has(discoveryNameKey(n)))) {
+    // An UNCERTAIN match may be a namesake: its QID, its Arabic label and
+    // its handles (X / Instagram / YouTube channel) are a stranger's. None
+    // of them may exclude, dedupe or enrich this person (2026-09-28) —
+    // enriching through them looked up the namesake's accounts, whose
+    // activity then fed G/R and whose URLs reached the CRM as social links.
+    const trusted = wiki.resolved && !wiki.identity_uncertain
+    if (trusted && wiki.qid && memory.excludeQids.has(wiki.qid)) return null
+    if ([p.name, trusted ? wiki.label_ar : null].some((n) => n && memory.excludeNameKeys.has(discoveryNameKey(n)))) {
       return null // already a guest / promoted / operator-rejected, respelled
     }
-    const enrichAs: WikiFacts = wiki.resolved
+    const enrichAs: WikiFacts = trusted
       ? wiki
       : { resolved: false, label: p.name_en ?? null, label_ar: p.name }
     const signals = await enrich(p.name, enrichAs)
@@ -299,7 +305,8 @@ export async function runV2Discovery(input: V2RunInput): Promise<V2RunResult> {
   const seen = new Set<string>()
   const people = prepared.filter((x): x is NonNullable<typeof x> => {
     if (!x) return false
-    const key = x.wiki.qid ?? `n:${discoveryNameKey(x.p.name)}`
+    const trustedQid = x.wiki.resolved && !x.wiki.identity_uncertain ? x.wiki.qid : null
+    const key = trustedQid ?? `n:${discoveryNameKey(x.p.name)}`
     if (seen.has(key)) return false
     seen.add(key)
     return true
@@ -390,6 +397,7 @@ export async function runV2Discovery(input: V2RunInput): Promise<V2RunResult> {
           nameEn: x.p.name_en,
           role: x.p.role,
           claim,
+          topic: input.topic,
           sources,
           variants,
           runId: input.runId,

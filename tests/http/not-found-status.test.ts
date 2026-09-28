@@ -39,6 +39,16 @@ let base = ""
 /** A real, currently-published slug per entity — the 200 side of the guard. */
 const real: { episode?: string; guest?: string; topic?: string; category?: string } = {}
 
+/**
+ * A guest row with NO episode — seeded, and deleted in afterAll. Public guests
+ * are the guests who have aired (Khaled, 2026-09-28): this page existed as a
+ * near-blank 200 for every guest added before recording (g-001).
+ */
+const UNAIRED_GUEST = `vitest-unaired-${Date.now()}`
+let seededUnaired = false
+/** A draft row and a future-dated row in `episodes` — not released, so 404. */
+const UNRELEASED_EPISODES = [`vitest-draft-ep-${Date.now()}`, `vitest-future-ep-${Date.now()}`]
+
 async function freePort(): Promise<number> {
   return new Promise((resolve, reject) => {
     const srv = net.createServer()
@@ -82,9 +92,31 @@ async function loadRealSlugs() {
         and id not in (select episode_id from deleted_episodes)
         and id not in (select episode_id from hidden_episodes)
       order by id limit 1`)
-    real.guest = await pick(
-      "select slug from guests where slug is not null order by id limit 1",
+    // A guest is public only with a published, visible episode — pick one
+    // that HAS aired, or the 200 side would blame the rule for a real 404.
+    real.guest = await pick(`
+      select g.slug from guests g
+      where g.slug is not null
+        and exists (
+          select 1 from episodes e
+          where e.guest_id = g.id
+            and coalesce(e.status, 'published') = 'published'
+            and e.release_date <= now()
+            and e.id not in (select episode_id from deleted_episodes)
+            and e.id not in (select episode_id from hidden_episodes)
+        )
+      order by g.id limit 1`)
+    await client.query("insert into guests (id, name, slug) values ($1, $2, $1)", [
+      UNAIRED_GUEST,
+      "ضيف لم تُذع حلقته",
+    ])
+    await client.query(
+      `insert into episodes (id, title, slug, youtube_url, release_date, status) values
+         ($1, 'حلقة مسودة', $1, 'https://www.youtube.com/watch?v=vitestdraft', '2024-01-01', 'draft'),
+         ($2, 'حلقة مستقبلية', $2, 'https://www.youtube.com/watch?v=vitestfutur', '2099-01-01', 'published')`,
+      UNRELEASED_EPISODES,
     )
+    seededUnaired = true
     real.topic = await pick(
       "select slug from topics where slug is not null order by id limit 1",
     )
@@ -126,8 +158,18 @@ beforeAll(async () => {
   }
 }, BOOT_TIMEOUT_MS + 30_000)
 
-afterAll(() => {
+afterAll(async () => {
   server?.kill("SIGTERM")
+  if (seededUnaired) {
+    const client = new Client({ connectionString: databaseUrl() })
+    await client.connect()
+    try {
+      await client.query("delete from guests where id = $1", [UNAIRED_GUEST])
+      await client.query("delete from episodes where id = any($1)", [UNRELEASED_EPISODES])
+    } finally {
+      await client.end()
+    }
+  }
 })
 
 /** Status only. Never `res.text()` — the body was always right. */
@@ -148,6 +190,20 @@ describe("a URL that resolves to nothing answers 404, not a soft 404", () => {
     ["/zzz-no-such-route-at-all"],
   ])("%s → 404", async (pathname) => {
     expect(await status(pathname)).toBe(404)
+  }, 30_000)
+})
+
+describe("a guest who has not aired is not public — a REAL 404", () => {
+  it("/guests/<slug> for a guest row with no episode → 404", async () => {
+    expect(seededUnaired, "could not seed the unaired guest").toBe(true)
+    expect(await status(`/guests/${encodeURIComponent(UNAIRED_GUEST)}`)).toBe(404)
+  }, 30_000)
+
+  it("/episodes/<slug> for a draft or future-dated row → 404", async () => {
+    expect(seededUnaired, "could not seed the unreleased episodes").toBe(true)
+    for (const slug of UNRELEASED_EPISODES) {
+      expect(await status(`/episodes/${encodeURIComponent(slug)}`)).toBe(404)
+    }
   }, 30_000)
 })
 

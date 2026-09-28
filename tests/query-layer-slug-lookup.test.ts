@@ -141,27 +141,41 @@ function setupEpisodeBySlugMocks(ep: ReturnType<typeof makeEpisode>, hiddenIds: 
 /**
  * getGuestBySlug call sequence (DB-only path):
  *   1. select from guests (where slug = ...)
- *   2. select from episodes (where guest_id = ...)
- *   3. select from quotes (where guest_id = ...)
+ *   2. getEpisodes({}) — the public archive, which decides whether the
+ *      guest has AIRED (public guests = aired guests, 2026-09-28):
+ *        2a. select episodes LEFT JOIN guests
+ *        2b. select from hidden_episodes
+ *   3. select from episodes (where guest_id = ...)
+ *   4. select from quotes (where guest_id = ...)
  */
-function setupGuestBySlugMocks(guest: ReturnType<typeof makeGuest>, episodes: ReturnType<typeof makeEpisode>[] = []) {
+function setupGuestBySlugMocks(
+  guest: ReturnType<typeof makeGuest>,
+  episodes: ReturnType<typeof makeEpisode>[] = [],
+  quotes: Record<string, unknown>[] = [],
+) {
   // #1: guest row
   mockSelectResult([{
     ...guest,
     created_at: new Date(guest.created_at),
   }])
 
-  // #2: guest's episodes
   const epRows = episodes.map((ep) => ({
     ...ep,
     release_date: ep.release_date,
     created_at: new Date(ep.created_at),
     updated_at: ep.updated_at ? new Date(ep.updated_at) : new Date(),
   }))
+
+  // #2a: the public archive (joined shape) — the same episodes are public
+  mockSelectResult(epRows.map((ep) => ({ episodes: ep, guests: { ...guest, created_at: new Date(guest.created_at) } })))
+  // #2b: hidden episode ids — none
+  mockSelectResult([])
+
+  // #3: guest's episodes
   mockSelectResult(epRows)
 
-  // #3: guest's quotes
-  mockSelectResult([])
+  // #4: guest's quotes
+  mockSelectResult(quotes)
 }
 
 // ── getEpisodeBySlug Tests ──────────────────────────────────────────────────
@@ -289,24 +303,22 @@ describe("getGuestBySlug — DB source", () => {
     expect(result).toBeNull()
   })
 
-  it("returns guest with empty episodes when no episodes exist", async () => {
+  it("returns null for a guest with no aired episode — not public yet (2026-09-28)", async () => {
+    // Used to return the guest with an empty episode list: a public,
+    // near-blank page for anyone added before recording.
     setupGuestBySlugMocks(testGuest, [])
 
     const result = await getGuestBySlug("ahmed-guest")
 
-    expect(result).not.toBeNull()
-    expect(result!.episodes).toEqual([])
+    expect(result).toBeNull()
   })
 
   it("includes guest quotes", async () => {
-    // #1: guest
-    mockSelectResult([{ ...testGuest, created_at: new Date(testGuest.created_at) }])
-    // #2: episodes
-    mockSelectResult([])
-    // #3: quotes
-    mockSelectResult([
-      { id: "q-1", episode_id: "ep-1", guest_id: "guest-1", text: "اقتباس", theme: "حياة", created_at: new Date() },
-    ])
+    setupGuestBySlugMocks(
+      testGuest,
+      [makeEpisode({ id: "ep-1", title: "حلقة ١", guest_id: "guest-1" })],
+      [{ id: "q-1", episode_id: "ep-1", guest_id: "guest-1", text: "اقتباس", theme: "حياة", created_at: new Date() }],
+    )
 
     const result = await getGuestBySlug("ahmed-guest")
 

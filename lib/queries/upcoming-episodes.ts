@@ -19,6 +19,7 @@ import { db } from "@/lib/db"
 import { upcomingEpisodes } from "@/lib/db/schema/upcoming-episodes"
 import { episodes, guests, episodeIntelligenceRecords } from "@/lib/db/schema"
 import { and, desc, eq, inArray, ne, notExists, sql } from "drizzle-orm"
+import { getPublicGuestIds } from "./episodes"
 
 export type UpcomingEpisodeStatus = "draft" | "published" | "withdrawn"
 
@@ -150,13 +151,22 @@ export async function getPublishedUpcomingBySlug(
     const row = rows[0]
     if (!row) return null
 
+    // The guest of an upcoming episode has usually NOT aired, so their
+    // /guests/<slug> page is a 404 (public guests = aired guests). The card
+    // drops the slug in that case and renders as a plain box, the shape it
+    // already has for a guest with no slug. A returning guest keeps the link.
+    const guestId = (row.guest_id as string | null) ?? null
+    const guestIsPublic = guestId
+      ? await getPublicGuestIds().then((ids) => ids.has(guestId)).catch(() => false)
+      : false
+
     return {
       ...toUpcoming(row),
       guest: row.guest_name
         ? {
-            id: (row.guest_id as string | null) ?? "",
+            id: guestId ?? "",
             name: row.guest_name,
-            slug: row.guest_slug ?? null,
+            slug: guestIsPublic ? (row.guest_slug ?? null) : null,
             bio: row.guest_bio ?? null,
             photo_url: row.guest_photo_url ?? null,
           }

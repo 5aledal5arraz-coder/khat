@@ -52,6 +52,17 @@ export const guestCandidates = pgTable("guest_candidates", {
   source_note: text("source_note"),
   priority_level: text("priority_level").default("medium"), // low, medium, high
 
+  // Discovery links (2026-09-28). Both SOFT — no FK, per this module's rule.
+  /** Wikidata QID from a CONFIDENT discovery match — the dedupe key beside the folded name. */
+  wikidata_qid: text("wikidata_qid"),
+  /**
+   * The episode (EIR id) this person was nominated for from its discovery
+   * results («رشّحه لهالحلقة»). When the candidate is later linked to a
+   * canonical guest, that guest is assigned to this EIR. Promotion to a guest
+   * stays an explicit admin action; this only remembers the intent.
+   */
+  target_eir_id: text("target_eir_id"),
+
   // AI Analysis (latest snapshot)
   ai_score_overall: real("ai_score_overall"),
   ai_fit_score: real("ai_fit_score"),

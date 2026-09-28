@@ -32,7 +32,8 @@ export default async function AdminUpcomingPage() {
   const [rows, eirs, guests] = await Promise.all([
     listUpcomingEpisodesForAdmin(),
     listEpisodeIntelligenceRecords({ limit: 200 }).catch(() => []),
-    getGuests().catch(() => []),
+    // Admin: an upcoming episode is FOR a guest who has not aired yet.
+    getGuests({ includeUnreleased: true }).catch(() => []),
   ])
 
   return (

@@ -62,6 +62,8 @@ import { ChaptersTab } from "./tab-chapters"
 import { ClipsTab } from "./tab-clips"
 import { AssignGuestForm } from "./assign-guest-form"
 import { LaunchEpisodeDiscoveryButton } from "./launch-episode-discovery-button"
+import { EirDiscoveryResults } from "./discovery-results"
+import { listDiscoveryResultsForEir } from "@/lib/discovery/eir-results"
 import { getAllGuests } from "@/lib/admin/queries"
 import { findAttachableJobByDedupeKey } from "@/lib/jobs/queue"
 import { prepV2DedupeKey } from "@/lib/jobs/prep-jobs"
@@ -125,6 +127,17 @@ export default async function EpisodeWorkspacePage({
       ? await findAttachableJobByDedupeKey(prepV2DedupeKey(prep.id)).catch(() => null)
       : null
   const prepJob = prepJobRow ? toJobSnapshot(prepJobRow) : null
+  // This episode's own discovery runs, shown inline on the guest tab.
+  const discoveryRuns =
+    selected === "guest"
+      ? await listDiscoveryResultsForEir({
+          id: eirId,
+          editorial_intent: snap.eir.editorial_intent as {
+            source?: string | null
+            source_id?: string | null
+          } | null,
+        }).catch(() => [])
+      : []
   const guestOptions = allGuests.map((g) => ({ id: g.id, name: g.name }))
 
   // Studio deep-link (?video=) — the studio page has no per-session
@@ -305,7 +318,10 @@ export default async function EpisodeWorkspacePage({
         )}
         {selected === "topic" && <TopicTab snap={snap} />}
         {selected === "guest" && (
-          <GuestTab snap={snap} guestOptions={guestOptions} />
+          <div className="space-y-4">
+            <GuestTab snap={snap} guestOptions={guestOptions} />
+            <EirDiscoveryResults eirId={eirId} runs={discoveryRuns} />
+          </div>
         )}
         {selected === "preparation" && (
           <PreparationTab

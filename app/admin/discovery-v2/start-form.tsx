@@ -5,10 +5,14 @@ import { useRouter } from "next/navigation"
 import { Sparkles, Loader2 } from "lucide-react"
 import { startV2DiscoveryAction } from "./actions"
 import { runAction } from "@/app/admin/components/run-action"
-import type { V2Geography } from "@/lib/discovery-v2/types"
+import {
+  DEFAULT_DISCOVERY_GENDER,
+  DEFAULT_DISCOVERY_GEOGRAPHY,
+  type V2Geography,
+} from "@/lib/discovery-v2/types"
 
-// Kuwait only by default (Khaled, 2026-09-26); Saudi and the rest of the
-// Gulf are opt-in. At least one stays selected.
+// Men from Kuwait by default (Khaled, 2026-09-28) — both changeable; Saudi
+// and the rest of the Gulf are opt-in. At least one place stays selected.
 const GEOS: { id: V2Geography; label: string }[] = [
   { id: "kuwait", label: "الكويت" },
   { id: "saudi", label: "السعودية" },
@@ -24,8 +28,8 @@ const TASTES: { id: "famous" | "balanced" | "hidden_gems"; label: string }[] = [
 export function StartV2Form() {
   const router = useRouter()
   const [topic, setTopic] = useState("")
-  const [gender, setGender] = useState<"" | "male" | "female">("")
-  const [geography, setGeography] = useState<V2Geography[]>(["kuwait"])
+  const [gender, setGender] = useState<"" | "male" | "female">(DEFAULT_DISCOVERY_GENDER)
+  const [geography, setGeography] = useState<V2Geography[]>([...DEFAULT_DISCOVERY_GEOGRAPHY])
   const toggleGeo = (g: V2Geography) =>
     setGeography((cur) =>
       cur.includes(g) ? (cur.length > 1 ? cur.filter((x) => x !== g) : cur) : [...cur, g],

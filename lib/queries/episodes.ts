@@ -1,3 +1,4 @@
+import { cache } from "react"
 import { env } from "@/lib/env"
 import { db, USE_DB as DB_AVAILABLE } from "@/lib/db"
 import { eq, desc, asc, sql } from "drizzle-orm"
@@ -547,6 +548,7 @@ async function applyListPipeline(
     limit?: number
     offset?: number
     includeHidden?: boolean
+    includeUnreleased?: boolean
     withCategories?: boolean
   }
 ): Promise<Episode[]> {
@@ -597,6 +599,18 @@ async function applyListPipeline(
   // Filter hidden
   if (hiddenIds.size > 0) {
     result = result.filter((ep) => !hiddenIds.has(ep.id))
+  }
+
+  // Filter UNRELEASED (draft status or a future release date). The public
+  // archive used to exclude only hidden/tombstoned rows, so a draft or
+  // future-dated row surfaced on /episodes, /api/episodes, the sitemap and
+  // the homepage — carrying a guest whose page (public guests = aired
+  // guests) answers 404. Admin views ask for everything: `includeHidden`
+  // implies it, or pass `includeUnreleased` explicitly.
+  const includeUnreleased = options?.includeUnreleased ?? options?.includeHidden ?? false
+  if (!includeUnreleased) {
+    const now = new Date()
+    result = result.filter((ep) => isReleasedEpisode(ep, now))
   }
 
   // Filter by category
@@ -703,6 +717,8 @@ export async function getEpisodes(options?: {
   limit?: number
   offset?: number
   includeHidden?: boolean
+  /** Admin: also return draft / future-dated rows (implied by `includeHidden`). */
+  includeUnreleased?: boolean
   /**
    * Hydrate `episode.category` on every returned episode — one extra SELECT.
    * Only pass it when something downstream renders the category (today: the
@@ -787,6 +803,8 @@ export async function countArchiveEpisodes(): Promise<ArchiveCount | null> {
           FROM episodes e
          WHERE NOT EXISTS (SELECT 1 FROM hidden_episodes h WHERE h.episode_id = e.id)
            AND NOT EXISTS (SELECT 1 FROM deleted_episodes d WHERE d.episode_id = e.id)
+           AND COALESCE(e.status, 'published') = 'published'
+           AND e.release_date <= CURRENT_DATE
       `)) as unknown as { rows: Array<{ n: number }> }
       return { count: Number(res.rows[0]?.n ?? 0), source: "db", stale: false }
     }
@@ -801,6 +819,10 @@ export async function countArchiveEpisodes(): Promise<ArchiveCount | null> {
             FROM yt
            WHERE NOT EXISTS (SELECT 1 FROM hidden_episodes h WHERE h.episode_id = yt.id)
              AND NOT EXISTS (SELECT 1 FROM deleted_episodes d WHERE d.episode_id = yt.id)
+             AND NOT EXISTS (
+               SELECT 1 FROM episodes x
+                WHERE x.id = yt.id AND COALESCE(x.status, 'published') <> 'published'
+             )
         ) AS yt_n,
         (
           SELECT COUNT(*)::int
@@ -810,6 +832,8 @@ export async function countArchiveEpisodes(): Promise<ArchiveCount | null> {
              AND NOT EXISTS (SELECT 1 FROM yt WHERE yt.id = e.id)
              AND NOT EXISTS (SELECT 1 FROM hidden_episodes h WHERE h.episode_id = e.id)
              AND NOT EXISTS (SELECT 1 FROM deleted_episodes d WHERE d.episode_id = e.id)
+             AND COALESCE(e.status, 'published') = 'published'
+             AND e.release_date <= CURRENT_DATE
         ) AS db_n
     `)) as unknown as { rows: Array<{ yt_n: number; db_n: number }> }
 
@@ -856,6 +880,11 @@ export async function getEpisodeBySlug(
 
   // Block hidden episodes
   if (hiddenIds.has(episode.id)) return null
+
+  // Block unreleased rows (draft / future release date) — the same rule the
+  // list applies. The upcoming («قريباً») page is a separate allow-list
+  // table and is resolved by the route when this returns null.
+  if (!isReleasedEpisode(episode, new Date())) return null
 
   // ── The editor's override wins. One rule, both fields. ──────────────────
   //
@@ -913,7 +942,8 @@ export async function getMostViewedRecent(
         hiddenIds !== null &&
         episode &&
         !hiddenIds.has(episode.id) &&
-        !deletedIds.has(episode.id)
+        !deletedIds.has(episode.id) &&
+        isReleasedEpisode(episode, new Date())
       ) {
         return episode
       }
@@ -940,10 +970,81 @@ export async function getMostViewedRecent(
   return sorted[0] || null
 }
 
+// ─── Public guest visibility ─────────────────────────────────────────────────
+//
+// A GUEST IS PUBLIC ONLY ONCE THEY HAVE AIRED (Khaled, 2026-09-28). A `guests`
+// row used to be public the moment it existed: `/guests` listed every row and
+// `/guests/<slug>` rendered a near-empty page for anyone — so a guest created
+// while preparing an episode (g-001, before recording) was on the public site
+// with nothing to show. The rule is an ALLOW-list derived from the public
+// archive itself: a guest is public iff at least one episode that
+// `getEpisodes({})` would publish (not hidden, not tombstoned) is theirs, has
+// `status` published, and has a release date that is not in the future.
+//
+// It is derived from `getEpisodes({})` on purpose — the one place that already
+// decides what the public archive is — so the guest rule can never disagree
+// with the episode pages about what has aired. And it fails CLOSED: that list
+// is empty when the hidden set is unreadable, so a DB blip hides guests rather
+// than leaking one.
+//
+// The admin still sees everyone: pass `includeUnreleased: true`.
+
+/** Released = published status (absent counts as published) and not future-dated. */
+function isReleasedEpisode(ep: Episode, now: Date): boolean {
+  if (ep.status && ep.status !== "published") return false
+  const t = Date.parse(ep.release_date)
+  return Number.isNaN(t) || t <= now.getTime()
+}
+
+/** Pure: the guest ids that own at least one released episode in a PUBLIC list. */
+export function selectPublicGuestIds(publicEpisodes: Episode[], now: Date = new Date()): Set<string> {
+  const ids = new Set<string>()
+  for (const ep of publicEpisodes) {
+    if (!isReleasedEpisode(ep, now)) continue
+    // Both shapes: a merged YouTube row can carry `guest` with a null
+    // `guest_id` (see getLatestGuestsForHomepage).
+    const gid = ep.guest?.id ?? ep.guest_id ?? null
+    if (gid) ids.add(gid)
+  }
+  return ids
+}
+
+/**
+ * Released public episode ids per guest — the public set, and each guest's
+ * aired episodes. Wrapped in React `cache()` so one request (the guest page
+ * runs `generateMetadata` AND the page) resolves the archive once; outside a
+ * server request it is a plain call.
+ */
+const publicEpisodeIdsByGuest = cache(async (): Promise<Map<string, Set<string>>> => {
+  const now = new Date()
+  const out = new Map<string, Set<string>>()
+  for (const ep of await getEpisodes({})) {
+    if (!isReleasedEpisode(ep, now)) continue
+    const gid = ep.guest?.id ?? ep.guest_id ?? null
+    if (!gid) continue
+    const set = out.get(gid) ?? new Set<string>()
+    set.add(ep.id)
+    out.set(gid, set)
+  }
+  return out
+})
+
+/** The ids of every guest the public site may show (see the rule above). */
+export async function getPublicGuestIds(): Promise<Set<string>> {
+  return new Set((await publicEpisodeIdsByGuest()).keys())
+}
+
 export async function getGuests(options?: {
   search?: string
+  /** Admin only: every guest row, aired or not. Public callers never pass it. */
+  includeUnreleased?: boolean
 }): Promise<Guest[]> {
   let guestList = await resolveAllGuests()
+
+  if (!options?.includeUnreleased) {
+    const publicIds = await getPublicGuestIds()
+    guestList = guestList.filter((g) => publicIds.has(g.id))
+  }
 
   if (options?.search) {
     guestList = searchGuests(guestList, options.search)
@@ -952,7 +1053,8 @@ export async function getGuests(options?: {
   return guestList
 }
 
-export async function getGuestBySlug(
+// `cache()`: the guest page calls this from generateMetadata AND the page.
+export const getGuestBySlug = cache(async function getGuestBySlug(
   slug: string
 ): Promise<GuestWithRelations | null> {
   // Admin panel (DB) is the single source of truth for guests.
@@ -969,9 +1071,15 @@ export async function getGuestBySlug(
     const guestRow = guestRows[0]
     if (!guestRow) return null
 
+    // Not aired yet → no public page (the page answers a real 404). The
+    // same released set filters the episode list below, so a hidden or
+    // tombstoned episode no longer shows on its guest's page either.
+    const aired = (await publicEpisodeIdsByGuest()).get(guestRow.id)
+    if (!aired || aired.size === 0) return null
+
     // Fetch episodes linked to this guest via DB relationship (guest_id)
     // and quotes authored by this guest.
-    const [episodeRows, quoteRows] = await Promise.all([
+    const [allEpisodeRows, quoteRows] = await Promise.all([
       db!
         .select()
         .from(episodes)
@@ -983,10 +1091,15 @@ export async function getGuestBySlug(
         .where(eq(quotesTable.guest_id, guestRow.id)),
     ])
 
+    const episodeRows = allEpisodeRows.filter((e) => aired.has(e.id))
+    // Quotes too: a quote from a hidden / draft / future episode is not
+    // public just because its guest is.
+    const airedQuotes = quoteRows.filter((q) => !!q.episode_id && aired.has(q.episode_id))
+
     return {
       ...dbGuestToGuest(guestRow),
       episodes: episodeRows.map((e) => dbEpisodeToEpisode(e)) as Episode[],
-      quotes: quoteRows.map((q) => ({
+      quotes: airedQuotes.map((q) => ({
         id: q.id,
         episode_id: q.episode_id,
         guest_id: q.guest_id || null,
@@ -1001,7 +1114,7 @@ export async function getGuestBySlug(
     console.error("DB guest fetch failed:", error)
     return null
   }
-}
+})
 
 // ─── Pure list selectors ─────────────────────────────────────────────────────
 //

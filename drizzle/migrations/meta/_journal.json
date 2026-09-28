@@ -239,6 +239,13 @@
       "when": 1790576614157,
       "tag": "0033_secret_sentinels",
       "breakpoints": true
+    },
+    {
+      "idx": 34,
+      "version": "7",
+      "when": 1790612314996,
+      "tag": "0034_odd_master_chief",
+      "breakpoints": true
     }
   ]
 }

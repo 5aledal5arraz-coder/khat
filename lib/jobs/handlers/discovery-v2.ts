@@ -92,36 +92,52 @@ function decisionToStatus(d: V2Candidate["decision"]): DiscoveryCandidateStatus 
       : "rejected"
 }
 
+/**
+ * A Wikidata match's facts are shown/stored only when the identity is
+ * confident. An uncertain or contradicted match is a possible stranger:
+ * showing their birth year, photo, Wikipedia link or QID on the card (and
+ * feeding that QID to cross-run memory) presented a namesake as our person.
+ */
+function wikiTrusted(c: V2Candidate): boolean {
+  return c.wiki.resolved && !c.wiki.identity_uncertain
+}
+
 function buildEvidence(c: V2Candidate): DiscoveryEvidenceUrl[] {
   const ev: DiscoveryEvidenceUrl[] = []
+  const trusted = wikiTrusted(c)
   const push = (platform: string, url?: string | null, title?: string | null, snippet?: string | null) => {
     if (url) ev.push({ platform, url, title: title ?? c.name, snippet: snippet ?? null, fetched_at: new Date().toISOString() })
   }
   // Verified story evidence first: the quote passed the verbatim guard.
   for (const e of c.story?.evidence ?? []) push("story", e.url, e.domain ?? "مصدر القصة", e.quote)
-  push("wikipedia_ar", c.wiki.wikipedia_ar_url, c.name, c.wiki.summary)
-  push("wikipedia", c.wiki.wikipedia_url, c.name_en ?? c.name, c.wiki.summary)
-  push("official", c.wiki.official_website, "الموقع الرسمي")
+  if (trusted) {
+    push("wikipedia_ar", c.wiki.wikipedia_ar_url, c.name, c.wiki.summary)
+    push("wikipedia", c.wiki.wikipedia_url, c.name_en ?? c.name, c.wiki.summary)
+    push("official", c.wiki.official_website, "الموقع الرسمي")
+  }
   push("youtube", c.signals.youtube?.channel_url, c.signals.youtube?.channel_title ?? "قناة يوتيوب")
   push("youtube_talk", c.signals.youtube?.talk_url, "لقاء/مقابلة")
-  push("podcast", c.signals.podcast?.latest_url, "ظهور في بودكاست")
+  // Listen Notes' sandbox (`test`) returns the same mock episode for everyone.
+  if (c.signals.podcast?.test !== true) push("podcast", c.signals.podcast?.latest_url, "ظهور في بودكاست")
   push("news", c.signals.news?.latest_url, c.signals.news?.latest_title ?? "تغطية إعلامية")
   // Live X presence (enriched via the API) beats the static Wikidata link:
   // the snippet carries what the person is talking about RIGHT NOW.
-  if (c.signals.x) {
+  // X / Instagram presence is looked up through Wikidata's handle, so it is
+  // evidence only for a confident match (enrich() already refuses the rest).
+  if (c.signals.x && trusted) {
     const x = c.signals.x
     const label = `X — @${x.username}${x.posting === "active" ? " (نشط)" : ""}`
     push("x", x.url, label, x.recent_sample[0] ?? x.bio ?? null)
-  } else {
+  } else if (trusted) {
     push("x", c.wiki.social?.x, "X")
   }
   // Same for Instagram: the Business-Discovery-verified presence (with a
   // recent-caption snippet) beats the bare Wikidata profile link.
-  if (c.signals.instagram) {
+  if (c.signals.instagram && trusted) {
     const ig = c.signals.instagram
     const label = `Instagram — @${ig.username}${ig.posting === "active" ? " (نشط)" : ""}`
     push("instagram", ig.url, label, ig.recent_sample[0] ?? ig.bio ?? null)
-  } else {
+  } else if (trusted) {
     push("instagram", c.wiki.social?.instagram, "Instagram")
   }
   return ev
@@ -180,6 +196,7 @@ registerHandler<V2RunPayload>("discovery_v2.run", async (payload) => {
   // A failure while persisting must not leave the run stuck in "searching".
   try {
     for (const c of result.candidates) {
+      const trusted = wikiTrusted(c)
       const cand = await createCandidate({
         discovery_run_id: run.id,
         target_episode_candidate_id: targetEpisodeCandidateId,
@@ -194,14 +211,15 @@ registerHandler<V2RunPayload>("discovery_v2.run", async (payload) => {
             reasons: c.reasons,
             why: c.why,
             name_en: c.name_en,
-            image_url: c.wiki.image_url,
-            occupations: c.wiki.occupations,
-            birth_year: c.wiki.birth_year,
-            nationality: c.wiki.nationality_country,
-            gender: c.wiki.gender,
-            sitelinks: c.wiki.sitelink_count,
-            qid: c.wiki.qid,
-            social: c.wiki.social,
+            // Wikidata facts only from a confident match (see wikiTrusted).
+            image_url: trusted ? c.wiki.image_url : null,
+            occupations: trusted ? c.wiki.occupations : [],
+            birth_year: trusted ? c.wiki.birth_year : null,
+            nationality: trusted ? c.wiki.nationality_country : null,
+            gender: trusted ? c.wiki.gender : null,
+            sitelinks: trusted ? c.wiki.sitelink_count : null,
+            qid: trusted ? c.wiki.qid : null,
+            social: trusted ? c.wiki.social : {},
             signals: c.signals,
             // Optional live-web verification (present only for top advanced
             // candidates when grounding is enabled; null otherwise).

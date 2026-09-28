@@ -212,6 +212,9 @@ const F1_CLASSIFY: RawStoryClassification = {
     { source: 2, quote: F1_Q2 },
   ],
   gulf_event: { event: "الأسر 1990", source: 1, quote: "قصة أسره في أغسطس 1990 حين اقتادته القوات العراقية" },
+  // The classifier now judges the story against the episode topic, backed
+  // by a verified quote (2026-09-28) — a POW story on a POW episode.
+  topic_relevance: { value: "on_topic", source: 1, quote: "قصة أسره في أغسطس 1990 حين اقتادته القوات العراقية" },
   is_individual: true,
   same_person: true,
 }
@@ -234,6 +237,7 @@ const F1_CLASSIFY_NEUTRAL: RawStoryClassification = {
     { source: 2, quote: F1_Q2 },
   ],
   gulf_event: { event: "الأسر 1990", source: 1, quote: F1_NEUTRAL_Q },
+  topic_relevance: { value: "on_topic", source: 1, quote: F1_NEUTRAL_Q },
 }
 
 // FW — a woman who lived it, not in Wikidata; her sources say «روت».
@@ -260,6 +264,7 @@ const FW_CLASSIFY: RawStoryClassification = {
     { source: 2, quote: FW_Q2 },
   ],
   gulf_event: { event: "الاحتلال 1990", source: 1, quote: FW_Q1 },
+  topic_relevance: { value: "on_topic", source: 1, quote: FW_Q1 },
   is_individual: true,
   same_person: true,
 }
@@ -304,6 +309,8 @@ const F2_CLASSIFY: RawStoryClassification = {
   story_type: "expert_only",
   evidence: [{ source: 1, quote: F2_Q }],
   gulf_event: null,
+  // A historian of the invasion IS on topic — as an expert, not a witness.
+  topic_relevance: { value: "on_topic", source: 1, quote: F2_Q },
   same_person: true,
   is_individual: true,
 }
@@ -330,6 +337,7 @@ const F9_WEB = [src({ url: "https://alanba.com.kw/f9", domain: "alanba.com.kw", 
 const F9_CLASSIFY: RawStoryClassification = {
   story_type: "second_hand",
   evidence: [{ source: 1, quote: F9_Q }],
+  topic_relevance: { value: "on_topic", source: 1, quote: F9_Q },
   same_person: true,
 }
 
@@ -465,7 +473,12 @@ describe("F3 — a hallucinated story never scores", () => {
 
   it("mutation check — the SAME quote made verbatim in the source counts (S = 0.8)", () => {
     const withQuote = sources.map((s) => ({ ...s, text: `${s.text}. ${F3_PARAPHRASE} بعد سنوات` }))
-    const check = verifyStoryClassification(F3_CLASSIFY, withQuote, variants, null)
+    const check = verifyStoryClassification(
+      { ...F3_CLASSIFY, topic_relevance: { value: "on_topic", source: 1, quote: F3_PARAPHRASE } },
+      withQuote,
+      variants,
+      null,
+    )
     expect(check.assessment.status).toBe("verified")
     const scored = scoreCandidate({ name: F3 }, { resolved: false }, {}, { topic: TOPIC }, check)
     expect(scored.scores.story).toBe(0.8) // one live domain
@@ -718,6 +731,7 @@ describe("H — the Gulf hook never reads the propose-time hypothesis", () => {
         evidence: [{ url: "https://alanba.com.kw/h1", domain: "alanba.com.kw", quote }],
         gulf_event: null,
         claim_from_propose: CLAIM,
+        topic_relevance: { value: "on_topic", url: "https://alanba.com.kw/h1", quote },
       },
       sources: [],
       attrs: { deceased: false, not_individual: false, same_person: true, gender: null, nationality: null },
@@ -1095,11 +1109,21 @@ describe("possibly deceased — a soft cue, never a rejection", () => {
     ]
     expect(selectForStoryCheck(pub, "الغزو العراقي للكويت", 1).map((x) => x.p.name)).toEqual([other])
     expect(selectForStoryCheck(pub, "الغزو العراقي للكويت", 2).map((x) => x.p.name)).toEqual([other, n])
+    // An UNCERTAIN Wikidata entry's death year is a stranger's until proven
+    // otherwise (2026-09-28): it no longer demotes a living candidate in the
+    // queue. Same entry shape on both, so only the death year differs — the
+    // old cue sorted n last; now proposal order stands.
     const lesser = [
       { p: fh2(n), wiki: { resolved: true, identity_uncertain: true, death_year: 1990 } as WikiFacts, signals: {} },
+      { p: fh2(other), wiki: { resolved: true, identity_uncertain: true } as WikiFacts, signals: {} },
+    ]
+    expect(rankForStoryCheck(lesser, "الغزو العراقي للكويت").map((x) => x.p.name)).toEqual([n, other])
+    // …while the SOURCE cue («الشهيد <name>») still sorts last.
+    const withSourceCue = [
+      { p: fh2(n), wiki: { resolved: false } as WikiFacts, signals: talkOf(`بيت الشهيد - الشهيد ${n}`) },
       { p: fh2(other), wiki: { resolved: false } as WikiFacts, signals: {} },
     ]
-    expect(rankForStoryCheck(lesser, "الغزو العراقي للكويت").map((x) => x.p.name)).toEqual([other, n])
+    expect(rankForStoryCheck(withSourceCue, "الغزو العراقي للكويت").map((x) => x.p.name)).toEqual([other, n])
   })
 
   it("score: the cue keeps the person out of «accepted» and says why, without rejecting", () => {
@@ -1354,7 +1378,12 @@ describe("Khaled «أ» — an unpublished first-hand story goes to review, not 
   it("≈ النوت told by others → needs_review «قصته يرويها غيره» (S = 0.5)", async () => {
     h.proposal = [firstHand(UD, "شارك في المقاومة في الفروانية عام 1990")]
     h.web.set(UD, [src({ url: "https://alanba.com.kw/ud", domain: "alanba.com.kw", title: UD, snippet: UD_Q })])
-    h.classify.set(UD, { story_type: "second_hand", evidence: [{ source: 1, quote: UD_Q }], same_person: true })
+    h.classify.set(UD, {
+      story_type: "second_hand",
+      evidence: [{ source: 1, quote: UD_Q }],
+      topic_relevance: { value: "on_topic", source: 1, quote: UD_Q },
+      same_person: true,
+    })
     const r = await runV2Discovery(input())
     const c = byName(r.candidates, UD)!
     expect(c.story?.status).toBe("verified")
@@ -1465,6 +1494,7 @@ describe("Khaled «أ» — an unpublished first-hand story goes to review, not 
       story_type: "first_hand",
       story_summary: "اعتُقل من بيته في سبتمبر 1990",
       evidence: [{ source: 1, quote: VB_Q }],
+      topic_relevance: { value: "on_topic", source: 1, quote: VB_Q },
       is_individual: true,
       same_person: true,
     })
@@ -1478,8 +1508,10 @@ describe("Khaled «أ» — an unpublished first-hand story goes to review, not 
     const vb = byName(r.candidates, VB)!
     expect(vb.story?.status).toBe("verified")
     expect(vb.scores.story).toBe(0.8) // one live domain
-    // sight: the bar alone kept it out of review, as in trial 6
-    expect(vb.scores.overall).toBeLessThan(0.55)
+    // Trial 6 scored him < 0.55 on the 0.62 fit prior; with a VERIFIED
+    // on-topic relevance F = 1 and he clears the bar — and is still
+    // reviewed, not accepted, because nothing confirms his identity.
+    expect(vb.scores.topic_fit).toBe(1)
     expect(vb.decision).toBe("needs_review")
     expect(vb.flags).toContain("identity_unverified")
     expect(vb.reasons[0]).toBe("قصة موثّقة — ليس في ويكي‌داتا، راجِع الهوية")
@@ -1492,25 +1524,41 @@ describe("Khaled «أ» — an unpublished first-hand story goes to review, not 
     }
   })
 
-  it("a verified first-hand story weaker still (below SHORTLIST_BAR) is reviewed, never «إشارات ضعيفة»", () => {
-    // A lived story with no Gulf event in it (H = 0), off-topic (F at its
-    // 0.62 prior), under a nationality filter nobody could verify (−0.03).
-    const q = `روى ${VB} كيف بنى بيديه أول قارب خشبي صنعه في حياته على الشاطئ`
-    const sources: StorySource[] = [
-      { kind: "web", title: "شهادة", url: "https://alraimedia.com/vb", domain: "alraimedia.com", text: q, verified: true },
-    ]
-    const check = verifyStoryClassification(
-      { story_type: "first_hand", evidence: [{ source: 1, quote: q }], is_individual: true, same_person: true },
-      sources,
+  // A lived story with no Gulf event in it (H = 0), under a nationality
+  // filter nobody could verify (−0.03), not in Wikidata (−0.06).
+  const BOAT_Q = `روى ${VB} كيف بنى بيديه أول قارب خشبي صنعه في حياته على الشاطئ`
+  const boatCheck = (relevance: "on_topic" | "off_topic") =>
+    verifyStoryClassification(
+      {
+        story_type: "first_hand",
+        evidence: [{ source: 1, quote: BOAT_Q }],
+        topic_relevance: { value: relevance, source: 1, quote: BOAT_Q },
+        is_individual: true,
+        same_person: true,
+      },
+      [{ kind: "web", title: "شهادة", url: "https://alraimedia.com/vb", domain: "alraimedia.com", text: BOAT_Q, verified: true }],
       nameVariants([VB]),
       null,
     )
-    const c = scoreCandidate(VB_PROPOSED, { resolved: false }, {}, { topic: "صناعة الألعاب الإلكترونية", filters: { nationality: "kuwaiti" } }, check)
+
+  it("a verified ON-TOPIC first-hand story weaker still (below the accept bar) is reviewed, never «إشارات ضعيفة»", () => {
+    const c = scoreCandidate(VB_PROPOSED, { resolved: false }, {}, { topic: "صناعة القوارب الخشبية", filters: { nationality: "kuwaiti" } }, boatCheck("on_topic"))
     expect(c.scores.story).toBe(0.8)
     expect(c.scores.gulf_hook).toBe(0)
-    expect(c.scores.overall).toBeLessThan(0.4) // sight: the old code rejected this
+    expect(c.scores.overall).toBeLessThan(0.55)
     expect(c.decision).toBe("needs_review")
     expect(c.reasons.join(" ")).not.toContain("إشارات ضعيفة")
+  })
+
+  it("the same verified story OFF the episode topic counts nothing (2026-09-28): S = 0, never a strong story", () => {
+    // Before topic relevance this scored S = 0.8 on an episode about video
+    // games — the founders'-founding-story failure of run 1e88aa03.
+    const c = scoreCandidate(VB_PROPOSED, { resolved: false }, {}, { topic: "صناعة الألعاب الإلكترونية", filters: { nationality: "kuwaiti" } }, boatCheck("off_topic"))
+    expect(c.story?.status).toBe("verified")
+    expect(c.story?.topic_relevance?.value).toBe("off_topic")
+    expect(c.scores.story).toBe(0)
+    expect(c.scores.topic_fit).toBe(0)
+    expect(c.reasons.join(" ")).not.toContain("قصة موثّقة — الدرجة الكلية")
   })
 })
 

@@ -26,6 +26,17 @@ export interface V2Filters {
  */
 export type V2Geography = "kuwait" | "saudi" | "gulf"
 
+/**
+ * The launch defaults every discovery surface starts from (Khaled,
+ * 2026-09-28): guests are men from Kuwait. Khat does not host women guests
+ * for now. Both stay changeable per run — these are the PRESELECTION of the
+ * EIR launcher, the /admin/discovery-v2 form, and season Phase-B, not a
+ * filter the engine forces. Topic generation is deliberately NOT governed by
+ * this (topics stay pan-Arab; separate decision).
+ */
+export const DEFAULT_DISCOVERY_GENDER = "male" as const
+export const DEFAULT_DISCOVERY_GEOGRAPHY: readonly V2Geography[] = ["kuwait"]
+
 export interface V2RunInput {
   /** Episode topic / theme the guest should fit. Arabic ok. */
   topic: string
@@ -213,6 +224,23 @@ export interface StoryAssessment {
   gulf_event: { event: string; url: string; quote: string } | null
   /** The propose-time hypothesis, shown labelled «فرضية». Never scored. */
   claim_from_propose: string | null
+  /**
+   * How what the sources say about this person relates to THE EPISODE TOPIC,
+   * backed by a verified verbatim quote (same guard as `evidence`). Absent =
+   * not established (not checked, no citable source, or no verified quote).
+   * The classifier used to never see the topic, so a founder's "founding
+   * story" scored as a full first-hand story on an episode about family
+   * money. S counts fully only when on_topic (storyScore in score.ts).
+   */
+  topic_relevance?: TopicRelevance | null
+}
+
+export type TopicRelevanceValue = "on_topic" | "adjacent" | "off_topic"
+
+export interface TopicRelevance {
+  value: TopicRelevanceValue
+  url: string
+  quote: string
 }
 
 /**
@@ -291,7 +319,24 @@ export interface V2Scores {
   penalty: number
   /** weighted overall, 0..1 */
   overall: number
+  /**
+   * Components that were NOT computed from real evidence for this person
+   * (never checked, no source contributed, only a lexical guess). The number
+   * still feeds `overall` — the run page shows «غير مقيّم» instead of it, so
+   * a default is never read as a measurement. Absent on rows scored before
+   * 2026-09-28.
+   */
+  unmeasured?: V2ScoreKey[]
 }
+
+/** The per-component score keys the run page can mark «غير مقيّم». */
+export type V2ScoreKey =
+  | "story"
+  | "topic_fit"
+  | "searchability"
+  | "guestability"
+  | "notability"
+  | "recency"
 
 export interface V2Candidate {
   name: string

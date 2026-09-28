@@ -19,8 +19,13 @@ import { instagramPresence } from "./sources/instagram"
 
 export async function enrich(
   name: string,
-  wiki: WikiFacts,
+  facts: WikiFacts,
 ): Promise<EnrichmentSignals> {
+  // An UNCERTAIN Wikidata match may be a namesake — never look up its
+  // handles or search by its labels (the pipeline already passes the
+  // proposal instead; this is the same rule at the source).
+  const wiki: WikiFacts =
+    facts.resolved && facts.identity_uncertain ? { resolved: false } : facts
   const nameEn = wiki.label ?? name
   const nameAr = wiki.label_ar ?? name
   const [scholar, books, news, youtube, podcast, x, instagram] = await Promise.all([

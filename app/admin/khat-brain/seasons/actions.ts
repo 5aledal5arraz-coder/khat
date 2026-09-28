@@ -11,7 +11,7 @@
  *     learning layer stays fed
  */
 
-import { eq, and, inArray, isNull } from "drizzle-orm"
+import { eq, and, inArray, isNull, sql } from "drizzle-orm"
 import { revalidatePath } from "next/cache"
 import { db } from "@/lib/db"
 import {
@@ -52,7 +52,8 @@ import {
 import { updateEpisodeCandidateStatus } from "@/lib/khat-map/core/queries"
 import { recordDecision } from "@/lib/khat-map/learning/decisions"
 import { buildEpisodeDiscoveryTopic } from "@/lib/discovery-v2/topic"
-import type { V2Geography } from "@/lib/discovery-v2/types"
+import { DEFAULT_DISCOVERY_GENDER, type V2Geography } from "@/lib/discovery-v2/types"
+import { nextSeasonNumberFrom } from "@/lib/khat-map/core/season-number"
 import type {
   KhatMapV2Mode,
   KhatMapFeedbackReasonCategory,
@@ -430,13 +431,15 @@ export async function startGuestDiscoveryForEpisodeAction(input: {
     const controls = season.editorial_controls as KhatMapEditorialControls | undefined
     const gf = controls?.guest_filters
     // An explicit choice from the launcher (the EIR CTA asks) beats the
-    // season default; `undefined` = not asked → the season's filter.
+    // season default; `undefined` = not asked → the season's filter, and a
+    // season with no specific gender («الكل») → men (Khaled, 2026-09-28:
+    // guests are men by default; Phase B launches without asking).
     const gender =
       input.gender !== undefined
         ? input.gender
         : gf?.gender === "male" || gf?.gender === "female"
           ? gf.gender
-          : null
+          : DEFAULT_DISCOVERY_GENDER
     const nationality =
       gf?.nationality === "kuwaiti" || gf?.nationality === "non_kuwaiti"
         ? gf.nationality
@@ -1911,11 +1914,24 @@ async function loadGuest(id: string) {
   return rows[0] ?? null
 }
 
+/** See lib/khat-map/core/season-number.ts — the aired archive counts too. */
 async function nextSeasonNumber(): Promise<number> {
-  const rows = await db!
-    .select({ season_number: khatMapSeasons.season_number })
-    .from(khatMapSeasons)
-  return rows.reduce((m, r) => Math.max(m, r.season_number ?? 0), 0) + 1
+  const [rows, aired] = await Promise.all([
+    db!.select({ season_number: khatMapSeasons.season_number }).from(khatMapSeasons),
+    db!
+      .select({
+        max_season: sql<number | null>`max(${episodes.season})`,
+        n: sql<string>`count(*)`,
+      })
+      .from(episodes)
+      .where(eq(episodes.status, "published")),
+  ])
+  return nextSeasonNumberFrom({
+    planned: rows.map((r) => r.season_number),
+    // `count()` / `max()` arrive as strings from pg — coerce.
+    airedMaxSeason: aired[0]?.max_season != null ? Number(aired[0].max_season) : null,
+    airedEpisodeCount: Number(aired[0]?.n ?? 0),
+  })
 }
 
 function modeLabel(m: KhatMapV2Mode): string {

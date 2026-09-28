@@ -51,6 +51,8 @@ const verifiedStory: StoryCheck = {
     ],
     gulf_event: null,
     claim_from_propose: null,
+    // Verified on-topic (2026-09-28): an unproven relevance counts ×0.4.
+    topic_relevance: { value: "on_topic", url: "https://alanba.com.kw/t1", quote: "روى ضيف تجريبي قصته في مقابلة مطوّلة عن سنوات البحث الأولى" },
   },
   sources: [],
   attrs: { deceased: false, not_individual: false, same_person: true, gender: "male", nationality: "Kuwait" },

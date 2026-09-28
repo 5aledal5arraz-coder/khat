@@ -577,7 +577,26 @@ async function callEditorialModel(args: {
 
 // ─── Helpers ─────────────────────────────────────────────────────────
 
-function coerceCandidate(raw: Record<string, unknown>): HybridCandidate {
+/**
+ * The words that make `invasion` literal: the 1990 Iraqi invasion of Kuwait.
+ * «غزو» in any form (الغزو، غزو، بالغزو), «الاحتلال», or the year.
+ */
+const INVASION_TEXT = /غزو|الاحتلال|1990|١٩٩٠/
+
+/**
+ * `invasion` is kept only when the topic's own text is about the invasion.
+ * The model used it for figurative "invasions" (2026-09-28 end-to-end test),
+ * and the type is not a label only: to-preparation maps it to the invasion
+ * content_focus of the whole preparation. Anything else falls back to the
+ * same default as an unknown type.
+ */
+export function coerceEpisodeType(rawType: string, text: string): string {
+  if (!VALID_EPISODE_TYPES.has(rawType)) return "intellectual"
+  if (rawType === "invasion" && !INVASION_TEXT.test(text)) return "intellectual"
+  return rawType
+}
+
+export function coerceCandidate(raw: Record<string, unknown>): HybridCandidate {
   const s = (k: string) => String(raw[k] ?? "").trim()
   const n = Number(raw["estimated_strength_score"])
   // episode_type / topic_domain are METADATA hints, not editorial quality —
@@ -585,6 +604,16 @@ function coerceCandidate(raw: Record<string, unknown>): HybridCandidate {
   // wasted the batch's most diverse slots. Default instead of reject.
   const rawType = s("suggested_episode_type")
   const rawDomain = s("suggested_topic_domain")
+  const topicText = [
+    "title",
+    "why_it_matters",
+    "why_now",
+    "emotional_hook",
+    "conflict_angle",
+    "novelty_note",
+  ]
+    .map(s)
+    .join(" ")
   return {
     title: s("title"),
     why_it_matters: s("why_it_matters"),
@@ -596,7 +625,7 @@ function coerceCandidate(raw: Record<string, unknown>): HybridCandidate {
     // the feedback join simply finds no matching signals and skips.
     primary_theme: s("primary_theme") || "none",
     original_lens: s("original_lens"),
-    suggested_episode_type: VALID_EPISODE_TYPES.has(rawType) ? rawType : "intellectual",
+    suggested_episode_type: coerceEpisodeType(rawType, topicText),
     suggested_topic_domain: VALID_TOPIC_DOMAINS.has(rawDomain) ? rawDomain : "none",
     estimated_strength_score: Number.isFinite(n) ? Math.max(0, Math.min(1, n)) : 0,
     archetype: s("archetype") || undefined,

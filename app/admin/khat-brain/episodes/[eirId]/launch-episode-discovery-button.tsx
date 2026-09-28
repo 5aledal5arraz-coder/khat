@@ -10,10 +10,15 @@
  * navigates straight to the run results.
  *
  * It does NOT launch on the first click (2026-09-28): it opens a small inline
- * choice first — the guest gender (required: رجل / امرأة / أيّ) and where the
- * guests come from (Kuwait by default, Saudi / Gulf opt-in) — the same two
- * choices the /admin/discovery-v2 form asks. It used to launch at once with
- * no gender and no geography.
+ * choice first — the guest gender (رجل / امرأة / أيّ) and where the guests
+ * come from (Saudi / Gulf opt-in) — the same two choices the
+ * /admin/discovery-v2 form asks. It used to launch at once with no gender and
+ * no geography.
+ *
+ * Both are PRESELECTED to «رجل» + الكويت (Khaled, 2026-09-28: guests are men
+ * from Kuwait by default). The old "pick a gender first" gate is gone — a
+ * default now exists, so «ابدأ الاكتشاف» works on the first click of the
+ * panel; the operator can still change either before launching.
  */
 
 import { useState, useTransition } from "react"
@@ -22,7 +27,11 @@ import { Loader2, Telescope } from "lucide-react"
 import { toast } from "@/lib/use-toast"
 import { cn } from "@/lib/utils"
 import { runAction } from "@/app/admin/components/run-action"
-import type { V2Geography } from "@/lib/discovery-v2/types"
+import {
+  DEFAULT_DISCOVERY_GENDER,
+  DEFAULT_DISCOVERY_GEOGRAPHY,
+  type V2Geography,
+} from "@/lib/discovery-v2/types"
 import { startGuestDiscoveryForEirAction } from "./actions"
 
 type GenderPick = "male" | "female" | "any"
@@ -33,7 +42,7 @@ const GENDERS: { id: GenderPick; label: string }[] = [
   { id: "any", label: "أيّ" },
 ]
 
-// Kuwait only by default (Khaled, 2026-09-26); at least one stays selected.
+// Kuwait only by default; at least one stays selected.
 const GEOS: { id: V2Geography; label: string }[] = [
   { id: "kuwait", label: "الكويت" },
   { id: "saudi", label: "السعودية" },
@@ -59,15 +68,14 @@ export function LaunchEpisodeDiscoveryButton({
   const router = useRouter()
   const [pending, start] = useTransition()
   const [open, setOpen] = useState(false)
-  const [gender, setGender] = useState<GenderPick | null>(null)
-  const [geography, setGeography] = useState<V2Geography[]>(["kuwait"])
+  const [gender, setGender] = useState<GenderPick>(DEFAULT_DISCOVERY_GENDER)
+  const [geography, setGeography] = useState<V2Geography[]>([...DEFAULT_DISCOVERY_GEOGRAPHY])
   const toggleGeo = (g: V2Geography) =>
     setGeography((cur) =>
       cur.includes(g) ? (cur.length > 1 ? cur.filter((x) => x !== g) : cur) : [...cur, g],
     )
 
   const launch = () => {
-    if (!gender) return
     start(async () => {
       const outcome = await runAction(() =>
         startGuestDiscoveryForEirAction(eirId, {
@@ -150,7 +158,7 @@ export function LaunchEpisodeDiscoveryButton({
         <button
           type="button"
           onClick={launch}
-          disabled={pending || !gender}
+          disabled={pending}
           className="mt-3 inline-flex w-full items-center justify-center gap-1.5 rounded-lg bg-primary px-4 py-2 text-[12.5px] font-bold text-primary-foreground hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
         >
           {pending ? (
@@ -161,7 +169,7 @@ export function LaunchEpisodeDiscoveryButton({
           ) : (
             <>
               <Telescope className="h-3.5 w-3.5" />
-              {gender ? "ابدأ الاكتشاف" : "اختر جنس الضيف أولاً"}
+              ابدأ الاكتشاف
             </>
           )}
         </button>

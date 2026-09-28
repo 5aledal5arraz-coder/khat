@@ -20,6 +20,7 @@
  */
 
 import type { WikiFacts } from "../types"
+import { geographyOfNationality } from "../story-evidence"
 
 /** Light context from the LLM proposal, used to disambiguate homonyms. */
 export interface ResolveHint {
@@ -266,6 +267,50 @@ function hintContradicts(ent: any, hint: ResolveHint | undefined): boolean {
   return true
 }
 
+/** A proposed guest is a LIVING person; nobody alive is older than this. */
+export const MAX_PLAUSIBLE_LIVING_AGE = 95
+/** An entity born before this is a historical namesake, dead or not. */
+const HISTORICAL_BIRTH_YEAR = 1900
+
+/**
+ * The reason this entity CANNOT be the proposed person, or null. Pure.
+ *
+ * Two contradictions a name match cannot survive (2026-09-28 end-to-end
+ * test — wrong-person matches born 1800 and 1905 were scored as the
+ * candidate, their sitelinks lent as notability and their birth year shown
+ * on the card):
+ *   - nationality: the proposal names a country, the entry names
+ *     citizenship(s), and they map to different places (Kuwait / Saudi /
+ *     rest of the Gulf / elsewhere — `geographyOfNationality`). Two
+ *     different "elsewhere" countries are not told apart, so never rejected;
+ *   - age: born more than MAX_PLAUSIBLE_LIVING_AGE years ago with no death
+ *     recorded (Wikidata has no "is alive" fact — an old entry without a
+ *     death date is a historical person whose death was never entered), or
+ *     born before 1900 at all.
+ * Either makes the match a DIFFERENT person: `resolved: false`, not merely
+ * "uncertain" — an uncertain entry still steered the story-check queue and
+ * the reasons.
+ */
+export function identityContradiction(
+  entity: { birth_year: number | null; death_year: number | null; citizenships: string[] },
+  hint: ResolveHint | undefined,
+  nowYear: number = new Date().getFullYear(),
+): string | null {
+  const want = geographyOfNationality(hint?.country ?? null)
+  if (want && entity.citizenships.length > 0) {
+    const got = entity.citizenships
+      .map((c) => geographyOfNationality(c))
+      .filter((g): g is NonNullable<typeof g> => g !== null)
+    if (got.length > 0 && !got.includes(want)) return "nationality"
+  }
+  const born = entity.birth_year
+  if (born != null) {
+    if (born < HISTORICAL_BIRTH_YEAR) return "age"
+    if (entity.death_year == null && nowYear - born > MAX_PLAUSIBLE_LIVING_AGE) return "age"
+  }
+  return null
+}
+
 /**
  * Resolve a proposed name to authoritative facts. Tries Arabic then
  * English search; scores every confirmed human (P31=Q5) against the
@@ -357,6 +402,24 @@ export async function resolvePerson(
   ])
 
   const citizenship = citQids.length ? labelMap[citQids[0]] ?? null : null
+
+  // A match that contradicts the proposal is somebody else — no facts of
+  // theirs may reach the candidate.
+  const contradiction = identityContradiction(
+    {
+      birth_year: birth,
+      death_year: death,
+      // An unlabelled QID ("Q12345") says nothing about the country.
+      citizenships: citQids
+        .map((q) => labelMap[q])
+        .filter((l): l is string => !!l && !/^Q\d+$/.test(l)),
+    },
+    hint,
+  )
+  if (contradiction) {
+    console.info(`[discovery-v2/wikidata] ${name}: ${qid} rejected as a different person (${contradiction})`)
+    return empty
+  }
 
   return {
     resolved: true,

@@ -208,6 +208,10 @@ export interface CreateCandidateInput {
   priority_level?: GuestCandidatePriority | null
   status?: GuestCandidateStatus | null
   social_links?: { platform: string; url: string; label?: string | null; is_primary?: boolean }[]
+  /** Discovery only: confident Wikidata QID (dedupe key). */
+  wikidata_qid?: string | null
+  /** Discovery only: the EIR this person was nominated for. */
+  target_eir_id?: string | null
 }
 
 function slugify(name: string): string {
@@ -221,8 +225,15 @@ function slugify(name: string): string {
     .slice(0, 80) || `candidate-${Date.now()}`
 }
 
-export async function createCandidate(input: CreateCandidateInput, actorId?: string): Promise<GuestCandidate> {
-  const d = requireDb()
+/** A db handle or an open transaction — so a caller holding a lock can insert on the SAME connection. */
+type CandidateExecutor = Pick<ReturnType<typeof requireDb>, "select" | "insert">
+
+export async function createCandidate(
+  input: CreateCandidateInput,
+  actorId?: string,
+  executor?: CandidateExecutor,
+): Promise<GuestCandidate> {
+  const d = executor ?? requireDb()
   const baseSlug = input.slug || slugify(input.full_name)
 
   // Ensure unique slug
@@ -257,6 +268,8 @@ export async function createCandidate(input: CreateCandidateInput, actorId?: str
       source_note: input.source_note ?? null,
       priority_level: input.priority_level ?? "medium",
       status: input.status ?? "new",
+      wikidata_qid: input.wikidata_qid ?? null,
+      target_eir_id: input.target_eir_id ?? null,
     })
     .returning()
 

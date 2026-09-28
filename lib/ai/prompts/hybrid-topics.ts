@@ -33,7 +33,12 @@ import {
 // lens registry become optional garnish instead of a mandatory funnel — the
 // funnel (12 pain-lenses × the same frozen top clusters) was why every batch
 // collapsed to the same success/family/AI-anxiety themes.
-export const HYBRID_TOPICS_PROMPT_VERSION = "hybrid-topics-v3.0-exploration"
+//
+// v3.1 (2026-09-28): `invasion` is glossed as the 1990 Iraqi invasion of
+// Kuwait ONLY. Unglossed, the model read it as any "invasion" (of money,
+// tech, culture) — and to-preparation turns the type into content_focus.
+// Wording change only; the audience policy (kuwaitDirective) is untouched.
+export const HYBRID_TOPICS_PROMPT_VERSION = "hybrid-topics-v3.1-exploration"
 
 export interface HybridPromptInput {
   language: "ar" | "en"
@@ -157,7 +162,7 @@ export function buildHybridTopicsPrompt(
     '   - original_lens: a registry KEY below IF one genuinely sharpens the topic, else "none". Do NOT force an introspective lens onto a topic that is not about inner life — a history, science, or hidden-world episode is allowed to just be itself.',
     '   - market_inspiration: a sentence naming WHICH cluster/hook/emotion fed this topic, or "none" when the topic is purely original (e.g. mined from its exploration-map territory).',
     "   - primary_theme: copy VERBATIM the `label` of the single market cluster this topic primarily drew from (from the MARKET CLUSTERS list below). Use \"none\" if the topic is purely original and drew from no cluster.",
-    "   - suggested_episode_type drawn from: intellectual, social, psychological, personal_story, national, historical, economic, controversial, inspirational, mass_audience, signature_khat, invasion.",
+    "   - suggested_episode_type drawn from: intellectual, social, psychological, personal_story, national, historical, economic, controversial, inspirational, mass_audience, signature_khat, invasion. `invasion` means the 1990 Iraqi invasion of Kuwait ONLY — never a figurative \"invasion\" (of technology, money, culture, ideas); use another type for those.",
     "   - suggested_topic_domain drawn from: philosophy, psychology, relationships, religion, identity_masculinity, money_career, technology_ai, internet_culture, crime_mystery, hidden_history, power_manipulation, parenting, kuwait_gulf, historical, social_issues, modern_society, emotions_inner_life, none.",
     "4. NEVER copy a market title. Transform it. The relationship between market_inspiration and title must NOT be a paraphrase.",
     "5. Reject your own first draft if it sounds like self-help, listicle, hustle-culture, or any BANNED shape above. No \"how to,\" no \"5 secrets,\" no \"unlock your,\" no \"الخليج + macro trend\" panels.",

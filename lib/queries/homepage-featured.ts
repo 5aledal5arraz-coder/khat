@@ -1,7 +1,7 @@
 import { db } from "@/lib/db"
 import { homepageFeatured } from "@/lib/db/schema/content"
 import { episodes, guests } from "@/lib/db/schema"
-import { eq, asc, desc, and, ne } from "drizzle-orm"
+import { eq, asc, desc, and, ne, lte, sql } from "drizzle-orm"
 import { getHomepageMode } from "./homepage-settings"
 import type { MuseumEpisode } from "@/lib/content/museum-data"
 import { youTubeThumbUrl } from "@/lib/episodes/thumbnail"
@@ -75,7 +75,16 @@ export async function getLatestEpisodesForHomepage(): Promise<
         release_date: episodes.release_date,
       })
       .from(episodes)
-      .where(and(eq(episodes.status, "published"), ne(episodes.youtube_url, "")))
+      // Released only: published AND not future-dated — the same rule as the
+      // public archive (getEpisodes), so the hero never shows a guest whose
+      // page is still a 404.
+      .where(
+        and(
+          eq(episodes.status, "published"),
+          ne(episodes.youtube_url, ""),
+          lte(episodes.release_date, sql`CURRENT_DATE`),
+        ),
+      )
       .orderBy(desc(episodes.release_date))
       .limit(3)
   } catch {

@@ -32,7 +32,7 @@ import {
 } from "@/lib/ai/grounded-evidence"
 import { buildVerbatimHaystack, foldVerbatim, isVerbatimIn } from "@/lib/studio/verbatim"
 import { mentionsName, notCheckedStory } from "./story-evidence"
-import type { StoryCheck, StorySource } from "./types"
+import type { StoryCheck, StorySource, TopicRelevance, TopicRelevanceValue } from "./types"
 
 /**
  * A story quote must be at least this many folded words. The Studio floor
@@ -41,10 +41,13 @@ import type { StoryCheck, StorySource } from "./types"
  */
 export const STORY_MIN_QUOTE_WORDS = 6
 
-export const STORY_PROMPT_VERSION = "v2-story-1"
+// v2-story-2 (2026-09-28): the classifier now sees the episode topic and
+// returns `topic_relevance`, verified like every other claim.
+export const STORY_PROMPT_VERSION = "v2-story-2"
 
 const STORY_TYPES = ["first_hand", "second_hand", "expert_only", "none"] as const
 type StoryType = (typeof STORY_TYPES)[number]
+const RELEVANCE_VALUES: readonly TopicRelevanceValue[] = ["on_topic", "adjacent", "off_topic"]
 
 /** The classifier's raw JSON — untrusted until verified below. */
 export interface RawStoryClassification {
@@ -57,6 +60,7 @@ export interface RawStoryClassification {
   gender?: unknown
   nationality?: unknown
   same_person?: unknown
+  topic_relevance?: unknown
 }
 
 type Item = { source: StorySource; quote: string }
@@ -133,6 +137,15 @@ export function verifyStoryClassification(
       ? natRaw.value.trim()
       : null
 
+  // Topic relevance counts only with a verified quote about THIS person —
+  // the model's label alone is a claim, and a claim never scores.
+  const relRaw = r.topic_relevance as { value?: unknown } | null | undefined
+  const relItem = attrItem(relRaw)
+  const topicRelevance: TopicRelevance | null =
+    relItem && RELEVANCE_VALUES.includes(relRaw?.value as TopicRelevanceValue)
+      ? { value: relRaw!.value as TopicRelevanceValue, url: relItem.source.url, quote: relItem.quote }
+      : null
+
   return {
     assessment: {
       status: verified ? "verified" : "unverified",
@@ -142,6 +155,7 @@ export function verifyStoryClassification(
       evidence: surviving.map((k) => ({ url: k.source.url, domain: k.source.domain, quote: k.quote })),
       gulf_event: gulfEvent,
       claim_from_propose: claim,
+      topic_relevance: topicRelevance,
     },
     sources,
     attrs: {
@@ -169,6 +183,10 @@ const SYSTEM = [
   "  أي اقتباس غير حرفي أو من مصدر لا يذكر الشخص سيُحذف آلياً ولن يُحتسب.",
   "- لا تعتمد على معرفتك السابقة إطلاقاً — المصادر وحدها.",
   "- إن كانت المصادر عن شخص آخر يحمل الاسم نفسه فاجعل same_person = false.",
+  "- topic_relevance: ما صلة ما تقوله المصادر عن هذا الشخص بموضوع الحلقة المذكور أعلاه تحديداً؟",
+  "  on_topic: قصته أو خبرته عن صلب هذا الموضوع نفسه. adjacent: مجال قريب منه لكن ليس هو.",
+  "  off_topic: لا صلة (مثلاً قصة تأسيس شركة لحلقة موضوعها شيء آخر).",
+  "  أسندها باقتباس حرفي يُظهر ما تقوله المصادر عنه — وإن لم يوجد فاجعلها null.",
   "- اترك الحقل null إن لم يوجد له اقتباس حرفي.",
   UNTRUSTED_SOURCE_SAFETY_HEADER,
   'أعد JSON فقط بهذا الشكل: {"story_type":"first_hand|second_hand|expert_only|none",' +
@@ -178,6 +196,7 @@ const SYSTEM = [
     '"is_individual":true,"deceased":{"source":1,"quote":"..."} أو null,' +
     '"gender":{"value":"male|female","source":1,"quote":"..."} أو null,' +
     '"nationality":{"value":"Kuwait","source":1,"quote":"..."} أو null,' +
+    '"topic_relevance":{"value":"on_topic|adjacent|off_topic","source":1,"quote":"..."} أو null,' +
     '"same_person":true}',
 ].join("\n")
 
@@ -203,6 +222,8 @@ export async function classifyStory(opts: {
   nameEn?: string | null
   role?: string | null
   claim: string | null
+  /** The episode topic — what `topic_relevance` is judged against. */
+  topic: string
   sources: StorySource[]
   variants: string[]
   runId?: string | null
@@ -213,6 +234,7 @@ export async function classifyStory(opts: {
 }): Promise<StoryCheck> {
   const user = [
     `الشخص: ${opts.name}${opts.nameEn ? ` (${opts.nameEn})` : ""}${opts.role ? ` — ${opts.role}` : ""}`,
+    `موضوع الحلقة: ${opts.topic}`,
     "",
     renderSources(opts.sources),
   ].join("\n")
@@ -223,7 +245,7 @@ export async function classifyStory(opts: {
     subjectId: opts.runId ?? null,
     seasonId: opts.seasonId ?? null,
     promptVersion: STORY_PROMPT_VERSION,
-    input: { stage: "story_classify", name: opts.name, sources: opts.sources.length },
+    input: { stage: "story_classify", name: opts.name, topic: opts.topic, sources: opts.sources.length },
     prompt: [
       { role: "system", content: SYSTEM },
       { role: "user", content: user },

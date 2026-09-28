@@ -18,7 +18,7 @@ import {
  */
 const BENCH_SPARES = 12
 import type { MuseumThinker } from "@/lib/content/museum-data"
-import { getEpisodes } from "./episodes"
+import { getEpisodes, getPublicGuestIds } from "./episodes"
 import { getPublishedUpcomingSlugsByGuestIds } from "./upcoming-episodes"
 import { filterLane } from "@/lib/episodes/programs"
 
@@ -315,8 +315,17 @@ export async function getHomepageThinkersForDisplay(): Promise<MuseumThinker[] |
 
     if (rows.length === 0) return null
 
+    // A guest who has not aired is not public (lib/queries/episodes.ts,
+    // «Public guest visibility»). The one exception is the «قريباً» row: that
+    // flag IS Khaled saying "tease this person before their episode", it is
+    // rendered unlinked (or linked to the upcoming episode page, never to
+    // /guests/<slug>), so it stays. An unflagged manual pick with no aired
+    // episode is dropped — its card would link to a page that now 404s.
+    const publicIds = await getPublicGuestIds()
+
     const results: MuseumThinker[] = []
     for (const row of rows) {
+      if (!row.is_upcoming && !publicIds.has(row.guest_id)) continue
       // Public homepage render — project only the columns used. A SELECT *
       // would put admin-only phone/email into the awaited raw pg Result, which
       // React's dev-mode async-debug channel serializes into the flight payload.

@@ -227,6 +227,20 @@ export function proposalFit(p: ProposedName, topic: string): number {
   return hits === 0 ? 0 : hits / toks.length >= 0.5 ? 1 : 0.5
 }
 
+/**
+ * Topic fit of the PROPOSAL text as a continuous share of topic words
+ * (0..1). The queue sorts on this rather than the 0 / 0.5 / 1 bucket: a
+ * long Phase-B topic («العنوان — المجال — الخطّاف — لماذا») puts nearly
+ * everyone in the 0.5 bucket, so the bucket could not tell the economist on
+ * a money episode from a founder with an unrelated founding story.
+ */
+export function proposalFitRatio(p: ProposedName, topic: string): number {
+  const toks = foldVerbatim(topic).split(" ").filter((t) => t.length >= 3)
+  if (toks.length === 0) return 0.5
+  const hay = ` ${foldVerbatim(`${p.role ?? ""} ${p.why ?? ""} ${p.story_claim ?? ""}`)} `
+  return toks.filter((t) => hay.includes(t)).length / toks.length
+}
+
 /** Priority for the paid story check: story potential, not fame. */
 export function storyCheckPriority(p: ProposedName, topic: string): number {
   return Math.round((0.8 * claimStrength(p) + 0.2 * proposalFit(p, topic)) * 100) / 100
@@ -247,9 +261,20 @@ export function storyCheckPriority(p: ProposedName, topic: string): number {
  */
 export function rankForStoryCheck<T extends StoryCheckItem>(items: T[], topic: string): T[] {
   const fame = (w: WikiFacts) => (w.resolved ? 1 + (w.sitelink_count ?? 0) : 0)
+  // TOPIC FIT FIRST, then claim strength (2026-09-28, run 1e88aa03): with the
+  // claim leading, every confident first-hand claim outranked a topical
+  // expert whatever the claim was ABOUT — founders' founding stories took the
+  // cap on a family-money episode and the economists were never checked.
   return items
-    .map((x, i) => ({ x, i, dead: cueRank(x), pr: storyCheckPriority(x.p, topic), fame: fame(x.wiki) }))
-    .sort((a, b) => a.dead - b.dead || b.pr - a.pr || a.fame - b.fame || a.i - b.i)
+    .map((x, i) => ({
+      x,
+      i,
+      dead: cueRank(x),
+      fit: proposalFitRatio(x.p, topic),
+      claim: claimStrength(x.p),
+      fame: fame(x.wiki),
+    }))
+    .sort((a, b) => a.dead - b.dead || b.fit - a.fit || b.claim - a.claim || a.fame - b.fame || a.i - b.i)
     .map((r) => r.x)
 }
 
@@ -260,10 +285,19 @@ function fullNameVariants(p: ProposedName): string[] {
   return nameVariants([p.name, p.name_en]).filter((v) => v.includes(" "))
 }
 
-/** A cue-flagged person is checked last in their pool, never skipped. */
+/**
+ * A cue-flagged person is checked last in their pool, never skipped.
+ *
+ * Only a SOURCE cue («الشهيد <full name>» in a free source) counts here. An
+ * uncertain Wikidata entry's death year is a stranger's until proven
+ * otherwise (2026-09-28): it used to push a living candidate to the back of
+ * the queue on a namesake's death. (A TRUSTED entry with a death year never
+ * reaches the queue — it is a hard reject.) The score still reports that
+ * cue to the operator; it just no longer decides who gets checked.
+ */
 function cueRank(x: StoryCheckItem): number {
   const free = x.signals ? freeStorySources(x.signals) : []
-  return possiblyDeceasedCue(x.wiki, free, fullNameVariants(x.p)) ? 1 : 0
+  return possiblyDeceasedCue({ resolved: false }, free, fullNameVariants(x.p)) ? 1 : 0
 }
 
 /**
@@ -282,6 +316,14 @@ export function hasPublicFootprint(x: StoryCheckItem): boolean {
   if (!x.signals) return false
   const variants = fullNameVariants(x.p)
   return freeStorySources(x.signals).some((src) => mentionsName(src.text, variants))
+}
+
+/** Checks reserved for topical experts at the default cap (12). */
+export const STORY_EXPERT_RESERVE = 2
+
+/** The reserve scales with the cap — 2 of 12, 1 of 6, none below 6. */
+export function expertReserve(cap: number): number {
+  return Math.max(0, Math.min(STORY_EXPERT_RESERVE, Math.floor(cap / 6)))
 }
 
 /** 1 when a free source names the person AND the topic — a public account likely exists. */
@@ -325,28 +367,47 @@ export function selectForStoryCheck<T extends StoryCheckItem>(
 ): T[] {
   if (cap <= 0) return []
   const fame = (w: WikiFacts) => (w.resolved && !w.identity_uncertain ? 1 + (w.sitelink_count ?? 0) : 0)
+  const fitOf = (x: T) => Math.max(proposalFitRatio(x.p, topic), footprintFit(x, topic))
+
+  // RESERVED: the top topical experts (2 of 12 — `expertReserve`). In run
+  // 1e88aa03 (2026-09-28, «المال يتذكّر ما نسيته العائلة») both economists
+  // were cut by the cap: every first-hand claim outranked them, and a claim
+  // is a hypothesis about a story, not about THIS topic. An expert with zero
+  // topic fit is not "topical" and reserves nothing.
+  const experts = items
+    .map((x, i) => ({ x, i, dead: cueRank(x), fit: fitOf(x), pub: hasPublicFootprint(x) ? 1 : 0, fame: fame(x.wiki) }))
+    .filter((r) => r.x.p.story_type === "expert" && r.fit > 0)
+    .sort((a, b) => a.dead - b.dead || b.fit - a.fit || b.pub - a.pub || b.fame - a.fame || a.i - b.i)
+  const reserved = experts.slice(0, Math.min(expertReserve(cap), cap)).map((r) => r.x)
+  const reservedSet = new Set<T>(reserved)
+  const rest = items.filter((x) => !reservedSet.has(x))
+  const restCap = cap - reserved.length
+
   const pub: T[] = []
   const lesser: T[] = []
-  for (const x of items) (hasPublicFootprint(x) ? pub : lesser).push(x)
+  for (const x of rest) (hasPublicFootprint(x) ? pub : lesser).push(x)
+  // Topic fit leads claim strength (see rankForStoryCheck), notability last.
   const pubRanked = pub
     .map((x, i) => ({
       x,
       i,
       dead: cueRank(x),
       claim: claimStrength(x.p),
-      fit: Math.max(proposalFit(x.p, topic), footprintFit(x, topic)),
+      fit: fitOf(x),
       fame: fame(x.wiki),
     }))
-    .sort((a, b) => a.dead - b.dead || b.claim - a.claim || b.fit - a.fit || b.fame - a.fame || a.i - b.i)
+    .sort((a, b) => a.dead - b.dead || b.fit - a.fit || b.claim - a.claim || b.fame - a.fame || a.i - b.i)
     .map((r) => r.x)
   const lesserRanked = rankForStoryCheck(lesser, topic)
 
-  const lesserN = Math.min(lesserRanked.length, cap - Math.min(pubRanked.length, Math.floor(cap / 2)))
-  const pubN = Math.min(pubRanked.length, cap - lesserN)
+  const lesserN = Math.min(lesserRanked.length, restCap - Math.min(pubRanked.length, Math.floor(restCap / 2)))
+  const pubN = Math.min(pubRanked.length, restCap - lesserN)
+  // Interleaved, so a daily budget that trips mid-run cuts every pool evenly.
   const out: T[] = []
-  for (let i = 0; i < Math.max(pubN, lesserN); i++) {
+  for (let i = 0; i < Math.max(pubN, lesserN, reserved.length); i++) {
     if (i < pubN) out.push(pubRanked[i])
     if (i < lesserN) out.push(lesserRanked[i])
+    if (i < reserved.length) out.push(reserved[i])
   }
   return out
 }
