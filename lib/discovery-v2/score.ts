@@ -39,6 +39,7 @@
 import { foldVerbatim } from "@/lib/studio/verbatim"
 import { judgeGuestPolicy } from "@/lib/khat-map/core/policy"
 import { droppedEntity, identityDropReason, stripEntitySignals } from "./identity"
+import { isSelfToldVerified } from "./display"
 import {
   GEOGRAPHY_LABEL,
   notCheckedStory,
@@ -195,14 +196,18 @@ export function storyScore(a: StoryAssessment): number {
   const domains = new Set(a.evidence.map((e) => e.domain ?? e.url))
   // D3: a first-hand experience that only OTHERS wrote about (verified
   // self_told = false) counts like a story told by others — Khat wants the
-  // man who told it himself.
+  // man who told it himself. Full S only when the PAGE showed he told it
+  // (2026-09-29); not verified either way → SELF_TOLD_UNVERIFIED_S, below
+  // STRONG_STORY, so it goes to Khaled's review, never «مرشّح قويّ».
   const base =
     a.story_type === "first_hand" && a.self_told?.value === false
       ? 0.5
-      : a.story_type === "first_hand"
+      : a.story_type === "first_hand" && isSelfToldVerified(a)
       ? domains.size >= 2
         ? 1
         : 0.8
+      : a.story_type === "first_hand"
+        ? SELF_TOLD_UNVERIFIED_S
       : a.story_type === "second_hand"
         ? 0.5
         : 0
@@ -221,10 +226,13 @@ export function storyScore(a: StoryAssessment): number {
  */
 export function storyEvidenceDepth(a: StoryAssessment | null | undefined): number {
   if (!a || a.status !== "verified" || a.evidence.length === 0) return 0
-  const domains = new Set(a.evidence.map((e) => e.domain ?? e.url)).size
-  const urls = new Set(a.evidence.map((e) => e.url)).size
-  const quotes = Math.min(9, a.evidence.length)
-  return Math.min(9, domains) * 1000 + Math.min(9, urls) * 100 + quotes * 10 + (a.self_told?.value === true ? 1 : 0)
+  // Only quotes found ON THE PAGE count (2026-09-29): a match against the
+  // search engine's summary of a page is not independent evidence.
+  const onPage = a.evidence.filter((e) => e.on_page === true)
+  const domains = new Set(onPage.map((e) => e.domain ?? e.url)).size
+  const urls = new Set(onPage.map((e) => e.url)).size
+  const quotes = Math.min(9, onPage.length)
+  return Math.min(9, domains) * 1000 + Math.min(9, urls) * 100 + quotes * 10 + (isSelfToldVerified(a) ? 1 : 0)
 }
 
 type Taste = "famous" | "balanced" | "hidden_gems"
@@ -242,6 +250,12 @@ const PENALTY_FILTER_UNVERIFIABLE = 0.03
 const ACCEPT_BAR = 0.55
 const SHORTLIST_BAR = 0.4
 const STRONG_STORY = 0.8
+/**
+ * S base for a verified first-hand story whose «told it himself» the page did
+ * not show (2026-09-29, default pending Khaled): below STRONG_STORY — never
+ * «مرشّح قويّ» on that — and routed to review (story_self_told_unverified).
+ */
+export const SELF_TOLD_UNVERIFIED_S = 0.6
 
 /** The review reason for a verified first-hand story whose identity Wikidata can't confirm. */
 const VERIFIED_NOT_IN_WIKIDATA = "قصة موثّقة — ليس في ويكي‌داتا، راجِع الهوية"
@@ -426,6 +440,13 @@ export function scoreCandidate(
   const toldByOthers =
     a.status === "verified" &&
     (a.story_type === "second_hand" || (a.story_type === "first_hand" && a.self_told?.value === false))
+  // Verified first-hand, but nothing on the page showed he told it himself.
+  const selfToldUnverified =
+    a.status === "verified" &&
+    a.story_type === "first_hand" &&
+    a.self_told?.value !== false &&
+    !isSelfToldVerified(a) &&
+    S > 0
 
   let penalty = 0
   if (!wiki.resolved) {
@@ -527,7 +548,7 @@ export function scoreCandidate(
     // non-Wikidata only, where the old score had nothing else to go on.)
     decision = "shortlist"
     reasons.push(NOT_CHECKED_REASON[a.not_checked_reason])
-  } else if (unpublishedStory || toldByOthers) {
+  } else if (unpublishedStory || toldByOthers || selfToldUnverified) {
     // Below SHORTLIST_BAR by construction (S = 0 / 0.5), so the bar alone
     // rejected every one of them as «إشارات ضعيفة» — the witness nobody
     // interviewed is exactly the guest the archive data says to find.
@@ -539,9 +560,12 @@ export function scoreCandidate(
         flags.push("no_web_footprint")
         reasons.push("لا أثر رقمي — تحقّق من وجوده قبل التواصل")
       }
-    } else {
+    } else if (toldByOthers) {
       flags.push("story_second_hand")
       reasons.push("قصته يرويها غيره — تحتاج مراجعتك")
+    } else {
+      flags.push("story_self_told_unverified")
+      reasons.push("لم يُتحقق من المصدر أنه رواها بنفسه — تحتاج مراجعتك")
     }
   } else if (S >= STRONG_STORY) {
     // A verified first-hand story IS the criterion: past the hard rejects it
@@ -598,9 +622,11 @@ export function scoreCandidate(
     reasons.push(
       a.story_type === "first_hand" && a.self_told?.value === false
         ? "عاش التجربة، لكن ما وُجد كتبه غيره عنه — موثّق بمصدر"
-        : a.story_type === "first_hand"
+        : a.story_type === "first_hand" && isSelfToldVerified(a)
           ? "روى قصته بنفسه — موثّق بمصدر"
-          : "يروي قصة عاشها أهله عن قرب — موثّق بمصدر",
+          : a.story_type === "first_hand"
+            ? "عاش التجربة — موثّق بمصدر، ولم يُتحقق أنه رواها بنفسه"
+            : "يروي قصة عاشها أهله عن قرب — موثّق بمصدر",
     )
   } else if (a.status === "unverified" && a.claim_from_propose && !unpublishedStory) {
     reasons.push("القصة المقترحة لم تُثبت بمصدر")

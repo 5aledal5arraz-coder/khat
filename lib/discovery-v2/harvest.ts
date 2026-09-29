@@ -10,10 +10,13 @@
  *
  *   gather (Gemini + Google Search, the shared grounded-evidence service —
  *           paid, daily-budget-capped, one ai_runs row per attempt)
+ *     → read each live page itself (source-page.ts — plain HTTP, bounded;
+ *       Gemini's per-URL "snippet" is its OWN summary, not the page)
  *     → extract (ONE router `verification` call → luna over all sources)
  *     → verify in CODE: live source, ≥ STORY_MIN_QUOTE_WORDS words, verbatim
  *       span of that source's text, and the quote or its source names him
- *       (the same guard story-classify.ts enforces), plus the policy lexicon
+ *       (the same guard story-classify.ts enforces), plus the policy lexicon;
+ *       and a page that WAS read must name him — else the name is Gemini's.
  *
  * A harvested name arrives WITH the sources that name him, so the story check
  * classifies those instead of paying for a second search (pipeline.ts).
@@ -34,11 +37,14 @@ import {
 import { buildVerbatimHaystack, foldVerbatim, isVerbatimIn } from "@/lib/studio/verbatim"
 import { guestPolicyHits } from "@/lib/khat-map/core/policy"
 import { isStoryGroundingEnabled, mentionsName, nameVariants } from "./story-evidence"
-import { STORY_MIN_QUOTE_WORDS } from "./story-classify"
+import { renderSourceBody, sourceHaystackText, STORY_MIN_QUOTE_WORDS } from "./story-classify"
+import { attachSourcePages, pageNamesPerson, pageReadable, pageSpeaker } from "./source-page"
 import { classifyWebSearchFailure, type WebSearchFailureKind } from "./web-search-health"
 import type { ProposedName, StorySource, V2RunInput, WitnessProfile } from "./types"
 
-export const HARVEST_EXTRACT_PROMPT_VERSION = "v2-harvest-extract-1"
+// v2-harvest-extract-2 (2026-09-29): sources show the page's own text apart
+// from the search summary; quote the page.
+export const HARVEST_EXTRACT_PROMPT_VERSION = "v2-harvest-extract-2"
 
 const DEFAULT_HARVEST_QUERIES = 3
 /** Max sources kept per search (best-snippet-first). */
@@ -47,6 +53,8 @@ const HARVEST_SOURCES_PER_QUERY = 8
 export const HARVEST_SEARCH_TIMEOUT_MS = 90_000
 /** Held back for the extraction call after the searches. */
 export const HARVEST_EXTRACT_TIMEOUT_MS = 60_000
+/** Page reads stop this long before the harvest deadline (extraction needs ≥15s). */
+export const HARVEST_PAGE_RESERVE_MS = 25_000
 
 /** How many grounded searches one run may spend on the harvest. [0, 6]. */
 export function harvestMaxQueries(): number {
@@ -97,10 +105,14 @@ export function verifyHarvest(raw: unknown, sources: StorySource[]): ProposedNam
     const quote = typeof item.quote === "string" ? item.quote.trim() : ""
     const folded = foldVerbatim(quote)
     if (!folded || folded.split(" ").length < STORY_MIN_QUOTE_WORDS) continue
-    const srcText = `${src.title} ${src.text}`
+    const srcText = sourceHaystackText(src)
     if (!isVerbatimIn(quote, buildVerbatimHaystack(srcText))) continue
     const variants = nameVariants([name, nameEn])
     if (!mentionsName(quote, variants) && !mentionsName(srcText, variants)) continue
+    // The page itself was read and does not name him: the name came from
+    // Gemini's summary, not the source. (An unread or too-thin page proves
+    // nothing either way — kept, and labelled unverified below.)
+    if (src.page && pageReadable(src.page) && !pageNamesPerson(src.page, variants)) continue
     const claim = typeof item.story_claim === "string" ? item.story_claim.trim().slice(0, 200) : ""
     if (guestPolicyHits(`${quote} ${claim}`).length > 0) continue
     const key = foldVerbatim(name)
@@ -111,21 +123,30 @@ export function verifyHarvest(raw: unknown, sources: StorySource[]): ProposedNam
       name_en: nameEn,
       role: null,
       country: null,
-      why: `وُجد في ${src.domain ?? "مصدر حيّ"} يروي تجربته`,
+      why: harvestWhy(src, variants),
       story_claim: claim || null,
       story_type: "first_hand",
       gender: null,
       origin: "harvest_web",
       public_account_ref: src.url,
       // Every gathered source that names him — the story check reads these.
-      harvest_sources: sources.filter((s) => mentionsName(`${s.title} ${s.text}`, variants)),
+      harvest_sources: sources.filter((s) => mentionsName(sourceHaystackText(s), variants)),
     })
   }
   return out
 }
 
+/** What the source page itself shows — never more than it shows. */
+function harvestWhy(src: StorySource, variants: string[]): string {
+  const where = src.domain ?? "مصدر حيّ"
+  if (!src.page) return `ذُكر في ${where} — لم تُقرأ الصفحة، ولم يُتحقق أنه رواها بنفسه`
+  if (pageSpeaker(src.page, variants)) return `وُجد في ${where} يروي تجربته بنفسه`
+  return `ذُكر في ${where} — لم يُتحقق أنه رواها بنفسه`
+}
+
 const EXTRACT_SYSTEM = [
   "أمامك مصادر ويب مرقّمة. استخرج الأشخاص (أفراداً بأسمائهم الكاملة) الذين يروي كلٌّ منهم بنفسه تجربة شخصية عاشها.",
+  "لكل مصدر قد يوجد «نص الصفحة» (من الصفحة نفسها) و«ملخص البحث» (كلام محرك البحث، ليس كلام الصفحة). انسخ من «نص الصفحة» كلما وُجد.",
   "لكل شخص: رقم المصدر، واقتباس منسوخ حرفياً من نص ذلك المصدر (ست كلمات متتالية على الأقل، دون إعادة صياغة)",
   "يُظهر تجربته، وجملة قصيرة story_claim عمّا عاشه.",
   "لا تذكر: السياسيين، من يتحدث كخبير فقط، من تُروى قصته بقلم غيره دون أن يتكلم هو، ولا من لا يرد اسمه الكامل في المصدر.",
@@ -197,8 +218,12 @@ export async function harvestGroundedNames(
   // One source list, deduped by URL, numbered for the extractor.
   const byUrl = new Map<string, StorySource>()
   for (const s of gathered.flat()) if (!byUrl.has(s.url)) byUrl.set(s.url, s)
-  const sources = [...byUrl.values()]
-  if (!sources.some((s) => s.verified)) return result
+  if (![...byUrl.values()].some((s) => s.verified)) return result
+
+  // Read the pages themselves — bounded so the extraction keeps its reserve.
+  const sources = await attachSourcePages([...byUrl.values()], {
+    deadlineAt: opts.deadlineAt - HARVEST_PAGE_RESERVE_MS,
+  })
 
   const left = opts.deadlineAt - Date.now()
   if (left < 15_000) {
@@ -209,8 +234,8 @@ export async function harvestGroundedNames(
     .map((s, i) =>
       wrapUntrustedSource(
         i + 1,
-        [`العنوان: ${s.title}`, `الرابط: ${s.url}`, `النص: ${s.text || "(لا يوجد)"}`].join("\n"),
-        `domain=${s.domain ?? "غير معروف"} verified=${s.verified}`,
+        renderSourceBody(s, null),
+        `domain=${s.domain ?? "غير معروف"} verified=${s.verified} page=${s.page ? "read" : "unread"}`,
       ),
     )
     .join("\n\n")

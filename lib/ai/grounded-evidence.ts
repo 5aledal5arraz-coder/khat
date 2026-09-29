@@ -293,7 +293,11 @@ export function wrapUntrustedSource(
   meta?: string,
 ): string {
   const open = meta ? `<untrusted_source index="${index}" ${meta}>` : `<untrusted_source index="${index}">`
-  return [open, body, "</untrusted_source>"].join("\n")
+  // A body must never open or close the wrapper itself — a page can carry
+  // «&lt;/untrusted_source&gt;», which HTML parsing decodes into a literal
+  // closing tag, then write "instructions" after it (yousef, 2026-09-29).
+  const safe = body.replace(/<(\s*\/?\s*)(untrusted_source)/gi, "‹$1$2")
+  return [open, safe, "</untrusted_source>"].join("\n")
 }
 
 /**

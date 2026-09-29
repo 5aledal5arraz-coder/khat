@@ -116,8 +116,11 @@ const BAHRI_RAW = {
 }
 
 const bader = () => verifyStoryClassification(BADER_RAW, [BADER_SRC], nameVariants(["بدر المطيري"]), null)
+// The page was read and says what the search attributed («ياسر البحري يروي…»):
+// self-told is proven there (2026-09-29), so the story is a full-strength one.
+const BAHRI_READ: StorySource = { ...BAHRI_SRC, page: { title: BAHRI_SRC.title, author: null, text: BAHRI_SRC.text, via: "html" } }
 const bahri = (raw: Record<string, unknown> = BAHRI_RAW) =>
-  verifyStoryClassification(raw, [BAHRI_SRC], nameVariants(["ياسر البحري"]), null)
+  verifyStoryClassification(raw, [BAHRI_READ], nameVariants(["ياسر البحري"]), null)
 
 // ─── D1 — the guest-side policy gate ─────────────────────────────────────────
 
@@ -264,7 +267,7 @@ describe("D2 namesake identity", () => {
     expect(text).toContain("wikidata_match")
     expect(text).toContain("sensitivity_flags")
     expect(ai.calls[0].promptVersion).toBe(STORY_PROMPT_VERSION)
-    expect(STORY_PROMPT_VERSION).toBe("v2-story-4")
+    expect(STORY_PROMPT_VERSION).toBe("v2-story-5")
   })
 })
 
@@ -343,8 +346,12 @@ describe("D3 X lists", () => {
 
 describe("D4 story scores are ordinal buckets — shown as evidence, ranked with a real tiebreak", () => {
   // Three strong cards on the live run all read القصة 80 / الملاءمة 100 / يُبحث عنه 50.
-  const one = web("https://a.example/1", "a.example", "خالد العنزي خرج من السجن بعد سنوات واشترى بدلة لا يملك ثمنها وروى ذلك")
-  const two = web("https://a.example/2", "a.example", "خالد العنزي يروي كيف عاد إلى أهله بعد خروجه من السجن وبدأ عملاً جديداً")
+  // The page itself was read and carries the text, so the quotes are real
+  // quotes (on_page) — a summary-only match would not count as one.
+  // …and its byline is his, so «told it himself» is proven for both (full S).
+  const onPage = (s: ReturnType<typeof web>) => ({ ...s, page: { title: "", author: "خالد العنزي", text: s.text, via: "html" as const } })
+  const one = onPage(web("https://a.example/1", "a.example", "خالد العنزي خرج من السجن بعد سنوات واشترى بدلة لا يملك ثمنها وروى ذلك"))
+  const two = onPage(web("https://a.example/2", "a.example", "خالد العنزي يروي كيف عاد إلى أهله بعد خروجه من السجن وبدأ عملاً جديداً"))
   const Q1 = "خالد العنزي خرج من السجن بعد سنوات"
   const Q2 = "خالد العنزي يروي كيف عاد إلى أهله"
   const base = {

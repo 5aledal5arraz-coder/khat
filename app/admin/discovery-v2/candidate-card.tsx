@@ -145,6 +145,7 @@ const FLAG_LABEL: Record<V2Flag, string> = {
   filter_unverified: "فلتر غير متحقّق",
   story_unpublished: "قصة غير منشورة — تحتاج مراجعتك",
   story_second_hand: "قصته يرويها غيره",
+  story_self_told_unverified: "لم يُتحقق أنه رواها بنفسه",
   no_web_footprint: "لا أثر رقمي",
   policy_violation: "مخالف لدستور خط",
   policy_review: "سابقة مالية — قرار خالد",
@@ -160,16 +161,26 @@ const LINK_ICON: Record<string, typeof ExternalLink> = {
   news: Newspaper,
 }
 
-/** The one line that says WHY they scored: a verified quote, or why not. */
+/**
+ * The one line that says WHY they scored: a quote from the page itself, or —
+ * when it only matched the search engine's summary of the page — that
+ * summary, labelled as one (never in quote marks).
+ */
 function StoryLine({ story }: { story: NonNullable<V2CardData["story"]> }) {
-  const first = story.evidence[0]
+  const first = story.evidence.find((e) => e.on_page === true) ?? story.evidence[0]
   if (story.status === "verified" && first) {
-    return (
+    const link = (
+      <a href={first.url} target="_blank" rel="noreferrer" className="text-primary underline-offset-2 hover:underline">
+        {first.domain ?? "المصدر"}
+      </a>
+    )
+    return first.on_page === true ? (
       <p className="mt-1 text-[11px] leading-relaxed text-foreground/85">
-        «{first.quote}»{" "}
-        <a href={first.url} target="_blank" rel="noreferrer" className="text-primary underline-offset-2 hover:underline">
-          {first.domain ?? "المصدر"}
-        </a>
+        «{first.quote}» {link}
+      </p>
+    ) : (
+      <p className="mt-1 text-[11px] leading-relaxed text-foreground/85">
+        <span className="font-medium text-muted-foreground">ملخص البحث عن الصفحة (ليس اقتباساً منها):</span> {first.quote} {link}
       </p>
     )
   }

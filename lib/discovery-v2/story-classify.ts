@@ -19,10 +19,12 @@
  * Anything else is dropped; a story with no surviving evidence is "none".
  * The model never sets a number: score.ts derives S from what survived.
  *
- * Honest limit: a web source's text is Gemini's grounded snippet — text it
- * ATTRIBUTED to the URL, not the raw page. Verbatim-in-snippet proves the
- * quote is in the attributed evidence of a live page; fetching the page to
- * re-check is the optional phase 2.
+ * What the guard is checked against (2026-09-29): a web source's `text` is
+ * Gemini's grounding SUMMARY of the page (its own answer segments), so a
+ * quote found only there is labelled a summary (`on_page: false`), never a
+ * quote. When the page itself was read (source-page.ts) the quote is checked
+ * against it too, and only then is it `on_page`. `self_told = true` comes
+ * ONLY from the page (`pageSpeaker`) — never from the model.
  */
 
 import { runAiTask } from "@/lib/ai-router"
@@ -33,7 +35,8 @@ import {
 import { buildVerbatimHaystack, foldVerbatim, isVerbatimIn } from "@/lib/studio/verbatim"
 import { normalizeGuestSensitivityFlags } from "@/lib/khat-map/core/policy"
 import { mentionsName, notCheckedStory } from "./story-evidence"
-import type { StoryCheck, StorySource, TopicRelevance, TopicRelevanceValue, WikiFacts } from "./types"
+import { pageAllText, pageExcerpt, pageSpeaker, quoteOnPage } from "./source-page"
+import type { StoryAssessment, StoryCheck, StorySource, TopicRelevance, TopicRelevanceValue, WikiFacts } from "./types"
 
 /**
  * A story quote must be at least this many folded words. The Studio floor
@@ -52,7 +55,11 @@ export const STORY_MIN_QUOTE_WORDS = 6
 // so a footballer born 2003 passed as a man jailed by a name mix-up (D2).
 // It also returns `sensitivity_flags` for the person (constitution avoid
 // list — D1): a claim that may only reject.
-export const STORY_PROMPT_VERSION = "v2-story-4"
+// v2-story-5 (2026-09-29): each source shows the PAGE's own text (title,
+// channel/byline, excerpt) apart from the search engine's summary, and the
+// model is told to quote the page. self_told=true is decided in code from the
+// page (source-page.ts), never from this reply.
+export const STORY_PROMPT_VERSION = "v2-story-5"
 
 const STORY_TYPES = ["first_hand", "second_hand", "expert_only", "none"] as const
 type StoryType = (typeof STORY_TYPES)[number]
@@ -75,7 +82,12 @@ export interface RawStoryClassification {
   wikidata_match?: unknown
 }
 
-type Item = { source: StorySource; quote: string }
+type Item = { source: StorySource; quote: string; onPage: boolean }
+
+/** Everything a source says: the search summary AND, when read, the page. */
+export function sourceHaystackText(source: StorySource): string {
+  return source.page ? `${source.title} ${source.text} ${pageAllText(source.page)}` : `${source.title} ${source.text}`
+}
 
 /** The guard for ONE cited item. Returns the item only if it proves itself. */
 function checkItem(raw: unknown, sources: StorySource[], variants: string[]): Item | null {
@@ -88,10 +100,36 @@ function checkItem(raw: unknown, sources: StorySource[], variants: string[]): It
   const quote = typeof r.quote === "string" ? r.quote.trim() : ""
   const folded = foldVerbatim(quote)
   if (!folded || folded.split(" ").length < STORY_MIN_QUOTE_WORDS) return null
-  const sourceText = `${source.title} ${source.text}`
+  const sourceText = sourceHaystackText(source)
   if (!isVerbatimIn(quote, buildVerbatimHaystack(sourceText))) return null
   if (!mentionsName(quote, variants) && !mentionsName(sourceText, variants)) return null
-  return { source, quote }
+  return { source, quote, onPage: quoteOnPage(quote, source.page) }
+}
+
+/**
+ * `self_told`, decided in this order:
+ *   1. the model says NOT self-told with a verified quote → false (a
+ *      downgrade is always kept; a page cue never overrides it);
+ *   2. a page that is EVIDENCE for this story (a surviving item's source —
+ *      not any gathered source) names him AND shows he is the speaker → true;
+ *   3. otherwise absent = not verified.
+ */
+function decideSelfTold(
+  raw: unknown,
+  surviving: Item[],
+  variants: string[],
+  attrItem: (v: unknown) => Item | null,
+): StoryAssessment["self_told"] {
+  if (surviving.length === 0) return null
+  const r = raw as { value?: unknown } | null | undefined
+  const item = attrItem(r)
+  if (item && r?.value === false) return { value: false, url: item.source.url, quote: item.quote, basis: "classifier" }
+  for (const src of new Set(surviving.map((k) => k.source))) {
+    if (!src.verified || !src.page) continue
+    const found = pageSpeaker(src.page, variants)
+    if (found) return { value: true, url: src.url, quote: found.cue, basis: found.basis }
+  }
+  return null
 }
 
 /**
@@ -158,14 +196,8 @@ export function verifyStoryClassification(
       ? { value: relRaw!.value as TopicRelevanceValue, url: relItem.source.url, quote: relItem.quote }
       : null
 
-  // Self-told counts only with a verified quote about THIS person, and only
-  // for a story that survived — a label on nothing is a claim.
-  const selfRaw = r.self_told as { value?: unknown } | null | undefined
-  const selfItem = surviving.length > 0 ? attrItem(selfRaw) : null
-  const selfTold =
-    selfItem && typeof selfRaw?.value === "boolean"
-      ? { value: selfRaw.value, url: selfItem.source.url, quote: selfItem.quote }
-      : null
+  // Self-told: TRUE only from the page itself; the model may only say false.
+  const selfTold = decideSelfTold(r.self_told, surviving, variants, attrItem)
 
   return {
     assessment: {
@@ -173,7 +205,7 @@ export function verifyStoryClassification(
       not_checked_reason: null,
       story_type: storyType,
       summary,
-      evidence: surviving.map((k) => ({ url: k.source.url, domain: k.source.domain, quote: k.quote })),
+      evidence: surviving.map((k) => ({ url: k.source.url, domain: k.source.domain, quote: k.quote, on_page: k.onPage })),
       gulf_event: gulfEvent,
       claim_from_propose: claim,
       topic_relevance: topicRelevance,
@@ -204,6 +236,8 @@ const SYSTEM = [
   "- expert_only: يتحدث كمتخصّص أو محلّل فقط، بلا تجربة شخصية.",
   "- none: لا يظهر في المصادر ما يدلّ على ذلك.",
   "قواعد صارمة:",
+  "- لكل مصدر قد يوجد «نص الصفحة» (من الصفحة نفسها) و«ملخص البحث» (كلام محرك البحث عن الصفحة، ليس كلامها).",
+  "  انسخ اقتباساتك من «نص الصفحة» كلما وُجد؛ ما يُنسخ من «ملخص البحث» يُعرض ملخصاً لا اقتباساً.",
   "- كل ادعاء يجب أن يُسند إلى مصدر برقمه، مع اقتباس منسوخ حرفياً من نص ذلك المصدر:",
   "  ست كلمات متتالية على الأقل، دون إعادة صياغة ودون حذف كلمات من الوسط.",
   "  أي اقتباس غير حرفي أو من مصدر لا يذكر الشخص سيُحذف آلياً ولن يُحتسب.",
@@ -236,13 +270,32 @@ const SYSTEM = [
     '"same_person":true,"wikidata_match":true|false|null,"sensitivity_flags":[]}',
 ].join("\n")
 
-function renderSources(sources: StorySource[]): string {
+/**
+ * One numbered source for a model: the page's own words (when read) apart
+ * from the search engine's summary of it. Shared with the harvest extractor.
+ */
+export function renderSourceBody(s: StorySource, variants: string[] | null): string {
+  const lines = [`الرابط: ${s.url}`]
+  if (s.page) {
+    lines.push(`عنوان الصفحة: ${s.page.title}`)
+    if (s.page.author) lines.push(`القناة/الكاتب: ${s.page.author}`)
+    const ex = pageExcerpt(s.page, variants)
+    if (ex) lines.push(`نص الصفحة: ${ex}`)
+  } else {
+    lines.push(`العنوان: ${s.title}`)
+  }
+  if (s.kind === "web") lines.push(`ملخص البحث (ليس نص الصفحة): ${s.text || "(لا يوجد)"}`)
+  else if (!s.page) lines.push(`النص: ${s.text || "(لا يوجد)"}`)
+  return lines.join("\n")
+}
+
+function renderSources(sources: StorySource[], variants: string[]): string {
   return sources
     .map((s, i) =>
       wrapUntrustedSource(
         i + 1,
-        [`العنوان: ${s.title}`, `الرابط: ${s.url}`, `النص: ${s.text || "(لا يوجد)"}`].join("\n"),
-        `domain=${s.domain ?? "غير معروف"} verified=${s.verified}`,
+        renderSourceBody(s, variants),
+        `domain=${s.domain ?? "غير معروف"} verified=${s.verified} page=${s.page ? "read" : "unread"}`,
       ),
     )
     .join("\n\n")
@@ -287,7 +340,7 @@ export async function classifyStory(opts: {
     `موضوع الحلقة: ${opts.topic}`,
     ...renderEntity(opts.entity),
     "",
-    renderSources(opts.sources),
+    renderSources(opts.sources, opts.variants),
   ].join("\n")
 
   const r = await runAiTask<RawStoryClassification>({

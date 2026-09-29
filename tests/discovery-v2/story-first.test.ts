@@ -37,6 +37,14 @@ const h = vi.hoisted(() => ({
   wiki: new Map<string, unknown>(),
   signals: new Map<string, unknown>(),
   configured: true,
+  /** source pages «read» by the mocked attachSourcePages, by URL (null = unreadable) */
+  pages: new Map<string, unknown>(),
+  /**
+   * Every web source's page reads exactly what the search attributed to it
+   * (title + snippet). Off by default: an unread page proves no speaker, so a
+   * «strong story» test must say its page was read (2026-09-29).
+   */
+  readPages: false,
   memoryKeys: [] as string[],
   aiCalls: [] as Array<{
     taskKind: string
@@ -137,6 +145,24 @@ vi.mock("@/lib/ai/grounded-evidence", async (importActual) => {
         estimatedCostUsd: 0.014,
       }
     }),
+  }
+})
+
+// Page reads are plain HTTP — never in these tests. A page is attached only
+// where a test puts one in h.pages (source-page.ts has its own tests).
+vi.mock("@/lib/discovery-v2/source-page", async (importActual) => {
+  const actual = await importActual<typeof import("@/lib/discovery-v2/source-page")>()
+  return {
+    ...actual,
+    attachSourcePages: vi.fn(async (sources: StorySource[]) =>
+      sources.map((s) =>
+        h.pages.has(s.url)
+          ? { ...s, page: (h.pages.get(s.url) as StorySource["page"]) ?? null }
+          : h.readPages && s.kind === "web"
+            ? { ...s, page: { title: s.title, author: null, text: s.text, via: "html" as const } }
+            : s,
+      ),
+    ),
   }
 })
 
@@ -385,6 +411,8 @@ beforeEach(() => {
   h.witness = []
   h.classify.clear()
   h.web.clear()
+  h.pages.clear()
+  h.readPages = false
   h.wiki.clear()
   h.signals.clear()
   h.configured = true
@@ -420,6 +448,7 @@ const byName = <T extends { name: string }>(cs: T[], n: string) => cs.find((c) =
 describe("F1 vs F2 — a verified story outranks fame", () => {
   it("F1 (not in Wikidata) is enriched, needs_review, ≥0.70, and ranks #1 over F2", async () => {
     setupF1F2()
+    h.readPages = true // «لقاء مع F1» — the page shows he told it himself
     const r = await runV2Discovery(input())
     const f1 = byName(r.candidates, F1)!
     const f2 = byName(r.candidates, F2)!
@@ -497,7 +526,11 @@ describe("F3 — a hallucinated story never scores", () => {
   })
 
   it("mutation check — the SAME quote made verbatim in the source counts (S = 0.8)", () => {
-    const withQuote = sources.map((s) => ({ ...s, text: `${s.text}. ${F3_PARAPHRASE} بعد سنوات` }))
+    // The page itself carries it too — «روت منيرة…» shows she told it (full S).
+    const withQuote = sources.map((s) => {
+      const text = `${s.text}. ${F3_PARAPHRASE} بعد سنوات`
+      return { ...s, text, page: { title: s.title, author: null, text, via: "html" as const } }
+    })
     const check = verifyStoryClassification(
       { ...F3_CLASSIFY, topic_relevance: { value: "on_topic", source: 1, quote: F3_PARAPHRASE } },
       withQuote,
@@ -763,6 +796,8 @@ describe("H — the Gulf hook never reads the propose-time hypothesis", () => {
         gulf_event: null,
         claim_from_propose: CLAIM,
         topic_relevance: { value: "on_topic", url: "https://alanba.com.kw/h1", quote },
+        // «قال F1…» on the page — proven, so S is the full first-hand bucket.
+        self_told: { value: true, url: "https://alanba.com.kw/h1", quote, basis: "guest" },
       },
       sources: [],
       attrs: { deceased: false, not_individual: false, same_person: true, gender: null, nationality: null },
@@ -1260,6 +1295,7 @@ describe("gender filter is strict", () => {
     h.proposal = [F1_PROPOSED]
     h.wiki.set(F1, trusted)
     setupF1(F1_WEB_NEUTRAL, F1_CLASSIFY_NEUTRAL)
+    h.readPages = true // «لقاء مع F1» on the page — self-told proven
     // Sight: with no filter this exact person IS accepted…
     const open = await runV2Discovery(input())
     expect(byName(open.candidates, F1)!.decision).toBe("accepted")
@@ -1368,7 +1404,7 @@ describe("gender filter is strict", () => {
     const { runAiTask } = await import("@/lib/ai-router")
     const base = vi.mocked(runAiTask).getMockImplementation()!
     vi.mocked(runAiTask).mockImplementation(async (req) => {
-      if (req.promptVersion === "v2-harvest-extract-1") {
+      if (req.promptVersion === "v2-harvest-extract-2") {
         return {
           status: "succeeded",
           runId: "harvest-extract",
@@ -1619,6 +1655,7 @@ describe("Khaled «أ» — an unpublished first-hand story goes to review, not 
     setupUnpublished()
     h.proposal = [...(h.proposal as ProposedName[]), VB_PROPOSED]
     setupVB()
+    h.readPages = true // «روى VB كيف…» on the page — self-told proven
     const r = await runV2Discovery(input())
     const vb = byName(r.candidates, VB)!
     expect(vb.story?.status).toBe("verified")
@@ -1651,7 +1688,10 @@ describe("Khaled «أ» — an unpublished first-hand story goes to review, not 
         is_individual: true,
         same_person: true,
       },
-      [{ kind: "web", title: "شهادة", url: "https://alraimedia.com/vb", domain: "alraimedia.com", text: BOAT_Q, verified: true }],
+      [{
+        kind: "web", title: "شهادة", url: "https://alraimedia.com/vb", domain: "alraimedia.com", text: BOAT_Q, verified: true,
+        page: { title: "شهادة", author: null, text: BOAT_Q, via: "html" }, // «روى VB…» — proven
+      }],
       nameVariants([VB]),
       null,
     )
@@ -1692,6 +1732,7 @@ describe("accept gate — a strong verified story on trusted Wikidata is accepte
     h.signals.set(F1, F1_SIGNALS)
     h.web.set(F1, web)
     h.classify.set(F1, F1_CLASSIFY)
+    h.readPages = true // «لقاء مع F1» on the page — self-told proven
     const r = await runV2Discovery(input())
     return byName(r.candidates, F1)!
   }
@@ -2022,7 +2063,7 @@ describe("web search that mostly failed is COUNTED and SAID, not a quiet «اك�
     const { runAiTask } = await import("@/lib/ai-router")
     const base = vi.mocked(runAiTask).getMockImplementation()!
     vi.mocked(runAiTask).mockImplementation(async (req) => {
-      if (req.promptVersion === "v2-harvest-extract-1") {
+      if (req.promptVersion === "v2-harvest-extract-2") {
         return {
           status: "succeeded",
           runId: "harvest-extract",

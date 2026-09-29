@@ -264,8 +264,13 @@ export interface StoryAssessment {
   not_checked_reason?: "cap" | "unavailable" | "error" | null
   story_type: "first_hand" | "second_hand" | "expert_only" | "none"
   summary: string | null
-  /** Verified items only. */
-  evidence: { url: string; domain: string | null; quote: string }[]
+  /**
+   * Verified items only. `on_page` — the quote was also found verbatim on the
+   * source page ITSELF (fetched in code, source-page.ts). Otherwise it only
+   * matched Gemini's grounding summary of that page: the card labels it a
+   * summary, never «a quote». Absent (older runs) = not shown to be on the page.
+   */
+  evidence: { url: string; domain: string | null; quote: string; on_page?: boolean }[]
   gulf_event: { event: string; url: string; quote: string } | null
   /** The propose-time hypothesis, shown labelled «فرضية». Never scored. */
   claim_from_propose: string | null
@@ -280,12 +285,33 @@ export interface StoryAssessment {
   topic_relevance?: TopicRelevance | null
   /**
    * D3 — did HE tell it (interview, his own post/talk/book) or was it written
-   * about him by others? Backed by a verified verbatim quote like every other
-   * attribute; absent = not established. A first-hand story that is NOT
-   * self-told counts like a story told by others (score.ts).
+   * about him by others? A first-hand story that is NOT self-told counts like
+   * a story told by others (score.ts). Absent = NOT VERIFIED — the card says
+   * «لم يُتحقق أنه رواها بنفسه», never «رواها بنفسه».
+   *
+   * `true` only from the source page itself (source-page.ts `pageSpeaker`):
+   * the page names him AND shows he is the one speaking — his own channel or
+   * byline, «ضيف الحلقة»/«نستضيف»/«مع فلان», «فلان يحكي», or a «فلان: …ـي»
+   * first-person headline. `quote` is that cue, text that exists on the page.
+   * `false` only from the classifier with a verified quote (a downgrade).
+   * The classifier's own `true` is a claim and is never kept (2026-09-29:
+   * it matched Gemini's third-person summary — 0/9 such quotes were on the
+   * live pages, and a third party retelling جاسم المطوع's story passed).
    */
-  self_told?: { value: boolean; url: string; quote: string } | null
+  self_told?: { value: boolean; url: string; quote: string; basis?: SelfToldBasis } | null
 }
+
+/** How `self_told` was established. */
+export type SelfToldBasis =
+  /** The YouTube channel / byline is his (and the page names him). */
+  | "own_channel"
+  | "byline"
+  /** The page presents him as the guest / the one telling it. */
+  | "guest"
+  /** A «فلان: …» headline in the first person — he is quoted speaking. */
+  | "quoted"
+  /** The classifier said NOT self-told, with a verified quote. */
+  | "classifier"
 
 export type TopicRelevanceValue = "on_topic" | "adjacent" | "off_topic"
 
@@ -310,6 +336,8 @@ export type V2Flag =
   | "story_unpublished"
   /** the only verified account is told by relatives / community */
   | "story_second_hand"
+  /** a verified first-hand story, but no page showed HE told it (2026-09-29) */
+  | "story_self_told_unverified"
   /** unresolved and nothing on the web names them — kept only for a story_unpublished */
   | "no_web_footprint"
   /** the guest-policy gate fired (lexicon over his texts, or the classifier's flags) */
@@ -324,7 +352,12 @@ export type V2Flag =
  * `policy_review` (a served financial record) is listed here too — it is a
  * Khaled decision, not an identity check.
  */
-export const STORY_REVIEW_FLAGS: readonly V2Flag[] = ["story_unpublished", "story_second_hand", "policy_review"]
+export const STORY_REVIEW_FLAGS: readonly V2Flag[] = [
+  "story_unpublished",
+  "story_second_hand",
+  "story_self_told_unverified",
+  "policy_review",
+]
 
 /**
  * One numbered text source a story check can cite. `text` is what a quote
@@ -337,9 +370,31 @@ export interface StorySource {
   title: string
   url: string
   domain: string | null
+  /**
+   * For `web` sources this is Gemini's GROUNDING SUMMARY of the page (the
+   * answer segments it attributed to the URL) — its words, often third-person
+   * prose shared across URLs, never the page. `page` is the page itself.
+   */
   text: string
   /** Live (non-4xx) — only verified sources can back a quote. */
   verified: boolean
+  /**
+   * The source page itself, read in code (source-page.ts). `null` = tried and
+   * could not be read; absent = never tried. Only this can prove who is
+   * speaking (`self_told`) or that a quote is really on the page.
+   */
+  page?: SourcePage | null
+}
+
+/** A live source page as the page itself states it — never an AI's words. */
+export interface SourcePage {
+  /** The page / video title. */
+  title: string
+  /** The YouTube channel or the article byline, when the page states one. */
+  author: string | null
+  /** Readable text: the video description, or the article's paragraphs. Capped. */
+  text: string
+  via: "youtube_api" | "youtube_oembed" | "html"
 }
 
 /** Everything the scorer needs from the story step (pure data). */

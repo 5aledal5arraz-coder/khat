@@ -22,7 +22,7 @@ const NAMED_ENTITIES: Record<string, string> = {
  * (capped at 3 passes to avoid pathological loops). Restores parity with the
  * pre-refactor cleaner, which decoded entities before tag-stripping.
  */
-function decodeHtmlEntities(input: string): string {
+export function decodeHtmlEntities(input: string): string {
   let text = input
   for (let pass = 0; pass < 3; pass++) {
     const before = text

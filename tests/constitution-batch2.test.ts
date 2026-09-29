@@ -631,9 +631,14 @@ describe("D3 self_told", () => {
   })
 
   it("a verified self-told first-hand story scores fully; told-about-him counts like second hand", () => {
-    const told = verifyStoryClassification(raw(true), [SRC], variants, null)
+    // 2026-09-29: «told it himself» is proven by the PAGE (here his byline),
+    // never by the model's say-so — see tests/discovery-v2/source-page.test.ts.
+    const page = { title: "مقابلة الراي", author: "خالد سعد العنزي", text: SRC.text, via: "html" as const }
+    const told = verifyStoryClassification(raw(true), [{ ...SRC, page }], variants, null)
+    const claimed = verifyStoryClassification(raw(true), [SRC], variants, null)
     const about = verifyStoryClassification(raw(false), [SRC], variants, null)
     expect(told.assessment.self_told?.value).toBe(true)
+    expect(claimed.assessment.self_told).toBeNull()
     expect(storyScore(told.assessment)).toBe(0.8)
     expect(storyScore(about.assessment)).toBe(0.5)
     const c = scoreCandidate({ name: "خالد سعد العنزي" }, { resolved: false }, {}, { topic: "الفشل التجاري" }, about)

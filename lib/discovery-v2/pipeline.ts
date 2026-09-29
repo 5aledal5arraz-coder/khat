@@ -45,6 +45,7 @@ import {
   storyMaxCandidates,
 } from "./story-evidence"
 import { classifyStory } from "./story-classify"
+import { attachSourcePages } from "./source-page"
 import { proposeErrorKind, type V2RunErrorKind } from "./run-failure"
 import { proposeWitnessProfiles, WITNESS_TIMEOUT_MS } from "./witness"
 import { harvestGroundedNames, type HarvestResult } from "./harvest"
@@ -544,7 +545,13 @@ export async function runV2Discovery(input: V2RunInput): Promise<V2RunResult> {
       notChecked()
       return
     }
-    const sources = [...web.sources, ...x.free]
+    // Read the pages themselves (a harvested name's already were): only the
+    // page can show a quote is really there or that HE is the one telling it.
+    // Bounded so the classification keeps its reserve; unread = unverified.
+    const webSources = await attachSourcePages(web.sources, {
+      deadlineAt: storyDeadline - STORY_CLASSIFY_RESERVE_MS,
+    })
+    const sources = [...webSources, ...x.free]
     const variants = nameVariants([x.p.name, x.p.name_en, x.wiki.label_ar, x.wiki.label])
     // Nothing citable at all → no classifier call to pay for: the web was
     // searched and had nothing (that IS evidence — footprint floor applies).

@@ -37,6 +37,15 @@ export function wikiFactsTrusted(c: StoredCard): boolean {
   return !flags.includes("identity_uncertain") && !flags.includes("identity_unverified")
 }
 
+/**
+ * «He told it himself» was PROVEN from the page (source-page.ts): value true
+ * WITH a basis. Runs before 2026-09-29 stored the model's own true without
+ * one — never verified.
+ */
+export function isSelfToldVerified(a: Pick<StoryAssessment, "self_told"> | null | undefined): boolean {
+  return a?.self_told?.value === true && !!a.self_told.basis
+}
+
 const RELEVANCE_LABEL: Record<TopicRelevanceValue, string> = {
   on_topic: "في صلب الموضوع",
   adjacent: "قريب من الموضوع",
@@ -59,16 +68,24 @@ export function scoreEvidenceLabels(c: {
   const a = c.story
   let story: string | null = null
   if (a?.status === "verified" && a.evidence?.length) {
+    // «رواها بنفسه» only when the page itself showed it (self_told true WITH
+    // a basis — source-page.ts). Runs before 2026-09-29 stored the model's
+    // own true (no basis): that was never verified, and says so.
     const kind =
       a.story_type === "first_hand"
-        ? a.self_told?.value === false
-          ? "كتبه غيره عنه"
-          : "رواها بنفسه"
+        ? isSelfToldVerified(a)
+          ? "رواها بنفسه"
+          : a.self_told?.value === false
+            ? "كتبه غيره عنه"
+            : "لم يُتحقق أنه رواها بنفسه"
         : a.story_type === "second_hand"
           ? "يرويها أهله"
           : "موثّقة"
     const sites = new Set(a.evidence.map((e) => e.domain ?? e.url)).size
-    story = `${kind} · ${formatArabicCount(sites, "موقع")} · ${formatArabicCount(a.evidence.length, "اقتباس")}`
+    // A quote counts as one only when it was found on the page itself; the
+    // rest matched the search engine's summary of the page.
+    const onPage = a.evidence.filter((e) => e.on_page === true).length
+    story = `${kind} · ${formatArabicCount(sites, "موقع")} · ${onPage > 0 ? formatArabicCount(onPage, "اقتباس") : "ملخص بلا اقتباس من الصفحة"}`
   } else if (a?.status === "unverified") {
     story = "لم تُثبت بمصدر"
   }

@@ -46,6 +46,8 @@ const verified = (relevance?: "on_topic" | "adjacent" | "off_topic"): StoryAsses
   gulf_event: null,
   claim_from_propose: null,
   topic_relevance: relevance ? { value: relevance, url: "https://alqabas.com/s1", quote: Q } : null,
+  // proven on the page (2026-09-29) — these tests are about relevance, not self_told
+  self_told: { value: true, url: "https://alqabas.com/s1", quote: Q, basis: "byline" },
 })
 
 // ─── 4. Topic relevance ─────────────────────────────────────────────────────

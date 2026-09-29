@@ -602,13 +602,17 @@ export function freeStorySources(signals: EnrichmentSignals): StorySource[] {
   const yt = signals.youtube
   if (yt?.talk_url && (yt.talk_title || yt.talk_description)) {
     const title = unescapeHtml(yt.talk_title ?? "")
+    const description = unescapeHtml(yt.talk_description ?? "")
     out.push({
       kind: "youtube",
       title,
       url: yt.talk_url,
       domain: "youtube.com",
-      text: `${title} ${unescapeHtml(yt.talk_description ?? "")}`.trim(),
+      text: `${title} ${description}`.trim(),
       verified: true,
+      // This IS the page's own metadata (Data API search snippet), not an
+      // AI summary — it may prove a quote or a speaker (source-page.ts).
+      page: { title, author: null, text: description, via: "youtube_api" },
     })
   }
   const news = signals.news
