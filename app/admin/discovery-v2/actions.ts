@@ -14,6 +14,7 @@ import { getEpisodeIntelligenceRecord } from "@/lib/eir"
 import { enqueueJob } from "@/lib/jobs"
 import type { DiscoverySourceConfig } from "@/lib/db/schema/discovery"
 import type { V2Geography } from "@/lib/discovery-v2/types"
+import { canRetryDegradedRun, webSearchWarning, type WebSearchHealthStats } from "@/lib/discovery-v2/web-search-health"
 
 export interface StartV2Input {
   topic: string
@@ -97,7 +98,18 @@ export async function retryV2DiscoveryAction(runId: string): Promise<StartV2Resu
   if (!gate.ok) return { success: false, error: gate.error }
   const run = await getDiscoveryRun(runId)
   if (!run) return { success: false, error: "التشغيل غير موجود" }
-  if (run.status !== "failed") return { success: false, error: "لا يُعاد إلا تشغيل فاشل" }
+  // A completed run whose web search mostly failed (provider overload) is
+  // offered the same retry — its results are incomplete (web-search-health.ts).
+  // Not while a spent daily retrieval budget is still spent (same UTC day).
+  if (run.status !== "failed") {
+    const v2Stats = (run.source_config as { v2_stats?: WebSearchHealthStats } | null)?.v2_stats
+    if (run.status !== "completed" || !webSearchWarning(v2Stats)) {
+      return { success: false, error: "لا يُعاد إلا تشغيل فاشل أو ناقص" }
+    }
+    if (!canRetryDegradedRun(v2Stats, run.created_at)) {
+      return { success: false, error: "ميزانية البحث اليومية ما زالت منتهية — أعد التشغيل غداً" }
+    }
+  }
   const cfg = (run.source_config ?? {}) as {
     topic?: string
     filters?: { gender?: StartV2Input["gender"]; nationality?: StartV2Input["nationality"] }

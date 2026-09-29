@@ -35,6 +35,7 @@ import { buildVerbatimHaystack, foldVerbatim, isVerbatimIn } from "@/lib/studio/
 import { guestPolicyHits } from "@/lib/khat-map/core/policy"
 import { isStoryGroundingEnabled, mentionsName, nameVariants } from "./story-evidence"
 import { STORY_MIN_QUOTE_WORDS } from "./story-classify"
+import { classifyWebSearchFailure, type WebSearchFailureKind } from "./web-search-health"
 import type { ProposedName, StorySource, V2RunInput, WitnessProfile } from "./types"
 
 export const HARVEST_EXTRACT_PROMPT_VERSION = "v2-harvest-extract-1"
@@ -140,6 +141,9 @@ export interface HarvestResult {
   /** Sum of the searches' estimated cost (the extraction call is in ai_runs too). */
   searchCostUsd: number
   errors: string[]
+  /** Grounded searches that FAILED (after the service's own retries), and why. */
+  failed: number
+  failureKinds: WebSearchFailureKind[]
 }
 
 export async function harvestGroundedNames(
@@ -147,7 +151,7 @@ export async function harvestGroundedNames(
   profiles: WitnessProfile[],
   opts: { deadlineAt: number },
 ): Promise<HarvestResult> {
-  const result: HarvestResult = { names: [], queries: 0, searchCostUsd: 0, errors: [] }
+  const result: HarvestResult = { names: [], queries: 0, searchCostUsd: 0, errors: [], failed: 0, failureKinds: [] }
   const max = harvestMaxQueries()
   if (max === 0 || profiles.length === 0 || !isStoryGroundingEnabled()) return result
 
@@ -179,7 +183,11 @@ export async function harvestGroundedNames(
             }),
           )
       } catch (err) {
-        // Budget spent / search never ran / deadline — fewer names, not a failed run.
+        // Budget spent / search never ran / overload / deadline — fewer names,
+        // not a failed run. Counted, so the run page can say the web search
+        // failed instead of showing a quiet short list.
+        result.failed++
+        result.failureKinds.push(classifyWebSearchFailure(err))
         result.errors.push(err instanceof Error ? err.message.split("\n")[0] : String(err))
         return [] as StorySource[]
       }

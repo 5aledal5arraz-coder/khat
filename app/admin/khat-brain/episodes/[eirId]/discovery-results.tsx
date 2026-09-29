@@ -41,6 +41,14 @@ export function EirDiscoveryResults({ eirId, runs }: { eirId: string; runs: EirD
                 التفاصيل الكاملة <ExternalLink className="h-3 w-3" />
               </Link>
             </div>
+            {run.warnings.map((w) => (
+              <p key={w} className="mb-1.5 text-[11.5px] font-medium text-amber-800" data-run-warning>
+                {w}{" "}
+                <Link href={`/admin/discovery-v2/${run.id}`} className="text-primary hover:underline">
+                  أعد التشغيل من صفحة التفاصيل
+                </Link>
+              </p>
+            ))}
             {run.candidates.length === 0 ? (
               <p className="text-[11.5px] text-muted-foreground">لا مرشّحين (بعد) في هذا التشغيل.</p>
             ) : (

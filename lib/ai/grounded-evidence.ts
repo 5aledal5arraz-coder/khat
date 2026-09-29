@@ -427,8 +427,9 @@ function extractGroundingMetadata(
  * empty topic to buy well under one point of recovery. One re-roll is ~$0.05.
  *
  * Budget note: `assertRetrievalBudget()` is a per-GATHER permit, and the
- * transient-error retry already spends up to 3 calls under one permit, so a
- * re-roll adds no new class of overshoot — at most one extra call, once.
+ * transient-error retry already spends several calls under one permit (a
+ * failed 503 bills no search fee), so a re-roll adds no new class of
+ * overshoot — at most one extra billed call, once.
  */
 export const EMPTY_GROUNDING_RETRIES = 1
 
@@ -437,6 +438,38 @@ export const EMPTY_GROUNDING_RETRIES = 1
  * than this left — a grounded call that can't finish only bills.
  */
 export const MIN_ATTEMPT_MS = 10_000
+
+/**
+ * Transient-error retries (503 overload / 429 / 5xx) for a gather with NO
+ * `timeoutMs` budget — unchanged at 2 (3 attempts). Such callers have no
+ * clock to bound them, so they do not get to wait longer.
+ */
+export const TRANSIENT_RETRIES_UNBOUNDED = 2
+/**
+ * Transient-error retries for a gather WITH a `timeoutMs` budget. The budget
+ * is the real bound (no retry starts without `delay + MIN_ATTEMPT_MS` left);
+ * this only caps the count. A failed 503 bills nothing — the fee is per
+ * search that ran.
+ *
+ * Why (2026-09-29, live runs 7fa3843c / d495c7cd): Gemini answered most
+ * discovery retrievals with 503 «This model is currently experiencing high
+ * demand». The old loop retried three times 1.5s + 3s apart — the whole retry
+ * window was ~4.5s, so every attempt landed inside the same spell and the
+ * harvest / story checks died with 80s of their budget unspent.
+ */
+export const TRANSIENT_RETRIES_BOUNDED = 6
+const TRANSIENT_BACKOFF_BASE_MS = 2_000
+const TRANSIENT_BACKOFF_CAP_MS = 20_000
+
+/**
+ * Pause before transient retry `n` (1-based): 2s, 4s, 8s, 16s, then 20s,
+ * plus up to +30% jitter so parallel gathers (the harvest fires three at
+ * once) do not re-hit an overloaded model in lockstep.
+ */
+export function transientBackoffMs(n: number): number {
+  const base = Math.min(TRANSIENT_BACKOFF_BASE_MS * 2 ** Math.max(0, n - 1), TRANSIENT_BACKOFF_CAP_MS)
+  return Math.round(base + Math.random() * 0.3 * base)
+}
 
 /** A gather ran out of its `timeoutMs` budget before an answer landed. */
 export class GroundedEvidenceDeadlineError extends Error {
@@ -544,7 +577,13 @@ export async function gatherGroundedEvidence(
     costUsd: number | null
     counts: RetrievalCounts
   }> => {
-    const maxAttempts = 3
+    const transientRetries =
+      deadline === null ? TRANSIENT_RETRIES_UNBOUNDED : TRANSIENT_RETRIES_BOUNDED
+    // Transient retries + the one empty re-roll share this cap; each is also
+    // bounded by its own counter below. Without a deadline this is 3, as before.
+    const maxAttempts =
+      deadline === null ? 1 + transientRetries : 1 + transientRetries + EMPTY_GROUNDING_RETRIES
+    let transientUsed = 0
     let lastErr: unknown
     // Cost of attempts we threw away (empty re-rolls), added to the final
     // one so the caller's `estimatedCostUsd` is what we actually spent.
@@ -659,14 +698,25 @@ export async function gatherGroundedEvidence(
         // Same central predicate as the research path — these two loops had
         // identical copies of a regex that treated a spend-cap 429 as
         // transient.
+        // The pause is decided before the budget check: a retry that can't
+        // both wait AND leave MIN_ATTEMPT_MS for the call is not started.
+        // Unbounded callers (candidate analysis, sponsorship, market…) keep the
+        // old 1.5s / 3s pauses exactly; only a budgeted gather backs off longer.
+        const delayMs = deadline === null ? 1500 * attempt : transientBackoffMs(transientUsed + 1)
         if (
           !isRetriableProviderError(err) ||
           attempt === maxAttempts ||
-          remainingMs() < 1500 * attempt + MIN_ATTEMPT_MS
+          transientUsed >= transientRetries ||
+          remainingMs() < delayMs + MIN_ATTEMPT_MS
         ) {
           throw err
         }
-        await new Promise((r) => setTimeout(r, 1500 * attempt))
+        transientUsed++
+        console.warn(
+          `[grounded-evidence] خطأ مؤقّت من مزوّد البحث — إعادة ${transientUsed}/${transientRetries} ` +
+            `بعد ${Math.round(delayMs / 1000)}ث: ${(err instanceof Error ? err.message : String(err)).slice(0, 120)}`,
+        )
+        await new Promise((r) => setTimeout(r, delayMs))
       }
     }
     throw lastErr

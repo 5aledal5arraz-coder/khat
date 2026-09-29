@@ -51,6 +51,10 @@ const h = vi.hoisted(() => ({
   enrichCalls: [] as string[],
   /** names whose grounded search throws (budget spent / transient) */
   webFail: new Set<string>(),
+  /** the error a failing search throws (default: a budget-ish message) */
+  webFailWith: null as null | (() => Error),
+  /** every harvest (unquoted) search throws `webFailWith` */
+  harvestFail: false,
   /** names whose classifier call fails */
   classifyFail: new Set<string>(),
   /** per-call propose replies (shifted in order); falls back to `proposal` */
@@ -118,7 +122,9 @@ vi.mock("@/lib/ai/grounded-evidence", async (importActual) => {
       h.gatherQueries.push(q)
       h.gatherLog.push({ at: Date.now(), timeoutMs: opts?.timeoutMs })
       if (h.gatherDelayMs) vi.setSystemTime(Date.now() + h.gatherDelayMs)
-      if ([...h.webFail].some((n) => q.includes(`"${n}"`))) throw new Error("daily grounded budget exhausted")
+      const fail = () => h.webFailWith?.() ?? new Error("daily grounded budget exhausted")
+      if ([...h.webFail].some((n) => q.includes(`"${n}"`))) throw fail()
+      if (h.harvestFail && !q.includes('"')) throw fail()
       // Per-person story queries quote the name; a "harvest:<words>" key
       // answers the D1 harvest query that contains <words>.
       const hit = [...h.web.entries()].find(([name]) =>
@@ -387,6 +393,8 @@ beforeEach(() => {
   h.gatherQueries = []
   h.enrichCalls = []
   h.webFail.clear()
+  h.webFailWith = null
+  h.harvestFail = false
   h.classifyFail.clear()
   h.proposals = []
   h.proposeFail.clear()
@@ -1932,5 +1940,118 @@ describe("propose top-up — one follow-up call when the reply is short", () => 
     const r = await runV2Discovery(input())
     expect(r.error).toBe("no names proposed")
     expect(r.errorKind).toBe("no_names")
+  })
+})
+
+// ─── Web-search honesty (live runs 7fa3843c / d495c7cd, 2026-09-29) ─────────
+
+describe("web search that mostly failed is COUNTED and SAID, not a quiet «اكتمل»", () => {
+  /** The exact shape @google/genai throws on an overload (after the service's retries). */
+  const overload = () =>
+    Object.assign(
+      new Error(
+        JSON.stringify({
+          error: { code: 503, message: "This model is currently experiencing high demand.", status: "UNAVAILABLE" },
+        }),
+      ),
+      { name: "ApiError", status: 503 },
+    )
+
+  it("harvest + story searches refused by a 503 overload → v2_stats says how many and why, and the warning fires", async () => {
+    const { webSearchWarning, runWarnings } = await import("@/lib/discovery-v2/web-search-health")
+    h.witness = [
+      { profile: "رجل كويتي أُسر في الغزو", where_told: [], search_terms: [] },
+      { profile: "رجل كويتي قاوم في الغزو", where_told: [], search_terms: [] },
+    ]
+    setupF1F2()
+    h.webFailWith = overload
+    h.harvestFail = true
+    h.webFail.add(F1)
+    h.webFail.add(F2)
+    const r = await runV2Discovery(input())
+    expect(r.stats.harvest_failed).toBe(2)
+    expect(r.stats.harvest_queries).toBe(0)
+    expect(r.stats.story_check_failed).toBe(2)
+    expect(r.stats.story_searched).toBe(0)
+    expect(r.stats.provider_overloaded).toBe(true)
+    expect(r.stats.web_failure_reason).toBe("overloaded")
+    // The cards still say «لم يُفحص», never «no story».
+    expect(byName(r.candidates, F1)?.story?.status).toBe("not_checked")
+    const w = webSearchWarning(r.stats)
+    expect(w?.headline).toBe(
+      "⚠️ البحث في الويب تعطّل جزئياً (ضغط عند مزوّد البحث) — النتائج ناقصة، أعد التشغيل لاحقاً.",
+    )
+    expect(w?.detail).toContain("فشلت 4 من 4")
+    expect(runWarnings(r.stats, "completed")[0]).toContain("ضغط عند مزوّد البحث")
+  })
+
+  it("sight: a healthy run carries zero failures and no warning", async () => {
+    const { webSearchWarning } = await import("@/lib/discovery-v2/web-search-health")
+    setupF1F2()
+    const r = await runV2Discovery(input())
+    expect(r.stats.story_check_failed).toBe(0)
+    expect(r.stats.story_searched).toBe(2)
+    expect(r.stats.harvest_failed).toBe(0)
+    expect(r.stats.provider_overloaded).toBe(false)
+    expect(r.stats.web_failure_reason).toBeNull()
+    expect(webSearchWarning(r.stats)).toBeNull()
+  })
+
+  it("a budget-spent search is named as such, not as an overload", async () => {
+    const { RetrievalBudgetExceededError } = await import("@/lib/ai-router/retrieval-budget")
+    const { webSearchWarning } = await import("@/lib/discovery-v2/web-search-health")
+    setupF1F2()
+    h.webFailWith = () => new RetrievalBudgetExceededError(25, 25)
+    h.webFail.add(F1)
+    h.webFail.add(F2)
+    const r = await runV2Discovery(input())
+    expect(r.stats.provider_overloaded).toBe(false)
+    expect(r.stats.web_failure_reason).toBe("budget")
+    expect(webSearchWarning(r.stats)?.headline).toContain("نفدت ميزانية البحث اليومية")
+  })
+
+  it("propose returned 0 names but the harvest found one → stats + an honest note", async () => {
+    const { proposeWarning, runWarnings } = await import("@/lib/discovery-v2/web-search-health")
+    h.witness = [{ profile: "رجل كويتي خسر تجارته ثم بدأ من جديد", where_told: [], search_terms: [] }]
+    const HARVESTED = "سالم عبدالله المطيري"
+    const quote = "أنا سالم عبدالله المطيري خسرت تجارتي كلها عام ٢٠٠٨ ثم بدأت من الصفر"
+    h.web.set("harvest:رجال كويتيين", [
+      { title: "مقابلة", url: "https://alqabas.com/h-1", domain: "alqabas.com", snippet: quote, verified: true },
+    ])
+    h.proposal = []
+    const { runAiTask } = await import("@/lib/ai-router")
+    const base = vi.mocked(runAiTask).getMockImplementation()!
+    vi.mocked(runAiTask).mockImplementation(async (req) => {
+      if (req.promptVersion === "v2-harvest-extract-1") {
+        return {
+          status: "succeeded",
+          runId: "harvest-extract",
+          parsed: { people: [{ name: HARVESTED, source: 1, quote, story_claim: "خسر تجارته" }] },
+        } as never
+      }
+      return base(req)
+    })
+    try {
+      const r = await runV2Discovery(input())
+      expect(r.candidates).toHaveLength(1)
+      expect(r.stats.proposed).toBe(1)
+      expect(r.stats.proposed_by_model).toBe(0)
+      expect(r.stats.propose_failed).toBe(false)
+      expect(proposeWarning(r.stats)).toBe(
+        "⚠️ نموذج الاقتراح لم يُرجع أيّ اسم في هذا التشغيل — الأسماء المعروضة من البحث في الويب وX فقط.",
+      )
+      // A failed run already says why — the propose note is not repeated there.
+      expect(runWarnings(r.stats, "failed")).toEqual([])
+    } finally {
+      vi.mocked(runAiTask).mockImplementation(base)
+    }
+  })
+
+  it("a propose FAILURE rescued by the harvest says the propose failed", async () => {
+    const { proposeWarning } = await import("@/lib/discovery-v2/web-search-health")
+    expect(proposeWarning({ proposed_by_model: 0, propose_failed: true })).toContain("فشل اقتراح الأسماء")
+    // sight: older runs (no field) say nothing; a normal run says nothing
+    expect(proposeWarning({})).toBeNull()
+    expect(proposeWarning({ proposed_by_model: 12, propose_failed: false })).toBeNull()
   })
 })

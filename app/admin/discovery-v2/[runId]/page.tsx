@@ -15,6 +15,7 @@ import { AutoRefresh } from "../auto-refresh"
 import { RetryRunButton } from "../retry-run-button"
 import { displayDiscoveryTopic } from "@/lib/discovery-v2/topic"
 import { resolveV2RunErrorKind, v2RunFailureMessage } from "@/lib/discovery-v2/run-failure"
+import { canRetryDegradedRun, proposeWarning, webSearchWarning } from "@/lib/discovery-v2/web-search-health"
 
 export const dynamic = "force-dynamic"
 
@@ -69,7 +70,7 @@ export default async function V2RunPage({
   const rejected = cards.filter((c) => c.decision === "rejected")
   const stats =
     (run.source_config as {
-      v2_stats?: Record<string, number | string | null>
+      v2_stats?: Record<string, number | string | boolean | null>
       v2_error?: string
       v2_error_kind?: string
     } | null) ?? {}
@@ -80,6 +81,11 @@ export default async function V2RunPage({
   const failureMessage = failed
     ? v2RunFailureMessage(resolveV2RunErrorKind(stats.v2_error_kind, rawError))
     : null
+  // Run-level honesty: the harvest and story checks fail SAFE (fewer names,
+  // «لم يُفحص»), so a run the search provider mostly refused used to end as a
+  // quiet «اكتمل». Said once here when a real share of the searches failed.
+  const webWarning = running ? null : webSearchWarning(stats.v2_stats)
+  const proposeNote = running || failed ? null : proposeWarning(stats.v2_stats)
 
   return (
     <div className="mx-auto max-w-4xl space-y-5 p-4 pb-16" dir="rtl">
@@ -94,6 +100,18 @@ export default async function V2RunPage({
           {runStatusLabel(run.status)} · {formatDateTime(run.created_at)}
           {stats.v2_stats ? ` · ${stats.v2_stats.proposed ?? 0} مقترح → ${stats.v2_stats.resolved ?? 0} محقّق → ${strong.length} قويّ + ${review.length} للمراجعة + ${shortlist.length} مختصرة` : ""}
         </div>
+        {webWarning && (
+          <div className="mt-3 rounded-xl border border-amber-500/40 bg-amber-500/5 p-3" data-web-degraded>
+            <p className="text-[12.5px] font-semibold text-amber-800">{webWarning.headline}</p>
+            <p className="mt-1 text-[11px] text-muted-foreground">{webWarning.detail}</p>
+            {!failed && canRetryDegradedRun(stats.v2_stats, run.created_at) && <RetryRunButton runId={run.id} />}
+          </div>
+        )}
+        {proposeNote && (
+          <p className="mt-2 text-[11.5px] font-medium text-amber-800" data-propose-empty>
+            {proposeNote}
+          </p>
+        )}
         {/* D5: X refused (402 wallet / 429 rate limit) — the run went on without it. */}
         {stats.v2_stats?.x_degraded ? (
           <p className="mt-2 text-[11px] text-amber-700" data-x-degraded>

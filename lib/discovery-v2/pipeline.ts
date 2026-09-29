@@ -48,6 +48,7 @@ import { classifyStory } from "./story-classify"
 import { proposeErrorKind, type V2RunErrorKind } from "./run-failure"
 import { proposeWitnessProfiles, WITNESS_TIMEOUT_MS } from "./witness"
 import { harvestGroundedNames, type HarvestResult } from "./harvest"
+import { classifyWebSearchFailure, dominantFailureKind, type WebSearchFailureKind } from "./web-search-health"
 import { harvestXListNames, type XHarvestResult } from "./sources/x-lists"
 import { resolveGeography } from "./story-evidence"
 import { GEMINI_RETRIEVAL_MODEL } from "@/lib/ai/gemini"
@@ -276,6 +277,20 @@ export interface V2RunResult {
     harvest_queries?: number
     harvested_web?: number
     harvest_search_cost_usd?: number
+    /** D1 — grounded harvest searches that FAILED (after retries) */
+    harvest_failed?: number
+    /** story-check web searches that returned / failed (→ «لم يُفحص») / were cut by the clock */
+    story_searched?: number
+    story_check_failed?: number
+    story_check_cut?: number
+    /** any web-search failure this run was a provider overload (503 / 429 / 5xx) */
+    provider_overloaded?: boolean
+    /** the dominant reason among web-search failures (web-search-health.ts), null = none failed */
+    web_failure_reason?: WebSearchFailureKind | null
+    /** names the propose model itself returned (0 when it returned none or failed) */
+    proposed_by_model?: number
+    /** the propose call failed outright (the names shown came from the web / X) */
+    propose_failed?: boolean
     /** D5 — X calls spent, names kept, and why X stopped early (402/429), if it did */
     x_calls?: number
     x_names?: number
@@ -318,12 +333,17 @@ export async function runV2Discovery(input: V2RunInput): Promise<V2RunResult> {
 
   // Three name sources in parallel. The harvest and X are add-ons: a failure
   // there costs names, never the run.
-  const emptyHarvest: HarvestResult = { names: [], queries: 0, searchCostUsd: 0, errors: [] }
+  const emptyHarvest: HarvestResult = { names: [], queries: 0, searchCostUsd: 0, errors: [], failed: 0, failureKinds: [] }
   const emptyX: XHarvestResult = { names: [], calls: 0, users_read: 0, degraded: null, skipped: null, est_cost_usd: null }
   const [proposal, harvest, xh] = await Promise.all([
     proposeWithTopUp(input, want, memory, startedAt, profiles),
     harvestGroundedNames(input, profiles, { deadlineAt: Date.now() + HARVEST_WALL_MS }).catch(
-      (err: unknown): HarvestResult => ({ ...emptyHarvest, errors: [err instanceof Error ? err.message : String(err)] }),
+      (err: unknown): HarvestResult => ({
+        ...emptyHarvest,
+        errors: [err instanceof Error ? err.message : String(err)],
+        failed: 1,
+        failureKinds: [classifyWebSearchFailure(err)],
+      }),
     ),
     harvestXListNames({
       topic: input.topic,
@@ -344,11 +364,22 @@ export async function runV2Discovery(input: V2RunInput): Promise<V2RunResult> {
     mergedKeys.add(key)
     merged.push(p)
   }
+  // Web-search health (web-search-health.ts): every failed grounded search
+  // is counted with its reason, so a run the provider mostly refused says so
+  // instead of ending as a quiet short list. Story-check failures join below.
+  const webFailures: WebSearchFailureKind[] = [...harvest.failureKinds]
+  const webHealth = () => ({
+    provider_overloaded: webFailures.includes("overloaded"),
+    web_failure_reason: dominantFailureKind(webFailures),
+  })
   const sourceStats = {
     witness_profiles: profiles.length,
     harvest_queries: harvest.queries,
+    harvest_failed: harvest.failed,
     harvested_web: harvest.names.length,
     harvest_search_cost_usd: Number(harvest.searchCostUsd.toFixed(4)),
+    proposed_by_model: proposal.error ? 0 : proposal.names.length,
+    propose_failed: !!proposal.error,
     x_calls: xh.calls,
     x_names: xh.names.length,
     x_degraded: xh.degraded,
@@ -370,6 +401,7 @@ export async function runV2Discovery(input: V2RunInput): Promise<V2RunResult> {
         story_verified: 0,
         proposed_top_up: proposal.toppedUp,
         ...sourceStats,
+        ...webHealth(),
       },
       error: proposal.error ?? "no names proposed",
       errorKind: proposal.error ? proposeErrorKind(proposal.errorStatus, proposal.error) : "no_names",
@@ -469,6 +501,8 @@ export async function runV2Discovery(input: V2RunInput): Promise<V2RunResult> {
   // shortlist, never a rejection.
   const storyDeadline = startedAt + DISCOVERY_JOB_BUDGET_MS - POST_STORY_RESERVE_MS
   let cutByDeadline = 0
+  let storySearched = 0
+  let storySearchFailed = 0
   // Concurrency 2: the shared daily retrieval budget still trips in
   // (roughly) rank order, and 12 checks fit the job budget.
   await pmap(queue, 2, async (x) => {
@@ -490,13 +524,19 @@ export async function runV2Discovery(input: V2RunInput): Promise<V2RunResult> {
     try {
       // D1: a harvested name arrives with the live sources that found him —
       // classify those; a second paid search would find the same pages.
-      web = x.p.harvest_sources?.length
-        ? { sources: x.p.harvest_sources, model: GEMINI_RETRIEVAL_MODEL }
-        : await gatherStoryWebSources(x.p, input, {
-            timeoutMs: Math.min(STORY_SEARCH_TIMEOUT_MS, left - STORY_CLASSIFY_RESERVE_MS),
-          })
+      if (x.p.harvest_sources?.length) {
+        web = { sources: x.p.harvest_sources, model: GEMINI_RETRIEVAL_MODEL }
+      } else {
+        web = await gatherStoryWebSources(x.p, input, {
+          timeoutMs: Math.min(STORY_SEARCH_TIMEOUT_MS, left - STORY_CLASSIFY_RESERVE_MS),
+        })
+        storySearched++
+      }
     } catch (err) {
       // Budget spent / search never ran / transient / deadline — NOT "no story".
+      // Counted with its reason: the run page says so when it is a real share.
+      storySearchFailed++
+      webFailures.push(classifyWebSearchFailure(err))
       console.warn(
         "[discovery-v2/story] evidence skipped:",
         err instanceof Error ? err.message.split("\n")[0] : String(err),
@@ -597,6 +637,16 @@ export async function runV2Discovery(input: V2RunInput): Promise<V2RunResult> {
     story_verified: verified.filter((c) => c.story?.status === "verified").length,
     proposed_top_up: proposal.toppedUp,
     ...sourceStats,
+    story_searched: storySearched,
+    story_check_failed: storySearchFailed,
+    story_check_cut: cutByDeadline,
+    ...webHealth(),
+  }
+  if (storySearchFailed > 0 || harvest.failed > 0) {
+    console.warn(
+      `[discovery-v2] web search degraded: harvest ${harvest.failed} failed / ${harvest.queries} ok, ` +
+        `story ${storySearchFailed} failed / ${storySearched} ok (${stats.web_failure_reason})`,
+    )
   }
 
   return { candidates: verified, proposeRunId: proposal.runId ?? null, stats }

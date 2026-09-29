@@ -17,6 +17,7 @@ import { listCandidates } from "./candidates"
 import { discoveryNameKey } from "@/lib/discovery-v2/memory"
 import { listCandidatesNominatedForEir } from "@/lib/guest-candidates/from-discovery"
 import type { V2Candidate } from "@/lib/discovery-v2/types"
+import { runWarnings, type WebSearchHealthStats } from "@/lib/discovery-v2/web-search-health"
 
 export interface EirDiscoveryCandidate {
   id: string
@@ -35,6 +36,11 @@ export interface EirDiscoveryRun {
   status: string
   created_at: string
   candidates: EirDiscoveryCandidate[]
+  /**
+   * Run-level warnings (web search mostly failed / propose returned no
+   * names) — the same copy the run page shows (web-search-health.ts).
+   */
+  warnings: string[]
 }
 
 const DECISION_ORDER: Record<V2Candidate["decision"], number> = {
@@ -59,6 +65,7 @@ export async function listDiscoveryResultsForEir(
       id: discoveryRuns.id,
       status: discoveryRuns.status,
       created_at: discoveryRuns.created_at,
+      source_config: discoveryRuns.source_config,
     })
     .from(discoveryRuns)
     .where(
@@ -106,6 +113,10 @@ export async function listDiscoveryResultsForEir(
       status: run.status,
       created_at: run.created_at ? new Date(run.created_at).toISOString() : new Date().toISOString(),
       candidates,
+      warnings: runWarnings(
+        (run.source_config as { v2_stats?: WebSearchHealthStats } | null)?.v2_stats,
+        run.status,
+      ),
     })
   }
   return out
