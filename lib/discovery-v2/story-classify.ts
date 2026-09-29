@@ -31,8 +31,9 @@ import {
   wrapUntrustedSource,
 } from "@/lib/ai/grounded-evidence"
 import { buildVerbatimHaystack, foldVerbatim, isVerbatimIn } from "@/lib/studio/verbatim"
+import { normalizeGuestSensitivityFlags } from "@/lib/khat-map/core/policy"
 import { mentionsName, notCheckedStory } from "./story-evidence"
-import type { StoryCheck, StorySource, TopicRelevance, TopicRelevanceValue } from "./types"
+import type { StoryCheck, StorySource, TopicRelevance, TopicRelevanceValue, WikiFacts } from "./types"
 
 /**
  * A story quote must be at least this many folded words. The Studio floor
@@ -45,7 +46,13 @@ export const STORY_MIN_QUOTE_WORDS = 6
 // returns `topic_relevance`, verified like every other claim.
 // v2-story-3 (2026-09-28, D3): `self_told` — did he tell it himself, or was
 // it written about him? Verified like every other attribute.
-export const STORY_PROMPT_VERSION = "v2-story-3"
+// v2-story-4 (2026-09-29, batch 3): the classifier SEES the Wikidata entity
+// the name resolved to (description, occupation, birth year) and answers
+// `wikidata_match` — it used to judge same_person against the proposal only,
+// so a footballer born 2003 passed as a man jailed by a name mix-up (D2).
+// It also returns `sensitivity_flags` for the person (constitution avoid
+// list — D1): a claim that may only reject.
+export const STORY_PROMPT_VERSION = "v2-story-4"
 
 const STORY_TYPES = ["first_hand", "second_hand", "expert_only", "none"] as const
 type StoryType = (typeof STORY_TYPES)[number]
@@ -64,6 +71,8 @@ export interface RawStoryClassification {
   same_person?: unknown
   topic_relevance?: unknown
   self_told?: unknown
+  sensitivity_flags?: unknown
+  wikidata_match?: unknown
 }
 
 type Item = { source: StorySource; quote: string }
@@ -179,6 +188,10 @@ export function verifyStoryClassification(
       same_person: samePerson,
       gender,
       nationality,
+      // Flags about a namesake's sources say nothing about OUR person.
+      sensitivity_flags: samePerson ? normalizeGuestSensitivityFlags(r.sensitivity_flags) : [],
+      // Only a `false` is acted on (it drops the QID); nothing here adds trust.
+      wikidata_match: r.wikidata_match === false ? false : r.wikidata_match === true ? true : null,
     },
   }
 }
@@ -203,6 +216,13 @@ const SYSTEM = [
   "- self_told: هل روى القصة بنفسه (مقابلة معه، حديثه هو، منشوره أو كتابه) = true،",
   "  أم كُتبت عنه بقلم غيره دون أن يتكلم هو = false؟ أسندها باقتباس حرفي، وإلا فاجعلها null.",
   "- اترك الحقل null إن لم يوجد له اقتباس حرفي.",
+  "- wikidata_match: إن عُرض عليك «كيان ويكي‌داتا» فهل هو الشخص نفسه الذي تتحدث عنه المصادر؟",
+  "  false إن ناقضت مهنته أو سنة ميلاده أو وصفه ما تقوله المصادر (مثلاً لاعب كرة وُلد 2003 والمصادر عن رجل قضى سنوات في السجن)،",
+  "  أو إن لم تذكر المصادر مهنته إطلاقاً. true فقط إن أكّدته المصادر. null إن لم يُعرض كيان.",
+  "- sensitivity_flags: ما ينطبق على هذا الشخص من: politics (دور سياسي: نائب، ناشط أو محلل سياسي، معارض)،",
+  "  religious_dispute (خلاف ديني أو مذهبي)، scandal (فضيحة عامة، أو إدانة/اتهام بتحرش أو اغتصاب أو احتيال)،",
+  "  third_party_exposure (قصته تكشف خصوصيات أشخاص آخرين)، ongoing_case (قضية منظورة أمام القضاء الآن).",
+  "  السجن بحد ذاته ليس علامة — «السجن والعودة للمجتمع» من مجالات خط. مصفوفة فارغة إن لم ينطبق شيء، ولا تجامل.",
   UNTRUSTED_SOURCE_SAFETY_HEADER,
   'أعد JSON فقط بهذا الشكل: {"story_type":"first_hand|second_hand|expert_only|none",' +
     '"story_summary":"جملة واحدة: ماذا عاش هو شخصياً",' +
@@ -213,7 +233,7 @@ const SYSTEM = [
     '"nationality":{"value":"Kuwait","source":1,"quote":"..."} أو null,' +
     '"topic_relevance":{"value":"on_topic|adjacent|off_topic","source":1,"quote":"..."} أو null,' +
     '"self_told":{"value":true,"source":1,"quote":"..."} أو null,' +
-    '"same_person":true}',
+    '"same_person":true,"wikidata_match":true|false|null,"sensitivity_flags":[]}',
 ].join("\n")
 
 function renderSources(sources: StorySource[]): string {
@@ -226,6 +246,18 @@ function renderSources(sources: StorySource[]): string {
       ),
     )
     .join("\n\n")
+}
+
+/** The resolved Wikidata entity, for `wikidata_match`. Empty when none resolved. */
+function renderEntity(e: WikiFacts | null | undefined): string[] {
+  if (!e?.resolved) return []
+  const facts = [
+    e.description ? `الوصف: ${e.description}` : null,
+    e.occupations?.length ? `المهنة: ${e.occupations.join("، ")}` : null,
+    e.birth_year ? `مواليد: ${e.birth_year}` : null,
+    e.nationality_country ? `الجنسية: ${e.nationality_country}` : null,
+  ].filter(Boolean)
+  return [`كيان ويكي‌داتا المطابَق بالاسم (قد يكون شخصاً آخر بنفس الاسم) ${e.qid ?? ""}: ${facts.join(" · ") || "بلا وصف"}`]
 }
 
 /**
@@ -242,6 +274,8 @@ export async function classifyStory(opts: {
   topic: string
   sources: StorySource[]
   variants: string[]
+  /** The Wikidata entity the name resolved to (any confidence) — judged, never trusted. */
+  entity?: WikiFacts | null
   runId?: string | null
   seasonId?: string | null
   /** Per-attempt abort + retry count; unset = the `verification` registry default (120s × 3). */
@@ -251,6 +285,7 @@ export async function classifyStory(opts: {
   const user = [
     `الشخص: ${opts.name}${opts.nameEn ? ` (${opts.nameEn})` : ""}${opts.role ? ` — ${opts.role}` : ""}`,
     `موضوع الحلقة: ${opts.topic}`,
+    ...renderEntity(opts.entity),
     "",
     renderSources(opts.sources),
   ].join("\n")
@@ -261,7 +296,13 @@ export async function classifyStory(opts: {
     subjectId: opts.runId ?? null,
     seasonId: opts.seasonId ?? null,
     promptVersion: STORY_PROMPT_VERSION,
-    input: { stage: "story_classify", name: opts.name, topic: opts.topic, sources: opts.sources.length },
+    input: {
+      stage: "story_classify",
+      name: opts.name,
+      topic: opts.topic,
+      sources: opts.sources.length,
+      entity: opts.entity?.resolved ? (opts.entity.qid ?? null) : null,
+    },
     prompt: [
       { role: "system", content: SYSTEM },
       { role: "user", content: user },

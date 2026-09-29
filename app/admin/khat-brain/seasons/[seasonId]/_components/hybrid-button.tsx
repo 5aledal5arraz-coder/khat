@@ -58,6 +58,7 @@ export function HybridGenerateButton({
   aiBlocked = false,
   aiBlockReason,
   initialJob = null,
+  analysisInFlight = false,
 }: {
   seasonId: string
   language?: "ar" | "en"
@@ -66,6 +67,13 @@ export function HybridGenerateButton({
   aiBlockReason?: string | null
   /** This season's in-flight / just-finished hybrid job, looked up server-side. */
   initialJob?: JobSnapshot | null
+  /**
+   * Market analysis (extract / score / cluster) pending or running RIGHT NOW,
+   * read server-side on every render (the page refreshes when the job
+   * settles). The finished job's own `analysis_pending` is a frozen snapshot
+   * and must not drive a «جارٍ» banner after the fact.
+   */
+  analysisInFlight?: boolean
 }) {
   const [isPending, startTransition] = useTransition()
   // Only a failure to ENQUEUE lands here; the generation's own outcome is the job's result.
@@ -280,14 +288,16 @@ export function HybridGenerateButton({
             </div>
           )}
 
-          {/* ANALYSIS IN-FLIGHT — banner only, doesn't block candidates. */}
-          {jobResult.analysis_pending && (
+          {/* ANALYSIS IN-FLIGHT — live state, banner only, doesn't block
+              candidates. The candidates of THIS run are already shown above,
+              so the copy speaks about future runs only. */}
+          {analysisInFlight && (
             <div
               className="inline-flex items-center gap-1.5 rounded-xl border border-amber-500/30 bg-amber-500/5 px-3 py-1.5 text-[11.5px] text-amber-700"
               data-hybrid-analysis-pending
             >
               <Activity className="h-3 w-3 animate-pulse" />
-              جاري تحليل إشارات السوق… سنعرض المرشحات عند اكتمال التحليل.
+              تحليل إشارات السوق ما زال جارياً — التوليدات القادمة ستستفيد منه.
             </div>
           )}
 

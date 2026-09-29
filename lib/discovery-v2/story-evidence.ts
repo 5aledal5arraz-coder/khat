@@ -98,6 +98,30 @@ const NAT_SAUDI = /^(?:saudi|saudis|سعوديه|سعودي|سعوديون|سع�
 const NAT_GULF =
   /^(?:bahrain|bahraini|bahrainis|qatar|qatari|qataris|emirates|emirati|emiratis|uae|oman|omani|omanis|بحرين|بحريني|بحرينيه|قطر|قطري|قطريه|امارات|اماراتي|اماراتيه|عماني|عمانيه)$/
 
+// Region / identity words that say WHERE, never WHO or WHAT: «عرب»,
+// «خليجي», "arab", "gulf". Folded, article stripped.
+const GEO_GENERIC = /^(?:عرب|عربي|عربيه|عربيا|العرب|خليج|خليجي|خليجيه|خليجيون|خليجيين|arab|arabs|arabic|arabian|gulf)$/
+
+/**
+ * True for a nationality / region word («الكويت», «بالكويت», «كويتي»,
+ * «خليجي», "Kuwaiti", "gulf"). A place word matches nearly every
+ * Kuwaiti's bio, so it can never count as a TOPIC word (X list bios —
+ * «حب الكويت يجمعنا» matched a prison topic) or an OCCUPATION / ROLE word
+ * (Wikidata «لاعب كرة قدم كويتي» matched a proposal «مواطن كويتي»).
+ */
+export function isGeoWord(token: string): boolean {
+  const f = foldVerbatim(token)
+  if (!f || f.includes(" ")) return false
+  const forms = new Set([f])
+  let t = f
+  if (t.length > 3 && /^[وف]/.test(t)) forms.add((t = t.slice(1)))
+  if (t.length > 3 && /^[بلك]/.test(t)) forms.add((t = t.slice(1)))
+  for (const x of [...forms]) if (x.length > 4 && x.startsWith("ال")) forms.add(x.slice(2))
+  return [...forms].some(
+    (x) => NAT_KUWAIT.test(x) || NAT_SAUDI.test(x) || NAT_GULF.test(x) || GEO_GENERIC.test(x),
+  )
+}
+
 /** A free-form nationality ("Kuwait", «كويتي», "Saudi Arabia") → scope key. */
 export function geographyOfNationality(nat: string | null | undefined): V2Geography | "other" | null {
   if (!nat || !nat.trim()) return null

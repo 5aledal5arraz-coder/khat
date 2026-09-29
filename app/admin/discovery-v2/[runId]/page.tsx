@@ -100,6 +100,12 @@ export default async function V2RunPage({
             تعذّر البحث في X في هذا التشغيل ({String(stats.v2_stats.x_degraded)}) — أُكمل التشغيل بدونه.
           </p>
         ) : null}
+        {/* X was not read at all: no curated list touches this topic (0 calls). */}
+        {stats.v2_stats?.x_skipped === "no_relevant_list" ? (
+          <p className="mt-2 text-[11px] text-muted-foreground" data-x-skipped>
+            لم يُبحث في X في هذا التشغيل — لا قائمة منسّقة تخصّ هذا الموضوع.
+          </p>
+        ) : null}
         {failed && (
           <div className="mt-3 rounded-xl border border-rose-500/30 bg-rose-500/5 p-3">
             <p className="text-[12.5px] font-semibold text-rose-700">{failureMessage}</p>

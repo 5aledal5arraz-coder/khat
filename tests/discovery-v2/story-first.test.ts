@@ -590,7 +590,13 @@ describe("F5 — namesake: a lone Wikidata hit does not donate its death year", 
       const c = scoreCandidate(F1_PROPOSED, wiki, F1_SIGNALS, { topic: TOPIC }, check)
       expect(c.decision).not.toBe("rejected")
       expect(c.reasons.join(" ")).not.toContain("متوفّى")
-      expect(c.flags).toContain("identity_uncertain")
+      // Batch 3 D2 (2026-09-29): with a VERIFIED story, an entity whose
+      // occupation («لاعب كرة قدم») the story never mentions is dropped
+      // outright — unverified, not merely uncertain.
+      expect(c.flags).toContain("identity_unverified")
+      expect(c.wiki.identity_dropped?.qid).toBe("Q9150")
+      expect(c.wiki.qid ?? null).toBeNull() // nothing of the stranger survives
+      expect(c.wiki.identity_dropped?.reason).toBe("occupation_absent")
       expect(c.decision).toBe("needs_review")
     } finally {
       vi.unstubAllGlobals()

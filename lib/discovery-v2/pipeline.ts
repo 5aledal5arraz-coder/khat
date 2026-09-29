@@ -33,7 +33,7 @@ import { proposeNames } from "./propose"
 import { discoveryNameKey, loadDiscoveryMemory, type DiscoveryMemory } from "./memory"
 import { resolvePerson } from "./sources/wikidata"
 import { enrich } from "./enrich"
-import { scoreCandidate } from "./score"
+import { scoreCandidate, storyEvidenceDepth } from "./score"
 import { attachGroundedVerification, deriveGroundedSignal } from "./grounded-verify"
 import {
   freeStorySources,
@@ -76,6 +76,23 @@ function rankOf(c: V2Candidate): number {
     return c.flags.includes("no_web_footprint") ? 2.5 : 1
   }
   return DECISION_RANK[c.decision]
+}
+
+/**
+ * The run page order. Tier first (rankOf); inside a tier the VERIFIED story
+ * decides before fame: S, then how much independent evidence backs it
+ * (storyEvidenceDepth), then the overall score. S is an ordinal bucket
+ * (0.8 = one live domain, 1 = two …), so on the 2026-09-29 run three strong
+ * cards tied on it and the order fell to overall — i.e. to fame (N/G/R),
+ * which is how a namesake's sitelinks could lift a card.
+ */
+export function compareCandidates(a: V2Candidate, b: V2Candidate): number {
+  return (
+    rankOf(a) - rankOf(b) ||
+    b.scores.story - a.scores.story ||
+    storyEvidenceDepth(b.story) - storyEvidenceDepth(a.story) ||
+    b.scores.overall - a.scores.overall
+  )
 }
 
 // ── Propose top-up budget ────────────────────────────────────────────────
@@ -263,6 +280,8 @@ export interface V2RunResult {
     x_calls?: number
     x_names?: number
     x_degraded?: string | null
+    /** Why X was not read at all this run (e.g. "no_relevant_list"), if it wasn't. */
+    x_skipped?: string | null
   }
   error?: string
   /** Set with `error`: why the run produced nothing (drives the run page copy). */
@@ -300,7 +319,7 @@ export async function runV2Discovery(input: V2RunInput): Promise<V2RunResult> {
   // Three name sources in parallel. The harvest and X are add-ons: a failure
   // there costs names, never the run.
   const emptyHarvest: HarvestResult = { names: [], queries: 0, searchCostUsd: 0, errors: [] }
-  const emptyX: XHarvestResult = { names: [], calls: 0, users_read: 0, degraded: null, est_cost_usd: null }
+  const emptyX: XHarvestResult = { names: [], calls: 0, users_read: 0, degraded: null, skipped: null, est_cost_usd: null }
   const [proposal, harvest, xh] = await Promise.all([
     proposeWithTopUp(input, want, memory, startedAt, profiles),
     harvestGroundedNames(input, profiles, { deadlineAt: Date.now() + HARVEST_WALL_MS }).catch(
@@ -333,6 +352,7 @@ export async function runV2Discovery(input: V2RunInput): Promise<V2RunResult> {
     x_calls: xh.calls,
     x_names: xh.names.length,
     x_degraded: xh.degraded,
+    x_skipped: xh.skipped,
   }
 
   if (merged.length === 0) {
@@ -430,6 +450,9 @@ export async function runV2Discovery(input: V2RunInput): Promise<V2RunResult> {
   const cap = enabled ? storyMaxCandidates() : 0
   const hardRejected = (c: V2Candidate) =>
     c.scores.filter_match === 0 ||
+    // The guest-policy gate already fired on what we know without the story
+    // (a trusted entity's description / Wikipedia summary) — no paid check.
+    !!c.flags?.includes("policy_violation") ||
     (c.wiki.resolved && !c.wiki.identity_uncertain && !!c.wiki.death_year)
   const queue = selectForStoryCheck(
     pre.filter((x) => !hardRejected(x.pre)),
@@ -500,6 +523,8 @@ export async function runV2Discovery(input: V2RunInput): Promise<V2RunResult> {
           topic: input.topic,
           sources,
           variants,
+          // Shown to the classifier to be JUDGED (wikidata_match), never trusted.
+          entity: x.wiki,
           runId: input.runId,
           seasonId: input.seasonId,
           ...classifyBudget(classifyLeft),
@@ -554,7 +579,7 @@ export async function runV2Discovery(input: V2RunInput): Promise<V2RunResult> {
     return c
   })
 
-  scored.sort((a, b) => rankOf(a) - rankOf(b) || b.scores.overall - a.scores.overall)
+  scored.sort(compareCandidates)
 
   // Optional presence stamp for the rest (opt-in, cost-capped, fail-safe);
   // skips anyone the story search already grounded.

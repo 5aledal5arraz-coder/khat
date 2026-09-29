@@ -7,7 +7,8 @@
  * without rewriting stored data.
  */
 
-import type { StoryAssessment, V2Flag, V2ScoreKey } from "./types"
+import { formatArabicCount } from "@/lib/shared/formatters"
+import type { StoryAssessment, TopicRelevanceValue, V2Flag, V2ScoreKey } from "./types"
 
 interface StoredCard {
   scores?: { unmeasured?: V2ScoreKey[] } | null
@@ -34,4 +35,53 @@ export function unmeasuredScores(c: StoredCard): Set<V2ScoreKey> {
 export function wikiFactsTrusted(c: StoredCard): boolean {
   const flags = c.flags ?? []
   return !flags.includes("identity_uncertain") && !flags.includes("identity_unverified")
+}
+
+const RELEVANCE_LABEL: Record<TopicRelevanceValue, string> = {
+  on_topic: "في صلب الموضوع",
+  adjacent: "قريب من الموضوع",
+  off_topic: "خارج الموضوع",
+}
+
+/**
+ * What the card prints next to القصة / الملاءمة / يُبحث عنه instead of a
+ * percentage (D4, 2026-09-29). Those three are ORDINAL buckets by design —
+ * S ∈ {0, 0.5, 0.8, 1}×relevance, F ∈ {0, 0.5, 1}, Q ∈ {0, 0.5, 1} — and
+ * «80 / 100 / 50» on three different people read as a precise measurement
+ * that happened to tie. The label says the evidence the bucket stands for,
+ * so two people with different evidence read differently. `null` = no label
+ * (the row keeps its «غير مقيّم» / bar behaviour).
+ */
+export function scoreEvidenceLabels(c: {
+  story?: Pick<StoryAssessment, "status" | "story_type" | "evidence" | "self_told" | "topic_relevance"> | null
+  scores?: { searchability?: number | null } | null
+}): { story: string | null; topic_fit: string | null; searchability: string | null } {
+  const a = c.story
+  let story: string | null = null
+  if (a?.status === "verified" && a.evidence?.length) {
+    const kind =
+      a.story_type === "first_hand"
+        ? a.self_told?.value === false
+          ? "كتبه غيره عنه"
+          : "رواها بنفسه"
+        : a.story_type === "second_hand"
+          ? "يرويها أهله"
+          : "موثّقة"
+    const sites = new Set(a.evidence.map((e) => e.domain ?? e.url)).size
+    story = `${kind} · ${formatArabicCount(sites, "موقع")} · ${formatArabicCount(a.evidence.length, "اقتباس")}`
+  } else if (a?.status === "unverified") {
+    story = "لم تُثبت بمصدر"
+  }
+  const rel = a?.topic_relevance?.value
+  const topic_fit = rel ? RELEVANCE_LABEL[rel] : null
+  const q = c.scores?.searchability
+  const searchability =
+    q == null || !a || a.status === "not_checked"
+      ? null
+      : q >= 1
+        ? "موقعان أو أكثر"
+        : q > 0
+          ? formatArabicCount(1, "موقع")
+          : "لا موقع يذكره"
+  return { story, topic_fit, searchability }
 }

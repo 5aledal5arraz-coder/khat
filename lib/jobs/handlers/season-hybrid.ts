@@ -54,15 +54,19 @@ export async function runSeasonHybridGenerate(
   }
   await reportProgress({ pass: 2, of: 2, label: "حفظ النتائج" })
 
-  // Is market analysis still catching up? (banner only — never blocks cards)
-  let inflight = false
+  // Is market analysis still catching up NOW, at completion? (banner only —
+  // never blocks cards). Read live: `payload.analysisKicked` is a fact from
+  // enqueue time — a stage kicked then has usually finished by now (it is
+  // pending/running → `inflight` already says so), and baking it into this
+  // frozen result kept «جاري تحليل إشارات السوق…» on the season page after
+  // the job completed (batch 3 D5b, 2026-09-29).
+  let analysis_pending = false
   try {
     const readiness = await getHybridReadiness()
-    inflight = readiness.inflight.extract || readiness.inflight.score || readiness.inflight.cluster
+    analysis_pending = readiness.inflight.extract || readiness.inflight.score || readiness.inflight.cluster
   } catch {
     /* a diagnostic read — its failure must not fail a paid generation */
   }
-  const analysis_pending = payload.analysisKicked || inflight
 
   if (!r.ok) {
     return {

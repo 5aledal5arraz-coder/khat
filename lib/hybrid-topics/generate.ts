@@ -591,9 +591,27 @@ const INVASION_TEXT = /غزو|الاحتلال|1990|١٩٩٠/
  * content_focus of the whole preparation. Anything else falls back to the
  * same default as an unknown type.
  */
-export function coerceEpisodeType(rawType: string, text: string): string {
+/**
+ * «controversial» is not a Khat goal under the constitution (2026-09-28) and
+ * the prompt no longer offers it (v4.1); a model that still returns it
+ * (ab7d12c1 «كان حسابنا المشترك أكثر حميمية منا», 2026-09-29) gets the
+ * closest allowed type by the topic's own domain. The enum stays in the
+ * schema for rows written before.
+ */
+const CONTROVERSIAL_BY_DOMAIN: Record<string, string> = {
+  psychology: "psychological",
+  emotions_inner_life: "psychological",
+  money_career: "economic",
+  philosophy: "intellectual",
+  technology_ai: "intellectual",
+  historical: "historical",
+  hidden_history: "historical",
+}
+
+export function coerceEpisodeType(rawType: string, text: string, domain?: string): string {
   if (!VALID_EPISODE_TYPES.has(rawType)) return "intellectual"
   if (rawType === "invasion" && !INVASION_TEXT.test(text)) return "intellectual"
+  if (rawType === "controversial") return CONTROVERSIAL_BY_DOMAIN[domain ?? ""] ?? "social"
   return rawType
 }
 
@@ -630,7 +648,7 @@ export function coerceCandidate(raw: Record<string, unknown>): HybridCandidate {
     // the feedback join simply finds no matching signals and skips.
     primary_theme: s("primary_theme") || "none",
     original_lens: s("original_lens"),
-    suggested_episode_type: coerceEpisodeType(rawType, topicText),
+    suggested_episode_type: coerceEpisodeType(rawType, topicText, rawDomain),
     suggested_topic_domain: VALID_TOPIC_DOMAINS.has(rawDomain) ? rawDomain : "none",
     estimated_strength_score: Number.isFinite(n) ? Math.max(0, Math.min(1, n)) : 0,
     archetype: s("archetype") || undefined,

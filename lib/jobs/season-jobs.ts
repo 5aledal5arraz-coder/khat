@@ -37,7 +37,10 @@ export interface HybridJobPayload extends Record<string, unknown> {
   count: number
   allowKuwaitBias: boolean
   createdBy: string | null
-  /** A market stage was auto-kicked at enqueue time (banner in the result). */
+  /**
+   * A market stage was auto-kicked at enqueue time. Informational only: the
+   * handler reads the analysis state live at completion (D5b, 2026-09-29).
+   */
   analysisKicked: boolean
 }
 

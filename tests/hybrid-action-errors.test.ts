@@ -292,3 +292,42 @@ describe("generateHybridTopicsAction — happy paths still intact", () => {
     })
   })
 })
+
+/**
+ * Batch 3 D5b (2026-09-29): the season page kept showing «جاري تحليل إشارات
+ * السوق… سنعرض المرشحات عند اكتمال التحليل.» after the hybrid job had
+ * completed. The job result baked `payload.analysisKicked` — a fact from
+ * ENQUEUE time — into a frozen row, and the panel re-rendered it on every
+ * reload (the page re-attaches the finished job) as if it were live.
+ */
+describe("hybrid job — analysis banner reflects the state at completion, not at enqueue", () => {
+  const OK = {
+    ok: true,
+    generation_id: "gen-1",
+    ai_run_id: "run-1",
+    asked: 1,
+    accepted: [{ title: "موضوع" }],
+    rejected: [],
+    rejection_summary: {},
+    persisted: [{ id: "c1" }],
+    enrichment: { requested: 1, enriched: 1, unenriched: 0 },
+    fallback_path: "clusters",
+  }
+
+  it("a stage kicked at enqueue that has since finished → analysis_pending false", async () => {
+    vi.mocked(getHybridReadiness).mockResolvedValue(readyState())
+    vi.mocked(generateHybridTopics).mockResolvedValue(OK as never)
+    const r = await runSeasonHybridGenerate({ ...JOB, analysisKicked: true }, async () => {})
+    expect(r.ok).toBe(true)
+    expect(r.analysis_pending).toBe(false)
+  })
+
+  it("sight: analysis still in flight at completion → true", async () => {
+    vi.mocked(getHybridReadiness).mockResolvedValue(
+      readyState({ inflight: { collect: false, extract: false, score: false, cluster: true } }),
+    )
+    vi.mocked(generateHybridTopics).mockResolvedValue(OK as never)
+    const r = await runSeasonHybridGenerate({ ...JOB, analysisKicked: false }, async () => {})
+    expect(r.analysis_pending).toBe(true)
+  })
+})

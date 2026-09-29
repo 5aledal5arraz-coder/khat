@@ -10,6 +10,7 @@
  */
 
 import type { CandidateResearchSource } from "@/types/database"
+import type { GuestSensitivityFlag } from "@/lib/khat-map/core/policy"
 
 export interface V2Filters {
   gender?: "male" | "female" | null
@@ -145,6 +146,14 @@ export interface WikiFacts {
     linkedin?: string | null
   }
   summary?: string | null
+  /**
+   * Set (with `resolved: false`) when a match was DROPPED after the story
+   * check: the entity's occupation never appears in the verified story, or
+   * the classifier said the sources are not this entity (2026-09-29 — a
+   * footballer born 2003 lent his sitelinks to a man jailed by a name
+   * mix-up). Kept for the audit trail only; nothing of the entity is used.
+   */
+  identity_dropped?: { qid: string | null; description: string | null; reason: string } | null
 }
 
 export interface EnrichmentSignals {
@@ -303,13 +312,19 @@ export type V2Flag =
   | "story_second_hand"
   /** unresolved and nothing on the web names them — kept only for a story_unpublished */
   | "no_web_footprint"
+  /** the guest-policy gate fired (lexicon over his texts, or the classifier's flags) */
+  | "policy_violation"
+  /** a served financial conviction — not a reject; Khaled decides (FINANCIAL_RECORD_POLICY) */
+  | "policy_review"
 
 /**
  * needs_review for the STORY, not the identity: Khaled reviews these by
  * hand. The run page lists them apart from the verified strong stories and
  * the pipeline ranks the unpublished ones below every verified story.
+ * `policy_review` (a served financial record) is listed here too — it is a
+ * Khaled decision, not an identity check.
  */
-export const STORY_REVIEW_FLAGS: readonly V2Flag[] = ["story_unpublished", "story_second_hand"]
+export const STORY_REVIEW_FLAGS: readonly V2Flag[] = ["story_unpublished", "story_second_hand", "policy_review"]
 
 /**
  * One numbered text source a story check can cite. `text` is what a quote
@@ -340,6 +355,17 @@ export interface StoryCheck {
     same_person: boolean
     gender: "male" | "female" | null
     nationality: string | null
+    /**
+     * The classifier's own policy flags for THIS person (constitution avoid
+     * list). A claim — it may only reject, never approve. Absent on checks
+     * that never reached the classifier.
+     */
+    sensitivity_flags?: GuestSensitivityFlag[]
+    /**
+     * The classifier's answer to «is the Wikidata entity shown the person in
+     * these sources?» — `false` drops the QID; `true`/null never adds trust.
+     */
+    wikidata_match?: boolean | null
   }
 }
 

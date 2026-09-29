@@ -20,7 +20,7 @@
  */
 
 import type { WikiFacts } from "../types"
-import { geographyOfNationality } from "../story-evidence"
+import { geographyOfNationality, isGeoWord } from "../story-evidence"
 
 /** Light context from the LLM proposal, used to disambiguate homonyms. */
 export interface ResolveHint {
@@ -208,11 +208,7 @@ function scoreEntityAgainstHint(
   // Role tokens vs description (occupation labels arrive later; the
   // description usually carries the profession in both languages).
   if (hint.role) {
-    const toks = hint.role
-      .toLowerCase()
-      .replace(/[.,؛،"'()\-_/]/g, " ")
-      .split(/\s+/)
-      .filter((t) => t.length >= 3)
+    const toks = roleTokens(hint.role)
     const hits = toks.filter((t) => descr.includes(t)).length
     if (toks.length > 0) score += (hits / toks.length) * 2
   }
@@ -226,6 +222,18 @@ function scoreEntityAgainstHint(
   }
 
   return score
+}
+
+/**
+ * The words of a role hint that say what the person DOES — nationality and
+ * region words out («مواطن كويتي» is not a match for «لاعب كرة قدم كويتي»).
+ */
+function roleTokens(role: string): string[] {
+  return role
+    .toLowerCase()
+    .replace(/[.,؛،"'()\-_/]/g, " ")
+    .split(/\s+/)
+    .filter((t) => t.length >= 3 && !isGeoWord(t))
 }
 
 /** «الكويت» → «كويت», «السعودية» → «سعودي»: lets a country hint match the
@@ -249,13 +257,13 @@ function hintContradicts(ent: any, hint: ResolveHint | undefined): boolean {
   const descr = [ent?.descriptions?.ar?.value ?? "", ent?.descriptions?.en?.value ?? ""]
     .join(" ")
     .toLowerCase()
-  if (hint.role) {
-    const toks = hint.role
-      .toLowerCase()
-      .replace(/[.,؛،"'()\-_/]/g, " ")
-      .split(/\s+/)
-      .filter((t) => t.length >= 3)
-    if (toks.some((t) => descr.includes(t))) return false
+  const role = hint.role ? roleTokens(hint.role) : []
+  if (role.length > 0) {
+    // A role that says WHAT he is must match what the entry says he is. The
+    // country cannot rescue it: in a Kuwait run every Kuwaiti entry matches
+    // the country (2026-09-29: «لاعب كرة قدم كويتي» passed as a man «سُجن
+    // بالخطأ» because «كويتي» / «الكويت» matched).
+    return !role.some((t) => descr.includes(t))
   }
   if (hint.country) {
     // Per word too: "Saudi Arabia" must match a "Saudi writer" description.

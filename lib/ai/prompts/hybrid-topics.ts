@@ -50,7 +50,12 @@ import { KHAT_TOPIC_SCORE_KEYS } from "@/lib/hybrid-topics/scoring"
 // scores the constitution's six dimensions (they only ORDER the list) and
 // declares sensitivity_flags (any flag → rejected). Exploration slots now
 // carry field × segment × concern. mass_audience is no longer offered.
-export const HYBRID_TOPICS_PROMPT_VERSION = "hybrid-topics-v4-constitution"
+//
+// v4.1 (2026-09-29, batch 3 D5a): `controversial` is no longer offered as an
+// episode type — bold/controversial is not a Khat goal under the constitution,
+// and ab7d12c1 still came back typed controversial. coerceEpisodeType maps any
+// straggler to the closest allowed type.
+export const HYBRID_TOPICS_PROMPT_VERSION = "hybrid-topics-v4.1-constitution"
 
 /**
  * At most this share of a batch may draw from a market cluster (the rest
@@ -183,7 +188,7 @@ export function buildHybridTopicsPrompt(
     '   - original_lens: a registry KEY below IF one genuinely sharpens the topic, else "none". Do NOT force an introspective lens onto a topic that is not about inner life — a history, science, or hidden-world episode is allowed to just be itself.',
     `   - market_inspiration: "none" by default. At most ${marketCap} topic(s) in this batch may instead name the ONE market cluster that hinted at it.`,
     "   - primary_theme: copy VERBATIM the label of that market cluster (from the MARKET CLUSTERS list below), or \"none\".",
-    "   - suggested_episode_type drawn from: intellectual, social, psychological, personal_story, national, historical, economic, controversial, inspirational, signature_khat, invasion. `invasion` means the 1990 Iraqi invasion of Kuwait ONLY — never a figurative \"invasion\" (of technology, money, culture, ideas); use another type for those.",
+    "   - suggested_episode_type drawn from: intellectual, social, psychological, personal_story, national, historical, economic, inspirational, signature_khat, invasion. `invasion` means the 1990 Iraqi invasion of Kuwait ONLY — never a figurative \"invasion\" (of technology, money, culture, ideas); use another type for those.",
     "   - suggested_topic_domain drawn from: philosophy, psychology, relationships, religion, identity_masculinity, money_career, technology_ai, internet_culture, crime_mystery, hidden_history, power_manipulation, parenting, kuwait_gulf, historical, social_issues, modern_society, emotions_inner_life, none. (religion = faith as a personal experience ONLY.)",
     "4. NEVER copy a market title. Transform it. The relationship between market_inspiration and title must NOT be a paraphrase.",
     "5. Reject your own first draft if it sounds like self-help, listicle, hustle-culture, or any BANNED shape above. No \"how to,\" no \"5 secrets,\" no \"unlock your,\" no \"الخليج + macro trend\" panels.",

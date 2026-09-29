@@ -32,7 +32,7 @@ import {
   wrapUntrustedSource,
 } from "@/lib/ai/grounded-evidence"
 import { buildVerbatimHaystack, foldVerbatim, isVerbatimIn } from "@/lib/studio/verbatim"
-import { lexiconPolicyHits } from "@/lib/khat-map/core/policy"
+import { guestPolicyHits } from "@/lib/khat-map/core/policy"
 import { isStoryGroundingEnabled, mentionsName, nameVariants } from "./story-evidence"
 import { STORY_MIN_QUOTE_WORDS } from "./story-classify"
 import type { ProposedName, StorySource, V2RunInput, WitnessProfile } from "./types"
@@ -101,7 +101,7 @@ export function verifyHarvest(raw: unknown, sources: StorySource[]): ProposedNam
     const variants = nameVariants([name, nameEn])
     if (!mentionsName(quote, variants) && !mentionsName(srcText, variants)) continue
     const claim = typeof item.story_claim === "string" ? item.story_claim.trim().slice(0, 200) : ""
-    if (lexiconPolicyHits(`${quote} ${claim}`).length > 0) continue
+    if (guestPolicyHits(`${quote} ${claim}`).length > 0) continue
     const key = foldVerbatim(name)
     if (seen.has(key)) continue
     seen.add(key)

@@ -6,7 +6,8 @@
  * 32%, and ranking by list density (listed_count / followers) — never by
  * follower count — surfaced the right people. So:
  *
- *   seed lists (lived-experience hubs) → one page of members each
+ *   seed lists relevant to the topic (keyword tags; none → X skipped, 0 calls)
+ *     → one page of members each
  *     → keep individuals only (not organisations), Kuwait signal in bio /
  *       location, a bio that touches the topic, politics filtered OUT
  *       (policy lexicon + political titles)
@@ -19,13 +20,21 @@
  */
 
 import { getListMembers, isXConfigured, type XListMember } from "@/lib/x/client"
-import { lexiconPolicyHits } from "@/lib/khat-map/core/policy"
+import { guestPolicyHits } from "@/lib/khat-map/core/policy"
 import { foldVerbatim } from "@/lib/studio/verbatim"
+import { isGeoWord } from "../story-evidence"
 import type { ProposedName, V2Geography, WitnessProfile } from "../types"
 
 export interface XSeedList {
   id: string
   label: string
+  /**
+   * What the list's members can witness — folded Arabic stems, drawn from the
+   * constitution fields the list serves (lib/khat-map/core/constitution.ts).
+   * A list is read only when a topic word starts with one of them
+   * (`xListsForTopic`). Empty = never read.
+   */
+  keywords: string[]
 }
 
 /**
@@ -33,55 +42,119 @@ export interface XSeedList {
  * ~/Desktop/khat-backups/x-harvest-20260807): education, writing, volunteers,
  * researchers, business/SME, "interesting Kuwaitis". Politics / geopolitics
  * lists from that harvest are deliberately NOT here. Family-counselling and
- * heritage hubs are still missing — add their list ids via
- * DISCOVERY_X_SEED_LISTS (comma-separated ids) without a code change.
+ * heritage hubs are still missing — add them via DISCOVERY_X_SEED_LISTS as
+ * comma-separated `id:kw|kw|kw` entries (see xSeedLists) without a code change.
  */
+// Topic keywords per list (2026-09-29, batch 3 D3): lists used to be
+// shuffled at random, so a prison topic read «بورصة الكويت». Folded words /
+// stems of 3+ letters, matched whole or with a grammatical suffix only
+// (`keywordMatches`) — «علم» never matches «علمتني», «حرف» never «حرفيا».
+const KW_EDUCATION = ["تعليم", "تعلم", "معلم", "مدرس", "مدرسه", "مدارس", "طالب", "طلاب", "تربي", "ابناء", "اطفال", "مراهق", "جيل", "اجيال", "جامع"]
+const KW_WRITING = ["كتابه", "كاتب", "كتاب", "ادب", "روايه", "شعر", "شاعر", "قصه", "قصص", "مولف", "نشر"]
+
 export const DEFAULT_X_SEED_LISTS: readonly XSeedList[] = [
-  { id: "1439565236760100868", label: "interesting kuwaitis" },
-  { id: "1024397812493111296", label: "Education" },
-  { id: "1291170743200428037", label: "المعلم و المعلمة الكويت" },
-  { id: "831970277055684611", label: "تعليم 1" },
-  { id: "79676332", label: "أدب و كتابة" },
-  { id: "55815415", label: "كتّاب" },
-  { id: "1573702792656683017", label: "Volunteers -individuals-" },
-  { id: "1307913659142864898", label: "Kwt Researchers" },
-  { id: "1273809240839389184", label: "بورصة الكويت" },
+  // memory_heritage — oral history, old crafts, sea, desert, customs
+  { id: "1439565236760100868", label: "interesting kuwaitis", keywords: ["تراث", "ذاكره", "تاريخ", "شفهي", "حرف", "غوص", "بحر", "بحار", "نوخذه", "باديه", "عادات", "تقاليد", "سفر"] },
+  // identity_society.education + family.raising_children / adolescence / generation_gap
+  { id: "1024397812493111296", label: "Education", keywords: KW_EDUCATION },
+  { id: "1291170743200428037", label: "المعلم و المعلمة الكويت", keywords: KW_EDUCATION },
+  { id: "831970277055684611", label: "تعليم 1", keywords: KW_EDUCATION },
+  // creativity_achievement.writing_literature
+  { id: "79676332", label: "أدب و كتابة", keywords: KW_WRITING },
+  { id: "55815415", label: "كتّاب", keywords: KW_WRITING },
+  // identity_society.volunteering_charity
+  { id: "1573702792656683017", label: "Volunteers -individuals-", keywords: ["تطوع", "متطوع", "خيري", "خير", "اغاثه", "عطاء", "مبادره"] },
+  // creativity_achievement.invention_applied_science
+  { id: "1307913659142864898", label: "Kwt Researchers", keywords: ["بحث", "باحث", "ابحاث", "علم", "علوم", "علمي", "اختراع", "مخترع", "دكتوراه", "مختبر"] },
+  // work_money — saving/investing, entrepreneurship, business failure, debt
+  { id: "1273809240839389184", label: "بورصة الكويت", keywords: ["بورصه", "اسهم", "استثمار", "مستثمر", "تداول", "ادخار", "ثروه", "افلاس", "ديون", "خساره", "تجاره", "تاجر", "ريادي", "رياده", "مشروع", "شركات"] },
 ]
 
-/** Lists read per run (sampled from the seeds). Each read is ONE X call. */
+/** Lists read per run (the most topic-relevant seeds). Each read is ONE X call. */
 export const X_MAX_LISTS_PER_RUN = 3
 /** Members per list read (one page). */
 export const X_MEMBERS_PER_LIST = 100
 /** Names X may add to one run. */
 export const X_MAX_NAMES = 4
 
+/**
+ * DISCOVERY_X_SEED_LISTS overrides the seeds: comma-separated `id:kw|kw|kw`
+ * (keywords folded Arabic stems). An id without keywords is never read — a
+ * list nobody said is relevant to anything is exactly the random read D3 fixed.
+ */
 export function xSeedLists(): XSeedList[] {
   const raw = (process.env.DISCOVERY_X_SEED_LISTS ?? "").trim()
-  if (!raw) return [...DEFAULT_X_SEED_LISTS]
+  if (!raw) return DEFAULT_X_SEED_LISTS.map((l) => ({ ...l }))
   return raw
     .split(",")
     .map((s) => s.trim())
-    .filter((s) => /^\d+$/.test(s))
-    .map((id) => ({ id, label: `list ${id}` }))
+    .map((s) => {
+      const [id, kws = ""] = s.split(":")
+      return { id: id.trim(), label: `list ${id.trim()}`, keywords: kws.split("|").map((k) => foldVerbatim(k)).filter((k) => k.length >= 3) }
+    })
+    .filter((l) => /^\d+$/.test(l.id))
+}
+
+/** Suffixes a keyword may carry and still be the same word («معلم» → «معلمين», «تربي» → «تربيه»). */
+const KW_SUFFIXES = ["", "ه", "ي", "يه", "ات", "ون", "ين", "ان", "ها", "هم"]
+
+/** A topic term is a keyword, or the keyword plus a grammatical suffix. Pure. */
+export function keywordMatches(term: string, keyword: string): boolean {
+  return keyword.length >= 3 && term.startsWith(keyword) && KW_SUFFIXES.includes(term.slice(keyword.length))
+}
+
+/**
+ * The seed lists worth reading for this topic, most relevant first: a list
+ * counts when a topic term (topic + witness search terms, geo words out)
+ * starts with one of its keywords. None → X is skipped this run (0 calls).
+ * Pure.
+ */
+export function xListsForTopic(seeds: readonly XSeedList[], terms: string[]): XSeedList[] {
+  const scored = seeds
+    .map((l, i) => ({
+      l,
+      i,
+      hits: terms.filter((t) => l.keywords.some((k) => keywordMatches(t, k))).length,
+    }))
+    .filter((x) => x.hits > 0)
+  scored.sort((a, b) => b.hits - a.hits || a.i - b.i)
+  return scored.map((x) => x.l)
 }
 
 // Accounts that are not a person. WHOLE name tokens only (QA 2026-09-28: a
 // substring test dropped القناعي «قنا», الجامع «جامع», المجلي «مجل», العلي,
 // الشركاوي, المركزي — 6 of 7 real names), plus a bio that says it is an
 // official account.
+// 2026-09-29 (D3): «Al-Waseet Financial Business Co.» passed — "Co." kept
+// its dot, and «الوسيط / للتداول / financial / business» were not here.
+// foldVerbatim folds «مؤسسة» to «موسسه» (ؤ → و), so both spellings are listed.
 const ORG_NAME_TOKENS = new Set([
-  "شركه", "جريده", "مجله", "وزاره", "جامعه", "قناه", "مركز", "اخبار", "مؤسسه",
-  "جمعيه", "نادي", "مكتب", "company", "news", "official", "bank", "group",
-  "magazine", "center", "centre", "university", "ministry", "ltd", "inc",
+  "شركه", "جريده", "مجله", "وزاره", "جامعه", "قناه", "مركز", "اخبار", "مؤسسه", "موسسه",
+  "جمعيه", "نادي", "مكتب", "وسيط", "للتداول", "تداول", "للاستثمار", "للوساطه",
+  "company", "news", "official", "bank", "group", "magazine", "center", "centre",
+  "university", "ministry", "ltd", "inc", "co", "corp", "llc", "llp", "plc",
+  "holding", "financial", "business", "trading", "brokerage",
 ])
-const ORG_BIO = /(الحساب الرسمي|حساب رسمي|official account|official page)/i
+// A bio that is a storefront: official account, a company/establishment
+// opening, contact numbers, WhatsApp. Folded + raw both tested.
+const ORG_BIO =
+  /(الحساب الرسمي|حساب رسمي|official account|official page|واتساب|واتس اب|whatsapp|هاتف|للتواصل والطلبات|^\s*(?:شركه|شركة|مؤسسه|موسسه|مؤسسة)\s)/i
+// A phone number: 7+ CONTIGUOUS digits, or an international +/00 prefix
+// (spaces/dashes allowed after it). Arabic-Indic digits too. A year range
+// («1985 - 2015», «خريج 2008 2012») is neither.
+const PHONE = /(?:^|[^\d٠-٩])(?:(?:\+|00)[\d٠-٩][\d٠-٩\s-]{5,}[\d٠-٩]|[\d٠-٩]{7,})/
 
 function looksLikeOrg(name: string, bio: string): boolean {
-  const toks = `${foldVerbatim(name)} ${name.toLowerCase()}`
+  const toks = `${foldVerbatim(name)} ${name.toLowerCase().replace(/[.,]/g, " ")}`
     .split(/\s+/)
     .filter(Boolean)
     .map((t) => (t.length > 4 && t.startsWith("ال") ? t.slice(2) : t))
-  return toks.some((t) => ORG_NAME_TOKENS.has(t)) || ORG_BIO.test(bio) || ORG_BIO.test(foldVerbatim(bio))
+  return (
+    toks.some((t) => ORG_NAME_TOKENS.has(t)) ||
+    ORG_BIO.test(bio) ||
+    ORG_BIO.test(foldVerbatim(bio)) ||
+    PHONE.test(bio)
+  )
 }
 // Folded forms. Bare «نائب» is NOT here — «نائب المدير» is a corporate bio.
 const POLITICAL_TITLES = /(عضو مجلس الامه|نايب سابق|نايب في مجلس|مرشح|وزير|سفير|ناشط سياسي|\bmp\b|minister|ambassador|candidate)/i
@@ -96,6 +169,9 @@ export function topicTerms(topic: string, profiles: WitnessProfile[] = []): stri
     .map((t) => (t.length > 4 && t.startsWith("وال") ? t.slice(1) : t))
     .map((t) => (t.length > 4 && t.startsWith("ال") ? t.slice(2) : t))
     .filter((t) => t.length >= 3 && !STOP.has(t))
+    // A place is not a topic: «الكويت» from a witness profile matched every
+    // Kuwaiti bio («حب الكويت يجمعنا» on a prison topic, 2026-09-29).
+    .filter((t) => !isGeoWord(t))
   return [...new Set(words)]
 }
 
@@ -121,7 +197,7 @@ export function selectXCandidates(
     if (bio.length < 20 || looksLikeOrg(name, bio)) return false
     const foldedBio = foldVerbatim(bio)
     if (POLITICAL_TITLES.test(foldedBio) || POLITICAL_TITLES.test(bio.toLowerCase())) return false
-    if (lexiconPolicyHits(`${name} ${bio}`).length > 0) return false
+    if (guestPolicyHits(`${name} ${bio}`).length > 0) return false
     const place = foldVerbatim(`${bio} ${m.location ?? ""}`)
     if (kuwaitOnly && !/كويت|kuwait/.test(place)) return false
     const hay = ` ${foldedBio} `
@@ -151,6 +227,8 @@ export interface XHarvestResult {
   users_read: number
   /** Set when X refused (402 wallet empty / 429 rate limit) — the run went on without it. */
   degraded: string | null
+  /** Set when X was not read at all: "no_relevant_list" — no seed list touches the topic. */
+  skipped: string | null
   /** calls × X_EST_USD_PER_CALL when that env is set; null = price not configured. */
   est_cost_usd: number | null
 }
@@ -160,15 +238,16 @@ export async function harvestXListNames(opts: {
   profiles: WitnessProfile[]
   geography: V2Geography[]
   exclude: (name: string) => boolean
-  rng?: () => number
 }): Promise<XHarvestResult> {
-  const out: XHarvestResult = { names: [], calls: 0, users_read: 0, degraded: null, est_cost_usd: null }
+  const out: XHarvestResult = { names: [], calls: 0, users_read: 0, degraded: null, skipped: null, est_cost_usd: null }
   if (!isXConfigured()) return out
-  const rng = opts.rng ?? Math.random
-  const seeds = xSeedLists()
-  for (let i = seeds.length - 1; i > 0; i--) {
-    const j = Math.floor(rng() * (i + 1))
-    ;[seeds[i], seeds[j]] = [seeds[j], seeds[i]]
+  const terms = topicTerms(opts.topic, opts.profiles)
+  // Only lists whose members could have lived THIS topic; none → no call.
+  const seeds = xListsForTopic(xSeedLists(), terms)
+  if (seeds.length === 0) {
+    out.skipped = "no_relevant_list"
+    console.info("[discovery-v2/x] no seed list is relevant to this topic — X skipped (0 calls)")
+    return out
   }
   const members: Array<XListMember & { via: string }> = []
   for (const seed of seeds.slice(0, X_MAX_LISTS_PER_RUN)) {
@@ -184,7 +263,7 @@ export async function harvestXListNames(opts: {
   }
   const price = Number(process.env.X_EST_USD_PER_CALL)
   out.est_cost_usd = Number.isFinite(price) && price > 0 ? Number((out.calls * price).toFixed(4)) : null
-  out.names = selectXCandidates(members, topicTerms(opts.topic, opts.profiles), opts.geography, opts.exclude)
+  out.names = selectXCandidates(members, terms, opts.geography, opts.exclude)
   console.info(
     `[discovery-v2/x] ${out.calls} call(s), ${out.users_read} users read, ${out.names.length} kept` +
       (out.est_cost_usd != null ? `, ≈$${out.est_cost_usd}` : ""),

@@ -37,6 +37,8 @@
  */
 
 import { foldVerbatim } from "@/lib/studio/verbatim"
+import { judgeGuestPolicy } from "@/lib/khat-map/core/policy"
+import { droppedEntity, identityDropReason, stripEntitySignals } from "./identity"
 import {
   GEOGRAPHY_LABEL,
   notCheckedStory,
@@ -208,6 +210,23 @@ export function storyScore(a: StoryAssessment): number {
   return base * (rel ? STORY_RELEVANCE_FACTOR[rel] : STORY_RELEVANCE_UNKNOWN)
 }
 
+/**
+ * How much independent, verified evidence backs a story — the tiebreak
+ * inside one S bucket (D4, 2026-09-29). S is ordinal by design (the
+ * approved criterion counts a story told on one live site as 0.8, on two
+ * as 1.0), so two different people with one site each tie on it. This orders
+ * them by what actually differs, lexicographically: distinct live sites,
+ * then distinct pages, then verified quotes, then a verified «told it
+ * himself». Never feeds `overall` or any decision. 0 for an unverified story.
+ */
+export function storyEvidenceDepth(a: StoryAssessment | null | undefined): number {
+  if (!a || a.status !== "verified" || a.evidence.length === 0) return 0
+  const domains = new Set(a.evidence.map((e) => e.domain ?? e.url)).size
+  const urls = new Set(a.evidence.map((e) => e.url)).size
+  const quotes = Math.min(9, a.evidence.length)
+  return Math.min(9, domains) * 1000 + Math.min(9, urls) * 100 + quotes * 10 + (a.self_told?.value === true ? 1 : 0)
+}
+
 type Taste = "famous" | "balanced" | "hidden_gems"
 
 function weights(taste: Taste | undefined) {
@@ -226,6 +245,12 @@ const STRONG_STORY = 0.8
 
 /** The review reason for a verified first-hand story whose identity Wikidata can't confirm. */
 const VERIFIED_NOT_IN_WIKIDATA = "قصة موثّقة — ليس في ويكي‌داتا، راجِع الهوية"
+
+/** The review reason when the name's Wikidata match was dropped as someone else (D2). */
+function droppedIdentityReason(w: WikiFacts): string {
+  const who = w.identity_dropped?.description ? ` (${w.identity_dropped.description})` : ""
+  return `هوية ويكي‌داتا${who} لا تطابق القصة — أُسقطت، راجِع الهوية`
+}
 
 type FilterAttr = "gender" | "nationality"
 const FILTER_ATTR_LABEL: Record<FilterAttr, string> = { gender: "الجنس", nationality: "الجنسية" }
@@ -322,8 +347,8 @@ const NOT_CHECKED_REASON: Record<NonNullable<StoryAssessment["not_checked_reason
 
 export function scoreCandidate(
   proposed: ProposedName,
-  wiki: WikiFacts,
-  signals: EnrichmentSignals,
+  resolvedWiki: WikiFacts,
+  resolvedSignals: EnrichmentSignals,
   input: {
     topic: string
     filters?: V2Filters
@@ -340,6 +365,12 @@ export function scoreCandidate(
     attrs: { deceased: false, not_individual: false, same_person: true, gender: null, nationality: null },
   }
   const a = story.assessment
+  // D2 — a resolved entity the VERIFIED story contradicts (its occupation is
+  // nowhere in what we know about him, or the classifier said so) is somebody
+  // else: dropped before anything reads it, with every signal fetched through it.
+  const drop = identityDropReason(resolvedWiki, story, proposed)
+  const wiki: WikiFacts = drop ? droppedEntity(resolvedWiki, drop) : resolvedWiki
+  const signals: EnrichmentSignals = drop ? stripEntitySignals(resolvedSignals, resolvedWiki) : resolvedSignals
   // An untrusted entry's labels are a stranger's name — never a variant of ours.
   const wikiTrusted = wiki.resolved && !wiki.identity_uncertain
   const variants = nameVariants([
@@ -438,6 +469,27 @@ export function scoreCandidate(
     unmeasured,
   }
 
+  // ── Guest policy gate (D1) ──
+  // One gate for every candidate, whatever its origin: the lexicon over who
+  // he is (name, role, a TRUSTED entity's description + Wikipedia summary,
+  // the verified quotes, the story summary) and the classifier's own flags.
+  // Either rejects. A dropped / untrusted entity's text is a stranger's and
+  // is not read — it must not reject our person any more than it may lift him.
+  const policy = judgeGuestPolicy(
+    [
+      proposed.name,
+      proposed.role ?? "",
+      trustWiki ? (wiki.description ?? "") : "",
+      trustWiki ? (wiki.occupations ?? []).join("، ") : "",
+      trustWiki ? (wiki.summary ?? "") : "",
+      a.summary ?? "",
+      ...a.evidence.map((e) => e.quote),
+      a.gulf_event?.quote ?? "",
+    ].join("\n"),
+    story.attrs.same_person ? story.attrs.sensitivity_flags : [],
+  )
+  if (!policy.ok) flags.push("policy_violation")
+
   // ── Decision ──
   let decision: V2Candidate["decision"]
   const checked = a.status !== "not_checked"
@@ -450,6 +502,9 @@ export function scoreCandidate(
   } else if (checked && !story.attrs.same_person) {
     decision = "rejected"
     reasons.push("المصادر عن شخص آخر بنفس الاسم")
+  } else if (!policy.ok) {
+    decision = "rejected"
+    reasons.push(policy.reasonAr!)
   } else if (fo.contradiction) {
     decision = "rejected"
     reasons.push(fo.contradiction)
@@ -503,7 +558,7 @@ export function scoreCandidate(
         ? "accepted"
         : "needs_review"
     if (decision === "needs_review" && !wiki.resolved) {
-      reasons.push(VERIFIED_NOT_IN_WIKIDATA)
+      reasons.push(wiki.identity_dropped ? droppedIdentityReason(wiki) : VERIFIED_NOT_IN_WIKIDATA)
     } else if (decision === "needs_review" && overall < ACCEPT_BAR) {
       reasons.push("قصة موثّقة — الدرجة الكلية دون عتبة القبول، راجِع الملاءمة")
     }
@@ -512,6 +567,14 @@ export function scoreCandidate(
   } else {
     decision = "rejected"
     reasons.push("إشارات ضعيفة (قصة/ملاءمة/حضور)")
+  }
+
+  // A served financial record (FINANCIAL_RECORD_POLICY = "review"): never
+  // accepted unseen — Khaled decides; listed under «للمراجعة».
+  if (policy.review && decision !== "rejected") {
+    decision = "needs_review"
+    flags.push("policy_review")
+    reasons.unshift(policy.review)
   }
 
   // A soft death cue (uncertain Wikidata death year, «الشهيد <name>» in a
@@ -545,7 +608,10 @@ export function scoreCandidate(
     const why = NOT_CHECKED_REASON[a.not_checked_reason]
     if (!reasons.includes(why)) reasons.push(why)
   }
-  if (flags.includes("identity_unverified") && !reasons.includes(VERIFIED_NOT_IN_WIKIDATA)) {
+  if (wiki.identity_dropped) {
+    const why = droppedIdentityReason(wiki)
+    if (!reasons.includes(why)) reasons.push(why)
+  } else if (flags.includes("identity_unverified") && !reasons.includes(VERIFIED_NOT_IN_WIKIDATA)) {
     reasons.push("ليس في ويكي‌داتا — راجِع الهوية يدوياً")
   }
   if (flags.includes("identity_uncertain")) reasons.push("هوية غير مؤكّدة — قد يكون شخصاً آخر بنفس الاسم")

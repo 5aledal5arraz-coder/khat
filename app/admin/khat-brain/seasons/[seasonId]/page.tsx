@@ -312,6 +312,11 @@ export default async function SeasonWorkspacePage({
                   aiHealth.buttons_disabled ? aiHealth.banner_message : null
                 }
                 hybridJob={hybridJob}
+                analysisInFlight={
+                  hybridReadiness.inflight.extract ||
+                  hybridReadiness.inflight.score ||
+                  hybridReadiness.inflight.cluster
+                }
               />
               {showDiagnostics && (
                 <HybridDiagnosticsPanel readiness={hybridReadiness} />
@@ -420,9 +425,12 @@ function HybridPanel({
   aiBlocked,
   aiBlockReason,
   hybridJob,
+  analysisInFlight,
 }: {
   seasonId: string
   hybridJob: JobSnapshot | null
+  /** Market analysis pending/running now (live readiness, not the job's snapshot). */
+  analysisInFlight: boolean
   /**
    * CR-8 — drives the generator-button label so it says
    * "إنشاء N مرشّحات هجينة" where N = season.v2_episode_target
@@ -450,6 +458,7 @@ function HybridPanel({
         aiBlocked={aiBlocked}
         aiBlockReason={aiBlockReason}
         initialJob={hybridJob}
+        analysisInFlight={analysisInFlight}
       />
     </div>
   )

@@ -24,7 +24,7 @@ import {
 // makes the transition always settle. Surfacing WHY (an else + toast) is
 // deliberately deferred — this card has no error slot yet.
 import { runAction } from "@/app/admin/components/run-action"
-import { unmeasuredScores, wikiFactsTrusted } from "@/lib/discovery-v2/display"
+import { scoreEvidenceLabels, unmeasuredScores, wikiFactsTrusted } from "@/lib/discovery-v2/display"
 import {
   STORY_REVIEW_FLAGS,
   type ProposedOrigin,
@@ -56,7 +56,10 @@ export interface V2CardData {
     /** Components with no real evidence behind them — shown «غير مقيّم». */
     unmeasured?: V2ScoreKey[]
   }
-  story?: Pick<StoryAssessment, "status" | "evidence" | "gulf_event" | "claim_from_propose"> | null
+  story?: Pick<
+    StoryAssessment,
+    "status" | "evidence" | "gulf_event" | "claim_from_propose" | "story_type" | "self_told" | "topic_relevance"
+  > | null
   flags?: V2Flag[]
   /** Where the name came from; absent/"propose" on rows before 2026-09-28. */
   origin?: ProposedOrigin | null
@@ -96,8 +99,20 @@ const STORY_REVIEW = { label: "تحتاج مراجعتك", cls: "border-sky-500/
  * One score row. `unmeasured` → «غير مقيّم» and no bar: a default or a
  * lexical guess is not a measurement, and a number next to it was read as
  * one (the 0.62 topic-fit prior, the Listen Notes sandbox's 0.65).
+ * `evidence` replaces the number for a bucketed score (D4): the bar still
+ * shows the bucket, the text says what evidence it stands for.
  */
-function Bar({ label, v, unmeasured = false }: { label: string; v: number; unmeasured?: boolean }) {
+function Bar({
+  label,
+  v,
+  unmeasured = false,
+  evidence = null,
+}: {
+  label: string
+  v: number
+  unmeasured?: boolean
+  evidence?: string | null
+}) {
   const pct = Math.round((v ?? 0) * 100)
   return (
     <div className="flex items-center gap-1.5">
@@ -109,7 +124,11 @@ function Bar({ label, v, unmeasured = false }: { label: string; v: number; unmea
           <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-background/60">
             <div className="h-full rounded-full bg-primary/70/70" style={{ width: `${pct}%` }} />
           </div>
-          <span className="w-7 text-end text-[9.5px] tabular-nums text-muted-foreground">{pct}</span>
+          {evidence ? (
+            <span className="max-w-[55%] shrink-0 truncate text-end text-[9.5px] text-muted-foreground" title={evidence}>{evidence}</span>
+          ) : (
+            <span className="w-7 text-end text-[9.5px] tabular-nums text-muted-foreground">{pct}</span>
+          )}
         </>
       )}
     </div>
@@ -127,6 +146,8 @@ const FLAG_LABEL: Record<V2Flag, string> = {
   story_unpublished: "قصة غير منشورة — تحتاج مراجعتك",
   story_second_hand: "قصته يرويها غيره",
   no_web_footprint: "لا أثر رقمي",
+  policy_violation: "مخالف لدستور خط",
+  policy_review: "سابقة مالية — قرار خالد",
 }
 
 const LINK_ICON: Record<string, typeof ExternalLink> = {
@@ -185,6 +206,7 @@ export function CandidateCard({ c }: { c: V2CardData }) {
   const d = storyReview ? STORY_REVIEW : DECISION[c.decision]
   const initials = c.name.trim().slice(0, 2)
   const unmeasured = unmeasuredScores(c)
+  const evidence = scoreEvidenceLabels(c)
   // A birth year / photo from a possible namesake is not shown (older rows).
   const factsTrusted = wikiFactsTrusted(c)
   const image = factsTrusted ? c.image : null
@@ -235,9 +257,9 @@ export function CandidateCard({ c }: { c: V2CardData }) {
         <div className="mt-2 grid grid-cols-1 gap-1 sm:grid-cols-2">
           {c.scores.story !== undefined ? (
             <>
-              <Bar label="القصة" v={c.scores.story} unmeasured={unmeasured.has("story")} />
-              <Bar label="الملاءمة" v={c.scores.topic_fit} unmeasured={unmeasured.has("topic_fit")} />
-              <Bar label="يُبحث عنه" v={c.scores.searchability ?? 0} unmeasured={unmeasured.has("searchability")} />
+              <Bar label="القصة" v={c.scores.story} unmeasured={unmeasured.has("story")} evidence={evidence.story} />
+              <Bar label="الملاءمة" v={c.scores.topic_fit} unmeasured={unmeasured.has("topic_fit")} evidence={evidence.topic_fit} />
+              <Bar label="يُبحث عنه" v={c.scores.searchability ?? 0} unmeasured={unmeasured.has("searchability")} evidence={evidence.searchability} />
               <Bar label="قابلية الاستضافة" v={c.scores.guestability} unmeasured={unmeasured.has("guestability")} />
             </>
           ) : (
