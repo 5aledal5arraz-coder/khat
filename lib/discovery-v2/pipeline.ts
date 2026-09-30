@@ -245,6 +245,19 @@ async function proposeWithTopUp(
   return { names: [...first.names, ...added], runId: first.runId, toppedUp: added.length }
 }
 
+/**
+ * P3 (2026-09-30): the same person proposed in another run of this season
+ * (or, with no season, in the last week) — سعد الحوطي came back in the sport
+ * slot after the POW slot. A hint on the card, never a block: he may fit both
+ * slots, and Khaled picks. Matched on the folded name as proposed and as shown.
+ */
+export function markSeenInOtherRun(c: V2Candidate, p: ProposedName, memory: DiscoveryMemory): void {
+  const other = [p.name, c.name].map((n) => memory.otherRuns?.get(discoveryNameKey(n))).find(Boolean)
+  if (!other) return
+  c.flags = [...(c.flags ?? []), "seen_in_other_run"]
+  c.reasons.push(other.topic ? `مقترح في بحث آخر: «${other.topic.slice(0, 80)}»` : "مقترح في بحث آخر")
+}
+
 async function pmap<T, R>(items: T[], n: number, fn: (t: T) => Promise<R>): Promise<R[]> {
   const out: R[] = new Array(items.length)
   let i = 0
@@ -320,7 +333,7 @@ export async function runV2Discovery(input: V2RunInput): Promise<V2RunResult> {
   // Cross-run memory: exclude existing guests, promoted candidates, and
   // operator rejections inside the prompt; QIDs AND folded names are
   // re-checked below as a hard filter (the LLM can respell a name).
-  const memory = await loadDiscoveryMemory({ seasonId: input.seasonId })
+  const memory = await loadDiscoveryMemory({ seasonId: input.seasonId, runId: input.runId })
 
   // D2 — who lived this topic. Bounded (WITNESS_TIMEOUT_MS, no retry) and
   // fail-safe: without profiles propose runs as before and the harvest skips.
@@ -623,6 +636,7 @@ export async function runV2Discovery(input: V2RunInput): Promise<V2RunResult> {
         checked_at: new Date().toISOString(),
       }
     }
+    markSeenInOtherRun(c, x.p, memory)
     return c
   })
 

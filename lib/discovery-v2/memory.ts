@@ -7,6 +7,9 @@
  *     a person who scored weakly for topic A may still fit topic B)
  *   - candidates already promoted to guests
  *   - names surfaced recently for the SAME season (soft "avoid repeating")
+ *   - every candidate of ANOTHER run in the same season (or, with no season,
+ *     created in the last DEDUPE_NO_SEASON_DAYS) — `otherRuns`, the card-side
+ *     «مقترح في بحث آخر» hint (2026-09-30); it never excludes anyone
  *
  * Names feed the propose prompt as exclusions. After resolution two hard
  * filters apply: the Wikidata QID (stable across spellings) and a folded
@@ -17,11 +20,12 @@
  * one source errors.
  */
 
-import { and, desc, gte, isNotNull, sql } from "drizzle-orm"
+import { and, desc, eq, gte, isNotNull, ne, sql } from "drizzle-orm"
 import { db } from "@/lib/db"
 import { guests } from "@/lib/db/schema/guests"
-import { guestDiscoveryCandidates } from "@/lib/db/schema/discovery"
+import { discoveryRuns, guestDiscoveryCandidates } from "@/lib/db/schema/discovery"
 import { foldVerbatim } from "@/lib/studio/verbatim"
+import { displayDiscoveryTopic } from "./topic"
 
 export interface DiscoveryMemory {
   /** Hard exclusions: already a guest, promoted, or operator-rejected. */
@@ -36,6 +40,17 @@ export interface DiscoveryMemory {
   excludeNameKeys: Set<string>
   /** Soft: surfaced in this season's recent runs — avoid unless uniquely strong. */
   recentlySurfacedNames: string[]
+  /**
+   * `discoveryNameKey` → the other run he is already a candidate in (newest
+   * first). A hint for the card, never a filter. Optional: absent = unknown.
+   */
+  otherRuns?: Map<string, SeenInOtherRun>
+}
+
+export interface SeenInOtherRun {
+  runId: string
+  /** That run's topic, for the card («مقترح في بحث آخر: …»). */
+  topic: string | null
 }
 
 /** Operator rejections carry this reason (set by the v2 reject action). */
@@ -53,6 +68,27 @@ export function discoveryNameKey(name: string | null | undefined): string {
 }
 
 const RECENT_WINDOW_DAYS = 45
+/** Without a season, «another run» means one from the last week. */
+export const DEDUPE_NO_SEASON_DAYS = 7
+const DEDUPE_CAP = 400
+
+/**
+ * Other runs' candidates keyed by folded name, skipping `currentRunId`.
+ * Rows come newest first, so the first run seen for a key is kept. Pure.
+ */
+export function otherRunIndex(
+  rows: Array<{ name: string | null; run_id: string | null; topic: string | null }>,
+  currentRunId: string | null | undefined,
+): Map<string, SeenInOtherRun> {
+  const out = new Map<string, SeenInOtherRun>()
+  for (const r of rows) {
+    if (!r.run_id || r.run_id === currentRunId) continue
+    const key = discoveryNameKey(r.name)
+    if (!key || out.has(key)) continue
+    out.set(key, { runId: r.run_id, topic: r.topic ? displayDiscoveryTopic(r.topic).trim() || null : null })
+  }
+  return out
+}
 const NAME_CAP = 80
 const SOFT_CAP = 40
 
@@ -63,16 +99,19 @@ function v2Qid(platformSignals: unknown): string | null {
 
 export async function loadDiscoveryMemory(opts: {
   seasonId?: string | null
+  /** This run — its own candidates are never «another run». */
+  runId?: string | null
 }): Promise<DiscoveryMemory> {
   const empty: DiscoveryMemory = {
     excludeNames: [],
     excludeQids: new Set(),
     excludeNameKeys: new Set(),
     recentlySurfacedNames: [],
+    otherRuns: new Map(),
   }
   if (!db) return empty
 
-  const [guestRows, actedRows, recentRows] = await Promise.all([
+  const [guestRows, actedRows, recentRows, otherRunRows] = await Promise.all([
     // Existing guests — the strongest exclusion (already interviewed).
     db
       .select({ name: guests.name })
@@ -125,6 +164,34 @@ export async function loadDiscoveryMemory(opts: {
           .limit(120)
           .catch(() => [] as Array<{ name: string | null; run_id: string | null }>)
       : Promise.resolve([] as Array<{ name: string | null; run_id: string | null }>),
+    // Every candidate of another run of this season (no season: the last
+    // week) — the «مقترح في بحث آخر» hint. Any status: a hint, not a filter.
+    db
+      .select({
+        name: guestDiscoveryCandidates.proposed_name,
+        run_id: guestDiscoveryCandidates.discovery_run_id,
+        topic: discoveryRuns.seed_prompt,
+      })
+      .from(guestDiscoveryCandidates)
+      .innerJoin(discoveryRuns, eq(discoveryRuns.id, guestDiscoveryCandidates.discovery_run_id))
+      .where(
+        and(
+          opts.runId ? ne(guestDiscoveryCandidates.discovery_run_id, opts.runId) : undefined,
+          opts.seasonId
+            ? eq(discoveryRuns.season_id, opts.seasonId)
+            : gte(
+                guestDiscoveryCandidates.created_at,
+                new Date(Date.now() - DEDUPE_NO_SEASON_DAYS * 24 * 3600 * 1000),
+              ),
+        ),
+      )
+      .orderBy(desc(guestDiscoveryCandidates.created_at))
+      .limit(DEDUPE_CAP)
+      .catch((err: unknown) => {
+        // A lost hint, not a lost run — but say so: silence reads as «no duplicates».
+        console.warn("[discovery-v2/memory] other-run dedupe query failed:", err instanceof Error ? err.message : String(err))
+        return [] as Array<{ name: string | null; run_id: string | null; topic: string | null }>
+      }),
   ])
 
   const hardNames = new Set<string>()
@@ -155,6 +222,7 @@ export async function loadDiscoveryMemory(opts: {
     excludeQids: qids,
     excludeNameKeys: nameKeys,
     recentlySurfacedNames: [...soft].slice(0, SOFT_CAP),
+    otherRuns: otherRunIndex(otherRunRows, opts.runId),
   }
 }
 

@@ -436,6 +436,27 @@ export function selectForStoryCheck<T extends StoryCheckItem>(
   return out
 }
 
+// ─── Historical figures (2026-09-30) ─────────────────────────────────────────
+//
+// The live pilot proposed علي ناصر النجدي (the nakhuda of Villiers' 1939
+// voyage) and عيسى القطامي (an author of the 1910s) for «a Kuwaiti who lived
+// an old trade»: neither is in Wikidata, so no death year ever reached the
+// scorer, and a long-dead man went to «تحتاج مراجعتك». A guest must be alive
+// and able to sit in the studio; these bounds say who plainly cannot.
+
+/** Born before this → not a bookable guest (he would be 86+). */
+export const HISTORICAL_BIRTH_BEFORE = 1940
+/** A first-hand claim dated only before this → a review hint (never a reject). */
+export const HISTORICAL_ACTIVE_BEFORE = 1960
+
+/** Every 4-digit year 1500–2099 in a text, Arabic-Indic / Persian digits included. */
+export function yearsIn(text: string | null | undefined): number[] {
+  const western = (text ?? "")
+    .replace(/[\u0660-\u0669]/g, (d) => String(d.charCodeAt(0) - 0x0660))
+    .replace(/[\u06F0-\u06F9]/g, (d) => String(d.charCodeAt(0) - 0x06f0))
+  return [...western.matchAll(/(?<!\d)(1[5-9]\d\d|20\d\d)(?!\d)/g)].map((m) => Number(m[1]))
+}
+
 // ─── Possibly deceased (soft cue) ────────────────────────────────────────────
 
 const DECEASED_TITLES = new Set(

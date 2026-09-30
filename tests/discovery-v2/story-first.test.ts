@@ -1335,12 +1335,12 @@ describe("gender filter is strict", () => {
     expect(h.enrichCalls).toContain(FW)
   })
 
-  it("the propose prompt states the filter as a prohibition, drops the story quota, and is v2-propose-7", async () => {
+  it("the propose prompt states the filter as a prohibition, drops the story quota, and is v2-propose-8", async () => {
     h.proposal = []
     await runV2Discovery(input({ filters: { gender: "female" } }))
     const call = h.aiCalls.find((c) => c.taskKind === "discovery")!
-    expect(PROPOSE_PROMPT_VERSION).toBe("v2-propose-7")
-    expect(call.promptVersion).toBe("v2-propose-7")
+    expect(PROPOSE_PROMPT_VERSION).toBe("v2-propose-8")
+    expect(call.promptVersion).toBe("v2-propose-8")
     // The constitution (compact) is the first block.
     expect(call.system.startsWith(khatConstitutionBlock("compact"))).toBe(true)
     // The rules that must survive.

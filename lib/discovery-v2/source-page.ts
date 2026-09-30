@@ -390,6 +390,23 @@ function namesHimself(text: string, variants: string[]): boolean {
   return findVariant(tokens, variants).some(({ at }) => !kinBefore(tokens, at))
 }
 
+/** Kinship words anywhere in a quote — «أبي/والده/جده…» make a year someone else's. */
+const KIN_ANYWHERE = new Set([
+  ...KIN_WORDS,
+  "ابي", "امي", "والدي", "والدتي", "جدي", "جدتي", "ابوي", "ابوه", "ابيه", "امه", "والدته", "جدته", "اخي", "اختي",
+])
+
+/**
+ * A quote is about HIM, not a relative (2026-09-30, noura): it names him not
+ * as someone's relative («ابن فلان») and carries no kinship word at all — «أبي
+ * وُلد عام 1939» on the son's page dates the father, not the son. Conservative
+ * on purpose: a fact it drops only loses a review hint.
+ */
+export function quoteIsAboutHim(quote: string, variants: string[]): boolean {
+  if (!namesHimself(quote, variants)) return false
+  return !foldVerbatim(quote).split(" ").some((t) => KIN_ANYWHERE.has(t) || (t.startsWith("و") && KIN_ANYWHERE.has(t.slice(1))))
+}
+
 /**
  * One segment (a title part or a sentence) presents him as the speaker/guest.
  * `pageInterview` — the page has an interview/podcast cue somewhere (titles

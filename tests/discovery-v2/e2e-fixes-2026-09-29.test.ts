@@ -267,7 +267,7 @@ describe("D2 namesake identity", () => {
     expect(text).toContain("wikidata_match")
     expect(text).toContain("sensitivity_flags")
     expect(ai.calls[0].promptVersion).toBe(STORY_PROMPT_VERSION)
-    expect(STORY_PROMPT_VERSION).toBe("v2-story-5")
+    expect(STORY_PROMPT_VERSION).toBe("v2-story-6")
   })
 })
 

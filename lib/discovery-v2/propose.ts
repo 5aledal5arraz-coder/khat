@@ -32,6 +32,11 @@
  *   - strict gender: the filter is stated as a prohibition, and each person
  *     carries the model's own `gender` so a self-contradicting proposal is
  *     dropped before any paid step (pipeline.ts). Verification is elsewhere.
+ *   - living people only (v2-propose-8, after the 2026-09-29 pilot proposed
+ *     the nakhuda of Villiers' 1939 voyage for «an old trade»): the rule is
+ *     stated, and each person carries the model's `birth_year` + `is_alive`
+ *     so a historical figure is rejected before any paid step
+ *     (historicalFigureCue in score.ts). Claims — they may only reject.
  */
 
 import { runAiTask } from "@/lib/ai-router"
@@ -43,7 +48,7 @@ import type { ProposedName, V2RunInput, WitnessProfile } from "./types"
 /** Output budget for one propose call (reasoning + visible JSON). */
 export const PROPOSE_MAX_OUTPUT_TOKENS = 12_000
 
-export const PROPOSE_PROMPT_VERSION = "v2-propose-7"
+export const PROPOSE_PROMPT_VERSION = "v2-propose-8"
 
 export interface ProposeOptions {
   /**
@@ -107,6 +112,7 @@ export async function proposeNames(
     "- المعيار: تجربة معاشة في صلب هذا الموضوع تحديداً تستحق أن تُروى، رواها هو بنفسه (مقابلة، بودكاست، برنامج حواري، يوتيوب، TEDx، كتاب مذكّرات، حسابه الشخصي). حتى المتخصّص يأتي بتجربته لا بمحاضرته.",
     "- لا تقترح: السياسيين (وزراء، نواب، مرشحين، ناشطين سياسيين)، ولا من له قضية منظورة أمام المحاكم، ولا من قصته تفضح غيره أو تكشف خصوصية طرف ثالث، ولا من رُويت قصته بقلم غيره فقط.",
     "- لا يشترط وجود صفحة ويكيبيديا، لكن لا تقترح اسماً لا تعرف له رواية علنية واحدة على الأقل.",
+    "- أحياء فقط يمكن استضافتهم اليوم في الاستوديو: لا تقترح متوفّين ولا شخصيات تاريخية (نواخذة الماضي، روّاد أوائل القرن العشرين، مؤلفين قدامى) مهما ارتبط اسمهم بالموضوع — نريد من عاشها ويرويها بنفسه اليوم.",
     ...(witnesses.length
       ? [
           "- ملامح الشهود لهذا الموضوع (وزّع القائمة عليها):",
@@ -131,9 +137,9 @@ export async function proposeNames(
           "  " + softExclusions.join("، "),
         ]
       : []),
-    `- أعطِ ${want} اسماً بالضبط — عُدّها قبل الإجابة. أقلّ من ذلك فقط إن نفدت الأسماء الحقيقية؛ لا تختلق اسماً لإكمال العدد. بإيجاز: name بالعربية؛ name_en إن وُجد (مهمّ للتحقّق)؛ role بست كلمات على الأكثر؛ country؛ gender (male أو female)؛ why جملة واحدة لا تتجاوز ١٥ كلمة؛ story_claim: ما عاشه هو في صلب هذا الموضوع تحديداً (مكان وزمان إن عرفتهما) في ٢٥ كلمة على الأكثر، أو فارغ إن لم تعرف تجربة محددة؛ story_type: first_hand (عاشها بنفسه) أو second_hand (يروي عن قرب ما عاشه أهله) أو adjacent أو expert؛ public_account_ref: أين رواها هو بنفسه (اسم البرنامج أو الصحيفة أو القناة، والسنة إن عرفتها) في ١٢ كلمة على الأكثر، أو فارغ إن لم تعرف.`,
+    `- أعطِ ${want} اسماً بالضبط — عُدّها قبل الإجابة. أقلّ من ذلك فقط إن نفدت الأسماء الحقيقية؛ لا تختلق اسماً لإكمال العدد. بإيجاز: name بالعربية؛ name_en إن وُجد (مهمّ للتحقّق)؛ role بست كلمات على الأكثر؛ country؛ gender (male أو female)؛ why جملة واحدة لا تتجاوز ١٥ كلمة؛ story_claim: ما عاشه هو في صلب هذا الموضوع تحديداً (مكان وزمان إن عرفتهما) في ٢٥ كلمة على الأكثر، أو فارغ إن لم تعرف تجربة محددة؛ story_type: first_hand (عاشها بنفسه) أو second_hand (يروي عن قرب ما عاشه أهله) أو adjacent أو expert؛ public_account_ref: أين رواها هو بنفسه (اسم البرنامج أو الصحيفة أو القناة، والسنة إن عرفتها) في ١٢ كلمة على الأكثر، أو فارغ إن لم تعرف؛ birth_year: سنة ميلاده التقريبية رقماً، أو null إن لم تعرف؛ is_alive: true إن كنت تعرف أنه حيّ، false إن كان متوفّى أو شخصية تاريخية (ولا تقترحه أصلاً)، null إن لم تعرف.`,
     "- story_claim وpublic_account_ref فرضيتان ستُفحصان لاحقاً في مصادر حيّة ولن تُحتسبا بدون ذلك — لا تخمّن ولا تختلق.",
-    'أعد JSON فقط: {"people":[{"name":"","name_en":"","role":"","country":"","gender":"","why":"","story_claim":"","story_type":"","public_account_ref":""}]}',
+    'أعد JSON فقط: {"people":[{"name":"","name_en":"","role":"","country":"","gender":"","why":"","story_claim":"","story_type":"","public_account_ref":"","birth_year":null,"is_alive":null}]}',
   ].join("\n")
 
   const user = JSON.stringify({
@@ -206,6 +212,14 @@ export async function proposeNames(
       origin: "propose" as const,
       public_account_ref:
         typeof p.public_account_ref === "string" ? p.public_account_ref.trim().slice(0, 200) || null : null,
+      birth_year: parseBirthYear(p.birth_year),
+      is_alive: p.is_alive === true || p.is_alive === false ? p.is_alive : null,
     }))
   return { names, runId: r.runId }
+}
+
+/** A plausible 4-digit birth year from the model's reply (number or numeric string), else null. */
+function parseBirthYear(v: unknown): number | null {
+  const n = typeof v === "number" ? v : typeof v === "string" && /^\s*\d{4}\s*$/.test(v) ? Number(v) : NaN
+  return Number.isInteger(n) && n >= 1800 && n <= new Date().getFullYear() ? n : null
 }

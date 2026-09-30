@@ -110,6 +110,14 @@ export interface ProposedName {
    */
   public_account_ref?: string | null
   /**
+   * The model's own estimate of his birth year (v2-propose-8, after the
+   * 2026-09-29 pilot proposed a nakhuda of the 1939 Villiers voyage). A claim:
+   * it may only send the card to review (historicalFigureCue in score.ts), never lend trust.
+   */
+  birth_year?: number | null
+  /** The model's own «is he alive?» — only `false` is acted on (review). */
+  is_alive?: boolean | null
+  /**
    * Harvested names only: the live sources the harvest already found him in.
    * The story check classifies these instead of paying for a second search.
    */
@@ -344,6 +352,15 @@ export type V2Flag =
   | "policy_violation"
   /** a served financial conviction — not a reject; Khaled decides (FINANCIAL_RECORD_POLICY) */
   | "policy_review"
+  /**
+   * the classifier flagged third_party_exposure WITHOUT a verbatim quote of a
+   * private fact about a named third party — review, not a reject (2026-09-30)
+   */
+  | "policy_exposure_unbacked"
+  /** born < 1940 / not alive / a first-hand claim only before 1960 — review, never a reject (2026-09-30) */
+  | "likely_historical"
+  /** the same name is a candidate in another run of this season / week — a hint, never a block */
+  | "seen_in_other_run"
 
 /**
  * needs_review for the STORY, not the identity: Khaled reviews these by
@@ -357,6 +374,7 @@ export const STORY_REVIEW_FLAGS: readonly V2Flag[] = [
   "story_second_hand",
   "story_self_told_unverified",
   "policy_review",
+  "policy_exposure_unbacked",
 ]
 
 /**
@@ -416,6 +434,18 @@ export interface StoryCheck {
      * that never reached the classifier.
      */
     sensitivity_flags?: GuestSensitivityFlag[]
+    /**
+     * The classifier said third_party_exposure but did not back it with a
+     * verbatim quote of a private (health / family / sexual / criminal /
+     * financial) fact about a named third party. The flag is then removed
+     * from `sensitivity_flags` and the card goes to review (2026-09-30).
+     */
+    exposure_unbacked?: boolean
+    /**
+     * A verified quote about HIM (not a relative) carries a birth year
+     * < 1940. A review hint like every historical cue — never a reject.
+     */
+    historical?: boolean
     /**
      * The classifier's answer to «is the Wikidata entity shown the person in
      * these sources?» — `false` drops the QID; `true`/null never adds trust.

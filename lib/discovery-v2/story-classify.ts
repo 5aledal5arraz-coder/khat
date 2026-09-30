@@ -34,8 +34,13 @@ import {
 } from "@/lib/ai/grounded-evidence"
 import { buildVerbatimHaystack, foldVerbatim, isVerbatimIn } from "@/lib/studio/verbatim"
 import { normalizeGuestSensitivityFlags } from "@/lib/khat-map/core/policy"
-import { mentionsName, notCheckedStory } from "./story-evidence"
-import { pageAllText, pageExcerpt, pageSpeaker, quoteOnPage } from "./source-page"
+import {
+  HISTORICAL_BIRTH_BEFORE,
+  mentionsName,
+  notCheckedStory,
+  yearsIn,
+} from "./story-evidence"
+import { pageAllText, pageExcerpt, pageSpeaker, quoteIsAboutHim, quoteOnPage } from "./source-page"
 import type { StoryAssessment, StoryCheck, StorySource, TopicRelevance, TopicRelevanceValue, WikiFacts } from "./types"
 
 /**
@@ -59,7 +64,13 @@ export const STORY_MIN_QUOTE_WORDS = 6
 // channel/byline, excerpt) apart from the search engine's summary, and the
 // model is told to quote the page. self_told=true is decided in code from the
 // page (source-page.ts), never from this reply.
-export const STORY_PROMPT_VERSION = "v2-story-5"
+// v2-story-6 (2026-09-30, live pilot): `deceased` is defined (the prompt used
+// to show only its JSON shape) and `era` asks for his birth year with a quote
+// (no «last activity»: an absence of later mentions is not inactivity) — historical figures outside Wikidata reached review.
+// `third_party_exposure` must now be BACKED by a quote of a private fact about
+// a named third party, with examples of what is not exposure: the bare flag
+// rejected a player's anecdote about a team official.
+export const STORY_PROMPT_VERSION = "v2-story-6"
 
 const STORY_TYPES = ["first_hand", "second_hand", "expert_only", "none"] as const
 type StoryType = (typeof STORY_TYPES)[number]
@@ -80,7 +91,12 @@ export interface RawStoryClassification {
   self_told?: unknown
   sensitivity_flags?: unknown
   wikidata_match?: unknown
+  era?: unknown
+  third_party_exposure?: unknown
 }
+
+/** What may back a third_party_exposure flag: a PRIVATE fact of one of these kinds. */
+export const EXPOSURE_KINDS = ["health", "family", "sexual", "criminal", "financial"] as const
 
 type Item = { source: StorySource; quote: string; onPage: boolean }
 
@@ -199,6 +215,37 @@ export function verifyStoryClassification(
   // Self-told: TRUE only from the page itself; the model may only say false.
   const selfTold = decideSelfTold(r.self_told, surviving, variants, attrItem)
 
+  // Era (v2-story-6): his birth year, counted only when a verified quote
+  // CARRIES that year and is about HIM, not a relative (quoteIsAboutHim).
+  // A review hint only (historicalFigureCue) — never a reject.
+  const eraRaw = r.era as { birth_year?: unknown } | null | undefined
+  const eraItem = attrItem(eraRaw)
+  const birth = typeof eraRaw?.birth_year === "number" ? eraRaw.birth_year : Number(eraRaw?.birth_year ?? NaN)
+  const historical =
+    !!eraItem &&
+    Number.isInteger(birth) &&
+    birth < HISTORICAL_BIRTH_BEFORE &&
+    yearsIn(eraItem.quote).includes(birth) &&
+    quoteIsAboutHim(eraItem.quote, variants)
+
+  // third_party_exposure rejects only when backed (v2-story-6): a verbatim
+  // quote, a private-fact kind from EXPOSURE_KINDS, and WHO it is about.
+  // Unbacked, it is removed and the card goes to review with the flag shown.
+  const flags = samePerson ? normalizeGuestSensitivityFlags(r.sensitivity_flags) : []
+  let exposureUnbacked = false
+  if (flags.includes("third_party_exposure")) {
+    const ex = r.third_party_exposure as { kind?: unknown; about?: unknown } | null | undefined
+    const backed =
+      !!attrItem(ex) &&
+      (EXPOSURE_KINDS as readonly string[]).includes(String(ex?.kind ?? "")) &&
+      typeof ex?.about === "string" &&
+      ex.about.trim().length > 0
+    if (!backed) {
+      exposureUnbacked = true
+      flags.splice(flags.indexOf("third_party_exposure"), 1)
+    }
+  }
+
   return {
     assessment: {
       status: verified ? "verified" : "unverified",
@@ -221,7 +268,9 @@ export function verifyStoryClassification(
       gender,
       nationality,
       // Flags about a namesake's sources say nothing about OUR person.
-      sensitivity_flags: samePerson ? normalizeGuestSensitivityFlags(r.sensitivity_flags) : [],
+      sensitivity_flags: flags,
+      exposure_unbacked: exposureUnbacked,
+      historical,
       // Only a `false` is acted on (it drops the QID); nothing here adds trust.
       wikidata_match: r.wikidata_match === false ? false : r.wikidata_match === true ? true : null,
     },
@@ -250,12 +299,20 @@ const SYSTEM = [
   "- self_told: هل روى القصة بنفسه (مقابلة معه، حديثه هو، منشوره أو كتابه) = true،",
   "  أم كُتبت عنه بقلم غيره دون أن يتكلم هو = false؟ أسندها باقتباس حرفي، وإلا فاجعلها null.",
   "- اترك الحقل null إن لم يوجد له اقتباس حرفي.",
+  "- deceased: إن ذكرت المصادر وفاته («توفي»، «الراحل»، «المرحوم»، «رحمه الله»، «الفقيد»، سنة وفاة) فأسندها باقتباس، وإلا null.",
+  "- era: سنة ميلاده هو (birth_year) كما تذكرها المصادر، مع اقتباس حرفي عنه هو يحتوي السنة نفسها.",
+  "  لا تستعمل سنة ميلاد أبيه أو جده أو أي قريب. null إن لم تذكر المصادر سنة ميلاده. لا تخمّن من معرفتك ولا من سنوات الأحداث.",
   "- wikidata_match: إن عُرض عليك «كيان ويكي‌داتا» فهل هو الشخص نفسه الذي تتحدث عنه المصادر؟",
   "  false إن ناقضت مهنته أو سنة ميلاده أو وصفه ما تقوله المصادر (مثلاً لاعب كرة وُلد 2003 والمصادر عن رجل قضى سنوات في السجن)،",
   "  أو إن لم تذكر المصادر مهنته إطلاقاً. true فقط إن أكّدته المصادر. null إن لم يُعرض كيان.",
   "- sensitivity_flags: ما ينطبق على هذا الشخص من: politics (دور سياسي: نائب، ناشط أو محلل سياسي، معارض)،",
   "  religious_dispute (خلاف ديني أو مذهبي)، scandal (فضيحة عامة، أو إدانة/اتهام بتحرش أو اغتصاب أو احتيال)،",
-  "  third_party_exposure (قصته تكشف خصوصيات أشخاص آخرين)، ongoing_case (قضية منظورة أمام القضاء الآن).",
+  "  third_party_exposure (قصته تكشف معلومة خاصة حسّاسة عن شخص آخر محدد: مرضه، أسراره العائلية أو الزوجية،",
+  "  حياته الجنسية، جريمة أو تهمة لم تُعلن، أو وضعه المالي الخاص)، ongoing_case (قضية منظورة أمام القضاء الآن).",
+  "  ليست third_party_exposure: موقف عادي مع مدرب أو إداري أو زميل أو مدير (منعه إداري الفريق من إعطاء قميصه لمنافس،",
+  "  وبّخه مدربه، اختلف مع رئيسه في العمل)، ولا ذكر أشخاص عامين بأدوارهم العامة.",
+  "  إن وضعت third_party_exposure فيجب أن تسندها في الحقل third_party_exposure: اقتباس حرفي للمعلومة الخاصة،",
+  "  kind واحد من health|family|sexual|criminal|financial، وabout: من هو الشخص الآخر. بدون ذلك لا تضعها.",
   "  السجن بحد ذاته ليس علامة — «السجن والعودة للمجتمع» من مجالات خط. مصفوفة فارغة إن لم ينطبق شيء، ولا تجامل.",
   UNTRUSTED_SOURCE_SAFETY_HEADER,
   'أعد JSON فقط بهذا الشكل: {"story_type":"first_hand|second_hand|expert_only|none",' +
@@ -267,6 +324,8 @@ const SYSTEM = [
     '"nationality":{"value":"Kuwait","source":1,"quote":"..."} أو null,' +
     '"topic_relevance":{"value":"on_topic|adjacent|off_topic","source":1,"quote":"..."} أو null,' +
     '"self_told":{"value":true,"source":1,"quote":"..."} أو null,' +
+    '"era":{"birth_year":1950,"source":1,"quote":"..."} أو null,' +
+    '"third_party_exposure":{"kind":"health|family|sexual|criminal|financial","about":"من هو","source":1,"quote":"..."} أو null,' +
     '"same_person":true,"wikidata_match":true|false|null,"sensitivity_flags":[]}',
 ].join("\n")
 

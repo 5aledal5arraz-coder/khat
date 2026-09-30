@@ -18,6 +18,7 @@
  *
  * Hard rejects (correctness, each needs evidence):
  *   R2 deceased — confident Wikidata death year, or a verified quote
+ *   (R2b likely historical is NOT a reject — see historicalFigureCue: review)
  *   R3 not an individual — classifier + a verified item
  *   R4 filter/scope contradiction — only on a VERIFIED attribute
  *   R5 no footprint — unresolved AND the web was actually searched AND
@@ -42,6 +43,8 @@ import { droppedEntity, identityDropReason, stripEntitySignals } from "./identit
 import { isSelfToldVerified } from "./display"
 import {
   GEOGRAPHY_LABEL,
+  HISTORICAL_ACTIVE_BEFORE,
+  HISTORICAL_BIRTH_BEFORE,
   notCheckedStory,
   geographyOfNationality,
   gulfHookScore,
@@ -51,6 +54,7 @@ import {
   possiblyDeceasedCue,
   resolveGeography,
   searchabilityScore,
+  yearsIn,
 } from "./story-evidence"
 import type {
   EnrichmentSignals,
@@ -351,6 +355,39 @@ function resolveGender(
   return stated ?? read
 }
 
+/** The operator copy for R2b — the card goes to review with this on top. */
+export const HISTORICAL_FIGURE_REASON = "يُرجّح أنه متوفّى أو شخصية تاريخية"
+
+/**
+ * R2b — does this look like a historical figure rather than a living guest?
+ * (2026-09-30: the pilot's nakhuda of the 1939 voyage had no Wikidata entry,
+ * so nothing knew he was long dead.) Any one suffices:
+ *   - the story check's `historical` (a verified quote about HIM carrying a
+ *     birth year < HISTORICAL_BIRTH_BEFORE);
+ *   - the proposal's own birth_year < HISTORICAL_BIRTH_BEFORE, or is_alive = false;
+ *   - a FIRST-HAND claim whose every year is < HISTORICAL_ACTIVE_BEFORE (a
+ *     second-hand story about a father's voyage says nothing about the teller).
+ * REVIEW ONLY, in every case (noura QA, 2026-09-30): a man born 1942 with a
+ * verified 1955 quote is an elder, not a ghost. The only hard rejects for
+ * death stay R2: a verified death quote or a confident Wikidata death year.
+ */
+export function historicalFigureCue(proposed: ProposedName, attrs?: StoryCheck["attrs"] | null): string | null {
+  if (attrs?.historical) return HISTORICAL_FIGURE_REASON
+  if (proposed.is_alive === false) return HISTORICAL_FIGURE_REASON
+  if (typeof proposed.birth_year === "number" && proposed.birth_year < HISTORICAL_BIRTH_BEFORE) {
+    return HISTORICAL_FIGURE_REASON
+  }
+  if (proposed.story_type === "first_hand") {
+    const years = yearsIn(proposed.story_claim)
+    if (years.length > 0 && Math.max(...years) < HISTORICAL_ACTIVE_BEFORE) return HISTORICAL_FIGURE_REASON
+  }
+  return null
+}
+
+/** Operator copy for an unbacked third_party_exposure flag (review, not reject). */
+const EXPOSURE_UNBACKED_REASON =
+  "أشار النموذج إلى «كشف خصوصيات الغير» دون اقتباس لمعلومة خاصة حسّاسة — راجِع القصة"
+
 // Every one starts «لم يُفحص للقصة» — the operator must read at a glance
 // that the dominant signal was never measured, not that it came back empty.
 const NOT_CHECKED_REASON: Record<NonNullable<StoryAssessment["not_checked_reason"]>, string> = {
@@ -430,6 +467,8 @@ export function scoreCandidate(
   const nationality = (trustWiki ? wiki.nationality_country : null) ?? story.attrs.nationality
   const deceasedYear = trustWiki && wiki.death_year ? wiki.death_year : null
   const deceased = !!deceasedYear || story.attrs.deceased
+  // Only when the evidence is about OUR person — a namesake's era says nothing.
+  const historical = historicalFigureCue(proposed, story.attrs.same_person ? story.attrs : null)
 
   // Stories Khaled reviews by hand (decision «أ»). The claim is the
   // proposal's own first_hand label + a concrete claim; "unverified" means
@@ -599,6 +638,19 @@ export function scoreCandidate(
     decision = "needs_review"
     flags.push("policy_review")
     reasons.unshift(policy.review)
+  }
+  // R2b: never a reject — Khaled checks, with the flag and reason on top.
+  if (historical && decision !== "rejected") {
+    decision = "needs_review"
+    flags.push("likely_historical")
+    reasons.unshift(historical)
+  }
+  // The classifier's third_party_exposure without a quoted private fact
+  // (2026-09-30): not a reject — Khaled reads the story, with the flag shown.
+  if (story.attrs.same_person && story.attrs.exposure_unbacked && decision !== "rejected") {
+    decision = "needs_review"
+    flags.push("policy_exposure_unbacked")
+    reasons.unshift(EXPOSURE_UNBACKED_REASON)
   }
 
   // A soft death cue (uncertain Wikidata death year, «الشهيد <name>» in a

@@ -149,6 +149,9 @@ const FLAG_LABEL: Record<V2Flag, string> = {
   no_web_footprint: "لا أثر رقمي",
   policy_violation: "مخالف لدستور خط",
   policy_review: "سابقة مالية — قرار خالد",
+  policy_exposure_unbacked: "خصوصية الغير؟ غير مسندة — راجِع",
+  likely_historical: "يُرجّح أنه متوفّى أو شخصية تاريخية",
+  seen_in_other_run: "مقترح في بحث آخر",
 }
 
 const LINK_ICON: Record<string, typeof ExternalLink> = {
