@@ -181,5 +181,19 @@ export const prepV2Schema = z
     // Pass 5 ran. `.loose()` would have let it through unchecked — declaring
     // it here makes the shape a contract instead of a silent passenger.
     insight_stats: insightStatsSchema.optional(),
+    // Checks the stored payload still failed at generation time. Optional +
+    // additive: absent ⇒ it passed (and on every payload written before).
+    validation_warnings: z
+      .array(
+        z.object({
+          code: z.string(),
+          severity: z.enum(["soft", "hard"]),
+          label_ar: z.string(),
+          message: z.string(),
+          detail: z.record(z.string(), z.unknown()).optional(),
+          at: z.string(),
+        }),
+      )
+      .optional(),
   })
   .loose()

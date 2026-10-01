@@ -36,13 +36,19 @@ import { runCritiquePass } from "./critique"
 import { runInsightGeneration } from "./insights"
 import { carryOverAuthoredQuestions } from "./question-edit"
 import {
+  onlySoftFailures,
+  PREP_V2_VALIDATION_LABELS_AR,
+  sanitizeGuestReferences,
+  findUnverifiedGuestReferences,
   validatePrepV2Payload,
+  type ValidationFailure,
   type ValidationResult,
 } from "./validation"
 import {
   PREP_V2_VERSION,
   type PrepV2Payload,
   type PrepV2Question,
+  type PrepV2ValidationWarning,
 } from "./types"
 import { courseTargetMinutes, effectiveCourseTarget, type PrepFormat } from "./format"
 import {
@@ -128,6 +134,31 @@ export interface RunPrepV2Result {
    * and dead-letter with the billing message instead of a generic reason.
    */
   error?: string
+  /**
+   * True when validation still failed after the retry but every remaining
+   * failure is soft (SOFT_VALIDATION_CODES): the payload was stored with
+   * `validation_warnings` and `ok` is true, so the operator edits instead of
+   * paying for a full regeneration. `validation` still carries the failures.
+   */
+  soft_accepted?: boolean
+  /** Hallucinated names the sanitizer replaced with «[الضيف]» (what + where). */
+  sanitized_guest_references?: Array<{ field: string; name: string; snippet: string }>
+}
+
+/** Stored form of the failures a payload still carries (see validation_warnings). */
+export function toValidationWarnings(
+  failures: ValidationFailure[],
+  severity: PrepV2ValidationWarning["severity"],
+  at: string = new Date().toISOString(),
+): PrepV2ValidationWarning[] {
+  return failures.map((f) => ({
+    code: f.code,
+    severity,
+    label_ar: f.label_ar ?? PREP_V2_VALIDATION_LABELS_AR[f.code] ?? f.code,
+    message: f.message,
+    ...(f.detail ? { detail: f.detail } : {}),
+    at,
+  }))
 }
 
 export async function runPrepV2Pipeline(
@@ -331,6 +362,9 @@ export async function runPrepV2Pipeline(
   const validationCtx = {
     topic_domain: ctx.topic_domain,
     linkedGuestName: ctx.linked_guest_name,
+    // Names/brands the operator wrote («مُبخر», «خليط», «فلاورد») are not
+    // hallucinations when the copy repeats them after «ضيفنا»/«الأستاذ».
+    knownText: [ctx.title, ctx.episode_goal].filter(Boolean).join("\n"),
   }
 
   let validation = validatePrepV2Payload(payload, validationCtx)
@@ -371,34 +405,40 @@ export async function runPrepV2Pipeline(
     }
   }
 
-  // Production-readiness fix sprint — last-resort sanitization. If the
-  // only remaining failure is `unverified_guest_reference`, scrub the
-  // hallucinated name(s) to "[الضيف]" and keep going. Anything else
-  // remains a hard failure.
+  // Last-resort sanitization: a name the detector cannot verify is replaced
+  // by «[الضيف]» (only the name — the sentence survives) and validation is
+  // re-run. Used to apply ONLY when that was the sole failure, so a run that
+  // also missed one emotional tag kept the hallucinated name AND was failed.
+  // What was replaced is kept for the job result.
+  let sanitized_guest_references: RunPrepV2Result["sanitized_guest_references"]
   if (
     !validation.ok &&
-    validation.failures.length === 1 &&
-    validation.failures[0].code === "unverified_guest_reference"
+    validation.failures.some((f) => f.code === "unverified_guest_reference")
   ) {
-    const { sanitizeGuestReferences } = await import("./validation")
-    const sanitized = sanitizeGuestReferences(payload)
+    const found = findUnverifiedGuestReferences(payload, validationCtx)
+    const sanitized = sanitizeGuestReferences(payload, validationCtx)
     payload = sanitized.payload
     validation = validatePrepV2Payload(payload, validationCtx)
-    // We log the sanitization outcome on the run so an audit can trace
-    // which preparations had to be scrubbed.
     if (sanitized.replacements > 0) {
+      sanitized_guest_references = found.map(({ field, name, snippet }) => ({ field, name, snippet }))
       console.warn(
         `[prep-v2] sanitized ${sanitized.replacements} unverified guest reference(s) ` +
-          `in prep ${input.preparationId}`,
+          `in prep ${input.preparationId}: ${found.map((f) => f.snippet).join(" | ")}`,
       )
     }
   }
 
+  // Soft failures do not throw the work away. The run is stored with its
+  // warnings and reported as done-with-a-note; the operator fixes the one
+  // missing tag / line in the editor instead of paying for a regeneration.
+  const softAccepted = !validation.ok && onlySoftFailures(validation.failures)
+
   // ── Pass 5 — Insight Cards (best-effort enrichment) ────────────────
-  // Only enrich a VALID prep, and never let it fail the pipeline. Each
+  // Only enrich a prep that will be used (valid, or soft-accepted), and never
+  // let it fail the pipeline. Each
   // candidate is web-grounded + verified before it attaches to a question;
   // unverifiable drafts are dropped inside runInsightGeneration.
-  if (validation.ok) {
+  if (validation.ok || softAccepted) {
     await reportPass(input, 5)
     try {
       const p5 = await runInsightGeneration({
@@ -449,8 +489,19 @@ export async function runPrepV2Pipeline(
   }
 
   // Persist — even if validation failed, we still save the payload so
-  // the editor can see what the model produced, but we mark the result
-  // unsuccessful so the conversion flow knows.
+  // the editor can see what the model produced. What it still fails is
+  // stamped ON the payload (`validation_warnings`): it used to be stored
+  // unmarked, so the prep page showed a failed run as if it were valid.
+  // A clean run writes no field — a regeneration clears old warnings.
+  if (!validation.ok) {
+    payload = {
+      ...payload,
+      validation_warnings: toValidationWarnings(
+        validation.failures,
+        softAccepted ? "soft" : "hard",
+      ),
+    }
+  }
   // The persisted payload may carry authored questions over from the prep it
   // replaces (see persistPrepV2) — report what was actually stored.
   const persisted = await persistPrepV2(input.preparationId, payload)
@@ -468,7 +519,12 @@ export async function runPrepV2Pipeline(
   }
   payload = persisted
 
-  if (!validation.ok) {
+  const extras = {
+    ...(softAccepted ? { soft_accepted: true } : {}),
+    ...(sanitized_guest_references ? { sanitized_guest_references } : {}),
+  }
+
+  if (!validation.ok && !softAccepted) {
     return {
       ok: false,
       preparation_id: input.preparationId,
@@ -476,6 +532,7 @@ export async function runPrepV2Pipeline(
       validation,
       ai_run_ids,
       reason: "validation_failed_after_retry",
+      ...extras,
     }
   }
 
@@ -485,6 +542,7 @@ export async function runPrepV2Pipeline(
     payload,
     validation,
     ai_run_ids,
+    ...extras,
   }
 }
 

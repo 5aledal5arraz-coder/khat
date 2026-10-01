@@ -22,7 +22,12 @@ import {
   type QuestionPriority,
   type QuestionRiskLevel,
 } from "./types"
-import { COURSE_PROMPT_VERSION, courseSafeTypes, type PrepFormat } from "./format"
+import {
+  COURSE_PROMPT_VERSION,
+  courseSafeTypes,
+  STORY_PROMPT_VERSION,
+  type PrepFormat,
+} from "./format"
 
 export interface Pass3Input {
   language: "ar" | "en"
@@ -79,7 +84,7 @@ export async function runQuestionBankGeneration(
     "6. Use multiple types when accurate (e.g., personal+confrontational). At least one type per question.",
     "7. The follow_up_prompt is NOT a separate question — it's a single-sentence prompt the host says if the answer is too short.",
     "8. risk_level reflects difficulty for the guest (e.g., personal trauma = high, factual context = low). Match it to the section.",
-    "9. The emotional_peak section MUST contain at least 2 questions tagged 'emotional'.",
+    "9. The emotional_peak section MUST contain at least 2 questions tagged 'emotional' — this holds for EVERY guest, including a business, founder or success story. There, 'emotional' means the human cost behind the milestones: the doubt or fear he did not show, what the work cost his family or health, the night before a decision he could not undo, the moment of selling or handing over what he built, who he let down or who stood by him. A question about strategy, numbers or lessons is NOT emotional even at the peak — tag it reflective/factual and add emotional ones.",
     "10. The conflict section MUST contain at least 2 questions tagged 'confrontational' OR 'philosophical'.",
   ].join("\n")
 
@@ -126,7 +131,7 @@ export async function runQuestionBankGeneration(
       target_section_count: isCourse ? input.pass2.sections.length : SECTION_KINDS.length,
       ...(isCourse ? { format: "course" } : {}),
     },
-    ...(isCourse ? { promptVersion: COURSE_PROMPT_VERSION } : {}),
+    promptVersion: isCourse ? COURSE_PROMPT_VERSION : STORY_PROMPT_VERSION,
     prompt: [
       { role: "system", content: system },
       { role: "user", content: user },

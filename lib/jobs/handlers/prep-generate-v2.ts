@@ -26,7 +26,10 @@ import {
 import { runPrepV2Pipeline, type RunPrepV2Result } from "@/lib/preparation/v2/pipeline"
 import {
   describeValidationFailuresAr,
+  PREP_V2_VALIDATION_LABELS_AR,
+  prepV2SoftWarningAr,
   prepV2WarningAr,
+  type ValidationFailure,
 } from "@/lib/preparation/v2/validation"
 import { ROOM_LIVE_REGENERATION_MESSAGE } from "@/lib/recording-v2/live-guard"
 import { isQuotaExceededError } from "@/lib/ai-router/errors"
@@ -56,6 +59,14 @@ export function prepV2JobMessageAr(
       ? `فشل التحقق من بنية الإعداد بعد محاولتين: ${why}.`
       : "فشل التحقق من بنية الإعداد بعد محاولتين."
     : `تعذّر توليد الإعداد (${r.reason ?? "سبب غير معروف"}).`
+}
+
+function failureEvidence(failures: ValidationFailure[]): PrepV2JobResult["validation_failures"] {
+  return failures.map((f) => ({
+    code: f.code,
+    label_ar: f.label_ar ?? PREP_V2_VALIDATION_LABELS_AR[f.code] ?? f.code,
+    ...(f.detail ? { detail: f.detail } : {}),
+  }))
 }
 
 export async function runPrepGenerateV2(
@@ -88,12 +99,22 @@ export async function runPrepGenerateV2(
     sections: r.payload?.episode_sections?.length ?? 0,
     questions: r.payload?.question_bank?.length ?? 0,
   }
+  const evidence = {
+    ...(r.validation.failures.length > 0
+      ? { validation_failures: failureEvidence(r.validation.failures) }
+      : {}),
+    ...(r.sanitized_guest_references
+      ? { sanitized_guest_references: r.sanitized_guest_references }
+      : {}),
+  }
   if (r.ok) {
     return {
       ok: true,
       preparationId: payload.preparationId,
       ...counts,
       ai_run_ids: r.ai_run_ids as Record<string, unknown>,
+      ...(r.soft_accepted ? { warningAr: prepV2SoftWarningAr(r.validation.failures) } : {}),
+      ...evidence,
     }
   }
   return {
@@ -104,6 +125,7 @@ export async function runPrepGenerateV2(
     preparationId: payload.preparationId,
     ...counts,
     ai_run_ids: r.ai_run_ids as Record<string, unknown>,
+    ...evidence,
   }
 }
 

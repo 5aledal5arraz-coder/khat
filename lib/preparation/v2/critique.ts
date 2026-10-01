@@ -28,6 +28,7 @@ import {
   COURSE_PROMPT_VERSION,
   courseSafeTypes,
   effectiveCourseTarget,
+  STORY_PROMPT_VERSION,
   type PrepFormat,
 } from "./format"
 import {
@@ -128,21 +129,11 @@ export async function runCritiquePass(input: Pass4Input): Promise<Pass4Result> {
     "7. opening_options must be CONCRETE first lines or first beats — write them out.",
     "8. closing_options must be the actual closing question or beat. Two distinct approaches.",
     "9. Do NOT invent a thesis or new axes of tension. Those are fixed.",
+    "10. Allowed question types: emotional, philosophical, personal, confrontational, reflective, factual.",
+    "11. The emotional_peak section MUST end with at least 2 questions tagged 'emotional' — for EVERY guest, a business/founder/success story included. Never retag an emotional peak question away. If the peak has fewer than 2, AUTHOR them (id 'crit-N'): the human cost behind the milestones — doubt or fear he did not show, what it cost his family, the moment of selling or handing over what he built, who stood by him. Strategy, numbers and lessons are not 'emotional'. The emotional_peak section intent must say which human moment the peak reaches (one full sentence).",
   ].join("\n")
 
-  const draftBlock = isCourse
-    ? courseDraftBlock(input)
-    : JSON.stringify(
-        {
-          thesis: input.pass1.thesis,
-          axes_of_tension: input.pass1.axes_of_tension,
-          sensitive_zones: input.pass1.sensitive_zones,
-          sections: input.pass2.sections,
-          questions: input.pass3.questions,
-        },
-        null,
-        2,
-      ).slice(0, 14_000) // hard cap to stay inside prompt budget
+  const draftBlock = isCourse ? courseDraftBlock(input) : storyDraftBlock(input)
 
   const hasPrefs = hasGuestPreferences(input.guest_preferences)
   const user = [
@@ -175,7 +166,7 @@ export async function runCritiquePass(input: Pass4Input): Promise<Pass4Result> {
       ...(isCourse ? { format: "course", target_minutes: courseTarget } : {}),
       ...(hasPrefs ? { guest_preferences: true } : {}),
     },
-    ...(isCourse ? { promptVersion: COURSE_PROMPT_VERSION } : {}),
+    promptVersion: isCourse ? COURSE_PROMPT_VERSION : STORY_PROMPT_VERSION,
     prompt: [
       { role: "system", content: system },
       { role: "user", content: user },
@@ -347,6 +338,47 @@ function courseCritiqueSystem(langLabel: string, target: number): string {
     "9. Do NOT invent a thesis or new learning threads. Those are fixed.",
     "10. Section ids are opaque slot labels — ignore their literal meaning; the module title defines the content.",
   ].join("\n")
+}
+
+/**
+ * The story draft for the critic.
+ *
+ * Was `JSON.stringify(draft, null, 2).slice(0, 14_000)`. A realistic Arabic
+ * 31-question story draft pretty-prints to ~20k characters and Pass 3 emits
+ * questions in section order, so the slice cut the END: the critic saw ~15
+ * questions — opening through deep_dive — and never ONE emotional_peak or
+ * resolution question. It then had to author the peak blind, the questions
+ * it never saw were dropped (critique keeps only what it returns), and
+ * nothing asked it for an `emotional` tag → `vague_emotional_hook`, twice,
+ * because the retry received the same truncated view.
+ *
+ * Same treatment the course draft already had: compact JSON, a larger cap,
+ * and shed re-authorable fields before any character slice.
+ */
+export const STORY_DRAFT_MAX_CHARS = 28_000
+
+export function storyDraftBlock(input: Pass4Input): string {
+  const build = (questions: unknown[]) =>
+    JSON.stringify({
+      thesis: input.pass1.thesis,
+      axes_of_tension: input.pass1.axes_of_tension,
+      sensitive_zones: input.pass1.sensitive_zones,
+      sections: input.pass2.sections,
+      questions,
+    })
+  const full = build(input.pass3.questions)
+  if (full.length <= STORY_DRAFT_MAX_CHARS) return full
+  const lean = build(
+    input.pass3.questions.map(({ id, section, text, types, priority, risk_level }) => ({
+      id,
+      section,
+      text,
+      types,
+      priority,
+      risk_level,
+    })),
+  )
+  return lean.slice(0, STORY_DRAFT_MAX_CHARS) // last resort only
 }
 
 /**

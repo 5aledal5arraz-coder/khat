@@ -143,7 +143,8 @@ describe("the warning reaches the operator without being downgraded", () => {
     // The composer must be reachable without a dynamic import in the catch —
     // an import that rejects there would escape and abort the conversion.
     expect(src).toMatch(
-      /^import \{ prepV2WarningAr \} from "@\/lib\/preparation\/v2\/validation"$/m,
+      // (a static import; other names from the same module may share the line)
+      /^import \{[^}]*\bprepV2WarningAr\b[^}]*\} from "@\/lib\/preparation\/v2\/validation"$/m,
     )
   })
 

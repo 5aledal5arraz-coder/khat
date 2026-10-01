@@ -52,4 +52,17 @@ export interface PrepV2JobResult extends Record<string, unknown> {
   sections: number
   questions: number
   ai_run_ids: Record<string, unknown> | null
+  /**
+   * Which validation checks the stored prep still failed, with their evidence
+   * (matched name snippets, the emotional-peak question types). Present on a
+   * soft-accepted run and on validation_failed_after_retry — the ai_runs
+   * output snapshot is truncated, so this is the only place to read WHY.
+   */
+  validation_failures?: Array<{
+    code: string
+    label_ar: string
+    detail?: Record<string, unknown>
+  }>
+  /** Hallucinated names replaced with «[الضيف]» before storing. */
+  sanitized_guest_references?: Array<{ field: string; name: string; snippet: string }>
 }

@@ -28,6 +28,39 @@ import { PrepQuestionBankEditor } from "./prep-question-bank-editor"
 import { PrepInputsEditor } from "./prep-inputs-editor"
 import { AssignGuestForm } from "./assign-guest-form"
 import { GuestLinkSection } from "./guest-link-section"
+import type { PrepV2ValidationWarning } from "@/lib/preparation/v2/types"
+
+/**
+ * What the stored prep still failed at generation time. Before this, a run
+ * that failed validation was stored unmarked: the job said «فشل» and this tab
+ * showed the payload as though it were fine. Soft ⇒ accepted for editing;
+ * hard ⇒ the job failed, the payload is shown only so nothing is lost.
+ */
+function PrepValidationWarnings({ warnings }: { warnings: PrepV2ValidationWarning[] }) {
+  if (warnings.length === 0) return null
+  const hard = warnings.some((w) => w.severity === "hard")
+  return (
+    <div
+      className="rounded-2xl border border-amber-500/30 bg-amber-500/5 p-4"
+      data-prep-validation-warnings
+    >
+      <div className="mb-1 inline-flex items-center gap-1.5 text-[12px] font-semibold text-amber-700">
+        <AlertTriangle className="h-3.5 w-3.5" />
+        {hard
+          ? "هذا الإعداد لم يجتز التحقق — معروض حتى لا يضيع، راجعه قبل التسجيل"
+          : "حُفظ هذا الإعداد مع ملاحظات تحقق — عدّلها هنا بدل إعادة التوليد"}
+      </div>
+      <ul className="list-inside list-disc space-y-0.5 text-[12px] leading-relaxed text-foreground">
+        {warnings.map((w) => (
+          <li key={w.code}>{w.label_ar}</li>
+        ))}
+      </ul>
+      <p className="mt-1 text-[11.5px] text-muted-foreground">
+        الملاحظات من وقت التوليد، ولا تتحدّث مع التعديل اليدوي.
+      </p>
+    </div>
+  )
+}
 
 /**
  * Regeneration REPLACES `episode_preparations.prep_v2` (`persistPrepV2` in
@@ -230,6 +263,7 @@ export function PreparationTab({
               initialJob={prepJob}
             />
           </div>
+          <PrepValidationWarnings warnings={prep.prep_v2.validation_warnings ?? []} />
           <PrepV2InlineEditor prepId={prep.id} payload={prep.prep_v2} />
           <PrepQuestionBankEditor prepId={prep.id} eirId={eirId} payload={prep.prep_v2} />
           <PrepInsightReview prepId={prep.id} payload={prep.prep_v2} />

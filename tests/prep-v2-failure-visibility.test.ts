@@ -204,3 +204,91 @@ describe("prep regeneration (prep.generate_v2) — the message carries the actua
     expect(r.message).toContain("pass3_failed")
   })
 })
+
+describe("prep.generate_v2 — incident 2026-09-30: soft-accepted runs and failure evidence", () => {
+  beforeEach(() => {
+    resetMock()
+    vi.clearAllMocks()
+  })
+
+  const run = () =>
+    runPrepGenerateV2(
+      {
+        preparationId: "prep-1",
+        eirId: "eir-1",
+        language: "ar",
+        force: true,
+        trigger: "regenerate",
+        requestedBy: "admin-1",
+      },
+      async () => {},
+    )
+
+  const peakFailure: ValidationFailure = {
+    code: "vague_emotional_hook",
+    message: "x",
+    detail: { peak_question_types: [["reflective"], ["factual"]] },
+  }
+
+  it("soft-accepted ⇒ ok:true + warningAr (stored, edit it) + the evidence", async () => {
+    vi.mocked(runPrepV2Pipeline).mockResolvedValue({
+      ok: true,
+      preparation_id: "prep-1",
+      payload: null,
+      validation: { ok: false, failures: [peakFailure] },
+      ai_run_ids: {} as never,
+      soft_accepted: true,
+      sanitized_guest_references: [
+        { field: "opening_options[0].text", name: "فهد العتيبي", snippet: "ضيفنا فهد العتيبي" },
+      ],
+    })
+    const r = await run()
+    expect(r.ok).toBe(true)
+    expect(r.messageAr).toBeUndefined()
+    expect(r.warningAr).toContain("حُفظ")
+    expect(r.warningAr).toContain(PREP_V2_VALIDATION_LABELS_AR.vague_emotional_hook)
+    expect(r.validation_failures).toEqual([
+      {
+        code: "vague_emotional_hook",
+        label_ar: PREP_V2_VALIDATION_LABELS_AR.vague_emotional_hook,
+        detail: { peak_question_types: [["reflective"], ["factual"]] },
+      },
+    ])
+    expect(r.sanitized_guest_references?.[0].name).toBe("فهد العتيبي")
+  })
+
+  it("a clean run carries no warning and no evidence", async () => {
+    vi.mocked(runPrepV2Pipeline).mockResolvedValue({
+      ok: true,
+      preparation_id: "prep-1",
+      payload: null,
+      validation: { ok: true, failures: [] },
+      ai_run_ids: {} as never,
+    })
+    const r = await run()
+    expect(r.warningAr).toBeUndefined()
+    expect(r.validation_failures).toBeUndefined()
+  })
+
+  it("a hard failure still fails, and now says WHY in the result", async () => {
+    vi.mocked(runPrepV2Pipeline).mockResolvedValue({
+      ok: false,
+      preparation_id: "prep-1",
+      payload: null,
+      validation: {
+        ok: false,
+        failures: [peakFailure, { code: "question_count_out_of_range", message: "x" }],
+      },
+      ai_run_ids: {} as never,
+      reason: "validation_failed_after_retry",
+    })
+    const r = await run()
+    expect(r.ok).toBe(false)
+    expect(r.messageAr).toContain("فشل التحقق")
+    expect(r.validation_failures?.map((f) => f.code)).toEqual([
+      "vague_emotional_hook",
+      "question_count_out_of_range",
+    ])
+    expect(r.validation_failures?.[0].detail).toEqual(peakFailure.detail)
+  })
+})

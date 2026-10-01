@@ -285,6 +285,27 @@ export interface PrepV2Payload {
      */
     outcome: "ok" | "skipped" | "error"
   }
+  /**
+   * Validation checks this payload still failed when it was STORED (after the
+   * Pass-4 retry and the name sanitizer). Absent ⇒ it passed every check.
+   *
+   * Written because a failed run used to be stored silently: the prep page
+   * showed the payload as if it were valid while the job said «فشل», and
+   * nothing recorded which check failed or why. `severity: "soft"` ⇒ the run
+   * was accepted for hand-editing (see SOFT_VALIDATION_CODES); `"hard"` ⇒ the
+   * job reported failure and the payload is shown only so nothing is lost.
+   * A snapshot from generation time — inline edits do not re-validate it.
+   */
+  validation_warnings?: PrepV2ValidationWarning[]
+}
+
+export interface PrepV2ValidationWarning {
+  code: string
+  severity: "soft" | "hard"
+  label_ar: string
+  message: string
+  detail?: Record<string, unknown>
+  at: string
 }
 
 // ─── Insight review helpers ───────────────────────────────────────────

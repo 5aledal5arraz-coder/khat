@@ -119,6 +119,7 @@ import {
   effectiveCourseTarget,
   COURSE_PROMPT_VERSION,
   PREP_BACKBONE_PROMPT_VERSION,
+  STORY_PROMPT_VERSION,
   extractTargetMinutes,
   isCourseSlotSequence,
   prepFormatOf,
@@ -306,11 +307,18 @@ describe("story mode — prompts unchanged", () => {
    * constitution block + the version tag are the ONLY difference: strip them
    * and passes 1–2 hash back to PRE_CONSTITUTION.
    */
+  /**
+   * Re-pinned deliberately on 2026-09-30 (incident c1810682): passes 3–4 carry
+   * STORY_PROMPT_VERSION, the emotional_peak rule (Pass 3 #9 reworded, Pass 4
+   * #10–#11 added), and Pass 4's draft is compact JSON (storyDraftBlock) instead
+   * of a pretty-printed 14k slice. The companion test below undoes exactly
+   * those edits and gets the pre-feature hashes back.
+   */
   const BASELINE = [
     "a147326f685107c46defd5df7f0f334aeba4d84301a041840934ab07b0c36fbe",
     "26dcd37af1586f815587c8eccac3d8e67f205a003688e716d2b25f04a1e18aeb",
-    PRE_CONSTITUTION[2],
-    PRE_CONSTITUTION[3],
+    "7cdd30f4433f79fb1b3251e4f81114ab6feb86f260a2d69d54a5358acb19a5af",
+    "7d9597a82851460d47b1de1e83025cfde746fabb8fb724ca48b7687c3669e4df",
   ]
 
   async function runAllStoryPasses() {
@@ -391,6 +399,29 @@ describe("story mode — prompts unchanged", () => {
       return copy
     })
     expect(stripped.map(sha)).toEqual(PRE_CONSTITUTION.slice(0, 2))
+  })
+
+  it("the 2026-09-30 emotional-peak edits are the ONLY change to passes 3–4", async () => {
+    await runAllStoryPasses()
+    const [p3, p4] = aiCalls.slice(2, 4).map(
+      (c) => JSON.parse(JSON.stringify(c)) as AiReq & { promptVersion?: string },
+    )
+    for (const c of [p3, p4]) {
+      expect(c.promptVersion).toBe(STORY_PROMPT_VERSION)
+      delete c.promptVersion
+    }
+    const sys3 = p3.prompt.find((m) => m.role === "system")!
+    sys3.content = sys3.content.replace(
+      /"?9\. The emotional_peak section MUST contain at least 2 questions tagged 'emotional'.*$/m,
+      "9. The emotional_peak section MUST contain at least 2 questions tagged 'emotional'.",
+    )
+    const sys4 = p4.prompt.find((m) => m.role === "system")!
+    sys4.content = sys4.content.replace(/\n10\. Allowed question types:[^\n]*\n11\. [^\n]*$/, "")
+    const usr4 = p4.prompt.find((m) => m.role === "user")!
+    const lines = usr4.content.split("\n")
+    lines[2] = JSON.stringify(JSON.parse(lines[2]), null, 2)
+    usr4.content = lines.join("\n")
+    expect([p3, p4].map(sha)).toEqual(PRE_CONSTITUTION.slice(2, 4))
   })
 
   it("a story payload still fails without an emotional peak (rule kept)", () => {

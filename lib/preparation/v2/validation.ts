@@ -33,6 +33,13 @@ export interface ValidationFailure {
    * duration window). Absent ⇒ PREP_V2_VALIDATION_LABELS_AR[code].
    */
   label_ar?: string
+  /**
+   * Machine-readable evidence for the failure — what matched, what was
+   * missing. Carried into the job result and the stored warning so an
+   * operator/dev can see WHY without re-running a paid generation (the
+   * ai_runs output snapshot is truncated and cannot answer it).
+   */
+  detail?: Record<string, unknown>
 }
 
 export type ValidationCode =
@@ -216,6 +223,19 @@ export function prepV2WarningAr(
 }
 
 /**
+ * Pure: the note for a run that was STORED despite soft validation failures —
+ * the operator must learn that the prep exists and what to fix in it.
+ */
+export function prepV2SoftWarningAr(failures: ValidationFailure[]): string {
+  const why = describeValidationFailuresAr(failures)
+  return (
+    `وُلّد الإعداد وحُفظ، لكن فيه ملاحظات تحقق` +
+    (why ? `: ${why}` : "") +
+    `. عدّلها من محرّر الإعداد بدل إعادة التوليد.`
+  )
+}
+
+/**
  * Risk-prone topic domains. When a prep payload targets one of these
  * AND its sensitive_zones array is empty, validation fails — host walks
  * into a recording without flagged subjects to handle carefully.
@@ -255,6 +275,35 @@ const GENERIC_QUESTION_HINTS = [
 export interface ValidationContext {
   topic_domain?: string | null
   linkedGuestName?: string | null
+  /** Operator-authored title + goal: names/brands in it are not hallucinations. */
+  knownText?: string | null
+}
+
+/**
+ * Failures that leave a USABLE prep an operator can fix by hand in the
+ * editor (one missing emotional tag, a flagged name, generic wording, one
+ * opening line short). Everything else — structure, counts, duration,
+ * guidance — is hard: the prep is not fit to record from.
+ */
+export const SOFT_VALIDATION_CODES: ReadonlySet<ValidationCode> = new Set<ValidationCode>([
+  "vague_emotional_hook",
+  "unverified_guest_reference",
+  "section_only_generic_questions",
+  "missing_opening_options",
+  "missing_closing_options",
+])
+
+/** Opening/closing options are soft only when ONE of the required two exists. */
+function isSoftFailure(f: ValidationFailure): boolean {
+  if (!SOFT_VALIDATION_CODES.has(f.code)) return false
+  if (f.code === "missing_opening_options" || f.code === "missing_closing_options") {
+    return f.detail?.count === 1
+  }
+  return true
+}
+
+export function onlySoftFailures(failures: ValidationFailure[]): boolean {
+  return failures.length > 0 && failures.every(isSoftFailure)
 }
 
 export function validatePrepV2Payload(
@@ -356,7 +405,15 @@ export function validatePrepV2Payload(
     const peakHasEmotional = peakQuestions.some((q) => q.types?.includes("emotional"))
     const peakIntentLen = (peak?.intent ?? "").trim().length
     if (!peak || !peakHasEmotional || peakIntentLen < 25) {
-      failures.push(fail("vague_emotional_hook"))
+      failures.push({
+        ...fail("vague_emotional_hook"),
+        detail: {
+          peak_section_present: Boolean(peak),
+          peak_intent_length: peakIntentLen,
+          peak_question_count: peakQuestions.length,
+          peak_question_types: peakQuestions.map((q) => q.types ?? []),
+        },
+      })
     }
   }
 
@@ -402,8 +459,11 @@ export function validatePrepV2Payload(
   ) {
     failures.push(fail("missing_director_guidance"))
   }
-  if ((p.opening_options ?? []).length < 2) failures.push(fail("missing_opening_options"))
-  if ((p.closing_options ?? []).length < 2) failures.push(fail("missing_closing_options"))
+  // `count` decides soft vs hard: 1 of 2 is an edit; 0 is a broken payload.
+  const openings = (p.opening_options ?? []).length
+  const closings = (p.closing_options ?? []).length
+  if (openings < 2) failures.push({ ...fail("missing_opening_options"), detail: { count: openings } })
+  if (closings < 2) failures.push({ ...fail("missing_closing_options"), detail: { count: closings } })
 
   // ── Sensitive zones for risky topics — fix sprint #2.7 ────────────
   // When the topic falls in a risk-prone domain, sensitive_zones MUST
@@ -425,8 +485,22 @@ export function validatePrepV2Payload(
   // name appears AND it doesn't match the linked guest_candidate's
   // name, flag it. The pipeline's regenerate-or-sanitize step decides
   // what to do with the failure.
-  if (detectUnverifiedGuestReference(p, ctx.linkedGuestName ?? null)) {
-    failures.push(fail("unverified_guest_reference"))
+  const unverified = findUnverifiedGuestReferences(p, {
+    linkedGuestName: ctx.linkedGuestName ?? null,
+    knownText: ctx.knownText ?? null,
+  })
+  if (unverified.length > 0) {
+    failures.push({
+      ...fail("unverified_guest_reference"),
+      detail: {
+        linked_guest_name: ctx.linkedGuestName ?? null,
+        references: unverified.slice(0, 5).map(({ field, name, snippet }) => ({
+          field,
+          name,
+          snippet,
+        })),
+      },
+    })
   }
 
   return { ok: failures.length === 0, failures }
@@ -463,119 +537,355 @@ function fail(code: ValidationCode): ValidationFailure {
   return { code, message: PREP_V2_VALIDATION_RULES[code] }
 }
 
-// ─── Hallucinated-guest detection (fix sprint #1.4) ──────────────────
+
+// ─── Hallucinated-guest detection (fix sprint #1.4, rewritten 2026-09-30) ──
 
 /**
- * Heuristic Arabic person-reference detector. The codebase has no NER,
- * so we look for high-signal patterns:
+ * Heuristic Arabic person-reference detector. The codebase has no NER, so it
+ * looks for high-signal triggers and then asks whether what FOLLOWS the
+ * trigger is shaped like a person's name:
  *
- *   - "ضيفنا X"   / "ضيفي X"        — explicit guest naming
- *   - "السيد X"   / "الدكتور X"     — formal-title naming
- *   - "أ. X" / "أ/ X"               — abbreviated honorific
+ *   - «ضيفنا X» / «ضيفي X» / «ضيفه X»        — explicit guest naming
+ *   - «السيد X» / «الأستاذ X» / «الدكتور X» … — formal-title naming
+ *   - «أ. X» / «د. X» / «أ/ X»               — abbreviated honorific
  *
- * X is captured as 1–4 Arabic words. Stop-words (المميز / الكريم / etc.)
- * are stripped. If at least one detected name does not appear in the
- * linked guest's name, we flag the payload as containing an unverified
- * reference.
+ * Why it was rewritten (incident 2026-09-30, prep c1810682): the old patterns
+ * captured ANY 2–40 Arabic characters after the trigger and treated them as a
+ * name. «ضيفنا يروي كيف…», «ضيفه صاحب التجربة», «الأستاذ في الإدارة» were all
+ * "unverified names"; «المستضيفه» matched because nothing required a word
+ * boundary before «ضيف»; and a shadda in «المنّاع» (U+0651, outside the
+ * captured letter range) cut the capture mid-word so it could never equal the
+ * linked guest's «المناع». Together with a stale-context retry that made the
+ * rule fail a founder story twice and discard the run.
  *
- * False positives are acceptable here — the pipeline reacts by either
- * regenerating the pass or sanitizing the strings to "[الضيف]". Better
- * to over-flag than to ship a hallucinated name into prep.
+ * Now: word boundaries on both sides of the trigger; text and names are
+ * normalised (diacritics, shadda, tatweel, alef/yaa/taa-marbuta forms) before
+ * matching; the capture is read token by token and must LOOK like a name
+ * (not a verb, preposition, pronoun or common noun, first token without the
+ * article unless it is a nisba family name); a name is verified when any of
+ * its tokens is one of the linked guest's name tokens, or when every token
+ * appears in the operator's own title/goal (brands like «مُبخر» / «خليط»).
  */
-const ARABIC_NAME_PATTERNS = [
-  /ضيف(?:نا|ي|ه|نا اليوم)\s+([\u0621-\u064A][\u0621-\u064A\s]{2,40})/g,
-  /(?:السيد|الأستاذ|الدكتور|المهندس|الشيخ)\s+([\u0621-\u064A][\u0621-\u064A\s]{2,40})/g,
-  /(?:أ\.|د\.|أ\/)\s*([\u0621-\u064A][\u0621-\u064A\s]{2,40})/g,
-]
 
-const ARABIC_NAME_STOPWORDS = new Set([
-  "المميز",
-  "الكريم",
-  "العزيز",
-  "الجديد",
-  "الفاضل",
-  "اليوم",
-  "في",
-  "من",
-  "مع",
-  "عن",
-  "إلى",
-  "هو",
-  "هي",
-])
+/** Arabic letters, AFTER normalizeArabic (tatweel and diacritics removed). */
+const L = "\\u0621-\\u064A"
 
-export function detectUnverifiedGuestReference(
-  p: PrepV2Payload,
-  linkedGuestName: string | null,
-): boolean {
-  const linked = (linkedGuestName ?? "").trim()
-  const linkedTokens = linked
-    .split(/\s+/)
-    .map((s) => s.trim())
-    .filter((s) => s.length >= 2)
+const GUEST_TRIGGER = new RegExp(`(?<![${L}])ضيف(?:نا|ي|ه|تنا|تي)(?![${L}])`, "g")
+// Feminine forms fold to «…ه» (ة→ه) in normalizeArabic.
+const TITLE_TRIGGER = new RegExp(
+  `(?<![${L}])(?:السيده?|الاستاذه?|الدكتوره?|المهندسه?|الشيخه?)(?![${L}])`,
+  "g",
+)
+const ABBREV_TRIGGER = new RegExp(`(?<![${L}])(?:ا\\.|د\\.|ا\\/)`, "g")
+const NAME_TRIGGERS = [GUEST_TRIGGER, TITLE_TRIGGER, ABBREV_TRIGGER]
 
-  const candidates: string[] = []
-  for (const opt of p.opening_options ?? []) {
-    if (opt.text) candidates.push(opt.text)
-  }
-  for (const opt of p.closing_options ?? []) {
-    if (opt.text) candidates.push(opt.text)
-  }
-  for (const sec of p.episode_sections ?? []) {
-    if (sec.intent) candidates.push(sec.intent)
-    if (sec.transition_goal) candidates.push(sec.transition_goal)
-  }
-  if (p.host_guidance?.overall_tone) candidates.push(p.host_guidance.overall_tone)
-  if (p.guest_extraction_strategy) candidates.push(p.guest_extraction_strategy)
+/**
+ * Up to 6 letter-tokens right after a trigger, separated by plain spaces only.
+ * One comma straight after the trigger is allowed («ضيفنا، فهد»).
+ */
+const FOLLOWING_TOKENS = new RegExp(
+  `^[ \\t\\u00A0]*[،,]?[ \\t\\u00A0]*([${L}]+(?:[ \\t\\u00A0]+[${L}]+){0,5})`,
+)
 
-  for (const text of candidates) {
-    for (const re of ARABIC_NAME_PATTERNS) {
-      // Reset lastIndex; the regex flag is global.
-      re.lastIndex = 0
-      let m: RegExpExecArray | null
-      while ((m = re.exec(text)) !== null) {
-        const captured = (m[1] ?? "").trim()
-        if (!captured) continue
-        const tokens = captured
-          .split(/\s+/)
-          .filter((t) => t.length >= 2 && !ARABIC_NAME_STOPWORDS.has(t))
-        if (tokens.length === 0) continue
-        // If linkedGuestName has any token in common with the captured
-        // tokens, we treat the reference as verified.
-        if (
-          linkedTokens.length > 0 &&
-          tokens.some((t) => linkedTokens.includes(t))
-        ) {
-          continue
-        }
-        // Otherwise this is an unverified name reference.
-        return true
-      }
-    }
+/**
+ * Remove harakat/shadda/superscript alef/tatweel and fold the letter variants
+ * an LLM (or an operator) writes interchangeably. Returns the folded text plus
+ * a map from each folded index back to the original index, so a span found in
+ * folded text can be replaced in the original without touching anything else.
+ */
+export function normalizeArabic(input: string): { text: string; map: number[] } {
+  let text = ""
+  const map: number[] = []
+  for (let i = 0; i < input.length; i++) {
+    const ch = input[i]
+    const code = ch.charCodeAt(0)
+    if ((code >= 0x064b && code <= 0x065f) || code === 0x0670 || code === 0x0640) continue
+    let out = ch
+    if (ch === "أ" || ch === "إ" || ch === "آ" || ch === "ٱ") out = "ا"
+    else if (ch === "ى") out = "ي"
+    else if (ch === "ة") out = "ه"
+    text += out
+    map.push(i)
   }
+  return { text, map }
+}
+
+function foldToken(t: string): string {
+  return normalizeArabic(t).text.trim()
+}
+
+/** Tokens after the trigger that are decoration, not the name (skipped). */
+const LEADING_FILLERS = new Set(
+  ["اليوم", "الليله", "الكريم", "العزيز", "الفاضل", "المميز", "الجديد", "هنا", "معنا"].map(foldToken),
+)
+
+/**
+ * Frequent non-name words that follow «ضيفنا»/«الأستاذ» in generated copy:
+ * particles, prepositions, pronouns, relative/interrogative words, auxiliary
+ * verbs, and the common nouns a prep uses to describe a guest's role. The
+ * first one ends the name; as the FIRST token it means there is no name.
+ */
+const NAME_STOPWORDS = new Set(
+  [
+    // particles / prepositions / conjunctions
+    "في", "من", "مع", "عن", "الى", "إلى", "على", "علي", "حول", "بين", "عند", "لدى", "منذ", "حتى",
+    "خلال", "بعد", "قبل", "دون", "وراء", "ضد", "نحو", "او", "ثم", "لكن", "بل", "و", "ف",
+    "لا", "لم", "لن", "قد", "ما", "ان", "إن", "أن", "كي", "لكي", "اذا", "لو", "حين", "عندما", "بينما",
+    "كما", "مثل", "ليس", "ليست", "هل", "كيف", "لماذا", "ماذا", "متى", "اين", "من", "اي", "كل", "بعض",
+    "نفسه", "نفسها", "ذاته", "وحده", "ايضا", "فقط", "جدا", "الان", "هنا", "هناك",
+    // pronouns / demonstratives / relatives
+    "هو", "هي", "هم", "انت", "انا", "نحن", "هذا", "هذه", "ذلك", "تلك", "الذي", "التي", "الذين",
+    "وهو", "وهي", "فهو",
+    // auxiliaries and common verbs a prep writes after the guest
+    "كان", "كانت", "اصبح", "صار", "بات", "ظل", "عاش", "بدا", "بدأ", "قال", "روى", "حكى", "باع",
+    "بنى", "اسس", "قرر", "عاد", "جاء", "مر", "خاض", "دخل", "خرج", "ترك", "وجد", "فقد", "صنع",
+    "تحدث", "تكلم", "تعلم", "واجه", "عرف", "يعرف", "ليس",
+    // role nouns / descriptors
+    "صاحب", "صاحبه", "مؤسس", "رائد", "رجل", "امراه", "شاب", "شخص", "انسان", "رجل", "الرجل",
+    "رئيس", "مدير", "خبير", "استاذ", "دكتور", "طالب", "معلم", "كاتب", "مؤلف", "ضيف", "زميل",
+    "صديق", "ابن", "اخ", "اخت", "والد", "والده", "عائله", "تجربه", "قصه", "رحله",
+    "حكايه", "فكره", "مشروع", "شركه", "سوق", "عالم", "مجال", "قطاع", "اداره", "جامعه", "كليه",
+    "الذي", "واحد", "احد", "اول", "اخر", "ثاني", "كبير", "صغير", "جديد", "قديم",
+  ].map(foldToken),
+)
+
+/** Kunya heads: «أبو بكر», «أم خالد», «بو نواف» — a name only with a name after. */
+const KUNYA_HEADS = new Set(["ابو", "ام", "بو"])
+
+/**
+ * Article-words that describe the titled person rather than name him
+ * («الأستاذ المساعد», «المهندس المعماري»). After a TITLE, any other «ال…»
+ * word is read as a family name («الشيخ الصباح», «الدكتور الغانم»).
+ */
+const TITLE_DESCRIPTORS = new Set(
+  [
+    "المساعد", "المشارك", "المعالج", "المعماري", "المدني", "الجامعي", "الكبير", "الجليل",
+    "المؤسس", "الزائر", "الضيف", "الكريم", "الفاضل", "العزيز", "المميز", "الجديد", "القدير",
+    "المتخصص", "المختص", "المسؤول", "المحاضر", "الباحث", "الخبير", "الراحل", "السابق",
+  ].map(foldToken),
+)
+
+/** «ال…ي» words that are adjectives, not nisba family names. */
+const NISBA_ADJECTIVES = new Set(
+  [
+    "الحقيقي", "الاساسي", "الرئيسي", "الكويتي", "الخليجي", "العربي", "السعودي", "الاجتماعي",
+    "الشخصي", "الحالي", "الثاني", "التالي", "الماضي", "الذهبي", "الاستثنائي", "الملهمي",
+    "النفسي", "المهني", "العملي", "الذي", "التي", "الوحيدي", "الذاتي",
+  ].map(foldToken),
+)
+
+/** Given names starting with «ي» — so the imperfect-verb heuristic spares them. */
+const YAA_NAMES = new Set(
+  ["يوسف", "يعقوب", "يزيد", "يحيى", "ياسر", "ياسين", "يونس", "يعرب", "يمان", "يسرى", "يارا", "ياسمين", "يسار", "يامن", "يوسفي"].map(
+    foldToken,
+  ),
+)
+
+/** Names starting with «ت» — spared by the feminine-verb check after a first name. */
+const TAA_NAMES = new Set(
+  ["تركي", "تامر", "تميم", "توفيق", "تهاني", "تغريد", "تماضر", "توفيقه", "تيسير"].map(foldToken),
+)
+
+function looksLikeVerb(tok: string): boolean {
+  // Imperfect verbs: يروي، يحكي، يتحدث، يشارك … ; future: سيحكي، ستروي …
+  if (tok.startsWith("ي") && tok.length >= 4 && !YAA_NAMES.has(tok)) return true
+  if (/^س[يتن]/.test(tok) && tok.length >= 5) return true
   return false
 }
 
+function isNameToken(tok: string, first: boolean, afterTitle = false): boolean {
+  if (tok.length < 2) return false
+  if (NAME_STOPWORDS.has(tok) || LEADING_FILLERS.has(tok)) return false
+  if (KUNYA_HEADS.has(tok)) return false // alone («أم لا») it is not a name
+  if (looksLikeVerb(tok)) return false
+  // After a name has started, «تحكي/تروي/تشرح» is the feminine verb, not a
+  // second name — except the few ت-names a guest may carry.
+  if (!first && tok.startsWith("ت") && tok.length >= 4 && !TAA_NAMES.has(tok)) return false
+  if (first && tok.startsWith("ال")) {
+    if (afterTitle) return !TITLE_DESCRIPTORS.has(tok) && !NISBA_ADJECTIVES.has(tok)
+    // A bare family name after a title («الدكتور العتيبي») is a nisba ending
+    // in «ي» (minus NISBA_ADJECTIVES); any other article-word («المؤسس»،
+    // «الكريم») is a description, not a name.
+    return tok.endsWith("ي") && !NISBA_ADJECTIVES.has(tok)
+  }
+  return true
+}
+
+export interface GuestReferenceContext {
+  linkedGuestName?: string | null
+  /**
+   * Operator-authored text (episode title + goal). A name every token of which
+   * appears here came from the operator, not the model — brands like «مُبخر»,
+   * «خليط», «فلاورد» included.
+   */
+  knownText?: string | null
+}
+
+export interface GuestReferenceFinding {
+  /** Which payload field it was found in, e.g. `opening_options[0].text`. */
+  field: string
+  /** The name as written in the original text. */
+  name: string
+  /** Trigger + name as written, for the operator/dev to read. */
+  snippet: string
+  /** Original-text span of the NAME (end exclusive) — what sanitize replaces. */
+  start: number
+  end: number
+}
+
+function tokenSet(text: string | null | undefined): Set<string> {
+  const out = new Set<string>()
+  const toks = normalizeArabic(text ?? "")
+    .text.split(new RegExp(`[^${L}]+`))
+    .filter((t) => t.length >= 2)
+  for (let i = 0; i < toks.length; i++) {
+    out.add(toks[i])
+    // «عبد الله» written apart in one place and joined in the other.
+    if (i + 1 < toks.length) out.add(toks[i] + toks[i + 1])
+  }
+  return out
+}
+
+/** Every trigger+name in one string whose name is not verified. */
+function findInText(
+  field: string,
+  original: string,
+  linked: Set<string>,
+  known: Set<string>,
+): GuestReferenceFinding[] {
+  const { text, map } = normalizeArabic(original)
+  const found: GuestReferenceFinding[] = []
+  for (const re of NAME_TRIGGERS) {
+    re.lastIndex = 0
+    let m: RegExpExecArray | null
+    while ((m = re.exec(text)) !== null) {
+      const triggerStart = m.index
+      const after = m.index + m[0].length
+      const follow = FOLLOWING_TOKENS.exec(text.slice(after))
+      if (!follow) continue
+      // Token offsets inside the folded text.
+      const tokens: { t: string; s: number; e: number }[] = []
+      const tokRe = new RegExp(`[${L}]+`, "g")
+      const base = after + follow[0].length - follow[1].length
+      let tm: RegExpExecArray | null
+      while ((tm = tokRe.exec(follow[1])) !== null) {
+        tokens.push({ t: tm[0], s: base + tm.index, e: base + tm.index + tm[0].length })
+      }
+      let k = 0
+      while (k < tokens.length && LEADING_FILLERS.has(tokens[k].t)) k++
+      if (k >= tokens.length) continue
+      const afterTitle = re !== GUEST_TRIGGER
+      const name: typeof tokens = []
+      if (
+        KUNYA_HEADS.has(tokens[k].t) &&
+        k + 1 < tokens.length &&
+        isNameToken(tokens[k + 1].t, false)
+      ) {
+        name.push(tokens[k]) // «أبو» / «أم» + the name that follows
+        k++
+      } else if (!isNameToken(tokens[k].t, true, afterTitle)) {
+        continue
+      }
+      name.push(tokens[k])
+      const cap = KUNYA_HEADS.has(name[0].t) ? 4 : 3
+      for (let j = k + 1; j < tokens.length && name.length < cap; j++) {
+        // The article-word is the family name — the name ends there
+        // («الشيخ الصباح دعم…», «سارة العلي تروي…»).
+        if (name[name.length - 1].t.startsWith("ال")) break
+        if (!isNameToken(tokens[j].t, false)) break
+        name.push(tokens[j])
+      }
+      const nameToks = name.map((x) => x.t)
+      const pairs = nameToks.slice(0, -1).map((t, i) => t + nameToks[i + 1])
+      // «وخليط»: a conjunction proclitic glued to a known word.
+      const inSet = (set: Set<string>, t: string) =>
+        set.has(t) || (/^[وف]/.test(t) && set.has(t.slice(1)))
+      const verified =
+        [...nameToks, ...pairs].some((t) => inSet(linked, t)) ||
+        nameToks.every((t) => inSet(linked, t) || inSet(known, t))
+      if (verified) continue
+      const start = map[name[0].s]
+      const end = map[name[name.length - 1].e - 1] + 1
+      found.push({
+        field,
+        name: original.slice(start, end),
+        snippet: original.slice(map[triggerStart], end),
+        start,
+        end,
+      })
+    }
+  }
+  return found
+}
+
+/** The operator-visible copy the detector scans, with a field label each. */
+function scannedFields(p: PrepV2Payload): { field: string; text: string }[] {
+  const out: { field: string; text: string }[] = []
+  ;(p.opening_options ?? []).forEach((o, i) => {
+    if (o?.text) out.push({ field: `opening_options[${i}].text`, text: o.text })
+  })
+  ;(p.closing_options ?? []).forEach((o, i) => {
+    if (o?.text) out.push({ field: `closing_options[${i}].text`, text: o.text })
+  })
+  ;(p.episode_sections ?? []).forEach((s) => {
+    if (s?.intent) out.push({ field: `episode_sections.${s.kind}.intent`, text: s.intent })
+    if (s?.transition_goal) {
+      out.push({ field: `episode_sections.${s.kind}.transition_goal`, text: s.transition_goal })
+    }
+  })
+  if (p.host_guidance?.overall_tone) {
+    out.push({ field: "host_guidance.overall_tone", text: p.host_guidance.overall_tone })
+  }
+  if (p.guest_extraction_strategy) {
+    out.push({ field: "guest_extraction_strategy", text: p.guest_extraction_strategy })
+  }
+  return out
+}
+
+export function findUnverifiedGuestReferences(
+  p: PrepV2Payload,
+  ctx: GuestReferenceContext = {},
+): GuestReferenceFinding[] {
+  const linked = tokenSet(ctx.linkedGuestName)
+  const known = tokenSet(ctx.knownText)
+  return scannedFields(p).flatMap(({ field, text }) => findInText(field, text, linked, known))
+}
+
+/** Boolean form kept for existing callers (smoke script). */
+export function detectUnverifiedGuestReference(
+  p: PrepV2Payload,
+  linkedGuestName: string | null,
+  knownText: string | null = null,
+): boolean {
+  return findUnverifiedGuestReferences(p, { linkedGuestName, knownText }).length > 0
+}
+
 /**
- * Sanitize unverified guest references in-place — used by the
- * pipeline when it decides to ship a payload despite an unverified
- * reference (e.g. to avoid blocking a full regeneration on quota
- * pressure). Replaces detected names with "[الضيف]" so the host sees a
- * neutral placeholder instead of a phantom name.
+ * Replace every UNVERIFIED name with «[الضيف]» — only the name tokens; the
+ * trigger and the rest of the sentence stay. Verified references (the linked
+ * guest, operator-named brands) are left alone: the old sanitizer replaced
+ * every trigger match, including the real guest's name and up to 40
+ * characters of the sentence after it.
  */
-export function sanitizeGuestReferences(p: PrepV2Payload): {
-  payload: PrepV2Payload
-  replacements: number
-} {
+export function sanitizeGuestReferences(
+  p: PrepV2Payload,
+  ctx: GuestReferenceContext = {},
+): { payload: PrepV2Payload; replacements: number } {
+  const linked = tokenSet(ctx.linkedGuestName)
+  const known = tokenSet(ctx.knownText)
   let replacements = 0
   const replace = (s: string): string => {
+    if (!s) return s
+    const spans = findInText("", s, linked, known)
+      .map((f) => [f.start, f.end] as const)
+      .sort((a, b) => b[0] - a[0])
     let out = s
-    for (const re of ARABIC_NAME_PATTERNS) {
-      re.lastIndex = 0
-      out = out.replace(re, (_full, _name) => {
-        replacements++
-        return "[الضيف]"
-      })
+    let lastStart = Infinity
+    for (const [a, b] of spans) {
+      if (b > lastStart) continue // overlapping trigger matches
+      out = out.slice(0, a) + "[الضيف]" + out.slice(b)
+      lastStart = a
+      replacements++
     }
     return out
   }

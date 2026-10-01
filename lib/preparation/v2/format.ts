@@ -189,6 +189,14 @@ export function courseSafeTypes<T extends string>(types: readonly T[]): T[] {
 export const COURSE_PROMPT_VERSION = "prep_v2.course.v1"
 
 /**
+ * ai_runs prompt_version for the STORY passes 3–4. Absent before 2026-09-30
+ * (null in ai_runs). v2: the emotional_peak rule names what «emotional» means
+ * for a business/success story, the critic must keep ≥2 `emotional` questions
+ * at the peak, and the critic finally SEES the peak (storyDraftBlock).
+ */
+export const STORY_PROMPT_VERSION = "prep_v2.story.v2"
+
+/**
  * Passes 1–2 (research synthesis, structure) open with «دستور خط» (compact)
  * since 2026-09-28, so they carry their own versions — the question-bank and
  * critique prompts did not change and keep theirs.

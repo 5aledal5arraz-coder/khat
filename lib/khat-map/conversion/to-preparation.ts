@@ -48,7 +48,7 @@ import type { ConversionResult } from "./types"
 // only `preparation/v2/types` — no DB, no cycle), and a dynamic import inside
 // the catch block could itself throw and abort a conversion that is required
 // to survive any prep_v2 failure.
-import { prepV2WarningAr } from "@/lib/preparation/v2/validation"
+import { prepV2SoftWarningAr, prepV2WarningAr } from "@/lib/preparation/v2/validation"
 import { enqueuePrepV2Generation } from "@/lib/preparation/v2/enqueue"
 import { findInFlightJobByDedupeKey } from "@/lib/jobs/queue"
 import { prepV2DedupeKey, type PrepV2JobTrigger } from "@/lib/jobs/prep-jobs"
@@ -293,6 +293,8 @@ export async function convertEpisodeToPreparation(
             reason: r.reason,
             failures: r.validation.failures,
           })
+        } else if (r.soft_accepted) {
+          prepV2Warning = prepV2SoftWarningAr(r.validation.failures)
         }
       } catch (err) {
         prepV2Warning = prepV2WarningAr({ kind: "threw", error: err })
