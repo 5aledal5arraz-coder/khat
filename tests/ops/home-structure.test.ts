@@ -91,6 +91,7 @@ describe("the page renders its sections in the agreed order", () => {
     ["الأيام الجاية", "<AgendaSection"],
     ["نبض التشغيل", "نبض التشغيل"],
     ["خط إنتاج الحلقات", "data-pipeline-funnel"],
+    ["زوار الموقع", "<VisitorsSection"],
   ]
 
   it("places every section, once, in order", () => {

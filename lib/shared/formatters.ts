@@ -83,6 +83,10 @@ const ARABIC_PLURALS: Record<string, [string, string, string]> = {
   // plural («عمليات استرجاع» is an iḍāfa, so the second term never inflects).
   "عملية": ["عملية", "عمليتان", "عمليات"],
   "عملية استرجاع": ["عملية استرجاع", "عمليتا استرجاع", "عمليات استرجاع"],
+  // The visitor counter card (app/admin/ops/_components/visitors-section.tsx).
+  "زائر": ["زائر", "زائران", "زوار"],
+  "مشاهدة": ["مشاهدة", "مشاهدتان", "مشاهدات"],
+  "زيارة": ["زيارة", "زيارتان", "زيارات"],
 }
 
 /**

@@ -18,6 +18,8 @@
  *   6. نبض التشغيل    — THREE machine indicators. Deliberately down here: it is
  *      the least actionable block on the page («حلقات منشورة ٤١» asks nothing).
  *   7. خط إنتاج الحلقات — the five-stage funnel, each stage a filtered link.
+ *   8. زوار الموقع    — the visitor counter (lib/analytics/). Context, not a
+ *      decision, so it is last.
  *
  * The «ابدأ من هنا» launchpad was DELETED: six tiles with no state and no
  * count, each a verbatim duplicate of an always-visible sidebar item, costing
@@ -112,6 +114,8 @@ import { HomeAttention } from "./_components/home-attention"
 import { AgendaSection } from "./_components/agenda-section"
 import { InboxSection } from "./_components/inbox-section"
 import { NoAccess } from "./_components/no-access"
+import { VisitorsSection } from "./_components/visitors-section"
+import { getVisitorStats } from "@/lib/analytics/stats"
 
 export const dynamic = "force-dynamic"
 
@@ -403,7 +407,7 @@ export default async function OpsDashboardPage() {
   // only episodes not materialized in the DB), so this number is larger
   // than the analytics dashboard's «إجمالي الحلقات (قاعدة الموقع)», which
   // counts the episodes table alone. Both cards state their source.
-  const [snap, publishedEpisodes, recentEirs, staleEirs, inboxCounts, agendaRows] =
+  const [snap, publishedEpisodes, recentEirs, staleEirs, inboxCounts, agendaRows, visitorStats] =
     await Promise.all([
       // Exactly the five sections this page reads. `systemEvents` and
       // `recentActivity` render only on /admin/ops/details, and the
@@ -421,6 +425,8 @@ export default async function OpsDashboardPage() {
       // Every dated commitment in ONE statement (lib/ops/agenda.ts). Same
       // contract: errors become `null`, never a blank or a false "nothing due".
       getAgendaRows(),
+      // «زوار الموقع» in ONE statement (lib/analytics/stats.ts); errors → null.
+      getVisitorStats(),
     ])
 
   const queue = snap.queue.ok ? snap.queue.data : null
@@ -760,6 +766,10 @@ export default async function OpsDashboardPage() {
           </div>
         )}
       </div>
+
+      {/* زوار الموقع — the visitor counter. Last: it is context, not a queue
+          or a decision, so it ranks below everything the operator acts on. */}
+      <VisitorsSection stats={visitorStats} />
     </div>
   )
 }

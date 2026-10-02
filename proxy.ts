@@ -178,13 +178,18 @@ export async function proxy(request: NextRequest) {
     }
   }
 
-  // Set anonymous visitor ID cookie for personalization
-  if (!request.cookies.get('khat_vid')) {
-    response.cookies.set('khat_vid', crypto.randomUUID(), {
+  // `khat_vid` RETIRED (2026-10-02). It was a 1-year anonymous id set on
+  // every visitor "for personalization", and nothing read it any more — the
+  // personalization/events routes that did were deleted. The visitor counter
+  // (lib/analytics/) is cookieless by design. Transition: a browser that still
+  // carries the old cookie is told to drop it; one that doesn't gets no
+  // Set-Cookie at all, so no response grows a header for nothing.
+  if (request.cookies.get('khat_vid')) {
+    response.cookies.set('khat_vid', '', {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'lax',
-      maxAge: 60 * 60 * 24 * 365,
+      maxAge: 0,
       path: '/',
     })
   }

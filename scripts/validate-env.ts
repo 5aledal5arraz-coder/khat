@@ -93,6 +93,17 @@ const SPECS: EnvSpec[] = [
     minLength: 20,
   },
   {
+    // The visitor counter's daily-salt key (lib/analytics/visitor.ts). Without
+    // it /api/track answers 204 and records NOTHING — a silent no-op, which is
+    // exactly why it is checked here: strict mode (every prebuild) fails.
+    // Dedicated on purpose — never reuse another secret. `openssl rand -hex 32`.
+    name: "ANALYTICS_SALT_SECRET",
+    severity: "recommended",
+    description: "Visitor-counter salt key (/api/track); unset = no visits counted",
+    minLength: 32,
+    rejectValues: ["a_long_random_string", "changeme"],
+  },
+  {
     name: "YOUTUBE_API_KEY",
     severity: "recommended",
     description: "YouTube Data API key (read-only)",

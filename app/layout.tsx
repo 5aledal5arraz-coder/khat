@@ -5,6 +5,7 @@ import { Header } from "@/components/layout/header"
 import { Footer } from "@/components/layout/footer"
 import { MobileNav } from "@/components/layout/mobile-nav"
 import { ViewportFix } from "@/components/layout/viewport-fix"
+import { VisitBeacon } from "@/components/layout/visit-beacon"
 import { Toaster } from "@/components/ui/toaster"
 import { ScrollToTop } from "@/components/ui/scroll-to-top"
 import { fetchAllEpisodes } from "@/lib/youtube/queries"
@@ -224,6 +225,9 @@ export default async function RootLayout({
             <MobileNav hasNewEpisode={hasNewEpisode} />
             <ScrollToTop />
             <Toaster />
+            {/* The visitor counter — public chrome ONLY, never the bare
+                (admin / prep / maintenance) branch above. */}
+            <VisitBeacon />
           </div>
         )}
       </body>

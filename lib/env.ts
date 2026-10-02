@@ -87,6 +87,9 @@ export const env = {
   // ─── Secrets ─────────────────────────────────────────────────────────────
   // (NEXT_PUBLIC_* stay inline — Next build-inlines them into client bundles.)
   get NEWSLETTER_TRACKING_SECRET() { return process.env.NEWSLETTER_TRACKING_SECRET },
+  /** Visitor counter daily-salt key (lib/analytics/visitor.ts). Dedicated, no
+   *  fallback: unset → the counter records nothing. */
+  get ANALYTICS_SALT_SECRET() { return process.env.ANALYTICS_SALT_SECRET },
   get OWNER_EMAIL() { return process.env.OWNER_EMAIL },
   get OWNER_PASSWORD() { return process.env.OWNER_PASSWORD },
 }

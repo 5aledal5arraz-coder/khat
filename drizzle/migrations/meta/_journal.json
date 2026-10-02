@@ -246,6 +246,13 @@
       "when": 1790612314996,
       "tag": "0034_odd_master_chief",
       "breakpoints": true
+    },
+    {
+      "idx": 35,
+      "version": "7",
+      "when": 1790961757452,
+      "tag": "0035_acoustic_machine_man",
+      "breakpoints": true
     }
   ]
 }

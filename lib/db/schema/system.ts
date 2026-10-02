@@ -1,4 +1,4 @@
-import { pgTable, text, integer, timestamp, uuid, jsonb, unique } from "drizzle-orm/pg-core"
+import { pgTable, text, integer, timestamp, uuid, jsonb, unique, index } from "drizzle-orm/pg-core"
 
 export const newsletterSubscribers = pgTable("newsletter_subscribers", {
   id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
@@ -74,7 +74,13 @@ export const analyticsEvents = pgTable("analytics_events", {
   referrer: text("referrer"),
   user_agent: text("user_agent"),
   created_at: timestamp("created_at", { withTimezone: true }).defaultNow(),
-})
+}, (t) => [
+  // The visitor counter (lib/analytics/) reads this table only by time window:
+  // «today / 7d / 30d» and the 30-day daily series. Without these the admin
+  // home seq-scans a table that grows by every public page view.
+  index("idx_analytics_events_created_at").on(t.created_at),
+  index("idx_analytics_events_type_created_at").on(t.event_type, t.created_at),
+])
 
 export const personalizationProfiles = pgTable("personalization_profiles", {
   id: uuid("id").primaryKey().defaultRandom(),
