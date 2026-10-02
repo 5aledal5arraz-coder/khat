@@ -33,7 +33,7 @@ import { runResearchSynthesis, type Pass1Input } from "./research"
 import { runStructureBuild } from "./structure"
 import { runQuestionBankGeneration } from "./question-banks"
 import { runCritiquePass } from "./critique"
-import { runInsightGeneration } from "./insights"
+import { runInsightGeneration, insightOutcome } from "./insights"
 import { carryOverAuthoredQuestions } from "./question-edit"
 import {
   onlySoftFailures,
@@ -459,13 +459,16 @@ export async function runPrepV2Pipeline(
         // previously a console line on a worker nobody tails — the DB held no
         // record that the pass had run at all, so a prep with zero cards was
         // indistinguishable from a prep whose cards were never attempted.
-        insight_stats: { ...p5.stats, outcome: p5.ok ? "ok" : "skipped" },
+        insight_stats: { ...p5.stats, outcome: insightOutcome(p5) },
       }
       if (p5.ok) {
         console.info(
           `[prep-v2/insights] prep ${input.preparationId}: ` +
             `${p5.stats.kept}/${p5.stats.drafted} insights kept` +
-            (p5.stats.capped ? " (grounding budget hit)" : ""),
+            (p5.stats.capped ? " (grounding budget hit)" : "") +
+            (p5.stats.grounding_failed > 0
+              ? `, ${p5.stats.grounding_failed}/${p5.stats.grounded} grounding call(s) errored`
+              : ""),
         )
       }
     } catch (err) {
@@ -478,6 +481,7 @@ export async function runPrepV2Pipeline(
           kept: 0,
           grounded: 0,
           capped: false,
+          grounding_failed: 0,
           outcome: "error",
         },
       }

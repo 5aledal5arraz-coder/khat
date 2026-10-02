@@ -149,7 +149,9 @@ const insightStatsSchema = z.object({
   kept: z.number(),
   grounded: z.number(),
   capped: z.boolean(),
-  outcome: z.enum(["ok", "skipped", "error"]),
+  // Optional: payloads written before 2026-10-02 lack it.
+  grounding_failed: z.number().optional(),
+  outcome: z.enum(["ok", "skipped", "error", "degraded"]),
 })
 
 export const prepV2Schema = z

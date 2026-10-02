@@ -7,6 +7,8 @@
 
 import "./handlers/demo"
 import "./handlers/youtube-performance"
+// Weekly YouTube audience snapshot refresh (last 28 days, OAuth Analytics API).
+import "./handlers/youtube-audience"
 // v1 discovery engine retired — v2 (./handlers/discovery-v2) is the only engine.
 import "./handlers/discovery-v2"
 import "./handlers/market-intelligence"

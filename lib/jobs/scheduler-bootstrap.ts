@@ -149,6 +149,40 @@ export async function ensurePartnerTaskReminderSchedule(): Promise<{
   return { status: "bootstrapped", jobId: job.id }
 }
 
+// ─── YouTube audience snapshots — weekly last-28-days refresh ─────────
+
+/**
+ * Guarantee a pending `youtube.audience_refresh` tick. The handler
+ * self-re-enqueues weekly (lib/jobs/handlers/youtube-audience.ts); this only
+ * seeds the first tick. Idempotent. Seeded 15 min out so a restarting worker
+ * never measures on boot.
+ */
+export async function ensureYoutubeAudienceSchedule(): Promise<{
+  status: "already_scheduled" | "bootstrapped"
+  jobId: string | null
+}> {
+  if (!db) return { status: "already_scheduled", jobId: null }
+  const existing = await db.execute(sql`
+    SELECT id FROM jobs
+    WHERE type = 'youtube.audience_refresh'
+      AND status IN ('pending', 'running')
+    LIMIT 1
+  `)
+  if (existing.rows.length > 0) {
+    return {
+      status: "already_scheduled",
+      jobId: String((existing.rows[0] as { id: string }).id),
+    }
+  }
+  const runAfter = new Date(Date.now() + 15 * 60 * 1000)
+  const job = await enqueueJob(
+    "youtube.audience_refresh",
+    {},
+    { priority: 1, maxAttempts: 1, runAfter },
+  )
+  return { status: "bootstrapped", jobId: job.id }
+}
+
 // ─── Market — performance → source-trust feedback sweep ──────────────
 
 /**

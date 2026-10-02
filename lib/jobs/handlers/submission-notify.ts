@@ -30,7 +30,10 @@ import {
   sendCommunityContributionConfirm,
   sendGuestPrepConfirm,
   sendNewsletterWelcome,
+  sendContactMessageAdmin,
 } from "@/lib/email/send"
+import { getContactMessage, setContactEmailStatus } from "@/lib/contact/messages"
+import { getSiteSettings, resolveContactEmail } from "@/lib/site-settings"
 import { adminNotifyRecipients, NO_RECIPIENTS_ERROR } from "@/lib/email/recipients"
 import { SUBMISSION_NOTIFY_JOB, type SubmissionNotifyPayload } from "../submission-notify-jobs"
 import { registerHandler } from "../registry"
@@ -101,6 +104,28 @@ registerHandler<SubmissionNotifyPayload, SubmissionNotifyResult>(
       )
     } else if (payload.kind === "guest_prep_confirm") {
       await sendGuestPrepConfirm(payload.email, payload.name, `prep-confirm-${ref}`)
+    } else if (payload.kind === "contact_message") {
+      // To the address the site publishes (Settings → contactEmail, default
+      // hello@khatpodcast.com), not ADMIN_NOTIFY_EMAIL: the visitor wrote to
+      // «تواصل معنا», and that is where the site says such mail goes.
+      const msg = await getContactMessage(ref)
+      if (!msg) throw new Error(`${SUBMISSION_NOTIFY_JOB}: contact message ${ref} not found`)
+      const to = resolveContactEmail(await getSiteSettings().catch(() => null))
+      try {
+        await sendContactMessageAdmin(
+          to,
+          { name: msg.name, email: msg.email, message: msg.message },
+          `contact-admin-${ref}`,
+        )
+      } catch (e) {
+        // Recorded on the row so the inbox shows it; rethrown so the queue
+        // retries (a later success flips it to sent).
+        await setContactEmailStatus(ref, "failed", e instanceof Error ? e.message : String(e)).catch(
+          () => {},
+        )
+        throw e
+      }
+      await setContactEmailStatus(ref, "sent")
     } else if (payload.kind === "newsletter_welcome") {
       await sendNewsletterWelcome(
         payload.email,

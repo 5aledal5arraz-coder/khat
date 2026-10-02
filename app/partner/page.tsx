@@ -28,7 +28,7 @@ import { KhatDiamond } from "@/components/brand/khat-icon"
 import { getActivePartners } from "@/lib/queries/partnerships"
 import { fetchAllEpisodes, fetchChannelInfo } from "@/lib/youtube/queries"
 import { audienceFacts, audienceMetrics, buildDemographics } from "@/lib/partnerships/audience"
-import { latestSnapshot, type AgeShare, type CountryShare } from "@/lib/youtube/analytics"
+import { latestPreferredSnapshot, type AgeShare, type CountryShare } from "@/lib/youtube/analytics"
 import { getCachedPublicEpisodes } from "@/lib/cache"
 import { filterLane } from "@/lib/episodes/programs"
 import type { Episode } from "@/types/database"
@@ -368,8 +368,8 @@ export default async function PartnerPage() {
      true. Measured in /admin/youtube-analytics; `.catch` so a missing table or
      an unconnected grant renders nothing instead of taking out the page. */
   const [countrySnap, ageSnap] = await Promise.all([
-    latestSnapshot<CountryShare>("countries").catch(() => null),
-    latestSnapshot<AgeShare>("age_gender").catch(() => null),
+    latestPreferredSnapshot<CountryShare>("countries").catch(() => null),
+    latestPreferredSnapshot<AgeShare>("age_gender").catch(() => null),
   ])
   const demographics = buildDemographics(
     countrySnap && {

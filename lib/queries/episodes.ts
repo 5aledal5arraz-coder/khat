@@ -21,10 +21,7 @@ import type {
   GuestWithRelations,
 } from "@/types/database"
 import { getCachedEpisodes, peekCachedEpisodes } from "@/lib/cache/episode-cache"
-import {
-  fetchEpisodeBySlug as ytFetchBySlug,
-  fetchMostViewedRecent as ytFetchMostViewed,
-} from "@/lib/youtube/queries"
+import { fetchMostViewedRecent as ytFetchMostViewed } from "@/lib/youtube/queries"
 import { getEpisodeOverrides, applyOverrides } from "@/lib/episodes/overrides"
 import { searchEpisodes, searchGuests } from "@/lib/search"
 import { getPublishedQuotes } from "@/lib/episodes/quotes"
@@ -398,9 +395,19 @@ async function resolveAllEpisodes(): Promise<Episode[]> {
  */
 async function resolveEpisodeBySlug(slug: string): Promise<EpisodeWithRelations | null> {
   // Source 1: YouTube + DB merge + enrichment
+  //
+  // The YouTube row comes from the SAME persisted snapshot the list reads
+  // (`getCachedEpisodes` via `resolveAllEpisodes`) — not a live channel fetch.
+  // It used to call `fetchEpisodeBySlug`, which re-downloads the whole channel
+  // with no fallback: when that live call failed, a YouTube-only clip/teaser
+  // the list (and therefore the sitemap and /episodes) still showed from the
+  // snapshot fell through to the DB, which has no row for it, and answered
+  // 404. One source, one answer (tests/sitemap-episodes-resolve.test.ts).
   if (USE_YOUTUBE) {
     try {
-      let episode = await ytFetchBySlug(slug)
+      const snapshot = await getCachedEpisodes()
+      let episode: Episode | null =
+        snapshot.find((ep) => ep.slug === slug || ep.id === slug) ?? null
       if (episode) {
         const dbEp = await fetchDbEpisodeById(episode.id)
         episode = mergeEpisode(episode, dbEp)
@@ -564,7 +571,9 @@ async function applyListPipeline(
     getEpisodeOverrides(),
     options?.includeHidden ? Promise.resolve(new Set<string>()) : getHiddenEpisodeIds(),
     // Tombstoned episodes are ALWAYS excluded, regardless of includeHidden.
-    getDeletedEpisodeIds(),
+    // `null` = unreadable (getDeletedEpisodeIds throws with no last-known set)
+    // → fail closed below, same as the hidden set.
+    getDeletedEpisodeIds().catch(() => null),
     // ONE query, shared by the category filter below AND the category object
     // attached to every episode at the end of this function.
     needsCategories
@@ -576,9 +585,9 @@ async function applyListPipeline(
   // cannot safely publish any of them. An empty list during a DB blip is
   // visible but self-healing; leaking a deliberately-hidden episode is not
   // recoverable once caches and scrapers have picked it up.
-  if (hiddenIds === null) {
+  if (hiddenIds === null || deletedIds === null) {
     console.error(
-      "[episodes] Suppressing the entire episode list — the hidden set is unavailable.",
+      `[episodes] Suppressing the entire episode list — the ${hiddenIds === null ? "hidden" : "tombstone"} set is unavailable.`,
     )
     return []
   }
@@ -857,14 +866,14 @@ export async function getEpisodeBySlug(
 ): Promise<EpisodeWithRelations | null> {
   const [hiddenIds, deletedIds] = await Promise.all([
     getHiddenEpisodeIds(),
-    getDeletedEpisodeIds(),
+    getDeletedEpisodeIds().catch(() => null),
   ])
   // Fail CLOSED — see getHiddenEpisodeIds(). Blocking one slug is a cheap,
   // bounded cost; serving a hidden episode to whoever knows its direct URL is
   // exactly the exposure the hidden list exists to prevent.
-  if (hiddenIds === null) {
+  if (hiddenIds === null || deletedIds === null) {
     console.error(
-      `[episodes] Blocked slug "${slug}" — the hidden set is unavailable.`,
+      `[episodes] Blocked slug "${slug}" — the ${hiddenIds === null ? "hidden" : "tombstone"} set is unavailable.`,
     )
     return null
   }

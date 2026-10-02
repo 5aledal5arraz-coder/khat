@@ -73,9 +73,20 @@ export interface NewsletterWelcomePayload extends Record<string, unknown> {
   unsubscribeUrl: string
 }
 
+/**
+ * A /contact message. Only the id travels: the handler reads the stored row
+ * (the message is the source of truth) and records the send outcome on it.
+ */
+export interface ContactMessagePayload extends Record<string, unknown> {
+  kind: "contact_message"
+  /** The `contact_messages.id` — also the idempotency seed. */
+  reference: string
+}
+
 export type SubmissionNotifyPayload =
   | GuestSubmissionPayload
   | SponsorSubmissionPayload
   | CommunityContributionPayload
   | GuestPrepConfirmPayload
   | NewsletterWelcomePayload
+  | ContactMessagePayload

@@ -3,13 +3,7 @@
 import { revalidatePath } from "next/cache"
 
 import { getAdminAuthUser } from "@/lib/api-utils"
-import {
-  fetchAgeBands,
-  fetchCountries,
-  saveSnapshot,
-  windowOfDays,
-  windowSinceFirstEpisode,
-} from "@/lib/youtube/analytics"
+import { measureAudience, windowOfDays, windowSinceFirstEpisode } from "@/lib/youtube/analytics"
 import { clearAccessTokenCache, deleteGrant } from "@/lib/youtube/oauth"
 
 /**
@@ -51,14 +45,7 @@ export async function refreshAudienceAction(windowKey: string): Promise<ActionRe
   const { startDate, endDate } = window
 
   try {
-    // Sequential, not Promise.all: the two calls share one access token and
-    // one rate limit, and firing them together only doubles the chance of a
-    // 429 on a job that runs by hand a few times a month.
-    const countries = await fetchCountries(startDate, endDate)
-    await saveSnapshot("countries", countries)
-
-    const ages = await fetchAgeBands(startDate, endDate)
-    await saveSnapshot("age_gender", ages)
+    const { countries, ages } = await measureAudience(window)
 
     revalidatePath("/admin/youtube-analytics")
     revalidatePath("/partner")

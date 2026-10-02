@@ -132,24 +132,9 @@ export function classifyReferrer(raw: unknown, siteHost: string | null): ParsedR
 
 // ─── Abuse limits ────────────────────────────────────────────────────────────
 
-/**
- * The per-IP rate-limit key. IPv6 is keyed by its /64: one subscriber is
- * normally handed a whole /64, so keying by full address let a single client
- * rotate 2^64 addresses past the limit. IPv4 (and IPv4-mapped IPv6) stay
- * per-address.
- */
-export function rateLimitKey(ip: string): string {
-  const raw = ip.trim().toLowerCase().replace(/^\[|\]$/g, "").split("%")[0]
-  if (!raw.includes(":")) return raw
-  const mapped = raw.match(/^::ffff:(\d+\.\d+\.\d+\.\d+)$/)
-  if (mapped) return mapped[1]
-  const [head, tail = ""] = raw.split("::")
-  const h = head ? head.split(":") : []
-  const t = raw.includes("::") && tail ? tail.split(":") : []
-  const groups = raw.includes("::") ? [...h, ...Array(Math.max(0, 8 - h.length - t.length)).fill("0"), ...t] : h
-  if (groups.length < 4 || groups.slice(0, 4).some((g) => !/^[0-9a-f]{1,4}$/.test(g))) return raw
-  return `${groups.slice(0, 4).map((g) => g.replace(/^0+(?=.)/, "")).join(":")}::/64`
-}
+// `rateLimitKey` (IPv6 → its /64) moved to lib/rate-limit.ts on 2026-10-02 so
+// EVERY per-IP limit uses it; re-exported here for existing importers.
+export { rateLimitKey } from "@/lib/rate-limit"
 
 /** Process-wide ceiling on writes: past it, /api/track still answers 204 but writes nothing. */
 export const GLOBAL_INSERT_CAP = { max: 600, windowMs: 60 * 1000 }

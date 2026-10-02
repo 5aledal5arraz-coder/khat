@@ -19,6 +19,8 @@ export interface GrantView {
 
 export interface SnapshotView {
   report: string
+  /** «منذ أول حلقة» / «آخر ٢٨ يومًا» / … — which window this snapshot is. */
+  windowLabel: string
   periodStart: string
   periodEnd: string
   measuredAt: string
@@ -226,6 +228,7 @@ export function ConnectPanel({
                 {s.report === "countries" ? "الدول" : "الفئات العمرية"}
               </p>
               <p className="mt-1 text-micro text-muted-foreground">
+                <span className="font-semibold text-foreground">{s.windowLabel}</span> ·{" "}
                 {s.periodStart} ← {s.periodEnd} · قيست {s.measuredAt}
               </p>
               <ul className="mt-3 space-y-1.5">

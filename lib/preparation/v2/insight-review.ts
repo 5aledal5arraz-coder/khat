@@ -18,8 +18,10 @@ import {
   type InsightType,
   type PrepV2Insight,
   type PrepV2InsightSource,
+  type PrepV2Payload,
   type PrepV2Question,
 } from "./types"
+import { formatArabicCount } from "@/lib/shared/formatters"
 
 /** Who/when an edit happened — stamped onto every reviewed insight. */
 export interface ReviewStamp {
@@ -253,4 +255,70 @@ function rand(): string {
     return crypto.randomUUID().slice(0, 8)
   }
   return Math.random().toString(36).slice(2, 10)
+}
+
+// ─── Honest state from Pass-5 counters ────────────────────────────────
+
+export interface InsightNotice {
+  tone: "info" | "warn" | "error"
+  text: string
+}
+
+/**
+ * What the review tab says about the Pass-5 RUN — read from the persisted
+ * `insight_stats`, never inferred from the card count. The tab used to render
+ * NOTHING when no card survived, so "provider down", "budget cut 30 drafts",
+ * "nothing drafted" and "never ran" all looked the same: an empty tab.
+ *
+ * `cardCount` is the number of cards currently in the bank (manual ones
+ * included), used only to decide whether "no cards" is still true.
+ */
+export function insightRunNotices(
+  stats: PrepV2Payload["insight_stats"],
+  cardCount: number,
+): InsightNotice[] {
+  const out: InsightNotice[] = []
+  if (!stats) {
+    if (cardCount === 0) out.push({ tone: "info", text: "لم تُولَّد بطاقات لهذا التحضير" })
+    return out
+  }
+  if (stats.outcome === "skipped") {
+    out.push({ tone: "warn", text: "لم تُولَّد بطاقات — التوليد معطّل أو مزوّد البحث غير مُعدّ" })
+    return out
+  }
+  if (stats.outcome === "error") {
+    out.push({ tone: "error", text: "تعذّر توليد البطاقات — توقّف التوليد بخطأ" })
+    return out
+  }
+  if (stats.drafted === 0) {
+    out.push({ tone: "info", text: "لم تُولَّد بطاقات — لم يقترح النموذج أي بطاقة" })
+    return out
+  }
+  const failed = stats.grounding_failed ?? 0
+  if (failed > 0) {
+    out.push({
+      tone: stats.outcome === "degraded" ? "error" : "warn",
+      text: `فشل التحقق من ${failed} من ${stats.grounded} (مزوّد البحث)`,
+    })
+  }
+  const overBudget = stats.drafted - stats.grounded
+  if (stats.capped && overBudget > 0) {
+    out.push({
+      tone: "info",
+      text: `تم تجاوز ${formatArabicCount(overBudget, "مسودة")} بسبب الحد (${stats.grounded})`,
+    })
+  }
+  const unsupported = stats.grounded - failed - stats.kept
+  if (stats.kept === 0 && cardCount === 0 && unsupported > 0) {
+    out.push({
+      tone: "info",
+      text: `لم تجتز أي بطاقة التحقق — ${formatArabicCount(unsupported, "مسودة")} بلا مصادر كافية`,
+    })
+  }
+  return out
+}
+
+/** «14 بطاقة بانتظار اعتمادك» — null when nothing waits. */
+export function pendingApprovalLabel(pending: number): string | null {
+  return pending > 0 ? `${formatArabicCount(pending, "بطاقة")} بانتظار اعتمادك` : null
 }

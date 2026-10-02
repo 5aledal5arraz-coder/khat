@@ -249,33 +249,14 @@ async function seedTeasers() {
   console.log(`  ✓ upserted ${data.teasers.length} teasers`)
 }
 
+/**
+ * Home quotes are NOT seeded. Their JSON source was deleted on 2026-10-02
+ * (Khaled): 41 quotes, several fabricated — attributed to real guests and
+ * absent from their episodes. `home_quotes` is managed in the admin only, so a
+ * reseed can never put them back.
+ */
 async function seedHomeQuotes() {
-  console.log("→ home_quotes")
-  const data = await readJSON<{ quotes: Array<{
-    id: string; text: string; attribution: string
-    episode_id?: string; episode_slug?: string; episode_title?: string
-    theme?: string; scheduled_date?: string; status: string
-    created_at: string; updated_at: string
-  }> }>("home-quotes.json")
-  if (!data || !data.quotes.length) return
-
-  for (const q of data.quotes) {
-    await client.query(
-      `INSERT INTO home_quotes (id, text, attribution, episode_slug, episode_title, theme, scheduled_date, status, created_at, updated_at)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
-       ON CONFLICT (id) DO UPDATE SET
-         text = EXCLUDED.text,
-         attribution = EXCLUDED.attribution,
-         episode_slug = EXCLUDED.episode_slug,
-         episode_title = EXCLUDED.episode_title,
-         theme = EXCLUDED.theme,
-         scheduled_date = EXCLUDED.scheduled_date,
-         status = EXCLUDED.status,
-         updated_at = EXCLUDED.updated_at`,
-      [q.id, q.text, q.attribution, q.episode_slug || null, q.episode_title || null, q.theme || null, q.scheduled_date || null, q.status, q.created_at, q.updated_at]
-    )
-  }
-  console.log(`  ✓ upserted ${data.quotes.length} home quotes`)
+  console.log("→ home_quotes — skipped (no JSON source; managed in the admin)")
 }
 
 

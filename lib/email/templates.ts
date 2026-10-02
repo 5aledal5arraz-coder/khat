@@ -472,6 +472,29 @@ function detailRow(label: string, value: string): string {
   </tr>`
 }
 
+/**
+ * A /contact message, to the team. The message is printed in full — this is
+ * the notification AND a readable copy; Reply goes to the sender (see
+ * sendContactMessageAdmin), so the team can answer from the mail client.
+ */
+export function contactMessageAdminHtml(params: {
+  name: string
+  email: string
+  message: string
+}): string {
+  const content = `
+    <h2 style="margin:0 0 16px;color:${BRAND.ink};font-size:20px;">رسالة جديدة من «تواصل معنا»</h2>
+    <table role="presentation" cellpadding="0" cellspacing="0" style="width:100%;margin:0 0 16px;">
+      ${detailRow('الاسم', params.name)}
+      ${detailRow('البريد', params.email)}
+    </table>
+    <div style="margin:0 0 20px;padding:14px 16px;border-radius:12px;background:${BRAND.calloutBg};border:1px solid ${BRAND.calloutBorder};color:${BRAND.ink};font-size:14px;line-height:1.8;white-space:pre-wrap;">${escapeHtml(params.message)}</div>
+    <p style="margin:0 0 8px;color:${BRAND.muted};font-size:13px;">للرد: اضغط «رد» — يصل ردّك إلى المرسل مباشرة.</p>
+    ${ctaButton('افتح صندوق الرسائل', `${APP_URL}/admin/submissions?tab=messages`)}
+  `
+  return legacyEmailLayout(content)
+}
+
 export function guestApplicationAdminHtml(params: {
   name: string
   email: string

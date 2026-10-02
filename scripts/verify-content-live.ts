@@ -4,6 +4,7 @@
  *   npx tsx scripts/verify-content-live.ts                     # against production
  *   npx tsx scripts/verify-content-live.ts --host http://localhost:3000
  *   npx tsx scripts/verify-content-live.ts --quotes            # also check quote wording
+ *                                                              # + raw spelling of proofread quotes
  *
  * ─────────────────────────────────────────────────────────────────────────────
  * WHY THIS EXISTS
@@ -55,8 +56,15 @@ import { join } from "node:path"
 import { db } from "@/lib/db"
 import { episodes } from "@/lib/db/schema"
 import { inArray } from "drizzle-orm"
+import {
+  correctionPairs,
+  renderedQuotes,
+  checkQuoteSpelling,
+  type LocalQuote,
+} from "@/lib/stories/quote-live-check"
 
 const STORIES = join(process.cwd(), "content", "stories")
+const PREPROOFREAD = join(STORIES, "quotes-preproofread")
 const DEFAULT_HOST = "https://khatpodcast.com"
 
 interface Paragraph { text: string; start: number }
@@ -151,12 +159,15 @@ async function main() {
   const missing: string[] = []
   const blind: string[] = []
   const staleQuotes: string[] = []
+  const staleSpelling: string[] = []
+  const quotesBlind: string[] = []
 
   for (const r of rows) {
     const story = JSON.parse(readFileSync(join(STORIES, `${r.id}.json`), "utf8")) as Story
     const url = `${host}/episodes/${encodeURIComponent(r.slug)}`
 
     let html: string
+    let rawHtml = ""
     try {
       const res = await fetch(url, { headers: { "user-agent": "khat-verify-content" } })
       if (!res.ok) {
@@ -164,7 +175,8 @@ async function main() {
         console.log(`⚠️  ${r.id}  HTTP ${res.status}`)
         continue
       }
-      html = fold(await res.text())
+      rawHtml = await res.text()
+      html = fold(rawHtml)
     } catch (e) {
       blind.push(`${r.id} — ${e instanceof Error ? e.message : String(e)}`)
       console.log(`⚠️  ${r.id}  fetch failed`)
@@ -201,6 +213,39 @@ async function main() {
         } else {
           qNote = `   quotes: ${quotes.length}/${quotes.length} ✅`
         }
+
+        // RAW SPELLING MODE. The check above cannot see a stale spelling: a
+        // pre-proofread quote is ASR text, and the transcript on the same page
+        // is ASR text, so its prefix is always "found". This one reads only
+        // the DISPLAYED quote block and compares each proofread quote to its
+        // corrected text after NFC alone — no fold — while still checking the
+        // folded verbatim match. See lib/stories/quote-live-check.ts.
+        const pf = join(PREPROOFREAD, `${r.id}.quotes.json`)
+        if (existsSync(pf)) {
+          const pre = (JSON.parse(readFileSync(pf, "utf8")).quotes ?? []) as LocalQuote[]
+          const pairs = correctionPairs(quotes as LocalQuote[], pre)
+          const shown = renderedQuotes(rawHtml)
+          if (shown === null || shown.length === 0) {
+            // The block is the instrument; no block = cannot see, not "0 stale".
+            quotesBlind.push(`${r.id} — quote block not found on the page`)
+            qNote += `   spelling: CANNOT SEE`
+          } else {
+            const rep = checkQuoteSpelling(shown, quotes as LocalQuote[], pairs)
+            if (rep.stale.length) {
+              staleSpelling.push(
+                `${r.id}: ${rep.stale.length}/${rep.correctedShown} displayed corrected quote(s) show a stale spelling` +
+                  rep.stale.map((x) => `\n      shown:    «${x.shown}»\n      expected: «${x.expected}»`).join(""),
+              )
+            }
+            if (rep.notVerbatim.length) {
+              staleSpelling.push(`${r.id}: ${rep.notVerbatim.length} displayed quote(s) not in the local file even after folding`)
+            }
+            qNote +=
+              `   spelling: ${rep.correctedLive}/${rep.correctedShown} corrected shown live` +
+              (rep.stale.length ? ` 🔴 ${rep.stale.length} stale` : "") +
+              ` (${rep.correctedNotShown} corrected not displayed — unverifiable)`
+          }
+        }
       }
     }
 
@@ -217,10 +262,18 @@ async function main() {
     console.log(`\nQUOTE WORDING NOT FOUND ON PAGE (server may hold an older quote file):`)
     for (const s of staleQuotes) console.log(`  · ${s}`)
   }
+  if (withQuotes && staleSpelling.length) {
+    console.log(`\nQUOTE SPELLING ON THE PAGE ≠ LOCAL PROOFREAD (raw, NFC, no fold):`)
+    for (const s of staleSpelling) console.log(`  🔴 ${s}`)
+  }
+  if (withQuotes && quotesBlind.length) {
+    for (const b of quotesBlind) console.log(`  ⚠️  ${b}`)
+  }
 
   // UNREADABLE IS A FAILURE, NOT A SKIP. "I could not check" reported as
   // success is how a guard goes blind — the whole reason this file exists.
-  process.exit(missing.length === 0 && blind.length === 0 ? 0 : 1)
+  const quotesOk = !withQuotes || (staleSpelling.length === 0 && quotesBlind.length === 0)
+  process.exit(missing.length === 0 && blind.length === 0 && quotesOk ? 0 : 1)
 }
 
 main().catch((e) => {

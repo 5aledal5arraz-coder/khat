@@ -30,8 +30,11 @@ const { mockGetEpisodeOverrides, mockFetchEpisodeBySlug, mockGetPublicEnrichment
   })
 
 vi.mock("@/lib/db", () => ({ db: mockDb, pool: {}, USE_DB: true }))
+// The detail lookup reads the persisted YouTube snapshot (the same source as
+// the list) — not a live channel fetch — since 2026-10-02. The snapshot holds
+// the one episode `mockFetchEpisodeBySlug` describes.
 vi.mock("@/lib/cache/episode-cache", () => ({
-  getCachedEpisodes: vi.fn().mockRejectedValue(new Error("not used here")),
+  getCachedEpisodes: vi.fn(async () => [await mockFetchEpisodeBySlug()]),
   peekCachedEpisodes: vi.fn().mockReturnValue(null),
 }))
 vi.mock("@/lib/youtube/queries", () => ({

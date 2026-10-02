@@ -1,4 +1,4 @@
-import { desc, eq, min } from "drizzle-orm"
+import { and, desc, eq, min } from "drizzle-orm"
 
 import { db } from "@/lib/db"
 import { episodes } from "@/lib/db/schema/episodes"
@@ -50,8 +50,11 @@ export function isoDay(d: Date): string {
 }
 
 /** A window ending yesterday — today's data is always partial. */
-export function windowOfDays(days: number): { startDate: string; endDate: string } {
-  const end = new Date()
+export function windowOfDays(
+  days: number,
+  now: Date = new Date(),
+): { startDate: string; endDate: string } {
+  const end = new Date(now)
   end.setUTCDate(end.getUTCDate() - 1)
   const start = new Date(end)
   start.setUTCDate(start.getUTCDate() - (days - 1))
@@ -106,7 +109,18 @@ interface ApiReport {
  * is written down at the point where the truth is known.
  */
 async function report(params: Record<string, string>): Promise<ApiReport> {
-  const accessToken = await getAccessToken()
+  // A TOKEN failure is recorded too. A revoked or expired refresh token
+  // («invalid_grant») throws here, before any report is requested — and it is
+  // the most likely way this connection dies. It used to skip the record
+  // below entirely, so the screen kept saying «مربوط» over a dead grant.
+  let accessToken: string
+  try {
+    accessToken = await getAccessToken()
+  } catch (e) {
+    const message = `YouTube Analytics token: ${e instanceof Error ? e.message : String(e)}`
+    await recordFailure(message).catch(() => {})
+    throw e
+  }
   const url = `${API}?${new URLSearchParams({ ids: "channel==MINE", ...params })}`
 
   const res = await fetch(url, { headers: { Authorization: `Bearer ${accessToken}` } })
@@ -205,6 +219,39 @@ export async function fetchAgeBands(
   }
 }
 
+// ── Measure (shared by the admin button and the weekly worker tick) ──────
+
+/**
+ * Measure both reports over one window and store them. The ONE measure path:
+ * `refreshAudienceAction` (the admin button) and the `youtube.audience_refresh`
+ * job both call this, so a scheduled snapshot is the same shape, window rule
+ * and error recording as a manual one.
+ *
+ * Sequential, not Promise.all: the two calls share one access token and one
+ * rate limit, and firing them together only doubles the chance of a 429.
+ */
+export async function measureAudience(window: { startDate: string; endDate: string }): Promise<{
+  countries: Measured<CountryShare>
+  ages: Measured<AgeShare>
+}> {
+  const { startDate, endDate } = window
+  const countries = await fetchCountries(startDate, endDate)
+  await saveSnapshot("countries", countries)
+
+  const ages = await fetchAgeBands(startDate, endDate)
+  await saveSnapshot("age_gender", ages)
+
+  return { countries, ages }
+}
+
+/** A snapshot older than this gets a staleness hint on the admin page. */
+export const AUDIENCE_STALE_DAYS = 14
+
+export function isSnapshotStale(measuredAt: Date | null | undefined, now: Date = new Date()): boolean {
+  if (!measuredAt) return false
+  return now.getTime() - new Date(measuredAt).getTime() > AUDIENCE_STALE_DAYS * 24 * 60 * 60 * 1000
+}
+
 // ── Snapshots ──────────────────────────────────────────────────────────────
 
 export type ReportKind = "countries" | "age_gender"
@@ -226,16 +273,25 @@ export async function saveSnapshot(
  *
  * `/partner` reads THIS, never the live API: a sponsorship page must not be
  * one Google hiccup away from a blank section, and a stored row can say when
- * it was true. Refreshing is an explicit action in the admin.
+ * it was true. Refreshed by the admin button and by a weekly worker tick
+ * (`youtube.audience_refresh`, last 28 days).
  */
 export async function latestSnapshot<T>(
-  report: ReportKind
+  report: ReportKind,
+  opts: { periodStart?: string } = {},
 ): Promise<Measured<T> | null> {
   if (!db) return null
   const [row] = await db
     .select()
     .from(youtubeAudienceSnapshots)
-    .where(eq(youtubeAudienceSnapshots.report, report))
+    .where(
+      opts.periodStart
+        ? and(
+            eq(youtubeAudienceSnapshots.report, report),
+            eq(youtubeAudienceSnapshots.period_start, opts.periodStart),
+          )
+        : eq(youtubeAudienceSnapshots.report, report),
+    )
     .orderBy(desc(youtubeAudienceSnapshots.measured_at))
     .limit(1)
 
@@ -246,4 +302,53 @@ export async function latestSnapshot<T>(
     periodEnd: row.period_end,
     measuredAt: row.measured_at ?? new Date(),
   }
+}
+
+/**
+ * The snapshot a PUBLIC reader shows: the lifetime window («منذ أول حلقة»,
+ * period_start = the first episode's release date) when one exists, else the
+ * newest of any window.
+ *
+ * "Newest row" alone is not a choice of window: once the weekly worker tick
+ * started storing last-28-days rows, it would have silently replaced the
+ * lifetime figures /partner quotes to sponsors. The window is now explicit.
+ * `deps` is a test seam.
+ */
+export async function latestPreferredSnapshot<T>(
+  report: ReportKind,
+  deps: {
+    lifetimeStart: () => Promise<string | null>
+    latest: (report: ReportKind, opts?: { periodStart?: string }) => Promise<Measured<T> | null>
+  } = {
+    lifetimeStart: async () => (await windowSinceFirstEpisode())?.startDate ?? null,
+    latest: (r, o) => latestSnapshot<T>(r, o),
+  },
+): Promise<Measured<T> | null> {
+  const start = await deps.lifetimeStart().catch(() => null)
+  if (start) {
+    const lifetime = await deps.latest(report, { periodStart: start })
+    if (lifetime) return lifetime
+  }
+  return deps.latest(report)
+}
+
+/**
+ * Name a stored window the way the admin's measure buttons name it, so the
+ * operator can see WHICH window a snapshot is — «منذ أول حلقة», «آخر ٢٨ يومًا»…
+ * Pure. `lifetimeStart` = the first episode's release day, or null.
+ */
+const DAY_WINDOW_LABEL: Record<number, string> = {
+  28: "آخر ٢٨ يومًا",
+  90: "آخر ٩٠ يومًا",
+  365: "آخر سنة",
+  1095: "آخر ٣ سنوات",
+}
+export function snapshotWindowLabel(
+  periodStart: string,
+  periodEnd: string,
+  lifetimeStart: string | null,
+): string {
+  if (lifetimeStart && periodStart === lifetimeStart) return "منذ أول حلقة"
+  const days = Math.round((Date.parse(periodEnd) - Date.parse(periodStart)) / 86_400_000) + 1
+  return DAY_WINDOW_LABEL[days] ?? "فترة مخصّصة"
 }

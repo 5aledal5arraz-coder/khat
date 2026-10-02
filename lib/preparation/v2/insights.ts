@@ -172,6 +172,23 @@ export interface InsightGenStats {
   kept: number
   grounded: number
   capped: boolean
+  /**
+   * Candidates whose grounding could not be COMPLETED — the web search or the
+   * verifier call errored (quota / spend cap / timeout / 5xx). Distinct from a
+   * claim the sources refuted: an outage used to be recorded as `weak`, the
+   * same verdict, so "provider down" read as "every claim refuted".
+   */
+  grounding_failed: number
+}
+
+/**
+ * `degraded` when provider errors are the MAJORITY of what was sent for
+ * grounding — the run cannot be read as an editorial verdict on the claims.
+ */
+export function insightOutcome(r: Pick<InsightGenResult, "ok" | "stats">): "ok" | "skipped" | "degraded" {
+  if (!r.ok) return "skipped"
+  const { grounding_failed, grounded } = r.stats
+  return grounding_failed > 0 && grounding_failed * 2 > grounded ? "degraded" : "ok"
 }
 
 export interface InsightGenResult {
@@ -202,7 +219,7 @@ export async function runInsightGeneration(
     ok: false,
     questions: baseQuestions,
     ai_run_ids: [],
-    stats: { drafted: 0, kept: 0, grounded: 0, capped: false },
+    stats: { drafted: 0, kept: 0, grounded: 0, capped: false, grounding_failed: 0 },
   }
 
   if (process.env.PREP_V2_INSIGHTS_ENABLED === "false") return noop
@@ -269,7 +286,7 @@ export async function runInsightGeneration(
         `across ${sectionsWithEligible.length} eligible section(s) ` +
         `(${ai_run_ids.length} draft call(s)) — no insights attached.`,
     )
-    return { ok: true, questions: baseQuestions, ai_run_ids, stats: { drafted: 0, kept: 0, grounded: 0, capped: false } }
+    return { ok: true, questions: baseQuestions, ai_run_ids, stats: { drafted: 0, kept: 0, grounded: 0, capped: false, grounding_failed: 0 } }
   }
 
   // 2) Apply the grounding budget — by QUALITY and section coverage, not by
@@ -300,11 +317,12 @@ export async function runInsightGeneration(
         // verify_query only steers the web search; the verdict is about the
         // displayed claim, so a card can never pair real sources with text the
         // sources don't actually support.
-        const { confidence, sources } = await groundClaim(
+        const { confidence, sources, errored } = await groundClaim(
           searchQueryFor(cand),
           verifyClaimFor(cand),
           attribution,
         )
+        if (errored) return { failed: true as const }
         if ((confidence !== "verified" && confidence !== "partial") || sources.length === 0) {
           return null
         }
@@ -332,7 +350,7 @@ export async function runInsightGeneration(
           "[prep-v2/insights] grounding candidate errored (dropped):",
           err instanceof Error ? err.message : err,
         )
-        return null
+        return { failed: true as const }
       }
     },
   )
@@ -340,8 +358,13 @@ export async function runInsightGeneration(
   // 4) Attach survivors to a fresh questions array (≤ MAX per question).
   const byQuestion = new Map<string, PrepV2Insight[]>()
   let kept = 0
+  let grounding_failed = 0
   for (const g of grounded) {
     if (!g) continue
+    if ("failed" in g) {
+      grounding_failed++
+      continue
+    }
     const arr = byQuestion.get(g.question_id) ?? []
     if (arr.length >= MAX_INSIGHTS_PER_QUESTION) continue
     arr.push(g.insight)
@@ -358,7 +381,7 @@ export async function runInsightGeneration(
     ok: true,
     questions,
     ai_run_ids,
-    stats: { drafted: totalDrafted, kept, grounded: drafted.length, capped },
+    stats: { drafted: totalDrafted, kept, grounded: drafted.length, capped, grounding_failed },
   }
 }
 
@@ -578,13 +601,15 @@ function isVerdict(v: unknown): v is VerifierVerdict {
 /**
  * Search the web for a claim, then judge whether the retrieved sources support
  * it. Returns a confidence band + the supporting source URLs. Any failure maps
- * to `weak` (→ the candidate is dropped), so a card never ships un-grounded.
+ * to `weak` (→ the candidate is dropped), so a card never ships un-grounded —
+ * but a PROVIDER failure (search or verifier call errored) also sets
+ * `errored`, so the run can count it instead of reading it as a refutation.
  */
 async function groundClaim(
   searchQuery: string,
   verifyClaim: string,
   attribution: GeminiCallAttribution,
-): Promise<{ confidence: InsightConfidence; sources: PrepV2InsightSource[] }> {
+): Promise<{ confidence: InsightConfidence; sources: PrepV2InsightSource[]; errored?: true }> {
   let raw: RawRetrievedSource[]
   try {
     raw = await geminiSearchWeb(searchQuery, SOURCES_PER_CLAIM, attribution)
@@ -593,11 +618,12 @@ async function groundClaim(
       "[prep-v2/insights] grounding search failed:",
       err instanceof Error ? err.message : err,
     )
-    return { confidence: "weak", sources: [] }
+    return { confidence: "weak", sources: [], errored: true }
   }
   if (raw.length === 0) return { confidence: "weak", sources: [] }
 
   const verdict = await verifyAgainstSources(verifyClaim, raw, attribution)
+  if (!verdict) return { confidence: "weak", sources: [], errored: true }
   const confidence: InsightConfidence =
     verdict.verdict === "supported"
       ? "verified"
@@ -624,7 +650,7 @@ async function verifyAgainstSources(
   claim: string,
   raw: RawRetrievedSource[],
   attribution: GeminiCallAttribution,
-): Promise<VerifierVerdict> {
+): Promise<VerifierVerdict | null> {
   const corpus = raw
     .map((s, i) => `[${i}] ${s.publisher ?? safeHost(s.url)} — ${s.snippet || s.title}`)
     .join("\n")
@@ -657,7 +683,9 @@ async function verifyAgainstSources(
       "[prep-v2/insights] verifier failed:",
       err instanceof Error ? err.message : err,
     )
-    return { verdict: "insufficient", supporting_source_indices: [], note: "verifier error" }
+    // null = the verifier never answered. Not "insufficient": that is a verdict
+    // about the claim, and this is an outage.
+    return null
   }
 }
 

@@ -1,5 +1,13 @@
 import { requireAdmin } from "@/lib/api-utils"
-import { latestSnapshot, type AgeShare, type CountryShare } from "@/lib/youtube/analytics"
+import {
+  AUDIENCE_STALE_DAYS,
+  isSnapshotStale,
+  latestSnapshot,
+  snapshotWindowLabel,
+  windowSinceFirstEpisode,
+  type AgeShare,
+  type CountryShare,
+} from "@/lib/youtube/analytics"
 import { loadGrantStatus, oauthConfigProblem } from "@/lib/youtube/oauth"
 import { encryptionKeyStatus } from "@/lib/youtube/token-crypto"
 
@@ -36,16 +44,24 @@ export default async function YouTubeAnalyticsPage({
   await requireAdmin()
   const sp = await searchParams
 
-  const [grant, countries, ages] = await Promise.all([
+  // The NEWEST snapshot of any window — what was just measured. Not
+  // latestPreferredSnapshot: that pins the lifetime window for /partner, and
+  // here it made every other measure button look like it did nothing. The
+  // window is labelled instead, so the operator sees which one is shown.
+  const [grant, countries, ages, lifetime] = await Promise.all([
     loadGrantStatus().catch(() => null),
     latestSnapshot<CountryShare>("countries").catch(() => null),
     latestSnapshot<AgeShare>("age_gender").catch(() => null),
+    windowSinceFirstEpisode().catch(() => null),
   ])
+  const label = (s: { periodStart: string; periodEnd: string }) =>
+    snapshotWindowLabel(s.periodStart, s.periodEnd, lifetime?.startDate ?? null)
 
   const snapshots: SnapshotView[] = []
   if (countries) {
     snapshots.push({
       report: "countries",
+      windowLabel: label(countries),
       periodStart: countries.periodStart,
       periodEnd: countries.periodEnd,
       measuredAt: fmt(countries.measuredAt) ?? "",
@@ -55,6 +71,7 @@ export default async function YouTubeAnalyticsPage({
   if (ages) {
     snapshots.push({
       report: "age_gender",
+      windowLabel: label(ages),
       periodStart: ages.periodStart,
       periodEnd: ages.periodEnd,
       measuredAt: fmt(ages.measuredAt) ?? "",
@@ -63,6 +80,14 @@ export default async function YouTubeAnalyticsPage({
   }
 
   const keyStatus = encryptionKeyStatus()
+
+  // The newest of the two reports decides freshness: the weekly worker tick
+  // refreshes both together, so if even the newest is old, the schedule is not
+  // landing (worker down, grant broken — see last_error above).
+  const newest = [countries?.measuredAt, ages?.measuredAt]
+    .filter((d): d is Date => !!d)
+    .sort((a, b) => new Date(b).getTime() - new Date(a).getTime())[0]
+  const stale = isSnapshotStale(newest ?? null)
 
   return (
     <div className="mx-auto max-w-4xl p-6" dir="rtl">
@@ -85,6 +110,13 @@ export default async function YouTubeAnalyticsPage({
       {sp.error ? (
         <p className="mb-5 rounded-lg bg-accent/5 p-3 text-caption text-accent-strong">
           {sp.error}
+        </p>
+      ) : null}
+
+      {stale ? (
+        <p className="mb-5 rounded-lg border border-amber-500/40 bg-amber-500/10 p-3 text-caption text-amber-700">
+          آخر قياس للجمهور كان {fmt(newest ?? null)} — أقدم من {AUDIENCE_STALE_DAYS} يومًا. التحديث
+          الأسبوعي التلقائي لم يصل؛ تأكد أن الـ worker شغّال وأن الربط سليم، أو قِس يدويًا من الأزرار تحت.
         </p>
       ) : null}
 

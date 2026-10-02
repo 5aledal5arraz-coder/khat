@@ -69,6 +69,7 @@ import {
   newsletterWelcomeHtml,
   directEmailHtml,
   guestApplicationAdminHtml,
+  contactMessageAdminHtml,
   guestApplicationConfirmHtml,
   sponsorApplicationAdminHtml,
   sponsorApplicationConfirmHtml,
@@ -118,6 +119,25 @@ export async function sendDirectEmail(
     subject,
     html: directEmailHtml(recipientName, subject, body, senderName),
   })
+}
+
+/**
+ * A /contact message to the team. `replyTo` is the SENDER — the one send where
+ * it is not REPLY_TO, because the whole point of this mail is that pressing
+ * Reply answers the person who wrote.
+ */
+export async function sendContactMessageAdmin(
+  to: string | string[],
+  params: { name: string; email: string; message: string },
+  idempotencyKey?: string,
+) {
+  return sendOrThrow('contact-message-admin', {
+    from: FROM_DISPLAY,
+    to,
+    replyTo: params.email,
+    subject: `رسالة جديدة من ${params.name} — تواصل معنا`,
+    html: contactMessageAdminHtml(params),
+  }, idem(idempotencyKey))
 }
 
 export async function sendGuestApplicationAdmin(

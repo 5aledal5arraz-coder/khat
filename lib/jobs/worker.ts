@@ -50,6 +50,7 @@ import {
   ensureAiRunsSweeperSchedule,
   ensurePartnerTaskReminderSchedule,
   ensureSourceFeedbackSchedule,
+  ensureYoutubeAudienceSchedule,
 } from "./scheduler-bootstrap"
 import { HandlerTimeoutError, NonRetryableJobError, type JobRow } from "./types"
 import {
@@ -147,6 +148,9 @@ const HANDLER_TIMEOUT_MS: Record<string, number> = {
   "market.cluster_signals": 10 * 60_000,
   // youtube.refresh_performance: YouTube Data API + DB updates per channel.
   "youtube.refresh_performance": 5 * 60_000,
+  // youtube.audience_refresh: one token refresh + two Analytics reports + two
+  // inserts, weekly. No AI. A tight ceiling catches a hung Google call.
+  "youtube.audience_refresh": 2 * 60_000,
   // discovery_v2.run: one job does propose (300s + one timeout retry,
   // worst ≈ 608s) + Wikidata/enrichment/story fan-out for up to ~30 names.
   // MUST equal DISCOVERY_JOB_BUDGET_MS in lib/discovery-v2/pipeline.ts —
@@ -872,6 +876,27 @@ ensureSourceFeedbackSchedule()
   })
   .catch((err) =>
     wlog.error(`source-feedback bootstrap failed:`, err),
+  )
+
+// Bootstrap the weekly YouTube audience refresh (last 28 days). Handler
+// self-re-enqueues weekly; idempotent; skips quietly when not connected.
+ensureYoutubeAudienceSchedule()
+  .then((r) => {
+    wlog.info(
+      `youtube-audience schedule ${r.status}${r.jobId ? ` (job=${r.jobId.slice(0, 8)})` : ""}`,
+    )
+    if (r.status === "bootstrapped") {
+      void emitSystemEvent(
+        buildScheduleCreatedEvent({
+          schedule_type: "youtube.audience_refresh",
+          cadence: "weekly",
+          actor: WORKER_ID,
+        }),
+      )
+    }
+  })
+  .catch((err) =>
+    wlog.error(`youtube-audience bootstrap failed:`, err),
   )
 
 // Gate the claim loop on the migration guard (see above). On confirmed drift the

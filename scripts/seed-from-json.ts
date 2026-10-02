@@ -210,28 +210,12 @@ async function main() {
 
 
   // ================================================================
-  // 8. Home Quotes
+  // 8. Home Quotes — NOT SEEDED.
+  // The JSON source was deleted on 2026-10-02 (Khaled): 41 quotes, several
+  // fabricated (attributed to real guests, absent from their episodes).
+  // `home_quotes` is managed in the admin only; a reseed must never restore them.
   // ================================================================
-  const homeQuotes = readJson<{ quotes: JsonRecord[] }>("home-quotes.json")
-  for (const q of homeQuotes.quotes) {
-    await client.query(
-      `INSERT INTO home_quotes (id, text, attribution, episode_id, episode_slug, episode_title, theme, status, created_at, updated_at)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) ON CONFLICT DO NOTHING`,
-      [
-        q.id,
-        q.text,
-        q.attribution,
-        q.episode_id || null,
-        q.episode_slug || null,
-        q.episode_title || null,
-        q.theme || null,
-        q.status || "draft",
-        q.created_at || new Date().toISOString(),
-        q.updated_at || new Date().toISOString(),
-      ]
-    )
-  }
-  console.log(`  ✅ home_quotes — ${homeQuotes.quotes.length} rows`)
+  console.log("  ⏭  home_quotes — skipped (no JSON source; managed in the admin)")
 
   // ================================================================
   // 9. Daily Reflections

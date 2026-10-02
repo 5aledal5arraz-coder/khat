@@ -575,6 +575,22 @@ export type CommunityContributionStatus =
 export type CommunityTriageStatus = "generating" | "ready" | "error"
 export type CommunityRecommendedAction = "advance" | "request_info" | "nurture" | "decline"
 
+/** The TEAM notification for a /contact message — not the message itself. */
+export type ContactEmailStatus = "queued" | "sent" | "failed"
+
+/** A message sent through the public «تواصل معنا» form (`contact_messages`). */
+export interface ContactMessage {
+  id: string
+  name: string
+  email: string
+  message: string
+  email_status: ContactEmailStatus
+  email_error: string | null
+  emailed_at: string | null
+  read_at: string | null
+  created_at: string
+}
+
 export interface CommunityContribution {
   id: string
   type: CommunityContributionType | string

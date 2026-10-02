@@ -2,11 +2,12 @@ import { Metadata } from "next"
 import Link from "next/link"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { buttonVariants } from "@/components/ui/button"
-import { Mail, Mic, ArrowLeft, ExternalLink } from "lucide-react"
+import { Mail, Mic, ArrowLeft, ExternalLink, MessageSquare } from "lucide-react"
 import { listPlatformsForSurface } from "@/lib/queries/official-platforms"
 import { PlatformIcon } from "@/components/platforms/platform-icon"
 import { getSiteSettings, resolveContactEmail } from "@/lib/site-settings"
 import { cn } from "@/lib/utils"
+import { ContactForm } from "@/components/forms/contact-form"
 
 export const metadata: Metadata = {
   title: "تواصل معنا",
@@ -25,8 +26,8 @@ export default async function ContactPage() {
   const contactEmail = resolveContactEmail(settings)
   const emailMethod = {
     icon: Mail,
-    title: "البريد الإلكتروني",
-    description: "للاستفسارات العامة",
+    title: "أو راسلنا بالبريد",
+    description: "إذا كنت تفضّل بريدك",
     value: contactEmail,
     href: `mailto:${contactEmail}`,
   }
@@ -80,6 +81,26 @@ export default async function ContactPage() {
                 قدّم طلب ضيافة
                 <ArrowLeft className="h-4 w-4" />
               </Link>
+            </CardContent>
+          </Card>
+
+          {/* The form — the primary way to reach us. Stored in the admin inbox
+              and mailed to the team; the mailto card below stays as the
+              second way for people who prefer their own mail client. */}
+          <Card className="lg:col-span-2">
+            <CardHeader>
+              <div className="flex items-center gap-3">
+                <div className="rounded-lg bg-primary/10 p-2">
+                  <MessageSquare className="h-5 w-5 text-primary" />
+                </div>
+                <div>
+                  <CardTitle className="text-lead">أرسل لنا رسالة</CardTitle>
+                  <CardDescription>للاستفسارات العامة — نرد على بريدك</CardDescription>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <ContactForm />
             </CardContent>
           </Card>
 

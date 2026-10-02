@@ -35,12 +35,16 @@ import {
   type LucideIcon,
 } from "lucide-react"
 import { runAction } from "@/app/admin/components/run-action"
+import { cn } from "@/lib/utils"
 import {
   setInsightStatus,
   editInsight,
   removeInsight,
   addManualInsight,
   bulkApproveVerified,
+  insightRunNotices,
+  pendingApprovalLabel,
+  type InsightNotice,
   type ManualInsightInput,
   type ReviewStamp,
 } from "@/lib/preparation/v2/insight-review"
@@ -110,7 +114,22 @@ export function PrepInsightReview({
   }, [payload])
 
   const all = bank.flatMap((q) => q.insights ?? [])
-  if (all.length === 0) return null // nothing generated yet — keep the tab clean
+  // What the Pass-5 RUN did, from its persisted counters. With no card this is
+  // the whole panel: it used to render nothing, so a provider outage, a budget
+  // cut and "never ran" all looked like an empty tab.
+  const notices = insightRunNotices(payload.insight_stats, all.length)
+  if (all.length === 0) {
+    if (notices.length === 0) return null
+    return (
+      <div className="space-y-2 rounded-3xl border border-teal-500/20 bg-teal-500/[0.03] p-5">
+        <div className="inline-flex items-center gap-1.5 text-[12px] font-semibold text-teal-700">
+          <Lightbulb className="h-3.5 w-3.5" />
+          بطاقات الإسناد
+        </div>
+        <InsightNotices notices={notices} />
+      </div>
+    )
+  }
 
   const counts = {
     approved: all.filter((i) => insightLiveStatus(i) === "approved").length,
@@ -120,6 +139,8 @@ export function PrepInsightReview({
   const verifiedPending = all.filter(
     (i) => insightLiveStatus(i) === "pending" && i.confidence === "verified",
   ).length
+
+  const pendingLabel = pendingApprovalLabel(counts.pending)
 
   const withInsights = bank.filter((q) => (q.insights?.length ?? 0) > 0)
   const sectionOf = (q: PrepV2Question) =>
@@ -199,6 +220,12 @@ export function PrepInsightReview({
             البطاقات المُولّدة موثّقة بمصادر لكنها لا تظهر في غرفة التسجيل قبل
             اعتمادها هنا. اعتمد ما هو صالح، أخفِ الباقي، وأضف بطاقاتك الخاصة.
           </p>
+          {pendingLabel && (
+            <div className="mt-2 inline-flex items-center gap-1.5 rounded-full border border-amber-500/40 bg-amber-500/15 px-3 py-1 text-[12.5px] font-semibold text-amber-700">
+              <Clock className="h-3.5 w-3.5" />
+              {pendingLabel}
+            </div>
+          )}
         </div>
         {verifiedPending > 0 && (
           <button
@@ -211,6 +238,8 @@ export function PrepInsightReview({
           </button>
         )}
       </div>
+
+      <InsightNotices notices={notices} />
 
       {/* Summary chips */}
       <div className="flex flex-wrap items-center gap-2 text-[11px]">
@@ -264,6 +293,38 @@ export function PrepInsightReview({
         ))}
       </div>
     </div>
+  )
+}
+
+// ─── Run notices ──────────────────────────────────────────────────────
+
+const NOTICE_TONE: Record<InsightNotice["tone"], string> = {
+  info: "border-border/50 bg-muted/30 text-muted-foreground",
+  warn: "border-amber-500/40 bg-amber-500/10 text-amber-700",
+  error: "border-rose-500/40 bg-rose-500/10 text-rose-700",
+}
+
+function InsightNotices({ notices }: { notices: InsightNotice[] }) {
+  if (notices.length === 0) return null
+  return (
+    <ul className="space-y-1.5">
+      {notices.map((n) => (
+        <li
+          key={n.text}
+          className={cn(
+            "flex items-center gap-1.5 rounded-xl border px-3 py-1.5 text-[11.5px] font-medium",
+            NOTICE_TONE[n.tone],
+          )}
+        >
+          {n.tone === "info" ? (
+            <Info className="h-3.5 w-3.5 shrink-0" />
+          ) : (
+            <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
+          )}
+          {n.text}
+        </li>
+      ))}
+    </ul>
   )
 }
 

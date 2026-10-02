@@ -47,6 +47,7 @@ const ARABIC_PLURALS: Record<string, [string, string, string]> = {
   "سؤال": ["سؤال", "سؤالان", "أسئلة"],
   // The prep question editor's card badge («بطاقتان» as a standalone label).
   "بطاقة": ["بطاقة", "بطاقتان", "بطاقات"],
+  "مسودة": ["مسودة", "مسودتان", "مسودات"],
   // The same editor, where the phrase is always an OBJECT or follows «مع»
   // («يحذف معه بطاقتَي إسناد», «حُذف السؤال مع بطاقتَي إسناد»): iḍāfa dual in
   // the accusative/genitive, nūn dropped — not «بطاقتان إسناد». Nominative

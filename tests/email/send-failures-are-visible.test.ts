@@ -56,6 +56,15 @@ const SENDS: [name: string, invoke: () => Promise<unknown>][] = [
   ["sendNewsletterWelcome", () => send.sendNewsletterWelcome("a@b.example", "https://x/unsub")],
   ["sendDirectEmail", () => send.sendDirectEmail("a@b.example", "فلان", "موضوع", "نص", "إدارة خط")],
   [
+    "sendContactMessageAdmin",
+    () =>
+      send.sendContactMessageAdmin("hello@b.example", {
+        name: "فلان",
+        email: "a@b.example",
+        message: "رسالة من صفحة تواصل معنا",
+      }),
+  ],
+  [
     "sendGuestApplicationAdmin",
     () =>
       send.sendGuestApplicationAdmin(["admin@b.example"], {
@@ -160,12 +169,19 @@ describe("success still succeeds", () => {
     expect(sendSpy).toHaveBeenCalledTimes(1)
   })
 
-  it.each(SENDS)("%s still addresses a recipient and a replyTo", async (_name, invoke) => {
+  // The ONE deliberate exception: a /contact message to the team replies to
+  // the person who wrote it — that is the point of the mail. Pinned to the
+  // sender's exact address, so the exception cannot widen into "anything goes".
+  const REPLY_TO_OVERRIDE: Record<string, string> = {
+    sendContactMessageAdmin: "a@b.example",
+  }
+
+  it.each(SENDS)("%s still addresses a recipient and a replyTo", async (name, invoke) => {
     sendSpy.mockResolvedValue(ACCEPTED)
     await invoke()
     const payload = sendSpy.mock.calls[0][0] as Record<string, unknown>
     expect(payload.to).toBeTruthy()
-    expect(payload.replyTo).toBe("hello@khatpodcast.com")
+    expect(payload.replyTo).toBe(REPLY_TO_OVERRIDE[name] ?? "hello@khatpodcast.com")
   })
 })
 

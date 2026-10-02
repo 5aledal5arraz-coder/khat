@@ -121,7 +121,13 @@ async function tokenRequest(body: Record<string, string>): Promise<TokenResponse
     // guesswork. NOTHING here contains a token — this is the error path.
     throw new Error(`Google token endpoint ${res.status}: ${text.slice(0, 400)}`)
   }
-  return JSON.parse(text) as TokenResponse
+  try {
+    return JSON.parse(text) as TokenResponse
+  } catch {
+    // Fixed message on purpose: a 200 body we cannot parse may still carry
+    // token material, so it is never echoed into an error or last_error.
+    throw new Error("Google token endpoint returned an unreadable response")
+  }
 }
 
 /** Swap the one-time code for tokens. */

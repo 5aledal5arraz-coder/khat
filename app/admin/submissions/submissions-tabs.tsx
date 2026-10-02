@@ -60,7 +60,9 @@ import type {
   GuestPrepForm,
   GuestPrepFormStatus,
   GuestPrepResponse,
+  ContactMessage,
 } from "@/types/database"
+import { ContactMessagesPanel, unreadCount } from "./contact-messages-panel"
 import { formatDate, researchSourceLabel, researchSourceSnippet } from "@/lib/shared/formatters"
 import { INBOX_STATUS_PARAM, matchesInboxStatus } from "@/lib/ops/inbox-filter"
 import {
@@ -501,12 +503,14 @@ interface SubmissionsTabsProps {
   guestApplications: GuestApplication[]
   sponsorshipLeads: SponsorshipLead[]
   newsletterSubscribers: NewsletterSubscriber[]
+  contactMessages: ContactMessage[]
 }
 
 export function SubmissionsTabs({
   guestApplications: initialGuestApps,
   sponsorshipLeads: initialSponsors,
   newsletterSubscribers: initialSubscribers,
+  contactMessages: initialContactMessages,
 }: SubmissionsTabsProps) {
   const searchParams = useSearchParams()
   const defaultTab = searchParams.get("tab") || "guests"
@@ -526,6 +530,8 @@ export function SubmissionsTabs({
   const [sponsorshipLeads, setSponsorshipLeads] = useState(initialSponsors)
   const [newsletterSubscribers, setNewsletterSubscribers] =
     useState(initialSubscribers)
+  const [contactMessages, setContactMessages] = useState(initialContactMessages)
+  const unreadMessages = unreadCount(contactMessages)
 
   const [selectedApplication, setSelectedApplication] =
     useState<GuestApplication | null>(null)
@@ -1266,6 +1272,8 @@ export function SubmissionsTabs({
         <TabButton active={activeTab === "guests"} icon={UserPlus} label="طلبات الضيوف" shortLabel="الضيوف" count={guestApplications.length} onClick={() => setActiveTab("guests")} color="purple" />
         <TabButton active={activeTab === "sponsors"} icon={Handshake} label="طلبات الرعاية" shortLabel="الرعاية" count={sponsorshipLeads.length} onClick={() => setActiveTab("sponsors")} color="primary" />
         <TabButton active={activeTab === "newsletter"} icon={Mail} label="المشتركون" shortLabel="النشرة" count={newsletterSubscribers.length} onClick={() => setActiveTab("newsletter")} color="green" />
+        {/* Count = UNREAD messages, not total: the number on this tab is a to-do. */}
+        <TabButton active={activeTab === "messages"} icon={Inbox} label={unreadMessages > 0 ? "رسائل التواصل · غير مقروءة" : "رسائل التواصل"} shortLabel="الرسائل" count={unreadMessages} onClick={() => setActiveTab("messages")} color="amber" />
       </div>
 
       {/* ─── Search Bar ─── */}
@@ -1277,7 +1285,9 @@ export function SubmissionsTabs({
               ? "ابحث بالاسم أو البريد أو القصة..."
               : activeTab === "sponsors"
                 ? "ابحث بالاسم أو البريد أو الشركة..."
-                : "ابحث بالبريد الإلكتروني..."
+                : activeTab === "messages"
+                  ? "ابحث بالاسم أو البريد أو نص الرسالة..."
+                  : "ابحث بالبريد الإلكتروني..."
           }
           value={search}
           onChange={(e) => setSearch(e.target.value)}
@@ -1313,6 +1323,15 @@ export function SubmissionsTabs({
             اعرض الكل
           </button>
         </div>
+      )}
+
+      {/* ─── Contact messages (/contact form) ─── */}
+      {activeTab === "messages" && (
+        <ContactMessagesPanel
+          messages={contactMessages}
+          onChange={setContactMessages}
+          search={search}
+        />
       )}
 
       {/* ─── Guest Applications Tab ─── */}

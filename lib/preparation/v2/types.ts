@@ -279,11 +279,19 @@ export interface PrepV2Payload {
     /** True when the grounding budget cut the candidate list short. */
     capped: boolean
     /**
+     * Candidates whose search/verifier call ERRORED (provider outage), as
+     * opposed to claims the sources did not support. Absent on payloads
+     * written before 2026-10-02.
+     */
+    grounding_failed?: number
+    /**
      * `ok` — the pass ran.
+     * `degraded` — the pass ran but provider errors were the majority of the
+     *   grounding calls; `kept` is not an editorial verdict.
      * `skipped` — feature flag off, or the provider is not configured.
      * `error` — the pass threw; counters are unknown, not zero.
      */
-    outcome: "ok" | "skipped" | "error"
+    outcome: "ok" | "skipped" | "error" | "degraded"
   }
   /**
    * Validation checks this payload still failed when it was STORED (after the

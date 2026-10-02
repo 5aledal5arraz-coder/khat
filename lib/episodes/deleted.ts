@@ -13,23 +13,53 @@ import { inArray } from "drizzle-orm"
 
 // `deleted_episodes` is created by the baseline migration — no runtime bootstrap.
 
-/** Return the set of permanently-deleted episode IDs. */
+/** Last-known-good tombstone set — replayed through a transient DB error. */
+let lastKnownDeletedIds: Set<string> | null = null
+
+/**
+ * Return the set of permanently-deleted episode IDs.
+ *
+ * FAILS CLOSED, like `getHiddenEpisodeIds` in lib/queries/episodes.ts. It used
+ * to return an EMPTY set on any DB error — i.e. "nothing is deleted" — which
+ * publishes every tombstoned episode for as long as the list built from that
+ * answer is cached. On 2026-10-02 the live sitemap listed exactly the 36
+ * tombstoned clips (all 404 on their own page, which re-reads the set) while
+ * the uncached /api/episodes listed 41 with none of them.
+ *
+ * On error: reuse the last good set if there is one; otherwise THROW. The
+ * public query layer turns the throw into "no list / no page", the YouTube
+ * import into a failed import (never a re-import of a deleted video).
+ */
 export async function getDeletedEpisodeIds(): Promise<Set<string>> {
   if (!DB_AVAILABLE) return new Set()
   try {
     const rows = await db!
       .select({ episode_id: deletedEpisodes.episode_id })
       .from(deletedEpisodes)
-    return new Set(rows.map((r) => r.episode_id))
+    lastKnownDeletedIds = new Set(rows.map((r) => r.episode_id))
+    return lastKnownDeletedIds
   } catch (error) {
-    console.error("[deleted-episodes] Failed to read tombstones:", error)
-    return new Set()
+    if (lastKnownDeletedIds) {
+      console.error(
+        `[deleted-episodes] Failed to read tombstones — reusing the last known set of ${lastKnownDeletedIds.size}:`,
+        error,
+      )
+      return lastKnownDeletedIds
+    }
+    console.error(
+      "[deleted-episodes] Failed to read tombstones and no previous set is cached — failing CLOSED:",
+      error,
+    )
+    throw new Error("deleted_episodes unavailable — cannot vouch that no listed episode is deleted")
   }
 }
 
-/** Array variant — useful for passing as a server component prop. */
+/**
+ * Array variant — the admin episodes screen. Degrades to [] (that screen only
+ * badges deleted rows; it publishes nothing).
+ */
 export async function listDeletedEpisodeIds(): Promise<string[]> {
-  const set = await getDeletedEpisodeIds()
+  const set = await getDeletedEpisodeIds().catch(() => new Set<string>())
   return Array.from(set)
 }
 

@@ -69,4 +69,7 @@ export * from "./editorial-voice"
 // ─── Model upgrade benchmarks (evidence-based model adoption) ──────────
 export * from "./model-benchmarks"
 
+// ─── Public contact form (/contact) — stored + team notified ───────────
+export * from "./contact"
+
 export * from "./relations"
