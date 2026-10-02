@@ -69,7 +69,7 @@ const TOPIC_FIELDS = `{
     "why_now": string (≤ 16 words, Arabic — top-of-card),
     "goal": string (Arabic),
     "description": string (Arabic — 2-4 sentences),
-    "episode_type": one of "intellectual"|"social"|"psychological"|"personal_story"|"national"|"historical"|"economic"|"controversial"|"inspirational"|"signature_khat"|"invasion",
+    "episode_type": one of "intellectual"|"social"|"psychological"|"personal_story"|"national"|"historical"|"economic"|"inspirational"|"signature_khat"|"invasion",
     "main_axes": string[] (2-4 Arabic angles the episode explores),
     "suggested_questions": string[] (3-5 Arabic questions),
     "debate_axis": string (Arabic — the core tension people argue about),

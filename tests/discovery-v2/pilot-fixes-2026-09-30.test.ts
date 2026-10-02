@@ -71,7 +71,7 @@ vi.mock("@/lib/discovery-v2/memory", async (importActual) => {
 
 import { proposeNames, PROPOSE_PROMPT_VERSION } from "@/lib/discovery-v2/propose"
 import { classifyStory, STORY_PROMPT_VERSION, verifyStoryClassification } from "@/lib/discovery-v2/story-classify"
-import { HISTORICAL_FIGURE_REASON, historicalFigureCue, scoreCandidate } from "@/lib/discovery-v2/score"
+import { HISTORICAL_FIGURE_REASON, OLD_ERA_STORY_REASON, historicalFigureCue, scoreCandidate } from "@/lib/discovery-v2/score"
 import { nameVariants } from "@/lib/discovery-v2/story-evidence"
 import { runV2Discovery } from "@/lib/discovery-v2/pipeline"
 import { discoveryNameKey, otherRunIndex } from "@/lib/discovery-v2/memory"
@@ -176,13 +176,17 @@ describe("P1 historical / deceased people outside Wikidata", () => {
   it.each([
     [1942, 1955],
     [1950, 1958],
-  ])("a living elder born %i with a verified %i first-hand quote → review, not reject", (born, year) => {
+  ])("a living elder born %i with a verified %i first-hand quote → review, not reject — the SOFT label", (born, year) => {
     const { p, check } = elder(`غواص كبير ${born}`, born, year)
     expect(check.assessment.status).toBe("verified") // sight: the story itself is real
     const c = scoreCandidate(p, { resolved: false }, {}, INPUT, check)
     expect(c.decision).not.toBe("rejected")
     expect(c.decision).toBe("needs_review")
-    expect(c.flags).toContain("likely_historical")
+    // 2026-10-02: the model says he is alive and born ≥ 1940 — the only cue is
+    // the story's year, so the card must not call him «متوفّى».
+    expect(c.flags).toContain("old_era_story")
+    expect(c.flags).not.toContain("likely_historical")
+    expect(c.reasons[0]).toBe(OLD_ERA_STORY_REASON)
   })
 
   it("the hard rejects stay the verified death quote and the confident Wikidata death", () => {
@@ -480,5 +484,42 @@ describe("P3 cross-run duplicate hint", () => {
     expect(fresh.flags ?? []).not.toContain("seen_in_other_run")
     // not blocked, same decision path as without the hint
     expect(hout.decision).toBe(fresh.decision)
+  })
+})
+
+// ─── 2026-10-02: a living elder's old story is not «متوفّى» ──────────────────
+
+describe("historical label — strong only for a death / era signal", () => {
+  const claim1950: ProposedName = {
+    name: "راوٍ كبير تجريبي",
+    role: "غواص سابق",
+    story_type: "first_hand",
+    story_claim: "غاص على اللؤلؤ سنة 1952 مع والده",
+  }
+  it.each([
+    ["is_alive true", { is_alive: true }],
+    ["birth_year 1940", { birth_year: 1940 }],
+    ["birth_year 1945 + alive", { birth_year: 1945, is_alive: true }],
+  ])("old first-hand year + %s → soft copy", (_l, over) => {
+    expect(historicalFigureCue({ ...claim1950, ...over })).toBe(OLD_ERA_STORY_REASON)
+  })
+  it.each([
+    ["no life signal (the pilot)", {}],
+    ["is_alive false", { is_alive: false }],
+    ["birth_year 1932 even if alive", { birth_year: 1932, is_alive: true }],
+  ])("%s → strong label", (_l, over) => {
+    expect(historicalFigureCue({ ...claim1950, ...over })).toBe(HISTORICAL_FIGURE_REASON)
+  })
+  it("a verified era (attrs.historical) stays strong even when the model says alive", () => {
+    expect(historicalFigureCue({ ...claim1950, is_alive: true, birth_year: 1950 }, { historical: true } as never)).toBe(
+      HISTORICAL_FIGURE_REASON,
+    )
+  })
+  it("the soft case is still review, never accepted unseen", () => {
+    const p = { ...claim1950, is_alive: true, birth_year: 1944 }
+    const c = scoreCandidate(p, { resolved: false }, {}, INPUT, UNVERIFIED(p.story_claim))
+    expect(c.decision).toBe("needs_review")
+    expect(c.flags).toContain("old_era_story")
+    expect(c.flags).not.toContain("likely_historical")
   })
 })

@@ -12,9 +12,11 @@ import {
 import { addManualTopicAction } from "../../actions"
 import { runAction } from "@/app/admin/components/run-action"
 
-const EPISODE_TYPES = Object.entries(KHAT_EPISODE_TYPE_LABEL) as Array<
-  [KhatMapEpisodeType, string]
->
+// «جريئة» (controversial) is not a Khat goal under the constitution
+// (2026-09-28); the enum + label stay only for rows written before.
+const EPISODE_TYPES = (
+  Object.entries(KHAT_EPISODE_TYPE_LABEL) as Array<[KhatMapEpisodeType, string]>
+).filter(([key]) => key !== "controversial")
 const TOPIC_DOMAINS = Object.entries(KHAT_TOPIC_DOMAIN_LABEL) as Array<
   [KhatMapTopicDomain, { label: string }]
 >

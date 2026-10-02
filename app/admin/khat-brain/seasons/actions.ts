@@ -37,6 +37,7 @@ import {
   TITLE_DEDUP_JACCARD_THRESHOLD,
 } from "@/lib/khat-map/v2/title-similarity"
 import { ensureEirForCandidate, syncEirEditorialFromCandidate } from "@/lib/khat-brain"
+import { transitionEpisodePhase } from "@/lib/eir"
 import { getEpisodeCandidateById } from "@/lib/khat-map/core/queries"
 import {
   detectMissingRoles,
@@ -234,6 +235,16 @@ export async function addManualTopicAction(input: {
       target: "topic",
       topic_candidate_id: created.id,
     })
+    // Khat Brain — like an accepted card (recordCardDecision), the topic
+    // becomes an EIR now; without it the season card has no «تشغيل اكتشاف
+    // لهذه الحلقة». Non-fatal for the same reason: the decision row is the
+    // wizard's source of truth, and ensureEirForCandidate is idempotent, so
+    // assignKnownGuestToTopicAction / backfill can still create it later.
+    try {
+      await ensureEirForCandidate({ candidate: approved ?? created, adminId: user.id })
+    } catch (err) {
+      console.error("[khat-brain] ensureEirForCandidate failed (manual topic):", err)
+    }
     revalidatePath(`/admin/khat-brain/seasons/${input.seasonId}`)
     return { success: true, data: { topic: approved ?? created } }
   } catch (err) {
@@ -270,6 +281,23 @@ export async function removeManualTopicAction(input: {
         eq(khatMapSeasonDecisions.kind, "accept"),
         isNull(khatMapSeasonDecisions.undone_at),
       ))
+    // A manual topic gets its EIR at creation (addManualTopicAction), so a
+    // removed topic must not leave a live EIR behind. Archive it — the
+    // state machine's escape from any non-terminal phase. Non-fatal: the
+    // rejected candidate is the wizard's source of truth.
+    try {
+      const removed = await getEpisodeCandidateById(input.topicCandidateId)
+      if (removed?.eir_id) {
+        await transitionEpisodePhase({
+          eir_id: removed.eir_id,
+          to_phase: "archived",
+          actor_id: gate.user.id,
+          reason: "manual topic removed",
+        })
+      }
+    } catch (err) {
+      console.error("[khat-brain] archiving the removed topic's EIR failed:", err)
+    }
     revalidatePath(`/admin/khat-brain/seasons/${input.seasonId}`)
     return { success: true, data: { ok: true } }
   } catch (err) {
@@ -647,10 +675,12 @@ export async function assignDiscoveredGuestToEpisodeAction(input: {
  * straight from the season workspace.
  *
  * The gap it closes: a topic whose guest is already known (typical for a
- * manual topic) had no path to preparation. Manual topics get no EIR at
- * creation, the EIR page's "assign guest" needs one, and Phase-B discovery
- * deliberately excludes guests we already know. So conversion failed with
- * `missing_linked_guest` and nothing in the UI could fix it.
+ * manual topic) had no path to preparation: Phase-B discovery deliberately
+ * excludes guests we already know, so conversion failed with
+ * `missing_linked_guest` and nothing in the UI could fix it. Manual topics
+ * now get their EIR at creation (addManualTopicAction, 2026-10-02); the
+ * ensureEirForCandidate below still covers older topics created without one
+ * and an EIR creation that failed non-fatally.
  *
  * Composition — no new logic, only the existing primitives in order:
  *   1. ensureEirForCandidate  → the topic gets its EIR (idempotent). A

@@ -151,6 +151,7 @@ const FLAG_LABEL: Record<V2Flag, string> = {
   policy_review: "سابقة مالية — قرار خالد",
   policy_exposure_unbacked: "خصوصية الغير؟ غير مسندة — راجِع",
   likely_historical: "يُرجّح أنه متوفّى أو شخصية تاريخية",
+  old_era_story: "قصته من زمن قديم — تأكّد أنه على قيد الحياة قبل التواصل",
   seen_in_other_run: "مقترح في بحث آخر",
 }
 

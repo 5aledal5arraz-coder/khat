@@ -665,3 +665,37 @@ describe("D2 witness profiles (coerce)", () => {
     expect(coerceWitnessProfiles(null)).toEqual([])
   })
 })
+
+// ─── «controversial» is no longer offered by the season wizard (2026-10-02) ──
+
+describe("season wizard prompts do not offer episode_type controversial", () => {
+  const episodeTypeLines = (s: string) => s.match(/"episode_type": one of [^\n]*/g) ?? []
+  it("batch, editorial and guest-anchored", () => {
+    const anchored = buildGuestAnchoredSystemPrompt({
+      guest_profile: {
+        full_name: "ضيف",
+        display_name: null,
+        inferred_bio: "",
+        profession: null,
+        gender: "male",
+        country: "الكويت",
+        city: null,
+        expertise_domains: [],
+        editorial_angle: "",
+        confidence: 0.5,
+      } as never,
+      angle_count: 3,
+      rejected_titles: [],
+      taste_profile: TASTE,
+      editorial_controls: KHAT_EDITORIAL_CONTROLS_DEFAULTS,
+    })
+    for (const sys of [buildBatchSystemPrompt(genInput()), buildEditorialSystemPrompt(genInput()), anchored]) {
+      const lines = episodeTypeLines(sys)
+      expect(lines.length).toBeGreaterThan(0) // sight: the contract is in the prompt
+      for (const l of lines) {
+        expect(l).not.toContain("controversial")
+        expect(l).toContain('"social"')
+      }
+    }
+  })
+})

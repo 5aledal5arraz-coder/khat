@@ -359,6 +359,8 @@ export type V2Flag =
   | "policy_exposure_unbacked"
   /** born < 1940 / not alive / a first-hand claim only before 1960 — review, never a reject (2026-09-30) */
   | "likely_historical"
+  /** only an old first-hand year, but the model says alive / born ≥ 1940 — soft review hint (2026-10-02) */
+  | "old_era_story"
   /** the same name is a candidate in another run of this season / week — a hint, never a block */
   | "seen_in_other_run"
 

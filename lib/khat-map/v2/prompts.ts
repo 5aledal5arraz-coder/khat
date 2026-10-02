@@ -28,7 +28,7 @@ const TOPIC_FIELDS = `{
     "why_now": string,
     "goal": string,
     "description": string,
-    "episode_type": one of "intellectual"|"social"|"psychological"|"personal_story"|"national"|"historical"|"economic"|"controversial"|"inspirational"|"signature_khat"|"invasion",
+    "episode_type": one of "intellectual"|"social"|"psychological"|"personal_story"|"national"|"historical"|"economic"|"inspirational"|"signature_khat"|"invasion",
     "topic_domain": one of "philosophy"|"psychology"|"relationships"|"religion"|"identity_masculinity"|"money_career"|"technology_ai"|"internet_culture"|"crime_mystery"|"hidden_history"|"power_manipulation"|"parenting"|"kuwait_gulf"|"historical"|"social_issues"|"modern_society"|"emotions_inner_life"|"none",
     "topic_angle_code": string | null,
     "main_axes": string[],

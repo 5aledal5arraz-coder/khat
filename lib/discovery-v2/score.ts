@@ -357,6 +357,12 @@ function resolveGender(
 
 /** The operator copy for R2b — the card goes to review with this on top. */
 export const HISTORICAL_FIGURE_REASON = "يُرجّح أنه متوفّى أو شخصية تاريخية"
+/**
+ * R2b's soft copy (2026-10-02): the only cue is an old first-hand year, and
+ * the model itself says he is alive / born ≥ HISTORICAL_BIRTH_BEFORE — a
+ * living elder telling a 1950s story, not a ghost.
+ */
+export const OLD_ERA_STORY_REASON = "قصته من زمن قديم — تأكّد أنه على قيد الحياة قبل التواصل"
 
 /**
  * R2b — does this look like a historical figure rather than a living guest?
@@ -368,7 +374,9 @@ export const HISTORICAL_FIGURE_REASON = "يُرجّح أنه متوفّى أو �
  *   - a FIRST-HAND claim whose every year is < HISTORICAL_ACTIVE_BEFORE (a
  *     second-hand story about a father's voyage says nothing about the teller).
  * REVIEW ONLY, in every case (noura QA, 2026-09-30): a man born 1942 with a
- * verified 1955 quote is an elder, not a ghost. The only hard rejects for
+ * verified 1955 quote is an elder, not a ghost. When the first-hand year is
+ * the ONLY cue and the model says he is alive / born ≥ 1940, the copy is the
+ * soft OLD_ERA_STORY_REASON (flag `old_era_story`), not «متوفّى». The only hard rejects for
  * death stay R2: a verified death quote or a confident Wikidata death year.
  */
 export function historicalFigureCue(proposed: ProposedName, attrs?: StoryCheck["attrs"] | null): string | null {
@@ -379,7 +387,14 @@ export function historicalFigureCue(proposed: ProposedName, attrs?: StoryCheck["
   }
   if (proposed.story_type === "first_hand") {
     const years = yearsIn(proposed.story_claim)
-    if (years.length > 0 && Math.max(...years) < HISTORICAL_ACTIVE_BEFORE) return HISTORICAL_FIGURE_REASON
+    if (years.length > 0 && Math.max(...years) < HISTORICAL_ACTIVE_BEFORE) {
+      // Only the story's year speaks; a living signal from the model (and no
+      // strong cue above) means an elder — say so without calling him dead.
+      const livingSignal =
+        proposed.is_alive === true ||
+        (typeof proposed.birth_year === "number" && proposed.birth_year >= HISTORICAL_BIRTH_BEFORE)
+      return livingSignal ? OLD_ERA_STORY_REASON : HISTORICAL_FIGURE_REASON
+    }
   }
   return null
 }
@@ -642,7 +657,7 @@ export function scoreCandidate(
   // R2b: never a reject — Khaled checks, with the flag and reason on top.
   if (historical && decision !== "rejected") {
     decision = "needs_review"
-    flags.push("likely_historical")
+    flags.push(historical === OLD_ERA_STORY_REASON ? "old_era_story" : "likely_historical")
     reasons.unshift(historical)
   }
   // The classifier's third_party_exposure without a quoted private fact

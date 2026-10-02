@@ -21,6 +21,28 @@ import { foldVerbatim } from "@/lib/studio/verbatim"
 
 export type PolicyCategory = "politics" | "religious_dispute" | "scandal"
 
+/**
+ * «controversial» is not a Khat goal under the constitution (2026-09-28): no
+ * topic generator offers it any more (hybrid-topics v4.1, season wizard
+ * 2026-10-02). A model that still returns it gets the closest allowed
+ * episode type by the topic's own domain. The enum stays in the schema for
+ * rows written before.
+ */
+const CONTROVERSIAL_BY_DOMAIN: Record<string, string> = {
+  psychology: "psychological",
+  emotions_inner_life: "psychological",
+  money_career: "economic",
+  philosophy: "intellectual",
+  technology_ai: "intellectual",
+  historical: "historical",
+  hidden_history: "historical",
+}
+
+/** The allowed episode type that replaces «controversial» for a topic in `domain`. */
+export function episodeTypeForControversial(domain?: string | null): string {
+  return CONTROVERSIAL_BY_DOMAIN[domain ?? ""] ?? "social"
+}
+
 /** The model-side vocabulary. Anything else the model emits is ignored. */
 export const SENSITIVITY_FLAGS = [
   "politics",

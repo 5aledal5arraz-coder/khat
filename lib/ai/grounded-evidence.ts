@@ -50,6 +50,7 @@ import { recordAiRun } from "@/lib/ai-router/record-run"
 import { deriveGeminiTelemetry } from "@/lib/ai-router/gemini-usage"
 import { assertRetrievalBudget } from "@/lib/ai-router/retrieval-budget"
 import { isRetriableProviderError } from "@/lib/ai-router/errors"
+import { assertPublicUrl, MAX_REDIRECTS, pinnedStatusRequest, SOURCE_CHECK_UA } from "@/lib/net/public-url"
 import {
   buildRetrievalPrompt,
   deriveRetrievalCounts,
@@ -346,39 +347,48 @@ export function renderGroundedEvidenceBlock(
 
 /**
  * Follow a trusted Gemini redirect wrapper to its real destination.
- * Returns the final URL + whether it resolved to a live page. We only fetch
- * the Google-owned redirect host (never arbitrary URLs) to avoid SSRF and
- * unbounded latency; direct (non-wrapper) URLs are parsed, not fetched.
+ * Returns the final URL + whether it resolved to a live page. Only the
+ * Google-owned wrapper is ever STARTED from; direct (non-wrapper) URLs are
+ * parsed, not fetched.
+ *
+ * The wrapper's Location is an arbitrary URL, so redirects are followed by
+ * hand and every hop is checked like any untrusted URL (lib/net/public-url:
+ * assertPublicUrl per hop + the pinned DNS lookup at connect time). It used
+ * `fetch(..., { redirect: "follow" })` — a blind SSRF into loopback / cloud
+ * metadata (yousef, 2026-10-02). A refused hop = unverified, wrapper URL kept,
+ * exactly like a timeout. `deps.request` is for tests.
  */
-async function resolveRedirect(
+export async function resolveRedirect(
   url: string,
   timeoutMs = 4000,
+  deps: { request?: typeof pinnedStatusRequest } = {},
 ): Promise<{ finalUrl: string; verified: boolean }> {
   if (!isVertexRedirect(url)) {
     // Direct URL — trust its shape without an outbound request.
     return { finalUrl: url, verified: domainFromUrl(url) !== null }
   }
+  const request = deps.request ?? pinnedStatusRequest
+  // Without a User-Agent Wikipedia answers 403 and the source looks dead.
+  const HEADERS = { "User-Agent": SOURCE_CHECK_UA }
   const controller = new AbortController()
   const timer = setTimeout(() => controller.abort(), timeoutMs)
   try {
-    // HEAD is cheapest; follow redirects to the real page.
-    let res = await fetch(url, {
-      method: "HEAD",
-      redirect: "follow",
-      signal: controller.signal,
-    })
-    // Some hosts reject HEAD (405) — retry once with GET to read the status.
-    if (res.status === 405) {
-      res = await fetch(url, {
-        method: "GET",
-        redirect: "follow",
-        signal: controller.signal,
-      })
+    let current = new URL(url)
+    for (let hop = 0; hop <= MAX_REDIRECTS; hop++) {
+      assertPublicUrl(current) // every hop — a redirect is just another URL
+      // HEAD is cheapest; some hosts reject it (405) — retry once with GET.
+      let res = await request(current, "HEAD", controller.signal, HEADERS)
+      if (res.status === 405) res = await request(current, "GET", controller.signal, HEADERS)
+      if (res.status >= 300 && res.status < 400 && res.location) {
+        current = new URL(res.location, current)
+        continue
+      }
+      return { finalUrl: current.toString(), verified: res.status >= 200 && res.status < 300 }
     }
-    const finalUrl = res.url || url
-    return { finalUrl, verified: res.ok }
+    // Too many hops — keep the wrapper URL, mark unverified.
+    return { finalUrl: url, verified: false }
   } catch {
-    // Timeout / network error — keep the wrapper URL, mark unverified.
+    // Timeout / network error / refused (private) hop — keep the wrapper URL, mark unverified.
     return { finalUrl: url, verified: false }
   } finally {
     clearTimeout(timer)

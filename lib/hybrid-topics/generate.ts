@@ -40,7 +40,7 @@ import {
   type HybridCandidate,
 } from "./reject"
 import { clampTopicScores, khatTopicScore, rescoreHybridCandidate } from "./scoring"
-import { normalizeSensitivityFlags } from "@/lib/khat-map/core/policy"
+import { episodeTypeForControversial, normalizeSensitivityFlags } from "@/lib/khat-map/core/policy"
 import {
   openGenerationLog,
   completeGenerationLog,
@@ -591,27 +591,13 @@ const INVASION_TEXT = /غزو|الاحتلال|1990|١٩٩٠/
  * content_focus of the whole preparation. Anything else falls back to the
  * same default as an unknown type.
  */
-/**
- * «controversial» is not a Khat goal under the constitution (2026-09-28) and
- * the prompt no longer offers it (v4.1); a model that still returns it
- * (ab7d12c1 «كان حسابنا المشترك أكثر حميمية منا», 2026-09-29) gets the
- * closest allowed type by the topic's own domain. The enum stays in the
- * schema for rows written before.
- */
-const CONTROVERSIAL_BY_DOMAIN: Record<string, string> = {
-  psychology: "psychological",
-  emotions_inner_life: "psychological",
-  money_career: "economic",
-  philosophy: "intellectual",
-  technology_ai: "intellectual",
-  historical: "historical",
-  hidden_history: "historical",
-}
-
+// «controversial» → episodeTypeForControversial (lib/khat-map/core/policy.ts):
+// the prompt no longer offers it (v4.1), yet ab7d12c1 «كان حسابنا المشترك
+// أكثر حميمية منا» (2026-09-29) still came back typed controversial.
 export function coerceEpisodeType(rawType: string, text: string, domain?: string): string {
   if (!VALID_EPISODE_TYPES.has(rawType)) return "intellectual"
   if (rawType === "invasion" && !INVASION_TEXT.test(text)) return "intellectual"
-  if (rawType === "controversial") return CONTROVERSIAL_BY_DOMAIN[domain ?? ""] ?? "social"
+  if (rawType === "controversial") return episodeTypeForControversial(domain)
   return rawType
 }
 

@@ -31,7 +31,8 @@ import {
   buildEditorialUserPrompt,
 } from "./prompts-editorial"
 import { buildCourtSystemPrompt, buildCourtUserPrompt } from "./prompts-court"
-import { clampCategory } from "./categories"
+import { clampCategory, legacyDomainForCategory } from "./categories"
+import { episodeTypeForControversial } from "@/lib/khat-map/core/policy"
 import { clampSuccessDimensions } from "./success-score"
 import type {
   CandidateGenInput,
@@ -55,7 +56,8 @@ async function generateCandidates(
   const editorial = !!input.editorial
   // v2 / v3 (2026-09-28): «دستور خط» is the first system block; the
   // success dimensions are the constitution's (worth_telling first).
-  const promptVersion = editorial ? "khat-map-editorial-v2-constitution" : "khat-map-batch-v3-constitution"
+  // v3 / v4 (2026-10-02): episode_type no longer offers «controversial».
+  const promptVersion = editorial ? "khat-map-editorial-v3-constitution" : "khat-map-batch-v4-constitution"
   const prompt = editorial
     ? [
         { role: "system" as const, content: buildEditorialSystemPrompt(input) },
@@ -130,7 +132,7 @@ async function generateGuestAnchoredTopics(
 ): Promise<RawCandidate[]> {
   const r = await runAiTask<{ candidates?: unknown } | unknown[]>({
     taskKind: "editorial",
-    promptVersion: "khat-map-guest-anchored-v3-constitution",
+    promptVersion: "khat-map-guest-anchored-v4-constitution", // v4: no «controversial» (2026-10-02)
     input: {
       guest: input.guest_profile.full_name,
       angle_count: input.angle_count,
@@ -223,6 +225,17 @@ function normalizeRawCandidate(v: unknown): RawCandidate | null {
   // If guest exists but has no name, drop the guest but keep the topic.
   const safeGuest = guest && guest.full_name ? guest : null
 
+  const topicDomain = clampTopicDomain(asOptionalString(topic.topic_domain)) ?? "none"
+  const category = clampCategory(asOptionalString(topic.category))
+  let episodeType = clampEpisodeType(asOptionalString(topic.episode_type)) ?? "signature_khat"
+  // No longer offered (2026-10-02). Mapped by the domain the row will
+  // persist with — persistence.ts derives it from the category when set.
+  if (episodeType === "controversial") {
+    episodeType = episodeTypeForControversial(
+      category ? legacyDomainForCategory(category) : topicDomain,
+    ) as RawCandidate["topic"]["episode_type"]
+  }
+
   return {
     topic: {
       working_title,
@@ -231,10 +244,8 @@ function normalizeRawCandidate(v: unknown): RawCandidate | null {
       why_now: asString(topic.why_now),
       goal: asString(topic.goal),
       description: asString(topic.description),
-      episode_type:
-        clampEpisodeType(asOptionalString(topic.episode_type)) ?? "signature_khat",
-      topic_domain:
-        clampTopicDomain(asOptionalString(topic.topic_domain)) ?? "none",
+      episode_type: episodeType,
+      topic_domain: topicDomain,
       topic_angle_code: asOptionalString(topic.topic_angle_code),
       main_axes: asStringArray(topic.main_axes),
       suggested_questions: asStringArray(topic.suggested_questions),
@@ -251,7 +262,7 @@ function normalizeRawCandidate(v: unknown): RawCandidate | null {
           | RawCandidate["topic"]["sponsor_appeal"]
           | null) ?? null,
       // `category` is the 15-category diversity label.
-      category: clampCategory(asOptionalString(topic.category)),
+      category,
       regional_note: asOptionalString(topic.regional_note),
       viral_angle: asOptionalString(topic.viral_angle),
       debate_axis: asOptionalString(topic.debate_axis),

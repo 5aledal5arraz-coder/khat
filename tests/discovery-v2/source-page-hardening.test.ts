@@ -285,3 +285,21 @@ describe("noura 5 — scoring: unverified self_told scores below a proven one an
     expect(storyEvidenceDepth(proven.assessment)).toBe(1000 + 100 + 10 + 1)
   })
 })
+
+describe("noura 4 (2026-10-02) — a numbered title on a STORYTELLING channel is not him as guest", () => {
+  it.each([
+    ["الحلقة 7 - جاسم المطوع | قصص خالد عبدالعزيز", "قصص خالد عبدالعزيز"],
+    ["الحلقة 3 - جاسم المطوع", "بودكاست قصص الأثرياء"],
+    ["الحلقة 3 - جاسم المطوع | سيرة رجل أعمال", "قناة"],
+    ["الحلقة 9 - جاسم المطوع", "حكاية من الكويت"],
+    ["الحلقة 4 - جاسم المطوع | خالد يروي عن سوق المناخ", "قناة"],
+  ])("%s (channel %s) → null", (title, channel) => {
+    expect(sp.pageSpeaker(yt(title, channel), MUT)).toBeNull()
+  })
+  it("sight: the same numbered title on a neutral channel is still a guest", () => {
+    expect(sp.pageSpeaker(yt("الحلقة 7 - جاسم المطوع", "بودكاست سوالف"), MUT)?.basis).toBe("guest")
+  })
+  it("sight: a story channel that PRESENTS him as guest still counts («ضيف الحلقة»)", () => {
+    expect(sp.pageSpeaker(yt("الحلقة 7 | ضيف الحلقة جاسم المطوع", "بودكاست قصص الأثرياء"), MUT)?.basis).toBe("guest")
+  })
+})
