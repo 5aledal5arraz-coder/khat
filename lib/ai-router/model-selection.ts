@@ -50,6 +50,14 @@ const CACHE_TTL_MS = 15_000
 
 export const AI_TASK_KINDS = Object.keys(DEFAULT_MODELS) as AiTaskKind[]
 
+/**
+ * Kinds whose model is PINNED in the registry: no env (KHAT_AI_MODEL_<KIND>)
+ * or Settings override applies, and they are not offered in the Settings hub.
+ * podcast_guest_extract — see its registry entry (2026-10-03 prod incident).
+ */
+export const PINNED_TASK_KINDS: ReadonlySet<AiTaskKind> = new Set<AiTaskKind>(["podcast_guest_extract"])
+export const CONFIGURABLE_TASK_KINDS = AI_TASK_KINDS.filter((k) => !PINNED_TASK_KINDS.has(k))
+
 const EFFORTS: ReadonlySet<string> = new Set(["none", "low", "medium", "high", "xhigh"])
 /** API model ids (incl. fine-tune ids like "ft:gpt-…:org:suffix:id"). */
 const MODEL_ID_RE = /^[a-zA-Z0-9._:-]{1,120}$/
@@ -91,7 +99,7 @@ function sanitizeOverride(raw: unknown): TaskModelOverride | null {
 function sanitizeOverrides(raw: unknown): AiModelOverrides {
   const out: AiModelOverrides = {}
   if (!raw || typeof raw !== "object") return out
-  for (const kind of AI_TASK_KINDS) {
+  for (const kind of CONFIGURABLE_TASK_KINDS) {
     const o = sanitizeOverride((raw as Record<string, unknown>)[kind])
     if (o) out[kind] = o
   }
@@ -207,6 +215,7 @@ export function pickModel(input: {
 }
 
 function envModelFor(taskKind: AiTaskKind): string | null {
+  if (PINNED_TASK_KINDS.has(taskKind)) return null
   const v = process.env[`KHAT_AI_MODEL_${taskKind.toUpperCase()}`]?.trim()
   return v && MODEL_ID_RE.test(v) ? v : null
 }
@@ -316,7 +325,7 @@ export async function getAiModelsDiagnostics(opts?: {
   const catalog = await getModelCatalog({ forceRefresh: opts?.forceRefresh })
   const overrides = await readAiModelOverrides({ fresh: true })
   const tasks: AiModelsTaskDiagnostics[] = []
-  for (const taskKind of AI_TASK_KINDS) {
+  for (const taskKind of CONFIGURABLE_TASK_KINDS) {
     const effective = await resolveModelChoice(taskKind)
     tasks.push({
       taskKind,

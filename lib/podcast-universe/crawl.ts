@@ -257,6 +257,8 @@ export type CrawlOutcome =
   | { status: "succeeded"; pages: number; inserted: number; updated: number }
   | { status: "budget_stopped"; resetAt: Date; pages: number }
   | { status: "paused"; pages: number }
+  /** Another initial/incremental crawl of this channel is running — nothing was done. */
+  | { status: "busy"; runningRunId: string }
 
 export interface CrawlDeps {
   client?: YoutubeClient
@@ -322,10 +324,10 @@ export async function runCrawl(runId: string, deps: CrawlDeps = {}): Promise<Cra
   }
 
   const startedAt = run.started_at ?? now()
-  await db!
-    .update(podcastCrawlRuns)
-    .set({ status: "running", started_at: startedAt, error_summary: null })
-    .where(eq(podcastCrawlRuns.id, run.id))
+  // ONE active crawl per channel (initial AND incremental): claim the channel
+  // under a channel-keyed advisory lock, so two jobs can never both see "free".
+  const claim = await claimChannelCrawl(channel.id, run.id, startedAt)
+  if (!claim.ok) return { status: "busy", runningRunId: claim.runningRunId }
   await db!
     .update(podcastChannels)
     .set({ crawl_status: "running", last_crawled_at: now(), updated_at: now() })
@@ -473,6 +475,57 @@ export async function runCrawl(runId: string, deps: CrawlDeps = {}): Promise<Cra
     await setChannel({ crawl_status: permanent ? "failed" : "partial" })
     throw err
   }
+}
+
+/**
+ * Claim the channel for this crawl run. Under pg_advisory_xact_lock keyed on
+ * the channel, refuse when ANOTHER initial/incremental run of the channel is
+ * `running` AND still has a live job (pending/running) behind it. A `running`
+ * row whose job is gone (worker died, job dead-lettered) is stale: it is
+ * marked `partial` and the channel is taken over — a stale row must never
+ * block the channel forever.
+ */
+export async function claimChannelCrawl(
+  channelId: string,
+  runId: string,
+  startedAt: Date,
+): Promise<{ ok: true } | { ok: false; runningRunId: string }> {
+  return db!.transaction(async (tx) => {
+    await tx.execute(sql`SELECT pg_advisory_xact_lock(hashtext(${"podcast-crawl:" + channelId}))`)
+    const others = (
+      await tx.execute(sql`
+        SELECT r.id,
+               EXISTS (SELECT 1 FROM jobs j WHERE j.status IN ('pending', 'running')
+                         AND j.type IN ('podcast.channel.initial_crawl', 'podcast.channel.incremental_crawl')
+                         AND j.payload->>'runId' = r.id::text) AS live
+        FROM podcast_crawl_runs r
+        WHERE r.channel_id = ${channelId}::uuid AND r.run_type IN ('initial', 'incremental')
+          AND r.status = 'running' AND r.id <> ${runId}::uuid`)
+    ).rows as Array<{ id: string; live: boolean }>
+    const live = others.find((o) => o.live)
+    if (live) return { ok: false as const, runningRunId: live.id }
+    for (const stale of others) {
+      await tx
+        .update(podcastCrawlRuns)
+        .set({ status: "partial", error_summary: "stale: its job is gone — superseded by a new crawl of the channel" })
+        .where(eq(podcastCrawlRuns.id, stale.id))
+    }
+    await tx
+      .update(podcastCrawlRuns)
+      .set({ status: "running", started_at: startedAt, error_summary: null })
+      .where(eq(podcastCrawlRuns.id, runId))
+    return { ok: true as const }
+  })
+}
+
+/** Is any initial/incremental crawl of this channel running with a live job? */
+export async function channelCrawlRunning(channelId: string): Promise<string | null> {
+  const r = await db!.execute(sql`
+    SELECT r.id FROM podcast_crawl_runs r
+    WHERE r.channel_id = ${channelId}::uuid AND r.run_type IN ('initial', 'incremental') AND r.status = 'running'
+      AND EXISTS (SELECT 1 FROM jobs j WHERE j.status IN ('pending', 'running') AND j.payload->>'runId' = r.id::text)
+    LIMIT 1`)
+  return (r.rows[0] as { id: string } | undefined)?.id ?? null
 }
 
 /** Mark a run (and its channel) failed after the worker's last attempt. */

@@ -63,6 +63,7 @@ export const TASK_TIER: Record<AiTaskKind, RateLimitTier> = {
   editorial: "expensive",
   discovery: "expensive",
   research: "expensive",
+  podcast_guest_extract: "light",
 }
 
 /**

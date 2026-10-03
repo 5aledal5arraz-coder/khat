@@ -467,6 +467,13 @@ export const podcastCrawlRuns = pgTable(
     youtube_search_calls: integer("youtube_search_calls").notNull().default(0),
     /** AI dollars — never quota units (D10). */
     ai_cost_usd: numeric("ai_cost_usd", { precision: 12, scale: 6 }).notNull().default("0"),
+    /**
+     * Money RESERVED for an in-flight paid call (its worst-case estimate),
+     * released when the call returns. The hard cap counts actual recorded
+     * cost (ai_cost_usd) + open reservations; a call that bills nothing
+     * (429 / no credits) releases its reservation and costs 0.
+     */
+    reserved_usd: numeric("reserved_usd", { precision: 12, scale: 6 }).notNull().default("0"),
     /** Hard cap for a guest_extract run (Decision 14 / B13); null for crawl runs. */
     budget_limit_usd: numeric("budget_limit_usd", { precision: 12, scale: 6 }),
     cursor_state: jsonb("cursor_state").$type<Record<string, unknown>>(),

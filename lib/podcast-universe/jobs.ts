@@ -22,8 +22,8 @@ import {
   PU_JOB_INITIAL_CRAWL,
   PU_JOB_PERSON_RESOLVE,
 } from "./constants"
-import { createRun, loadChannel, pgCode, resumableInitialRun } from "./crawl"
-import { createExtractionRun, totalExtractionSpendUsd, type ExtractCursor } from "./extraction/run"
+import { channelCrawlRunning, createRun, loadChannel, pgCode, resumableInitialRun } from "./crawl"
+import { committedExtractionUsd, createExtractionRun, type ExtractCursor } from "./extraction/run"
 
 export type StartResult = { ok: true; jobId: string; runId?: string; alreadyRunning: boolean } | { ok: false; error: string }
 
@@ -96,6 +96,11 @@ export async function startIncrementalCrawl(channelId: string, opts: { runAfter?
   if (channel.verification_status !== "verified") return { ok: false, error: "تحقّق من القناة أولاً" }
   if (!channel.last_successful_crawl_at) return { ok: false, error: "شغّل الزحف الأولي أولاً" }
   if (channel.paused) return { ok: false, error: "القناة موقوفة" }
+  // One active crawl per channel: the weekly sync SKIPS a channel being crawled.
+  if (!opts.resumeRunId) {
+    const running = await channelCrawlRunning(channelId)
+    if (running) return { ok: false, error: "يوجد زحف قيد التشغيل لهذه القناة — تم التخطي" }
+  }
   if (!opts.resumeRunId) {
     const inflight = await inflightByPrefix(incrementalDedupeKey(channelId))
     if (inflight) return { ok: true, jobId: inflight.id, runId: String(inflight.payload.runId ?? ""), alreadyRunning: true }
@@ -128,7 +133,9 @@ export async function startGuestExtraction(budgetUsd = M1_EXTRACT_BUDGET_USD): P
   if (!(budgetUsd > 0) || budgetUsd > M1_EXTRACT_BUDGET_USD) {
     return { ok: false, error: `السقف الكلي يجب أن يكون بين 0 و ${M1_EXTRACT_BUDGET_USD} دولار` }
   }
-  const spent = await totalExtractionSpendUsd()
+  // Recorded cost + any open reservation (a call in flight) count toward the cap.
+  const { spent: booked, reserved } = await committedExtractionUsd()
+  const spent = booked + reserved
   if (spent >= budgetUsd) {
     return {
       ok: false,

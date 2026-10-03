@@ -181,7 +181,27 @@ export const DEFAULT_MODELS: Record<AiTaskKind, ModelChoice> = {
     defaultTimeoutMs: 150_000,
     defaultMaxRetries: 2,
   },
+  /**
+   * PINNED (2026-10-03, prod incident): Podcast Universe guest extraction was
+   * gated on gpt-5.6-luna (gold set: precision 100%, recall 98.8%). Prod ran it
+   * through `structural`, which KHAT_AI_MODEL_STRUCTURAL had moved to
+   * gpt-5.4-mini — nationality evidence lost the guest's name and hosts came
+   * back as guests. This kind has a one-model chain, and the caller passes
+   * `preferredModel` (lib/podcast-universe/extraction/run.ts), so neither the
+   * env override nor a Settings override can change it. Adopting a newer
+   * model = re-run the gold set, then change THIS entry.
+   */
+  podcast_guest_extract: {
+    provider: "openai",
+    modelName: "gpt-5.6-luna",
+    inputCostPer1M: 0.2,
+    outputCostPer1M: 1.2,
+    reasoningEffort: "low",
+  },
 }
+
+/** The model Podcast Universe extraction is pinned to (and its gold-set QA was run on). */
+export const PODCAST_GUEST_EXTRACT_MODEL = "gpt-5.6-luna"
 
 /**
  * Pricing for models reachable via `preferredProvider`/`preferredModel`
@@ -307,6 +327,8 @@ export const FALLBACK_CHAINS: Record<AiTaskKind, readonly string[]> = {
   research: ["gpt-5.6-terra", "gpt-5.6-sol", "gpt-5.4", "gpt-4o"],
   // NO on-point evidence for any member — see `structural`.
   analysis: ["gpt-5.6-luna", "gpt-5.4-mini", "gpt-5.4-nano", "gpt-4o-mini"],
+  // Pinned: ONE member. No silent fallback to a model the gold set never saw.
+  podcast_guest_extract: ["gpt-5.6-luna"],
 }
 
 /**

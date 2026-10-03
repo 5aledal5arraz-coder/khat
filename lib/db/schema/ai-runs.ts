@@ -24,6 +24,10 @@ export const AI_TASK_KINDS = [
   "verification", // fact-check, identity confirmation, source check
   "research", // web research synthesis (long context)
   "analysis", // performance / quality analysis
+  // Podcast Universe guest extraction — its OWN kind so the global
+  // KHAT_AI_MODEL_STRUCTURAL override (prod: gpt-5.4-mini) can never reach it.
+  // Pinned to gpt-5.6-luna (lib/ai-router/registry.ts).
+  "podcast_guest_extract",
 ] as const
 export type AiTaskKind = (typeof AI_TASK_KINDS)[number]
 

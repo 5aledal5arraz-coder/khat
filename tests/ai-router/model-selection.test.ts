@@ -19,7 +19,7 @@ import {
   lookupPricing,
   registerRuntimePricing,
 } from "@/lib/ai-router/registry"
-import { pickModel, AI_TASK_KINDS } from "@/lib/ai-router/model-selection"
+import { pickModel, AI_TASK_KINDS, PINNED_TASK_KINDS } from "@/lib/ai-router/model-selection"
 import {
   relevantTextModels,
   detectGptFamilies,
@@ -31,7 +31,10 @@ describe("registry ↔ fallback-chain consistency", () => {
   it("every task kind has a chain whose head is the registry default", () => {
     for (const kind of Object.keys(DEFAULT_MODELS) as AiTaskKind[]) {
       const chain = FALLBACK_CHAINS[kind]
-      expect(chain?.length, `chain for ${kind}`).toBeGreaterThan(1)
+      // A PINNED kind has exactly one model by design (no silent fallback to a
+      // model its QA never saw); every other kind must have a fallback.
+      if (PINNED_TASK_KINDS.has(kind)) expect(chain, `pinned chain for ${kind}`).toHaveLength(1)
+      else expect(chain?.length, `chain for ${kind}`).toBeGreaterThan(1)
       expect(chain[0], `chain head for ${kind}`).toBe(DEFAULT_MODELS[kind].modelName)
     }
     expect(AI_TASK_KINDS.sort()).toEqual(Object.keys(FALLBACK_CHAINS).sort())
@@ -107,7 +110,9 @@ describe("registry ↔ fallback-chain consistency", () => {
       // AA-Omniscience score. Their order is the pre-existing
       // newest-generation-first ordering, left untouched deliberately:
       // settling it needs a benchmark run, not a coin flip.
-      expect(unevidenced).toEqual(["analysis", "structural", "verification"])
+      // podcast_guest_extract is evidenced by its own gold set (Podcast
+      // Universe M1), not by AA-Omniscience — and its chain is pinned to one model.
+      expect(unevidenced).toEqual(["analysis", "podcast_guest_extract", "structural", "verification"])
     })
   })
 })

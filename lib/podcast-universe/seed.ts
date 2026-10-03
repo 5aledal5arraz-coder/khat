@@ -37,12 +37,16 @@ export const M1_SEED_CHANNELS: readonly SeedChannel[] = [
  * Curated program hosts (noura 2026-10-03, each verified from the episode
  * descriptions: the host's own links recur across the program's episodes).
  * Program-scoped on purpose — e.g. محمد آل جابر hosts «جادي» but is a real
- * GUEST on «فنجان», same channel. «الفجر» / مالك الروقي is NOT listed: one
- * panel episode in five does not confirm a host.
+ * GUEST on «فنجان», same channel. NOT listed, on the evidence:
+ *   «الفجر» / مالك الروقي — one panel episode in five does not confirm a host;
+ *   «مرتدة» / أحمد عفيفي — the descriptions call him «ضيفنا الإعلامي» /
+ *   «نستضيف الإعلامي أحمد عفيفي» (3 of 183 episodes): a recurring GUEST.
  */
 export const M1_PROGRAM_HOSTS: ReadonlyArray<{ channel: string; program: string; hosts: readonly string[] }> = [
   { channel: "@thmanyahPodcasts", program: "بودكاست آدم", hosts: ["محمد الحاجي"] },
   { channel: "@thmanyahPodcasts", program: "بودكاست جادي", hosts: ["محمد آل جابر", "هادي فقيهي"] },
+  // Both hosts' own links recur in 19 of the program's episodes.
+  { channel: "@thmanyahPodcasts", program: "بودكاست أرباح", hosts: ["أنس الراجحي", "سعيد عبدالجبار"] },
   { channel: "@Alphacast.Official", program: "شنو الكوميديا", hosts: ["بدر صالح", "مؤمن أفندي"] },
   // The same program, misspelled in some of its own titles.
   { channel: "@Alphacast.Official", program: "شنو الكومديا", hosts: ["بدر صالح", "مؤمن أفندي"] },

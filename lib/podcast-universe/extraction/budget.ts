@@ -59,3 +59,28 @@ export function checkBudget(spentUsd: number, estimateUsd: number, limitUsd: num
   }
   return { allowed: true, estimate: estimateUsd }
 }
+
+/**
+ * What a returned call ACTUALLY costs the budget (2026-10-03).
+ *   • the router booked a provider cost → that, exactly;
+ *   • no booked cost but token counts → priced from the tokens;
+ *   • failed before any work — 429 / no credits / auth (the router exposes
+ *     no usage on errors, and the provider billed nothing) → 0;
+ *   • failed with unknown usage (timeout, 5xx: generation may have been
+ *     billed) or succeeded without any usage figure → the reservation,
+ *     pessimistically — never silently zero.
+ */
+const NO_USAGE_ERRORS = new Set(["rate_limited", "quota_exceeded", "auth_failed"])
+
+export function billableCostUsd(
+  result: { status: string; costUsd: number | null; tokensIn: number | null; tokensOut: number | null; errorClass: string | null },
+  pricing: Pricing,
+  reservedUsd: number,
+): number {
+  if (result.costUsd != null && Number.isFinite(result.costUsd)) return Math.max(0, result.costUsd)
+  if (result.tokensIn != null || result.tokensOut != null) {
+    return ((result.tokensIn ?? 0) * pricing.inputCostPer1M + (result.tokensOut ?? 0) * pricing.outputCostPer1M) / 1_000_000
+  }
+  if (result.status !== "succeeded" && NO_USAGE_ERRORS.has(String(result.errorClass ?? ""))) return 0
+  return reservedUsd
+}

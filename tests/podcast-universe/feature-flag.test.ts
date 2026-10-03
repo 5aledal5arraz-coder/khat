@@ -114,6 +114,7 @@ describe("curated program hosts live in code (prod seed = channels + hosts)", ()
     expect(M1_PROGRAM_HOSTS.map((e) => [e.channel, e.program, [...e.hosts]])).toEqual([
       ["@thmanyahPodcasts", "بودكاست آدم", ["محمد الحاجي"]],
       ["@thmanyahPodcasts", "بودكاست جادي", ["محمد آل جابر", "هادي فقيهي"]],
+      ["@thmanyahPodcasts", "بودكاست أرباح", ["أنس الراجحي", "سعيد عبدالجبار"]],
       ["@Alphacast.Official", "شنو الكوميديا", ["بدر صالح", "مؤمن أفندي"]],
       ["@Alphacast.Official", "شنو الكومديا", ["بدر صالح", "مؤمن أفندي"]],
     ])

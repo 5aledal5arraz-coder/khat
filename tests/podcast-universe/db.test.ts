@@ -235,6 +235,36 @@ d("Podcast Universe — real DB", () => {
     expect(r.cursor_state.stop_reason).toBe("incremental_overlap_reached")
   })
 
+  it("ONE active crawl per channel: a live running crawl blocks a second; a stale one is taken over (2026-10-03)", async () => {
+    const a = await m.crawl.createRun(channelId, "incremental")
+    const b = await m.crawl.createRun(channelId, "incremental")
+    runIds.push(a.id, b.id)
+    await m.db!.execute(m.sql`UPDATE podcast_crawl_runs SET status = 'running' WHERE id = ${a.id}::uuid`)
+    // A live job behind run A (run_after far in the future: no worker will take it).
+    const [job] = await q<{ id: string }>(m.sql`
+      INSERT INTO jobs (id, type, payload, status, run_after, max_attempts)
+      VALUES (gen_random_uuid()::text, 'podcast.channel.incremental_crawl', ${JSON.stringify({ runId: a.id, channelId })}::jsonb, 'pending', '2099-01-01', 1)
+      RETURNING id`)
+    try {
+      const busy = await m.crawl.runCrawl(b.id, { client: fakeClient() as never })
+      expect(busy).toEqual({ status: "busy", runningRunId: a.id })
+      const [rb] = await q<{ status: string }>(m.sql`SELECT status FROM podcast_crawl_runs WHERE id = ${b.id}::uuid`)
+      expect(rb.status).toBe("queued") // nothing ran
+      // The weekly sync SKIPS a channel that is being crawled (no second job).
+      const { startIncrementalCrawl } = await import("@/lib/podcast-universe/jobs")
+      const weekly = await startIncrementalCrawl(channelId)
+      expect(weekly).toEqual({ ok: false, error: "يوجد زحف قيد التشغيل لهذه القناة — تم التخطي" })
+    } finally {
+      await m.db!.execute(m.sql`DELETE FROM jobs WHERE id = ${job.id}`)
+    }
+    // Run A's job is gone → A is stale; B takes the channel over.
+    const out = await m.crawl.runCrawl(b.id, { client: fakeClient() as never })
+    expect(out.status).toBe("succeeded")
+    const [ra] = await q<{ status: string; error_summary: string }>(m.sql`SELECT status, error_summary FROM podcast_crawl_runs WHERE id = ${a.id}::uuid`)
+    expect(ra.status).toBe("partial")
+    expect(ra.error_summary).toContain("stale")
+  })
+
   it("the quota ledger refuses the unit that would cross the daily cap", async () => {
     const day = new Date("2001-01-01T20:00:00Z")
     expect(await m.quota.reserveQuota("search", 19, day)).toBe(19)
@@ -525,6 +555,29 @@ d("Podcast Universe — real DB", () => {
         m.db!.execute(m.sql`INSERT INTO podcast_crawl_runs (run_type, status) VALUES ('guest_extract', 'queued')`),
       ).rejects.toThrow()
       await closeRun(all[0].runId)
+    })
+
+    it("a 429 / no-credits call books 0; the reservation exists only DURING the call (2026-10-03)", async () => {
+      const ids = await seedEpisodes()
+      const runId = await freshRun()
+      await m.db!.execute(m.sql`UPDATE podcast_crawl_runs SET cursor_state = jsonb_set(cursor_state, '{batch_size}', '20') WHERE id = ${runId}::uuid`)
+      let reservedDuringCall = -1
+      const runAi = vi.fn(async (req: { taskKind: string; preferredModel?: string }) => {
+        const [r] = await q<{ reserved_usd: string }>(m.sql`SELECT reserved_usd FROM podcast_crawl_runs WHERE id = ${runId}::uuid`)
+        reservedDuringCall = Number(r.reserved_usd)
+        expect(req.taskKind).toBe("podcast_guest_extract")
+        expect(req.preferredModel).toBe("gpt-5.6-luna")
+        return aiResult({ status: "failed", errorClass: "quota_exceeded", errorMessage: "insufficient_quota", costUsd: null, tokensIn: null, tokensOut: null })
+      })
+      const out = await m.run.runExtractionBatch(runId, 1, { attempt: 1, maxAttempts: 2 }, {
+        runAi: runAi as never, resolvePricing: fakePricing, scopeChannelIds: [channelId], ...noEnqueue,
+      })
+      expect(out.status).toBe("failed")
+      expect(reservedDuringCall).toBeGreaterThan(0)
+      const [r] = await q<{ ai_cost_usd: string; reserved_usd: string }>(m.sql`SELECT ai_cost_usd, reserved_usd FROM podcast_crawl_runs WHERE id = ${runId}::uuid`)
+      expect(Number(r.ai_cost_usd)).toBe(0)
+      expect(Number(r.reserved_usd)).toBe(0)
+      expect((await statuses(ids)).every((s) => s.guest_extraction_status === "pending")).toBe(true)
     })
 
     it("the $3 cap is TOTAL across runs: a new run inherits earlier spend and is refused (noura #2)", async () => {

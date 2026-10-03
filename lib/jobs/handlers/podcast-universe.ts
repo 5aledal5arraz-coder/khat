@@ -105,6 +105,12 @@ async function crawlHandler(payload: { runId?: string; channelId?: string }, ctx
   const channelId = str(payload.channelId)
   try {
     const out = await runCrawl(runId)
+    if (out.status === "busy") {
+      // Never two crawls of one channel at once. An initial crawl waits its
+      // turn (15 min); an incremental one is skipped — the next tick covers it.
+      if (kind === "initial") await startInitialCrawl(channelId, { runAfter: new Date(Date.now() + 15 * 60_000), resume: true })
+      return { status: "busy", runningRunId: out.runningRunId, action: kind === "initial" ? "rescheduled" : "skipped" }
+    }
     if (out.status === "budget_stopped") {
       // Quota is a pause, not a failure: resume at the next quota day.
       if (kind === "initial") await startInitialCrawl(channelId, { runAfter: out.resetAt, resume: true })

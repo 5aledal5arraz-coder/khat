@@ -34,6 +34,26 @@ const HONORIFIC_TOKENS = new Set([
   "م",
   "dr",
   "eng",
+  // 2026-10-03 (prod: «دينا» + «الكوتش دينا عبد المقصود») — comparison key only.
+  // Bare «امير» / «اميرة» / «معالي» are deliberately absent: they are also
+  // given names («معالي العسعوسي»); only the article form is a title.
+  "الكوتش",
+  "كوتش",
+  "الدكتورة",
+  "دكتورة",
+  "الامير",
+  "الاميرة",
+  "البروفيسور",
+  "بروفيسور",
+  "البروفيسورة",
+  "سعادة",
+  "الاستاذة",
+  "المهندسة",
+  "mr",
+  "mrs",
+  "ms",
+  "prof",
+  "coach",
 ])
 
 /** Character-level normalization (no honorific stripping). */

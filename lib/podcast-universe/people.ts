@@ -391,3 +391,28 @@ export async function settleGuestlessEpisodes(
   }
   return out
 }
+
+/**
+ * A same-episode alias (extraction/same-episode.ts): the short name becomes
+ * an alias of the full name's person, with an audit row. No appearance is
+ * created for it; an older appearance under the short name is superseded by
+ * the re-extraction like any other non-reproduced row.
+ */
+export async function recordSameEpisodeAlias(
+  ex: Executor,
+  personId: string,
+  alias: string,
+  of: string,
+  episodeId: string,
+  actor: string,
+): Promise<void> {
+  const key = normalizeNameKey(alias)
+  if (!key) return
+  await ex.insert(podcastPersonAliases).values({ person_id: personId, alias, normalized_alias: key, source: "episode" }).onConflictDoNothing()
+  await ex.insert(podcastPersonEvents).values({
+    person_id: personId,
+    action: "same_episode_alias",
+    actor_id: actor,
+    after_state: { alias, of, episode_id: episodeId, rule: "same_episode_alias" },
+  })
+}

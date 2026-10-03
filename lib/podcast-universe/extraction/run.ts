@@ -25,7 +25,7 @@ import { and, eq, inArray, sql } from "drizzle-orm"
 import { db } from "@/lib/db"
 import { podcastCrawlRuns, podcastEpisodes } from "@/lib/db/schema/podcast-universe"
 import { runAiTask, lookupPricing } from "@/lib/ai-router"
-import { resolveModelChoice } from "@/lib/ai-router/model-selection"
+import { PODCAST_GUEST_EXTRACT_MODEL } from "@/lib/ai-router/registry"
 import type { AiTaskRequest, AiTaskResult } from "@/lib/ai-router"
 import {
   EXTRACT_BATCH_DEFAULT,
@@ -33,9 +33,10 @@ import {
   EXTRACT_BATCH_MAX,
   M1_EXTRACT_BUDGET_USD,
 } from "../constants"
-import { attachGuest, supersedeUnreproduced } from "../people"
+import { attachGuest, recordSameEpisodeAlias, supersedeUnreproduced } from "../people"
+import { collapseSameEpisodeAliases } from "./same-episode"
 import { hostsForEpisode, type ProgramHosts } from "../hosts"
-import { checkBudget, estimateBatchCostUsd, maxOutputTokensFor, type Pricing } from "./budget"
+import { billableCostUsd, checkBudget, estimateBatchCostUsd, maxOutputTokensFor, type Pricing } from "./budget"
 import {
   PROMPT_VERSION,
   SYSTEM_RULES,
@@ -94,14 +95,53 @@ const TRANSIENT_AI = new Set(["rate_limited", "timeout", "server_error"])
 /** Retrying cannot help, and failing the episodes would be a lie (D8): stop the run. */
 const RUN_STOPPING_AI = new Set(["quota_exceeded", "auth_failed"])
 
+/** Pricing of the PINNED extraction model (never the global structural choice). */
 export async function defaultPricing(): Promise<{ model: string; pricing: Pricing | null }> {
-  let model = "gpt-5.6-luna"
-  try {
-    model = (await resolveModelChoice("structural")).modelName
-  } catch {
-    // registry default
-  }
+  const model = PODCAST_GUEST_EXTRACT_MODEL
   return { model, pricing: lookupPricing("openai", model) }
+}
+
+/** Every guest_extract run's recorded cost + open reservations. */
+export async function committedExtractionUsd(): Promise<{ spent: number; reserved: number }> {
+  const r = await db!.execute(sql`
+    SELECT COALESCE(SUM(ai_cost_usd), 0)::float8 AS spent, COALESCE(SUM(reserved_usd), 0)::float8 AS reserved
+    FROM podcast_crawl_runs WHERE run_type = 'guest_extract'
+  `)
+  const row = r.rows[0] as { spent: number; reserved: number }
+  return { spent: Number(row.spent), reserved: Number(row.reserved) }
+}
+
+/**
+ * Reserve `estimate` for one call, atomically (advisory lock): refused when
+ * spent + reserved + estimate > limit. Returns the gate decision.
+ */
+async function reserveBudget(runId: string, estimate: number, limit: number) {
+  return db!.transaction(async (tx) => {
+    await tx.execute(sql`SELECT pg_advisory_xact_lock(hashtext('podcast-universe:extract-budget'))`)
+    const r = await tx.execute(sql`
+      SELECT COALESCE(SUM(ai_cost_usd), 0)::float8 AS spent, COALESCE(SUM(reserved_usd), 0)::float8 AS reserved
+      FROM podcast_crawl_runs WHERE run_type = 'guest_extract'`)
+    const row = r.rows[0] as { spent: number; reserved: number }
+    const gate = checkBudget(Number(row.spent) + Number(row.reserved), estimate, limit)
+    if (gate.allowed) {
+      await tx
+        .update(podcastCrawlRuns)
+        .set({ reserved_usd: sql`${podcastCrawlRuns.reserved_usd} + ${estimate.toFixed(6)}` })
+        .where(eq(podcastCrawlRuns.id, runId))
+    }
+    return gate
+  })
+}
+
+/** Release the reservation and book what the call actually cost. */
+async function settleBudget(runId: string, reserved: number, billable: number) {
+  await db!
+    .update(podcastCrawlRuns)
+    .set({
+      reserved_usd: sql`GREATEST(${podcastCrawlRuns.reserved_usd} - ${reserved.toFixed(6)}, 0)`,
+      ai_cost_usd: sql`${podcastCrawlRuns.ai_cost_usd} + ${billable.toFixed(6)}`,
+    })
+    .where(eq(podcastCrawlRuns.id, runId))
 }
 
 /**
@@ -233,7 +273,9 @@ export async function runExtractionBatch(runId: string, batchNo: number, ctx: { 
     .set({ guest_extraction_status: "pending", updated_at: new Date() })
     .where(and(eq(podcastEpisodes.guest_extraction_run_id, runId), eq(podcastEpisodes.guest_extraction_status, "running")))
 
-  await setRun(runId, { status: "running", started_at: run.started_at ?? new Date() })
+  // Crash recovery: a reservation this run left open (worker died mid-call)
+  // is released — only one batch of a run is ever in flight.
+  await setRun(runId, { status: "running", started_at: run.started_at ?? new Date(), reserved_usd: "0" })
 
   const eps = await claimBatch(runId, cursor.batch_size, deps.scopeChannelIds)
   if (eps.length === 0) {
@@ -263,11 +305,11 @@ export async function runExtractionBatch(runId: string, batchNo: number, ctx: { 
   }
   // TOTAL across every guest_extract run, against the smaller of this run's
   // cap and the M1 cap — never a fresh budget per run.
-  const spent = await totalExtractionSpendUsd()
   const limit = Math.min(Number(run.budget_limit_usd ?? 0), M1_EXTRACT_BUDGET_USD)
   const maxTokens = maxOutputTokensFor(eps.length)
   const estimate = estimateBatchCostUsd(SYSTEM_RULES.length + user.length, eps.length, pricing)
-  const gate = checkBudget(spent, estimate, limit)
+  // Reserve the worst case for the duration of the call (spent + reserved + estimate ≤ cap).
+  const gate = await reserveBudget(runId, estimate, limit)
   if (!gate.allowed) {
     await revertToPending(runId, ids)
     await setRun(runId, { status: "budget_stopped", completed_at: new Date(), error_summary: gate.reason, cursor_state: cursor })
@@ -278,7 +320,9 @@ export async function runExtractionBatch(runId: string, batchNo: number, ctx: { 
   let result: AiTaskResult<unknown>
   try {
     result = await runAi<unknown>({
-      taskKind: "structural",
+      // Dedicated, PINNED kind — KHAT_AI_MODEL_STRUCTURAL never reaches it.
+      taskKind: "podcast_guest_extract",
+      preferredModel: PODCAST_GUEST_EXTRACT_MODEL,
       promptVersion: PROMPT_VERSION,
       subjectTable: "podcast_crawl_runs",
       subjectId: runId,
@@ -294,16 +338,16 @@ export async function runExtractionBatch(runId: string, batchNo: number, ctx: { 
       providerOptions: { max_tokens: maxTokens },
     })
   } catch (err) {
+    // The router threw before/around the provider (e.g. our own rate limiter):
+    // no provider usage was booked, so the reservation is released at 0.
+    await settleBudget(runId, estimate, 0)
     await revertToPending(runId, ids)
     throw new TransientExtractionError(err instanceof Error ? err.message : String(err))
   }
-  // Charge what the router booked; when it could not price the call, charge
-  // the (pessimistic) estimate — never zero.
-  const cost = result.costUsd ?? estimate
-  await db!
-    .update(podcastCrawlRuns)
-    .set({ ai_cost_usd: sql`${podcastCrawlRuns.ai_cost_usd} + ${cost.toFixed(6)}` })
-    .where(eq(podcastCrawlRuns.id, runId))
+  // Release the reservation; book the ACTUAL billable cost (0 for a call the
+  // provider never billed — e.g. 429 / no credits).
+  const cost = billableCostUsd(result, pricing, estimate)
+  await settleBudget(runId, estimate, cost)
 
   /**
    * B6 size failure: fall back to EXTRACT_BATCH_FALLBACK and re-offer the same
@@ -387,9 +431,13 @@ export async function runExtractionBatch(runId: string, batchNo: number, ctx: { 
     }
     const finalStatus =
       res.guests.length > 0 ? "succeeded" : issues.some((i) => i.severity === "guest_rejected") ? "failed" : "no_guest"
+    // Same-episode alias: «دينا» folded into «الكوتش دينا عبد المقصود» —
+    // one person, one active appearance (deterministic, audited below).
+    const collapsed = collapseSameEpisodeAliases(res.guests)
     await db!.transaction(async (tx) => {
       const keep: string[] = []
-      for (const g of res.guests) {
+      const personOf = new Map<string, string>()
+      for (const g of collapsed.guests) {
         const a = await attachGuest(tx, {
           episodeId,
           channelId: channelOf.get(episodeId)!,
@@ -400,6 +448,11 @@ export async function runExtractionBatch(runId: string, batchNo: number, ctx: { 
         })
         touched.add(a.personId)
         keep.push(a.appearanceId)
+        personOf.set(g.display_name, a.personId)
+      }
+      for (const al of collapsed.aliases) {
+        const personId = personOf.get(al.of)
+        if (personId) await recordSameEpisodeAlias(tx, personId, al.alias, al.of, episodeId, EXTRACT_ACTOR)
       }
       // Re-extraction REPLACES: a successful result (guests or a clean
       // no_guest) supersedes what it did not reproduce. A failed result is
@@ -421,7 +474,7 @@ export async function runExtractionBatch(runId: string, batchNo: number, ctx: { 
         })
         .where(eq(podcastEpisodes.id, episodeId))
     })
-    guests += res.guests.length
+    guests += collapsed.guests.length
     if (res.guests.length === 0 && issues.some((i) => i.severity === "guest_rejected")) failed += 1
   }
 

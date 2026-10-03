@@ -18,6 +18,8 @@
  *                                                           # to episodes a run already re-extracted
  *   npx tsx scripts/podcast-universe.ts program-host <channelKey> "<program>" "<host>" [--remove]
  *   npx tsx scripts/podcast-universe.ts hosts-apply [--apply]  # exclude listed hosts' existing appearances (audited)
+ *   npx tsx scripts/podcast-universe.ts reopen-non-luna [--apply]  # episodes whose LATEST extraction call ran on a
+ *                                                           # model other than the pinned one → re-extract (supersedes)
  *   npx tsx scripts/podcast-universe.ts settle-guestless [--apply]  # succeeded episodes with no ACTIVE appearance → no_guest
  *   npx tsx scripts/podcast-universe.ts reopen-kw-adjacent [--names "a,b"] [--apply]  # KW claim dropped as
  *                                                           # "no explicit KW demonym attached" — re-extract under v3
@@ -212,6 +214,43 @@ async function main() {
       if (!c) throw new Error(`channel ${arg} not found`)
       const { setProgramHost } = await import("@/lib/podcast-universe/hosts-admin")
       console.log(c.name, await setProgramHost(c.id, program, host, rest.includes("--remove")))
+      break
+    }
+    case "reopen-non-luna": {
+      // 2026-10-03 prod incident: extraction ran on gpt-5.4-mini via the global
+      // structural override. Find every episode whose LATEST extraction call
+      // (an ai_runs row of a guest_extract run, listing the episode in its
+      // input) used a model other than the pinned one, and send it back to
+      // pending. The re-run on the pinned model then SUPERSEDES its old
+      // appearances (re-extraction replaces).
+      const { sql } = await import("drizzle-orm")
+      const { PODCAST_GUEST_EXTRACT_MODEL } = await import("@/lib/ai-router/registry")
+      const apply = [arg, ...rest].includes("--apply")
+      const r = await db!.execute(sql`
+        WITH calls AS (
+          SELECT DISTINCT ON (ep.id) ep.id AS episode_id, ar.model_name
+          FROM podcast_episodes ep
+          JOIN ai_runs ar
+            ON ar.subject_table = 'podcast_crawl_runs'
+           AND ar.prompt_version LIKE 'podcast-universe-guest-extract%'
+           AND ar.input_snapshot->'episode_ids' ? ep.id::text
+          WHERE ep.guest_extraction_status IN ('succeeded', 'no_guest', 'failed')
+          ORDER BY ep.id, ar.started_at DESC
+        )
+        SELECT c.episode_id, c.model_name FROM calls c
+        WHERE c.model_name NOT LIKE ${PODCAST_GUEST_EXTRACT_MODEL + "%"}`)
+      const rows = r.rows as Array<{ episode_id: string; model_name: string }>
+      const byModel = new Map<string, number>()
+      for (const x of rows) byModel.set(x.model_name, (byModel.get(x.model_name) ?? 0) + 1)
+      console.log({ pinned: PODCAST_GUEST_EXTRACT_MODEL, episodes: rows.length, by_model: Object.fromEntries(byModel) })
+      if (!apply || rows.length === 0) {
+        if (!apply) console.log("dry run — re-run with --apply, then: extract --budget 3")
+        break
+      }
+      await db!.execute(sql`
+        UPDATE podcast_episodes SET guest_extraction_status = 'pending', guest_extraction_note = NULL, updated_at = now()
+        WHERE id IN (${sql.join(rows.map((x) => sql`${x.episode_id}::uuid`), sql`, `)})`)
+      console.log(`reopened ${rows.length} episode(s) for re-extraction on ${PODCAST_GUEST_EXTRACT_MODEL}`)
       break
     }
     case "settle-guestless": {
