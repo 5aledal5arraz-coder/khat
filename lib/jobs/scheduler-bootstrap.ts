@@ -11,6 +11,7 @@
 import { sql } from "drizzle-orm"
 import { db } from "@/lib/db"
 import { enqueueJob } from "./queue"
+import { isPodcastUniverseEnabled } from "@/lib/podcast-universe/flag"
 
 /**
  * The market-intelligence daily cadence is OFF unless explicitly enabled.
@@ -209,6 +210,45 @@ export async function ensureSourceFeedbackSchedule(): Promise<{
   const runAfter = new Date(Date.now() + 10 * 60 * 1000)
   const job = await enqueueJob(
     "market.source_feedback",
+    {},
+    { priority: 1, maxAttempts: 1, runAfter },
+  )
+  return { status: "bootstrapped", jobId: job.id }
+}
+
+// ─── Podcast Universe — weekly incremental sync (B11) ────────────────
+
+/**
+ * Guarantee a pending `podcast.weekly_sync` tick. The handler self-re-enqueues
+ * weekly (lib/jobs/handlers/podcast-universe.ts) and only enqueues incremental
+ * crawls for channels whose initial crawl completed — so before Khaled's seed
+ * crawl it does nothing. Seeded 1 h out so a restarting worker never crawls on
+ * boot. Disabled by KHAT_PODCAST_UNIVERSE_WEEKLY_SYNC=false.
+ */
+export async function ensurePodcastWeeklySyncSchedule(): Promise<{
+  status: "already_scheduled" | "bootstrapped" | "disabled"
+  jobId: string | null
+}> {
+  // Module flag first (PODCAST_UNIVERSE_ENABLED must be exactly "true"),
+  // then the schedule-only switch.
+  if (!isPodcastUniverseEnabled()) return { status: "disabled", jobId: null }
+  if (process.env.KHAT_PODCAST_UNIVERSE_WEEKLY_SYNC === "false") return { status: "disabled", jobId: null }
+  if (!db) return { status: "already_scheduled", jobId: null }
+  const existing = await db.execute(sql`
+    SELECT id FROM jobs
+    WHERE type = 'podcast.weekly_sync'
+      AND status IN ('pending', 'running')
+    LIMIT 1
+  `)
+  if (existing.rows.length > 0) {
+    return {
+      status: "already_scheduled",
+      jobId: String((existing.rows[0] as { id: string }).id),
+    }
+  }
+  const runAfter = new Date(Date.now() + 60 * 60 * 1000)
+  const job = await enqueueJob(
+    "podcast.weekly_sync",
     {},
     { priority: 1, maxAttempts: 1, runAfter },
   )

@@ -51,6 +51,7 @@ import {
   ensurePartnerTaskReminderSchedule,
   ensureSourceFeedbackSchedule,
   ensureYoutubeAudienceSchedule,
+  ensurePodcastWeeklySyncSchedule,
 } from "./scheduler-bootstrap"
 import { HandlerTimeoutError, NonRetryableJobError, type JobRow } from "./types"
 import {
@@ -210,6 +211,22 @@ const HANDLER_TIMEOUT_MS: Record<string, number> = {
   // sequential (+ yt-dlp download for the youtube source). Same budget as the
   // other full-episode transcription handlers.
   "studio.transcribe": 30 * 60_000,
+  // ── Podcast Universe M1 (docs/podcast-universe-plan-v1.md §B11) ──
+  // verify: one or two channels.list calls (+ in-call retry backoff).
+  "podcast.channel.verify": 2 * 60_000,
+  // initial_crawl: a whole uploads playlist, ~2 one-unit calls per 50 videos —
+  // ~40 pages for the largest seed channel, checkpointed per page, so a
+  // timeout resumes from the last page instead of starting over.
+  "podcast.channel.initial_crawl": 20 * 60_000,
+  // incremental_crawl: ≥2 newest pages until the B5 overlap rule stops it.
+  "podcast.channel.incremental_crawl": 10 * 60_000,
+  // guest_extract: ONE Luna call per job (router default 120s × up to 3
+  // attempts + backoff ≈ 6.5 min worst case) + per-episode DB writes.
+  "podcast.episode.guest_extract": 10 * 60_000,
+  // person.resolve: deterministic DB pass over ≤200 people; no network.
+  "podcast.person.resolve": 5 * 60_000,
+  // weekly_sync: only enqueues incremental crawls.
+  "podcast.weekly_sync": 2 * 60_000,
 }
 
 function timeoutFor(jobType: string): number {
@@ -897,6 +914,28 @@ ensureYoutubeAudienceSchedule()
   })
   .catch((err) =>
     wlog.error(`youtube-audience bootstrap failed:`, err),
+  )
+
+// Bootstrap the Podcast Universe weekly incremental sync. Handler
+// self-re-enqueues weekly; idempotent; a no-op for channels that have not had
+// their initial crawl. KHAT_PODCAST_UNIVERSE_WEEKLY_SYNC=false disables it.
+ensurePodcastWeeklySyncSchedule()
+  .then((r) => {
+    wlog.info(
+      `podcast-universe weekly sync ${r.status}${r.jobId ? ` (job=${r.jobId.slice(0, 8)})` : ""}`,
+    )
+    if (r.status === "bootstrapped") {
+      void emitSystemEvent(
+        buildScheduleCreatedEvent({
+          schedule_type: "podcast.weekly_sync",
+          cadence: "weekly",
+          actor: WORKER_ID,
+        }),
+      )
+    }
+  })
+  .catch((err) =>
+    wlog.error(`podcast-universe weekly sync bootstrap failed:`, err),
   )
 
 // Gate the claim loop on the migration guard (see above). On confirmed drift the

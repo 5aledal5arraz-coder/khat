@@ -4,6 +4,7 @@ import { redirect } from "next/navigation"
 import { verifyAdminSession, devNoAuthUser } from "@/lib/admin/auth"
 import { getAiDegradedState } from "@/lib/ops/ai-degraded"
 import AdminLayoutClient from "./admin-layout-client"
+import { isPodcastUniverseEnabled } from "@/lib/podcast-universe/flag"
 import { VersionWatcher } from "./components/version-watcher"
 
 /**
@@ -89,7 +90,7 @@ export default async function AdminLayout({
 
   // Valid session — render dashboard chrome with role
   return (
-    <AdminLayoutClient userRole={user.role} aiDegraded={aiDegraded}>
+    <AdminLayoutClient userRole={user.role} aiDegraded={aiDegraded} podcastUniverseEnabled={isPodcastUniverseEnabled()}>
       {children}
       {/* Stale-deployment guard: prompts a reload when a new build ships
           while this tab is open (otherwise Server Actions fail silently). */}

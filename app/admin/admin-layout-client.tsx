@@ -31,9 +31,12 @@ export default function AdminLayoutClient({
   children,
   userRole,
   aiDegraded,
+  podcastUniverseEnabled = false,
 }: {
   children: React.ReactNode
   userRole?: string
+  /** Server-read PODCAST_UNIVERSE_ENABLED — hides the module's nav when off. */
+  podcastUniverseEnabled?: boolean
   /** A10 — server-fetched degraded-state. Banner renders when truthy. */
   aiDegraded?: AiDegradedState
 }) {
@@ -291,7 +294,7 @@ export default function AdminLayoutClient({
           )}
         >
           <div className="h-full overflow-y-auto scrollbar-hide">
-            <AdminSidebar collapsed={!sidebarOpen} userRole={userRole} />
+            <AdminSidebar collapsed={!sidebarOpen} userRole={userRole} podcastUniverseEnabled={podcastUniverseEnabled} />
           </div>
         </aside>
 
@@ -358,7 +361,7 @@ export default function AdminLayoutClient({
             </div>
             {/* Drawer nav */}
             <div className="h-[calc(100vh-3.5rem)] overflow-y-auto scrollbar-hide">
-              <AdminSidebar collapsed={false} onNavClick={closeMobileDrawer} userRole={userRole} />
+              <AdminSidebar collapsed={false} onNavClick={closeMobileDrawer} userRole={userRole} podcastUniverseEnabled={podcastUniverseEnabled} />
             </div>
           </div>
         </div>

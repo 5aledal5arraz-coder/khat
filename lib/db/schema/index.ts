@@ -72,4 +72,7 @@ export * from "./model-benchmarks"
 // ─── Public contact form (/contact) — stored + team notified ───────────
 export * from "./contact"
 
+// ─── Podcast Universe M1 — external podcast index + guest registry ─────
+export * from "./podcast-universe"
+
 export * from "./relations"

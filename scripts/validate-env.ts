@@ -114,6 +114,14 @@ const SPECS: EnvSpec[] = [
 
   // Optional features.
   {
+    // Podcast Universe (docs/podcast-universe-plan-v1.md). OFF unless exactly
+    // "true" — production must opt in explicitly; unset = rollback state.
+    name: "PODCAST_UNIVERSE_ENABLED",
+    severity: "optional",
+    description: 'Podcast Universe feature flag — "true" enables it; unset/anything else = off',
+    rejectValues: ["TRUE", "True", "1", "yes"],
+  },
+  {
     name: "GEMINI_API_KEY",
     severity: "optional",
     description: "Google Gemini key (AI research preparation module)",

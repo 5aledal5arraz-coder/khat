@@ -48,3 +48,6 @@ import "./handlers/season-hybrid"
 import "./handlers/studio-transcribe"
 // Guided season wizard engines (batch / completion / slot / guest-first).
 import "./handlers/season-batch"
+// Podcast Universe M1 — channel verify / crawls / Luna guest extraction /
+// person resolve / weekly incremental sync (docs/podcast-universe-plan-v1.md §B11).
+import "./handlers/podcast-universe"

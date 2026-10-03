@@ -26,6 +26,10 @@ const LABEL_MAP: Record<string, string> = {
   // Guests
   guests: "الضيوف",
   "guest-candidates": "المرشحون",
+  "podcast-universe": "عالم البودكاست",
+  channels: "القنوات",
+  review: "مراجعة الجنسية",
+  "validation-failures": "فشل التحقق من الاستخراج",
 
   // Khat Brain — Seasons
   seasons: "المواسم",
@@ -76,6 +80,7 @@ const LABEL_MAP: Record<string, string> = {
  */
 const NON_NAVIGABLE_PATHS = new Set<string>([
   "/admin/khat-brain/market",
+  "/admin/podcast-universe",
   "/admin/newsletter/campaigns",
   "/admin/offers",
   "/admin/collab",

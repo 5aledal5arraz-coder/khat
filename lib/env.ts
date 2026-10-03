@@ -74,6 +74,10 @@ export const env = {
   /** Optional Graph version override, e.g. "v24.0" (default v23.0). */
   get IG_GRAPH_VERSION() { return process.env.IG_GRAPH_VERSION },
 
+  // ─── Feature flags read through here ─────────────────────────────────────
+  /** Podcast Universe — exactly "true" enables it; unset = OFF. See lib/podcast-universe/flag.ts. */
+  get PODCAST_UNIVERSE_ENABLED() { return process.env.PODCAST_UNIVERSE_ENABLED },
+
   // ─── Email (Resend) ──────────────────────────────────────────────────────
   get RESEND_API_KEY() { return process.env.RESEND_API_KEY },
   get RESEND_FROM_EMAIL() { return process.env.RESEND_FROM_EMAIL },

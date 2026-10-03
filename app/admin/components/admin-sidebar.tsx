@@ -29,6 +29,8 @@ import {
   MessagesSquare,
   Youtube,
   CalendarClock,
+  Radio,
+  Library,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 
@@ -93,6 +95,9 @@ const navGroups: NavGroup[] = [
       { href: "/admin/guest-candidates", icon: UserPlus, label: "المرشحون" },
       { href: "/admin/casting", icon: Clapperboard, label: "طلبات الاستضافة" },
       { href: "/admin/guests", icon: Users, label: "الضيوف" },
+      // Podcast Universe (M1) — who already appeared on other podcasts, and where.
+      { href: "/admin/podcast-universe/guests", icon: Library, label: "سجل ضيوف البودكاست" },
+      { href: "/admin/podcast-universe/channels", icon: Radio, label: "قنوات البودكاست" },
     ],
   },
   {
@@ -139,12 +144,21 @@ interface AdminSidebarProps {
   collapsed: boolean
   onNavClick?: () => void
   userRole?: string
+  /** Off → every /admin/podcast-universe entry is hidden (feature flag). */
+  podcastUniverseEnabled?: boolean
+}
+
+/** Pure: is this nav item visible for this role and flag state? */
+export function isNavItemVisible(href: string, userRole: string | undefined, podcastUniverseEnabled: boolean): boolean {
+  if (OWNER_ONLY_HREFS.has(href) && userRole !== "OWNER") return false
+  if (href.startsWith("/admin/podcast-universe") && !podcastUniverseEnabled) return false
+  return true
 }
 
 /** Links only visible to OWNER */
 const OWNER_ONLY_HREFS = new Set(["/admin/team"])
 
-function AdminSidebar({ collapsed, onNavClick, userRole }: AdminSidebarProps) {
+function AdminSidebar({ collapsed, onNavClick, userRole, podcastUniverseEnabled = false }: AdminSidebarProps) {
   const pathname = usePathname()
   // Track which collapsible groups the operator has opened.
   // Default: closed. Auto-open when an item inside the group is the
@@ -172,7 +186,7 @@ function AdminSidebar({ collapsed, onNavClick, userRole }: AdminSidebarProps) {
     <nav className="flex h-full flex-col gap-0.5 p-2.5">
       {navGroups.map((group, groupIndex) => {
         const visibleItems = group.items.filter(
-          (item) => !OWNER_ONLY_HREFS.has(item.href) || userRole === "OWNER",
+          (item) => isNavItemVisible(item.href, userRole, podcastUniverseEnabled),
         )
         if (visibleItems.length === 0) return null
 

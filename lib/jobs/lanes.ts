@@ -36,6 +36,13 @@ export const HEAVY_TYPES: readonly string[] = [
   "market.extract",
   "market.score_signals",
   "market.cluster_signals",
+  // Podcast Universe batch work (B11 lanes youtube_io / ai_structural map to
+  // heavy here): a full uploads-playlist walk and a Luna extraction chain are
+  // backlog work nobody is staring at. verify / resolve / weekly_sync are
+  // seconds long and stay interactive.
+  "podcast.channel.initial_crawl",
+  "podcast.channel.incremental_crawl",
+  "podcast.episode.guest_extract",
 ]
 
 export function laneForJobType(type: string): WorkerLane {
