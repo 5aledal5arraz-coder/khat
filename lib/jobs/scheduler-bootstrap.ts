@@ -10,7 +10,17 @@
 
 import { sql } from "drizzle-orm"
 import { db } from "@/lib/db"
-import { enqueueJob } from "./queue"
+import { enqueueRecurringTick } from "./queue"
+import type { JobRow } from "./types"
+
+/**
+ * Bootstrap enqueue: the same per-type advisory lock + "no pending tick"
+ * check as a self-rescheduling tick, so two workers booting at once (or a
+ * boot racing a tick) still leave exactly one future tick.
+ */
+async function enqueueJob(type: string, payload: Record<string, unknown>, options: Parameters<typeof enqueueRecurringTick>[2]): Promise<JobRow | { id: null }> {
+  return (await enqueueRecurringTick(type, payload, options)) ?? { id: null }
+}
 import { isPodcastUniverseEnabled } from "@/lib/podcast-universe/flag"
 
 /**
@@ -53,7 +63,7 @@ export async function ensureMarketScheduler(): Promise<{
     { initial: true },
     { priority: 2, maxAttempts: 1 },
   )
-  return { status: "bootstrapped", jobId: job.id }
+  return job.id ? { status: "bootstrapped", jobId: job.id } : { status: "already_scheduled", jobId: null }
 }
 
 // ─── Phase 2.1 (P2.1.f) — ai-runs-sweeper schedule ───────────────────
@@ -110,7 +120,7 @@ export async function ensureAiRunsSweeperSchedule(): Promise<{
     { dryRun: false, maxRows: 5000 },
     { priority: 1, maxAttempts: 1, runAfter },
   )
-  return { status: "bootstrapped", jobId: job.id }
+  return job.id ? { status: "bootstrapped", jobId: job.id } : { status: "already_scheduled", jobId: null }
 }
 
 // ─── Partnership CRM — overdue/due-soon task reminder ────────────────
@@ -147,7 +157,7 @@ export async function ensurePartnerTaskReminderSchedule(): Promise<{
     {},
     { priority: 2, maxAttempts: 1, runAfter },
   )
-  return { status: "bootstrapped", jobId: job.id }
+  return job.id ? { status: "bootstrapped", jobId: job.id } : { status: "already_scheduled", jobId: null }
 }
 
 // ─── YouTube audience snapshots — weekly last-28-days refresh ─────────
@@ -181,7 +191,7 @@ export async function ensureYoutubeAudienceSchedule(): Promise<{
     {},
     { priority: 1, maxAttempts: 1, runAfter },
   )
-  return { status: "bootstrapped", jobId: job.id }
+  return job.id ? { status: "bootstrapped", jobId: job.id } : { status: "already_scheduled", jobId: null }
 }
 
 // ─── Market — performance → source-trust feedback sweep ──────────────
@@ -213,7 +223,7 @@ export async function ensureSourceFeedbackSchedule(): Promise<{
     {},
     { priority: 1, maxAttempts: 1, runAfter },
   )
-  return { status: "bootstrapped", jobId: job.id }
+  return job.id ? { status: "bootstrapped", jobId: job.id } : { status: "already_scheduled", jobId: null }
 }
 
 // ─── Podcast Universe — weekly incremental sync (B11) ────────────────
@@ -252,5 +262,5 @@ export async function ensurePodcastWeeklySyncSchedule(): Promise<{
     {},
     { priority: 1, maxAttempts: 1, runAfter },
   )
-  return { status: "bootstrapped", jobId: job.id }
+  return job.id ? { status: "bootstrapped", jobId: job.id } : { status: "already_scheduled", jobId: null }
 }

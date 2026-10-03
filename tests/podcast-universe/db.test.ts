@@ -414,18 +414,25 @@ d("Podcast Universe — real DB", () => {
             is_primary_guest: true,
             evidence_field: "title",
             evidence_text: `رائد الأعمال الكويتي ${name}`,
-            nationality_claim_code: "KW",
+            nationality_claim_code: null,
             nationality_claim_text: null,
-            gender_signal: "male",
+            gender_signal: "unknown",
             gender_evidence_text: null,
-            confidence: 0.9,
+            confidence: 0.5,
           },
           topicHint: null,
-          aiRunId: null,
+          aiRunId: `${TAG}-airun-new`,
           actor: "vitest",
         })
         expect(a.rule).toBe("already_attached")
       })
+      // Provenance REPLACED by the re-confirming run — including dropping the
+      // KW / male claims the new run did not validate (2026-10-03).
+      const [prov] = await q<{ ai_run_id: string; nationality_claim_code: string | null; gender_signal: string; extraction_confidence: string }>(
+        m.sql`SELECT ai_run_id, nationality_claim_code, gender_signal, extraction_confidence FROM podcast_guest_appearances WHERE episode_id = ${ids[0]}::uuid`,
+      )
+      expect(prov).toMatchObject({ ai_run_id: `${TAG}-airun-new`, nationality_claim_code: null, gender_signal: "unknown" })
+      expect(Number(prov.extraction_confidence)).toBe(0.5)
       // Second pass over the two re-offered episodes: now final.
       const second = await m.run.runExtractionBatch(runId, 2, { attempt: 1, maxAttempts: 2 }, {
         runAi: runAi as never,

@@ -211,25 +211,50 @@ function escapeLike(s: string): string {
 }
 
 /**
- * Idempotent recurring-tick enqueue: enqueue a job of `type` ONLY when no
- * pending/running job of that type already exists. Self-re-enqueueing
- * schedulers MUST use this instead of `enqueueJob` — otherwise a worker
- * restart or a lease-reclaim re-run compounds into multiple parallel schedule
- * chains (each tick spawning the next). Mirrors the bootstrap's "at most one
- * future tick" contract. Returns the new job, or null when one was already queued.
+ * Idempotent recurring-tick enqueue: enqueue the NEXT tick of `type` unless a
+ * future (`pending`) tick already exists. Self-re-enqueueing schedulers MUST
+ * use this instead of `enqueueJob` — otherwise a worker restart or a
+ * lease-reclaim re-run compounds into parallel schedule chains.
+ *
+ * ── WHY ONLY `pending` (2026-10-03, noura) ────────────────────────────────
+ * This used to skip when a `running` job of the type existed. But the caller
+ * IS a running job of that type — every self-rescheduling tick saw itself,
+ * skipped, and the schedule died after one tick; it only came back when a
+ * worker restart re-ran the boot bootstrap. Four schedulers were affected
+ * (podcast.weekly_sync, partner.task_reminder, market.source_feedback,
+ * youtube.audience_refresh) plus market.scheduler.
+ *
+ * The dedupe that matters is "at most one FUTURE tick": a reclaimed re-run of
+ * the same tick finds the pending tick it already queued and adds nothing.
+ * The check-then-insert runs under a per-type advisory lock, so two ticks (or
+ * a tick and a bootstrap) racing still produce one pending row.
+ * Returns the new job, or null when a future tick was already queued.
  */
 export async function enqueueRecurringTick(
   type: string,
   payload: Record<string, unknown> = {},
   options: EnqueueOptions = {},
 ): Promise<JobRow | null> {
-  const existing = await db!.execute(sql`
-    SELECT id FROM jobs
-    WHERE type = ${type} AND status IN ('pending', 'running')
-    LIMIT 1
-  `)
-  if (existing.rows.length > 0) return null
-  return enqueueJob(type, payload, options)
+  return db!.transaction(async (tx) => {
+    await tx.execute(sql`SELECT pg_advisory_xact_lock(hashtext(${"recurring-tick:" + type}))`)
+    const existing = await tx.execute(sql`
+      SELECT id FROM jobs
+      WHERE type = ${type} AND status = 'pending'
+      LIMIT 1
+    `)
+    if (existing.rows.length > 0) return null
+    const [row] = await tx
+      .insert(jobs)
+      .values({
+        type,
+        payload,
+        priority: options.priority ?? 0,
+        run_after: options.runAfter ?? new Date(),
+        max_attempts: options.maxAttempts ?? 3,
+      })
+      .returning()
+    return mapRow(row)
+  })
 }
 
 export async function getJob(id: string): Promise<JobRow | null> {

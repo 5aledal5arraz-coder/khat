@@ -20,6 +20,9 @@
  *   npx tsx scripts/podcast-universe.ts hosts-apply [--apply]  # exclude listed hosts' existing appearances (audited)
  *   npx tsx scripts/podcast-universe.ts reopen-non-luna [--apply]  # episodes whose LATEST extraction call ran on a
  *                                                           # model other than the pinned one → re-extract (supersedes)
+ *   npx tsx scripts/podcast-universe.ts refresh-provenance [--apply]  # active appearances whose ai_run model ≠ the
+ *                                                           # episode's latest extraction model (--apply reopens those episodes)
+ *   npx tsx scripts/podcast-universe.ts reopen-episode <youtube_video_id> [--apply]  # one episode → pending (audited)
  *   npx tsx scripts/podcast-universe.ts settle-guestless [--apply]  # succeeded episodes with no ACTIVE appearance → no_guest
  *   npx tsx scripts/podcast-universe.ts reopen-kw-adjacent [--names "a,b"] [--apply]  # KW claim dropped as
  *                                                           # "no explicit KW demonym attached" — re-extract under v3
@@ -251,6 +254,81 @@ async function main() {
         UPDATE podcast_episodes SET guest_extraction_status = 'pending', guest_extraction_note = NULL, updated_at = now()
         WHERE id IN (${sql.join(rows.map((x) => sql`${x.episode_id}::uuid`), sql`, `)})`)
       console.log(`reopened ${rows.length} episode(s) for re-extraction on ${PODCAST_GUEST_EXTRACT_MODEL}`)
+      break
+    }
+    case "refresh-provenance": {
+      // An appearance re-confirmed by a re-extraction used to keep the OLD
+      // run's ai_run_id and claims. This lists every active appearance whose
+      // own ai_run model differs from the model of its episode's LATEST
+      // extraction call. Fix = reopen those episodes and re-extract (the new
+      // attachGuest rewrites provenance) — rows are never edited by hand.
+      const { sql } = await import("drizzle-orm")
+      const apply = [arg, ...rest].includes("--apply")
+      const r = await db!.execute(sql`
+        WITH latest AS (
+          SELECT DISTINCT ON (ep.id) ep.id AS episode_id, ar.model_name
+          FROM podcast_episodes ep
+          JOIN ai_runs ar
+            ON ar.subject_table = 'podcast_crawl_runs'
+           AND ar.prompt_version LIKE 'podcast-universe-guest-extract%'
+           AND ar.input_snapshot->'episode_ids' ? ep.id::text
+          ORDER BY ep.id, ar.started_at DESC
+        )
+        SELECT a.id AS appearance_id, a.episode_id, a.display_name, own.model_name AS appearance_model, l.model_name AS latest_model
+        FROM podcast_guest_appearances a
+        JOIN latest l ON l.episode_id = a.episode_id
+        LEFT JOIN ai_runs own ON own.id = a.ai_run_id
+        WHERE a.verification_status NOT IN ('rejected', 'superseded')
+          AND own.model_name IS DISTINCT FROM l.model_name`)
+      const rows = r.rows as Array<{ appearance_id: string; episode_id: string; display_name: string; appearance_model: string | null; latest_model: string }>
+      const pairs = new Map<string, number>()
+      for (const x of rows) {
+        const k = `${x.appearance_model ?? "?"} → ${x.latest_model}`
+        pairs.set(k, (pairs.get(k) ?? 0) + 1)
+      }
+      const episodes = [...new Set(rows.map((x) => x.episode_id))]
+      console.log({ appearances: rows.length, episodes: episodes.length, by_model: Object.fromEntries(pairs) })
+      if (!apply || episodes.length === 0) {
+        if (!apply) console.log("dry run — --apply reopens these episodes (then: extract --budget 3)")
+        break
+      }
+      await db!.execute(sql`
+        UPDATE podcast_episodes SET guest_extraction_status = 'pending', guest_extraction_note = NULL, updated_at = now()
+        WHERE id IN (${sql.join(episodes.map((i) => sql`${i}::uuid`), sql`, `)})`)
+      console.log(`reopened ${episodes.length} episode(s)`)
+      break
+    }
+    case "reopen-episode": {
+      const { sql } = await import("drizzle-orm")
+      if (!arg) throw new Error("usage: reopen-episode <youtube_video_id> [--apply]")
+      const apply = rest.includes("--apply")
+      const [ep] = (
+        await db!.execute(sql`SELECT id, title, guest_extraction_status, guest_extraction_note FROM podcast_episodes WHERE youtube_video_id = ${arg}`)
+      ).rows as Array<{ id: string; title: string; guest_extraction_status: string; guest_extraction_note: string | null }>
+      if (!ep) throw new Error(`no indexed episode with youtube_video_id ${arg}`)
+      const people = (
+        await db!.execute(sql`SELECT DISTINCT person_id FROM podcast_guest_appearances WHERE episode_id = ${ep.id}::uuid`)
+      ).rows.map((x) => String((x as { person_id: string }).person_id))
+      console.log({ episode: ep.id, title: ep.title, status: ep.guest_extraction_status, people_on_episode: people.length })
+      if (!apply) {
+        console.log("dry run — re-run with --apply, then: extract --budget 3")
+        break
+      }
+      await db!.transaction(async (tx) => {
+        await tx.execute(sql`
+          UPDATE podcast_episodes SET guest_extraction_status = 'pending', guest_extraction_note = NULL, updated_at = now()
+          WHERE id = ${ep.id}::uuid`)
+        // Audit on every person the episode has ever carried (active or not):
+        // the re-extraction may restore or supersede any of them.
+        for (const personId of people) {
+          await tx.execute(sql`
+            INSERT INTO podcast_person_events (person_id, action, actor_id, before_state, after_state, note)
+            VALUES (${personId}::uuid, 'episode_reopened', 'cli:reopen-episode',
+                    ${JSON.stringify({ episode_id: ep.id, youtube_video_id: arg, guest_extraction_status: ep.guest_extraction_status, note: ep.guest_extraction_note })}::jsonb,
+                    '{"guest_extraction_status":"pending"}'::jsonb, 'operator reopened the episode for re-extraction')`)
+        }
+      })
+      console.log(`reopened ${arg} (${people.length} audit row(s))`)
       break
     }
     case "settle-guestless": {

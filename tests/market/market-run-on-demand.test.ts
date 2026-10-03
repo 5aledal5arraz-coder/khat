@@ -83,9 +83,12 @@ describe("market schedule switch", () => {
 
   it("still bootstraps when explicitly enabled (the code is kept, not deleted)", async () => {
     process.env.KHAT_MARKET_SCHEDULER_ENABLED = "true"
+    // Bootstraps enqueue through enqueueRecurringTick (per-type lock + "no
+    // pending tick" check, 2026-10-03) so two booting workers can't double it.
+    enqueueRecurringTick.mockResolvedValueOnce({ id: "job-market.scheduler" } as never)
     const r = await ensureMarketScheduler()
     expect(r.status).toBe("bootstrapped")
-    expect(enqueueJob).toHaveBeenCalledWith("market.scheduler", { initial: true }, expect.anything())
+    expect(enqueueRecurringTick).toHaveBeenCalledWith("market.scheduler", { initial: true }, expect.anything())
   })
 
   it("an already-queued tick fires once, enqueues nothing, and ends the chain", async () => {
@@ -97,9 +100,10 @@ describe("market schedule switch", () => {
   })
 
   it("leaves the ai-runs-sweeper schedule alone", async () => {
+    enqueueRecurringTick.mockResolvedValueOnce({ id: "job-ai-runs-sweeper" } as never)
     const r = await ensureAiRunsSweeperSchedule()
     expect(r.status).toBe("bootstrapped")
-    expect(enqueueJob).toHaveBeenCalledWith("ai-runs-sweeper", expect.anything(), expect.anything())
+    expect(enqueueRecurringTick).toHaveBeenCalledWith("ai-runs-sweeper", expect.anything(), expect.anything())
   })
 })
 

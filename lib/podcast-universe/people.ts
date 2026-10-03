@@ -90,15 +90,25 @@ export async function attachGuest(
     .where(and(eq(podcastGuestAppearances.episode_id, input.episodeId), eq(podcastPeople.normalized_name_key, nameKey)))
     .limit(1)
   if (already[0]) {
-    // Re-extraction (Addendum 2 e) may now carry a VALIDATED claim the first
-    // pass dropped. Fill in only what is missing — never overwrite a claim.
+    // The new run RE-CONFIRMED this person on this episode: the row now
+    // carries the new run's provenance and ONLY the claims the new run
+    // validated (2026-10-03, noura) — a claim the new run did not validate is
+    // dropped, never kept from an older (possibly other-model) run.
     await ex
       .update(podcastGuestAppearances)
       .set({
-        nationality_claim_code: sql`COALESCE(${podcastGuestAppearances.nationality_claim_code}, ${guest.nationality_claim_code})`,
-        nationality_claim_text: sql`CASE WHEN ${podcastGuestAppearances.nationality_claim_code} IS NULL THEN ${guest.nationality_claim_text} ELSE ${podcastGuestAppearances.nationality_claim_text} END`,
-        gender_signal: sql`CASE WHEN ${podcastGuestAppearances.gender_signal} = 'unknown' THEN ${guest.gender_signal} ELSE ${podcastGuestAppearances.gender_signal} END`,
-        gender_evidence_text: sql`CASE WHEN ${podcastGuestAppearances.gender_signal} = 'unknown' THEN ${guest.gender_evidence_text} ELSE ${podcastGuestAppearances.gender_evidence_text} END`,
+        ai_run_id: input.aiRunId,
+        display_name: guest.display_name,
+        evidence_field: guest.evidence_field,
+        evidence_text: guest.evidence_text,
+        role_text: guest.role_text,
+        is_primary_guest: guest.is_primary_guest,
+        extraction_confidence: guest.confidence.toFixed(3),
+        nationality_claim_code: guest.nationality_claim_code,
+        nationality_claim_text: guest.nationality_claim_text,
+        gender_signal: guest.gender_signal,
+        gender_evidence_text: guest.gender_evidence_text,
+        topic_hint: input.topicHint,
         updated_at: new Date(),
       })
       .where(eq(podcastGuestAppearances.id, already[0].appearanceId))
