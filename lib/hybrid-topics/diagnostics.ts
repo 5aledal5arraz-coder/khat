@@ -14,6 +14,7 @@
 
 import { sql } from "drizzle-orm"
 import { db } from "@/lib/db"
+import { buildWorkedReport } from "@/lib/khat-brain/performance-learning"
 
 export interface HybridReadiness {
   // Raw layer counts
@@ -23,6 +24,7 @@ export interface HybridReadiness {
   market_signals_scored: number
   market_clusters_total: number
   original_topics_fresh: number
+  /** Domain buckets in the generator's worked-report (same rule, same source). */
   worked_strong_domains: number
   worked_weak_domains: number
 
@@ -83,12 +85,12 @@ export async function getHybridReadiness(): Promise<HybridReadiness> {
       FROM original_thinking_topics
       WHERE consumed_at IS NULL AND expires_at > now()
     `),
-    db.execute(sql`
-      SELECT
-        count(*) FILTER (WHERE editorial_signal_score >= 0.6)::int AS strong,
-        count(*) FILTER (WHERE editorial_signal_score < 0.4)::int  AS weak
-      FROM episode_performance_signals
-    `),
+    // The generator's readiness gate reads buildWorkedReport (per-domain
+    // buckets, ≥ 3 episodes, mean ≥ 0.6 strong / ≤ 0.35 weak). This used to
+    // count single EIRs with its own 0.6 / < 0.4 cut-offs and no minimum
+    // sample, so it could say "memory exists" while the generator, reading
+    // the report, found none. Same source now — they cannot disagree.
+    buildWorkedReport(),
     db.execute(sql`
       SELECT
         count(*) FILTER (WHERE type = 'market.collect')::int         AS collect,
@@ -105,8 +107,8 @@ export async function getHybridReadiness(): Promise<HybridReadiness> {
   const scored = num(signalsRow.rows[0], "scored")
   const clusters = num(clustersRow.rows[0], "n")
   const originals = num(originalsRow.rows[0], "n")
-  const strong = num(workedRow.rows[0], "strong")
-  const weak = num(workedRow.rows[0], "weak")
+  const strong = workedRow.strong_topic_domains.length
+  const weak = workedRow.weak_topic_domains.length
 
   const inflight = {
     collect: num(inflightRow.rows[0], "collect") > 0,

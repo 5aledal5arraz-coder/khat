@@ -3,12 +3,15 @@
  *
  *   generateHybridTopics({ seasonId, language, count, allowKuwaitBias?, createdBy? })
  *
- * Single editorial AI call (gpt-4o) that sees, all at once:
- *   - top market_topic_clusters (Step 1)
+ * Single `editorial` AI call (model resolved by the router registry — today
+ * gpt-5.6-sol; never hard-coded here) that sees, all at once:
+ *   - a few sampled market_topic_clusters (a weak prior; labelled old when
+ *     the signals are not fresh)
  *   - fresh original_thinking_topics (Step 2)
- *   - Phase 8 worked-report (strong/weak topic_domains)
- *   - cross-history exclusion list (existing khat_map candidates +
- *     consumed original-topic titles)
+ *   - Phase 8 worked-report (strong/weak topic_domains) — the weakest,
+ *     tie-break-only hint
+ *   - an ordered exclusion list (this season's candidates, published
+ *     episodes, other seasons' candidates, consumed original-topic titles)
  *
  * Since the constitution (2026-09-28) «دستور خط» is the first system block,
  * market clusters are a weak prior, and topics are ordered by the model's
@@ -33,6 +36,8 @@ import {
   loadWhiteSpaceThemes,
 } from "@/lib/khat-map/v2/exploration"
 import { selectHybridOrder } from "./select"
+import { enforceBatchDiversity, type DiversityWarning } from "./diversity"
+import { getTopicEngineSettings } from "./settings"
 import { loadHybridInputs } from "./inputs"
 import {
   judgeHybridCandidate,
@@ -141,6 +146,14 @@ const HYBRID_AI_MAX_RETRIES = 1
  */
 const HYBRID_GEN_WALL_MS = 580_000
 
+/**
+ * Market signals older than this are not sent to the model at all — not even
+ * as a labelled-old weak prior. Between "not fresh" and this age they go in
+ * labelled OLD. (Review 2026-10-03: the schedule is off by default, so the
+ * data only gets older; a two-week-old trend label is noise, not a hint.)
+ */
+const MARKET_MAX_AGE_HOURS = 14 * 24
+
 export interface GenerateHybridRequest {
   seasonId: string | null
   language: "ar" | "en"
@@ -181,6 +194,11 @@ export interface GenerateHybridResult {
   enrichment: { requested: number; enriched: number; unenriched: number }
   /** Which input path the generator used. */
   fallback_path?: HybridFallbackPath
+  /** Batch-level variety rules the model's reply could not meet (diversity.ts). */
+  diversity_warnings?: DiversityWarning[]
+  /** Set when the market signals were not fresh. `withheld` = older than
+   *  14 days, so the clusters were NOT sent to the model at all. */
+  market_signals_stale?: { status: string; age_hours: number | null; withheld: boolean } | null
   /** Set when generation could not proceed.
    *    analysis_pending — signals exist but clusters/scores aren't ready
    *                       (call site should surface "جاري التحليل…").
@@ -209,6 +227,7 @@ export async function generateHybridTopics(
 
   const inputs = await loadHybridInputs({
     language: req.language,
+    seasonId: req.seasonId,
     extraExclusions: [],
   })
 
@@ -230,10 +249,25 @@ export async function generateHybridTopics(
   const fallbackPath: HybridFallbackPath =
     inputs.market_clusters.length > 0 ? "clusters" : "foundational"
 
+  // Old market signals: labelled OLD in the prompt, or — past 14 days — not
+  // sent at all. Readiness above still counted them (they exist); the model
+  // then works from the exploration map + constitution alone, which is what
+  // a weak prior is allowed to fall back to.
+  const marketStale =
+    inputs.market_clusters.length > 0 &&
+    inputs.market_freshness != null &&
+    inputs.market_freshness.status !== "fresh"
+  const marketWithheld =
+    marketStale &&
+    (inputs.market_freshness!.age_hours == null ||
+      inputs.market_freshness!.age_hours > MARKET_MAX_AGE_HOURS)
+  const promptInputs = marketWithheld ? { ...inputs, market_clusters: [] } : inputs
+  const settings = await getTopicEngineSettings()
+
   // Open the generation log.
   const inputSnapshot = {
     original_topic_count: inputs.original_topics.length,
-    market_cluster_count: inputs.market_clusters.length,
+    market_cluster_count: promptInputs.market_clusters.length,
     taste_hint_count: inputs.taste_hints.length,
     fallback_path: fallbackPath,
     worked_hint_count:
@@ -243,6 +277,10 @@ export async function generateHybridTopics(
     allow_kuwait_bias: !!req.allowKuwaitBias,
     asked_count: req.count,
     lens_keys: inputs.lens_keys,
+    published_title_count: inputs.published_episode_titles.length,
+    market_freshness: inputs.market_freshness,
+    ...(marketWithheld ? { market_clusters_withheld: "stale_over_14_days" as const } : {}),
+    performance_hint: settings.hybrid_performance_hint,
   }
   const log = await openGenerationLog({
     seasonId: req.seasonId,
@@ -254,7 +292,9 @@ export async function generateHybridTopics(
   // Build prompt and call the model.
   const ai = await callEditorialModel({
     request: req,
-    inputs,
+    inputs: promptInputs,
+    generationId: log.id,
+    includePerformanceHint: settings.hybrid_performance_hint,
   })
 
   if (ai.status !== "succeeded" || !ai.parsed?.topics) {
@@ -288,12 +328,19 @@ export async function generateHybridTopics(
   // inner life, and forcing the 12 introspective lenses onto every idea was a
   // root cause of the repetitive psychological flavor.
   const validLensKeys = new Set([...lenses.map((l) => l.key), "none"])
+  // The judge reads the FULL lists, each under its own code — the prompt's
+  // exclusion list is a capped, merged hint, not the dedup source of truth.
   const ctx = {
-    excludedTitles: inputs.excluded_titles,
+    excludedTitles: [
+      ...inputs.khat_map_titles,
+      ...inputs.published_episode_titles,
+      ...inputs.consumed_original_titles,
+    ],
     validLensKeys,
     allowKuwaitBias: !!req.allowKuwaitBias,
-    khatMapTitles: inputs.excluded_titles, // already includes candidates
-    consumedOriginalTitles: [],
+    khatMapTitles: inputs.khat_map_titles,
+    publishedEpisodeTitles: inputs.published_episode_titles,
+    consumedOriginalTitles: inputs.consumed_original_titles,
     validEpisodeTypes: VALID_EPISODE_TYPES,
     validTopicDomains: VALID_TOPIC_DOMAINS,
   }
@@ -311,12 +358,14 @@ export async function generateHybridTopics(
     (raw) => {
       const candidate = coerceCandidate(raw)
       if (seenTitles.has(candidate.title.toLowerCase())) {
+        // The same title twice in ONE reply — not a clash with Khat Map
+        // history, so it gets its own code.
         const out: HybridOutputTopic = {
           ...candidate,
           rejected: true,
-          rejection_reasons: ["near_dup_khat_map"],
+          rejection_reasons: ["in_batch_duplicate"],
         }
-        bump(rejectionSummary, "near_dup_khat_map")
+        bump(rejectionSummary, "in_batch_duplicate")
         return { candidate, out, accepted: false }
       }
       seenTitles.add(candidate.title.toLowerCase())
@@ -361,7 +410,7 @@ export async function generateHybridTopics(
       estimated_strength_score: finalScore,
       rejected: false,
       consumed_original_topic_id: matchOriginalTopicId(
-        j.candidate.original_lens,
+        j.candidate.original_topic_id,
         inputs.original_topics,
       ),
     }
@@ -418,6 +467,16 @@ export async function generateHybridTopics(
         err,
       )
     }
+  }
+
+  // ─── Prompt-stated variety rules, enforced as ranking constraints ───────
+  // R10 (lens ≤ 40%) and R12 (≥ 4 archetypes) were prompt-only. Re-rank,
+  // never reject: every topic here is already paid for (diversity.ts).
+  const diversity = enforceBatchDiversity(accepted)
+  accepted.length = 0
+  for (const t of diversity.ordered) {
+    const f = diversity.flags.get(t)
+    accepted.push(f ? { ...t, diversity_flags: f } : t)
   }
 
   // ─── Editorial enrichment ───────────────────────────────────────────────
@@ -479,6 +538,10 @@ export async function generateHybridTopics(
       unenriched: enrichment.missingIndexes.length,
     },
     fallback_path: pickFallbackPath(inputs),
+    diversity_warnings: diversity.warnings,
+    market_signals_stale: marketStale
+      ? { ...inputs.market_freshness!, withheld: marketWithheld }
+      : null,
   }
 }
 
@@ -516,8 +579,10 @@ function decideReadiness(
 async function callEditorialModel(args: {
   request: GenerateHybridRequest
   inputs: Awaited<ReturnType<typeof loadHybridInputs>>
+  generationId: string
+  includePerformanceHint: boolean
 }) {
-  const { request: req, inputs } = args
+  const { request: req, inputs, generationId, includePerformanceHint } = args
 
   // Phase 0 — prompt now built by the consolidated builder so the
   // wording lives in one place and ai_runs.prompt_version is meaningful.
@@ -543,7 +608,9 @@ async function callEditorialModel(args: {
     allowKuwaitBias: !!req.allowKuwaitBias,
     originalTopics: inputs.original_topics,
     marketClusters: inputs.market_clusters,
+    marketFreshness: inputs.market_freshness,
     workedReport: inputs.worked_report,
+    includePerformanceHint,
     tasteHints: inputs.taste_hints,
     excludedTitles: inputs.excluded_titles,
     lenses,
@@ -552,8 +619,12 @@ async function callEditorialModel(args: {
 
   return await runAiTask<{ topics: Array<Record<string, unknown>> }>({
     taskKind: "editorial",
+    // The subject IS the generation row (subject_table says so); the season
+    // goes in its own column so per-season cost rolls up. It used to put the
+    // season id in subject_id and leave season_id NULL.
+    seasonId: req.seasonId ?? null,
     subjectTable: "hybrid_topic_generations",
-    subjectId: req.seasonId ?? null,
+    subjectId: generationId,
     promptVersion: version,
     input: {
       language: req.language,
@@ -568,6 +639,9 @@ async function callEditorialModel(args: {
       { role: "user", content: user },
     ],
     expectJson: true,
+    // Honoured only by a sampling fallback (e.g. gpt-4o); the reasoning
+    // default does not sample, and the router records the drop in
+    // ai_runs.input_snapshot._ignored_provider_options.
     providerOptions: { temperature: 0.8 },
     // This prompt genuinely needs ~110s; the router's 120s default made
     // attempt 1 a guaranteed 120s write-off. See HYBRID_AI_TIMEOUT_MS.
@@ -634,6 +708,7 @@ export function coerceCandidate(raw: Record<string, unknown>): HybridCandidate {
     // the feedback join simply finds no matching signals and skips.
     primary_theme: s("primary_theme") || "none",
     original_lens: s("original_lens"),
+    original_topic_id: s("original_topic_id") || "none",
     suggested_episode_type: coerceEpisodeType(rawType, topicText, rawDomain),
     suggested_topic_domain: VALID_TOPIC_DOMAINS.has(rawDomain) ? rawDomain : "none",
     estimated_strength_score: Number.isFinite(n) ? Math.max(0, Math.min(1, n)) : 0,
@@ -644,14 +719,19 @@ export function coerceCandidate(raw: Record<string, unknown>): HybridCandidate {
   }
 }
 
-/** When the model picks a lens we have a fresh original-thinking row for,
- *  consume it. Choose the most recent matching row. */
-function matchOriginalTopicId(
-  lens: string,
-  originalTopics: Array<{ id: string; lens: string }>,
+/**
+ * Consume an original ONLY when the model names the id of the one it
+ * actually transformed, and that id was in this run's fresh feed. It used to
+ * consume the newest original sharing the topic's LENS — so picking a lens
+ * burned an unrelated idea from the bank.
+ */
+export function matchOriginalTopicId(
+  originalTopicId: string | undefined,
+  originalTopics: Array<{ id: string }>,
 ): string | null {
-  const match = originalTopics.find((t) => t.lens === lens)
-  return match?.id ?? null
+  const id = (originalTopicId ?? "").trim()
+  if (!id || id.toLowerCase() === "none") return null
+  return originalTopics.some((t) => t.id === id) ? id : null
 }
 
 function bump(map: Record<string, number>, key: string) {

@@ -34,8 +34,11 @@ import {
 import {
   normalizeTitleTokens,
   jaccardSimilarity,
+  isNearDuplicateTitle,
   TITLE_DEDUP_JACCARD_THRESHOLD,
 } from "@/lib/khat-map/v2/title-similarity"
+import { judgePolicy, GUEST_POLICY_LABEL_AR } from "@/lib/khat-map/core/policy"
+import { writeFingerprint } from "@/lib/khat-map/learning/fingerprints"
 import { ensureEirForCandidate, syncEirEditorialFromCandidate } from "@/lib/khat-brain"
 import { transitionEpisodePhase } from "@/lib/eir"
 import { getEpisodeCandidateById } from "@/lib/khat-map/core/queries"
@@ -190,6 +193,8 @@ export async function addManualTopicAction(input: {
   hook?: string
   why_matters?: string
   why_now?: string
+  /** Khaled saw the constitution warning and chose «أضف رغم التحذير». */
+  confirmPolicyWarning?: boolean
 }): Promise<Result<{ topic: KhatMapEpisodeCandidate }>> {
   const gate = await requireActionRole("EDITOR")
   if (!gate.ok) return { success: false, error: gate.error }
@@ -213,13 +218,48 @@ export async function addManualTopicAction(input: {
     return { success: false, error: "لا يمكن إضافة مواضيع بعد قفل المرحلة الأولى" }
   }
 
+  // A hand-typed topic is Khaled's own editorial choice, so the constitution
+  // WARNS here instead of blocking: the same lexicon over title + hook as the
+  // generators (policy.ts), and a hit needs an explicit «أضف رغم التحذير».
+  // A lexicon word is not the topic: «رحلتي من الإلحاد إلى الإيمان» is faith
+  // as a lived experience, which the constitution welcomes.
+  const hook = input.hook?.trim() || null
+  const policy = judgePolicy([title, hook].filter(Boolean).join(". "))
+  const policyLabels = policy.lexicon.map((c) => GUEST_POLICY_LABEL_AR[c] ?? c).join("، ")
+  if (!policy.ok && !input.confirmPolicyWarning) {
+    return {
+      success: false,
+      code: "POLICY_WARNING",
+      error: `تنبيه: العنوان يمسّ ما يتجنبه دستور خط (${policyLabels}). إن كان الموضوع تجربة إنسانية لا جدلاً، اضغط «أضف رغم التحذير».`,
+    }
+  }
+
   try {
+    // No near-duplicate of a live topic of THIS season (same token-Jaccard
+    // rule the generators use). A rejected topic may be re-added on purpose.
+    const seasonRows = await db!
+      .select({
+        working_title: khatMapEpisodeCandidates.working_title,
+        status: khatMapEpisodeCandidates.status,
+      })
+      .from(khatMapEpisodeCandidates)
+      .where(eq(khatMapEpisodeCandidates.season_id, input.seasonId))
+    const clash = seasonRows.find(
+      (r) => r.status !== "rejected" && isNearDuplicateTitle(title, [r.working_title]),
+    )
+    if (clash) {
+      return {
+        success: false,
+        error: `يوجد موضوع مشابه في هذا الموسم: «${clash.working_title}». عدّل العنوان أو افتح الموضوع الموجود.`,
+      }
+    }
+
     const created = await createEpisodeCandidate({
       season_id: input.seasonId,
       working_title: title,
       episode_type: input.episode_type,
       topic_domain: input.topic_domain,
-      hook: input.hook?.trim() || null,
+      hook,
       why_matters: input.why_matters?.trim() || null,
       why_now: input.why_now?.trim() || null,
     })
@@ -227,14 +267,32 @@ export async function addManualTopicAction(input: {
     // Record an "accept" decision — season progress counts decisions (not raw
     // candidate status), so without this the topic wouldn't count toward the
     // target and the "lock topics" CTA would stay disabled.
-    await recordDecision({
+    const decision = await recordDecision({
       season_id: input.seasonId,
       admin_id: user.id,
       batch_index: 0,
       kind: "accept",
       target: "topic",
       topic_candidate_id: created.id,
+      // The override is on the record, not just in Khaled's memory.
+      reason_text: !policy.ok ? `manual: أُضيف رغم تحذير الدستور (${policyLabels})` : null,
     })
+    // Same memory an accepted card leaves (recordDecisionAndFingerprint),
+    // but best-effort: one embedding call must never fail a hand-typed add.
+    try {
+      await writeFingerprint({
+        season_id: input.seasonId,
+        source: "accepted",
+        title_ar: title,
+        summary_ar: input.why_matters?.trim() || hook,
+        angle_code: null,
+        domain: (approved ?? created).topic_domain ?? null,
+        topic_candidate_id: created.id,
+        decision_id: decision.id,
+      })
+    } catch (err) {
+      console.error("[addManualTopicAction] fingerprint failed (non-fatal):", err)
+    }
     // Khat Brain — like an accepted card (recordCardDecision), the topic
     // becomes an EIR now; without it the season card has no «تشغيل اكتشاف
     // لهذه الحلقة». Non-fatal for the same reason: the decision row is the

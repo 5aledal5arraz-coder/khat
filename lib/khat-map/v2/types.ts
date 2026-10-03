@@ -93,6 +93,11 @@ export interface RawTopic {
   success?: unknown
   /** A sketch of a guest who could carry it. Phase A: never persisted as a guest. */
   guest_idea?: string | null
+  /** Exploration-map echo — which slot this card fills and the field /
+   *  audience segment it used (checked softly by frame-fit.ts). */
+  slot?: number | null
+  field?: string | null
+  segment?: string | null
 }
 
 export interface RawGuest {
@@ -210,6 +215,8 @@ export interface BatchStats {
   llm_ms: number
   /** ms spent on embedding. */
   embed_ms: number
+  /** Cards that drifted from their exploration slot (ranked lower, flagged). */
+  frame_mismatched?: number
 }
 
 export interface BatchResult {
@@ -346,6 +353,8 @@ export interface CandidateGenInput {
   accepted_titles: string[]
   /** What admin has rejected — shown as negatives in the prompt. */
   rejected_titles: string[]
+  /** Titles of episodes already published on the site — never re-propose. */
+  published_titles?: string[]
   rejected_reason_categories: string[]
   taste_profile: KhatMapUserTasteProfile
   /** How strict the admin wants the filter — defaults from engine config. */

@@ -18,6 +18,7 @@ import Link from "next/link"
 import { Activity, ArrowRight, Inbox } from "lucide-react"
 import { getAdminAuthUser, hasRole, requireAdmin } from "@/lib/api-utils"
 import { getMarketFreshness } from "@/lib/market-intelligence/freshness"
+import { formatArabicDateTime } from "@/lib/shared/formatters"
 import {
   getReviewQueueCounts,
   listSignalsForReview,
@@ -95,6 +96,13 @@ export default async function MarketSignalsReviewPage({
                 inFlight={freshness.refreshInFlight}
               />
             )}
+            <span className="text-[10.5px] text-muted-foreground" data-auto-refresh={freshness.autoRefreshEnabled ? "on" : "off"}>
+              {freshness.autoRefreshEnabled ? "التحديث التلقائي يعمل يومياً" : "التحديث التلقائي متوقف"}
+              {" · "}
+              {freshness.lastSuccessfulCollectAt
+                ? `آخر جمع: ${formatArabicDateTime(freshness.lastSuccessfulCollectAt)}`
+                : "لم يُجمع شيء بعد"}
+            </span>
             <RefreshScoringButton />
           </div>
         </div>

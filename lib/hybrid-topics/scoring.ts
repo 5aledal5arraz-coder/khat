@@ -31,7 +31,7 @@ export type KhatTopicScoreKey = (typeof KHAT_TOPIC_SCORE_KEYS)[number]
 export type KhatTopicScores = Record<KhatTopicScoreKey, number>
 
 export interface ScoringContext {
-  /** Lens diversity bias — penalize the 4th, 5th… use of the same lens in one batch. */
+  /** Final per-lens counts of the accepted batch ("none" is never penalised). */
   batchLensCounts: Map<string, number>
   /** Archetype (episode-shape) diversity bias — penalize a repeated shape. */
   batchArchetypeCounts?: Map<string, number>
@@ -84,13 +84,18 @@ export function rescoreHybridCandidate(
   // 0..1 self-rating only for a reply that carried none.
   let score = c.scores ? khatTopicScore(c.scores) : clamp01(c.estimated_strength_score ?? 0.5)
 
-  // Lens-diversity penalty (the 4th use of the same lens in one batch
-  // gets dinged so the editor sees variety).
-  const lensCount = ctx.batchLensCounts.get(c.original_lens) ?? 0
+  // Lens-diversity penalty: when a lens appears 3+ times in the batch, every
+  // topic carrying it is dinged by 0.05 per use beyond 2 (the count is the
+  // final batch count, so all members share the penalty). "none" is exempt —
+  // the prompt promises it (R10), and it is the absence of a lens, not one.
+  // The hard 40% cap is enforced as a ranking constraint in diversity.ts.
+  const lensKey = (c.original_lens ?? "").trim().toLowerCase()
+  const lensCount = lensKey === "none" || lensKey === "" ? 0 : ctx.batchLensCounts.get(c.original_lens) ?? 0
   if (lensCount >= 3) score = clamp01(score - LENS_REPEAT_PENALTY * (lensCount - 2))
 
-  // Archetype-diversity penalty — the 3rd+ use of the same episode SHAPE is
-  // dinged so a batch spans shapes, not just subjects.
+  // Archetype-diversity penalty — when a SHAPE appears 2+ times, every topic
+  // with it is dinged 0.06 per use beyond 1 (final batch count, shared by all
+  // members), so a batch spans shapes, not just subjects.
   if (c.archetype && ctx.batchArchetypeCounts) {
     const archCount = ctx.batchArchetypeCounts.get(c.archetype) ?? 0
     if (archCount >= 2) score = clamp01(score - ARCHETYPE_REPEAT_PENALTY * (archCount - 1))

@@ -474,6 +474,11 @@ export interface KhatMapEditorialIntel {
   guest_idea: string | null
   /** The 14 success dimensions (0-10), authoritative from the court when present. */
   success_dimensions: Record<string, number> | null
+  /** Exploration-slot dimensions this card drifted from (frame-fit.ts) — it
+   *  was ranked lower, not rejected. Absent on cards generated before 2026-10-03. */
+  frame_mismatch?: string[] | null
+  /** Slot dimensions whose echo could not be resolved — recorded, not penalised. */
+  frame_unverifiable?: string[] | null
 }
 
 export interface KhatMapEpisodeCandidate {

@@ -31,7 +31,7 @@
  */
 
 import { pgTable, text, integer, real, jsonb, timestamp, index } from "drizzle-orm/pg-core"
-import type { AiTaskKind } from "./ai-runs"
+import type { AiRunTaskKind } from "./ai-runs"
 
 export const RATE_LIMIT_MODES = ["off", "report", "enforce"] as const
 export type RateLimitMode = (typeof RATE_LIMIT_MODES)[number]
@@ -87,7 +87,7 @@ export const aiRateLimitEvents = pgTable(
 
     /** light | expensive — derived from task_kind by the policy. */
     tier: text("tier").$type<RateLimitTier>().notNull(),
-    task_kind: text("task_kind").$type<AiTaskKind>().notNull(),
+    task_kind: text("task_kind").$type<AiRunTaskKind>().notNull(),
 
     actor_id: text("actor_id"),
     subject_table: text("subject_table"),

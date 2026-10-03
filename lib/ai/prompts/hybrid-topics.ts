@@ -55,7 +55,21 @@ import { KHAT_TOPIC_SCORE_KEYS } from "@/lib/hybrid-topics/scoring"
 // episode type — bold/controversial is not a Khat goal under the constitution,
 // and ab7d12c1 still came back typed controversial. coerceEpisodeType maps any
 // straggler to the closest allowed type.
-export const HYBRID_TOPICS_PROMPT_VERSION = "hybrid-topics-v4.1-constitution"
+//
+// v5 (2026-10-03, topic-engine defects #16 #17 #15 #18):
+//   - `original_topic_id`: the id of the fresh original the topic actually
+//     transformed, or "none". An original is now consumed only on that id —
+//     never because the model happened to pick the same lens.
+//   - One «SOFT HINTS — strongest → weakest» block holds every soft input
+//     (fresh originals → operator taste → market clusters → past audience).
+//     The originals header no longer contradicts rule 3 on original_lens.
+//   - Past audience (behind settings.hybrid_performance_hint, DEFAULT OFF):
+//     domains that «drew more viewers (views-weighted)», ≥ 5 episodes,
+//     names + sample sizes only — no view counts, no "weak" list.
+//   - MARKET CLUSTERS say when the signals are old (not «fresh»); older than
+//     14 days they are not sent at all (generate.ts).
+//   - EXCLUDED TITLES now lead with this season's and the published episodes'.
+export const HYBRID_TOPICS_PROMPT_VERSION = "hybrid-topics-v5-constitution"
 
 /**
  * At most this share of a batch may draw from a market cluster (the rest
@@ -79,7 +93,11 @@ export interface HybridPromptInput {
     emotional_hook: string
   }>
   marketClusters: TopClusterSummary[]
+  /** Age of the market signals; anything but "fresh" is labelled old. */
+  marketFreshness?: { status: string; age_hours: number | null } | null
   workedReport: WorkedReport
+  /** Render the past-audience hint (settings.hybrid_performance_hint, default off). */
+  includePerformanceHint?: boolean
   tasteHints: Array<{ dimension: string; key: string; weight: number }>
   excludedTitles: string[]
   lenses: EditorialLens[]
@@ -132,8 +150,25 @@ export function buildHybridTopicsPrompt(
     return lines.join("\n")
   })()
 
-  // The worked-report (views per domain) is no longer rendered: Khat is not
-  // views-optimised. It still gates readiness in generate.ts.
+  // The worked-report is the WEAKEST hint and OFF by default: Khat is a
+  // reference archive («بعد خمس سنين…»), not a views show. When switched on it
+  // shows only what it measures — domains that drew more viewers — with no
+  // view counts and no "weak" list.
+  const performanceHint = input.includePerformanceHint
+    ? renderPerformanceHint(input.workedReport)
+    : null
+
+  const marketStale =
+    input.marketClusters.length > 0 &&
+    input.marketFreshness != null &&
+    input.marketFreshness.status !== "fresh"
+  const marketAgeNote = marketStale
+    ? ` These signals are OLD (last collected ${
+        input.marketFreshness!.age_hours != null
+          ? `${Math.round(input.marketFreshness!.age_hours / 24)} day(s) ago`
+          : "at an unknown time"
+      }) — weaker still; never treat them as what people are living with now.`
+    : ""
 
   const exclusions =
     input.excludedTitles.length === 0
@@ -179,7 +214,7 @@ export function buildHybridTopicsPrompt(
     "ABSOLUTE RULES",
     "1. Output JSON only. Shape: { topics: [ {",
     "     title, archetype, novelty_note, why_it_matters, why_now, emotional_hook,",
-    "     conflict_angle, market_inspiration, primary_theme, original_lens,",
+    "     conflict_angle, market_inspiration, primary_theme, original_lens, original_topic_id,",
     "     suggested_episode_type, suggested_topic_domain,",
     `     scores: { ${KHAT_TOPIC_SCORE_KEYS.join(", ")} }, sensitivity_flags`,
     "   } ] }.",
@@ -188,6 +223,7 @@ export function buildHybridTopicsPrompt(
     '   - original_lens: a registry KEY below IF one genuinely sharpens the topic, else "none". Do NOT force an introspective lens onto a topic that is not about inner life — a history, science, or hidden-world episode is allowed to just be itself.',
     `   - market_inspiration: "none" by default. At most ${marketCap} topic(s) in this batch may instead name the ONE market cluster that hinted at it.`,
     "   - primary_theme: copy VERBATIM the label of that market cluster (from the MARKET CLUSTERS list below), or \"none\".",
+    "   - original_topic_id: the `id` of the FRESH ORIGINAL TOPIC this topic actually transforms (copy it exactly), or \"none\". Picking the same lens as an original is NOT using it — only name an id whose idea you really built on.",
     "   - suggested_episode_type drawn from: intellectual, social, psychological, personal_story, national, historical, economic, inspirational, signature_khat, invasion. `invasion` means the 1990 Iraqi invasion of Kuwait ONLY — never a figurative \"invasion\" (of technology, money, culture, ideas); use another type for those.",
     "   - suggested_topic_domain drawn from: philosophy, psychology, relationships, religion, identity_masculinity, money_career, technology_ai, internet_culture, crime_mystery, hidden_history, power_manipulation, parenting, kuwait_gulf, historical, social_issues, modern_society, emotions_inner_life, none. (religion = faith as a personal experience ONLY.)",
     "4. NEVER copy a market title. Transform it. The relationship between market_inspiration and title must NOT be a paraphrase.",
@@ -213,21 +249,47 @@ export function buildHybridTopicsPrompt(
   const user = [
     `Generate ${input.count} hybrid topics in ${langLabel}.${framesDirective} The button the operator pressed promises ${input.count} candidates — returning fewer than ${input.count} silently breaks that contract. Only fall short if the EXCLUDED list and rules 1–13 truly leave you no room.`,
     "",
-    "FRESH ORIGINAL TOPICS (you may transform any of these — when you do, set original_lens to that topic's lens):",
+    "SOFT HINTS — strongest → weakest. None of these is a rule; the exploration map and the constitution decide. Use a hint only when it makes a topic better.",
+    "",
+    "1. FRESH ORIGINAL TOPICS (you may build on any of these — when you do, set original_topic_id to its id; original_lens follows rule 3):",
     input.originalTopics.length === 0 ? "(none)" : lensSummaries,
     "",
-    `MARKET CLUSTERS (a weak prior — at most ${marketCap} topic(s) may draw from one; never copy a label into a title):`,
-    clusterSummaries,
-    "",
-    "EDITORIAL TASTE HINTS (soft — operator's learned preferences;",
-    "use these as a gentle bias, never as a hard filter):",
+    "2. EDITORIAL TASTE HINTS (the operator's learned preferences — a gentle bias, never a filter):",
     tasteHintBlock,
     "",
-    "EXCLUDED TITLES (do not return these or paraphrases):",
+    `3. MARKET CLUSTERS (a weak prior — at most ${marketCap} topic(s) may draw from one; never copy a label into a title):${marketAgeNote}`,
+    clusterSummaries,
+    "",
+    ...(performanceHint
+      ? [
+          "4. PAST AUDIENCE (the WEAKEST hint — Khat is a reference archive, not a views show. Use it ONLY to break a tie between two equally worth-telling ideas; never to pick, drop or reshape a topic):",
+          performanceHint,
+          "",
+        ]
+      : []),
+    "EXCLUDED TITLES — this season's, already-published episodes', then earlier proposals (do not return these or paraphrases):",
     `  - ${exclusions}`,
     "",
     "Return JSON only. No prose, no apology, no preamble.",
   ].join("\n")
 
   return { system, user, version: HYBRID_TOPICS_PROMPT_VERSION }
+}
+
+/** A domain needs this many published episodes before its views say anything. */
+export const PERFORMANCE_HINT_MIN_SAMPLE = 5
+
+/**
+ * Domains that drew more viewers — names + sample sizes only. The score is
+ * views-weighted (performance-learning: 0.5 views + engagement), so the label
+ * says exactly that. No "weak" list: a quiet archive episode is not a failure.
+ */
+function renderPerformanceHint(report: WorkedReport | null | undefined): string {
+  const strong = (report?.strong_topic_domains ?? [])
+    .filter((d) => d.sample_size >= PERFORMANCE_HINT_MIN_SAMPLE)
+    .slice(0, HYBRID_INPUT_CAPS.worked_strong_domains)
+  if (strong.length === 0) return "(not enough published episodes yet)"
+  return `- drew more viewers (views-weighted): ${strong
+    .map((d) => `${d.key} (${d.sample_size} episodes)`)
+    .join(", ")}`
 }

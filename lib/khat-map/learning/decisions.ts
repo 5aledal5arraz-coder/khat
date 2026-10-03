@@ -169,6 +169,77 @@ export async function listDecisionsByAdmin(
   return rows.map(mapDecision)
 }
 
+// ─── Effective per-topic decision (what the generator may read) ─────
+
+export interface TopicDecisionRow {
+  topic_candidate_id: string | null
+  kind: KhatMapDecisionKind
+  target: KhatMapDecisionTarget
+  reason_category: KhatMapFeedbackReasonCategory | null
+  undone_at: Date | null
+  created_at: Date
+}
+
+export interface EffectiveTopicDecisions {
+  /** Candidate ids whose latest effective topic decision is an accept. */
+  accepted: string[]
+  /** Same for reject, with the reason of THAT reject. */
+  rejected: Array<{
+    topic_candidate_id: string
+    reason_category: KhatMapFeedbackReasonCategory | null
+  }>
+}
+
+/**
+ * One standing per topic: the LATEST decision that is not undone and that
+ * targets the topic (`pair` | `topic`). Pure.
+ *
+ * Why not "every accept row" / "every reject row" (the old loaders): an undone
+ * decision must not count (the journal keeps it for audit only), and a retired
+ * slot — accept, then a later reject on the same card when the operator asks
+ * for a regenerate — is rejected, not both. A guest-only reject («غيّر
+ * الضيف») never changes the topic's standing; the action leaves its status.
+ */
+export function resolveEffectiveTopicDecisions(
+  rows: TopicDecisionRow[],
+): EffectiveTopicDecisions {
+  const latest = new Map<string, TopicDecisionRow>()
+  for (const r of rows) {
+    if (!r.topic_candidate_id || r.undone_at) continue
+    if (r.target === "guest") continue
+    const prev = latest.get(r.topic_candidate_id)
+    if (!prev || r.created_at.getTime() >= prev.created_at.getTime()) {
+      latest.set(r.topic_candidate_id, r)
+    }
+  }
+  const out: EffectiveTopicDecisions = { accepted: [], rejected: [] }
+  for (const [id, r] of latest) {
+    if (r.kind === "accept") out.accepted.push(id)
+    else if (r.kind === "reject") {
+      out.rejected.push({ topic_candidate_id: id, reason_category: r.reason_category })
+    }
+  }
+  return out
+}
+
+/** DB read for `resolveEffectiveTopicDecisions` — all of a season's rows. */
+export async function loadEffectiveTopicDecisions(
+  season_id: string,
+): Promise<EffectiveTopicDecisions> {
+  const rows = await db!
+    .select({
+      topic_candidate_id: khatMapSeasonDecisions.topic_candidate_id,
+      kind: khatMapSeasonDecisions.kind,
+      target: khatMapSeasonDecisions.target,
+      reason_category: khatMapSeasonDecisions.reason_category,
+      undone_at: khatMapSeasonDecisions.undone_at,
+      created_at: khatMapSeasonDecisions.created_at,
+    })
+    .from(khatMapSeasonDecisions)
+    .where(eq(khatMapSeasonDecisions.season_id, season_id))
+  return resolveEffectiveTopicDecisions(rows)
+}
+
 /** Count of effective decisions for a season — cheap dashboard stat. */
 export async function countEffectiveDecisions(
   season_id: string,

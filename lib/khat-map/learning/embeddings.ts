@@ -71,6 +71,7 @@ export async function embed(text: string): Promise<number[]> {
       provider: "openai",
       modelName: EMBEDDING_MODEL,
       inputSnapshot: { input_chars: text.length },
+      ratePermit: true,
     },
     () =>
       client.embeddings.create({
@@ -103,15 +104,18 @@ export async function batchEmbed(texts: string[], chunkSize = 128): Promise<numb
   const out: number[][] = new Array(texts.length)
   for (let i = 0; i < texts.length; i += chunkSize) {
     const slice = texts.slice(i, i + chunkSize).map((t) => (t.trim() ? t.slice(0, 2000) : " "))
-    // One ai_runs row per batch call. NOTE: recordAiRun takes NO rate-limit
-    // permit by design — batchEmbed is high-volume during season planning
-    // and a permit here would throttle generation.
+    // One ai_runs row + one rate-limit permit per batch call (light tier).
+    // It used to skip the permit, so embeddings were invisible to the
+    // concurrency / daily-cost policy that every routed call answers to.
+    // One permit per CHUNK (≤128 texts), not per text, so planning isn't
+    // throttled by its own volume.
     const res = await recordAiRun(
       {
         taskKind: "embedding",
         provider: "openai",
         modelName: EMBEDDING_MODEL,
         inputSnapshot: { batch_size: slice.length, offset: i },
+        ratePermit: true,
       },
       () => client.embeddings.create({ model: EMBEDDING_MODEL, input: slice }),
       (r) => ({

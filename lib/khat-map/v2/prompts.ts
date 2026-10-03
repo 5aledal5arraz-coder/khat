@@ -103,6 +103,9 @@ export function buildBatchSystemPrompt(
   const alreadyChosen = input.accepted_titles.length
     ? input.accepted_titles.slice(0, 30).map((t) => `  · ${t}`).join("\n")
     : "  (none yet)"
+  const published = (input.published_titles ?? []).length
+    ? (input.published_titles ?? []).slice(0, 60).map((t) => `  · ${t}`).join("\n")
+    : "  (none)"
 
   const controlBlocks = renderEditorialControlBlocks(input.editorial_controls)
   // Phase A/B redesign — Phase A is topics-only. We pin guest fields to
@@ -134,6 +137,9 @@ export function buildBatchSystemPrompt(
     "",
     "## Negative memory (DO NOT repeat or paraphrase these)",
     rejected,
+    "",
+    "## Already published on the site (DO NOT re-propose or paraphrase these episodes)",
+    published,
     "",
     "Rejection reason categories (signals about admin's preferences):",
     rejectedReasons,

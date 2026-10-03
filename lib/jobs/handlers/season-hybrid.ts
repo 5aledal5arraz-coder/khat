@@ -83,6 +83,29 @@ export async function runSeasonHybridGenerate(
   const generated_for_review =
     payload.seasonId === null ? r.accepted.length : r.persisted.length
   const unenriched = r.enrichment.unenriched
+  // Everything the operator must know about THIS batch, in one line each —
+  // honest coverage, old market data, and variety the model could not meet.
+  const warnings: string[] = []
+  if (unenriched > 0) {
+    warnings.push(
+      `${unenriched} من ${generated_for_review} مرشّحات وصلت بدون إثراء تحريري — بلا درجة ترتيب ولا محاور ولا عدسات.`,
+    )
+  }
+  if (r.market_signals_stale) {
+    const days =
+      r.market_signals_stale.age_hours != null
+        ? Math.round(r.market_signals_stale.age_hours / 24)
+        : null
+    const age = days != null ? ` (آخر جمع قبل ${days} يوم)` : ""
+    warnings.push(
+      r.market_signals_stale.withheld
+        ? `إشارات السوق أقدم من ١٤ يوماً${age} — لم تُرسل للمولّد إطلاقاً؛ المواضيع من خريطة الاستكشاف والدستور فقط.`
+        : `إشارات السوق المستخدمة قديمة${age} — استُخدمت كتلميح ضعيف فقط.`,
+    )
+  }
+  if (r.diversity_warnings?.includes("archetype_span_below_min")) {
+    warnings.push("الدفعة لم تغطِّ ٤ أشكال حلقات مختلفة على الأقل — قد تحتاج إعادة توليد للتنوع.")
+  }
   return {
     ok: true,
     generation_id: r.generation_id,
@@ -94,11 +117,7 @@ export async function runSeasonHybridGenerate(
     fallback_path: r.fallback_path,
     preview_titles: r.accepted.slice(0, 3).map((t) => t.title),
     messageAr: `تم توليد ${generated_for_review} مرشّحاً جديداً للمراجعة.`,
-    ...(unenriched > 0
-      ? {
-          warningAr: `${unenriched} من ${generated_for_review} مرشّحات وصلت بدون إثراء تحريري — بلا درجة ترتيب ولا محاور ولا عدسات.`,
-        }
-      : {}),
+    ...(warnings.length > 0 ? { warningAr: warnings.join(" · ") } : {}),
   }
 }
 

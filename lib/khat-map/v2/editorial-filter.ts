@@ -16,6 +16,8 @@
  *   • The constitution's avoid list (politics, religious dispute, scandal,
  *     privacy intrusion) — the deterministic lexicon over the card's own
  *     text, OR the model's own `sensitivity_flags` (lib/khat-map/core/policy.ts)
+ *   • A forbidden territory (FORBIDDEN_TERRITORY_IDS) returned as the
+ *     card's subcategory
  *
  * Domain weight scoring (low/high) is handled in scoring.ts, not here.
  * This layer is binary: in or out.
@@ -27,6 +29,7 @@ import type {
 } from "@/types/khat-map"
 import type { RawCandidate } from "./types"
 import { judgePolicy } from "@/lib/khat-map/core/policy"
+import { territoryPolicy } from "./knowledge-universe"
 
 /**
  * Country strings that count as Kuwaiti. Includes English and Arabic
@@ -60,6 +63,7 @@ export interface FilterDropReason {
     | "guest_gender"
     | "guest_nationality"
     | "policy_avoid"
+    | "forbidden_territory"
 }
 
 export interface FilterResult {
@@ -108,6 +112,14 @@ export function applyEditorialFilters(
     const policyText = [c.topic.working_title, c.topic.hook].filter(Boolean).join(". ")
     if (!judgePolicy(policyText, c.topic.sensitivity_flags).ok) {
       dropped.push({ candidate: c, reason: "policy_avoid" })
+      continue
+    }
+
+    // 0b. A territory the constitution forbids (FORBIDDEN_TERRITORY_IDS). The
+    //     menu never offers them, but the model can still return one — the
+    //     menu is a prompt, this is the check.
+    if (territoryPolicy(c.topic.subcategory) === "forbidden") {
+      dropped.push({ candidate: c, reason: "forbidden_territory" })
       continue
     }
 

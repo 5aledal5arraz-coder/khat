@@ -4,7 +4,9 @@
  *   generateOriginalTopics({ language, count, seasonId?, excludedTitles?,
  *                            allowKuwaitBias?, lensKeys? })
  *
- * Single AI call (`editorial` task kind → gpt-4o). Asks the model to
+ * Single AI call (`editorial` task kind — the router registry resolves the
+ * model; today gpt-5.6-sol, which does not sample, so the call's
+ * temperature is recorded as ignored in ai_runs). Asks the model to
  * produce N topics drawn from the editorial lens registry. Outputs are
  * judged by `novelty.judgeCandidate`; rejected candidates are dropped
  * with reasons logged.
@@ -208,6 +210,8 @@ async function callEditorialModel(args: CallArgs) {
       { role: "user", content: user },
     ],
     expectJson: true,
+    // Honoured only by a sampling fallback; the reasoning default doesn't
+    // sample — the router records the drop in ai_runs.input_snapshot.
     providerOptions: { temperature: 0.85 },
   })
 }

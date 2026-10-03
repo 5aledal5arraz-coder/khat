@@ -29,6 +29,26 @@ export const geminiAdapter: ProviderAdapter = {
     return isGeminiConfigured()
   },
 
+  // Samplers are never sent (see the config block in execute) — say so, so
+  // the router records the drop instead of letting ai_runs imply it applied.
+  ignoredOptions(req: ResolvedRequest) {
+    const opts = req.providerOptions as {
+      temperature?: unknown
+      topP?: unknown
+      top_p?: unknown
+    }
+    const ignored: Record<string, unknown> = {}
+    if (opts.temperature !== undefined) ignored.temperature = opts.temperature
+    if (opts.topP !== undefined) ignored.topP = opts.topP
+    if (opts.top_p !== undefined) ignored.top_p = opts.top_p
+    return Object.keys(ignored).length > 0
+      ? {
+          options: ignored,
+          reason: "deliberately not sent — Google deprecated samplers (ignored now, HTTP 400 on later models)",
+        }
+      : null
+  },
+
   async execute(req: ResolvedRequest): Promise<AdapterResult> {
     const ai = getGeminiClient()
 

@@ -7,18 +7,22 @@
  * side effects.
  *
  * Thresholds (per product spec):
- *   • fresh: last successful update less than 48h ago
- *   • stale: last successful update older than 7 days
+ *   • fresh: last successful update at most 48h ago
+ *   • aging: older than 48h but under 7 days — NOT «حديثة»
+ *   • stale: last successful update 7 days or older
  *   • empty: zero signals in the database
  *
- * Anything between 48h and 7d falls into "fresh" — we don't surface
- * an "aging" bucket to keep the operator UX binary actionable.
+ * 48h–7d used to be reported "fresh" (the badge said «حديثة» and the detail
+ * line claimed "updated within the last 48 hours") on data up to a week old.
+ * The label must not lie about the data; "aging" is its own state, and the
+ * hybrid generator treats anything but "fresh" as old signals and says so.
  */
 
 import { sql } from "drizzle-orm"
 import { db } from "@/lib/db"
+import { isMarketSchedulerEnabled } from "@/lib/jobs/scheduler-bootstrap"
 
-export type MarketFreshnessStatus = "fresh" | "stale" | "empty"
+export type MarketFreshnessStatus = "fresh" | "aging" | "stale" | "empty"
 
 export interface MarketFreshness {
   status: MarketFreshnessStatus
@@ -33,10 +37,30 @@ export interface MarketFreshness {
   /** True when a refresh is already queued or running. UI uses this
    *  to disable the "تحديث الآن" button. */
   refreshInFlight: boolean
+  /** Hours since the reference update (last collect, else last signal);
+   *  null when there is nothing to measure. */
+  ageHours: number | null
+  /** Whether the daily automatic collection is switched on
+   *  (KHAT_MARKET_SCHEDULER_ENABLED — off by default since 2026-09-26). */
+  autoRefreshEnabled: boolean
 }
 
 const FRESH_THRESHOLD_MS = 48 * 60 * 60 * 1000 // 48h
 const STALE_THRESHOLD_MS = 7 * 24 * 60 * 60 * 1000 // 7d
+
+/** Pure classification — exported so the thresholds are tested directly. */
+export function classifyMarketFreshness(
+  signalCount: number,
+  referenceIso: string | null,
+  now: number = Date.now(),
+): { status: MarketFreshnessStatus; ageHours: number | null } {
+  if (signalCount === 0) return { status: "empty", ageHours: null }
+  const ageMs = referenceIso ? now - new Date(referenceIso).getTime() : Infinity
+  const ageHours = Number.isFinite(ageMs) ? Math.max(0, Math.floor(ageMs / 3_600_000)) : null
+  if (ageMs <= FRESH_THRESHOLD_MS) return { status: "fresh", ageHours }
+  if (ageMs >= STALE_THRESHOLD_MS) return { status: "stale", ageHours }
+  return { status: "aging", ageHours }
+}
 
 export async function getMarketFreshness(): Promise<MarketFreshness> {
   if (!db) {
@@ -47,6 +71,8 @@ export async function getMarketFreshness(): Promise<MarketFreshness> {
       lastSignalAt: null,
       lastSuccessfulCollectAt: null,
       refreshInFlight: false,
+      ageHours: null,
+      autoRefreshEnabled: isMarketSchedulerEnabled(),
     }
   }
 
@@ -86,18 +112,10 @@ export async function getMarketFreshness(): Promise<MarketFreshness> {
   const refreshInFlight =
     Number((inflightRow.rows[0] as { n?: number } | undefined)?.n ?? 0) > 0
 
-  let status: MarketFreshnessStatus
-  if (signalCount === 0) {
-    status = "empty"
-  } else {
-    const referenceTime = lastSuccessfulCollectAt ?? lastSignalAt
-    const ageMs = referenceTime
-      ? Date.now() - new Date(referenceTime).getTime()
-      : Infinity
-    if (ageMs <= FRESH_THRESHOLD_MS) status = "fresh"
-    else if (ageMs >= STALE_THRESHOLD_MS) status = "stale"
-    else status = "fresh"
-  }
+  const { status, ageHours } = classifyMarketFreshness(
+    signalCount,
+    lastSuccessfulCollectAt ?? lastSignalAt,
+  )
 
   return {
     status,
@@ -106,5 +124,7 @@ export async function getMarketFreshness(): Promise<MarketFreshness> {
     lastSignalAt,
     lastSuccessfulCollectAt,
     refreshInFlight,
+    ageHours,
+    autoRefreshEnabled: isMarketSchedulerEnabled(),
   }
 }

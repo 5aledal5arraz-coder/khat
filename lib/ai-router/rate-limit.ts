@@ -28,7 +28,11 @@
 
 import { sql } from "drizzle-orm"
 import { db } from "@/lib/db"
-import type { AiTaskKind } from "@/lib/db/schema/ai-runs"
+import type {
+  AiRunTaskKind,
+  AiTaskKind,
+  AiTelemetryTaskKind,
+} from "@/lib/db/schema/ai-runs"
 import type {
   RateLimitDecision,
   RateLimitMode,
@@ -59,6 +63,33 @@ export const TASK_TIER: Record<AiTaskKind, RateLimitTier> = {
   editorial: "expensive",
   discovery: "expensive",
   research: "expensive",
+}
+
+/**
+ * Non-routed kinds that still take a permit (via `recordAiRun({ ratePermit })`).
+ * Embeddings are a cheap model → light tier; their running rows and cost count
+ * toward that tier like any other call. Kinds absent here never ask for one.
+ */
+export const TELEMETRY_TASK_TIER: Partial<Record<AiTelemetryTaskKind, RateLimitTier>> = {
+  embedding: "light",
+}
+
+export function tierForTaskKind(kind: AiRunTaskKind): RateLimitTier {
+  return (
+    TASK_TIER[kind as AiTaskKind] ??
+    TELEMETRY_TASK_TIER[kind as AiTelemetryTaskKind] ??
+    "light"
+  )
+}
+
+/** Every task_kind (routed + telemetry) whose calls count toward `tier`. */
+function kindsInTier(tier: RateLimitTier): string[] {
+  return [
+    ...Object.entries(TASK_TIER),
+    ...Object.entries(TELEMETRY_TASK_TIER),
+  ]
+    .filter(([, t]) => t === tier)
+    .map(([k]) => k)
 }
 
 // ─── Limits ──────────────────────────────────────────────────────────
@@ -187,7 +218,7 @@ export class RateLimitError extends Error {
 }
 
 export interface PermitRequest {
-  taskKind: AiTaskKind
+  taskKind: AiRunTaskKind
   actorId: string | null
   subjectTable: string | null
   subjectId: string | null
@@ -257,13 +288,13 @@ export async function acquireRateLimitPermit(
     return {
       decision: "allowed",
       enforced: false,
-      tier: TASK_TIER[req.taskKind],
+      tier: tierForTaskKind(req.taskKind),
       permit: NULL_PERMIT,
     }
   }
 
   const mode = await getEffectiveMode()
-  const tier = TASK_TIER[req.taskKind]
+  const tier = tierForTaskKind(req.taskKind)
 
   // ─── 1. Mode = off → no audit, no enforcement ─────────────────────
   if (mode === "off") {
@@ -411,9 +442,7 @@ export async function acquireRateLimitPermit(
       )
 
       // Concurrency: count running ai_runs of this tier.
-      const tierKinds = Object.entries(TASK_TIER)
-        .filter(([, t]) => t === tier)
-        .map(([k]) => k)
+      const tierKinds = kindsInTier(tier)
       const kindsLiteral = sql.join(
         tierKinds.map((k) => sql`${k}`),
         sql`,`,
@@ -587,7 +616,7 @@ interface AuditInput {
   decision: RateLimitDecision
   enforced: boolean
   tier: RateLimitTier
-  taskKind: AiTaskKind
+  taskKind: AiRunTaskKind
   actorId: string | null
   subjectTable: string | null
   subjectId: string | null

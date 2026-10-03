@@ -4,11 +4,11 @@
  * Every LLM call goes through `runAiTask` so season generation gets the
  * same telemetry (ai_runs), rate limiting, and cost accounting as the
  * rest of the platform:
- *   - taskKind "structural" (gpt-4o-mini) for batch candidate generation
- *     (structural/diversity task, fast + cheap at oversample volume)
- *   - taskKind "editorial" (gpt-4o) for guest analysis + guest-anchored
- *     angle generation (deep editorial judgment — one guest gets the
- *     full model)
+ *   - taskKind "structural" for legacy batch candidate generation, and
+ *     "editorial" for the Phase-A editorial engine, the Editorial Court,
+ *     guest analysis and guest-anchored angles. Models come from the
+ *     router registry (today structural → gpt-5.6-luna, editorial →
+ *     gpt-5.6-sol), never from this file.
  *   - text-embedding-3-small for all similarity work (delegated to
  *     lib/khat-map/learning/embeddings.embed)
  *
@@ -50,14 +50,21 @@ async function generateCandidates(
 ): Promise<RawCandidate[]> {
   // Two generation modes:
   //   editorial → the world-class editorial engine (knowledge universe + lenses
-  //               + headline craft + 14 success dims). Phase A default, gpt-4o.
+  //               + headline craft + 14 success dims). Phase A default.
   //   legacy    → the original combined topic+guest prompt (Phase B / strict /
-  //               required-role completion), gpt-4o-mini.
+  //               required-role completion). Models: router registry.
   const editorial = !!input.editorial
   // v2 / v3 (2026-09-28): «دستور خط» is the first system block; the
   // success dimensions are the constitution's (worth_telling first).
   // v3 / v4 (2026-10-02): episode_type no longer offers «controversial».
-  const promptVersion = editorial ? "khat-map-editorial-v3-constitution" : "khat-map-batch-v4-constitution"
+  // v4 / v5 (2026-10-03): published-episode titles are excluded; editorial
+  // drops the `political` lens, scopes faith to personal experience, and
+  // echoes slot/field/segment so frame-fit.ts can check the exploration map.
+  // editorial v5 (2026-10-03): lens menu drops `controversy`; `power`, `media`
+  // and `crime_conflict` (now labelled «النجاة والعودة») re-scoped to the
+  // guest's lived experience. The batch prompt embeds no lens menu, so it
+  // stays v5.
+  const promptVersion = editorial ? "khat-map-editorial-v5-constitution" : "khat-map-batch-v5-constitution"
   const prompt = editorial
     ? [
         { role: "system" as const, content: buildEditorialSystemPrompt(input) },
@@ -91,6 +98,8 @@ async function generateCandidates(
     // 220 × 3 ≈ 662s, a latent hang past the wall. The structural path keeps
     // the registry/global retry policy (undefined → falls through).
     maxRetries: editorial ? 1 : undefined,
+    // Honoured only by a sampling fallback; the reasoning defaults (sol /
+    // luna) don't sample — the router records the drop in ai_runs.
     providerOptions: { temperature: editorial ? 0.85 : 0.8 },
   })
   if (r.status !== "succeeded" || r.parsed == null) {
@@ -225,15 +234,20 @@ function normalizeRawCandidate(v: unknown): RawCandidate | null {
   // If guest exists but has no name, drop the guest but keep the topic.
   const safeGuest = guest && guest.full_name ? guest : null
 
-  const topicDomain = clampTopicDomain(asOptionalString(topic.topic_domain)) ?? "none"
   const category = clampCategory(asOptionalString(topic.category))
+  // The editorial contract carries `category`, not `topic_domain`. Derive the
+  // domain from the category HERE — the same rule persistence.ts stores — so
+  // the admin's disabled-domain filter and the fingerprint text see the real
+  // domain instead of "none". The legacy contract (no category) keeps the
+  // model's own topic_domain.
+  const topicDomain = category
+    ? legacyDomainForCategory(category)
+    : clampTopicDomain(asOptionalString(topic.topic_domain)) ?? "none"
   let episodeType = clampEpisodeType(asOptionalString(topic.episode_type)) ?? "signature_khat"
   // No longer offered (2026-10-02). Mapped by the domain the row will
   // persist with — persistence.ts derives it from the category when set.
   if (episodeType === "controversial") {
-    episodeType = episodeTypeForControversial(
-      category ? legacyDomainForCategory(category) : topicDomain,
-    ) as RawCandidate["topic"]["episode_type"]
+    episodeType = episodeTypeForControversial(topicDomain) as RawCandidate["topic"]["episode_type"]
   }
 
   return {
@@ -277,6 +291,9 @@ function normalizeRawCandidate(v: unknown): RawCandidate | null {
       titles: topic.titles ?? null,
       success: topic.success ?? null,
       guest_idea: asOptionalString(topic.guest_idea),
+      slot: asOptionalNumber(topic.slot),
+      field: asOptionalString(topic.field),
+      segment: asOptionalString(topic.segment),
     },
     guest: safeGuest,
     editorial_score: clamp(asNumber(o.editorial_score, 5), 0, 10),

@@ -21,6 +21,11 @@ import { sql, desc, isNull, and } from "drizzle-orm"
 import { db } from "@/lib/db"
 import { khatMapEpisodeCandidates } from "@/lib/db/schema/khat-map"
 import { originalThinkingTopics } from "@/lib/db/schema/original-thinking"
+import { loadPublishedEpisodeTitles } from "@/lib/khat-map/core/published-titles"
+import {
+  getMarketFreshness,
+  type MarketFreshnessStatus,
+} from "@/lib/market-intelligence/freshness"
 import {
   getTopClusters,
   type TopClusterSummary,
@@ -44,7 +49,6 @@ export const HYBRID_INPUT_CAPS = {
   market_cluster_pool: 36,
   original_topics: 18,
   worked_strong_domains: 5,
-  worked_weak_domains: 5,
   exclusion_titles: 120,
   /** Number of dominant taste-weight keys (theme + lens + source) to
    *  surface in the prompt as a soft editorial bias. */
@@ -79,24 +83,39 @@ export interface HybridInputs {
   /** Top N dominant taste hints — rendered into the prompt as a small
    *  "operator preference" block. */
   taste_hints: TasteHint[]
-  /** Titles that the AI must avoid: existing candidates + consumed
-   *  originals. */
+  /** Titles the PROMPT tells the AI to avoid: deduped, ordered by relevance
+   *  (this season → published episodes → other seasons → consumed originals,
+   *  most recent first inside each), then capped. */
   excluded_titles: string[]
+  /**
+   * The full lists the deterministic judge checks — never cut to the prompt
+   * budget, and kept apart so each near-duplicate is reported under its own
+   * rejection code.
+   */
+  khat_map_titles: string[]
+  published_episode_titles: string[]
+  consumed_original_titles: string[]
+  /** Age of the market signals behind `market_clusters` (#15). */
+  market_freshness: { status: MarketFreshnessStatus; age_hours: number | null } | null
   /** Useful for the snapshot row + the prompt. */
   lens_keys: string[]
 }
 
 export async function loadHybridInputs(opts: {
   language: string
+  /** The season being planned — its own titles lead the exclusion list. */
+  seasonId?: string | null
   extraExclusions?: string[]
 }): Promise<HybridInputs> {
   const [
     clusters,
     originals,
     worked,
-    candidateTitles,
+    candidateRows,
     consumedOriginals,
     tasteLookup,
+    publishedTitles,
+    freshness,
   ] = await Promise.all([
     // Over-fetch 3× the cap so a rotating SAMPLE feeds each run. Always taking
     // the same deterministic top-12 was a root cause of repetitive output —
@@ -104,17 +123,30 @@ export async function loadHybridInputs(opts: {
     getTopClusters(HYBRID_INPUT_CAPS.market_cluster_pool),
     loadFreshOriginalTopics(opts.language, HYBRID_INPUT_CAPS.original_topics),
     buildWorkedReport(),
-    loadCandidateTitles(),
+    loadCandidateTitles(opts.seasonId ?? null),
     loadConsumedOriginalTitles(opts.language),
     loadTasteLookup(),
+    // Same guard as the wizard: a failed read only shrinks the dedup lists.
+    loadPublishedEpisodeTitles().catch((err) => {
+      console.error("[hybrid-topics] published titles unavailable", err)
+      return [] as string[]
+    }),
+    // A diagnostic read — its failure must not stop a generation.
+    getMarketFreshness().catch(() => null),
   ])
 
-  const excluded_titles = unique(
+  const seasonId = opts.seasonId ?? null
+  const thisSeason = candidateRows.filter((r) => seasonId !== null && r.season_id === seasonId)
+  const otherSeasons = candidateRows.filter((r) => seasonId === null || r.season_id !== seasonId)
+  const excluded_titles = mergeExclusionTitles(
     [
-      ...(opts.extraExclusions ?? []),
-      ...candidateTitles,
-      ...consumedOriginals,
-    ].slice(0, HYBRID_INPUT_CAPS.exclusion_titles),
+      opts.extraExclusions ?? [],
+      thisSeason.map((r) => r.working_title),
+      publishedTitles,
+      otherSeasons.map((r) => r.working_title),
+      consumedOriginals,
+    ],
+    HYBRID_INPUT_CAPS.exclusion_titles,
   )
 
   const lens_keys = unique(originals.map((o) => o.lens))
@@ -132,8 +164,40 @@ export async function loadHybridInputs(opts: {
     taste_lookup: tasteLookup,
     taste_hints: dominantTasteHints(tasteLookup, HYBRID_INPUT_CAPS.taste_hints),
     excluded_titles,
+    khat_map_titles: candidateRows.map((r) => r.working_title),
+    published_episode_titles: publishedTitles,
+    consumed_original_titles: consumedOriginals,
+    market_freshness: freshness
+      ? { status: freshness.status, age_hours: freshness.ageHours }
+      : null,
     lens_keys,
   }
+}
+
+/**
+ * The prompt's exclusion list: groups in PRIORITY order, de-duplicated
+ * (whitespace/case-insensitive, first occurrence wins) BEFORE the cap.
+ *
+ * It used to be `unique([...].slice(0, 120))` over an unordered all-seasons
+ * read: the cap ran first, so duplicates ate slots, and once there were more
+ * than 120 candidate rows the season's own titles and every consumed original
+ * could be cut off at random.
+ */
+export function mergeExclusionTitles(groups: string[][], cap: number): string[] {
+  const seen = new Set<string>()
+  const out: string[] = []
+  for (const group of groups) {
+    for (const raw of group) {
+      const title = (raw ?? "").replace(/\s+/g, " ").trim()
+      if (!title) continue
+      const key = title.toLowerCase()
+      if (seen.has(key)) continue
+      seen.add(key)
+      out.push(title)
+      if (out.length >= cap) return out
+    }
+  }
+  return out
 }
 
 /** Pull the strongest absolute-value weights from each dimension. The
@@ -182,14 +246,26 @@ async function loadFreshOriginalTopics(
   return rows
 }
 
-async function loadCandidateTitles(): Promise<string[]> {
-  const rows = await db!
-    .select({ working_title: khatMapEpisodeCandidates.working_title })
+/** Candidate titles, this season's first, then most recent first. */
+async function loadCandidateTitles(
+  seasonId: string | null,
+): Promise<Array<{ working_title: string; season_id: string }>> {
+  return await db!
+    .select({
+      working_title: khatMapEpisodeCandidates.working_title,
+      season_id: khatMapEpisodeCandidates.season_id,
+    })
     .from(khatMapEpisodeCandidates)
+    .orderBy(
+      ...(seasonId
+        ? [sql`(${khatMapEpisodeCandidates.season_id} = ${seasonId}) DESC`]
+        : []),
+      desc(khatMapEpisodeCandidates.created_at),
+    )
     .limit(500)
-  return rows.map((r) => r.working_title)
 }
 
+/** Most recently consumed first. */
 async function loadConsumedOriginalTitles(language: string): Promise<string[]> {
   const rows = await db!
     .select({ title: originalThinkingTopics.title })
@@ -200,9 +276,14 @@ async function loadConsumedOriginalTitles(language: string): Promise<string[]> {
         sql`${originalThinkingTopics.language} = ${language}`,
       ),
     )
+    .orderBy(desc(originalThinkingTopics.consumed_at))
     .limit(300)
   return rows.map((r) => r.title)
 }
+
+// Published-episode titles (#18) live with the wizard's core so both engines
+// share one reader; re-exported for callers/tests of the hybrid inputs.
+export { loadPublishedEpisodeTitles }
 
 /** Languages whose market signals may reach the prompt at all. */
 const MARKET_LANGUAGES = new Set(["ar", "en"])
@@ -229,6 +310,7 @@ export function eligibleMarketClusters(
 function unique<T>(xs: T[]): T[] {
   return [...new Set(xs)]
 }
+
 
 /**
  * Sample `limit` clusters from the pool: the top third is always kept (the

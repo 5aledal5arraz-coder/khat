@@ -96,6 +96,14 @@ export interface HybridInputSnapshot {
   asked_count: number
   /** Lens keys that appeared in the original-topic feed. */
   lens_keys: string[]
+  /** Published-episode titles excluded from this run (#18). */
+  published_title_count?: number
+  /** Age of the market signals the clusters came from (#15). */
+  market_freshness?: { status: string; age_hours: number | null } | null
+  /** Set when the clusters were loaded but NOT sent (signals > 14 days old). */
+  market_clusters_withheld?: "stale_over_14_days"
+  /** Whether the past-audience hint was rendered (settings, default off). */
+  performance_hint?: boolean
 }
 
 export interface HybridOutputTopic {
@@ -121,4 +129,8 @@ export interface HybridOutputTopic {
   rejection_reasons?: string[]
   /** Source ids when accepted: which original_thinking_topics row was consumed. */
   consumed_original_topic_id?: string | null
+  /** The fresh original the model says it transformed ("none" / absent = none). */
+  original_topic_id?: string
+  /** Ranking constraints applied to this topic (diversity.ts), e.g. lens_over_cap. */
+  diversity_flags?: string[]
 }

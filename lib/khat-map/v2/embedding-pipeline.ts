@@ -147,3 +147,25 @@ export function greedyPickByScore(
   }
   return picks
 }
+
+/**
+ * Embed each text; a card whose embed fails (provider error, or an ENFORCED
+ * rate-limit block now that embeddings take a permit) gets an EMPTY vector
+ * instead of rejecting the whole batch after the paid generation call. An
+ * empty vector is inert downstream: scanNegatives skips length mismatches
+ * (verdict "ok"), corpusProximity returns 0, selection takes no semantic
+ * penalty — the card simply isn't de-duplicated by meaning.
+ */
+export async function embedEachOrEmpty(
+  ai: { embed: (text: string) => Promise<number[]> },
+  texts: string[],
+): Promise<number[][]> {
+  return Promise.all(
+    texts.map((t) =>
+      ai.embed(t).catch((err) => {
+        console.error("[khat-map] embed failed for one card; similarity skipped", err)
+        return [] as number[]
+      }),
+    ),
+  )
+}

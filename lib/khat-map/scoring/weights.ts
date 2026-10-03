@@ -124,8 +124,8 @@ export function performanceFactor(
 // Math:
 //   view_score    = log10(views + 1) / log10(VIEW_REFERENCE)   [0, 1, capped]
 //   density_score = 0.5 * (quotes / QUOTE_REFERENCE, capped)
-//                 + 0.125 each for has_enrichment / has_chapters / has_clips
-//                                                              [0, 1]
+//                 + 0.2 has_enrichment + 0.15 has_chapters + 0.15 has_clips
+//                   (lib/khat-map/performance/composite.ts)     [0, 1]
 //   final = view_weight * view_score + density_weight * density_score
 //         + (optional) like_weight * like_score
 //         + (optional) retention_weight * retention_pct

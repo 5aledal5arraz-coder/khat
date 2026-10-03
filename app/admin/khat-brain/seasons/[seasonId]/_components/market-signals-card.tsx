@@ -6,8 +6,8 @@
  * Operator-facing read of `getMarketFreshness()` + a "تحديث الآن"
  * button that enqueues one market run (lib/market-intelligence/run-now).
  * Never surfaces npm commands, script names, or env-var hints. The daily
- * automatic refresh is off since 2026-09-26, so the copy no longer
- * promises one — the button is the way data gets refreshed.
+ * automatic refresh is off by default since 2026-09-26; the footer states
+ * the real switch (freshness.autoRefreshEnabled) and the last collect date.
  */
 
 import { useState, useTransition } from "react"
@@ -17,6 +17,7 @@ import { toast } from "@/lib/use-toast"
 import { refreshMarketIntelligenceAction } from "./market-actions"
 import type { MarketFreshness } from "@/lib/market-intelligence/freshness"
 import { runAction } from "@/app/admin/components/run-action"
+import { formatArabicDateTime } from "@/lib/shared/formatters"
 
 export interface MarketSignalsCardProps {
   seasonId: string
@@ -37,6 +38,12 @@ const STATUS_COPY: Record<
     detail: "إشارات السوق محدّثة خلال آخر ٤٨ ساعة.",
     badgeCls: "border-emerald-500/30 bg-emerald-500/10 text-emerald-700",
     icon: CheckCircle2,
+  },
+  aging: {
+    label: "ليست حديثة",
+    detail: "آخر جمع أقدم من ٤٨ ساعة — المولّد يستخدمها كتلميح ضعيف ويذكر أنها قديمة.",
+    badgeCls: "border-amber-500/30 bg-amber-500/10 text-amber-700",
+    icon: Clock,
   },
   stale: {
     label: "تحتاج تحديث",
@@ -65,6 +72,7 @@ function formatRelative(iso: string | null): string {
 
 export function MarketSignalsCard({ seasonId, freshness }: MarketSignalsCardProps) {
   const copy = STATUS_COPY[freshness.status]
+  const lastCollect = freshness.lastSuccessfulCollectAt ?? freshness.lastSignalAt
   const Icon = copy.icon
   const [pending, start] = useTransition()
   const [acknowledged, setAcknowledged] = useState(false)
@@ -173,8 +181,12 @@ export function MarketSignalsCard({ seasonId, freshness }: MarketSignalsCardProp
         )}
       </div>
 
-      <p className="mt-2 text-[10.5px] text-muted-foreground">
-        التحديث التلقائي متوقف — تُحدَّث إشارات السوق عند الضغط على «تحديث الآن».
+      <p className="mt-2 text-[10.5px] text-muted-foreground" data-auto-refresh={freshness.autoRefreshEnabled ? "on" : "off"}>
+        {freshness.autoRefreshEnabled
+          ? "التحديث التلقائي يعمل يومياً"
+          : "التحديث التلقائي متوقف — تُحدَّث إشارات السوق عند الضغط على «تحديث الآن»"}
+        {" · "}
+        {lastCollect ? `آخر جمع: ${formatArabicDateTime(lastCollect)}` : "لم يُجمع شيء بعد"}
       </p>
     </div>
   )

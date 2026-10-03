@@ -14,6 +14,10 @@
  *                          call with reasoning explicitly "none").
  *                          Reasoning models reject samplers — dropping
  *                          them beats a 400 on every legacy call site.
+ *                          The Responses API has no sampler equivalent for
+ *                          reasoning models, so nothing is mapped; the drop
+ *                          is reported via `ignoredOptions` and recorded in
+ *                          ai_runs.input_snapshot._ignored_provider_options.
  *   max_tokens          → max_output_tokens
  *   reasoningEffort     → reasoning.effort (falls back to the router's
  *                          task-kind default from the registry)
@@ -52,11 +56,38 @@ const EFFORT_VALUES: ReadonlySet<string> = new Set([
   "xhigh",
 ])
 
+/** The effort actually sent: a valid per-call override wins over the router default. */
+function resolveEffort(req: ResolvedRequest): ReasoningEffort | undefined {
+  const override = (req.providerOptions as { reasoningEffort?: unknown }).reasoningEffort
+  return typeof override === "string" && EFFORT_VALUES.has(override)
+    ? (override as ReasoningEffort)
+    : req.reasoningEffort
+}
+
+/** Samplers are only valid when the model actually samples freely. */
+function samplersAllowed(req: ResolvedRequest): boolean {
+  return !isReasoningModel(req.modelName) || resolveEffort(req) === "none"
+}
+
 export const openaiAdapter: ProviderAdapter = {
   provider: "openai",
 
   isAvailable() {
     return Boolean(env.OPENAI_API_KEY)
+  },
+
+  ignoredOptions(req: ResolvedRequest) {
+    if (samplersAllowed(req)) return null
+    const opts = req.providerOptions as { temperature?: unknown; top_p?: unknown }
+    const ignored: Record<string, unknown> = {}
+    if (opts.temperature !== undefined) ignored.temperature = opts.temperature
+    if (opts.top_p !== undefined) ignored.top_p = opts.top_p
+    return Object.keys(ignored).length > 0
+      ? {
+          options: ignored,
+          reason: `not accepted by a reasoning model (${req.modelName}, effort ${resolveEffort(req) ?? "default"}) — not sent`,
+        }
+      : null
   },
 
   async execute(req: ResolvedRequest): Promise<AdapterResult> {
@@ -67,7 +98,7 @@ export const openaiAdapter: ProviderAdapter = {
       top_p: topP,
       max_tokens: maxTokens,
       max_output_tokens: maxOutputTokens,
-      reasoningEffort: effortOverride,
+      reasoningEffort: _effortOverride,
       verbosity,
       ...passthrough
     } = req.providerOptions as {
@@ -80,13 +111,10 @@ export const openaiAdapter: ProviderAdapter = {
       [key: string]: unknown
     }
 
+    void _effortOverride // consumed by resolveEffort(); kept out of passthrough
     const reasoning = isReasoningModel(req.modelName)
-    const effort: ReasoningEffort | undefined =
-      typeof effortOverride === "string" && EFFORT_VALUES.has(effortOverride)
-        ? (effortOverride as ReasoningEffort)
-        : req.reasoningEffort
-    // Samplers are only valid when the model actually samples freely.
-    const samplersAllowed = !reasoning || effort === "none"
+    const effort = resolveEffort(req)
+    const sampling = samplersAllowed(req)
 
     const params: Parameters<typeof client.responses.create>[0] = {
       model: req.modelName,
@@ -103,8 +131,8 @@ export const openaiAdapter: ProviderAdapter = {
             },
           }
         : {}),
-      ...(samplersAllowed && temperature !== undefined ? { temperature } : {}),
-      ...(samplersAllowed && topP !== undefined ? { top_p: topP } : {}),
+      ...(sampling && temperature !== undefined ? { temperature } : {}),
+      ...(sampling && topP !== undefined ? { top_p: topP } : {}),
       ...(maxOutputTokens ?? maxTokens
         ? { max_output_tokens: maxOutputTokens ?? maxTokens }
         : {}),

@@ -45,6 +45,9 @@ export function AddTopicModal({
   const [whyMatters, setWhyMatters] = useState("")
   const [whyNow, setWhyNow] = useState("")
   const [error, setError] = useState<string | null>(null)
+  // The constitution warning for a hand-typed topic: shown with an explicit
+  // «أضف رغم التحذير» — Khaled's choice, never a hard block.
+  const [policyWarning, setPolicyWarning] = useState<string | null>(null)
   const [pending, start] = useTransition()
 
   if (!open) return null
@@ -57,10 +60,12 @@ export function AddTopicModal({
     setWhyMatters("")
     setWhyNow("")
     setError(null)
+    setPolicyWarning(null)
   }
 
-  const handleAdd = () => {
+  const handleAdd = (confirmPolicyWarning = false) => {
     setError(null)
+    setPolicyWarning(null)
     if (!title.trim()) {
       setError("عنوان الموضوع مطلوب")
       return
@@ -75,6 +80,7 @@ export function AddTopicModal({
           hook,
           why_matters: whyMatters,
           why_now: whyNow,
+          confirmPolicyWarning,
         }),
       )
       // `reset()` below wipes the form, so it must never run on a failure.
@@ -84,7 +90,8 @@ export function AddTopicModal({
       }
       const res = outcome.data
       if (!res.success) {
-        setError(res.error)
+        if (res.code === "POLICY_WARNING") setPolicyWarning(res.error)
+        else setError(res.error)
         return
       }
       reset()
@@ -111,7 +118,12 @@ export function AddTopicModal({
             <input
               type="text"
               value={title}
-              onChange={(e) => setTitle(e.target.value)}
+              // An edited title must be re-checked: a stale warning's
+              // «أضف رغم التحذير» would otherwise add text nobody vetted.
+              onChange={(e) => {
+                setTitle(e.target.value)
+                setPolicyWarning(null)
+              }}
               autoFocus
               placeholder="مثال: لماذا نخاف من الفشل؟"
               className="h-10 w-full rounded-lg border border-input bg-background px-3 text-sm focus:border-primary focus:outline-none"
@@ -145,7 +157,11 @@ export function AddTopicModal({
           <Field label="الجملة الافتتاحية (Hook) — اختياري">
             <textarea
               value={hook}
-              onChange={(e) => setHook(e.target.value)}
+              // The policy reads title + hook — editing either clears the warning.
+              onChange={(e) => {
+                setHook(e.target.value)
+                setPolicyWarning(null)
+              }}
               rows={2}
               className="w-full resize-y rounded-lg border border-input bg-background p-2.5 text-sm focus:border-primary focus:outline-none"
             />
@@ -167,6 +183,19 @@ export function AddTopicModal({
             />
           </Field>
         </div>
+        {policyWarning && (
+          <div className="mt-3 rounded-lg border border-amber-500/40 bg-amber-500/5 p-2.5 text-[11.5px] text-amber-800" role="alert">
+            <p>{policyWarning}</p>
+            <button
+              type="button"
+              onClick={() => handleAdd(true)}
+              disabled={pending}
+              className="mt-2 rounded-md border border-amber-600/40 bg-amber-500/10 px-3 py-1 text-[11.5px] font-semibold text-amber-800 hover:bg-amber-500/20 disabled:opacity-60"
+            >
+              أضف رغم التحذير
+            </button>
+          </div>
+        )}
         {error && (
           <div className="mt-3 rounded-lg border border-rose-500/30 bg-rose-500/5 p-2.5 text-[11.5px] text-rose-700">
             {error}
@@ -183,7 +212,7 @@ export function AddTopicModal({
           </button>
           <button
             type="button"
-            onClick={handleAdd}
+            onClick={() => handleAdd()}
             disabled={pending}
             className="inline-flex items-center gap-2 rounded-lg bg-foreground px-4 py-2 text-[13px] font-bold text-background hover:opacity-90 disabled:opacity-60"
           >

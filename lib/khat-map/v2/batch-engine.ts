@@ -22,7 +22,7 @@
  * advances `batch_index` atomically via the journal's max().
  */
 
-import { and, eq, inArray } from "drizzle-orm"
+import { eq, inArray } from "drizzle-orm"
 import { db } from "@/lib/db"
 import {
   khatMapEpisodeCandidates,
@@ -46,6 +46,7 @@ import {
   computeTasteAlignment,
 } from "./scoring"
 import {
+  embedEachOrEmpty,
   greedyPickByScore,
   legacyCandidateScore,
   neutralTaste,
@@ -69,6 +70,12 @@ import {
 } from "./completion"
 import { applyEditorialFilters } from "./editorial-filter"
 import { isNearDuplicateTitle } from "./title-similarity"
+import { applyFramePenalty, frameFit, type FrameFit } from "./frame-fit"
+import {
+  loadEffectiveTopicDecisions,
+  type EffectiveTopicDecisions,
+} from "@/lib/khat-map/learning/decisions"
+import { loadPublishedEpisodeTitles } from "@/lib/khat-map/core/published-titles"
 import { KHAT_EDITORIAL_CONTROLS_DEFAULTS } from "@/types/khat-map"
 import { getDomainPerformanceMap } from "@/lib/khat-map/performance"
 import { performanceFactor } from "@/lib/khat-map/scoring/weights"
@@ -144,16 +151,20 @@ export async function generateBatch(
   if (!season) throw new Error(`generateBatch: unknown season ${input.season_id}`)
 
   // ─── 1. Load season state ─────────────────────────────────────────────────
+  // One standing per topic — the latest decision that is not undone (a
+  // retired slot is rejected, not both). See resolveEffectiveTopicDecisions.
+  const effective = await loadEffectiveTopicDecisions(input.season_id)
   const [
     acceptedDomainCounts,
     acceptedTitles,
     { rejectedTitles, rejectedReasons },
     tasteProfile,
     domainPerformance,
+    publishedTitles,
   ] = await Promise.all([
-    loadAcceptedDomainCounts(input.season_id),
-    loadAcceptedTitles(input.season_id),
-    loadRejectedSignals(input.season_id),
+    loadAcceptedDomainCounts(effective),
+    loadAcceptedTitles(effective),
+    loadRejectedSignals(effective),
     input.admin_id
       ? refreshTaste
         ? recomputeTasteProfile(input.admin_id)
@@ -162,6 +173,12 @@ export async function generateBatch(
     // Cross-season aggregate — feeds the closed-loop multiplier in step 4.
     // Returns an empty Map when no episodes have been published+synced yet.
     getDomainPerformanceMap(),
+    // Aired episodes: never re-proposed (prompt block + dedup below). A read
+    // failure must not sink the batch — the dedup simply has less to check.
+    loadPublishedEpisodeTitles().catch((err) => {
+      console.error("[khat-map] published titles unavailable", err)
+      return [] as string[]
+    }),
   ])
 
   const batch_index = await nextBatchIndex(input.season_id)
@@ -220,7 +237,7 @@ export async function generateBatch(
   const seasonCap = seasonCategoryCap(seasonTarget)
   let acceptedByCategory: Record<string, number> = {}
   if (useEditorial) {
-    acceptedByCategory = await loadAcceptedCategoryCounts(input.season_id)
+    acceptedByCategory = await loadAcceptedCategoryCounts(effective)
   }
 
   // ─── 2. Oversample via LLM ────────────────────────────────────────────────
@@ -257,6 +274,7 @@ export async function generateBatch(
     accepted_domain_counts: acceptedDomainCounts,
     accepted_titles: acceptedTitles,
     rejected_titles: rejectedTitles,
+    published_titles: publishedTitles,
     rejected_reason_categories: rejectedReasons,
     taste_profile: tasteProfile,
     invasion_policy: invasionPolicy,
@@ -282,6 +300,12 @@ export async function generateBatch(
     raws = raws.map((r) => (r.guest ? { ...r, guest: null } : r))
   }
 
+  // Exploration-map fit, measured on the model's OWN order (a card without a
+  // slot echo falls back to its position — which the filters below shift).
+  const frameDrift = new Map<RawCandidate, FrameFit>(
+    raws.map((r, idx) => [r, frameFit(r.topic, explorationFrames, idx)] as const),
+  )
+
   // Strict-mode post-filter: drop anything that didn't honor the bank.
   // Done BEFORE editorial filter + embed so we don't pay embedding cost
   // on invalid cards.
@@ -300,11 +324,14 @@ export async function generateBatch(
   // near-duplicates a topic already locked into the season (manual seed or
   // earlier accept). Belt-and-suspenders alongside the prompt rule, so a
   // seeded topic is never re-proposed back to the operator.
+  // Published episodes are checked the same way — an aired episode is the
+  // strongest "already chosen" there is.
   let dedupDropCount = 0
-  if (acceptedTitles.length > 0) {
+  const alreadyTaken = [...acceptedTitles, ...publishedTitles]
+  if (alreadyTaken.length > 0) {
     const beforeDedup = raws.length
     raws = raws.filter(
-      (r) => !isNearDuplicateTitle(r.topic.working_title, acceptedTitles),
+      (r) => !isNearDuplicateTitle(r.topic.working_title, alreadyTaken),
     )
     dedupDropCount = beforeDedup - raws.length
   }
@@ -325,14 +352,14 @@ export async function generateBatch(
   // path, and degrades gracefully to the generator's self-score on any failure.
   const embedStart = Date.now()
   const [embeddings, courtVerdicts] = await Promise.all([
-    Promise.all(
+    // Per-card degrade: a blocked/failed embed never sinks a paid batch.
+    embedEachOrEmpty(
+      ai,
       raws.map((r) =>
-        ai.embed(
-          buildFingerprintText(
-            r.topic.working_title,
-            r.topic.why_matters || r.topic.description || null,
-            r.topic.topic_domain,
-          ),
+        buildFingerprintText(
+          r.topic.working_title,
+          r.topic.why_matters || r.topic.description || null,
+          r.topic.topic_domain,
         ),
       ),
     ),
@@ -354,6 +381,7 @@ export async function generateBatch(
 
   let hard_blocked = 0
   let soft_avoided = 0
+  let frame_mismatched = 0
   const scored: ScoredCandidate[] = []
   for (let i = 0; i < raws.length; i++) {
     const raw = raws[i]
@@ -385,6 +413,21 @@ export async function generateBatch(
       editorial_intel = assembled.editorial_intel
       final_score =
         verdict?.verdict === "reject" ? 0 : successScoreToRank(assembled.success_score)
+      // Soft exploration-map check: a card that drifted from its slot ranks
+      // lower and says why on the card — never dropped (it is paid for).
+      // An echo we could not resolve is recorded, never penalised.
+      const fit = frameDrift.get(raw)
+      if (fit && fit.mismatches.length > 0) {
+        frame_mismatched++
+        final_score = applyFramePenalty(final_score, fit.mismatches)
+      }
+      if (fit && editorial_intel && (fit.mismatches.length > 0 || fit.unverifiable.length > 0)) {
+        editorial_intel = {
+          ...editorial_intel,
+          frame_mismatch: fit.mismatches.length > 0 ? fit.mismatches : null,
+          frame_unverifiable: fit.unverifiable.length > 0 ? fit.unverifiable : null,
+        }
+      }
     } else {
       // Legacy scoring — Phase B (guests), strict angle-bank, and required-role
       // completion still rank by editorial × taste × domain-balance × similarity,
@@ -463,6 +506,7 @@ export async function generateBatch(
     embed_ms,
     editorial_dropped: editorialDropCount,
     dedup_dropped: dedupDropCount,
+    frame_mismatched,
   }
   return {
     season_id: input.season_id,
@@ -511,23 +555,10 @@ async function runEditorialCourt(
 }
 
 async function loadAcceptedDomainCounts(
-  season_id: string,
+  effective: EffectiveTopicDecisions,
 ): Promise<Record<KhatMapTopicDomain, number>> {
-  // Which topic_candidate_ids did the admin accept?
-  const acceptedRows = await db!
-    .select({
-      topic_candidate_id: khatMapSeasonDecisions.topic_candidate_id,
-    })
-    .from(khatMapSeasonDecisions)
-    .where(
-      and(
-        eq(khatMapSeasonDecisions.season_id, season_id),
-        eq(khatMapSeasonDecisions.kind, "accept"),
-      ),
-    )
-  const ids = acceptedRows
-    .map((r) => r.topic_candidate_id)
-    .filter((x): x is string => x !== null)
+  // Which topics stand accepted (latest non-undone decision)?
+  const ids = effective.accepted
   const out = {} as Record<KhatMapTopicDomain, number>
   if (ids.length === 0) return out
   const domainRows = await db!
@@ -551,20 +582,9 @@ async function loadAcceptedDomainCounts(
  * planner treats them as headroom, which is the safe default.
  */
 async function loadAcceptedCategoryCounts(
-  season_id: string,
+  effective: EffectiveTopicDecisions,
 ): Promise<Record<string, number>> {
-  const acceptedRows = await db!
-    .select({ topic_candidate_id: khatMapSeasonDecisions.topic_candidate_id })
-    .from(khatMapSeasonDecisions)
-    .where(
-      and(
-        eq(khatMapSeasonDecisions.season_id, season_id),
-        eq(khatMapSeasonDecisions.kind, "accept"),
-      ),
-    )
-  const ids = acceptedRows
-    .map((r) => r.topic_candidate_id)
-    .filter((x): x is string => x !== null)
+  const ids = effective.accepted
   const out: Record<string, number> = {}
   if (ids.length === 0) return out
   const rows = await db!
@@ -579,25 +599,12 @@ async function loadAcceptedCategoryCounts(
 }
 
 /**
- * Titles of every topic already accepted into the season (manual seeds +
- * AI-accepted). Fed to the prompt as "already chosen — don't duplicate" and
+ * Titles of every topic that STANDS accepted in the season (manual seeds +
+ * AI-accepted; undone and retired ones excluded). Fed to the prompt as "already chosen — don't duplicate" and
  * to the post-LLM dedup filter. Mirrors loadAcceptedDomainCounts.
  */
-async function loadAcceptedTitles(season_id: string): Promise<string[]> {
-  const acceptedRows = await db!
-    .select({
-      topic_candidate_id: khatMapSeasonDecisions.topic_candidate_id,
-    })
-    .from(khatMapSeasonDecisions)
-    .where(
-      and(
-        eq(khatMapSeasonDecisions.season_id, season_id),
-        eq(khatMapSeasonDecisions.kind, "accept"),
-      ),
-    )
-  const ids = acceptedRows
-    .map((r) => r.topic_candidate_id)
-    .filter((x): x is string => x !== null)
+async function loadAcceptedTitles(effective: EffectiveTopicDecisions): Promise<string[]> {
+  const ids = effective.accepted
   if (ids.length === 0) return []
   const rows = await db!
     .select({ working_title: khatMapEpisodeCandidates.working_title })
@@ -607,25 +614,12 @@ async function loadAcceptedTitles(season_id: string): Promise<string[]> {
   return rows.map((r) => r.working_title)
 }
 
-async function loadRejectedSignals(season_id: string): Promise<{
+async function loadRejectedSignals(effective: EffectiveTopicDecisions): Promise<{
   rejectedTitles: string[]
   rejectedReasons: string[]
 }> {
-  const rejectedRows = await db!
-    .select({
-      topic_candidate_id: khatMapSeasonDecisions.topic_candidate_id,
-      reason_category: khatMapSeasonDecisions.reason_category,
-    })
-    .from(khatMapSeasonDecisions)
-    .where(
-      and(
-        eq(khatMapSeasonDecisions.season_id, season_id),
-        eq(khatMapSeasonDecisions.kind, "reject"),
-      ),
-    )
-  const ids = rejectedRows
-    .map((r) => r.topic_candidate_id)
-    .filter((x): x is string => x !== null)
+  const rejectedRows = effective.rejected
+  const ids = rejectedRows.map((r) => r.topic_candidate_id)
   let titles: string[] = []
   if (ids.length > 0) {
     const rows = await db!

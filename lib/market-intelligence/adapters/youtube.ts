@@ -14,6 +14,33 @@ import type { MarketCollectionResult, MarketRawSignal } from "./types"
 const SEARCH_URL = "https://www.googleapis.com/youtube/v3/search"
 const VIDEOS_URL = "https://www.googleapis.com/youtube/v3/videos"
 
+/**
+ * `YouTube search 403 (forbidden, API_KEY_SERVICE_BLOCKED)` — Google's own
+ * reason codes from the error body. Prod logged 1,708 bare "YouTube search
+ * 403" notes and nothing else, so a disabled API, a key restriction and an
+ * exhausted quota were indistinguishable. Codes only — never the message
+ * text, never the key.
+ */
+async function failureNote(label: string, res: Response): Promise<string> {
+  const base = `${label} ${res.status}`
+  try {
+    const body = (await res.json()) as {
+      error?: {
+        errors?: Array<{ reason?: unknown }>
+        details?: Array<{ reason?: unknown }>
+      }
+    }
+    const reasons = [
+      ...(body.error?.errors ?? []).map((e) => e.reason),
+      ...(body.error?.details ?? []).map((d) => d.reason),
+    ].filter((r): r is string => typeof r === "string" && /^[A-Za-z_]+$/.test(r))
+    const unique = [...new Set(reasons)]
+    return unique.length > 0 ? `${base} (${unique.join(", ")})` : base
+  } catch {
+    return base
+  }
+}
+
 export async function collectYoutubeTopic(
   query: string,
   language: string,
@@ -49,7 +76,7 @@ export async function collectYoutubeTopic(
       return {
         source: "youtube",
         configured: true,
-        note: `YouTube search ${res.status}`,
+        note: await failureNote("YouTube search", res),
         signals: [],
       }
     }
@@ -99,7 +126,7 @@ export async function collectYoutubeTopic(
       return {
         source: "youtube",
         configured: true,
-        note: `YouTube videos ${res.status}`,
+        note: await failureNote("YouTube videos", res),
         signals: [],
       }
     }

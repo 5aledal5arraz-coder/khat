@@ -205,13 +205,19 @@ async function runSingleEnrichCall(
       // per-topic calls don't serialise against each other. The tier concurrency
       // cap (counted by task_kind) still governs the real budget.
       subjectId: null,
-      promptVersion: "khat-map-enrich-v2-constitution",
+      // v3 (2026-10-03): the shared lens menu no longer offers `political`
+      // and scopes faith to personal experience (lenses.ts).
+      // v4 (2026-10-03): drops `controversy`; re-scopes `power`, `media` and
+      // `crime_conflict` («النجاة والعودة») to the guest's lived experience.
+      promptVersion: "khat-map-enrich-v4-constitution",
       input: { season_id: seasonId, index: topic.index },
       prompt: [
         { role: "system", content: buildEnrichSystemPrompt() },
         { role: "user", content: buildEnrichUserPrompt([topic]) },
       ],
       expectJson: true,
+      // Honoured only by a sampling fallback; the reasoning default doesn't
+      // sample — the router records the drop in ai_runs.input_snapshot.
       providerOptions: { temperature: 0.5 },
       // Explicit cap — the whole point of this change. Without it the call
       // inherits the router's 120s × 3 = 361s default (see file header).

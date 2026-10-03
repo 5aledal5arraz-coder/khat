@@ -324,10 +324,29 @@ export async function runAiTask<TParsed = unknown>(
   // Stamp the grounding contract into the snapshot so an exemption — or the
   // size of the corpus a research answer was allowed to draw on — is visible
   // in ai_runs rather than implied.
-  const inputSnapshotValue = clipSnapshot(
-    groundingContract
+  const resolved: ResolvedRequest = {
+    modelName,
+    prompt: messages,
+    expectJson: req.expectJson === true,
+    providerOptions: req.providerOptions ?? {},
+    // Precedence: explicit per-call request → per-task_kind registry
+    // default → global default. The registry default is the systemic fix
+    // so long-running kinds (editorial, research) don't inherit the 120s
+    // default and time out mid-generation.
+    timeoutMs: req.timeoutMs ?? choice.defaultTimeoutMs ?? DEFAULT_TIMEOUT_MS,
+    // Resolved reasoning default (registry, possibly overridden by the
+    // Settings model override); the adapter lets
+    // `providerOptions.reasoningEffort` win over this per call.
+    reasoningEffort,
+  }
+
+  // A caller option the adapter won't send (temperature on a reasoning model)
+  // is recorded, not silently assumed to have applied.
+  const ignoredOptions = adapter.ignoredOptions?.(resolved) ?? null
+  const inputSnapshotValue = clipSnapshot({
+    ...req.input,
+    ...(groundingContract
       ? {
-          ...req.input,
           _grounding:
             groundingContract.mode === "required"
               ? {
@@ -336,8 +355,17 @@ export async function runAiTask<TParsed = unknown>(
                 }
               : { mode: "exempt", reason: groundingContract.reason },
         }
-      : req.input,
-  )
+      : {}),
+    ...(ignoredOptions
+      ? {
+          _ignored_provider_options: {
+            options: ignoredOptions.options,
+            model: modelName,
+            reason: ignoredOptions.reason,
+          },
+        }
+      : {}),
+  })
   validateJsonbWrite(
     { table: AI_RUNS_TABLE, column: AI_RUNS_INPUT_SNAPSHOT_COLUMN, rowId: null },
     inputSnapshotValue,
@@ -402,22 +430,6 @@ export async function runAiTask<TParsed = unknown>(
     })
     .returning({ id: aiRuns.id })
   const runId = run.id
-
-  const resolved: ResolvedRequest = {
-    modelName,
-    prompt: messages,
-    expectJson: req.expectJson === true,
-    providerOptions: req.providerOptions ?? {},
-    // Precedence: explicit per-call request → per-task_kind registry
-    // default → global default. The registry default is the systemic fix
-    // so long-running kinds (editorial, research) don't inherit the 120s
-    // default and time out mid-generation.
-    timeoutMs: req.timeoutMs ?? choice.defaultTimeoutMs ?? DEFAULT_TIMEOUT_MS,
-    // Resolved reasoning default (registry, possibly overridden by the
-    // Settings model override); the adapter lets
-    // `providerOptions.reasoningEffort` win over this per call.
-    reasoningEffort,
-  }
 
   // Same precedence as timeoutMs: explicit request → registry default →
   // global default. Lowered per-kind so `timeout × (1 + retries)` stays

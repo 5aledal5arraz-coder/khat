@@ -180,6 +180,16 @@ export interface ProviderAdapter {
   /** Whether this adapter is usable in the current environment (env vars set). */
   isAvailable(): boolean
   execute(req: ResolvedRequest): Promise<AdapterResult>
+  /**
+   * Caller `providerOptions` this adapter will NOT send for this request
+   * (e.g. `temperature` on a reasoning model), or null when every option is
+   * honoured. Must use the same rule `execute()` applies — the router stamps
+   * the answer into `ai_runs.input_snapshot._ignored_provider_options` so a
+   * dropped option is recorded instead of silently assumed to have applied.
+   */
+  ignoredOptions?(
+    req: ResolvedRequest,
+  ): { options: Record<string, unknown>; reason: string } | null
 }
 
 export interface ResolvedRequest {

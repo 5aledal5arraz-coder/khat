@@ -16,10 +16,10 @@
  * opens one `ai_runs` row around a single provider call, records the
  * ACTUAL model invoked, and on failure classifies + re-throws so the
  * caller decides whether to fall back. Unlike the router it does NO model
- * selection, NO json-repair, and — deliberately — NO rate-limit permit
- * (embedding batches are high-volume during season planning; a permit
- * here would throttle generation). Cost is honest: null when it can't be
- * computed, never a fabricated number.
+ * selection and NO json-repair. A rate-limit permit is OPT-IN per call
+ * (`ratePermit: true`) — embeddings take one (light tier, so the policy sees
+ * them like every routed call); transcription does not. Cost is honest: null
+ * when it can't be computed, never a fabricated number.
  */
 
 import { eq } from "drizzle-orm"
@@ -31,6 +31,7 @@ import type {
   AiRunTaskKind,
 } from "@/lib/db/schema/ai-runs"
 import { classifyError } from "./router"
+import { acquireRateLimitPermit, type Permit } from "./rate-limit"
 
 /** Immutable identity of the run — everything known BEFORE the call. */
 export interface RecordAiRunMeta {
@@ -55,6 +56,12 @@ export interface RecordAiRunMeta {
    * defensively before the write.
    */
   inputSnapshot?: Record<string, unknown> | null
+  /**
+   * Take a rate-limit permit (tier from the task kind) before the call and
+   * release it after — the same policy `runAiTask` applies. An enforced block
+   * throws `RateLimitError` before any provider spend or ai_runs row.
+   */
+  ratePermit?: boolean
 }
 
 /** Post-call telemetry derived from the successful result. */
@@ -100,6 +107,29 @@ function clip(
  * there leaves the row in "running", which the ai-runs sweeper reconciles.
  */
 export async function recordAiRun<R>(
+  meta: RecordAiRunMeta,
+  exec: () => Promise<R>,
+  derive?: (result: R) => RecordAiRunTelemetry,
+): Promise<R> {
+  let permit: Permit | null = null
+  if (meta.ratePermit) {
+    permit = (
+      await acquireRateLimitPermit({
+        taskKind: meta.taskKind,
+        actorId: meta.actorId ?? null,
+        subjectTable: meta.subjectTable ?? null,
+        subjectId: meta.subjectId ?? null,
+      })
+    ).permit
+  }
+  try {
+    return await runRecorded(meta, exec, derive)
+  } finally {
+    await permit?.release()
+  }
+}
+
+async function runRecorded<R>(
   meta: RecordAiRunMeta,
   exec: () => Promise<R>,
   derive?: (result: R) => RecordAiRunTelemetry,

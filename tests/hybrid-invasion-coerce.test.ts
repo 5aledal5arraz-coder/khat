@@ -63,7 +63,7 @@ describe("invasion — literal only", () => {
     expect(built.system).toContain("`invasion` means the 1990 Iraqi invasion of Kuwait ONLY")
     // 2026-09-28: the pan-Arab ban on Kuwaiti references gave way to the
     // constitution's audience rule — pan-Arab titles, Kuwaiti-rooted stories.
-    expect(HYBRID_TOPICS_PROMPT_VERSION).toBe("hybrid-topics-v4.1-constitution")
+    expect(HYBRID_TOPICS_PROMPT_VERSION).toBe("hybrid-topics-v5-constitution")
     expect(built.system).toContain("every title is understood by any Arab")
     expect(built.system).toContain("may be Kuwaiti-rooted")
     expect(built.system).not.toContain("Do NOT use Kuwait-specific framing")

@@ -219,7 +219,7 @@ article, not an episode.
 ABSOLUTE RULES
 1. Output JSON only. Shape: { topics: [ {
      title, archetype, novelty_note, why_it_matters, why_now, emotional_hook,
-     conflict_angle, market_inspiration, primary_theme, original_lens,
+     conflict_angle, market_inspiration, primary_theme, original_lens, original_topic_id,
      suggested_episode_type, suggested_topic_domain,
      scores: { worth_telling, human_experience, practical_value, segment_fit, library_value, guest_findability }, sensitivity_flags
    } ] }.
@@ -228,6 +228,7 @@ ABSOLUTE RULES
    - original_lens: a registry KEY below IF one genuinely sharpens the topic, else "none". Do NOT force an introspective lens onto a topic that is not about inner life — a history, science, or hidden-world episode is allowed to just be itself.
    - market_inspiration: "none" by default. At most 1 topic(s) in this batch may instead name the ONE market cluster that hinted at it.
    - primary_theme: copy VERBATIM the label of that market cluster (from the MARKET CLUSTERS list below), or "none".
+   - original_topic_id: the \`id\` of the FRESH ORIGINAL TOPIC this topic actually transforms (copy it exactly), or "none". Picking the same lens as an original is NOT using it — only name an id whose idea you really built on.
    - suggested_episode_type drawn from: intellectual, social, psychological, personal_story, national, historical, economic, inspirational, signature_khat, invasion. \`invasion\` means the 1990 Iraqi invasion of Kuwait ONLY — never a figurative "invasion" (of technology, money, culture, ideas); use another type for those.
    - suggested_topic_domain drawn from: philosophy, psychology, relationships, religion, identity_masculinity, money_career, technology_ai, internet_culture, crime_mystery, hidden_history, power_manipulation, parenting, kuwait_gulf, historical, social_issues, modern_society, emotions_inner_life, none. (religion = faith as a personal experience ONLY.)
 4. NEVER copy a market title. Transform it. The relationship between market_inspiration and title must NOT be a paraphrase.
@@ -248,22 +249,23 @@ betrayal_of_self: Betrayal of Self — The slow erosion."
 exports[`buildHybridTopicsPrompt > produces a stable snapshot for a fixed editorial input 2`] = `
 "Generate 10 hybrid topics in Arabic. The button the operator pressed promises 10 candidates — returning fewer than 10 silently breaks that contract. Only fall short if the EXCLUDED list and rules 1–13 truly leave you no room.
 
-FRESH ORIGINAL TOPICS (you may transform any of these — when you do, set original_lens to that topic's lens):
+SOFT HINTS — strongest → weakest. None of these is a rule; the exploration map and the constitution decide. Use a hint only when it makes a topic better.
+
+1. FRESH ORIGINAL TOPICS (you may build on any of these — when you do, set original_topic_id to its id; original_lens follows rule 3):
 - id: orig-001
   title: حين يصبح النجاح غريباً عن صاحبه
   lens: betrayal_of_self
   conflict: بعد سنوات من المطاردة، يجد البطل أن النجاح كان قناعاً.
   hook: في اللحظة التي وصل، شعر بأن البيت ليس بيته.
 
-MARKET CLUSTERS (a weak prior — at most 1 topic(s) may draw from one; never copy a label into a title):
-- أبوة جديدة في عالم متغير (ar)
-
-EDITORIAL TASTE HINTS (soft — operator's learned preferences;
-use these as a gentle bias, never as a hard filter):
+2. EDITORIAL TASTE HINTS (the operator's learned preferences — a gentle bias, never a filter):
 - favour theme: loss (weight=0.72)
 - avoid source: manipulative_clickbait (weight=-0.55)
 
-EXCLUDED TITLES (do not return these or paraphrases):
+3. MARKET CLUSTERS (a weak prior — at most 1 topic(s) may draw from one; never copy a label into a title):
+- أبوة جديدة في عالم متغير (ar)
+
+EXCLUDED TITLES — this season's, already-published episodes', then earlier proposals (do not return these or paraphrases):
   - كيف تصبح مليونيراً
 
 Return JSON only. No prose, no apology, no preamble."

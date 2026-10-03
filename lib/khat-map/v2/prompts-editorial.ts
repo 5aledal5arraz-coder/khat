@@ -29,7 +29,7 @@ import { renderEditorialControlBlocks, __formatTasteHints } from "./prompts"
 import { SEASON_CATEGORIES } from "./categories"
 import { categoryLabel } from "./diversity"
 import { allowedSubcategoriesFor } from "./knowledge-universe"
-import { THINKING_LENSES } from "./lenses"
+import { OFFERED_THINKING_LENSES } from "./lenses"
 import { buildHeadlinePrinciplesBlock } from "./headline-principles"
 import { buildPodcastPrinciplesBlock } from "./podcast-principles"
 import {
@@ -83,6 +83,9 @@ const TOPIC_FIELDS = `{
     "titles": ${TITLE_FIELDS},
     "why_this_topic": string (Arabic — why THIS topic deserves an episode),
     "guest_idea": string (Arabic — a sketch of a guest who could carry it; not a real booking),
+    "slot": number (the exploration-map slot this topic fills, 1-based — when a map is given),
+    "field": string (that slot's field, written EXACTLY as inside «» — or the same-door field you swapped to),
+    "segment": string (that slot's audience, written exactly as given, e.g. "٢٠–٣٥"),
     "success": ${SUCCESS_FIELDS}
   }`
 
@@ -116,13 +119,14 @@ export function buildKnowledgeUniverseBlock(): string {
 }
 
 export function buildLensesBlock(): string {
-  const menu = THINKING_LENSES.map((l) => `  · ${l.id} (${l.label_ar}): ${l.hint_ar}`).join("\n")
+  const menu = OFFERED_THINKING_LENSES.map((l) => `  · ${l.id} (${l.label_ar}): ${l.hint_ar}`).join("\n")
   return [
     "# Thinking Lenses — refract each idea through several",
     "A flat topic is weak. The strongest episodes take ONE subject and view it through",
-    "2-5 lenses at once (e.g. a money topic through history + power + psychology). Tag the",
-    "lenses that genuinely sharpen the idea, and let the combination drive the hook, the",
-    "debate axis, and the questions — not a label slapped on afterward.",
+    "2-5 lenses at once (e.g. a money topic through historical + power — who decides inside",
+    "the family business — + psychological). Tag the lenses that genuinely sharpen the idea,",
+    "and let the combination drive the hook, the debate axis, and the questions — not a",
+    "label slapped on afterward.",
     menu,
   ].join("\n")
 }
@@ -164,6 +168,9 @@ export function buildEditorialSystemPrompt(input: CandidateGenInput): string {
   const rejected = input.rejected_titles.length
     ? input.rejected_titles.slice(0, 20).map((t) => `  · ${t}`).join("\n")
     : "  (no rejections yet)"
+  const published = (input.published_titles ?? []).length
+    ? (input.published_titles ?? []).slice(0, 60).map((t) => `  · ${t}`).join("\n")
+    : "  (none)"
   const taste = __formatTasteHints(input.taste_profile)
   const controlBlocks = renderEditorialControlBlocks(input.editorial_controls)
 
@@ -232,6 +239,9 @@ export function buildEditorialSystemPrompt(input: CandidateGenInput): string {
     "",
     "## Negative memory (do NOT repeat or paraphrase)",
     rejected,
+    "",
+    "## Already published on the site (never re-propose or paraphrase these episodes)",
+    published,
     "",
     "## Admin taste (a gentle tiebreaker only — never overrides episode potential)",
     taste,

@@ -101,8 +101,8 @@ describe("khat-map v2 — controversial is coerced, never persisted", () => {
       taste_profile: null,
     } as never)
     expect(h.calls.map((c) => c.promptVersion)).toEqual([
-      "khat-map-batch-v4-constitution",
-      "khat-map-editorial-v3-constitution",
+      "khat-map-batch-v5-constitution",
+      "khat-map-editorial-v5-constitution",
       "khat-map-guest-anchored-v4-constitution",
     ])
   })

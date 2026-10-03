@@ -29,6 +29,7 @@ import {
   buildTasteReasoning,
 } from "./scoring"
 import {
+  embedEachOrEmpty,
   greedyPickByScore,
   legacyCandidateScore,
   neutralTaste,
@@ -169,14 +170,14 @@ export async function generateGuestFirstCards(
 
   // ─── 4. Embed + similarity filter (mirrors batch engine) ─────────────────
   const embedStart = Date.now()
-  const embeddings = await Promise.all(
+  // Per-card degrade: a blocked/failed embed never sinks a paid batch.
+  const embeddings = await embedEachOrEmpty(
+    ai,
     raws.map((r) =>
-      ai.embed(
-        buildFingerprintText(
-          r.topic.working_title,
-          r.topic.why_matters || r.topic.description || null,
-          r.topic.topic_domain,
-        ),
+      buildFingerprintText(
+        r.topic.working_title,
+        r.topic.why_matters || r.topic.description || null,
+        r.topic.topic_domain,
       ),
     ),
   )

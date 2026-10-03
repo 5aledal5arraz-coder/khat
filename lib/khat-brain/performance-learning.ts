@@ -27,9 +27,11 @@
  *   comment_rate_score = comments / max(views, 1) × 100
  *     ; capped at 1.0 (1% comment rate = excellent).
  *
- * Sample-size guard: we DO NOT compute a signal for an EIR with
- * fewer than 2 snapshots (need at least one before-and-after to
- * compute velocity), or with view_count < MIN_VIEWS_FOR_SCORE = 50.
+ * Sample-size guard: we DO NOT compute a signal for an EIR with NO
+ * snapshot, or whose latest view_count < MIN_VIEWS_FOR_SCORE = 50.
+ * A single snapshot IS scored: the 7/14/28-day windows are read relative
+ * to the first snapshot (48h tolerance), and a missing window falls back
+ * through projected28 = v28 ?? v14×1.5 ?? v7×2.
  *
  * All numbers are stored as `real`; explanations live in `explanation`
  * JSONB.

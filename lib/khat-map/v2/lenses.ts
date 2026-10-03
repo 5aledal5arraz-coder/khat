@@ -4,8 +4,9 @@
  * A category answers "what is this about." A lens answers "from which angle do
  * we make it powerful." The strongest Khat episodes are not single-category —
  * they take one subject and refract it through several lenses at once: a money
- * topic seen through the `history` + `power` + `psychology` lenses becomes a far
- * richer episode than a flat "personal finance" segment.
+ * topic seen through the `historical` + `power` (who decides inside the family
+ * business) + `psychological` lenses becomes a far richer episode than a flat
+ * "personal finance" segment.
  *
  * The generator is told to tag each idea with the 2-5 lenses that genuinely
  * sharpen it (not a checklist) and to let the lens combination drive the hook,
@@ -29,7 +30,9 @@ export const THINKING_LENSES: readonly ThinkingLens[] = [
   { id: "psychological", label_ar: "نفسي", hint_ar: "ما الذي يجري داخل الإنسان — الدافع، الخوف، والحاجة الخفية." },
   { id: "philosophical", label_ar: "فلسفي", hint_ar: "السؤال الأعمق تحت السطح — المعنى، الحقيقة، والقيمة." },
   { id: "economic", label_ar: "اقتصادي", hint_ar: "من يربح ومن يخسر، تدفّق المال، والحوافز التي تحرّك كل شيء." },
-  { id: "religious", label_ar: "ديني", hint_ar: "كيف يتقاطع الموضوع مع الإيمان والمقدّس والموروث الديني — باحترام." },
+  // Constitution: faith appears ONLY as a personal experience. Same id (stored
+  // chips keep resolving); the angle is the person's lived faith, never doctrine.
+  { id: "religious", label_ar: "الإيمان كتجربة", hint_ar: "كيف عاش إنسانٌ إيمانه في هذه التجربة — تجربة شخصية فقط؛ لا جدل عقدي ولا مذهبي ولا فتوى." },
   { id: "social", label_ar: "اجتماعي", hint_ar: "أثره على الأسرة والمجتمع والعلاقات، والضغط الجماعي حوله." },
   { id: "political", label_ar: "سياسي", hint_ar: "من يحكم، من يقرّر، وكيف تتوزّع السلطة والقرار." },
   { id: "legal", label_ar: "قانوني", hint_ar: "ما المسموح والممنوع، الحقوق والعدالة، والفجوة بين القانون والواقع." },
@@ -40,16 +43,35 @@ export const THINKING_LENSES: readonly ThinkingLens[] = [
   { id: "ethical", label_ar: "أخلاقي", hint_ar: "أين الصواب والخطأ، والمعضلة التي لا إجابة سهلة لها." },
   { id: "human_story", label_ar: "قصة إنسانية", hint_ar: "وجه إنساني واحد يجسّد الفكرة ويجعلها تُحَسّ لا تُشرَح فقط." },
   { id: "controversy", label_ar: "جدلي", hint_ar: "نقطة الخلاف الحادّة التي تشعل النقاش وتقسم الآراء." },
-  { id: "power", label_ar: "سلطة", hint_ar: "من يملك القوة هنا، كيف اكتسبها، وكيف يحافظ عليها." },
+  // Re-scoped (2026-10-03): power as the guest LIVED it — inside his own family or
+  // work (leading, managing, being managed). Never states, governments or public figures.
+  { id: "power", label_ar: "سلطة", hint_ar: "السلطة كما عاشها الضيف داخل أسرته أو عمله — القيادة والإدارة، من يقرّر ومن يدفع الثمن؛ لا دول ولا حكومات ولا شخصيات عامة." },
   { id: "money", label_ar: "مال", hint_ar: "البُعد المالي — الثروة، الطمع، والثمن المخفي." },
   { id: "identity", label_ar: "هوية", hint_ar: "ما يقوله الموضوع عن من نكون، وانتماءاتنا وصورتنا عن أنفسنا." },
-  { id: "media", label_ar: "إعلامي", hint_ar: "كيف تُصاغ الرواية وتُدار الصورة، ومن يصنع ما نصدّقه." },
-  { id: "crime_conflict", label_ar: "جريمة وصراع", hint_ar: "التوتر، المواجهة، الخطر، والجانب المظلم من القصة." },
+  // Re-scoped (2026-10-03): the constitution's media_price_of_fame — the guest's own
+  // experience of being seen and what fame cost him. Not narrative, not propaganda.
+  { id: "media", label_ar: "إعلامي", hint_ar: "تجربة الضيف نفسه مع الظهور والشهرة — كيف يراه الناس، وما الثمن الذي دفعه؛ لا صناعة رواية ولا دعاية." },
+  // Re-scoped (2026-10-03): survival / prison re-entry as lived experience. The
+  // guest tells his own story — no scandal, never naming a third party.
+  { id: "crime_conflict", label_ar: "النجاة والعودة", hint_ar: "النجاة من الخطر أو تجربة السجن والعودة للمجتمع كما عاشها الضيف بنفسه — لا فضائح ولا تسمية لأي طرف ثالث." },
   { id: "global_relevance", label_ar: "صلة عالمية", hint_ar: "لماذا يهمّ هذا العالم كله، لا منطقتنا فقط — جسر للجمهور الأممي." },
   { id: "gcc_relevance", label_ar: "صلة خليجية", hint_ar: "لماذا يلمس هذا الخليجي والكويتي تحديداً — في واقعه وقيمه ويومه." },
 ] as const
 
 export type ThinkingLensId = (typeof THINKING_LENSES)[number]["id"]
+
+/**
+ * Lenses kept ONLY so stored chips still render their label. Never offered in
+ * the generation menu and never accepted from new model output: `political`
+ * contradicts the constitution's hard avoid (politics); `controversy` invites
+ * dispute for its own sake, which the constitution rejects (retired 2026-10-03).
+ */
+export const RETIRED_LENS_IDS: ReadonlySet<string> = new Set(["political", "controversy"])
+
+/** The menu the generator may choose from. */
+export const OFFERED_THINKING_LENSES: readonly ThinkingLens[] = THINKING_LENSES.filter(
+  (l) => !RETIRED_LENS_IDS.has(l.id),
+)
 
 const LENS_BY_ID = new Map<string, ThinkingLens>(
   THINKING_LENSES.map((l) => [l.id, l]),
@@ -75,7 +97,7 @@ export function lensLabel(id: string | null | undefined): string {
 /**
  * Coerce a model-supplied lens array into a clean, de-duplicated, capped list of
  * valid lens ids. Tolerant of brackets/quotes/casing and Arabic labels. Drops
- * unknowns silently. Capped at `max` (default 5) — a topic refracted through
+ * unknowns and retired lenses silently. Capped at `max` (default 5) — a topic refracted through
  * more than five lenses is unfocused, not deep.
  */
 export function clampLenses(value: unknown, max = 5): ThinkingLensId[] {
@@ -87,7 +109,7 @@ export function clampLenses(value: unknown, max = 5): ThinkingLensId[] {
     const id = raw.trim().replace(/^["'[\s]+|["'\]\s]+$/g, "").toLowerCase()
     let lensId = LENS_BY_ID.has(id) ? (id as ThinkingLensId) : undefined
     if (!lensId) lensId = LENS_BY_LABEL.get(raw.trim())
-    if (!lensId || seen.has(lensId)) continue
+    if (!lensId || seen.has(lensId) || RETIRED_LENS_IDS.has(lensId)) continue
     seen.add(lensId)
     out.push(lensId)
     if (out.length >= max) break

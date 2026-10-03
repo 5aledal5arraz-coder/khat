@@ -6,7 +6,10 @@
  *   - missing market_inspiration                 → "missing_market_inspiration"
  *   - missing original_lens                      → "missing_original_lens"
  *   - too close to existing Khat Map candidates  → "near_dup_khat_map"
+ *   - too close to a published episode           → "near_dup_published_episode"
  *   - too close to consumed original topics      → "near_dup_consumed_original"
+ *   - same title twice in ONE model reply        → "in_batch_duplicate"
+ *     (set by generate.ts, which sees the whole batch)
  *   - the constitution's avoid list (politics, religious dispute, scandal,
  *     privacy): the deterministic lexicon      → "policy_avoid"
  *     or the model's own sensitivity_flags     → "policy_flagged"
@@ -39,7 +42,9 @@ export type HybridRejectionReason =
   | "missing_market_inspiration"
   | "missing_original_lens"
   | "near_dup_khat_map"
+  | "near_dup_published_episode"
   | "near_dup_consumed_original"
+  | "in_batch_duplicate"
   | "semantic_near_dup"
   | "weak_strength_score"
   | "missing_episode_type"
@@ -56,6 +61,8 @@ export interface HybridCandidate {
   /** The market cluster label (= signal theme) this topic drew from, or "none". */
   primary_theme?: string
   original_lens: string
+  /** The fresh original the model says it transformed, or "none". */
+  original_topic_id?: string
   suggested_episode_type: string
   suggested_topic_domain: string
   estimated_strength_score: number
@@ -72,6 +79,8 @@ export interface HybridCandidate {
 export interface HybridJudgeContext extends NoveltyContext {
   /** Existing Khat Map candidate titles to dedup against. */
   khatMapTitles: string[]
+  /** Titles of episodes already published on the site. */
+  publishedEpisodeTitles?: string[]
   /** Consumed original-topic titles. */
   consumedOriginalTitles: string[]
   /** Allowed episode_type values. */
@@ -135,6 +144,9 @@ export function judgeHybridCandidate(
   if (c.title && isNearDuplicateTitle(c.title, ctx.khatMapTitles)) {
     reasons.push("near_dup_khat_map")
   }
+  if (c.title && isNearDuplicateTitle(c.title, ctx.publishedEpisodeTitles ?? [])) {
+    reasons.push("near_dup_published_episode")
+  }
   if (c.title && isNearDuplicateTitle(c.title, ctx.consumedOriginalTitles)) {
     reasons.push("near_dup_consumed_original")
   }
@@ -155,8 +167,12 @@ export const HYBRID_REJECTION_RULES: Record<HybridRejectionReason, string> = {
     "Topic did not specify which editorial lens elevated the market signal.",
   near_dup_khat_map:
     "Title is a near-duplicate (token similarity) of an existing khat_map_episode_candidates row — would create a within-show duplicate.",
+  near_dup_published_episode:
+    "Title is a near-duplicate (token similarity) of an episode already published on the site.",
   near_dup_consumed_original:
     "Title is a near-duplicate (token similarity) of an original-thinking topic the editor has already consumed.",
+  in_batch_duplicate:
+    "The model returned the same title twice in one reply — the later copy is dropped.",
   semantic_near_dup:
     "Topic is a near-duplicate IN MEANING (embedding similarity) of a stronger topic in the same batch — kept the stronger one.",
   weak_strength_score: `(retired 2026-09-28 — scores only order the list now) Self-rated strength_score was below ${MIN_STRENGTH_SCORE}.`,
